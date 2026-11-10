@@ -2,8 +2,8 @@
 title: "Decision Log and Open Items"
 doc_id: "DECISION-LOG"
 status: draft
-version: "0.3.1"
-updated: "2026-11-10"
+version: "0.3.2"
+updated: "2026-11-11"
 authority: "DEC-BASELINE; see DOCUMENT-CONTROL"
 owner_role: "Product and engineering owners; people not assigned"
 approval_status: "not_approved"
@@ -36,8 +36,9 @@ privacy expansion; replacing local inference with cloud; resource-budget relaxat
 
 The machine-readable source is contracts/decisions.json. Each record names an owner role, affected work, safe interim behavior and closure evidence. OPEN does not stop unrelated development.
 
-- DEC-NAME: the owner selected Kohbor / เกาะเบาะ; the remaining technical identity is delegated to the builder for M0. Complete the existing identity manifest and record the relevant interface/trust decisions before closure. The selected name alone does not close this record.
+- DEC-NAME: the owner selected Kohbor / เกาะเบาะ; the remaining technical identity (now including the GSI configuration slug) is delegated to the builder for M0. Complete the existing identity manifest and record the relevant interface/trust decisions before closure. The selected name alone does not close this record.
 - DEC-INTERFACES: freeze neutral schemas, full command payloads, framing, request limits, duplicate-key behavior and IPC authority. Example schemas alone are not a complete API.
+- DEC-GSI-INTAKE (proposed 2026-11-11, not approved): the M1 slice of DEC-INTERFACES for game-state intake. [GSI-INTAKE-SPEC](../design/GSI-INTAKE-SPEC.md) proposes the owned configuration file and its contents (including a 1.0 s heartbeat so a quiescent game stays inside the 2,000 ms freshness boundary), port persistence and restart behavior, token authentication and body bounds, field-level admission, ownership verification (token plus platform-identity cross-check), session-start evidence and restart continuity, and the monotonic freshness clock. Assumptions A-1..A-9 about the game integration feature close only with M0 capture-spike evidence. Visible consequence for the product owner to acknowledge: game mode is reported "unverified" whenever the source does not expose it; the app never guesses it.
 - DEC-MODELS: select vision artifacts before M3 and local STT/answer before M5, each only after the fixed resource/quality feasibility evidence. No model is certified by this package.
 - DEC-VISUALS: original annotated wireframes, design tokens, exact desktop fit/minimum window and native game safe areas are still to be produced. Inherited topology is supplied; there are no pixel-approved image assets in this bundle.
 - DEC-PACK-CRYPTO: choose new signature domain, canonicalization, archive identity and trusted key distribution; verify against known-answer fixtures before interoperability.
@@ -63,6 +64,7 @@ The machine-readable source is contracts/decisions.json. Each record names an ow
 | Entire live page previously treated as premium | Base canvas for everyone; specific details need trusted capability |
 | Old input vectors imply enemy telemetry | Enemy position/visibility only from admitted vision; do not fabricate hidden values |
 | Voice/recording/broadcast overlap | Local PTT, explicit OBS highlights and deferred broadcast co-host are distinct |
+| CORE-003 is MVP while accounts are extension scope | CORE-003 is a guard on any build that contains an optional account surface: account loss/switch must never disturb local core. It adds no account feature to MVP. Its target milestone is M6, where the account surface first exists; builds without accounts satisfy it trivially and record that scope in evidence rather than a PASS for account transitions |
 | Store-only import vs local package installation | Local verified import is supported; integrity is not purchase entitlement |
 | Existing signed formats include identity strings | New protocols/trust roots; legacy compatibility explicitly out of scope |
 

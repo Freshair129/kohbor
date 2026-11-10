@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/spec/settings-patch.schema.json",
+  "title": "settings-patch.schema.json",
+  "description": "Proposed neutral contract 1.0.0: settings.patch request. Allowlisted user-editable fields only; GSI port, path, hash and token change only through the native integration-setup flow (GSI-INTAKE-SPEC section 2). Rejected when base_revision differs from the current revision.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "request_id",
+    "base_revision",
+    "patch"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "request_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{8,64}$"
+    },
+    "base_revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "patch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "locale": {
+          "enum": [
+            "th",
+            "en"
+          ]
+        }
+      },
+      "minProperties": 1
+    }
+  }
+}

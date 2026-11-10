@@ -2,8 +2,8 @@
 title: "Software Architecture Description"
 doc_id: "SAD"
 status: "draft"
-version: "0.3.1"
-updated: "2026-11-10"
+version: "0.3.2"
+updated: "2026-11-11"
 owner_role: "Software architect; person not assigned"
 approval_status: "not_approved"
 ---
@@ -50,7 +50,7 @@ Views must agree: a data-flow arrow does not authorize an export, a renderer sta
 
 Retain the established baseline unless an ADR demonstrates a reason to change it: Tauri v2 shell, Rust critical core, React/TypeScript control and overlay, WebView2 on Windows, pnpm/cargo build tooling. Exact package/toolchain versions are selected and locked during M0; this document does not claim that a historical library or model version is current.
 
-GSI intake may use an asynchronous loopback HTTP server. The accepted input port search starts at 3000 and may try through 3010, updating only the application's own game integration configuration. Bind loopback, constrain body size, validate game/source context and do not overwrite unrelated game configuration. The exact intake authentication token and body limit are a mandatory interface decision.
+GSI intake may use an asynchronous loopback HTTP server. The accepted input port search starts at 3000 and may try through 3010, updating only the application's own game integration configuration. Bind loopback, constrain body size, validate game/source context and do not overwrite unrelated game configuration. The configuration file, intake token, body limit, admission mapping, ownership verification and session boundaries are proposed in the [Game-State Intake Specification](GSI-INTAKE-SPEC.md) under DEC-GSI-INTAKE; its assumptions about the game integration feature close only with M0 capture-spike evidence.
 
 Retain DXGI read-only vision as the baseline. OBS is an external recorder controlled through authenticated loopback WebSocket v5, not an automatic replacement for the critical capture path. Local models are admitted only after whole-process resource measurements; shared external inference without verifiable accounting is unavailable.
 

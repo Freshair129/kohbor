@@ -2,7 +2,7 @@
 title: "Software Verification Test Plan"
 doc_id: "TEST-PLAN"
 status: "draft"
-version: "0.3.1"
+version: "0.3.2"
 updated: "2026-11-10"
 owner_role: "Verification lead — unassigned"
 approval_status: "not_approved"

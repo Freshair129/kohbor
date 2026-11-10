@@ -2,8 +2,8 @@
 title: "Technical and Delivery Risk Register"
 doc_id: "RISK-REGISTER"
 status: draft
-version: "0.3.1"
-updated: "2026-11-10"
+version: "0.3.2"
+updated: "2026-11-11"
 owner_role: "Engineering lead; person not assigned"
 approval_status: "not_approved"
 ---
@@ -18,7 +18,7 @@ These are evidenced specification dependencies and unproven feasibility question
 | RISK-02 | Observation/class coverage; PN-002/003 | Unsupported class, geometry or patch creates false fact/warning | Freeze catalog/admission; held-out per-class and game-matrix evidence; unavailable states for uncovered cases | Vision/QA; DEC-GAME-DATA |
 | RISK-03 | Audible warning evidence; PN-003 | Informational score is mistakenly treated as sufficient warning admission | Freeze coordinated-motion, coverage-gap and reappearance fixtures; prove false-warning/false-safe gates and acoustic timing | Native/QA; DEC-RISK-DETAIL |
 | RISK-04 | Critical media and package trust; PN-003/004 | Missing/corrupt asset or self-asserted trust blocks safe readiness | Obtain authorized critical assets; freeze signing/verification domains; test hostile archives and no-fallback readiness | Media/native; DEC-CRITICAL-MEDIA, DEC-PACK-CRYPTO |
-| RISK-05 | Parallel interface drift; all needs | Independent components interpret draft schema as a complete protocol | Freeze exact interfaces and semantic rules before integration; one contract owner; negative/race tests | Engineering; DEC-INTERFACES |
+| RISK-05 | Parallel interface drift; all needs | Independent components interpret draft schema as a complete protocol | Freeze exact interfaces and semantic rules before integration; one contract owner; negative/race tests. The M1 intake slice is proposed in GSI-INTAKE-SPEC and closes with capture-spike evidence | Engineering; DEC-INTERFACES, DEC-GSI-INTAKE |
 | RISK-06 | Original UX not measured; PN-005 | Layout/focus/readability violates fixed field or disrupts play | Produce annotated layouts, focus and scaling evidence on declared Windows matrix | UX/QA; DEC-VISUALS |
 | RISK-07 | Durable memory erasure; PN-008 | Restart/rebuild restores forgotten derived information | Choose completion/retention and durable comparable cutoff; test crash/restart/corrupt-marker behavior | Data/native; DEC-SESSION, DEC-RETENTION |
 | RISK-08 | Transient voice lifecycle; PN-006 | Unbounded or late audio/transcript survives cancellation | Freeze bounded handoff/zeroization; test release, cancellation, mute, overlap and failure traces | Voice/native; DEC-VOICE-BUFFER |

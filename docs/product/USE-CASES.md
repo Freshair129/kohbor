@@ -2,7 +2,7 @@
 title: "Use Cases and User Journeys"
 doc_id: "USE-CASES"
 status: draft
-version: "0.3.1"
+version: "0.3.2"
 updated: "2026-11-10"
 baseline: "DEC-BASELINE"
 owner_role: "Product and UX owners; people not assigned"

@@ -23,7 +23,11 @@ def read_json(p):
 def semantic(rule,data):
     if rule=="hp_bounds":
         stats=data.get("own",data)
-        return stats is None or stats["hp"]<=stats["max_hp"]
+        if stats is None:return True
+        if "fields" in stats:
+            hp=stats["fields"]["hp"]["value"];max_hp=stats["fields"]["max_hp"]["value"]
+            return hp is None or max_hp is None or hp<=max_hp
+        return stats["hp"]<=stats["max_hp"]
     if rule=="peer_publish_age":
         stats=data["sample"]
         return stats is None or (data["scope"] is not None and stats["source_age_ms"]<=2000 and stats["hp"]<=stats["max_hp"])
@@ -123,6 +127,7 @@ def main():
             errors.append(r["id"]+": missing/undefined verification procedure.")
         for did in r["open_decisions"]:
             if did not in decision_ids:errors.append(f'{r["id"]}: unknown decision {did}')
+        if r.get("target_milestone") not in {"M1","M2","M3","M4a","M4b","M5","M6","M7","M8"}:errors.append(r["id"]+": missing/unknown target milestone.")
         if not r["statement"] or not r["failure_behavior"] or not r["acceptance"]["then"]:errors.append(r["id"]+": incomplete acceptance.")
     rendered=subprocess.run([sys.executable,str(root/"tools/render_requirements.py"),"--check"],capture_output=True,text=True)
     if rendered.returncode:errors.append(rendered.stdout.strip() or rendered.stderr.strip())

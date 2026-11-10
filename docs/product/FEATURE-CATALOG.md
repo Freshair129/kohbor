@@ -2,8 +2,8 @@
 title: "Feature Catalog and Reference Algorithms"
 doc_id: "FEATURE-CATALOG"
 status: draft
-version: "0.3.1"
-updated: "2026-11-10"
+version: "0.3.2"
+updated: "2026-11-11"
 authority: "DEC-BASELINE; see DOCUMENT-CONTROL"
 owner_role: "Product and engineering owners; people not assigned"
 approval_status: "not_approved"
@@ -26,7 +26,7 @@ approval_status: "not_approved"
 | Local voice conversation | MVP | PTT/mic consent, measured local STT/answer |
 | Personal memory | MVP | Bounded local aggregates and durable forget |
 | Strategic advice | MVP | Local by default; narrow separately consented cloud |
-| Live match canvas | Base extension | Honest read models and fixed map topology |
+| Live match canvas (shared base field) | MVP | Honest read models and fixed map topology; premium inspector/timer details stay deferred |
 | Peer party vitals | Explicit extension | Fresh consent, room/match/team and narrow DTO |
 | Friends/invitations | Optional extension | Separate private account services |
 | OBS local highlights | Explicit MVP slice | User-started external recorder, local clips |
@@ -49,11 +49,11 @@ For missing duration s seconds:
 - 5 ≤ s ≤12: r=((s−5)/7)×0.70.
 - s>12: r=max(0.70−(s−12)×0.03,0.10).
 
-If a valid pre-vanish heading exists, multiply by 1+clamp(cos(heading,toward_map_center),−1,1)×0.22, then clamp to [0,1]. If heading is unavailable use a neutral multiplier1.0, not an invented vector.
+If a valid pre-vanish heading exists, multiply by 1+clamp(cos(heading,toward_map_center),−1,1)×0.22, then clamp to [0,1]. If heading is unavailable use a neutral multiplier 1.0, not an invented vector.
 
-Combine admitted contributors as 1−product(1−r_i). When at least two contributing missing heroes remain, multiply by1.15 and cap at1.0. Reference ETA for a contributing hero is max(12−s,1) seconds and must be labeled estimated. Aggregation of ETA, death discount and coordinated movement require the additional DEC-RISK-DETAIL fixtures before exact parity is claimed.
+Combine admitted contributors as 1−product(1−r_i). When at least two contributing missing heroes remain, multiply by 1.15 and cap at 1.0. Reference ETA for a contributing hero is max(12−s,1) seconds and must be labeled estimated. Aggregation of ETA, death discount and coordinated movement require the additional DEC-RISK-DETAIL fixtures before exact parity is claimed.
 
-Golden examples with neutral heading/no death discount: s=4→0, s=5→0, s=8.5→0.35, s=12→0.70, s=20→0.46, s=40→0.10. Two heroes at s=12 yield min((1−0.3²)×1.15,1)=1.0. Score1.0 is a heuristic saturation value, not certainty.
+Golden examples with neutral heading/no death discount: s=4→0, s=5→0, s=8.5→0.35, s=12→0.70, s=20→0.46, s=40→0.10. Two heroes at s=12 yield min((1−0.3²)×1.15,1)=1.0. Score 1.0 is a heuristic saturation value, not certainty.
 
 ## Hysteresis
 
@@ -73,16 +73,16 @@ The exact motion-admission parameters and traces remain in DEC-RISK-DETAIL; unti
 
 ## Visibility missing notification
 
-Require a previously observed enemy, valid continuing coverage and absence strictly longer than5seconds. Emit once per hero per absence interval; re-arm on admitted reappearance. Global missing-notification audio cooldown≥10seconds. Drop that audio when critical audio is active. Optional missing-event media absence leaves a truthful UI chip/local reason, not substituted speech.
+Require a previously observed enemy, valid continuing coverage and absence strictly longer than 5 seconds. Emit once per hero per absence interval; re-arm on admitted reappearance. Global missing-notification audio cooldown ≥10 seconds. Drop that audio when critical audio is active. Optional missing-event media absence leaves a truthful UI chip/local reason, not substituted speech.
 
 ## Event semantics
 
 One catalog owns event ID, label, category, detector reference, tunables and ordinary voice rank. Detector references describe native code ownership; they are not arbitrary executable rules. Multi-kill and since-death streak are distinct counters. Reconnection/baseline establishment must not synthesize match-start/kill/death/level events.
 
-Default tunables: multi-kill window18seconds, low health20%, low mana15%, level milestones6/12/18/25. Respawn remains a detected transition and is intentionally unvoiced in this target. Ordinary same-tick arbitration selects the highest emitted ordinary rank before media lookup. If that event lacks a valid mapping, it stays silent; do not select a lower-ranked mapped event as fallback. Critical/correction/missing notifications have separate policy.
+Default tunables: multi-kill window 18 seconds, low health 20%, low mana 15%, level milestones 6/12/18/25. Respawn remains a detected transition and is intentionally unvoiced in this target. Ordinary same-tick arbitration selects the highest emitted ordinary rank before media lookup. If that event lacks a valid mapping, it stays silent; do not select a lower-ranked mapped event as fallback. Critical/correction/missing notifications have separate policy.
 
 The full approved event catalog and golden multi-event traces must be frozen during DEC-INTERFACES. Do not derive missing event semantics merely from a UI label.
 
 ## Optional next-session tuning
 
-Any local tuning profile must be validated, bounded and linked to evidence. It may become active only at a new match boundary, never mutate the current match's heuristic. If adopted, require at least3 fully evidenced matches, medium-sensitivity F1 improvement≥0.01 against the baseline, finite/range/order checks, immutable inputs and backup/default fallback. No automatic cloud learning or wider data collection is implied.
+Any local tuning profile must be validated, bounded and linked to evidence. It may become active only at a new match boundary, never mutate the current match's heuristic. If adopted, require at least 3 fully evidenced matches, medium-sensitivity F1 improvement ≥0.01 against the baseline, finite/range/order checks, immutable inputs and backup/default fallback. No automatic cloud learning or wider data collection is implied.

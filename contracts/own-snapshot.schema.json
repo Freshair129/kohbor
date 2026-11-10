@@ -2,11 +2,11 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/spec/own-snapshot.schema.json",
   "title": "own-snapshot.schema.json",
-  "description": "Proposed neutral contract; see interface maturity and semantic rules in docs/design/ICD.md.",
+  "description": "Proposed neutral contract 2.0.0: per-field availability for admitted own-player game-state values. See docs/design/ICD.md and docs/design/GSI-INTAKE-SPEC.md. Snapshot freshness boundary: fresh <=2000 ms, stale >=2001 ms. A field is never fresher than its snapshot.",
   "type": "object",
   "properties": {
     "schema_version": {
-      "const": "1.0.0"
+      "const": "2.0.0"
     },
     "session_epoch": {
       "anyOf": [
@@ -76,51 +76,7 @@
     "own": {
       "anyOf": [
         {
-          "type": "object",
-          "properties": {
-            "hero_id": {
-              "type": "string",
-              "pattern": "^npc_dota_hero_[a-z0-9_]{1,100}$"
-            },
-            "level": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 30
-            },
-            "hp": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 100000
-            },
-            "max_hp": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100000
-            },
-            "mana_percent": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 100
-            },
-            "alive": {
-              "type": "boolean"
-            },
-            "respawn_seconds": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 600
-            }
-          },
-          "required": [
-            "hero_id",
-            "level",
-            "hp",
-            "max_hp",
-            "mana_percent",
-            "alive",
-            "respawn_seconds"
-          ],
-          "additionalProperties": false
+          "$ref": "#/$defs/own"
         },
         {
           "type": "null"
@@ -136,6 +92,379 @@
     "own"
   ],
   "additionalProperties": false,
+  "$defs": {
+    "own": {
+      "type": "object",
+      "properties": {
+        "identity_revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "team": {
+          "enum": [
+            "radiant",
+            "dire",
+            null
+          ]
+        },
+        "fields": {
+          "type": "object",
+          "properties": {
+            "hero_id": {
+              "$ref": "#/$defs/hero_id"
+            },
+            "level": {
+              "$ref": "#/$defs/level"
+            },
+            "hp": {
+              "$ref": "#/$defs/hp"
+            },
+            "max_hp": {
+              "$ref": "#/$defs/max_hp"
+            },
+            "mana_percent": {
+              "$ref": "#/$defs/mana_percent"
+            },
+            "alive": {
+              "$ref": "#/$defs/alive"
+            },
+            "respawn_seconds": {
+              "$ref": "#/$defs/respawn_seconds"
+            }
+          },
+          "required": [
+            "hero_id",
+            "level",
+            "hp",
+            "max_hp",
+            "mana_percent",
+            "alive",
+            "respawn_seconds"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "identity_revision",
+        "team",
+        "fields"
+      ],
+      "additionalProperties": false
+    },
+    "hero_id": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "string",
+              "pattern": "^npc_dota_hero_[a-z0-9_]{1,100}$"
+            },
+            "availability": {
+              "enum": [
+                "fresh",
+                "stale"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "null"
+            },
+            "availability": {
+              "enum": [
+                "unknown",
+                "invalid",
+                "unsupported"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "level": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30
+            },
+            "availability": {
+              "enum": [
+                "fresh",
+                "stale"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "null"
+            },
+            "availability": {
+              "enum": [
+                "unknown",
+                "invalid",
+                "unsupported"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "hp": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100000
+            },
+            "availability": {
+              "enum": [
+                "fresh",
+                "stale"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "null"
+            },
+            "availability": {
+              "enum": [
+                "unknown",
+                "invalid",
+                "unsupported"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "max_hp": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000
+            },
+            "availability": {
+              "enum": [
+                "fresh",
+                "stale"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "null"
+            },
+            "availability": {
+              "enum": [
+                "unknown",
+                "invalid",
+                "unsupported"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "mana_percent": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "availability": {
+              "enum": [
+                "fresh",
+                "stale"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "null"
+            },
+            "availability": {
+              "enum": [
+                "unknown",
+                "invalid",
+                "unsupported"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "alive": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "boolean"
+            },
+            "availability": {
+              "enum": [
+                "fresh",
+                "stale"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "null"
+            },
+            "availability": {
+              "enum": [
+                "unknown",
+                "invalid",
+                "unsupported"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "respawn_seconds": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 600
+            },
+            "availability": {
+              "enum": [
+                "fresh",
+                "stale"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "null"
+            },
+            "availability": {
+              "enum": [
+                "unknown",
+                "invalid",
+                "unsupported"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
   "allOf": [
     {
       "if": {
@@ -148,68 +477,187 @@
       "then": {
         "properties": {
           "session_epoch": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 9007199254740991
-          },
-          "own": {
-            "type": "object",
-            "properties": {
-              "hero_id": {
-                "type": "string",
-                "pattern": "^npc_dota_hero_[a-z0-9_]{1,100}$"
-              },
-              "level": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 30
-              },
-              "hp": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 100000
-              },
-              "max_hp": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 100000
-              },
-              "mana_percent": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 100
-              },
-              "alive": {
-                "type": "boolean"
-              },
-              "respawn_seconds": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 600
-              }
-            },
-            "required": [
-              "hero_id",
-              "level",
-              "hp",
-              "max_hp",
-              "mana_percent",
-              "alive",
-              "respawn_seconds"
-            ],
-            "additionalProperties": false
+            "type": "integer"
           },
           "source": {
             "properties": {
               "sequence": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 9007199254740991
+                "type": "integer"
               },
               "age_ms": {
                 "type": "integer",
-                "minimum": 0,
                 "maximum": 2000
+              }
+            }
+          },
+          "own": {
+            "type": "object",
+            "properties": {
+              "fields": {
+                "properties": {
+                  "hero_id": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "stale"
+                        }
+                      }
+                    }
+                  },
+                  "level": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "stale"
+                        }
+                      }
+                    }
+                  },
+                  "hp": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "stale"
+                        }
+                      }
+                    }
+                  },
+                  "max_hp": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "stale"
+                        }
+                      }
+                    }
+                  },
+                  "mana_percent": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "stale"
+                        }
+                      }
+                    }
+                  },
+                  "alive": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "stale"
+                        }
+                      }
+                    }
+                  },
+                  "respawn_seconds": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "stale"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "availability": {
+            "const": "stale"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "session_epoch": {
+            "type": "integer"
+          },
+          "source": {
+            "properties": {
+              "sequence": {
+                "type": "integer"
+              },
+              "age_ms": {
+                "type": "integer",
+                "minimum": 2001
+              }
+            }
+          },
+          "own": {
+            "type": "object",
+            "properties": {
+              "fields": {
+                "properties": {
+                  "hero_id": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "fresh"
+                        }
+                      }
+                    }
+                  },
+                  "level": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "fresh"
+                        }
+                      }
+                    }
+                  },
+                  "hp": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "fresh"
+                        }
+                      }
+                    }
+                  },
+                  "max_hp": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "fresh"
+                        }
+                      }
+                    }
+                  },
+                  "mana_percent": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "fresh"
+                        }
+                      }
+                    }
+                  },
+                  "alive": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "fresh"
+                        }
+                      }
+                    }
+                  },
+                  "respawn_seconds": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "fresh"
+                        }
+                      }
+                    }
+                  }
+                }
               }
             }
           }

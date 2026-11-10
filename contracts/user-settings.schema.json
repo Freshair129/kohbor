@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/spec/user-settings.schema.json",
+  "title": "user-settings.schema.json",
+  "description": "Proposed neutral contract 1.0.0: persisted local settings for M1 fields only. Later fields (hotkeys, overlay, sensitivity, mic/cloud preferences) arrive as minor versions. Never peer activation, consent grants, room credentials or plaintext secrets.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "revision",
+    "locale",
+    "gsi"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "locale": {
+      "enum": [
+        "th",
+        "en"
+      ]
+    },
+    "gsi": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "game_dir",
+        "port",
+        "config_sha256",
+        "token_ref"
+      ],
+      "properties": {
+        "game_dir": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 1024
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "port": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 3000,
+              "maximum": 3010
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "config_sha256": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "token_ref": {
+          "anyOf": [
+            {
+              "const": "dpapi:gsi-token"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "if": {
+        "properties": {
+          "config_sha256": {
+            "type": "string"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "port": {
+            "type": "integer"
+          },
+          "game_dir": {
+            "type": "string"
+          },
+          "token_ref": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

@@ -8,6 +8,7 @@
   "app_id": "<NEW_STABLE_REVERSE_DOMAIN_ID>",
   "package_id": "<NEW_PACKAGE_ID>",
   "data_directory": "<NEW_LOCAL_DIRECTORY>",
+  "gsi_config_slug": "<NEW_GSI_CONFIG_SLUG>",
   "uri_scheme": "<NEW_SCHEME>",
   "media_signature_domain": "<FREEZE_NEW_DOMAIN>",
   "peer_hash_domain": "<FREEZE_NEW_DOMAIN>",

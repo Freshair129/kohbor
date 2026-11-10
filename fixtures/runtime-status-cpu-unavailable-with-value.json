@@ -1,0 +1,46 @@
+{
+  "schema_version": "1.0.0",
+  "status_revision": 42,
+  "intake": {
+    "state": "receiving",
+    "port": 3001,
+    "generation": 2,
+    "last_admitted_age_ms": 340,
+    "reason": null
+  },
+  "ownership": {
+    "state": "verified",
+    "reason": null
+  },
+  "session": {
+    "phase": "live",
+    "session_epoch": 3
+  },
+  "mode": {
+    "state": "unverified",
+    "value": null
+  },
+  "resource": {
+    "containment": "established",
+    "cpu": {
+      "state": "unavailable",
+      "last_sample_percent": 6.4,
+      "throttle": "throttled"
+    },
+    "memory": {
+      "state": "available",
+      "working_set_bytes": 512000000
+    }
+  },
+  "media": {
+    "state": "not_ready",
+    "reason": "MEDIA_UNMAPPED"
+  },
+  "capture": {
+    "state": "unavailable",
+    "reason": "CAPABILITY_UNAVAILABLE"
+  },
+  "account": {
+    "state": "unavailable"
+  }
+}

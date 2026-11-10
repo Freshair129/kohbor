@@ -2,8 +2,8 @@
 title: "Software Development Plan (SDP)"
 doc_id: "SDP"
 status: draft
-version: "0.3.1"
-updated: "2026-11-10"
+version: "0.3.2"
+updated: "2026-11-11"
 authority: "DEC-BASELINE; see DOCUMENT-CONTROL"
 owner_role: "Engineering lead; people not assigned"
 approval_status: "not_approved"
@@ -28,6 +28,8 @@ Use small vertical slices with source, contract and evidence ownership. Do not d
 | M6 | Optional cloud advice route and separately scoped peer/friends extensions | Frozen projections, separate consent, service designs | Negative/race/privacy tests; two-device/native evidence and operations |
 | M7 | Premium authority and advanced details if scheduled | Dedicated server/key/RLS/rollback design | Trusted lease/revocation tests; never a blocker for base M3 |
 | M8 | Release candidate and full supported matrix | All selected MVP targets | Full acceptance evidence, signed same-artifact candidate/promotion review |
+
+The registry field `target_milestone` (shown in SRS and RTM) names the earliest milestone that must deliver each requirement; it is planning metadata and does not change scope, priority or acceptance. Final release acceptance of every MVP requirement remains M8. CORE-003 is mapped to M6 because the optional account surface it constrains first exists there; its MVP scope is unchanged; the Decision Log records how the guard applies to builds without an account surface.
 
 M4a and M4b may proceed before M5 when their dependencies are ready. Passing M4a certifies only the limited demonstration: it does not imply M4b or full-MVP completion. M4b remains the local-highlights MVP target. Required local/manual advice does not depend on optional cloud or social services. Extension sequencing can vary when dependencies and scope stay explicit.
 

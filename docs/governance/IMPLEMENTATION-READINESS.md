@@ -2,8 +2,8 @@
 title: "Kohbor Implementation Readiness"
 doc_id: "IMPLEMENTATION-READINESS"
 status: draft
-version: "0.3.1"
-updated: "2026-11-10"
+version: "0.3.2"
+updated: "2026-11-11"
 owner_role: "Product owner and engineering lead; reviewers not assigned"
 approval_status: "not_approved"
 ---
@@ -20,13 +20,14 @@ The baseline contains 12 product needs, 85 software requirements, component/data
 
 Read [PRD](../product/PRD.md), [SRS](../requirements/SRS.md), [Document Control](DOCUMENT-CONTROL.md), [Decision Log](DECISION-LOG.md), and [SDP](../delivery/SDP.md). Follow root [AGENTS.md](../../AGENTS.md) and [PROMPT.md](../../PROMPT.md) for execution. Use the selected name in [product-identity.json](../../contracts/product-identity.json); freeze its unresolved technical identifiers during M0 before packaging depends on them.
 
-Start M0 feasibility work, requirement review, technical-identity definition and independent vertical slices. An unresolved decision blocks only its named dependencies. Keep optional or unqualified capabilities explicitly unavailable until their prerequisites exist. Do not silently invent a protocol, data source, model qualification, paid service or consent grant to make a slice appear complete.
+Start M0 feasibility work, requirement review, technical-identity definition and independent vertical slices. Each requirement now carries a `target_milestone` in the registry and RTM; the nine M1 requirements are CORE-001, CORE-002, CORE-004, CORE-005, DATA-001..DATA-004 and QUALITY-002. Their intake, read-model, status and settings contracts are proposed in version 0.3.2 (GSI-INTAKE-SPEC, own-snapshot 2.0.0, runtime-status, user-settings, settings-patch, SDD §14). An unresolved decision blocks only its named dependencies. Keep optional or unqualified capabilities explicitly unavailable until their prerequisites exist. Do not silently invent a protocol, data source, model qualification, paid service or consent grant to make a slice appear complete.
 
 ## Remaining design work
 
 | Area | Detail still required | Decision / governing document | Interim behavior |
 | --- | --- | --- | --- |
 | Technical identity | Stable app/package IDs, data directory, URI scheme, signing/hash domains and update origin policy | DEC-NAME; [Decision Log](DECISION-LOG.md) | Product name fixed; technical fields remain explicitly unresolved |
+| Game-state intake (M1) | Confirm assumptions A-1..A-9 with a redacted M0 capture corpus; owner acknowledgement of "mode unverified" labelling | DEC-GSI-INTAKE; [GSI-INTAKE-SPEC](../design/GSI-INTAKE-SPEC.md) | Proposed configuration, admission, ownership, session and freshness rules are specified; capabilities that depend on an unconfirmed assumption stay unavailable |
 | Interfaces | Complete command/event payload catalog, transport framing, authentication, versioning, idempotency, size/rate bounds and error mapping for every supported operation | DEC-INTERFACES; [ICD](../design/ICD.md) | Draft schemas support bounded spikes; no claim of complete interoperability |
 | Player/game read models | Complete admitted inventory/ability/cooldown shapes, ownership, freshness, unsupported-data behavior and patch-qualified catalogs | DEC-INTERFACES, DEC-GAME-DATA; [DDD](../design/DDD.md), [ICD](../design/ICD.md) | Unknown values stay unknown; no unobserved enemy state or invented readiness |
 | Persistence and lifecycle | Physical persisted schemas, migrations, completion evidence, aggregate eligibility, quotas and retention/deletion behavior | DEC-SESSION, DEC-RETENTION; [DDD](../design/DDD.md) | Partial sessions remain partial; no destructive automatic cleanup or unsupported outcome claims |

@@ -1,143 +1,230 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
+  "message_key_rule": "Each code has a localization key error.<code in lowercase>; localized th/en text comes from the UI string table, never from raw exceptions.",
   "codes": [
     {
       "code": "SOURCE_UNAVAILABLE",
       "recovery": "Wait for admitted source; preserve independent local services.",
       "safe_to_show": true,
-      "raw_exception_allowed": false
+      "raw_exception_allowed": false,
+      "message_key": "error.source_unavailable"
     },
     {
       "code": "SOURCE_STALE",
       "recovery": "Show stale age and withdraw live assertions.",
       "safe_to_show": true,
-      "raw_exception_allowed": false
+      "raw_exception_allowed": false,
+      "message_key": "error.source_stale"
     },
     {
       "code": "SOURCE_INVALID",
       "recovery": "Invalidate this source; do not renew freshness.",
       "safe_to_show": true,
-      "raw_exception_allowed": false
+      "raw_exception_allowed": false,
+      "message_key": "error.source_invalid"
     },
     {
       "code": "UNSUPPORTED_PROFILE",
       "recovery": "Show required configuration/calibration.",
       "safe_to_show": true,
-      "raw_exception_allowed": false
+      "raw_exception_allowed": false,
+      "message_key": "error.unsupported_profile"
     },
     {
       "code": "OWNER_UNVERIFIED",
       "recovery": "Do not expose own-only or peer data.",
       "safe_to_show": true,
-      "raw_exception_allowed": false
+      "raw_exception_allowed": false,
+      "message_key": "error.owner_unverified"
     },
     {
       "code": "CONSENT_REQUIRED",
       "recovery": "Present exact separate permission; no send before consent.",
       "safe_to_show": true,
-      "raw_exception_allowed": false
+      "raw_exception_allowed": false,
+      "message_key": "error.consent_required"
     },
     {
       "code": "CANCELLED",
       "recovery": "Discard old work without replay.",
       "safe_to_show": true,
-      "raw_exception_allowed": false
+      "raw_exception_allowed": false,
+      "message_key": "error.cancelled"
     },
     {
       "code": "CPU_CONTAINMENT_FAILED",
       "recovery": "Exit1 before UI/sidecar; local safe diagnostic.",
       "safe_to_show": true,
-      "raw_exception_allowed": false
+      "raw_exception_allowed": false,
+      "message_key": "error.cpu_containment_failed"
     },
     {
       "code": "METRIC_UNAVAILABLE",
       "recovery": "Show unavailable metric while containment remains.",
       "safe_to_show": true,
-      "raw_exception_allowed": false
+      "raw_exception_allowed": false,
+      "message_key": "error.metric_unavailable"
     },
     {
       "code": "MIC_DISABLED",
       "recovery": "Do not open device.",
       "safe_to_show": true,
-      "raw_exception_allowed": false
+      "raw_exception_allowed": false,
+      "message_key": "error.mic_disabled"
     },
     {
       "code": "MIC_OPEN_TIMEOUT",
       "recovery": "Release resources; report unavailable.",
       "safe_to_show": true,
-      "raw_exception_allowed": false
+      "raw_exception_allowed": false,
+      "message_key": "error.mic_open_timeout"
     },
     {
       "code": "LOCAL_MODEL_UNAVAILABLE",
       "recovery": "No remote fallback; show unavailable.",
       "safe_to_show": true,
-      "raw_exception_allowed": false
+      "raw_exception_allowed": false,
+      "message_key": "error.local_model_unavailable"
     },
     {
       "code": "MEDIA_INVALID",
       "recovery": "Leave active valid revision intact.",
       "safe_to_show": true,
-      "raw_exception_allowed": false
+      "raw_exception_allowed": false,
+      "message_key": "error.media_invalid"
     },
     {
       "code": "MEDIA_UNMAPPED",
       "recovery": "Silent ordinary event; critical readiness separately fails.",
       "safe_to_show": true,
-      "raw_exception_allowed": false
+      "raw_exception_allowed": false,
+      "message_key": "error.media_unmapped"
     },
     {
       "code": "ACTIVATION_DEFERRED",
       "recovery": "Installation may be complete; wait for safe selection.",
       "safe_to_show": true,
-      "raw_exception_allowed": false
+      "raw_exception_allowed": false,
+      "message_key": "error.activation_deferred"
     },
     {
       "code": "PEER_UNAUTHORIZED",
       "recovery": "Clear membership; require explicit rejoin.",
       "safe_to_show": true,
-      "raw_exception_allowed": false
+      "raw_exception_allowed": false,
+      "message_key": "error.peer_unauthorized"
     },
     {
       "code": "PEER_STALE",
       "recovery": "Remove live vitals after age expires.",
       "safe_to_show": true,
-      "raw_exception_allowed": false
+      "raw_exception_allowed": false,
+      "message_key": "error.peer_stale"
     },
     {
       "code": "OBS_UNAVAILABLE",
       "recovery": "Stop new recording operations; preserve alerts.",
       "safe_to_show": true,
-      "raw_exception_allowed": false
+      "raw_exception_allowed": false,
+      "message_key": "error.obs_unavailable"
     },
     {
       "code": "CLIP_PARTIAL",
       "recovery": "Show actual interval and reason.",
       "safe_to_show": true,
-      "raw_exception_allowed": false
+      "raw_exception_allowed": false,
+      "message_key": "error.clip_partial"
     },
     {
       "code": "DISK_PRESSURE",
       "recovery": "Bound/stop new writes; no unapproved destructive cleanup.",
       "safe_to_show": true,
-      "raw_exception_allowed": false
+      "raw_exception_allowed": false,
+      "message_key": "error.disk_pressure"
     },
     {
       "code": "SIGNATURE_INVALID",
       "recovery": "Reject update/privileged authenticity claim.",
       "safe_to_show": true,
-      "raw_exception_allowed": false
+      "raw_exception_allowed": false,
+      "message_key": "error.signature_invalid"
     },
     {
       "code": "CAPABILITY_UNAVAILABLE",
       "recovery": "Quietly present base.",
       "safe_to_show": true,
-      "raw_exception_allowed": false
+      "raw_exception_allowed": false,
+      "message_key": "error.capability_unavailable"
     },
     {
       "code": "VERSION_UNSUPPORTED",
       "recovery": "Reject incompatible object without mutating healthy state.",
       "safe_to_show": true,
-      "raw_exception_allowed": false
+      "raw_exception_allowed": false,
+      "message_key": "error.version_unsupported"
+    },
+    {
+      "code": "GSI_GAME_NOT_FOUND",
+      "recovery": "Ask the user to choose the Dota 2 folder; local core continues.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false,
+      "message_key": "error.gsi_game_not_found"
+    },
+    {
+      "code": "GSI_CONFIG_CONFLICT",
+      "recovery": "Do not overwrite; offer an explicit replace-owned-configuration action.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false,
+      "message_key": "error.gsi_config_conflict"
+    },
+    {
+      "code": "GSI_CONFIG_WRITE_FAILED",
+      "recovery": "Keep the previous file; show the folder permission or disk action.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false,
+      "message_key": "error.gsi_config_write_failed"
+    },
+    {
+      "code": "GSI_PORT_UNAVAILABLE",
+      "recovery": "Close the program using the port, or reconfigure and restart Dota 2.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false,
+      "message_key": "error.gsi_port_unavailable"
+    },
+    {
+      "code": "GSI_PORT_EXHAUSTED",
+      "recovery": "Free one port in 3000-3010; no configuration is written.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false,
+      "message_key": "error.gsi_port_exhausted"
+    },
+    {
+      "code": "GSI_AUTH_REJECTED",
+      "recovery": "Do not admit; repeated rejection suggests reinstalling the owned configuration.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false,
+      "message_key": "error.gsi_auth_rejected"
+    },
+    {
+      "code": "GSI_BODY_REJECTED",
+      "recovery": "Do not admit or renew freshness; count for diagnostics only.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false,
+      "message_key": "error.gsi_body_rejected"
+    },
+    {
+      "code": "GSI_UNSUPPORTED_SCOPE",
+      "recovery": "Show spectating/custom/unsupported scope; no own-player conclusions.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false,
+      "message_key": "error.gsi_unsupported_scope"
+    },
+    {
+      "code": "GSI_SECRET_UNAVAILABLE",
+      "recovery": "Intake unavailable; local core continues; retry after user sign-in.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false,
+      "message_key": "error.gsi_secret_unavailable"
     }
   ]
 }

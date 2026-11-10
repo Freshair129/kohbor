@@ -1,9 +1,10 @@
 {
-  "schema_version": "1.2.0",
-  "spec_version": "0.3.1",
+  "schema_version": "1.3.0",
+  "spec_version": "0.3.2",
   "status": "draft",
-  "updated": "2026-11-10",
+  "updated": "2026-11-11",
   "all_new_build_evidence": "NOT_RUN",
+  "target_milestone_rule": "Earliest docs/delivery/SDP.md milestone that must deliver an implementation of the requirement. Planning metadata only: it does not change scope, priority or acceptance, and final release acceptance remains M8.",
   "requirements": [
     {
       "id": "CORE-001",
@@ -11,6 +12,7 @@
       "module": "core",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M1",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "The local core shall start without account, network or premium authority.",
@@ -76,6 +78,7 @@
       "module": "core",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M1",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "The application shall establish the 10% Windows CPU Job Object cap before creating UI or sidecars.",
@@ -84,7 +87,7 @@
         "scenario_id": "AC-CORE-002",
         "given": "job creation, configuration or assignment fails",
         "when": "startup is attempted",
-        "then": "the application records a safe error and exits with code1 before WebView or sidecar creation"
+        "then": "the application records a safe error and exits with code 1 before WebView or sidecar creation"
       },
       "verification": {
         "required_evidence": [
@@ -105,7 +108,9 @@
           "UAT-05"
         ]
       },
-      "contract_refs": [],
+      "contract_refs": [
+        "contracts/runtime-status.schema.json"
+      ],
       "spec_refs": [
         "docs/product/PRD.md",
         "docs/design/SAD.md"
@@ -141,6 +146,7 @@
       "module": "core",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M6",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Account signout, revoke or switch shall invalidate account requests and credentials while preserving local gameplay/history.",
@@ -203,13 +209,14 @@
       "module": "core",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M1",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Game integration setup shall write only its owned config and verified chosen loopback port.",
       "failure_behavior": "Port exhaustion or write failure returns an actionable error without overwriting unrelated files.",
       "acceptance": {
         "scenario_id": "AC-CORE-004",
-        "given": "ports3000 through3010 contain occupied and free candidates",
+        "given": "ports 3000 through 3010 contain occupied and free candidates",
         "when": "setup selects an available configured port",
         "then": "the app and owned game config agree; unrelated game configuration is preserved"
       },
@@ -231,13 +238,19 @@
           "UAT-01"
         ]
       },
-      "contract_refs": [],
+      "contract_refs": [
+        "contracts/runtime-status.schema.json",
+        "contracts/user-settings.schema.json",
+        "contracts/settings-patch.schema.json"
+      ],
       "spec_refs": [
         "docs/product/PRD.md",
-        "docs/design/SAD.md"
+        "docs/design/SAD.md",
+        "docs/design/GSI-INTAKE-SPEC.md"
       ],
       "open_decisions": [
-        "DEC-INTERFACES"
+        "DEC-INTERFACES",
+        "DEC-GSI-INTAKE"
       ],
       "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
       "product_need_ids": [
@@ -265,6 +278,7 @@
       "module": "core",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M1",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "The product shall label mode, OS and capture configurations outside the evidence matrix unverified or unsupported.",
@@ -293,12 +307,17 @@
           "UAT-01"
         ]
       },
-      "contract_refs": [],
+      "contract_refs": [
+        "contracts/runtime-status.schema.json"
+      ],
       "spec_refs": [
         "docs/product/PRD.md",
-        "docs/design/SAD.md"
+        "docs/design/SAD.md",
+        "docs/design/GSI-INTAKE-SPEC.md"
       ],
-      "open_decisions": [],
+      "open_decisions": [
+        "DEC-GSI-INTAKE"
+      ],
       "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
       "product_need_ids": [
         "PN-001"
@@ -327,13 +346,14 @@
       "module": "data",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M1",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
-      "statement": "Own-source data shall be fresh only while admitted source age is at most2000ms.",
+      "statement": "Own-source data shall be fresh only while admitted source age is at most 2000ms.",
       "failure_behavior": "Withdraw live assertions when stale; do not fabricate a new observation.",
       "acceptance": {
         "scenario_id": "AC-DATA-001",
-        "given": "a valid own observation at age2000ms followed by age2001ms",
+        "given": "a valid own observation at age 2000ms followed by age 2001ms",
         "when": "the UI consumes both snapshots without a new source observation",
         "then": "the first may be fresh and the second is stale; invalid input and polling do not renew the age"
       },
@@ -356,13 +376,17 @@
       },
       "contract_refs": [
         "contracts/own-snapshot.schema.json",
-        "contracts/event.schema.json"
+        "contracts/event.schema.json",
+        "contracts/runtime-status.schema.json"
       ],
       "spec_refs": [
         "docs/design/DDD.md",
-        "docs/design/ICD.md"
+        "docs/design/ICD.md",
+        "docs/design/GSI-INTAKE-SPEC.md"
       ],
-      "open_decisions": [],
+      "open_decisions": [
+        "DEC-GSI-INTAKE"
+      ],
       "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
       "product_need_ids": [
         "PN-002"
@@ -393,6 +417,7 @@
       "module": "data",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M1",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Missing, invalid and unverified values shall remain explicitly unavailable.",
@@ -426,7 +451,8 @@
       ],
       "spec_refs": [
         "docs/design/DDD.md",
-        "docs/design/ICD.md"
+        "docs/design/ICD.md",
+        "docs/design/GSI-INTAKE-SPEC.md"
       ],
       "open_decisions": [],
       "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
@@ -460,6 +486,7 @@
       "module": "data",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M1",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Own-player conclusions shall require supported game scope, actual playing activity and verified active local ownership.",
@@ -489,13 +516,17 @@
       },
       "contract_refs": [
         "contracts/own-snapshot.schema.json",
-        "contracts/event.schema.json"
+        "contracts/event.schema.json",
+        "contracts/runtime-status.schema.json"
       ],
       "spec_refs": [
         "docs/design/DDD.md",
-        "docs/design/ICD.md"
+        "docs/design/ICD.md",
+        "docs/design/GSI-INTAKE-SPEC.md"
       ],
-      "open_decisions": [],
+      "open_decisions": [
+        "DEC-GSI-INTAKE"
+      ],
       "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
       "product_need_ids": [
         "PN-002"
@@ -532,6 +563,7 @@
       "module": "data",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M1",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Session/source changes shall fence late work without treating every regressed clock as a new match.",
@@ -561,13 +593,17 @@
       },
       "contract_refs": [
         "contracts/own-snapshot.schema.json",
-        "contracts/event.schema.json"
+        "contracts/event.schema.json",
+        "contracts/runtime-status.schema.json"
       ],
       "spec_refs": [
         "docs/design/DDD.md",
-        "docs/design/ICD.md"
+        "docs/design/ICD.md",
+        "docs/design/GSI-INTAKE-SPEC.md"
       ],
-      "open_decisions": [],
+      "open_decisions": [
+        "DEC-GSI-INTAKE"
+      ],
       "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
       "product_need_ids": [
         "PN-002"
@@ -600,6 +636,7 @@
       "module": "data",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M3",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Enemy visibility and positions shall derive only from admitted visible capture data.",
@@ -669,6 +706,7 @@
       "module": "data",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M3",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Static hero/item/ability data shall identify patch, source revision/hash and verified coverage.",
@@ -733,6 +771,7 @@
       "module": "vision",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M3",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Vision shall require healthy frames, matching session and validated minimap geometry.",
@@ -795,6 +834,7 @@
       "module": "vision",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M3",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "A missing-enemy episode shall require prior observed presence and continued valid coverage.",
@@ -802,7 +842,7 @@
       "acceptance": {
         "scenario_id": "AC-VISION-002",
         "given": "an enemy was observed and the camera then stops yielding valid frames",
-        "when": "time passes beyond5seconds",
+        "when": "time passes beyond 5 seconds",
         "then": "coverage becomes unavailable and no missing or all-clear assertion is manufactured"
       },
       "verification": {
@@ -855,6 +895,7 @@
       "module": "vision",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M3",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Vision shall expose the actual set of certified hero classes.",
@@ -911,6 +952,7 @@
       "module": "vision",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M3",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "OBS recording shall not replace the accepted critical DXGI source without a distinct measured source-admission decision.",
@@ -977,6 +1019,7 @@
       "module": "alert",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M2",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Critical warnings shall be decided and admitted in native deterministic code without waiting for cloud, model, renderer or relay.",
@@ -1050,15 +1093,16 @@
       "module": "alert",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M3",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "The missing-time score shall follow the documented versioned formula and be labeled heuristic.",
       "failure_behavior": "Invalid/non-finite input produces unavailable rather than a risk probability claim.",
       "acceptance": {
         "scenario_id": "AC-ALERT-002",
-        "given": "neutral headings and durations4,5,8.5,12,20,40seconds",
+        "given": "neutral headings and durations 4,5,8.5,12,20,40 seconds",
         "when": "the baseline risk function runs",
-        "then": "outputs are0,0,0.35,0.70,0.46,0.10 within declared floating tolerance"
+        "then": "outputs are 0,0,0.35,0.70,0.46,0.10 within declared floating tolerance"
       },
       "verification": {
         "required_evidence": [
@@ -1117,6 +1161,7 @@
       "module": "alert",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M3",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "A high score alone shall not trigger audible gank; admitted coordinated multi-enemy movement/disappearance or independently verified position evidence is required.",
@@ -1188,9 +1233,10 @@
       "module": "alert",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M3",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
-      "statement": "Audible gank shall be deduplicated by absence episode with global30s and per-contributor60s minimum intervals.",
+      "statement": "Audible gank shall be deduplicated by absence episode with global 30s and per-contributor 60s minimum intervals.",
       "failure_behavior": "Re-arm only on confirmed continuous reappearance; one-frame noise does not re-arm.",
       "acceptance": {
         "scenario_id": "AC-ALERT-004",
@@ -1257,6 +1303,7 @@
       "module": "alert",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M3",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "An audible risk correction shall require confirmed reappearance of all previously alerted heroes and score below clear.",
@@ -1324,15 +1371,16 @@
       "module": "alert",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M3",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
-      "statement": "A visibility-missing notification shall use absence strictly longer than5s, once per hero/episode and global audio cooldown at least10s.",
+      "statement": "A visibility-missing notification shall use absence strictly longer than 5s, once per hero/episode and global audio cooldown at least 10s.",
       "failure_behavior": "Drop missing-event audio while critical audio is active; no substituted media.",
       "acceptance": {
         "scenario_id": "AC-ALERT-006",
-        "given": "a previously observed enemy is absent5000ms then5001ms under valid coverage",
+        "given": "a previously observed enemy is absent 5000ms then 5001ms under valid coverage",
         "when": "missing notification admission runs",
-        "then": "no threshold event at5000ms; an eligible event after5000ms obeys dedup and audio priority"
+        "then": "no threshold event at 5000ms; an eligible event after 5000ms obeys dedup and audio priority"
       },
       "verification": {
         "required_evidence": [
@@ -1385,6 +1433,7 @@
       "module": "alert",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M2",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Critical audio readiness shall require valid mapped critical media before the demo warning gate passes.",
@@ -1457,6 +1506,7 @@
       "module": "media",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M2",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "One versioned catalog shall own event IDs, labels, detectors, bounded tunables and ordinary ranks.",
@@ -1516,6 +1566,7 @@
       "module": "media",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M2",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Ordinary same-tick arbitration shall select the highest emitted ordinary rank before media lookup, separately from critical admission.",
@@ -1575,6 +1626,7 @@
       "module": "media",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M2",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Respawn shall remain a detectable event without an automatic audio mapping.",
@@ -1632,6 +1684,7 @@
       "module": "media",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M2",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Event audio/visual playback shall originate from the active verified package revision.",
@@ -1695,6 +1748,7 @@
       "module": "media",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M2",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Native audio shall own paired visual lifecycle and cancel both on stop/preemption/session fence.",
@@ -1760,10 +1814,11 @@
       "module": "media",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M2",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Package parsing shall enforce strict archive limits and reject traversal, duplicates and digest mismatch.",
-      "failure_behavior": "Cap container/expanded total512MiB, payload32MiB, descriptor/registry2MiB and payload count2048.",
+      "failure_behavior": "Cap container/expanded total 512MiB, payload 32MiB, descriptor/registry 2MiB and payload count 2048.",
       "acceptance": {
         "scenario_id": "AC-MEDIA-006",
         "given": "an archive has unsafe paths, duplicate records or expansion beyond limits",
@@ -1823,6 +1878,7 @@
       "module": "media",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M2",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Installation and activation shall be separate idempotent transactions.",
@@ -1884,6 +1940,7 @@
       "module": "media",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M2",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Package integrity, publisher trust and purchase entitlement shall be verified by their own authorities.",
@@ -1947,6 +2004,7 @@
       "module": "ui",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M3",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "The product shall separate control-window chrome from the transparent always-on-top click-through gameplay overlay.",
@@ -2012,6 +2070,7 @@
       "module": "ui",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M3",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "The base live field shall preserve five enemy slots, own hero, four allied slots, central map and permanent right region.",
@@ -2020,7 +2079,7 @@
         "scenario_id": "AC-UI-002",
         "given": "frozen data and viewport while inspector/feed/tier changes",
         "when": "layout transitions run",
-        "then": "map x/y/width/height remain within1 CSS px and no page-level scroll is introduced"
+        "then": "map x/y/width/height remain within 1 CSS px and no page-level scroll is introduced"
       },
       "verification": {
         "required_evidence": [
@@ -2073,6 +2132,7 @@
       "module": "ui",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M3",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Production shall begin without fixture roster, fake inventory or preselected hero.",
@@ -2134,6 +2194,7 @@
       "module": "ui",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M3",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Enemy and unknown ally cards shall omit unknown-only skill/item rows.",
@@ -2195,6 +2256,7 @@
       "module": "ui",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M3",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Detailed inspector shall open only after explicit selection and show only admitted data.",
@@ -2257,6 +2319,7 @@
       "module": "ui",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M3",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Keyboard interaction shall use visible focus, meaningful names and ordered Escape behavior.",
@@ -2318,10 +2381,11 @@
       "module": "ui",
       "scope": "deferred",
       "priority": "later",
+      "target_milestone": "M7",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Manual enemy timers shall use a reviewed native game-clock store and label expiry estimated-ready.",
-      "failure_behavior": "Reviewed enemy ULT/BKB/TP timer scope, at most15keys; arbitrary fixture timers remain tests.",
+      "failure_behavior": "Reviewed enemy ULT/BKB/TP timer scope, at most 15 keys; arbitrary fixture timers remain tests.",
       "acceptance": {
         "scenario_id": "AC-UI-007",
         "given": "game clock pauses or becomes stale",
@@ -2381,6 +2445,7 @@
       "module": "voice",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M5",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "The microphone shall be off by default and opened only for a user-held PTT turn after local opt-in.",
@@ -2448,6 +2513,7 @@
       "module": "voice",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M5",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Default PTT Ctrl+Alt+V shall be remappable with registration conflict detection and transactional replacement.",
@@ -2511,9 +2577,10 @@
       "module": "voice",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M5",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
-      "statement": "Voice shall have one fenced active turn, minimum hold250ms and maximum15s.",
+      "statement": "Voice shall have one fenced active turn, minimum hold 250ms and maximum 15s.",
       "failure_behavior": "Late callbacks cannot resume the superseded request.",
       "acceptance": {
         "scenario_id": "AC-VOICE-003",
@@ -2574,9 +2641,10 @@
       "module": "voice",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M5",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
-      "statement": "Mic capture shall bound PCM to480000bytes of mono16kHz i16 data with2s open timeout.",
+      "statement": "Mic capture shall bound PCM to 480000 bytes of mono 16kHz i16 data with 2s open timeout.",
       "failure_behavior": "No persistence or indefinite decoder retention; STT ownership/lifetime must be closed before integration.",
       "acceptance": {
         "scenario_id": "AC-VOICE-004",
@@ -2641,6 +2709,7 @@
       "module": "voice",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M5",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "STT, transcript, free-form question, interpretation and answer shall remain local.",
@@ -2713,6 +2782,7 @@
       "module": "voice",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M5",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Voice answers shall use Normal priority, preemptible by announcer and critical audio; critical preemption shall not wait on Voice locks.",
@@ -2782,6 +2852,7 @@
       "module": "voice",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M5",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Voice shall distinguish preparing, missing model, device/permission error and timeout.",
@@ -2847,6 +2918,7 @@
       "module": "mem",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M5",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Player memory shall store only supported local aggregates with evidence provenance.",
@@ -2912,6 +2984,7 @@
       "module": "mem",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M5",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Memory snapshots shall use schema/source fingerprint and atomic replacement.",
@@ -2975,6 +3048,7 @@
       "module": "mem",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M5",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Forget shall durably advance a nondecreasing logical/epoch cutoff comparable with archive timestamps before deleting derived snapshots.",
@@ -3038,9 +3112,10 @@
       "module": "mem",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M5",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
-      "statement": "A completed-session summary shall contain at most3 evidence-linked points with timestamps.",
+      "statement": "A completed-session summary shall contain at most 3 evidence-linked points with timestamps.",
       "failure_behavior": "Do not call a model narrative a proven event.",
       "acceptance": {
         "scenario_id": "AC-MEM-004",
@@ -3103,6 +3178,7 @@
       "module": "mem",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M5",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Clearing memory shall preserve separately governed raw history unless the user explicitly deletes it.",
@@ -3168,6 +3244,7 @@
       "module": "advice",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M5",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Manual advice shall be noncritical, locally available when an admitted backend is ready, and preemptible.",
@@ -3233,6 +3310,7 @@
       "module": "advice",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M6",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Cloud gameplay context shall default off and require a separate field/purpose opt-in.",
@@ -3298,6 +3376,7 @@
       "module": "advice",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M6",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Cloud context shall be built only from coarse phase, allowed own stats, team score and fixed non-player instructions.",
@@ -3363,6 +3442,7 @@
       "module": "advice",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M6",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Cloud consent/backend/session changes shall invalidate sends, cache and late responses.",
@@ -3427,6 +3507,7 @@
       "module": "peer",
       "scope": "extension",
       "priority": "extension",
+      "target_milestone": "M6",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Every create/join shall require checked sharing consent and explicit activation in one action.",
@@ -3495,9 +3576,10 @@
       "module": "peer",
       "scope": "extension",
       "priority": "extension",
+      "target_milestone": "M6",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
-      "statement": "Peer publication shall require app570, playing activity, verified local owner, positive match ID, exact team and pregame/in-progress.",
+      "statement": "Peer publication shall require app 570, playing activity, verified local owner, positive match ID, exact team and pregame/in-progress.",
       "failure_behavior": "Do not replay an older valid source until a new admitted observation arrives.",
       "acceptance": {
         "scenario_id": "AC-PEER-002",
@@ -3559,6 +3641,7 @@
       "module": "peer",
       "scope": "extension",
       "priority": "extension",
+      "target_milestone": "M6",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Peer stats shall contain only own hero/level/HP/maxHP/mana percent/alive/respawn with exact bounds.",
@@ -3623,9 +3706,10 @@
       "module": "peer",
       "scope": "extension",
       "priority": "extension",
+      "target_milestone": "M6",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
-      "statement": "Rooms shall contain at most5 members including owner, last at most4hours and expire unsynced membership after30s.",
+      "statement": "Rooms shall contain at most 5 members including owner, last at most 4 hours and expire unsynced membership after 30s.",
       "failure_behavior": "Invite rotation invalidates future old-code joins but does not itself kick current members.",
       "acceptance": {
         "scenario_id": "AC-PEER-004",
@@ -3687,15 +3771,16 @@
       "module": "peer",
       "scope": "extension",
       "priority": "extension",
+      "target_milestone": "M6",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
-      "statement": "Peer freshness shall use accumulated monotonic durations and become stale after2000ms.",
+      "statement": "Peer freshness shall use accumulated monotonic durations and become stale after 2000ms.",
       "failure_behavior": "Do not compare wall clocks across devices or retain live vitals when IPC stops.",
       "acceptance": {
         "scenario_id": "AC-PEER-005",
         "given": "an observation is repeatedly polled without a new game sample",
         "when": "relay/native/UI age calculation advances",
-        "then": "polling never rejuvenates it;2000ms may be live and2001ms is stale/null"
+        "then": "polling never rejuvenates it; 2000ms may be live and 2001ms is stale/null"
       },
       "verification": {
         "required_evidence": [
@@ -3753,15 +3838,16 @@
       "module": "peer",
       "scope": "extension",
       "priority": "extension",
+      "target_milestone": "M6",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Peer transport shall use one sequential in-flight sync worker outside the alert path.",
-      "failure_behavior": "Use1500ms request timeout,32KiB reply cap and normal500ms cadence; no task per game tick.",
+      "failure_behavior": "Use 1500ms request timeout, 32KiB reply cap and normal 500ms cadence; no task per game tick.",
       "acceptance": {
         "scenario_id": "AC-PEER-006",
         "given": "a transport timeout occurs",
         "when": "retry logic runs",
-        "then": "bounded0.5–5s retry and successful null probe precede resuming samples"
+        "then": "bounded 0.5–5s retry and successful null probe precede resuming samples"
       },
       "verification": {
         "required_evidence": [
@@ -3819,6 +3905,7 @@
       "module": "peer",
       "scope": "extension",
       "priority": "extension",
+      "target_milestone": "M6",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Peer networking shall be native-owned HTTPS with literal loopback HTTP only for local testing.",
@@ -3889,6 +3976,7 @@
       "module": "peer",
       "scope": "extension",
       "priority": "extension",
+      "target_milestone": "M6",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Leave shall clear local credentials and peer samples immediately and fence pending responses.",
@@ -3955,6 +4043,7 @@
       "module": "peer",
       "scope": "extension",
       "priority": "extension",
+      "target_milestone": "M6",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Peer stats shall remain transient within authorized same-room/match/team viewing.",
@@ -4027,6 +4116,7 @@
       "module": "social",
       "scope": "extension",
       "priority": "extension",
+      "target_milestone": "M6",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Friends/presence/targeted invitations shall require private server-authorized account actions without gating guest rooms.",
@@ -4097,6 +4187,7 @@
       "module": "social",
       "scope": "extension",
       "priority": "extension",
+      "target_milestone": "M6",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Mutual friendship and optional presence shall not automatically share gameplay stats.",
@@ -4159,6 +4250,7 @@
       "module": "social",
       "scope": "extension",
       "priority": "extension",
+      "target_milestone": "M6",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Social joins shall use reviewed registered-relay proof and one-use expiring authority with transaction ordering.",
@@ -4221,6 +4313,7 @@
       "module": "obs",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M4b",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "OBS control shall be authenticated loopback WebSocket v5 and user-started with no implicit mic.",
@@ -4287,6 +4380,7 @@
       "module": "obs",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M4b",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Highlight planning shall consume admitted session-bound events before ordinary announcer priority filtering.",
@@ -4350,9 +4444,10 @@
       "module": "obs",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M4b",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
-      "statement": "A requested event clip shall target30s pre-roll and15s post-roll using actual buffer/save/trim timestamps.",
+      "statement": "A requested event clip shall target 30s pre-roll and 15s post-roll using actual buffer/save/trim timestamps.",
       "failure_behavior": "Saving the entire OBS buffer is not proof of exact trimming.",
       "acceptance": {
         "scenario_id": "AC-OBS-003",
@@ -4412,6 +4507,7 @@
       "module": "obs",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M4b",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "OBS failure, auth loss, disk pressure or restart shall degrade recording independently.",
@@ -4474,6 +4570,7 @@
       "module": "obs",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M4b",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Recording acceptance shall measure OBS separately and combined while retaining app budgets, latency and FPS gates.",
@@ -4538,6 +4635,7 @@
       "module": "update",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M8",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "The native updater shall validate signed manifests/artifacts from trusted endpoints independent of account.",
@@ -4598,6 +4696,7 @@
       "module": "update",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M8",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Update installation shall wait for a safe gameplay/media state.",
@@ -4656,6 +4755,7 @@
       "module": "update",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M8",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Stable promotion shall reuse the exact approved signed candidate artifact.",
@@ -4714,6 +4814,7 @@
       "module": "update",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M8",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Release rollback/repair shall respect version and data-migration compatibility.",
@@ -4772,9 +4873,10 @@
       "module": "premium",
       "scope": "deferred",
       "priority": "later",
+      "target_milestone": "M7",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
-      "statement": "Premium presentation shall require native-verified server authority; planned lease lifetime7days, refresh24h and max2installations.",
+      "statement": "Premium presentation shall require native-verified server authority; planned lease lifetime 7 days, refresh 24h and max 2 installations.",
       "failure_behavior": "Production issuing/key/RLS/device design is deferred.",
       "acceptance": {
         "scenario_id": "AC-PREMIUM-001",
@@ -4830,6 +4932,7 @@
       "module": "premium",
       "scope": "deferred",
       "priority": "later",
+      "target_milestone": "M7",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Expired/revoked/unverifiable premium authority shall reduce presentation to base without disturbing the live map.",
@@ -4889,6 +4992,7 @@
       "module": "premium",
       "scope": "deferred",
       "priority": "later",
+      "target_milestone": "M7",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Premium shall never gate safety/core or enlarge source/consent permissions.",
@@ -4951,9 +5055,10 @@
       "module": "quality",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M2",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
-      "statement": "Alert latency shall have p50≤250ms and every measured sample≤300ms over at least300samples per scenario/profile.",
+      "statement": "Alert latency shall have p50 ≤250ms and every measured sample ≤300ms over at least 300 samples per scenario/profile.",
       "failure_behavior": "Do not move T0 after frame-ready or replace hard maximum with p99.",
       "acceptance": {
         "scenario_id": "AC-QUALITY-001",
@@ -5016,9 +5121,10 @@
       "module": "quality",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M1",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
-      "statement": "Every1s normalized app-group CPU sample shall be≤10% and aggregate peak full Working Set≤900000000bytes.",
+      "statement": "Every 1s normalized app-group CPU sample shall be ≤10% and aggregate peak full Working Set ≤900000000 bytes.",
       "failure_behavior": "No excluding model/shared pages or substituting private/PSS/forced trim.",
       "acceptance": {
         "scenario_id": "AC-QUALITY-002",
@@ -5074,9 +5180,10 @@
       "module": "quality",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M3",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
-      "statement": "Game FPS loss shall be≤3% in each of at least3 overlay-off/on pairs of60s under matched device/segment/settings.",
+      "statement": "Game FPS loss shall be ≤3% in each of at least 3 overlay-off/on pairs of 60s under matched device/segment/settings.",
       "failure_behavior": "A pooled average cannot hide a failing pair.",
       "acceptance": {
         "scenario_id": "AC-QUALITY-003",
@@ -5132,15 +5239,16 @@
       "module": "quality",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M3",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
-      "statement": "Presence precision/recall shall be≥95%/90% and identity precision/recall≥95%/85% for each certified class.",
+      "statement": "Presence precision/recall shall be ≥95%/90% and identity precision/recall ≥95%/85% for each certified class.",
       "failure_behavior": "No train/holdout leakage or pooled substitution.",
       "acceptance": {
         "scenario_id": "AC-QUALITY-004",
-        "given": "at least50episodes/class in at least5held-out matches and20whole held-out matches exist",
+        "given": "at least 50 episodes/class in at least 5 held-out matches and 20 whole held-out matches exist",
         "when": "independent quality evaluation runs",
-        "then": "per-class results,95%confidence intervals and disagreement are reported"
+        "then": "per-class results, 95% confidence intervals and disagreement are reported"
       },
       "verification": {
         "required_evidence": [
@@ -5188,9 +5296,10 @@
       "module": "quality",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M3",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
-      "statement": "High-danger audible false alerts shall be≤1 per30minutes, actionable recall≥90% and false-safe calls0.",
+      "statement": "High-danger audible false alerts shall be ≤1 per 30 minutes, actionable recall ≥90% and false-safe calls 0.",
       "failure_behavior": "Death alone is not ground truth and no coverage cannot be safe.",
       "acceptance": {
         "scenario_id": "AC-QUALITY-005",
@@ -5245,15 +5354,16 @@
       "module": "quality",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M5",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
-      "statement": "Warm accepted voice turns shall begin audible answer within2s each and complete≥95% per language, with cold preparation≤10s.",
+      "statement": "Warm accepted voice turns shall begin audible answer within 2s each and complete ≥95% per language, with cold preparation ≤10s.",
       "failure_behavior": "Count failures/timeouts/rejects; synthetic scorer tests do not certify a model.",
       "acceptance": {
         "scenario_id": "AC-QUALITY-006",
-        "given": "at least100held-out utterances per language cover quiet/game-audio and separate speakers/sessions",
+        "given": "at least 100 held-out utterances per language cover quiet/game-audio and separate speakers/sessions",
         "when": "local STT/answer is evaluated",
-        "then": "English WER≤15%, Thai CER≤20%, intent/critical-slot accuracy≥90% and latency/completion pass"
+        "then": "English WER ≤15%, Thai CER ≤20%, intent/critical-slot accuracy ≥90% and latency/completion pass"
       },
       "verification": {
         "required_evidence": [
@@ -5308,9 +5418,10 @@
       "module": "quality",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M5",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
-      "statement": "All100overlap trials shall cancel stale voice/advice while retaining the critical acoustic deadline.",
+      "statement": "All 100 overlap trials shall cancel stale voice/advice while retaining the critical acoustic deadline.",
       "failure_behavior": "Report failed/cancelled trials without pruning the denominator.",
       "acceptance": {
         "scenario_id": "AC-QUALITY-007",
@@ -5374,9 +5485,10 @@
       "module": "quality",
       "scope": "mvp",
       "priority": "P0",
+      "target_milestone": "M8",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
-      "statement": "Every required OS/mode/geometry cell shall have at least10live sessions before certification.",
+      "statement": "Every required OS/mode/geometry cell shall have at least 10 live sessions before certification.",
       "failure_behavior": "A unit test, browser screenshot or commit does not substitute for the missing evidence.",
       "acceptance": {
         "scenario_id": "AC-QUALITY-008",

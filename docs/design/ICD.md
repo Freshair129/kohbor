@@ -2,8 +2,8 @@
 title: "Interface Control Document (ICD)"
 doc_id: "ICD"
 status: draft
-version: "0.3.1"
-updated: "2026-11-10"
+version: "0.3.2"
+updated: "2026-11-11"
 authority: "DEC-BASELINE; see DOCUMENT-CONTROL"
 owner_role: "Integration owner; people not assigned"
 approval_status: "not_approved"
@@ -26,8 +26,10 @@ For each interface, freeze: producer/consumer and authority; direction/transport
 
 | Surface | Authority | Contract |
 | --- | --- | --- |
-| Game → native | Local permitted game input | Input authenticity/limits/config decision; reject unsupported owner/session |
-| Native → control UI | Native admitted own data | contracts/own-snapshot.schema.json plus semantic age checks |
+| Game → native | Local permitted game input | [GSI-INTAKE-SPEC](GSI-INTAKE-SPEC.md): owned configuration, token authentication, body/rate bounds, admission and ownership; reject unsupported owner/session |
+| Native → control UI | Native admitted own data | contracts/own-snapshot.schema.json 2.0.0 (per-field availability) plus semantic checks |
+| Native → control UI | Independent health | contracts/runtime-status.schema.json (response of runtime.get_status) |
+| Control UI → native | Settings | contracts/user-settings.schema.json and contracts/settings-patch.schema.json |
 | Native events → local consumers | Session/source-owned event | contracts/event.schema.json; topic-specific payload must be closed |
 | Native → optional cloud | Separate advice consent | contracts/cloud-context.schema.json; closed projection only |
 | Native ↔ optional peer relay | Separate peer consent | contracts/peer-sample.schema.json within reviewed membership protocol |
@@ -36,12 +38,14 @@ For each interface, freeze: producer/consumer and authority; direction/transport
 
 The own snapshot is deliberately smaller than the eventual full UI model. It proves unknown/fresh semantics for own vitals, not all inventory/skill/cooldown interfaces. Do not infer missing full contracts from illustrative fields.
 
+Version 2.0.0 of the own snapshot replaces the all-or-nothing `own` object with per-field `{value, availability}` pairs so that one missing value (for example HP) is `unknown` while other admitted values stay observed (AC-DATA-002). A non-null value requires availability `fresh` or `stale`; a null value requires `unknown`, `invalid` or `unsupported`. A field can never be fresher than its snapshot. `estimated` belongs to the shared availability vocabulary (DDD) but is not valid for own game-state fields, which have no estimation method; derived contracts that admit estimates must name their method. Version 1.0.0 is retired; no reader needs to accept it because no build has shipped.
+
 ## Proposed native command catalog
 
 | Command family | Input and authorization | Completion semantics |
 | --- | --- | --- |
-| runtime.get_status | Trusted control context | Snapshot of independent source/resource/media health |
-| settings.patch | Allowlisted versioned patch | Atomic apply or typed rejection; never arbitrary filesystem/network |
+| runtime.get_status | Trusted control context | Snapshot of independent source/resource/media health; payload frozen as contracts/runtime-status.schema.json |
+| settings.patch | Allowlisted versioned patch | Atomic apply or typed rejection; never arbitrary filesystem/network; request frozen as contracts/settings-patch.schema.json with optimistic `base_revision` |
 | overlay.set_visibility / mute | Trusted user action | Idempotent effective-state receipt |
 | voice.configure / press / release | Local mic consent + valid binding | One fenced turn; UI status excludes transcript/audio |
 | advice.request / cancel | Local by default; separate cloud projection consent | Request ID and generation-bound result |

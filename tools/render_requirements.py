@@ -36,7 +36,7 @@ def render(root):
             acceptance = row['acceptance']
             verification = row['verification']
             parts.append(f"#### {row['id']} — {row['title']}\n\n")
-            parts.append(f"**Scope:** {row['scope']} · **Priority:** {row['priority']} · **Basis:** {row['basis']} / {row['decision_basis']}\n\n")
+            parts.append(f"**Scope:** {row['scope']} · **Priority:** {row['priority']} · **Target milestone:** {row['target_milestone']} · **Basis:** {row['basis']} / {row['decision_basis']}\n\n")
             parts.append(f"**Product needs:** {', '.join(row['product_need_ids'])} · **Primary design:** {row['primary_design_component_id']} · **Design components:** {', '.join(row['design_component_ids'])}\n\n")
             parts.append(row['statement'] + '\n\n')
             parts.append(f"**Failure behavior:** {row['failure_behavior']}\n\n")
@@ -60,7 +60,7 @@ def render(root):
     output = io.StringIO(newline='')
     writer = csv.writer(output)
     writer.writerow([
-        'product_need_ids', 'requirement_id', 'module', 'scope', 'priority',
+        'product_need_ids', 'requirement_id', 'module', 'scope', 'priority', 'target_milestone',
         'primary_design_component_id', 'design_component_ids', 'design_refs', 'contract_refs', 'spec_refs', 'diagram_ids', 'diagram_refs',
         'acceptance_scenario', 'procedure_ids', 'procedure_refs', 'required_evidence',
         'implementation_refs', 'evidence_refs', 'open_decisions', 'new_build_status'
@@ -68,7 +68,7 @@ def render(root):
     for row in rows:
         verification = row['verification']
         writer.writerow([
-            ';'.join(row['product_need_ids']), row['id'], row['module'], row['scope'], row['priority'],
+            ';'.join(row['product_need_ids']), row['id'], row['module'], row['scope'], row['priority'], row['target_milestone'],
             row['primary_design_component_id'], ';'.join(row['design_component_ids']), ';'.join(row['design_refs']),
             ';'.join(row['contract_refs']), ';'.join(row['spec_refs']), ';'.join(row['diagram_ids']), ';'.join(row['diagram_refs']), row['acceptance']['scenario_id'],
             ';'.join(verification['procedure_ids']), ';'.join(verification['procedure_refs']),

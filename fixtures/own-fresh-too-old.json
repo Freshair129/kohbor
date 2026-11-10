@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "2.0.0",
   "session_epoch": 3,
   "availability": "fresh",
   "source": {
@@ -9,12 +9,37 @@
     "age_ms": 2001
   },
   "own": {
-    "hero_id": "npc_dota_hero_axe",
-    "level": 12,
-    "hp": 850,
-    "max_hp": 1200,
-    "mana_percent": 43,
-    "alive": true,
-    "respawn_seconds": 0
+    "identity_revision": 1,
+    "team": "radiant",
+    "fields": {
+      "hero_id": {
+        "value": "npc_dota_hero_axe",
+        "availability": "fresh"
+      },
+      "level": {
+        "value": 12,
+        "availability": "fresh"
+      },
+      "hp": {
+        "value": 850,
+        "availability": "fresh"
+      },
+      "max_hp": {
+        "value": 1200,
+        "availability": "fresh"
+      },
+      "mana_percent": {
+        "value": 43,
+        "availability": "fresh"
+      },
+      "alive": {
+        "value": true,
+        "availability": "fresh"
+      },
+      "respawn_seconds": {
+        "value": 0,
+        "availability": "fresh"
+      }
+    }
   }
 }
