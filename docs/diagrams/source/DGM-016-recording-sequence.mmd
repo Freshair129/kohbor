@@ -1,0 +1,31 @@
+%% Draft diagram. Application verification: NOT_RUN.
+sequenceDiagram
+    actor U as Player
+    participant E as Native events
+    participant P as Clip planner
+    participant O as External OBS
+    participant I as Local clip index
+    U->>P: Explicitly start media session
+    P->>O: Authenticate loopback WebSocket v5
+    Note over U,O: No implicit microphone or remote upload
+    alt Authentication or startup fails
+        O-->>P: Recording unavailable
+        P-->>U: Reason-coded recording status
+    else Recorder ready
+        O-->>P: Replay buffer ready
+        E-)P: Admitted session event before audio filtering
+        E->>E: Continue native alert and audio policy
+        Note over E,P: Event delivery and clip work cannot block critical audio
+        P->>P: Target event minus 30s to event plus 15s
+        P->>P: Schedule save after required post-roll
+        P->>O: Request bounded replay save
+        alt Save fails, times out or session becomes stale
+            P-->>U: Failure, no saved clip claim
+            Note over E,O: Recorder failure leaves valid local alerts active
+        else Actual save receipt arrives
+            O-->>P: Saved path and actual buffer times
+            P->>P: Trim and verify actual covered interval
+            P->>I: Record verified output, coverage and gaps
+            I-->>U: Clip with actual interval, partial when needed
+        end
+    end

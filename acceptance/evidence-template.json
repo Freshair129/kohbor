@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0.0",
+  "receipt_id": "TO_BE_ASSIGNED",
+  "spec_version": "0.3.1",
+  "requirement_ids": [
+    "QUALITY-001"
+  ],
+  "scenario_id": "AC-QUALITY-001",
+  "evidence_class": "acoustic",
+  "status": "NOT_RUN",
+  "source_revision": null,
+  "artifact_sha256": null,
+  "executed_at_utc": null,
+  "operator": null,
+  "environment": {
+    "os_build": null,
+    "hardware": null,
+    "game_patch": null,
+    "profile": null
+  },
+  "commands": [],
+  "raw_evidence_paths": [],
+  "observed_result": null,
+  "limitations": [
+    "Template only; no application test has been executed."
+  ]
+}

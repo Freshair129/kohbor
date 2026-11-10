@@ -1,0 +1,24 @@
+%% Draft diagram. Application verification: NOT_RUN.
+flowchart TB
+    subgraph Release["Controlled release workflow"]
+        F["Freeze source revision and version"] --> G["Run source and contract gates"]
+        G --> B["Build and sign one candidate"]
+        B --> V["Verify exact artifact and required native evidence"]
+        V --> M{"Explicit authorized promotion approved?"}
+        M -->|No| H["Keep candidate; stable remains unchanged"]
+        M -->|Yes| S["Promote identical bytes and signature"]
+    end
+    S --> N["Native updater reads trusted manifest and artifact"]
+    N --> K{"Signatures and artifact hash valid?"}
+    K -->|No| R["Reject update; valid local core remains usable"]
+    K -->|Yes| T["Verified candidate staged"]
+    T --> Q{"Safe gameplay and media boundary?"}
+    Q -->|No| D["Defer without interrupting gameplay"]
+    D -->|Boundary changes| Q
+    Q -->|Yes| I["Install with declared migration and recovery rules"]
+    I --> J{"Installation succeeds?"}
+    J -->|Yes| A["Run verified installed version"]
+    J -->|No| C{"Approved compatible recovery available?"}
+    C -->|Yes| P["Repair or restore compatible approved artifact"]
+    C -->|No valid downgrade route| E["Prepare higher emergency patch version"]
+    E --> F

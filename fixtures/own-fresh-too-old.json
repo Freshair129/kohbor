@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0.0",
+  "session_epoch": 3,
+  "availability": "fresh",
+  "source": {
+    "kind": "gsi",
+    "generation": 2,
+    "sequence": 15,
+    "age_ms": 2001
+  },
+  "own": {
+    "hero_id": "npc_dota_hero_axe",
+    "level": 12,
+    "hp": 850,
+    "max_hp": 1200,
+    "mana_percent": 43,
+    "alive": true,
+    "respawn_seconds": 0
+  }
+}

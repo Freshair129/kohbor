@@ -1,0 +1,19 @@
+flowchart TB
+  Player(["Player"])
+  Game["Dota 2"]
+  Releases["Trusted update distribution"]
+  App["Desktop companion on Windows"]
+  OBS["External OBS"]
+  Cloud["Optional cloud advisor"]
+  Relay["Optional transient peer relay"]
+  Social["Optional account and social service"]
+  Player <-->|"Explicit controls and local feedback"| App
+  Game -->|"Own telemetry and visible pixels"| App
+  Releases -->|"Signed release artifacts"| App
+  App -->|"Explicit recording control"| OBS
+  App <-->|"Opt-in allowlist and reply"| Cloud
+  App -->|"Consented own vitals"| Relay
+  Relay -->|"Authorized peer vitals"| App
+  App <-->|"Purpose-specific account authority"| Social
+  Teammate(["Consenting teammate"])
+  Teammate <-->|"Authorized room access"| Relay

@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0.0",
+  "status": "example_technical_identity_pending",
+  "display_name": "Kohbor",
+  "display_name_th": "เกาะเบาะ",
+  "name_selected_by": "product_owner",
+  "name_selected_on": "2026-11-10",
+  "app_id": "<NEW_STABLE_REVERSE_DOMAIN_ID>",
+  "package_id": "<NEW_PACKAGE_ID>",
+  "data_directory": "<NEW_LOCAL_DIRECTORY>",
+  "uri_scheme": "<NEW_SCHEME>",
+  "media_signature_domain": "<FREEZE_NEW_DOMAIN>",
+  "peer_hash_domain": "<FREEZE_NEW_DOMAIN>",
+  "update_manifest_origin": null,
+  "legacy_compatibility": false,
+  "secret_keys_in_manifest": false
+}

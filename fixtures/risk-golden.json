@@ -1,0 +1,67 @@
+{
+  "status": "synthetic_formula_examples",
+  "profile": {
+    "ramp_start_s": 5,
+    "peak_s": 12,
+    "peak_risk": 0.7,
+    "decay_per_s": 0.03,
+    "floor": 0.1,
+    "multi_boost": 1.15,
+    "heading_amp": 0.22
+  },
+  "conditions": "Neutral heading, valid coverage, no death discount. Scores do not by themselves admit audible gank.",
+  "absolute_tolerance": 1e-06,
+  "single_hero": [
+    {
+      "missing_seconds": 4,
+      "expected_score": 0
+    },
+    {
+      "missing_seconds": 5,
+      "expected_score": 0
+    },
+    {
+      "missing_seconds": 8.5,
+      "expected_score": 0.35
+    },
+    {
+      "missing_seconds": 12,
+      "expected_score": 0.7
+    },
+    {
+      "missing_seconds": 20,
+      "expected_score": 0.46
+    },
+    {
+      "missing_seconds": 40,
+      "expected_score": 0.1
+    }
+  ],
+  "aggregate": [
+    {
+      "scores": [
+        0.7,
+        0.7
+      ],
+      "expected_score": 1.0
+    }
+  ],
+  "audible_examples": [
+    {
+      "condition": "score high; no coordination/verified-position evidence",
+      "expected": "no audible gank"
+    },
+    {
+      "condition": "same absence; cooldown elapsed",
+      "expected": "no new audible gank"
+    },
+    {
+      "condition": "score decays below clear; heroes still missing",
+      "expected": "no audible correction"
+    },
+    {
+      "condition": "capture coverage lost",
+      "expected": "withdraw unavailable; no all-clear"
+    }
+  ]
+}

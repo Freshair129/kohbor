@@ -1,0 +1,146 @@
+{
+  "schema_version": "1.0.0",
+  "baseline": "DEC-BASELINE",
+  "decisions": [
+    {
+      "id": "DEC-NAME",
+      "status": "delegated",
+      "milestone": "M0",
+      "blocks": "technical identity and application packaging",
+      "owner_role": "builder (technical identity)",
+      "safe_interim": "Use Kohbor / เกาะเบาะ as the product name. Keep unresolved technical identity fields null and complete them before the application skeleton; do not infer a domain or service origin from the name.",
+      "closure_evidence": "Completed technical identity manifest and relevant interface/trust decisions, with stable identifiers frozen and no unresolved technical placeholders in a shipped build. The owner-selected display name alone does not close DEC-NAME.",
+      "selected_display_name": "Kohbor",
+      "selected_display_name_th": "เกาะเบาะ",
+      "name_selected_on": "2026-11-10",
+      "name_selection_authority": "product_owner",
+      "remaining_decision": "Stable app/package IDs, data directory, URI scheme, signature/hash namespaces and an update origin when its service is specified; the display-name choice is already made."
+    },
+    {
+      "id": "DEC-INTERFACES",
+      "status": "open",
+      "milestone": "M0-M2",
+      "blocks": "independent component integration",
+      "owner_role": "architect",
+      "safe_interim": "Use illustrative schemas for spikes only; do not claim full interoperability.",
+      "closure_evidence": "Complete closed commands, event catalog, transport/auth/version rules and positive/negative fixture corpus."
+    },
+    {
+      "id": "DEC-MODELS",
+      "status": "open",
+      "milestone": "M0-M5",
+      "blocks": "local inference and certified vision",
+      "owner_role": "engineering lead",
+      "safe_interim": "Keep model capability unavailable until admitted; local core remains functional.",
+      "closure_evidence": "Vision artifact/class/calibration decisions before M3; local STT/answer model and consented corpus before M5; frozen hashes, quality and resource evidence for each."
+    },
+    {
+      "id": "DEC-VISUALS",
+      "status": "open",
+      "milestone": "M3",
+      "blocks": "pixel-approved UI and native safe area",
+      "owner_role": "product designer",
+      "safe_interim": "Use inherited topology with honest empty states.",
+      "closure_evidence": "Original annotated wireframes/tokens; viewport/DPI/native focus and safe-area evidence."
+    },
+    {
+      "id": "DEC-PACK-CRYPTO",
+      "status": "open",
+      "milestone": "M2",
+      "blocks": "trusted package interoperability",
+      "owner_role": "security architect",
+      "safe_interim": "Untrusted packages stay inactive.",
+      "closure_evidence": "New canonical signing bytes/domain, key distribution, known-answer and malformed-archive tests."
+    },
+    {
+      "id": "DEC-SESSION",
+      "status": "open",
+      "milestone": "M5",
+      "blocks": "outcome-based memory aggregates",
+      "owner_role": "product and engineering",
+      "safe_interim": "Partial history labeled partial; no outcome or complete-session summary without evidence.",
+      "closure_evidence": "Complete/partial/unknown definition and restart/reconnect/outcome fixtures."
+    },
+    {
+      "id": "DEC-RETENTION",
+      "status": "open",
+      "milestone": "M5",
+      "blocks": "automatic local deletion",
+      "owner_role": "product owner",
+      "safe_interim": "Bound new writes; stop recording on disk pressure; no destructive auto-cleanup.",
+      "closure_evidence": "Documented quotas/lifetimes and explicit user deletion behavior with recovery tests."
+    },
+    {
+      "id": "DEC-PREMIUM",
+      "status": "deferred",
+      "milestone": "M7",
+      "blocks": "production premium grant",
+      "owner_role": "service/security architect",
+      "safe_interim": "Base UI; authority absent; premium fixtures only in tests.",
+      "closure_evidence": "Accepted subject/device/RLS/key/revocation/rollback design and native signed-lease tests."
+    },
+    {
+      "id": "DEC-SOCIAL",
+      "status": "open",
+      "milestone": "M6",
+      "blocks": "hosted social integration",
+      "owner_role": "service architect",
+      "safe_interim": "Guest peer flow and local core independent; unavailable where prerequisites absent.",
+      "closure_evidence": "Private schema, permission matrix, ticket protocol, transaction order, retention, ops and races."
+    },
+    {
+      "id": "DEC-GAME-DATA",
+      "status": "open",
+      "milestone": "M3",
+      "blocks": "certified classes, abilities and damage",
+      "owner_role": "game-data owner",
+      "safe_interim": "Unknown unsupported fields and no action-damage claim.",
+      "closure_evidence": "Patch/revision provenance, class coverage, ownership fixtures and exact damage calculations."
+    },
+    {
+      "id": "DEC-RISK-DETAIL",
+      "status": "open",
+      "milestone": "M3",
+      "blocks": "complete heuristic parity",
+      "owner_role": "algorithm owner",
+      "safe_interim": "Reference score is informational only; no audible missing-gank until evidence admission is frozen. Never claim source parity or emit correction from time decay.",
+      "closure_evidence": "Complete coordinated movement/disappearance and continuous-reappearance gates, death-window/heading/ETA details and positive/negative golden traces; cooldown policy retained."
+    },
+    {
+      "id": "DEC-CRITICAL-MEDIA",
+      "status": "open",
+      "milestone": "M2-M4",
+      "blocks": "critical audio readiness",
+      "owner_role": "media/product owner",
+      "safe_interim": "Show not-ready status; do not invent event speech.",
+      "closure_evidence": "Authorized verified critical clips, mapping, latency/acoustic evidence."
+    },
+    {
+      "id": "DEC-NATIVE-EVIDENCE",
+      "status": "open",
+      "milestone": "M4-M8",
+      "blocks": "native/live certification",
+      "owner_role": "validation owner",
+      "safe_interim": "NOT_RUN or INDETERMINATE, not PASS.",
+      "closure_evidence": "Actual device/profile/OS/match/audio measurements and exact artifact receipts."
+    },
+    {
+      "id": "DEC-VOICE-BUFFER",
+      "status": "open",
+      "milestone": "M5",
+      "blocks": "STT PCM handoff integration",
+      "owner_role": "voice/security engineer",
+      "safe_interim": "PTT capture slice may end by discarding bytes and reporting STT unavailable; never retain runtime audio/transcript persistently.",
+      "closure_evidence": "Exact capture-stream termination, single PCM owner, bounded decode lifetime, zeroization deadline and cancellation/race tests at every stage within fixed memory/latency budgets."
+    },
+    {
+      "id": "DEC-OBS-BUDGET",
+      "status": "open",
+      "milestone": "M4b-M8",
+      "blocks": "overall recording-profile resource qualification",
+      "owner_role": "product and performance engineer",
+      "safe_interim": "Report app and external OBS separately and combined; retain app10%/900000000byte and recording-mode acoustic/FPS gates.",
+      "closure_evidence": "Recorded decision on combined recording-profile resource acceptance without pretending an unspecified combined cap already exists."
+    }
+  ]
+}

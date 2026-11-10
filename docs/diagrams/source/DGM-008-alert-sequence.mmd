@@ -1,0 +1,36 @@
+%% Draft diagram. Application verification: NOT_RUN.
+sequenceDiagram
+    participant S as Visible source
+    participant E as Admission
+    participant N as Native alert
+    participant V as Voice
+    participant A as Native audio
+    S->>E: Cycle due T0, then capture
+    E->>E: Check session, geometry and coverage
+    alt Coverage or session invalid
+        E->>N: Withdraw affected vision claims
+        N->>A: Cancel unsupported paired playback
+        Note over N,A: Silent suspension, no spoken all-clear
+        Note over N: Retain cooldown history across gaps
+    else Admitted current observation
+        E->>N: Sightings and qualified absence
+        N->>N: Evaluate frozen evidence admission
+        Note over N: Score alone never admits sound
+        alt Admission decision or critical media unresolved
+            N-->>E: Missing-gank audio unavailable
+        else Evidence or temporal guards fail
+            N-->>E: No warning, reason-coded outcome
+        else All warning guards pass
+            Note over N: New episode, global 30s, each hero 60s
+            N-)V: Advance cancellation generation
+            Note over N,V: No Voice lock, cloud or renderer wait
+            N->>A: Play verified prewarmed critical pair
+            alt Playback succeeds
+                A-->>N: Measured first audible sample T3
+            else Playback fails or becomes stale
+                A-->>N: Cancel pair, no successful sound claim
+            end
+        end
+    end
+    Note over N: Correction needs all alerted heroes reappeared
+    Note over N,A: Also below revision score, never time decay alone

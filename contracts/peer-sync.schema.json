@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/spec/peer-sync.schema.json",
+  "title": "peer-sync.schema.json",
+  "description": "Proposed neutral contract; see interface maturity and semantic rules in docs/design/ICD.md.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "room_generation": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "scope": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "match_key": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "team": {
+              "enum": [
+                "radiant",
+                "dire"
+              ]
+            }
+          },
+          "required": [
+            "match_key",
+            "team"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "sample": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "hero_id": {
+              "type": "string",
+              "pattern": "^npc_dota_hero_[a-z0-9_]{1,100}$"
+            },
+            "level": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30
+            },
+            "hp": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100000
+            },
+            "max_hp": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000
+            },
+            "mana_percent": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "alive": {
+              "type": "boolean"
+            },
+            "respawn_seconds": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 600
+            },
+            "source_age_ms": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000
+            }
+          },
+          "required": [
+            "hero_id",
+            "level",
+            "hp",
+            "max_hp",
+            "mana_percent",
+            "alive",
+            "respawn_seconds",
+            "source_age_ms"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "schema_version",
+    "sequence",
+    "room_generation",
+    "scope",
+    "sample"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "sample": {
+            "type": "object"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "scope": {
+            "type": "object",
+            "properties": {
+              "match_key": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "team": {
+                "enum": [
+                  "radiant",
+                  "dire"
+                ]
+              }
+            },
+            "required": [
+              "match_key",
+              "team"
+            ],
+            "additionalProperties": false
+          }
+        }
+      }
+    }
+  ]
+}

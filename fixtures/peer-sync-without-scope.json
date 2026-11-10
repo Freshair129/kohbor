@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0.0",
+  "sequence": 5,
+  "room_generation": 1,
+  "scope": null,
+  "sample": {
+    "hero_id": "npc_dota_hero_axe",
+    "level": 12,
+    "hp": 850,
+    "max_hp": 1200,
+    "mana_percent": 43,
+    "alive": true,
+    "respawn_seconds": 0,
+    "source_age_ms": 50
+  }
+}

@@ -1,0 +1,23 @@
+flowchart TB
+  subgraph Windows["Player's Windows computer"]
+    direction TB
+    Game["Dota 2 process"]
+    subgraph Budget["App accounting: CPU <= 10%; Working Set <= 900,000,000 bytes"]
+      direction TB
+      Native["Rust host: Job setup before children"]
+      WebView["WebView2 control and overlay"]
+      Workers["Owned helpers and active models"]
+      LocalRelay["Local application relay, if deployed"]
+      Native -->|"Validated IPC"| WebView
+      Native -->|"Bounded local work"| Workers
+      Native -.->|"Conditional local route"| LocalRelay
+    end
+    OBS["External OBS: outside app budget"]
+    Game -->|"Loopback GSI and DXGI observations"| Native
+    Native -->|"Authenticated loopback WebSocket v5"| OBS
+  end
+  Remote["Optional remote cloud, peer and account services"]
+  Native <-->|"Purpose-specific adapters"| Remote
+  Recording["Recording evidence: app, OBS and combined"]
+  OBS --> Recording
+  Native --> Recording

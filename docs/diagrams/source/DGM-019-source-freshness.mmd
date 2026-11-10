@@ -1,0 +1,41 @@
+stateDiagram-v2
+  direction TB
+  [*] --> Source
+
+  state "Own-source state" as Source {
+    direction TB
+    [*] --> Unknown
+    Unknown --> Fresh : new admitted sample, age at most 2000 ms
+    Unknown --> Stale : admitted sample already over 2000 ms
+    Unknown --> Invalid : source admission fails
+    Unknown --> Unsupported : unsupported source scope
+    Fresh --> Fresh : new admitted current-epoch sample, age at most 2000 ms
+    Fresh --> Stale : age exceeds 2000 ms without new observation
+    Fresh --> Invalid : admission fails / withdraw live values
+    Fresh --> Unsupported : source scope becomes unsupported
+    Stale --> Invalid : admission fails
+    Stale --> Unsupported : source scope becomes unsupported
+    Stale --> Fresh : new admitted sample, age at most 2000 ms
+    Invalid --> Fresh : new admitted sample, age at most 2000 ms
+    Unsupported --> Fresh : support validated and new admitted fresh sample
+  }
+
+  Source --> Source : source generation or confirmed session boundary / fence and reset values
+
+  note right of Fresh
+    Age 2000 ms may be fresh; 2001 ms is stale.
+    Polling and invalid input never renew source age.
+    Late old-generation callbacks are discarded.
+  end note
+  note right of Invalid
+    Withdraw own live values and peer publication.
+    Unknown or invalid is not numeric zero.
+    Retain verified match identity and watermark
+    until actual boundary evidence.
+  end note
+  note right of Source
+    Freshness and match lifecycle are independent.
+    A source reset alone does not create a new match.
+    Historical values may be labelled stale.
+  end note
+

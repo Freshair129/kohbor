@@ -1,0 +1,33 @@
+flowchart TB
+  subgraph Evidence["Local evidence and persistence"]
+    direction TB
+    Own["Admitted own facts"]
+    Pixels["Read-only capture pixels"]
+    Vision["Admitted vision facts"]
+    Events["Local events with source qualification"]
+    Journal["Local JSONL journal"]
+    Aggregate["Supported aggregate builder"]
+    Cutoff["Durable forget cutoff"]
+    Memory["Versioned memory snapshot"]
+    Summary["Up to three sourced summary claims"]
+    Pixels --> Vision
+    Own -->|"Permitted event facts"| Events
+    Vision -->|"Permitted event facts"| Events
+    Events --> Journal
+    Journal --> Aggregate
+    Cutoff -->|"Exclude earlier sources"| Aggregate
+    Aggregate --> Memory
+    Journal -->|"Completion and source references"| Summary
+  end
+  subgraph Voice["Transient voice: no archive or export"]
+    direction TB
+    PCM["Held-PTT audio"]
+    Answer["Local STT and answer runtime"]
+    PCM --> Answer
+  end
+  subgraph Peer["Transient peer: no history or AI"]
+    direction TB
+    Vitals["Authorized received vitals"]
+    Display["Fresh peer display"]
+    Vitals -->|"Membership and age guards"| Display
+  end

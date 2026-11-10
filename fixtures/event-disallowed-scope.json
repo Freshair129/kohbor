@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0.0",
+  "event_id": "synthetic-event-001",
+  "session_epoch": 3,
+  "source_generation": 2,
+  "sequence": 18,
+  "occurred_monotonic_ms": 45000,
+  "source": "vision",
+  "scope": "cloud",
+  "event_type": "enemy_missing",
+  "subject": "observed_enemy",
+  "payload": {
+    "hero_id": "npc_dota_hero_axe",
+    "risk_score": null,
+    "duration_ms": 5001,
+    "estimated_eta_ms": null,
+    "reason": "observed"
+  }
+}

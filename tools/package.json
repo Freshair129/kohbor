@@ -1,0 +1,17 @@
+{
+  "name": "rebuild-spec-documentation",
+  "version": "0.3.1",
+  "private": true,
+  "description": "Pinned tools for documentation diagrams; not application runtime dependencies",
+  "engines": {
+    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
+  },
+  "scripts": {
+    "render": "node render_diagrams.mjs"
+  },
+  "dependencies": {
+    "jsdom": "31.0.0",
+    "mermaid": "12.3.0",
+    "svgdom": "0.1.29"
+  }
+}

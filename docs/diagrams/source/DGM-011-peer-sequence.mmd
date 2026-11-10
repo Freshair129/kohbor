@@ -1,0 +1,43 @@
+sequenceDiagram
+  actor Player
+  participant UI as Control UI
+  participant Native as Native peer owner
+  participant Relay as Authorized relay
+  participant Peer as Peer native owner
+
+  Player->>UI: Check fresh sharing consent and create or join
+  UI->>Native: Explicit action and consent
+  Native->>Native: Validate relay and consent generation
+  Native->>Relay: Request scoped membership
+  Relay-->>Native: Admitted membership or rejection
+  Native-->>UI: Membership state without credentials
+  Note over Native,Relay: Non-null samples require room, match and team binding
+  Note over Relay,Peer: Peer has independent consent and admitted membership
+
+  loop Valid membership, one in-flight sync
+    Peer->>Relay: Its admitted narrow own sample or null
+    Native->>Native: Recheck ownership, scope, source age and sequence
+    alt Own sample admitted and fresh
+      Native->>Relay: Narrow own vitals
+    else Source invalid, stale or unavailable
+      Native->>Relay: Null sample, withdraw prior publication
+    end
+    Relay-->>Native: Authorized peer projection
+    Native->>Native: Check scope, generation and accumulated age
+    Native-->>UI: Current admitted vitals or stale/null
+  end
+  Note over UI,Peer: Peer vitals remain transient, no persistence, AI or history
+
+  Player->>UI: Leave
+  UI->>Native: Leave now
+  Native->>Native: Increment generation, clear credentials and samples
+  Native-->>UI: Idle with no peer vitals
+  Native->>Relay: Best-effort membership removal
+  opt Delayed join or sync completion
+    Relay-->>Native: Reply for old generation
+    Native->>Native: Discard, never reconnect or repopulate
+    opt Late join created an orphan membership
+      Native->>Relay: Best-effort orphan cleanup
+    end
+  end
+

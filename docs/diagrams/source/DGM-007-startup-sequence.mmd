@@ -1,0 +1,21 @@
+%% Draft diagram. Application verification: NOT_RUN.
+sequenceDiagram
+    actor U as Player
+    participant H as Native host
+    participant J as Windows Job
+    participant C as Local core
+    participant V as UI and helpers
+    U->>H: Launch
+    H->>J: Create, configure and assign 10% CPU cap
+    alt Containment setup fails
+        J-->>H: Setup error
+        H-->>U: Safe error and exit 1
+        Note over H,V: No WebView or sidecar creation
+    else Containment established
+        J-->>H: Contained runtime
+        H->>C: Start local services
+        H->>V: Create UI and owned helpers
+        C-->>V: Separate source and readiness states
+        Note over H,C: No account, network or premium gate
+        Note over C,V: Optional failures keep valid local functions
+    end

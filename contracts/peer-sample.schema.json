@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/spec/peer-sample.schema.json",
+  "title": "peer-sample.schema.json",
+  "description": "Proposed neutral contract; see interface maturity and semantic rules in docs/design/ICD.md.",
+  "type": "object",
+  "properties": {
+    "hero_id": {
+      "type": "string",
+      "pattern": "^npc_dota_hero_[a-z0-9_]{1,100}$"
+    },
+    "level": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 30
+    },
+    "hp": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100000
+    },
+    "max_hp": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100000
+    },
+    "mana_percent": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "alive": {
+      "type": "boolean"
+    },
+    "respawn_seconds": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 600
+    },
+    "source_age_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10000
+    }
+  },
+  "required": [
+    "hero_id",
+    "level",
+    "hp",
+    "max_hp",
+    "mana_percent",
+    "alive",
+    "respawn_seconds",
+    "source_age_ms"
+  ],
+  "additionalProperties": false
+}

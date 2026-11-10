@@ -1,0 +1,31 @@
+stateDiagram-v2
+  direction TB
+  [*] --> Unavailable
+  Unavailable --> Observing : valid coverage and rebuilt baseline
+  Observing --> Alerted : all audible admission guards pass
+  Alerted --> Alerted : score decay alone / no correction
+  Alerted --> RevisionCheck : all alerted heroes confirmed visible / clear latch
+  state RevisionCheck <<choice>>
+  RevisionCheck --> Observing : score below revision threshold / spoken correction
+  RevisionCheck --> Observing : score at or above threshold / no correction
+  Observing --> Unavailable : coverage or session invalid
+  Alerted --> Unavailable : coverage or session invalid / silent suspend
+
+  note right of Observing
+    Observing does not mean safe.
+    Evaluate current data on entry without an extra tick.
+    Score alone never grants audible admission.
+  end note
+  note right of Alerted
+    Valid game, identities, coverage and evidence.
+    Danger score and nonempty contributor set.
+    New absence episodes; global 30 s and per-hero 60 s.
+    Verified critical media; native audio authority.
+  end note
+  note right of Unavailable
+    Missing-gank voice stays unavailable
+    until DEC-RISK-DETAIL closes.
+    No all-clear from gaps, invalidity or decay.
+    Other admitted local functions remain independent.
+  end note
+

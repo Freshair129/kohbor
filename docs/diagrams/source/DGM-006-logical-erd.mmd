@@ -1,0 +1,7 @@
+erDiagram
+  direction TB
+  MATCH_SESSION ||--o{ LOCAL_EVENT : contains
+  MATCH_SESSION ||--o| SUMMARY : supports
+  LOCAL_EVENT }o--o{ CLIP_RECORD : evidences
+  LOCAL_EVENT }o--o{ MEMORY_SNAPSHOT : supports
+  STATIC_CATALOG_REVISION ||--o{ LOCAL_EVENT : qualifies

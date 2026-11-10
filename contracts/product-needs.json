@@ -1,0 +1,200 @@
+{
+  "schema_version": "1.0.0",
+  "spec_version": "0.3.1",
+  "status": "draft",
+  "needs": [
+    {
+      "id": "PN-001",
+      "title": "Independent local startup",
+      "actor": "Local player",
+      "need": "Start and use available local functions without an account or network, with safe game integration setup.",
+      "outcome": "The player can configure and play locally; account transitions preserve gameplay and unrelated settings.",
+      "requirement_ids": [
+        "CORE-001",
+        "CORE-003",
+        "CORE-004",
+        "CORE-005"
+      ]
+    },
+    {
+      "id": "PN-002",
+      "title": "Trustworthy observations",
+      "actor": "Player in a match",
+      "need": "Distinguish current admitted own-player and visible-enemy facts from unknown, stale or unsupported information.",
+      "outcome": "Displayed facts have valid identity, source, freshness and game-data provenance; absent evidence is never fabricated.",
+      "requirement_ids": [
+        "DATA-001",
+        "DATA-002",
+        "DATA-003",
+        "DATA-004",
+        "DATA-005",
+        "DATA-006",
+        "VISION-001",
+        "VISION-002",
+        "VISION-003",
+        "QUALITY-004"
+      ]
+    },
+    {
+      "id": "PN-003",
+      "title": "Justified timely warnings",
+      "actor": "Player in a match",
+      "need": "Receive useful urgent warnings and evidence-based corrections without repeated audio or optional-service delays.",
+      "outcome": "Native warnings meet their acoustic and quality gates, with admitted evidence, deduplication, correction and verified critical media.",
+      "requirement_ids": [
+        "ALERT-001",
+        "ALERT-002",
+        "ALERT-003",
+        "ALERT-004",
+        "ALERT-005",
+        "ALERT-006",
+        "ALERT-007",
+        "QUALITY-001",
+        "QUALITY-005"
+      ]
+    },
+    {
+      "id": "PN-004",
+      "title": "Consistent event media",
+      "actor": "Media user",
+      "need": "Hear and see the correct event media from the selected verified pack and understand installation versus activation.",
+      "outcome": "One taxonomy and audio authority use the active verified revision; hostile packages fail safely and trust domains remain distinct.",
+      "requirement_ids": [
+        "MEDIA-001",
+        "MEDIA-002",
+        "MEDIA-003",
+        "MEDIA-004",
+        "MEDIA-005",
+        "MEDIA-006",
+        "MEDIA-007",
+        "MEDIA-008"
+      ]
+    },
+    {
+      "id": "PN-005",
+      "title": "Readable unobtrusive match interface",
+      "actor": "Player in a match",
+      "need": "Read the field at a glance and inspect by choice through an accessible interface that preserves game performance and input.",
+      "outcome": "The control window and passive overlay display honest states with stable layout, focus behavior and verified resource limits.",
+      "requirement_ids": [
+        "UI-001",
+        "UI-002",
+        "UI-003",
+        "UI-004",
+        "UI-005",
+        "UI-006",
+        "CORE-002",
+        "QUALITY-002",
+        "QUALITY-003"
+      ]
+    },
+    {
+      "id": "PN-006",
+      "title": "Private local voice interaction",
+      "actor": "Player asking a question",
+      "need": "Hold a remappable key to ask a local voice question, understand preparation or failure, and yield to urgent audio.",
+      "outcome": "One consented bounded turn remains local, meets per-language quality and timing gates, and cancels correctly under interruption.",
+      "requirement_ids": [
+        "VOICE-001",
+        "VOICE-002",
+        "VOICE-003",
+        "VOICE-004",
+        "VOICE-005",
+        "VOICE-006",
+        "VOICE-007",
+        "QUALITY-006",
+        "QUALITY-007"
+      ]
+    },
+    {
+      "id": "PN-007",
+      "title": "Controlled strategic advice",
+      "actor": "Player requesting advice",
+      "need": "Request local manual advice and separately decide whether narrowly defined context may reach a cloud provider.",
+      "outcome": "Advice uses the admitted backend and permitted projection; consent, backend or session changes fence obsolete requests and answers.",
+      "requirement_ids": [
+        "ADVICE-001",
+        "ADVICE-002",
+        "ADVICE-003",
+        "ADVICE-004"
+      ]
+    },
+    {
+      "id": "PN-008",
+      "title": "Evidence-based memory and forgetting",
+      "actor": "Returning player",
+      "need": "Review supported local history and concise summaries, then clear derived memory without silently deleting separate history.",
+      "outcome": "Local aggregates and bounded summaries retain evidence provenance; durable forgetting prevents deleted knowledge from reappearing.",
+      "requirement_ids": [
+        "MEM-001",
+        "MEM-002",
+        "MEM-003",
+        "MEM-004",
+        "MEM-005"
+      ]
+    },
+    {
+      "id": "PN-009",
+      "title": "Deliberate cooperative vitals sharing",
+      "actor": "Consenting teammate",
+      "need": "Share narrow own-player vitals within the correct room, match and team, inspect freshness and leave predictably.",
+      "outcome": "Fresh consent and verified membership govern transient peer data; bounded native transport and cancellation preserve local alerts and privacy.",
+      "requirement_ids": [
+        "PEER-001",
+        "PEER-002",
+        "PEER-003",
+        "PEER-004",
+        "PEER-005",
+        "PEER-006",
+        "PEER-007",
+        "PEER-008",
+        "PEER-009"
+      ]
+    },
+    {
+      "id": "PN-010",
+      "title": "Separate social and sharing permissions",
+      "actor": "Optional account user",
+      "need": "Use friends, presence and invitations without making friendship or sign-in equivalent to gameplay-sharing consent.",
+      "outcome": "Server-authorized social actions and transactional invitations remain independent of guest room access and explicit stats sharing.",
+      "requirement_ids": [
+        "SOCIAL-001",
+        "SOCIAL-002",
+        "SOCIAL-003"
+      ]
+    },
+    {
+      "id": "PN-011",
+      "title": "Explicit reliable local highlights",
+      "actor": "Player recording media",
+      "need": "Record local highlights by choice and understand actual saved coverage while recording failures remain isolated.",
+      "outcome": "Authenticated OBS control produces verified local clips with measured coverage, separate resource accounting and no implicit microphone or CV replacement.",
+      "requirement_ids": [
+        "OBS-001",
+        "OBS-002",
+        "OBS-003",
+        "OBS-004",
+        "OBS-005",
+        "VISION-004"
+      ]
+    },
+    {
+      "id": "PN-012",
+      "title": "Predictable updates and capability changes",
+      "actor": "Player and release maintainer",
+      "need": "Receive verified updates and predictable optional capability changes without losing local core, map context or control.",
+      "outcome": "Safe update/recovery and identical-artifact promotion have configuration evidence; future premium authority and estimated timers preserve base gameplay and data permissions.",
+      "requirement_ids": [
+        "UPDATE-001",
+        "UPDATE-002",
+        "UPDATE-003",
+        "UPDATE-004",
+        "PREMIUM-001",
+        "PREMIUM-002",
+        "PREMIUM-003",
+        "UI-007",
+        "QUALITY-008"
+      ]
+    }
+  ]
+}

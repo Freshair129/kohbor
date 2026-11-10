@@ -1,0 +1,33 @@
+%% Draft diagram. Application verification: NOT_RUN.
+sequenceDiagram
+    actor U as Player
+    participant M as Memory owner
+    participant C as Cutoff store
+    participant D as Derived snapshot
+    participant H as Raw history
+    U->>M: Forget learned memory
+    M->>C: Durably advance nondecreasing cutoff
+    Note over M,C: Logical or epoch domain comparable with archives
+    alt Durable write fails
+        C-->>M: Failure
+        M-->>U: Error, no success acknowledgement
+    else Cutoff is durable
+        C-->>M: Persisted cutoff
+        M->>D: Discard derived memory
+        D-->>M: Derived state cleared
+        M-->>U: Forget acknowledged
+    end
+    Note over D,H: Raw history preserved, deletion is a separate action
+    opt Later restart or rebuild
+        M->>C: Load durable cutoff
+        alt Missing validity due to corrupt or unreadable cutoff
+            C-->>M: Invalid cutoff
+            Note over M,H: Fail closed, do not relearn history
+        else Valid cutoff
+            C-->>M: Current cutoff
+            M->>H: Read permitted sources newer than cutoff
+            H-->>M: Eligible source evidence
+            Note over M,H: Exclude same-granularity timestamps conservatively
+            M->>D: Atomically replace versioned snapshot
+        end
+    end

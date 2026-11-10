@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0.0",
+  "phase": "mid",
+  "own": {
+    "hero_id": "npc_dota_hero_axe",
+    "level": 12,
+    "kills": 3,
+    "deaths": 2,
+    "assists": 7,
+    "net_worth": 7800,
+    "gold": 600,
+    "hp_percent": 70.8,
+    "mana_percent": 43
+  },
+  "team_score": {
+    "radiant": 17,
+    "dire": 15
+  },
+  "enemy_position": {
+    "x": 0.3,
+    "y": 0.4
+  }
+}

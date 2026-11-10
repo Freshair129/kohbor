@@ -1,0 +1,27 @@
+stateDiagram-v2
+  direction TB
+  [*] --> Waiting
+  Waiting --> Active : verified owner and supported session
+  Waiting --> Unsupported : unsupported game mode
+  Unsupported --> Waiting : mode or session changes
+  Active --> Ended : source-supported end
+  Active --> Waiting : confirmed owner or actual session change
+  Ended --> Waiting : next session
+
+  note right of Active
+    Source invalidity, age or a capture gap
+    withdraws only affected live assertions.
+    Preserve verified identity and watermark.
+    A regressed clock alone is not a new match.
+    CV geometry cannot invalidate valid GSI.
+  end note
+  note right of Waiting
+    Confirmed new owner or session increments epoch.
+    Fence old work; reset relevant baselines and selection.
+    Source-health transitions are tracked separately.
+  end note
+  note right of Ended
+    Completion needs explicit source evidence.
+    Crash or disconnect leaves partial or unknown outcome.
+  end note
+

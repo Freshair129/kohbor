@@ -1,0 +1,34 @@
+stateDiagram-v2
+  direction TB
+  [*] --> Idle
+  Idle --> Membership
+
+  state "Native membership lifecycle" as Membership {
+    direction TB
+    [*] --> Connecting
+    Connecting --> Connected : membership verified
+    Connected --> Reconnecting : transient transport failure
+    Reconnecting --> Reconnecting : bounded retry
+    Reconnecting --> Connected : successful null probe then admitted sync
+  }
+
+  Connecting --> Idle : error or cancellation
+  Membership --> Idle : leave, revoke, kick, expiry or unauthorized
+
+  note right of Idle
+    Membership entry requires fresh checked consent and explicit create or join.
+    No saved room credentials or automatic rejoin.
+    A new join requires new checked consent.
+  end note
+  note right of Membership
+    Native owner; one bounded sync worker.
+    Leave clears credentials and samples immediately.
+    Increment generation; discard late replies.
+    Remote deletion and orphan cleanup are best effort.
+    Room, match, team and freshness still gate each sample.
+  end note
+  note right of Reconnecting
+    Resume samples only after the null recovery probe.
+    Polling does not refresh an old observation.
+  end note
+

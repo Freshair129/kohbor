@@ -1,0 +1,143 @@
+{
+  "schema_version": "1.0.0",
+  "codes": [
+    {
+      "code": "SOURCE_UNAVAILABLE",
+      "recovery": "Wait for admitted source; preserve independent local services.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false
+    },
+    {
+      "code": "SOURCE_STALE",
+      "recovery": "Show stale age and withdraw live assertions.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false
+    },
+    {
+      "code": "SOURCE_INVALID",
+      "recovery": "Invalidate this source; do not renew freshness.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false
+    },
+    {
+      "code": "UNSUPPORTED_PROFILE",
+      "recovery": "Show required configuration/calibration.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false
+    },
+    {
+      "code": "OWNER_UNVERIFIED",
+      "recovery": "Do not expose own-only or peer data.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false
+    },
+    {
+      "code": "CONSENT_REQUIRED",
+      "recovery": "Present exact separate permission; no send before consent.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false
+    },
+    {
+      "code": "CANCELLED",
+      "recovery": "Discard old work without replay.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false
+    },
+    {
+      "code": "CPU_CONTAINMENT_FAILED",
+      "recovery": "Exit1 before UI/sidecar; local safe diagnostic.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false
+    },
+    {
+      "code": "METRIC_UNAVAILABLE",
+      "recovery": "Show unavailable metric while containment remains.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false
+    },
+    {
+      "code": "MIC_DISABLED",
+      "recovery": "Do not open device.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false
+    },
+    {
+      "code": "MIC_OPEN_TIMEOUT",
+      "recovery": "Release resources; report unavailable.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false
+    },
+    {
+      "code": "LOCAL_MODEL_UNAVAILABLE",
+      "recovery": "No remote fallback; show unavailable.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false
+    },
+    {
+      "code": "MEDIA_INVALID",
+      "recovery": "Leave active valid revision intact.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false
+    },
+    {
+      "code": "MEDIA_UNMAPPED",
+      "recovery": "Silent ordinary event; critical readiness separately fails.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false
+    },
+    {
+      "code": "ACTIVATION_DEFERRED",
+      "recovery": "Installation may be complete; wait for safe selection.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false
+    },
+    {
+      "code": "PEER_UNAUTHORIZED",
+      "recovery": "Clear membership; require explicit rejoin.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false
+    },
+    {
+      "code": "PEER_STALE",
+      "recovery": "Remove live vitals after age expires.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false
+    },
+    {
+      "code": "OBS_UNAVAILABLE",
+      "recovery": "Stop new recording operations; preserve alerts.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false
+    },
+    {
+      "code": "CLIP_PARTIAL",
+      "recovery": "Show actual interval and reason.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false
+    },
+    {
+      "code": "DISK_PRESSURE",
+      "recovery": "Bound/stop new writes; no unapproved destructive cleanup.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false
+    },
+    {
+      "code": "SIGNATURE_INVALID",
+      "recovery": "Reject update/privileged authenticity claim.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false
+    },
+    {
+      "code": "CAPABILITY_UNAVAILABLE",
+      "recovery": "Quietly present base.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false
+    },
+    {
+      "code": "VERSION_UNSUPPORTED",
+      "recovery": "Reject incompatible object without mutating healthy state.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false
+    }
+  ]
+}

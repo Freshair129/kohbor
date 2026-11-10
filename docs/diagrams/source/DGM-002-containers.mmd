@@ -1,0 +1,20 @@
+flowchart TB
+  Game["Permitted game observations"]
+  subgraph App["Desktop application containers and local storage"]
+    direction TB
+    UI["WebView2 UI processes: control and overlay"]
+    Native["Rust native executable"]
+    Files["Local JSONL and versioned JSON files"]
+    Helpers["Local helper or model processes, if selected"]
+    UI <-->|"Validated commands and typed views"| Native
+    Native <-->|"Permitted local persistence"| Files
+    Native -.->|"Conditional local work"| Helpers
+    Helpers -.->|"Generation-checked results"| Native
+  end
+  Game -->|"Native source admission"| Native
+  Cloud["Optional cloud advisor"]
+  Relay["Optional transient peer relay"]
+  Social["Optional account and social service"]
+  Native <-->|"Closed cloud projection and reply"| Cloud
+  Native <-->|"Scoped own and authorized peer vitals"| Relay
+  Native <-->|"Account broker authority"| Social

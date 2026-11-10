@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0.0",
+  "session_epoch": null,
+  "availability": "unknown",
+  "source": {
+    "kind": "gsi",
+    "generation": 2,
+    "sequence": null,
+    "age_ms": null
+  },
+  "own": null
+}

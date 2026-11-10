@@ -1,0 +1,26 @@
+flowchart TB
+  Start["Launch app"] --> Ready{"Mandatory startup ready?"}
+  Ready -->|No| Error["Safe startup error"]
+  Ready -->|Yes| Core["Local core available"]
+  Core --> Nav["Control navigation"]
+  Core --> Overlay["Passive gameplay overlay"]
+  Core --> Act["Explicit local action"]
+
+  Nav --> Match["Overview / Live"]
+  Nav --> Tools["Voice Packs / Insights / Settings"]
+  Nav --> Optional["Account / Store"]
+  Match --> Read["Admitted match view"]
+  Tools --> Manage["Packs, history and settings"]
+  Optional --> Service{"Requested service available?"}
+  Service -->|Yes| Access["Authorized service action"]
+  Service -->|No| Deferred["Unavailable or deferred"]
+
+  Act --> Task{"PTT, advice or OBS ready?"}
+  Task -->|Yes, with required consent| Run["Run selected local task"]
+  Task -->|No| Explain["Explain unavailable capability"]
+
+  Read --> Truth["Show fresh, stale or unknown"]
+  Overlay --> Truth
+  Deferred --> Nav
+  Explain --> Nav
+

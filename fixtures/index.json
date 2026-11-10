@@ -1,0 +1,195 @@
+{
+  "status": "synthetic_contract_fixtures",
+  "application_execution": false,
+  "cases": [
+    {
+      "id": "own-fresh-at-boundary",
+      "schema": "contracts/own-snapshot.schema.json",
+      "fixture": "fixtures/own-fresh-at-boundary.json",
+      "schema_valid": true,
+      "requirement_id": "DATA-001",
+      "semantic": "hp_bounds",
+      "semantic_valid": true
+    },
+    {
+      "id": "own-stale-after-boundary",
+      "schema": "contracts/own-snapshot.schema.json",
+      "fixture": "fixtures/own-stale-after-boundary.json",
+      "schema_valid": true,
+      "requirement_id": "DATA-001"
+    },
+    {
+      "id": "own-fresh-too-old",
+      "schema": "contracts/own-snapshot.schema.json",
+      "fixture": "fixtures/own-fresh-too-old.json",
+      "schema_valid": false,
+      "requirement_id": "DATA-001"
+    },
+    {
+      "id": "own-unknown-not-zero",
+      "schema": "contracts/own-snapshot.schema.json",
+      "fixture": "fixtures/own-unknown-not-zero.json",
+      "schema_valid": true,
+      "requirement_id": "DATA-002"
+    },
+    {
+      "id": "own-fresh-null",
+      "schema": "contracts/own-snapshot.schema.json",
+      "fixture": "fixtures/own-fresh-null.json",
+      "schema_valid": false,
+      "requirement_id": "DATA-002"
+    },
+    {
+      "id": "own-hp-over-max-semantic",
+      "schema": "contracts/own-snapshot.schema.json",
+      "fixture": "fixtures/own-hp-over-max-semantic.json",
+      "schema_valid": true,
+      "requirement_id": "DATA-002",
+      "semantic": "hp_bounds",
+      "semantic_valid": false
+    },
+    {
+      "id": "peer-valid",
+      "schema": "contracts/peer-sample.schema.json",
+      "fixture": "fixtures/peer-valid.json",
+      "schema_valid": true,
+      "requirement_id": "PEER-003",
+      "semantic": "hp_bounds",
+      "semantic_valid": true
+    },
+    {
+      "id": "peer-forbidden-abilities",
+      "schema": "contracts/peer-sample.schema.json",
+      "fixture": "fixtures/peer-forbidden-abilities.json",
+      "schema_valid": false,
+      "requirement_id": "PEER-003"
+    },
+    {
+      "id": "peer-missing-alive",
+      "schema": "contracts/peer-sample.schema.json",
+      "fixture": "fixtures/peer-missing-alive.json",
+      "schema_valid": false,
+      "requirement_id": "PEER-003"
+    },
+    {
+      "id": "peer-sync-valid",
+      "schema": "contracts/peer-sync.schema.json",
+      "fixture": "fixtures/peer-sync-valid.json",
+      "schema_valid": true,
+      "requirement_id": "PEER-005",
+      "semantic": "peer_publish_age",
+      "semantic_valid": true
+    },
+    {
+      "id": "peer-sync-without-scope",
+      "schema": "contracts/peer-sync.schema.json",
+      "fixture": "fixtures/peer-sync-without-scope.json",
+      "schema_valid": false,
+      "requirement_id": "PEER-002"
+    },
+    {
+      "id": "peer-sync-stale-semantic",
+      "schema": "contracts/peer-sync.schema.json",
+      "fixture": "fixtures/peer-sync-stale-semantic.json",
+      "schema_valid": true,
+      "requirement_id": "PEER-005",
+      "semantic": "peer_publish_age",
+      "semantic_valid": false
+    },
+    {
+      "id": "peer-null-probe",
+      "schema": "contracts/peer-sync.schema.json",
+      "fixture": "fixtures/peer-null-probe.json",
+      "schema_valid": true,
+      "requirement_id": "PEER-006",
+      "semantic": "peer_publish_age",
+      "semantic_valid": true
+    },
+    {
+      "id": "cloud-allowed-only",
+      "schema": "contracts/cloud-context.schema.json",
+      "fixture": "fixtures/cloud-allowed-only.json",
+      "schema_valid": true,
+      "requirement_id": "ADVICE-003"
+    },
+    {
+      "id": "cloud-forbidden-transcript",
+      "schema": "contracts/cloud-context.schema.json",
+      "fixture": "fixtures/cloud-forbidden-transcript.json",
+      "schema_valid": false,
+      "requirement_id": "ADVICE-003"
+    },
+    {
+      "id": "cloud-forbidden-own-items",
+      "schema": "contracts/cloud-context.schema.json",
+      "fixture": "fixtures/cloud-forbidden-own-items.json",
+      "schema_valid": false,
+      "requirement_id": "ADVICE-003"
+    },
+    {
+      "id": "cloud-forbidden-enemy",
+      "schema": "contracts/cloud-context.schema.json",
+      "fixture": "fixtures/cloud-forbidden-enemy.json",
+      "schema_valid": false,
+      "requirement_id": "ADVICE-003"
+    },
+    {
+      "id": "event-local-only",
+      "schema": "contracts/event.schema.json",
+      "fixture": "fixtures/event-local-only.json",
+      "schema_valid": true,
+      "requirement_id": "DATA-004"
+    },
+    {
+      "id": "event-disallowed-scope",
+      "schema": "contracts/event.schema.json",
+      "fixture": "fixtures/event-disallowed-scope.json",
+      "schema_valid": false,
+      "requirement_id": "ADVICE-003"
+    },
+    {
+      "id": "media-metadata-example",
+      "schema": "contracts/media-manifest.schema.json",
+      "fixture": "fixtures/media-metadata-example.json",
+      "schema_valid": true,
+      "requirement_id": "MEDIA-006",
+      "semantic": "manifest_paths",
+      "semantic_valid": true
+    },
+    {
+      "id": "media-traversal-semantic",
+      "schema": "contracts/media-manifest.schema.json",
+      "fixture": "fixtures/media-traversal-semantic.json",
+      "schema_valid": true,
+      "requirement_id": "MEDIA-006",
+      "semantic": "manifest_paths",
+      "semantic_valid": false
+    },
+    {
+      "id": "media-self-trust-field",
+      "schema": "contracts/media-manifest.schema.json",
+      "fixture": "fixtures/media-self-trust-field.json",
+      "schema_valid": false,
+      "requirement_id": "MEDIA-008"
+    },
+    {
+      "id": "evidence-not-run",
+      "schema": "contracts/evidence.schema.json",
+      "fixture": "fixtures/evidence-not-run.json",
+      "schema_valid": true,
+      "requirement_id": "QUALITY-008"
+    },
+    {
+      "id": "evidence-pass-without-proof",
+      "schema": "contracts/evidence.schema.json",
+      "fixture": "fixtures/evidence-pass-without-proof.json",
+      "schema_valid": false,
+      "requirement_id": "QUALITY-008"
+    }
+  ],
+  "notes": [
+    "Fixture hashes and media sizes are synthetic metadata; no actual media payload or signature is included.",
+    "Schema validation is structural only; explicit semantic cases show limits of schema validation.",
+    "These are not Windows/live/microphone/audio/privacy traffic tests."
+  ]
+}

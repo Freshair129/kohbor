@@ -1,0 +1,692 @@
+{
+  "schema_version": "1.0.0",
+  "spec_version": "0.3.1",
+  "status": "draft",
+  "updated": "2026-11-10",
+  "scope": "Descriptive engineering views; requirements and open decisions retain authority.",
+  "diagrams": [
+    {
+      "id": "DGM-001",
+      "title": "System context",
+      "purpose": "Show the player, permitted game observation boundary, desktop system and optional external integrations.",
+      "owner_doc": "docs/design/SAD.md",
+      "requirement_ids": [
+        "CORE-001",
+        "CORE-003",
+        "DATA-003",
+        "DATA-005",
+        "VISION-004",
+        "ALERT-001",
+        "ADVICE-002",
+        "ADVICE-003",
+        "PEER-001",
+        "PEER-009",
+        "SOCIAL-001",
+        "OBS-001",
+        "UPDATE-001"
+      ],
+      "decision_ids": [
+        "DEC-NAME",
+        "DEC-INTERFACES",
+        "DEC-MODELS",
+        "DEC-SOCIAL",
+        "DEC-NATIVE-EVIDENCE"
+      ],
+      "notes": [
+        "Draft descriptive view of the current specification baseline; the governing requirements and accepted decisions control. An arrow does not grant data permission or prove implementation.",
+        "Valid local warnings and guest gameplay do not depend on account, cloud, relay, recording or update availability.",
+        "Cloud export, peer sharing, microphone capture and presence each have independent permission; account sign-in is not sharing consent.",
+        "Peer exchange is limited to admitted own vitals and authorized room, match and team scope. The relay can read that projection; this view does not claim end-to-end encryption.",
+        "Account/social traffic does not authorize gameplay, microphone, local history or memory storage.",
+        "Remote integrations are optional dependencies, not services provisioned or hosted by this specification. The update route conveys verified release artifacts, not client signing authority.",
+        "Starting external recording does not implicitly enable microphone capture; recording and any recorder microphone configuration retain their separate explicit controls.",
+        "The relay arrows distinguish this client's consented own-vitals upload from the authorized peer-vitals response; they do not claim that the response contains only this client's own sample."
+      ],
+      "kind": "flowchart",
+      "source": "docs/diagrams/source/DGM-001-system-context.mmd",
+      "rendered": "docs/diagrams/rendered/DGM-001-system-context.svg",
+      "title_th": "ขอบเขตระบบและผู้เกี่ยวข้อง",
+      "status": "draft"
+    },
+    {
+      "id": "DGM-002",
+      "title": "Application containers and local storage",
+      "purpose": "Show the native executable, WebView2 UI execution boundary, local files and optional external service containers; identify helper/model process allocation as conditional rather than freeze a new topology.",
+      "owner_doc": "docs/design/SAD.md",
+      "requirement_ids": [
+        "DATA-001",
+        "DATA-002",
+        "DATA-003",
+        "DATA-005",
+        "ALERT-001",
+        "ALERT-003",
+        "ALERT-007",
+        "MEDIA-005",
+        "UI-001",
+        "VOICE-005",
+        "VOICE-006",
+        "MEM-001",
+        "ADVICE-001",
+        "ADVICE-002",
+        "ADVICE-003",
+        "ADVICE-004",
+        "PEER-009",
+        "SOCIAL-001"
+      ],
+      "decision_ids": [
+        "DEC-INTERFACES",
+        "DEC-MODELS",
+        "DEC-RISK-DETAIL",
+        "DEC-CRITICAL-MEDIA",
+        "DEC-VOICE-BUFFER"
+      ],
+      "notes": [
+        "Draft descriptive view of the current specification baseline; the governing requirements and accepted decisions control. An arrow does not grant data permission or prove implementation.",
+        "This is a container-level view. The native executable owns admission, critical alert/audio authority and purpose-specific services; its internal component decomposition belongs in the SDD and runtime sequence diagrams.",
+        "The WebView2 boundary groups the control window and overlay without requiring a separate executable or a fixed process count for each window. The renderer consumes typed views and invokes validated native commands; it owns no network credentials or critical decisions.",
+        "The helper/model boundary is conditional. DEC-MODELS and the implementation design decide whether approved work is in-process or in separately accounted local processes. This figure does not mandate a separate inference service or prove Job Object membership.",
+        "Local persistence refers to the permitted local JSONL journal and validated versioned JSON settings/aggregate files. It neither creates a SQL store nor authorizes microphone transcripts, peer samples or account credentials in event archives.",
+        "Cloud and peer edges are separate restricted projections: cloud receives only its closed consented own-stat allowlist; peer exchange sends admitted own vitals and receives authorized transient peer vitals. Local history, memory and voice content cannot flow into either route.",
+        "The account/social edge carries purpose-specific broker authority, not the cloud/peer projection or gameplay archives. Account sign-in and friendship do not grant sharing consent.",
+        "Native warnings/audio never wait for the renderer, network, model, disk or optional service completion. Source and request generations fence stale delivery. Detailed critical event order is shown separately in the alert sequence.",
+        "The drawing is an application-container view, not a deployment or resource-containment proof; external OBS, conditional local relay placement and whole-process accounting are addressed by the deployment figure."
+      ],
+      "kind": "flowchart",
+      "source": "docs/diagrams/source/DGM-002-containers.mmd",
+      "rendered": "docs/diagrams/rendered/DGM-002-containers.svg",
+      "title_th": "องค์ประกอบที่รันและจัดเก็บข้อมูล",
+      "status": "draft"
+    },
+    {
+      "id": "DGM-003",
+      "title": "Deployment and resource accounting",
+      "purpose": "Distinguish the Windows application accounting scope from external OBS and optional remote service boundaries.",
+      "owner_doc": "docs/design/SAD.md",
+      "requirement_ids": [
+        "CORE-002",
+        "CORE-004",
+        "VISION-004",
+        "ALERT-001",
+        "OBS-001",
+        "OBS-004",
+        "OBS-005",
+        "QUALITY-001",
+        "QUALITY-002",
+        "QUALITY-003",
+        "PEER-007",
+        "SOCIAL-001"
+      ],
+      "decision_ids": [
+        "DEC-INTERFACES",
+        "DEC-MODELS",
+        "DEC-SOCIAL",
+        "DEC-NATIVE-EVIDENCE",
+        "DEC-OBS-BUDGET"
+      ],
+      "notes": [
+        "Draft descriptive view of the current specification baseline; the governing requirements and accepted decisions control. An arrow does not grant data permission or prove implementation.",
+        "The accounting boundary is not a claim that every displayed process has proved Job Object membership. Configure and assign containment before constructing WebView or sidecars; actual membership needs native evidence.",
+        "Every active attributable helper/model process counts, including externally hosted local inference that can be measured. Unverifiable inference accounting makes that capability unavailable. A relay counts in the app budget only when running on the gaming computer.",
+        "CPU is at most 10% of normalized logical capacity in every one-second sample; memory is aggregate full Working Set at most 900,000,000 decimal bytes.",
+        "OBS is external, outside the app budget and not presumed in its Job Object. Record application, OBS and combined CPU/RAM separately. No combined ceiling is approved; DEC-OBS-BUDGET blocks an unqualified overall recording-profile performance pass.",
+        "With recording active, urgent acoustic latency and game FPS limits still apply. DXGI remains the critical observation baseline; avoid accidental duplicate capture routes.",
+        "The remote-services box makes no hosting, vendor, region or deployment commitment. The conditional local relay is not an instruction to start a relay or replace a remote service."
+      ],
+      "kind": "flowchart",
+      "source": "docs/diagrams/source/DGM-003-deployment.mmd",
+      "rendered": "docs/diagrams/rendered/DGM-003-deployment.svg",
+      "title_th": "การติดตั้งและขอบเขตทรัพยากร",
+      "status": "draft"
+    },
+    {
+      "id": "DGM-004",
+      "title": "Local data flow and lifetime separation",
+      "purpose": "Show permitted local event persistence and derived memory while keeping transient voice and peer domains disconnected from archives and export.",
+      "owner_doc": "docs/design/DDD.md",
+      "requirement_ids": [
+        "DATA-001",
+        "DATA-002",
+        "DATA-003",
+        "DATA-004",
+        "DATA-005",
+        "MEM-001",
+        "MEM-002",
+        "MEM-003",
+        "MEM-004",
+        "MEM-005",
+        "VOICE-001",
+        "VOICE-004",
+        "VOICE-005",
+        "PEER-009"
+      ],
+      "decision_ids": [
+        "DEC-SESSION",
+        "DEC-RETENTION",
+        "DEC-MODELS",
+        "DEC-VOICE-BUFFER"
+      ],
+      "notes": [
+        "Draft descriptive view of the current specification baseline; the governing requirements and accepted decisions control. An arrow does not grant data permission or prove implementation.",
+        "Only permitted facts become source-qualified local events. The vision edge does not authorize storing raw capture images, accepting hidden game state or treating unavailable observations as zero.",
+        "PTT microphone audio, transcripts and freeform utterances remain transient local voice data; they never enter files, journals, history, analytics or external adapters. Full STT ownership and zeroization remain subject to DEC-VOICE-BUFFER.",
+        "Received peer vitals are transient authorized display data. They never enter local events, memory, summaries, AI context or a database.",
+        "The durable nondecreasing logical/epoch forget cutoff is comparable with archive timestamps, survives restart and conservatively excludes equal-granularity older sources. It is not a persisted process-monotonic timestamp; corruption fails closed.",
+        "Clearing memory advances the cutoff and discards derived snapshots while retaining raw archives. History deletion is a separate action.",
+        "A completed summary has at most three source-linked claims; incomplete sessions cannot fabricate completed outcomes. Retention quotas and complete/partial contracts remain open decisions.",
+        "The absence of external arrows is intentional. The separate external-flow view defines the narrow approved own-stat projections; it does not export journals, memory, summaries, microphone content or capture-derived data."
+      ],
+      "kind": "flowchart",
+      "source": "docs/diagrams/source/DGM-004-local-data-flow.mmd",
+      "rendered": "docs/diagrams/rendered/DGM-004-local-data-flow.svg",
+      "title_th": "เส้นทางข้อมูลภายในเครื่อง",
+      "status": "draft"
+    },
+    {
+      "id": "DGM-005",
+      "title": "Independent external data routes",
+      "purpose": "Separate cloud advice, transient peer exchange and private account/social authorization without a shared universal gameplay payload.",
+      "owner_doc": "docs/security/SECURITY-PRIVACY.md",
+      "requirement_ids": [
+        "ADVICE-002",
+        "ADVICE-003",
+        "ADVICE-004",
+        "PEER-001",
+        "PEER-002",
+        "PEER-003",
+        "PEER-004",
+        "PEER-005",
+        "PEER-006",
+        "PEER-007",
+        "PEER-008",
+        "PEER-009",
+        "SOCIAL-001",
+        "SOCIAL-002",
+        "SOCIAL-003",
+        "VOICE-005"
+      ],
+      "decision_ids": [
+        "DEC-INTERFACES",
+        "DEC-SOCIAL"
+      ],
+      "notes": [
+        "Draft descriptive view of the current specification baseline; the governing requirements and accepted decisions control. An arrow does not grant data permission or prove implementation.",
+        "Cloud advice is default-off and separately consented. Its closed projection permits coarse phase, own hero/level/KDA/net worth/gold/HP percentage/mana percentage, team scores and fixed nonpersonal instructions only.",
+        "Cloud input excludes raw telemetry, raw match/platform identity, exact clock, own items, burst estimates, peer data, capture-derived data, history, memory, microphone audio, transcripts and freeform utterances. Construct the allowlist directly; do not serialize then redact.",
+        "Every deliberate peer create/join requires fresh checked consent. Sending requires admitted app 570 playing state, verified active local owner, real positive match ID, exact team, supported phase and complete valid own vitals. Raw match and platform identifiers stay local.",
+        "The relay route permits hero, level, HP/max HP, mana percentage, alive and respawn only, with scoped membership and transport metadata. No abilities, items, positions or economy are implied.",
+        "Peer recipients require the same room, match and team. Conservative end-to-end age must remain at most 2,000 ms; polling does not refresh sample age. Membership and samples are transient. Remote transport is HTTPS; literal loopback HTTP is a testing exception.",
+        "Account credentials belong to the native broker and private account authority. Relay member credentials stay native; account JWTs/private account IDs do not go to the relay, and relay member secrets do not go into social storage.",
+        "Social invitations may use reviewed relay proofs and single-use tickets under their separate protocol. Friendship or sign-in never grants peer sharing; this overview does not depict or authorize a new cross-route payload.",
+        "Consent, owner, account, source, request and membership generations are rechecked as applicable before send and on delivery. Leave and opt-out fence late results. Optional failure does not disable valid local core behavior."
+      ],
+      "kind": "flowchart",
+      "source": "docs/diagrams/source/DGM-005-external-data-flow.mmd",
+      "rendered": "docs/diagrams/rendered/DGM-005-external-data-flow.svg",
+      "title_th": "ข้อมูลที่ส่งออกและขอบเขตสิทธิ์",
+      "status": "draft"
+    },
+    {
+      "id": "DGM-006",
+      "title": "Local logical entity relationships",
+      "purpose": "Preserve the DDD local relationship view and all five existing cardinalities without implying physical SQL tables or adding fields.",
+      "owner_doc": "docs/design/DDD.md",
+      "requirement_ids": [
+        "DATA-004",
+        "DATA-006",
+        "MEM-001",
+        "MEM-002",
+        "MEM-003",
+        "MEM-004",
+        "MEM-005",
+        "OBS-002",
+        "OBS-003"
+      ],
+      "decision_ids": [
+        "DEC-SESSION",
+        "DEC-RETENTION",
+        "DEC-GAME-DATA"
+      ],
+      "notes": [
+        "Draft descriptive view of the current specification baseline; the governing requirements and accepted decisions control. An arrow does not grant data permission or prove implementation.",
+        "This is an illustrative logical subset, not a complete inventory or physical SQL schema. The reference persistence design remains local JSONL archives plus atomic versioned aggregate snapshots unless a justified storage ADR changes it.",
+        "The five relationships and their cardinalities are retained exactly from the DDD: session to events, session to optional summary, event-to-clip evidence, event-to-memory evidence and catalog-revision qualification.",
+        "MEMORY_SNAPSHOT represents the persisted snapshot of the PlayerMemory logical entity. It introduces no additional entity fields or storage contract.",
+        "All depicted relationships are local. There is no peer-to-memory relationship and no account foreign key granting cloud export of local events.",
+        "Source identity, session admission, availability, retention, completion and erasure semantics remain governed by the DDD and SRS; cardinality alone proves none of them."
+      ],
+      "kind": "erDiagram",
+      "source": "docs/diagrams/source/DGM-006-logical-erd.mmd",
+      "rendered": "docs/diagrams/rendered/DGM-006-logical-erd.svg",
+      "title_th": "ความสัมพันธ์ข้อมูลที่จัดเก็บ",
+      "status": "draft"
+    },
+    {
+      "id": "DGM-007",
+      "title": "Contained offline startup",
+      "purpose": "Show the mandatory Windows containment boundary before UI or helper creation and preserve account-independent local startup.",
+      "owner_doc": "docs/design/SAD.md",
+      "requirement_ids": [
+        "CORE-001",
+        "CORE-002"
+      ],
+      "decision_ids": [
+        "DEC-NATIVE-EVIDENCE"
+      ],
+      "notes": [
+        "Draft design view of the current specification baseline; application verification NOT_RUN and no approval implied.",
+        "Creating, configuring and assigning the 10% Windows CPU Job Object cap must succeed before WebView or sidecars exist. A safe error and exit code 1 are required on setup failure.",
+        "The mandatory ordering is containment before UI/helpers. The diagram does not freeze a separate process per participant or a new scheduler for local startup.",
+        "Account, network and premium authority do not gate the local core. Each source, model and media capability still reports its actual availability; offline startup does not imply audible safety readiness.",
+        "A later metric-query failure is unavailable measurement, not proof that the existing cap has stopped. Actual child membership, accounting and cleanup need native evidence. External OBS is outside this application Job."
+      ],
+      "kind": "sequence",
+      "source": "docs/diagrams/source/DGM-007-startup-sequence.mmd",
+      "rendered": "docs/diagrams/rendered/DGM-007-startup-sequence.svg",
+      "title_th": "เริ่มระบบและตั้งขอบเขตทรัพยากร",
+      "status": "draft"
+    },
+    {
+      "id": "DGM-008",
+      "title": "Evidence-gated native warning",
+      "purpose": "Separate numeric risk from audible admission and show source gaps, critical preemption, paired playback and truthful failure.",
+      "owner_doc": "docs/design/SDD.md",
+      "requirement_ids": [
+        "DATA-003",
+        "DATA-005",
+        "VISION-001",
+        "VISION-002",
+        "ALERT-001",
+        "ALERT-003",
+        "ALERT-004",
+        "ALERT-005",
+        "ALERT-007",
+        "MEDIA-004",
+        "MEDIA-005",
+        "VOICE-006",
+        "QUALITY-001",
+        "QUALITY-007"
+      ],
+      "decision_ids": [
+        "DEC-RISK-DETAIL",
+        "DEC-CRITICAL-MEDIA",
+        "DEC-NATIVE-EVIDENCE"
+      ],
+      "notes": [
+        "Draft design view of the current specification baseline; application verification NOT_RUN. The illustrated main path is vision-dependent missing-gank admission, not a demand that every independent own-telemetry alert use CV.",
+        "DEC-RISK-DETAIL must close before audible missing-gank integration. Until then the reference score is informational only. Evidence means admitted coordinated multi-enemy movement/disappearance or an independently specified verified positional route; this diagram creates no additional source.",
+        "Require valid supported session, owner/roster, continuing capture coverage and rebuilt baseline after a gap. Pregame, own hero dead, paused/nonadvancing clock and non-game frames suppress the path. Evaluate the current observation without inventing an extra recovery tick.",
+        "Risk must be finite and meet the selected danger threshold, with nonempty contributors. No contributor may already be notified for its current absence episode; global cooldown is at least 30 seconds and each contributor's cooldown at least 60 seconds. Re-arm requires continuous confirmed reappearance; cooldown expiry or one noisy frame is insufficient.",
+        "Clear the previous alert latch when all previously alerted heroes have confirmed reappearance. Speak correction only if risk is also below the revision threshold at that evaluation. Otherwise clear the old latch without all-clear. Time decay and coverage loss never prove correction; preserve cooldown history across capture gaps and enable/disable changes.",
+        "Verified critical media is prepared before the hot path. No archive work, disk I/O, cloud, language model, renderer or Voice-lock wait is admitted there. Missing critical media remains not-ready without TTS, unrelated clips or a visual-only replacement.",
+        "Cancellation fences stale Voice and paired-media work. Native audio owns audio/visual completion and cancellation. A playback error cannot count as a successful audible warning.",
+        "For this capture path T0 is acquisition-cycle due time before scheduling, capture or inference wait; T3 is actual acoustic onset. The separate GSI timing origin remains POST arrival. The diagram is not latency evidence: p50 at most 250 ms and every measured sample at most 300 ms still require the specified sample corpus."
+      ],
+      "kind": "sequence",
+      "source": "docs/diagrams/source/DGM-008-alert-sequence.mmd",
+      "rendered": "docs/diagrams/rendered/DGM-008-alert-sequence.svg",
+      "title_th": "ลำดับการเตือนและการขัดจังหวะ",
+      "status": "draft"
+    },
+    {
+      "id": "DGM-009",
+      "title": "Local voice turn lifecycle",
+      "purpose": "Show one consented bounded voice turn, universal cancellation and safe supersession without resuming old answers.",
+      "owner_doc": "docs/design/SDD.md",
+      "requirement_ids": [
+        "VOICE-001",
+        "VOICE-002",
+        "VOICE-003",
+        "VOICE-004",
+        "VOICE-005",
+        "VOICE-006",
+        "VOICE-007",
+        "QUALITY-006",
+        "QUALITY-007"
+      ],
+      "decision_ids": [
+        "DEC-INTERFACES",
+        "DEC-MODELS",
+        "DEC-VOICE-BUFFER"
+      ],
+      "notes": [
+        "Microphone defaults off; local opt-in and an explicit held PTT action are required.",
+        "Minimum hold is 250 ms; capture is bounded to 15 s and 480000 bytes of mono 16 kHz i16 PCM, with 2 s open timeout.",
+        "Accepted input may enter decoding only through the frozen PCM handoff/lifetime contract; this diagram does not resolve DEC-VOICE-BUFFER.",
+        "Critical preemption applies to every active state without acquiring Voice locks. Ordinary announcer audio can preempt a spoken Normal-priority answer.",
+        "Any superseding valid press first fences and cleans up the old request; starting a new generation is not resumption of an interrupted answer.",
+        "Terminal states release transient resources, reject late callbacks and expose closed status metadata without audio, transcript or answer text.",
+        "Preparing/missing-model/device/permission/timeout distinctions remain required; diagram rendering is not native voice evidence."
+      ],
+      "kind": "state",
+      "source": "docs/diagrams/source/DGM-009-voice-lifecycle.mmd",
+      "rendered": "docs/diagrams/rendered/DGM-009-voice-lifecycle.svg",
+      "title_th": "วงจรการสนทนาด้วยเสียง",
+      "status": "draft"
+    },
+    {
+      "id": "DGM-010",
+      "title": "Media installation and deferred activation",
+      "purpose": "Distinguish verified installation from active selection while preserving independent authority checks and healthy leased revisions.",
+      "owner_doc": "docs/design/MEDIA-PACK-SPEC.md",
+      "requirement_ids": [
+        "MEDIA-004",
+        "MEDIA-006",
+        "MEDIA-007",
+        "MEDIA-008"
+      ],
+      "decision_ids": [
+        "DEC-INTERFACES",
+        "DEC-PACK-CRYPTO"
+      ],
+      "notes": [
+        "Draft design view of the current specification baseline; application verification NOT_RUN. Exact transport/signing/canonicalization remains an agent-owned ADR gate, not a completed wire protocol.",
+        "Integrity, publisher authenticity, purchase entitlement and active selection are separate authorities. Valid local import grants local integrity admission only; it does not require or grant store purchase authority. Required publisher/entitlement checks depend on the declared authority class. Package-supplied public keys never establish trust.",
+        "Use new identities, trust roots and signature domains. Authority-dependent operations remain unavailable until the corresponding protocol decision and tests close. No earlier binary/archive/account compatibility is claimed.",
+        "The installer copies actual bytes into owned bounded staging and validates archive records, schema, references, taxonomy, decoded media, expanded limits and digests before an atomic idempotent registry commit. Failed validation cannot mutate a healthy active revision.",
+        "Activation policies are never, now_if_idle and after_match. A commit reports installation, not activation. Activation waits for the permitted match barrier and no relevant playback lease; an immutable lease covers audio and its declared visual tail.",
+        "Late work must match profile, session, revision and generation. Activation/adoption failure preserves the healthy active revision. Repair can retry adoption for the same installation ID; never garbage-collect a leased revision.",
+        "The external authoring tool requests an install through the admitted local user/profile boundary; it does not write directly into the desktop registry or cache."
+      ],
+      "kind": "flowchart",
+      "source": "docs/diagrams/source/DGM-010-media-install-activation.mmd",
+      "rendered": "docs/diagrams/rendered/DGM-010-media-install-activation.svg",
+      "title_th": "ติดตั้งแพ็กและเลือกใช้งาน",
+      "status": "draft"
+    },
+    {
+      "id": "DGM-011",
+      "title": "Consented peer sharing and leave sequence",
+      "purpose": "Show authoritative native membership, scoped transient data exchange, and immediate local leave despite delayed replies.",
+      "owner_doc": "docs/design/ICD.md",
+      "requirement_ids": [
+        "PEER-001",
+        "PEER-002",
+        "PEER-003",
+        "PEER-005",
+        "PEER-006",
+        "PEER-007",
+        "PEER-008",
+        "PEER-009"
+      ],
+      "decision_ids": [
+        "DEC-INTERFACES"
+      ],
+      "notes": [
+        "Five participants maximum. The other peer represents its own separately consented native membership, not consent granted by the local player.",
+        "Room/match/team binding is verified; raw match and platform identifiers stay local. Membership credentials remain native.",
+        "Each publication rechecks strict own-source admission; invalid or stale input sends null rather than retaining old published vitals.",
+        "One sequential bounded sync worker stays outside the alert path; age accumulates monotonic durations and is not renewed by polling.",
+        "Peer vitals are transient only: no persistence, local history, memory or AI consumption.",
+        "Leave increments generation and clears local state before remote cleanup. Delayed replies cannot reconnect or repopulate the UI.",
+        "Remote membership deletion and cleanup of a late successful join are best effort; this does not promise instantaneous remote erasure.",
+        "Arrow labels describe operations, not frozen wire commands or a new transport schema."
+      ],
+      "kind": "sequence",
+      "source": "docs/diagrams/source/DGM-011-peer-sequence.mmd",
+      "rendered": "docs/diagrams/rendered/DGM-011-peer-sequence.svg",
+      "title_th": "ยินยอมเข้าห้องและออกจากห้อง",
+      "status": "draft"
+    },
+    {
+      "id": "DGM-012",
+      "title": "Peer membership lifecycle",
+      "purpose": "Distinguish connecting, connected and reconnecting states while applying leave or revocation to pending and established membership.",
+      "owner_doc": "docs/design/SDD.md",
+      "requirement_ids": [
+        "PEER-001",
+        "PEER-004",
+        "PEER-005",
+        "PEER-006",
+        "PEER-007",
+        "PEER-008",
+        "PEER-009"
+      ],
+      "decision_ids": [
+        "DEC-INTERFACES"
+      ],
+      "notes": [
+        "The composite transition to Idle applies while connecting, connected or reconnecting; leave/revocation cannot be deferred until a pending request completes.",
+        "New create/join always needs freshly checked consent and explicit action. No saved room credentials or automatic rejoin after expiry.",
+        "Transient retry uses the existing bounded worker policy; a successful null recovery probe precedes resumed publication.",
+        "A connected membership does not prove sample freshness or scope. Each own/peer sample still requires room/match/team admission and conservative age.",
+        "Rooms contain at most five members, last at most four hours, and expire unsynced membership after 30 s under the existing contract.",
+        "Invite rotation affects future joins and does not itself kick existing members.",
+        "Local clearing is immediate; remote removal and orphan cleanup remain best effort."
+      ],
+      "kind": "state",
+      "source": "docs/diagrams/source/DGM-012-peer-lifecycle.mmd",
+      "rendered": "docs/diagrams/rendered/DGM-012-peer-lifecycle.svg",
+      "title_th": "สถานะการเชื่อมต่อห้องทีม",
+      "status": "draft"
+    },
+    {
+      "id": "DGM-013",
+      "title": "Match identity and completion lifecycle",
+      "purpose": "Keep verified match boundaries separate from individual observation freshness and capture health.",
+      "owner_doc": "docs/design/SDD.md",
+      "requirement_ids": [
+        "CORE-005",
+        "DATA-003",
+        "DATA-004",
+        "VISION-001",
+        "MEM-004"
+      ],
+      "decision_ids": [
+        "DEC-SESSION"
+      ],
+      "notes": [
+        "States reproduce the SDD match domain: Waiting, Active, Ended and Unsupported.",
+        "Temporary source invalidity or regressed game clock is not sufficient evidence of a new session.",
+        "Invalid own admission withdraws own live values and peer publication, while preserving the last verified identity/watermark until actual boundary evidence.",
+        "CV geometry/capture failure withdraws vision-dependent assertions only; valid GSI and independent local core may continue.",
+        "A confirmed new owner/session increments epoch and fences relevant old work, baselines and selection.",
+        "Ended requires source-supported completion. Crash/disconnect does not establish a winner, complete session or cause of death.",
+        "DEC-SESSION still governs the full complete/partial/outcome contract; this is not a new completion inference."
+      ],
+      "kind": "state",
+      "source": "docs/diagrams/source/DGM-013-match-lifecycle.mmd",
+      "rendered": "docs/diagrams/rendered/DGM-013-match-lifecycle.svg",
+      "title_th": "วงจรแมตช์",
+      "status": "draft"
+    },
+    {
+      "id": "DGM-014",
+      "title": "Evidence-gated alert latch and correction",
+      "purpose": "Separate risk-score movement, audible admission, confirmed reappearance and the additional spoken-revision threshold.",
+      "owner_doc": "docs/design/SDD.md",
+      "requirement_ids": [
+        "ALERT-001",
+        "ALERT-002",
+        "ALERT-003",
+        "ALERT-004",
+        "ALERT-005",
+        "ALERT-007"
+      ],
+      "decision_ids": [
+        "DEC-RISK-DETAIL",
+        "DEC-CRITICAL-MEDIA"
+      ],
+      "notes": [
+        "Observing means no currently admitted audible alert, not a safe-state assertion. Evaluate the current sample on entry without requiring another tick.",
+        "Admission requires valid identities and continuing game/capture coverage, qualifying coordinated movement/disappearance or an independently verified allowed positional route, finite danger score, contributors, episode/cooldown guards and verified critical media.",
+        "Pregame, own death, paused/nonadvancing game clock, non-game image or capture gap suppress the missing-gank voice path.",
+        "Global cooldown is at least 30 s and every contributor requires at least 60 s; cooldown expiry alone does not create a new episode. Re-arm requires continuous admitted reappearance.",
+        "Confirmed reappearance of all alerted heroes clears that alert latch. Only score strictly below the revision threshold at that evaluation permits the spoken correction.",
+        "Danger/revision pairs are low 0.85/<0.50, medium 0.65/<0.40 and high 0.50/<0.30; equality at the lower threshold does not permit revision.",
+        "Decay alone cannot clear the threat audibly. Coverage/session loss silently withdraws unsupported claims and retains the applicable cooldown fences.",
+        "DEC-RISK-DETAIL must freeze coordinated-motion/reappearance and remaining algorithm parameters before audible integration; until then, scores are informational and missing-gank voice is unavailable.",
+        "RevisionCheck is a transient guard evaluation, not a new persisted runtime state."
+      ],
+      "kind": "state",
+      "source": "docs/diagrams/source/DGM-014-alert-lifecycle.mmd",
+      "rendered": "docs/diagrams/rendered/DGM-014-alert-lifecycle.svg",
+      "title_th": "สถานะการเตือนและการยืนยันกลับมา",
+      "status": "draft"
+    },
+    {
+      "id": "DGM-015",
+      "title": "Durable forgetting without history deletion",
+      "purpose": "Show the durable forget barrier before derived-state removal and acknowledgement, including restart and corrupt-marker behavior.",
+      "owner_doc": "docs/design/DDD.md",
+      "requirement_ids": [
+        "MEM-001",
+        "MEM-002",
+        "MEM-003",
+        "MEM-005"
+      ],
+      "decision_ids": [
+        "DEC-SESSION",
+        "DEC-RETENTION"
+      ],
+      "notes": [
+        "Draft design view of the current specification baseline; application verification NOT_RUN. Participant stores identify responsibilities rather than mandating databases, tables or separate processes.",
+        "A nondecreasing logical/epoch cutoff must be durable before derived snapshots are deleted and before successful acknowledgement. It must compare correctly with archive source timestamps across restart; a process-monotonic clock persisted across restarts is unsuitable.",
+        "Rebuild excludes pre-cutoff sources and conservatively excludes sources sharing the cutoff's timestamp granularity. Valid later data still needs normal evidence and source-fingerprint admission.",
+        "A corrupt or unreadable existing cutoff fails closed: do not reconstruct forgotten aggregates from history. The diagram does not invent first-install marker initialization or a corrupt-marker repair protocol.",
+        "Clearing learned memory preserves raw local history. History deletion requires a separate explicit user action and governed retention behavior. No automatic destructive cleanup is authorized while DEC-RETENTION remains open.",
+        "The success branch assumes derived-state clearing succeeds. Failures are not successful forget receipts; exact storage representation, recovery and migrations remain design work under the DDD."
+      ],
+      "kind": "sequence",
+      "source": "docs/diagrams/source/DGM-015-memory-forget.mmd",
+      "rendered": "docs/diagrams/rendered/DGM-015-memory-forget.svg",
+      "title_th": "ล้างความจำโดยไม่ลบประวัติ",
+      "status": "draft"
+    },
+    {
+      "id": "DGM-016",
+      "title": "Explicit local recording and measured clips",
+      "purpose": "Show consented OBS control, clip eligibility before ordinary audio suppression, actual save/trim evidence and critical-path isolation.",
+      "owner_doc": "docs/design/SDD.md",
+      "requirement_ids": [
+        "OBS-001",
+        "OBS-002",
+        "OBS-003",
+        "OBS-004",
+        "OBS-005"
+      ],
+      "decision_ids": [
+        "DEC-OBS-BUDGET",
+        "DEC-RETENTION",
+        "DEC-NATIVE-EVIDENCE"
+      ],
+      "notes": [
+        "Draft design view of the current specification baseline; application verification NOT_RUN. Recording starts only from an explicit player action with authenticated loopback WebSocket v5; credentials remain local. Neither startup nor a match implicitly enables recording or microphone capture.",
+        "The planner receives admitted session-bound events before ordinary announcer priority filtering. An eligible event can create a clip even when its ordinary audio is suppressed. Wrong-owner, stale or out-of-session events cannot qualify.",
+        "The event handoff, pending-save work and trim/index work are bounded and cannot block native critical audio. OBS failure, auth loss, process restart or disk pressure changes recording health without disabling independent valid alerts. Stale generations cannot publish a clip result.",
+        "Target coverage is 30 seconds before and 15 seconds after the event, derived from actual buffer/save/trim timestamps. A full replay-buffer save alone is not proof of correct trimming. Commit a clip index only for a verified produced output; missing pre/post coverage is labeled partial with actual times and reason.",
+        "A timeout is not a save receipt. Failed saves or trim/index failures cannot produce a successful clip claim. The illustrated receipt branch is the successful processing path, not a guarantee that postprocessing succeeds.",
+        "External OBS is not the critical DXGI source and is not part of the application's Windows Job. Report app, OBS and combined resources separately; preserve app budgets and active-recording acoustic/FPS gates. DEC-OBS-BUDGET must close before an unqualified overall recording-profile pass.",
+        "Local retention/quotas require DEC-RETENTION. Until then bound new writes and stop on pressure rather than silently deleting existing clips."
+      ],
+      "kind": "sequence",
+      "source": "docs/diagrams/source/DGM-016-recording-sequence.mmd",
+      "rendered": "docs/diagrams/rendered/DGM-016-recording-sequence.svg",
+      "title_th": "บันทึกและตรวจสอบคลิป",
+      "status": "draft"
+    },
+    {
+      "id": "DGM-017",
+      "title": "Startup, navigation and explicit user tasks",
+      "purpose": "Show local startup independence, all seven existing control destinations and honest availability of optional services and local tasks.",
+      "owner_doc": "docs/design/UX-SPEC.md",
+      "requirement_ids": [
+        "CORE-001",
+        "CORE-002",
+        "CORE-003",
+        "CORE-005",
+        "UI-001",
+        "UI-002",
+        "UI-003",
+        "UI-004",
+        "UI-005",
+        "UI-006",
+        "VOICE-001",
+        "ADVICE-001",
+        "OBS-001",
+        "SOCIAL-001",
+        "PREMIUM-003"
+      ],
+      "decision_ids": [
+        "DEC-NAME",
+        "DEC-VISUALS",
+        "DEC-MODELS",
+        "DEC-SOCIAL",
+        "DEC-PREMIUM"
+      ],
+      "notes": [
+        "Grouped route labels list existing destinations, not new screens: Overview, Live, Voice Packs, Store, Insights, Account and Settings.",
+        "Build, CV heroes and Cooperative sharing remain Live subviews; local History remains an Insights subview. They do not become extra main destinations.",
+        "Navigation is not required to enable the passive overlay or local alerts. The diagram's parallel branches show independent responsibilities.",
+        "Mandatory containment failure exits safely before UI/helpers. Optional account or network availability is not a startup gate.",
+        "Deferred Store/wallet/security destinations show unavailable or not-in-build states, without simulated transactions or apparently working controls.",
+        "Each explicit PTT/advice/OBS action checks its own capability, permissions and consent. Cloud advice is outside this local-action branch and retains its separate consent gate.",
+        "The location of local clip controls still requires DEC-VISUALS; this diagram creates no new clips page.",
+        "Fresh/stale/unknown views use admitted data; no production fixtures or automatic hero selection. Premium never broadens data rights or gates local core."
+      ],
+      "kind": "flowchart",
+      "source": "docs/diagrams/source/DGM-017-user-flow.mmd",
+      "rendered": "docs/diagrams/rendered/DGM-017-user-flow.svg",
+      "title_th": "เส้นทางใช้งานหน้าหลัก",
+      "status": "draft"
+    },
+    {
+      "id": "DGM-018",
+      "title": "Exact-candidate release and safe update",
+      "purpose": "Connect controlled candidate promotion to native artifact verification, safe installation timing and compatible recovery.",
+      "owner_doc": "docs/operations/RUNBOOK.md",
+      "requirement_ids": [
+        "CORE-001",
+        "UPDATE-001",
+        "UPDATE-002",
+        "UPDATE-003",
+        "UPDATE-004"
+      ],
+      "decision_ids": [
+        "DEC-NATIVE-EVIDENCE"
+      ],
+      "notes": [
+        "Draft design view of the current specification baseline; application verification NOT_RUN. The diagram is a proposed release procedure, not production publication permission, a named approver or a record that any release gate passed.",
+        "Candidate verification includes exact digest/signature, installation, operating matrix, required native/live evidence and known issues. A failed or unapproved candidate cannot mutate stable. Tags or normal commits alone do not publish.",
+        "Stable promotion is an explicit authorized action using the same approved artifact bytes and signature; do not rebuild or re-sign on promotion. Release private keys remain in the secured release environment and never ship in the client.",
+        "Native code owns trusted manifest endpoints and verification keys. Arbitrary renderer URLs and signature failures cannot lead to installation. Network/account failure does not gate existing local core use.",
+        "A verified update may be staged during a match, but installation waits for a safe gameplay and media state. Deferral does not steal focus, force a local-core lock or interrupt gameplay.",
+        "Recovery must respect declared version and data-migration compatibility and preserve useful local data. Retain the last approved artifact identity; do not assume that reversing a manifest enables downgrade. If no valid downgrade route exists, prepare a higher emergency version through the same controlled candidate and promotion procedure.",
+        "Exact installer/repair transaction mechanics and real corrupted-download/interrupted-install evidence are still required; the diagram does not assert atomic application installation or automatic rollback."
+      ],
+      "kind": "flowchart",
+      "source": "docs/diagrams/source/DGM-018-release-update.mmd",
+      "rendered": "docs/diagrams/rendered/DGM-018-release-update.svg",
+      "title_th": "เผยแพร่และติดตั้งอัปเดต",
+      "status": "draft"
+    },
+    {
+      "id": "DGM-019",
+      "title": "Own-source admission and freshness",
+      "purpose": "Show the inclusive 2000 ms boundary, immediate withdrawal on invalidity and independent session identity.",
+      "owner_doc": "docs/design/DDD.md",
+      "requirement_ids": [
+        "DATA-001",
+        "DATA-002",
+        "DATA-003",
+        "DATA-004"
+      ],
+      "decision_ids": [
+        "DEC-INTERFACES"
+      ],
+      "notes": [
+        "A source may be fresh only with admitted current-scope input and age at most 2000 ms. At 2001 ms it is stale even if no further IPC arrives.",
+        "Only a new admitted observation advances the source timestamp. Polls and invalid payloads never rejuvenate the last observation.",
+        "Unsupported and invalid values cannot supply own-player or peer vitals; preserve explicit reason and unknown/null instead of zero.",
+        "The diagram is an own-source view. Peer age uses its separate accumulated-duration contract; manual estimates are not own-source observations.",
+        "Source-generation changes fence source values without inventing a new match. Confirmed match/owner boundaries are provided by the separate match lifecycle.",
+        "Preserve authoritative match identity/watermark through temporary invalidity; old-generation callbacks cannot restore live values.",
+        "Historical values may remain labelled stale. Match completion and outcome are not inferred from this diagram."
+      ],
+      "kind": "state",
+      "source": "docs/diagrams/source/DGM-019-source-freshness.mmd",
+      "rendered": "docs/diagrams/rendered/DGM-019-source-freshness.svg",
+      "title_th": "สถานะความสดของข้อมูล",
+      "status": "draft"
+    }
+  ]
+}

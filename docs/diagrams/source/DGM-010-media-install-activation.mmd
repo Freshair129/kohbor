@@ -1,0 +1,19 @@
+%% Draft diagram. Application verification: NOT_RUN.
+flowchart TB
+    P["Untrusted package bytes"] --> S["Copy into bounded installer staging"]
+    S --> V{"Archive, media and integrity valid?"}
+    V -->|No| R["Reject; preserve healthy installation and selection"]
+    V -->|Yes| T{"Declared authority class"}
+    T -->|Local import| C["Atomic idempotent registry commit"]
+    T -->|System or store| Q{"Required independent authorities verified?"}
+    Q -->|No or ADR open| H["Authority path unavailable; preserve healthy state"]
+    Q -->|Yes| C
+    C --> I["Installed; activation is separate"]
+    I --> A{"Activation requested by policy?"}
+    A -->|Never| O["Remain installed only"]
+    A -->|Now if idle or after match| B{"Match barrier permits and no relevant lease?"}
+    B -->|No| D["Deferred; old active revision remains"]
+    D -->|Barrier and lease change| B
+    B -->|Yes| K{"Verified revision adoption succeeds?"}
+    K -->|No| F["Activation error; preserve healthy active revision"]
+    K -->|Yes| N["Commit active selection; immutable playback lease"]

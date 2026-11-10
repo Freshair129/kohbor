@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/spec/cloud-context.schema.json",
+  "title": "cloud-context.schema.json",
+  "description": "Proposed neutral contract; see interface maturity and semantic rules in docs/design/ICD.md.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "phase": {
+      "enum": [
+        "pregame",
+        "early",
+        "mid",
+        "late",
+        "postgame",
+        "unknown"
+      ]
+    },
+    "own": {
+      "type": "object",
+      "properties": {
+        "hero_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^npc_dota_hero_[a-z0-9_]{1,100}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "level": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kills": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "deaths": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "assists": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "net_worth": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "gold": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hp_percent": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "mana_percent": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "hero_id",
+        "level",
+        "kills",
+        "deaths",
+        "assists",
+        "net_worth",
+        "gold",
+        "hp_percent",
+        "mana_percent"
+      ],
+      "additionalProperties": false
+    },
+    "team_score": {
+      "type": "object",
+      "properties": {
+        "radiant": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dire": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "radiant",
+        "dire"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "phase",
+    "own",
+    "team_score"
+  ],
+  "additionalProperties": false
+}

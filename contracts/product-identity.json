@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0.0",
+  "status": "name_selected_technical_identity_pending",
+  "display_name": "Kohbor",
+  "display_name_th": "เกาะเบาะ",
+  "name_selected_by": "product_owner",
+  "name_selected_on": "2026-11-10",
+  "app_id": null,
+  "package_id": null,
+  "data_directory": null,
+  "uri_scheme": null,
+  "media_signature_domain": null,
+  "peer_hash_domain": null,
+  "update_manifest_origin": null,
+  "legacy_compatibility": false,
+  "secret_keys_in_manifest": false
+}

@@ -1,0 +1,57 @@
+{
+  "startOnLoad": false,
+  "securityLevel": "strict",
+  "theme": "base",
+  "layout": "dagre",
+  "deterministicIds": true,
+  "deterministicIDSeed": "spec-diagrams-v0.3",
+  "fontFamily": "DejaVu Sans, Arial, sans-serif",
+  "themeVariables": {
+    "fontFamily": "DejaVu Sans, Arial, sans-serif",
+    "fontSize": "15px",
+    "primaryColor": "#edf4ff",
+    "primaryTextColor": "#172a46",
+    "primaryBorderColor": "#6882a5",
+    "lineColor": "#52657b",
+    "secondaryColor": "#e9f5f0",
+    "tertiaryColor": "#f5f7fa",
+    "background": "#ffffff",
+    "clusterBkg": "#f8fafc",
+    "clusterBorder": "#a8b7c8",
+    "noteBkgColor": "#fff7dd",
+    "noteTextColor": "#493b12",
+    "noteBorderColor": "#c3aa62",
+    "actorTextColor": "#172a46",
+    "actorBkg": "#edf4ff",
+    "actorBorder": "#6882a5",
+    "signalColor": "#52657b",
+    "signalTextColor": "#172a46"
+  },
+  "flowchart": {
+    "htmlLabels": false,
+    "useMaxWidth": false,
+    "curve": "linear",
+    "nodeSpacing": 32,
+    "rankSpacing": 48,
+    "padding": 14
+  },
+  "sequence": {
+    "useMaxWidth": false,
+    "wrap": true,
+    "actorMargin": 45,
+    "messageMargin": 25,
+    "diagramMarginX": 22,
+    "diagramMarginY": 22,
+    "actorFontSize": 14,
+    "messageFontSize": 14,
+    "noteFontSize": 13
+  },
+  "state": {
+    "useMaxWidth": false
+  },
+  "er": {
+    "useMaxWidth": false
+  },
+  "look": "classic",
+  "htmlLabels": false
+}

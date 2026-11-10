@@ -1,0 +1,31 @@
+flowchart TB
+  subgraph CloudRoute["Cloud route: independent opt-in"]
+    direction TB
+    Context["Coarse own context"]
+    CloudGate["Native consent and closed allowlist"]
+    Cloud["External cloud advisor"]
+    Reply["Current noncritical reply"]
+    Context --> CloudGate
+    CloudGate -->|"Approved fields only"| Cloud
+    Cloud -->|"Generation recheck"| Reply
+  end
+  subgraph PeerRoute["Peer route: fresh create or join consent"]
+    direction TB
+    OwnVitals["Complete admitted own vitals"]
+    PeerGate["Native consent and scoped membership"]
+    Relay["External transient relay"]
+    PeerView["Authorized transient peer display"]
+    OwnVitals --> PeerGate
+    PeerGate -->|"Limited vitals and room scope"| Relay
+    Relay -->|"Same room, match, team; age <= 2000 ms"| PeerView
+  end
+  subgraph AccountRoute["Account route: private server authority"]
+    direction TB
+    AccountAction["Account and social actions"]
+    Broker["Native account broker"]
+    Social["External account and social service"]
+    Records["Authorized private records"]
+    AccountAction --> Broker
+    Broker -->|"Purpose-specific credentials"| Social
+    Social -->|"Server authorization"| Records
+  end

@@ -1,0 +1,5430 @@
+{
+  "schema_version": "1.2.0",
+  "spec_version": "0.3.1",
+  "status": "draft",
+  "updated": "2026-11-10",
+  "all_new_build_evidence": "NOT_RUN",
+  "requirements": [
+    {
+      "id": "CORE-001",
+      "title": "Account-independent local startup",
+      "module": "core",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "The local core shall start without account, network or premium authority.",
+      "failure_behavior": "Do not lock gameplay functionality behind sign-in or an entitlement check.",
+      "acceptance": {
+        "scenario_id": "AC-CORE-001",
+        "given": "a cold installed application with no account and no network",
+        "when": "the player starts the application",
+        "then": "local setup, permitted intake, overlay and available local functions are usable; account services show unavailable"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-01",
+          "UAT-01"
+        ]
+      },
+      "contract_refs": [],
+      "spec_refs": [
+        "docs/product/PRD.md",
+        "docs/design/SAD.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-001"
+      ],
+      "design_component_ids": [
+        "CMP-STARTUP"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/SAD.md"
+      ],
+      "primary_design_component_id": "CMP-STARTUP",
+      "diagram_ids": [
+        "DGM-001",
+        "DGM-007",
+        "DGM-017",
+        "DGM-018"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-001-system-context.mmd",
+        "docs/diagrams/source/DGM-007-startup-sequence.mmd",
+        "docs/diagrams/source/DGM-017-user-flow.mmd",
+        "docs/diagrams/source/DGM-018-release-update.mmd"
+      ]
+    },
+    {
+      "id": "CORE-002",
+      "title": "Resource containment before UI",
+      "module": "core",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "The application shall establish the 10% Windows CPU Job Object cap before creating UI or sidecars.",
+      "failure_behavior": "Do not continue with an uncontained runtime.",
+      "acceptance": {
+        "scenario_id": "AC-CORE-002",
+        "given": "job creation, configuration or assignment fails",
+        "when": "startup is attempted",
+        "then": "the application records a safe error and exits with code1 before WebView or sidecar creation"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-01",
+          "TP-13",
+          "UAT-05"
+        ]
+      },
+      "contract_refs": [],
+      "spec_refs": [
+        "docs/product/PRD.md",
+        "docs/design/SAD.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-005"
+      ],
+      "design_component_ids": [
+        "CMP-STARTUP",
+        "CMP-PERFORMANCE"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/SAD.md"
+      ],
+      "primary_design_component_id": "CMP-STARTUP",
+      "diagram_ids": [
+        "DGM-003",
+        "DGM-007",
+        "DGM-017"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-003-deployment.mmd",
+        "docs/diagrams/source/DGM-007-startup-sequence.mmd",
+        "docs/diagrams/source/DGM-017-user-flow.mmd"
+      ]
+    },
+    {
+      "id": "CORE-003",
+      "title": "Account transitions preserve local state",
+      "module": "core",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Account signout, revoke or switch shall invalidate account requests and credentials while preserving local gameplay/history.",
+      "failure_behavior": "Never allow an old account response to populate the new account.",
+      "acceptance": {
+        "scenario_id": "AC-CORE-003",
+        "given": "a local match is active with an optional signed-in account",
+        "when": "the account is revoked or switched",
+        "then": "protected account operations stop and late account results are discarded; valid local core continues"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-01",
+          "UAT-01"
+        ]
+      },
+      "contract_refs": [],
+      "spec_refs": [
+        "docs/product/PRD.md",
+        "docs/design/SAD.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-001"
+      ],
+      "design_component_ids": [
+        "CMP-SOCIAL",
+        "CMP-STARTUP"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/SAD.md"
+      ],
+      "primary_design_component_id": "CMP-SOCIAL",
+      "diagram_ids": [
+        "DGM-001",
+        "DGM-017"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-001-system-context.mmd",
+        "docs/diagrams/source/DGM-017-user-flow.mmd"
+      ]
+    },
+    {
+      "id": "CORE-004",
+      "title": "Owned integration configuration",
+      "module": "core",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Game integration setup shall write only its owned config and verified chosen loopback port.",
+      "failure_behavior": "Port exhaustion or write failure returns an actionable error without overwriting unrelated files.",
+      "acceptance": {
+        "scenario_id": "AC-CORE-004",
+        "given": "ports3000 through3010 contain occupied and free candidates",
+        "when": "setup selects an available configured port",
+        "then": "the app and owned game config agree; unrelated game configuration is preserved"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-01",
+          "UAT-01"
+        ]
+      },
+      "contract_refs": [],
+      "spec_refs": [
+        "docs/product/PRD.md",
+        "docs/design/SAD.md"
+      ],
+      "open_decisions": [
+        "DEC-INTERFACES"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-001"
+      ],
+      "design_component_ids": [
+        "CMP-INGEST",
+        "CMP-STARTUP"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/SAD.md"
+      ],
+      "primary_design_component_id": "CMP-INGEST",
+      "diagram_ids": [
+        "DGM-003"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-003-deployment.mmd"
+      ]
+    },
+    {
+      "id": "CORE-005",
+      "title": "Supported matrix is explicit",
+      "module": "core",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "The product shall label mode, OS and capture configurations outside the evidence matrix unverified or unsupported.",
+      "failure_behavior": "Do not reinterpret an unsupported mode as the default supported mode.",
+      "acceptance": {
+        "scenario_id": "AC-CORE-005",
+        "given": "an untested mode or vision geometry is selected",
+        "when": "a source-dependent conclusion would be shown",
+        "then": "the unsupported capability is identified and independent valid local capabilities remain available"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-01",
+          "UAT-01"
+        ]
+      },
+      "contract_refs": [],
+      "spec_refs": [
+        "docs/product/PRD.md",
+        "docs/design/SAD.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-001"
+      ],
+      "design_component_ids": [
+        "CMP-READMODEL",
+        "CMP-STARTUP"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/SAD.md"
+      ],
+      "primary_design_component_id": "CMP-READMODEL",
+      "diagram_ids": [
+        "DGM-013",
+        "DGM-017"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-013-match-lifecycle.mmd",
+        "docs/diagrams/source/DGM-017-user-flow.mmd"
+      ]
+    },
+    {
+      "id": "DATA-001",
+      "title": "Freshness boundary",
+      "module": "data",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Own-source data shall be fresh only while admitted source age is at most2000ms.",
+      "failure_behavior": "Withdraw live assertions when stale; do not fabricate a new observation.",
+      "acceptance": {
+        "scenario_id": "AC-DATA-001",
+        "given": "a valid own observation at age2000ms followed by age2001ms",
+        "when": "the UI consumes both snapshots without a new source observation",
+        "then": "the first may be fresh and the second is stale; invalid input and polling do not renew the age"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-02",
+          "UAT-02"
+        ]
+      },
+      "contract_refs": [
+        "contracts/own-snapshot.schema.json",
+        "contracts/event.schema.json"
+      ],
+      "spec_refs": [
+        "docs/design/DDD.md",
+        "docs/design/ICD.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-002"
+      ],
+      "design_component_ids": [
+        "CMP-INGEST"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/DDD.md",
+        "docs/design/ICD.md"
+      ],
+      "primary_design_component_id": "CMP-INGEST",
+      "diagram_ids": [
+        "DGM-002",
+        "DGM-004",
+        "DGM-019"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-002-containers.mmd",
+        "docs/diagrams/source/DGM-004-local-data-flow.mmd",
+        "docs/diagrams/source/DGM-019-source-freshness.mmd"
+      ]
+    },
+    {
+      "id": "DATA-002",
+      "title": "Unknown is not zero",
+      "module": "data",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Missing, invalid and unverified values shall remain explicitly unavailable.",
+      "failure_behavior": "Never use parser defaults to imply alive, safe, ready or known empty.",
+      "acceptance": {
+        "scenario_id": "AC-DATA-002",
+        "given": "HP is absent in one sample and genuinely zero in another",
+        "when": "read models are built",
+        "then": "missing HP becomes unknown/null and admitted zero remains zero"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-02",
+          "UAT-02"
+        ]
+      },
+      "contract_refs": [
+        "contracts/own-snapshot.schema.json",
+        "contracts/event.schema.json"
+      ],
+      "spec_refs": [
+        "docs/design/DDD.md",
+        "docs/design/ICD.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-002"
+      ],
+      "design_component_ids": [
+        "CMP-READMODEL",
+        "CMP-INGEST"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/DDD.md",
+        "docs/design/ICD.md"
+      ],
+      "primary_design_component_id": "CMP-READMODEL",
+      "diagram_ids": [
+        "DGM-002",
+        "DGM-004",
+        "DGM-019"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-002-containers.mmd",
+        "docs/diagrams/source/DGM-004-local-data-flow.mmd",
+        "docs/diagrams/source/DGM-019-source-freshness.mmd"
+      ]
+    },
+    {
+      "id": "DATA-003",
+      "title": "Own-source admission",
+      "module": "data",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Own-player conclusions shall require supported game scope, actual playing activity and verified active local ownership.",
+      "failure_behavior": "Keep source unavailable; selected-unit data is not proof of ownership.",
+      "acceptance": {
+        "scenario_id": "AC-DATA-003",
+        "given": "a valid-looking payload belongs to another selected unit or unverified player",
+        "when": "source admission is evaluated",
+        "then": "the payload cannot supply own-player or peer vitals"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-02",
+          "UAT-02"
+        ]
+      },
+      "contract_refs": [
+        "contracts/own-snapshot.schema.json",
+        "contracts/event.schema.json"
+      ],
+      "spec_refs": [
+        "docs/design/DDD.md",
+        "docs/design/ICD.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-002"
+      ],
+      "design_component_ids": [
+        "CMP-INGEST"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/DDD.md",
+        "docs/design/ICD.md"
+      ],
+      "primary_design_component_id": "CMP-INGEST",
+      "diagram_ids": [
+        "DGM-001",
+        "DGM-002",
+        "DGM-004",
+        "DGM-008",
+        "DGM-013",
+        "DGM-019"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-001-system-context.mmd",
+        "docs/diagrams/source/DGM-002-containers.mmd",
+        "docs/diagrams/source/DGM-004-local-data-flow.mmd",
+        "docs/diagrams/source/DGM-008-alert-sequence.mmd",
+        "docs/diagrams/source/DGM-013-match-lifecycle.mmd",
+        "docs/diagrams/source/DGM-019-source-freshness.mmd"
+      ]
+    },
+    {
+      "id": "DATA-004",
+      "title": "Session and clock fences",
+      "module": "data",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Session/source changes shall fence late work without treating every regressed clock as a new match.",
+      "failure_behavior": "Preserve authoritative watermark/identity through temporary invalidity; require actual session evidence.",
+      "acceptance": {
+        "scenario_id": "AC-DATA-004",
+        "given": "an old response and regressed input arrive after a new session epoch",
+        "when": "consumers evaluate pending work",
+        "then": "old work is rejected and event baselines cannot generate false new-match cues"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-02",
+          "UAT-02"
+        ]
+      },
+      "contract_refs": [
+        "contracts/own-snapshot.schema.json",
+        "contracts/event.schema.json"
+      ],
+      "spec_refs": [
+        "docs/design/DDD.md",
+        "docs/design/ICD.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-002"
+      ],
+      "design_component_ids": [
+        "CMP-INGEST"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/DDD.md",
+        "docs/design/ICD.md"
+      ],
+      "primary_design_component_id": "CMP-INGEST",
+      "diagram_ids": [
+        "DGM-004",
+        "DGM-006",
+        "DGM-013",
+        "DGM-019"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-004-local-data-flow.mmd",
+        "docs/diagrams/source/DGM-006-logical-erd.mmd",
+        "docs/diagrams/source/DGM-013-match-lifecycle.mmd",
+        "docs/diagrams/source/DGM-019-source-freshness.mmd"
+      ]
+    },
+    {
+      "id": "DATA-005",
+      "title": "Enemy observation boundary",
+      "module": "data",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Enemy visibility and positions shall derive only from admitted visible capture data.",
+      "failure_behavior": "Unknown coverage cannot be labeled safe.",
+      "acceptance": {
+        "scenario_id": "AC-DATA-005",
+        "given": "game telemetry contains no enemy position and capture is unavailable",
+        "when": "the live field renders enemies",
+        "then": "no current position or hidden enemy stats are invented"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-02",
+          "UAT-02"
+        ]
+      },
+      "contract_refs": [
+        "contracts/own-snapshot.schema.json",
+        "contracts/event.schema.json"
+      ],
+      "spec_refs": [
+        "docs/design/DDD.md",
+        "docs/design/ICD.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-002"
+      ],
+      "design_component_ids": [
+        "CMP-VISION",
+        "CMP-INGEST"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/DDD.md",
+        "docs/design/ICD.md"
+      ],
+      "primary_design_component_id": "CMP-VISION",
+      "diagram_ids": [
+        "DGM-001",
+        "DGM-002",
+        "DGM-004",
+        "DGM-008"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-001-system-context.mmd",
+        "docs/diagrams/source/DGM-002-containers.mmd",
+        "docs/diagrams/source/DGM-004-local-data-flow.mmd",
+        "docs/diagrams/source/DGM-008-alert-sequence.mmd"
+      ]
+    },
+    {
+      "id": "DATA-006",
+      "title": "Static game data provenance",
+      "module": "data",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Static hero/item/ability data shall identify patch, source revision/hash and verified coverage.",
+      "failure_behavior": "No guessed damage formula or patch compatibility.",
+      "acceptance": {
+        "scenario_id": "AC-DATA-006",
+        "given": "a catalog lacks a known patch or class validation",
+        "when": "advice or skill UI requests those facts",
+        "then": "the facts are marked partial/unsupported and not described as latest"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-02",
+          "UAT-02"
+        ]
+      },
+      "contract_refs": [
+        "contracts/own-snapshot.schema.json",
+        "contracts/event.schema.json"
+      ],
+      "spec_refs": [
+        "docs/design/DDD.md",
+        "docs/design/ICD.md"
+      ],
+      "open_decisions": [
+        "DEC-GAME-DATA"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-002"
+      ],
+      "design_component_ids": [
+        "CMP-INGEST"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/DDD.md",
+        "docs/design/ICD.md"
+      ],
+      "primary_design_component_id": "CMP-INGEST",
+      "diagram_ids": [
+        "DGM-006"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-006-logical-erd.mmd"
+      ]
+    },
+    {
+      "id": "VISION-001",
+      "title": "Calibrated capture admission",
+      "module": "vision",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Vision shall require healthy frames, matching session and validated minimap geometry.",
+      "failure_behavior": "Preserve valid telemetry-only operation.",
+      "acceptance": {
+        "scenario_id": "AC-VISION-001",
+        "given": "capture changes monitor, size or minimap layout",
+        "when": "a frame arrives under an old calibration",
+        "then": "the old frame/coordinates are rejected and calibration readiness is explicit"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-02",
+          "UAT-02"
+        ]
+      },
+      "contract_refs": [
+        "contracts/own-snapshot.schema.json"
+      ],
+      "spec_refs": [
+        "docs/product/FEATURE-CATALOG.md",
+        "docs/quality/NFR.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-002"
+      ],
+      "design_component_ids": [
+        "CMP-VISION"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md"
+      ],
+      "primary_design_component_id": "CMP-VISION",
+      "diagram_ids": [
+        "DGM-008",
+        "DGM-013"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-008-alert-sequence.mmd",
+        "docs/diagrams/source/DGM-013-match-lifecycle.mmd"
+      ]
+    },
+    {
+      "id": "VISION-002",
+      "title": "Missing requires continuing coverage",
+      "module": "vision",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "A missing-enemy episode shall require prior observed presence and continued valid coverage.",
+      "failure_behavior": "Do not interpret empty/no frames as observed absence.",
+      "acceptance": {
+        "scenario_id": "AC-VISION-002",
+        "given": "an enemy was observed and the camera then stops yielding valid frames",
+        "when": "time passes beyond5seconds",
+        "then": "coverage becomes unavailable and no missing or all-clear assertion is manufactured"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-02",
+          "UAT-02"
+        ]
+      },
+      "contract_refs": [
+        "contracts/own-snapshot.schema.json"
+      ],
+      "spec_refs": [
+        "docs/product/FEATURE-CATALOG.md",
+        "docs/quality/NFR.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-002"
+      ],
+      "design_component_ids": [
+        "CMP-VISION"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md"
+      ],
+      "primary_design_component_id": "CMP-VISION",
+      "diagram_ids": [
+        "DGM-008"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-008-alert-sequence.mmd"
+      ]
+    },
+    {
+      "id": "VISION-003",
+      "title": "Certified class coverage",
+      "module": "vision",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Vision shall expose the actual set of certified hero classes.",
+      "failure_behavior": "Pooled model accuracy cannot certify an individual class.",
+      "acceptance": {
+        "scenario_id": "AC-VISION-003",
+        "given": "an unvalidated class is detected",
+        "when": "identity is presented",
+        "then": "the class is marked unknown/unverified rather than silently accepted"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-02",
+          "UAT-02"
+        ]
+      },
+      "contract_refs": [
+        "contracts/own-snapshot.schema.json"
+      ],
+      "spec_refs": [
+        "docs/product/FEATURE-CATALOG.md",
+        "docs/quality/NFR.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-002"
+      ],
+      "design_component_ids": [
+        "CMP-VISION"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md"
+      ],
+      "primary_design_component_id": "CMP-VISION",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "VISION-004",
+      "title": "Capture source separation",
+      "module": "vision",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "OBS recording shall not replace the accepted critical DXGI source without a distinct measured source-admission decision.",
+      "failure_behavior": "A recorder or candidate virtual-camera failure cannot erase valid GSI.",
+      "acceptance": {
+        "scenario_id": "AC-VISION-004",
+        "given": "OBS is enabled for recording",
+        "when": "live vision continues",
+        "then": "the selected critical capture route remains explicit and accidental double capture is avoided"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-02",
+          "TP-11",
+          "UAT-11"
+        ]
+      },
+      "contract_refs": [
+        "contracts/own-snapshot.schema.json"
+      ],
+      "spec_refs": [
+        "docs/product/FEATURE-CATALOG.md",
+        "docs/quality/NFR.md"
+      ],
+      "open_decisions": [
+        "DEC-GAME-DATA"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-011"
+      ],
+      "design_component_ids": [
+        "CMP-VISION",
+        "CMP-RECORDER"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md"
+      ],
+      "primary_design_component_id": "CMP-VISION",
+      "diagram_ids": [
+        "DGM-001",
+        "DGM-003"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-001-system-context.mmd",
+        "docs/diagrams/source/DGM-003-deployment.mmd"
+      ]
+    },
+    {
+      "id": "ALERT-001",
+      "title": "Native independent warning path",
+      "module": "alert",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Critical warnings shall be decided and admitted in native deterministic code without waiting for cloud, model, renderer or relay.",
+      "failure_behavior": "No synchronous network, disk unpacking or inference in critical admission.",
+      "acceptance": {
+        "scenario_id": "AC-ALERT-001",
+        "given": "network is down and a renderer/model task is stalled",
+        "when": "an admitted actionable critical event occurs",
+        "then": "the local alert path continues and meets its acoustic gate"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-03",
+          "UAT-03"
+        ]
+      },
+      "contract_refs": [
+        "contracts/event.schema.json",
+        "fixtures/risk-golden.json"
+      ],
+      "spec_refs": [
+        "docs/design/SDD.md",
+        "docs/product/FEATURE-CATALOG.md",
+        "docs/design/MEDIA-PACK-SPEC.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-003"
+      ],
+      "design_component_ids": [
+        "CMP-ALERT",
+        "CMP-RISK"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/SDD.md",
+        "docs/design/MEDIA-PACK-SPEC.md"
+      ],
+      "primary_design_component_id": "CMP-ALERT",
+      "diagram_ids": [
+        "DGM-001",
+        "DGM-002",
+        "DGM-003",
+        "DGM-008",
+        "DGM-014"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-001-system-context.mmd",
+        "docs/diagrams/source/DGM-002-containers.mmd",
+        "docs/diagrams/source/DGM-003-deployment.mmd",
+        "docs/diagrams/source/DGM-008-alert-sequence.mmd",
+        "docs/diagrams/source/DGM-014-alert-lifecycle.mmd"
+      ]
+    },
+    {
+      "id": "ALERT-002",
+      "title": "Risk is a labeled heuristic",
+      "module": "alert",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "The missing-time score shall follow the documented versioned formula and be labeled heuristic.",
+      "failure_behavior": "Invalid/non-finite input produces unavailable rather than a risk probability claim.",
+      "acceptance": {
+        "scenario_id": "AC-ALERT-002",
+        "given": "neutral headings and durations4,5,8.5,12,20,40seconds",
+        "when": "the baseline risk function runs",
+        "then": "outputs are0,0,0.35,0.70,0.46,0.10 within declared floating tolerance"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-03",
+          "UAT-03"
+        ]
+      },
+      "contract_refs": [
+        "contracts/event.schema.json",
+        "fixtures/risk-golden.json"
+      ],
+      "spec_refs": [
+        "docs/design/SDD.md",
+        "docs/product/FEATURE-CATALOG.md",
+        "docs/design/MEDIA-PACK-SPEC.md"
+      ],
+      "open_decisions": [
+        "DEC-RISK-DETAIL"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-003"
+      ],
+      "design_component_ids": [
+        "CMP-RISK",
+        "CMP-ALERT"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/SDD.md",
+        "docs/design/MEDIA-PACK-SPEC.md"
+      ],
+      "primary_design_component_id": "CMP-RISK",
+      "diagram_ids": [
+        "DGM-014"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-014-alert-lifecycle.mmd"
+      ]
+    },
+    {
+      "id": "ALERT-003",
+      "title": "Evidence-gated audible gank",
+      "module": "alert",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "A high score alone shall not trigger audible gank; admitted coordinated multi-enemy movement/disappearance or independently verified position evidence is required.",
+      "failure_behavior": "Suppress during pregame, own death, pause/nonadvancing clock, invalid game frame or capture gap.",
+      "acceptance": {
+        "scenario_id": "AC-ALERT-003",
+        "given": "score crosses the configured danger threshold with no qualifying movement/position evidence",
+        "when": "voice admission is evaluated",
+        "then": "no audible gank is emitted; a heuristic readout does not claim confirmed threat"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-03",
+          "UAT-03"
+        ]
+      },
+      "contract_refs": [
+        "contracts/event.schema.json",
+        "fixtures/risk-golden.json"
+      ],
+      "spec_refs": [
+        "docs/design/SDD.md",
+        "docs/product/FEATURE-CATALOG.md",
+        "docs/design/MEDIA-PACK-SPEC.md"
+      ],
+      "open_decisions": [
+        "DEC-RISK-DETAIL"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-003"
+      ],
+      "design_component_ids": [
+        "CMP-ALERT",
+        "CMP-RISK"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/SDD.md",
+        "docs/design/MEDIA-PACK-SPEC.md"
+      ],
+      "primary_design_component_id": "CMP-ALERT",
+      "diagram_ids": [
+        "DGM-002",
+        "DGM-008",
+        "DGM-014"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-002-containers.mmd",
+        "docs/diagrams/source/DGM-008-alert-sequence.mmd",
+        "docs/diagrams/source/DGM-014-alert-lifecycle.mmd"
+      ]
+    },
+    {
+      "id": "ALERT-004",
+      "title": "Absence episode deduplication",
+      "module": "alert",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Audible gank shall be deduplicated by absence episode with global30s and per-contributor60s minimum intervals.",
+      "failure_behavior": "Re-arm only on confirmed continuous reappearance; one-frame noise does not re-arm.",
+      "acceptance": {
+        "scenario_id": "AC-ALERT-004",
+        "given": "a notified hero remains absent after both cooldowns expire",
+        "when": "a new risk evaluation occurs",
+        "then": "cooldown expiry alone does not create a new notification episode"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-03",
+          "UAT-03"
+        ]
+      },
+      "contract_refs": [
+        "contracts/event.schema.json",
+        "fixtures/risk-golden.json"
+      ],
+      "spec_refs": [
+        "docs/design/SDD.md",
+        "docs/product/FEATURE-CATALOG.md",
+        "docs/design/MEDIA-PACK-SPEC.md"
+      ],
+      "open_decisions": [
+        "DEC-RISK-DETAIL"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-003"
+      ],
+      "design_component_ids": [
+        "CMP-ALERT",
+        "CMP-RISK"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/SDD.md",
+        "docs/design/MEDIA-PACK-SPEC.md"
+      ],
+      "primary_design_component_id": "CMP-ALERT",
+      "diagram_ids": [
+        "DGM-008",
+        "DGM-014"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-008-alert-sequence.mmd",
+        "docs/diagrams/source/DGM-014-alert-lifecycle.mmd"
+      ]
+    },
+    {
+      "id": "ALERT-005",
+      "title": "Evidence-based correction",
+      "module": "alert",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "An audible risk correction shall require confirmed reappearance of all previously alerted heroes and score below clear.",
+      "failure_behavior": "Coverage loss silently suspends unsupported claims and retains cooldown fences.",
+      "acceptance": {
+        "scenario_id": "AC-ALERT-005",
+        "given": "an alert was issued and score later falls solely by time decay",
+        "when": "the clear threshold is crossed",
+        "then": "no audible all-clear/correction is emitted from decay alone"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-03",
+          "UAT-03"
+        ]
+      },
+      "contract_refs": [
+        "contracts/event.schema.json",
+        "fixtures/risk-golden.json"
+      ],
+      "spec_refs": [
+        "docs/design/SDD.md",
+        "docs/product/FEATURE-CATALOG.md",
+        "docs/design/MEDIA-PACK-SPEC.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-003"
+      ],
+      "design_component_ids": [
+        "CMP-ALERT",
+        "CMP-RISK"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/SDD.md",
+        "docs/design/MEDIA-PACK-SPEC.md"
+      ],
+      "primary_design_component_id": "CMP-ALERT",
+      "diagram_ids": [
+        "DGM-008",
+        "DGM-014"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-008-alert-sequence.mmd",
+        "docs/diagrams/source/DGM-014-alert-lifecycle.mmd"
+      ]
+    },
+    {
+      "id": "ALERT-006",
+      "title": "Missing notification policy",
+      "module": "alert",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "A visibility-missing notification shall use absence strictly longer than5s, once per hero/episode and global audio cooldown at least10s.",
+      "failure_behavior": "Drop missing-event audio while critical audio is active; no substituted media.",
+      "acceptance": {
+        "scenario_id": "AC-ALERT-006",
+        "given": "a previously observed enemy is absent5000ms then5001ms under valid coverage",
+        "when": "missing notification admission runs",
+        "then": "no threshold event at5000ms; an eligible event after5000ms obeys dedup and audio priority"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-03",
+          "UAT-03"
+        ]
+      },
+      "contract_refs": [
+        "contracts/event.schema.json",
+        "fixtures/risk-golden.json"
+      ],
+      "spec_refs": [
+        "docs/design/SDD.md",
+        "docs/product/FEATURE-CATALOG.md",
+        "docs/design/MEDIA-PACK-SPEC.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-003"
+      ],
+      "design_component_ids": [
+        "CMP-ALERT",
+        "CMP-RISK"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/SDD.md",
+        "docs/design/MEDIA-PACK-SPEC.md"
+      ],
+      "primary_design_component_id": "CMP-ALERT",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "ALERT-007",
+      "title": "Critical media readiness",
+      "module": "alert",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Critical audio readiness shall require valid mapped critical media before the demo warning gate passes.",
+      "failure_behavior": "Do not substitute TTS, an unrelated clip or silently declare visual-only readiness.",
+      "acceptance": {
+        "scenario_id": "AC-ALERT-007",
+        "given": "gank/danger/revision media is missing or invalid",
+        "when": "critical readiness is assessed",
+        "then": "the product exposes not-ready and the acoustic gate cannot pass"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-03",
+          "UAT-03"
+        ]
+      },
+      "contract_refs": [
+        "contracts/event.schema.json",
+        "fixtures/risk-golden.json"
+      ],
+      "spec_refs": [
+        "docs/design/SDD.md",
+        "docs/product/FEATURE-CATALOG.md",
+        "docs/design/MEDIA-PACK-SPEC.md"
+      ],
+      "open_decisions": [
+        "DEC-CRITICAL-MEDIA"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-003"
+      ],
+      "design_component_ids": [
+        "CMP-ALERT",
+        "CMP-RISK",
+        "CMP-MEDIA"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/SDD.md",
+        "docs/design/MEDIA-PACK-SPEC.md"
+      ],
+      "primary_design_component_id": "CMP-ALERT",
+      "diagram_ids": [
+        "DGM-002",
+        "DGM-008",
+        "DGM-014"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-002-containers.mmd",
+        "docs/diagrams/source/DGM-008-alert-sequence.mmd",
+        "docs/diagrams/source/DGM-014-alert-lifecycle.mmd"
+      ]
+    },
+    {
+      "id": "MEDIA-001",
+      "title": "Single event taxonomy",
+      "module": "media",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "One versioned catalog shall own event IDs, labels, detectors, bounded tunables and ordinary ranks.",
+      "failure_behavior": "Do not hand-edit generated downstream copies.",
+      "acceptance": {
+        "scenario_id": "AC-MEDIA-001",
+        "given": "duplicate IDs, duplicate nonzero ranks or invalid tunables exist",
+        "when": "catalog validation/generation runs",
+        "then": "the catalog is rejected before generated runtime tables are published"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-04",
+          "UAT-04"
+        ]
+      },
+      "contract_refs": [
+        "contracts/media-manifest.schema.json"
+      ],
+      "spec_refs": [
+        "docs/design/MEDIA-PACK-SPEC.md",
+        "docs/design/ICD.md"
+      ],
+      "open_decisions": [
+        "DEC-INTERFACES"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-004"
+      ],
+      "design_component_ids": [
+        "CMP-MEDIA"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/MEDIA-PACK-SPEC.md",
+        "docs/design/ICD.md"
+      ],
+      "primary_design_component_id": "CMP-MEDIA",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "MEDIA-002",
+      "title": "Ordinary event arbitration",
+      "module": "media",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Ordinary same-tick arbitration shall select the highest emitted ordinary rank before media lookup, separately from critical admission.",
+      "failure_behavior": "No mapping-driven fallback. Baseline/reconnect must not invent first blood, kills, level or match-start events.",
+      "acceptance": {
+        "scenario_id": "AC-MEDIA-002",
+        "given": "one tick produces several admitted ordinary events",
+        "when": "the announcer chooses media",
+        "then": "the highest emitted ordinary rank is chosen; if its mapping is missing/invalid the slot stays silent without a lower-rank media fallback"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-04",
+          "UAT-04"
+        ]
+      },
+      "contract_refs": [
+        "contracts/media-manifest.schema.json"
+      ],
+      "spec_refs": [
+        "docs/design/MEDIA-PACK-SPEC.md",
+        "docs/design/ICD.md"
+      ],
+      "open_decisions": [
+        "DEC-INTERFACES"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-004"
+      ],
+      "design_component_ids": [
+        "CMP-MEDIA"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/MEDIA-PACK-SPEC.md",
+        "docs/design/ICD.md"
+      ],
+      "primary_design_component_id": "CMP-MEDIA",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "MEDIA-003",
+      "title": "Respawn unvoiced",
+      "module": "media",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Respawn shall remain a detectable event without an automatic audio mapping.",
+      "failure_behavior": "Do not treat every event ID as requiring a sound.",
+      "acceptance": {
+        "scenario_id": "AC-MEDIA-003",
+        "given": "an admitted own death transitions to respawn",
+        "when": "the detector publishes the transition",
+        "then": "history/state may reflect respawn but the announcer does not voice it"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-04",
+          "UAT-04"
+        ]
+      },
+      "contract_refs": [
+        "contracts/media-manifest.schema.json"
+      ],
+      "spec_refs": [
+        "docs/design/MEDIA-PACK-SPEC.md",
+        "docs/design/ICD.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-004"
+      ],
+      "design_component_ids": [
+        "CMP-MEDIA"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/MEDIA-PACK-SPEC.md",
+        "docs/design/ICD.md"
+      ],
+      "primary_design_component_id": "CMP-MEDIA",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "MEDIA-004",
+      "title": "Verified paired media",
+      "module": "media",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Event audio/visual playback shall originate from the active verified package revision.",
+      "failure_behavior": "No loose-file/default-pack/generated-card/event-TTS fallback.",
+      "acceptance": {
+        "scenario_id": "AC-MEDIA-004",
+        "given": "mixed audio is corrupt while an original identity audio file is valid",
+        "when": "playback is requested",
+        "then": "the event pair is rejected and a local reason is recorded"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-04",
+          "UAT-04"
+        ]
+      },
+      "contract_refs": [
+        "contracts/media-manifest.schema.json"
+      ],
+      "spec_refs": [
+        "docs/design/MEDIA-PACK-SPEC.md",
+        "docs/design/ICD.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-004"
+      ],
+      "design_component_ids": [
+        "CMP-MEDIA"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/MEDIA-PACK-SPEC.md",
+        "docs/design/ICD.md"
+      ],
+      "primary_design_component_id": "CMP-MEDIA",
+      "diagram_ids": [
+        "DGM-008",
+        "DGM-010"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-008-alert-sequence.mmd",
+        "docs/diagrams/source/DGM-010-media-install-activation.mmd"
+      ]
+    },
+    {
+      "id": "MEDIA-005",
+      "title": "One audio owner",
+      "module": "media",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Native audio shall own paired visual lifecycle and cancel both on stop/preemption/session fence.",
+      "failure_behavior": "The renderer cannot independently select or replay event media.",
+      "acceptance": {
+        "scenario_id": "AC-MEDIA-005",
+        "given": "a clip has a declared visual tail",
+        "when": "a critical interruption or session change occurs",
+        "then": "obsolete audio and visual tails terminate under the same generation"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-04",
+          "UAT-04"
+        ]
+      },
+      "contract_refs": [
+        "contracts/media-manifest.schema.json"
+      ],
+      "spec_refs": [
+        "docs/design/MEDIA-PACK-SPEC.md",
+        "docs/design/ICD.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-004"
+      ],
+      "design_component_ids": [
+        "CMP-MEDIA",
+        "CMP-ALERT",
+        "CMP-VOICE"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/MEDIA-PACK-SPEC.md",
+        "docs/design/ICD.md"
+      ],
+      "primary_design_component_id": "CMP-MEDIA",
+      "diagram_ids": [
+        "DGM-002",
+        "DGM-008"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-002-containers.mmd",
+        "docs/diagrams/source/DGM-008-alert-sequence.mmd"
+      ]
+    },
+    {
+      "id": "MEDIA-006",
+      "title": "Bounded hostile package handling",
+      "module": "media",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Package parsing shall enforce strict archive limits and reject traversal, duplicates and digest mismatch.",
+      "failure_behavior": "Cap container/expanded total512MiB, payload32MiB, descriptor/registry2MiB and payload count2048.",
+      "acceptance": {
+        "scenario_id": "AC-MEDIA-006",
+        "given": "an archive has unsafe paths, duplicate records or expansion beyond limits",
+        "when": "installation validates the archive",
+        "then": "it fails in bounded staging with no active-registry mutation"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-04",
+          "UAT-04"
+        ]
+      },
+      "contract_refs": [
+        "contracts/media-manifest.schema.json"
+      ],
+      "spec_refs": [
+        "docs/design/MEDIA-PACK-SPEC.md",
+        "docs/design/ICD.md"
+      ],
+      "open_decisions": [
+        "DEC-PACK-CRYPTO"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-004"
+      ],
+      "design_component_ids": [
+        "CMP-MEDIA"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/MEDIA-PACK-SPEC.md",
+        "docs/design/ICD.md"
+      ],
+      "primary_design_component_id": "CMP-MEDIA",
+      "diagram_ids": [
+        "DGM-010"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-010-media-install-activation.mmd"
+      ]
+    },
+    {
+      "id": "MEDIA-007",
+      "title": "Atomic install versus activation",
+      "module": "media",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Installation and activation shall be separate idempotent transactions.",
+      "failure_behavior": "A later activation error cannot misreport the successful install as active.",
+      "acceptance": {
+        "scenario_id": "AC-MEDIA-007",
+        "given": "a valid installation commits while a match/media lease prevents selection",
+        "when": "activation is requested",
+        "then": "the receipt distinguishes installed from activation deferred; the old active revision remains usable"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-04",
+          "UAT-04"
+        ]
+      },
+      "contract_refs": [
+        "contracts/media-manifest.schema.json"
+      ],
+      "spec_refs": [
+        "docs/design/MEDIA-PACK-SPEC.md",
+        "docs/design/ICD.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-004"
+      ],
+      "design_component_ids": [
+        "CMP-MEDIA"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/MEDIA-PACK-SPEC.md",
+        "docs/design/ICD.md"
+      ],
+      "primary_design_component_id": "CMP-MEDIA",
+      "diagram_ids": [
+        "DGM-010"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-010-media-install-activation.mmd"
+      ]
+    },
+    {
+      "id": "MEDIA-008",
+      "title": "Trust domains are separate",
+      "module": "media",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Package integrity, publisher trust and purchase entitlement shall be verified by their own authorities.",
+      "failure_behavior": "Use application-owned trusted keys and newly selected signature namespace.",
+      "acceptance": {
+        "scenario_id": "AC-MEDIA-008",
+        "given": "a locally hash-valid package supplies its own public key or claims Store authority",
+        "when": "the installer evaluates trust",
+        "then": "local integrity alone grants neither trusted publisher nor purchase access"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-04",
+          "UAT-04"
+        ]
+      },
+      "contract_refs": [
+        "contracts/media-manifest.schema.json"
+      ],
+      "spec_refs": [
+        "docs/design/MEDIA-PACK-SPEC.md",
+        "docs/design/ICD.md"
+      ],
+      "open_decisions": [
+        "DEC-PACK-CRYPTO"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-004"
+      ],
+      "design_component_ids": [
+        "CMP-MEDIA"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/MEDIA-PACK-SPEC.md",
+        "docs/design/ICD.md"
+      ],
+      "primary_design_component_id": "CMP-MEDIA",
+      "diagram_ids": [
+        "DGM-010"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-010-media-install-activation.mmd"
+      ]
+    },
+    {
+      "id": "UI-001",
+      "title": "Independent control and overlay",
+      "module": "ui",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "The product shall separate control-window chrome from the transparent always-on-top click-through gameplay overlay.",
+      "failure_behavior": "Native safe-area/focus behavior needs measured evidence.",
+      "acceptance": {
+        "scenario_id": "AC-UI-001",
+        "given": "the player changes control-window route",
+        "when": "gameplay remains active",
+        "then": "overlay visibility/focus behavior stays independent and does not cover protected game areas"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-05",
+          "UAT-05"
+        ]
+      },
+      "contract_refs": [
+        "contracts/own-snapshot.schema.json"
+      ],
+      "spec_refs": [
+        "docs/product/USE-CASES.md",
+        "docs/design/UX-SPEC.md"
+      ],
+      "open_decisions": [
+        "DEC-VISUALS"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-005"
+      ],
+      "design_component_ids": [
+        "CMP-READMODEL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/UX-SPEC.md"
+      ],
+      "primary_design_component_id": "CMP-READMODEL",
+      "diagram_ids": [
+        "DGM-002",
+        "DGM-017"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-002-containers.mmd",
+        "docs/diagrams/source/DGM-017-user-flow.mmd"
+      ]
+    },
+    {
+      "id": "UI-002",
+      "title": "Stable live-field topology",
+      "module": "ui",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "The base live field shall preserve five enemy slots, own hero, four allied slots, central map and permanent right region.",
+      "failure_behavior": "Use bounded subregion scrolling; do not shrink text to hide overflow.",
+      "acceptance": {
+        "scenario_id": "AC-UI-002",
+        "given": "frozen data and viewport while inspector/feed/tier changes",
+        "when": "layout transitions run",
+        "then": "map x/y/width/height remain within1 CSS px and no page-level scroll is introduced"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-05",
+          "UAT-05"
+        ]
+      },
+      "contract_refs": [
+        "contracts/own-snapshot.schema.json"
+      ],
+      "spec_refs": [
+        "docs/product/USE-CASES.md",
+        "docs/design/UX-SPEC.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-005"
+      ],
+      "design_component_ids": [
+        "CMP-READMODEL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/UX-SPEC.md"
+      ],
+      "primary_design_component_id": "CMP-READMODEL",
+      "diagram_ids": [
+        "DGM-017"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-017-user-flow.mmd"
+      ]
+    },
+    {
+      "id": "UI-003",
+      "title": "Neutral production start",
+      "module": "ui",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Production shall begin without fixture roster, fake inventory or preselected hero.",
+      "failure_behavior": "Fixture play/reset/seed controls cannot ship as production authority.",
+      "acceptance": {
+        "scenario_id": "AC-UI-003",
+        "given": "no admitted game state is available",
+        "when": "the live view opens",
+        "then": "waiting/unknown state is visible and inspector remains neutral"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-05",
+          "UAT-05"
+        ]
+      },
+      "contract_refs": [
+        "contracts/own-snapshot.schema.json"
+      ],
+      "spec_refs": [
+        "docs/product/USE-CASES.md",
+        "docs/design/UX-SPEC.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-005"
+      ],
+      "design_component_ids": [
+        "CMP-READMODEL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/UX-SPEC.md"
+      ],
+      "primary_design_component_id": "CMP-READMODEL",
+      "diagram_ids": [
+        "DGM-017"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-017-user-flow.mmd"
+      ]
+    },
+    {
+      "id": "UI-004",
+      "title": "Compact unknown cards",
+      "module": "ui",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Enemy and unknown ally cards shall omit unknown-only skill/item rows.",
+      "failure_behavior": "Do not create four question-mark skill tiles or infer values from account/premium.",
+      "acceptance": {
+        "scenario_id": "AC-UI-004",
+        "given": "no admitted skills/items exist for a visible card",
+        "when": "the card renders",
+        "then": "it shows admitted portrait/visibility/age with unknown age as an em dash"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-05",
+          "UAT-05"
+        ]
+      },
+      "contract_refs": [
+        "contracts/own-snapshot.schema.json"
+      ],
+      "spec_refs": [
+        "docs/product/USE-CASES.md",
+        "docs/design/UX-SPEC.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-005"
+      ],
+      "design_component_ids": [
+        "CMP-READMODEL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/UX-SPEC.md"
+      ],
+      "primary_design_component_id": "CMP-READMODEL",
+      "diagram_ids": [
+        "DGM-017"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-017-user-flow.mmd"
+      ]
+    },
+    {
+      "id": "UI-005",
+      "title": "Selected inspector and ownership",
+      "module": "ui",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Detailed inspector shall open only after explicit selection and show only admitted data.",
+      "failure_behavior": "Cooldown zero is not proof of castability; distinguish passive/unlearned/unknown/stale.",
+      "acceptance": {
+        "scenario_id": "AC-UI-005",
+        "given": "an ability comes from an unverified selected unit",
+        "when": "the user opens the corresponding hero view",
+        "then": "unowned ability data is not exposed; selection is fenced by session/slot/identity"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-05",
+          "UAT-05"
+        ]
+      },
+      "contract_refs": [
+        "contracts/own-snapshot.schema.json"
+      ],
+      "spec_refs": [
+        "docs/product/USE-CASES.md",
+        "docs/design/UX-SPEC.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-005"
+      ],
+      "design_component_ids": [
+        "CMP-READMODEL",
+        "CMP-ENTITLEMENT"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/UX-SPEC.md"
+      ],
+      "primary_design_component_id": "CMP-READMODEL",
+      "diagram_ids": [
+        "DGM-017"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-017-user-flow.mmd"
+      ]
+    },
+    {
+      "id": "UI-006",
+      "title": "Keyboard and focus",
+      "module": "ui",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Keyboard interaction shall use visible focus, meaningful names and ordered Escape behavior.",
+      "failure_behavior": "Do not steal focus from the game or announce every timer tick.",
+      "acceptance": {
+        "scenario_id": "AC-UI-006",
+        "given": "inline inspector details are expanded",
+        "when": "Escape is pressed twice",
+        "then": "first close inline detail then inspector, restoring control focus safely"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-05",
+          "UAT-05"
+        ]
+      },
+      "contract_refs": [
+        "contracts/own-snapshot.schema.json"
+      ],
+      "spec_refs": [
+        "docs/product/USE-CASES.md",
+        "docs/design/UX-SPEC.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-005"
+      ],
+      "design_component_ids": [
+        "CMP-READMODEL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/UX-SPEC.md"
+      ],
+      "primary_design_component_id": "CMP-READMODEL",
+      "diagram_ids": [
+        "DGM-017"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-017-user-flow.mmd"
+      ]
+    },
+    {
+      "id": "UI-007",
+      "title": "Native estimated timers",
+      "module": "ui",
+      "scope": "deferred",
+      "priority": "later",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Manual enemy timers shall use a reviewed native game-clock store and label expiry estimated-ready.",
+      "failure_behavior": "Reviewed enemy ULT/BKB/TP timer scope, at most15keys; arbitrary fixture timers remain tests.",
+      "acceptance": {
+        "scenario_id": "AC-UI-007",
+        "given": "game clock pauses or becomes stale",
+        "when": "wall time passes",
+        "then": "timers freeze and cannot become observed-ready from browser time"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-05",
+          "TP-12",
+          "UAT-12"
+        ]
+      },
+      "contract_refs": [
+        "contracts/own-snapshot.schema.json"
+      ],
+      "spec_refs": [
+        "docs/product/USE-CASES.md",
+        "docs/design/UX-SPEC.md"
+      ],
+      "open_decisions": [
+        "DEC-PREMIUM",
+        "DEC-INTERFACES"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-012"
+      ],
+      "design_component_ids": [
+        "CMP-READMODEL",
+        "CMP-INGEST",
+        "CMP-ENTITLEMENT"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/UX-SPEC.md"
+      ],
+      "primary_design_component_id": "CMP-READMODEL",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "VOICE-001",
+      "title": "Explicit microphone consent",
+      "module": "voice",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "The microphone shall be off by default and opened only for a user-held PTT turn after local opt-in.",
+      "failure_behavior": "Other consent and account sign-in never enable mic.",
+      "acceptance": {
+        "scenario_id": "AC-VOICE-001",
+        "given": "mic consent is false",
+        "when": "PTT or account/cloud/peer action occurs",
+        "then": "no microphone stream opens"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-06",
+          "UAT-06"
+        ]
+      },
+      "contract_refs": [
+        "contracts/error-catalog.json"
+      ],
+      "spec_refs": [
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/quality/NFR.md",
+        "docs/design/SDD.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-006"
+      ],
+      "design_component_ids": [
+        "CMP-VOICE"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/SDD.md"
+      ],
+      "primary_design_component_id": "CMP-VOICE",
+      "diagram_ids": [
+        "DGM-004",
+        "DGM-009",
+        "DGM-017"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-004-local-data-flow.mmd",
+        "docs/diagrams/source/DGM-009-voice-lifecycle.mmd",
+        "docs/diagrams/source/DGM-017-user-flow.mmd"
+      ]
+    },
+    {
+      "id": "VOICE-002",
+      "title": "Remappable conflict-safe PTT",
+      "module": "voice",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Default PTT Ctrl+Alt+V shall be remappable with registration conflict detection and transactional replacement.",
+      "failure_behavior": "Do not silently remap or steal reserved keys; Alt+M remains mute.",
+      "acceptance": {
+        "scenario_id": "AC-VOICE-002",
+        "given": "a new binding cannot be registered",
+        "when": "the user changes the shortcut",
+        "then": "the prior working binding/settings remain and error is visible"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-06",
+          "UAT-06"
+        ]
+      },
+      "contract_refs": [
+        "contracts/error-catalog.json"
+      ],
+      "spec_refs": [
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/quality/NFR.md",
+        "docs/design/SDD.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-006"
+      ],
+      "design_component_ids": [
+        "CMP-VOICE"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/SDD.md"
+      ],
+      "primary_design_component_id": "CMP-VOICE",
+      "diagram_ids": [
+        "DGM-009"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-009-voice-lifecycle.mmd"
+      ]
+    },
+    {
+      "id": "VOICE-003",
+      "title": "One bounded voice turn",
+      "module": "voice",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Voice shall have one fenced active turn, minimum hold250ms and maximum15s.",
+      "failure_behavior": "Late callbacks cannot resume the superseded request.",
+      "acceptance": {
+        "scenario_id": "AC-VOICE-003",
+        "given": "a turn is decoding and a new valid press arrives",
+        "when": "the new turn starts",
+        "then": "the prior turn is cancelled; unmatched release and repeat held press do not create work"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-06",
+          "UAT-06"
+        ]
+      },
+      "contract_refs": [
+        "contracts/error-catalog.json"
+      ],
+      "spec_refs": [
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/quality/NFR.md",
+        "docs/design/SDD.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-006"
+      ],
+      "design_component_ids": [
+        "CMP-VOICE"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/SDD.md"
+      ],
+      "primary_design_component_id": "CMP-VOICE",
+      "diagram_ids": [
+        "DGM-009"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-009-voice-lifecycle.mmd"
+      ]
+    },
+    {
+      "id": "VOICE-004",
+      "title": "Bounded transient audio",
+      "module": "voice",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Mic capture shall bound PCM to480000bytes of mono16kHz i16 data with2s open timeout.",
+      "failure_behavior": "No persistence or indefinite decoder retention; STT ownership/lifetime must be closed before integration.",
+      "acceptance": {
+        "scenario_id": "AC-VOICE-004",
+        "given": "device opening fails or a turn is cancelled",
+        "when": "capture exits",
+        "then": "stream/resources are released and transient data is zeroed/dropped within the frozen handoff contract"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-06",
+          "UAT-06"
+        ]
+      },
+      "contract_refs": [
+        "contracts/error-catalog.json"
+      ],
+      "spec_refs": [
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/quality/NFR.md",
+        "docs/design/SDD.md"
+      ],
+      "open_decisions": [
+        "DEC-VOICE-BUFFER"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-006"
+      ],
+      "design_component_ids": [
+        "CMP-VOICE"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/SDD.md"
+      ],
+      "primary_design_component_id": "CMP-VOICE",
+      "diagram_ids": [
+        "DGM-004",
+        "DGM-009"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-004-local-data-flow.mmd",
+        "docs/diagrams/source/DGM-009-voice-lifecycle.mmd"
+      ]
+    },
+    {
+      "id": "VOICE-005",
+      "title": "All-local conversation",
+      "module": "voice",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "STT, transcript, free-form question, interpretation and answer shall remain local.",
+      "failure_behavior": "Never fall back to cloud or log raw speech/text.",
+      "acceptance": {
+        "scenario_id": "AC-VOICE-005",
+        "given": "local STT or answer provider is unavailable",
+        "when": "the player finishes PTT",
+        "then": "the product reports unavailable and preserves critical local alerts"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-06",
+          "UAT-06"
+        ]
+      },
+      "contract_refs": [
+        "contracts/error-catalog.json"
+      ],
+      "spec_refs": [
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/quality/NFR.md",
+        "docs/design/SDD.md"
+      ],
+      "open_decisions": [
+        "DEC-MODELS",
+        "DEC-VOICE-BUFFER"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-006"
+      ],
+      "design_component_ids": [
+        "CMP-VOICE"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/SDD.md"
+      ],
+      "primary_design_component_id": "CMP-VOICE",
+      "diagram_ids": [
+        "DGM-002",
+        "DGM-004",
+        "DGM-005",
+        "DGM-009"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-002-containers.mmd",
+        "docs/diagrams/source/DGM-004-local-data-flow.mmd",
+        "docs/diagrams/source/DGM-005-external-data-flow.mmd",
+        "docs/diagrams/source/DGM-009-voice-lifecycle.mmd"
+      ]
+    },
+    {
+      "id": "VOICE-006",
+      "title": "Priority preemption",
+      "module": "voice",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Voice answers shall use Normal priority, preemptible by announcer and critical audio; critical preemption shall not wait on Voice locks.",
+      "failure_behavior": "No stale answer or visual tail may resume later. Ordinary announcer preemption also fences the superseded voice answer.",
+      "acceptance": {
+        "scenario_id": "AC-VOICE-006",
+        "given": "a Voice turn is listening/decoding/answering/speaking",
+        "when": "a qualified critical alert is admitted",
+        "then": "the turn is cancelled and the urgent cue meets its acoustic deadline"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-06",
+          "UAT-06"
+        ]
+      },
+      "contract_refs": [
+        "contracts/error-catalog.json"
+      ],
+      "spec_refs": [
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/quality/NFR.md",
+        "docs/design/SDD.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-006"
+      ],
+      "design_component_ids": [
+        "CMP-VOICE",
+        "CMP-MEDIA",
+        "CMP-ALERT"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/SDD.md"
+      ],
+      "primary_design_component_id": "CMP-VOICE",
+      "diagram_ids": [
+        "DGM-002",
+        "DGM-008",
+        "DGM-009"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-002-containers.mmd",
+        "docs/diagrams/source/DGM-008-alert-sequence.mmd",
+        "docs/diagrams/source/DGM-009-voice-lifecycle.mmd"
+      ]
+    },
+    {
+      "id": "VOICE-007",
+      "title": "Honest preparation and failure",
+      "module": "voice",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Voice shall distinguish preparing, missing model, device/permission error and timeout.",
+      "failure_behavior": "Do not hide failed/rejected turns from completion/latency statistics.",
+      "acceptance": {
+        "scenario_id": "AC-VOICE-007",
+        "given": "a selected local model is cold or absent",
+        "when": "a turn requests inference",
+        "then": "the UI shows preparing or unavailable with bounded completion behavior"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-06",
+          "UAT-06"
+        ]
+      },
+      "contract_refs": [
+        "contracts/error-catalog.json"
+      ],
+      "spec_refs": [
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/quality/NFR.md",
+        "docs/design/SDD.md"
+      ],
+      "open_decisions": [
+        "DEC-MODELS"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-006"
+      ],
+      "design_component_ids": [
+        "CMP-VOICE"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/SDD.md"
+      ],
+      "primary_design_component_id": "CMP-VOICE",
+      "diagram_ids": [
+        "DGM-009"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-009-voice-lifecycle.mmd"
+      ]
+    },
+    {
+      "id": "MEM-001",
+      "title": "Local evidence-supported aggregates",
+      "module": "mem",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Player memory shall store only supported local aggregates with evidence provenance.",
+      "failure_behavior": "Peer data and model guesses cannot become observed memory.",
+      "acceptance": {
+        "scenario_id": "AC-MEM-001",
+        "given": "an archive lacks explicit outcome or death-cause facts",
+        "when": "the memory reader builds a snapshot",
+        "then": "those facts remain unknown and no fabricated winrate/death narrative appears"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-07",
+          "UAT-08"
+        ]
+      },
+      "contract_refs": [],
+      "spec_refs": [
+        "docs/design/DDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-008"
+      ],
+      "design_component_ids": [
+        "CMP-MEMORY"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/DDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "primary_design_component_id": "CMP-MEMORY",
+      "diagram_ids": [
+        "DGM-002",
+        "DGM-004",
+        "DGM-006",
+        "DGM-015"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-002-containers.mmd",
+        "docs/diagrams/source/DGM-004-local-data-flow.mmd",
+        "docs/diagrams/source/DGM-006-logical-erd.mmd",
+        "docs/diagrams/source/DGM-015-memory-forget.mmd"
+      ]
+    },
+    {
+      "id": "MEM-002",
+      "title": "Atomic versioned snapshots",
+      "module": "mem",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Memory snapshots shall use schema/source fingerprint and atomic replacement.",
+      "failure_behavior": "Changing storage engines needs migration and budget evidence.",
+      "acceptance": {
+        "scenario_id": "AC-MEM-002",
+        "given": "a snapshot rebuild fails halfway",
+        "when": "the next reader opens memory",
+        "then": "the prior valid snapshot or explicit unavailable state is used; no partial snapshot is admitted"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-07",
+          "UAT-08"
+        ]
+      },
+      "contract_refs": [],
+      "spec_refs": [
+        "docs/design/DDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-008"
+      ],
+      "design_component_ids": [
+        "CMP-MEMORY"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/DDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "primary_design_component_id": "CMP-MEMORY",
+      "diagram_ids": [
+        "DGM-004",
+        "DGM-006",
+        "DGM-015"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-004-local-data-flow.mmd",
+        "docs/diagrams/source/DGM-006-logical-erd.mmd",
+        "docs/diagrams/source/DGM-015-memory-forget.mmd"
+      ]
+    },
+    {
+      "id": "MEM-003",
+      "title": "Durable forget cutoff",
+      "module": "mem",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Forget shall durably advance a nondecreasing logical/epoch cutoff comparable with archive timestamps before deleting derived snapshots.",
+      "failure_behavior": "Corrupt cutoff fails closed. Do not persist a process-monotonic timestamp across restarts; conservatively exclude same-granularity source timestamps.",
+      "acceptance": {
+        "scenario_id": "AC-MEM-003",
+        "given": "older local logs remain after a memory clear",
+        "when": "the application restarts and rebuilds memory",
+        "then": "sources at or before cutoff cannot be re-learned; cutoff cannot move backward"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-07",
+          "UAT-08"
+        ]
+      },
+      "contract_refs": [],
+      "spec_refs": [
+        "docs/design/DDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-008"
+      ],
+      "design_component_ids": [
+        "CMP-MEMORY"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/DDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "primary_design_component_id": "CMP-MEMORY",
+      "diagram_ids": [
+        "DGM-004",
+        "DGM-006",
+        "DGM-015"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-004-local-data-flow.mmd",
+        "docs/diagrams/source/DGM-006-logical-erd.mmd",
+        "docs/diagrams/source/DGM-015-memory-forget.mmd"
+      ]
+    },
+    {
+      "id": "MEM-004",
+      "title": "Bounded source-linked summaries",
+      "module": "mem",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "A completed-session summary shall contain at most3 evidence-linked points with timestamps.",
+      "failure_behavior": "Do not call a model narrative a proven event.",
+      "acceptance": {
+        "scenario_id": "AC-MEM-004",
+        "given": "a session is incomplete or an outcome is unobserved",
+        "when": "summary generation runs",
+        "then": "partial/unknown is shown and win/loss/death cause are not inferred"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-07",
+          "UAT-08"
+        ]
+      },
+      "contract_refs": [],
+      "spec_refs": [
+        "docs/design/DDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "open_decisions": [
+        "DEC-SESSION"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-008"
+      ],
+      "design_component_ids": [
+        "CMP-MEMORY"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/DDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "primary_design_component_id": "CMP-MEMORY",
+      "diagram_ids": [
+        "DGM-004",
+        "DGM-006",
+        "DGM-013"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-004-local-data-flow.mmd",
+        "docs/diagrams/source/DGM-006-logical-erd.mmd",
+        "docs/diagrams/source/DGM-013-match-lifecycle.mmd"
+      ]
+    },
+    {
+      "id": "MEM-005",
+      "title": "Separate history deletion",
+      "module": "mem",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Clearing memory shall preserve separately governed raw history unless the user explicitly deletes it.",
+      "failure_behavior": "Automatic archival retention/deletion needs an explicit rule.",
+      "acceptance": {
+        "scenario_id": "AC-MEM-005",
+        "given": "the player chooses forget memory",
+        "when": "clear executes",
+        "then": "derived memory is forgotten and unrelated archives remain"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-07",
+          "UAT-08"
+        ]
+      },
+      "contract_refs": [],
+      "spec_refs": [
+        "docs/design/DDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "open_decisions": [
+        "DEC-RETENTION"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-008"
+      ],
+      "design_component_ids": [
+        "CMP-MEMORY"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/DDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "primary_design_component_id": "CMP-MEMORY",
+      "diagram_ids": [
+        "DGM-004",
+        "DGM-006",
+        "DGM-015"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-004-local-data-flow.mmd",
+        "docs/diagrams/source/DGM-006-logical-erd.mmd",
+        "docs/diagrams/source/DGM-015-memory-forget.mmd"
+      ]
+    },
+    {
+      "id": "ADVICE-001",
+      "title": "Required local/manual advice",
+      "module": "advice",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Manual advice shall be noncritical, locally available when an admitted backend is ready, and preemptible.",
+      "failure_behavior": "Unavailable local provider produces unavailable, not a silent remote request.",
+      "acceptance": {
+        "scenario_id": "AC-ADVICE-001",
+        "given": "cloud consent is off and local inference is ready",
+        "when": "manual advice is requested",
+        "then": "only permitted local context is used and critical warnings retain priority"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-08",
+          "UAT-07"
+        ]
+      },
+      "contract_refs": [
+        "contracts/cloud-context.schema.json"
+      ],
+      "spec_refs": [
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/ICD.md"
+      ],
+      "open_decisions": [
+        "DEC-MODELS"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-007"
+      ],
+      "design_component_ids": [
+        "CMP-ADVICE"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/ICD.md"
+      ],
+      "primary_design_component_id": "CMP-ADVICE",
+      "diagram_ids": [
+        "DGM-002",
+        "DGM-017"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-002-containers.mmd",
+        "docs/diagrams/source/DGM-017-user-flow.mmd"
+      ]
+    },
+    {
+      "id": "ADVICE-002",
+      "title": "Independent cloud consent",
+      "module": "advice",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Cloud gameplay context shall default off and require a separate field/purpose opt-in.",
+      "failure_behavior": "Block the send and offer local/unavailable.",
+      "acceptance": {
+        "scenario_id": "AC-ADVICE-002",
+        "given": "the user signs in, selects a provider, enters a key or presses Ask",
+        "when": "cloud advice dispatch is evaluated",
+        "then": "none of those actions alone grants context consent"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-08",
+          "UAT-07"
+        ]
+      },
+      "contract_refs": [
+        "contracts/cloud-context.schema.json"
+      ],
+      "spec_refs": [
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/ICD.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-007"
+      ],
+      "design_component_ids": [
+        "CMP-ADVICE"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/ICD.md"
+      ],
+      "primary_design_component_id": "CMP-ADVICE",
+      "diagram_ids": [
+        "DGM-001",
+        "DGM-002",
+        "DGM-005"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-001-system-context.mmd",
+        "docs/diagrams/source/DGM-002-containers.mmd",
+        "docs/diagrams/source/DGM-005-external-data-flow.mmd"
+      ]
+    },
+    {
+      "id": "ADVICE-003",
+      "title": "Closed cloud projection",
+      "module": "advice",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Cloud context shall be built only from coarse phase, allowed own stats, team score and fixed non-player instructions.",
+      "failure_behavior": "Never serialize the entire game/local context and redact afterward.",
+      "acceptance": {
+        "scenario_id": "AC-ADVICE-003",
+        "given": "a local state also contains enemy data, items, exact clock, memory, voice or account identifiers",
+        "when": "cloud projection is built",
+        "then": "only the closed allowed fields pass and extra fields are rejected"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-08",
+          "UAT-07"
+        ]
+      },
+      "contract_refs": [
+        "contracts/cloud-context.schema.json"
+      ],
+      "spec_refs": [
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/ICD.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-007"
+      ],
+      "design_component_ids": [
+        "CMP-ADVICE"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/ICD.md"
+      ],
+      "primary_design_component_id": "CMP-ADVICE",
+      "diagram_ids": [
+        "DGM-001",
+        "DGM-002",
+        "DGM-005"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-001-system-context.mmd",
+        "docs/diagrams/source/DGM-002-containers.mmd",
+        "docs/diagrams/source/DGM-005-external-data-flow.mmd"
+      ]
+    },
+    {
+      "id": "ADVICE-004",
+      "title": "Consent and session cancellation",
+      "module": "advice",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Cloud consent/backend/session changes shall invalidate sends, cache and late responses.",
+      "failure_behavior": "Retries, CLI/API and error paths cannot bypass the latest consent generation.",
+      "acceptance": {
+        "scenario_id": "AC-ADVICE-004",
+        "given": "a consented request is in flight",
+        "when": "consent is revoked before response delivery",
+        "then": "future sends stop and the old response is discarded"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-08",
+          "UAT-07"
+        ]
+      },
+      "contract_refs": [
+        "contracts/cloud-context.schema.json"
+      ],
+      "spec_refs": [
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/ICD.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-007"
+      ],
+      "design_component_ids": [
+        "CMP-ADVICE",
+        "CMP-VOICE"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/ICD.md"
+      ],
+      "primary_design_component_id": "CMP-ADVICE",
+      "diagram_ids": [
+        "DGM-002",
+        "DGM-005"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-002-containers.mmd",
+        "docs/diagrams/source/DGM-005-external-data-flow.mmd"
+      ]
+    },
+    {
+      "id": "PEER-001",
+      "title": "Fresh opt-in join",
+      "module": "peer",
+      "scope": "extension",
+      "priority": "extension",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Every create/join shall require checked sharing consent and explicit activation in one action.",
+      "failure_behavior": "No autojoin, saved room credentials or view-only mode.",
+      "acceptance": {
+        "scenario_id": "AC-PEER-001",
+        "given": "peer consent is false or an invitation is accepted without new checked consent",
+        "when": "native join is requested",
+        "then": "the request is rejected before networking"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-09",
+          "UAT-09"
+        ]
+      },
+      "contract_refs": [
+        "contracts/peer-sample.schema.json",
+        "contracts/peer-sync.schema.json"
+      ],
+      "spec_refs": [
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/ICD.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-009"
+      ],
+      "design_component_ids": [
+        "CMP-PEER"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/ICD.md"
+      ],
+      "primary_design_component_id": "CMP-PEER",
+      "diagram_ids": [
+        "DGM-001",
+        "DGM-005",
+        "DGM-011",
+        "DGM-012"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-001-system-context.mmd",
+        "docs/diagrams/source/DGM-005-external-data-flow.mmd",
+        "docs/diagrams/source/DGM-011-peer-sequence.mmd",
+        "docs/diagrams/source/DGM-012-peer-lifecycle.mmd"
+      ]
+    },
+    {
+      "id": "PEER-002",
+      "title": "Strict source admission",
+      "module": "peer",
+      "scope": "extension",
+      "priority": "extension",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Peer publication shall require app570, playing activity, verified local owner, positive match ID, exact team and pregame/in-progress.",
+      "failure_behavior": "Do not replay an older valid source until a new admitted observation arrives.",
+      "acceptance": {
+        "scenario_id": "AC-PEER-002",
+        "given": "one required source condition is missing or invalid JSON arrives",
+        "when": "publication is evaluated",
+        "then": "prior publication is withdrawn and no new sample is sent"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-09",
+          "UAT-09"
+        ]
+      },
+      "contract_refs": [
+        "contracts/peer-sample.schema.json",
+        "contracts/peer-sync.schema.json"
+      ],
+      "spec_refs": [
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/ICD.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-009"
+      ],
+      "design_component_ids": [
+        "CMP-PEER"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/ICD.md"
+      ],
+      "primary_design_component_id": "CMP-PEER",
+      "diagram_ids": [
+        "DGM-005",
+        "DGM-011"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-005-external-data-flow.mmd",
+        "docs/diagrams/source/DGM-011-peer-sequence.mmd"
+      ]
+    },
+    {
+      "id": "PEER-003",
+      "title": "Narrow complete vitals",
+      "module": "peer",
+      "scope": "extension",
+      "priority": "extension",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Peer stats shall contain only own hero/level/HP/maxHP/mana percent/alive/respawn with exact bounds.",
+      "failure_behavior": "Ability/item sharing requires a new protocol and consent decision.",
+      "acceptance": {
+        "scenario_id": "AC-PEER-003",
+        "given": "a sample omits alive, has HP above max or includes ability/item/position",
+        "when": "schema and semantic admission run",
+        "then": "the sample is rejected; unknown is not defaulted"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-09",
+          "UAT-09"
+        ]
+      },
+      "contract_refs": [
+        "contracts/peer-sample.schema.json",
+        "contracts/peer-sync.schema.json"
+      ],
+      "spec_refs": [
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/ICD.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-009"
+      ],
+      "design_component_ids": [
+        "CMP-PEER"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/ICD.md"
+      ],
+      "primary_design_component_id": "CMP-PEER",
+      "diagram_ids": [
+        "DGM-005",
+        "DGM-011"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-005-external-data-flow.mmd",
+        "docs/diagrams/source/DGM-011-peer-sequence.mmd"
+      ]
+    },
+    {
+      "id": "PEER-004",
+      "title": "Bounded membership",
+      "module": "peer",
+      "scope": "extension",
+      "priority": "extension",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Rooms shall contain at most5 members including owner, last at most4hours and expire unsynced membership after30s.",
+      "failure_behavior": "Invite rotation invalidates future old-code joins but does not itself kick current members.",
+      "acceptance": {
+        "scenario_id": "AC-PEER-004",
+        "given": "owner leaves or membership exceeds its timeout",
+        "when": "relay state advances",
+        "then": "the appropriate membership/room closes and clients require explicit new join"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-09",
+          "UAT-09"
+        ]
+      },
+      "contract_refs": [
+        "contracts/peer-sample.schema.json",
+        "contracts/peer-sync.schema.json"
+      ],
+      "spec_refs": [
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/ICD.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-009"
+      ],
+      "design_component_ids": [
+        "CMP-PEER"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/ICD.md"
+      ],
+      "primary_design_component_id": "CMP-PEER",
+      "diagram_ids": [
+        "DGM-005",
+        "DGM-012"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-005-external-data-flow.mmd",
+        "docs/diagrams/source/DGM-012-peer-lifecycle.mmd"
+      ]
+    },
+    {
+      "id": "PEER-005",
+      "title": "Conservative peer age",
+      "module": "peer",
+      "scope": "extension",
+      "priority": "extension",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Peer freshness shall use accumulated monotonic durations and become stale after2000ms.",
+      "failure_behavior": "Do not compare wall clocks across devices or retain live vitals when IPC stops.",
+      "acceptance": {
+        "scenario_id": "AC-PEER-005",
+        "given": "an observation is repeatedly polled without a new game sample",
+        "when": "relay/native/UI age calculation advances",
+        "then": "polling never rejuvenates it;2000ms may be live and2001ms is stale/null"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-09",
+          "UAT-09"
+        ]
+      },
+      "contract_refs": [
+        "contracts/peer-sample.schema.json",
+        "contracts/peer-sync.schema.json"
+      ],
+      "spec_refs": [
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/ICD.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-009"
+      ],
+      "design_component_ids": [
+        "CMP-PEER"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/ICD.md"
+      ],
+      "primary_design_component_id": "CMP-PEER",
+      "diagram_ids": [
+        "DGM-005",
+        "DGM-011",
+        "DGM-012"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-005-external-data-flow.mmd",
+        "docs/diagrams/source/DGM-011-peer-sequence.mmd",
+        "docs/diagrams/source/DGM-012-peer-lifecycle.mmd"
+      ]
+    },
+    {
+      "id": "PEER-006",
+      "title": "Bounded network worker",
+      "module": "peer",
+      "scope": "extension",
+      "priority": "extension",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Peer transport shall use one sequential in-flight sync worker outside the alert path.",
+      "failure_behavior": "Use1500ms request timeout,32KiB reply cap and normal500ms cadence; no task per game tick.",
+      "acceptance": {
+        "scenario_id": "AC-PEER-006",
+        "given": "a transport timeout occurs",
+        "when": "retry logic runs",
+        "then": "bounded0.5–5s retry and successful null probe precede resuming samples"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-09",
+          "UAT-09"
+        ]
+      },
+      "contract_refs": [
+        "contracts/peer-sample.schema.json",
+        "contracts/peer-sync.schema.json"
+      ],
+      "spec_refs": [
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/ICD.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-009"
+      ],
+      "design_component_ids": [
+        "CMP-PEER"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/ICD.md"
+      ],
+      "primary_design_component_id": "CMP-PEER",
+      "diagram_ids": [
+        "DGM-005",
+        "DGM-011",
+        "DGM-012"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-005-external-data-flow.mmd",
+        "docs/diagrams/source/DGM-011-peer-sequence.mmd",
+        "docs/diagrams/source/DGM-012-peer-lifecycle.mmd"
+      ]
+    },
+    {
+      "id": "PEER-007",
+      "title": "Native credentials and trusted origins",
+      "module": "peer",
+      "scope": "extension",
+      "priority": "extension",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Peer networking shall be native-owned HTTPS with literal loopback HTTP only for local testing.",
+      "failure_behavior": "No URL credentials/query/fragment, redirects or token logging.",
+      "acceptance": {
+        "scenario_id": "AC-PEER-007",
+        "given": "a renderer asks for arbitrary origin/path/redirect or member credentials",
+        "when": "transport authorization runs",
+        "then": "untrusted request is rejected and tokens stay native"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-09",
+          "UAT-09"
+        ]
+      },
+      "contract_refs": [
+        "contracts/peer-sample.schema.json",
+        "contracts/peer-sync.schema.json"
+      ],
+      "spec_refs": [
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/ICD.md"
+      ],
+      "open_decisions": [
+        "DEC-INTERFACES"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-009"
+      ],
+      "design_component_ids": [
+        "CMP-PEER"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/ICD.md"
+      ],
+      "primary_design_component_id": "CMP-PEER",
+      "diagram_ids": [
+        "DGM-003",
+        "DGM-005",
+        "DGM-011",
+        "DGM-012"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-003-deployment.mmd",
+        "docs/diagrams/source/DGM-005-external-data-flow.mmd",
+        "docs/diagrams/source/DGM-011-peer-sequence.mmd",
+        "docs/diagrams/source/DGM-012-peer-lifecycle.mmd"
+      ]
+    },
+    {
+      "id": "PEER-008",
+      "title": "Leave fences old work",
+      "module": "peer",
+      "scope": "extension",
+      "priority": "extension",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Leave shall clear local credentials and peer samples immediately and fence pending responses.",
+      "failure_behavior": "Remote delete is best effort; report expiry behavior without promising instantaneous remote erasure.",
+      "acceptance": {
+        "scenario_id": "AC-PEER-008",
+        "given": "a join/sync response is delayed",
+        "when": "the player leaves before it arrives",
+        "then": "late data cannot reconnect or repopulate the room"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-09",
+          "UAT-09"
+        ]
+      },
+      "contract_refs": [
+        "contracts/peer-sample.schema.json",
+        "contracts/peer-sync.schema.json"
+      ],
+      "spec_refs": [
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/ICD.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-009"
+      ],
+      "design_component_ids": [
+        "CMP-PEER"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/ICD.md"
+      ],
+      "primary_design_component_id": "CMP-PEER",
+      "diagram_ids": [
+        "DGM-005",
+        "DGM-011",
+        "DGM-012"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-005-external-data-flow.mmd",
+        "docs/diagrams/source/DGM-011-peer-sequence.mmd",
+        "docs/diagrams/source/DGM-012-peer-lifecycle.mmd"
+      ]
+    },
+    {
+      "id": "PEER-009",
+      "title": "No peer persistence or AI",
+      "module": "peer",
+      "scope": "extension",
+      "priority": "extension",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Peer stats shall remain transient within authorized same-room/match/team viewing.",
+      "failure_behavior": "Friendship/premium/cloud consent cannot expand recipients.",
+      "acceptance": {
+        "scenario_id": "AC-PEER-009",
+        "given": "memory/history/advice attempts to consume a peer sample",
+        "when": "data routing is checked",
+        "then": "the route is denied and samples are not written to logs or AI"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-09",
+          "UAT-09"
+        ]
+      },
+      "contract_refs": [
+        "contracts/peer-sample.schema.json",
+        "contracts/peer-sync.schema.json"
+      ],
+      "spec_refs": [
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/ICD.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-009"
+      ],
+      "design_component_ids": [
+        "CMP-PEER"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/ICD.md"
+      ],
+      "primary_design_component_id": "CMP-PEER",
+      "diagram_ids": [
+        "DGM-001",
+        "DGM-002",
+        "DGM-004",
+        "DGM-005",
+        "DGM-011",
+        "DGM-012"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-001-system-context.mmd",
+        "docs/diagrams/source/DGM-002-containers.mmd",
+        "docs/diagrams/source/DGM-004-local-data-flow.mmd",
+        "docs/diagrams/source/DGM-005-external-data-flow.mmd",
+        "docs/diagrams/source/DGM-011-peer-sequence.mmd",
+        "docs/diagrams/source/DGM-012-peer-lifecycle.mmd"
+      ]
+    },
+    {
+      "id": "SOCIAL-001",
+      "title": "Optional account boundary",
+      "module": "social",
+      "scope": "extension",
+      "priority": "extension",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Friends/presence/targeted invitations shall require private server-authorized account actions without gating guest rooms.",
+      "failure_behavior": "No public social directory or implicit platform-friend import.",
+      "acceptance": {
+        "scenario_id": "AC-SOCIAL-001",
+        "given": "a signed-out user opens core or joins a guest room",
+        "when": "account checks run",
+        "then": "core and permitted guest flow remain available; account-only social actions are unavailable"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-10",
+          "UAT-10"
+        ]
+      },
+      "contract_refs": [
+        "contracts/decisions.json"
+      ],
+      "spec_refs": [
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/governance/DECISION-LOG.md"
+      ],
+      "open_decisions": [
+        "DEC-SOCIAL"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-010"
+      ],
+      "design_component_ids": [
+        "CMP-SOCIAL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "primary_design_component_id": "CMP-SOCIAL",
+      "diagram_ids": [
+        "DGM-001",
+        "DGM-002",
+        "DGM-003",
+        "DGM-005",
+        "DGM-017"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-001-system-context.mmd",
+        "docs/diagrams/source/DGM-002-containers.mmd",
+        "docs/diagrams/source/DGM-003-deployment.mmd",
+        "docs/diagrams/source/DGM-005-external-data-flow.mmd",
+        "docs/diagrams/source/DGM-017-user-flow.mmd"
+      ]
+    },
+    {
+      "id": "SOCIAL-002",
+      "title": "Friendship is not sharing consent",
+      "module": "social",
+      "scope": "extension",
+      "priority": "extension",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Mutual friendship and optional presence shall not automatically share gameplay stats.",
+      "failure_behavior": "Presence means app online only; avoid public last-seen/history.",
+      "acceptance": {
+        "scenario_id": "AC-SOCIAL-002",
+        "given": "two users become friends and presence is enabled",
+        "when": "a targeted invitation arrives",
+        "then": "a new checked peer-sharing action is still required before joining"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-10",
+          "UAT-10"
+        ]
+      },
+      "contract_refs": [
+        "contracts/decisions.json"
+      ],
+      "spec_refs": [
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/governance/DECISION-LOG.md"
+      ],
+      "open_decisions": [
+        "DEC-SOCIAL"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-010"
+      ],
+      "design_component_ids": [
+        "CMP-SOCIAL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "primary_design_component_id": "CMP-SOCIAL",
+      "diagram_ids": [
+        "DGM-005"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-005-external-data-flow.mmd"
+      ]
+    },
+    {
+      "id": "SOCIAL-003",
+      "title": "Transactional invitation authority",
+      "module": "social",
+      "scope": "extension",
+      "priority": "extension",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Social joins shall use reviewed registered-relay proof and one-use expiring authority with transaction ordering.",
+      "failure_behavior": "Tokens/account IDs do not leak to a relay; production awaits full private design.",
+      "acceptance": {
+        "scenario_id": "AC-SOCIAL-003",
+        "given": "a block/revoke races an invitation or admission",
+        "when": "authorization resolves",
+        "then": "the frozen server transaction order rejects stale authority; no auto guest fallback occurs"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-10",
+          "UAT-10"
+        ]
+      },
+      "contract_refs": [
+        "contracts/decisions.json"
+      ],
+      "spec_refs": [
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/governance/DECISION-LOG.md"
+      ],
+      "open_decisions": [
+        "DEC-SOCIAL"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-010"
+      ],
+      "design_component_ids": [
+        "CMP-SOCIAL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "primary_design_component_id": "CMP-SOCIAL",
+      "diagram_ids": [
+        "DGM-005"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-005-external-data-flow.mmd"
+      ]
+    },
+    {
+      "id": "OBS-001",
+      "title": "Explicit local media session",
+      "module": "obs",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "OBS control shall be authenticated loopback WebSocket v5 and user-started with no implicit mic.",
+      "failure_behavior": "Credentials remain local; no cloud/stream upload.",
+      "acceptance": {
+        "scenario_id": "AC-OBS-001",
+        "given": "OBS is installed but recording has not been requested",
+        "when": "the desktop app starts or enters a match",
+        "then": "no recording/replay/microphone starts automatically"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-11",
+          "UAT-11"
+        ]
+      },
+      "contract_refs": [
+        "contracts/event.schema.json"
+      ],
+      "spec_refs": [
+        "docs/product/USE-CASES.md",
+        "docs/quality/NFR.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-011"
+      ],
+      "design_component_ids": [
+        "CMP-RECORDER"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md"
+      ],
+      "primary_design_component_id": "CMP-RECORDER",
+      "diagram_ids": [
+        "DGM-001",
+        "DGM-003",
+        "DGM-016",
+        "DGM-017"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-001-system-context.mmd",
+        "docs/diagrams/source/DGM-003-deployment.mmd",
+        "docs/diagrams/source/DGM-016-recording-sequence.mmd",
+        "docs/diagrams/source/DGM-017-user-flow.mmd"
+      ]
+    },
+    {
+      "id": "OBS-002",
+      "title": "Observe before audio suppression",
+      "module": "obs",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Highlight planning shall consume admitted session-bound events before ordinary announcer priority filtering.",
+      "failure_behavior": "Wrong-owner/stale/out-of-session events cannot qualify.",
+      "acceptance": {
+        "scenario_id": "AC-OBS-002",
+        "given": "two admitted events share a tick and only one is voiced",
+        "when": "highlight eligibility is evaluated",
+        "then": "the quiet/suppressed eligible event can still schedule a clip"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-11",
+          "UAT-11"
+        ]
+      },
+      "contract_refs": [
+        "contracts/event.schema.json"
+      ],
+      "spec_refs": [
+        "docs/product/USE-CASES.md",
+        "docs/quality/NFR.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-011"
+      ],
+      "design_component_ids": [
+        "CMP-RECORDER",
+        "CMP-MEDIA"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md"
+      ],
+      "primary_design_component_id": "CMP-RECORDER",
+      "diagram_ids": [
+        "DGM-006",
+        "DGM-016"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-006-logical-erd.mmd",
+        "docs/diagrams/source/DGM-016-recording-sequence.mmd"
+      ]
+    },
+    {
+      "id": "OBS-003",
+      "title": "Measured clip coverage",
+      "module": "obs",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "A requested event clip shall target30s pre-roll and15s post-roll using actual buffer/save/trim timestamps.",
+      "failure_behavior": "Saving the entire OBS buffer is not proof of exact trimming.",
+      "acceptance": {
+        "scenario_id": "AC-OBS-003",
+        "given": "the buffer cannot cover the full requested interval",
+        "when": "a clip is saved and indexed",
+        "then": "actual coverage and partial reason are reported; full coverage is not fabricated"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-11",
+          "UAT-11"
+        ]
+      },
+      "contract_refs": [
+        "contracts/event.schema.json"
+      ],
+      "spec_refs": [
+        "docs/product/USE-CASES.md",
+        "docs/quality/NFR.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-011"
+      ],
+      "design_component_ids": [
+        "CMP-RECORDER"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md"
+      ],
+      "primary_design_component_id": "CMP-RECORDER",
+      "diagram_ids": [
+        "DGM-006",
+        "DGM-016"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-006-logical-erd.mmd",
+        "docs/diagrams/source/DGM-016-recording-sequence.mmd"
+      ]
+    },
+    {
+      "id": "OBS-004",
+      "title": "Recorder failure isolation",
+      "module": "obs",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "OBS failure, auth loss, disk pressure or restart shall degrade recording independently.",
+      "failure_behavior": "Bound pending saves; no blocking trim on the critical path.",
+      "acceptance": {
+        "scenario_id": "AC-OBS-004",
+        "given": "OBS stops while valid telemetry/alerts run",
+        "when": "recording operations fail",
+        "then": "status shows recorder unavailable while local alerts keep functioning"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-11",
+          "UAT-11"
+        ]
+      },
+      "contract_refs": [
+        "contracts/event.schema.json"
+      ],
+      "spec_refs": [
+        "docs/product/USE-CASES.md",
+        "docs/quality/NFR.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-011"
+      ],
+      "design_component_ids": [
+        "CMP-RECORDER"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md"
+      ],
+      "primary_design_component_id": "CMP-RECORDER",
+      "diagram_ids": [
+        "DGM-003",
+        "DGM-016"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-003-deployment.mmd",
+        "docs/diagrams/source/DGM-016-recording-sequence.mmd"
+      ]
+    },
+    {
+      "id": "OBS-005",
+      "title": "Recording-mode evidence",
+      "module": "obs",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Recording acceptance shall measure OBS separately and combined while retaining app budgets, latency and FPS gates.",
+      "failure_behavior": "No assertion that the external recorder belongs to the app Job Object.",
+      "acceptance": {
+        "scenario_id": "AC-OBS-005",
+        "given": "recording is active during a validation profile",
+        "when": "CPU/RAM/GPU/FPS and alert timings are measured",
+        "then": "receipts separate app processes from OBS and report combined totals without inventing a combined cap"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-11",
+          "UAT-11"
+        ]
+      },
+      "contract_refs": [
+        "contracts/event.schema.json"
+      ],
+      "spec_refs": [
+        "docs/product/USE-CASES.md",
+        "docs/quality/NFR.md"
+      ],
+      "open_decisions": [
+        "DEC-OBS-BUDGET"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-011"
+      ],
+      "design_component_ids": [
+        "CMP-RECORDER"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md"
+      ],
+      "primary_design_component_id": "CMP-RECORDER",
+      "diagram_ids": [
+        "DGM-003",
+        "DGM-016"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-003-deployment.mmd",
+        "docs/diagrams/source/DGM-016-recording-sequence.mmd"
+      ]
+    },
+    {
+      "id": "UPDATE-001",
+      "title": "Trusted updater authority",
+      "module": "update",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "The native updater shall validate signed manifests/artifacts from trusted endpoints independent of account.",
+      "failure_behavior": "Network failure never permits unsigned installation.",
+      "acceptance": {
+        "scenario_id": "AC-UPDATE-001",
+        "given": "renderer input attempts an arbitrary update URL or signature is invalid",
+        "when": "update verification runs",
+        "then": "installation is refused and valid local core remains usable"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-12",
+          "UAT-12"
+        ]
+      },
+      "contract_refs": [
+        "contracts/evidence.schema.json"
+      ],
+      "spec_refs": [
+        "docs/operations/RUNBOOK.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-012"
+      ],
+      "design_component_ids": [
+        "CMP-UPDATER"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md"
+      ],
+      "primary_design_component_id": "CMP-UPDATER",
+      "diagram_ids": [
+        "DGM-001",
+        "DGM-018"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-001-system-context.mmd",
+        "docs/diagrams/source/DGM-018-release-update.mmd"
+      ]
+    },
+    {
+      "id": "UPDATE-002",
+      "title": "Safe installation timing",
+      "module": "update",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Update installation shall wait for a safe gameplay/media state.",
+      "failure_behavior": "An update prompt cannot force focus or local-core lock.",
+      "acceptance": {
+        "scenario_id": "AC-UPDATE-002",
+        "given": "a verified candidate is available during a match",
+        "when": "installation is requested",
+        "then": "it is deferred/staged without interrupting active gameplay"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-12",
+          "UAT-12"
+        ]
+      },
+      "contract_refs": [
+        "contracts/evidence.schema.json"
+      ],
+      "spec_refs": [
+        "docs/operations/RUNBOOK.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-012"
+      ],
+      "design_component_ids": [
+        "CMP-UPDATER"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md"
+      ],
+      "primary_design_component_id": "CMP-UPDATER",
+      "diagram_ids": [
+        "DGM-018"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-018-release-update.mmd"
+      ]
+    },
+    {
+      "id": "UPDATE-003",
+      "title": "Promote identical signed bytes",
+      "module": "update",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Stable promotion shall reuse the exact approved signed candidate artifact.",
+      "failure_behavior": "Tagging/normal commit alone does not publish; failed candidate cannot mutate stable.",
+      "acceptance": {
+        "scenario_id": "AC-UPDATE-003",
+        "given": "a candidate is ready for stable promotion",
+        "when": "release preparation runs",
+        "then": "hash and signature match the approved candidate and no rebuild/resign occurs"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-12",
+          "UAT-12"
+        ]
+      },
+      "contract_refs": [
+        "contracts/evidence.schema.json"
+      ],
+      "spec_refs": [
+        "docs/operations/RUNBOOK.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-012"
+      ],
+      "design_component_ids": [
+        "CMP-UPDATER"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md"
+      ],
+      "primary_design_component_id": "CMP-UPDATER",
+      "diagram_ids": [
+        "DGM-018"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-018-release-update.mmd"
+      ]
+    },
+    {
+      "id": "UPDATE-004",
+      "title": "Verified recovery route",
+      "module": "update",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Release rollback/repair shall respect version and data-migration compatibility.",
+      "failure_behavior": "Do not assume a manifest downgrade will be accepted.",
+      "acceptance": {
+        "scenario_id": "AC-UPDATE-004",
+        "given": "a failed update needs recovery",
+        "when": "the documented rollback route is tested",
+        "then": "a known approved compatible artifact or new higher emergency version restores operation"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-12",
+          "UAT-12"
+        ]
+      },
+      "contract_refs": [
+        "contracts/evidence.schema.json"
+      ],
+      "spec_refs": [
+        "docs/operations/RUNBOOK.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-012"
+      ],
+      "design_component_ids": [
+        "CMP-UPDATER"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md"
+      ],
+      "primary_design_component_id": "CMP-UPDATER",
+      "diagram_ids": [
+        "DGM-018"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-018-release-update.mmd"
+      ]
+    },
+    {
+      "id": "PREMIUM-001",
+      "title": "Native trusted capability lease",
+      "module": "premium",
+      "scope": "deferred",
+      "priority": "later",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Premium presentation shall require native-verified server authority; planned lease lifetime7days, refresh24h and max2installations.",
+      "failure_behavior": "Production issuing/key/RLS/device design is deferred.",
+      "acceptance": {
+        "scenario_id": "AC-PREMIUM-001",
+        "given": "a renderer/local fixture claims premium without a valid grant",
+        "when": "capability admission runs",
+        "then": "base remains active and protected details are not enabled"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-12",
+          "UAT-12"
+        ]
+      },
+      "contract_refs": [
+        "contracts/decisions.json"
+      ],
+      "spec_refs": [
+        "docs/design/UX-SPEC.md",
+        "docs/governance/DECISION-LOG.md"
+      ],
+      "open_decisions": [
+        "DEC-PREMIUM"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-012"
+      ],
+      "design_component_ids": [
+        "CMP-ENTITLEMENT"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/UX-SPEC.md"
+      ],
+      "primary_design_component_id": "CMP-ENTITLEMENT",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "PREMIUM-002",
+      "title": "Quiet loss and regain",
+      "module": "premium",
+      "scope": "deferred",
+      "priority": "later",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Expired/revoked/unverifiable premium authority shall reduce presentation to base without disturbing the live map.",
+      "failure_behavior": "Offline with a still-valid signed lease retains capabilities.",
+      "acceptance": {
+        "scenario_id": "AC-PREMIUM-002",
+        "given": "a selected premium detail is open",
+        "when": "authority is lost then later regained",
+        "then": "detail/late responses clear quietly; map/feed remain; regain does not reopen selection"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-12",
+          "UAT-12"
+        ]
+      },
+      "contract_refs": [
+        "contracts/decisions.json"
+      ],
+      "spec_refs": [
+        "docs/design/UX-SPEC.md",
+        "docs/governance/DECISION-LOG.md"
+      ],
+      "open_decisions": [
+        "DEC-PREMIUM"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-012"
+      ],
+      "design_component_ids": [
+        "CMP-ENTITLEMENT",
+        "CMP-READMODEL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/UX-SPEC.md"
+      ],
+      "primary_design_component_id": "CMP-ENTITLEMENT",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "PREMIUM-003",
+      "title": "No premium data or safety expansion",
+      "module": "premium",
+      "scope": "deferred",
+      "priority": "later",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Premium shall never gate safety/core or enlarge source/consent permissions.",
+      "failure_behavior": "A paid tier is not evidence of game data availability.",
+      "acceptance": {
+        "scenario_id": "AC-PREMIUM-003",
+        "given": "base user is in a valid match and a premium user lacks peer consent",
+        "when": "features evaluate access",
+        "then": "base alerts/GSI/overlay work and premium cannot access unconsented or unavailable fields"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-12",
+          "UAT-12"
+        ]
+      },
+      "contract_refs": [
+        "contracts/decisions.json"
+      ],
+      "spec_refs": [
+        "docs/design/UX-SPEC.md",
+        "docs/governance/DECISION-LOG.md"
+      ],
+      "open_decisions": [
+        "DEC-PREMIUM"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-012"
+      ],
+      "design_component_ids": [
+        "CMP-ENTITLEMENT"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/UX-SPEC.md"
+      ],
+      "primary_design_component_id": "CMP-ENTITLEMENT",
+      "diagram_ids": [
+        "DGM-017"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-017-user-flow.mmd"
+      ]
+    },
+    {
+      "id": "QUALITY-001",
+      "title": "Acoustic warning latency",
+      "module": "quality",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Alert latency shall have p50≤250ms and every measured sample≤300ms over at least300samples per scenario/profile.",
+      "failure_behavior": "Do not move T0 after frame-ready or replace hard maximum with p99.",
+      "acceptance": {
+        "scenario_id": "AC-QUALITY-001",
+        "given": "an instrumented scenario records acquisition-due or GSI-arrival T0 and loopback audible T3",
+        "when": "latency acceptance is evaluated",
+        "then": "T3−T0 includes scheduling/acquisition/inference waits and meets both limits"
+      },
+      "verification": {
+        "required_evidence": [
+          "native",
+          "live",
+          "acoustic"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-13",
+          "TP-03",
+          "UAT-03"
+        ]
+      },
+      "contract_refs": [
+        "contracts/evidence.schema.json"
+      ],
+      "spec_refs": [
+        "docs/quality/NFR.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-003"
+      ],
+      "design_component_ids": [
+        "CMP-PERFORMANCE",
+        "CMP-VISION",
+        "CMP-RISK",
+        "CMP-ALERT"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md"
+      ],
+      "primary_design_component_id": "CMP-PERFORMANCE",
+      "diagram_ids": [
+        "DGM-003",
+        "DGM-008"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-003-deployment.mmd",
+        "docs/diagrams/source/DGM-008-alert-sequence.mmd"
+      ]
+    },
+    {
+      "id": "QUALITY-002",
+      "title": "Whole-app CPU and memory",
+      "module": "quality",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Every1s normalized app-group CPU sample shall be≤10% and aggregate peak full Working Set≤900000000bytes.",
+      "failure_behavior": "No excluding model/shared pages or substituting private/PSS/forced trim.",
+      "acceptance": {
+        "scenario_id": "AC-QUALITY-002",
+        "given": "host, WebView, sidecars and active external model processes are measured",
+        "when": "warmup and idle/live/voice-alert profiles run",
+        "then": "all included process samples satisfy the fixed limits with raw receipts"
+      },
+      "verification": {
+        "required_evidence": [
+          "native",
+          "benchmark"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-13",
+          "UAT-05"
+        ]
+      },
+      "contract_refs": [
+        "contracts/evidence.schema.json"
+      ],
+      "spec_refs": [
+        "docs/quality/NFR.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-005"
+      ],
+      "design_component_ids": [
+        "CMP-PERFORMANCE"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md"
+      ],
+      "primary_design_component_id": "CMP-PERFORMANCE",
+      "diagram_ids": [
+        "DGM-003"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-003-deployment.mmd"
+      ]
+    },
+    {
+      "id": "QUALITY-003",
+      "title": "FPS preservation",
+      "module": "quality",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Game FPS loss shall be≤3% in each of at least3 overlay-off/on pairs of60s under matched device/segment/settings.",
+      "failure_behavior": "A pooled average cannot hide a failing pair.",
+      "acceptance": {
+        "scenario_id": "AC-QUALITY-003",
+        "given": "paired runs use identical validated conditions",
+        "when": "FPS impact is calculated per pair",
+        "then": "every pair passes and evidence includes active recording where applicable"
+      },
+      "verification": {
+        "required_evidence": [
+          "live",
+          "benchmark"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-13",
+          "UAT-05"
+        ]
+      },
+      "contract_refs": [
+        "contracts/evidence.schema.json"
+      ],
+      "spec_refs": [
+        "docs/quality/NFR.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-005"
+      ],
+      "design_component_ids": [
+        "CMP-PERFORMANCE"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md"
+      ],
+      "primary_design_component_id": "CMP-PERFORMANCE",
+      "diagram_ids": [
+        "DGM-003"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-003-deployment.mmd"
+      ]
+    },
+    {
+      "id": "QUALITY-004",
+      "title": "Vision quality per class",
+      "module": "quality",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Presence precision/recall shall be≥95%/90% and identity precision/recall≥95%/85% for each certified class.",
+      "failure_behavior": "No train/holdout leakage or pooled substitution.",
+      "acceptance": {
+        "scenario_id": "AC-QUALITY-004",
+        "given": "at least50episodes/class in at least5held-out matches and20whole held-out matches exist",
+        "when": "independent quality evaluation runs",
+        "then": "per-class results,95%confidence intervals and disagreement are reported"
+      },
+      "verification": {
+        "required_evidence": [
+          "benchmark",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-13",
+          "TP-02",
+          "UAT-02"
+        ]
+      },
+      "contract_refs": [
+        "contracts/evidence.schema.json"
+      ],
+      "spec_refs": [
+        "docs/quality/NFR.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-002"
+      ],
+      "design_component_ids": [
+        "CMP-PERFORMANCE",
+        "CMP-VISION"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md"
+      ],
+      "primary_design_component_id": "CMP-PERFORMANCE",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "QUALITY-005",
+      "title": "Warning quality",
+      "module": "quality",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "High-danger audible false alerts shall be≤1 per30minutes, actionable recall≥90% and false-safe calls0.",
+      "failure_behavior": "Death alone is not ground truth and no coverage cannot be safe.",
+      "acceptance": {
+        "scenario_id": "AC-QUALITY-005",
+        "given": "independently labeled threat episodes are fixed before tuning",
+        "when": "each sensitivity profile is evaluated after dedup",
+        "then": "results meet each threshold with attribution/evidence"
+      },
+      "verification": {
+        "required_evidence": [
+          "benchmark",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-13",
+          "TP-03",
+          "UAT-03"
+        ]
+      },
+      "contract_refs": [
+        "contracts/evidence.schema.json"
+      ],
+      "spec_refs": [
+        "docs/quality/NFR.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-003"
+      ],
+      "design_component_ids": [
+        "CMP-PERFORMANCE",
+        "CMP-RISK",
+        "CMP-ALERT"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md"
+      ],
+      "primary_design_component_id": "CMP-PERFORMANCE",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "QUALITY-006",
+      "title": "Voice quality and speed",
+      "module": "quality",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Warm accepted voice turns shall begin audible answer within2s each and complete≥95% per language, with cold preparation≤10s.",
+      "failure_behavior": "Count failures/timeouts/rejects; synthetic scorer tests do not certify a model.",
+      "acceptance": {
+        "scenario_id": "AC-QUALITY-006",
+        "given": "at least100held-out utterances per language cover quiet/game-audio and separate speakers/sessions",
+        "when": "local STT/answer is evaluated",
+        "then": "English WER≤15%, Thai CER≤20%, intent/critical-slot accuracy≥90% and latency/completion pass"
+      },
+      "verification": {
+        "required_evidence": [
+          "benchmark",
+          "native",
+          "acoustic"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-13",
+          "TP-06",
+          "UAT-06"
+        ]
+      },
+      "contract_refs": [
+        "contracts/evidence.schema.json"
+      ],
+      "spec_refs": [
+        "docs/quality/NFR.md"
+      ],
+      "open_decisions": [
+        "DEC-MODELS"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-006"
+      ],
+      "design_component_ids": [
+        "CMP-PERFORMANCE",
+        "CMP-VOICE"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md"
+      ],
+      "primary_design_component_id": "CMP-PERFORMANCE",
+      "diagram_ids": [
+        "DGM-009"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-009-voice-lifecycle.mmd"
+      ]
+    },
+    {
+      "id": "QUALITY-007",
+      "title": "Preemption under overlap",
+      "module": "quality",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "All100overlap trials shall cancel stale voice/advice while retaining the critical acoustic deadline.",
+      "failure_behavior": "Report failed/cancelled trials without pruning the denominator.",
+      "acceptance": {
+        "scenario_id": "AC-QUALITY-007",
+        "given": "each voice lifecycle stage overlaps critical admission",
+        "when": "priority/cancellation trials execute",
+        "then": "every trial preempts obsolete output and meets the alert deadline"
+      },
+      "verification": {
+        "required_evidence": [
+          "native",
+          "acoustic"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-13",
+          "TP-03",
+          "TP-04",
+          "TP-06",
+          "UAT-06"
+        ]
+      },
+      "contract_refs": [
+        "contracts/evidence.schema.json"
+      ],
+      "spec_refs": [
+        "docs/quality/NFR.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-006"
+      ],
+      "design_component_ids": [
+        "CMP-PERFORMANCE",
+        "CMP-VOICE",
+        "CMP-MEDIA",
+        "CMP-ALERT"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md"
+      ],
+      "primary_design_component_id": "CMP-PERFORMANCE",
+      "diagram_ids": [
+        "DGM-008",
+        "DGM-009"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-008-alert-sequence.mmd",
+        "docs/diagrams/source/DGM-009-voice-lifecycle.mmd"
+      ]
+    },
+    {
+      "id": "QUALITY-008",
+      "title": "Evidence-gated certification",
+      "module": "quality",
+      "scope": "mvp",
+      "priority": "P0",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Every required OS/mode/geometry cell shall have at least10live sessions before certification.",
+      "failure_behavior": "A unit test, browser screenshot or commit does not substitute for the missing evidence.",
+      "acceptance": {
+        "scenario_id": "AC-QUALITY-008",
+        "given": "a required cell lacks device or acoustic evidence",
+        "when": "release readiness is assessed",
+        "then": "the cell is SKIP/INDETERMINATE and the mandatory gate remains unsatisfied"
+      },
+      "verification": {
+        "required_evidence": [
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-13",
+          "UAT-12"
+        ]
+      },
+      "contract_refs": [
+        "contracts/evidence.schema.json"
+      ],
+      "spec_refs": [
+        "docs/quality/NFR.md"
+      ],
+      "open_decisions": [
+        "DEC-NATIVE-EVIDENCE"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-012"
+      ],
+      "design_component_ids": [
+        "CMP-PERFORMANCE",
+        "CMP-STARTUP",
+        "CMP-UPDATER"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md"
+      ],
+      "primary_design_component_id": "CMP-PERFORMANCE",
+      "diagram_ids": [],
+      "diagram_refs": []
+    }
+  ]
+}

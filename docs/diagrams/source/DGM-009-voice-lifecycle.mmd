@@ -1,0 +1,44 @@
+stateDiagram-v2
+  direction TB
+  [*] --> Idle
+  Idle --> Turn
+
+  state "Active voice turn" as Turn {
+    direction TB
+    [*] --> Preparing
+    Preparing --> Listening : device and local components ready
+    Listening --> Decoding : release or capture cap / accepted input
+    Decoding --> Answering : local transcript admitted
+    Answering --> Speaking : current answer admitted at Normal priority
+  }
+
+  Listening --> Terminal : hold under 250 ms or rejected input
+  Speaking --> Terminal : completed or announcer preempts
+  Decoding --> Terminal : new valid press / supersede
+  Answering --> Terminal : new valid press / supersede
+  Speaking --> Terminal : new valid press / supersede
+  Turn --> Terminal
+  Terminal --> Idle : cleanup complete / no replacement
+  Terminal --> Turn
+
+  note right of Idle
+    Turn entry requires local opt-in and valid held PTT.
+    Entry starts a new generation.
+    Microphone off by default.
+    Repeat held press and unmatched release do no work.
+  end note
+  note right of Listening
+    Minimum hold 250 ms; capture at most 15 s.
+    Open timeout 2 s; PCM at most 480000 bytes.
+    Release ends the capture stream.
+  end note
+  note right of Terminal
+    Turn to Terminal: critical preemption, mic off, user cancel or failure.
+    Terminal to Turn: valid superseding press, cleanup, then new generation.
+    Fence late callbacks; release transient resources.
+    No interrupted answer resumes.
+    Critical cancellation never waits on Voice locks.
+    PCM handoff and zeroization: DEC-VOICE-BUFFER.
+    Status contains no audio, transcript or answer.
+  end note
+
