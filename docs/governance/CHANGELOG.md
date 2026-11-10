@@ -1,5 +1,19 @@
 # Documentation Changelog
 
+## Design-system 1.0.0 addendum — 2026-11-11
+
+Added the requested Kohbor design system, design board and design tokens against the unchanged 0.3.1 requirements baseline.
+
+- Original Nightglass palette, mark and companion vector studies; licensed offline Thai/Latin fonts.
+- Full Design System,24-component catalog, annotated board scope, implementation handoff and separate static/browser/native acceptance plan.
+- 248 authored primitive/semantic/component tokens with generated CSS and merged/resolved JSON; static reference/type/contrast/authored-geometry validation.
+- Offline HTML board with explicit synthetic controls; fixed Live-field geometry; narrow Base/Pro presentation examples, ordered Escape, semantic tabs and truthful GSI-only state.
+- Deterministic static poster,16 synthetic DOM checks, source/output receipts and updated package integrity. Browser rendered inspection remains NOT_RUN after the environment limitation; all application acceptance remains NOT_RUN.
+- Made generated RTM line endings explicitly LF to match the repository attributes and prevent byte/hash drift when Git stages the regenerated view.
+- Recorded delegated visual choices and Clips placement while leaving DEC-VISUALS open for pixel/full-screen/native review. Added direct design traceability without changing the 85 statements, failure behaviors, scopes, acceptance predicates or application evidence statuses.
+
+This addendum is a reviewable design candidate, not product approval, production UI implementation or release certification.
+
 ## 0.3.1 — 2026-11-10
 
 Prepared the first repository baseline for **Kohbor / เกาะเบาะ** after the owner selected the name and supplied the destination repository.

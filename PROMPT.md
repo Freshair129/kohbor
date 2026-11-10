@@ -2,7 +2,7 @@
 
 You are the engineering lead for Kohbor / เกาะเบาะ, a new Windows desktop companion for Dota 2. This specification package is your functional and engineering input.
 
-The product owner has chosen Kohbor / เกาะเบาะ. Preserve that name and design an original visual identity. Complete the still-unfrozen technical identifiers in contracts/product-identity.json and record closure evidence for the remaining DEC-NAME work before creating the application skeleton. The selected name does not determine an app/package ID, URI scheme, signature namespace, domain or service origin by itself. Do not rely on an older repository, brand, existing implementation, private service or copied asset to make the specification work.
+The product owner has chosen Kohbor / เกาะเบาะ. Preserve that name and use the supplied original design-system 1.0.0 candidate under docs/design/DESIGN-SYSTEM.md and design/README.md; inspect the board and implementation handoff before inventing new visuals. Pixel/native acceptance remains open. Complete the still-unfrozen technical identifiers in contracts/product-identity.json and record closure evidence for the remaining DEC-NAME work before creating the application skeleton. The selected name does not determine an app/package ID, URI scheme, signature namespace, domain or service origin by itself. Do not rely on an older repository, brand, existing implementation, private service or copied asset to make the specification work.
 
 First read README.md, docs/product/PRD.md, the complete docs/requirements/SRS.md, docs/governance/DOCUMENT-CONTROL.md and docs/governance/DECISION-LOG.md, then AGENTS.md. Before each slice read relevant SAD/SDD, ICD/DDD, UX, security and Test/UAT procedures in docs/INDEX.md.
 

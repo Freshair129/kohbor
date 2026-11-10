@@ -18,7 +18,7 @@ Read README, docs/product/PRD.md, docs/requirements/SRS.md, docs/governance/DOCU
 
 The owner-selected display names are Kohbor and เกาะเบาะ, recorded in contracts/product-identity.json. This records the name decision only: DEC-NAME remains delegated for the unfrozen technical identity. Before creating the application skeleton, complete that existing manifest and freeze app/package IDs, data directory, URI scheme and signature/hash namespaces in coordination with their interface and trust contracts. Determine an update origin only when the corresponding service is specified; do not infer a domain or endpoint from the product name. contracts/product-identity.example.json illustrates the remaining fields and is not a completed identity.
 
-Original logo, character, palette, typography and other visual design remain delegated under DEC-VISUALS. Any later owner-approved display-name change is independent of stable technical IDs. Do not bring source-brand assets, secrets, real-person voices or legacy trust roots into the new product. Compatibility with an older product is not promised.
+Original logo, character, palette, typography and other visual design remain delegated under DEC-VISUALS. The supplied design-system 1.0.0 candidate, board, tokens and implementation handoff are indexed in design/README.md; reuse their semantic decisions rather than guessing a second visual system. Pixel/full-screen/native acceptance remains open. Any later owner-approved display-name change is independent of stable technical IDs. Do not bring source-brand assets, secrets, real-person voices or legacy trust roots into the new product. Compatibility with an older product is not promised.
 
 ## Work policy
 

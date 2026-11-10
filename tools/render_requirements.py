@@ -58,7 +58,7 @@ def render(root):
     srs = prefix + BEGIN + ''.join(parts) + END + suffix
 
     output = io.StringIO(newline='')
-    writer = csv.writer(output)
+    writer = csv.writer(output, lineterminator="\n")
     writer.writerow([
         'product_need_ids', 'requirement_id', 'module', 'scope', 'priority',
         'primary_design_component_id', 'design_component_ids', 'design_refs', 'contract_refs', 'spec_refs', 'diagram_ids', 'diagram_refs',

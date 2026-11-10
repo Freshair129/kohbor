@@ -1,0 +1,272 @@
+{
+  "$description": "Kohbor component aliases v1.0.0. Components resolve through semantics, never replace data/consent/entitlement logic.",
+  "component": {
+    "button": {
+      "background": {
+        "$type": "color",
+        "$value": "{semantic.color.accent}",
+        "$description": "button background; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "foreground": {
+        "$type": "color",
+        "$value": "{semantic.color.on-accent}",
+        "$description": "button foreground; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "hover-background": {
+        "$type": "color",
+        "$value": "{semantic.color.accent-hover}",
+        "$description": "button hover-background; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "pressed-background": {
+        "$type": "color",
+        "$value": "{semantic.color.accent-pressed}",
+        "$description": "button pressed-background; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "radius": {
+        "$type": "dimension",
+        "$value": "{semantic.radius.md}",
+        "$description": "button radius; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "min-height": {
+        "$type": "dimension",
+        "$value": "{semantic.target.default}",
+        "$description": "button min-height; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "padding-inline": {
+        "$type": "dimension",
+        "$value": "{semantic.space.4}",
+        "$description": "button padding-inline; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      }
+    },
+    "secondary-button": {
+      "background": {
+        "$type": "color",
+        "$value": "{semantic.color.surface.raised}",
+        "$description": "secondary-button background; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "foreground": {
+        "$type": "color",
+        "$value": "{semantic.color.text.primary}",
+        "$description": "secondary-button foreground; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "border": {
+        "$type": "color",
+        "$value": "{semantic.color.border.strong}",
+        "$description": "secondary-button border; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      }
+    },
+    "input": {
+      "background": {
+        "$type": "color",
+        "$value": "{semantic.color.surface.canvas}",
+        "$description": "input background; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "foreground": {
+        "$type": "color",
+        "$value": "{semantic.color.text.primary}",
+        "$description": "input foreground; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "placeholder": {
+        "$type": "color",
+        "$value": "{semantic.color.text.muted}",
+        "$description": "input placeholder; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "border": {
+        "$type": "color",
+        "$value": "{semantic.color.border.strong}",
+        "$description": "input border; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "radius": {
+        "$type": "dimension",
+        "$value": "{semantic.radius.sm}",
+        "$description": "input radius; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "min-height": {
+        "$type": "dimension",
+        "$value": "{semantic.target.default}",
+        "$description": "input min-height; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      }
+    },
+    "card": {
+      "background": {
+        "$type": "color",
+        "$value": "{semantic.color.surface.panel}",
+        "$description": "card background; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "border": {
+        "$type": "color",
+        "$value": "{semantic.color.border.default}",
+        "$description": "card border; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "radius": {
+        "$type": "dimension",
+        "$value": "{semantic.radius.lg}",
+        "$description": "card radius; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "padding": {
+        "$type": "dimension",
+        "$value": "{semantic.space.4}",
+        "$description": "card padding; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      }
+    },
+    "hero-card": {
+      "background": {
+        "$type": "color",
+        "$value": "{semantic.color.surface.raised}",
+        "$description": "hero-card background; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "border": {
+        "$type": "color",
+        "$value": "{semantic.color.border.strong}",
+        "$description": "hero-card border; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "selected-border": {
+        "$type": "color",
+        "$value": "{semantic.color.border.selected}",
+        "$description": "hero-card selected-border; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "radius": {
+        "$type": "dimension",
+        "$value": "{semantic.radius.md}",
+        "$description": "hero-card radius; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "compact-target": {
+        "$type": "dimension",
+        "$value": "{semantic.target.compact}",
+        "$description": "hero-card compact-target; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      }
+    },
+    "badge": {
+      "background": {
+        "$type": "color",
+        "$value": "{semantic.color.surface.raised}",
+        "$description": "badge background; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "foreground": {
+        "$type": "color",
+        "$value": "{semantic.color.text.secondary}",
+        "$description": "badge foreground; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "radius": {
+        "$type": "dimension",
+        "$value": "{semantic.radius.pill}",
+        "$description": "badge radius; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "padding-inline": {
+        "$type": "dimension",
+        "$value": "{semantic.space.2}",
+        "$description": "badge padding-inline; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      }
+    },
+    "navigation": {
+      "background": {
+        "$type": "color",
+        "$value": "{semantic.color.surface.panel}",
+        "$description": "navigation background; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "foreground": {
+        "$type": "color",
+        "$value": "{semantic.color.text.secondary}",
+        "$description": "navigation foreground; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "selected-background": {
+        "$type": "color",
+        "$value": "{semantic.color.surface.selected}",
+        "$description": "navigation selected-background; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "selected-foreground": {
+        "$type": "color",
+        "$value": "{semantic.color.accent}",
+        "$description": "navigation selected-foreground; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "indicator": {
+        "$type": "color",
+        "$value": "{semantic.color.accent}",
+        "$description": "navigation indicator; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "target": {
+        "$type": "dimension",
+        "$value": "{semantic.target.default}",
+        "$description": "navigation target; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "icon-size": {
+        "$type": "dimension",
+        "$value": "{semantic.space.6}",
+        "$description": "navigation icon-size; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      }
+    },
+    "map": {
+      "background": {
+        "$type": "color",
+        "$value": "{semantic.color.surface.canvas}",
+        "$description": "map background; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "border": {
+        "$type": "color",
+        "$value": "{semantic.color.border.strong}",
+        "$description": "map border; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "radius": {
+        "$type": "dimension",
+        "$value": "{semantic.radius.lg}",
+        "$description": "map radius; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      }
+    },
+    "inspector": {
+      "background": {
+        "$type": "color",
+        "$value": "{semantic.color.surface.raised}",
+        "$description": "inspector background; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "divider": {
+        "$type": "color",
+        "$value": "{semantic.color.border.default}",
+        "$description": "inspector divider; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "padding": {
+        "$type": "dimension",
+        "$value": "{semantic.space.4}",
+        "$description": "inspector padding; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      }
+    },
+    "overlay": {
+      "background": {
+        "$type": "color",
+        "$value": "{semantic.color.surface.overlay}",
+        "$description": "overlay background; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "foreground": {
+        "$type": "color",
+        "$value": "{semantic.color.text.primary}",
+        "$description": "overlay foreground; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "radius": {
+        "$type": "dimension",
+        "$value": "{semantic.radius.md}",
+        "$description": "overlay radius; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "border": {
+        "$type": "color",
+        "$value": "{semantic.color.border.strong}",
+        "$description": "overlay border; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      }
+    },
+    "tooltip": {
+      "background": {
+        "$type": "color",
+        "$value": "{semantic.color.surface.raised}",
+        "$description": "tooltip background; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "foreground": {
+        "$type": "color",
+        "$value": "{semantic.color.text.primary}",
+        "$description": "tooltip foreground; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "radius": {
+        "$type": "dimension",
+        "$value": "{semantic.radius.sm}",
+        "$description": "tooltip radius; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      }
+    }
+  }
+}

@@ -3,7 +3,7 @@ title: "Kohbor Implementation Readiness"
 doc_id: "IMPLEMENTATION-READINESS"
 status: draft
 version: "0.3.1"
-updated: "2026-11-10"
+updated: "2026-11-11"
 owner_role: "Product owner and engineering lead; reviewers not assigned"
 approval_status: "not_approved"
 ---
@@ -33,7 +33,7 @@ Start M0 feasibility work, requirement review, technical-identity definition and
 | Media trust and playback readiness | Complete install/catalog contract, canonical signing bytes, algorithm/key distribution, verification vectors and authorized critical media | DEC-PACK-CRYPTO, DEC-CRITICAL-MEDIA; [Media Package Specification](../design/MEDIA-PACK-SPEC.md) | Untrusted packages inactive; missing critical assets reported not ready |
 | Risk alerts | Complete coordinated-motion/disappearance admission, reappearance guards, timing/heading/ETA policy and positive/negative golden traces | DEC-RISK-DETAIL; [SDD](../design/SDD.md) | Reference scores informational; affected audible alerts unavailable until admission is frozen; no correction from coverage loss or time decay |
 | Voice buffers | Exact PCM ownership, capture termination, bounded decoder lifetime, cancellation races and zeroization deadlines | DEC-VOICE-BUFFER; [SDD](../design/SDD.md), [Security and Privacy](../security/SECURITY-PRIVACY.md) | A capture-only spike may discard bytes and report STT unavailable |
-| Visual design and native behavior | Annotated original screens, design tokens, viewport/DPI/focus behavior and measured safe areas | DEC-VISUALS, DEC-NATIVE-EVIDENCE; [UX Specification](../design/UX-SPEC.md) | Behavioral layouts are specified; final visual/native acceptance remains open |
+| Visual design and native behavior | Review supplied design-system 1.0.0,248 tokens, 24 components and Live-field specimens; complete affected-route screens, rendered browser checks and native viewport/DPI/focus/safe-area evidence | DEC-VISUALS, DEC-NATIVE-EVIDENCE; [Design kit](../../design/README.md), [UX Specification](../design/UX-SPEC.md) | Authored values and static/DOM checks are available; pixel approval and rendered/native acceptance remain open |
 | Model and resource qualification | Selected model artifacts/hashes, calibration and held-out evidence; application and external recording resource results | DEC-MODELS, DEC-OBS-BUDGET; [NFR](../quality/NFR.md) | Unqualified model capability unavailable; report app and recorder separately and combined |
 | Optional services | Hosted social protocols, ownership and operations; commercial entitlement authority and revocation | DEC-SOCIAL, DEC-PREMIUM; [ICD](../design/ICD.md), [Runbook](../operations/RUNBOOK.md) | Local core independent; no production premium grant or implicit cloud permission |
 
@@ -46,3 +46,7 @@ The governing documents contain the exact obligations and thresholds. This table
 Application test bindings, integration runs, Windows native execution, live matches, acoustic timing, resource/FPS measurements, installer/update behavior and owner UAT remain **NOT_RUN** until an actual implementation and receipts exist. Empty implementation/evidence references are intentional. Do not replace them with planned test names and label those tests passed.
 
 Use [Test Plan](../quality/TEST-PLAN.md), [UAT Plan](../quality/UAT-PLAN.md), and [RTM](../requirements/RTM.csv) to bind each result to the exact code and artifact tested. Publishing this specification is not a release approval for the application.
+
+## Supplied design kit
+
+The [design kit](../../design/README.md) adds the original Nightglass visual direction, semantic/component tokens, an offline interactive board, static poster and [implementation handoff](../design/IMPLEMENTATION-HANDOFF.md). Token and bundle checks are static; [DOM logic checks](../../design/board/dom-validation.json) are synthetic. Actual browser rendering could not be completed in this environment, and Windows/native/live/acoustic/resource evidence is still NOT_RUN. Use the board scope matrix before assuming every planned acceptance journey exists in the fixture.

@@ -1994,7 +1994,11 @@
       ],
       "design_refs": [
         "docs/design/SDD.md",
-        "docs/design/UX-SPEC.md"
+        "docs/design/UX-SPEC.md",
+        "docs/design/DESIGN-SYSTEM.md",
+        "docs/design/COMPONENT-CATALOG.md",
+        "docs/design/IMPLEMENTATION-HANDOFF.md",
+        "docs/design/DESIGN-ACCEPTANCE.md"
       ],
       "primary_design_component_id": "CMP-READMODEL",
       "diagram_ids": [
@@ -2057,7 +2061,11 @@
       ],
       "design_refs": [
         "docs/design/SDD.md",
-        "docs/design/UX-SPEC.md"
+        "docs/design/UX-SPEC.md",
+        "docs/design/DESIGN-SYSTEM.md",
+        "docs/design/COMPONENT-CATALOG.md",
+        "docs/design/IMPLEMENTATION-HANDOFF.md",
+        "docs/design/DESIGN-ACCEPTANCE.md"
       ],
       "primary_design_component_id": "CMP-READMODEL",
       "diagram_ids": [
@@ -2118,7 +2126,11 @@
       ],
       "design_refs": [
         "docs/design/SDD.md",
-        "docs/design/UX-SPEC.md"
+        "docs/design/UX-SPEC.md",
+        "docs/design/DESIGN-SYSTEM.md",
+        "docs/design/COMPONENT-CATALOG.md",
+        "docs/design/IMPLEMENTATION-HANDOFF.md",
+        "docs/design/DESIGN-ACCEPTANCE.md"
       ],
       "primary_design_component_id": "CMP-READMODEL",
       "diagram_ids": [
@@ -2179,7 +2191,11 @@
       ],
       "design_refs": [
         "docs/design/SDD.md",
-        "docs/design/UX-SPEC.md"
+        "docs/design/UX-SPEC.md",
+        "docs/design/DESIGN-SYSTEM.md",
+        "docs/design/COMPONENT-CATALOG.md",
+        "docs/design/IMPLEMENTATION-HANDOFF.md",
+        "docs/design/DESIGN-ACCEPTANCE.md"
       ],
       "primary_design_component_id": "CMP-READMODEL",
       "diagram_ids": [
@@ -2241,7 +2257,11 @@
       ],
       "design_refs": [
         "docs/design/SDD.md",
-        "docs/design/UX-SPEC.md"
+        "docs/design/UX-SPEC.md",
+        "docs/design/DESIGN-SYSTEM.md",
+        "docs/design/COMPONENT-CATALOG.md",
+        "docs/design/IMPLEMENTATION-HANDOFF.md",
+        "docs/design/DESIGN-ACCEPTANCE.md"
       ],
       "primary_design_component_id": "CMP-READMODEL",
       "diagram_ids": [
@@ -2302,7 +2322,11 @@
       ],
       "design_refs": [
         "docs/design/SDD.md",
-        "docs/design/UX-SPEC.md"
+        "docs/design/UX-SPEC.md",
+        "docs/design/DESIGN-SYSTEM.md",
+        "docs/design/COMPONENT-CATALOG.md",
+        "docs/design/IMPLEMENTATION-HANDOFF.md",
+        "docs/design/DESIGN-ACCEPTANCE.md"
       ],
       "primary_design_component_id": "CMP-READMODEL",
       "diagram_ids": [
@@ -2369,7 +2393,11 @@
       ],
       "design_refs": [
         "docs/design/SDD.md",
-        "docs/design/UX-SPEC.md"
+        "docs/design/UX-SPEC.md",
+        "docs/design/DESIGN-SYSTEM.md",
+        "docs/design/COMPONENT-CATALOG.md",
+        "docs/design/IMPLEMENTATION-HANDOFF.md",
+        "docs/design/DESIGN-ACCEPTANCE.md"
       ],
       "primary_design_component_id": "CMP-READMODEL",
       "diagram_ids": [],
@@ -4818,7 +4846,11 @@
       ],
       "design_refs": [
         "docs/design/SDD.md",
-        "docs/design/UX-SPEC.md"
+        "docs/design/UX-SPEC.md",
+        "docs/design/DESIGN-SYSTEM.md",
+        "docs/design/COMPONENT-CATALOG.md",
+        "docs/design/IMPLEMENTATION-HANDOFF.md",
+        "docs/design/DESIGN-ACCEPTANCE.md"
       ],
       "primary_design_component_id": "CMP-ENTITLEMENT",
       "diagram_ids": [],
@@ -4877,7 +4909,11 @@
       ],
       "design_refs": [
         "docs/design/SDD.md",
-        "docs/design/UX-SPEC.md"
+        "docs/design/UX-SPEC.md",
+        "docs/design/DESIGN-SYSTEM.md",
+        "docs/design/COMPONENT-CATALOG.md",
+        "docs/design/IMPLEMENTATION-HANDOFF.md",
+        "docs/design/DESIGN-ACCEPTANCE.md"
       ],
       "primary_design_component_id": "CMP-ENTITLEMENT",
       "diagram_ids": [],
@@ -4935,7 +4971,11 @@
       ],
       "design_refs": [
         "docs/design/SDD.md",
-        "docs/design/UX-SPEC.md"
+        "docs/design/UX-SPEC.md",
+        "docs/design/DESIGN-SYSTEM.md",
+        "docs/design/COMPONENT-CATALOG.md",
+        "docs/design/IMPLEMENTATION-HANDOFF.md",
+        "docs/design/DESIGN-ACCEPTANCE.md"
       ],
       "primary_design_component_id": "CMP-ENTITLEMENT",
       "diagram_ids": [

@@ -18,8 +18,8 @@
     },
     {
       "path": "AGENTS.md",
-      "bytes": 4359,
-      "sha256": "de391583b4a84eb41ce8fd75a88285364ae797208182badb3bdb846ef88a26f2"
+      "bytes": 4603,
+      "sha256": "0363cb78756ddc33e2ad4a8da837913165c02a06043bdf4e93d96ca222cb62cb"
     },
     {
       "path": "GUIDE-TH.md",
@@ -28,13 +28,13 @@
     },
     {
       "path": "PROMPT.md",
-      "bytes": 3480,
-      "sha256": "2fb45fe94966b18c1a375569898814a0bf6298c5978538f7059c252908b71917"
+      "bytes": 3670,
+      "sha256": "3d24e9d700d8f34ca7a02cdc1e96b4d9cfddab8426987b110f3a027e823a36e2"
     },
     {
       "path": "README.md",
-      "bytes": 7405,
-      "sha256": "015b0b3532b51501348bfdfa81dd083f4ed14a8113fdc12ceb345b2599835923"
+      "bytes": 8565,
+      "sha256": "985a90312b4c4c328dd69d725cc090e9bddb3b1456e6bb752beb718df22e6f52"
     },
     {
       "path": "acceptance/diagram-validation.json",
@@ -54,7 +54,7 @@
     {
       "path": "acceptance/spec-validation.json",
       "bytes": 884,
-      "sha256": "862d0f9ce3984e439dc94a6fe8bd2ee2ead2bd8830437303cb568a7dd5f50980"
+      "sha256": "526bb75137d48e24d0543da90a05984ba19ddaf1c666466800110970ff32cda1"
     },
     {
       "path": "contracts/cloud-context.schema.json",
@@ -63,8 +63,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 7173,
-      "sha256": "29e8b701e0abc7f6e82514b562d566aeee9dfe7a7b8371b79791019c18f2b241"
+      "bytes": 8022,
+      "sha256": "a2fe71dbd51900221c4d7f3f621c40b15c13ff83702ac6ae45c5619b339fa62f"
     },
     {
       "path": "contracts/error-catalog.json",
@@ -118,13 +118,148 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 173886,
-      "sha256": "1f80cadf39f1385c3b64ef8f17d8d5208e5f6317ffb8236e218e48eb516783c2"
+      "bytes": 175656,
+      "sha256": "90c6e95d8f7adb3738330a2107ecbc1bed8dc35b5820ae26c533db055ac8b3a4"
+    },
+    {
+      "path": "design/README.md",
+      "bytes": 5512,
+      "sha256": "dd2e133170c22e8ae5b041fbd0f17817cad4a324b3b2f7d7c249e0d10d3eb36b"
+    },
+    {
+      "path": "design/assets/README.md",
+      "bytes": 1754,
+      "sha256": "88fdb2f0372d942925f938917f13917b3d30fe029873f46ae2408cdbdb7d083a"
+    },
+    {
+      "path": "design/assets/fonts/NotoSans-Bold.ttf",
+      "bytes": 515752,
+      "sha256": "e83493c945848ecd4a9ad0f6d19164541a0d3e23a9c952304a00a46e00272ac5"
+    },
+    {
+      "path": "design/assets/fonts/NotoSans-Regular.ttf",
+      "bytes": 512672,
+      "sha256": "89c3c497f618fdaa0b2d1e98fef93582f28c71debd2c4a8cdf41f190ced2909d"
+    },
+    {
+      "path": "design/assets/fonts/NotoSansThai-Bold.ttf",
+      "bytes": 37788,
+      "sha256": "97bbc8ea98328325285f2f552228c7aac1db39d8f38f0096a61ba7df1f1f780e"
+    },
+    {
+      "path": "design/assets/fonts/NotoSansThai-Regular.ttf",
+      "bytes": 37744,
+      "sha256": "dfbd5ed0f1e68c3cbc51aa08f646d1ab0e68e7c4ceab70a69e465225ff701f93"
+    },
+    {
+      "path": "design/assets/fonts/OFL-Noto.txt",
+      "bytes": 4147,
+      "sha256": "46d95754bed816a16b2e8ca98b9354197535bfe6578a4fc1e970e88873b3be43"
+    },
+    {
+      "path": "design/assets/fonts/README.md",
+      "bytes": 650,
+      "sha256": "2c972f0216673e23e63bad332d610d5cffc24a01e92e00457fe9c47321e3edfc"
+    },
+    {
+      "path": "design/assets/kohbor-companion.svg",
+      "bytes": 1050,
+      "sha256": "9200e748230e4983ff84eef8097d1475d20af9e0e3b83691ed8df113c4418e6f"
+    },
+    {
+      "path": "design/assets/kohbor-mark.svg",
+      "bytes": 431,
+      "sha256": "fcc123c5177dd4e325a32826d531beadb520fb29bc27e6f9f486fd14e62fd565"
+    },
+    {
+      "path": "design/assets/kohbor-wordmark.svg",
+      "bytes": 726,
+      "sha256": "2c2d9b9aa87eedabadd1d8fd3f6084dc4e15676f9a76d9786f54bb131bbcb245"
+    },
+    {
+      "path": "design/board/board.css",
+      "bytes": 31959,
+      "sha256": "95582c9caf10287bdf18096dad8f788d23f30ebf16d5139e7e6498b7eb7ee5b6"
+    },
+    {
+      "path": "design/board/board.js",
+      "bytes": 18595,
+      "sha256": "a409ea84a60d5c6bd36a8c9675ad28d90f0cae627465d4e740ca9bfe9eb72fc8"
+    },
+    {
+      "path": "design/board/bundle-validation.json",
+      "bytes": 2430,
+      "sha256": "f1515f317e43ce55f2319090e8f3a80bc5dee6ba20c82cbc64db54c2c27336c0"
+    },
+    {
+      "path": "design/board/dom-validation.json",
+      "bytes": 3378,
+      "sha256": "64281e4aec4124604fd31450468d44f0a01e1f1c772ef761e12753c90582ecc8"
+    },
+    {
+      "path": "design/board/index.html",
+      "bytes": 25893,
+      "sha256": "1440a16bcf75bb23b3273b82983e08dfd83966b534aa65a486bc36d9d06df1bc"
+    },
+    {
+      "path": "design/board/kohbor-design-board.html",
+      "bytes": 1641615,
+      "sha256": "b145961920f4cfb489c0987f6cd5ac16159e1d75c4276902c3818604e087b787"
+    },
+    {
+      "path": "design/board/kohbor-design-board.png",
+      "bytes": 582617,
+      "sha256": "0413f686b3adfa7b6636cc5ada742b61dab7083545a89646fc924724c918248b"
+    },
+    {
+      "path": "design/tokens/README.md",
+      "bytes": 14659,
+      "sha256": "6e1515ea5c9cd1a570b5333409eee2e650d1bc76948b0a581edfbd692f2986fd"
+    },
+    {
+      "path": "design/tokens/kohbor.tokens.json",
+      "bytes": 65340,
+      "sha256": "cbf50d3366d08aa16aa624fc4e29b33e550883c1de528eab0cd4305cbbf34c88"
+    },
+    {
+      "path": "design/tokens/source/components.tokens.json",
+      "bytes": 12438,
+      "sha256": "5dc0f620a26e162edeabbe31f313a292db21ab22b948fde0d25bf2472f3b2010"
+    },
+    {
+      "path": "design/tokens/source/css-adapters.json",
+      "bytes": 2732,
+      "sha256": "a1623d9108e5ebbd21ab1676577a31f837cbd49e8edce20ed2119ef6255192be"
+    },
+    {
+      "path": "design/tokens/source/primitives.tokens.json",
+      "bytes": 21686,
+      "sha256": "bfbb3d32feedcb66268a1869dfc2983c5cdd51cdb5cb91a91ba8f45977b1d1ee"
+    },
+    {
+      "path": "design/tokens/source/semantic.dark.tokens.json",
+      "bytes": 31140,
+      "sha256": "41cc756fb5da0a347e9359ce6a2005edaac253b2f99de7b8fbff7cae027af361"
+    },
+    {
+      "path": "design/tokens/token-validation.json",
+      "bytes": 55622,
+      "sha256": "f86550965ad8733f403c5e4b4220e92272f689f82ec82b67077b84a380760540"
+    },
+    {
+      "path": "design/tokens/tokens.css",
+      "bytes": 18608,
+      "sha256": "d015c10fbd3710550525f2dccb227d13b732497f26001fe220290d4a93c8cef5"
+    },
+    {
+      "path": "design/tokens/tokens.resolved.json",
+      "bytes": 80599,
+      "sha256": "0d23e00693c56a257455a6c5ebaf4510ab8442fdadae2a660628229886ff2bda"
     },
     {
       "path": "docs/INDEX.md",
-      "bytes": 4604,
-      "sha256": "e273bb3be9097d7b5125ae9e261d2d7cdb1e0863c9579f6657ea8994d8946fa5"
+      "bytes": 5347,
+      "sha256": "201afc2acc2b91f4ce1723cb6f97f664601c3e81373734e724c28c867c3ebd56"
     },
     {
       "path": "docs/delivery/SDP.md",
@@ -132,14 +267,39 @@
       "sha256": "778dab1b82d9ffdab2ea7faa7eabf271842296d1c4dfcc179ee03b4ff957774f"
     },
     {
+      "path": "docs/design/COMPONENT-CATALOG.md",
+      "bytes": 45716,
+      "sha256": "9caca8e8bb4e7f8529e3041def884e7501c8bd75ffb60d66e9fee3eb9554bacf"
+    },
+    {
       "path": "docs/design/DDD.md",
       "bytes": 7308,
       "sha256": "8c09d516ef71f0ead85facbce5a30b3e4990409072097bbfa94a8eac17aa72a1"
     },
     {
+      "path": "docs/design/DESIGN-ACCEPTANCE.md",
+      "bytes": 27819,
+      "sha256": "900a191908c85a6766668cf424c539007a3e4f73dce6a40c52bed1e2b93c3596"
+    },
+    {
+      "path": "docs/design/DESIGN-BOARD.md",
+      "bytes": 7454,
+      "sha256": "3106d91ac369f7b24d55f06719cfc12cdf6f550feea8a85a1b7630d12f4f5eb8"
+    },
+    {
+      "path": "docs/design/DESIGN-SYSTEM.md",
+      "bytes": 36111,
+      "sha256": "06202c0917453636bc5e3b381b45c21bcbc876dde9b208417041d916e4ee52a4"
+    },
+    {
       "path": "docs/design/ICD.md",
       "bytes": 8090,
       "sha256": "42400cd5217ba8e0a3c9c6caf8bd6bd7f2167df0359ae41acee2a5799a64abd7"
+    },
+    {
+      "path": "docs/design/IMPLEMENTATION-HANDOFF.md",
+      "bytes": 7168,
+      "sha256": "77034b9dc8f309dfa840b85eabb4ce5c50e9a41ef88352280b7a7d78176f8f9d"
     },
     {
       "path": "docs/design/MEDIA-PACK-SPEC.md",
@@ -158,8 +318,8 @@
     },
     {
       "path": "docs/design/UX-SPEC.md",
-      "bytes": 14397,
-      "sha256": "ddca7c4884b457b63dff25bebcd151c13cea40f74dd0bb46580d65aa97c72b89"
+      "bytes": 15049,
+      "sha256": "77252e776611ed789df85beb2e56ae9e78c27f42e161b88660c273dac8c95e69"
     },
     {
       "path": "docs/diagrams/INDEX.html",
@@ -368,23 +528,23 @@
     },
     {
       "path": "docs/governance/CHANGELOG.md",
-      "bytes": 3910,
-      "sha256": "de231819a2500345fe44d36f81f62f87c5573f61b36f0662fa53e1caba34bb29"
+      "bytes": 5445,
+      "sha256": "54488fee39cb1265d2b5f3381e8b63b01b93ba14e17b0f97b4bd2d2d1fecc1f7"
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 7209,
-      "sha256": "8f8f20c223d8e135cbd3ede4faa7ffb76284d126e2b2468365bccde23d5db8cd"
+      "bytes": 8876,
+      "sha256": "0d1ec9428a29949973dbea3b4439b54d828a8c2224e37a05c810a5925401542e"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
-      "bytes": 8995,
-      "sha256": "69c29159a8c0699c8070b344b0ee4af2b1b3a15e05e6266920a0af456566221f"
+      "bytes": 9794,
+      "sha256": "07f48134f550e8990fba7a949fe0964974cc5a2ef2eac58f6f2b765310579ce9"
     },
     {
       "path": "docs/governance/IMPLEMENTATION-READINESS.md",
-      "bytes": 6228,
-      "sha256": "515afed8a8c033635718de4829bd4c30017ba8c9938e13907c2cea83a02ba896"
+      "bytes": 6996,
+      "sha256": "76fa5f8a496eab544fc55d40fa0d54557af8ab5f990cfa7cf6eb683b54cabed8"
     },
     {
       "path": "docs/governance/RISK-REGISTER.md",
@@ -428,8 +588,8 @@
     },
     {
       "path": "docs/requirements/RTM.csv",
-      "bytes": 36148,
-      "sha256": "b142270b8196ed40fa2d3f7dc738d96782d8d188eaa9fe7a6106f7936af96dd2"
+      "bytes": 37392,
+      "sha256": "c3b1a731f4b067cede7ac14a4d1e19234a484bd83e8651479426bd915895f657"
     },
     {
       "path": "docs/requirements/SRS.md",
@@ -582,9 +742,24 @@
       "sha256": "2c840db787194beddb3990c385d95ae8b8511f34b6f03d1ddbdd8b3a9f9d555c"
     },
     {
+      "path": "tools/build_design_board.py",
+      "bytes": 4676,
+      "sha256": "6dba0b74e750ea1d5fc10898d5b363d56ab76f1d6e460331955da767bdd33990"
+    },
+    {
+      "path": "tools/build_design_tokens.py",
+      "bytes": 20875,
+      "sha256": "a432eede9843741c2a263b955225c890cdbd3dee5c775a73a3e87ad62cce66cc"
+    },
+    {
       "path": "tools/build_diagram_atlas.py",
       "bytes": 15660,
       "sha256": "f8d4889a0d4bd9b5c1dadf5469a2c2b3465066d88347a83d69e5a8d1591bc5a4"
+    },
+    {
+      "path": "tools/check_design_board.mjs",
+      "bytes": 10077,
+      "sha256": "3fd448a1ecf321f9b36133ab84112e367b04c831e0ec5892444987fd84537510"
     },
     {
       "path": "tools/diagram-renderer.json",
@@ -632,14 +807,24 @@
       "sha256": "3aab8974f2f92f647fa8f6786e95464df8f6dd0a96ad6745152a12e3a6c57939"
     },
     {
+      "path": "tools/render_design_poster.py",
+      "bytes": 30929,
+      "sha256": "99d966e84fa204bd11e9fe1b0589b0453ff47dfb6101a4a429c531bb914eb3ab"
+    },
+    {
       "path": "tools/render_diagrams.mjs",
       "bytes": 12359,
       "sha256": "389d45b012f14636febd00f280b454a1331a41ebcd52c3631e02aa27cc6cc2dd"
     },
     {
       "path": "tools/render_requirements.py",
-      "bytes": 6547,
-      "sha256": "3f6a1a834dd9f3903dee1cd9767397d6ff493d808352dcdfc465dca28895890a"
+      "bytes": 6568,
+      "sha256": "87b31a5daba54e1a2867c457cc828db1a28879ff9ce4d6c8379fe5e881aca4c8"
+    },
+    {
+      "path": "tools/validate_design.py",
+      "bytes": 17727,
+      "sha256": "dada659d7b6c30a4dcb74463fcd647fafad5a86e45e6c126fdf54251e4adc899"
     },
     {
       "path": "tools/validate_spec.py",
@@ -648,5 +833,8 @@
     }
   ],
   "product_name": "Kohbor",
-  "product_name_th": "เกาะเบาะ"
+  "product_name_th": "เกาะเบาะ",
+  "design_package_version": "1.0.0",
+  "design_addendum_date": "2026-11-11",
+  "design_evidence": "static and synthetic DOM only; rendered browser and application acceptance NOT_RUN"
 }

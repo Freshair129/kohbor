@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="280" height="280" viewBox="0 0 280 280" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">Kohbor companion study</title><desc id="desc">An original rounded seat-shaped companion, with a calm expression. Static brand illustration, not a readiness indicator.</desc>
+  <ellipse cx="140" cy="238" rx="74" ry="11" fill="#0B1014" opacity=".5"/>
+  <path d="M79 191V98c0-42 21-67 61-67s61 25 61 67v93H79Z" fill="#8DE0CA"/>
+  <path d="M61 174c0-15 12-27 27-27h104c15 0 27 12 27 27v22c0 20-16 36-36 36H97c-20 0-36-16-36-36v-22Z" fill="#73C4AE"/>
+  <path d="M90 222v13M190 222v13" stroke="#8DE0CA" stroke-width="15" stroke-linecap="round"/>
+  <rect x="107" y="96" width="11" height="21" rx="5.5" fill="#0B201A"/><rect x="162" y="96" width="11" height="21" rx="5.5" fill="#0B201A"/>
+  <path d="M129 128c7 5 15 5 22 0" stroke="#0B201A" stroke-width="5" stroke-linecap="round"/>
+  <path d="M83 72c6-16 15-23 28-28" stroke="#BDEFFF" stroke-width="5" stroke-linecap="round" opacity=".5"/>
+</svg>

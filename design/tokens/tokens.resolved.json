@@ -1,0 +1,2795 @@
+{
+  "$description": "Kohbor design tokens v1.0.0 — authored proposal under DEC-VISUALS; DTCG 2025.10 value forms.",
+  "primitive": {
+    "color": {
+      "ink": {
+        "950": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.0431372549,
+              0.062745098,
+              0.0784313725
+            ],
+            "alpha": 1,
+            "hex": "#0B1014"
+          },
+          "$description": "Ink 950; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "900": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.0705882353,
+              0.1019607843,
+              0.1294117647
+            ],
+            "alpha": 1,
+            "hex": "#121A21"
+          },
+          "$description": "Ink 900; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "850": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.1019607843,
+              0.1450980392,
+              0.1764705882
+            ],
+            "alpha": 1,
+            "hex": "#1A252D"
+          },
+          "$description": "Ink 850; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "800": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.1490196078,
+              0.2117647059,
+              0.2509803922
+            ],
+            "alpha": 1,
+            "hex": "#263640"
+          },
+          "$description": "Ink 800; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "700": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.2039215686,
+              0.2745098039,
+              0.3137254902
+            ],
+            "alpha": 1,
+            "hex": "#344650"
+          },
+          "$description": "Ink 700; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "600": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.2705882353,
+              0.3607843137,
+              0.4117647059
+            ],
+            "alpha": 1,
+            "hex": "#455C69"
+          },
+          "$description": "Ink 600; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "500": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.3882352941,
+              0.4823529412,
+              0.537254902
+            ],
+            "alpha": 1,
+            "hex": "#637B89"
+          },
+          "$description": "Ink 500; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "400": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.5490196078,
+              0.6235294118,
+              0.662745098
+            ],
+            "alpha": 1,
+            "hex": "#8C9FA9"
+          },
+          "$description": "Ink 400; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "300": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.6745098039,
+              0.7333333333,
+              0.7647058824
+            ],
+            "alpha": 1,
+            "hex": "#ACBBC3"
+          },
+          "$description": "Ink 300; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "100": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.8196078431,
+              0.8666666667,
+              0.8705882353
+            ],
+            "alpha": 1,
+            "hex": "#D1DDDE"
+          },
+          "$description": "Ink 100; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "50": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.9333333333,
+              0.9529411765,
+              0.9411764706
+            ],
+            "alpha": 1,
+            "hex": "#EEF3F0"
+          },
+          "$description": "Ink 50; primitive swatch. Use semantic aliases in interfaces."
+        }
+      },
+      "mint": {
+        "950": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.0431372549,
+              0.1254901961,
+              0.1019607843
+            ],
+            "alpha": 1,
+            "hex": "#0B201A"
+          },
+          "$description": "Mint 950; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "300": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.5529411765,
+              0.8784313725,
+              0.7921568627
+            ],
+            "alpha": 1,
+            "hex": "#8DE0CA"
+          },
+          "$description": "Mint 300; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "200": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.662745098,
+              0.9176470588,
+              0.8470588235
+            ],
+            "alpha": 1,
+            "hex": "#A9EAD8"
+          },
+          "$description": "Mint 200; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "100": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.7803921569,
+              0.9529411765,
+              0.9058823529
+            ],
+            "alpha": 1,
+            "hex": "#C7F3E7"
+          },
+          "$description": "Mint 100; primitive swatch. Use semantic aliases in interfaces."
+        }
+      },
+      "green": {
+        "950": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.062745098,
+              0.1647058824,
+              0.1098039216
+            ],
+            "alpha": 1,
+            "hex": "#102A1C"
+          },
+          "$description": "Green 950; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "300": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.5254901961,
+              0.8431372549,
+              0.6470588235
+            ],
+            "alpha": 1,
+            "hex": "#86D7A5"
+          },
+          "$description": "Green 300; primitive swatch. Use semantic aliases in interfaces."
+        }
+      },
+      "amber": {
+        "950": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.1882352941,
+              0.1411764706,
+              0.0549019608
+            ],
+            "alpha": 1,
+            "hex": "#30240E"
+          },
+          "$description": "Amber 950; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "300": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.9529411765,
+              0.7725490196,
+              0.4705882353
+            ],
+            "alpha": 1,
+            "hex": "#F3C578"
+          },
+          "$description": "Amber 300; primitive swatch. Use semantic aliases in interfaces."
+        }
+      },
+      "coral": {
+        "950": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.2039215686,
+              0.1058823529,
+              0.1058823529
+            ],
+            "alpha": 1,
+            "hex": "#341B1B"
+          },
+          "$description": "Coral 950; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "300": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.9607843137,
+              0.5607843137,
+              0.5450980392
+            ],
+            "alpha": 1,
+            "hex": "#F58F8B"
+          },
+          "$description": "Coral 300; primitive swatch. Use semantic aliases in interfaces."
+        }
+      },
+      "blue": {
+        "950": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.0823529412,
+              0.1568627451,
+              0.2549019608
+            ],
+            "alpha": 1,
+            "hex": "#152841"
+          },
+          "$description": "Blue 950; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "300": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.6156862745,
+              0.7490196078,
+              0.9607843137
+            ],
+            "alpha": 1,
+            "hex": "#9DBFF5"
+          },
+          "$description": "Blue 300; primitive swatch. Use semantic aliases in interfaces."
+        }
+      },
+      "ice": {
+        "200": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.7411764706,
+              0.937254902,
+              1.0
+            ],
+            "alpha": 1,
+            "hex": "#BDEFFF"
+          },
+          "$description": "Ice 200; primitive swatch. Use semantic aliases in interfaces."
+        }
+      },
+      "neutral": {
+        "white": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "alpha": 1,
+            "hex": "#FFFFFF"
+          },
+          "$description": "Neutral white; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "black": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "alpha": 1,
+            "hex": "#000000"
+          },
+          "$description": "Neutral black; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "shadow": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "alpha": 0.32,
+            "hex": "#000000"
+          },
+          "$description": "Translucent black for elevation only; never use for text or status."
+        }
+      }
+    },
+    "space": {
+      "0": {
+        "$type": "dimension",
+        "$value": {
+          "value": 0,
+          "unit": "px"
+        },
+        "$description": "0px on the four-pixel spacing scale."
+      },
+      "1": {
+        "$type": "dimension",
+        "$value": {
+          "value": 4,
+          "unit": "px"
+        },
+        "$description": "4px on the four-pixel spacing scale."
+      },
+      "2": {
+        "$type": "dimension",
+        "$value": {
+          "value": 8,
+          "unit": "px"
+        },
+        "$description": "8px on the four-pixel spacing scale."
+      },
+      "3": {
+        "$type": "dimension",
+        "$value": {
+          "value": 12,
+          "unit": "px"
+        },
+        "$description": "12px on the four-pixel spacing scale."
+      },
+      "4": {
+        "$type": "dimension",
+        "$value": {
+          "value": 16,
+          "unit": "px"
+        },
+        "$description": "16px on the four-pixel spacing scale."
+      },
+      "5": {
+        "$type": "dimension",
+        "$value": {
+          "value": 20,
+          "unit": "px"
+        },
+        "$description": "20px on the four-pixel spacing scale."
+      },
+      "6": {
+        "$type": "dimension",
+        "$value": {
+          "value": 24,
+          "unit": "px"
+        },
+        "$description": "24px on the four-pixel spacing scale."
+      },
+      "7": {
+        "$type": "dimension",
+        "$value": {
+          "value": 28,
+          "unit": "px"
+        },
+        "$description": "28px on the four-pixel spacing scale."
+      },
+      "8": {
+        "$type": "dimension",
+        "$value": {
+          "value": 32,
+          "unit": "px"
+        },
+        "$description": "32px on the four-pixel spacing scale."
+      },
+      "9": {
+        "$type": "dimension",
+        "$value": {
+          "value": 36,
+          "unit": "px"
+        },
+        "$description": "36px on the four-pixel spacing scale."
+      },
+      "10": {
+        "$type": "dimension",
+        "$value": {
+          "value": 40,
+          "unit": "px"
+        },
+        "$description": "40px on the four-pixel spacing scale."
+      },
+      "11": {
+        "$type": "dimension",
+        "$value": {
+          "value": 44,
+          "unit": "px"
+        },
+        "$description": "44px on the four-pixel spacing scale."
+      },
+      "12": {
+        "$type": "dimension",
+        "$value": {
+          "value": 48,
+          "unit": "px"
+        },
+        "$description": "48px on the four-pixel spacing scale."
+      }
+    },
+    "radius": {
+      "sm": {
+        "$type": "dimension",
+        "$value": {
+          "value": 8,
+          "unit": "px"
+        },
+        "$description": "Compact controls and small surfaces."
+      },
+      "md": {
+        "$type": "dimension",
+        "$value": {
+          "value": 12,
+          "unit": "px"
+        },
+        "$description": "Standard controls and hero cards."
+      },
+      "lg": {
+        "$type": "dimension",
+        "$value": {
+          "value": 16,
+          "unit": "px"
+        },
+        "$description": "Cards and map container."
+      },
+      "xl": {
+        "$type": "dimension",
+        "$value": {
+          "value": 24,
+          "unit": "px"
+        },
+        "$description": "Large framing surfaces."
+      },
+      "pill": {
+        "$type": "dimension",
+        "$value": {
+          "value": 999,
+          "unit": "px"
+        },
+        "$description": "Pill silhouette; use only where content remains readable."
+      }
+    },
+    "font": {
+      "family": {
+        "ui": {
+          "$type": "fontFamily",
+          "$value": [
+            "Noto Sans Thai",
+            "Noto Sans",
+            "Leelawadee UI",
+            "Tahoma",
+            "system-ui",
+            "sans-serif"
+          ],
+          "$description": "Thai-first local font stack with separate Latin Noto fallback. No font download is initiated; host/registered font availability requires verification."
+        }
+      },
+      "size": {
+        "supporting": {
+          "$type": "dimension",
+          "$value": {
+            "value": 14,
+            "unit": "px"
+          },
+          "$description": "14px authored size; native readability at scaled sizes is unverified."
+        },
+        "body": {
+          "$type": "dimension",
+          "$value": {
+            "value": 16,
+            "unit": "px"
+          },
+          "$description": "16px authored size; native readability at scaled sizes is unverified."
+        },
+        "heading-sm": {
+          "$type": "dimension",
+          "$value": {
+            "value": 20,
+            "unit": "px"
+          },
+          "$description": "20px authored size; native readability at scaled sizes is unverified."
+        },
+        "heading-md": {
+          "$type": "dimension",
+          "$value": {
+            "value": 24,
+            "unit": "px"
+          },
+          "$description": "24px authored size; native readability at scaled sizes is unverified."
+        },
+        "heading-lg": {
+          "$type": "dimension",
+          "$value": {
+            "value": 32,
+            "unit": "px"
+          },
+          "$description": "32px authored size; native readability at scaled sizes is unverified."
+        },
+        "display": {
+          "$type": "dimension",
+          "$value": {
+            "value": 48,
+            "unit": "px"
+          },
+          "$description": "48px authored size; native readability at scaled sizes is unverified."
+        }
+      },
+      "weight": {
+        "regular": {
+          "$type": "fontWeight",
+          "$value": 400,
+          "$description": "400 requested weight; actual host font faces and fallback require visual verification."
+        },
+        "medium": {
+          "$type": "fontWeight",
+          "$value": 500,
+          "$description": "500 requested weight; actual host font faces and fallback require visual verification."
+        },
+        "semibold": {
+          "$type": "fontWeight",
+          "$value": 600,
+          "$description": "600 requested weight; actual host font faces and fallback require visual verification."
+        },
+        "bold": {
+          "$type": "fontWeight",
+          "$value": 700,
+          "$description": "700 requested weight; actual host font faces and fallback require visual verification."
+        }
+      },
+      "line-height": {
+        "body": {
+          "$type": "number",
+          "$value": 1.6,
+          "$description": "Unitless line-height multiplier; retain room for Thai marks."
+        },
+        "heading": {
+          "$type": "number",
+          "$value": 1.3,
+          "$description": "Unitless line-height multiplier; retain room for Thai marks."
+        },
+        "display": {
+          "$type": "number",
+          "$value": 1.2,
+          "$description": "Unitless line-height multiplier; retain room for Thai marks."
+        }
+      },
+      "letter-spacing": {
+        "normal": {
+          "$type": "dimension",
+          "$value": {
+            "value": 0,
+            "unit": "px"
+          },
+          "$description": "No tracking adjustment for Thai or mixed-script content."
+        }
+      }
+    },
+    "motion": {
+      "duration": {
+        "instant": {
+          "$type": "duration",
+          "$value": {
+            "value": 0,
+            "unit": "ms"
+          },
+          "$description": "State-change presentation only; never a data-freshness timeout."
+        },
+        "fast": {
+          "$type": "duration",
+          "$value": {
+            "value": 100,
+            "unit": "ms"
+          },
+          "$description": "State-change presentation only; never a data-freshness timeout."
+        },
+        "standard": {
+          "$type": "duration",
+          "$value": {
+            "value": 160,
+            "unit": "ms"
+          },
+          "$description": "State-change presentation only; never a data-freshness timeout."
+        },
+        "slow": {
+          "$type": "duration",
+          "$value": {
+            "value": 240,
+            "unit": "ms"
+          },
+          "$description": "State-change presentation only; never a data-freshness timeout."
+        }
+      },
+      "easing": {
+        "standard": {
+          "$type": "cubicBezier",
+          "$value": [
+            0.2,
+            0,
+            0,
+            1
+          ],
+          "$description": "Calm entry and emphasis easing."
+        },
+        "exit": {
+          "$type": "cubicBezier",
+          "$value": [
+            0.4,
+            0,
+            1,
+            1
+          ],
+          "$description": "Brief dismissal easing; never delay state invalidation."
+        }
+      }
+    },
+    "border": {
+      "width": {
+        "default": {
+          "$type": "dimension",
+          "$value": {
+            "value": 1,
+            "unit": "px"
+          },
+          "$description": "Default authored stroke width."
+        },
+        "focus": {
+          "$type": "dimension",
+          "$value": {
+            "value": 2,
+            "unit": "px"
+          },
+          "$description": "Visible focus outline thickness."
+        }
+      }
+    },
+    "focus": {
+      "offset": {
+        "$type": "dimension",
+        "$value": {
+          "value": 3,
+          "unit": "px"
+        },
+        "$description": "Gap between component boundary and focus outline."
+      }
+    },
+    "target": {
+      "default": {
+        "$type": "dimension",
+        "$value": {
+          "value": 44,
+          "unit": "px"
+        },
+        "$description": "Default authored control target; proposed until native scaled measurement."
+      },
+      "compact": {
+        "$type": "dimension",
+        "$value": {
+          "value": 36,
+          "unit": "px"
+        },
+        "$description": "Compact authored target for bounded control UI; proposed until native scaled measurement."
+      }
+    },
+    "opacity": {
+      "disabled": {
+        "$type": "number",
+        "$value": 0.6,
+        "$description": "Decorative disabled affordances only. Do not apply to a parent containing required explanatory text."
+      },
+      "overlay": {
+        "$type": "number",
+        "$value": 0.94,
+        "$description": "Proposed overlay surface opacity; text contrast depends on the final composited game scene."
+      }
+    },
+    "shadow": {
+      "panel": {
+        "$type": "shadow",
+        "$value": {
+          "color": {
+            "colorSpace": "srgb",
+            "components": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "alpha": 0.32,
+            "hex": "#000000"
+          },
+          "offsetX": {
+            "value": 0,
+            "unit": "px"
+          },
+          "offsetY": {
+            "value": 8,
+            "unit": "px"
+          },
+          "blur": {
+            "value": 24,
+            "unit": "px"
+          },
+          "spread": {
+            "value": 0,
+            "unit": "px"
+          }
+        },
+        "$description": "Subtle elevation. Not the sole boundary cue; remove in forced colors."
+      }
+    }
+  },
+  "semantic": {
+    "color": {
+      "surface": {
+        "canvas": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.0431372549,
+              0.062745098,
+              0.0784313725
+            ],
+            "alpha": 1,
+            "hex": "#0B1014"
+          },
+          "$description": "Deep canvas behind navigation and panels."
+        },
+        "panel": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.0705882353,
+              0.1019607843,
+              0.1294117647
+            ],
+            "alpha": 1,
+            "hex": "#121A21"
+          },
+          "$description": "Primary opaque control surface."
+        },
+        "raised": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.1019607843,
+              0.1450980392,
+              0.1764705882
+            ],
+            "alpha": 1,
+            "hex": "#1A252D"
+          },
+          "$description": "Cards, bounded inspector and elevated regions."
+        },
+        "hover": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.1490196078,
+              0.2117647059,
+              0.2509803922
+            ],
+            "alpha": 1,
+            "hex": "#263640"
+          },
+          "$description": "Opaque hover surface for interactive rows."
+        },
+        "selected": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.0431372549,
+              0.1254901961,
+              0.1019607843
+            ],
+            "alpha": 1,
+            "hex": "#0B201A"
+          },
+          "$description": "Selected surface paired with accent text or selection mark."
+        },
+        "overlay": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.0431372549,
+              0.062745098,
+              0.0784313725
+            ],
+            "alpha": 1,
+            "hex": "#0B1014"
+          },
+          "$description": "Opaque overlay text backing. Opacity/compositing needs native scene verification."
+        }
+      },
+      "text": {
+        "primary": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.9333333333,
+              0.9529411765,
+              0.9411764706
+            ],
+            "alpha": 1,
+            "hex": "#EEF3F0"
+          },
+          "$description": "Primary body text on canvas/panel/raised."
+        },
+        "secondary": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.6745098039,
+              0.7333333333,
+              0.7647058824
+            ],
+            "alpha": 1,
+            "hex": "#ACBBC3"
+          },
+          "$description": "Supporting body text on canvas/panel/raised."
+        },
+        "muted": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.5490196078,
+              0.6235294118,
+              0.662745098
+            ],
+            "alpha": 1,
+            "hex": "#8C9FA9"
+          },
+          "$description": "Tertiary body text; still meets intended normal-text contrast pairs."
+        },
+        "disabled": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.5490196078,
+              0.6235294118,
+              0.662745098
+            ],
+            "alpha": 1,
+            "hex": "#8C9FA9"
+          },
+          "$description": "Readable disabled explanation; pair with explicit disabled semantics."
+        },
+        "inverse": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.0431372549,
+              0.062745098,
+              0.0784313725
+            ],
+            "alpha": 1,
+            "hex": "#0B1014"
+          },
+          "$description": "Text on the designated light accent surfaces only."
+        }
+      },
+      "accent": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.5529411765,
+            0.8784313725,
+            0.7921568627
+          ],
+          "alpha": 1,
+          "hex": "#8DE0CA"
+        },
+        "$description": "Primary brand/action accent; never a claim of live health."
+      },
+      "accent-hover": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.662745098,
+            0.9176470588,
+            0.8470588235
+          ],
+          "alpha": 1,
+          "hex": "#A9EAD8"
+        },
+        "$description": "Primary action hover fill."
+      },
+      "accent-pressed": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.7803921569,
+            0.9529411765,
+            0.9058823529
+          ],
+          "alpha": 1,
+          "hex": "#C7F3E7"
+        },
+        "$description": "Primary action pressed fill."
+      },
+      "on-accent": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.0431372549,
+            0.1254901961,
+            0.1019607843
+          ],
+          "alpha": 1,
+          "hex": "#0B201A"
+        },
+        "$description": "Text and icons on accent fills."
+      },
+      "border": {
+        "default": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.2039215686,
+              0.2745098039,
+              0.3137254902
+            ],
+            "alpha": 1,
+            "hex": "#344650"
+          },
+          "$description": "Decorative separators only; insufficient as the sole interactive boundary."
+        },
+        "strong": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.3882352941,
+              0.4823529412,
+              0.537254902
+            ],
+            "alpha": 1,
+            "hex": "#637B89"
+          },
+          "$description": "Interactive boundary on canvas/panel/raised; validate new adjacent backgrounds."
+        },
+        "selected": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.5529411765,
+              0.8784313725,
+              0.7921568627
+            ],
+            "alpha": 1,
+            "hex": "#8DE0CA"
+          },
+          "$description": "Selection boundary; always pair with text/icon/shape state."
+        }
+      },
+      "focus": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.7411764706,
+            0.937254902,
+            1.0
+          ],
+          "alpha": 1,
+          "hex": "#BDEFFF"
+        },
+        "$description": "Keyboard focus ring against opaque dark surfaces."
+      },
+      "state": {
+        "unknown": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.5490196078,
+              0.6235294118,
+              0.662745098
+            ],
+            "alpha": 1,
+            "hex": "#8C9FA9"
+          },
+          "$description": "Unknown has no observed value; use an explicit label or em dash."
+        },
+        "stale": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.9529411765,
+              0.7725490196,
+              0.4705882353
+            ],
+            "alpha": 1,
+            "hex": "#F3C578"
+          },
+          "$description": "Old observation; include age and stale text."
+        },
+        "estimated": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.6156862745,
+              0.7490196078,
+              0.9607843137
+            ],
+            "alpha": 1,
+            "hex": "#9DBFF5"
+          },
+          "$description": "Manual estimate; include estimated label."
+        },
+        "catalog": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.6745098039,
+              0.7333333333,
+              0.7647058824
+            ],
+            "alpha": 1,
+            "hex": "#ACBBC3"
+          },
+          "$description": "Reference/catalog data; label as non-live."
+        },
+        "unavailable": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.6745098039,
+              0.7333333333,
+              0.7647058824
+            ],
+            "alpha": 1,
+            "hex": "#ACBBC3"
+          },
+          "$description": "Unavailable capability; include reason and useful recovery action."
+        }
+      },
+      "success": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.5254901961,
+            0.8431372549,
+            0.6470588235
+          ],
+          "alpha": 1,
+          "hex": "#86D7A5"
+        },
+        "$description": "Success emphasis; pair with icon and explicit text. Unknown must never use success reassurance."
+      },
+      "success-surface": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.062745098,
+            0.1647058824,
+            0.1098039216
+          ],
+          "alpha": 1,
+          "hex": "#102A1C"
+        },
+        "$description": "Opaque success backing for the matching semantic foreground."
+      },
+      "warning": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.9529411765,
+            0.7725490196,
+            0.4705882353
+          ],
+          "alpha": 1,
+          "hex": "#F3C578"
+        },
+        "$description": "Warning emphasis; pair with icon and explicit text. Unknown must never use success reassurance."
+      },
+      "warning-surface": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.1882352941,
+            0.1411764706,
+            0.0549019608
+          ],
+          "alpha": 1,
+          "hex": "#30240E"
+        },
+        "$description": "Opaque warning backing for the matching semantic foreground."
+      },
+      "danger": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.9607843137,
+            0.5607843137,
+            0.5450980392
+          ],
+          "alpha": 1,
+          "hex": "#F58F8B"
+        },
+        "$description": "Danger emphasis; pair with icon and explicit text. Unknown must never use success reassurance."
+      },
+      "danger-surface": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.2039215686,
+            0.1058823529,
+            0.1058823529
+          ],
+          "alpha": 1,
+          "hex": "#341B1B"
+        },
+        "$description": "Opaque danger backing for the matching semantic foreground."
+      },
+      "info": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.6156862745,
+            0.7490196078,
+            0.9607843137
+          ],
+          "alpha": 1,
+          "hex": "#9DBFF5"
+        },
+        "$description": "Info emphasis; pair with icon and explicit text. Unknown must never use success reassurance."
+      },
+      "info-surface": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.0823529412,
+            0.1568627451,
+            0.2549019608
+          ],
+          "alpha": 1,
+          "hex": "#152841"
+        },
+        "$description": "Opaque info backing for the matching semantic foreground."
+      }
+    },
+    "font": {
+      "family": {
+        "ui": {
+          "$type": "fontFamily",
+          "$value": [
+            "Noto Sans Thai",
+            "Noto Sans",
+            "Leelawadee UI",
+            "Tahoma",
+            "system-ui",
+            "sans-serif"
+          ],
+          "$description": "Thai-first UI family stack; no remote font requests."
+        }
+      },
+      "size": {
+        "supporting": {
+          "$type": "dimension",
+          "$value": {
+            "value": 14,
+            "unit": "px"
+          },
+          "$description": "Authored UI font size; minimum 14px before stage fit."
+        },
+        "body": {
+          "$type": "dimension",
+          "$value": {
+            "value": 16,
+            "unit": "px"
+          },
+          "$description": "Authored UI font size; minimum 14px before stage fit."
+        },
+        "heading-sm": {
+          "$type": "dimension",
+          "$value": {
+            "value": 20,
+            "unit": "px"
+          },
+          "$description": "Authored UI font size; minimum 14px before stage fit."
+        },
+        "heading-md": {
+          "$type": "dimension",
+          "$value": {
+            "value": 24,
+            "unit": "px"
+          },
+          "$description": "Authored UI font size; minimum 14px before stage fit."
+        },
+        "heading-lg": {
+          "$type": "dimension",
+          "$value": {
+            "value": 32,
+            "unit": "px"
+          },
+          "$description": "Authored UI font size; minimum 14px before stage fit."
+        },
+        "display": {
+          "$type": "dimension",
+          "$value": {
+            "value": 48,
+            "unit": "px"
+          },
+          "$description": "Authored UI font size; minimum 14px before stage fit."
+        }
+      },
+      "weight": {
+        "regular": {
+          "$type": "fontWeight",
+          "$value": 400,
+          "$description": "Requested UI font weight."
+        },
+        "medium": {
+          "$type": "fontWeight",
+          "$value": 500,
+          "$description": "Requested UI font weight."
+        },
+        "semibold": {
+          "$type": "fontWeight",
+          "$value": 600,
+          "$description": "Requested UI font weight."
+        },
+        "bold": {
+          "$type": "fontWeight",
+          "$value": 700,
+          "$description": "Requested UI font weight."
+        }
+      }
+    },
+    "line-height": {
+      "body": {
+        "$type": "number",
+        "$value": 1.6,
+        "$description": "Unitless line-height; preserve Thai ascenders and combining marks."
+      },
+      "supporting": {
+        "$type": "number",
+        "$value": 1.6,
+        "$description": "Unitless line-height; preserve Thai ascenders and combining marks."
+      },
+      "heading": {
+        "$type": "number",
+        "$value": 1.3,
+        "$description": "Unitless line-height; preserve Thai ascenders and combining marks."
+      },
+      "display": {
+        "$type": "number",
+        "$value": 1.2,
+        "$description": "Unitless line-height; preserve Thai ascenders and combining marks."
+      }
+    },
+    "letter-spacing": {
+      "normal": {
+        "$type": "dimension",
+        "$value": {
+          "value": 0,
+          "unit": "px"
+        },
+        "$description": "Natural script spacing; do not uppercase or track Thai labels."
+      }
+    },
+    "space": {
+      "0": {
+        "$type": "dimension",
+        "$value": {
+          "value": 0,
+          "unit": "px"
+        },
+        "$description": "0px spacing step."
+      },
+      "1": {
+        "$type": "dimension",
+        "$value": {
+          "value": 4,
+          "unit": "px"
+        },
+        "$description": "4px spacing step."
+      },
+      "2": {
+        "$type": "dimension",
+        "$value": {
+          "value": 8,
+          "unit": "px"
+        },
+        "$description": "8px spacing step."
+      },
+      "3": {
+        "$type": "dimension",
+        "$value": {
+          "value": 12,
+          "unit": "px"
+        },
+        "$description": "12px spacing step."
+      },
+      "4": {
+        "$type": "dimension",
+        "$value": {
+          "value": 16,
+          "unit": "px"
+        },
+        "$description": "16px spacing step."
+      },
+      "5": {
+        "$type": "dimension",
+        "$value": {
+          "value": 20,
+          "unit": "px"
+        },
+        "$description": "20px spacing step."
+      },
+      "6": {
+        "$type": "dimension",
+        "$value": {
+          "value": 24,
+          "unit": "px"
+        },
+        "$description": "24px spacing step."
+      },
+      "7": {
+        "$type": "dimension",
+        "$value": {
+          "value": 28,
+          "unit": "px"
+        },
+        "$description": "28px spacing step."
+      },
+      "8": {
+        "$type": "dimension",
+        "$value": {
+          "value": 32,
+          "unit": "px"
+        },
+        "$description": "32px spacing step."
+      },
+      "9": {
+        "$type": "dimension",
+        "$value": {
+          "value": 36,
+          "unit": "px"
+        },
+        "$description": "36px spacing step."
+      },
+      "10": {
+        "$type": "dimension",
+        "$value": {
+          "value": 40,
+          "unit": "px"
+        },
+        "$description": "40px spacing step."
+      },
+      "11": {
+        "$type": "dimension",
+        "$value": {
+          "value": 44,
+          "unit": "px"
+        },
+        "$description": "44px spacing step."
+      },
+      "12": {
+        "$type": "dimension",
+        "$value": {
+          "value": 48,
+          "unit": "px"
+        },
+        "$description": "48px spacing step."
+      }
+    },
+    "radius": {
+      "sm": {
+        "$type": "dimension",
+        "$value": {
+          "value": 8,
+          "unit": "px"
+        },
+        "$description": "Semantic corner radius."
+      },
+      "md": {
+        "$type": "dimension",
+        "$value": {
+          "value": 12,
+          "unit": "px"
+        },
+        "$description": "Semantic corner radius."
+      },
+      "lg": {
+        "$type": "dimension",
+        "$value": {
+          "value": 16,
+          "unit": "px"
+        },
+        "$description": "Semantic corner radius."
+      },
+      "xl": {
+        "$type": "dimension",
+        "$value": {
+          "value": 24,
+          "unit": "px"
+        },
+        "$description": "Semantic corner radius."
+      },
+      "pill": {
+        "$type": "dimension",
+        "$value": {
+          "value": 999,
+          "unit": "px"
+        },
+        "$description": "Semantic corner radius."
+      }
+    },
+    "border": {
+      "width": {
+        "default": {
+          "$type": "dimension",
+          "$value": {
+            "value": 1,
+            "unit": "px"
+          },
+          "$description": "Default stroke width."
+        }
+      }
+    },
+    "focus": {
+      "width": {
+        "$type": "dimension",
+        "$value": {
+          "value": 2,
+          "unit": "px"
+        },
+        "$description": "2px keyboard outline."
+      },
+      "offset": {
+        "$type": "dimension",
+        "$value": {
+          "value": 3,
+          "unit": "px"
+        },
+        "$description": "3px offset; reserve room so the outline is not clipped."
+      }
+    },
+    "target": {
+      "default": {
+        "$type": "dimension",
+        "$value": {
+          "value": 44,
+          "unit": "px"
+        },
+        "$description": "Proposed authored target. Native/DPI acceptance remains open."
+      },
+      "compact": {
+        "$type": "dimension",
+        "$value": {
+          "value": 36,
+          "unit": "px"
+        },
+        "$description": "Proposed authored target. Native/DPI acceptance remains open."
+      }
+    },
+    "motion": {
+      "duration": {
+        "instant": {
+          "$type": "duration",
+          "$value": {
+            "value": 0,
+            "unit": "ms"
+          },
+          "$description": "Presentation duration; never governs source freshness or timer truth."
+        },
+        "fast": {
+          "$type": "duration",
+          "$value": {
+            "value": 100,
+            "unit": "ms"
+          },
+          "$description": "Presentation duration; never governs source freshness or timer truth."
+        },
+        "standard": {
+          "$type": "duration",
+          "$value": {
+            "value": 160,
+            "unit": "ms"
+          },
+          "$description": "Presentation duration; never governs source freshness or timer truth."
+        },
+        "slow": {
+          "$type": "duration",
+          "$value": {
+            "value": 240,
+            "unit": "ms"
+          },
+          "$description": "Presentation duration; never governs source freshness or timer truth."
+        },
+        "reduced": {
+          "$type": "duration",
+          "$value": {
+            "value": 0,
+            "unit": "ms"
+          },
+          "$description": "Reduced motion uses immediate presentation; state changes remain visible."
+        }
+      },
+      "easing": {
+        "standard": {
+          "$type": "cubicBezier",
+          "$value": [
+            0.2,
+            0,
+            0,
+            1
+          ],
+          "$description": "State-change easing."
+        },
+        "exit": {
+          "$type": "cubicBezier",
+          "$value": [
+            0.4,
+            0,
+            1,
+            1
+          ],
+          "$description": "State-change easing."
+        }
+      }
+    },
+    "layer": {
+      "base": {
+        "$type": "number",
+        "$value": 0,
+        "$description": "Control-window stacking only; not an OS overlay z-order contract."
+      },
+      "raised": {
+        "$type": "number",
+        "$value": 1,
+        "$description": "Control-window stacking only; not an OS overlay z-order contract."
+      },
+      "popover": {
+        "$type": "number",
+        "$value": 10,
+        "$description": "Control-window stacking only; not an OS overlay z-order contract."
+      },
+      "dialog": {
+        "$type": "number",
+        "$value": 20,
+        "$description": "Control-window stacking only; not an OS overlay z-order contract."
+      },
+      "tooltip": {
+        "$type": "number",
+        "$value": 30,
+        "$description": "Control-window stacking only; not an OS overlay z-order contract."
+      }
+    },
+    "elevation": {
+      "panel": {
+        "$type": "shadow",
+        "$value": {
+          "color": {
+            "colorSpace": "srgb",
+            "components": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "alpha": 0.32,
+            "hex": "#000000"
+          },
+          "offsetX": {
+            "value": 0,
+            "unit": "px"
+          },
+          "offsetY": {
+            "value": 8,
+            "unit": "px"
+          },
+          "blur": {
+            "value": 24,
+            "unit": "px"
+          },
+          "spread": {
+            "value": 0,
+            "unit": "px"
+          }
+        },
+        "$description": "Optional visual elevation; outline remains available without shadow."
+      }
+    },
+    "layout": {
+      "stage": {
+        "width": {
+          "$type": "dimension",
+          "$value": {
+            "value": 1420,
+            "unit": "px"
+          },
+          "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+        },
+        "height": {
+          "$type": "dimension",
+          "$value": {
+            "value": 760,
+            "unit": "px"
+          },
+          "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+        }
+      },
+      "nav": {
+        "x": {
+          "$type": "dimension",
+          "$value": {
+            "value": 20,
+            "unit": "px"
+          },
+          "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+        },
+        "y": {
+          "$type": "dimension",
+          "$value": {
+            "value": 20,
+            "unit": "px"
+          },
+          "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+        },
+        "width": {
+          "$type": "dimension",
+          "$value": {
+            "value": 88,
+            "unit": "px"
+          },
+          "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+        },
+        "height": {
+          "$type": "dimension",
+          "$value": {
+            "value": 720,
+            "unit": "px"
+          },
+          "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+        }
+      },
+      "panel": {
+        "x": {
+          "$type": "dimension",
+          "$value": {
+            "value": 120,
+            "unit": "px"
+          },
+          "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+        },
+        "y": {
+          "$type": "dimension",
+          "$value": {
+            "value": 20,
+            "unit": "px"
+          },
+          "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+        },
+        "width": {
+          "$type": "dimension",
+          "$value": {
+            "value": 1280,
+            "unit": "px"
+          },
+          "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+        },
+        "height": {
+          "$type": "dimension",
+          "$value": {
+            "value": 720,
+            "unit": "px"
+          },
+          "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+        }
+      },
+      "live": {
+        "header": {
+          "y": {
+            "$type": "dimension",
+            "$value": {
+              "value": 0,
+              "unit": "px"
+            },
+            "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+          },
+          "height": {
+            "$type": "dimension",
+            "$value": {
+              "value": 72,
+              "unit": "px"
+            },
+            "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+          }
+        },
+        "own": {
+          "x": {
+            "$type": "dimension",
+            "$value": {
+              "value": 16,
+              "unit": "px"
+            },
+            "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+          },
+          "y": {
+            "$type": "dimension",
+            "$value": {
+              "value": 168,
+              "unit": "px"
+            },
+            "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+          },
+          "width": {
+            "$type": "dimension",
+            "$value": {
+              "value": 196,
+              "unit": "px"
+            },
+            "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+          },
+          "height": {
+            "$type": "dimension",
+            "$value": {
+              "value": 430,
+              "unit": "px"
+            },
+            "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+          }
+        },
+        "map": {
+          "x": {
+            "$type": "dimension",
+            "$value": {
+              "value": 228,
+              "unit": "px"
+            },
+            "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+          },
+          "y": {
+            "$type": "dimension",
+            "$value": {
+              "value": 168,
+              "unit": "px"
+            },
+            "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+          },
+          "width": {
+            "$type": "dimension",
+            "$value": {
+              "value": 616,
+              "unit": "px"
+            },
+            "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+          },
+          "height": {
+            "$type": "dimension",
+            "$value": {
+              "value": 430,
+              "unit": "px"
+            },
+            "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+          }
+        },
+        "enemies": {
+          "x": {
+            "$type": "dimension",
+            "$value": {
+              "value": 228,
+              "unit": "px"
+            },
+            "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+          },
+          "y": {
+            "$type": "dimension",
+            "$value": {
+              "value": 84,
+              "unit": "px"
+            },
+            "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+          },
+          "width": {
+            "$type": "dimension",
+            "$value": {
+              "value": 616,
+              "unit": "px"
+            },
+            "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+          },
+          "height": {
+            "$type": "dimension",
+            "$value": {
+              "value": 72,
+              "unit": "px"
+            },
+            "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+          },
+          "count": {
+            "$type": "number",
+            "$value": 5,
+            "$description": "Stable slot count from UX-SPEC; four allies exclude self."
+          }
+        },
+        "allies": {
+          "x": {
+            "$type": "dimension",
+            "$value": {
+              "value": 228,
+              "unit": "px"
+            },
+            "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+          },
+          "y": {
+            "$type": "dimension",
+            "$value": {
+              "value": 610,
+              "unit": "px"
+            },
+            "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+          },
+          "width": {
+            "$type": "dimension",
+            "$value": {
+              "value": 616,
+              "unit": "px"
+            },
+            "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+          },
+          "height": {
+            "$type": "dimension",
+            "$value": {
+              "value": 94,
+              "unit": "px"
+            },
+            "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+          },
+          "count": {
+            "$type": "number",
+            "$value": 4,
+            "$description": "Stable slot count from UX-SPEC; four allies exclude self."
+          }
+        },
+        "right": {
+          "x": {
+            "$type": "dimension",
+            "$value": {
+              "value": 860,
+              "unit": "px"
+            },
+            "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+          },
+          "y": {
+            "$type": "dimension",
+            "$value": {
+              "value": 84,
+              "unit": "px"
+            },
+            "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+          },
+          "width": {
+            "$type": "dimension",
+            "$value": {
+              "value": 404,
+              "unit": "px"
+            },
+            "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+          },
+          "height": {
+            "$type": "dimension",
+            "$value": {
+              "value": 620,
+              "unit": "px"
+            },
+            "$description": "Authored design proposal in CSS px. Stage/nav/panel use stage coordinates; live regions use panel-local coordinates. Native safe-area/DPI validation is NOT_RUN."
+          }
+        }
+      }
+    },
+    "typography": {
+      "body": {
+        "$type": "typography",
+        "$value": {
+          "fontFamily": [
+            "Noto Sans Thai",
+            "Noto Sans",
+            "Leelawadee UI",
+            "Tahoma",
+            "system-ui",
+            "sans-serif"
+          ],
+          "fontSize": {
+            "value": 16,
+            "unit": "px"
+          },
+          "fontWeight": 400,
+          "letterSpacing": {
+            "value": 0,
+            "unit": "px"
+          },
+          "lineHeight": 1.6
+        },
+        "$description": "body text style. CSS export is a font shorthand plus a separate letter-spacing variable."
+      },
+      "supporting": {
+        "$type": "typography",
+        "$value": {
+          "fontFamily": [
+            "Noto Sans Thai",
+            "Noto Sans",
+            "Leelawadee UI",
+            "Tahoma",
+            "system-ui",
+            "sans-serif"
+          ],
+          "fontSize": {
+            "value": 14,
+            "unit": "px"
+          },
+          "fontWeight": 400,
+          "letterSpacing": {
+            "value": 0,
+            "unit": "px"
+          },
+          "lineHeight": 1.6
+        },
+        "$description": "supporting text style. CSS export is a font shorthand plus a separate letter-spacing variable."
+      },
+      "label": {
+        "$type": "typography",
+        "$value": {
+          "fontFamily": [
+            "Noto Sans Thai",
+            "Noto Sans",
+            "Leelawadee UI",
+            "Tahoma",
+            "system-ui",
+            "sans-serif"
+          ],
+          "fontSize": {
+            "value": 14,
+            "unit": "px"
+          },
+          "fontWeight": 500,
+          "letterSpacing": {
+            "value": 0,
+            "unit": "px"
+          },
+          "lineHeight": 1.6
+        },
+        "$description": "label text style. CSS export is a font shorthand plus a separate letter-spacing variable."
+      },
+      "heading-sm": {
+        "$type": "typography",
+        "$value": {
+          "fontFamily": [
+            "Noto Sans Thai",
+            "Noto Sans",
+            "Leelawadee UI",
+            "Tahoma",
+            "system-ui",
+            "sans-serif"
+          ],
+          "fontSize": {
+            "value": 20,
+            "unit": "px"
+          },
+          "fontWeight": 600,
+          "letterSpacing": {
+            "value": 0,
+            "unit": "px"
+          },
+          "lineHeight": 1.3
+        },
+        "$description": "heading-sm text style. CSS export is a font shorthand plus a separate letter-spacing variable."
+      },
+      "heading-md": {
+        "$type": "typography",
+        "$value": {
+          "fontFamily": [
+            "Noto Sans Thai",
+            "Noto Sans",
+            "Leelawadee UI",
+            "Tahoma",
+            "system-ui",
+            "sans-serif"
+          ],
+          "fontSize": {
+            "value": 24,
+            "unit": "px"
+          },
+          "fontWeight": 600,
+          "letterSpacing": {
+            "value": 0,
+            "unit": "px"
+          },
+          "lineHeight": 1.3
+        },
+        "$description": "heading-md text style. CSS export is a font shorthand plus a separate letter-spacing variable."
+      },
+      "heading-lg": {
+        "$type": "typography",
+        "$value": {
+          "fontFamily": [
+            "Noto Sans Thai",
+            "Noto Sans",
+            "Leelawadee UI",
+            "Tahoma",
+            "system-ui",
+            "sans-serif"
+          ],
+          "fontSize": {
+            "value": 32,
+            "unit": "px"
+          },
+          "fontWeight": 600,
+          "letterSpacing": {
+            "value": 0,
+            "unit": "px"
+          },
+          "lineHeight": 1.3
+        },
+        "$description": "heading-lg text style. CSS export is a font shorthand plus a separate letter-spacing variable."
+      },
+      "display": {
+        "$type": "typography",
+        "$value": {
+          "fontFamily": [
+            "Noto Sans Thai",
+            "Noto Sans",
+            "Leelawadee UI",
+            "Tahoma",
+            "system-ui",
+            "sans-serif"
+          ],
+          "fontSize": {
+            "value": 48,
+            "unit": "px"
+          },
+          "fontWeight": 600,
+          "letterSpacing": {
+            "value": 0,
+            "unit": "px"
+          },
+          "lineHeight": 1.2
+        },
+        "$description": "display text style. CSS export is a font shorthand plus a separate letter-spacing variable."
+      }
+    }
+  },
+  "component": {
+    "button": {
+      "background": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.5529411765,
+            0.8784313725,
+            0.7921568627
+          ],
+          "alpha": 1,
+          "hex": "#8DE0CA"
+        },
+        "$description": "button background; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "foreground": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.0431372549,
+            0.1254901961,
+            0.1019607843
+          ],
+          "alpha": 1,
+          "hex": "#0B201A"
+        },
+        "$description": "button foreground; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "hover-background": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.662745098,
+            0.9176470588,
+            0.8470588235
+          ],
+          "alpha": 1,
+          "hex": "#A9EAD8"
+        },
+        "$description": "button hover-background; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "pressed-background": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.7803921569,
+            0.9529411765,
+            0.9058823529
+          ],
+          "alpha": 1,
+          "hex": "#C7F3E7"
+        },
+        "$description": "button pressed-background; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "radius": {
+        "$type": "dimension",
+        "$value": {
+          "value": 12,
+          "unit": "px"
+        },
+        "$description": "button radius; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "min-height": {
+        "$type": "dimension",
+        "$value": {
+          "value": 44,
+          "unit": "px"
+        },
+        "$description": "button min-height; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "padding-inline": {
+        "$type": "dimension",
+        "$value": {
+          "value": 16,
+          "unit": "px"
+        },
+        "$description": "button padding-inline; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      }
+    },
+    "secondary-button": {
+      "background": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.1019607843,
+            0.1450980392,
+            0.1764705882
+          ],
+          "alpha": 1,
+          "hex": "#1A252D"
+        },
+        "$description": "secondary-button background; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "foreground": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.9333333333,
+            0.9529411765,
+            0.9411764706
+          ],
+          "alpha": 1,
+          "hex": "#EEF3F0"
+        },
+        "$description": "secondary-button foreground; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "border": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.3882352941,
+            0.4823529412,
+            0.537254902
+          ],
+          "alpha": 1,
+          "hex": "#637B89"
+        },
+        "$description": "secondary-button border; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      }
+    },
+    "input": {
+      "background": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.0431372549,
+            0.062745098,
+            0.0784313725
+          ],
+          "alpha": 1,
+          "hex": "#0B1014"
+        },
+        "$description": "input background; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "foreground": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.9333333333,
+            0.9529411765,
+            0.9411764706
+          ],
+          "alpha": 1,
+          "hex": "#EEF3F0"
+        },
+        "$description": "input foreground; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "placeholder": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.5490196078,
+            0.6235294118,
+            0.662745098
+          ],
+          "alpha": 1,
+          "hex": "#8C9FA9"
+        },
+        "$description": "input placeholder; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "border": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.3882352941,
+            0.4823529412,
+            0.537254902
+          ],
+          "alpha": 1,
+          "hex": "#637B89"
+        },
+        "$description": "input border; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "radius": {
+        "$type": "dimension",
+        "$value": {
+          "value": 8,
+          "unit": "px"
+        },
+        "$description": "input radius; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "min-height": {
+        "$type": "dimension",
+        "$value": {
+          "value": 44,
+          "unit": "px"
+        },
+        "$description": "input min-height; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      }
+    },
+    "card": {
+      "background": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.0705882353,
+            0.1019607843,
+            0.1294117647
+          ],
+          "alpha": 1,
+          "hex": "#121A21"
+        },
+        "$description": "card background; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "border": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.2039215686,
+            0.2745098039,
+            0.3137254902
+          ],
+          "alpha": 1,
+          "hex": "#344650"
+        },
+        "$description": "card border; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "radius": {
+        "$type": "dimension",
+        "$value": {
+          "value": 16,
+          "unit": "px"
+        },
+        "$description": "card radius; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "padding": {
+        "$type": "dimension",
+        "$value": {
+          "value": 16,
+          "unit": "px"
+        },
+        "$description": "card padding; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      }
+    },
+    "hero-card": {
+      "background": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.1019607843,
+            0.1450980392,
+            0.1764705882
+          ],
+          "alpha": 1,
+          "hex": "#1A252D"
+        },
+        "$description": "hero-card background; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "border": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.3882352941,
+            0.4823529412,
+            0.537254902
+          ],
+          "alpha": 1,
+          "hex": "#637B89"
+        },
+        "$description": "hero-card border; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "selected-border": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.5529411765,
+            0.8784313725,
+            0.7921568627
+          ],
+          "alpha": 1,
+          "hex": "#8DE0CA"
+        },
+        "$description": "hero-card selected-border; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "radius": {
+        "$type": "dimension",
+        "$value": {
+          "value": 12,
+          "unit": "px"
+        },
+        "$description": "hero-card radius; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "compact-target": {
+        "$type": "dimension",
+        "$value": {
+          "value": 36,
+          "unit": "px"
+        },
+        "$description": "hero-card compact-target; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      }
+    },
+    "badge": {
+      "background": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.1019607843,
+            0.1450980392,
+            0.1764705882
+          ],
+          "alpha": 1,
+          "hex": "#1A252D"
+        },
+        "$description": "badge background; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "foreground": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.6745098039,
+            0.7333333333,
+            0.7647058824
+          ],
+          "alpha": 1,
+          "hex": "#ACBBC3"
+        },
+        "$description": "badge foreground; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "radius": {
+        "$type": "dimension",
+        "$value": {
+          "value": 999,
+          "unit": "px"
+        },
+        "$description": "badge radius; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "padding-inline": {
+        "$type": "dimension",
+        "$value": {
+          "value": 8,
+          "unit": "px"
+        },
+        "$description": "badge padding-inline; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      }
+    },
+    "navigation": {
+      "background": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.0705882353,
+            0.1019607843,
+            0.1294117647
+          ],
+          "alpha": 1,
+          "hex": "#121A21"
+        },
+        "$description": "navigation background; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "foreground": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.6745098039,
+            0.7333333333,
+            0.7647058824
+          ],
+          "alpha": 1,
+          "hex": "#ACBBC3"
+        },
+        "$description": "navigation foreground; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "selected-background": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.0431372549,
+            0.1254901961,
+            0.1019607843
+          ],
+          "alpha": 1,
+          "hex": "#0B201A"
+        },
+        "$description": "navigation selected-background; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "selected-foreground": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.5529411765,
+            0.8784313725,
+            0.7921568627
+          ],
+          "alpha": 1,
+          "hex": "#8DE0CA"
+        },
+        "$description": "navigation selected-foreground; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "indicator": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.5529411765,
+            0.8784313725,
+            0.7921568627
+          ],
+          "alpha": 1,
+          "hex": "#8DE0CA"
+        },
+        "$description": "navigation indicator; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "target": {
+        "$type": "dimension",
+        "$value": {
+          "value": 44,
+          "unit": "px"
+        },
+        "$description": "navigation target; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "icon-size": {
+        "$type": "dimension",
+        "$value": {
+          "value": 24,
+          "unit": "px"
+        },
+        "$description": "navigation icon-size; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      }
+    },
+    "map": {
+      "background": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.0431372549,
+            0.062745098,
+            0.0784313725
+          ],
+          "alpha": 1,
+          "hex": "#0B1014"
+        },
+        "$description": "map background; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "border": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.3882352941,
+            0.4823529412,
+            0.537254902
+          ],
+          "alpha": 1,
+          "hex": "#637B89"
+        },
+        "$description": "map border; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "radius": {
+        "$type": "dimension",
+        "$value": {
+          "value": 16,
+          "unit": "px"
+        },
+        "$description": "map radius; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      }
+    },
+    "inspector": {
+      "background": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.1019607843,
+            0.1450980392,
+            0.1764705882
+          ],
+          "alpha": 1,
+          "hex": "#1A252D"
+        },
+        "$description": "inspector background; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "divider": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.2039215686,
+            0.2745098039,
+            0.3137254902
+          ],
+          "alpha": 1,
+          "hex": "#344650"
+        },
+        "$description": "inspector divider; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "padding": {
+        "$type": "dimension",
+        "$value": {
+          "value": 16,
+          "unit": "px"
+        },
+        "$description": "inspector padding; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      }
+    },
+    "overlay": {
+      "background": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.0431372549,
+            0.062745098,
+            0.0784313725
+          ],
+          "alpha": 1,
+          "hex": "#0B1014"
+        },
+        "$description": "overlay background; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "foreground": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.9333333333,
+            0.9529411765,
+            0.9411764706
+          ],
+          "alpha": 1,
+          "hex": "#EEF3F0"
+        },
+        "$description": "overlay foreground; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "radius": {
+        "$type": "dimension",
+        "$value": {
+          "value": 12,
+          "unit": "px"
+        },
+        "$description": "overlay radius; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "border": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.3882352941,
+            0.4823529412,
+            0.537254902
+          ],
+          "alpha": 1,
+          "hex": "#637B89"
+        },
+        "$description": "overlay border; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      }
+    },
+    "tooltip": {
+      "background": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.1019607843,
+            0.1450980392,
+            0.1764705882
+          ],
+          "alpha": 1,
+          "hex": "#1A252D"
+        },
+        "$description": "tooltip background; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "foreground": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.9333333333,
+            0.9529411765,
+            0.9411764706
+          ],
+          "alpha": 1,
+          "hex": "#EEF3F0"
+        },
+        "$description": "tooltip foreground; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      },
+      "radius": {
+        "$type": "dimension",
+        "$value": {
+          "value": 8,
+          "unit": "px"
+        },
+        "$description": "tooltip radius; consumes the semantic layer. Behavioral states and data admission remain separate contracts."
+      }
+    }
+  },
+  "$extensions": {
+    "org.kohbor.design": {
+      "designVersion": "1.0.0",
+      "formatVersion": "2025.10",
+      "sourceSha256": "df1a0b37eef25336a00c46eafa8e094149b16d06c69aa6a6aa5a6d1c6b7e5c9b",
+      "status": "design-proposal",
+      "evidenceClass": "static",
+      "namespaceScope": "Design metadata only; not an application/package/trust identifier."
+    }
+  }
+}
