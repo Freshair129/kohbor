@@ -1,0 +1,20 @@
+# Local dependencies and build output
+node_modules/
+target/
+dist/
+build/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local credentials and machine-specific files
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+*.log
