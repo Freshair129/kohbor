@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="th" data-motion="normal">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark"><meta name="description" content="Kohbor design system: visual foundations, fixed-canvas live-field specimens, components, honest states and implementation tokens.">
+  <title>Kohbor — Design system / เกาะเบาะ</title>
+  <link rel="stylesheet" href="../tokens/tokens.css" data-embed="tokens">
+  <link rel="stylesheet" href="board.css" data-embed="board">
+</head>
+<body>
+<a class="skip-link" href="#live-board">ข้ามไปดูหน้าตัวอย่าง</a>
+<svg class="icon-sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10H3Z M9 20v-7h6v7"/></symbol>
+  <symbol id="i-live" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="3"/><path d="M8 22h8M12 18v4M7 11h3l2-3 2 6 2-3h2"/></symbol>
+  <symbol id="i-audio" viewBox="0 0 24 24"><path d="m11 4-5 4H3v8h3l5 4ZM15 8c3 2 3 6 0 8M18 4c6 4 6 12 0 16"/></symbol>
+  <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 8h16l1 13H3ZM8 8V6a4 4 0 0 1 8 0v2"/></symbol>
+  <symbol id="i-insights" viewBox="0 0 24 24"><path d="M4 4v16h16M8 16v-4M13 16V8M18 16V5"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3"/><circle cx="16" cy="17" r="3"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5L20 6"/></symbol>
+  <symbol id="i-warning" viewBox="0 0 24 24"><path d="m12 3 10 18H2ZM12 9v5M12 17v.5"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M6 12h12"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h16m-6-6 6 6-6 6"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></symbol>
+  <symbol id="i-map" viewBox="0 0 24 24"><path d="m3 5 6-2 6 2 6-2v16l-6 2-6-2-6 2ZM9 3v16M15 5v16"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 2 9 4v6c0 6-9 10-9 10S3 18 3 12V6Z m-5 10 3 3 7-7"/></symbol>
+  <symbol id="i-record" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-cloud-off" viewBox="0 0 24 24"><path d="M6 17H5a4 4 0 0 1-1-8 7 7 0 0 1 12-4M19 9a4 4 0 0 1 1 8M3 3l18 18"/></symbol>
+</defs></svg>
+
+<header class="masthead wrap">
+  <a class="brand" href="#top"><img src="../assets/kohbor-mark.svg" data-embed-asset alt="" width="40" height="40"><span>Kohbor<span class="brand-th">เกาะเบาะ</span></span></a>
+  <span class="edition">DESIGN SYSTEM <b>01</b></span>
+  <a class="text-link" href="#handoff">พร้อมส่งต่อให้นักพัฒนา <svg class="icon"><use href="#i-arrow"/></svg></a>
+</header>
+
+<main id="top">
+  <section class="hero wrap" aria-labelledby="hero-title">
+    <div class="hero-copy"><p class="eyebrow">KOHBOR / VISUAL LANGUAGE / V1.0.0</p><h1 id="hero-title">อยู่ข้างเกม<br><em>ไม่แย่งสายตา</em></h1><p class="hero-desc">เพื่อนร่วมจอที่สงบ ชัดเจน และบอกตามข้อมูลที่มี<br>ออกแบบให้เหลือบมองเข้าใจ แล้วกลับไปเล่นต่อ</p><div class="hero-tags"><span>Smoked graphite</span><span>Soft jade</span><span>Thai first</span></div></div>
+    <div class="identity-card"><span class="small-index">01 / THE COMPANION</span><img class="mascot" src="../assets/kohbor-companion.svg" data-embed-asset alt="คาแรกเตอร์รูปเบาะสีหยก หน้าตาสงบ" width="280" height="280"><div class="identity-bottom"><strong>เกาะเบาะ</strong><span>Quietly in your corner.</span></div><span class="identity-foot">Original vector study · Decorative presence</span></div>
+  </section>
+  <nav class="board-nav wrap" aria-label="หัวข้อ Design Board"><a href="#live-board">01 หน้าจอหลัก</a><a href="#foundations">02 Foundations</a><a href="#components">03 Components</a><a href="#states">04 Data states</a><a href="#overlay">05 Overlay</a><a href="#handoff">06 Handoff</a></nav>
+
+  <section id="live-board" class="section wrap" aria-labelledby="live-title">
+    <div class="section-heading"><div><p class="eyebrow">01 / LIVE FIELD</p><h2 id="live-title">มองเกมก่อน รายละเอียดตามมา</h2></div><p>5 ศัตรู · 1 ตัวเรา · 4 เพื่อน<br>พื้นที่รายละเอียดคงที่ แผนที่ไม่ขยับ</p></div>
+    <div class="fixture-toolbar" role="group" aria-label="ตัวควบคุมบอร์ดออกแบบ ไม่ใช่แอปจริง">
+      <span class="fixture-label">DESIGN PREVIEW<br><small>ข้อมูลสังเคราะห์เท่านั้น</small></span>
+      <label for="scenario">สถานะ<select id="scenario"><option value="waiting">รอเข้าเกม</option><option value="live">มีข้อมูลตัวอย่าง</option><option value="stale">ข้อมูลเก่า</option><option value="unavailable">แหล่งภาพไม่พร้อม</option></select></label>
+      <div class="segmented" role="group" aria-label="ตัวอย่างสิทธิ์การแสดงผล"><button id="base-mode" class="selected" aria-pressed="true">Base</button><button id="pro-mode" aria-pressed="false">Pro fixture</button></div>
+      <button class="quiet-button" id="contrast-toggle" aria-pressed="false">High contrast</button><button class="quiet-button" id="motion-toggle" aria-pressed="false">Reduce motion</button>
+    </div>
+    <div class="stage-shell"><div class="stage-fit" id="stage-fit"><div class="app-stage" id="app-stage" aria-label="หน้าจอตัวอย่าง Kohbor ข้อมูลสังเคราะห์">
+      <aside class="app-rail" aria-label="โครงสร้างเมนูเจ็ดหน้า ตัวอย่างแบบคงที่"><img src="../assets/kohbor-mark.svg" data-embed-asset alt="Kohbor" width="40" height="40"><div class="rail-items"><span><svg class="icon"><use href="#i-home"/></svg>ภาพรวม</span><span class="active" aria-current="page"><svg class="icon"><use href="#i-live"/></svg>สนามสด</span><span><svg class="icon"><use href="#i-audio"/></svg>แพ็กเสียง</span><span><svg class="icon"><use href="#i-store"/></svg>ร้านค้า</span><span><svg class="icon"><use href="#i-insights"/></svg>สรุปการเล่น</span><span><svg class="icon"><use href="#i-user"/></svg>บัญชี</span></div><span class="rail-settings"><svg class="icon"><use href="#i-settings"/></svg>ตั้งค่า</span></aside>
+      <section class="app-panel" aria-label="Live field specimen">
+        <header class="app-header"><div><strong>แมตช์ของคุณ</strong><span id="session-label">รอเข้าเกม</span></div><div class="app-tabs" aria-label="เมนูย่อยตัวอย่าง"><span class="active">สนาม</span><span>บิลด์</span><span>ฮีโร่ที่ตรวจจับ</span><span>แชร์กับทีม</span></div><span class="badge neutral" id="authority-label">Base</span></header>
+        <div class="enemy-row" id="enemy-row" role="group" aria-label="ศัตรู ห้าช่อง"></div>
+        <aside class="own-region"><div class="own-card"><p class="micro-label">ตัวคุณ</p><div class="own-portrait"><svg class="icon"><use href="#i-user"/></svg></div><h3 id="own-name">ยังไม่มีข้อมูล</h3><p id="own-meta">รอข้อมูลจากเกม</p><div class="own-values" id="own-values"><div><span>พลังชีวิต</span><strong>—</strong></div><div class="meter"><i></i></div><div><span>มานา</span><strong>—</strong></div></div></div><div class="companion-status"><img src="../assets/kohbor-companion.svg" data-embed-asset alt="" width="86" height="86"><div><strong>อยู่ข้าง ๆ นะ</strong><span>ไมโครโฟนปิด</span></div></div><div class="source-note"><svg class="icon"><use href="#i-shield"/></svg><span>สถานะจากแหล่งข้อมูล<br>แยกจากสิทธิ์การแสดงผล</span></div></aside>
+        <div class="map-region" id="map-region"><div class="map-topline"><span><svg class="icon"><use href="#i-map"/></svg>พื้นที่แผนที่</span><span class="badge neutral" id="map-state">ยังไม่มีภาพ</span></div><div class="map-pattern" aria-hidden="true"><svg viewBox="0 0 600 400" preserveAspectRatio="none"><path class="terrain" d="M40 330 110 290 120 220 200 180 205 90 275 40M330 360 370 285 450 260 480 180 550 130M20 155 90 140 130 65M425 50 460 90 560 75"/><path class="river" d="M20 35C150 100 120 170 260 175s130 130 320 200"/><path class="lane" d="M50 350V50h500v300ZM50 350 550 50"/></svg></div><div class="map-message"><span class="map-symbol"><svg class="icon"><use href="#i-map"/></svg></span><h3 id="map-title">รอภาพแผนที่จากเกม</h3><p id="map-description">เมื่อแหล่งข้อมูลพร้อม จะแสดงภาพที่ตรวจสอบได้ที่นี่</p><span class="map-disclaimer">ภาพพื้นหลังเพื่อจัดวางเท่านั้น · ไม่มีตำแหน่งผู้เล่น</span></div><div class="map-bottomline"><span id="source-status">แหล่งภาพ: ยังไม่พร้อม</span><span>ข้อมูลล่าสุด <b id="source-age">—</b></span></div></div>
+        <div class="ally-row" id="ally-row" role="group" aria-label="เพื่อนร่วมทีม สี่ช่อง ไม่รวมตัวคุณ"></div>
+        <aside class="right-region" id="right-region"><div class="right-tabs" role="tablist" aria-label="มุมมองด้านขวา"><button id="summary-tab" role="tab" class="active" aria-selected="true" aria-controls="right-content" tabindex="0">สรุป</button><button id="events-tab" role="tab" aria-selected="false" aria-controls="right-content" tabindex="-1">เหตุการณ์</button></div><div id="right-content" class="right-content" role="tabpanel" aria-labelledby="summary-tab"></div><div class="right-bottom"><svg class="icon"><use href="#i-mic"/></svg><span>กดค้างเพื่อถาม <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>V</kbd><small>ตัวอย่างคีย์ลัด · ไม่มีการเปิดไมโครโฟนในบอร์ด</small></span></div></aside>
+      </section>
+    </div></div></div>
+    <div class="spec-caption"><span><b>1420 × 760</b> authored stage · <b>1280 × 720</b> panel</span><span>Map <b>616 × 430</b> · Right <b>404 × 620</b> · <span id="scale-readout">Fit</span></span></div>
+    <div class="annotation-grid"><article><span>01</span><h3>แผนที่อยู่ที่เดิม</h3><p>เปิดรายละเอียดหรือสลับสิทธิ์ ใช้พื้นที่ขวาที่จองไว้ ไม่ดันแผนที่ไปมา</p></article><article><span>02</span><h3>ไม่มีข้อมูล ก็แสดงตามนั้น</h3><p>แสดง “—” เมื่อยังไม่ทราบ ซ่อนแถวสกิลที่ไม่มีข้อมูล อายุข้อมูลไม่ใช่เวลาที่เดา</p></article><article><span>03</span><h3>เข้าถึงรายละเอียดเมื่อเลือก</h3><p>กดการ์ดเพื่อดูข้อมูล กด Escape ปิดรายละเอียดทีละชั้น กลับไปยังการ์ดเดิม</p></article></div>
+  </section>
+
+  <section id="foundations" class="section wrap" aria-labelledby="foundation-title"><div class="section-heading"><div><p class="eyebrow">02 / FOUNDATIONS</p><h2 id="foundation-title">เงียบในพื้นหลัง ชัดในจังหวะสำคัญ</h2></div><p>สีมีหน้าที่ ตัวอักษรมีพื้นที่หายใจ<br>ตกแต่งอย่างพอดี เพื่อให้ข้อมูลเด่น</p></div>
+    <div class="palette" id="palette"><article class="swatch swatch-ink"><span>01 / CANVAS</span><strong>Graphite</strong><code>#0B1014</code></article><article class="swatch swatch-panel"><span>02 / SURFACE</span><strong>Smoke</strong><code>#121A21</code></article><article class="swatch swatch-jade"><span>03 / ACCENT</span><strong>Jade</strong><code>#8DE0CA</code></article><article class="swatch swatch-text"><span>04 / TEXT</span><strong>Porcelain</strong><code>#EEF3F0</code></article></div>
+    <div class="foundation-grid"><article class="type-board"><span class="small-index">TYPOGRAPHY / TH + EN</span><div class="type-display">กขค Aa</div><h3>Noto Sans Thai</h3><p class="type-sample">ค่อย ๆ อ่านเกม แล้วเลือกจังหวะของคุณ</p><div class="type-ramp"><span>Display <b>48</b></span><span>Heading <b>32 / 24 / 20</b></span><span>Body <b>16</b></span><span>Supporting <b>14</b></span></div><p class="fineprint">ภาษาไทยใช้ line-height 1.6 ไม่ตัดสระ/วรรณยุกต์ · ตัวเลขเวลาใช้ tabular numerals · ขนาดทั้งหมดเป็น authored px</p></article><article class="rhythm-board"><span class="small-index">SPACE / SHAPE / MATERIAL</span><h3>ให้พื้นที่เป็นส่วนหนึ่งของความชัดเจน</h3><div class="space-ruler" aria-label="ระยะห่าง 4 8 12 16 24 32 พิกเซล"><i style="--n:4">4</i><i style="--n:8">8</i><i style="--n:12">12</i><i style="--n:16">16</i><i style="--n:24">24</i><i style="--n:32">32</i></div><div class="radius-spec"><span class="r8">8</span><span class="r12">12</span><span class="r16">16</span><span class="r24">24</span></div><div class="material-spec"><span class="material-layer">Solid surface</span><span class="material-layer raised">Raised surface</span></div><p class="fineprint">ใช้พื้นทึบเป็นค่าเริ่มต้น · กระจกเป็นภาษาภาพ ไม่บังคับใช้ blur ทุกชั้น · เส้นขอบช่วยแบ่งพื้นที่โดยไม่เพิ่มความสว่าง</p></article></div>
+  </section>
+
+  <section id="components" class="section wrap" aria-labelledby="components-title"><div class="section-heading"><div><p class="eyebrow">03 / COMPONENTS</p><h2 id="components-title">ชิ้นส่วนเดียวกัน ภาษาที่สอดคล้องกัน</h2></div><p>ขนาด สี การโฟกัส และสถานะ<br>อ้างอิง semantic tokens ชุดเดียวกัน</p></div><div class="component-grid">
+    <article class="component-card"><span class="small-index">ACTIONS</span><h3>ลำดับความสำคัญชัดเจน</h3><div class="button-stack"><button class="primary-button" id="example-primary">ดูตัวอย่างการโฟกัส <svg class="icon"><use href="#i-arrow"/></svg></button><button class="secondary-button" id="example-secondary">ปุ่มรอง · ดูสถานะข้อมูล</button><button class="quiet-button" disabled>ยังไม่พร้อมใช้งาน</button></div><p class="fineprint">ปุ่มหลักหนึ่งงานต่อพื้นที่ · 44px default · 36px compact · ชื่อการกระทำบอกผลที่จะเกิด</p></article>
+    <article class="component-card"><span class="small-index">INPUT / PRIVACY</span><h3>สิทธิ์แต่ละอย่างแยกจากกัน</h3><label class="field-label" for="sample-name">ชื่อโปรไฟล์ตัวอย่าง<input id="sample-name" value="โต๊ะเล่นเกม" maxlength="40"></label><label class="switch-row"><span>ตัวอย่าง opt-in<small>บอร์ดไม่เปิดอุปกรณ์หรือส่งข้อมูล</small></span><input id="consent-sample" type="checkbox" role="switch" aria-describedby="consent-note"></label><p id="consent-note" class="fineprint">ตัวอย่างเริ่มปิด · การเปิดไมโครโฟนจริงต้องมีความยินยอมเฉพาะและกด PTT ค้าง</p></article>
+    <article class="component-card"><span class="small-index">VOICE / LOCAL</span><h3>บอกว่ากำลังทำอะไร</h3><div class="voice-sample"><div class="voice-icon"><svg class="icon"><use href="#i-mic"/></svg></div><div><strong id="voice-state">ไมโครโฟนปิด</strong><span id="voice-help">เลือกสถานะตัวอย่างเพื่อดูข้อความ</span></div></div><div class="voice-options"><button class="quiet-button" data-voice="off">ปิด</button><button class="quiet-button" data-voice="listening">กำลังฟัง</button><button class="quiet-button" data-voice="thinking">กำลังคิด</button><button class="quiet-button" data-voice="interrupted">หยุดให้คำเตือน</button></div><p class="fineprint">ทั้งหมดเป็นการแสดงผลตัวอย่าง · ไม่มีการบันทึกเสียงหรือเรียกโมเดล</p></article>
+  </div></section>
+
+  <section id="states" class="section wrap" aria-labelledby="states-title"><div class="section-heading"><div><p class="eyebrow">04 / TRUTHFUL STATES</p><h2 id="states-title">ความไม่แน่ใจ ต้องมองเห็นได้</h2></div><p>ใช้ข้อความ + สัญลักษณ์ + สีร่วมกัน<br>ไม่ให้สีเขียวกลบช่องว่างของข้อมูล</p></div><div class="state-grid">
+    <article class="state-card"><span class="badge success"><svg class="icon"><use href="#i-check"/></svg>ข้อมูลปัจจุบัน</span><strong>720 / 1,200</strong><p>ข้อมูลตัวเรา · 0.4 วินาทีที่แล้ว</p><small>ตัวอย่างค่าที่มีแหล่งข้อมูล</small></article>
+    <article class="state-card"><span class="badge neutral"><svg class="icon"><use href="#i-minus"/></svg>ยังไม่มีข้อมูล</span><strong>—</strong><p>ยังไม่มีค่าที่ตรวจสอบได้</p><small>ไม่ใช้ 0 แทนค่าที่ไม่ทราบ</small></article>
+    <article class="state-card"><span class="badge warning"><svg class="icon"><use href="#i-clock"/></svg>ข้อมูลเก่า</span><strong class="stale-value">720 <em>ล่าสุด</em></strong><p>ตัวเรา · 5.2 วินาทีที่แล้ว</p><small>ค่าเก่าต้องไม่สื่อว่าพร้อมหรือปลอดภัย</small></article>
+    <article class="state-card"><span class="badge info"><svg class="icon"><use href="#i-clock"/></svg>ค่าประมาณ</span><strong>คาดว่าพร้อม</strong><p>จากการตั้งเวลาของผู้ใช้</p><small>นับครบแล้วก็ยังเป็นค่าประมาณ</small></article>
+    <article class="state-card"><span class="badge danger"><svg class="icon"><use href="#i-warning"/></svg>แหล่งข้อมูลไม่พร้อม</span><strong>ยังแสดงไม่ได้</strong><p>ตรวจสอบการจับภาพในตั้งค่า</p><small>ฟังก์ชันในเครื่องที่พร้อมยังใช้ได้</small></article>
+    <article class="state-card"><span class="badge neutral"><svg class="icon"><use href="#i-shield"/></svg>หยุดแชร์แล้ว</span><strong>—</strong><p>นำข้อมูลเพื่อนออกจากหน้าจอ</p><small>คำตอบเก่าต้องไม่เติมข้อมูลกลับมา</small></article>
+  </div><p class="state-footnote">สถานะตัวอย่างนี้แสดงความหมายทาง UI เท่านั้น · อายุข้อมูลเพื่อนใช้สัญญา producer เดียว: 2,000 ms ยังอาจ fresh; 2,001 ms ต้อง stale/null</p></section>
+
+  <section id="overlay" class="section wrap" aria-labelledby="overlay-title"><div class="section-heading"><div><p class="eyebrow">05 / PASSIVE OVERLAY</p><h2 id="overlay-title">อยู่ในเกม โดยไม่ขวางเกม</h2></div><p>ควบคุมจากหน้าต่างหลัก<br>พื้นที่ overlay รับบทแสดงผลเท่านั้น</p></div><div class="overlay-board"><div class="overlay-badge">PLACEMENT STUDY · NOT A GAME CAPTURE</div><div class="overlay-top"><span class="overlay-stat">HP — <span>MP —</span></span><span class="overlay-risk"><svg class="icon"><use href="#i-minus"/></svg>ยังประเมินไม่ได้</span><span class="overlay-companion"><img src="../assets/kohbor-mark.svg" data-embed-asset width="24" height="24" alt="">ไมโครโฟนปิด</span></div><div class="overlay-announcement">พื้นที่ประกาศของเกม · เว้นไว้</div><div class="overlay-event"><svg class="icon"><use href="#i-clock"/></svg><span>ตำแหน่งแบนเนอร์เหตุการณ์<strong>ตัวอย่างตำแหน่งเท่านั้น</strong></span></div><div class="overlay-clearance"><span>พื้นที่ minimap<br>เว้นไว้</span><span>พื้นที่สกิลและสถานะ<br>เว้นไว้</span><span>พื้นที่ร้านค้า<br>เว้นไว้</span></div></div><p class="fineprint overlay-note">กรอบนี้ใช้คุยเรื่องการจัดวาง ยังไม่ใช่ safe area ที่วัดจากเกมจริง · click-through, DPI, focus, native HUD clearance และ FPS ต้องตรวจบน Windows แยกต่างหาก</p></section>
+
+  <section id="handoff" class="section wrap" aria-labelledby="handoff-title"><div class="handoff-panel"><div><p class="eyebrow">06 / DESIGN → ENGINEERING</p><h2 id="handoff-title">เห็นภาพเดียวกัน<br>ใช้ค่าชุดเดียวกัน</h2><p>เอกสารกำหนดพฤติกรรม บอร์ดแสดงภาษาภาพ<br>โทเคนเชื่อมทั้งสองส่วนเข้ากับโค้ด</p><div class="download-row"><button class="primary-button" id="download-tokens">ดาวน์โหลด JSON tokens <svg class="icon"><use href="#i-arrow"/></svg></button><button class="secondary-button" id="download-css">ดาวน์โหลด CSS</button></div></div><div class="code-card"><span>SEMANTIC TOKENS / EXAMPLE</span><pre><code>.panel {
+  background: var(--kb-color-surface-panel);
+  color: var(--kb-color-text-primary);
+  border-radius: var(--kb-radius-lg);
+  padding: var(--kb-space-4);
+}
+
+.action:focus-visible {
+  outline: 2px solid var(--kb-color-focus);
+  outline-offset: 3px;
+}</code></pre></div></div><div class="handoff-status"><span>Design candidate <b>1.0.0</b> / baseline <b>0.3.1</b></span><span>Windows / live-game acceptance <b>NOT_RUN</b></span><span>11 NOV 2026 · ASIA/BANGKOK</span></div></section>
+</main>
+<footer class="wrap"><span>Kohbor / เกาะเบาะ</span><p>Designed for attention. Built on honest information.</p><a href="#top">กลับด้านบน ↑</a></footer>
+<div class="sr-only" id="board-status" role="status" aria-live="polite"></div>
+<script id="kb-token-data" type="application/json">{"note":"Use the generated self-contained board for offline token downloads."}</script>
+<script src="board.js" data-embed="script"></script>
+</body></html>

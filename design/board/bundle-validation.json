@@ -1,0 +1,71 @@
+{
+  "artifact": "Kohbor design board",
+  "design_version": "1.0.0",
+  "requirements_baseline": "0.3.1",
+  "evidence_class": "static_bundle",
+  "status": "PASS",
+  "checks": [
+    "styles embedded",
+    "script embedded",
+    "original SVG assets embedded",
+    "Thai and Latin regular/bold fonts embedded",
+    "font copyright and OFL license embedded",
+    "DTCG token download embedded"
+  ],
+  "font_license": "design/assets/fonts/OFL-Noto.txt",
+  "files": [
+    {
+      "path": "design/board/index.html",
+      "sha256": "1440a16bcf75bb23b3273b82983e08dfd83966b534aa65a486bc36d9d06df1bc"
+    },
+    {
+      "path": "design/board/board.css",
+      "sha256": "95582c9caf10287bdf18096dad8f788d23f30ebf16d5139e7e6498b7eb7ee5b6"
+    },
+    {
+      "path": "design/board/board.js",
+      "sha256": "a409ea84a60d5c6bd36a8c9675ad28d90f0cae627465d4e740ca9bfe9eb72fc8"
+    },
+    {
+      "path": "design/tokens/tokens.css",
+      "sha256": "d015c10fbd3710550525f2dccb227d13b732497f26001fe220290d4a93c8cef5"
+    },
+    {
+      "path": "design/tokens/kohbor.tokens.json",
+      "sha256": "cbf50d3366d08aa16aa624fc4e29b33e550883c1de528eab0cd4305cbbf34c88"
+    },
+    {
+      "path": "design/assets/fonts/NotoSansThai-Regular.ttf",
+      "sha256": "dfbd5ed0f1e68c3cbc51aa08f646d1ab0e68e7c4ceab70a69e465225ff701f93"
+    },
+    {
+      "path": "design/assets/fonts/NotoSansThai-Bold.ttf",
+      "sha256": "97bbc8ea98328325285f2f552228c7aac1db39d8f38f0096a61ba7df1f1f780e"
+    },
+    {
+      "path": "design/assets/fonts/NotoSans-Regular.ttf",
+      "sha256": "89c3c497f618fdaa0b2d1e98fef93582f28c71debd2c4a8cdf41f190ced2909d"
+    },
+    {
+      "path": "design/assets/fonts/NotoSans-Bold.ttf",
+      "sha256": "e83493c945848ecd4a9ad0f6d19164541a0d3e23a9c952304a00a46e00272ac5"
+    },
+    {
+      "path": "design/assets/fonts/OFL-Noto.txt",
+      "sha256": "46d95754bed816a16b2e8ca98b9354197535bfe6578a4fc1e970e88873b3be43"
+    },
+    {
+      "path": "design/assets/kohbor-mark.svg",
+      "sha256": "fcc123c5177dd4e325a32826d531beadb520fb29bc27e6f9f486fd14e62fd565"
+    },
+    {
+      "path": "design/assets/kohbor-companion.svg",
+      "sha256": "9200e748230e4983ff84eef8097d1475d20af9e0e3b83691ed8df113c4418e6f"
+    }
+  ],
+  "output": {
+    "path": "design/board/kohbor-design-board.html",
+    "sha256": "b145961920f4cfb489c0987f6cd5ac16159e1d75c4276902c3818604e087b787"
+  },
+  "application_native_live_acoustic_resource_tests": "NOT_RUN"
+}

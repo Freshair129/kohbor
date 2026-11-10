@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80" fill="none" role="img" aria-labelledby="title">
+  <title id="title">Kohbor — companion seat mark</title>
+  <rect width="80" height="80" rx="24" fill="#8DE0CA"/>
+  <path d="M23 21v38M27 41l24-20M27 41l25 18" stroke="#0B201A" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="57" cy="26" r="4" fill="#0B201A"/>
+</svg>

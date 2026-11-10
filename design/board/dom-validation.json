@@ -1,0 +1,101 @@
+{
+  "status": "PASS",
+  "evidence_class": "synthetic_dom",
+  "design_version": "1.0.0",
+  "spec_baseline": "0.3.1",
+  "scope": "16 design-board DOM logic checks. jsdom does not render layout or execute native application behavior.",
+  "environment": {
+    "node": "v24.22.1",
+    "jsdom": "31.0.0",
+    "layout": "NOT_AVAILABLE; clientWidth is a harness input"
+  },
+  "files": [
+    {
+      "path": "design/board/kohbor-design-board.html",
+      "sha256": "b145961920f4cfb489c0987f6cd5ac16159e1d75c4276902c3818604e087b787"
+    },
+    {
+      "path": "design/board/board.js",
+      "sha256": "a409ea84a60d5c6bd36a8c9675ad28d90f0cae627465d4e740ca9bfe9eb72fc8"
+    },
+    {
+      "path": "design/board/board.css",
+      "sha256": "95582c9caf10287bdf18096dad8f788d23f30ebf16d5139e7e6498b7eb7ee5b6"
+    },
+    {
+      "path": "tools/check_design_board.mjs",
+      "sha256": "3fd448a1ecf321f9b36133ab84112e367b04c831e0ec5892444987fd84537510"
+    }
+  ],
+  "checks": [
+    {
+      "name": "Neutral startup preserves 5 enemy / 4 ally unknown slots without a selected hero",
+      "status": "PASS"
+    },
+    {
+      "name": "Fixture data is labelled outside the app and live mode requires an explicit scenario change",
+      "status": "PASS"
+    },
+    {
+      "name": "Explicit base card selection exposes a narrow summary without unseen vitals or skills",
+      "status": "PASS"
+    },
+    {
+      "name": "Pro fixture begins neutral and does not create data permissions",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape closes inline detail before inspector and restores card focus",
+      "status": "PASS"
+    },
+    {
+      "name": "Capability loss clears detail and selection while preserving event-tab choice",
+      "status": "PASS"
+    },
+    {
+      "name": "Right-side tabs support selected state and arrow-key focus navigation",
+      "status": "PASS"
+    },
+    {
+      "name": "Stale fixture clearly labels old own/CV observations and clears previous selection",
+      "status": "PASS"
+    },
+    {
+      "name": "GSI-only unavailable CV never invents enemy identity or age and retains own fixture values",
+      "status": "PASS"
+    },
+    {
+      "name": "Decorative map contains no selectable live marker",
+      "status": "PASS"
+    },
+    {
+      "name": "Contrast and motion controls invoke the generated token adapter attributes",
+      "status": "PASS"
+    },
+    {
+      "name": "Voice and opt-in specimens have no microphone or transport side effect",
+      "status": "PASS"
+    },
+    {
+      "name": "Embedded token download matches the canonical merged token bytes",
+      "status": "PASS"
+    },
+    {
+      "name": "Unknown reset removes fixture own values and disables all hero selections",
+      "status": "PASS"
+    },
+    {
+      "name": "All referenced CSS custom properties are defined and HTML has no duplicate ids",
+      "status": "PASS"
+    },
+    {
+      "name": "Bundle causes no script exception or external resource reference",
+      "status": "PASS"
+    }
+  ],
+  "network_calls": 0,
+  "microphone_calls": 0,
+  "browser_rendered_viewport_and_visual_checks": "NOT_RUN",
+  "browser_limitation": "Cloud browser could not reach the workspace HTTP server; observing its error page was blocked by the browser URL policy. No alternate surface or policy workaround was used.",
+  "application_native_live_acoustic_resource_tests": "NOT_RUN"
+}

@@ -1,0 +1,795 @@
+{
+  "$description": "Kohbor design primitives v1.0.0; original DEC-VISUALS design proposal. DTCG 2025.10 value forms.",
+  "primitive": {
+    "color": {
+      "ink": {
+        "950": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.0431372549,
+              0.062745098,
+              0.0784313725
+            ],
+            "alpha": 1,
+            "hex": "#0B1014"
+          },
+          "$description": "Ink 950; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "900": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.0705882353,
+              0.1019607843,
+              0.1294117647
+            ],
+            "alpha": 1,
+            "hex": "#121A21"
+          },
+          "$description": "Ink 900; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "850": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.1019607843,
+              0.1450980392,
+              0.1764705882
+            ],
+            "alpha": 1,
+            "hex": "#1A252D"
+          },
+          "$description": "Ink 850; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "800": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.1490196078,
+              0.2117647059,
+              0.2509803922
+            ],
+            "alpha": 1,
+            "hex": "#263640"
+          },
+          "$description": "Ink 800; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "700": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.2039215686,
+              0.2745098039,
+              0.3137254902
+            ],
+            "alpha": 1,
+            "hex": "#344650"
+          },
+          "$description": "Ink 700; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "600": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.2705882353,
+              0.3607843137,
+              0.4117647059
+            ],
+            "alpha": 1,
+            "hex": "#455C69"
+          },
+          "$description": "Ink 600; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "500": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.3882352941,
+              0.4823529412,
+              0.537254902
+            ],
+            "alpha": 1,
+            "hex": "#637B89"
+          },
+          "$description": "Ink 500; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "400": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.5490196078,
+              0.6235294118,
+              0.662745098
+            ],
+            "alpha": 1,
+            "hex": "#8C9FA9"
+          },
+          "$description": "Ink 400; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "300": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.6745098039,
+              0.7333333333,
+              0.7647058824
+            ],
+            "alpha": 1,
+            "hex": "#ACBBC3"
+          },
+          "$description": "Ink 300; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "100": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.8196078431,
+              0.8666666667,
+              0.8705882353
+            ],
+            "alpha": 1,
+            "hex": "#D1DDDE"
+          },
+          "$description": "Ink 100; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "50": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.9333333333,
+              0.9529411765,
+              0.9411764706
+            ],
+            "alpha": 1,
+            "hex": "#EEF3F0"
+          },
+          "$description": "Ink 50; primitive swatch. Use semantic aliases in interfaces."
+        }
+      },
+      "mint": {
+        "950": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.0431372549,
+              0.1254901961,
+              0.1019607843
+            ],
+            "alpha": 1,
+            "hex": "#0B201A"
+          },
+          "$description": "Mint 950; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "300": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.5529411765,
+              0.8784313725,
+              0.7921568627
+            ],
+            "alpha": 1,
+            "hex": "#8DE0CA"
+          },
+          "$description": "Mint 300; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "200": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.662745098,
+              0.9176470588,
+              0.8470588235
+            ],
+            "alpha": 1,
+            "hex": "#A9EAD8"
+          },
+          "$description": "Mint 200; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "100": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.7803921569,
+              0.9529411765,
+              0.9058823529
+            ],
+            "alpha": 1,
+            "hex": "#C7F3E7"
+          },
+          "$description": "Mint 100; primitive swatch. Use semantic aliases in interfaces."
+        }
+      },
+      "green": {
+        "950": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.062745098,
+              0.1647058824,
+              0.1098039216
+            ],
+            "alpha": 1,
+            "hex": "#102A1C"
+          },
+          "$description": "Green 950; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "300": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.5254901961,
+              0.8431372549,
+              0.6470588235
+            ],
+            "alpha": 1,
+            "hex": "#86D7A5"
+          },
+          "$description": "Green 300; primitive swatch. Use semantic aliases in interfaces."
+        }
+      },
+      "amber": {
+        "950": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.1882352941,
+              0.1411764706,
+              0.0549019608
+            ],
+            "alpha": 1,
+            "hex": "#30240E"
+          },
+          "$description": "Amber 950; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "300": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.9529411765,
+              0.7725490196,
+              0.4705882353
+            ],
+            "alpha": 1,
+            "hex": "#F3C578"
+          },
+          "$description": "Amber 300; primitive swatch. Use semantic aliases in interfaces."
+        }
+      },
+      "coral": {
+        "950": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.2039215686,
+              0.1058823529,
+              0.1058823529
+            ],
+            "alpha": 1,
+            "hex": "#341B1B"
+          },
+          "$description": "Coral 950; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "300": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.9607843137,
+              0.5607843137,
+              0.5450980392
+            ],
+            "alpha": 1,
+            "hex": "#F58F8B"
+          },
+          "$description": "Coral 300; primitive swatch. Use semantic aliases in interfaces."
+        }
+      },
+      "blue": {
+        "950": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.0823529412,
+              0.1568627451,
+              0.2549019608
+            ],
+            "alpha": 1,
+            "hex": "#152841"
+          },
+          "$description": "Blue 950; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "300": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.6156862745,
+              0.7490196078,
+              0.9607843137
+            ],
+            "alpha": 1,
+            "hex": "#9DBFF5"
+          },
+          "$description": "Blue 300; primitive swatch. Use semantic aliases in interfaces."
+        }
+      },
+      "ice": {
+        "200": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.7411764706,
+              0.937254902,
+              1.0
+            ],
+            "alpha": 1,
+            "hex": "#BDEFFF"
+          },
+          "$description": "Ice 200; primitive swatch. Use semantic aliases in interfaces."
+        }
+      },
+      "neutral": {
+        "white": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "alpha": 1,
+            "hex": "#FFFFFF"
+          },
+          "$description": "Neutral white; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "black": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "alpha": 1,
+            "hex": "#000000"
+          },
+          "$description": "Neutral black; primitive swatch. Use semantic aliases in interfaces."
+        },
+        "shadow": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "alpha": 0.32,
+            "hex": "#000000"
+          },
+          "$description": "Translucent black for elevation only; never use for text or status."
+        }
+      }
+    },
+    "space": {
+      "0": {
+        "$type": "dimension",
+        "$value": {
+          "value": 0,
+          "unit": "px"
+        },
+        "$description": "0px on the four-pixel spacing scale."
+      },
+      "1": {
+        "$type": "dimension",
+        "$value": {
+          "value": 4,
+          "unit": "px"
+        },
+        "$description": "4px on the four-pixel spacing scale."
+      },
+      "2": {
+        "$type": "dimension",
+        "$value": {
+          "value": 8,
+          "unit": "px"
+        },
+        "$description": "8px on the four-pixel spacing scale."
+      },
+      "3": {
+        "$type": "dimension",
+        "$value": {
+          "value": 12,
+          "unit": "px"
+        },
+        "$description": "12px on the four-pixel spacing scale."
+      },
+      "4": {
+        "$type": "dimension",
+        "$value": {
+          "value": 16,
+          "unit": "px"
+        },
+        "$description": "16px on the four-pixel spacing scale."
+      },
+      "5": {
+        "$type": "dimension",
+        "$value": {
+          "value": 20,
+          "unit": "px"
+        },
+        "$description": "20px on the four-pixel spacing scale."
+      },
+      "6": {
+        "$type": "dimension",
+        "$value": {
+          "value": 24,
+          "unit": "px"
+        },
+        "$description": "24px on the four-pixel spacing scale."
+      },
+      "7": {
+        "$type": "dimension",
+        "$value": {
+          "value": 28,
+          "unit": "px"
+        },
+        "$description": "28px on the four-pixel spacing scale."
+      },
+      "8": {
+        "$type": "dimension",
+        "$value": {
+          "value": 32,
+          "unit": "px"
+        },
+        "$description": "32px on the four-pixel spacing scale."
+      },
+      "9": {
+        "$type": "dimension",
+        "$value": {
+          "value": 36,
+          "unit": "px"
+        },
+        "$description": "36px on the four-pixel spacing scale."
+      },
+      "10": {
+        "$type": "dimension",
+        "$value": {
+          "value": 40,
+          "unit": "px"
+        },
+        "$description": "40px on the four-pixel spacing scale."
+      },
+      "11": {
+        "$type": "dimension",
+        "$value": {
+          "value": 44,
+          "unit": "px"
+        },
+        "$description": "44px on the four-pixel spacing scale."
+      },
+      "12": {
+        "$type": "dimension",
+        "$value": {
+          "value": 48,
+          "unit": "px"
+        },
+        "$description": "48px on the four-pixel spacing scale."
+      }
+    },
+    "radius": {
+      "sm": {
+        "$type": "dimension",
+        "$value": {
+          "value": 8,
+          "unit": "px"
+        },
+        "$description": "Compact controls and small surfaces."
+      },
+      "md": {
+        "$type": "dimension",
+        "$value": {
+          "value": 12,
+          "unit": "px"
+        },
+        "$description": "Standard controls and hero cards."
+      },
+      "lg": {
+        "$type": "dimension",
+        "$value": {
+          "value": 16,
+          "unit": "px"
+        },
+        "$description": "Cards and map container."
+      },
+      "xl": {
+        "$type": "dimension",
+        "$value": {
+          "value": 24,
+          "unit": "px"
+        },
+        "$description": "Large framing surfaces."
+      },
+      "pill": {
+        "$type": "dimension",
+        "$value": {
+          "value": 999,
+          "unit": "px"
+        },
+        "$description": "Pill silhouette; use only where content remains readable."
+      }
+    },
+    "font": {
+      "family": {
+        "ui": {
+          "$type": "fontFamily",
+          "$value": [
+            "Noto Sans Thai",
+            "Noto Sans",
+            "Leelawadee UI",
+            "Tahoma",
+            "system-ui",
+            "sans-serif"
+          ],
+          "$description": "Thai-first local font stack with separate Latin Noto fallback. No font download is initiated; host/registered font availability requires verification."
+        }
+      },
+      "size": {
+        "supporting": {
+          "$type": "dimension",
+          "$value": {
+            "value": 14,
+            "unit": "px"
+          },
+          "$description": "14px authored size; native readability at scaled sizes is unverified."
+        },
+        "body": {
+          "$type": "dimension",
+          "$value": {
+            "value": 16,
+            "unit": "px"
+          },
+          "$description": "16px authored size; native readability at scaled sizes is unverified."
+        },
+        "heading-sm": {
+          "$type": "dimension",
+          "$value": {
+            "value": 20,
+            "unit": "px"
+          },
+          "$description": "20px authored size; native readability at scaled sizes is unverified."
+        },
+        "heading-md": {
+          "$type": "dimension",
+          "$value": {
+            "value": 24,
+            "unit": "px"
+          },
+          "$description": "24px authored size; native readability at scaled sizes is unverified."
+        },
+        "heading-lg": {
+          "$type": "dimension",
+          "$value": {
+            "value": 32,
+            "unit": "px"
+          },
+          "$description": "32px authored size; native readability at scaled sizes is unverified."
+        },
+        "display": {
+          "$type": "dimension",
+          "$value": {
+            "value": 48,
+            "unit": "px"
+          },
+          "$description": "48px authored size; native readability at scaled sizes is unverified."
+        }
+      },
+      "weight": {
+        "regular": {
+          "$type": "fontWeight",
+          "$value": 400,
+          "$description": "400 requested weight; actual host font faces and fallback require visual verification."
+        },
+        "medium": {
+          "$type": "fontWeight",
+          "$value": 500,
+          "$description": "500 requested weight; actual host font faces and fallback require visual verification."
+        },
+        "semibold": {
+          "$type": "fontWeight",
+          "$value": 600,
+          "$description": "600 requested weight; actual host font faces and fallback require visual verification."
+        },
+        "bold": {
+          "$type": "fontWeight",
+          "$value": 700,
+          "$description": "700 requested weight; actual host font faces and fallback require visual verification."
+        }
+      },
+      "line-height": {
+        "body": {
+          "$type": "number",
+          "$value": 1.6,
+          "$description": "Unitless line-height multiplier; retain room for Thai marks."
+        },
+        "heading": {
+          "$type": "number",
+          "$value": 1.3,
+          "$description": "Unitless line-height multiplier; retain room for Thai marks."
+        },
+        "display": {
+          "$type": "number",
+          "$value": 1.2,
+          "$description": "Unitless line-height multiplier; retain room for Thai marks."
+        }
+      },
+      "letter-spacing": {
+        "normal": {
+          "$type": "dimension",
+          "$value": {
+            "value": 0,
+            "unit": "px"
+          },
+          "$description": "No tracking adjustment for Thai or mixed-script content."
+        }
+      }
+    },
+    "motion": {
+      "duration": {
+        "instant": {
+          "$type": "duration",
+          "$value": {
+            "value": 0,
+            "unit": "ms"
+          },
+          "$description": "State-change presentation only; never a data-freshness timeout."
+        },
+        "fast": {
+          "$type": "duration",
+          "$value": {
+            "value": 100,
+            "unit": "ms"
+          },
+          "$description": "State-change presentation only; never a data-freshness timeout."
+        },
+        "standard": {
+          "$type": "duration",
+          "$value": {
+            "value": 160,
+            "unit": "ms"
+          },
+          "$description": "State-change presentation only; never a data-freshness timeout."
+        },
+        "slow": {
+          "$type": "duration",
+          "$value": {
+            "value": 240,
+            "unit": "ms"
+          },
+          "$description": "State-change presentation only; never a data-freshness timeout."
+        }
+      },
+      "easing": {
+        "standard": {
+          "$type": "cubicBezier",
+          "$value": [
+            0.2,
+            0,
+            0,
+            1
+          ],
+          "$description": "Calm entry and emphasis easing."
+        },
+        "exit": {
+          "$type": "cubicBezier",
+          "$value": [
+            0.4,
+            0,
+            1,
+            1
+          ],
+          "$description": "Brief dismissal easing; never delay state invalidation."
+        }
+      }
+    },
+    "border": {
+      "width": {
+        "default": {
+          "$type": "dimension",
+          "$value": {
+            "value": 1,
+            "unit": "px"
+          },
+          "$description": "Default authored stroke width."
+        },
+        "focus": {
+          "$type": "dimension",
+          "$value": {
+            "value": 2,
+            "unit": "px"
+          },
+          "$description": "Visible focus outline thickness."
+        }
+      }
+    },
+    "focus": {
+      "offset": {
+        "$type": "dimension",
+        "$value": {
+          "value": 3,
+          "unit": "px"
+        },
+        "$description": "Gap between component boundary and focus outline."
+      }
+    },
+    "target": {
+      "default": {
+        "$type": "dimension",
+        "$value": {
+          "value": 44,
+          "unit": "px"
+        },
+        "$description": "Default authored control target; proposed until native scaled measurement."
+      },
+      "compact": {
+        "$type": "dimension",
+        "$value": {
+          "value": 36,
+          "unit": "px"
+        },
+        "$description": "Compact authored target for bounded control UI; proposed until native scaled measurement."
+      }
+    },
+    "opacity": {
+      "disabled": {
+        "$type": "number",
+        "$value": 0.6,
+        "$description": "Decorative disabled affordances only. Do not apply to a parent containing required explanatory text."
+      },
+      "overlay": {
+        "$type": "number",
+        "$value": 0.94,
+        "$description": "Proposed overlay surface opacity; text contrast depends on the final composited game scene."
+      }
+    },
+    "shadow": {
+      "panel": {
+        "$type": "shadow",
+        "$value": {
+          "color": "{primitive.color.neutral.shadow}",
+          "offsetX": "{primitive.space.0}",
+          "offsetY": "{primitive.space.2}",
+          "blur": "{primitive.space.6}",
+          "spread": "{primitive.space.0}"
+        },
+        "$description": "Subtle elevation. Not the sole boundary cue; remove in forced colors."
+      }
+    }
+  }
+}

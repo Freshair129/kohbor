@@ -40,8 +40,21 @@
       "milestone": "M3",
       "blocks": "pixel-approved UI and native safe area",
       "owner_role": "product designer",
-      "safe_interim": "Use inherited topology with honest empty states.",
-      "closure_evidence": "Original annotated wireframes/tokens; viewport/DPI/native focus and safe-area evidence."
+      "safe_interim": "Use design-system 1.0.0 candidate within inherited topology and honest source states. Rendered browser and native acceptance remain NOT_RUN; static/DOM results cannot certify them.",
+      "closure_evidence": "Original annotated wireframes/tokens; viewport/DPI/native focus and safe-area evidence.",
+      "design_package_version": "1.0.0",
+      "design_progress_on": "2026-11-11",
+      "design_authority": "delegated builder presentation choice; no owner pixel approval recorded",
+      "artifact_refs": [
+        "docs/design/DESIGN-SYSTEM.md",
+        "docs/design/COMPONENT-CATALOG.md",
+        "docs/design/DESIGN-BOARD.md",
+        "docs/design/IMPLEMENTATION-HANDOFF.md",
+        "docs/design/DESIGN-ACCEPTANCE.md",
+        "design/tokens/README.md",
+        "design/board/kohbor-design-board.html"
+      ],
+      "remaining_evidence": "Owner pixel review, full affected-route screens, browser viewport/font/focus measurements, final outlined wordmark, native minimum window/DPI/focus and game safe areas."
     },
     {
       "id": "DEC-PACK-CRYPTO",

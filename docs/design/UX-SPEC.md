@@ -3,7 +3,7 @@ title: "User Experience Specification"
 doc_id: "UX-SPEC"
 status: draft
 version: "0.3.1"
-updated: "2026-11-10"
+updated: "2026-11-11"
 baseline: "DEC-BASELINE"
 owner_role: "UX owner; people not assigned"
 approval_status: "not_approved"
@@ -15,7 +15,7 @@ approval_status: "not_approved"
 
 This contract carries **DEC-BASELINE** behavior under [Document control](../governance/DOCUMENT-CONTROL.md), without approving a new visual design. The product name is **Kohbor / เกาะเบาะ**, selected by the owner. The agent designs the original mascot, palette and module labels while preserving these behaviors.
 
-**Final neutral mockups, design tokens, artwork and motion/audio assets are not supplied.** Create these and record design decisions before visual acceptance. Fixtures do not establish live data, native geometry or resource compliance.
+**Design-system candidate 1.0.0 is supplied** in [DESIGN-SYSTEM](DESIGN-SYSTEM.md), the [component catalog](COMPONENT-CATALOG.md), [annotated design board](DESIGN-BOARD.md), [token package](../../design/tokens/README.md), and [implementation handoff](IMPLEMENTATION-HANDOFF.md). It provides original static identity studies, authored geometry, visual rules and deterministic fixtures. Pixel approval, full route screens, qualified motion/audio media and measured browser/native acceptance remain open under DEC-VISUALS. Fixtures do not establish live data, native geometry or resource compliance.
 
 Logical destinations below do not prescribe URL paths, file names or IPC identifiers. Those belong in the implementation contracts. User-facing copy supports Thai; English technical identifiers must not leak into ordinary states without a useful explanation.
 
@@ -152,12 +152,12 @@ Suggested Thai state copy includes “รอเข้าเกม”, “ยั�
 
 | Open item | Required resolution |
 |---|---|
-| Product identity and visual assets | New name, mascot, logo, palette, typography and asset provenance |
-| Final neutral screens | Annotated empty/live/stale/error/base/Pro mockups for affected destinations |
+| Product identity and visual assets | Owner-selected name plus original mark/companion, palette, typography and provenance candidate supplied; final artwork/pixel approval remains open |
+| Final neutral screens | Annotated Live-field waiting/synthetic/stale/unavailable/Base/Pro specimens supplied; full affected-route screens and rendered review remain open |
 | Native safe areas | Measure actual window chrome, scaled content and game HUD clearance |
 | Readability and targets | Set measured minimum typography/target sizes under supported scaling |
-| Compact field dimensions | Measure revised compact cards and bounded inspector; keep map invariant |
-| Local clips placement | Choose an existing destination and document entry/exit without silent navigation expansion |
+| Compact field dimensions | Authored map 616×430 and fixed right 404×620 supplied in tokens; measure compact cards, inspector and map invariance in browser/native runtime |
+| Local clips placement | Selected: Insights → History → Clips filter; Overview recording controls; Settings → System configuration; implementation and journey evidence pending |
 
 Deliver deterministic interaction fixtures, keyboard checks, frozen-input geometry measurements and viewport captures. Keep native overlay/focus/audio/game/resource evidence separate. Every visual acceptance claim identifies the tested build and environment.
 

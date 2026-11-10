@@ -22,6 +22,12 @@
 
 เปิด [หน้ารวมแผนภาพ](docs/diagrams/INDEX.html) เพื่อดู 19 ภาพ หรืออ่าน [สารบัญและวิธีแก้ไข](docs/diagrams/README.md) มีต้นฉบับ Mermaid และ SVG พร้อม requirement/decision references ภาพเป็นมุมมองของสเปกชุดเดียวกัน; เงื่อนไขเต็มยังอยู่ใน SRS และเอกสารออกแบบ
 
+## Design System / Board / Tokens
+
+เพิ่ม **Design Kit 1.0.0 — Nightglass** วันที่ 11 พฤศจิกายน 2026: [เริ่มอ่านชุดออกแบบ](design/README.md), [Design System](docs/design/DESIGN-SYSTEM.md), [24 Component Contracts](docs/design/COMPONENT-CATALOG.md), [Design Board HTML](design/board/kohbor-design-board.html), [ภาพบอร์ด PNG](design/board/kohbor-design-board.png) และ [248 Design Tokens](design/tokens/README.md)
+
+ดาวน์โหลด HTML แล้วเปิดได้แบบออฟไลน์ มีสถานะตัวอย่างรอเข้าเกม/ข้อมูลสังเคราะห์/ข้อมูลเก่า/ภาพไม่พร้อม พร้อมไฟล์ JSON/CSS และ [handoff สำหรับเอเจนต์](docs/design/IMPLEMENTATION-HANDOFF.md). ชุดนี้เป็น design candidate: static/DOM checks แยกจาก browser rendering และ Windows/live acceptance ที่ยัง NOT_RUN; DEC-VISUALS ยังไม่ปิดทุกส่วน
+
 ## เอกสารหลักกับข้อมูลประกอบ
 
 PRD และ SRS เป็นข้อกำหนดที่คนอ่านและทบทวนได้ครบในระดับรายการที่บันทึกไว้ [requirements.json](contracts/requirements.json) เป็นข้อมูลโครงสร้างของข้อกำหนดชุดเดียวกัน ใช้สร้างส่วนรายละเอียดใน SRS, RTM และ Gherkin ไม่ใช่ข้อกำหนดอีกฉบับที่มีอำนาจเหนือเอกสารหลัก

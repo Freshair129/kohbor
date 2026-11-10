@@ -1,0 +1,1907 @@
+{
+  "reportVersion": "1.0.0",
+  "status": "PASS",
+  "evidenceClass": "static",
+  "scope": "Token graph/value validation, generated-file byte equality, intended opaque-color pairs and proposed authored layout only",
+  "sourceBinding": {
+    "validationRevision": "sha256:b74aeab29b6af247ff7b2673e4562eb8d591e92e45dd6e5659f6f6c157748255",
+    "bindingRule": "Content-addressed revision of exact token sources and tools; independent of Git HEAD so committing an unchanged receipt preserves deterministic validation",
+    "tokenSourceSha256": "df1a0b37eef25336a00c46eafa8e094149b16d06c69aa6a6aa5a6d1c6b7e5c9b",
+    "sourceFiles": {
+      "design/tokens/source/primitives.tokens.json": "bfbb3d32feedcb66268a1869dfc2983c5cdd51cdb5cb91a91ba8f45977b1d1ee",
+      "design/tokens/source/semantic.dark.tokens.json": "41cc756fb5da0a347e9359ce6a2005edaac253b2f99de7b8fbff7cae027af361",
+      "design/tokens/source/components.tokens.json": "5dc0f620a26e162edeabbe31f313a292db21ab22b948fde0d25bf2472f3b2010",
+      "design/tokens/source/css-adapters.json": "a1623d9108e5ebbd21ab1676577a31f837cbd49e8edce20ed2119ef6255192be"
+    },
+    "toolFiles": {
+      "tools/build_design_tokens.py": "a432eede9843741c2a263b955225c890cdbd3dee5c775a73a3e87ad62cce66cc",
+      "tools/validate_design.py": "dada659d7b6c30a4dcb74463fcd647fafad5a86e45e6c126fdf54251e4adc899"
+    },
+    "generatedFiles": {
+      "design/tokens/kohbor.tokens.json": "cbf50d3366d08aa16aa624fc4e29b33e550883c1de528eab0cd4305cbbf34c88",
+      "design/tokens/tokens.resolved.json": "0d23e00693c56a257455a6c5ebaf4510ab8442fdadae2a660628229886ff2bda",
+      "design/tokens/tokens.css": "d015c10fbd3710550525f2dccb227d13b732497f26001fe220290d4a93c8cef5"
+    }
+  },
+  "profile": {
+    "format": "DTCG 2025.10 value forms",
+    "supportedTypes": [
+      "color",
+      "cubicBezier",
+      "dimension",
+      "duration",
+      "fontFamily",
+      "fontWeight",
+      "number",
+      "shadow",
+      "typography"
+    ],
+    "validation": "Project structural/value profile, not complete DTCG importer conformance",
+    "unsupported": [
+      "JSON Pointer $ref",
+      "group $extends",
+      "$root tokens",
+      "DTCG Resolver Module",
+      "color spaces other than numeric sRGB",
+      "array shadows",
+      "gradient, border, transition and strokeStyle composites",
+      "embedded references in strings"
+    ]
+  },
+  "inventory": {
+    "totalTokens": 248,
+    "byLayer": {
+      "primitive": 74,
+      "semantic": 125,
+      "component": 49
+    },
+    "byType": {
+      "color": 91,
+      "cubicBezier": 4,
+      "dimension": 109,
+      "duration": 9,
+      "fontFamily": 2,
+      "fontWeight": 8,
+      "number": 16,
+      "shadow": 2,
+      "typography": 7
+    },
+    "tokensWithReferences": 136,
+    "referenceEdges": 167,
+    "cssCustomProperties": 255
+  },
+  "checks": {
+    "tokenStructureAndTypes": "PASS",
+    "duplicateKeys": "PASS",
+    "unresolvedReferences": "PASS",
+    "cyclicReferences": "PASS",
+    "referenceTypeAgreement": "PASS",
+    "generatedOutputEquality": "PASS",
+    "highContrastAdapterTypes": "PASS",
+    "forcedColorsSystemMapping": "STATIC_MAPPING_ONLY",
+    "reducedMotionOverride": "STATIC_MAPPING_ONLY"
+  },
+  "defensiveValidationProbes": [
+    {
+      "probe": "unresolved alias",
+      "status": "PASS",
+      "observed": "Rejected as required"
+    },
+    {
+      "probe": "cyclic aliases",
+      "status": "PASS",
+      "observed": "Rejected as required"
+    },
+    {
+      "probe": "alias type mismatch",
+      "status": "PASS",
+      "observed": "Rejected as required"
+    },
+    {
+      "probe": "invalid dimension unit",
+      "status": "PASS",
+      "observed": "Rejected as required"
+    },
+    {
+      "probe": "invalid color components",
+      "status": "PASS",
+      "observed": "Rejected as required"
+    },
+    {
+      "probe": "invalid font weight",
+      "status": "PASS",
+      "observed": "Rejected as required"
+    },
+    {
+      "probe": "invalid bezier x",
+      "status": "PASS",
+      "observed": "Rejected as required"
+    },
+    {
+      "probe": "invalid duration",
+      "status": "PASS",
+      "observed": "Rejected as required"
+    },
+    {
+      "probe": "incomplete typography",
+      "status": "PASS",
+      "observed": "Rejected as required"
+    },
+    {
+      "probe": "mixed group and token",
+      "status": "PASS",
+      "observed": "Rejected as required"
+    },
+    {
+      "probe": "missing type",
+      "status": "PASS",
+      "observed": "Rejected as required"
+    },
+    {
+      "probe": "unsupported JSON Pointer",
+      "status": "PASS",
+      "observed": "Rejected as required"
+    },
+    {
+      "probe": "duplicate JSON keys",
+      "status": "PASS",
+      "observed": "Rejected as required"
+    }
+  ],
+  "exporterRegressionProbes": [
+    {
+      "probe": "fontWeight semi-bold",
+      "expectedCss": "600",
+      "actualCss": "600",
+      "status": "PASS"
+    },
+    {
+      "probe": "fontWeight book",
+      "expectedCss": "400",
+      "actualCss": "400",
+      "status": "PASS"
+    },
+    {
+      "probe": "fontWeight extra-light",
+      "expectedCss": "200",
+      "actualCss": "200",
+      "status": "PASS"
+    },
+    {
+      "probe": "fractional sRGB export",
+      "expectedCss": "rgb(31.365 116.28 201.195 / 1)",
+      "actualCss": "rgb(31.365 116.28 201.195 / 1)",
+      "status": "PASS"
+    }
+  ],
+  "contrastSummary": {
+    "testedPairs": 146,
+    "minimumTextRatio": 4.540821,
+    "textThreshold": 4.5,
+    "minimumNonTextRatio": 3.509206,
+    "nonTextThreshold": 3,
+    "method": "WCAG 2 relative luminance, sRGB 0.04045 breakpoint, unrounded threshold comparison",
+    "claim": "Only listed opaque token pairs; not full-interface WCAG conformance"
+  },
+  "contrastPairs": [
+    {
+      "theme": "dark",
+      "purpose": "normal-text",
+      "foreground": "semantic.color.text.primary",
+      "background": "semantic.color.surface.canvas",
+      "foregroundHex": "#EEF3F0",
+      "backgroundHex": "#0B1014",
+      "minimum": 4.5,
+      "ratio": 17.036703,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "normal-text",
+      "foreground": "semantic.color.text.primary",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#EEF3F0",
+      "backgroundHex": "#121A21",
+      "minimum": 4.5,
+      "ratio": 15.654439,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "normal-text",
+      "foreground": "semantic.color.text.primary",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#EEF3F0",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 13.898795,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "normal-text",
+      "foreground": "semantic.color.text.primary",
+      "background": "semantic.color.surface.hover",
+      "foregroundHex": "#EEF3F0",
+      "backgroundHex": "#263640",
+      "minimum": 4.5,
+      "ratio": 11.112029,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "normal-text",
+      "foreground": "semantic.color.text.secondary",
+      "background": "semantic.color.surface.canvas",
+      "foregroundHex": "#ACBBC3",
+      "backgroundHex": "#0B1014",
+      "minimum": 4.5,
+      "ratio": 9.695765,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "normal-text",
+      "foreground": "semantic.color.text.secondary",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#ACBBC3",
+      "backgroundHex": "#121A21",
+      "minimum": 4.5,
+      "ratio": 8.909105,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "normal-text",
+      "foreground": "semantic.color.text.secondary",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#ACBBC3",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 7.909949,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "normal-text",
+      "foreground": "semantic.color.text.secondary",
+      "background": "semantic.color.surface.hover",
+      "foregroundHex": "#ACBBC3",
+      "backgroundHex": "#263640",
+      "minimum": 4.5,
+      "ratio": 6.323972,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "normal-text",
+      "foreground": "semantic.color.text.muted",
+      "background": "semantic.color.surface.canvas",
+      "foregroundHex": "#8C9FA9",
+      "backgroundHex": "#0B1014",
+      "minimum": 4.5,
+      "ratio": 6.961881,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "normal-text",
+      "foreground": "semantic.color.text.muted",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#8C9FA9",
+      "backgroundHex": "#121A21",
+      "minimum": 4.5,
+      "ratio": 6.397033,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "normal-text",
+      "foreground": "semantic.color.text.muted",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#8C9FA9",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 5.679606,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "normal-text",
+      "foreground": "semantic.color.text.muted",
+      "background": "semantic.color.surface.hover",
+      "foregroundHex": "#8C9FA9",
+      "backgroundHex": "#263640",
+      "minimum": 4.5,
+      "ratio": 4.540821,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.success",
+      "background": "semantic.color.surface.canvas",
+      "foregroundHex": "#86D7A5",
+      "backgroundHex": "#0B1014",
+      "minimum": 4.5,
+      "ratio": 11.176836,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.success",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#86D7A5",
+      "backgroundHex": "#121A21",
+      "minimum": 4.5,
+      "ratio": 10.270009,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.success",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#86D7A5",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 9.118228,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.success",
+      "background": "semantic.color.success-surface",
+      "foregroundHex": "#86D7A5",
+      "backgroundHex": "#102A1C",
+      "minimum": 4.5,
+      "ratio": 8.961528,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "status-body-text",
+      "foreground": "semantic.color.text.primary",
+      "background": "semantic.color.success-surface",
+      "foregroundHex": "#EEF3F0",
+      "backgroundHex": "#102A1C",
+      "minimum": 4.5,
+      "ratio": 13.659938,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "status-body-text",
+      "foreground": "semantic.color.text.secondary",
+      "background": "semantic.color.success-surface",
+      "foregroundHex": "#ACBBC3",
+      "backgroundHex": "#102A1C",
+      "minimum": 4.5,
+      "ratio": 7.774014,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.warning",
+      "background": "semantic.color.surface.canvas",
+      "foregroundHex": "#F3C578",
+      "backgroundHex": "#0B1014",
+      "minimum": 4.5,
+      "ratio": 11.897386,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.warning",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#F3C578",
+      "backgroundHex": "#121A21",
+      "minimum": 4.5,
+      "ratio": 10.932098,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.warning",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#F3C578",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 9.706064,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.warning",
+      "background": "semantic.color.warning-surface",
+      "foregroundHex": "#F3C578",
+      "backgroundHex": "#30240E",
+      "minimum": 4.5,
+      "ratio": 9.440161,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "status-body-text",
+      "foreground": "semantic.color.text.primary",
+      "background": "semantic.color.warning-surface",
+      "foregroundHex": "#EEF3F0",
+      "backgroundHex": "#30240E",
+      "minimum": 4.5,
+      "ratio": 13.518029,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "status-body-text",
+      "foreground": "semantic.color.text.secondary",
+      "background": "semantic.color.warning-surface",
+      "foregroundHex": "#ACBBC3",
+      "backgroundHex": "#30240E",
+      "minimum": 4.5,
+      "ratio": 7.693252,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.danger",
+      "background": "semantic.color.surface.canvas",
+      "foregroundHex": "#F58F8B",
+      "backgroundHex": "#0B1014",
+      "minimum": 4.5,
+      "ratio": 8.361162,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.danger",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#F58F8B",
+      "backgroundHex": "#121A21",
+      "minimum": 4.5,
+      "ratio": 7.682784,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.danger",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#F58F8B",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 6.82116,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.danger",
+      "background": "semantic.color.danger-surface",
+      "foregroundHex": "#F58F8B",
+      "backgroundHex": "#341B1B",
+      "minimum": 4.5,
+      "ratio": 6.965122,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "status-body-text",
+      "foreground": "semantic.color.text.primary",
+      "background": "semantic.color.danger-surface",
+      "foregroundHex": "#EEF3F0",
+      "backgroundHex": "#341B1B",
+      "minimum": 4.5,
+      "ratio": 14.19213,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "status-body-text",
+      "foreground": "semantic.color.text.secondary",
+      "background": "semantic.color.danger-surface",
+      "foregroundHex": "#ACBBC3",
+      "backgroundHex": "#341B1B",
+      "minimum": 4.5,
+      "ratio": 8.07689,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.info",
+      "background": "semantic.color.surface.canvas",
+      "foregroundHex": "#9DBFF5",
+      "backgroundHex": "#0B1014",
+      "minimum": 4.5,
+      "ratio": 10.200267,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.info",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#9DBFF5",
+      "backgroundHex": "#121A21",
+      "minimum": 4.5,
+      "ratio": 9.372673,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.info",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#9DBFF5",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 8.321529,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.info",
+      "background": "semantic.color.info-surface",
+      "foregroundHex": "#9DBFF5",
+      "backgroundHex": "#152841",
+      "minimum": 4.5,
+      "ratio": 7.936665,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "status-body-text",
+      "foreground": "semantic.color.text.primary",
+      "background": "semantic.color.info-surface",
+      "foregroundHex": "#EEF3F0",
+      "backgroundHex": "#152841",
+      "minimum": 4.5,
+      "ratio": 13.255987,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "status-body-text",
+      "foreground": "semantic.color.text.secondary",
+      "background": "semantic.color.info-surface",
+      "foregroundHex": "#ACBBC3",
+      "backgroundHex": "#152841",
+      "minimum": 4.5,
+      "ratio": 7.544121,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "provenance-label",
+      "foreground": "semantic.color.state.unknown",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#8C9FA9",
+      "backgroundHex": "#121A21",
+      "minimum": 4.5,
+      "ratio": 6.397033,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "provenance-label",
+      "foreground": "semantic.color.state.unknown",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#8C9FA9",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 5.679606,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "provenance-label",
+      "foreground": "semantic.color.state.stale",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#F3C578",
+      "backgroundHex": "#121A21",
+      "minimum": 4.5,
+      "ratio": 10.932098,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "provenance-label",
+      "foreground": "semantic.color.state.stale",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#F3C578",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 9.706064,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "provenance-label",
+      "foreground": "semantic.color.state.estimated",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#9DBFF5",
+      "backgroundHex": "#121A21",
+      "minimum": 4.5,
+      "ratio": 9.372673,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "provenance-label",
+      "foreground": "semantic.color.state.estimated",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#9DBFF5",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 8.321529,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "provenance-label",
+      "foreground": "semantic.color.state.catalog",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#ACBBC3",
+      "backgroundHex": "#121A21",
+      "minimum": 4.5,
+      "ratio": 8.909105,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "provenance-label",
+      "foreground": "semantic.color.state.catalog",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#ACBBC3",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 7.909949,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "provenance-label",
+      "foreground": "semantic.color.state.unavailable",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#ACBBC3",
+      "backgroundHex": "#121A21",
+      "minimum": 4.5,
+      "ratio": 8.909105,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "provenance-label",
+      "foreground": "semantic.color.state.unavailable",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#ACBBC3",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 7.909949,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "accent-text",
+      "foreground": "semantic.color.accent",
+      "background": "semantic.color.surface.canvas",
+      "foregroundHex": "#8DE0CA",
+      "backgroundHex": "#0B1014",
+      "minimum": 4.5,
+      "ratio": 12.424501,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "focus-ring",
+      "foreground": "semantic.color.focus",
+      "background": "semantic.color.surface.canvas",
+      "foregroundHex": "#BDEFFF",
+      "backgroundHex": "#0B1014",
+      "minimum": 3,
+      "ratio": 15.434846,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "accent-text",
+      "foreground": "semantic.color.accent",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#8DE0CA",
+      "backgroundHex": "#121A21",
+      "minimum": 4.5,
+      "ratio": 11.416446,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "focus-ring",
+      "foreground": "semantic.color.focus",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#BDEFFF",
+      "backgroundHex": "#121A21",
+      "minimum": 3,
+      "ratio": 14.182548,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "accent-text",
+      "foreground": "semantic.color.accent",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#8DE0CA",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 10.136093,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "focus-ring",
+      "foreground": "semantic.color.focus",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#BDEFFF",
+      "backgroundHex": "#1A252D",
+      "minimum": 3,
+      "ratio": 12.591976,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "accent-text",
+      "foreground": "semantic.color.accent",
+      "background": "semantic.color.surface.hover",
+      "foregroundHex": "#8DE0CA",
+      "backgroundHex": "#263640",
+      "minimum": 4.5,
+      "ratio": 8.103764,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "focus-ring",
+      "foreground": "semantic.color.focus",
+      "background": "semantic.color.surface.hover",
+      "foregroundHex": "#BDEFFF",
+      "backgroundHex": "#263640",
+      "minimum": 3,
+      "ratio": 10.067233,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "accent-text",
+      "foreground": "semantic.color.accent",
+      "background": "semantic.color.surface.selected",
+      "foregroundHex": "#8DE0CA",
+      "backgroundHex": "#0B201A",
+      "minimum": 4.5,
+      "ratio": 11.044025,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "focus-ring",
+      "foreground": "semantic.color.focus",
+      "background": "semantic.color.surface.selected",
+      "foregroundHex": "#BDEFFF",
+      "backgroundHex": "#0B201A",
+      "minimum": 3,
+      "ratio": 13.719893,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "filled-action-text",
+      "foreground": "semantic.color.on-accent",
+      "background": "semantic.color.accent",
+      "foregroundHex": "#0B201A",
+      "backgroundHex": "#8DE0CA",
+      "minimum": 4.5,
+      "ratio": 11.044025,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "filled-action-text",
+      "foreground": "semantic.color.on-accent",
+      "background": "semantic.color.accent-hover",
+      "foregroundHex": "#0B201A",
+      "backgroundHex": "#A9EAD8",
+      "minimum": 4.5,
+      "ratio": 12.500666,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "filled-action-text",
+      "foreground": "semantic.color.on-accent",
+      "background": "semantic.color.accent-pressed",
+      "foregroundHex": "#0B201A",
+      "backgroundHex": "#C7F3E7",
+      "minimum": 4.5,
+      "ratio": 14.082587,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "interactive-boundary",
+      "foreground": "semantic.color.border.strong",
+      "background": "semantic.color.surface.canvas",
+      "foregroundHex": "#637B89",
+      "backgroundHex": "#0B1014",
+      "minimum": 3,
+      "ratio": 4.301474,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "selected-boundary",
+      "foreground": "semantic.color.border.selected",
+      "background": "semantic.color.surface.canvas",
+      "foregroundHex": "#8DE0CA",
+      "backgroundHex": "#0B1014",
+      "minimum": 3,
+      "ratio": 12.424501,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "interactive-boundary",
+      "foreground": "semantic.color.border.strong",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#637B89",
+      "backgroundHex": "#121A21",
+      "minimum": 3,
+      "ratio": 3.952476,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "selected-boundary",
+      "foreground": "semantic.color.border.selected",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#8DE0CA",
+      "backgroundHex": "#121A21",
+      "minimum": 3,
+      "ratio": 11.416446,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "interactive-boundary",
+      "foreground": "semantic.color.border.strong",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#637B89",
+      "backgroundHex": "#1A252D",
+      "minimum": 3,
+      "ratio": 3.509206,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "selected-boundary",
+      "foreground": "semantic.color.border.selected",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#8DE0CA",
+      "backgroundHex": "#1A252D",
+      "minimum": 3,
+      "ratio": 10.136093,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "component-text",
+      "foreground": "component.secondary-button.foreground",
+      "background": "component.secondary-button.background",
+      "foregroundHex": "#EEF3F0",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 13.898795,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "component-text",
+      "foreground": "component.input.foreground",
+      "background": "component.input.background",
+      "foregroundHex": "#EEF3F0",
+      "backgroundHex": "#0B1014",
+      "minimum": 4.5,
+      "ratio": 17.036703,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "component-text",
+      "foreground": "component.badge.foreground",
+      "background": "component.badge.background",
+      "foregroundHex": "#ACBBC3",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 7.909949,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "component-text",
+      "foreground": "component.navigation.foreground",
+      "background": "component.navigation.background",
+      "foregroundHex": "#ACBBC3",
+      "backgroundHex": "#121A21",
+      "minimum": 4.5,
+      "ratio": 8.909105,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "component-text",
+      "foreground": "component.overlay.foreground",
+      "background": "component.overlay.background",
+      "foregroundHex": "#EEF3F0",
+      "backgroundHex": "#0B1014",
+      "minimum": 4.5,
+      "ratio": 17.036703,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "component-text",
+      "foreground": "component.tooltip.foreground",
+      "background": "component.tooltip.background",
+      "foregroundHex": "#EEF3F0",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 13.898795,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "component-placeholder",
+      "foreground": "component.input.placeholder",
+      "background": "component.input.background",
+      "foregroundHex": "#8C9FA9",
+      "backgroundHex": "#0B1014",
+      "minimum": 4.5,
+      "ratio": 6.961881,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark",
+      "purpose": "component-selected-text",
+      "foreground": "component.navigation.selected-foreground",
+      "background": "component.navigation.selected-background",
+      "foregroundHex": "#8DE0CA",
+      "backgroundHex": "#0B201A",
+      "minimum": 4.5,
+      "ratio": 11.044025,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "normal-text",
+      "foreground": "semantic.color.text.primary",
+      "background": "semantic.color.surface.canvas",
+      "foregroundHex": "#FFFFFF",
+      "backgroundHex": "#0B1014",
+      "minimum": 4.5,
+      "ratio": 19.117896,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "normal-text",
+      "foreground": "semantic.color.text.primary",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#FFFFFF",
+      "backgroundHex": "#121A21",
+      "minimum": 4.5,
+      "ratio": 17.566775,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "normal-text",
+      "foreground": "semantic.color.text.primary",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#FFFFFF",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 15.596663,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "normal-text",
+      "foreground": "semantic.color.text.primary",
+      "background": "semantic.color.surface.hover",
+      "foregroundHex": "#FFFFFF",
+      "backgroundHex": "#263640",
+      "minimum": 4.5,
+      "ratio": 12.469468,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "normal-text",
+      "foreground": "semantic.color.text.secondary",
+      "background": "semantic.color.surface.canvas",
+      "foregroundHex": "#EEF3F0",
+      "backgroundHex": "#0B1014",
+      "minimum": 4.5,
+      "ratio": 17.036703,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "normal-text",
+      "foreground": "semantic.color.text.secondary",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#EEF3F0",
+      "backgroundHex": "#121A21",
+      "minimum": 4.5,
+      "ratio": 15.654439,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "normal-text",
+      "foreground": "semantic.color.text.secondary",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#EEF3F0",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 13.898795,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "normal-text",
+      "foreground": "semantic.color.text.secondary",
+      "background": "semantic.color.surface.hover",
+      "foregroundHex": "#EEF3F0",
+      "backgroundHex": "#263640",
+      "minimum": 4.5,
+      "ratio": 11.112029,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "normal-text",
+      "foreground": "semantic.color.text.muted",
+      "background": "semantic.color.surface.canvas",
+      "foregroundHex": "#D1DDDE",
+      "backgroundHex": "#0B1014",
+      "minimum": 4.5,
+      "ratio": 13.75435,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "normal-text",
+      "foreground": "semantic.color.text.muted",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#D1DDDE",
+      "backgroundHex": "#121A21",
+      "minimum": 4.5,
+      "ratio": 12.638398,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "normal-text",
+      "foreground": "semantic.color.text.muted",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#D1DDDE",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 11.221003,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "normal-text",
+      "foreground": "semantic.color.text.muted",
+      "background": "semantic.color.surface.hover",
+      "foregroundHex": "#D1DDDE",
+      "backgroundHex": "#263640",
+      "minimum": 4.5,
+      "ratio": 8.971145,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.success",
+      "background": "semantic.color.surface.canvas",
+      "foregroundHex": "#86D7A5",
+      "backgroundHex": "#0B1014",
+      "minimum": 4.5,
+      "ratio": 11.176836,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.success",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#86D7A5",
+      "backgroundHex": "#121A21",
+      "minimum": 4.5,
+      "ratio": 10.270009,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.success",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#86D7A5",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 9.118228,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.success",
+      "background": "semantic.color.success-surface",
+      "foregroundHex": "#86D7A5",
+      "backgroundHex": "#102A1C",
+      "minimum": 4.5,
+      "ratio": 8.961528,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "status-body-text",
+      "foreground": "semantic.color.text.primary",
+      "background": "semantic.color.success-surface",
+      "foregroundHex": "#FFFFFF",
+      "backgroundHex": "#102A1C",
+      "minimum": 4.5,
+      "ratio": 15.328628,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "status-body-text",
+      "foreground": "semantic.color.text.secondary",
+      "background": "semantic.color.success-surface",
+      "foregroundHex": "#EEF3F0",
+      "backgroundHex": "#102A1C",
+      "minimum": 4.5,
+      "ratio": 13.659938,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.warning",
+      "background": "semantic.color.surface.canvas",
+      "foregroundHex": "#F3C578",
+      "backgroundHex": "#0B1014",
+      "minimum": 4.5,
+      "ratio": 11.897386,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.warning",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#F3C578",
+      "backgroundHex": "#121A21",
+      "minimum": 4.5,
+      "ratio": 10.932098,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.warning",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#F3C578",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 9.706064,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.warning",
+      "background": "semantic.color.warning-surface",
+      "foregroundHex": "#F3C578",
+      "backgroundHex": "#30240E",
+      "minimum": 4.5,
+      "ratio": 9.440161,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "status-body-text",
+      "foreground": "semantic.color.text.primary",
+      "background": "semantic.color.warning-surface",
+      "foregroundHex": "#FFFFFF",
+      "backgroundHex": "#30240E",
+      "minimum": 4.5,
+      "ratio": 15.169383,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "status-body-text",
+      "foreground": "semantic.color.text.secondary",
+      "background": "semantic.color.warning-surface",
+      "foregroundHex": "#EEF3F0",
+      "backgroundHex": "#30240E",
+      "minimum": 4.5,
+      "ratio": 13.518029,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.danger",
+      "background": "semantic.color.surface.canvas",
+      "foregroundHex": "#F58F8B",
+      "backgroundHex": "#0B1014",
+      "minimum": 4.5,
+      "ratio": 8.361162,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.danger",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#F58F8B",
+      "backgroundHex": "#121A21",
+      "minimum": 4.5,
+      "ratio": 7.682784,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.danger",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#F58F8B",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 6.82116,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.danger",
+      "background": "semantic.color.danger-surface",
+      "foregroundHex": "#F58F8B",
+      "backgroundHex": "#341B1B",
+      "minimum": 4.5,
+      "ratio": 6.965122,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "status-body-text",
+      "foreground": "semantic.color.text.primary",
+      "background": "semantic.color.danger-surface",
+      "foregroundHex": "#FFFFFF",
+      "backgroundHex": "#341B1B",
+      "minimum": 4.5,
+      "ratio": 15.925832,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "status-body-text",
+      "foreground": "semantic.color.text.secondary",
+      "background": "semantic.color.danger-surface",
+      "foregroundHex": "#EEF3F0",
+      "backgroundHex": "#341B1B",
+      "minimum": 4.5,
+      "ratio": 14.19213,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.info",
+      "background": "semantic.color.surface.canvas",
+      "foregroundHex": "#9DBFF5",
+      "backgroundHex": "#0B1014",
+      "minimum": 4.5,
+      "ratio": 10.200267,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.info",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#9DBFF5",
+      "backgroundHex": "#121A21",
+      "minimum": 4.5,
+      "ratio": 9.372673,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.info",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#9DBFF5",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 8.321529,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "status-text-with-label",
+      "foreground": "semantic.color.info",
+      "background": "semantic.color.info-surface",
+      "foregroundHex": "#9DBFF5",
+      "backgroundHex": "#152841",
+      "minimum": 4.5,
+      "ratio": 7.936665,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "status-body-text",
+      "foreground": "semantic.color.text.primary",
+      "background": "semantic.color.info-surface",
+      "foregroundHex": "#FFFFFF",
+      "backgroundHex": "#152841",
+      "minimum": 4.5,
+      "ratio": 14.87533,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "status-body-text",
+      "foreground": "semantic.color.text.secondary",
+      "background": "semantic.color.info-surface",
+      "foregroundHex": "#EEF3F0",
+      "backgroundHex": "#152841",
+      "minimum": 4.5,
+      "ratio": 13.255987,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "provenance-label",
+      "foreground": "semantic.color.state.unknown",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#D1DDDE",
+      "backgroundHex": "#121A21",
+      "minimum": 4.5,
+      "ratio": 12.638398,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "provenance-label",
+      "foreground": "semantic.color.state.unknown",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#D1DDDE",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 11.221003,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "provenance-label",
+      "foreground": "semantic.color.state.stale",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#F3C578",
+      "backgroundHex": "#121A21",
+      "minimum": 4.5,
+      "ratio": 10.932098,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "provenance-label",
+      "foreground": "semantic.color.state.stale",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#F3C578",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 9.706064,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "provenance-label",
+      "foreground": "semantic.color.state.estimated",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#9DBFF5",
+      "backgroundHex": "#121A21",
+      "minimum": 4.5,
+      "ratio": 9.372673,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "provenance-label",
+      "foreground": "semantic.color.state.estimated",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#9DBFF5",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 8.321529,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "provenance-label",
+      "foreground": "semantic.color.state.catalog",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#EEF3F0",
+      "backgroundHex": "#121A21",
+      "minimum": 4.5,
+      "ratio": 15.654439,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "provenance-label",
+      "foreground": "semantic.color.state.catalog",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#EEF3F0",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 13.898795,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "provenance-label",
+      "foreground": "semantic.color.state.unavailable",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#EEF3F0",
+      "backgroundHex": "#121A21",
+      "minimum": 4.5,
+      "ratio": 15.654439,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "provenance-label",
+      "foreground": "semantic.color.state.unavailable",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#EEF3F0",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 13.898795,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "accent-text",
+      "foreground": "semantic.color.accent",
+      "background": "semantic.color.surface.canvas",
+      "foregroundHex": "#8DE0CA",
+      "backgroundHex": "#0B1014",
+      "minimum": 4.5,
+      "ratio": 12.424501,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "focus-ring",
+      "foreground": "semantic.color.focus",
+      "background": "semantic.color.surface.canvas",
+      "foregroundHex": "#BDEFFF",
+      "backgroundHex": "#0B1014",
+      "minimum": 3,
+      "ratio": 15.434846,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "accent-text",
+      "foreground": "semantic.color.accent",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#8DE0CA",
+      "backgroundHex": "#121A21",
+      "minimum": 4.5,
+      "ratio": 11.416446,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "focus-ring",
+      "foreground": "semantic.color.focus",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#BDEFFF",
+      "backgroundHex": "#121A21",
+      "minimum": 3,
+      "ratio": 14.182548,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "accent-text",
+      "foreground": "semantic.color.accent",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#8DE0CA",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 10.136093,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "focus-ring",
+      "foreground": "semantic.color.focus",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#BDEFFF",
+      "backgroundHex": "#1A252D",
+      "minimum": 3,
+      "ratio": 12.591976,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "accent-text",
+      "foreground": "semantic.color.accent",
+      "background": "semantic.color.surface.hover",
+      "foregroundHex": "#8DE0CA",
+      "backgroundHex": "#263640",
+      "minimum": 4.5,
+      "ratio": 8.103764,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "focus-ring",
+      "foreground": "semantic.color.focus",
+      "background": "semantic.color.surface.hover",
+      "foregroundHex": "#BDEFFF",
+      "backgroundHex": "#263640",
+      "minimum": 3,
+      "ratio": 10.067233,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "accent-text",
+      "foreground": "semantic.color.accent",
+      "background": "semantic.color.surface.selected",
+      "foregroundHex": "#8DE0CA",
+      "backgroundHex": "#0B201A",
+      "minimum": 4.5,
+      "ratio": 11.044025,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "focus-ring",
+      "foreground": "semantic.color.focus",
+      "background": "semantic.color.surface.selected",
+      "foregroundHex": "#BDEFFF",
+      "backgroundHex": "#0B201A",
+      "minimum": 3,
+      "ratio": 13.719893,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "filled-action-text",
+      "foreground": "semantic.color.on-accent",
+      "background": "semantic.color.accent",
+      "foregroundHex": "#0B201A",
+      "backgroundHex": "#8DE0CA",
+      "minimum": 4.5,
+      "ratio": 11.044025,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "filled-action-text",
+      "foreground": "semantic.color.on-accent",
+      "background": "semantic.color.accent-hover",
+      "foregroundHex": "#0B201A",
+      "backgroundHex": "#A9EAD8",
+      "minimum": 4.5,
+      "ratio": 12.500666,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "filled-action-text",
+      "foreground": "semantic.color.on-accent",
+      "background": "semantic.color.accent-pressed",
+      "foregroundHex": "#0B201A",
+      "backgroundHex": "#C7F3E7",
+      "minimum": 4.5,
+      "ratio": 14.082587,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "interactive-boundary",
+      "foreground": "semantic.color.border.strong",
+      "background": "semantic.color.surface.canvas",
+      "foregroundHex": "#BDEFFF",
+      "backgroundHex": "#0B1014",
+      "minimum": 3,
+      "ratio": 15.434846,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "selected-boundary",
+      "foreground": "semantic.color.border.selected",
+      "background": "semantic.color.surface.canvas",
+      "foregroundHex": "#8DE0CA",
+      "backgroundHex": "#0B1014",
+      "minimum": 3,
+      "ratio": 12.424501,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "interactive-boundary",
+      "foreground": "semantic.color.border.strong",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#BDEFFF",
+      "backgroundHex": "#121A21",
+      "minimum": 3,
+      "ratio": 14.182548,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "selected-boundary",
+      "foreground": "semantic.color.border.selected",
+      "background": "semantic.color.surface.panel",
+      "foregroundHex": "#8DE0CA",
+      "backgroundHex": "#121A21",
+      "minimum": 3,
+      "ratio": 11.416446,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "interactive-boundary",
+      "foreground": "semantic.color.border.strong",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#BDEFFF",
+      "backgroundHex": "#1A252D",
+      "minimum": 3,
+      "ratio": 12.591976,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "selected-boundary",
+      "foreground": "semantic.color.border.selected",
+      "background": "semantic.color.surface.raised",
+      "foregroundHex": "#8DE0CA",
+      "backgroundHex": "#1A252D",
+      "minimum": 3,
+      "ratio": 10.136093,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "component-text",
+      "foreground": "component.secondary-button.foreground",
+      "background": "component.secondary-button.background",
+      "foregroundHex": "#FFFFFF",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 15.596663,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "component-text",
+      "foreground": "component.input.foreground",
+      "background": "component.input.background",
+      "foregroundHex": "#FFFFFF",
+      "backgroundHex": "#0B1014",
+      "minimum": 4.5,
+      "ratio": 19.117896,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "component-text",
+      "foreground": "component.badge.foreground",
+      "background": "component.badge.background",
+      "foregroundHex": "#EEF3F0",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 13.898795,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "component-text",
+      "foreground": "component.navigation.foreground",
+      "background": "component.navigation.background",
+      "foregroundHex": "#EEF3F0",
+      "backgroundHex": "#121A21",
+      "minimum": 4.5,
+      "ratio": 15.654439,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "component-text",
+      "foreground": "component.overlay.foreground",
+      "background": "component.overlay.background",
+      "foregroundHex": "#FFFFFF",
+      "backgroundHex": "#0B1014",
+      "minimum": 4.5,
+      "ratio": 19.117896,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "component-text",
+      "foreground": "component.tooltip.foreground",
+      "background": "component.tooltip.background",
+      "foregroundHex": "#FFFFFF",
+      "backgroundHex": "#1A252D",
+      "minimum": 4.5,
+      "ratio": 15.596663,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "component-placeholder",
+      "foreground": "component.input.placeholder",
+      "background": "component.input.background",
+      "foregroundHex": "#D1DDDE",
+      "backgroundHex": "#0B1014",
+      "minimum": 4.5,
+      "ratio": 13.75435,
+      "status": "PASS"
+    },
+    {
+      "theme": "dark-more-contrast",
+      "purpose": "component-selected-text",
+      "foreground": "component.navigation.selected-foreground",
+      "background": "component.navigation.selected-background",
+      "foregroundHex": "#8DE0CA",
+      "backgroundHex": "#0B201A",
+      "minimum": 4.5,
+      "ratio": 11.044025,
+      "status": "PASS"
+    }
+  ],
+  "contrastExclusions": [
+    {
+      "foreground": "semantic.color.border.default",
+      "background": "semantic.color.surface.panel",
+      "ratio": 1.788393,
+      "reason": "Decorative divider only; never the sole control/state boundary",
+      "acceptanceClaim": false
+    },
+    {
+      "foreground": "semantic.color.border.default",
+      "background": "semantic.color.surface.raised",
+      "ratio": 1.587825,
+      "reason": "Decorative divider only; never the sole control/state boundary",
+      "acceptanceClaim": false
+    }
+  ],
+  "designConstraints": {
+    "status": "PASS",
+    "authoredMinimumFontPx": 14,
+    "bodyFontPx": 16,
+    "bodyLineHeight": 1.6,
+    "focusWidthPx": 2,
+    "focusOffsetPx": 3,
+    "defaultTargetPx": 44,
+    "compactTargetPx": 36,
+    "reducedMotionMs": 0,
+    "nativeReadabilityAndTargetStatus": "NOT_RUN"
+  },
+  "authoredGeometry": {
+    "status": "PASS",
+    "coordinateSystem": {
+      "stage": "Authored CSS px",
+      "liveRegions": "Panel-local authored CSS px"
+    },
+    "stage": {
+      "width": 1420,
+      "height": 760
+    },
+    "navigation": {
+      "x": 20,
+      "y": 20,
+      "width": 88,
+      "height": 720
+    },
+    "panel": {
+      "x": 120,
+      "y": 20,
+      "width": 1280,
+      "height": 720
+    },
+    "liveRegions": {
+      "own": {
+        "x": 16,
+        "y": 168,
+        "width": 196,
+        "height": 430
+      },
+      "map": {
+        "x": 228,
+        "y": 168,
+        "width": 616,
+        "height": 430
+      },
+      "enemies": {
+        "x": 228,
+        "y": 84,
+        "width": 616,
+        "height": 72
+      },
+      "allies": {
+        "x": 228,
+        "y": 610,
+        "width": 616,
+        "height": 94
+      },
+      "right": {
+        "x": 860,
+        "y": 84,
+        "width": 404,
+        "height": 620
+      }
+    },
+    "slotCounts": {
+      "enemies": 5,
+      "allies": 4
+    },
+    "mapAreaPx2": 264880,
+    "rightAreaPx2": 250480,
+    "checks": [
+      "Inherited canvases preserved",
+      "Regions contained and non-overlapping",
+      "Map largest by authored area",
+      "Five enemy/four ally slots; allies exclude self"
+    ],
+    "nativeValidation": "NOT_RUN",
+    "runtimeMapInvariant": "NOT_RUN — static coordinates do not prove <=1 CSS px across interactions"
+  },
+  "notEstablished": [
+    "Windows native safe area and click-through",
+    "DPI/zoom-scaled Thai readability and interactive target sizes",
+    "Actual host font availability and shaping",
+    "Runtime map invariance during selection or entitlement transitions",
+    "Forced-colors rendering in WebView2 or assistive technology behavior",
+    "Contrast over transparent game imagery",
+    "Live data admission, freshness, audio timing or resource/FPS compliance"
+  ],
+  "references": [
+    "https://www.designtokens.org/tr/2025.10/format/",
+    "https://www.designtokens.org/tr/2025.10/color/",
+    "https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html",
+    "https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html",
+    "https://www.w3.org/WAI/WCAG22/Techniques/general/G18"
+  ]
+}

@@ -3,7 +3,7 @@ title: "Document Control and Baseline Governance"
 doc_id: "DOCUMENT-CONTROL"
 status: draft
 version: "0.3.1"
-updated: "2026-11-10"
+updated: "2026-11-11"
 owner_role: "Product owner and engineering lead; people not assigned"
 approval_status: "not_approved"
 ---
@@ -68,7 +68,7 @@ Before approving a baseline, review product scope, requirement completeness/test
 | --- | --- | --- |
 | PRD/SRS and traceability | Draft, internally checkable | Product/engineering review and controlled correction of gaps |
 | Interfaces and media trust | Draft contracts, partial schemas | DEC-INTERFACES and DEC-PACK-CRYPTO protocol freeze |
-| Original UX | Behavioral/layout specification | DEC-VISUALS annotated designs and measured Windows evidence |
+| Original UX | Behavioral specification plus design-system 1.0.0 candidate, tokens, original vectors and annotated Live-field board | DEC-VISUALS pixel review, full affected-route screens, rendered browser checks and measured Windows evidence |
 | Local models, game catalogs and risk evidence | Requirements present; artifacts not qualified | Named model/data/risk decisions and held-out evidence |
 | Voice buffers, completion and retention | Constraints specified; design choices open | DEC-VOICE-BUFFER, DEC-SESSION, DEC-RETENTION |
 | Optional services/commercial authority | Extension/deferred boundaries | Explicit contract, service ownership and authorization |
@@ -87,3 +87,7 @@ Where information is incomplete, resolve the named decision into a concrete neut
 ## Diagram control in version 0.3.1
 
 The diagram catalog owns view IDs, purposes, document/requirement mappings and guard notes; `.mmd` files own editable figures. SVG and atlas HTML are generated views and must match source hashes. Each diagram describes the same draft baseline, not a new approved requirement or permission. Keep source, image, notes and RTM consistent; review the governing text whenever an arrow, branch or transition changes. Render success is not semantic correctness or application evidence.
+
+## Design-system addendum — 2026-11-11
+
+[Design-system 1.0.0](../design/DESIGN-SYSTEM.md) is a separately versioned presentation elaboration against baseline 0.3.1. Token source files own literal values; generated CSS/resolved JSON and the offline board derive from those files. Authored geometry and synthetic DOM checks are recorded separately from actual browser rendering and native/live acceptance. Update both the human Decision Log and the existing DEC-VISUALS machine record when progress changes. Pixel/native closure is still open. No PRD/SRS behavior, scope, data boundary, evidence threshold or application PASS status changes through this addendum.

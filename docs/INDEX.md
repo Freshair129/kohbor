@@ -16,6 +16,11 @@ Start with PRD and SRS. Read the design, interface and verification documents fo
 | [DDD](design/DDD.md) | Data definitions, provenance, ownership, persistence and erasure | Engineering, privacy |
 | [ICD](design/ICD.md) | Interface boundaries, draft/frozen status and contract requirements | Integrating teams |
 | [UX Specification](design/UX-SPEC.md) | Screens, state, interactions, layout and accessibility | UX, engineering, QA |
+| [Design System](design/DESIGN-SYSTEM.md) | Nightglass visual language, type, color, geometry, states and navigation | Design, engineering |
+| [Component Catalog](design/COMPONENT-CATALOG.md) | 24 component contracts with tokens, actions, focus and source boundaries | Design, engineering |
+| [Design Board](design/DESIGN-BOARD.md) | Offline visual board, static poster, implemented fixture subset and limitations | Product, design, engineering |
+| [Design Handoff](design/IMPLEMENTATION-HANDOFF.md) | Integration sequence and token/behavior contracts for implementation | Implementing agents, engineering |
+| [Design Acceptance](design/DESIGN-ACCEPTANCE.md) | Static, synthetic DOM, browser and native verification boundaries | QA, design |
 | [Media Package Specification](design/MEDIA-PACK-SPEC.md) | Media formats, trust, installation and playback lifecycle | Media, engineering, QA |
 | [Security and Privacy](security/SECURITY-PRIVACY.md) | Admission, consent, data flow, authority and protection | Engineering, security/privacy |
 | [NFR and Measurement](quality/NFR.md) | Quality budgets, reference environments and measurement definitions | Engineering, QA |

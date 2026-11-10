@@ -3,7 +3,7 @@ title: "Decision Log and Open Items"
 doc_id: "DECISION-LOG"
 status: draft
 version: "0.3.1"
-updated: "2026-11-10"
+updated: "2026-11-11"
 authority: "DEC-BASELINE; see DOCUMENT-CONTROL"
 owner_role: "Product and engineering owners; people not assigned"
 approval_status: "not_approved"
@@ -39,7 +39,7 @@ The machine-readable source is contracts/decisions.json. Each record names an ow
 - DEC-NAME: the owner selected Kohbor / เกาะเบาะ; the remaining technical identity is delegated to the builder for M0. Complete the existing identity manifest and record the relevant interface/trust decisions before closure. The selected name alone does not close this record.
 - DEC-INTERFACES: freeze neutral schemas, full command payloads, framing, request limits, duplicate-key behavior and IPC authority. Example schemas alone are not a complete API.
 - DEC-MODELS: select vision artifacts before M3 and local STT/answer before M5, each only after the fixed resource/quality feasibility evidence. No model is certified by this package.
-- DEC-VISUALS: original annotated wireframes, design tokens, exact desktop fit/minimum window and native game safe areas are still to be produced. Inherited topology is supplied; there are no pixel-approved image assets in this bundle.
+- DEC-VISUALS: design-system candidate 1.0.0 now supplies an original palette/mark/companion study, Thai/Latin type,248 tokens, 24 component contracts and an annotated Live-field board. Selected authored geometry and Clips placement preserve inherited topology. Static and synthetic-DOM receipts do not close pixel approval, full route-screen review, actual browser viewport/font inspection, measured minimum window, Windows DPI/focus or native game safe areas. The decision remains open; there are no pixel-approved assets.
 - DEC-PACK-CRYPTO: choose new signature domain, canonicalization, archive identity and trusted key distribution; verify against known-answer fixtures before interoperability.
 - DEC-SESSION: freeze complete/partial session and aggregate eligibility semantics. Conservative default: partial sessions can appear in labeled history, but outcomes and complete-session summaries require explicit completion evidence.
 - DEC-RETENTION: set explicit local-log/clip quotas, retention and destructive-cleanup consent before shipping. No silent automatic deletion is authorized by this draft.
@@ -67,3 +67,11 @@ The machine-readable source is contracts/decisions.json. Each record names an ow
 | Existing signed formats include identity strings | New protocols/trust roots; legacy compatibility explicitly out of scope |
 
 This draft is useful for M0 planning and independent local-core implementation. It is not a claim that every interface or design choice required for a full rebuild has already been frozen. The remaining work is visible and bounded so the next agent can resolve it deliberately.
+
+## Delegated visual-design record — 2026-11-11
+
+The owner requested a design system, design board and design tokens. The builder selected the **Nightglass** candidate within the existing DEC-VISUALS delegation: graphite surfaces, mint actions, distinct evidence-state colors, Noto Thai/Latin typography, restrained original vectors, and semantic/component token layers. A sober solid surface was selected over pervasive animated transparency to preserve readability and keep effects optional. This choice does not claim measured performance.
+
+The inherited 1420×760 stage and 1280×720 panel remain. The authored central map is 616×430; the reserved right region 404×620. This keeps the map the largest individual live region without changing topology. The alternative 584px center / 436px right proposal was rejected because its right region had greater area. Clips use the existing Insights → History destination through a Clips filter; no main destination is added.
+
+See [Design System](../design/DESIGN-SYSTEM.md), [Board scope](../design/DESIGN-BOARD.md), [Handoff](../design/IMPLEMENTATION-HANDOFF.md) and [Acceptance](../design/DESIGN-ACCEPTANCE.md). These are version 1.0.0 design artifacts against specification 0.3.1. They do not record owner visual approval or amend the 85 requirement behaviors, data permissions, thresholds or NOT_RUN application evidence.
