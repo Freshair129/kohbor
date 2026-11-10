@@ -1,10 +1,12 @@
 {
-  "schema_version": "1.0.0",
-  "event_id": "synthetic-event-001",
+  "schema_version": "2.0.0",
+  "instance_id": "evt_0000000018",
+  "session_id": "k3Hq9ZpL2vXc8RtN5mWb1A",
   "session_epoch": 3,
   "source_generation": 2,
   "sequence": 18,
   "occurred_monotonic_ms": 45000,
+  "taxonomy_version": "1.0",
   "source": "vision",
   "scope": "local_only",
   "event_type": "enemy_missing",
@@ -14,6 +16,9 @@
     "risk_score": null,
     "duration_ms": 5001,
     "estimated_eta_ms": null,
+    "count": null,
+    "level": null,
+    "value_percent": null,
     "reason": "observed"
   }
 }

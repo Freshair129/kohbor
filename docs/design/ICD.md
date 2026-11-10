@@ -2,7 +2,7 @@
 title: "Interface Control Document (ICD)"
 doc_id: "ICD"
 status: draft
-version: "0.3.2"
+version: "0.3.3"
 updated: "2026-11-11"
 authority: "DEC-BASELINE; see DOCUMENT-CONTROL"
 owner_role: "Integration owner; people not assigned"
@@ -30,7 +30,9 @@ For each interface, freeze: producer/consumer and authority; direction/transport
 | Native → control UI | Native admitted own data | contracts/own-snapshot.schema.json 2.0.0 (per-field availability) plus semantic checks |
 | Native → control UI | Independent health | contracts/runtime-status.schema.json (response of runtime.get_status) |
 | Control UI → native | Settings | contracts/user-settings.schema.json and contracts/settings-patch.schema.json |
-| Native events → local consumers | Session/source-owned event | contracts/event.schema.json; topic-specific payload must be closed |
+| Native events → local consumers | Session/source-owned event | contracts/event.schema.json 2.0.0 (event_type = non-test IDs of contracts/event-catalog.json); topic-specific payload must be closed |
+| Native audio → history | Audio admission outcome | contracts/audio-outcome.schema.json |
+| Authoring tool → installer | Install request / result | contracts/media-install-request.schema.json and contracts/media-install-result.schema.json; transport per DEC-INTERFACES |
 | Native → optional cloud | Separate advice consent | contracts/cloud-context.schema.json; closed projection only |
 | Native ↔ optional peer relay | Separate peer consent | contracts/peer-sample.schema.json within reviewed membership protocol |
 | Package → installer | Untrusted bytes | contracts/media-manifest.schema.json plus strict integrity/media validation for all imports; privileged issuer claims additionally require trusted authenticity checks |

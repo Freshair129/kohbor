@@ -1,0 +1,24 @@
+{
+  "schema_version": "2.0.0",
+  "instance_id": "evt_0000000019",
+  "session_id": "k3Hq9ZpL2vXc8RtN5mWb1A",
+  "session_epoch": 3,
+  "source_generation": 2,
+  "sequence": 19,
+  "occurred_monotonic_ms": 45000,
+  "taxonomy_version": "1.0",
+  "source": "gsi",
+  "scope": "local_only",
+  "event_type": "first_blood",
+  "subject": "self",
+  "payload": {
+    "hero_id": "npc_dota_hero_axe",
+    "risk_score": null,
+    "duration_ms": null,
+    "estimated_eta_ms": null,
+    "count": 1,
+    "level": null,
+    "value_percent": null,
+    "reason": "observed"
+  }
+}

@@ -2,7 +2,7 @@
 title: "Software Design Description"
 doc_id: "SDD"
 status: "draft"
-version: "0.3.2"
+version: "0.3.3"
 updated: "2026-11-11"
 owner_role: "Software design lead; person not assigned"
 approval_status: "not_approved"
@@ -106,6 +106,8 @@ Each SRS requirement has one primary allocation below for traceability. Collabor
 | Own catalog consistency, ordinary arbitration, package verification/installation/activation and one paired audio/visual lifecycle. | Admitted native events, verified taxonomy, untrusted package bytes, selected revision and activation policy. | Install/activation result, immutable media lease, admitted playback and reason-coded silent/cancelled outcomes. | Invalid media preserves a healthy active revision. Late revision/session work is fenced; stop/mute/preemption cancels audio and visual tail. Integrity cannot grant publisher/store authority. |
 
 **Primary SRS allocation:** `MEDIA-001`, `MEDIA-002`, `MEDIA-003`, `MEDIA-004`, `MEDIA-005`, `MEDIA-006`, `MEDIA-007`, `MEDIA-008`.
+
+Catalog, arbitration, priority matrix, decode checks and install contracts are proposed in [EVENT-AUDIO-SPEC](EVENT-AUDIO-SPEC.md).
 
 **Collaborating components:** CMP-INGEST, CMP-ALERT, CMP-READMODEL, CMP-VOICE, CMP-RECORDER.
 

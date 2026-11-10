@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0.0",
+  "request_id": "inst_7f3a9c21",
+  "status": "installed",
+  "reason": null,
+  "record": {
+    "install_id": "ins_0000000001",
+    "package_id": "synthetic-test-pack",
+    "revision": 1,
+    "container_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "authority_class": "store",
+    "publisher_claim": "none"
+  }
+}

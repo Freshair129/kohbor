@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.1.0",
+  "schema_version": "1.2.0",
   "message_key_rule": "Each code has a localization key error.<code in lowercase>; localized th/en text comes from the UI string table, never from raw exceptions.",
   "codes": [
     {
@@ -225,6 +225,20 @@
       "safe_to_show": true,
       "raw_exception_allowed": false,
       "message_key": "error.gsi_secret_unavailable"
+    },
+    {
+      "code": "AUDIO_MUTED",
+      "recovery": "Global mute is on; safety audio is not ready until unmuted.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false,
+      "message_key": "error.audio_muted"
+    },
+    {
+      "code": "MEDIA_PROBE_FAILED",
+      "recovery": "Visual decode probe failed or timed out; the binding stays invalid_media.",
+      "safe_to_show": true,
+      "raw_exception_allowed": false,
+      "message_key": "error.media_probe_failed"
     }
   ]
 }

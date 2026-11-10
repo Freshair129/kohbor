@@ -2,16 +2,42 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/spec/event.schema.json",
   "title": "event.schema.json",
-  "description": "Proposed neutral contract; see interface maturity and semantic rules in docs/design/ICD.md.",
+  "description": "Proposed neutral contract 2.0.0: one detected local event (detection only; audio admission is audio-outcome.schema.json). event_type must equal the non-test IDs of contracts/event-catalog.json. instance_id identifies the occurrence; (session_epoch, sequence) is the persisted logical order. See docs/design/EVENT-AUDIO-SPEC.md.",
   "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "instance_id",
+    "session_id",
+    "session_epoch",
+    "source_generation",
+    "sequence",
+    "occurred_monotonic_ms",
+    "taxonomy_version",
+    "source",
+    "scope",
+    "event_type",
+    "subject",
+    "payload"
+  ],
   "properties": {
     "schema_version": {
-      "const": "1.0.0"
+      "const": "2.0.0"
     },
-    "event_id": {
+    "instance_id": {
       "type": "string",
-      "minLength": 1,
-      "maxLength": 96
+      "pattern": "^[A-Za-z0-9_-]{8,96}$"
+    },
+    "session_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{22}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "session_epoch": {
       "type": "integer",
@@ -33,6 +59,10 @@
       "minimum": 0,
       "maximum": 9007199254740991
     },
+    "taxonomy_version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
     "source": {
       "enum": [
         "gsi",
@@ -46,13 +76,18 @@
     },
     "event_type": {
       "enum": [
-        "match_started",
+        "multi_kill",
+        "streak",
+        "first_blood",
         "hero_kill",
         "hero_death",
-        "hero_respawn",
         "level_milestone",
         "health_low",
         "mana_low",
+        "match_ended",
+        "match_started",
+        "hero_respawn",
+        "health_danger",
         "enemy_missing",
         "risk_alert",
         "risk_revision",
@@ -128,6 +163,42 @@
             "cancelled",
             "manual"
           ]
+        },
+        "count": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "level": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "value_percent": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -135,23 +206,12 @@
         "risk_score",
         "duration_ms",
         "estimated_eta_ms",
+        "count",
+        "level",
+        "value_percent",
         "reason"
       ],
       "additionalProperties": false
     }
-  },
-  "required": [
-    "schema_version",
-    "event_id",
-    "session_epoch",
-    "source_generation",
-    "sequence",
-    "occurred_monotonic_ms",
-    "source",
-    "scope",
-    "event_type",
-    "subject",
-    "payload"
-  ],
-  "additionalProperties": false
+  }
 }

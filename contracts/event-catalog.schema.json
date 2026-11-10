@@ -1,0 +1,217 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/spec/event-catalog.schema.json",
+  "title": "event-catalog.schema.json",
+  "description": "Proposed neutral contract 1.0.0: canonical event catalog (MP-01). Semantic rules (unique IDs, unique non-zero ordinary ranks, tunable bounds, re-arm side) are checked by tools/validate_spec.py.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "taxonomy_version",
+    "status",
+    "decision",
+    "spec_ref",
+    "retired_ids",
+    "events"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "taxonomy_version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "status": {
+      "enum": [
+        "proposed",
+        "frozen"
+      ]
+    },
+    "decision": {
+      "type": "string"
+    },
+    "spec_ref": {
+      "type": "string"
+    },
+    "retired_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]{0,79}$"
+      },
+      "uniqueItems": true
+    },
+    "events": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "introduced_in",
+          "status",
+          "category",
+          "source",
+          "detector_ref",
+          "detector_milestone",
+          "ordinary_rank",
+          "voiced_default",
+          "media_mappable",
+          "critical_media_required",
+          "labels",
+          "tunables"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,79}$"
+          },
+          "introduced_in": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "proposed_unavailable",
+              "test_only",
+              "deprecated"
+            ]
+          },
+          "category": {
+            "enum": [
+              "ordinary",
+              "critical",
+              "correction",
+              "notice",
+              "system",
+              "recording",
+              "test"
+            ]
+          },
+          "source": {
+            "enum": [
+              "gsi",
+              "vision",
+              "native",
+              "manual"
+            ]
+          },
+          "detector_ref": {
+            "type": "string",
+            "pattern": "^native\\.[a-z0-9_.]{1,80}$"
+          },
+          "detector_milestone": {
+            "enum": [
+              "M1",
+              "M2",
+              "M3",
+              "M4a",
+              "M4b",
+              "M5",
+              "M6",
+              "M7",
+              "M8"
+            ]
+          },
+          "ordinary_rank": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "voiced_default": {
+            "type": "boolean"
+          },
+          "media_mappable": {
+            "type": "boolean"
+          },
+          "critical_media_required": {
+            "type": "boolean"
+          },
+          "labels": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "en",
+              "th"
+            ],
+            "properties": {
+              "en": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "th": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              }
+            }
+          },
+          "tunables": {
+            "type": "object",
+            "maxProperties": 8,
+            "propertyNames": {
+              "pattern": "^[a-z][a-z0-9_]{0,39}$"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "default",
+                "min",
+                "max",
+                "unit"
+              ],
+              "properties": {
+                "default": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "integer"
+                      },
+                      "minItems": 1,
+                      "maxItems": 16
+                    }
+                  ]
+                },
+                "min": {
+                  "type": "number"
+                },
+                "max": {
+                  "type": "number"
+                },
+                "unit": {
+                  "enum": [
+                    "ms",
+                    "count",
+                    "percent",
+                    "level"
+                  ]
+                }
+              }
+            }
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 400
+          }
+        }
+      }
+    }
+  }
+}

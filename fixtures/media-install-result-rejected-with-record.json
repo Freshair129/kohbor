@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0.0",
+  "request_id": "inst_7f3a9c21",
+  "status": "rejected",
+  "reason": "MEDIA_INVALID",
+  "record": {
+    "install_id": "ins_0000000001",
+    "package_id": "synthetic-test-pack",
+    "revision": 1,
+    "container_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "authority_class": "local_import",
+    "publisher_claim": "none"
+  }
+}

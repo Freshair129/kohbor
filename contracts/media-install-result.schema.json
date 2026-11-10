@@ -1,0 +1,242 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/spec/media-install-result.schema.json",
+  "title": "media-install-result.schema.json",
+  "description": "Proposed neutral contract 1.0.0: install/activation result with the installer-bound registry record. Until DEC-PACK-CRYPTO closes, authority_class is local_import only and any publisher claim is unverified.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "request_id",
+    "status",
+    "reason",
+    "record"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "request_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{8,64}$"
+    },
+    "status": {
+      "enum": [
+        "installed",
+        "active",
+        "deferred",
+        "activation_error",
+        "rejected"
+      ]
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "enum": [
+            "SOURCE_UNAVAILABLE",
+            "SOURCE_STALE",
+            "SOURCE_INVALID",
+            "UNSUPPORTED_PROFILE",
+            "OWNER_UNVERIFIED",
+            "CONSENT_REQUIRED",
+            "CANCELLED",
+            "CPU_CONTAINMENT_FAILED",
+            "METRIC_UNAVAILABLE",
+            "MIC_DISABLED",
+            "MIC_OPEN_TIMEOUT",
+            "LOCAL_MODEL_UNAVAILABLE",
+            "MEDIA_INVALID",
+            "MEDIA_UNMAPPED",
+            "ACTIVATION_DEFERRED",
+            "PEER_UNAUTHORIZED",
+            "PEER_STALE",
+            "OBS_UNAVAILABLE",
+            "CLIP_PARTIAL",
+            "DISK_PRESSURE",
+            "SIGNATURE_INVALID",
+            "CAPABILITY_UNAVAILABLE",
+            "VERSION_UNSUPPORTED",
+            "GSI_GAME_NOT_FOUND",
+            "GSI_CONFIG_CONFLICT",
+            "GSI_CONFIG_WRITE_FAILED",
+            "GSI_PORT_UNAVAILABLE",
+            "GSI_PORT_EXHAUSTED",
+            "GSI_AUTH_REJECTED",
+            "GSI_BODY_REJECTED",
+            "GSI_UNSUPPORTED_SCOPE",
+            "GSI_SECRET_UNAVAILABLE",
+            "AUDIO_MUTED",
+            "MEDIA_PROBE_FAILED"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "record": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "install_id",
+            "package_id",
+            "revision",
+            "container_sha256",
+            "authority_class",
+            "publisher_claim"
+          ],
+          "properties": {
+            "install_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{8,64}$"
+            },
+            "package_id": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_.-]{0,79}$"
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "container_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "authority_class": {
+              "const": "local_import"
+            },
+            "publisher_claim": {
+              "enum": [
+                "none",
+                "unverified"
+              ]
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "rejected"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "record": {
+            "type": "null"
+          },
+          "reason": {
+            "enum": [
+              "SOURCE_UNAVAILABLE",
+              "SOURCE_STALE",
+              "SOURCE_INVALID",
+              "UNSUPPORTED_PROFILE",
+              "OWNER_UNVERIFIED",
+              "CONSENT_REQUIRED",
+              "CANCELLED",
+              "CPU_CONTAINMENT_FAILED",
+              "METRIC_UNAVAILABLE",
+              "MIC_DISABLED",
+              "MIC_OPEN_TIMEOUT",
+              "LOCAL_MODEL_UNAVAILABLE",
+              "MEDIA_INVALID",
+              "MEDIA_UNMAPPED",
+              "ACTIVATION_DEFERRED",
+              "PEER_UNAUTHORIZED",
+              "PEER_STALE",
+              "OBS_UNAVAILABLE",
+              "CLIP_PARTIAL",
+              "DISK_PRESSURE",
+              "SIGNATURE_INVALID",
+              "CAPABILITY_UNAVAILABLE",
+              "VERSION_UNSUPPORTED",
+              "GSI_GAME_NOT_FOUND",
+              "GSI_CONFIG_CONFLICT",
+              "GSI_CONFIG_WRITE_FAILED",
+              "GSI_PORT_UNAVAILABLE",
+              "GSI_PORT_EXHAUSTED",
+              "GSI_AUTH_REJECTED",
+              "GSI_BODY_REJECTED",
+              "GSI_UNSUPPORTED_SCOPE",
+              "GSI_SECRET_UNAVAILABLE",
+              "AUDIO_MUTED",
+              "MEDIA_PROBE_FAILED"
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "record": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "deferred",
+              "activation_error"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "reason": {
+            "enum": [
+              "SOURCE_UNAVAILABLE",
+              "SOURCE_STALE",
+              "SOURCE_INVALID",
+              "UNSUPPORTED_PROFILE",
+              "OWNER_UNVERIFIED",
+              "CONSENT_REQUIRED",
+              "CANCELLED",
+              "CPU_CONTAINMENT_FAILED",
+              "METRIC_UNAVAILABLE",
+              "MIC_DISABLED",
+              "MIC_OPEN_TIMEOUT",
+              "LOCAL_MODEL_UNAVAILABLE",
+              "MEDIA_INVALID",
+              "MEDIA_UNMAPPED",
+              "ACTIVATION_DEFERRED",
+              "PEER_UNAUTHORIZED",
+              "PEER_STALE",
+              "OBS_UNAVAILABLE",
+              "CLIP_PARTIAL",
+              "DISK_PRESSURE",
+              "SIGNATURE_INVALID",
+              "CAPABILITY_UNAVAILABLE",
+              "VERSION_UNSUPPORTED",
+              "GSI_GAME_NOT_FOUND",
+              "GSI_CONFIG_CONFLICT",
+              "GSI_CONFIG_WRITE_FAILED",
+              "GSI_PORT_UNAVAILABLE",
+              "GSI_PORT_EXHAUSTED",
+              "GSI_AUTH_REJECTED",
+              "GSI_BODY_REJECTED",
+              "GSI_UNSUPPORTED_SCOPE",
+              "GSI_SECRET_UNAVAILABLE",
+              "AUDIO_MUTED",
+              "MEDIA_PROBE_FAILED"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "receipt_id": "TO_BE_ASSIGNED",
-  "spec_version": "0.3.2",
+  "spec_version": "0.3.3",
   "requirement_ids": [
     "QUALITY-001"
   ],

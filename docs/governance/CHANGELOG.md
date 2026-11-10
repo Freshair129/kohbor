@@ -1,5 +1,34 @@
 # Documentation Changelog
 
+## 0.3.3 — 2026-11-11
+
+Closed the documentation gaps blocking M2 (events, audio and media). Every addition is a **proposal** under DEC-EVENT-AUDIO. The single new product behavior, health danger, waits for an owner decision under DEC-HEALTH-DANGER. Nothing has been approved or executed.
+
+- Added [EVENT-AUDIO-SPEC](../design/EVENT-AUDIO-SPEC.md):
+  - **Canonical event catalog:** 17 production event IDs plus a test-only `latency_probe`, with ranks, tunables, detectors, milestones and th/en labels. Baselines and resumes never replay achievements.
+  - **Health-danger proposal:** gated as unavailable until the owner decides.
+  - **Audio priority:** five classes (critical, correction, notice, ordinary, voice) with an incoming-versus-active preemption matrix.
+  - **Prewarm and critical readiness rules.**
+  - **Mute semantics:** owner acknowledgement still needed.
+  - **14 audio outcome codes.**
+  - **Media profiles:** WAV (mono 48 kHz PCM16) and WebM (VP9/VP8, one video track, no audio track), plus a renderer decode probe.
+  - **Packaging:** the descriptor/registry layout, installer-bound authority (only `local_import` until DEC-PACK-CRYPTO closes) and install contracts.
+- Contracts:
+  - **New:** `event-catalog.json` with its schema, and `audio-outcome`, `media-install-request` and `media-install-result` (all 1.0.0).
+  - **`event.schema` 2.0.0:** renamed `instance_id`, added `session_id` and `taxonomy_version`, bound `event_type` to the catalog, and added `count`/`level`/`value_percent` to the payload.
+  - **`media-manifest` 1.1.0:** added an optional `identity_audio_path`.
+  - **Error catalog 1.2.0:** added `AUDIO_MUTED` and `MEDIA_PROBE_FAILED`.
+- Fixtures: 17 new cases (57 total). The validator now:
+  - checks catalog semantics: unique IDs and ranks, tunable bounds, re-arm side;
+  - checks that the `event.schema` enum equals the catalog;
+  - checks binding file roles.
+- Registry: MEDIA-001..008, ALERT-001/006/007, VOICE-006 and QUALITY-001/007 now link the new spec and contracts. MEDIA-001/002/004/005, VOICE-006 and QUALITY-007 depend on DEC-EVENT-AUDIO. ALERT-007 depends on DEC-HEALTH-DANGER.
+- The DGM-010 guard note now states that the installer, not the package, binds authority. The figure itself is unchanged.
+
+Not changed:
+- Requirement statements, failure behavior, acceptance predicates, scopes, priorities and NOT_RUN evidence.
+- The 19 diagram sources and SVGs.
+
 ## 0.3.2 — 2026-11-11
 
 Closed the documentation gaps that blocked starting M1. A readiness review found that game-state intake, ownership, session start, mode visibility, the per-field read model, runtime status/settings contracts and requirement-to-milestone mapping were missing or contradictory. Every addition is a **proposal** under the new DEC-GSI-INTAKE record. Nothing has been approved or executed.

@@ -1,9 +1,9 @@
 ---
 title: "Media Package Specification"
 doc_id: "MEDIA-PACK-SPEC"
-version: "0.3.2"
+version: "0.3.3"
 status: "draft"
-updated: "2026-11-10"
+updated: "2026-11-11"
 owner: "Product owner"
 approval_status: "not_approved"
 ---
@@ -26,7 +26,7 @@ Detection answers whether an event occurred. Catalog availability answers whethe
 | Gank risk, health danger, warning retraction | Native safety detectors | Independent critical admission path |
 | Dynamic advice | Separate advice capability | Does not become an event-pack fallback |
 
-The builder MAY choose neutral machine identifiers, but MUST freeze them in the catalog before fixtures or package schemas depend on them. IDs MUST never be reused for a different meaning. Adding an ID increments the minor taxonomy version; changing a meaning or removing a supported identity requires a major version and migration decision. Retired IDs remain recorded.
+The builder MAY choose neutral machine identifiers, but MUST freeze them in the catalog before fixtures or package schemas depend on them. The proposed catalog is [event-catalog.json](../../contracts/event-catalog.json), elaborated in [EVENT-AUDIO-SPEC](EVENT-AUDIO-SPEC.md) under DEC-EVENT-AUDIO. IDs MUST never be reused for a different meaning. Adding an ID increments the minor taxonomy version; changing a meaning or removing a supported identity requires a major version and migration decision. Retired IDs remain recorded.
 
 ## MP-02 — Detection and audio arbitration
 
@@ -34,7 +34,7 @@ The ordinary announcer chooses at most one highest-ranked event from a tick. Mul
 
 Critical safety cues use a separate priority policy and MUST preempt lower-priority playback where required. A missing-enemy cue is emitted at most once per hero per missing episode after more than five seconds of valid coverage; its global voice cooldown is at least ten seconds. It is dropped, not queued, while critical audio is active. Respawn remains a valid state transition but is unvoiced in the initial mapping policy.
 
-Preemption MUST cancel both the old audio and its paired visual lifecycle. Outcomes MUST record a local reason, such as admitted, unmapped, invalid-media, stale-session, superseded-revision, critical-active, cooldown, or muted. Event history MUST distinguish detection from actual audio admission.
+Preemption MUST cancel both the old audio and its paired visual lifecycle. Outcomes MUST record a local reason, such as admitted, unmapped, invalid-media, stale-session, superseded-revision, critical-active, cooldown, or muted. Event history MUST distinguish detection from actual audio admission. The proposed class/preemption matrix, mute semantics and outcome codes are in [EVENT-AUDIO-SPEC §4–§5](EVENT-AUDIO-SPEC.md).
 
 ## MP-03 — Package contents and integrity
 
@@ -55,7 +55,7 @@ Admission MUST reject traversal/unsafe paths, duplicate ZIP records or JSON keys
 
 ## MP-04 — Audio and video contract
 
-Event playback MUST use verified mixed PCM WAV and paired silent WebM with a supported video track and no audio track. The authoring output profile uses mono 48 kHz PCM16 audio. The native player MUST successfully decode media before advertising readiness; a plausible file extension or container header is insufficient.
+Event playback MUST use verified mixed PCM WAV and paired silent WebM with a supported video track and no audio track. The authoring output profile uses mono 48 kHz PCM16 audio. The native player MUST successfully decode media before advertising readiness; a plausible file extension or container header is insufficient. [EVENT-AUDIO-SPEC §6](EVENT-AUDIO-SPEC.md) proposes the exact WAV profile, the VP9/VP8 WebM track rules and a renderer decode probe for the video that the renderer plays.
 
 Audio duration is at most 15,000 ms. Original and mixed audio durations MUST match. The optional visual tail is an integer from zero to 3,200 ms, default zero. Video may continue only for that declared tail after natural audio completion. Stop, mute, preemption, or session invalidation cancels it immediately.
 
@@ -80,6 +80,8 @@ The desktop companion owns its profile registry, installed revisions, and active
 A logical install request contains request ID, profile ID, package source path, expected container digest, optional project binding, and activation policy: `never`, `now_if_idle`, or `after_match`. The installer copies and validates actual bytes inside its own staging area before an atomic registry commit. Retrying the same request/identity MUST be idempotent.
 
 The Windows transport MUST be local, current-user/profile-bound, reject remote clients, verify the registered server identity, and perform protocol/profile/nonce handshake. Frames are bounded to 16 KiB. Exact pipe names and framing belong to the protocol ADR. This boundary separates operating-system users and profiles; it does not attest every process within the same user account.
+
+The proposed request and result contracts are [media-install-request.schema.json](../../contracts/media-install-request.schema.json) and [media-install-result.schema.json](../../contracts/media-install-result.schema.json); the descriptor carries no authority field (EVENT-AUDIO-SPEC §7).
 
 Installation and activation are separate transactions. Results distinguish `installed`, `active`, `deferred`, and `activation_error`; copying bytes MUST NOT be reported as successful activation.
 

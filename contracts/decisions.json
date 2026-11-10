@@ -42,6 +42,37 @@
       ]
     },
     {
+      "id": "DEC-EVENT-AUDIO",
+      "status": "proposed",
+      "milestone": "M2",
+      "blocks": "M2 exit: event catalog freeze, ordinary arbitration, audio priority/preemption, outcome history, media decode checks and install contracts",
+      "owner_role": "integration owner (builder-delegated); product owner acknowledges mute semantics",
+      "safe_interim": "Implement against docs/design/EVENT-AUDIO-SPEC.md and contracts/event-catalog.json. Events whose detector assumption (E-1, E-2) is unconfirmed stay unavailable; latency_probe evidence is engineering-only.",
+      "closure_evidence": "Capture corpus confirming E-1/E-2 (or affected events left unavailable), reviewed catalog/contracts/fixtures, priority-matrix and preemption fixtures, and product-owner acknowledgement that global mute also silences critical audio and reports safety audio not ready.",
+      "proposed_on": "2026-11-11",
+      "proposal_ref": "docs/design/EVENT-AUDIO-SPEC.md",
+      "related": [
+        "DEC-INTERFACES",
+        "DEC-CRITICAL-MEDIA",
+        "DEC-PACK-CRYPTO"
+      ]
+    },
+    {
+      "id": "DEC-HEALTH-DANGER",
+      "status": "open",
+      "milestone": "M2",
+      "blocks": "GSI-driven critical health-danger cue and any QUALITY-001 acceptance before M3 risk alerts exist",
+      "owner_role": "product owner",
+      "safe_interim": "Catalog entry health_danger stays proposed_unavailable: no detector in production builds and no effect on critical readiness. M2 latency engineering uses the test-only latency_probe.",
+      "closure_evidence": "Recorded owner decision approving, modifying or rejecting EVENT-AUDIO-SPEC section 3; if approved, positive/negative golden traces (burst, slow drain, stale sample, death) and authorized critical media.",
+      "proposed_on": "2026-11-11",
+      "proposal_ref": "docs/design/EVENT-AUDIO-SPEC.md",
+      "related": [
+        "DEC-CRITICAL-MEDIA",
+        "DEC-EVENT-AUDIO"
+      ]
+    },
+    {
       "id": "DEC-MODELS",
       "status": "open",
       "milestone": "M0-M5",

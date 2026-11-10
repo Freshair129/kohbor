@@ -2,11 +2,11 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/spec/media-manifest.schema.json",
   "title": "media-manifest.schema.json",
-  "description": "Proposed neutral contract; see interface maturity and semantic rules in docs/design/ICD.md.",
+  "description": "Proposed neutral contract 1.1.0: package descriptor (first ZIP entry descriptor.json). files is the payload inventory; bindings is the event registry (bindings[].event_id names a catalog ID). No authority field: the installer binds authority. See docs/design/MEDIA-PACK-SPEC.md and docs/design/EVENT-AUDIO-SPEC.md section 7.",
   "type": "object",
   "properties": {
     "schema_version": {
-      "const": "1.0.0"
+      "const": "1.1.0"
     },
     "package_id": {
       "type": "string",
@@ -111,6 +111,12 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 3200
+          },
+          "identity_audio_path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240,
+            "pattern": "^[A-Za-z0-9_][A-Za-z0-9_./-]*$"
           }
         },
         "required": [

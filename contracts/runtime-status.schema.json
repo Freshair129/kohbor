@@ -118,7 +118,9 @@
                 "GSI_AUTH_REJECTED",
                 "GSI_BODY_REJECTED",
                 "GSI_UNSUPPORTED_SCOPE",
-                "GSI_SECRET_UNAVAILABLE"
+                "GSI_SECRET_UNAVAILABLE",
+                "AUDIO_MUTED",
+                "MEDIA_PROBE_FAILED"
               ]
             },
             {
@@ -231,7 +233,9 @@
                   "GSI_AUTH_REJECTED",
                   "GSI_BODY_REJECTED",
                   "GSI_UNSUPPORTED_SCOPE",
-                  "GSI_SECRET_UNAVAILABLE"
+                  "GSI_SECRET_UNAVAILABLE",
+                  "AUDIO_MUTED",
+                  "MEDIA_PROBE_FAILED"
                 ]
               }
             }
@@ -290,7 +294,9 @@
                 "GSI_AUTH_REJECTED",
                 "GSI_BODY_REJECTED",
                 "GSI_UNSUPPORTED_SCOPE",
-                "GSI_SECRET_UNAVAILABLE"
+                "GSI_SECRET_UNAVAILABLE",
+                "AUDIO_MUTED",
+                "MEDIA_PROBE_FAILED"
               ]
             },
             {
@@ -617,7 +623,9 @@
                 "GSI_AUTH_REJECTED",
                 "GSI_BODY_REJECTED",
                 "GSI_UNSUPPORTED_SCOPE",
-                "GSI_SECRET_UNAVAILABLE"
+                "GSI_SECRET_UNAVAILABLE",
+                "AUDIO_MUTED",
+                "MEDIA_PROBE_FAILED"
               ]
             },
             {
@@ -677,7 +685,9 @@
                 "GSI_AUTH_REJECTED",
                 "GSI_BODY_REJECTED",
                 "GSI_UNSUPPORTED_SCOPE",
-                "GSI_SECRET_UNAVAILABLE"
+                "GSI_SECRET_UNAVAILABLE",
+                "AUDIO_MUTED",
+                "MEDIA_PROBE_FAILED"
               ]
             },
             {

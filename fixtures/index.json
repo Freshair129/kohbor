@@ -301,6 +301,135 @@
       "fixture": "fixtures/settings-patch-gsi-port-rejected.json",
       "schema_valid": false,
       "requirement_id": "CORE-004"
+    },
+    {
+      "id": "event-catalog-canonical",
+      "schema": "contracts/event-catalog.schema.json",
+      "fixture": "contracts/event-catalog.json",
+      "schema_valid": true,
+      "requirement_id": "MEDIA-001",
+      "semantic": "event_catalog",
+      "semantic_valid": true
+    },
+    {
+      "id": "event-catalog-duplicate-rank",
+      "schema": "contracts/event-catalog.schema.json",
+      "fixture": "fixtures/event-catalog-duplicate-rank.json",
+      "schema_valid": true,
+      "requirement_id": "MEDIA-001",
+      "semantic": "event_catalog",
+      "semantic_valid": false
+    },
+    {
+      "id": "event-catalog-bad-rearm",
+      "schema": "contracts/event-catalog.schema.json",
+      "fixture": "fixtures/event-catalog-bad-rearm.json",
+      "schema_valid": true,
+      "requirement_id": "MEDIA-001",
+      "semantic": "event_catalog",
+      "semantic_valid": false
+    },
+    {
+      "id": "event-first-blood-valid",
+      "schema": "contracts/event.schema.json",
+      "fixture": "fixtures/event-first-blood-valid.json",
+      "schema_valid": true,
+      "requirement_id": "MEDIA-002"
+    },
+    {
+      "id": "event-test-probe-rejected",
+      "schema": "contracts/event.schema.json",
+      "fixture": "fixtures/event-test-probe-rejected.json",
+      "schema_valid": false,
+      "requirement_id": "MEDIA-001"
+    },
+    {
+      "id": "event-v1-event-id-rejected",
+      "schema": "contracts/event.schema.json",
+      "fixture": "fixtures/event-v1-event-id-rejected.json",
+      "schema_valid": false,
+      "requirement_id": "MEDIA-001"
+    },
+    {
+      "id": "audio-outcome-admitted-valid",
+      "schema": "contracts/audio-outcome.schema.json",
+      "fixture": "fixtures/audio-outcome-admitted-valid.json",
+      "schema_valid": true,
+      "requirement_id": "MEDIA-005"
+    },
+    {
+      "id": "audio-outcome-critical-active-dropped",
+      "schema": "contracts/audio-outcome.schema.json",
+      "fixture": "fixtures/audio-outcome-critical-active-dropped.json",
+      "schema_valid": true,
+      "requirement_id": "ALERT-006"
+    },
+    {
+      "id": "audio-outcome-unmapped-with-playback",
+      "schema": "contracts/audio-outcome.schema.json",
+      "fixture": "fixtures/audio-outcome-unmapped-with-playback.json",
+      "schema_valid": false,
+      "requirement_id": "MEDIA-002"
+    },
+    {
+      "id": "audio-outcome-voice-with-event",
+      "schema": "contracts/audio-outcome.schema.json",
+      "fixture": "fixtures/audio-outcome-voice-with-event.json",
+      "schema_valid": false,
+      "requirement_id": "VOICE-006"
+    },
+    {
+      "id": "media-identity-audio-binding",
+      "schema": "contracts/media-manifest.schema.json",
+      "fixture": "fixtures/media-identity-audio-binding.json",
+      "schema_valid": true,
+      "requirement_id": "MEDIA-004",
+      "semantic": "manifest_paths",
+      "semantic_valid": true
+    },
+    {
+      "id": "media-binding-role-mismatch",
+      "schema": "contracts/media-manifest.schema.json",
+      "fixture": "fixtures/media-binding-role-mismatch.json",
+      "schema_valid": true,
+      "requirement_id": "MEDIA-004",
+      "semantic": "manifest_paths",
+      "semantic_valid": false
+    },
+    {
+      "id": "media-install-request-valid",
+      "schema": "contracts/media-install-request.schema.json",
+      "fixture": "fixtures/media-install-request-valid.json",
+      "schema_valid": true,
+      "requirement_id": "MEDIA-007"
+    },
+    {
+      "id": "media-install-request-bad-policy",
+      "schema": "contracts/media-install-request.schema.json",
+      "fixture": "fixtures/media-install-request-bad-policy.json",
+      "schema_valid": false,
+      "requirement_id": "MEDIA-007"
+    },
+    {
+      "id": "media-install-result-deferred-valid",
+      "schema": "contracts/media-install-result.schema.json",
+      "fixture": "fixtures/media-install-result-deferred-valid.json",
+      "schema_valid": true,
+      "requirement_id": "MEDIA-007"
+    },
+    {
+      "id": "media-install-result-store-authority",
+      "schema": "contracts/media-install-result.schema.json",
+      "fixture": "fixtures/media-install-result-store-authority.json",
+      "schema_valid": false,
+      "requirement_id": "MEDIA-008"
+    },
+    {
+      "id": "media-install-result-rejected-with-record",
+      "schema": "contracts/media-install-result.schema.json",
+      "fixture": "fixtures/media-install-result-rejected-with-record.json",
+      "schema_valid": false,
+      "requirement_id": "MEDIA-006"
     }
   ],
   "notes": [
