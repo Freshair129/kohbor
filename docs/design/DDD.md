@@ -2,8 +2,8 @@
 title: "Data Design Description (DDD)"
 doc_id: "DDD"
 status: draft
-version: "0.3.1"
-updated: "2026-11-10"
+version: "0.3.2"
+updated: "2026-11-11"
 authority: "DEC-BASELINE; see DOCUMENT-CONTROL"
 owner_role: "Data engineering owner; people not assigned"
 approval_status: "not_approved"
@@ -46,7 +46,7 @@ These relationships are local. There is no relationship permitting peer samples 
 
 ## Availability and units
 
-Every externally displayed observation has explicit availability: fresh, stale, unknown, invalid, unsupported or estimated. Unknown numeric values use null in normalized contracts and an em dash or explanatory label in UI. A real zero remains zero. A known-empty inventory slot is not an unknown slot.
+Every externally displayed observation has explicit availability: fresh, stale, unknown, invalid, unsupported or estimated. `estimated` is permitted only where a contract names the estimation method; own game-state fields have none, so they use the other five values. Unknown numeric values use null in normalized contracts and an em dash or explanatory label in UI. A real zero remains zero. A known-empty inventory slot is not an unknown slot.
 
 Use integer milliseconds for local elapsed durations, integer seconds only where explicitly named respawn_seconds, percent in [0,100] for percentages, normalized coordinates in [0,1] for admitted map positions, integer game counters, decimal bytes for the 900,000,000-byte resource limit and full Working Set for memory accounting. Do not mix monotonic time with wall time or compare remote monotonic timestamps.
 
@@ -55,6 +55,8 @@ UTC timestamps are for evidence records and human correlation. Match progress/ga
 ## Session identity
 
 Keep raw game match ID and local platform identity in native local admission state. A positive string ID is not proof of ownership. A selected unit is not proof of the local hero. An opaque app session ID is not a replacement for these validation checks.
+
+The [Game-State Intake Specification](GSI-INTAKE-SPEC.md) defines the M1 ownership check (token authenticity plus platform-identity cross-check), session-start evidence (match-key change) and restart continuity. Raw match and platform identifiers are never persisted; persisted session continuity uses keyed hashes and a strictly increasing `session_epoch`.
 
 Invalidate admitted values on owner/team/session/source-generation changes. Stable UI entity key = session epoch + team/player slot; an identity revision prevents slot reuse from reusing a previous inspector response.
 

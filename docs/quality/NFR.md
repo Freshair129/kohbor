@@ -2,8 +2,8 @@
 title: "Nonfunctional Requirements and Measurement Specification"
 doc_id: "NFR"
 status: "draft"
-version: "0.3.1"
-updated: "2026-11-10"
+version: "0.3.2"
+updated: "2026-11-11"
 owner: "Product Owner"
 approval_status: "not_approved"
 ---
@@ -50,7 +50,7 @@ Use decimal 900 MB for the RAM ceiling. Do not substitute 900 MiB, private bytes
 
 External OBS is not included in the application's CPU/RAM ceiling and is not presumed contained by its process job. During recording, report application, OBS and combined CPU/RAM as distinct measurements. This draft defines no combined ceiling; a recorded budget decision is required before an overall recording-profile performance pass can be claimed. An application-only pass must retain that scope. FPS impact and critical-alert latency keep their existing limits with recording active; recording cannot be omitted from those runs when that capability is being accepted.
 
-The CPU hard cap and acceptance ceiling are **10%**. Configure process containment and cap before starting the UI or helpers. If job creation, configuration or assignment fails, log a sanitized error and exit with code 1 before those processes start. An accounting-query failure after successful setup shows unavailable CPU, retains the established OS cap and keeps capture throttled.
+The CPU hard cap and acceptance ceiling are **10%**. Configure process containment and cap before starting the UI or helpers. If job creation, configuration or assignment fails, log a sanitized error and exit with code 1 before those processes start. An accounting-query failure after successful setup shows unavailable CPU, retains the established OS cap and keeps capture throttled. The throttle entry/exit rules, Job Object flags and membership verification are proposed in [SDD §14](../design/SDD.md).
 
 The recovery threshold of **8% for three consecutive one-second samples** is soft throttle hysteresis, not a different hard-cap value. Verify actual renderer/helper membership and crash cleanup; intended inheritance is not evidence of containment. Unknown external model ownership or unaccounted resource use makes that provider unavailable for acceptance.
 

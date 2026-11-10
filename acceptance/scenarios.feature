@@ -13,7 +13,7 @@ Feature: Brand-neutral desktop companion target behavior
   Scenario: AC-CORE-002 Resource containment before UI
     Given job creation, configuration or assignment fails
     When startup is attempted
-    Then the application records a safe error and exits with code1 before WebView or sidecar creation
+    Then the application records a safe error and exits with code 1 before WebView or sidecar creation
     And failure behavior is: Do not continue with an uncontained runtime.
 
   @CORE-003 @mvp
@@ -25,7 +25,7 @@ Feature: Brand-neutral desktop companion target behavior
 
   @CORE-004 @mvp
   Scenario: AC-CORE-004 Owned integration configuration
-    Given ports3000 through3010 contain occupied and free candidates
+    Given ports 3000 through 3010 contain occupied and free candidates
     When setup selects an available configured port
     Then the app and owned game config agree; unrelated game configuration is preserved
     And failure behavior is: Port exhaustion or write failure returns an actionable error without overwriting unrelated files.
@@ -39,7 +39,7 @@ Feature: Brand-neutral desktop companion target behavior
 
   @DATA-001 @mvp
   Scenario: AC-DATA-001 Freshness boundary
-    Given a valid own observation at age2000ms followed by age2001ms
+    Given a valid own observation at age 2000ms followed by age 2001ms
     When the UI consumes both snapshots without a new source observation
     Then the first may be fresh and the second is stale; invalid input and polling do not renew the age
     And failure behavior is: Withdraw live assertions when stale; do not fabricate a new observation.
@@ -89,7 +89,7 @@ Feature: Brand-neutral desktop companion target behavior
   @VISION-002 @mvp
   Scenario: AC-VISION-002 Missing requires continuing coverage
     Given an enemy was observed and the camera then stops yielding valid frames
-    When time passes beyond5seconds
+    When time passes beyond 5 seconds
     Then coverage becomes unavailable and no missing or all-clear assertion is manufactured
     And failure behavior is: Do not interpret empty/no frames as observed absence.
 
@@ -116,9 +116,9 @@ Feature: Brand-neutral desktop companion target behavior
 
   @ALERT-002 @mvp
   Scenario: AC-ALERT-002 Risk is a labeled heuristic
-    Given neutral headings and durations4,5,8.5,12,20,40seconds
+    Given neutral headings and durations 4,5,8.5,12,20,40 seconds
     When the baseline risk function runs
-    Then outputs are0,0,0.35,0.70,0.46,0.10 within declared floating tolerance
+    Then outputs are 0,0,0.35,0.70,0.46,0.10 within declared floating tolerance
     And failure behavior is: Invalid/non-finite input produces unavailable rather than a risk probability claim.
 
   @ALERT-003 @mvp
@@ -144,9 +144,9 @@ Feature: Brand-neutral desktop companion target behavior
 
   @ALERT-006 @mvp
   Scenario: AC-ALERT-006 Missing notification policy
-    Given a previously observed enemy is absent5000ms then5001ms under valid coverage
+    Given a previously observed enemy is absent 5000ms then 5001ms under valid coverage
     When missing notification admission runs
-    Then no threshold event at5000ms; an eligible event after5000ms obeys dedup and audio priority
+    Then no threshold event at 5000ms; an eligible event after 5000ms obeys dedup and audio priority
     And failure behavior is: Drop missing-event audio while critical audio is active; no substituted media.
 
   @ALERT-007 @mvp
@@ -196,7 +196,7 @@ Feature: Brand-neutral desktop companion target behavior
     Given an archive has unsafe paths, duplicate records or expansion beyond limits
     When installation validates the archive
     Then it fails in bounded staging with no active-registry mutation
-    And failure behavior is: Cap container/expanded total512MiB, payload32MiB, descriptor/registry2MiB and payload count2048.
+    And failure behavior is: Cap container/expanded total 512MiB, payload 32MiB, descriptor/registry 2MiB and payload count 2048.
 
   @MEDIA-007 @mvp
   Scenario: AC-MEDIA-007 Atomic install versus activation
@@ -223,7 +223,7 @@ Feature: Brand-neutral desktop companion target behavior
   Scenario: AC-UI-002 Stable live-field topology
     Given frozen data and viewport while inspector/feed/tier changes
     When layout transitions run
-    Then map x/y/width/height remain within1 CSS px and no page-level scroll is introduced
+    Then map x/y/width/height remain within 1 CSS px and no page-level scroll is introduced
     And failure behavior is: Use bounded subregion scrolling; do not shrink text to hide overflow.
 
   @UI-003 @mvp
@@ -259,7 +259,7 @@ Feature: Brand-neutral desktop companion target behavior
     Given game clock pauses or becomes stale
     When wall time passes
     Then timers freeze and cannot become observed-ready from browser time
-    And failure behavior is: Reviewed enemy ULT/BKB/TP timer scope, at most15keys; arbitrary fixture timers remain tests.
+    And failure behavior is: Reviewed enemy ULT/BKB/TP timer scope, at most 15 keys; arbitrary fixture timers remain tests.
 
   @VOICE-001 @mvp
   Scenario: AC-VOICE-001 Explicit microphone consent
@@ -405,15 +405,15 @@ Feature: Brand-neutral desktop companion target behavior
   Scenario: AC-PEER-005 Conservative peer age
     Given an observation is repeatedly polled without a new game sample
     When relay/native/UI age calculation advances
-    Then polling never rejuvenates it;2000ms may be live and2001ms is stale/null
+    Then polling never rejuvenates it; 2000ms may be live and 2001ms is stale/null
     And failure behavior is: Do not compare wall clocks across devices or retain live vitals when IPC stops.
 
   @PEER-006 @extension
   Scenario: AC-PEER-006 Bounded network worker
     Given a transport timeout occurs
     When retry logic runs
-    Then bounded0.5–5s retry and successful null probe precede resuming samples
-    And failure behavior is: Use1500ms request timeout,32KiB reply cap and normal500ms cadence; no task per game tick.
+    Then bounded 0.5–5s retry and successful null probe precede resuming samples
+    And failure behavior is: Use 1500ms request timeout, 32KiB reply cap and normal 500ms cadence; no task per game tick.
 
   @PEER-007 @extension
   Scenario: AC-PEER-007 Native credentials and trusted origins
@@ -564,9 +564,9 @@ Feature: Brand-neutral desktop companion target behavior
 
   @QUALITY-004 @mvp
   Scenario: AC-QUALITY-004 Vision quality per class
-    Given at least50episodes/class in at least5held-out matches and20whole held-out matches exist
+    Given at least 50 episodes/class in at least 5 held-out matches and 20 whole held-out matches exist
     When independent quality evaluation runs
-    Then per-class results,95%confidence intervals and disagreement are reported
+    Then per-class results, 95% confidence intervals and disagreement are reported
     And failure behavior is: No train/holdout leakage or pooled substitution.
 
   @QUALITY-005 @mvp
@@ -578,9 +578,9 @@ Feature: Brand-neutral desktop companion target behavior
 
   @QUALITY-006 @mvp
   Scenario: AC-QUALITY-006 Voice quality and speed
-    Given at least100held-out utterances per language cover quiet/game-audio and separate speakers/sessions
+    Given at least 100 held-out utterances per language cover quiet/game-audio and separate speakers/sessions
     When local STT/answer is evaluated
-    Then English WER≤15%, Thai CER≤20%, intent/critical-slot accuracy≥90% and latency/completion pass
+    Then English WER ≤15%, Thai CER ≤20%, intent/critical-slot accuracy ≥90% and latency/completion pass
     And failure behavior is: Count failures/timeouts/rejects; synthetic scorer tests do not certify a model.
 
   @QUALITY-007 @mvp

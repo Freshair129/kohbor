@@ -2,8 +2,8 @@
 title: "Document Control and Baseline Governance"
 doc_id: "DOCUMENT-CONTROL"
 status: draft
-version: "0.3.1"
-updated: "2026-11-10"
+version: "0.3.2"
+updated: "2026-11-11"
 owner_role: "Product owner and engineering lead; people not assigned"
 approval_status: "not_approved"
 ---
@@ -33,7 +33,7 @@ Accepted decisions must be incorporated into every affected artifact. A contradi
 
 [product-needs.json](../../contracts/product-needs.json) mirrors the stable PRD need IDs and requirement mappings. [decisions.json](../../contracts/decisions.json) records the open-decision data used with the decision log. These records must agree with their human documents.
 
-The requirements registry format is 1.2.0 because it adds diagram references to the existing traceability fields. Runtime schemas retain their existing draft versions and semantics. The evidence-support schema pins this package's spec version, 0.3.1; this is a baseline binding, not a new application wire protocol.
+The requirements registry format is 1.3.0: 1.2.0 added diagram references and 1.3.0 adds the planning field `target_milestone`. Version 0.3.2 changes one runtime schema incompatibly (own-snapshot 1.0.0 → 2.0.0, per-field availability) and adds runtime-status, user-settings and settings-patch 1.0.0; no application has shipped, so no reader of the retired version exists. The evidence-support schema pins this package's spec version, 0.3.2; this is a baseline binding, not a new application wire protocol.
 
 ## 3. Controlled vocabulary
 
@@ -67,6 +67,7 @@ Before approving a baseline, review product scope, requirement completeness/test
 | Area | Current maturity | What must happen before affected implementation/acceptance |
 | --- | --- | --- |
 | PRD/SRS and traceability | Draft, internally checkable | Product/engineering review and controlled correction of gaps |
+| Game-state intake (M1) | Proposed specification and schemas | DEC-GSI-INTAKE capture-spike confirmation and owner acknowledgement |
 | Interfaces and media trust | Draft contracts, partial schemas | DEC-INTERFACES and DEC-PACK-CRYPTO protocol freeze |
 | Original UX | Behavioral/layout specification | DEC-VISUALS annotated designs and measured Windows evidence |
 | Local models, game catalogs and risk evidence | Requirements present; artifacts not qualified | Named model/data/risk decisions and held-out evidence |

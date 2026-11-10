@@ -2,7 +2,7 @@
 title: "Software Requirements Specification"
 doc_id: "SRS"
 status: "draft"
-version: "0.3.1"
+version: "0.3.2"
 updated: "2026-11-10"
 owner: "Product Owner"
 approval_status: "not_approved"
@@ -24,7 +24,7 @@ The full MVP covers local telemetry, admitted visible-screen observations, deter
 
 The first demonstration is a limited delivery milestone, not completion of the full MVP. Action-damage analysis remains subject to its recorded scope/data decision. Game injection, hidden enemy data, automatic gameplay actions, cloud voice/memory processing and inherited product compatibility are outside this baseline.
 
-Version 0.3.1 is a reviewable draft. The owner-selected name is recorded; the requirements baseline, implementation and native/live acceptance have not been approved. Its organization follows conventional requirements-engineering practice; no formal standards-conformance certification is asserted.
+Version 0.3.2 is a reviewable draft. The owner-selected name is recorded; the requirements baseline, implementation and native/live acceptance have not been approved. Its organization follows conventional requirements-engineering practice; no formal standards-conformance certification is asserted.
 
 ### 1.3 References and document relationships
 
@@ -156,7 +156,7 @@ This controlled section and the structured registry represent the same requireme
 
 #### CORE-001 — Account-independent local startup
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M1 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-001 · **Primary design:** CMP-STARTUP · **Design components:** CMP-STARTUP
 
@@ -176,7 +176,7 @@ The local core shall start without account, network or premium authority.
 
 #### CORE-002 — Resource containment before UI
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M1 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-005 · **Primary design:** CMP-STARTUP · **Design components:** CMP-STARTUP, CMP-PERFORMANCE
 
@@ -184,11 +184,13 @@ The application shall establish the 10% Windows CPU Job Object cap before creati
 
 **Failure behavior:** Do not continue with an uncontained runtime.
 
-**AC-CORE-002:** Given job creation, configuration or assignment fails; when startup is attempted; then the application records a safe error and exits with code1 before WebView or sidecar creation.
+**AC-CORE-002:** Given job creation, configuration or assignment fails; when startup is attempted; then the application records a safe error and exits with code 1 before WebView or sidecar creation.
 
 **Verification:** synthetic, native, live; procedures TP-01, TP-13, UAT-05; status NOT_RUN.
 
 **Elaboration:** [PRD.md](../product/PRD.md), [SAD.md](../design/SAD.md)
+
+**Contracts:** [runtime-status.schema.json](../../contracts/runtime-status.schema.json)
 
 **Diagram views:** [DGM-003](../diagrams/source/DGM-003-deployment.mmd), [DGM-007](../diagrams/source/DGM-007-startup-sequence.mmd), [DGM-017](../diagrams/source/DGM-017-user-flow.mmd)
 
@@ -196,7 +198,7 @@ The application shall establish the 10% Windows CPU Job Object cap before creati
 
 #### CORE-003 — Account transitions preserve local state
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M6 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-001 · **Primary design:** CMP-SOCIAL · **Design components:** CMP-SOCIAL, CMP-STARTUP
 
@@ -216,7 +218,7 @@ Account signout, revoke or switch shall invalidate account requests and credenti
 
 #### CORE-004 — Owned integration configuration
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M1 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-001 · **Primary design:** CMP-INGEST · **Design components:** CMP-INGEST, CMP-STARTUP
 
@@ -224,13 +226,15 @@ Game integration setup shall write only its owned config and verified chosen loo
 
 **Failure behavior:** Port exhaustion or write failure returns an actionable error without overwriting unrelated files.
 
-**AC-CORE-004:** Given ports3000 through3010 contain occupied and free candidates; when setup selects an available configured port; then the app and owned game config agree; unrelated game configuration is preserved.
+**AC-CORE-004:** Given ports 3000 through 3010 contain occupied and free candidates; when setup selects an available configured port; then the app and owned game config agree; unrelated game configuration is preserved.
 
 **Verification:** synthetic, native, live; procedures TP-01, UAT-01; status NOT_RUN.
 
-**Open dependencies:** DEC-INTERFACES.
+**Open dependencies:** DEC-INTERFACES, DEC-GSI-INTAKE.
 
-**Elaboration:** [PRD.md](../product/PRD.md), [SAD.md](../design/SAD.md)
+**Elaboration:** [PRD.md](../product/PRD.md), [SAD.md](../design/SAD.md), [GSI-INTAKE-SPEC.md](../design/GSI-INTAKE-SPEC.md)
+
+**Contracts:** [runtime-status.schema.json](../../contracts/runtime-status.schema.json), [user-settings.schema.json](../../contracts/user-settings.schema.json), [settings-patch.schema.json](../../contracts/settings-patch.schema.json)
 
 **Diagram views:** [DGM-003](../diagrams/source/DGM-003-deployment.mmd)
 
@@ -238,7 +242,7 @@ Game integration setup shall write only its owned config and verified chosen loo
 
 #### CORE-005 — Supported matrix is explicit
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M1 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-001 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL, CMP-STARTUP
 
@@ -250,7 +254,11 @@ The product shall label mode, OS and capture configurations outside the evidence
 
 **Verification:** synthetic, native, live; procedures TP-01, UAT-01; status NOT_RUN.
 
-**Elaboration:** [PRD.md](../product/PRD.md), [SAD.md](../design/SAD.md)
+**Open dependencies:** DEC-GSI-INTAKE.
+
+**Elaboration:** [PRD.md](../product/PRD.md), [SAD.md](../design/SAD.md), [GSI-INTAKE-SPEC.md](../design/GSI-INTAKE-SPEC.md)
+
+**Contracts:** [runtime-status.schema.json](../../contracts/runtime-status.schema.json)
 
 **Diagram views:** [DGM-013](../diagrams/source/DGM-013-match-lifecycle.mmd), [DGM-017](../diagrams/source/DGM-017-user-flow.mmd)
 
@@ -260,21 +268,23 @@ The product shall label mode, OS and capture configurations outside the evidence
 
 #### DATA-001 — Freshness boundary
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M1 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-002 · **Primary design:** CMP-INGEST · **Design components:** CMP-INGEST
 
-Own-source data shall be fresh only while admitted source age is at most2000ms.
+Own-source data shall be fresh only while admitted source age is at most 2000ms.
 
 **Failure behavior:** Withdraw live assertions when stale; do not fabricate a new observation.
 
-**AC-DATA-001:** Given a valid own observation at age2000ms followed by age2001ms; when the UI consumes both snapshots without a new source observation; then the first may be fresh and the second is stale; invalid input and polling do not renew the age.
+**AC-DATA-001:** Given a valid own observation at age 2000ms followed by age 2001ms; when the UI consumes both snapshots without a new source observation; then the first may be fresh and the second is stale; invalid input and polling do not renew the age.
 
 **Verification:** synthetic, native; procedures TP-02, UAT-02; status NOT_RUN.
 
-**Elaboration:** [DDD.md](../design/DDD.md), [ICD.md](../design/ICD.md)
+**Open dependencies:** DEC-GSI-INTAKE.
 
-**Contracts:** [own-snapshot.schema.json](../../contracts/own-snapshot.schema.json), [event.schema.json](../../contracts/event.schema.json)
+**Elaboration:** [DDD.md](../design/DDD.md), [ICD.md](../design/ICD.md), [GSI-INTAKE-SPEC.md](../design/GSI-INTAKE-SPEC.md)
+
+**Contracts:** [own-snapshot.schema.json](../../contracts/own-snapshot.schema.json), [event.schema.json](../../contracts/event.schema.json), [runtime-status.schema.json](../../contracts/runtime-status.schema.json)
 
 **Diagram views:** [DGM-002](../diagrams/source/DGM-002-containers.mmd), [DGM-004](../diagrams/source/DGM-004-local-data-flow.mmd), [DGM-019](../diagrams/source/DGM-019-source-freshness.mmd)
 
@@ -282,7 +292,7 @@ Own-source data shall be fresh only while admitted source age is at most2000ms.
 
 #### DATA-002 — Unknown is not zero
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M1 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-002 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL, CMP-INGEST
 
@@ -294,7 +304,7 @@ Missing, invalid and unverified values shall remain explicitly unavailable.
 
 **Verification:** synthetic, native; procedures TP-02, UAT-02; status NOT_RUN.
 
-**Elaboration:** [DDD.md](../design/DDD.md), [ICD.md](../design/ICD.md)
+**Elaboration:** [DDD.md](../design/DDD.md), [ICD.md](../design/ICD.md), [GSI-INTAKE-SPEC.md](../design/GSI-INTAKE-SPEC.md)
 
 **Contracts:** [own-snapshot.schema.json](../../contracts/own-snapshot.schema.json), [event.schema.json](../../contracts/event.schema.json)
 
@@ -304,7 +314,7 @@ Missing, invalid and unverified values shall remain explicitly unavailable.
 
 #### DATA-003 — Own-source admission
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M1 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-002 · **Primary design:** CMP-INGEST · **Design components:** CMP-INGEST
 
@@ -316,9 +326,11 @@ Own-player conclusions shall require supported game scope, actual playing activi
 
 **Verification:** synthetic, native; procedures TP-02, UAT-02; status NOT_RUN.
 
-**Elaboration:** [DDD.md](../design/DDD.md), [ICD.md](../design/ICD.md)
+**Open dependencies:** DEC-GSI-INTAKE.
 
-**Contracts:** [own-snapshot.schema.json](../../contracts/own-snapshot.schema.json), [event.schema.json](../../contracts/event.schema.json)
+**Elaboration:** [DDD.md](../design/DDD.md), [ICD.md](../design/ICD.md), [GSI-INTAKE-SPEC.md](../design/GSI-INTAKE-SPEC.md)
+
+**Contracts:** [own-snapshot.schema.json](../../contracts/own-snapshot.schema.json), [event.schema.json](../../contracts/event.schema.json), [runtime-status.schema.json](../../contracts/runtime-status.schema.json)
 
 **Diagram views:** [DGM-001](../diagrams/source/DGM-001-system-context.mmd), [DGM-002](../diagrams/source/DGM-002-containers.mmd), [DGM-004](../diagrams/source/DGM-004-local-data-flow.mmd), [DGM-008](../diagrams/source/DGM-008-alert-sequence.mmd), [DGM-013](../diagrams/source/DGM-013-match-lifecycle.mmd), [DGM-019](../diagrams/source/DGM-019-source-freshness.mmd)
 
@@ -326,7 +338,7 @@ Own-player conclusions shall require supported game scope, actual playing activi
 
 #### DATA-004 — Session and clock fences
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M1 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-002 · **Primary design:** CMP-INGEST · **Design components:** CMP-INGEST
 
@@ -338,9 +350,11 @@ Session/source changes shall fence late work without treating every regressed cl
 
 **Verification:** synthetic, native; procedures TP-02, UAT-02; status NOT_RUN.
 
-**Elaboration:** [DDD.md](../design/DDD.md), [ICD.md](../design/ICD.md)
+**Open dependencies:** DEC-GSI-INTAKE.
 
-**Contracts:** [own-snapshot.schema.json](../../contracts/own-snapshot.schema.json), [event.schema.json](../../contracts/event.schema.json)
+**Elaboration:** [DDD.md](../design/DDD.md), [ICD.md](../design/ICD.md), [GSI-INTAKE-SPEC.md](../design/GSI-INTAKE-SPEC.md)
+
+**Contracts:** [own-snapshot.schema.json](../../contracts/own-snapshot.schema.json), [event.schema.json](../../contracts/event.schema.json), [runtime-status.schema.json](../../contracts/runtime-status.schema.json)
 
 **Diagram views:** [DGM-004](../diagrams/source/DGM-004-local-data-flow.mmd), [DGM-006](../diagrams/source/DGM-006-logical-erd.mmd), [DGM-013](../diagrams/source/DGM-013-match-lifecycle.mmd), [DGM-019](../diagrams/source/DGM-019-source-freshness.mmd)
 
@@ -348,7 +362,7 @@ Session/source changes shall fence late work without treating every regressed cl
 
 #### DATA-005 — Enemy observation boundary
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M3 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-002 · **Primary design:** CMP-VISION · **Design components:** CMP-VISION, CMP-INGEST
 
@@ -370,7 +384,7 @@ Enemy visibility and positions shall derive only from admitted visible capture d
 
 #### DATA-006 — Static game data provenance
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M3 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-002 · **Primary design:** CMP-INGEST · **Design components:** CMP-INGEST
 
@@ -396,7 +410,7 @@ Static hero/item/ability data shall identify patch, source revision/hash and ver
 
 #### VISION-001 — Calibrated capture admission
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M3 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-002 · **Primary design:** CMP-VISION · **Design components:** CMP-VISION
 
@@ -418,7 +432,7 @@ Vision shall require healthy frames, matching session and validated minimap geom
 
 #### VISION-002 — Missing requires continuing coverage
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M3 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-002 · **Primary design:** CMP-VISION · **Design components:** CMP-VISION
 
@@ -426,7 +440,7 @@ A missing-enemy episode shall require prior observed presence and continued vali
 
 **Failure behavior:** Do not interpret empty/no frames as observed absence.
 
-**AC-VISION-002:** Given an enemy was observed and the camera then stops yielding valid frames; when time passes beyond5seconds; then coverage becomes unavailable and no missing or all-clear assertion is manufactured.
+**AC-VISION-002:** Given an enemy was observed and the camera then stops yielding valid frames; when time passes beyond 5 seconds; then coverage becomes unavailable and no missing or all-clear assertion is manufactured.
 
 **Verification:** synthetic, native, live; procedures TP-02, UAT-02; status NOT_RUN.
 
@@ -440,7 +454,7 @@ A missing-enemy episode shall require prior observed presence and continued vali
 
 #### VISION-003 — Certified class coverage
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M3 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-002 · **Primary design:** CMP-VISION · **Design components:** CMP-VISION
 
@@ -460,7 +474,7 @@ Vision shall expose the actual set of certified hero classes.
 
 #### VISION-004 — Capture source separation
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M3 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-011 · **Primary design:** CMP-VISION · **Design components:** CMP-VISION, CMP-RECORDER
 
@@ -486,7 +500,7 @@ OBS recording shall not replace the accepted critical DXGI source without a dist
 
 #### ALERT-001 — Native independent warning path
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M2 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-003 · **Primary design:** CMP-ALERT · **Design components:** CMP-ALERT, CMP-RISK
 
@@ -508,7 +522,7 @@ Critical warnings shall be decided and admitted in native deterministic code wit
 
 #### ALERT-002 — Risk is a labeled heuristic
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M3 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-003 · **Primary design:** CMP-RISK · **Design components:** CMP-RISK, CMP-ALERT
 
@@ -516,7 +530,7 @@ The missing-time score shall follow the documented versioned formula and be labe
 
 **Failure behavior:** Invalid/non-finite input produces unavailable rather than a risk probability claim.
 
-**AC-ALERT-002:** Given neutral headings and durations4,5,8.5,12,20,40seconds; when the baseline risk function runs; then outputs are0,0,0.35,0.70,0.46,0.10 within declared floating tolerance.
+**AC-ALERT-002:** Given neutral headings and durations 4,5,8.5,12,20,40 seconds; when the baseline risk function runs; then outputs are 0,0,0.35,0.70,0.46,0.10 within declared floating tolerance.
 
 **Verification:** synthetic, native, live; procedures TP-03, UAT-03; status NOT_RUN.
 
@@ -532,7 +546,7 @@ The missing-time score shall follow the documented versioned formula and be labe
 
 #### ALERT-003 — Evidence-gated audible gank
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M3 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-003 · **Primary design:** CMP-ALERT · **Design components:** CMP-ALERT, CMP-RISK
 
@@ -556,11 +570,11 @@ A high score alone shall not trigger audible gank; admitted coordinated multi-en
 
 #### ALERT-004 — Absence episode deduplication
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M3 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-003 · **Primary design:** CMP-ALERT · **Design components:** CMP-ALERT, CMP-RISK
 
-Audible gank shall be deduplicated by absence episode with global30s and per-contributor60s minimum intervals.
+Audible gank shall be deduplicated by absence episode with global 30s and per-contributor 60s minimum intervals.
 
 **Failure behavior:** Re-arm only on confirmed continuous reappearance; one-frame noise does not re-arm.
 
@@ -580,7 +594,7 @@ Audible gank shall be deduplicated by absence episode with global30s and per-con
 
 #### ALERT-005 — Evidence-based correction
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M3 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-003 · **Primary design:** CMP-ALERT · **Design components:** CMP-ALERT, CMP-RISK
 
@@ -602,15 +616,15 @@ An audible risk correction shall require confirmed reappearance of all previousl
 
 #### ALERT-006 — Missing notification policy
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M3 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-003 · **Primary design:** CMP-ALERT · **Design components:** CMP-ALERT, CMP-RISK
 
-A visibility-missing notification shall use absence strictly longer than5s, once per hero/episode and global audio cooldown at least10s.
+A visibility-missing notification shall use absence strictly longer than 5s, once per hero/episode and global audio cooldown at least 10s.
 
 **Failure behavior:** Drop missing-event audio while critical audio is active; no substituted media.
 
-**AC-ALERT-006:** Given a previously observed enemy is absent5000ms then5001ms under valid coverage; when missing notification admission runs; then no threshold event at5000ms; an eligible event after5000ms obeys dedup and audio priority.
+**AC-ALERT-006:** Given a previously observed enemy is absent 5000ms then 5001ms under valid coverage; when missing notification admission runs; then no threshold event at 5000ms; an eligible event after 5000ms obeys dedup and audio priority.
 
 **Verification:** synthetic, native, live; procedures TP-03, UAT-03; status NOT_RUN.
 
@@ -622,7 +636,7 @@ A visibility-missing notification shall use absence strictly longer than5s, once
 
 #### ALERT-007 — Critical media readiness
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M2 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-003 · **Primary design:** CMP-ALERT · **Design components:** CMP-ALERT, CMP-RISK, CMP-MEDIA
 
@@ -648,7 +662,7 @@ Critical audio readiness shall require valid mapped critical media before the de
 
 #### MEDIA-001 — Single event taxonomy
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M2 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-004 · **Primary design:** CMP-MEDIA · **Design components:** CMP-MEDIA
 
@@ -670,7 +684,7 @@ One versioned catalog shall own event IDs, labels, detectors, bounded tunables a
 
 #### MEDIA-002 — Ordinary event arbitration
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M2 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-004 · **Primary design:** CMP-MEDIA · **Design components:** CMP-MEDIA
 
@@ -692,7 +706,7 @@ Ordinary same-tick arbitration shall select the highest emitted ordinary rank be
 
 #### MEDIA-003 — Respawn unvoiced
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M2 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-004 · **Primary design:** CMP-MEDIA · **Design components:** CMP-MEDIA
 
@@ -712,7 +726,7 @@ Respawn shall remain a detectable event without an automatic audio mapping.
 
 #### MEDIA-004 — Verified paired media
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M2 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-004 · **Primary design:** CMP-MEDIA · **Design components:** CMP-MEDIA
 
@@ -734,7 +748,7 @@ Event audio/visual playback shall originate from the active verified package rev
 
 #### MEDIA-005 — One audio owner
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M2 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-004 · **Primary design:** CMP-MEDIA · **Design components:** CMP-MEDIA, CMP-ALERT, CMP-VOICE
 
@@ -756,13 +770,13 @@ Native audio shall own paired visual lifecycle and cancel both on stop/preemptio
 
 #### MEDIA-006 — Bounded hostile package handling
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M2 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-004 · **Primary design:** CMP-MEDIA · **Design components:** CMP-MEDIA
 
 Package parsing shall enforce strict archive limits and reject traversal, duplicates and digest mismatch.
 
-**Failure behavior:** Cap container/expanded total512MiB, payload32MiB, descriptor/registry2MiB and payload count2048.
+**Failure behavior:** Cap container/expanded total 512MiB, payload 32MiB, descriptor/registry 2MiB and payload count 2048.
 
 **AC-MEDIA-006:** Given an archive has unsafe paths, duplicate records or expansion beyond limits; when installation validates the archive; then it fails in bounded staging with no active-registry mutation.
 
@@ -780,7 +794,7 @@ Package parsing shall enforce strict archive limits and reject traversal, duplic
 
 #### MEDIA-007 — Atomic install versus activation
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M2 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-004 · **Primary design:** CMP-MEDIA · **Design components:** CMP-MEDIA
 
@@ -802,7 +816,7 @@ Installation and activation shall be separate idempotent transactions.
 
 #### MEDIA-008 — Trust domains are separate
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M2 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-004 · **Primary design:** CMP-MEDIA · **Design components:** CMP-MEDIA
 
@@ -828,7 +842,7 @@ Package integrity, publisher trust and purchase entitlement shall be verified by
 
 #### UI-001 — Independent control and overlay
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M3 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-005 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL
 
@@ -852,7 +866,7 @@ The product shall separate control-window chrome from the transparent always-on-
 
 #### UI-002 — Stable live-field topology
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M3 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-005 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL
 
@@ -860,7 +874,7 @@ The base live field shall preserve five enemy slots, own hero, four allied slots
 
 **Failure behavior:** Use bounded subregion scrolling; do not shrink text to hide overflow.
 
-**AC-UI-002:** Given frozen data and viewport while inspector/feed/tier changes; when layout transitions run; then map x/y/width/height remain within1 CSS px and no page-level scroll is introduced.
+**AC-UI-002:** Given frozen data and viewport while inspector/feed/tier changes; when layout transitions run; then map x/y/width/height remain within 1 CSS px and no page-level scroll is introduced.
 
 **Verification:** synthetic, native, live; procedures TP-05, UAT-05; status NOT_RUN.
 
@@ -874,7 +888,7 @@ The base live field shall preserve five enemy slots, own hero, four allied slots
 
 #### UI-003 — Neutral production start
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M3 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-005 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL
 
@@ -896,7 +910,7 @@ Production shall begin without fixture roster, fake inventory or preselected her
 
 #### UI-004 — Compact unknown cards
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M3 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-005 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL
 
@@ -918,7 +932,7 @@ Enemy and unknown ally cards shall omit unknown-only skill/item rows.
 
 #### UI-005 — Selected inspector and ownership
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M3 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-005 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL, CMP-ENTITLEMENT
 
@@ -940,7 +954,7 @@ Detailed inspector shall open only after explicit selection and show only admitt
 
 #### UI-006 — Keyboard and focus
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M3 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-005 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL
 
@@ -962,13 +976,13 @@ Keyboard interaction shall use visible focus, meaningful names and ordered Escap
 
 #### UI-007 — Native estimated timers
 
-**Scope:** deferred · **Priority:** later · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** deferred · **Priority:** later · **Target milestone:** M7 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-012 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL, CMP-INGEST, CMP-ENTITLEMENT
 
 Manual enemy timers shall use a reviewed native game-clock store and label expiry estimated-ready.
 
-**Failure behavior:** Reviewed enemy ULT/BKB/TP timer scope, at most15keys; arbitrary fixture timers remain tests.
+**Failure behavior:** Reviewed enemy ULT/BKB/TP timer scope, at most 15 keys; arbitrary fixture timers remain tests.
 
 **AC-UI-007:** Given game clock pauses or becomes stale; when wall time passes; then timers freeze and cannot become observed-ready from browser time.
 
@@ -986,7 +1000,7 @@ Manual enemy timers shall use a reviewed native game-clock store and label expir
 
 #### VOICE-001 — Explicit microphone consent
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M5 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-006 · **Primary design:** CMP-VOICE · **Design components:** CMP-VOICE
 
@@ -1008,7 +1022,7 @@ The microphone shall be off by default and opened only for a user-held PTT turn 
 
 #### VOICE-002 — Remappable conflict-safe PTT
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M5 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-006 · **Primary design:** CMP-VOICE · **Design components:** CMP-VOICE
 
@@ -1030,11 +1044,11 @@ Default PTT Ctrl+Alt+V shall be remappable with registration conflict detection 
 
 #### VOICE-003 — One bounded voice turn
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M5 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-006 · **Primary design:** CMP-VOICE · **Design components:** CMP-VOICE
 
-Voice shall have one fenced active turn, minimum hold250ms and maximum15s.
+Voice shall have one fenced active turn, minimum hold 250ms and maximum 15s.
 
 **Failure behavior:** Late callbacks cannot resume the superseded request.
 
@@ -1052,11 +1066,11 @@ Voice shall have one fenced active turn, minimum hold250ms and maximum15s.
 
 #### VOICE-004 — Bounded transient audio
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M5 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-006 · **Primary design:** CMP-VOICE · **Design components:** CMP-VOICE
 
-Mic capture shall bound PCM to480000bytes of mono16kHz i16 data with2s open timeout.
+Mic capture shall bound PCM to 480000 bytes of mono 16kHz i16 data with 2s open timeout.
 
 **Failure behavior:** No persistence or indefinite decoder retention; STT ownership/lifetime must be closed before integration.
 
@@ -1076,7 +1090,7 @@ Mic capture shall bound PCM to480000bytes of mono16kHz i16 data with2s open time
 
 #### VOICE-005 — All-local conversation
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M5 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-006 · **Primary design:** CMP-VOICE · **Design components:** CMP-VOICE
 
@@ -1100,7 +1114,7 @@ STT, transcript, free-form question, interpretation and answer shall remain loca
 
 #### VOICE-006 — Priority preemption
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M5 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-006 · **Primary design:** CMP-VOICE · **Design components:** CMP-VOICE, CMP-MEDIA, CMP-ALERT
 
@@ -1122,7 +1136,7 @@ Voice answers shall use Normal priority, preemptible by announcer and critical a
 
 #### VOICE-007 — Honest preparation and failure
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M5 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-006 · **Primary design:** CMP-VOICE · **Design components:** CMP-VOICE
 
@@ -1148,7 +1162,7 @@ Voice shall distinguish preparing, missing model, device/permission error and ti
 
 #### MEM-001 — Local evidence-supported aggregates
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M5 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-008 · **Primary design:** CMP-MEMORY · **Design components:** CMP-MEMORY
 
@@ -1168,7 +1182,7 @@ Player memory shall store only supported local aggregates with evidence provenan
 
 #### MEM-002 — Atomic versioned snapshots
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M5 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-008 · **Primary design:** CMP-MEMORY · **Design components:** CMP-MEMORY
 
@@ -1188,7 +1202,7 @@ Memory snapshots shall use schema/source fingerprint and atomic replacement.
 
 #### MEM-003 — Durable forget cutoff
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M5 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-008 · **Primary design:** CMP-MEMORY · **Design components:** CMP-MEMORY
 
@@ -1208,11 +1222,11 @@ Forget shall durably advance a nondecreasing logical/epoch cutoff comparable wit
 
 #### MEM-004 — Bounded source-linked summaries
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M5 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-008 · **Primary design:** CMP-MEMORY · **Design components:** CMP-MEMORY
 
-A completed-session summary shall contain at most3 evidence-linked points with timestamps.
+A completed-session summary shall contain at most 3 evidence-linked points with timestamps.
 
 **Failure behavior:** Do not call a model narrative a proven event.
 
@@ -1230,7 +1244,7 @@ A completed-session summary shall contain at most3 evidence-linked points with t
 
 #### MEM-005 — Separate history deletion
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M5 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-008 · **Primary design:** CMP-MEMORY · **Design components:** CMP-MEMORY
 
@@ -1254,7 +1268,7 @@ Clearing memory shall preserve separately governed raw history unless the user e
 
 #### ADVICE-001 — Required local/manual advice
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M5 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-007 · **Primary design:** CMP-ADVICE · **Design components:** CMP-ADVICE
 
@@ -1278,7 +1292,7 @@ Manual advice shall be noncritical, locally available when an admitted backend i
 
 #### ADVICE-002 — Independent cloud consent
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M6 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-007 · **Primary design:** CMP-ADVICE · **Design components:** CMP-ADVICE
 
@@ -1300,7 +1314,7 @@ Cloud gameplay context shall default off and require a separate field/purpose op
 
 #### ADVICE-003 — Closed cloud projection
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M6 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-007 · **Primary design:** CMP-ADVICE · **Design components:** CMP-ADVICE
 
@@ -1322,7 +1336,7 @@ Cloud context shall be built only from coarse phase, allowed own stats, team sco
 
 #### ADVICE-004 — Consent and session cancellation
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M6 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-007 · **Primary design:** CMP-ADVICE · **Design components:** CMP-ADVICE, CMP-VOICE
 
@@ -1346,7 +1360,7 @@ Cloud consent/backend/session changes shall invalidate sends, cache and late res
 
 #### PEER-001 — Fresh opt-in join
 
-**Scope:** extension · **Priority:** extension · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** extension · **Priority:** extension · **Target milestone:** M6 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-009 · **Primary design:** CMP-PEER · **Design components:** CMP-PEER
 
@@ -1368,11 +1382,11 @@ Every create/join shall require checked sharing consent and explicit activation 
 
 #### PEER-002 — Strict source admission
 
-**Scope:** extension · **Priority:** extension · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** extension · **Priority:** extension · **Target milestone:** M6 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-009 · **Primary design:** CMP-PEER · **Design components:** CMP-PEER
 
-Peer publication shall require app570, playing activity, verified local owner, positive match ID, exact team and pregame/in-progress.
+Peer publication shall require app 570, playing activity, verified local owner, positive match ID, exact team and pregame/in-progress.
 
 **Failure behavior:** Do not replay an older valid source until a new admitted observation arrives.
 
@@ -1390,7 +1404,7 @@ Peer publication shall require app570, playing activity, verified local owner, p
 
 #### PEER-003 — Narrow complete vitals
 
-**Scope:** extension · **Priority:** extension · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** extension · **Priority:** extension · **Target milestone:** M6 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-009 · **Primary design:** CMP-PEER · **Design components:** CMP-PEER
 
@@ -1412,11 +1426,11 @@ Peer stats shall contain only own hero/level/HP/maxHP/mana percent/alive/respawn
 
 #### PEER-004 — Bounded membership
 
-**Scope:** extension · **Priority:** extension · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** extension · **Priority:** extension · **Target milestone:** M6 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-009 · **Primary design:** CMP-PEER · **Design components:** CMP-PEER
 
-Rooms shall contain at most5 members including owner, last at most4hours and expire unsynced membership after30s.
+Rooms shall contain at most 5 members including owner, last at most 4 hours and expire unsynced membership after 30s.
 
 **Failure behavior:** Invite rotation invalidates future old-code joins but does not itself kick current members.
 
@@ -1434,15 +1448,15 @@ Rooms shall contain at most5 members including owner, last at most4hours and exp
 
 #### PEER-005 — Conservative peer age
 
-**Scope:** extension · **Priority:** extension · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** extension · **Priority:** extension · **Target milestone:** M6 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-009 · **Primary design:** CMP-PEER · **Design components:** CMP-PEER
 
-Peer freshness shall use accumulated monotonic durations and become stale after2000ms.
+Peer freshness shall use accumulated monotonic durations and become stale after 2000ms.
 
 **Failure behavior:** Do not compare wall clocks across devices or retain live vitals when IPC stops.
 
-**AC-PEER-005:** Given an observation is repeatedly polled without a new game sample; when relay/native/UI age calculation advances; then polling never rejuvenates it;2000ms may be live and2001ms is stale/null.
+**AC-PEER-005:** Given an observation is repeatedly polled without a new game sample; when relay/native/UI age calculation advances; then polling never rejuvenates it; 2000ms may be live and 2001ms is stale/null.
 
 **Verification:** synthetic, native; procedures TP-09, UAT-09; status NOT_RUN.
 
@@ -1456,15 +1470,15 @@ Peer freshness shall use accumulated monotonic durations and become stale after2
 
 #### PEER-006 — Bounded network worker
 
-**Scope:** extension · **Priority:** extension · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** extension · **Priority:** extension · **Target milestone:** M6 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-009 · **Primary design:** CMP-PEER · **Design components:** CMP-PEER
 
 Peer transport shall use one sequential in-flight sync worker outside the alert path.
 
-**Failure behavior:** Use1500ms request timeout,32KiB reply cap and normal500ms cadence; no task per game tick.
+**Failure behavior:** Use 1500ms request timeout, 32KiB reply cap and normal 500ms cadence; no task per game tick.
 
-**AC-PEER-006:** Given a transport timeout occurs; when retry logic runs; then bounded0.5–5s retry and successful null probe precede resuming samples.
+**AC-PEER-006:** Given a transport timeout occurs; when retry logic runs; then bounded 0.5–5s retry and successful null probe precede resuming samples.
 
 **Verification:** synthetic, native; procedures TP-09, UAT-09; status NOT_RUN.
 
@@ -1478,7 +1492,7 @@ Peer transport shall use one sequential in-flight sync worker outside the alert 
 
 #### PEER-007 — Native credentials and trusted origins
 
-**Scope:** extension · **Priority:** extension · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** extension · **Priority:** extension · **Target milestone:** M6 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-009 · **Primary design:** CMP-PEER · **Design components:** CMP-PEER
 
@@ -1502,7 +1516,7 @@ Peer networking shall be native-owned HTTPS with literal loopback HTTP only for 
 
 #### PEER-008 — Leave fences old work
 
-**Scope:** extension · **Priority:** extension · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** extension · **Priority:** extension · **Target milestone:** M6 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-009 · **Primary design:** CMP-PEER · **Design components:** CMP-PEER
 
@@ -1524,7 +1538,7 @@ Leave shall clear local credentials and peer samples immediately and fence pendi
 
 #### PEER-009 — No peer persistence or AI
 
-**Scope:** extension · **Priority:** extension · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** extension · **Priority:** extension · **Target milestone:** M6 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-009 · **Primary design:** CMP-PEER · **Design components:** CMP-PEER
 
@@ -1548,7 +1562,7 @@ Peer stats shall remain transient within authorized same-room/match/team viewing
 
 #### SOCIAL-001 — Optional account boundary
 
-**Scope:** extension · **Priority:** extension · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** extension · **Priority:** extension · **Target milestone:** M6 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-010 · **Primary design:** CMP-SOCIAL · **Design components:** CMP-SOCIAL
 
@@ -1572,7 +1586,7 @@ Friends/presence/targeted invitations shall require private server-authorized ac
 
 #### SOCIAL-002 — Friendship is not sharing consent
 
-**Scope:** extension · **Priority:** extension · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** extension · **Priority:** extension · **Target milestone:** M6 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-010 · **Primary design:** CMP-SOCIAL · **Design components:** CMP-SOCIAL
 
@@ -1596,7 +1610,7 @@ Mutual friendship and optional presence shall not automatically share gameplay s
 
 #### SOCIAL-003 — Transactional invitation authority
 
-**Scope:** extension · **Priority:** extension · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** extension · **Priority:** extension · **Target milestone:** M6 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-010 · **Primary design:** CMP-SOCIAL · **Design components:** CMP-SOCIAL
 
@@ -1622,7 +1636,7 @@ Social joins shall use reviewed registered-relay proof and one-use expiring auth
 
 #### OBS-001 — Explicit local media session
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M4b · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-011 · **Primary design:** CMP-RECORDER · **Design components:** CMP-RECORDER
 
@@ -1644,7 +1658,7 @@ OBS control shall be authenticated loopback WebSocket v5 and user-started with n
 
 #### OBS-002 — Observe before audio suppression
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M4b · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-011 · **Primary design:** CMP-RECORDER · **Design components:** CMP-RECORDER, CMP-MEDIA
 
@@ -1666,11 +1680,11 @@ Highlight planning shall consume admitted session-bound events before ordinary a
 
 #### OBS-003 — Measured clip coverage
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M4b · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-011 · **Primary design:** CMP-RECORDER · **Design components:** CMP-RECORDER
 
-A requested event clip shall target30s pre-roll and15s post-roll using actual buffer/save/trim timestamps.
+A requested event clip shall target 30s pre-roll and 15s post-roll using actual buffer/save/trim timestamps.
 
 **Failure behavior:** Saving the entire OBS buffer is not proof of exact trimming.
 
@@ -1688,7 +1702,7 @@ A requested event clip shall target30s pre-roll and15s post-roll using actual bu
 
 #### OBS-004 — Recorder failure isolation
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M4b · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-011 · **Primary design:** CMP-RECORDER · **Design components:** CMP-RECORDER
 
@@ -1710,7 +1724,7 @@ OBS failure, auth loss, disk pressure or restart shall degrade recording indepen
 
 #### OBS-005 — Recording-mode evidence
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M4b · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-011 · **Primary design:** CMP-RECORDER · **Design components:** CMP-RECORDER
 
@@ -1736,7 +1750,7 @@ Recording acceptance shall measure OBS separately and combined while retaining a
 
 #### UPDATE-001 — Trusted updater authority
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M8 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-012 · **Primary design:** CMP-UPDATER · **Design components:** CMP-UPDATER
 
@@ -1758,7 +1772,7 @@ The native updater shall validate signed manifests/artifacts from trusted endpoi
 
 #### UPDATE-002 — Safe installation timing
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M8 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-012 · **Primary design:** CMP-UPDATER · **Design components:** CMP-UPDATER
 
@@ -1780,7 +1794,7 @@ Update installation shall wait for a safe gameplay/media state.
 
 #### UPDATE-003 — Promote identical signed bytes
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M8 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-012 · **Primary design:** CMP-UPDATER · **Design components:** CMP-UPDATER
 
@@ -1802,7 +1816,7 @@ Stable promotion shall reuse the exact approved signed candidate artifact.
 
 #### UPDATE-004 — Verified recovery route
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M8 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-012 · **Primary design:** CMP-UPDATER · **Design components:** CMP-UPDATER
 
@@ -1826,11 +1840,11 @@ Release rollback/repair shall respect version and data-migration compatibility.
 
 #### PREMIUM-001 — Native trusted capability lease
 
-**Scope:** deferred · **Priority:** later · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** deferred · **Priority:** later · **Target milestone:** M7 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-012 · **Primary design:** CMP-ENTITLEMENT · **Design components:** CMP-ENTITLEMENT
 
-Premium presentation shall require native-verified server authority; planned lease lifetime7days, refresh24h and max2installations.
+Premium presentation shall require native-verified server authority; planned lease lifetime 7 days, refresh 24h and max 2 installations.
 
 **Failure behavior:** Production issuing/key/RLS/device design is deferred.
 
@@ -1848,7 +1862,7 @@ Premium presentation shall require native-verified server authority; planned lea
 
 #### PREMIUM-002 — Quiet loss and regain
 
-**Scope:** deferred · **Priority:** later · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** deferred · **Priority:** later · **Target milestone:** M7 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-012 · **Primary design:** CMP-ENTITLEMENT · **Design components:** CMP-ENTITLEMENT, CMP-READMODEL
 
@@ -1870,7 +1884,7 @@ Expired/revoked/unverifiable premium authority shall reduce presentation to base
 
 #### PREMIUM-003 — No premium data or safety expansion
 
-**Scope:** deferred · **Priority:** later · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** deferred · **Priority:** later · **Target milestone:** M7 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-012 · **Primary design:** CMP-ENTITLEMENT · **Design components:** CMP-ENTITLEMENT
 
@@ -1896,11 +1910,11 @@ Premium shall never gate safety/core or enlarge source/consent permissions.
 
 #### QUALITY-001 — Acoustic warning latency
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M2 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-003 · **Primary design:** CMP-PERFORMANCE · **Design components:** CMP-PERFORMANCE, CMP-VISION, CMP-RISK, CMP-ALERT
 
-Alert latency shall have p50≤250ms and every measured sample≤300ms over at least300samples per scenario/profile.
+Alert latency shall have p50 ≤250ms and every measured sample ≤300ms over at least 300 samples per scenario/profile.
 
 **Failure behavior:** Do not move T0 after frame-ready or replace hard maximum with p99.
 
@@ -1918,11 +1932,11 @@ Alert latency shall have p50≤250ms and every measured sample≤300ms over at l
 
 #### QUALITY-002 — Whole-app CPU and memory
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M1 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-005 · **Primary design:** CMP-PERFORMANCE · **Design components:** CMP-PERFORMANCE
 
-Every1s normalized app-group CPU sample shall be≤10% and aggregate peak full Working Set≤900000000bytes.
+Every 1s normalized app-group CPU sample shall be ≤10% and aggregate peak full Working Set ≤900000000 bytes.
 
 **Failure behavior:** No excluding model/shared pages or substituting private/PSS/forced trim.
 
@@ -1940,11 +1954,11 @@ Every1s normalized app-group CPU sample shall be≤10% and aggregate peak full W
 
 #### QUALITY-003 — FPS preservation
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M3 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-005 · **Primary design:** CMP-PERFORMANCE · **Design components:** CMP-PERFORMANCE
 
-Game FPS loss shall be≤3% in each of at least3 overlay-off/on pairs of60s under matched device/segment/settings.
+Game FPS loss shall be ≤3% in each of at least 3 overlay-off/on pairs of 60s under matched device/segment/settings.
 
 **Failure behavior:** A pooled average cannot hide a failing pair.
 
@@ -1962,15 +1976,15 @@ Game FPS loss shall be≤3% in each of at least3 overlay-off/on pairs of60s unde
 
 #### QUALITY-004 — Vision quality per class
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M3 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-002 · **Primary design:** CMP-PERFORMANCE · **Design components:** CMP-PERFORMANCE, CMP-VISION
 
-Presence precision/recall shall be≥95%/90% and identity precision/recall≥95%/85% for each certified class.
+Presence precision/recall shall be ≥95%/90% and identity precision/recall ≥95%/85% for each certified class.
 
 **Failure behavior:** No train/holdout leakage or pooled substitution.
 
-**AC-QUALITY-004:** Given at least50episodes/class in at least5held-out matches and20whole held-out matches exist; when independent quality evaluation runs; then per-class results,95%confidence intervals and disagreement are reported.
+**AC-QUALITY-004:** Given at least 50 episodes/class in at least 5 held-out matches and 20 whole held-out matches exist; when independent quality evaluation runs; then per-class results, 95% confidence intervals and disagreement are reported.
 
 **Verification:** benchmark, live; procedures TP-13, TP-02, UAT-02; status NOT_RUN.
 
@@ -1982,11 +1996,11 @@ Presence precision/recall shall be≥95%/90% and identity precision/recall≥95%
 
 #### QUALITY-005 — Warning quality
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M3 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-003 · **Primary design:** CMP-PERFORMANCE · **Design components:** CMP-PERFORMANCE, CMP-RISK, CMP-ALERT
 
-High-danger audible false alerts shall be≤1 per30minutes, actionable recall≥90% and false-safe calls0.
+High-danger audible false alerts shall be ≤1 per 30 minutes, actionable recall ≥90% and false-safe calls 0.
 
 **Failure behavior:** Death alone is not ground truth and no coverage cannot be safe.
 
@@ -2002,15 +2016,15 @@ High-danger audible false alerts shall be≤1 per30minutes, actionable recall≥
 
 #### QUALITY-006 — Voice quality and speed
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M5 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-006 · **Primary design:** CMP-PERFORMANCE · **Design components:** CMP-PERFORMANCE, CMP-VOICE
 
-Warm accepted voice turns shall begin audible answer within2s each and complete≥95% per language, with cold preparation≤10s.
+Warm accepted voice turns shall begin audible answer within 2s each and complete ≥95% per language, with cold preparation ≤10s.
 
 **Failure behavior:** Count failures/timeouts/rejects; synthetic scorer tests do not certify a model.
 
-**AC-QUALITY-006:** Given at least100held-out utterances per language cover quiet/game-audio and separate speakers/sessions; when local STT/answer is evaluated; then English WER≤15%, Thai CER≤20%, intent/critical-slot accuracy≥90% and latency/completion pass.
+**AC-QUALITY-006:** Given at least 100 held-out utterances per language cover quiet/game-audio and separate speakers/sessions; when local STT/answer is evaluated; then English WER ≤15%, Thai CER ≤20%, intent/critical-slot accuracy ≥90% and latency/completion pass.
 
 **Verification:** benchmark, native, acoustic; procedures TP-13, TP-06, UAT-06; status NOT_RUN.
 
@@ -2026,11 +2040,11 @@ Warm accepted voice turns shall begin audible answer within2s each and complete�
 
 #### QUALITY-007 — Preemption under overlap
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M5 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-006 · **Primary design:** CMP-PERFORMANCE · **Design components:** CMP-PERFORMANCE, CMP-VOICE, CMP-MEDIA, CMP-ALERT
 
-All100overlap trials shall cancel stale voice/advice while retaining the critical acoustic deadline.
+All 100 overlap trials shall cancel stale voice/advice while retaining the critical acoustic deadline.
 
 **Failure behavior:** Report failed/cancelled trials without pruning the denominator.
 
@@ -2048,11 +2062,11 @@ All100overlap trials shall cancel stale voice/advice while retaining the critica
 
 #### QUALITY-008 — Evidence-gated certification
 
-**Scope:** mvp · **Priority:** P0 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M8 · **Basis:** inherited_target / DEC-BASELINE
 
 **Product needs:** PN-012 · **Primary design:** CMP-PERFORMANCE · **Design components:** CMP-PERFORMANCE, CMP-STARTUP, CMP-UPDATER
 
-Every required OS/mode/geometry cell shall have at least10live sessions before certification.
+Every required OS/mode/geometry cell shall have at least 10 live sessions before certification.
 
 **Failure behavior:** A unit test, browser screenshot or commit does not substitute for the missing evidence.
 

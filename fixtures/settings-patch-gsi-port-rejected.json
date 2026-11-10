@@ -1,0 +1,10 @@
+{
+  "schema_version": "1.0.0",
+  "request_id": "req_7f3a9c22",
+  "base_revision": 4,
+  "patch": {
+    "gsi": {
+      "port": 3005
+    }
+  }
+}

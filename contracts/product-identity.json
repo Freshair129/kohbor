@@ -8,6 +8,7 @@
   "app_id": null,
   "package_id": null,
   "data_directory": null,
+  "gsi_config_slug": null,
   "uri_scheme": null,
   "media_signature_domain": null,
   "peer_hash_domain": null,

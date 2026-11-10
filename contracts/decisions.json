@@ -14,7 +14,7 @@
       "selected_display_name_th": "เกาะเบาะ",
       "name_selected_on": "2026-11-10",
       "name_selection_authority": "product_owner",
-      "remaining_decision": "Stable app/package IDs, data directory, URI scheme, signature/hash namespaces and an update origin when its service is specified; the display-name choice is already made."
+      "remaining_decision": "Stable app/package IDs, data directory, GSI configuration slug, URI scheme, signature/hash namespaces and an update origin when its service is specified; the display-name choice is already made."
     },
     {
       "id": "DEC-INTERFACES",
@@ -24,6 +24,22 @@
       "owner_role": "architect",
       "safe_interim": "Use illustrative schemas for spikes only; do not claim full interoperability.",
       "closure_evidence": "Complete closed commands, event catalog, transport/auth/version rules and positive/negative fixture corpus."
+    },
+    {
+      "id": "DEC-GSI-INTAKE",
+      "status": "proposed",
+      "milestone": "M0-M1",
+      "blocks": "M1 exit: game-state intake, ownership admission, session start/continuity and mode labelling",
+      "owner_role": "integration owner (builder-delegated); product owner acknowledges mode visibility",
+      "safe_interim": "Implement against docs/design/GSI-INTAKE-SPEC.md for spikes and M1 development. Any unconfirmed assumption keeps the dependent capability unavailable; never infer ownership, session or mode from heuristics.",
+      "closure_evidence": "Redacted M0 capture corpus confirming assumptions A-1..A-9 (or a change-controlled correction), fixtures derived from that corpus, reviewer sign-off recorded as actually given, and product-owner acknowledgement that game mode is reported unverified when the source does not expose it.",
+      "proposed_on": "2026-11-11",
+      "proposal_ref": "docs/design/GSI-INTAKE-SPEC.md",
+      "related": [
+        "DEC-INTERFACES",
+        "DEC-NAME",
+        "DEC-SESSION"
+      ]
     },
     {
       "id": "DEC-MODELS",

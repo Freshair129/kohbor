@@ -1,7 +1,7 @@
 ---
 title: "Media Package Specification"
 doc_id: "MEDIA-PACK-SPEC"
-version: "0.3.1"
+version: "0.3.2"
 status: "draft"
 updated: "2026-11-10"
 owner: "Product owner"

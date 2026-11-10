@@ -1,0 +1,46 @@
+{
+  "schema_version": "1.0.0",
+  "status_revision": 42,
+  "intake": {
+    "state": "unavailable",
+    "port": null,
+    "generation": null,
+    "last_admitted_age_ms": null,
+    "reason": "GSI_PORT_UNAVAILABLE"
+  },
+  "ownership": {
+    "state": "unknown",
+    "reason": null
+  },
+  "session": {
+    "phase": "none",
+    "session_epoch": null
+  },
+  "mode": {
+    "state": "unverified",
+    "value": null
+  },
+  "resource": {
+    "containment": "established",
+    "cpu": {
+      "state": "available",
+      "last_sample_percent": 6.4,
+      "throttle": "normal"
+    },
+    "memory": {
+      "state": "available",
+      "working_set_bytes": 512000000
+    }
+  },
+  "media": {
+    "state": "not_ready",
+    "reason": "MEDIA_UNMAPPED"
+  },
+  "capture": {
+    "state": "unavailable",
+    "reason": "CAPABILITY_UNAVAILABLE"
+  },
+  "account": {
+    "state": "unavailable"
+  }
+}

@@ -1,6 +1,6 @@
 # Software Engineering Documentation Index
 
-**Baseline 0.3.1 · Draft · 2026-11-10 · application evidence NOT_RUN**
+**Baseline 0.3.2 · Draft · 2026-11-11 · application evidence NOT_RUN**
 
 Start with PRD and SRS. Read the design, interface and verification documents for each implementation slice. Agent workflow is separately defined in root AGENTS.md and PROMPT.md.
 
@@ -16,6 +16,7 @@ Start with PRD and SRS. Read the design, interface and verification documents fo
 | [DDD](design/DDD.md) | Data definitions, provenance, ownership, persistence and erasure | Engineering, privacy |
 | [ICD](design/ICD.md) | Interface boundaries, draft/frozen status and contract requirements | Integrating teams |
 | [UX Specification](design/UX-SPEC.md) | Screens, state, interactions, layout and accessibility | UX, engineering, QA |
+| [Game-State Intake Specification](design/GSI-INTAKE-SPEC.md) | M1 owned game configuration, loopback intake, admission, ownership, session and freshness clock | Engineering, integrating teams |
 | [Media Package Specification](design/MEDIA-PACK-SPEC.md) | Media formats, trust, installation and playback lifecycle | Media, engineering, QA |
 | [Security and Privacy](security/SECURITY-PRIVACY.md) | Admission, consent, data flow, authority and protection | Engineering, security/privacy |
 | [NFR and Measurement](quality/NFR.md) | Quality budgets, reference environments and measurement definitions | Engineering, QA |

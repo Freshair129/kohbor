@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0.0",
+  "revision": 4,
+  "locale": "th",
+  "gsi": {
+    "game_dir": "D:/SteamLibrary/steamapps/common/dota 2 beta",
+    "port": 3001,
+    "config_sha256": "9f2c000000000000000000000000000000000000000000000000000000000000",
+    "token_ref": "dpapi:gsi-token"
+  }
+}

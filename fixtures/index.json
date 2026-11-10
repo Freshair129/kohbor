@@ -185,6 +185,122 @@
       "fixture": "fixtures/evidence-pass-without-proof.json",
       "schema_valid": false,
       "requirement_id": "QUALITY-008"
+    },
+    {
+      "id": "own-partial-hp-unknown",
+      "schema": "contracts/own-snapshot.schema.json",
+      "fixture": "fixtures/own-partial-hp-unknown.json",
+      "schema_valid": true,
+      "requirement_id": "DATA-002",
+      "semantic": "hp_bounds",
+      "semantic_valid": true
+    },
+    {
+      "id": "own-hp-genuine-zero",
+      "schema": "contracts/own-snapshot.schema.json",
+      "fixture": "fixtures/own-hp-genuine-zero.json",
+      "schema_valid": true,
+      "requirement_id": "DATA-002",
+      "semantic": "hp_bounds",
+      "semantic_valid": true
+    },
+    {
+      "id": "own-null-value-claimed-fresh",
+      "schema": "contracts/own-snapshot.schema.json",
+      "fixture": "fixtures/own-null-value-claimed-fresh.json",
+      "schema_valid": false,
+      "requirement_id": "DATA-002"
+    },
+    {
+      "id": "own-zero-claimed-unknown",
+      "schema": "contracts/own-snapshot.schema.json",
+      "fixture": "fixtures/own-zero-claimed-unknown.json",
+      "schema_valid": false,
+      "requirement_id": "DATA-002"
+    },
+    {
+      "id": "own-stale-snapshot-fresh-field",
+      "schema": "contracts/own-snapshot.schema.json",
+      "fixture": "fixtures/own-stale-snapshot-fresh-field.json",
+      "schema_valid": false,
+      "requirement_id": "DATA-001"
+    },
+    {
+      "id": "own-field-estimated-rejected",
+      "schema": "contracts/own-snapshot.schema.json",
+      "fixture": "fixtures/own-field-estimated-rejected.json",
+      "schema_valid": false,
+      "requirement_id": "DATA-002"
+    },
+    {
+      "id": "runtime-status-live-valid",
+      "schema": "contracts/runtime-status.schema.json",
+      "fixture": "fixtures/runtime-status-live-valid.json",
+      "schema_valid": true,
+      "requirement_id": "CORE-005"
+    },
+    {
+      "id": "runtime-status-receiving-too-old",
+      "schema": "contracts/runtime-status.schema.json",
+      "fixture": "fixtures/runtime-status-receiving-too-old.json",
+      "schema_valid": false,
+      "requirement_id": "DATA-001"
+    },
+    {
+      "id": "runtime-status-cpu-unavailable-with-value",
+      "schema": "contracts/runtime-status.schema.json",
+      "fixture": "fixtures/runtime-status-cpu-unavailable-with-value.json",
+      "schema_valid": false,
+      "requirement_id": "CORE-002"
+    },
+    {
+      "id": "runtime-status-port-unavailable",
+      "schema": "contracts/runtime-status.schema.json",
+      "fixture": "fixtures/runtime-status-port-unavailable.json",
+      "schema_valid": true,
+      "requirement_id": "CORE-004"
+    },
+    {
+      "id": "runtime-status-mode-guessed",
+      "schema": "contracts/runtime-status.schema.json",
+      "fixture": "fixtures/runtime-status-mode-guessed.json",
+      "schema_valid": false,
+      "requirement_id": "CORE-005"
+    },
+    {
+      "id": "user-settings-valid",
+      "schema": "contracts/user-settings.schema.json",
+      "fixture": "fixtures/user-settings-valid.json",
+      "schema_valid": true,
+      "requirement_id": "CORE-004"
+    },
+    {
+      "id": "user-settings-port-out-of-range",
+      "schema": "contracts/user-settings.schema.json",
+      "fixture": "fixtures/user-settings-port-out-of-range.json",
+      "schema_valid": false,
+      "requirement_id": "CORE-004"
+    },
+    {
+      "id": "user-settings-plaintext-token",
+      "schema": "contracts/user-settings.schema.json",
+      "fixture": "fixtures/user-settings-plaintext-token.json",
+      "schema_valid": false,
+      "requirement_id": "CORE-004"
+    },
+    {
+      "id": "settings-patch-locale-valid",
+      "schema": "contracts/settings-patch.schema.json",
+      "fixture": "fixtures/settings-patch-locale-valid.json",
+      "schema_valid": true,
+      "requirement_id": "CORE-004"
+    },
+    {
+      "id": "settings-patch-gsi-port-rejected",
+      "schema": "contracts/settings-patch.schema.json",
+      "fixture": "fixtures/settings-patch-gsi-port-rejected.json",
+      "schema_valid": false,
+      "requirement_id": "CORE-004"
     }
   ],
   "notes": [

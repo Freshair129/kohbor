@@ -2,8 +2,8 @@
 title: "Software Design Description"
 doc_id: "SDD"
 status: "draft"
-version: "0.3.1"
-updated: "2026-11-10"
+version: "0.3.2"
+updated: "2026-11-11"
 owner_role: "Software design lead; person not assigned"
 approval_status: "not_approved"
 ---
@@ -244,12 +244,12 @@ Match identity and individual source health are separate state domains:
 | Event | Required transition | What remains |
 | --- | --- | --- |
 | Invalid own-source admission | Immediately withdraw own live values and prior peer publication | Preserve last verified match identity/watermark until actual boundary evidence |
-| Valid-source age exceeds2000ms | Mark this source stale and stop fresh assertions | Historical values may remain explicitly stale |
+| Valid-source age exceeds 2000ms | Mark this source stale and stop fresh assertions | Historical values may remain explicitly stale |
 | Invalid/unsupported CV geometry or capture gap | Withdraw vision assertions, markers and vision-dependent audio | Valid GSI and independent local core remain active in telemetry-only mode |
 | New admitted observation | Re-evaluate that source using the current epoch | Do not refresh another source merely because this one recovered |
 | Confirmed new session/owner | Increment epoch and reset relevant baselines/selections | Persist only separately governed history |
 
-Temporary invalidity or a regressed clock is not itself proof of a new match. Completion requires explicit source evidence; a crash/disconnect produces partial or unknown completion. Capture geometry cannot move an otherwise-valid GSI session out of Active.
+The concrete evidence for "confirmed new session/owner" and for restart continuity is defined in [GSI-INTAKE-SPEC §6](GSI-INTAKE-SPEC.md). Temporary invalidity or a regressed clock is not itself proof of a new match. Completion requires explicit source evidence; a crash/disconnect produces partial or unknown completion. Capture geometry cannot move an otherwise-valid GSI session out of Active.
 
 ## 6. Risk hysteresis
 
@@ -275,7 +275,7 @@ DEC-RISK-DETAIL must freeze the coordinated-motion admission parameters and posi
 
 ## 7. Voice lifecycle
 
-Idle → Preparing → Listening → Decoding → Answering → Speaking → terminal status → Idle. One active request. Minimum hold250ms, maximum15s; a repeated held press is ignored and an unmatched release is ignored. A new valid press while decoding/answering/speaking supersedes the prior request.
+Idle → Preparing → Listening → Decoding → Answering → Speaking → terminal status → Idle. One active request. Minimum hold 250ms, maximum 15s; a repeated held press is ignored and an unmatched release is ignored. A new valid press while decoding/answering/speaking supersedes the prior request.
 
 Voice answers use Normal audio priority and are preemptible by ordinary announcer audio as well as critical audio. Interrupted answers cannot resume from a stale request. Critical audio cancels from every active state through an atomic cancellation generation without waiting on Voice locks. Mic-disabled, missing device, denied permission, 2s open timeout, missing model, short input and cancellation each have a closed reason. Every terminal exit releases and discards transient buffers. On PTT release the capture stream ends; any PCM handoff for decoding must obey the separately frozen DEC-VOICE-BUFFER ownership/zeroization deadline, not an implied unlimited retention. Terminal status never includes raw audio, transcript or answer text.
 
@@ -330,6 +330,33 @@ Design review checks every SRS ID against its primary component, relevant ICD/DD
 
 The [runbook](../operations/RUNBOOK.md) owns installation, operational configuration, release and recovery procedures. The [delivery plan](../delivery/SDP.md) sequences implementation. Moving a section or changing an identifier mapping cannot silently change runtime behavior, and no state-machine diagram substitutes for tests on the relevant native environment.
 
+## 14. Resource governor (M1 proposal, DEC-GSI-INTAKE companion)
+
+This section elaborates CORE-002 and QUALITY-002 for M1. It is a proposed engineering design within delegated authority. It does not change the 10% hard cap, the 900,000,000-byte ceiling or the 8% recovery hysteresis in the [NFR](../quality/NFR.md).
+
+**Containment setup** (before any WebView2 or sidecar creation):
+
+1. `CreateJobObjectW` (unnamed).
+2. `SetInformationJobObject(JobObjectCpuRateControlInformation)` with `JOB_OBJECT_CPU_RATE_CONTROL_ENABLE | JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP` and `CpuRate = 1000`. That is 10% of total system CPU, in units of 1/100 percent.
+3. `SetInformationJobObject(JobObjectExtendedLimitInformation)` with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`. `BREAKAWAY_OK` and `SILENT_BREAKAWAY_OK` are **not** set.
+4. `AssignProcessToJobObject(job, GetCurrentProcess())`.
+
+Any failure → `CPU_CONTAINMENT_FAILED`, sanitized log, exit code 1. No job memory limit is set: a hard memory limit would crash instead of degrading. The 900,000,000-byte ceiling is a measured acceptance limit, not a kill threshold.
+
+**Membership verification:** after the WebView2 environment starts, enumerate job processes with `QueryInformationJobObject(JobObjectBasicProcessIdList)`. Every renderer, GPU and utility process of the owned WebView2 environment and every owned sidecar must be listed. A missing member is reported `METRIC_UNAVAILABLE` and fails the native containment test. It is not silently tolerated.
+
+**Sampling:** once per second, compute normalized CPU = Δ(job total user+kernel time) / (Δwall × logical CPU count). Memory = sum of the full Working Set of the listed processes. These feed `runtime-status.resource` and the evidence receipts.
+
+**Soft throttle** (inside the hard cap, so the critical path is not starved):
+
+| State | Enter | Exit | Effect |
+| --- | --- | --- | --- |
+| normal | — | — | All work admitted |
+| throttled | One sample ≥ 9.0%, or CPU metric unavailable, or memory `over_budget` | Three consecutive samples ≤ 8.0% with memory `available` and metric available | Halve vision capture rate (down to a floor of 2 fps); defer model warm-up, package hashing, archive compaction and clip trimming; drop renderer animation frames. Critical alert, audio and intake threads are never throttled |
+
+**Intra-cap priority:** intake, alert and audio threads run at `THREAD_PRIORITY_ABOVE_NORMAL`. Background work runs at `THREAD_PRIORITY_BELOW_NORMAL`. Within the job's hard cap, the scheduler then favors the critical path.
+
+**Limits of this design:** it does not establish that M3 capture/inference or M5 models fit inside 10%. That remains RISK-01 and the DEC-MODELS feasibility gate. The 9.0% entry threshold is an internal tuning value; change it through an ADR backed by measurements. Never change it in response to a failed acceptance run.
 
 ## Related engineering diagrams
 
