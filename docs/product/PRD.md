@@ -2,7 +2,7 @@
 title: "Product Requirements Document"
 doc_id: "PRD"
 status: draft
-version: "0.3.4"
+version: "0.3.5"
 updated: "2026-11-10"
 owner_role: "Product owner"
 baseline: "DEC-BASELINE"

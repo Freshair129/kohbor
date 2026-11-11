@@ -1,5 +1,5 @@
 {
-  "spec_version": "0.3.4",
+  "spec_version": "0.3.5",
   "status": "draft",
   "date": "2026-11-11",
   "artifact_kind": "kohbor_software_engineering_specification",
@@ -13,8 +13,8 @@
     },
     {
       "path": ".gitignore",
-      "bytes": 250,
-      "sha256": "025eb4c3763c1337c73218f0c2e3071eb1fc287af7de08ec6540c282aaec0b06"
+      "bytes": 311,
+      "sha256": "e7682252d6fa00b5562dfc2fd323928e0aae82207b63fd22aa9ba1325356505d"
     },
     {
       "path": "AGENTS.md",
@@ -22,9 +22,19 @@
       "sha256": "de391583b4a84eb41ce8fd75a88285364ae797208182badb3bdb846ef88a26f2"
     },
     {
+      "path": "Cargo.lock",
+      "bytes": 23031,
+      "sha256": "975e50307f1e0d865552c3b22308d08014c37a7ebf34226badb31d1b5836b663"
+    },
+    {
+      "path": "Cargo.toml",
+      "bytes": 428,
+      "sha256": "c7b7afec6912a124777f0857001c6a0753c6b7611620b2e0af1667975dc81571"
+    },
+    {
       "path": "GUIDE-TH.md",
       "bytes": 14249,
-      "sha256": "6bc4b84de8f11c784e74d0a68b71a806de04f5595885932a6ef1cc9b9ca844f4"
+      "sha256": "829f27d6d616dfce2134e8ebb0ed14edd826eb61abaaa252811b7b878f20fe65"
     },
     {
       "path": "PROMPT.md",
@@ -33,8 +43,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 7405,
-      "sha256": "f9a685a82ccd343aca24550cc22843d5c8cfb1d40ee89fc3f0b41c3dc8c556bc"
+      "bytes": 7738,
+      "sha256": "545ea31e696dd7f637f928641004bec049a22dad77c5e5df419cb836f93cbaa0"
     },
     {
       "path": "acceptance/diagram-validation.json",
@@ -44,7 +54,7 @@
     {
       "path": "acceptance/evidence-template.json",
       "bytes": 599,
-      "sha256": "787a8403a79d17690c811ed43a01511b385fcac79879756dd6ecc915325fa561"
+      "sha256": "dbfbeb65e38ad60f849ff87dee56e57f6cd7e9e8b38cfcecb550f5fca26f8c2c"
     },
     {
       "path": "acceptance/scenarios.feature",
@@ -53,8 +63,8 @@
     },
     {
       "path": "acceptance/spec-validation.json",
-      "bytes": 922,
-      "sha256": "d688831639df061af06620be9f185938f7e2f0f0e0c52a0a181c7f021628c296"
+      "bytes": 923,
+      "sha256": "a6eff2ab3471452f051d7bba4aa3bed8104bfd20b5b2f0f473aaf07fd9665ee3"
     },
     {
       "path": "contracts/audio-outcome.schema.json",
@@ -68,8 +78,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 14544,
-      "sha256": "89a43a7727e17c9bc90511e1bc6d709bfb1a3bd6f6ef4edc351da517d7460459"
+      "bytes": 15256,
+      "sha256": "173e8e43c8fe85148034629978ac4c9db8ac52913e3ea7a537f92a2edcd3a429"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -99,7 +109,7 @@
     {
       "path": "contracts/evidence.schema.json",
       "bytes": 4505,
-      "sha256": "265c70dba0ea7c9bdaaa1fcc53faa82c4afdf6eda1f7d577b03d905b72e211dc"
+      "sha256": "bb2663a7a320f48d57942b3435564afb2b58c9dac8d7847222d73fd396f0f123"
     },
     {
       "path": "contracts/media-install-request.schema.json",
@@ -143,18 +153,18 @@
     },
     {
       "path": "contracts/product-identity.json",
-      "bytes": 520,
-      "sha256": "c2f5c04a046cdde4db0ffa08a3830ab18b25b8a31a04c15a35ea77e12127fd70"
+      "bytes": 1175,
+      "sha256": "38711a009aef7788e58d2f47a35dc84acbfadd6736d8cd8ce06b2e9ed05d51e8"
     },
     {
       "path": "contracts/product-needs.json",
       "bytes": 7337,
-      "sha256": "c0e86a56c89ff95f515839c74dceb918e6cac389213de9e88b2ffccc74260530"
+      "sha256": "23ac11f00ae78cce9e3fb777c9aaa27ac3e1428dc8d690e44aad287585836a71"
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 185042,
-      "sha256": "08d8ad69a1362797ae7ccab7ba712bdceb036d7981cfc32be26d993ff0cb423a"
+      "bytes": 185728,
+      "sha256": "a658a73c4615dd66844c661b5f8db0bb8d04586a7a97f0e90b34195cf4d960ad"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -172,59 +182,159 @@
       "sha256": "0ae958cbe2a97cc2597e37c4dfe69557acc72726bd82a753ad526b6d5b36bb7b"
     },
     {
+      "path": "crates/kohbor-gsi-capture/Cargo.toml",
+      "bytes": 678,
+      "sha256": "bb64419209a28d12d8f6c50889d760d81b07a99e045ea389227fc7503f348a7d"
+    },
+    {
+      "path": "crates/kohbor-gsi-capture/src/main.rs",
+      "bytes": 16911,
+      "sha256": "16bb77f629b4376c4690291835f6357bf9bebb9d0eef9ad9986e51c6086a79e7"
+    },
+    {
+      "path": "crates/kohbor-gsi/Cargo.toml",
+      "bytes": 514,
+      "sha256": "24e3030520ed185cf052c6884b66fc981184516567b61c677d69fd29beb9f426"
+    },
+    {
+      "path": "crates/kohbor-gsi/src/admission.rs",
+      "bytes": 8133,
+      "sha256": "83681e0993ada0787180c360d2be49875787e5d3a49de2d7abaef4da6551667b"
+    },
+    {
+      "path": "crates/kohbor-gsi/src/config.rs",
+      "bytes": 6309,
+      "sha256": "359f0994f5af02a6a4fcecee1df3a605e84000063195cf401f1e0c77d2e200a8"
+    },
+    {
+      "path": "crates/kohbor-gsi/src/lib.rs",
+      "bytes": 587,
+      "sha256": "6bc5433d5c3d8ee2c0f0721f211f3085d9d2018a63a9be029c3fae743599f1d9"
+    },
+    {
+      "path": "crates/kohbor-gsi/src/session.rs",
+      "bytes": 6297,
+      "sha256": "8b03f75ad77a0259ad514db62cd74f05f5dc850dc50fa049226d534095a115d3"
+    },
+    {
+      "path": "crates/kohbor-gsi/src/snapshot.rs",
+      "bytes": 3578,
+      "sha256": "9159e9c778f103b0a4914142e761fb5b2ed1085b3201acf7ad2f636f026be11c"
+    },
+    {
+      "path": "crates/kohbor-gsi/src/strict_json.rs",
+      "bytes": 4294,
+      "sha256": "bfcc781ea10008ad3ff165f100ea13623d7c73ee91cb8f1ed32f8a40d08f6edb"
+    },
+    {
+      "path": "crates/kohbor-gsi/tests/captured/hero-selection-no-pick.json",
+      "bytes": 531,
+      "sha256": "92d3141e0555d2ee689b47031efaa8c31e7dfbf0ff08f2cb2e3663352f5d68af"
+    },
+    {
+      "path": "crates/kohbor-gsi/tests/captured/in-progress-alive.json",
+      "bytes": 683,
+      "sha256": "860419ad29563425edbf63388bf29d65d14fac7b4dba1367d09ae1cf6a641853"
+    },
+    {
+      "path": "crates/kohbor-gsi/tests/captured/in-progress-dead.json",
+      "bytes": 682,
+      "sha256": "6b5f52fbfadbf9e0d6561b1f9d477534edbe3528ffa98bac585623f211affb76"
+    },
+    {
+      "path": "crates/kohbor-gsi/tests/captured/in-progress-paused.json",
+      "bytes": 685,
+      "sha256": "e6e05daa45c3f4be53596cd2926ac69df816630b1646589c49bb5bc57823b81a"
+    },
+    {
+      "path": "crates/kohbor-gsi/tests/captured/menu.json",
+      "bytes": 138,
+      "sha256": "2e063c0217305bce91716d312edb3009fe2437a7508d7bb6ab0b6c8b911a1216"
+    },
+    {
+      "path": "crates/kohbor-gsi/tests/captured/post-game.json",
+      "bytes": 679,
+      "sha256": "c24e4a45b209f60fd148fb2938dc5c08a381663cedfbe42a16998ddc664b129a"
+    },
+    {
+      "path": "crates/kohbor-gsi/tests/captured/pre-game.json",
+      "bytes": 675,
+      "sha256": "ee47ef3e3b39b9c8188e1bf784752f3fea16c9507e65cb639b52d920124b1064"
+    },
+    {
+      "path": "crates/kohbor-gsi/tests/captured/team-showcase.json",
+      "bytes": 552,
+      "sha256": "d087e49351606dc4d33251c42b76c8a36ce825cbbd6d92e3fe0a20b881e49665"
+    },
+    {
+      "path": "crates/kohbor-gsi/tests/captured_replay.rs",
+      "bytes": 3063,
+      "sha256": "81c6a5f2a20a8ab4bc542a1a6aeddd5a5894993d32b18da2ee73b2c0e7a751c8"
+    },
+    {
+      "path": "crates/kohbor-gsi/tests/intake.rs",
+      "bytes": 6278,
+      "sha256": "8c5e509330eeb833dfd1c820e5484403318bbeb85e8d69f3d287c00c6b24fb73"
+    },
+    {
       "path": "docs/INDEX.md",
-      "bytes": 5202,
-      "sha256": "ddf2ee3693848b94a01601b3aa78353809193040557ef93984f31f33a091d303"
+      "bytes": 5388,
+      "sha256": "67279de5ae7c4b84865ee2c6504322778e7f79909201735ee80f7e5aee21b7c2"
+    },
+    {
+      "path": "docs/delivery/M0-PLAN.md",
+      "bytes": 9932,
+      "sha256": "a7406d32b6ea850eb6fef7b27adcc63582a65fae43c89f0e7da91690bd2fc309"
     },
     {
       "path": "docs/delivery/SDP.md",
       "bytes": 5161,
-      "sha256": "a89f0d31bde8b3cadbbd04f394a1cc854b97307b3453c41909904cf3b0d73a06"
+      "sha256": "7c603093eddd5470518df77ea6ec88cca749985d3e0adccf8e540826f89f4ccd"
     },
     {
       "path": "docs/design/DDD.md",
       "bytes": 8121,
-      "sha256": "0f75650ccc2d71e1ac5955144fabcce96c36c2e78f2eb30ec8a63b0371886950"
+      "sha256": "6847ccb9ac772994add2c2f7c28872e877d917e66832768b3baa13a71d178746"
     },
     {
       "path": "docs/design/EVENT-AUDIO-SPEC.md",
-      "bytes": 16617,
-      "sha256": "084716ce81416f2355179e38a3957b3fbd28560675560b10b5632db91f590b23"
+      "bytes": 17088,
+      "sha256": "0a4f0abcad37c99d98bd97c5a0d028bb0d161777b3565011d27dcad1305da258"
     },
     {
       "path": "docs/design/GSI-INTAKE-SPEC.md",
-      "bytes": 17806,
-      "sha256": "4d58a62773e92bb1adc533045c1b8b4d4431967da13910969af951551a21605e"
+      "bytes": 20866,
+      "sha256": "12a5be8446b6b7f87b803848ce7be9f39dd6aeca68bd6935bd96611aa0fa3da7"
     },
     {
       "path": "docs/design/ICD.md",
       "bytes": 9782,
-      "sha256": "e3719c78759b57e4e3a295a0f14340eb528e13780a7250f9fbad9c646bed4734"
+      "sha256": "92f77d3aa4e6d0e3e83a0f3fb2a9950a4fe7c41517621a09011e43a793b766b4"
     },
     {
       "path": "docs/design/MEDIA-PACK-SPEC.md",
       "bytes": 13153,
-      "sha256": "7d8dad6704b0d53642ba0b5ab31a47a48a356f962c468fea50084836de5dd7f2"
+      "sha256": "e3d97d58263fad653ecb2aa3f75f4dbace63f3cbaffbb71793500cd8be4ebb40"
     },
     {
       "path": "docs/design/SAD.md",
       "bytes": 18547,
-      "sha256": "95d3bf9928926d4494f49c8ee29687feae7f2c183c48de3775b12e31eb51c569"
+      "sha256": "2d7a8498f477b3503d053ddc3f87775899aab050e1291bd0f00809ffa2598167"
     },
     {
       "path": "docs/design/SDD.md",
       "bytes": 31074,
-      "sha256": "2abb2a14f6e56815457bd4922d913558d6dd399a3c14deb12dc3b4551c373877"
+      "sha256": "b13deedb2c46c88e6976730061efb14ba7b6d6f397db193a5e5fd949608708f2"
     },
     {
       "path": "docs/design/UX-SPEC.md",
       "bytes": 15336,
-      "sha256": "1306e4bc2be515301d10be63693500ec7b02f5be3739dce0d571a95c4a054023"
+      "sha256": "0a34ebab4becab791dffdda2ddc9f57133069e9fb5140d3326c8b7785bb37b6c"
     },
     {
       "path": "docs/design/VISUAL-DESIGN-PROPOSAL.md",
       "bytes": 9404,
-      "sha256": "de0f3f9680b4f7d3bfd91de34c64bb7bfc858cade0168b13d16c7a40ed606f50"
+      "sha256": "d57703f060a0758b1aeadd742c2873cb7b2cd12f880bd826cab9d2a9d537a8d1"
     },
     {
       "path": "docs/design/visuals/Live.dc.html",
@@ -458,78 +568,78 @@
     },
     {
       "path": "docs/governance/CHANGELOG.md",
-      "bytes": 12585,
-      "sha256": "0a15a061a87c740022393f9a1b650a4b15faf2417d27d329789fc200ed7cc0d6"
+      "bytes": 14467,
+      "sha256": "94936b82024008cb2a28f385e41c13367688f1dec7ad4321d91680c92ff36a3f"
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 10947,
-      "sha256": "351e7f312b9b01042cabba0bb8d2d5e90c85a4431e8dd28061dbd11e79f73e16"
+      "bytes": 11286,
+      "sha256": "61846439a1ac1eca56aaedfc9d0b85a275a59c17bd9c9684c80eaa061d12e691"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
-      "bytes": 9900,
-      "sha256": "9a8e07b917983f2899f2732594aff4949b10d23eb2c91a0b8122b6d0d8c0b86c"
+      "bytes": 10022,
+      "sha256": "aadb13c75bb73bcd9b6547219d9d3c88692472daaed29bbde66ab624eb90c39a"
     },
     {
       "path": "docs/governance/IMPLEMENTATION-READINESS.md",
-      "bytes": 7446,
-      "sha256": "18a504bcf2861f95dc85d76a2f5f7e5780d5347aa3cd506076df9816ae66f7b2"
+      "bytes": 7438,
+      "sha256": "13110d7ab9560b42ac9ed3d7b6dcef72d1d64a2e40e3d8771c506b666519465a"
     },
     {
       "path": "docs/governance/RISK-REGISTER.md",
       "bytes": 4414,
-      "sha256": "870e6acca9644679c9f75ae1b279a262505aa0259dfdf34fec7ef279b848601a"
+      "sha256": "35706ce6c4ecac8a3ad5c10bcf7dad66833c35a645066eaea1e75775ab7fe21f"
     },
     {
       "path": "docs/operations/RUNBOOK.md",
       "bytes": 4542,
-      "sha256": "8664035fbeb766d02db9fe3ab16c5491e4eb98844bd8b11189006353714bbb32"
+      "sha256": "add3c4efd67b58ecaf7e2ea55af09a092c4fa267a3b7775c121683eea3524ef3"
     },
     {
       "path": "docs/product/FEATURE-CATALOG.md",
       "bytes": 7378,
-      "sha256": "2755e12104365f8b52c3da1e268bba86ea83ac8626d90f3c5e6165bb4410e67e"
+      "sha256": "605f8e9298898cbb4e57a7a299b213f146e37cbebd106a355bf32a1550ca3afb"
     },
     {
       "path": "docs/product/PRD.md",
       "bytes": 13681,
-      "sha256": "82c8d9a5213712b63365af402803958b14150eaaff9faf5484ae0ac9a0331c34"
+      "sha256": "e443671ea46baded7011ee7c30a7a0384937c906cb6f6fe16af34c2c5cd6ca3c"
     },
     {
       "path": "docs/product/USE-CASES.md",
       "bytes": 15689,
-      "sha256": "c6279f4713261234ab421e8f9249a60c648bb5b3cfdbb131afb3d41d397bff5f"
+      "sha256": "4c4c50a90020b8857791c809b60e032caad2a4e59a16e964a32750abeb3b911c"
     },
     {
       "path": "docs/quality/NFR.md",
       "bytes": 12942,
-      "sha256": "dfd10dac92fbd0947e6d794e83ed1e6a97ea7aa108800ab2825546879710f083"
+      "sha256": "9942fe69b592c056cec90f363a0a0cb5c18fe431fb1d1048b9a2a3b0c4ad2a92"
     },
     {
       "path": "docs/quality/TEST-PLAN.md",
       "bytes": 10161,
-      "sha256": "f5fadf22de73f7342b60129234908d629b93055bcb8b7f3bac34e3bc48989d58"
+      "sha256": "a61d2d78dcaa434692e687be0a57ec0c0f051fea003f2bef4cdc325db2df614b"
     },
     {
       "path": "docs/quality/UAT-PLAN.md",
       "bytes": 7587,
-      "sha256": "1b18d272d562707d169fcdb54ee03d2647db0af8c49e85ba25d338f0db0f9ecb"
+      "sha256": "8fb61b4e84bccd505b237fb9a5e7345d4c715083ebe122a18e24ec747b386f97"
     },
     {
       "path": "docs/requirements/RTM.csv",
-      "bytes": 39326,
-      "sha256": "4ee119dd2ee10b1d1a04497434b42a551fade95d891c5acb7052e84a2e15f79f"
+      "bytes": 39789,
+      "sha256": "302c8f1cdb40b1b063cbda19d1aeb3bfd740bbdc0cbe5b1f1fab2f36ead8608f"
     },
     {
       "path": "docs/requirements/SRS.md",
       "bytes": 122688,
-      "sha256": "f11ae757c0fed2e7e1ab1b747de58cc72962c171b379e6f501d10728e1245dd0"
+      "sha256": "5cb53cbcfc1ab62569049db3b3d917f85f57e02afa4a6baadd6e8048ff1a1bcb"
     },
     {
       "path": "docs/security/SECURITY-PRIVACY.md",
       "bytes": 12879,
-      "sha256": "1472b6f1239a1e08fa7fcf5b2fa4a51e9f84b975649042f2ab06da18b8c6e032"
+      "sha256": "e1a4c8d4ef6624073a7794fd27b75face4b283367242280a399845adb7d4ab81"
     },
     {
       "path": "fixtures/audio-outcome-admitted-valid.json",
@@ -609,12 +719,12 @@
     {
       "path": "fixtures/evidence-not-run.json",
       "bytes": 599,
-      "sha256": "787a8403a79d17690c811ed43a01511b385fcac79879756dd6ecc915325fa561"
+      "sha256": "dbfbeb65e38ad60f849ff87dee56e57f6cd7e9e8b38cfcecb550f5fca26f8c2c"
     },
     {
       "path": "fixtures/evidence-pass-without-proof.json",
       "bytes": 596,
-      "sha256": "c61777f03631cea3ae2822fe50e5232e03093646ccedd5a3be95fd00861f5618"
+      "sha256": "cecde5cbdffd1725022cd2f76e3b75e86daa1df6c97f95390499003d69d1e723"
     },
     {
       "path": "fixtures/health-danger-golden.json",
@@ -842,6 +952,11 @@
       "sha256": "948bd10c28f0506f2ee2ac2e944c3c83dff74f190012351c33d92cb0001b2aa1"
     },
     {
+      "path": "rust-toolchain.toml",
+      "bytes": 103,
+      "sha256": "eea0255021c544995f8a1c2f925630a16fbf082acdb6346c569a9c24b71c10f6"
+    },
+    {
       "path": "templates/adr.md",
       "bytes": 335,
       "sha256": "5b00a92548ea6bb90b05f218417dbdc0809421a93bf2e510a2d8c804fdd92580"
@@ -913,8 +1028,8 @@
     },
     {
       "path": "tools/validate_spec.py",
-      "bytes": 16675,
-      "sha256": "84c5464e5e1bcba0a16bce301c2ed143745b5d1c3e0e3520b77aa36e7ffaf8cb"
+      "bytes": 16701,
+      "sha256": "9004aaa419331c8e91c115eb3a1530cc12e06a783f009e8af2f0bfadcf3dd489"
     }
   ],
   "product_name": "Kohbor",

@@ -1,0 +1,36 @@
+{
+  "provider": {
+    "name": "Dota 2",
+    "appid": 570,
+    "version": 48
+  },
+  "map": {
+    "game_state": "DOTA_GAMERULES_STATE_GAME_IN_PROGRESS",
+    "customgamename": "",
+    "paused": false,
+    "win_team": "none",
+    "radiant_score": 1,
+    "dire_score": 9,
+    "matchid": "<MATCHID>"
+  },
+  "player": {
+    "activity": "playing",
+    "team_name": "radiant",
+    "player_slot": 2,
+    "kills": 0,
+    "kill_streak": 0,
+    "steamid": "<STEAMID>"
+  },
+  "hero": {
+    "name": "npc_dota_hero_silencer",
+    "level": 6,
+    "health": 0,
+    "max_health": 846,
+    "mana_percent": 84,
+    "alive": false,
+    "respawn_seconds": 25
+  },
+  "auth": {
+    "token": "<TOKEN>"
+  }
+}

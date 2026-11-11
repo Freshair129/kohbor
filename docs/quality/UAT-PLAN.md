@@ -2,7 +2,7 @@
 title: "User Acceptance Test Plan"
 doc_id: "UAT-PLAN"
 status: "draft"
-version: "0.3.4"
+version: "0.3.5"
 updated: "2026-11-10"
 owner_role: "UAT operator — unassigned"
 approval_status: "not_approved"

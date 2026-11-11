@@ -1,0 +1,11 @@
+{
+  "provider": {
+    "name": "Dota 2",
+    "appid": 570,
+    "version": 48
+  },
+  "player": {},
+  "auth": {
+    "token": "<TOKEN>"
+  }
+}

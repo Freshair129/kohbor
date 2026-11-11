@@ -1,5 +1,33 @@
 # Documentation Changelog
 
+## 0.3.5 — 2026-11-11
+
+M0 has started. This release adds the first source code. Application evidence beyond source and synthetic tests remains NOT_RUN.
+
+- **DEC-NAME decided:** the technical identity is frozen in `contracts/product-identity.json`. `app_id` is `io.github.freshair129.kohbor`. Only the update origin remains open.
+- **[M0 Plan and Status](../delivery/M0-PLAN.md):**
+  - deliverable status;
+  - scope matrix;
+  - toolchain lock (Rust 1.96.0 pinned; Tauri v2 and pnpm to be pinned at the M1 scaffold; Tauri 3 alpha not adopted);
+  - component-to-module map;
+  - what ran;
+  - the capture-spike procedure.
+- **Rust workspace:**
+  - `crates/kohbor-gsi`: strict JSON, owned config rendering, admission and ownership, own-snapshot 2.0.0, session continuity. 19 tests pass, including validation of produced snapshots against the contract schema. Clippy is clean.
+  - `crates/kohbor-gsi-capture`: an M0 spike tool that installs a spike-only GSI config, captures redacted payloads and summarizes A-1..A-9 and E-1/E-2. It is not run yet.
+- **RTM:** `implementation_refs` now point at real code for CORE-004 and DATA-001..004. Status stays NOT_RUN.
+- `.gitignore` ignores `spike-out/`.
+- **Capture spike, run 2026-11-11 with the owner's approval.** 10,686 payloads from one bot match; the spike config was uninstalled afterwards. Results are in GSI-INTAKE-SPEC §10.1:
+  - Confirmed: A-1, A-2, A-3 (max gap 1,250 ms), A-5, A-7 for one account and E-2.
+  - Consistent but not isolated: A-4 and A-8.
+  - Partly: A-9 and E-1.
+  - Not tested: A-6.
+- **Fixes from the spike:**
+  - Two extra session states, TEAM_SHOWCASE and WAIT_FOR_MAP_TO_LOAD.
+  - An empty hero name during selection now counts as missing.
+  - Port choice now skips ports claimed by other applications' GSI configs (another app claimed 3000).
+  - Five captured-shape replay tests. Tests total 25, all passing.
+
 ## 0.3.4 — 2026-11-11
 
 Added the first visual design proposal under DEC-VISUALS. The product owner approved its **direction** on 2026-11-11: mark, palette, type, state encodings, layout direction and the working name "Command Deck". Measured values, remaining screens and native/visual acceptance are not approved, so DEC-VISUALS stays open.

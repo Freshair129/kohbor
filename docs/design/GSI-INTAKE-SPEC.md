@@ -2,7 +2,7 @@
 title: "Game-State Intake Specification (M1)"
 doc_id: "GSI-INTAKE-SPEC"
 status: draft
-version: "0.3.4"
+version: "0.3.5"
 updated: "2026-11-11"
 authority: "DEC-BASELINE; elaborates CORE-004, CORE-005, DATA-001..004 under DEC-GSI-INTAKE"
 owner_role: "Integration owner; people not assigned"
@@ -74,7 +74,7 @@ The file uses the game's key-value text format (A-2). Values are proposals; the 
 ### 2.4 Port selection and persistence
 
 - Candidate ports: 3000 through 3010 inclusive, on `127.0.0.1` only.
-- **First setup:** try candidates in order. Bind the first free port. Write the configuration with that port. Persist the port in settings (`gsi.port`).
+- **First setup:** read the `uri` of every other `gamestate_integration_*.cfg` in the folder and treat their loopback ports as **claimed**. Try the remaining candidates in order, bind the first free port, write the configuration with that port and persist it in settings (`gsi.port`). (Capture 2026-11-11: another application's file claimed port 3000 while nothing listened there. Binding a port that is merely free at that moment would collide with that application later.)
 - **Later start:** bind the persisted port only. Do not silently move to another port. The game reads its configuration only at launch (A-4), so a running game would keep sending to the old port.
 - **Persisted port occupied:**
   - If the game process is **not** running: select the next free candidate, rewrite the owned configuration (§2.2 rules) and persist it. Report the change in status.
@@ -112,7 +112,7 @@ Admission runs on each authenticated body. Field names are assumed GSI paths (A-
 | Ownership | see §4.1 | `verified` | `invalid` for own data (`OWNER_UNVERIFIED`) |
 | Team | `player.team_name` | `radiant` or `dire` | team is null; own vitals still allowed |
 
-Supported live states: `DOTA_GAMERULES_STATE_PRE_GAME`, `DOTA_GAMERULES_STATE_GAME_IN_PROGRESS`. Session-only states: `DOTA_GAMERULES_STATE_HERO_SELECTION`, `DOTA_GAMERULES_STATE_STRATEGY_TIME`, `DOTA_GAMERULES_STATE_WAIT_FOR_PLAYERS_TO_LOAD`, `DOTA_GAMERULES_STATE_POST_GAME`. Any other value is `unsupported`. It is never mapped to a nearby state.
+Supported live states: `DOTA_GAMERULES_STATE_PRE_GAME`, `DOTA_GAMERULES_STATE_GAME_IN_PROGRESS`. Session-only states: `DOTA_GAMERULES_STATE_HERO_SELECTION`, `DOTA_GAMERULES_STATE_STRATEGY_TIME`, `DOTA_GAMERULES_STATE_TEAM_SHOWCASE`, `DOTA_GAMERULES_STATE_WAIT_FOR_PLAYERS_TO_LOAD`, `DOTA_GAMERULES_STATE_WAIT_FOR_MAP_TO_LOAD`, `DOTA_GAMERULES_STATE_POST_GAME`. The capture added TEAM_SHOWCASE and WAIT_FOR_MAP_TO_LOAD. The payload also carries `previously` and `added` diff blocks, which admission ignores: only the current top-level blocks count. Any other value is `unsupported`. It is never mapped to a nearby state.
 
 ### 4.1 Ownership verification
 
@@ -125,7 +125,7 @@ A payload is only **verified** as local-player data when all of the following ho
    - The registry value is re-read when a session starts and when the identity changes.
 3. **Own hero, not the selected unit.**
    - The `hero` block describes the controlled hero, not the currently selected unit (A-8).
-   - Within a session, `hero.name` may change only at a session boundary. A change in the middle of a session makes ownership `mismatch`.
+   - Within a session, `hero.name` may change only at a session boundary. A change in the middle of a session makes ownership `mismatch`. An **empty** name during hero selection means "not picked yet" and is treated as missing, not as a change (capture 2026-11-11).
 4. **Identity stability.** `player.steamid` is unchanged since session start.
 
 Ownership states:
@@ -227,3 +227,25 @@ Run on a declared Windows/Dota/Steam configuration and record each payload with 
 | A-9 | No game-mode or lobby-type field exists | Record All Pick and Turbo payloads and diff them |
 
 DEC-GSI-INTAKE closes when every assumption is confirmed or the spec is corrected, the fixtures in §9 are updated from the redacted corpus, and the product owner has acknowledged §4.2.
+
+### 10.1 Results: capture of 2026-11-11
+
+**Setup.** One owner machine: Windows build 26300, Dota 2 provider version 48, app build 26551391. The run lasted 3,042 s and captured 10,686 admitted payloads with 0 rejected requests, covering one bot match from menu to post-game plus one abandoned lobby. The redacted corpus stays local in `spike-out/`. Minimized fixtures derived from it are in `crates/kohbor-gsi/tests/captured/` and are replayed by `tests/captured_replay.rs`.
+
+**This is spike evidence, not application acceptance.**
+
+| ID | Result |
+| --- | --- |
+| A-1 | **Confirmed.** `SteamPath`, `libraryfolders.vdf` and `appmanifest_570.acf` located the game. Only one library was available (the default/non-default case was not tested) |
+| A-2 | **Confirmed.** POSTs arrived at the configured URI with the token and the requested blocks |
+| A-3 | **Confirmed.** Maximum gap 1,250 ms overall (at the menu). Maximum gap between identical payloads 1,085 ms. Maximum gap while paused 1,059 ms. Every gap is below 2,000 ms, so heartbeats keep a quiescent game fresh |
+| A-4 | **Consistent, not isolated.** A first run with the game already open received 0 payloads; after a launch, payloads arrived. A port change was not tested in a running game |
+| A-5 | **Confirmed, with additions.** All assumed paths exist. Additional diff blocks (`previously`, `added`) and fields (for example `hero.xpos/ypos`, `player.kill_list`, `map.win_team`, `map.paused`) were observed. Two extra session states were seen (above) |
+| A-6 | **Not tested.** No spectated match or replay was captured |
+| A-7 | **Confirmed for one account.** `player.steamid` equalled `76561197960265728 + ActiveUser` in every payload. Two accounts were not tested |
+| A-8 | **Consistent, not explicitly tested.** `hero.name` stayed the same controlled hero through pre-game, live and post-game. Unit/courier selection was not recorded as a step |
+| A-9 | **Partly.** No mode or lobby field appeared in `map` for this match. Only one mode was captured, so a Turbo diff is still needed |
+
+**New finding:** another application's configuration claims port 3000 (§2.4 updated).
+
+**Status.** DEC-GSI-INTAKE stays **proposed**. It still needs A-6 (spectate/replay), A-9 (a second mode), A-7 on a second account and A-8 with explicit selection, plus the owner acknowledgement of §4.2.

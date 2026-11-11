@@ -1,0 +1,17 @@
+[package]
+name = "kohbor-gsi"
+description = "Game-state intake admission, freshness and session logic for Kohbor (no I/O). Implements docs/design/GSI-INTAKE-SPEC.md."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+hmac = { workspace = true }
+
+[dev-dependencies]
+jsonschema = { version = "0.61.1", default-features = false }

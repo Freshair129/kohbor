@@ -2,7 +2,7 @@
 title: "Kohbor Implementation Readiness"
 doc_id: "IMPLEMENTATION-READINESS"
 status: draft
-version: "0.3.4"
+version: "0.3.5"
 updated: "2026-11-11"
 owner_role: "Product owner and engineering lead; reviewers not assigned"
 approval_status: "not_approved"
@@ -26,7 +26,7 @@ Start M0 feasibility work, requirement review, technical-identity definition and
 
 | Area | Detail still required | Decision / governing document | Interim behavior |
 | --- | --- | --- | --- |
-| Technical identity | Stable app/package IDs, data directory, URI scheme, signing/hash domains and update origin policy | DEC-NAME; [Decision Log](DECISION-LOG.md) | Product name fixed; technical fields remain explicitly unresolved |
+| Technical identity | Frozen 2026-11-11 ([M0-PLAN](../delivery/M0-PLAN.md) §2); only the update origin remains | DEC-NAME; [Decision Log](DECISION-LOG.md) | Product name fixed; technical fields remain explicitly unresolved |
 | Game-state intake (M1) | Confirm assumptions A-1..A-9 with a redacted M0 capture corpus; owner acknowledgement of "mode unverified" labelling | DEC-GSI-INTAKE; [GSI-INTAKE-SPEC](../design/GSI-INTAKE-SPEC.md) | Proposed configuration, admission, ownership, session and freshness rules are specified; capabilities that depend on an unconfirmed assumption stay unavailable |
 | Events and audio (M2) | Confirm detector assumptions E-1/E-2 (health danger approved and mute semantics acknowledged 2026-11-11) | DEC-EVENT-AUDIO; [EVENT-AUDIO-SPEC](../design/EVENT-AUDIO-SPEC.md) | Catalog, priority matrix, outcome codes, decode checks and install contracts are proposed; health danger active but audible only with verified critical media; latency_probe evidence is engineering-only |
 | Interfaces | Complete command/event payload catalog, transport framing, authentication, versioning, idempotency, size/rate bounds and error mapping for every supported operation | DEC-INTERFACES; [ICD](../design/ICD.md) | Draft schemas support bounded spikes; no claim of complete interoperability |

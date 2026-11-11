@@ -10,6 +10,8 @@ import subprocess
 import sys
 from pathlib import Path, PurePosixPath
 
+SKIP_DIRS={"node_modules","__pycache__","target",".git","spike-out"}
+
 def strict_pairs(pairs):
     result={}
     for key,value in pairs:
@@ -70,7 +72,7 @@ def main():
     args=ap.parse_args()
     root=Path(__file__).resolve().parents[1]
     errors=[]
-    json_files=[p for p in root.rglob("*.json") if "node_modules" not in p.parts and "__pycache__" not in p.parts]
+    json_files=[p for p in root.rglob("*.json") if not set(p.relative_to(root).parts)&SKIP_DIRS]
     parsed={}
     for path in json_files:
         try:parsed[path.relative_to(root).as_posix()]=read_json(path)
@@ -169,7 +171,7 @@ def main():
             errors.append(r["id"]+": scenario missing/duplicate.")
     link_count=0
     for p in root.rglob("*.md"):
-        if "node_modules" in p.parts or "__pycache__" in p.parts:continue
+        if set(p.relative_to(root).parts)&SKIP_DIRS:continue
         content=p.read_text(encoding="utf-8")
         if content.count(chr(96)*3)%2:errors.append(str(p.relative_to(root))+": unbalanced code fences.")
         for target in re.findall(r"\[[^\]]*\]\(([^)]+)\)",content):
@@ -179,7 +181,7 @@ def main():
             if not (p.parent/target).exists():errors.append(str(p.relative_to(root))+": broken link "+target)
     forbidden_hits=0
     for p in root.rglob("*"):
-        if not p.is_file() or "__pycache__" in p.parts or "node_modules" in p.parts:continue
+        if not p.is_file() or set(p.relative_to(root).parts)&SKIP_DIRS:continue
         try:content=p.read_text(encoding="utf-8").casefold()
         except UnicodeDecodeError:continue
         for token in args.forbidden_token:

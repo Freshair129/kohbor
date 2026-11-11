@@ -2,7 +2,7 @@
 title: "Security and Privacy Specification"
 doc_id: "SECURITY-PRIVACY"
 status: "draft"
-version: "0.3.4"
+version: "0.3.5"
 updated: "2026-11-10"
 owner: "Product Owner"
 approval_status: "not_approved"
