@@ -8,6 +8,5 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
-
-[dev-dependencies]
+kohbor-gsi = { path = "../kohbor-gsi" }
 serde_json = { workspace = true }

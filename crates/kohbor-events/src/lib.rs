@@ -4,6 +4,8 @@
 //! monotonic arrival time already attached; this crate never reads a clock, opens a
 //! file or touches the network.
 
+pub mod adapter;
+
 use std::collections::VecDeque;
 
 /// Catalog events the detector can emit (taxonomy 1.1, contracts/event-catalog.json).
