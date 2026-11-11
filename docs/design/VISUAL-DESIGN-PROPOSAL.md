@@ -6,7 +6,7 @@ version: "0.3.4"
 updated: "2026-11-11"
 authority: "DEC-BASELINE; proposal under DEC-VISUALS; elaborates UX-SPEC for UI-001..UI-006"
 owner_role: "Product designer (builder-delegated proposal); product owner reviews"
-approval_status: "not_approved"
+approval_status: "direction_approved_by_owner_2026-11-11"
 ---
 
 # Visual Design Proposal — Command Deck and Overlay
@@ -20,7 +20,9 @@ The artifacts are:
 - the design tokens in [design-tokens.json](../../contracts/design-tokens.json);
 - four annotated artboards in [visuals/](visuals/).
 
-Values that need native measurement are marked as such. Nothing here is approved, and nothing has been measured on Windows or in a live game.
+Values that need native measurement are marked as such.
+
+**Owner decision (2026-11-11): the visual direction is approved.** The approval covers the companion mark, the dark-first palette and its no-"safe"-green rule, IBM Plex Sans Thai/Mono, the honest-state encodings, the Command Deck/overlay layout direction and the working name "Command Deck". It does **not** approve the measured values (`needs_measurement`), the screens still to be designed, or native/visual acceptance. Nothing has been measured on Windows or in a live game.
 
 "Command Deck" is the working name for the control window (UX-SPEC §2). The rename is presentation only; destinations and behavior are unchanged.
 
@@ -144,6 +146,5 @@ Every module supports enable, position, scale, opacity and saved profiles (UX-SP
 | Remaining destinations | Voice Packs, Insights, Account, Settings and the Store "not in this build" state; local clip controls placement |
 | Live-field states | GSI-only, stale, error, base-vs-Pro and inspector-open variants; the 1-px map-stability check |
 | Motion and reduced motion | Banner entry/exit timing; reduced-motion variant; FPS impact measurement |
-| Owner review | Approve, adjust or reject the identity (mark, palette, type) |
 
-DEC-VISUALS stays **open**. This proposal is the first closure input, not closure.
+DEC-VISUALS stays **open**. The direction is approved; closure still needs the remaining screens and the native measurements above.

@@ -68,8 +68,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 11756,
-      "sha256": "592e3933db2184f0bafed81ae5733fd10bcd799af249e3aa73c9c7d1fc80fdc9"
+      "bytes": 12369,
+      "sha256": "6bfb5e3a4fa387bfe4ce1a15beeddf3a0a6e61257c9817e357df842c2e52bc99"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -218,8 +218,8 @@
     },
     {
       "path": "docs/design/VISUAL-DESIGN-PROPOSAL.md",
-      "bytes": 8476,
-      "sha256": "d3bfdf975b5962f87af7b5995826793a3781346ade6782429a1acc4e7b4972c1"
+      "bytes": 8864,
+      "sha256": "da1165d104821e5cd3d35e8b68f2ec3e0bbcef76789417ecd51901c1060e6450"
     },
     {
       "path": "docs/design/visuals/Live.dc.html",
@@ -243,8 +243,8 @@
     },
     {
       "path": "docs/design/visuals/canvas.json",
-      "bytes": 3670,
-      "sha256": "8acdc96fffc54b8abd6c55bd649cc1e6ff2c26d4f7ebb926201fec8aa5d33099"
+      "bytes": 4340,
+      "sha256": "c8d95f8a8854a6f307d46c8decee8afbf5c909630aa76657e461a0cfa521279a"
     },
     {
       "path": "docs/diagrams/INDEX.html",
@@ -453,13 +453,13 @@
     },
     {
       "path": "docs/governance/CHANGELOG.md",
-      "bytes": 11485,
-      "sha256": "2edf43c9bcf4f09224d09c845c93ab6edf77171403afcd05c2c8a5c7391c5b46"
+      "bytes": 11694,
+      "sha256": "7bf51c85221f366c05e132a4f09b1be96f4c0f699e895cd0111305c31e942e3e"
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 10100,
-      "sha256": "4506c5222dbe86a532812c4484ce686a70fb9a8dea4d8333a98af36f5beefa76"
+      "bytes": 10218,
+      "sha256": "c759ef323bae25c117a2afdbe5ef3da3236cf29ac5f5cedaeb82c32daefc1655"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
@@ -468,8 +468,8 @@
     },
     {
       "path": "docs/governance/IMPLEMENTATION-READINESS.md",
-      "bytes": 7451,
-      "sha256": "6f3a5bf8e9482d9dc1cdee594c75cfce4e7135d75a677b1c9433b011c4096510"
+      "bytes": 7446,
+      "sha256": "0dc5478163ea5c963d0a6e75d595339d9b3c063682b9a7ee3d5975fd6d1b1a96"
     },
     {
       "path": "docs/governance/RISK-REGISTER.md",

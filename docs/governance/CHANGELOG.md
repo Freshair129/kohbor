@@ -2,7 +2,7 @@
 
 ## 0.3.4 — 2026-11-11
 
-Added the first visual design proposal under DEC-VISUALS. It is **not approved**, and DEC-VISUALS stays open.
+Added the first visual design proposal under DEC-VISUALS. The product owner approved its **direction** on 2026-11-11: mark, palette, type, state encodings, layout direction and the working name "Command Deck". Measured values, remaining screens and native/visual acceptance are not approved, so DEC-VISUALS stays open.
 
 - [VISUAL-DESIGN-PROPOSAL](../design/VISUAL-DESIGN-PROPOSAL.md) records:
   - an original companion mark;

@@ -111,7 +111,16 @@
       "closure_evidence": "Original annotated wireframes/tokens; viewport/DPI/native focus and safe-area evidence.",
       "proposal_ref": "docs/design/VISUAL-DESIGN-PROPOSAL.md",
       "proposed_on": "2026-11-11",
-      "proposal_scope": "Identity mark, tokens (contracts/design-tokens.json), honest-state encodings, Command Deck Overview/Live and overlay artboards; not approved."
+      "proposal_scope": "Identity mark, tokens (contracts/design-tokens.json), honest-state encodings, Command Deck Overview/Live and overlay artboards; not approved.",
+      "owner_acknowledgements": [
+        {
+          "topic": "Visual direction: companion mark, dark-first palette without a 'safe' green, IBM Plex Sans Thai/Mono, honest-state encodings, Command Deck and overlay layout direction, working name 'Command Deck'.",
+          "acknowledged_by": "product_owner",
+          "acknowledged_on": "2026-11-11",
+          "channel": "Owner reply in the engineering chat session that prepared spec 0.3.4",
+          "scope": "Direction only; excludes needs_measurement values, remaining destinations/state variants, motion and native/visual acceptance."
+        }
+      ]
     },
     {
       "id": "DEC-PACK-CRYPTO",
