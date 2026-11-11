@@ -121,6 +121,10 @@ pub struct Tick {
     pub trusted: bool,
     /// Own `player.kills` counter.
     pub kills: Option<u32>,
+    /// Own `player.deaths` counter. `None` enables the alive-transition fallback.
+    pub deaths: Option<u32>,
+    /// Own `player.kill_streak` counter, when admitted and representable.
+    pub kill_streak: Option<u32>,
     /// `map.radiant_score + map.dire_score`, for the first-blood rule (E-1).
     pub combined_score: Option<u32>,
     pub level: Option<u32>,
@@ -184,9 +188,12 @@ pub struct Detector {
     last_at_ms: Option<u64>,
     phase: Option<Phase>,
     kills: Option<u32>,
+    deaths: Option<u32>,
+    kill_streak: Option<u32>,
     combined_score: Option<u32>,
     level: Option<u32>,
     alive: Option<bool>,
+    death_since_respawn: bool,
     multi_kill_count: u32,
     multi_kill_at_ms: Option<u64>,
     streak_count: Option<u32>,
@@ -220,9 +227,12 @@ impl Detector {
             last_at_ms: None,
             phase: None,
             kills: None,
+            deaths: None,
+            kill_streak: None,
             combined_score: None,
             level: None,
             alive: None,
+            death_since_respawn: false,
             multi_kill_count: 0,
             multi_kill_at_ms: None,
             streak_count: None,
@@ -259,11 +269,22 @@ impl Detector {
         let previous_phase = self.phase;
         let previous_alive = self.alive;
         let previous_kills = self.kills;
+        let previous_deaths = self.deaths;
+        let previous_kill_streak = self.kill_streak;
         let previous_score = self.combined_score;
         let previous_level = self.level;
 
-        let died = previous_alive == Some(true) && tick.alive == Some(false);
-        let respawned = previous_alive == Some(false) && tick.alive == Some(true);
+        let alive_death = previous_alive == Some(true) && tick.alive == Some(false);
+        let death_counter_known = previous_deaths.is_some() && tick.deaths.is_some();
+        let death_counter_increased = matches!((previous_deaths, tick.deaths),
+            (Some(previous), Some(current)) if current > previous);
+        let died = if death_counter_known {
+            death_counter_increased
+        } else {
+            alive_death
+        };
+        let alive_respawn = previous_alive == Some(false) && tick.alive == Some(true);
+        let respawned = alive_respawn && (self.death_since_respawn || died);
 
         let (kill_delta, kills_regressed) = match (previous_kills, tick.kills) {
             (Some(previous), Some(current)) if current < previous => (None, true),
@@ -274,6 +295,9 @@ impl Detector {
             (Some(previous), Some(current)) if current < previous);
         let level_regressed = matches!((previous_level, tick.level),
             (Some(previous), Some(current)) if current < previous);
+        let kill_streak_regressed = matches!((previous_kill_streak, tick.kill_streak),
+            (Some(previous), Some(current)) if current < previous);
+        let kill_streak_reset = kill_streak_regressed && !died;
 
         let match_started =
             previous_phase.is_some_and(|phase| phase != Phase::Live) && tick.phase == Phase::Live;
@@ -314,10 +338,20 @@ impl Detector {
                 if let Some(streak_count) = self.streak_count {
                     let streak_count = streak_count.saturating_add(delta);
                     self.streak_count = Some(streak_count);
+                    if tick.kill_streak.is_none() && !kill_streak_reset {
+                        if let Some((min_tier, max_tier)) = tier_bounds(EventId::Streak) {
+                            let minimum = self.config.streak_min_kills.max(min_tier);
+                            if streak_count >= minimum {
+                                streak_tier = Some(streak_count.min(max_tier) as u8);
+                            }
+                        }
+                    }
+                }
+                if let Some(observed_streak) = tick.kill_streak.filter(|_| !kill_streak_reset) {
                     if let Some((min_tier, max_tier)) = tier_bounds(EventId::Streak) {
                         let minimum = self.config.streak_min_kills.max(min_tier);
-                        if streak_count >= minimum {
-                            streak_tier = Some(streak_count.min(max_tier) as u8);
+                        if observed_streak >= minimum {
+                            streak_tier = Some(observed_streak.min(max_tier) as u8);
                         }
                     }
                 }
@@ -340,8 +374,12 @@ impl Detector {
         // against the pre-death streak, then reset the streak for later kills.
         if died {
             self.streak_count = Some(0);
+            self.death_since_respawn = true;
             self.danger_armed = true;
             self.danger_samples.clear();
+        }
+        if kill_streak_reset {
+            self.streak_count = None;
         }
 
         let mut level_milestone = false;
@@ -358,6 +396,7 @@ impl Detector {
 
         let mut health_low = false;
         if respawned {
+            self.death_since_respawn = false;
             self.health_low_armed = true;
             self.mana_low_armed = true;
         }
@@ -409,6 +448,8 @@ impl Detector {
         if let Some(value) = tick.kills {
             self.kills = Some(value);
         }
+        self.deaths = tick.deaths;
+        self.kill_streak = tick.kill_streak;
         if let Some(value) = tick.combined_score {
             self.combined_score = Some(value);
         }
@@ -469,9 +510,12 @@ impl Detector {
         self.last_at_ms = Some(tick.at_ms);
         self.phase = Some(tick.phase);
         self.kills = tick.kills;
+        self.deaths = tick.deaths;
+        self.kill_streak = tick.kill_streak;
         self.combined_score = tick.combined_score;
         self.level = tick.level;
         self.alive = tick.alive;
+        self.death_since_respawn = false;
         self.multi_kill_count = 0;
         self.multi_kill_at_ms = None;
         self.streak_count = (tick.kills == Some(0)).then_some(0);
@@ -516,8 +560,6 @@ impl Detector {
 
     fn observe_health_danger(&mut self, tick: &Tick) -> bool {
         if tick.alive == Some(false) {
-            self.danger_armed = true;
-            self.danger_samples.clear();
             return false;
         }
         let (Some(hp), Some(max_hp)) = (tick.hp, tick.max_hp) else {

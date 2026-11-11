@@ -91,6 +91,7 @@ pub struct HeroFields {
 pub struct OwnCounters {
     pub kills: Field<i64>,
     pub kill_streak: Field<i64>,
+    pub deaths: Field<i64>,
     pub combined_score: Field<i64>,
 }
 
@@ -234,6 +235,7 @@ fn own_counters(player: Option<&Value>, map: Option<&Value>) -> OwnCounters {
     OwnCounters {
         kills: int_field(player, "kills", 0, 100_000),
         kill_streak: int_field(player, "kill_streak", 0, 100_000),
+        deaths: int_field(player, "deaths", 0, 100_000),
         combined_score,
     }
 }

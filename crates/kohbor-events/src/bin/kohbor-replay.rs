@@ -617,10 +617,20 @@ const EVENT_IDS: [EventId; 12] = [
 ];
 
 fn event_index(id: EventId) -> usize {
-    EVENT_IDS
-        .iter()
-        .position(|candidate| *candidate == id)
-        .expect("every event id is in the replay catalog")
+    match id {
+        EventId::MultiKill => 0,
+        EventId::Streak => 1,
+        EventId::FirstBlood => 2,
+        EventId::HeroKill => 3,
+        EventId::HeroDeath => 4,
+        EventId::LevelMilestone => 5,
+        EventId::HealthLow => 6,
+        EventId::ManaLow => 7,
+        EventId::MatchEnded => 8,
+        EventId::MatchStarted => 9,
+        EventId::HeroRespawn => 10,
+        EventId::HealthDanger => 11,
+    }
 }
 
 fn timeline_json(entry: &TimelineEntry) -> Value {
@@ -702,10 +712,9 @@ fn print_text(
 
     println!("Detector tier events");
     for tier_event in report.tier_events() {
-        let tier = tier_event
-            .event
-            .tier
-            .expect("multi_kill and streak events have tiers");
+        let Some(tier) = tier_event.event.tier else {
+            continue;
+        };
         println!(
             "{} tier={} seq={} t_ms={}",
             tier_event.event.id.as_str(),
@@ -746,6 +755,11 @@ fn print_text(
         "E-3 diagnostic (not detector logic): compared={} mismatches={}",
         diagnostic.compared, diagnostic.mismatches
     );
+    println!(
+        "  deaths-counter increases={}",
+        diagnostic.deaths_counter_increases
+    );
+    println!("  alive-only flips={}", diagnostic.alive_only_flips);
     for mismatch in &diagnostic.first_mismatches {
         println!(
             "  t_ms={} computed={} player.kill_streak={}",
@@ -897,6 +911,9 @@ struct StreakDiagnostic {
     computed: Option<u32>,
     compared: u64,
     mismatches: u64,
+    deaths_counter_increases: u64,
+    alive_only_flips: u64,
+    pending_death_counter_increase: bool,
     first_mismatches: Vec<DiagnosticMismatch>,
 }
 
@@ -904,6 +921,7 @@ struct StreakDiagnostic {
 struct DiagnosticSample {
     session_epoch: u64,
     kills: Option<u32>,
+    deaths: Option<u32>,
     alive: Option<bool>,
 }
 
@@ -918,8 +936,32 @@ impl StreakDiagnostic {
         let current = DiagnosticSample {
             session_epoch,
             kills: field_u32(&admitted.counters.kills),
+            deaths: field_u32(&admitted.counters.deaths),
             alive: field_bool(&admitted.hero.alive),
         };
+        let same_session_previous = self
+            .previous
+            .filter(|previous| previous.session_epoch == session_epoch);
+        if let Some(previous) = same_session_previous {
+            let (death_increased, death_regressed) = match (previous.deaths, current.deaths) {
+                (Some(previous), Some(current)) => (current > previous, current < previous),
+                _ => (false, false),
+            };
+            if death_increased {
+                self.deaths_counter_increases = self.deaths_counter_increases.saturating_add(1);
+            }
+            if previous.alive == Some(true)
+                && current.alive == Some(false)
+                && !death_increased
+                && !self.pending_death_counter_increase
+            {
+                self.alive_only_flips = self.alive_only_flips.saturating_add(1);
+            }
+            self.pending_death_counter_increase =
+                death_increased && !death_regressed && current.alive != Some(false);
+        } else {
+            self.pending_death_counter_increase = false;
+        }
         let new_session = self
             .previous
             .is_none_or(|previous| previous.session_epoch != session_epoch);
@@ -935,9 +977,9 @@ impl StreakDiagnostic {
             (self.computed, &admitted.counters.kill_streak)
         {
             if let Ok(observed) = u32::try_from(*observed) {
-                self.compared += 1;
+                self.compared = self.compared.saturating_add(1);
                 if computed != observed {
-                    self.mismatches += 1;
+                    self.mismatches = self.mismatches.saturating_add(1);
                     if self.first_mismatches.len() < 5 {
                         self.first_mismatches.push(DiagnosticMismatch {
                             at_ms,
@@ -955,6 +997,8 @@ impl StreakDiagnostic {
             "label": "E-3 diagnostic (not detector logic)",
             "compared": self.compared,
             "mismatches": self.mismatches,
+            "deaths_counter_increases": self.deaths_counter_increases,
+            "alive_only_flips": self.alive_only_flips,
             "first_mismatches": self.first_mismatches.iter().map(|mismatch| json!({
                 "at_ms": mismatch.at_ms,
                 "computed": mismatch.computed,
@@ -965,10 +1009,14 @@ impl StreakDiagnostic {
 }
 
 fn known_baseline(sample: DiagnosticSample) -> Option<u32> {
-    if sample.alive == Some(false) || sample.kills == Some(0) {
-        Some(0)
-    } else {
-        None
+    if sample.kills == Some(0) {
+        return Some(0);
+    }
+    match sample.deaths {
+        Some(0) => sample.kills,
+        Some(_) => None,
+        None if sample.alive == Some(false) => Some(0),
+        None => None,
     }
 }
 
@@ -977,10 +1025,19 @@ fn next_computed(
     current: DiagnosticSample,
     computed: Option<u32>,
 ) -> Option<u32> {
-    if current.alive == Some(false) {
+    let death_counters_known = previous.deaths.is_some() && current.deaths.is_some();
+    if death_counters_known {
+        match (previous.deaths, current.deaths) {
+            (Some(previous), Some(current)) if current > previous => return Some(0),
+            (Some(previous_deaths), Some(current_deaths)) if current_deaths < previous_deaths => {
+                return known_baseline(current);
+            }
+            _ => {}
+        }
+    } else if previous.alive == Some(true) && current.alive == Some(false) {
         return Some(0);
     }
-    if current.alive.is_none() || previous.alive.is_none() {
+    if !death_counters_known && (current.alive.is_none() || previous.alive.is_none()) {
         return None;
     }
 
@@ -990,7 +1047,7 @@ fn next_computed(
         _ => return None,
     };
 
-    computed?.checked_add(kill_delta?)
+    Some(computed?.saturating_add(kill_delta?))
 }
 
 fn field_u32(field: &kohbor_gsi::admission::Field<i64>) -> Option<u32> {

@@ -24,6 +24,8 @@ pub fn tick_from_admitted(
         },
         trusted,
         kills: to_u32(&admitted.counters.kills),
+        deaths: to_u32(&admitted.counters.deaths),
+        kill_streak: to_u32(&admitted.counters.kill_streak),
         combined_score: to_u32(&admitted.counters.combined_score),
         level: to_u32(&admitted.hero.level),
         hp: to_u32(&admitted.hero.hp),

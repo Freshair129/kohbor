@@ -13,6 +13,7 @@ fn admitted(phase: GsiPhase) -> Admitted {
         counters: OwnCounters {
             kills: Field::Value(3),
             kill_streak: Field::Value(2),
+            deaths: Field::Missing,
             combined_score: Field::Value(10),
         },
         hero: HeroFields {
@@ -39,6 +40,8 @@ fn maps_admitted_values_and_keeps_hp_above_max_hp_unchanged() {
             phase: Phase::Live,
             trusted: true,
             kills: Some(3),
+            deaths: None,
+            kill_streak: Some(2),
             combined_score: Some(10),
             level: Some(12),
             hp: Some(1201),

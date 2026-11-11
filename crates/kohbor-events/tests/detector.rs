@@ -39,6 +39,8 @@ fn tick(at_ms: u64) -> Tick {
         phase: Phase::Live,
         trusted: true,
         kills: Some(0),
+        deaths: None,
+        kill_streak: None,
         combined_score: Some(0),
         level: Some(1),
         hp: Some(1000),
