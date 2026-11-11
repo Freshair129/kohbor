@@ -85,9 +85,53 @@ fn sanitize_name(name: &str) -> String {
         .collect()
 }
 
+/// Loopback ports claimed by other applications' GSI configuration files.
+///
+/// Capture 2026-11-11 found another application's file pointing at port 3000 while
+/// nothing listened there, so "free right now" is not enough (GSI-INTAKE-SPEC §2.4).
+pub fn claimed_ports<'a>(other_config_texts: impl IntoIterator<Item = &'a str>) -> Vec<u16> {
+    let mut ports: Vec<u16> = other_config_texts
+        .into_iter()
+        .flat_map(str::lines)
+        .filter_map(|line| {
+            let line = line.trim();
+            let rest = line.strip_prefix("\"uri\"")?.trim().trim_matches('"');
+            let host_port = rest
+                .strip_prefix("http://")
+                .or_else(|| rest.strip_prefix("https://"))?;
+            let authority = host_port.split('/').next()?;
+            let (host, port) = authority.rsplit_once(':')?;
+            matches!(host, "127.0.0.1" | "localhost" | "[::1]")
+                .then(|| port.parse::<u16>().ok())
+                .flatten()
+        })
+        .collect();
+    ports.sort_unstable();
+    ports.dedup();
+    ports
+}
+
+/// First candidate in 3000..=3010 that no other configuration claims and `is_free` accepts.
+pub fn choose_port(claimed: &[u16], is_free: impl Fn(u16) -> bool) -> Option<u16> {
+    (PORT_FIRST..=PORT_LAST).find(|p| !claimed.contains(p) && is_free(*p))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn claimed_ports_reads_other_configs_and_choose_port_skips_them() {
+        let other = [
+            "\"A\"\n{\n    \"uri\"           \"http://127.0.0.1:3000/gsi\"\n}\n",
+            "\"B\"\n{\n  \"uri\" \"http://127.0.0.1:43721\"\n}\n",
+            "\"C\"\n{\n    \"uri\" \"http://localhost:3011/gsi\"\n    \"uri\" \"http://10.0.0.5:3002/\"\n}\n",
+        ];
+        assert_eq!(claimed_ports(other), vec![3000, 3011, 43721]);
+        assert_eq!(choose_port(&[3000, 3011], |_| true), Some(3001));
+        assert_eq!(choose_port(&[3000], |p| p != 3001), Some(3002));
+        assert_eq!(choose_port(&[], |_| false), None);
+    }
 
     const TOKEN: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNO-_";
 

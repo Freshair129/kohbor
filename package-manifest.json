@@ -63,8 +63,8 @@
     },
     {
       "path": "acceptance/spec-validation.json",
-      "bytes": 922,
-      "sha256": "1ed7e7445a5ea2dd8c66336a4f1535e1d665f61c56c76830f69ff86d10b61987"
+      "bytes": 923,
+      "sha256": "a6eff2ab3471452f051d7bba4aa3bed8104bfd20b5b2f0f473aaf07fd9665ee3"
     },
     {
       "path": "contracts/audio-outcome.schema.json",
@@ -78,8 +78,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 14734,
-      "sha256": "f0279d1a0832c0703be64fe9b11f3097f23d82d721fb038aca761a293237998d"
+      "bytes": 15256,
+      "sha256": "173e8e43c8fe85148034629978ac4c9db8ac52913e3ea7a537f92a2edcd3a429"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -163,8 +163,8 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 185504,
-      "sha256": "9e43215b6b3903c55639a21728459e5d0a830cfcb45d527fde7a00f95b9d8e24"
+      "bytes": 185728,
+      "sha256": "a658a73c4615dd66844c661b5f8db0bb8d04586a7a97f0e90b34195cf4d960ad"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -188,8 +188,8 @@
     },
     {
       "path": "crates/kohbor-gsi-capture/src/main.rs",
-      "bytes": 15279,
-      "sha256": "61d21612e9b2f6e8f3a23ba0e52fd7df9cf2e48e5b3c6ae1a8a86e71f7685f85"
+      "bytes": 16911,
+      "sha256": "16bb77f629b4376c4690291835f6357bf9bebb9d0eef9ad9986e51c6086a79e7"
     },
     {
       "path": "crates/kohbor-gsi/Cargo.toml",
@@ -198,13 +198,13 @@
     },
     {
       "path": "crates/kohbor-gsi/src/admission.rs",
-      "bytes": 7782,
-      "sha256": "680cbb4786dcc9398f6cea7bbd887e9f2df1a74534558143ab8c0d862bc798e5"
+      "bytes": 8133,
+      "sha256": "83681e0993ada0787180c360d2be49875787e5d3a49de2d7abaef4da6551667b"
     },
     {
       "path": "crates/kohbor-gsi/src/config.rs",
-      "bytes": 4336,
-      "sha256": "a84da3877436c549b6959a45b57135bc0b1d1d0b84413cb7ab85cfd0cdf8cbc5"
+      "bytes": 6309,
+      "sha256": "359f0994f5af02a6a4fcecee1df3a605e84000063195cf401f1e0c77d2e200a8"
     },
     {
       "path": "crates/kohbor-gsi/src/lib.rs",
@@ -227,6 +227,51 @@
       "sha256": "bfcc781ea10008ad3ff165f100ea13623d7c73ee91cb8f1ed32f8a40d08f6edb"
     },
     {
+      "path": "crates/kohbor-gsi/tests/captured/hero-selection-no-pick.json",
+      "bytes": 531,
+      "sha256": "92d3141e0555d2ee689b47031efaa8c31e7dfbf0ff08f2cb2e3663352f5d68af"
+    },
+    {
+      "path": "crates/kohbor-gsi/tests/captured/in-progress-alive.json",
+      "bytes": 683,
+      "sha256": "860419ad29563425edbf63388bf29d65d14fac7b4dba1367d09ae1cf6a641853"
+    },
+    {
+      "path": "crates/kohbor-gsi/tests/captured/in-progress-dead.json",
+      "bytes": 682,
+      "sha256": "6b5f52fbfadbf9e0d6561b1f9d477534edbe3528ffa98bac585623f211affb76"
+    },
+    {
+      "path": "crates/kohbor-gsi/tests/captured/in-progress-paused.json",
+      "bytes": 685,
+      "sha256": "e6e05daa45c3f4be53596cd2926ac69df816630b1646589c49bb5bc57823b81a"
+    },
+    {
+      "path": "crates/kohbor-gsi/tests/captured/menu.json",
+      "bytes": 138,
+      "sha256": "2e063c0217305bce91716d312edb3009fe2437a7508d7bb6ab0b6c8b911a1216"
+    },
+    {
+      "path": "crates/kohbor-gsi/tests/captured/post-game.json",
+      "bytes": 679,
+      "sha256": "c24e4a45b209f60fd148fb2938dc5c08a381663cedfbe42a16998ddc664b129a"
+    },
+    {
+      "path": "crates/kohbor-gsi/tests/captured/pre-game.json",
+      "bytes": 675,
+      "sha256": "ee47ef3e3b39b9c8188e1bf784752f3fea16c9507e65cb639b52d920124b1064"
+    },
+    {
+      "path": "crates/kohbor-gsi/tests/captured/team-showcase.json",
+      "bytes": 552,
+      "sha256": "d087e49351606dc4d33251c42b76c8a36ce825cbbd6d92e3fe0a20b881e49665"
+    },
+    {
+      "path": "crates/kohbor-gsi/tests/captured_replay.rs",
+      "bytes": 3063,
+      "sha256": "81c6a5f2a20a8ab4bc542a1a6aeddd5a5894993d32b18da2ee73b2c0e7a751c8"
+    },
+    {
       "path": "crates/kohbor-gsi/tests/intake.rs",
       "bytes": 6278,
       "sha256": "8c5e509330eeb833dfd1c820e5484403318bbeb85e8d69f3d287c00c6b24fb73"
@@ -238,8 +283,8 @@
     },
     {
       "path": "docs/delivery/M0-PLAN.md",
-      "bytes": 9720,
-      "sha256": "e9193afbc516860690b40f0854ce1755a63b47f1f643fb25be0e13d42818c36e"
+      "bytes": 9932,
+      "sha256": "a7406d32b6ea850eb6fef7b27adcc63582a65fae43c89f0e7da91690bd2fc309"
     },
     {
       "path": "docs/delivery/SDP.md",
@@ -253,13 +298,13 @@
     },
     {
       "path": "docs/design/EVENT-AUDIO-SPEC.md",
-      "bytes": 16617,
-      "sha256": "1b90c2a1ad4d10b641db6c3f3472408067656905d246e818f228693869359cc1"
+      "bytes": 17088,
+      "sha256": "0a4f0abcad37c99d98bd97c5a0d028bb0d161777b3565011d27dcad1305da258"
     },
     {
       "path": "docs/design/GSI-INTAKE-SPEC.md",
-      "bytes": 17806,
-      "sha256": "469b4a944c3e88f9884ee5a2dc8505b7291399b8a763be0789cb4f4ca0011379"
+      "bytes": 20866,
+      "sha256": "12a5be8446b6b7f87b803848ce7be9f39dd6aeca68bd6935bd96611aa0fa3da7"
     },
     {
       "path": "docs/design/ICD.md",
@@ -523,8 +568,8 @@
     },
     {
       "path": "docs/governance/CHANGELOG.md",
-      "bytes": 13778,
-      "sha256": "54b1aa1b35d7fad1a1b03bb5309a9841ba6dcee21b93894fab14d4133fe2105f"
+      "bytes": 14467,
+      "sha256": "94936b82024008cb2a28f385e41c13367688f1dec7ad4321d91680c92ff36a3f"
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
@@ -583,8 +628,8 @@
     },
     {
       "path": "docs/requirements/RTM.csv",
-      "bytes": 39626,
-      "sha256": "cde9df58d80993a09c0b2e8838dcd25002b95d4d3ee119b780a705b5187ebd0b"
+      "bytes": 39789,
+      "sha256": "302c8f1cdb40b1b063cbda19d1aeb3bfd740bbdc0cbe5b1f1fab2f36ead8608f"
     },
     {
       "path": "docs/requirements/SRS.md",

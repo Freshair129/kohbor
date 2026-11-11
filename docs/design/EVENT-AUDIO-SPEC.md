@@ -86,6 +86,12 @@ Taxonomy version `1.0`:
 | E-1 | `map.radiant_score` and `map.dire_score` (plus `player.kills`) let first blood be credited to self: the combined score goes from 0 to 1 in the same admitted tick as the own kill count goes from 0 to 1 | Record a bot match where the player draws first blood and one where another player does. If this fails, `first_blood` stays unavailable |
 | E-2 | `map.game_state` transitions identify the start of live play and post-game | Record a full match. If this fails, `match_started` and `match_ended` stay unavailable |
 
+
+**Capture of 2026-11-11 (GSI-INTAKE-SPEC §10.1):**
+
+- **E-2: confirmed.** Pre-game, live and post-game all appeared as `map.game_state` transitions. `map.win_team` changed from `none` to a team at post-game.
+- **E-1: partly.** The negative case was observed: the combined score went 0→1 while the own kill count stayed 0, so the kill was not credited to self. The positive case (first blood by self) was not captured, so `first_blood` stays unavailable until it is.
+
 ## 3. Health danger (DEC-HEALTH-DANGER; approved 2026-11-11)
 
 MP-01 names "health danger" as a native safety detector but gives no definition. The product owner approved the definition below **as proposed** on 2026-11-11. The catalog entry is `active`.

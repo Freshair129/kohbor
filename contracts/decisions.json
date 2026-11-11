@@ -42,6 +42,14 @@
         "DEC-INTERFACES",
         "DEC-NAME",
         "DEC-SESSION"
+      ],
+      "evidence": [
+        {
+          "date": "2026-11-11",
+          "kind": "M0 capture spike (owner machine, approved)",
+          "summary": "10,686 payloads from one bot match. Confirmed A-1, A-2, A-3 (max gap 1,250 ms), A-5 and A-7 for one account. A-4 and A-8 consistent; A-9 partly; A-6 not tested. Added TEAM_SHOWCASE and WAIT_FOR_MAP_TO_LOAD, empty hero name during selection, and claimed-port detection.",
+          "ref": "docs/design/GSI-INTAKE-SPEC.md#101-results-capture-of-2026-11-11"
+        }
       ]
     },
     {

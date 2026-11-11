@@ -302,7 +302,10 @@
           "docs/quality/TEST-PLAN.md",
           "docs/quality/UAT-PLAN.md"
         ],
-        "implementation_refs": [],
+        "implementation_refs": [
+          "crates/kohbor-gsi/src/admission.rs",
+          "crates/kohbor-gsi/tests/captured_replay.rs"
+        ],
         "evidence_refs": [],
         "procedure_ids": [
           "TP-01",
@@ -446,7 +449,8 @@
         "implementation_refs": [
           "crates/kohbor-gsi/src/snapshot.rs",
           "crates/kohbor-gsi/src/admission.rs",
-          "crates/kohbor-gsi/tests/intake.rs"
+          "crates/kohbor-gsi/tests/intake.rs",
+          "crates/kohbor-gsi/tests/captured_replay.rs"
         ],
         "evidence_refs": [],
         "procedure_ids": [
@@ -518,7 +522,8 @@
         ],
         "implementation_refs": [
           "crates/kohbor-gsi/src/admission.rs",
-          "crates/kohbor-gsi/tests/intake.rs"
+          "crates/kohbor-gsi/tests/intake.rs",
+          "crates/kohbor-gsi/tests/captured_replay.rs"
         ],
         "evidence_refs": [],
         "procedure_ids": [

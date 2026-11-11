@@ -23,7 +23,7 @@ M0 delivers six items: identity, scope, the interface decisions, a locked toolch
 | 4 | Traceability: needs → requirements → components → modules → tests | **Started**. RTM `implementation_refs` now point at real code for CORE-004 and DATA-001..004 | §5, [RTM](../requirements/RTM.csv) |
 | 5 | Decision log: delegated questions resolved, genuine blockers named | **Done** for M0. DEC-NAME is decided; DEC-GSI-INTAKE waits on the spike | [Decision Log](../governance/DECISION-LOG.md) |
 | 6 | Runnable local-core slice with honest unknown states; synthetic fixtures kept out of production | **Done** (synthetic) | `crates/kohbor-gsi`, §6 |
-| — | Feasibility: GSI capture spike | **Tool ready, not run**. Running it writes a spike config into the Dota folder and needs a game restart | `crates/kohbor-gsi-capture`, §7 |
+| — | Feasibility: GSI capture spike | **Ran 2026-11-11** with the owner's approval: 10,686 payloads from one bot match. The spike config was then uninstalled. Results are in GSI-INTAKE-SPEC §10.1 | `crates/kohbor-gsi-capture`, §7 |
 
 ## 2. Technical identity (DEC-NAME)
 
@@ -95,7 +95,7 @@ On the build machine, 2026-11-11:
 
 | Command | Result |
 | --- | --- |
-| `cargo test --workspace` | 19 passed, 0 failed |
+| `cargo test --workspace` | 25 passed, 0 failed (after the spike: 5 captured-shape replays and a claimed-port test added) |
 | `cargo clippy --workspace --all-targets -- -D warnings` | clean |
 | `cargo fmt --all` | applied |
 
@@ -184,7 +184,7 @@ The redacted corpus feeds the fixtures that close DEC-GSI-INTAKE.
 
 | Item | Blocks |
 | --- | --- |
-| Run the capture spike and fold the results into GSI-INTAKE-SPEC and the fixtures | DEC-GSI-INTAKE closure and the M1 exit |
+| Remaining capture cases: spectate/replay (A-6), a Turbo match (A-9), first blood by self (E-1), explicit unit/courier selection (A-8), a second Steam account (A-7) | DEC-GSI-INTAKE closure and the M1 exit |
 | Pin Tauri and pnpm by scaffolding the host app | M1 start |
 | Review of this plan | — |
 

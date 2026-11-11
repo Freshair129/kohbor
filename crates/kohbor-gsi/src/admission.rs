@@ -155,7 +155,10 @@ pub fn admit(
     let phase = match body.pointer("/map/game_state").and_then(Value::as_str) {
         Some("DOTA_GAMERULES_STATE_HERO_SELECTION")
         | Some("DOTA_GAMERULES_STATE_STRATEGY_TIME")
-        | Some("DOTA_GAMERULES_STATE_WAIT_FOR_PLAYERS_TO_LOAD") => Phase::Draft,
+        | Some("DOTA_GAMERULES_STATE_WAIT_FOR_PLAYERS_TO_LOAD")
+        // Observed in the 2026-11-11 capture between strategy time and pre-game.
+        | Some("DOTA_GAMERULES_STATE_TEAM_SHOWCASE")
+        | Some("DOTA_GAMERULES_STATE_WAIT_FOR_MAP_TO_LOAD") => Phase::Draft,
         Some("DOTA_GAMERULES_STATE_PRE_GAME") => Phase::Pregame,
         Some("DOTA_GAMERULES_STATE_GAME_IN_PROGRESS") => Phase::Live,
         Some("DOTA_GAMERULES_STATE_POST_GAME") => Phase::PostGame,
@@ -209,6 +212,8 @@ fn int_field(hero: Option<&Value>, key: &str, min: i64, max: i64) -> Field<i64> 
 fn hero_fields(hero: Option<&Value>) -> HeroFields {
     let hero_id = match hero.and_then(|h| h.get("name")) {
         None => Field::Missing,
+        // Capture 2026-11-11: an empty name is sent during hero selection before a pick.
+        Some(Value::String(s)) if s.is_empty() => Field::Missing,
         Some(Value::String(s)) if valid_hero_id(s) => Field::Value(s.clone()),
         Some(_) => Field::Invalid,
     };

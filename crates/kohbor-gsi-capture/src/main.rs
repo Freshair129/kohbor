@@ -10,7 +10,9 @@
 //! replaced by a per-run salted hash prefix. Raw identifiers never reach disk.
 
 use base64::Engine;
-use kohbor_gsi::config::{GsiConfig, BODY_LIMIT_BYTES, M1_DATA_BLOCKS, PORT_FIRST, PORT_LAST};
+use kohbor_gsi::config::{
+    choose_port, claimed_ports, GsiConfig, BODY_LIMIT_BYTES, M1_DATA_BLOCKS, PORT_FIRST, PORT_LAST,
+};
 use kohbor_gsi::strict_json;
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
@@ -195,9 +197,18 @@ fn install(out: &Path, port: Option<u16>) -> Res<()> {
                 "GSI_PORT_UNAVAILABLE: port {p} is outside 3000-3010 or in use"
             ))
         }
-        None => (PORT_FIRST..=PORT_LAST)
-            .find(|p| port_free(*p))
-            .ok_or("GSI_PORT_EXHAUSTED")?,
+        None => {
+            let others: Vec<String> = fs::read_dir(&loc.gsi_dir)
+                .map(|rd| {
+                    rd.flatten()
+                        .filter(|e| !e.file_name().to_string_lossy().contains(SPIKE_SLUG))
+                        .filter_map(|e| fs::read_to_string(e.path()).ok())
+                        .collect()
+                })
+                .unwrap_or_default();
+            let claimed = claimed_ports(others.iter().map(String::as_str));
+            choose_port(&claimed, port_free).ok_or("GSI_PORT_EXHAUSTED")?
+        }
     };
     let token = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(random_bytes::<32>()?);
     let cfg = GsiConfig {
@@ -299,6 +310,15 @@ fn redact(mut body: Value, salt: &[u8]) -> Value {
     body
 }
 
+const SUMMARY_SCOPE: &str =
+    "M0 capture spike evidence for DEC-GSI-INTAKE / DEC-EVENT-AUDIO; not application acceptance";
+
+fn write_summary(out: &Path, summary: &Value) -> Res<()> {
+    let tmp = out.join("summary.json.tmp");
+    fs::write(&tmp, serde_json::to_vec_pretty(summary).unwrap()).map_err(|e| e.to_string())?;
+    fs::rename(&tmp, out.join("summary.json")).map_err(|e| e.to_string())
+}
+
 fn capture(out: &Path, minutes: u64) -> Res<()> {
     let state = read_state(out)?;
     let port = state["port"].as_u64().ok_or("bad state")? as u16;
@@ -318,8 +338,30 @@ fn capture(out: &Path, minutes: u64) -> Res<()> {
     let mut game_states = BTreeSet::new();
     let mut ownership_matches = BTreeSet::new();
     let mut hero_names_per_match: Map<String, Value> = Map::new();
-    println!("listening on 127.0.0.1:{port} for {minutes} min; Ctrl+C stops early (summary is written at the end)");
+    println!(
+        "listening on 127.0.0.1:{port} for {minutes} min; summary.json is refreshed every 15 s"
+    );
+    let mut last_summary = Instant::now();
     while Instant::now() < deadline {
+        if last_summary.elapsed() >= Duration::from_secs(15) {
+            last_summary = Instant::now();
+            write_summary(
+                out,
+                &json!({
+                    "scope": SUMMARY_SCOPE,
+                    "duration_s": start.elapsed().as_secs(),
+                    "admitted_payloads": admitted,
+                    "rejected_requests": rejected,
+                    "A3_max_gap_ms": max_gap as u64,
+                    "A3_max_gap_between_identical_payloads_ms": max_gap_unchanged as u64,
+                    "A5_field_paths": fields,
+                    "E2_game_states_seen": game_states,
+                    "A7_platform_identity_available": platform.is_some(),
+                    "A7_payload_matches_platform_identity": ownership_matches,
+                    "A8_hero_names_per_match": hero_names_per_match,
+                }),
+            )?;
+        }
         let Ok(Some(mut req)) = server.recv_timeout(Duration::from_millis(500)) else {
             continue;
         };
@@ -393,7 +435,7 @@ fn capture(out: &Path, minutes: u64) -> Res<()> {
         writeln!(log, "{line}").map_err(|e| e.to_string())?;
     }
     let summary = json!({
-        "scope": "M0 capture spike evidence for DEC-GSI-INTAKE / DEC-EVENT-AUDIO; not application acceptance",
+        "scope": SUMMARY_SCOPE,
         "duration_s": start.elapsed().as_secs(),
         "admitted_payloads": admitted,
         "rejected_requests": rejected,
@@ -405,11 +447,7 @@ fn capture(out: &Path, minutes: u64) -> Res<()> {
         "A7_payload_matches_platform_identity": ownership_matches,
         "A8_hero_names_per_match": hero_names_per_match,
     });
-    fs::write(
-        out.join("summary.json"),
-        serde_json::to_vec_pretty(&summary).unwrap(),
-    )
-    .map_err(|e| e.to_string())?;
+    write_summary(out, &summary)?;
     println!("{}", serde_json::to_string_pretty(&summary).unwrap());
     Ok(())
 }
