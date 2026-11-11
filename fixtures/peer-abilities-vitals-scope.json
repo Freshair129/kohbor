@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0.0",
+  "consent_scope": "vitals",
+  "source_age_ms": 600,
+  "abilities": [
+    {
+      "slot": 0,
+      "ability_id": "synthetic_ability_one",
+      "level": 4,
+      "ultimate": false,
+      "cooldown_seconds": 3
+    },
+    {
+      "slot": 1,
+      "ability_id": "synthetic_ability_two",
+      "level": 3,
+      "ultimate": false,
+      "cooldown_seconds": 0
+    },
+    {
+      "slot": 2,
+      "ability_id": "synthetic_ability_three",
+      "level": 0,
+      "ultimate": false,
+      "cooldown_seconds": null
+    },
+    {
+      "slot": 5,
+      "ability_id": "synthetic_ultimate",
+      "level": 2,
+      "ultimate": true,
+      "cooldown_seconds": 0
+    }
+  ]
+}

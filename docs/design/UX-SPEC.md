@@ -48,15 +48,25 @@ The native inner safe area, minimum readable scaled typography, minimum interact
 
 ## 4. Live field anatomy
 
+The product owner redesigned this destination on 2026-11-11 as a **second-screen session monitor** (DEC-SESSION-MONITOR). It replaces the inherited top/left/bottom/right topology:
+
 | Region | Required content | Unavailable behavior |
 |---|---|---|
-| Top | Five stable enemy slots | Preserve slots; show known identity and admitted visibility/age only |
-| Left | Own hero, relevant missing/status information, separate companion visual | Known own observations only; no fabricated vitals |
-| Center | Largest region; actual admitted minimap preview and eligible markers | Explicit unavailable/Lite/stale state |
-| Bottom | Four stable ally slots, excluding self | Compact unknown allies; fresh peer detail only where authorized |
-| Right | Permanently reserved summary/inspector/event-feed region | Neutral initially; never collapse its width |
+| Center | Dominant region: enlarged admitted minimap with eligible markers, sighting trails and threat state | Explicit unavailable/Lite/stale state; stale capture dims and labels the map |
+| Own-team column | Own hero first, then four stable allied slots; vitals, and abilities/cooldowns only under the separate abilities scope (PEER-010) | Not-shared or unknown allies stay compact; no fabricated vitals or skills |
+| Enemy column | Five stable enemy slots with admitted visibility and age | Preserve slots; known identity and admitted visibility/age only |
+| Event/inspector region | Recent events; the inspector opens as a drawer over this region | Neutral initially; opening it never moves the map |
 
-The map is the first visual priority; missing-enemy information is second. Own hero is not repeated among the four allied slots.
+**Peripheral salience (UI-008).** The monitor is read from the corner of the eye:
+
+- An admitted critical warning switches the map frame and a labelled banner to the critical state.
+- A new sighting is marked once.
+- Sighting trails show only previously admitted positions.
+- Routine updates never flash.
+- No motion comes from prediction or decay.
+- Reduced motion uses static emphasis.
+
+The map is the first visual priority; missing-enemy information is second. Own hero is not repeated among the four allied slots. Cooldown zero on a shared ability is shown as a value, never as "ready".
 
 Enemy and unknown ally cards collapse to portrait or identity placeholder, admitted seen/missing and last-seen age. Hide unknown-only skill/item rows; do not fill the screen with question-mark tiles. Unknown age appears as “—”, not a fabricated timestamp.
 

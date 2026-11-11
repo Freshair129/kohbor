@@ -16,6 +16,13 @@ Added the first visual design proposal under DEC-VISUALS. The product owner appr
   - the 1920×1080 overlay with no-cover HUD zones and five modules.
 - `contracts/design-tokens.json` 0.1.0. Values marked `needs_measurement` must be confirmed natively.
 - UI-001/002/003/004/006 link the proposal and the tokens.
+- **Owner decisions (2026-11-11):**
+  - **DEC-SESSION-MONITOR** turns the Command Deck Live destination into a second-screen session monitor. The enlarged minimap dominates for peripheral threat awareness, flanked by own-team and enemy hero cards.
+  - **UI-002** changes from the inherited top/bottom/right topology to this layout. Its ID is kept and its basis is now `owner_decision`.
+  - **New UI-008** covers peripheral threat salience: the critical map frame, single sighting marks, the stale dimming and no routine flashing.
+  - **DEC-PEER-ABILITIES** adds **PEER-010**: teammate ability levels and cooldowns, behind a separate opt-in `abilities` scope. It has its own closed DTO, `contracts/peer-abilities.schema.json`, with three fixtures.
+  - The registry grows from 85 to 87 requirements. PN-005 and PN-009 are updated.
+  - The canvas Live board was redrawn as the Session Monitor.
 
 Not changed:
 - Requirement statements, acceptance predicates, scopes and NOT_RUN evidence.

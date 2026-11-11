@@ -12,7 +12,7 @@ approval_status: "not_approved"
 
 ## 1. Scope and present evidence
 
-Verify the [SRS](../requirements/SRS.md), its 85 registered requirements, and [PRD needs](../product/PRD.md). The [NFR](NFR.md) owns measurement definitions and unchanged thresholds; [UAT](UAT-PLAN.md) records player acceptance. Link procedures and results through the [RTM](../requirements/RTM.csv).
+Verify the [SRS](../requirements/SRS.md), its 87 registered requirements, and [PRD needs](../product/PRD.md). The [NFR](NFR.md) owns measurement definitions and unchanged thresholds; [UAT](UAT-PLAN.md) records player acceptance. Link procedures and results through the [RTM](../requirements/RTM.csv).
 
 Highest risks are false reassurance, incorrect event audio, unconsented disclosure, stale asynchronous work, game interference, and corrupted installation/persistence. Cover full MVP separately from peer/social extensions and deferred premium capabilities. A limited demonstration does not certify full MVP.
 
@@ -54,7 +54,7 @@ A slice exits when its required methods pass, contradictory results are resolved
 
 **TP-08 — Advice and privacy.** ADVICE-001–004; cross-check VOICE-005, MEM-001 and PEER-009. Capture requests at controlled API/CLI/relay boundaries with separate consents off/on. Inject forbidden voice, memory, enemy and identifier fields; withdraw consent during pending responses/retries. Assert closed projections, no forbidden egress and no late display/cache use. Retain sanitized field evidence including errors/cancellation; exclude secrets and microphone content.
 
-**TP-09 — Peer extension.** PEER-001–009. On two controlled devices, test unchecked consent, mismatched scope, sequence replay, frozen UI, timeout/null-probe recovery, leave-during-join, owner expiry and invitation rotation versus kick. Inspect persistence. Assert immediate withdrawal, bounded workers, conservative freshness, no token exposure and no saved peer stats.
+**TP-09 — Peer extension.** PEER-001–010 (PEER-010: abilities scope off sends nothing; withdrawal clears; zero cooldown never shown as ready). On two controlled devices, test unchecked consent, mismatched scope, sequence replay, frozen UI, timeout/null-probe recovery, leave-during-join, owner expiry and invitation rotation versus kick. Inspect persistence. Assert immediate withdrawal, bounded workers, conservative freshness, no token exposure and no saved peer stats.
 
 **TP-10 — Social extension.** SOCIAL-001–003. With reviewed service contracts/test accounts, exercise mutual friendship, presence, invitation redemption/replay/expiry and account revocation. Inspect transaction receipts. Require separate fresh sharing consent; reject unauthorized joins without guest fallback or unintended peer disclosure.
 

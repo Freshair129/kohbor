@@ -119,7 +119,7 @@ Catalog, arbitration, priority matrix, decode checks and install contracts are p
 |---|---|---|---|
 | Build truthful source-qualified views and adapt them to the control window, passive overlay, selections and accessible interaction. | Admitted observations, independent health states, session/identity revisions and native presentation authority. | Typed availability/age values, stable map/cards, selected inspector state and explicit capability/readiness messages. | Unknown is not zero; no production fixtures or automatic selection. Discard stale inspector results and preserve focus/map during capability loss. Deferred timer presentation cannot own or invent the native game clock/store. |
 
-**Primary SRS allocation:** `CORE-005`, `DATA-002`, `UI-001`, `UI-002`, `UI-003`, `UI-004`, `UI-005`, `UI-006`, `UI-007`.
+**Primary SRS allocation:** `CORE-005`, `DATA-002`, `UI-001`, `UI-002`, `UI-003`, `UI-004`, `UI-005`, `UI-006`, `UI-007`, `UI-008`.
 
 **Collaborating components:** CMP-INGEST, CMP-VISION, CMP-MEDIA, CMP-ENTITLEMENT, CMP-PERFORMANCE.
 
@@ -167,7 +167,7 @@ Catalog, arbitration, priority matrix, decode checks and install contracts are p
 |---|---|---|---|
 | Own fresh create/join consent, strict own-stat projection, native transport, bounded membership and conservative peer age. | Checked consent/action, validated relay origin, admitted own source and room/member/match/team context. | Authorized transient same-room/match/team vitals or waiting/stale/unavailable state; tokens remain native. | One bounded sync worker; null recovery probe before resumed publication. Leave clears local state and fences late work; remote deletion is best effort. No persistence or AI/history consumption. |
 
-**Primary SRS allocation:** `PEER-001`, `PEER-002`, `PEER-003`, `PEER-004`, `PEER-005`, `PEER-006`, `PEER-007`, `PEER-008`, `PEER-009`.
+**Primary SRS allocation:** `PEER-001`, `PEER-002`, `PEER-003`, `PEER-004`, `PEER-005`, `PEER-006`, `PEER-007`, `PEER-008`, `PEER-009`, `PEER-010`.
 
 **Collaborating components:** CMP-INGEST, CMP-READMODEL, CMP-SOCIAL, CMP-PERFORMANCE.
 

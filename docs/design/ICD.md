@@ -35,6 +35,7 @@ For each interface, freeze: producer/consumer and authority; direction/transport
 | Authoring tool → installer | Install request / result | contracts/media-install-request.schema.json and contracts/media-install-result.schema.json; transport per DEC-INTERFACES |
 | Native → optional cloud | Separate advice consent | contracts/cloud-context.schema.json; closed projection only |
 | Native ↔ optional peer relay | Separate peer consent | contracts/peer-sample.schema.json within reviewed membership protocol |
+| Native ↔ optional peer relay (abilities) | Separate abilities consent scope (PEER-010) | contracts/peer-abilities.schema.json; never sent under vitals consent alone |
 | Package → installer | Untrusted bytes | contracts/media-manifest.schema.json plus strict integrity/media validation for all imports; privileged issuer claims additionally require trusted authenticity checks |
 | Validation → evidence register | Actual executed test | contracts/evidence.schema.json |
 

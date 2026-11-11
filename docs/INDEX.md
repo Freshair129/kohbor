@@ -9,7 +9,7 @@ Start with PRD and SRS. Read the design, interface and verification documents fo
 | [PRD](product/PRD.md) | Problem, users, 12 product needs, outcomes, priorities and scope | Product, engineering, QA |
 | [Use Cases](product/USE-CASES.md) | End-to-end player actions, alternate/failure paths | Product, UX, QA |
 | [Feature Catalog](product/FEATURE-CATALOG.md) | Capability inventory and existing algorithm elaborations | Product, engineering |
-| [SRS](requirements/SRS.md) | Context, constraints and all 85 atomic software requirements | Engineering, QA |
+| [SRS](requirements/SRS.md) | Context, constraints and all 87 atomic software requirements | Engineering, QA |
 | [RTM](requirements/RTM.csv) | Need → requirement → design → test → evidence linkage | Engineering, QA, reviewers |
 | [SAD](design/SAD.md) | System context, architectural views, quality allocation | Architecture, engineering |
 | [SDD](design/SDD.md) | Component allocation, algorithms, state, concurrency and failure | Engineering |

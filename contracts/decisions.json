@@ -220,6 +220,41 @@
       "owner_role": "product and performance engineer",
       "safe_interim": "Report app and external OBS separately and combined; retain app10%/900000000byte and recording-mode acoustic/FPS gates.",
       "closure_evidence": "Recorded decision on combined recording-profile resource acceptance without pretending an unspecified combined cap already exists."
+    },
+    {
+      "id": "DEC-SESSION-MONITOR",
+      "status": "decided",
+      "milestone": "M3",
+      "blocks": "Live destination layout and peripheral threat salience (UI-002, UI-008)",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-11",
+      "channel": "Owner message in the engineering chat session that prepared spec 0.3.4",
+      "decision": "The Command Deck Live destination is a second-screen session monitor: an enlarged minimap is the dominant region so movement and approaching threats are visible in peripheral vision, with own-team hero cards (skills and cooldowns when teammates share through the same system) and enemy-team hero cards. Supersedes the inherited top/bottom/right live-field topology.",
+      "safe_interim": "Enemy positions and motion only from admitted capture (DATA-005); no predicted paths; unknown stays unknown.",
+      "closure_evidence": "UI-002/UI-008 acceptance with frozen-input geometry, reduced-motion and native second-screen evidence.",
+      "related": [
+        "DEC-VISUALS",
+        "DEC-PEER-ABILITIES"
+      ]
+    },
+    {
+      "id": "DEC-PEER-ABILITIES",
+      "status": "decided",
+      "milestone": "M6",
+      "blocks": "Teammate ability/cooldown display (PEER-010)",
+      "owner_role": "product owner (scope); integration owner (contract)",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-11",
+      "channel": "Owner message in the engineering chat session that prepared spec 0.3.4",
+      "decision": "Teammates using Kohbor may share their own ability levels and cooldowns. Implemented as a separate opt-in 'abilities' consent scope and a separate closed DTO (contracts/peer-abilities.schema.json); vitals sharing alone never sends abilities.",
+      "safe_interim": "Abilities scope off by default; without it the allied skill row shows not-shared. No items, positions or enemy data.",
+      "closure_evidence": "Frozen transport (DEC-INTERFACES), ability-ownership evidence (DEC-GAME-DATA), consent/withdrawal and two-device tests.",
+      "related": [
+        "DEC-INTERFACES",
+        "DEC-GAME-DATA",
+        "DEC-SOCIAL"
+      ]
     }
   ]
 }

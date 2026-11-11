@@ -430,6 +430,27 @@
       "fixture": "fixtures/media-install-result-rejected-with-record.json",
       "schema_valid": false,
       "requirement_id": "MEDIA-006"
+    },
+    {
+      "id": "peer-abilities-valid",
+      "schema": "contracts/peer-abilities.schema.json",
+      "fixture": "fixtures/peer-abilities-valid.json",
+      "schema_valid": true,
+      "requirement_id": "PEER-010"
+    },
+    {
+      "id": "peer-abilities-with-items",
+      "schema": "contracts/peer-abilities.schema.json",
+      "fixture": "fixtures/peer-abilities-with-items.json",
+      "schema_valid": false,
+      "requirement_id": "PEER-010"
+    },
+    {
+      "id": "peer-abilities-vitals-scope",
+      "schema": "contracts/peer-abilities.schema.json",
+      "fixture": "fixtures/peer-abilities-vitals-scope.json",
+      "schema_valid": false,
+      "requirement_id": "PEER-010"
     }
   ],
   "notes": [

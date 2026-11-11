@@ -4,14 +4,14 @@
 
 **เวอร์ชัน 0.3.4 · 11 พฤศจิกายน 2026 · ฉบับร่าง · หลักฐานแอปใหม่: NOT_RUN**
 
-ใช้ **PRD → SRS → เอกสารออกแบบ → แผนทดสอบและตรวจรับ** เป็นลำดับหลัก พร้อม RTM ที่เชื่อมความต้องการผลิตภัณฑ์ 12 ข้อกับข้อกำหนดระบบ 85 ข้อ เจ้าของผลิตภัณฑ์เลือกชื่อ **Kohbor / เกาะเบาะ** แล้ว เอเจนต์ออกแบบอัตลักษณ์ภาพใหม่ได้ โดยรักษาพฤติกรรม ขอบเขตข้อมูลและเกณฑ์ตรวจรับเดิม
+ใช้ **PRD → SRS → เอกสารออกแบบ → แผนทดสอบและตรวจรับ** เป็นลำดับหลัก พร้อม RTM ที่เชื่อมความต้องการผลิตภัณฑ์ 12 ข้อกับข้อกำหนดระบบ 87 ข้อ เจ้าของผลิตภัณฑ์เลือกชื่อ **Kohbor / เกาะเบาะ** แล้ว เอเจนต์ออกแบบอัตลักษณ์ภาพใหม่ได้ โดยรักษาพฤติกรรม ขอบเขตข้อมูลและเกณฑ์ตรวจรับเดิม
 
 บันทึกชื่ออยู่ใน [product-identity.json](contracts/product-identity.json) ส่วน app/package ID, data directory, URI scheme, signature/hash namespace และ update origin ยังไม่กำหนด การเลือกชื่อครั้งนี้จึงยังไม่ปิด **DEC-NAME** ทั้งรายการ เอเจนต์ต้องกำหนดและบันทึกอัตลักษณ์ทางเทคนิคก่อนสร้าง application skeleton โดยไม่เดาโดเมนหรือปลายทางบริการจากชื่อ
 
 ## เริ่มอ่าน
 
 1. [PRD — Product Requirements Document](docs/product/PRD.md): ปัญหา ผู้ใช้ เป้าหมาย คุณค่า ขอบเขต และความต้องการผลิตภัณฑ์
-2. [SRS — Software Requirements Specification](docs/requirements/SRS.md): บริบท ข้อจำกัด และข้อกำหนดทั้ง 85 ข้อพร้อมพฤติกรรมผิดพลาด/เกณฑ์ตรวจรับ
+2. [SRS — Software Requirements Specification](docs/requirements/SRS.md): บริบท ข้อจำกัด และข้อกำหนดทั้ง 87 ข้อพร้อมพฤติกรรมผิดพลาด/เกณฑ์ตรวจรับ
 3. [สารบัญเอกสารวิศวกรรม](docs/INDEX.md): เลือก SAD, SDD, DDD, ICD, UX และข้อกำหนดเฉพาะด้านตามงาน
 4. [Test Plan](docs/quality/TEST-PLAN.md), [UAT Plan](docs/quality/UAT-PLAN.md) และ [RTM](docs/requirements/RTM.csv): วิธีพิสูจน์และตรวจย้อนกลับ
 5. [Document Control](docs/governance/DOCUMENT-CONTROL.md) และ [Decision Log](docs/governance/DECISION-LOG.md): อำนาจตัดสินใจ เวอร์ชัน และประเด็นที่ยังเปิด

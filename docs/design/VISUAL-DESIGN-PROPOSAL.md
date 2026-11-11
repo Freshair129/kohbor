@@ -30,7 +30,7 @@ Values that need native measurement are marked as such.
 | --- | --- | --- |
 | Design tokens and data states | [Main.dc.html](visuals/Main.dc.html) | Mark, palette, type scale, spacing/radii, the six honest data states, critical/warning/no-coverage banners |
 | Command Deck — Overview, waiting | [Overview.dc.html](visuals/Overview.dc.html) | Seven-destination rail; header; independent readiness rows; empty match card; audio with the mute note; companion |
-| Command Deck — Live, sample data | [Live.dc.html](visuals/Live.dc.html) | Live-field anatomy: 5 enemy, own hero, map, 4 allies, reserved right column with neutral inspector and event feed |
+| Command Deck — Session Monitor (second screen), sample data | [Live.dc.html](visuals/Live.dc.html) | Enlarged minimap with sighting trails and critical frame; own-team cards with shared skills/cooldowns; enemy cards; recent events |
 | Overlay in game, sample data | [Overlay.dc.html](visuals/Overlay.dc.html) | 1920×1080 reference with no-cover HUD zones and five overlay modules |
 
 The `.dc.html` files are design-canvas sources. They render in the canvas editor, not in the application. [canvas.json](visuals/canvas.json) records the board layout and its annotation notes.
@@ -105,13 +105,16 @@ A single healthy row never implies the others. The rest of the page:
 - The audio card carries the acknowledged mute rule (EVENT-AUDIO-SPEC §4): muting also silences critical alerts.
 - The companion card shows the microphone consent state.
 
-**Live (sample data, clearly badged).** The grid follows UX-SPEC §4:
+**Live → Session Monitor (sample data, clearly badged; DEC-SESSION-MONITOR).** The owner redesigned this destination on 2026-11-11 for a second screen read from peripheral vision. The grid is now:
 
-- **Top:** five enemy cards (seen with age, missing with age, stale, never-seen).
-- **Left:** the own hero, with a separate companion.
-- **Centre:** the map, which is the largest region. It uses an abstract grid, not game art, and is labelled as needing M3 vision.
-- **Bottom:** four ally cards, compact and unshared.
-- **Right:** a 300-px reserved column. The inspector starts neutral ("ยังไม่ได้เลือกฮีโร่").
+- **Collapsed rail:** a 56-px rail leaves room for the map.
+- **Own-team column (300 px):** own hero first, then four allies. HP/mana bars, plus 1/2/3/ultimate skill tiles with cooldown seconds when the teammate shares abilities (PEER-010). "CD 0" is a value, not "ready". Not-shared, stale and not-using-Kohbor allies stay compact.
+- **Enlarged minimap (680×680):** the dominant region.
+  - Enemy diamonds are 28 px, with trails of up to three admitted sightings.
+  - A ring marks a new sighting.
+  - A missing enemy is a dashed diamond at its last-seen point, with its age.
+  - A critical warning turns the map frame red (6 px) and shows a labelled banner.
+- **Enemy column:** five slots with seen/missing/stale/never-seen and age, followed by a short event list. The inspector opens as a drawer over this column.
 
 The event feed shows **detection apart from audio outcome**, for example "ตรวจพบ · ไม่เล่นเสียง (เสียงเตือนสำคัญกำลังเล่น)" (EVENT-AUDIO-SPEC §5).
 

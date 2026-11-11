@@ -14,7 +14,7 @@ approval_status: "not_approved"
 
 The owner selected **Kohbor / เกาะเบาะ** as the product name. This repository contains a substantive software-engineering specification and an implementation handoff. It does not contain a completed application. The name decision does not approve all requirements, resolve technical identities, or certify any runtime behavior.
 
-The baseline contains 12 product needs, 85 software requirements, component/data/interface designs, verification and UAT procedures, schemas, synthetic examples and 19 controlled diagram views. This is a reviewable draft with explicit unfinished design work. The registered requirements are an inventory, not proof that every possible behavior has been fully specified.
+The baseline contains 12 product needs, 87 software requirements, component/data/interface designs, verification and UAT procedures, schemas, synthetic examples and 19 controlled diagram views. This is a reviewable draft with explicit unfinished design work. The registered requirements are an inventory, not proof that every possible behavior has been fully specified.
 
 ## What can start
 

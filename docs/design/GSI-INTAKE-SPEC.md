@@ -67,7 +67,7 @@ The file uses the game's key-value text format (A-2). Values are proposals; the 
 }
 ```
 
-- **Data minimization:** M1 requests only `provider`, `map`, `player` and `hero`. Abilities, items, buildings and draft data are added only when their read-model contracts freeze under DEC-INTERFACES / DEC-GAME-DATA. Adding them is a configuration rewrite, which follows §2.4.
+- **Data minimization:** M1 requests only `provider`, `map`, `player` and `hero`. The `abilities` block is added when the own-ability read model and PEER-010 contracts freeze (DEC-GAME-DATA, DEC-PEER-ABILITIES). Abilities, items, buildings and draft data are added only when their read-model contracts freeze under DEC-INTERFACES / DEC-GAME-DATA. Adding them is a configuration rewrite, which follows §2.4.
 - **Heartbeat:** `1.0` s is chosen so that a quiescent game (pause, idle, dead) still renews freshness well inside the 2,000 ms boundary of DATA-001. The game is expected to send at least one POST per heartbeat interval even without state change (A-3).
 - **Install token:** 32 bytes from the OS CSPRNG, base64url without padding (43 characters). Generated once per installation. The game requires the token in plain text in the file. The app copy is stored protected with Windows DPAPI in current-user scope (§7). Rotation: an explicit user action or a detected conflict replacement. Rotation increments the source generation (§5).
 

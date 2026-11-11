@@ -117,7 +117,7 @@ Persistence requires versioning, atomic updates, recovery and retention. Memory 
 
 ## 5. Requirement organization
 
-The register preserves **85 stable IDs**, with scope, priority, obligation, failure behavior, acceptance scenario, evidence class, contracts and dependencies. Moving documents does not change IDs.
+The register preserves **87 stable IDs**, with scope, priority, obligation, failure behavior, acceptance scenario, evidence class, contracts and dependencies. Moving documents does not change IDs.
 
 | Classification | Interpretation |
 |---|---|
@@ -868,17 +868,17 @@ The product shall separate control-window chrome from the transparent always-on-
 
 **Implementation freedom:** Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.
 
-#### UI-002 — Stable live-field topology
+#### UI-002 — Session monitor field topology
 
-**Scope:** mvp · **Priority:** P0 · **Target milestone:** M3 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M3 · **Basis:** owner_decision / DEC-SESSION-MONITOR
 
 **Product needs:** PN-005 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL
 
-The base live field shall preserve five enemy slots, own hero, four allied slots, central map and permanent right region.
+The live field shall be a second-screen session monitor: an enlarged minimap as the dominant region, an own-team column (own hero first, then four stable allied slots), a column of five stable enemy slots and a bounded event/inspector region that never moves the map.
 
 **Failure behavior:** Use bounded subregion scrolling; do not shrink text to hide overflow.
 
-**AC-UI-002:** Given frozen data and viewport while inspector/feed/tier changes; when layout transitions run; then map x/y/width/height remain within 1 CSS px and no page-level scroll is introduced.
+**AC-UI-002:** Given frozen data and viewport while inspector/feed/tier changes; when layout transitions run; then map x/y/width/height remain within 1 CSS px, the map stays the largest region, and no page-level scroll is introduced.
 
 **Verification:** synthetic, native, live; procedures TP-05, UAT-05; status NOT_RUN.
 
@@ -997,6 +997,28 @@ Manual enemy timers shall use a reviewed native game-clock store and label expir
 **Elaboration:** [USE-CASES.md](../product/USE-CASES.md), [UX-SPEC.md](../design/UX-SPEC.md)
 
 **Contracts:** [own-snapshot.schema.json](../../contracts/own-snapshot.schema.json)
+
+**Implementation freedom:** Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.
+
+#### UI-008 — Peripheral threat salience
+
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M3 · **Basis:** owner_decision / DEC-SESSION-MONITOR
+
+**Product needs:** PN-005 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL
+
+The session monitor shall make admitted threats noticeable in peripheral vision: an admitted critical warning switches the map frame and a labelled banner to the critical state for the warning lifetime, newly admitted enemy sightings are marked once, and stale or missing capture dims the map with a labelled stale state.
+
+**Failure behavior:** Routine updates never flash or pulse; no motion is derived from predicted paths, decay or unobserved data; reduced motion replaces animation with static emphasis.
+
+**AC-UI-008:** Given the session monitor shows a live field with valid capture; when a critical warning is admitted, then revised, and capture later becomes stale; then the map frame and banner enter the critical state within the same admission, clear on revision or expiry, and the stale state dims and labels the map instead of keeping live markers.
+
+**Verification:** synthetic, native, live; procedures TP-05, UAT-05; status NOT_RUN.
+
+**Open dependencies:** DEC-VISUALS, DEC-RISK-DETAIL.
+
+**Elaboration:** [USE-CASES.md](../product/USE-CASES.md), [UX-SPEC.md](../design/UX-SPEC.md), [VISUAL-DESIGN-PROPOSAL.md](../design/VISUAL-DESIGN-PROPOSAL.md)
+
+**Contracts:** [own-snapshot.schema.json](../../contracts/own-snapshot.schema.json), [design-tokens.json](../../contracts/design-tokens.json)
 
 **Implementation freedom:** Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.
 
@@ -1561,6 +1583,28 @@ Peer stats shall remain transient within authorized same-room/match/team viewing
 **Contracts:** [peer-sample.schema.json](../../contracts/peer-sample.schema.json), [peer-sync.schema.json](../../contracts/peer-sync.schema.json)
 
 **Diagram views:** [DGM-001](../diagrams/source/DGM-001-system-context.mmd), [DGM-002](../diagrams/source/DGM-002-containers.mmd), [DGM-004](../diagrams/source/DGM-004-local-data-flow.mmd), [DGM-005](../diagrams/source/DGM-005-external-data-flow.mmd), [DGM-011](../diagrams/source/DGM-011-peer-sequence.mmd), [DGM-012](../diagrams/source/DGM-012-peer-lifecycle.mmd)
+
+**Implementation freedom:** Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.
+
+#### PEER-010 — Separate-scope ability and cooldown sharing
+
+**Scope:** extension · **Priority:** extension · **Target milestone:** M6 · **Basis:** owner_decision / DEC-PEER-ABILITIES
+
+**Product needs:** PN-009 · **Primary design:** CMP-PEER · **Design components:** CMP-PEER
+
+Peer ability and cooldown sharing shall require a separate opt-in abilities scope and use a separate closed DTO containing only the sender's admitted own-hero ability slots, learned levels, ultimate flag and cooldown seconds.
+
+**Failure behavior:** Without the abilities scope nothing is sent or shown; unknown cooldown stays unknown; cooldown zero is not shown as ready; no item, position, enemy or selected-unit data.
+
+**AC-PEER-010:** Given a teammate shares vitals but has not granted the abilities scope, and another teammate has granted both; when the receiver renders both allied cards; then the first shows vitals with a not-shared skill row and no ability payload was transmitted; the second shows only admitted ability levels and cooldowns with their age, and withdrawing the scope clears them.
+
+**Verification:** synthetic, native; procedures TP-09, UAT-09; status NOT_RUN.
+
+**Open dependencies:** DEC-INTERFACES, DEC-GAME-DATA.
+
+**Elaboration:** [SECURITY-PRIVACY.md](../security/SECURITY-PRIVACY.md), [ICD.md](../design/ICD.md), [UX-SPEC.md](../design/UX-SPEC.md)
+
+**Contracts:** [peer-abilities.schema.json](../../contracts/peer-abilities.schema.json), [peer-sync.schema.json](../../contracts/peer-sync.schema.json)
 
 **Implementation freedom:** Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.
 
