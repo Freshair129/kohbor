@@ -64,7 +64,7 @@
     {
       "path": "acceptance/spec-validation.json",
       "bytes": 923,
-      "sha256": "61b2e95c7d55ae05fb4358c7dec8724c81fe3338a4a8a7da8879d2f7be1f7ed3"
+      "sha256": "4d37cbed747f432a50b10a4534e65cc43c148f88ecaffc0b9ec6ca08d45b231f"
     },
     {
       "path": "apps/desktop/index.html",
@@ -507,6 +507,11 @@
       "sha256": "926026372978ba98b3fa5834cbb92a693a3f5e9ee803df1a523ae0ec46a58c67"
     },
     {
+      "path": "docs/delivery/AGENT-WORKFLOW.md",
+      "bytes": 11086,
+      "sha256": "2b86d864e838e905d733c55bb51733a14fce2791041ef340446009fd359e9eaf"
+    },
+    {
       "path": "docs/delivery/M0-PLAN.md",
       "bytes": 9977,
       "sha256": "10157df4f836bfdd147fcaaa5a091081db72b0b9e2c20c5b3390078ab7e34280"
@@ -520,6 +525,11 @@
       "path": "docs/delivery/SDP.md",
       "bytes": 5161,
       "sha256": "d3dc0951af15c8f9df5897d02eddc8201f640fdf14077cfa91c851f696407088"
+    },
+    {
+      "path": "docs/delivery/SPRINT-ROADMAP.md",
+      "bytes": 13537,
+      "sha256": "3e1a778b84f25beb6866125f128df3e487da592ecdf851c3a1ad80ac9e39e098"
     },
     {
       "path": "docs/delivery/evidence/m1-live-2026-11-11-draft.png",
@@ -808,8 +818,8 @@
     },
     {
       "path": "docs/governance/CHANGELOG.md",
-      "bytes": 17379,
-      "sha256": "1bd23635d7e95d2839fcba7eccd061b3407476a2e0fcc5559b9c220aa6c62cad"
+      "bytes": 17987,
+      "sha256": "9fd749a6155bbb3134eb9ca70a0ae32f1a3262a111968781abc904ede7288e83"
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
@@ -1230,6 +1240,11 @@
       "path": "templates/feature-spec.md",
       "bytes": 1212,
       "sha256": "2c840db787194beddb3990c385d95ae8b8511f34b6f03d1ddbdd8b3a9f9d555c"
+    },
+    {
+      "path": "tools/agent/worker-report.schema.json",
+      "bytes": 3451,
+      "sha256": "ae401499f023f8c9e0a0760318d4ab74dd9770b9b76add57b78300edc8a16db2"
     },
     {
       "path": "tools/build_diagram_atlas.py",

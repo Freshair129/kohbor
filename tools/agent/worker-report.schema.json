@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kohbor.invalid/tools/agent/worker-report.schema.json",
+  "title": "Worker report",
+  "description": "Final message of a worker run (AGENT-WORKFLOW section 5). Passed to `codex exec --output-schema`. Every field is required so that an empty answer is explicit.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "task_id",
+    "status",
+    "summary",
+    "files_changed",
+    "commands",
+    "tests",
+    "evidence_class",
+    "deviations",
+    "scope_requests",
+    "open_questions",
+    "review_focus",
+    "disposition"
+  ],
+  "properties": {
+    "task_id": { "type": "string" },
+    "status": { "type": "string", "enum": ["DONE", "PARTIAL", "BLOCKED"] },
+    "summary": {
+      "type": "string",
+      "description": "At most five sentences: what changed and what the result is."
+    },
+    "files_changed": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Repository-relative paths that were created, modified or deleted."
+    },
+    "commands": {
+      "type": "array",
+      "description": "Acceptance commands that actually ran in this run, in order.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["command", "exit_code", "result"],
+        "properties": {
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" },
+          "result": {
+            "type": "string",
+            "description": "One line, for example '57 passed, 0 failed' or the first error line."
+          }
+        }
+      }
+    },
+    "tests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["added", "passed", "failed", "not_run"],
+      "properties": {
+        "added": { "type": "integer" },
+        "passed": { "type": "integer" },
+        "failed": { "type": "integer" },
+        "not_run": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Required checks that did not run, each with the reason."
+        }
+      }
+    },
+    "evidence_class": {
+      "type": "string",
+      "enum": ["source", "synthetic", "native", "none"],
+      "description": "Highest class this run produced. A worker never reports live or acceptance evidence."
+    },
+    "deviations": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Anything done differently from the brief, with the reason."
+    },
+    "scope_requests": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Changes outside SCOPE that the task needs. They are requested here, not made."
+    },
+    "open_questions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "review_focus": {
+      "type": "array",
+      "description": "The hunks the lead should read, most important first. Empty only when nothing needs judgment.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "lines", "why"],
+        "properties": {
+          "path": { "type": "string" },
+          "lines": { "type": "string", "description": "For example '120-164'." },
+          "why": { "type": "string" }
+        }
+      }
+    },
+    "disposition": {
+      "type": "string",
+      "description": "State of the working tree at exit and the resume condition if the task is not DONE."
+    }
+  }
+}
