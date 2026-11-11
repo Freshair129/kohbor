@@ -138,7 +138,22 @@ The acceptance command is one script, `tools/gate.py` (built in Sprint 0). It ru
 6. Review is delegated. The lead reads findings and named hunks, and full diffs only for R2.
 7. Generated files change through their scripts, never by hand.
 
-The limits above (60-line brief, 30-line answer, 20-line gate summary) are targets. Sprint 0 measures the lead's actual cost per task and adjusts them.
+The limits above (60-line brief, 30-line answer, 20-line gate summary) are targets. Sprint 0 was the first run of the workflow; its observations follow. Token use was **not** measured: the counts below are rounds and reads, which is what the lead can observe.
+
+### 7.1 Sprint 0 observations (2026-11-11 to 2026-11-12)
+
+| Observation | Rule it produces |
+| --- | --- |
+| Fifteen worker runs. Every brief was 13–22 lines, so the 60-line target was met, but the lines are long (a field often carries a paragraph); a line count does not measure brief size. The resource-admission statement and the lead's design decision were the long parts and prevented rework. | Measure briefs in words, not lines (target: instructions under 400 words, plus the resource and decision blocks). |
+| T-L-R produced real value: the independent reviews found a resume path that overwrote the hero baseline, a listener timeout that might end the accept loop on Linux (measured later: it does not on Windows), `settings_get` returning defaults for a corrupt file, a `gsi_setup` revision bump that reset 7.0 to 2, and a silently changed Thai string. Luna's own reports mentioned none of these. | Never accept an implementation report as the review. R2 always gets a Terra read-only review before commit. |
+| Lead edits that were still needed: a one-line behaviour regression (a mismatch lost its reason code), a lint attribute, a revision-bump recovery rule, a wrong cold-start test caused by the lead's own brief. | The lead reads every R2 diff in full (as designed) and owns defects in its own briefs. State the spec section a test encodes; a brief that guesses a requirement produces a wrong test. |
+| A worker report can claim a wrong cause ("existing clippy errors" were introduced by the previous task). | Re-run the check and compare against the previous commit before accepting a cause. |
+| Workers could not build or run Vite inside the narrow sandbox; the owner's resource-admission rule blocked them until the brief carried the measured floor, the owned lane and `--add-dir`. | Every build task brief states: lane path, measured free space and floor, expected peak write, the lock file, and passes `--add-dir <lane>`. The lead runs the Vite build and anything needing process spawn outside the sandbox. |
+| Workers sometimes report in Thai or paste a Thai summary. | Briefs say "Write the report in English" (done from S0-3 on). |
+| Terra does not need `danger-full-access` for tests when the lane is added with `--add-dir`. | Keep `workspace-write` for tests, `read-only` for review. |
+| Fix rounds were new sessions with the full brief restated, not resumed sessions, because `codex exec` was used each time. | Cost is higher than rule 5 assumes. Try `codex exec resume` for fix rounds in Sprint 1 and compare. |
+
+Limits after Sprint 0: briefs are bounded in words (instructions under 400 words, plus the resource and decision blocks); a worker report is read through its `summary`, `deviations`, `scope_requests` and `open_questions` only; the lead reads the log only after a failure; a task that needs more than two fix rounds is stopped and re-planned.
 
 ## 8. What stays with the owner
 

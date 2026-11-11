@@ -177,8 +177,15 @@ The routing rule does not change in later phases: tests, harnesses and reviews g
 
 ## Backlog status
 
-The lead updates this table as tasks pass the gate. `Commit` is empty until the owner has authorized the commit.
+The lead updates this table as tasks pass the gate. `Commit` is filled for work committed on the sprint branch. The branch is not pushed and no pull request exists; both need a separate instruction from the owner.
 
 | Task | Status | Report disposition | Commit |
 | --- | --- | --- | --- |
-| S0-1 … S0-8 | not started | n/a | |
+| S0-1 `tools/gate.py` | passed the gate | DONE; the worker could not run the validator in its sandbox, the lead reran `--quick` | `ca9632e` |
+| S0-2 `tools/update_manifest.py` | passed the gate | DONE; the lead removed a self-exclusion hack and refreshed the manifest | `c339a82` |
+| S0-3 failing intake tests | passed the gate (T-L-R 1) | Two rounds (scope and resource admission); lead ran the red tests | `ee34192` |
+| S0-4 make S0-3 pass | passed the gate (T-L-R 2) | Three rounds: hero/menu, bounded read (5 s socket timeout, per-read), baseline rules | `e37bd2b`, `98c7f70`, `5e20bb3` |
+| S0-5 review | passed (T-L-R 3) | Findings accepted and turned into tests/fixes; one finding (mismatch advances sequence) left as a spec ambiguity | `064ada5` (tests) |
+| S0-6 containment and cold offline tests | passed (L-R) | Cold-start tests, a containment seam and failure-injection tests; native proof still open | `e27bf86`, `b4bdbd0`, `144ed49` |
+| S0-7 locale settings | passed (L-R, review then fix round) | Review found three major issues; fixed | `0552d9c` |
+| S0-8 cost and limits | done | AGENT-WORKFLOW section 7.1; token use not measured | see the commit that adds this row |

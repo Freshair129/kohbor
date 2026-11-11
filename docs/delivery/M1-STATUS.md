@@ -2,8 +2,8 @@
 title: "M1 Status"
 doc_id: "M1-STATUS"
 status: draft
-version: "0.3.6"
-updated: "2026-11-11"
+version: "0.3.7"
+updated: "2026-11-12"
 authority: "DEC-BASELINE; SDP milestone M1"
 owner_role: "Engineering lead (builder)"
 approval_status: "not_approved"
@@ -37,7 +37,7 @@ M1 delivers local startup, the resource cap, GSI admission and an honest read mo
 | Secrets | `src-tauri/src/secrets.rs` | DPAPI current-user blobs for the intake token and the HMAC installation key |
 | UI | `apps/desktop/src` | Command Deck Overview: eight readiness rows from `runtime_get_status` and an own-hero card from `own_snapshot`; Thai copy for error codes; nothing fabricated |
 
-Tauri commands: `runtime_get_status` (payload validated against `runtime-status.schema.json` in tests), `own_snapshot` (own-snapshot 2.0.0) and `gsi_setup` (a user action; `replace: true` is the separate explicit confirmation to replace an owned configuration that was edited outside the app). The capability file grants `core:default` to the control window only.
+Tauri commands: `runtime_get_status` (payload validated against `runtime-status.schema.json` in tests), `own_snapshot` (own-snapshot 2.0.0), `settings_get` and `settings_patch` (locale only, §3.3) and `gsi_setup` (a user action; `replace: true` is the separate explicit confirmation to replace an owned configuration that was edited outside the app). The capability file grants `core:default` to the control window only.
 
 ## 3. What ran (development machine, 2026-11-11)
 
@@ -100,9 +100,38 @@ A review of the M1 slice found the defects below. They are fixed on branch `m1/h
 
 **Not run for this pass.** The release build, the native launch, the process-in-job check and any live-game check. The owner's earlier build was running with a live game on the same data directory, so the new build was not started. Not exercised natively: the single-instance hand-over, the CSP change in WebView2, the replace action against the real game folder, and A-10.
 
+### 3.3 Sprint 0 pass, 2026-11-12 (branch `s0/pilot-and-m1-closeout`, source and synthetic evidence only)
+
+Built and run by the lead/worker workflow (AGENT-WORKFLOW). Every result below is **synthetic or source**: Windows development host, debug build in the owned lane `F:\cargo-lanes\kohbor-s0`, no native launch, no live game, no certified matrix cell.
+
+| Item | What changed | Result |
+| --- | --- | --- |
+| Hero change inside a verified session | `intake.rs` keeps a transient per-session hero baseline: a different hero becomes `Mismatch`, own values are withdrawn, the epoch does not change. `Resumed` compares an established baseline instead of replacing it | Tests pass. A mismatch is still an admitted observation (same as the existing steam-id mismatch precedent); GSI-INTAKE-SPEC §4 and §5 are ambiguous about whether it should renew freshness and the sequence: open question, not changed |
+| Menu after a verified session | A menu payload clears ownership, its reason and the hero baseline | Test passes |
+| Stalled request body | `bind_server` sets a 5 s `SO_RCVTIMEO` on the loopback listener; accepted sockets inherit it (measured on this Windows host) and `tiny_http` closes the connection | Test passes (stalled client cut off, later request admitted). **Residual risk:** this is a per-read idle timeout, not an absolute body deadline. A client that sends a byte just under the timeout can still hold a `tiny_http` worker, and enough of them can exhaust its pool. Closing it needs a total-body deadline in the ingress or a different server. On Linux the listener timeout may also end the accept loop; Windows is the only target and the idle-listener test passes here |
+| CORE-002 failure injection | `JobBackend`/`establish_with` and `start_with` split the Job Object steps; behaviour of the Win32 calls is unchanged | Tests prove each of create/cpu-rate/limits/assign stops startup, reports only `CPU_CONTAINMENT_FAILED (<step>)`, never launches and returns 1. **Not proven:** the native exit code of the real process; that needs the real binary with an injected failure |
+| Cold offline startup | An empty data directory reports `not_configured`/unknown values that match the status schema and opens no listener (the port is chosen at first setup, GSI-INTAKE-SPEC §2.4). A source guard bounds direct dependencies and outbound-network calls | Tests pass. **Not proven:** a native start with the network adapter disabled; the guard is not a network audit |
+| Locale setting | `settings_get`/`settings_patch` follow `settings-patch.schema.json`, check the base revision, write atomically and touch only `locale` and `revision`; `gsi_setup` now bumps the revision with a checked bound. The UI has a th/en selector and shows "unavailable" instead of a default when settings cannot be read. Thai strings are unchanged from the previous revision | Tests pass; typecheck and `vite build` pass. Not run in WebView2. The error catalog has no code for a revision conflict; `VERSION_UNSUPPORTED` is used, a dedicated code is a contract proposal. A fractional request number extremely close to an integer is rounded by the JSON parser (documented limit) |
+| Tooling | `tools/gate.py` (one command for the checks) and `tools/update_manifest.py` (manifest generator) | Both used for every commit on the branch |
+
+Checks at the last commit: `cargo test --lib` 45 passed, `cargo clippy --all-targets -- -D warnings` clean, `cargo fmt --check`, `pnpm typecheck` and `pnpm build`, specification validation with no errors, manifest in sync (`update_manifest.py --check`).
+
+**M1 exit items** (SDP: cold offline/native startup; invalid, source and session tests):
+
+| Exit item | In source/synthetic | Waits for |
+| --- | --- | --- |
+| Invalid and source tests (GSI intake: token, size, rate, strict JSON, foreign provider, stall) | Met, with the residual slow-drip risk above | n/a |
+| Session tests (epoch, resume, owner and hero change, menu) | Met | Live confirmation, including A-10 |
+| Containment before UI, exit 1 on failure | Met synthetically | Native run of the real binary with an injected failure; process-in-job check |
+| Cold offline startup | Met synthetically (status and no-listener) | Native start with no network adapter |
+| Honest read model in the UI | Met in a browser stand-in and by tests | WebView2 run of the hardened build |
+| Resource budget (NFR) | Not started | Idle and live runs, 10 minutes × 3, with receipts |
+| Live re-test of the hardened build (§4 item 1) | n/a | Owner: release build and a live match |
+
 ## 4. Next in M1
 
 1. ~~Owner runs `gsi_setup` and checks a live "สด" state with own vitals~~: done 2026-11-11 (§3.1) on the earlier build. Next: rebuild from the hardening pass (§3.2) and repeat the live check, including A-10, a second launch while running and the replace action. Then repeat on a certified matrix cell, and on live data check the stale state (pause the game's network or close it) and ownership mismatch.
-2. Cold offline startup test, plus a failure-injection test for containment (CORE-002 exit code 1).
-3. Settings UI (locale) through the `settings-patch` contract.
-4. Resource runs per the NFR protocol: idle and live profiles, ten minutes × 3, with receipts.
+2. ~~Cold offline startup test and containment failure injection~~: done synthetically (§3.3). Next: the native versions (real binary with an injected containment failure; start with the network adapter disabled).
+3. ~~Settings UI (locale) through the `settings-patch` contract~~: done (§3.3), not yet run in WebView2.
+4. Decide how to close the slow-drip residual risk on the intake listener (§3.3), and whether a revision-conflict code is added to the error catalog.
+5. Resource runs per the NFR protocol: idle and live profiles, ten minutes × 3, with receipts.

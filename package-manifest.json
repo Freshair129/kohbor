@@ -227,6 +227,11 @@
       "sha256": "397f098dc5e5b99c2dfe7831f396b348b9bb8c122b71dee92c5c885fcb9454f8"
     },
     {
+      "path": "apps/desktop/src-tauri/src/settings.rs",
+      "bytes": 16819,
+      "sha256": "0d40b1002ad57adbf49eba06a399893c32a660e9b32e8daa0a8c17d1226dd9d6"
+    },
+    {
       "path": "apps/desktop/src-tauri/src/status.rs",
       "bytes": 5804,
       "sha256": "19af80ad25956d182b4b4f7afd76d291c0bce9f28412c5b3f5a47763c0fed100"
@@ -270,6 +275,11 @@
       "path": "apps/desktop/src/runtime.ts",
       "bytes": 3062,
       "sha256": "037328ce0d2e03df4cde6069e1d347fdad8f5da680b1b0985dcb7f5b91c325f2"
+    },
+    {
+      "path": "apps/desktop/src/settings.ts",
+      "bytes": 2568,
+      "sha256": "44681358adc8659f0de6af1b6bf86eb9af8a8625ae1b5bf3250220d0e81ad3e1"
     },
     {
       "path": "apps/desktop/src/styles.css",
@@ -508,8 +518,8 @@
     },
     {
       "path": "docs/delivery/AGENT-WORKFLOW.md",
-      "bytes": 11086,
-      "sha256": "2b86d864e838e905d733c55bb51733a14fce2791041ef340446009fd359e9eaf"
+      "bytes": 14079,
+      "sha256": "bf85acccb2e63667b40ca1c0688e43add17c9708342153be58365ac8fdf9156c"
     },
     {
       "path": "docs/delivery/M0-PLAN.md",
@@ -518,8 +528,8 @@
     },
     {
       "path": "docs/delivery/M1-STATUS.md",
-      "bytes": 12276,
-      "sha256": "5c86e943f158d9f18b9c36371eb259b0adb79521cd439d1f0244a19aa937f5fd"
+      "bytes": 17188,
+      "sha256": "87e636a3af7452980e3c96b325be674d712638e629c58ef09dfc56d6546d4b55"
     },
     {
       "path": "docs/delivery/SDP.md",
@@ -528,8 +538,8 @@
     },
     {
       "path": "docs/delivery/SPRINT-ROADMAP.md",
-      "bytes": 13537,
-      "sha256": "3e1a778b84f25beb6866125f128df3e487da592ecdf851c3a1ad80ac9e39e098"
+      "bytes": 14784,
+      "sha256": "228e7540bfd3dcd2b71c260359b583e91cfb7409fdafbbed192dcf751ebb371a"
     },
     {
       "path": "docs/delivery/evidence/m1-live-2026-11-11-draft.png",
