@@ -46,6 +46,8 @@ pub struct Shared {
     pub phase: Option<Phase>,
     pub ownership: Option<Ownership>,
     pub ownership_reason: Option<&'static str>,
+    /// Current verified hero identity is transient and scoped to the process.
+    session_hero_id: Option<String>,
     token: Option<String>,
     data_dir: PathBuf,
     window: (Instant, u32),
@@ -308,6 +310,7 @@ impl Shared {
             phase: None,
             ownership: None,
             ownership_reason: None,
+            session_hero_id: None,
             token,
             data_dir,
             window: (Instant::now(), 0),
@@ -386,7 +389,7 @@ impl Shared {
         }
         // A different verified owner within a match is handled by the session tracker
         // as an owner change (new epoch, values withdrawn), so no session owner is passed.
-        let outcome = admit(body, &token, platform, None);
+        let mut outcome = admit(body, &token, platform, None);
         if let Outcome::Rejected(_) = &outcome {
             // Authenticated but failing admission (for example a foreign provider):
             // it never renews freshness, changes session identity or consumes a
@@ -394,13 +397,8 @@ impl Shared {
             // response reveals no admission detail.
             return 200;
         }
-        if let Outcome::Admitted(a) = &outcome {
+        if let Outcome::Admitted(a) = &mut outcome {
             self.phase = Some(a.phase);
-            self.ownership = Some(a.ownership);
-            self.ownership_reason = match a.ownership {
-                Ownership::Verified => None,
-                _ => Some("OWNER_UNVERIFIED"),
-            };
             if a.ownership == Ownership::Verified {
                 if let Some(owner) = a.steamid64 {
                     let change = self.sessions.observe(a.match_id.as_deref(), owner, || {
@@ -412,21 +410,51 @@ impl Shared {
                         SessionChange::Started { epoch }
                         | SessionChange::OwnerChanged { epoch } => {
                             self.epoch = Some(epoch);
+                            self.session_hero_id = a.hero.hero_id.value().cloned();
                             self.persist_runtime();
                         }
-                        SessionChange::Resumed { epoch } | SessionChange::Unchanged { epoch } => {
-                            self.epoch = Some(epoch)
+                        SessionChange::Resumed { epoch } => {
+                            self.epoch = Some(epoch);
+                            self.session_hero_id = a.hero.hero_id.value().cloned();
                         }
-                        SessionChange::NoEvidence => {}
+                        SessionChange::Unchanged { epoch } => {
+                            self.epoch = Some(epoch);
+                            self.verify_session_hero(a);
+                        }
+                        SessionChange::NoEvidence => self.verify_session_hero(a),
                     }
                 }
             }
+            self.ownership = Some(a.ownership);
+            self.ownership_reason = match a.ownership {
+                Ownership::Unverified | Ownership::Mismatch => Some("OWNER_UNVERIFIED"),
+                Ownership::Verified => None,
+            };
         } else {
             self.phase = None;
+            if matches!(outcome, Outcome::NotPlaying) {
+                // Menu/idle data is admitted as a fresh source heartbeat, but it
+                // carries no active ownership assertion or reason.
+                self.ownership = None;
+                self.ownership_reason = None;
+            }
         }
         self.sequence += 1;
         self.last_admitted = Some((arrival, outcome));
         200
+    }
+
+    /// Preserve the session's first observed non-empty hero. Missing hero data,
+    /// including the empty name used during selection, is not a change.
+    fn verify_session_hero(&mut self, admitted: &mut kohbor_gsi::admission::Admitted) {
+        let Some(hero_id) = admitted.hero.hero_id.value() else {
+            return;
+        };
+        match self.session_hero_id.as_deref() {
+            Some(previous) if previous != hero_id => admitted.ownership = Ownership::Mismatch,
+            Some(_) => {}
+            None => self.session_hero_id = Some(hero_id.clone()),
+        }
     }
 }
 
