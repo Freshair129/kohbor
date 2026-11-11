@@ -64,7 +64,7 @@
     {
       "path": "acceptance/spec-validation.json",
       "bytes": 923,
-      "sha256": "5aa585587135286850f31b2e0d0a90759515c647ad816160d14dfc2842899a65"
+      "sha256": "52e86330e8697b85b36b77aa7e7b19ae74237a68dc6c90ae4a4a5f6e7139f069"
     },
     {
       "path": "apps/desktop/index.html",
@@ -478,13 +478,23 @@
     },
     {
       "path": "docs/delivery/M1-STATUS.md",
-      "bytes": 4867,
-      "sha256": "a39dabc17d7c93bd2e0c7a74bb2702d6f3c8db561245c42e88783e9c3ec6ae60"
+      "bytes": 6691,
+      "sha256": "14f5a4f18c7243fbd9f47cf801ca670904d591bcc58346425db5c66a375d9f6d"
     },
     {
       "path": "docs/delivery/SDP.md",
       "bytes": 5161,
       "sha256": "d3dc0951af15c8f9df5897d02eddc8201f640fdf14077cfa91c851f696407088"
+    },
+    {
+      "path": "docs/delivery/evidence/m1-live-2026-11-11-draft.png",
+      "bytes": 40665,
+      "sha256": "436ee9be9b32108965c0cea1a20dd5af2788afde8e8ae77d458a19cd0b69f36d"
+    },
+    {
+      "path": "docs/delivery/evidence/m1-live-2026-11-11-in-game.png",
+      "bytes": 44736,
+      "sha256": "472d4055218fd25b9425046a86814517fc07e6aec08136d49407391510e6cb2a"
     },
     {
       "path": "docs/design/DDD.md",

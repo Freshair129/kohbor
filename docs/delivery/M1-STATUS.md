@@ -50,11 +50,28 @@ Tauri commands: `runtime_get_status` (payload validated against `runtime-status.
 | Launch the release app and enumerate its process tree | Host plus 6 `msedgewebview2.exe`, **all `IsProcessInJob = true`**; total Working Set ≈ 381 MB; all exited with the host | native observation (dev OS 26300, not a certified cell) |
 | UI screenshot | Overview showed: not configured; owner unknown; waiting for match; mode unverified; critical audio not ready; vision unavailable; CPU 0.3%, RAM 394 MB; account unused. Own-hero fields "—" | native observation |
 
-The game-connection setup was **not clicked** during these checks, because it writes into the Dota folder. The owner can run it from the app.
+The game-connection setup was **not clicked** during the checks above, because it writes into the Dota folder.
+
+### 3.1 Owner live test, 2026-11-11
+
+**Build under test.**
+
+- The app is `kohbor-desktop.exe`, sha256 `4f8abc7c2c0785162336a1bd7845813aa41bf70a4d7046edc5f733ccaa480751`.
+- It was built from commit `624112e`, **before** the npm pin downgrade in `d68022c`. Its embedded UI bundle was therefore built with Vite 8.3.8; the Rust code is unchanged by that later commit.
+- The test ran on the owner's machine (Windows build 26300, not a certified cell) against one bot match.
+
+| Step | Observation | Evidence class |
+| --- | --- | --- |
+| Owner clicked "ตั้งค่าการเชื่อมต่อเกม" | `gamestate_integration_kohbor.cfg` was written on **port 3001**. Port 3000 was skipped because another application's config claims it. The other three configurations were untouched (timestamps unchanged). Settings store `port 3001`, `token_ref dpapi:gsi-token` and the config hash; no plaintext token | native |
+| Owner restarted Dota 2 | The listener on 3001 received traffic | native |
+| Hero selection | Intake "สด" (0.1 s); ownership "ยืนยันแล้ว"; session #1, phase "เลือกฮีโร่"; own vitals "—", as designed for the draft phase ([screenshot](evidence/m1-live-2026-11-11-draft.png)) | live (one match) |
+| In game | Intake "สด" (0.0 s); phase "กำลังเล่น"; **session #1 continued** with no new epoch; own hero, level, HP x/y, mana %, alive status all shown from admitted data; CPU 0.1%, RAM 413 MB ([screenshot](evidence/m1-live-2026-11-11-in-game.png)) | live (one match) |
+
+This is a single owner-machine observation. It does **not** satisfy the acceptance procedures: TP/UAT counts, the certified matrix and the stale/ownership negative cases on live data are still to be run.
 
 ## 4. Next in M1
 
-1. Owner runs `gsi_setup` from the app, restarts Dota 2, and checks a live "สด" state with own vitals (native/live evidence for CORE-004 and DATA-001..003).
+1. ~~Owner runs `gsi_setup` and checks a live "สด" state with own vitals~~: done 2026-11-11 (§3.1). Next: repeat on a certified matrix cell, and on live data check the stale state (pause the game's network or close it) and ownership mismatch.
 2. Cold offline startup test, plus a failure-injection test for containment (CORE-002 exit code 1).
 3. Settings UI (locale) through the `settings-patch` contract.
 4. Resource runs per the NFR protocol: idle and live profiles, ten minutes × 3, with receipts.
