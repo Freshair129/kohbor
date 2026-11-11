@@ -198,8 +198,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/containment.rs",
-      "bytes": 10864,
-      "sha256": "78f90e607ab65a2194b592738c072e4845d83117c89463a248fb4bc682d3aea6"
+      "bytes": 11033,
+      "sha256": "d94c09e562ed3a0f9cec5dbe0c231f176907ddae774ff2dbca993063a813a1ad"
     },
     {
       "path": "apps/desktop/src-tauri/src/instance.rs",
@@ -208,13 +208,13 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/intake.rs",
-      "bytes": 52624,
-      "sha256": "aa6b8e79c9937a62c612908c30bc61a228de7d454b41820e46533480574a6b00"
+      "bytes": 53792,
+      "sha256": "fe0cb720796ddf9aa5b438842b386842cc4e5f1f2dce8ba6663806ea6d29045d"
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 6967,
-      "sha256": "7ef7e329fe9a6de640b457e40065ff6d58cad59ebf81fd2d95759905b5cd6e5c"
+      "bytes": 7778,
+      "sha256": "56edde822b89bca3477d2343384ddeb6abddfa346d45f5148e03e9f23df80a57"
     },
     {
       "path": "apps/desktop/src-tauri/src/main.rs",
@@ -238,28 +238,28 @@
     },
     {
       "path": "apps/desktop/src/App.tsx",
-      "bytes": 1926,
-      "sha256": "e71f5ec3d63ab1152aa8f45149d4d5d68ce95a38a63a4eae519aeb6f9266ae36"
+      "bytes": 3261,
+      "sha256": "d4028b084e43b940bf0b01a7675bd33e948b4910fe72159f74f6caf0d4d86cd0"
     },
     {
       "path": "apps/desktop/src/Guide.tsx",
-      "bytes": 9599,
-      "sha256": "8d9e17e2d3e51fdb2093e0358c98b1f44a39f8f2c59b1dd31a188b3fbd0b6d88"
+      "bytes": 5201,
+      "sha256": "d34ed86dd9f14d30497d83aef3ba17f9d097e4d7d55a739211a7add278223e45"
     },
     {
       "path": "apps/desktop/src/OwnHero.tsx",
-      "bytes": 4505,
-      "sha256": "b912ff17506b228056b84472927ce6dc4473b5b2125c3242bddb419c9382cf63"
+      "bytes": 4343,
+      "sha256": "af7aea4bdca428b6a30ec30ad45d7161891fcaff643784c2c3f454617a34f055"
     },
     {
       "path": "apps/desktop/src/Readiness.tsx",
-      "bytes": 7203,
-      "sha256": "b28e6337ee045d454e429488aa247025177cf4f1e9ce56687638d7cb4c012760"
+      "bytes": 6146,
+      "sha256": "6311540cc141a41819b6328d8866e57e9f525c83a511f09b1f1717b67d0027ac"
     },
     {
       "path": "apps/desktop/src/copy.ts",
-      "bytes": 2883,
-      "sha256": "7257f1e409aeb6692819bfbf99482afb513021793731dc25e18609604921f8f5"
+      "bytes": 22263,
+      "sha256": "44ce23d5c76c8823241518170de830efa7c88c6396cbac20c36854870b791b04"
     },
     {
       "path": "apps/desktop/src/main.tsx",
@@ -273,13 +273,13 @@
     },
     {
       "path": "apps/desktop/src/styles.css",
-      "bytes": 5689,
-      "sha256": "896daf8e9b56159ceeb9295aaab7f8de2141be8e4b6f6d7ba8a7cf26f608cbb8"
+      "bytes": 6219,
+      "sha256": "e0712d5ba76691ff9e14990a136d516b3be35aad3a8d12c0365e642b7d72fecd"
     },
     {
       "path": "apps/desktop/src/types.ts",
-      "bytes": 1977,
-      "sha256": "0e00a0bdbbf5aa84932b8f38fee8ec9182b3a7b2aa1528623cc130b573dbd8e9"
+      "bytes": 2093,
+      "sha256": "2079c637c0a2381e6363be1dccd68fc2cc28da72d5ef9b94f7747c414e1fff6a"
     },
     {
       "path": "apps/desktop/tsconfig.json",

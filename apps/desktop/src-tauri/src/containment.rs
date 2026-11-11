@@ -14,6 +14,10 @@ pub const WORKING_SET_LIMIT_BYTES: u64 = 900_000_000;
 ///
 /// Configuration is split into its two Win32 operations so setup can preserve
 /// their existing failure identifiers (`cpu-rate` and `limits`).
+///
+/// A step reports only success or failure: the caller maps it to a fixed, safe
+/// identifier and must not surface OS error text.
+#[allow(clippy::result_unit_err)]
 pub trait JobBackend {
     fn create(&mut self) -> Result<(), ()>;
     fn configure_cpu_rate(&mut self) -> Result<(), ()>;

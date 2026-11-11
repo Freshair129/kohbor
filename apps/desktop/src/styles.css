@@ -32,7 +32,11 @@ body {
 .content { display: flex; flex-direction: column; gap: 12px; }
 /* The host stopped answering: values stay visible but read as not current. */
 .content.is-outdated { opacity: 0.55; }
-.top { display: flex; align-items: center; gap: 14px; }
+.top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; min-width: 0; }
+.top > .chip { max-width: 100%; min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+.locale-control { display: flex; align-items: center; gap: 6px; margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.locale-select { min-height: 34px; padding: 2px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--raised); color: var(--text); font: inherit; }
+.locale-notice { flex: 1 1 260px; max-width: 260px; min-width: 0; overflow-wrap: anywhere; }
 h1 { margin: 0; font-size: 20px; font-weight: 600; }
 h2 { margin: 0; font-size: 16px; font-weight: 600; }
 p { margin: 0; }

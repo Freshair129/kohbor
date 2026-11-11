@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import { PHASE_TH, reason, seconds } from "./copy";
+import { copy, reason, seconds, type Locale } from "./copy";
 import type { RuntimeStatus } from "./types";
 
 /**
@@ -35,129 +35,131 @@ function megabytes(bytes: number | null): string {
   return bytes === null ? "—" : String(Math.round(bytes / 1e6));
 }
 
-export function Readiness({ status }: { status: RuntimeStatus }) {
+export function Readiness({ status, locale }: { status: RuntimeStatus; locale: Locale }) {
+  const text = copy(locale).readiness;
+  const phases = copy(locale).phases;
   const i = status.intake;
   const receiving = i.state === "receiving";
 
   const intakeChip: Record<RuntimeStatus["intake"]["state"], ReactElement> = {
-    not_configured: <Chip tone="unknown" label="ยังไม่ตั้งค่า" />,
-    starting: <Chip tone="unknown" label="กำลังเริ่ม" />,
-    listening: <Chip tone="unknown" label="รอข้อมูลจากเกม" />,
-    receiving: <Chip tone="fresh" label="สด" />,
-    stale: <Chip tone="stale" label="ข้อมูลเก่า" />,
-    unavailable: <Chip tone="warn" label="ใช้ไม่ได้" />,
+    not_configured: <Chip tone="unknown" label={text.intake.not_configured} />,
+    starting: <Chip tone="unknown" label={text.intake.starting} />,
+    listening: <Chip tone="unknown" label={text.intake.listening} />,
+    receiving: <Chip tone="fresh" label={text.intake.receiving} />,
+    stale: <Chip tone="stale" label={text.intake.stale} />,
+    unavailable: <Chip tone="warn" label={text.intake.unavailable} />,
   };
   const intakeDetail =
     i.state === "receiving" || i.state === "stale"
-      ? `พอร์ต ${i.port ?? "—"} · ข้อมูลล่าสุด ${seconds(i.last_admitted_age_ms)} ที่แล้ว`
+      ? text.lastPortAge(i.port, seconds(i.last_admitted_age_ms, locale))
       : i.state === "listening"
-        ? `พอร์ต ${i.port ?? "—"} · ยังไม่มีข้อมูลเข้ามา`
-        : reason(i.reason);
+        ? text.portWaiting(i.port)
+        : reason(i.reason, locale);
 
   // Ownership and match describe the last admitted payload. Once the source is
   // not live they are shown as old, never as a current affirmative state.
   const own = status.ownership;
   const ownChip =
     own.state === "unknown" ? (
-      <Chip tone="unknown" label="ยังไม่ทราบ" />
+      <Chip tone="unknown" label={text.ownerUnknown} />
     ) : own.state !== "verified" ? (
-      <Chip tone="warn" label="ยืนยันไม่ได้" />
+      <Chip tone="warn" label={text.ownerUnverified} />
     ) : receiving ? (
-      <Chip tone="fresh" label="ยืนยันแล้ว" />
+      <Chip tone="fresh" label={text.ownerVerified} />
     ) : (
-      <Chip tone="stale" label="ยืนยันแล้ว (ข้อมูลเก่า)" />
+      <Chip tone="stale" label={text.ownerVerifiedOld} />
     );
   const ownDetail =
     own.state === "unknown"
-      ? "ตรวจกับบัญชี Steam ที่ล็อกอินเมื่อเข้าเกม"
+      ? text.ownerUnknownDetail
       : own.state === "verified"
-        ? "บัญชี Steam ที่ล็อกอินตรงกับผู้เล่นในเกม"
-        : reason(own.reason ?? "OWNER_UNVERIFIED");
+        ? text.ownerVerifiedDetail
+        : reason(own.reason ?? "OWNER_UNVERIFIED", locale);
 
   const phase = status.session.phase;
   const matchChip =
     phase === "none" ? (
-      <Chip tone="unknown" label={PHASE_TH.none} />
+      <Chip tone="unknown" label={phases.none} />
     ) : phase === "unsupported" ? (
-      <Chip tone="off" label={PHASE_TH.unsupported} />
+      <Chip tone="off" label={phases.unsupported} />
     ) : receiving ? (
-      <Chip tone="fresh" label={PHASE_TH[phase]} />
+      <Chip tone="fresh" label={phases[phase]} />
     ) : (
-      <Chip tone="stale" label={`${PHASE_TH[phase]} (ข้อมูลเก่า)`} />
+      <Chip tone="stale" label={`${phases[phase]} (${text.staleSuffix})`} />
     );
   const matchDetail =
-    status.session.session_epoch !== null ? `เซสชัน #${status.session.session_epoch}` : "ยังไม่มีแมตช์";
+    status.session.session_epoch !== null ? text.session(status.session.session_epoch) : text.noMatch;
 
   const mode = status.mode;
   const modeChip =
     mode.state === "identified" && mode.value ? (
       <Chip tone="fresh" label={mode.value} />
     ) : mode.state === "unsupported" ? (
-      <Chip tone="off" label="ไม่รองรับ" />
+      <Chip tone="off" label={phases.unsupported} />
     ) : (
-      <Chip tone="stale" label="ยืนยันไม่ได้" />
+      <Chip tone="stale" label={text.ownerUnverified} />
     );
-  const modeDetail = mode.state === "unverified" ? "ข้อมูลจากเกมไม่ระบุโหมด" : "";
+  const modeDetail = mode.state === "unverified" ? text.modeUnknown : "";
 
   const media = status.media;
   const mediaChip =
     media.state === "ready" ? (
-      <Chip tone="fresh" label="พร้อม" />
+      <Chip tone="fresh" label={text.ready} />
     ) : media.state === "unavailable" ? (
-      <Chip tone="off" label="ใช้ไม่ได้" />
+      <Chip tone="off" label={text.intake.unavailable} />
     ) : (
-      <Chip tone="warn" label="ยังไม่พร้อม" />
+      <Chip tone="warn" label={text.notReady} />
     );
 
   const capture = status.capture;
   const captureChip =
     capture.state === "available" ? (
-      <Chip tone="fresh" label="พร้อม" />
+      <Chip tone="fresh" label={text.ready} />
     ) : capture.state === "unsupported" ? (
-      <Chip tone="off" label="ไม่รองรับ" />
+      <Chip tone="off" label={phases.unsupported} />
     ) : (
-      <Chip tone="off" label="ใช้ไม่ได้" />
+      <Chip tone="off" label={text.intake.unavailable} />
     );
 
   const cpu = status.resource.cpu;
   const mem = status.resource.memory;
   const resourceChip =
     cpu.state === "unavailable" ? (
-      <Chip tone="unknown" label="วัดไม่ได้" />
+      <Chip tone="unknown" label={text.resourceUnavailable} />
     ) : mem.state === "over_budget" ? (
-      <Chip tone="warn" label="RAM เกินงบ" />
+      <Chip tone="warn" label={text.ramOverBudget} />
     ) : cpu.throttle === "throttled" ? (
-      <Chip tone="warn" label="ลดโหลด" />
+      <Chip tone="warn" label={text.throttled} />
     ) : (
-      <Chip tone="fresh" label="ปกติ" />
+      <Chip tone="fresh" label={text.normal} />
     );
-  const resourceDetail = `CPU ${cpu.last_sample_percent ?? "—"}% จากเพดาน 10% · RAM ${megabytes(mem.working_set_bytes)} MB จากงบ 900 MB`;
+  const resourceDetail = text.resourceDetail(cpu.last_sample_percent, megabytes(mem.working_set_bytes));
 
   const account = status.account.state;
   const accountChip =
     account === "signed_in" ? (
-      <Chip tone="fresh" label="ล็อกอินแล้ว" />
+      <Chip tone="fresh" label={text.signedIn} />
     ) : account === "signed_out" ? (
-      <Chip tone="unknown" label="ยังไม่ล็อกอิน" />
+      <Chip tone="unknown" label={text.signedOut} />
     ) : (
-      <Chip tone="off" label="ไม่ได้ใช้" />
+      <Chip tone="off" label={text.unused} />
     );
 
   return (
     <section className="card" aria-labelledby="ready-h">
       <div className="card-head">
-        <h2 id="ready-h">ความพร้อม</h2>
-        <span className="muted small">แต่ละส่วนแยกกัน — ส่วนหนึ่งพร้อมไม่ได้แปลว่าทั้งหมดพร้อม</span>
+        <h2 id="ready-h">{text.title}</h2>
+        <span className="muted small">{text.note}</span>
       </div>
       <div role="table" aria-labelledby="ready-h">
-        <Row name="รับข้อมูลเกม" chip={intakeChip[i.state]} detail={intakeDetail} />
-        <Row name="ยืนยันผู้เล่น" chip={ownChip} detail={ownDetail} />
-        <Row name="แมตช์" chip={matchChip} detail={matchDetail} />
-        <Row name="โหมดเกม" chip={modeChip} detail={modeDetail} />
-        <Row name="เสียงเตือนสำคัญ" chip={mediaChip} detail={reason(media.reason)} />
-        <Row name="การมองเห็นแผนที่" chip={captureChip} detail={reason(capture.reason)} />
-        <Row name="ทรัพยากรเครื่อง" chip={resourceChip} detail={resourceDetail} />
-        <Row name="บัญชี" chip={accountChip} detail="ไม่บังคับ — ฟังก์ชันในเครื่องใช้ได้โดยไม่ต้องล็อกอิน" />
+        <Row name={text.intakeName} chip={intakeChip[i.state]} detail={intakeDetail} />
+        <Row name={text.ownerName} chip={ownChip} detail={ownDetail} />
+        <Row name={text.matchName} chip={matchChip} detail={matchDetail} />
+        <Row name={text.modeName} chip={modeChip} detail={modeDetail} />
+        <Row name={text.criticalMediaName} chip={mediaChip} detail={reason(media.reason, locale)} />
+        <Row name={text.mapVisibilityName} chip={captureChip} detail={reason(capture.reason, locale)} />
+        <Row name={text.resourceName} chip={resourceChip} detail={resourceDetail} />
+        <Row name={text.accountName} chip={accountChip} detail={text.accountDetail} />
       </div>
     </section>
   );

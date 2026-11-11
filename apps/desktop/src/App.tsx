@@ -1,53 +1,88 @@
-import { PHASE_TH } from "./copy";
+import { useEffect } from "react";
+import { copy, type Locale } from "./copy";
 import { Guide } from "./Guide";
 import { OwnHero } from "./OwnHero";
 import { Chip, Readiness } from "./Readiness";
 import { useRuntime } from "./runtime";
-
-const HOST_LOST = "หน้าจอนี้ติดต่อระบบหลักของ Kohbor ไม่ได้";
+import { useSettings } from "./settings";
 
 export function App() {
   const { status, snapshot, hostLost, setup } = useRuntime();
+  const { settings, loading, saving, notice, changeLocale } = useSettings();
+  const displayLocale: Locale = settings?.locale ?? "th";
+  const text = copy(displayLocale);
 
-  if (!status) {
-    return (
-      <main className="app">
-        {hostLost ? (
+  useEffect(() => {
+    document.documentElement.lang = displayLocale;
+  }, [displayLocale]);
+
+  const phase = status?.session.phase;
+  const sourceLive = status?.intake.state === "receiving";
+  const phaseTone = !phase || phase === "none" ? "unknown" : phase === "unsupported" ? "off" : sourceLive ? "fresh" : "stale";
+  const phaseLabel = phase ? text.phases[phase] : "";
+  const settingsNotice =
+    notice === "load_failed"
+      ? text.settings.loadFailed
+      : notice === "conflict"
+        ? text.settings.conflict
+        : notice === "refresh_failed"
+          ? text.settings.refreshFailed
+          : notice === "save_failed"
+            ? text.settings.saveFailed
+            : null;
+
+  return (
+    <main className="app" lang={displayLocale}>
+      <header className="top">
+        <h1>{text.overview}</h1>
+        {phase && <Chip tone={phaseTone} label={phaseTone === "stale" ? `${phaseLabel} (${text.readiness.staleSuffix})` : phaseLabel} />}
+        <label className="locale-control">
+          <span>{text.languageLabel}</span>
+          <select
+            className="locale-select"
+            aria-label={text.languageLabel}
+            value={settings?.locale ?? ""}
+            disabled={loading || !settings || saving}
+            onChange={(event) => void changeLocale(event.currentTarget.value as Locale)}
+          >
+            {!settings && <option value="" disabled>{text.settings.unavailable}</option>}
+            <option value="th">{text.localeOptions.th}</option>
+            <option value="en">{text.localeOptions.en}</option>
+          </select>
+        </label>
+        {settingsNotice && (
+          <span className="locale-notice" role="status">
+            {settingsNotice}
+          </span>
+        )}
+      </header>
+
+      {!status ? (
+        hostLost ? (
           <p className="banner banner-warn" role="alert">
-            {HOST_LOST} — ปิดแล้วเปิด Kohbor ใหม่
+            {text.hostLost} — {text.hostLostRestart}
           </p>
         ) : (
           <p className="muted" role="status">
-            กำลังเริ่มระบบ…
+            {text.loading}
           </p>
-        )}
-      </main>
-    );
-  }
+        )
+      ) : (
+        <>
+          {hostLost && (
+            <p className="banner banner-warn" role="alert">
+              {text.hostLost} — {text.hostOutdated}
+            </p>
+          )}
 
-  const phase = status.session.phase;
-  const sourceLive = status.intake.state === "receiving";
-  const phaseTone = phase === "none" ? "unknown" : phase === "unsupported" ? "off" : sourceLive ? "fresh" : "stale";
-
-  return (
-    <main className="app">
-      <header className="top">
-        <h1>ภาพรวม</h1>
-        <Chip tone={phaseTone} label={phaseTone === "stale" ? `${PHASE_TH[phase]} (ข้อมูลเก่า)` : PHASE_TH[phase]} />
-      </header>
-
-      {hostLost && (
-        <p className="banner banner-warn" role="alert">
-          {HOST_LOST} — ค่าด้านล่างเป็นค่าล่าสุดที่ได้รับ ไม่ใช่ค่าปัจจุบัน
-        </p>
+          <div className={hostLost ? "content is-outdated" : "content"}>
+            {/* Advice derived from values that are no longer current would mislead. */}
+            {!hostLost && <Guide status={status} locale={displayLocale} setup={setup} />}
+            <Readiness status={status} locale={displayLocale} />
+            <OwnHero snap={snapshot} phase={status.session.phase} sourceLive={sourceLive} locale={displayLocale} />
+          </div>
+        </>
       )}
-
-      <div className={hostLost ? "content is-outdated" : "content"}>
-        {/* Advice derived from values that are no longer current would mislead. */}
-        {!hostLost && <Guide status={status} setup={setup} />}
-        <Readiness status={status} />
-        <OwnHero snap={snapshot} phase={phase} sourceLive={sourceLive} />
-      </div>
     </main>
   );
 }

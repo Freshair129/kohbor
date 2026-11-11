@@ -73,18 +73,20 @@ fn write_json_atomic(path: &Path, v: &Value) -> std::io::Result<()> {
     atomic::write(path, &serde_json::to_vec_pretty(v).expect("serializable"))
 }
 
-fn settings_path(dir: &Path) -> PathBuf {
+pub(crate) fn settings_path(dir: &Path) -> PathBuf {
     dir.join("user-settings.json")
 }
 fn runtime_path(dir: &Path) -> PathBuf {
     dir.join("runtime-state.json")
 }
 
-fn load_settings(dir: &Path) -> Value {
-    read_json(&settings_path(dir)).unwrap_or_else(|| {
-        json!({"schema_version": "1.0.0", "revision": 1, "locale": "th",
-               "gsi": {"game_dir": null, "port": null, "config_sha256": null, "token_ref": null}})
-    })
+pub(crate) fn default_settings() -> Value {
+    json!({"schema_version": "1.0.0", "revision": 1, "locale": "th",
+           "gsi": {"game_dir": null, "port": null, "config_sha256": null, "token_ref": null}})
+}
+
+pub(crate) fn load_settings(dir: &Path) -> Value {
+    read_json(&settings_path(dir)).unwrap_or_else(default_settings)
 }
 
 fn platform_steamid64() -> Option<u64> {
@@ -663,11 +665,16 @@ impl Runtime {
             (s.data_dir.clone(), s.token.clone())
         };
         let mut token = token.ok_or("GSI_SECRET_UNAVAILABLE")?;
+        // Setup keeps its long-standing recovery behaviour: a missing or unparseable
+        // settings file starts again from the defaults. A file that parses but carries
+        // an unusable revision is never silently reset; setup fails before any side effect.
+        let mut settings = load_settings(&dir);
+        let revision = crate::settings::checked_next_revision(&settings["revision"])
+            .map_err(|_| "GSI_CONFIG_WRITE_FAILED")?;
         let gdir = gsi_dir(game);
         fs::create_dir_all(&gdir).map_err(|_| "GSI_CONFIG_WRITE_FAILED")?;
         let own_name = owned_config_name();
         let target = gdir.join(&own_name);
-        let mut settings = load_settings(&dir);
         // An owned file that no longer matches the recorded hash was edited outside
         // the app and is never overwritten without the explicit replace action.
         let conflict = fs::read(&target).is_ok_and(|existing| {
@@ -710,7 +717,6 @@ impl Runtime {
         };
         let text = cfg.render().map_err(|_| "GSI_CONFIG_WRITE_FAILED")?;
         atomic::write(&target, text.as_bytes()).map_err(|_| "GSI_CONFIG_WRITE_FAILED")?;
-        let revision = settings["revision"].as_u64().unwrap_or(1) + 1;
         settings["revision"] = json!(revision);
         settings["gsi"] = json!({
             "game_dir": game.to_string_lossy(),
@@ -1244,6 +1250,33 @@ mod tests {
             "menu ends the previous game's hero baseline"
         );
         assert_eq!(s.snapshot()["own"]["fields"]["hp"]["value"], 850);
+    }
+}
+
+#[cfg(test)]
+mod settings_revision_tests {
+    use crate::settings::checked_next_revision;
+    use serde_json::json;
+
+    #[test]
+    fn setup_revision_accepts_integral_float_notation() {
+        assert_eq!(checked_next_revision(&json!(7.0)), Ok(8));
+    }
+
+    #[test]
+    fn setup_revision_stays_within_the_maximum_safe_json_integer() {
+        assert_eq!(
+            checked_next_revision(&json!(9_007_199_254_740_990_u64)),
+            Ok(9_007_199_254_740_991_u64)
+        );
+        assert_eq!(
+            checked_next_revision(&json!(9_007_199_254_740_991_u64)),
+            Err("VERSION_UNSUPPORTED")
+        );
+        assert_eq!(
+            checked_next_revision(&json!(9_007_199_254_740_992_u64)),
+            Err("SOURCE_INVALID")
+        );
     }
 }
 

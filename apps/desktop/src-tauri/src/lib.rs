@@ -5,6 +5,7 @@ pub mod containment;
 pub mod instance;
 pub mod intake;
 pub mod secrets;
+pub mod settings;
 pub mod status;
 
 /// Runs the application only after containment succeeds.
@@ -31,12 +32,16 @@ pub fn start_with(
 use containment::{Sample, Sampler, Throttle};
 use intake::lock;
 use serde_json::Value;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
 
 struct AppState {
     runtime: Arc<intake::Runtime>,
+    settings_dir: PathBuf,
+    /// Serializes all commands that may replace user-settings.json.
+    settings_gate: Mutex<()>,
     sample: Arc<Mutex<(Sample, bool)>>,
     revision: AtomicU64,
 }
@@ -60,16 +65,30 @@ fn own_snapshot(state: tauri::State<'_, AppState>) -> Value {
 /// was edited outside the app. Runs off the main thread: it does file and port work.
 #[tauri::command(async)]
 fn gsi_setup(state: tauri::State<'_, AppState>, replace: Option<bool>) -> Result<(), String> {
+    let _settings_guard = lock(&state.settings_gate);
     state
         .runtime
         .setup(replace.unwrap_or(false))
         .map_err(str::to_owned)
 }
 
+#[tauri::command]
+fn settings_get(state: tauri::State<'_, AppState>) -> Result<Value, String> {
+    let _settings_guard = lock(&state.settings_gate);
+    settings::get(&state.settings_dir)
+}
+
+#[tauri::command]
+fn settings_patch(state: tauri::State<'_, AppState>, request: Value) -> Result<Value, String> {
+    let _settings_guard = lock(&state.settings_gate);
+    settings::patch(&state.settings_dir, &request)
+}
+
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
+            let settings_dir = dir.clone();
             let runtime = intake::Runtime::new(dir);
             runtime.start();
             let sample = Arc::new(Mutex::new((
@@ -95,6 +114,8 @@ pub fn run() {
                 })?;
             app.manage(AppState {
                 runtime,
+                settings_dir,
+                settings_gate: Mutex::new(()),
                 sample,
                 revision: AtomicU64::new(0),
             });
@@ -103,7 +124,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             runtime_get_status,
             own_snapshot,
-            gsi_setup
+            gsi_setup,
+            settings_get,
+            settings_patch
         ])
         .run(tauri::generate_context!())
         .expect("error while running Kohbor");
