@@ -4,17 +4,20 @@
   "decisions": [
     {
       "id": "DEC-NAME",
-      "status": "delegated",
+      "status": "decided",
       "milestone": "M0",
       "blocks": "technical identity and application packaging",
       "owner_role": "builder (technical identity)",
       "safe_interim": "Use Kohbor / เกาะเบาะ as the product name. Keep unresolved technical identity fields null and complete them before the application skeleton; do not infer a domain or service origin from the name.",
-      "closure_evidence": "Completed technical identity manifest and relevant interface/trust decisions, with stable identifiers frozen and no unresolved technical placeholders in a shipped build. The owner-selected display name alone does not close DEC-NAME.",
+      "closure_evidence": "contracts/product-identity.json frozen 2026-11-11 with rationale; docs/delivery/M0-PLAN.md section 2.",
       "selected_display_name": "Kohbor",
       "selected_display_name_th": "เกาะเบาะ",
       "name_selected_on": "2026-11-10",
       "name_selection_authority": "product_owner",
-      "remaining_decision": "Stable app/package IDs, data directory, GSI configuration slug, URI scheme, signature/hash namespaces and an update origin when its service is specified; the display-name choice is already made."
+      "remaining_decision": "update_manifest_origin only, when the updater service is specified (UPDATE-001, M8); never inferred from the name.",
+      "decided_on": "2026-11-11",
+      "decided_by": "builder (delegated technical identity)",
+      "decision": "Frozen in contracts/product-identity.json: app_id io.github.freshair129.kohbor, package_id kohbor, data_directory %APPDATA%\\io.github.freshair129.kohbor, gsi_config_slug kohbor, uri_scheme kohbor, media_signature_domain kohbor-media-signature-v1, peer_hash_domain kohbor-peer-hash-v1."
     },
     {
       "id": "DEC-INTERFACES",

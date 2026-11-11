@@ -1,6 +1,6 @@
 {
   "schema_version": "1.3.0",
-  "spec_version": "0.3.4",
+  "spec_version": "0.3.5",
   "status": "draft",
   "updated": "2026-11-11",
   "all_new_build_evidence": "NOT_RUN",
@@ -231,7 +231,9 @@
           "docs/quality/TEST-PLAN.md",
           "docs/quality/UAT-PLAN.md"
         ],
-        "implementation_refs": [],
+        "implementation_refs": [
+          "crates/kohbor-gsi/src/config.rs"
+        ],
         "evidence_refs": [],
         "procedure_ids": [
           "TP-01",
@@ -367,7 +369,10 @@
           "docs/quality/TEST-PLAN.md",
           "docs/quality/UAT-PLAN.md"
         ],
-        "implementation_refs": [],
+        "implementation_refs": [
+          "crates/kohbor-gsi/src/snapshot.rs",
+          "crates/kohbor-gsi/tests/intake.rs"
+        ],
         "evidence_refs": [],
         "procedure_ids": [
           "TP-02",
@@ -438,7 +443,11 @@
           "docs/quality/TEST-PLAN.md",
           "docs/quality/UAT-PLAN.md"
         ],
-        "implementation_refs": [],
+        "implementation_refs": [
+          "crates/kohbor-gsi/src/snapshot.rs",
+          "crates/kohbor-gsi/src/admission.rs",
+          "crates/kohbor-gsi/tests/intake.rs"
+        ],
         "evidence_refs": [],
         "procedure_ids": [
           "TP-02",
@@ -507,7 +516,10 @@
           "docs/quality/TEST-PLAN.md",
           "docs/quality/UAT-PLAN.md"
         ],
-        "implementation_refs": [],
+        "implementation_refs": [
+          "crates/kohbor-gsi/src/admission.rs",
+          "crates/kohbor-gsi/tests/intake.rs"
+        ],
         "evidence_refs": [],
         "procedure_ids": [
           "TP-02",
@@ -584,7 +596,9 @@
           "docs/quality/TEST-PLAN.md",
           "docs/quality/UAT-PLAN.md"
         ],
-        "implementation_refs": [],
+        "implementation_refs": [
+          "crates/kohbor-gsi/src/session.rs"
+        ],
         "evidence_refs": [],
         "procedure_ids": [
           "TP-02",

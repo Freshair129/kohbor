@@ -2,7 +2,7 @@
 title: "Interface Control Document (ICD)"
 doc_id: "ICD"
 status: draft
-version: "0.3.4"
+version: "0.3.5"
 updated: "2026-11-11"
 authority: "DEC-BASELINE; see DOCUMENT-CONTROL"
 owner_role: "Integration owner; people not assigned"

@@ -2,7 +2,7 @@
 title: "Visual Design Proposal — Command Deck and Overlay"
 doc_id: "VISUAL-DESIGN-PROPOSAL"
 status: draft
-version: "0.3.4"
+version: "0.3.5"
 updated: "2026-11-11"
 authority: "DEC-BASELINE; proposal under DEC-VISUALS; elaborates UX-SPEC for UI-001..UI-006"
 owner_role: "Product designer (builder-delegated proposal); product owner reviews"

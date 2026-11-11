@@ -2,7 +2,7 @@
 title: "Event and Audio Specification (M2)"
 doc_id: "EVENT-AUDIO-SPEC"
 status: draft
-version: "0.3.4"
+version: "0.3.5"
 updated: "2026-11-11"
 authority: "DEC-BASELINE; elaborates MEDIA-001..008, ALERT-001, ALERT-007, VOICE-006, QUALITY-001, QUALITY-007 under DEC-EVENT-AUDIO and DEC-HEALTH-DANGER"
 owner_role: "Integration owner (catalog, arbitration, formats); product owner (health danger, mute)"
