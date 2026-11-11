@@ -37,7 +37,30 @@ def semantic(rule,data):
         for name in paths:
             p=PurePosixPath(name)
             if p.is_absolute() or "\\" in name or any(x in (".","..","") for x in name.split("/")):return False
-        return all(b["mixed_audio_path"] in paths and b["silent_visual_path"] in paths for b in data["bindings"])
+        roles={f["path"]:f["role"] for f in data["files"]}
+        for b in data["bindings"]:
+            if roles.get(b["mixed_audio_path"])!="mixed_audio" or roles.get(b["silent_visual_path"])!="silent_visual":return False
+            if "identity_audio_path" in b and roles.get(b["identity_audio_path"])!="identity_audio":return False
+        return True
+    if rule=="event_catalog":
+        events=data["events"]
+        ids=[e["id"] for e in events]
+        if len(ids)!=len(set(ids)) or set(ids)&set(data["retired_ids"]):return False
+        ranks=[]
+        for e in events:
+            rank=e["ordinary_rank"]
+            voiced_ordinary=e["category"]=="ordinary" and e["voiced_default"]
+            if voiced_ordinary!=(rank is not None):return False
+            if rank is not None:ranks.append(rank)
+            if e["category"]=="test" and e["status"]!="test_only":return False
+            for t in e["tunables"].values():
+                if t["min"]>t["max"]:return False
+                values=t["default"] if isinstance(t["default"],list) else [t["default"]]
+                if any(v<t["min"] or v>t["max"] for v in values):return False
+            tun=e["tunables"]
+            if "threshold_percent" in tun and "rearm_percent" in tun and tun["rearm_percent"]["default"]<=tun["threshold_percent"]["default"]:return False
+            if "max_hp_percent" in tun and "rearm_percent" in tun and tun["rearm_percent"]["default"]<=tun["max_hp_percent"]["default"]:return False
+        return len(ranks)==len(set(ranks))
     raise ValueError("Unknown semantic check: "+rule)
 
 def main():
@@ -129,6 +152,11 @@ def main():
             if did not in decision_ids:errors.append(f'{r["id"]}: unknown decision {did}')
         if r.get("target_milestone") not in {"M1","M2","M3","M4a","M4b","M5","M6","M7","M8"}:errors.append(r["id"]+": missing/unknown target milestone.")
         if not r["statement"] or not r["failure_behavior"] or not r["acceptance"]["then"]:errors.append(r["id"]+": incomplete acceptance.")
+    catalog=parsed["contracts/event-catalog.json"]
+    production_ids={e["id"] for e in catalog["events"] if e["status"]!="test_only"}
+    if set(parsed["contracts/event.schema.json"]["properties"]["event_type"]["enum"])!=production_ids:
+        errors.append("event.schema event_type enum does not match the canonical event catalog.")
+    if not semantic("event_catalog",catalog):errors.append("Canonical event catalog fails semantic rules.")
     rendered=subprocess.run([sys.executable,str(root/"tools/render_requirements.py"),"--check"],capture_output=True,text=True)
     if rendered.returncode:errors.append(rendered.stdout.strip() or rendered.stderr.strip())
     with (root/"docs/requirements/RTM.csv").open(encoding="utf-8",newline="") as f:
@@ -197,8 +225,27 @@ def main():
         if len(case["scores"])>=2:actual=min(actual*1.15,1.0)
         if not math.isclose(actual,case["expected_score"],rel_tol=0,abs_tol=golden["absolute_tolerance"]):errors.append("Risk aggregate golden mismatch.")
         else:risk_passed+=1
+    hd=parsed["fixtures/health-danger-golden.json"]
+    hd_passed=0
+    prm=hd["parameters"]
+    for trace in hd["traces"]:
+        armed=True;last_cue=None;cues=[];window=[]
+        for sample in trace["samples"]:
+            t=sample["t_ms"]
+            if not sample["alive"]:
+                armed=True;window=[];continue
+            if sample["availability"]!="fresh" or sample["hp"] is None or sample["max_hp"] is None:continue
+            pct=sample["hp"]*100/sample["max_hp"]
+            window=[(wt,wp) for wt,wp in window if wt>=t-prm["window_ms"]]+[(t,pct)]
+            if pct>=prm["rearm_percent"]:armed=True
+            drop=max(wp for _,wp in window)-pct
+            if armed and pct<=prm["max_hp_percent"] and drop>=prm["drop_points"] and (last_cue is None or t-last_cue>=prm["cooldown_ms"]):
+                cues.append(t);last_cue=t;armed=False
+        if cues!=trace["expected_cue_t_ms"]:errors.append("Health-danger golden trace mismatch: "+trace["id"])
+        else:hd_passed+=1
     result={
       "status":"FAIL" if errors else ("PASS" if jsonschema else "PARTIAL"),
+      "health_danger_traces_passed":hd_passed,
       "scope":"Specification consistency and synthetic contract validation only; no application execution.",
       "requirements":len(reqs),"traceability_rows":len(trace),"acceptance_scenarios":len(reqs),
       "product_needs":len(needs),"design_components":len(component_ids),"verification_procedures":len(procedure_ids),

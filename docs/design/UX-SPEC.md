@@ -2,7 +2,7 @@
 title: "User Experience Specification"
 doc_id: "UX-SPEC"
 status: draft
-version: "0.3.2"
+version: "0.3.3"
 updated: "2026-11-10"
 baseline: "DEC-BASELINE"
 owner_role: "UX owner; people not assigned"

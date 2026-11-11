@@ -385,7 +385,8 @@
         "The installer copies actual bytes into owned bounded staging and validates archive records, schema, references, taxonomy, decoded media, expanded limits and digests before an atomic idempotent registry commit. Failed validation cannot mutate a healthy active revision.",
         "Activation policies are never, now_if_idle and after_match. A commit reports installation, not activation. Activation waits for the permitted match barrier and no relevant playback lease; an immutable lease covers audio and its declared visual tail.",
         "Late work must match profile, session, revision and generation. Activation/adoption failure preserves the healthy active revision. Repair can retry adoption for the same installation ID; never garbage-collect a leased revision.",
-        "The external authoring tool requests an install through the admitted local user/profile boundary; it does not write directly into the desktop registry or cache."
+        "The external authoring tool requests an install through the admitted local user/profile boundary; it does not write directly into the desktop registry or cache.",
+        "\"Declared authority class\" means the class the package or request claims. The installer, not the package, binds the recorded class; until DEC-PACK-CRYPTO closes only local_import is granted and a system/store claim is recorded as unverified (EVENT-AUDIO-SPEC §7)."
       ],
       "kind": "flowchart",
       "source": "docs/diagrams/source/DGM-010-media-install-activation.mmd",

@@ -2,8 +2,8 @@
 title: "Software Verification Test Plan"
 doc_id: "TEST-PLAN"
 status: "draft"
-version: "0.3.2"
-updated: "2026-11-10"
+version: "0.3.3"
+updated: "2026-11-11"
 owner_role: "Verification lead — unassigned"
 approval_status: "not_approved"
 ---
@@ -44,7 +44,7 @@ A slice exits when its required methods pass, contradictory results are resolved
 
 **TP-03 — Audible-alert lifecycle.** ALERT-001–007. Compare golden arithmetic, then drive complete admitted motion traces. Test high score without coordination, continuing absence beyond cooldown, confirmed reappearance, time-decay-only score reduction and coverage loss. Verify 30-second global/60-second contributor fences and separate >5-second missing notification with ≥10-second audio cooldown. Require mapped critical media for the positive path. Missing media must report not-ready. Confirm no substituted audio, all-clear from decay, or replay after cancellation.
 
-**TP-04 — Media and installation.** MEDIA-001–008. Validate catalog duplicates/ranks; install valid, oversized, traversal, duplicate-record, bad-hash and corrupt-media packages. Test highest-event mapping absent, detected respawn, hostile publisher claim, repeated install request and activation during a match/lease. Assert silence without lower-rank fallback, unchanged healthy selection on rejection, independent installed/deferred status, and synchronized audio/visual cancellation. Compare registry and payload digests before/after failures.
+**TP-04 — Media and installation.** MEDIA-001–008. Validate catalog duplicates/ranks; install valid, oversized, traversal, duplicate-record, bad-hash and corrupt-media packages. Test highest-event mapping absent, detected respawn, hostile publisher claim, repeated install request and activation during a match/lease. Assert silence without lower-rank fallback, unchanged healthy selection on rejection, independent installed/deferred status, and synchronized audio/visual cancellation. Compare registry and payload digests before/after failures. Catalog, priority-matrix, outcome-code and decode-probe cases follow [EVENT-AUDIO-SPEC](../design/EVENT-AUDIO-SPEC.md); `latency_probe` measurements are engineering evidence only and never satisfy QUALITY-001 acceptance.
 
 **TP-05 — UI and focus.** UI-001–006. Exercise neutral startup, unknown cards, explicit selection, changing hero/session, keyboard/Escape, overlay positioning and multiple control viewports. Verify map topology, visible focus, truthful fields and discarded late inspector responses. Confirm actual Windows click-through, DPI and focus independently of browser screenshots.
 

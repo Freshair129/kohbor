@@ -1,0 +1,263 @@
+{
+  "schema_version": "1.0.0",
+  "detector": "health_danger",
+  "decision": "DEC-HEALTH-DANGER",
+  "parameters": {
+    "max_hp_percent": 25,
+    "drop_points": 15,
+    "window_ms": 2000,
+    "rearm_percent": 40,
+    "cooldown_ms": 20000
+  },
+  "scope": "Synthetic detector-logic traces; not application or live evidence.",
+  "traces": [
+    {
+      "id": "burst",
+      "samples": [
+        {
+          "t_ms": 0,
+          "hp": 1000,
+          "max_hp": 1000,
+          "alive": true,
+          "availability": "fresh"
+        },
+        {
+          "t_ms": 500,
+          "hp": 800,
+          "max_hp": 1000,
+          "alive": true,
+          "availability": "fresh"
+        },
+        {
+          "t_ms": 1000,
+          "hp": 600,
+          "max_hp": 1000,
+          "alive": true,
+          "availability": "fresh"
+        },
+        {
+          "t_ms": 1500,
+          "hp": 400,
+          "max_hp": 1000,
+          "alive": true,
+          "availability": "fresh"
+        },
+        {
+          "t_ms": 2000,
+          "hp": 240,
+          "max_hp": 1000,
+          "alive": true,
+          "availability": "fresh"
+        }
+      ],
+      "expected_cue_t_ms": [
+        2000
+      ]
+    },
+    {
+      "id": "slow-drain",
+      "samples": [
+        {
+          "t_ms": 0,
+          "hp": 400,
+          "max_hp": 1000,
+          "alive": true,
+          "availability": "fresh"
+        },
+        {
+          "t_ms": 1000,
+          "hp": 350,
+          "max_hp": 1000,
+          "alive": true,
+          "availability": "fresh"
+        },
+        {
+          "t_ms": 2000,
+          "hp": 300,
+          "max_hp": 1000,
+          "alive": true,
+          "availability": "fresh"
+        },
+        {
+          "t_ms": 3000,
+          "hp": 250,
+          "max_hp": 1000,
+          "alive": true,
+          "availability": "fresh"
+        },
+        {
+          "t_ms": 4000,
+          "hp": 200,
+          "max_hp": 1000,
+          "alive": true,
+          "availability": "fresh"
+        }
+      ],
+      "expected_cue_t_ms": []
+    },
+    {
+      "id": "stale-sample",
+      "samples": [
+        {
+          "t_ms": 0,
+          "hp": 1000,
+          "max_hp": 1000,
+          "alive": true,
+          "availability": "fresh"
+        },
+        {
+          "t_ms": 1000,
+          "hp": 600,
+          "max_hp": 1000,
+          "alive": true,
+          "availability": "fresh"
+        },
+        {
+          "t_ms": 2000,
+          "hp": 200,
+          "max_hp": 1000,
+          "alive": true,
+          "availability": "stale"
+        }
+      ],
+      "expected_cue_t_ms": []
+    },
+    {
+      "id": "death-rearm-and-cooldown",
+      "samples": [
+        {
+          "t_ms": 0,
+          "hp": 1000,
+          "max_hp": 1000,
+          "alive": true,
+          "availability": "fresh"
+        },
+        {
+          "t_ms": 1000,
+          "hp": 500,
+          "max_hp": 1000,
+          "alive": true,
+          "availability": "fresh"
+        },
+        {
+          "t_ms": 2000,
+          "hp": 200,
+          "max_hp": 1000,
+          "alive": true,
+          "availability": "fresh"
+        },
+        {
+          "t_ms": 3000,
+          "hp": 0,
+          "max_hp": 1000,
+          "alive": false,
+          "availability": "fresh"
+        },
+        {
+          "t_ms": 10000,
+          "hp": 1000,
+          "max_hp": 1000,
+          "alive": true,
+          "availability": "fresh"
+        },
+        {
+          "t_ms": 11000,
+          "hp": 600,
+          "max_hp": 1000,
+          "alive": true,
+          "availability": "fresh"
+        },
+        {
+          "t_ms": 12000,
+          "hp": 200,
+          "max_hp": 1000,
+          "alive": true,
+          "availability": "fresh"
+        },
+        {
+          "t_ms": 24000,
+          "hp": 1000,
+          "max_hp": 1000,
+          "alive": true,
+          "availability": "fresh"
+        },
+        {
+          "t_ms": 25000,
+          "hp": 200,
+          "max_hp": 1000,
+          "alive": true,
+          "availability": "fresh"
+        }
+      ],
+      "expected_cue_t_ms": [
+        2000,
+        25000
+      ]
+    },
+    {
+      "id": "inclusive-boundary-no-rearm",
+      "samples": [
+        {
+          "t_ms": 0,
+          "hp": 400,
+          "max_hp": 1000,
+          "alive": true,
+          "availability": "fresh"
+        },
+        {
+          "t_ms": 2000,
+          "hp": 250,
+          "max_hp": 1000,
+          "alive": true,
+          "availability": "fresh"
+        },
+        {
+          "t_ms": 3000,
+          "hp": 390,
+          "max_hp": 1000,
+          "alive": true,
+          "availability": "fresh"
+        },
+        {
+          "t_ms": 3500,
+          "hp": 200,
+          "max_hp": 1000,
+          "alive": true,
+          "availability": "fresh"
+        }
+      ],
+      "expected_cue_t_ms": [
+        2000
+      ]
+    },
+    {
+      "id": "unknown-hp",
+      "samples": [
+        {
+          "t_ms": 0,
+          "hp": 1000,
+          "max_hp": 1000,
+          "alive": true,
+          "availability": "fresh"
+        },
+        {
+          "t_ms": 1000,
+          "hp": null,
+          "max_hp": 1000,
+          "alive": true,
+          "availability": "fresh"
+        },
+        {
+          "t_ms": 2000,
+          "hp": 200,
+          "max_hp": 1000,
+          "alive": true,
+          "availability": "fresh"
+        }
+      ],
+      "expected_cue_t_ms": [
+        2000
+      ]
+    }
+  ]
+}

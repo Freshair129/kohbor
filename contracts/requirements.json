@@ -1,6 +1,6 @@
 {
   "schema_version": "1.3.0",
-  "spec_version": "0.3.2",
+  "spec_version": "0.3.3",
   "status": "draft",
   "updated": "2026-11-11",
   "all_new_build_evidence": "NOT_RUN",
@@ -1050,12 +1050,15 @@
       },
       "contract_refs": [
         "contracts/event.schema.json",
-        "fixtures/risk-golden.json"
+        "fixtures/risk-golden.json",
+        "contracts/audio-outcome.schema.json",
+        "contracts/event-catalog.json"
       ],
       "spec_refs": [
         "docs/design/SDD.md",
         "docs/product/FEATURE-CATALOG.md",
-        "docs/design/MEDIA-PACK-SPEC.md"
+        "docs/design/MEDIA-PACK-SPEC.md",
+        "docs/design/EVENT-AUDIO-SPEC.md"
       ],
       "open_decisions": [],
       "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
@@ -1402,12 +1405,14 @@
       },
       "contract_refs": [
         "contracts/event.schema.json",
-        "fixtures/risk-golden.json"
+        "fixtures/risk-golden.json",
+        "contracts/audio-outcome.schema.json"
       ],
       "spec_refs": [
         "docs/design/SDD.md",
         "docs/product/FEATURE-CATALOG.md",
-        "docs/design/MEDIA-PACK-SPEC.md"
+        "docs/design/MEDIA-PACK-SPEC.md",
+        "docs/design/EVENT-AUDIO-SPEC.md"
       ],
       "open_decisions": [],
       "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
@@ -1464,12 +1469,14 @@
       },
       "contract_refs": [
         "contracts/event.schema.json",
-        "fixtures/risk-golden.json"
+        "fixtures/risk-golden.json",
+        "contracts/event-catalog.json"
       ],
       "spec_refs": [
         "docs/design/SDD.md",
         "docs/product/FEATURE-CATALOG.md",
-        "docs/design/MEDIA-PACK-SPEC.md"
+        "docs/design/MEDIA-PACK-SPEC.md",
+        "docs/design/EVENT-AUDIO-SPEC.md"
       ],
       "open_decisions": [
         "DEC-CRITICAL-MEDIA"
@@ -1535,14 +1542,19 @@
         ]
       },
       "contract_refs": [
-        "contracts/media-manifest.schema.json"
+        "contracts/media-manifest.schema.json",
+        "contracts/event-catalog.json",
+        "contracts/event-catalog.schema.json",
+        "contracts/event.schema.json"
       ],
       "spec_refs": [
         "docs/design/MEDIA-PACK-SPEC.md",
-        "docs/design/ICD.md"
+        "docs/design/ICD.md",
+        "docs/design/EVENT-AUDIO-SPEC.md"
       ],
       "open_decisions": [
-        "DEC-INTERFACES"
+        "DEC-INTERFACES",
+        "DEC-EVENT-AUDIO"
       ],
       "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
       "product_need_ids": [
@@ -1595,14 +1607,18 @@
         ]
       },
       "contract_refs": [
-        "contracts/media-manifest.schema.json"
+        "contracts/media-manifest.schema.json",
+        "contracts/event-catalog.json",
+        "contracts/audio-outcome.schema.json"
       ],
       "spec_refs": [
         "docs/design/MEDIA-PACK-SPEC.md",
-        "docs/design/ICD.md"
+        "docs/design/ICD.md",
+        "docs/design/EVENT-AUDIO-SPEC.md"
       ],
       "open_decisions": [
-        "DEC-INTERFACES"
+        "DEC-INTERFACES",
+        "DEC-EVENT-AUDIO"
       ],
       "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
       "product_need_ids": [
@@ -1655,11 +1671,14 @@
         ]
       },
       "contract_refs": [
-        "contracts/media-manifest.schema.json"
+        "contracts/media-manifest.schema.json",
+        "contracts/event-catalog.json",
+        "contracts/audio-outcome.schema.json"
       ],
       "spec_refs": [
         "docs/design/MEDIA-PACK-SPEC.md",
-        "docs/design/ICD.md"
+        "docs/design/ICD.md",
+        "docs/design/EVENT-AUDIO-SPEC.md"
       ],
       "open_decisions": [],
       "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
@@ -1717,9 +1736,12 @@
       ],
       "spec_refs": [
         "docs/design/MEDIA-PACK-SPEC.md",
-        "docs/design/ICD.md"
+        "docs/design/ICD.md",
+        "docs/design/EVENT-AUDIO-SPEC.md"
       ],
-      "open_decisions": [],
+      "open_decisions": [
+        "DEC-EVENT-AUDIO"
+      ],
       "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
       "product_need_ids": [
         "PN-004"
@@ -1777,13 +1799,17 @@
         ]
       },
       "contract_refs": [
-        "contracts/media-manifest.schema.json"
+        "contracts/media-manifest.schema.json",
+        "contracts/audio-outcome.schema.json"
       ],
       "spec_refs": [
         "docs/design/MEDIA-PACK-SPEC.md",
-        "docs/design/ICD.md"
+        "docs/design/ICD.md",
+        "docs/design/EVENT-AUDIO-SPEC.md"
       ],
-      "open_decisions": [],
+      "open_decisions": [
+        "DEC-EVENT-AUDIO"
+      ],
       "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
       "product_need_ids": [
         "PN-004"
@@ -1843,11 +1869,14 @@
         ]
       },
       "contract_refs": [
-        "contracts/media-manifest.schema.json"
+        "contracts/media-manifest.schema.json",
+        "contracts/media-install-request.schema.json",
+        "contracts/media-install-result.schema.json"
       ],
       "spec_refs": [
         "docs/design/MEDIA-PACK-SPEC.md",
-        "docs/design/ICD.md"
+        "docs/design/ICD.md",
+        "docs/design/EVENT-AUDIO-SPEC.md"
       ],
       "open_decisions": [
         "DEC-PACK-CRYPTO"
@@ -1907,11 +1936,14 @@
         ]
       },
       "contract_refs": [
-        "contracts/media-manifest.schema.json"
+        "contracts/media-manifest.schema.json",
+        "contracts/media-install-request.schema.json",
+        "contracts/media-install-result.schema.json"
       ],
       "spec_refs": [
         "docs/design/MEDIA-PACK-SPEC.md",
-        "docs/design/ICD.md"
+        "docs/design/ICD.md",
+        "docs/design/EVENT-AUDIO-SPEC.md"
       ],
       "open_decisions": [],
       "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
@@ -1969,11 +2001,13 @@
         ]
       },
       "contract_refs": [
-        "contracts/media-manifest.schema.json"
+        "contracts/media-manifest.schema.json",
+        "contracts/media-install-result.schema.json"
       ],
       "spec_refs": [
         "docs/design/MEDIA-PACK-SPEC.md",
-        "docs/design/ICD.md"
+        "docs/design/ICD.md",
+        "docs/design/EVENT-AUDIO-SPEC.md"
       ],
       "open_decisions": [
         "DEC-PACK-CRYPTO"
@@ -2812,14 +2846,18 @@
         ]
       },
       "contract_refs": [
-        "contracts/error-catalog.json"
+        "contracts/error-catalog.json",
+        "contracts/audio-outcome.schema.json"
       ],
       "spec_refs": [
         "docs/security/SECURITY-PRIVACY.md",
         "docs/quality/NFR.md",
-        "docs/design/SDD.md"
+        "docs/design/SDD.md",
+        "docs/design/EVENT-AUDIO-SPEC.md"
       ],
-      "open_decisions": [],
+      "open_decisions": [
+        "DEC-EVENT-AUDIO"
+      ],
       "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
       "product_need_ids": [
         "PN-006"
@@ -5089,7 +5127,8 @@
         "contracts/evidence.schema.json"
       ],
       "spec_refs": [
-        "docs/quality/NFR.md"
+        "docs/quality/NFR.md",
+        "docs/design/EVENT-AUDIO-SPEC.md"
       ],
       "open_decisions": [],
       "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
@@ -5450,12 +5489,16 @@
         ]
       },
       "contract_refs": [
-        "contracts/evidence.schema.json"
+        "contracts/evidence.schema.json",
+        "contracts/audio-outcome.schema.json"
       ],
       "spec_refs": [
-        "docs/quality/NFR.md"
+        "docs/quality/NFR.md",
+        "docs/design/EVENT-AUDIO-SPEC.md"
       ],
-      "open_decisions": [],
+      "open_decisions": [
+        "DEC-EVENT-AUDIO"
+      ],
       "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
       "product_need_ids": [
         "PN-006"

@@ -2,7 +2,7 @@
 title: "Data Design Description (DDD)"
 doc_id: "DDD"
 status: draft
-version: "0.3.2"
+version: "0.3.3"
 updated: "2026-11-11"
 authority: "DEC-BASELINE; see DOCUMENT-CONTROL"
 owner_role: "Data engineering owner; people not assigned"
@@ -24,11 +24,12 @@ This is the new product's logical model. It is not a prescription to create a da
 | UserSettings | local profile + schema_version | Locale, hotkeys, overlay, sensitivity, local cloud/mic preferences; no persisted peer activation, fresh join consent or room credentials | Local; validated atomic write |
 | MatchSession | opaque local session_id + epoch | Supported mode, admitted owner/team, start/end and completion evidence | Local; never cloud or peer raw ID |
 | Observation | source + generation + sequence | Value, availability, age, owner/session admission | Bounded memory; only permitted facts archived |
-| LocalEvent | event_id + session epoch + sequence | Type, monotonic time, source facts, evidence quality | Local JSONL; no raw mic or peer stats |
+| LocalEvent | instance_id; logical order (session_epoch, sequence) | Catalog event type, taxonomy version, monotonic time, source facts, evidence quality | Local JSONL; no raw mic or peer stats |
+| AudioOutcome | instance_id + decided time | Audio class, outcome reason, playback ID, package revision | Local JSONL beside events; detection and audio admission stay distinct |
 | StaticCatalogRevision | content hash + patch | Hero/item/ability facts, source and coverage provenance | Local immutable version |
 | Summary | session_id + snapshot version | At most 3 claims, event refs, timestamp, completion status | Local; no fabricated outcomes |
 | PlayerMemory | schema + source fingerprint | Source-supported aggregates and forget cutoff | Local snapshot; bounded |
-| MediaInstallation | opaque install_id + revision | Container/payload hashes, authority class, verified registry | Local, installer owned |
+| MediaInstallation | opaque install_id + revision | Container/payload hashes, installer-bound authority class (only local_import until DEC-PACK-CRYPTO), publisher-claim state, verified registry | Local, installer owned |
 | MediaLease | install revision + playback_id | Active immutable assets and completion/cancel fence | Runtime until playback/tail released |
 | ClipRecord | local clip_id + media session | Time interval, verified event refs, path, coverage and partial reason | Local only; filename contains no raw player ID |
 | PeerMembership | room/member + generation | Native credentials, consent generation, sequence, sample age | Memory only; never persisted |

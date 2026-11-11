@@ -1,0 +1,456 @@
+{
+  "schema_version": "1.0.0",
+  "taxonomy_version": "1.0",
+  "status": "proposed",
+  "decision": "DEC-EVENT-AUDIO",
+  "spec_ref": "docs/design/EVENT-AUDIO-SPEC.md",
+  "retired_ids": [],
+  "events": [
+    {
+      "id": "multi_kill",
+      "introduced_in": "1.0",
+      "status": "active",
+      "category": "ordinary",
+      "source": "gsi",
+      "detector_ref": "native.gsi.multi_kill",
+      "detector_milestone": "M2",
+      "ordinary_rank": 90,
+      "voiced_default": true,
+      "media_mappable": true,
+      "critical_media_required": false,
+      "labels": {
+        "en": "Multi-kill",
+        "th": "ฆ่าต่อเนื่อง"
+      },
+      "tunables": {
+        "window_ms": {
+          "default": 18000,
+          "min": 5000,
+          "max": 30000,
+          "unit": "ms"
+        },
+        "min_kills": {
+          "default": 2,
+          "min": 2,
+          "max": 5,
+          "unit": "count"
+        }
+      }
+    },
+    {
+      "id": "streak",
+      "introduced_in": "1.0",
+      "status": "active",
+      "category": "ordinary",
+      "source": "gsi",
+      "detector_ref": "native.gsi.streak",
+      "detector_milestone": "M2",
+      "ordinary_rank": 80,
+      "voiced_default": true,
+      "media_mappable": true,
+      "critical_media_required": false,
+      "labels": {
+        "en": "Kill streak",
+        "th": "สตรีคการฆ่า"
+      },
+      "tunables": {
+        "min_kills": {
+          "default": 3,
+          "min": 3,
+          "max": 10,
+          "unit": "count"
+        }
+      }
+    },
+    {
+      "id": "first_blood",
+      "introduced_in": "1.0",
+      "status": "active",
+      "category": "ordinary",
+      "source": "gsi",
+      "detector_ref": "native.gsi.first_blood",
+      "detector_milestone": "M2",
+      "ordinary_rank": 70,
+      "voiced_default": true,
+      "media_mappable": true,
+      "critical_media_required": false,
+      "labels": {
+        "en": "First blood",
+        "th": "เฟิร์สบลัด"
+      },
+      "tunables": {},
+      "note": "Detector depends on assumption E-1 (EVENT-AUDIO-SPEC section 2)."
+    },
+    {
+      "id": "hero_kill",
+      "introduced_in": "1.0",
+      "status": "active",
+      "category": "ordinary",
+      "source": "gsi",
+      "detector_ref": "native.gsi.kill_counter",
+      "detector_milestone": "M2",
+      "ordinary_rank": 60,
+      "voiced_default": true,
+      "media_mappable": true,
+      "critical_media_required": false,
+      "labels": {
+        "en": "Kill",
+        "th": "ฆ่าได้"
+      },
+      "tunables": {}
+    },
+    {
+      "id": "hero_death",
+      "introduced_in": "1.0",
+      "status": "active",
+      "category": "ordinary",
+      "source": "gsi",
+      "detector_ref": "native.gsi.alive_transition",
+      "detector_milestone": "M2",
+      "ordinary_rank": 50,
+      "voiced_default": true,
+      "media_mappable": true,
+      "critical_media_required": false,
+      "labels": {
+        "en": "Death",
+        "th": "ตาย"
+      },
+      "tunables": {}
+    },
+    {
+      "id": "level_milestone",
+      "introduced_in": "1.0",
+      "status": "active",
+      "category": "ordinary",
+      "source": "gsi",
+      "detector_ref": "native.gsi.level",
+      "detector_milestone": "M2",
+      "ordinary_rank": 40,
+      "voiced_default": true,
+      "media_mappable": true,
+      "critical_media_required": false,
+      "labels": {
+        "en": "Level milestone",
+        "th": "เลเวลสำคัญ"
+      },
+      "tunables": {
+        "levels": {
+          "default": [
+            6,
+            12,
+            18,
+            25
+          ],
+          "min": 2,
+          "max": 30,
+          "unit": "level"
+        }
+      }
+    },
+    {
+      "id": "health_low",
+      "introduced_in": "1.0",
+      "status": "active",
+      "category": "ordinary",
+      "source": "gsi",
+      "detector_ref": "native.gsi.health_threshold",
+      "detector_milestone": "M2",
+      "ordinary_rank": 30,
+      "voiced_default": true,
+      "media_mappable": true,
+      "critical_media_required": false,
+      "labels": {
+        "en": "Low health",
+        "th": "เลือดต่ำ"
+      },
+      "tunables": {
+        "threshold_percent": {
+          "default": 20,
+          "min": 5,
+          "max": 50,
+          "unit": "percent"
+        },
+        "rearm_percent": {
+          "default": 30,
+          "min": 10,
+          "max": 60,
+          "unit": "percent"
+        }
+      }
+    },
+    {
+      "id": "mana_low",
+      "introduced_in": "1.0",
+      "status": "active",
+      "category": "ordinary",
+      "source": "gsi",
+      "detector_ref": "native.gsi.mana_threshold",
+      "detector_milestone": "M2",
+      "ordinary_rank": 20,
+      "voiced_default": true,
+      "media_mappable": true,
+      "critical_media_required": false,
+      "labels": {
+        "en": "Low mana",
+        "th": "มานาต่ำ"
+      },
+      "tunables": {
+        "threshold_percent": {
+          "default": 15,
+          "min": 5,
+          "max": 50,
+          "unit": "percent"
+        },
+        "rearm_percent": {
+          "default": 25,
+          "min": 10,
+          "max": 60,
+          "unit": "percent"
+        }
+      }
+    },
+    {
+      "id": "match_ended",
+      "introduced_in": "1.0",
+      "status": "active",
+      "category": "ordinary",
+      "source": "gsi",
+      "detector_ref": "native.gsi.game_state",
+      "detector_milestone": "M2",
+      "ordinary_rank": 15,
+      "voiced_default": true,
+      "media_mappable": true,
+      "critical_media_required": false,
+      "labels": {
+        "en": "Match ended",
+        "th": "จบเกม"
+      },
+      "tunables": {},
+      "note": "Depends on assumption E-2."
+    },
+    {
+      "id": "match_started",
+      "introduced_in": "1.0",
+      "status": "active",
+      "category": "ordinary",
+      "source": "gsi",
+      "detector_ref": "native.gsi.game_state",
+      "detector_milestone": "M2",
+      "ordinary_rank": 10,
+      "voiced_default": true,
+      "media_mappable": true,
+      "critical_media_required": false,
+      "labels": {
+        "en": "Match started",
+        "th": "เริ่มเกม"
+      },
+      "tunables": {},
+      "note": "Depends on assumption E-2; never emitted from baseline establishment or resume."
+    },
+    {
+      "id": "hero_respawn",
+      "introduced_in": "1.0",
+      "status": "active",
+      "category": "ordinary",
+      "source": "gsi",
+      "detector_ref": "native.gsi.alive_transition",
+      "detector_milestone": "M2",
+      "ordinary_rank": null,
+      "voiced_default": false,
+      "media_mappable": false,
+      "critical_media_required": false,
+      "labels": {
+        "en": "Respawn",
+        "th": "เกิดใหม่"
+      },
+      "tunables": {},
+      "note": "Detected and recorded; unvoiced and unmappable in taxonomy 1.0 (MEDIA-003)."
+    },
+    {
+      "id": "health_danger",
+      "introduced_in": "1.0",
+      "status": "active",
+      "category": "critical",
+      "source": "gsi",
+      "detector_ref": "native.gsi.health_burst",
+      "detector_milestone": "M2",
+      "ordinary_rank": null,
+      "voiced_default": true,
+      "media_mappable": true,
+      "critical_media_required": true,
+      "labels": {
+        "en": "Health danger",
+        "th": "อันตราย เลือดลดเร็ว"
+      },
+      "tunables": {
+        "max_hp_percent": {
+          "default": 25,
+          "min": 10,
+          "max": 50,
+          "unit": "percent"
+        },
+        "drop_points": {
+          "default": 15,
+          "min": 5,
+          "max": 50,
+          "unit": "percent"
+        },
+        "window_ms": {
+          "default": 2000,
+          "min": 500,
+          "max": 5000,
+          "unit": "ms"
+        },
+        "rearm_percent": {
+          "default": 40,
+          "min": 20,
+          "max": 80,
+          "unit": "percent"
+        },
+        "cooldown_ms": {
+          "default": 20000,
+          "min": 5000,
+          "max": 120000,
+          "unit": "ms"
+        }
+      },
+      "note": "Approved as proposed by the product owner on 2026-11-11 (DEC-HEALTH-DANGER). Audible only with verified critical media. Golden traces: fixtures/health-danger-golden.json."
+    },
+    {
+      "id": "enemy_missing",
+      "introduced_in": "1.0",
+      "status": "active",
+      "category": "notice",
+      "source": "vision",
+      "detector_ref": "native.vision.absence",
+      "detector_milestone": "M3",
+      "ordinary_rank": null,
+      "voiced_default": true,
+      "media_mappable": true,
+      "critical_media_required": false,
+      "labels": {
+        "en": "Enemy missing",
+        "th": "ศัตรูหายจากแผนที่"
+      },
+      "tunables": {
+        "min_absence_ms": {
+          "default": 5000,
+          "min": 5000,
+          "max": 5000,
+          "unit": "ms"
+        },
+        "global_cooldown_ms": {
+          "default": 10000,
+          "min": 10000,
+          "max": 60000,
+          "unit": "ms"
+        }
+      },
+      "note": "Absence must be strictly longer than min_absence_ms (ALERT-006)."
+    },
+    {
+      "id": "risk_alert",
+      "introduced_in": "1.0",
+      "status": "active",
+      "category": "critical",
+      "source": "native",
+      "detector_ref": "native.risk.admission",
+      "detector_milestone": "M3",
+      "ordinary_rank": null,
+      "voiced_default": true,
+      "media_mappable": true,
+      "critical_media_required": true,
+      "labels": {
+        "en": "Gank risk",
+        "th": "ระวังโดนแกงค์"
+      },
+      "tunables": {
+        "global_cooldown_ms": {
+          "default": 30000,
+          "min": 30000,
+          "max": 120000,
+          "unit": "ms"
+        },
+        "contributor_cooldown_ms": {
+          "default": 60000,
+          "min": 60000,
+          "max": 300000,
+          "unit": "ms"
+        }
+      }
+    },
+    {
+      "id": "risk_revision",
+      "introduced_in": "1.0",
+      "status": "active",
+      "category": "correction",
+      "source": "native",
+      "detector_ref": "native.risk.revision",
+      "detector_milestone": "M3",
+      "ordinary_rank": null,
+      "voiced_default": true,
+      "media_mappable": true,
+      "critical_media_required": true,
+      "labels": {
+        "en": "Warning revised",
+        "th": "ยกเลิกคำเตือน"
+      },
+      "tunables": {}
+    },
+    {
+      "id": "risk_unavailable",
+      "introduced_in": "1.0",
+      "status": "active",
+      "category": "system",
+      "source": "native",
+      "detector_ref": "native.risk.availability",
+      "detector_milestone": "M3",
+      "ordinary_rank": null,
+      "voiced_default": false,
+      "media_mappable": false,
+      "critical_media_required": false,
+      "labels": {
+        "en": "Risk unavailable",
+        "th": "ประเมินความเสี่ยงไม่ได้"
+      },
+      "tunables": {}
+    },
+    {
+      "id": "clip_requested",
+      "introduced_in": "1.0",
+      "status": "active",
+      "category": "recording",
+      "source": "manual",
+      "detector_ref": "native.recorder.marker",
+      "detector_milestone": "M4b",
+      "ordinary_rank": null,
+      "voiced_default": false,
+      "media_mappable": false,
+      "critical_media_required": false,
+      "labels": {
+        "en": "Clip requested",
+        "th": "ขอบันทึกคลิป"
+      },
+      "tunables": {}
+    },
+    {
+      "id": "latency_probe",
+      "introduced_in": "1.0",
+      "status": "test_only",
+      "category": "test",
+      "source": "native",
+      "detector_ref": "native.test.latency_probe",
+      "detector_milestone": "M2",
+      "ordinary_rank": null,
+      "voiced_default": false,
+      "media_mappable": false,
+      "critical_media_required": false,
+      "labels": {
+        "en": "Latency probe",
+        "th": "ทดสอบความหน่วง"
+      },
+      "tunables": {},
+      "note": "Test builds only; never in production catalogs, mappings, history or event.schema."
+    }
+  ]
+}

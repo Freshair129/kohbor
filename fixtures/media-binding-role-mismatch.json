@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.1.0",
+  "package_id": "synthetic-test-pack",
+  "revision": 1,
+  "taxonomy_version": "1.0",
+  "display_name": "Synthetic test metadata",
+  "publisher_key_id": null,
+  "files": [
+    {
+      "path": "audio/cue.wav",
+      "size_bytes": 4096,
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "role": "mixed_audio"
+    },
+    {
+      "path": "video/cue.webm",
+      "size_bytes": 8192,
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "role": "silent_visual"
+    }
+  ],
+  "bindings": [
+    {
+      "event_id": "health_low",
+      "mixed_audio_path": "video/cue.webm",
+      "silent_visual_path": "video/cue.webm",
+      "duration_ms": 1000,
+      "visual_tail_ms": 0
+    }
+  ]
+}

@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/spec/audio-outcome.schema.json",
+  "title": "audio-outcome.schema.json",
+  "description": "Proposed neutral contract 1.0.0: audio admission outcome for one detected event or voice output (MP-02). Local only. See docs/design/EVENT-AUDIO-SPEC.md sections 4-5.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "instance_id",
+    "event_type",
+    "session_epoch",
+    "audio_class",
+    "outcome",
+    "playback_id",
+    "package_revision",
+    "decided_monotonic_ms"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "instance_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{8,96}$"
+    },
+    "event_type": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,79}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "session_epoch": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "audio_class": {
+      "enum": [
+        "critical",
+        "correction",
+        "notice",
+        "ordinary",
+        "voice"
+      ]
+    },
+    "outcome": {
+      "enum": [
+        "admitted",
+        "preempted",
+        "unmapped",
+        "invalid_media",
+        "inert",
+        "not_voiced",
+        "detector_unavailable",
+        "stale_session",
+        "superseded_revision",
+        "critical_active",
+        "channel_busy",
+        "lower_rank_same_tick",
+        "cooldown",
+        "muted"
+      ]
+    },
+    "playback_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{8,64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "package_revision": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "decided_monotonic_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "enum": [
+              "admitted",
+              "preempted"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "playback_id": {
+            "type": "string"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "playback_id": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "admitted"
+          },
+          "audio_class": {
+            "not": {
+              "const": "voice"
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "package_revision": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "audio_class": {
+            "const": "voice"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "event_type": {
+            "type": "null"
+          },
+          "package_revision": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "event_type": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,79}$"
+          }
+        }
+      }
+    }
+  ]
+}

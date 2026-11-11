@@ -2,7 +2,7 @@
 title: "Software Requirements Specification"
 doc_id: "SRS"
 status: "draft"
-version: "0.3.2"
+version: "0.3.3"
 updated: "2026-11-10"
 owner: "Product Owner"
 approval_status: "not_approved"
@@ -24,7 +24,7 @@ The full MVP covers local telemetry, admitted visible-screen observations, deter
 
 The first demonstration is a limited delivery milestone, not completion of the full MVP. Action-damage analysis remains subject to its recorded scope/data decision. Game injection, hidden enemy data, automatic gameplay actions, cloud voice/memory processing and inherited product compatibility are outside this baseline.
 
-Version 0.3.2 is a reviewable draft. The owner-selected name is recorded; the requirements baseline, implementation and native/live acceptance have not been approved. Its organization follows conventional requirements-engineering practice; no formal standards-conformance certification is asserted.
+Version 0.3.3 is a reviewable draft. The owner-selected name is recorded; the requirements baseline, implementation and native/live acceptance have not been approved. Its organization follows conventional requirements-engineering practice; no formal standards-conformance certification is asserted.
 
 ### 1.3 References and document relationships
 
@@ -512,9 +512,9 @@ Critical warnings shall be decided and admitted in native deterministic code wit
 
 **Verification:** synthetic, native, live; procedures TP-03, UAT-03; status NOT_RUN.
 
-**Elaboration:** [SDD.md](../design/SDD.md), [FEATURE-CATALOG.md](../product/FEATURE-CATALOG.md), [MEDIA-PACK-SPEC.md](../design/MEDIA-PACK-SPEC.md)
+**Elaboration:** [SDD.md](../design/SDD.md), [FEATURE-CATALOG.md](../product/FEATURE-CATALOG.md), [MEDIA-PACK-SPEC.md](../design/MEDIA-PACK-SPEC.md), [EVENT-AUDIO-SPEC.md](../design/EVENT-AUDIO-SPEC.md)
 
-**Contracts:** [event.schema.json](../../contracts/event.schema.json), [risk-golden.json](../../fixtures/risk-golden.json)
+**Contracts:** [event.schema.json](../../contracts/event.schema.json), [risk-golden.json](../../fixtures/risk-golden.json), [audio-outcome.schema.json](../../contracts/audio-outcome.schema.json), [event-catalog.json](../../contracts/event-catalog.json)
 
 **Diagram views:** [DGM-001](../diagrams/source/DGM-001-system-context.mmd), [DGM-002](../diagrams/source/DGM-002-containers.mmd), [DGM-003](../diagrams/source/DGM-003-deployment.mmd), [DGM-008](../diagrams/source/DGM-008-alert-sequence.mmd), [DGM-014](../diagrams/source/DGM-014-alert-lifecycle.mmd)
 
@@ -628,9 +628,9 @@ A visibility-missing notification shall use absence strictly longer than 5s, onc
 
 **Verification:** synthetic, native, live; procedures TP-03, UAT-03; status NOT_RUN.
 
-**Elaboration:** [SDD.md](../design/SDD.md), [FEATURE-CATALOG.md](../product/FEATURE-CATALOG.md), [MEDIA-PACK-SPEC.md](../design/MEDIA-PACK-SPEC.md)
+**Elaboration:** [SDD.md](../design/SDD.md), [FEATURE-CATALOG.md](../product/FEATURE-CATALOG.md), [MEDIA-PACK-SPEC.md](../design/MEDIA-PACK-SPEC.md), [EVENT-AUDIO-SPEC.md](../design/EVENT-AUDIO-SPEC.md)
 
-**Contracts:** [event.schema.json](../../contracts/event.schema.json), [risk-golden.json](../../fixtures/risk-golden.json)
+**Contracts:** [event.schema.json](../../contracts/event.schema.json), [risk-golden.json](../../fixtures/risk-golden.json), [audio-outcome.schema.json](../../contracts/audio-outcome.schema.json)
 
 **Implementation freedom:** Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.
 
@@ -650,9 +650,9 @@ Critical audio readiness shall require valid mapped critical media before the de
 
 **Open dependencies:** DEC-CRITICAL-MEDIA.
 
-**Elaboration:** [SDD.md](../design/SDD.md), [FEATURE-CATALOG.md](../product/FEATURE-CATALOG.md), [MEDIA-PACK-SPEC.md](../design/MEDIA-PACK-SPEC.md)
+**Elaboration:** [SDD.md](../design/SDD.md), [FEATURE-CATALOG.md](../product/FEATURE-CATALOG.md), [MEDIA-PACK-SPEC.md](../design/MEDIA-PACK-SPEC.md), [EVENT-AUDIO-SPEC.md](../design/EVENT-AUDIO-SPEC.md)
 
-**Contracts:** [event.schema.json](../../contracts/event.schema.json), [risk-golden.json](../../fixtures/risk-golden.json)
+**Contracts:** [event.schema.json](../../contracts/event.schema.json), [risk-golden.json](../../fixtures/risk-golden.json), [event-catalog.json](../../contracts/event-catalog.json)
 
 **Diagram views:** [DGM-002](../diagrams/source/DGM-002-containers.mmd), [DGM-008](../diagrams/source/DGM-008-alert-sequence.mmd), [DGM-014](../diagrams/source/DGM-014-alert-lifecycle.mmd)
 
@@ -674,11 +674,11 @@ One versioned catalog shall own event IDs, labels, detectors, bounded tunables a
 
 **Verification:** synthetic, native; procedures TP-04, UAT-04; status NOT_RUN.
 
-**Open dependencies:** DEC-INTERFACES.
+**Open dependencies:** DEC-INTERFACES, DEC-EVENT-AUDIO.
 
-**Elaboration:** [MEDIA-PACK-SPEC.md](../design/MEDIA-PACK-SPEC.md), [ICD.md](../design/ICD.md)
+**Elaboration:** [MEDIA-PACK-SPEC.md](../design/MEDIA-PACK-SPEC.md), [ICD.md](../design/ICD.md), [EVENT-AUDIO-SPEC.md](../design/EVENT-AUDIO-SPEC.md)
 
-**Contracts:** [media-manifest.schema.json](../../contracts/media-manifest.schema.json)
+**Contracts:** [media-manifest.schema.json](../../contracts/media-manifest.schema.json), [event-catalog.json](../../contracts/event-catalog.json), [event-catalog.schema.json](../../contracts/event-catalog.schema.json), [event.schema.json](../../contracts/event.schema.json)
 
 **Implementation freedom:** Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.
 
@@ -696,11 +696,11 @@ Ordinary same-tick arbitration shall select the highest emitted ordinary rank be
 
 **Verification:** synthetic, native; procedures TP-04, UAT-04; status NOT_RUN.
 
-**Open dependencies:** DEC-INTERFACES.
+**Open dependencies:** DEC-INTERFACES, DEC-EVENT-AUDIO.
 
-**Elaboration:** [MEDIA-PACK-SPEC.md](../design/MEDIA-PACK-SPEC.md), [ICD.md](../design/ICD.md)
+**Elaboration:** [MEDIA-PACK-SPEC.md](../design/MEDIA-PACK-SPEC.md), [ICD.md](../design/ICD.md), [EVENT-AUDIO-SPEC.md](../design/EVENT-AUDIO-SPEC.md)
 
-**Contracts:** [media-manifest.schema.json](../../contracts/media-manifest.schema.json)
+**Contracts:** [media-manifest.schema.json](../../contracts/media-manifest.schema.json), [event-catalog.json](../../contracts/event-catalog.json), [audio-outcome.schema.json](../../contracts/audio-outcome.schema.json)
 
 **Implementation freedom:** Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.
 
@@ -718,9 +718,9 @@ Respawn shall remain a detectable event without an automatic audio mapping.
 
 **Verification:** synthetic, native; procedures TP-04, UAT-04; status NOT_RUN.
 
-**Elaboration:** [MEDIA-PACK-SPEC.md](../design/MEDIA-PACK-SPEC.md), [ICD.md](../design/ICD.md)
+**Elaboration:** [MEDIA-PACK-SPEC.md](../design/MEDIA-PACK-SPEC.md), [ICD.md](../design/ICD.md), [EVENT-AUDIO-SPEC.md](../design/EVENT-AUDIO-SPEC.md)
 
-**Contracts:** [media-manifest.schema.json](../../contracts/media-manifest.schema.json)
+**Contracts:** [media-manifest.schema.json](../../contracts/media-manifest.schema.json), [event-catalog.json](../../contracts/event-catalog.json), [audio-outcome.schema.json](../../contracts/audio-outcome.schema.json)
 
 **Implementation freedom:** Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.
 
@@ -738,7 +738,9 @@ Event audio/visual playback shall originate from the active verified package rev
 
 **Verification:** synthetic, native; procedures TP-04, UAT-04; status NOT_RUN.
 
-**Elaboration:** [MEDIA-PACK-SPEC.md](../design/MEDIA-PACK-SPEC.md), [ICD.md](../design/ICD.md)
+**Open dependencies:** DEC-EVENT-AUDIO.
+
+**Elaboration:** [MEDIA-PACK-SPEC.md](../design/MEDIA-PACK-SPEC.md), [ICD.md](../design/ICD.md), [EVENT-AUDIO-SPEC.md](../design/EVENT-AUDIO-SPEC.md)
 
 **Contracts:** [media-manifest.schema.json](../../contracts/media-manifest.schema.json)
 
@@ -760,9 +762,11 @@ Native audio shall own paired visual lifecycle and cancel both on stop/preemptio
 
 **Verification:** synthetic, native; procedures TP-04, UAT-04; status NOT_RUN.
 
-**Elaboration:** [MEDIA-PACK-SPEC.md](../design/MEDIA-PACK-SPEC.md), [ICD.md](../design/ICD.md)
+**Open dependencies:** DEC-EVENT-AUDIO.
 
-**Contracts:** [media-manifest.schema.json](../../contracts/media-manifest.schema.json)
+**Elaboration:** [MEDIA-PACK-SPEC.md](../design/MEDIA-PACK-SPEC.md), [ICD.md](../design/ICD.md), [EVENT-AUDIO-SPEC.md](../design/EVENT-AUDIO-SPEC.md)
+
+**Contracts:** [media-manifest.schema.json](../../contracts/media-manifest.schema.json), [audio-outcome.schema.json](../../contracts/audio-outcome.schema.json)
 
 **Diagram views:** [DGM-002](../diagrams/source/DGM-002-containers.mmd), [DGM-008](../diagrams/source/DGM-008-alert-sequence.mmd)
 
@@ -784,9 +788,9 @@ Package parsing shall enforce strict archive limits and reject traversal, duplic
 
 **Open dependencies:** DEC-PACK-CRYPTO.
 
-**Elaboration:** [MEDIA-PACK-SPEC.md](../design/MEDIA-PACK-SPEC.md), [ICD.md](../design/ICD.md)
+**Elaboration:** [MEDIA-PACK-SPEC.md](../design/MEDIA-PACK-SPEC.md), [ICD.md](../design/ICD.md), [EVENT-AUDIO-SPEC.md](../design/EVENT-AUDIO-SPEC.md)
 
-**Contracts:** [media-manifest.schema.json](../../contracts/media-manifest.schema.json)
+**Contracts:** [media-manifest.schema.json](../../contracts/media-manifest.schema.json), [media-install-request.schema.json](../../contracts/media-install-request.schema.json), [media-install-result.schema.json](../../contracts/media-install-result.schema.json)
 
 **Diagram views:** [DGM-010](../diagrams/source/DGM-010-media-install-activation.mmd)
 
@@ -806,9 +810,9 @@ Installation and activation shall be separate idempotent transactions.
 
 **Verification:** synthetic, native; procedures TP-04, UAT-04; status NOT_RUN.
 
-**Elaboration:** [MEDIA-PACK-SPEC.md](../design/MEDIA-PACK-SPEC.md), [ICD.md](../design/ICD.md)
+**Elaboration:** [MEDIA-PACK-SPEC.md](../design/MEDIA-PACK-SPEC.md), [ICD.md](../design/ICD.md), [EVENT-AUDIO-SPEC.md](../design/EVENT-AUDIO-SPEC.md)
 
-**Contracts:** [media-manifest.schema.json](../../contracts/media-manifest.schema.json)
+**Contracts:** [media-manifest.schema.json](../../contracts/media-manifest.schema.json), [media-install-request.schema.json](../../contracts/media-install-request.schema.json), [media-install-result.schema.json](../../contracts/media-install-result.schema.json)
 
 **Diagram views:** [DGM-010](../diagrams/source/DGM-010-media-install-activation.mmd)
 
@@ -830,9 +834,9 @@ Package integrity, publisher trust and purchase entitlement shall be verified by
 
 **Open dependencies:** DEC-PACK-CRYPTO.
 
-**Elaboration:** [MEDIA-PACK-SPEC.md](../design/MEDIA-PACK-SPEC.md), [ICD.md](../design/ICD.md)
+**Elaboration:** [MEDIA-PACK-SPEC.md](../design/MEDIA-PACK-SPEC.md), [ICD.md](../design/ICD.md), [EVENT-AUDIO-SPEC.md](../design/EVENT-AUDIO-SPEC.md)
 
-**Contracts:** [media-manifest.schema.json](../../contracts/media-manifest.schema.json)
+**Contracts:** [media-manifest.schema.json](../../contracts/media-manifest.schema.json), [media-install-result.schema.json](../../contracts/media-install-result.schema.json)
 
 **Diagram views:** [DGM-010](../diagrams/source/DGM-010-media-install-activation.mmd)
 
@@ -1126,9 +1130,11 @@ Voice answers shall use Normal priority, preemptible by announcer and critical a
 
 **Verification:** synthetic, native, live; procedures TP-06, UAT-06; status NOT_RUN.
 
-**Elaboration:** [SECURITY-PRIVACY.md](../security/SECURITY-PRIVACY.md), [NFR.md](../quality/NFR.md), [SDD.md](../design/SDD.md)
+**Open dependencies:** DEC-EVENT-AUDIO.
 
-**Contracts:** [error-catalog.json](../../contracts/error-catalog.json)
+**Elaboration:** [SECURITY-PRIVACY.md](../security/SECURITY-PRIVACY.md), [NFR.md](../quality/NFR.md), [SDD.md](../design/SDD.md), [EVENT-AUDIO-SPEC.md](../design/EVENT-AUDIO-SPEC.md)
+
+**Contracts:** [error-catalog.json](../../contracts/error-catalog.json), [audio-outcome.schema.json](../../contracts/audio-outcome.schema.json)
 
 **Diagram views:** [DGM-002](../diagrams/source/DGM-002-containers.mmd), [DGM-008](../diagrams/source/DGM-008-alert-sequence.mmd), [DGM-009](../diagrams/source/DGM-009-voice-lifecycle.mmd)
 
@@ -1922,7 +1928,7 @@ Alert latency shall have p50 ≤250ms and every measured sample ≤300ms over at
 
 **Verification:** native, live, acoustic; procedures TP-13, TP-03, UAT-03; status NOT_RUN.
 
-**Elaboration:** [NFR.md](../quality/NFR.md)
+**Elaboration:** [NFR.md](../quality/NFR.md), [EVENT-AUDIO-SPEC.md](../design/EVENT-AUDIO-SPEC.md)
 
 **Contracts:** [evidence.schema.json](../../contracts/evidence.schema.json)
 
@@ -2052,9 +2058,11 @@ All 100 overlap trials shall cancel stale voice/advice while retaining the criti
 
 **Verification:** native, acoustic; procedures TP-13, TP-03, TP-04, TP-06, UAT-06; status NOT_RUN.
 
-**Elaboration:** [NFR.md](../quality/NFR.md)
+**Open dependencies:** DEC-EVENT-AUDIO.
 
-**Contracts:** [evidence.schema.json](../../contracts/evidence.schema.json)
+**Elaboration:** [NFR.md](../quality/NFR.md), [EVENT-AUDIO-SPEC.md](../design/EVENT-AUDIO-SPEC.md)
+
+**Contracts:** [evidence.schema.json](../../contracts/evidence.schema.json), [audio-outcome.schema.json](../../contracts/audio-outcome.schema.json)
 
 **Diagram views:** [DGM-008](../diagrams/source/DGM-008-alert-sequence.mmd), [DGM-009](../diagrams/source/DGM-009-voice-lifecycle.mmd)
 

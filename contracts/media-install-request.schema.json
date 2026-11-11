@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/spec/media-install-request.schema.json",
+  "title": "media-install-request.schema.json",
+  "description": "Proposed neutral contract 1.0.0: MP-06 logical install request. Transport framing belongs to DEC-INTERFACES. Retrying the same request_id and digest is idempotent.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "request_id",
+    "profile_id",
+    "source_path",
+    "expected_container_sha256",
+    "project_binding",
+    "activation_policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "request_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{8,64}$"
+    },
+    "profile_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$"
+    },
+    "source_path": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 1024
+    },
+    "expected_container_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "project_binding": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "activation_policy": {
+      "enum": [
+        "never",
+        "now_if_idle",
+        "after_match"
+      ]
+    }
+  }
+}

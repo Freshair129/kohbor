@@ -42,6 +42,57 @@
       ]
     },
     {
+      "id": "DEC-EVENT-AUDIO",
+      "status": "proposed",
+      "milestone": "M2",
+      "blocks": "M2 exit: event catalog freeze, ordinary arbitration, audio priority/preemption, outcome history, media decode checks and install contracts",
+      "owner_role": "integration owner (builder-delegated); product owner acknowledges mute semantics",
+      "safe_interim": "Implement against docs/design/EVENT-AUDIO-SPEC.md and contracts/event-catalog.json. Events whose detector assumption (E-1, E-2) is unconfirmed stay unavailable; latency_probe evidence is engineering-only.",
+      "closure_evidence": "Capture corpus confirming E-1/E-2 (or affected events left unavailable), reviewed catalog/contracts/fixtures, priority-matrix and preemption fixtures. Mute semantics and ordinary ranks: acknowledged 2026-11-11 (owner_acknowledgements).",
+      "proposed_on": "2026-11-11",
+      "proposal_ref": "docs/design/EVENT-AUDIO-SPEC.md",
+      "related": [
+        "DEC-INTERFACES",
+        "DEC-CRITICAL-MEDIA",
+        "DEC-PACK-CRYPTO"
+      ],
+      "owner_acknowledgements": [
+        {
+          "topic": "Global mute silences all event and voice audio, including critical (C1/C2), and reports safety audio unavailable with AUDIO_MUTED while muted.",
+          "acknowledged_by": "product_owner",
+          "acknowledged_on": "2026-11-11",
+          "channel": "Owner reply in the engineering chat session that prepared spec 0.3.3",
+          "scope": "Mute semantics in EVENT-AUDIO-SPEC section 4 only; does not approve DEC-EVENT-AUDIO as a whole or DEC-HEALTH-DANGER."
+        },
+        {
+          "topic": "Ordinary ranks not fixed by MP-02: hero_death 50, level_milestone 40, health_low 30, mana_low 20, match_ended 15, match_started 10 (below the fixed multi_kill 90 > streak 80 > first_blood 70 > hero_kill 60).",
+          "acknowledged_by": "product_owner",
+          "acknowledged_on": "2026-11-11",
+          "channel": "Owner reply in the engineering chat session that prepared spec 0.3.3",
+          "scope": "Ordinary rank values only; does not approve DEC-EVENT-AUDIO as a whole."
+        }
+      ]
+    },
+    {
+      "id": "DEC-HEALTH-DANGER",
+      "status": "decided",
+      "milestone": "M2",
+      "blocks": "Audible health-danger cue until verified critical media exists (DEC-CRITICAL-MEDIA)",
+      "owner_role": "product owner",
+      "safe_interim": "Detector active; without verified prewarmed critical media the cue is not audible and critical readiness reports not ready.",
+      "closure_evidence": "Owner decision recorded 2026-11-11; golden traces in fixtures/health-danger-golden.json replayed by tools/validate_spec.py. Native/live/acoustic evidence remains NOT_RUN.",
+      "proposed_on": "2026-11-11",
+      "proposal_ref": "docs/design/EVENT-AUDIO-SPEC.md",
+      "related": [
+        "DEC-CRITICAL-MEDIA",
+        "DEC-EVENT-AUDIO"
+      ],
+      "decided_on": "2026-11-11",
+      "decision": "Approved as proposed: HP <=25% of max after a drop of >=15 percentage points within 2,000 ms; re-arm at >=40%, on death or new session; 20,000 ms cooldown; critical class.",
+      "decided_by": "product_owner",
+      "channel": "Owner reply in the engineering chat session that prepared spec 0.3.3"
+    },
+    {
       "id": "DEC-MODELS",
       "status": "open",
       "milestone": "M0-M5",
