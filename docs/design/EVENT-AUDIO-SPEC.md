@@ -27,7 +27,7 @@ It elaborates the [Media Package Specification](MEDIA-PACK-SPEC.md) (MP-01 to MP
 Everything here is a **proposal**:
 
 - **DEC-EVENT-AUDIO** covers the builder-delegated parts: identifiers, ranks of events whose order the baseline does not fix, arbitration mechanics, formats and contracts.
-- **DEC-HEALTH-DANGER** covers the one new product behavior, the health-danger detector. It stays **unavailable** until the product owner approves it.
+- **DEC-HEALTH-DANGER** covers the one new product behavior, the health-danger detector. The product owner **approved it as proposed on 2026-11-11**.
 
 Nothing has been approved or executed.
 
@@ -59,7 +59,7 @@ Taxonomy version `1.0`:
 | `match_ended` | ordinary | gsi | M2 | 15 | yes | Game state enters post-game (E-2) |
 | `match_started` | ordinary | gsi | M2 | 10 | yes | Game state enters live play for the current session (E-2) |
 | `hero_respawn` | ordinary | gsi | M2 | — | **no** | Detected and recorded; not voiced and not mappable in taxonomy 1.0 (MEDIA-003) |
-| `health_danger` | critical | gsi | M2 | — | yes | **Proposed and unavailable** until DEC-HEALTH-DANGER is approved (§3) |
+| `health_danger` | critical | gsi | M2 | — | yes | Approved 2026-11-11 (DEC-HEALTH-DANGER, §3); audible only with verified critical media (ALERT-007) |
 | `enemy_missing` | notice | vision | M3 | — | yes | Absence >5,000 ms with valid coverage; once per hero per episode; global cooldown ≥10,000 ms (ALERT-006) |
 | `risk_alert` | critical | native | M3 | — | yes | Admission per SDD §6 and DEC-RISK-DETAIL; cooldowns 30 s global and 60 s per contributor |
 | `risk_revision` | correction | native | M3 | — | yes | Evidence-based retraction (ALERT-005) |
@@ -86,11 +86,18 @@ Taxonomy version `1.0`:
 | E-1 | `map.radiant_score` and `map.dire_score` (plus `player.kills`) let first blood be credited to self: the combined score goes from 0 to 1 in the same admitted tick as the own kill count goes from 0 to 1 | Record a bot match where the player draws first blood and one where another player does. If this fails, `first_blood` stays unavailable |
 | E-2 | `map.game_state` transitions identify the start of live play and post-game | Record a full match. If this fails, `match_started` and `match_ended` stay unavailable |
 
-## 3. Health danger (DEC-HEALTH-DANGER; product decision required)
+## 3. Health danger (DEC-HEALTH-DANGER; approved 2026-11-11)
 
-MP-01 names "health danger" as a native safety detector but gives no definition. The proposal below requires product-owner approval. Until then the catalog entry carries `status: "proposed_unavailable"`. The detector does not run in production builds, and critical readiness does not depend on it.
+MP-01 names "health danger" as a native safety detector but gives no definition. The product owner approved the definition below **as proposed** on 2026-11-11. The catalog entry is `active`.
 
-| Parameter | Proposed value | Meaning |
+Approval does not make the cue audible by itself:
+
+- It still needs verified, prewarmed critical media (ALERT-007, DEC-CRITICAL-MEDIA).
+- Its behavior is pinned by the golden traces in [health-danger-golden.json](../../fixtures/health-danger-golden.json), which `tools/validate_spec.py` replays.
+
+Trigger, re-arm and cooldown windows are inclusive (≤25%, ≥15 points, a [t−2,000 ms, t] window, ≥20,000 ms since the last cue). Percentages are `hp × 100 / max_hp`, not rounded.
+
+| Parameter | Approved value | Meaning |
 | --- | --- | --- |
 | Precondition | Own source `fresh`, ownership `verified`, `alive = true`, HP and max HP observed | Never computed from stale or unknown values |
 | Trigger | HP ≤ 25% of max HP **and** HP fell by ≥15 percentage points of max HP within the last 2,000 ms of admitted samples | Signals sudden burst danger, as opposed to a slow drain (which `health_low` covers) |
@@ -100,7 +107,7 @@ MP-01 names "health danger" as a native safety detector but gives no definition.
 
 When `health_danger` and `health_low` fire in the same tick, the critical channel admits `health_danger`. The ordinary `health_low` follows the priority matrix: it is dropped with reason `critical_active`.
 
-**M2 latency engineering without an approved product detector.** The M2 exit gate needs latency and preemption fixtures. They use `latency_probe`, a test-only native trigger compiled only into test builds. It is injected at a recorded T0 and travels the same critical admission and audio path. Its measurements are **engineering evidence only**. QUALITY-001 acceptance requires a real admitted critical event (`health_danger` once approved, or `risk_alert` in M3).
+**M2 latency evidence.** QUALITY-001 acceptance in M2 uses admitted `health_danger` events, with T0 at the arrival of the GSI payload that triggered them. `latency_probe` stays available in test builds for preemption and engineering fixtures. Its measurements are **engineering evidence only** and never count toward QUALITY-001.
 
 ## 4. Audio priority and preemption (MP-02, MEDIA-005, VOICE-006, QUALITY-007)
 
@@ -207,4 +214,4 @@ The Windows transport framing (named pipe, 16 KiB frames, handshake) stays with 
   - E-1 and E-2 are confirmed from the capture corpus, or the affected events stay unavailable;
   - the catalog, contracts and fixtures are reviewed;
   - the product owner acknowledges the mute semantics in §4 (done: acknowledged 2026-11-11; recorded in contracts/decisions.json).
-- **DEC-HEALTH-DANGER** closes with an owner decision: approve, modify or reject §3. On approval, record the decision and set the catalog status to `active`. Positive and negative golden traces (burst, slow drain, stale sample, death) must be added before audible use.
+- **DEC-HEALTH-DANGER** is **decided**: the owner approved §3 as proposed on 2026-11-11. The catalog status is `active`, and the golden traces (burst, slow drain, stale sample, death/cooldown, inclusive boundary) are in fixtures. Audible use still depends on verified critical media (DEC-CRITICAL-MEDIA).

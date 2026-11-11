@@ -53,8 +53,8 @@
     },
     {
       "path": "acceptance/spec-validation.json",
-      "bytes": 886,
-      "sha256": "63173c7a7d9ddc0c29ccaf2a54dbb8a50e4ec4b78f7524cc9ffaa3f0ab4d3675"
+      "bytes": 921,
+      "sha256": "aeb981bacfecebb972ed054eed88ae4d5a9efcca00d8dc9010c3bc7566a2a140"
     },
     {
       "path": "contracts/audio-outcome.schema.json",
@@ -68,8 +68,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 10704,
-      "sha256": "de81233df3d05cffafb9df8862223809ac7f61738fcf4b2e7f95a2f45fea50bb"
+      "bytes": 10956,
+      "sha256": "f0718e3bc6a11726553e12ea69f0f5754c8c66c4e62930f0016c3c3cfddeff53"
     },
     {
       "path": "contracts/error-catalog.json",
@@ -78,8 +78,8 @@
     },
     {
       "path": "contracts/event-catalog.json",
-      "bytes": 11982,
-      "sha256": "cd94c03c0e55eaf6d5126ae91cb50e48e2cb5006f7b2d9210d1224a862c20a1d"
+      "bytes": 12069,
+      "sha256": "104c512923584498b37f9b9d5b79a1357d116937fb0a5f542d2b2269cfdce51b"
     },
     {
       "path": "contracts/event-catalog.schema.json",
@@ -143,8 +143,8 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 179453,
-      "sha256": "8054ba5bfcae529b3a3372930005a00e0ec0881f036abd4bc97d4b1e89b79628"
+      "bytes": 179424,
+      "sha256": "c051fddb41cf131cbaee32356ae01dbafc30f34fb1568f6b4f3674dcbbe9e9f5"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -178,8 +178,8 @@
     },
     {
       "path": "docs/design/EVENT-AUDIO-SPEC.md",
-      "bytes": 16104,
-      "sha256": "a3aeaf18efcb0fb19bd47be4c265528fbccf9ba7b8461eb3e21dea3b9a33d30b"
+      "bytes": 16405,
+      "sha256": "a46e19e4cd5d1de77cadd02ef8dd409286443d219635a2f03310de52623f9b0f"
     },
     {
       "path": "docs/design/GSI-INTAKE-SPEC.md",
@@ -418,23 +418,23 @@
     },
     {
       "path": "docs/governance/CHANGELOG.md",
-      "bytes": 10083,
-      "sha256": "5b86722612b61896b82985338df8fec1adb0bbe37e3afe151c96302b81614ad4"
+      "bytes": 10281,
+      "sha256": "d0b7d78e314b9605c8e1acc629a5f00738c1608cf5dd1f227f75f26fd5e797fe"
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 9548,
-      "sha256": "aa62267754e3ea6db380e455cd62219f0d96e7be234ff308b32ae4e2bd359e78"
+      "bytes": 9638,
+      "sha256": "3d1756e491f7344a37889c75fad99a44be7e4700e16cf37533a625396edccd66"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
-      "bytes": 9793,
-      "sha256": "06bf3960c2f869863c9e880706592d5a4d034e654bd3c383abb4094b3e5c1baa"
+      "bytes": 9783,
+      "sha256": "d87d6926e79531c0e88d6c6f17a05409c6135f5d87266801c69c8796e84facad"
     },
     {
       "path": "docs/governance/IMPLEMENTATION-READINESS.md",
-      "bytes": 7354,
-      "sha256": "70c72cdbf26159b7833a78e7aa5f17392e590f72e53bf90991fc4fa2eed01225"
+      "bytes": 7370,
+      "sha256": "0797333e35341da69e277ec97e0fcb9d112cffe3e8ff59c2a55fd7b556b17c9a"
     },
     {
       "path": "docs/governance/RISK-REGISTER.md",
@@ -478,13 +478,13 @@
     },
     {
       "path": "docs/requirements/RTM.csv",
-      "bytes": 38210,
-      "sha256": "584ae0a60b2308b305ad349448613e54a40ad1f81d11c7edc3b17282d0ad6e2a"
+      "bytes": 38192,
+      "sha256": "3a363d94b963f936a2729f66b6ef10958af638f3a5974ac0ae2ff4582ccb1d7e"
     },
     {
       "path": "docs/requirements/SRS.md",
-      "bytes": 118500,
-      "sha256": "74617190265b5871e91b07987aaac4a4671481f94406a7abe4ab02102f338879"
+      "bytes": 118481,
+      "sha256": "cc305d61400d8e8f51b343f8789abebf67611a60251109d95011a4d99b5babb2"
     },
     {
       "path": "docs/security/SECURITY-PRIVACY.md",
@@ -575,6 +575,11 @@
       "path": "fixtures/evidence-pass-without-proof.json",
       "bytes": 596,
       "sha256": "5aceae84ac68727f30354db5ed9f7a46e27c42099a8e07322036e54ea899873f"
+    },
+    {
+      "path": "fixtures/health-danger-golden.json",
+      "bytes": 5412,
+      "sha256": "225f118bea6ce3cb841c5035390c32fce13452b54ca64f8002c8e2249a283503"
     },
     {
       "path": "fixtures/index.json",
@@ -853,8 +858,8 @@
     },
     {
       "path": "tools/validate_spec.py",
-      "bytes": 15617,
-      "sha256": "f48185608df12ca51e5110dc6a5a51ab2861a9fe5bcab430e4ef7056a2d732a2"
+      "bytes": 16663,
+      "sha256": "84b14d65161c85cb2b1152feb065d68dbeafb792c73c7bff5f90c8e3663cdea4"
     }
   ],
   "product_name": "Kohbor",

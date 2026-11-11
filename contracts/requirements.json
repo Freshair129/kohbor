@@ -1479,8 +1479,7 @@
         "docs/design/EVENT-AUDIO-SPEC.md"
       ],
       "open_decisions": [
-        "DEC-CRITICAL-MEDIA",
-        "DEC-HEALTH-DANGER"
+        "DEC-CRITICAL-MEDIA"
       ],
       "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
       "product_need_ids": [

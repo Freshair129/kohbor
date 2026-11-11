@@ -648,7 +648,7 @@ Critical audio readiness shall require valid mapped critical media before the de
 
 **Verification:** synthetic, native, live; procedures TP-03, UAT-03; status NOT_RUN.
 
-**Open dependencies:** DEC-CRITICAL-MEDIA, DEC-HEALTH-DANGER.
+**Open dependencies:** DEC-CRITICAL-MEDIA.
 
 **Elaboration:** [SDD.md](../design/SDD.md), [FEATURE-CATALOG.md](../product/FEATURE-CATALOG.md), [MEDIA-PACK-SPEC.md](../design/MEDIA-PACK-SPEC.md), [EVENT-AUDIO-SPEC.md](../design/EVENT-AUDIO-SPEC.md)
 

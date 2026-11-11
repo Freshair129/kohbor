@@ -225,8 +225,27 @@ def main():
         if len(case["scores"])>=2:actual=min(actual*1.15,1.0)
         if not math.isclose(actual,case["expected_score"],rel_tol=0,abs_tol=golden["absolute_tolerance"]):errors.append("Risk aggregate golden mismatch.")
         else:risk_passed+=1
+    hd=parsed["fixtures/health-danger-golden.json"]
+    hd_passed=0
+    prm=hd["parameters"]
+    for trace in hd["traces"]:
+        armed=True;last_cue=None;cues=[];window=[]
+        for sample in trace["samples"]:
+            t=sample["t_ms"]
+            if not sample["alive"]:
+                armed=True;window=[];continue
+            if sample["availability"]!="fresh" or sample["hp"] is None or sample["max_hp"] is None:continue
+            pct=sample["hp"]*100/sample["max_hp"]
+            window=[(wt,wp) for wt,wp in window if wt>=t-prm["window_ms"]]+[(t,pct)]
+            if pct>=prm["rearm_percent"]:armed=True
+            drop=max(wp for _,wp in window)-pct
+            if armed and pct<=prm["max_hp_percent"] and drop>=prm["drop_points"] and (last_cue is None or t-last_cue>=prm["cooldown_ms"]):
+                cues.append(t);last_cue=t;armed=False
+        if cues!=trace["expected_cue_t_ms"]:errors.append("Health-danger golden trace mismatch: "+trace["id"])
+        else:hd_passed+=1
     result={
       "status":"FAIL" if errors else ("PASS" if jsonschema else "PARTIAL"),
+      "health_danger_traces_passed":hd_passed,
       "scope":"Specification consistency and synthetic contract validation only; no application execution.",
       "requirements":len(reqs),"traceability_rows":len(trace),"acceptance_scenarios":len(reqs),
       "product_needs":len(needs),"design_components":len(component_ids),"verification_procedures":len(procedure_ids),

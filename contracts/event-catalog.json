@@ -269,7 +269,7 @@
     {
       "id": "health_danger",
       "introduced_in": "1.0",
-      "status": "proposed_unavailable",
+      "status": "active",
       "category": "critical",
       "source": "gsi",
       "detector_ref": "native.gsi.health_burst",
@@ -314,7 +314,7 @@
           "unit": "ms"
         }
       },
-      "note": "Unavailable until DEC-HEALTH-DANGER is approved by the product owner."
+      "note": "Approved as proposed by the product owner on 2026-11-11 (DEC-HEALTH-DANGER). Audible only with verified critical media. Golden traces: fixtures/health-danger-golden.json."
     },
     {
       "id": "enemy_missing",

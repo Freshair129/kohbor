@@ -2,11 +2,11 @@
 
 ## 0.3.3 — 2026-11-11
 
-Closed the documentation gaps blocking M2 (events, audio and media). Every addition is a **proposal** under DEC-EVENT-AUDIO. The single new product behavior, health danger, waits for an owner decision under DEC-HEALTH-DANGER. Nothing has been approved or executed.
+Closed the documentation gaps blocking M2 (events, audio and media). Every addition is a **proposal** under DEC-EVENT-AUDIO. The single new product behavior, health danger, was approved as proposed by the product owner on 2026-11-11 (DEC-HEALTH-DANGER). Nothing else has been approved, and nothing has been executed.
 
 - Added [EVENT-AUDIO-SPEC](../design/EVENT-AUDIO-SPEC.md):
   - **Canonical event catalog:** 17 production event IDs plus a test-only `latency_probe`, with ranks, tunables, detectors, milestones and th/en labels. Baselines and resumes never replay achievements.
-  - **Health-danger proposal:** gated as unavailable until the owner decides.
+  - **Health danger:** approved as proposed on 2026-11-11 and pinned by six golden traces (`fixtures/health-danger-golden.json`, replayed by the validator). It is audible only once verified critical media exists.
   - **Audio priority:** five classes (critical, correction, notice, ordinary, voice) with an incoming-versus-active preemption matrix.
   - **Prewarm and critical readiness rules.**
   - **Mute semantics:** acknowledged by the product owner on 2026-11-11. Global mute silences critical audio too, and safety audio then reports not ready.
@@ -22,7 +22,7 @@ Closed the documentation gaps blocking M2 (events, audio and media). Every addit
   - checks catalog semantics: unique IDs and ranks, tunable bounds, re-arm side;
   - checks that the `event.schema` enum equals the catalog;
   - checks binding file roles.
-- Registry: MEDIA-001..008, ALERT-001/006/007, VOICE-006 and QUALITY-001/007 now link the new spec and contracts. MEDIA-001/002/004/005, VOICE-006 and QUALITY-007 depend on DEC-EVENT-AUDIO. ALERT-007 depends on DEC-HEALTH-DANGER.
+- Registry: MEDIA-001..008, ALERT-001/006/007, VOICE-006 and QUALITY-001/007 now link the new spec and contracts. MEDIA-001/002/004/005, VOICE-006 and QUALITY-007 depend on DEC-EVENT-AUDIO. ALERT-007 keeps its DEC-CRITICAL-MEDIA dependency.
 - The DGM-010 guard note now states that the installer, not the package, binds authority. The figure itself is unchanged.
 
 Not changed:

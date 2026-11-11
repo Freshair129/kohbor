@@ -68,18 +68,22 @@
     },
     {
       "id": "DEC-HEALTH-DANGER",
-      "status": "open",
+      "status": "decided",
       "milestone": "M2",
-      "blocks": "GSI-driven critical health-danger cue and any QUALITY-001 acceptance before M3 risk alerts exist",
+      "blocks": "Audible health-danger cue until verified critical media exists (DEC-CRITICAL-MEDIA)",
       "owner_role": "product owner",
-      "safe_interim": "Catalog entry health_danger stays proposed_unavailable: no detector in production builds and no effect on critical readiness. M2 latency engineering uses the test-only latency_probe.",
-      "closure_evidence": "Recorded owner decision approving, modifying or rejecting EVENT-AUDIO-SPEC section 3; if approved, positive/negative golden traces (burst, slow drain, stale sample, death) and authorized critical media.",
+      "safe_interim": "Detector active; without verified prewarmed critical media the cue is not audible and critical readiness reports not ready.",
+      "closure_evidence": "Owner decision recorded 2026-11-11; golden traces in fixtures/health-danger-golden.json replayed by tools/validate_spec.py. Native/live/acoustic evidence remains NOT_RUN.",
       "proposed_on": "2026-11-11",
       "proposal_ref": "docs/design/EVENT-AUDIO-SPEC.md",
       "related": [
         "DEC-CRITICAL-MEDIA",
         "DEC-EVENT-AUDIO"
-      ]
+      ],
+      "decided_on": "2026-11-11",
+      "decision": "Approved as proposed: HP <=25% of max after a drop of >=15 percentage points within 2,000 ms; re-arm at >=40%, on death or new session; 20,000 ms cooldown; critical class.",
+      "decided_by": "product_owner",
+      "channel": "Owner reply in the engineering chat session that prepared spec 0.3.3"
     },
     {
       "id": "DEC-MODELS",
