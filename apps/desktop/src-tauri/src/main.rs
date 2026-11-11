@@ -12,9 +12,12 @@ fn main() {
         return;
     }
     // CORE-002: containment must exist before any WebView or helper process.
-    if let Err(step) = containment::establish() {
-        eprintln!("CPU_CONTAINMENT_FAILED ({step})");
-        std::process::exit(1);
+    let code = kohbor_desktop_lib::start_with(
+        containment::establish,
+        kohbor_desktop_lib::run,
+        |message| eprintln!("{message}"),
+    );
+    if code != 0 {
+        std::process::exit(code);
     }
-    kohbor_desktop_lib::run();
 }

@@ -7,6 +7,27 @@ pub mod intake;
 pub mod secrets;
 pub mod status;
 
+/// Runs the application only after containment succeeds.
+///
+/// On failure, reports a sanitized error containing the failed containment step
+/// and returns exit code 1 without launching the UI or sidecar path.
+pub fn start_with(
+    establish: impl FnOnce() -> Result<(), &'static str>,
+    launch: impl FnOnce(),
+    report: impl FnOnce(&str),
+) -> i32 {
+    match establish() {
+        Ok(()) => {
+            launch();
+            0
+        }
+        Err(step) => {
+            report(&format!("CPU_CONTAINMENT_FAILED ({step})"));
+            1
+        }
+    }
+}
+
 use containment::{Sample, Sampler, Throttle};
 use intake::lock;
 use serde_json::Value;
