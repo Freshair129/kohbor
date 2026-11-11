@@ -63,8 +63,8 @@
     },
     {
       "path": "acceptance/spec-validation.json",
-      "bytes": 923,
-      "sha256": "4d37cbed747f432a50b10a4534e65cc43c148f88ecaffc0b9ec6ca08d45b231f"
+      "bytes": 951,
+      "sha256": "5a72b92a758d634bf03c26169a3733b2deb0b703fd346eedfade8254b5494b07"
     },
     {
       "path": "apps/desktop/index.html",
@@ -1287,6 +1287,11 @@
       "sha256": "63d3ba759d12804c5b31a9d5940d855c1820d1f5999e6b0872eb1c7ff045fbc9"
     },
     {
+      "path": "tools/gate.py",
+      "bytes": 18414,
+      "sha256": "607f0a5b6653196375cc5bc72a56a8e6e9acca1cc6ecb7ecbebe4ad4e06d1f3c"
+    },
+    {
       "path": "tools/package-lock.json",
       "bytes": 63274,
       "sha256": "0e172862dc609dddd0c4639a84c6454b716478cd0529d6c82274a37b60795be4"
@@ -1305,6 +1310,11 @@
       "path": "tools/render_requirements.py",
       "bytes": 6643,
       "sha256": "72ed510a260fb8e7b0ce189521d505213006cdad068711b883c1fda67d0ea7e4"
+    },
+    {
+      "path": "tools/update_manifest.py",
+      "bytes": 11699,
+      "sha256": "0c5aed902493b0d6f505b6063926afcffef6a30c0a5078395a5d041099a311d2"
     },
     {
       "path": "tools/validate_spec.py",
