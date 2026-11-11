@@ -5,7 +5,7 @@
 Closed the documentation gaps blocking M2 (events, audio and media). Every addition is a **proposal** under DEC-EVENT-AUDIO. The single new product behavior, health danger, was approved as proposed by the product owner on 2026-11-11 (DEC-HEALTH-DANGER). Nothing else has been approved, and nothing has been executed.
 
 - Added [EVENT-AUDIO-SPEC](../design/EVENT-AUDIO-SPEC.md):
-  - **Canonical event catalog:** 17 production event IDs plus a test-only `latency_probe`, with ranks, tunables, detectors, milestones and th/en labels. Baselines and resumes never replay achievements.
+  - **Canonical event catalog:** 17 production event IDs plus a test-only `latency_probe`, with ranks, tunables, detectors, milestones and th/en labels. Baselines and resumes never replay achievements. The product owner confirmed the ordinary ranks not fixed by MP-02 on 2026-11-11.
   - **Health danger:** approved as proposed on 2026-11-11 and pinned by six golden traces (`fixtures/health-danger-golden.json`, replayed by the validator). It is audible only once verified critical media exists.
   - **Audio priority:** five classes (critical, correction, notice, ordinary, voice) with an incoming-versus-active preemption matrix.
   - **Prewarm and critical readiness rules.**

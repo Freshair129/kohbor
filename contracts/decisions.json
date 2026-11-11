@@ -48,7 +48,7 @@
       "blocks": "M2 exit: event catalog freeze, ordinary arbitration, audio priority/preemption, outcome history, media decode checks and install contracts",
       "owner_role": "integration owner (builder-delegated); product owner acknowledges mute semantics",
       "safe_interim": "Implement against docs/design/EVENT-AUDIO-SPEC.md and contracts/event-catalog.json. Events whose detector assumption (E-1, E-2) is unconfirmed stay unavailable; latency_probe evidence is engineering-only.",
-      "closure_evidence": "Capture corpus confirming E-1/E-2 (or affected events left unavailable), reviewed catalog/contracts/fixtures, priority-matrix and preemption fixtures. Mute-semantics acknowledgement: recorded 2026-11-11 (owner_acknowledgements).",
+      "closure_evidence": "Capture corpus confirming E-1/E-2 (or affected events left unavailable), reviewed catalog/contracts/fixtures, priority-matrix and preemption fixtures. Mute semantics and ordinary ranks: acknowledged 2026-11-11 (owner_acknowledgements).",
       "proposed_on": "2026-11-11",
       "proposal_ref": "docs/design/EVENT-AUDIO-SPEC.md",
       "related": [
@@ -63,6 +63,13 @@
           "acknowledged_on": "2026-11-11",
           "channel": "Owner reply in the engineering chat session that prepared spec 0.3.3",
           "scope": "Mute semantics in EVENT-AUDIO-SPEC section 4 only; does not approve DEC-EVENT-AUDIO as a whole or DEC-HEALTH-DANGER."
+        },
+        {
+          "topic": "Ordinary ranks not fixed by MP-02: hero_death 50, level_milestone 40, health_low 30, mana_low 20, match_ended 15, match_started 10 (below the fixed multi_kill 90 > streak 80 > first_blood 70 > hero_kill 60).",
+          "acknowledged_by": "product_owner",
+          "acknowledged_on": "2026-11-11",
+          "channel": "Owner reply in the engineering chat session that prepared spec 0.3.3",
+          "scope": "Ordinary rank values only; does not approve DEC-EVENT-AUDIO as a whole."
         }
       ]
     },

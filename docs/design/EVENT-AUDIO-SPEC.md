@@ -67,7 +67,7 @@ Taxonomy version `1.0`:
 | `clip_requested` | recording | manual | M4b | — | no | Recorder marker |
 | `latency_probe` | test | native | M2 | — | test only | Engineering latency fixture. Excluded from production catalogs, mappings, history and `event.schema` |
 
-**Rank provenance.** MP-02 fixes multi-kill > streak > first blood > ordinary kill. Every other rank is a proposal under DEC-EVENT-AUDIO.
+**Rank provenance.** MP-02 fixes multi-kill > streak > first blood > ordinary kill. The product owner confirmed the remaining ranks as proposed on 2026-11-11: death 50, level milestone 40, low health 30, low mana 20, match ended 15, match started 10.
 
 **Arbitration.** Ordinary arbitration (MEDIA-002) runs once per admitted GSI tick:
 
@@ -213,5 +213,6 @@ The Windows transport framing (named pipe, 16 KiB frames, handshake) stays with 
 - **DEC-EVENT-AUDIO** closes when:
   - E-1 and E-2 are confirmed from the capture corpus, or the affected events stay unavailable;
   - the catalog, contracts and fixtures are reviewed;
-  - the product owner acknowledges the mute semantics in §4 (done: acknowledged 2026-11-11; recorded in contracts/decisions.json).
+  - the product owner acknowledges the mute semantics in §4 (done: acknowledged 2026-11-11; recorded in contracts/decisions.json);
+  - the product owner confirms the ordinary ranks not fixed by MP-02 (done: confirmed 2026-11-11).
 - **DEC-HEALTH-DANGER** is **decided**: the owner approved §3 as proposed on 2026-11-11. The catalog status is `active`, and the golden traces (burst, slow drain, stale sample, death/cooldown, inclusive boundary) are in fixtures. Audible use still depends on verified critical media (DEC-CRITICAL-MEDIA).

@@ -68,8 +68,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 10956,
-      "sha256": "f0718e3bc6a11726553e12ea69f0f5754c8c66c4e62930f0016c3c3cfddeff53"
+      "bytes": 11489,
+      "sha256": "6d8c8ed4232c3c63d28f9f8246497d17095ed23bf29d30e7372defc872f3eb6c"
     },
     {
       "path": "contracts/error-catalog.json",
@@ -178,8 +178,8 @@
     },
     {
       "path": "docs/design/EVENT-AUDIO-SPEC.md",
-      "bytes": 16405,
-      "sha256": "a46e19e4cd5d1de77cadd02ef8dd409286443d219635a2f03310de52623f9b0f"
+      "bytes": 16617,
+      "sha256": "7ff11bf244e31a9bbef403a2c2ceb07dc7c19e94fe4e470b0cb75a83f4c34194"
     },
     {
       "path": "docs/design/GSI-INTAKE-SPEC.md",
@@ -418,13 +418,13 @@
     },
     {
       "path": "docs/governance/CHANGELOG.md",
-      "bytes": 10281,
-      "sha256": "d0b7d78e314b9605c8e1acc629a5f00738c1608cf5dd1f227f75f26fd5e797fe"
+      "bytes": 10362,
+      "sha256": "7663bbd403bee2db88fb9606e1e31f64cadae970e77e8fb53b57fd1417c9d278"
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 9638,
-      "sha256": "3d1756e491f7344a37889c75fad99a44be7e4700e16cf37533a625396edccd66"
+      "bytes": 9784,
+      "sha256": "9f463d1108e8b15d8e424d7cd0891e2631fa1b63bf1a70f8e33a78c8e9cf86e5"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
