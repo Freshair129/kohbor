@@ -1,6 +1,6 @@
 {
-  "schema_version": "1.0.0",
-  "taxonomy_version": "1.0",
+  "schema_version": "1.1.0",
+  "taxonomy_version": "1.1",
   "status": "proposed",
   "decision": "DEC-EVENT-AUDIO",
   "spec_ref": "docs/design/EVENT-AUDIO-SPEC.md",
@@ -35,7 +35,12 @@
           "max": 5,
           "unit": "count"
         }
-      }
+      },
+      "tier_range": {
+        "min": 2,
+        "max": 5
+      },
+      "note": "Chain rule, as in Dota 2: an own kill no more than window_ms after the previous own kill extends the run; an own death does not end it. Tier = run length, capped at 5 (EVENT-AUDIO-SPEC section 2)."
     },
     {
       "id": "streak",
@@ -60,7 +65,12 @@
           "max": 10,
           "unit": "count"
         }
-      }
+      },
+      "tier_range": {
+        "min": 3,
+        "max": 10
+      },
+      "note": "Follows the game's kill streak: own kills since the last own death. Tier = that count, capped at 10. The detector prefers player.kill_streak (assumption E-3, EVENT-AUDIO-SPEC section 2)."
     },
     {
       "id": "first_blood",
@@ -264,7 +274,7 @@
         "th": "เกิดใหม่"
       },
       "tunables": {},
-      "note": "Detected and recorded; unvoiced and unmappable in taxonomy 1.0 (MEDIA-003)."
+      "note": "Detected and recorded; unvoiced and unmappable in taxonomy 1.x (MEDIA-003)."
     },
     {
       "id": "health_danger",

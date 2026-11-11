@@ -64,7 +64,7 @@
     {
       "path": "acceptance/spec-validation.json",
       "bytes": 923,
-      "sha256": "24ccdd21b17c7be218c3fa70691ae47fdcd35836538a00fc7553aa2519a36f6f"
+      "sha256": "61b2e95c7d55ae05fb4358c7dec8724c81fe3338a4a8a7da8879d2f7be1f7ed3"
     },
     {
       "path": "apps/desktop/index.html",
@@ -303,8 +303,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 15256,
-      "sha256": "173e8e43c8fe85148034629978ac4c9db8ac52913e3ea7a537f92a2edcd3a429"
+      "bytes": 16798,
+      "sha256": "c44d79b5ec3fb7f51b7ea5e69b997eead7f39933c1692bd7bab54da318bc0e04"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -318,13 +318,13 @@
     },
     {
       "path": "contracts/event-catalog.json",
-      "bytes": 12069,
-      "sha256": "104c512923584498b37f9b9d5b79a1357d116937fb0a5f542d2b2269cfdce51b"
+      "bytes": 12620,
+      "sha256": "7699918ef2bfacf3c06f8cdeb82f34eb5e47694fda71599356dcf7a9d50517b2"
     },
     {
       "path": "contracts/event-catalog.schema.json",
-      "bytes": 5331,
-      "sha256": "2f99b5ce632524c4a1a7b2dc1a116e0a2cf7bcf41706a7addd5c1b48b106dfa0"
+      "bytes": 5906,
+      "sha256": "3203b3a1ff65e0ef1aba255c3658ddd9d48cc948aa15acd47b999473cdfaab67"
     },
     {
       "path": "contracts/event.schema.json",
@@ -348,8 +348,8 @@
     },
     {
       "path": "contracts/media-manifest.schema.json",
-      "bytes": 3707,
-      "sha256": "ff9b2407b95fe1f94688b23e15da53098e137eb7237ae3c3b69e737caa7fd7ce"
+      "bytes": 3884,
+      "sha256": "cc6ec0d7414f9f8597269373a11d56f20b9f33c78745849b7fa3cfe70d0f9a89"
     },
     {
       "path": "contracts/own-snapshot.schema.json",
@@ -538,8 +538,8 @@
     },
     {
       "path": "docs/design/EVENT-AUDIO-SPEC.md",
-      "bytes": 17088,
-      "sha256": "a3b4230850df587da5392aab12fac2aa06735e82ce9b9ef9f80f3bb793ff7e43"
+      "bytes": 21555,
+      "sha256": "a3f4ada1b93a7fa097ca0239ec3b914d0d60478b3d2848dfb4aff6161dc7cf41"
     },
     {
       "path": "docs/design/GSI-INTAKE-SPEC.md",
@@ -808,13 +808,13 @@
     },
     {
       "path": "docs/governance/CHANGELOG.md",
-      "bytes": 16646,
-      "sha256": "8b6dc24e5480f781bbaf6c40517b8a52c03df8bf1210d2d0cbfe02fef3707451"
+      "bytes": 17379,
+      "sha256": "1bd23635d7e95d2839fcba7eccd061b3407476a2e0fcc5559b9c220aa6c62cad"
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 11286,
-      "sha256": "739d4824da0668417edc88f790cdf153b1831c37e1e27e19bbb3c6d496889ffd"
+      "bytes": 11660,
+      "sha256": "90b7729d14805c8193a08cbe9bd822089fa9e292140b370d207232687770120f"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
@@ -924,12 +924,17 @@
     {
       "path": "fixtures/event-catalog-bad-rearm.json",
       "bytes": 11982,
-      "sha256": "8a667ab7e0e174d8229e9772f963eae0c58f28fbeefeee7b7ad20a14b5d9db18"
+      "sha256": "1bdcea3733cd401c2d7a3fb4490df363cbc7812a1f5cee180b159a65ae4dc7b6"
+    },
+    {
+      "path": "fixtures/event-catalog-bad-tier-range.json",
+      "bytes": 12620,
+      "sha256": "750bc901f29802872e12cfaace8f8fa001d1cb591c12632f8d4537eddad37f31"
     },
     {
       "path": "fixtures/event-catalog-duplicate-rank.json",
       "bytes": 11982,
-      "sha256": "0560532dc63866296eb3ebdda90844ebcc7a28d20041073b2088dd2004703b3b"
+      "sha256": "52cd254a772b1a79ee274ad20d39fe27e12dbe4a1ae06f2e7a44a467d1e7400c"
     },
     {
       "path": "fixtures/event-disallowed-scope.json",
@@ -973,18 +978,18 @@
     },
     {
       "path": "fixtures/index.json",
-      "bytes": 15342,
-      "sha256": "80759af58fcbf3c2e6a9f247ae6cb7f61370d1b4451fbfd2a5cd64d90e3d7c2f"
+      "bytes": 16840,
+      "sha256": "660853881ba14b2012fc68368e14a2e4d699b883da6285b5cae1f220acb1f06e"
     },
     {
       "path": "fixtures/media-binding-role-mismatch.json",
       "bytes": 782,
-      "sha256": "9b021aa525fbc5845ddcb6eb7e4289d72c3d947d1c1bc4303230556cf492e68b"
+      "sha256": "f6b086b6895f95bf017a4470123368bd8f3a1b3f61733ceea8abc96dff04aebe"
     },
     {
       "path": "fixtures/media-identity-audio-binding.json",
       "bytes": 1030,
-      "sha256": "b1297ea24d6c5e7715028b0033a8b0f0344d6456cb2f0e2c873e2d7bbf42641c"
+      "sha256": "646e062cd4b675c014c0a68dfd99364d402dd2f88bdf83d5f7036d250701a38d"
     },
     {
       "path": "fixtures/media-install-request-bad-policy.json",
@@ -1014,17 +1019,37 @@
     {
       "path": "fixtures/media-metadata-example.json",
       "bytes": 781,
-      "sha256": "a7a5f9a38e73de22cf82cb6e01f39e9166a0306313d6911cbb51efa87a5ed11d"
+      "sha256": "c96b587d311eb2ab110c62e7a7c03ed28cccdcc6737af10d41618e0134ddec72"
     },
     {
       "path": "fixtures/media-self-trust-field.json",
       "bytes": 832,
-      "sha256": "f50caa43ebc3a7daa693d8128af35b2e77098c85a2983c3f3a211a260e707254"
+      "sha256": "57c0846611ba3c4247057140c93af86f9d6025c8266bdb9a2034c75ccf077b54"
+    },
+    {
+      "path": "fixtures/media-tier-duplicate.json",
+      "bytes": 1377,
+      "sha256": "d7d72eadc9b2a73545474db81eefaf58198de33a3af10bb8db084d0b4a916a12"
+    },
+    {
+      "path": "fixtures/media-tier-out-of-range.json",
+      "bytes": 802,
+      "sha256": "592df2d20cc2aa1df6125d1c39751b4c95d3ec77c944546aab5f2bfe5ee35d7f"
+    },
+    {
+      "path": "fixtures/media-tier-untiered-event.json",
+      "bytes": 803,
+      "sha256": "38a13f616d5d7f7a27eeac10c247cae674eb7a7cc47667a6469f40aea74ad5a2"
+    },
+    {
+      "path": "fixtures/media-tiered-bindings-valid.json",
+      "bytes": 2502,
+      "sha256": "10f6e1a897625ea0123d665bb230bedc7a1a23d934c0388193663cd442d9afa9"
     },
     {
       "path": "fixtures/media-traversal-semantic.json",
       "bytes": 787,
-      "sha256": "7690b4d2e95f1e39c74d5b55d62a8cbda2be8557a68c2caebbc439685e948ea2"
+      "sha256": "7a612dcebc405fd8221b3769994b2e542af10374f9c0a57e4bd2def595504809"
     },
     {
       "path": "fixtures/own-field-estimated-rejected.json",
@@ -1268,8 +1293,8 @@
     },
     {
       "path": "tools/validate_spec.py",
-      "bytes": 16701,
-      "sha256": "9004aaa419331c8e91c115eb3a1530cc12e06a783f009e8af2f0bfadcf3dd489"
+      "bytes": 17352,
+      "sha256": "3f2fe6ad06f080b8063614e0d37f9ee1471c1c2b99fd1e18ceceae3f560764c6"
     }
   ],
   "product_name": "Kohbor",
