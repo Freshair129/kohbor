@@ -2,7 +2,7 @@
 title: "Nonfunctional Requirements and Measurement Specification"
 doc_id: "NFR"
 status: "draft"
-version: "0.3.5"
+version: "0.3.6"
 updated: "2026-11-11"
 owner: "Product Owner"
 approval_status: "not_approved"

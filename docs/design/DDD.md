@@ -2,7 +2,7 @@
 title: "Data Design Description (DDD)"
 doc_id: "DDD"
 status: draft
-version: "0.3.5"
+version: "0.3.6"
 updated: "2026-11-11"
 authority: "DEC-BASELINE; see DOCUMENT-CONTROL"
 owner_role: "Data engineering owner; people not assigned"

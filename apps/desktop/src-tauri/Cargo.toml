@@ -1,0 +1,39 @@
+[package]
+name = "kohbor-desktop"
+description = "Kohbor desktop host (Tauri v2): containment, game-state intake, runtime status."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "kohbor_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "=2.7.4", features = [] }
+
+[dependencies]
+kohbor-gsi = { path = "../../../crates/kohbor-gsi" }
+tauri = { version = "=2.12.5", features = [] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+getrandom = { workspace = true }
+base64 = { workspace = true }
+sha2 = { workspace = true }
+tiny_http = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.56.0"
+windows = { version = "=0.61.3", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_Security_Cryptography",
+  "Win32_System_JobObjects",
+  "Win32_System_ProcessStatus",
+  "Win32_System_Threading",
+] }
+
+[dev-dependencies]
+jsonschema = { version = "=0.59.0", default-features = false }

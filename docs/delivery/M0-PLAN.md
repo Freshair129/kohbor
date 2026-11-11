@@ -2,7 +2,7 @@
 title: "M0 Plan and Status"
 doc_id: "M0-PLAN"
 status: draft
-version: "0.3.5"
+version: "0.3.6"
 updated: "2026-11-11"
 authority: "DEC-BASELINE; SDP milestone M0; PROMPT.md first deliverable"
 owner_role: "Engineering lead (builder)"
@@ -66,7 +66,7 @@ The four groupings:
 | Item | Value | Basis |
 | --- | --- | --- |
 | Rust | **1.96.0** (stable, MSVC); `rust-toolchain.toml` | Measured on the build machine; the workspace builds, tests, and passes `clippy -D warnings` and `rustfmt` |
-| Rust crates | serde 1, serde_json 1, sha2 0.10, hmac 0.12, getrandom 0.2, base64 0.22, tiny_http 0.12, winreg 0.56 (spike), jsonschema 0.61.1 (tests only) | Locked by `Cargo.lock` |
+| Rust crates | serde 1, serde_json 1, sha2 0.10, hmac 0.12, getrandom 0.2, base64 0.22, tiny_http 0.12, winreg 0.56 (spike), jsonschema =0.59.0 (tests only) | Locked by `Cargo.lock` |
 | Tauri | **v2 line**. The exact crate version is pinned at the M1 scaffold, to match `@tauri-apps/cli` 2.12.4 (current npm stable) | SAD §4 baseline. Tauri 3.0 is alpha on crates.io and is **not** adopted without an ADR |
 | Node.js | 24.20.0 | Measured |
 | pnpm | Not installed. Pin via `packageManager` (current 12.18.0) and corepack at the M1 scaffold | SAD §4 baseline |
@@ -185,7 +185,7 @@ The redacted corpus feeds the fixtures that close DEC-GSI-INTAKE.
 | Item | Blocks |
 | --- | --- |
 | Remaining capture cases: spectate/replay (A-6), a Turbo match (A-9), first blood by self (E-1), explicit unit/courier selection (A-8), a second Steam account (A-7) | DEC-GSI-INTAKE closure and the M1 exit |
-| Pin Tauri and pnpm by scaffolding the host app | M1 start |
+| ~~Pin Tauri and pnpm by scaffolding the host app~~: done 2026-11-11 ([M1 Status](M1-STATUS.md)) | — |
 | Review of this plan | — |
 
 No unresolved choice has been disguised as code. Where an assumption is unconfirmed, the code yields `unsupported`, `unknown` or `unverified`, never a value.

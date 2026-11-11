@@ -1,5 +1,23 @@
 # Documentation Changelog
 
+## 0.3.6 — 2026-11-11
+
+M1 has started. The first host slice is in `apps/desktop` (Tauri v2); details in [M1 Status](../delivery/M1-STATUS.md).
+
+- **Pins:** Tauri 2.12.5 (CLI/API 2.12.4), pnpm 12.18.0 through corepack, React 19.3.1, Vite 8.3.5, @vitejs/plugin-react 6.1.2, TypeScript 7.0.2, windows 0.61.3 and jsonschema =0.59.0 (tests only).
+- **Supply-chain policy:** pnpm `minimumReleaseAge` is 14 days (`apps/desktop/pnpm-workspace.yaml`). Versions published within the window were downgraded.
+- **Containment:** a Job Object with a 10% hard cap, set up before the WebView starts, plus a per-second sampler and soft throttle.
+- **Secrets:** DPAPI protects the intake token and the installation key.
+- **Owned GSI config:** setup skips ports claimed by other configs and never overwrites a changed file.
+- **Intake server:** loopback only, body limit, strict JSON, token check and rate cap.
+- **Read model:** `runtime_get_status` and `own_snapshot` commands, and the Command Deck Overview UI.
+- **Ran on the development machine:**
+  - 33 tests pass and clippy is clean;
+  - the release build succeeds;
+  - the host and all 6 WebView2 processes were confirmed inside the job, with about 381 MB Working Set.
+- **Not run:** live-game, certified-matrix and acceptance runs.
+- **RTM:** `implementation_refs` added for CORE-001/002/004/005, DATA-001..004 and QUALITY-002.
+
 ## 0.3.5 — 2026-11-11
 
 M0 has started. This release adds the first source code. Application evidence beyond source and synthetic tests remains NOT_RUN.

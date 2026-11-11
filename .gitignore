@@ -21,3 +21,6 @@ Thumbs.db
 
 # Local spike output (may contain gameplay data)
 spike-out/
+
+# Tauri generated schemas
+apps/desktop/src-tauri/gen/

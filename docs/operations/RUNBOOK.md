@@ -2,7 +2,7 @@
 title: "Operations and Release Runbook"
 doc_id: "RUNBOOK"
 status: draft
-version: "0.3.5"
+version: "0.3.6"
 updated: "2026-11-10"
 authority: "DEC-BASELINE; see DOCUMENT-CONTROL"
 owner_role: "Operations owner; people not assigned"
