@@ -2,7 +2,7 @@
 title: "Document Control and Baseline Governance"
 doc_id: "DOCUMENT-CONTROL"
 status: draft
-version: "0.3.3"
+version: "0.3.4"
 updated: "2026-11-11"
 owner_role: "Product owner and engineering lead; people not assigned"
 approval_status: "not_approved"
@@ -33,7 +33,7 @@ Accepted decisions must be incorporated into every affected artifact. A contradi
 
 [product-needs.json](../../contracts/product-needs.json) mirrors the stable PRD need IDs and requirement mappings. [decisions.json](../../contracts/decisions.json) records the open-decision data used with the decision log. These records must agree with their human documents.
 
-The requirements registry format is 1.3.0: 1.2.0 added diagram references and 1.3.0 adds the planning field `target_milestone`. Version 0.3.2 changes one runtime schema incompatibly (own-snapshot 1.0.0 → 2.0.0, per-field availability) and adds runtime-status, user-settings and settings-patch 1.0.0; no application has shipped, so no reader of the retired version exists. Version 0.3.3 changes event.schema incompatibly (1.0.0 → 2.0.0: `instance_id`, `session_id`, catalog-bound `event_type`, closed payload additions), advances media-manifest to 1.1.0 (optional `identity_audio_path`) and adds event-catalog, audio-outcome and media-install request/result 1.0.0. The evidence-support schema pins this package's spec version, 0.3.3; this is a baseline binding, not a new application wire protocol.
+The requirements registry format is 1.3.0: 1.2.0 added diagram references and 1.3.0 adds the planning field `target_milestone`. Version 0.3.2 changes one runtime schema incompatibly (own-snapshot 1.0.0 → 2.0.0, per-field availability) and adds runtime-status, user-settings and settings-patch 1.0.0; no application has shipped, so no reader of the retired version exists. Version 0.3.3 changes event.schema incompatibly (1.0.0 → 2.0.0: `instance_id`, `session_id`, catalog-bound `event_type`, closed payload additions), advances media-manifest to 1.1.0 (optional `identity_audio_path`) and adds event-catalog, audio-outcome and media-install request/result 1.0.0. Version 0.3.4 adds the DEC-VISUALS proposal and contracts/design-tokens.json 0.1.0 without changing runtime schemas. The evidence-support schema pins this package's spec version, 0.3.4; this is a baseline binding, not a new application wire protocol.
 
 ## 3. Controlled vocabulary
 
@@ -76,7 +76,7 @@ Before approving a baseline, review product scope, requirement completeness/test
 | Optional services/commercial authority | Extension/deferred boundaries | Explicit contract, service ownership and authorization |
 | App validation and distribution | NOT_RUN, not approved | Required native/live/acoustic/resource receipts and release decision |
 
-The 85 rows are the registered inventory, not a proof that every possible source behavior has been extracted. Design annexes elaborate these rows; review any unmatched normative clause as a coverage gap before claiming completeness. Do not expand scope to resolve a documentation ambiguity.
+The 87 rows are the registered inventory, not a proof that every possible source behavior has been extracted. Design annexes elaborate these rows; review any unmatched normative clause as a coverage gap before claiming completeness. Do not expand scope to resolve a documentation ambiguity.
 
 ## 6. Reading conventions and standards
 

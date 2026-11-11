@@ -2,7 +2,7 @@
 title: "Security and Privacy Specification"
 doc_id: "SECURITY-PRIVACY"
 status: "draft"
-version: "0.3.3"
+version: "0.3.4"
 updated: "2026-11-10"
 owner: "Product Owner"
 approval_status: "not_approved"
@@ -72,6 +72,8 @@ Bound the initial service: five members including owner; four-hour room lifetime
 Use one asynchronous request in flight, outside telemetry and critical-warning paths. Nominal sync cadence is 500 ms, request timeout 1,500 ms and bounded transient retry 0.5–5 seconds. After a transport failure, successfully publish a null scope/sample probe before resuming stats. Duplicate/regressed sequence numbers and obsolete room generations are rejected.
 
 Age accumulates conservatively from source age, publisher upload bound, relay elapsed time, complete receiver round-trip time and local UI elapsed time. Use monotonic durations, not wall-clock comparison between computers. Live age is at most 2,000 ms; older data becomes null/stale. Polling cannot refresh an old observation. The UI expires data even if its event stream stops.
+
+Ability and cooldown sharing (PEER-010, DEC-PEER-ABILITIES) uses its own opt-in `abilities` scope, off by default, and its own closed DTO. Vitals consent never implies it. Withdrawing the scope stops publication and clears received ability state.
 
 Leave immediately clears local credentials and peer state and invalidates pending work; remote deletion is best effort. Owner leave/expiry closes the room. Invitation rotation blocks future use of the old generation but does not evict current members; kick and rotation are distinct operations. Relay restart clears its memory. Never promise instantaneous remote erasure during a disconnection.
 

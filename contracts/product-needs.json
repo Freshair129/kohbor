@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "spec_version": "0.3.3",
+  "spec_version": "0.3.4",
   "status": "draft",
   "needs": [
     {
@@ -74,7 +74,7 @@
       "id": "PN-005",
       "title": "Readable unobtrusive match interface",
       "actor": "Player in a match",
-      "need": "Read the field at a glance and inspect by choice through an accessible interface that preserves game performance and input.",
+      "need": "Read the field at a glance, including from peripheral vision on a second screen, and inspect by choice through an accessible interface that preserves game performance and input.",
       "outcome": "The control window and passive overlay display honest states with stable layout, focus behavior and verified resource limits.",
       "requirement_ids": [
         "UI-001",
@@ -83,6 +83,7 @@
         "UI-004",
         "UI-005",
         "UI-006",
+        "UI-008",
         "CORE-002",
         "QUALITY-002",
         "QUALITY-003"
@@ -135,9 +136,9 @@
     },
     {
       "id": "PN-009",
-      "title": "Deliberate cooperative vitals sharing",
+      "title": "Deliberate cooperative vitals and ability sharing",
       "actor": "Consenting teammate",
-      "need": "Share narrow own-player vitals within the correct room, match and team, inspect freshness and leave predictably.",
+      "need": "Share narrow own-player vitals, and under a separate scope own ability cooldowns, within the correct room, match and team, inspect freshness and leave predictably.",
       "outcome": "Fresh consent and verified membership govern transient peer data; bounded native transport and cancellation preserve local alerts and privacy.",
       "requirement_ids": [
         "PEER-001",
@@ -148,7 +149,8 @@
         "PEER-006",
         "PEER-007",
         "PEER-008",
-        "PEER-009"
+        "PEER-009",
+        "PEER-010"
       ]
     },
     {

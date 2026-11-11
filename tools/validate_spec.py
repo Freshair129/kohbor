@@ -228,9 +228,9 @@ def main():
     hd=parsed["fixtures/health-danger-golden.json"]
     hd_passed=0
     prm=hd["parameters"]
-    for trace in hd["traces"]:
+    for hd_trace in hd["traces"]:
         armed=True;last_cue=None;cues=[];window=[]
-        for sample in trace["samples"]:
+        for sample in hd_trace["samples"]:
             t=sample["t_ms"]
             if not sample["alive"]:
                 armed=True;window=[];continue
@@ -241,7 +241,7 @@ def main():
             drop=max(wp for _,wp in window)-pct
             if armed and pct<=prm["max_hp_percent"] and drop>=prm["drop_points"] and (last_cue is None or t-last_cue>=prm["cooldown_ms"]):
                 cues.append(t);last_cue=t;armed=False
-        if cues!=trace["expected_cue_t_ms"]:errors.append("Health-danger golden trace mismatch: "+trace["id"])
+        if cues!=hd_trace["expected_cue_t_ms"]:errors.append("Health-danger golden trace mismatch: "+hd_trace["id"])
         else:hd_passed+=1
     result={
       "status":"FAIL" if errors else ("PASS" if jsonschema else "PARTIAL"),

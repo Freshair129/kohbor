@@ -220,10 +220,10 @@ Feature: Brand-neutral desktop companion target behavior
     And failure behavior is: Native safe-area/focus behavior needs measured evidence.
 
   @UI-002 @mvp
-  Scenario: AC-UI-002 Stable live-field topology
+  Scenario: AC-UI-002 Session monitor field topology
     Given frozen data and viewport while inspector/feed/tier changes
     When layout transitions run
-    Then map x/y/width/height remain within 1 CSS px and no page-level scroll is introduced
+    Then map x/y/width/height remain within 1 CSS px, the map stays the largest region, and no page-level scroll is introduced
     And failure behavior is: Use bounded subregion scrolling; do not shrink text to hide overflow.
 
   @UI-003 @mvp
@@ -260,6 +260,13 @@ Feature: Brand-neutral desktop companion target behavior
     When wall time passes
     Then timers freeze and cannot become observed-ready from browser time
     And failure behavior is: Reviewed enemy ULT/BKB/TP timer scope, at most 15 keys; arbitrary fixture timers remain tests.
+
+  @UI-008 @mvp
+  Scenario: AC-UI-008 Peripheral threat salience
+    Given the session monitor shows a live field with valid capture
+    When a critical warning is admitted, then revised, and capture later becomes stale
+    Then the map frame and banner enter the critical state within the same admission, clear on revision or expiry, and the stale state dims and labels the map instead of keeping live markers
+    And failure behavior is: Routine updates never flash or pulse; no motion is derived from predicted paths, decay or unobserved data; reduced motion replaces animation with static emphasis.
 
   @VOICE-001 @mvp
   Scenario: AC-VOICE-001 Explicit microphone consent
@@ -435,6 +442,13 @@ Feature: Brand-neutral desktop companion target behavior
     When data routing is checked
     Then the route is denied and samples are not written to logs or AI
     And failure behavior is: Friendship/premium/cloud consent cannot expand recipients.
+
+  @PEER-010 @extension
+  Scenario: AC-PEER-010 Separate-scope ability and cooldown sharing
+    Given a teammate shares vitals but has not granted the abilities scope, and another teammate has granted both
+    When the receiver renders both allied cards
+    Then the first shows vitals with a not-shared skill row and no ability payload was transmitted; the second shows only admitted ability levels and cooldowns with their age, and withdrawing the scope clears them
+    And failure behavior is: Without the abilities scope nothing is sent or shown; unknown cooldown stays unknown; cooldown zero is not shown as ready; no item, position, enemy or selected-unit data.
 
   @SOCIAL-001 @extension
   Scenario: AC-SOCIAL-001 Optional account boundary

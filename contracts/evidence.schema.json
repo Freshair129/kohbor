@@ -13,7 +13,7 @@
       "minLength": 1
     },
     "spec_version": {
-      "const": "0.3.3"
+      "const": "0.3.4"
     },
     "requirement_ids": {
       "type": "array",

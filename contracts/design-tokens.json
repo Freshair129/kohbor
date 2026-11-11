@@ -1,0 +1,54 @@
+{
+  "schema_version": "0.1.0",
+  "status": "proposed",
+  "decision": "DEC-VISUALS",
+  "spec_ref": "docs/design/VISUAL-DESIGN-PROPOSAL.md",
+  "note": "Proposed tokens shared by the Command Deck (control window) and the gameplay overlay. Sizes marked needs_measurement must be confirmed on the supported Windows/DPI matrix before visual acceptance.",
+  "color": {
+    "ground": "#0E1116",
+    "surface": "#161B22",
+    "raised": "#1D2430",
+    "line": "#2A3341",
+    "line_subtle": "#222A36",
+    "text": "#E6EAF0",
+    "text_secondary": "#C3CBD6",
+    "text_muted": "#9AA6B5",
+    "accent": "#3CC8B4",
+    "accent_surface": "#12302C",
+    "ally": "#6CA8FF",
+    "enemy": "#FF8A4C",
+    "critical": "#FF5A4A",
+    "on_critical": "#1A0B08",
+    "warning": "#F2B544",
+    "warning_surface": "#2B2414",
+    "stale": "#6B7686",
+    "overlay_panel": "rgba(14, 17, 22, 0.82)"
+  },
+  "typography": {
+    "family_ui": "IBM Plex Sans Thai",
+    "family_numeric": "IBM Plex Mono",
+    "scale_px": {"display": 28, "title": 20, "heading": 16, "body": 14, "caption": 12},
+    "weights": {"regular": 400, "medium": 500, "semibold": 600, "bold": 700},
+    "minimum_caption_px": {"value": 12, "needs_measurement": true}
+  },
+  "space_px": [4, 8, 12, 16, 20, 24, 32],
+  "radius_px": {"chip": 6, "control": 8, "card": 10, "banner": 12},
+  "target_px": {"minimum_interactive": {"value": 44, "needs_measurement": true}},
+  "state_encoding": {
+    "fresh": {"border": "accent solid", "glyph": "filled dot", "label": "สด"},
+    "stale": {"border": "stale dashed", "glyph": "hollow dot", "label": "ข้อมูลเก่า"},
+    "unknown": {"border": "line solid", "glyph": "em dash", "label": "ยังไม่มีข้อมูล"},
+    "unavailable": {"border": "line solid", "glyph": "cross", "label": "ใช้ไม่ได้"},
+    "estimated": {"border": "ally solid", "glyph": "approx", "label": "คาดว่าพร้อม"},
+    "catalog_only": {"border": "line solid", "glyph": "REF", "label": "ข้อมูลอ้างอิง"},
+    "critical": {"fill": "critical", "glyph": "warning triangle", "text": "on_critical"}
+  },
+  "layout": {
+    "control_stage_px": [1420, 760],
+    "control_canvas_px": [1280, 720],
+    "nav_rail_px": 216,
+    "live_field_columns_px": [232, "1fr", 300],
+    "live_field_rows_px": [92, "1fr", 84],
+    "overlay_reference_px": [1920, 1080]
+  }
+}
