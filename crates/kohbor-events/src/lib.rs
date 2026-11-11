@@ -2,8 +2,9 @@
 //!
 //! Pure logic. The caller supplies one [`Tick`] per admitted payload with the
 //! monotonic arrival time already attached; this crate never reads a clock, opens a
-//! file or touches the network. The behaviour behind each function is the S1-3 task;
-//! until then every body is `todo!()` so the S1-1 and S1-2 tests fail red.
+//! file or touches the network.
+
+use std::collections::VecDeque;
 
 /// Catalog events the detector can emit (taxonomy 1.1, contracts/event-catalog.json).
 /// Declaration order is the order in which one tick's events are returned.
@@ -26,27 +27,73 @@ pub enum EventId {
 impl EventId {
     /// Catalog `id` string, for example `"multi_kill"`.
     pub fn as_str(self) -> &'static str {
-        todo!("S1-3")
+        match self {
+            Self::MultiKill => "multi_kill",
+            Self::Streak => "streak",
+            Self::FirstBlood => "first_blood",
+            Self::HeroKill => "hero_kill",
+            Self::HeroDeath => "hero_death",
+            Self::LevelMilestone => "level_milestone",
+            Self::HealthLow => "health_low",
+            Self::ManaLow => "mana_low",
+            Self::MatchEnded => "match_ended",
+            Self::MatchStarted => "match_started",
+            Self::HeroRespawn => "hero_respawn",
+            Self::HealthDanger => "health_danger",
+        }
     }
 
     /// Ordinary rank from the catalog; `None` for unranked events.
     pub fn rank(self) -> Option<u32> {
-        todo!("S1-3")
+        match self {
+            Self::MultiKill => Some(90),
+            Self::Streak => Some(80),
+            Self::FirstBlood => Some(70),
+            Self::HeroKill => Some(60),
+            Self::HeroDeath => Some(50),
+            Self::LevelMilestone => Some(40),
+            Self::HealthLow => Some(30),
+            Self::ManaLow => Some(20),
+            Self::MatchEnded => Some(15),
+            Self::MatchStarted => Some(10),
+            Self::HeroRespawn | Self::HealthDanger => None,
+        }
     }
 
     /// Voiced by default in the catalog (`hero_respawn` is not).
     pub fn voiced(self) -> bool {
-        todo!("S1-3")
+        !matches!(self, Self::HeroRespawn)
     }
 
     /// Catalog category is `critical`.
     pub fn is_critical(self) -> bool {
-        todo!("S1-3")
+        matches!(self, Self::HealthDanger)
     }
 
     /// Catalog `tier_range` as `(min, max)` for tiered events.
     pub fn tier_range(self) -> Option<(u8, u8)> {
-        todo!("S1-3")
+        match self {
+            Self::MultiKill => Some((2, 5)),
+            Self::Streak => Some((3, 10)),
+            _ => None,
+        }
+    }
+
+    fn index(self) -> usize {
+        match self {
+            Self::MultiKill => 0,
+            Self::Streak => 1,
+            Self::FirstBlood => 2,
+            Self::HeroKill => 3,
+            Self::HeroDeath => 4,
+            Self::LevelMilestone => 5,
+            Self::HealthLow => 6,
+            Self::ManaLow => 7,
+            Self::MatchEnded => 8,
+            Self::MatchStarted => 9,
+            Self::HeroRespawn => 10,
+            Self::HealthDanger => 11,
+        }
     }
 }
 
@@ -99,7 +146,19 @@ pub struct Config {
 
 impl Default for Config {
     fn default() -> Self {
-        todo!("S1-3")
+        Self {
+            multi_kill_window_ms: 18_000,
+            levels: vec![6, 12, 18, 25],
+            health_low_threshold_percent: 20,
+            health_low_rearm_percent: 30,
+            mana_low_threshold_percent: 15,
+            mana_low_rearm_percent: 25,
+            danger_max_hp_percent: 25,
+            danger_drop_points: 15,
+            danger_window_ms: 2_000,
+            danger_rearm_percent: 40,
+            danger_cooldown_ms: 20_000,
+        }
     }
 }
 
@@ -114,21 +173,363 @@ pub struct Event {
 
 pub struct Detector {
     _private: (),
+    config: Config,
+    session_epoch: Option<u64>,
+    last_at_ms: Option<u64>,
+    phase: Option<Phase>,
+    kills: Option<u32>,
+    combined_score: Option<u32>,
+    level: Option<u32>,
+    alive: Option<bool>,
+    multi_kill_count: u32,
+    multi_kill_at_ms: Option<u64>,
+    streak_count: u32,
+    first_blood_emitted: bool,
+    health_low_observed: bool,
+    health_low_armed: bool,
+    mana_low_observed: bool,
+    mana_low_armed: bool,
+    danger_armed: bool,
+    danger_last_cue_ms: Option<u64>,
+    danger_samples: VecDeque<HealthSample>,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct HealthSample {
+    at_ms: u64,
+    hp: u32,
+    max_hp: u32,
 }
 
 impl Detector {
     pub fn new() -> Self {
-        todo!("S1-3")
+        Self::with_config(Config::default())
     }
 
-    pub fn with_config(_config: Config) -> Self {
-        todo!("S1-3")
+    pub fn with_config(config: Config) -> Self {
+        Self {
+            _private: (),
+            config,
+            session_epoch: None,
+            last_at_ms: None,
+            phase: None,
+            kills: None,
+            combined_score: None,
+            level: None,
+            alive: None,
+            multi_kill_count: 0,
+            multi_kill_at_ms: None,
+            streak_count: 0,
+            first_blood_emitted: false,
+            health_low_observed: false,
+            health_low_armed: true,
+            mana_low_observed: false,
+            mana_low_armed: true,
+            danger_armed: true,
+            danger_last_cue_ms: None,
+            danger_samples: VecDeque::new(),
+        }
     }
 
     /// Feed one admitted tick. Returns the events it produced, in [`EventId`]
     /// declaration order, at most one event per id.
-    pub fn observe(&mut self, _tick: &Tick) -> Vec<Event> {
-        todo!("S1-3")
+    pub fn observe(&mut self, tick: &Tick) -> Vec<Event> {
+        if !tick.trusted {
+            return Vec::new();
+        }
+
+        if self.session_epoch != Some(tick.session_epoch)
+            || self
+                .last_at_ms
+                .is_some_and(|last_at_ms| tick.at_ms < last_at_ms)
+        {
+            self.set_baseline(tick);
+            return Vec::new();
+        }
+
+        let previous_phase = self.phase;
+        let previous_alive = self.alive;
+        let previous_kills = self.kills;
+        let previous_score = self.combined_score;
+        let previous_level = self.level;
+
+        let died = previous_alive == Some(true) && tick.alive == Some(false);
+        let respawned = previous_alive == Some(false) && tick.alive == Some(true);
+
+        let (kill_delta, kills_regressed) = match (previous_kills, tick.kills) {
+            (Some(previous), Some(current)) if current < previous => (None, true),
+            (Some(previous), Some(current)) => (current.checked_sub(previous), false),
+            _ => (None, false),
+        };
+        let score_regressed = matches!((previous_score, tick.combined_score),
+            (Some(previous), Some(current)) if current < previous);
+        let level_regressed = matches!((previous_level, tick.level),
+            (Some(previous), Some(current)) if current < previous);
+
+        let match_started =
+            previous_phase.is_some_and(|phase| phase != Phase::Live) && tick.phase == Phase::Live;
+        let match_ended = previous_phase.is_some_and(|phase| phase != Phase::PostGame)
+            && tick.phase == Phase::PostGame;
+
+        let mut multi_kill_tier = None;
+        let mut streak_tier = None;
+        let mut first_blood = false;
+        let mut hero_kill = false;
+        if kills_regressed {
+            self.multi_kill_count = 0;
+            self.multi_kill_at_ms = None;
+            self.streak_count = 0;
+        } else if tick.phase == Phase::Live {
+            if let Some(delta) = kill_delta.filter(|delta| *delta > 0) {
+                hero_kill = true;
+
+                let continues_chain = self.multi_kill_at_ms.is_some_and(|last_kill_ms| {
+                    tick.at_ms
+                        .checked_sub(last_kill_ms)
+                        .is_some_and(|elapsed| elapsed <= self.config.multi_kill_window_ms)
+                });
+                let chain_base = if continues_chain {
+                    self.multi_kill_count
+                } else {
+                    0
+                };
+                self.multi_kill_count = chain_base.saturating_add(delta).min(5);
+                self.multi_kill_at_ms = Some(tick.at_ms);
+                if self.multi_kill_count >= 2 {
+                    multi_kill_tier = Some(self.multi_kill_count.min(5) as u8);
+                }
+
+                self.streak_count = self.streak_count.saturating_add(delta).min(10);
+                if self.streak_count >= 3 {
+                    streak_tier = Some(self.streak_count.min(10) as u8);
+                }
+
+                let exact_first_score =
+                    matches!((previous_score, tick.combined_score), (Some(0), Some(1)));
+                let exact_first_kill = matches!((previous_kills, tick.kills), (Some(0), Some(1)));
+                if !self.first_blood_emitted
+                    && !score_regressed
+                    && exact_first_score
+                    && exact_first_kill
+                {
+                    first_blood = true;
+                    self.first_blood_emitted = true;
+                }
+            }
+        }
+
+        // A kill and a death can arrive in one admitted payload. Count the kill
+        // against the pre-death streak, then reset the streak for later kills.
+        if died {
+            self.streak_count = 0;
+            self.health_low_armed = true;
+            self.mana_low_armed = true;
+            self.danger_armed = true;
+            self.danger_samples.clear();
+        }
+
+        let mut level_milestone = false;
+        if !level_regressed {
+            if let (Some(previous), Some(current)) = (previous_level, tick.level) {
+                level_milestone = current > previous
+                    && self
+                        .config
+                        .levels
+                        .iter()
+                        .any(|milestone| previous < *milestone && current >= *milestone);
+            }
+        }
+
+        let mut health_low = false;
+        if respawned {
+            self.health_low_armed = true;
+            self.mana_low_armed = true;
+        }
+        if let Some((hp, max_hp)) = tick.hp.zip(tick.max_hp).filter(|(_, max_hp)| *max_hp > 0) {
+            if !self.health_low_observed {
+                self.health_low_observed = true;
+                self.health_low_armed =
+                    !percent_at_or_below(hp, max_hp, self.config.health_low_threshold_percent);
+            } else {
+                if percent_at_or_above(hp, max_hp, self.config.health_low_rearm_percent) {
+                    self.health_low_armed = true;
+                }
+                if self.health_low_armed
+                    && percent_at_or_below(hp, max_hp, self.config.health_low_threshold_percent)
+                {
+                    health_low = true;
+                    self.health_low_armed = false;
+                }
+            }
+        }
+
+        let mut mana_low = false;
+        if let Some(mana_percent) = tick.mana_percent {
+            if !self.mana_low_observed {
+                self.mana_low_observed = true;
+                self.mana_low_armed = mana_percent > self.config.mana_low_threshold_percent;
+            } else {
+                if mana_percent >= self.config.mana_low_rearm_percent {
+                    self.mana_low_armed = true;
+                }
+                if self.mana_low_armed && mana_percent <= self.config.mana_low_threshold_percent {
+                    mana_low = true;
+                    self.mana_low_armed = false;
+                }
+            }
+        }
+
+        let health_danger = self.observe_health_danger(tick);
+
+        if let Some(value) = tick.kills {
+            self.kills = Some(value);
+        }
+        if let Some(value) = tick.combined_score {
+            self.combined_score = Some(value);
+        }
+        if let Some(value) = tick.level {
+            self.level = Some(value);
+        }
+        if let Some(value) = tick.alive {
+            self.alive = Some(value);
+        }
+        self.phase = Some(tick.phase);
+        self.session_epoch = Some(tick.session_epoch);
+        self.last_at_ms = Some(tick.at_ms);
+
+        let mut events = Vec::with_capacity(12);
+        if let Some(tier) = multi_kill_tier {
+            events.push(event(EventId::MultiKill, Some(tier), tick.at_ms));
+        }
+        if let Some(tier) = streak_tier {
+            events.push(event(EventId::Streak, Some(tier), tick.at_ms));
+        }
+        if first_blood {
+            events.push(event(EventId::FirstBlood, None, tick.at_ms));
+        }
+        if hero_kill {
+            events.push(event(EventId::HeroKill, None, tick.at_ms));
+        }
+        if died {
+            events.push(event(EventId::HeroDeath, None, tick.at_ms));
+        }
+        if level_milestone {
+            events.push(event(EventId::LevelMilestone, None, tick.at_ms));
+        }
+        if health_low {
+            events.push(event(EventId::HealthLow, None, tick.at_ms));
+        }
+        if mana_low {
+            events.push(event(EventId::ManaLow, None, tick.at_ms));
+        }
+        if match_ended {
+            events.push(event(EventId::MatchEnded, None, tick.at_ms));
+        }
+        if match_started {
+            events.push(event(EventId::MatchStarted, None, tick.at_ms));
+        }
+        if respawned {
+            events.push(event(EventId::HeroRespawn, None, tick.at_ms));
+        }
+        if health_danger {
+            events.push(event(EventId::HealthDanger, None, tick.at_ms));
+        }
+        events
+    }
+
+    fn set_baseline(&mut self, tick: &Tick) {
+        self.session_epoch = Some(tick.session_epoch);
+        self.last_at_ms = Some(tick.at_ms);
+        self.phase = Some(tick.phase);
+        self.kills = tick.kills;
+        self.combined_score = tick.combined_score;
+        self.level = tick.level;
+        self.alive = tick.alive;
+        self.multi_kill_count = 0;
+        self.multi_kill_at_ms = None;
+        self.streak_count = 0;
+        self.first_blood_emitted = false;
+        self.health_low_observed = false;
+        self.health_low_armed = true;
+        self.mana_low_observed = false;
+        self.mana_low_armed = true;
+        self.danger_armed = true;
+        self.danger_last_cue_ms = None;
+        self.danger_samples.clear();
+
+        if let Some((hp, max_hp)) = tick.hp.zip(tick.max_hp).filter(|(_, max_hp)| *max_hp > 0) {
+            self.health_low_observed = true;
+            self.health_low_armed =
+                !percent_at_or_below(hp, max_hp, self.config.health_low_threshold_percent);
+            if tick.alive == Some(true) {
+                self.danger_samples.push_back(HealthSample {
+                    at_ms: tick.at_ms,
+                    hp,
+                    max_hp,
+                });
+            }
+        }
+        if let Some(mana_percent) = tick.mana_percent {
+            self.mana_low_observed = true;
+            self.mana_low_armed = mana_percent > self.config.mana_low_threshold_percent;
+        }
+    }
+
+    fn observe_health_danger(&mut self, tick: &Tick) -> bool {
+        if tick.alive == Some(false) {
+            self.danger_armed = true;
+            self.danger_samples.clear();
+            return false;
+        }
+        let (Some(hp), Some(max_hp)) = (tick.hp, tick.max_hp) else {
+            return false;
+        };
+        if tick.alive != Some(true) || max_hp == 0 {
+            return false;
+        }
+
+        while self.danger_samples.front().is_some_and(|sample| {
+            tick.at_ms
+                .checked_sub(sample.at_ms)
+                .is_some_and(|elapsed| elapsed > self.config.danger_window_ms)
+        }) {
+            self.danger_samples.pop_front();
+        }
+
+        if percent_at_or_above(hp, max_hp, self.config.danger_rearm_percent) {
+            self.danger_armed = true;
+        }
+
+        let dropped_enough = self.danger_samples.iter().any(|sample| {
+            tick.at_ms
+                .checked_sub(sample.at_ms)
+                .is_some_and(|elapsed| elapsed <= self.config.danger_window_ms)
+                && percent_drop_at_least(
+                    sample.hp,
+                    sample.max_hp,
+                    hp,
+                    max_hp,
+                    self.config.danger_drop_points,
+                )
+        });
+        self.danger_samples.push_back(HealthSample {
+            at_ms: tick.at_ms,
+            hp,
+            max_hp,
+        });
+
+        let is_dangerous = percent_at_or_below(hp, max_hp, self.config.danger_max_hp_percent);
+        let cooldown_elapsed = self.danger_last_cue_ms.is_none_or(|last_cue_ms| {
+            tick.at_ms
+                .checked_sub(last_cue_ms)
+                .is_some_and(|elapsed| elapsed >= self.config.danger_cooldown_ms)
+        });
+        if self.danger_armed && is_dangerous && dropped_enough && cooldown_elapsed {
+            self.danger_armed = false;
+            self.danger_last_cue_ms = Some(tick.at_ms);
+            return true;
+        }
+        false
     }
 }
 
@@ -136,6 +537,37 @@ impl Default for Detector {
     fn default() -> Self {
         Self::new()
     }
+}
+
+fn event(id: EventId, tier: Option<u8>, at_ms: u64) -> Event {
+    Event { id, tier, at_ms }
+}
+
+fn percent_at_or_below(value: u32, maximum: u32, percent: u32) -> bool {
+    u128::from(value).saturating_mul(100) <= u128::from(maximum).saturating_mul(u128::from(percent))
+}
+
+fn percent_at_or_above(value: u32, maximum: u32, percent: u32) -> bool {
+    u128::from(value).saturating_mul(100) >= u128::from(maximum).saturating_mul(u128::from(percent))
+}
+
+fn percent_drop_at_least(
+    previous_hp: u32,
+    previous_max_hp: u32,
+    current_hp: u32,
+    current_max_hp: u32,
+    drop_points: u32,
+) -> bool {
+    let previous_scaled = u128::from(previous_hp)
+        .saturating_mul(100)
+        .saturating_mul(u128::from(current_max_hp));
+    let current_scaled = u128::from(current_hp)
+        .saturating_mul(100)
+        .saturating_mul(u128::from(previous_max_hp));
+    let required_drop = u128::from(drop_points)
+        .saturating_mul(u128::from(previous_max_hp))
+        .saturating_mul(u128::from(current_max_hp));
+    previous_scaled >= current_scaled.saturating_add(required_drop)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -158,6 +590,42 @@ pub struct Arbitration {
 
 /// Ordinary arbitration for one admitted tick (EVENT-AUDIO-SPEC section 2). Only
 /// voiced, non-critical events take part; others are in neither `winner` nor `dropped`.
-pub fn arbitrate(_events: &[Event]) -> Arbitration {
-    todo!("S1-3")
+pub fn arbitrate(events: &[Event]) -> Arbitration {
+    let mut seen = [false; 12];
+    let mut eligible = Vec::new();
+    for candidate in events {
+        if !candidate.id.voiced() || candidate.id.is_critical() {
+            continue;
+        }
+        let index = candidate.id.index();
+        let first_for_id = !seen[index];
+        seen[index] = true;
+        eligible.push((*candidate, first_for_id));
+    }
+
+    let mut winner_index = None;
+    let mut winner_rank = 0;
+    for (index, (candidate, first_for_id)) in eligible.iter().enumerate() {
+        if !first_for_id {
+            continue;
+        }
+        let rank = candidate.id.rank().unwrap_or(0);
+        if winner_index.is_none() || rank > winner_rank {
+            winner_index = Some(index);
+            winner_rank = rank;
+        }
+    }
+
+    let winner = winner_index.and_then(|index| eligible.get(index).map(|(event, _)| *event));
+    let dropped = eligible
+        .into_iter()
+        .enumerate()
+        .filter_map(|(index, (event, _))| {
+            (Some(index) != winner_index).then_some(Dropped {
+                event,
+                reason: DropReason::LowerRankSameTick,
+            })
+        })
+        .collect();
+    Arbitration { winner, dropped }
 }
