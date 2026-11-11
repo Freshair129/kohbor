@@ -21,7 +21,8 @@ M1 delivers local startup, the resource cap, GSI admission and an honest read mo
 | Tauri | `tauri =2.12.5`, `tauri-build =2.7.4`, `@tauri-apps/cli 2.12.4`, `@tauri-apps/api 2.12.4` |
 | Windows API | `windows =0.61.3` (JobObjects, ProcessStatus, Threading, Cryptography) |
 | Package manager | pnpm 12.18.0 through corepack (`packageManager` in `apps/desktop/package.json`) |
-| Frontend | React 19.3.1, Vite 8.3.8, @vitejs/plugin-react 6.3.0, TypeScript 7.0.2 |
+| Frontend | React 19.3.1, Vite 8.3.5, @vitejs/plugin-react 6.1.2, TypeScript 7.0.2 |
+| Supply-chain policy | `apps/desktop/pnpm-workspace.yaml` sets `minimumReleaseAge: 20160`, so every npm package, including transitive ones, must be at least 14 days old. Vite 8.3.8 (published the same day) and plugin-react 6.3.0 (2 days old) were downgraded. The test-only `jsonschema` crate is pinned `=0.59.0` (0.61.1 was 1 day old). Cargo has no equivalent policy yet: auditing locked crate ages is a follow-up |
 
 ## 2. What the slice contains (`apps/desktop`)
 

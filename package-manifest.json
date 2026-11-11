@@ -23,8 +23,8 @@
     },
     {
       "path": "Cargo.lock",
-      "bytes": 119887,
-      "sha256": "a47c5f2d6716a468ee81c70c82293d6f41e8654d1bf81b95831be7dec96d6068"
+      "bytes": 119876,
+      "sha256": "2043d3ab3010c92a745b36333123c227bc4a5fcd05146c2b9626911a1ebc63a9"
     },
     {
       "path": "Cargo.toml",
@@ -74,22 +74,22 @@
     {
       "path": "apps/desktop/package.json",
       "bytes": 624,
-      "sha256": "47a06a82cfb9a1ce6cd68cd1dc176fa1416d18bc81225db2ef933fc48df31c58"
+      "sha256": "b4b2a7b8d7703a7e280dd6769f787987c78e7fe5954728c22f7e46d6127d31b4"
     },
     {
       "path": "apps/desktop/pnpm-lock.yaml",
-      "bytes": 32776,
-      "sha256": "92697a2e7e19d5d651b8be73cbaa658c8118cba9358f48994f8f5fe1737b06c3"
+      "bytes": 32754,
+      "sha256": "4fd65ddd6ecc0003dceb0b707c59719ff6e9e80c133f110877a4c5e560bb6da2"
     },
     {
       "path": "apps/desktop/pnpm-workspace.yaml",
-      "bytes": 41,
-      "sha256": "41d8f37b5dd195990818367fa684458250494a53aae05b720d4c35ffd34afb3e"
+      "bytes": 110,
+      "sha256": "1102bc2e47ca6962cc8edab2364ab2763fece25334dc761b8ba2f6794adffad4"
     },
     {
       "path": "apps/desktop/src-tauri/Cargo.toml",
-      "bytes": 1069,
-      "sha256": "0409a9e683f90dae587382ef0246f2eb6fbc638ea88b94af7466b0e0af5df3d0"
+      "bytes": 1070,
+      "sha256": "027bb76fcfb012d5f2f6c82b2e6456eaca7ac0a29abae4176d4b752cd002f707"
     },
     {
       "path": "apps/desktop/src-tauri/app-icon.png",
@@ -383,8 +383,8 @@
     },
     {
       "path": "crates/kohbor-gsi/Cargo.toml",
-      "bytes": 514,
-      "sha256": "24e3030520ed185cf052c6884b66fc981184516567b61c677d69fd29beb9f426"
+      "bytes": 515,
+      "sha256": "15114160e1da479bad8af69be5f039608f1cbc4116936e1fad0c3fafcbf8be77"
     },
     {
       "path": "crates/kohbor-gsi/src/admission.rs",
@@ -473,13 +473,13 @@
     },
     {
       "path": "docs/delivery/M0-PLAN.md",
-      "bytes": 9976,
-      "sha256": "6a1c4404c956056746891a0fc04de93e0d6460159e03e309251848aa60f484aa"
+      "bytes": 9977,
+      "sha256": "10157df4f836bfdd147fcaaa5a091081db72b0b9e2c20c5b3390078ab7e34280"
     },
     {
       "path": "docs/delivery/M1-STATUS.md",
-      "bytes": 4450,
-      "sha256": "ce70c36d70b5c657959316404bce69d1353f4f952f1ea31389c5852278ced6db"
+      "bytes": 4867,
+      "sha256": "a39dabc17d7c93bd2e0c7a74bb2702d6f3c8db561245c42e88783e9c3ec6ae60"
     },
     {
       "path": "docs/delivery/SDP.md",
@@ -763,8 +763,8 @@
     },
     {
       "path": "docs/governance/CHANGELOG.md",
-      "bytes": 15622,
-      "sha256": "676956ec1f4439419dc0cdf87f7a826caf91793e46c77859cedfaec51ba2342c"
+      "bytes": 15838,
+      "sha256": "7a05fcff17e8bba2f21519a0aa45ac6ec5bec783abda9fafe7d5dde609fefb46"
     },
     {
       "path": "docs/governance/DECISION-LOG.md",

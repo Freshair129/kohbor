@@ -1,2 +1,2 @@
-minimumReleaseAgeExclude:
-  - vite@8.3.8
+# Supply-chain policy: only resolve package versions published at least 14 days ago.
+minimumReleaseAge: 20160

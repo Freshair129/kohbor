@@ -66,7 +66,7 @@ The four groupings:
 | Item | Value | Basis |
 | --- | --- | --- |
 | Rust | **1.96.0** (stable, MSVC); `rust-toolchain.toml` | Measured on the build machine; the workspace builds, tests, and passes `clippy -D warnings` and `rustfmt` |
-| Rust crates | serde 1, serde_json 1, sha2 0.10, hmac 0.12, getrandom 0.2, base64 0.22, tiny_http 0.12, winreg 0.56 (spike), jsonschema 0.61.1 (tests only) | Locked by `Cargo.lock` |
+| Rust crates | serde 1, serde_json 1, sha2 0.10, hmac 0.12, getrandom 0.2, base64 0.22, tiny_http 0.12, winreg 0.56 (spike), jsonschema =0.59.0 (tests only) | Locked by `Cargo.lock` |
 | Tauri | **v2 line**. The exact crate version is pinned at the M1 scaffold, to match `@tauri-apps/cli` 2.12.4 (current npm stable) | SAD §4 baseline. Tauri 3.0 is alpha on crates.io and is **not** adopted without an ADR |
 | Node.js | 24.20.0 | Measured |
 | pnpm | Not installed. Pin via `packageManager` (current 12.18.0) and corepack at the M1 scaffold | SAD §4 baseline |
