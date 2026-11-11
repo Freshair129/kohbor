@@ -798,6 +798,55 @@ mod tests {
     }
 
     #[test]
+    fn changed_hero_within_session_is_mismatched_and_withdrawn() {
+        let mut s = shared_with_token();
+        let tok = s.token.clone().unwrap();
+        let mut body = in_game(&tok);
+        assert_eq!(s.accept(&body, Instant::now(), Some(owner())), 200);
+        assert_eq!(s.ownership, Some(Ownership::Verified));
+        let epoch = s.epoch;
+        assert_eq!(s.snapshot()["own"]["fields"]["hp"]["value"], 850);
+
+        body["hero"]["name"] = json!("npc_dota_hero_lina");
+        body["hero"]["health"] = json!(111);
+        assert_eq!(s.accept(&body, Instant::now(), Some(owner())), 200);
+        assert_eq!(
+            s.ownership,
+            Some(Ownership::Mismatch),
+            "a hero change within the same session must mismatch ownership"
+        );
+        assert_eq!(
+            s.epoch, epoch,
+            "a hero mismatch must not create a session boundary"
+        );
+        assert!(
+            s.snapshot()["own"].is_null(),
+            "mismatched hero values must be withdrawn"
+        );
+    }
+
+    #[test]
+    fn returning_to_menu_releases_verified_ownership() {
+        let mut s = shared_with_token();
+        let tok = s.token.clone().unwrap();
+        assert_eq!(s.accept(&in_game(&tok), Instant::now(), Some(owner())), 200);
+        assert_eq!(s.ownership, Some(Ownership::Verified));
+        assert_eq!(s.accept(&menu(&tok), Instant::now(), Some(owner())), 200);
+        assert!(
+            s.ownership.is_none(),
+            "menu must release ownership to unknown"
+        );
+        assert!(
+            s.ownership_reason.is_none(),
+            "menu must clear the prior ownership reason"
+        );
+        assert!(
+            s.snapshot()["own"].is_null(),
+            "menu must withdraw own values"
+        );
+    }
+
+    #[test]
     fn corrupt_runtime_state_never_reuses_an_epoch() {
         let dir = temp_dir("corrupt");
         fs::write(runtime_path(&dir), b"{ not json").unwrap();
@@ -963,6 +1012,53 @@ mod tests {
             "POST / HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\n{extra_headers}Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
             body.len()
         )
+    }
+
+    #[test]
+    fn stalled_body_is_cut_off_and_later_request_is_admitted() {
+        let shared = shared_with_token();
+        let tok = shared.token.clone().unwrap();
+        let handle: Handle = Arc::new(Mutex::new(shared));
+        let server = Arc::new(tiny_http::Server::http("127.0.0.1:0").unwrap());
+        let port = server.server_addr().to_ip().unwrap().port();
+        let worker = {
+            let (handle, server) = (handle.clone(), server.clone());
+            std::thread::spawn(move || serve(handle, server))
+        };
+        let mut stalled = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
+        stalled
+            .set_read_timeout(Some(Duration::from_secs(6)))
+            .unwrap();
+        stalled.write_all(b"POST / HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: 100\r\nConnection: close\r\n\r\n{").unwrap();
+        // Give the server time to enter the partial body read before the next request.
+        std::thread::sleep(Duration::from_millis(200));
+        let good = post(&menu(&tok).to_string(), "");
+        let (tx, rx) = std::sync::mpsc::channel();
+        let client = std::thread::spawn(move || {
+            let _ = tx.send(http(port, &good));
+        });
+        let mut response = Vec::new();
+        let cutoff = stalled.read_to_end(&mut response);
+        let later = rx.recv_timeout(Duration::from_secs(2));
+        // Always release the stalled connection and join both threads before asserting.
+        drop(stalled);
+        let _ = client.join();
+        server.unblock();
+        worker.join().unwrap();
+        assert!(
+            cutoff.is_ok(),
+            "stalled body must be cut off within six seconds: {cutoff:?}"
+        );
+        assert_eq!(
+            later.ok(),
+            Some(200),
+            "later authenticated request must be admitted while the stalled client remains open"
+        );
+        assert_eq!(
+            lock(&handle).sequence,
+            1,
+            "only the complete request advances the sequence"
+        );
     }
 
     #[test]
