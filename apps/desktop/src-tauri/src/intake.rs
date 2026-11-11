@@ -12,8 +12,10 @@ use kohbor_gsi::session::{PersistedSessions, SessionChange, SessionTracker};
 use kohbor_gsi::{admit, build_snapshot, strict_json, Outcome, SourceState};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+use socket2::SockRef;
 use std::fs;
-use std::io::Read;
+use std::io::{self, Read};
+use std::net::{TcpListener, ToSocketAddrs};
 use std::path::{Component, Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
@@ -21,6 +23,7 @@ use std::time::{Duration, Instant};
 pub const SLUG: &str = "kohbor";
 /// Other applications' configuration files larger than this are not read for port claims.
 const OTHER_CONFIG_MAX_BYTES: u64 = 65_536;
+const INTAKE_READ_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Lock that survives a panicked holder, so status stays readable (CORE-005)
 /// instead of every later command panicking on a poisoned mutex.
@@ -147,6 +150,14 @@ fn game_running() -> Option<bool> {
 
 fn port_free(port: u16) -> bool {
     std::net::TcpListener::bind(("127.0.0.1", port)).is_ok()
+}
+
+/// Bind the loopback intake with a read timeout before tiny_http accepts clients.
+/// tiny_http can read a small body before returning its Request to `recv()`.
+fn bind_server(addr: impl ToSocketAddrs) -> io::Result<tiny_http::Server> {
+    let listener = TcpListener::bind(addr)?;
+    SockRef::from(&listener).set_read_timeout(Some(INTAKE_READ_TIMEOUT))?;
+    tiny_http::Server::from_listener(listener, None).map_err(io::Error::other)
 }
 
 /// A manifest `installdir` must be one plain folder name: no separators, no
@@ -533,7 +544,7 @@ impl Runtime {
     fn bind(&self, port: u16, retries: u32) -> Result<(), &'static str> {
         let mut attempts = 0;
         let server = loop {
-            match tiny_http::Server::http(("127.0.0.1", port)) {
+            match bind_server(("127.0.0.1", port)) {
                 Ok(s) => break Arc::new(s),
                 Err(_) if attempts < retries => {
                     attempts += 1;
@@ -1047,7 +1058,7 @@ mod tests {
         let shared = shared_with_token();
         let tok = shared.token.clone().unwrap();
         let handle: Handle = Arc::new(Mutex::new(shared));
-        let server = Arc::new(tiny_http::Server::http("127.0.0.1:0").unwrap());
+        let server = Arc::new(bind_server("127.0.0.1:0").unwrap());
         let port = server.server_addr().to_ip().unwrap().port();
         let worker = {
             let (handle, server) = (handle.clone(), server.clone());

@@ -23,8 +23,8 @@
     },
     {
       "path": "Cargo.lock",
-      "bytes": 119876,
-      "sha256": "2043d3ab3010c92a745b36333123c227bc4a5fcd05146c2b9626911a1ebc63a9"
+      "bytes": 119888,
+      "sha256": "1c6d70e7b90b276269411e942bca6ce8502aa678be7df022ca88b54f1e45a9cb"
     },
     {
       "path": "Cargo.toml",
@@ -88,8 +88,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/Cargo.toml",
-      "bytes": 1143,
-      "sha256": "2934d9eb51e9b3052172fb100b6d01a32455425a342dbc09d29641c561bddca6"
+      "bytes": 1202,
+      "sha256": "39db036bfd91b1af54e4272904c488d87f3c57e8795b1b626004306a7e197604"
     },
     {
       "path": "apps/desktop/src-tauri/app-icon.png",
@@ -208,8 +208,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/intake.rs",
-      "bytes": 38067,
-      "sha256": "89704df12bd0b76a705d0d1368af1e7dd6cf1a0f76344136669a808f462581b6"
+      "bytes": 43878,
+      "sha256": "fb730ad6243da758a605464d4715af308f28814f484faa80e804e04b05cd5e75"
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
