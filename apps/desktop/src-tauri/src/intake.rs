@@ -1149,4 +1149,99 @@ mod tests {
         server.unblock();
         worker.join().unwrap();
     }
+
+    #[test]
+    fn idle_listener_survives_longer_than_read_timeout() {
+        let shared = shared_with_token();
+        let tok = shared.token.clone().unwrap();
+        let handle: Handle = Arc::new(Mutex::new(shared));
+        let server = Arc::new(bind_server(("127.0.0.1", 0)).unwrap());
+        let addr = server.server_addr().to_ip().unwrap();
+        let worker = {
+            let (handle, server) = (handle.clone(), server.clone());
+            std::thread::spawn(move || serve(handle, server))
+        };
+        std::thread::sleep(Duration::from_secs(6));
+        let running_after_idle = !worker.is_finished();
+        let started = Instant::now();
+        let response = (|| -> io::Result<String> {
+            let mut stream = std::net::TcpStream::connect_timeout(&addr, Duration::from_secs(2))?;
+            stream.set_read_timeout(Some(Duration::from_secs(2)))?;
+            stream.set_write_timeout(Some(Duration::from_secs(2)))?;
+            stream.write_all(post(&menu(&tok).to_string(), "").as_bytes())?;
+            let mut line = String::new();
+            BufReader::new(stream).read_line(&mut line)?;
+            Ok(line)
+        })();
+        let elapsed = started.elapsed();
+        let running_after_request = !worker.is_finished();
+        server.unblock();
+        worker.join().unwrap();
+        assert!(running_after_idle, "serve thread exited while idle");
+        assert!(running_after_request, "serve thread exited after request");
+        let line = response.expect("menu POST must receive a response within two seconds");
+        assert!(
+            elapsed <= Duration::from_secs(2),
+            "menu POST took {elapsed:?}"
+        );
+        assert_eq!(line.split_whitespace().nth(1), Some("200"));
+    }
+
+    #[test]
+    fn resumed_session_does_not_replace_established_hero() {
+        let key = [7; 32];
+        let mut previous = SessionTracker::new(key);
+        assert_eq!(
+            previous.observe(Some("8000000001"), owner(), || "session".into()),
+            SessionChange::Started { epoch: 1 }
+        );
+        let persisted = previous.persisted();
+        let epoch = persisted.current_session.as_ref().unwrap().epoch;
+        let mut s = shared_with_token();
+        s.sessions = SessionTracker::restore(key, persisted);
+        let tok = s.token.clone().unwrap();
+        let mut body = in_game(&tok);
+        body["map"].as_object_mut().unwrap().remove("matchid");
+        assert_eq!(s.accept(&body, Instant::now(), Some(owner())), 200);
+        assert_eq!(s.ownership, Some(Ownership::Verified));
+        assert_eq!(s.session_hero_id.as_deref(), Some("npc_dota_hero_axe"));
+
+        body["map"]["matchid"] = json!("8000000001");
+        body["hero"]["name"] = json!("npc_dota_hero_lina");
+        assert_eq!(s.accept(&body, Instant::now(), Some(owner())), 200);
+        assert_eq!(
+            s.epoch,
+            Some(epoch),
+            "resuming must retain the persisted epoch"
+        );
+        assert_eq!(s.sessions.current().unwrap().epoch, epoch);
+        assert_eq!(
+            s.ownership,
+            Some(Ownership::Mismatch),
+            "a resumed session must compare an already established hero"
+        );
+        assert!(
+            s.snapshot()["own"].is_null(),
+            "mismatched values must be withdrawn"
+        );
+    }
+
+    #[test]
+    fn menu_clears_hero_baseline_so_new_game_without_match_id_is_not_mismatch() {
+        let mut s = shared_with_token();
+        let tok = s.token.clone().unwrap();
+        let mut body = in_game(&tok);
+        assert_eq!(s.accept(&body, Instant::now(), Some(owner())), 200);
+        assert_eq!(s.ownership, Some(Ownership::Verified));
+        assert_eq!(s.accept(&menu(&tok), Instant::now(), Some(owner())), 200);
+        body["map"].as_object_mut().unwrap().remove("matchid");
+        body["hero"]["name"] = json!("npc_dota_hero_lina");
+        assert_eq!(s.accept(&body, Instant::now(), Some(owner())), 200);
+        assert_eq!(
+            s.ownership,
+            Some(Ownership::Verified),
+            "menu ends the previous game's hero baseline"
+        );
+        assert_eq!(s.snapshot()["own"]["fields"]["hp"]["value"], 850);
+    }
 }
