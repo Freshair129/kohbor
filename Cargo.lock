@@ -1865,6 +1865,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "kohbor-events"
+version = "0.0.1"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
 name = "kohbor-gsi"
 version = "0.0.1"
 dependencies = [
