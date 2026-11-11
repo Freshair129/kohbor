@@ -1246,3 +1246,130 @@ mod tests {
         assert_eq!(s.snapshot()["own"]["fields"]["hp"]["value"], 850);
     }
 }
+
+#[cfg(test)]
+mod s0_6_tests {
+    use super::*;
+    use crate::{containment::Sample, status};
+
+    fn fresh_runtime() -> Arc<Runtime> {
+        let dir = std::env::temp_dir().join(format!(
+            "kohbor-s0-6-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir(&dir).expect("create a new empty data directory");
+        Runtime::new(dir)
+    }
+
+    #[test]
+    fn cold_start_status_preserves_unknowns_and_matches_schema() {
+        let runtime = fresh_runtime();
+        runtime.start();
+        let shared = lock(&runtime.shared);
+        let sample = Sample {
+            cpu_percent: None,
+            working_set_bytes: None,
+            process_count: None,
+        };
+        let value = status::build(&shared, &sample, true, 1);
+        let schema: Value = serde_json::from_str(include_str!(
+            "../../../../contracts/runtime-status.schema.json"
+        ))
+        .unwrap();
+        let validator = jsonschema::validator_for(&schema).unwrap();
+        let errors: Vec<_> = validator
+            .iter_errors(&value)
+            .map(|e| e.to_string())
+            .collect();
+        assert!(
+            errors.is_empty(),
+            "status schema errors: {errors:?}; {value:#}"
+        );
+        assert_eq!(value["intake"]["state"], "not_configured");
+        assert!(value["intake"]["port"].is_null());
+        assert!(value["intake"]["last_admitted_age_ms"].is_null());
+        assert_eq!(value["ownership"]["state"], "unknown");
+        assert_eq!(value["session"]["phase"], "none");
+        assert!(value["session"]["session_epoch"].is_null());
+        assert_eq!(value["mode"]["state"], "unverified");
+        assert!(value["mode"]["value"].is_null());
+        assert_eq!(value["resource"]["cpu"]["state"], "unavailable");
+        assert!(value["resource"]["cpu"]["last_sample_percent"].is_null());
+        assert_eq!(value["resource"]["memory"]["state"], "unavailable");
+        assert!(value["resource"]["memory"]["working_set_bytes"].is_null());
+        assert_eq!(shared.snapshot()["availability"], "unknown");
+    }
+
+    #[test]
+    fn cold_start_without_setup_binds_no_listener() {
+        // GSI-INTAKE-SPEC 2.4: the port is chosen during first setup, so an empty
+        // data directory must not open any socket and must report not_configured.
+        let runtime = fresh_runtime();
+        runtime.start();
+        assert!(
+            lock(&runtime.server).is_none(),
+            "cold startup opened a listener before setup"
+        );
+        assert!(lock(&runtime.shared).port.is_none());
+    }
+
+    #[test]
+    fn startup_source_and_direct_dependencies_have_a_bounded_network_surface() {
+        let manifest = include_str!("../Cargo.toml");
+        let allowed = [
+            "kohbor-gsi",
+            "tauri",
+            "serde",
+            "serde_json",
+            "getrandom",
+            "base64",
+            "sha2",
+            "tiny_http",
+            "socket2",
+            "winreg",
+            "windows",
+        ];
+        let mut dependencies = false;
+        for line in manifest.lines().map(str::trim) {
+            if line.starts_with('[') {
+                dependencies = line == "[dependencies]"
+                    || (line.starts_with("[target.") && line.ends_with(".dependencies]"));
+            } else if dependencies
+                && !line.is_empty()
+                && !line.starts_with('#')
+                && !line.starts_with('"')
+                && !line.starts_with(']')
+            {
+                if let Some((name, _)) = line.split_once('=') {
+                    assert!(
+                        allowed.contains(&name.trim()),
+                        "review new host dependency: {name}"
+                    );
+                }
+            }
+        }
+        let intake = include_str!("intake.rs")
+            .split("#[cfg(test)]")
+            .next()
+            .unwrap();
+        for source in [intake, include_str!("lib.rs"), include_str!("main.rs")] {
+            for forbidden in [
+                "TcpStream::connect",
+                "UdpSocket::bind",
+                "UdpSocket::connect",
+                "reqwest::",
+                "ureq::",
+                "hyper::",
+            ] {
+                assert!(
+                    !source.contains(forbidden),
+                    "review startup network operation: {forbidden}"
+                );
+            }
+        }
+    }
+}
