@@ -2,7 +2,7 @@
 title: "Kohbor Implementation Readiness"
 doc_id: "IMPLEMENTATION-READINESS"
 status: draft
-version: "0.3.5"
+version: "0.3.6"
 updated: "2026-11-11"
 owner_role: "Product owner and engineering lead; reviewers not assigned"
 approval_status: "not_approved"

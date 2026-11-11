@@ -2,7 +2,7 @@
 title: "Software Architecture Description"
 doc_id: "SAD"
 status: "draft"
-version: "0.3.5"
+version: "0.3.6"
 updated: "2026-11-11"
 owner_role: "Software architect; person not assigned"
 approval_status: "not_approved"

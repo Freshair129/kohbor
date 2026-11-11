@@ -2,7 +2,7 @@
 title: "Technical and Delivery Risk Register"
 doc_id: "RISK-REGISTER"
 status: draft
-version: "0.3.5"
+version: "0.3.6"
 updated: "2026-11-11"
 owner_role: "Engineering lead; person not assigned"
 approval_status: "not_approved"

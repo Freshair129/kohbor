@@ -1,6 +1,6 @@
 # Software Engineering Documentation Index
 
-**Baseline 0.3.5 · Draft · 2026-11-11 · application evidence NOT_RUN**
+**Baseline 0.3.6 · Draft · 2026-11-11 · application evidence NOT_RUN**
 
 Start with PRD and SRS. Read the design, interface and verification documents for each implementation slice. Agent workflow is separately defined in root AGENTS.md and PROMPT.md.
 
@@ -25,6 +25,7 @@ Start with PRD and SRS. Read the design, interface and verification documents fo
 | [Test Plan](quality/TEST-PLAN.md) | Verification strategy, test procedures, evidence and gates | QA, engineering |
 | [UAT Plan](quality/UAT-PLAN.md) | Player tasks and acceptance decisions | Product owner, testers |
 | [Software Development Plan](delivery/SDP.md) | Delivery dependencies, milestone readiness and completion | Engineering lead |
+| [M1 Status](delivery/M1-STATUS.md) | Tauri host slice: containment, intake, runtime status, Overview UI; what ran | Engineering lead, owner |
 | [M0 Plan and Status](delivery/M0-PLAN.md) | Frozen identity, scope matrix, toolchain lock, module map, local-core slice results and capture-spike procedure | Engineering lead, owner |
 | [Operations Runbook](operations/RUNBOOK.md) | Installation, configuration, diagnostics, release and recovery | Maintainers, operators |
 | [Document Control](governance/DOCUMENT-CONTROL.md) | Authority, baseline versions, review and change control | All contributors |

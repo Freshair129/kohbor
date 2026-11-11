@@ -2,7 +2,7 @@
 title: "M0 Plan and Status"
 doc_id: "M0-PLAN"
 status: draft
-version: "0.3.5"
+version: "0.3.6"
 updated: "2026-11-11"
 authority: "DEC-BASELINE; SDP milestone M0; PROMPT.md first deliverable"
 owner_role: "Engineering lead (builder)"
@@ -185,7 +185,7 @@ The redacted corpus feeds the fixtures that close DEC-GSI-INTAKE.
 | Item | Blocks |
 | --- | --- |
 | Remaining capture cases: spectate/replay (A-6), a Turbo match (A-9), first blood by self (E-1), explicit unit/courier selection (A-8), a second Steam account (A-7) | DEC-GSI-INTAKE closure and the M1 exit |
-| Pin Tauri and pnpm by scaffolding the host app | M1 start |
+| ~~Pin Tauri and pnpm by scaffolding the host app~~: done 2026-11-11 ([M1 Status](M1-STATUS.md)) | — |
 | Review of this plan | — |
 
 No unresolved choice has been disguised as code. Where an assumption is unconfirmed, the code yields `unsupported`, `unknown` or `unverified`, never a value.

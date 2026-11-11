@@ -2,7 +2,7 @@
 title: "Software Requirements Specification"
 doc_id: "SRS"
 status: "draft"
-version: "0.3.5"
+version: "0.3.6"
 updated: "2026-11-10"
 owner: "Product Owner"
 approval_status: "not_approved"
@@ -24,7 +24,7 @@ The full MVP covers local telemetry, admitted visible-screen observations, deter
 
 The first demonstration is a limited delivery milestone, not completion of the full MVP. Action-damage analysis remains subject to its recorded scope/data decision. Game injection, hidden enemy data, automatic gameplay actions, cloud voice/memory processing and inherited product compatibility are outside this baseline.
 
-Version 0.3.5 is a reviewable draft. The owner-selected name is recorded; the requirements baseline, implementation and native/live acceptance have not been approved. Its organization follows conventional requirements-engineering practice; no formal standards-conformance certification is asserted.
+Version 0.3.6 is a reviewable draft. The owner-selected name is recorded; the requirements baseline, implementation and native/live acceptance have not been approved. Its organization follows conventional requirements-engineering practice; no formal standards-conformance certification is asserted.
 
 ### 1.3 References and document relationships
 
