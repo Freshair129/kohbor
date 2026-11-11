@@ -37,7 +37,7 @@ M1 delivers local startup, the resource cap, GSI admission and an honest read mo
 | Secrets | `src-tauri/src/secrets.rs` | DPAPI current-user blobs for the intake token and the HMAC installation key |
 | UI | `apps/desktop/src` | Command Deck Overview: eight readiness rows from `runtime_get_status` and an own-hero card from `own_snapshot`; Thai copy for error codes; nothing fabricated |
 
-Tauri commands: `runtime_get_status` (payload validated against `runtime-status.schema.json` in tests), `own_snapshot` (own-snapshot 2.0.0) and `gsi_setup` (a user action). The capability file grants `core:default` to the control window only.
+Tauri commands: `runtime_get_status` (payload validated against `runtime-status.schema.json` in tests), `own_snapshot` (own-snapshot 2.0.0) and `gsi_setup` (a user action; `replace: true` is the separate explicit confirmation to replace an owned configuration that was edited outside the app). The capability file grants `core:default` to the control window only.
 
 ## 3. What ran (development machine, 2026-11-11)
 
@@ -69,9 +69,40 @@ The game-connection setup was **not clicked** during the checks above, because i
 
 This is a single owner-machine observation. It does **not** satisfy the acceptance procedures: TP/UAT counts, the certified matrix and the stale/ownership negative cases on live data are still to be run.
 
+### 3.2 Hardening and UX pass, 2026-11-11
+
+A review of the M1 slice found the defects below. They are fixed on branch `m1/hardening-ux`. **The live observations in §3.1 were made on the earlier build and do not cover this one.**
+
+| Area | Defect found | Fix |
+| --- | --- | --- |
+| Game lookup | The Steam path in the registry and the same library in `libraryfolders.vdf` are spelled differently. Compared as text, a default installation counts twice and setup fails with `GSI_GAME_NOT_FOUND`. It worked on the owner machine only because the two spellings differ in the drive letter alone | Candidates are compared by resolved location. The manifest `installdir` must be a single folder name |
+| Second instance | A second launch could not bind the port and, with the game closed, rewrote the owned configuration to another port, orphaning the first instance | Single-instance guard (named mutex); the second launch focuses the running window and exits |
+| Process check | `tasklist` was spawned (console flash, executable search path). A failed check counted as "game not running" and allowed a rewrite | The process list is read in-process (ToolHelp). An unreadable list counts as running: no rewrite |
+| Admission | An authenticated payload that failed admission (foreign provider) still renewed freshness and consumed a sequence number, against GSI-INTAKE-SPEC §3 and §5 | It no longer does. Arrival time is now taken after the body is complete |
+| Web content | Any web page could make the intake read and parse 128 KiB bodies (it could not authenticate) | Requests with an `Origin` header are refused with 403 before the body is read (assumption A-10, not yet confirmed live) |
+| Config conflict | `GSI_CONFIG_CONFLICT` was a dead end: no "replace owned configuration" action existed (GSI-INTAKE-SPEC §2.2), for example after the data directory was lost | `gsi_setup` with `replace: true`, behind a two-step confirmation in the UI; it rotates the token (§2.3) |
+| Setup state | A failed setup left the row at "not configured" with a transient message. A failed re-setup could leave "listening" with no listener. Re-setup raced the closing socket of its own listener | Failure is reported as `unavailable` with its code. The listener is released only after the conflict rule passes; its own port stays a candidate, with a bounded bind retry. Setup runs are serialized and run off the main thread |
+| Port claims | A leftover `*.cfg.tmp` of our own, or a non-configuration file, could claim a port | Only other `gamestate_integration_*.cfg` files of at most 64 KiB are read |
+| Persistence | Temporary files were not flushed and stayed behind after a failed write. A corrupt runtime-state file restarted the session epoch at 1 (§6 forbids reuse) | Atomic writes flush and clean up. A corrupt file makes the epoch jump once to wall-clock seconds |
+| Robustness | A poisoned mutex made every later command panic. The persisted port was truncated to 16 bits without a range check | Locks recover; the persisted port must be 3000–3010 |
+| WebView policy | No defect; tightening only | CSP additionally sets `object-src`, `base-uri`, `form-action` and `frame-ancestors` to `'none'` |
+| UI truthfulness | A failed status poll was silent, so an old "สด" reading stayed on screen as if live. The header showed "กำลังเล่น" in the fresh style while the source was stale | After three failed polls a banner says the screen has lost the host, and the values are dimmed. Ownership and match chips switch to the stale encoding when the source is not live |
+| UI guidance | The setup button did not say what it writes. "ไม่พบ Dota 2 — เลือกโฟลเดอร์เกม" offered a folder choice that does not exist. Empty hero states all read "ยังไม่มีข้อมูล" | One next-step panel per state, with the write disclosure and the recovery action; honest copy for the missing folder picker; distinct hero states (draft, post-game, unverified, unsupported, stale with age); HP and mana bars drawn only from known values; chips use the glyph and border encodings of `design-tokens.json`; polling pauses while the window is hidden |
+
+**What ran for this pass (development machine).**
+
+| Check | Result | Evidence class |
+| --- | --- | --- |
+| `cargo test --workspace` | 45 passed: 20 host (was 8), and 10 + 5 + 10 in `kohbor-gsi` | source / synthetic |
+| `cargo clippy --workspace --all-targets -- -D warnings`, `cargo fmt --check` | clean | source |
+| `pnpm build` (tsc + vite) | passes | source |
+| UI states in a browser at 1280 × 688 against a scripted stand-in for the three commands: host lost, not configured, config conflict with two-step replace (`{replace: true}` sent only on confirm), live, stale with an invalid field, host lost with values | Rendered as designed; no page scroll in any state | synthetic fixture (not WebView2, not live data) |
+
+**Not run for this pass.** The release build, the native launch, the process-in-job check and any live-game check. The owner's earlier build was running with a live game on the same data directory, so the new build was not started. Not exercised natively: the single-instance hand-over, the CSP change in WebView2, the replace action against the real game folder, and A-10.
+
 ## 4. Next in M1
 
-1. ~~Owner runs `gsi_setup` and checks a live "สด" state with own vitals~~: done 2026-11-11 (§3.1). Next: repeat on a certified matrix cell, and on live data check the stale state (pause the game's network or close it) and ownership mismatch.
+1. ~~Owner runs `gsi_setup` and checks a live "สด" state with own vitals~~: done 2026-11-11 (§3.1) on the earlier build. Next: rebuild from the hardening pass (§3.2) and repeat the live check, including A-10, a second launch while running and the replace action. Then repeat on a certified matrix cell, and on live data check the stale state (pause the game's network or close it) and ownership mismatch.
 2. Cold offline startup test, plus a failure-injection test for containment (CORE-002 exit code 1).
 3. Settings UI (locale) through the `settings-patch` contract.
 4. Resource runs per the NFR protocol: idle and live profiles, ten minutes × 3, with receipts.

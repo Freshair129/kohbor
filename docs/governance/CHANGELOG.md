@@ -17,6 +17,10 @@ M1 has started. The first host slice is in `apps/desktop` (Tauri v2); details in
   - the host and all 6 WebView2 processes were confirmed inside the job, with about 381 MB Working Set.
 - **Not run:** live-game, certified-matrix and acceptance runs.
 - **RTM:** `implementation_refs` added for CORE-001/002/004/005, DATA-001..004 and QUALITY-002.
+- **Hardening and UX pass (2026-11-11, same version):** details in [M1 Status §3.2](../delivery/M1-STATUS.md).
+  - Fixed: game lookup counted one library twice; a second instance could rewrite the owned configuration; failed admission renewed freshness; the config-conflict state had no replace action; a silent poll failure left old values looking live.
+  - Added: single-instance guard, in-process game detection, refusal of web-originated requests (new assumption A-10 in GSI-INTAKE-SPEC), token rotation on replace, flushed atomic writes, epoch recovery for a corrupt runtime state, stricter CSP, and a next-step panel and honest-state chips in the Overview.
+  - Ran: 45 tests, clippy, fmt, the frontend build and a synthetic UI check. Not run for this pass: release build, native launch and live game.
 
 ## 0.3.5 — 2026-11-11
 

@@ -19,7 +19,7 @@
   "schema_fixture_cases_passed": 60,
   "semantic_fixture_cases_passed": 15,
   "risk_formula_examples_passed": 7,
-  "relative_links_checked": 866,
+  "relative_links_checked": 867,
   "forbidden_token_checks": 0,
   "forbidden_token_matches": 0,
   "schema_engine": "jsonschema draft2020-12",

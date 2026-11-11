@@ -1,11 +1,14 @@
 //! Kohbor desktop host (M1 slice): containment, game-state intake, runtime status.
 
+pub mod atomic;
 pub mod containment;
+pub mod instance;
 pub mod intake;
 pub mod secrets;
 pub mod status;
 
 use containment::{Sample, Sampler, Throttle};
+use intake::lock;
 use serde_json::Value;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -20,20 +23,26 @@ struct AppState {
 #[tauri::command]
 fn runtime_get_status(state: tauri::State<'_, AppState>) -> Value {
     let rev = state.revision.fetch_add(1, Ordering::Relaxed) + 1;
-    let (sample, throttled) = *state.sample.lock().unwrap();
-    let shared = state.runtime.shared.lock().unwrap();
+    let (sample, throttled) = *lock(&state.sample);
+    let shared = lock(&state.runtime.shared);
     status::build(&shared, &sample, throttled, rev)
 }
 
 #[tauri::command]
 fn own_snapshot(state: tauri::State<'_, AppState>) -> Value {
-    state.runtime.shared.lock().unwrap().snapshot()
+    lock(&state.runtime.shared).snapshot()
 }
 
 /// User action: write the owned game configuration and start listening.
-#[tauri::command]
-fn gsi_setup(state: tauri::State<'_, AppState>) -> Result<(), String> {
-    state.runtime.setup().map_err(str::to_owned)
+///
+/// `replace` is the separate, explicit confirmation to replace an owned file that
+/// was edited outside the app. Runs off the main thread: it does file and port work.
+#[tauri::command(async)]
+fn gsi_setup(state: tauri::State<'_, AppState>, replace: Option<bool>) -> Result<(), String> {
+    state
+        .runtime
+        .setup(replace.unwrap_or(false))
+        .map_err(str::to_owned)
 }
 
 pub fn run() {
@@ -59,9 +68,7 @@ pub fn run() {
                     loop {
                         let s = sampler.sample();
                         let t = throttle.update(&s);
-                        if let Ok(mut slot) = sink.lock() {
-                            *slot = (s, t);
-                        }
+                        *lock(&sink) = (s, t);
                         std::thread::sleep(std::time::Duration::from_secs(1));
                     }
                 })?;

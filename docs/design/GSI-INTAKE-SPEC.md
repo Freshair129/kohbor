@@ -30,6 +30,8 @@ Technical identifiers that depend on DEC-NAME (for example the configuration fil
 2. Read `<SteamPath>/steamapps/libraryfolders.vdf`. For each library, look for `steamapps/appmanifest_570.acf`. The game directory is `<library>/steamapps/common/<installdir from the manifest>`.
 3. If no library or more than one library holds the game, ask the user to choose the game folder. Validate that it contains `game/dota/cfg`.
 4. MUST NOT scan whole drives, follow symlinks out of the chosen folder, or write anywhere except the owned file in §2.2.
+5. Compare candidate game folders by resolved location, not by spelling. The registry value and the library list name the same library with different case and separators (seen on the owner machine: `g:/steam` and `G:\\steam`); counting them twice would report "more than one".
+6. The manifest `installdir` MUST be a single folder name. A value with a separator, `..`, a drive or a root is ignored, so a manifest cannot move the owned file outside `steamapps/common`.
 
 Failure: `GSI_GAME_NOT_FOUND` with the action "choose the Dota 2 folder". Local core keeps running.
 
@@ -79,7 +81,9 @@ The file uses the game's key-value text format (A-2). Values are proposals; the 
 - **Persisted port occupied:**
   - If the game process is **not** running: select the next free candidate, rewrite the owned configuration (§2.2 rules) and persist it. Report the change in status.
   - If the game process **is** running: do not rewrite. Report `GSI_PORT_UNAVAILABLE` with the action "close the program using port N, or restart Dota 2 after reconfiguring". Intake is unavailable; the rest of local core continues.
-  - Game-process detection uses the process list (image name `dota2.exe`) only. It is never a memory read or an injection.
+  - Game-process detection uses the process list (image name `dota2.exe`) only. It is never a memory read or an injection, and it starts no helper process.
+  - If the process list cannot be read, treat the game as running: do not rewrite.
+- **Single instance:** only one app instance per user session reaches intake startup. A second launch brings the running window forward and exits. Otherwise the second instance would find the persisted port occupied and, with the game closed, rewrite the owned configuration to another port and orphan the first instance.
 - **All 11 candidates occupied:** `GSI_PORT_EXHAUSTED`. No configuration write.
 - **Any configuration write failure** (permission, disk full, path vanished): `GSI_CONFIG_WRITE_FAILED`. Leave the previous file intact. This satisfies the CORE-004 failure behavior.
 
@@ -89,6 +93,7 @@ The file uses the game's key-value text format (A-2). Values are proposals; the 
 | --- | --- |
 | Bind | `127.0.0.1:<gsi.port>`; never `0.0.0.0` or IPv6 any |
 | Method / path | `POST /` only; everything else gets 404/405 without parsing |
+| Web content | A request that carries an `Origin` header is refused with 403 before the body is read. Browsers attach `Origin` to a POST; the game client is expected not to (A-10). Web pages, including DNS-rebinding hosts, therefore cannot make the intake read or parse a body |
 | Body limit | 131,072 bytes. Reject larger bodies with 413 before parsing (`GSI_BODY_REJECTED`) |
 | Parsing | UTF-8 JSON, duplicate keys rejected, nesting depth ≤ 16; parse failure is `GSI_BODY_REJECTED` |
 | Authentication | `auth.token` MUST equal the install token (constant-time comparison). Missing or mismatched → `GSI_AUTH_REJECTED`, not admitted |
@@ -225,6 +230,7 @@ Run on a declared Windows/Dota/Steam configuration and record each payload with 
 | A-7 | `ActiveProcess\ActiveUser` holds the signed-in account ID | Compare with `player.steamid` on two accounts |
 | A-8 | `hero` stays the controlled hero when another unit is selected | Select an allied unit, a courier and an enemy; confirm the `hero` block is unchanged |
 | A-9 | No game-mode or lobby-type field exists | Record All Pick and Turbo payloads and diff them |
+| A-10 | The game client's POST carries no `Origin` header | Record the request headers of live POSTs. If `Origin` is present, the web-content rule in §3 must be corrected before it ships |
 
 DEC-GSI-INTAKE closes when every assumption is confirmed or the spec is corrected, the fixtures in §9 are updated from the redacted corpus, and the product owner has acknowledged §4.2.
 
@@ -245,7 +251,8 @@ DEC-GSI-INTAKE closes when every assumption is confirmed or the spec is correcte
 | A-7 | **Confirmed for one account.** `player.steamid` equalled `76561197960265728 + ActiveUser` in every payload. Two accounts were not tested |
 | A-8 | **Consistent, not explicitly tested.** `hero.name` stayed the same controlled hero through pre-game, live and post-game. Unit/courier selection was not recorded as a step |
 | A-9 | **Partly.** No mode or lobby field appeared in `map` for this match. Only one mode was captured, so a Turbo diff is still needed |
+| A-10 | **Not tested.** Added after this capture; the capture did not record request headers |
 
 **New finding:** another application's configuration claims port 3000 (§2.4 updated).
 
-**Status.** DEC-GSI-INTAKE stays **proposed**. It still needs A-6 (spectate/replay), A-9 (a second mode), A-7 on a second account and A-8 with explicit selection, plus the owner acknowledgement of §4.2.
+**Status.** DEC-GSI-INTAKE stays **proposed**. It still needs A-6 (spectate/replay), A-9 (a second mode), A-7 on a second account, A-8 with explicit selection and A-10 (request headers), plus the owner acknowledgement of §4.2.
