@@ -1868,6 +1868,7 @@ dependencies = [
 name = "kohbor-events"
 version = "0.0.1"
 dependencies = [
+ "base64 0.22.1",
  "kohbor-gsi",
  "serde_json",
 ]

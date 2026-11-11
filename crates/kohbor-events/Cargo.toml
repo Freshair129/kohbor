@@ -8,5 +8,6 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+base64 = { workspace = true }
 kohbor-gsi = { path = "../kohbor-gsi" }
 serde_json = { workspace = true }
