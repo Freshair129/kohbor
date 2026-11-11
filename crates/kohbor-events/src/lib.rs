@@ -132,6 +132,8 @@ pub struct Tick {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Config {
     pub multi_kill_window_ms: u64,
+    pub multi_kill_min_kills: u32,
+    pub streak_min_kills: u32,
     pub levels: Vec<u32>,
     pub health_low_threshold_percent: u32,
     pub health_low_rearm_percent: u32,
@@ -148,6 +150,8 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             multi_kill_window_ms: 18_000,
+            multi_kill_min_kills: 2,
+            streak_min_kills: 3,
             levels: vec![6, 12, 18, 25],
             health_low_threshold_percent: 20,
             health_low_rearm_percent: 30,
@@ -183,7 +187,7 @@ pub struct Detector {
     alive: Option<bool>,
     multi_kill_count: u32,
     multi_kill_at_ms: Option<u64>,
-    streak_count: u32,
+    streak_count: Option<u32>,
     first_blood_emitted: bool,
     health_low_observed: bool,
     health_low_armed: bool,
@@ -219,7 +223,7 @@ impl Detector {
             alive: None,
             multi_kill_count: 0,
             multi_kill_at_ms: None,
-            streak_count: 0,
+            streak_count: None,
             first_blood_emitted: false,
             health_low_observed: false,
             health_low_armed: true,
@@ -238,12 +242,15 @@ impl Detector {
             return Vec::new();
         }
 
-        if self.session_epoch != Some(tick.session_epoch)
-            || self
-                .last_at_ms
-                .is_some_and(|last_at_ms| tick.at_ms < last_at_ms)
+        if self.session_epoch != Some(tick.session_epoch) {
+            self.set_baseline(tick, false);
+            return Vec::new();
+        }
+        if self
+            .last_at_ms
+            .is_some_and(|last_at_ms| tick.at_ms < last_at_ms)
         {
-            self.set_baseline(tick);
+            self.set_baseline(tick, true);
             return Vec::new();
         }
 
@@ -278,7 +285,7 @@ impl Detector {
         if kills_regressed {
             self.multi_kill_count = 0;
             self.multi_kill_at_ms = None;
-            self.streak_count = 0;
+            self.streak_count = (tick.kills == Some(0)).then_some(0);
         } else if tick.phase == Phase::Live {
             if let Some(delta) = kill_delta.filter(|delta| *delta > 0) {
                 hero_kill = true;
@@ -293,15 +300,24 @@ impl Detector {
                 } else {
                     0
                 };
-                self.multi_kill_count = chain_base.saturating_add(delta).min(5);
+                self.multi_kill_count = chain_base.saturating_add(delta);
                 self.multi_kill_at_ms = Some(tick.at_ms);
-                if self.multi_kill_count >= 2 {
-                    multi_kill_tier = Some(self.multi_kill_count.min(5) as u8);
+                if let Some((min_tier, max_tier)) = tier_bounds(EventId::MultiKill) {
+                    let minimum = self.config.multi_kill_min_kills.max(min_tier);
+                    if self.multi_kill_count >= minimum {
+                        multi_kill_tier = Some(self.multi_kill_count.min(max_tier) as u8);
+                    }
                 }
 
-                self.streak_count = self.streak_count.saturating_add(delta).min(10);
-                if self.streak_count >= 3 {
-                    streak_tier = Some(self.streak_count.min(10) as u8);
+                if let Some(streak_count) = self.streak_count {
+                    let streak_count = streak_count.saturating_add(delta);
+                    self.streak_count = Some(streak_count);
+                    if let Some((min_tier, max_tier)) = tier_bounds(EventId::Streak) {
+                        let minimum = self.config.streak_min_kills.max(min_tier);
+                        if streak_count >= minimum {
+                            streak_tier = Some(streak_count.min(max_tier) as u8);
+                        }
+                    }
                 }
 
                 let exact_first_score =
@@ -321,9 +337,7 @@ impl Detector {
         // A kill and a death can arrive in one admitted payload. Count the kill
         // against the pre-death streak, then reset the streak for later kills.
         if died {
-            self.streak_count = 0;
-            self.health_low_armed = true;
-            self.mana_low_armed = true;
+            self.streak_count = Some(0);
             self.danger_armed = true;
             self.danger_samples.clear();
         }
@@ -345,36 +359,45 @@ impl Detector {
             self.health_low_armed = true;
             self.mana_low_armed = true;
         }
-        if let Some((hp, max_hp)) = tick.hp.zip(tick.max_hp).filter(|(_, max_hp)| *max_hp > 0) {
-            if !self.health_low_observed {
-                self.health_low_observed = true;
-                self.health_low_armed =
-                    !percent_at_or_below(hp, max_hp, self.config.health_low_threshold_percent);
-            } else {
-                if percent_at_or_above(hp, max_hp, self.config.health_low_rearm_percent) {
-                    self.health_low_armed = true;
-                }
-                if self.health_low_armed
-                    && percent_at_or_below(hp, max_hp, self.config.health_low_threshold_percent)
-                {
-                    health_low = true;
-                    self.health_low_armed = false;
+        if tick.alive == Some(true) {
+            if let Some((hp, max_hp)) = tick
+                .hp
+                .zip(tick.max_hp)
+                .filter(|(hp, max_hp)| *max_hp > 0 && hp <= max_hp)
+            {
+                if !self.health_low_observed {
+                    self.health_low_observed = true;
+                    self.health_low_armed =
+                        !percent_at_or_below(hp, max_hp, self.config.health_low_threshold_percent);
+                } else {
+                    if percent_at_or_above(hp, max_hp, self.config.health_low_rearm_percent) {
+                        self.health_low_armed = true;
+                    }
+                    if self.health_low_armed
+                        && percent_at_or_below(hp, max_hp, self.config.health_low_threshold_percent)
+                    {
+                        health_low = true;
+                        self.health_low_armed = false;
+                    }
                 }
             }
         }
 
         let mut mana_low = false;
-        if let Some(mana_percent) = tick.mana_percent {
-            if !self.mana_low_observed {
-                self.mana_low_observed = true;
-                self.mana_low_armed = mana_percent > self.config.mana_low_threshold_percent;
-            } else {
-                if mana_percent >= self.config.mana_low_rearm_percent {
-                    self.mana_low_armed = true;
-                }
-                if self.mana_low_armed && mana_percent <= self.config.mana_low_threshold_percent {
-                    mana_low = true;
-                    self.mana_low_armed = false;
+        if tick.alive == Some(true) {
+            if let Some(mana_percent) = tick.mana_percent {
+                if !self.mana_low_observed {
+                    self.mana_low_observed = true;
+                    self.mana_low_armed = mana_percent > self.config.mana_low_threshold_percent;
+                } else {
+                    if mana_percent >= self.config.mana_low_rearm_percent {
+                        self.mana_low_armed = true;
+                    }
+                    if self.mana_low_armed && mana_percent <= self.config.mana_low_threshold_percent
+                    {
+                        mana_low = true;
+                        self.mana_low_armed = false;
+                    }
                 }
             }
         }
@@ -437,7 +460,9 @@ impl Detector {
         events
     }
 
-    fn set_baseline(&mut self, tick: &Tick) {
+    fn set_baseline(&mut self, tick: &Tick, preserve_danger_state: bool) {
+        let danger_armed = self.danger_armed;
+        let danger_last_cue_ms = self.danger_last_cue_ms;
         self.session_epoch = Some(tick.session_epoch);
         self.last_at_ms = Some(tick.at_ms);
         self.phase = Some(tick.phase);
@@ -447,17 +472,29 @@ impl Detector {
         self.alive = tick.alive;
         self.multi_kill_count = 0;
         self.multi_kill_at_ms = None;
-        self.streak_count = 0;
+        self.streak_count = (tick.kills == Some(0)).then_some(0);
         self.first_blood_emitted = false;
         self.health_low_observed = false;
         self.health_low_armed = true;
         self.mana_low_observed = false;
         self.mana_low_armed = true;
-        self.danger_armed = true;
-        self.danger_last_cue_ms = None;
+        self.danger_armed = if preserve_danger_state {
+            danger_armed
+        } else {
+            true
+        };
+        self.danger_last_cue_ms = if preserve_danger_state {
+            danger_last_cue_ms
+        } else {
+            None
+        };
         self.danger_samples.clear();
 
-        if let Some((hp, max_hp)) = tick.hp.zip(tick.max_hp).filter(|(_, max_hp)| *max_hp > 0) {
+        if let Some((hp, max_hp)) = tick
+            .hp
+            .zip(tick.max_hp)
+            .filter(|(hp, max_hp)| *max_hp > 0 && hp <= max_hp)
+        {
             self.health_low_observed = true;
             self.health_low_armed =
                 !percent_at_or_below(hp, max_hp, self.config.health_low_threshold_percent);
@@ -484,7 +521,7 @@ impl Detector {
         let (Some(hp), Some(max_hp)) = (tick.hp, tick.max_hp) else {
             return false;
         };
-        if tick.alive != Some(true) || max_hp == 0 {
+        if tick.alive != Some(true) || max_hp == 0 || hp > max_hp {
             return false;
         }
 
@@ -520,9 +557,8 @@ impl Detector {
 
         let is_dangerous = percent_at_or_below(hp, max_hp, self.config.danger_max_hp_percent);
         let cooldown_elapsed = self.danger_last_cue_ms.is_none_or(|last_cue_ms| {
-            tick.at_ms
-                .checked_sub(last_cue_ms)
-                .is_some_and(|elapsed| elapsed >= self.config.danger_cooldown_ms)
+            tick.at_ms >= last_cue_ms
+                && tick.at_ms.saturating_sub(last_cue_ms) >= self.config.danger_cooldown_ms
         });
         if self.danger_armed && is_dangerous && dropped_enough && cooldown_elapsed {
             self.danger_armed = false;
@@ -541,6 +577,11 @@ impl Default for Detector {
 
 fn event(id: EventId, tier: Option<u8>, at_ms: u64) -> Event {
     Event { id, tier, at_ms }
+}
+
+fn tier_bounds(id: EventId) -> Option<(u32, u32)> {
+    id.tier_range()
+        .map(|(min, max)| (u32::from(min), u32::from(max)))
 }
 
 fn percent_at_or_below(value: u32, maximum: u32, percent: u32) -> bool {
