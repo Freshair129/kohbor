@@ -426,7 +426,7 @@ impl Shared {
                         }
                         SessionChange::Resumed { epoch } => {
                             self.epoch = Some(epoch);
-                            self.session_hero_id = a.hero.hero_id.value().cloned();
+                            self.verify_session_hero(a);
                         }
                         SessionChange::Unchanged { epoch } => {
                             self.epoch = Some(epoch);
@@ -448,6 +448,7 @@ impl Shared {
                 // carries no active ownership assertion or reason.
                 self.ownership = None;
                 self.ownership_reason = None;
+                self.session_hero_id = None;
             }
         }
         self.sequence += 1;
