@@ -2,7 +2,7 @@
 title: "Software Design Description"
 doc_id: "SDD"
 status: "draft"
-version: "0.3.3"
+version: "0.3.4"
 updated: "2026-11-11"
 owner_role: "Software design lead; person not assigned"
 approval_status: "not_approved"

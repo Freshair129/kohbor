@@ -108,7 +108,10 @@
       "blocks": "pixel-approved UI and native safe area",
       "owner_role": "product designer",
       "safe_interim": "Use inherited topology with honest empty states.",
-      "closure_evidence": "Original annotated wireframes/tokens; viewport/DPI/native focus and safe-area evidence."
+      "closure_evidence": "Original annotated wireframes/tokens; viewport/DPI/native focus and safe-area evidence.",
+      "proposal_ref": "docs/design/VISUAL-DESIGN-PROPOSAL.md",
+      "proposed_on": "2026-11-11",
+      "proposal_scope": "Identity mark, tokens (contracts/design-tokens.json), honest-state encodings, Command Deck Overview/Live and overlay artboards; not approved."
     },
     {
       "id": "DEC-PACK-CRYPTO",

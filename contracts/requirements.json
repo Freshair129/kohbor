@@ -1,6 +1,6 @@
 {
   "schema_version": "1.3.0",
-  "spec_version": "0.3.3",
+  "spec_version": "0.3.4",
   "status": "draft",
   "updated": "2026-11-11",
   "all_new_build_evidence": "NOT_RUN",
@@ -2068,11 +2068,13 @@
         ]
       },
       "contract_refs": [
-        "contracts/own-snapshot.schema.json"
+        "contracts/own-snapshot.schema.json",
+        "contracts/design-tokens.json"
       ],
       "spec_refs": [
         "docs/product/USE-CASES.md",
-        "docs/design/UX-SPEC.md"
+        "docs/design/UX-SPEC.md",
+        "docs/design/VISUAL-DESIGN-PROPOSAL.md"
       ],
       "open_decisions": [
         "DEC-VISUALS"
@@ -2134,11 +2136,13 @@
         ]
       },
       "contract_refs": [
-        "contracts/own-snapshot.schema.json"
+        "contracts/own-snapshot.schema.json",
+        "contracts/design-tokens.json"
       ],
       "spec_refs": [
         "docs/product/USE-CASES.md",
-        "docs/design/UX-SPEC.md"
+        "docs/design/UX-SPEC.md",
+        "docs/design/VISUAL-DESIGN-PROPOSAL.md"
       ],
       "open_decisions": [],
       "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
@@ -2196,11 +2200,13 @@
         ]
       },
       "contract_refs": [
-        "contracts/own-snapshot.schema.json"
+        "contracts/own-snapshot.schema.json",
+        "contracts/design-tokens.json"
       ],
       "spec_refs": [
         "docs/product/USE-CASES.md",
-        "docs/design/UX-SPEC.md"
+        "docs/design/UX-SPEC.md",
+        "docs/design/VISUAL-DESIGN-PROPOSAL.md"
       ],
       "open_decisions": [],
       "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
@@ -2258,11 +2264,13 @@
         ]
       },
       "contract_refs": [
-        "contracts/own-snapshot.schema.json"
+        "contracts/own-snapshot.schema.json",
+        "contracts/design-tokens.json"
       ],
       "spec_refs": [
         "docs/product/USE-CASES.md",
-        "docs/design/UX-SPEC.md"
+        "docs/design/UX-SPEC.md",
+        "docs/design/VISUAL-DESIGN-PROPOSAL.md"
       ],
       "open_decisions": [],
       "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
@@ -2383,11 +2391,13 @@
         ]
       },
       "contract_refs": [
-        "contracts/own-snapshot.schema.json"
+        "contracts/own-snapshot.schema.json",
+        "contracts/design-tokens.json"
       ],
       "spec_refs": [
         "docs/product/USE-CASES.md",
-        "docs/design/UX-SPEC.md"
+        "docs/design/UX-SPEC.md",
+        "docs/design/VISUAL-DESIGN-PROPOSAL.md"
       ],
       "open_decisions": [],
       "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",

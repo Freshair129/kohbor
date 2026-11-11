@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>Command Deck overview</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&amp;family=IBM+Plex+Sans+Thai:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#3CC8B4}a:hover{color:#7FE0D2}
+</style>
+</helmet>
+<div style="width: 1420px; height: 760px; box-sizing: border-box; background: #0E1116; color: #E6EAF0; font-family: 'IBM Plex Sans Thai', system-ui, sans-serif; display: flex">
+
+  <nav aria-label="เมนูหลัก" style="width: 216px; flex-shrink: 0; background: #161B22; border-right: 1px solid #2A3341; display: flex; flex-direction: column; padding: 20px 14px; gap: 4px; box-sizing: border-box">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 0 8px 18px 8px">
+      <svg width="34" height="34" viewBox="0 0 56 56" aria-hidden="true"><rect x="6" y="18" width="44" height="28" rx="12" fill="#1D2430" stroke="#3CC8B4" stroke-width="3"></rect><path d="M12 18 C12 10 20 6 28 6 C36 6 44 10 44 18" fill="none" stroke="#3CC8B4" stroke-width="3" stroke-linecap="round"></path><circle cx="21" cy="30" r="3.4" fill="#E6EAF0"></circle><circle cx="35" cy="30" r="3.4" fill="#E6EAF0"></circle></svg>
+      <div style="display: flex; flex-direction: column"><span style="font-size: 18px; font-weight: 700">Kohbor</span><span style="font-size: 12px; color: #9AA6B5">เกาะเบาะ</span></div>
+    </div>
+    <a href="Overview.dc.html" aria-current="page" style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px; border-radius: 8px; background: #1D2430; color: #E6EAF0; text-decoration: none; font-size: 15px; font-weight: 600; box-shadow: inset 3px 0 0 #3CC8B4"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><rect x="2" y="2" width="6" height="6" rx="1.5" fill="none" stroke="#3CC8B4" stroke-width="1.6"></rect><rect x="10" y="2" width="6" height="6" rx="1.5" fill="none" stroke="#3CC8B4" stroke-width="1.6"></rect><rect x="2" y="10" width="6" height="6" rx="1.5" fill="none" stroke="#3CC8B4" stroke-width="1.6"></rect><rect x="10" y="10" width="6" height="6" rx="1.5" fill="none" stroke="#3CC8B4" stroke-width="1.6"></rect></svg>ภาพรวม</a>
+    <a href="Live.dc.html" style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px; border-radius: 8px; color: #C3CBD6; text-decoration: none; font-size: 15px"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="9" cy="9" r="6.5" fill="none" stroke="#9AA6B5" stroke-width="1.6"></circle><circle cx="9" cy="9" r="2" fill="#9AA6B5"></circle></svg>สด</a>
+    <a href="#packs" style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px; border-radius: 8px; color: #C3CBD6; text-decoration: none; font-size: 15px"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M3 7 L7 7 L11 3 L11 15 L7 11 L3 11 Z" fill="none" stroke="#9AA6B5" stroke-width="1.6" stroke-linejoin="round"></path><path d="M14 6 Q16 9 14 12" fill="none" stroke="#9AA6B5" stroke-width="1.6" stroke-linecap="round"></path></svg>แพ็กเสียง</a>
+    <a href="#store" style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px; border-radius: 8px; color: #C3CBD6; text-decoration: none; font-size: 15px"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M3 6 L15 6 L14 15 L4 15 Z" fill="none" stroke="#9AA6B5" stroke-width="1.6" stroke-linejoin="round"></path><path d="M6.5 6 Q6.5 2.5 9 2.5 Q11.5 2.5 11.5 6" fill="none" stroke="#9AA6B5" stroke-width="1.6"></path></svg>ร้านค้า<span style="margin-left: auto; font-size: 11px; color: #9AA6B5; border: 1px solid #2A3341; border-radius: 4px; padding: 1px 6px">ยังไม่เปิด</span></a>
+    <a href="#insights" style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px; border-radius: 8px; color: #C3CBD6; text-decoration: none; font-size: 15px"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M3 15 L3 9 M8 15 L8 4 M13 15 L13 7" stroke="#9AA6B5" stroke-width="1.8" stroke-linecap="round"></path></svg>สรุปผล</a>
+    <a href="#account" style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px; border-radius: 8px; color: #C3CBD6; text-decoration: none; font-size: 15px"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="9" cy="6.5" r="3" fill="none" stroke="#9AA6B5" stroke-width="1.6"></circle><path d="M3.5 15.5 Q9 9.5 14.5 15.5" fill="none" stroke="#9AA6B5" stroke-width="1.6" stroke-linecap="round"></path></svg>บัญชี<span style="margin-left: auto; font-size: 11px; color: #9AA6B5; border: 1px solid #2A3341; border-radius: 4px; padding: 1px 6px">ไม่บังคับ</span></a>
+    <a href="#settings" style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px; border-radius: 8px; color: #C3CBD6; text-decoration: none; font-size: 15px"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="9" cy="9" r="2.5" fill="none" stroke="#9AA6B5" stroke-width="1.6"></circle><circle cx="9" cy="9" r="6.5" fill="none" stroke="#9AA6B5" stroke-width="1.6" stroke-dasharray="3 2.2"></circle></svg>ตั้งค่า</a>
+    <div style="margin-top: auto; padding: 12px; border-radius: 8px; border: 1px solid #2A3341; display: flex; flex-direction: column; gap: 4px">
+      <span style="font-size: 12px; color: #9AA6B5">ทางลัด</span>
+      <span style="font-size: 12px"><span style="font-family: 'IBM Plex Mono', monospace">Ctrl+K</span> คำสั่ง · <span style="font-family: 'IBM Plex Mono', monospace">?</span> ช่วยเหลือ</span>
+    </div>
+  </nav>
+
+  <div style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+    <header style="height: 60px; flex-shrink: 0; border-bottom: 1px solid #2A3341; display: flex; align-items: center; padding: 0 24px; gap: 16px">
+      <h1 style="margin: 0; font-size: 20px; font-weight: 600">ภาพรวม</h1>
+      <div style="display: flex; align-items: center; gap: 8px; padding: 4px 12px; border-radius: 6px; border: 1px solid #2A3341; background: #161B22"><span style="font-family: 'IBM Plex Mono', monospace; color: #9AA6B5">—</span><span style="font-size: 14px; color: #C3CBD6">รอเข้าเกม</span></div>
+      <div style="margin-left: auto; display: flex; align-items: center; gap: 10px">
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 8px; border: 1px solid #2A3341; background: #161B22; color: #C3CBD6; font-family: inherit; font-size: 14px; display: flex; align-items: center; gap: 8px">ค้นหาคำสั่ง <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #9AA6B5; border: 1px solid #2A3341; border-radius: 4px; padding: 0 5px">Ctrl+K</span></button>
+        <button type="button" aria-pressed="true" style="height: 36px; padding: 0 14px; border-radius: 8px; border: 1px solid #3CC8B4; background: #12302C; color: #E6EAF0; font-family: inherit; font-size: 14px">Overlay: เปิด <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #9AA6B5">Ctrl+Alt+S</span></button>
+      </div>
+    </header>
+
+    <main style="flex: 1; min-height: 0; padding: 20px 24px; display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 20px">
+
+      <section aria-labelledby="ready-h" style="background: #161B22; border: 1px solid #2A3341; border-radius: 10px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; min-height: 0">
+        <div style="display: flex; align-items: baseline; justify-content: space-between">
+          <h2 id="ready-h" style="margin: 0; font-size: 16px; font-weight: 600">ความพร้อม</h2>
+          <span style="font-size: 12px; color: #9AA6B5">แต่ละส่วนแยกกัน — ส่วนหนึ่งพร้อมไม่ได้แปลว่าทั้งหมดพร้อม</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 180px 150px minmax(0, 1fr) auto; align-items: center; gap: 0 14px; border-top: 1px solid #2A3341; padding-top: 6px">
+          <span style="font-size: 14px; padding: 9px 0">รับข้อมูลเกม</span>
+          <span style="justify-self: start; display: flex; align-items: center; gap: 6px; font-size: 13px; padding: 3px 10px; border-radius: 6px; border: 1px solid #3CC8B4; background: #12302C"><svg width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><circle cx="4" cy="4" r="4" fill="#3CC8B4"></circle></svg>พร้อมรับ</span>
+          <span style="font-size: 13px; color: #9AA6B5">พอร์ต <span style="font-family: 'IBM Plex Mono', monospace">3001</span> · ยังไม่มีข้อมูลจากเกม</span>
+          <span></span>
+
+          <span style="font-size: 14px; padding: 9px 0; border-top: 1px solid #222A36">ยืนยันผู้เล่น</span>
+          <span style="justify-self: start; display: flex; align-items: center; gap: 6px; font-size: 13px; padding: 3px 10px; border-radius: 6px; border: 1px solid #2A3341; color: #9AA6B5"><span style="font-family: 'IBM Plex Mono', monospace">—</span>ยังไม่ทราบ</span>
+          <span style="font-size: 13px; color: #9AA6B5">ตรวจกับบัญชี Steam ที่ล็อกอินเมื่อเข้าเกม</span>
+          <span></span>
+
+          <span style="font-size: 14px; padding: 9px 0; border-top: 1px solid #222A36">แมตช์</span>
+          <span style="justify-self: start; display: flex; align-items: center; gap: 6px; font-size: 13px; padding: 3px 10px; border-radius: 6px; border: 1px solid #2A3341; color: #9AA6B5"><span style="font-family: 'IBM Plex Mono', monospace">—</span>รอเข้าเกม</span>
+          <span style="font-size: 13px; color: #9AA6B5">ยังไม่มีแมตช์ที่กำลังเล่น</span>
+          <span></span>
+
+          <span style="font-size: 14px; padding: 9px 0; border-top: 1px solid #222A36">โหมดเกม</span>
+          <span style="justify-self: start; display: flex; align-items: center; gap: 6px; font-size: 13px; padding: 3px 10px; border-radius: 6px; border: 1px dashed #6B7686; color: #9AA6B5">ยืนยันไม่ได้</span>
+          <span style="font-size: 13px; color: #9AA6B5">ข้อมูลจากเกมไม่ระบุโหมด — ผลรับรองอิงเฉพาะ All Pick</span>
+          <span></span>
+
+          <span style="font-size: 14px; padding: 9px 0; border-top: 1px solid #222A36">เสียงเตือนสำคัญ</span>
+          <span style="justify-self: start; display: flex; align-items: center; gap: 6px; font-size: 13px; padding: 3px 10px; border-radius: 6px; border: 1px solid #F2B544; background: #2B2414"><span style="font-weight: 700; color: #F2B544">!</span>ยังไม่พร้อม</span>
+          <span style="font-size: 13px; color: #9AA6B5">แพ็กที่เลือกยังไม่มีเสียงเตือนสำคัญที่ผ่านการตรวจ</span>
+          <a href="#packs" style="font-size: 13px; text-decoration: none; padding: 6px 10px; border-radius: 6px; border: 1px solid #2A3341">ไปที่แพ็กเสียง</a>
+
+          <span style="font-size: 14px; padding: 9px 0; border-top: 1px solid #222A36">การมองเห็นแผนที่</span>
+          <span style="justify-self: start; display: flex; align-items: center; gap: 6px; font-size: 13px; padding: 3px 10px; border-radius: 6px; border: 1px solid #2A3341; color: #9AA6B5"><svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 2 L10 10 M10 2 L2 10" stroke="#9AA6B5" stroke-width="2" stroke-linecap="round"></path></svg>ใช้ไม่ได้</span>
+          <span style="font-size: 13px; color: #9AA6B5">ยังไม่มีในบิลด์นี้ — ใช้เฉพาะข้อมูลเกม (GSI)</span>
+          <span></span>
+
+          <span style="font-size: 14px; padding: 9px 0; border-top: 1px solid #222A36">ทรัพยากรเครื่อง</span>
+          <span style="justify-self: start; display: flex; align-items: center; gap: 6px; font-size: 13px; padding: 3px 10px; border-radius: 6px; border: 1px solid #3CC8B4; background: #12302C"><svg width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><circle cx="4" cy="4" r="4" fill="#3CC8B4"></circle></svg>ปกติ</span>
+          <span style="font-size: 13px; color: #9AA6B5">CPU <span style="font-family: 'IBM Plex Mono', monospace; color: #E6EAF0">2.1%</span> / 10% · RAM <span style="font-family: 'IBM Plex Mono', monospace; color: #E6EAF0">214 MB</span> / 900 MB</span>
+          <span></span>
+
+          <span style="font-size: 14px; padding: 9px 0; border-top: 1px solid #222A36">บัญชี</span>
+          <span style="justify-self: start; display: flex; align-items: center; gap: 6px; font-size: 13px; padding: 3px 10px; border-radius: 6px; border: 1px solid #2A3341; color: #9AA6B5">ไม่ได้ใช้</span>
+          <span style="font-size: 13px; color: #9AA6B5">ไม่บังคับ — ทุกฟังก์ชันในเครื่องใช้ได้โดยไม่ต้องล็อกอิน</span>
+          <span></span>
+        </div>
+      </section>
+
+      <div style="display: flex; flex-direction: column; gap: 20px; min-height: 0">
+        <section aria-labelledby="match-h" style="background: #161B22; border: 1px solid #2A3341; border-radius: 10px; padding: 18px 20px; display: flex; align-items: center; gap: 18px">
+          <svg width="72" height="72" viewBox="0 0 56 56" aria-hidden="true"><rect x="6" y="18" width="44" height="28" rx="12" fill="#1D2430" stroke="#3CC8B4" stroke-width="2"></rect><path d="M12 18 C12 10 20 6 28 6 C36 6 44 10 44 18" fill="none" stroke="#3CC8B4" stroke-width="2" stroke-linecap="round"></path><path d="M18 30 L24 30 M32 30 L38 30" stroke="#E6EAF0" stroke-width="2.4" stroke-linecap="round"></path><path d="M24 38 L32 38" stroke="#E6EAF0" stroke-width="2" stroke-linecap="round"></path></svg>
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <h2 id="match-h" style="margin: 0; font-size: 16px; font-weight: 600">แมตช์ล่าสุด</h2>
+            <span style="font-size: 14px; color: #C3CBD6">ยังไม่มีข้อมูล — เปิด Dota 2 และเข้าแมตช์ แล้ว Kohbor จะเริ่มแสดงผล</span>
+            <span style="font-size: 12px; color: #9AA6B5">ไม่แสดงสถิติตัวอย่างในหน้านี้</span>
+          </div>
+        </section>
+
+        <section aria-labelledby="audio-h" style="background: #161B22; border: 1px solid #2A3341; border-radius: 10px; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px">
+          <h2 id="audio-h" style="margin: 0; font-size: 16px; font-weight: 600">เสียง</h2>
+          <div style="display: flex; align-items: center; gap: 14px">
+            <label for="vol" style="font-size: 14px; width: 64px">ระดับเสียง</label>
+            <input id="vol" type="range" min="0" max="100" step="10" value="70" style="flex: 1; accent-color: #3CC8B4">
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; width: 44px; text-align: right">70%</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px">
+            <button type="button" aria-pressed="false" style="height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid #2A3341; background: #1D2430; color: #E6EAF0; font-family: inherit; font-size: 14px">ปิดเสียง <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #9AA6B5">Alt+M</span></button>
+            <span style="font-size: 12px; color: #9AA6B5; line-height: 1.5">ปิดเสียงจะปิดเสียงเตือนสำคัญด้วย<br>และสถานะเสียงเตือนจะแสดงว่าไม่พร้อม</span>
+          </div>
+        </section>
+
+        <section aria-labelledby="buddy-h" style="background: #161B22; border: 1px solid #2A3341; border-radius: 10px; padding: 18px 20px; display: flex; flex-direction: column; gap: 8px; flex: 1">
+          <h2 id="buddy-h" style="margin: 0; font-size: 16px; font-weight: 600">Companion</h2>
+          <span style="font-size: 14px; color: #C3CBD6">ว่าง · ถามด้วยเสียงได้เมื่อเปิดไมโครโฟน</span>
+          <span style="font-size: 12px; color: #9AA6B5">ไมค์: ยังไม่ได้อนุญาต · กดค้าง <span style="font-family: 'IBM Plex Mono', monospace">Ctrl+Alt+V</span> เพื่อพูด</span>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1420,"height":760}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

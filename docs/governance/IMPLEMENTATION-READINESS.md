@@ -2,7 +2,7 @@
 title: "Kohbor Implementation Readiness"
 doc_id: "IMPLEMENTATION-READINESS"
 status: draft
-version: "0.3.3"
+version: "0.3.4"
 updated: "2026-11-11"
 owner_role: "Product owner and engineering lead; reviewers not assigned"
 approval_status: "not_approved"
@@ -35,7 +35,7 @@ Start M0 feasibility work, requirement review, technical-identity definition and
 | Media trust and playback readiness | Complete install/catalog contract, canonical signing bytes, algorithm/key distribution, verification vectors and authorized critical media | DEC-PACK-CRYPTO, DEC-CRITICAL-MEDIA; [Media Package Specification](../design/MEDIA-PACK-SPEC.md) | Untrusted packages inactive; missing critical assets reported not ready |
 | Risk alerts | Complete coordinated-motion/disappearance admission, reappearance guards, timing/heading/ETA policy and positive/negative golden traces | DEC-RISK-DETAIL; [SDD](../design/SDD.md) | Reference scores informational; affected audible alerts unavailable until admission is frozen; no correction from coverage loss or time decay |
 | Voice buffers | Exact PCM ownership, capture termination, bounded decoder lifetime, cancellation races and zeroization deadlines | DEC-VOICE-BUFFER; [SDD](../design/SDD.md), [Security and Privacy](../security/SECURITY-PRIVACY.md) | A capture-only spike may discard bytes and report STT unavailable |
-| Visual design and native behavior | Annotated original screens, design tokens, viewport/DPI/focus behavior and measured safe areas | DEC-VISUALS, DEC-NATIVE-EVIDENCE; [UX Specification](../design/UX-SPEC.md) | Behavioral layouts are specified; final visual/native acceptance remains open |
+| Visual design and native behavior | Owner review of the first proposal (VISUAL-DESIGN-PROPOSAL, design-tokens.json); remaining destinations and state variants; viewport/DPI/focus behavior and measured safe areas | DEC-VISUALS, DEC-NATIVE-EVIDENCE; [UX Specification](../design/UX-SPEC.md) | Behavioral layouts are specified; final visual/native acceptance remains open |
 | Model and resource qualification | Selected model artifacts/hashes, calibration and held-out evidence; application and external recording resource results | DEC-MODELS, DEC-OBS-BUDGET; [NFR](../quality/NFR.md) | Unqualified model capability unavailable; report app and recorder separately and combined |
 | Optional services | Hosted social protocols, ownership and operations; commercial entitlement authority and revocation | DEC-SOCIAL, DEC-PREMIUM; [ICD](../design/ICD.md), [Runbook](../operations/RUNBOOK.md) | Local core independent; no production premium grant or implicit cloud permission |
 

@@ -2,7 +2,7 @@
 title: "Software Requirements Specification"
 doc_id: "SRS"
 status: "draft"
-version: "0.3.3"
+version: "0.3.4"
 updated: "2026-11-10"
 owner: "Product Owner"
 approval_status: "not_approved"
@@ -24,7 +24,7 @@ The full MVP covers local telemetry, admitted visible-screen observations, deter
 
 The first demonstration is a limited delivery milestone, not completion of the full MVP. Action-damage analysis remains subject to its recorded scope/data decision. Game injection, hidden enemy data, automatic gameplay actions, cloud voice/memory processing and inherited product compatibility are outside this baseline.
 
-Version 0.3.3 is a reviewable draft. The owner-selected name is recorded; the requirements baseline, implementation and native/live acceptance have not been approved. Its organization follows conventional requirements-engineering practice; no formal standards-conformance certification is asserted.
+Version 0.3.4 is a reviewable draft. The owner-selected name is recorded; the requirements baseline, implementation and native/live acceptance have not been approved. Its organization follows conventional requirements-engineering practice; no formal standards-conformance certification is asserted.
 
 ### 1.3 References and document relationships
 
@@ -860,9 +860,9 @@ The product shall separate control-window chrome from the transparent always-on-
 
 **Open dependencies:** DEC-VISUALS.
 
-**Elaboration:** [USE-CASES.md](../product/USE-CASES.md), [UX-SPEC.md](../design/UX-SPEC.md)
+**Elaboration:** [USE-CASES.md](../product/USE-CASES.md), [UX-SPEC.md](../design/UX-SPEC.md), [VISUAL-DESIGN-PROPOSAL.md](../design/VISUAL-DESIGN-PROPOSAL.md)
 
-**Contracts:** [own-snapshot.schema.json](../../contracts/own-snapshot.schema.json)
+**Contracts:** [own-snapshot.schema.json](../../contracts/own-snapshot.schema.json), [design-tokens.json](../../contracts/design-tokens.json)
 
 **Diagram views:** [DGM-002](../diagrams/source/DGM-002-containers.mmd), [DGM-017](../diagrams/source/DGM-017-user-flow.mmd)
 
@@ -882,9 +882,9 @@ The base live field shall preserve five enemy slots, own hero, four allied slots
 
 **Verification:** synthetic, native, live; procedures TP-05, UAT-05; status NOT_RUN.
 
-**Elaboration:** [USE-CASES.md](../product/USE-CASES.md), [UX-SPEC.md](../design/UX-SPEC.md)
+**Elaboration:** [USE-CASES.md](../product/USE-CASES.md), [UX-SPEC.md](../design/UX-SPEC.md), [VISUAL-DESIGN-PROPOSAL.md](../design/VISUAL-DESIGN-PROPOSAL.md)
 
-**Contracts:** [own-snapshot.schema.json](../../contracts/own-snapshot.schema.json)
+**Contracts:** [own-snapshot.schema.json](../../contracts/own-snapshot.schema.json), [design-tokens.json](../../contracts/design-tokens.json)
 
 **Diagram views:** [DGM-017](../diagrams/source/DGM-017-user-flow.mmd)
 
@@ -904,9 +904,9 @@ Production shall begin without fixture roster, fake inventory or preselected her
 
 **Verification:** synthetic, native, live; procedures TP-05, UAT-05; status NOT_RUN.
 
-**Elaboration:** [USE-CASES.md](../product/USE-CASES.md), [UX-SPEC.md](../design/UX-SPEC.md)
+**Elaboration:** [USE-CASES.md](../product/USE-CASES.md), [UX-SPEC.md](../design/UX-SPEC.md), [VISUAL-DESIGN-PROPOSAL.md](../design/VISUAL-DESIGN-PROPOSAL.md)
 
-**Contracts:** [own-snapshot.schema.json](../../contracts/own-snapshot.schema.json)
+**Contracts:** [own-snapshot.schema.json](../../contracts/own-snapshot.schema.json), [design-tokens.json](../../contracts/design-tokens.json)
 
 **Diagram views:** [DGM-017](../diagrams/source/DGM-017-user-flow.mmd)
 
@@ -926,9 +926,9 @@ Enemy and unknown ally cards shall omit unknown-only skill/item rows.
 
 **Verification:** synthetic, native, live; procedures TP-05, UAT-05; status NOT_RUN.
 
-**Elaboration:** [USE-CASES.md](../product/USE-CASES.md), [UX-SPEC.md](../design/UX-SPEC.md)
+**Elaboration:** [USE-CASES.md](../product/USE-CASES.md), [UX-SPEC.md](../design/UX-SPEC.md), [VISUAL-DESIGN-PROPOSAL.md](../design/VISUAL-DESIGN-PROPOSAL.md)
 
-**Contracts:** [own-snapshot.schema.json](../../contracts/own-snapshot.schema.json)
+**Contracts:** [own-snapshot.schema.json](../../contracts/own-snapshot.schema.json), [design-tokens.json](../../contracts/design-tokens.json)
 
 **Diagram views:** [DGM-017](../diagrams/source/DGM-017-user-flow.mmd)
 
@@ -970,9 +970,9 @@ Keyboard interaction shall use visible focus, meaningful names and ordered Escap
 
 **Verification:** synthetic, native, live; procedures TP-05, UAT-05; status NOT_RUN.
 
-**Elaboration:** [USE-CASES.md](../product/USE-CASES.md), [UX-SPEC.md](../design/UX-SPEC.md)
+**Elaboration:** [USE-CASES.md](../product/USE-CASES.md), [UX-SPEC.md](../design/UX-SPEC.md), [VISUAL-DESIGN-PROPOSAL.md](../design/VISUAL-DESIGN-PROPOSAL.md)
 
-**Contracts:** [own-snapshot.schema.json](../../contracts/own-snapshot.schema.json)
+**Contracts:** [own-snapshot.schema.json](../../contracts/own-snapshot.schema.json), [design-tokens.json](../../contracts/design-tokens.json)
 
 **Diagram views:** [DGM-017](../diagrams/source/DGM-017-user-flow.mmd)
 

@@ -2,7 +2,7 @@
 title: "Game-State Intake Specification (M1)"
 doc_id: "GSI-INTAKE-SPEC"
 status: draft
-version: "0.3.3"
+version: "0.3.4"
 updated: "2026-11-11"
 authority: "DEC-BASELINE; elaborates CORE-004, CORE-005, DATA-001..004 under DEC-GSI-INTAKE"
 owner_role: "Integration owner; people not assigned"

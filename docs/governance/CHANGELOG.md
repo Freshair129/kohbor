@@ -1,5 +1,28 @@
 # Documentation Changelog
 
+## 0.3.4 — 2026-11-11
+
+Added the first visual design proposal under DEC-VISUALS. It is **not approved**, and DEC-VISUALS stays open.
+
+- [VISUAL-DESIGN-PROPOSAL](../design/VISUAL-DESIGN-PROPOSAL.md) records:
+  - an original companion mark;
+  - a dark-first palette with one teal accent, blue/orange team colours, critical/warning/stale tokens and no "safe" green;
+  - IBM Plex Sans Thai and IBM Plex Mono type;
+  - honest-state encodings that use shape, line and words, not colour alone.
+- Four annotated artboards, sourced in `docs/design/visuals/`:
+  - design tokens;
+  - Command Deck Overview (waiting state with independent readiness rows);
+  - Command Deck Live (sample data: field anatomy, neutral inspector, detection-versus-audio event feed);
+  - the 1920×1080 overlay with no-cover HUD zones and five modules.
+- `contracts/design-tokens.json` 0.1.0. Values marked `needs_measurement` must be confirmed natively.
+- UI-001/002/003/004/006 link the proposal and the tokens.
+
+Not changed:
+- Requirement statements, acceptance predicates, scopes and NOT_RUN evidence.
+- UX-SPEC rules.
+- Runtime schemas.
+- Diagrams.
+
 ## 0.3.3 — 2026-11-11
 
 Closed the documentation gaps blocking M2 (events, audio and media). Every addition is a **proposal** under DEC-EVENT-AUDIO. The single new product behavior, health danger, was approved as proposed by the product owner on 2026-11-11 (DEC-HEALTH-DANGER). Nothing else has been approved, and nothing has been executed.
