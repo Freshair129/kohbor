@@ -451,6 +451,51 @@
       "fixture": "fixtures/peer-abilities-vitals-scope.json",
       "schema_valid": false,
       "requirement_id": "PEER-010"
+    },
+    {
+      "id": "event-catalog-bad-tier-range",
+      "schema": "contracts/event-catalog.schema.json",
+      "fixture": "fixtures/event-catalog-bad-tier-range.json",
+      "schema_valid": true,
+      "requirement_id": "MEDIA-001",
+      "semantic": "event_catalog",
+      "semantic_valid": false
+    },
+    {
+      "id": "media-tiered-bindings-valid",
+      "schema": "contracts/media-manifest.schema.json",
+      "fixture": "fixtures/media-tiered-bindings-valid.json",
+      "schema_valid": true,
+      "requirement_id": "MEDIA-002",
+      "semantic": "manifest_paths",
+      "semantic_valid": true
+    },
+    {
+      "id": "media-tier-duplicate",
+      "schema": "contracts/media-manifest.schema.json",
+      "fixture": "fixtures/media-tier-duplicate.json",
+      "schema_valid": true,
+      "requirement_id": "MEDIA-002",
+      "semantic": "manifest_paths",
+      "semantic_valid": false
+    },
+    {
+      "id": "media-tier-out-of-range",
+      "schema": "contracts/media-manifest.schema.json",
+      "fixture": "fixtures/media-tier-out-of-range.json",
+      "schema_valid": true,
+      "requirement_id": "MEDIA-002",
+      "semantic": "manifest_paths",
+      "semantic_valid": false
+    },
+    {
+      "id": "media-tier-untiered-event",
+      "schema": "contracts/media-manifest.schema.json",
+      "fixture": "fixtures/media-tier-untiered-event.json",
+      "schema_valid": true,
+      "requirement_id": "MEDIA-002",
+      "semantic": "manifest_paths",
+      "semantic_valid": false
     }
   ],
   "notes": [

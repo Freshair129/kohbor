@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/spec/event-catalog.schema.json",
   "title": "event-catalog.schema.json",
-  "description": "Proposed neutral contract 1.0.0: canonical event catalog (MP-01). Semantic rules (unique IDs, unique non-zero ordinary ranks, tunable bounds, re-arm side) are checked by tools/validate_spec.py.",
+  "description": "Proposed neutral contract 1.1.0: canonical event catalog (MP-01). 1.1.0 adds the optional tier_range of a counted event. Semantic rules (unique IDs, unique non-zero ordinary ranks, tunable bounds, re-arm side, tier ranges) are checked by tools/validate_spec.py.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -16,7 +16,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "1.0.0"
+      "const": "1.1.0"
     },
     "taxonomy_version": {
       "type": "string",
@@ -203,6 +203,26 @@
                     "level"
                   ]
                 }
+              }
+            }
+          },
+          "tier_range": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "min",
+              "max"
+            ],
+            "properties": {
+              "min": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100
+              },
+              "max": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100
               }
             }
           },

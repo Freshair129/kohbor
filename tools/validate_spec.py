@@ -11,6 +11,8 @@ import sys
 from pathlib import Path, PurePosixPath
 
 SKIP_DIRS={"node_modules","__pycache__","target",".git","spike-out"}
+# Tier ranges of the canonical catalog, filled in main(); manifest tier checks read them.
+TIER_RANGES={}
 
 def strict_pairs(pairs):
     result={}
@@ -43,6 +45,12 @@ def semantic(rule,data):
         for b in data["bindings"]:
             if roles.get(b["mixed_audio_path"])!="mixed_audio" or roles.get(b["silent_visual_path"])!="silent_visual":return False
             if "identity_audio_path" in b and roles.get(b["identity_audio_path"])!="identity_audio":return False
+        keys=[(b["event_id"],b.get("tier")) for b in data["bindings"]]
+        if len(keys)!=len(set(keys)):return False
+        for event_id,tier in keys:
+            if tier is None:continue
+            bounds=TIER_RANGES.get(event_id)
+            if bounds is None or not bounds["min"]<=tier<=bounds["max"]:return False
         return True
     if rule=="event_catalog":
         events=data["events"]
@@ -55,6 +63,7 @@ def semantic(rule,data):
             if voiced_ordinary!=(rank is not None):return False
             if rank is not None:ranks.append(rank)
             if e["category"]=="test" and e["status"]!="test_only":return False
+            if "tier_range" in e and (e["tier_range"]["min"]>e["tier_range"]["max"] or not e["media_mappable"]):return False
             for t in e["tunables"].values():
                 if t["min"]>t["max"]:return False
                 values=t["default"] if isinstance(t["default"],list) else [t["default"]]
@@ -155,6 +164,7 @@ def main():
         if r.get("target_milestone") not in {"M1","M2","M3","M4a","M4b","M5","M6","M7","M8"}:errors.append(r["id"]+": missing/unknown target milestone.")
         if not r["statement"] or not r["failure_behavior"] or not r["acceptance"]["then"]:errors.append(r["id"]+": incomplete acceptance.")
     catalog=parsed["contracts/event-catalog.json"]
+    TIER_RANGES.update({e["id"]:e["tier_range"] for e in catalog["events"] if "tier_range" in e})
     production_ids={e["id"] for e in catalog["events"] if e["status"]!="test_only"}
     if set(parsed["contracts/event.schema.json"]["properties"]["event_type"]["enum"])!=production_ids:
         errors.append("event.schema event_type enum does not match the canonical event catalog.")

@@ -1,5 +1,12 @@
 // Shapes of contracts/runtime-status.schema.json and own-snapshot.schema.json 2.0.0.
 
+import type { Locale } from "./copy";
+
+export interface UserSettingsView {
+  revision: number;
+  locale: Locale;
+}
+
 export type ErrorCode = string | null;
 
 export interface RuntimeStatus {

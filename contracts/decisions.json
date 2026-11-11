@@ -81,6 +81,20 @@
           "acknowledged_on": "2026-11-11",
           "channel": "Owner reply in the engineering chat session that prepared spec 0.3.3",
           "scope": "Ordinary rank values only; does not approve DEC-EVENT-AUDIO as a whole."
+        },
+        {
+          "topic": "Kill tiers: multi_kill carries tier 2-5 (own kills in the window) and streak carries tier 3-10 (kills since the last own death). A package may bind one clip per tier; lookup takes the highest bound tier not above the occurrence, and an untiered binding covers every tier.",
+          "acknowledged_by": "product_owner",
+          "acknowledged_on": "2026-11-11",
+          "channel": "Owner reply in the engineering chat session about announcer packs (\"add tiers\")",
+          "scope": "Tier dimension in EVENT-AUDIO-SPEC section 2 and bindings[].tier in section 7 only; taxonomy 1.1 and media-manifest 1.2.0. Does not approve DEC-EVENT-AUDIO as a whole, any package content or any licence."
+        },
+        {
+          "topic": "The event set and kill counting follow Dota 2 itself: multi-kill is a chain with at most 18 s between consecutive own kills, and streak is the game's count of kills since the last own death. Events of other games with no Dota 2 equivalent (for example smackdown or annihilation in a Heroes of Newerth pack) are not catalog events and cannot be bound.",
+          "acknowledged_by": "product_owner",
+          "acknowledged_on": "2026-11-11",
+          "channel": "Owner reply in the engineering chat session about announcer packs (\"follow Dota 2 as the reference\")",
+          "scope": "Counting semantics and catalog scope of multi_kill and streak in EVENT-AUDIO-SPEC section 2 only. Detector assumptions E-3 and E-4 stay unconfirmed until a capture shows them."
         }
       ]
     },

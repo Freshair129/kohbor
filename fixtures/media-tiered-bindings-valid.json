@@ -1,0 +1,91 @@
+{
+  "schema_version": "1.2.0",
+  "package_id": "synthetic-test-pack",
+  "revision": 1,
+  "taxonomy_version": "1.1",
+  "display_name": "Synthetic test metadata",
+  "publisher_key_id": null,
+  "files": [
+    {
+      "path": "audio/cue1.wav",
+      "size_bytes": 4096,
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "role": "mixed_audio"
+    },
+    {
+      "path": "video/cue1.webm",
+      "size_bytes": 8192,
+      "sha256": "9999999999999999999999999999999999999999999999999999999999999999",
+      "role": "silent_visual"
+    },
+    {
+      "path": "audio/cue2.wav",
+      "size_bytes": 4096,
+      "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "role": "mixed_audio"
+    },
+    {
+      "path": "video/cue2.webm",
+      "size_bytes": 8192,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "role": "silent_visual"
+    },
+    {
+      "path": "audio/cue3.wav",
+      "size_bytes": 4096,
+      "sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+      "role": "mixed_audio"
+    },
+    {
+      "path": "video/cue3.webm",
+      "size_bytes": 8192,
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "role": "silent_visual"
+    },
+    {
+      "path": "audio/cue4.wav",
+      "size_bytes": 4096,
+      "sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+      "role": "mixed_audio"
+    },
+    {
+      "path": "video/cue4.webm",
+      "size_bytes": 8192,
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "role": "silent_visual"
+    }
+  ],
+  "bindings": [
+    {
+      "event_id": "multi_kill",
+      "tier": 2,
+      "mixed_audio_path": "audio/cue1.wav",
+      "silent_visual_path": "video/cue1.webm",
+      "duration_ms": 1000,
+      "visual_tail_ms": 0
+    },
+    {
+      "event_id": "multi_kill",
+      "tier": 3,
+      "mixed_audio_path": "audio/cue2.wav",
+      "silent_visual_path": "video/cue2.webm",
+      "duration_ms": 1000,
+      "visual_tail_ms": 0
+    },
+    {
+      "event_id": "streak",
+      "mixed_audio_path": "audio/cue3.wav",
+      "silent_visual_path": "video/cue3.webm",
+      "duration_ms": 1000,
+      "visual_tail_ms": 0
+    },
+    {
+      "event_id": "streak",
+      "tier": 5,
+      "mixed_audio_path": "audio/cue4.wav",
+      "silent_visual_path": "video/cue4.webm",
+      "duration_ms": 1000,
+      "visual_tail_ms": 0
+    }
+  ]
+}

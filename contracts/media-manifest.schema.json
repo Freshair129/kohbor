@@ -2,11 +2,11 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/spec/media-manifest.schema.json",
   "title": "media-manifest.schema.json",
-  "description": "Proposed neutral contract 1.1.0: package descriptor (first ZIP entry descriptor.json). files is the payload inventory; bindings is the event registry (bindings[].event_id names a catalog ID). No authority field: the installer binds authority. See docs/design/MEDIA-PACK-SPEC.md and docs/design/EVENT-AUDIO-SPEC.md section 7.",
+  "description": "Proposed neutral contract 1.2.0: package descriptor (first ZIP entry descriptor.json). files is the payload inventory; bindings is the event registry (bindings[].event_id names a catalog ID; 1.2.0 adds the optional bindings[].tier of a counted event). No authority field: the installer binds authority. See docs/design/MEDIA-PACK-SPEC.md and docs/design/EVENT-AUDIO-SPEC.md section 7.",
   "type": "object",
   "properties": {
     "schema_version": {
-      "const": "1.1.0"
+      "const": "1.2.0"
     },
     "package_id": {
       "type": "string",
@@ -89,6 +89,11 @@
           "event_id": {
             "type": "string",
             "pattern": "^[a-z][a-z0-9_]{0,79}$"
+          },
+          "tier": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
           },
           "mixed_audio_path": {
             "type": "string",

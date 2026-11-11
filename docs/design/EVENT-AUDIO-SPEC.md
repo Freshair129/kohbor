@@ -42,14 +42,15 @@ The package validator also enforces these semantic rules:
 - No other category carries a rank.
 - Every tunable default lies inside its bounds.
 - Every re-arm value lies on the safe side of its threshold.
+- A `tier_range` has `min` ≤ `max` and appears only on a media-mappable event.
 - The `event_type` enum in [event.schema.json](../../contracts/event.schema.json) must equal the set of non-test catalog IDs. This is the "generated consumer checked against the source" rule.
 
-Taxonomy version `1.0`:
+Taxonomy version `1.1`. Version 1.1 adds tiers to `multi_kill` and `streak`; it adds no ID and changes no meaning:
 
 | ID | Category | Source | Detector milestone | Ordinary rank | Voiced by default | Notes |
 | --- | --- | --- | --- | ---: | --- | --- |
-| `multi_kill` | ordinary | gsi | M2 | 90 | yes | ≥2 own kills within an 18,000 ms window (MP-02) |
-| `streak` | ordinary | gsi | M2 | 80 | yes | Kills since the last own death reach 3 or more; each further kill re-emits |
+| `multi_kill` | ordinary | gsi | M2 | 90 | yes | A run of ≥2 own kills with no more than 18,000 ms between consecutive kills (MP-02). Tier 2–5 |
+| `streak` | ordinary | gsi | M2 | 80 | yes | The game's kill streak (own kills since the last own death) reaches 3 or more; each further kill re-emits. Tier 3–10 |
 | `first_blood` | ordinary | gsi | M2 | 70 | yes | First hero kill of the match, credited to self (E-1) |
 | `hero_kill` | ordinary | gsi | M2 | 60 | yes | Own kill counter increments |
 | `hero_death` | ordinary | gsi | M2 | 50 | yes | Own `alive` goes from true to false |
@@ -58,7 +59,7 @@ Taxonomy version `1.0`:
 | `mana_low` | ordinary | gsi | M2 | 20 | yes | Mana falls to ≤15%; re-arms at ≥25% or after respawn |
 | `match_ended` | ordinary | gsi | M2 | 15 | yes | Game state enters post-game (E-2) |
 | `match_started` | ordinary | gsi | M2 | 10 | yes | Game state enters live play for the current session (E-2) |
-| `hero_respawn` | ordinary | gsi | M2 | — | **no** | Detected and recorded; not voiced and not mappable in taxonomy 1.0 (MEDIA-003) |
+| `hero_respawn` | ordinary | gsi | M2 | — | **no** | Detected and recorded; not voiced and not mappable in taxonomy 1.x (MEDIA-003) |
 | `health_danger` | critical | gsi | M2 | — | yes | Approved 2026-11-11 (DEC-HEALTH-DANGER, §3); audible only with verified critical media (ALERT-007) |
 | `enemy_missing` | notice | vision | M3 | — | yes | Absence >5,000 ms with valid coverage; once per hero per episode; global cooldown ≥10,000 ms (ALERT-006) |
 | `risk_alert` | critical | native | M3 | — | yes | Admission per SDD §6 and DEC-RISK-DETAIL; cooldowns 30 s global and 60 s per contributor |
@@ -69,11 +70,45 @@ Taxonomy version `1.0`:
 
 **Rank provenance.** MP-02 fixes multi-kill > streak > first blood > ordinary kill. The product owner confirmed the remaining ranks as proposed on 2026-11-11: death 50, level milestone 40, low health 30, low mana 20, match ended 15, match started 10.
 
+**Tiers (owner decision 2026-11-11).** The two counted events carry a tier, so a package can voice each step of a kill run differently.
+
+- The tier is the event's `payload.count`, capped at the top of the catalog `tier_range`: `multi_kill` 2–5 (length of the current run; 5 means five or more), `streak` 3–10 (kills since the last own death; 10 means ten or more).
+- A tier is not a new event. Rank, arbitration, cooldowns and baselines are those of the event; `multi_kill` still outranks `streak` at every tier.
+- A package binds a clip to a tier with `bindings[].tier` (§7). The lookup for an occurrence of tier T takes the binding of that event with the highest tier not above T. A binding without `tier` covers every tier and loses to any tiered binding that qualifies.
+- If no binding qualifies, the occurrence is unmapped and the slot stays silent. A clip of a higher tier is never played for a lower one, and another event's clip never takes its place.
+- A tier-less event (`first_blood`, `hero_kill` and the rest) accepts only untiered bindings.
+
+**Alignment with the game (owner direction 2026-11-11).** The event set and the counting follow Dota 2 itself, not any package's source game.
+
+- **Multi-kill is a chain.** An own kill no more than `window_ms` (18,000 ms) after the previous own kill extends the run. The window restarts at each kill, so a run can last longer than 18 s in total. An own death does not end the run. Only kills credited to the player count; assists do not.
+- **Streak is the game's kill streak.** It counts own kills since the last own death and resets on death.
+- **Timing source.** The game sends no multi-kill field. The run is built from increases of `player.kills`, timed by the monotonic arrival of the admitted payloads that carry them (GSI-INTAKE-SPEC §5). An increase of n in one payload counts as n kills at that arrival time.
+- **No foreign events.** An event that exists only in another game (for example smackdown, humiliation, annihilation or genocide in a Heroes of Newerth pack) is not a catalog event. Such a clip cannot be bound and must not be mapped to a nearby Dota 2 event.
+
+For package authors, the game's announcements per tier are:
+
+| Event | Tier | Game announcement |
+| --- | ---: | --- |
+| `multi_kill` | 2 | Double Kill |
+| `multi_kill` | 3 | Triple Kill |
+| `multi_kill` | 4 | Ultra Kill |
+| `multi_kill` | 5 | Rampage (five or more) |
+| `streak` | 3 | Killing Spree |
+| `streak` | 4 | Dominating |
+| `streak` | 5 | Mega Kill |
+| `streak` | 6 | Unstoppable |
+| `streak` | 7 | Wicked Sick |
+| `streak` | 8 | Monster Kill |
+| `streak` | 9 | Godlike |
+| `streak` | 10 | Beyond Godlike (ten or more) |
+
+The names are reference only; the contract uses the numeric tier. The 18-second chain and tiers 3–7 and 9 were checked against public descriptions of the game on 2026-11-11. Tiers 8 and 10 follow the commonly cited ladder and were not confirmed by a source in that check.
+
 **Arbitration.** Ordinary arbitration (MEDIA-002) runs once per admitted GSI tick:
 
 1. Collect every voiced ordinary event the tick emitted.
 2. Pick the highest rank.
-3. Look up that event's mapping.
+3. Look up that event's mapping (by tier for a counted event).
 4. If the mapping is missing or invalid, the slot stays silent. A lower-ranked event never takes its place.
 5. Every non-selected event gets the outcome `lower_rank_same_tick`.
 
@@ -85,11 +120,14 @@ Taxonomy version `1.0`:
 | --- | --- | --- |
 | E-1 | `map.radiant_score` and `map.dire_score` (plus `player.kills`) let first blood be credited to self: the combined score goes from 0 to 1 in the same admitted tick as the own kill count goes from 0 to 1 | Record a bot match where the player draws first blood and one where another player does. If this fails, `first_blood` stays unavailable |
 | E-2 | `map.game_state` transitions identify the start of live play and post-game | Record a full match. If this fails, `match_started` and `match_ended` stay unavailable |
+| E-3 | `player.kill_streak` is the game's own count of kills since the last own death | Record a match with at least three own kills without dying, then a death. If confirmed, `streak` uses this field. If not, `streak` is computed from `player.kills` and the own death transition |
+| E-4 | Own kills arrive as increases of `player.kills` soon enough that arrival times reproduce the game's 18-second chain | Record a double and a triple kill, and two kills more than 18 s apart; compare the detected run with the game's announcement. If this fails, `multi_kill` stays unavailable |
 
 
 **Capture of 2026-11-11 (GSI-INTAKE-SPEC §10.1):**
 
 - **E-2: confirmed.** Pre-game, live and post-game all appeared as `map.game_state` transitions. `map.win_team` changed from `none` to a team at post-game.
+- **E-3, E-4: not tested.** `player.kill_streak` and `player.kills` are present in the captured payloads, but the minimized fixtures show a streak of 0 only and no multi-kill.
 - **E-1: partly.** The negative case was observed: the combined score went 0→1 while the own kill count stayed 0, so the kill was not credited to self. The positive case (first blood by self) was not captured, so `first_blood` stays unavailable until it is.
 
 ## 3. Health danger (DEC-HEALTH-DANGER; approved 2026-11-11)
@@ -189,10 +227,11 @@ Activation does not wait for probes of mappings that are not critical. Critical 
 
 **Package layout (format profile 1).**
 
-- **Descriptor.** The descriptor is the first ZIP entry, `descriptor.json`. It is validated by [media-manifest.schema.json](../../contracts/media-manifest.schema.json) 1.1.0.
+- **Descriptor.** The descriptor is the first ZIP entry, `descriptor.json`. It is validated by [media-manifest.schema.json](../../contracts/media-manifest.schema.json) 1.2.0.
 - **Inventory.** Its `files` array is the payload inventory.
 - **Event registry.** Its `bindings` array is the event registry. The MP-03 elements are therefore sections of one bounded (≤2 MiB) document, not separate files.
 - **Field naming.** `bindings[].event_id` names a catalog ID. It is the event *type*; the per-occurrence identifier in events is `instance_id`.
+- **Tiers.** `bindings[].tier` (manifest 1.2.0) is optional and allowed only for an event with a catalog `tier_range`, inside that range. A descriptor holds at most one binding per `event_id` and tier, counting "no tier" as one. Violations reject the package before installation.
 - **Container digest.** The SHA-256 of the whole container is computed by the installer. It is never self-declared inside the package.
 
 **Authority is installer-bound.** The package carries no authority field. A `publisher_key_id` is only a claim. The installer records `authority_class` in the registry:
@@ -221,4 +260,5 @@ The Windows transport framing (named pipe, 16 KiB frames, handshake) stays with 
   - the catalog, contracts and fixtures are reviewed;
   - the product owner acknowledges the mute semantics in §4 (done: acknowledged 2026-11-11; recorded in contracts/decisions.json);
   - the product owner confirms the ordinary ranks not fixed by MP-02 (done: confirmed 2026-11-11).
+- The tier dimension of `multi_kill` and `streak` was added on the owner's decision of 2026-11-11 (recorded in contracts/decisions.json). Its detector and lookup still need fixtures in M2.
 - **DEC-HEALTH-DANGER** is **decided**: the owner approved §3 as proposed on 2026-11-11. The catalog status is `active`, and the golden traces (burst, slow drain, stale sample, death/cooldown, inclusive boundary) are in fixtures. Audible use still depends on verified critical media (DEC-CRITICAL-MEDIA).

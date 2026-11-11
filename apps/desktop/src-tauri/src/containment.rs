@@ -10,6 +10,29 @@ pub const CPU_RATE_HARD_CAP: u32 = 1000;
 /// Aggregate full Working Set acceptance ceiling (decimal bytes).
 pub const WORKING_SET_LIMIT_BYTES: u64 = 900_000_000;
 
+/// Operations required to establish the process Job Object containment boundary.
+///
+/// Configuration is split into its two Win32 operations so setup can preserve
+/// their existing failure identifiers (`cpu-rate` and `limits`).
+///
+/// A step reports only success or failure: the caller maps it to a fixed, safe
+/// identifier and must not surface OS error text.
+#[allow(clippy::result_unit_err)]
+pub trait JobBackend {
+    fn create(&mut self) -> Result<(), ()>;
+    fn configure_cpu_rate(&mut self) -> Result<(), ()>;
+    fn configure_limits(&mut self) -> Result<(), ()>;
+    fn assign(&mut self) -> Result<(), ()>;
+}
+
+/// Establish containment through a backend, returning the failed setup step.
+pub fn establish_with<B: JobBackend>(backend: &mut B) -> Result<(), &'static str> {
+    backend.create().map_err(|_| "create")?;
+    backend.configure_cpu_rate().map_err(|_| "cpu-rate")?;
+    backend.configure_limits().map_err(|_| "limits")?;
+    backend.assign().map_err(|_| "assign")
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Sample {
     /// Normalized CPU over the last interval, 0..=100, or None if unavailable.
@@ -39,34 +62,69 @@ mod imp {
 
     static JOB: OnceLock<Job> = OnceLock::new();
 
+    #[derive(Default)]
+    struct RealBackend {
+        job: Option<Job>,
+    }
+
+    impl JobBackend for RealBackend {
+        fn create(&mut self) -> Result<(), ()> {
+            let job = unsafe { CreateJobObjectW(None, PCWSTR::null()).map_err(|_| ())? };
+            self.job = Some(Job(job));
+            Ok(())
+        }
+
+        fn configure_cpu_rate(&mut self) -> Result<(), ()> {
+            let job = self.job.as_ref().ok_or(())?.0;
+            unsafe {
+                let mut rate = JOBOBJECT_CPU_RATE_CONTROL_INFORMATION {
+                    ControlFlags: JOB_OBJECT_CPU_RATE_CONTROL_ENABLE
+                        | JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP,
+                    ..Default::default()
+                };
+                rate.Anonymous.CpuRate = CPU_RATE_HARD_CAP;
+                SetInformationJobObject(
+                    job,
+                    JobObjectCpuRateControlInformation,
+                    &rate as *const _ as *const c_void,
+                    size_of::<JOBOBJECT_CPU_RATE_CONTROL_INFORMATION>() as u32,
+                )
+                .map_err(|_| ())?;
+            }
+            Ok(())
+        }
+
+        fn configure_limits(&mut self) -> Result<(), ()> {
+            let job = self.job.as_ref().ok_or(())?.0;
+            unsafe {
+                let mut ext = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
+                ext.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+                SetInformationJobObject(
+                    job,
+                    JobObjectExtendedLimitInformation,
+                    &ext as *const _ as *const c_void,
+                    size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+                )
+                .map_err(|_| ())?;
+            }
+            Ok(())
+        }
+
+        fn assign(&mut self) -> Result<(), ()> {
+            let job = self.job.as_ref().ok_or(())?.0;
+            unsafe {
+                AssignProcessToJobObject(job, GetCurrentProcess()).map_err(|_| ())?;
+            }
+            Ok(())
+        }
+    }
+
     /// Create, configure and join the job. Must run before the WebView is created.
     pub fn establish() -> Result<(), &'static str> {
-        unsafe {
-            let job = CreateJobObjectW(None, PCWSTR::null()).map_err(|_| "create")?;
-            let mut rate = JOBOBJECT_CPU_RATE_CONTROL_INFORMATION {
-                ControlFlags: JOB_OBJECT_CPU_RATE_CONTROL_ENABLE
-                    | JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP,
-                ..Default::default()
-            };
-            rate.Anonymous.CpuRate = CPU_RATE_HARD_CAP;
-            SetInformationJobObject(
-                job,
-                JobObjectCpuRateControlInformation,
-                &rate as *const _ as *const c_void,
-                size_of::<JOBOBJECT_CPU_RATE_CONTROL_INFORMATION>() as u32,
-            )
-            .map_err(|_| "cpu-rate")?;
-            let mut ext = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
-            ext.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-            SetInformationJobObject(
-                job,
-                JobObjectExtendedLimitInformation,
-                &ext as *const _ as *const c_void,
-                size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
-            )
-            .map_err(|_| "limits")?;
-            AssignProcessToJobObject(job, GetCurrentProcess()).map_err(|_| "assign")?;
-            let _ = JOB.set(Job(job));
+        let mut backend = RealBackend::default();
+        establish_with(&mut backend)?;
+        if let Some(job) = backend.job.take() {
+            let _ = JOB.set(job);
         }
         Ok(())
     }

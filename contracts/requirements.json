@@ -239,7 +239,10 @@
         ],
         "implementation_refs": [
           "crates/kohbor-gsi/src/config.rs",
-          "apps/desktop/src-tauri/src/intake.rs"
+          "apps/desktop/src-tauri/src/intake.rs",
+          "apps/desktop/src-tauri/src/instance.rs",
+          "apps/desktop/src-tauri/src/atomic.rs",
+          "apps/desktop/src/Guide.tsx"
         ],
         "evidence_refs": [],
         "procedure_ids": [
@@ -313,7 +316,8 @@
           "crates/kohbor-gsi/src/admission.rs",
           "crates/kohbor-gsi/tests/captured_replay.rs",
           "apps/desktop/src-tauri/src/status.rs",
-          "apps/desktop/src/App.tsx"
+          "apps/desktop/src/App.tsx",
+          "apps/desktop/src/Readiness.tsx"
         ],
         "evidence_refs": [],
         "procedure_ids": [
@@ -461,7 +465,8 @@
           "crates/kohbor-gsi/src/admission.rs",
           "crates/kohbor-gsi/tests/intake.rs",
           "crates/kohbor-gsi/tests/captured_replay.rs",
-          "apps/desktop/src/App.tsx"
+          "apps/desktop/src/App.tsx",
+          "apps/desktop/src/OwnHero.tsx"
         ],
         "evidence_refs": [],
         "procedure_ids": [

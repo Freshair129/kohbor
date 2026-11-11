@@ -102,6 +102,24 @@ mod tests {
     }
 
     #[test]
+    fn failed_setup_status_matches_contract() {
+        let dir = std::env::temp_dir().join(format!("kohbor-status-test3-{}", std::process::id()));
+        let mut s = Shared::new(dir);
+        s.state = IntakeState::Unavailable("GSI_CONFIG_CONFLICT");
+        let sample = Sample {
+            cpu_percent: Some(0.4),
+            working_set_bytes: Some(200_000_000),
+            process_count: Some(4),
+        };
+        let v = build(&s, &sample, false, 3);
+        let errors: Vec<String> = validator().iter_errors(&v).map(|e| e.to_string()).collect();
+        assert!(errors.is_empty(), "{errors:?}\n{v:#}");
+        assert_eq!(v["intake"]["state"], "unavailable");
+        assert_eq!(v["intake"]["reason"], "GSI_CONFIG_CONFLICT");
+        assert!(v["intake"]["port"].is_null());
+    }
+
+    #[test]
     fn unavailable_metrics_status_matches_contract() {
         let dir = std::env::temp_dir().join(format!("kohbor-status-test2-{}", std::process::id()));
         let s = Shared::new(dir);

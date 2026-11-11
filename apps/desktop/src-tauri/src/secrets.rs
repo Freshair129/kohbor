@@ -65,18 +65,14 @@ pub fn load_or_create(path: &Path, generate: impl FnOnce() -> Option<Vec<u8>>) -
     }
     let plain = generate()?;
     let blob = protect(&plain)?;
-    let tmp = path.with_extension("tmp");
-    fs::write(&tmp, &blob).ok()?;
-    fs::rename(&tmp, path).ok()?;
+    crate::atomic::write(path, &blob).ok()?;
     Some(plain)
 }
 
 /// Replace a protected secret (token rotation).
 pub fn store(path: &Path, plain: &[u8]) -> Option<()> {
     let blob = protect(plain)?;
-    let tmp = path.with_extension("tmp");
-    fs::write(&tmp, &blob).ok()?;
-    fs::rename(&tmp, path).ok()
+    crate::atomic::write(path, &blob).ok()
 }
 
 pub fn random<const N: usize>() -> Option<[u8; N]> {
@@ -99,6 +95,9 @@ mod tests {
         assert!(!blob.windows(5).any(|w| w == b"plain"));
         let again = load_or_create(&path, || panic!("must not regenerate")).unwrap();
         assert_eq!(first, again);
+        store(&path, b"rotated-secret-value").unwrap();
+        let rotated = load_or_create(&path, || panic!("must not regenerate")).unwrap();
+        assert_eq!(rotated, b"rotated-secret-value");
         let _ = fs::remove_dir_all(&dir);
     }
 }
