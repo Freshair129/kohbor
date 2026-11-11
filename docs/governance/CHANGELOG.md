@@ -9,7 +9,7 @@ Closed the documentation gaps blocking M2 (events, audio and media). Every addit
   - **Health-danger proposal:** gated as unavailable until the owner decides.
   - **Audio priority:** five classes (critical, correction, notice, ordinary, voice) with an incoming-versus-active preemption matrix.
   - **Prewarm and critical readiness rules.**
-  - **Mute semantics:** owner acknowledgement still needed.
+  - **Mute semantics:** acknowledged by the product owner on 2026-11-11. Global mute silences critical audio too, and safety audio then reports not ready.
   - **14 audio outcome codes.**
   - **Media profiles:** WAV (mono 48 kHz PCM16) and WebM (VP9/VP8, one video track, no audio track), plus a renderer decode probe.
   - **Packaging:** the descriptor/registry layout, installer-bound authority (only `local_import` until DEC-PACK-CRYPTO closes) and install contracts.

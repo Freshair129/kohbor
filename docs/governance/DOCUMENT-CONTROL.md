@@ -68,7 +68,7 @@ Before approving a baseline, review product scope, requirement completeness/test
 | --- | --- | --- |
 | PRD/SRS and traceability | Draft, internally checkable | Product/engineering review and controlled correction of gaps |
 | Game-state intake (M1) | Proposed specification and schemas | DEC-GSI-INTAKE capture-spike confirmation and owner acknowledgement |
-| Events and audio (M2) | Proposed specification, catalog and schemas | DEC-EVENT-AUDIO review and owner decisions (DEC-HEALTH-DANGER, mute) |
+| Events and audio (M2) | Proposed specification, catalog and schemas | DEC-EVENT-AUDIO review and owner decision on DEC-HEALTH-DANGER (mute semantics acknowledged 2026-11-11) |
 | Interfaces and media trust | Draft contracts, partial schemas | DEC-INTERFACES and DEC-PACK-CRYPTO protocol freeze |
 | Original UX | Behavioral/layout specification | DEC-VISUALS annotated designs and measured Windows evidence |
 | Local models, game catalogs and risk evidence | Requirements present; artifacts not qualified | Named model/data/risk decisions and held-out evidence |

@@ -130,7 +130,7 @@ Each row is the class of a new request (incoming); each column is the class alre
 
 **Prewarm.** All C1 and C2 media of the active revision are decoded to PCM in memory when the revision activates. Critical readiness is `ready` only when every **available** C1/C2 event has verified, prewarmed media (MP-08, ALERT-007). In M2 that is no events while `health_danger` is unapproved, so readiness reports `not_ready` with reason `MEDIA_UNMAPPED`. It never reports a vacuous "ready".
 
-**Mute (owner acknowledgement required).** The global mute, a single mute action, silences C1 through C5. Each silenced request records `muted`. While mute is on, `runtime-status.media` reports critical readiness as `unavailable` with reason `AUDIO_MUTED`, so the UI cannot show safety audio as ready. Acoustic acceptance runs unmuted. A separate "keep safety alerts audible while muted" option would be a new product feature and is not proposed here.
+**Mute (acknowledged by the product owner on 2026-11-11).** The global mute, a single mute action, silences C1 through C5. Each silenced request records `muted`. While mute is on, `runtime-status.media` reports critical readiness as `unavailable` with reason `AUDIO_MUTED`, so the UI cannot show safety audio as ready. Acoustic acceptance runs unmuted. A separate "keep safety alerts audible while muted" option would be a new product feature and is not proposed here.
 
 ## 5. Outcome reasons (MP-02)
 
@@ -206,5 +206,5 @@ The Windows transport framing (named pipe, 16 KiB frames, handshake) stays with 
 - **DEC-EVENT-AUDIO** closes when:
   - E-1 and E-2 are confirmed from the capture corpus, or the affected events stay unavailable;
   - the catalog, contracts and fixtures are reviewed;
-  - the product owner acknowledges the mute semantics in §4.
+  - the product owner acknowledges the mute semantics in §4 (done: acknowledged 2026-11-11; recorded in contracts/decisions.json).
 - **DEC-HEALTH-DANGER** closes with an owner decision: approve, modify or reject §3. On approval, record the decision and set the catalog status to `active`. Positive and negative golden traces (burst, slow drain, stale sample, death) must be added before audible use.
