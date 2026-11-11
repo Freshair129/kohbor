@@ -108,3 +108,120 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running Kohbor");
 }
+
+#[cfg(test)]
+mod containment_failure_tests {
+    use super::{containment, start_with};
+    use std::cell::{Cell, RefCell};
+
+    const STEPS: [&str; 4] = ["create", "cpu-rate", "limits", "assign"];
+
+    struct FakeBackend {
+        fail_at: Option<&'static str>,
+        calls: Vec<&'static str>,
+    }
+
+    impl FakeBackend {
+        fn step(&mut self, name: &'static str) -> Result<(), ()> {
+            self.calls.push(name);
+            if self.fail_at == Some(name) {
+                Err(())
+            } else {
+                Ok(())
+            }
+        }
+    }
+
+    impl containment::JobBackend for FakeBackend {
+        fn create(&mut self) -> Result<(), ()> {
+            self.step("create")
+        }
+        fn configure_cpu_rate(&mut self) -> Result<(), ()> {
+            self.step("cpu-rate")
+        }
+        fn configure_limits(&mut self) -> Result<(), ()> {
+            self.step("limits")
+        }
+        fn assign(&mut self) -> Result<(), ()> {
+            self.step("assign")
+        }
+    }
+
+    #[test]
+    fn establishment_stops_at_each_failure() {
+        for (index, stage) in STEPS.iter().copied().enumerate() {
+            let mut backend = FakeBackend {
+                fail_at: Some(stage),
+                calls: vec![],
+            };
+            assert_eq!(containment::establish_with(&mut backend), Err(stage));
+            assert_eq!(backend.calls, STEPS[..=index], "failure at {stage}");
+        }
+    }
+
+    #[test]
+    fn establishment_succeeds_in_order() {
+        let mut backend = FakeBackend {
+            fail_at: None,
+            calls: vec![],
+        };
+        assert_eq!(containment::establish_with(&mut backend), Ok(()));
+        assert_eq!(backend.calls, STEPS);
+    }
+
+    #[test]
+    fn startup_reports_only_the_safe_failure_and_never_launches() {
+        for stage in STEPS {
+            let launches = Cell::new(0);
+            let reports = RefCell::new(Vec::new());
+            let code = start_with(
+                || Err(stage),
+                || launches.set(launches.get() + 1),
+                |message| reports.borrow_mut().push(message.to_owned()),
+            );
+            assert_eq!(code, 1);
+            assert_eq!(launches.get(), 0);
+            assert_eq!(
+                *reports.borrow(),
+                [format!("CPU_CONTAINMENT_FAILED ({stage})")]
+            );
+        }
+    }
+
+    #[test]
+    fn startup_launches_once_after_success_without_reporting() {
+        let launches = Cell::new(0);
+        let reports = Cell::new(0);
+        let code = start_with(
+            || Ok(()),
+            || launches.set(launches.get() + 1),
+            |_| reports.set(reports.get() + 1),
+        );
+        assert_eq!(code, 0);
+        assert_eq!(launches.get(), 1);
+        assert_eq!(reports.get(), 0);
+    }
+
+    #[test]
+    fn backend_failures_prevent_startup_launch() {
+        for stage in STEPS {
+            let mut backend = FakeBackend {
+                fail_at: Some(stage),
+                calls: vec![],
+            };
+            let launches = Cell::new(0);
+            let reports = RefCell::new(Vec::new());
+            let code = start_with(
+                || containment::establish_with(&mut backend),
+                || launches.set(launches.get() + 1),
+                |message| reports.borrow_mut().push(message.to_owned()),
+            );
+            assert_eq!(code, 1);
+            assert_eq!(launches.get(), 0);
+            assert_eq!(
+                *reports.borrow(),
+                [format!("CPU_CONTAINMENT_FAILED ({stage})")]
+            );
+        }
+    }
+}
