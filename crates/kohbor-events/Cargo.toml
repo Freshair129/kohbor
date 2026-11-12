@@ -1,0 +1,13 @@
+[package]
+name = "kohbor-events"
+description = "Pure event detector and ordinary arbiter for Kohbor. Implements docs/design/EVENT-AUDIO-SPEC.md sections 2 and 3 (no I/O, no clock reads)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+base64 = { workspace = true }
+kohbor-gsi = { path = "../kohbor-gsi" }
+serde_json = { workspace = true }

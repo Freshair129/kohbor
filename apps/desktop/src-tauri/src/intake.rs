@@ -3,16 +3,18 @@
 
 use crate::{atomic, secrets};
 use base64::Engine;
+use kohbor_events::{adapter::tick_from_admitted, Detector, Event, EventId};
 use kohbor_gsi::admission::{token_matches, Ownership, Phase};
 use kohbor_gsi::config::{
     choose_port, claimed_ports, GsiConfig, BODY_LIMIT_BYTES, M1_DATA_BLOCKS,
     MAX_REQUESTS_PER_SECOND, PORT_FIRST, PORT_LAST,
 };
 use kohbor_gsi::session::{PersistedSessions, SessionChange, SessionTracker};
-use kohbor_gsi::{admit, build_snapshot, strict_json, Outcome, SourceState};
+use kohbor_gsi::{admit, build_snapshot, strict_json, Outcome, SourceState, FRESH_MAX_AGE_MS};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use socket2::SockRef;
+use std::collections::VecDeque;
 use std::fs;
 use std::io::{self, Read};
 use std::net::{TcpListener, ToSocketAddrs};
@@ -24,6 +26,24 @@ pub const SLUG: &str = "kohbor";
 /// Other applications' configuration files larger than this are not read for port claims.
 const OTHER_CONFIG_MAX_BYTES: u64 = 65_536;
 const INTAKE_READ_TIMEOUT: Duration = Duration::from_secs(5);
+const MAX_STORED_EVENTS: usize = 64;
+const MAX_SAFE_INTEGER_MS: u64 = 9_007_199_254_740_991;
+
+/// EVENT-AUDIO-SPEC E-1: the positive first-blood-by-self case is not captured yet.
+/// Remove this entry when that assumption closes.
+pub(crate) const EVENT_UNAVAILABLE: &[EventId] = &[EventId::FirstBlood];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct StoredEvent {
+    pub(crate) id: EventId,
+    pub(crate) tier: Option<u8>,
+    pub(crate) at_ms: u64,
+    pub(crate) arrival: Instant,
+}
+
+fn duration_ms(duration: Duration) -> u64 {
+    duration.as_millis().min(u128::from(MAX_SAFE_INTEGER_MS)) as u64
+}
 
 /// Lock that survives a panicked holder, so status stays readable (CORE-005)
 /// instead of every later command panicking on a poisoned mutex.
@@ -45,6 +65,10 @@ pub struct Shared {
     sequence: u64,
     last_admitted: Option<(Instant, Outcome)>,
     sessions: SessionTracker,
+    detector: Detector,
+    detector_epoch: Option<u64>,
+    events: VecDeque<StoredEvent>,
+    started_at: Instant,
     pub epoch: Option<u64>,
     pub phase: Option<Phase>,
     pub ownership: Option<Ownership>,
@@ -312,6 +336,7 @@ impl Shared {
         } else {
             IntakeState::NotConfigured("SOURCE_UNAVAILABLE")
         };
+        let started_at = Instant::now();
         Self {
             state,
             port: None,
@@ -319,6 +344,10 @@ impl Shared {
             sequence: 0,
             last_admitted: None,
             sessions,
+            detector: Detector::new(),
+            detector_epoch: None,
+            events: VecDeque::with_capacity(MAX_STORED_EVENTS),
+            started_at,
             epoch: None,
             phase: None,
             ownership: None,
@@ -326,7 +355,7 @@ impl Shared {
             session_hero_id: None,
             token,
             data_dir,
-            window: (Instant::now(), 0),
+            window: (started_at, 0),
         }
     }
 
@@ -340,6 +369,7 @@ impl Shared {
         self.generation += 1;
         self.sequence = 0;
         self.last_admitted = None;
+        self.reset_detector();
         self.persist_runtime();
     }
 
@@ -371,9 +401,61 @@ impl Shared {
     }
 
     pub fn last_age_ms(&self) -> Option<u64> {
+        self.last_age_ms_at(Instant::now())
+    }
+
+    pub(crate) fn last_age_ms_at(&self, now: Instant) -> Option<u64> {
         self.last_admitted
             .as_ref()
-            .map(|(at, _)| at.elapsed().as_millis() as u64)
+            .map(|(at, _)| duration_ms(now.saturating_duration_since(*at)))
+    }
+
+    pub(crate) fn last_event_age_ms_at(&self, now: Instant) -> Option<u64> {
+        self.events
+            .back()
+            .map(|event| duration_ms(now.saturating_duration_since(event.arrival)))
+    }
+
+    #[cfg(test)]
+    pub(crate) fn detected_events(&self) -> &VecDeque<StoredEvent> {
+        &self.events
+    }
+
+    pub(crate) fn event_detector_running(&self, source_age_ms: Option<u64>) -> bool {
+        let Some(current_epoch) = self.sessions.current().map(|session| session.epoch) else {
+            return false;
+        };
+        source_age_ms.is_some_and(|age| age <= FRESH_MAX_AGE_MS)
+            && self.epoch == Some(current_epoch)
+            && self.detector_epoch == Some(current_epoch)
+            && self.ownership == Some(Ownership::Verified)
+            && matches!(
+                self.last_admitted.as_ref().map(|(_, outcome)| outcome),
+                Some(Outcome::Admitted(admitted))
+                    if admitted.ownership == Ownership::Verified
+            )
+    }
+
+    fn reset_detector(&mut self) {
+        self.detector = Detector::new();
+        self.detector_epoch = None;
+    }
+
+    fn store_events(&mut self, detected: impl IntoIterator<Item = Event>, arrival: Instant) {
+        for event in detected {
+            if EVENT_UNAVAILABLE.contains(&event.id) {
+                continue;
+            }
+            if self.events.len() == MAX_STORED_EVENTS {
+                self.events.pop_front();
+            }
+            self.events.push_back(StoredEvent {
+                id: event.id,
+                tier: event.tier,
+                at_ms: event.at_ms,
+                arrival,
+            });
+        }
     }
 
     fn rate_ok(&mut self) -> bool {
@@ -410,6 +492,10 @@ impl Shared {
             // response reveals no admission detail.
             return 200;
         }
+        let stale_source_gap = self.last_admitted.as_ref().is_some_and(|(previous, _)| {
+            arrival.saturating_duration_since(*previous) > Duration::from_millis(FRESH_MAX_AGE_MS)
+        });
+        let mut reset_detector = stale_source_gap;
         if let Outcome::Admitted(a) = &mut outcome {
             self.phase = Some(a.phase);
             if a.ownership == Ownership::Verified {
@@ -419,6 +505,14 @@ impl Shared {
                             .map(|b| base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(b))
                             .unwrap_or_default()
                     });
+                    if matches!(
+                        &change,
+                        SessionChange::Started { .. }
+                            | SessionChange::OwnerChanged { .. }
+                            | SessionChange::Resumed { .. }
+                    ) {
+                        reset_detector = true;
+                    }
                     match change {
                         SessionChange::Started { epoch }
                         | SessionChange::OwnerChanged { epoch } => {
@@ -444,6 +538,7 @@ impl Shared {
                 Ownership::Verified => None,
             };
         } else {
+            reset_detector = true;
             self.phase = None;
             if matches!(outcome, Outcome::NotPlaying) {
                 // Menu/idle data is admitted as a fresh source heartbeat, but it
@@ -452,6 +547,26 @@ impl Shared {
                 self.ownership_reason = None;
                 self.session_hero_id = None;
             }
+        }
+        if reset_detector {
+            self.reset_detector();
+        }
+        match &outcome {
+            Outcome::Admitted(admitted) if admitted.ownership == Ownership::Verified => {
+                if let Some(epoch) = self.sessions.current().map(|session| session.epoch) {
+                    let at_ms = duration_ms(arrival.saturating_duration_since(self.started_at));
+                    let tick = tick_from_admitted(admitted, at_ms, epoch, true);
+                    let detected = self.detector.observe(&tick);
+                    self.detector_epoch = Some(epoch);
+                    self.store_events(detected, arrival);
+                } else {
+                    self.reset_detector();
+                }
+            }
+            Outcome::Admitted(_) | Outcome::NotPlaying | Outcome::Unsupported(_) => {
+                self.reset_detector();
+            }
+            Outcome::Rejected(_) => {}
         }
         self.sequence += 1;
         self.last_admitted = Some((arrival, outcome));
@@ -738,7 +853,7 @@ mod tests {
 
     const ACCOUNT: u32 = 12_345;
 
-    fn owner() -> u64 {
+    pub(super) fn owner() -> u64 {
         kohbor_gsi::steamid64_from_account_id(ACCOUNT)
     }
 
@@ -754,19 +869,19 @@ mod tests {
         dir
     }
 
-    fn shared_with_token() -> Shared {
+    pub(super) fn shared_with_token() -> Shared {
         let mut s = Shared::new(temp_dir("intake"));
         s.token = Some("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNO-_".into());
         s.generation = 1;
         s
     }
 
-    fn menu(token: &str) -> Value {
+    pub(super) fn menu(token: &str) -> Value {
         json!({"provider": {"appid": 570}, "player": {}, "auth": {"token": token}})
     }
 
     /// Fabricated in-game payload (synthetic evidence only, never shipped).
-    fn in_game(token: &str) -> Value {
+    pub(super) fn in_game(token: &str) -> Value {
         json!({
             "provider": {"name": "Dota 2", "appid": 570},
             "map": {"matchid": "8000000001", "game_state": "DOTA_GAMERULES_STATE_GAME_IN_PROGRESS", "customgamename": ""},
@@ -1328,6 +1443,9 @@ mod s0_6_tests {
         assert_eq!(value["ownership"]["state"], "unknown");
         assert_eq!(value["session"]["phase"], "none");
         assert!(value["session"]["session_epoch"].is_null());
+        assert_eq!(value["events"]["detector"], "idle");
+        assert!(value["events"]["last_event_age_ms"].is_null());
+        assert_eq!(value["events"]["unavailable"][0]["id"], "first_blood");
         assert_eq!(value["mode"]["state"], "unverified");
         assert!(value["mode"]["value"].is_null());
         assert_eq!(value["resource"]["cpu"]["state"], "unavailable");
@@ -1355,6 +1473,7 @@ mod s0_6_tests {
         let manifest = include_str!("../Cargo.toml");
         let allowed = [
             "kohbor-gsi",
+            "kohbor-events",
             "tauri",
             "serde",
             "serde_json",
@@ -1404,5 +1523,269 @@ mod s0_6_tests {
                 );
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod s1_6_tests {
+    use super::*;
+    use crate::{containment::Sample, status};
+    use kohbor_events::EventId;
+    use serde_json::Value;
+    use std::collections::BTreeSet;
+
+    fn event_validator() -> jsonschema::Validator {
+        let schema: Value = serde_json::from_str(include_str!(
+            "../../../../contracts/runtime-status.schema.json"
+        ))
+        .unwrap();
+        jsonschema::validator_for(&schema).unwrap()
+    }
+
+    fn at(start: Instant, offset_ms: u64) -> Instant {
+        start + Duration::from_millis(offset_ms)
+    }
+
+    fn game(token: &str, kills: u64, score: u64) -> Value {
+        let mut body = tests::in_game(token);
+        body["player"]["kills"] = json!(kills);
+        body["player"]["deaths"] = json!(0);
+        body["player"]["kill_streak"] = json!(kills);
+        body["map"]["radiant_score"] = json!(score);
+        body["map"]["dire_score"] = json!(0);
+        body
+    }
+
+    fn ready_shared() -> Shared {
+        tests::shared_with_token()
+    }
+
+    fn accept_verified(s: &mut Shared, body: &Value, arrival: Instant) {
+        let token = s.token.as_deref().unwrap_or_default();
+        let mut body = body.clone();
+        body["auth"]["token"] = json!(token);
+        assert_eq!(s.accept(&body, arrival, Some(tests::owner())), 200);
+    }
+
+    #[test]
+    fn verified_kill_series_stores_kill_and_six_second_multi_kill() {
+        let mut s = ready_shared();
+        let start = Instant::now();
+        s.started_at = start;
+        let token = s.token.clone().unwrap_or_default();
+        accept_verified(&mut s, &game(&token, 0, 0), at(start, 0));
+        accept_verified(&mut s, &game(&token, 1, 1), at(start, 1_000));
+        accept_verified(&mut s, &game(&token, 1, 1), at(start, 3_000));
+        accept_verified(&mut s, &game(&token, 1, 1), at(start, 5_000));
+        accept_verified(&mut s, &game(&token, 2, 2), at(start, 7_000));
+
+        let events = s.detected_events();
+        assert!(events.iter().any(|event| event.id == EventId::HeroKill));
+        let multi_kill = events
+            .iter()
+            .find(|event| event.id == EventId::MultiKill)
+            .expect("the second kill should complete a multi-kill");
+        assert_eq!(multi_kill.tier, Some(2));
+        assert_eq!(multi_kill.at_ms, 7_000);
+        assert!(events.iter().all(|event| event.at_ms <= 7_000));
+    }
+
+    #[test]
+    fn first_verified_payload_only_establishes_baseline_even_with_existing_kills() {
+        let mut s = ready_shared();
+        let start = Instant::now();
+        s.started_at = start;
+        let token = s.token.clone().unwrap_or_default();
+
+        accept_verified(&mut s, &game(&token, 4, 4), start);
+
+        assert!(s.detected_events().is_empty());
+    }
+
+    #[test]
+    fn unverified_and_mismatched_payloads_never_produce_events() {
+        let mut s = ready_shared();
+        let start = Instant::now();
+        s.started_at = start;
+        let token = s.token.clone().unwrap_or_default();
+        accept_verified(&mut s, &game(&token, 0, 0), start);
+
+        let unverified = game(&token, 1, 1);
+        assert_eq!(s.accept(&unverified, at(start, 1_000), None), 200);
+        assert!(s.detected_events().is_empty());
+
+        let mut mismatch = game(&token, 2, 2);
+        mismatch["hero"]["name"] = json!("npc_dota_hero_lina");
+        assert_eq!(
+            s.accept(&mismatch, at(start, 2_000), Some(tests::owner())),
+            200
+        );
+        assert_eq!(s.ownership, Some(Ownership::Mismatch));
+        assert!(s.detected_events().is_empty());
+    }
+
+    #[test]
+    fn menu_then_resumed_game_with_higher_kills_does_not_replay_kills() {
+        let mut s = ready_shared();
+        let start = Instant::now();
+        s.started_at = start;
+        let token = s.token.clone().unwrap_or_default();
+        accept_verified(&mut s, &game(&token, 0, 0), start);
+        assert_eq!(
+            s.accept(&tests::menu(&token), at(start, 1_000), Some(tests::owner())),
+            200
+        );
+        accept_verified(&mut s, &game(&token, 5, 5), at(start, 2_000));
+
+        assert!(s.detected_events().is_empty());
+    }
+
+    #[test]
+    fn resumed_session_reinitializes_existing_detector_baseline() {
+        let mut s = ready_shared();
+        let start = Instant::now();
+        s.started_at = start;
+        let token = s.token.clone().unwrap_or_default();
+        let key = [7; 32];
+        s.sessions = SessionTracker::new(key);
+        accept_verified(&mut s, &game(&token, 0, 0), start);
+
+        let persisted = s.sessions.persisted();
+        s.sessions = SessionTracker::restore(key, persisted);
+        accept_verified(&mut s, &game(&token, 5, 5), at(start, 1_000));
+
+        assert!(s.detected_events().is_empty());
+    }
+
+    #[test]
+    fn stale_arrival_gap_resets_kill_baseline() {
+        let mut s = ready_shared();
+        let start = Instant::now();
+        s.started_at = start;
+        let token = s.token.clone().unwrap_or_default();
+        accept_verified(&mut s, &game(&token, 0, 0), start);
+        accept_verified(&mut s, &game(&token, 2, 2), at(start, 2_001));
+        assert!(s.detected_events().is_empty());
+
+        accept_verified(&mut s, &game(&token, 3, 3), at(start, 2_500));
+        assert!(s
+            .detected_events()
+            .iter()
+            .any(|event| event.id == EventId::HeroKill));
+    }
+
+    #[test]
+    fn first_blood_is_filtered_when_score_and_own_kills_rise_together() {
+        let mut s = ready_shared();
+        let start = Instant::now();
+        s.started_at = start;
+        let token = s.token.clone().unwrap_or_default();
+        accept_verified(&mut s, &game(&token, 0, 0), start);
+        accept_verified(&mut s, &game(&token, 1, 1), at(start, 1_000));
+
+        assert!(s
+            .detected_events()
+            .iter()
+            .all(|event| event.id != EventId::FirstBlood));
+    }
+
+    #[test]
+    fn status_events_contract_validates_idle_running_and_unavailable_states() {
+        let validator = event_validator();
+        let sample = Sample {
+            cpu_percent: Some(0.0),
+            working_set_bytes: Some(200_000_000),
+            process_count: Some(1),
+        };
+        let mut idle = ready_shared();
+        let idle_value = status::build(&idle, &sample, false, 1);
+        assert_eq!(idle_value["events"]["detector"], "idle");
+        assert_eq!(idle_value["events"]["last_event_age_ms"], Value::Null);
+        assert!(validator.iter_errors(&idle_value).next().is_none());
+
+        let start = Instant::now() - Duration::from_millis(100);
+        idle.started_at = start;
+        idle.state = IntakeState::Listening;
+        idle.port = Some(3_000);
+        let token = idle.token.clone().unwrap_or_default();
+        accept_verified(&mut idle, &game(&token, 0, 0), start);
+        accept_verified(&mut idle, &game(&token, 1, 1), at(start, 10));
+        let running_value = status::build(&idle, &sample, false, 2);
+        assert_eq!(running_value["events"]["detector"], "running");
+        assert!(running_value["events"]["last_event_age_ms"]
+            .as_u64()
+            .is_some_and(|age| age <= FRESH_MAX_AGE_MS));
+        assert!(validator.iter_errors(&running_value).next().is_none());
+
+        let mut unavailable = ready_shared();
+        let token = unavailable.token.clone().unwrap_or_default();
+        let body = game(&token, 0, 0);
+        assert_eq!(unavailable.accept(&body, Instant::now(), None), 200);
+        let unavailable_value = status::build(&unavailable, &sample, false, 3);
+        assert_eq!(unavailable_value["events"]["detector"], "idle");
+        assert_eq!(
+            unavailable_value["events"]["unavailable"][0]["id"],
+            "first_blood"
+        );
+        assert_eq!(
+            unavailable_value["events"]["unavailable"]
+                .as_array()
+                .map(Vec::len),
+            Some(1)
+        );
+        assert!(validator.iter_errors(&unavailable_value).next().is_none());
+
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+        let index: Value =
+            serde_json::from_str(&fs::read_to_string(root.join("fixtures/index.json")).unwrap())
+                .unwrap();
+        let cases = index["cases"].as_array().expect("fixture cases are listed");
+        let mut runtime_fixtures = 0;
+        for case in cases
+            .iter()
+            .filter(|case| case["schema"] == "contracts/runtime-status.schema.json")
+        {
+            runtime_fixtures += 1;
+            let fixture = root.join(case["fixture"].as_str().expect("fixture path is a string"));
+            let value: Value = serde_json::from_str(&fs::read_to_string(fixture).unwrap()).unwrap();
+            let valid = validator.iter_errors(&value).next().is_none();
+            assert_eq!(
+                valid,
+                case["schema_valid"].as_bool().expect("validity is boolean"),
+                "runtime-status fixture {} disagrees with its index",
+                case["id"]
+            );
+        }
+        assert_eq!(
+            runtime_fixtures, 5,
+            "all indexed runtime-status fixtures checked"
+        );
+    }
+
+    #[test]
+    fn detected_events_do_not_create_data_directory_files() {
+        let mut s = ready_shared();
+        let start = Instant::now();
+        s.started_at = start;
+        let token = s.token.clone().unwrap_or_default();
+        accept_verified(&mut s, &game(&token, 0, 0), start);
+        let existing: BTreeSet<_> = fs::read_dir(&s.data_dir)
+            .unwrap()
+            .flatten()
+            .map(|entry| entry.file_name())
+            .collect();
+
+        accept_verified(&mut s, &game(&token, 1, 1), at(start, 1_000));
+        accept_verified(&mut s, &game(&token, 1, 1), at(start, 3_000));
+        accept_verified(&mut s, &game(&token, 1, 1), at(start, 5_000));
+        accept_verified(&mut s, &game(&token, 2, 2), at(start, 7_000));
+
+        let after: BTreeSet<_> = fs::read_dir(&s.data_dir)
+            .unwrap()
+            .flatten()
+            .map(|entry| entry.file_name())
+            .collect();
+        assert!(!s.detected_events().is_empty());
+        assert_eq!(after, existing);
     }
 }

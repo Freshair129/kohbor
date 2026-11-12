@@ -1852,6 +1852,7 @@ dependencies = [
  "base64 0.22.1",
  "getrandom 0.2.17",
  "jsonschema",
+ "kohbor-events",
  "kohbor-gsi",
  "serde",
  "serde_json",
@@ -1862,6 +1863,15 @@ dependencies = [
  "tiny_http",
  "windows 0.61.3",
  "winreg",
+]
+
+[[package]]
+name = "kohbor-events"
+version = "0.0.1"
+dependencies = [
+ "base64 0.22.1",
+ "kohbor-gsi",
+ "serde_json",
 ]
 
 [[package]]

@@ -155,6 +155,17 @@ The limits above (60-line brief, 30-line answer, 20-line gate summary) are targe
 
 Limits after Sprint 0: briefs are bounded in words (instructions under 400 words, plus the resource and decision blocks); a worker report is read through its `summary`, `deviations`, `scope_requests` and `open_questions` only; the lead reads the log only after a failure; a task that needs more than two fix rounds is stopped and re-planned.
 
+### 7.2 Sprint 1 observations (2026-11-12)
+
+| Observation | Rule it produces |
+| --- | --- |
+| Nine worker runs (Terra 2, Luna 7). Terra again could not compile its tests because the brief named the lane but not the complete admission basis; the lead compiled and ran the red tests. | The brief's resource block is copied from the last passing brief and the lane lock file is updated for every task before launching. |
+| Run S1-5 ended BLOCKED because the lane `LOCK` file still named the previous task. The worker was right to stop. | Update the lock file in the same command that launches the worker. |
+| Tests written from the specification passed while the specification rule was wrong for the real game (`hero.alive` is not a death signal). Replaying six recorded matches found it; the review by reading did not. | A detector slice is not closed on spec-derived tests alone: replay a real corpus and compare with ground truth before the gate. |
+| The reviewer proposed seven points. The lead accepted five, rejected one because availability belongs to the host status, and kept one as an open spec question. | A review finding is accepted, rejected or parked with a stated reason, never ignored. |
+| The lead ran one `cargo check` without the lane variable and wrote debug build output into `F:/kohbor/target/debug` (the release binary was not touched). | Set `CARGO_TARGET_DIR` in the same shell command as every cargo call, including lead checks. |
+| `codex exec resume` for fix rounds was still not tried; every fix round restated the brief. | Carry this experiment to Sprint 2. |
+
 ## 8. What stays with the owner
 
 - Open decisions in `contracts/decisions.json`. An open decision blocks only the tasks that name it.

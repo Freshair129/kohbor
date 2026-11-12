@@ -1,13 +1,15 @@
-//! runtime.get_status payload (contracts/runtime-status.schema.json 1.0.0).
+//! runtime.get_status payload (contracts/runtime-status.schema.json 1.1.0).
 
 use crate::containment::{Sample, WORKING_SET_LIMIT_BYTES};
-use crate::intake::{IntakeState, Shared};
+use crate::intake::{IntakeState, Shared, EVENT_UNAVAILABLE};
 use kohbor_gsi::admission::{Ownership, Phase};
 use kohbor_gsi::FRESH_MAX_AGE_MS;
 use serde_json::{json, Value};
+use std::time::Instant;
 
 pub fn build(s: &Shared, sample: &Sample, throttled: bool, revision: u64) -> Value {
-    let age = s.last_age_ms();
+    let now = Instant::now();
+    let age = s.last_age_ms_at(now);
     let (state, reason) = match &s.state {
         IntakeState::NotConfigured(code) => ("not_configured", Some(*code)),
         IntakeState::Unavailable(code) => ("unavailable", Some(*code)),
@@ -58,8 +60,12 @@ pub fn build(s: &Shared, sample: &Sample, throttled: bool, revision: u64) -> Val
         Some(w) => json!({"state": "available", "working_set_bytes": w}),
         None => json!({"state": "unavailable", "working_set_bytes": null}),
     };
+    let unavailable: Vec<Value> = EVENT_UNAVAILABLE
+        .iter()
+        .map(|id| json!({"id": id.as_str(), "reason": "CAPABILITY_UNAVAILABLE"}))
+        .collect();
     json!({
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "status_revision": revision.max(1),
         "intake": intake,
         "ownership": ownership,
@@ -69,6 +75,11 @@ pub fn build(s: &Shared, sample: &Sample, throttled: bool, revision: u64) -> Val
         "media": {"state": "not_ready", "reason": "MEDIA_UNMAPPED"},
         "capture": {"state": "unavailable", "reason": "CAPABILITY_UNAVAILABLE"},
         "account": {"state": "unavailable"},
+        "events": {
+            "detector": if s.event_detector_running(age) { "running" } else { "idle" },
+            "last_event_age_ms": s.last_event_age_ms_at(now),
+            "unavailable": unavailable
+        },
     })
 }
 

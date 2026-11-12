@@ -47,7 +47,7 @@ Version 2.0.0 of the own snapshot replaces the all-or-nothing `own` object with 
 
 | Command family | Input and authorization | Completion semantics |
 | --- | --- | --- |
-| runtime.get_status | Trusted control context | Snapshot of independent source/resource/media health; payload frozen as contracts/runtime-status.schema.json |
+| runtime.get_status | Trusted control context | Snapshot of independent source/resource/media/event-detector health; payload frozen as contracts/runtime-status.schema.json 1.1.0 (the `events` domain reports detector state, newest event age and the event IDs that are unavailable) |
 | settings.patch | Allowlisted versioned patch | Atomic apply or typed rejection; never arbitrary filesystem/network; request frozen as contracts/settings-patch.schema.json with optimistic `base_revision` |
 | overlay.set_visibility / mute | Trusted user action | Idempotent effective-state receipt |
 | voice.configure / press / release | Local mic consent + valid binding | One fenced turn; UI status excludes transcript/audio |

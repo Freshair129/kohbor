@@ -88,6 +88,14 @@ pub struct HeroFields {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct OwnCounters {
+    pub kills: Field<i64>,
+    pub kill_streak: Field<i64>,
+    pub deaths: Field<i64>,
+    pub combined_score: Field<i64>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Admitted {
     pub phase: Phase,
     pub ownership: Ownership,
@@ -96,6 +104,7 @@ pub struct Admitted {
     pub match_id: Option<String>,
     /// Raw SteamID64 from the payload; never persist, log or display.
     pub steamid64: Option<u64>,
+    pub counters: OwnCounters,
     pub hero: HeroFields,
 }
 
@@ -188,6 +197,7 @@ pub fn admit(
         .and_then(Value::as_str)
         .filter(|m| !m.is_empty() && *m != "0")
         .map(str::to_owned);
+    let counters = own_counters(body.get("player"), body.get("map"));
     let hero = hero_fields(body.get("hero"));
     Outcome::Admitted(Box::new(Admitted {
         phase,
@@ -195,6 +205,7 @@ pub fn admit(
         team,
         match_id,
         steamid64,
+        counters,
         hero,
     }))
 }
@@ -206,6 +217,26 @@ fn int_field(hero: Option<&Value>, key: &str, min: i64, max: i64) -> Field<i64> 
             Some(n) if (min..=max).contains(&n) => Field::Value(n),
             _ => Field::Invalid,
         },
+    }
+}
+
+fn own_counters(player: Option<&Value>, map: Option<&Value>) -> OwnCounters {
+    let radiant_score = int_field(map, "radiant_score", 0, 100_000);
+    let dire_score = int_field(map, "dire_score", 0, 100_000);
+    let combined_score = match (radiant_score, dire_score) {
+        (Field::Missing, _) | (_, Field::Missing) => Field::Missing,
+        (Field::Invalid, _) | (_, Field::Invalid) => Field::Invalid,
+        (Field::Value(radiant), Field::Value(dire)) => radiant
+            .checked_add(dire)
+            .map(Field::Value)
+            .unwrap_or(Field::Invalid),
+    };
+
+    OwnCounters {
+        kills: int_field(player, "kills", 0, 100_000),
+        kill_streak: int_field(player, "kill_streak", 0, 100_000),
+        deaths: int_field(player, "deaths", 0, 100_000),
+        combined_score,
     }
 }
 
