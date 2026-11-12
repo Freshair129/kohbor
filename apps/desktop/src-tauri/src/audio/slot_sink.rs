@@ -1,56 +1,71 @@
-//! The sink slot owned by the audio owner (design section 1 and 8). API STUB until
-//! S3-5f. Admission-path code: pure, no I/O, no lock, no panic on any input.
+//! The sink slot owned by the audio owner. It forwards bounded calls to its
+//! optional sink and retains only the most recent default-device change flag.
 
 #![allow(dead_code, unused_variables)]
 
+use kohbor_audio::pcm::Pcm;
 use kohbor_audio::{PlaybackId, Sink, SinkError, SinkEvent};
 
-use kohbor_audio::pcm::Pcm;
-
-/// A `Sink` that forwards to an optional boxed sink. With an empty slot `submit`
-/// returns `Err(SinkError)` and `cancel` does nothing; `poll_event` returns `None`.
-/// When the inner sink reports `SinkEvent::DeviceChanged`, the slot records that fact
-/// (readable once through `take_changed`) and still passes the event on.
+/// A `Sink` that forwards to an optional boxed sink. An empty slot returns
+/// `Err(SinkError)` from `submit`, ignores `cancel`, and returns `None` from
+/// `poll_event`. A `DeviceChanged` event is recorded once and still forwarded.
 pub struct SlotSink {
     inner: Option<Box<dyn Sink + Send>>,
     changed: bool,
 }
 
 impl SlotSink {
+    /// Create an empty slot. Its `submit` fails until a sink is installed.
     pub fn empty() -> SlotSink {
-        todo!()
+        SlotSink {
+            inner: None,
+            changed: false,
+        }
     }
 
+    /// Whether the slot currently has an inner sink.
     pub fn is_empty(&self) -> bool {
-        todo!()
+        self.inner.is_none()
     }
 
-    /// Install `sink`; returns the previous one (so the caller can hand it off for dropping).
+    /// Install `sink`; return the previous sink so it can be handed off for dropping.
     pub fn install(&mut self, sink: Box<dyn Sink + Send>) -> Option<Box<dyn Sink + Send>> {
-        todo!()
+        self.changed = false;
+        self.inner.replace(sink)
     }
 
-    /// Remove and return the sink (the slot becomes empty).
+    /// Remove and return the inner sink.
     pub fn take(&mut self) -> Option<Box<dyn Sink + Send>> {
-        todo!()
+        self.changed = false;
+        self.inner.take()
     }
 
-    /// True once after the inner sink reported `DeviceChanged`; resets on read.
+    /// Return the default-device change flag once, then clear it.
     pub fn take_changed(&mut self) -> bool {
-        todo!()
+        std::mem::replace(&mut self.changed, false)
     }
 }
 
 impl Sink for SlotSink {
     fn submit(&mut self, id: PlaybackId, pcm: Pcm) -> Result<(), SinkError> {
-        todo!()
+        if let Some(inner) = self.inner.as_mut() {
+            inner.submit(id, pcm)
+        } else {
+            Err(SinkError)
+        }
     }
 
     fn cancel(&mut self, id: PlaybackId) {
-        todo!()
+        if let Some(inner) = self.inner.as_mut() {
+            inner.cancel(id);
+        }
     }
 
     fn poll_event(&mut self) -> Option<SinkEvent> {
-        todo!()
+        let event = self.inner.as_mut().and_then(|inner| inner.poll_event());
+        if event == Some(SinkEvent::DeviceChanged) {
+            self.changed = true;
+        }
+        event
     }
 }
