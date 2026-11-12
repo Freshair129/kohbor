@@ -20,7 +20,13 @@ pub enum AudioClass {
 impl AudioClass {
     /// `critical`, `correction`, `notice`, `ordinary`, `voice` (audio-outcome `audio_class`).
     pub fn as_str(&self) -> &'static str {
-        todo!()
+        match self {
+            AudioClass::Critical => "critical",
+            AudioClass::Correction => "correction",
+            AudioClass::Notice => "notice",
+            AudioClass::Ordinary => "ordinary",
+            AudioClass::Voice => "voice",
+        }
     }
 }
 
@@ -49,7 +55,22 @@ pub enum Outcome {
 impl Outcome {
     /// Snake-case contract value, for example `critical_active`.
     pub fn as_str(&self) -> &'static str {
-        todo!()
+        match self {
+            Outcome::Admitted => "admitted",
+            Outcome::Preempted => "preempted",
+            Outcome::Unmapped => "unmapped",
+            Outcome::InvalidMedia => "invalid_media",
+            Outcome::Inert => "inert",
+            Outcome::NotVoiced => "not_voiced",
+            Outcome::DetectorUnavailable => "detector_unavailable",
+            Outcome::StaleSession => "stale_session",
+            Outcome::SupersededRevision => "superseded_revision",
+            Outcome::CriticalActive => "critical_active",
+            Outcome::ChannelBusy => "channel_busy",
+            Outcome::LowerRankSameTick => "lower_rank_same_tick",
+            Outcome::Cooldown => "cooldown",
+            Outcome::Muted => "muted",
+        }
     }
 }
 
@@ -61,7 +82,7 @@ pub struct PlaybackId(pub u64);
 
 impl PlaybackId {
     pub fn to_contract_id(&self) -> String {
-        todo!()
+        format!("pb_{:010}", self.0)
     }
 }
 
@@ -181,14 +202,61 @@ impl Default for Config {
     }
 }
 
+struct Playback {
+    id: PlaybackId,
+    class: AudioClass,
+    episode: Option<String>,
+    session_epoch: u64,
+    package_revision: Option<u64>,
+    audio_ends_at_ms: u64,
+    visual_tail_ms: u32,
+}
+
+struct VisualTail {
+    id: PlaybackId,
+    class: AudioClass,
+    session_epoch: u64,
+    package_revision: Option<u64>,
+    started_at_ms: u64,
+    ends_at_ms: u64,
+}
+
+struct QueuedCorrection {
+    request: Request,
+    queued_at_ms: u64,
+}
+
 pub struct AudioOwner<S: Sink> {
-    _sink: S,
-    _config: Config,
+    sink: S,
+    config: Config,
+    muted: bool,
+    device_available: bool,
+    session_epoch: u64,
+    package_revision: u64,
+    next_playback_id: Option<u64>,
+    active: Option<Playback>,
+    visual_tail: Option<VisualTail>,
+    queued_correction: Option<QueuedCorrection>,
+    last_notice_admitted_at_ms: Option<u64>,
+    notices: Vec<Notice>,
 }
 
 impl<S: Sink> AudioOwner<S> {
     pub fn new(sink: S, config: Config) -> AudioOwner<S> {
-        todo!()
+        AudioOwner {
+            sink,
+            config,
+            muted: false,
+            device_available: true,
+            session_epoch: 0,
+            package_revision: 0,
+            next_playback_id: Some(1),
+            active: None,
+            visual_tail: None,
+            queued_correction: None,
+            last_notice_admitted_at_ms: None,
+            notices: Vec::new(),
+        }
     }
 
     /// Decide one request at `at_ms`. Check order (first match wins):
@@ -227,7 +295,120 @@ impl<S: Sink> AudioOwner<S> {
     /// belongs to the OLD playback and is derived by the host from the
     /// `Notice::Cancelled { reason: Preempted }` the owner emits for it.
     pub fn request(&mut self, at_ms: u64, request: Request) -> Option<Decision> {
-        todo!()
+        self.advance(at_ms, true);
+
+        if self.muted {
+            return Some(Self::decision(request, at_ms, Outcome::Muted, None, None));
+        }
+        if request.session_epoch != self.session_epoch {
+            return Some(Self::decision(
+                request,
+                at_ms,
+                Outcome::StaleSession,
+                None,
+                None,
+            ));
+        }
+        if request.class != AudioClass::Voice
+            && request.package_revision != Some(self.package_revision)
+        {
+            return Some(Self::decision(
+                request,
+                at_ms,
+                Outcome::SupersededRevision,
+                None,
+                None,
+            ));
+        }
+        if !self.device_available {
+            return Some(Self::decision(
+                request,
+                at_ms,
+                Outcome::ChannelBusy,
+                None,
+                Some(Detail::DeviceUnavailable),
+            ));
+        }
+
+        if request.class == AudioClass::Notice {
+            if let Some(last) = self.last_notice_admitted_at_ms {
+                if at_ms.saturating_sub(last) < self.config.notice_cooldown_ms {
+                    return Some(Self::decision(
+                        request,
+                        at_ms,
+                        Outcome::Cooldown,
+                        None,
+                        None,
+                    ));
+                }
+            }
+        }
+
+        let active_class = self.active_at(at_ms).map(|playback| playback.class);
+        match (request.class, active_class) {
+            (AudioClass::Critical, Some(AudioClass::Critical)) => {
+                let same_episode = self
+                    .active_at(at_ms)
+                    .and_then(|playback| playback.episode.as_deref())
+                    .zip(request.episode.as_deref())
+                    .is_some_and(|(left, right)| left == right);
+                if same_episode {
+                    return Some(Self::decision(
+                        request,
+                        at_ms,
+                        Outcome::Cooldown,
+                        None,
+                        None,
+                    ));
+                }
+                Some(self.start(request, at_ms, true))
+            }
+            (AudioClass::Critical, Some(_)) => Some(self.start(request, at_ms, true)),
+            (AudioClass::Critical, None) => Some(self.start(request, at_ms, false)),
+
+            (AudioClass::Correction, Some(AudioClass::Critical)) => {
+                self.queue_correction(at_ms, request);
+                None
+            }
+            (AudioClass::Correction, Some(_)) => Some(self.start(request, at_ms, true)),
+            (AudioClass::Correction, None) => Some(self.start(request, at_ms, false)),
+
+            (AudioClass::Notice, Some(AudioClass::Critical | AudioClass::Correction)) => Some(
+                Self::decision(request, at_ms, Outcome::CriticalActive, None, None),
+            ),
+            (AudioClass::Notice, Some(AudioClass::Notice)) => Some(Self::decision(
+                request,
+                at_ms,
+                Outcome::ChannelBusy,
+                None,
+                None,
+            )),
+            (AudioClass::Notice, Some(AudioClass::Ordinary | AudioClass::Voice)) => {
+                Some(self.start(request, at_ms, true))
+            }
+            (AudioClass::Notice, None) => Some(self.start(request, at_ms, false)),
+
+            (AudioClass::Ordinary, Some(AudioClass::Critical | AudioClass::Correction)) => Some(
+                Self::decision(request, at_ms, Outcome::CriticalActive, None, None),
+            ),
+            (AudioClass::Ordinary, Some(AudioClass::Notice | AudioClass::Ordinary)) => Some(
+                Self::decision(request, at_ms, Outcome::ChannelBusy, None, None),
+            ),
+            (AudioClass::Ordinary, Some(AudioClass::Voice)) => {
+                Some(self.start(request, at_ms, true))
+            }
+            (AudioClass::Ordinary, None) => Some(self.start(request, at_ms, false)),
+
+            (AudioClass::Voice, Some(AudioClass::Voice)) => Some(self.start(request, at_ms, true)),
+            (AudioClass::Voice, Some(_)) => Some(Self::decision(
+                request,
+                at_ms,
+                Outcome::ChannelBusy,
+                None,
+                None,
+            )),
+            (AudioClass::Voice, None) => Some(self.start(request, at_ms, false)),
+        }
     }
 
     /// Advance time: audio that ended is finished (`Notice::Finished` once the
@@ -235,64 +416,390 @@ impl<S: Sink> AudioOwner<S> {
     /// critical audio ended (`Decided(Admitted)`); a queued C2 older than the TTL
     /// expires (`Decided(CriticalActive, QueueExpired)`).
     pub fn tick(&mut self, at_ms: u64) {
-        todo!()
+        self.advance(at_ms, true);
     }
 
     /// The sink reports that `id` finished (device callback). Ignored for an id
     /// that is not the current playback (late completion of a cancelled one).
     pub fn on_sink_finished(&mut self, at_ms: u64, id: PlaybackId) {
-        todo!()
+        self.advance(at_ms, false);
+        if self
+            .active
+            .as_ref()
+            .is_some_and(|playback| playback.id == id)
+        {
+            self.finish_audio(at_ms);
+        }
+        self.advance(at_ms, true);
     }
 
     /// Take the pending notices in order of occurrence.
     pub fn drain_notices(&mut self) -> Vec<Notice> {
-        todo!()
+        std::mem::take(&mut self.notices)
     }
 
     /// Global mute: on cancels the active playback (`Muted`) and the queue; later
     /// requests get `Muted`. Off restores nothing.
     pub fn set_muted(&mut self, at_ms: u64, muted: bool) {
-        todo!()
+        self.advance(at_ms, false);
+        self.muted = muted;
+        if muted {
+            self.cancel_active(CancelReason::Muted);
+            self.cancel_tail(CancelReason::Muted);
+            self.clear_queued(at_ms, Outcome::Muted, None);
+        }
+        self.advance(at_ms, !muted);
     }
 
     /// New current session: cancels the active playback and the queue when their
     /// epoch differs (`SessionFence`). The initial session is 0 (no request with
     /// epoch 0 is stale before `set_session` is called).
     pub fn set_session(&mut self, at_ms: u64, session_epoch: u64) {
-        todo!()
+        self.advance(at_ms, false);
+        self.session_epoch = session_epoch;
+        if self
+            .active
+            .as_ref()
+            .is_some_and(|playback| playback.session_epoch != session_epoch)
+        {
+            self.cancel_active(CancelReason::SessionFence);
+        }
+        if self
+            .visual_tail
+            .as_ref()
+            .is_some_and(|tail| tail.session_epoch != session_epoch)
+        {
+            self.cancel_tail(CancelReason::SessionFence);
+        }
+        if self
+            .queued_correction
+            .as_ref()
+            .is_some_and(|queued| queued.request.session_epoch != session_epoch)
+        {
+            self.clear_queued(at_ms, Outcome::StaleSession, None);
+        }
+        self.advance(at_ms, true);
     }
 
     /// New current package revision: cancels the active non-voice playback and the
     /// queue when their revision differs (`RevisionFence`); a voice playback is not
     /// affected. The initial revision is 0.
     pub fn set_revision(&mut self, at_ms: u64, package_revision: u64) {
-        todo!()
+        self.advance(at_ms, false);
+        self.package_revision = package_revision;
+        if self.active.as_ref().is_some_and(|playback| {
+            playback.class != AudioClass::Voice
+                && playback.package_revision != Some(package_revision)
+        }) {
+            self.cancel_active(CancelReason::RevisionFence);
+        }
+        if self.visual_tail.as_ref().is_some_and(|tail| {
+            tail.class != AudioClass::Voice && tail.package_revision != Some(package_revision)
+        }) {
+            self.cancel_tail(CancelReason::RevisionFence);
+        }
+        if self
+            .queued_correction
+            .as_ref()
+            .is_some_and(|queued| queued.request.package_revision != Some(package_revision))
+        {
+            self.clear_queued(at_ms, Outcome::SupersededRevision, None);
+        }
+        self.advance(at_ms, true);
     }
 
     /// The output device disappeared or came back. `false` cancels the active
     /// playback (`DeviceLost`) and the queue; requests then get `ChannelBusy` with
     /// `Detail::DeviceUnavailable` until it is `true` again. Initially available.
     pub fn set_device_available(&mut self, at_ms: u64, available: bool) {
-        todo!()
+        self.advance(at_ms, false);
+        self.device_available = available;
+        if !available {
+            self.cancel_active(CancelReason::DeviceLost);
+            self.cancel_tail(CancelReason::DeviceLost);
+            self.clear_queued(at_ms, Outcome::ChannelBusy, Some(Detail::DeviceUnavailable));
+        }
+        self.advance(at_ms, available);
     }
 
     /// The playback that holds the audio channel at `at_ms`, if any.
     pub fn active(&self, at_ms: u64) -> Option<PlaybackId> {
-        todo!()
+        self.active_at(at_ms).map(|playback| playback.id)
     }
 
     /// Class of the playback that holds the audio channel at `at_ms`, if any.
     pub fn active_class(&self, at_ms: u64) -> Option<AudioClass> {
-        todo!()
+        self.active_at(at_ms).map(|playback| playback.class)
     }
 
     /// The visual that must be on screen at `at_ms` (audio phase or tail), if any.
     /// Cancellation of audio cancels this at the same instant.
     pub fn visual(&self, at_ms: u64) -> Option<VisualState> {
-        todo!()
+        if let Some(playback) = self.active.as_ref() {
+            if at_ms < playback.audio_ends_at_ms {
+                return Some(VisualState {
+                    id: playback.id,
+                    phase: VisualPhase::Audio,
+                });
+            }
+            let tail_ends_at_ms = playback
+                .audio_ends_at_ms
+                .saturating_add(u64::from(playback.visual_tail_ms));
+            if playback.visual_tail_ms > 0 && at_ms < tail_ends_at_ms {
+                return Some(VisualState {
+                    id: playback.id,
+                    phase: VisualPhase::Tail,
+                });
+            }
+        }
+        self.visual_tail
+            .as_ref()
+            .filter(|tail| at_ms >= tail.started_at_ms && at_ms < tail.ends_at_ms)
+            .map(|tail| VisualState {
+                id: tail.id,
+                phase: VisualPhase::Tail,
+            })
     }
 
     pub fn sink(&self) -> &S {
-        todo!()
+        &self.sink
+    }
+
+    fn active_at(&self, at_ms: u64) -> Option<&Playback> {
+        self.active
+            .as_ref()
+            .filter(|playback| at_ms < playback.audio_ends_at_ms)
+    }
+
+    fn decision(
+        request: Request,
+        at_ms: u64,
+        outcome: Outcome,
+        playback_id: Option<PlaybackId>,
+        detail: Option<Detail>,
+    ) -> Decision {
+        Decision {
+            instance_id: request.instance_id,
+            event_type: request.event_type,
+            session_epoch: request.session_epoch,
+            class: request.class,
+            outcome,
+            playback_id,
+            package_revision: request.package_revision,
+            decided_at_ms: at_ms,
+            detail,
+        }
+    }
+
+    fn start(&mut self, request: Request, at_ms: u64, preempt: bool) -> Decision {
+        let id_value = match self.next_playback_id {
+            Some(value) => value,
+            None => {
+                return Self::decision(request, at_ms, Outcome::ChannelBusy, None, None);
+            }
+        };
+        let id = PlaybackId(id_value);
+        self.next_playback_id = id_value.checked_add(1);
+
+        if preempt {
+            self.cancel_active(CancelReason::Preempted);
+        }
+
+        let Request {
+            instance_id,
+            event_type,
+            session_epoch,
+            class,
+            episode,
+            package_revision,
+            pcm,
+            visual_tail_ms,
+        } = request;
+        let duration_ms = crate::pcm::duration_ms(&pcm);
+
+        if self.sink.submit(id, pcm).is_err() {
+            let decision = Decision {
+                instance_id,
+                event_type,
+                session_epoch,
+                class,
+                outcome: Outcome::ChannelBusy,
+                playback_id: None,
+                package_revision,
+                decided_at_ms: at_ms,
+                detail: Some(Detail::SinkFailed),
+            };
+            if self.active.is_none() {
+                self.start_queued(at_ms);
+            }
+            return decision;
+        }
+
+        if let Some(tail) = self.visual_tail.take() {
+            self.notices.push(Notice::Finished { id: tail.id });
+        }
+        self.active = Some(Playback {
+            id,
+            class,
+            episode,
+            session_epoch,
+            package_revision,
+            audio_ends_at_ms: at_ms.saturating_add(u64::from(duration_ms)),
+            visual_tail_ms,
+        });
+        if class == AudioClass::Notice {
+            self.last_notice_admitted_at_ms = Some(at_ms);
+        }
+
+        Decision {
+            instance_id,
+            event_type,
+            session_epoch,
+            class,
+            outcome: Outcome::Admitted,
+            playback_id: Some(id),
+            package_revision,
+            decided_at_ms: at_ms,
+            detail: None,
+        }
+    }
+
+    fn queue_correction(&mut self, at_ms: u64, request: Request) {
+        if let Some(previous) = self.queued_correction.replace(QueuedCorrection {
+            request,
+            queued_at_ms: at_ms,
+        }) {
+            self.notices.push(Notice::Decided(Self::decision(
+                previous.request,
+                at_ms,
+                Outcome::CriticalActive,
+                None,
+                Some(Detail::QueueReplaced),
+            )));
+        }
+    }
+
+    fn advance(&mut self, at_ms: u64, start_queue: bool) {
+        let expired = self.queued_correction.as_ref().is_some_and(|queued| {
+            at_ms.saturating_sub(queued.queued_at_ms) > self.config.correction_queue_ttl_ms
+        });
+        if expired {
+            self.clear_queued(at_ms, Outcome::CriticalActive, Some(Detail::QueueExpired));
+        }
+
+        let audio_ended = self
+            .active
+            .as_ref()
+            .is_some_and(|playback| at_ms >= playback.audio_ends_at_ms);
+        if audio_ended {
+            self.finish_audio_from_expected_end();
+        }
+
+        let tail_ended = self
+            .visual_tail
+            .as_ref()
+            .is_some_and(|tail| at_ms >= tail.ends_at_ms);
+        if tail_ended {
+            if let Some(tail) = self.visual_tail.take() {
+                self.notices.push(Notice::Finished { id: tail.id });
+            }
+        }
+
+        if start_queue && self.active.is_none() {
+            self.start_queued(at_ms);
+        }
+    }
+
+    fn finish_audio_from_expected_end(&mut self) {
+        let Some(playback) = self.active.take() else {
+            return;
+        };
+        let audio_ends_at_ms = playback.audio_ends_at_ms;
+        self.set_tail_or_finish(playback, audio_ends_at_ms);
+    }
+
+    fn finish_audio(&mut self, at_ms: u64) {
+        let Some(playback) = self.active.take() else {
+            return;
+        };
+        self.set_tail_or_finish(playback, at_ms);
+    }
+
+    fn set_tail_or_finish(&mut self, playback: Playback, audio_ended_at_ms: u64) {
+        if playback.visual_tail_ms == 0 {
+            self.notices.push(Notice::Finished { id: playback.id });
+            return;
+        }
+        let ends_at_ms = audio_ended_at_ms.saturating_add(u64::from(playback.visual_tail_ms));
+        if ends_at_ms <= audio_ended_at_ms {
+            self.notices.push(Notice::Finished { id: playback.id });
+            return;
+        }
+        if let Some(previous) = self.visual_tail.replace(VisualTail {
+            id: playback.id,
+            class: playback.class,
+            session_epoch: playback.session_epoch,
+            package_revision: playback.package_revision,
+            started_at_ms: audio_ended_at_ms,
+            ends_at_ms,
+        }) {
+            self.notices.push(Notice::Finished { id: previous.id });
+        }
+    }
+
+    fn cancel_active(&mut self, reason: CancelReason) {
+        if let Some(playback) = self.active.take() {
+            self.sink.cancel(playback.id);
+            self.notices.push(Notice::Cancelled {
+                id: playback.id,
+                reason,
+            });
+        }
+    }
+
+    fn cancel_tail(&mut self, reason: CancelReason) {
+        if let Some(tail) = self.visual_tail.take() {
+            self.notices.push(Notice::Cancelled {
+                id: tail.id,
+                reason,
+            });
+        }
+    }
+
+    fn clear_queued(&mut self, at_ms: u64, outcome: Outcome, detail: Option<Detail>) {
+        if let Some(queued) = self.queued_correction.take() {
+            self.notices.push(Notice::Decided(Self::decision(
+                queued.request,
+                at_ms,
+                outcome,
+                None,
+                detail,
+            )));
+        }
+    }
+
+    fn start_queued(&mut self, at_ms: u64) {
+        let Some(queued) = self.queued_correction.take() else {
+            return;
+        };
+        let request = queued.request;
+        let decision = if self.muted {
+            Self::decision(request, at_ms, Outcome::Muted, None, None)
+        } else if request.session_epoch != self.session_epoch {
+            Self::decision(request, at_ms, Outcome::StaleSession, None, None)
+        } else if request.package_revision != Some(self.package_revision) {
+            Self::decision(request, at_ms, Outcome::SupersededRevision, None, None)
+        } else if !self.device_available {
+            Self::decision(
+                request,
+                at_ms,
+                Outcome::ChannelBusy,
+                None,
+                Some(Detail::DeviceUnavailable),
+            )
+        } else {
+            self.start(request, at_ms, false)
+        };
+        self.notices.push(Notice::Decided(decision));
     }
 }

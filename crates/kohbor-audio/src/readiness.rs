@@ -43,7 +43,11 @@ pub struct Readiness {
 impl ReadinessState {
     /// `not_ready`, `ready`, `unavailable`.
     pub fn as_str(&self) -> &'static str {
-        todo!()
+        match self {
+            ReadinessState::NotReady => "not_ready",
+            ReadinessState::Ready => "ready",
+            ReadinessState::Unavailable => "unavailable",
+        }
     }
 }
 
@@ -62,5 +66,54 @@ impl ReadinessState {
 /// anywhere beats an invalid file elsewhere). Duplicate event ids are judged
 /// independently (all must pass).
 pub fn assess(input: &ReadinessInput) -> Readiness {
-    todo!()
+    if input.muted {
+        return Readiness {
+            state: ReadinessState::Unavailable,
+            reason: Some("AUDIO_MUTED"),
+        };
+    }
+    if !input.device_available {
+        return Readiness {
+            state: ReadinessState::Unavailable,
+            reason: Some("CAPABILITY_UNAVAILABLE"),
+        };
+    }
+    if input.available_critical.is_empty()
+        || input.available_critical.iter().any(|event| !event.mapped)
+    {
+        return Readiness {
+            state: ReadinessState::NotReady,
+            reason: Some("MEDIA_UNMAPPED"),
+        };
+    }
+    if input.available_critical.iter().any(|event| !event.verified) {
+        return Readiness {
+            state: ReadinessState::NotReady,
+            reason: Some("MEDIA_INVALID"),
+        };
+    }
+    if input
+        .available_critical
+        .iter()
+        .any(|event| !event.prewarmed)
+    {
+        return Readiness {
+            state: ReadinessState::NotReady,
+            reason: Some("MEDIA_INVALID"),
+        };
+    }
+    if input
+        .available_critical
+        .iter()
+        .any(|event| event.probe_ok != Some(true))
+    {
+        return Readiness {
+            state: ReadinessState::NotReady,
+            reason: Some("MEDIA_PROBE_FAILED"),
+        };
+    }
+    Readiness {
+        state: ReadinessState::Ready,
+        reason: None,
+    }
 }
