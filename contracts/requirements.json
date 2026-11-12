@@ -1571,7 +1571,10 @@
           "docs/quality/TEST-PLAN.md",
           "docs/quality/UAT-PLAN.md"
         ],
-        "implementation_refs": [],
+        "implementation_refs": [
+          "crates/kohbor-events/src/lib.rs",
+          "crates/kohbor-events/tests/detector.rs"
+        ],
         "evidence_refs": [],
         "procedure_ids": [
           "TP-04",
@@ -1636,7 +1639,11 @@
           "docs/quality/TEST-PLAN.md",
           "docs/quality/UAT-PLAN.md"
         ],
-        "implementation_refs": [],
+        "implementation_refs": [
+          "crates/kohbor-events/src/lib.rs",
+          "crates/kohbor-events/tests/arbiter.rs",
+          "apps/desktop/src-tauri/src/intake.rs"
+        ],
         "evidence_refs": [],
         "procedure_ids": [
           "TP-04",
@@ -1700,7 +1707,10 @@
           "docs/quality/TEST-PLAN.md",
           "docs/quality/UAT-PLAN.md"
         ],
-        "implementation_refs": [],
+        "implementation_refs": [
+          "crates/kohbor-events/src/lib.rs",
+          "crates/kohbor-events/tests/death_counter.rs"
+        ],
         "evidence_refs": [],
         "procedure_ids": [
           "TP-04",

@@ -189,3 +189,9 @@ The lead updates this table as tasks pass the gate. `Commit` is filled for work 
 | S0-6 containment and cold offline tests | passed (L-R) | Cold-start tests, a containment seam and failure-injection tests; native proof still open | `e27bf86`, `b4bdbd0`, `144ed49` |
 | S0-7 locale settings | passed (L-R, review then fix round) | Review found three major issues; fixed | `0552d9c` |
 | S0-8 cost and limits | done | AGENT-WORKFLOW section 7.1; token use not measured | see the commit that adds this row |
+| S1-1, S1-2 detector and arbiter tests | passed (T-L-R 1) | 20 red tests; the worker could not compile (resource admission), the lead ran them red | `6c44321` (API stub), `fd369af` |
+| S1-3 detector and arbiter | passed (T-L-R 2) | DONE; 20 tests pass | `ace21a0` |
+| S1-4 review and fix round | passed (T-L-R 3) | Six defects and one spec gap found by reading; five fixed with regression tests, two points kept by decision (first blood availability is a host status matter; a gap of untrusted ticks inside the danger window) | `15f62d4` |
+| S1-5 admission counters, replay tool | passed (L-R) | First run BLOCKED because the lead's lane lock named the previous task; second run DONE. Collector-session input and `--expect-kills` added in S1-5c | `e387fad`, `f1472dd` |
+| S1-5d death counter and kill_streak | passed (L-R, evidence-driven) | Replay of six owner sessions showed `alive` is not a death signal; the rule now uses `player.deaths` and the game's `kill_streak` | `2a42645` |
+| S1-6 host feed and event availability | passed (L-R, R2 read by the lead) | runtime-status 1.1.0 adds `events`; `first_blood` reported unavailable (E-1 open) | `9c8faf1` |

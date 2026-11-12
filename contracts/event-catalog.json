@@ -70,7 +70,7 @@
         "min": 3,
         "max": 10
       },
-      "note": "Follows the game's kill streak: own kills since the last own death. Tier = that count, capped at 10. The detector prefers player.kill_streak (assumption E-3, EVENT-AUDIO-SPEC section 2)."
+      "note": "Follows the game's kill streak: own kills since the last own death. Tier = that count, capped at 10. The detector uses player.kill_streak when present (assumption E-3, confirmed to tier 4 on 2026-11-12; EVENT-AUDIO-SPEC section 2)."
     },
     {
       "id": "first_blood",
@@ -125,7 +125,8 @@
         "en": "Death",
         "th": "ตาย"
       },
-      "tunables": {}
+      "tunables": {},
+      "note": "Counted from the increase of player.deaths; alive true to false is only the fallback when the counter is absent (assumption E-5, EVENT-AUDIO-SPEC section 2)."
     },
     {
       "id": "level_milestone",
@@ -274,7 +275,7 @@
         "th": "เกิดใหม่"
       },
       "tunables": {},
-      "note": "Detected and recorded; unvoiced and unmappable in taxonomy 1.x (MEDIA-003)."
+      "note": "Detected after a counted death when alive goes false to true; recorded, unvoiced and unmappable in taxonomy 1.x (MEDIA-003)."
     },
     {
       "id": "health_danger",

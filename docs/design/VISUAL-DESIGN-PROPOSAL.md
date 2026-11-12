@@ -88,7 +88,7 @@ Each state is told apart by **shape, line style and words**, never by colour alo
 
 The header carries the page title, match state, the command palette (Ctrl+K) and the overlay toggle (Ctrl+Alt+S).
 
-**Overview (waiting state).** The readiness list has eight rows, one per health domain in [runtime-status](../../contracts/runtime-status.schema.json):
+**Overview (waiting state).** The readiness list has eight rows, one per health domain of runtime-status 1.0.0 in [runtime-status](../../contracts/runtime-status.schema.json). The `events` domain added in 1.1.0 has no row yet:
 
 1. game intake
 2. ownership

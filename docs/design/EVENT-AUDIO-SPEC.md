@@ -50,16 +50,16 @@ Taxonomy version `1.1`. Version 1.1 adds tiers to `multi_kill` and `streak`; it 
 | ID | Category | Source | Detector milestone | Ordinary rank | Voiced by default | Notes |
 | --- | --- | --- | --- | ---: | --- | --- |
 | `multi_kill` | ordinary | gsi | M2 | 90 | yes | A run of ≥2 own kills with no more than 18,000 ms between consecutive kills (MP-02). Tier 2–5 |
-| `streak` | ordinary | gsi | M2 | 80 | yes | The game's kill streak (own kills since the last own death) reaches 3 or more; each further kill re-emits. Tier 3–10 |
+| `streak` | ordinary | gsi | M2 | 80 | yes | The game's kill streak (own kills since the last own death) reaches 3 or more; each further kill re-emits. Tier 3–10. Uses `player.kill_streak` when present (E-3 confirmed to tier 4), otherwise a count from `player.kills` and own deaths |
 | `first_blood` | ordinary | gsi | M2 | 70 | yes | First hero kill of the match, credited to self (E-1) |
 | `hero_kill` | ordinary | gsi | M2 | 60 | yes | Own kill counter increments |
-| `hero_death` | ordinary | gsi | M2 | 50 | yes | Own `alive` goes from true to false |
+| `hero_death` | ordinary | gsi | M2 | 50 | yes | Own `player.deaths` counter increases. If the counter is absent, `alive` going from true to false is the fallback. `alive` alone is not a death (E-5) |
 | `level_milestone` | ordinary | gsi | M2 | 40 | yes | Level reaches 6, 12, 18 or 25 |
 | `health_low` | ordinary | gsi | M2 | 30 | yes | HP falls to ≤20% of max HP; re-arms at ≥30% or after respawn |
 | `mana_low` | ordinary | gsi | M2 | 20 | yes | Mana falls to ≤15%; re-arms at ≥25% or after respawn |
 | `match_ended` | ordinary | gsi | M2 | 15 | yes | Game state enters post-game (E-2) |
 | `match_started` | ordinary | gsi | M2 | 10 | yes | Game state enters live play for the current session (E-2) |
-| `hero_respawn` | ordinary | gsi | M2 | — | **no** | Detected and recorded; not voiced and not mappable in taxonomy 1.x (MEDIA-003) |
+| `hero_respawn` | ordinary | gsi | M2 | — | **no** | Own `alive` goes from false to true after a counted death. Detected and recorded; not voiced and not mappable in taxonomy 1.x (MEDIA-003) |
 | `health_danger` | critical | gsi | M2 | — | yes | Approved 2026-11-11 (DEC-HEALTH-DANGER, §3); audible only with verified critical media (ALERT-007) |
 | `enemy_missing` | notice | vision | M3 | — | yes | Absence >5,000 ms with valid coverage; once per hero per episode; global cooldown ≥10,000 ms (ALERT-006) |
 | `risk_alert` | critical | native | M3 | — | yes | Admission per SDD §6 and DEC-RISK-DETAIL; cooldowns 30 s global and 60 s per contributor |
@@ -122,6 +122,7 @@ The names are reference only; the contract uses the numeric tier. The 18-second 
 | E-2 | `map.game_state` transitions identify the start of live play and post-game | Record a full match. If this fails, `match_started` and `match_ended` stay unavailable |
 | E-3 | `player.kill_streak` is the game's own count of kills since the last own death | Record a match with at least three own kills without dying, then a death. If confirmed, `streak` uses this field. If not, `streak` is computed from `player.kills` and the own death transition |
 | E-4 | Own kills arrive as increases of `player.kills` soon enough that arrival times reproduce the game's 18-second chain | Record a double and a triple kill, and two kills more than 18 s apart; compare the detected run with the game's announcement. If this fails, `multi_kill` stays unavailable |
+| E-5 | `player.deaths` increases once per own death, and `hero.alive` can be false without a death | Replay full matches and compare the counter with `alive` transitions. If the counter is absent or wrong, the `alive` fallback applies |
 
 
 **Capture of 2026-11-11 (GSI-INTAKE-SPEC §10.1):**
@@ -129,6 +130,13 @@ The names are reference only; the contract uses the numeric tier. The 18-second 
 - **E-2: confirmed.** Pre-game, live and post-game all appeared as `map.game_state` transitions. `map.win_team` changed from `none` to a team at post-game.
 - **E-3, E-4: not tested.** `player.kill_streak` and `player.kills` are present in the captured payloads, but the minimized fixtures show a streak of 0 only and no multi-kill.
 - **E-1: partly.** The negative case was observed: the combined score went 0→1 while the own kill count stayed 0, so the kill was not credited to self. The positive case (first blood by self) was not captured, so `first_blood` stays unavailable until it is.
+
+**Owner collector sessions of 2026-11-02 and 2026-11-03 (six Mid-lane matches, replayed 2026-11-12).** The owner's loopback collector recorded each payload body with a monotonic arrival time (116,960 admitted payloads in total). The replay tool `kohbor-replay` ran them through the production admission and the detector. The raw files hold a token and real identifiers, stay on the owner's machine and are not part of this package. Evidence class: synthetic replay of real recorded payloads; it is not a live run of the application.
+
+- **Kill timing, E-4 (partly confirmed).** In the one match that has a replay-file (.dem) analysis by the owner, the detector's 11 own kills matched the 11 analysed kills at the same payload sequence, with no extra and no missing kill. Four double kills occurred across the sessions and each was reported as `multi_kill` tier 2. The two pairs that the analysis places six seconds apart are among them. The game's own announcements were not recorded, so the match is by game clock and kill count. Not covered: a triple kill, tiers 3–5, and a gap near the 18,000 ms boundary.
+- **Streak, E-3 (confirmed to tier 4).** `player.kill_streak` equalled the count of own kills since the last death at every compared payload (116,960 comparisons, 0 differences) once deaths were taken from `player.deaths`. The largest streak seen was 4. Tiers 5–10 are not covered. The detector therefore uses the field.
+- **Deaths, E-5 (new).** `player.deaths` increased 37 times and each increase is one death. `hero.alive` also went false three times without a death (one of them for about six seconds), and the counter sometimes rose one payload before `alive` turned false. An alive-based death rule produced one false `hero_death` and reset a live streak. The detector now counts deaths from the counter and uses `alive` only as a fallback and for respawn.
+- **First blood, E-1 (still open).** No session shows first blood credited to self. `first_blood` stays unavailable and the host reports it so in the runtime status (`events.unavailable`, contract 1.1.0).
 
 ## 3. Health danger (DEC-HEALTH-DANGER; approved 2026-11-11)
 
@@ -256,7 +264,7 @@ The Windows transport framing (named pipe, 16 KiB frames, handshake) stays with 
 ## 8. Closure
 
 - **DEC-EVENT-AUDIO** closes when:
-  - E-1 and E-2 are confirmed from the capture corpus, or the affected events stay unavailable;
+  - E-1 and E-2 are confirmed from the capture corpus, or the affected events stay unavailable (state on 2026-11-12: E-2 confirmed, E-3 confirmed to tier 4, E-4 confirmed for single and double kills, E-5 confirmed; E-1 open, so `first_blood` is reported unavailable);
   - the catalog, contracts and fixtures are reviewed;
   - the product owner acknowledges the mute semantics in §4 (done: acknowledged 2026-11-11; recorded in contracts/decisions.json);
   - the product owner confirms the ordinary ranks not fixed by MP-02 (done: confirmed 2026-11-11).
