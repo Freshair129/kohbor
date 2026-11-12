@@ -76,8 +76,10 @@ impl Outcome {
 }
 
 /// Opaque playback identity; each admitted playback gets a new one (its
-/// generation), starting at 1 and never reused. `to_contract_id` is `pb_` plus 10
-/// decimal digits (`pb_0000000001`), matching the `playback_id` pattern.
+/// generation), starting at 1 by default and never reused. The host may configure
+/// another first id through `AudioOwner::with_first_playback_id`. `to_contract_id`
+/// is `pb_` plus 10 decimal digits (`pb_0000000001`), matching the `playback_id`
+/// pattern.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct PlaybackId(pub u64);
 
@@ -152,7 +154,8 @@ pub struct Request {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Detail {
-    /// The sink refused `submit`; the request was not admitted.
+    /// The sink refused `submit`, or playback ids are exhausted; the request was
+    /// not admitted.
     SinkFailed,
     /// A queued C2 request waited longer than the TTL while critical audio played.
     QueueExpired,
@@ -286,7 +289,8 @@ pub struct AudioOwner<S: Sink> {
     device_available: bool,
     session_epoch: u64,
     package_revision: u64,
-    next_playback_id: Option<u64>,
+    next_playback_id: u64,
+    playback_ids_exhausted: bool,
     active: Option<Playback>,
     visual_tail: Option<VisualTail>,
     queued_correction: Option<QueuedCorrection>,
@@ -298,6 +302,19 @@ pub struct AudioOwner<S: Sink> {
 
 impl<S: Sink> AudioOwner<S> {
     pub fn new(sink: S, config: Config) -> AudioOwner<S> {
+        Self::with_first_playback_id(sink, config, 1)
+    }
+
+    /// Create an owner using `first_playback_id` for the first playback id.
+    ///
+    /// A value of 0 is treated as 1. `u64::MAX` remains a valid final id; after
+    /// it is used, the counter stays at `u64::MAX` and later playback attempts
+    /// return `ChannelBusy` with `Detail::SinkFailed` rather than wrapping.
+    pub fn with_first_playback_id(
+        sink: S,
+        config: Config,
+        first_playback_id: u64,
+    ) -> AudioOwner<S> {
         AudioOwner {
             sink,
             config,
@@ -305,7 +322,8 @@ impl<S: Sink> AudioOwner<S> {
             device_available: true,
             session_epoch: 0,
             package_revision: 0,
-            next_playback_id: Some(1),
+            next_playback_id: first_playback_id.max(1),
+            playback_ids_exhausted: false,
             active: None,
             visual_tail: None,
             queued_correction: None,
@@ -673,6 +691,23 @@ impl<S: Sink> AudioOwner<S> {
         &self.sink
     }
 
+    /// Mutable access for host device recovery, such as replacing a lost sink.
+    /// The caller must not submit or cancel through this reference; the owner
+    /// remains responsible for playback admission and cancellation.
+    pub fn sink_mut(&mut self) -> &mut S {
+        &mut self.sink
+    }
+
+    /// Whether global mute is enabled.
+    pub fn is_muted(&self) -> bool {
+        self.muted
+    }
+
+    /// Whether the output device is currently marked available.
+    pub fn device_available(&self) -> bool {
+        self.device_available
+    }
+
     fn effective_at(&self, at_ms: u64) -> u64 {
         let effective_at_ms = at_ms.max(self.last_at_ms.get());
         self.last_at_ms.set(effective_at_ms);
@@ -713,14 +748,24 @@ impl<S: Sink> AudioOwner<S> {
     }
 
     fn start(&mut self, request: Request, at_ms: u64, preempt: bool) -> Decision {
-        let id_value = match self.next_playback_id {
-            Some(value) => value,
-            None => {
-                return Self::decision(request, at_ms, Outcome::ChannelBusy, None, None);
-            }
-        };
+        if self.playback_ids_exhausted {
+            return Self::decision(
+                request,
+                at_ms,
+                Outcome::ChannelBusy,
+                None,
+                Some(Detail::SinkFailed),
+            );
+        }
+        let id_value = self.next_playback_id;
         let id = PlaybackId(id_value);
-        self.next_playback_id = id_value.checked_add(1);
+        if let Some(next_id) = id_value.checked_add(1) {
+            self.next_playback_id = next_id;
+        } else {
+            // Keep the counter saturated at MAX. The exhausted flag prevents
+            // reissuing MAX and preserves strictly increasing playback ids.
+            self.playback_ids_exhausted = true;
+        }
 
         if preempt {
             self.cancel_active(CancelReason::Preempted, at_ms);
