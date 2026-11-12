@@ -394,7 +394,9 @@ fn rejection_preserves_active(case: &str) {
         }
         "hostile" => {
             let mut entries = package_entries();
-            entries.push(ZipEntry::new("../evil", vec![1], 0));
+            // Right after descriptor.json so that the unsafe name, not the entry
+            // order, is the first violation the reader meets.
+            entries.insert(1, ZipEntry::new("../evil", vec![1], 0));
             let data = zip(&entries, &[], &[], &[]);
             std::fs::write(&path, &data).unwrap();
             req.expected_container_sha256 = hash(&data);

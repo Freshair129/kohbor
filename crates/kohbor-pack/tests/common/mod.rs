@@ -384,6 +384,8 @@ pub fn tiered_package(dir: &std::path::Path) -> (PathBuf, Vec<u8>) {
     descriptor["files"] = files.into();
     descriptor["bindings"] = bindings.into();
     entries[0].bytes = serde_json::to_vec(&descriptor).unwrap();
+    // The container profile requires ASCII-sorted payload names after descriptor.json.
+    entries[1..].sort_by(|a, b| a.name.cmp(&b.name));
     let bytes = zip(&entries, &[], &[], &[]);
     let path = dir.join("tiered.zip");
     std::fs::write(&path, &bytes).unwrap();
