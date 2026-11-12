@@ -1867,6 +1867,8 @@ dependencies = [
  "kohbor-audio",
  "kohbor-events",
  "kohbor-gsi",
+ "kohbor-pack",
+ "kohbor-pack-author",
  "serde",
  "serde_json",
  "sha2",

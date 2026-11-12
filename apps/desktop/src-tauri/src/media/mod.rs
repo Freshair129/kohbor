@@ -2,3 +2,5 @@
 #![allow(dead_code)]
 
 pub mod inventory;
+pub mod prewarm;
+pub mod service;
