@@ -1,4 +1,4 @@
-//! Package descriptor (`descriptor.json`, media-manifest 1.2.0): strict parsing
+//! Package descriptor (`descriptor.json`, media-manifest 1.3.0): strict parsing
 //! plus the semantic rules of EVENT-AUDIO-SPEC section 7 and MP-03/MP-05.
 //! Pure: bytes in, a typed descriptor or one specific [`RejectReason`] out.
 
@@ -33,7 +33,7 @@ pub struct Binding {
     pub event_id: String,
     pub tier: Option<u32>,
     pub mixed_audio_path: String,
-    pub silent_visual_path: String,
+    pub silent_visual_path: Option<String>,
     pub duration_ms: u32,
     pub visual_tail_ms: u32,
     pub identity_audio_path: Option<String>,
@@ -65,28 +65,31 @@ pub struct ParsedDescriptor {
 /// Order of checks (the first failure is the reported reason):
 /// 1. size > `limits.descriptor_bytes` -> `EntryTooLarge`; not UTF-8 JSON ->
 ///    `DescriptorSyntax`; duplicate object key anywhere -> `DuplicateJsonKey`.
-/// 2. Shape per media-manifest 1.2.0 with `additionalProperties: false`: an
+/// 2. Shape per media-manifest 1.3.0 with `additionalProperties: false`: an
 ///    unknown key -> `UnknownField(key)` (this is how a self-declared
 ///    `trusted_public_key` or authority claim is rejected); any other schema
-///    violation (type, pattern, range, counts, `schema_version != "1.2.0"`,
-///    missing/null `taxonomy_version`) -> `DescriptorSchema(json_pointer)`;
+///    violation (type, pattern, range, counts, `schema_version != "1.3.0"`,
+///    missing/null `taxonomy_version`, or a nonzero visual tail without a
+///    visual) -> `DescriptorSchema(json_pointer)`; a nonzero audio-only tail
+///    points to `/bindings/<index>/visual_tail_ms`;
 ///    a `taxonomy_version` string outside the canonical grammar ->
 ///    `TaxonomyMalformed`.
 /// 3. Taxonomy: package major != runtime major -> `TaxonomyMajorUnsupported`.
-/// 4. Paths: every path in `files` and every binding path must be relative,
+/// 4. Paths: every path in `files` and every present binding path must be relative,
 ///    ASCII, without `..`, `.`, empty, backslash, drive, `:` or leading `/`
 ///    segments -> `UnsafePath`; `files[].path` duplicates (case-insensitive)
 ///    -> `DuplicateEntry`.
 /// 5. References: a binding path missing from `files` -> `DanglingReference`;
 ///    the role of the referenced file must be `mixed_audio` for
-///    `mixed_audio_path`, `silent_visual` for `silent_visual_path` and
+///    `mixed_audio_path`, `silent_visual` for a present `silent_visual_path` and
 ///    `identity_audio` for `identity_audio_path` -> `BindingRoleMismatch`.
 /// 6. Tiers: `tier` on an event without catalog `tier_range` -> `TierNotAllowed`;
 ///    outside the range -> `TierOutOfRange`; two bindings with the same
 ///    `(event_id, tier)` (a missing tier counts as one tier) -> `TierDuplicate`;
 ///    a tiered event bound without any tier is allowed (the tier-less binding).
-/// 7. Pairing: every binding names both a mixed audio path and a silent visual
-///    path (schema-required); a `files` entry with role `mixed_audio` or
+/// 7. Pairing: every binding names a mixed audio path and may name a silent
+///    visual path. Without a visual, `visual_tail_ms` must be zero; such a
+///    binding is audio-only. A `files` entry with role `mixed_audio` or
 ///    `silent_visual` that no binding uses -> `UnpairedBinding`.
 ///
 /// Unknown (or not media-mappable) `event_id`s are not an error: they are
@@ -186,12 +189,15 @@ pub fn parse_descriptor(
                 &format!("{pointer}/mixed_audio_path"),
             )?
             .to_owned(),
-            silent_visual_path: required_string(
-                object,
-                "silent_visual_path",
-                &format!("{pointer}/silent_visual_path"),
-            )?
-            .to_owned(),
+            silent_visual_path: object
+                .get("silent_visual_path")
+                .map(|value| {
+                    value
+                        .as_str()
+                        .map(str::to_owned)
+                        .ok_or_else(|| schema_error(&format!("{pointer}/silent_visual_path")))
+                })
+                .transpose()?,
             duration_ms: u32::try_from(duration_ms)
                 .map_err(|_| schema_error(&format!("{pointer}/duration_ms")))?,
             visual_tail_ms: u32::try_from(visual_tail_ms)
@@ -208,7 +214,10 @@ pub fn parse_descriptor(
     }
     for binding in &bindings {
         if !safe_manifest_path(&binding.mixed_audio_path)
-            || !safe_manifest_path(&binding.silent_visual_path)
+            || binding
+                .silent_visual_path
+                .as_deref()
+                .is_some_and(|path| !safe_manifest_path(path))
             || binding
                 .identity_audio_path
                 .as_deref()
@@ -230,7 +239,9 @@ pub fn parse_descriptor(
 
     for binding in &bindings {
         check_reference(&files, &binding.mixed_audio_path, FileRole::MixedAudio)?;
-        check_reference(&files, &binding.silent_visual_path, FileRole::SilentVisual)?;
+        if let Some(path) = binding.silent_visual_path.as_deref() {
+            check_reference(&files, path, FileRole::SilentVisual)?;
+        }
         if let Some(path) = binding.identity_audio_path.as_deref() {
             check_reference(&files, path, FileRole::IdentityAudio)?;
         }
@@ -275,7 +286,9 @@ pub fn parse_descriptor(
         if is_pair_role
             && !bindings.iter().any(|binding| match file.role {
                 FileRole::MixedAudio => binding.mixed_audio_path == file.path,
-                FileRole::SilentVisual => binding.silent_visual_path == file.path,
+                FileRole::SilentVisual => {
+                    binding.silent_visual_path.as_deref() == Some(file.path.as_str())
+                }
                 _ => false,
             })
         {
@@ -341,7 +354,7 @@ fn validate_schema(value: &Value, limits: Limits) -> Result<(), RejectReason> {
         }
     }
 
-    if root.get("schema_version").and_then(Value::as_str) != Some("1.2.0") {
+    if root.get("schema_version").and_then(Value::as_str) != Some("1.3.0") {
         return Err(schema_error("/schema_version"));
     }
     let package_id = required_string(root, "package_id", "/package_id")?;
@@ -432,17 +445,21 @@ fn validate_schema(value: &Value, limits: Limits) -> Result<(), RejectReason> {
                 return Err(schema_error(&format!("{pointer}/tier")));
             }
         }
-        for key in [
-            "mixed_audio_path",
-            "silent_visual_path",
-            "identity_audio_path",
-        ] {
+        for key in ["mixed_audio_path", "identity_audio_path"] {
             if key == "identity_audio_path" && !object.contains_key(key) {
                 continue;
             }
             let path = required_string(object, key, &format!("{pointer}/{key}"))?;
             if !valid_path_pattern(path) {
                 return Err(schema_error(&format!("{pointer}/{key}")));
+            }
+        }
+        if let Some(value) = object.get("silent_visual_path") {
+            let path = value
+                .as_str()
+                .ok_or_else(|| schema_error(&format!("{pointer}/silent_visual_path")))?;
+            if !valid_path_pattern(path) {
+                return Err(schema_error(&format!("{pointer}/silent_visual_path")));
             }
         }
         let duration = required_u64(object, "duration_ms", &format!("{pointer}/duration_ms"))?;
@@ -455,6 +472,9 @@ fn validate_schema(value: &Value, limits: Limits) -> Result<(), RejectReason> {
             &format!("{pointer}/visual_tail_ms"),
         )?;
         if tail > u64::from(MAX_VISUAL_TAIL_MS) {
+            return Err(schema_error(&format!("{pointer}/visual_tail_ms")));
+        }
+        if !object.contains_key("silent_visual_path") && tail != 0 {
             return Err(schema_error(&format!("{pointer}/visual_tail_ms")));
         }
     }

@@ -287,7 +287,7 @@ pub fn webm(
 pub fn package_entries() -> Vec<ZipEntry> {
     let audio = wav(48_000);
     let video = webm("V_VP9", 640, 360, None, Some(1000.0), None);
-    let descriptor = serde_json::json!({"schema_version":"1.2.0","package_id":"test-pack","revision":1,"taxonomy_version":"1.1","display_name":"Test","publisher_key_id":null,"files":[{"path":"audio/cue.wav","size_bytes":audio.len(),"sha256":hash(&audio),"role":"mixed_audio"},{"path":"video/cue.webm","size_bytes":video.len(),"sha256":hash(&video),"role":"silent_visual"}],"bindings":[{"event_id":"first_blood","mixed_audio_path":"audio/cue.wav","silent_visual_path":"video/cue.webm","duration_ms":1000,"visual_tail_ms":0}]});
+    let descriptor = serde_json::json!({"schema_version":"1.3.0","package_id":"test-pack","revision":1,"taxonomy_version":"1.1","display_name":"Test","publisher_key_id":null,"files":[{"path":"audio/cue.wav","size_bytes":audio.len(),"sha256":hash(&audio),"role":"mixed_audio"},{"path":"video/cue.webm","size_bytes":video.len(),"sha256":hash(&video),"role":"silent_visual"}],"bindings":[{"event_id":"first_blood","mixed_audio_path":"audio/cue.wav","silent_visual_path":"video/cue.webm","duration_ms":1000,"visual_tail_ms":0}]});
     vec![
         ZipEntry::new(
             "descriptor.json",
@@ -388,6 +388,101 @@ pub fn tiered_package(dir: &std::path::Path) -> (PathBuf, Vec<u8>) {
     entries[1..].sort_by(|a, b| a.name.cmp(&b.name));
     let bytes = zip(&entries, &[], &[], &[]);
     let path = dir.join("tiered.zip");
+    std::fs::write(&path, &bytes).unwrap();
+    (path, bytes)
+}
+
+/// Build a single audio-only descriptor and payload, optionally with identity audio.
+pub fn audio_only_entries(
+    audio: Vec<u8>,
+    duration_ms: u32,
+    identity_audio: Option<Vec<u8>>,
+) -> Vec<ZipEntry> {
+    let mut files = vec![serde_json::json!({
+        "path": "audio/cue.wav",
+        "size_bytes": audio.len(),
+        "sha256": hash(&audio),
+        "role": "mixed_audio"
+    })];
+    let mut binding = serde_json::json!({
+        "event_id": "first_blood",
+        "mixed_audio_path": "audio/cue.wav",
+        "duration_ms": duration_ms,
+        "visual_tail_ms": 0
+    });
+    let mut entries = vec![ZipEntry::new("audio/cue.wav", audio, 8)];
+    if let Some(identity) = identity_audio {
+        files.push(serde_json::json!({
+            "path": "audio/identity.wav",
+            "size_bytes": identity.len(),
+            "sha256": hash(&identity),
+            "role": "identity_audio"
+        }));
+        binding["identity_audio_path"] = "audio/identity.wav".into();
+        entries.push(ZipEntry::new("audio/identity.wav", identity, 8));
+    }
+    let descriptor = serde_json::json!({
+        "schema_version": "1.3.0",
+        "package_id": "audio-only-pack",
+        "revision": 1,
+        "taxonomy_version": "1.1",
+        "display_name": "Audio only",
+        "publisher_key_id": null,
+        "files": files,
+        "bindings": [binding]
+    });
+    entries.sort_by(|left, right| left.name.as_bytes().cmp(right.name.as_bytes()));
+    let mut result = vec![ZipEntry::new(
+        "descriptor.json",
+        serde_json::to_vec(&descriptor).unwrap(),
+        8,
+    )];
+    result.extend(entries);
+    result
+}
+
+/// Build a package containing an audio-only binding next to a tiered visual pair.
+pub fn mixed_audio_visual_entries() -> Vec<ZipEntry> {
+    let audio_only = wav(48_000);
+    let paired_audio = wav(48_000);
+    let visual = webm("V_VP9", 640, 360, None, Some(1000.0), None);
+    let descriptor = serde_json::json!({
+        "schema_version": "1.3.0",
+        "package_id": "mixed-media-pack",
+        "revision": 1,
+        "taxonomy_version": "1.1",
+        "display_name": "Mixed media",
+        "publisher_key_id": null,
+        "files": [
+            {"path":"audio/cue1.wav","size_bytes":audio_only.len(),"sha256":hash(&audio_only),"role":"mixed_audio"},
+            {"path":"audio/cue2.wav","size_bytes":paired_audio.len(),"sha256":hash(&paired_audio),"role":"mixed_audio"},
+            {"path":"video/cue2.webm","size_bytes":visual.len(),"sha256":hash(&visual),"role":"silent_visual"}
+        ],
+        "bindings": [
+            {"event_id":"first_blood","mixed_audio_path":"audio/cue1.wav","duration_ms":1000,"visual_tail_ms":0},
+            {"event_id":"multi_kill","tier":2,"mixed_audio_path":"audio/cue2.wav","silent_visual_path":"video/cue2.webm","duration_ms":1000,"visual_tail_ms":0}
+        ]
+    });
+    vec![
+        ZipEntry::new(
+            "descriptor.json",
+            serde_json::to_vec(&descriptor).unwrap(),
+            8,
+        ),
+        ZipEntry::new("audio/cue1.wav", audio_only, 8),
+        ZipEntry::new("audio/cue2.wav", paired_audio, 8),
+        ZipEntry::new("video/cue2.webm", visual, 0),
+    ]
+}
+
+/// Write already ordered package entries into the test target directory.
+pub fn write_package_entries(
+    dir: &std::path::Path,
+    name: &str,
+    entries: &[ZipEntry],
+) -> (PathBuf, Vec<u8>) {
+    let bytes = zip(entries, &[], &[], &[]);
+    let path = dir.join(name);
     std::fs::write(&path, &bytes).unwrap();
     (path, bytes)
 }

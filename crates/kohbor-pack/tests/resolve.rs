@@ -37,7 +37,11 @@ fn only_active_revision_resolves_and_switch_retains_old() {
     assert!(pair
         .mixed_audio
         .starts_with(root.join("revisions").join(&old.install_id)));
-    assert!(pair.mixed_audio.is_file() && pair.silent_visual.is_file());
+    assert!(pair.mixed_audio.is_file());
+    assert!(pair
+        .silent_visual
+        .as_ref()
+        .is_some_and(|path| path.is_file()));
     let (path, bytes) = store_package(&temp.0, "test-pack", 2, false);
     let new = store
         .install(&request(path, &bytes, "request_2"))
@@ -90,7 +94,7 @@ fn damaged_pair_is_never_returned() {
                 data[50] ^= 1;
                 std::fs::write(pair.mixed_audio, data).unwrap();
             }
-            1 => std::fs::remove_file(pair.silent_visual).unwrap(),
+            1 => std::fs::remove_file(pair.silent_visual.unwrap()).unwrap(),
             _ => std::fs::write(pair.mixed_audio, b"short").unwrap(),
         }
         let result = store.resolve("first_blood", None);
@@ -144,12 +148,17 @@ fn tier_case(
         assert_eq!(pair.event_id, event, "{event} {tier:?}: event");
         assert_eq!(pair.tier, tier, "{event} {tier:?}: tier");
         assert!(
-            pair.mixed_audio.starts_with(&revision) && pair.silent_visual.starts_with(&revision),
-            "{event} {tier:?}: paths outside revision"
+            pair.mixed_audio.starts_with(&revision),
+            "{event} {tier:?}: audio path outside revision"
+        );
+        let visual = pair.silent_visual.as_ref();
+        assert!(
+            visual.is_some_and(|path| path.starts_with(&revision)),
+            "{event} {tier:?}: visual path outside revision"
         );
         assert!(
-            pair.mixed_audio.is_file() && pair.silent_visual.is_file(),
-            "{event} {tier:?}: missing pair"
+            pair.mixed_audio.is_file() && visual.is_some_and(|path| path.is_file()),
+            "{event} {tier:?}: missing paired media"
         );
         assert!(
             pair.mixed_audio.ends_with(expected_path.unwrap()),

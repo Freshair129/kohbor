@@ -984,26 +984,24 @@ fn inspect_media(
             return Err(RejectReason::IdentityAudioLengthMismatch);
         }
 
-        let visual_info = if let Some(info) = webm_cache.get(&binding.silent_visual_path) {
-            *info
-        } else {
-            let bytes = read_staged_media(
-                staging_dir,
-                &binding.silent_visual_path,
-                limits.payload_bytes,
-            )?;
-            let info = media::inspect_webm(&bytes)?;
-            webm_cache.insert(binding.silent_visual_path.clone(), info);
-            info
-        };
-        if let Some(duration_ms) = visual_info.duration_ms {
-            let minimum = u64::from(binding.duration_ms).saturating_sub(34);
-            let maximum = u64::from(binding.duration_ms)
-                .checked_add(u64::from(binding.visual_tail_ms))
-                .and_then(|value| value.checked_add(34))
-                .ok_or(RejectReason::VisualDurationMismatch)?;
-            if duration_ms < minimum || duration_ms > maximum {
-                return Err(RejectReason::VisualDurationMismatch);
+        if let Some(visual_path) = binding.silent_visual_path.as_deref() {
+            let visual_info = if let Some(info) = webm_cache.get(visual_path) {
+                *info
+            } else {
+                let bytes = read_staged_media(staging_dir, visual_path, limits.payload_bytes)?;
+                let info = media::inspect_webm(&bytes)?;
+                webm_cache.insert(visual_path.to_owned(), info);
+                info
+            };
+            if let Some(duration_ms) = visual_info.duration_ms {
+                let minimum = u64::from(binding.duration_ms).saturating_sub(34);
+                let maximum = u64::from(binding.duration_ms)
+                    .checked_add(u64::from(binding.visual_tail_ms))
+                    .and_then(|value| value.checked_add(34))
+                    .ok_or(RejectReason::VisualDurationMismatch)?;
+                if duration_ms < minimum || duration_ms > maximum {
+                    return Err(RejectReason::VisualDurationMismatch);
+                }
             }
         }
     }
@@ -1070,8 +1068,8 @@ pub struct StagedPackage {
 ///   mixed `duration_ms` (floor of samples * 1000 / 48,000) must equal the
 ///   binding's `duration_ms` (`AudioDurationMismatch`); identity sample count
 ///   must equal the mixed sample count (`IdentityAudioLengthMismatch`);
-///   `inspect_webm` on the silent visual (`VisualInvalid`, `VisualHasAudioTrack`);
-///   when the visual declares a duration it must lie in
+///   for a binding with a visual, `inspect_webm` (`VisualInvalid`,
+///   `VisualHasAudioTrack`); when that visual declares a duration it must lie in
 ///   `[duration_ms, duration_ms + visual_tail_ms]` plus 34 ms (one frame at
 ///   30 fps) tolerance on both sides (`VisualDurationMismatch`); a binding with
 ///   an inert event id is still verified.
