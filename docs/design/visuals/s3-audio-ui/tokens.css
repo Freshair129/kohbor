@@ -1,0 +1,145 @@
+/*
+ * Kohbor / เกาะเบาะ — Sprint 3 audio and event-media UI proposal (DEC-VISUALS: OPEN, not approved).
+ * Tokens only. Nothing here is loaded by the application.
+ *
+ * Column "maps to" names the variable in apps/desktop/src/styles.css (contracts/design-tokens.json 0.1.0).
+ * "NEW" means this proposal adds it. The shipped stylesheet is dark-only, so every light value is NEW.
+ *
+ * Theme resolution order:
+ *   1. :root                                  -> dark (the shipped default)
+ *   2. prefers-color-scheme: light            -> light, unless data-theme="dark" is set
+ *   3. [data-theme="light"|"dark"]            -> explicit override, on <html> or on any wrapper element
+ */
+
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* ---- surfaces ------------------------------------------- maps to */
+  --ground: #0e1116;            /* --ground */
+  --surface: #161b22;           /* --surface */
+  --raised: #1d2430;            /* --raised */
+  --line: #2a3341;              /* --line */
+  --line-subtle: #222a36;       /* --line-subtle */
+  --line-strong: #7f8b9b;       /* NEW  control outlines that must reach 3:1 (5.0:1 on surface) */
+
+  /* ---- text ----------------------------------------------- */
+  --text: #e6eaf0;              /* --text    14.3:1 on surface */
+  --text-2: #c3cbd6;            /* --text-2  10.6:1 */
+  --muted: #9aa6b5;             /* --muted    7.0:1 */
+
+  /* ---- state colours -------------------------------------- */
+  --accent: #3cc8b4;            /* --accent          8.3:1 on surface */
+  --accent-surface: #12302c;    /* --accent-surface */
+  --warning: #f2b544;           /* --warning         9.5:1 */
+  --warning-surface: #2b2414;   /* --warning-surface */
+  --stale: #6b7686;             /* --stale           3.8:1 — borders and glyphs only, never text */
+  --critical: #ff5a4a;          /* --critical        5.6:1 */
+  --critical-ink: #1a0b08;      /* NEW in CSS (design-tokens.json "critical text"): 6.2:1 on --critical */
+  --critical-surface: #2a1512;  /* NEW  tinted row for a critical-class history entry */
+  --ally: #6ca8ff;              /* --ally (unused by this feature; kept for parity) */
+
+  /* ---- switch (NEW) --------------------------------------- */
+  --switch-track-off: #1d2430;  /* = --raised */
+  --switch-track-on: #2b2414;   /* = --warning-surface: "on" here means MUTED, so it is never accent */
+  --switch-thumb: #e6eaf0;      /* = --text */
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --ground: #f3f5f8;
+    --surface: #ffffff;
+    --raised: #eaeef3;
+    --line: #c9d0da;
+    --line-subtle: #dfe4ea;
+    --line-strong: #6b7686;
+    --text: #141a22;
+    --text-2: #364150;
+    --muted: #56616f;
+    --accent: #0a7265;
+    --accent-surface: #dcf3ef;
+    --warning: #8a5a00;
+    --warning-surface: #fff3d1;
+    --stale: #6b7686;
+    --critical: #c22a1c;
+    --critical-ink: #ffffff;
+    --critical-surface: #fde7e4;
+    --ally: #1f5fbf;
+    --switch-track-off: #eaeef3;
+    --switch-track-on: #fff3d1;
+    --switch-thumb: #141a22;
+  }
+}
+
+/* Explicit light override (all NEW). Same values as the media query above. */
+[data-theme="light"] {
+  color-scheme: light;
+  --ground: #f3f5f8;            /* NEW */
+  --surface: #ffffff;           /* NEW */
+  --raised: #eaeef3;            /* NEW */
+  --line: #c9d0da;              /* NEW */
+  --line-subtle: #dfe4ea;       /* NEW */
+  --line-strong: #6b7686;       /* NEW  4.6:1 on surface, 4.0:1 on raised */
+  --text: #141a22;              /* NEW  17.5:1 on surface */
+  --text-2: #364150;            /* NEW  10.4:1 */
+  --muted: #56616f;             /* NEW   6.3:1 on surface, 5.4:1 on raised */
+  --accent: #0a7265;            /* NEW  darker teal so it can carry text and 3:1 outlines on white */
+  --accent-surface: #dcf3ef;    /* NEW */
+  --warning: #8a5a00;           /* NEW   5.9:1 on surface */
+  --warning-surface: #fff3d1;   /* NEW */
+  --stale: #6b7686;             /* NEW   4.6:1 — same hex as dark; still used for borders/glyphs only */
+  --critical: #c22a1c;          /* NEW   5.8:1 on surface */
+  --critical-ink: #ffffff;      /* NEW   5.8:1 on --critical */
+  --critical-surface: #fde7e4;  /* NEW */
+  --ally: #1f5fbf;              /* NEW */
+  --switch-track-off: #eaeef3;
+  --switch-track-on: #fff3d1;
+  --switch-thumb: #141a22;
+}
+
+/*
+ * Theme-independent tokens.
+ */
+:root {
+  /* ---- type ------------------------------------------------ */
+  /* Shipped stack, unchanged. IBM Plex Sans Thai carries Thai and Latin; Leelawadee UI is the
+     Windows system Thai face; system-ui and sans-serif close the chain. No font is required. */
+  --font-ui: "IBM Plex Sans Thai", "Leelawadee UI", system-ui, sans-serif;   /* body font-family */
+  --font-mono: "IBM Plex Mono", Consolas, monospace;                          /* .mono */
+  --lh-thai: 1.6;               /* body line-height in styles.css */
+  --lh-chip: 1.5;               /* NEW  styles.css uses 1.4 on .chip; 1.5 keeps stacked Thai marks clear */
+  --fs-title: 16px;             /* h2 */
+  --fs-body: 14px;              /* body */
+  --fs-detail: 13px;            /* .row-detail, .chip */
+  --fs-caption: 12px;           /* .small — proposed minimum, needs measurement (UX-SPEC §3) */
+
+  /* ---- space and radii ------------------------------------- */
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --sp-6: 24px;
+  --r-chip: 6px;                /* .chip */
+  --r-control: 8px;             /* button */
+  --r-card: 10px;               /* .card */
+  --r-banner: 12px;             /* .banner */
+  --target-min: 44px;           /* button min-height */
+  --focus-ring: 2px solid var(--accent);   /* :focus-visible; offset 2px */
+
+  /* ---- overlay banner (all NEW; theme-independent, drawn over the game) ---- */
+  --ov-mat: rgba(14, 17, 22, 0.9);          /* --ground at 90%: the plate every line is drawn on */
+  --ov-halo: rgba(230, 234, 240, 0.55);     /* --text at 55%: outer hairline, separates the mat from a dark scene */
+  --ov-accent: #3cc8b4;                     /* = dark --accent, fixed in both themes */
+  --ov-hot: #e6eaf0;                        /* = dark --text: the top-tier outline (never amber, never red) */
+  --ov-critical: #ff5a4a;                   /* = dark --critical, fixed */
+  --ov-critical-ink: #1a0b08;               /* = dark --critical-ink */
+  --ov-rail-off: rgba(230, 234, 240, 0.45); /* unfilled tier step outline: 3.9:1 on the mat */
+
+  /* ---- motion (all NEW) ------------------------------------ */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-over: cubic-bezier(0.2, 1.3, 0.4, 1);   /* small overshoot, top tiers only */
+  --dur-enter: 140ms;           /* = shipped event-banner-enter */
+  --dur-enter-top: 220ms;
+  --dur-critical: 80ms;
+  --dur-cut: 90ms;
+  --dur-exit: 180ms;
+  --dur-tail: 120ms;
+}

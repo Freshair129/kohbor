@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="th" data-lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Kohbor S3 — Audio and alerts panel (proposal)</title>
+<!-- Optional. The page is complete without it: the stack falls back to Leelawadee UI / system-ui. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tokens.css">
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--ground); color: var(--text); font-family: var(--font-ui); font-size: var(--fs-body); line-height: var(--lh-thai); }
+html[data-lang="th"] [lang="en"], html[data-lang="en"] [lang="th"] { display: none; }
+.page { max-width: 1240px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+header.top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+h1 { margin: 0; font-size: 20px; font-weight: 600; flex: 1 1 320px; }
+h2 { margin: 0; font-size: var(--fs-title); font-weight: 600; }
+h3 { margin: 0; font-size: var(--fs-title); font-weight: 600; }
+p { margin: 0; }
+a { color: var(--accent); }
+.muted { color: var(--muted); }
+.small { font-size: var(--fs-caption); }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.status { border: 1px dashed var(--warning); background: var(--warning-surface); border-radius: var(--r-banner); padding: 8px 14px; }
+.status::before { content: "! "; color: var(--warning); font-weight: 700; }
+section.block { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+@media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+figure { margin: 0; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+figcaption { font-size: var(--fs-caption); color: var(--muted); overflow-wrap: anywhere; }
+.themed { background: var(--ground); color: var(--text); padding: 12px; border-radius: var(--r-card); border: 1px solid var(--line); }
+
+/* ---------- controls ---------- */
+button { min-height: var(--target-min); padding: 0 14px; border-radius: var(--r-control); border: 1px solid var(--line-strong); background: var(--raised); color: var(--text); font: inherit; cursor: pointer; }
+button:hover { border-color: var(--text); }
+.tool[aria-pressed="true"] { border: 2px solid var(--accent); background: var(--accent-surface); }
+.tool[aria-pressed="true"]::before { content: "● "; color: var(--accent); }
+:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.ic { width: 20px; height: 20px; flex: none; fill: currentColor; }
+kbd { font-family: var(--font-mono); font-size: var(--fs-caption); padding: 2px 6px; border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 4px; background: var(--surface); color: var(--text-2); white-space: nowrap; }
+
+/* ---------- the panel ---------- */
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); padding: 12px 16px 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+/* Mute switch: one 44 px target; on = muted. Position, icon and words carry the state; the on colour is warning, never accent. */
+.mute-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.switch { display: flex; align-items: center; gap: 12px; flex: 1 1 240px; min-width: 0; padding: 6px 12px 6px 8px; text-align: left; white-space: normal; }
+.track { position: relative; flex: none; width: 52px; height: 28px; border-radius: 14px; background: var(--switch-track-off); border: 2px solid var(--line-strong); }
+.thumb { position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: var(--switch-thumb); transition: transform 120ms var(--ease-out); }
+.switch[aria-checked="true"] .track { background: var(--switch-track-on); border-color: var(--warning); }
+.switch[aria-checked="true"] .thumb { transform: translateX(24px); }
+.sw-text { display: flex; flex-direction: column; min-width: 0; }
+.sw-label { font-weight: 600; }
+.sw-state { display: flex; align-items: center; gap: 6px; font-size: var(--fs-detail); color: var(--text-2); }
+.switch[aria-checked="true"] .when-off, .switch[aria-checked="false"] .when-on { display: none; }
+.switch .when-on, .switch .when-off { display: inline-flex; align-items: center; gap: 6px; }
+.switch[aria-disabled="true"] { cursor: default; }
+.switch[aria-disabled="true"]:hover { border-color: var(--line-strong); }
+.shortcut { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: var(--fs-caption); }
+.mute-note { color: var(--text-2); font-size: var(--fs-detail); overflow-wrap: anywhere; }
+.muted-callout { display: none; align-items: flex-start; gap: 10px; padding: 8px 12px; border: 2px solid var(--warning); border-radius: var(--r-control); background: var(--warning-surface); font-weight: 600; }
+.muted-callout .ic { margin-top: 2px; color: var(--warning); }
+.panel[data-muted="true"] .muted-callout { display: flex; }
+.panel[data-muted="true"] .mute-note { display: none; }
+@media (prefers-reduced-motion: reduce) { .thumb { transition: none; } }
+
+/* Readiness block: edge pattern + border style + chip glyph + words. Accent appears only for `ready`. */
+.rb { display: grid; grid-template-columns: 8px minmax(0, 1fr); border: 1px solid var(--line); border-radius: var(--r-control); background: var(--raised); overflow: hidden; }
+.rb::before { content: ""; }
+.rb-body { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; min-width: 0; }
+.rb-head { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; }
+.rb-name { font-weight: 600; }
+.rb-lead { overflow-wrap: anywhere; }
+.rb-effect { color: var(--text-2); font-size: var(--fs-detail); overflow-wrap: anywhere; }
+.rb-effect b { color: var(--text); font-weight: 600; }
+.rb-next { font-size: var(--fs-detail); overflow-wrap: anywhere; }
+.rb-next::before { content: "→ "; color: var(--muted); }
+.rb-code { color: var(--muted); font-size: var(--fs-caption); }
+.rb-ready { border-color: var(--accent); }
+.rb-ready::before { background: var(--accent); }
+.rb-warn { border-color: var(--warning); }
+.rb-warn::before { background: repeating-linear-gradient(135deg, var(--warning) 0 4px, transparent 4px 8px); }
+.rb-off { border-style: dashed; border-color: var(--line-strong); }
+.rb-off::before { background: repeating-linear-gradient(180deg, var(--stale) 0 6px, transparent 6px 12px); }
+.rb-unknown::before { background: radial-gradient(circle, var(--stale) 1.5px, transparent 2px) center / 8px 8px; }
+
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-detail); line-height: var(--lh-chip); padding: 2px 10px; border-radius: var(--r-chip); border: 1px solid var(--line-strong); white-space: nowrap; }
+.chip i { display: inline-flex; align-items: center; justify-content: center; width: 10px; height: 10px; flex: none; font-style: normal; font-size: 12px; font-weight: 700; line-height: 1; }
+.chip-ready { border-color: var(--accent); background: var(--accent-surface); }
+.chip-ready i { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.chip-warn { border-color: var(--warning); background: var(--warning-surface); }
+.chip-warn i::before { content: "!"; color: var(--warning); }
+.chip-off { border-style: dashed; color: var(--text-2); }
+.chip-off i::before { content: "×"; }
+.chip-unknown { color: var(--text-2); }
+.chip-unknown i::before { content: "—"; }
+
+/* Live specimen: one of three readiness views */
+.live [data-view] { display: none; }
+.live[data-show="ready"] [data-view="ready"], .live[data-show="unmapped"] [data-view="unmapped"], .live[data-show="muted"] [data-view="muted"] { display: grid; }
+
+/* ---------- history rows: "detected" and "heard" are two separate facts ---------- */
+.hist-head, .hrow { display: grid; grid-template-columns: 64px minmax(110px, 1.1fr) 148px minmax(0, 2fr); gap: 2px 12px; align-items: center; padding: 6px 8px; }
+.hist-head { color: var(--muted); font-size: var(--fs-caption); padding-bottom: 2px; }
+.hrow { min-height: var(--target-min); border-top: 1px solid var(--line-subtle); border-left: 4px solid transparent; }
+.h-time { display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); font-size: var(--fs-detail); }
+.h-time::before { content: ""; width: 7px; height: 7px; flex: none; transform: rotate(45deg); background: var(--text-2); }   /* detected mark */
+.h-event { display: inline-flex; align-items: center; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
+.h-event .ic { width: 16px; height: 16px; color: var(--critical); }
+.h-why { color: var(--text-2); font-size: var(--fs-detail); overflow-wrap: anywhere; }
+.h-why .mono { color: var(--muted); font-size: var(--fs-caption); white-space: nowrap; }
+.hrow.is-critical { background: var(--critical-surface); border-left: 4px double var(--critical); }
+.out { display: inline-flex; align-items: center; gap: 6px; justify-self: start; font-size: var(--fs-detail); line-height: var(--lh-chip); padding: 2px 8px; border-radius: var(--r-chip); border: 1px solid var(--line-strong); white-space: nowrap; }
+.out .ic { width: 16px; height: 16px; }
+.out-heard { border-color: var(--accent); background: var(--accent-surface); }
+.out-heard .ic { color: var(--accent); }
+.out-cut { border-color: var(--warning); background: var(--warning-surface); }
+.out-cut .ic { color: var(--warning); }
+.out-silent { border-style: dashed; color: var(--text-2); }
+.out-none { border-style: dotted; color: var(--text-2); }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: var(--fs-caption); color: var(--muted); }
+.legend .det { display: inline-flex; align-items: center; gap: 6px; }
+.legend .det::before { content: ""; width: 7px; height: 7px; transform: rotate(45deg); background: var(--text-2); }
+.badge { font-size: var(--fs-caption); border: 1px dashed var(--line-strong); border-radius: var(--r-chip); padding: 0 8px; color: var(--text-2); }
+@media (max-width: 640px) {
+  .hist-head { display: none; }
+  .hrow { grid-template-columns: 64px minmax(0, 1fr); }
+  .hrow .out, .hrow .h-why { grid-column: 2; }
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-spk" viewBox="0 0 24 24"><path d="M3 9v6h4l5 4V5L7 9z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="i-off" viewBox="0 0 24 24"><path d="M3 9v6h4l5 4V5L7 9z"/><path d="M15.5 9l6 6M21.5 9l-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-cut" viewBox="0 0 24 24"><path d="M3 9v6h4l5 4V5L7 9z"/><path d="M15.5 8.5a5 5 0 0 1 0 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M20 5v14" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2.5"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 2 23 21H1z"/><rect x="10.9" y="8.6" width="2.2" height="6.4" fill="var(--critical-surface)"/><circle cx="12" cy="17.7" r="1.3" fill="var(--critical-surface)"/></symbol>
+</svg>
+
+<div class="page">
+  <header class="top">
+    <h1>แผง “เสียงและการเตือน” <span class="muted">· Audio and alerts panel</span></h1>
+    <nav class="tools" aria-label="Mockup tools">
+      <a href="index.html">← แกลเลอรี · Gallery</a>
+      <a href="overlay.html">โอเวอร์เลย์ · Overlay</a>
+    </nav>
+    <div class="tools">
+      <button type="button" class="tool-btn" id="theme" aria-label="Page theme">ธีม · Theme: auto</button>
+      <button type="button" class="tool-btn" id="lang" aria-label="Copy language">ภาษา · Copy: ไทย</button>
+    </div>
+  </header>
+
+  <p class="status">ข้อเสนอการออกแบบ ยังไม่ได้รับอนุมัติ (DEC-VISUALS ยังเปิดอยู่) · Design proposal, not approved. Nothing here replaces <span class="mono">apps/desktop/src/AudioPanel.tsx</span>. History rows are sample data.</p>
+
+  <!-- 1 ─────────────────────────────────────────────── live specimen -->
+  <section class="block" aria-labelledby="s1">
+    <h2 id="s1">1. ลองใช้ · Try it <span class="muted small">— สวิตช์ทำงานจริงในม็อกอัปนี้ กด Alt+M ได้ · the switch and Alt+M work in this specimen only</span></h2>
+    <div class="tools" role="group" aria-label="Native status before muting">
+      <span class="small muted">สถานะที่ระบบหลักรายงานก่อนปิดเสียง · Native status underneath:</span>
+      <button type="button" class="tool" data-base="ready" aria-pressed="true">ready</button>
+      <button type="button" class="tool" data-base="unmapped" aria-pressed="false">not_ready / MEDIA_UNMAPPED</button>
+    </div>
+    <article class="panel live" id="live" data-show="ready" data-muted="false" aria-labelledby="live-h" style="max-width: 640px">
+      <div class="panel-head"><h3 id="live-h"><span lang="th">เสียงและการเตือน</span><span lang="en">Audio and alerts</span></h3></div>
+      <div class="mute-row">
+        <button type="button" class="switch" id="live-switch" role="switch" aria-checked="false" aria-keyshortcuts="Alt+M">
+          <span class="track"><span class="thumb"></span></span>
+          <span class="sw-text">
+            <span class="sw-label"><span lang="th">ปิดเสียงทั้งหมด</span><span lang="en">Mute all audio</span></span>
+            <span class="sw-state">
+              <span class="when-off"><svg class="ic"><use href="#i-spk"/></svg><span lang="th">ตอนนี้เปิดเสียงอยู่</span><span lang="en">Sound is on</span></span>
+              <span class="when-on"><svg class="ic"><use href="#i-off"/></svg><span lang="th">ตอนนี้ปิดเสียงอยู่</span><span lang="en">Sound is muted</span></span>
+            </span>
+          </span>
+        </button>
+        <span class="shortcut"><kbd>Alt</kbd>+<kbd>M</kbd></span>
+      </div>
+      <p class="mute-note"><span lang="th">ถ้าปิดเสียง จะเงียบทุกประเภท รวมถึงเสียงเตือนสำคัญ</span><span lang="en">Muting silences every sound, including critical alerts.</span></p>
+      <p class="muted-callout" role="status"><svg class="ic"><use href="#i-off"/></svg><span><span lang="th">ปิดเสียงทั้งหมดอยู่ — เสียงเตือนสำคัญจะไม่ดัง</span><span lang="en">All audio is muted. Critical alerts will not sound.</span></span></p>
+
+      <div class="rb rb-ready" data-view="ready"><div class="rb-body">
+        <div class="rb-head"><span class="rb-name"><span lang="th">เสียงเตือนสำคัญ</span><span lang="en">Critical alert audio</span></span><span class="chip chip-ready"><i></i><span lang="th">พร้อม</span><span lang="en">Ready</span></span></div>
+        <p class="rb-lead"><span lang="th">เสียงเตือนสำคัญผ่านการตรวจและโหลดเตรียมไว้แล้ว</span><span lang="en">Critical alert audio is verified and preloaded.</span></p>
+        <p class="rb-effect"><span lang="th">หมายถึงไฟล์เสียงพร้อมเท่านั้น Kohbor ไม่ได้ตรวจระดับเสียงหรือลำโพงของเครื่อง</span><span lang="en">This covers the media only. Kohbor does not check your volume or speakers.</span></p>
+      </div></div>
+      <div class="rb rb-warn" data-view="unmapped"><div class="rb-body">
+        <div class="rb-head"><span class="rb-name"><span lang="th">เสียงเตือนสำคัญ</span><span lang="en">Critical alert audio</span></span><span class="chip chip-warn"><i></i><span lang="th">ยังไม่พร้อม</span><span lang="en">Not ready</span></span></div>
+        <p class="rb-lead"><span lang="th">แพ็กที่ใช้อยู่ยังไม่มีเสียงเตือนสำคัญที่ผ่านการตรวจ</span><span lang="en">The active pack has no verified critical alert audio.</span></p>
+        <p class="rb-effect"><b><span lang="th">เสียงเตือนสำคัญจะไม่ดัง</span><span lang="en">Critical alerts will not sound.</span></b> <span lang="th">เหตุการณ์ที่ตรวจพบยังบันทึกไว้ในประวัติ</span><span lang="en">Detected events are still recorded in history.</span></p>
+        <p class="rb-next"><span lang="th">เลือกแพ็กที่มีเสียงเตือนสำคัญในหน้า “แพ็กเสียง”</span><span lang="en">Choose a pack with critical alert audio in Voice Packs.</span></p>
+        <span class="rb-code mono">MEDIA_UNMAPPED</span>
+      </div></div>
+      <div class="rb rb-off" data-view="muted"><div class="rb-body">
+        <div class="rb-head"><span class="rb-name"><span lang="th">เสียงเตือนสำคัญ</span><span lang="en">Critical alert audio</span></span><span class="chip chip-off"><i></i><span lang="th">ใช้ไม่ได้</span><span lang="en">Unavailable</span></span></div>
+        <p class="rb-lead"><span lang="th">ใช้ไม่ได้เพราะคุณปิดเสียงทั้งหมดไว้</span><span lang="en">Unavailable because you muted all audio.</span></p>
+        <p class="rb-effect"><span lang="th">เมื่อเปิดเสียง สถานะจะกลับไปตามที่ระบบหลักรายงาน ซึ่งอาจยังไม่พร้อมก็ได้</span><span lang="en">After you unmute, this returns to whatever the host reports, which may still be not ready.</span></p>
+        <p class="rb-next"><span lang="th">กด Alt+M หรือสวิตช์ด้านบนเพื่อเปิดเสียง</span><span lang="en">Press Alt+M or use the switch above to unmute.</span></p>
+        <span class="rb-code mono">AUDIO_MUTED</span>
+      </div></div>
+    </article>
+  </section>
+
+  <!-- 2 ─────────────────────────────────────────────── all states -->
+  <section class="block" aria-labelledby="s2">
+    <h2 id="s2">2. ทุกสถานะ · All states <span class="muted small">— ตัวอย่างนิ่ง กดไม่ได้ · static specimens</span></h2>
+    <div class="grid">
+
+      <figure><article class="panel" data-muted="false">
+        <div class="panel-head"><h3><span lang="th">เสียงและการเตือน</span><span lang="en">Audio and alerts</span></h3></div>
+        <div class="mute-row"><button type="button" class="switch" role="switch" aria-checked="false" aria-disabled="true" tabindex="-1"><span class="track"><span class="thumb"></span></span><span class="sw-text"><span class="sw-label"><span lang="th">ปิดเสียงทั้งหมด</span><span lang="en">Mute all audio</span></span><span class="sw-state"><span class="when-off"><svg class="ic"><use href="#i-spk"/></svg><span lang="th">ตอนนี้เปิดเสียงอยู่</span><span lang="en">Sound is on</span></span></span></span></button><span class="shortcut"><kbd>Alt</kbd>+<kbd>M</kbd></span></div>
+        <p class="mute-note"><span lang="th">ถ้าปิดเสียง จะเงียบทุกประเภท รวมถึงเสียงเตือนสำคัญ</span><span lang="en">Muting silences every sound, including critical alerts.</span></p>
+        <div class="rb rb-unknown"><div class="rb-body">
+          <div class="rb-head"><span class="rb-name"><span lang="th">เสียงเตือนสำคัญ</span><span lang="en">Critical alert audio</span></span><span class="chip chip-unknown"><i></i><span lang="th">ยังไม่ทราบ</span><span lang="en">Unknown</span></span></div>
+          <p class="rb-lead"><span lang="th">ยังไม่ได้รับสถานะจากระบบหลักของ Kohbor</span><span lang="en">No status has been received from the Kohbor host yet.</span></p>
+          <p class="rb-effect"><b><span lang="th">ยังบอกไม่ได้ว่าเสียงเตือนสำคัญจะดังหรือไม่</span><span lang="en">Kohbor cannot say yet whether critical alerts will sound.</span></b></p>
+        </div></div>
+      </article><figcaption>A · <span class="mono">status = null</span> — ยังไม่ทราบ ไม่ใช่ “พร้อม” · unknown is drawn neutral and dotted, never as reassurance</figcaption></figure>
+
+      <figure><article class="panel" data-muted="false">
+        <div class="panel-head"><h3><span lang="th">เสียงและการเตือน</span><span lang="en">Audio and alerts</span></h3></div>
+        <div class="mute-row"><button type="button" class="switch" role="switch" aria-checked="false" aria-disabled="true" tabindex="-1"><span class="track"><span class="thumb"></span></span><span class="sw-text"><span class="sw-label"><span lang="th">ปิดเสียงทั้งหมด</span><span lang="en">Mute all audio</span></span><span class="sw-state"><span class="when-off"><svg class="ic"><use href="#i-spk"/></svg><span lang="th">ตอนนี้เปิดเสียงอยู่</span><span lang="en">Sound is on</span></span></span></span></button><span class="shortcut"><kbd>Alt</kbd>+<kbd>M</kbd></span></div>
+        <p class="mute-note"><span lang="th">ถ้าปิดเสียง จะเงียบทุกประเภท รวมถึงเสียงเตือนสำคัญ</span><span lang="en">Muting silences every sound, including critical alerts.</span></p>
+        <div class="rb rb-warn"><div class="rb-body">
+          <div class="rb-head"><span class="rb-name"><span lang="th">เสียงเตือนสำคัญ</span><span lang="en">Critical alert audio</span></span><span class="chip chip-warn"><i></i><span lang="th">ยังไม่พร้อม</span><span lang="en">Not ready</span></span></div>
+          <p class="rb-lead"><span lang="th">แพ็กที่ใช้อยู่ยังไม่มีเสียงเตือนสำคัญที่ผ่านการตรวจ</span><span lang="en">The active pack has no verified critical alert audio.</span></p>
+          <p class="rb-effect"><b><span lang="th">เสียงเตือนสำคัญจะไม่ดัง</span><span lang="en">Critical alerts will not sound.</span></b> <span lang="th">เหตุการณ์ที่ตรวจพบยังบันทึกไว้ในประวัติ</span><span lang="en">Detected events are still recorded in history.</span></p>
+          <p class="rb-next"><span lang="th">เลือกแพ็กที่มีเสียงเตือนสำคัญในหน้า “แพ็กเสียง”</span><span lang="en">Choose a pack with critical alert audio in Voice Packs.</span></p>
+          <span class="rb-code mono">MEDIA_UNMAPPED</span>
+        </div></div>
+      </article><figcaption>B · <span class="mono">not_ready / MEDIA_UNMAPPED</span> — สถานะที่บิลด์ M2 รายงานอยู่ตอนนี้ · what an M2 build reports today</figcaption></figure>
+
+      <figure><article class="panel" data-muted="false">
+        <div class="panel-head"><h3><span lang="th">เสียงและการเตือน</span><span lang="en">Audio and alerts</span></h3></div>
+        <div class="mute-row"><button type="button" class="switch" role="switch" aria-checked="false" aria-disabled="true" tabindex="-1"><span class="track"><span class="thumb"></span></span><span class="sw-text"><span class="sw-label"><span lang="th">ปิดเสียงทั้งหมด</span><span lang="en">Mute all audio</span></span><span class="sw-state"><span class="when-off"><svg class="ic"><use href="#i-spk"/></svg><span lang="th">ตอนนี้เปิดเสียงอยู่</span><span lang="en">Sound is on</span></span></span></span></button><span class="shortcut"><kbd>Alt</kbd>+<kbd>M</kbd></span></div>
+        <p class="mute-note"><span lang="th">ถ้าปิดเสียง จะเงียบทุกประเภท รวมถึงเสียงเตือนสำคัญ</span><span lang="en">Muting silences every sound, including critical alerts.</span></p>
+        <div class="rb rb-warn"><div class="rb-body">
+          <div class="rb-head"><span class="rb-name"><span lang="th">เสียงเตือนสำคัญ</span><span lang="en">Critical alert audio</span></span><span class="chip chip-warn"><i></i><span lang="th">ยังไม่พร้อม</span><span lang="en">Not ready</span></span></div>
+          <p class="rb-lead"><span lang="th">ไฟล์เสียงเตือนสำคัญในแพ็กไม่ผ่านการตรวจ หรือเปิดอ่านไม่ได้</span><span lang="en">The pack's critical alert audio failed verification or could not be decoded.</span></p>
+          <p class="rb-effect"><b><span lang="th">เสียงเตือนสำคัญจะไม่ดัง</span><span lang="en">Critical alerts will not sound.</span></b> <span lang="th">Kohbor จะไม่เล่นไฟล์อื่นแทน</span><span lang="en">Kohbor will not play a different file instead.</span></p>
+          <p class="rb-next"><span lang="th">ติดตั้งแพ็กนี้ใหม่ หรือเลือกแพ็กอื่นในหน้า “แพ็กเสียง”</span><span lang="en">Reinstall this pack or choose another in Voice Packs.</span></p>
+          <span class="rb-code mono">MEDIA_INVALID</span>
+        </div></div>
+      </article><figcaption>C · <span class="mono">not_ready / MEDIA_INVALID</span></figcaption></figure>
+
+      <figure><article class="panel" data-muted="false">
+        <div class="panel-head"><h3><span lang="th">เสียงและการเตือน</span><span lang="en">Audio and alerts</span></h3></div>
+        <div class="mute-row"><button type="button" class="switch" role="switch" aria-checked="false" aria-disabled="true" tabindex="-1"><span class="track"><span class="thumb"></span></span><span class="sw-text"><span class="sw-label"><span lang="th">ปิดเสียงทั้งหมด</span><span lang="en">Mute all audio</span></span><span class="sw-state"><span class="when-off"><svg class="ic"><use href="#i-spk"/></svg><span lang="th">ตอนนี้เปิดเสียงอยู่</span><span lang="en">Sound is on</span></span></span></span></button><span class="shortcut"><kbd>Alt</kbd>+<kbd>M</kbd></span></div>
+        <p class="mute-note"><span lang="th">ถ้าปิดเสียง จะเงียบทุกประเภท รวมถึงเสียงเตือนสำคัญ</span><span lang="en">Muting silences every sound, including critical alerts.</span></p>
+        <div class="rb rb-warn"><div class="rb-body">
+          <div class="rb-head"><span class="rb-name"><span lang="th">เสียงเตือนสำคัญ</span><span lang="en">Critical alert audio</span></span><span class="chip chip-warn"><i></i><span lang="th">ยังไม่พร้อม</span><span lang="en">Not ready</span></span></div>
+          <p class="rb-lead"><span lang="th">Kohbor ยังตรวจยืนยันภาพในคลิปของแพ็กไม่สำเร็จ</span><span lang="en">Kohbor could not confirm the video in the pack's clip.</span></p>
+          <p class="rb-effect"><b><span lang="th">จึงยังไม่ยืนยันว่าสื่อเตือนสำคัญพร้อม</span><span lang="en">So critical alert media is not confirmed ready.</span></b></p>
+          <p class="rb-next"><span lang="th">เปิดใช้แพ็กนี้อีกครั้ง ถ้ายังเป็นอยู่ให้ติดตั้งแพ็กใหม่</span><span lang="en">Activate the pack again; if this stays, reinstall the pack.</span></p>
+          <span class="rb-code mono">MEDIA_PROBE_FAILED</span>
+        </div></div>
+      </article><figcaption>D · <span class="mono">not_ready / MEDIA_PROBE_FAILED</span></figcaption></figure>
+
+      <figure><article class="panel" data-muted="false">
+        <div class="panel-head"><h3><span lang="th">เสียงและการเตือน</span><span lang="en">Audio and alerts</span></h3></div>
+        <div class="mute-row"><button type="button" class="switch" role="switch" aria-checked="false" aria-disabled="true" tabindex="-1"><span class="track"><span class="thumb"></span></span><span class="sw-text"><span class="sw-label"><span lang="th">ปิดเสียงทั้งหมด</span><span lang="en">Mute all audio</span></span><span class="sw-state"><span class="when-off"><svg class="ic"><use href="#i-spk"/></svg><span lang="th">ตอนนี้เปิดเสียงอยู่</span><span lang="en">Sound is on</span></span></span></span></button><span class="shortcut"><kbd>Alt</kbd>+<kbd>M</kbd></span></div>
+        <p class="mute-note"><span lang="th">ถ้าปิดเสียง จะเงียบทุกประเภท รวมถึงเสียงเตือนสำคัญ</span><span lang="en">Muting silences every sound, including critical alerts.</span></p>
+        <div class="rb rb-ready"><div class="rb-body">
+          <div class="rb-head"><span class="rb-name"><span lang="th">เสียงเตือนสำคัญ</span><span lang="en">Critical alert audio</span></span><span class="chip chip-ready"><i></i><span lang="th">พร้อม</span><span lang="en">Ready</span></span></div>
+          <p class="rb-lead"><span lang="th">เสียงเตือนสำคัญผ่านการตรวจและโหลดเตรียมไว้แล้ว</span><span lang="en">Critical alert audio is verified and preloaded.</span></p>
+          <p class="rb-effect"><span lang="th">หมายถึงไฟล์เสียงพร้อมเท่านั้น Kohbor ไม่ได้ตรวจระดับเสียงหรือลำโพงของเครื่อง</span><span lang="en">This covers the media only. Kohbor does not check your volume or speakers.</span></p>
+        </div></div>
+      </article><figcaption>E · <span class="mono">ready</span> — สถานะเดียวที่ใช้สีแอกเซนต์ เส้นทึบ และจุดทึบ · the only state with the accent colour, a solid edge and a filled dot</figcaption></figure>
+
+      <figure><article class="panel" data-muted="true">
+        <div class="panel-head"><h3><span lang="th">เสียงและการเตือน</span><span lang="en">Audio and alerts</span></h3></div>
+        <div class="mute-row"><button type="button" class="switch" role="switch" aria-checked="true" aria-disabled="true" tabindex="-1"><span class="track"><span class="thumb"></span></span><span class="sw-text"><span class="sw-label"><span lang="th">ปิดเสียงทั้งหมด</span><span lang="en">Mute all audio</span></span><span class="sw-state"><span class="when-on"><svg class="ic"><use href="#i-off"/></svg><span lang="th">ตอนนี้ปิดเสียงอยู่</span><span lang="en">Sound is muted</span></span></span></span></button><span class="shortcut"><kbd>Alt</kbd>+<kbd>M</kbd></span></div>
+        <p class="muted-callout"><svg class="ic"><use href="#i-off"/></svg><span><span lang="th">ปิดเสียงทั้งหมดอยู่ — เสียงเตือนสำคัญจะไม่ดัง</span><span lang="en">All audio is muted. Critical alerts will not sound.</span></span></p>
+        <div class="rb rb-off"><div class="rb-body">
+          <div class="rb-head"><span class="rb-name"><span lang="th">เสียงเตือนสำคัญ</span><span lang="en">Critical alert audio</span></span><span class="chip chip-off"><i></i><span lang="th">ใช้ไม่ได้</span><span lang="en">Unavailable</span></span></div>
+          <p class="rb-lead"><span lang="th">ใช้ไม่ได้เพราะคุณปิดเสียงทั้งหมดไว้</span><span lang="en">Unavailable because you muted all audio.</span></p>
+          <p class="rb-effect"><span lang="th">เมื่อเปิดเสียง สถานะจะกลับไปตามที่ระบบหลักรายงาน ซึ่งอาจยังไม่พร้อมก็ได้</span><span lang="en">After you unmute, this returns to whatever the host reports, which may still be not ready.</span></p>
+          <p class="rb-next"><span lang="th">กด Alt+M หรือสวิตช์ด้านบนเพื่อเปิดเสียง</span><span lang="en">Press Alt+M or use the switch above to unmute.</span></p>
+          <span class="rb-code mono">AUDIO_MUTED</span>
+        </div></div>
+      </article><figcaption>F · <span class="mono">unavailable / AUDIO_MUTED</span> — ปิดเสียงรวมถึงเสียงเตือนสำคัญ (เจ้าของรับทราบแล้ว) · the mute covers critical alerts (owner-acknowledged)</figcaption></figure>
+
+      <figure><article class="panel" data-muted="false">
+        <div class="panel-head"><h3><span lang="th">เสียงและการเตือน</span><span lang="en">Audio and alerts</span></h3></div>
+        <div class="mute-row"><button type="button" class="switch" role="switch" aria-checked="false" aria-disabled="true" tabindex="-1"><span class="track"><span class="thumb"></span></span><span class="sw-text"><span class="sw-label"><span lang="th">ปิดเสียงทั้งหมด</span><span lang="en">Mute all audio</span></span><span class="sw-state"><span class="when-off"><svg class="ic"><use href="#i-spk"/></svg><span lang="th">ตอนนี้เปิดเสียงอยู่</span><span lang="en">Sound is on</span></span></span></span></button><span class="shortcut"><kbd>Alt</kbd>+<kbd>M</kbd></span></div>
+        <p class="mute-note"><span lang="th">ถ้าปิดเสียง จะเงียบทุกประเภท รวมถึงเสียงเตือนสำคัญ</span><span lang="en">Muting silences every sound, including critical alerts.</span></p>
+        <div class="rb rb-off"><div class="rb-body">
+          <div class="rb-head"><span class="rb-name"><span lang="th">เสียงเตือนสำคัญ</span><span lang="en">Critical alert audio</span></span><span class="chip chip-off"><i></i><span lang="th">ใช้ไม่ได้</span><span lang="en">Unavailable</span></span></div>
+          <p class="rb-lead"><span lang="th">ตอนนี้ Kohbor เล่นเสียงบนเครื่องนี้ไม่ได้</span><span lang="en">Kohbor cannot play audio on this computer right now.</span></p>
+          <p class="rb-effect"><b><span lang="th">เสียงเตือนสำคัญจะไม่ดัง</span><span lang="en">Critical alerts will not sound.</span></b> <span lang="th">อาจไม่พบลำโพงหรือหูฟังที่ใช้ได้ หรือบิลด์นี้ยังไม่มีความสามารถนี้</span><span lang="en">No usable speaker or headphone may have been found, or this build lacks the capability.</span></p>
+          <p class="rb-next"><span lang="th">ตรวจอุปกรณ์เสียงใน Windows แล้วปิดและเปิด Kohbor ใหม่</span><span lang="en">Check the sound output in Windows, then restart Kohbor.</span></p>
+          <span class="rb-code mono">CAPABILITY_UNAVAILABLE</span>
+        </div></div>
+      </article><figcaption>G · <span class="mono">unavailable / CAPABILITY_UNAVAILABLE</span> — ไม่มีอุปกรณ์เสียง (รหัสเดียวครอบคลุมสองสาเหตุ ดูคำถามเปิด) · no device; one code covers two causes, see open questions</figcaption></figure>
+
+      <figure><article class="panel" data-muted="false">
+        <div class="panel-head"><h3><span lang="th">เสียงและการเตือน</span><span lang="en">Audio and alerts</span></h3></div>
+        <div class="mute-row"><button type="button" class="switch" role="switch" aria-checked="false" aria-disabled="true" tabindex="-1"><span class="track"><span class="thumb"></span></span><span class="sw-text"><span class="sw-label"><span lang="th">ปิดเสียงทั้งหมด</span><span lang="en">Mute all audio</span></span><span class="sw-state"><span class="when-off"><svg class="ic"><use href="#i-spk"/></svg><span lang="th">ตอนนี้เปิดเสียงอยู่</span><span lang="en">Sound is on</span></span></span></span></button><span class="shortcut"><kbd>Alt</kbd>+<kbd>M</kbd></span></div>
+        <p class="mute-note"><span lang="th">ถ้าปิดเสียง จะเงียบทุกประเภท รวมถึงเสียงเตือนสำคัญ</span><span lang="en">Muting silences every sound, including critical alerts.</span></p>
+        <div class="rb rb-warn"><div class="rb-body">
+          <div class="rb-head"><span class="rb-name"><span lang="th">เสียงเตือนสำคัญ</span><span lang="en">Critical alert audio</span></span><span class="chip chip-warn"><i></i><span lang="th">ยังไม่พร้อม</span><span lang="en">Not ready</span></span></div>
+          <p class="rb-lead"><span lang="th">ระบบหลักยังไม่ได้แจ้งเหตุผล</span><span lang="en">The host did not report a reason.</span></p>
+          <p class="rb-effect"><b><span lang="th">เสียงเตือนสำคัญจะไม่ดัง</span><span lang="en">Critical alerts will not sound.</span></b></p>
+        </div></div>
+      </article><figcaption>H · <span class="mono">not_ready / reason = null</span> — ไม่เดาเหตุผลแทนระบบหลัก · the UI does not guess a cause</figcaption></figure>
+
+    </div>
+  </section>
+
+  <!-- 3 ─────────────────────────────────────────────── history rows -->
+  <section class="block" aria-labelledby="s3">
+    <h2 id="s3">3. แถวประวัติเหตุการณ์ · Event-history rows</h2>
+    <article class="panel" aria-labelledby="hist-h">
+      <div class="panel-head">
+        <h3 id="hist-h"><span lang="th">ประวัติเหตุการณ์</span><span lang="en">Event history</span></h3>
+        <span class="badge"><span lang="th">ข้อมูลตัวอย่าง</span><span lang="en">Sample data</span></span>
+      </div>
+      <p class="mute-note" style="display:block"><span lang="th">ตรวจพบ ไม่ได้แปลว่าได้ยินเสมอไป แต่ละแถวบอกทั้งสองอย่าง</span><span lang="en">Detected does not always mean heard. Each row states both.</span></p>
+      <div class="legend" aria-hidden="true">
+        <span class="det"><span lang="th">ตรวจพบ</span><span lang="en">Detected</span></span>
+        <span class="out out-heard"><svg class="ic"><use href="#i-spk"/></svg><span lang="th">ได้ยิน</span><span lang="en">Heard</span></span>
+        <span class="out out-cut"><svg class="ic"><use href="#i-cut"/></svg><span lang="th">ถูกตัดกลางคัน</span><span lang="en">Cut short</span></span>
+        <span class="out out-silent"><svg class="ic"><use href="#i-off"/></svg><span lang="th">ไม่ได้ยิน</span><span lang="en">Not heard</span></span>
+        <span class="out out-none"><span lang="th">— ไม่มีเสียง</span><span lang="en">— No sound</span></span>
+      </div>
+      <div role="list">
+        <div class="hist-head" aria-hidden="true"><span><span lang="th">ตรวจพบ</span><span lang="en">Detected</span></span><span><span lang="th">เหตุการณ์</span><span lang="en">Event</span></span><span><span lang="th">เสียง</span><span lang="en">Audio</span></span><span><span lang="th">เพราะอะไร</span><span lang="en">Why</span></span></div>
+
+        <div class="hrow" role="listitem"><span class="h-time mono">24:10</span><span class="h-event"><span lang="th">มัลติคิล ×3</span><span lang="en">Multi-kill ×3</span></span>
+          <span class="out out-heard"><svg class="ic"><use href="#i-spk"/></svg><span lang="th">ได้ยิน</span><span lang="en">Heard</span></span>
+          <span class="h-why"><span lang="th">เล่นเสียงแล้ว</span><span lang="en">Audio played.</span> <span class="mono">admitted</span></span></div>
+
+        <div class="hrow is-critical" role="listitem"><span class="h-time mono">23:52</span><span class="h-event"><svg class="ic"><use href="#i-warn"/></svg><span lang="th">เลือดลดฮวบ</span><span lang="en">Health danger</span></span>
+          <span class="out out-heard"><svg class="ic"><use href="#i-spk"/></svg><span lang="th">ได้ยิน</span><span lang="en">Heard</span></span>
+          <span class="h-why"><span lang="th">เสียงเตือนสำคัญ เล่นแล้ว</span><span lang="en">Critical alert, audio played.</span> <span class="mono">admitted</span></span></div>
+
+        <div class="hrow" role="listitem"><span class="h-time mono">23:51</span><span class="h-event"><span lang="th">ฆ่าฮีโร่ได้</span><span lang="en">Hero kill</span></span>
+          <span class="out out-cut"><svg class="ic"><use href="#i-cut"/></svg><span lang="th">ถูกตัดกลางคัน</span><span lang="en">Cut short</span></span>
+          <span class="h-why"><span lang="th">เริ่มเล่นแล้ว แต่เสียงเตือนสำคัญแทรกเข้ามา</span><span lang="en">It started, then a critical alert took over.</span> <span class="mono">preempted</span></span></div>
+
+        <div class="hrow" role="listitem"><span class="h-time mono">21:07</span><span class="h-event"><span lang="th">คิลสตรีค 4</span><span lang="en">Kill streak 4</span></span>
+          <span class="out out-silent"><svg class="ic"><use href="#i-off"/></svg><span lang="th">ไม่ได้ยิน</span><span lang="en">Not heard</span></span>
+          <span class="h-why"><span lang="th">แพ็กที่ใช้อยู่ไม่มีเสียงสำหรับเหตุการณ์นี้</span><span lang="en">The active pack has no sound for this event.</span> <span class="mono">unmapped</span></span></div>
+
+        <div class="hrow" role="listitem"><span class="h-time mono">18:30</span><span class="h-event"><span lang="th">เลเวลถึง 12</span><span lang="en">Reached level 12</span></span>
+          <span class="out out-silent"><svg class="ic"><use href="#i-off"/></svg><span lang="th">ไม่ได้ยิน</span><span lang="en">Not heard</span></span>
+          <span class="h-why"><span lang="th">ไฟล์เสียงของเหตุการณ์นี้ไม่ผ่านการตรวจ</span><span lang="en">This event's sound file failed verification.</span> <span class="mono">invalid_media</span></span></div>
+
+        <div class="hrow" role="listitem"><span class="h-time mono">15:44</span><span class="h-event"><span lang="th">เลือดเหลือน้อย</span><span lang="en">Low health</span></span>
+          <span class="out out-silent"><svg class="ic"><use href="#i-off"/></svg><span lang="th">ไม่ได้ยิน</span><span lang="en">Not heard</span></span>
+          <span class="h-why"><span lang="th">เสียงเตือนสำคัญกำลังเล่นอยู่ จึงไม่เล่นเสียงนี้</span><span lang="en">A critical alert was playing, so this was not played.</span> <span class="mono">critical_active</span></span></div>
+
+        <div class="hrow is-critical" role="listitem"><span class="h-time mono">12:03</span><span class="h-event"><svg class="ic"><use href="#i-warn"/></svg><span lang="th">เลือดลดฮวบ</span><span lang="en">Health danger</span></span>
+          <span class="out out-silent"><svg class="ic"><use href="#i-off"/></svg><span lang="th">ไม่ได้ยิน</span><span lang="en">Not heard</span></span>
+          <span class="h-why"><span lang="th">คุณปิดเสียงทั้งหมดไว้ เสียงเตือนสำคัญจึงไม่ดัง</span><span lang="en">You had muted all audio, so the critical alert stayed silent.</span> <span class="mono">muted</span></span></div>
+
+        <div class="hrow" role="listitem"><span class="h-time mono">09:15</span><span class="h-event"><span lang="th">เกิดใหม่</span><span lang="en">Respawn</span></span>
+          <span class="out out-none"><span lang="th">— ไม่มีเสียง</span><span lang="en">— No sound</span></span>
+          <span class="h-why"><span lang="th">เหตุการณ์นี้ไม่มีเสียงตั้งแต่แรก</span><span lang="en">This event has no sound by design.</span> <span class="mono">not_voiced</span></span></div>
+      </div>
+    </article>
+  </section>
+
+  <!-- 4 ─────────────────────────────────────────────── both themes -->
+  <section class="block" aria-labelledby="s4">
+    <h2 id="s4">4. สองธีมเทียบกัน · Both themes side by side <span class="muted small">— <span class="mono">data-theme</span> บนกล่องครอบ · forced on the wrapper</span></h2>
+    <div class="grid">
+      <div class="themed" data-theme="dark"><article class="panel" data-muted="true">
+        <div class="panel-head"><h3><span lang="th">เสียงและการเตือน</span><span lang="en">Audio and alerts</span></h3><span class="badge mono">dark</span></div>
+        <div class="mute-row"><button type="button" class="switch" role="switch" aria-checked="true" aria-disabled="true" tabindex="-1"><span class="track"><span class="thumb"></span></span><span class="sw-text"><span class="sw-label"><span lang="th">ปิดเสียงทั้งหมด</span><span lang="en">Mute all audio</span></span><span class="sw-state"><span class="when-on"><svg class="ic"><use href="#i-off"/></svg><span lang="th">ตอนนี้ปิดเสียงอยู่</span><span lang="en">Sound is muted</span></span></span></span></button><span class="shortcut"><kbd>Alt</kbd>+<kbd>M</kbd></span></div>
+        <p class="muted-callout"><svg class="ic"><use href="#i-off"/></svg><span><span lang="th">ปิดเสียงทั้งหมดอยู่ — เสียงเตือนสำคัญจะไม่ดัง</span><span lang="en">All audio is muted. Critical alerts will not sound.</span></span></p>
+        <div class="rb rb-off"><div class="rb-body">
+          <div class="rb-head"><span class="rb-name"><span lang="th">เสียงเตือนสำคัญ</span><span lang="en">Critical alert audio</span></span><span class="chip chip-off"><i></i><span lang="th">ใช้ไม่ได้</span><span lang="en">Unavailable</span></span></div>
+          <p class="rb-lead"><span lang="th">ใช้ไม่ได้เพราะคุณปิดเสียงทั้งหมดไว้</span><span lang="en">Unavailable because you muted all audio.</span></p>
+          <span class="rb-code mono">AUDIO_MUTED</span>
+        </div></div>
+        <div class="rb rb-ready"><div class="rb-body"><div class="rb-head"><span class="rb-name small muted">ready</span><span class="chip chip-ready"><i></i><span lang="th">พร้อม</span><span lang="en">Ready</span></span><span class="chip chip-warn"><i></i><span lang="th">ยังไม่พร้อม</span><span lang="en">Not ready</span></span><span class="chip chip-unknown"><i></i><span lang="th">ยังไม่ทราบ</span><span lang="en">Unknown</span></span></div></div></div>
+        <div class="hrow is-critical"><span class="h-time mono">12:03</span><span class="h-event"><svg class="ic"><use href="#i-warn"/></svg><span lang="th">เลือดลดฮวบ</span><span lang="en">Health danger</span></span><span class="out out-silent"><svg class="ic"><use href="#i-off"/></svg><span lang="th">ไม่ได้ยิน</span><span lang="en">Not heard</span></span><span class="h-why"><span lang="th">คุณปิดเสียงทั้งหมดไว้</span><span lang="en">You had muted all audio.</span></span></div>
+        <div class="hrow"><span class="h-time mono">11:40</span><span class="h-event"><span lang="th">ฆ่าฮีโร่ได้</span><span lang="en">Hero kill</span></span><span class="out out-cut"><svg class="ic"><use href="#i-cut"/></svg><span lang="th">ถูกตัดกลางคัน</span><span lang="en">Cut short</span></span><span class="h-why"><span lang="th">เสียงเตือนสำคัญแทรกเข้ามา</span><span lang="en">A critical alert took over.</span></span></div>
+      </article></div>
+      <div class="themed" data-theme="light"><article class="panel" data-muted="true">
+        <div class="panel-head"><h3><span lang="th">เสียงและการเตือน</span><span lang="en">Audio and alerts</span></h3><span class="badge mono">light</span></div>
+        <div class="mute-row"><button type="button" class="switch" role="switch" aria-checked="true" aria-disabled="true" tabindex="-1"><span class="track"><span class="thumb"></span></span><span class="sw-text"><span class="sw-label"><span lang="th">ปิดเสียงทั้งหมด</span><span lang="en">Mute all audio</span></span><span class="sw-state"><span class="when-on"><svg class="ic"><use href="#i-off"/></svg><span lang="th">ตอนนี้ปิดเสียงอยู่</span><span lang="en">Sound is muted</span></span></span></span></button><span class="shortcut"><kbd>Alt</kbd>+<kbd>M</kbd></span></div>
+        <p class="muted-callout"><svg class="ic"><use href="#i-off"/></svg><span><span lang="th">ปิดเสียงทั้งหมดอยู่ — เสียงเตือนสำคัญจะไม่ดัง</span><span lang="en">All audio is muted. Critical alerts will not sound.</span></span></p>
+        <div class="rb rb-off"><div class="rb-body">
+          <div class="rb-head"><span class="rb-name"><span lang="th">เสียงเตือนสำคัญ</span><span lang="en">Critical alert audio</span></span><span class="chip chip-off"><i></i><span lang="th">ใช้ไม่ได้</span><span lang="en">Unavailable</span></span></div>
+          <p class="rb-lead"><span lang="th">ใช้ไม่ได้เพราะคุณปิดเสียงทั้งหมดไว้</span><span lang="en">Unavailable because you muted all audio.</span></p>
+          <span class="rb-code mono">AUDIO_MUTED</span>
+        </div></div>
+        <div class="rb rb-ready"><div class="rb-body"><div class="rb-head"><span class="rb-name small muted">ready</span><span class="chip chip-ready"><i></i><span lang="th">พร้อม</span><span lang="en">Ready</span></span><span class="chip chip-warn"><i></i><span lang="th">ยังไม่พร้อม</span><span lang="en">Not ready</span></span><span class="chip chip-unknown"><i></i><span lang="th">ยังไม่ทราบ</span><span lang="en">Unknown</span></span></div></div></div>
+        <div class="hrow is-critical"><span class="h-time mono">12:03</span><span class="h-event"><svg class="ic"><use href="#i-warn"/></svg><span lang="th">เลือดลดฮวบ</span><span lang="en">Health danger</span></span><span class="out out-silent"><svg class="ic"><use href="#i-off"/></svg><span lang="th">ไม่ได้ยิน</span><span lang="en">Not heard</span></span><span class="h-why"><span lang="th">คุณปิดเสียงทั้งหมดไว้</span><span lang="en">You had muted all audio.</span></span></div>
+        <div class="hrow"><span class="h-time mono">11:40</span><span class="h-event"><span lang="th">ฆ่าฮีโร่ได้</span><span lang="en">Hero kill</span></span><span class="out out-cut"><svg class="ic"><use href="#i-cut"/></svg><span lang="th">ถูกตัดกลางคัน</span><span lang="en">Cut short</span></span><span class="h-why"><span lang="th">เสียงเตือนสำคัญแทรกเข้ามา</span><span lang="en">A critical alert took over.</span></span></div>
+      </article></div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  var live = document.getElementById('live'), sw = document.getElementById('live-switch'), base = 'ready';
+  function render() { var m = sw.getAttribute('aria-checked') === 'true'; live.dataset.muted = m ? 'true' : 'false'; live.dataset.show = m ? 'muted' : base; }
+  function toggle() { sw.setAttribute('aria-checked', sw.getAttribute('aria-checked') === 'true' ? 'false' : 'true'); render(); }
+  sw.addEventListener('click', toggle);
+  window.addEventListener('keydown', function (e) {
+    if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && e.key.toLowerCase() === 'm' && !e.repeat) { e.preventDefault(); toggle(); }
+  });
+  document.querySelectorAll('[data-base]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      base = b.dataset.base;
+      document.querySelectorAll('[data-base]').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+      render();
+    });
+  });
+
+  var theme = document.getElementById('theme'), order = ['auto', 'light', 'dark'];
+  function setTheme(t) { if (t === 'auto') root.removeAttribute('data-theme'); else root.dataset.theme = t; theme.textContent = 'ธีม · Theme: ' + t; try { localStorage.setItem('kb-theme', t); } catch (e) {} }
+  var saved = 'auto'; try { saved = localStorage.getItem('kb-theme') || 'auto'; } catch (e) {}
+  setTheme(order.indexOf(saved) < 0 ? 'auto' : saved);
+  theme.addEventListener('click', function () { var t = root.dataset.theme || 'auto'; setTheme(order[(order.indexOf(t) + 1) % 3]); });
+
+  var lang = document.getElementById('lang');
+  lang.addEventListener('click', function () { var en = root.dataset.lang !== 'en'; root.dataset.lang = en ? 'en' : 'th'; lang.textContent = 'ภาษา · Copy: ' + (en ? 'English' : 'ไทย'); });
+})();
+</script>
+</body>
+</html>

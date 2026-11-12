@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Kohbor S3 — Audio and event-media UI (proposal)</title>
+<!-- Optional. The page is complete without it: the stack falls back to Leelawadee UI / system-ui. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tokens.css">
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--ground); color: var(--text); font-family: var(--font-ui); font-size: var(--fs-body); line-height: var(--lh-thai); }
+.page { max-width: 1040px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+h1 { margin: 0; font-size: 20px; font-weight: 600; flex: 1 1 320px; }
+h2 { margin: 0; font-size: var(--fs-title); font-weight: 600; }
+p { margin: 0; }
+.muted { color: var(--muted); }
+.small { font-size: var(--fs-caption); }
+.mono { font-family: var(--font-mono); }
+button { min-height: var(--target-min); padding: 0 14px; border-radius: var(--r-control); border: 1px solid var(--line-strong); background: var(--raised); color: var(--text); font: inherit; cursor: pointer; }
+button:hover { border-color: var(--text); }
+:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.status { border: 1px dashed var(--warning); background: var(--warning-surface); border-radius: var(--r-banner); padding: 8px 14px; }
+.status::before { content: "! "; color: var(--warning); font-weight: 700; }
+.cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 720px) { .cards { grid-template-columns: minmax(0, 1fr); } }
+a.card { display: flex; flex-direction: column; gap: 8px; min-height: var(--target-min); padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); color: inherit; text-decoration: none; min-width: 0; }
+a.card:hover { border-color: var(--accent); }
+a.card h2::after { content: " →"; color: var(--accent); }
+.list { margin: 0; padding-left: 18px; color: var(--text-2); font-size: var(--fs-detail); }
+.files { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; }
+.files a { color: var(--accent); }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-detail); line-height: var(--lh-chip); padding: 2px 10px; border-radius: var(--r-chip); border: 1px solid var(--line-strong); white-space: nowrap; }
+.chip i { display: inline-flex; align-items: center; justify-content: center; width: 10px; height: 10px; font-style: normal; font-size: 12px; font-weight: 700; line-height: 1; }
+.chip-ready { border-color: var(--accent); background: var(--accent-surface); }
+.chip-ready i { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.chip-warn { border-color: var(--warning); background: var(--warning-surface); }
+.chip-warn i::before { content: "!"; color: var(--warning); }
+.chip-off { border-style: dashed; color: var(--text-2); }
+.chip-off i::before { content: "×"; }
+.chip-unknown { color: var(--text-2); }
+.chip-unknown i::before { content: "—"; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>Kohbor / เกาะเบาะ — เสียงและสื่อเหตุการณ์ สปรินต์ 3 <span class="muted">· Sprint 3 audio and event media</span></h1>
+    <button type="button" id="theme" aria-label="Page theme">ธีม · Theme: auto</button>
+  </header>
+
+  <p class="status">ข้อเสนอการออกแบบสำหรับให้เจ้าของผลิตภัณฑ์ดู ยังไม่ได้รับอนุมัติ (DEC-VISUALS ยังเปิดอยู่) และไม่ได้แทนที่โค้ดใด · A design proposal for the product owner. Not approved (DEC-VISUALS stays open); it replaces no code.</p>
+
+  <div class="cards">
+    <a class="card" href="overlay.html">
+      <h2>แบนเนอร์เหตุการณ์บนโอเวอร์เลย์ · Overlay event banner</h2>
+      <p class="muted">กรอบรอบคลิปวิดีโอเงียบจากแพ็ก บนฉากเกมมืด กลาง และสว่างจัด · The frame around a pack's silent clip, over dark, mid and very bright scenes.</p>
+      <ul class="list">
+        <li>ว่าง · ทั่วไป · มัลติคิล ×2–×5 · สตรีค 3–10 · เตือนสำคัญ</li>
+        <li>Empty, ordinary, tiers, critical, cut, visual tail, exit</li>
+        <li>ปุ่มลดการเคลื่อนไหว · Reduced-motion toggle</li>
+      </ul>
+    </a>
+    <a class="card" href="audio-panel.html">
+      <h2>แผง “เสียงและการเตือน” · Audio and alerts panel</h2>
+      <p class="muted">สวิตช์ปิดเสียงทั้งหมด (Alt+M) ความพร้อมตามที่ระบบหลักรายงาน และแถวประวัติ · Global mute (Alt+M), readiness exactly as the host reports it, and history rows.</p>
+      <ul class="list">
+        <li>8 สถานะ พร้อมข้อความไทยและอังกฤษ · 8 states with Thai and English copy</li>
+        <li>“ตรวจพบ” แยกจาก “ได้ยิน” · Detected versus heard</li>
+        <li>ธีมสว่างและมืด · Light and dark themes</li>
+      </ul>
+    </a>
+  </div>
+
+  <div class="files">
+    <h2>สัญลักษณ์สถานะ · State encodings</h2>
+    <p class="muted small">แต่ละสถานะต่างกันด้วยสัญลักษณ์ ลายเส้นขอบ และคำ ไม่ใช่สีอย่างเดียว · Each state differs by glyph, border style and words, never by colour alone. Only <span class="mono">ready</span> uses the accent colour.</p>
+    <div class="row">
+      <span class="chip chip-ready"><i></i>พร้อม · Ready</span>
+      <span class="chip chip-warn"><i></i>ยังไม่พร้อม · Not ready</span>
+      <span class="chip chip-off"><i></i>ใช้ไม่ได้ · Unavailable</span>
+      <span class="chip chip-unknown"><i></i>ยังไม่ทราบ · Unknown</span>
+    </div>
+  </div>
+
+  <div class="files">
+    <h2>ไฟล์ · Files</h2>
+    <p><a href="tokens.css">tokens.css</a> — <span class="muted">ตัวแปร CSS ที่ใช้ และการจับคู่กับ <span class="mono">apps/desktop/src/styles.css</span> · the variables used, mapped to the shipped stylesheet</span></p>
+    <p><a href="DESIGN-NOTES.md">DESIGN-NOTES.md</a> — <span class="muted">เหตุผล ตารางสถานะ ตารางคอนทราสต์ สเปกการเคลื่อนไหว คำถามเปิด และสิ่งที่ยังไม่ได้ตรวจ · rationale, state tables, contrast, motion spec, open questions, and what was not verified</span></p>
+  </div>
+</div>
+<script>
+(function () {
+  var root = document.documentElement, theme = document.getElementById('theme'), order = ['auto', 'light', 'dark'];
+  function setTheme(t) { if (t === 'auto') root.removeAttribute('data-theme'); else root.dataset.theme = t; theme.textContent = 'ธีม · Theme: ' + t; try { localStorage.setItem('kb-theme', t); } catch (e) {} }
+  var saved = 'auto'; try { saved = localStorage.getItem('kb-theme') || 'auto'; } catch (e) {}
+  setTheme(order.indexOf(saved) < 0 ? 'auto' : saved);
+  theme.addEventListener('click', function () { var t = root.dataset.theme || 'auto'; setTheme(order[(order.indexOf(t) + 1) % 3]); });
+})();
+</script>
+</body>
+</html>

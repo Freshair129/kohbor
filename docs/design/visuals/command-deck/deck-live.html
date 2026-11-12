@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="th" data-state="live" data-mode="glance" data-share="on" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Command Deck Live — Kohbor proposal (not approved)</title>
+<!-- Optional web font. Without network the stack falls back to Leelawadee UI / system-ui. No other external request. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="tokens.css">
+<script>
+/* ?fill=1 renders the deck itself at the viewport size. Without it this file is the review page that frames the deck.
+   Params: state, share=on|notice|paused|none, mode=glance|detail, econ=1, solo=map, theme=dark|light|auto, lang=th|en. No JS = deck, live, dark. */
+(function () {
+  var p = new URLSearchParams(location.search), h = document.documentElement;
+  function g(k, d) { return p.get(k) || d; }
+  h.dataset.lang = g('lang', 'th');
+  if (!p.has('fill')) { h.className = 'doc'; h.removeAttribute('data-theme'); return; }
+  h.dataset.state = g('state', 'live'); h.dataset.share = g('share', 'on'); h.dataset.mode = g('mode', 'glance');
+  if (g('econ', '0') === '1') h.dataset.econ = '1';
+  if (p.get('solo')) h.dataset.solo = p.get('solo');
+  var t = g('theme', 'dark');
+  if (t === 'auto') h.removeAttribute('data-theme'); else h.dataset.theme = t === 'light' ? 'light' : 'dark';
+})();
+</script>
+<style>
+html.doc .deck { display: none; }
+html:not(.doc) .doc-page { display: none; }
+html:not(.doc) { --u: min(calc(100vw / 1920), calc(100vh / 1080)); overflow: hidden; }
+
+/* ---------- layout: 16:9 and wider. The map box depends on the viewport only, never on content or state. ---------- */
+.deck {
+  --rail: calc(72 * var(--u)); --gut: calc(10 * var(--u));
+  --map: min(calc(100vh - 32 * var(--u)), calc(100vw - 896 * var(--u)));
+  position: fixed; inset: 0; display: grid; gap: var(--g3) var(--g4); padding: var(--g4) var(--g4) var(--g4) 0;
+  grid-template-columns: var(--rail) minmax(0, 1fr) var(--map) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: "rail own map enemy" "rail own map events";
+}
+.rail { grid-area: rail; } .own { grid-area: own; } .map { grid-area: map; } .enemy { grid-area: enemy; } .events { grid-area: events; }
+
+/* ---------- 4:3 / 5:4 ("tablet-like"): map left, both teams stacked right, events under the map ---------- */
+@media (max-aspect-ratio: 3/2) {
+  html:not(.doc) { --u: calc(100vh / 1080); }
+  .deck { --map: min(calc(100vh - 220 * var(--u)), calc(100vw - 580 * var(--u)));
+    grid-template-columns: var(--rail) var(--map) minmax(0, 1fr);
+    grid-template-rows: calc(700 * var(--u)) calc(var(--map) - 712 * var(--u)) minmax(0, 1fr);
+    grid-template-areas: "rail map own" "rail map enemy" "rail events enemy"; }
+  .deck .own .hc .abil, .deck .hc:not(.is-off) .hc-note, .deck .vit .of { display: none; }
+  .deck .ulti { display: inline; } .deck .own, .deck .enemy { gap: var(--g2); } .deck .own > .hc.is-off { flex-grow: 0.7; }
+  .deck .tok { width: calc(44 * var(--u)); height: calc(44 * var(--u)); min-width: 28px; min-height: 28px; }
+  .deck .ec { padding-block: 0; }
+  .deck .ec-name, .deck .ec-state { display: inline; }
+  .deck .ec-name::after { content: " · "; font-weight: 400; color: var(--muted); }
+  .deck .ec-age { font-size: var(--fz-label); }
+  .deck .events { display: grid; grid-template-columns: minmax(0, 1fr) 34%; grid-template-rows: auto minmax(0, 1fr); gap: var(--g1) 0; }
+  .deck .events .slot { grid-column: 2; grid-row: 1 / 3; }
+  .deck .events .ev { grid-template-columns: auto minmax(0, 1fr) minmax(0, auto); align-items: baseline; padding-block: calc(3 * var(--u)); }
+  .deck .events .ev-t { grid-row: auto; } .deck .events .ev-out { max-width: 22em; } .deck .events .ev-out > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .deck .events .ev:nth-of-type(n + 4) { display: none; }
+}
+/* ---------- portrait monitor: map on top at full width, teams side by side below ---------- */
+@media (max-aspect-ratio: 1/1) {
+  html:not(.doc) { --u: calc(100vw / 1080); }
+  .deck { --map: min(calc(100vw - 104 * var(--u)), calc(100vh - 950 * var(--u)));
+    grid-template-columns: var(--rail) minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: var(--map) auto minmax(0, 1fr);
+    grid-template-areas: "rail map map" "rail own enemy" "rail own events"; }
+  .deck .vit .of { display: revert; }
+  .deck .own .hc .abil { display: flex; } .deck .hc:not(.is-off) .hc-note { display: block; }
+  .deck .ulti { display: none; } .deck .own, .deck .enemy { gap: var(--g3); } .deck .own > .hc.is-off { flex-grow: 0.52; } .deck .own > .hc { padding-block: calc(2 * var(--u)); } .deck .hc-body { gap: calc(2 * var(--u)); }
+  .deck .events .ev:nth-of-type(n + 4) { display: none; }
+  .deck .ab { grid-template-columns: auto 1fr; align-items: baseline; column-gap: var(--g1); }
+  .deck .ab-cd { grid-column: auto; text-align: right; } .deck .ab-lv { display: none; }
+  .deck .tok { width: calc(56 * var(--u)); height: calc(56 * var(--u)); }
+  .deck .ec { padding-block: var(--g1); }
+  .deck .ec-name, .deck .ec-state { display: block; } .deck .ec-name::after { content: none; }
+  .deck .ec-age { font-size: var(--fz-hero); } .deck .ec.is-seen .ec-age { font-size: var(--fz-label); }
+  .deck .events { display: flex; } .deck .events .ev { grid-template-columns: auto minmax(0, 1fr); padding-block: calc(6 * var(--u)); }
+  .deck .events .ev-t { grid-row: span 2; } .deck .events .ev-out { max-width: none; } .deck .events .ev-out > span { white-space: normal; }
+}
+.ulti { display: none; font-size: var(--fz-sec); color: var(--text-2); } .ulti b { font-size: var(--fz-label); color: var(--text); }
+
+/* ---------- rail: the seven destinations of UX-SPEC §2, constant width in every mode ---------- */
+.rail { display: flex; flex-direction: column; align-items: stretch; gap: var(--g1); background: var(--surface); border-right: 1px solid var(--line); margin-block: calc(-1 * var(--g4)); padding-block: var(--g3); }
+.rail svg { width: calc(44 * var(--u)); height: calc(44 * var(--u)); min-width: 28px; min-height: 28px; align-self: center; margin-bottom: var(--g2); color: var(--accent); }
+.rail a { display: grid; place-items: center; min-height: max(36px, calc(56 * var(--u))); font-size: max(11px, calc(15 * var(--u))); line-height: 1.2; color: var(--text-2); text-decoration: none; white-space: nowrap; }
+.rail a[aria-current] { color: var(--text); font-weight: 600; background: var(--raised); box-shadow: inset max(3px, calc(4 * var(--u))) 0 0 var(--accent); }
+html[data-mode="glance"] .rail a:not([aria-current]) { color: var(--muted); }
+html[data-mode="glance"] .d-only { visibility: hidden; }
+
+/* ---------- columns ---------- */
+.own, .enemy, .events { display: flex; flex-direction: column; gap: var(--g3); min-width: 0; min-height: 0; }
+.own > .hc { flex: 1 1 0; } .own > .hc-own { flex-grow: 1.25; } .own > .hc.is-off { flex-grow: 0.55; } html[data-share="none"] .own > .hc.is-off { flex-grow: 1; }
+.enemy > .ec { flex: 1 1 calc(84 * var(--u)); }
+.head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--g1) var(--g2); min-width: 0; line-height: var(--lh-tight); }
+.clock { font-size: var(--fz-num); font-weight: 600; margin-left: auto; }
+.head button { font-size: var(--fz-sec); padding: 0 12px; }
+.sharebar { margin: 0; white-space: normal; align-items: flex-start; } .sharebar::before { margin-top: 0.1em; } .head2 { display: flex; flex-direction: column; gap: var(--g2); }
+.sum { font-size: var(--fz-label); font-weight: 600; white-space: nowrap; }
+.sum b { font-family: var(--font-mono); font-size: var(--fz-num); }
+.sum-miss { color: var(--warning); } .sum-miss::before { content: "◇ "; }
+.sum-off { color: var(--text-2); font-weight: 400; white-space: normal; }
+.empty { flex: 1 1 0; display: grid; place-items: center; text-align: center; border: var(--bw) dashed var(--stale); border-radius: var(--r-card); color: var(--text-2); font-size: var(--fz-sec); padding: var(--g2); min-height: 0; }
+.empty b { display: block; font-size: var(--fz-label); color: var(--text); font-weight: 600; }
+
+/* ---------- events region + inspector drawer (the drawer covers this region only; the map never moves) ---------- */
+.events { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); padding: var(--g2) 0 var(--g2); overflow: hidden; }
+.events h2 { font-size: var(--fz-sec); font-weight: 500; color: var(--muted); padding: 0 var(--g3); line-height: var(--lh-tight); }
+.events ol { flex: 1 1 0; min-height: 0; overflow: hidden; }
+.notice { display: flex; align-items: center; gap: var(--g2); margin: 0 var(--g3); padding: var(--g1) var(--g1) var(--g1) var(--g3); border: var(--bw) solid var(--accent); border-radius: var(--r-control); background: var(--accent-surface); font-size: var(--fz-sec); line-height: var(--lh-tight); } .notice > span { flex: 1; min-width: 0; } .notice button { padding: 0; }
+.events .slot { margin: 0 var(--g3); min-height: max(44px, calc(64 * var(--u))); }
+.events > .drawer { position: absolute; inset: 0; z-index: 2; animation: drawer-in var(--dur-enter) var(--ease-out) both; }
+@keyframes drawer-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+html[data-state="sel"] .sel-target { outline: max(3px, calc(4 * var(--u))) double var(--text); outline-offset: -1px; background: var(--ally-surface); }
+
+/* ---------- the minimap panel ---------- */
+.map { width: var(--map); height: var(--map); align-self: center; justify-self: center; position: relative; color: var(--map-text); container-type: normal; }
+.map-img { position: absolute; inset: var(--gut); border-radius: 6px; overflow: hidden; background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 12.5%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 12.5%),
+    radial-gradient(ellipse 34% 26% at 22% 30%, #24382f 0, transparent 100%),
+    radial-gradient(ellipse 30% 36% at 74% 24%, #2b2f3d 0, transparent 100%),
+    radial-gradient(ellipse 40% 28% at 60% 74%, #33302a 0, transparent 100%),
+    radial-gradient(ellipse 24% 30% at 20% 78%, #223540 0, transparent 100%),
+    var(--map-ground); }
+/* synthetic drifting specks = "this is a live image". They are picture content, not overlay markers. */
+.syn { position: absolute; width: calc(7 * var(--u)); height: calc(7 * var(--u)); border-radius: 50%; background: rgba(230, 234, 240, 0.4); animation: drift 9s linear infinite alternate; }
+.syn:nth-child(1) { left: 34%; top: 60%; } .syn:nth-child(2) { left: 52%; top: 44%; animation-duration: 12s; animation-direction: alternate-reverse; }
+.syn:nth-child(3) { left: 68%; top: 62%; animation-duration: 7s; } .syn:nth-child(4) { left: 40%; top: 26%; animation-duration: 14s; animation-direction: alternate-reverse; }
+@keyframes drift { from { transform: translate(-40px, 24px); } to { transform: translate(46px, -30px); } }
+.trails { position: absolute; inset: var(--gut); width: calc(100% - 2 * var(--gut)); height: calc(100% - 2 * var(--gut)); overflow: visible; }
+.trails polyline { fill: none; stroke: var(--map-enemy); stroke-width: max(2px, calc(3 * var(--u))); vector-effect: non-scaling-stroke; stroke-dasharray: 2 6; stroke-linecap: round; opacity: 0.7; }
+.trails circle { fill: var(--map-enemy); stroke: var(--map-halo); stroke-width: 0.25; }
+.marks { position: absolute; inset: var(--gut); }
+html[data-state="sel"] .mk.sel-target { outline: 0; background: none; }
+html[data-state="sel"] .mk.sel-target::before { outline: max(3px, calc(4 * var(--u))) solid var(--map-text); outline-offset: max(3px, calc(5 * var(--u))); }
+html[data-state="sel"] .mk.sel-target b { background: var(--map-text); color: var(--map-halo); border-color: var(--map-text); }
+
+.map-frame { position: absolute; inset: 0; border: var(--gut) solid var(--line); border-radius: 12px; pointer-events: none; }
+html[data-state="critical"] .map-frame { border-radius: 0; border-image: repeating-linear-gradient(45deg, var(--map-critical) 0 calc(22 * var(--u)), var(--map-critical-ink) calc(22 * var(--u)) calc(30 * var(--u))) 10; animation: crit-in var(--dur-critical) linear both; }
+html[data-state="stale"] .map-frame, html[data-state="lost"] .map-frame, html[data-state="recal"] .map-frame, html[data-state="calibrating"] .map-frame, html[data-state="novision"] .map-frame { border-style: dashed; border-color: var(--stale); }
+html[data-state="lite"] .map-frame { border-style: dashed; }
+@keyframes crit-in { from { opacity: 0; } to { opacity: 1; } }
+.map-banner { position: absolute; left: calc(var(--gut) + var(--g3)); top: calc(var(--gut) + var(--g3)); max-width: 70%; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--g3); align-items: center; padding: var(--g2) var(--g4); border-radius: var(--r-banner); background: var(--map-critical); color: var(--map-critical-ink); line-height: 1.25; animation: crit-in var(--dur-critical) linear both; }
+.map-banner svg { grid-row: span 2; width: calc(64 * var(--u)); height: calc(64 * var(--u)); min-width: 36px; min-height: 36px; }
+.map-banner strong { font-size: var(--fz-banner); font-weight: 700; }
+.map-banner > span { font-size: var(--fz-label); font-weight: 500; }
+.map-rate, .map-ph { position: absolute; bottom: calc(var(--gut) + var(--g2)); }
+.map-ph { left: calc(var(--gut) + var(--g2)); color: var(--map-muted); font-size: var(--fz-det); max-width: 46%; white-space: normal; }
+/* degraded states: the picture dims or disappears, a labelled plate explains, markers are removed */
+html[data-state="stale"] .map-img, html[data-state="calibrating"] .map-img, html[data-state="novision"] .map-img { filter: grayscale(1) brightness(0.55); }
+html[data-state="stale"] .syn, html[data-state="calibrating"] .syn, html[data-state="novision"] .syn { animation: none; }
+html[data-state="lite"] .syn { animation-timing-function: steps(5); }
+.map-state { position: absolute; inset: var(--gut); display: grid; place-content: center; justify-items: center; gap: var(--g2); text-align: center; padding: 8%; border-radius: 6px; background: repeating-linear-gradient(45deg, transparent 0 calc(18 * var(--u)), rgba(154, 166, 181, 0.13) calc(18 * var(--u)) calc(22 * var(--u))); }
+.map-state.is-blank { background-color: var(--map-ground); }
+.map-state > div { display: grid; justify-items: center; gap: var(--g2); padding: var(--g4) var(--g6); background: var(--map-plate); border: 2px dashed var(--map-muted); border-radius: var(--r-banner); max-width: 100%; }
+.map-state strong { font-size: var(--fz-num); font-weight: 600; line-height: 1.3; }
+.map-state strong::before { content: attr(data-g) " "; color: var(--map-missing); }
+.map-state p { font-size: var(--fz-sec); color: #c3cbd6; line-height: 1.5; max-width: 30em; }
+.map-state button { background: #1d2430; color: var(--map-text); border-color: var(--map-muted); font-size: var(--fz-sec); }
+.brackets { position: absolute; inset: 14%; --b: max(3px, calc(5 * var(--u))); --c: linear-gradient(var(--map-missing) 0 0); background: var(--c) 0 0 / 16% var(--b), var(--c) 0 0 / var(--b) 16%, var(--c) 100% 0 / 16% var(--b), var(--c) 100% 0 / var(--b) 16%, var(--c) 0 100% / 16% var(--b), var(--c) 0 100% / var(--b) 16%, var(--c) 100% 100% / 16% var(--b), var(--c) 100% 100% / var(--b) 16%; background-repeat: no-repeat; }
+.idle-mark { width: calc(140 * var(--u)); height: calc(140 * var(--u)); min-width: 72px; min-height: 72px; color: var(--map-muted); }
+
+/* ---------- state switching for the mock: data-in = show only in these states; data-out = hide in these ---------- */
+html[data-state="live"] [data-in]:not([data-in~="live"]), html[data-state="critical"] [data-in]:not([data-in~="critical"]),
+html[data-state="sel"] [data-in]:not([data-in~="sel"]), html[data-state="lite"] [data-in]:not([data-in~="lite"]),
+html[data-state="stale"] [data-in]:not([data-in~="stale"]), html[data-state="calibrating"] [data-in]:not([data-in~="calibrating"]),
+html[data-state="lost"] [data-in]:not([data-in~="lost"]), html[data-state="recal"] [data-in]:not([data-in~="recal"]),
+html[data-state="novision"] [data-in]:not([data-in~="novision"]), html[data-state="idle"] [data-in]:not([data-in~="idle"]),
+html[data-state="menu"] [data-in]:not([data-in~="menu"]),
+html[data-state="stale"] [data-out~="novis"], html[data-state="calibrating"] [data-out~="novis"], html[data-state="lost"] [data-out~="novis"],
+html[data-state="recal"] [data-out~="novis"], html[data-state="novision"] [data-out~="novis"],
+html[data-state="idle"] [data-out], html[data-state="menu"] [data-out] { display: none !important; }
+
+html[data-share="on"] [data-sh]:not([data-sh~="on"]), html[data-share="notice"] [data-sh]:not([data-sh~="notice"]), html[data-share="paused"] [data-sh]:not([data-sh~="paused"]), html[data-share="none"] [data-sh]:not([data-sh~="none"]) { display: none !important; }
+
+html[data-share="notice"] .events .ev:nth-of-type(n + 4) { display: none; }
+/* solo=map: the panel alone, used by minimap.html */
+html[data-solo="map"] { --u: calc(min(100vw, 100vh) / 1024); }
+html[data-solo="map"] .deck { display: block; padding: 0; --map: min(100vw, 100vh); }
+html[data-solo="map"] .deck > :not(.map) { display: none; }
+@media (prefers-reduced-motion: reduce) { .mk i { opacity: 0.55; } }
+</style>
+</head>
+<body>
+
+<!-- ======================= REVIEW PAGE (shown without ?fill=1) ======================= -->
+<div class="doc-page">
+  <header class="doc-head">
+    <h1>A · Command Deck Live</h1>
+    <div class="seg" role="group" aria-label="Theme"><span>Theme</span><button data-set="theme=auto">Auto</button><button data-set="theme=dark">Dark</button><button data-set="theme=light">Light</button></div>
+    <div class="seg" role="group" aria-label="Language"><span>Copy</span><button data-set="lang=th">ไทย</button><button data-set="lang=en">EN</button></div>
+    <nav class="doc-nav" aria-label="Mockups"><a href="index.html">Gallery</a><a href="deck-live.html" aria-current="page">A Deck Live</a><a href="minimap.html">B Minimap</a><a href="cards.html">C Cards</a><a href="social.html">D+G Social and flow</a><a href="inspector.html">E Events and inspector</a><a href="glance-and-idle.html">F Glance, idle, themes</a></nav>
+  </header>
+  <p class="status-note">Design proposal. Not approved (DEC-VISUALS open). Sample data only. Nothing here replaces application code. The minimap picture is a CSS placeholder, not game imagery.</p>
+  <div class="row">
+    <div class="seg" role="group" aria-label="State"><span>State</span>
+      <button data-set="state=live">Live</button><button data-set="state=critical">Critical warning</button><button data-set="state=sel">Inspector open</button><button data-set="state=lite">Lite</button><button data-set="state=stale">Stale</button><button data-set="state=calibrating">Calibrating</button><button data-set="state=recal">Wrong monitor/layout</button><button data-set="state=lost">Capture lost</button><button data-set="state=novision">Vision unavailable</button><button data-set="state=menu">In menu</button><button data-set="state=idle">No game</button></div>
+    <div class="seg" role="group" aria-label="Share list"><span>Share list</span><button data-set="share=on">Sharing</button><button data-set="share=notice">Friend joined notice</button><button data-set="share=paused">Paused</button><button data-set="share=none">No listed friend in match</button></div>
+    <div class="seg" role="group" aria-label="Mode"><span>Mode</span><button data-set="mode=glance">Glance</button><button data-set="mode=detail">Detail</button></div>
+    <div class="seg" role="group" aria-label="Proposed economy scope"><span>Economy scope (PROPOSED, not baseline)</span><button data-set="econ=0">Off</button><button data-set="econ=1">Granted to you by A1</button></div>
+  </div>
+  <figure class="fig"><figcaption><b>1920 × 1080</b> — the design size (1u = 1 px). Map 1024 × 1024, two 380-px columns. Step the state above: the map box does not move.</figcaption><div class="board" data-w="1920" data-h="1080"><iframe title="Command Deck Live 1920x1080" loading="lazy"></iframe></div></figure>
+  <div class="grid" style="--col: 560px">
+    <figure class="fig"><figcaption><b>2560 × 1440</b> — the same layout, 1u = 1.33 px.</figcaption><div class="board" data-w="2560" data-h="1440"><iframe title="Command Deck Live 2560x1440" loading="lazy"></iframe></div></figure>
+    <figure class="fig"><figcaption><b>1366 × 768</b> — 1u = 0.71 px; type stops shrinking at its floors (13 px glance, 12 px detail).</figcaption><div class="board" data-w="1366" data-h="768"><iframe title="Command Deck Live 1366x768" loading="lazy"></iframe></div></figure>
+    <figure class="fig"><figcaption><b>1024 × 768</b> (4:3) — map left, both teams stacked right, two events under the map. Ally ability rows collapse to the ultimate only.</figcaption><div class="board" data-w="1024" data-h="768"><iframe title="Command Deck Live 1024x768" loading="lazy"></iframe></div></figure>
+    <figure class="fig" style="max-width: 460px"><figcaption><b>1080 × 1920</b> portrait — map on top at full width, teams below.</figcaption><div class="board" data-w="1080" data-h="1920"><iframe title="Command Deck Live 1080x1920" loading="lazy"></iframe></div></figure>
+  </div>
+  <p class="cap">Open <a href="deck-live.html?fill=1">deck-live.html?fill=1</a> full screen on the second monitor to judge it at true size. Add <code>&amp;state=critical</code>, <code>&amp;mode=detail</code>, <code>&amp;theme=light</code>, <code>&amp;lang=en</code>.</p>
+</div>
+
+<!-- ======================= THE DECK ======================= -->
+<main class="deck">
+  <nav class="rail" aria-label="เมนูหลัก">
+    <svg viewBox="0 0 56 56" aria-hidden="true"><rect x="6" y="18" width="44" height="28" rx="12" fill="none" stroke="currentColor" stroke-width="3"/><path d="M12 18C12 10 20 6 28 6s16 4 16 12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><circle cx="21" cy="30" r="3.4" fill="currentColor"/><circle cx="35" cy="30" r="3.4" fill="currentColor"/></svg>
+    <a href="#"><span class="th">ภาพรวม</span><span class="en">Overview</span></a>
+    <a href="#" aria-current="page"><span class="th">สด</span><span class="en">Live</span></a>
+    <a href="#"><span class="th">แพ็กเสียง</span><span class="en">Voice</span></a>
+    <a href="#"><span class="th">ร้านค้า</span><span class="en">Store</span></a>
+    <a href="#"><span class="th">สรุปผล</span><span class="en">Insights</span></a>
+    <a href="#"><span class="th">บัญชี</span><span class="en">Account</span></a>
+    <a href="#"><span class="th">ตั้งค่า</span><span class="en">Settings</span></a>
+  </nav>
+
+  <!-- own-team column: own hero first, then four stable allied slots -->
+  <section class="own" aria-label="ทีมเรา">
+    <div class="head2" data-out="idle">
+      <div class="head" style="flex-wrap:nowrap">
+      <span class="chip chip-fresh"><span class="th">กำลังเล่น</span><span class="en">In game</span></span>
+      <span class="clock mono" style="margin:0 auto 0 0">18:42</span>
+      <button type="button" data-sh="on notice none"><span class="th">หยุดแชร์</span><span class="en">Pause sharing</span></button>
+      <button type="button" class="primary" data-sh="paused"><span class="th">แชร์ต่อ</span><span class="en">Resume sharing</span></button>
+      </div>
+      <p class="chip chip-share sharebar" data-sh="on notice"><span><span class="th"><b>กำลังแชร์ให้ 3 คน:</b> Mint, Tonkla, Bank (เลือด/มานา) · Mint (สกิล)</span><span class="en"><b>Sharing with 3:</b> Mint, Tonkla, Bank (vitals) · Mint (abilities)</span></span></p>
+      <p class="chip chip-warn sharebar" data-sh="paused"><span><span class="th"><b>หยุดแชร์ชั่วคราว</b> — ตอนนี้ไม่มีใครได้รับข้อมูลของคุณ</span><span class="en"><b>Sharing paused</b> — nobody is receiving your data now</span></span></p>
+      <p class="chip chip-off sharebar" data-sh="none"><span><span class="th"><b>ไม่มีเพื่อนในรายชื่อแชร์ในแมตช์นี้</b> — ไม่มีการส่งข้อมูล</span><span class="en"><b>No Share list friend in this match</b> — nothing is sent</span></span></p>
+    </div>
+    <div class="head" data-in="idle menu">
+      <span class="chip chip-unknown" data-in="idle"><span class="th">รอเข้าเกม</span><span class="en">Waiting for game</span></span>
+      <span class="chip chip-fresh" data-in="menu"><span class="th">ข้อมูลเกม</span><span class="en">Game data</span>&nbsp;<span class="mono">0.6</span>&nbsp;<span class="th">วิ</span><span class="en">s</span></span>
+      <span class="chip chip-unknown" data-in="menu"><span class="th">ยังไม่มีแมตช์</span><span class="en">No match yet</span></span>
+      <span class="chip chip-off"><span class="th">ไม่อยู่ในแมตช์ — ไม่มีการส่งข้อมูล</span><span class="en">Not in a match — nothing is sent</span></span>
+    </div>
+
+    <article class="hc hc-own" tabindex="0" data-out="idle">
+      <span class="hc-id"><span class="tok tok-own"><span class="th">คุณ</span><span class="en">You</span></span><span class="hc-lv">Lv<b class="mono">12</b></span></span>
+      <div class="hc-body">
+        <div class="hc-top"><span class="hc-name"><span class="th">ฮีโร่ตัวอย่าง</span><span class="en">Sample hero</span></span><span class="hc-age"><span class="mono">0.4</span> <span class="th">วิ</span><span class="en">s</span></span></div>
+        <div class="vit"><b class="num mono">1,240</b><span class="of mono">/ 1,800</span><span class="ulti"><span class="th">อัลติ</span><span class="en">Ult</span> <b class="mono">42</b></span><span class="mp"><span class="th">มานา</span><span class="en">Mana</span> <b class="mono">43%</b></span></div>
+        <div class="bars"><span class="bar"><i style="width:69%"></i></span><span class="bar bar-mp"><i style="width:43%"></i></span></div>
+        <div class="abil">
+          <span class="ab ab-zero"><span class="ab-k">1</span><span class="ab-lv d-only">Lv4</span><span class="ab-cd">0<small><span class="th">วิ</span><span class="en">s</span></small></span></span>
+          <span class="ab"><span class="ab-k">2</span><span class="ab-lv d-only">Lv3</span><span class="ab-cd">8<small><span class="th">วิ</span><span class="en">s</span></small></span></span>
+          <span class="ab ab-zero"><span class="ab-k">3</span><span class="ab-lv d-only">Lv2</span><span class="ab-cd">0<small><span class="th">วิ</span><span class="en">s</span></small></span></span>
+          <span class="ab ab-ult"><span class="ab-k"><span class="th">อัลติ</span><span class="en">Ult</span></span><span class="ab-lv d-only">Lv2</span><span class="ab-cd">42<small><span class="th">วิ</span><span class="en">s</span></small></span></span>
+        </div>
+      </div>
+    </article>
+
+    <article class="hc" tabindex="0" data-out="idle" data-sh="on notice paused">
+      <span class="hc-id"><span class="tok">A1</span><span class="hc-lv">Lv<b class="mono">11</b></span></span>
+      <div class="hc-body">
+        <div class="hc-top"><span class="hc-name">Mint</span><span class="econ econ-live"><span class="th">ทอง*</span><span class="en">Gold*</span> <b>2,150</b></span><span class="hc-age"><span class="mono">0.6</span> <span class="th">วิ</span><span class="en">s</span></span></div>
+        <div class="vit"><b class="num mono">684</b><span class="of mono">/ 1,800</span><span class="ulti"><span class="th">อัลติ</span><span class="en">Ult</span> <b class="mono">0</b></span><span class="mp"><span class="th">มานา</span><span class="en">Mana</span> <b class="mono">80%</b></span></div>
+        <div class="bars"><span class="bar"><i style="width:38%"></i></span><span class="bar bar-mp"><i style="width:80%"></i></span></div>
+        <div class="abil">
+          <span class="ab"><span class="ab-k">1</span><span class="ab-lv d-only">Lv4</span><span class="ab-cd">3<small><span class="th">วิ</span><span class="en">s</span></small></span></span>
+          <span class="ab ab-zero"><span class="ab-k">2</span><span class="ab-lv d-only">Lv4</span><span class="ab-cd">0<small><span class="th">วิ</span><span class="en">s</span></small></span></span>
+          <span class="ab ab-off"><span class="ab-k">3</span><span class="ab-lv d-only">Lv0</span><span class="ab-cd"><span class="th">ยังไม่อัป</span><span class="en">unlearned</span></span></span>
+          <span class="ab ab-ult ab-zero"><span class="ab-k"><span class="th">อัลติ</span><span class="en">Ult</span></span><span class="ab-lv d-only">Lv1</span><span class="ab-cd">0<small><span class="th">วิ</span><span class="en">s</span></small></span></span>
+        </div>
+      </div>
+    </article>
+
+    <article class="hc" tabindex="0" data-out="idle" data-sh="on notice paused">
+      <span class="hc-id"><span class="tok">A2</span><span class="hc-lv">Lv<b class="mono">9</b></span></span>
+      <div class="hc-body">
+        <div class="hc-top"><span class="hc-name">Tonkla</span><span class="hc-age"><span class="mono">0.5</span> <span class="th">วิ</span><span class="en">s</span></span></div>
+        <div class="vit"><b class="num mono">1,620</b><span class="of mono">/ 1,800</span><span class="ulti"><span class="th">สกิล ไม่อนุญาต</span><span class="en">no abilities</span></span><span class="mp"><span class="th">มานา</span><span class="en">Mana</span> <b class="mono">55%</b></span></div>
+        <div class="bars"><span class="bar"><i style="width:90%"></i></span><span class="bar bar-mp"><i style="width:55%"></i></span></div>
+        <p class="hc-note"><span class="th">สกิล: <b>เขาไม่ได้อนุญาต</b></span><span class="en">Abilities: <b>not granted to you</b></span></p>
+      </div>
+    </article>
+
+    <article class="hc is-dead" tabindex="0" data-out="idle" data-sh="on notice paused">
+      <span class="hc-id"><span class="tok tok-dead">A3</span><span class="hc-lv">Lv<b class="mono">10</b></span></span>
+      <div class="hc-body">
+        <div class="hc-top"><span class="hc-name">Bank</span><span class="hc-age"><span class="mono">0.7</span> <span class="th">วิ</span><span class="en">s</span></span></div>
+        <div class="dead"><span class="x">✕ <span class="th">ตาย</span><span class="en">Dead</span></span><small><span class="th">เกิดใหม่ใน</span><span class="en">respawn in</span></small><b class="num mono">23</b><small><span class="th">วิ</span><span class="en">s</span></small></div>
+        <div class="bars"><span class="bar"><i></i></span><span class="bar bar-mp"><i style="width:30%"></i></span></div>
+        <p class="hc-note"><span class="th">สกิล: <b>เขาไม่ได้อนุญาต</b></span><span class="en">Abilities: <b>not granted to you</b></span></p>
+      </div>
+    </article>
+
+    <article class="hc is-off" tabindex="0" data-out="idle" data-sh="none">
+      <span class="hc-id"><span class="tok tok-off">A1</span></span>
+      <div class="hc-body"><div class="hc-top"><span class="hc-name"><span class="th">เพื่อนร่วมทีม 1</span><span class="en">Teammate 1</span></span></div><p class="hc-note"><b><span class="th">ไม่ได้แชร์ให้คุณ</span><span class="en">Not sharing with you</span></b> · <span class="th">เลือด — · สกิล —</span><span class="en">—</span></p></div>
+    </article>
+    <article class="hc is-off" tabindex="0" data-out="idle" data-sh="none">
+      <span class="hc-id"><span class="tok tok-off">A2</span></span>
+      <div class="hc-body"><div class="hc-top"><span class="hc-name"><span class="th">เพื่อนร่วมทีม 2</span><span class="en">Teammate 2</span></span></div><p class="hc-note"><b><span class="th">ไม่ได้แชร์ให้คุณ</span><span class="en">Not sharing with you</span></b> · <span class="th">เลือด — · สกิล —</span><span class="en">—</span></p></div>
+    </article>
+    <article class="hc is-off" tabindex="0" data-out="idle" data-sh="none">
+      <span class="hc-id"><span class="tok tok-off">A3</span></span>
+      <div class="hc-body"><div class="hc-top"><span class="hc-name"><span class="th">เพื่อนร่วมทีม 3</span><span class="en">Teammate 3</span></span></div><p class="hc-note"><b><span class="th">ไม่ได้แชร์ให้คุณ</span><span class="en">Not sharing with you</span></b> · <span class="th">เลือด — · สกิล —</span><span class="en">—</span></p></div>
+    </article>
+    <article class="hc is-off" tabindex="0" data-out="idle">
+      <span class="tok tok-off">A4</span>
+      <div class="hc-body">
+        <div class="hc-top"><span class="hc-name"><span class="th">เพื่อนร่วมทีม 4</span><span class="en">Teammate 4</span></span></div>
+        <p class="hc-note"><b><span class="th">ไม่ได้แชร์ให้คุณ</span><span class="en">Not sharing with you</span></b> · <span class="th">เลือด — · สกิล —</span><span class="en">—</span></p>
+      </div>
+    </article>
+
+    <div class="empty" data-in="idle menu" style="flex-grow: 5.3"><p><b><span class="th">ยังไม่มีข้อมูล — รอเข้าเกม</span><span class="en">No data yet — waiting for game</span></b><span class="th">ช่องฮีโร่ของคุณและเพื่อนร่วมทีม 4 ช่องจะแสดงเมื่อเข้าแมตช์ ไม่มีรายชื่อตัวอย่าง</span><span class="en">Your hero and four teammate slots appear when a match starts. No sample roster is shown.</span></p></div>
+  </section>
+
+  <!-- minimap: the dominant region -->
+  <section class="map" aria-label="มินิแมปขยาย">
+    <div class="map-img" role="img" aria-label="Placeholder for the captured minimap frame"><i class="syn"></i><i class="syn"></i><i class="syn"></i><i class="syn"></i></div>
+    <svg class="trails" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" data-out="novis">
+      <polyline points="72,24 68,29 65,35 62,40"/><circle cx="72" cy="24" r="0.55" opacity="0.45"/><circle cx="68" cy="29" r="0.7" opacity="0.65"/><circle cx="65" cy="35" r="0.85" opacity="0.85"/>
+    </svg>
+    <div class="marks" data-out="novis">
+      <span class="mk mk-own" style="--x:46;--y:56"><b><span class="th">คุณ</span><span class="en">You</span></b></span>
+      <span class="mk mk-ally" style="--x:30;--y:70"><b>A1</b></span>
+      <span class="mk mk-ally" style="--x:22;--y:80"><b>A2</b></span>
+      <span class="mk mk-enemy sel-target" style="--x:62;--y:40"><i></i><b>E1</b></span>
+      <span class="mk mk-enemy" style="--x:80;--y:66"><b>E4</b></span>
+      <span class="mk mk-last" style="--x:56;--y:16"><b>E2 · <span class="mono">12</span> <span class="th">วิ</span><span class="en">s</span></b></span>
+      <span class="mk mk-last" style="--x:84;--y:44"><b>E3 · <span class="mono">47</span> <span class="th">วิ</span><span class="en">s</span></b></span>
+    </div>
+    <div class="map-frame"></div>
+
+    <div class="map-banner" role="status" data-in="critical">
+      <svg viewBox="0 0 18 18" aria-hidden="true"><path d="M9 2 17 16H1Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 7v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="13.5" r="1.1" fill="currentColor"/></svg>
+      <strong><span class="th">ระวังโดนแกงค์</span><span class="en">Gank risk</span></strong>
+      <span><span class="th">ศัตรูหาย 2 คน · เห็น E1 ล่าสุด 0.4 วิ</span><span class="en">2 enemies missing · E1 last seen 0.4 s</span></span>
+    </div>
+
+    <div class="map-state" data-in="stale"><div><strong data-g="○"><span class="th">ภาพแผนที่เก่า · <span class="mono">3.2</span> วิ</span><span class="en">Map image is stale · <span class="mono">3.2</span> s</span></strong><p><span class="th">ซ่อนเครื่องหมายทั้งหมดแล้ว ภาพด้านหลังคือเฟรมสุดท้ายที่ได้รับ ไม่ใช่ตอนนี้</span><span class="en">All markers are hidden. The picture behind is the last frame received, not now.</span></p></div></div>
+    <div class="map-state" data-in="calibrating"><span class="brackets" aria-hidden="true"></span><div><strong data-g="◔"><span class="th">กำลังปรับเทียบตำแหน่งมินิแมป</span><span class="en">Calibrating the minimap position</span></strong><p><span class="th">ยังไม่แสดงเครื่องหมายจนกว่าจะยืนยันตำแหน่งได้ · ข้อมูลฮีโร่ของคุณยังทำงาน</span><span class="en">No markers until the geometry is confirmed. Your own hero data keeps working.</span></p></div></div>
+    <div class="map-state is-blank" data-in="recal"><div><strong data-g="!"><span class="th">ตำแหน่งมินิแมปเปลี่ยน — ต้องปรับเทียบใหม่</span><span class="en">Minimap moved — recalibration needed</span></strong><p><span class="th">จอ ขนาดหน้าต่าง หรือเลย์เอาต์ของเกมเปลี่ยน ภาพจากค่าปรับเทียบเดิมถูกทิ้ง จึงไม่แสดงภาพหรือเครื่องหมาย</span><span class="en">The monitor, window size or game layout changed. Frames from the old calibration are rejected, so no picture or marker is shown.</span></p><button type="button" class="d-only"><span class="th">ปรับเทียบใหม่</span><span class="en">Recalibrate</span></button></div></div>
+    <div class="map-state is-blank" data-in="lost"><div><strong data-g="×"><span class="th">จับภาพมินิแมปไม่ได้</span><span class="en">Minimap capture lost</span></strong><p><span class="th">ไม่มีข้อมูลการมองเห็นศัตรู — ไม่ได้แปลว่าปลอดภัย · ฮีโร่ของคุณและเหตุการณ์จากข้อมูลเกมยังใช้ได้</span><span class="en">No enemy visibility data. This does not mean safe. Your hero and game-data events still work.</span></p></div></div>
+    <div class="map-state" data-in="novision"><div><strong data-g="×"><span class="th">การมองเห็นแผนที่ใช้ไม่ได้ในบิลด์นี้</span><span class="en">Map vision is not available in this build</span></strong><p><span class="th">ทำงานด้วยข้อมูลจากเกมอย่างเดียว · ภาพด้านหลังเป็นแผนผังประกอบ ไม่ใช่ภาพสด</span><span class="en">Running on game data only. The picture behind is a decorative diagram, not a live image.</span></p></div></div>
+    <div class="map-state is-blank" data-in="idle menu"><svg class="idle-mark" viewBox="0 0 56 56" aria-hidden="true"><rect x="6" y="18" width="44" height="28" rx="12" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 18C12 10 20 6 28 6s16 4 16 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M18 31h6M32 31h6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+      <div data-in="idle"><strong data-g=""><span class="th">รอเข้าเกม</span><span class="en">Waiting for game</span></strong><p><span class="th">ยังไม่พบ Dota 2 ที่กำลังทำงาน · แผนที่จะแสดงเมื่อเริ่มแมตช์</span><span class="en">Dota 2 is not running. The map appears when a match starts.</span></p></div>
+      <div data-in="menu"><strong data-g=""><span class="th">อยู่ในเมนูเกม</span><span class="en">In the game menu</span></strong><p><span class="th">ได้รับข้อมูลจากเกมแล้ว ยังไม่มีแมตช์ · ไม่มีมินิแมปให้จับภาพ</span><span class="en">Game data is arriving, no match yet. There is no minimap to capture.</span></p></div></div>
+
+    <span class="map-rate" data-in="live critical sel"><span><span class="th">ภาพสด</span><span class="en">Live</span> <span class="mono">30 fps</span> · <span class="th">เฟรม</span><span class="en">frame</span> <span class="mono">33 ms</span></span></span>
+    <span class="map-rate is-lite" data-in="lite"><span>Lite <span class="mono">5 fps</span> · <span class="th">เฟรม</span><span class="en">frame</span> <span class="mono">200 ms</span></span></span>
+    <span class="map-rate is-off" data-in="stale"><span><span class="th">ไม่มีเฟรมใหม่</span><span class="en">No new frame</span> <span class="mono">3.2 <span class="th">วิ</span><span class="en">s</span></span></span></span>
+    <span class="map-rate is-off" data-in="calibrating recal lost novision"><span><span class="th">ภาพสด —</span><span class="en">Live —</span></span></span>
+    <span class="map-ph" data-out="x"><span class="th">ข้อมูลตัวอย่าง · ภาพวาดด้วย CSS ไม่ใช่ภาพจากเกม</span><span class="en">Sample data · CSS placeholder, not game imagery</span><span class="econ-live"><br><span class="th">* ทอง = ข้อเสนอ ยังไม่อยู่ในข้อกำหนด</span><span class="en">* Gold = PROPOSED scope, not in the baseline</span></span></span>
+  </section>
+
+  <!-- enemy column: five stable slots, admitted visibility and age only -->
+  <section class="enemy" aria-label="ทีมตรงข้าม">
+    <div class="head" data-in="live critical sel lite">
+      <span class="sum sum-miss"><span class="th">หาย</span><span class="en">Missing</span> <b>2</b></span>
+      <span class="sum">· <span class="th">เห็นอยู่</span><span class="en">seen</span> <b>2</b></span>
+      <span class="sum" style="font-weight:400;color:var(--text-2)">· <span class="th">ไม่เคยเห็น</span><span class="en">unseen</span> <b>1</b></span>
+    </div>
+    <div class="head" data-in="stale calibrating recal lost novision"><span class="sum sum-off"><span class="th">× ไม่มีข้อมูลการมองเห็น — ไม่ใช่ “ปลอดภัย”</span><span class="en">× No visibility data — not “safe”</span></span></div>
+    <div class="head" data-in="idle menu"><span class="sum sum-off"><span class="th">ทีมตรงข้าม —</span><span class="en">Enemy team —</span></span></div>
+
+    <article class="ec is-seen sel-target" tabindex="0" data-in="live critical sel lite"><span class="tok tok-e is-seen"><span>E1</span></span><span><span class="ec-name"><span class="th">ศัตรู 1</span><span class="en">Enemy 1</span></span><span class="ec-state"><span class="th">◆ เห็นอยู่</span><span class="en">◆ Seen now</span></span></span><span class="ec-age mono">0.4<small><span class="th">วิ</span><span class="en">s</span></small></span></article>
+    <article class="ec is-missing" tabindex="0" data-in="live critical sel lite"><span class="tok tok-e is-missing"><span>E2</span></span><span><span class="ec-name"><span class="th">ศัตรู 2</span><span class="en">Enemy 2</span></span><span class="ec-state"><b><span class="th">◇ หายจากแผนที่</span><span class="en">◇ Missing</span></b></span></span><span class="ec-age mono">12<small><span class="th">วิ</span><span class="en">s</span></small></span></article>
+    <article class="ec is-missing" tabindex="0" data-in="live critical sel lite"><span class="tok tok-e is-missing"><span>E3</span></span><span><span class="ec-name"><span class="th">ศัตรู 3</span><span class="en">Enemy 3</span></span><span class="ec-state"><b><span class="th">◇ หายจากแผนที่</span><span class="en">◇ Missing</span></b></span></span><span class="ec-age mono">47<small><span class="th">วิ</span><span class="en">s</span></small></span></article>
+    <article class="ec is-seen" tabindex="0" data-in="live critical sel lite"><span class="tok tok-e is-seen"><span>E4</span></span><span><span class="ec-name"><span class="th">ศัตรู 4</span><span class="en">Enemy 4</span></span><span class="ec-state"><span class="th">◆ เห็นอยู่</span><span class="en">◆ Seen now</span></span></span><span class="ec-age mono">1.1<small><span class="th">วิ</span><span class="en">s</span></small></span></article>
+    <article class="ec is-off" tabindex="0" data-in="live critical sel lite"><span class="tok tok-e is-off"><span>—</span></span><span><span class="ec-name"><span class="th">ศัตรู 5</span><span class="en">Enemy 5</span></span><span class="ec-state"><span class="th">ยังไม่เคยเห็น</span><span class="en">Never seen</span></span></span><span class="ec-age mono">—</span></article>
+
+    <article class="ec is-off" data-in="stale calibrating recal lost novision"><span class="tok tok-e is-off"><span>E1</span></span><span><span class="ec-name"><span class="th">ศัตรู 1</span><span class="en">Enemy 1</span></span><span class="ec-state"><span class="th">เคยเห็นก่อนภาพหยุด</span><span class="en">Seen before capture loss</span></span></span><span class="ec-age mono">—</span></article>
+    <article class="ec is-off" data-in="stale calibrating recal lost novision"><span class="tok tok-e is-off"><span>E2</span></span><span><span class="ec-name"><span class="th">ศัตรู 2</span><span class="en">Enemy 2</span></span><span class="ec-state"><span class="th">ไม่มีข้อมูล</span><span class="en">No data</span></span></span><span class="ec-age mono">—</span></article>
+    <article class="ec is-off" data-in="stale calibrating recal lost novision"><span class="tok tok-e is-off"><span>E3</span></span><span><span class="ec-name"><span class="th">ศัตรู 3</span><span class="en">Enemy 3</span></span><span class="ec-state"><span class="th">ไม่มีข้อมูล</span><span class="en">No data</span></span></span><span class="ec-age mono">—</span></article>
+    <article class="ec is-off" data-in="stale calibrating recal lost novision"><span class="tok tok-e is-off"><span>E4</span></span><span><span class="ec-name"><span class="th">ศัตรู 4</span><span class="en">Enemy 4</span></span><span class="ec-state"><span class="th">ไม่มีข้อมูล</span><span class="en">No data</span></span></span><span class="ec-age mono">—</span></article>
+    <article class="ec is-off" data-in="stale calibrating recal lost novision"><span class="tok tok-e is-off"><span>—</span></span><span><span class="ec-name"><span class="th">ศัตรู 5</span><span class="en">Enemy 5</span></span><span class="ec-state"><span class="th">ยังไม่เคยเห็น</span><span class="en">Never seen</span></span></span><span class="ec-age mono">—</span></article>
+
+    <div class="empty" data-in="idle menu" style="flex-basis: calc(468 * var(--u))"><p><b><span class="th">ยังไม่มีข้อมูล</span><span class="en">No data yet</span></b><span class="th">ช่องศัตรู 5 ช่องจะแสดงเมื่อเข้าแมตช์</span><span class="en">Five enemy slots appear when a match starts.</span></p></div>
+  </section>
+
+  <!-- event / inspector region -->
+  <section class="events" aria-label="เหตุการณ์ล่าสุด">
+    <h2><span class="th">เหตุการณ์ล่าสุด · ตรวจพบ / ได้ยิน</span><span class="en">Recent events · detected / heard</span></h2>
+    <p class="notice" role="status" data-sh="notice" data-out="idle"><span><span class="th"><b>Bank</b> อยู่ทีมเดียวกับคุณในแมตช์นี้ — เริ่มได้รับ เลือด/มานา</span><span class="en"><b>Bank</b> is on your team in this match — now receiving vitals</span></span><button type="button" aria-label="Dismiss">✕</button></p>
+    <ol data-out="idle">
+      <li class="ev ev-crit"><span class="ev-t mono">18:41</span><span class="ev-what"><span class="th">ระวังโดนแกงค์</span><span class="en">Gank risk</span></span><span class="ev-out"><i class="oc oc-heard"></i><span><span class="th">ได้ยิน</span><span class="en">Heard</span></span></span></li>
+      <li class="ev ev-notice"><span class="ev-t mono">18:41</span><span class="ev-what"><span class="th">ศัตรูหายจากแผนที่ · E3</span><span class="en">Enemy missing · E3</span></span><span class="ev-out"><i class="oc oc-none"></i><span><span class="th">ไม่เล่น — เสียงเตือนสำคัญกำลังดัง</span><span class="en">Not played — critical alert active</span></span></span></li>
+      <li class="ev ev-notice"><span class="ev-t mono">18:30</span><span class="ev-what"><span class="th">ศัตรูหายจากแผนที่ · E2</span><span class="en">Enemy missing · E2</span></span><span class="ev-out"><i class="oc oc-heard"></i><span><span class="th">ได้ยิน</span><span class="en">Heard</span></span></span></li>
+      <li class="ev"><span class="ev-t mono">17:58</span><span class="ev-what"><span class="th">ฆ่าได้</span><span class="en">Kill</span></span><span class="ev-out"><i class="oc oc-none"></i><span><span class="th">ไม่มีเสียงในแพ็กนี้</span><span class="en">No sound in this pack</span></span></span></li>
+    </ol>
+    <div class="empty" data-in="idle menu" style="border:0"><p><span class="th">ยังไม่มีเหตุการณ์</span><span class="en">No events yet</span></p></div>
+    <div class="slot"><span><span class="th">ช่องสำหรับแผงเสียง: สถานะเสียงเตือน + ปุ่มปิดเสียง (Alt+M)<br>ออกแบบแยกใน s3-audio-ui — ไม่ได้ออกแบบในไฟล์นี้</span><span class="en">Dock slot: audio status + mute (Alt+M)<br>Designed separately in s3-audio-ui — not designed here</span></span></div>
+
+    <aside class="drawer" data-in="sel" aria-label="รายละเอียด ศัตรู 1">
+      <div class="row" style="flex-wrap:nowrap"><span class="tok tok-e is-seen"><span>E1</span></span><h2><span class="th">ศัตรู 1</span><span class="en">Enemy 1</span></h2><button type="button" aria-label="ปิด (Esc)">Esc ✕</button></div>
+      <dl>
+        <dt><span class="th">สถานะ</span><span class="en">State</span></dt><dd><b><span class="th">◆ เห็นอยู่</span><span class="en">◆ Seen now</span></b> · <span class="mono">0.4</span> <span class="th">วิ</span><span class="en">s</span></dd>
+        <dt><span class="th">ที่มา</span><span class="en">Source</span></dt><dd><span class="th">ภาพมินิแมปที่จับได้</span><span class="en">Captured minimap frame</span></dd>
+        <dt><span class="th">ร่องรอย</span><span class="en">Trail</span></dt><dd><span class="th">3 จุดที่เคยเห็นจริง</span><span class="en">3 previously seen points</span></dd>
+        <dt><span class="th">เลือด/สกิล/ไอเทม</span><span class="en">HP / abilities / items</span></dt><dd><span class="th">— ไม่มีข้อมูลที่ยืนยันได้ จึงไม่แสดง</span><span class="en">— nothing admitted, so nothing shown</span></dd>
+      </dl>
+      <p class="muted" style="margin-top:auto"><span class="th">Esc ปิด · แผนที่ไม่ขยับ · การ์ดศัตรูยังมองเห็นครบ</span><span class="en">Esc closes · the map does not move · enemy cards stay visible</span></p>
+    </aside>
+  </section>
+</main>
+
+<script>
+/* Review-page controls (theme, language, state stepping) and board scaling. Runs only in doc mode. */
+(function () {
+  var H = document.documentElement; if (!H.classList.contains('doc')) return;
+  var P = new URLSearchParams(location.search), Q = { theme: P.get('theme') || 'auto', lang: P.get('lang') || 'th', state: 'live', share: 'on', mode: 'glance', econ: '0' };
+  function fit() { document.querySelectorAll('.board').forEach(function (b) { var f = b.firstElementChild, w = +b.dataset.w, h = +b.dataset.h, k = Math.min(1, b.clientWidth / w); f.style.width = w + 'px'; f.style.height = h + 'px'; f.style.transform = 'scale(' + k + ')'; b.style.height = Math.round(h * k) + 'px'; }); }
+  function apply() {
+    if (Q.theme === 'auto') H.removeAttribute('data-theme'); else H.dataset.theme = Q.theme; H.dataset.lang = Q.lang;
+    var s = Object.keys(Q).map(function (k) { return k + '=' + (k === 'theme' ? (Q.theme === 'light' ? 'light' : 'dark') : Q[k]); }).join('&');
+    document.querySelectorAll('.board > iframe').forEach(function (f) { var u = 'deck-live.html?fill=1&' + (f.dataset.q ? f.dataset.q + '&' : '') + s; if (f.dataset.u !== u) { f.dataset.u = u; f.src = u; } });
+    document.querySelectorAll('.doc-nav a').forEach(function (a) { a.href = a.getAttribute('href').split('?')[0] + '?theme=' + Q.theme + '&lang=' + Q.lang; });
+    document.querySelectorAll('[data-set]').forEach(function (b) { var kv = b.dataset.set.split('='); b.setAttribute('aria-pressed', String(Q[kv[0]] === kv[1])); });
+    fit();
+  }
+  document.addEventListener('click', function (e) { var b = e.target.closest('[data-set]'); if (!b) return; var kv = b.dataset.set.split('='); Q[kv[0]] = kv[1]; apply(); });
+  addEventListener('resize', fit); apply();
+})();
+</script>
+</body>
+</html>

@@ -2,11 +2,11 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/spec/media-manifest.schema.json",
   "title": "media-manifest.schema.json",
-  "description": "Proposed neutral contract 1.2.0: package descriptor (first ZIP entry descriptor.json). files is the payload inventory; bindings is the event registry (bindings[].event_id names a catalog ID; 1.2.0 adds the optional bindings[].tier of a counted event). No authority field: the installer binds authority. See docs/design/MEDIA-PACK-SPEC.md and docs/design/EVENT-AUDIO-SPEC.md section 7.",
+  "description": "Proposed neutral contract 1.3.0: package descriptor (first ZIP entry descriptor.json). files is the payload inventory; bindings is the event registry (bindings[].event_id names a catalog ID; 1.2.0 added the optional bindings[].tier of a counted event; 1.3.0 makes bindings[].silent_visual_path optional: a binding without it is an audio-only binding, which plays its audio and shows no banner, and then visual_tail_ms must be 0). No authority field: the installer binds authority. See docs/design/MEDIA-PACK-SPEC.md and docs/design/EVENT-AUDIO-SPEC.md section 7.",
   "type": "object",
   "properties": {
     "schema_version": {
-      "const": "1.2.0"
+      "const": "1.3.0"
     },
     "package_id": {
       "type": "string",
@@ -127,7 +127,6 @@
         "required": [
           "event_id",
           "mixed_audio_path",
-          "silent_visual_path",
           "duration_ms",
           "visual_tail_ms"
         ],

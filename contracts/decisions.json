@@ -280,6 +280,300 @@
         "DEC-GAME-DATA",
         "DEC-SOCIAL"
       ]
+    },
+    {
+      "id": "DEC-SHARE-LIST",
+      "status": "decided",
+      "milestone": "M6",
+      "blocks": "Peer sharing between friends (PEER-001, PEER-004, PEER-008, PEER-009, SOCIAL-002) and the Command Deck social screens",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-12",
+      "channel": "Owner message in the engineering chat session (2026-11-12): Fable 5.2 reviews and decides, the lead follows; see docs/design/SHARING-MODEL-REVIEW.md",
+      "decision": "Sharing between friends uses a standing, mutual, per-scope, pausable Share list limited to the same match and the same team, with no per-match confirmation. It replaces per-join consent. The choice among sharing models was delegated by the owner to an independent agent review (not a human or legal review); the review's decision is in docs/design/SHARING-MODEL-REVIEW.md section 2.",
+      "safe_interim": "Build against the review's rules; apply the proposed requirement amendments only after the open confirmations. Nothing is hosted or sent until DEC-PRIVACY-LEGAL and the private social design close.",
+      "closure_evidence": "Requirement amendments applied to the SRS (queued in the review section 4); first-time consent sheet wording after a comprehension test; two-device consent, withdrawal and enemy-team no-send tests.",
+      "proposed_on": "2026-11-12",
+      "proposal_ref": "docs/design/SHARING-MODEL-REVIEW.md",
+      "related": [
+        "DEC-PEER-ABILITIES",
+        "DEC-SOCIAL",
+        "DEC-SIGNIN-OPTIONAL",
+        "DEC-TEAM-SHARE",
+        "DEC-PRIVACY-LEGAL"
+      ]
+    },
+    {
+      "id": "DEC-SIGNIN-OPTIONAL",
+      "status": "decided",
+      "milestone": "M6",
+      "blocks": "Account boundary for the whole product (SOCIAL-001, CORE-001)",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-12",
+      "channel": "Owner message in the engineering chat session (2026-11-12): Fable 5.2 reviews and decides, the lead follows; see docs/design/SHARING-MODEL-REVIEW.md",
+      "decision": "Mandatory sign-in for the whole app is rejected. Sign-in stays optional; guests keep every local feature (telemetry, alerts, overlay, voice, minimap) and have no network sharing in the first release. Guests see only a static explainer, with no live count and no names.",
+      "safe_interim": "None needed: this keeps the baseline.",
+      "closure_evidence": "Cold offline start and guest-mode tests; no signed-out client sends a match, team or presence signal.",
+      "proposed_on": "2026-11-12",
+      "proposal_ref": "docs/design/SHARING-MODEL-REVIEW.md",
+      "related": [
+        "DEC-SHARE-LIST",
+        "DEC-GUEST-PEER"
+      ]
+    },
+    {
+      "id": "DEC-TEAM-SHARE",
+      "status": "deferred",
+      "milestone": "M6",
+      "blocks": "Team-wide sharing among signed-in strangers",
+      "owner_role": "product owner",
+      "safe_interim": "Not built. The first release sends gameplay data only between mutual Share list friends.",
+      "closure_evidence": "Gate G1 passes (DEC-TEAM-VERIFY) and the owner approves the tier wording and reciprocity.",
+      "proposed_on": "2026-11-12",
+      "proposal_ref": "docs/design/SHARING-MODEL-REVIEW.md",
+      "related": [
+        "DEC-TEAM-VERIFY",
+        "DEC-VALVE-POLICY",
+        "DEC-PRIVACY-LEGAL"
+      ]
+    },
+    {
+      "id": "DEC-TEAM-VERIFY",
+      "status": "open",
+      "milestone": "M6",
+      "blocks": "DEC-TEAM-SHARE; hardening of the Share list against a friend who forges the team",
+      "owner_role": "integration owner",
+      "safe_interim": "Team and match are self-asserted; the first-time sheet states the residual risk that a listed friend on the opposing team could forge it.",
+      "closure_evidence": "An evidence spike finding a team-membership source the receiver cannot choose and Valve permits, or a recorded finding that none exists.",
+      "proposed_on": "2026-11-12",
+      "proposal_ref": "docs/design/SHARING-MODEL-REVIEW.md",
+      "related": [
+        "DEC-TEAM-SHARE",
+        "DEC-STEAM-BINDING"
+      ]
+    },
+    {
+      "id": "DEC-VALVE-POLICY",
+      "status": "open",
+      "milestone": "M6",
+      "blocks": "Any hosted sharing of GSI-derived data",
+      "owner_role": "product owner",
+      "safe_interim": "No hosted sharing; local features are unaffected.",
+      "closure_evidence": "A written Valve position on GSI-derived data relayed between users, or a recorded decision to proceed without one.",
+      "proposed_on": "2026-11-12",
+      "proposal_ref": "docs/design/SHARING-MODEL-REVIEW.md",
+      "related": [
+        "DEC-SHARE-LIST"
+      ]
+    },
+    {
+      "id": "DEC-PRIVACY-LEGAL",
+      "status": "open",
+      "milestone": "M6",
+      "blocks": "Deployment of any hosted sharing (not the local build)",
+      "owner_role": "product owner",
+      "safe_interim": "The local build proceeds; nothing is hosted or sent to a service.",
+      "closure_evidence": "A qualified legal and privacy review of standing consent, the data the relay sees and retention, covering Thai personal-data rules; items listed in docs/design/SHARING-MODEL-REVIEW.md section 6.",
+      "proposed_on": "2026-11-12",
+      "proposal_ref": "docs/design/SHARING-MODEL-REVIEW.md",
+      "related": [
+        "DEC-SHARE-LIST",
+        "DEC-SOCIAL"
+      ]
+    },
+    {
+      "id": "DEC-GUEST-PEER",
+      "status": "open",
+      "milestone": "M6",
+      "blocks": "SOCIAL-001 wording (guest rooms) and the optional join-with-code path",
+      "owner_role": "product owner",
+      "safe_interim": "Guest codes are not in the first release; guests have no network sharing.",
+      "closure_evidence": "The owner confirms dropping or deferring guest codes and the revised SOCIAL-001 text.",
+      "proposed_on": "2026-11-12",
+      "proposal_ref": "docs/design/SHARING-MODEL-REVIEW.md",
+      "related": [
+        "DEC-SIGNIN-OPTIONAL"
+      ]
+    },
+    {
+      "id": "DEC-PEER-ECONOMY",
+      "status": "open",
+      "milestone": "M6",
+      "blocks": "Teammate gold or net worth display",
+      "owner_role": "product owner",
+      "safe_interim": "Not in the first release; the economy scope is absent from every DTO and screen.",
+      "closure_evidence": "Owner decision on whether to pursue it, the exact fields, a separate DTO and the consent text.",
+      "proposed_on": "2026-11-12",
+      "proposal_ref": "docs/design/SHARING-MODEL-REVIEW.md",
+      "related": [
+        "DEC-PEER-ABILITIES"
+      ]
+    },
+    {
+      "id": "DEC-SHARE-RECONFIRM",
+      "status": "open",
+      "milestone": "M6",
+      "blocks": "Expiry of unused Share list entries (PEER-014 proposed)",
+      "owner_role": "product owner",
+      "safe_interim": "No expiry is implemented until the period is decided; 90 days is the reviewer's proposal.",
+      "closure_evidence": "The owner chooses the period and whether friends are notified.",
+      "proposed_on": "2026-11-12",
+      "proposal_ref": "docs/design/SHARING-MODEL-REVIEW.md",
+      "related": [
+        "DEC-SHARE-LIST"
+      ]
+    },
+    {
+      "id": "DEC-STEAM-BINDING",
+      "status": "open",
+      "milestone": "M6",
+      "blocks": "Binding an account to a proven Steam identity (only if a verified-team tier is pursued)",
+      "owner_role": "product owner",
+      "safe_interim": "No Steam identity is bound to an account; it is not needed for the Share list.",
+      "closure_evidence": "Owner decision on storage and display rules; it expands privacy relative to SECURITY-PRIVACY line 25.",
+      "proposed_on": "2026-11-12",
+      "proposal_ref": "docs/design/SHARING-MODEL-REVIEW.md",
+      "related": [
+        "DEC-TEAM-VERIFY"
+      ]
+    },
+    {
+      "id": "DEC-ACCOUNT-IDENTITY",
+      "status": "decided",
+      "milestone": "M6",
+      "blocks": "Account, friend code and sign-in design (SOCIAL-001..003, PEER-007, PEER-009 and the proposed ACCOUNT-001 to ACCOUNT-010)",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-12",
+      "channel": "Owner message in the engineering chat session (2026-11-12): Fable 5.2 reviews, the lead follows; see docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+      "decision": "Kohbor has its own account system that copies the G-Maiden pattern and shares nothing with it (new broker, database, Google client, signing key and friend-code format). Sign-in is Google only through the system browser with loopback redirect and PKCE, scope openid only; no email is requested or stored and the provider subject is kept only as a keyed hash; no password and no Kohbor recovery flow; players without Google stay guests. Public identity is a random rotatable Kohbor friend code plus a display name; search is by exact code only. No Steam link or Steam login in the first release. Tokens are native-only under OS user-scoped protection. The choice was delegated by the owner to an independent agent review (not a human, security or legal review): docs/design/ACCOUNT-IDENTITY-REVIEW.md section 1.",
+      "remaining_decision": "Owner to confirm: Google as the only first-release sign-in, that non-Google users stay guests, no recovery flow, and the session and limit values.",
+      "safe_interim": "Build the client and relay interfaces against the review; nothing is hosted until DEC-ACCOUNT-ORIGIN and DEC-PRIVACY-LEGAL close. Sign-in stays optional (DEC-SIGNIN-OPTIONAL).",
+      "closure_evidence": "ACCOUNT requirements added to the SRS; product-identity labels frozen; contract tests for token audience, pair-secret pairing and delete-without-tombstone.",
+      "proposed_on": "2026-11-12",
+      "proposal_ref": "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+      "related": [
+        "DEC-SIGNIN-OPTIONAL",
+        "DEC-SHARE-LIST",
+        "DEC-SOCIAL",
+        "DEC-GID-REUSE",
+        "DEC-ACCOUNT-ORIGIN"
+      ]
+    },
+    {
+      "id": "DEC-GID-REUSE",
+      "status": "decided",
+      "milestone": "M6",
+      "blocks": "Whether Kohbor reuses G-Maiden's GID service or account backend",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-12",
+      "channel": "Owner message in the engineering chat session (2026-11-12): Fable 5.2 reviews, the lead follows; see docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+      "decision": "The G-Maiden GID service is not reused in the first release (delegated to the independent agent review; grounds in docs/design/ACCOUNT-IDENTITY-REVIEW.md section 2). Kohbor's rule on legacy trust roots stands.",
+      "safe_interim": "Not reused: no account, identifier, key, secret or endpoint is shared with or imported from G-Maiden.",
+      "closure_evidence": "Owner confirms that one account across both products is not a first-release goal; if it is, the consented, revocable link of DEC-ACCOUNT-LINK replaces reuse.",
+      "proposed_on": "2026-11-12",
+      "proposal_ref": "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+      "related": [
+        "DEC-ACCOUNT-IDENTITY",
+        "DEC-ACCOUNT-LINK"
+      ]
+    },
+    {
+      "id": "DEC-ACCOUNT-LINK",
+      "status": "deferred",
+      "milestone": "M6",
+      "blocks": "Optional consented link between a Kohbor account and a G-Maiden GID",
+      "owner_role": "product owner",
+      "safe_interim": "Not built.",
+      "closure_evidence": "Owner decides whether to build it at all and meets the six conditions in the review section 2.3.",
+      "proposed_on": "2026-11-12",
+      "proposal_ref": "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+      "related": [
+        "DEC-GID-REUSE"
+      ]
+    },
+    {
+      "id": "DEC-ACCOUNT-ORIGIN",
+      "status": "open",
+      "milestone": "M6",
+      "blocks": "Deployment of the account broker and relay (not the local build)",
+      "owner_role": "product owner",
+      "safe_interim": "No origin is inferred from the product name; nothing is hosted; local features are unaffected.",
+      "closure_evidence": "Owner decides where the broker and relay run, who operates them and any paid service (AGENTS.md forbids adding one by convenience).",
+      "proposed_on": "2026-11-12",
+      "proposal_ref": "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+      "related": [
+        "DEC-ACCOUNT-IDENTITY",
+        "DEC-SOCIAL",
+        "DEC-PRIVACY-LEGAL"
+      ]
+    },
+    {
+      "id": "DEC-GOOGLE-PROJECT",
+      "status": "open",
+      "milestone": "M6",
+      "blocks": "Kohbor-owned Google sign-in project, consent screen and verification",
+      "owner_role": "product owner",
+      "safe_interim": "Sign-in is not offered until the project exists; guests are unaffected.",
+      "closure_evidence": "A Kohbor-owned Google project with a consent screen and the verification requirements met (homepage and privacy-policy location are unverified requirements); evidence that production access is granted with the openid scope only.",
+      "proposed_on": "2026-11-12",
+      "proposal_ref": "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+      "related": [
+        "DEC-ACCOUNT-IDENTITY"
+      ]
+    },
+    {
+      "id": "DEC-SIGNIN-FALLBACK",
+      "status": "deferred",
+      "milestone": "M6",
+      "blocks": "A second sign-in provider for players without Google",
+      "owner_role": "product owner",
+      "safe_interim": "Players without Google stay guests.",
+      "closure_evidence": "Owner decides whether and which provider (Steam OpenID is the reviewer's candidate; it also becomes the primary sign-in if Google production access cannot be obtained).",
+      "proposed_on": "2026-11-12",
+      "proposal_ref": "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+      "related": [
+        "DEC-ACCOUNT-IDENTITY",
+        "DEC-STEAM-BINDING",
+        "DEC-GOOGLE-PROJECT"
+      ]
+    },
+    {
+      "id": "DEC-PACK-AUDIO-OPTIONAL-VISUAL",
+      "status": "decided",
+      "milestone": "M2",
+      "blocks": "Audio-only announcer packs (MP-03, MP-04, media-manifest 1.3.0) and the owner's existing WAV-only clip sets",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-12",
+      "channel": "Owner message in the engineering chat session (2026-11-12): chose the middle path after the lead explained audio-only bindings and the split between voice and banner packs",
+      "decision": "One package type. A binding may omit its silent video: an audio-only binding plays its audio, shows no banner and declares visual_tail_ms 0; a binding with a video is paired by event key inside the same package and the author guarantees the timing. Audio is verified exactly as before. No banner is invented when none exists. Store SKUs may be sold as voice-only and voice-plus-banner without a second format.",
+      "safe_interim": "Implement media-manifest 1.3.0 in kohbor-pack, the authoring tool and the fixtures; the host already treats a missing visual url as no banner.",
+      "closure_evidence": "Reader, store, authoring tool and fixtures accept and verify audio-only bindings; hostile and install tests updated; spec text amended.",
+      "proposed_on": "2026-11-12",
+      "proposal_ref": "docs/design/MEDIA-PACK-SPEC.md",
+      "related": [
+        "DEC-EVENT-AUDIO",
+        "DEC-PACK-BANNER-ADDON",
+        "DEC-CRITICAL-MEDIA"
+      ]
+    },
+    {
+      "id": "DEC-PACK-BANNER-ADDON",
+      "status": "deferred",
+      "milestone": "M6",
+      "blocks": "Banner add-on packages that extend a voice package, and mix-and-match of a voice and a banner from different packages",
+      "owner_role": "product owner",
+      "safe_interim": "Not built. Pairing happens inside one package only; descriptors reference visuals by binding so a later extends field can be added.",
+      "closure_evidence": "A decision on the extends rule, the timing contract between a banner and a voice it was not authored with, two active selections in the registry with their leases and fences, critical readiness for each, and the authority of each package.",
+      "proposed_on": "2026-11-12",
+      "proposal_ref": "docs/design/MEDIA-PACK-SPEC.md",
+      "related": [
+        "DEC-PACK-AUDIO-OPTIONAL-VISUAL",
+        "DEC-PACK-CRYPTO"
+      ]
     }
   ]
 }

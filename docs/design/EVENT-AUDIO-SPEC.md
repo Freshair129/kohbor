@@ -218,9 +218,9 @@ Detection is recorded as an event ([event.schema.json](../../contracts/event.sch
 | --- | --- | --- |
 | Mixed audio | RIFF/WAVE, `WAVE_FORMAT_PCM` (1), mono, 48,000 Hz, 16-bit, a single `data` chunk, duration ≤15,000 ms | Native: full decode to PCM at install; samples × 1000 / 48,000 must equal the binding `duration_ms` (floor) |
 | Identity (original) audio | Same profile | Native. When the binding names `identity_audio_path`, its sample count MUST equal the mixed audio's. It is never played in place of mixed audio |
-| Silent visual | WebM (EBML/Matroska), exactly one video track with codec `V_VP9` or `V_VP8`, **no** audio track, ≤1920×1080, ≤60 fps | Native: container/track parse with no codec decode. Renderer: decode probe (below) |
+| Silent visual (optional per binding) | WebM (EBML/Matroska), exactly one video track with codec `V_VP9` or `V_VP8`, **no** audio track, ≤1920×1080, ≤60 fps | Native: container/track parse with no codec decode. Renderer: decode probe (below) |
 
-**Video duration.** The video duration must lie between `duration_ms` and `duration_ms + visual_tail_ms`, with a tolerance of one frame.
+**Video duration.** For a binding that has a video, the video duration must lie between `duration_ms` and `duration_ms + visual_tail_ms`, with a tolerance of one frame.
 
 **Renderer decode probe.** The renderer plays video (MP-04), so video decodability is proven by the component that decodes it, under native orchestration:
 
@@ -235,7 +235,7 @@ Activation does not wait for probes of mappings that are not critical. Critical 
 
 **Package layout (format profile 1).**
 
-- **Descriptor.** The descriptor is the first ZIP entry, `descriptor.json`. It is validated by [media-manifest.schema.json](../../contracts/media-manifest.schema.json) 1.2.0.
+- **Descriptor.** The descriptor is the first ZIP entry, `descriptor.json`. It is validated by [media-manifest.schema.json](../../contracts/media-manifest.schema.json) 1.3.0 (1.3.0 makes `silent_visual_path` optional: an audio-only binding plays audio and shows no banner; DEC-PACK-AUDIO-OPTIONAL-VISUAL).
 - **Inventory.** Its `files` array is the payload inventory.
 - **Event registry.** Its `bindings` array is the event registry. The MP-03 elements are therefore sections of one bounded (≤2 MiB) document, not separate files.
 - **Field naming.** `bindings[].event_id` names a catalog ID. It is the event *type*; the per-occurrence identifier in events is `instance_id`.
