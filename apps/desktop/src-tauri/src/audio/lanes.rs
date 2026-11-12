@@ -94,6 +94,15 @@ pub enum EngineOut {
     Playback(serde_json::Value),
     Outcome(serde_json::Value),
     DeviceLost,
+    /// The engine has no usable sink (startup, device loss, rebuild after a panic):
+    /// the audio-device supervisor should open one and answer `Control::SinkReady`.
+    NeedSink,
+    /// A sink the engine no longer uses, handed over so it is dropped (and its render
+    /// thread joined) off the engine thread.
+    ReleaseSink(Box<dyn kohbor_audio::Sink + Send>),
+    /// The previous prewarm table, handed over so the large free happens off the
+    /// engine thread.
+    ReleaseTable(Arc<super::resolve::PrewarmTable>),
     Latency {
         instance_id: String,
         event_type: Option<String>,
