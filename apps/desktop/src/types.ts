@@ -1,4 +1,4 @@
-// Shapes of contracts/runtime-status.schema.json and own-snapshot.schema.json 2.0.0.
+// Shapes of runtime-status 1.1.0 and own-snapshot 2.0.0 contracts.
 
 import type { Locale } from "./copy";
 
@@ -9,8 +9,22 @@ export interface UserSettingsView {
 
 export type ErrorCode = string | null;
 
+export type GsiEventId =
+  | "multi_kill"
+  | "streak"
+  | "first_blood"
+  | "hero_kill"
+  | "hero_death"
+  | "level_milestone"
+  | "health_low"
+  | "mana_low"
+  | "match_ended"
+  | "match_started"
+  | "hero_respawn"
+  | "health_danger";
+
 export interface RuntimeStatus {
-  schema_version: "1.0.0";
+  schema_version: "1.1.0";
   status_revision: number;
   intake: {
     state: "not_configured" | "starting" | "listening" | "receiving" | "stale" | "unavailable";
@@ -30,6 +44,11 @@ export interface RuntimeStatus {
   media: { state: "not_ready" | "ready" | "unavailable"; reason: ErrorCode };
   capture: { state: "available" | "unsupported" | "unavailable"; reason: ErrorCode };
   account: { state: "unavailable" | "signed_out" | "signed_in" };
+  events: {
+    detector: "idle" | "running";
+    last_event_age_ms: number | null;
+    unavailable: { id: GsiEventId; reason: "CAPABILITY_UNAVAILABLE" }[];
+  };
 }
 
 export type FieldAvailability = "fresh" | "stale" | "unknown" | "invalid" | "unsupported";

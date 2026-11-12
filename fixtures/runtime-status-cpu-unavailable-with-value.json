@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "status_revision": 42,
   "intake": {
     "state": "receiving",
@@ -42,5 +42,15 @@
   },
   "account": {
     "state": "unavailable"
+  },
+  "events": {
+    "detector": "running",
+    "last_event_age_ms": null,
+    "unavailable": [
+      {
+        "id": "first_blood",
+        "reason": "CAPABILITY_UNAVAILABLE"
+      }
+    ]
   }
 }
