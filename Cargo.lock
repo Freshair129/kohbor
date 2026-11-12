@@ -1846,6 +1846,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "kohbor-audio"
+version = "0.0.1"
+
+[[package]]
 name = "kohbor-desktop"
 version = "0.0.1"
 dependencies = [
