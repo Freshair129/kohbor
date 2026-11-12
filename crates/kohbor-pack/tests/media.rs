@@ -69,7 +69,7 @@ macro_rules! webm_reject {
 }
 webm_reject!(
     webm_not_ebml,
-    b"not ebml".to_vec(),
+    b"not ebml".as_slice(),
     RejectReason::VisualInvalid
 );
 webm_reject!(
