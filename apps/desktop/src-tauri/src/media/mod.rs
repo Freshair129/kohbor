@@ -3,4 +3,6 @@
 
 pub mod inventory;
 pub mod prewarm;
+pub mod probe;
+pub mod protocol;
 pub mod service;
