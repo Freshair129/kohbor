@@ -23,13 +23,13 @@
     },
     {
       "path": "Cargo.lock",
-      "bytes": 120027,
-      "sha256": "ef908bd23966d93e388135d943a3334faaa315fde587034320a907645e1e7ff7"
+      "bytes": 120292,
+      "sha256": "4b61279ffeb56f55e4150a6ac109380fd4ec8732d783ba9863d7134568613866"
     },
     {
       "path": "Cargo.toml",
-      "bytes": 478,
-      "sha256": "15b8b3a5c8883d5e779f0951444132dc8a01dc693cecd681974c3da2190f1b8a"
+      "bytes": 613,
+      "sha256": "e91c0c140f56373831d6eb9e61bb52bb324484c8fa49577cc00dafb0b63ffd7e"
     },
     {
       "path": "GUIDE-TH.md",
@@ -64,7 +64,7 @@
     {
       "path": "acceptance/spec-validation.json",
       "bytes": 951,
-      "sha256": "3cbfd03c3b9efd992c750fea33b3d910075690baad10f0e8f3217fc94053d15c"
+      "sha256": "9e54350ac1d2a25cbaa5f64c8ef16de535a9a5b6f275cc1a8c7925061607facd"
     },
     {
       "path": "apps/desktop/index.html",
@@ -398,8 +398,8 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 186918,
-      "sha256": "5ab3c57caf97b0b8da021cc3113da7d06e1c252063358b79212c10cfeed4c39f"
+      "bytes": 187623,
+      "sha256": "560603d164a97a2f838eb65be8362a0bcd7a1d3cff882c4fdc11dd63a8e2f186"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -587,14 +587,159 @@
       "sha256": "8c5e509330eeb833dfd1c820e5484403318bbeb85e8d69f3d287c00c6b24fb73"
     },
     {
+      "path": "crates/kohbor-pack-author/Cargo.toml",
+      "bytes": 486,
+      "sha256": "03f2e37c710dfed946caa1ec9235a190888b95c0ca7dc14ce6bf24c7b5f0d326"
+    },
+    {
+      "path": "crates/kohbor-pack-author/src/archive.rs",
+      "bytes": 5374,
+      "sha256": "6aa95b07c1b0d5aaa1c3f7c84deba18503512d34b767d495e1e79c6e14b1bfcc"
+    },
+    {
+      "path": "crates/kohbor-pack-author/src/audio.rs",
+      "bytes": 12523,
+      "sha256": "bd8d6e4ed5402ca20f519856645f31d304027b34e9cea41907ac465cf922b36f"
+    },
+    {
+      "path": "crates/kohbor-pack-author/src/lib.rs",
+      "bytes": 37578,
+      "sha256": "75e4612039da49a72a6a97911974850e837098b7f481bac0415ad4565f46fb8f"
+    },
+    {
+      "path": "crates/kohbor-pack-author/src/main.rs",
+      "bytes": 138,
+      "sha256": "555717204d2d8e827b12684e6d16de0731a8c1fd8b532a9d0fa683440977944f"
+    },
+    {
+      "path": "crates/kohbor-pack-author/tests/author.rs",
+      "bytes": 26826,
+      "sha256": "fdf4d98d29c08289e9db89e34446a2fe64b7d8ec5930e81de2de89011ff49839"
+    },
+    {
+      "path": "crates/kohbor-pack/Cargo.toml",
+      "bytes": 588,
+      "sha256": "12a81f3a867e2ca98c2274689e44eb898d76299413dfd52302125fc1eb70749e"
+    },
+    {
+      "path": "crates/kohbor-pack/src/catalog.rs",
+      "bytes": 4338,
+      "sha256": "92363701de81cb59880e04f8b19649f72abba37cd02fd344f1dd1fdad43e1ebb"
+    },
+    {
+      "path": "crates/kohbor-pack/src/container.rs",
+      "bytes": 46403,
+      "sha256": "733426335af318e746210ceb344f3a57977bc753e404c97a6660fc430c41cee3"
+    },
+    {
+      "path": "crates/kohbor-pack/src/descriptor.rs",
+      "bytes": 21892,
+      "sha256": "505c6566df968d9853944dfe6442bb99cfb87d97c5a01da1523bf2fe5d66a02c"
+    },
+    {
+      "path": "crates/kohbor-pack/src/error.rs",
+      "bytes": 6210,
+      "sha256": "f2046a8252b35c5fb1cad709df4ecbe92b1598924d7b0a8430141c30d87eb692"
+    },
+    {
+      "path": "crates/kohbor-pack/src/fsutil.rs",
+      "bytes": 3474,
+      "sha256": "eac793e450564727168fdf10b5a65e4f6e8cb995a18755dfbce89a3cee5ef98b"
+    },
+    {
+      "path": "crates/kohbor-pack/src/lib.rs",
+      "bytes": 1297,
+      "sha256": "d95abe209d4daa89ce84ae3d217a6706d53e83b13d8109d852264b985ab3d5a4"
+    },
+    {
+      "path": "crates/kohbor-pack/src/limits.rs",
+      "bytes": 2026,
+      "sha256": "b3351201c065a95058461572fd78127481eb362bf7fcde84692f08929f3b65fb"
+    },
+    {
+      "path": "crates/kohbor-pack/src/media.rs",
+      "bytes": 22507,
+      "sha256": "3df75749cedf388b139ca39b40e9eb456ece0772e84c8cb50280bf1a693d5317"
+    },
+    {
+      "path": "crates/kohbor-pack/src/store.rs",
+      "bytes": 84780,
+      "sha256": "a7da263e65f3316ec66475430961b0da5562a39bf5c3af72cc4e390e8393b986"
+    },
+    {
+      "path": "crates/kohbor-pack/src/trust.rs",
+      "bytes": 2279,
+      "sha256": "caf756ef24acfbdada20302e9303a978e5912ce51e13c12c6901e882437c24ae"
+    },
+    {
+      "path": "crates/kohbor-pack/tests/activation.rs",
+      "bytes": 11091,
+      "sha256": "e90379728206adf98b588e5da5e70beb1ba3d88d036afd74525d14f70f37d7f6"
+    },
+    {
+      "path": "crates/kohbor-pack/tests/common/mod.rs",
+      "bytes": 14174,
+      "sha256": "f04cb490763907325dda763689c5a069674c860600f917df635f503a6370e4ca"
+    },
+    {
+      "path": "crates/kohbor-pack/tests/crash.rs",
+      "bytes": 13100,
+      "sha256": "4c5a54a7a4a61124cc7eceeba7c2d63979be442dd12726b0a033b8fc60503a98"
+    },
+    {
+      "path": "crates/kohbor-pack/tests/descriptor.rs",
+      "bytes": 11390,
+      "sha256": "c434017acb0e10d160a8ce7de05030449d0c6911a61120e07c605f9932607c11"
+    },
+    {
+      "path": "crates/kohbor-pack/tests/hostile.rs",
+      "bytes": 15336,
+      "sha256": "599bb08402235dc20582273cb9ecd4402bf6148da9adcc28391198ab38e195d1"
+    },
+    {
+      "path": "crates/kohbor-pack/tests/install.rs",
+      "bytes": 19328,
+      "sha256": "c542582df2be312e0125f00f5b22a01457fc6d43f5ca51bd763587c7577b65a1"
+    },
+    {
+      "path": "crates/kohbor-pack/tests/media.rs",
+      "bytes": 5770,
+      "sha256": "4162b34d579640bf7c765a7ec5c0769bff24b908c419d2d66bd1b3cb8af778fa"
+    },
+    {
+      "path": "crates/kohbor-pack/tests/resolve.rs",
+      "bytes": 7496,
+      "sha256": "9f8e35cc1fd111ca3a683ee800b2288114f78d3f51c36223b70f9fab7f2e1ebf"
+    },
+    {
+      "path": "crates/kohbor-pack/tests/review_fixes.rs",
+      "bytes": 13494,
+      "sha256": "159369210fea55d7251a12383ebfd5938cabd0fb0590830f68c123b41974da63"
+    },
+    {
+      "path": "crates/kohbor-pack/tests/trust.rs",
+      "bytes": 3700,
+      "sha256": "8061a238f7c7a4b3189b68211f1b516aef091508f27a1f95c58ccf07d8f8cf22"
+    },
+    {
+      "path": "crates/kohbor-pack/tests/units.rs",
+      "bytes": 5794,
+      "sha256": "58ccae1213fd0d84f6d2a400fda5a2e184adf19d936053a37bcfa41f227133d8"
+    },
+    {
+      "path": "crates/kohbor-pack/tests/windows_fs.rs",
+      "bytes": 2678,
+      "sha256": "c9abaaebca9dd16a4f021ccc8eeee4943395c0af1c616692fc44f5a537915e4e"
+    },
+    {
       "path": "docs/INDEX.md",
       "bytes": 5532,
       "sha256": "926026372978ba98b3fa5834cbb92a693a3f5e9ee803df1a523ae0ec46a58c67"
     },
     {
       "path": "docs/delivery/AGENT-WORKFLOW.md",
-      "bytes": 15669,
-      "sha256": "005b5b56ef25e7423bced6278273fcc804491178366896ce65c54837e1e8e287"
+      "bytes": 17232,
+      "sha256": "36c13860309dd9c70c04a2109a7a9dae7013d368a77670b08c1ea104dafbd7d9"
     },
     {
       "path": "docs/delivery/M0-PLAN.md",
@@ -613,8 +758,8 @@
     },
     {
       "path": "docs/delivery/SPRINT-ROADMAP.md",
-      "bytes": 15945,
-      "sha256": "4fa50cdb847fb775cf49a14a28b9262b539ae1ef13dbb06e9394dfc779087e4a"
+      "bytes": 16873,
+      "sha256": "321c28e455410b47d19be66f0a51e298b4729b692f161155a94c79834262db0e"
     },
     {
       "path": "docs/delivery/evidence/m1-live-2026-11-11-draft.png",
@@ -633,8 +778,8 @@
     },
     {
       "path": "docs/design/EVENT-AUDIO-SPEC.md",
-      "bytes": 24339,
-      "sha256": "07fa9ba68c4293be769cacb5d870ceac7e637eb74ae9a7c57071d4379923c4ab"
+      "bytes": 26880,
+      "sha256": "3f87beb7e8ce572214ac715b99b0d0dbb80e0d764ee372984591eaddbde2bf4f"
     },
     {
       "path": "docs/design/GSI-INTAKE-SPEC.md",
@@ -903,8 +1048,8 @@
     },
     {
       "path": "docs/governance/CHANGELOG.md",
-      "bytes": 19178,
-      "sha256": "5bbe1cb977f68ac9d4480821c628f8aefda40c219cb0ad53da99c08c782c504d"
+      "bytes": 20029,
+      "sha256": "431972405ea6d7c1ae4baa70100ee0bea433d501351c66a7701b6c4b5842d185"
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
@@ -963,8 +1108,8 @@
     },
     {
       "path": "docs/requirements/RTM.csv",
-      "bytes": 40613,
-      "sha256": "26281aa94587b3fc17c86644477677ddd59e2bfcbf161de88435339980d84527"
+      "bytes": 41100,
+      "sha256": "7712641df4a16ffdd7cd62da4f471384056ab541246d0b2c7897a9a8e8b8b621"
     },
     {
       "path": "docs/requirements/SRS.md",

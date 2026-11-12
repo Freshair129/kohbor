@@ -261,6 +261,20 @@ Verified `local_import` revisions **may** be selected and played. Integrity is s
 
 The Windows transport framing (named pipe, 16 KiB frames, handshake) stays with DEC-INTERFACES.
 
+### 7.1 Implementation notes (Sprint 2, proposed, not owner-approved)
+
+`crates/kohbor-pack` implements §7 for hash-verified local packages. The choices below are the lead's proposals and stay open until the owner acknowledges them; the code and tests follow them.
+
+- **Install and activation are two calls.** `Store::install` returns `installed` or `rejected` and never `active`; `Store::activate` and `Store::resume_deferred` return `active`, `deferred` (reason `ACTIVATION_DEFERRED`) or `activation_error`. A retry of an install never re-runs activation.
+- **Reasons.** `DISK_PRESSURE` is used for any recoverable write failure (install or activation); `SOURCE_INVALID` for a digest mismatch and for a reused request ID with different content (`RequestConflict`); `MEDIA_INVALID` for every other rejection. The specific local reason (`RejectReason`) is kept apart from the contract code.
+- **Idempotency window.** Request results are kept for the last 512 requests; an evicted request ID is treated as new (an already-installed identity still returns `installed` with its record). Records are never evicted.
+- **Tier lookup is exact.** `resolve(event, Some(n))` returns only the binding with tier `n`; `resolve(event, None)` only the tier-less binding. There is no fallback between tiers.
+- **Unknown or non-mappable event IDs are inert** for packages of the same major taxonomy (older, equal or newer minor); they are verified like the rest and never played. A different major is rejected (`VERSION_UNSUPPORTED`).
+- **Names.** A container or descriptor path is `UnsafePath` for a `..`/`.` segment, a segment ending in a dot or space, a `:`, a Windows device stem (CON, PRN, AUX, NUL, COM1–9, LPT1–9) or a segment over 255 bytes; duplicates are compared case-insensitively.
+- **Durability.** Extracted files, the staged directory tree, the revision directory, the temporary registry/pointer files and their parent directories are flushed before each commit rename. Crash tests inject at step boundaries only; power loss and storage-cache failure are **not** demonstrated (native evidence needed).
+- **No store lock.** The store assumes one writer. The host's single-instance guard provides it; an authoring tool must not write into a live store.
+- **Parked.** Actual frame rate, frame size and duration of the video are proven by the renderer decode probe (§6) and the critical-readiness gate, not by the native WebM parse; the parse checks declared dimensions, track list and, when present, `DefaultDuration` and segment duration.
+
 ## 8. Closure
 
 - **DEC-EVENT-AUDIO** closes when:
