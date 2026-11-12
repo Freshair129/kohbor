@@ -1474,6 +1474,11 @@ mod s0_6_tests {
         let allowed = [
             "kohbor-gsi",
             "kohbor-events",
+            // S3-5 (docs/design/S3-5-HOST-CRITICAL-PATH.md, P7): workspace path crates
+            // with no network client; kohbor-audio-native brings wasapi, an OS audio API.
+            "kohbor-audio",
+            "kohbor-audio-native",
+            "kohbor-pack",
             "tauri",
             "serde",
             "serde_json",

@@ -1,6 +1,8 @@
 //! Kohbor desktop host (M1 slice): containment, game-state intake, runtime status.
 
 pub mod atomic;
+mod audio;
+mod clock;
 pub mod containment;
 pub mod instance;
 pub mod intake;

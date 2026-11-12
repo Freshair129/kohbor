@@ -17,6 +17,7 @@ tauri-build = { version = "=2.7.4", features = [] }
 [dependencies]
 kohbor-gsi = { path = "../../../crates/kohbor-gsi" }
 kohbor-events = { path = "../../../crates/kohbor-events" }
+kohbor-audio = { path = "../../../crates/kohbor-audio" }
 tauri = { version = "=2.12.5", features = [] }
 serde = { workspace = true }
 serde_json = { workspace = true }
