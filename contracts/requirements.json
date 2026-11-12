@@ -1771,7 +1771,12 @@
           "docs/quality/TEST-PLAN.md",
           "docs/quality/UAT-PLAN.md"
         ],
-        "implementation_refs": [],
+        "implementation_refs": [
+          "crates/kohbor-pack/src/store.rs",
+          "crates/kohbor-pack/src/media.rs",
+          "crates/kohbor-pack/tests/resolve.rs",
+          "crates/kohbor-pack/tests/hostile.rs"
+        ],
         "evidence_refs": [],
         "procedure_ids": [
           "TP-04",
@@ -1908,7 +1913,12 @@
           "docs/quality/TEST-PLAN.md",
           "docs/quality/UAT-PLAN.md"
         ],
-        "implementation_refs": [],
+        "implementation_refs": [
+          "crates/kohbor-pack/src/container.rs",
+          "crates/kohbor-pack/src/descriptor.rs",
+          "crates/kohbor-pack/tests/hostile.rs",
+          "crates/kohbor-pack/tests/descriptor.rs"
+        ],
         "evidence_refs": [],
         "procedure_ids": [
           "TP-04",
@@ -1975,7 +1985,12 @@
           "docs/quality/TEST-PLAN.md",
           "docs/quality/UAT-PLAN.md"
         ],
-        "implementation_refs": [],
+        "implementation_refs": [
+          "crates/kohbor-pack/src/store.rs",
+          "crates/kohbor-pack/tests/install.rs",
+          "crates/kohbor-pack/tests/activation.rs",
+          "crates/kohbor-pack/tests/crash.rs"
+        ],
         "evidence_refs": [],
         "procedure_ids": [
           "TP-04",
@@ -2040,7 +2055,10 @@
           "docs/quality/TEST-PLAN.md",
           "docs/quality/UAT-PLAN.md"
         ],
-        "implementation_refs": [],
+        "implementation_refs": [
+          "crates/kohbor-pack/src/trust.rs",
+          "crates/kohbor-pack/tests/trust.rs"
+        ],
         "evidence_refs": [],
         "procedure_ids": [
           "TP-04",

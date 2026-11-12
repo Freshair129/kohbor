@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/kohbor-gsi", "crates/kohbor-events", "crates/kohbor-gsi-capture", "apps/desktop/src-tauri"]
+members = ["crates/kohbor-gsi", "crates/kohbor-events", "crates/kohbor-pack", "crates/kohbor-pack-author", "crates/kohbor-gsi-capture", "apps/desktop/src-tauri"]
 
 [workspace.package]
 version = "0.0.1"
@@ -17,6 +17,7 @@ hmac = "0.12"
 getrandom = "0.2"
 base64 = "0.22"
 tiny_http = "0.12"
+flate2 = { version = "1.1", default-features = false, features = ["rust_backend"] }
 
 [profile.release]
 lto = "thin"

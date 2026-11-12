@@ -1,0 +1,4 @@
+fn main() {
+    let exit_code = kohbor_pack_author::run_cli(std::env::args_os().skip(1));
+    std::process::exit(i32::from(exit_code));
+}

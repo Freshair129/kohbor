@@ -195,3 +195,8 @@ The lead updates this table as tasks pass the gate. `Commit` is filled for work 
 | S1-5 admission counters, replay tool | passed (L-R) | First run BLOCKED because the lead's lane lock named the previous task; second run DONE. Collector-session input and `--expect-kills` added in S1-5c | `e387fad`, `f1472dd` |
 | S1-5d death counter and kill_streak | passed (L-R, evidence-driven) | Replay of six owner sessions showed `alive` is not a death signal; the rule now uses `player.deaths` and the game's `kill_streak` | `2a42645` |
 | S1-6 host feed and event availability | passed (L-R, R2 read by the lead) | runtime-status 1.1.0 adds `events`; `first_blood` reported unavailable (E-1 open) | `9c8faf1` |
+| S2-1, S2-5 package and trust tests | passed (T-L-R 1) | 149 red tests (hostile container, descriptor, WAV/WebM, trust); Terra needed a resumed run for the whole matrix; the lead compiled and ran them red | `879e55d`, `bdbd22a` |
+| S2-2 install and activation tests | passed (T-L-R 1) | 57 red tests (crash at every step, recovery, idempotency, resolve); two runs | `0b0da35` |
+| S2-3 package reader and store | passed (T-L-R 2, three parts) | S2-3a pure modules, S2-3b bounded ZIP reader, S2-3c store; two test fixtures were wrong and were corrected by the lead | `bd93c1d`, `0ff55e0`, `d69b3ce` |
+| S2-4 review | passed (T-L-R 3, read-only) | One blocker (flush before commit), six should-fix, two nits; seven accepted, F2 parked (renderer probe), F8 rejected (bounded) | `bb160da` |
+| S2-6 authoring tool | passed (L-R) | `kohbor-pack-build`; never fabricates a video; no WebM exists yet for the owner's clips | `3a907ad` |

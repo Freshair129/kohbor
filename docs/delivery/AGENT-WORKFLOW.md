@@ -166,6 +166,16 @@ Limits after Sprint 0: briefs are bounded in words (instructions under 400 words
 | The lead ran one `cargo check` without the lane variable and wrote debug build output into `F:/kohbor/target/debug` (the release binary was not touched). | Set `CARGO_TARGET_DIR` in the same shell command as every cargo call, including lead checks. |
 | `codex exec resume` for fix rounds was still not tried; every fix round restated the brief. | Carry this experiment to Sprint 2. |
 
+### 7.3 Sprint 2 observations (2026-11-12)
+
+| Observation | Rule it produces |
+| --- | --- |
+| Terra again could not build in its first run: I wrote the resource block by hand instead of copying the last passing brief, which was the rule written in 7.2. | Copy the resource block verbatim from the last passing brief; never retype it. |
+| `codex exec resume --last` works for fix rounds and kept the whole context, but the resumed run lost the `--add-dir` writable root, so the worker could not build. Terra stopped PARTIAL twice on large test matrices (16 of about 57 tests, then 39 of about 150). | Pass `-c 'sandbox_workspace_write.writable_roots=["<lane>"]'` on resume; ask for test counts in the brief and compare them with the report. |
+| Terra's test fixtures had two defects (ZIP entries not in the required order; an unsafe entry placed after the ordering violation). Luna correctly reported them as scope requests instead of editing tests. | The lead fixes a test fixture only after the worker proves the cause; run the full suite after each fix. |
+| A read-only review (Terra, no cargo) found one real blocker (files not flushed before the registry commit) that the step-boundary crash tests cannot see. | Crash tests at step boundaries do not cover power loss; say so in the evidence and keep the native item open. |
+| Two workers ran in parallel (review read-only, authoring tool in a new crate) without conflict because the review did not touch the lane. | Parallel work is safe when scopes are disjoint and only one worker holds the cargo lane. |
+
 ## 8. What stays with the owner
 
 - Open decisions in `contracts/decisions.json`. An open decision blocks only the tasks that name it.

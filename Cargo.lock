@@ -1899,6 +1899,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "kohbor-pack"
+version = "0.0.1"
+dependencies = [
+ "flate2",
+ "kohbor-gsi",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
+name = "kohbor-pack-author"
+version = "0.0.1"
+dependencies = [
+ "flate2",
+ "kohbor-gsi",
+ "kohbor-pack",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "libappindicator"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

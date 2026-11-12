@@ -28,6 +28,10 @@ M1 has started. The first host slice is in `apps/desktop` (Tauri v2); details in
   - Contract: runtime-status 1.0.0 → 1.1.0, additive `events` domain (`detector`, `last_event_age_ms`, `unavailable`). `first_blood` is reported unavailable until E-1 closes.
   - Evidence-driven rule changes, proposed and not owner-approved: deaths come from `player.deaths` (the `alive` flag also goes false without a death), respawn needs a counted death, and streak tiers come from `player.kill_streak`. E-3 is confirmed to tier 4, E-4 for single and double kills, new E-5 for the death counter; E-1 stays open.
   - Ran: replay of the owner's six Mid-lane collector sessions (synthetic replay of real payloads), 154 Rust tests, clippy, fmt and the TypeScript check. Not run: native launch, live game, release build of this revision.
+- **Sprint 2, verified package cache (2026-11-12, same version):** details in [Sprint Roadmap](../delivery/SPRINT-ROADMAP.md) and [EVENT-AUDIO-SPEC §7.1](../design/EVENT-AUDIO-SPEC.md).
+  - Added: `crates/kohbor-pack` (strict descriptor and indexed-ZIP reader, bounded staging, WAV/WebM profile checks, atomic install, separate activation, crash recovery, trust assessment: `local_import` only) and `crates/kohbor-pack-build` (authoring tool; output outside the repository).
+  - Ran: 216 pack tests and 16 authoring tests (synthetic, Windows host), clippy, fmt. Not run: power-loss durability, a real package through the app, the renderer decode probe, native playback.
+  - Open: DEC-PACK-CRYPTO (signature step reports unavailable), DEC-EVENT-AUDIO (the Sprint 2 choices in §7.1 are proposals), silent WebM for the owner's clips, rights documents.
 
 ## 0.3.5 — 2026-11-11
 
