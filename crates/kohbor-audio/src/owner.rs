@@ -90,6 +90,18 @@ impl PlaybackId {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SinkError;
 
+/// Events reported by an output sink to the audio owner.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SinkEvent {
+    /// The sink finished rendering this playback generation.
+    Finished { id: PlaybackId },
+    /// The endpoint in use was removed, disabled, or its stream became invalid.
+    DeviceLost,
+    /// The default render endpoint changed. The sink keeps servicing its existing
+    /// stream; recovery or endpoint rebinding is a host responsibility.
+    DeviceChanged,
+}
+
 /// The output device behind the owner. Implementations must be bounded and
 /// non-blocking: neither method may wait for a lock held by another thread,
 /// allocate on the audio thread, or panic.
@@ -108,6 +120,11 @@ pub trait Sink {
     fn submit(&mut self, id: PlaybackId, pcm: Pcm) -> Result<(), SinkError>;
     /// Stop `id` if it is current; stale or unknown ids are a no-op.
     fn cancel(&mut self, id: PlaybackId);
+    /// Return the next sink event, if one is pending. Existing sinks need not
+    /// produce events.
+    fn poll_event(&mut self) -> Option<SinkEvent> {
+        None
+    }
 }
 
 /// One request to play a verified, prewarmed clip.
@@ -492,6 +509,21 @@ impl<S: Sink> AudioOwner<S> {
         {
             self.finish_audio(at_ms);
             self.advance_to(at_ms);
+        }
+    }
+
+    /// Drain all pending sink events at `at_ms`.
+    ///
+    /// A default-device change does not alter owner state: the sink continues
+    /// servicing the endpoint stream it already owns. Device recovery and any
+    /// endpoint rebinding are handled by the host.
+    pub fn pump_sink_events(&mut self, at_ms: u64) {
+        while let Some(event) = self.sink.poll_event() {
+            match event {
+                SinkEvent::Finished { id } => self.on_sink_finished(at_ms, id),
+                SinkEvent::DeviceLost => self.set_device_available(at_ms, false),
+                SinkEvent::DeviceChanged => {}
+            }
         }
     }
 

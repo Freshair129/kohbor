@@ -17,6 +17,6 @@ pub mod readiness;
 
 pub use owner::{
     AudioClass, AudioOwner, CancelReason, Config, Decision, Detail, Notice, Outcome, PlaybackId,
-    Request, Sink, SinkError, VisualPhase, VisualState,
+    Request, Sink, SinkError, SinkEvent, VisualPhase, VisualState,
 };
 pub use readiness::{assess, CriticalMedia, Readiness, ReadinessInput, ReadinessState};
