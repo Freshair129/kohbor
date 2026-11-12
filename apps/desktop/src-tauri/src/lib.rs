@@ -6,6 +6,7 @@ mod clock;
 pub mod containment;
 pub mod instance;
 pub mod intake;
+mod media;
 pub mod secrets;
 pub mod settings;
 pub mod status;
