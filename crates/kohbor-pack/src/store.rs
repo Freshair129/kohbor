@@ -10,16 +10,18 @@
 //! file next to it, then rename). A revision directory is published by renaming
 //! a fully verified staging directory. Nothing else is ever modified in place.
 //!
-//! Crash model: the only crash point is "between two [`Step`]s". A [`Hook`] can
-//! return [`Injection::Crash`] at a step; the call then returns
+//! Crash tests inject interruption only at declared [`Step`] boundaries. They
+//! do not simulate power loss or a failure between operations inside one step.
+//! A [`Hook`] can return [`Injection::Crash`] at a step; the call then returns
 //! `StoreError::Interrupted(step)` immediately and performs NO cleanup, like a
 //! killed process. [`Store::open`] runs recovery on the leftovers (see below).
 //! [`Injection::IoError`] models a recoverable write failure (disk full,
 //! permission) at that step.
 //!
-//! Recovery on `open`: remove every `staging/*` directory; remove any
-//! `revisions/<id>` directory that `registry.json` does not list; remove leftover
-//! temporary files; keep `registry.json` and `active.json` as they are (they are
+//! Recovery on `open`: remove every direct child of `staging/`; remove each
+//! unlisted `revisions/<id>` directory and only `registry.json.tmp` and
+//! `active.json.tmp` in the root; leave all other paths alone. Keep
+//! `registry.json` and `active.json` as they are (they are
 //! only ever replaced atomically). An unreadable or schema-invalid
 //! `registry.json`/`active.json` is `StoreError::Corrupt`, never silently reset.
 //! An `active.json` naming an install that is not in the registry or whose
@@ -34,6 +36,7 @@ use crate::catalog::Catalog;
 use crate::container;
 use crate::descriptor::{self, Descriptor};
 use crate::error::RejectReason;
+use crate::fsutil::{flush_dir, is_directory_reparse_point, is_link_or_reparse_point};
 use crate::limits::{Limits, MAX_DESCRIPTOR_BYTES, MAX_PAYLOAD_BYTES};
 use crate::trust::{self, AuthorityClass, PublisherClaim};
 use kohbor_gsi::strict_json;
@@ -391,9 +394,10 @@ impl<H: Hook> Store<H> {
     ///   installer copied; mismatch -> rejected `ContainerDigestMismatch`.
     /// - Missing source -> rejected `SourceUnavailable`. An `IoError` injection
     ///   before any commit -> rejected with reason `DISK_PRESSURE` and `reject` `None`.
-    /// - Idempotency: the same `request_id` with the same digest returns the stored
-    ///   result unchanged (no copy, no new record, no counter change). The same
-    ///   `request_id` with a different digest -> rejected `ContainerDigestMismatch`.
+    /// - Idempotency: the same `request_id` with the same digest, profile and
+    ///   project binding returns the stored result unchanged (no copy, no new
+    ///   record, no counter change). Any different request identity is rejected
+    ///   as `RequestConflict`.
     /// - Identity: a container whose `(package_id, revision)` is already installed
     ///   with the same container digest is already installed: returns `installed`
     ///   with the existing record (a new request id still gets its own stored
@@ -413,12 +417,18 @@ impl<H: Hook> Store<H> {
             .iter()
             .find(|entry| entry.request_id == request.request_id)
         {
-            if existing.expected_container_sha256 == request.expected_container_sha256 {
+            let same_identity = existing.expected_container_sha256
+                == request.expected_container_sha256
+                && existing
+                    .fingerprint
+                    .as_ref()
+                    .is_none_or(|fingerprint| fingerprint == &request_fingerprint(request));
+            if same_identity {
                 return Ok(existing.result.clone());
             }
             return Ok(rejected_result(
                 &request.request_id,
-                RejectReason::ContainerDigestMismatch,
+                RejectReason::RequestConflict,
             ));
         }
 
@@ -475,14 +485,22 @@ impl<H: Hook> Store<H> {
             }
         }
 
-        let staged =
-            match container::stage_package(&copied_path, &staging, &self.catalog, &self.limits) {
-                Ok(staged) => staged,
-                Err(reason) => {
-                    remove_path(&staging)?;
-                    return Ok(rejected_result(&request.request_id, reason));
-                }
-            };
+        let staged = match container::stage_package_for_store(
+            &copied_path,
+            &staging,
+            &self.catalog,
+            &self.limits,
+        ) {
+            Ok(staged) => staged,
+            Err(container::StageError::Rejected(reason)) => {
+                remove_path(&staging)?;
+                return Ok(rejected_result(&request.request_id, reason));
+            }
+            Err(container::StageError::Io(error)) => {
+                remove_path(&staging)?;
+                return Err(io_error("flush staged package file", error));
+            }
+        };
         if staged.container_sha256 != request.expected_container_sha256 {
             remove_path(&staging)?;
             return Ok(rejected_result(
@@ -569,8 +587,11 @@ impl<H: Hook> Store<H> {
                 return Err(io_error("publish revision", error));
             }
             published = true;
-            sync_directory(&self.root.join("revisions"));
-            sync_directory(&self.root.join("staging"));
+            flush_store_tree(&revision_path)?;
+            flush_dir(&self.root.join("revisions"))
+                .map_err(|error| io_error("flush revisions directory", error))?;
+            flush_dir(&self.root.join("staging"))
+                .map_err(|error| io_error("flush staging directory", error))?;
         } else {
             remove_path(&staging)?;
         }
@@ -593,8 +614,13 @@ impl<H: Hook> Store<H> {
         candidate.request_results.push(StoredRequestResult {
             request_id: request.request_id.clone(),
             expected_container_sha256: request.expected_container_sha256.clone(),
+            fingerprint: Some(request_fingerprint(request)),
             result: result.clone(),
         });
+        if candidate.request_results.len() > MAX_REQUEST_RESULTS {
+            let evict_count = candidate.request_results.len() - MAX_REQUEST_RESULTS;
+            candidate.request_results.drain(..evict_count);
+        }
         let registry_bytes = match serialize_registry(&candidate) {
             Ok(bytes) => bytes,
             Err(error) => {
@@ -633,12 +659,19 @@ impl<H: Hook> Store<H> {
                 return Ok(disk_pressure_install(&request.request_id));
             }
         }
-        if let Err(error) = rename_temp_file(&self.root, "registry.json") {
-            remove_file_if_exists(&self.root.join("registry.json.tmp"))?;
-            if published {
-                remove_path(&revision_path)?;
+        match rename_temp_file(&self.root, "registry.json") {
+            Ok(()) => {}
+            Err(AtomicRenameError::BeforeRename(error)) => {
+                remove_file_if_exists(&self.root.join("registry.json.tmp"))?;
+                if published {
+                    remove_path(&revision_path)?;
+                }
+                return Err(error);
             }
-            return Err(error);
+            Err(AtomicRenameError::AfterRename(error)) => {
+                self.registry = candidate;
+                return Err(error);
+            }
         }
         self.registry = candidate;
         Ok(result)
@@ -767,12 +800,18 @@ impl<H: Hook> Store<H> {
                 ));
             }
         }
-        if let Err(error) = rename_temp_file(&self.root, "active.json") {
-            remove_file_if_exists(&self.root.join("active.json.tmp"))?;
-            return Err(error);
+        match rename_temp_file(&self.root, "active.json") {
+            Ok(()) => {}
+            Err(AtomicRenameError::BeforeRename(error)) => {
+                remove_file_if_exists(&self.root.join("active.json.tmp"))?;
+                return Err(error);
+            }
+            Err(AtomicRenameError::AfterRename(error)) => {
+                self.active = Some(pointer);
+                return Err(error);
+            }
         }
         self.active = Some(pointer);
-        sync_directory(&self.root);
         self.remove_pending_for(install_id)?;
         Ok(activation_result(
             request_id,
@@ -864,6 +903,20 @@ impl<H: Hook> Store<H> {
             .root
             .join("revisions")
             .join(&installed.record.install_id);
+        let revisions_dir = self.root.join("revisions");
+        for directory in [
+            self.root.as_path(),
+            revisions_dir.as_path(),
+            revision_dir.as_path(),
+        ] {
+            let metadata = fs::symlink_metadata(directory)
+                .map_err(|_| ResolveError::Invalid(RejectReason::SourceUnavailable))?;
+            if is_link_or_reparse_point(&metadata) || !metadata.is_dir() {
+                return Err(ResolveError::Invalid(RejectReason::UnsafePath));
+            }
+        }
+        ensure_store_tree_no_links(&revision_dir)
+            .map_err(|_| ResolveError::Invalid(RejectReason::UnsafePath))?;
         let descriptor_path = revision_dir.join("descriptor.json");
         let descriptor_bytes = read_resolve_file(&descriptor_path, self.limits.descriptor_bytes)
             .map_err(ResolveError::Invalid)?;
@@ -981,17 +1034,26 @@ impl<H: Hook> Store<H> {
     fn commit_registry_without_hook(&mut self, candidate: Registry) -> Result<(), StoreError> {
         let bytes = serialize_registry(&candidate)?;
         write_temp_file(&self.root, "registry.json", &bytes)?;
-        if let Err(error) = rename_temp_file(&self.root, "registry.json") {
-            remove_file_if_exists(&self.root.join("registry.json.tmp"))?;
-            return Err(error);
+        match rename_temp_file(&self.root, "registry.json") {
+            Ok(()) => {}
+            Err(AtomicRenameError::BeforeRename(error)) => {
+                remove_file_if_exists(&self.root.join("registry.json.tmp"))?;
+                return Err(error);
+            }
+            Err(AtomicRenameError::AfterRename(error)) => {
+                self.registry = candidate;
+                return Err(error);
+            }
         }
         self.registry = candidate;
-        sync_directory(&self.root);
         Ok(())
     }
 }
 
 const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
+
+/// The retained request-result window is a lead proposal, not a product limit.
+pub const MAX_REQUEST_RESULTS: usize = 512;
 
 #[derive(Debug, Clone, Default)]
 struct Registry {
@@ -1011,7 +1073,15 @@ struct StoredRecord {
 struct StoredRequestResult {
     request_id: String,
     expected_container_sha256: String,
+    fingerprint: Option<RequestFingerprint>,
     result: InstallResult,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RequestFingerprint {
+    expected_container_sha256: String,
+    profile_id: String,
+    project_binding: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1048,6 +1118,14 @@ fn valid_install_request(request: &InstallRequest) -> bool {
             .project_binding
             .as_ref()
             .is_none_or(|value| valid_token(value, 1, 64))
+}
+
+fn request_fingerprint(request: &InstallRequest) -> RequestFingerprint {
+    RequestFingerprint {
+        expected_container_sha256: request.expected_container_sha256.clone(),
+        profile_id: request.profile_id.clone(),
+        project_binding: request.project_binding.clone(),
+    }
 }
 
 fn valid_sha256(value: &str) -> bool {
@@ -1187,6 +1265,13 @@ fn registry_value(registry: &Registry) -> Value {
                 "expected_container_sha256".to_owned(),
                 Value::String(entry.expected_container_sha256.clone()),
             );
+            object.insert(
+                "fingerprint".to_owned(),
+                entry
+                    .fingerprint
+                    .as_ref()
+                    .map_or(Value::Null, request_fingerprint_value),
+            );
             object.insert("result".to_owned(), entry.result.to_json());
             Value::Object(object)
         })
@@ -1219,6 +1304,26 @@ fn registry_value(registry: &Registry) -> Value {
     object.insert("records".to_owned(), Value::Array(records));
     object.insert("request_results".to_owned(), Value::Array(request_results));
     object.insert("pending_activations".to_owned(), Value::Array(pending));
+    Value::Object(object)
+}
+
+fn request_fingerprint_value(fingerprint: &RequestFingerprint) -> Value {
+    let mut object = Map::new();
+    object.insert(
+        "expected_container_sha256".to_owned(),
+        Value::String(fingerprint.expected_container_sha256.clone()),
+    );
+    object.insert(
+        "profile_id".to_owned(),
+        Value::String(fingerprint.profile_id.clone()),
+    );
+    object.insert(
+        "project_binding".to_owned(),
+        fingerprint
+            .project_binding
+            .as_ref()
+            .map_or(Value::Null, |value| Value::String(value.clone())),
+    );
     Value::Object(object)
 }
 
@@ -1307,10 +1412,25 @@ fn parse_registry(bytes: &[u8]) -> Result<Registry, StoreError> {
     let mut request_results = Vec::new();
     let mut request_ids = HashSet::new();
     for value in required_array(object, "request_results")? {
-        let item = strict_object(
-            value,
-            &["request_id", "expected_container_sha256", "result"],
-        )?;
+        let has_fingerprint = value
+            .as_object()
+            .is_some_and(|object| object.contains_key("fingerprint"));
+        let item = if has_fingerprint {
+            strict_object(
+                value,
+                &[
+                    "request_id",
+                    "expected_container_sha256",
+                    "fingerprint",
+                    "result",
+                ],
+            )?
+        } else {
+            strict_object(
+                value,
+                &["request_id", "expected_container_sha256", "result"],
+            )?
+        };
         let request_id = required_string(item, "request_id")?.to_owned();
         let digest = required_string(item, "expected_container_sha256")?.to_owned();
         if !valid_token(&request_id, 8, 64)
@@ -1321,6 +1441,10 @@ fn parse_registry(bytes: &[u8]) -> Result<Registry, StoreError> {
                 "registry request result identity".to_owned(),
             ));
         }
+        let fingerprint = match item.get("fingerprint") {
+            None | Some(Value::Null) => None,
+            Some(value) => Some(parse_request_fingerprint(value, &digest)?),
+        };
         let result = parse_result(required_value(item, "result")?)?;
         if result.request_id != request_id
             || result.status != Status::Installed
@@ -1347,8 +1471,13 @@ fn parse_registry(bytes: &[u8]) -> Result<Registry, StoreError> {
         request_results.push(StoredRequestResult {
             request_id,
             expected_container_sha256: digest,
+            fingerprint,
             result,
         });
+    }
+    if request_results.len() > MAX_REQUEST_RESULTS {
+        let evict_count = request_results.len() - MAX_REQUEST_RESULTS;
+        request_results.drain(..evict_count);
     }
 
     let mut pending_activations = Vec::new();
@@ -1379,6 +1508,40 @@ fn parse_registry(bytes: &[u8]) -> Result<Registry, StoreError> {
         records,
         request_results,
         pending_activations,
+    })
+}
+
+fn parse_request_fingerprint(
+    value: &Value,
+    expected_digest: &str,
+) -> Result<RequestFingerprint, StoreError> {
+    let object = strict_object(
+        value,
+        &["expected_container_sha256", "profile_id", "project_binding"],
+    )?;
+    let expected_container_sha256 = required_string(object, "expected_container_sha256")?;
+    let profile_id = required_string(object, "profile_id")?;
+    let project_binding = match required_value(object, "project_binding")? {
+        Value::Null => None,
+        Value::String(value) if valid_token(value, 1, 64) => Some(value.clone()),
+        _ => {
+            return Err(StoreError::Corrupt(
+                "registry request fingerprint".to_owned(),
+            ))
+        }
+    };
+    if expected_container_sha256 != expected_digest
+        || !valid_sha256(expected_container_sha256)
+        || !valid_token(profile_id, 1, 64)
+    {
+        return Err(StoreError::Corrupt(
+            "registry request fingerprint".to_owned(),
+        ));
+    }
+    Ok(RequestFingerprint {
+        expected_container_sha256: expected_container_sha256.to_owned(),
+        profile_id: profile_id.to_owned(),
+        project_binding,
     })
 }
 
@@ -1574,22 +1737,31 @@ fn required_array<'a>(
 }
 
 fn prepare_root(root: &Path) -> Result<PathBuf, StoreError> {
-    if let Ok(metadata) = fs::symlink_metadata(root) {
-        if metadata.file_type().is_symlink() || !metadata.is_dir() {
-            return Err(StoreError::Corrupt(
-                "store root is not a real directory".to_owned(),
-            ));
+    match fs::symlink_metadata(root) {
+        Ok(metadata) => {
+            if is_link_or_reparse_point(&metadata) || !metadata.is_dir() {
+                return Err(StoreError::Corrupt(
+                    "store root is not a real directory".to_owned(),
+                ));
+            }
         }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(io_error("inspect store root", error)),
     }
     fs::create_dir_all(root).map_err(|error| io_error("create store root", error))?;
-    let metadata =
-        fs::symlink_metadata(root).map_err(|error| io_error("inspect store root", error))?;
-    if metadata.file_type().is_symlink() || !metadata.is_dir() {
-        return Err(StoreError::Corrupt(
-            "store root is not a real directory".to_owned(),
-        ));
-    }
+    ensure_store_directory(root, "store root")?;
     Ok(root.to_path_buf())
+}
+
+fn ensure_store_directory(path: &Path, label: &str) -> Result<(), StoreError> {
+    let metadata =
+        fs::symlink_metadata(path).map_err(|error| io_error(&format!("inspect {label}"), error))?;
+    if is_link_or_reparse_point(&metadata) || !metadata.is_dir() {
+        return Err(StoreError::Corrupt(format!(
+            "{label} is not a real directory"
+        )));
+    }
+    Ok(())
 }
 
 fn corrupt_store_error(error: StoreError) -> StoreError {
@@ -1603,7 +1775,7 @@ fn corrupt_store_error(error: StoreError) -> StoreError {
 fn ensure_child_dir(root: &Path, name: &str) -> Result<(), StoreError> {
     let path = root.join(name);
     match fs::symlink_metadata(&path) {
-        Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() => Err(
+        Ok(metadata) if is_link_or_reparse_point(&metadata) || !metadata.is_dir() => Err(
             StoreError::Corrupt(format!("{name} is not a real directory")),
         ),
         Ok(_) => Ok(()),
@@ -1625,7 +1797,7 @@ fn path_exists_nofollow(path: &Path) -> Result<bool, StoreError> {
 fn read_store_file(path: &Path, maximum: u64) -> Result<Vec<u8>, StoreError> {
     let metadata =
         fs::symlink_metadata(path).map_err(|error| io_error("read store file", error))?;
-    if metadata.file_type().is_symlink() || !metadata.is_file() || metadata.len() > maximum {
+    if is_link_or_reparse_point(&metadata) || !metadata.is_file() || metadata.len() > maximum {
         return Err(StoreError::Corrupt("store file type or size".to_owned()));
     }
     let limit = maximum
@@ -1650,8 +1822,14 @@ fn read_store_file(path: &Path, maximum: u64) -> Result<Vec<u8>, StoreError> {
 }
 
 fn write_temp_file(root: &Path, name: &str, bytes: &[u8]) -> Result<(), StoreError> {
+    ensure_store_directory(root, "store root")?;
     let destination = root.join(name);
     let temp = root.join(format!("{name}.tmp"));
+    if destination.parent() != Some(root) || temp.parent() != Some(root) {
+        return Err(StoreError::Corrupt(
+            "atomic destination escaped root".to_owned(),
+        ));
+    }
     let mut file = OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -1663,48 +1841,102 @@ fn write_temp_file(root: &Path, name: &str, bytes: &[u8]) -> Result<(), StoreErr
         return Err(io_error("write atomic temporary file", error));
     }
     drop(file);
-    if destination.parent() != Some(root) {
-        remove_file_if_exists(&temp)?;
-        return Err(StoreError::Corrupt(
-            "atomic destination escaped root".to_owned(),
-        ));
-    }
     Ok(())
 }
 
-fn rename_temp_file(root: &Path, name: &str) -> Result<(), StoreError> {
+#[derive(Debug)]
+enum AtomicRenameError {
+    BeforeRename(StoreError),
+    AfterRename(StoreError),
+}
+
+fn rename_temp_file(root: &Path, name: &str) -> Result<(), AtomicRenameError> {
     let temp = root.join(format!("{name}.tmp"));
     let destination = root.join(name);
-    fs::rename(&temp, &destination).map_err(|error| io_error("rename atomic file", error))?;
-    sync_directory(root);
-    Ok(())
+    ensure_store_directory(root, "store root").map_err(AtomicRenameError::BeforeRename)?;
+    for (path, is_temp) in [(&temp, true), (&destination, false)] {
+        match fs::symlink_metadata(path) {
+            Ok(metadata) if is_link_or_reparse_point(&metadata) => {
+                return Err(AtomicRenameError::BeforeRename(StoreError::Corrupt(
+                    "atomic file is a link or reparse point".to_owned(),
+                )))
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound && is_temp => {
+                return Err(AtomicRenameError::BeforeRename(io_error(
+                    "inspect atomic temporary file",
+                    error,
+                )))
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => {
+                return Err(AtomicRenameError::BeforeRename(io_error(
+                    "inspect atomic file",
+                    error,
+                )))
+            }
+            Ok(metadata) if !metadata.is_file() => {
+                return Err(AtomicRenameError::BeforeRename(StoreError::Corrupt(
+                    "atomic path is not a regular file".to_owned(),
+                )))
+            }
+            Ok(_) => {}
+        }
+    }
+    fs::rename(&temp, &destination)
+        .map_err(|error| AtomicRenameError::BeforeRename(io_error("rename atomic file", error)))?;
+    flush_dir(root).map_err(|error| {
+        AtomicRenameError::AfterRename(io_error("flush atomic parent directory", error))
+    })
 }
 
-fn sync_directory(path: &Path) {
-    if let Ok(directory) = File::open(path) {
-        let _ = directory.sync_all();
-    }
+fn remove_link_entry(
+    path: &Path,
+    metadata: &fs::Metadata,
+    context: &str,
+) -> Result<(), StoreError> {
+    let result = if is_directory_reparse_point(metadata) {
+        fs::remove_dir(path)
+    } else {
+        fs::remove_file(path)
+    };
+    result.map_err(|error| io_error(context, error))
 }
 
 fn remove_file_if_exists(path: &Path) -> Result<(), StoreError> {
     match fs::symlink_metadata(path) {
-        Ok(metadata) => {
-            if metadata.is_dir() && !metadata.file_type().is_symlink() {
-                Err(StoreError::Corrupt(
-                    "expected file while cleaning temporary".to_owned(),
-                ))
-            } else {
-                fs::remove_file(path).map_err(|error| io_error("remove temporary file", error))
-            }
+        Ok(metadata) if is_link_or_reparse_point(&metadata) => {
+            remove_link_entry(path, &metadata, "remove temporary link")
         }
+        Ok(metadata) if metadata.is_dir() => Err(StoreError::Corrupt(
+            "expected file while cleaning temporary".to_owned(),
+        )),
+        Ok(_) => fs::remove_file(path).map_err(|error| io_error("remove temporary file", error)),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
         Err(error) => Err(io_error("inspect temporary file", error)),
     }
 }
 
+fn remove_recovery_temp_file(path: &Path) -> Result<(), StoreError> {
+    match fs::symlink_metadata(path) {
+        Ok(metadata) if is_link_or_reparse_point(&metadata) => {
+            remove_link_entry(path, &metadata, "remove recovery temporary link")
+        }
+        Ok(metadata) if metadata.is_file() => {
+            fs::remove_file(path).map_err(|error| io_error("remove recovery temporary file", error))
+        }
+        // Unexpected directories or special files in the root are protected.
+        Ok(_) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(io_error("inspect recovery temporary file", error)),
+    }
+}
+
 fn remove_path(path: &Path) -> Result<(), StoreError> {
     match fs::symlink_metadata(path) {
-        Ok(metadata) if metadata.is_dir() && !metadata.file_type().is_symlink() => {
+        Ok(metadata) if is_link_or_reparse_point(&metadata) => {
+            remove_link_entry(path, &metadata, "remove link entry")
+        }
+        Ok(metadata) if metadata.is_dir() => {
             for entry in
                 fs::read_dir(path).map_err(|error| io_error("read cleanup directory", error))?
             {
@@ -1773,6 +2005,56 @@ fn io_error(context: &str, error: std::io::Error) -> StoreError {
     StoreError::Io(format!("{context}: {error}"))
 }
 
+fn ensure_store_tree_no_links(path: &Path) -> Result<(), StoreError> {
+    let metadata =
+        fs::symlink_metadata(path).map_err(|error| io_error("inspect store tree", error))?;
+    if is_link_or_reparse_point(&metadata) {
+        return Err(StoreError::Corrupt(
+            "store tree contains a link or reparse point".to_owned(),
+        ));
+    }
+    if metadata.is_dir() {
+        for entry in fs::read_dir(path).map_err(|error| io_error("read store tree", error))? {
+            let entry = entry.map_err(|error| io_error("read store tree entry", error))?;
+            ensure_store_tree_no_links(&entry.path())?;
+        }
+    } else if !metadata.is_file() {
+        return Err(StoreError::Corrupt(
+            "store tree contains a non-file entry".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn flush_store_tree(path: &Path) -> Result<(), StoreError> {
+    let metadata =
+        fs::symlink_metadata(path).map_err(|error| io_error("inspect staged tree", error))?;
+    if is_link_or_reparse_point(&metadata) {
+        return Err(StoreError::Corrupt(
+            "staged tree contains a link or reparse point".to_owned(),
+        ));
+    }
+    if metadata.is_dir() {
+        for entry in fs::read_dir(path).map_err(|error| io_error("read staged tree", error))? {
+            let entry = entry.map_err(|error| io_error("read staged tree entry", error))?;
+            flush_store_tree(&entry.path())?;
+        }
+        flush_dir(path).map_err(|error| io_error("flush staged directory", error))?;
+    } else if metadata.is_file() {
+        OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(path)
+            .and_then(|file| file.sync_all())
+            .map_err(|error| io_error("flush staged file", error))?;
+    } else {
+        return Err(StoreError::Corrupt(
+            "staged tree contains a non-file entry".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
 fn validate_registry_revisions(
     root: &Path,
     registry: &Registry,
@@ -1788,7 +2070,7 @@ fn validate_registry_revisions(
                 io_error("inspect listed revision", error)
             }
         })?;
-        if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        if is_link_or_reparse_point(&metadata) || !metadata.is_dir() {
             return Err(StoreError::Corrupt(
                 "listed revision is not a real directory".to_owned(),
             ));
@@ -1822,7 +2104,7 @@ fn validate_active(
     let revision_path = root.join("revisions").join(&active.install_id);
     let metadata = fs::symlink_metadata(revision_path)
         .map_err(|error| StoreError::Corrupt(format!("active revision missing: {error}")))?;
-    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+    if is_link_or_reparse_point(&metadata) || !metadata.is_dir() {
         return Err(StoreError::Corrupt(
             "active revision is not a real directory".to_owned(),
         ));
@@ -1838,6 +2120,7 @@ fn verify_revision(
     verify_payloads: bool,
 ) -> Result<Descriptor, StoreError> {
     let revision_dir = root.join("revisions").join(&installed.record.install_id);
+    ensure_store_tree_no_links(&revision_dir)?;
     let descriptor_path = revision_dir.join("descriptor.json");
     let descriptor_bytes = read_store_file(&descriptor_path, limits.descriptor_bytes)?;
     if sha256(&descriptor_bytes) != installed.descriptor_sha256 {
@@ -1892,42 +2175,16 @@ fn recover_leftovers(root: &Path, registry: &Registry) -> Result<(), StoreError>
         let listed = name
             .to_str()
             .is_some_and(|name| installed_ids.contains(name));
-        if !listed && (metadata.is_dir() || metadata.file_type().is_symlink()) {
+        let is_unlisted_revision = name
+            .to_str()
+            .is_some_and(|name| valid_install_id(name).is_some() && !listed);
+        if is_unlisted_revision && (metadata.is_dir() || is_link_or_reparse_point(&metadata)) {
             remove_path(&path)?;
         }
     }
 
-    remove_temporary_files(root, root, &installed_ids)?;
-    Ok(())
-}
-
-fn remove_temporary_files(
-    root: &Path,
-    directory: &Path,
-    installed_ids: &HashSet<&str>,
-) -> Result<(), StoreError> {
-    let revisions = root.join("revisions");
-    for entry in fs::read_dir(directory).map_err(|error| io_error("scan store recovery", error))? {
-        let entry = entry.map_err(|error| io_error("read recovery entry", error))?;
-        let path = entry.path();
-        let metadata = fs::symlink_metadata(&path)
-            .map_err(|error| io_error("inspect recovery entry", error))?;
-        let name = entry.file_name();
-        if name.to_string_lossy().ends_with(".tmp") {
-            remove_path(&path)?;
-            continue;
-        }
-        if metadata.is_dir() && !metadata.file_type().is_symlink() {
-            if path.parent() == Some(revisions.as_path())
-                && name
-                    .to_str()
-                    .is_some_and(|name| installed_ids.contains(name))
-            {
-                continue;
-            }
-            remove_temporary_files(root, &path, installed_ids)?;
-        }
-    }
+    remove_recovery_temp_file(&root.join("registry.json.tmp"))?;
+    remove_recovery_temp_file(&root.join("active.json.tmp"))?;
     Ok(())
 }
 
@@ -1939,24 +2196,41 @@ fn revision_payload_path(
     if valid_install_id(install_id).is_none() || !valid_payload_path(relative) {
         return Err(RejectReason::UnsafePath);
     }
+    let revisions = root.join("revisions");
+    for directory in [root, revisions.as_path()] {
+        let metadata =
+            fs::symlink_metadata(directory).map_err(|_| RejectReason::SourceUnavailable)?;
+        if is_link_or_reparse_point(&metadata) || !metadata.is_dir() {
+            return Err(RejectReason::UnsafePath);
+        }
+    }
     let revision = root.join("revisions").join(install_id);
     let revision_metadata =
         fs::symlink_metadata(&revision).map_err(|_| RejectReason::SourceUnavailable)?;
-    if revision_metadata.file_type().is_symlink() || !revision_metadata.is_dir() {
+    if is_link_or_reparse_point(&revision_metadata) || !revision_metadata.is_dir() {
         return Err(RejectReason::UnsafePath);
     }
     let mut path = revision.clone();
-    for component in Path::new(relative).components() {
+    let components = Path::new(relative).components().collect::<Vec<_>>();
+    for (index, component) in components.iter().enumerate() {
         let Component::Normal(segment) = component else {
             return Err(RejectReason::UnsafePath);
         };
         path.push(segment);
-        if path.exists() {
-            let metadata =
-                fs::symlink_metadata(&path).map_err(|_| RejectReason::SourceUnavailable)?;
-            if metadata.file_type().is_symlink() {
-                return Err(RejectReason::UnsafePath);
+        match fs::symlink_metadata(&path) {
+            Ok(metadata) => {
+                if is_link_or_reparse_point(&metadata) {
+                    return Err(RejectReason::UnsafePath);
+                }
+                if index + 1 < components.len() && !metadata.is_dir() {
+                    return Err(RejectReason::SourceUnavailable);
+                }
             }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(_) => return Err(RejectReason::SourceUnavailable),
+        }
+        if !path.starts_with(&revision) {
+            return Err(RejectReason::UnsafePath);
         }
     }
     if !path.starts_with(&revision) {
@@ -1967,7 +2241,7 @@ fn revision_payload_path(
 
 fn read_resolve_file(path: &Path, maximum: u64) -> Result<Vec<u8>, RejectReason> {
     let metadata = fs::symlink_metadata(path).map_err(|_| RejectReason::SourceUnavailable)?;
-    if metadata.file_type().is_symlink() || !metadata.is_file() {
+    if is_link_or_reparse_point(&metadata) || !metadata.is_file() {
         return Err(RejectReason::SourceUnavailable);
     }
     if metadata.len() > maximum {

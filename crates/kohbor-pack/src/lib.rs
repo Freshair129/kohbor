@@ -22,6 +22,7 @@ pub mod catalog;
 pub mod container;
 pub mod descriptor;
 pub mod error;
+mod fsutil;
 pub mod limits;
 pub mod media;
 pub mod store;

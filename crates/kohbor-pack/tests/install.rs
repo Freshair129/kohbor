@@ -89,7 +89,8 @@ fn retry_and_revision_identity_are_idempotent() {
     let reused = store
         .install(&request(changed, &different, "request_1"))
         .unwrap();
-    assert_eq!(reused.reject, Some(RejectReason::ContainerDigestMismatch));
+    // S2-4 F6: a reused request id with different content is a request conflict.
+    assert_eq!(reused.reject, Some(RejectReason::RequestConflict));
     assert_eq!(reused.status, Status::Rejected, "reused request status");
     assert!(reused.record.is_none(), "reused request record");
     assert_eq!(store.records().len(), 1);

@@ -280,11 +280,15 @@ fn recovery_removes_orphans_and_temporary_files() {
         !root.join("revisions/ins_9999999999").exists(),
         "unlisted revision"
     );
+    // S2-4 F3: only the store's own transaction temporaries are removed. A foreign
+    // `*.tmp` file elsewhere under the root is not ours and must survive open.
     assert!(
-        !tree(&root)
-            .iter()
-            .any(|p| p.to_string_lossy().ends_with(".tmp")),
-        "temporary files"
+        !root.join("active.json.tmp").exists(),
+        "owned temporary file"
+    );
+    assert!(
+        root.join("nested/leftover.tmp").exists(),
+        "foreign temporary file is preserved"
     );
 }
 

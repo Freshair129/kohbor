@@ -4,6 +4,7 @@
 
 use crate::catalog::{Catalog, TaxonomyVersion};
 use crate::error::RejectReason;
+use crate::fsutil::{has_unsafe_windows_segment, windows_path_key};
 use crate::limits::{
     Limits, MAX_AUDIO_MS, MAX_BINDINGS, MAX_DESCRIPTOR_BYTES, MAX_PAYLOAD_BYTES, MAX_PAYLOAD_COUNT,
     MAX_VISUAL_TAIL_MS,
@@ -106,6 +107,7 @@ pub fn parse_descriptor(
         kohbor_gsi::strict_json::StrictJsonError::Syntax
         | kohbor_gsi::strict_json::StrictJsonError::TooDeep => RejectReason::DescriptorSyntax,
     })?;
+    reject_unsafe_windows_paths(&value)?;
     validate_schema(&value, limits)?;
 
     let root = value.as_object().ok_or_else(|| schema_error(""))?;
@@ -220,7 +222,7 @@ pub fn parse_descriptor(
         if files
             .iter()
             .take(index)
-            .any(|previous| previous.path.eq_ignore_ascii_case(&file.path))
+            .any(|previous| windows_path_key(&previous.path) == windows_path_key(&file.path))
         {
             return Err(RejectReason::DuplicateEntry);
         }
@@ -464,7 +466,7 @@ fn reject_unknown_keys(object: &Map<String, Value>, allowed: &[&str]) -> Result<
         .keys()
         .find(|key| !allowed.iter().any(|allowed| key == allowed))
     {
-        return Err(RejectReason::UnknownField(key.clone()));
+        return Err(RejectReason::unknown_field(key));
     }
     Ok(())
 }
@@ -504,7 +506,40 @@ fn optional_nullable_string(
 }
 
 fn schema_error(pointer: &str) -> RejectReason {
-    RejectReason::DescriptorSchema(pointer.to_owned())
+    RejectReason::descriptor_schema(pointer)
+}
+
+fn reject_unsafe_windows_paths(value: &Value) -> Result<(), RejectReason> {
+    let Some(root) = value.as_object() else {
+        return Ok(());
+    };
+    if let Some(files) = root.get("files").and_then(Value::as_array) {
+        for file in files {
+            if let Some(path) = file.get("path").and_then(Value::as_str) {
+                // Colons already fail the descriptor's frozen path pattern and
+                // retain its DescriptorSchema diagnostic for compatibility.
+                if !path.contains(':') && has_unsafe_windows_segment(path) {
+                    return Err(RejectReason::UnsafePath);
+                }
+            }
+        }
+    }
+    if let Some(bindings) = root.get("bindings").and_then(Value::as_array) {
+        for binding in bindings {
+            for key in [
+                "mixed_audio_path",
+                "silent_visual_path",
+                "identity_audio_path",
+            ] {
+                if let Some(path) = binding.get(key).and_then(Value::as_str) {
+                    if !path.contains(':') && has_unsafe_windows_segment(path) {
+                        return Err(RejectReason::UnsafePath);
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 fn valid_path_pattern(path: &str) -> bool {
@@ -520,6 +555,7 @@ fn valid_path_pattern(path: &str) -> bool {
 
 fn safe_manifest_path(path: &str) -> bool {
     path.is_ascii()
+        && !has_unsafe_windows_segment(path)
         && path.split('/').all(|segment| {
             !segment.is_empty() && segment != "." && segment != ".." && !segment.starts_with('.')
         })

@@ -20,6 +20,7 @@ use sha2::{Digest, Sha256};
 use crate::catalog::Catalog;
 use crate::descriptor::{self, ParsedDescriptor};
 use crate::error::RejectReason;
+use crate::fsutil::{has_unsafe_windows_segment, is_link_or_reparse_point, windows_path_key};
 use crate::limits::Limits;
 use crate::media::{self, WavInfo, WebmInfo};
 
@@ -458,6 +459,9 @@ fn validate_archive_path(raw_name: &[u8]) -> Result<String, RejectReason> {
         return Err(RejectReason::UnsafePath);
     }
     let name = std::str::from_utf8(raw_name).map_err(|_| RejectReason::UnsafePath)?;
+    if has_unsafe_windows_segment(name) {
+        return Err(RejectReason::UnsafePath);
+    }
     let mut bytes = raw_name.iter();
     let first = bytes.next().ok_or(RejectReason::UnsafePath)?;
     if !(first.is_ascii_alphanumeric() || *first == b'_')
@@ -488,6 +492,10 @@ fn validate_central_entries(entries: &mut [ZipEntryRecord]) -> Result<(), Reject
         }
     }
 
+    for entry in entries.iter_mut() {
+        entry.name = validate_archive_path(&entry.raw_name)?;
+    }
+
     for index in 0..entries.len() {
         let Some(entry) = entries.get(index) else {
             return Err(RejectReason::NotAZip);
@@ -495,7 +503,7 @@ fn validate_central_entries(entries: &mut [ZipEntryRecord]) -> Result<(), Reject
         if entries
             .iter()
             .take(index)
-            .any(|previous| previous.raw_name.eq_ignore_ascii_case(&entry.raw_name))
+            .any(|previous| windows_path_key(&previous.name) == windows_path_key(&entry.name))
         {
             return Err(RejectReason::DuplicateEntry);
         }
@@ -511,10 +519,6 @@ fn validate_central_entries(entries: &mut [ZipEntryRecord]) -> Result<(), Reject
         if previous.raw_name > next.raw_name {
             return Err(RejectReason::HeaderMismatch);
         }
-    }
-
-    for entry in entries.iter_mut() {
-        entry.name = validate_archive_path(&entry.raw_name)?;
     }
     Ok(())
 }
@@ -639,22 +643,6 @@ fn validate_entry_profile(entries: &[ZipEntryRecord]) -> Result<(), RejectReason
         }
     }
     Ok(())
-}
-
-fn is_link_or_reparse_point(metadata: &fs::Metadata) -> bool {
-    if metadata.file_type().is_symlink() {
-        return true;
-    }
-    #[cfg(windows)]
-    {
-        use std::os::windows::fs::MetadataExt;
-        const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x0400;
-        metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0
-    }
-    #[cfg(not(windows))]
-    {
-        false
-    }
 }
 
 fn inspect_existing_parent(path: &Path) -> Result<bool, RejectReason> {
@@ -832,7 +820,7 @@ fn extract_entry(
     is_descriptor: bool,
     limits: Limits,
     aggregate: &mut u64,
-) -> Result<ExpandedResult, RejectReason> {
+) -> Result<ExpandedResult, StageError> {
     let entry_limit = if is_descriptor {
         limits.descriptor_bytes
     } else {
@@ -840,47 +828,63 @@ fn extract_entry(
     };
     let declared_size = u64::from(entry.expanded_size);
     if declared_size > entry_limit {
-        return Err(RejectReason::EntryTooLarge);
+        return Err(RejectReason::EntryTooLarge.into());
     }
     let mut destination = create_staging_file(staging_dir, &entry.name)?;
-    source
-        .seek(SeekFrom::Start(entry.data_offset))
-        .map_err(|_| RejectReason::SourceUnavailable)?;
-    let compressed_size = u64::from(entry.compressed_size);
-    let result = if entry.method == 0 {
-        let mut bounded = BoundedReader::new(source, compressed_size);
-        copy_expanded(
-            &mut bounded,
-            &mut destination,
-            entry_limit,
-            declared_size,
-            aggregate,
-            limits.expanded_bytes,
-            is_descriptor,
-        )?
-    } else if entry.method == 8 {
-        let bounded = BoundedReader::new(source, compressed_size);
-        let mut decoder = DeflateDecoder::new(bounded);
-        let result = copy_expanded(
-            &mut decoder,
-            &mut destination,
-            entry_limit,
-            declared_size,
-            aggregate,
-            limits.expanded_bytes,
-            is_descriptor,
-        )?;
-        if decoder.total_in() != compressed_size {
-            return Err(RejectReason::NotAZip);
+    let extracted = (|| -> Result<ExpandedResult, RejectReason> {
+        source
+            .seek(SeekFrom::Start(entry.data_offset))
+            .map_err(|_| RejectReason::SourceUnavailable)?;
+        let compressed_size = u64::from(entry.compressed_size);
+        let result = if entry.method == 0 {
+            let mut bounded = BoundedReader::new(source, compressed_size);
+            copy_expanded(
+                &mut bounded,
+                &mut destination,
+                entry_limit,
+                declared_size,
+                aggregate,
+                limits.expanded_bytes,
+                is_descriptor,
+            )?
+        } else if entry.method == 8 {
+            let bounded = BoundedReader::new(source, compressed_size);
+            let mut decoder = DeflateDecoder::new(bounded);
+            let result = copy_expanded(
+                &mut decoder,
+                &mut destination,
+                entry_limit,
+                declared_size,
+                aggregate,
+                limits.expanded_bytes,
+                is_descriptor,
+            )?;
+            if decoder.total_in() != compressed_size {
+                return Err(RejectReason::NotAZip);
+            }
+            result
+        } else {
+            return Err(RejectReason::UnsupportedCompression);
+        };
+        if result.crc32 != entry.crc32 {
+            return Err(RejectReason::HeaderMismatch);
         }
-        result
-    } else {
-        return Err(RejectReason::UnsupportedCompression);
-    };
-    if result.crc32 != entry.crc32 {
-        return Err(RejectReason::HeaderMismatch);
+        Ok(result)
+    })();
+    destination.sync_all().map_err(StageError::Io)?;
+    extracted.map_err(StageError::Rejected)
+}
+
+#[derive(Debug)]
+pub(crate) enum StageError {
+    Rejected(RejectReason),
+    Io(io::Error),
+}
+
+impl From<RejectReason> for StageError {
+    fn from(reason: RejectReason) -> Self {
+        StageError::Rejected(reason)
     }
-    Ok(result)
 }
 
 fn read_staged_media(
@@ -889,8 +893,25 @@ fn read_staged_media(
     limit: u64,
 ) -> Result<Vec<u8>, RejectReason> {
     let path = staged_path(staging_dir, relative);
-    let metadata = fs::symlink_metadata(&path).map_err(|_| RejectReason::SourceUnavailable)?;
-    if is_link_or_reparse_point(&metadata) || !metadata.is_file() {
+    let root_metadata =
+        fs::symlink_metadata(staging_dir).map_err(|_| RejectReason::SourceUnavailable)?;
+    if is_link_or_reparse_point(&root_metadata) || !root_metadata.is_dir() {
+        return Err(RejectReason::SourceUnavailable);
+    }
+    let components = relative.split('/').collect::<Vec<_>>();
+    let mut current = staging_dir.to_path_buf();
+    let mut metadata = root_metadata;
+    for (index, segment) in components.iter().enumerate() {
+        current.push(segment);
+        metadata = fs::symlink_metadata(&current).map_err(|_| RejectReason::SourceUnavailable)?;
+        if is_link_or_reparse_point(&metadata) {
+            return Err(RejectReason::SourceUnavailable);
+        }
+        if index + 1 < components.len() && !metadata.is_dir() {
+            return Err(RejectReason::SourceUnavailable);
+        }
+    }
+    if !metadata.is_file() {
         return Err(RejectReason::SourceUnavailable);
     }
     if metadata.len() > limit {
@@ -1063,6 +1084,27 @@ pub fn stage_package(
     catalog: &Catalog,
     limits: &Limits,
 ) -> Result<StagedPackage, RejectReason> {
+    stage_package_inner(source, staging_dir, catalog, limits).map_err(|error| match error {
+        StageError::Rejected(reason) => reason,
+        StageError::Io(_) => RejectReason::SourceUnavailable,
+    })
+}
+
+pub(crate) fn stage_package_for_store(
+    source: &Path,
+    staging_dir: &Path,
+    catalog: &Catalog,
+    limits: &Limits,
+) -> Result<StagedPackage, StageError> {
+    stage_package_inner(source, staging_dir, catalog, limits)
+}
+
+fn stage_package_inner(
+    source: &Path,
+    staging_dir: &Path,
+    catalog: &Catalog,
+    limits: &Limits,
+) -> Result<StagedPackage, StageError> {
     let limits = limits.clamped();
     let mut source_file = File::open(source).map_err(|_| RejectReason::SourceUnavailable)?;
     let metadata = source_file
@@ -1070,19 +1112,19 @@ pub fn stage_package(
         .map_err(|_| RejectReason::SourceUnavailable)?;
     let file_length = metadata.len();
     if file_length > limits.container_bytes {
-        return Err(RejectReason::ContainerTooLarge);
+        return Err(RejectReason::ContainerTooLarge.into());
     }
 
     let root_metadata =
         fs::symlink_metadata(staging_dir).map_err(|_| RejectReason::SourceUnavailable)?;
     if is_link_or_reparse_point(&root_metadata) || !root_metadata.is_dir() {
-        return Err(RejectReason::SourceUnavailable);
+        return Err(RejectReason::SourceUnavailable.into());
     }
 
     let container_sha256 = hash_open_file(&mut source_file, file_length)?;
     let end_record = find_end_record(&mut source_file, file_length)?;
     if end_record.comment_length != 0 {
-        return Err(RejectReason::ArchiveComment);
+        return Err(RejectReason::ArchiveComment.into());
     }
     let maximum_entries = limits
         .payload_count
@@ -1101,7 +1143,7 @@ pub fn stage_package(
             limits.payload_bytes
         };
         if u64::from(entry.expanded_size) > entry_limit {
-            return Err(RejectReason::EntryTooLarge);
+            return Err(RejectReason::EntryTooLarge.into());
         }
     }
 
@@ -1130,7 +1172,7 @@ pub fn stage_package(
             .iter()
             .any(|entry| entry.name == inventory.path)
         {
-            return Err(RejectReason::DanglingReference);
+            return Err(RejectReason::DanglingReference.into());
         }
     }
     for entry in payload_entries {
@@ -1140,7 +1182,7 @@ pub fn stage_package(
             .iter()
             .any(|inventory| inventory.path == entry.name)
         {
-            return Err(RejectReason::UndeclaredPayload);
+            return Err(RejectReason::UndeclaredPayload.into());
         }
     }
 
@@ -1164,10 +1206,10 @@ pub fn stage_package(
             .find(|inventory| inventory.path == entry.name)
             .ok_or(RejectReason::UndeclaredPayload)?;
         if expanded.size_bytes != inventory.size_bytes {
-            return Err(RejectReason::SizeMismatch);
+            return Err(RejectReason::SizeMismatch.into());
         }
         if expanded.sha256 != inventory.sha256 {
-            return Err(RejectReason::DigestMismatch);
+            return Err(RejectReason::DigestMismatch.into());
         }
         staged_files.push(StagedFile {
             path: entry.name.clone(),
