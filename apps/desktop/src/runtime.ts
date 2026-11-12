@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPlaybackState, parsePlaybackEvent, reducePlayback, tickPlayback, type PlaybackState } from "./playback";
+import type { MediaProbePendingResponse, MediaProbeReport } from "./probe";
 import type { OwnSnapshot, RuntimeStatus } from "./types";
 
 const POLL_MS = 1000;
@@ -15,6 +16,29 @@ export function subscribePlayback(onEvent: (event: unknown) => void): Promise<()
     return Promise.resolve(() => {});
   }
   return listen<unknown>("playback://event", (event) => onEvent(event.payload));
+}
+
+export function reportMediaProbe(report: MediaProbeReport): Promise<{ accepted: boolean } | null> {
+  if (typeof window === "undefined" || !("__TAURI_INTERNALS__" in window)) return Promise.resolve(null);
+  return invoke<{ accepted: boolean }>("media_probe_report", {
+    install_id: report.install_id,
+    revision: report.revision,
+    path_sha256: report.path_sha256,
+    ok: report.ok,
+    duration_ms: report.duration_ms,
+  });
+}
+
+export function mediaProbePending(): Promise<MediaProbePendingResponse> {
+  if (typeof window === "undefined" || !("__TAURI_INTERNALS__" in window)) return Promise.resolve([]);
+  return invoke<MediaProbePendingResponse>("media_probe_pending");
+}
+
+export function subscribeMediaProbeRequest(onPayload: (payload: unknown) => void): Promise<() => void> {
+  if (typeof window === "undefined" || !("__TAURI_INTERNALS__" in window)) {
+    return Promise.resolve(() => {});
+  }
+  return listen<unknown>("media://probe-request", (event) => onPayload(event.payload));
 }
 
 /** Lifecycle rendering only; native remains the sole owner of playback selection. */

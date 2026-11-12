@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ownSnapshotFixtureRaw from "../../../../fixtures/own-fresh-at-boundary.json?raw";
 import runtimeStatusFixtureRaw from "../../../../fixtures/runtime-status-live-valid.json?raw";
 import settingsFixtureRaw from "../../../../fixtures/user-settings-valid.json?raw";
@@ -14,7 +14,9 @@ type MockTauriInternals = {
 };
 
 const EVENT_NAME = "playback://event";
+const PROBE_EVENT_NAME = "media://probe-request";
 const MOCK_CHANNEL = "kohbor-mock-playback";
+const MOCK_PROBE_REPORT_EVENT = "kohbor-mock-media-probe-report";
 const statusFixture = JSON.parse(runtimeStatusFixtureRaw) as RuntimeStatus;
 const snapshotFixture = JSON.parse(ownSnapshotFixtureRaw) as OwnSnapshot;
 const settingsFixture = JSON.parse(settingsFixtureRaw) as { revision: number; locale: Locale };
@@ -40,17 +42,21 @@ function currentStatus(): RuntimeStatus {
   return status;
 }
 
-function deliver(payload: unknown) {
+function deliver(event: string, payload: unknown) {
   eventId += 1;
   for (const [id, binding] of listeners) {
-    if (binding.event !== EVENT_NAME) continue;
-    callbacks.get(binding.callbackId)?.({ id, event: binding.event, payload });
+    if (binding.event !== event) continue;
+    callbacks.get(binding.callbackId)?.({ id, event, payload });
   }
 }
 
 function dispatchScenarioEvent(event: unknown) {
-  deliver(event);
+  deliver(EVENT_NAME, event);
   channel?.postMessage(event);
+}
+
+function emitProbeRequest(payload: unknown) {
+  deliver(PROBE_EVENT_NAME, payload);
 }
 
 function nextPlaybackId(): string {
@@ -114,6 +120,24 @@ function runScenario(name: string) {
   } else if (name === "stuck") {
     // No verified WebM fixture exists; exercise the missing-ended lifecycle without inventing a visual.
     dispatchScenarioEvent(started(firstId, at, 800, 0));
+  } else if (name === "health-danger") {
+    dispatchScenarioEvent({
+      ...started(firstId, at, 800, 0, "critical"),
+      event_type: "health_danger",
+      visual_url: null,
+    });
+  } else if (name === "probe-failure") {
+    const path_sha256 = "a".repeat(64);
+    emitProbeRequest({
+      install_id: "ins_0000000001",
+      revision: 1,
+      items: [{
+        path_sha256,
+        url: `kohbor-media://localhost/v1/ins_0000000001/${path_sha256}`,
+        duration_ms: 800,
+        visual_tail_ms: 0,
+      }],
+    });
   } else {
     dispatchScenarioEvent({ ...started(firstId, at, 800, 0), playback_id: "bad" });
   }
@@ -121,12 +145,14 @@ function runScenario(name: string) {
 
 export function installMockHarness() {
   const target = window as unknown as Window & {
+    __KOHBOR_MOCK_MEDIA_UNAVAILABLE__?: boolean;
     __TAURI_INTERNALS__?: MockTauriInternals;
     __TAURI_EVENT_PLUGIN_INTERNALS__?: {
       unregisterListener: (event: string, listenerId: number) => void;
     };
   };
 
+  target.__KOHBOR_MOCK_MEDIA_UNAVAILABLE__ = true;
   target.__TAURI_INTERNALS__ = {
     transformCallback(callback) {
       callbackId += 1;
@@ -151,6 +177,11 @@ export function installMockHarness() {
         statusRevision += 1;
         return { muted };
       }
+      if (command === "media_probe_report") {
+        window.dispatchEvent(new CustomEvent(MOCK_PROBE_REPORT_EVENT, { detail: args }));
+        return { accepted: true };
+      }
+      if (command === "media_probe_pending") return [];
       if (command === "plugin:event|listen") {
         if (typeof args.event !== "string" || typeof args.handler !== "number") {
           throw new Error("invalid mock event listener");
@@ -175,14 +206,17 @@ export function installMockHarness() {
     },
   };
 
-  channel?.addEventListener("message", (event: MessageEvent<unknown>) => deliver(event.data));
+  channel?.addEventListener("message", (event: MessageEvent<unknown>) => deliver(EVENT_NAME, event.data));
 }
 
-const SCENARIO_NAMES = ["normal", "tail", "preempt", "session", "mute", "stuck", "malformed"] as const;
+const SCENARIO_NAMES = [
+  "normal", "tail", "preempt", "session", "mute", "stuck", "malformed", "health-danger", "probe-failure",
+] as const;
 type ScenarioName = (typeof SCENARIO_NAMES)[number];
 
 export function MockScenarioSwitcher() {
   const [lastScenario, setLastScenario] = useState<ScenarioName | null>(null);
+  const [lastProbeReport, setLastProbeReport] = useState<string | null>(null);
   const th = copy("th").mockScenarios;
   const en = copy("en").mockScenarios;
   const labels: Record<ScenarioName, [string, string]> = {
@@ -193,7 +227,17 @@ export function MockScenarioSwitcher() {
     mute: [th.cancelMute, en.cancelMute],
     stuck: [th.stuckWithoutEnd, en.stuckWithoutEnd],
     malformed: [th.malformed, en.malformed],
+    "health-danger": ["อันตรายสุขภาพ ไม่มีภาพ", "health_danger, no visual"],
+    "probe-failure": ["ทดสอบ probe ล้มเหลว", "Probe unavailable media"],
   };
+
+  useEffect(() => {
+    const onReport = (event: Event) => {
+      setLastProbeReport(JSON.stringify((event as CustomEvent<unknown>).detail));
+    };
+    window.addEventListener(MOCK_PROBE_REPORT_EVENT, onReport);
+    return () => window.removeEventListener(MOCK_PROBE_REPORT_EVENT, onReport);
+  }, []);
 
   return (
     <aside className="mock-scenario-panel" aria-label={`${th.title} / ${en.title}`}>
@@ -219,6 +263,9 @@ export function MockScenarioSwitcher() {
           </button>
         ))}
       </div>
+      <output aria-label="Last media probe report" data-testid="media-probe-report">
+        {lastProbeReport ?? "No media probe report yet"}
+      </output>
     </aside>
   );
 }

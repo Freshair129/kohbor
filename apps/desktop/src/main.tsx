@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { EventBanner } from "./EventBanner";
+import { MediaProbeContext } from "./MediaProbeContext";
 import { usePlayback } from "./runtime";
 import "./styles.css";
 
@@ -29,7 +30,10 @@ async function start() {
       {overlayView ? (
         <OverlayView />
       ) : (
-        <App devScenarioSwitcher={MockScenarioSwitcher ? <MockScenarioSwitcher /> : undefined} />
+        <>
+          <MediaProbeContext />
+          <App devScenarioSwitcher={MockScenarioSwitcher ? <MockScenarioSwitcher /> : undefined} />
+        </>
       )}
     </StrictMode>,
   );

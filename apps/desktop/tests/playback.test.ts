@@ -80,6 +80,12 @@ if (!playback) {
     );
   });
 
+  test("accepts catalog event ids including health_danger and other events", () => {
+    for (const event_type of ["health_danger", "risk_alert", "risk_revision", "multi_kill"]) {
+      assert.equal(parsePlaybackEvent(started({ event_type }))?.kind, "started");
+    }
+  });
+
   test("a new started event cuts and replaces the current visual", () => {
     const first = reducePlayback(createPlaybackState(), started());
     const secondEvent = started({
@@ -191,7 +197,9 @@ if (!playback) {
     ["negative tail", { ...started(), visual_tail_ms: -1 }],
     ["negative tier", { ...started(), tier: -1 }],
     ["fractional tier", { ...started(), tier: 2.5 }],
-    ["unknown event type", { ...started(), event_type: "streak" }],
+    ["uppercase event type", { ...started(), event_type: "Health_danger" }],
+    ["event type longer than 80 characters", { ...started(), event_type: "a".repeat(81) }],
+    ["empty event type", { ...started(), event_type: "" }],
     ["invalid visual scheme", { ...started(), visual_url: "https://example.test/clip.webm" }],
     ["missing required duration", { ...started(), audio_duration_ms: undefined }],
     ["unknown class", { ...started(), class: "urgent" }],
@@ -212,8 +220,11 @@ if (!playback) {
     let state = createPlaybackState();
     state = reducePlayback(state, { ...started(), visual_url: "file:///secret.webm" });
     state = reducePlayback(state, { ...started(), playback_id: "x" });
+    for (const event_type of ["Health_danger", "a".repeat(81), ""]) {
+      state = reducePlayback(state, started({ event_type }));
+    }
 
-    assert.equal(state.malformedEventCount, 2);
+    assert.equal(state.malformedEventCount, 5);
     assert.equal(state.visual, null);
   });
 

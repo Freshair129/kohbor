@@ -12,7 +12,7 @@ export interface PlaybackStartedEvent {
   kind: "started";
   playback_id: string;
   class: PlaybackClass;
-  event_type: "multi_kill" | null;
+  event_type: string | null;
   tier: number | null;
   visual_url: string | null;
   audio_duration_ms: number;
@@ -40,6 +40,7 @@ export interface PlaybackState {
 }
 
 const PLAYBACK_ID = /^[A-Za-z0-9_-]{8,64}$/;
+const EVENT_TYPE = /^[a-z][a-z0-9_]{0,79}$/;
 const MEDIA_SCHEME = "kohbor-media://";
 const PLAYBACK_CLASSES: readonly PlaybackClass[] = ["critical", "correction", "notice", "ordinary", "voice"];
 const END_REASONS: readonly PlaybackEndReason[] = [
@@ -82,7 +83,11 @@ export function parsePlaybackEvent(value: unknown): PlaybackEvent | null {
 
   if (event.kind !== "started") return null;
   if (typeof event.class !== "string" || !PLAYBACK_CLASSES.includes(event.class as PlaybackClass)) return null;
-  if (event.event_type !== null && event.event_type !== "multi_kill") return null;
+  if (event.event_type !== null && (
+    typeof event.event_type !== "string"
+    || !EVENT_TYPE.test(event.event_type)
+    || EVENT_TYPE.exec(event.event_type)?.[0] !== event.event_type
+  )) return null;
   if (event.tier !== null && !nonNegativeInteger(event.tier)) return null;
   if (event.visual_url !== null && (typeof event.visual_url !== "string" || !event.visual_url.startsWith(MEDIA_SCHEME))) {
     return null;
