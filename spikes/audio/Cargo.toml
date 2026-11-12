@@ -1,0 +1,14 @@
+[workspace]
+members = [
+    "cpal-output",
+    "device-list",
+    "rodio-output",
+    "wasapi-output",
+    "windows-output",
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2024"
+publish = false
+

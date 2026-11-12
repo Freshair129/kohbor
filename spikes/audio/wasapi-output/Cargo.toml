@@ -1,0 +1,9 @@
+[package]
+name = "audio-wasapi-spike"
+version = "0.1.0"
+edition.workspace = true
+publish = false
+
+[dependencies]
+wasapi = "=0.26.0"
+
