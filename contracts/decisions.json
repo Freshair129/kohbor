@@ -574,6 +574,42 @@
         "DEC-PACK-AUDIO-OPTIONAL-VISUAL",
         "DEC-PACK-CRYPTO"
       ]
+    },
+    {
+      "id": "DEC-BANNER-LAB-STYLE",
+      "status": "decided",
+      "milestone": "M2",
+      "blocks": "The look, motion style and production pipeline of announcer and system event banners",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-13",
+      "channel": "Owner message in the engineering chat session (2026-11-13) after previewing both banner lab results: adopt the Fable 5.2 result",
+      "decision": "Adopt the Fable 5.2 banner lab result as the baseline for event banners: pre-rendered 3D-animated silent WebM (VP9 with alpha, 1280x480, 30 fps) whose Thai text is the sentence the announcer says, stamped in step with the voice, plus an original synthesised sound-effect bed mixed into the package WAV; the pipeline is a WebGL2 renderer in headless Edge piped to the pinned ffmpeg, rebuilt by one command. The ASTRA (gpt-6-astra) result is not adopted. This decision does not approve DEC-VISUALS tokens, does not authorise any clip as critical media (DEC-CRITICAL-MEDIA), and does not settle rights to the VRZO voice.",
+      "safe_interim": "Lab outputs stay outside the repository (they contain the VRZO voice, whose rights are an unverified owner claim); no banner file is shipped or committed.",
+      "closure_evidence": "Owner auditions the mixed audio; owner confirms the Thai sentence of every banner (first_blood, match_start and hero_kill use unverified automatic transcripts and the lab changed two tokens); the banners are played in the real overlay (WebView2 VP9 alpha) with a measured decode cost; tier scaling for multi_kill 4 and 5 and streak 3 to 10; the font licence (Leelawadee UI Bold, a Windows system font) is checked; the renderer source is reviewed before it enters the repository.",
+      "proposed_on": "2026-11-13",
+      "proposal_ref": "F:/kohbor-banner-lab/fable/README.md (outside the repository)",
+      "related": [
+        "DEC-PACK-AUDIO-OPTIONAL-VISUAL",
+        "DEC-CRITICAL-MEDIA",
+        "DEC-VISUALS",
+        "DEC-EVENT-AUDIO"
+      ]
+    },
+    {
+      "id": "DEC-EVENT-RUNE-SPAWN",
+      "status": "open",
+      "milestone": "M3",
+      "blocks": "A rune_spawn event (a banner and sound exist as design assets only)",
+      "owner_role": "product owner",
+      "safe_interim": "Not in the event catalog; no detector; the banner asset is not bound to anything.",
+      "closure_evidence": "Owner decision to add the event (a new catalog entry and taxonomy minor version), the rule that produces it (for example the game clock from the intake), its rank, cooldown and availability, and a detector with tests.",
+      "proposed_on": "2026-11-13",
+      "proposal_ref": "F:/kohbor-banner-lab/fable/README.md (outside the repository)",
+      "related": [
+        "DEC-BANNER-LAB-STYLE",
+        "DEC-EVENT-AUDIO"
+      ]
     }
   ]
 }

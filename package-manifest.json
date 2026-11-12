@@ -64,7 +64,7 @@
     {
       "path": "acceptance/spec-validation.json",
       "bytes": 951,
-      "sha256": "72c6ec6c04145de3fd210c296970d8d36a7697e0887396f2fb60bee941ad9c82"
+      "sha256": "7c457ead26b94cc12a9c626bb5d7bace41605ae0c57c8447610d4a5725bcd0fe"
     },
     {
       "path": "apps/desktop/index.html",
@@ -293,13 +293,23 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/media/mod.rs",
-      "bytes": 151,
-      "sha256": "ce9a8239d542ba5e25558c8365a2c9d18b464bb5941fb814c02cd8e5fd2da65b"
+      "bytes": 184,
+      "sha256": "ddecc425911cd8bc7c7c83fda779dcbf821ee71a9815e139142468f8e449ee6e"
     },
     {
       "path": "apps/desktop/src-tauri/src/media/prewarm.rs",
       "bytes": 33091,
       "sha256": "2c457b183879306f59b192c99f605fecc49c17852b91caf4fd2f6a9b13ffc4f4"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/media/probe.rs",
+      "bytes": 20296,
+      "sha256": "3af6f757118a413408330a6b456c71b5f7f45587268126159f7d4f091137f7d9"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/media/protocol.rs",
+      "bytes": 26579,
+      "sha256": "7ad63984a8f6a6eedd9f03ab29de31d5128c8d5fb645b29328a2225432873669"
     },
     {
       "path": "apps/desktop/src-tauri/src/media/service.rs",
@@ -448,8 +458,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 32892,
-      "sha256": "d1d717cece8bad63090fd49b565ef0af5190183f84f9206fa931974cb4e4e3e9"
+      "bytes": 35733,
+      "sha256": "e992170798b12cf838454721217aba47eb34b85b08f0bd16d42afe10f96d2bfe"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -1393,8 +1403,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 14379,
-      "sha256": "816d593e9e7cedf7a7a63c17d4365cecdba0f6373df8b08963af34c81ec7d55d"
+      "bytes": 15071,
+      "sha256": "c2f793946efdd4fcac18f63cad65c4896f84a56db4bbfadf4f9eb4fa74dafc75"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
