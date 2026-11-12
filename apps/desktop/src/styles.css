@@ -101,6 +101,35 @@ button[aria-busy="true"] { cursor: progress; }
 .vitals.is-stale > div { border-style: dashed; border-color: var(--stale); color: var(--muted); }
 .vitals.is-stale .bar-fill { background: var(--stale); }
 
+/* Audio control lives directly after Readiness on the Overview screen. */
+.audio-panel { display: flex; flex-direction: column; gap: 10px; }
+.audio-panel .card-head { margin-bottom: 0; }
+.audio-readiness { display: grid; grid-template-columns: minmax(160px, 220px) auto minmax(0, 1fr); align-items: center; gap: 12px; }
+.audio-control { display: flex; align-items: center; gap: 12px; }
+.audio-note { color: var(--text-2); font-size: 13px; overflow-wrap: anywhere; }
+
+/* The control-window dev harness is loaded only by ?mock=1 in Vite development. */
+.mock-scenario-panel { position: fixed; z-index: 20; right: 12px; bottom: 12px; width: min(460px, calc(100vw - 24px)); max-height: min(70vh, 640px); overflow: auto; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); box-shadow: 0 8px 32px var(--ground); }
+.mock-scenario-heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+.mock-scenario-panel > p { margin-bottom: 6px; font-size: 12px; overflow-wrap: anywhere; }
+.mock-scenario-actions { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.mock-scenario-actions button { display: flex; flex-direction: column; align-items: flex-start; height: auto; min-height: 44px; padding: 6px 10px; white-space: normal; text-align: left; }
+
+/* The overlay webview supplies a transparent, click-through surface. */
+html.overlay-body, body.overlay-body { background: transparent !important; }
+body.overlay-body { min-width: 0; min-height: 0; overflow: hidden; }
+body.overlay-body #root { min-height: 0; }
+.event-overlay-banner { position: fixed; z-index: 1; top: clamp(116px, 14vh, 172px); left: 50%; width: min(680px, 54vw); max-height: 24vh; transform: translateX(-50%); overflow: hidden; background: transparent; pointer-events: none; animation: event-banner-enter 140ms ease-out both; }
+.event-overlay-banner video { display: block; width: 100%; max-height: 24vh; object-fit: contain; background: transparent; }
+@keyframes event-banner-enter { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .event-overlay-banner { animation: none; } }
+
+@media (max-width: 640px) {
+  .audio-readiness { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .mock-scenario-panel { width: min(360px, calc(100vw - 24px)); }
+  .event-overlay-banner { width: 84vw; }
+}
+
 @media (max-width: 900px) {
   .row { grid-template-columns: 130px 190px minmax(0, 1fr); }
   .vitals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
