@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/kohbor-gsi", "crates/kohbor-events", "crates/kohbor-pack", "crates/kohbor-gsi-capture", "apps/desktop/src-tauri"]
+members = ["crates/kohbor-gsi", "crates/kohbor-events", "crates/kohbor-pack", "crates/kohbor-pack-author", "crates/kohbor-gsi-capture", "apps/desktop/src-tauri"]
 
 [workspace.package]
 version = "0.0.1"
