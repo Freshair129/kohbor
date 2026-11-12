@@ -65,6 +65,9 @@ pub fn decode_wav(bytes: &[u8]) -> Option<Pcm> {
     }
 
     let sample_count = usize::try_from(data_size / 2).ok()?;
+    if sample_count == 0 {
+        return None;
+    }
     let duration_numerator = u64::from(data_size / 2).checked_mul(1_000)?;
     if duration_numerator / 48_000 > 15_000 {
         return None;

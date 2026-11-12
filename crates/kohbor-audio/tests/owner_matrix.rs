@@ -45,7 +45,8 @@ macro_rules! matrix {
                     notices,
                     vec![EventNotice::Cancelled {
                         id: PlaybackId(1),
-                        reason: CancelReason::Preempted
+                        reason: CancelReason::Preempted,
+                        at_ms: 10_000,
                     }],
                     "{} notice",
                     stringify!($name)

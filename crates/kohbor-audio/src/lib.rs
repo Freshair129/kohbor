@@ -1,6 +1,5 @@
-//! Native audio owner (M2, Sprint 3). API STUB: every body is `todo!()`; the red
-//! tests of S3-2 and S3-4 are written against these signatures and S3-3 implements
-//! them. Do not change a public name or signature without the lead.
+//! Native audio owner (M2, Sprint 3): class arbitration, playback lifecycle,
+//! deadlines, bounded notices and prewarmed in-memory PCM.
 //!
 //! Sources: docs/design/EVENT-AUDIO-SPEC.md sections 4 (priority and preemption,
 //! prewarm, mute) and 5 (outcome reasons); MEDIA-PACK-SPEC MP-02, MP-04, MP-08;
@@ -10,7 +9,7 @@
 //! Time is the `at_ms` argument (monotonic milliseconds supplied by the caller).
 //! The real output device is behind the [`Sink`] trait implemented elsewhere.
 
-#![allow(unused_variables, dead_code)]
+#![allow(dead_code)]
 
 pub mod owner;
 pub mod pcm;

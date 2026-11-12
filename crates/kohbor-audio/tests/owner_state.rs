@@ -56,7 +56,8 @@ macro_rules! cancel_test {
                 o.drain_notices(),
                 vec![EventNotice::Cancelled {
                     id: PlaybackId(1),
-                    reason: $reason
+                    reason: $reason,
+                    at_ms: 1,
                 }]
             );
             assert_eq!(log.borrow().last(), Some(&Call::Cancel(PlaybackId(1))));
@@ -90,7 +91,8 @@ fn preemption_cancels_visual() {
     o.request(1, request(Critical));
     assert!(o.drain_notices().contains(&EventNotice::Cancelled {
         id: PlaybackId(1),
-        reason: CancelReason::Preempted
+        reason: CancelReason::Preempted,
+        at_ms: 1,
     }));
     assert_ne!(o.visual(1).map(|v| v.id), Some(PlaybackId(1)));
 }
@@ -244,7 +246,10 @@ fn current_completion_once() {
     assert_eq!(o.active(100), None);
     assert_eq!(
         o.drain_notices(),
-        vec![EventNotice::Finished { id: PlaybackId(1) }]
+        vec![EventNotice::Finished {
+            id: PlaybackId(1),
+            at_ms: 100,
+        }]
     );
     o.on_sink_finished(101, PlaybackId(1));
     assert!(o.drain_notices().is_empty());
@@ -264,7 +269,10 @@ fn natural_end_tail_and_finish() {
     assert_eq!(o.visual(120), None);
     assert_eq!(
         o.drain_notices(),
-        vec![EventNotice::Finished { id: PlaybackId(1) }]
+        vec![EventNotice::Finished {
+            id: PlaybackId(1),
+            at_ms: 120,
+        }]
     );
 }
 #[test]
@@ -285,13 +293,15 @@ fn earlier_time_does_not_panic() {
     o.request(100, request(Voice));
     o.request(1, request(Critical));
 }
-// Zero samples have zero duration; saturation is required near the time limit.
+// Empty PCM is rejected; a nonempty deadline near the time limit never overflows.
 #[test]
 fn zero_duration_and_max_time() {
     let mut o = owner();
     let mut r = request(Voice);
     r.pcm = ms(0);
-    o.request(u64::MAX, r);
+    let decision = o.request(u64::MAX, r).unwrap();
+    assert_eq!(decision.outcome, Outcome::ChannelBusy);
+    assert_eq!(decision.detail, Some(Detail::EmptyMedia));
     o.tick(u64::MAX);
     assert_eq!(o.active(u64::MAX), None);
 }
@@ -312,11 +322,13 @@ fn notices_drain_in_order() {
         vec![
             EventNotice::Cancelled {
                 id: PlaybackId(1),
-                reason: CancelReason::Preempted
+                reason: CancelReason::Preempted,
+                at_ms: 1,
             },
             EventNotice::Cancelled {
                 id: PlaybackId(2),
-                reason: CancelReason::Muted
+                reason: CancelReason::Muted,
+                at_ms: 2,
             }
         ]
     );
@@ -375,7 +387,8 @@ fn preemption_submit_failure_keeps_old_cancelled() {
         o.drain_notices(),
         vec![EventNotice::Cancelled {
             id: PlaybackId(1),
-            reason: CancelReason::Preempted
+            reason: CancelReason::Preempted,
+            at_ms: 1,
         }]
     );
 }

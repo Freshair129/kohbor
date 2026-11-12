@@ -1,6 +1,7 @@
 //! One audio owner: class priority, preemption, generations, mute, fences.
 
 use crate::pcm::Pcm;
+use std::cell::Cell;
 
 /// Audio classes, highest priority first (EVENT-AUDIO-SPEC section 4).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -89,13 +90,23 @@ impl PlaybackId {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SinkError;
 
-/// The output device behind the owner. Implemented by the real device layer and by
-/// a fake in tests. The owner never blocks on it and never takes a lock another
-/// thread needs.
+/// The output device behind the owner. Implementations must be bounded and
+/// non-blocking: neither method may wait for a lock held by another thread,
+/// allocate on the audio thread, or panic.
+///
+/// A sink has one playback slot. `submit` atomically replaces whatever is
+/// currently playing; sinks never mix two playbacks. `cancel` stops `id` only
+/// when it is still current, and is a no-op for a stale or unknown id. The real
+/// device layer keeps one stream open and swaps its source.
+///
+/// A device can still output the last buffer of the old playback for up to one
+/// device period after its deadline. The owner does not model that delay, so its
+/// visual can end up to one device period before the sound does.
 pub trait Sink {
-    /// Start `pcm` (mono 48 kHz) as `id`. An error means the device did not accept it.
+    /// Atomically replace the current playback with `pcm` (mono 48 kHz) as `id`.
+    /// An error means the device did not accept it and has no current playback.
     fn submit(&mut self, id: PlaybackId, pcm: Pcm) -> Result<(), SinkError>;
-    /// Stop `id` now and drop its audio (no-op for an unknown or finished id).
+    /// Stop `id` if it is current; stale or unknown ids are a no-op.
     fn cancel(&mut self, id: PlaybackId);
 }
 
@@ -104,17 +115,21 @@ pub trait Sink {
 pub struct Request {
     /// Per-occurrence identity (event `instance_id`).
     pub instance_id: String,
+    /// The owner echoes this for non-voice requests. The host must provide a
+    /// contract-valid event type; the owner does not validate it. Voice decisions
+    /// always normalize this field to `None`.
     pub event_type: Option<String>,
     pub session_epoch: u64,
     pub class: AudioClass,
     /// Same value for repeated alerts of one critical episode (C1 same-episode drop).
     pub episode: Option<String>,
-    /// Active package revision the media came from (`install_id` number). `None`
-    /// only for voice (C5), which has no package (audio-outcome: voice records
-    /// have a null `event_type` and a null `package_revision`).
+    /// Active package revision the media came from (`install_id` number). The
+    /// host must provide the active revision for non-voice requests; the owner
+    /// echoes it without validating the contract range. Voice decisions always
+    /// normalize this field to `None`.
     pub package_revision: Option<u64>,
     pub pcm: Pcm,
-    /// Visual tail after natural audio end, 0..=3,200 ms.
+    /// Visual tail after natural audio end; values above 3,200 ms are clamped.
     pub visual_tail_ms: u32,
 }
 
@@ -128,6 +143,9 @@ pub enum Detail {
     QueueReplaced,
     /// The device is marked unavailable.
     DeviceUnavailable,
+    /// The request contains no PCM samples. This is a lead proposal because the
+    /// closed outcome contract has no more specific outcome than `channel_busy`.
+    EmptyMedia,
 }
 
 /// The owner's decision for one request (audio-outcome minus the fixed fields).
@@ -156,6 +174,12 @@ pub enum CancelReason {
 }
 
 /// Asynchronous things that happen to playbacks, in order of occurrence.
+///
+/// The host keeps the `Decision` for each admitted playback keyed by
+/// `PlaybackId` until its `Finished` or `Cancelled` notice arrives. For a
+/// `Preempted` cancellation, it emits the old playback's `preempted` outcome
+/// record using that decision's identity fields and this notice's `at_ms` as
+/// `decided_monotonic_ms`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Notice {
     /// A request that was queued earlier got its decision now: played after the
@@ -166,9 +190,15 @@ pub enum Notice {
     Cancelled {
         id: PlaybackId,
         reason: CancelReason,
+        /// Monotonic instant at which cancellation occurred.
+        at_ms: u64,
     },
     /// Audio (and the visual tail) of `id` ended naturally.
-    Finished { id: PlaybackId },
+    Finished {
+        id: PlaybackId,
+        /// Monotonic instant at which the visual lifecycle ended.
+        at_ms: u64,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -208,7 +238,9 @@ struct Playback {
     episode: Option<String>,
     session_epoch: u64,
     package_revision: Option<u64>,
-    audio_ends_at_ms: u64,
+    /// `None` means the checked deadline overflowed; only a callback, cancel or
+    /// fence can then end this playback.
+    audio_ends_at_ms: Option<u64>,
     visual_tail_ms: u32,
 }
 
@@ -218,7 +250,9 @@ struct VisualTail {
     session_epoch: u64,
     package_revision: Option<u64>,
     started_at_ms: u64,
-    ends_at_ms: u64,
+    /// `None` means the checked tail deadline overflowed and only cancellation
+    /// or a fence can end this visual tail.
+    ends_at_ms: Option<u64>,
 }
 
 struct QueuedCorrection {
@@ -226,6 +260,8 @@ struct QueuedCorrection {
     queued_at_ms: u64,
 }
 
+/// Pure, single-owner arbitration state. Every timestamp-bearing call uses
+/// `max(at_ms, last_at_ms)`; owner time never moves backwards.
 pub struct AudioOwner<S: Sink> {
     sink: S,
     config: Config,
@@ -239,6 +275,8 @@ pub struct AudioOwner<S: Sink> {
     queued_correction: Option<QueuedCorrection>,
     last_notice_admitted_at_ms: Option<u64>,
     notices: Vec<Notice>,
+    dropped_notices: u64,
+    last_at_ms: Cell<u64>,
 }
 
 impl<S: Sink> AudioOwner<S> {
@@ -256,10 +294,14 @@ impl<S: Sink> AudioOwner<S> {
             queued_correction: None,
             last_notice_admitted_at_ms: None,
             notices: Vec::new(),
+            dropped_notices: 0,
+            last_at_ms: Cell::new(0),
         }
     }
 
-    /// Decide one request at `at_ms`. Check order (first match wins):
+    /// Decide one request at `at_ms`. Time is normalized to
+    /// `max(at_ms, last_at_ms)`, so owner time never moves backwards. Check order
+    /// (first match wins):
     /// 1. mute on -> `Muted`;
     /// 2. `session_epoch` differs from the current session -> `StaleSession`;
     /// 3. for classes other than voice: `package_revision` is `None` or differs from
@@ -268,8 +310,9 @@ impl<S: Sink> AudioOwner<S> {
     /// 4. device marked unavailable -> `ChannelBusy` with `Detail::DeviceUnavailable`;
     /// 5. the priority matrix of EVENT-AUDIO-SPEC section 4 against the class that
     ///    holds the audio channel at `at_ms` (a playback holds it from admission
-    ///    until `admission + duration_ms(pcm)`; a visual tail does not hold the
-    ///    audio channel):
+    ///    until `admission + ceil(samples * 1000 / 48_000)` when that checked
+    ///    deadline is representable; a visual tail does not hold the audio
+    ///    channel):
     ///    - C1: idle -> play; C1 active with the same `episode` (both `Some` and
     ///      equal) -> `Cooldown`; C1 active with a different episode -> preempt;
     ///      C2..C5 active -> preempt.
@@ -295,7 +338,7 @@ impl<S: Sink> AudioOwner<S> {
     /// belongs to the OLD playback and is derived by the host from the
     /// `Notice::Cancelled { reason: Preempted }` the owner emits for it.
     pub fn request(&mut self, at_ms: u64, request: Request) -> Option<Decision> {
-        self.advance(at_ms, true);
+        let at_ms = self.advance(at_ms);
 
         if self.muted {
             return Some(Self::decision(request, at_ms, Outcome::Muted, None, None));
@@ -327,6 +370,16 @@ impl<S: Sink> AudioOwner<S> {
                 Outcome::ChannelBusy,
                 None,
                 Some(Detail::DeviceUnavailable),
+            ));
+        }
+
+        if request.pcm.is_empty() {
+            return Some(Self::decision(
+                request,
+                at_ms,
+                Outcome::ChannelBusy,
+                None,
+                Some(Detail::EmptyMedia),
             ));
         }
 
@@ -413,63 +466,78 @@ impl<S: Sink> AudioOwner<S> {
 
     /// Advance time: audio that ended is finished (`Notice::Finished` once the
     /// audio and the declared visual tail are over); a queued C2 starts when the
-    /// critical audio ended (`Decided(Admitted)`); a queued C2 older than the TTL
-    /// expires (`Decided(CriticalActive, QueueExpired)`).
+    /// critical audio ended (`Decided(Admitted)`), using that audio deadline as
+    /// its decision time; a queued C2 expires at `queued_at + ttl + 1` ms.
     pub fn tick(&mut self, at_ms: u64) {
-        self.advance(at_ms, true);
+        self.advance(at_ms);
     }
 
     /// The sink reports that `id` finished (device callback). Ignored for an id
-    /// that is not the current playback (late completion of a cancelled one).
+    /// that is not the current playback (late completion of a cancelled one),
+    /// without advancing time or changing any owner state. For the current id,
+    /// an early callback ends audio at the effective callback time.
     pub fn on_sink_finished(&mut self, at_ms: u64, id: PlaybackId) {
-        self.advance(at_ms, false);
+        if self
+            .active
+            .as_ref()
+            .is_none_or(|playback| playback.id != id)
+        {
+            return;
+        }
+        let at_ms = self.advance(at_ms);
         if self
             .active
             .as_ref()
             .is_some_and(|playback| playback.id == id)
         {
             self.finish_audio(at_ms);
+            self.advance_to(at_ms);
         }
-        self.advance(at_ms, true);
     }
 
-    /// Take the pending notices in order of occurrence.
+    /// Take the pending notices in order of occurrence. Hosts must drain notices
+    /// on every tick; the queue retains at most 256 entries.
     pub fn drain_notices(&mut self) -> Vec<Notice> {
         std::mem::take(&mut self.notices)
+    }
+
+    /// Number of notices dropped because the bounded notice queue was full.
+    /// Draining notices does not reset this counter.
+    pub fn dropped_notices(&self) -> u64 {
+        self.dropped_notices
     }
 
     /// Global mute: on cancels the active playback (`Muted`) and the queue; later
     /// requests get `Muted`. Off restores nothing.
     pub fn set_muted(&mut self, at_ms: u64, muted: bool) {
-        self.advance(at_ms, false);
+        let at_ms = self.advance(at_ms);
         self.muted = muted;
         if muted {
-            self.cancel_active(CancelReason::Muted);
-            self.cancel_tail(CancelReason::Muted);
+            self.cancel_active(CancelReason::Muted, at_ms);
+            self.cancel_tail(CancelReason::Muted, at_ms);
             self.clear_queued(at_ms, Outcome::Muted, None);
         }
-        self.advance(at_ms, !muted);
     }
 
     /// New current session: cancels the active playback and the queue when their
     /// epoch differs (`SessionFence`). The initial session is 0 (no request with
     /// epoch 0 is stale before `set_session` is called).
     pub fn set_session(&mut self, at_ms: u64, session_epoch: u64) {
-        self.advance(at_ms, false);
+        let at_ms = self.advance(at_ms);
         self.session_epoch = session_epoch;
         if self
             .active
             .as_ref()
             .is_some_and(|playback| playback.session_epoch != session_epoch)
         {
-            self.cancel_active(CancelReason::SessionFence);
+            self.cancel_active(CancelReason::SessionFence, at_ms);
         }
         if self
             .visual_tail
             .as_ref()
             .is_some_and(|tail| tail.session_epoch != session_epoch)
         {
-            self.cancel_tail(CancelReason::SessionFence);
+            self.cancel_tail(CancelReason::SessionFence, at_ms);
         }
         if self
             .queued_correction
@@ -478,25 +546,24 @@ impl<S: Sink> AudioOwner<S> {
         {
             self.clear_queued(at_ms, Outcome::StaleSession, None);
         }
-        self.advance(at_ms, true);
     }
 
     /// New current package revision: cancels the active non-voice playback and the
     /// queue when their revision differs (`RevisionFence`); a voice playback is not
     /// affected. The initial revision is 0.
     pub fn set_revision(&mut self, at_ms: u64, package_revision: u64) {
-        self.advance(at_ms, false);
+        let at_ms = self.advance(at_ms);
         self.package_revision = package_revision;
         if self.active.as_ref().is_some_and(|playback| {
             playback.class != AudioClass::Voice
                 && playback.package_revision != Some(package_revision)
         }) {
-            self.cancel_active(CancelReason::RevisionFence);
+            self.cancel_active(CancelReason::RevisionFence, at_ms);
         }
         if self.visual_tail.as_ref().is_some_and(|tail| {
             tail.class != AudioClass::Voice && tail.package_revision != Some(package_revision)
         }) {
-            self.cancel_tail(CancelReason::RevisionFence);
+            self.cancel_tail(CancelReason::RevisionFence, at_ms);
         }
         if self
             .queued_correction
@@ -505,38 +572,42 @@ impl<S: Sink> AudioOwner<S> {
         {
             self.clear_queued(at_ms, Outcome::SupersededRevision, None);
         }
-        self.advance(at_ms, true);
     }
 
     /// The output device disappeared or came back. `false` cancels the active
     /// playback (`DeviceLost`) and the queue; requests then get `ChannelBusy` with
     /// `Detail::DeviceUnavailable` until it is `true` again. Initially available.
     pub fn set_device_available(&mut self, at_ms: u64, available: bool) {
-        self.advance(at_ms, false);
+        let at_ms = self.advance(at_ms);
         self.device_available = available;
         if !available {
-            self.cancel_active(CancelReason::DeviceLost);
-            self.cancel_tail(CancelReason::DeviceLost);
+            self.cancel_active(CancelReason::DeviceLost, at_ms);
+            self.cancel_tail(CancelReason::DeviceLost, at_ms);
             self.clear_queued(at_ms, Outcome::ChannelBusy, Some(Detail::DeviceUnavailable));
         }
-        self.advance(at_ms, available);
     }
 
     /// The playback that holds the audio channel at `at_ms`, if any.
     pub fn active(&self, at_ms: u64) -> Option<PlaybackId> {
-        self.active_at(at_ms).map(|playback| playback.id)
+        self.active_at(self.effective_at(at_ms))
+            .map(|playback| playback.id)
     }
 
     /// Class of the playback that holds the audio channel at `at_ms`, if any.
     pub fn active_class(&self, at_ms: u64) -> Option<AudioClass> {
-        self.active_at(at_ms).map(|playback| playback.class)
+        self.active_at(self.effective_at(at_ms))
+            .map(|playback| playback.class)
     }
 
     /// The visual that must be on screen at `at_ms` (audio phase or tail), if any.
     /// Cancellation of audio cancels this at the same instant.
     pub fn visual(&self, at_ms: u64) -> Option<VisualState> {
+        let at_ms = self.effective_at(at_ms);
         if let Some(playback) = self.active.as_ref() {
-            if at_ms < playback.audio_ends_at_ms {
+            if playback
+                .audio_ends_at_ms
+                .is_none_or(|ends_at_ms| at_ms < ends_at_ms)
+            {
                 return Some(VisualState {
                     id: playback.id,
                     phase: VisualPhase::Audio,
@@ -544,8 +615,10 @@ impl<S: Sink> AudioOwner<S> {
             }
             let tail_ends_at_ms = playback
                 .audio_ends_at_ms
-                .saturating_add(u64::from(playback.visual_tail_ms));
-            if playback.visual_tail_ms > 0 && at_ms < tail_ends_at_ms {
+                .and_then(|ends_at_ms| ends_at_ms.checked_add(u64::from(playback.visual_tail_ms)));
+            if playback.visual_tail_ms > 0
+                && tail_ends_at_ms.is_none_or(|ends_at_ms| at_ms < ends_at_ms)
+            {
                 return Some(VisualState {
                     id: playback.id,
                     phase: VisualPhase::Tail,
@@ -554,7 +627,10 @@ impl<S: Sink> AudioOwner<S> {
         }
         self.visual_tail
             .as_ref()
-            .filter(|tail| at_ms >= tail.started_at_ms && at_ms < tail.ends_at_ms)
+            .filter(|tail| {
+                at_ms >= tail.started_at_ms
+                    && tail.ends_at_ms.is_none_or(|ends_at_ms| at_ms < ends_at_ms)
+            })
             .map(|tail| VisualState {
                 id: tail.id,
                 phase: VisualPhase::Tail,
@@ -565,10 +641,18 @@ impl<S: Sink> AudioOwner<S> {
         &self.sink
     }
 
+    fn effective_at(&self, at_ms: u64) -> u64 {
+        let effective_at_ms = at_ms.max(self.last_at_ms.get());
+        self.last_at_ms.set(effective_at_ms);
+        effective_at_ms
+    }
+
     fn active_at(&self, at_ms: u64) -> Option<&Playback> {
-        self.active
-            .as_ref()
-            .filter(|playback| at_ms < playback.audio_ends_at_ms)
+        self.active.as_ref().filter(|playback| {
+            playback
+                .audio_ends_at_ms
+                .is_none_or(|ends_at_ms| at_ms < ends_at_ms)
+        })
     }
 
     fn decision(
@@ -578,14 +662,19 @@ impl<S: Sink> AudioOwner<S> {
         playback_id: Option<PlaybackId>,
         detail: Option<Detail>,
     ) -> Decision {
+        let is_voice = request.class == AudioClass::Voice;
         Decision {
             instance_id: request.instance_id,
-            event_type: request.event_type,
+            event_type: if is_voice { None } else { request.event_type },
             session_epoch: request.session_epoch,
             class: request.class,
             outcome,
             playback_id,
-            package_revision: request.package_revision,
+            package_revision: if is_voice {
+                None
+            } else {
+                request.package_revision
+            },
             decided_at_ms: at_ms,
             detail,
         }
@@ -602,7 +691,7 @@ impl<S: Sink> AudioOwner<S> {
         self.next_playback_id = id_value.checked_add(1);
 
         if preempt {
-            self.cancel_active(CancelReason::Preempted);
+            self.cancel_active(CancelReason::Preempted, at_ms);
         }
 
         let Request {
@@ -615,10 +704,21 @@ impl<S: Sink> AudioOwner<S> {
             pcm,
             visual_tail_ms,
         } = request;
-        let duration_ms = crate::pcm::duration_ms(&pcm);
+        let event_type = if class == AudioClass::Voice {
+            None
+        } else {
+            event_type
+        };
+        let package_revision = if class == AudioClass::Voice {
+            None
+        } else {
+            package_revision
+        };
+        let visual_tail_ms = visual_tail_ms.min(3_200);
+        let audio_ends_at_ms = playback_deadline(at_ms, pcm.len());
 
         if self.sink.submit(id, pcm).is_err() {
-            let decision = Decision {
+            return Decision {
                 instance_id,
                 event_type,
                 session_epoch,
@@ -629,22 +729,16 @@ impl<S: Sink> AudioOwner<S> {
                 decided_at_ms: at_ms,
                 detail: Some(Detail::SinkFailed),
             };
-            if self.active.is_none() {
-                self.start_queued(at_ms);
-            }
-            return decision;
         }
 
-        if let Some(tail) = self.visual_tail.take() {
-            self.notices.push(Notice::Finished { id: tail.id });
-        }
+        self.cancel_tail(CancelReason::Preempted, at_ms);
         self.active = Some(Playback {
             id,
             class,
             episode,
             session_epoch,
             package_revision,
-            audio_ends_at_ms: at_ms.saturating_add(u64::from(duration_ms)),
+            audio_ends_at_ms,
             visual_tail_ms,
         });
         if class == AudioClass::Notice {
@@ -669,7 +763,7 @@ impl<S: Sink> AudioOwner<S> {
             request,
             queued_at_ms: at_ms,
         }) {
-            self.notices.push(Notice::Decided(Self::decision(
+            self.push_notice(Notice::Decided(Self::decision(
                 previous.request,
                 at_ms,
                 Outcome::CriticalActive,
@@ -679,43 +773,93 @@ impl<S: Sink> AudioOwner<S> {
         }
     }
 
-    fn advance(&mut self, at_ms: u64, start_queue: bool) {
-        let expired = self.queued_correction.as_ref().is_some_and(|queued| {
-            at_ms.saturating_sub(queued.queued_at_ms) > self.config.correction_queue_ttl_ms
-        });
-        if expired {
-            self.clear_queued(at_ms, Outcome::CriticalActive, Some(Detail::QueueExpired));
-        }
+    fn advance(&mut self, at_ms: u64) -> u64 {
+        let effective_at_ms = self.effective_at(at_ms);
+        self.advance_to(effective_at_ms);
+        effective_at_ms
+    }
 
-        let audio_ended = self
-            .active
-            .as_ref()
-            .is_some_and(|playback| at_ms >= playback.audio_ends_at_ms);
-        if audio_ended {
-            self.finish_audio_from_expected_end();
-        }
+    fn advance_to(&mut self, at_ms: u64) {
+        let channel_was_idle = self.active.is_none();
+        loop {
+            let audio_end = self
+                .active
+                .as_ref()
+                .and_then(|playback| playback.audio_ends_at_ms)
+                .filter(|ends_at_ms| *ends_at_ms <= at_ms);
+            let tail_end = self
+                .visual_tail
+                .as_ref()
+                .and_then(|tail| tail.ends_at_ms)
+                .filter(|ends_at_ms| *ends_at_ms <= at_ms);
+            let queue_expiry = self
+                .queued_expiry_at()
+                .filter(|expires_at_ms| *expires_at_ms <= at_ms);
+            let next_event = [audio_end, tail_end, queue_expiry]
+                .into_iter()
+                .flatten()
+                .min();
+            let Some(event_at_ms) = next_event else {
+                break;
+            };
 
-        let tail_ended = self
-            .visual_tail
-            .as_ref()
-            .is_some_and(|tail| at_ms >= tail.ends_at_ms);
-        if tail_ended {
-            if let Some(tail) = self.visual_tail.take() {
-                self.notices.push(Notice::Finished { id: tail.id });
+            // A tail belongs to an earlier playback than audio that ends at the
+            // same instant, so finish it first.
+            if tail_end == Some(event_at_ms) {
+                if let Some(tail) = self.visual_tail.take() {
+                    self.push_notice(Notice::Finished {
+                        id: tail.id,
+                        at_ms: event_at_ms,
+                    });
+                }
+            }
+            if audio_end == Some(event_at_ms) {
+                self.finish_audio_from_expected_end(event_at_ms);
+            }
+            if queue_expiry == Some(event_at_ms) {
+                self.clear_queued(
+                    event_at_ms,
+                    Outcome::CriticalActive,
+                    Some(Detail::QueueExpired),
+                );
+            } else if !channel_was_idle && audio_end == Some(event_at_ms) {
+                // A queued C2 starts at the instant the active audio ended,
+                // provided it survived the strict TTL boundary.
+                if self.active.is_none() {
+                    self.start_queued(event_at_ms);
+                }
             }
         }
 
-        if start_queue && self.active.is_none() {
+        // A failed submit leaves a queued correction untouched in that call.
+        // The next tick/request processing starts it at this call's effective
+        // time, if the queue has not expired.
+        if channel_was_idle && self.active.is_none() && self.queued_correction.is_some() {
             self.start_queued(at_ms);
         }
     }
 
-    fn finish_audio_from_expected_end(&mut self) {
-        let Some(playback) = self.active.take() else {
+    fn queued_expiry_at(&self) -> Option<u64> {
+        self.queued_correction.as_ref().and_then(|queued| {
+            queued
+                .queued_at_ms
+                .checked_add(self.config.correction_queue_ttl_ms)?
+                .checked_add(1)
+        })
+    }
+
+    fn finish_audio_from_expected_end(&mut self, at_ms: u64) {
+        if self
+            .active
+            .as_ref()
+            .and_then(|playback| playback.audio_ends_at_ms)
+            != Some(at_ms)
+        {
             return;
-        };
-        let audio_ends_at_ms = playback.audio_ends_at_ms;
-        self.set_tail_or_finish(playback, audio_ends_at_ms);
+        }
+        if let Some(playback) = self.active.take() {
+            self.set_tail_or_finish(playback, at_ms);
+        }
     }
 
     fn finish_audio(&mut self, at_ms: u64) {
@@ -727,14 +871,13 @@ impl<S: Sink> AudioOwner<S> {
 
     fn set_tail_or_finish(&mut self, playback: Playback, audio_ended_at_ms: u64) {
         if playback.visual_tail_ms == 0 {
-            self.notices.push(Notice::Finished { id: playback.id });
+            self.push_notice(Notice::Finished {
+                id: playback.id,
+                at_ms: audio_ended_at_ms,
+            });
             return;
         }
-        let ends_at_ms = audio_ended_at_ms.saturating_add(u64::from(playback.visual_tail_ms));
-        if ends_at_ms <= audio_ended_at_ms {
-            self.notices.push(Notice::Finished { id: playback.id });
-            return;
-        }
+        let ends_at_ms = audio_ended_at_ms.checked_add(u64::from(playback.visual_tail_ms));
         if let Some(previous) = self.visual_tail.replace(VisualTail {
             id: playback.id,
             class: playback.class,
@@ -743,32 +886,37 @@ impl<S: Sink> AudioOwner<S> {
             started_at_ms: audio_ended_at_ms,
             ends_at_ms,
         }) {
-            self.notices.push(Notice::Finished { id: previous.id });
-        }
-    }
-
-    fn cancel_active(&mut self, reason: CancelReason) {
-        if let Some(playback) = self.active.take() {
-            self.sink.cancel(playback.id);
-            self.notices.push(Notice::Cancelled {
-                id: playback.id,
-                reason,
+            self.push_notice(Notice::Finished {
+                id: previous.id,
+                at_ms: previous.ends_at_ms.unwrap_or(audio_ended_at_ms),
             });
         }
     }
 
-    fn cancel_tail(&mut self, reason: CancelReason) {
+    fn cancel_active(&mut self, reason: CancelReason, at_ms: u64) {
+        if let Some(playback) = self.active.take() {
+            self.sink.cancel(playback.id);
+            self.push_notice(Notice::Cancelled {
+                id: playback.id,
+                reason,
+                at_ms,
+            });
+        }
+    }
+
+    fn cancel_tail(&mut self, reason: CancelReason, at_ms: u64) {
         if let Some(tail) = self.visual_tail.take() {
-            self.notices.push(Notice::Cancelled {
+            self.push_notice(Notice::Cancelled {
                 id: tail.id,
                 reason,
+                at_ms,
             });
         }
     }
 
     fn clear_queued(&mut self, at_ms: u64, outcome: Outcome, detail: Option<Detail>) {
         if let Some(queued) = self.queued_correction.take() {
-            self.notices.push(Notice::Decided(Self::decision(
+            self.push_notice(Notice::Decided(Self::decision(
                 queued.request,
                 at_ms,
                 outcome,
@@ -800,6 +948,23 @@ impl<S: Sink> AudioOwner<S> {
         } else {
             self.start(request, at_ms, false)
         };
-        self.notices.push(Notice::Decided(decision));
+        self.push_notice(Notice::Decided(decision));
     }
+
+    fn push_notice(&mut self, notice: Notice) {
+        const NOTICE_CAPACITY: usize = 256;
+        if self.notices.len() == NOTICE_CAPACITY {
+            self.notices.remove(0);
+            self.dropped_notices = self.dropped_notices.saturating_add(1);
+        }
+        self.notices.push(notice);
+    }
+}
+
+fn playback_deadline(admitted_at_ms: u64, samples: usize) -> Option<u64> {
+    let samples = u64::try_from(samples).ok()?;
+    let duration_numerator = samples.checked_mul(1_000)?;
+    let rounded_numerator = duration_numerator.checked_add(47_999)?;
+    let duration_ms = rounded_numerator.checked_div(48_000)?;
+    admitted_at_ms.checked_add(duration_ms)
 }
