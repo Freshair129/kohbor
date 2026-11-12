@@ -43,6 +43,13 @@ impl Default for Limits {
 impl Limits {
     /// Every field is the minimum of the given value and the specified maximum.
     pub fn clamped(self) -> Limits {
-        todo!()
+        Limits {
+            container_bytes: self.container_bytes.min(MAX_CONTAINER_BYTES),
+            expanded_bytes: self.expanded_bytes.min(MAX_EXPANDED_BYTES),
+            payload_bytes: self.payload_bytes.min(MAX_PAYLOAD_BYTES),
+            descriptor_bytes: self.descriptor_bytes.min(MAX_DESCRIPTOR_BYTES),
+            payload_count: self.payload_count.min(MAX_PAYLOAD_COUNT),
+            bindings: self.bindings.min(MAX_BINDINGS),
+        }
     }
 }

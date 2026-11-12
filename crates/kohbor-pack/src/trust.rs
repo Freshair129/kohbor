@@ -13,7 +13,9 @@ pub enum AuthorityClass {
 impl AuthorityClass {
     /// `local_import`.
     pub fn as_str(&self) -> &'static str {
-        todo!()
+        match self {
+            AuthorityClass::LocalImport => "local_import",
+        }
     }
 }
 
@@ -26,7 +28,10 @@ pub enum PublisherClaim {
 impl PublisherClaim {
     /// `none` / `unverified`.
     pub fn as_str(&self) -> &'static str {
-        todo!()
+        match self {
+            PublisherClaim::None => "none",
+            PublisherClaim::Unverified => "unverified",
+        }
     }
 }
 
@@ -46,12 +51,12 @@ pub struct TrustAssessment {
 impl TrustAssessment {
     /// Always false until DEC-PACK-CRYPTO closes and a trust root is application-owned.
     pub fn publisher_trusted(&self) -> bool {
-        todo!()
+        false
     }
 
     /// Always false: local integrity never grants purchase entitlement.
     pub fn purchase_entitled(&self) -> bool {
-        todo!()
+        false
     }
 }
 
@@ -60,5 +65,13 @@ impl TrustAssessment {
 /// in the descriptor (key ids, display name, package id such as `store`/`system`)
 /// changes `publisher_trusted()` or `purchase_entitled()`.
 pub fn assess(descriptor: &Descriptor) -> TrustAssessment {
-    todo!()
+    TrustAssessment {
+        authority_class: AuthorityClass::LocalImport,
+        publisher_claim: if descriptor.publisher_key_id.is_some() {
+            PublisherClaim::Unverified
+        } else {
+            PublisherClaim::None
+        },
+        signature: SignatureStatus::Unavailable,
+    }
 }
