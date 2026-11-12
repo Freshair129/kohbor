@@ -88,8 +88,10 @@ pub struct Request {
     pub class: AudioClass,
     /// Same value for repeated alerts of one critical episode (C1 same-episode drop).
     pub episode: Option<String>,
-    /// Active package revision the media came from (`install_id` number).
-    pub package_revision: u64,
+    /// Active package revision the media came from (`install_id` number). `None`
+    /// only for voice (C5), which has no package (audio-outcome: voice records
+    /// have a null `event_type` and a null `package_revision`).
+    pub package_revision: Option<u64>,
     pub pcm: Pcm,
     /// Visual tail after natural audio end, 0..=3,200 ms.
     pub visual_tail_ms: u32,
@@ -117,7 +119,7 @@ pub struct Decision {
     pub outcome: Outcome,
     /// Set for `Admitted` and `Preempted`.
     pub playback_id: Option<PlaybackId>,
-    pub package_revision: u64,
+    pub package_revision: Option<u64>,
     pub decided_at_ms: u64,
     pub detail: Option<Detail>,
 }
@@ -192,7 +194,9 @@ impl<S: Sink> AudioOwner<S> {
     /// Decide one request at `at_ms`. Check order (first match wins):
     /// 1. mute on -> `Muted`;
     /// 2. `session_epoch` differs from the current session -> `StaleSession`;
-    /// 3. `package_revision` differs from the current revision -> `SupersededRevision`;
+    /// 3. for classes other than voice: `package_revision` is `None` or differs from
+    ///    the current revision -> `SupersededRevision` (voice never has a revision
+    ///    and skips this check);
     /// 4. device marked unavailable -> `ChannelBusy` with `Detail::DeviceUnavailable`;
     /// 5. the priority matrix of EVENT-AUDIO-SPEC section 4 against the class that
     ///    holds the audio channel at `at_ms` (a playback holds it from admission
@@ -218,9 +222,10 @@ impl<S: Sink> AudioOwner<S> {
     ///    `ChannelBusy` with `Detail::SinkFailed` and nothing becomes active.
     ///
     /// Returns `Some(Decision)` for every request except a queued C2 (decided
-    /// later through `Notice::Decided`). `Admitted` is returned for a play on an
-    /// idle channel, `Preempted` is NOT returned for the new request: the new
-    /// request is `Admitted` and the OLD playback gets `Notice::Cancelled`.
+    /// later through `Notice::Decided`). A request that plays, on an idle channel
+    /// or by preempting, is `Admitted`; the `preempted` outcome of the contract
+    /// belongs to the OLD playback and is derived by the host from the
+    /// `Notice::Cancelled { reason: Preempted }` the owner emits for it.
     pub fn request(&mut self, at_ms: u64, request: Request) -> Option<Decision> {
         todo!()
     }
@@ -257,8 +262,9 @@ impl<S: Sink> AudioOwner<S> {
         todo!()
     }
 
-    /// New current package revision: cancels the active playback and the queue
-    /// when their revision differs (`RevisionFence`). The initial revision is 0.
+    /// New current package revision: cancels the active non-voice playback and the
+    /// queue when their revision differs (`RevisionFence`); a voice playback is not
+    /// affected. The initial revision is 0.
     pub fn set_revision(&mut self, at_ms: u64, package_revision: u64) {
         todo!()
     }
