@@ -298,3 +298,94 @@ pub fn package_entries() -> Vec<ZipEntry> {
         ZipEntry::new("video/cue.webm", video, 0),
     ]
 }
+
+pub fn store_package(
+    dir: &std::path::Path,
+    name: &str,
+    revision: u64,
+    publisher: bool,
+) -> (PathBuf, Vec<u8>) {
+    let mut entries = package_entries();
+    let mut descriptor: Value = serde_json::from_slice(&entries[0].bytes).unwrap();
+    descriptor["package_id"] = name.into();
+    descriptor["revision"] = revision.into();
+    if publisher {
+        descriptor["publisher_key_id"] = "publisher-key".into();
+    }
+    entries[0].bytes = serde_json::to_vec(&descriptor).unwrap();
+    let bytes = zip(&entries, &[], &[], &[]);
+    let path = dir.join(format!("{name}-{revision}.zip"));
+    std::fs::write(&path, &bytes).unwrap();
+    (path, bytes)
+}
+
+pub fn request(path: PathBuf, bytes: &[u8], id: &str) -> kohbor_pack::store::InstallRequest {
+    kohbor_pack::store::InstallRequest {
+        request_id: id.into(),
+        profile_id: "default".into(),
+        source_path: path,
+        expected_container_sha256: hash(bytes),
+        project_binding: None,
+        activation_policy: kohbor_pack::store::ActivationPolicy::Never,
+    }
+}
+
+pub fn tree(root: &std::path::Path) -> Vec<PathBuf> {
+    fn walk(root: &std::path::Path, dir: &std::path::Path, out: &mut Vec<PathBuf>) {
+        if !dir.exists() {
+            return;
+        }
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            out.push(path.strip_prefix(root).unwrap().to_path_buf());
+            if path.is_dir() {
+                walk(root, &path, out);
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(root, root, &mut out);
+    out.sort();
+    out
+}
+
+pub fn tiered_package(dir: &std::path::Path) -> (PathBuf, Vec<u8>) {
+    let mut entries = package_entries();
+    let mut descriptor: Value = serde_json::from_slice(&entries[0].bytes).unwrap();
+    let audio = entries[1].bytes.clone();
+    let video = entries[2].bytes.clone();
+    let mut files = Vec::new();
+    let mut bindings = Vec::new();
+    for (index, event, tier) in [
+        (1, "multi_kill", Some(2)),
+        (2, "multi_kill", Some(3)),
+        (3, "streak", None),
+        (4, "future_event", None),
+    ] {
+        let audio_path = format!("audio/cue{index}.wav");
+        let video_path = format!("video/cue{index}.webm");
+        files.push(serde_json::json!({"path":audio_path,"size_bytes":audio.len(),"sha256":hash(&audio),"role":"mixed_audio"}));
+        files.push(serde_json::json!({"path":video_path,"size_bytes":video.len(),"sha256":hash(&video),"role":"silent_visual"}));
+        let mut binding = serde_json::json!({"event_id":event,"mixed_audio_path":audio_path,"silent_visual_path":video_path,"duration_ms":1000,"visual_tail_ms":0});
+        if let Some(tier) = tier {
+            binding["tier"] = tier.into();
+        }
+        if index == 1 {
+            binding["identity_audio_path"] = "audio/identity.wav".into();
+        }
+        bindings.push(binding);
+        entries.push(ZipEntry::new(&audio_path, audio.clone(), 8));
+        entries.push(ZipEntry::new(&video_path, video.clone(), 0));
+    }
+    files.push(serde_json::json!({"path":"audio/identity.wav","size_bytes":audio.len(),"sha256":hash(&audio),"role":"identity_audio"}));
+    entries.push(ZipEntry::new("audio/identity.wav", audio, 8));
+    entries.remove(2);
+    entries.remove(1);
+    descriptor["files"] = files.into();
+    descriptor["bindings"] = bindings.into();
+    entries[0].bytes = serde_json::to_vec(&descriptor).unwrap();
+    let bytes = zip(&entries, &[], &[], &[]);
+    let path = dir.join("tiered.zip");
+    std::fs::write(&path, &bytes).unwrap();
+    (path, bytes)
+}
