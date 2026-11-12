@@ -200,3 +200,8 @@ The lead updates this table as tasks pass the gate. `Commit` is filled for work 
 | S2-3 package reader and store | passed (T-L-R 2, three parts) | S2-3a pure modules, S2-3b bounded ZIP reader, S2-3c store; two test fixtures were wrong and were corrected by the lead | `bd93c1d`, `0ff55e0`, `d69b3ce` |
 | S2-4 review | passed (T-L-R 3, read-only) | One blocker (flush before commit), six should-fix, two nits; seven accepted, F2 parked (renderer probe), F8 rejected (bounded) | `bb160da` |
 | S2-6 authoring tool | passed (L-R) | `kohbor-pack-build`; never fabricates a video; no WebM exists yet for the owner's clips | `3a907ad` |
+| S3-1 native audio spike | passed (L, silence only) | `wasapi` 0.26.0 recommended; device loss and acoustic latency NOT_RUN (owner action); owner endpoint names not committed | `7bc68b1` |
+| S3-2..S3-3 audio owner | passed (T-L-R, review, fixes) | 128 tests; one blocker found by review (device may outlive the deadline) turned into the single-slot Sink contract | `bc77aff`..`4961048` |
+| S3-3b WASAPI sink | passed (L-R) | shared event-driven stream; 3 device smoke tests with digital silence passed on the owner's machine; the lead reverted an unrelated Cargo.lock downgrade | `5501472` |
+| S3-5 host critical path (5a..5i, 5k) | passed (T-L-R / L-R, R2 read by the lead) | design by Fable 5.2 (docs/design/S3-5-HOST-CRITICAL-PATH.md); 379 host tests; readiness reports not_ready/MEDIA_UNMAPPED until authorized critical media exists; 5j, 5l, S3-6, S3-7 pending | `24edbe2`..`c9ba858` |
+| S3-8 audio-only bindings | passed (L-R, R2 read by the lead) | media-manifest 1.3.0 (DEC-PACK-AUDIO-OPTIONAL-VISUAL) | `8b70f6f` |

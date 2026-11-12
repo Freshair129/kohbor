@@ -176,6 +176,18 @@ Limits after Sprint 0: briefs are bounded in words (instructions under 400 words
 | A read-only review (Terra, no cargo) found one real blocker (files not flushed before the registry commit) that the step-boundary crash tests cannot see. | Crash tests at step boundaries do not cover power loss; say so in the evidence and keep the native item open. |
 | Two workers ran in parallel (review read-only, authoring tool in a new crate) without conflict because the review did not touch the lane. | Parallel work is safe when scopes are disjoint and only one worker holds the cargo lane. |
 
+### 7.4 Sprint 3 observations (2026-11-12)
+
+| Observation | Rule it produces |
+| --- | --- |
+| `codex exec resume --last` selected the newest session in the directory, which was another running worker's. The system refused (active writer), but a finished session would have been resumed by mistake. | With parallel workers always resume by explicit session id (printed as `session id:` in the log). |
+| A worker set `CARGO_TARGET_DIR` to a wrong lane in its first command and created a stray directory. | Type the lane in every cargo command of the brief; the lead checks `F:\cargo-lanes` after each run. |
+| A worker that added a dependency offline got a Cargo.lock that silently downgraded 11 unrelated packages. | The lead reads `git diff Cargo.lock` after every dependency change and rebuilds the lock edit by hand if needed; briefs say "STOP and report BLOCKED" on any other version change. |
+| Terra stopped PARTIAL on large test matrices (16 of 57, 32 of 70, 39 of 150). A resume with the missing groups listed completed them every time. | Ask for counts per group in the brief and compare with the report; resume with the missing groups named. |
+| Two workers in one crate break each other's builds while one edit is half done. | One writer per crate at a time; parallel only across crates (different lanes) or with docs and renderer work. |
+| Review by reading found a blocker the step-boundary tests cannot see (device may outlive the deadline). | Keep a read-only review step before the lead's own diff read on every R2 slice. |
+| Unit tests used `env!("CARGO_TARGET_TMPDIR")`, which exists only for integration tests; the worker hid it with an environment variable on its own command line. | Run the plain gate command (no extra environment) before accepting a worker's tests. |
+
 ## 8. What stays with the owner
 
 - Open decisions in `contracts/decisions.json`. An open decision blocks only the tasks that name it.

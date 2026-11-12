@@ -32,6 +32,10 @@ M1 has started. The first host slice is in `apps/desktop` (Tauri v2); details in
   - Added: `crates/kohbor-pack` (strict descriptor and indexed-ZIP reader, bounded staging, WAV/WebM profile checks, atomic install, separate activation, crash recovery, trust assessment: `local_import` only) and `crates/kohbor-pack-build` (authoring tool; output outside the repository).
   - Ran: 216 pack tests and 16 authoring tests (synthetic, Windows host), clippy, fmt. Not run: power-loss durability, a real package through the app, the renderer decode probe, native playback.
   - Open: DEC-PACK-CRYPTO (signature step reports unavailable), DEC-EVENT-AUDIO (the Sprint 2 choices in §7.1 are proposals), silent WebM for the owner's clips, rights documents.
+- **Sprint 3, native audio and the critical warning path (in progress, 2026-11-12, same version):** details in [Sprint Roadmap](../delivery/SPRINT-ROADMAP.md) and [S3-5 design](../design/S3-5-HOST-CRITICAL-PATH.md).
+  - Added: `crates/kohbor-audio` (pure audio owner, readiness, WAV decode), `crates/kohbor-audio-native` (WASAPI sink), the host audio engine, publisher, device supervisor, prewarm table and media service, the renderer playback reducer, probe context and mute panel (on mocks). Package contract media-manifest 1.3.0: a binding may omit its silent video (audio-only bindings).
+  - Decided by the owner or by the owner's delegation to agent reviews: DEC-SHARE-LIST, DEC-SIGNIN-OPTIONAL, DEC-ACCOUNT-IDENTITY, DEC-GID-REUSE, DEC-PACK-AUDIO-OPTIONAL-VISUAL (see the Decision Log; the reviews are agent reviews, not human, security or legal reviews).
+  - Ran: synthetic tests only (about 1,000 across the workspace) and 3 native device smoke tests with digital silence. Not run: device loss, acoustic latency, a real WebM probe, a live match, the wiring into the running app (S3-5l).
 
 ## 0.3.5 — 2026-11-11
 
