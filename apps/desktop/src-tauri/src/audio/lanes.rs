@@ -24,8 +24,16 @@ pub struct TickMsg {
 }
 
 pub enum Control {
-    Session { epoch: u64 },
-    SetMuted { muted: bool, ack: SyncSender<bool> },
+    Session {
+        epoch: u64,
+    },
+    SetMuted {
+        muted: bool,
+        ack: SyncSender<bool>,
+    },
+    SwapTable {
+        table: Arc<super::resolve::PrewarmTable>,
+    },
     SinkReady(Box<dyn kohbor_audio::Sink + Send>),
     Shutdown,
 }

@@ -1,10 +1,11 @@
 //! Event to audio mapping helpers and the prewarmed clip table (S3-5, design
 //! docs/design/S3-5-HOST-CRITICAL-PATH.md sections 2 and 3). API STUB: the bodies are
-//! `todo!()` until S3-5d; the tests of S3-5c are written against these signatures.
+//! Implemented for S3-5d; the S3-5c tests are written against these signatures.
 //! Admission code: pure, no I/O, no lock, no panic on any input.
 
 #![allow(dead_code, unused_variables)]
 
+use std::fmt::Write as _;
 use std::sync::Arc;
 
 use kohbor_audio::pcm::Pcm;
@@ -14,13 +15,19 @@ use kohbor_events::EventId;
 /// `Critical` when `id.is_critical()`, otherwise `Ordinary`. (C2, C3 and C5 are not
 /// reachable from a detector event in S3-5.)
 pub fn class_of(id: EventId) -> AudioClass {
-    todo!()
+    if id.is_critical() {
+        AudioClass::Critical
+    } else {
+        AudioClass::Ordinary
+    }
 }
 
 /// `ev_g{generation}_s{sequence}_{index}`, for example `ev_g3_s120_0`. The result
 /// always matches the contract pattern `^[A-Za-z0-9_-]{8,96}$` for any input.
 pub fn instance_id(generation: u64, sequence: u64, index: usize) -> String {
-    todo!()
+    let mut value = String::with_capacity(67);
+    let _ = write!(&mut value, "ev_g{generation}_s{sequence}_{index}");
+    value
 }
 
 /// One verified, decoded clip held in memory (never read from disk on admission).
@@ -62,7 +69,11 @@ pub struct PrewarmTable {
 impl PrewarmTable {
     /// The table before any revision is active: fence 0, no install id, no entries.
     pub fn empty() -> Arc<PrewarmTable> {
-        todo!()
+        Arc::new(Self {
+            fence: 0,
+            install_id: None,
+            entries: Vec::new(),
+        })
     }
 
     /// Entries are keyed by `(event, bound tier)`; at most one entry per key (a later
@@ -70,9 +81,38 @@ impl PrewarmTable {
     pub fn new(
         fence: u64,
         install_id: Option<Arc<str>>,
-        entries: Vec<(EventId, Option<u8>, Entry)>,
+        mut entries: Vec<(EventId, Option<u8>, Entry)>,
     ) -> PrewarmTable {
-        todo!()
+        let mut position = 0;
+        while let Some((id, tier, _)) = entries.get(position) {
+            let key = (*id, *tier);
+            let mut later = position.saturating_add(1);
+
+            while later < entries.len() {
+                let is_duplicate =
+                    entries
+                        .get(later)
+                        .is_some_and(|(candidate_id, candidate_tier, _)| {
+                            *candidate_id == key.0 && *candidate_tier == key.1
+                        });
+                if is_duplicate {
+                    let replacement = entries.remove(later);
+                    if let Some(current) = entries.get_mut(position) {
+                        *current = replacement;
+                    }
+                } else {
+                    later = later.saturating_add(1);
+                }
+            }
+
+            position = position.saturating_add(1);
+        }
+
+        PrewarmTable {
+            fence,
+            install_id,
+            entries,
+        }
     }
 
     /// Tier rule (owner decision 2026-11-11, EVENT-AUDIO-SPEC section 2):
@@ -84,11 +124,40 @@ impl PrewarmTable {
     /// - `tier == None`: only the tier-less entry (`Unmapped` when absent).
     /// - A tiered entry never answers a lookup below its bound tier.
     pub fn lookup(&self, id: EventId, tier: Option<u8>) -> Lookup<'_> {
-        todo!()
+        let mut best_tiered: Option<(u8, &Entry)> = None;
+        let mut tierless: Option<&Entry> = None;
+
+        for (entry_id, bound_tier, entry) in &self.entries {
+            if *entry_id != id {
+                continue;
+            }
+
+            match bound_tier {
+                Some(bound) if tier.is_some_and(|requested| *bound <= requested) => {
+                    let is_better = match best_tiered {
+                        Some((current, _)) => *bound > current,
+                        None => true,
+                    };
+                    if is_better {
+                        best_tiered = Some((*bound, entry));
+                    }
+                }
+                None => tierless = Some(entry),
+                Some(_) => {}
+            }
+        }
+
+        match best_tiered.map(|(_, entry)| entry).or(tierless) {
+            Some(Entry::Ready(clip)) => Lookup::Ready(clip),
+            Some(Entry::Invalid) => Lookup::Invalid,
+            None => Lookup::Unmapped,
+        }
     }
 
     /// True when the table has a `Ready` tier-less entry for `id` (readiness helper).
     pub fn has_ready_tierless(&self, id: EventId) -> bool {
-        todo!()
+        self.entries.iter().any(|(entry_id, tier, entry)| {
+            *entry_id == id && tier.is_none() && matches!(entry, Entry::Ready(_))
+        })
     }
 }
