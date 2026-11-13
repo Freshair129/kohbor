@@ -93,7 +93,7 @@ Optional account/social persistence belongs to a distinct server boundary with r
 
 ## 8. Resource and failure containment
 
-The application budget covers the native host, WebView processes, owned sidecars, every active inference/model process and an application relay running on the gaming computer: CPU ≤10% and aggregate full Working Set ≤900,000,000 bytes. External OBS is outside that application budget and must not be represented as a member of the application's process job.
+The application budget covers the native host, WebView processes, owned sidecars, every active inference/model process and an application relay running on the gaming computer: CPU ≤10% and aggregate full Working Set ≤2,000,000,000 bytes; the GPU may be used and its dedicated memory is budgeted at ≤2,000,000,000 bytes and measured (DEC-RESOURCE-BUDGET). External OBS is outside that application budget and must not be represented as a member of the application's process job.
 
 For recording runs, report application, external OBS and combined CPU/RAM separately. No combined CPU/RAM ceiling is established by this draft. Record an explicit recording-profile budget decision before claiming overall recording-profile performance acceptance; an application-only pass remains scoped to the application. The existing game-FPS and urgent acoustic-latency limits still apply with recording active and must be measured in that configuration. Avoid accidental simultaneous capture routes. Failure in account, cloud, peer relay, model, media recording or informational GPU telemetry must not block valid local warnings.
 

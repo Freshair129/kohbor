@@ -7,8 +7,8 @@ use std::sync::OnceLock;
 
 /// CPU hard cap in 1/100 percent units: 1000 = 10% of total system CPU.
 pub const CPU_RATE_HARD_CAP: u32 = 1000;
-/// Aggregate full Working Set acceptance ceiling (decimal bytes).
-pub const WORKING_SET_LIMIT_BYTES: u64 = 900_000_000;
+/// Aggregate full Working Set acceptance ceiling (decimal bytes): 2,000,000,000 since DEC-RESOURCE-BUDGET (900,000,000 before).
+pub const WORKING_SET_LIMIT_BYTES: u64 = 2_000_000_000;
 
 /// Operations required to establish the process Job Object containment boundary.
 ///

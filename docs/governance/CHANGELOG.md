@@ -2,6 +2,8 @@
 
 ## 0.3.6 — 2026-11-11
 
+- **Resource budget (owner decision 2026-11-13, relayed; same version): QUALITY-002 threshold changed.** The owner set the budget at 2 GB and allowed GPU processing ([DEC-RESOURCE-BUDGET](DECISION-LOG.md)). QUALITY-002 now reads: every 1 s normalized app-group CPU sample ≤10% (unchanged), aggregate peak full Working Set ≤2,000,000,000 bytes (was 900,000,000; decimal unit assumed, 2 GiB would be 2,147,483,648) and, when the GPU is used, peak dedicated GPU memory ≤2,000,000,000 bytes, measured per process, never assumed. Required evidence adds `live`; status stays NOT_RUN; **no measurement exists for any figure**. Updated: requirement registry, SRS atomic section, RTM and scenarios (generated), PRD, NFR (new VRAM row), TEST-PLAN TP-13, SAD, SDD, DDD, the design notes that repeat the figure, the Decision Log, `contracts/runtime-status.schema.json` (`working_set_bytes` maximum 2,000,000,000, no version bump: for the interface owner), `containment.rs` (`WORKING_SET_LIMIT_BYTES`) and the renderer's budget text. **Not updated:** diagram DGM-003, its catalog entry and `docs/diagrams/INDEX.html` still say 900,000,000 bytes: the offline renderer is not installed, so the diagram sources and their generated hashes were left consistent rather than edited by hand. Historical entries below keep the figure that was true then. Open questions for the owner are listed in DEC-RESOURCE-BUDGET.
+
 M1 has started. The first host slice is in `apps/desktop` (Tauri v2); details in [M1 Status](../delivery/M1-STATUS.md).
 
 - **Pins:** Tauri 2.12.5 (CLI/API 2.12.4), pnpm 12.18.0 through corepack, React 19.3.1, Vite 8.3.5, @vitejs/plugin-react 6.1.2, TypeScript 7.0.2, windows 0.61.3 and jsonschema =0.59.0 (tests only).

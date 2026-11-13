@@ -2,7 +2,7 @@
 domain: vision-risk
 tier: B
 card_version: 1
-verified_at_commit: 7ad4c7f
+verified_at_commit: 0997546
 verified_on: 2026-11-13
 verified_by: "claude-code subagent draft (read-only), integrated by the governance lead; agent work, not human review"
 ---

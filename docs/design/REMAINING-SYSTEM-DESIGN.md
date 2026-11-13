@@ -36,7 +36,7 @@ This is an agent design, not human, security or legal approval. It designs what 
 
 - The Command Deck shows the real in-game minimap enlarged on a second monitor (DEC-SESSION-MONITOR, UI-002, UI-008; FROM-REPO DECISION-LOG, UX-SPEC §4). GSI carries no enemy position (DATA-005).
 - Certified cell: Windows 10 build 19045 and Windows 11 build 26100, 1920×1080, 100% DPI, borderless fullscreen, default minimap bottom-left (FROM-REPO NFR "Certified starting matrix").
-- Budgets: every 1 s CPU sample ≤10% of total CPU for the whole job; peak Working Set ≤900,000,000 bytes; FPS loss ≤3% in each pair (FROM-REPO NFR). The job is a hard cap created before the WebView (FROM-REPO SDD §14).
+- Budgets: every 1 s CPU sample ≤10% of total CPU for the whole job; peak Working Set ≤2,000,000,000 bytes (900,000,000 until DEC-RESOURCE-BUDGET, 2026-11-13; dedicated GPU memory ≤2,000,000,000 bytes, measured); FPS loss ≤3% in each pair (FROM-REPO NFR). The job is a hard cap created before the WebView (FROM-REPO SDD §14).
 - SAD §4 already says "Retain DXGI read-only vision as the baseline" (FROM-REPO).
 
 ### 1.2 Platform facts
@@ -110,7 +110,7 @@ Size: side S pixels gives S²×4 bytes. If S ≈ 280 (UNVERIFIED) a frame is abo
 | Peer and account worker | 0.2 | |
 | Margin below the 9.0% throttle entry | 0.8 | Sum = 9.0 |
 
-RAM allocation (PROPOSED): frame path ≤40 MB including textures; detector ≤150 MB Working Set. The WebView dominates the 900 MB ceiling; that is measured, not assumed.
+RAM allocation (PROPOSED): frame path ≤40 MB including textures; detector ≤150 MB Working Set. The WebView dominated the earlier 900 MB ceiling (now 2,000 MB, DEC-RESOURCE-BUDGET); that is measured, not assumed.
 
 **Selection rule for V2 (fixed now).** Choose the first of T0, T1 whose transport + WebView cost at 30 fps stays within 2.5% with capture-to-present age p95 ≤100 ms on the reference cell. If neither does at 30 fps, the default display rate becomes the highest of 15 or 10 fps that passes, the badge shows the real rate, and the owner is told that the 30 fps target was not met. T2 is opened only by a new decision.
 

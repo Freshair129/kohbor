@@ -532,7 +532,7 @@
                 "properties": {
                   "working_set_bytes": {
                     "type": "integer",
-                    "maximum": 900000000
+                    "maximum": 2000000000
                   }
                 }
               }

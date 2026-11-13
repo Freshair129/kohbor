@@ -54,7 +54,7 @@ Registry ช่วยรักษาความสอดคล้อง แต�
 - **ข้อมูล:** unknown ไม่ใช่ zero/ready/safe; ภาพหายไม่พิสูจน์ว่าศัตรูหาย และคะแนน heuristic อย่างเดียวไม่ให้อำนาจร้องเตือน
 - **Consent:** cloud advice, peer sharing, microphone, social presence และ recording แยกกัน การ sign-in หรือได้ premium ไม่เปิดสิทธิ์อื่นเอง
 - **Scope:** เดโม event audio ไม่พิสูจน์ local conversation/memory; คลิปหลักฐานหนึ่งแมตช์ไม่พิสูจน์ automated highlights; local action-damage ยังรอมติขอบเขต MVP เต็ม
-- **ทรัพยากร:** 900,000,000 bytes หมายถึง aggregate full Working Set ตามบัญชี process รวมโมเดลจริง ส่วน OBS ต้องวัดแยกและรายงานยอดรวม
+- **ทรัพยากร:** 2,000,000,000 bytes (เพดานเดิม 900,000,000 เปลี่ยนตามงบของเจ้าของ 2026-11-13, DEC-RESOURCE-BUDGET) หมายถึง aggregate full Working Set ตามบัญชี process รวมโมเดลจริง ส่วน OBS ต้องวัดแยกและรายงานยอดรวม
 - **UX:** production ไม่เติม mock; map ไม่ขยับเมื่อ inspect; การเสียสิทธิ์ premium ไม่หยุด local core
 - **ความเป็นอิสระ:** core ใช้ได้โดยไม่มีบัญชี/เครือข่าย ส่วนที่ unavailable ต้องไม่ทำลายความสามารถอิสระที่ยังใช้ได้
 
