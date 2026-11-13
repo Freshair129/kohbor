@@ -101,7 +101,7 @@ fn older_minor_accepted() {
 }
 #[test]
 fn duplicate_json_keys() {
-    let bytes = br#"{"schema_version":"1.2.0","schema_version":"1.2.0"}"#;
+    let bytes = br#"{"schema_version":"1.3.0","schema_version":"1.3.0"}"#;
     assert_eq!(
         parse_descriptor(bytes, &common::catalog(), &Limits::default()).unwrap_err(),
         RejectReason::DuplicateJsonKey

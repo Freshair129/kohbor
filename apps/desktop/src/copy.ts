@@ -112,6 +112,131 @@ const MESSAGES = {
       ready: "พร้อม",
       notReady: "ยังไม่พร้อม",
     },
+    audio: {
+      title: "เสียงและสื่อ",
+      mediaName: "ความพร้อมของเสียงเตือนสำคัญ",
+      mediaState: { ready: "พร้อม", not_ready: "ยังไม่พร้อม", unavailable: "ใช้ไม่ได้", unknown: "ยังไม่ทราบ" },
+      statusUnknown: "ยังไม่ได้รับสถานะความพร้อมจากระบบหลัก",
+      reasonNone: "ระบบหลักยังไม่ได้รายงานรหัสเหตุผล",
+      muteAction: "ปิดเสียงทั้งหมด",
+      unmuteAction: "เปิดเสียงทั้งหมด",
+      pending: "กำลังเปลี่ยนสถานะเสียง…",
+      toggleFailed: "เปลี่ยนสถานะเสียงไม่ได้",
+      muteWarning: "การปิดเสียงจะปิดเสียงทุกประเภท รวมถึงเสียงเตือนสำคัญ และทำให้เสียงความปลอดภัยไม่พร้อม",
+      missingCriticalNote: "ยังไม่พร้อม จึงยังอ้างว่าเสียงเตือนความปลอดภัยจะดังไม่ได้",
+      readyReason: "ผ่านการตรวจครบตามที่ระบบหลักรายงาน",
+      readyNote: "ระบบหลักรายงานว่าพร้อม หลังตรวจสื่อ ถอดรหัส และอุปกรณ์เสียงแล้ว นี่ยังไม่ใช่การวัดความหน่วงหรือเสียงจริงในห้อง",
+      mutedBanner: "ปิดเสียงอยู่ — เสียงเตือนสำคัญจะไม่ดังจนกว่าจะเปิดเสียง",
+      muteUnknown: "ยืนยันสถานะปิดเสียงไม่ได้ขณะระบบเสียงใช้ไม่ได้ เลือกสถานะที่ต้องการได้เลย",
+      hintLabel: "ทำอะไรได้",
+      hints: {
+        MEDIA_UNMAPPED: "ติดตั้งและเปิดใช้แพ็กที่มีเสียงเตือนสำคัญจากแผง “แพ็กเสียงประกาศ” ด้านล่าง",
+        MEDIA_INVALID: "ตรวจรายการในแผง “แพ็กเสียงประกาศ” หรือติดตั้งแพ็กใหม่",
+        MEDIA_PROBE_FAILED: "ระบบหลักยังไม่ได้รับผลตรวจภาพจากหน้าต่างนี้ ลองเปิด Kohbor ใหม่",
+        AUDIO_MUTED: "กด “เปิดเสียงทั้งหมด” หรือ Alt+M",
+        CAPABILITY_UNAVAILABLE: "ตรวจอุปกรณ์เสียงเริ่มต้นของ Windows ถ้ายังไม่หายให้เปิด Kohbor ใหม่",
+      },
+    },
+    packs: {
+      title: "แพ็กเสียงประกาศ",
+      readinessNote: "การติดตั้งหรือเปิดใช้แพ็กไม่ได้แปลว่าเสียงเตือนสำคัญพร้อม — ความพร้อมแสดงที่แผง “เสียงและสื่อ” ซึ่งมาจากการตรวจของระบบหลักเท่านั้น",
+      activeLabel: "แพ็กที่เปิดใช้",
+      noActive: "ยังไม่มีแพ็กที่เปิดใช้",
+      revision: (revision: number) => `รุ่น ${revision}`,
+      listHeading: "แพ็กที่ติดตั้งแล้ว",
+      noRecords: "ยังไม่ได้ติดตั้งแพ็กใด",
+      refresh: "โหลดรายการใหม่",
+      refreshing: "กำลังโหลด…",
+      listLoading: "กำลังอ่านรายการแพ็ก…",
+      listUnreadable: "อ่านรายการแพ็กจากระบบหลักไม่ได้ — รูปแบบข้อมูลไม่ตรงที่คาด",
+      listFailed: "อ่านรายการแพ็กไม่ได้",
+      states: { active: "เปิดใช้อยู่", pending: "รอเปิดใช้", installed: "ติดตั้งแล้ว ยังไม่เปิดใช้" },
+      pendingNote: "แพ็กที่รอเปิดใช้จะเปลี่ยนเมื่อแมตช์จบและไม่มีเสียงกำลังเล่น",
+      authority: "นำเข้าจากไฟล์ในเครื่อง",
+      publisher: { none: "ไม่ระบุผู้เผยแพร่", unverified: "อ้างผู้เผยแพร่ — ยังไม่ได้ยืนยัน" },
+      activateNow: "เปิดใช้เมื่อว่าง",
+      activateAfterMatch: "เปิดใช้หลังจบแมตช์",
+      activating: "กำลังเปิดใช้…",
+      installHeading: "ติดตั้งแพ็กจากไฟล์",
+      pathLabel: "ตำแหน่งไฟล์แพ็กในเครื่องนี้",
+      pathHint: "วางเส้นทางเต็ม เช่น จาก “Copy as path” ของ Explorer",
+      inspect: "ตรวจไฟล์",
+      inspecting: "กำลังตรวจไฟล์…",
+      inspected: (size: string) => `อ่านไฟล์ได้ ขนาด ${size} — ยังไม่ได้ติดตั้ง`,
+      hashLabel: "SHA-256 ของไฟล์",
+      install: "ติดตั้ง (ยังไม่เปิดใช้)",
+      installing: "กำลังติดตั้ง…",
+      installNote: "ระบบหลักจะคัดลอกและตรวจไฟล์ตามค่า SHA-256 ข้างบนก่อนบันทึก ไฟล์ต้นทางไม่ถูกแก้ไข",
+      pathInvalid: "เส้นทางไฟล์สั้นหรือยาวเกินไป",
+      inspectUnreadable: "ระบบหลักตอบกลับรูปแบบที่ไม่คาดไว้ — ยังไม่ติดตั้ง",
+      resultUnreadable: "ระบบหลักตอบกลับรูปแบบที่ไม่คาดไว้ — ตรวจรายการแพ็กแล้วลองใหม่",
+      outcome: {
+        installed: (id: string) => `ติดตั้งแล้ว (${id}) — ยังไม่เปิดใช้`,
+        active: (id: string) => `เปิดใช้แล้ว (${id}) — ตรวจความพร้อมของเสียงเตือนสำคัญที่แผง “เสียงและสื่อ”`,
+        deferred: (id: string) => `รับคำขอเปิดใช้แล้ว (${id}) แต่ยังรอ — จะเปลี่ยนเมื่อแมตช์จบและไม่มีเสียงกำลังเล่น`,
+        activation_error: (id: string) => `เปิดใช้ไม่สำเร็จ (${id}) — แพ็กเดิมยังใช้อยู่`,
+        rejected: "ระบบหลักไม่รับแพ็กนี้",
+      },
+      reasons: {
+        SOURCE_UNAVAILABLE: "เปิดไฟล์ไม่ได้ หรือไฟล์เปลี่ยนระหว่างที่อ่าน",
+        MEDIA_INVALID: "ไฟล์แพ็กไม่ผ่านการตรวจ",
+        VERSION_UNSUPPORTED: "แพ็กใช้เวอร์ชันที่ระบบนี้ยังไม่รองรับ",
+        DISK_PRESSURE: "พื้นที่ดิสก์ไม่พอสำหรับติดตั้ง",
+        ACTIVATION_DEFERRED: "รอจังหวะที่ปลอดภัยต่อการเปลี่ยนแพ็ก",
+        CANCELLED: "ยกเลิกเพราะแอปกำลังปิด",
+        CAPABILITY_UNAVAILABLE: "ระบบหลักยุ่งหรือยังไม่พร้อมรับคำสั่งนี้ ลองใหม่อีกครั้ง",
+        UNKNOWN: "ไม่ทราบสาเหตุ",
+      },
+    },
+    history: {
+      title: "ประวัติการตัดสินเสียง",
+      note: "แสดงว่าแต่ละเหตุการณ์ถูกตัดสินอย่างไร “ส่งเข้าคิวเสียงแล้ว” ไม่ได้ยืนยันว่าได้ยินเสียงจริง เก็บในหน่วยความจำเท่านั้น หายเมื่อปิดแอป และไม่ถูกส่งไปที่ใด",
+      timeHeader: "เวลา",
+      timeNote: "นับจากเริ่มรับข้อมูลหลังเปิดแอป",
+      eventHeader: "เหตุการณ์",
+      outcomeHeader: "ผล",
+      packHeader: "แพ็ก",
+      voiceEvent: "เสียงพูด",
+      session: (epoch: number) => `เซสชัน ${epoch}`,
+      revision: (revision: number) => `ชุดที่ติดตั้ง #${revision}`,
+      noRevision: "—",
+      empty: "ยังไม่มีเหตุการณ์เสียงที่ถูกตัดสินในรอบนี้",
+      loading: "กำลังอ่านประวัติ…",
+      unreadable: "อ่านประวัติจากระบบหลักไม่ได้ — รูปแบบข้อมูลไม่ตรงที่คาด",
+      failed: "อ่านประวัติไม่ได้",
+      skipped: (count: number) => `ข้าม ${count} รายการที่รูปแบบไม่ตรงสัญญา`,
+      showing: (count: number) => `แสดง ${count} รายการล่าสุด`,
+      refresh: "โหลดใหม่",
+      classes: { critical: "สำคัญ", correction: "แก้ไข", notice: "แจ้งเตือน", ordinary: "ทั่วไป", voice: "เสียงพูด" },
+      tones: { played: "ส่งเล่น", blocked: "ถูกกั้น", silent: "ไม่เล่น" },
+      outcomes: {
+        admitted: { label: "ส่งเข้าคิวเสียงแล้ว", detail: "ส่งให้ตัวเล่นเสียงแล้ว แต่ไม่ได้ยืนยันว่าได้ยินจริง" },
+        preempted: { label: "ถูกตัดกลางคัน", detail: "ถูกเสียงที่สำคัญกว่าตัดขณะกำลังเล่น" },
+        unmapped: { label: "ไม่มีคลิปในแพ็ก", detail: "แพ็กที่เปิดใช้ไม่มีคลิปสำหรับเหตุการณ์นี้ จึงเงียบ" },
+        invalid_media: { label: "สื่อไม่ผ่านตรวจ", detail: "คลิปของเหตุการณ์นี้ไม่ผ่านการตรวจ จึงไม่เล่น" },
+        inert: { label: "รายการผูกไม่ทำงาน", detail: "แพ็กกำหนดให้รายการนี้ไม่เล่นเสียง" },
+        not_voiced: { label: "ไม่มีเสียงประกาศ", detail: "เหตุการณ์ประเภทนี้ไม่มีเสียงประกาศ" },
+        detector_unavailable: { label: "ตัวตรวจจับยังไม่พร้อม", detail: "ตัวตรวจจับเหตุการณ์นี้ยังยืนยันไม่ได้ จึงไม่เล่น" },
+        stale_session: { label: "เซสชันเก่า", detail: "เหตุการณ์มาจากเซสชันที่ผ่านไปแล้ว" },
+        superseded_revision: { label: "แพ็กถูกแทนที่", detail: "แพ็กเปลี่ยนก่อนเล่น จึงไม่เล่นด้วยชุดเดิม" },
+        critical_active: { label: "มีเสียงเตือนสำคัญเล่นอยู่", detail: "ไม่เล่นเพราะเสียงเตือนสำคัญกำลังเล่นอยู่" },
+        channel_busy: { label: "ช่องเสียงไม่ว่าง", detail: "ช่องเสียงไม่ว่าง หรืออุปกรณ์เสียงใช้ไม่ได้" },
+        lower_rank_same_tick: { label: "ลำดับต่ำกว่าในจังหวะเดียวกัน", detail: "มีเหตุการณ์ลำดับสูงกว่าในจังหวะเดียวกัน จึงเล่นเฉพาะอันนั้น" },
+        cooldown: { label: "อยู่ในช่วงพัก", detail: "เหตุการณ์ซ้ำในช่วงพัก จึงไม่เล่น" },
+        muted: { label: "ปิดเสียงอยู่", detail: "ผู้ใช้ปิดเสียงทั้งหมดอยู่" },
+      },
+    },
+    mockScenarios: {
+      title: "สถานการณ์ทดสอบวงจรสื่อ",
+      note: "สำหรับพัฒนาเท่านั้น ไม่มีสื่อภาพที่ผ่านการตรวจในชุดนี้ เหตุการณ์จึงส่ง visual_url: null",
+      normalClip: "เริ่มและจบตามปกติ — ไม่มีสื่อภาพ",
+      clipWithTail: "จบพร้อมช่วงภาพต่อท้าย — ไม่มีสื่อภาพ",
+      preemptCut: "ตัดเมื่อมีเสียงเตือนแทรก",
+      cancelSession: "ยกเลิกเมื่อเซสชันเปลี่ยน",
+      cancelMute: "ยกเลิกเมื่อปิดเสียง",
+      stuckWithoutEnd: "เริ่มโดยไม่มี ended — ไม่มีภาพที่ผ่านการตรวจ",
+      malformed: "ส่งเหตุการณ์ผิดรูปแบบ",
+    },
     own: {
       title: "ฮีโร่ของคุณ",
       fresh: (age: string) => `สด · ${age}`,
@@ -240,6 +365,131 @@ const MESSAGES = {
       ready: "Ready",
       notReady: "Not ready",
     },
+    audio: {
+      title: "Audio and media",
+      mediaName: "Critical audio readiness",
+      mediaState: { ready: "Ready", not_ready: "Not ready", unavailable: "Unavailable", unknown: "Unknown" },
+      statusUnknown: "No media readiness status has been received from the host",
+      reasonNone: "The host did not report a reason code",
+      muteAction: "Mute all audio",
+      unmuteAction: "Unmute all audio",
+      pending: "Changing audio state…",
+      toggleFailed: "Could not change audio state",
+      muteWarning: "Mute silences every audio class, including critical alerts, and makes safety audio unavailable",
+      missingCriticalNote: "Not ready, so no audible safety alert is claimed",
+      readyReason: "All checks passed, as reported by the host",
+      readyNote: "The host reports ready after checking media, decoding and the audio device. This is not a measurement of latency or of sound in the room.",
+      mutedBanner: "Muted — critical alerts will not sound until audio is unmuted",
+      muteUnknown: "Mute state cannot be confirmed while audio is unavailable; choose the state you want",
+      hintLabel: "What you can do",
+      hints: {
+        MEDIA_UNMAPPED: "Install and activate a pack with critical alerts from the “Announcer packs” panel below",
+        MEDIA_INVALID: "Check the “Announcer packs” list, or install the pack again",
+        MEDIA_PROBE_FAILED: "The host has not received a visual check from this window; try restarting Kohbor",
+        AUDIO_MUTED: "Press “Unmute all audio” or Alt+M",
+        CAPABILITY_UNAVAILABLE: "Check the default Windows audio device; if it persists, restart Kohbor",
+      },
+    },
+    packs: {
+      title: "Announcer packs",
+      readinessNote: "Installing or activating a pack does not mean critical alerts are ready — readiness is shown in the “Audio and media” panel and comes only from the host's own checks",
+      activeLabel: "Active pack",
+      noActive: "No pack is active",
+      revision: (revision: number) => `Revision ${revision}`,
+      listHeading: "Installed packs",
+      noRecords: "No pack is installed",
+      refresh: "Reload list",
+      refreshing: "Loading…",
+      listLoading: "Reading the pack list…",
+      listUnreadable: "Could not read the pack list — the host answered in an unexpected format",
+      listFailed: "Could not read the pack list",
+      states: { active: "Active", pending: "Waiting to activate", installed: "Installed, not active" },
+      pendingNote: "A waiting pack switches in when the match ends and no audio is playing",
+      authority: "Imported from a local file",
+      publisher: { none: "No publisher stated", unverified: "Publisher claimed — not verified" },
+      activateNow: "Activate when idle",
+      activateAfterMatch: "Activate after the match",
+      activating: "Activating…",
+      installHeading: "Install a pack from a file",
+      pathLabel: "Pack file location on this computer",
+      pathHint: "Paste the full path, for example from Explorer's “Copy as path”",
+      inspect: "Check file",
+      inspecting: "Checking file…",
+      inspected: (size: string) => `File readable, ${size} — not installed yet`,
+      hashLabel: "File SHA-256",
+      install: "Install (not activated)",
+      installing: "Installing…",
+      installNote: "The host copies the file and verifies it against the SHA-256 above before recording it. The source file is not modified.",
+      pathInvalid: "The file path is too short or too long",
+      inspectUnreadable: "The host answered in an unexpected format — nothing was installed",
+      resultUnreadable: "The host answered in an unexpected format — reload the pack list and retry",
+      outcome: {
+        installed: (id: string) => `Installed (${id}) — not activated`,
+        active: (id: string) => `Activated (${id}) — check critical audio readiness in the “Audio and media” panel`,
+        deferred: (id: string) => `Activation accepted (${id}) but waiting — it switches when the match ends and no audio is playing`,
+        activation_error: (id: string) => `Activation failed (${id}) — the previous pack stays in use`,
+        rejected: "The host did not accept this pack",
+      },
+      reasons: {
+        SOURCE_UNAVAILABLE: "The file could not be opened, or it changed while being read",
+        MEDIA_INVALID: "The pack file failed verification",
+        VERSION_UNSUPPORTED: "The pack uses a version this build does not support",
+        DISK_PRESSURE: "Not enough disk space to install",
+        ACTIVATION_DEFERRED: "Waiting for a safe moment to switch packs",
+        CANCELLED: "Cancelled because the app is closing",
+        CAPABILITY_UNAVAILABLE: "The host is busy or not ready for this command — try again",
+        UNKNOWN: "Unknown cause",
+      },
+    },
+    history: {
+      title: "Audio decision history",
+      note: "Shows how each event was decided. “Queued for audio” does not confirm that sound was heard. Kept in memory only, lost when the app closes, and never sent anywhere.",
+      timeHeader: "Time",
+      timeNote: "Counted from when data intake started after launch",
+      eventHeader: "Event",
+      outcomeHeader: "Result",
+      packHeader: "Pack",
+      voiceEvent: "Voice",
+      session: (epoch: number) => `Session ${epoch}`,
+      revision: (revision: number) => `Install #${revision}`,
+      noRevision: "—",
+      empty: "No audio event has been decided in this run yet",
+      loading: "Reading history…",
+      unreadable: "Could not read the history — the host answered in an unexpected format",
+      failed: "Could not read the history",
+      skipped: (count: number) => `Skipped ${count} record(s) that do not match the contract`,
+      showing: (count: number) => `Showing the latest ${count}`,
+      refresh: "Reload",
+      classes: { critical: "Critical", correction: "Correction", notice: "Notice", ordinary: "Ordinary", voice: "Voice" },
+      tones: { played: "Sent to play", blocked: "Blocked", silent: "Not played" },
+      outcomes: {
+        admitted: { label: "Queued for audio", detail: "Handed to the audio player; not confirmed as heard" },
+        preempted: { label: "Cut off", detail: "Cut off by a more important sound while playing" },
+        unmapped: { label: "No clip in the pack", detail: "The active pack has no clip for this event, so it stayed silent" },
+        invalid_media: { label: "Media failed checks", detail: "This event's clip failed verification, so it was not played" },
+        inert: { label: "Binding is inert", detail: "The pack marks this entry as not playing audio" },
+        not_voiced: { label: "No announcement", detail: "This kind of event has no announcement audio" },
+        detector_unavailable: { label: "Detector not ready", detail: "The detector for this event is unconfirmed, so it was not played" },
+        stale_session: { label: "Old session", detail: "The event belongs to a session that has ended" },
+        superseded_revision: { label: "Pack replaced", detail: "The pack changed before playback, so the old revision was not played" },
+        critical_active: { label: "Critical alert playing", detail: "Not played because a critical alert was already playing" },
+        channel_busy: { label: "Audio channel busy", detail: "The audio channel was busy or the output device was unavailable" },
+        lower_rank_same_tick: { label: "Lower rank, same tick", detail: "A higher-ranked event arrived in the same tick, so only that one played" },
+        cooldown: { label: "In cooldown", detail: "A repeat inside the cooldown window, so it was not played" },
+        muted: { label: "Muted", detail: "All audio is muted" },
+      },
+    },
+    mockScenarios: {
+      title: "Playback lifecycle scenarios",
+      note: "Development only. No verified visual media is in this bundle, so scenarios send visual_url: null.",
+      normalClip: "Normal start and end — no visual media",
+      clipWithTail: "End with a visual tail — no visual media",
+      preemptCut: "Cut when an alert preempts playback",
+      cancelSession: "Cancel when the session changes",
+      cancelMute: "Cancel when audio is muted",
+      stuckWithoutEnd: "Started without ended — no verified visual",
+      malformed: "Send a malformed event",
+    },
     own: {
       title: "Your hero",
       fresh: (age: string) => `Live · ${age}`,
@@ -282,7 +532,10 @@ const REASON_TH: Record<string, string> = {
   GSI_PORT_EXHAUSTED: "พอร์ต 3000–3010 ถูกใช้หมด",
   GSI_SECRET_UNAVAILABLE: "เข้าถึงที่เก็บความลับของ Windows ไม่ได้",
   MEDIA_UNMAPPED: "แพ็กที่เลือกยังไม่มีเสียงเตือนสำคัญที่ผ่านการตรวจ",
-  CAPABILITY_UNAVAILABLE: "ยังไม่มีในบิลด์นี้",
+  MEDIA_INVALID: "ไฟล์สื่อไม่ผ่านการตรวจหรือถอดรหัส",
+  MEDIA_PROBE_FAILED: "ตัวถอดรหัสยังยืนยันภาพในคลิปไม่ได้",
+  AUDIO_MUTED: "ปิดเสียงทั้งหมดอยู่ รวมถึงเสียงเตือนสำคัญ",
+  CAPABILITY_UNAVAILABLE: "ความสามารถนี้ยังไม่มีในบิลด์นี้",
   VERSION_UNSUPPORTED: "เวอร์ชันหรือการตั้งค่าที่ได้รับใช้ร่วมกันไม่ได้",
 };
 
@@ -299,7 +552,10 @@ const REASON_EN: Record<string, string> = {
   GSI_PORT_EXHAUSTED: "All ports 3000–3010 are in use",
   GSI_SECRET_UNAVAILABLE: "Could not access Windows secret storage",
   MEDIA_UNMAPPED: "The selected package has no verified critical alert audio",
-  CAPABILITY_UNAVAILABLE: "Not available in this build",
+  MEDIA_INVALID: "The media failed verification or decoding",
+  MEDIA_PROBE_FAILED: "The renderer could not verify the clip's visual stream",
+  AUDIO_MUTED: "All audio is muted, including critical alerts",
+  CAPABILITY_UNAVAILABLE: "This capability is not available in this build",
   VERSION_UNSUPPORTED: "Settings version or revision is not compatible",
 };
 
@@ -308,6 +564,47 @@ export function reason(code: string | null | undefined, locale: Locale = "th"): 
   if (!code) return "";
   const messages = locale === "th" ? REASON_TH : REASON_EN;
   return messages[code] ?? (locale === "th" ? `เกิดข้อผิดพลาดที่ยังไม่มีคำอธิบาย (${code})` : `Unexplained error (${code})`);
+}
+
+const MEDIA_REASON_TH: Record<string, string> = {
+  MEDIA_INVALID: "สื่อหรือที่เก็บแพ็กไม่ผ่านการตรวจ ถอดรหัสไม่ได้ หรือเปิดที่เก็บแพ็กไม่ได้",
+  CAPABILITY_UNAVAILABLE: "ระบบเสียงใช้ไม่ได้ในขณะนี้ — ไม่พบอุปกรณ์เสียง หรือส่วนเล่นเสียงไม่ตอบสนอง",
+};
+
+const MEDIA_REASON_EN: Record<string, string> = {
+  MEDIA_INVALID: "The media or the pack store failed verification, could not be decoded, or could not be opened",
+  CAPABILITY_UNAVAILABLE: "Audio is unavailable right now — no output device, or the audio engine is not responding",
+};
+
+/**
+ * Reason for the critical-media readiness row. The shared reason() table words
+ * CAPABILITY_UNAVAILABLE as "not in this build", which is wrong for audio, where
+ * the host uses it for a missing device or an unresponsive engine.
+ */
+export function mediaReason(code: string | null | undefined, locale: Locale = "th"): string {
+  if (!code) return "";
+  const override = (locale === "th" ? MEDIA_REASON_TH : MEDIA_REASON_EN)[code];
+  return override ?? reason(code, locale);
+}
+
+/** A short next step for a media readiness reason, or null when none is known. */
+export function mediaHint(code: string | null | undefined, locale: Locale = "th"): string | null {
+  if (!code) return null;
+  const hints: Record<string, string> = copy(locale).audio.hints;
+  return hints[code] ?? null;
+}
+
+/**
+ * Reason for a pack install or activation result. The shared reason() table
+ * words some codes for the game connection (for example SOURCE_UNAVAILABLE), so
+ * pack results use their own table and never fall back to it.
+ */
+export function packReason(code: string | null | undefined, locale: Locale = "th"): string {
+  if (!code) return "";
+  const known: Record<string, string> = copy(locale).packs.reasons;
+  const text = known[code];
+  if (text) return text;
+  return locale === "th" ? `เกิดข้อผิดพลาดที่ยังไม่มีคำอธิบาย (${code})` : `Unexplained error (${code})`;
 }
 
 export function seconds(ms: number | null | undefined, locale: Locale = "th"): string {

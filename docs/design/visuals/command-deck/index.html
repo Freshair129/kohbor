@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="th" data-lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gallery — Kohbor Command Deck proposal (not approved)</title>
+<!-- Optional web font; the stack falls back to Leelawadee UI / system-ui when offline. No other external request. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="tokens.css">
+<style>
+.tile { display: flex; flex-direction: column; gap: 4px; min-height: 96px; padding: 12px 14px; border: 1px solid var(--line-strong); border-radius: var(--r-card); background: var(--surface); color: var(--text); text-decoration: none; }
+.tile b { font-size: 16px; color: var(--accent); } .tile span { font-size: 13px; color: var(--text-2); line-height: 1.45; } .tile:hover { border-color: var(--text); }
+.sw { display: flex; gap: 10px; align-items: center; font-size: 12px; color: var(--muted); line-height: 1.35; } .sw b { color: var(--text); font-weight: 400; }
+.sw i { flex: none; width: 44px; height: 44px; border-radius: 8px; border: 1px solid var(--line-strong); }
+</style>
+</head>
+<body>
+<div class="doc-page">
+  <header class="doc-head">
+    <h1>Kohbor / เกาะเบาะ — Command Deck proposal</h1>
+    <div class="seg" role="group" aria-label="Theme"><span>Theme</span><button data-set="theme=auto">Auto</button><button data-set="theme=dark">Dark</button><button data-set="theme=light">Light</button></div>
+    <div class="seg" role="group" aria-label="Language"><span>Copy</span><button data-set="lang=th">ไทย</button><button data-set="lang=en">EN</button><button data-set="lang=both">ไทย + EN</button></div>
+    <nav class="doc-nav" aria-label="Mockups"><a href="index.html" aria-current="page">Gallery</a><a href="deck-live.html">A Deck Live</a><a href="minimap.html">B Minimap</a><a href="cards.html">C Cards</a><a href="social.html">D+G Social and flow</a><a href="inspector.html">E Events and inspector</a><a href="glance-and-idle.html">F Glance, idle, themes</a></nav>
+  </header>
+  <p class="status-note">Design proposal. Not approved (DEC-VISUALS open). Sample data only. Nothing here replaces application code. Identity tokens (A1, E1, names) and the minimap picture are neutral placeholders, not game artwork.</p>
+
+  <p>The Command Deck as a second monitor: the live minimap in the middle, your team on the left, the enemy team and recent events on the right. Read it from the corner of the eye; nothing needs the mouse during a match.</p>
+  <figure class="fig"><div class="board" data-w="1920" data-h="1080"><iframe title="" data-q="state=live" loading="lazy"></iframe></div><figcaption><b>A · Command Deck Live</b>, 1920 × 1080, sample data. Open <a class='keep' href='deck-live.html'>the artboard page</a> for the other sizes and every state.</figcaption></figure>
+  <h2>Mockups</h2>
+  <div class="grid" style="--col: 300px">
+    <a class="tile keep" href="deck-live.html"><b>A · Deck Live</b><span>1920 × 1080, 2560 × 1440, 1366 × 768, 1024 × 768 and portrait 1080 × 1920; state, mode and scope stepping.</span></a><a class="tile keep" href="minimap.html"><b>B · Minimap panel</b><span>Live frame, rate and age badge, the admitted marker set, selection, critical, and six degraded states.</span></a><a class="tile keep" href="cards.html"><b>C · Cards</b><span>Own hero; allies in every scope combination; stale, dead, unknown; enemy slots.</span></a><a class="tile keep" href="social.html"><b>D + G · Social and flow</b><span>Signed-out state, sign-in, friends and presence, the Share list with both-direction scopes, the first-time sheet, pause and remove, “why is this friend not receiving”, and the flow diagram.</span></a><a class="tile keep" href="inspector.html"><b>E · Events and inspector</b><span>Detected versus heard history rows for all fourteen outcomes, the inspector drawer, the audio dock slot.</span></a><a class="tile keep" href="glance-and-idle.html"><b>F · Glance, idle, themes</b><span>Glance versus detail, no-game and menu states, dark and light, burn-in approach.</span></a>
+  </div>
+  <p><a href="DESIGN-NOTES.md">DESIGN-NOTES.md</a> holds the decisions, state tables, contrast table, type scale, motion spec, differences from the brief and from the first proposal, open decisions and the list of what was not verified. <a href="tokens.css">tokens.css</a> holds the tokens and the shared component styles.</p>
+  <h2>Tokens at a glance</h2>
+  <div class="grid" style="--col: 220px"><div class="sw"><i style="background:var(--ground)"></i><span><b class="mono">--ground</b><br>page</span></div><div class="sw"><i style="background:var(--surface)"></i><span><b class="mono">--surface</b><br>cards</span></div><div class="sw"><i style="background:var(--raised)"></i><span><b class="mono">--raised</b><br>controls</span></div><div class="sw"><i style="background:var(--line)"></i><span><b class="mono">--line</b><br>static strokes</span></div><div class="sw"><i style="background:var(--text)"></i><span><b class="mono">--text</b><br>values</span></div><div class="sw"><i style="background:var(--muted)"></i><span><b class="mono">--muted</b><br>labels</span></div><div class="sw"><i style="background:var(--accent)"></i><span><b class="mono">--accent</b><br>own hero, live, sharing</span></div><div class="sw"><i style="background:var(--ally)"></i><span><b class="mono">--ally</b><br>allies, mana</span></div><div class="sw"><i style="background:var(--enemy)"></i><span><b class="mono">--enemy</b><br>enemy seen</span></div><div class="sw"><i style="background:var(--warning)"></i><span><b class="mono">--warning</b><br>missing, caution</span></div><div class="sw"><i style="background:var(--critical)"></i><span><b class="mono">--critical</b><br>critical only</span></div><div class="sw"><i style="background:var(--stale)"></i><span><b class="mono">--stale</b><br>stale, off: strokes only</span></div></div>
+  <p class="cap">Use the theme toggle to see both sets. Contrast ratios are in DESIGN-NOTES §6. The deck frames stay dark unless “Light” is chosen, because the Live deck pins dark by default.</p>
+
+</div>
+<script>
+/* Theme / language toggles, deck-frame params and frame scaling. Nothing else. */
+(function () {
+  var H = document.documentElement, P = new URLSearchParams(location.search), Q = { theme: P.get('theme') || 'auto', lang: P.get('lang') || 'th' };
+  function fit() { document.querySelectorAll('.board').forEach(function (b) { var f = b.firstElementChild, w = +b.dataset.w, h = +b.dataset.h, k = Math.min(1, b.clientWidth / w); f.style.width = w + 'px'; f.style.height = h + 'px'; f.style.transform = 'scale(' + k + ')'; b.style.height = Math.round(h * k) + 'px'; }); }
+  function apply() {
+    if (Q.theme === 'auto') H.removeAttribute('data-theme'); else H.dataset.theme = Q.theme; H.dataset.lang = Q.lang;
+    var s = 'theme=' + (Q.theme === 'light' ? 'light' : 'dark') + '&lang=' + Q.lang;
+    document.querySelectorAll('.board > iframe').forEach(function (f) { var u = 'deck-live.html?fill=1&' + (f.dataset.q ? f.dataset.q + '&' : '') + s; if (f.dataset.u !== u) { f.dataset.u = u; f.src = u; } });
+    document.querySelectorAll('.doc-nav a, a.keep').forEach(function (a) { a.href = a.getAttribute('href').split('?')[0] + '?theme=' + Q.theme + '&lang=' + Q.lang; });
+    document.querySelectorAll('[data-set]').forEach(function (b) { var kv = b.dataset.set.split('='); b.setAttribute('aria-pressed', String(Q[kv[0]] === kv[1])); });
+    fit();
+  }
+  document.addEventListener('click', function (e) { var b = e.target.closest('[data-set]'); if (!b) return; var kv = b.dataset.set.split('='); Q[kv[0]] = kv[1]; apply(); });
+  addEventListener('resize', fit); apply();
+})();
+</script>
+
+</body>
+</html>

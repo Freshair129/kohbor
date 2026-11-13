@@ -218,9 +218,9 @@ Detection is recorded as an event ([event.schema.json](../../contracts/event.sch
 | --- | --- | --- |
 | Mixed audio | RIFF/WAVE, `WAVE_FORMAT_PCM` (1), mono, 48,000 Hz, 16-bit, a single `data` chunk, duration ≤15,000 ms | Native: full decode to PCM at install; samples × 1000 / 48,000 must equal the binding `duration_ms` (floor) |
 | Identity (original) audio | Same profile | Native. When the binding names `identity_audio_path`, its sample count MUST equal the mixed audio's. It is never played in place of mixed audio |
-| Silent visual | WebM (EBML/Matroska), exactly one video track with codec `V_VP9` or `V_VP8`, **no** audio track, ≤1920×1080, ≤60 fps | Native: container/track parse with no codec decode. Renderer: decode probe (below) |
+| Silent visual (optional per binding) | WebM (EBML/Matroska), exactly one video track with codec `V_VP9` or `V_VP8`, **no** audio track, ≤1920×1080, ≤60 fps | Native: container/track parse with no codec decode. Renderer: decode probe (below) |
 
-**Video duration.** The video duration must lie between `duration_ms` and `duration_ms + visual_tail_ms`, with a tolerance of one frame.
+**Video duration.** For a binding that has a video, the video duration must lie between `duration_ms` and `duration_ms + visual_tail_ms`, with a tolerance of one frame.
 
 **Renderer decode probe.** The renderer plays video (MP-04), so video decodability is proven by the component that decodes it, under native orchestration:
 
@@ -235,7 +235,7 @@ Activation does not wait for probes of mappings that are not critical. Critical 
 
 **Package layout (format profile 1).**
 
-- **Descriptor.** The descriptor is the first ZIP entry, `descriptor.json`. It is validated by [media-manifest.schema.json](../../contracts/media-manifest.schema.json) 1.2.0.
+- **Descriptor.** The descriptor is the first ZIP entry, `descriptor.json`. It is validated by [media-manifest.schema.json](../../contracts/media-manifest.schema.json) 1.3.0 (1.3.0 makes `silent_visual_path` optional: an audio-only binding plays audio and shows no banner; DEC-PACK-AUDIO-OPTIONAL-VISUAL).
 - **Inventory.** Its `files` array is the payload inventory.
 - **Event registry.** Its `bindings` array is the event registry. The MP-03 elements are therefore sections of one bounded (≤2 MiB) document, not separate files.
 - **Field naming.** `bindings[].event_id` names a catalog ID. It is the event *type*; the per-occurrence identifier in events is `instance_id`.
@@ -268,7 +268,7 @@ The Windows transport framing (named pipe, 16 KiB frames, handshake) stays with 
 - **Install and activation are two calls.** `Store::install` returns `installed` or `rejected` and never `active`; `Store::activate` and `Store::resume_deferred` return `active`, `deferred` (reason `ACTIVATION_DEFERRED`) or `activation_error`. A retry of an install never re-runs activation.
 - **Reasons.** `DISK_PRESSURE` is used for any recoverable write failure (install or activation); `SOURCE_INVALID` for a digest mismatch and for a reused request ID with different content (`RequestConflict`); `MEDIA_INVALID` for every other rejection. The specific local reason (`RejectReason`) is kept apart from the contract code.
 - **Idempotency window.** Request results are kept for the last 512 requests; an evicted request ID is treated as new (an already-installed identity still returns `installed` with its record). Records are never evicted.
-- **Tier lookup is exact.** `resolve(event, Some(n))` returns only the binding with tier `n`; `resolve(event, None)` only the tier-less binding. There is no fallback between tiers.
+- **Tier lookup.** The store resolves exactly: `resolve(event, Some(n))` returns only the binding with tier `n` and `resolve(event, None)` only the tier-less binding. The host applies the owner's rule of section 2 in its prewarm table (S3-5-HOST-CRITICAL-PATH, design P6): the highest bound tier not above the occurrence, else the tier-less binding; a chosen clip that is invalid is reported as `invalid_media` and never replaced by a weaker tier.
 - **Unknown or non-mappable event IDs are inert** for packages of the same major taxonomy (older, equal or newer minor); they are verified like the rest and never played. A different major is rejected (`VERSION_UNSUPPORTED`).
 - **Names.** A container or descriptor path is `UnsafePath` for a `..`/`.` segment, a segment ending in a dot or space, a `:`, a Windows device stem (CON, PRN, AUX, NUL, COM1–9, LPT1–9) or a segment over 255 bytes; duplicates are compared case-insensitively.
 - **Durability.** Extracted files, the staged directory tree, the revision directory, the temporary registry/pointer files and their parent directories are flushed before each commit rename. Crash tests inject at step boundaries only; power loss and storage-cache failure are **not** demonstrated (native evidence needed).

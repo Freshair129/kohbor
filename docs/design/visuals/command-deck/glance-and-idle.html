@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="th" data-lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F Glance, idle, themes — Kohbor Command Deck proposal (not approved)</title>
+<!-- Optional web font; the stack falls back to Leelawadee UI / system-ui when offline. No other external request. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="tokens.css">
+<style>
+
+</style>
+</head>
+<body>
+<div class="doc-page">
+  <header class="doc-head">
+    <h1>F · Second-monitor ergonomics</h1>
+    <div class="seg" role="group" aria-label="Theme"><span>Theme</span><button data-set="theme=auto">Auto</button><button data-set="theme=dark">Dark</button><button data-set="theme=light">Light</button></div>
+    <div class="seg" role="group" aria-label="Language"><span>Copy</span><button data-set="lang=th">ไทย</button><button data-set="lang=en">EN</button><button data-set="lang=both">ไทย + EN</button></div>
+    <nav class="doc-nav" aria-label="Mockups"><a href="index.html">Gallery</a><a href="deck-live.html">A Deck Live</a><a href="minimap.html">B Minimap</a><a href="cards.html">C Cards</a><a href="social.html">D+G Social and flow</a><a href="inspector.html">E Events and inspector</a><a href="glance-and-idle.html" aria-current="page">F Glance, idle, themes</a></nav>
+  </header>
+  <p class="status-note">Design proposal. Not approved (DEC-VISUALS open). Sample data only. Nothing here replaces application code. Identity tokens (A1, E1, names) and the minimap picture are neutral placeholders, not game artwork.</p>
+
+  <h2>Glance mode and detail mode</h2>
+  <p>Glance is the default while a match is live: nothing needs the mouse, the rail recedes, and only values that can be read from one metre are shown. Detail appears when the pointer enters the window or a key is pressed, and leaves after a quiet period. Detail only fills space that glance already reserved, so nothing moves. The Share list indicator and the pause control are visible in both.</p>
+  <div class="grid" style="--col: 620px"><figure class="fig"><div class="board" data-w="1920" data-h="1080"><iframe title="" data-q="state=live&mode=glance" loading="lazy"></iframe></div><figcaption><b>Glance</b> (default in a live match).</figcaption></figure><figure class="fig"><div class="board" data-w="1920" data-h="1080"><iframe title="" data-q="state=live&mode=detail" loading="lazy"></iframe></div><figcaption><b>Detail</b>: rail at full strength, learned levels on the ability tiles, actions such as recalibrate. Same geometry.</figcaption></figure></div>
+  <h2>Share list indicator: always on the deck</h2>
+  <p>There is no per-match prompt, so the deck itself says, in every match, who receives what. It names the people and the scopes, sits at the top of the own-team column, and has a one-press pause next to it in both modes. Resume is always an explicit press.</p>
+  <div class="grid" style="--col: 620px"><figure class="fig"><div class="board" data-w="1366" data-h="768"><iframe title="" data-q="state=live&share=on" loading="lazy"></iframe></div><figcaption><b>Sharing.</b> Names and scopes: “กำลังแชร์ให้ 3 คน: Mint, Tonkla, Bank (เลือด/มานา) · Mint (สกิล)”.</figcaption></figure><figure class="fig"><div class="board" data-w="1366" data-h="768"><iframe title="" data-q="state=live&share=notice" loading="lazy"></iframe></div><figcaption><b>A listed friend starts receiving.</b> One quiet row in the event region, shown once, dismissible, never a modal.</figcaption></figure><figure class="fig"><div class="board" data-w="1366" data-h="768"><iframe title="" data-q="state=live&share=paused" loading="lazy"></iframe></div><figcaption><b>Paused.</b> Amber outline, “!” and words; the button becomes “แชร์ต่อ / Resume sharing”. In this proposal you still see what friends send you; whether pausing should also stop receiving is an open decision.</figcaption></figure><figure class="fig"><div class="board" data-w="1366" data-h="768"><iframe title="" data-q="state=live&share=none" loading="lazy"></iframe></div><figcaption><b>No listed friend on your team in this match.</b> The indicator says nothing is sent; every ally slot is the compact “not sharing with you” card.</figcaption></figure></div>
+  <h2>Idle and no-match states</h2>
+  <p>No seeded roster and no demo numbers. The layout keeps its regions so the eye finds the map in the same place when the match starts.</p>
+  <div class="grid" style="--col: 620px"><figure class="fig"><div class="board" data-w="1920" data-h="1080"><iframe title="" data-q="state=idle" loading="lazy"></iframe></div><figcaption><b>Dota 2 not running</b> (session.phase = none, intake listening).</figcaption></figure><figure class="fig"><div class="board" data-w="1920" data-h="1080"><iframe title="" data-q="state=menu" loading="lazy"></iframe></div><figcaption><b>Game in the menu</b>: game data is arriving, no match yet, nothing to capture.</figcaption></figure></div>
+  <h2>Always-on-dark, and the light theme</h2>
+  <p>The tokens follow <code>prefers-color-scheme</code> with a <code>data-theme</code> override, as the shipped tokens require. The Live deck is the one surface that pins <code>data-theme="dark"</code> by default: a bright panel beside a dark game costs peripheral contrast and night vision. The user can set it to follow the system or to light. The captured picture and its markers keep fixed colours in both themes because the game image is dark either way.</p>
+  <div class="grid" style="--col: 620px"><figure class="fig"><div class="board" data-w="1366" data-h="768"><iframe title="" data-q="state=critical&theme=dark" loading="lazy"></iframe></div><figcaption><b>Dark</b>, critical warning, 1366 × 768.</figcaption></figure><figure class="fig"><div class="board" data-w="1366" data-h="768"><iframe title="" data-q="state=critical&theme=light" loading="lazy"></iframe></div><figcaption><b>Light</b>, same state. The frame, banner and markers are unchanged; the cards switch to the light tokens.</figcaption></figure></div>
+  <h2>Burn-in avoidance without moving the map</h2>
+  <ul class="notes">
+    <li><b>No pixel shifting during a match.</b> Shifting would break the 1-px map stability rule and blur peripheral position memory.</li>
+    <li><b>Low static luminance instead.</b> Permanent chrome (rail, card borders, frame) uses the line and surface tokens only. Bright fills are reserved for transient states: the critical frame, a missing card, the new-sighting ring.</li>
+    <li><b>The largest area is video.</b> The map content changes every frame; the overlay markers move with the game.</li>
+    <li><b>Idle dims and relocates.</b> With no match for a set time, the deck drops to the idle state shown above. The idle mark changes position in discrete steps (no animation) between a few fixed places. A new match restores the layout at once.</li>
+    <li><b>Not verified.</b> None of this has been tested on an OLED or plasma panel; see DESIGN-NOTES.</li>
+  </ul>
+
+</div>
+<script>
+/* Theme / language toggles, deck-frame params and frame scaling. Nothing else. */
+(function () {
+  var H = document.documentElement, P = new URLSearchParams(location.search), Q = { theme: P.get('theme') || 'auto', lang: P.get('lang') || 'th' };
+  function fit() { document.querySelectorAll('.board').forEach(function (b) { var f = b.firstElementChild, w = +b.dataset.w, h = +b.dataset.h, k = Math.min(1, b.clientWidth / w); f.style.width = w + 'px'; f.style.height = h + 'px'; f.style.transform = 'scale(' + k + ')'; b.style.height = Math.round(h * k) + 'px'; }); }
+  function apply() {
+    if (Q.theme === 'auto') H.removeAttribute('data-theme'); else H.dataset.theme = Q.theme; H.dataset.lang = Q.lang;
+    var s = 'theme=' + (Q.theme === 'light' ? 'light' : 'dark') + '&lang=' + Q.lang;
+    document.querySelectorAll('.board > iframe').forEach(function (f) { var u = 'deck-live.html?fill=1&' + (f.dataset.q ? f.dataset.q + '&' : '') + s; if (f.dataset.u !== u) { f.dataset.u = u; f.src = u; } });
+    document.querySelectorAll('.doc-nav a, a.keep').forEach(function (a) { a.href = a.getAttribute('href').split('?')[0] + '?theme=' + Q.theme + '&lang=' + Q.lang; });
+    document.querySelectorAll('[data-set]').forEach(function (b) { var kv = b.dataset.set.split('='); b.setAttribute('aria-pressed', String(Q[kv[0]] === kv[1])); });
+    fit();
+  }
+  document.addEventListener('click', function (e) { var b = e.target.closest('[data-set]'); if (!b) return; var kv = b.dataset.set.split('='); Q[kv[0]] = kv[1]; apply(); });
+  addEventListener('resize', fit); apply();
+})();
+</script>
+
+</body>
+</html>

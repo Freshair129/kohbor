@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Kohbor S3 — Overlay event banner (proposal)</title>
+<!-- Optional. The page is complete without it: the stack falls back to Leelawadee UI / system-ui. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tokens.css">
+<style>
+/* ---------- mockup page chrome (not part of the overlay design) ---------- */
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--ground); color: var(--text); font-family: var(--font-ui); font-size: var(--fs-body); line-height: var(--lh-thai); }
+.page { max-width: 1240px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+header.top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+h1 { margin: 0; font-size: 20px; font-weight: 600; flex: 1 1 320px; }
+h2 { margin: 0 0 4px; font-size: 16px; font-weight: 600; }
+p { margin: 0; }
+a { color: var(--accent); }
+.muted { color: var(--muted); }
+.small { font-size: var(--fs-caption); }
+.mono { font-family: var(--font-mono); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.status { border: 1px dashed var(--warning); background: var(--warning-surface); border-radius: var(--r-banner); padding: 8px 14px; }
+.status::before { content: "! "; color: var(--warning); font-weight: 700; }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; }
+button { min-height: var(--target-min); padding: 0 14px; border-radius: var(--r-control); border: 1px solid var(--line-strong); background: var(--raised); color: var(--text); font: inherit; cursor: pointer; }
+button:hover { border-color: var(--text); }
+button[aria-pressed="true"] { border: 2px solid var(--accent); background: var(--accent-surface); }
+button[aria-pressed="true"]::before { content: "● "; color: var(--accent); }
+:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.group { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.group > .lbl { flex: 0 0 100%; color: var(--muted); font-size: var(--fs-caption); }
+.caption { padding: 8px 12px; border-left: 4px solid var(--accent); background: var(--raised); border-radius: 0 var(--r-control) var(--r-control) 0; }
+.scenes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+figure { margin: 0; min-width: 0; }
+figcaption { font-size: var(--fs-caption); color: var(--muted); padding-top: 4px; }
+.strips { display: flex; flex-direction: column; gap: 12px; }
+.ladder { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 860px) { .scenes, .ladder { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- synthetic game scenes: plain CSS gradients, no artwork ---------- */
+.scene { position: relative; aspect-ratio: 16 / 9; container-type: inline-size; overflow: hidden; border-radius: 6px; }
+/* cq units resolve against the nearest ANCESTOR container, so the em base is set on the children. */
+.scene .kb-slot, .scene .ghost { font-size: calc(100cqw / 192); }
+.strip .kb-slot { font-size: min(10px, calc(100cqw / 56)); }
+.spec .kb-slot { font-size: calc(100cqw / 60); }
+.bg-dark   { background: radial-gradient(60% 55% at 28% 62%, #1c2b22 0, transparent 70%), radial-gradient(45% 40% at 76% 34%, #241a2e 0, transparent 70%), linear-gradient(160deg, #04060a, #0c110f); }
+.bg-mid    { background: radial-gradient(50% 45% at 30% 40%, #8f9a62 0, transparent 70%), radial-gradient(45% 45% at 72% 62%, #4f6f7c 0, transparent 70%), linear-gradient(140deg, #5d7355, #8a7a5a 55%, #56707d); }
+.bg-bright { background: radial-gradient(42% 46% at 55% 34%, #ffffff 0, transparent 72%), radial-gradient(40% 40% at 20% 75%, #d9f2ff 0, transparent 70%), linear-gradient(150deg, #e6f1ff, #fff5d2 50%, #dcf5e4); }
+/* Keep-out zones copied from the first proposal's Overlay artboard: placeholders until measured natively. */
+.zone { position: absolute; border: 1px dashed rgba(255, 255, 255, 0.75); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.45); }
+.z-top { left: 29.17%; top: 0; width: 41.67%; height: 6.67%; }
+.z-ann { left: 34.375%; top: 10.93%; width: 31.25%; height: 7.4%; }
+.z-map { left: 0; top: 74.07%; width: 14.58%; height: 25.93%; }
+.z-skl { left: 32.29%; top: 85.19%; width: 35.42%; height: 14.81%; }
+.z-shp { left: 75%; top: 79.63%; width: 25%; height: 20.37%; }
+/* Mockup-only annotation of the slot when it is empty. The product draws nothing here. */
+.ghost { position: absolute; left: 50%; top: 20.4%; width: 39.4em; height: 25.4em; transform: translateX(-50%); border: 1px dotted rgba(255, 255, 255, 0.9); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6); display: none; }
+[data-kind="none"] .ghost { display: block; }
+
+.strip { position: relative; container-type: inline-size; border-radius: 6px; padding: 28px 0; display: flex; justify-content: center; min-height: 120px; }
+.spec { position: relative; container-type: inline-size; border-radius: 6px; padding: 14px 0; display: flex; justify-content: center; }
+
+/* =====================================================================
+   THE OVERLAY BANNER  (the design; 1em = 10 px on a 1920x1080 frame)
+   Only opacity and transform ever animate. No blur, no filter, no shadow blur.
+   ===================================================================== */
+.kb-slot { position: absolute; left: 50%; top: 20.4%; transform: translateX(-50%); pointer-events: none; }
+.strip .kb-slot, .spec .kb-slot { position: relative; left: auto; top: auto; transform: none; }
+.kb-banner { position: relative; width: max-content; animation: kb-in var(--dur-enter) var(--ease-out) both; }
+[data-kind="none"] .kb-banner { display: none; }
+
+/* The mat: a dark plate under every line, so no line depends on the game scene for contrast. */
+.kb-mat { position: relative; padding: 0.8em; background: var(--ov-mat); border: 0.2em solid var(--ov-accent); border-radius: 1.2em; outline: 0.1em solid var(--ov-halo); }
+.kb-clip { width: 36em; aspect-ratio: 16 / 9; border-radius: 0.5em; overflow: hidden; display: flex; align-items: center; justify-content: center; text-align: center;
+  /* PLACEHOLDER for the package's muted <video> (object-fit: contain). Not part of the design. */
+  background: repeating-linear-gradient(135deg, #8a9097 0 1em, #7d838a 1em 2em); color: #101318; font-size: 1em; }
+.kb-clip span { font-size: 1.3em; line-height: 1.5; background: #c9ced4; padding: 0.2em 0.8em; border-radius: 0.3em; }
+
+/* Tier rail: position on the ladder, by count and by filled-versus-hollow shape. */
+.kb-rail { display: none; height: 1.3em; margin-top: 0.5em; gap: 0.6em; align-items: center; justify-content: center; }
+.kb-rail i { display: block; border: 0.15em solid var(--ov-rail-off); }
+[data-family="multi"] .kb-rail, [data-family="streak"] .kb-rail { display: flex; }
+[data-family="multi"] .kb-rail { gap: 1.1em; }
+[data-family="multi"] .kb-rail i { width: 0.95em; height: 0.95em; transform: rotate(45deg); }
+[data-family="multi"] .kb-rail i:nth-child(n+5) { display: none; }
+[data-family="streak"] .kb-rail i { width: 3.3em; height: 0.6em; border-radius: 0.1em; }
+[data-step="1"] .kb-rail i:nth-child(-n+1), [data-step="2"] .kb-rail i:nth-child(-n+2),
+[data-step="3"] .kb-rail i:nth-child(-n+3), [data-step="4"] .kb-rail i:nth-child(-n+4),
+[data-step="5"] .kb-rail i:nth-child(-n+5), [data-step="6"] .kb-rail i:nth-child(-n+6),
+[data-step="7"] .kb-rail i:nth-child(-n+7), [data-step="8"] .kb-rail i:nth-child(-n+8) { background: var(--ov-accent); border-color: var(--ov-accent); }
+
+/* Strength levels 2-4: the frame gains weight around the clip, never over it. */
+[data-level="2"] .kb-mat, [data-level="3"] .kb-mat, [data-level="4"] .kb-mat { padding: 1.3em; }
+[data-level="2"] .kb-mat { border-width: 0.3em; --bl: 2.6em; --bt: 0.3em; }
+[data-level="3"] .kb-mat { border-width: 0.4em; --bl: 4.4em; --bt: 0.4em; }
+[data-level="4"] .kb-mat { border-width: 0.4em; }
+[data-level="2"] .kb-mat::before, [data-level="3"] .kb-mat::before { /* four corner brackets */
+  content: ""; position: absolute; inset: 0.4em; pointer-events: none;
+  background:
+    linear-gradient(var(--ov-hot), var(--ov-hot)) left top / var(--bl) var(--bt) no-repeat,
+    linear-gradient(var(--ov-hot), var(--ov-hot)) left top / var(--bt) var(--bl) no-repeat,
+    linear-gradient(var(--ov-hot), var(--ov-hot)) right top / var(--bl) var(--bt) no-repeat,
+    linear-gradient(var(--ov-hot), var(--ov-hot)) right top / var(--bt) var(--bl) no-repeat,
+    linear-gradient(var(--ov-hot), var(--ov-hot)) left bottom / var(--bl) var(--bt) no-repeat,
+    linear-gradient(var(--ov-hot), var(--ov-hot)) left bottom / var(--bt) var(--bl) no-repeat,
+    linear-gradient(var(--ov-hot), var(--ov-hot)) right bottom / var(--bl) var(--bt) no-repeat,
+    linear-gradient(var(--ov-hot), var(--ov-hot)) right bottom / var(--bt) var(--bl) no-repeat; }
+[data-level="4"] .kb-mat::before { /* a closed second ring */
+  content: ""; position: absolute; inset: 0.4em; pointer-events: none; border: 0.3em solid var(--ov-hot); border-radius: 0.7em; }
+
+/* Critical: a different silhouette, not a recoloured celebration. Square, striped, flanked by warning glyphs. */
+[data-kind="critical"] .kb-mat { padding: 2em 0.8em; background: var(--ov-critical-ink); border: 0.6em solid var(--ov-critical); border-radius: 0; outline: 0.2em solid var(--ov-critical-ink); }
+[data-kind="critical"] .kb-mat::before, [data-kind="critical"] .kb-mat::after { content: ""; position: absolute; left: 0.3em; right: 0.3em; height: 1.3em; border: 0; border-radius: 0; inset-block: auto;
+  background: repeating-linear-gradient(135deg, var(--ov-critical) 0 1.3em, var(--ov-critical-ink) 1.3em 2.6em); }
+[data-kind="critical"] .kb-mat::before { top: 0.35em; }
+[data-kind="critical"] .kb-mat::after { bottom: 0.35em; }
+[data-kind="critical"] .kb-rail { display: none; }
+[data-kind="critical"] .kb-banner::before, [data-kind="critical"] .kb-banner::after { content: ""; position: absolute; top: 0; bottom: 0; width: 6em;
+  outline: 0.2em solid var(--ov-critical-ink);
+  background: var(--ov-critical) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2 23 21H1z' fill='%231a0b08'/%3E%3Crect x='10.9' y='8.6' width='2.2' height='6.4' fill='%23ff5a4a'/%3E%3Ccircle cx='12' cy='17.7' r='1.3' fill='%23ff5a4a'/%3E%3C/svg%3E") center / 4em no-repeat;
+  animation: kb-pulse 240ms linear var(--dur-critical) 1; }
+[data-kind="critical"] .kb-banner::before { right: 100%; }
+[data-kind="critical"] .kb-banner::after { left: 100%; }
+
+/* Motion */
+@keyframes kb-in { from { opacity: 0; transform: translateY(0.6em) scale(var(--s0, 0.98)); } to { opacity: 1; transform: none; } }
+@keyframes kb-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes kb-out { to { opacity: 0; transform: translateY(-0.4em); } }
+@keyframes kb-pulse { 50% { opacity: 0.45; } }
+[data-level="2"] .kb-banner, [data-level="3"] .kb-banner { --s0: 0.95; animation-duration: 180ms; }
+[data-level="4"] .kb-banner { --s0: 0.9; animation-duration: var(--dur-enter-top); animation-timing-function: var(--ease-over); }
+[data-kind="critical"] .kb-banner { animation: kb-fade var(--dur-critical) linear both; }
+[data-phase="cut"] .kb-banner { animation: kb-fade var(--dur-cut) linear both; }   /* replacement: the old banner is already gone */
+[data-phase="exit"] .kb-banner { animation: kb-out var(--dur-exit) var(--ease-in) both; }
+/* Visual tail: the audio has ended, the clip is finishing. Ordinary frames quiet down; a critical frame never does. */
+.kb-rail, .kb-mat::before { transition: opacity var(--dur-tail) linear; }
+[data-kind="ordinary"][data-phase="tail"] .kb-rail, [data-kind="ordinary"][data-phase="tail"] .kb-mat::before { opacity: 0; }
+.spec .kb-banner, .spec .kb-banner::before, .spec .kb-banner::after { animation: none !important; }
+
+/* Reduced motion: every state appears and disappears in one frame; emphasis is static (weight, shape, count). */
+html[data-motion="reduce"] .kb-banner, html[data-motion="reduce"] .kb-banner::before, html[data-motion="reduce"] .kb-banner::after { animation: none !important; }
+html[data-motion="reduce"] .kb-rail, html[data-motion="reduce"] .kb-mat::before { transition: none !important; }
+html[data-motion="reduce"] [data-phase="exit"] .kb-banner { visibility: hidden; }
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion="full"]) .kb-banner, html:not([data-motion="full"]) .kb-banner::before, html:not([data-motion="full"]) .kb-banner::after { animation: none !important; }
+  html:not([data-motion="full"]) .kb-rail, html:not([data-motion="full"]) .kb-mat::before { transition: none !important; }
+  html:not([data-motion="full"]) [data-phase="exit"] .kb-banner { visibility: hidden; }
+}
+
+/* ---------- lifecycle diagram (page chrome) ---------- */
+.tl { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 6px 10px; align-items: center; font-size: var(--fs-caption); }
+.tl-track { position: relative; height: 26px; background: var(--raised); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.tl-seg { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; padding: 0 6px; white-space: nowrap; overflow: hidden; border-right: 2px solid var(--surface); }
+.seg-a { background: var(--accent-surface); border-top: 3px solid var(--accent); }
+.seg-t { background: var(--raised); border-top: 3px dashed var(--line-strong); }
+.seg-c { background: var(--critical-surface); border-top: 3px double var(--critical); }
+.tl-cut { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px solid var(--text); }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <h1>แบนเนอร์เหตุการณ์บนโอเวอร์เลย์ <span class="muted">· Overlay event banner</span></h1>
+    <nav class="tools" aria-label="Mockup tools">
+      <a href="index.html">← แกลเลอรี · Gallery</a>
+      <a href="audio-panel.html">แผงเสียง · Audio panel</a>
+    </nav>
+    <div class="tools">
+      <button type="button" id="theme" aria-label="Page theme">ธีม · Theme: auto</button>
+      <button type="button" id="motion" aria-pressed="false">ลดการเคลื่อนไหว · Reduced motion</button>
+    </div>
+  </header>
+
+  <p class="status">ข้อเสนอการออกแบบ ยังไม่ได้รับอนุมัติ (DEC-VISUALS ยังเปิดอยู่) · Design proposal, not approved. Grey hatched areas are placeholders for the package's clip; dashed boxes are unmeasured HUD keep-out placeholders; neither is part of the overlay.</p>
+
+  <section class="card" aria-labelledby="s1">
+    <h2 id="s1">1. สถานะของแบนเนอร์ · Banner states</h2>
+    <div class="group" role="group" aria-label="Event">
+      <span class="lbl">เหตุการณ์ · Event</span>
+      <button type="button" data-s="empty">ว่าง · Empty</button>
+      <button type="button" data-s="plain">ทั่วไป · Ordinary</button>
+      <button type="button" data-s="mk2">มัลติคิล ×2</button>
+      <button type="button" data-s="mk3" aria-pressed="true">×3</button>
+      <button type="button" data-s="mk4">×4</button>
+      <button type="button" data-s="mk5">×5+</button>
+      <button type="button" data-s="st3">สตรีค 3</button>
+      <button type="button" data-s="st5">5</button>
+      <button type="button" data-s="st7">7</button>
+      <button type="button" data-s="st10">10+</button>
+      <button type="button" data-s="crit">⚠ เตือนสำคัญ · Critical</button>
+    </div>
+    <div class="group" role="group" aria-label="Phase">
+      <span class="lbl">ช่วงของการเล่น · Phase (applies to the selected event)</span>
+      <button type="button" data-p="play">เข้า · Enter (replay)</button>
+      <button type="button" data-p="tail">ช่วงภาพต่อท้าย · Visual tail</button>
+      <button type="button" data-p="exit">ออก · Exit</button>
+      <button type="button" data-cut="mk4">ถูกแทนที่ด้วยเหตุการณ์ใหม่ · Cut to a newer event</button>
+      <button type="button" data-cut="crit">ถูกตัดด้วยเสียงเตือนสำคัญ · Cut by a critical alert</button>
+    </div>
+    <p class="caption" id="cap" aria-live="polite"><strong>มัลติคิล ระดับ 3</strong> — multi_kill tier 3 · ระดับความแรง 2 จาก 4 · strength level 2 of 4</p>
+
+    <div id="stage" data-kind="ordinary" data-family="multi" data-step="2" data-level="2" data-phase="play">
+      <div class="scenes">
+        <figure>
+          <div class="scene bg-dark"><i class="zone z-top"></i><i class="zone z-ann"></i><i class="zone z-map"></i><i class="zone z-skl"></i><i class="zone z-shp"></i><i class="ghost"></i>
+            <div class="kb-slot"><div class="kb-banner"><div class="kb-mat"><div class="kb-clip"><span>PLACEHOLDER</span></div><div class="kb-rail"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></div></div>
+          </div>
+          <figcaption>ฉากมืด · Dark scene (1920×1080 reference, scaled)</figcaption>
+        </figure>
+        <figure>
+          <div class="scene bg-mid"><i class="zone z-top"></i><i class="zone z-ann"></i><i class="zone z-map"></i><i class="zone z-skl"></i><i class="zone z-shp"></i><i class="ghost"></i>
+            <div class="kb-slot"><div class="kb-banner"><div class="kb-mat"><div class="kb-clip"><span>PLACEHOLDER</span></div><div class="kb-rail"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></div></div>
+          </div>
+          <figcaption>ฉากกลาง · Mid scene</figcaption>
+        </figure>
+        <figure>
+          <div class="scene bg-bright"><i class="zone z-top"></i><i class="zone z-ann"></i><i class="zone z-map"></i><i class="zone z-skl"></i><i class="zone z-shp"></i><i class="ghost"></i>
+            <div class="kb-slot"><div class="kb-banner"><div class="kb-mat"><div class="kb-clip"><span>PLACEHOLDER</span></div><div class="kb-rail"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></div></div>
+          </div>
+          <figcaption>ฉากสว่างจัด · Very bright scene</figcaption>
+        </figure>
+      </div>
+      <p class="small muted">เส้นประ = พื้นที่ HUD ของเกมที่ห้ามบัง (ตัวอย่าง ยังไม่ได้วัดจริง) · เส้นจุดตอนสถานะ “ว่าง” = ตำแหน่งช่องแบนเนอร์ มีเฉพาะในม็อกอัป ของจริงไม่วาดอะไรเลย<br>Dashed = game HUD keep-out placeholders (unmeasured). The dotted box in the Empty state marks the slot for the reviewer only; the product draws nothing.</p>
+
+      <h2>ขนาดจริง · Frame detail at 100% (1em = 10 px)</h2>
+      <div class="strips">
+        <div class="strip bg-dark"><div class="kb-slot"><div class="kb-banner"><div class="kb-mat"><div class="kb-clip"><span>ตัวอย่างพื้นที่คลิป · PLACEHOLDER 360×203</span></div><div class="kb-rail"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></div></div></div>
+        <div class="strip bg-mid"><div class="kb-slot"><div class="kb-banner"><div class="kb-mat"><div class="kb-clip"><span>ตัวอย่างพื้นที่คลิป · PLACEHOLDER 360×203</span></div><div class="kb-rail"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></div></div></div>
+        <div class="strip bg-bright"><div class="kb-slot"><div class="kb-banner"><div class="kb-mat"><div class="kb-clip"><span>ตัวอย่างพื้นที่คลิป · PLACEHOLDER 360×203</span></div><div class="kb-rail"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="s2">
+    <h2 id="s2">2. ระดับ (tier) · The tier dimension</h2>
+    <p class="muted">ระดับสูงขึ้น = กรอบหนักขึ้นรอบคลิป ไม่มีอะไรทับคลิป · A higher tier adds weight around the clip and fills more of the rail; nothing is drawn over the clip. Rail shape tells the family: diamonds = multi_kill (2–5), bars = streak (3–10).</p>
+    <div class="ladder">
+      <figure><div class="spec bg-mid" data-kind="ordinary" data-family="none" data-step="0" data-level="0"><div class="kb-slot"><div class="kb-banner"><div class="kb-mat"><div class="kb-clip"><span>PLACEHOLDER</span></div><div class="kb-rail"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></div></div></div><figcaption>ไม่มีระดับ · Untiered: hero_kill, first_blood, level_milestone — level 0, no rail</figcaption></figure>
+      <figure><div class="spec bg-mid" data-kind="ordinary" data-family="multi" data-step="1" data-level="1"><div class="kb-slot"><div class="kb-banner"><div class="kb-mat"><div class="kb-clip"><span>PLACEHOLDER</span></div><div class="kb-rail"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></div></div></div><figcaption>มัลติคิล ×2 · multi_kill tier 2 — level 1</figcaption></figure>
+      <figure><div class="spec bg-mid" data-kind="ordinary" data-family="multi" data-step="2" data-level="2"><div class="kb-slot"><div class="kb-banner"><div class="kb-mat"><div class="kb-clip"><span>PLACEHOLDER</span></div><div class="kb-rail"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></div></div></div><figcaption>มัลติคิล ×3 · tier 3 — level 2, short brackets</figcaption></figure>
+      <figure><div class="spec bg-bright" data-kind="ordinary" data-family="multi" data-step="3" data-level="3"><div class="kb-slot"><div class="kb-banner"><div class="kb-mat"><div class="kb-clip"><span>PLACEHOLDER</span></div><div class="kb-rail"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></div></div></div><figcaption>มัลติคิล ×4 · tier 4 — level 3, long brackets</figcaption></figure>
+      <figure><div class="spec bg-bright" data-kind="ordinary" data-family="multi" data-step="4" data-level="4"><div class="kb-slot"><div class="kb-banner"><div class="kb-mat"><div class="kb-clip"><span>PLACEHOLDER</span></div><div class="kb-rail"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></div></div></div><figcaption>มัลติคิล ×5 ขึ้นไป · tier 5 (five or more) — level 4, closed ring</figcaption></figure>
+      <figure><div class="spec bg-dark" data-kind="ordinary" data-family="streak" data-step="1" data-level="1"><div class="kb-slot"><div class="kb-banner"><div class="kb-mat"><div class="kb-clip"><span>PLACEHOLDER</span></div><div class="kb-rail"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></div></div></div><figcaption>สตรีค 3 · streak tier 3 — level 1</figcaption></figure>
+      <figure><div class="spec bg-dark" data-kind="ordinary" data-family="streak" data-step="4" data-level="2"><div class="kb-slot"><div class="kb-banner"><div class="kb-mat"><div class="kb-clip"><span>PLACEHOLDER</span></div><div class="kb-rail"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></div></div></div><figcaption>สตรีค 6 · streak tier 6 — level 2</figcaption></figure>
+      <figure><div class="spec bg-dark" data-kind="ordinary" data-family="streak" data-step="8" data-level="4"><div class="kb-slot"><div class="kb-banner"><div class="kb-mat"><div class="kb-clip"><span>PLACEHOLDER</span></div><div class="kb-rail"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></div></div></div><figcaption>สตรีค 10 ขึ้นไป · streak tier 10 (ten or more) — level 4</figcaption></figure>
+      <figure><div class="spec bg-bright" data-kind="critical" data-family="none" data-step="0" data-level="0"><div class="kb-slot"><div class="kb-banner"><div class="kb-mat"><div class="kb-clip"><span>PLACEHOLDER</span></div><div class="kb-rail"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></div></div></div><figcaption>เตือนสำคัญ · Critical (health_danger, risk_alert) — square, striped, two warning glyphs; no tiers</figcaption></figure>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="s3">
+    <h2 id="s3">3. การตัดและช่วงต่อท้าย · Cut and tail (timing)</h2>
+    <p class="muted">ไม่มีคิว ไม่มีภาพซ้อน: แบนเนอร์เก่าหายในเฟรมเดียวกับที่แบนเนอร์ใหม่เริ่ม · No queue and no overlap: the old banner is removed in the same frame the new one starts its 90 ms fade.</p>
+    <div class="tl" role="img" aria-label="Lifecycle timing: normal play with tail and exit, then a cut by a newer event">
+      <span>ปกติ · Normal</span>
+      <div class="tl-track"><span class="tl-seg seg-a" style="left:0;width:8%">140</span><span class="tl-seg seg-a" style="left:8%;width:52%">เสียง + ภาพ · audio + clip</span><span class="tl-seg seg-t" style="left:60%;width:28%">ภาพต่อท้าย · tail</span><span class="tl-seg seg-t" style="left:88%;width:10%">180</span></div>
+      <span>เก่า · Old (A)</span>
+      <div class="tl-track"><span class="tl-seg seg-a" style="left:0;width:8%">140</span><span class="tl-seg seg-a" style="left:8%;width:37%">A</span><i class="tl-cut" style="left:45%"></i></div>
+      <span>ใหม่ · New (B)</span>
+      <div class="tl-track"><i class="tl-cut" style="left:45%"></i><span class="tl-seg seg-c" style="left:45%;width:6%">90</span><span class="tl-seg seg-c" style="left:51%;width:40%">B — ซ้อนกัน 0 ms · 0 ms overlap</span></div>
+    </div>
+    <p class="small muted">ตัวเลขเป็นมิลลิวินาที · Numbers are milliseconds. A critical banner enters in 80 ms (opacity only) and pulses its two glyph tabs once (240 ms). Under reduced motion every step is a single-frame change.</p>
+  </section>
+</div>
+
+<script>
+(function () {
+  var root = document.documentElement, stage = document.getElementById('stage'), cap = document.getElementById('cap');
+  var S = {
+    empty: ['none', 'none', 0, 0, 'ว่าง — ไม่มีคลิปที่ผ่านการตรวจ จึงไม่วาดอะไรเลย', 'Empty: no verified clip, so nothing is drawn (no card, no text, no substitute)'],
+    plain: ['ordinary', 'none', 0, 0, 'เหตุการณ์ทั่วไป ไม่มีระดับ', 'Ordinary, untiered: hero_kill, first_blood, level_milestone · level 0'],
+    mk2: ['ordinary', 'multi', 1, 1, 'มัลติคิล ระดับ 2', 'multi_kill tier 2 · strength level 1 of 4'],
+    mk3: ['ordinary', 'multi', 2, 2, 'มัลติคิล ระดับ 3', 'multi_kill tier 3 · strength level 2 of 4'],
+    mk4: ['ordinary', 'multi', 3, 3, 'มัลติคิล ระดับ 4', 'multi_kill tier 4 · strength level 3 of 4'],
+    mk5: ['ordinary', 'multi', 4, 4, 'มัลติคิล ระดับ 5 ขึ้นไป', 'multi_kill tier 5 (five or more) · strength level 4 of 4'],
+    st3: ['ordinary', 'streak', 1, 1, 'สตรีค 3', 'streak tier 3 · strength level 1 of 4'],
+    st5: ['ordinary', 'streak', 3, 2, 'สตรีค 5', 'streak tier 5 · strength level 2 of 4'],
+    st7: ['ordinary', 'streak', 5, 3, 'สตรีค 7', 'streak tier 7 · strength level 3 of 4'],
+    st10: ['ordinary', 'streak', 8, 4, 'สตรีค 10 ขึ้นไป', 'streak tier 10 (ten or more) · strength level 4 of 4'],
+    crit: ['critical', 'none', 0, 0, 'เตือนสำคัญ (เลือดลดฮวบ / ความเสี่ยงสูง)', 'Critical: health_danger, risk_alert · shape, stripes and two glyphs, not colour alone']
+  };
+  var PH = { play: ['เข้า', 'enter'], tail: ['ช่วงภาพต่อท้าย: เสียงจบแล้ว ภาพยังเล่นอยู่', 'visual tail: audio ended, clip finishing'], exit: ['ออก', 'exit'], cut: ['เข้ามาแทนที่ของเดิมทันที', 'replaced the previous banner, 0 ms overlap'] };
+  var cur = 'mk3';
+  function apply(key, phase) {
+    var s = S[key]; cur = key;
+    stage.dataset.kind = s[0]; stage.dataset.family = s[1]; stage.dataset.step = s[2]; stage.dataset.level = s[3]; stage.dataset.phase = phase;
+    stage.querySelectorAll('.kb-banner').forEach(function (b) { b.style.animation = 'none'; void b.offsetWidth; b.style.animation = ''; });
+    document.querySelectorAll('[data-s]').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.s === key ? 'true' : 'false'); });
+    cap.innerHTML = '<strong></strong> — ';
+    cap.firstChild.textContent = s[4];
+    cap.appendChild(document.createTextNode(s[5] + (s[0] === 'none' ? '' : ' · ' + PH[phase][0] + ' · ' + PH[phase][1])));
+  }
+  document.querySelectorAll('[data-s]').forEach(function (b) { b.addEventListener('click', function () { apply(b.dataset.s, 'play'); }); });
+  document.querySelectorAll('[data-p]').forEach(function (b) { b.addEventListener('click', function () { apply(cur, b.dataset.p); }); });
+  document.querySelectorAll('[data-cut]').forEach(function (b) { b.addEventListener('click', function () { apply(b.dataset.cut, 'cut'); }); });
+
+  var motion = document.getElementById('motion');
+  motion.addEventListener('click', function () {
+    var on = motion.getAttribute('aria-pressed') !== 'true';
+    motion.setAttribute('aria-pressed', on ? 'true' : 'false');
+    root.dataset.motion = on ? 'reduce' : 'full';
+  });
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) motion.setAttribute('aria-pressed', 'true');
+
+  var theme = document.getElementById('theme'), order = ['auto', 'light', 'dark'];
+  function setTheme(t) { if (t === 'auto') root.removeAttribute('data-theme'); else root.dataset.theme = t; theme.textContent = 'ธีม · Theme: ' + t; try { localStorage.setItem('kb-theme', t); } catch (e) {} }
+  var saved = 'auto'; try { saved = localStorage.getItem('kb-theme') || 'auto'; } catch (e) {}
+  setTheme(order.indexOf(saved) < 0 ? 'auto' : saved);
+  theme.addEventListener('click', function () { var t = root.dataset.theme || 'auto'; setTheme(order[(order.indexOf(t) + 1) % 3]); });
+})();
+</script>
+</body>
+</html>

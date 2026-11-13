@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import { copy, reason, seconds, type Locale } from "./copy";
+import { copy, mediaReason, reason, seconds, type Locale } from "./copy";
 import type { RuntimeStatus } from "./types";
 
 /**
@@ -156,7 +156,7 @@ export function Readiness({ status, locale }: { status: RuntimeStatus; locale: L
         <Row name={text.ownerName} chip={ownChip} detail={ownDetail} />
         <Row name={text.matchName} chip={matchChip} detail={matchDetail} />
         <Row name={text.modeName} chip={modeChip} detail={modeDetail} />
-        <Row name={text.criticalMediaName} chip={mediaChip} detail={reason(media.reason, locale)} />
+        <Row name={text.criticalMediaName} chip={mediaChip} detail={mediaReason(media.reason, locale)} />
         <Row name={text.mapVisibilityName} chip={captureChip} detail={reason(capture.reason, locale)} />
         <Row name={text.resourceName} chip={resourceChip} detail={resourceDetail} />
         <Row name={text.accountName} chip={accountChip} detail={text.accountDetail} />

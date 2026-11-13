@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="th" data-lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B Minimap — Kohbor Command Deck proposal (not approved)</title>
+<!-- Optional web font; the stack falls back to Leelawadee UI / system-ui when offline. No other external request. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="tokens.css">
+<style>
+
+</style>
+</head>
+<body>
+<div class="doc-page">
+  <header class="doc-head">
+    <h1>B · The minimap panel</h1>
+    <div class="seg" role="group" aria-label="Theme"><span>Theme</span><button data-set="theme=auto">Auto</button><button data-set="theme=dark">Dark</button><button data-set="theme=light">Light</button></div>
+    <div class="seg" role="group" aria-label="Language"><span>Copy</span><button data-set="lang=th">ไทย</button><button data-set="lang=en">EN</button><button data-set="lang=both">ไทย + EN</button></div>
+    <nav class="doc-nav" aria-label="Mockups"><a href="index.html">Gallery</a><a href="deck-live.html">A Deck Live</a><a href="minimap.html" aria-current="page">B Minimap</a><a href="cards.html">C Cards</a><a href="social.html">D+G Social and flow</a><a href="inspector.html">E Events and inspector</a><a href="glance-and-idle.html">F Glance, idle, themes</a></nav>
+  </header>
+  <p class="status-note">Design proposal. Not approved (DEC-VISUALS open). Sample data only. Nothing here replaces application code. Identity tokens (A1, E1, names) and the minimap picture are neutral placeholders, not game artwork.</p>
+
+  <h2>What the picture is</h2>
+  <ul class="notes">
+    <li>The centre of the deck is the real in-game minimap, captured by the capture pipeline and shown enlarged. It is not redrawn from GSI coordinates. The owner's target is about 30 frames per second so that it does not stutter like a 1 Hz poll.</li>
+    <li>30 fps is a target, not a measurement. The badge in the corner always states the real capture rate and the age of the frame on screen, so a slower pipeline is visible instead of hidden.</li>
+    <li>The overlay only annotates what the picture already contains. Markers are outlines around icons, not replacement icons, so the picture carries the smooth motion and a marker that is a frame late does not jump.</li>
+    <li>The picture in these mockups is drawn with CSS gradients. The four drifting specks stand for “this is live video”; they stop under reduced motion. They are picture content, not overlay markers.</li>
+  </ul>
+  <div class="grid" style="--col: 520px">
+    <figure class="fig"><div class="board" data-w="1024" data-h="1024"><iframe title="" data-q="state=live&solo=map" loading="lazy"></iframe></div><figcaption><b>Live, 1024 × 1024</b> (the size on a 1920 × 1080 deck). Badge bottom-right, placeholder note bottom-left, nothing else covers the picture.</figcaption></figure>
+    <div class="fig">
+      <h3>Layers, bottom to top</h3>
+      <ol class="notes" style="list-style: decimal">
+        <li>Captured frame, inset by a constant 10u gutter. The gutter never changes, so the picture never moves.</li>
+        <li>Sighting trails.</li>
+        <li>Markers and their label plates (dark plate, 88% opaque, so labels survive any picture).</li>
+        <li>Frame: solid = live, dashed = Lite or degraded, striped hazard = critical.</li>
+        <li>Critical banner, anchored top-left, at most 70% wide. Rate badge, bottom-right.</li>
+        <li>Degraded-state plate, centred. When it is up, layers 2 and 3 are removed.</li>
+      </ol>
+      <h3>Rate and age badge</h3>
+      <p>Filled dot = live at the target rate. Half dot and dashed border = Lite. Hollow dot = no new frame. The numbers are capture rate and the age of the displayed frame. Minimum size 20u.</p>
+      <h3>Why those two corners</h3>
+      <p>The banner and the badge sit in the top-left and bottom-right corners. The other two corners are left clear in every state. The assumption that those are the corners a player least wants covered needs a check against the real picture.</p>
+    </div>
+  </div>
+
+  <h2>Markers</h2>
+  <p>Only markers the baseline admits. No predicted positions, no wards, no objectives, no “probably here” zones, no enemy vitals.</p>
+  <div class="scroll-x"><table class="spec"><tr><th>Marker</th><th>Meaning</th><th>Source of truth</th><th>Drawing and rule</th></tr><tr><td style='width:190px'><div class="lg"><span class="mk mk-own" style="--x:22;--y:50"><b><span class="th">คุณ</span><span class="en">You</span></b></span></div></td><td><b>Own hero</b></td><td>Vision detection of the own-hero icon in the admitted frame. GSI gives no position.</td><td>Double ring, teal, label “คุณ”. Never moves on its own.</td></tr><tr><td style='width:190px'><div class="lg"><span class="mk mk-ally" style="--x:22;--y:50"><b>A1</b></span></div></td><td><b>Sharing ally</b></td><td>Vision detection in the frame, for a teammate who is sharing with you in this match (mutual Share list, same team). The peer payload never carries position (PEER-003).</td><td>Single ring, blue, slot label. A teammate who is not sharing is simply part of the picture; no overlay ring.</td></tr><tr><td style='width:190px'><div class="lg"><span class="mk mk-enemy" style="--x:22;--y:50"><b>E1</b></span></div></td><td><b>Enemy sighting (seen now)</b></td><td>Admitted visible capture data only (DATA-005).</td><td>Solid diamond outline around the icon, orange, slot label.</td></tr><tr><td style='width:190px'><div class="lg"><span class="mk mk-enemy" style="--x:22;--y:50"><i></i><b>E1</b></span></div></td><td><b>New sighting</b></td><td>First admitted frame of a new sighting episode.</td><td>One ring, once (600 ms), then gone. Reduced motion: a static ring for the same window.</td></tr><tr><td style='width:190px'><div class="lg"><span class="mk mk-last" style="--x:22;--y:50"><b>E2 · <span class='mono'>12</span> <span class="th">วิ</span><span class="en">s</span></b></span></div></td><td><b>Last seen (missing)</b></td><td>Prior admitted position plus continuing valid coverage (VISION-002).</td><td>Dashed hollow diamond at the last admitted point with its age. Never drifts or fades over time.</td></tr><tr><td style='width:190px'><div class="lg"><svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%"><polyline points="12,70 30,55 48,45 66,38" fill="none" stroke="#ff8a4c" stroke-width="3" stroke-dasharray="2 6" stroke-linecap="round" vector-effect="non-scaling-stroke" opacity=".7"/></svg><span class="mk mk-enemy" style="--x:66;--y:38"><b>E1</b></span></div></td><td><b>Sighting trail</b></td><td>Up to three previously admitted positions of the same episode.</td><td>Dotted line and stepped dots. Steps are by sample index, not by elapsed time; nothing animates.</td></tr><tr><td style='width:190px'><div class="lg"><span class="mk mk-enemy" style="--x:22;--y:50"><b style="background:#e6eaf0;color:#0e1116;border-color:#e6eaf0">E1</b></span><span style="position:absolute;left:22%;top:50%;width:62px;height:62px;margin:-31px;border:3px solid #e6eaf0;border-radius:50%"></span></div></td><td><b>Selection</b></td><td>The user selected the card or a known marker (same stable entity key, UX-SPEC §5).</td><td>White outer ring and inverted label. An unknown marker cannot be selected into an identity.</td></tr></table></div>
+
+  <h2>States</h2>
+  <p>Every state keeps the same box. The frame, the badge and a worded plate change together, so no state depends on colour alone.</p>
+  <div class="grid" style="--col: 360px"><figure class="fig"><div class="board" data-w="640" data-h="640"><iframe title="" data-q="state=live&solo=map" loading="lazy"></iframe></div><figcaption><b>Live</b> — source: capture available, calibration valid, frame matches session and source generation. Shows: Smooth picture, markers, solid frame, badge “ภาพสด 30 fps · เฟรม 33 ms”.</figcaption></figure><figure class="fig"><div class="board" data-w="640" data-h="640"><iframe title="" data-q="state=critical&solo=map" loading="lazy"></iframe></div><figcaption><b>Critical warning admitted</b> — source: risk_alert / health_danger admitted (UI-008). Shows: Striped hazard frame, banner with triangle and words. Clears on revision or expiry. No flashing..</figcaption></figure><figure class="fig"><div class="board" data-w="640" data-h="640"><iframe title="" data-q="state=sel&solo=map" loading="lazy"></iframe></div><figcaption><b>Selection</b> — source: user action only; live refresh never selects. Shows: White ring and inverted label on the marker; the same card is outlined.</figcaption></figure><figure class="fig"><div class="board" data-w="640" data-h="640"><iframe title="" data-q="state=lite&solo=map" loading="lazy"></iframe></div><figcaption><b>Lite (low rate)</b> — source: resource throttle or user setting; rate value is an example. Shows: Dashed frame, half-filled badge “Lite 5 fps · เฟรม 200 ms”. Markers stay: frames still match..</figcaption></figure><figure class="fig"><div class="board" data-w="640" data-h="640"><iframe title="" data-q="state=stale&solo=map" loading="lazy"></iframe></div><figcaption><b>Stale</b> — source: no new admitted frame (example 3.2 s). After 5 s coverage becomes unavailable (VISION-002).. Shows: Last frame dimmed and hatched, label with age, all markers removed.</figcaption></figure><figure class="fig"><div class="board" data-w="640" data-h="640"><iframe title="" data-q="state=calibrating&solo=map" loading="lazy"></iframe></div><figcaption><b>Calibrating</b> — source: geometry not yet validated (VISION-001). Shows: Dimmed picture, corner brackets, plate. No markers..</figcaption></figure><figure class="fig"><div class="board" data-w="640" data-h="640"><iframe title="" data-q="state=recal&solo=map" loading="lazy"></iframe></div><figcaption><b>Wrong monitor / layout</b> — source: monitor, size or minimap layout changed; frames under the old calibration are rejected. Shows: No picture, no markers, plate with the recalibrate action (detail mode).</figcaption></figure><figure class="fig"><div class="board" data-w="640" data-h="640"><iframe title="" data-q="state=lost&solo=map" loading="lazy"></iframe></div><figcaption><b>Capture lost</b> — source: capture.state = unavailable. Shows: No picture, plate says game data still works and that no data is not “safe”.</figcaption></figure><figure class="fig"><div class="board" data-w="640" data-h="640"><iframe title="" data-q="state=novision&solo=map" loading="lazy"></iframe></div><figcaption><b>Vision unavailable (telemetry-only)</b> — source: capture.state = unsupported or CAPABILITY_UNAVAILABLE. Shows: Labelled decorative diagram, never a live picture, no markers.</figcaption></figure></div>
+  <p class="cap">The runtime-status contract today has capture.state = available | unsupported | unavailable. “Calibrating”, “Lite”, “stale” and “recalibration needed” need explicit states or reason codes before this can be built; see DESIGN-NOTES, open decisions.</p>
+
+</div>
+<script>
+/* Theme / language toggles, deck-frame params and frame scaling. Nothing else. */
+(function () {
+  var H = document.documentElement, P = new URLSearchParams(location.search), Q = { theme: P.get('theme') || 'auto', lang: P.get('lang') || 'th' };
+  function fit() { document.querySelectorAll('.board').forEach(function (b) { var f = b.firstElementChild, w = +b.dataset.w, h = +b.dataset.h, k = Math.min(1, b.clientWidth / w); f.style.width = w + 'px'; f.style.height = h + 'px'; f.style.transform = 'scale(' + k + ')'; b.style.height = Math.round(h * k) + 'px'; }); }
+  function apply() {
+    if (Q.theme === 'auto') H.removeAttribute('data-theme'); else H.dataset.theme = Q.theme; H.dataset.lang = Q.lang;
+    var s = 'theme=' + (Q.theme === 'light' ? 'light' : 'dark') + '&lang=' + Q.lang;
+    document.querySelectorAll('.board > iframe').forEach(function (f) { var u = 'deck-live.html?fill=1&' + (f.dataset.q ? f.dataset.q + '&' : '') + s; if (f.dataset.u !== u) { f.dataset.u = u; f.src = u; } });
+    document.querySelectorAll('.doc-nav a, a.keep').forEach(function (a) { a.href = a.getAttribute('href').split('?')[0] + '?theme=' + Q.theme + '&lang=' + Q.lang; });
+    document.querySelectorAll('[data-set]').forEach(function (b) { var kv = b.dataset.set.split('='); b.setAttribute('aria-pressed', String(Q[kv[0]] === kv[1])); });
+    fit();
+  }
+  document.addEventListener('click', function (e) { var b = e.target.closest('[data-set]'); if (!b) return; var kv = b.dataset.set.split('='); Q[kv[0]] = kv[1]; apply(); });
+  addEventListener('resize', fit); apply();
+})();
+</script>
+
+</body>
+</html>

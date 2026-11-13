@@ -305,7 +305,7 @@ pub struct ResolvedMedia {
     pub event_id: String,
     pub tier: Option<u32>,
     pub mixed_audio: PathBuf,
-    pub silent_visual: PathBuf,
+    pub silent_visual: Option<PathBuf>,
     pub duration_ms: u32,
     pub visual_tail_ms: u32,
 }
@@ -947,22 +947,27 @@ impl<H: Hook> Store<H> {
             .iter()
             .find(|file| file.path == binding.mixed_audio_path)
             .ok_or(ResolveError::Invalid(RejectReason::DanglingReference))?;
-        let visual = parsed
-            .descriptor
-            .files
-            .iter()
-            .find(|file| file.path == binding.silent_visual_path)
-            .ok_or(ResolveError::Invalid(RejectReason::DanglingReference))?;
         let mixed_path =
             revision_payload_path(&self.root, &installed.record.install_id, &mixed.path)
                 .map_err(ResolveError::Invalid)?;
-        let visual_path =
-            revision_payload_path(&self.root, &installed.record.install_id, &visual.path)
-                .map_err(ResolveError::Invalid)?;
         verify_payload_file(&mixed_path, mixed.size_bytes, &mixed.sha256)
             .map_err(ResolveError::Invalid)?;
-        verify_payload_file(&visual_path, visual.size_bytes, &visual.sha256)
-            .map_err(ResolveError::Invalid)?;
+        let visual_path = if let Some(path) = binding.silent_visual_path.as_deref() {
+            let visual = parsed
+                .descriptor
+                .files
+                .iter()
+                .find(|file| file.path == path)
+                .ok_or(ResolveError::Invalid(RejectReason::DanglingReference))?;
+            let visual_path =
+                revision_payload_path(&self.root, &installed.record.install_id, &visual.path)
+                    .map_err(ResolveError::Invalid)?;
+            verify_payload_file(&visual_path, visual.size_bytes, &visual.sha256)
+                .map_err(ResolveError::Invalid)?;
+            Some(visual_path)
+        } else {
+            None
+        };
         Ok(ResolvedMedia {
             install_id: installed.record.install_id.clone(),
             event_id: binding.event_id.clone(),

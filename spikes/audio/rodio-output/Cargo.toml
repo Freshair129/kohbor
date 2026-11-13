@@ -1,0 +1,10 @@
+[package]
+name = "audio-rodio-spike"
+version = "0.1.0"
+edition.workspace = true
+publish = false
+
+[dependencies]
+cpal = "=0.15.3"
+rodio = { version = "=0.19.0", default-features = false }
+

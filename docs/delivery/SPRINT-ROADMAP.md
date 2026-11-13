@@ -3,7 +3,7 @@ title: "Sprint Roadmap"
 doc_id: "SPRINT-ROADMAP"
 status: draft
 version: "0.3.6"
-updated: "2026-11-11"
+updated: "2026-11-13"
 authority: "SDP milestones; planning metadata only. Scope, priority and acceptance stay in PRD/SRS and the registry"
 owner_role: "Engineering lead"
 approval_status: "not_approved"
@@ -177,7 +177,7 @@ The routing rule does not change in later phases: tests, harnesses and reviews g
 
 ## Backlog status
 
-The lead updates this table as tasks pass the gate. `Commit` is filled for work committed on the sprint branch. The branch is not pushed and no pull request exists; both need a separate instruction from the owner.
+The lead updates this table as tasks pass the gate. `Commit` is filled for work committed on the sprint branch. The branch `s3/native-audio-critical-path` is pushed and PR #10 is open; merging it needs a separate instruction from the owner.
 
 | Task | Status | Report disposition | Commit |
 | --- | --- | --- | --- |
@@ -200,3 +200,14 @@ The lead updates this table as tasks pass the gate. `Commit` is filled for work 
 | S2-3 package reader and store | passed (T-L-R 2, three parts) | S2-3a pure modules, S2-3b bounded ZIP reader, S2-3c store; two test fixtures were wrong and were corrected by the lead | `bd93c1d`, `0ff55e0`, `d69b3ce` |
 | S2-4 review | passed (T-L-R 3, read-only) | One blocker (flush before commit), six should-fix, two nits; seven accepted, F2 parked (renderer probe), F8 rejected (bounded) | `bb160da` |
 | S2-6 authoring tool | passed (L-R) | `kohbor-pack-build`; never fabricates a video; no WebM exists yet for the owner's clips | `3a907ad` |
+| S3-1 native audio spike | passed (L, silence only) | `wasapi` 0.26.0 recommended; device loss and acoustic latency NOT_RUN (owner action); owner endpoint names not committed | `7bc68b1` |
+| S3-2..S3-3 audio owner | passed (T-L-R, review, fixes) | 128 tests; one blocker found by review (device may outlive the deadline) turned into the single-slot Sink contract | `bc77aff`..`4961048` |
+| S3-3b WASAPI sink | passed (L-R) | shared event-driven stream; 3 device smoke tests with digital silence passed on the owner's machine; the lead reverted an unrelated Cargo.lock downgrade | `5501472` |
+| S3-5 host critical path (5a..5i, 5k) | passed (T-L-R / L-R, R2 read by the lead) | design by Fable 5.2 (docs/design/S3-5-HOST-CRITICAL-PATH.md); 379 host tests; readiness reports not_ready/MEDIA_UNMAPPED until authorized critical media exists | `24edbe2`..`c9ba858` |
+| S3-8 audio-only bindings | passed (L-R, R2 read by the lead) | media-manifest 1.3.0 (DEC-PACK-AUDIO-OPTIONAL-VISUAL) | `8b70f6f` |
+| S3-5j kohbor-media protocol and probe state | passed (L-R, R2 read by the lead) | protocol worker, probe timers with injected time | `70af0b9` |
+| S3-5l host wiring (threads, commands, protocol registration, status, shutdown, CSP) | passed (L-R, R2 read by the lead; independent review S3-7a BLOCK, blocker fixed) | readiness still `not_ready/MEDIA_UNMAPPED`; no device, native or live run | `bac6d0c` |
+| S3-5k/5m renderer: pack manager, audio history, media status panels | passed (L-R, synthetic UI on mocks; tsc and 91 unit tests) | presentation only | `ed431d7`, `8ab8d94` |
+| S3-6a latency harness stage A | passed (L-R; synthetic, engineering fixture) | 300 samples, receipt INDETERMINATE; QUALITY-001 stays NOT_RUN; the test is `#[ignore]` (about 10 minutes) and the final receipt is in `docs/delivery/evidence/s3-6a/`; see S3-5 design section 13 | `77277b2`, `45fecf2` |
+| S3-6b native silence hook and stage B | passed (L-R, R2 read by the lead; independent review BLOCK then fixed: seqlock probe, trigger binding, smoke mode writes nothing) | feature `latency-probe` (off by default) in `kohbor-audio-native`; 300 samples through the default render endpoint with an all-zero clip, shared mode; receipt `native`, `INDETERMINATE`, in `docs/delivery/evidence/s3-6b/`; T3'' is the first render service, not audible; QUALITY-001 stays NOT_RUN | `c3d3e25`, `6333241` |
+| S3-7 review of S3-3/S3-5, F2/F3, RTM | passed (T-L-R 3, two read-only reviews S3-7a and S3-7c) | Two blockers/should-fix rounds fixed (bounded shutdown, bounded inspect, protocol mutex and join, handle type check, legacy mutator gate); origin/authority of `kohbor-media` and F2/F3 recorded as open risks in S3-5 design section 13; RTM refs refreshed | `42ed063`, `45fecf2`, `1f41c67` |

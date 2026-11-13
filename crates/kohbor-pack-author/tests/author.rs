@@ -82,6 +82,7 @@ impl Fixture {
             catalog_path: self.catalog.clone(),
             rights_claim: Some("synthetic owner claim".to_owned()),
             publisher_key_id: None,
+            require_visual: false,
         }
     }
 
@@ -563,17 +564,20 @@ fn non_mappable_events_and_duplicate_json_keys_are_refused() {
 }
 
 #[test]
-fn missing_and_invalid_visuals_are_skipped_and_all_skipped_exits_two() {
+fn missing_visuals_build_audio_only_and_invalid_visuals_are_skipped() {
     let fixture = Fixture::new();
     fixture.set_mapping(&[
         binding("hero_kill", None, None, None, None, None),
         binding("multi_kill", Some(2), Some("x.webm"), None, None, None),
     ]);
     let report = build_package(&fixture.options()).expect("build valid remaining binding");
-    assert_eq!(report.written.len(), 1);
+    assert_eq!(report.written.len(), 2);
     assert_eq!(
-        report.skipped.first().map(|item| item.reason.as_str()),
-        Some("visual path is missing")
+        report
+            .written
+            .first()
+            .and_then(|binding| binding.visual.as_deref()),
+        None
     );
 
     fixture.set_mapping(&[
@@ -589,12 +593,21 @@ fn missing_and_invalid_visuals_are_skipped_and_all_skipped_exits_two() {
         .reason
         .contains("visual failed silent WebM inspection"));
 
-    fixture.set_mapping(&[binding("hero_kill", None, None, None, None, None)]);
+    fixture.set_mapping(&[binding(
+        "hero_kill",
+        None,
+        Some("bad.webm"),
+        None,
+        None,
+        None,
+    )]);
     let mut all_skipped_options = fixture.options();
     all_skipped_options.out_dir = fixture.temp.0.join("all-skipped-out");
     let error = build_package(&all_skipped_options).expect_err("all skipped fails");
     assert_eq!(error.exit_code, 2);
-    assert!(error.message.contains("visual path is missing"));
+    assert!(error
+        .message
+        .contains("visual failed silent WebM inspection"));
     assert!(!all_skipped_options.out_dir.exists());
 }
 

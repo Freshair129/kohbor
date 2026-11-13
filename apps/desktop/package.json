@@ -11,6 +11,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
+    "test:unit": "node --test \"tests/*.test.ts\"",
     "tauri": "tauri"
   },
   "dependencies": {

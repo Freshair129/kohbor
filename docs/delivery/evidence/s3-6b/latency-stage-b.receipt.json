@@ -1,0 +1,39 @@
+{
+  "artifact_sha256": "b31f88f77369c9149ccf768bd69f3064c402f5b3e6969b28bd652df7ac7efc6b",
+  "commands": [
+    "cargo test -p kohbor-desktop --test latency_harness_native --offline --locked -j 4 -- --ignored"
+  ],
+  "environment": {
+    "game_patch": null,
+    "hardware": null,
+    "os_build": null,
+    "profile": null
+  },
+  "evidence_class": "native",
+  "executed_at_utc": "2026-11-13T06:37:18Z",
+  "limitations": [
+    "engineering fixture; not QUALITY-001",
+    "native silence only: default render endpoint, shared-mode event-driven stream, all-zero generated clip, no audible output",
+    "T3'' is the first render service that copied the buffer, not loopback-audible sound",
+    "generated test clip, not authorized critical media",
+    "DEC-CRITICAL-MEDIA open",
+    "T0 is the arrival Instant passed to Shared::accept: HTTP read, JSON parse, the registry read and the serve-side Shared lock are not in the measurement; F2 and F3 are not quantified",
+    "no warm-up discarded and no outlier removed; samples include scheduler stalls of this machine",
+    "one session epoch per burst trace (new match id), measured on a developer machine under no controlled load",
+    "QUALITY-001 remains NOT_RUN"
+  ],
+  "observed_result": "T0 to T3'' microseconds: count=300, p50=7995, p95=10101, max=13649",
+  "operator": "kohbor latency harness (stage B)",
+  "raw_evidence_paths": [
+    "F:\\cargo-lanes\\kohbor-s1\\evidence\\s3-6\\latency-stage-b.samples.json"
+  ],
+  "receipt_id": "s3-6b-bdd9bf555f5f910e45aa61dba524fc4a",
+  "requirement_ids": [
+    "QUALITY-001"
+  ],
+  "scenario_id": "S3-6b-stage-b-engineering-fixture",
+  "schema_version": "1.0.0",
+  "source_revision": "6333241d9ea6b0d3f25dc2ea2ab2674f89600764",
+  "spec_version": "0.3.6",
+  "status": "INDETERMINATE"
+}

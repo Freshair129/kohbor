@@ -1,0 +1,10 @@
+[package]
+name = "kohbor-audio"
+description = "Pure native audio owner for Kohbor: class priority and preemption, playback generations, mute, session and revision fences, critical readiness and prewarmed PCM. No I/O, no clock reads, no device access. Implements docs/design/EVENT-AUDIO-SPEC.md sections 4 and 5."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]

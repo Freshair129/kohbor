@@ -6,7 +6,7 @@
 //!
 //! Sources: docs/design/MEDIA-PACK-SPEC.md (MP-03, MP-05, MP-06, MP-07, MP-09),
 //! docs/design/EVENT-AUDIO-SPEC.md sections 6 and 7, contracts/media-manifest.schema.json
-//! 1.2.0, media-install-request/-result.schema.json 1.0.0.
+//! 1.3.0, media-install-request/-result.schema.json 1.0.0.
 //!
 //! Layering (all in this crate, no network, no clock, no threads):
 //! - [`catalog`]: the event catalog as the package reader needs it.

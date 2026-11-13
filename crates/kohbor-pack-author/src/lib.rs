@@ -30,6 +30,8 @@ pub struct BuildOptions {
     pub catalog_path: PathBuf,
     pub rights_claim: Option<String>,
     pub publisher_key_id: Option<String>,
+    /// Require every written binding to include a verified silent visual.
+    pub require_visual: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -37,6 +39,8 @@ pub struct WrittenBinding {
     pub event_id: String,
     pub tier: Option<u32>,
     pub duration_ms: u32,
+    /// Package-relative visual path, or `None` for an audio-only binding.
+    pub visual: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -83,8 +87,10 @@ struct MappingBinding {
     event_id: String,
     tier: Option<u32>,
     audio: String,
+    /// Missing means this mapping is audio-only unless the CLI requires banners.
     visual: Option<String>,
     identity_audio: Option<String>,
+    /// Must be zero for audio-only mappings.
     visual_tail_ms: u32,
 }
 
@@ -172,44 +178,55 @@ pub fn build_package(options: &BuildOptions) -> Result<BuildReport, BuildError> 
     let mut expanded_payload_bytes = 0u64;
 
     for mapping in &mappings {
-        let Some(visual_path) = mapping.visual.as_deref() else {
-            skipped.push(SkippedBinding {
-                event_id: mapping.event_id.clone(),
-                tier: mapping.tier,
-                reason: "visual path is missing".to_owned(),
-            });
-            continue;
-        };
-        let visual_bytes = match read_clip(&clips_dir, visual_path) {
-            Ok(bytes) => bytes,
-            Err(ClipReadError::TooLarge) => {
-                skipped.push(skip_for(mapping, "visual input exceeds 64 MiB"));
-                continue;
-            }
-            Err(ClipReadError::Unavailable) => {
-                skipped.push(skip_for(mapping, "visual input is unavailable"));
-                continue;
-            }
-            Err(ClipReadError::UnsafePath) => {
-                skipped.push(skip_for(mapping, "visual path is not a safe clip path"));
-                continue;
-            }
-        };
-        add_clip_receipt(&mut receipts, visual_path, &visual_bytes)?;
-        if visual_bytes.len() > MAX_PAYLOAD_BYTES {
+        if mapping.visual.is_none() && mapping.visual_tail_ms != 0 {
             skipped.push(skip_for(
                 mapping,
-                "visual exceeds the package 32 MiB payload limit",
+                "audio-only binding must have visual_tail_ms 0",
             ));
             continue;
         }
-        if let Err(reason) = inspect_webm(&visual_bytes) {
+        if options.require_visual && mapping.visual.is_none() {
             skipped.push(skip_for(
                 mapping,
-                format!("visual failed silent WebM inspection: {}", reason.as_str()),
+                "visual path is missing (--require-visual)",
             ));
             continue;
         }
+        let visual_bytes = if let Some(visual_path) = mapping.visual.as_deref() {
+            let bytes = match read_clip(&clips_dir, visual_path) {
+                Ok(bytes) => bytes,
+                Err(ClipReadError::TooLarge) => {
+                    skipped.push(skip_for(mapping, "visual input exceeds 64 MiB"));
+                    continue;
+                }
+                Err(ClipReadError::Unavailable) => {
+                    skipped.push(skip_for(mapping, "visual input is unavailable"));
+                    continue;
+                }
+                Err(ClipReadError::UnsafePath) => {
+                    skipped.push(skip_for(mapping, "visual path is not a safe clip path"));
+                    continue;
+                }
+            };
+            add_clip_receipt(&mut receipts, visual_path, &bytes)?;
+            if bytes.len() > MAX_PAYLOAD_BYTES {
+                skipped.push(skip_for(
+                    mapping,
+                    "visual exceeds the package 32 MiB payload limit",
+                ));
+                continue;
+            }
+            if let Err(reason) = inspect_webm(&bytes) {
+                skipped.push(skip_for(
+                    mapping,
+                    format!("visual failed silent WebM inspection: {}", reason.as_str()),
+                ));
+                continue;
+            }
+            Some(bytes)
+        } else {
+            None
+        };
 
         let audio_bytes = match read_clip(&clips_dir, &mapping.audio) {
             Ok(bytes) => bytes,
@@ -305,14 +322,17 @@ pub fn build_package(options: &BuildOptions) -> Result<BuildReport, BuildError> 
         };
 
         let mixed_path = format!("audio/{key}.wav");
-        let visual_output_path = format!("video/{key}.webm");
+        let visual_output_path = visual_bytes.as_ref().map(|_| format!("video/{key}.webm"));
         let mut binding_payload_bytes = u64::try_from(mixed.wav.len())
-            .map_err(|_| BuildError::new(1, "generated WAV size is too large"))?
-            .checked_add(
-                u64::try_from(visual_bytes.len())
-                    .map_err(|_| BuildError::new(1, "visual size is too large"))?,
-            )
-            .ok_or_else(|| BuildError::new(1, "expanded package size overflow"))?;
+            .map_err(|_| BuildError::new(1, "generated WAV size is too large"))?;
+        if let Some(bytes) = visual_bytes.as_ref() {
+            binding_payload_bytes = binding_payload_bytes
+                .checked_add(
+                    u64::try_from(bytes.len())
+                        .map_err(|_| BuildError::new(1, "visual size is too large"))?,
+                )
+                .ok_or_else(|| BuildError::new(1, "expanded package size overflow"))?;
+        }
         if let Some((_, identity_bytes)) = identity_payload.as_ref() {
             binding_payload_bytes = binding_payload_bytes
                 .checked_add(
@@ -336,19 +356,23 @@ pub fn build_package(options: &BuildOptions) -> Result<BuildReport, BuildError> 
             role: "mixed_audio",
             method: 8,
         });
-        payloads.push(Payload {
-            path: visual_output_path.clone(),
-            bytes: visual_bytes,
-            role: "silent_visual",
-            method: 0,
-        });
+        if let (Some(path), Some(bytes)) = (visual_output_path.as_ref(), visual_bytes) {
+            payloads.push(Payload {
+                path: path.clone(),
+                bytes,
+                role: "silent_visual",
+                method: 0,
+            });
+        }
         let mut descriptor_binding = Map::new();
         descriptor_binding.insert("event_id".to_owned(), json!(mapping.event_id));
         if let Some(tier) = mapping.tier {
             descriptor_binding.insert("tier".to_owned(), json!(tier));
         }
         descriptor_binding.insert("mixed_audio_path".to_owned(), json!(mixed_path));
-        descriptor_binding.insert("silent_visual_path".to_owned(), json!(visual_output_path));
+        if let Some(visual_path) = visual_output_path.as_ref() {
+            descriptor_binding.insert("silent_visual_path".to_owned(), json!(visual_path));
+        }
         descriptor_binding.insert("duration_ms".to_owned(), json!(duration_ms));
         descriptor_binding.insert("visual_tail_ms".to_owned(), json!(mapping.visual_tail_ms));
         if let Some((identity_output_path, identity_bytes)) = identity_payload {
@@ -369,6 +393,7 @@ pub fn build_package(options: &BuildOptions) -> Result<BuildReport, BuildError> 
             event_id: mapping.event_id.clone(),
             tier: mapping.tier,
             duration_ms,
+            visual: visual_output_path,
         });
     }
 
@@ -380,7 +405,7 @@ pub fn build_package(options: &BuildOptions) -> Result<BuildReport, BuildError> 
             .join("; ");
         return Err(BuildError::new(
             2,
-            format!("no bindings remain after visual checks; skipped: {reasons}"),
+            format!("no bindings remain after media checks; skipped: {reasons}"),
         ));
     }
 
@@ -403,7 +428,7 @@ pub fn build_package(options: &BuildOptions) -> Result<BuildReport, BuildError> 
     }
     let taxonomy_version = format!("{}.{}", catalog.taxonomy.major, catalog.taxonomy.minor);
     let descriptor = json!({
-        "schema_version": "1.2.0",
+        "schema_version": "1.3.0",
         "package_id": options.package_id,
         "revision": options.revision,
         "taxonomy_version": taxonomy_version,
@@ -514,6 +539,7 @@ pub fn build_package(options: &BuildOptions) -> Result<BuildReport, BuildError> 
                 "event_id": binding.event_id,
                 "tier": binding.tier,
                 "duration_ms": binding.duration_ms,
+                "visual": binding.visual,
             })).collect::<Vec<_>>(),
             "skipped": skipped.iter().map(|binding| json!({
                 "event_id": binding.event_id,
@@ -946,11 +972,19 @@ pub fn parse_cli_args(
     let mut values = BTreeMap::<String, String>::new();
     let mut rights_claim = None;
     let mut publisher_key_id = None;
+    let mut require_visual = false;
     let mut args = args.into_iter();
     while let Some(argument) = args.next() {
         let flag = argument
             .into_string()
             .map_err(|_| BuildError::new(1, "argument is not valid Unicode"))?;
+        if flag == "--require-visual" {
+            if require_visual {
+                return Err(BuildError::new(1, "duplicate option: --require-visual"));
+            }
+            require_visual = true;
+            continue;
+        }
         let value = args
             .next()
             .ok_or_else(|| BuildError::new(1, format!("missing value for {flag}")))?
@@ -995,6 +1029,7 @@ pub fn parse_cli_args(
         catalog_path: PathBuf::from(required("--catalog")?),
         rights_claim,
         publisher_key_id,
+        require_visual,
     })
 }
 
@@ -1017,6 +1052,7 @@ fn cli_report_json(report: &BuildReport) -> Value {
             "event_id": binding.event_id,
             "tier": binding.tier,
             "duration_ms": binding.duration_ms,
+            "visual": binding.visual,
         })).collect::<Vec<_>>(),
         "skipped": report.skipped.iter().map(|binding| json!({
             "event_id": binding.event_id,

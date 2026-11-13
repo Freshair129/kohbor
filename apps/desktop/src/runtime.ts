@@ -1,11 +1,128 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPlaybackState, parsePlaybackEvent, reducePlayback, tickPlayback, type PlaybackState } from "./playback";
+import { activateArgs, inspectArgs, type ChosenActivationPolicy } from "./packs";
+import { probeReportArgs, type MediaProbePendingResponse, type MediaProbeReport } from "./probe";
 import type { OwnSnapshot, RuntimeStatus } from "./types";
 
 const POLL_MS = 1000;
 const CALL_TIMEOUT_MS = 2500;
 /** Consecutive failed polls after which the screen says it has lost the host. */
 const LOST_AFTER_FAILURES = 3;
+const MAX_TIMEOUT_MS = 2_147_483_647;
+
+export function subscribePlayback(onEvent: (event: unknown) => void): Promise<() => void> {
+  if (typeof window === "undefined" || !("__TAURI_INTERNALS__" in window)) {
+    return Promise.resolve(() => {});
+  }
+  return listen<unknown>("playback://event", (event) => onEvent(event.payload));
+}
+
+export function reportMediaProbe(report: MediaProbeReport): Promise<{ accepted: boolean } | null> {
+  if (typeof window === "undefined" || !("__TAURI_INTERNALS__" in window)) return Promise.resolve(null);
+  return invoke<{ accepted: boolean }>("media_probe_report", probeReportArgs(report));
+}
+
+function hostAvailable(): boolean {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
+/**
+ * Pack-store commands. Outside the Tauri webview there is no host, so each call
+ * rejects with CAPABILITY_UNAVAILABLE; a missing host is never shown as an empty store.
+ */
+/** In-memory outcome history kept by the host; rejects with CAPABILITY_UNAVAILABLE outside the webview. */
+export function audioHistory(limit: number): Promise<unknown> {
+  if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
+  return invoke<unknown>("audio_history", { limit });
+}
+
+export function mediaList(): Promise<unknown> {
+  if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
+  return invoke<unknown>("media_list");
+}
+
+export function mediaInspect(sourcePath: string): Promise<unknown> {
+  if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
+  return invoke<unknown>("media_inspect", inspectArgs(sourcePath));
+}
+
+export function mediaInstall(request: Record<string, unknown>): Promise<unknown> {
+  if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
+  return invoke<unknown>("media_install", { request });
+}
+
+export function mediaActivate(requestId: string, installId: string, policy: ChosenActivationPolicy): Promise<unknown> {
+  if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
+  return invoke<unknown>("media_activate", activateArgs(requestId, installId, policy));
+}
+
+export function mediaProbePending(): Promise<MediaProbePendingResponse> {
+  if (typeof window === "undefined" || !("__TAURI_INTERNALS__" in window)) return Promise.resolve([]);
+  return invoke<MediaProbePendingResponse>("media_probe_pending");
+}
+
+export function subscribeMediaProbeRequest(onPayload: (payload: unknown) => void): Promise<() => void> {
+  if (typeof window === "undefined" || !("__TAURI_INTERNALS__" in window)) {
+    return Promise.resolve(() => {});
+  }
+  return listen<unknown>("media://probe-request", (event) => onPayload(event.payload));
+}
+
+/** Lifecycle rendering only; native remains the sole owner of playback selection. */
+export function usePlayback(): PlaybackState {
+  const [state, setState] = useState(createPlaybackState);
+  const eventClockOffset = useRef<number | null>(null);
+
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    void subscribePlayback((input) => {
+      const event = parsePlaybackEvent(input);
+      if (event?.kind === "started") eventClockOffset.current = performance.now() - event.at_ms;
+      setState((current) => reducePlayback(current, event ?? input));
+    })
+      .then((stop) => {
+        if (disposed) stop();
+        else unlisten = stop;
+      })
+      .catch(() => {
+        // A missing event listener cannot be replaced with renderer-side playback.
+      });
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    const visual = state.visual;
+    const deadline = state.failSafeAtMs;
+    if (!visual || deadline === null) return;
+
+    const nowInEventClock = performance.now() - (eventClockOffset.current ?? performance.now());
+    let remaining = Math.max(0, deadline - nowInEventClock);
+    let timer = 0;
+    const schedule = () => {
+      const wait = Math.min(remaining, MAX_TIMEOUT_MS);
+      timer = window.setTimeout(() => {
+        remaining -= wait;
+        if (remaining > 0) {
+          schedule();
+          return;
+        }
+        setState((current) =>
+          current.currentPlaybackId === visual.playback_id ? tickPlayback(current, deadline) : current,
+        );
+      }, wait);
+    };
+    schedule();
+    return () => window.clearTimeout(timer);
+  }, [state.currentPlaybackId, state.failSafeAtMs, state.visual]);
+
+  return state;
+}
 
 function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {

@@ -1,0 +1,16 @@
+[package]
+name = "kohbor-audio-native"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+latency-probe = []
+
+[dependencies]
+kohbor-audio = { path = "../kohbor-audio" }
+
+[target.'cfg(windows)'.dependencies]
+wasapi = "=0.26.0"

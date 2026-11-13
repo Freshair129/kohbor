@@ -38,7 +38,7 @@ Preemption MUST cancel both the old audio and its paired visual lifecycle. Outco
 
 ## MP-03 — Package contents and integrity
 
-A package MUST contain a descriptor, event registry, payload size/digest inventory, and referenced media. Every playable mapping identifies one mixed audio asset and its paired silent video. Original audio may be retained for identity/provenance; it MUST NOT replace invalid mixed audio.
+A package MUST contain a descriptor, event registry, payload size/digest inventory, and referenced media. Every playable mapping identifies one mixed audio asset and, optionally, its paired silent video. A mapping without a video is an audio-only mapping: it plays its audio and shows no banner, and it declares no visual tail. A mapping with a video is paired by event key inside the same package; the author guarantees the timing between them. Pairing a voice from one package with a banner from another is not part of the first release (see DEC-PACK-BANNER-ADDON). Original audio may be retained for identity/provenance; it MUST NOT replace invalid mixed audio.
 
 The initial container profile uses indexed ZIP with deterministic ordering: descriptor first, then ASCII-sorted payload paths, fixed timestamp 1980-01-01, and regular-file permissions 0644. JSON, WAV and optional inert source/font assets use Deflate level 6; already compressed video uses Stored. Readers admit methods 0 and 8. SHA-256 covers decompressed payload bytes. Copy/export preserves existing bytes; rebuilding changed content creates a new revision.
 
@@ -55,9 +55,9 @@ Admission MUST reject traversal/unsafe paths, duplicate ZIP records or JSON keys
 
 ## MP-04 — Audio and video contract
 
-Event playback MUST use verified mixed PCM WAV and paired silent WebM with a supported video track and no audio track. The authoring output profile uses mono 48 kHz PCM16 audio. The native player MUST successfully decode media before advertising readiness; a plausible file extension or container header is insufficient. [EVENT-AUDIO-SPEC §6](EVENT-AUDIO-SPEC.md) proposes the exact WAV profile, the VP9/VP8 WebM track rules and a renderer decode probe for the video that the renderer plays.
+Event playback MUST use verified mixed PCM WAV and, when the mapping has one, paired silent WebM with a supported video track and no audio track. The authoring output profile uses mono 48 kHz PCM16 audio. The native player MUST successfully decode media before advertising readiness; a plausible file extension or container header is insufficient. [EVENT-AUDIO-SPEC §6](EVENT-AUDIO-SPEC.md) proposes the exact WAV profile, the VP9/VP8 WebM track rules and a renderer decode probe for the video that the renderer plays.
 
-Audio duration is at most 15,000 ms. Original and mixed audio durations MUST match. The optional visual tail is an integer from zero to 3,200 ms, default zero. Video may continue only for that declared tail after natural audio completion. Stop, mute, preemption, or session invalidation cancels it immediately.
+Audio duration is at most 15,000 ms. Original and mixed audio durations MUST match. The optional visual tail is an integer from zero to 3,200 ms, default zero, and must be zero for an audio-only mapping. Video may continue only for that declared tail after natural audio completion. Stop, mute, preemption, or session invalidation cancels it immediately.
 
 Native audio is the single audio owner. Video is always muted. The renderer consumes the admitted pair’s lifecycle and MUST NOT independently choose media or restart an event. Event preview and production playback MUST use the same package reader and admission rules.
 
