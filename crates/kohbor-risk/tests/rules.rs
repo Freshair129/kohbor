@@ -44,6 +44,21 @@ fn valid_tick(
     tick(engine, now_ms, Coverage::Valid, visible, own, &[])
 }
 
+fn continue_visible_until(
+    engine: &mut RiskEngine,
+    start_ms: u64,
+    end_ms: u64,
+    visible: u8,
+    own: Option<OwnGsi>,
+) -> RiskOutput {
+    let mut now_ms = start_ms.saturating_add(100);
+    while now_ms < end_ms {
+        valid_tick(engine, now_ms, Some(visible), own);
+        now_ms = now_ms.saturating_add(100);
+    }
+    valid_tick(engine, end_ms, Some(visible), own)
+}
+
 fn seed(engine: &mut RiskEngine, visible: u8, own: Option<OwnGsi>) -> RiskOutput {
     let mut output = RiskOutput {
         meter: Meter::Unknown,
@@ -135,12 +150,12 @@ fn out_of_match_own_state_makes_meter_unknown() {
 }
 
 #[test]
-fn fresh_gsi_without_hp_is_level_zero_no_signal() {
+fn fresh_gsi_without_hp_and_without_other_signal_is_unknown() {
     let mut engine = RiskEngine::new();
 
     let output = tick(&mut engine, 0, Coverage::Stale, Some(5), own(None), &[]);
 
-    assert_eq!(output.meter, Meter::Level(0));
+    assert_eq!(output.meter, Meter::Unknown);
     assert!(output.gsi_source);
     assert!(!output.vision_source);
 }
@@ -182,6 +197,22 @@ fn recent_health_low_maps_to_level_two() {
         Coverage::Unavailable,
         None,
         own(Some(100)),
+        &["health_low"],
+    );
+
+    assert_eq!(output.meter, Meter::Level(2));
+}
+
+#[test]
+fn fresh_gsi_without_hp_can_use_a_recent_health_event_signal() {
+    let mut engine = RiskEngine::new();
+
+    let output = tick(
+        &mut engine,
+        0,
+        Coverage::Stale,
+        None,
+        own(None),
         &["health_low"],
     );
 
@@ -328,6 +359,9 @@ fn coverage_gap_mid_episode_cancels_events_and_rebuilds_baseline() {
     valid_tick(&mut engine, 1_400, Some(3), own(Some(100)));
     valid_tick(&mut engine, 1_500, Some(3), own(Some(100)));
     let new_drop = valid_tick(&mut engine, 1_600, Some(3), own(Some(100)));
+    for now_ms in (1_700..=6_500).step_by(100) {
+        valid_tick(&mut engine, now_ms, Some(3), own(Some(100)));
+    }
     let exact = valid_tick(&mut engine, 6_600, Some(3), own(Some(100)));
     let after = valid_tick(&mut engine, 6_601, Some(3), own(Some(100)));
 
@@ -337,11 +371,26 @@ fn coverage_gap_mid_episode_cancels_events_and_rebuilds_baseline() {
 }
 
 #[test]
+fn a_2000ms_observation_gap_keeps_state_but_2001ms_resets_it() {
+    let mut engine = RiskEngine::new();
+    start_one_count_drop(&mut engine, own(Some(100)));
+    let exact_boundary = valid_tick(&mut engine, 2_700, Some(4), own(Some(100)));
+    valid_tick(&mut engine, 3_700, Some(4), own(Some(100)));
+
+    let over_boundary = valid_tick(&mut engine, 5_701, Some(4), own(Some(100)));
+
+    assert_eq!(exact_boundary.baseline, Some(5));
+    assert!(!has(&exact_boundary, RiskEvent::EnemyMissing));
+    assert_eq!(over_boundary.baseline, None);
+    assert!(!has(&over_boundary, RiskEvent::EnemyMissing));
+}
+
+#[test]
 fn enemy_missing_does_not_fire_at_exactly_5000ms() {
     let mut engine = RiskEngine::new();
     start_one_count_drop(&mut engine, own(Some(100)));
 
-    let output = valid_tick(&mut engine, 5_700, Some(4), own(Some(100)));
+    let output = continue_visible_until(&mut engine, 700, 5_700, 4, own(Some(100)));
 
     assert!(!has(&output, RiskEvent::EnemyMissing));
 }
@@ -351,7 +400,7 @@ fn enemy_missing_fires_after_5000ms() {
     let mut engine = RiskEngine::new();
     start_one_count_drop(&mut engine, own(Some(100)));
 
-    let output = valid_tick(&mut engine, 5_701, Some(4), own(Some(100)));
+    let output = continue_visible_until(&mut engine, 700, 5_701, 4, own(Some(100)));
 
     assert!(has(&output, RiskEvent::EnemyMissing));
 }
@@ -361,7 +410,7 @@ fn enemy_missing_requires_a_nonzero_baseline() {
     let mut engine = RiskEngine::new();
     seed(&mut engine, 0, own(Some(100)));
 
-    let output = valid_tick(&mut engine, 5_500, Some(0), own(Some(100)));
+    let output = continue_visible_until(&mut engine, 400, 5_500, 0, own(Some(100)));
 
     assert_eq!(output.baseline, Some(0));
     assert!(!has(&output, RiskEvent::EnemyMissing));
@@ -371,9 +420,9 @@ fn enemy_missing_requires_a_nonzero_baseline() {
 fn enemy_missing_emits_only_once_during_one_drop_episode() {
     let mut engine = RiskEngine::new();
     start_one_count_drop(&mut engine, own(Some(100)));
-    let first = valid_tick(&mut engine, 5_701, Some(4), own(Some(100)));
+    let first = continue_visible_until(&mut engine, 700, 5_701, 4, own(Some(100)));
 
-    let later = valid_tick(&mut engine, 6_000, Some(4), own(Some(100)));
+    let later = continue_visible_until(&mut engine, 5_701, 6_000, 4, own(Some(100)));
 
     assert!(has(&first, RiskEvent::EnemyMissing));
     assert!(!has(&later, RiskEvent::EnemyMissing));
@@ -384,7 +433,7 @@ fn enemy_missing_requires_current_in_match_own_state() {
     let mut engine = RiskEngine::new();
     start_one_count_drop(&mut engine, own(Some(100)));
 
-    let output = valid_tick(&mut engine, 5_701, Some(4), None);
+    let output = continue_visible_until(&mut engine, 700, 5_701, 4, None);
 
     assert!(!has(&output, RiskEvent::EnemyMissing));
     assert_eq!(output.meter, Meter::Unknown);
@@ -394,12 +443,12 @@ fn enemy_missing_requires_current_in_match_own_state() {
 fn missing_global_cooldown_blocks_before_10000ms_and_allows_at_10000ms() {
     let mut engine = RiskEngine::new();
     start_one_count_drop(&mut engine, own(Some(100)));
-    let first = valid_tick(&mut engine, 5_701, Some(4), own(Some(100)));
+    let first = continue_visible_until(&mut engine, 700, 5_701, 4, own(Some(100)));
     for (now_ms, count) in [(5_800, 5), (5_900, 5), (6_000, 5), (6_100, 4), (6_200, 4), (6_300, 4)] {
         valid_tick(&mut engine, now_ms, Some(count), own(Some(100)));
     }
-    let blocked = valid_tick(&mut engine, 11_301, Some(4), own(Some(100)));
-    let allowed = valid_tick(&mut engine, 15_701, Some(4), own(Some(100)));
+    let blocked = continue_visible_until(&mut engine, 6_300, 11_301, 4, own(Some(100)));
+    let allowed = continue_visible_until(&mut engine, 11_301, 15_701, 4, own(Some(100)));
 
     assert!(has(&first, RiskEvent::EnemyMissing));
     assert!(!has(&blocked, RiskEvent::EnemyMissing));
@@ -407,11 +456,11 @@ fn missing_global_cooldown_blocks_before_10000ms_and_allows_at_10000ms() {
 }
 
 #[test]
-fn vision_meter_level_zero_is_no_signal_when_v_equals_b() {
+fn level_zero_requires_known_hp_above_50_when_v_equals_b() {
     let mut engine = RiskEngine::new();
-    seed(&mut engine, 5, own(None));
+    seed(&mut engine, 5, own(Some(100)));
 
-    let output = valid_tick(&mut engine, 500, Some(5), own(None));
+    let output = valid_tick(&mut engine, 500, Some(5), own(Some(100)));
 
     assert_eq!(output.meter, Meter::Level(0));
     assert!(output.vision_source);
@@ -442,7 +491,7 @@ fn vision_meter_level_two_uses_a_two_count_deficit() {
 fn vision_meter_level_three_is_active_after_risk_alert() {
     let mut engine = RiskEngine::new();
     start_two_count_drop(&mut engine, own(None));
-    let output = valid_tick(&mut engine, 6_001, Some(3), own(None));
+    let output = continue_visible_until(&mut engine, 1_000, 6_001, 3, own(None));
 
     assert!(has(&output, RiskEvent::RiskAlert));
     assert_eq!(output.meter, Meter::Level(3));
@@ -452,7 +501,7 @@ fn vision_meter_level_three_is_active_after_risk_alert() {
 fn risk_alert_requires_the_two_count_drop_to_hold_more_than_5000ms() {
     let mut engine = RiskEngine::new();
     start_two_count_drop(&mut engine, own(Some(100)));
-    let exact = valid_tick(&mut engine, 6_000, Some(3), own(Some(100)));
+    let exact = continue_visible_until(&mut engine, 1_000, 6_000, 3, own(Some(100)));
     let after = valid_tick(&mut engine, 6_001, Some(3), own(Some(100)));
 
     assert!(!has(&exact, RiskEvent::RiskAlert));
@@ -463,11 +512,12 @@ fn risk_alert_requires_the_two_count_drop_to_hold_more_than_5000ms() {
 fn risk_alert_accepts_a_two_count_drop_reached_within_3000ms() {
     let mut engine = RiskEngine::new();
     start_one_count_drop(&mut engine, own(Some(100)));
+    continue_visible_until(&mut engine, 700, 3_400, 4, own(Some(100)));
     valid_tick(&mut engine, 3_500, Some(3), own(Some(100)));
     valid_tick(&mut engine, 3_600, Some(3), own(Some(100)));
     valid_tick(&mut engine, 3_700, Some(3), own(Some(100)));
 
-    let exact_hold = valid_tick(&mut engine, 8_700, Some(3), own(Some(100)));
+    let exact_hold = continue_visible_until(&mut engine, 3_700, 8_700, 3, own(Some(100)));
     let after_hold = valid_tick(&mut engine, 8_701, Some(3), own(Some(100)));
 
     assert!(!has(&exact_hold, RiskEvent::RiskAlert));
@@ -478,11 +528,12 @@ fn risk_alert_accepts_a_two_count_drop_reached_within_3000ms() {
 fn risk_alert_rejects_a_two_count_drop_reached_after_3000ms() {
     let mut engine = RiskEngine::new();
     start_one_count_drop(&mut engine, own(Some(100)));
+    continue_visible_until(&mut engine, 700, 3_401, 4, own(Some(100)));
     valid_tick(&mut engine, 3_501, Some(3), own(Some(100)));
     valid_tick(&mut engine, 3_601, Some(3), own(Some(100)));
     valid_tick(&mut engine, 3_701, Some(3), own(Some(100)));
 
-    let output = valid_tick(&mut engine, 8_702, Some(3), own(Some(100)));
+    let output = continue_visible_until(&mut engine, 3_701, 8_702, 3, own(Some(100)));
 
     assert!(!has(&output, RiskEvent::RiskAlert));
 }
@@ -492,7 +543,7 @@ fn risk_alert_is_suppressed_when_own_hero_is_dead() {
     let mut engine = RiskEngine::new();
     start_two_count_drop(&mut engine, dead_own(Some(100)));
 
-    let output = valid_tick(&mut engine, 6_001, Some(3), dead_own(Some(20)));
+    let output = continue_visible_until(&mut engine, 1_000, 6_001, 3, dead_own(Some(20)));
 
     assert!(!has(&output, RiskEvent::RiskAlert));
     assert_eq!(output.meter, Meter::Level(2));
@@ -503,7 +554,7 @@ fn risk_alert_is_suppressed_when_own_gsi_is_unknown() {
     let mut engine = RiskEngine::new();
     start_two_count_drop(&mut engine, own(Some(100)));
 
-    let output = valid_tick(&mut engine, 6_001, Some(3), None);
+    let output = continue_visible_until(&mut engine, 1_000, 6_001, 3, None);
 
     assert!(!has(&output, RiskEvent::RiskAlert));
     assert_eq!(output.meter, Meter::Unknown);
@@ -513,7 +564,7 @@ fn risk_alert_is_suppressed_when_own_gsi_is_unknown() {
 fn risk_alert_global_cooldown_suppresses_until_30000ms() {
     let mut engine = RiskEngine::new();
     start_two_count_drop(&mut engine, own(Some(100)));
-    let first = valid_tick(&mut engine, 6_001, Some(3), own(Some(100)));
+    let first = continue_visible_until(&mut engine, 1_000, 6_001, 3, own(Some(100)));
     for (now_ms, count) in [(6_100, 5), (6_200, 5), (6_300, 5)] {
         valid_tick(&mut engine, now_ms, Some(count), own(Some(100)));
     }
@@ -530,7 +581,7 @@ fn risk_alert_global_cooldown_suppresses_until_30000ms() {
     ] {
         valid_tick(&mut engine, now_ms, Some(count), own(Some(100)));
     }
-    let before = valid_tick(&mut engine, 36_000, Some(3), own(Some(100)));
+    let before = continue_visible_until(&mut engine, 30_600, 36_000, 3, own(Some(100)));
     let at = valid_tick(&mut engine, 36_001, Some(3), own(Some(100)));
 
     assert!(has(&first, RiskEvent::RiskAlert));
@@ -542,7 +593,7 @@ fn risk_alert_global_cooldown_suppresses_until_30000ms() {
 fn risk_revision_requires_1000ms_of_recovery_and_emits_once() {
     let mut engine = RiskEngine::new();
     start_two_count_drop(&mut engine, own(Some(100)));
-    valid_tick(&mut engine, 6_001, Some(3), own(Some(100)));
+    continue_visible_until(&mut engine, 1_000, 6_001, 3, own(Some(100)));
     valid_tick(&mut engine, 6_100, Some(5), own(Some(100)));
     valid_tick(&mut engine, 6_200, Some(5), own(Some(100)));
     valid_tick(&mut engine, 6_300, Some(5), own(Some(100)));
@@ -561,12 +612,13 @@ fn risk_revision_requires_1000ms_of_recovery_and_emits_once() {
 fn risk_revision_is_allowed_when_recovery_completes_at_10000ms() {
     let mut engine = RiskEngine::new();
     start_two_count_drop(&mut engine, own(Some(100)));
-    valid_tick(&mut engine, 6_001, Some(3), own(Some(100)));
+    continue_visible_until(&mut engine, 1_000, 6_001, 3, own(Some(100)));
+    continue_visible_until(&mut engine, 6_001, 14_900, 3, own(Some(100)));
     valid_tick(&mut engine, 14_901, Some(5), own(Some(100)));
     valid_tick(&mut engine, 15_000, Some(5), own(Some(100)));
     valid_tick(&mut engine, 15_001, Some(5), own(Some(100)));
 
-    let output = valid_tick(&mut engine, 16_001, Some(5), own(Some(100)));
+    let output = continue_visible_until(&mut engine, 15_001, 16_001, 5, own(Some(100)));
 
     assert!(has(&output, RiskEvent::RiskRevision));
 }
@@ -575,7 +627,8 @@ fn risk_revision_is_allowed_when_recovery_completes_at_10000ms() {
 fn risk_revision_does_not_fire_when_recovery_completes_after_10000ms() {
     let mut engine = RiskEngine::new();
     start_two_count_drop(&mut engine, own(Some(100)));
-    valid_tick(&mut engine, 6_001, Some(3), own(Some(100)));
+    continue_visible_until(&mut engine, 1_000, 6_001, 3, own(Some(100)));
+    continue_visible_until(&mut engine, 6_001, 15_800, 3, own(Some(100)));
     valid_tick(&mut engine, 15_900, Some(5), own(Some(100)));
     valid_tick(&mut engine, 16_000, Some(5), own(Some(100)));
     valid_tick(&mut engine, 16_100, Some(5), own(Some(100)));
@@ -589,7 +642,7 @@ fn risk_revision_does_not_fire_when_recovery_completes_after_10000ms() {
 fn coverage_gap_cancels_alert_and_prevents_a_revision() {
     let mut engine = RiskEngine::new();
     start_two_count_drop(&mut engine, own(Some(100)));
-    let alert = valid_tick(&mut engine, 6_001, Some(3), own(Some(100)));
+    let alert = continue_visible_until(&mut engine, 1_000, 6_001, 3, own(Some(100)));
     let gap = tick(&mut engine, 6_100, Coverage::Unavailable, Some(5), own(Some(100)), &[]);
 
     let output = valid_tick(&mut engine, 6_200, Some(5), own(Some(100)));
