@@ -45,7 +45,7 @@
       "path": "docs/design/VISUAL-DESIGN-PROPOSAL.md",
       "type": "spec",
       "role": "governing",
-      "reviewed_sha256": "066d4c6dae5142577304ff48c77fe8190e74495a6a3762cb610654e45403f4c9"
+      "reviewed_sha256": "480ecffb0dfdba0f80cb3c6cf1de4cf4d940e078d2c18e40f47fa982d003fac7"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -68,7 +68,7 @@
       "path": "docs/design/REMAINING-SYSTEM-DESIGN.md",
       "type": "spec",
       "role": "reference",
-      "reviewed_sha256": "1a9c1df92cefd2f7cc6c52b951309f7948ecb3e55e14749bdff72256855bb8a3"
+      "reviewed_sha256": "85ed331560c4f2cf8d484591eb00c0c84b6c93e9f10985147a73fc8d4fc1ba9a"
     },
     {
       "path": "docs/delivery/SPRINT-ROADMAP.md",

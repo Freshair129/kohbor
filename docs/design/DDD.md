@@ -49,7 +49,7 @@ These relationships are local. There is no relationship permitting peer samples 
 
 Every externally displayed observation has explicit availability: fresh, stale, unknown, invalid, unsupported or estimated. `estimated` is permitted only where a contract names the estimation method; own game-state fields have none, so they use the other five values. Unknown numeric values use null in normalized contracts and an em dash or explanatory label in UI. A real zero remains zero. A known-empty inventory slot is not an unknown slot.
 
-Use integer milliseconds for local elapsed durations, integer seconds only where explicitly named respawn_seconds, percent in [0,100] for percentages, normalized coordinates in [0,1] for admitted map positions, integer game counters, decimal bytes for the resource limits (2,000,000,000 bytes since DEC-RESOURCE-BUDGET) and full Working Set for memory accounting. Do not mix monotonic time with wall time or compare remote monotonic timestamps.
+Use integer milliseconds for local elapsed durations, integer seconds only where explicitly named respawn_seconds, percent in [0,100] for percentages, normalized coordinates in [0,1] for admitted map positions, integer game counters, decimal bytes for measured memory figures (no memory limit is set; DEC-RESOURCE-BUDGET) and full Working Set for memory accounting. Do not mix monotonic time with wall time or compare remote monotonic timestamps.
 
 UTC timestamps are for evidence records and human correlation. Match progress/game clock is its own source-qualified domain; pause and unsupported modes cannot be approximated from a browser wall clock.
 

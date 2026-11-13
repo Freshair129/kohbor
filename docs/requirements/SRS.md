@@ -1986,11 +1986,11 @@ Alert latency shall have p50 ≤250ms and every measured sample ≤300ms over at
 
 **Product needs:** PN-005 · **Primary design:** CMP-PERFORMANCE · **Design components:** CMP-PERFORMANCE
 
-Every 1s normalized app-group CPU sample shall be ≤10%, aggregate peak full Working Set ≤2000000000 bytes (decimal) and, when the app group uses the GPU, its peak dedicated GPU memory (VRAM) ≤2000000000 bytes; GPU use is allowed; VRAM is measured, never assumed.
+Every 1s normalized app-group CPU sample shall be ≤10%. Aggregate peak full Working Set and, when the app group uses the GPU, peak dedicated GPU memory (VRAM) shall be measured and reported with raw receipts; they have no pass/fail limit until the product owner sets one from the first measured baseline. GPU use is allowed. A value that was not measured is unknown, never zero or within budget.
 
-**Failure behavior:** No excluding model/shared pages or substituting private/PSS/forced trim. A RAM or VRAM value that was not measured is unknown, never zero or within budget.
+**Failure behavior:** No excluding model/shared pages or substituting private/PSS/forced trim. A RAM or VRAM value that was not measured is unknown, never zero or within budget. No RAM or VRAM limit is applied or claimed until the owner sets one.
 
-**AC-QUALITY-002:** Given host, WebView, sidecars and active external model processes are measured; when warmup and idle/live/voice-alert profiles run; then all included process samples satisfy the fixed limits with raw receipts; app-group VRAM is measured per process with raw receipts when the GPU is used.
+**AC-QUALITY-002:** Given host, WebView, sidecars and active external model processes are measured; when warmup and idle/live/voice-alert profiles run; then all included process samples satisfy the fixed CPU limit with raw receipts; app-group full Working Set and, when the GPU is used, VRAM are measured per process and reported with raw receipts for the idle, live and voice-alert profiles, as the baseline from which the owner sets a limit.
 
 **Verification:** native, live, benchmark; procedures TP-13, UAT-05; status NOT_RUN.
 
