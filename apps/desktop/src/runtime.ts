@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { emit, listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPlaybackState, parsePlaybackEvent, reducePlayback, tickPlayback, type PlaybackState } from "./playback";
 import { activateArgs, inspectArgs, type ChosenActivationPolicy } from "./packs";
@@ -19,9 +19,37 @@ export function subscribePlayback(onEvent: (event: unknown) => void): Promise<()
   return listen<unknown>("playback://event", (event) => onEvent(event.payload));
 }
 
+export function subscribeOverlayStatus(onPayload: (payload: unknown) => void): Promise<() => void> {
+  if (!hostAvailable()) return Promise.resolve(() => {});
+  return listen<unknown>("overlay://status", (event) => onPayload(event.payload));
+}
+
+export function subscribeOverlayDemo(onPayload: (payload: unknown) => void): Promise<() => void> {
+  if (!hostAvailable()) return Promise.resolve(() => {});
+  return listen<unknown>("overlay://demo", (event) => onPayload(event.payload));
+}
+
+export function emitOverlayReady(): Promise<void> {
+  return hostAvailable() ? emit("overlay://ready", {}) : Promise.resolve();
+}
+
+export function emitOverlayVisibility(visible: boolean): Promise<void> {
+  return hostAvailable() ? emit("overlay://visible", { visible }) : Promise.resolve();
+}
+
 export function reportMediaProbe(report: MediaProbeReport): Promise<{ accepted: boolean } | null> {
   if (typeof window === "undefined" || !("__TAURI_INTERNALS__" in window)) return Promise.resolve(null);
   return invoke<{ accepted: boolean }>("media_probe_report", probeReportArgs(report));
+}
+
+export function demoAvailable(): Promise<boolean> {
+  if (!hostAvailable()) return Promise.resolve(false);
+  return invoke<boolean>("demo_available").catch(() => false);
+}
+
+export function demoTrigger(eventId: string, tier: number | null): Promise<void> {
+  if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
+  return invoke<void>("demo_trigger", { eventId, tier });
 }
 
 function hostAvailable(): boolean {

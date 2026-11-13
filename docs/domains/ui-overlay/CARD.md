@@ -2,7 +2,7 @@
 domain: ui-overlay
 tier: B
 card_version: 1
-verified_at_commit: 0997546
+verified_at_commit: da88446
 verified_on: 2026-11-13
 verified_by: "claude-code subagent draft (read-only), integrated by the governance lead; agent work, not human review"
 ---
@@ -25,13 +25,12 @@ A map, not evidence. Authority: decisions, PRD/SRS, contracts, code and tests, t
 ## 3. Now / Next / Blocked
 
 - NOW: the renderer shows the Overview, own-hero card, setup guide, audio, pack and history panels; no Live, Session Monitor or other destination exists in source (apps/desktop/src/App.tsx; UI-002).
-- NOW: no overlay window: `?view=overlay` renders only the event banner, and one `control` window is declared (apps/desktop/src/main.tsx; apps/desktop/src-tauri/tauri.conf.json; UI-001).
+- NOW: an overlay window exists in source (built in code, transparent, on top, click-through, listen-only capability, shown only while a banner or chip is up) with a 720x220 banner stage, a status chip and a feature-gated DEMO trigger; synthetic evidence only, nothing is verified on Windows or in the game (docs/design/S6-OVERLAY-SLICE.md section 9; apps/desktop/src-tauri/src/overlay.rs; owner checks in the game are listed in section 9 of the plan (TP-05, UAT-05; UI-001).
 - NOW: styles.css names IBM Plex but no font file or `@font-face` is in the source, so real Thai rendering in WebView2 is UNVERIFIED (apps/desktop/src/styles.css:26).
 - NEXT (no owner needed): Session Monitor on mocks, before native capture exists (docs/design/REMAINING-SYSTEM-DESIGN.md section 5, design task 4.8, not yet in the roadmap backlog; UI-002, UI-004).
 - NEXT: screens still undesigned: Voice Packs, Insights, Account, Settings, Store "not in this build", live-field variants (docs/design/VISUAL-DESIGN-PROPOSAL.md section 7; DEC-VISUALS).
 - BLOCKED: safe areas, readable sizes, motion timing and FPS need Windows measurements (docs/design/VISUAL-DESIGN-PROPOSAL.md section 7; DEC-NATIVE-EVIDENCE; QUALITY-003).
 - BLOCKED: overlay content needs owner answers on the own-stat row and banner size (Q-UI-1, Q-UI-2 below; UI-001, UI-003).
-- NOT VERIFIED: the unit tests in `apps/desktop/tests` were not run for this card (apps/desktop/package.json test:unit).
 
 ## 4. Open questions
 
@@ -48,9 +47,11 @@ Machine list: [state.json](state.json). Governing: UX-SPEC, VISUAL-DESIGN-PROPOS
 - The artboards are plain HTML or canvas sources with sample data; contrast is computed from hex, not measured, and Thai was checked only in browsers (docs/design/visuals/command-deck/DESIGN-NOTES.md section 12).
 - No green "safe" and no invented value: unknown shows "—"; a failed status poll shows host-lost, not a stale "live" reading (docs/design/VISUAL-DESIGN-PROPOSAL.md section 1; docs/delivery/M1-STATUS.md section 3.2).
 - Opening the inspector or detail must move the map by at most 1 CSS px; this was checked only on the mockup (docs/design/UX-SPEC.md section 4; DESIGN-NOTES section 12).
+- GSI replay into the loopback intake cannot produce a demo event: admission needs the signed-in Steam id to equal the payload steamid (crates/kohbor-gsi/src/admission.rs; docs/design/S6-OVERLAY-SLICE.md section 5).
 - Preview the renderer with the dev-only mock harness (`?mock=1`, mocked invoke), never by starting a second app instance next to the owner's build (apps/desktop/src/main.tsx; docs/delivery/M1-STATUS.md section 3.2).
 - Overlay modules must never cover the minimap rectangle, because capture would see the overlay (docs/design/UX-SPEC.md section 8; docs/design/REMAINING-SYSTEM-DESIGN.md section 4).
 - Visual-direction approval is not measured-value or native acceptance (docs/design/VISUAL-DESIGN-PROPOSAL.md section 1).
+- The overlay lives in a hidden window until a banner or chip is due and cannot draw above exclusive fullscreen: Dota 2 must run borderless windowed. A demo build (cargo feature `demo` plus `KOHBOR_DEMO=1`) shares the real engine, so do not use it for a real match (docs/design/S6-OVERLAY-SLICE.md sections 4 and 9).
 
 ## 7. Who may write, how to claim, how to ask
 

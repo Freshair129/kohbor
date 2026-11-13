@@ -141,6 +141,7 @@ button[aria-busy="true"] { cursor: progress; }
 .history-table td { padding: 6px 10px; border-top: 1px solid var(--line-subtle); vertical-align: top; overflow-wrap: anywhere; }
 .history-table td:first-child { white-space: nowrap; }
 .history-detail { display: block; margin-top: 2px; }
+.history-demo-label { display: inline-block; margin-right: 6px; padding: 1px 5px; border: 1px solid var(--accent); border-radius: 999px; color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: 0.04em; }
 
 /* The control-window dev harness is loaded only by ?mock=1 in Vite development. */
 .mock-scenario-panel { position: fixed; z-index: 20; right: 12px; bottom: 12px; width: min(460px, calc(100vw - 24px)); max-height: min(70vh, 640px); overflow: auto; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); box-shadow: 0 8px 32px var(--ground); }
@@ -150,18 +151,34 @@ button[aria-busy="true"] { cursor: progress; }
 .mock-scenario-actions button { display: flex; flex-direction: column; align-items: flex-start; height: auto; min-height: 44px; padding: 6px 10px; white-space: normal; text-align: left; }
 
 /* The overlay webview supplies a transparent, click-through surface. */
-html.overlay-body, body.overlay-body { background: transparent !important; }
-body.overlay-body { min-width: 0; min-height: 0; overflow: hidden; }
-body.overlay-body #root { min-height: 0; }
-.event-overlay-banner { position: fixed; z-index: 1; top: clamp(116px, 14vh, 172px); left: 50%; width: min(680px, 54vw); max-height: 24vh; transform: translateX(-50%); overflow: hidden; background: transparent; pointer-events: none; animation: event-banner-enter 140ms ease-out both; }
-.event-overlay-banner video { display: block; width: 100%; max-height: 24vh; object-fit: contain; background: transparent; }
+html.overlay-body, body.overlay-body { width: 100%; height: 100%; background: transparent !important; }
+body.overlay-body { min-width: 0; min-height: 0; margin: 0; overflow: hidden; }
+body.overlay-body #root { width: 100%; height: 100%; min-height: 0; }
+.overlay-shell { position: relative; display: grid; grid-template-rows: 220fr 36fr; width: 100vw; height: 100vh; overflow: hidden; background: transparent; }
+.overlay-stage { position: relative; width: 100%; min-width: 0; min-height: 0; aspect-ratio: 720 / 220; overflow: hidden; background: transparent; }
+.event-overlay-banner { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; pointer-events: none; animation: event-banner-enter 140ms ease-out both; }
+.event-overlay-banner video { display: block; width: 100%; height: 100%; object-fit: contain; background: transparent; }
+/* Mount point for the risk strip (720x28 logical, bottom edge of the stage); hidden while empty. */
+.overlay-risk-strip { position: absolute; z-index: 2; left: 0; right: 0; bottom: 0; height: calc(100% * 28 / 220); pointer-events: none; }
+.overlay-risk-strip:empty { display: none; }
+.overlay-chip-strip { display: flex; align-items: center; justify-content: flex-end; min-width: 0; min-height: 0; padding: 0 2.5%; background: transparent; }
+.overlay-chip { display: inline-flex; align-items: center; max-width: 100%; min-height: 24px; padding: 2px 10px; border: 1px solid rgb(197 206 220 / 34%); border-radius: 999px; background: rgb(14 18 27 / 88%); color: #f2f5f9; font-size: clamp(11px, 1.7vh, 14px); line-height: 1.25; overflow-wrap: anywhere; }
+.overlay-chip-ready { border-color: rgb(90 170 147 / 55%); }
+.overlay-chip-not_ready, .overlay-chip-muted, .overlay-chip-no_device { border-color: rgb(218 164 87 / 64%); }
+.overlay-chip-demo { border-color: rgb(182 152 235 / 70%); color: #e7dcff; }
+.overlay-mock-panel { position: fixed; z-index: 10; right: 12px; bottom: 44px; display: flex; flex-direction: column; gap: 8px; width: min(320px, calc(100vw - 24px)); padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--text); font-size: 12px; }
+.overlay-mock-panel p { margin: 0; }
+.overlay-mock-panel output { overflow-wrap: anywhere; }
+.demo-panel { display: flex; flex-direction: column; gap: 10px; margin: 0 24px 18px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.demo-panel > p { margin: 0; color: var(--muted); font-size: 13px; }
+.demo-panel-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.demo-panel-error { color: var(--critical); }
 @keyframes event-banner-enter { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .event-overlay-banner { animation: none; } }
 
 @media (max-width: 640px) {
   .audio-readiness, .pack-active { grid-template-columns: minmax(0, 1fr); gap: 6px; }
   .mock-scenario-panel { width: min(360px, calc(100vw - 24px)); }
-  .event-overlay-banner { width: 84vw; }
 }
 
 @media (max-width: 900px) {

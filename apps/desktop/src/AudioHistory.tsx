@@ -3,6 +3,7 @@ import { copy, packReason, type Locale } from "./copy";
 import {
   formatElapsed,
   HISTORY_LIMIT,
+  isDemoOutcomeRecord,
   outcomeTone,
   parseAudioHistory,
   type AudioHistory as AudioHistoryData,
@@ -151,6 +152,7 @@ export function AudioHistory({ locale, disabled = false }: { locale: Locale; dis
                       {formatElapsed(record.decided_monotonic_ms)}
                     </td>
                     <td>
+                      {isDemoOutcomeRecord(record) ? <span className="history-demo-label">DEMO</span> : null}
                       <span className="mono">{record.event_type ?? text.voiceEvent}</span>
                       <span className="muted small">
                         {" "}
