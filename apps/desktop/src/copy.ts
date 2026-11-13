@@ -123,7 +123,19 @@ const MESSAGES = {
       pending: "กำลังเปลี่ยนสถานะเสียง…",
       toggleFailed: "เปลี่ยนสถานะเสียงไม่ได้",
       muteWarning: "การปิดเสียงจะปิดเสียงทุกประเภท รวมถึงเสียงเตือนสำคัญ และทำให้เสียงความปลอดภัยไม่พร้อม",
-      missingCriticalNote: "ยังไม่มีสื่อเสียงเตือนสำคัญที่ผ่านการตรวจ จึงยังอ้างว่าเสียงเตือนความปลอดภัยจะดังไม่ได้",
+      missingCriticalNote: "ยังไม่พร้อม จึงยังอ้างว่าเสียงเตือนความปลอดภัยจะดังไม่ได้",
+      readyReason: "ผ่านการตรวจครบตามที่ระบบหลักรายงาน",
+      readyNote: "ระบบหลักรายงานว่าพร้อม หลังตรวจสื่อ ถอดรหัส และอุปกรณ์เสียงแล้ว นี่ยังไม่ใช่การวัดความหน่วงหรือเสียงจริงในห้อง",
+      mutedBanner: "ปิดเสียงอยู่ — เสียงเตือนสำคัญจะไม่ดังจนกว่าจะเปิดเสียง",
+      muteUnknown: "ยืนยันสถานะปิดเสียงไม่ได้ขณะระบบเสียงใช้ไม่ได้ เลือกสถานะที่ต้องการได้เลย",
+      hintLabel: "ทำอะไรได้",
+      hints: {
+        MEDIA_UNMAPPED: "ติดตั้งและเปิดใช้แพ็กที่มีเสียงเตือนสำคัญจากแผง “แพ็กเสียงประกาศ” ด้านล่าง",
+        MEDIA_INVALID: "ตรวจรายการในแผง “แพ็กเสียงประกาศ” หรือติดตั้งแพ็กใหม่",
+        MEDIA_PROBE_FAILED: "ระบบหลักยังไม่ได้รับผลตรวจภาพจากหน้าต่างนี้ ลองเปิด Kohbor ใหม่",
+        AUDIO_MUTED: "กด “เปิดเสียงทั้งหมด” หรือ Alt+M",
+        CAPABILITY_UNAVAILABLE: "ตรวจอุปกรณ์เสียงเริ่มต้นของ Windows ถ้ายังไม่หายให้เปิด Kohbor ใหม่",
+      },
     },
     packs: {
       title: "แพ็กเสียงประกาศ",
@@ -364,7 +376,19 @@ const MESSAGES = {
       pending: "Changing audio state…",
       toggleFailed: "Could not change audio state",
       muteWarning: "Mute silences every audio class, including critical alerts, and makes safety audio unavailable",
-      missingCriticalNote: "No verified critical alert media is available, so no audible safety alert is claimed",
+      missingCriticalNote: "Not ready, so no audible safety alert is claimed",
+      readyReason: "All checks passed, as reported by the host",
+      readyNote: "The host reports ready after checking media, decoding and the audio device. This is not a measurement of latency or of sound in the room.",
+      mutedBanner: "Muted — critical alerts will not sound until audio is unmuted",
+      muteUnknown: "Mute state cannot be confirmed while audio is unavailable; choose the state you want",
+      hintLabel: "What you can do",
+      hints: {
+        MEDIA_UNMAPPED: "Install and activate a pack with critical alerts from the “Announcer packs” panel below",
+        MEDIA_INVALID: "Check the “Announcer packs” list, or install the pack again",
+        MEDIA_PROBE_FAILED: "The host has not received a visual check from this window; try restarting Kohbor",
+        AUDIO_MUTED: "Press “Unmute all audio” or Alt+M",
+        CAPABILITY_UNAVAILABLE: "Check the default Windows audio device; if it persists, restart Kohbor",
+      },
     },
     packs: {
       title: "Announcer packs",
@@ -540,6 +564,34 @@ export function reason(code: string | null | undefined, locale: Locale = "th"): 
   if (!code) return "";
   const messages = locale === "th" ? REASON_TH : REASON_EN;
   return messages[code] ?? (locale === "th" ? `เกิดข้อผิดพลาดที่ยังไม่มีคำอธิบาย (${code})` : `Unexplained error (${code})`);
+}
+
+const MEDIA_REASON_TH: Record<string, string> = {
+  MEDIA_INVALID: "สื่อหรือที่เก็บแพ็กไม่ผ่านการตรวจ ถอดรหัสไม่ได้ หรือเปิดที่เก็บแพ็กไม่ได้",
+  CAPABILITY_UNAVAILABLE: "ระบบเสียงใช้ไม่ได้ในขณะนี้ — ไม่พบอุปกรณ์เสียง หรือส่วนเล่นเสียงไม่ตอบสนอง",
+};
+
+const MEDIA_REASON_EN: Record<string, string> = {
+  MEDIA_INVALID: "The media or the pack store failed verification, could not be decoded, or could not be opened",
+  CAPABILITY_UNAVAILABLE: "Audio is unavailable right now — no output device, or the audio engine is not responding",
+};
+
+/**
+ * Reason for the critical-media readiness row. The shared reason() table words
+ * CAPABILITY_UNAVAILABLE as "not in this build", which is wrong for audio, where
+ * the host uses it for a missing device or an unresponsive engine.
+ */
+export function mediaReason(code: string | null | undefined, locale: Locale = "th"): string {
+  if (!code) return "";
+  const override = (locale === "th" ? MEDIA_REASON_TH : MEDIA_REASON_EN)[code];
+  return override ?? reason(code, locale);
+}
+
+/** A short next step for a media readiness reason, or null when none is known. */
+export function mediaHint(code: string | null | undefined, locale: Locale = "th"): string | null {
+  if (!code) return null;
+  const hints: Record<string, string> = copy(locale).audio.hints;
+  return hints[code] ?? null;
 }
 
 /**

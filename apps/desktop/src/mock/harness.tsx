@@ -25,6 +25,8 @@ let settingsView: UserSettingsView = {
   locale: settingsFixture.locale as Locale,
 };
 let muted = false;
+// Synthetic media readiness for the dev switcher only; never derived from a real pack.
+let mediaOverride: RuntimeStatus["media"] | null = null;
 let statusRevision = statusFixture.status_revision;
 let callbackId = 0;
 let eventId = 0;
@@ -36,9 +38,12 @@ const channel = typeof BroadcastChannel === "undefined" ? null : new BroadcastCh
 function currentStatus(): RuntimeStatus {
   const status = structuredClone(statusFixture);
   status.status_revision = statusRevision;
-  status.media = muted
-    ? { state: "unavailable", reason: "AUDIO_MUTED" }
-    : structuredClone(statusFixture.media);
+  // A scenario override wins, like the host's engine-health check which is tested before mute.
+  status.media = mediaOverride
+    ? { ...mediaOverride }
+    : muted
+      ? { state: "unavailable", reason: "AUDIO_MUTED" }
+      : structuredClone(statusFixture.media);
   return status;
 }
 
@@ -280,6 +285,17 @@ function runScenario(name: string) {
   } else if (name === "stuck") {
     // No verified WebM fixture exists; exercise the missing-ended lifecycle without inventing a visual.
     dispatchScenarioEvent(started(firstId, at, 800, 0));
+  } else if (name.startsWith("media-")) {
+    statusRevision += 1;
+    if (name === "media-unmapped") mediaOverride = { state: "not_ready", reason: "MEDIA_UNMAPPED" };
+    else if (name === "media-invalid") mediaOverride = { state: "not_ready", reason: "MEDIA_INVALID" };
+    else if (name === "media-probe") mediaOverride = { state: "not_ready", reason: "MEDIA_PROBE_FAILED" };
+    else if (name === "media-device") mediaOverride = { state: "unavailable", reason: "CAPABILITY_UNAVAILABLE" };
+    else if (name === "media-ready") mediaOverride = { state: "ready", reason: null };
+    else {
+      mediaOverride = null;
+      muted = false;
+    }
   } else if (name === "unmapped-danger") {
     // What the product records today: no authorized critical clip exists, so health_danger stays silent.
     recordOutcome("health_danger", "critical", "unmapped", null, at);
@@ -381,6 +397,7 @@ export function installMockHarness() {
 
 const SCENARIO_NAMES = [
   "normal", "tail", "preempt", "session", "mute", "stuck", "malformed", "health-danger", "unmapped-danger", "probe-failure",
+  "media-unmapped", "media-invalid", "media-probe", "media-device", "media-ready", "media-reset",
 ] as const;
 type ScenarioName = (typeof SCENARIO_NAMES)[number];
 
@@ -400,6 +417,12 @@ export function MockScenarioSwitcher() {
     "health-danger": ["อันตรายสุขภาพ ไม่มีภาพ", "health_danger, no visual"],
     "unmapped-danger": ["อันตรายสุขภาพ ไม่มีคลิปในแพ็ก (ไม่เล่น)", "health_danger, unmapped (silent)"],
     "probe-failure": ["ทดสอบ probe ล้มเหลว", "Probe unavailable media"],
+    "media-unmapped": ["สถานะจำลอง: ไม่มีคลิปสำคัญ", "Mock status: MEDIA_UNMAPPED"],
+    "media-invalid": ["สถานะจำลอง: สื่อไม่ผ่านตรวจ", "Mock status: MEDIA_INVALID"],
+    "media-probe": ["สถานะจำลอง: ตรวจภาพล้มเหลว", "Mock status: MEDIA_PROBE_FAILED"],
+    "media-device": ["สถานะจำลอง: ระบบเสียงใช้ไม่ได้", "Mock status: CAPABILITY_UNAVAILABLE"],
+    "media-ready": ["สถานะจำลอง: พร้อม (สังเคราะห์ ไม่ใช่ของจริง)", "Mock status: ready (synthetic)"],
+    "media-reset": ["คืนสถานะจำลองเป็นค่าเริ่มต้น", "Reset mock media status"],
   };
 
   useEffect(() => {
