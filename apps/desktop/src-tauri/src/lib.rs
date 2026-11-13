@@ -2,6 +2,7 @@
 
 pub mod atomic;
 mod audio;
+mod capture_host;
 mod clock;
 mod commands;
 pub mod containment;
@@ -91,6 +92,21 @@ pub fn run() {
             {
                 eprintln!("resource-sampler unavailable: {error}");
             }
+            let gsi_runtime = runtime.clone();
+            let gsi = capture_host::GsiView::new(move || {
+                capture_host::GsiSnapshot::from_snapshot(
+                    &intake::lock(&gsi_runtime.shared).snapshot(),
+                )
+            });
+            let resource_sample = sample.clone();
+            let resources = capture_host::ResourceView::new(move || {
+                let (s, _) = *intake::lock(&resource_sample);
+                capture_host::ResourceSample {
+                    cpu_percent: s.cpu_percent,
+                    working_set_bytes: s.working_set_bytes,
+                }
+            });
+            capture_host::start(app.handle().clone(), gsi, resources);
             app.manage(AppState {
                 runtime,
                 host,
@@ -114,7 +130,10 @@ pub fn run() {
             commands::media_probe_report,
             commands::media_probe_pending,
             commands::audio_history,
-            commands::set_muted
+            commands::set_muted,
+            capture_host::minimap_subscribe,
+            capture_host::capture_status,
+            capture_host::capture_invalidate
         ])
         .build(tauri::generate_context!());
     match app {

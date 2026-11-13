@@ -20,6 +20,10 @@ kohbor-events = { path = "../../../crates/kohbor-events" }
 kohbor-audio = { path = "../../../crates/kohbor-audio" }
 kohbor-audio-native = { path = "../../../crates/kohbor-audio-native" }
 kohbor-pack = { path = "../../../crates/kohbor-pack" }
+kohbor-capture = { path = "../../../crates/kohbor-capture" }
+kohbor-capture-native = { path = "../../../crates/kohbor-capture-native" }
+kohbor-minimap-cv = { path = "../../../crates/kohbor-minimap-cv" }
+kohbor-risk = { path = "../../../crates/kohbor-risk" }
 tauri = { version = "=2.12.5", features = [] }
 serde = { workspace = true }
 serde_json = { workspace = true }

@@ -1,0 +1,11 @@
+[package]
+name = "kohbor-risk"
+description = "Pure GSI plus anonymous vision risk rules and Danger Meter for Kohbor (MVP-1 W5). No I/O, no clock."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+kohbor-capture = { path = "../kohbor-capture" }

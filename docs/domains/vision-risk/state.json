@@ -63,26 +63,22 @@
     {
       "path": "crates/kohbor-capture",
       "type": "code",
-      "role": "reference",
-      "exists": false
+      "role": "reference"
     },
     {
       "path": "crates/kohbor-capture-native",
       "type": "code",
-      "role": "reference",
-      "exists": false
+      "role": "reference"
     },
     {
       "path": "crates/kohbor-vision",
       "type": "code",
-      "role": "reference",
-      "exists": false
+      "role": "reference"
     },
     {
       "path": "crates/kohbor-risk",
       "type": "code",
-      "role": "reference",
-      "exists": false
+      "role": "reference"
     },
     {
       "path": "spikes/capture",
