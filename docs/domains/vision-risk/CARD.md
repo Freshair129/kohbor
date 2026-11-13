@@ -51,6 +51,7 @@ Machine list: [state.json](state.json). Primary sources: REMAINING-SYSTEM-DESIGN
 - Exhausting the 10% job cap stops audio and alert threads too, so the video path must never push the job to the cap (docs/design/REMAINING-SYSTEM-DESIGN.md section 1.6).
 - No predicted paths and no correction from time decay (DEC-SESSION-MONITOR safe interim; contracts/decisions.json DEC-RISK-DETAIL).
 - A template or reference image derived from game assets is DEC-GAME-DATA provenance and a rights question for the owner (docs/design/REMAINING-SYSTEM-DESIGN.md section 1.5).
+- The default crop (p1080-default-v2, inner map without the grey frame) is validated in `Inner` mode: texture only, so a textured non-minimap image can read as live; only the user's crop confirmation says it is the map (crates/kohbor-minimap-cv structural_check_mode; MVP-1 fix2).
 - 30 fps is a design target, not a requirement; the badge shows the measured rate (docs/design/REMAINING-SYSTEM-DESIGN.md baseline check).
 
 ## 7. Who may write, how to claim, how to ask

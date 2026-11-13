@@ -29,10 +29,12 @@ test("unknown capture reasons retain their code instead of claiming a resolution
   assert.equal(recovery.phaseReasonText("unsupported", "future_<layout>", "en"), "Capture unavailable (reason: future_<layout>)");
 });
 
-test("only unsupported without a reason falls back to the resolution requirement", () => {
+test("unsupported without a reason never invents a resolution diagnosis", () => {
   for (const locale of ["th", "en"] as const) {
-    assert.equal(recovery.phaseReasonText("unsupported", null, locale),
-      recovery.phaseReasonText("unsupported", "unsupported_resolution", locale));
+    const text = recovery.phaseReasonText("unsupported", null, locale);
+    assert.notEqual(text, recovery.phaseReasonText("unsupported", "unsupported_resolution", locale));
+    assert.ok(text !== null && !text.includes("1920"));
+    assert.ok(recovery.phaseReasonText("unsupported", "capture_unavailable", locale, "DXGI x")?.includes("DXGI x"));
     assert.equal(recovery.phaseReasonText("live", null, locale), null);
     assert.equal(recovery.phaseReasonText(null, null, locale), null);
   }

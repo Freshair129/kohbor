@@ -21,6 +21,7 @@ export interface CaptureStatus {
   display_fps: 10 | 15 | 30 | null;
   paused: boolean | null;
   phase_reason: string | null;
+  phase_detail: string | null;
   grab_ms_mean: number | null;
   analysis_ms_mean: number | null;
 }

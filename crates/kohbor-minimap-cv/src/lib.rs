@@ -128,6 +128,8 @@ pub fn structural_check(bgra: &[u8], width: u32, height: u32, stride: u32) -> bo
 
 /// Per-frame structural validation with unchanged size and luminance-variance thresholds.
 /// Inner treats the entire crop as map interior. Neither mode accepts uniform pixels.
+/// Inner is only a texture check: unrelated textured images can pass. It does not
+/// identify the game or the minimap, nor confirm that the crop matches the intended HUD.
 pub fn structural_check_mode(
     bgra: &[u8],
     width: u32,

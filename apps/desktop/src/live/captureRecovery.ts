@@ -13,6 +13,7 @@ const REASON_TEXT = {
     no_game_window: "ไม่พบหน้าต่าง Dota 2 ที่มองเห็นได้ — เปิดเกมในโหมด Borderless",
     crop_out_of_bounds: 'กรอบที่ตั้งไว้ออกนอกจอ — กด "รีเซ็ต" หรือปรับกรอบ',
     unsupported_resolution: "จอต้องเป็น 1920x1080 ที่สเกล 100% (รุ่นนี้)",
+    capture_unavailable: "จับภาพจากหน้าจอไม่ได้ในขณะนี้ — ระบบกำลังลองใหม่",
     capture_disabled: "ปิดการจับภาพด้วย KOHBOR_CAPTURE=0",
     paused: "หยุดจับภาพ",
     reopening: "กำลังเปิดการจับภาพใหม่",
@@ -24,6 +25,7 @@ const REASON_TEXT = {
     no_game_window: "No visible Dota 2 window found — open the game in Borderless mode",
     crop_out_of_bounds: 'The configured crop is outside the screen — press "Reset" or adjust the crop',
     unsupported_resolution: "Display must be 1920x1080 at 100% scaling (this build)",
+    capture_unavailable: "Screen capture is unavailable right now — retrying",
     capture_disabled: "Capture disabled by KOHBOR_CAPTURE=0",
     paused: "Capture paused",
     reopening: "Reopening capture",
@@ -32,10 +34,21 @@ const REASON_TEXT = {
   },
 } as const;
 
-export function phaseReasonText(phase: CapturePhase | null, reason: string | null, locale: LiveLocale): string | null {
-  if (reason === null) return phase === "unsupported" ? REASON_TEXT[locale].unsupported_resolution : null;
+export function phaseReasonText(
+  phase: CapturePhase | null,
+  reason: string | null,
+  locale: LiveLocale,
+  detail: string | null = null,
+): string | null {
+  const suffix = detail ? ` (${detail})` : "";
+  if (reason === null) {
+    if (phase !== "unsupported") return null;
+    return locale === "th" ? "จับภาพไม่ได้ (ไม่ทราบเหตุผล)" : "Capture unavailable (reason unknown)";
+  }
   const messages = REASON_TEXT[locale];
-  if (Object.hasOwn(messages, reason)) return messages[reason as keyof typeof messages];
+  if (Object.hasOwn(messages, reason)) {
+    return `${messages[reason as keyof typeof messages]}${reason === "capture_unavailable" ? suffix : ""}`;
+  }
   return locale === "th" ? `จับภาพไม่ได้ (เหตุผล: ${reason})` : `Capture unavailable (reason: ${reason})`;
 }
 

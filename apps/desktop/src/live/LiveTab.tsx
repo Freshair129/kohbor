@@ -102,7 +102,7 @@ export function LiveTab({ locale = "th" }: { locale?: LiveLocale }) {
   };
 
   const age = formatNullable(capture?.frame_age_ms ?? null);
-  const reasonText = phaseReasonText(phase, reason, locale);
+  const reasonText = phaseReasonText(phase, reason, locale, capture?.phase_detail ?? null);
   const phaseText = reasonText
     ? `${phaseLabel(phase, locale)} · ${reasonText}`
     : phaseLabel(phase, locale);
