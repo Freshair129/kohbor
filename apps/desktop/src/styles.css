@@ -108,6 +108,40 @@ button[aria-busy="true"] { cursor: progress; }
 .audio-control { display: flex; align-items: center; gap: 12px; }
 .audio-note { color: var(--text-2); font-size: 13px; overflow-wrap: anywhere; }
 
+/* Announcer-pack panel: shape, glyph and words carry state, as in the readiness chips. */
+.pack-panel { display: flex; flex-direction: column; gap: 10px; }
+.pack-panel .card-head { margin-bottom: 0; }
+.pack-body { display: flex; flex-direction: column; gap: 8px; }
+.pack-body.is-outdated { opacity: 0.55; }
+.pack-active { display: grid; grid-template-columns: minmax(160px, 220px) auto minmax(0, 1fr); align-items: center; gap: 12px; }
+.pack-subhead { margin: 4px 0 0; font-size: 14px; font-weight: 600; color: var(--text-2); }
+.pack-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.pack-item { border: 1px solid var(--line); border-radius: 8px; background: var(--raised); padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; }
+.pack-item-head { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.pack-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; overflow-wrap: anywhere; }
+.pack-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.pack-install { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--line-subtle); padding-top: 8px; }
+.pack-label { color: var(--text-2); font-size: 13px; }
+.pack-path-row { display: flex; gap: 8px; align-items: stretch; flex-wrap: wrap; }
+.pack-path { flex: 1 1 320px; min-width: 0; min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--ground); color: var(--text); font-size: 13px; }
+.pack-path:disabled { opacity: 0.6; }
+.pack-inspected { display: flex; flex-direction: column; gap: 6px; padding: 8px 12px; border: 1px dashed var(--stale); border-radius: 8px; }
+.pack-hash { display: block; font-size: 12px; overflow-wrap: anywhere; user-select: all; }
+.pack-notice { border: 1px solid var(--accent); background: var(--accent-surface); border-radius: 8px; padding: 6px 12px; overflow-wrap: anywhere; }
+.pack-notice-warn { border-color: var(--warning); background: var(--warning-surface); }
+.pack-notice-warn::before { content: "! "; color: var(--warning); font-weight: 700; }
+
+/* Audio decision history. */
+.history-panel { display: flex; flex-direction: column; gap: 10px; }
+.history-panel .card-head { margin-bottom: 0; }
+.history-scroll { max-height: 360px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
+.history-scroll.is-outdated { opacity: 0.55; }
+.history-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.history-table th { position: sticky; top: 0; background: var(--raised); text-align: left; font-weight: 600; color: var(--text-2); padding: 6px 10px; border-bottom: 1px solid var(--line); }
+.history-table td { padding: 6px 10px; border-top: 1px solid var(--line-subtle); vertical-align: top; overflow-wrap: anywhere; }
+.history-table td:first-child { white-space: nowrap; }
+.history-detail { display: block; margin-top: 2px; }
+
 /* The control-window dev harness is loaded only by ?mock=1 in Vite development. */
 .mock-scenario-panel { position: fixed; z-index: 20; right: 12px; bottom: 12px; width: min(460px, calc(100vw - 24px)); max-height: min(70vh, 640px); overflow: auto; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); box-shadow: 0 8px 32px var(--ground); }
 .mock-scenario-heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
@@ -125,7 +159,7 @@ body.overlay-body #root { min-height: 0; }
 @media (prefers-reduced-motion: reduce) { .event-overlay-banner { animation: none; } }
 
 @media (max-width: 640px) {
-  .audio-readiness { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .audio-readiness, .pack-active { grid-template-columns: minmax(0, 1fr); gap: 6px; }
   .mock-scenario-panel { width: min(360px, calc(100vw - 24px)); }
   .event-overlay-banner { width: 84vw; }
 }

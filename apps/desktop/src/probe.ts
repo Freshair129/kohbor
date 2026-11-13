@@ -128,6 +128,27 @@ export function buildProbeReport(context: MediaProbeContext, ok: boolean, durati
   };
 }
 
+/**
+ * Arguments for the `media_probe_report` command. Tauri 2 expects camelCase
+ * argument names for the snake_case Rust parameters, and the command does not
+ * opt out with `rename_all`, so snake_case keys would be rejected by the host.
+ */
+export function probeReportArgs(report: MediaProbeReport): {
+  installId: string;
+  revision: number;
+  pathSha256: string;
+  ok: boolean;
+  durationMs: number;
+} {
+  return {
+    installId: report.install_id,
+    revision: report.revision,
+    pathSha256: report.path_sha256,
+    ok: report.ok,
+    durationMs: report.duration_ms,
+  };
+}
+
 /** Convert HTMLMediaElement.duration (seconds) to a reportable integer millisecond value. */
 export function durationSecondsToMilliseconds(seconds: number): number | null {
   if (!Number.isFinite(seconds) || seconds <= 0) return null;

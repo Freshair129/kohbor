@@ -2,7 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPlaybackState, parsePlaybackEvent, reducePlayback, tickPlayback, type PlaybackState } from "./playback";
-import type { MediaProbePendingResponse, MediaProbeReport } from "./probe";
+import { activateArgs, inspectArgs, type ChosenActivationPolicy } from "./packs";
+import { probeReportArgs, type MediaProbePendingResponse, type MediaProbeReport } from "./probe";
 import type { OwnSnapshot, RuntimeStatus } from "./types";
 
 const POLL_MS = 1000;
@@ -20,13 +21,41 @@ export function subscribePlayback(onEvent: (event: unknown) => void): Promise<()
 
 export function reportMediaProbe(report: MediaProbeReport): Promise<{ accepted: boolean } | null> {
   if (typeof window === "undefined" || !("__TAURI_INTERNALS__" in window)) return Promise.resolve(null);
-  return invoke<{ accepted: boolean }>("media_probe_report", {
-    install_id: report.install_id,
-    revision: report.revision,
-    path_sha256: report.path_sha256,
-    ok: report.ok,
-    duration_ms: report.duration_ms,
-  });
+  return invoke<{ accepted: boolean }>("media_probe_report", probeReportArgs(report));
+}
+
+function hostAvailable(): boolean {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
+/**
+ * Pack-store commands. Outside the Tauri webview there is no host, so each call
+ * rejects with CAPABILITY_UNAVAILABLE; a missing host is never shown as an empty store.
+ */
+/** In-memory outcome history kept by the host; rejects with CAPABILITY_UNAVAILABLE outside the webview. */
+export function audioHistory(limit: number): Promise<unknown> {
+  if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
+  return invoke<unknown>("audio_history", { limit });
+}
+
+export function mediaList(): Promise<unknown> {
+  if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
+  return invoke<unknown>("media_list");
+}
+
+export function mediaInspect(sourcePath: string): Promise<unknown> {
+  if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
+  return invoke<unknown>("media_inspect", inspectArgs(sourcePath));
+}
+
+export function mediaInstall(request: Record<string, unknown>): Promise<unknown> {
+  if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
+  return invoke<unknown>("media_install", { request });
+}
+
+export function mediaActivate(requestId: string, installId: string, policy: ChosenActivationPolicy): Promise<unknown> {
+  if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
+  return invoke<unknown>("media_activate", activateArgs(requestId, installId, policy));
 }
 
 export function mediaProbePending(): Promise<MediaProbePendingResponse> {
