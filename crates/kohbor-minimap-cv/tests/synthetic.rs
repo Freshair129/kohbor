@@ -154,6 +154,13 @@ fn oversized_dimensions_do_not_panic_or_create_blobs() {
 }
 
 #[test]
+fn oversized_required_buffer_size_fails_closed() {
+    let result = analyze(&[], 1, u32::MAX, u32::MAX, Team::Dire);
+    assert!(!result.structural_ok);
+    assert!(result.enemy_blobs.is_empty());
+}
+
+#[test]
 fn timing_smoke_prints_elapsed_nanoseconds_without_a_threshold() {
     let mut pixels = crop(STRIDE);
     paint_ring(&mut pixels, STRIDE, (50, 50), DIRE_BGRA);
@@ -164,9 +171,12 @@ fn timing_smoke_prints_elapsed_nanoseconds_without_a_threshold() {
 
 #[test]
 fn blob_api_remains_publicly_constructible() {
-    let _blob = Blob {
+    let blob = Blob {
         x_milli: 500,
         y_milli: 500,
         area: 160,
     };
+    assert_eq!(blob.x_milli, 500);
+    assert_eq!(blob.y_milli, 500);
+    assert_eq!(blob.area, 160);
 }

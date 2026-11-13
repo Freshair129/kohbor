@@ -77,6 +77,17 @@ pub struct PixelReport {
 /// All thresholds and target colours are proposed and unverified for the
 /// current game patch.
 pub fn analyze(bgra: &[u8], width: u32, height: u32, stride: u32, enemy: Team) -> PixelReport {
+    analyze_with_grid_limit(bgra, width, height, stride, enemy, usize::MAX)
+}
+
+fn analyze_with_grid_limit(
+    bgra: &[u8],
+    width: u32,
+    height: u32,
+    stride: u32,
+    enemy: Team,
+    max_grid_cells: usize,
+) -> PixelReport {
     let Some(frame) = FrameView::new(bgra, width, height, stride) else {
         return empty_report();
     };
@@ -92,18 +103,15 @@ pub fn analyze(bgra: &[u8], width: u32, height: u32, stride: u32, enemy: Team) -
     let grid_width = constants::ONE_INDEX + (frame.width - constants::ONE_INDEX) / icon_side;
     let grid_height = constants::ONE_INDEX + (frame.height - constants::ONE_INDEX) / icon_side;
     let Some(grid_len) = grid_width.checked_mul(grid_height) else {
-        return PixelReport {
-            structural_ok,
-            enemy_blobs: Vec::new(),
-        };
+        return empty_report();
+    };
+    if grid_len > max_grid_cells {
+        return empty_report();
     };
 
     let mut grid = Vec::new();
     if grid.try_reserve_exact(grid_len).is_err() {
-        return PixelReport {
-            structural_ok,
-            enemy_blobs: Vec::new(),
-        };
+        return empty_report();
     }
     grid.resize(grid_len, GridCell::default());
 
@@ -135,27 +143,18 @@ pub fn analyze(bgra: &[u8], width: u32, height: u32, stride: u32, enemy: Team) -
     let Some(mut candidates) =
         connected_blobs(&mut grid, grid_width, icon_side, frame.width, frame.height)
     else {
-        return PixelReport {
-            structural_ok,
-            enemy_blobs: Vec::new(),
-        };
+        return empty_report();
     };
     let mut merged = Vec::new();
     for candidate in candidates.drain(..) {
         if !merge_candidate(&mut merged, candidate, icon_side) {
-            return PixelReport {
-                structural_ok,
-                enemy_blobs: Vec::new(),
-            };
+            return empty_report();
         }
     }
 
     let mut enemy_blobs = Vec::new();
     if enemy_blobs.try_reserve_exact(merged.len()).is_err() {
-        return PixelReport {
-            structural_ok,
-            enemy_blobs,
-        };
+        return empty_report();
     }
     let minimum_area =
         constants::MINIMUM_ICON_AREA_FRACTION * (icon_side as f64 * icon_side as f64);
@@ -460,7 +459,34 @@ fn to_milli(coordinate: f64, extent: usize) -> u16 {
 
 #[cfg(test)]
 mod tests {
-    use super::{merge_candidate, Candidate};
+    use super::{analyze_with_grid_limit, merge_candidate, Candidate, Team};
+
+    #[test]
+    fn grid_size_limit_failure_is_structurally_invalid() {
+        let side = 16_u32;
+        let stride = side * 4;
+        let mut bgra = Vec::new();
+        for y in 0..side {
+            for x in 0..side {
+                let border = x < 3 || y < 3 || x >= side - 3 || y >= side - 3;
+                let pixel = if border {
+                    [5, 8, 5, 255]
+                } else if (x + y) % 2 == 0 {
+                    [18, 24, 14, 255]
+                } else {
+                    [70, 80, 55, 255]
+                };
+                bgra.extend_from_slice(&pixel);
+            }
+        }
+        assert!(super::FrameView::new(&bgra, side, side, stride)
+            .expect("valid synthetic frame")
+            .structural_ok());
+
+        let report = analyze_with_grid_limit(&bgra, side, side, stride, Team::Dire, 0);
+        assert!(!report.structural_ok);
+        assert!(report.enemy_blobs.is_empty());
+    }
 
     #[test]
     fn merges_candidate_centres_closer_than_one_icon() {

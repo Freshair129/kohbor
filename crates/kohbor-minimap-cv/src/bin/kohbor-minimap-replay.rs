@@ -82,9 +82,11 @@ fn run() -> Result<(), String> {
         let sidecar_path = bgra_path.with_extension("txt");
         let result = read_pair(&bgra_path, &sidecar_path, team);
         match result {
-            Ok((structural_ok, count)) => println!("{sequence} {structural_ok} {count}"),
+            Ok((structural_ok, count)) => {
+                println!("{}", format_row(&sequence, structural_ok, count))
+            }
             Err(error) => {
-                println!("{sequence} false unknown");
+                println!("{}", format_row(&sequence, false, None));
                 eprintln!("{sequence}: {error}");
             }
         }
@@ -98,11 +100,18 @@ fn print_usage() {
     );
 }
 
+fn format_row(sequence: &str, structural_ok: bool, count: Option<usize>) -> String {
+    let count = count
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "—".to_owned());
+    format!("{sequence} {structural_ok} {count}")
+}
+
 fn read_pair(
     bgra_path: &Path,
     sidecar_path: &Path,
     command_line_team: Option<Team>,
-) -> Result<(bool, String), String> {
+) -> Result<(bool, Option<usize>), String> {
     let sidecar_type = fs::symlink_metadata(sidecar_path)
         .map_err(|error| format!("cannot inspect {}: {error}", sidecar_path.display()))?
         .file_type();
@@ -125,9 +134,9 @@ fn read_pair(
                 team,
             );
             if report.structural_ok {
-                Ok((true, report.enemy_blobs.len().to_string()))
+                Ok((true, Some(report.enemy_blobs.len())))
             } else {
-                Ok((false, "unknown".to_owned()))
+                Ok((false, None))
             }
         }
         None => {
@@ -146,13 +155,7 @@ fn read_pair(
                 Team::Dire,
             );
             let structural_ok = radiant.structural_ok && dire.structural_ok;
-            if !structural_ok {
-                Ok((false, "unknown".to_owned()))
-            } else if radiant.enemy_blobs.is_empty() && dire.enemy_blobs.is_empty() {
-                Ok((true, "0".to_owned()))
-            } else {
-                Ok((true, "unknown".to_owned()))
-            }
+            Ok((structural_ok, None))
         }
     }
 }
@@ -290,7 +293,7 @@ fn parse_team(value: &str) -> Result<Team, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_metadata, Team};
+    use super::{format_row, parse_metadata, Team};
 
     #[test]
     fn parses_named_dimension_forms() {
@@ -313,6 +316,13 @@ mod tests {
     fn enemy_team_selection_is_parsed_from_cli_values() {
         assert_eq!(super::parse_team("dire"), Ok(Team::Dire));
         assert_eq!(super::parse_team("radiant"), Ok(Team::Radiant));
+    }
+
+    #[test]
+    fn formats_unknown_team_count_as_em_dash() {
+        assert_eq!(format_row("7", true, None), "7 true —");
+        assert_eq!(format_row("7", true, Some(0)), "7 true 0");
+        assert_eq!(format_row("7", false, None), "7 false —");
     }
 
     #[test]
