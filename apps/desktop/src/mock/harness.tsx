@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ownSnapshotFixtureRaw from "../../../../fixtures/own-fresh-at-boundary.json?raw";
 import runtimeStatusFixtureRaw from "../../../../fixtures/runtime-status-live-valid.json?raw";
 import settingsFixtureRaw from "../../../../fixtures/user-settings-valid.json?raw";
@@ -14,6 +14,8 @@ type MockTauriInternals = {
 };
 
 const EVENT_NAME = "playback://event";
+const OVERLAY_STATUS_EVENT = "overlay://status";
+const OVERLAY_DEMO_EVENT = "overlay://demo";
 const PROBE_EVENT_NAME = "media://probe-request";
 const MOCK_CHANNEL = "kohbor-mock-playback";
 const MOCK_PROBE_REPORT_EVENT = "kohbor-mock-media-probe-report";
@@ -380,6 +382,13 @@ export function installMockHarness() {
         if (typeof args.eventId === "number") listeners.delete(args.eventId);
         return null;
       }
+      if (command === "plugin:event|emit") {
+        if (typeof args.event !== "string" || !Object.hasOwn(args, "payload")) {
+          throw new Error("invalid mock event emission");
+        }
+        deliver(args.event, args.payload);
+        return null;
+      }
       throw new Error(`Unsupported mock command: ${command}`);
     },
   };
@@ -393,6 +402,45 @@ export function installMockHarness() {
   };
 
   channel?.addEventListener("message", (event: MessageEvent<unknown>) => deliver(EVENT_NAME, event.data));
+}
+
+export function OverlayMockHarness() {
+  const [lastPlaybackId, setLastPlaybackId] = useState<string | null>(null);
+  const timers = useRef<number[]>([]);
+
+  const runOverlayDemo = () => {
+    for (const timer of timers.current) window.clearTimeout(timer);
+    timers.current = [];
+    const at = Math.floor(performance.now());
+    const playback_id = nextPlaybackId();
+    deliver(OVERLAY_STATUS_EVENT, { media: { state: "not_ready", reason: "MEDIA_UNMAPPED" } });
+    deliver(OVERLAY_DEMO_EVENT, { source: "demo" });
+    dispatchScenarioEvent({
+      ...started(playback_id, at, 3_000, 0),
+      visual_url: `kohbor-media://localhost/v1/ins_0000000001/${"a".repeat(64)}`,
+    });
+    setLastPlaybackId(playback_id);
+    timers.current.push(window.setTimeout(() => {
+      dispatchScenarioEvent(ended(playback_id, at + 3_000, "finished"));
+    }, 3_000));
+  };
+
+  useEffect(() => {
+    const timer = window.setTimeout(runOverlayDemo, 100);
+    timers.current.push(timer);
+    return () => {
+      for (const active of timers.current) window.clearTimeout(active);
+      timers.current = [];
+    };
+  }, []);
+
+  return (
+    <aside className="overlay-mock-panel" aria-label="ตัวอย่าง overlay แบบสังเคราะห์">
+      <p>DEMO preview only · no game detection or pack readiness is inferred.</p>
+      <button type="button" onClick={runOverlayDemo}>เล่นตัวอย่าง DEMO อีกครั้ง</button>
+      <output>{lastPlaybackId ?? "กำลังเตรียมตัวอย่าง"}</output>
+    </aside>
+  );
 }
 
 const SCENARIO_NAMES = [

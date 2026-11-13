@@ -76,3 +76,11 @@ test("formats elapsed host time", () => {
   assert.equal(history.formatElapsed(61_500), "1:01");
   assert.equal(history.formatElapsed(3_723_000), "1:02:03");
 });
+
+test("recognizes the reserved DEMO instance generation without extending the outcome schema", () => {
+  const demoRecord = { ...unmapped, instance_id: "ev_g18446744073709551615_s1_0" };
+  assert.ok(history.parseOutcomeRecord(demoRecord));
+  assert.equal(history.isDemoOutcomeRecord(demoRecord), true);
+  assert.equal(history.isDemoOutcomeRecord(admitted), false);
+  assert.equal(history.parseOutcomeRecord({ ...demoRecord, source: "demo" }), null);
+});

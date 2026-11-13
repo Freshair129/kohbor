@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from "react";
 import { AudioHistory } from "./AudioHistory";
 import { AudioPanel } from "./AudioPanel";
 import { copy, type Locale } from "./copy";
+import { DemoPanel } from "./DemoPanel";
 import { Guide } from "./Guide";
 import { OwnHero } from "./OwnHero";
 import { PackPanel } from "./PackPanel";
@@ -61,6 +62,8 @@ export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode }
             </span>
           )}
         </header>
+
+        <DemoPanel />
 
         {!status ? (
           <>

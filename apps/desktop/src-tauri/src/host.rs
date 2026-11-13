@@ -556,6 +556,34 @@ impl Host {
         })
     }
 
+    /// Demo builds only (S6-OVERLAY-SLICE section 5): offer one synthetic tick to the real engine,
+    /// exactly as the intake does, so arbitration, audio and the playback event all run. The tick
+    /// carries the reserved demo generation, which labels every outcome DEMO. Real intake is not touched.
+    #[cfg(any(feature = "demo", debug_assertions))]
+    pub(crate) fn demo_offer(&self, event: kohbor_events::Event) -> Result<(), String> {
+        use crate::audio::lanes::{Offer, TickMsg};
+        use std::sync::atomic::AtomicU64;
+        static DEMO_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+        if self.shutdown_started() {
+            return Err("CANCELLED".to_owned());
+        }
+        let now = Instant::now();
+        let message = TickMsg {
+            arrival: now,
+            detected: now,
+            at_ms: self.clock.now_ms(),
+            // Epoch 1 never exceeds a real session's epoch, so a demo cannot fence a real match.
+            session_epoch: 1,
+            generation: crate::demo::DEMO_GENERATION,
+            sequence: DEMO_SEQUENCE.fetch_add(1, Ordering::Relaxed) + 1,
+            events: vec![event],
+        };
+        match self.commands.engine.offer_tick(message) {
+            Offer::Sent => Ok(()),
+            _ => Err("DEMO_BUSY".to_owned()),
+        }
+    }
+
     pub fn media_status(&self) -> (&'static str, Option<&'static str>) {
         let facts = lock(&self.facts);
         media_status(&facts, &self.engine_shared, self.clock.now_ms())

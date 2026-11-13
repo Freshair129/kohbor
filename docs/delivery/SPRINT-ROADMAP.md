@@ -139,6 +139,7 @@ Requirements: UI-001, UI-002, UI-003, UI-004, UI-005, UI-006, UI-008, QUALITY-00
 | Tests | State tests for every honest-state chip; overlay never covers the protected game regions; focus order | Terra |
 | Harness | FPS preservation measurement protocol | Terra |
 
+- **S6-1a, pulled forward (owner, 2026-11-13): overlay banner slice.** Second window over the game that plays the pack's silent WebM with the native audio, a status chip, and an env- and feature-gated DEMO trigger. Plan and as-built notes: docs/design/S6-OVERLAY-SLICE.md. Source and synthetic evidence only; transparency, click-through, focus, VP9 alpha decode, audio-video offset and FPS are owner and hardware steps (UI-001, QUALITY-003 stay NOT_RUN). Own-stat row, risk indicator, Session Monitor and scaling profiles are not part of it.
 - **Owner input.** DEC-VISUALS and DEC-INTERFACES; the overlay decisions already made in the mock-up (no HP/mana row, banner stage, pre-rendered video) recorded in UX-SPEC; FPS runs on hardware.
 - **Exit gate (SDP M3).** Geometry, freshness and unknown tests pass; initial native vision and acoustic evidence exists.
 

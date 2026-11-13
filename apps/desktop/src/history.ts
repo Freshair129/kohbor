@@ -32,6 +32,13 @@ export interface AudioOutcomeRecord {
   decided_monotonic_ms: number;
 }
 
+const DEMO_INSTANCE_ID = /^ev_g18446744073709551615_s\d+_\d+$/;
+
+/** Demo rows use the reserved native generation; the audio-outcome 1.0.0 shape stays closed. */
+export function isDemoOutcomeRecord(record: Pick<AudioOutcomeRecord, "instance_id">): boolean {
+  return DEMO_INSTANCE_ID.test(record.instance_id);
+}
+
 export interface AudioHistory {
   /** Newest first. */
   records: AudioOutcomeRecord[];
