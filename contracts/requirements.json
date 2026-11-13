@@ -1084,7 +1084,12 @@
           "apps/desktop/src-tauri/src/audio/lanes.rs",
           "apps/desktop/src-tauri/src/audio/slot_sink.rs",
           "apps/desktop/src-tauri/src/audio/resolve.rs",
-          "apps/desktop/src-tauri/src/audio/tests_engine.rs"
+          "apps/desktop/src-tauri/src/audio/tests_engine.rs",
+          "apps/desktop/src-tauri/src/host.rs",
+          "apps/desktop/src-tauri/src/intake.rs",
+          "apps/desktop/src-tauri/src/audio/outcome.rs",
+          "apps/desktop/src-tauri/src/audio/publisher.rs",
+          "apps/desktop/src-tauri/src/audio/device.rs"
         ],
         "evidence_refs": [],
         "procedure_ids": [
@@ -1507,7 +1512,10 @@
         "implementation_refs": [
           "crates/kohbor-audio/src/readiness.rs",
           "apps/desktop/src-tauri/src/media/inventory.rs",
-          "crates/kohbor-audio/tests/readiness.rs"
+          "crates/kohbor-audio/tests/readiness.rs",
+          "apps/desktop/src-tauri/src/media/probe.rs",
+          "apps/desktop/src-tauri/src/status.rs",
+          "apps/desktop/src/mediaStatus.ts"
         ],
         "evidence_refs": [],
         "procedure_ids": [
@@ -1787,7 +1795,8 @@
           "crates/kohbor-pack/src/media.rs",
           "crates/kohbor-pack/tests/resolve.rs",
           "crates/kohbor-pack/tests/hostile.rs",
-          "apps/desktop/src-tauri/src/media/prewarm.rs"
+          "apps/desktop/src-tauri/src/media/prewarm.rs",
+          "apps/desktop/src-tauri/src/media/protocol.rs"
         ],
         "evidence_refs": [],
         "procedure_ids": [
@@ -1860,7 +1869,11 @@
           "crates/kohbor-audio/tests/owner_matrix.rs",
           "crates/kohbor-audio/tests/owner_state.rs",
           "apps/desktop/src/playback.ts",
-          "apps/desktop/tests/playback.test.ts"
+          "apps/desktop/tests/playback.test.ts",
+          "apps/desktop/src-tauri/src/audio/engine.rs",
+          "apps/desktop/src-tauri/src/media/protocol.rs",
+          "apps/desktop/src-tauri/src/media/probe.rs",
+          "apps/desktop/src/probe.ts"
         ],
         "evidence_refs": [],
         "procedure_ids": [
@@ -1935,7 +1948,8 @@
           "crates/kohbor-pack/src/container.rs",
           "crates/kohbor-pack/src/descriptor.rs",
           "crates/kohbor-pack/tests/hostile.rs",
-          "crates/kohbor-pack/tests/descriptor.rs"
+          "crates/kohbor-pack/tests/descriptor.rs",
+          "crates/kohbor-pack/tests/sha256_limited.rs"
         ],
         "evidence_refs": [],
         "procedure_ids": [
@@ -2008,7 +2022,9 @@
           "crates/kohbor-pack/tests/install.rs",
           "crates/kohbor-pack/tests/activation.rs",
           "crates/kohbor-pack/tests/crash.rs",
-          "apps/desktop/src-tauri/src/media/service.rs"
+          "apps/desktop/src-tauri/src/media/service.rs",
+          "apps/desktop/src-tauri/src/commands.rs",
+          "apps/desktop/src-tauri/src/host.rs"
         ],
         "evidence_refs": [],
         "procedure_ids": [
@@ -5335,7 +5351,10 @@
           "docs/quality/TEST-PLAN.md",
           "docs/quality/UAT-PLAN.md"
         ],
-        "implementation_refs": [],
+        "implementation_refs": [
+          "apps/desktop/src-tauri/src/latency.rs",
+          "apps/desktop/src-tauri/tests/latency_harness.rs"
+        ],
         "evidence_refs": [],
         "procedure_ids": [
           "TP-13",
