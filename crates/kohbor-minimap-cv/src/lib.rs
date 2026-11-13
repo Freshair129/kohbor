@@ -46,6 +46,38 @@ mod proposed_unverified_constants {
         (0, 1),
         (1, 1),
     ]; // PROPOSED / UNVERIFIED on the current game patch.
+
+    // Frame proposal thresholds: PROPOSED / UNVERIFIED on real game pixels.
+    pub const FRAME_PROPOSAL_MIN_SIDE: usize = 150;
+    pub const FRAME_PROPOSAL_MAX_SIDE: usize = 400;
+    pub const FRAME_PROPOSAL_MIN_ASPECT: f32 = 0.8;
+    pub const FRAME_PROPOSAL_MAX_ASPECT: f32 = 1.25;
+    pub const FRAME_PROPOSAL_MIN_EDGE_STRENGTH: f32 = 12.0;
+    pub const FRAME_PROPOSAL_EDGE_BASELINE_MIN_DISTANCE: usize = 6;
+    pub const FRAME_PROPOSAL_EDGE_BASELINE_MAX_DISTANCE: usize = 9;
+    pub const FRAME_PROPOSAL_BASELINE_SAMPLE_COUNT: usize =
+        (FRAME_PROPOSAL_EDGE_BASELINE_MAX_DISTANCE - FRAME_PROPOSAL_EDGE_BASELINE_MIN_DISTANCE + 1)
+            * 2;
+    pub const FRAME_PROPOSAL_MAX_EDGE_THICKNESS: usize = 6;
+    pub const FRAME_PROPOSAL_EDGE_PEAK_TOLERANCE: f32 = 8.0;
+    pub const FRAME_PROPOSAL_MAX_EDGE_CANDIDATES: usize = 48;
+    pub const FRAME_PROPOSAL_MIN_LOCAL_CONTRAST: f32 = 18.0;
+    pub const FRAME_PROPOSAL_MIN_SIDE_AGREEMENT: f32 = 0.65;
+    pub const FRAME_PROPOSAL_BORDER_SAMPLE_COUNT: usize = 9;
+    pub const FRAME_PROPOSAL_CORNER_INSET: usize = 4;
+    pub const FRAME_PROPOSAL_INTERIOR_INSET: usize = 2;
+    pub const FRAME_PROPOSAL_TEXTURE_GRID_SIDE: usize = 9;
+    pub const FRAME_PROPOSAL_TEXTURE_SAMPLE_COUNT: usize =
+        FRAME_PROPOSAL_TEXTURE_GRID_SIDE * FRAME_PROPOSAL_TEXTURE_GRID_SIDE;
+    pub const FRAME_PROPOSAL_TEXTURE_PATCH_RADIUS: usize = 1;
+    pub const FRAME_PROPOSAL_MIN_TEXTURE_STDDEV: f32 = 4.0;
+    pub const FRAME_PROPOSAL_MIN_DARKNESS_GAP: f32 = 8.0;
+    pub const FRAME_PROPOSAL_FULL_EDGE_STRENGTH: f32 = 80.0;
+    pub const FRAME_PROPOSAL_FULL_LOCAL_CONTRAST: f32 = 80.0;
+    pub const FRAME_PROPOSAL_FULL_TEXTURE_STDDEV: f32 = 24.0;
+    pub const FRAME_PROPOSAL_FULL_DARKNESS_GAP: f32 = 80.0;
+    pub const FRAME_PROPOSAL_CHROMA_PENALTY: f32 = 0.5;
+    pub const FRAME_PROPOSAL_CONFIDENCE_MAX: f32 = 1000.0;
 }
 
 use proposed_unverified_constants as constants;
@@ -515,7 +547,10 @@ mod tests {
     }
 }
 
-/// Candidate outer rectangle of the minimap frame (fix1 scaffold; the body lands with FIX1-CV).
+/// Candidate outer rectangle of the minimap frame.
+///
+/// Coordinates are relative to the image passed to [`propose_frame`]. Accuracy
+/// on real Dota pixels is unknown and has not been validated.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FrameProposal {
     pub x: i32,
@@ -525,12 +560,507 @@ pub struct FrameProposal {
     pub confidence_milli: u16,
 }
 
-/// Proposes the frame rectangle inside the given search image (coordinates relative to it).
-pub fn propose_frame(
-    _bgra: &[u8],
-    _width: u32,
-    _height: u32,
-    _stride: u32,
-) -> Option<FrameProposal> {
-    todo!("FIX1-CV")
+/// Proposes a minimap frame rectangle inside a BGRA search image.
+///
+/// Coordinates are relative to the passed image. The detector looks for four
+/// bright, greyish edges enclosing a darker textured interior. It is based on
+/// synthetic evidence only; accuracy on real game pixels is unknown.
+pub fn propose_frame(bgra: &[u8], width: u32, height: u32, stride: u32) -> Option<FrameProposal> {
+    let frame = FrameView::new(bgra, width, height, stride)?;
+    if frame.width < constants::FRAME_PROPOSAL_MIN_SIDE
+        || frame.height < constants::FRAME_PROPOSAL_MIN_SIDE
+    {
+        return None;
+    }
+
+    let (row_profile, column_profile) = frame_luminance_profiles(&frame)?;
+    let horizontal_edges = find_frame_edges(&row_profile)?;
+    let vertical_edges = find_frame_edges(&column_profile)?;
+    let mut best: Option<(u64, FrameProposal)> = None;
+
+    for (left_index, left) in vertical_edges.iter().enumerate() {
+        for right in vertical_edges
+            .iter()
+            .skip(left_index + constants::ONE_INDEX)
+        {
+            let Some(width) = right.end.checked_sub(left.start) else {
+                continue;
+            };
+            if !(constants::FRAME_PROPOSAL_MIN_SIDE..=constants::FRAME_PROPOSAL_MAX_SIDE)
+                .contains(&width)
+            {
+                continue;
+            }
+
+            for (top_index, top) in horizontal_edges.iter().enumerate() {
+                for bottom in horizontal_edges
+                    .iter()
+                    .skip(top_index + constants::ONE_INDEX)
+                {
+                    let Some(height) = bottom.end.checked_sub(top.start) else {
+                        continue;
+                    };
+                    if !(constants::FRAME_PROPOSAL_MIN_SIDE..=constants::FRAME_PROPOSAL_MAX_SIDE)
+                        .contains(&height)
+                    {
+                        continue;
+                    }
+
+                    let aspect = width as f32 / height as f32;
+                    if !(constants::FRAME_PROPOSAL_MIN_ASPECT
+                        ..=constants::FRAME_PROPOSAL_MAX_ASPECT)
+                        .contains(&aspect)
+                    {
+                        continue;
+                    }
+                    let Some(aspect_agreement) = frame_aspect_agreement(aspect) else {
+                        continue;
+                    };
+                    let Some(confidence) = score_frame_rectangle(
+                        &frame,
+                        *left,
+                        *right,
+                        *top,
+                        *bottom,
+                        aspect_agreement,
+                    ) else {
+                        continue;
+                    };
+                    let (Ok(x), Ok(y), Ok(width), Ok(height)) = (
+                        i32::try_from(left.start),
+                        i32::try_from(top.start),
+                        u32::try_from(width),
+                        u32::try_from(height),
+                    ) else {
+                        continue;
+                    };
+                    let proposal = FrameProposal {
+                        x,
+                        y,
+                        width,
+                        height,
+                        confidence_milli: confidence,
+                    };
+                    let area = u64::from(width) * u64::from(height);
+                    let should_replace = best.is_none_or(|(best_area, best_proposal)| {
+                        area > best_area
+                            || (area == best_area
+                                && proposal.confidence_milli > best_proposal.confidence_milli)
+                    });
+                    if should_replace {
+                        best = Some((area, proposal));
+                    }
+                }
+            }
+        }
+    }
+
+    best.map(|(_, proposal)| proposal)
+}
+
+#[derive(Clone, Copy)]
+struct FrameEdge {
+    start: usize,
+    end: usize,
+    strength: f32,
+}
+
+#[derive(Clone, Copy)]
+struct SideEvidence {
+    agreement: f32,
+    mean_contrast: f32,
+    mean_border_luma: f32,
+}
+
+#[derive(Clone, Copy)]
+struct TextureEvidence {
+    mean_luma: f32,
+    standard_deviation: f32,
+}
+
+fn frame_luminance_profiles(frame: &FrameView<'_>) -> Option<(Vec<f32>, Vec<f32>)> {
+    let mut row_sums = Vec::new();
+    row_sums.try_reserve_exact(frame.height).ok()?;
+    row_sums.resize(frame.height, 0_u64);
+
+    let mut column_sums = Vec::new();
+    column_sums.try_reserve_exact(frame.width).ok()?;
+    column_sums.resize(frame.width, 0_u64);
+
+    for (y, row_sum) in row_sums.iter_mut().enumerate() {
+        let row_offset = y.checked_mul(frame.stride)?;
+        for (x, column_sum) in column_sums.iter_mut().enumerate() {
+            let offset = row_offset.checked_add(x.checked_mul(constants::CHANNELS_PER_PIXEL)?)?;
+            let pixel_end = offset.checked_add(constants::CHANNELS_PER_PIXEL)?;
+            let pixel = frame.bgra.get(offset..pixel_end)?;
+            let signal = u64::from(gray_luminance_signal(pixel)? as u8);
+            *row_sum = row_sum.checked_add(signal)?;
+            *column_sum = column_sum.checked_add(signal)?;
+        }
+    }
+
+    let width = frame.width as f32;
+    let height = frame.height as f32;
+    let mut row_profile = Vec::new();
+    row_profile.try_reserve_exact(frame.height).ok()?;
+    row_profile.extend(row_sums.into_iter().map(|sum| sum as f32 / width));
+    let mut column_profile = Vec::new();
+    column_profile.try_reserve_exact(frame.width).ok()?;
+    column_profile.extend(column_sums.into_iter().map(|sum| sum as f32 / height));
+    Some((row_profile, column_profile))
+}
+
+fn find_frame_edges(profile: &[f32]) -> Option<Vec<FrameEdge>> {
+    if profile.len() < constants::FRAME_PROPOSAL_MIN_SIDE {
+        return None;
+    }
+
+    let mut deltas = Vec::new();
+    deltas.try_reserve_exact(profile.len()).ok()?;
+    for index in constants::FIRST_INDEX..profile.len() {
+        let mut neighbours = [0.0_f32; constants::FRAME_PROPOSAL_BASELINE_SAMPLE_COUNT];
+        let mut neighbour_count = constants::FIRST_INDEX;
+        for distance in constants::FRAME_PROPOSAL_EDGE_BASELINE_MIN_DISTANCE
+            ..=constants::FRAME_PROPOSAL_EDGE_BASELINE_MAX_DISTANCE
+        {
+            if let Some(before) = index.checked_sub(distance) {
+                neighbours[neighbour_count] = profile[before];
+                neighbour_count += constants::ONE_INDEX;
+            }
+            if let Some(after) = index
+                .checked_add(distance)
+                .filter(|after| *after < profile.len())
+            {
+                neighbours[neighbour_count] = profile[after];
+                neighbour_count += constants::ONE_INDEX;
+            }
+        }
+        if neighbour_count == constants::FIRST_INDEX {
+            return None;
+        }
+        neighbours[..neighbour_count].sort_by(f32::total_cmp);
+        let baseline = if neighbour_count % 2 == constants::FIRST_INDEX {
+            neighbours[neighbour_count / 2]
+        } else {
+            (neighbours[neighbour_count / 2 - constants::ONE_INDEX]
+                + neighbours[neighbour_count / 2])
+                / 2.0
+        };
+        deltas.push(profile[index] - baseline);
+    }
+
+    let mut edges = Vec::new();
+    let mut index = constants::FIRST_INDEX;
+    while index < deltas.len() {
+        if deltas[index] < constants::FRAME_PROPOSAL_MIN_EDGE_STRENGTH {
+            index += constants::ONE_INDEX;
+            continue;
+        }
+
+        let detected_start = index;
+        while index < deltas.len() && deltas[index] >= constants::FRAME_PROPOSAL_MIN_EDGE_STRENGTH {
+            index += constants::ONE_INDEX;
+        }
+        let detected_end = index;
+        let peak = (detected_start..detected_end)
+            .max_by(|left, right| profile[*left].total_cmp(&profile[*right]))?;
+        let peak_value = profile[peak];
+        let peak_floor = peak_value - constants::FRAME_PROPOSAL_EDGE_PEAK_TOLERANCE;
+        let mut start = peak;
+        while start > detected_start && profile[start - constants::ONE_INDEX] >= peak_floor {
+            start -= constants::ONE_INDEX;
+        }
+        let mut end = peak + constants::ONE_INDEX;
+        while end < detected_end && profile[end] >= peak_floor {
+            end += constants::ONE_INDEX;
+        }
+        let thickness = end.checked_sub(start)?;
+        if thickness <= constants::FRAME_PROPOSAL_MAX_EDGE_THICKNESS {
+            edges.try_reserve(constants::ONE_INDEX).ok()?;
+            edges.push(FrameEdge {
+                start,
+                end,
+                strength: *deltas[detected_start..detected_end]
+                    .iter()
+                    .max_by(|left, right| left.total_cmp(right))?,
+            });
+        }
+    }
+
+    edges.sort_by(|left, right| {
+        right
+            .strength
+            .total_cmp(&left.strength)
+            .then_with(|| left.start.cmp(&right.start))
+    });
+    edges.truncate(constants::FRAME_PROPOSAL_MAX_EDGE_CANDIDATES);
+    edges.sort_by_key(|edge| edge.start);
+    Some(edges)
+}
+
+fn frame_aspect_agreement(aspect: f32) -> Option<f32> {
+    if !(constants::FRAME_PROPOSAL_MIN_ASPECT..=constants::FRAME_PROPOSAL_MAX_ASPECT)
+        .contains(&aspect)
+    {
+        return None;
+    }
+    let allowed_deviation = if aspect < 1.0 {
+        1.0 - constants::FRAME_PROPOSAL_MIN_ASPECT
+    } else {
+        constants::FRAME_PROPOSAL_MAX_ASPECT - 1.0
+    };
+    Some((1.0 - (aspect - 1.0).abs() / allowed_deviation).clamp(0.0, 1.0))
+}
+
+fn score_frame_rectangle(
+    frame: &FrameView<'_>,
+    left: FrameEdge,
+    right: FrameEdge,
+    top: FrameEdge,
+    bottom: FrameEdge,
+    aspect_agreement: f32,
+) -> Option<u16> {
+    let x_start = left.start;
+    let x_end = right.end;
+    let y_start = top.start;
+    let y_end = bottom.end;
+    if x_end <= x_start || y_end <= y_start {
+        return None;
+    }
+    let right_inside = right.start.checked_sub(constants::ONE_INDEX)?;
+    let bottom_inside = bottom.start.checked_sub(constants::ONE_INDEX)?;
+
+    let top_evidence = measure_horizontal_side(frame, x_start, x_end, top, top.end)?;
+    let bottom_evidence = measure_horizontal_side(frame, x_start, x_end, bottom, bottom_inside)?;
+    let left_evidence = measure_vertical_side(frame, y_start, y_end, left, left.end)?;
+    let right_evidence = measure_vertical_side(frame, y_start, y_end, right, right_inside)?;
+    let sides = [top_evidence, bottom_evidence, left_evidence, right_evidence];
+
+    let interior_x_start = left
+        .end
+        .checked_add(constants::FRAME_PROPOSAL_INTERIOR_INSET)?;
+    let interior_x_end = right
+        .start
+        .checked_sub(constants::FRAME_PROPOSAL_INTERIOR_INSET)?;
+    let interior_y_start = top
+        .end
+        .checked_add(constants::FRAME_PROPOSAL_INTERIOR_INSET)?;
+    let interior_y_end = bottom
+        .start
+        .checked_sub(constants::FRAME_PROPOSAL_INTERIOR_INSET)?;
+    let texture = sample_interior_texture(
+        frame,
+        interior_x_start,
+        interior_x_end,
+        interior_y_start,
+        interior_y_end,
+    )?;
+    if texture.standard_deviation < constants::FRAME_PROPOSAL_MIN_TEXTURE_STDDEV {
+        return None;
+    }
+
+    let mean_border_luma =
+        sides.iter().map(|side| side.mean_border_luma).sum::<f32>() / sides.len() as f32;
+    let darkness_gap = mean_border_luma - texture.mean_luma;
+    if darkness_gap < constants::FRAME_PROPOSAL_MIN_DARKNESS_GAP {
+        return None;
+    }
+
+    let minimum_edge_strength = left
+        .strength
+        .min(right.strength)
+        .min(top.strength)
+        .min(bottom.strength);
+    let edge_quality =
+        (minimum_edge_strength / constants::FRAME_PROPOSAL_FULL_EDGE_STRENGTH).clamp(0.0, 1.0);
+    let agreement = sides.iter().map(|side| side.agreement).sum::<f32>() / sides.len() as f32;
+    let local_contrast =
+        sides.iter().map(|side| side.mean_contrast).sum::<f32>() / sides.len() as f32;
+    let contrast_quality =
+        (local_contrast / constants::FRAME_PROPOSAL_FULL_LOCAL_CONTRAST).clamp(0.0, 1.0);
+    let texture_quality = (texture.standard_deviation
+        / constants::FRAME_PROPOSAL_FULL_TEXTURE_STDDEV)
+        .clamp(0.0, 1.0);
+    let darkness_quality =
+        (darkness_gap / constants::FRAME_PROPOSAL_FULL_DARKNESS_GAP).clamp(0.0, 1.0);
+    let confidence = (constants::FRAME_PROPOSAL_CONFIDENCE_MAX
+        * edge_quality
+        * agreement
+        * contrast_quality
+        * texture_quality
+        * darkness_quality
+        * aspect_agreement)
+        .round()
+        .clamp(0.0, constants::FRAME_PROPOSAL_CONFIDENCE_MAX) as u16;
+    Some(confidence)
+}
+
+fn measure_horizontal_side(
+    frame: &FrameView<'_>,
+    x_start: usize,
+    x_end: usize,
+    edge: FrameEdge,
+    inward_y: usize,
+) -> Option<SideEvidence> {
+    let line_y = edge
+        .start
+        .checked_add(edge.end.checked_sub(edge.start)? / 2)?;
+    measure_side(frame, x_start, x_end, line_y, inward_y, true)
+}
+
+fn measure_vertical_side(
+    frame: &FrameView<'_>,
+    y_start: usize,
+    y_end: usize,
+    edge: FrameEdge,
+    inward_x: usize,
+) -> Option<SideEvidence> {
+    let line_x = edge
+        .start
+        .checked_add(edge.end.checked_sub(edge.start)? / 2)?;
+    measure_side(frame, y_start, y_end, line_x, inward_x, false)
+}
+
+fn measure_side(
+    frame: &FrameView<'_>,
+    along_start: usize,
+    along_end: usize,
+    border_coordinate: usize,
+    interior_coordinate: usize,
+    horizontal: bool,
+) -> Option<SideEvidence> {
+    let inset = constants::FRAME_PROPOSAL_CORNER_INSET;
+    let sample_start = along_start.checked_add(inset)?;
+    let sample_end = along_end.checked_sub(inset)?;
+    let sample_span = sample_end.checked_sub(sample_start)?;
+    if sample_span < constants::FRAME_PROPOSAL_BORDER_SAMPLE_COUNT {
+        return None;
+    }
+
+    let mut agreements = constants::FIRST_INDEX;
+    let mut contrast_sum = 0.0_f32;
+    let mut border_luma_sum = 0.0_f32;
+    for index in constants::FIRST_INDEX..constants::FRAME_PROPOSAL_BORDER_SAMPLE_COUNT {
+        let along = sample_start
+            + index * (sample_span - constants::ONE_INDEX)
+                / (constants::FRAME_PROPOSAL_BORDER_SAMPLE_COUNT - constants::ONE_INDEX);
+        let (border_x, border_y, inside_x, inside_y) = if horizontal {
+            (along, border_coordinate, along, interior_coordinate)
+        } else {
+            (border_coordinate, along, interior_coordinate, along)
+        };
+        let border = pixel_metrics(frame, border_x, border_y)?;
+        let inside = pixel_metrics(frame, inside_x, inside_y)?;
+        let contrast = border.gray_signal - inside.gray_signal;
+        if contrast >= constants::FRAME_PROPOSAL_MIN_LOCAL_CONTRAST {
+            agreements += constants::ONE_INDEX;
+        }
+        contrast_sum += contrast.max(0.0);
+        border_luma_sum += border.luma;
+    }
+    let agreement = agreements as f32 / constants::FRAME_PROPOSAL_BORDER_SAMPLE_COUNT as f32;
+    if agreement < constants::FRAME_PROPOSAL_MIN_SIDE_AGREEMENT {
+        return None;
+    }
+    Some(SideEvidence {
+        agreement,
+        mean_contrast: contrast_sum / constants::FRAME_PROPOSAL_BORDER_SAMPLE_COUNT as f32,
+        mean_border_luma: border_luma_sum / constants::FRAME_PROPOSAL_BORDER_SAMPLE_COUNT as f32,
+    })
+}
+
+fn sample_interior_texture(
+    frame: &FrameView<'_>,
+    x_start: usize,
+    x_end: usize,
+    y_start: usize,
+    y_end: usize,
+) -> Option<TextureEvidence> {
+    let radius = constants::FRAME_PROPOSAL_TEXTURE_PATCH_RADIUS;
+    let sample_x_start = x_start.checked_add(radius)?;
+    let sample_x_end = x_end.checked_sub(radius)?;
+    let sample_y_start = y_start.checked_add(radius)?;
+    let sample_y_end = y_end.checked_sub(radius)?;
+    let x_span = sample_x_end.checked_sub(sample_x_start)?;
+    let y_span = sample_y_end.checked_sub(sample_y_start)?;
+    if x_span < constants::FRAME_PROPOSAL_TEXTURE_GRID_SIDE
+        || y_span < constants::FRAME_PROPOSAL_TEXTURE_GRID_SIDE
+    {
+        return None;
+    }
+
+    let mut values = [0.0_f32; constants::FRAME_PROPOSAL_TEXTURE_SAMPLE_COUNT];
+    let mut value_index = constants::FIRST_INDEX;
+    for grid_y in constants::FIRST_INDEX..constants::FRAME_PROPOSAL_TEXTURE_GRID_SIDE {
+        let y = sample_y_start
+            + grid_y * (y_span - constants::ONE_INDEX)
+                / (constants::FRAME_PROPOSAL_TEXTURE_GRID_SIDE - constants::ONE_INDEX);
+        for grid_x in constants::FIRST_INDEX..constants::FRAME_PROPOSAL_TEXTURE_GRID_SIDE {
+            let x = sample_x_start
+                + grid_x * (x_span - constants::ONE_INDEX)
+                    / (constants::FRAME_PROPOSAL_TEXTURE_GRID_SIDE - constants::ONE_INDEX);
+            let mut patch_sum = 0.0_f32;
+            let mut patch_count = 0.0_f32;
+            for patch_y in y - radius..=y + radius {
+                for patch_x in x - radius..=x + radius {
+                    patch_sum += pixel_metrics(frame, patch_x, patch_y)?.luma;
+                    patch_count += 1.0;
+                }
+            }
+            values[value_index] = patch_sum / patch_count;
+            value_index += constants::ONE_INDEX;
+        }
+    }
+
+    let mean = values.iter().sum::<f32>() / values.len() as f32;
+    let variance = values
+        .iter()
+        .map(|value| {
+            let delta = value - mean;
+            delta * delta
+        })
+        .sum::<f32>()
+        / values.len() as f32;
+    Some(TextureEvidence {
+        mean_luma: mean,
+        standard_deviation: variance.sqrt(),
+    })
+}
+
+#[derive(Clone, Copy)]
+struct PixelMetrics {
+    gray_signal: f32,
+    luma: f32,
+}
+
+fn pixel_metrics(frame: &FrameView<'_>, x: usize, y: usize) -> Option<PixelMetrics> {
+    let pixel_offset = y
+        .checked_mul(frame.stride)?
+        .checked_add(x.checked_mul(constants::CHANNELS_PER_PIXEL)?)?;
+    let pixel_end = pixel_offset.checked_add(constants::CHANNELS_PER_PIXEL)?;
+    let pixel = frame.bgra.get(pixel_offset..pixel_end)?;
+    Some(PixelMetrics {
+        gray_signal: gray_luminance_signal(pixel)?,
+        luma: pixel_luminance(pixel)?,
+    })
+}
+
+fn gray_luminance_signal(pixel: &[u8]) -> Option<f32> {
+    let b = *pixel.get(constants::BLUE_CHANNEL)?;
+    let g = *pixel.get(constants::GREEN_CHANNEL)?;
+    let r = *pixel.get(constants::RED_CHANNEL)?;
+    let low = b.min(g).min(r) as f32;
+    let high = b.max(g).max(r) as f32;
+    Some(
+        (pixel_luminance(pixel)? - (high - low) * constants::FRAME_PROPOSAL_CHROMA_PENALTY)
+            .max(0.0),
+    )
+}
+
+fn pixel_luminance(pixel: &[u8]) -> Option<f32> {
+    Some(
+        *pixel.get(constants::RED_CHANNEL)? as f32 * constants::RED_LUMA_WEIGHT as f32
+            + *pixel.get(constants::GREEN_CHANNEL)? as f32 * constants::GREEN_LUMA_WEIGHT as f32
+            + *pixel.get(constants::BLUE_CHANNEL)? as f32 * constants::BLUE_LUMA_WEIGHT as f32,
+    )
 }

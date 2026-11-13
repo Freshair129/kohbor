@@ -4,7 +4,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use kohbor_minimap_cv::{analyze, Team};
+use kohbor_minimap_cv::{analyze, propose_frame, FrameProposal, Team};
 
 fn main() -> ExitCode {
     match run() {
@@ -19,6 +19,7 @@ fn main() -> ExitCode {
 fn run() -> Result<(), String> {
     let mut directory = None;
     let mut team = None;
+    let mut include_proposal = false;
     let mut arguments = std::env::args_os().skip(1);
     while let Some(argument) = arguments.next() {
         if argument == OsStr::new("--help") || argument == OsStr::new("-h") {
@@ -30,6 +31,8 @@ fn run() -> Result<(), String> {
                 .next()
                 .ok_or_else(|| "--team requires radiant or dire".to_owned())?;
             team = Some(parse_team(&value.to_string_lossy())?);
+        } else if argument == OsStr::new("--propose") {
+            include_proposal = true;
         } else if argument.to_string_lossy().starts_with('-') {
             return Err(format!("unknown option: {}", argument.to_string_lossy()));
         } else if directory.is_none() {
@@ -80,13 +83,23 @@ fn run() -> Result<(), String> {
             .map(|stem| stem.to_string_lossy().into_owned())
             .unwrap_or_else(|| "unknown".to_owned());
         let sidecar_path = bgra_path.with_extension("txt");
-        let result = read_pair(&bgra_path, &sidecar_path, team);
+        let result = read_pair(&bgra_path, &sidecar_path, team, include_proposal);
         match result {
-            Ok((structural_ok, count)) => {
-                println!("{}", format_row(&sequence, structural_ok, count))
+            Ok((structural_ok, count, proposal)) => {
+                let row = if include_proposal {
+                    format_proposal_row(&sequence, structural_ok, count, proposal)
+                } else {
+                    format_row(&sequence, structural_ok, count)
+                };
+                println!("{row}");
             }
             Err(error) => {
-                println!("{}", format_row(&sequence, false, None));
+                let row = if include_proposal {
+                    format_proposal_row(&sequence, false, None, None)
+                } else {
+                    format_row(&sequence, false, None)
+                };
+                println!("{row}");
                 eprintln!("{sequence}: {error}");
             }
         }
@@ -96,7 +109,7 @@ fn run() -> Result<(), String> {
 
 fn print_usage() {
     println!(
-        "Usage: kohbor-minimap-replay DIR [--team radiant|dire]\nEach .bgra file is paired with a same-stem .txt sidecar containing width, height, and stride as named fields or one plain integer triplet. --team selects the counted enemy ring colour."
+        "Usage: kohbor-minimap-replay DIR [--team radiant|dire] [--propose]\nEach .bgra file is paired with a same-stem .txt sidecar containing width, height, and stride as named fields or one plain integer triplet. --team selects the counted enemy ring colour. --propose prints a detected frame rectangle relative to each dump; it reads dumps only."
     );
 }
 
@@ -107,11 +120,30 @@ fn format_row(sequence: &str, structural_ok: bool, count: Option<usize>) -> Stri
     format!("{sequence} {structural_ok} {count}")
 }
 
+fn format_proposal_row(
+    sequence: &str,
+    structural_ok: bool,
+    count: Option<usize>,
+    proposal: Option<FrameProposal>,
+) -> String {
+    let row = format_row(sequence, structural_ok, count);
+    let proposal = proposal
+        .map(|value| {
+            format!(
+                "proposal={},{},{},{} confidence_milli={}",
+                value.x, value.y, value.width, value.height, value.confidence_milli
+            )
+        })
+        .unwrap_or_else(|| "proposal=—".to_owned());
+    format!("{row} {proposal}")
+}
+
 fn read_pair(
     bgra_path: &Path,
     sidecar_path: &Path,
     command_line_team: Option<Team>,
-) -> Result<(bool, Option<usize>), String> {
+    include_proposal: bool,
+) -> Result<(bool, Option<usize>, Option<FrameProposal>), String> {
     let sidecar_type = fs::symlink_metadata(sidecar_path)
         .map_err(|error| format!("cannot inspect {}: {error}", sidecar_path.display()))?
         .file_type();
@@ -124,7 +156,7 @@ fn read_pair(
     let metadata_text = read_text(sidecar_path)?;
     let metadata = parse_metadata(&metadata_text)?;
     let bgra = read_bytes(bgra_path)?;
-    match command_line_team {
+    let (structural_ok, count) = match command_line_team {
         Some(team) => {
             let report = analyze(
                 &bgra,
@@ -134,9 +166,9 @@ fn read_pair(
                 team,
             );
             if report.structural_ok {
-                Ok((true, Some(report.enemy_blobs.len())))
+                (true, Some(report.enemy_blobs.len()))
             } else {
-                Ok((false, None))
+                (false, None)
             }
         }
         None => {
@@ -155,9 +187,15 @@ fn read_pair(
                 Team::Dire,
             );
             let structural_ok = radiant.structural_ok && dire.structural_ok;
-            Ok((structural_ok, None))
+            (structural_ok, None)
         }
-    }
+    };
+    let proposal = if include_proposal {
+        propose_frame(&bgra, metadata.width, metadata.height, metadata.stride)
+    } else {
+        None
+    };
+    Ok((structural_ok, count, proposal))
 }
 
 fn read_bytes(path: &Path) -> Result<Vec<u8>, String> {
