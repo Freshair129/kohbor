@@ -1,0 +1,257 @@
+{
+  "schema_version": "1.0.0",
+  "domain": "governance",
+  "tier": "A",
+  "verified_at_commit": "7ad4c7f",
+  "verified_on": "2026-11-13",
+  "verified_by": "claude-code governance session (lead of increments I0 to I3); agent work, not human review",
+  "write_areas": [
+    "docs/governance/**",
+    "docs/INDEX.md",
+    "docs/domains/**",
+    "docs/delivery/AGENT-WORKFLOW.md",
+    "docs/delivery/SPRINT-ROADMAP.md",
+    "AGENTS.md",
+    "contracts/requirements.json",
+    "contracts/decisions.json",
+    "contracts/product-needs.json",
+    "tools/*.py",
+    "tools/tests/**",
+    "package-manifest.json",
+    "docs/requirements/RTM.csv",
+    "docs/requirements/SRS.md",
+    "tools/hooks/**"
+  ],
+  "requirement_ids": [],
+  "proposed_requirement_ids": [],
+  "decision_ids": [
+    "DEC-COMMERCE-INTENT",
+    "DEC-NAME"
+  ],
+  "task_id_prefixes": [],
+  "artefacts": [
+    {
+      "path": "AGENTS.md",
+      "type": "process",
+      "role": "governing",
+      "reviewed_sha256": "15c1f21c8cfc1d5e21bcd8c43ec3eaf6910e4aacb9a52145cccbd79b9a71f040"
+    },
+    {
+      "path": "docs/INDEX.md",
+      "type": "index",
+      "role": "governing"
+    },
+    {
+      "path": "docs/domains/README.md",
+      "type": "registry",
+      "role": "governing"
+    },
+    {
+      "path": "docs/domains/governance/CHARTER.json",
+      "type": "charter",
+      "role": "governing"
+    },
+    {
+      "path": "docs/governance/DOCUMENT-CONTROL.md",
+      "type": "process",
+      "role": "governing",
+      "reviewed_sha256": "9e2e63b1d9f9ccc41f3341c8ed943c17fce55ab27bfbce31eb2f90146b6d4c51"
+    },
+    {
+      "path": "docs/governance/DECISION-LOG.md",
+      "type": "process",
+      "role": "governing"
+    },
+    {
+      "path": "docs/governance/CHANGELOG.md",
+      "type": "process",
+      "role": "governing"
+    },
+    {
+      "path": "docs/governance/RISK-REGISTER.md",
+      "type": "process",
+      "role": "governing"
+    },
+    {
+      "path": "docs/governance/IMPLEMENTATION-READINESS.md",
+      "type": "process",
+      "role": "governing"
+    },
+    {
+      "path": "docs/delivery/AGENT-WORKFLOW.md",
+      "type": "process",
+      "role": "governing"
+    },
+    {
+      "path": "docs/delivery/SPRINT-ROADMAP.md",
+      "type": "process",
+      "role": "governing"
+    },
+    {
+      "path": "docs/delivery/SDP.md",
+      "type": "process",
+      "role": "reference"
+    },
+    {
+      "path": "contracts/decisions.json",
+      "type": "registry",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "contracts/requirements.json",
+      "type": "registry",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "tools/gate.py",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "tools/validate_spec.py",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "tools/validate_domains.py",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "tools/update_manifest.py",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "tools/janitor.py",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "tools/tests/test_validate_domains.py",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "tools/tests/test_janitor.py",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "coord:claims/**",
+      "type": "ledger",
+      "role": "reference"
+    },
+    {
+      "path": "coord:registry/branches.json",
+      "type": "ledger",
+      "role": "reference"
+    },
+    {
+      "path": "docs/governance/AGENT-REGISTRY.md",
+      "type": "process",
+      "role": "governing"
+    },
+    {
+      "path": "docs/governance/AGENT-REGISTRY.json",
+      "type": "registry",
+      "role": "governing"
+    },
+    {
+      "path": "docs/governance/GLOSSARY.md",
+      "type": "process",
+      "role": "governing"
+    },
+    {
+      "path": "tools/validate_agents.py",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "tools/check_claim_scope.py",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "tools/hooks/pre-push.sample",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "tools/tests/test_check_claim_scope.py",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "docs/governance/AGENT-REGISTRY-DESIGN.md",
+      "type": "design",
+      "role": "governing"
+    },
+    {
+      "path": "tools/tests/test_validate_agents.py",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "tools/claim.py",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "tools/tests/test_claim_and_who.py",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "tools/tests/fixtures/brief-implement.txt",
+      "type": "fixture",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "tools/run_record.py",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "tools/tests/test_run_record.py",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "tools/tests/test_gate_args.py",
+      "type": "code",
+      "role": "source-of-truth"
+    }
+  ],
+  "open_questions": [
+    {
+      "id": "Q-GOV-1",
+      "owner": "governance lead",
+      "raised": "2026-11-13",
+      "text": "Stale statements found while backfilling the cards need document-control changes: technical identity described as unfrozen in AGENTS.md, README.md, PROMPT.md and GSI-INTAKE-SPEC section 1; roadmap sprint numbering versus REMAINING-SYSTEM-DESIGN section 5; A-1..A-9 versus A-10."
+    },
+    {
+      "id": "Q-GOV-2",
+      "owner": "product owner or lead",
+      "raised": "2026-11-13",
+      "text": "When does --fail-on-stale join the sprint-exit gate, and with which commit limit (default 40)?"
+    },
+    {
+      "id": "Q-GOV-3",
+      "owner": "governance lead",
+      "raised": "2026-11-13",
+      "text": "Two branches that both regenerate package-manifest.json conflict; today's rule: take either side and rerun tools/update_manifest.py --apply."
+    },
+    {
+      "id": "Q-GOV-4",
+      "owner": "product owner",
+      "raised": "2026-11-13",
+      "text": "Decide the ten owner decisions in docs/governance/AGENT-REGISTRY-DESIGN.md section 5."
+    }
+  ],
+  "last_handoff": {
+    "task_id": null,
+    "on": "2026-11-13",
+    "summary": "Registry owner decisions recorded; Sol review fixed; ROLE/TASK_TYPE template lines, run records, gate --sprint-exit and the pre-push hook done on the feature branch; not pushed, not merged."
+  }
+}

@@ -8,6 +8,8 @@ Build Kohbor / เกาะเบาะ, the desktop companion described in this
 
 Read README, docs/product/PRD.md, docs/requirements/SRS.md, docs/governance/DOCUMENT-CONTROL.md and docs/governance/DECISION-LOG.md, then the relevant design, use cases and verification procedures. Read applicable views in docs/diagrams/README.md with their guard notes; edit Mermaid sources and regenerate images together when a governing requirement changes. PRD/SRS define one baseline; contracts/requirements.json is its structured representation. A mismatch is a defect to repair, not a competing authority.
 
+Then route by domain: read docs/INDEX.md (the only index of documents), docs/domains/README.md (the domain registry) and the card of every domain you will touch (docs/domains/<id>/CARD.md). A card is a map, not evidence: it holds only facts that have no other home plus ids that point to the home, and the authority order above is unchanged. A card marked stale or contradicted by a decision, a requirement, code or a test is wrong; report the gap instead of trusting it.
+
 - Separate inherited targets, proposed schemas, implementation choices and unverified assumptions.
 - A conflict is a decision to resolve, not permission to choose whichever behavior is easiest.
 - Open decisions block only their named dependencies. Continue independent authorized work.
@@ -25,6 +27,8 @@ Original logo, character, palette, typography and other visual design remain del
 Use one owned checkout and a normal feature branch by default. One active writer owns each mutable file area. Read-only reviewers may share it. Use isolated worktrees only for a demonstrated concurrent write requirement and record owner, task and disposal conditions. Never create a worktree per small task or per review.
 
 Keep shared contracts and generated files under one integration owner. Before editing, check working-tree status, existing branches and active task ownership. Preserve others' work. Do not reset, force-push, delete a checkout, or rewrite shared history as a routine recovery.
+
+Coordination state lives outside the repository in the coordination ledger `F:\kohbor-coord\` (see its README): one claim file per task, and a registry of branches, worktrees and private copies. Before the first write, list the claims and open yours for your write areas; at the end of the task close it and register what you created. A claim expires only on paper: an expired claim does not free its area, so check that the holder is gone and ask the owner. Deleting a branch, worktree or folder needs the owner's written decision for that item; the janitor report only proposes. Only the owner can delegate approval of code and document work to an agent, and only under a versioned charter that the owner has confirmed (docs/domains/<id>/CHARTER.json with enabled true); if the ledger cannot be read or `DELEGATION-OFF` exists, delegation is off. Even then these stay with the owner: taste, rights and legal questions, merge to main, push or pull request, release, deployment, signing, publishing, payments and paid services, deleting user data or unregistered work, any change to requirements, scope or thresholds, anything outward-facing or irreversible, and any change to a charter or to this file. A delegated approval never grants commit, push, pull request or merge authority. Never record an agent review or an agent-delegated approval as human or owner approval. (The ledger location can be overridden with `KOHBOR_COORD_DIR`.)
 
 ## Implementation and evidence
 

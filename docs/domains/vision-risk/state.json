@@ -1,0 +1,114 @@
+{
+  "schema_version": "1.0.0",
+  "domain": "vision-risk",
+  "tier": "B",
+  "verified_at_commit": "7ad4c7f",
+  "verified_on": "2026-11-13",
+  "verified_by": "claude-code subagent draft (read-only), integrated by the governance lead; agent work, not human review",
+  "write_areas": [],
+  "requirement_ids": [
+    "VISION-001",
+    "VISION-002",
+    "VISION-003",
+    "VISION-004",
+    "ALERT-002",
+    "ALERT-003",
+    "ALERT-004",
+    "ALERT-005",
+    "ALERT-006",
+    "DATA-005",
+    "DATA-006",
+    "QUALITY-004",
+    "QUALITY-005"
+  ],
+  "proposed_requirement_ids": [],
+  "decision_ids": [
+    "DEC-MODELS",
+    "DEC-GAME-DATA",
+    "DEC-RISK-DETAIL",
+    "DEC-NATIVE-EVIDENCE",
+    "DEC-CRITICAL-MEDIA",
+    "DEC-SESSION-MONITOR"
+  ],
+  "task_id_prefixes": [],
+  "artefacts": [
+    {
+      "path": "docs/design/REMAINING-SYSTEM-DESIGN.md",
+      "type": "spec",
+      "role": "reference",
+      "reviewed_sha256": "b2b5e8392f45aecdb60a1d4c1cbf7c16da5a03016f38112b514be0ac6e705802"
+    },
+    {
+      "path": "docs/delivery/SPRINT-ROADMAP.md",
+      "type": "registry",
+      "role": "reference",
+      "reviewed_sha256": "f97c9a916c0a41bd46e03d303d8ad03135b79313fc24a17a9f1df5322dc5be18"
+    },
+    {
+      "path": "docs/design/SDD.md",
+      "type": "spec",
+      "role": "reference"
+    },
+    {
+      "path": "contracts/runtime-status.schema.json",
+      "type": "schema",
+      "role": "reference"
+    },
+    {
+      "path": "contracts/decisions.json",
+      "type": "registry",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "crates/kohbor-capture",
+      "type": "code",
+      "role": "reference",
+      "exists": false
+    },
+    {
+      "path": "crates/kohbor-capture-native",
+      "type": "code",
+      "role": "reference",
+      "exists": false
+    },
+    {
+      "path": "crates/kohbor-vision",
+      "type": "code",
+      "role": "reference",
+      "exists": false
+    },
+    {
+      "path": "crates/kohbor-risk",
+      "type": "code",
+      "role": "reference",
+      "exists": false
+    },
+    {
+      "path": "spikes/capture",
+      "type": "code",
+      "role": "reference",
+      "exists": false
+    }
+  ],
+  "open_questions": [
+    {
+      "id": "Q-VR-1",
+      "question": "Which sprint numbering holds for S4-S7: REMAINING-SYSTEM-DESIGN section 5 or SPRINT-ROADMAP.",
+      "owner": "governance lead",
+      "raised": "2026-11-13",
+      "ref": "docs/design/REMAINING-SYSTEM-DESIGN.md section 5"
+    },
+    {
+      "id": "Q-VR-2",
+      "question": "May own matches be recorded locally for the detector dataset (O-14), and what is the default display rate if 30 fps fails (O-13).",
+      "owner": "product owner",
+      "raised": "2026-11-12",
+      "ref": "docs/design/REMAINING-SYSTEM-DESIGN.md section 6"
+    }
+  ],
+  "last_handoff": {
+    "task_id": null,
+    "on": "2026-11-13",
+    "summary": "Backfilled draft card, read-only. Nothing is built: no capture, vision or risk crate; the design is proposed and nothing in it was run."
+  }
+}

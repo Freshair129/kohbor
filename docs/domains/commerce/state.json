@@ -1,0 +1,59 @@
+{
+  "schema_version": "1.0.0",
+  "domain": "commerce",
+  "tier": "B",
+  "verified_at_commit": "7ad4c7f",
+  "verified_on": "2026-11-13",
+  "verified_by": "claude-code governance session, seeded from DEC-COMMERCE-INTENT; agent work, not human review",
+  "write_areas": [],
+  "requirement_ids": [],
+  "proposed_requirement_ids": [],
+  "decision_ids": [
+    "DEC-COMMERCE-INTENT",
+    "DEC-PREMIUM",
+    "DEC-ACCOUNT-ORIGIN",
+    "DEC-PACK-CRYPTO",
+    "DEC-PRIVACY-LEGAL",
+    "DEC-SIGNIN-OPTIONAL"
+  ],
+  "task_id_prefixes": [],
+  "artefacts": [
+    {
+      "path": "docs/product/FEATURE-CATALOG.md",
+      "type": "spec",
+      "role": "reference",
+      "reviewed_sha256": "e9a280450a3ea3c9cf9ab0e48878db0c9a23dc9a9486872bd35c465b8d99bd5f"
+    },
+    {
+      "path": "docs/design/UX-SPEC.md",
+      "type": "spec",
+      "role": "reference"
+    },
+    {
+      "path": "docs/design/REMAINING-SYSTEM-DESIGN.md",
+      "type": "design",
+      "role": "reference"
+    },
+    {
+      "path": "docs/design/PACKAGE-FORMAT-REVIEW.md",
+      "type": "review",
+      "role": "neighbour:packs"
+    },
+    {
+      "path": "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+      "type": "review",
+      "role": "neighbour:account"
+    },
+    {
+      "path": "contracts/decisions.json",
+      "type": "registry",
+      "role": "source-of-truth"
+    }
+  ],
+  "open_questions": [],
+  "last_handoff": {
+    "task_id": null,
+    "on": "2026-11-13",
+    "summary": "Seed card created from the owner statement of 2026-11-13; nothing designed."
+  }
+}

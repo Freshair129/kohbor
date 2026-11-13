@@ -610,6 +610,27 @@
         "DEC-BANNER-LAB-STYLE",
         "DEC-EVENT-AUDIO"
       ]
+    },
+    {
+      "id": "DEC-COMMERCE-INTENT",
+      "status": "decided",
+      "milestone": "unscheduled",
+      "blocks": "Any store, wallet, payment, price, entitlement, catalog or hosting design or deployment: none is authorised by this record",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-13",
+      "channel": "Owner message in the engineering chat session (2026-11-13), relayed by the coordinating session; recorded by an agent (governance session). An owner statement of intent, not a design review. The milestone is unscheduled: no milestone was set by the owner",
+      "decision": "Record the owner's statement and intent: the owner states that Kohbor has a store system (none exists in the repository, and the product scope in PRD and FEATURE-CATALOG treats store, wallet and payments as a later service) and plans to produce announcer packs in volume to earn revenue; rights and licensing of pack content are handled by the owner's rights team. The rights statement is an owner statement, unverified, and not a rights grant: it does not change PRD scope and does not waive the AGENTS.md rules on real-person voices and source-brand assets. This records intent only. It does NOT authorise a payment provider, a price, a wallet, a catalog, an account requirement for buying, a hosting or deployment choice, a paid service, or any pack to be sold. Store, wallet and payments remain a later service with their own design and authorization (FEATURE-CATALOG).",
+      "safe_interim": "Nothing is built or hosted for commerce. Local verified import stays supported and is not purchase entitlement (MEDIA-008). The Store destination in the UI shows an honest unavailable state and never gates local gameplay. Engineering finishes pack production tooling first.",
+      "closure_evidence": "A reviewed commerce design (what is sold, whether an account is required to buy, payment provider and operator, currency, refunds and tax, creator revenue share, relation to premium) accepted by the owner together with the account, signing and hosting decisions it depends on; rights documents for every pack that is sold, supplied by the owner's rights side.",
+      "related": [
+        "DEC-PREMIUM",
+        "DEC-ACCOUNT-ORIGIN",
+        "DEC-ACCOUNT-IDENTITY",
+        "DEC-PACK-CRYPTO",
+        "DEC-PRIVACY-LEGAL",
+        "DEC-CRITICAL-MEDIA"
+      ]
     }
   ]
 }

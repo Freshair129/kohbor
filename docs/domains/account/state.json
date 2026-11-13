@@ -1,0 +1,102 @@
+{
+  "schema_version": "1.0.0",
+  "domain": "account",
+  "tier": "A",
+  "verified_at_commit": "7ad4c7f",
+  "verified_on": "2026-11-13",
+  "verified_by": "claude-code governance session, backfilled from the Domain Steward design and the documents named in artefacts; agent work, not human review",
+  "write_areas": [
+    "crates/kohbor-account/**",
+    "docs/design/ACCOUNT-IDENTITY-REVIEW.md"
+  ],
+  "requirement_ids": [
+    "CORE-003",
+    "SOCIAL-001",
+    "SOCIAL-002",
+    "SOCIAL-003"
+  ],
+  "proposed_requirement_ids": [
+    "ACCOUNT-001",
+    "ACCOUNT-002",
+    "ACCOUNT-003",
+    "ACCOUNT-004",
+    "ACCOUNT-005",
+    "ACCOUNT-006",
+    "ACCOUNT-007",
+    "ACCOUNT-008",
+    "ACCOUNT-009",
+    "ACCOUNT-010"
+  ],
+  "decision_ids": [
+    "DEC-ACCOUNT-IDENTITY",
+    "DEC-GID-REUSE",
+    "DEC-SIGNIN-OPTIONAL",
+    "DEC-SHARE-LIST",
+    "DEC-ACCOUNT-ORIGIN",
+    "DEC-GOOGLE-PROJECT",
+    "DEC-ACCOUNT-LINK",
+    "DEC-SIGNIN-FALLBACK",
+    "DEC-STEAM-BINDING",
+    "DEC-SOCIAL",
+    "DEC-PRIVACY-LEGAL"
+  ],
+  "task_id_prefixes": [],
+  "artefacts": [
+    {
+      "path": "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+      "type": "review",
+      "role": "governing",
+      "reviewed_sha256": "30837fce8b73cb8dbbcfb4a4634867d34f311b33e50dbc85e5caf58e4fb7b841"
+    },
+    {
+      "path": "docs/design/REMAINING-SYSTEM-DESIGN.md",
+      "type": "design",
+      "role": "governing",
+      "reviewed_sha256": "b2b5e8392f45aecdb60a1d4c1cbf7c16da5a03016f38112b514be0ac6e705802"
+    },
+    {
+      "path": "docs/design/SHARING-MODEL-REVIEW.md",
+      "type": "review",
+      "role": "neighbour:sharing",
+      "reviewed_sha256": "01dabedb687d4d5b7848dc940a7c15137a446d4d8dec4d4cb7114ec864f75f15"
+    },
+    {
+      "path": "contracts/decisions.json",
+      "type": "registry",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "docs/design/visuals/command-deck/social.html",
+      "type": "mockup",
+      "role": "reference"
+    },
+    {
+      "path": "crates/kohbor-account",
+      "type": "code",
+      "role": "governing",
+      "exists": false
+    }
+  ],
+  "open_questions": [
+    {
+      "id": "Q-ACC-1",
+      "owner": "governance lead",
+      "raised": "2026-11-12",
+      "text": "ACCOUNT-001..010 and the SOCIAL-001, PEER-007, PEER-009 amendments are queued in the review and not applied to the SRS. Who applies them, when?"
+    },
+    {
+      "id": "Q-ACC-2",
+      "owner": "governance lead",
+      "raised": "2026-11-12",
+      "text": "Add account_token_domain, relay_ticket_domain and friend_code_prefix to contracts/product-identity.json (review section 4.1)?"
+    }
+  ],
+  "last_handoff": {
+    "task_id": null,
+    "on": "2026-11-13",
+    "summary": "Card backfilled from documents; no code, no service and no test exists."
+  },
+  "planned_crates": [
+    "kohbor-account"
+  ]
+}

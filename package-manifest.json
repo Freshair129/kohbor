@@ -18,8 +18,8 @@
     },
     {
       "path": "AGENTS.md",
-      "bytes": 4359,
-      "sha256": "de391583b4a84eb41ce8fd75a88285364ae797208182badb3bdb846ef88a26f2"
+      "bytes": 6271,
+      "sha256": "15c1f21c8cfc1d5e21bcd8c43ec3eaf6910e4aacb9a52145cccbd79b9a71f040"
     },
     {
       "path": "Cargo.lock",
@@ -64,7 +64,7 @@
     {
       "path": "acceptance/spec-validation.json",
       "bytes": 923,
-      "sha256": "4c12761a6fea012130574f438dcae9ceaf510e242469184d5c537ea3c3de6f70"
+      "sha256": "137cc08852a75e87affdfebcf71b36121531bcac52526dc8594135062c57d0aa"
     },
     {
       "path": "apps/desktop/index.html",
@@ -208,8 +208,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/fake_sink.rs",
-      "bytes": 4312,
-      "sha256": "48c50758ef93e74d0996859be2c652a7c2eef06b7ab9097b48136332a3363227"
+      "bytes": 4173,
+      "sha256": "a3c929f8a8f5f977ac57f31a1a4d6c4bb0a59ed240a2e2685604fedd0ebae6a1"
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/lanes.rs",
@@ -523,8 +523,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 35733,
-      "sha256": "e992170798b12cf838454721217aba47eb34b85b08f0bd16d42afe10f96d2bfe"
+      "bytes": 38147,
+      "sha256": "e10dc1ff60a914e91e9b71c3b10059600ae48a78fbd36a685b5a19fe4937e861"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -1053,13 +1053,13 @@
     },
     {
       "path": "docs/INDEX.md",
-      "bytes": 5532,
-      "sha256": "926026372978ba98b3fa5834cbb92a693a3f5e9ee803df1a523ae0ec46a58c67"
+      "bytes": 9614,
+      "sha256": "ec82fe662f161aacee3323c0d4183f1945d8900abb2446117e7935c0d46048bd"
     },
     {
       "path": "docs/delivery/AGENT-WORKFLOW.md",
-      "bytes": 19024,
-      "sha256": "ba34d213b29a7ee4d387f248b638230e9f8c1f18f04c36fa0bfd7291c955284c"
+      "bytes": 28093,
+      "sha256": "cca35920a8be3909437a47b687926d326101ca5b9140f7c6b0f72df5046037d1"
     },
     {
       "path": "docs/delivery/M0-PLAN.md",
@@ -1253,8 +1253,8 @@
     },
     {
       "path": "docs/design/visuals/command-deck/tokens.css",
-      "bytes": 26499,
-      "sha256": "2534563a1f00210a5fb5af620f49d41cbdbbe630dc9a0f06da259cad916e6fee"
+      "bytes": 26167,
+      "sha256": "2a2fd0294ad4a1ce8179e4e0909e91c7d9ed166864ae56bb73e8a6011d7282c8"
     },
     {
       "path": "docs/design/visuals/s3-audio-ui/DESIGN-NOTES.md",
@@ -1487,19 +1487,139 @@
       "sha256": "99754d69ceb8c26cdf92956220197fa7dcb9956dfc0bfa6a8b6037006f771e96"
     },
     {
+      "path": "docs/domains/README.md",
+      "bytes": 8299,
+      "sha256": "d470ad9302d9d5f641725793b77785a64de47ea5be3501e89107dc9e81b44323"
+    },
+    {
+      "path": "docs/domains/account/CARD.md",
+      "bytes": 4326,
+      "sha256": "52754c16e688fff479a40994b941dbf5684915db32e547b4351acdd29055c32d"
+    },
+    {
+      "path": "docs/domains/account/state.json",
+      "bytes": 2798,
+      "sha256": "4ad4531c1a0d46f0bdcd181ae43dd71e9e7af60631a5803672ac65dd8c028ace"
+    },
+    {
+      "path": "docs/domains/banner-lab/CARD.md",
+      "bytes": 8353,
+      "sha256": "75e8c0cdc3ed535c5059cb75f2f3ea26f4156e02d351577774995d34b7ef7df3"
+    },
+    {
+      "path": "docs/domains/banner-lab/state.json",
+      "bytes": 5077,
+      "sha256": "d6d02e5efd3ceb3fe358abbd7ce1ddb04a0856715589a69e6662a4056359a64b"
+    },
+    {
+      "path": "docs/domains/commerce/CARD.md",
+      "bytes": 3377,
+      "sha256": "80080ec6e8613329375cb149353ba779681854a77a1840457361c97e62a69a37"
+    },
+    {
+      "path": "docs/domains/commerce/state.json",
+      "bytes": 1522,
+      "sha256": "59783fb05099f08bb61175a6f9147fdfba0c3e3d40adabe3c0f90f3f6c4afb9b"
+    },
+    {
+      "path": "docs/domains/events-audio/CARD.md",
+      "bytes": 8179,
+      "sha256": "b3c42a8c5dd5c0d675a9e9aeae5419daad99293da510e738f04e850654449978"
+    },
+    {
+      "path": "docs/domains/events-audio/state.json",
+      "bytes": 4359,
+      "sha256": "c4a14211d1a553adfbe096996371201ae09306cba9207294edbc7e66ed6b42b4"
+    },
+    {
+      "path": "docs/domains/governance/CARD.md",
+      "bytes": 5975,
+      "sha256": "6feec9ffb745d77a63a8cdf44a0ff6e96d9d014a20a4b2d71d99fb7e78fba56b"
+    },
+    {
+      "path": "docs/domains/governance/CHARTER.json",
+      "bytes": 6708,
+      "sha256": "52e194fefb6573d4f3bd52d42837b196e42a4983a95132bbbec11e8ee52122e5"
+    },
+    {
+      "path": "docs/domains/governance/state.json",
+      "bytes": 6648,
+      "sha256": "cf2e1ba72835688c6612bb3d50a44b7dcafdf255e9eb243c0a10b63dca6b4986"
+    },
+    {
+      "path": "docs/domains/host-core/CARD.md",
+      "bytes": 5044,
+      "sha256": "43ff3f4729f5779a5a0b47529327ffa70670d29af335cab0b659b373d905e3b9"
+    },
+    {
+      "path": "docs/domains/host-core/state.json",
+      "bytes": 4528,
+      "sha256": "da4319308656e67c81f19aadf0395ec155b84b2b22dd444ce95a7b1034808978"
+    },
+    {
+      "path": "docs/domains/packs/CARD.md",
+      "bytes": 9216,
+      "sha256": "9a5e2926afba410450dc1cc3a90d2f30208d73c224ff4af9fd0dfe4df096a801"
+    },
+    {
+      "path": "docs/domains/packs/state.json",
+      "bytes": 3772,
+      "sha256": "4aa850275e4e676a80232342f5fc558e5460e963fe3bddbe48343711eb76f646"
+    },
+    {
+      "path": "docs/domains/ui-overlay/CARD.md",
+      "bytes": 5474,
+      "sha256": "3cd196f4bf24956c047876b434816170be137a1549e8bdcee465e374d5c99533"
+    },
+    {
+      "path": "docs/domains/ui-overlay/state.json",
+      "bytes": 3889,
+      "sha256": "920093a6a2a2a869f12184a6c70a9238db6c0f596761dc478d3948598d1e8f5d"
+    },
+    {
+      "path": "docs/domains/vision-risk/CARD.md",
+      "bytes": 5113,
+      "sha256": "8e61d33cfe104b77b894b3c21f36e710739c5c8f28f9e6892ad1e295f4aef66e"
+    },
+    {
+      "path": "docs/domains/vision-risk/state.json",
+      "bytes": 2979,
+      "sha256": "86f7314fe22c1fd62c126bc62287fb58ff77c174b40fb925a6e7847e761c4386"
+    },
+    {
+      "path": "docs/governance/AGENT-REGISTRY-DESIGN.md",
+      "bytes": 44135,
+      "sha256": "a2867fcfd44dc272e733a56b10aaf3c5df5b846e9497c49d8869769d6a3f8903"
+    },
+    {
+      "path": "docs/governance/AGENT-REGISTRY.json",
+      "bytes": 16695,
+      "sha256": "e8c7bd9b25b715b0ff299680fb9db2a3bf4b3b5847263a6f7b3cfd9999d649db"
+    },
+    {
+      "path": "docs/governance/AGENT-REGISTRY.md",
+      "bytes": 13629,
+      "sha256": "9193de1b6627d2d36e7bc88ae1d08801f48a8ed0f00766c45d433492fc1e9dc8"
+    },
+    {
       "path": "docs/governance/CHANGELOG.md",
-      "bytes": 22470,
-      "sha256": "986f7c9dfacbeb0562827db8189b3d5666700595dc541392e96bca9772504b69"
+      "bytes": 28806,
+      "sha256": "e44159e176390f4415d72c844ef9ce708964e86ff76c838a1ef1be40e1b0c429"
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 15071,
-      "sha256": "c2f793946efdd4fcac18f63cad65c4896f84a56db4bbfadf4f9eb4fa74dafc75"
+      "bytes": 15900,
+      "sha256": "a370f0951d07d0138839565e45fc4b93aa21261160036aa66d501f79a89f5ad1"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
       "bytes": 10164,
       "sha256": "9e2e63b1d9f9ccc41f3341c8ed943c17fce55ab27bfbce31eb2f90146b6d4c51"
+    },
+    {
+      "path": "docs/governance/GLOSSARY.md",
+      "bytes": 4262,
+      "sha256": "75f72750b193ec8fd08cf15ad1553291b72712730bbfeee50ccd0fb37a2632a2"
     },
     {
       "path": "docs/governance/IMPLEMENTATION-READINESS.md",
@@ -1992,6 +2112,16 @@
       "sha256": "f8d4889a0d4bd9b5c1dadf5469a2c2b3465066d88347a83d69e5a8d1591bc5a4"
     },
     {
+      "path": "tools/check_claim_scope.py",
+      "bytes": 19145,
+      "sha256": "7414292c6da3437860d3aa2ae5352078fd7a52a62f1b44003819625b1c0cef07"
+    },
+    {
+      "path": "tools/claim.py",
+      "bytes": 8996,
+      "sha256": "637d483b526bd951a9852608e565ce8022d240131288b23df0d503f2c6f85089"
+    },
+    {
       "path": "tools/diagram-renderer.json",
       "bytes": 1387,
       "sha256": "3ed890c055808cf4ae5215bbc8d9792435761e66efdc0979bff18a777ebf2769"
@@ -2028,8 +2158,18 @@
     },
     {
       "path": "tools/gate.py",
-      "bytes": 18414,
-      "sha256": "607f0a5b6653196375cc5bc72a56a8e6e9acca1cc6ecb7ecbebe4ad4e06d1f3c"
+      "bytes": 21741,
+      "sha256": "2fa954e8e074a834baddf3d9e2bcfc939f38a68a3804e573ada20ed8ff6953bb"
+    },
+    {
+      "path": "tools/hooks/pre-push.sample",
+      "bytes": 2526,
+      "sha256": "65363ac8087d8fcb3a0895e1445f9312ea63ce0b6313d3e133c26f4ae8da6001"
+    },
+    {
+      "path": "tools/janitor.py",
+      "bytes": 17838,
+      "sha256": "362129997f85d3820423582af13ba6678c67bede846206b1a1307c294710e84c"
     },
     {
       "path": "tools/package-lock.json",
@@ -2052,9 +2192,69 @@
       "sha256": "72ed510a260fb8e7b0ce189521d505213006cdad068711b883c1fda67d0ea7e4"
     },
     {
+      "path": "tools/run_record.py",
+      "bytes": 9297,
+      "sha256": "3ce35a14c5f4a4d1813312e81c0280236386f4db7fe52df1434f1873f1d704e6"
+    },
+    {
+      "path": "tools/tests/fixtures/brief-implement.txt",
+      "bytes": 376,
+      "sha256": "2443be231653ba18e96852d65744959a09df96d9845b1665a5011c7632d870f9"
+    },
+    {
+      "path": "tools/tests/run_tests.py",
+      "bytes": 685,
+      "sha256": "6723d935acca16002b1561e58dab5d5ebbfad016a12855169eb4514ed6c2e4f4"
+    },
+    {
+      "path": "tools/tests/test_check_claim_scope.py",
+      "bytes": 19098,
+      "sha256": "78c3254d909f03c12366652c7e60a072b2a02bdde886aca6dc1abd5d92aa5cdc"
+    },
+    {
+      "path": "tools/tests/test_claim_and_who.py",
+      "bytes": 11118,
+      "sha256": "fd353c569a5012fc75416e9801357437323ae4c23bd53721348a1af85eecf170"
+    },
+    {
+      "path": "tools/tests/test_gate_args.py",
+      "bytes": 1520,
+      "sha256": "8e6dca9fabf01b57254e58856dedabcac1a9e43aa983f1de64ff3ff4b45846a3"
+    },
+    {
+      "path": "tools/tests/test_janitor.py",
+      "bytes": 12276,
+      "sha256": "95fc7e1f589de196ec642731ef4b2e620084903feea3aa9f5db19c909281f434"
+    },
+    {
+      "path": "tools/tests/test_run_record.py",
+      "bytes": 7187,
+      "sha256": "665e492579ba4b2a91265f503581b8f5f30afc868457ec9849c95b5460c5f6b9"
+    },
+    {
+      "path": "tools/tests/test_validate_agents.py",
+      "bytes": 30904,
+      "sha256": "423b92d3505d6df3a95467cd918989f931e9cbbad83c8493b7e0accb0facd835"
+    },
+    {
+      "path": "tools/tests/test_validate_domains.py",
+      "bytes": 30012,
+      "sha256": "0761eddafd939a640afe81cd06cea8e8281a3ff0cb5ad9346916b0b3d1a59fbf"
+    },
+    {
       "path": "tools/update_manifest.py",
       "bytes": 11699,
       "sha256": "0c5aed902493b0d6f505b6063926afcffef6a30c0a5078395a5d041099a311d2"
+    },
+    {
+      "path": "tools/validate_agents.py",
+      "bytes": 36108,
+      "sha256": "60d62bbcd46d0a535beb9b68573dea567b2e6659902bea7d56cbb6694d338eb0"
+    },
+    {
+      "path": "tools/validate_domains.py",
+      "bytes": 34379,
+      "sha256": "f1eaaea0d56774a62e1c33565c77314cb4a0152b3b629db6607f42ba7d7d01f7"
     },
     {
       "path": "tools/validate_spec.py",
