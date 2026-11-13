@@ -13,7 +13,7 @@ A map, not evidence. Authority: decisions, PRD/SRS, contracts, code and tests, t
 
 ## 1. Purpose and boundary
 
-- Owns (planned, PROPOSED): `crates/kohbor-capture`, `kohbor-capture-native`, `kohbor-vision`, `kohbor-risk`, `spikes/capture` (docs/design/REMAINING-SYSTEM-DESIGN.md section 4). None exists: `crates/` and `spikes/` hold no such directory (checked 2026-11-13).
+- Owns: `crates/kohbor-capture`, `kohbor-capture-native`, `kohbor-vision`, `kohbor-risk`, `kohbor-minimap-cv` (MVP-1, branch `mvp1/integration`) and the host file `apps/desktop/src-tauri/src/capture_host.rs`; `spikes/capture` is still not created (docs/design/REMAINING-SYSTEM-DESIGN.md section 4).
 - Hard rule: an enemy field is never filled without an admitted sighting; unknown stays unknown (DATA-005; AGENTS.md; docs/design/REMAINING-SYSTEM-DESIGN.md Sprint 5 exit gate).
 - Must not touch: host-core R2 files (settings, status, containment) without a `host-core` claim; the critical warning path except the admission wiring named in design task 6.4 of REMAINING-SYSTEM-DESIGN (`events-audio`).
 - Interfaces: `host-core` (frame slot, runtime-status capture phases, settings categories); `events-audio` (critical path); `ui-overlay` (map region, markers, enemy column).
@@ -26,7 +26,7 @@ A map, not evidence. Authority: decisions, PRD/SRS, contracts, code and tests, t
 
 ## 3. Now / Next / Blocked
 
-- NOW: nothing built; `capture` is reported unavailable from a constant (apps/desktop/src-tauri/src/status.rs:82; VISION-001).
+- NOW (MVP-1, source and synthetic evidence only, branch `mvp1/integration`): DXGI minimap grabber (1920x1080 at 100% only, else GSI-only), per-frame structural check, T0 frame channel, Live tab, Danger Meter and experimental visual events (anonymous counts, no audio, no score; ALERT-002/003 stay open). Not run in a live match: real-pixel accuracy, FPS cost and overlay behaviour are NOT verified. `status.rs` still reports `capture` from a constant; `kohbor-vision` is unused by the host (stream-fencing review finding open).
 - NOW: the design (D1-D9, spikes V1-V5) is PROPOSED by an agent, not approved, nothing in it was run (docs/design/REMAINING-SYSTEM-DESIGN.md sections 0, 9).
 - NEXT (no owner needed): contracts (design task 4.0), state-machine tests on a fake frame source (4.4) and risk golden tests (6.1), none yet in the roadmap backlog (docs/design/REMAINING-SYSTEM-DESIGN.md section 5; VISION-004, ALERT-002).
 - NEXT (owner hardware): spikes V1-V3 need owner FPS pairs and stills (docs/design/REMAINING-SYSTEM-DESIGN.md section 1.8; DEC-NATIVE-EVIDENCE).

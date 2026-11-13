@@ -830,7 +830,12 @@
           "docs/quality/TEST-PLAN.md",
           "docs/quality/UAT-PLAN.md"
         ],
-        "implementation_refs": [],
+        "implementation_refs": [
+          "crates/kohbor-capture/src/lib.rs",
+          "crates/kohbor-capture/tests/boundary.rs",
+          "crates/kohbor-capture-native/src/lib.rs",
+          "apps/desktop/src-tauri/src/capture_host.rs"
+        ],
         "evidence_refs": [],
         "procedure_ids": [
           "TP-02",
@@ -893,7 +898,12 @@
           "docs/quality/TEST-PLAN.md",
           "docs/quality/UAT-PLAN.md"
         ],
-        "implementation_refs": [],
+        "implementation_refs": [
+          "crates/kohbor-vision/src/lib.rs",
+          "crates/kohbor-vision/tests/boundary.rs",
+          "crates/kohbor-risk/src/lib.rs",
+          "crates/kohbor-risk/tests/rules.rs"
+        ],
         "evidence_refs": [],
         "procedure_ids": [
           "TP-02",
@@ -954,7 +964,10 @@
           "docs/quality/TEST-PLAN.md",
           "docs/quality/UAT-PLAN.md"
         ],
-        "implementation_refs": [],
+        "implementation_refs": [
+          "crates/kohbor-vision/src/lib.rs",
+          "crates/kohbor-vision/tests/boundary.rs"
+        ],
         "evidence_refs": [],
         "procedure_ids": [
           "TP-02",
@@ -1011,7 +1024,11 @@
           "docs/quality/TEST-PLAN.md",
           "docs/quality/UAT-PLAN.md"
         ],
-        "implementation_refs": [],
+        "implementation_refs": [
+          "crates/kohbor-capture/src/lib.rs",
+          "crates/kohbor-vision/src/lib.rs",
+          "crates/kohbor-vision/tests/boundary.rs"
+        ],
         "evidence_refs": [],
         "procedure_ids": [
           "TP-02",
@@ -5434,7 +5451,10 @@
           "docs/quality/UAT-PLAN.md"
         ],
         "implementation_refs": [
-          "apps/desktop/src-tauri/src/containment.rs"
+          "apps/desktop/src-tauri/src/containment.rs",
+          "apps/desktop/src-tauri/src/capture_host.rs",
+          "apps/desktop/src/live/ResourcePanel.tsx",
+          "apps/desktop/tests/live.test.ts"
         ],
         "evidence_refs": [],
         "procedure_ids": [
