@@ -218,9 +218,20 @@ impl CaptureConfigStore {
                     .ok_or_else(|| CAPTURE_CONFIG_INVALID.to_owned())?
                     .into(),
             );
-        } else if next.crop.dw.abs_diff(next.crop.dh) > 1 {
-            // The only supported profile is square, even before its output is observed.
-            return Err(CAPTURE_CONFIG_INVALID.to_owned());
+        } else {
+            // The only supported profile is square (280 px, p1080-default-v1), even before its
+            // output is observed; keep the resulting side inside the contract bounds.
+            let side = |delta: i32| i64::from(DEFAULT_PROFILE_SIDE) + i64::from(delta);
+            if next.crop.dw.abs_diff(next.crop.dh) > 1
+                || !(64..=400).contains(&side(next.crop.dw))
+                || !(64..=400).contains(&side(next.crop.dh))
+            {
+                return Err(CAPTURE_CONFIG_INVALID.to_owned());
+            }
+        }
+        if next == state.config {
+            // Nothing changed: do not write (an ignored corrupt file stays untouched).
+            return Ok(next);
         }
         self.persist(&next)?;
         if next.crop != state.config.crop {
@@ -633,6 +644,8 @@ fn capture_status_slot() -> &'static Mutex<Option<Value>> {
 }
 
 const MAX_FRAME_SUBSCRIBERS: usize = 8;
+/// Side of the only supported profile rect (kohbor-capture-native p1080-default-v1).
+const DEFAULT_PROFILE_SIDE: u32 = 280;
 
 fn frame_subscribers() -> &'static Mutex<Vec<Channel<InvokeResponseBody>>> {
     FRAME_SUBSCRIBERS.get_or_init(|| Mutex::new(Vec::new()))
@@ -3995,6 +4008,43 @@ mod tests {
     }
 
     #[test]
+    fn config_store_bounds_the_effective_size_before_the_output_is_known() {
+        let dir = test_config_dir("bounds-unknown-output");
+        let store = CaptureConfigStore::open(dir.clone());
+        for (dw, dh) in [(200, 200), (-217, -217), (-217, -216)] {
+            assert_eq!(
+                store.set(CaptureConfigPatch {
+                    crop: Some(CropOffsets {
+                        dx: 0,
+                        dy: 0,
+                        dw,
+                        dh
+                    }),
+                    ..CaptureConfigPatch::default()
+                }),
+                Err(CAPTURE_CONFIG_INVALID.to_owned()),
+                "dw={dw} dh={dh}"
+            );
+        }
+        assert!(!dir.join(CAPTURE_CONFIG_FILE).exists());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn config_store_empty_patch_does_not_overwrite_an_ignored_file() {
+        let dir = test_config_dir("empty-patch");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join(CAPTURE_CONFIG_FILE), b"not json").unwrap();
+        let store = CaptureConfigStore::open(dir.clone());
+        assert!(store.set(CaptureConfigPatch::default()).is_ok());
+        assert_eq!(
+            std::fs::read(dir.join(CAPTURE_CONFIG_FILE)).unwrap(),
+            b"not json"
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
     fn config_store_clears_crop_confirmation_when_crop_changes() {
         let dir = test_config_dir("confirmation-reset");
         let store = CaptureConfigStore::open(dir.clone());
@@ -4019,13 +4069,13 @@ mod tests {
         let (_, initial_revision) = store.snapshot();
         let changed = store
             .set(CaptureConfigPatch {
-                display_fps: Some(30),
+                display_fps: Some(15),
                 ..CaptureConfigPatch::default()
             })
             .unwrap();
         let (snapshot, revision) = store.snapshot();
         assert_eq!(snapshot, changed);
-        assert_eq!(snapshot.display_fps, 30);
+        assert_eq!(snapshot.display_fps, 15);
         assert_eq!(revision, initial_revision + 1);
         let _ = std::fs::remove_dir_all(dir);
     }
