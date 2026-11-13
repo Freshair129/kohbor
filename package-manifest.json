@@ -1053,8 +1053,8 @@
     },
     {
       "path": "docs/INDEX.md",
-      "bytes": 9614,
-      "sha256": "ec82fe662f161aacee3323c0d4183f1945d8900abb2446117e7935c0d46048bd"
+      "bytes": 9835,
+      "sha256": "71ff95c75c881393d3ec3799d342d08ad34f10b92b3411bad952a52df6fc0c30"
     },
     {
       "path": "docs/delivery/AGENT-WORKFLOW.md",
@@ -1160,6 +1160,11 @@
       "path": "docs/design/S3-5-HOST-CRITICAL-PATH.md",
       "bytes": 56116,
       "sha256": "a5b98f431e084f1b18efb87fc0b5bfa7920ce005be326065b5fce21e58924075"
+    },
+    {
+      "path": "docs/design/S6-OVERLAY-SLICE.md",
+      "bytes": 12324,
+      "sha256": "fcb373b1b89fa7b10a89dd2733cbbefd181236395a98d5b2f21d2a36e6566b4e"
     },
     {
       "path": "docs/design/SAD.md",
