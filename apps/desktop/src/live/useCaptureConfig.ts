@@ -58,6 +58,7 @@ export function useCaptureConfig() {
     setBusy(true);
     setError(null);
     let actionFailure: string | null = null;
+    let commandSucceeded = false;
 
     try {
       const payload = mock
@@ -66,6 +67,7 @@ export function useCaptureConfig() {
       const returnedConfig = parseCaptureConfig(payload);
       if (!returnedConfig) throw new Error("CAPTURE_CONFIG_INVALID");
       setConfig(returnedConfig);
+      commandSucceeded = true;
     } catch (failure) {
       actionFailure = errorText(failure);
     }
@@ -78,6 +80,7 @@ export function useCaptureConfig() {
 
     setError(actionFailure);
     setBusy(false);
+    return commandSucceeded;
   }
 
   return {
@@ -100,6 +103,7 @@ export function useCaptureConfig() {
       return runAction("capture_accept_proposal");
     },
     confirmCrop: () => runAction("capture_confirm_crop"),
+    retryCapture: () => runAction("capture_retry"),
     dismissProposal: () => setProposalDismissed(true),
   };
 }

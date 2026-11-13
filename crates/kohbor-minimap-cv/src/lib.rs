@@ -101,6 +101,15 @@ pub struct PixelReport {
     pub enemy_blobs: Vec<Blob>,
 }
 
+/// The crop profile determines whether its pixels include an outer HUD frame.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StructuralMode {
+    /// Require the existing three-pixel border to be darker than the interior.
+    Framed,
+    /// The crop is already inside the frame; test its texture without a border requirement.
+    Inner,
+}
+
 /// Count colour-ring marker candidates in a BGRA crop.
 ///
 /// `stride` is the byte distance between row starts. A malformed or empty
@@ -114,7 +123,19 @@ pub fn analyze(bgra: &[u8], width: u32, height: u32, stride: u32, enemy: Team) -
 
 /// Cheap per-frame structural check only (no blob search). Equals `analyze(..).structural_ok`.
 pub fn structural_check(bgra: &[u8], width: u32, height: u32, stride: u32) -> bool {
-    FrameView::new(bgra, width, height, stride).is_some_and(|frame| frame.structural_ok())
+    structural_check_mode(bgra, width, height, stride, StructuralMode::Framed)
+}
+
+/// Per-frame structural validation with unchanged size and luminance-variance thresholds.
+/// Inner treats the entire crop as map interior. Neither mode accepts uniform pixels.
+pub fn structural_check_mode(
+    bgra: &[u8],
+    width: u32,
+    height: u32,
+    stride: u32,
+    mode: StructuralMode,
+) -> bool {
+    FrameView::new(bgra, width, height, stride).is_some_and(|frame| frame.structural_ok_mode(mode))
 }
 
 fn analyze_with_grid_limit(
@@ -257,7 +278,14 @@ impl<'a> FrameView<'a> {
     }
 
     fn structural_ok(&self) -> bool {
-        let border = constants::BORDER_WIDTH as usize;
+        self.structural_ok_mode(StructuralMode::Framed)
+    }
+
+    fn structural_ok_mode(&self, mode: StructuralMode) -> bool {
+        let border = match mode {
+            StructuralMode::Framed => constants::BORDER_WIDTH as usize,
+            StructuralMode::Inner => 0,
+        };
         if self.width < constants::MINIMUM_STRUCTURAL_SIDE as usize
             || self.height < constants::MINIMUM_STRUCTURAL_SIDE as usize
         {
@@ -311,19 +339,18 @@ impl<'a> FrameView<'a> {
         }
 
         if all_equal
-            || border_count == constants::FIRST_INDEX
+            || (mode == StructuralMode::Framed && border_count == constants::FIRST_INDEX)
             || interior_count == constants::FIRST_INDEX
         {
             return false;
         }
 
         let interior_mean = interior_sum / interior_count as f64;
-        let border_mean = border_sum / border_count as f64;
         let variance = (interior_square_sum / interior_count as f64
             - interior_mean * interior_mean)
             .max(constants::ZERO_SCORE);
         let interior_stddev = variance.sqrt();
-        border_mean < interior_mean
+        (mode == StructuralMode::Inner || border_sum / (border_count as f64) < interior_mean)
             && (constants::MINIMUM_INTERIOR_LUMA_STDDEV..=constants::MAXIMUM_INTERIOR_LUMA_STDDEV)
                 .contains(&interior_stddev)
     }
@@ -497,6 +524,103 @@ fn to_milli(coordinate: f64, extent: usize) -> u16 {
 #[cfg(test)]
 mod tests {
     use super::{analyze_with_grid_limit, merge_candidate, Candidate, Team};
+
+    fn structural_mode_fixture() -> (Vec<u8>, Vec<u8>) {
+        let mut framed = Vec::new();
+        let mut inner = Vec::new();
+        for y in 0..70 {
+            for x in 0..70 {
+                let in_map = (3..67).contains(&x) && (3..67).contains(&y);
+                let value = if !in_map {
+                    5
+                } else if x < 6 || y < 6 || x >= 64 || y >= 64 {
+                    160
+                } else if (x + y) % 2 == 0 {
+                    60
+                } else {
+                    100
+                };
+                let pixel = [value, value, value, 255];
+                framed.extend_from_slice(&pixel);
+                if in_map {
+                    inner.extend_from_slice(&pixel);
+                }
+            }
+        }
+        (framed, inner)
+    }
+
+    #[test]
+    fn structural_modes_inner_texture_passes_without_a_dark_frame() {
+        let (_, inner) = structural_mode_fixture();
+        assert!(!super::structural_check(&inner, 64, 64, 256));
+        assert!(!super::structural_check_mode(
+            &inner,
+            64,
+            64,
+            256,
+            super::StructuralMode::Framed
+        ));
+        assert!(super::structural_check_mode(
+            &inner,
+            64,
+            64,
+            256,
+            super::StructuralMode::Inner
+        ));
+        assert!(!super::analyze(&inner, 64, 64, 256, Team::Dire).structural_ok);
+    }
+
+    #[test]
+    fn structural_modes_framed_preserves_the_existing_dark_border_check() {
+        let (framed, _) = structural_mode_fixture();
+        assert!(super::structural_check(&framed, 70, 70, 280));
+        assert!(super::structural_check_mode(
+            &framed,
+            70,
+            70,
+            280,
+            super::StructuralMode::Framed
+        ));
+        assert!(super::structural_check_mode(
+            &framed,
+            70,
+            70,
+            280,
+            super::StructuralMode::Inner
+        ));
+    }
+
+    #[test]
+    fn structural_modes_uniform_pixels_fail_both_modes() {
+        for mode in [super::StructuralMode::Inner, super::StructuralMode::Framed] {
+            for value in [0, 70, 255] {
+                assert!(!super::structural_check_mode(
+                    &vec![value; 64 * 64 * 4],
+                    64,
+                    64,
+                    256,
+                    mode
+                ));
+            }
+        }
+    }
+
+    #[test]
+    fn structural_modes_reject_small_malformed_and_excessive_variance() {
+        let extreme = (0..64 * 64)
+            .flat_map(|index| {
+                let value = if index % 2 == 0 { 0 } else { 255 };
+                [value, value, value, 255]
+            })
+            .collect::<Vec<_>>();
+        for mode in [super::StructuralMode::Inner, super::StructuralMode::Framed] {
+            assert!(!super::structural_check_mode(&[], 0, 0, 0, mode));
+            assert!(!super::structural_check_mode(&[20; 144], 6, 6, 24, mode));
+            assert!(!super::structural_check_mode(&[20; 10], 64, 64, 256, mode));
+            assert!(!super::structural_check_mode(&extreme, 64, 64, 256, mode));
+        }
+    }
 
     #[test]
     fn structural_check_matches_analyze_and_rejects_bad_input() {

@@ -2,10 +2,10 @@
 
 use crate::{OutputInfo, Rect};
 
-/// Default 1080p crop. v0 came from the owner-authored G-Maiden cv/region.rs measurement
-/// (x 8-290, y 790-1070) and did not match this owner's HUD in the first live test. v1 is
-/// an ESTIMATE read from that test's screenshot (frame about x 0..280, y 800..1074, widened to a square because the capture boundary requires one);
-/// UNVERIFIED on a full-screen capture. The Live tab lets the user nudge it.
+/// Default 1080p inner-map crop, excluding the grey HUD frame. v2 is an ESTIMATE
+/// from the owner's screenshot: x=10, y=811, 260x260. It is UNVERIFIED on a
+/// full-screen frame. The profile name selects Inner structural validation in the host;
+/// this region intentionally has no outer dark border. The user can nudge it in Live.
 pub(crate) fn profile_rect(output: &OutputInfo) -> Option<(Rect, &'static str)> {
     if output.width != 1920 || output.height != 1080 || output.dpi != 96 {
         return None;
@@ -13,12 +13,12 @@ pub(crate) fn profile_rect(output: &OutputInfo) -> Option<(Rect, &'static str)> 
 
     Some((
         Rect {
-            x: 0,
-            y: 797,
-            width: 280,
-            height: 280,
+            x: 10,
+            y: 811,
+            width: 260,
+            height: 260,
         },
-        "p1080-default-v1",
+        "p1080-default-v2",
     ))
 }
 
@@ -27,7 +27,7 @@ mod tests {
     use crate::{profile_rect, OutputInfo, Rect};
 
     #[test]
-    fn profile_rect_table_is_limited_to_the_measured_1080p_cell() {
+    fn profile_rect_table_is_limited_to_the_supported_1080p_cell() {
         let supported = OutputInfo {
             output_id: 1,
             width: 1920,
@@ -38,12 +38,12 @@ mod tests {
             profile_rect(&supported),
             Some((
                 Rect {
-                    x: 0,
-                    y: 797,
-                    width: 280,
-                    height: 280
+                    x: 10,
+                    y: 811,
+                    width: 260,
+                    height: 260
                 },
-                "p1080-default-v1"
+                "p1080-default-v2"
             )),
         );
 

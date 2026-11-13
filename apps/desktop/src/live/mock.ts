@@ -27,7 +27,9 @@ function initialScenario(): MockScenario {
 }
 
 let scenario = initialScenario();
-let invalidated = false;
+let mockPhaseReason = new URLSearchParams(window.location.search).get("reason");
+if (mockPhaseReason !== null) scenario = scenarioForReason(mockPhaseReason);
+let invalidated = mockPhaseReason === "user_invalidated";
 let frameSequence = 0;
 const mockProfileRect = { x: 0, y: 788, width: 292, height: 292 };
 const mockOutputBounds = { width: 1920, height: 1080 };
@@ -79,6 +81,7 @@ function updateMockConfig(patch: CaptureConfigPatch): CaptureConfig {
     crop_confirmed: patch.crop ? false : mockCaptureConfig.crop_confirmed,
     effective_rect: effective,
   };
+  if (patch.crop) recoverMockUserInvalidation();
   publishCapture();
   return copyMockCaptureConfig();
 }
@@ -100,7 +103,7 @@ function captureStatus() {
     crop_confirmed: mockCaptureConfig.crop_confirmed,
     display_fps: mockCaptureConfig.display_fps,
     paused: mockCaptureConfig.paused,
-    phase_reason: scenario === "calibrating" ? "waiting for structural checks" : null,
+    phase_reason: mockPhaseReason ?? (mockCaptureConfig.paused ? "paused" : scenario === "calibrating" ? "calibrating" : scenario === "lost" ? "reopening" : null),
     grab_ms_mean: scenario === "live" && !mockCaptureConfig.paused ? 1.5 : null,
     analysis_ms_mean: scenario === "live" && !mockCaptureConfig.paused ? 4.2 : null,
   };
@@ -254,11 +257,42 @@ export function subscribeFrames(onFrame: (buffer: ArrayBuffer) => void): () => v
 }
 
 export function invalidateMock() {
-  if (invalidated) return;
   invalidated = true;
+  mockPhaseReason = "user_invalidated";
+  scenario = "unsupported";
+  publishCapture();
+  publishRisk(null);
+}
+
+function scenarioForReason(reason: string): MockScenario {
+  if (reason === "paused" || reason === "calibrating") return "calibrating";
+  if (reason === "reopening" || reason === "access_lost") return "lost";
+  return "unsupported";
+}
+
+/** Explicit development controls; this module is guarded by import.meta.env.DEV. */
+export function setMockCaptureReason(selection: string) {
+  mockPhaseReason = selection === "live" || selection === "none" ? null : selection;
+  invalidated = selection === "user_invalidated";
+  scenario = selection === "live" ? "live" : selection === "none" ? "unsupported" : scenarioForReason(selection);
+  publishCapture();
+  publishRisk(null);
+}
+
+function recoverMockUserInvalidation() {
+  if (!invalidated) return;
+  invalidated = false;
+  mockPhaseReason = null;
   scenario = "calibrating";
   publishCapture();
   publishRisk(null);
+  window.setTimeout(() => {
+    if (!invalidated && mockPhaseReason === null && scenario === "calibrating") {
+      scenario = "live";
+      publishCapture();
+      publishRisk(null);
+    }
+  }, 300);
 }
 
 export async function getMockCaptureConfig(): Promise<CaptureConfig> {
@@ -267,6 +301,10 @@ export async function getMockCaptureConfig(): Promise<CaptureConfig> {
 
 export async function invokeMockCaptureConfig(command: string, args?: Record<string, unknown>): Promise<CaptureConfig> {
   if (command === "capture_get_config") return copyMockCaptureConfig();
+  if (command === "capture_retry") {
+    recoverMockUserInvalidation();
+    return copyMockCaptureConfig();
+  }
   if (command === "capture_set_config") {
     const patch = args?.patch;
     if (typeof patch !== "object" || patch === null || Array.isArray(patch)) throw new Error("CAPTURE_CONFIG_INVALID");
@@ -303,6 +341,7 @@ export async function invokeMockCaptureConfig(command: string, args?: Record<str
   }
   if (command === "capture_confirm_crop") {
     mockCaptureConfig = { ...mockCaptureConfig, crop_confirmed: true };
+    recoverMockUserInvalidation();
     publishCapture();
     return copyMockCaptureConfig();
   }

@@ -6,7 +6,7 @@ use kohbor_capture::{
     Reject, STRUCTURAL_PASS_FRAMES,
 };
 use kohbor_capture_native::{Grab, MinimapGrabber, OpenError, OutputInfo};
-use kohbor_minimap_cv::{FrameProposal, PixelReport, Team};
+use kohbor_minimap_cv::{FrameProposal, PixelReport, StructuralMode, Team};
 use kohbor_risk::{Meter, OwnGsi, RiskEngine, RiskEvent, RiskOutput, TickInput};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -45,7 +45,6 @@ static CAPTURE_STATUS: OnceLock<Mutex<Option<Value>>> = OnceLock::new();
 static FRAME_SUBSCRIBERS: OnceLock<Mutex<Vec<Channel<InvokeResponseBody>>>> = OnceLock::new();
 static CAPTURE_CONFIG: OnceLock<Arc<CaptureConfigStore>> = OnceLock::new();
 static FRAME_INVALIDATE_GATE: Mutex<()> = Mutex::new(());
-static USER_INVALIDATE: AtomicBool = AtomicBool::new(false);
 static HOST_STARTED: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
@@ -148,11 +147,13 @@ struct CaptureConfigState {
     output: Option<OutputInfo>,
     proposal_search_pending: bool,
     revision: u64,
+    retry_generation: u64,
 }
 
 struct CaptureConfigStore {
     data_dir: PathBuf,
     state: Mutex<CaptureConfigState>,
+    user_invalidated: AtomicBool,
 }
 
 impl CaptureConfigStore {
@@ -179,7 +180,9 @@ impl CaptureConfigStore {
                 output: None,
                 proposal_search_pending: false,
                 revision: 0,
+                retry_generation: 0,
             }),
+            user_invalidated: AtomicBool::new(false),
         }
     }
 
@@ -187,12 +190,30 @@ impl CaptureConfigStore {
         lock(&self.state).config.clone()
     }
 
-    fn snapshot(&self) -> (CaptureConfig, u64) {
+    fn snapshot(&self) -> (CaptureConfig, u64, u64) {
         let state = lock(&self.state);
-        (state.config.clone(), state.revision)
+        (state.config.clone(), state.revision, state.retry_generation)
+    }
+
+    fn invalidate_user(&self) {
+        let _gate = lock(&FRAME_INVALIDATE_GATE);
+        self.user_invalidated.store(true, Ordering::Release);
+    }
+
+    fn begin_retry(&self, state: &mut CaptureConfigState) {
+        let _gate = lock(&FRAME_INVALIDATE_GATE);
+        self.user_invalidated.store(false, Ordering::Release);
+        state.retry_generation = state.retry_generation.saturating_add(1);
+    }
+
+    fn retry(&self) -> CaptureConfig {
+        let mut state = lock(&self.state);
+        self.begin_retry(&mut state);
+        state.config.clone()
     }
 
     fn set(&self, patch: CaptureConfigPatch) -> Result<CaptureConfig, String> {
+        let layout_action = patch.crop.is_some();
         let mut state = lock(&self.state);
         let mut next = state.config.clone();
         if let Some(crop) = patch.crop {
@@ -219,7 +240,7 @@ impl CaptureConfigStore {
                     .into(),
             );
         } else {
-            // The only supported profile is square (280 px, p1080-default-v1), even before its
+            // The only supported profile is square (260 px, p1080-default-v2), even before its
             // output is observed; keep the resulting side inside the contract bounds.
             let side = |delta: i32| i64::from(DEFAULT_PROFILE_SIDE) + i64::from(delta);
             if next.crop.dw.abs_diff(next.crop.dh) > 1
@@ -231,6 +252,9 @@ impl CaptureConfigStore {
         }
         if next == state.config {
             // Nothing changed: do not write (an ignored corrupt file stays untouched).
+            if layout_action {
+                self.begin_retry(&mut state);
+            }
             return Ok(next);
         }
         self.persist(&next)?;
@@ -239,6 +263,9 @@ impl CaptureConfigStore {
         }
         state.config = next;
         state.revision = state.revision.saturating_add(1);
+        if layout_action {
+            self.begin_retry(&mut state);
+        }
         Ok(state.config.clone())
     }
 
@@ -260,6 +287,7 @@ impl CaptureConfigStore {
         state.config = next;
         state.proposal_search_pending = false;
         state.revision = state.revision.saturating_add(1);
+        self.begin_retry(&mut state);
         Ok(state.config.clone())
     }
 
@@ -270,6 +298,7 @@ impl CaptureConfigStore {
         self.persist(&next)?;
         state.config = next;
         state.revision = state.revision.saturating_add(1);
+        self.begin_retry(&mut state);
         Ok(state.config.clone())
     }
 
@@ -358,6 +387,7 @@ impl CaptureConfigStore {
         state.config = next;
         state.proposal_search_pending = false;
         state.revision = state.revision.saturating_add(1);
+        self.begin_retry(&mut state);
         Ok(state.config.clone())
     }
 
@@ -644,8 +674,8 @@ fn capture_status_slot() -> &'static Mutex<Option<Value>> {
 }
 
 const MAX_FRAME_SUBSCRIBERS: usize = 8;
-/// Side of the only supported profile rect (kohbor-capture-native p1080-default-v1).
-const DEFAULT_PROFILE_SIDE: u32 = 280;
+/// Side of the only supported profile rect (kohbor-capture-native p1080-default-v2).
+const DEFAULT_PROFILE_SIDE: u32 = 260;
 
 fn frame_subscribers() -> &'static Mutex<Vec<Channel<InvokeResponseBody>>> {
     FRAME_SUBSCRIBERS.get_or_init(|| Mutex::new(Vec::new()))
@@ -951,7 +981,14 @@ impl CaptureAccess for CaptureControllerAccess {
 }
 
 trait FrameAnalyzer {
-    fn structural_check(&mut self, bgra: &[u8], width: u32, height: u32, stride: u32) -> bool;
+    fn structural_check(
+        &mut self,
+        bgra: &[u8],
+        width: u32,
+        height: u32,
+        stride: u32,
+        mode: StructuralMode,
+    ) -> bool;
 
     fn analyze(
         &mut self,
@@ -966,8 +1003,15 @@ trait FrameAnalyzer {
 struct MinimapAnalyzer;
 
 impl FrameAnalyzer for MinimapAnalyzer {
-    fn structural_check(&mut self, bgra: &[u8], width: u32, height: u32, stride: u32) -> bool {
-        kohbor_minimap_cv::structural_check(bgra, width, height, stride)
+    fn structural_check(
+        &mut self,
+        bgra: &[u8],
+        width: u32,
+        height: u32,
+        stride: u32,
+        mode: StructuralMode,
+    ) -> bool {
+        kohbor_minimap_cv::structural_check_mode(bgra, width, height, stride, mode)
     }
 
     fn analyze(
@@ -981,7 +1025,7 @@ impl FrameAnalyzer for MinimapAnalyzer {
         match enemy {
             Some(enemy) => kohbor_minimap_cv::analyze(bgra, width, height, stride, enemy),
             None => PixelReport {
-                structural_ok: self.structural_check(bgra, width, height, stride),
+                structural_ok: kohbor_minimap_cv::structural_check(bgra, width, height, stride),
                 enemy_blobs: Vec::new(),
             },
         }
@@ -1338,13 +1382,14 @@ struct CaptureHostWorker<S, C, A, R, E, H> {
     next_sequence: u64,
     next_open_at: Instant,
     retry: RetryBackoff,
-    unsupported_output: bool,
+    unsupported_reason: Option<&'static str>,
     user_invalidated: bool,
     lost: bool,
     phase_reason: Option<&'static str>,
     paused: bool,
     active_crop: CropOffsets,
     config_revision: u64,
+    retry_generation: u64,
     session_epoch: Option<u64>,
     output: Option<OutputInfo>,
     profile_rect: Option<Rect>,
@@ -1377,7 +1422,7 @@ where
     H: FrameHeaderCodec,
 {
     fn new(source: S, services: WorkerServices<A, R, E, H>, now: Instant) -> Self {
-        let (config, config_revision) = services.config.snapshot();
+        let (config, config_revision, retry_generation) = services.config.snapshot();
         Self {
             source,
             controller: None,
@@ -1400,13 +1445,14 @@ where
             next_sequence: 0,
             next_open_at: now,
             retry: RetryBackoff::default(),
-            unsupported_output: false,
+            unsupported_reason: None,
             user_invalidated: false,
             lost: false,
             phase_reason: None,
             paused: false,
             active_crop: config.crop,
             config_revision,
+            retry_generation,
             session_epoch: None,
             output: None,
             profile_rect: None,
@@ -1448,7 +1494,7 @@ where
                 || !self.capture_enabled
                 || self.user_invalidated
                 || !self.source_open
-                || self.unsupported_output
+                || self.unsupported_reason.is_some()
             {
                 ANALYSIS_INTERVAL
             } else {
@@ -1466,11 +1512,24 @@ where
     }
 
     fn cycle_at(&mut self, now: Instant, now_ms: u64) {
-        if USER_INVALIDATE.load(Ordering::Acquire) && !self.user_invalidated {
+        let (config, revision, retry_generation) = self.config.snapshot();
+        if retry_generation != self.retry_generation {
+            self.retry_generation = retry_generation;
+            self.user_invalidated = false;
+            self.unsupported_reason = None;
+            self.profile_rect = None;
+            self.clear_frames();
+            if let Some(controller) = self.controller.as_mut() {
+                controller.invalidate_user(now_ms);
+            }
+            self.lost = false;
+            self.phase_reason = Some("calibrating");
+            self.next_open_at = now;
+        }
+        if self.config.user_invalidated.load(Ordering::Acquire) && !self.user_invalidated {
             self.invalidate_for_user(now_ms);
         }
 
-        let (config, revision) = self.config.snapshot();
         if revision != self.config_revision {
             if config.crop != self.active_crop {
                 self.profile_rect = None;
@@ -1494,18 +1553,23 @@ where
             self.phase_reason = Some("paused");
             self.clear_frames();
         } else if !self.capture_enabled || self.user_invalidated {
-            self.unsupported_output = true;
+            self.clear_frames();
         } else {
             self.ensure_source(now);
             if self.source_open {
                 self.refresh_capture_profile(now, now_ms, gsi.as_ref());
-                self.start_proposal_if_requested();
-                let proposal_grab_due = self.proposal_search_rect.is_some();
-                if proposal_grab_due {
-                    self.capture_proposal_frame(now, now_ms);
-                }
-                if !proposal_grab_due && !self.unsupported_output && self.session_epoch.is_some() {
-                    self.capture_one(now, now_ms, gsi.as_ref());
+                if self.source_open {
+                    self.start_proposal_if_requested();
+                    let proposal_grab_due = self.proposal_search_rect.is_some();
+                    if proposal_grab_due {
+                        self.capture_proposal_frame(now, now_ms);
+                    }
+                    if !proposal_grab_due
+                        && self.unsupported_reason.is_none()
+                        && self.session_epoch.is_some()
+                    {
+                        self.capture_one(now, now_ms, gsi.as_ref());
+                    }
                 }
             }
         }
@@ -1536,8 +1600,13 @@ where
                 self.output = self.source.output();
                 self.phase_reason = Some("calibrating");
             }
-            Err(_error) => {
+            Err(error) => {
                 self.mark_lost(now);
+                self.unsupported_reason = match error {
+                    OpenError::NoGameWindow => Some("no_game_window"),
+                    OpenError::Unsupported(_) => Some("unsupported_resolution"),
+                    OpenError::Os(_) => None,
+                };
                 self.schedule_retry(now);
             }
         }
@@ -1567,12 +1636,16 @@ where
             return;
         };
         let Some((rect, profile)) = self.source.profile_rect(&output) else {
-            self.unsupported_output = true;
+            self.unsupported_reason = Some("unsupported_resolution");
             self.profile_rect = None;
             self.profile_name = None;
             self.config.clear_profile();
-            self.phase_reason = Some("unsupported_output");
             self.clear_frames();
+            // OutputInfo is cached by the native grabber. Reopen after backoff so a
+            // restored resolution/DPI can be observed without restarting the app.
+            self.source.close();
+            self.source_open = false;
+            self.schedule_retry(now);
             return;
         };
         let (config, geometry_changed) = self.config.set_profile(rect, output);
@@ -1583,25 +1656,23 @@ where
             self.config.set_proposal(None, ProposalStatus::NotFound);
         }
         let Some(effective_rect) = config.effective_rect.map(Rect::from) else {
-            self.unsupported_output = true;
+            self.unsupported_reason = Some("crop_out_of_bounds");
             self.profile_rect = None;
             self.profile_name = Some(profile);
-            self.phase_reason = Some("unsupported_output");
             self.clear_frames();
             return;
         };
-        let was_unsupported = self.unsupported_output;
+        let was_unsupported = self.unsupported_reason.is_some();
         let Some(window_rect) = self.source.game_window() else {
-            self.unsupported_output = true;
+            self.unsupported_reason = Some("no_game_window");
             self.profile_rect = Some(effective_rect);
             self.profile_name = Some(profile);
-            self.phase_reason = Some("unsupported_output");
             self.clear_frames();
             return;
         };
 
-        self.unsupported_output = false;
-        if self.phase_reason == Some("unsupported_output") {
+        self.unsupported_reason = None;
+        if was_unsupported {
             self.phase_reason = Some("calibrating");
         }
         let environment = Environment {
@@ -1647,8 +1718,7 @@ where
         if changed {
             controller.observe_environment(&environment);
             if !controller.begin(environment.clone(), effective_rect, profile) {
-                self.unsupported_output = true;
-                self.phase_reason = Some("unsupported_output");
+                self.unsupported_reason = Some("crop_out_of_bounds");
                 self.clear_frames();
                 return;
             }
@@ -1659,8 +1729,7 @@ where
             CalibrationPhase::Uncalibrated | CalibrationPhase::RecalibrationNeeded
         ) {
             if !controller.begin(environment.clone(), effective_rect, profile) {
-                self.unsupported_output = true;
-                self.phase_reason = Some("unsupported_output");
+                self.unsupported_reason = Some("crop_out_of_bounds");
                 self.clear_frames();
                 return;
             }
@@ -1857,9 +1926,16 @@ where
                 self.retry.reset();
                 self.lost = false;
                 self.phase_reason = Some("calibrating");
+                // Profile IDs carry crop semantics: v2 excludes the HUD frame. Other
+                // profiles retain Framed validation, including future framed profiles.
+                let mode = if self.profile_name.as_deref() == Some("p1080-default-v2") {
+                    StructuralMode::Inner
+                } else {
+                    StructuralMode::Framed
+                };
                 let structural_ok =
                     self.analyzer
-                        .structural_check(&self.grab_buffer, width, height, stride);
+                        .structural_check(&self.grab_buffer, width, height, stride, mode);
                 let was_crop_visible = self
                     .controller
                     .as_ref()
@@ -1945,7 +2021,7 @@ where
 
     fn admit_candidate(&mut self, candidate: CandidateFrame, now_ms: u64) -> bool {
         let _invalidate_gate = lock(&FRAME_INVALIDATE_GATE);
-        if USER_INVALIDATE.load(Ordering::Acquire) || self.user_invalidated {
+        if self.config.user_invalidated.load(Ordering::Acquire) || self.user_invalidated {
             return false;
         }
         let Some(controller) = self.controller.as_mut() else {
@@ -1972,7 +2048,7 @@ where
     }
 
     fn analysis_tick(&mut self, now_ms: u64, gsi: Option<&GsiSnapshot>) {
-        let externally_invalidated = USER_INVALIDATE.load(Ordering::Acquire);
+        let externally_invalidated = self.config.user_invalidated.load(Ordering::Acquire);
         let enemy = fresh_enemy_team(gsi);
         let crop_visible = self
             .controller
@@ -1982,7 +2058,12 @@ where
             && !self.user_invalidated;
         let latest_admitted = crop_visible.then(|| self.latest_admitted.read()).flatten();
 
-        let coverage = if self.paused || externally_invalidated || self.user_invalidated {
+        let coverage = if self.paused
+            || externally_invalidated
+            || self.user_invalidated
+            || !self.capture_enabled
+            || self.unsupported_reason.is_some()
+        {
             Coverage::Unavailable
         } else {
             self.controller
@@ -2004,6 +2085,8 @@ where
                 pixels.stride,
                 enemy,
             );
+            // analyze() retains its Framed diagnostic flag. Only the per-frame check
+            // above, with the profile's mode, controls calibration/liveness.
             let finished = Instant::now();
             self.analysis_duration
                 .record(finished, finished.duration_since(started));
@@ -2065,6 +2148,7 @@ where
     }
 
     fn invalidate_for_user(&mut self, now_ms: u64) {
+        self.config.invalidate_user();
         self.user_invalidated = true;
         if let Some(controller) = self.controller.as_mut() {
             controller.invalidate_user(now_ms);
@@ -2081,7 +2165,11 @@ where
         if self.paused {
             return "paused";
         }
-        if !self.capture_enabled || self.user_invalidated || self.unsupported_output {
+        if !self.capture_enabled
+            || self.user_invalidated
+            || self.config.user_invalidated.load(Ordering::Acquire)
+            || self.unsupported_reason.is_some()
+        {
             return "unsupported";
         }
         if self.lost {
@@ -2099,8 +2187,14 @@ where
         if self.paused {
             return Some("paused");
         }
-        if self.unsupported_output {
-            return Some("unsupported_output");
+        if !self.capture_enabled {
+            return Some("capture_disabled");
+        }
+        if self.user_invalidated || self.config.user_invalidated.load(Ordering::Acquire) {
+            return Some("user_invalidated");
+        }
+        if let Some(reason) = self.unsupported_reason {
+            return Some(reason);
         }
         if self.lost {
             return Some(self.phase_reason.unwrap_or("reopening"));
@@ -2136,7 +2230,7 @@ where
             return;
         }
         let _invalidate_gate = lock(&FRAME_INVALIDATE_GATE);
-        if USER_INVALIDATE.load(Ordering::Acquire) || self.user_invalidated {
+        if self.config.user_invalidated.load(Ordering::Acquire) || self.user_invalidated {
             return;
         }
         let Some(frame) = self.latest_admitted.read() else {
@@ -2392,6 +2486,11 @@ pub(crate) async fn capture_confirm_crop() -> Result<CaptureConfig, String> {
 }
 
 #[tauri::command(async)]
+pub(crate) async fn capture_retry() -> Result<CaptureConfig, String> {
+    Ok(test_config_store()?.retry())
+}
+
+#[tauri::command(async)]
 pub(crate) fn minimap_subscribe(on_frame: Channel<InvokeResponseBody>) -> Result<(), String> {
     let mut subscribers = lock(frame_subscribers());
     subscribers.push(on_frame);
@@ -2412,8 +2511,7 @@ pub(crate) fn capture_status() -> Value {
 
 #[tauri::command(async)]
 pub(crate) fn capture_invalidate() -> Result<(), String> {
-    let _invalidate_gate = lock(&FRAME_INVALIDATE_GATE);
-    USER_INVALIDATE.store(true, Ordering::Release);
+    test_config_store()?.invalidate_user();
     Ok(())
 }
 
@@ -2561,6 +2659,7 @@ mod tests {
     }
 
     struct FakeCaptureAccess {
+        reject_begin: bool,
         epoch: u64,
         generation: u64,
         validated: bool,
@@ -2575,6 +2674,7 @@ mod tests {
     impl FakeCaptureAccess {
         fn unvalidated(epoch: u64) -> Self {
             Self {
+                reject_begin: false,
                 epoch,
                 generation: 0,
                 validated: false,
@@ -2598,6 +2698,9 @@ mod tests {
         }
 
         fn begin(&mut self, _environment: Environment, _rect: Rect, _profile: String) -> bool {
+            if self.reject_begin {
+                return false;
+            }
             self.generation += 1;
             self.validated = false;
             self.invalidated = false;
@@ -2728,13 +2831,22 @@ mod tests {
         input_first_bytes: Vec<Option<u8>>,
         structural_calls: usize,
         structural_input_sizes: Vec<(u32, u32, u32)>,
+        structural_modes: Vec<StructuralMode>,
         structural_results: VecDeque<bool>,
     }
 
     impl FrameAnalyzer for FakeAnalyzer {
-        fn structural_check(&mut self, _bgra: &[u8], width: u32, height: u32, stride: u32) -> bool {
+        fn structural_check(
+            &mut self,
+            _bgra: &[u8],
+            width: u32,
+            height: u32,
+            stride: u32,
+            mode: StructuralMode,
+        ) -> bool {
             self.structural_calls += 1;
             self.structural_input_sizes.push((width, height, stride));
+            self.structural_modes.push(mode);
             self.structural_results.pop_front().unwrap_or(true)
         }
 
@@ -3188,17 +3300,7 @@ mod tests {
 
     #[test]
     fn user_invalidation_prevents_later_frame_publication() {
-        struct ResetInvalidation;
-        impl Drop for ResetInvalidation {
-            fn drop(&mut self) {
-                let _gate = lock(&FRAME_INVALIDATE_GATE);
-                USER_INVALIDATE.store(false, Ordering::Release);
-            }
-        }
-
         let _status_gate = lock(&STATUS_TEST_GATE);
-        USER_INVALIDATE.store(false, Ordering::Release);
-        let _reset = ResetInvalidation;
         let start = Instant::now();
         let mut worker = fake_worker(FakeFrameSource::supported(), true, start, events());
         let mut controller = FakeCaptureAccess::unvalidated(7);
@@ -3206,7 +3308,7 @@ mod tests {
         controller.last_healthy_ms = Some(0);
         worker.controller = Some(controller);
         worker.latest_admitted.replace(admitted_pixels(1, 0));
-        capture_invalidate().unwrap();
+        worker.config.invalidate_user();
         worker.cycle_at(start, 10);
         let mut sinks = vec![FakeFrameSink::default()];
 
@@ -3786,10 +3888,10 @@ mod tests {
     #[test]
     fn effective_crop_applies_offsets_to_profile_rect() {
         let profile = Rect {
-            x: 0,
-            y: 797,
-            width: 280,
-            height: 280,
+            x: 10,
+            y: 811,
+            width: 260,
+            height: 260,
         };
         let output = OutputInfo {
             output_id: 4,
@@ -3809,10 +3911,10 @@ mod tests {
                 output,
             ),
             Some(Rect {
-                x: 0,
-                y: 796,
-                width: 276,
-                height: 276,
+                x: 10,
+                y: 810,
+                width: 256,
+                height: 256,
             })
         );
     }
@@ -4066,14 +4168,14 @@ mod tests {
     fn config_snapshot_returns_settings_and_revision_under_one_state_lock() {
         let dir = test_config_dir("snapshot");
         let store = CaptureConfigStore::open(dir.clone());
-        let (_, initial_revision) = store.snapshot();
+        let (_, initial_revision, _) = store.snapshot();
         let changed = store
             .set(CaptureConfigPatch {
                 display_fps: Some(15),
                 ..CaptureConfigPatch::default()
             })
             .unwrap();
-        let (snapshot, revision) = store.snapshot();
+        let (snapshot, revision, _) = store.snapshot();
         assert_eq!(snapshot, changed);
         assert_eq!(snapshot.display_fps, 15);
         assert_eq!(revision, initial_revision + 1);
@@ -4393,7 +4495,7 @@ mod tests {
         };
         worker.refresh_capture_profile(start + Duration::from_millis(10), 10, Some(&gsi));
         assert_eq!(worker.phase(10), "unsupported");
-        assert_eq!(worker.phase_reason(10), Some("unsupported_output"));
+        assert_eq!(worker.phase_reason(10), Some("no_game_window"));
 
         worker.source.window = Some(Rect {
             x: 0,
@@ -4799,14 +4901,14 @@ mod tests {
             dpi: 96,
         };
         let (profile, name) = kohbor_capture_native::profile_rect(&output).unwrap();
-        assert_eq!(name, "p1080-default-v1");
+        assert_eq!(name, "p1080-default-v2");
         assert_eq!(
             profile,
             Rect {
-                x: 0,
-                y: 797,
-                width: 280,
-                height: 280
+                x: 10,
+                y: 811,
+                width: 260,
+                height: 260
             }
         );
         store.set_profile(profile, output);
@@ -4825,8 +4927,8 @@ mod tests {
                 ..CaptureConfigPatch::default()
             })
             .unwrap();
-        assert_eq!(valid.effective_rect.unwrap().width, 268);
-        assert_eq!(valid.effective_rect.unwrap().height, 269);
+        assert_eq!(valid.effective_rect.unwrap().width, 248);
+        assert_eq!(valid.effective_rect.unwrap().height, 249);
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -4967,5 +5069,401 @@ mod tests {
         assert_eq!(status["sent_total"], 2);
         assert_eq!(sinks[0].messages.len(), 2);
         let _ = std::fs::remove_dir_all(&worker.config.data_dir);
+    }
+
+    type Fix2Worker = CaptureHostWorker<
+        FakeFrameSource,
+        FakeCaptureAccess,
+        FakeAnalyzer,
+        FakeRisk,
+        FakeEvents,
+        MvpFrameHeaderCodec,
+    >;
+
+    fn fix2_worker(start: Instant) -> Fix2Worker {
+        let output = OutputInfo {
+            output_id: 4,
+            width: 1920,
+            height: 1080,
+            dpi: 96,
+        };
+        let (rect, name) = kohbor_capture_native::profile_rect(&output).unwrap();
+        let mut worker = worker_with_profile(start, rect);
+        worker.source.profile.as_mut().unwrap().1 = name.to_owned();
+        worker.gsi = GsiView::new(|| GsiSnapshot {
+            team: Some("radiant".to_owned()),
+            session_epoch: Some(7),
+            age_ms: Some(0),
+            ..GsiSnapshot::default()
+        });
+        worker
+    }
+
+    fn fix2_assert_revalidated(
+        worker: &mut Fix2Worker,
+        start: Instant,
+        at_ms: u64,
+        old_generation: u64,
+    ) {
+        let mut sinks = vec![FakeFrameSink::default()];
+        for index in 0..30_u64 {
+            let profile = worker.source.profile.as_ref().unwrap().0;
+            worker
+                .source
+                .queue_sized_frame(profile.width, profile.height, 100 + index);
+            let ms = at_ms + index * 34;
+            worker.cycle_at(start + Duration::from_millis(ms), ms);
+            worker.publish_frame_to(start + Duration::from_millis(ms), ms, &mut sinks);
+            if index < 29 {
+                assert_ne!(worker.phase(ms), "live");
+                assert!(worker.latest_admitted.read().is_none());
+                assert!(sinks[0].messages.is_empty());
+            }
+        }
+        assert_eq!(worker.phase(at_ms + 29 * 34), "live");
+        assert!(worker.controller.as_ref().unwrap().generation().unwrap() > old_generation);
+        assert_eq!(sinks[0].messages.len(), 1);
+    }
+
+    #[test]
+    fn fix2_owner_invalidate_nudge_confirm_recovers_after_thirty_passes() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let mut worker = fix2_worker(start);
+        fix2_assert_revalidated(&mut worker, start, 0, 0);
+        let generation = worker.controller.as_ref().unwrap().generation().unwrap();
+        worker.invalidate_for_user(1100);
+        worker.cycle_at(start + Duration::from_millis(1100), 1100);
+        assert_eq!(worker.phase(1100), "unsupported");
+        assert_eq!(worker.phase_reason(1100), Some("user_invalidated"));
+        worker
+            .config
+            .set(CaptureConfigPatch {
+                crop: Some(CropOffsets {
+                    dx: 1,
+                    ..CropOffsets::default()
+                }),
+                ..CaptureConfigPatch::default()
+            })
+            .unwrap();
+        worker.config.confirm_crop().unwrap();
+        fix2_assert_revalidated(&mut worker, start, 1200, generation);
+    }
+
+    #[test]
+    fn fix2_no_game_window_has_distinct_reason_and_recovers() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let mut worker = fix2_worker(start);
+        let window = worker.source.window.take();
+        worker.cycle_at(start, 0);
+        assert_eq!(worker.phase(0), "unsupported");
+        assert_eq!(worker.phase_reason(0), Some("no_game_window"));
+        let generation = worker.controller.as_ref().unwrap().generation().unwrap();
+        worker.source.window = window;
+        fix2_assert_revalidated(&mut worker, start, 100, generation);
+    }
+
+    #[test]
+    fn fix2_invalid_crop_for_output_has_distinct_reason_and_reset_recovers() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let mut worker = fix2_worker(start);
+        worker.config.clear_profile();
+        worker
+            .config
+            .set(CaptureConfigPatch {
+                crop: Some(CropOffsets {
+                    dx: -100,
+                    ..CropOffsets::default()
+                }),
+                ..CaptureConfigPatch::default()
+            })
+            .unwrap();
+        worker.cycle_at(start, 0);
+        assert_eq!(worker.phase(0), "unsupported");
+        assert_eq!(worker.phase_reason(0), Some("crop_out_of_bounds"));
+        let generation = worker.controller.as_ref().unwrap().generation().unwrap();
+        worker.config.reset_crop().unwrap();
+        fix2_assert_revalidated(&mut worker, start, 100, generation);
+    }
+
+    #[test]
+    fn fix2_1440p_has_distinct_reason_and_resolution_return_recovers() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let mut worker = fix2_worker(start);
+        let output = worker.source.output;
+        let profile = worker.source.profile.take();
+        worker.source.output = Some(OutputInfo {
+            width: 2560,
+            height: 1440,
+            ..output.unwrap()
+        });
+        worker.cycle_at(start, 0);
+        assert_eq!(worker.phase(0), "unsupported");
+        assert_eq!(worker.phase_reason(0), Some("unsupported_resolution"));
+        let generation = worker.controller.as_ref().unwrap().generation().unwrap();
+        worker.source.output = output;
+        worker.source.profile = profile;
+        fix2_assert_revalidated(&mut worker, start, 600, generation);
+        assert!(worker.source.open_calls > 0);
+    }
+
+    #[test]
+    fn fix2_controller_rejection_has_crop_reason_and_recovers() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let mut worker = fix2_worker(start);
+        worker.controller.as_mut().unwrap().reject_begin = true;
+        worker.profile_rect = None;
+        worker.cycle_at(start, 0);
+        assert_eq!(worker.phase_reason(0), Some("crop_out_of_bounds"));
+        worker.controller.as_mut().unwrap().reject_begin = false;
+        let generation = worker.controller.as_ref().unwrap().generation().unwrap();
+        fix2_assert_revalidated(&mut worker, start, 100, generation);
+    }
+
+    #[test]
+    fn fix2_disabled_capture_has_distinct_reason() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let mut worker = fix2_worker(start);
+        worker.capture_enabled = false;
+        worker.cycle_at(start, 0);
+        assert_eq!(worker.phase(0), "unsupported");
+        assert_eq!(worker.phase_reason(0), Some("capture_disabled"));
+        assert!(worker.source.grabbed_rects.is_empty());
+    }
+
+    #[test]
+    fn fix2_each_layout_action_retries_even_when_crop_is_unchanged() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        for action in ["retry", "same_crop", "reset", "accept", "confirm"] {
+            let start = Instant::now();
+            let mut worker = fix2_worker(start);
+            worker.config.confirm_crop().unwrap();
+            fix2_assert_revalidated(&mut worker, start, 0, 0);
+            let generation = worker.controller.as_ref().unwrap().generation().unwrap();
+            worker.config.invalidate_user();
+            worker.cycle_at(start + Duration::from_millis(1100), 1100);
+            assert_eq!(
+                worker.phase_reason(1100),
+                Some("user_invalidated"),
+                "{action}"
+            );
+            match action {
+                "retry" => {
+                    worker.config.retry();
+                }
+                "same_crop" => {
+                    worker
+                        .config
+                        .set(CaptureConfigPatch {
+                            crop: Some(CropOffsets::default()),
+                            ..CaptureConfigPatch::default()
+                        })
+                        .unwrap();
+                }
+                "reset" => {
+                    worker.config.reset_crop().unwrap();
+                }
+                "accept" => {
+                    let profile = worker.source.profile.as_ref().unwrap().0;
+                    worker
+                        .config
+                        .set_proposal(Some(profile), ProposalStatus::Found);
+                    worker.config.accept_proposal().unwrap();
+                }
+                "confirm" => {
+                    worker.config.confirm_crop().unwrap();
+                }
+                _ => unreachable!(),
+            }
+            assert_eq!(worker.config.get().crop, CropOffsets::default());
+            fix2_assert_revalidated(&mut worker, start, 1200, generation);
+            let _ = std::fs::remove_dir_all(&worker.config.data_dir);
+        }
+    }
+
+    #[test]
+    fn fix2_fps_pause_and_rejected_patch_do_not_clear_user_invalidation() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let mut worker = fix2_worker(start);
+        worker.config.invalidate_user();
+        worker
+            .config
+            .set(CaptureConfigPatch {
+                display_fps: Some(15),
+                ..CaptureConfigPatch::default()
+            })
+            .unwrap();
+        worker.cycle_at(start, 0);
+        assert_eq!(worker.phase_reason(0), Some("user_invalidated"));
+        worker
+            .config
+            .set(CaptureConfigPatch {
+                paused: Some(true),
+                ..CaptureConfigPatch::default()
+            })
+            .unwrap();
+        worker.cycle_at(start + Duration::from_millis(100), 100);
+        assert_eq!(worker.phase_reason(100), Some("paused"));
+        worker
+            .config
+            .set(CaptureConfigPatch {
+                paused: Some(false),
+                ..CaptureConfigPatch::default()
+            })
+            .unwrap();
+        assert!(worker
+            .config
+            .set(CaptureConfigPatch {
+                crop: Some(CropOffsets {
+                    dx: -200,
+                    ..CropOffsets::default()
+                }),
+                ..CaptureConfigPatch::default()
+            })
+            .is_err());
+        worker.cycle_at(start + Duration::from_millis(200), 200);
+        assert_eq!(worker.phase_reason(200), Some("user_invalidated"));
+        assert!(worker.source.grabbed_rects.is_empty());
+        let _ = std::fs::remove_dir_all(&worker.config.data_dir);
+    }
+
+    #[test]
+    fn fix2_open_errors_have_distinct_reasons_and_recover_after_backoff() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        for (error, reason) in [
+            (OpenError::NoGameWindow, "no_game_window"),
+            (
+                OpenError::Unsupported("2560x1440".to_owned()),
+                "unsupported_resolution",
+            ),
+        ] {
+            let start = Instant::now();
+            let mut worker = fix2_worker(start);
+            worker.source.close();
+            worker.source_open = false;
+            worker.source.open_error = Some(error);
+            worker.cycle_at(start, 0);
+            assert_eq!(worker.phase(0), "unsupported");
+            assert_eq!(worker.phase_reason(0), Some(reason));
+            let generation = worker.controller.as_ref().unwrap().generation().unwrap();
+            worker.source.open_error = None;
+            fix2_assert_revalidated(&mut worker, start, 600, generation);
+        }
+    }
+
+    #[test]
+    fn fix2_retry_keeps_capture_disabled() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let mut worker = fix2_worker(start);
+        worker.capture_enabled = false;
+        worker.config.invalidate_user();
+        worker.config.retry();
+        worker.cycle_at(start, 0);
+        assert_eq!(worker.phase(0), "unsupported");
+        assert_eq!(worker.phase_reason(0), Some("capture_disabled"));
+        assert!(worker.source.grabbed_rects.is_empty());
+    }
+
+    #[test]
+    fn fix2_profile_name_selects_inner_or_framed_checks() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        for (name, mode) in [
+            ("p1080-default-v2", StructuralMode::Inner),
+            ("future-framed", StructuralMode::Framed),
+        ] {
+            let start = Instant::now();
+            let mut worker = fix2_worker(start);
+            worker.source.profile.as_mut().unwrap().1 = name.to_owned();
+            let rect = worker.source.profile.as_ref().unwrap().0;
+            worker.source.queue_sized_frame(rect.width, rect.height, 1);
+            worker.cycle_at(start, 0);
+            assert_eq!(worker.analyzer.structural_modes, [mode]);
+        }
+    }
+
+    #[test]
+    fn fix2_inner_crop_goes_live_even_when_full_analyze_reports_no_frame() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let fake = fix2_worker(start);
+        let services = WorkerServices {
+            analyzer: MinimapAnalyzer,
+            risk: fake.risk,
+            events: fake.events,
+            header_codec: fake.header_codec,
+            gsi: fake.gsi,
+            resources: fake.resources,
+            capture_enabled: true,
+            config: fake.config,
+            proposer: fake.proposer,
+        };
+        let mut worker = CaptureHostWorker::<_, CaptureControllerAccess, _, _, _, _>::new(
+            fake.source,
+            services,
+            start,
+        );
+        let side = DEFAULT_PROFILE_SIDE;
+        let mut pixels = Vec::new();
+        for y in 0..side {
+            for x in 0..side {
+                let value = if x < 3 || y < 3 || x >= side - 3 || y >= side - 3 {
+                    180
+                } else if (x + y) % 2 == 0 {
+                    60
+                } else {
+                    100
+                };
+                pixels.extend_from_slice(&[value, value, value, 255]);
+            }
+        }
+        assert!(
+            !kohbor_minimap_cv::analyze(&pixels, side, side, side * 4, Team::Dire).structural_ok
+        );
+        for index in 0..30_u64 {
+            worker.source.grabs.push_back((
+                Grab::Frame {
+                    width: side,
+                    height: side,
+                    stride: side * 4,
+                    acquired_us: index * 1000,
+                },
+                pixels.clone(),
+            ));
+            worker.cycle_at(start + Duration::from_millis(index * 34), index * 34);
+            if index < 29 {
+                assert_ne!(worker.phase(index * 34), "live");
+            }
+        }
+        let gsi = worker.gsi.read();
+        worker.analysis_tick(1000, Some(&gsi));
+        assert_eq!(worker.phase(1000), "live");
+        assert!(worker.latest_admitted.read().is_some());
+    }
+
+    #[test]
+    fn fix2_pending_invalidation_blocks_status_and_frames_before_the_next_cycle() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let mut worker = fix2_worker(start);
+        fix2_assert_revalidated(&mut worker, start, 0, 0);
+        let generation = worker.controller.as_ref().unwrap().generation().unwrap();
+        worker.config.invalidate_user();
+        let mut sinks = vec![FakeFrameSink::default()];
+        worker.publish_frame_to(start + Duration::from_millis(1100), 1100, &mut sinks);
+        assert!(sinks[0].messages.is_empty());
+        worker.publish_status(start + Duration::from_millis(1100), 1100);
+        let status = lock(&worker.events.0).last().unwrap().1.clone();
+        assert_eq!(status["phase_reason"], "user_invalidated");
+        assert_eq!(status["phase"], "unsupported");
+        // Even an invalidate/retry pair arriving between cycles must fence the old frame.
+        worker.config.retry();
+        fix2_assert_revalidated(&mut worker, start, 1200, generation);
     }
 }
