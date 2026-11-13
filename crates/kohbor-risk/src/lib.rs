@@ -288,11 +288,7 @@ impl RiskEngine {
                 .checked_sub(episode.since_ms)
                 .is_some_and(|elapsed| elapsed > rules::MIN_ABSENCE_MS)
             && own.is_some_and(|own| own.in_match)
-            && cooldown_elapsed(
-                now_ms,
-                self.last_missing_ms,
-                rules::MISSING_COOLDOWN_MS,
-            )
+            && cooldown_elapsed(now_ms, self.last_missing_ms, rules::MISSING_COOLDOWN_MS)
         {
             events.push(RiskEvent::EnemyMissing);
             self.last_missing_ms = Some(now_ms);

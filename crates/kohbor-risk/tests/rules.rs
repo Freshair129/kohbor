@@ -164,7 +164,14 @@ fn fresh_gsi_without_hp_and_without_other_signal_is_unknown() {
 fn gsi_hp_at_50_maps_to_level_one() {
     let mut engine = RiskEngine::new();
 
-    let output = tick(&mut engine, 0, Coverage::Unavailable, None, own(Some(50)), &[]);
+    let output = tick(
+        &mut engine,
+        0,
+        Coverage::Unavailable,
+        None,
+        own(Some(50)),
+        &[],
+    );
 
     assert_eq!(output.meter, Meter::Level(1));
 }
@@ -173,7 +180,14 @@ fn gsi_hp_at_50_maps_to_level_one() {
 fn gsi_hp_above_50_maps_to_level_zero() {
     let mut engine = RiskEngine::new();
 
-    let output = tick(&mut engine, 0, Coverage::Unavailable, None, own(Some(51)), &[]);
+    let output = tick(
+        &mut engine,
+        0,
+        Coverage::Unavailable,
+        None,
+        own(Some(51)),
+        &[],
+    );
 
     assert_eq!(output.meter, Meter::Level(0));
 }
@@ -182,7 +196,14 @@ fn gsi_hp_above_50_maps_to_level_zero() {
 fn gsi_hp_at_30_maps_to_level_two() {
     let mut engine = RiskEngine::new();
 
-    let output = tick(&mut engine, 0, Coverage::Unavailable, None, own(Some(30)), &[]);
+    let output = tick(
+        &mut engine,
+        0,
+        Coverage::Unavailable,
+        None,
+        own(Some(30)),
+        &[],
+    );
 
     assert_eq!(output.meter, Meter::Level(2));
 }
@@ -247,7 +268,14 @@ fn recent_health_event_includes_the_5000ms_boundary() {
         &["health_low"],
     );
 
-    let output = tick(&mut engine, 5_000, Coverage::Unavailable, None, own(Some(100)), &[]);
+    let output = tick(
+        &mut engine,
+        5_000,
+        Coverage::Unavailable,
+        None,
+        own(Some(100)),
+        &[],
+    );
 
     assert_eq!(output.meter, Meter::Level(2));
 }
@@ -264,7 +292,14 @@ fn recent_health_event_expires_after_5000ms() {
         &["health_danger"],
     );
 
-    let output = tick(&mut engine, 5_001, Coverage::Unavailable, None, own(Some(100)), &[]);
+    let output = tick(
+        &mut engine,
+        5_001,
+        Coverage::Unavailable,
+        None,
+        own(Some(100)),
+        &[],
+    );
 
     assert_eq!(output.meter, Meter::Level(0));
 }
@@ -328,7 +363,14 @@ fn stale_coverage_clears_v_and_b_and_hides_the_vision_count() {
     let mut engine = RiskEngine::new();
     seed(&mut engine, 5, own(Some(100)));
 
-    let output = tick(&mut engine, 500, Coverage::Stale, Some(2), own(Some(100)), &[]);
+    let output = tick(
+        &mut engine,
+        500,
+        Coverage::Stale,
+        Some(2),
+        own(Some(100)),
+        &[],
+    );
 
     assert_eq!(output.visible, None);
     assert_eq!(output.baseline, None);
@@ -352,7 +394,14 @@ fn valid_coverage_with_no_visible_count_clears_v_and_b() {
 fn coverage_gap_mid_episode_cancels_events_and_rebuilds_baseline() {
     let mut engine = RiskEngine::new();
     start_one_count_drop(&mut engine, own(Some(100)));
-    tick(&mut engine, 800, Coverage::Stale, Some(4), own(Some(100)), &[]);
+    tick(
+        &mut engine,
+        800,
+        Coverage::Stale,
+        Some(4),
+        own(Some(100)),
+        &[],
+    );
     for index in 0..5 {
         valid_tick(&mut engine, 900 + index * 100, Some(4), own(Some(100)));
     }
@@ -444,7 +493,14 @@ fn missing_global_cooldown_blocks_before_10000ms_and_allows_at_10000ms() {
     let mut engine = RiskEngine::new();
     start_one_count_drop(&mut engine, own(Some(100)));
     let first = continue_visible_until(&mut engine, 700, 5_701, 4, own(Some(100)));
-    for (now_ms, count) in [(5_800, 5), (5_900, 5), (6_000, 5), (6_100, 4), (6_200, 4), (6_300, 4)] {
+    for (now_ms, count) in [
+        (5_800, 5),
+        (5_900, 5),
+        (6_000, 5),
+        (6_100, 4),
+        (6_200, 4),
+        (6_300, 4),
+    ] {
         valid_tick(&mut engine, now_ms, Some(count), own(Some(100)));
     }
     let blocked = continue_visible_until(&mut engine, 6_300, 11_301, 4, own(Some(100)));
@@ -643,7 +699,14 @@ fn coverage_gap_cancels_alert_and_prevents_a_revision() {
     let mut engine = RiskEngine::new();
     start_two_count_drop(&mut engine, own(Some(100)));
     let alert = continue_visible_until(&mut engine, 1_000, 6_001, 3, own(Some(100)));
-    let gap = tick(&mut engine, 6_100, Coverage::Unavailable, Some(5), own(Some(100)), &[]);
+    let gap = tick(
+        &mut engine,
+        6_100,
+        Coverage::Unavailable,
+        Some(5),
+        own(Some(100)),
+        &[],
+    );
 
     let output = valid_tick(&mut engine, 6_200, Some(5), own(Some(100)));
 
@@ -664,8 +727,22 @@ fn coverage_stale_does_not_emit_risk_unavailable() {
 #[test]
 fn risk_unavailable_emits_once_for_an_unavailable_transition_in_match() {
     let mut engine = RiskEngine::new();
-    let first = tick(&mut engine, 0, Coverage::Unavailable, None, own(Some(100)), &[]);
-    let repeated = tick(&mut engine, 100, Coverage::Unavailable, None, own(Some(100)), &[]);
+    let first = tick(
+        &mut engine,
+        0,
+        Coverage::Unavailable,
+        None,
+        own(Some(100)),
+        &[],
+    );
+    let repeated = tick(
+        &mut engine,
+        100,
+        Coverage::Unavailable,
+        None,
+        own(Some(100)),
+        &[],
+    );
 
     assert!(has(&first, RiskEvent::RiskUnavailable));
     assert!(!has(&repeated, RiskEvent::RiskUnavailable));
@@ -682,7 +759,14 @@ fn risk_unavailable_requires_in_match_own_state_at_transition() {
         own_state(true, Some(100), false, 0),
         &[],
     );
-    let still_unavailable = tick(&mut engine, 100, Coverage::Unavailable, None, own(Some(100)), &[]);
+    let still_unavailable = tick(
+        &mut engine,
+        100,
+        Coverage::Unavailable,
+        None,
+        own(Some(100)),
+        &[],
+    );
 
     assert!(!has(&outside, RiskEvent::RiskUnavailable));
     assert!(!has(&still_unavailable, RiskEvent::RiskUnavailable));
@@ -691,11 +775,46 @@ fn risk_unavailable_requires_in_match_own_state_at_transition() {
 #[test]
 fn risk_unavailable_rearms_after_2000ms_of_continuous_valid_coverage() {
     let mut engine = RiskEngine::new();
-    tick(&mut engine, 0, Coverage::Unavailable, None, own(Some(100)), &[]);
-    tick(&mut engine, 100, Coverage::Valid, Some(5), own(Some(100)), &[]);
-    let before = tick(&mut engine, 2_099, Coverage::Valid, Some(5), own(Some(100)), &[]);
-    let clear = tick(&mut engine, 2_100, Coverage::Valid, Some(5), own(Some(100)), &[]);
-    let next = tick(&mut engine, 2_101, Coverage::Unavailable, None, own(Some(100)), &[]);
+    tick(
+        &mut engine,
+        0,
+        Coverage::Unavailable,
+        None,
+        own(Some(100)),
+        &[],
+    );
+    tick(
+        &mut engine,
+        100,
+        Coverage::Valid,
+        Some(5),
+        own(Some(100)),
+        &[],
+    );
+    let before = tick(
+        &mut engine,
+        2_099,
+        Coverage::Valid,
+        Some(5),
+        own(Some(100)),
+        &[],
+    );
+    let clear = tick(
+        &mut engine,
+        2_100,
+        Coverage::Valid,
+        Some(5),
+        own(Some(100)),
+        &[],
+    );
+    let next = tick(
+        &mut engine,
+        2_101,
+        Coverage::Unavailable,
+        None,
+        own(Some(100)),
+        &[],
+    );
 
     assert!(!has(&before, RiskEvent::RiskUnavailable));
     assert!(!has(&clear, RiskEvent::RiskUnavailable));
@@ -705,12 +824,54 @@ fn risk_unavailable_rearms_after_2000ms_of_continuous_valid_coverage() {
 #[test]
 fn stale_coverage_interrupts_unavailable_recovery_clear_time() {
     let mut engine = RiskEngine::new();
-    tick(&mut engine, 0, Coverage::Unavailable, None, own(Some(100)), &[]);
-    tick(&mut engine, 100, Coverage::Valid, Some(5), own(Some(100)), &[]);
-    tick(&mut engine, 1_000, Coverage::Stale, None, own(Some(100)), &[]);
-    tick(&mut engine, 1_500, Coverage::Valid, Some(5), own(Some(100)), &[]);
-    tick(&mut engine, 3_499, Coverage::Valid, Some(5), own(Some(100)), &[]);
-    let still_latched = tick(&mut engine, 3_500, Coverage::Unavailable, None, own(Some(100)), &[]);
+    tick(
+        &mut engine,
+        0,
+        Coverage::Unavailable,
+        None,
+        own(Some(100)),
+        &[],
+    );
+    tick(
+        &mut engine,
+        100,
+        Coverage::Valid,
+        Some(5),
+        own(Some(100)),
+        &[],
+    );
+    tick(
+        &mut engine,
+        1_000,
+        Coverage::Stale,
+        None,
+        own(Some(100)),
+        &[],
+    );
+    tick(
+        &mut engine,
+        1_500,
+        Coverage::Valid,
+        Some(5),
+        own(Some(100)),
+        &[],
+    );
+    tick(
+        &mut engine,
+        3_499,
+        Coverage::Valid,
+        Some(5),
+        own(Some(100)),
+        &[],
+    );
+    let still_latched = tick(
+        &mut engine,
+        3_500,
+        Coverage::Unavailable,
+        None,
+        own(Some(100)),
+        &[],
+    );
 
     assert!(!has(&still_latched, RiskEvent::RiskUnavailable));
 }

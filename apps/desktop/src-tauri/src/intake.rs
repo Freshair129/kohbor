@@ -428,6 +428,23 @@ impl Shared {
             .map(|event| duration_ms(now.saturating_duration_since(event.arrival)))
     }
 
+    /// Health events (`health_low`, `health_danger`) detected within `window_ms` of `now`,
+    /// as (event id, game-clock ms). Read-only: feeds the risk meter, never audio or admission.
+    pub(crate) fn recent_health_events(
+        &self,
+        now: Instant,
+        window_ms: u64,
+    ) -> Vec<(&'static str, u64)> {
+        self.events
+            .iter()
+            .filter(|event| {
+                matches!(event.id, EventId::HealthLow | EventId::HealthDanger)
+                    && duration_ms(now.saturating_duration_since(event.arrival)) <= window_ms
+            })
+            .map(|event| (event.id.as_str(), event.at_ms))
+            .collect()
+    }
+
     #[cfg(test)]
     pub(crate) fn detected_events(&self) -> &VecDeque<StoredEvent> {
         &self.events

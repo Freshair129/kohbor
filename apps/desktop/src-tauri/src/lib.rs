@@ -285,9 +285,16 @@ pub fn run() {
             }
             let gsi_runtime = runtime.clone();
             let gsi = capture_host::GsiView::new(move || {
-                capture_host::GsiSnapshot::from_snapshot(
-                    &intake::lock(&gsi_runtime.shared).snapshot(),
-                )
+                let shared = intake::lock(&gsi_runtime.shared);
+                let mut view = capture_host::GsiSnapshot::from_snapshot(&shared.snapshot());
+                // In match only while the intake phase is Live (pregame also exposes own data).
+                view.in_match = shared.phase == Some(kohbor_gsi::Phase::Live);
+                view.recent_events = shared
+                    .recent_health_events(std::time::Instant::now(), 5000)
+                    .into_iter()
+                    .map(|(id, at_ms)| capture_host::GsiEvent { id, at_ms })
+                    .collect();
+                view
             });
             let resource_sample = sample.clone();
             let resources = capture_host::ResourceView::new(move || {

@@ -8,15 +8,15 @@ use kohbor_capture::{
 use kohbor_capture_native::{Grab, MinimapGrabber, OpenError, OutputInfo};
 use kohbor_minimap_cv::{PixelReport, Team};
 use kohbor_risk::{Meter, OwnGsi, RiskEngine, RiskEvent, RiskOutput, TickInput};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::collections::{HashSet, VecDeque};
-use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant};
-use tauri::Emitter;
 use tauri::ipc::{Channel, InvokeResponseBody};
+use tauri::Emitter;
 
 const FRAME_HEADER_LEN: usize = 32;
 const FRAME_MAGIC: u32 = 0x4B4D_4150;
@@ -964,13 +964,9 @@ where
                 self.retry.reset();
                 self.lost = false;
                 let enemy = fresh_enemy_team(gsi);
-                let report = self.analyzer.analyze(
-                    &self.grab_buffer,
-                    width,
-                    height,
-                    stride,
-                    enemy,
-                );
+                let report = self
+                    .analyzer
+                    .analyze(&self.grab_buffer, width, height, stride, enemy);
                 let was_crop_visible = self
                     .controller
                     .as_ref()
@@ -1092,13 +1088,7 @@ where
         };
         let visible = latest_admitted.as_ref().and_then(|frame| {
             (frame.candidate.analysis_enemy == enemy)
-                .then(|| {
-                    visible_count(
-                        Some(&frame.candidate.report),
-                        enemy,
-                        coverage,
-                    )
-                })
+                .then(|| visible_count(Some(&frame.candidate.report), enemy, coverage))
                 .flatten()
         });
         let gsi_events = self.new_gsi_events(gsi);
@@ -2147,12 +2137,10 @@ mod tests {
             }
         }
 
-        assert!(
-            worker
-                .controller
-                .as_ref()
-                .is_some_and(CaptureAccess::crop_visible)
-        );
+        assert!(worker
+            .controller
+            .as_ref()
+            .is_some_and(CaptureAccess::crop_visible));
         assert!(worker.latest_admitted.read().is_some());
         assert_eq!(worker.analyzer.calls, 30);
     }
@@ -2319,11 +2307,9 @@ mod tests {
         assert!(!worker.source.opened);
         let records = lock(&event_records);
         assert!(records.iter().any(|(event, _)| event == "capture://status"));
-        assert!(
-            records
-                .iter()
-                .any(|(event, _)| event == "resource://sample")
-        );
+        assert!(records
+            .iter()
+            .any(|(event, _)| event == "resource://sample"));
     }
 
     #[test]
@@ -2491,7 +2477,12 @@ mod tests {
         worker.ensure_source(start);
 
         assert_eq!(worker.retry.next, Some(Duration::from_secs(2)));
-        worker.profile_rect = Some(Rect { x: 0, y: 0, width: 1, height: 1 });
+        worker.profile_rect = Some(Rect {
+            x: 0,
+            y: 0,
+            width: 1,
+            height: 1,
+        });
         worker.session_epoch = Some(7);
         worker.retry.next = Some(Duration::from_secs(4));
         worker.capture_one(start, 0, None);
@@ -2506,7 +2497,12 @@ mod tests {
         source.queue_frame(2);
         let mut worker = fake_worker(source, true, start, events());
         worker.ensure_source(start);
-        worker.profile_rect = Some(Rect { x: 0, y: 0, width: 1, height: 1 });
+        worker.profile_rect = Some(Rect {
+            x: 0,
+            y: 0,
+            width: 1,
+            height: 1,
+        });
         worker.session_epoch = Some(7);
 
         worker.capture_one(start, 0, None);
