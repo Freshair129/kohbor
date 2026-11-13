@@ -281,7 +281,7 @@ fn new_token() -> Option<String> {
     secrets::random::<32>().map(|b| base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(b))
 }
 
-fn token_from(dir: &Path) -> Option<String> {
+pub(crate) fn token_from(dir: &Path) -> Option<String> {
     let raw = secrets::load_or_create(&dir.join("gsi-token.bin"), || {
         new_token().map(String::into_bytes)
     })?;
@@ -483,7 +483,7 @@ impl Shared {
     ///
     /// `platform` is the signed-in platform identity read by the caller for this
     /// request (`None` when unreadable, which can never yield verified ownership).
-    fn accept(&mut self, body: &Value, arrival: Instant, platform: Option<u64>) -> u16 {
+    pub(crate) fn accept(&mut self, body: &Value, arrival: Instant, platform: Option<u64>) -> u16 {
         let Some(token) = self.token.clone() else {
             return 503;
         };

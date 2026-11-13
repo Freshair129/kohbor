@@ -8,6 +8,7 @@ pub mod containment;
 pub mod host;
 pub mod instance;
 pub mod intake;
+pub mod latency;
 mod media;
 pub mod secrets;
 pub mod settings;
