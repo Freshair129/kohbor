@@ -107,6 +107,11 @@ fn place_overlay_window(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
     true
 }
 
+/// WebView2 arguments shared by every window (WebView2 requires equal arguments for windows that
+/// share one data directory). They keep Chromium from throttling or pausing the Live minimap when the
+/// window is behind the borderless game. Must equal `additionalBrowserArgs` in tauri.conf.json.
+const WEBVIEW2_BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,CalculateNativeWinOcclusion --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows";
+
 fn build_overlay_window(
     app: &mut tauri::App<tauri::Wry>,
 ) -> Option<tauri::WebviewWindow<tauri::Wry>> {
@@ -125,6 +130,7 @@ fn build_overlay_window(
     .shadow(spec.shadow)
     .resizable(spec.resizable)
     .visible(spec.visible)
+    .additional_browser_args(WEBVIEW2_BROWSER_ARGS)
     .inner_size(
         f64::from(overlay::WINDOW_LOGICAL.0),
         f64::from(overlay::WINDOW_LOGICAL.1),
@@ -494,3 +500,16 @@ mod containment_failure_tests {
 
 mod demo;
 mod overlay;
+
+#[cfg(test)]
+mod webview_args_tests {
+    #[test]
+    fn overlay_and_control_windows_use_the_same_browser_args() {
+        let conf: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).expect("tauri.conf.json");
+        assert_eq!(
+            conf["app"]["windows"][0]["additionalBrowserArgs"].as_str(),
+            Some(super::WEBVIEW2_BROWSER_ARGS)
+        );
+    }
+}
