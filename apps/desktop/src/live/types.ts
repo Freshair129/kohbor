@@ -10,10 +10,19 @@ export type CapturePhase =
 export interface CaptureStatus {
   phase: CapturePhase;
   fps_measured: number | null;
+  grab_fps: number | null;
+  sent_total: number | null;
+  grab_total: number | null;
   frame_age_ms: number | null;
   rect_profile: string | null;
   calibration_generation: number | null;
   auto_confirmed: boolean;
+  crop_confirmed: boolean;
+  display_fps: 10 | 15 | 30 | null;
+  paused: boolean | null;
+  phase_reason: string | null;
+  grab_ms_mean: number | null;
+  analysis_ms_mean: number | null;
 }
 
 export type VisionEvent = "enemy_missing" | "risk_alert" | "risk_revision";
@@ -43,7 +52,8 @@ export interface ResourceMetrics {
   frameAgeMs: number | null;
 }
 
-export type ResourceMetricKey = keyof ResourceMetrics;
+export type CaptureCostMetricKey = "grabMsMean" | "analysisMsMean";
+export type ResourceMetricKey = keyof ResourceMetrics | CaptureCostMetricKey;
 
 export interface MetricSummary {
   peak: number | null;

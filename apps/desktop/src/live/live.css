@@ -1,38 +1,66 @@
-.live-tab { display: flex; flex-direction: column; gap: 12px; padding: 16px 24px; max-width: 1480px; margin: 0 auto; }
-.live-header, .live-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.live-header h1 { margin: 0; font-size: 20px; font-weight: 600; }
-.live-map-card, .live-resource-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
-.live-map-card { display: flex; flex-direction: column; align-items: center; gap: 10px; }
-.live-map-head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-.live-map-badge { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; color: var(--text-2); font-size: 12px; font-variant-numeric: tabular-nums; }
-.live-auto-layout-tag { display: inline-flex; align-items: center; min-height: 20px; padding: 0 6px; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); font-size: 11px; line-height: 1.3; }
-.live-map-box { position: relative; width: min(100%, 1024px); max-width: 1024px; aspect-ratio: 1 / 1; overflow: hidden; background: #10151b; border: 1px solid var(--line); }
-.live-map-canvas { display: block; width: 100%; height: 100%; image-rendering: auto; }
+.live-tab { position: relative; box-sizing: border-box; width: 100%; height: 100%; min-height: 0; min-width: 0; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); grid-template-rows: minmax(0, 1fr); gap: 8px; padding: 8px; margin: 0; color: var(--text); }
+/* Outrank the legacy .shell-live .live-tab layout without editing shell-owned CSS. */
+main.live-tab.live-dashboard { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); grid-template-rows: minmax(0, 1fr); height: 100%; min-height: 0; padding: 8px; }
+.live-tab :is(button, select, summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.live-tab summary { cursor: pointer; color: var(--text); padding: 6px 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); white-space: nowrap; }
+.live-map-pane { display: flex; flex-direction: column; gap: 6px; min-width: 0; min-height: 0; box-sizing: border-box; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); overflow: hidden; }
+.live-map-pane > * { min-width: 0; min-height: 0; }
+.live-map-toolbar { display: flex; flex: 0 0 32px; align-items: center; gap: 10px; min-width: 0; min-height: 0; white-space: nowrap; overflow: hidden; }
+.live-map-toolbar h1 { flex: 0 0 auto; margin: 0; font-size: 15px; font-weight: 600; }
+.live-map-badge { flex: 0 1 auto; min-width: 0; max-width: 34%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); font-size: 12px; font-variant-numeric: tabular-nums; }
+.live-preview-rates { flex: 1 1 0; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--text); font-size: 13px; font-weight: 600; text-align: right; }
+.live-map-stage { position: relative; flex: 1 1 0; width: 100%; min-width: 0; min-height: 0; display: grid; place-items: center; overflow: hidden; box-sizing: border-box; background: #10151b; border: 1px solid var(--line); }
+.live-map-canvas { display: block; width: auto; height: auto; max-width: 100%; max-height: 100%; min-width: 0; min-height: 0; aspect-ratio: 280 / 274; object-fit: contain; image-rendering: auto; }
 .live-map-canvas.is-stale { opacity: 0.42; filter: grayscale(0.45); }
-.live-map-plate { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; text-align: center; color: var(--text-2); background: rgba(14, 17, 22, 0.76); border: 2px dashed var(--stale); font-size: 14px; }
+.live-map-plate { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; text-align: center; color: var(--text-2); background: rgba(14, 17, 22, 0.82); border: 2px dashed var(--stale); font-size: 14px; }
 .live-map-plate.is-warning { border-color: var(--warning); }
 .live-map-plate.is-critical { border-color: var(--critical); }
-.live-map-actions { width: 100%; display: flex; justify-content: flex-end; }
-.live-error { width: 100%; color: var(--warning); }
-.live-readings { display: grid; grid-template-columns: minmax(250px, 1fr) minmax(250px, 1fr); gap: 12px; }
-.live-danger-panel, .live-enemy-panel { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
-.live-danger-panel h2, .live-enemy-panel h2 { margin: 0; font-size: 16px; }
-.live-danger { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.live-sidebar { display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; padding: 10px; box-sizing: border-box; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); overflow: hidden; }
+.live-sidebar > * { min-width: 0; min-height: 0; }
+.live-sidebar-status { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; min-width: 0; min-height: 0; }
+.live-sidebar-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; margin-top: auto; min-width: 0; min-height: 0; }
+.live-sidebar-actions > details { min-width: 0; min-height: 0; }
+.live-disclosure-body { position: absolute; z-index: 20; top: 8px; right: 8px; bottom: 8px; width: min(650px, calc(100% - 16px)); min-width: 0; min-height: 0; box-sizing: border-box; overflow: auto; border: 1px solid var(--text-2); border-radius: 8px; background: var(--surface); box-shadow: 0 12px 36px #0009; }
+.live-tab details:not([open]) > .live-disclosure-body { display: none; }
+.live-resource-popover { width: min(820px, calc(100% - 16px)); padding: 10px; }
+.live-capture-controls { display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; padding: 12px; box-sizing: border-box; }
+.live-capture-controls h3 { margin: 0; font-size: 14px; }
+.live-capture-control-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; min-height: 0; }
+.live-crop-offsets, .live-proposal-rect { color: var(--text-2); font-size: 12px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.live-crop-nudges { display: flex; gap: 4px; min-width: 0; min-height: 0; }
+.live-crop-nudges button { min-width: 36px; min-height: 32px; }
+.live-display-rate { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.live-map-actions { display: flex; justify-content: flex-end; min-width: 0; min-height: 0; }
+.live-error { margin: 0; color: var(--warning); font-size: 12px; overflow-wrap: anywhere; }
+.live-preview-diagnostics { margin: 0 0 10px; color: var(--text-2); font-size: 12px; overflow-wrap: anywhere; }
+.live-auto-layout-tag { display: inline-flex; padding: 2px 5px; border: 1px solid var(--line); border-radius: 4px; color: var(--text-2); font-size: 11px; }
+.live-visibility-notice { color: var(--warning); font-size: 12px; overflow-wrap: anywhere; }
+.live-danger-panel, .live-enemy-panel { display: flex; flex-direction: column; gap: 8px; min-width: 0; min-height: 0; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.live-danger-panel h2, .live-enemy-panel h2 { margin: 0; font-size: 15px; }
+.live-danger { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; min-height: 0; }
 .live-danger-leds { display: inline-flex; gap: 4px; align-items: center; }
 .live-danger-led { width: 10px; height: 10px; border-radius: 50%; background: var(--ground); border: 1px solid var(--stale); }
 .live-danger-led-none { background: var(--stale); border-color: var(--stale); }
 .live-danger-led-warn { background: var(--warning); border-color: var(--warning); }
 .live-danger-led-critical { background: var(--critical); border-color: var(--critical); }
 .live-danger-label { font-weight: 600; }
-.live-danger-unknown .live-danger-label, .live-danger-none .live-danger-label { color: var(--muted); }
-.live-source-tag, .live-experimental { display: inline-flex; align-items: center; min-height: 20px; padding: 0 6px; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); font-size: 11px; line-height: 1.3; }
-.live-enemy-seen { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.live-danger-unknown .live-danger-label, .live-danger-none .live-danger-label { color: var(--text-2); }
+.live-source-tag, .live-experimental { display: inline-flex; align-items: center; padding: 2px 5px; border: 1px solid var(--line); border-radius: 4px; color: var(--text-2); font-size: 11px; line-height: 1.3; }
+.live-enemy-seen { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; min-height: 0; }
+.live-enemy-panel .live-enemy-count { font-size: 18px; font-weight: 600; }
 .live-enemy-count { font-variant-numeric: tabular-nums; }
 .live-vision-event { color: var(--text-2); font-size: 12px; }
-.live-resource-panel { display: flex; flex-direction: column; gap: 8px; user-select: text; }
-.live-resource-table { width: 100%; }
-.live-resource-row { display: grid; grid-template-columns: minmax(210px, 2fr) repeat(3, minmax(100px, 1fr)); gap: 8px; align-items: center; min-height: 32px; border-top: 1px solid var(--line-subtle); padding: 4px 2px; }
-.live-resource-head { color: var(--muted); font-size: 12px; }
+.live-resource-strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 8px; min-width: 0; min-height: 0; padding: 8px; border: 1px solid var(--line); border-radius: 5px; color: var(--text-2); font-size: 12px; font-variant-numeric: tabular-nums; }
+.live-resource-strip > span { min-width: 0; min-height: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.live-resource-strip > span:nth-child(n + 3) { grid-column: 1 / -1; }
+.live-resource-strip strong { color: var(--text); font-weight: 600; }
+.live-resource-panel { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 6px; height: 360px; min-width: 0; min-height: 0; overflow: hidden; user-select: text; padding: 8px; border: 1px solid var(--line); border-radius: 8px; box-sizing: border-box; }
+.live-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; min-height: 0; }
+.live-resource-panel h2 { margin: 0; font-size: 15px; }
+.live-resource-table { display: grid; grid-template-rows: repeat(10, minmax(0, 1fr)); min-width: 0; min-height: 0; width: 100%; }
+.live-resource-row { display: grid; grid-template-columns: minmax(150px, 2fr) repeat(3, minmax(68px, 1fr)); gap: 8px; align-items: center; min-width: 0; min-height: 0; border-top: 1px solid var(--line-subtle); padding: 2px; font-size: 12px; }
+.live-resource-row > * { min-width: 0; min-height: 0; overflow-wrap: anywhere; }
+.live-resource-head { color: var(--text-2); font-size: 11px; }
 .live-resource-name { color: var(--text-2); }
 .live-risk-strip { width: 720px; height: 28px; box-sizing: border-box; display: flex; align-items: center; gap: 14px; padding: 0 8px; overflow: hidden; white-space: nowrap; color: var(--text); background: var(--overlay-panel); border: 1px solid var(--line); font-size: 12px; line-height: 1; }
 .live-danger-compact { flex: none; gap: 6px; }
@@ -42,10 +70,3 @@
 .live-enemy-compact { flex: 1; min-width: 0; gap: 6px; }
 .live-enemy-compact .live-enemy-count { overflow: hidden; text-overflow: ellipsis; }
 .live-enemy-compact .live-experimental { min-height: 17px; padding: 0 4px; font-size: 10px; }
-
-@media (max-width: 720px) {
-  .live-tab { padding: 12px; }
-  .live-readings { grid-template-columns: minmax(0, 1fr); }
-  .live-resource-row { grid-template-columns: minmax(140px, 1.5fr) repeat(3, minmax(72px, 1fr)); gap: 4px; font-size: 11px; }
-  .live-risk-strip { max-width: 100%; }
-}

@@ -1,12 +1,13 @@
 import { liveCopy, type LiveLocale } from "./copy";
-import { emptyResourceSummary, formatMegabytes, formatNullable } from "./state";
-import type { ResourceMetricKey, ResourceMetrics, ResourceSummary } from "./types";
+import { captureCostRows, emptyResourceSummary, formatMegabytes, formatNullable } from "./state";
+import type { ResourceMetrics, ResourceSummary } from "./types";
 import { useResources } from "./useResources";
+import { useCaptureStatus } from "./useCaptureStatus";
 import "./live.css";
 
-type UnitKind = "bytes" | "percent" | "fps" | "age";
+type UnitKind = "bytes" | "percent" | "fps" | "age" | "time";
 
-const ROWS: { key: ResourceMetricKey; unit: UnitKind }[] = [
+const ROWS: { key: keyof ResourceMetrics; unit: UnitKind }[] = [
   { key: "appGroupBytes", unit: "bytes" },
   { key: "hostGpuBytes", unit: "bytes" },
   { key: "webviewGpuBytes", unit: "bytes" },
@@ -25,11 +26,11 @@ function formatMetric(value: number | null, unit: UnitKind, locale: LiveLocale):
   return `${formatted} ${unitText}`;
 }
 
-function valueFor(metrics: ResourceMetrics | null, key: ResourceMetricKey): number | null {
+function valueFor(metrics: ResourceMetrics | null, key: keyof ResourceMetrics): number | null {
   return metrics?.[key] ?? null;
 }
 
-function summaryFor(summary: ResourceSummary, key: ResourceMetricKey) {
+function summaryFor(summary: ResourceSummary, key: keyof ResourceMetrics) {
   return summary[key];
 }
 
@@ -64,7 +65,9 @@ function ResourceRow({
 export function ResourcePanel({ locale }: { locale: LiveLocale }) {
   const text = liveCopy(locale);
   const { current, summary, reset } = useResources();
-  const visibleSummary = current ? summary : emptyResourceSummary();
+  const capture = useCaptureStatus();
+  const visibleSummary = current || capture ? summary : emptyResourceSummary();
+  const costs = captureCostRows(capture, visibleSummary);
   return (
     <section className="live-resource-panel" aria-labelledby="live-resource-title" lang={locale}>
       <header className="live-panel-head">
@@ -80,6 +83,14 @@ export function ResourcePanel({ locale }: { locale: LiveLocale }) {
         </div>
         {ROWS.map((metric) => (
           <ResourceRow key={metric.key} metric={metric} current={current} summary={visibleSummary} locale={locale} />
+        ))}
+        {costs.map((cost) => (
+          <div className="live-resource-row" role="row" key={cost.key}>
+            <span role="rowheader" className="live-resource-name">{text.metric[cost.key]}</span>
+            <span role="cell" className="mono">{formatMetric(cost.current, "time", locale)}</span>
+            <span role="cell" className="mono">{formatMetric(cost.peak, "time", locale)}</span>
+            <span role="cell" className="mono">{formatMetric(cost.mean, "time", locale)}</span>
+          </div>
         ))}
       </div>
     </section>

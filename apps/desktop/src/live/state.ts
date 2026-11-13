@@ -2,6 +2,7 @@
 import type {
   CapturePhase,
   CaptureStatus,
+  CaptureCostMetricKey,
   MetricSummary,
   ResourceMetrics,
   ResourceMetricKey,
@@ -24,7 +25,18 @@ const CAPTURE_PHASES = new Set<CapturePhase>([
 ]);
 const RISK_EVENTS = new Set(["enemy_missing", "risk_alert", "risk_revision", "risk_unavailable"]);
 const VISION_EVENTS = new Set<VisionEvent>(["enemy_missing", "risk_alert", "risk_revision"]);
+const CAPTURE_COST_KEYS: CaptureCostMetricKey[] = ["grabMsMean", "analysisMsMean"];
 const RESOURCE_KEYS: ResourceMetricKey[] = [
+  "appGroupBytes",
+  "hostGpuBytes",
+  "webviewGpuBytes",
+  "gpuLoadPercent",
+  "cpuPercent",
+  "captureFps",
+  "frameAgeMs",
+  ...CAPTURE_COST_KEYS,
+];
+const RESOURCE_SAMPLE_KEYS: (keyof ResourceMetrics)[] = [
   "appGroupBytes",
   "hostGpuBytes",
   "webviewGpuBytes",
@@ -54,17 +66,52 @@ export function parseCaptureStatus(input: unknown): CaptureStatus | null {
       !Object.hasOwn(input, "calibration_generation") || !Object.hasOwn(input, "rect_profile") ||
       !Object.hasOwn(input, "auto_confirmed")) return null;
   const fps = nullableNumber(input.fps_measured);
+  const grabFps = input.grab_fps === undefined ? null : nullableNumber(input.grab_fps);
+  const sentTotal = input.sent_total === undefined ? null : nullableInteger(input.sent_total);
+  const grabTotal = input.grab_total === undefined ? null : nullableInteger(input.grab_total);
   const age = nullableNumber(input.frame_age_ms);
   const generation = nullableInteger(input.calibration_generation);
   const rectProfile = input.rect_profile === null || typeof input.rect_profile === "string" ? input.rect_profile : undefined;
-  if (fps === undefined || age === undefined || generation === undefined || rectProfile === undefined || typeof input.auto_confirmed !== "boolean") return null;
+  // Older renderer payloads only had auto_confirmed; preserve their former badge semantics.
+  const cropConfirmed = input.crop_confirmed === undefined
+    ? !input.auto_confirmed
+    : input.crop_confirmed;
+  const displayFps = input.display_fps === undefined
+    ? null
+    : input.display_fps === 10 || input.display_fps === 15 || input.display_fps === 30
+      ? input.display_fps
+      : undefined;
+  const paused = input.paused === undefined ? null : input.paused;
+  const phaseReason = input.phase_reason === undefined ? null : input.phase_reason;
+  const grabMsMean = input.grab_ms_mean === undefined ? null : nullableNumber(input.grab_ms_mean);
+  const analysisMsMean = input.analysis_ms_mean === undefined ? null : nullableNumber(input.analysis_ms_mean);
+  if (
+    fps === undefined || age === undefined || generation === undefined || rectProfile === undefined ||
+    grabFps === undefined || (grabFps !== null && grabFps < 0) ||
+    sentTotal === undefined || (sentTotal !== null && sentTotal < 0) ||
+    grabTotal === undefined || (grabTotal !== null && grabTotal < 0) ||
+    typeof input.auto_confirmed !== "boolean" || typeof cropConfirmed !== "boolean" ||
+    displayFps === undefined || (paused !== null && typeof paused !== "boolean") ||
+    (phaseReason !== null && typeof phaseReason !== "string") ||
+    grabMsMean === undefined || (grabMsMean !== null && grabMsMean < 0) ||
+    analysisMsMean === undefined || (analysisMsMean !== null && analysisMsMean < 0)
+  ) return null;
   return {
     phase: input.phase as CapturePhase,
     fps_measured: fps,
+    grab_fps: grabFps,
+    sent_total: sentTotal,
+    grab_total: grabTotal,
     frame_age_ms: age,
     rect_profile: rectProfile,
     calibration_generation: generation,
     auto_confirmed: input.auto_confirmed,
+    crop_confirmed: cropConfirmed,
+    display_fps: displayFps,
+    paused,
+    phase_reason: phaseReason,
+    grab_ms_mean: grabMsMean,
+    analysis_ms_mean: analysisMsMean,
   };
 }
 
@@ -130,7 +177,7 @@ export function riskTag(state: RiskState): "GSI + map" | "GSI only" | "—" {
 }
 
 export function showAutoLayoutUnconfirmed(capture: CaptureStatus | null): boolean {
-  return capture?.auto_confirmed === true;
+  return capture?.crop_confirmed === false;
 }
 
 export function captureGatedRiskView(
@@ -138,7 +185,7 @@ export function captureGatedRiskView(
   lastVisionEvent: VisionEvent | null,
   capture: CaptureStatus | null,
 ): { state: RiskState | null; lastVisionEvent: VisionEvent | null } {
-  if (capture?.phase === "live") return { state, lastVisionEvent };
+  if (capture?.phase === "live" && capture.paused !== true) return { state, lastVisionEvent };
   return {
     state: state
       ? {
@@ -162,7 +209,7 @@ export function emptyResourceSummary(): ResourceSummary {
 
 export function addResourceSample(summary: ResourceSummary, sample: ResourceMetrics): ResourceSummary {
   const next = { ...summary } as ResourceSummary;
-  for (const key of RESOURCE_KEYS) {
+  for (const key of RESOURCE_SAMPLE_KEYS) {
     const value = sample[key];
     const previous: MetricSummary = summary[key];
     if (value === null) continue;
@@ -173,6 +220,40 @@ export function addResourceSample(summary: ResourceSummary, sample: ResourceMetr
     };
   }
   return next;
+}
+
+function addMetricSample(summary: ResourceSummary, key: CaptureCostMetricKey, value: number | null): ResourceSummary {
+  if (value === null) return summary;
+  const previous = summary[key];
+  return {
+    ...summary,
+    [key]: {
+      peak: previous.peak === null ? value : Math.max(previous.peak, value),
+      mean: ((previous.mean ?? 0) * previous.count + value) / (previous.count + 1),
+      count: previous.count + 1,
+    },
+  };
+}
+
+/** Add the current one-second capture cost means to the in-memory session summary. */
+export function addCaptureCostSample(
+  summary: ResourceSummary,
+  capture: Pick<CaptureStatus, "grab_ms_mean" | "analysis_ms_mean">,
+): ResourceSummary {
+  const withGrab = addMetricSample(summary, "grabMsMean", capture.grab_ms_mean);
+  return addMetricSample(withGrab, "analysisMsMean", capture.analysis_ms_mean);
+}
+
+export function captureCostRows(
+  capture: CaptureStatus | null,
+  summary: ResourceSummary,
+): { key: CaptureCostMetricKey; current: number | null; peak: number | null; mean: number | null }[] {
+  return CAPTURE_COST_KEYS.map((key) => ({
+    key,
+    current: key === "grabMsMean" ? capture?.grab_ms_mean ?? null : capture?.analysis_ms_mean ?? null,
+    peak: summary[key].peak,
+    mean: summary[key].mean,
+  }));
 }
 
 export function formatNullable(value: number | null, decimals = 0): string {

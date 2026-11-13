@@ -1,4 +1,5 @@
 import { createFrameBuffer } from "./frame";
+import { applyProposal, type CaptureConfig, type CaptureConfigPatch } from "./captureConfig";
 import type { CapturePhase, RiskState, VisionEvent } from "./types";
 
 if (!import.meta.env.DEV) throw new Error("live mock is available only in development builds");
@@ -28,18 +29,80 @@ function initialScenario(): MockScenario {
 let scenario = initialScenario();
 let invalidated = false;
 let frameSequence = 0;
+const mockProfileRect = { x: 0, y: 788, width: 292, height: 292 };
+const mockOutputBounds = { width: 1920, height: 1080 };
+let mockCaptureConfig: CaptureConfig = {
+  schema_version: 1,
+  crop: { dx: 0, dy: 0, dw: 0, dh: 0 },
+  display_fps: 15,
+  paused: false,
+  profile_rect: mockProfileRect,
+  effective_rect: mockProfileRect,
+  proposal: null,
+  proposal_status: "none",
+  crop_confirmed: false,
+};
+
+function copyMockCaptureConfig(): CaptureConfig {
+  return {
+    ...mockCaptureConfig,
+    crop: { ...mockCaptureConfig.crop },
+    profile_rect: mockCaptureConfig.profile_rect ? { ...mockCaptureConfig.profile_rect } : null,
+    effective_rect: mockCaptureConfig.effective_rect ? { ...mockCaptureConfig.effective_rect } : null,
+    proposal: mockCaptureConfig.proposal ? { ...mockCaptureConfig.proposal } : null,
+  };
+}
+
+function updateMockConfig(patch: CaptureConfigPatch): CaptureConfig {
+  const crop = patch.crop ? { ...mockCaptureConfig.crop, ...patch.crop } : mockCaptureConfig.crop;
+  const profile = mockCaptureConfig.profile_rect;
+  const effective = profile
+    ? {
+        x: profile.x + crop.dx,
+        y: profile.y + crop.dy,
+        width: profile.width + crop.dw,
+        height: profile.height + crop.dh,
+      }
+    : null;
+  if (patch.crop && effective && (
+    effective.x < 0 || effective.y < 0 ||
+    effective.x + effective.width > mockOutputBounds.width ||
+    effective.y + effective.height > mockOutputBounds.height ||
+    effective.width < 64 || effective.width > 400 || effective.height < 64 || effective.height > 400
+  )) throw new Error("CAPTURE_CONFIG_INVALID");
+
+  mockCaptureConfig = {
+    ...mockCaptureConfig,
+    crop,
+    display_fps: patch.display_fps ?? mockCaptureConfig.display_fps,
+    paused: patch.paused ?? mockCaptureConfig.paused,
+    crop_confirmed: patch.crop ? false : mockCaptureConfig.crop_confirmed,
+    effective_rect: effective,
+  };
+  publishCapture();
+  return copyMockCaptureConfig();
+}
 
 function captureStatus() {
   if (scenario === "unknown") return null;
-  const measured = scenario === "live" ? 30 : scenario === "stale" ? 18 : null;
+  const measured = !mockCaptureConfig.paused && scenario === "live" ? mockCaptureConfig.display_fps : null;
   const age = scenario === "live" ? 32 : scenario === "stale" ? 3_200 : null;
   return {
     phase: scenario,
     fps_measured: measured,
+    grab_fps: measured,
+    sent_total: frameSequence,
+    grab_total: frameSequence,
     frame_age_ms: age,
     rect_profile: "1920x1080@100%",
     calibration_generation: generationFor(scenario),
     auto_confirmed: scenario === "live" || scenario === "stale",
+    crop_confirmed: mockCaptureConfig.crop_confirmed,
+    display_fps: mockCaptureConfig.display_fps,
+    paused: mockCaptureConfig.paused,
+    phase_reason: scenario === "calibrating" ? "waiting for structural checks" : null,
+    grab_ms_mean: scenario === "live" && !mockCaptureConfig.paused ? 1.5 : null,
+    analysis_ms_mean: scenario === "live" && !mockCaptureConfig.paused ? 4.2 : null,
   };
 }
 
@@ -61,14 +124,16 @@ function riskState(event: VisionEvent | null): RiskState {
 }
 
 function resourceSample() {
+  const captureActive = !mockCaptureConfig.paused && scenario === "live";
+  const captureStale = !mockCaptureConfig.paused && scenario === "stale";
   return {
     working_set_bytes: 188_400_000,
     gpu_local_bytes: 96_700_000,
     gpu_group_bytes: null,
     gpu_util: null,
     cpu_percent: 2.4,
-    capture_fps: scenario === "live" ? 30 : scenario === "stale" ? 18 : null,
-    frame_age_ms: scenario === "live" ? 32 : scenario === "stale" ? 3_200 : null,
+    capture_fps: captureActive ? mockCaptureConfig.display_fps : null,
+    frame_age_ms: captureActive ? 32 : captureStale ? 3_200 : null,
   };
 }
 
@@ -77,8 +142,8 @@ function emit(listeners: Set<Listener>, value: unknown) {
 }
 
 function makeMockFrame(): ArrayBuffer {
-  const width = 256;
-  const height = 256;
+  const width = mockCaptureConfig.effective_rect?.width ?? mockProfileRect.width;
+  const height = mockCaptureConfig.effective_rect?.height ?? mockProfileRect.height;
   const stride = width * 4;
   const pixels = new Uint8Array(stride * height);
   const dots: { x: number; y: number; color: readonly [number, number, number] }[] = [
@@ -173,15 +238,18 @@ export function subscribeResources(onPayload: Listener): () => void {
 }
 
 export function subscribeFrames(onFrame: (buffer: ArrayBuffer) => void): () => void {
+  let disposed = false;
+  let timer = 0;
   const publish = () => {
-    if (scenario === "live" || scenario === "stale") onFrame(makeMockFrame());
+    if (disposed) return;
+    if (!mockCaptureConfig.paused && scenario === "live") onFrame(makeMockFrame());
+    timer = window.setTimeout(publish, 1_000 / mockCaptureConfig.display_fps);
   };
+  if (!mockCaptureConfig.paused && scenario === "stale") onFrame(makeMockFrame());
   publish();
-  const timer = window.setInterval(() => {
-    if (scenario === "live") publish();
-  }, 400);
   return () => {
-    window.clearInterval(timer);
+    disposed = true;
+    window.clearTimeout(timer);
   };
 }
 
@@ -191,4 +259,52 @@ export function invalidateMock() {
   scenario = "calibrating";
   publishCapture();
   publishRisk(null);
+}
+
+export async function getMockCaptureConfig(): Promise<CaptureConfig> {
+  return copyMockCaptureConfig();
+}
+
+export async function invokeMockCaptureConfig(command: string, args?: Record<string, unknown>): Promise<CaptureConfig> {
+  if (command === "capture_get_config") return copyMockCaptureConfig();
+  if (command === "capture_set_config") {
+    const patch = args?.patch;
+    if (typeof patch !== "object" || patch === null || Array.isArray(patch)) throw new Error("CAPTURE_CONFIG_INVALID");
+    return updateMockConfig(patch as CaptureConfigPatch);
+  }
+  if (command === "capture_reset_crop") {
+    return updateMockConfig({ crop: { dx: 0, dy: 0, dw: 0, dh: 0 } });
+  }
+  if (command === "capture_propose_crop") {
+    mockCaptureConfig = { ...mockCaptureConfig, proposal: null, proposal_status: "searching" };
+    window.setTimeout(() => {
+      const notFound = new URLSearchParams(window.location.search).get("proposal") === "not_found";
+      mockCaptureConfig = {
+        ...mockCaptureConfig,
+        proposal: notFound ? null : { x: 0, y: 800, width: 280, height: 274 },
+        proposal_status: notFound ? "not_found" : "found",
+      };
+    }, 500);
+    return copyMockCaptureConfig();
+  }
+  if (command === "capture_accept_proposal") {
+    const proposal = mockCaptureConfig.proposal;
+    const patch = proposal && applyProposal(proposal, mockCaptureConfig.profile_rect);
+    if (!patch?.crop) throw new Error("CAPTURE_CONFIG_INVALID");
+    updateMockConfig(patch);
+    mockCaptureConfig = {
+      ...mockCaptureConfig,
+      crop_confirmed: true,
+      proposal: null,
+      proposal_status: "none",
+    };
+    publishCapture();
+    return copyMockCaptureConfig();
+  }
+  if (command === "capture_confirm_crop") {
+    mockCaptureConfig = { ...mockCaptureConfig, crop_confirmed: true };
+    publishCapture();
+    return copyMockCaptureConfig();
+  }
+  throw new Error(`UNKNOWN_MOCK_COMMAND:${command}`);
 }
