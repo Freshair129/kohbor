@@ -27,6 +27,8 @@ pub mod rules {
     pub const UNAVAILABLE_CLEAR_MS: u64 = 2_000;
     /// PROPOSED — source: MVP-PLAN.md section (d), Freshness and unknown.
     pub const GSI_STALE_MS: u64 = 2_000;
+    /// PROPOSED — source: MVP-PLAN.md section (d), Freshness and unknown; VISION-002.
+    pub const OBSERVATION_GAP_MS: u64 = 2_000;
     /// PROPOSED — source: MVP-PLAN.md section (d), Rules.
     pub const HP_LEVEL_ONE_THRESHOLD: u8 = 50;
     /// PROPOSED — source: MVP-PLAN.md section (d), Rules.
@@ -73,6 +75,7 @@ pub enum RiskEvent {
     EnemyMissing,
     RiskAlert,
     RiskRevision,
+    /// Emitted once when coverage becomes Unavailable while current GSI confirms in-match state.
     RiskUnavailable,
 }
 
@@ -89,6 +92,7 @@ pub struct RiskOutput {
 pub struct RiskEngine {
     raw_counts: VecDeque<u8>,
     v_history: VecDeque<Observation>,
+    last_visible_ms: Option<u64>,
     drop_episode: Option<DropEpisode>,
     alert: Option<AlertEpisode>,
     last_missing_ms: Option<u64>,
@@ -124,6 +128,7 @@ impl RiskEngine {
         Self {
             raw_counts: VecDeque::new(),
             v_history: VecDeque::new(),
+            last_visible_ms: None,
             drop_episode: None,
             alert: None,
             last_missing_ms: None,
@@ -149,6 +154,16 @@ impl RiskEngine {
         self.update_gsi_events(input, own.is_some());
 
         let (visible, v, baseline) = if let Some(count) = vision_count {
+            let observation_gap = self.last_visible_ms.is_some_and(|previous| {
+                input
+                    .now_ms
+                    .checked_sub(previous)
+                    .is_none_or(|elapsed| elapsed > rules::OBSERVATION_GAP_MS)
+            });
+            if observation_gap {
+                self.clear_vision_state();
+            }
+            self.last_visible_ms = Some(input.now_ms);
             let (v, baseline) = self.record_vision(input.now_ms, count);
             if let (Some(v), Some(baseline)) = (v, baseline) {
                 self.update_drop_and_alert(input.now_ms, v, baseline, own, &mut events);
@@ -163,7 +178,9 @@ impl RiskEngine {
 
         let meter = match own {
             None => Meter::Unknown,
-            Some(own) => Meter::Level(self.meter_level(own, input.now_ms, v, baseline)),
+            Some(own) => self
+                .meter_level(own, input.now_ms, v, baseline)
+                .map_or(Meter::Unknown, Meter::Level),
         };
 
         RiskOutput {
@@ -335,8 +352,14 @@ impl RiskEngine {
         self.alert = None;
     }
 
-    fn meter_level(&self, own: OwnGsi, now_ms: u64, v: Option<u8>, baseline: Option<u8>) -> u8 {
-        let mut level = own.hp_pct.map_or(rules::METER_LEVEL_ZERO, |hp| {
+    fn meter_level(
+        &self,
+        own: OwnGsi,
+        now_ms: u64,
+        v: Option<u8>,
+        baseline: Option<u8>,
+    ) -> Option<u8> {
+        let mut level = own.hp_pct.map(|hp| {
             if hp <= rules::HP_LEVEL_TWO_THRESHOLD {
                 rules::METER_LEVEL_TWO
             } else if hp <= rules::HP_LEVEL_ONE_THRESHOLD {
@@ -347,22 +370,32 @@ impl RiskEngine {
         });
 
         if is_recent(now_ms, self.health_low_ms, rules::RECENT_EVENT_WINDOW_MS) {
-            level = level.max(rules::METER_LEVEL_TWO);
+            level = Some(level.map_or(rules::METER_LEVEL_TWO, |level| {
+                level.max(rules::METER_LEVEL_TWO)
+            }));
         }
         if is_recent(now_ms, self.health_danger_ms, rules::RECENT_EVENT_WINDOW_MS) {
-            level = level.max(rules::METER_LEVEL_THREE);
+            level = Some(level.map_or(rules::METER_LEVEL_THREE, |level| {
+                level.max(rules::METER_LEVEL_THREE)
+            }));
         }
 
         if let (Some(v), Some(baseline)) = (v, baseline) {
             if self.drop_episode.is_some() {
-                level = level.max(rules::METER_LEVEL_ONE);
+                level = Some(level.map_or(rules::METER_LEVEL_ONE, |level| {
+                    level.max(rules::METER_LEVEL_ONE)
+                }));
             }
             if baseline.saturating_sub(v) >= rules::COORDINATED_DROP_COUNT {
-                level = level.max(rules::METER_LEVEL_TWO);
+                level = Some(level.map_or(rules::METER_LEVEL_TWO, |level| {
+                    level.max(rules::METER_LEVEL_TWO)
+                }));
             }
         }
         if self.alert.is_some() {
-            level = level.max(rules::METER_LEVEL_THREE);
+            level = Some(level.map_or(rules::METER_LEVEL_THREE, |level| {
+                level.max(rules::METER_LEVEL_THREE)
+            }));
         }
 
         level
@@ -371,6 +404,7 @@ impl RiskEngine {
     fn clear_vision_state(&mut self) {
         self.raw_counts.clear();
         self.v_history.clear();
+        self.last_visible_ms = None;
         self.drop_episode = None;
         self.alert = None;
     }
