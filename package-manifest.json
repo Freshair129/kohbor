@@ -278,8 +278,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/demo.rs",
-      "bytes": 5530,
-      "sha256": "d0ff745f264208d15bb4897a9404a2c5db694469b1df1e3151feb60180ed839d"
+      "bytes": 6550,
+      "sha256": "8138f4f29d9b25840da0f74b618bd187f0747b0c6e99d4dfd31da5767dc30cfd"
     },
     {
       "path": "apps/desktop/src-tauri/src/host.rs",
@@ -303,8 +303,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 15278,
-      "sha256": "6c7e6616b78f04c5661201412fc2c3aff4935be1c2f0ed7f6077fc5ecbde08ac"
+      "bytes": 15912,
+      "sha256": "93e5928b83226f826db603470d910e15e5a2a09d7d28421e7d319cf57354a655"
     },
     {
       "path": "apps/desktop/src-tauri/src/main.rs",
@@ -343,8 +343,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/overlay.rs",
-      "bytes": 8290,
-      "sha256": "dc8214645828cdea7e64a84e5d01444a3e4e20c6d5b1bc509a815c18aaa2c65f"
+      "bytes": 9136,
+      "sha256": "d3e1d6f571470c459f5d04947924728392c7836384bfd3082931f3d3a9d3a0a4"
     },
     {
       "path": "apps/desktop/src-tauri/src/secrets.rs",
@@ -1203,8 +1203,8 @@
     },
     {
       "path": "docs/design/S6-OVERLAY-SLICE.md",
-      "bytes": 14752,
-      "sha256": "c7b778866a9d8f437ccb2516289a90eea1b6b6fede20d457c0e65e7a361dbc2d"
+      "bytes": 15053,
+      "sha256": "86b74644ea0caaae3e9aaa4d70dbdb6d366cd6d842c598e5d6db030b23058ffb"
     },
     {
       "path": "docs/design/SAD.md",

@@ -59,6 +59,21 @@ impl host::Emitter for tauri::AppHandle<tauri::Wry> {
     }
 }
 
+/// The application data directory. Demo builds may redirect it with `KOHBOR_DATA_DIR` (only together
+/// with `KOHBOR_DEMO=1`) so the demo never touches the real packs; release builds ignore the variable.
+fn data_dir(app: &tauri::App<tauri::Wry>) -> tauri::Result<std::path::PathBuf> {
+    #[cfg(any(feature = "demo", debug_assertions))]
+    {
+        let demo = std::env::var("KOHBOR_DEMO").ok();
+        let requested = std::env::var("KOHBOR_DATA_DIR").ok();
+        if let Some(dir) = demo::data_dir_override(demo.as_deref(), requested.as_deref()) {
+            std::fs::create_dir_all(&dir)?;
+            return Ok(dir);
+        }
+    }
+    app.path().app_data_dir()
+}
+
 /// Place the overlay on the primary monitor. Returns false (and the caller keeps the window hidden)
 /// when the monitor or the geometry cannot be applied. Called again before every show so a changed
 /// display layout is followed.
@@ -210,7 +225,6 @@ fn start_overlay_status_mirror(
                 }
                 let (media_state, reason) = state.host.media_status();
                 let current = overlay::status_payload(media_state, reason);
-                drop(state);
 
                 if current != previous {
                     previous = current.clone();
@@ -235,7 +249,7 @@ pub fn run() {
     let builder = tauri::Builder::default()
         .register_asynchronous_uri_scheme_protocol("kohbor-media", commands::media_protocol_handler)
         .setup(|app| {
-            let dir = app.path().app_data_dir()?;
+            let dir = data_dir(app)?;
             let settings_dir = dir.clone();
             let runtime = intake::Runtime::new(dir.clone());
             let sample = Arc::new(Mutex::new((

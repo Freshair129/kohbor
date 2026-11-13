@@ -16,9 +16,15 @@ pub struct Rect {
     pub h: u32,
 }
 
+// Pinned by tests as the placement contract (docs/design/S6-OVERLAY-SLICE.md section 3); the runtime path
+// derives the same geometry through `place_overlay`, so these are not read outside tests.
+#[cfg_attr(not(test), allow(dead_code))]
 pub const STAGE_LOGICAL: (u32, u32) = (720, 220);
 pub const WINDOW_LOGICAL: (u32, u32) = (720, 256);
 
+// Pinned by tests as the placement contract (docs/design/S6-OVERLAY-SLICE.md section 3); the runtime path
+// derives the same geometry through `place_overlay`, so these are not read outside tests.
+#[cfg_attr(not(test), allow(dead_code))]
 pub const PROTECTED_REGIONS: [(&str, f64, f64, f64, f64); 4] = [
     ("minimap", 0.0, 0.70, 0.20, 1.0),
     ("bottom_hud", 0.0, 0.78, 1.0, 1.0),
@@ -61,6 +67,9 @@ pub fn place_overlay(monitor: &MonitorRect) -> Rect {
 }
 
 /// The clip stage occupies the top 220 of the 256 reference-pixel window.
+// Pinned by tests as the placement contract (docs/design/S6-OVERLAY-SLICE.md section 3); the runtime path
+// derives the same geometry through `place_overlay`, so these are not read outside tests.
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn stage_rect(monitor: &MonitorRect) -> Rect {
     let window = place_overlay(monitor);
     Rect {
@@ -101,6 +110,8 @@ pub const fn overlay_window_spec() -> OverlayWindowSpec {
     }
 }
 
+// Mirrors capabilities/overlay.json; a test compares the two. Not read by the runtime.
+#[cfg_attr(not(test), allow(dead_code))]
 pub const fn overlay_capability_permissions() -> &'static [&'static str] {
     &["core:event:default"]
 }

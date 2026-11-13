@@ -38,6 +38,16 @@ pub fn demo_event(id: &str, tier: Option<u8>) -> Result<Event, &'static str> {
     })
 }
 
+/// Demo-only data directory override: needs `KOHBOR_DEMO=1` and an absolute path.
+#[cfg(any(feature = "demo", debug_assertions))]
+pub fn data_dir_override(demo: Option<&str>, dir: Option<&str>) -> Option<std::path::PathBuf> {
+    if !demo_enabled(demo) {
+        return None;
+    }
+    let path = std::path::PathBuf::from(dir?);
+    (path.is_absolute() && !path.as_os_str().is_empty()).then_some(path)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -163,5 +173,20 @@ mod tests {
         );
         let renderer = include_str!("../../src/main.tsx");
         assert!(renderer.contains(".source === \"demo\""));
+    }
+
+    #[test]
+    fn data_dir_override_needs_demo_and_an_absolute_path() {
+        let abs = if cfg!(windows) {
+            r"C:\kohbor-demo"
+        } else {
+            "/tmp/kohbor-demo"
+        };
+        assert!(data_dir_override(Some("1"), Some(abs)).is_some());
+        assert!(data_dir_override(None, Some(abs)).is_none());
+        assert!(data_dir_override(Some("0"), Some(abs)).is_none());
+        assert!(data_dir_override(Some("1"), Some("relative/dir")).is_none());
+        assert!(data_dir_override(Some("1"), Some("")).is_none());
+        assert!(data_dir_override(Some("1"), None).is_none());
     }
 }
