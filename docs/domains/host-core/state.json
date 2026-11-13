@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "domain": "host-core",
   "tier": "B",
-  "verified_at_commit": "7ad4c7f",
+  "verified_at_commit": "0997546",
   "verified_on": "2026-11-13",
   "verified_by": "claude-code subagent draft (read-only), integrated by the governance lead; agent work, not human review",
   "write_areas": [
@@ -68,7 +68,7 @@
       "path": "docs/delivery/SPRINT-ROADMAP.md",
       "type": "registry",
       "role": "reference",
-      "reviewed_sha256": "f97c9a916c0a41bd46e03d303d8ad03135b79313fc24a17a9f1df5322dc5be18"
+      "reviewed_sha256": "73a046327b50a6a41c6083754870b919ac7f8fd560bca41270c8d9d8b4ee6c80"
     },
     {
       "path": "contracts/product-identity.json",
@@ -148,7 +148,7 @@
   "last_handoff": {
     "task_id": null,
     "on": "2026-11-13",
-    "summary": "Backfilled draft card, read-only. M1 slice exists in source; the hardened build has no native or live run; DEC-GSI-INTAKE is still proposed."
+    "summary": "Refreshed after PR #10 merged: S3 roadmap rows, S3-5 design section 13 and requirement implementation refs reviewed in the diff; no card fact outside the lines changed."
   },
   "crates": [
     "kohbor-gsi",

@@ -334,7 +334,7 @@ The [runbook](../operations/RUNBOOK.md) owns installation, operational configura
 
 ## 14. Resource governor (M1 proposal, DEC-GSI-INTAKE companion)
 
-This section elaborates CORE-002 and QUALITY-002 for M1. It is a proposed engineering design within delegated authority. It does not change the 10% hard cap, the 900,000,000-byte ceiling or the 8% recovery hysteresis in the [NFR](../quality/NFR.md).
+This section elaborates CORE-002 and QUALITY-002 for M1. It is a proposed engineering design within delegated authority. It does not change the 10% hard cap, the Working Set ceiling (2,000,000,000 bytes since DEC-RESOURCE-BUDGET; 900,000,000 when this section was written) or the 8% recovery hysteresis in the [NFR](../quality/NFR.md).
 
 **Containment setup** (before any WebView2 or sidecar creation):
 
@@ -343,7 +343,7 @@ This section elaborates CORE-002 and QUALITY-002 for M1. It is a proposed engine
 3. `SetInformationJobObject(JobObjectExtendedLimitInformation)` with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`. `BREAKAWAY_OK` and `SILENT_BREAKAWAY_OK` are **not** set.
 4. `AssignProcessToJobObject(job, GetCurrentProcess())`.
 
-Any failure → `CPU_CONTAINMENT_FAILED`, sanitized log, exit code 1. No job memory limit is set: a hard memory limit would crash instead of degrading. The 900,000,000-byte ceiling is a measured acceptance limit, not a kill threshold.
+Any failure → `CPU_CONTAINMENT_FAILED`, sanitized log, exit code 1. No job memory limit is set: a hard memory limit would crash instead of degrading. The 2,000,000,000-byte ceiling is a measured acceptance limit, not a kill threshold.
 
 **Membership verification:** after the WebView2 environment starts, enumerate job processes with `QueryInformationJobObject(JobObjectBasicProcessIdList)`. Every renderer, GPU and utility process of the owned WebView2 environment and every owned sidecar must be listed. A missing member is reported `METRIC_UNAVAILABLE` and fails the native containment test. It is not silently tolerated.
 

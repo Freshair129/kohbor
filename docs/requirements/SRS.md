@@ -1982,17 +1982,17 @@ Alert latency shall have p50 ≤250ms and every measured sample ≤300ms over at
 
 #### QUALITY-002 — Whole-app CPU and memory
 
-**Scope:** mvp · **Priority:** P0 · **Target milestone:** M1 · **Basis:** inherited_target / DEC-BASELINE
+**Scope:** mvp · **Priority:** P0 · **Target milestone:** M1 · **Basis:** inherited_target / DEC-BASELINE; DEC-RESOURCE-BUDGET
 
 **Product needs:** PN-005 · **Primary design:** CMP-PERFORMANCE · **Design components:** CMP-PERFORMANCE
 
-Every 1s normalized app-group CPU sample shall be ≤10% and aggregate peak full Working Set ≤900000000 bytes.
+Every 1s normalized app-group CPU sample shall be ≤10%, aggregate peak full Working Set ≤2000000000 bytes (decimal) and, when the app group uses the GPU, its peak dedicated GPU memory (VRAM) ≤2000000000 bytes; GPU use is allowed; VRAM is measured, never assumed.
 
-**Failure behavior:** No excluding model/shared pages or substituting private/PSS/forced trim.
+**Failure behavior:** No excluding model/shared pages or substituting private/PSS/forced trim. A RAM or VRAM value that was not measured is unknown, never zero or within budget.
 
-**AC-QUALITY-002:** Given host, WebView, sidecars and active external model processes are measured; when warmup and idle/live/voice-alert profiles run; then all included process samples satisfy the fixed limits with raw receipts.
+**AC-QUALITY-002:** Given host, WebView, sidecars and active external model processes are measured; when warmup and idle/live/voice-alert profiles run; then all included process samples satisfy the fixed limits with raw receipts; app-group VRAM is measured per process with raw receipts when the GPU is used.
 
-**Verification:** native, benchmark; procedures TP-13, UAT-05; status NOT_RUN.
+**Verification:** native, live, benchmark; procedures TP-13, UAT-05; status NOT_RUN.
 
 **Elaboration:** [NFR.md](../quality/NFR.md)
 

@@ -124,7 +124,8 @@
       "blocks": "local inference and certified vision",
       "owner_role": "engineering lead",
       "safe_interim": "Keep model capability unavailable until admitted; local core remains functional.",
-      "closure_evidence": "Vision artifact/class/calibration decisions before M3; local STT/answer model and consented corpus before M5; frozen hashes, quality and resource evidence for each."
+      "closure_evidence": "Vision artifact/class/calibration decisions before M3; local STT/answer model and consented corpus before M5; frozen hashes, quality and resource evidence for each.",
+      "owner_note_2026_11_13": "DEC-RESOURCE-BUDGET: the owner allows GPU-based inference for the vision path (for example through a DirectML-class runtime); the model decision is still open and the admission gate of REMAINING-SYSTEM-DESIGN section 1.7 is unchanged"
     },
     {
       "id": "DEC-VISUALS",
@@ -243,7 +244,7 @@
       "milestone": "M4b-M8",
       "blocks": "overall recording-profile resource qualification",
       "owner_role": "product and performance engineer",
-      "safe_interim": "Report app and external OBS separately and combined; retain app10%/900000000byte and recording-mode acoustic/FPS gates.",
+      "safe_interim": "Report app and external OBS separately and combined; retain app10%/2000000000byte (DEC-RESOURCE-BUDGET; was 900000000) and recording-mode acoustic/FPS gates.",
       "closure_evidence": "Recorded decision on combined recording-profile resource acceptance without pretending an unspecified combined cap already exists."
     },
     {
@@ -631,6 +632,49 @@
         "DEC-PRIVACY-LEGAL",
         "DEC-CRITICAL-MEDIA"
       ]
+    },
+    {
+      "id": "DEC-RESOURCE-BUDGET",
+      "status": "decided",
+      "milestone": "M1",
+      "blocks": "Nothing is blocked: the ceilings below replace the 900,000,000-byte Working Set ceiling of QUALITY-002. Acceptance of QUALITY-002 still needs native and live receipts that do not exist",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-13",
+      "channel": "Owner message in the engineering chat session (2026-11-13), relayed by the coordinating session; recorded by an agent (governance session). The coordinating session's reading is given below and has not been confirmed by the owner",
+      "owner_statement_th": "งบผมตั้งไปเลยให้ไปเลย 2 กิก และสามารถใช้ GPU ในการประมวลผลได้เพราะว่า Dota มันไม่ได้กิน VRAM เยอะขนาดนั้น ไม่ได้แย่งการประมวลผลอะไรขนาดนั้น แบ่งกันได้ แต่ RAM ของ PC ไม่เกิน 2 กิก",
+      "coordinator_reading": "System RAM of the application group is at most 2 GB (this replaces the 900,000,000-byte aggregate peak full Working Set of QUALITY-002); the application may use the GPU with up to about 2 GB of VRAM; the owner's reason is that Dota 2 does not use much VRAM or compute, so the GPU can be shared",
+      "decision": "Replace the aggregate peak full Working Set ceiling of QUALITY-002 (900,000,000 bytes, DEC-BASELINE) with 2,000,000,000 bytes (decimal), same measurement boundary (host, WebView processes, owned sidecars, active inference/model processes and a local app relay; external OBS reported separately). The application may use the GPU. Add a dedicated GPU memory (VRAM) ceiling of 2,000,000,000 bytes for the same process set, measured per process, never assumed. The CPU cap (10 percent of normalized CPU, one-second samples) and every other threshold are unchanged. No measurement exists for any figure here: new_build_status stays NOT_RUN. Follow-up statement of the same day: GPU use is allowed for the vision path itself, not only for optional inference, and is preferred to CPU so that CPU stays free; the CPU cap of 10 percent and the reporting rules stay unchanged until the owner says otherwise. Capture itself stays DXGI Desktop Duplication (REMAINING-SYSTEM-DESIGN D1).",
+      "assumptions_to_confirm": [
+        "Unit: 2 GB is read as 2,000,000,000 bytes (decimal), the unit the NFR already uses for the RAM ceiling. If the owner meant 2 GiB it is 2,147,483,648 bytes",
+        "Scope: the 2 GB RAM ceiling covers the whole application group as QUALITY-002 defines it (WebView2 and sidecars included), not only our own process",
+        "VRAM: the owner's 'about 2 GB' for VRAM is read as a cap of the same 2,000,000,000 bytes, not as a target; the owner's words name the RAM figure as the limit and speak of VRAM only as not being much used by Dota 2",
+        "CPU: the 10 percent cap and one-second sampling stay unless the owner says otherwise",
+        "GPU use: ANSWERED by the owner's follow-up as allowed for the vision path itself (capture post-processing and local model inference), preferred over CPU; any other workload is not addressed and stays at the lead's reading (allowed)"
+      ],
+      "open_questions": [
+        "Is the 2 GB RAM the whole app group including WebView2 and sidecars (as QUALITY-002 defines) or only our process?",
+        "Is 2 GB also the VRAM cap, or only the RAM cap?",
+        "Keep CPU at 10 percent?"
+      ],
+      "supersedes": "The 900,000,000-byte aggregate peak full Working Set of QUALITY-002 (DEC-BASELINE). Historical measurements and the M1 receipts stay as written",
+      "safe_interim": "Measure and report RAM (full Working Set) and, when the GPU is used, VRAM per process; never present an unmeasured value as within budget. No model, vision path or GPU feature is approved by this decision.",
+      "closure_evidence": "Owner answers the open questions; native and live receipts of the app-group full Working Set and of per-process dedicated GPU memory on the certified configuration (the GPU memory counters are UNVERIFIED as a measurement method and need a stated method before measurement); the runtime-status contract carries or declares how VRAM is reported if it is to be shown in the app",
+      "related": [
+        "DEC-OBS-BUDGET",
+        "DEC-MODELS",
+        "DEC-NATIVE-EVIDENCE"
+      ],
+      "affected": [
+        "QUALITY-002",
+        "docs/quality/NFR.md",
+        "contracts/runtime-status.schema.json (maximum of working_set_bytes)",
+        "apps/desktop/src-tauri/src/containment.rs (WORKING_SET_LIMIT_BYTES)",
+        "apps/desktop/src/copy.ts",
+        "docs/design/REMAINING-SYSTEM-DESIGN.md (DEC-MODELS note)"
+      ],
+      "owner_statement_2_th": "ให้ GPU ประมวลผลมัน ทั้งเร็วกว่าและจะได้ไม่ไปดึงทรัพยากรประมวลผลอย่างอื่นใน CPU ... VRAM มันก็ไม่ได้ใช้เยอะ ... Dota กิน VRAM แค่ 4-5 กิกเอง โปรแกรมเรามันจะแดกอะไรขนาดนั้นน่ะ",
+      "owner_statement_2_note": "Owner follow-up, same day (relayed by the coordinating session; quoted with ellipses). Recorded as the owner's statement: GPU processing is preferred because it is faster and keeps CPU free for other work; VRAM use will be small; the owner says Dota 2 itself takes only about 4 to 5 GB of VRAM and asks what our program could use that much for. The exact VRAM figure stays 'about 2 GB, to confirm': the owner's wording was loose, and no other threshold changed"
     }
   ]
 }
