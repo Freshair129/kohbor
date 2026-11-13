@@ -131,6 +131,40 @@ pub(crate) fn set_muted(state: tauri::State<'_, AppState>, muted: bool) -> Resul
     state.host.commands.set_muted(muted)
 }
 
+#[tauri::command(async)]
+pub(crate) fn demo_available() -> bool {
+    #[cfg(any(feature = "demo", debug_assertions))]
+    {
+        let enabled = std::env::var("KOHBOR_DEMO").ok();
+        crate::demo::demo_enabled(enabled.as_deref())
+    }
+    #[cfg(not(any(feature = "demo", debug_assertions)))]
+    {
+        false
+    }
+}
+
+#[cfg(any(feature = "demo", debug_assertions))]
+#[tauri::command(async)]
+pub(crate) fn demo_trigger(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    event_id: String,
+    tier: Option<u8>,
+) -> Result<(), String> {
+    if state.host.shutdown_started() {
+        return Err("CANCELLED".to_owned());
+    }
+    let enabled = std::env::var("KOHBOR_DEMO").ok();
+    if !crate::demo::demo_enabled(enabled.as_deref()) {
+        return Err("CAPABILITY_UNAVAILABLE".to_owned());
+    }
+    let event = crate::demo::demo_event(&event_id, tier).map_err(str::to_owned)?;
+
+    let _ = tauri::Emitter::emit(&app, "overlay://demo", serde_json::json!({}));
+    state.host.demo_offer(event)
+}
+
 /// Called on Tauri's protocol thread. It only snapshots request fields and
 /// enqueues the response continuation into the bounded `media-serve` lane.
 pub(crate) fn media_protocol_handler(

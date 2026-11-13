@@ -43,6 +43,23 @@ test("chip: demo marker is inclusive at 2000ms and lasts through banner", () => 
 test("chip: stale demo marker does not label playback", () => {
   let s = reduceChip(createChipState(), { type: "demo_marker", now_ms: 100 }); s = reduceChip(s, { type: "playback_started", now_ms: 2101 }); assert.notEqual(s.view?.kind, "demo");
 });
+test("chip: playback_ended clears the demo label for its playback", () => {
+  let s = reduceChip(createChipState(), { type: "demo_marker", now_ms: 100 });
+  s = reduceChip(s, { type: "playback_started", playback_id: "pb_00000001", now_ms: 200 });
+  assert.equal(s.view?.kind, "demo");
+  s = reduceChip(s, { type: "playback_ended", playback_id: "pb_00000001", now_ms: 500 });
+  assert.equal(s.view, null);
+  assert.equal(s.demoMarkerAtMs, null);
+});
+test("chip: playback_ended for an older id leaves the current demo label", () => {
+  let s = reduceChip(createChipState(), { type: "demo_marker", now_ms: 100 });
+  s = reduceChip(s, { type: "playback_started", playback_id: "pb_00000001", now_ms: 200 });
+  s = reduceChip(s, { type: "demo_marker", now_ms: 300 });
+  s = reduceChip(s, { type: "playback_started", playback_id: "pb_00000002", now_ms: 400 });
+  const current = s;
+  s = reduceChip(s, { type: "playback_ended", playback_id: "pb_00000001", now_ms: 500 });
+  assert.strictEqual(s, current);
+});
 test("chip: visibility requires a banner or an unexpired chip", () => {
   const p = createPlaybackState(); assert.equal(overlayShouldShow(p, empty, 0), false);
   const chip = { ...empty, view: { kind: "muted" as const, reason: "AUDIO_MUTED", text_th: "x" }, shownUntilMs: 10 };
