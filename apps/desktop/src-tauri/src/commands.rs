@@ -30,7 +30,13 @@ pub(crate) fn gsi_setup(
     state: tauri::State<'_, AppState>,
     replace: Option<bool>,
 ) -> Result<(), String> {
+    if state.host.shutdown_started() {
+        return Err("CANCELLED".to_owned());
+    }
     let _settings_guard = lock(&state.settings_gate);
+    if state.host.shutdown_started() {
+        return Err("CANCELLED".to_owned());
+    }
     state
         .runtime
         .setup(replace.unwrap_or(false))
@@ -48,7 +54,13 @@ pub(crate) fn settings_patch(
     state: tauri::State<'_, AppState>,
     request: Value,
 ) -> Result<Value, String> {
+    if state.host.shutdown_started() {
+        return Err("CANCELLED".to_owned());
+    }
     let _settings_guard = lock(&state.settings_gate);
+    if state.host.shutdown_started() {
+        return Err("CANCELLED".to_owned());
+    }
     settings::patch(&state.settings_dir, &request)
 }
 

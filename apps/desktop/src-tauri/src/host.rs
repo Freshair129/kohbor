@@ -26,7 +26,10 @@ const PROTOCOL_QUEUE_CAPACITY: usize = 8;
 const PROTOCOL_EVENT: &str = "media://probe-request";
 const EVENT_MARKER: &str = "__kohbor_publisher_event";
 const EVENT_PAYLOAD: &str = "payload";
+#[cfg(not(test))]
 const SHUTDOWN_JOIN_GRACE: Duration = Duration::from_secs(5);
+#[cfg(test)]
+const SHUTDOWN_JOIN_GRACE: Duration = Duration::from_millis(100);
 
 /// The only application-specific dependency used by the publisher glue.
 pub trait Emitter: Send + Sync {
@@ -338,7 +341,7 @@ impl ProtocolServer {
             let _ = hook.try_send(());
         }
         if let Some(join) = self.join.take() {
-            let _ = join.join();
+            join_with_deadline(join, SHUTDOWN_JOIN_GRACE);
         }
     }
 }
@@ -567,8 +570,12 @@ impl Host {
         dispatch_protocol_from(&self.protocol, request, complete);
     }
 
+    pub fn shutdown_started(&self) -> bool {
+        shutdown_flag_started(&self.shutting_down)
+    }
+
     pub fn shutdown(&self) {
-        if self.shutting_down.swap(true, Ordering::AcqRel) {
+        if !begin_shutdown(&self.shutting_down) {
             return;
         }
         let mut threads = lock(&self.threads);
@@ -609,6 +616,14 @@ impl Host {
             },
         );
     }
+}
+
+fn shutdown_flag_started(shutting_down: &AtomicBool) -> bool {
+    shutting_down.load(Ordering::Acquire)
+}
+
+fn begin_shutdown(shutting_down: &AtomicBool) -> bool {
+    !shutting_down.swap(true, Ordering::AcqRel)
 }
 
 fn run_shutdown_steps(
@@ -809,14 +824,28 @@ mod tests {
     #[test]
     fn command_calls_are_cancelled_after_shutdown_starts() {
         let (mut api, backend, _, _) = command_api(Ok(json!({"container_sha256": "x"})));
-        let shutting_down = Arc::new(AtomicBool::new(true));
-        api.shutting_down = shutting_down;
+        let shutting_down = Arc::new(AtomicBool::new(false));
+        api.shutting_down = shutting_down.clone();
+        assert!(api.ensure_running().is_ok());
+        shutting_down.store(true, Ordering::Release);
+        assert_eq!(api.ensure_running(), Err("CANCELLED".to_owned()));
         assert_eq!(
             api.media_inspect("package.khm"),
             Err("CANCELLED".to_owned())
         );
         assert_eq!(api.audio_history(None), Err("CANCELLED".to_owned()));
         assert_eq!(backend.calls.load(Ordering::Relaxed), 0);
+    }
+
+    #[test]
+    fn shutdown_started_flag_seam_flips_when_shutdown_begins() {
+        // No Tauri-independent Host builder exists; exercise the exact atomic seam
+        // shared by Host::shutdown and Host::shutdown_started.
+        let shutting_down = AtomicBool::new(false);
+
+        assert!(!shutdown_flag_started(&shutting_down));
+        assert!(begin_shutdown(&shutting_down));
+        assert!(shutdown_flag_started(&shutting_down));
     }
 
     #[test]
@@ -914,6 +943,44 @@ mod tests {
         );
         assert!(dispatch_joined, "protocol dispatch thread exits");
         assert!(stop_joined, "protocol shutdown thread exits after release");
+    }
+
+    #[test]
+    fn protocol_stop_returns_after_grace_when_completion_callback_never_returns() {
+        let server =
+            ProtocolServer::spawn(new_visual_index_handle(), Arc::new(AtomicBool::new(false)))
+                .expect("protocol worker starts");
+        let request = ProtocolRequest {
+            method: "GET".to_owned(),
+            path: "/v1/ins_0000000001/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                .to_owned(),
+            query: None,
+            range: None,
+        };
+        let (worker_entered_tx, worker_entered_rx) = mpsc::sync_channel(1);
+        server.dispatch_handle().dispatch(request, move |_| {
+            let _ = worker_entered_tx.try_send(());
+            loop {
+                thread::park();
+            }
+        });
+        assert!(worker_entered_rx
+            .recv_timeout(Duration::from_secs(1))
+            .is_ok());
+
+        let (stopped_tx, stopped_rx) = mpsc::sync_channel(1);
+        let started = Instant::now();
+        let stop_thread = thread::spawn(move || {
+            let mut server = server;
+            server.stop();
+            let _ = stopped_tx.send(started.elapsed());
+        });
+        let elapsed = stopped_rx
+            .recv_timeout(Duration::from_millis(500))
+            .expect("protocol stop returns within its bounded grace");
+
+        assert!(elapsed < Duration::from_millis(500));
+        assert!(stop_thread.join().is_ok());
     }
 
     #[test]

@@ -1248,6 +1248,12 @@ pub fn sha256_file(path: &Path) -> Result<String, RejectReason> {
 /// file cannot be read or contains more than `max_bytes` bytes.
 pub fn sha256_file_limited(path: &Path, max_bytes: u64) -> Result<(String, u64), RejectReason> {
     let file = File::open(path).map_err(|_| RejectReason::SourceUnavailable)?;
+    let metadata = file
+        .metadata()
+        .map_err(|_| RejectReason::SourceUnavailable)?;
+    if !metadata.is_file() {
+        return Err(RejectReason::SourceUnavailable);
+    }
     let mut input = file.take(max_bytes.saturating_add(1));
     let mut hasher = Sha256::new();
     let mut buffer = [0u8; IO_CHUNK_BYTES];

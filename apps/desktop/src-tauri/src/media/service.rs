@@ -795,6 +795,8 @@ fn inspect(source_path: &str) -> Result<Value, String> {
     inspect_with_limit(source_path, MAX_CONTAINER_BYTES)
 }
 
+/// Follows symlinks because the path is user-selected; installation re-verifies
+/// the package hash before committing it.
 fn inspect_with_limit(source_path: &str, limit: u64) -> Result<Value, String> {
     if source_path.chars().count() > MAX_INSPECT_PATH_CHARS {
         return Err("MEDIA_INVALID".to_owned());

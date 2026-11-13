@@ -14,6 +14,39 @@ mod tests {
     }
 
     #[test]
+    fn stage_a_receipt_records_invocation_and_measurement_limitations() {
+        let report = StageAReport {
+            samples: vec![crate::audio::publisher::LatencySample {
+                instance_id: "synthetic".into(),
+                event_type: Some("health_danger".into()),
+                t0_ms: 0,
+                t1_us: 3,
+                t2_us: 7,
+                t3p_us: 12,
+            }],
+        };
+        let receipt = build_receipt(&report, Path::new("synthetic.samples.json")).unwrap();
+
+        assert_eq!(receipt["status"], "INDETERMINATE");
+        assert_eq!(
+            receipt["commands"][0],
+            "cargo test -p kohbor-desktop --test latency_harness --offline --locked -j 4 -- --ignored"
+        );
+        let limitations = receipt["limitations"].as_array().unwrap();
+        for expected in [
+            "engineering fixture; not QUALITY-001",
+            "T0 is the arrival Instant passed to Shared::accept: HTTP read, JSON parse, the registry read and the serve-side Shared lock are not in the measurement; F2 and F3 are not quantified",
+            "no warm-up discarded and no outlier removed; samples include scheduler stalls of this machine",
+            "one session epoch per burst trace (new match id), measured on a developer machine under no controlled load",
+        ] {
+            assert!(
+                limitations.iter().any(|value| value == expected),
+                "missing receipt limitation: {expected}"
+            );
+        }
+    }
+
+    #[test]
     fn stages_reject_out_of_order_timestamps() {
         let mut sample = crate::audio::publisher::LatencySample {
             instance_id: "fixture".into(),
@@ -351,7 +384,9 @@ pub fn build_receipt(report: &StageAReport, sample_path: &Path) -> Result<Value,
         "no acoustic measurement",
         "generated test clip, not authorized critical media",
         "DEC-CRITICAL-MEDIA open",
-        "fresh session epoch per burst trace; fixture timing replayed in real time",
+        "T0 is the arrival Instant passed to Shared::accept: HTTP read, JSON parse, the registry read and the serve-side Shared lock are not in the measurement; F2 and F3 are not quantified",
+        "no warm-up discarded and no outlier removed; samples include scheduler stalls of this machine",
+        "one session epoch per burst trace (new match id), measured on a developer machine under no controlled load",
         "QUALITY-001 remains NOT_RUN",
     ];
     match git(&["status", "--porcelain"]) {
@@ -364,7 +399,7 @@ pub fn build_receipt(report: &StageAReport, sample_path: &Path) -> Result<Value,
         "requirement_ids":["QUALITY-001"], "scenario_id":"S3-6a-stage-a-engineering-fixture", "evidence_class":"synthetic", "status":"INDETERMINATE",
         "source_revision":git(&["rev-parse", "HEAD"]), "artifact_sha256":artifact_sha256()?, "executed_at_utc":utc_now()?, "operator":"kohbor latency harness (stage A)",
         "environment":{"os_build":null,"hardware":null,"game_patch":null,"profile":null},
-        "commands":["cargo test -p kohbor-desktop --test latency_harness --offline --locked -j 4 --no-fail-fast"],
+        "commands":["cargo test -p kohbor-desktop --test latency_harness --offline --locked -j 4 -- --ignored"],
         "raw_evidence_paths":[sample_path.to_string_lossy()],
         "observed_result":format!("T0 to T3' microseconds: count={}, p50={}, p95={}, max={}",summary.count,summary.p50,summary.p95,summary.max),
         "limitations":limitations

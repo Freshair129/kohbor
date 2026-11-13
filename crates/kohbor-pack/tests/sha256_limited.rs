@@ -50,3 +50,15 @@ fn limited_digest_rejects_a_missing_file() {
         RejectReason::SourceUnavailable
     );
 }
+
+#[test]
+fn limited_digest_rejects_a_directory() {
+    let tmp = common::TempDir::new();
+    let directory = tmp.0.join("directory");
+    std::fs::create_dir(&directory).unwrap();
+
+    assert_eq!(
+        sha256_file_limited(&directory, 5).unwrap_err(),
+        RejectReason::SourceUnavailable
+    );
+}
