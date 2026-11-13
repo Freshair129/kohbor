@@ -2,11 +2,70 @@ use kohbor_audio::{PlaybackId, SinkError, SinkEvent};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError, TrySendError};
 use std::sync::Arc;
+#[cfg(feature = "latency-probe")]
+use std::time::{Duration, Instant};
 
 pub(super) const COMMAND_QUEUE_CAPACITY: usize = 8;
 pub(super) const EVENT_QUEUE_CAPACITY: usize = 16;
 const RETIREMENT_QUEUE_CAPACITY: usize = COMMAND_QUEUE_CAPACITY + 1;
 const INACTIVE_GENERATION: u64 = 0;
+
+#[cfg(feature = "latency-probe")]
+pub(crate) struct FirstFillProbeState {
+    base: Instant,
+    first_fill_nanos: AtomicU64,
+    playback_id: AtomicU64,
+}
+
+#[cfg(feature = "latency-probe")]
+#[derive(Clone)]
+pub struct FirstFillProbe {
+    pub(crate) inner: Arc<FirstFillProbeState>,
+}
+
+#[cfg(feature = "latency-probe")]
+impl FirstFillProbe {
+    pub(crate) fn new() -> Self {
+        Self {
+            inner: Arc::new(FirstFillProbeState {
+                base: Instant::now(),
+                first_fill_nanos: AtomicU64::new(0),
+                playback_id: AtomicU64::new(0),
+            }),
+        }
+    }
+
+    /// Return the most recently observed first render fill.
+    pub fn latest(&self) -> Option<(PlaybackId, Instant)> {
+        let playback_id = self.inner.playback_id.load(Ordering::Acquire);
+        if playback_id == INACTIVE_GENERATION {
+            return None;
+        }
+        let nanos = self.inner.first_fill_nanos.load(Ordering::Relaxed);
+        let instant = self.inner.base.checked_add(Duration::from_nanos(nanos))?;
+        Some((PlaybackId(playback_id), instant))
+    }
+
+    /// Clear the latest observation. Playback id zero is reserved as empty.
+    pub fn clear(&self) {
+        self.inner.first_fill_nanos.store(0, Ordering::Relaxed);
+        self.inner
+            .playback_id
+            .store(INACTIVE_GENERATION, Ordering::Release);
+    }
+}
+
+#[cfg(feature = "latency-probe")]
+impl FirstFillProbeState {
+    fn record(&self, id: PlaybackId) {
+        let nanos = Instant::now()
+            .saturating_duration_since(self.base)
+            .as_nanos()
+            .min(u128::from(u64::MAX)) as u64;
+        self.first_fill_nanos.store(nanos, Ordering::Relaxed);
+        self.playback_id.store(id.0, Ordering::Release);
+    }
+}
 
 enum Command {
     Submit {
@@ -34,6 +93,8 @@ pub(crate) struct Engine {
     current_generation: Arc<AtomicU64>,
     active: Option<Playback>,
     pending_command: Option<Command>,
+    #[cfg(feature = "latency-probe")]
+    first_fill_probe: Option<Arc<FirstFillProbeState>>,
 }
 
 /// Coordinator-side half of the bounded hand-off. Callers are serialized by
@@ -109,9 +170,16 @@ impl Engine {
                 current_generation,
                 active: None,
                 pending_command: None,
+                #[cfg(feature = "latency-probe")]
+                first_fill_probe: None,
             },
             handle,
         )
+    }
+
+    #[cfg(feature = "latency-probe")]
+    pub(crate) fn set_first_fill_probe(&mut self, probe: Arc<FirstFillProbeState>) {
+        self.first_fill_probe = Some(probe);
     }
 
     /// Fill the render block with the active samples, padding the final block or
@@ -203,6 +271,12 @@ impl Engine {
         if self.current_generation.load(Ordering::Acquire) != generation {
             out.fill(0);
             return;
+        }
+        #[cfg(feature = "latency-probe")]
+        if active.cursor == 0 && count > 0 {
+            if let Some(probe) = self.first_fill_probe.as_ref() {
+                probe.record(active.id);
+            }
         }
         active.cursor = end;
         if active.cursor == active.samples.len() && !active.finished_notified {
@@ -325,9 +399,13 @@ impl EngineHandle {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "latency-probe")]
+    use super::FirstFillProbe;
     use super::{Engine, COMMAND_QUEUE_CAPACITY, EVENT_QUEUE_CAPACITY};
     use kohbor_audio::{PlaybackId, SinkError, SinkEvent};
     use std::sync::Arc;
+    #[cfg(feature = "latency-probe")]
+    use std::time::Instant;
 
     fn pair() -> (Engine, super::EngineHandle) {
         Engine::new()
@@ -610,6 +688,46 @@ mod tests {
                 "engine render source contains forbidden token {forbidden}"
             );
         }
+    }
+
+    #[cfg(feature = "latency-probe")]
+    #[test]
+    fn first_fill_probe_ignores_idle_and_cancelled_fills() {
+        let (mut render, mut coordinator) = pair();
+        let probe = FirstFillProbe::new();
+        render.set_first_fill_probe(Arc::clone(&probe.inner));
+
+        render.fill(&mut [0; 2]);
+        assert_eq!(probe.latest(), None);
+
+        submit(&mut coordinator, 1, &[4, 5]);
+        coordinator.cancel(PlaybackId(1));
+        render.fill(&mut [0; 2]);
+
+        assert_eq!(probe.latest(), None);
+    }
+
+    #[cfg(feature = "latency-probe")]
+    #[test]
+    fn first_fill_probe_keeps_the_first_service_for_a_playback() {
+        let (mut render, mut coordinator) = pair();
+        let probe = FirstFillProbe::new();
+        render.set_first_fill_probe(Arc::clone(&probe.inner));
+        submit(&mut coordinator, 17, &[3, 2]);
+
+        let before = Instant::now();
+        render.fill(&mut [0; 1]);
+        let after = Instant::now();
+        let first = probe.latest();
+        let (id, timestamp) = first.expect("the first nonempty fill is recorded");
+        assert_eq!(id, PlaybackId(17));
+        assert!(before <= timestamp && timestamp <= after);
+
+        render.fill(&mut [0; 1]);
+
+        assert_eq!(probe.latest(), first);
+        probe.clear();
+        assert_eq!(probe.latest(), None);
     }
 
     fn strip_comments(source: &str) -> String {

@@ -47,6 +47,104 @@ mod tests {
     }
 
     #[test]
+    fn stage_b_receipt_records_native_fixture_and_keeps_device_identity_unknown() {
+        let report = StageBReport {
+            samples: vec![StageBSample {
+                sample: crate::audio::publisher::LatencySample {
+                    instance_id: "synthetic".into(),
+                    event_type: Some("health_danger".into()),
+                    t0_ms: 0,
+                    t1_us: 3,
+                    t2_us: 7,
+                    t3p_us: 12,
+                },
+                t3pp_us: 20,
+            }],
+        };
+        let receipt = build_stage_b_receipt(&report, Path::new("stage-b.samples.json")).unwrap();
+
+        assert_eq!(receipt["evidence_class"], "native");
+        assert_eq!(receipt["status"], "INDETERMINATE");
+        assert_eq!(receipt["scenario_id"], "S3-6b-stage-b-engineering-fixture");
+        assert_eq!(receipt["requirement_ids"][0], "QUALITY-001");
+        assert_eq!(
+            receipt["commands"][0],
+            "cargo test -p kohbor-desktop --test latency_harness_native --offline --locked -j 4 -- --ignored"
+        );
+        assert_eq!(
+            receipt["observed_result"],
+            "T0 to T3'' microseconds: count=1, p50=20, p95=20, max=20"
+        );
+        assert_eq!(receipt["environment"]["os_build"], Value::Null);
+        assert_eq!(receipt["environment"]["hardware"], Value::Null);
+        assert_eq!(receipt["environment"]["game_patch"], Value::Null);
+        assert_eq!(receipt["environment"]["profile"], Value::Null);
+        assert_eq!(receipt["raw_evidence_paths"][0], "stage-b.samples.json");
+        assert_eq!(receipt["artifact_sha256"], artifact_sha256().unwrap());
+
+        fn assert_no_device_identity_fields(value: &Value) {
+            match value {
+                Value::Object(fields) => {
+                    for (key, child) in fields {
+                        let normalized = key.to_ascii_lowercase();
+                        assert!(!normalized.contains("endpoint"));
+                        assert!(!normalized.contains("device_id"));
+                        assert!(!normalized.contains("friendly"));
+                        if normalized == "hardware" {
+                            assert_eq!(child, &Value::Null);
+                        }
+                        assert_no_device_identity_fields(child);
+                    }
+                }
+                Value::Array(items) => {
+                    for item in items {
+                        assert_no_device_identity_fields(item);
+                    }
+                }
+                _ => {}
+            }
+        }
+        assert_no_device_identity_fields(&receipt);
+
+        let limitations = receipt["limitations"].as_array().unwrap();
+        for expected in [
+            "engineering fixture; not QUALITY-001",
+            "native silence only: default render endpoint, shared-mode event-driven stream, all-zero generated clip, no audible output",
+            "T3'' is the first render service that copied the buffer, not loopback-audible sound",
+            "generated test clip, not authorized critical media",
+            "DEC-CRITICAL-MEDIA open",
+            "T0 is the arrival Instant passed to Shared::accept: HTTP read, JSON parse, the registry read and the serve-side Shared lock are not in the measurement; F2 and F3 are not quantified",
+            "no warm-up discarded and no outlier removed; samples include scheduler stalls of this machine",
+            "QUALITY-001 remains NOT_RUN",
+        ] {
+            assert!(
+                limitations.iter().any(|value| value == expected),
+                "missing receipt limitation: {expected}"
+            );
+        }
+    }
+
+    #[test]
+    fn not_run_receipt_records_reason_and_execution_time() {
+        let receipt = not_run_receipt("no active render endpoint").unwrap();
+
+        assert_eq!(receipt["status"], "NOT_RUN");
+        assert_eq!(receipt["observed_result"], Value::Null);
+        assert!(receipt["executed_at_utc"].as_str().is_some());
+        assert!(receipt["limitations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|value| value == "no active render endpoint"));
+    }
+
+    #[test]
+    fn missing_first_fill_is_an_error() {
+        let reader = |_id: kohbor_audio::PlaybackId| None;
+        assert!(wait_for_first_fill(&reader, kohbor_audio::PlaybackId(9), Duration::ZERO).is_err());
+    }
+
+    #[test]
     fn stages_reject_out_of_order_timestamps() {
         let mut sample = crate::audio::publisher::LatencySample {
             instance_id: "fixture".into(),
@@ -152,7 +250,10 @@ use std::{
     fs,
     path::{Path, PathBuf},
     process::Command,
-    sync::{atomic::Ordering, mpsc, Arc},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        mpsc, Arc,
+    },
     thread::{self, JoinHandle},
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
@@ -160,6 +261,57 @@ use std::{
 pub struct StageAReport {
     pub samples: Vec<LatencySample>,
 }
+
+pub struct StageBSample {
+    pub sample: LatencySample,
+    pub t3pp_us: u64,
+}
+
+pub struct StageBReport {
+    pub samples: Vec<StageBSample>,
+}
+
+pub trait FirstFillReader: Send + Sync {
+    fn first_fill(&self, playback_id: PlaybackId) -> Option<Instant>;
+}
+
+impl<F> FirstFillReader for F
+where
+    F: Fn(PlaybackId) -> Option<Instant> + Send + Sync,
+{
+    fn first_fill(&self, playback_id: PlaybackId) -> Option<Instant> {
+        self(playback_id)
+    }
+}
+
+struct TimedSample {
+    sample: LatencySample,
+    t3pp_us: Option<u64>,
+}
+
+struct SubmitTrackingSink {
+    inner: Box<dyn Sink + Send>,
+    last_submitted_id: Arc<AtomicU64>,
+}
+
+impl Sink for SubmitTrackingSink {
+    fn submit(&mut self, id: PlaybackId, pcm: Pcm) -> Result<(), SinkError> {
+        let result = self.inner.submit(id, pcm);
+        if result.is_ok() {
+            self.last_submitted_id.store(id.0, Ordering::Release);
+        }
+        result
+    }
+
+    fn cancel(&mut self, id: PlaybackId) {
+        self.inner.cancel(id);
+    }
+
+    fn poll_event(&mut self) -> Option<SinkEvent> {
+        self.inner.poll_event()
+    }
+}
+
 struct SilentSink;
 impl Sink for SilentSink {
     fn submit(&mut self, _: PlaybackId, _: Pcm) -> Result<(), SinkError> {
@@ -214,11 +366,84 @@ fn join_bounded(handle: JoinHandle<()>) -> Result<(), String> {
     handle.join().map_err(|_| "thread panicked".into())
 }
 
+fn wait_for_first_fill(
+    reader: &dyn FirstFillReader,
+    playback_id: PlaybackId,
+    timeout: Duration,
+) -> Result<Instant, String> {
+    let deadline = Instant::now()
+        .checked_add(timeout)
+        .ok_or_else(|| "first-fill timeout deadline overflowed".to_owned())?;
+    loop {
+        if let Some(instant) = reader.first_fill(playback_id) {
+            return Ok(instant);
+        }
+        let now = Instant::now();
+        let Some(remaining) = deadline.checked_duration_since(now) else {
+            return Err(format!(
+                "first fill for playback {} did not arrive before timeout",
+                playback_id.0
+            ));
+        };
+        if remaining.is_zero() {
+            return Err(format!(
+                "first fill for playback {} did not arrive before timeout",
+                playback_id.0
+            ));
+        }
+        thread::sleep(remaining.min(Duration::from_millis(1)));
+    }
+}
+
+const FIRST_FILL_TIMEOUT: Duration = Duration::from_secs(5);
+
 /// Run real intake, engine and publisher threads using the burst trace and a generated clip.
 pub fn run_stage_a(count: usize) -> Result<StageAReport, String> {
     if count < 300 {
         return Err("stage A requires at least 300 samples".into());
     }
+    let samples = run_with_sink(count, Box::new(SilentSink), None)?;
+    Ok(StageAReport {
+        samples: samples.into_iter().map(|timed| timed.sample).collect(),
+    })
+}
+
+/// Run the same fixture while recording the first render fill for each admitted playback.
+pub fn run_stage_b(
+    count: usize,
+    sink: Box<dyn Sink + Send>,
+    first_fill_reader: &dyn FirstFillReader,
+) -> Result<StageBReport, String> {
+    if count == 0 {
+        return Err("stage B requires at least one sample".into());
+    }
+    let timed_samples = run_with_sink(count, sink, Some(first_fill_reader))?;
+    let mut samples = Vec::with_capacity(timed_samples.len());
+    for timed in timed_samples {
+        let t3pp_us = timed
+            .t3pp_us
+            .ok_or_else(|| "stage B sample has no first-fill timestamp".to_owned())?;
+        samples.push(StageBSample {
+            sample: timed.sample,
+            t3pp_us,
+        });
+    }
+    Ok(StageBReport { samples })
+}
+
+fn run_with_sink(
+    count: usize,
+    sink: Box<dyn Sink + Send>,
+    first_fill_reader: Option<&dyn FirstFillReader>,
+) -> Result<Vec<TimedSample>, String> {
+    let submitted_id = first_fill_reader.map(|_| Arc::new(AtomicU64::new(0)));
+    let sink = match submitted_id.as_ref() {
+        Some(last_submitted_id) => Box::new(SubmitTrackingSink {
+            inner: sink,
+            last_submitted_id: Arc::clone(last_submitted_id),
+        }) as Box<dyn Sink + Send>,
+        None => sink,
+    };
     let root = target_dir()?
         .join("tmp")
         .join(format!("kohbor-latency-{}", random_id()?));
@@ -274,10 +499,10 @@ pub fn run_stage_a(count: usize) -> Result<StageAReport, String> {
         }
     };
     intake.attach_engine(tx.clone());
-    let run = (|| -> Result<StageAReport, String> {
+    let run = (|| -> Result<Vec<TimedSample>, String> {
         tx.control(Control::SwapTable { table })
             .map_err(|_| "table control rejected")?;
-        tx.control(Control::SinkReady(Box::new(SilentSink)))
+        tx.control(Control::SinkReady(sink))
             .map_err(|_| "sink control rejected")?;
         let deadline = Instant::now() + Duration::from_secs(5);
         while shared.fence.load(Ordering::Relaxed) != 1
@@ -293,7 +518,8 @@ pub fn run_stage_a(count: usize) -> Result<StageAReport, String> {
         for index in 0..count {
             let start = Instant::now();
             let mut body = json!({"provider":{"name":"Dota 2","appid":570}, "map":{"matchid":format!("{}", 8_000_000_001_u64 + index as u64),"game_state":"DOTA_GAMERULES_STATE_GAME_IN_PROGRESS","customgamename":""}, "player":{"steamid":owner.to_string(),"activity":"playing","team_name":"radiant"}, "hero":{"name":"npc_dota_hero_axe","level":12,"mana_percent":43,"alive":true,"respawn_seconds":0}, "auth":{"token":token}});
-            for point in trace {
+            let mut trigger_arrival = None;
+            for (point_index, point) in trace.iter().enumerate() {
                 let offset = point["t_ms"].as_u64().ok_or("trace time missing")?;
                 let deadline = start + Duration::from_millis(offset);
                 if let Some(wait) = deadline.checked_duration_since(Instant::now()) {
@@ -302,10 +528,17 @@ pub fn run_stage_a(count: usize) -> Result<StageAReport, String> {
                 body["hero"]["health"] = point["hp"].clone();
                 body["hero"]["max_health"] = point["max_hp"].clone();
                 body["hero"]["alive"] = point["alive"].clone();
-                if intake.accept(&body, Instant::now(), Some(owner)) != 200 {
+                let arrival = Instant::now();
+                if intake.accept(&body, arrival, Some(owner)) != 200 {
                     return Err("trace intake rejected".into());
                 }
+                // The burst trace triggers on its last point: T0 is the arrival of the
+                // accept call whose response produced this publisher sample.
+                if point_index == trace.len().saturating_sub(1) {
+                    trigger_arrival = Some(arrival);
+                }
             }
+            let arrival = trigger_arrival.ok_or("burst trace had no trigger arrival")?;
             let sample = sample_rx
                 .recv_timeout(Duration::from_secs(5))
                 .map_err(|e| format!("sample {index}: {e}"))?;
@@ -313,9 +546,30 @@ pub fn run_stage_a(count: usize) -> Result<StageAReport, String> {
                 return Err("unexpected event".into());
             }
             deltas(&sample)?;
-            samples.push(sample);
+            let t3pp_us = match (first_fill_reader, submitted_id.as_ref()) {
+                (Some(reader), Some(last_submitted_id)) => {
+                    let id = PlaybackId(last_submitted_id.load(Ordering::Acquire));
+                    if id.0 == 0 {
+                        return Err(format!(
+                            "sample {index}: no playback id was submitted for the latency event"
+                        ));
+                    }
+                    let first_fill = wait_for_first_fill(reader, id, FIRST_FILL_TIMEOUT)
+                        .map_err(|error| format!("sample {index}, playback {}: {error}", id.0))?;
+                    let elapsed = first_fill
+                        .checked_duration_since(arrival)
+                        .ok_or_else(|| format!("sample {index}: first fill precedes T0"))?;
+                    Some(
+                        u64::try_from(elapsed.as_micros())
+                            .map_err(|_| format!("sample {index}: T0 to T3'' overflowed"))?,
+                    )
+                }
+                (None, None) => None,
+                _ => return Err("first-fill tracking was not initialized".into()),
+            };
+            samples.push(TimedSample { sample, t3pp_us });
         }
-        Ok(StageAReport { samples })
+        Ok(samples)
     })();
     let shutdown = tx
         .control(Control::Shutdown)
@@ -405,6 +659,108 @@ pub fn build_receipt(report: &StageAReport, sample_path: &Path) -> Result<Value,
         "limitations":limitations
     }))
 }
+
+fn stage_b_limitations() -> Vec<String> {
+    let mut limitations = vec![
+        "engineering fixture; not QUALITY-001".to_owned(),
+        "native silence only: default render endpoint, shared-mode event-driven stream, all-zero generated clip, no audible output".to_owned(),
+        "T3'' is the first render service that copied the buffer, not loopback-audible sound".to_owned(),
+        "generated test clip, not authorized critical media".to_owned(),
+        "DEC-CRITICAL-MEDIA open".to_owned(),
+        "T0 is the arrival Instant passed to Shared::accept: HTTP read, JSON parse, the registry read and the serve-side Shared lock are not in the measurement; F2 and F3 are not quantified".to_owned(),
+        "no warm-up discarded and no outlier removed; samples include scheduler stalls of this machine".to_owned(),
+        "one session epoch per burst trace (new match id), measured on a developer machine under no controlled load".to_owned(),
+        "QUALITY-001 remains NOT_RUN".to_owned(),
+    ];
+    match git(&["status", "--porcelain"]) {
+        Some(status) if !status.is_empty() => {
+            limitations.push("working tree dirty at run time".to_owned());
+        }
+        None => limitations.push("working tree status unavailable".to_owned()),
+        _ => {}
+    }
+    limitations
+}
+
+const STAGE_B_COMMAND: &str = "cargo test -p kohbor-desktop --test latency_harness_native --offline --locked -j 4 -- --ignored";
+
+pub fn build_stage_b_receipt(report: &StageBReport, sample_path: &Path) -> Result<Value, String> {
+    let values: Vec<u64> = report.samples.iter().map(|sample| sample.t3pp_us).collect();
+    let summary = summarize(&values)?;
+    Ok(json!({
+        "schema_version":"1.0.0", "spec_version":"0.3.6", "receipt_id":format!("s3-6b-{}", random_id()?),
+        "requirement_ids":["QUALITY-001"], "scenario_id":"S3-6b-stage-b-engineering-fixture", "evidence_class":"native", "status":"INDETERMINATE",
+        "source_revision":git(&["rev-parse", "HEAD"]), "artifact_sha256":artifact_sha256()?, "executed_at_utc":utc_now()?, "operator":"kohbor latency harness (stage B)",
+        "environment":{"os_build":null,"hardware":null,"game_patch":null,"profile":null},
+        "commands":[STAGE_B_COMMAND],
+        "raw_evidence_paths":[sample_path.to_string_lossy()],
+        "observed_result":format!("T0 to T3'' microseconds: count={}, p50={}, p95={}, max={}",summary.count,summary.p50,summary.p95,summary.max),
+        "limitations":stage_b_limitations()
+    }))
+}
+
+pub fn not_run_receipt(reason: &str) -> Result<Value, String> {
+    let mut limitations = stage_b_limitations();
+    limitations.push(reason.to_owned());
+    Ok(json!({
+        "schema_version":"1.0.0", "spec_version":"0.3.6", "receipt_id":format!("s3-6b-{}", random_id()?),
+        "requirement_ids":["QUALITY-001"], "scenario_id":"S3-6b-stage-b-engineering-fixture", "evidence_class":"native", "status":"NOT_RUN",
+        "source_revision":git(&["rev-parse", "HEAD"]), "artifact_sha256":artifact_sha256()?, "executed_at_utc":utc_now()?, "operator":"kohbor latency harness (stage B)",
+        "environment":{"os_build":null,"hardware":null,"game_patch":null,"profile":null},
+        "commands":[STAGE_B_COMMAND],
+        "raw_evidence_paths":[],
+        "observed_result":null,
+        "limitations":limitations
+    }))
+}
+
+pub fn write_stage_b_evidence(report: &StageBReport) -> Result<(PathBuf, PathBuf), String> {
+    let dir = target_dir()?.join("evidence").join("s3-6");
+    fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+    let samples = dir.join("latency-stage-b.samples.json");
+    let receipt = dir.join("latency-stage-b.receipt.json");
+    let raw: Vec<Value> = report
+        .samples
+        .iter()
+        .map(|sample| {
+            json!({
+                "instance_id":sample.sample.instance_id,
+                "event_type":sample.sample.event_type,
+                "t0_ms":sample.sample.t0_ms,
+                "t1_us":sample.sample.t1_us,
+                "t2_us":sample.sample.t2_us,
+                "t3p_us":sample.sample.t3p_us,
+                "t3pp_us":sample.t3pp_us
+            })
+        })
+        .collect();
+    fs::write(
+        &samples,
+        serde_json::to_vec_pretty(&raw).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())?;
+    let value = build_stage_b_receipt(report, &samples)?;
+    fs::write(
+        &receipt,
+        serde_json::to_vec_pretty(&value).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())?;
+    Ok((receipt, samples))
+}
+
+pub fn write_stage_b_not_run(reason: &str) -> Result<PathBuf, String> {
+    let dir = target_dir()?.join("evidence").join("s3-6");
+    fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+    let receipt = dir.join("latency-stage-b.receipt.json");
+    let value = not_run_receipt(reason)?;
+    fs::write(
+        &receipt,
+        serde_json::to_vec_pretty(&value).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())?;
+    Ok(receipt)
+}
+
 pub fn write_evidence(report: &StageAReport) -> Result<(PathBuf, PathBuf), String> {
     let dir = target_dir()?.join("evidence").join("s3-6");
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;

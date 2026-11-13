@@ -43,5 +43,6 @@ windows = { version = "=0.61.3", features = [
 ] }
 
 [dev-dependencies]
+kohbor-audio-native = { path = "../../../crates/kohbor-audio-native", features = ["latency-probe"] }
 kohbor-pack-author = { path = "../../../crates/kohbor-pack-author" }
 jsonschema = { version = "=0.59.0", default-features = false }

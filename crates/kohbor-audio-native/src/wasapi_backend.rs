@@ -99,11 +99,15 @@ mod smoke_tests {
         }
     }
 }
+#[cfg(feature = "latency-probe")]
+use crate::engine::FirstFillProbe;
 use crate::engine::{DeviceEventSender, Engine, EngineHandle};
 use kohbor_audio::pcm::Pcm;
 use kohbor_audio::{PlaybackId, Sink, SinkError, SinkEvent};
 use std::fmt;
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, SyncSender, TryRecvError};
+#[cfg(feature = "latency-probe")]
+use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 use wasapi::{
@@ -152,28 +156,55 @@ impl std::error::Error for StartError {}
 pub struct WasapiSink {
     coordinator: EngineHandle,
     backend: WasapiBackend,
+    #[cfg(feature = "latency-probe")]
+    first_fill_probe: FirstFillProbe,
 }
 
 impl WasapiSink {
     /// Open the current default render endpoint with shared event-driven output.
     pub fn start() -> Result<Self, StartError> {
+        #[cfg(feature = "latency-probe")]
+        let first_fill_probe = FirstFillProbe::new();
         let (engine, coordinator) = Engine::new();
+        #[cfg(feature = "latency-probe")]
+        let engine = {
+            let mut engine = engine;
+            engine.set_first_fill_probe(Arc::clone(&first_fill_probe.inner));
+            engine
+        };
         let events = coordinator.device_event_sender();
         let backend = WasapiBackend::start(engine, events)?;
         Ok(Self {
             coordinator,
             backend,
+            #[cfg(feature = "latency-probe")]
+            first_fill_probe,
         })
+    }
+
+    #[cfg(feature = "latency-probe")]
+    pub fn first_fill_probe(&self) -> FirstFillProbe {
+        self.first_fill_probe.clone()
     }
 
     #[cfg(test)]
     fn start_with_first_service_gate() -> Result<Self, StartError> {
+        #[cfg(feature = "latency-probe")]
+        let first_fill_probe = FirstFillProbe::new();
         let (engine, coordinator) = Engine::new();
+        #[cfg(feature = "latency-probe")]
+        let engine = {
+            let mut engine = engine;
+            engine.set_first_fill_probe(Arc::clone(&first_fill_probe.inner));
+            engine
+        };
         let events = coordinator.device_event_sender();
         let backend = WasapiBackend::start_with_first_service_gate(engine, events)?;
         Ok(Self {
             coordinator,
             backend,
+            #[cfg(feature = "latency-probe")]
+            first_fill_probe,
         })
     }
 
