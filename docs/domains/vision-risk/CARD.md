@@ -2,7 +2,7 @@
 domain: vision-risk
 tier: B
 card_version: 1
-verified_at_commit: 7ad4c7f
+verified_at_commit: 0997546
 verified_on: 2026-11-13
 verified_by: "claude-code subagent draft (read-only), integrated by the governance lead; agent work, not human review"
 ---
@@ -21,7 +21,8 @@ A map, not evidence. Authority: decisions, PRD/SRS, contracts, code and tests, t
 ## 2. Owner decisions
 
 - Decided: DEC-SESSION-MONITOR (the map-dominant monitor that capture serves).
-- Open: DEC-MODELS, DEC-GAME-DATA, DEC-RISK-DETAIL, DEC-NATIVE-EVIDENCE, DEC-CRITICAL-MEDIA.
+- Provisional: DEC-RESOURCE-BUDGET (GPU allowed for the vision path; no RAM or VRAM limit until the first measured baseline; see docs/design/REMAINING-SYSTEM-DESIGN.md section 1.7).
+- Open: DEC-MODELS (may now choose GPU-based inference), DEC-GAME-DATA, DEC-RISK-DETAIL, DEC-NATIVE-EVIDENCE, DEC-CRITICAL-MEDIA.
 
 ## 3. Now / Next / Blocked
 

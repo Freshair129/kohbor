@@ -52,7 +52,7 @@
       "path": "docs/design/REMAINING-SYSTEM-DESIGN.md",
       "type": "design",
       "role": "governing",
-      "reviewed_sha256": "b2b5e8392f45aecdb60a1d4c1cbf7c16da5a03016f38112b514be0ac6e705802"
+      "reviewed_sha256": "85ed331560c4f2cf8d484591eb00c0c84b6c93e9f10985147a73fc8d4fc1ba9a"
     },
     {
       "path": "docs/design/SHARING-MODEL-REVIEW.md",

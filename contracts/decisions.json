@@ -124,7 +124,8 @@
       "blocks": "local inference and certified vision",
       "owner_role": "engineering lead",
       "safe_interim": "Keep model capability unavailable until admitted; local core remains functional.",
-      "closure_evidence": "Vision artifact/class/calibration decisions before M3; local STT/answer model and consented corpus before M5; frozen hashes, quality and resource evidence for each."
+      "closure_evidence": "Vision artifact/class/calibration decisions before M3; local STT/answer model and consented corpus before M5; frozen hashes, quality and resource evidence for each.",
+      "owner_note_2026_11_13": "DEC-RESOURCE-BUDGET: the owner allows GPU-based inference for the vision path (for example through a DirectML-class runtime); the model decision is still open and the admission gate of REMAINING-SYSTEM-DESIGN section 1.7 is unchanged"
     },
     {
       "id": "DEC-VISUALS",
@@ -243,7 +244,7 @@
       "milestone": "M4b-M8",
       "blocks": "overall recording-profile resource qualification",
       "owner_role": "product and performance engineer",
-      "safe_interim": "Report app and external OBS separately and combined; retain app10%/900000000byte and recording-mode acoustic/FPS gates.",
+      "safe_interim": "Report app and external OBS separately and combined; retain the app CPU cap of 10 percent and recording-mode acoustic/FPS gates. No RAM or VRAM limit applies until the owner sets one from the first measured baseline (DEC-RESOURCE-BUDGET).",
       "closure_evidence": "Recorded decision on combined recording-profile resource acceptance without pretending an unspecified combined cap already exists."
     },
     {
@@ -630,6 +631,46 @@
         "DEC-PACK-CRYPTO",
         "DEC-PRIVACY-LEGAL",
         "DEC-CRITICAL-MEDIA"
+      ]
+    },
+    {
+      "id": "DEC-RESOURCE-BUDGET",
+      "status": "provisional",
+      "milestone": "M1",
+      "blocks": "Setting any RAM or VRAM pass/fail limit. Nothing else is blocked: QUALITY-002 keeps its CPU limit and its measure-and-report obligation",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-13",
+      "channel": "Owner messages in the engineering chat session (2026-11-13), relayed by the coordinating session; recorded by an agent (governance session). Three statements; the third corrects the first",
+      "owner_statement_th": "งบผมตั้งไปเลยให้ไปเลย 2 กิก และสามารถใช้ GPU ในการประมวลผลได้เพราะว่า Dota มันไม่ได้กิน VRAM เยอะขนาดนั้น ไม่ได้แย่งการประมวลผลอะไรขนาดนั้น แบ่งกันได้ แต่ RAM ของ PC ไม่เกิน 2 กิก",
+      "decision": "Recorded as PROVISIONAL, limit pending measurement. (1) GPU processing is allowed and preferred to CPU for the vision path itself (capture post-processing and local model inference); Dota 2 leaves VRAM room by the owner's account. (2) NO RAM or VRAM limit is set. The earlier figures (the 900,000,000-byte Working Set ceiling of DEC-BASELINE, withdrawn here and not replaced, and the owner's rough 2 GB, which is not a limit) apply to nothing. (3) QUALITY-002 keeps the CPU cap (at most 10 percent per 1 s normalized sample, unchanged) and requires the app-group full Working Set and, when the GPU is used, VRAM to be MEASURED AND REPORTED with raw receipts, with no pass/fail limit until the owner sets one from the first baseline. A value that was not measured is unknown, never zero or within budget. No measurement exists: new_build_status stays NOT_RUN. Capture stays DXGI Desktop Duplication (REMAINING-SYSTEM-DESIGN D1); no other threshold changed.",
+      "open_questions": [
+        "Which RAM number and which VRAM number does the owner set after the first baseline (idle, live and voice-alert profiles)?",
+        "Does a RAM limit cover the whole application group including WebView2 and sidecars (as QUALITY-002 defines the process set)?",
+        "Keep CPU at 10 percent? (unchanged until the owner says otherwise)"
+      ],
+      "safe_interim": "Measure and report RAM (full Working Set) and, when the GPU is used, VRAM per process with raw receipts; apply and claim no RAM or VRAM limit; never present an unmeasured value as within budget. No model, vision path or GPU feature is approved by this decision.",
+      "closure_evidence": "The first measured baseline of app-group full Working Set and VRAM for the idle, live and voice-alert profiles on the certified configuration, reported by receipts (the GPU memory counters are UNVERIFIED as a measurement method and need a stated method first); after that the owner sets the limit(s) and this decision is closed by a recorded number, the runtime-status contract and QUALITY-002 being amended together.",
+      "related": [
+        "DEC-OBS-BUDGET",
+        "DEC-MODELS",
+        "DEC-NATIVE-EVIDENCE"
+      ],
+      "owner_statement_2_th": "ให้ GPU ประมวลผลมัน ทั้งเร็วกว่าและจะได้ไม่ไปดึงทรัพยากรประมวลผลอย่างอื่นใน CPU ... VRAM มันก็ไม่ได้ใช้เยอะ ... Dota กิน VRAM แค่ 4-5 กิกเอง โปรแกรมเรามันจะแดกอะไรขนาดนั้นน่ะ",
+      "owner_statement_2_note": "Owner follow-up, same day (relayed by the coordinating session; quoted with ellipses). Recorded as the owner's statement: GPU processing is preferred because it is faster and keeps CPU free for other work; VRAM use will be small; the owner says Dota 2 itself takes only about 4 to 5 GB of VRAM and asks what our program could use that much for. The exact VRAM figure stays 'about 2 GB, to confirm': the owner's wording was loose, and no other threshold changed",
+      "limit_status": "limit_pending_measurement",
+      "owner_statement_1_th": "งบผมตั้งไปเลยให้ไปเลย 2 กิก และสามารถใช้ GPU ในการประมวลผลได้เพราะว่า Dota มันไม่ได้กิน VRAM เยอะขนาดนั้น ไม่ได้แย่งการประมวลผลอะไรขนาดนั้น แบ่งกันได้ แต่ RAM ของ PC ไม่เกิน 2 กิก",
+      "owner_statement_1_note": "First statement: a rough budget of 2 GB, GPU processing allowed, PC RAM not above 2 GB. The owner's later correction makes the 2 GB figures explicitly NOT a limit; they were the owner's rough intent only",
+      "owner_statement_3_th": "ยังไม่ต้องตั้งหรอกว่าจำกัดกี่กิกจนกว่าจะได้เห็นตัวเลขแรกว่ามันใช้เท่าไหร่",
+      "owner_statement_3_note": "Correction (relayed): do not fix any RAM or VRAM limit yet; wait until the first measured numbers show how much the app actually uses",
+      "supersedes": "The 900,000,000-byte aggregate peak full Working Set ceiling of QUALITY-002 (DEC-BASELINE) is withdrawn. The previous recorded version of this decision (a fixed 2,000,000,000-byte RAM and VRAM budget, commits b9f7e78 and 9a71bb9) is superseded by this correction",
+      "affected": [
+        "QUALITY-002",
+        "docs/quality/NFR.md",
+        "contracts/runtime-status.schema.json (no bound on working_set_bytes)",
+        "apps/desktop/src-tauri/src/containment.rs and status.rs (no memory limit)",
+        "apps/desktop/src/copy.ts",
+        "docs/design/REMAINING-SYSTEM-DESIGN.md (DEC-MODELS note)"
       ]
     }
   ]

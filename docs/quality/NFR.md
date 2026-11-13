@@ -38,7 +38,8 @@ At least ten live sessions are required per required OS/mode/geometry cell. Enum
 |---|---|---|
 | Critical alert latency | p50 ≤250 ms and every measured sample ≤300 ms | Acquisition/game-input arrival through first audible output |
 | CPU | Every one-second sample ≤10% | Application process group and attributable active model/local app-relay processes, normalized by logical CPU capacity |
-| RAM | Peak aggregate full Working Set ≤900,000,000 bytes | Application host, renderer, helpers, active inference/model processes and local app relay; external OBS reported separately |
+| RAM | Peak aggregate full Working Set measured and reported; no limit until the owner sets one from the first baseline | Application host, renderer, helpers, active inference/model processes and local app relay; external OBS reported separately |
+| GPU memory (VRAM) | When the application uses the GPU (allowed), peak dedicated GPU memory of the same process set measured and reported; no limit until the owner sets one from the first baseline | Measured per process with a stated method and raw receipts; native and live evidence; unmeasured means unknown, never within budget (DEC-RESOURCE-BUDGET) |
 | Game FPS impact | ≤3% loss in each paired comparison | Same device, game segment and settings |
 | Valid game-data freshness | Age ≤2,000 ms | Valid source observation; invalid input never refreshes age |
 | Warm voice response | Every accepted ready/warm turn ≤2,000 ms | Talk-key release through first audible answer |
@@ -46,7 +47,7 @@ At least ten live sessions are required per required OS/mode/geometry cell. Enum
 | Loaded memory query | ≤5 ms | Query after a valid derived snapshot is loaded |
 | Memory storage | ≤5 MB per 1,000 contributing matches | Bounded derived memory; define exact byte unit in storage ADR before measurement |
 
-Use decimal 900 MB for the RAM ceiling. Do not substitute 900 MiB, private bytes, proportional set size or host-only usage. Sum full Working Set for the declared process set, including shared resident pages according to that method. Include external STT/model processes actually serving the application and a relay if it runs on the gaming computer. Do not trim Working Set, trigger special garbage collection or omit child processes merely to pass.
+Report the RAM measurement in decimal bytes. No RAM or VRAM limit applies yet: the owner sets it from the first measured baseline of the idle, live and voice-alert profiles (DEC-RESOURCE-BUDGET); a value that was not measured is unknown, never zero or within budget. Do not substitute private bytes, proportional set size or host-only usage. Sum full Working Set for the declared process set, including shared resident pages according to that method. Include external STT/model processes actually serving the application and a relay if it runs on the gaming computer. Do not trim Working Set, trigger special garbage collection or omit child processes merely to pass.
 
 External OBS is not included in the application's CPU/RAM ceiling and is not presumed contained by its process job. During recording, report application, OBS and combined CPU/RAM as distinct measurements. This draft defines no combined ceiling; a recorded budget decision is required before an overall recording-profile performance pass can be claimed. An application-only pass must retain that scope. FPS impact and critical-alert latency keep their existing limits with recording active; recording cannot be omitted from those runs when that capability is being accepted.
 

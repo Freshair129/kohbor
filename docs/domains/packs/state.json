@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "domain": "packs",
   "tier": "A",
-  "verified_at_commit": "7ad4c7f",
+  "verified_at_commit": "0997546",
   "verified_on": "2026-11-13",
   "verified_by": "claude-code subagent draft (read-only), integrated by the governance lead; agent work, not human review",
   "write_areas": [
@@ -59,19 +59,19 @@
       "path": "docs/delivery/SPRINT-ROADMAP.md",
       "type": "registry",
       "role": "reference",
-      "reviewed_sha256": "f97c9a916c0a41bd46e03d303d8ad03135b79313fc24a17a9f1df5322dc5be18"
+      "reviewed_sha256": "73a046327b50a6a41c6083754870b919ac7f8fd560bca41270c8d9d8b4ee6c80"
     },
     {
       "path": "contracts/decisions.json",
       "type": "registry",
       "role": "reference",
-      "reviewed_sha256": "e10dc1ff60a914e91e9b71c3b10059600ae48a78fbd36a685b5a19fe4937e861"
+      "reviewed_sha256": "e4f25d2cca8579cc06832857a7cea3ba57e9ca197f680672ebdcaefbfd10db1c"
     },
     {
       "path": "contracts/requirements.json",
       "type": "registry",
       "role": "reference",
-      "reviewed_sha256": "6467dd5a80fe3215413173bd668a89fc16f372c51939cbb79bbab01c6cf71fb6"
+      "reviewed_sha256": "b583516cbff2e778e65ad25323a1b1c774cb99c8f0ab60feb17106e25763f314"
     },
     {
       "path": "contracts/media-manifest.schema.json",
@@ -126,7 +126,11 @@
       "raised_on": "2026-11-12"
     }
   ],
-  "last_handoff": null,
+  "last_handoff": {
+    "task_id": null,
+    "on": "2026-11-13",
+    "summary": "Refreshed after PR #10 merged: S3 roadmap rows, S3-5 design section 13 and requirement implementation refs reviewed in the diff; no card fact outside the lines changed."
+  },
   "crates": [
     "kohbor-pack",
     "kohbor-pack-author"

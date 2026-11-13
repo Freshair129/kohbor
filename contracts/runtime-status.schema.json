@@ -532,7 +532,7 @@
                 "properties": {
                   "working_set_bytes": {
                     "type": "integer",
-                    "maximum": 900000000
+                    "minimum": 0
                   }
                 }
               }
@@ -549,7 +549,7 @@
                 "properties": {
                   "working_set_bytes": {
                     "type": "integer",
-                    "minimum": 900000001
+                    "minimum": 0
                   }
                 }
               }

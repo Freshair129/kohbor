@@ -48,7 +48,7 @@
       "path": "docs/design/VISUAL-DESIGN-PROPOSAL.md",
       "type": "spec",
       "role": "governing",
-      "reviewed_sha256": "50bfb7f99a67acacbcd139721eadad98e99a2498fd6de7257aff94af6b0d742a"
+      "reviewed_sha256": "480ecffb0dfdba0f80cb3c6cf1de4cf4d940e078d2c18e40f47fa982d003fac7"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -71,13 +71,13 @@
       "path": "docs/design/REMAINING-SYSTEM-DESIGN.md",
       "type": "spec",
       "role": "reference",
-      "reviewed_sha256": "b2b5e8392f45aecdb60a1d4c1cbf7c16da5a03016f38112b514be0ac6e705802"
+      "reviewed_sha256": "85ed331560c4f2cf8d484591eb00c0c84b6c93e9f10985147a73fc8d4fc1ba9a"
     },
     {
       "path": "docs/delivery/SPRINT-ROADMAP.md",
       "type": "registry",
       "role": "reference",
-      "reviewed_sha256": "f97c9a916c0a41bd46e03d303d8ad03135b79313fc24a17a9f1df5322dc5be18"
+      "reviewed_sha256": "73a046327b50a6a41c6083754870b919ac7f8fd560bca41270c8d9d8b4ee6c80"
     },
     {
       "path": "apps/desktop/src",
@@ -131,7 +131,7 @@
   "last_handoff": {
     "task_id": null,
     "on": "2026-11-13",
-    "summary": "Backfilled draft card, read-only. The renderer has the Overview and audio, pack and history panels; no overlay window and no Session Monitor exist in source."
+    "summary": "Refreshed after PR #10 merged: S3 roadmap rows, S3-5 design section 13 and requirement implementation refs reviewed in the diff; no card fact outside the lines changed."
   },
   "interface_requirement_ids": [
     "QUALITY-004"

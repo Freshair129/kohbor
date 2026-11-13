@@ -104,7 +104,7 @@ All new-build evidence currently begins **NOT_RUN**. The product succeeds when t
 | Outcome | Existing acceptance basis |
 | --- | --- |
 | Timely justified warnings | p50 ≤250 ms; every measured sample ≤300 ms; required quality/coverage and acoustic evidence |
-| Low gameplay interference | Every one-second app-group CPU sample ≤10%; aggregate peak full Working Set ≤900,000,000 bytes; matched-pair FPS loss ≤3% |
+| Low gameplay interference | Every one-second app-group CPU sample ≤10%; aggregate peak full Working Set and, when the GPU is used, peak VRAM measured and reported with no limit until the owner sets one from the first baseline (DEC-RESOURCE-BUDGET); matched-pair FPS loss ≤3% |
 | Trustworthy observation and conversation | Per-class vision and per-language voice gates in QUALITY-004 and QUALITY-006 |
 | Reliable interruption | All required overlap trials preserve the critical deadline and cancel obsolete voice/advice |
 | Understandable control | Journey evidence for startup, unknown/stale states, stop/mute/leave, consent withdrawal and forgetting |

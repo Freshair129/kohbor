@@ -566,8 +566,8 @@ Feature: Brand-neutral desktop companion target behavior
   Scenario: AC-QUALITY-002 Whole-app CPU and memory
     Given host, WebView, sidecars and active external model processes are measured
     When warmup and idle/live/voice-alert profiles run
-    Then all included process samples satisfy the fixed limits with raw receipts
-    And failure behavior is: No excluding model/shared pages or substituting private/PSS/forced trim.
+    Then all included process samples satisfy the fixed CPU limit with raw receipts; app-group full Working Set and, when the GPU is used, VRAM are measured per process and reported with raw receipts for the idle, live and voice-alert profiles, as the baseline from which the owner sets a limit
+    And failure behavior is: No excluding model/shared pages or substituting private/PSS/forced trim. A RAM or VRAM value that was not measured is unknown, never zero or within budget. No RAM or VRAM limit is applied or claimed until the owner sets one.
 
   @QUALITY-003 @mvp
   Scenario: AC-QUALITY-003 FPS preservation

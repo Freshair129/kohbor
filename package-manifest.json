@@ -33,8 +33,8 @@
     },
     {
       "path": "GUIDE-TH.md",
-      "bytes": 14249,
-      "sha256": "d03ba3d7b8b1996fc9453ce371b11c79d35c0b048b8a887a3764b3a0d2830684"
+      "bytes": 14483,
+      "sha256": "36f87b70ddf1dfe089479c328cfa8338a824a49dde207cbdbfa87ce956340729"
     },
     {
       "path": "PROMPT.md",
@@ -58,13 +58,13 @@
     },
     {
       "path": "acceptance/scenarios.feature",
-      "bytes": 32005,
-      "sha256": "f3f788404d168ba3e31e07bd90a817cde8f93996bf2f2eb020932543a0a03a44"
+      "bytes": 32371,
+      "sha256": "f3098b11bd75d9f173a004629a9bcb8be99492b36863b1523ad19928824939fa"
     },
     {
       "path": "acceptance/spec-validation.json",
       "bytes": 923,
-      "sha256": "137cc08852a75e87affdfebcf71b36121531bcac52526dc8594135062c57d0aa"
+      "sha256": "46a32a3f20c98e07bae4556f4b88a9dec9e5a6450d5bd6be648acc0b7f8b6720"
     },
     {
       "path": "apps/desktop/index.html",
@@ -273,8 +273,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/containment.rs",
-      "bytes": 11033,
-      "sha256": "d94c09e562ed3a0f9cec5dbe0c231f176907ddae774ff2dbca993063a813a1ad"
+      "bytes": 10986,
+      "sha256": "880a2320dab69e663985ecf31835ee076dae82706d35a16bc67c00f65260f6c1"
     },
     {
       "path": "apps/desktop/src-tauri/src/demo.rs",
@@ -358,8 +358,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/status.rs",
-      "bytes": 10133,
-      "sha256": "84af3a790f97506630b8f252e7912648e60f73da633f00d8ea6dd9db65481c05"
+      "bytes": 10116,
+      "sha256": "38f89256e182980157d5bcc686c26a7e5b6d0b9b931867244483ac840304c030"
     },
     {
       "path": "apps/desktop/src-tauri/tauri.conf.json",
@@ -438,8 +438,8 @@
     },
     {
       "path": "apps/desktop/src/copy.ts",
-      "bytes": 48708,
-      "sha256": "0a2ef425f8d14e4f26a1e74f4cf6f1238c6bc43aee70e0b575b5713b24de6953"
+      "bytes": 48738,
+      "sha256": "c8502f7e6eb35081838b97a5a0c16b1e4fd48dd9e3fdf30cce0b1f9e473c0c7c"
     },
     {
       "path": "apps/desktop/src/history.ts",
@@ -563,8 +563,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 38147,
-      "sha256": "e10dc1ff60a914e91e9b71c3b10059600ae48a78fbd36a685b5a19fe4937e861"
+      "bytes": 44619,
+      "sha256": "e4f25d2cca8579cc06832857a7cea3ba57e9ca197f680672ebdcaefbfd10db1c"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -648,13 +648,13 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 190057,
-      "sha256": "fde2b029381ff5fd6bc8affc486bd858a688eaaa14a6ccb0f7c85f807922389d"
+      "bytes": 190747,
+      "sha256": "6893cb214be8f71270400ab22fe599711ed824348eeb3d7dc4b3f39bcffc3568"
     },
     {
       "path": "contracts/runtime-status.schema.json",
-      "bytes": 19450,
-      "sha256": "3cb32c6074c4c37ad9419bbec36a41c5c501eaabcc2f8a846324b4658b3a245e"
+      "bytes": 19434,
+      "sha256": "e9c0c6bc98bb9692fc006e62bad01ad640afcdb9b994e2651c8235dccc8b4f71"
     },
     {
       "path": "contracts/settings-patch.schema.json",
@@ -1163,8 +1163,8 @@
     },
     {
       "path": "docs/design/DDD.md",
-      "bytes": 8121,
-      "sha256": "219b92c5f20f3b3770c027b753ab4b7e1011ea8684c9768c2fadb3600f197758"
+      "bytes": 8155,
+      "sha256": "718bdba89410fa73f3258a5c4fe46b9e8e10d889743af2459ddaad7e1eaee5ab"
     },
     {
       "path": "docs/design/EVENT-AUDIO-SPEC.md",
@@ -1193,13 +1193,13 @@
     },
     {
       "path": "docs/design/REMAINING-SYSTEM-DESIGN.md",
-      "bytes": 58940,
-      "sha256": "b2b5e8392f45aecdb60a1d4c1cbf7c16da5a03016f38112b514be0ac6e705802"
+      "bytes": 60269,
+      "sha256": "85ed331560c4f2cf8d484591eb00c0c84b6c93e9f10985147a73fc8d4fc1ba9a"
     },
     {
       "path": "docs/design/S3-5-HOST-CRITICAL-PATH.md",
-      "bytes": 56116,
-      "sha256": "a5b98f431e084f1b18efb87fc0b5bfa7920ce005be326065b5fce21e58924075"
+      "bytes": 56203,
+      "sha256": "288d64539b882a906c31bea58ae59c25b48c9afeb52e5de7a2ef9d5e782b82e7"
     },
     {
       "path": "docs/design/S6-OVERLAY-SLICE.md",
@@ -1208,13 +1208,13 @@
     },
     {
       "path": "docs/design/SAD.md",
-      "bytes": 18547,
-      "sha256": "8065804906c6edcfb48983f5f9917f716b161575bbad06939f47df790b58d2ea"
+      "bytes": 18692,
+      "sha256": "674b3011a303b22b070754eaa91d0b443927456008f8692a1d4697dbe3228eb6"
     },
     {
       "path": "docs/design/SDD.md",
-      "bytes": 31074,
-      "sha256": "b741f22c26d6649168935b06b13d05849a018b38e6fc7a4bfdf5e72ab384b551"
+      "bytes": 31240,
+      "sha256": "eab0fba89323869830f300559dda78c37d876c3f4bb1186a9298399c4a937258"
     },
     {
       "path": "docs/design/SHARING-MODEL-REVIEW.md",
@@ -1228,8 +1228,8 @@
     },
     {
       "path": "docs/design/VISUAL-DESIGN-PROPOSAL.md",
-      "bytes": 9479,
-      "sha256": "50bfb7f99a67acacbcd139721eadad98e99a2498fd6de7257aff94af6b0d742a"
+      "bytes": 9562,
+      "sha256": "480ecffb0dfdba0f80cb3c6cf1de4cf4d940e078d2c18e40f47fa982d003fac7"
     },
     {
       "path": "docs/design/visuals/Live.dc.html",
@@ -1248,8 +1248,8 @@
     },
     {
       "path": "docs/design/visuals/Overview.dc.html",
-      "bytes": 17719,
-      "sha256": "5f6da82c3151189093ef3f63cd787ca4182a0e554991b762701c9e25a23a48dc"
+      "bytes": 17710,
+      "sha256": "f04e0ae6a0f2b02586282d0b0d92513746c2e9c0585faa1ab78b17055fa4289c"
     },
     {
       "path": "docs/design/visuals/canvas.json",
@@ -1544,7 +1544,7 @@
     {
       "path": "docs/domains/account/state.json",
       "bytes": 2798,
-      "sha256": "4ad4531c1a0d46f0bdcd181ae43dd71e9e7af60631a5803672ac65dd8c028ace"
+      "sha256": "f0efefe127fe73ade9c1d9ba9f86b0c5d278e0fb7849b04db8fcbd7b8a5618a2"
     },
     {
       "path": "docs/domains/banner-lab/CARD.md",
@@ -1568,13 +1568,13 @@
     },
     {
       "path": "docs/domains/events-audio/CARD.md",
-      "bytes": 8179,
-      "sha256": "b3c42a8c5dd5c0d675a9e9aeae5419daad99293da510e738f04e850654449978"
+      "bytes": 8264,
+      "sha256": "90914fc0696167237d13f49c0e30b8370d0e68e472be6f1296565b9cade80fcd"
     },
     {
       "path": "docs/domains/events-audio/state.json",
-      "bytes": 4359,
-      "sha256": "c4a14211d1a553adfbe096996371201ae09306cba9207294edbc7e66ed6b42b4"
+      "bytes": 4591,
+      "sha256": "54f9ca2c283411f6233cb31bf9b405abdd5833dbd3cf280b3e641c705074d5fe"
     },
     {
       "path": "docs/domains/governance/CARD.md",
@@ -1594,22 +1594,32 @@
     {
       "path": "docs/domains/host-core/CARD.md",
       "bytes": 5044,
-      "sha256": "43ff3f4729f5779a5a0b47529327ffa70670d29af335cab0b659b373d905e3b9"
+      "sha256": "d3cf22d285b7cad8c9c875e3d035a7c48d5ef0792ff83b85a69233fc043f2351"
     },
     {
       "path": "docs/domains/host-core/state.json",
-      "bytes": 4528,
-      "sha256": "da4319308656e67c81f19aadf0395ec155b84b2b22dd444ce95a7b1034808978"
+      "bytes": 4556,
+      "sha256": "2a63f6d038aaae9a31b8bbfb51b4fba5d204eb78efe3811b93b691f3c24e82a1"
     },
     {
       "path": "docs/domains/packs/CARD.md",
-      "bytes": 9216,
-      "sha256": "9a5e2926afba410450dc1cc3a90d2f30208d73c224ff4af9fd0dfe4df096a801"
+      "bytes": 9289,
+      "sha256": "fa3c7371dcfd780f1d72fd848e149b157a23758dc859ea5b01bf21f76bee2f99"
     },
     {
       "path": "docs/domains/packs/state.json",
-      "bytes": 3772,
-      "sha256": "4aa850275e4e676a80232342f5fc558e5460e963fe3bddbe48343711eb76f646"
+      "bytes": 4004,
+      "sha256": "6ce2130a7d306206d2bb24fcaa0dfd15e571fdd916e08ec63e50b5ed4e1062e8"
+    },
+    {
+      "path": "docs/domains/ui-overlay/CARD.md",
+      "bytes": 6175,
+      "sha256": "6228a85c200d7924d055f50f8f9e09f3809f607f7c6ff023ab12ed5c0e258ba9"
+    },
+    {
+      "path": "docs/domains/ui-overlay/CARD.md",
+      "bytes": 6175,
+      "sha256": "6228a85c200d7924d055f50f8f9e09f3809f607f7c6ff023ab12ed5c0e258ba9"
     },
     {
       "path": "docs/domains/ui-overlay/CARD.md",
@@ -1618,18 +1628,28 @@
     },
     {
       "path": "docs/domains/ui-overlay/state.json",
-      "bytes": 4142,
-      "sha256": "16b22d03a15e30a6f9f0d517e6b0fc4aad06a25367758397bc58a217f59bd0ef"
+      "bytes": 4153,
+      "sha256": "12e6ae64b38b47c8ad9f671bde0d7800dead8f74eeb71d1650ab92c404cd8509"
+    },
+    {
+      "path": "docs/domains/ui-overlay/state.json",
+      "bytes": 4153,
+      "sha256": "12e6ae64b38b47c8ad9f671bde0d7800dead8f74eeb71d1650ab92c404cd8509"
+    },
+    {
+      "path": "docs/domains/ui-overlay/state.json",
+      "bytes": 4153,
+      "sha256": "12e6ae64b38b47c8ad9f671bde0d7800dead8f74eeb71d1650ab92c404cd8509"
     },
     {
       "path": "docs/domains/vision-risk/CARD.md",
-      "bytes": 5113,
-      "sha256": "8e61d33cfe104b77b894b3c21f36e710739c5c8f28f9e6892ad1e295f4aef66e"
+      "bytes": 5332,
+      "sha256": "b16bd203b7d0904c1ad4845da277fb334d70d4a8eeace6c6274cfa009b020dd2"
     },
     {
       "path": "docs/domains/vision-risk/state.json",
-      "bytes": 2979,
-      "sha256": "86f7314fe22c1fd62c126bc62287fb58ff77c174b40fb925a6e7847e761c4386"
+      "bytes": 3039,
+      "sha256": "dd498ff29f535ffca4fefce03d7c8ea3143dc4cfccd7c2c6aeaa45c0715ca55a"
     },
     {
       "path": "docs/governance/AGENT-REGISTRY-DESIGN.md",
@@ -1648,13 +1668,13 @@
     },
     {
       "path": "docs/governance/CHANGELOG.md",
-      "bytes": 28806,
-      "sha256": "e44159e176390f4415d72c844ef9ce708964e86ff76c838a1ef1be40e1b0c429"
+      "bytes": 30576,
+      "sha256": "03babb0980f624ba4c168a12a2073646a40b678924c70f8bf9db2e9b60fad1e4"
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 15900,
-      "sha256": "a370f0951d07d0138839565e45fc4b93aa21261160036aa66d501f79a89f5ad1"
+      "bytes": 17630,
+      "sha256": "c498dc664dd203c072315d4ada070083b95a60a15ed8cb9ab6347109762ae7b0"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
@@ -1688,8 +1708,8 @@
     },
     {
       "path": "docs/product/PRD.md",
-      "bytes": 13681,
-      "sha256": "063378586f99d16212924fe605f9c40f21f2006ab50cb6f97358e5260b0f7a05"
+      "bytes": 13804,
+      "sha256": "4d0f6cc4dd86377d1fbf1849d61e4f2190e9e814aa00de520918d997f1d7e329"
     },
     {
       "path": "docs/product/USE-CASES.md",
@@ -1698,13 +1718,13 @@
     },
     {
       "path": "docs/quality/NFR.md",
-      "bytes": 12942,
-      "sha256": "8911ba3cf0b4c951291a2ac8f08b03793bf3628d816097aa215674e36522f15b"
+      "bytes": 13576,
+      "sha256": "07196644ffb63f966a38bdbefc11c5a01a2f65155359ded21c2c9f0bb61b456e"
     },
     {
       "path": "docs/quality/TEST-PLAN.md",
-      "bytes": 10161,
-      "sha256": "aa42bd16edcc2a6c550f7066617e647fa7d7d01df0dd07094ec1426d00b5888b"
+      "bytes": 10344,
+      "sha256": "d1a49eac943e7c15d3bedf9287fa1f691d91f537117a583b8b0104be9139e3ce"
     },
     {
       "path": "docs/quality/UAT-PLAN.md",
@@ -1713,13 +1733,13 @@
     },
     {
       "path": "docs/requirements/RTM.csv",
-      "bytes": 42904,
-      "sha256": "fd249f72a2b4b5988c6377bb091a8a9b3c9530d0d0dc783cb4fd8d767cc5e243"
+      "bytes": 42909,
+      "sha256": "223d75c40078239201285f6e15c93e844ef4a1f5f54f57ef71782fda0b2d361b"
     },
     {
       "path": "docs/requirements/SRS.md",
-      "bytes": 122688,
-      "sha256": "e33eb936e6eef6b7ed1950384e93f9d90cc83a8612d4d7beb590a36eeb0238c8"
+      "bytes": 123366,
+      "sha256": "529d40e7ce04fd5436dabd39b37ca8db353c7f3ebb21338eef02f0694238e709"
     },
     {
       "path": "docs/security/SECURITY-PRIVACY.md",

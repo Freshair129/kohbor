@@ -2,7 +2,7 @@
 domain: events-audio
 tier: A
 card_version: 1
-verified_at_commit: 7ad4c7f
+verified_at_commit: 0997546
 verified_on: 2026-11-13
 verified_by: "claude-code subagent draft (read-only), integrated by the governance lead; agent work, not human review"
 ---
@@ -33,14 +33,13 @@ A map, not evidence. Decisions, requirements, contracts, code and tests outrank 
 
 Now
 - Detector, arbiter and replay tool exist; `first_blood` is held back by an unavailable list because E-1 is open: `apps/desktop/src-tauri/src/intake.rs`
-- Commits for S3-5a..5l exist in `git log`, including the wiring into `run()` (commit bac6d0c); no test was run by this draft, so test results are UNVERIFIED: `apps/desktop/src-tauri/src/lib.rs`
+- S3-5a..5l, S3-6a, S3-6b and S3-7 are committed on main (PR #10), including the wiring into `run()`; test results at this revision are UNVERIFIED here: `apps/desktop/src-tauri/src/lib.rs`
 - Thread priorities, three lexical source guards and panic containment are present in the host code: `apps/desktop/src-tauri/src/host.rs`
 - No audible critical warning on real media today: readiness is designed to report not_ready (reason MEDIA_UNMAPPED) until authorized critical media exists; the rule itself is decided; behaviour in the running app is UNVERIFIED: DEC-HEALTH-DANGER, DEC-CRITICAL-MEDIA, ALERT-007
 
 Next
-- S3-6 latency harness stage A (synthetic, labelled engineering fixture); no `latency.rs` or `src-tauri/tests` exists in the tree today: S3-6
-- S3-7 review of S3-3 and S3-5, then `implementation_refs` for QUALITY-001, which are empty today: S3-7
-- S3-6b optional native-silence timestamp hook: S3-6b
+- S3-6a and S3-6b latency receipts are INDETERMINATE (distributions on one machine under uncontrolled load); QUALITY-001 stays NOT_RUN and needs a controlled owner measurement: `docs/delivery/evidence/s3-6a/`
+- The S3-7 review findings are fixed or recorded; the `kohbor-media` origin and authority risk is accepted and not proven closed: `docs/design/S3-5-HOST-CRITICAL-PATH.md` section 13
 
 Blocked
 - No `ready` state on real media and no QUALITY-001 acceptance until authorized critical media exists: DEC-CRITICAL-MEDIA

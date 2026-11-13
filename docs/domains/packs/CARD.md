@@ -2,7 +2,7 @@
 domain: packs
 tier: A
 card_version: 1
-verified_at_commit: 7ad4c7f
+verified_at_commit: 0997546
 verified_on: 2026-11-13
 verified_by: "claude-code subagent draft (read-only), integrated by the governance lead; agent work, not human review"
 ---
@@ -36,7 +36,7 @@ A map, not evidence. Decisions: `contracts/decisions.json`. Requirements: `contr
 - Now: descriptor, container, media, trust, store and resolve modules exist with 12 test files; tests were NOT run for this card, so pass state at this commit is UNVERIFIED (`crates/kohbor-pack/tests`).
 - Now: the parser requires `schema_version` "1.3.0" and accepts audio-only bindings (`crates/kohbor-pack/src/descriptor.rs`, DEC-PACK-AUDIO-OPTIONAL-VISUAL).
 - Now: signature status is always `Unavailable`; the only authority granted is `local_import`; a publisher claim is recorded as unverified (`crates/kohbor-pack/src/trust.rs`, DEC-PACK-CRYPTO).
-- Now: the host uses `Store` in `media/prewarm.rs` and `host.rs`; `kohbor-pack-author` is a dev-dependency of the host only (`apps/desktop/src-tauri/Cargo.toml`).
+- Now: the host uses `Store` in `media/prewarm.rs` and `host.rs`; `kohbor-pack-author` is a dev-dependency of the host only (`apps/desktop/src-tauri/Cargo.toml`); `media_inspect` hashes through the bounded `sha256_file_limited` (S3-7).
 - Next: the tool still writes `<package_id>-r<revision>.zip`, while the review's chosen option wants a product-owned extension that is not yet in the identity manifest (`crates/kohbor-pack-author/src/lib.rs`).
 - Next: replace the "API STUB, every body is todo!()" crate header and review the blanket `allow(unused_variables, dead_code)` (`crates/kohbor-pack/src/lib.rs`).
 - Next: the "repacked file" rejection wording and the Open-dialog filter of the review were not found in `apps/desktop/src`; UNVERIFIED whether planned (`docs/design/PACKAGE-FORMAT-REVIEW.md` section 11).

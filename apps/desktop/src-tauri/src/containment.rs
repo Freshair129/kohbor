@@ -7,8 +7,6 @@ use std::sync::OnceLock;
 
 /// CPU hard cap in 1/100 percent units: 1000 = 10% of total system CPU.
 pub const CPU_RATE_HARD_CAP: u32 = 1000;
-/// Aggregate full Working Set acceptance ceiling (decimal bytes).
-pub const WORKING_SET_LIMIT_BYTES: u64 = 900_000_000;
 
 /// Operations required to establish the process Job Object containment boundary.
 ///
@@ -267,19 +265,17 @@ pub struct Throttle {
 
 impl Throttle {
     pub fn update(&mut self, s: &Sample) -> bool {
-        let over_mem = s
-            .working_set_bytes
-            .is_some_and(|w| w > WORKING_SET_LIMIT_BYTES);
+        // Memory is measured and reported, never limited: no RAM limit exists until the owner sets one (DEC-RESOURCE-BUDGET).
         match s.cpu_percent {
             None => {
                 self.throttled = true;
                 self.calm_samples = 0;
             }
-            Some(c) if c >= 9.0 || over_mem => {
+            Some(c) if c >= 9.0 => {
                 self.throttled = true;
                 self.calm_samples = 0;
             }
-            Some(c) if self.throttled && c <= 8.0 && !over_mem => {
+            Some(c) if self.throttled && c <= 8.0 => {
                 self.calm_samples += 1;
                 if self.calm_samples >= 3 {
                     self.throttled = false;
@@ -321,10 +317,13 @@ mod tests {
     }
 
     #[test]
-    fn metric_loss_and_memory_over_budget_throttle() {
+    fn metric_loss_throttles_and_memory_alone_never_does() {
         let mut t = Throttle::default();
         assert!(t.update(&s(None, 1)));
         let mut t = Throttle::default();
-        assert!(t.update(&s(Some(1.0), WORKING_SET_LIMIT_BYTES + 1)));
+        assert!(
+            !t.update(&s(Some(1.0), u64::MAX)),
+            "no memory limit exists: a large Working Set must not throttle"
+        );
     }
 }
