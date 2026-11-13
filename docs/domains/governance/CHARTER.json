@@ -1,0 +1,102 @@
+{
+  "charter_id": "CHARTER-governance",
+  "schema_version": "1.0.0",
+  "version": 1,
+  "domain": "governance",
+  "enabled": false,
+  "status": "awaiting_owner_confirmation",
+  "channel": "Owner message in the engineering chat session (2026-11-13): approved all nine decisions of the Domain Steward design, including decision 9 (delegation charters, pilot on one domain). Recorded by an agent (governance session); this file is the charter text, written by an agent from that decision, not drafted by the owner",
+  "recorded_on": "2026-11-13",
+  "review_by": "2026-12-13",
+  "kill_switch": {
+    "charter_flag": "enabled=false in this file",
+    "global_file": "DELEGATION-OFF in the coordination ledger (any content)",
+    "rule": "Check both at task start and before every approval. When off, every request goes to the owner queue. Narrowing is a new charter version that applies from the next task start; earlier approvals stay and are listed for re-audit.",
+    "fail_closed": "If the coordination ledger cannot be read, delegation is off. When the switch turns off, pending requests go to the owner and approvals already recorded are listed for re-audit."
+  },
+  "why_this_domain": "Work here is documents and small tools only: no product behaviour, no trust boundary, reversible by revert, and the gate (spec validation, domain validator, tool tests) checks it mechanically. Domains that touch code in a trust boundary (events-audio, packs, host-core), taste (banner-lab, ui-overlay) or rights (banner-lab, packs) are not suitable pilots.",
+  "scope": {
+    "paths_covered": [
+      "docs/governance/CHANGELOG.md",
+      "docs/governance/RISK-REGISTER.md",
+      "docs/governance/IMPLEMENTATION-READINESS.md",
+      "docs/INDEX.md",
+      "docs/domains/README.md",
+      "docs/domains/governance/CARD.md",
+      "docs/domains/governance/state.json",
+      "tools/validate_domains.py",
+      "tools/janitor.py",
+      "tools/tests/**"
+    ],
+    "not_covered": "Any path not listed in paths_covered, including every other domain's documents, cards, code and contracts: owner approval.",
+    "excluded_always_owner": [
+      "AGENTS.md",
+      "docs/delivery/AGENT-WORKFLOW.md section 6 (risk tiers), section 8 and section 9, and the rest of that file when a change alters a rule",
+      "docs/governance/DOCUMENT-CONTROL.md",
+      "docs/governance/DECISION-LOG.md and contracts/decisions.json (an agent may draft; only the owner decides)",
+      "contracts/**",
+      "docs/product/PRD.md and docs/requirements/SRS.md, any requirement, scope, threshold or acceptance change",
+      "tools/gate.py and anything else that changes what the gate accepts",
+      "any change that relaxes a check, a delegation rule or an owner reservation",
+      "this charter and any other charter"
+    ],
+    "tier_precedence": "The highest matching tier applies. A change that relaxes a check, a delegation rule or an owner reservation escalates to the owner."
+  },
+  "tiers": {
+    "R0": {
+      "applies_to": "documents and mechanical edits inside paths_covered that change no process rule; fixtures; test-only changes",
+      "delegate_may_approve": true,
+      "requires": [
+        "gate pass on the exact commit",
+        "scope check: every changed path is inside the brief's SCOPE and inside paths_covered"
+      ]
+    },
+    "R1": {
+      "applies_to": "code in tools/validate_domains.py or tools/janitor.py that adds or tightens a check or a report; process documents inside paths_covered that alter a rule other than the owner-reserved ones",
+      "delegate_may_approve": true,
+      "requires": [
+        "gate pass on the exact commit",
+        "read-only review by a different model than the author, with every finding accepted, rejected or parked with a reason",
+        "the approver is neither the author nor the reviewer"
+      ]
+    },
+    "R2": {
+      "applies_to": "nothing inside paths_covered today: everything that would be R2 (trust boundary, contracts, delegation rules, gate criteria) is in excluded_always_owner",
+      "delegate_may_approve": false,
+      "always_flag_for_owner_audit": true,
+      "note": "If the owner later moves a path into R2 scope, a delegate may approve only a recommendation on the feature branch, after the R1 requirements and the lead's full diff read, flagged for owner audit. It never grants commit, push, pull request or merge authority."
+    }
+  },
+  "design_choices": "Only reversible choices inside 'What the builder can decide' in docs/governance/DECISION-LOG.md. Record them as decided_by 'agent delegate, charter CHARTER-governance v1'.",
+  "limits": {
+    "max_fix_rounds": 2,
+    "max_tasks_in_flight": 1,
+    "per_task_wall_clock_minutes": 240,
+    "limit_note": "per_task_wall_clock_minutes is an agent proposal for the pilot; the owner has not set it",
+    "spending": "none of any kind",
+    "network": "none"
+  },
+  "always_the_owner": [
+    "merge to main, push and pull request",
+    "release, deployment, signing, publishing",
+    "payments and paid services",
+    "deleting user data, any branch, worktree or folder, or unregistered work",
+    "rights, licensing and legal questions",
+    "taste: voice, accent, banner look, wording feel",
+    "any change to requirements, scope or thresholds",
+    "anything outward-facing or irreversible",
+    "any change to this charter"
+  ],
+  "record_labels": [
+    "agent_review",
+    "agent_delegated_approval",
+    "owner_approval"
+  ],
+  "label_rule": "An agent result is never written as human or owner approval. Author, reviewer and approver are different sessions; reviewer and author are different models.",
+  "approval_queue": "One file per request in approvals\\ of the coordination ledger; append-only approvals\\log.jsonl. No answer in time: escalate to the owner. Nothing is ever approved by timeout.",
+  "owner_audit": "At each sprint exit: every R2 approval plus a sample of the others (3 items or 10 percent, whichever is larger). A wrong approval narrows this charter.",
+  "approvals_made_under_this_charter": 0,
+  "note": "The increments I0 to I3 that created this charter are NOT approved under it: they touch owner-reserved paths and the charter did not exist when they were written. They await the owner's review.",
+  "status_note": "Written by an agent from decision 9 of the Domain Steward design. Disabled until the owner confirms the text, the scope and the limits (including the wall-clock limit, which the owner has not set). While disabled every approval request goes to the owner.",
+  "grants_no_git_authority": "A delegated approval never grants commit, push, pull request or merge authority; those stay with the owner (docs/delivery/AGENT-WORKFLOW.md section 6 step 7)."
+}

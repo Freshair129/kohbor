@@ -1,0 +1,11 @@
+TASK_ID:        S9-T1
+MODEL:          gpt-6-luna (max)
+PATTERN:        L-R step 1
+GOAL:           Sample brief used by the tests.
+WORKSPACE:      F:\kohbor, branch sample, single writer: this task
+ROLE:           general-worker
+TASK_TYPE:      implement
+DOMAIN:         packs
+CLAIM:          packs__S9-T1
+SCOPE:          crates/kohbor-pack/src/**   (write)
+RISK:           R1

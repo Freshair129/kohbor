@@ -18,6 +18,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 from typing import BinaryIO, Iterator
@@ -27,8 +28,21 @@ ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "apps" / "desktop"
 
 
+def sprint_exit_args(enabled: bool) -> dict[str, list[str]]:
+    """Extra arguments of the document and process checks. Empty unless --sprint-exit: the everyday gate accepts what it always did."""
+    if not enabled:
+        return {"domains": [], "agents": [], "scope": []}
+    return {"domains": ["--fail-on-stale"], "agents": ["--enforce"], "scope": ["--enforce", "--include-done"]}
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run Kohbor repository checks.")
+    parser.add_argument(
+        "--sprint-exit",
+        action="store_true",
+        help="sprint-exit mode (owner decision 5, 2026-11-13): stale cards, registry consistency and claim scope FAIL the gate "
+        "instead of being reported; the everyday gate is unchanged",
+    )
     parser.add_argument(
         "--quick",
         action="store_true",
@@ -110,6 +124,7 @@ def run_check(
     cwd: Path = ROOT,
     env: dict[str, str] | None = None,
     required_tool: str,
+    pass_note_prefix: str | None = None,
 ) -> None:
     started = time.monotonic()
     executable = shutil.which(required_tool)
@@ -145,7 +160,17 @@ def run_check(
     else:
         elapsed = time.monotonic() - started
         if completed.returncode == 0:
-            add_result(results, log, name, "PASS", elapsed)
+            note = ""
+            if pass_note_prefix:
+                note = next(
+                    (
+                        line.strip()[:220]
+                        for line in output_for_check(log_path, output_offset).splitlines()
+                        if line.startswith(pass_note_prefix)
+                    ),
+                    "",
+                )
+            add_result(results, log, name, "PASS", elapsed, note)
         else:
             output = output_for_check(log_path, output_offset)
             if "could not acquire lock" in output.casefold():
@@ -415,6 +440,55 @@ def main() -> int:
                     cwd=ROOT,
                     required_tool="corepack",
                 )
+
+        run_check(
+            results,
+            log_path,
+            log,
+            name="Governance tool tests",
+            args=[sys.executable, str(ROOT / "tools" / "tests" / "run_tests.py")] + (["--skip-git"] if args.quick else []),
+            required_tool=sys.executable,
+        )
+        # Source-class evidence about documents only. A stale card is reported, not failed, until the
+        # lead or owner turns on --fail-on-stale for sprint exit.
+        run_check(
+            results,
+            log_path,
+            log,
+            name="Domain cards and index" + (" (sprint exit: stale cards fail)" if args.sprint_exit else ""),
+            args=[sys.executable, str(ROOT / "tools" / "validate_domains.py")] + sprint_exit_args(args.sprint_exit)["domains"],
+            required_tool=sys.executable,
+            pass_note_prefix="validate_domains:",
+        )
+        # Report-only checks: they print problems in their summary and never fail the gate. Making either of
+        # them fail (--enforce) changes what the gate accepts and is the owner's decision.
+        run_check(
+            results,
+            log_path,
+            log,
+            name="Agent registry and router (" + ("ENFORCED, sprint exit" if args.sprint_exit else "report only") + ")",
+            args=[sys.executable, str(ROOT / "tools" / "validate_agents.py")] + sprint_exit_args(args.sprint_exit)["agents"],
+            required_tool=sys.executable,
+            pass_note_prefix="validate_agents:",
+        )
+        run_check(
+            results,
+            log_path,
+            log,
+            name="Claim scope (" + ("ENFORCED, sprint exit" if args.sprint_exit else "report only") + ")",
+            args=[sys.executable, str(ROOT / "tools" / "check_claim_scope.py")] + sprint_exit_args(args.sprint_exit)["scope"],
+            required_tool=sys.executable,
+            pass_note_prefix="check_claim_scope:",
+        )
+        run_check(
+            results,
+            log_path,
+            log,
+            name="Run records (report only)",
+            args=[sys.executable, str(ROOT / "tools" / "run_record.py"), "check"],
+            required_tool=sys.executable,
+            pass_note_prefix="run_record:",
+        )
 
         if shutil.which("uv") is None:
             run_check(

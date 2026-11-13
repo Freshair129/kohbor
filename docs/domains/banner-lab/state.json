@@ -1,0 +1,202 @@
+{
+  "schema_version": "1.0.0",
+  "domain": "banner-lab",
+  "tier": "A",
+  "verified_at_commit": "7ad4c7f",
+  "verified_on": "2026-11-13",
+  "verified_by": "claude-code subagent draft (read-only), integrated by the governance lead; agent work, not human review",
+  "write_areas": [
+    "lab:fable/**",
+    "lab:voice/**",
+    "lab:studio-mockups/**",
+    "lab:STUDIO-DESIGN.md",
+    "lab:STUDIO-DESIGN.th.md",
+    "lab:compare-font.html",
+    "lab:preview.html",
+    "lab:fable-*/**",
+    "lab:nk-*/**"
+  ],
+  "requirement_ids": [],
+  "proposed_requirement_ids": [],
+  "decision_ids": [
+    "DEC-BANNER-LAB-STYLE",
+    "DEC-PACK-AUDIO-OPTIONAL-VISUAL",
+    "DEC-COMMERCE-INTENT",
+    "DEC-VISUALS",
+    "DEC-CRITICAL-MEDIA",
+    "DEC-EVENT-RUNE-SPAWN",
+    "DEC-EVENT-AUDIO",
+    "DEC-PACK-BANNER-ADDON"
+  ],
+  "task_id_prefixes": [],
+  "artefacts": [
+    {
+      "path": "lab:AGENTS.md",
+      "type": "spec",
+      "role": "governing"
+    },
+    {
+      "path": "lab:CLAUDE.md",
+      "type": "spec",
+      "role": "reference"
+    },
+    {
+      "path": "lab:BRIEF.md",
+      "type": "spec",
+      "role": "governing"
+    },
+    {
+      "path": "lab:fable/DESIGN-SYSTEM.md",
+      "type": "design",
+      "role": "governing"
+    },
+    {
+      "path": "lab:fable/README.md",
+      "type": "design",
+      "role": "reference"
+    },
+    {
+      "path": "lab:fable/build.mjs",
+      "type": "code",
+      "role": "governing"
+    },
+    {
+      "path": "lab:fable/src/**",
+      "type": "code",
+      "role": "governing"
+    },
+    {
+      "path": "lab:fable/mapping.json",
+      "type": "spec",
+      "role": "reference"
+    },
+    {
+      "path": "lab:fable/report.json",
+      "type": "spec",
+      "role": "reference"
+    },
+    {
+      "path": "lab:fable/*.webm",
+      "type": "asset-set",
+      "role": "reference"
+    },
+    {
+      "path": "lab:fable/*.wav",
+      "type": "asset-set",
+      "role": "reference"
+    },
+    {
+      "path": "lab:voice/PROVENANCE.md",
+      "type": "spec",
+      "role": "reference"
+    },
+    {
+      "path": "lab:voice/**",
+      "type": "code",
+      "role": "reference"
+    },
+    {
+      "path": "lab:STUDIO-DESIGN.md",
+      "type": "design",
+      "role": "reference"
+    },
+    {
+      "path": "lab:STUDIO-DESIGN.th.md",
+      "type": "design",
+      "role": "reference"
+    },
+    {
+      "path": "lab:studio-mockups/**",
+      "type": "mockup",
+      "role": "reference"
+    },
+    {
+      "path": "lab:workflow-design/**",
+      "type": "design",
+      "role": "neighbour:governance"
+    },
+    {
+      "path": "lab:astra/**",
+      "type": "asset-set",
+      "role": "reference"
+    },
+    {
+      "path": "lab:nakom-src/**",
+      "type": "asset-set",
+      "role": "reference"
+    },
+    {
+      "path": "lab:compare-font.html",
+      "type": "mockup",
+      "role": "reference"
+    },
+    {
+      "path": "lab:preview.html",
+      "type": "mockup",
+      "role": "reference"
+    },
+    {
+      "path": "lab:fable-*/**",
+      "type": "asset-set",
+      "role": "reference",
+      "note": "disposable private copies of the baseline; registry: coordination ledger, registry/branches.json"
+    },
+    {
+      "path": "lab:nk-*/**",
+      "type": "asset-set",
+      "role": "reference",
+      "note": "private copies of the baseline for the blind taste test; claim banner-lab__nakom-taste-test; registry: coordination ledger"
+    },
+    {
+      "path": "contracts/event-catalog.json",
+      "type": "spec",
+      "role": "neighbour:events-audio",
+      "reviewed_sha256": "e7ac1310e313ac0efb60f433e70b254dd01b08e79061bb2d80fd1fa45b40e135"
+    },
+    {
+      "path": "contracts/decisions.json",
+      "type": "spec",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "crates/kohbor-pack-author/src/lib.rs",
+      "type": "code",
+      "role": "neighbour:packs",
+      "reviewed_sha256": "6f338d73dcf924e4678f59d6a4f575a2edbed113a8ee537f9dac52ffd52f1045"
+    },
+    {
+      "path": "docs/design/MEDIA-PACK-SPEC.md",
+      "type": "spec",
+      "role": "neighbour:packs",
+      "reviewed_sha256": "e0ecba31c7e9f97170e61c487d71a625d3c8848bfd5677663b131fbe53bfe195"
+    }
+  ],
+  "open_questions": [
+    {
+      "id": "BL-Q1",
+      "question": "Font choice is recorded only as an owner statement in the lab; no DEC records it and the style decision closure evidence still names the old system font.",
+      "owner": "product owner",
+      "raised_on": "2026-11-13"
+    },
+    {
+      "id": "BL-Q2",
+      "question": "Banner Studio scope (which increments) and the number of packs to produce are undecided.",
+      "owner": "product owner",
+      "raised_on": "2026-11-13"
+    },
+    {
+      "id": "BL-Q3",
+      "question": "Disposal of the parked comparison copies and the taste-test copies needs the owner's written decision.",
+      "owner": "product owner",
+      "raised_on": "2026-11-13"
+    }
+  ],
+  "last_handoff": {
+    "by": "claude-code subagent draft (read-only)",
+    "on": "2026-11-13",
+    "note": "first backfill draft; no earlier handoff exists"
+  },
+  "interface_requirement_ids": [
+    "MEDIA-004"
+  ]
+}

@@ -1,0 +1,131 @@
+{
+  "schema_version": "1.0.0",
+  "domain": "ui-overlay",
+  "tier": "B",
+  "verified_at_commit": "7ad4c7f",
+  "verified_on": "2026-11-13",
+  "verified_by": "claude-code subagent draft (read-only), integrated by the governance lead; agent work, not human review",
+  "write_areas": [
+    "apps/desktop/src/**",
+    "docs/design/UX-SPEC.md",
+    "docs/design/VISUAL-DESIGN-PROPOSAL.md",
+    "contracts/design-tokens.json",
+    "docs/design/visuals/**"
+  ],
+  "requirement_ids": [
+    "UI-001",
+    "UI-002",
+    "UI-003",
+    "UI-004",
+    "UI-005",
+    "UI-006",
+    "UI-007",
+    "UI-008",
+    "QUALITY-003"
+  ],
+  "proposed_requirement_ids": [],
+  "decision_ids": [
+    "DEC-VISUALS",
+    "DEC-SESSION-MONITOR",
+    "DEC-BANNER-LAB-STYLE",
+    "DEC-SHARE-LIST",
+    "DEC-INTERFACES",
+    "DEC-NATIVE-EVIDENCE",
+    "DEC-SOCIAL"
+  ],
+  "task_id_prefixes": [],
+  "artefacts": [
+    {
+      "path": "docs/design/UX-SPEC.md",
+      "type": "spec",
+      "role": "governing",
+      "reviewed_sha256": "be41a2dbcb4bdb20883e16fafed4b6dab4ff74e9b635205c94572ec55ecc18af"
+    },
+    {
+      "path": "docs/design/VISUAL-DESIGN-PROPOSAL.md",
+      "type": "spec",
+      "role": "governing",
+      "reviewed_sha256": "50bfb7f99a67acacbcd139721eadad98e99a2498fd6de7257aff94af6b0d742a"
+    },
+    {
+      "path": "contracts/design-tokens.json",
+      "type": "schema",
+      "role": "governing"
+    },
+    {
+      "path": "docs/design/visuals/command-deck/DESIGN-NOTES.md",
+      "type": "mockup",
+      "role": "reference",
+      "reviewed_sha256": "a7bc307fef196fb246e62e3e2335fb0f1609b26639bc8143264a6ed2adeb8d13"
+    },
+    {
+      "path": "docs/design/visuals/s3-audio-ui/DESIGN-NOTES.md",
+      "type": "mockup",
+      "role": "reference",
+      "reviewed_sha256": "721964bf7c438fca0ccdb2c691c62281c7efcd85e01605bfa97f19aa669cf023"
+    },
+    {
+      "path": "docs/design/REMAINING-SYSTEM-DESIGN.md",
+      "type": "spec",
+      "role": "reference",
+      "reviewed_sha256": "b2b5e8392f45aecdb60a1d4c1cbf7c16da5a03016f38112b514be0ac6e705802"
+    },
+    {
+      "path": "docs/delivery/SPRINT-ROADMAP.md",
+      "type": "registry",
+      "role": "reference",
+      "reviewed_sha256": "f97c9a916c0a41bd46e03d303d8ad03135b79313fc24a17a9f1df5322dc5be18"
+    },
+    {
+      "path": "apps/desktop/src",
+      "type": "code",
+      "role": "reference"
+    },
+    {
+      "path": "apps/desktop/src-tauri/tauri.conf.json",
+      "type": "code",
+      "role": "neighbour:host-core"
+    },
+    {
+      "path": "apps/desktop/src-tauri/capabilities/default.json",
+      "type": "code",
+      "role": "neighbour:host-core"
+    },
+    {
+      "path": "contracts/decisions.json",
+      "type": "registry",
+      "role": "source-of-truth"
+    }
+  ],
+  "open_questions": [
+    {
+      "id": "Q-UI-1",
+      "question": "Does the overlay carry an HP/mana own-stat row (UX-SPEC and the proposal say yes, the roadmap says no).",
+      "owner": "product owner",
+      "raised": "2026-11-13",
+      "ref": "docs/design/UX-SPEC.md line 134; docs/delivery/SPRINT-ROADMAP.md line 137"
+    },
+    {
+      "id": "Q-UI-2",
+      "question": "Which banner size is binding: 360x203 clip, 720x220 stage or 1280x480 WebM.",
+      "owner": "product owner",
+      "raised": "2026-11-13",
+      "ref": "docs/design/visuals/s3-audio-ui/DESIGN-NOTES.md section 6 item 3"
+    },
+    {
+      "id": "Q-UI-3",
+      "question": "Scaled deck for the Live destination versus the 1420x760 stage (O-12).",
+      "owner": "product owner",
+      "raised": "2026-11-12",
+      "ref": "docs/design/REMAINING-SYSTEM-DESIGN.md section 6"
+    }
+  ],
+  "last_handoff": {
+    "task_id": null,
+    "on": "2026-11-13",
+    "summary": "Backfilled draft card, read-only. The renderer has the Overview and audio, pack and history panels; no overlay window and no Session Monitor exist in source."
+  },
+  "interface_requirement_ids": [
+    "QUALITY-004"
+  ]
+}

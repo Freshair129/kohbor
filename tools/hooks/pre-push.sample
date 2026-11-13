@@ -1,0 +1,50 @@
+#!/bin/sh
+# Kohbor pre-push hook (the source of the installed hook; kept in the repository as tools/hooks/pre-push.sample).
+#
+# The owner decided on 2026-11-13 to install it (relayed), after PR #10 merged. The lead copies it with:
+#   cp tools/hooks/pre-push.sample "$(git rev-parse --git-common-dir)/hooks/pre-push"
+# In a worktree, `.git` is a file, so the hook goes to the common git directory. It is SHARED BY EVERY WORKTREE of the
+# repository, including the checkout another session is working in. Remove it by deleting that one file. A hook can
+# be bypassed with `git push --no-verify`; branch protection on main is the stronger control.
+#
+# What it does: before a push it runs the document checks and the claim-scope report of THE CHECKOUT YOU PUSH FROM.
+#   - Default: REPORT ONLY. It prints the results and lets the push continue (exit 0), whatever they say.
+#   - KOHBOR_HOOK_ENFORCE=1: a failing domain validator, a stale card, a registry problem or a path outside the
+#     claim stops the push. Turning this on is the owner's decision.
+#   - A checkout that does not contain a tool (an older branch) skips that check and says so.
+# It never pushes, deletes, resets or changes a file. Pushing itself always needs the owner's instruction
+# (AGENTS.md); this hook does not grant it.
+
+root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+export PYTHONDONTWRITEBYTECODE=1  # the checks must not write __pycache__ into the checkout
+py="${KOHBOR_PYTHON:-python}"
+status=0
+
+# usage: run_tool TAIL_LINES TOOL.py [ARGS...]   (prints the last lines; returns the tool's exit status, 0 when skipped)
+run_tool() {
+    lines="$1"; tool="$2"; shift 2
+    if [ ! -f "$root/tools/$tool" ]; then
+        echo "pre-push: tools/$tool is not in this checkout; skipped" >&2
+        return 0
+    fi
+    out="$("$py" -B "$root/tools/$tool" "$@" 2>&1)"
+    rc=$?
+    printf '%s\n' "$out" | tail -n "$lines"
+    return "$rc"
+}
+
+if [ "${KOHBOR_HOOK_ENFORCE:-0}" = "1" ]; then
+    run_tool 5 validate_domains.py --fail-on-stale || status=1
+    run_tool 5 validate_agents.py --enforce || status=1
+    run_tool 5 check_claim_scope.py --enforce --include-done || status=1
+    if [ "$status" -ne 0 ]; then
+        echo "pre-push: checks failed; push stopped (KOHBOR_HOOK_ENFORCE=1)." >&2
+    fi
+    exit "$status"
+fi
+
+run_tool 3 validate_domains.py
+run_tool 1 validate_agents.py
+run_tool 3 check_claim_scope.py --include-done
+echo "pre-push: report only; the push continues. Set KOHBOR_HOOK_ENFORCE=1 to stop on a failure." >&2
+exit 0

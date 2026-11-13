@@ -1,0 +1,174 @@
+{
+  "schema_version": "1.0.0",
+  "domain": "events-audio",
+  "tier": "A",
+  "verified_at_commit": "7ad4c7f",
+  "verified_on": "2026-11-13",
+  "verified_by": "claude-code subagent draft (read-only), integrated by the governance lead; agent work, not human review",
+  "write_areas": [
+    "crates/kohbor-events",
+    "crates/kohbor-audio",
+    "crates/kohbor-audio-native",
+    "apps/desktop/src-tauri/src/audio",
+    "apps/desktop/src-tauri/src/media",
+    "apps/desktop/src-tauri/src/host.rs",
+    "apps/desktop/src-tauri/src/commands.rs",
+    "apps/desktop/src-tauri/src/clock.rs"
+  ],
+  "requirement_ids": [
+    "MEDIA-001",
+    "MEDIA-002",
+    "MEDIA-003",
+    "MEDIA-005",
+    "ALERT-001",
+    "ALERT-007",
+    "QUALITY-001",
+    "QUALITY-007"
+  ],
+  "proposed_requirement_ids": [],
+  "decision_ids": [
+    "DEC-EVENT-AUDIO",
+    "DEC-HEALTH-DANGER",
+    "DEC-CRITICAL-MEDIA",
+    "DEC-INTERFACES",
+    "DEC-PACK-CRYPTO",
+    "DEC-NATIVE-EVIDENCE",
+    "DEC-PACK-AUDIO-OPTIONAL-VISUAL",
+    "DEC-PACK-BANNER-ADDON",
+    "DEC-BANNER-LAB-STYLE",
+    "DEC-EVENT-RUNE-SPAWN"
+  ],
+  "task_id_prefixes": [
+    "S1-",
+    "S3-"
+  ],
+  "artefacts": [
+    {
+      "path": "docs/design/EVENT-AUDIO-SPEC.md",
+      "type": "spec",
+      "role": "governing",
+      "reviewed_sha256": "71cc80c4ea46efd8c1e7351b48101029ffd4cb47ad203c659b4677254066709a"
+    },
+    {
+      "path": "docs/design/S3-5-HOST-CRITICAL-PATH.md",
+      "type": "spec",
+      "role": "governing",
+      "reviewed_sha256": "6682ee7dcc58c19b0bd69852d1811799d7f4f9c87975aa66ee8c59264ccb18ca"
+    },
+    {
+      "path": "docs/delivery/S3-1-AUDIO-SPIKE.md",
+      "type": "review",
+      "role": "governing",
+      "reviewed_sha256": "e32b5f88175d5331da9ff593a44ccd2cc0374043fb609e13396f6c755ad85579"
+    },
+    {
+      "path": "docs/delivery/SPRINT-ROADMAP.md",
+      "type": "registry",
+      "role": "reference",
+      "reviewed_sha256": "f97c9a916c0a41bd46e03d303d8ad03135b79313fc24a17a9f1df5322dc5be18"
+    },
+    {
+      "path": "contracts/decisions.json",
+      "type": "registry",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "contracts/requirements.json",
+      "type": "registry",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "contracts/event-catalog.json",
+      "type": "schema",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "contracts/audio-outcome.schema.json",
+      "type": "schema",
+      "role": "reference"
+    },
+    {
+      "path": "crates/kohbor-events",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "crates/kohbor-audio",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "crates/kohbor-audio-native",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/audio",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/media",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/host.rs",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/commands.rs",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/clock.rs",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "spikes/audio",
+      "type": "code",
+      "role": "reference"
+    },
+    {
+      "path": "docs/design/MEDIA-PACK-SPEC.md",
+      "type": "spec",
+      "role": "neighbour:packs"
+    },
+    {
+      "path": "crates/kohbor-pack",
+      "type": "code",
+      "role": "neighbour:packs"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/intake.rs",
+      "type": "code",
+      "role": "neighbour:host-core"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/status.rs",
+      "type": "code",
+      "role": "neighbour:host-core"
+    }
+  ],
+  "open_questions": [
+    {
+      "question": "Do the S3-5 section 12 items P1..P8 need an owner acknowledgement or a DEC id? They are agent decisions with no DEC id.",
+      "owner": "product owner",
+      "raised": "2026-11-12",
+      "id": "Q-EA-1"
+    }
+  ],
+  "last_handoff": null,
+  "crates": [
+    "kohbor-events",
+    "kohbor-audio",
+    "kohbor-audio-native"
+  ],
+  "interface_requirement_ids": [
+    "MEDIA-004",
+    "MEDIA-007"
+  ]
+}

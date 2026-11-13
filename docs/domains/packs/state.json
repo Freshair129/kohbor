@@ -1,0 +1,134 @@
+{
+  "schema_version": "1.0.0",
+  "domain": "packs",
+  "tier": "A",
+  "verified_at_commit": "7ad4c7f",
+  "verified_on": "2026-11-13",
+  "verified_by": "claude-code subagent draft (read-only), integrated by the governance lead; agent work, not human review",
+  "write_areas": [
+    "crates/kohbor-pack",
+    "crates/kohbor-pack-author",
+    "contracts/media-manifest.schema.json",
+    "contracts/media-install-request.schema.json",
+    "contracts/media-install-result.schema.json",
+    "fixtures/media-*.json"
+  ],
+  "requirement_ids": [
+    "MEDIA-004",
+    "MEDIA-006",
+    "MEDIA-007",
+    "MEDIA-008"
+  ],
+  "proposed_requirement_ids": [],
+  "decision_ids": [
+    "DEC-PACK-CRYPTO",
+    "DEC-PACK-AUDIO-OPTIONAL-VISUAL",
+    "DEC-PACK-BANNER-ADDON",
+    "DEC-EVENT-AUDIO",
+    "DEC-CRITICAL-MEDIA",
+    "DEC-INTERFACES",
+    "DEC-NATIVE-EVIDENCE",
+    "DEC-PREMIUM",
+    "DEC-COMMERCE-INTENT",
+    "DEC-BANNER-LAB-STYLE"
+  ],
+  "task_id_prefixes": [
+    "S2-",
+    "S3-8"
+  ],
+  "artefacts": [
+    {
+      "path": "docs/design/MEDIA-PACK-SPEC.md",
+      "type": "spec",
+      "role": "governing",
+      "reviewed_sha256": "e0ecba31c7e9f97170e61c487d71a625d3c8848bfd5677663b131fbe53bfe195"
+    },
+    {
+      "path": "docs/design/PACKAGE-FORMAT-REVIEW.md",
+      "type": "review",
+      "role": "governing",
+      "reviewed_sha256": "c6d8d549a310b2e72313cb4326819c1b38db3b60c7e719f40c631608a4d7dcef"
+    },
+    {
+      "path": "docs/design/EVENT-AUDIO-SPEC.md",
+      "type": "spec",
+      "role": "reference",
+      "reviewed_sha256": "71cc80c4ea46efd8c1e7351b48101029ffd4cb47ad203c659b4677254066709a"
+    },
+    {
+      "path": "docs/delivery/SPRINT-ROADMAP.md",
+      "type": "registry",
+      "role": "reference",
+      "reviewed_sha256": "f97c9a916c0a41bd46e03d303d8ad03135b79313fc24a17a9f1df5322dc5be18"
+    },
+    {
+      "path": "contracts/decisions.json",
+      "type": "registry",
+      "role": "reference",
+      "reviewed_sha256": "e10dc1ff60a914e91e9b71c3b10059600ae48a78fbd36a685b5a19fe4937e861"
+    },
+    {
+      "path": "contracts/requirements.json",
+      "type": "registry",
+      "role": "reference",
+      "reviewed_sha256": "6467dd5a80fe3215413173bd668a89fc16f372c51939cbb79bbab01c6cf71fb6"
+    },
+    {
+      "path": "contracts/media-manifest.schema.json",
+      "type": "schema",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "contracts/media-install-request.schema.json",
+      "type": "schema",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "contracts/media-install-result.schema.json",
+      "type": "schema",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "crates/kohbor-pack",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "crates/kohbor-pack-author",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "docs/design/S3-5-HOST-CRITICAL-PATH.md",
+      "type": "spec",
+      "role": "neighbour:events-audio"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/media",
+      "type": "code",
+      "role": "neighbour:events-audio"
+    },
+    {
+      "path": "apps/desktop/src/packs.ts",
+      "type": "code",
+      "role": "neighbour:ui-overlay"
+    }
+  ],
+  "open_questions": [
+    {
+      "question": "Record the package-format decision (review option A2) in the decision records and confirm the extension spelling (proposal .kohborpack, never .gann); no decision record for it exists yet",
+      "owner": "product owner",
+      "raised_on": "2026-11-12"
+    },
+    {
+      "question": "Is in-app import of a clip folder (review option D) in scope, and for which milestone",
+      "owner": "product owner",
+      "raised_on": "2026-11-12"
+    }
+  ],
+  "last_handoff": null,
+  "crates": [
+    "kohbor-pack",
+    "kohbor-pack-author"
+  ]
+}

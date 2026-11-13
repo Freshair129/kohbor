@@ -1,0 +1,157 @@
+{
+  "schema_version": "1.0.0",
+  "domain": "host-core",
+  "tier": "B",
+  "verified_at_commit": "7ad4c7f",
+  "verified_on": "2026-11-13",
+  "verified_by": "claude-code subagent draft (read-only), integrated by the governance lead; agent work, not human review",
+  "write_areas": [
+    "crates/kohbor-gsi/**",
+    "crates/kohbor-gsi-capture/**",
+    "apps/desktop/src-tauri/src/intake.rs",
+    "apps/desktop/src-tauri/src/containment.rs",
+    "apps/desktop/src-tauri/src/settings.rs",
+    "apps/desktop/src-tauri/src/status.rs",
+    "apps/desktop/src-tauri/src/instance.rs",
+    "apps/desktop/src-tauri/src/secrets.rs",
+    "apps/desktop/src-tauri/src/atomic.rs",
+    "apps/desktop/src-tauri/src/lib.rs",
+    "apps/desktop/src-tauri/src/main.rs"
+  ],
+  "requirement_ids": [
+    "CORE-001",
+    "CORE-002",
+    "CORE-004",
+    "CORE-005",
+    "DATA-001",
+    "DATA-002",
+    "DATA-003",
+    "DATA-004",
+    "QUALITY-002"
+  ],
+  "proposed_requirement_ids": [],
+  "decision_ids": [
+    "DEC-GSI-INTAKE",
+    "DEC-INTERFACES",
+    "DEC-NAME",
+    "DEC-NATIVE-EVIDENCE"
+  ],
+  "task_id_prefixes": [
+    "S0-"
+  ],
+  "artefacts": [
+    {
+      "path": "docs/design/GSI-INTAKE-SPEC.md",
+      "type": "spec",
+      "role": "governing",
+      "reviewed_sha256": "596f8d8a588e45e16708fd1c52b0c4a27ae41202ce46fd9fcc0d52181c6380ec"
+    },
+    {
+      "path": "docs/delivery/M0-PLAN.md",
+      "type": "review",
+      "role": "governing",
+      "reviewed_sha256": "10157df4f836bfdd147fcaaa5a091081db72b0b9e2c20c5b3390078ab7e34280"
+    },
+    {
+      "path": "docs/delivery/M1-STATUS.md",
+      "type": "review",
+      "role": "governing",
+      "reviewed_sha256": "87e636a3af7452980e3c96b325be674d712638e629c58ef09dfc56d6546d4b55"
+    },
+    {
+      "path": "docs/delivery/AGENT-WORKFLOW.md",
+      "type": "spec",
+      "role": "reference",
+      "reviewed_sha256": "cca35920a8be3909437a47b687926d326101ca5b9140f7c6b0f72df5046037d1"
+    },
+    {
+      "path": "docs/delivery/SPRINT-ROADMAP.md",
+      "type": "registry",
+      "role": "reference",
+      "reviewed_sha256": "f97c9a916c0a41bd46e03d303d8ad03135b79313fc24a17a9f1df5322dc5be18"
+    },
+    {
+      "path": "contracts/product-identity.json",
+      "type": "schema",
+      "role": "reference",
+      "reviewed_sha256": "38711a009aef7788e58d2f47a35dc84acbfadd6736d8cd8ce06b2e9ed05d51e8"
+    },
+    {
+      "path": "contracts/runtime-status.schema.json",
+      "type": "schema",
+      "role": "reference"
+    },
+    {
+      "path": "contracts/own-snapshot.schema.json",
+      "type": "schema",
+      "role": "reference"
+    },
+    {
+      "path": "contracts/settings-patch.schema.json",
+      "type": "schema",
+      "role": "reference"
+    },
+    {
+      "path": "contracts/decisions.json",
+      "type": "registry",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "crates/kohbor-gsi",
+      "type": "code",
+      "role": "reference"
+    },
+    {
+      "path": "crates/kohbor-gsi-capture",
+      "type": "code",
+      "role": "reference"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src",
+      "type": "code",
+      "role": "reference"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/host.rs",
+      "type": "code",
+      "role": "neighbour:events-audio"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/commands.rs",
+      "type": "code",
+      "role": "neighbour:events-audio"
+    }
+  ],
+  "open_questions": [
+    {
+      "id": "Q-HC-1",
+      "question": "How to close the slow-drip residual risk on the intake listener, and whether a revision-conflict code is added to the error catalog.",
+      "owner": "engineering lead",
+      "raised": "2026-11-12",
+      "ref": "docs/delivery/M1-STATUS.md section 4 item 4"
+    },
+    {
+      "id": "Q-HC-2",
+      "question": "Should a hero mismatch renew freshness and the sequence (GSI-INTAKE-SPEC sections 4 and 5 are ambiguous).",
+      "owner": "governance lead",
+      "raised": "2026-11-12",
+      "ref": "docs/delivery/M1-STATUS.md section 3.3"
+    },
+    {
+      "id": "Q-HC-3",
+      "question": "Who owns commands.rs and the shared parts of lib.rs; neither is in a registry row.",
+      "owner": "governance lead",
+      "raised": "2026-11-13",
+      "ref": "apps/desktop/src-tauri/src/lib.rs"
+    }
+  ],
+  "last_handoff": {
+    "task_id": null,
+    "on": "2026-11-13",
+    "summary": "Backfilled draft card, read-only. M1 slice exists in source; the hardened build has no native or live run; DEC-GSI-INTAKE is still proposed."
+  },
+  "crates": [
+    "kohbor-gsi",
+    "kohbor-gsi-capture"
+  ]
+}
