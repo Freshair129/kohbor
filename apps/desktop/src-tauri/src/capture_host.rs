@@ -1822,6 +1822,20 @@ where
         self.environment = Some(environment);
     }
 
+    /// Structural validation mode. The untouched v3 default crop includes the grey HUD frame and
+    /// uses the border-based Framed check. The v2 inner profile and any crop the user has moved
+    /// or resized may exclude the frame, so they use texture-only Inner validation; the user's
+    /// "confirm layout" click is then the real check that the rectangle is the map.
+    fn structural_mode(&self) -> StructuralMode {
+        if self.profile_name.as_deref() == Some(INNER_PROFILE_NAME)
+            || self.active_crop != CropOffsets::default()
+        {
+            StructuralMode::Inner
+        } else {
+            StructuralMode::Framed
+        }
+    }
+
     fn start_proposal_if_requested(&mut self) {
         if !self.config.take_proposal_request() {
             return;
@@ -2030,11 +2044,7 @@ where
                 self.phase_reason = Some("calibrating");
                 // Profile IDs carry crop semantics: v2 excludes the HUD frame. Other
                 // profiles retain Framed validation, including future framed profiles.
-                let mode = if self.profile_name.as_deref() == Some(INNER_PROFILE_NAME) {
-                    StructuralMode::Inner
-                } else {
-                    StructuralMode::Framed
-                };
+                let mode = self.structural_mode();
                 let structural_ok =
                     self.analyzer
                         .structural_check(&self.grab_buffer, width, height, stride, mode);
@@ -2199,7 +2209,7 @@ where
             );
             // Inner crops have no HUD border. Their admitted structural state, rather
             // than analyze()'s Framed diagnostic, authorizes counts for this valid tick.
-            if self.profile_name.as_deref() == Some(INNER_PROFILE_NAME) {
+            if self.structural_mode() == StructuralMode::Inner {
                 report.structural_ok = pixels.structural_ok;
             }
             let finished = Instant::now();
@@ -5523,6 +5533,22 @@ mod tests {
             worker.cycle_at(start, 0);
             assert_eq!(worker.analyzer.structural_modes, [mode]);
         }
+    }
+
+    #[test]
+    fn user_moved_crop_on_v3_uses_inner_validation_and_the_default_uses_framed() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let mut worker = fix2_worker(start);
+        assert_eq!(worker.structural_mode(), StructuralMode::Framed);
+        worker.active_crop = CropOffsets {
+            dx: 4,
+            ..CropOffsets::default()
+        };
+        assert_eq!(worker.structural_mode(), StructuralMode::Inner);
+        worker.active_crop = CropOffsets::default();
+        worker.profile_name = Some(INNER_PROFILE_NAME.to_owned());
+        assert_eq!(worker.structural_mode(), StructuralMode::Inner);
     }
 
     #[test]
