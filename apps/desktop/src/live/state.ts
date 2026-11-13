@@ -83,6 +83,7 @@ export function parseCaptureStatus(input: unknown): CaptureStatus | null {
       : undefined;
   const paused = input.paused === undefined ? null : input.paused;
   const phaseReason = input.phase_reason === undefined ? null : input.phase_reason;
+  const phaseDetail = input.phase_detail === undefined ? null : input.phase_detail;
   const grabMsMean = input.grab_ms_mean === undefined ? null : nullableNumber(input.grab_ms_mean);
   const analysisMsMean = input.analysis_ms_mean === undefined ? null : nullableNumber(input.analysis_ms_mean);
   if (
@@ -93,6 +94,7 @@ export function parseCaptureStatus(input: unknown): CaptureStatus | null {
     typeof input.auto_confirmed !== "boolean" || typeof cropConfirmed !== "boolean" ||
     displayFps === undefined || (paused !== null && typeof paused !== "boolean") ||
     (phaseReason !== null && typeof phaseReason !== "string") ||
+    (phaseDetail !== null && typeof phaseDetail !== "string") ||
     grabMsMean === undefined || (grabMsMean !== null && grabMsMean < 0) ||
     analysisMsMean === undefined || (analysisMsMean !== null && analysisMsMean < 0)
   ) return null;
@@ -110,6 +112,7 @@ export function parseCaptureStatus(input: unknown): CaptureStatus | null {
     display_fps: displayFps,
     paused,
     phase_reason: phaseReason,
+    phase_detail: phaseDetail,
     grab_ms_mean: grabMsMean,
     analysis_ms_mean: analysisMsMean,
   };
