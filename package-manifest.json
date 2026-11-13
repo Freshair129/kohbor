@@ -88,8 +88,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/Cargo.toml",
-      "bytes": 1513,
-      "sha256": "f399c0d7dd3badbc3da17283cdca0b8bf85fac856b921f6f37b399baba7b490f"
+      "bytes": 1614,
+      "sha256": "4986f71946665c24d38b741854141300d4fbe407681a32308b422717913a6988"
     },
     {
       "path": "apps/desktop/src-tauri/app-icon.png",
@@ -288,8 +288,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/latency.rs",
-      "bytes": 16363,
-      "sha256": "d2370ab9026e0c3a92075f6aecf26b7a22eb04b151543650681aeb6e83fa5bf9"
+      "bytes": 32064,
+      "sha256": "91654849e2fb95dbcedc57752ce75aafe4b432b8f9618257514c98a4ca69b7f0"
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
@@ -355,6 +355,11 @@
       "path": "apps/desktop/src-tauri/tests/latency_harness.rs",
       "bytes": 1759,
       "sha256": "6159e0b703bff5f8b2a009b07b0496432078790cca8a44494ce34a3dfb6b0a0e"
+    },
+    {
+      "path": "apps/desktop/src-tauri/tests/latency_harness_native.rs",
+      "bytes": 4941,
+      "sha256": "3d478ebebae7483b3ca32db220eb898efd7dab07d32b2716c8ca5451e7ef25a7"
     },
     {
       "path": "apps/desktop/src/App.tsx",
@@ -603,8 +608,8 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 189465,
-      "sha256": "c206e9570134f8149d5f96ed61cb3bbcf8c80191762fb8e6a4cedb816b0e9179"
+      "bytes": 189649,
+      "sha256": "c35ad225e22fff9b4a3bdf86ffe9c12db03f0634068ae20f087737623e6fff93"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -623,23 +628,23 @@
     },
     {
       "path": "crates/kohbor-audio-native/Cargo.toml",
-      "bytes": 279,
-      "sha256": "71db29d34046f48077821ff153db814a39d111dccc87f0da0ac6146d1dce4066"
+      "bytes": 310,
+      "sha256": "274747078e14bb0a675e54fc54f9b892bb3843d1222651942ae72a0a679f7616"
     },
     {
       "path": "crates/kohbor-audio-native/src/engine.rs",
-      "bytes": 21753,
-      "sha256": "1f3f5919907e71ec7ffbcbb6f410f75a46a57946d1daf32ae9252f83b0ba142c"
+      "bytes": 28803,
+      "sha256": "49048c743def6641a730a416459877d3315b6930a46e271416fe4b43305f504b"
     },
     {
       "path": "crates/kohbor-audio-native/src/lib.rs",
-      "bytes": 101,
-      "sha256": "b123007b554aba2353fbc9101a66d64fa492c1c392858020d028da6fa95307c8"
+      "bytes": 167,
+      "sha256": "7ca07462c4aeaaceea4609f1f3303901f06ad10b10b3021c4d01b836f0681636"
     },
     {
       "path": "crates/kohbor-audio-native/src/wasapi_backend.rs",
-      "bytes": 18637,
-      "sha256": "946b13eb658cb5cc5dcff664c65633058580c6e427d1bf57c6b8646267ca1b19"
+      "bytes": 19738,
+      "sha256": "848c810f5367093cad6afef6f1d21302edced75dd95f4b6d45f78aa1e3d4712f"
     },
     {
       "path": "crates/kohbor-audio/Cargo.toml",
@@ -1078,8 +1083,8 @@
     },
     {
       "path": "docs/delivery/SPRINT-ROADMAP.md",
-      "bytes": 19347,
-      "sha256": "e2955f9a957bc03a165e13a6c73a7603c7516107058945500fc7f911a79ece31"
+      "bytes": 19660,
+      "sha256": "73a046327b50a6a41c6083754870b919ac7f8fd560bca41270c8d9d8b4ee6c80"
     },
     {
       "path": "docs/delivery/evidence/m1-live-2026-11-11-draft.png",
@@ -1100,6 +1105,16 @@
       "path": "docs/delivery/evidence/s3-6a/latency-stage-a.samples.json",
       "bytes": 46270,
       "sha256": "75e5cecd7d16cc132e1ca540b03ea0ccb3f8745fbf693c36d749329f6555e15c"
+    },
+    {
+      "path": "docs/delivery/evidence/s3-6b/latency-stage-b.receipt.json",
+      "bytes": 1774,
+      "sha256": "e87021dbed05eabedb41a1c46ee5dd6df15f3ba8672c956ef04c1888ef832a2b"
+    },
+    {
+      "path": "docs/delivery/evidence/s3-6b/latency-stage-b.samples.json",
+      "bytes": 52493,
+      "sha256": "dc69ffb3978676fb905899c270cb418c190dd3564d47167b8cb521946d01ac7e"
     },
     {
       "path": "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
@@ -1143,8 +1158,8 @@
     },
     {
       "path": "docs/design/S3-5-HOST-CRITICAL-PATH.md",
-      "bytes": 54360,
-      "sha256": "60369fde5959010bd33aa4f9918ce4c4a8151107ed600c8b236f8866cf16a5d9"
+      "bytes": 56116,
+      "sha256": "a5b98f431e084f1b18efb87fc0b5bfa7920ce005be326065b5fce21e58924075"
     },
     {
       "path": "docs/design/SAD.md",
@@ -1473,8 +1488,8 @@
     },
     {
       "path": "docs/governance/CHANGELOG.md",
-      "bytes": 22108,
-      "sha256": "12387c6db579229736b447fa99f116d673733cc9f332f729f6e5619b9d6a4ec1"
+      "bytes": 22470,
+      "sha256": "986f7c9dfacbeb0562827db8189b3d5666700595dc541392e96bca9772504b69"
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
@@ -1533,8 +1548,8 @@
     },
     {
       "path": "docs/requirements/RTM.csv",
-      "bytes": 42464,
-      "sha256": "badc04fe0f8f7b91030caa71430dd7eaebab2e39fd2c233736c74b2712db930e"
+      "bytes": 42609,
+      "sha256": "66129ccbe95396edd978054ddbb637439dcb1ccd1c8bec712a49eb2698b78fe8"
     },
     {
       "path": "docs/requirements/SRS.md",

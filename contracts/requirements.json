@@ -1089,7 +1089,8 @@
           "apps/desktop/src-tauri/src/intake.rs",
           "apps/desktop/src-tauri/src/audio/outcome.rs",
           "apps/desktop/src-tauri/src/audio/publisher.rs",
-          "apps/desktop/src-tauri/src/audio/device.rs"
+          "apps/desktop/src-tauri/src/audio/device.rs",
+          "crates/kohbor-audio-native/src/wasapi_backend.rs"
         ],
         "evidence_refs": [],
         "procedure_ids": [
@@ -5353,7 +5354,9 @@
         ],
         "implementation_refs": [
           "apps/desktop/src-tauri/src/latency.rs",
-          "apps/desktop/src-tauri/tests/latency_harness.rs"
+          "apps/desktop/src-tauri/tests/latency_harness.rs",
+          "crates/kohbor-audio-native/src/engine.rs",
+          "apps/desktop/src-tauri/tests/latency_harness_native.rs"
         ],
         "evidence_refs": [],
         "procedure_ids": [
