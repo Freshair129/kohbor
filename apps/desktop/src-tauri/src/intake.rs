@@ -1540,6 +1540,13 @@ mod s0_6_tests {
             "kohbor-audio",
             "kohbor-audio-native",
             "kohbor-pack",
+            // MVP-1: workspace path crates, no network client. kohbor-capture and
+            // kohbor-risk are pure; kohbor-minimap-cv is std only; kohbor-capture-native
+            // uses only the `windows` DXGI APIs (read-only screen capture).
+            "kohbor-capture",
+            "kohbor-capture-native",
+            "kohbor-minimap-cv",
+            "kohbor-risk",
             "tauri",
             "serde",
             "serde_json",

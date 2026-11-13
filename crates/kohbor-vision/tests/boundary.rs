@@ -199,7 +199,7 @@ fn vision_003_identity_unverified_has_no_payload() {
 #[test]
 fn vision_003_identity_certified_class() {
     let id = ClassId("a".into());
-    let set = CertifiedClasses::from_provenance(&provenance(), &[id.clone()]);
+    let set = CertifiedClasses::from_provenance(&provenance(), std::slice::from_ref(&id));
     assert_eq!(classify(Some(&id), &set), IdentityState::Certified(id));
 }
 #[test]
