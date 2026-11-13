@@ -5,6 +5,8 @@ import { test } from "node:test";
 const state = await import("../src/live/state.ts");
 const meter = await import("../src/live/meter.ts");
 const frame = await import("../src/live/frame.ts");
+const copy = await import("../src/live/copy.ts");
+const collection = await import("../src/live/collection.ts");
 
 const capturePayload = (overrides: Record<string, unknown> = {}) => ({
   phase: "live",
@@ -150,6 +152,86 @@ test("BGRA conversion swizzles pixels, skips row padding, and reuses its ArrayBu
 test("vision event label expires after five seconds", () => {
   assert.equal(state.expireVisionEvent("enemy_missing", 20_000, 25_000), "enemy_missing");
   assert.equal(state.expireVisionEvent("enemy_missing", 20_000, 25_001), null);
+});
+
+test("vision count and event require a live capture phase", () => {
+  const risk = state.parseRiskState(riskPayload({ events: ["risk_alert"] }));
+  const event = state.expireVisionEvent("risk_alert", 10_000, 11_000);
+  assert.ok(risk);
+  assert.equal(event, "risk_alert"); // Still within the five-second event window.
+
+  for (const phase of ["stale", "coverage_unavailable", "lost", "unsupported", "calibrating", "unknown"]) {
+    const capture = state.parseCaptureStatus(capturePayload({ phase }));
+    assert.ok(capture);
+    const view = state.captureGatedRiskView(risk, event, capture);
+    assert.equal(view.state?.visible, null, `${phase} must hide the enemy count`);
+    assert.equal(state.formatNullable(view.state?.visible ?? null), "—", `${phase} enemy count must display as unknown`);
+    assert.equal(view.state?.vision_source, false, `${phase} must not claim a live map source`);
+    assert.deepEqual(view.state?.events, [], `${phase} must hide vision event details`);
+    assert.equal(view.lastVisionEvent, null, `${phase} must hide the event label`);
+  }
+
+  const liveCapture = state.parseCaptureStatus(capturePayload({ phase: "live" }));
+  assert.ok(liveCapture);
+  const liveView = state.captureGatedRiskView(risk, event, liveCapture);
+  assert.equal(liveView.state?.visible, 3);
+  assert.equal(liveView.lastVisionEvent, "risk_alert");
+  const missingCaptureView = state.captureGatedRiskView(risk, event, null);
+  assert.equal(missingCaptureView.state?.visible, null);
+  assert.equal(missingCaptureView.lastVisionEvent, null);
+});
+
+test("app-start collection is idempotent and counts resource samples before any panel mounts", async () => {
+  const liveStore = collection.liveCollection;
+  const handlers = new Map<string, (payload: unknown) => void>();
+  let registrations = 0;
+  const fakeSource = (kind: string, onPayload: (payload: unknown) => void) => {
+    registrations += 1;
+    handlers.set(kind, onPayload);
+  };
+
+  await liveStore.start(fakeSource);
+  await liveStore.start(fakeSource);
+  assert.equal(registrations, 3);
+  assert.deepEqual([...handlers.keys()].sort(), ["capture", "resource", "risk"]);
+
+  handlers.get("capture")?.(capturePayload());
+  handlers.get("risk")?.(riskPayload());
+  handlers.get("resource")?.(resourcePayload({ working_set_bytes: 100 }));
+  handlers.get("resource")?.(resourcePayload({ working_set_bytes: 300 }));
+
+  const snapshot = liveStore.getSnapshot();
+  assert.equal(snapshot.capture.value?.phase, "live");
+  assert.equal(snapshot.risk.value?.meter, 2);
+  assert.deepEqual(snapshot.resourceSummary.appGroupBytes, { peak: 300, mean: 200, count: 2 });
+});
+
+test("capture tag and vision copy use localized labels without a safe claim", () => {
+  const confirmed = state.parseCaptureStatus(capturePayload({ auto_confirmed: true }));
+  const unconfirmed = state.parseCaptureStatus(capturePayload({ auto_confirmed: false }));
+  assert.ok(confirmed);
+  assert.ok(unconfirmed);
+  assert.equal(state.showAutoLayoutUnconfirmed(confirmed), true);
+  assert.equal(state.showAutoLayoutUnconfirmed(unconfirmed), false);
+  assert.equal(state.showAutoLayoutUnconfirmed(null), false);
+
+  assert.equal(copy.liveCopy("th").autoLayoutUnconfirmed, "เลย์เอาต์อัตโนมัติ ยังไม่ยืนยัน");
+  assert.equal(copy.liveCopy("en").autoLayoutUnconfirmed, "auto layout, unconfirmed");
+  assert.deepEqual(copy.liveCopy("th").visionEvent, {
+    enemy_missing: "ศัตรูหายจากแผนที่ (ทดลอง)",
+    risk_alert: "เสี่ยงโดนเก็ง (ทดลอง)",
+    risk_revision: "ศัตรูกลับมาในแผนที่ (ทดลอง)",
+  });
+  assert.deepEqual(copy.liveCopy("en").visionEvent, {
+    enemy_missing: "Enemy missing from map (experimental)",
+    risk_alert: "Possible gank (experimental)",
+    risk_revision: "Enemies back on map (experimental)",
+  });
+  assert.equal(copy.liveCopy("th").noVisibility, "ไม่มีข้อมูลการมองเห็น");
+  assert.equal(copy.liveCopy("en").noVisibility, "No visibility data");
+  assert.doesNotMatch(JSON.stringify(copy.liveCopy("en")), /\bsafe\b/i);
+  assert.doesNotMatch(JSON.stringify(copy.liveCopy("th")), /ปลอดภัย/);
+  assert.equal(Object.hasOwn(copy.liveCopy("en").visionEvent, "risk_unavailable"), false);
 });
 
 test("risk source tags use the specified labels", () => {

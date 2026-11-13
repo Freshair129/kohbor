@@ -129,6 +129,29 @@ export function riskTag(state: RiskState): "GSI + map" | "GSI only" | "—" {
   return state.vision_source ? "GSI + map" : "GSI only";
 }
 
+export function showAutoLayoutUnconfirmed(capture: CaptureStatus | null): boolean {
+  return capture?.auto_confirmed === true;
+}
+
+export function captureGatedRiskView(
+  state: RiskState | null,
+  lastVisionEvent: VisionEvent | null,
+  capture: CaptureStatus | null,
+): { state: RiskState | null; lastVisionEvent: VisionEvent | null } {
+  if (capture?.phase === "live") return { state, lastVisionEvent };
+  return {
+    state: state
+      ? {
+          ...state,
+          vision_source: false,
+          visible: null,
+          events: state.events.filter((event) => event === "risk_unavailable"),
+        }
+      : null,
+    lastVisionEvent: null,
+  };
+}
+
 export function expireVisionEvent(event: VisionEvent | null, receivedAt: number | null, now: number): VisionEvent | null {
   return event !== null && receivedAt !== null && now - receivedAt <= VISION_EVENT_MS ? event : null;
 }

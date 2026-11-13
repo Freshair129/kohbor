@@ -3,7 +3,7 @@ import { useState } from "react";
 import { DangerMeter } from "./DangerMeter";
 import { EnemySeen } from "./EnemySeen";
 import { liveCopy, phaseLabel, type LiveLocale } from "./copy";
-import { formatNullable } from "./state";
+import { formatNullable, showAutoLayoutUnconfirmed } from "./state";
 import { liveMockRequested } from "./mockMode";
 import { ResourcePanel } from "./ResourcePanel";
 import { useCaptureStatus } from "./useCaptureStatus";
@@ -78,6 +78,9 @@ export function LiveTab({ locale = "th" }: { locale?: LiveLocale }) {
         <div className="live-map-head">
           <h2 id="live-map-heading">{text.mapLabel}</h2>
           <span className="live-map-badge mono" role="status">{statusBadge}</span>
+          {showAutoLayoutUnconfirmed(capture) && (
+            <span className="live-auto-layout-tag">{text.autoLayoutUnconfirmed}</span>
+          )}
         </div>
         <div className="live-map-box" aria-label={text.mapLabel}>
           <canvas

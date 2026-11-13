@@ -1,3 +1,10 @@
+import { liveCollection } from "./collection";
+import { subscribeLiveEvent } from "./events";
+
+export function startLiveCollection(): Promise<void> {
+  return liveCollection.start(subscribeLiveEvent);
+}
+
 export { DangerMeter } from "./DangerMeter";
 export { EnemySeen } from "./EnemySeen";
 export { LiveTab } from "./LiveTab";
