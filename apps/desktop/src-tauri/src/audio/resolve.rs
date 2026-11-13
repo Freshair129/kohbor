@@ -160,4 +160,32 @@ impl PrewarmTable {
             *entry_id == id && tier.is_none() && matches!(entry, Entry::Ready(_))
         })
     }
+
+    /// Clone the table while removing visuals for the supplied event IDs.
+    /// Decoded PCM remains shared through its `Arc`; the service keeps the source
+    /// table so a later successful renderer probe can restore the visual URLs.
+    pub fn without_visuals(&self, ids: &[EventId]) -> Arc<PrewarmTable> {
+        let entries = self
+            .entries
+            .iter()
+            .map(|(id, tier, entry)| {
+                let copied = match entry {
+                    Entry::Ready(clip) if ids.contains(id) => Entry::Ready(Clip {
+                        pcm: clip.pcm.clone(),
+                        bound_tier: clip.bound_tier,
+                        audio_ms: clip.audio_ms,
+                        visual_tail_ms: clip.visual_tail_ms,
+                        visual_url: None,
+                    }),
+                    other => other.clone(),
+                };
+                (*id, *tier, copied)
+            })
+            .collect();
+        Arc::new(PrewarmTable::new(
+            self.fence,
+            self.install_id.clone(),
+            entries,
+        ))
+    }
 }

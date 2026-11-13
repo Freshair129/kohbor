@@ -21,6 +21,9 @@ use crate::audio::lanes::{Control, EngineShared, EngineTx};
 use crate::audio::resolve::PrewarmTable;
 use crate::media::inventory::{facts_from_table, MediaFacts};
 use crate::media::prewarm::{build_table, VisualIndexHandle};
+use crate::media::probe::{ProbeItem, ProbeRequest, ProbeState};
+
+pub type ProbeEmitter = Arc<dyn Fn(Value) + Send + Sync>;
 
 pub type FactsHandle = Arc<Mutex<MediaFacts>>;
 
@@ -58,6 +61,7 @@ pub struct MediaHandle {
     jobs: SyncSender<Job>,
     shutdown_requested: Arc<AtomicBool>,
     service_stopped: Arc<AtomicBool>,
+    probe_emitter: Arc<Mutex<Option<ProbeEmitter>>>,
 }
 
 impl MediaHandle {
@@ -84,6 +88,51 @@ impl MediaHandle {
 
     pub fn list(&self) -> Result<Value, String> {
         self.request(JobKind::List)
+    }
+
+    pub fn probe_report(
+        &self,
+        install_id: &str,
+        revision: u64,
+        path_sha256: &str,
+        ok: bool,
+        duration_ms: u64,
+    ) -> Result<Value, String> {
+        self.request(JobKind::ProbeReport {
+            install_id: install_id.to_owned(),
+            revision,
+            path_sha256: path_sha256.to_owned(),
+            ok,
+            duration_ms,
+        })
+    }
+
+    pub fn probe_pending(&self) -> Result<Value, String> {
+        self.request(JobKind::ProbePending)
+    }
+
+    pub fn reemit_probe(&self) {
+        if self.shutdown_requested.load(Ordering::Acquire)
+            || self.service_stopped.load(Ordering::Acquire)
+        {
+            return;
+        }
+        let _ = self.jobs.try_send(Job {
+            kind: JobKind::ReemitProbe,
+            reply: None,
+        });
+    }
+
+    /// Install the host's nonblocking publisher bridge after the service starts.
+    /// A renderer can recover an early startup request with `probe_pending`.
+    pub fn set_probe_emitter(&self, emitter: ProbeEmitter) {
+        let mut guard = lock_recover(&self.probe_emitter);
+        *guard = Some(emitter);
+    }
+
+    pub fn clear_probe_emitter(&self) {
+        let mut guard = lock_recover(&self.probe_emitter);
+        *guard = None;
     }
 
     /// Stop accepting work and wake the service thread for an orderly exit.
@@ -140,15 +189,23 @@ pub fn spawn_media_service(
     let (jobs_tx, jobs_rx) = mpsc::sync_channel(JOB_CAPACITY);
     let shutdown_requested = Arc::new(AtomicBool::new(false));
     let service_stopped = Arc::new(AtomicBool::new(false));
+    let probe_emitter = Arc::new(Mutex::new(None));
     let handle = MediaHandle {
         jobs: jobs_tx,
         shutdown_requested: shutdown_requested.clone(),
         service_stopped: service_stopped.clone(),
+        probe_emitter: probe_emitter.clone(),
     };
     let join = thread::Builder::new()
         .name("media-service".to_owned())
         .spawn(move || {
-            run_service(config, jobs_rx, shutdown_requested, service_stopped);
+            run_service(
+                config,
+                jobs_rx,
+                shutdown_requested,
+                service_stopped,
+                probe_emitter,
+            );
         })?;
     Ok((handle, join))
 }
@@ -162,6 +219,15 @@ enum JobKind {
         policy: ActivationPolicy,
     },
     List,
+    ProbeReport {
+        install_id: String,
+        revision: u64,
+        path_sha256: String,
+        ok: bool,
+        duration_ms: u64,
+    },
+    ProbePending,
+    ReemitProbe,
     Shutdown,
 }
 
@@ -174,6 +240,10 @@ struct ServiceState {
     config: ServiceConfig,
     store: Option<Store<NoHook>>,
     table: Arc<PrewarmTable>,
+    probe_state: ProbeState,
+    probe_request: Option<ProbeRequest>,
+    probe_emitter: Arc<Mutex<Option<ProbeEmitter>>>,
+    stripped_visuals: Vec<EventId>,
 }
 
 fn run_service(
@@ -181,11 +251,16 @@ fn run_service(
     jobs: Receiver<Job>,
     shutdown_requested: Arc<AtomicBool>,
     service_stopped: Arc<AtomicBool>,
+    probe_emitter: Arc<Mutex<Option<ProbeEmitter>>>,
 ) {
     let mut state = ServiceState {
         config,
         store: None,
         table: PrewarmTable::empty(),
+        probe_state: ProbeState::new(),
+        probe_request: None,
+        probe_emitter,
+        stripped_visuals: Vec::new(),
     };
     state.publish_empty_visual();
 
@@ -237,7 +312,10 @@ fn run_service(
                 run_job(job, &mut state);
             }
             Err(RecvTimeoutError::Timeout) => {
-                let _ = catch_unwind(AssertUnwindSafe(|| state.resume_deferred()));
+                let _ = catch_unwind(AssertUnwindSafe(|| {
+                    state.tick_probes();
+                    state.resume_deferred();
+                }));
             }
             Err(RecvTimeoutError::Disconnected) => break,
         }
@@ -254,6 +332,9 @@ fn run_service(
 fn run_job(job: Job, state: &mut ServiceState) {
     let Job { kind, reply } = job;
     let Some(reply) = reply else {
+        if matches!(&kind, JobKind::ReemitProbe) {
+            let _ = catch_unwind(AssertUnwindSafe(|| state.execute(kind)));
+        }
         return;
     };
     let result = match catch_unwind(AssertUnwindSafe(|| state.execute(kind))) {
@@ -276,11 +357,42 @@ impl ServiceState {
     }
 
     fn execute(&mut self, kind: JobKind) -> Result<Value, String> {
+        if let JobKind::ProbeReport {
+            install_id,
+            revision,
+            path_sha256,
+            ok,
+            duration_ms,
+        } = &kind
+        {
+            let accepted = self.probe_state.report(
+                install_id,
+                *revision,
+                path_sha256,
+                *ok,
+                *duration_ms,
+                self.now_ms(),
+            );
+            if accepted {
+                self.publish_current_facts(self.store.is_some());
+                self.sync_visual_filter();
+            }
+            return Ok(json!({"accepted": accepted}));
+        }
+        if matches!(&kind, JobKind::ProbePending) {
+            return Ok(self.pending_probe_json());
+        }
+        if matches!(&kind, JobKind::ReemitProbe) {
+            self.emit_probe_request();
+            return Ok(Value::Null);
+        }
+        if let JobKind::Inspect(source_path) = &kind {
+            return inspect(source_path);
+        }
         if self.store.is_none() {
             return Err("MEDIA_INVALID".to_owned());
         }
         match kind {
-            JobKind::Inspect(source_path) => inspect(&source_path),
             JobKind::Install(request_bytes) => {
                 let request = InstallRequest::from_json(&request_bytes)
                     .map_err(|_| "MEDIA_INVALID".to_owned())?;
@@ -320,8 +432,49 @@ impl ServiceState {
                     .ok_or_else(|| "MEDIA_INVALID".to_owned())?;
                 Ok(list_json(store))
             }
+            JobKind::Inspect(_)
+            | JobKind::ProbeReport { .. }
+            | JobKind::ProbePending
+            | JobKind::ReemitProbe => Ok(Value::Null),
             JobKind::Shutdown => Err("CANCELLED".to_owned()),
         }
+    }
+
+    fn now_ms(&self) -> u64 {
+        self.config
+            .engine_shared
+            .heartbeat_ms
+            .load(Ordering::Acquire)
+    }
+
+    fn pending_probe_json(&mut self) -> Value {
+        let items = self.probe_state.pending(self.now_ms());
+        self.publish_current_facts(self.store.is_some());
+        self.sync_visual_filter();
+        let Some(request) = self.probe_request.as_ref() else {
+            return Value::Array(Vec::new());
+        };
+        Value::Array(
+            items
+                .into_iter()
+                .map(|item| {
+                    json!({
+                        "install_id": request.install_id,
+                        "revision": request.revision,
+                        "path_sha256": item.path_sha256,
+                        "url": item.url,
+                        "duration_ms": item.duration_ms,
+                        "visual_tail_ms": item.visual_tail_ms,
+                    })
+                })
+                .collect(),
+        )
+    }
+
+    fn tick_probes(&mut self) {
+        self.probe_state.tick(self.now_ms());
+        self.publish_current_facts(self.store.is_some());
+        self.sync_visual_filter();
     }
 
     fn activation_state(&self) -> ActivationState {
@@ -372,7 +525,10 @@ impl ServiceState {
         let Some(active) = store.active() else {
             let table = PrewarmTable::empty();
             let visuals = Arc::new(crate::media::prewarm::VisualIndex::default());
-            let facts = facts_from_table(&table, &*self.config.probe, true);
+            self.probe_state.clear();
+            self.probe_request = None;
+            self.stripped_visuals.clear();
+            let facts = self.facts_from_table(&table, true);
             self.publish(table, visuals, facts);
             return Ok(());
         };
@@ -389,7 +545,11 @@ impl ServiceState {
         if !still_active {
             return Err("CAPABILITY_UNAVAILABLE".to_owned());
         }
-        let facts = facts_from_table(&table, &*self.config.probe, true);
+        // Evaluate injected probe/test dependencies before queuing a swap, so a
+        // contained service failure cannot leave the engine on a table whose
+        // readiness facts were never published.
+        let preflight_probe_state = ProbeState::new();
+        let facts = self.facts_from_table_with_probe(&table, true, &preflight_probe_state);
         let mut message = Some(Control::SwapTable {
             table: table.clone(),
         });
@@ -415,7 +575,18 @@ impl ServiceState {
             return Err("CAPABILITY_UNAVAILABLE".to_owned());
         }
 
+        self.probe_state.clear();
+        self.probe_request = probe_request(&table).map(|request| {
+            self.probe_state.begin(
+                &request.install_id,
+                request.revision,
+                request.items.clone(),
+                self.now_ms(),
+            )
+        });
+        self.stripped_visuals.clear();
         self.publish(table, Arc::new(visuals), facts);
+        self.emit_probe_request();
         Ok(())
     }
 
@@ -456,7 +627,8 @@ impl ServiceState {
     }
 
     fn publish_current_facts(&mut self, store_ok: bool) {
-        let facts = facts_from_table(&self.table, &*self.config.probe, store_ok);
+        let table = self.table.clone();
+        let facts = self.facts_from_table(&table, store_ok);
         replace_mutex_value(&self.config.facts, facts);
     }
 
@@ -466,6 +638,149 @@ impl ServiceState {
             Arc::new(crate::media::prewarm::VisualIndex::default()),
         );
     }
+
+    fn facts_from_table(&self, table: &PrewarmTable, store_ok: bool) -> MediaFacts {
+        self.facts_from_table_with_probe(table, store_ok, &self.probe_state)
+    }
+
+    fn facts_from_table_with_probe(
+        &self,
+        table: &PrewarmTable,
+        store_ok: bool,
+        probe_state: &ProbeState,
+    ) -> MediaFacts {
+        let injected_probe = &self.config.probe;
+        let mut facts = facts_from_table(
+            table,
+            &|id| {
+                probe_token(table, id)
+                    .and_then(|token| probe_state.result(&token))
+                    .or_else(|| injected_probe(id))
+            },
+            store_ok,
+        );
+        // A failed visual remains a failed readiness fact even after the engine
+        // receives an audio-only table copy for that event.
+        for media in &mut facts.critical {
+            let Some(id) = crate::media::inventory::available_critical()
+                .into_iter()
+                .find(|id| id.as_str() == media.event_id)
+            else {
+                continue;
+            };
+            if probe_token(table, id).and_then(|token| probe_state.result(&token)) == Some(false) {
+                media.probe_ok = Some(false);
+            }
+        }
+        facts
+    }
+
+    fn emit_probe_request(&self) {
+        let Some(request) = self.probe_request.as_ref() else {
+            return;
+        };
+        let guard = lock_recover(&self.probe_emitter);
+        if let Some(emitter) = guard.as_ref() {
+            emitter(request.to_json());
+        }
+    }
+
+    fn sync_visual_filter(&mut self) {
+        let failed = failed_visual_events(&self.table, &self.probe_state);
+        if failed == self.stripped_visuals {
+            return;
+        }
+        let table = self.table.without_visuals(&failed);
+        let mut message = Some(Control::SwapTable { table });
+        let mut sent = false;
+        for attempt in 0..=20 {
+            let Some(control) = message.take() else {
+                break;
+            };
+            match self.config.engine.control(control) {
+                Ok(()) => {
+                    sent = true;
+                    break;
+                }
+                Err(returned) => {
+                    message = Some(returned);
+                    if attempt < 20 {
+                        (self.config.sleeper)(250);
+                    }
+                }
+            }
+        }
+        if sent {
+            self.stripped_visuals = failed;
+        }
+    }
+}
+
+fn probe_request(table: &PrewarmTable) -> Option<ProbeRequest> {
+    let install_id = table.install_id.as_deref()?;
+    if table.fence == 0 {
+        return None;
+    }
+    let mut items = Vec::new();
+    for id in crate::media::inventory::available_critical() {
+        let crate::audio::resolve::Lookup::Ready(clip) = table.lookup(id, None) else {
+            continue;
+        };
+        let Some(url) = clip.visual_url.as_deref() else {
+            continue;
+        };
+        let Some(path_sha256) = url.rsplit('/').next() else {
+            continue;
+        };
+        if path_sha256.len() != 64
+            || !path_sha256
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+            || clip.audio_ms == 0
+        {
+            continue;
+        }
+        items.push(ProbeItem {
+            path_sha256: path_sha256.to_owned(),
+            url: url.to_owned(),
+            duration_ms: clip.audio_ms,
+            visual_tail_ms: clip.visual_tail_ms,
+        });
+    }
+    if items.is_empty() {
+        return None;
+    }
+    Some(ProbeRequest {
+        install_id: install_id.to_owned(),
+        revision: table.fence,
+        items,
+    })
+}
+
+fn probe_token(table: &PrewarmTable, id: EventId) -> Option<String> {
+    let crate::audio::resolve::Lookup::Ready(clip) = table.lookup(id, None) else {
+        return None;
+    };
+    let url = clip.visual_url.as_deref()?;
+    let token = url.rsplit('/').next()?;
+    (token.len() == 64
+        && token
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)))
+    .then(|| token.to_owned())
+}
+
+fn failed_visual_events(table: &PrewarmTable, probes: &ProbeState) -> Vec<EventId> {
+    crate::media::inventory::available_critical()
+        .into_iter()
+        .filter(|id| probe_token(table, *id).and_then(|token| probes.result(&token)) == Some(false))
+        .collect()
+}
+
+fn lock_recover<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    mutex
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 fn replace_mutex_value<T>(handle: &Mutex<T>, value: T) {
@@ -1597,6 +1912,93 @@ mod tests {
     }
 
     #[test]
+    fn visual_probe_request_timeout_pending_and_report_use_engine_time() {
+        let temp = TempDir::new("probe-flow");
+        let visual = package(
+            &temp,
+            "probe-flow-pack",
+            &[BindingSpec {
+                event_id: "health_danger",
+                tier: None,
+                samples: 480,
+                visual: true,
+                visual_tail_ms: 300,
+            }],
+        );
+        let service = setup(
+            &temp.path().join("store"),
+            idle_match(),
+            Arc::new(|_| None),
+            Box::new(|_| {}),
+            DEFAULT_RESUME_INTERVAL_MS,
+            0,
+        );
+        let (probe_tx, probe_rx) = mpsc::sync_channel(1);
+        service.handle.set_probe_emitter(Arc::new(move |request| {
+            let _ = probe_tx.try_send(request);
+        }));
+        let install_id = install_via_service(&service.handle, &visual, "req-probe-flow-install");
+        let activated = service
+            .handle
+            .activate(
+                "req-probe-flow-active",
+                &install_id,
+                ActivationPolicy::NowIfIdle,
+            )
+            .expect("visual revision activates before decode probe");
+        assert_eq!(activated["status"], "active");
+        let _ = receive_swap(&service.engine_rx);
+
+        let request = probe_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("table swap emits one renderer probe request");
+        let items = request["items"].as_array().expect("probe items are listed");
+        assert_eq!(request["install_id"], install_id);
+        assert_eq!(request["revision"], 1);
+        assert_eq!(items.len(), 1);
+        let token = items[0]["path_sha256"]
+            .as_str()
+            .expect("probe item includes path hash")
+            .to_owned();
+
+        service.shared.heartbeat_ms.store(5_001, Ordering::Release);
+        let pending = service
+            .handle
+            .probe_pending()
+            .expect("timed out probe can be reissued");
+        let pending_items = pending.as_array().expect("pending response is an array");
+        assert_eq!(pending_items.len(), 1);
+        assert_eq!(pending_items[0]["install_id"], install_id);
+        assert_eq!(pending_items[0]["revision"], 1);
+        assert_eq!(pending_items[0]["path_sha256"], token);
+        assert_eq!(pending_items[0]["duration_ms"], 10);
+        assert_eq!(pending_items[0]["visual_tail_ms"], 300);
+
+        let report = service
+            .handle
+            .probe_report(&install_id, 1, &token, true, 10)
+            .expect("current decode report is accepted");
+        assert_eq!(report, json!({"accepted": true}));
+        let facts = snapshot_facts(&service.facts);
+        assert_eq!(
+            facts
+                .critical
+                .iter()
+                .find(|fact| fact.event_id == "health_danger")
+                .map(|fact| fact.probe_ok),
+            Some(Some(true))
+        );
+        assert_eq!(
+            service
+                .handle
+                .probe_pending()
+                .expect("success is not reissued"),
+            json!([])
+        );
+        finish(service);
+    }
+
+    #[test]
     fn shutdown_stops_thread_and_returns_cancelled_to_later_jobs() {
         let temp = TempDir::new("shutdown");
         let service = default_service(&temp.path().join("store"));
@@ -1661,6 +2063,37 @@ mod tests {
             Err("MEDIA_INVALID".to_owned()),
             "path length is measured in characters rather than UTF-8 bytes"
         );
+        finish(service);
+    }
+
+    #[test]
+    fn inspect_is_available_when_store_open_fails() {
+        let temp = TempDir::new("inspect-without-store");
+        let source = temp.path().join("bounded-source.bin");
+        let bytes = b"inspection does not require an open package store";
+        fs::write(&source, bytes).expect("write bounded inspection input");
+        let store_path = temp.path().join("store-is-a-file");
+        fs::write(&store_path, b"not a store directory").expect("block Store::open");
+        let service = setup(
+            &store_path,
+            idle_match(),
+            passing_probe(),
+            Box::new(|_| {}),
+            DEFAULT_RESUME_INTERVAL_MS,
+            0,
+        );
+
+        let result = service
+            .handle
+            .inspect(source.to_str().unwrap_or_default())
+            .expect("bounded inspect does not depend on Store::open");
+        assert_eq!(result["size_bytes"], bytes.len() as u64);
+        assert_eq!(
+            result["container_sha256"],
+            format!("{:x}", Sha256::digest(bytes))
+        );
+        assert!(!snapshot_facts(&service.facts).store_ok);
+        assert_eq!(service.handle.list(), Err("MEDIA_INVALID".to_owned()));
         finish(service);
     }
 

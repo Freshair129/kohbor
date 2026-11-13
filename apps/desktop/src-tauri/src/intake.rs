@@ -1,6 +1,8 @@
 //! Owned game configuration, loopback intake server and own read model
 //! (CORE-004, DATA-001..004; GSI-INTAKE-SPEC §2–§7).
 
+use crate::audio::lanes::{Control, EngineTx, TickMsg};
+use crate::clock::MonoClock;
 use crate::{atomic, secrets};
 use base64::Engine;
 use kohbor_events::{adapter::tick_from_admitted, Detector, Event, EventId};
@@ -76,6 +78,7 @@ pub struct Shared {
     /// Current verified hero identity is transient and scoped to the process.
     session_hero_id: Option<String>,
     token: Option<String>,
+    engine: Option<EngineTx>,
     data_dir: PathBuf,
     window: (Instant, u32),
 }
@@ -133,7 +136,7 @@ fn platform_steamid64() -> Option<u64> {
 /// §2.4). `None` means the list could not be read; callers must not treat that
 /// as "not running". No helper process is spawned.
 #[cfg(windows)]
-fn game_running() -> Option<bool> {
+pub(crate) fn game_running() -> Option<bool> {
     use windows::Win32::Foundation::CloseHandle;
     use windows::Win32::System::Diagnostics::ToolHelp::{
         CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
@@ -170,7 +173,7 @@ fn game_running() -> Option<bool> {
 }
 
 #[cfg(not(windows))]
-fn game_running() -> Option<bool> {
+pub(crate) fn game_running() -> Option<bool> {
     None
 }
 
@@ -293,6 +296,14 @@ fn unix_seconds() -> u64 {
 }
 
 impl Shared {
+    pub fn clock(&self) -> MonoClock {
+        MonoClock::from_origin(self.started_at)
+    }
+
+    pub(crate) fn attach_engine(&mut self, tx: EngineTx) {
+        self.engine = Some(tx);
+    }
+
     pub fn new(data_dir: PathBuf) -> Self {
         let _ = fs::create_dir_all(&data_dir);
         let rt_path = runtime_path(&data_dir);
@@ -354,6 +365,7 @@ impl Shared {
             ownership_reason: None,
             session_hero_id: None,
             token,
+            engine: None,
             data_dir,
             window: (started_at, 0),
         }
@@ -513,6 +525,15 @@ impl Shared {
                     ) {
                         reset_detector = true;
                     }
+                    let changed_epoch = match &change {
+                        SessionChange::Started { epoch }
+                        | SessionChange::OwnerChanged { epoch }
+                        | SessionChange::Resumed { epoch } => Some(*epoch),
+                        SessionChange::Unchanged { .. } | SessionChange::NoEvidence => None,
+                    };
+                    if let (Some(tx), Some(epoch)) = (&self.engine, changed_epoch) {
+                        let _ = tx.control(Control::Session { epoch });
+                    }
                     match change {
                         SessionChange::Started { epoch }
                         | SessionChange::OwnerChanged { epoch } => {
@@ -557,6 +578,20 @@ impl Shared {
                     let at_ms = duration_ms(arrival.saturating_duration_since(self.started_at));
                     let tick = tick_from_admitted(admitted, at_ms, epoch, true);
                     let detected = self.detector.observe(&tick);
+                    let detected_at = Instant::now();
+                    if !detected.is_empty() {
+                        if let Some(tx) = &self.engine {
+                            tx.offer_tick(TickMsg {
+                                arrival,
+                                detected: detected_at,
+                                at_ms,
+                                session_epoch: epoch,
+                                generation: self.generation.max(1),
+                                sequence: self.sequence.saturating_add(1),
+                                events: detected.clone(),
+                            });
+                        }
+                    }
                     self.detector_epoch = Some(epoch);
                     self.store_events(detected, arrival);
                 } else {
@@ -677,7 +712,10 @@ impl Runtime {
         let handle = self.shared.clone();
         if std::thread::Builder::new()
             .name("gsi-intake".into())
-            .spawn(move || serve(handle, server))
+            .spawn(move || {
+                crate::host::set_current_thread_priority(crate::host::ThreadPriority::AboveNormal);
+                serve(handle, server)
+            })
             .is_err()
         {
             lock(&self.server).take();
@@ -1423,7 +1461,13 @@ mod s0_6_tests {
             working_set_bytes: None,
             process_count: None,
         };
-        let value = status::build(&shared, &sample, true, 1);
+        let value = status::build(
+            &shared,
+            &sample,
+            true,
+            1,
+            ("not_ready", Some("MEDIA_UNMAPPED")),
+        );
         let schema: Value = serde_json::from_str(include_str!(
             "../../../../contracts/runtime-status.schema.json"
         ))
@@ -1573,6 +1617,91 @@ mod s1_6_tests {
     }
 
     #[test]
+    fn attached_engine_receives_session_and_detected_tick_hooks() {
+        use crate::audio::lanes::{lanes, Control, EngineShared};
+        use std::sync::Arc;
+        use std::thread;
+
+        let mut shared = ready_shared();
+        let started = Instant::now();
+        shared.started_at = started;
+        let engine_shared = Arc::new(EngineShared::new());
+        let (engine, receiver) = lanes(thread::current(), engine_shared);
+        shared.attach_engine(engine);
+
+        let token = shared.token.clone().unwrap_or_default();
+        accept_verified(&mut shared, &game(&token, 0, 0), started);
+        assert!(matches!(
+            receiver.control.try_recv(),
+            Ok(Control::Session { epoch: 1 })
+        ));
+
+        accept_verified(&mut shared, &game(&token, 1, 1), at(started, 1_000));
+        let tick = receiver
+            .ordinary
+            .try_recv()
+            .expect("detected ordinary tick offered");
+        assert_eq!(tick.session_epoch, 1);
+        assert_eq!(tick.generation, 1);
+        assert_eq!(tick.sequence, 2);
+        assert!(tick
+            .events
+            .iter()
+            .any(|event| event.id == EventId::HeroKill));
+        assert!(shared
+            .detected_events()
+            .iter()
+            .any(|event| event.id == EventId::HeroKill));
+    }
+
+    #[test]
+    fn attached_engine_is_notified_for_owner_change_and_resume() {
+        use crate::audio::lanes::{lanes, Control, EngineShared};
+        use std::sync::Arc;
+        use std::thread;
+
+        let mut shared = ready_shared();
+        let key = [7; 32];
+        shared.sessions = SessionTracker::new(key);
+        let engine_shared = Arc::new(EngineShared::new());
+        let (engine, receiver) = lanes(thread::current(), engine_shared);
+        shared.attach_engine(engine);
+        let token = shared.token.clone().unwrap_or_default();
+        let mut body = game(&token, 0, 0);
+
+        assert_eq!(
+            shared.accept(&body, Instant::now(), Some(tests::owner())),
+            200
+        );
+        assert!(matches!(
+            receiver.control.try_recv(),
+            Ok(Control::Session { epoch: 1 })
+        ));
+
+        let changed_owner = tests::owner() + 1;
+        body["player"]["steamid"] = json!(changed_owner.to_string());
+        assert_eq!(
+            shared.accept(&body, Instant::now(), Some(changed_owner)),
+            200
+        );
+        assert!(matches!(
+            receiver.control.try_recv(),
+            Ok(Control::Session { epoch: 2 })
+        ));
+
+        let persisted = shared.sessions.persisted();
+        shared.sessions = SessionTracker::restore(key, persisted);
+        assert_eq!(
+            shared.accept(&body, Instant::now(), Some(changed_owner)),
+            200
+        );
+        assert!(matches!(
+            receiver.control.try_recv(),
+            Ok(Control::Session { epoch: 2 })
+        ));
+    }
+
+    #[test]
     fn verified_kill_series_stores_kill_and_six_second_multi_kill() {
         let mut s = ready_shared();
         let start = Instant::now();
@@ -1703,7 +1832,13 @@ mod s1_6_tests {
             process_count: Some(1),
         };
         let mut idle = ready_shared();
-        let idle_value = status::build(&idle, &sample, false, 1);
+        let idle_value = status::build(
+            &idle,
+            &sample,
+            false,
+            1,
+            ("not_ready", Some("MEDIA_UNMAPPED")),
+        );
         assert_eq!(idle_value["events"]["detector"], "idle");
         assert_eq!(idle_value["events"]["last_event_age_ms"], Value::Null);
         assert!(validator.iter_errors(&idle_value).next().is_none());
@@ -1715,7 +1850,13 @@ mod s1_6_tests {
         let token = idle.token.clone().unwrap_or_default();
         accept_verified(&mut idle, &game(&token, 0, 0), start);
         accept_verified(&mut idle, &game(&token, 1, 1), at(start, 10));
-        let running_value = status::build(&idle, &sample, false, 2);
+        let running_value = status::build(
+            &idle,
+            &sample,
+            false,
+            2,
+            ("not_ready", Some("MEDIA_UNMAPPED")),
+        );
         assert_eq!(running_value["events"]["detector"], "running");
         assert!(running_value["events"]["last_event_age_ms"]
             .as_u64()
@@ -1726,7 +1867,13 @@ mod s1_6_tests {
         let token = unavailable.token.clone().unwrap_or_default();
         let body = game(&token, 0, 0);
         assert_eq!(unavailable.accept(&body, Instant::now(), None), 200);
-        let unavailable_value = status::build(&unavailable, &sample, false, 3);
+        let unavailable_value = status::build(
+            &unavailable,
+            &sample,
+            false,
+            3,
+            ("not_ready", Some("MEDIA_UNMAPPED")),
+        );
         assert_eq!(unavailable_value["events"]["detector"], "idle");
         assert_eq!(
             unavailable_value["events"]["unavailable"][0]["id"],

@@ -7,7 +7,13 @@ use kohbor_gsi::FRESH_MAX_AGE_MS;
 use serde_json::{json, Value};
 use std::time::Instant;
 
-pub fn build(s: &Shared, sample: &Sample, throttled: bool, revision: u64) -> Value {
+pub fn build(
+    s: &Shared,
+    sample: &Sample,
+    throttled: bool,
+    revision: u64,
+    media: (&str, Option<&str>),
+) -> Value {
     let now = Instant::now();
     let age = s.last_age_ms_at(now);
     let (state, reason) = match &s.state {
@@ -72,7 +78,7 @@ pub fn build(s: &Shared, sample: &Sample, throttled: bool, revision: u64) -> Val
         "session": session,
         "mode": {"state": "unverified", "value": null},
         "resource": {"containment": "established", "cpu": cpu, "memory": memory},
-        "media": {"state": "not_ready", "reason": "MEDIA_UNMAPPED"},
+        "media": {"state": media.0, "reason": media.1},
         "capture": {"state": "unavailable", "reason": "CAPABILITY_UNAVAILABLE"},
         "account": {"state": "unavailable"},
         "events": {
@@ -105,7 +111,7 @@ mod tests {
             working_set_bytes: Some(200_000_000),
             process_count: Some(4),
         };
-        let v = build(&s, &sample, false, 1);
+        let v = build(&s, &sample, false, 1, ("not_ready", Some("MEDIA_UNMAPPED")));
         let errors: Vec<String> = validator().iter_errors(&v).map(|e| e.to_string()).collect();
         assert!(errors.is_empty(), "{errors:?}\n{v:#}");
         assert_eq!(v["intake"]["state"], "not_configured");
@@ -122,7 +128,7 @@ mod tests {
             working_set_bytes: Some(200_000_000),
             process_count: Some(4),
         };
-        let v = build(&s, &sample, false, 3);
+        let v = build(&s, &sample, false, 3, ("not_ready", Some("MEDIA_UNMAPPED")));
         let errors: Vec<String> = validator().iter_errors(&v).map(|e| e.to_string()).collect();
         assert!(errors.is_empty(), "{errors:?}\n{v:#}");
         assert_eq!(v["intake"]["state"], "unavailable");
@@ -139,9 +145,128 @@ mod tests {
             working_set_bytes: None,
             process_count: None,
         };
-        let v = build(&s, &sample, true, 7);
+        let v = build(&s, &sample, true, 7, ("not_ready", Some("MEDIA_UNMAPPED")));
         let errors: Vec<String> = validator().iter_errors(&v).map(|e| e.to_string()).collect();
         assert!(errors.is_empty(), "{errors:?}\n{v:#}");
         assert_eq!(v["resource"]["cpu"]["throttle"], "throttled");
+    }
+
+    #[test]
+    fn media_readiness_rows_match_the_1_1_0_contract() {
+        use crate::audio::lanes::EngineShared;
+        use crate::media::inventory::{media_status, MediaFacts};
+        use std::sync::atomic::Ordering;
+        use std::sync::Arc;
+
+        let sample = Sample {
+            cpu_percent: Some(0.0),
+            working_set_bytes: Some(200_000_000),
+            process_count: Some(1),
+        };
+        let intake = Shared::new(
+            std::env::current_exe()
+                .unwrap()
+                .with_extension("status-data"),
+        );
+        let cases = [
+            (
+                "muted",
+                true,
+                true,
+                true,
+                false,
+                0,
+                ("unavailable", Some("AUDIO_MUTED")),
+            ),
+            (
+                "no device",
+                true,
+                true,
+                false,
+                false,
+                0,
+                ("unavailable", Some("CAPABILITY_UNAVAILABLE")),
+            ),
+            (
+                "unmapped",
+                true,
+                true,
+                true,
+                false,
+                0,
+                ("not_ready", Some("MEDIA_UNMAPPED")),
+            ),
+            (
+                "store failure",
+                false,
+                true,
+                true,
+                false,
+                0,
+                ("not_ready", Some("MEDIA_INVALID")),
+            ),
+            (
+                "stale heartbeat",
+                true,
+                false,
+                true,
+                false,
+                0,
+                ("unavailable", Some("CAPABILITY_UNAVAILABLE")),
+            ),
+            (
+                "degraded",
+                true,
+                true,
+                true,
+                true,
+                0,
+                ("unavailable", Some("CAPABILITY_UNAVAILABLE")),
+            ),
+            (
+                "critical overflow",
+                true,
+                true,
+                true,
+                false,
+                1,
+                ("unavailable", Some("CAPABILITY_UNAVAILABLE")),
+            ),
+        ];
+
+        for (index, (label, store_ok, heartbeat_fresh, device, degraded, overflow, expected)) in
+            cases.into_iter().enumerate()
+        {
+            let engine = Arc::new(EngineShared::new());
+            engine
+                .heartbeat_ms
+                .store(if heartbeat_fresh { 3_000 } else { 0 }, Ordering::Relaxed);
+            engine.device_available.store(device, Ordering::Relaxed);
+            engine.muted.store(label == "muted", Ordering::Relaxed);
+            engine.degraded.store(degraded, Ordering::Relaxed);
+            engine.critical_overflow.store(overflow, Ordering::Relaxed);
+            let facts = MediaFacts {
+                store_ok,
+                critical: Vec::new(),
+            };
+            let now_ms = 3_000;
+            let value = build(
+                &intake,
+                &sample,
+                false,
+                index as u64 + 1,
+                media_status(&facts, &engine, now_ms),
+            );
+            let errors: Vec<String> = validator()
+                .iter_errors(&value)
+                .map(|e| e.to_string())
+                .collect();
+            assert!(errors.is_empty(), "{label}: {errors:?}\n{value:#}");
+            assert_eq!(value["media"]["state"], expected.0, "{label}");
+            match expected.1 {
+                Some(reason) => assert_eq!(value["media"]["reason"], reason, "{label}"),
+                None => assert!(value["media"]["reason"].is_null(), "{label}"),
+            }
+        }
     }
 }

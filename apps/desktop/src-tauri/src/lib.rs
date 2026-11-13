@@ -3,7 +3,9 @@
 pub mod atomic;
 mod audio;
 mod clock;
+mod commands;
 pub mod containment;
+pub mod host;
 pub mod instance;
 pub mod intake;
 mod media;
@@ -33,67 +35,35 @@ pub fn start_with(
 }
 
 use containment::{Sample, Sampler, Throttle};
-use intake::lock;
 use serde_json::Value;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::AtomicU64;
 use std::sync::{Arc, Mutex};
-use tauri::Manager;
+use tauri::{Emitter as TauriEmitter, Manager};
 
-struct AppState {
-    runtime: Arc<intake::Runtime>,
-    settings_dir: PathBuf,
+pub(crate) struct AppState {
+    pub(crate) runtime: Arc<intake::Runtime>,
+    pub(crate) host: host::Host,
+    pub(crate) settings_dir: PathBuf,
     /// Serializes all commands that may replace user-settings.json.
-    settings_gate: Mutex<()>,
-    sample: Arc<Mutex<(Sample, bool)>>,
-    revision: AtomicU64,
+    pub(crate) settings_gate: Mutex<()>,
+    pub(crate) sample: Arc<Mutex<(Sample, bool)>>,
+    pub(crate) revision: AtomicU64,
 }
 
-#[tauri::command]
-fn runtime_get_status(state: tauri::State<'_, AppState>) -> Value {
-    let rev = state.revision.fetch_add(1, Ordering::Relaxed) + 1;
-    let (sample, throttled) = *lock(&state.sample);
-    let shared = lock(&state.runtime.shared);
-    status::build(&shared, &sample, throttled, rev)
-}
-
-#[tauri::command]
-fn own_snapshot(state: tauri::State<'_, AppState>) -> Value {
-    lock(&state.runtime.shared).snapshot()
-}
-
-/// User action: write the owned game configuration and start listening.
-///
-/// `replace` is the separate, explicit confirmation to replace an owned file that
-/// was edited outside the app. Runs off the main thread: it does file and port work.
-#[tauri::command(async)]
-fn gsi_setup(state: tauri::State<'_, AppState>, replace: Option<bool>) -> Result<(), String> {
-    let _settings_guard = lock(&state.settings_gate);
-    state
-        .runtime
-        .setup(replace.unwrap_or(false))
-        .map_err(str::to_owned)
-}
-
-#[tauri::command]
-fn settings_get(state: tauri::State<'_, AppState>) -> Result<Value, String> {
-    let _settings_guard = lock(&state.settings_gate);
-    settings::get(&state.settings_dir)
-}
-
-#[tauri::command]
-fn settings_patch(state: tauri::State<'_, AppState>, request: Value) -> Result<Value, String> {
-    let _settings_guard = lock(&state.settings_gate);
-    settings::patch(&state.settings_dir, &request)
+impl host::Emitter for tauri::AppHandle<tauri::Wry> {
+    fn emit(&self, event: &str, payload: Value) {
+        let _ = TauriEmitter::emit(self, event, payload);
+    }
 }
 
 pub fn run() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
+        .register_asynchronous_uri_scheme_protocol("kohbor-media", commands::media_protocol_handler)
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             let settings_dir = dir.clone();
-            let runtime = intake::Runtime::new(dir);
-            runtime.start();
+            let runtime = intake::Runtime::new(dir.clone());
             let sample = Arc::new(Mutex::new((
                 Sample {
                     cpu_percent: None,
@@ -102,8 +72,10 @@ pub fn run() {
                 },
                 true,
             )));
+            let emitter: Arc<dyn host::Emitter> = Arc::new(app.handle().clone());
+            let host = host::Host::start(dir, runtime.clone(), sample.clone(), emitter)?;
             let sink = sample.clone();
-            std::thread::Builder::new()
+            if let Err(error) = std::thread::Builder::new()
                 .name("resource-sampler".into())
                 .spawn(move || {
                     let mut sampler = Sampler::new();
@@ -111,12 +83,16 @@ pub fn run() {
                     loop {
                         let s = sampler.sample();
                         let t = throttle.update(&s);
-                        *lock(&sink) = (s, t);
+                        *intake::lock(&sink) = (s, t);
                         std::thread::sleep(std::time::Duration::from_secs(1));
                     }
-                })?;
+                })
+            {
+                eprintln!("resource-sampler unavailable: {error}");
+            }
             app.manage(AppState {
                 runtime,
+                host,
                 settings_dir,
                 settings_gate: Mutex::new(()),
                 sample,
@@ -125,14 +101,29 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            runtime_get_status,
-            own_snapshot,
-            gsi_setup,
-            settings_get,
-            settings_patch
+            commands::runtime_get_status,
+            commands::own_snapshot,
+            commands::gsi_setup,
+            commands::settings_get,
+            commands::settings_patch,
+            commands::media_inspect,
+            commands::media_install,
+            commands::media_activate,
+            commands::media_list,
+            commands::media_probe_report,
+            commands::media_probe_pending,
+            commands::audio_history,
+            commands::set_muted
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Kohbor");
+        .build(tauri::generate_context!());
+    match app {
+        Ok(app) => app.run(|handle, event| {
+            if matches!(event, tauri::RunEvent::Exit) {
+                handle.state::<AppState>().host.shutdown();
+            }
+        }),
+        Err(error) => eprintln!("error while building Kohbor: {error}"),
+    }
 }
 
 #[cfg(test)]
