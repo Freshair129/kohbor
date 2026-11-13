@@ -41,6 +41,8 @@ fn capture_status_slot() -> &'static Mutex<Option<Value>> {
     CAPTURE_STATUS.get_or_init(|| Mutex::new(None))
 }
 
+const MAX_FRAME_SUBSCRIBERS: usize = 8;
+
 fn frame_subscribers() -> &'static Mutex<Vec<Channel<InvokeResponseBody>>> {
     FRAME_SUBSCRIBERS.get_or_init(|| Mutex::new(Vec::new()))
 }
@@ -668,6 +670,7 @@ struct CaptureHostWorker<S, C, A, R, E, H> {
     last_risk_payload: Option<Value>,
     last_risk_emit_ms: Option<u64>,
     seen_gsi_event_keys: HashSet<(&'static str, u64)>,
+    seen_gsi_epoch: Option<u64>,
     gsi_event_order: VecDeque<(&'static str, u64)>,
 }
 
@@ -720,6 +723,7 @@ where
             last_risk_emit_ms: None,
             seen_gsi_event_keys: HashSet::new(),
             gsi_event_order: VecDeque::new(),
+            seen_gsi_epoch: None,
         }
     }
 
@@ -735,7 +739,8 @@ where
             } else if !self.source_open || self.unsupported_output {
                 Duration::from_millis(50)
             } else {
-                Duration::from_millis(2)
+                // Cap the capture loop at about 30 cycles per second (MVP-PLAN section d).
+                Duration::from_millis(33).saturating_sub(now.elapsed())
             };
             thread::sleep(sleep);
         }
@@ -1118,6 +1123,16 @@ where
         let Some(snapshot) = gsi else {
             return new_events;
         };
+        // A different match (session epoch) starts a fresh key space.
+        if snapshot.session_epoch != self.seen_gsi_epoch {
+            self.seen_gsi_epoch = snapshot.session_epoch;
+            self.seen_gsi_event_keys.clear();
+            self.gsi_event_order.clear();
+        }
+        // Stale GSI is unknown: do not consume events the risk engine would ignore.
+        if !snapshot.age_ms.is_some_and(|age| age <= 2000) {
+            return new_events;
+        }
         for event in &snapshot.recent_events {
             if !matches!(event.id, "health_low" | "health_danger") {
                 continue;
@@ -1376,7 +1391,13 @@ pub fn start(app: tauri::AppHandle, gsi: GsiView, resources: ResourceView) {
 
 #[tauri::command(async)]
 pub(crate) fn minimap_subscribe(on_frame: Channel<InvokeResponseBody>) -> Result<(), String> {
-    lock(frame_subscribers()).push(on_frame);
+    let mut subscribers = lock(frame_subscribers());
+    subscribers.push(on_frame);
+    // No unsubscribe path exists: keep only the newest subscribers so a remounting
+    // renderer cannot grow this list without bound while no frames are sent.
+    while subscribers.len() > MAX_FRAME_SUBSCRIBERS {
+        subscribers.remove(0);
+    }
     Ok(())
 }
 
@@ -2381,6 +2402,7 @@ mod tests {
                     at_ms: 95,
                 },
             ],
+            age_ms: Some(0),
             ..GsiSnapshot::default()
         };
 
@@ -2401,6 +2423,7 @@ mod tests {
                     at_ms: 3990,
                 },
             ],
+            age_ms: Some(0),
             ..GsiSnapshot::default()
         };
         worker.analysis_tick(4000, Some(&with_new_occurrence));
@@ -2416,6 +2439,46 @@ mod tests {
     }
 
     #[test]
+    fn stale_gsi_does_not_consume_events_and_a_new_epoch_readmits_a_key() {
+        let start = Instant::now();
+        let mut worker = fake_worker(FakeFrameSource::supported(), false, start, events());
+        let batches = worker.risk.seen_gsi_events.clone();
+        let event = GsiEvent {
+            id: "health_low",
+            at_ms: 90,
+        };
+        let stale = GsiSnapshot {
+            recent_events: vec![event],
+            age_ms: Some(2001),
+            session_epoch: Some(1),
+            ..GsiSnapshot::default()
+        };
+        let fresh = GsiSnapshot {
+            age_ms: Some(0),
+            ..stale.clone()
+        };
+        let next_match = GsiSnapshot {
+            session_epoch: Some(2),
+            ..fresh.clone()
+        };
+
+        worker.analysis_tick(100, Some(&stale));
+        worker.analysis_tick(200, Some(&fresh));
+        worker.analysis_tick(300, Some(&fresh));
+        worker.analysis_tick(400, Some(&next_match));
+
+        assert_eq!(
+            &*lock(&batches),
+            &[vec![], vec!["health_low"], vec![], vec!["health_low"]]
+        );
+    }
+
+    #[test]
+    fn frame_subscribers_are_capped() {
+        assert_eq!(MAX_FRAME_SUBSCRIBERS, 8);
+    }
+
+    #[test]
     fn gsi_event_dedupe_set_is_bounded() {
         let start = Instant::now();
         let mut worker = fake_worker(FakeFrameSource::supported(), false, start, events());
@@ -2427,6 +2490,7 @@ mod tests {
             .collect();
         let snapshot = GsiSnapshot {
             recent_events,
+            age_ms: Some(0),
             ..GsiSnapshot::default()
         };
 
@@ -2455,6 +2519,7 @@ mod tests {
                     at_ms: 300,
                 },
             ],
+            age_ms: Some(0),
             ..GsiSnapshot::default()
         };
 
