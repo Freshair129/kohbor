@@ -1130,7 +1130,7 @@ where
             self.gsi_event_order.clear();
         }
         // Stale GSI is unknown: do not consume events the risk engine would ignore.
-        if !snapshot.age_ms.is_some_and(|age| age <= 2000) {
+        if snapshot.age_ms.is_none_or(|age| age > 2000) {
             return new_events;
         }
         for event in &snapshot.recent_events {
