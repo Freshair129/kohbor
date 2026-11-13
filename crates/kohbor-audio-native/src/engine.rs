@@ -1,4 +1,6 @@
 use kohbor_audio::{PlaybackId, SinkError, SinkEvent};
+#[cfg(feature = "latency-probe")]
+use std::sync::atomic::fence;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError, TrySendError};
 use std::sync::Arc;
@@ -13,8 +15,10 @@ const INACTIVE_GENERATION: u64 = 0;
 #[cfg(feature = "latency-probe")]
 pub(crate) struct FirstFillProbeState {
     base: Instant,
+    sequence: AtomicU64,
     first_fill_nanos: AtomicU64,
     playback_id: AtomicU64,
+    cleared_seq: AtomicU64,
 }
 
 #[cfg(feature = "latency-probe")]
@@ -29,29 +33,50 @@ impl FirstFillProbe {
         Self {
             inner: Arc::new(FirstFillProbeState {
                 base: Instant::now(),
+                sequence: AtomicU64::new(0),
                 first_fill_nanos: AtomicU64::new(0),
                 playback_id: AtomicU64::new(0),
+                cleared_seq: AtomicU64::new(0),
             }),
         }
     }
 
     /// Return the most recently observed first render fill.
     pub fn latest(&self) -> Option<(PlaybackId, Instant)> {
-        let playback_id = self.inner.playback_id.load(Ordering::Acquire);
-        if playback_id == INACTIVE_GENERATION {
-            return None;
+        for _ in 0..8 {
+            let sequence = self.inner.sequence.load(Ordering::Acquire);
+            if sequence & 1 != 0 {
+                continue;
+            }
+
+            let nanos = self.inner.first_fill_nanos.load(Ordering::Relaxed);
+            let playback_id = self.inner.playback_id.load(Ordering::Relaxed);
+            fence(Ordering::Acquire);
+            if self.inner.sequence.load(Ordering::Acquire) != sequence {
+                continue;
+            }
+            if sequence == self.inner.cleared_seq.load(Ordering::Acquire)
+                || playback_id == INACTIVE_GENERATION
+            {
+                return None;
+            }
+
+            let instant = self.inner.base.checked_add(Duration::from_nanos(nanos))?;
+            return Some((PlaybackId(playback_id), instant));
         }
-        let nanos = self.inner.first_fill_nanos.load(Ordering::Relaxed);
-        let instant = self.inner.base.checked_add(Duration::from_nanos(nanos))?;
-        Some((PlaybackId(playback_id), instant))
+        None
     }
 
-    /// Clear the latest observation. Playback id zero is reserved as empty.
+    /// Clear the latest observation without writing fields owned by the render thread.
     pub fn clear(&self) {
-        self.inner.first_fill_nanos.store(0, Ordering::Relaxed);
-        self.inner
-            .playback_id
-            .store(INACTIVE_GENERATION, Ordering::Release);
+        loop {
+            let sequence = self.inner.sequence.load(Ordering::Acquire);
+            if sequence & 1 != 0 || self.inner.sequence.load(Ordering::Acquire) != sequence {
+                continue;
+            }
+            self.inner.cleared_seq.store(sequence, Ordering::Release);
+            return;
+        }
     }
 }
 
@@ -62,8 +87,15 @@ impl FirstFillProbeState {
             .saturating_duration_since(self.base)
             .as_nanos()
             .min(u128::from(u64::MAX)) as u64;
+        self.record_nanos(id, nanos);
+    }
+
+    fn record_nanos(&self, id: PlaybackId, nanos: u64) {
+        self.sequence.fetch_add(1, Ordering::Release);
+        fence(Ordering::Acquire);
         self.first_fill_nanos.store(nanos, Ordering::Relaxed);
-        self.playback_id.store(id.0, Ordering::Release);
+        self.playback_id.store(id.0, Ordering::Relaxed);
+        self.sequence.fetch_add(1, Ordering::Release);
     }
 }
 
@@ -728,6 +760,66 @@ mod tests {
         assert_eq!(probe.latest(), first);
         probe.clear();
         assert_eq!(probe.latest(), None);
+
+        submit(&mut coordinator, 18, &[6, 7]);
+        render.fill(&mut [0; 1]);
+        assert_eq!(probe.latest().map(|(id, _)| id), Some(PlaybackId(18)));
+    }
+
+    #[cfg(feature = "latency-probe")]
+    #[test]
+    fn first_fill_probe_seqlock_keeps_id_and_timestamp_paired_under_stress() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::Barrier;
+        use std::thread;
+
+        const RECORDS: u64 = 50_000;
+
+        let probe = FirstFillProbe::new();
+        let finished = Arc::new(AtomicBool::new(false));
+        let start = Arc::new(Barrier::new(3));
+
+        let writer_probe = probe.clone();
+        let writer_finished = Arc::clone(&finished);
+        let writer_start = Arc::clone(&start);
+        let writer = thread::spawn(move || {
+            writer_start.wait();
+            for id in 1..=RECORDS {
+                writer_probe.inner.record_nanos(PlaybackId(id), id);
+                if id % 256 == 0 {
+                    thread::yield_now();
+                }
+            }
+            writer_finished.store(true, Ordering::Release);
+        });
+
+        let reader_probe = probe.clone();
+        let reader_finished = Arc::clone(&finished);
+        let reader_start = Arc::clone(&start);
+        let reader = thread::spawn(move || {
+            reader_start.wait();
+            let mut observations = 0;
+            loop {
+                if let Some((id, instant)) = reader_probe.latest() {
+                    assert_eq!(
+                        instant
+                            .saturating_duration_since(reader_probe.inner.base)
+                            .as_nanos(),
+                        u128::from(id.0)
+                    );
+                    observations += 1;
+                }
+                if reader_finished.load(Ordering::Acquire) {
+                    break;
+                }
+                thread::yield_now();
+            }
+            observations
+        });
+
+        start.wait();
+        writer.join().expect("probe writer thread");
+        assert!(reader.join().expect("probe reader thread") > 0);
     }
 
     fn strip_comments(source: &str) -> String {

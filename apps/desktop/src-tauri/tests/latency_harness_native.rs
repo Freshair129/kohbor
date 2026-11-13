@@ -22,12 +22,14 @@ fn stage_b_writes_valid_native_silence_receipt() {
         Ok(sink) => sink,
         Err(StartError::NoRenderEndpoint) => {
             let reason = "no active render endpoint";
-            let receipt_path = write_stage_b_not_run(reason).expect("write NOT_RUN receipt");
-            let receipt: Value =
-                serde_json::from_slice(&std::fs::read(receipt_path).expect("read receipt"))
-                    .expect("parse receipt");
-            validate_receipt(&receipt);
-            assert_device_identity_is_null(&receipt);
+            if smoke_count.is_none() {
+                let receipt_path = write_stage_b_not_run(reason).expect("write NOT_RUN receipt");
+                let receipt: Value =
+                    serde_json::from_slice(&std::fs::read(receipt_path).expect("read receipt"))
+                        .expect("parse receipt");
+                validate_receipt(&receipt);
+                assert_device_identity_is_null(&receipt);
+            }
             println!("{reason}");
             return;
         }

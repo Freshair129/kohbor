@@ -145,6 +145,16 @@ mod tests {
     }
 
     #[test]
+    fn stage_b_t0_matches_trigger_arrival_with_two_millisecond_tolerance() {
+        let origin = Instant::now();
+        let clock = MonoClock::from_origin(origin);
+        let arrival = origin + Duration::from_millis(10);
+
+        assert!(stage_b_t0_matches(12, arrival, clock));
+        assert!(!stage_b_t0_matches(13, arrival, clock));
+    }
+
+    #[test]
     fn stages_reject_out_of_order_timestamps() {
         let mut sample = crate::audio::publisher::LatencySample {
             instance_id: "fixture".into(),
@@ -238,6 +248,7 @@ use crate::audio::{
     publisher::{self, Emit, HistoryHandle},
     resolve::{Clip, Entry, PrewarmTable},
 };
+use crate::clock::MonoClock;
 use crate::intake::{self, Shared};
 use kohbor_audio::{
     pcm::{decode_wav, Pcm},
@@ -396,6 +407,11 @@ fn wait_for_first_fill(
 }
 
 const FIRST_FILL_TIMEOUT: Duration = Duration::from_secs(5);
+const STAGE_B_T0_TOLERANCE_MS: u64 = 2;
+
+fn stage_b_t0_matches(sample_t0_ms: u64, arrival: Instant, clock: MonoClock) -> bool {
+    sample_t0_ms.abs_diff(clock.ms_at(arrival)) <= STAGE_B_T0_TOLERANCE_MS
+}
 
 /// Run real intake, engine and publisher threads using the burst trace and a generated clip.
 pub fn run_stage_a(count: usize) -> Result<StageAReport, String> {
@@ -543,7 +559,14 @@ fn run_with_sink(
                 .recv_timeout(Duration::from_secs(5))
                 .map_err(|e| format!("sample {index}: {e}"))?;
             if sample.event_type.as_deref() != Some("health_danger") {
-                return Err("unexpected event".into());
+                return Err(format!("sample {index}: unexpected event"));
+            }
+            let trigger_t0_ms = clock.ms_at(arrival);
+            if !stage_b_t0_matches(sample.t0_ms, arrival, clock) {
+                return Err(format!(
+                    "sample {index}: publisher T0 {} ms does not match trigger arrival {} ms within {} ms",
+                    sample.t0_ms, trigger_t0_ms, STAGE_B_T0_TOLERANCE_MS
+                ));
             }
             deltas(&sample)?;
             let t3pp_us = match (first_fill_reader, submitted_id.as_ref()) {
