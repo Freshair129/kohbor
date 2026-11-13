@@ -514,3 +514,23 @@ mod tests {
         assert_eq!(merged[0].center_x, 19.5);
     }
 }
+
+/// Candidate outer rectangle of the minimap frame (fix1 scaffold; the body lands with FIX1-CV).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FrameProposal {
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
+    pub confidence_milli: u16,
+}
+
+/// Proposes the frame rectangle inside the given search image (coordinates relative to it).
+pub fn propose_frame(
+    _bgra: &[u8],
+    _width: u32,
+    _height: u32,
+    _stride: u32,
+) -> Option<FrameProposal> {
+    todo!("FIX1-CV")
+}
