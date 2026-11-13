@@ -1,5 +1,5 @@
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
-import { addResourceSample, emptyResourceSummary, parseCaptureStatus, parseResourceMetrics, parseRiskState } from "./state.ts";
+import { addCaptureCostSample, addResourceSample, emptyResourceSummary, parseCaptureStatus, parseResourceMetrics, parseRiskState } from "./state.ts";
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
 import type { CaptureStatus, ResourceMetrics, ResourceSummary, RiskState, VisionEvent } from "./types.ts";
 
@@ -49,9 +49,11 @@ export function createLiveCollection(now: () => number = () => performance.now()
   function update(kind: LiveCollectionEventKind, payload: unknown) {
     const receivedAt = now();
     if (kind === "capture") {
+      const value = parseCaptureStatus(payload);
       snapshot = {
         ...snapshot,
-        capture: { value: parseCaptureStatus(payload), receivedAt },
+        capture: { value, receivedAt },
+        resourceSummary: value ? addCaptureCostSample(snapshot.resourceSummary, value) : snapshot.resourceSummary,
       };
     } else if (kind === "risk") {
       const value = parseRiskState(payload);

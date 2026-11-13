@@ -5,9 +5,15 @@ import { deriveMuted, mediaTone } from "./mediaStatus";
 import { Chip } from "./Readiness";
 import type { RuntimeStatus } from "./types";
 
-export function AudioPanel({ status, locale }: { status: RuntimeStatus | null; locale: Locale }) {
-  const text = copy(locale).audio;
-  // null = cannot be confirmed (audio engine unavailable and nothing acknowledged yet).
+export interface AudioMuteState {
+  muted: boolean | null;
+  pending: boolean;
+  failed: boolean;
+  setMutedTo: (target: boolean) => Promise<void>;
+}
+
+/** Shared state keeps the always-visible header control and detail panel in sync. */
+export function useAudioMute(status: RuntimeStatus | null): AudioMuteState {
   const [muted, setMuted] = useState<boolean | null>(() => deriveMuted(status?.media ?? null, null));
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -45,7 +51,7 @@ export function AudioPanel({ status, locale }: { status: RuntimeStatus | null; l
         !event.repeat
       ) {
         event.preventDefault();
-        // With an unconfirmed state a toggle could do the opposite of what was meant, so it does nothing.
+        // An unconfirmed state cannot be toggled safely; explicit controls remain available.
         if (muted !== null) void setMutedTo(!muted);
       }
     };
@@ -53,6 +59,54 @@ export function AudioPanel({ status, locale }: { status: RuntimeStatus | null; l
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [muted, setMutedTo]);
 
+  return { muted, pending, failed, setMutedTo };
+}
+
+export function AudioMuteControl({
+  control,
+  locale,
+  compact = false,
+}: {
+  control: AudioMuteState;
+  locale: Locale;
+  compact?: boolean;
+}) {
+  const text = copy(locale).audio;
+  return (
+    <div className={compact ? "shell-mute-control" : "audio-mute-control"} role="group" aria-label={text.title}>
+      {control.muted === null ? (
+        <>
+          <button type="button" aria-busy={control.pending} disabled={control.pending} onClick={() => void control.setMutedTo(true)}>
+            {text.muteAction}
+          </button>
+          <button type="button" aria-busy={control.pending} disabled={control.pending} onClick={() => void control.setMutedTo(false)}>
+            {text.unmuteAction}
+          </button>
+        </>
+      ) : (
+        <>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={control.muted}
+            aria-keyshortcuts="Alt+M"
+            aria-label={control.muted ? text.unmuteAction : text.muteAction}
+            title="Alt+M"
+            aria-busy={control.pending}
+            disabled={control.pending}
+            onClick={() => void control.setMutedTo(control.muted !== true)}
+          >
+            {control.failed ? text.toggleFailed : control.pending ? text.pending : control.muted ? text.unmuteAction : text.muteAction}
+          </button>
+          {!compact && <span className="muted small">Alt+M</span>}
+        </>
+      )}
+    </div>
+  );
+}
+
+export function AudioPanel({ status, locale, mute }: { status: RuntimeStatus | null; locale: Locale; mute: AudioMuteState }) {
+  const text = copy(locale).audio;
   const media = status?.media ?? null;
   const mediaState = media === null ? text.mediaState.unknown : text.mediaState[media.state];
   // A ready state has no reason by design; a missing reason on any other state is a host gap worth saying so.
@@ -81,41 +135,14 @@ export function AudioPanel({ status, locale }: { status: RuntimeStatus | null; l
         </p>
       )}
 
-      {muted === true && (
+      {mute.muted === true && (
         <p className="banner banner-warn" role="status">
           {text.mutedBanner}
         </p>
       )}
-      <div className="audio-control">
-        {muted === null ? (
-          <>
-            <button type="button" aria-busy={pending} disabled={pending} onClick={() => void setMutedTo(true)}>
-              {text.muteAction}
-            </button>
-            <button type="button" aria-busy={pending} disabled={pending} onClick={() => void setMutedTo(false)}>
-              {text.unmuteAction}
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={muted}
-              aria-keyshortcuts="Alt+M"
-              aria-label={muted ? text.unmuteAction : text.muteAction}
-              aria-busy={pending}
-              disabled={pending}
-              onClick={() => void setMutedTo(!muted)}
-            >
-              {pending ? text.pending : muted ? text.unmuteAction : text.muteAction}
-            </button>
-            <span className="muted small">Alt+M</span>
-          </>
-        )}
-      </div>
-      {muted === null && <p className="audio-note">{text.muteUnknown}</p>}
-      {failed && <p className="error" role="alert">{text.toggleFailed}</p>}
+      <AudioMuteControl control={mute} locale={locale} />
+      {mute.muted === null && <p className="audio-note">{text.muteUnknown}</p>}
+      {mute.failed && <p className="error" role="alert">{text.toggleFailed}</p>}
       <p className="audio-note">{text.muteWarning}</p>
       {readinessNote && <p className="audio-note">{readinessNote}</p>}
     </section>

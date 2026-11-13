@@ -19,21 +19,85 @@
 }
 
 * { box-sizing: border-box; }
-body {
+html, body {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
   margin: 0;
+  overflow: hidden;
+}
+#root { width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; }
+body {
   background: var(--ground);
   color: var(--text);
   font-family: "IBM Plex Sans Thai", "Leelawadee UI", system-ui, sans-serif;
   font-size: 14px;
   /* Thai stacks vowels and tone marks above and below the line. */
-  line-height: 1.6;
+  line-height: 1.45;
 }
-.app { max-width: 1180px; margin: 0 auto; padding: 16px 24px; display: flex; flex-direction: column; gap: 12px; }
+.app { width: 100%; height: 100vh; height: 100dvh; min-width: 0; min-height: 0; max-width: none; margin: 0; padding: 8px 12px; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
 .content { display: flex; flex-direction: column; gap: 12px; }
 /* The host stopped answering: values stay visible but read as not current. */
 .content.is-outdated { opacity: 0.55; }
-.top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; min-width: 0; }
-.top > .chip { max-width: 100%; min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+.shell-header { flex: 0 0 56px; height: 56px; max-height: 56px; display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; border-bottom: 1px solid var(--line); }
+.shell-brand { flex: none; display: flex; align-items: baseline; gap: 7px; min-width: 138px; white-space: nowrap; }
+.shell-brand span:first-child { color: var(--text); font-size: 17px; font-weight: 700; letter-spacing: 0.01em; }
+.shell-brand span:last-child { color: var(--muted); font-size: 12px; }
+.shell-statuses { flex: 1 1 auto; display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; }
+.shell-statuses > span { min-width: 0; }
+.shell-header .chip { max-width: 100%; padding: 3px 8px; font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
+.shell-age-badge { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 3px 8px; border: 1px solid var(--line); border-radius: 6px; color: var(--text-2); font-size: 12px; white-space: nowrap; }
+.shell-age-badge b { color: var(--text); font: 600 12px "IBM Plex Mono", Consolas, monospace; font-variant-numeric: tabular-nums; }
+.shell-host-lost { flex: 0 1 auto; max-width: 180px; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--warning); font-size: 12px; white-space: nowrap; }
+.shell-setup-hint { flex: none; min-height: 34px; padding-inline: 10px; border-color: var(--warning); background: var(--warning-surface); color: var(--text); font-size: 12px; }
+.shell-mute-control { flex: none; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.shell-mute-control button { min-height: 36px; max-width: 188px; padding-inline: 10px; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
+.shell-mute-control button[role="switch"][aria-checked="true"] { border-color: var(--warning); background: var(--warning-surface); }
+.shell-tab-list { flex: 0 0 40px; display: flex; align-items: stretch; gap: 6px; min-width: 0; border-bottom: 1px solid var(--line); }
+.shell-tab-list button { min-width: 92px; min-height: 36px; padding: 0 14px; border-color: transparent; border-radius: 8px 8px 0 0; color: var(--text-2); font-size: 13px; }
+.shell-tab-list button[aria-selected="true"] { border-color: var(--line); border-bottom-color: var(--ground); background: var(--surface); color: var(--text); box-shadow: inset 0 2px 0 var(--accent); }
+.shell-tab-panel { flex: 1 1 auto; min-width: 0; min-height: 0; overflow: hidden; outline: none; }
+.shell-screen { width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; }
+.shell-packs { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.92fr); gap: 8px; }
+.shell-pack-panel, .shell-history-panel { min-width: 0; min-height: 0; overflow: hidden; }
+.shell-pack-panel.is-outdated, .shell-history-panel.is-outdated, .shell-status.is-outdated { opacity: 0.55; }
+.shell-pack-panel > .pack-panel, .shell-history-panel > .history-panel { width: 100%; height: 100%; min-height: 0; padding: 10px 14px; overflow: hidden; }
+.shell-pack-panel > .pack-panel { gap: 8px; }
+.shell-pack-panel .pack-body { flex: 1 1 0; min-height: 0; overflow: hidden; }
+.shell-pack-panel .pack-active, .shell-pack-panel .pack-subhead, .shell-pack-panel .pack-install { flex: 0 0 auto; }
+.shell-pack-panel .pack-list { flex: 1 1 120px; min-height: 80px; }
+.shell-history-panel > .history-panel { gap: 8px; }
+.shell-history-panel .history-scroll { flex: 0 1 auto; min-height: 80px; }
+.shell-settings { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 8px; }
+.shell-locale-card { display: flex; align-items: center; gap: 16px; min-width: 0; padding: 10px 14px; }
+.shell-locale-card .card-head { flex: none; margin: 0; }
+.shell-locale-card .locale-control { margin: 0; }
+.shell-locale-card .locale-notice { flex: 0 1 auto; max-width: 420px; margin: 0; font-size: 12px; }
+.shell-guide-slot { min-width: 0; min-height: 0; overflow: hidden; }
+.shell-guide-slot .guide { min-height: 100%; align-content: center; }
+.shell-status-grid { width: 100%; height: 100%; min-width: 0; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr); grid-template-rows: minmax(0, 1.12fr) minmax(0, 0.88fr); grid-template-areas: "readiness audio" "own demo"; gap: 8px; }
+.shell-readiness { grid-area: readiness; min-width: 0; min-height: 0; overflow: hidden; }
+.shell-own-hero { grid-area: own; min-width: 0; min-height: 0; overflow: hidden; }
+.shell-audio-panel { grid-area: audio; min-width: 0; min-height: 0; overflow: hidden; }
+.shell-demo-panel { grid-area: demo; min-width: 0; min-height: 0; overflow: hidden; }
+.shell-status .card, .shell-status .audio-panel { width: 100%; height: 100%; min-width: 0; min-height: 0; padding: 10px 14px; overflow: hidden; }
+.shell-status .row { grid-template-columns: minmax(100px, 0.8fr) minmax(110px, 0.9fr) minmax(0, 1.5fr); gap: 8px; min-height: 32px; padding-block: 2px; }
+.shell-status .row-name, .shell-status .row-detail, .shell-status .chip { font-size: 12px; }
+.shell-status .chip { padding: 2px 6px; }
+.shell-status .vitals { gap: 6px; }
+.shell-status .vitals > div { min-height: 64px; padding: 6px 8px; }
+.shell-status .vital-value { font-size: 14px; }
+.shell-status .audio-panel { gap: 6px; }
+.shell-status .audio-panel .card-head { margin-bottom: 0; }
+.shell-status .audio-readiness { grid-template-columns: minmax(95px, 0.8fr) auto minmax(0, 1.4fr); gap: 6px; }
+.shell-status .audio-note { font-size: 12px; line-height: 1.35; }
+.shell-status .audio-panel .banner { padding: 6px 10px; font-size: 12px; }
+.shell-status .audio-mute-control { gap: 8px; }
+.shell-status .audio-mute-control button { min-height: 36px; font-size: 12px; }
+.shell-demo-panel > .demo-panel { height: 100%; margin: 0; padding: 10px 14px; gap: 6px; overflow: hidden; }
+.shell-demo-panel .demo-panel > p { font-size: 12px; line-height: 1.35; }
+.shell-demo-panel .demo-panel-actions { gap: 6px; }
+.shell-demo-panel .demo-panel-actions button { min-height: 36px; padding-inline: 10px; font-size: 12px; }
 .locale-control { display: flex; align-items: center; gap: 6px; margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; }
 .locale-select { min-height: 34px; padding: 2px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--raised); color: var(--text); font: inherit; }
 .locale-notice { flex: 1 1 260px; max-width: 260px; min-width: 0; overflow-wrap: anywhere; }
@@ -105,7 +169,7 @@ button[aria-busy="true"] { cursor: progress; }
 .audio-panel { display: flex; flex-direction: column; gap: 10px; }
 .audio-panel .card-head { margin-bottom: 0; }
 .audio-readiness { display: grid; grid-template-columns: minmax(160px, 220px) auto minmax(0, 1fr); align-items: center; gap: 12px; }
-.audio-control { display: flex; align-items: center; gap: 12px; }
+.audio-control, .audio-mute-control { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .audio-note { color: var(--text-2); font-size: 13px; overflow-wrap: anywhere; }
 
 /* Announcer-pack panel: shape, glyph and words carry state, as in the readiness chips. */
@@ -115,7 +179,7 @@ button[aria-busy="true"] { cursor: progress; }
 .pack-body.is-outdated { opacity: 0.55; }
 .pack-active { display: grid; grid-template-columns: minmax(160px, 220px) auto minmax(0, 1fr); align-items: center; gap: 12px; }
 .pack-subhead { margin: 4px 0 0; font-size: 14px; font-weight: 600; color: var(--text-2); }
-.pack-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.pack-list { list-style: none; margin: 0; padding: 0 4px 0 0; display: flex; flex-direction: column; gap: 8px; max-height: min(34vh, 320px); overflow-y: auto; overflow-x: hidden; }
 .pack-item { border: 1px solid var(--line); border-radius: 8px; background: var(--raised); padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; }
 .pack-item-head { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
 .pack-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; overflow-wrap: anywhere; }
@@ -134,14 +198,14 @@ button[aria-busy="true"] { cursor: progress; }
 /* Audio decision history. */
 .history-panel { display: flex; flex-direction: column; gap: 10px; }
 .history-panel .card-head { margin-bottom: 0; }
-.history-scroll { max-height: 360px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
+.history-scroll { max-height: min(34vh, 320px); overflow-y: auto; overflow-x: hidden; border: 1px solid var(--line); border-radius: 8px; }
 .history-scroll.is-outdated { opacity: 0.55; }
 .history-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .history-table th { position: sticky; top: 0; background: var(--raised); text-align: left; font-weight: 600; color: var(--text-2); padding: 6px 10px; border-bottom: 1px solid var(--line); }
 .history-table td { padding: 6px 10px; border-top: 1px solid var(--line-subtle); vertical-align: top; overflow-wrap: anywhere; }
 .history-table td:first-child { white-space: nowrap; }
 .history-detail { display: block; margin-top: 2px; }
-.history-demo-label { display: inline-block; margin-right: 6px; padding: 1px 5px; border: 1px solid var(--accent); border-radius: 999px; color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: 0.04em; }
+.history-demo-label { display: inline-block; margin-right: 6px; padding: 1px 5px; border: 1px solid var(--accent); border-radius: 999px; color: var(--accent); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; }
 
 /* The control-window dev harness is loaded only by ?mock=1 in Vite development. */
 .mock-scenario-panel { position: fixed; z-index: 20; right: 12px; bottom: 12px; width: min(460px, calc(100vw - 24px)); max-height: min(70vh, 640px); overflow: auto; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); box-shadow: 0 8px 32px var(--ground); }
@@ -184,4 +248,15 @@ body.overlay-body #root { width: 100%; height: 100%; min-height: 0; }
 @media (max-width: 900px) {
   .row { grid-template-columns: 130px 190px minmax(0, 1fr); }
   .vitals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Live tab layout lives in live/live.css (grid fills the tab panel). */
+
+@media (max-height: 700px) {
+  .app { padding-block: 6px; gap: 6px; }
+  .shell-header { flex-basis: 52px; height: 52px; max-height: 52px; }
+  .shell-tab-list { flex-basis: 36px; }
+  .shell-packs { grid-template-columns: minmax(0, 1fr) minmax(300px, 0.92fr); }
+  .pack-list, .history-scroll { max-height: min(30vh, 280px); }
+  .shell-status-grid { grid-template-rows: minmax(0, 1.08fr) minmax(0, 0.92fr); }
 }
