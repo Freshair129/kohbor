@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "domain": "ui-overlay",
   "tier": "B",
-  "verified_at_commit": "7ad4c7f",
+  "verified_at_commit": "da88446",
   "verified_on": "2026-11-13",
   "verified_by": "claude-code subagent draft (read-only), integrated by the governance lead; agent work, not human review",
   "write_areas": [
@@ -10,7 +10,10 @@
     "docs/design/UX-SPEC.md",
     "docs/design/VISUAL-DESIGN-PROPOSAL.md",
     "contracts/design-tokens.json",
-    "docs/design/visuals/**"
+    "docs/design/visuals/**",
+    "apps/desktop/src-tauri/capabilities/overlay.json",
+    "apps/desktop/src-tauri/src/overlay.rs",
+    "apps/desktop/src-tauri/src/demo.rs"
   ],
   "requirement_ids": [
     "UI-001",
@@ -95,6 +98,11 @@
       "path": "contracts/decisions.json",
       "type": "registry",
       "role": "source-of-truth"
+    },
+    {
+      "path": "docs/design/S6-OVERLAY-SLICE.md",
+      "type": "spec",
+      "role": "governing"
     }
   ],
   "open_questions": [

@@ -2161,7 +2161,16 @@
           "docs/quality/TEST-PLAN.md",
           "docs/quality/UAT-PLAN.md"
         ],
-        "implementation_refs": [],
+        "implementation_refs": [
+          "apps/desktop/src-tauri/src/overlay.rs",
+          "apps/desktop/src-tauri/src/lib.rs",
+          "apps/desktop/src-tauri/capabilities/overlay.json",
+          "apps/desktop/src-tauri/src/demo.rs",
+          "apps/desktop/src/overlayModel.ts",
+          "apps/desktop/src/OverlayStage.tsx",
+          "apps/desktop/src/OverlayChip.tsx",
+          "apps/desktop/tests/overlayModel.test.ts"
+        ],
         "evidence_refs": [],
         "procedure_ids": [
           "TP-05",
