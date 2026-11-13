@@ -2,10 +2,12 @@
 
 use crate::{OutputInfo, Rect};
 
-/// Default 1080p inner-map crop, excluding the grey HUD frame. v2 is an ESTIMATE
-/// from the owner's screenshot: x=10, y=811, 260x260. It is UNVERIFIED on a
-/// full-screen frame. The profile name selects Inner structural validation in the host;
-/// this region intentionally has no outer dark border. The user can nudge it in Live.
+/// Default 1080p crop: the whole grey Dota minimap frame, nothing beyond it. v3 is measured by
+/// the lead from the owner's fix1 screenshot (frame left edge at screen x 0, right edge about
+/// x 280, top edge about y 801, bottom edge flush with the screen bottom at y 1080), rounded to
+/// the square rule: x=0, y=800, 280x280. UNVERIFIED on a real full-screen frame (the game was not
+/// running at measurement time); the Live tab lets the user nudge it. History: v0 G-Maiden box,
+/// v1 estimate 280x280 at y 797, v2 inner map 260x260 at (10,811), which the owner found too tight.
 pub(crate) fn profile_rect(output: &OutputInfo) -> Option<(Rect, &'static str)> {
     if output.width != 1920 || output.height != 1080 || output.dpi != 96 {
         return None;
@@ -13,12 +15,12 @@ pub(crate) fn profile_rect(output: &OutputInfo) -> Option<(Rect, &'static str)> 
 
     Some((
         Rect {
-            x: 10,
-            y: 811,
-            width: 260,
-            height: 260,
+            x: 0,
+            y: 800,
+            width: 280,
+            height: 280,
         },
-        "p1080-default-v2",
+        "p1080-default-v3",
     ))
 }
 
@@ -38,12 +40,12 @@ mod tests {
             profile_rect(&supported),
             Some((
                 Rect {
-                    x: 10,
-                    y: 811,
-                    width: 260,
-                    height: 260
+                    x: 0,
+                    y: 800,
+                    width: 280,
+                    height: 280
                 },
-                "p1080-default-v2"
+                "p1080-default-v3"
             )),
         );
 

@@ -281,7 +281,7 @@ impl CaptureConfigStore {
                     .into(),
             );
         } else {
-            // The only supported profile is square (260 px, p1080-default-v2), even before its
+            // The only supported profile is square (280 px, p1080-default-v3), even before its
             // output is observed; keep the resulting side inside the contract bounds.
             let side = |delta: i32| i64::from(DEFAULT_PROFILE_SIDE) + i64::from(delta);
             if next.crop.dw.abs_diff(next.crop.dh) > 1
@@ -716,9 +716,12 @@ fn capture_status_slot() -> &'static Mutex<Option<Value>> {
 }
 
 const MAX_FRAME_SUBSCRIBERS: usize = 8;
-/// Side of the only supported profile rect (kohbor-capture-native p1080-default-v2).
-const DEFAULT_PROFILE_SIDE: u32 = 260;
-const DEFAULT_PROFILE_NAME: &str = "p1080-default-v2";
+/// Side of the only supported profile rect (kohbor-capture-native p1080-default-v3).
+const DEFAULT_PROFILE_SIDE: u32 = 280;
+const DEFAULT_PROFILE_NAME: &str = "p1080-default-v3";
+/// The v2 profile (inner map without the grey frame) is validated in Inner mode; v3 includes the
+/// frame and uses the border-based Framed check that was live in fix1.
+const INNER_PROFILE_NAME: &str = "p1080-default-v2";
 
 fn frame_subscribers() -> &'static Mutex<Vec<Channel<InvokeResponseBody>>> {
     FRAME_SUBSCRIBERS.get_or_init(|| Mutex::new(Vec::new()))
@@ -1819,6 +1822,20 @@ where
         self.environment = Some(environment);
     }
 
+    /// Structural validation mode. The untouched v3 default crop includes the grey HUD frame and
+    /// uses the border-based Framed check. The v2 inner profile and any crop the user has moved
+    /// or resized may exclude the frame, so they use texture-only Inner validation; the user's
+    /// "confirm layout" click is then the real check that the rectangle is the map.
+    fn structural_mode(&self) -> StructuralMode {
+        if self.profile_name.as_deref() == Some(INNER_PROFILE_NAME)
+            || self.active_crop != CropOffsets::default()
+        {
+            StructuralMode::Inner
+        } else {
+            StructuralMode::Framed
+        }
+    }
+
     fn start_proposal_if_requested(&mut self) {
         if !self.config.take_proposal_request() {
             return;
@@ -2027,11 +2044,7 @@ where
                 self.phase_reason = Some("calibrating");
                 // Profile IDs carry crop semantics: v2 excludes the HUD frame. Other
                 // profiles retain Framed validation, including future framed profiles.
-                let mode = if self.profile_name.as_deref() == Some(DEFAULT_PROFILE_NAME) {
-                    StructuralMode::Inner
-                } else {
-                    StructuralMode::Framed
-                };
+                let mode = self.structural_mode();
                 let structural_ok =
                     self.analyzer
                         .structural_check(&self.grab_buffer, width, height, stride, mode);
@@ -2196,7 +2209,7 @@ where
             );
             // Inner crops have no HUD border. Their admitted structural state, rather
             // than analyze()'s Framed diagnostic, authorizes counts for this valid tick.
-            if self.profile_name.as_deref() == Some(DEFAULT_PROFILE_NAME) {
+            if self.structural_mode() == StructuralMode::Inner {
                 report.structural_ok = pixels.structural_ok;
             }
             let finished = Instant::now();
@@ -4020,10 +4033,10 @@ mod tests {
     #[test]
     fn effective_crop_applies_offsets_to_profile_rect() {
         let profile = Rect {
-            x: 10,
-            y: 811,
-            width: 260,
-            height: 260,
+            x: 0,
+            y: 800,
+            width: 280,
+            height: 280,
         };
         let output = OutputInfo {
             output_id: 4,
@@ -4043,10 +4056,10 @@ mod tests {
                 output,
             ),
             Some(Rect {
-                x: 10,
-                y: 810,
-                width: 256,
-                height: 256,
+                x: 0,
+                y: 799,
+                width: 276,
+                height: 276,
             })
         );
     }
@@ -5033,14 +5046,14 @@ mod tests {
             dpi: 96,
         };
         let (profile, name) = kohbor_capture_native::profile_rect(&output).unwrap();
-        assert_eq!(name, "p1080-default-v2");
+        assert_eq!(name, "p1080-default-v3");
         assert_eq!(
             profile,
             Rect {
-                x: 10,
-                y: 811,
-                width: 260,
-                height: 260
+                x: 0,
+                y: 800,
+                width: 280,
+                height: 280
             }
         );
         store.set_profile(profile, output);
@@ -5059,8 +5072,8 @@ mod tests {
                 ..CaptureConfigPatch::default()
             })
             .unwrap();
-        assert_eq!(valid.effective_rect.unwrap().width, 248);
-        assert_eq!(valid.effective_rect.unwrap().height, 249);
+        assert_eq!(valid.effective_rect.unwrap().width, 268);
+        assert_eq!(valid.effective_rect.unwrap().height, 269);
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -5509,6 +5522,7 @@ mod tests {
         let _gate = lock(&STATUS_TEST_GATE);
         for (name, mode) in [
             ("p1080-default-v2", StructuralMode::Inner),
+            ("p1080-default-v3", StructuralMode::Framed),
             ("future-framed", StructuralMode::Framed),
         ] {
             let start = Instant::now();
@@ -5522,10 +5536,28 @@ mod tests {
     }
 
     #[test]
+    fn user_moved_crop_on_v3_uses_inner_validation_and_the_default_uses_framed() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let mut worker = fix2_worker(start);
+        assert_eq!(worker.structural_mode(), StructuralMode::Framed);
+        worker.active_crop = CropOffsets {
+            dx: 4,
+            ..CropOffsets::default()
+        };
+        assert_eq!(worker.structural_mode(), StructuralMode::Inner);
+        worker.active_crop = CropOffsets::default();
+        worker.profile_name = Some(INNER_PROFILE_NAME.to_owned());
+        assert_eq!(worker.structural_mode(), StructuralMode::Inner);
+    }
+
+    #[test]
     fn fix2_inner_crop_goes_live_even_when_full_analyze_reports_no_frame() {
         let _gate = lock(&STATUS_TEST_GATE);
         let start = Instant::now();
-        let fake = fix2_worker(start);
+        let mut fake = fix2_worker(start);
+        // The Inner structural mode belongs to the v2 (inner-map) profile.
+        fake.source.profile.as_mut().unwrap().1 = INNER_PROFILE_NAME.to_owned();
         let services = WorkerServices {
             analyzer: MinimapAnalyzer,
             risk: fake.risk,
@@ -5604,7 +5636,16 @@ mod tests {
     fn fix2r2_admitted_inner_rings_reach_risk_as_a_known_count() {
         let _gate = lock(&STATUS_TEST_GATE);
         let start = Instant::now();
-        let fake = fix2_worker(start);
+        let mut fake = fix2_worker(start);
+        // The Inner structural mode belongs to the v2 (inner-map) profile.
+        fake.source.profile.as_mut().unwrap().1 = INNER_PROFILE_NAME.to_owned();
+        // The drawn ring sizes assume the 260 px inner-map geometry of the v2 profile.
+        fake.source.profile.as_mut().unwrap().0 = Rect {
+            x: 10,
+            y: 811,
+            width: 260,
+            height: 260,
+        };
         let services = WorkerServices {
             analyzer: MinimapAnalyzer,
             risk: fake.risk,
@@ -5621,7 +5662,7 @@ mod tests {
             services,
             start,
         );
-        let side = DEFAULT_PROFILE_SIDE;
+        let side = 260_u32;
         let mut pixels = Vec::new();
         for y in 0..side {
             for x in 0..side {
@@ -5809,7 +5850,7 @@ mod tests {
                 })
                 .unwrap();
             let rewritten: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
-            assert_eq!(rewritten["profile"], "p1080-default-v2");
+            assert_eq!(rewritten["profile"], "p1080-default-v3");
             assert_eq!(rewritten["schema_version"], 1);
             let _ = std::fs::remove_dir_all(dir);
         }
@@ -5835,7 +5876,7 @@ mod tests {
         store.confirm_crop().unwrap();
         let bytes = std::fs::read(dir.join(CAPTURE_CONFIG_FILE)).unwrap();
         let saved: Value = serde_json::from_slice(&bytes).unwrap();
-        assert_eq!(saved["profile"], "p1080-default-v2");
+        assert_eq!(saved["profile"], "p1080-default-v3");
         let loaded = CaptureConfigStore::open(dir.clone()).get();
         assert_eq!(loaded.crop, crop);
         assert!(loaded.crop_confirmed);
