@@ -1243,6 +1243,35 @@ pub fn sha256_file(path: &Path) -> Result<String, RejectReason> {
     Ok(format!("{:x}", hasher.finalize()))
 }
 
+/// SHA-256 of a file, streamed up to `max_bytes` (lowercase hex). Returns the
+/// digest and number of bytes hashed. `SourceUnavailable` is returned when the
+/// file cannot be read or contains more than `max_bytes` bytes.
+pub fn sha256_file_limited(path: &Path, max_bytes: u64) -> Result<(String, u64), RejectReason> {
+    let file = File::open(path).map_err(|_| RejectReason::SourceUnavailable)?;
+    let mut input = file.take(max_bytes.saturating_add(1));
+    let mut hasher = Sha256::new();
+    let mut buffer = [0u8; IO_CHUNK_BYTES];
+    let mut bytes_hashed = 0u64;
+    loop {
+        let count = input
+            .read(&mut buffer)
+            .map_err(|_| RejectReason::SourceUnavailable)?;
+        if count == 0 {
+            break;
+        }
+        let bytes = buffer.get(..count).ok_or(RejectReason::SourceUnavailable)?;
+        let count = u64::try_from(count).map_err(|_| RejectReason::SourceUnavailable)?;
+        bytes_hashed = bytes_hashed
+            .checked_add(count)
+            .ok_or(RejectReason::SourceUnavailable)?;
+        if bytes_hashed > max_bytes {
+            return Err(RejectReason::SourceUnavailable);
+        }
+        hasher.update(bytes);
+    }
+    Ok((format!("{:x}", hasher.finalize()), bytes_hashed))
+}
+
 /// Convenience for tests and the authoring tool: the staging path of a staged
 /// payload.
 pub fn staged_path(staging_dir: &Path, package_path: &str) -> PathBuf {

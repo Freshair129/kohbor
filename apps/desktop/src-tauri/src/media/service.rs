@@ -792,17 +792,27 @@ fn replace_mutex_value<T>(handle: &Mutex<T>, value: T) {
 }
 
 fn inspect(source_path: &str) -> Result<Value, String> {
+    inspect_with_limit(source_path, MAX_CONTAINER_BYTES)
+}
+
+fn inspect_with_limit(source_path: &str, limit: u64) -> Result<Value, String> {
     if source_path.chars().count() > MAX_INSPECT_PATH_CHARS {
         return Err("MEDIA_INVALID".to_owned());
     }
     let path = Path::new(source_path);
     let before = std::fs::metadata(path).map_err(|_| "MEDIA_INVALID".to_owned())?;
-    if !before.is_file() || before.len() > MAX_CONTAINER_BYTES {
+    if !before.is_file() || before.len() > limit {
         return Err("MEDIA_INVALID".to_owned());
     }
-    let container_sha256 = container::sha256_file(path).map_err(|_| "MEDIA_INVALID".to_owned())?;
+    let (container_sha256, bytes_hashed) =
+        container::sha256_file_limited(path, limit).map_err(|_| "MEDIA_INVALID".to_owned())?;
     let after = std::fs::metadata(path).map_err(|_| "MEDIA_INVALID".to_owned())?;
-    if !after.is_file() || after.len() > MAX_CONTAINER_BYTES || after.len() != before.len() {
+    if !after.is_file()
+        || after.len() > limit
+        || after.len() != before.len()
+        || bytes_hashed != before.len()
+        || bytes_hashed != after.len()
+    {
         return Err("MEDIA_INVALID".to_owned());
     }
     Ok(json!({
@@ -1136,6 +1146,43 @@ mod tests {
             "missing source cannot be inspected"
         );
         finish(service);
+    }
+
+    #[test]
+    fn inspect_with_limit_accepts_files_at_and_under_limit_and_rejects_over() {
+        let temp = TempDir::new("inspect-limit");
+        let limit = 4;
+        for (name, bytes, expected_size) in [
+            ("under.bin", &b"abc"[..], Some(3)),
+            ("at.bin", &b"abcd"[..], Some(4)),
+            ("over.bin", &b"abcde"[..], None),
+        ] {
+            let path = temp.path().join(name);
+            fs::write(&path, bytes).expect("write small inspect fixture");
+            let result =
+                super::inspect_with_limit(path.to_str().expect("test path is Unicode"), limit);
+
+            match expected_size {
+                Some(size) => assert_eq!(
+                    result.expect("file at or under the limit is inspectable")["size_bytes"]
+                        .as_u64(),
+                    Some(size)
+                ),
+                None => assert_eq!(result, Err("MEDIA_INVALID".to_owned())),
+            }
+        }
+    }
+
+    #[test]
+    fn inspect_with_limit_rejects_a_directory() {
+        let temp = TempDir::new("inspect-directory");
+        let directory = temp.path().join("directory");
+        fs::create_dir(&directory).expect("create inspect directory fixture");
+
+        assert_eq!(
+            super::inspect_with_limit(directory.to_str().expect("test path is Unicode"), 4),
+            Err("MEDIA_INVALID".to_owned())
+        );
     }
 
     #[test]

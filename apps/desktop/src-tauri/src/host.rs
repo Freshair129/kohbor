@@ -259,6 +259,41 @@ struct ProtocolServer {
     sender: Option<SyncSender<ProtocolJob>>,
     join: Option<JoinHandle<()>>,
     shutting_down: Arc<AtomicBool>,
+    #[cfg(test)]
+    stop_hook: Option<SyncSender<()>>,
+}
+
+#[derive(Clone)]
+struct ProtocolDispatch {
+    sender: Option<SyncSender<ProtocolJob>>,
+    shutting_down: Arc<AtomicBool>,
+}
+
+impl ProtocolDispatch {
+    fn dispatch(
+        &self,
+        request: ProtocolRequest,
+        complete: impl FnOnce(ProtocolResponse) + Send + 'static,
+    ) {
+        if self.shutting_down.load(Ordering::Acquire) {
+            complete(unavailable_protocol_response());
+            return;
+        }
+        let Some(sender) = self.sender.as_ref() else {
+            complete(unavailable_protocol_response());
+            return;
+        };
+        let job = ProtocolJob {
+            request,
+            complete: Box::new(complete),
+        };
+        match sender.try_send(job) {
+            Ok(()) => {}
+            Err(TrySendError::Full(job)) | Err(TrySendError::Disconnected(job)) => {
+                (job.complete)(unavailable_protocol_response());
+            }
+        }
+    }
 }
 
 impl ProtocolServer {
@@ -284,39 +319,50 @@ impl ProtocolServer {
             sender: Some(sender),
             join: Some(join),
             shutting_down,
+            #[cfg(test)]
+            stop_hook: None,
         })
     }
 
-    fn dispatch(
-        &self,
-        request: ProtocolRequest,
-        complete: impl FnOnce(ProtocolResponse) + Send + 'static,
-    ) {
-        if self.shutting_down.load(Ordering::Acquire) {
-            complete(unavailable_protocol_response());
-            return;
-        }
-        let Some(sender) = self.sender.as_ref() else {
-            complete(unavailable_protocol_response());
-            return;
-        };
-        let job = ProtocolJob {
-            request,
-            complete: Box::new(complete),
-        };
-        match sender.try_send(job) {
-            Ok(()) => {}
-            Err(TrySendError::Full(job)) | Err(TrySendError::Disconnected(job)) => {
-                (job.complete)(unavailable_protocol_response());
-            }
+    fn dispatch_handle(&self) -> ProtocolDispatch {
+        ProtocolDispatch {
+            sender: self.sender.clone(),
+            shutting_down: self.shutting_down.clone(),
         }
     }
 
     fn stop(&mut self) {
         self.sender.take();
+        #[cfg(test)]
+        if let Some(hook) = self.stop_hook.take() {
+            let _ = hook.try_send(());
+        }
         if let Some(join) = self.join.take() {
             let _ = join.join();
         }
+    }
+}
+
+fn dispatch_protocol_from(
+    protocol: &Mutex<Option<ProtocolServer>>,
+    request: ProtocolRequest,
+    complete: impl FnOnce(ProtocolResponse) + Send + 'static,
+) {
+    let dispatch = {
+        let protocol = lock(protocol);
+        protocol.as_ref().map(ProtocolServer::dispatch_handle)
+    };
+    if let Some(dispatch) = dispatch {
+        dispatch.dispatch(request, complete);
+    } else {
+        complete(unavailable_protocol_response());
+    }
+}
+
+fn stop_protocol(protocol: &Mutex<Option<ProtocolServer>>) {
+    let server = lock(protocol).take();
+    if let Some(mut server) = server {
+        server.stop();
     }
 }
 
@@ -518,12 +564,7 @@ impl Host {
         request: ProtocolRequest,
         complete: impl FnOnce(ProtocolResponse) + Send + 'static,
     ) {
-        let guard = lock(&self.protocol);
-        if let Some(protocol) = guard.as_ref() {
-            protocol.dispatch(request, complete);
-        } else {
-            complete(unavailable_protocol_response());
-        }
+        dispatch_protocol_from(&self.protocol, request, complete);
     }
 
     pub fn shutdown(&self) {
@@ -563,9 +604,7 @@ impl Host {
                 }
             },
             || {
-                if let Some(mut server) = lock(&self.protocol).take() {
-                    server.stop();
-                }
+                stop_protocol(&self.protocol);
                 // Runtime's gsi-intake thread intentionally remains detached, as before.
             },
         );
@@ -786,7 +825,7 @@ mod tests {
         let server = ProtocolServer::spawn(visual_index, Arc::new(AtomicBool::new(false)))
             .expect("protocol worker starts");
         let (response_tx, response_rx) = mpsc::sync_channel(1);
-        server.dispatch(
+        server.dispatch_handle().dispatch(
             ProtocolRequest {
                 method: "GET".to_owned(),
                 path: "/v1/ins_0000000001/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned(),
@@ -808,6 +847,76 @@ mod tests {
     }
 
     #[test]
+    fn protocol_dispatch_does_not_wait_for_slow_shutdown() {
+        let (stop_started_tx, stop_started_rx) = mpsc::sync_channel(1);
+        let mut server =
+            ProtocolServer::spawn(new_visual_index_handle(), Arc::new(AtomicBool::new(false)))
+                .expect("protocol worker starts");
+        server.stop_hook = Some(stop_started_tx);
+        let protocol = Arc::new(Mutex::new(Some(server)));
+        let request = ProtocolRequest {
+            method: "GET".to_owned(),
+            path: "/v1/ins_0000000001/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                .to_owned(),
+            query: None,
+            range: None,
+        };
+        let (worker_entered_tx, worker_entered_rx) = mpsc::sync_channel(1);
+        let (release_worker_tx, release_worker_rx) = mpsc::sync_channel(1);
+        dispatch_protocol_from(&protocol, request.clone(), move |_| {
+            let _ = worker_entered_tx.try_send(());
+            let _ = release_worker_rx.recv();
+        });
+        let worker_blocked = worker_entered_rx
+            .recv_timeout(Duration::from_secs(1))
+            .is_ok();
+
+        let stopping_protocol = protocol.clone();
+        let stop_thread = thread::spawn(move || stop_protocol(&stopping_protocol));
+        let stop_started = stop_started_rx.recv_timeout(Duration::from_secs(1)).is_ok();
+
+        let dispatch_protocol = protocol.clone();
+        let (dispatch_result_tx, dispatch_result_rx) = mpsc::sync_channel(1);
+        let dispatch_thread = thread::spawn(move || {
+            let started = Instant::now();
+            let callback_protocol = dispatch_protocol.clone();
+            let (callback_result_tx, callback_result_rx) = mpsc::sync_channel(1);
+            dispatch_protocol_from(&dispatch_protocol, request, move |response| {
+                let _ = callback_result_tx
+                    .try_send((response.status, callback_protocol.try_lock().is_ok()));
+            });
+            let result = callback_result_rx
+                .recv_timeout(Duration::from_millis(300))
+                .ok();
+            let _ = dispatch_result_tx.try_send((result, started.elapsed()));
+        });
+        let dispatch_result = dispatch_result_rx
+            .recv_timeout(Duration::from_millis(300))
+            .ok();
+
+        let _ = release_worker_tx.try_send(());
+        let dispatch_joined = dispatch_thread.join().is_ok();
+        let stop_joined = stop_thread.join().is_ok();
+
+        assert!(
+            worker_blocked,
+            "protocol worker is held in its completion callback"
+        );
+        assert!(stop_started, "shutdown reached the slow stop/join path");
+        assert_eq!(
+            dispatch_result.map(|(result, _)| result),
+            Some(Some((503, true))),
+            "a request during shutdown gets 503 after the protocol mutex is released"
+        );
+        assert!(
+            dispatch_result.is_some_and(|(_, elapsed)| elapsed < Duration::from_millis(300)),
+            "dispatch returns within the bounded shutdown window"
+        );
+        assert!(dispatch_joined, "protocol dispatch thread exits");
+        assert!(stop_joined, "protocol shutdown thread exits after release");
+    }
+
+    #[test]
     fn full_media_serve_lane_returns_503_without_waiting_for_the_worker() {
         let server =
             ProtocolServer::spawn(new_visual_index_handle(), Arc::new(AtomicBool::new(false)))
@@ -820,16 +929,18 @@ mod tests {
         };
         let (entered_tx, entered_rx) = mpsc::sync_channel(1);
         let (release_tx, release_rx) = mpsc::sync_channel(1);
-        server.dispatch(request.clone(), move |_| {
-            let _ = entered_tx.try_send(());
-            let _ = release_rx.recv();
-        });
+        server
+            .dispatch_handle()
+            .dispatch(request.clone(), move |_| {
+                let _ = entered_tx.try_send(());
+                let _ = release_rx.recv();
+            });
         let worker_blocked = entered_rx.recv_timeout(Duration::from_secs(1)).is_ok();
         for _ in 0..PROTOCOL_QUEUE_CAPACITY {
-            server.dispatch(request.clone(), |_| {});
+            server.dispatch_handle().dispatch(request.clone(), |_| {});
         }
         let (status_tx, status_rx) = mpsc::sync_channel(1);
-        server.dispatch(request, move |response| {
+        server.dispatch_handle().dispatch(request, move |response| {
             let _ = status_tx.try_send(response.status);
         });
         let overflow_status = status_rx.recv_timeout(Duration::from_millis(100)).ok();
