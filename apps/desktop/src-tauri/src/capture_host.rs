@@ -9,7 +9,7 @@ use kohbor_capture_native::{Grab, MinimapGrabber, OpenError, OutputInfo};
 use kohbor_minimap_cv::{PixelReport, Team};
 use kohbor_risk::{Meter, OwnGsi, RiskEngine, RiskEvent, RiskOutput, TickInput};
 use serde_json::{Value, json};
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
@@ -28,6 +28,8 @@ const RESOURCE_INTERVAL: Duration = Duration::from_secs(1);
 const CAPTURE_TIMEOUT_MS: u32 = 15;
 const RETRY_INITIAL: Duration = Duration::from_millis(500);
 const RETRY_MAX: Duration = Duration::from_secs(5);
+const MAX_SEEN_GSI_EVENT_KEYS: usize = 256;
+const RISK_HEARTBEAT_MS: u64 = 1000;
 
 static CAPTURE_STATUS: OnceLock<Mutex<Option<Value>>> = OnceLock::new();
 static FRAME_SUBSCRIBERS: OnceLock<Mutex<Vec<Channel<InvokeResponseBody>>>> = OnceLock::new();
@@ -146,6 +148,14 @@ fn enemy_team(own_team: Option<&str>) -> Option<Team> {
         Some("dire") => Some(Team::Radiant),
         _ => None,
     }
+}
+
+fn fresh_enemy_team(snapshot: Option<&GsiSnapshot>) -> Option<Team> {
+    let snapshot = snapshot?;
+    if snapshot.age_ms.is_none_or(|age_ms| age_ms > 2000) {
+        return None;
+    }
+    enemy_team(snapshot.team.as_deref())
 }
 
 fn visible_count(
@@ -394,6 +404,8 @@ struct CandidateFrame {
     height: u32,
     stride: u32,
     bgra: Arc<[u8]>,
+    analysis_enemy: Option<Team>,
+    report: PixelReport,
 }
 
 #[derive(Clone)]
@@ -565,12 +577,6 @@ impl RetryBackoff {
     }
 }
 
-struct AnalyzedFrame {
-    sequence: u64,
-    enemy: Option<Team>,
-    report: PixelReport,
-}
-
 trait FrameHeaderCodec {
     fn encode_header(&self, frame: &AdmittedPixels, age_ms: u64) -> Option<[u8; FRAME_HEADER_LEN]>;
 }
@@ -640,6 +646,7 @@ struct CaptureHostWorker<S, C, A, R, E, H> {
     started: Instant,
     capture_enabled: bool,
     source_open: bool,
+    grab_buffer: Vec<u8>,
     next_sequence: u64,
     next_open_at: Instant,
     retry: RetryBackoff,
@@ -651,17 +658,17 @@ struct CaptureHostWorker<S, C, A, R, E, H> {
     profile_rect: Option<Rect>,
     profile_name: Option<String>,
     environment: Option<Environment>,
-    latest_candidate: LatestValue<CandidateFrame>,
     latest_admitted: LatestValue<AdmittedPixels>,
     capture_rate: RateWindow,
     display: DisplayLimiter,
     next_analysis: Instant,
     next_status: Instant,
     next_resource: Instant,
-    last_structural_sequence: Option<u64>,
     consecutive_passes: u32,
-    analyzed: Option<AnalyzedFrame>,
     last_risk_payload: Option<Value>,
+    last_risk_emit_ms: Option<u64>,
+    seen_gsi_event_keys: HashSet<(&'static str, u64)>,
+    gsi_event_order: VecDeque<(&'static str, u64)>,
 }
 
 impl<S, C, A, R, E, H> CaptureHostWorker<S, C, A, R, E, H>
@@ -686,6 +693,7 @@ where
             started: now,
             capture_enabled: services.capture_enabled,
             source_open: false,
+            grab_buffer: Vec::new(),
             next_sequence: 0,
             next_open_at: now,
             retry: RetryBackoff::default(),
@@ -697,7 +705,6 @@ where
             profile_rect: None,
             profile_name: None,
             environment: None,
-            latest_candidate: LatestValue::new(),
             latest_admitted: LatestValue::new(),
             capture_rate: {
                 let mut rate = RateWindow::default();
@@ -708,10 +715,11 @@ where
             next_analysis: now,
             next_status: now,
             next_resource: now,
-            last_structural_sequence: None,
             consecutive_passes: 0,
-            analyzed: None,
             last_risk_payload: None,
+            last_risk_emit_ms: None,
+            seen_gsi_event_keys: HashSet::new(),
+            gsi_event_order: VecDeque::new(),
         }
     }
 
@@ -752,7 +760,7 @@ where
             if self.source_open {
                 self.refresh_capture_profile(now, now_ms, gsi.as_ref());
                 if !self.unsupported_output && self.session_epoch.is_some() {
-                    self.capture_one(now, now_ms);
+                    self.capture_one(now, now_ms, gsi.as_ref());
                 }
             }
         }
@@ -779,7 +787,6 @@ where
         match self.source.open() {
             Ok(()) => {
                 self.source_open = true;
-                self.retry.reset();
                 self.output = self.source.output();
             }
             Err(_error) => {
@@ -856,8 +863,6 @@ where
         if next_epoch != self.session_epoch {
             self.session_epoch = next_epoch;
             self.clear_frames();
-            self.analyzed = None;
-            self.last_structural_sequence = None;
             self.consecutive_passes = 0;
             if let (Some(controller), Some(epoch)) = (self.controller.as_mut(), next_epoch) {
                 controller.set_session_epoch(epoch);
@@ -883,7 +888,6 @@ where
                 return;
             }
             self.clear_frames();
-            self.last_structural_sequence = None;
             self.consecutive_passes = 0;
         } else if matches!(
             controller.calibration_phase(),
@@ -894,20 +898,22 @@ where
                 self.clear_frames();
                 return;
             }
-            self.last_structural_sequence = None;
             self.consecutive_passes = 0;
         }
         self.environment = Some(environment);
     }
 
-    fn capture_one(&mut self, now: Instant, now_ms: u64) {
+    fn capture_one(&mut self, now: Instant, now_ms: u64, gsi: Option<&GsiSnapshot>) {
         let (Some(rect), Some(output), Some(session_epoch)) =
             (self.profile_rect, self.output, self.session_epoch)
         else {
             return;
         };
-        let mut bgra = Vec::new();
-        match self.source.grab(rect, CAPTURE_TIMEOUT_MS, &mut bgra) {
+        self.grab_buffer.clear();
+        match self
+            .source
+            .grab(rect, CAPTURE_TIMEOUT_MS, &mut self.grab_buffer)
+        {
             Grab::Timeout => {
                 if let Some(controller) = self.controller.as_mut() {
                     controller.record_cycle(now_ms, CycleOutcome::HealthyTimeout);
@@ -950,10 +956,51 @@ where
                 if width == 0
                     || height == 0
                     || stride != min_stride
-                    || expected_len != Some(bgra.len())
+                    || expected_len != Some(self.grab_buffer.len())
                 {
                     self.record_malformed_frame(now, now_ms);
                     return;
+                }
+                self.retry.reset();
+                self.lost = false;
+                let enemy = fresh_enemy_team(gsi);
+                let report = self.analyzer.analyze(
+                    &self.grab_buffer,
+                    width,
+                    height,
+                    stride,
+                    enemy,
+                );
+                let was_crop_visible = self
+                    .controller
+                    .as_ref()
+                    .is_some_and(CaptureAccess::crop_visible);
+                if let Some(controller) = self.controller.as_mut() {
+                    controller.structural_frame(report.structural_ok);
+                }
+                if report.structural_ok {
+                    self.consecutive_passes = self.consecutive_passes.saturating_add(1);
+                } else {
+                    self.consecutive_passes = 0;
+                }
+                let mut crop_visible = self
+                    .controller
+                    .as_ref()
+                    .is_some_and(CaptureAccess::crop_visible);
+                if was_crop_visible && !crop_visible {
+                    self.latest_admitted.clear();
+                    self.consecutive_passes = 0;
+                }
+                if !crop_visible && self.consecutive_passes >= 30 {
+                    let confirmed = self
+                        .controller
+                        .as_mut()
+                        .is_some_and(|controller| controller.confirm_profile(now_ms));
+                    crop_visible = confirmed
+                        || self
+                            .controller
+                            .as_ref()
+                            .is_some_and(CaptureAccess::crop_visible);
                 }
                 let Some(sequence) = self.next_sequence.checked_add(1) else {
                     self.mark_lost(now);
@@ -971,14 +1018,11 @@ where
                     width,
                     height,
                     stride,
-                    bgra: Arc::from(bgra),
+                    bgra: Arc::from(self.grab_buffer.as_slice()),
+                    analysis_enemy: enemy,
+                    report,
                 };
-                self.latest_candidate.replace(candidate.clone());
-                if self
-                    .controller
-                    .as_ref()
-                    .is_some_and(CaptureAccess::crop_visible)
-                {
+                if crop_visible {
                     self.admit_candidate(candidate, now_ms);
                 }
             }
@@ -987,8 +1031,10 @@ where
 
     fn record_malformed_frame(&mut self, now: Instant, now_ms: u64) {
         if let Some(controller) = self.controller.as_mut() {
+            controller.structural_frame(false);
             controller.record_cycle(now_ms, CycleOutcome::Failed);
         }
+        self.consecutive_passes = 0;
         self.source.close();
         self.source_open = false;
         self.schedule_retry(now);
@@ -1021,84 +1067,19 @@ where
         self.lost = false;
         self.latest_admitted
             .replace(AdmittedPixels { candidate, header });
-        self.latest_candidate.clear();
         true
     }
 
     fn analysis_tick(&mut self, now_ms: u64, gsi: Option<&GsiSnapshot>) {
         let externally_invalidated = USER_INVALIDATE.load(Ordering::Acquire);
-        let enemy = enemy_team(gsi.and_then(|snapshot| snapshot.team.as_deref()));
+        let enemy = fresh_enemy_team(gsi);
         let crop_visible = self
             .controller
             .as_ref()
             .is_some_and(CaptureAccess::crop_visible)
             && !externally_invalidated
             && !self.user_invalidated;
-        let candidate = if crop_visible {
-            self.latest_admitted
-                .read()
-                .map(|frame| frame.candidate.clone())
-        } else {
-            self.latest_candidate.read().map(|frame| (*frame).clone())
-        };
-
-        if let Some(candidate) = candidate {
-            let already_analyzed = self.analyzed.as_ref().is_some_and(|analyzed| {
-                analyzed.sequence == candidate.sequence && analyzed.enemy == enemy
-            });
-            if !already_analyzed {
-                let report = self.analyzer.analyze(
-                    &candidate.bgra,
-                    candidate.width,
-                    candidate.height,
-                    candidate.stride,
-                    enemy,
-                );
-                if self.last_structural_sequence != Some(candidate.sequence) {
-                    if let Some(controller) = self.controller.as_mut() {
-                        controller.structural_frame(report.structural_ok);
-                    }
-                    self.last_structural_sequence = Some(candidate.sequence);
-                    if report.structural_ok {
-                        self.consecutive_passes = self.consecutive_passes.saturating_add(1);
-                    } else {
-                        self.consecutive_passes = 0;
-                    }
-                }
-                self.analyzed = Some(AnalyzedFrame {
-                    sequence: candidate.sequence,
-                    enemy,
-                    report: report.clone(),
-                });
-
-                let now_crop_visible = self
-                    .controller
-                    .as_ref()
-                    .is_some_and(CaptureAccess::crop_visible);
-                if !now_crop_visible && self.consecutive_passes >= 30 {
-                    let confirmed = self
-                        .controller
-                        .as_mut()
-                        .is_some_and(|controller| controller.confirm_profile(now_ms));
-                    if confirmed {
-                        self.admit_candidate(candidate, now_ms);
-                    }
-                }
-
-                let invalidated = self
-                    .controller
-                    .as_ref()
-                    .is_some_and(|controller| !controller.crop_visible());
-                if crop_visible && invalidated {
-                    self.latest_admitted.clear();
-                    self.analyzed = None;
-                    self.last_structural_sequence = None;
-                    self.consecutive_passes = 0;
-                }
-            }
-        } else {
-            self.analyzed = None;
-        }
+        let latest_admitted = crop_visible.then(|| self.latest_admitted.read()).flatten();
 
         let coverage = if externally_invalidated || self.user_invalidated {
             Coverage::Unavailable
@@ -1109,28 +1090,60 @@ where
                     controller.coverage(now_ms)
                 })
         };
-        let visible = self.analyzed.as_ref().and_then(|analyzed| {
-            let latest_sequence = self
-                .latest_admitted
-                .read()
-                .map(|frame| frame.header.sequence);
-            (latest_sequence == Some(analyzed.sequence))
-                .then(|| visible_count(Some(&analyzed.report), analyzed.enemy, coverage))
+        let visible = latest_admitted.as_ref().and_then(|frame| {
+            (frame.candidate.analysis_enemy == enemy)
+                .then(|| {
+                    visible_count(
+                        Some(&frame.candidate.report),
+                        enemy,
+                        coverage,
+                    )
+                })
                 .flatten()
         });
+        let gsi_events = self.new_gsi_events(gsi);
         let input = TickInput {
             now_ms,
             coverage,
             visible,
             own: own_gsi(gsi),
-            gsi_events: Vec::new(),
+            gsi_events,
         };
         let output = self.risk.tick(&input);
         let payload = risk_payload(&output);
-        if self.last_risk_payload.as_ref() != Some(&payload) {
+        let changed = self.last_risk_payload.as_ref() != Some(&payload);
+        let heartbeat_due = self
+            .last_risk_emit_ms
+            .and_then(|last_ms| now_ms.checked_sub(last_ms))
+            .is_some_and(|elapsed_ms| elapsed_ms >= RISK_HEARTBEAT_MS);
+        if changed || heartbeat_due {
             self.events.emit_value("risk://state", payload.clone());
             self.last_risk_payload = Some(payload);
+            self.last_risk_emit_ms = Some(now_ms);
         }
+    }
+
+    fn new_gsi_events(&mut self, gsi: Option<&GsiSnapshot>) -> Vec<&'static str> {
+        let mut new_events = Vec::new();
+        let Some(snapshot) = gsi else {
+            return new_events;
+        };
+        for event in &snapshot.recent_events {
+            if !matches!(event.id, "health_low" | "health_danger") {
+                continue;
+            }
+            let key = (event.id, event.at_ms);
+            if self.seen_gsi_event_keys.insert(key) {
+                self.gsi_event_order.push_back(key);
+                new_events.push(event.id);
+                while self.gsi_event_order.len() > MAX_SEEN_GSI_EVENT_KEYS {
+                    if let Some(expired) = self.gsi_event_order.pop_front() {
+                        self.seen_gsi_event_keys.remove(&expired);
+                    }
+                }
+            }
+        }
+        new_events
     }
 
     fn invalidate_for_user(&mut self, now_ms: u64) {
@@ -1142,9 +1155,8 @@ where
     }
 
     fn clear_frames(&mut self) {
-        self.latest_candidate.clear();
         self.latest_admitted.clear();
-        self.analyzed = None;
+        self.consecutive_passes = 0;
     }
 
     fn phase(&self, now_ms: u64) -> &'static str {
@@ -1271,7 +1283,14 @@ fn run_capture_host(app: tauri::AppHandle, gsi: GsiView, resources: ResourceView
     worker.run();
 }
 
-/// Own-hero facts read from the intake snapshot. Every field is unknown (`None`) unless the snapshot says otherwise.
+/// An intake health event with its original observation timestamp.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GsiEvent {
+    pub id: &'static str,
+    pub at_ms: u64,
+}
+
+/// Own-hero facts read from the intake snapshot. Unknown fields remain unknown unless observed.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct GsiSnapshot {
     /// "radiant" or "dire".
@@ -1280,9 +1299,11 @@ pub struct GsiSnapshot {
     pub session_epoch: Option<u64>,
     pub alive: Option<bool>,
     pub hp_pct: Option<u8>,
-    /// True only while the snapshot carries an own-hero object (verified, pregame or live).
+    /// Set by the intake producer only while its phase is Live.
     pub in_match: bool,
     pub age_ms: Option<u64>,
+    /// Health events detected in the recent GSI window. Defaults to empty.
+    pub recent_events: Vec<GsiEvent>,
 }
 
 impl GsiSnapshot {
@@ -1303,8 +1324,9 @@ impl GsiSnapshot {
             session_epoch: snapshot["session_epoch"].as_u64(),
             alive: value("alive").as_bool(),
             hp_pct,
-            in_match: own.is_object(),
+            in_match: false,
             age_ms: snapshot["source"]["age_ms"].as_u64(),
+            recent_events: Vec::new(),
         }
     }
 }
@@ -1399,6 +1421,8 @@ mod tests {
         open_error: Option<OpenError>,
         opened: bool,
         grabs: VecDeque<(Grab, Vec<u8>)>,
+        grab_buffer_addresses: Vec<usize>,
+        grab_buffer_capacities_on_entry: Vec<usize>,
     }
 
     impl FakeFrameSource {
@@ -1429,6 +1453,8 @@ mod tests {
                 open_error: None,
                 opened: false,
                 grabs: VecDeque::new(),
+                grab_buffer_addresses: Vec::new(),
+                grab_buffer_capacities_on_entry: Vec::new(),
             }
         }
 
@@ -1471,7 +1497,9 @@ mod tests {
                 return Grab::Timeout;
             };
             if matches!(result, Grab::Frame { .. }) {
+                self.grab_buffer_capacities_on_entry.push(out.capacity());
                 out.extend_from_slice(&pixels);
+                self.grab_buffer_addresses.push(out.as_ptr() as usize);
             }
             result
         }
@@ -1626,7 +1654,11 @@ mod tests {
         }
     }
 
-    struct FakeAnalyzer;
+    #[derive(Default)]
+    struct FakeAnalyzer {
+        calls: usize,
+        structural_results: VecDeque<bool>,
+    }
 
     impl FrameAnalyzer for FakeAnalyzer {
         fn analyze(
@@ -1637,8 +1669,9 @@ mod tests {
             _stride: u32,
             _enemy: Option<Team>,
         ) -> PixelReport {
+            self.calls += 1;
             PixelReport {
-                structural_ok: true,
+                structural_ok: self.structural_results.pop_front().unwrap_or(true),
                 enemy_blobs: vec![Blob {
                     x_milli: 500,
                     y_milli: 500,
@@ -1651,13 +1684,19 @@ mod tests {
     #[derive(Clone)]
     struct FakeRisk {
         seen_visible: Arc<Mutex<Vec<Option<u8>>>>,
+        seen_gsi_events: Arc<Mutex<Vec<Vec<&'static str>>>>,
     }
 
     impl RiskAccess for FakeRisk {
         fn tick(&mut self, input: &TickInput) -> RiskOutput {
             lock(&self.seen_visible).push(input.visible);
+            lock(&self.seen_gsi_events).push(input.gsi_events.clone());
             RiskOutput {
-                meter: Meter::Unknown,
+                meter: if input.own.is_some() {
+                    Meter::Level(1)
+                } else {
+                    Meter::Unknown
+                },
                 gsi_source: input.own.is_some(),
                 vision_source: input.visible.is_some(),
                 visible: input.visible,
@@ -1708,9 +1747,10 @@ mod tests {
         CaptureHostWorker::new(
             source,
             WorkerServices {
-                analyzer: FakeAnalyzer,
+                analyzer: FakeAnalyzer::default(),
                 risk: FakeRisk {
                     seen_visible: Arc::new(Mutex::new(Vec::new())),
+                    seen_gsi_events: Arc::new(Mutex::new(Vec::new())),
                 },
                 events,
                 header_codec: MvpFrameHeaderCodec,
@@ -1720,6 +1760,65 @@ mod tests {
             },
             now,
         )
+    }
+
+    fn calibrating_worker(
+        now: Instant,
+        frame_count: usize,
+        structural_results: impl IntoIterator<Item = bool>,
+    ) -> CaptureHostWorker<
+        FakeFrameSource,
+        FakeCaptureAccess,
+        FakeAnalyzer,
+        FakeRisk,
+        FakeEvents,
+        MvpFrameHeaderCodec,
+    > {
+        let mut source = FakeFrameSource::supported();
+        for sequence in 1..=frame_count {
+            source.queue_frame(sequence as u64);
+        }
+        source.opened = true;
+        let mut worker = fake_worker(source, true, now, events());
+        worker.source_open = true;
+        worker.output = Some(OutputInfo {
+            output_id: 4,
+            width: 1920,
+            height: 1080,
+            dpi: 96,
+        });
+        let rect = Rect {
+            x: 0,
+            y: 0,
+            width: 1,
+            height: 1,
+        };
+        worker.profile_rect = Some(rect);
+        worker.session_epoch = Some(7);
+        let mut controller = FakeCaptureAccess::unvalidated(7);
+        controller.begin(
+            Environment {
+                output: kohbor_capture::OutputGeometry {
+                    output_id: 4,
+                    width: 1920,
+                    height: 1080,
+                    dpi: 96,
+                },
+                monitor_id: 4,
+                window_rect: Rect {
+                    x: 0,
+                    y: 0,
+                    width: 1920,
+                    height: 1080,
+                },
+                minimap_layout: "fake-profile".to_owned(),
+            },
+            rect,
+            "fake-profile".to_owned(),
+        );
+        worker.controller = Some(controller);
+        worker.analyzer.structural_results = structural_results.into_iter().collect();
+        worker
     }
 
     fn events() -> FakeEvents {
@@ -1736,6 +1835,15 @@ mod tests {
             height: 1,
             stride: 4,
             bgra: Arc::from([1_u8, 2, 3, 255]),
+            analysis_enemy: Some(Team::Dire),
+            report: PixelReport {
+                structural_ok: true,
+                enemy_blobs: vec![Blob {
+                    x_milli: 500,
+                    y_milli: 500,
+                    area: 4,
+                }],
+            },
         };
         AdmittedPixels {
             candidate,
@@ -1770,8 +1878,9 @@ mod tests {
         assert_eq!(s.session_epoch, Some(8));
         assert_eq!(s.hp_pct, Some(25));
         assert_eq!(s.alive, Some(true));
-        assert!(s.in_match);
+        assert!(!s.in_match);
         assert_eq!(s.age_ms, Some(120));
+        assert!(s.recent_events.is_empty());
     }
 
     #[test]
@@ -2012,7 +2121,7 @@ mod tests {
         controller.last_healthy_ms = Some(100);
         worker.controller = Some(controller);
 
-        worker.capture_one(start + Duration::from_millis(2100), 2100);
+        worker.capture_one(start + Duration::from_millis(2100), 2100, None);
 
         let controller = worker.controller.as_ref().unwrap();
         assert_eq!(controller.phase(4100), CapturePhase::Live);
@@ -2023,53 +2132,7 @@ mod tests {
     #[test]
     fn thirty_fake_structural_passes_admit_the_first_frame() {
         let start = Instant::now();
-        let mut source = FakeFrameSource::supported();
-        for index in 0..30 {
-            source.queue_frame(index + 1);
-        }
-        source.opened = true;
-        let mut worker = fake_worker(source, true, start, events());
-        worker.source_open = true;
-        worker.output = Some(OutputInfo {
-            output_id: 4,
-            width: 1920,
-            height: 1080,
-            dpi: 96,
-        });
-        worker.profile_rect = Some(Rect {
-            x: 0,
-            y: 0,
-            width: 1,
-            height: 1,
-        });
-        worker.session_epoch = Some(7);
-        let mut controller = FakeCaptureAccess::unvalidated(7);
-        controller.begin(
-            Environment {
-                output: kohbor_capture::OutputGeometry {
-                    output_id: 4,
-                    width: 1920,
-                    height: 1080,
-                    dpi: 96,
-                },
-                monitor_id: 4,
-                window_rect: Rect {
-                    x: 0,
-                    y: 0,
-                    width: 1920,
-                    height: 1080,
-                },
-                minimap_layout: "fake-profile".to_owned(),
-            },
-            Rect {
-                x: 0,
-                y: 0,
-                width: 1,
-                height: 1,
-            },
-            "fake-profile".to_owned(),
-        );
-        worker.controller = Some(controller);
+        let mut worker = calibrating_worker(start, 30, std::iter::repeat_n(true, 30));
         let gsi = GsiSnapshot {
             team: Some("radiant".to_owned()),
             session_epoch: Some(7),
@@ -2077,9 +2140,11 @@ mod tests {
         };
 
         for index in 0..30_u64 {
-            let at = start + Duration::from_millis(index * 100);
-            worker.capture_one(at, index * 100);
-            worker.analysis_tick(index * 100, Some(&gsi));
+            let at = start + Duration::from_millis(index * 33);
+            worker.capture_one(at, index * 33, Some(&gsi));
+            if index % 3 == 0 {
+                worker.analysis_tick(index * 100, Some(&gsi));
+            }
         }
 
         assert!(
@@ -2089,6 +2154,33 @@ mod tests {
                 .is_some_and(CaptureAccess::crop_visible)
         );
         assert!(worker.latest_admitted.read().is_some());
+        assert_eq!(worker.analyzer.calls, 30);
+    }
+
+    #[test]
+    fn a_structural_failure_resets_calibration_on_that_frame() {
+        let start = Instant::now();
+        let mut results = vec![true; 29];
+        results.push(false);
+        let mut worker = calibrating_worker(start, 30, results);
+        let gsi = GsiSnapshot {
+            team: Some("radiant".to_owned()),
+            session_epoch: Some(7),
+            ..GsiSnapshot::default()
+        };
+
+        for index in 0..30_u64 {
+            let at_ms = index * 33;
+            worker.capture_one(start + Duration::from_millis(at_ms), at_ms, Some(&gsi));
+            if index % 3 == 0 {
+                worker.analysis_tick(at_ms, Some(&gsi));
+            }
+        }
+
+        assert_eq!(worker.analyzer.calls, 30);
+        assert_eq!(worker.controller.as_ref().unwrap().structural_passes, 0);
+        assert!(!worker.controller.as_ref().unwrap().crop_visible());
+        assert!(worker.latest_admitted.read().is_none());
     }
 
     #[test]
@@ -2119,6 +2211,45 @@ mod tests {
         worker.analysis_tick(0, Some(&GsiSnapshot::default()));
 
         assert_eq!(&*lock(&visible_samples), &[None]);
+    }
+
+    #[test]
+    fn stale_gsi_keeps_enemy_visibility_unknown() {
+        let start = Instant::now();
+        let mut worker = fake_worker(FakeFrameSource::supported(), true, start, events());
+        let mut controller = FakeCaptureAccess::unvalidated(7);
+        controller.validated = true;
+        controller.last_healthy_ms = Some(0);
+        worker.controller = Some(controller);
+        worker.latest_admitted.replace(admitted_pixels(1, 0));
+        let visible_samples = worker.risk.seen_visible.clone();
+
+        worker.analysis_tick(
+            0,
+            Some(&GsiSnapshot {
+                team: Some("radiant".to_owned()),
+                age_ms: Some(2000),
+                ..GsiSnapshot::default()
+            }),
+        );
+        worker.analysis_tick(
+            100,
+            Some(&GsiSnapshot {
+                team: Some("radiant".to_owned()),
+                age_ms: None,
+                ..GsiSnapshot::default()
+            }),
+        );
+        worker.analysis_tick(
+            200,
+            Some(&GsiSnapshot {
+                team: Some("radiant".to_owned()),
+                age_ms: Some(2001),
+                ..GsiSnapshot::default()
+            }),
+        );
+
+        assert_eq!(&*lock(&visible_samples), &[Some(1), None, None]);
     }
 
     #[test]
@@ -2196,7 +2327,7 @@ mod tests {
     }
 
     #[test]
-    fn risk_state_is_emitted_only_when_the_output_changes() {
+    fn risk_state_is_emitted_on_change_and_each_second_while_unsupported() {
         let start = Instant::now();
         let captured_events = events();
         let event_records = captured_events.0.clone();
@@ -2208,6 +2339,7 @@ mod tests {
             Some(&GsiSnapshot {
                 alive: Some(true),
                 age_ms: Some(0),
+                in_match: true,
                 ..GsiSnapshot::default()
             }),
         );
@@ -2219,14 +2351,173 @@ mod tests {
                 ..GsiSnapshot::default()
             }),
         );
+        worker.analysis_tick(
+            1099,
+            Some(&GsiSnapshot {
+                alive: Some(true),
+                age_ms: Some(0),
+                ..GsiSnapshot::default()
+            }),
+        );
+        worker.analysis_tick(
+            1100,
+            Some(&GsiSnapshot {
+                alive: Some(true),
+                age_ms: Some(0),
+                in_match: true,
+                ..GsiSnapshot::default()
+            }),
+        );
 
         let records = lock(&event_records);
+        let risk_records = records
+            .iter()
+            .filter(|(event, _)| event == "risk://state")
+            .collect::<Vec<_>>();
+        assert_eq!(risk_records.len(), 3);
+        assert_eq!(risk_records[1].1["meter"], 1);
+        assert_eq!(risk_records[1].1["sources"], json!(["gsi"]));
+    }
+
+    #[test]
+    fn gsi_events_are_passed_once_per_key_without_refreshing_duplicates() {
+        let start = Instant::now();
+        let mut worker = fake_worker(FakeFrameSource::supported(), false, start, events());
+        let gsi_event_batches = worker.risk.seen_gsi_events.clone();
+        let original = GsiSnapshot {
+            recent_events: vec![
+                GsiEvent {
+                    id: "health_low",
+                    at_ms: 90,
+                },
+                GsiEvent {
+                    id: "health_danger",
+                    at_ms: 95,
+                },
+            ],
+            ..GsiSnapshot::default()
+        };
+
+        worker.analysis_tick(100, Some(&original));
+        worker.analysis_tick(4000, Some(&original));
+        let with_new_occurrence = GsiSnapshot {
+            recent_events: vec![
+                GsiEvent {
+                    id: "health_low",
+                    at_ms: 90,
+                },
+                GsiEvent {
+                    id: "health_danger",
+                    at_ms: 95,
+                },
+                GsiEvent {
+                    id: "health_low",
+                    at_ms: 3990,
+                },
+            ],
+            ..GsiSnapshot::default()
+        };
+        worker.analysis_tick(4000, Some(&with_new_occurrence));
+
         assert_eq!(
-            records
-                .iter()
-                .filter(|(event, _)| event == "risk://state")
-                .count(),
-            2
+            &*lock(&gsi_event_batches),
+            &[
+                vec!["health_low", "health_danger"],
+                vec![],
+                vec!["health_low"],
+            ]
+        );
+    }
+
+    #[test]
+    fn gsi_event_dedupe_set_is_bounded() {
+        let start = Instant::now();
+        let mut worker = fake_worker(FakeFrameSource::supported(), false, start, events());
+        let recent_events = (700..1000)
+            .map(|at_ms| GsiEvent {
+                id: "health_low",
+                at_ms,
+            })
+            .collect();
+        let snapshot = GsiSnapshot {
+            recent_events,
+            ..GsiSnapshot::default()
+        };
+
+        worker.analysis_tick(1000, Some(&snapshot));
+
+        assert_eq!(worker.seen_gsi_event_keys.len(), MAX_SEEN_GSI_EVENT_KEYS);
+    }
+
+    #[test]
+    fn only_supported_health_events_are_passed_to_risk() {
+        let start = Instant::now();
+        let mut worker = fake_worker(FakeFrameSource::supported(), false, start, events());
+        let gsi_event_batches = worker.risk.seen_gsi_events.clone();
+        let snapshot = GsiSnapshot {
+            recent_events: vec![
+                GsiEvent {
+                    id: "health_low",
+                    at_ms: 100,
+                },
+                GsiEvent {
+                    id: "health_danger",
+                    at_ms: 200,
+                },
+                GsiEvent {
+                    id: "other",
+                    at_ms: 300,
+                },
+            ],
+            ..GsiSnapshot::default()
+        };
+
+        worker.analysis_tick(500, Some(&snapshot));
+
+        assert_eq!(
+            &*lock(&gsi_event_batches),
+            &[vec!["health_low", "health_danger"]]
+        );
+    }
+
+    #[test]
+    fn open_success_does_not_reset_retry_until_a_frame_grab_succeeds() {
+        let start = Instant::now();
+        let mut source = FakeFrameSource::supported();
+        source.queue_frame(1);
+        let mut worker = fake_worker(source, true, start, events());
+        worker.retry.next = Some(Duration::from_secs(2));
+
+        worker.ensure_source(start);
+
+        assert_eq!(worker.retry.next, Some(Duration::from_secs(2)));
+        worker.profile_rect = Some(Rect { x: 0, y: 0, width: 1, height: 1 });
+        worker.session_epoch = Some(7);
+        worker.retry.next = Some(Duration::from_secs(4));
+        worker.capture_one(start, 0, None);
+        assert_eq!(worker.retry.next, None);
+    }
+
+    #[test]
+    fn capture_loop_reuses_the_bgra_grab_buffer() {
+        let start = Instant::now();
+        let mut source = FakeFrameSource::supported();
+        source.queue_frame(1);
+        source.queue_frame(2);
+        let mut worker = fake_worker(source, true, start, events());
+        worker.ensure_source(start);
+        worker.profile_rect = Some(Rect { x: 0, y: 0, width: 1, height: 1 });
+        worker.session_epoch = Some(7);
+
+        worker.capture_one(start, 0, None);
+        worker.capture_one(start + Duration::from_millis(33), 33, None);
+
+        assert_eq!(worker.source.grab_buffer_addresses.len(), 2);
+        assert_eq!(worker.source.grab_buffer_capacities_on_entry[0], 0);
+        assert!(worker.source.grab_buffer_capacities_on_entry[1] >= 4);
+        assert_eq!(
+            worker.source.grab_buffer_addresses[0],
+            worker.source.grab_buffer_addresses[1]
         );
     }
 
