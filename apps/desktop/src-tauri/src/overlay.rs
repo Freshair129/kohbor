@@ -231,6 +231,11 @@ mod tests {
     #[test]
     fn permissions_are_listen_only() {
         assert_eq!(overlay_capability_permissions(), &["core:event:default"]);
+        // The shipped capability file must say the same thing as the pinned function.
+        let capability: serde_json::Value =
+            serde_json::from_str(include_str!("../capabilities/overlay.json")).unwrap();
+        assert_eq!(capability["windows"], json!(["overlay"]));
+        assert_eq!(capability["permissions"], json!(["core:event:default"]));
     }
 
     #[test]

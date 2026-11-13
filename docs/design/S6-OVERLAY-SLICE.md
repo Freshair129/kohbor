@@ -2,7 +2,7 @@
 title: "S6 Overlay Slice: banner window over the game (plan)"
 doc_id: "S6-OVERLAY-SLICE"
 status: draft
-version: "0.1.0"
+version: "0.2.0"
 updated: "2026-11-13"
 authority: "Lead plan under the owner's roadmap reorder (overlay pulled ahead of Sprint 4); elaborates UI-001 and SPRINT-ROADMAP Sprint 6 first row. Changes no requirement statement. DEC-VISUALS stays open: this is topology and honest empty states, not an approved look."
 approval_status: "agent_decision_not_owner_approved"
@@ -80,3 +80,14 @@ Source and synthetic only: pure tests (window flags table, placement math, chip 
 ## 8. Blocking owner decisions and open items
 
 None block building the slice. Owner input needed to *close* it: (1) Q-UI-2 banner size binding (720 x 220 used); (2) Q-UI-1 own-stat row (excluded here); (3) DEC-VISUALS for the look; (4) whether `KOHBOR_DEMO=1` demo mode is acceptable in release builds (PROPOSED: yes, env-gated, labelled); (5) the safe-area fractions need a measurement on the owner's screen; (6) rights and authorization of the lab clips and any use as critical media stay with the owner's rights team.
+
+## 9. As built (commit ae8cef6 and later; synthetic evidence only)
+
+Where the build differs from sections 2 to 6 (the build wins):
+
+- The overlay window is built in code (`lib.rs` `build_overlay_window`, flags from `overlay::overlay_window_spec()`), not declared in `tauri.conf.json`; the config file is unchanged. Capability `capabilities/overlay.json` grants `core:event:default` only. The window is 720 x 256 logical (stage 720 x 220 plus a 36 px chip strip), sized in physical pixels from the primary monitor (`overlay::place_overlay`, tested for 1024x768 to 3840x2160, ultrawide and secondary monitors).
+- Visibility: the overlay renderer decides (`overlayShouldShow`) and emits `overlay://visible`; the host calls `show()` or `hide()` and re-applies click-through. The renderer emits `overlay://ready`; the host replays the last `overlay://status`. UNVERIFIED on Windows: whether a hidden WebView2 window runs the renderer promptly enough (a late first banner would show here), and whether `show()` on a non-focusable window takes no focus. If a hidden webview proves too slow, the fallback is to keep the window shown and fully transparent, at an unmeasured FPS cost.
+- Chip states: `no_pack` is folded into `not_ready` with reason `MEDIA_UNMAPPED` (the host reports the same fact). A `playback_ended` input ends the demo chip.
+- Demo: compiled only with cargo feature `demo` or in debug builds, and enabled only with `KOHBOR_DEMO=1`. `Host::demo_offer` offers a `TickMsg` with session epoch 1 and the reserved generation `u64::MAX` to the real engine; history rows whose instance id carries that generation are labelled DEMO. Intake, admission and `Ownership::Verified` are untouched (source tests assert it). A demo cannot fence a real match (epoch 1); during a real session at a higher epoch a demo tick is dropped as stale. Only event ids the detector can emit (`kohbor_events::EventId`) can be triggered.
+- Risk strip mount: an empty `#overlay-risk-strip` (720 x 28 logical, bottom edge of the stage, hidden while empty) is reserved for the MVP-1 integration; the window height is unchanged.
+- Not run: a launch smoke of the real app. The application data directory has no override, so a launch would use the owner's real data directory; the single-instance guard also applies. Synthetic screenshots of `?view=overlay&mock=1` on the dev server stand in; the mock URL has no real media, so the stage is empty there.

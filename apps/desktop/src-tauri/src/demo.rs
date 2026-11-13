@@ -152,4 +152,16 @@ mod tests {
             "#[cfg(any(feature = \"demo\", debug_assertions))]\n#[tauri::command(async)]\npub(crate) fn demo_trigger"
         ));
     }
+
+    #[test]
+    fn demo_marker_payload_matches_what_the_renderer_accepts() {
+        // The overlay renderer accepts a demo marker only when `source` is "demo" (main.tsx).
+        let commands = include_str!("commands.rs");
+        assert!(
+            commands.contains("\"overlay://demo\"")
+                && commands.contains("serde_json::json!({\"source\": \"demo\"})")
+        );
+        let renderer = include_str!("../../src/main.tsx");
+        assert!(renderer.contains(".source === \"demo\""));
+    }
 }

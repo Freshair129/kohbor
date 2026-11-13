@@ -161,7 +161,11 @@ pub(crate) fn demo_trigger(
     }
     let event = crate::demo::demo_event(&event_id, tier).map_err(str::to_owned)?;
 
-    let _ = tauri::Emitter::emit(&app, "overlay://demo", serde_json::json!({}));
+    let _ = tauri::Emitter::emit(
+        &app,
+        "overlay://demo",
+        serde_json::json!({"source": "demo"}),
+    );
     state.host.demo_offer(event)
 }
 

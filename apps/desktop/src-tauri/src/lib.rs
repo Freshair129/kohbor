@@ -59,6 +59,38 @@ impl host::Emitter for tauri::AppHandle<tauri::Wry> {
     }
 }
 
+/// Place the overlay on the primary monitor. Returns false (and the caller keeps the window hidden)
+/// when the monitor or the geometry cannot be applied. Called again before every show so a changed
+/// display layout is followed.
+fn place_overlay_window(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
+    let monitor = match window.primary_monitor() {
+        Ok(Some(monitor)) => monitor,
+        Ok(None) => {
+            eprintln!("overlay placement unavailable: no primary monitor");
+            return false;
+        }
+        Err(error) => {
+            eprintln!("overlay placement unavailable: {error}");
+            return false;
+        }
+    };
+    let position = monitor.position();
+    let size = monitor.size();
+    let rect = overlay::place_overlay(&overlay::MonitorRect {
+        x: position.x,
+        y: position.y,
+        w: size.width,
+        h: size.height,
+    });
+    let moved = window.set_position(tauri::PhysicalPosition::new(rect.x, rect.y));
+    let sized = window.set_size(tauri::PhysicalSize::new(rect.w, rect.h));
+    if let Err(error) = moved.as_ref().and(sized.as_ref()) {
+        eprintln!("overlay placement failed: {error}");
+        return false;
+    }
+    true
+}
+
 fn build_overlay_window(
     app: &mut tauri::App<tauri::Wry>,
 ) -> Option<tauri::WebviewWindow<tauri::Wry>> {
@@ -90,26 +122,8 @@ fn build_overlay_window(
         }
     };
 
-    match app.primary_monitor() {
-        Ok(Some(monitor)) => {
-            let position = monitor.position();
-            let size = monitor.size();
-            let rect = overlay::place_overlay(&overlay::MonitorRect {
-                x: position.x,
-                y: position.y,
-                w: size.width,
-                h: size.height,
-            });
-            if let Err(error) = window.set_position(tauri::PhysicalPosition::new(rect.x, rect.y)) {
-                eprintln!("overlay position unavailable: {error}");
-            }
-            if let Err(error) = window.set_size(tauri::PhysicalSize::new(rect.w, rect.h)) {
-                eprintln!("overlay size unavailable: {error}");
-            }
-        }
-        Ok(None) => eprintln!("overlay placement unavailable: no primary monitor"),
-        Err(error) => eprintln!("overlay placement unavailable: {error}"),
-    }
+    // A failed placement leaves the window hidden for good: it is placed again before every show.
+    let _ = place_overlay_window(&window);
 
     if let Err(error) = window.set_ignore_cursor_events(spec.ignore_cursor_events) {
         eprintln!("overlay click-through unavailable: {error}");
@@ -139,15 +153,26 @@ fn register_overlay_events(
         let Some(window) = visible_window.as_ref() else {
             return;
         };
-        let result = if visible {
-            window
-                .show()
-                .and_then(|()| window.set_ignore_cursor_events(true))
-        } else {
-            window.hide()
-        };
-        if let Err(error) = result {
-            eprintln!("overlay visibility update failed: {error}");
+        if !visible {
+            if let Err(error) = window.hide() {
+                eprintln!("overlay hide failed: {error}");
+            }
+            return;
+        }
+        // Fail closed: never show an unplaced window, and never leave a shown window that can
+        // intercept game input (click-through is applied before and again after the show).
+        if !place_overlay_window(window) || window.set_ignore_cursor_events(true).is_err() {
+            let _ = window.hide();
+            return;
+        }
+        if let Err(error) = window.show() {
+            eprintln!("overlay show failed: {error}");
+            let _ = window.hide();
+            return;
+        }
+        if window.set_ignore_cursor_events(true).is_err() {
+            let _ = window.hide();
+            eprintln!("overlay click-through failed after show; window hidden");
         }
     });
 
