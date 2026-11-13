@@ -4,7 +4,7 @@ use crate::{OutputInfo, Rect};
 
 /// Default 1080p crop. v0 came from the owner-authored G-Maiden cv/region.rs measurement
 /// (x 8-290, y 790-1070) and did not match this owner's HUD in the first live test. v1 is
-/// an ESTIMATE read from that test's screenshot (frame about x 0..280, y 800..1074);
+/// an ESTIMATE read from that test's screenshot (frame about x 0..280, y 800..1074, widened to a square because the capture boundary requires one);
 /// UNVERIFIED on a full-screen capture. The Live tab lets the user nudge it.
 pub(crate) fn profile_rect(output: &OutputInfo) -> Option<(Rect, &'static str)> {
     if output.width != 1920 || output.height != 1080 || output.dpi != 96 {
@@ -14,9 +14,9 @@ pub(crate) fn profile_rect(output: &OutputInfo) -> Option<(Rect, &'static str)> 
     Some((
         Rect {
             x: 0,
-            y: 800,
+            y: 797,
             width: 280,
-            height: 274,
+            height: 280,
         },
         "p1080-default-v1",
     ))
@@ -39,9 +39,9 @@ mod tests {
             Some((
                 Rect {
                     x: 0,
-                    y: 800,
+                    y: 797,
                     width: 280,
-                    height: 274
+                    height: 280
                 },
                 "p1080-default-v1"
             )),

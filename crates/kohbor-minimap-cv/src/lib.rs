@@ -112,6 +112,11 @@ pub fn analyze(bgra: &[u8], width: u32, height: u32, stride: u32, enemy: Team) -
     analyze_with_grid_limit(bgra, width, height, stride, enemy, usize::MAX)
 }
 
+/// Cheap per-frame structural check only (no blob search). Equals `analyze(..).structural_ok`.
+pub fn structural_check(bgra: &[u8], width: u32, height: u32, stride: u32) -> bool {
+    FrameView::new(bgra, width, height, stride).is_some_and(|frame| frame.structural_ok())
+}
+
 fn analyze_with_grid_limit(
     bgra: &[u8],
     width: u32,
@@ -492,6 +497,22 @@ fn to_milli(coordinate: f64, extent: usize) -> u16 {
 #[cfg(test)]
 mod tests {
     use super::{analyze_with_grid_limit, merge_candidate, Candidate, Team};
+
+    #[test]
+    fn structural_check_matches_analyze_and_rejects_bad_input() {
+        assert!(!crate::structural_check(&[], 0, 0, 0));
+        let uniform = vec![40u8; 292 * 292 * 4];
+        assert!(!crate::structural_check(&uniform, 292, 292, 292 * 4));
+        let mut textured = vec![0u8; 292 * 292 * 4];
+        for (i, px) in textured.chunks_mut(4).enumerate() {
+            let v = ((i * 37) % 97) as u8;
+            px.copy_from_slice(&[v, v / 2, v / 3, 255]);
+        }
+        assert_eq!(
+            crate::structural_check(&textured, 292, 292, 292 * 4),
+            crate::analyze(&textured, 292, 292, 292 * 4, crate::Team::Dire).structural_ok
+        );
+    }
 
     #[test]
     fn grid_size_limit_failure_is_structurally_invalid() {
