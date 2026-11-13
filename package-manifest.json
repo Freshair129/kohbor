@@ -64,7 +64,7 @@
     {
       "path": "acceptance/spec-validation.json",
       "bytes": 923,
-      "sha256": "243439a0e2e2e1c83674355b0fe41c60d06112289a66639549fdf04516b801bd"
+      "sha256": "46a32a3f20c98e07bae4556f4b88a9dec9e5a6450d5bd6be648acc0b7f8b6720"
     },
     {
       "path": "apps/desktop/index.html",
@@ -523,8 +523,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 42693,
-      "sha256": "3704b7383873c6c24105dfd33056995d6c3f98ea7d346f21f72a74d4bf877753"
+      "bytes": 44336,
+      "sha256": "4f3265b92514f4da78fdd6ad785e04389e8f9a86be59ad65e56d137f5c1efe41"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -1153,8 +1153,8 @@
     },
     {
       "path": "docs/design/REMAINING-SYSTEM-DESIGN.md",
-      "bytes": 59093,
-      "sha256": "92f7a8b8a2c22510e0cf18049672dca2cc6f2e4781d19e2928414d1787c58724"
+      "bytes": 60278,
+      "sha256": "1a9c1df92cefd2f7cc6c52b951309f7948ecb3e55e14749bdff72256855bb8a3"
     },
     {
       "path": "docs/design/S3-5-HOST-CRITICAL-PATH.md",
@@ -1499,7 +1499,7 @@
     {
       "path": "docs/domains/account/state.json",
       "bytes": 2798,
-      "sha256": "e1aa2ae1c4615ff2d6db3994ba2327f4c803a2c22bddb9b3aeea4ba321b81958"
+      "sha256": "87768bbbe1fa709ceb5511fff39c5b63767a1521a2007bdcfd3e985b7f1b8f7a"
     },
     {
       "path": "docs/domains/banner-lab/CARD.md",
@@ -1564,7 +1564,7 @@
     {
       "path": "docs/domains/packs/state.json",
       "bytes": 4004,
-      "sha256": "e202619b4e917cc9937cdac1834bcd7314cf8f8b2de4eb5586e5cfc3e0afb1d2"
+      "sha256": "52a5a2206277583c5ff23d955a5db6bef43b78ca40999d48c59f80bf2e6a7d6e"
     },
     {
       "path": "docs/domains/ui-overlay/CARD.md",
@@ -1574,17 +1574,17 @@
     {
       "path": "docs/domains/ui-overlay/state.json",
       "bytes": 3900,
-      "sha256": "6a0b65cd369e865101efbc57824c749252ae4ab1dcc8a0c6df7440b794838e1f"
+      "sha256": "1d2f4768f56d5c07b479d48b66b64c90e8b223fae63a57ae29c77a83b58cff44"
     },
     {
       "path": "docs/domains/vision-risk/CARD.md",
-      "bytes": 5113,
-      "sha256": "40e2315dce75a39dba26b7126db02b6955ff46ba825d49a6c1f9840a70e51340"
+      "bytes": 5309,
+      "sha256": "82b50ab082de2655c8815af84345fde42aec3ce5dc397ea76c8e5da51ad105bc"
     },
     {
       "path": "docs/domains/vision-risk/state.json",
-      "bytes": 3012,
-      "sha256": "5d93b765f43beca223f0137569e382f880f9ad686190533fe2f38147e5adae24"
+      "bytes": 3039,
+      "sha256": "7b078401692c6f89dc358432d7954032c6359d1ff29e7ab31e370d2b49bfd7ee"
     },
     {
       "path": "docs/governance/AGENT-REGISTRY-DESIGN.md",
@@ -1603,13 +1603,13 @@
     },
     {
       "path": "docs/governance/CHANGELOG.md",
-      "bytes": 30209,
-      "sha256": "b5f80749bf3b7b9edf26ef5ba6e5399acfc216a21ac2f1f3254ebf21faa171b8"
+      "bytes": 30692,
+      "sha256": "9f06200ac10d838230c120a4085c7275476ca251d27e09178f4dc0631f80de90"
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 17150,
-      "sha256": "75b7c99217e9c095844d0b0124fe9ce99d6e8b98ee1daeba44136bf8a130f530"
+      "bytes": 17615,
+      "sha256": "3a108e1700eb6de5063e0704664499f406a64243f26d24442daf6fa55e4d2982"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",

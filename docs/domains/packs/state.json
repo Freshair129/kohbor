@@ -65,7 +65,7 @@
       "path": "contracts/decisions.json",
       "type": "registry",
       "role": "reference",
-      "reviewed_sha256": "3704b7383873c6c24105dfd33056995d6c3f98ea7d346f21f72a74d4bf877753"
+      "reviewed_sha256": "4f3265b92514f4da78fdd6ad785e04389e8f9a86be59ad65e56d137f5c1efe41"
     },
     {
       "path": "contracts/requirements.json",

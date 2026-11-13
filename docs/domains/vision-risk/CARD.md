@@ -21,7 +21,8 @@ A map, not evidence. Authority: decisions, PRD/SRS, contracts, code and tests, t
 ## 2. Owner decisions
 
 - Decided: DEC-SESSION-MONITOR (the map-dominant monitor that capture serves).
-- Open: DEC-MODELS, DEC-GAME-DATA, DEC-RISK-DETAIL, DEC-NATIVE-EVIDENCE, DEC-CRITICAL-MEDIA.
+- Decided: DEC-RESOURCE-BUDGET (GPU allowed for the vision path, RAM and VRAM ceilings; see the update in docs/design/REMAINING-SYSTEM-DESIGN.md section 1.7).
+- Open: DEC-MODELS (may now choose GPU-based inference), DEC-GAME-DATA, DEC-RISK-DETAIL, DEC-NATIVE-EVIDENCE, DEC-CRITICAL-MEDIA.
 
 ## 3. Now / Next / Blocked
 
