@@ -310,7 +310,7 @@ pub fn run() {
                     working_set_bytes: s.working_set_bytes,
                 }
             });
-            capture_host::start(app.handle().clone(), gsi, resources);
+            capture_host::start(app.handle().clone(), gsi, resources, settings_dir.clone());
             app.manage(AppState {
                 runtime,
                 host,
@@ -347,6 +347,12 @@ pub fn run() {
         capture_host::minimap_subscribe,
         capture_host::capture_status,
         capture_host::capture_invalidate,
+        capture_host::capture_get_config,
+        capture_host::capture_set_config,
+        capture_host::capture_reset_crop,
+        capture_host::capture_propose_crop,
+        capture_host::capture_accept_proposal,
+        capture_host::capture_confirm_crop,
         commands::demo_available,
         commands::demo_trigger
     ]);
@@ -368,6 +374,12 @@ pub fn run() {
         capture_host::minimap_subscribe,
         capture_host::capture_status,
         capture_host::capture_invalidate,
+        capture_host::capture_get_config,
+        capture_host::capture_set_config,
+        capture_host::capture_reset_crop,
+        capture_host::capture_propose_crop,
+        capture_host::capture_accept_proposal,
+        capture_host::capture_confirm_crop,
         commands::demo_available
     ]);
     let app = builder.build(tauri::generate_context!());
