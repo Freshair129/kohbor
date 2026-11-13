@@ -1,0 +1,10 @@
+[package]
+name = "kohbor-capture"
+description = "Pure capture admission for Kohbor: geometry, calibration, freshness, coverage and source separation. No I/O, no OS capture API, no clock reads. Implements docs/design/S4-OBSERVATION-BOUNDARY.md section 4.1."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]

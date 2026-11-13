@@ -4,6 +4,7 @@ import { AudioPanel } from "./AudioPanel";
 import { copy, type Locale } from "./copy";
 import { DemoPanel } from "./DemoPanel";
 import { Guide } from "./Guide";
+import { LiveTab, startLiveCollection } from "./live";
 import { OwnHero } from "./OwnHero";
 import { PackPanel } from "./PackPanel";
 import { Chip, Readiness } from "./Readiness";
@@ -15,6 +16,10 @@ export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode }
   const { settings, loading, saving, notice, changeLocale } = useSettings();
   const displayLocale: Locale = settings?.locale ?? "th";
   const text = copy(displayLocale);
+
+  useEffect(() => {
+    void startLiveCollection();
+  }, []);
 
   useEffect(() => {
     document.documentElement.lang = displayLocale;
@@ -90,6 +95,7 @@ export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode }
               {/* Advice derived from values that are no longer current would mislead. */}
               {!hostLost && <Guide status={status} locale={displayLocale} setup={setup} />}
               <Readiness status={status} locale={displayLocale} />
+              <LiveTab locale={displayLocale} />
               <AudioPanel status={status} locale={displayLocale} />
               <PackPanel locale={displayLocale} disabled={hostLost} />
               <AudioHistory locale={displayLocale} disabled={hostLost} />

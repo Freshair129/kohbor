@@ -1,0 +1,121 @@
+// @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
+import type { CapturePhase, VisionEvent } from "./types.ts";
+
+export type LiveLocale = "th" | "en";
+
+const MESSAGES = {
+  th: {
+    title: "สด",
+    mapLabel: "แผนที่ย่อสด",
+    phase: {
+      live: "สด",
+      stale: "ข้อมูลเก่า",
+      coverage_unavailable: "การมองเห็นใช้ไม่ได้",
+      calibrating: "กำลังปรับเทียบ",
+      lost: "การจับภาพขาดหาย",
+      unsupported: "ไม่รองรับ",
+      unknown: "—",
+    },
+    unsupported: "รุ่นนี้แสดงแผนที่สดได้เมื่อจอ 1920x1080 และตั้งค่าการปรับขนาด 100% เท่านั้น เสียงและแบนเนอร์ยังทำงานได้",
+    stale: (age: string) => `ข้อมูลภาพเก่า · ${age} ms`,
+    noVisibility: "ไม่มีข้อมูลการมองเห็น",
+    lost: "กำลังลองเชื่อมต่อใหม่",
+    calibrating: "กำลังตรวจตำแหน่งแผนที่ — ยังไม่แสดงภาพสด",
+    recalibration: "ตำแหน่งหรือจอเปลี่ยน — ต้องปรับเทียบใหม่",
+    mapWrong: "แผนที่ดูไม่ถูกต้อง",
+    autoLayoutUnconfirmed: "เลย์เอาต์อัตโนมัติ ยังไม่ยืนยัน",
+    invalidateFailed: "ส่งคำขอปรับเทียบใหม่ไม่ได้",
+    waitingFrame: "รอภาพจากการจับหน้าจอ — ยังไม่มีเฟรมที่แสดงได้",
+    mockPreview: "ภาพตัวอย่างจำลอง — ข้อมูลสังเคราะห์",
+    danger: "ระดับความเสี่ยง",
+    meterLabels: ["ไม่พบสัญญาณ", "ระวัง", "เสี่ยง", "อันตราย"],
+    noRiskData: "—",
+    experimental: "ทดลอง",
+    enemyCount: (count: string) => `เห็นศัตรูบนแผนที่: ${count}`,
+    visionEvent: {
+      enemy_missing: "ศัตรูหายจากแผนที่ (ทดลอง)",
+      risk_alert: "เสี่ยงโดนเก็ง (ทดลอง)",
+      risk_revision: "ศัตรูกลับมาในแผนที่ (ทดลอง)",
+    } satisfies Record<VisionEvent, string>,
+    resourceTitle: "ทรัพยากร",
+    reset: "ล้างสถิติในเซสชัน",
+    metric: {
+      appGroupBytes: "RAM (กลุ่มแอป; ตามที่งานตรวจวัด)",
+      hostGpuBytes: "หน่วยความจำ GPU (โปรเซส Kohbor)",
+      webviewGpuBytes: "หน่วยความจำ GPU รวม WebView",
+      gpuLoadPercent: "โหลด GPU",
+      cpuPercent: "CPU (% ของทั้งหมด)",
+      captureFps: "FPS การจับภาพ",
+      frameAgeMs: "อายุเฟรม",
+    } satisfies Record<string, string>,
+    current: "ปัจจุบัน",
+    peak: "สูงสุดในเซสชัน",
+    mean: "เฉลี่ยในเซสชัน",
+    notMeasuredYet: "(ยังไม่ได้วัด)",
+    bytesUnit: "MB",
+    fpsUnit: "fps",
+    ageUnit: "ms",
+    percentUnit: "%",
+  },
+  en: {
+    title: "Live",
+    mapLabel: "Live minimap",
+    phase: {
+      live: "Live",
+      stale: "Stale",
+      coverage_unavailable: "Coverage unavailable",
+      calibrating: "Calibrating",
+      lost: "Capture lost",
+      unsupported: "Unsupported",
+      unknown: "—",
+    },
+    unsupported: "Live map needs 1920x1080 at 100% scaling in this version. Voice and banners still work.",
+    stale: (age: string) => `Stale picture · ${age} ms`,
+    noVisibility: "No visibility data",
+    lost: "Retrying capture",
+    calibrating: "Checking map position — live picture is hidden",
+    recalibration: "Display or layout changed — recalibration needed",
+    mapWrong: "Map looks wrong",
+    autoLayoutUnconfirmed: "auto layout, unconfirmed",
+    invalidateFailed: "Could not request recalibration",
+    waitingFrame: "Waiting for capture — no frame is available to display",
+    mockPreview: "Mock preview — synthetic data",
+    danger: "Danger level",
+    meterLabels: ["No signal", "Caution", "Risk", "Danger"],
+    noRiskData: "—",
+    experimental: "Experimental",
+    enemyCount: (count: string) => `Enemies seen on map: ${count}`,
+    visionEvent: {
+      enemy_missing: "Enemy missing from map (experimental)",
+      risk_alert: "Possible gank (experimental)",
+      risk_revision: "Enemies back on map (experimental)",
+    } satisfies Record<VisionEvent, string>,
+    resourceTitle: "Resources",
+    reset: "Reset session statistics",
+    metric: {
+      appGroupBytes: "RAM (app group; as sampled by the job)",
+      hostGpuBytes: "GPU memory (Kohbor host process)",
+      webviewGpuBytes: "GPU memory incl. WebView",
+      gpuLoadPercent: "GPU load",
+      cpuPercent: "CPU (% of total)",
+      captureFps: "Capture FPS",
+      frameAgeMs: "Frame age",
+    } satisfies Record<string, string>,
+    current: "Current",
+    peak: "Session peak",
+    mean: "Session mean",
+    notMeasuredYet: "(not measured yet)",
+    bytesUnit: "MB",
+    fpsUnit: "fps",
+    ageUnit: "ms",
+    percentUnit: "%",
+  },
+} as const;
+
+export function liveCopy(locale: LiveLocale) {
+  return MESSAGES[locale];
+}
+
+export function phaseLabel(phase: CapturePhase | null, locale: LiveLocale): string {
+  return phase ? MESSAGES[locale].phase[phase] : MESSAGES[locale].phase.unknown;
+}

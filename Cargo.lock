@@ -1858,6 +1858,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "kohbor-capture"
+version = "0.0.1"
+
+[[package]]
+name = "kohbor-capture-native"
+version = "0.0.1"
+dependencies = [
+ "kohbor-capture",
+ "windows 0.61.3",
+]
+
+[[package]]
 name = "kohbor-desktop"
 version = "0.0.1"
 dependencies = [
@@ -1866,10 +1878,14 @@ dependencies = [
  "jsonschema",
  "kohbor-audio",
  "kohbor-audio-native",
+ "kohbor-capture",
+ "kohbor-capture-native",
  "kohbor-events",
  "kohbor-gsi",
+ "kohbor-minimap-cv",
  "kohbor-pack",
  "kohbor-pack-author",
+ "kohbor-risk",
  "serde",
  "serde_json",
  "sha2",
@@ -1915,6 +1931,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "kohbor-minimap-cv"
+version = "0.0.1"
+
+[[package]]
 name = "kohbor-pack"
 version = "0.0.1"
 dependencies = [
@@ -1933,6 +1953,20 @@ dependencies = [
  "kohbor-pack",
  "serde_json",
  "sha2",
+]
+
+[[package]]
+name = "kohbor-risk"
+version = "0.0.1"
+dependencies = [
+ "kohbor-capture",
+]
+
+[[package]]
+name = "kohbor-vision"
+version = "0.0.1"
+dependencies = [
+ "kohbor-capture",
 ]
 
 [[package]]

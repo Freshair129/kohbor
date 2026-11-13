@@ -25,6 +25,7 @@ This is the only index of documents. Every Markdown file in the tree, is linked 
 | [S3-5 Host Critical Warning Path](design/S3-5-HOST-CRITICAL-PATH.md) | Design and task breakdown of the host critical warning path (agent decision, not owner approved) | Engineering, media |
 | [S6 Overlay Slice](design/S6-OVERLAY-SLICE.md) | Plan of the in-game banner overlay window, placement, honest chip states and the no-game demo trigger (agent plan, not owner approved) | Engineering, UX, product owner |
 | [Package Format Review](design/PACKAGE-FORMAT-REVIEW.md) | Agent review: whether a package needs its own file type, signature and encryption options | Engineering, product owner |
+| [S4 Observation Boundary](design/S4-OBSERVATION-BOUNDARY.md) | Sprint 4 no-hardware slice: capture admission, freshness, coverage and the enemy observation boundary (agent decision, not owner approved) | Engineering, QA |
 | [Remaining System Design](design/REMAINING-SYSTEM-DESIGN.md) | Agent design for Sprint 4 onward: capture, risk, account, store and entitlement, peer relay (proposed) | Architecture, engineering |
 | [Account and Identity Review](design/ACCOUNT-IDENTITY-REVIEW.md) | Agent review behind DEC-ACCOUNT-IDENTITY and DEC-GID-REUSE: sign-in, friend code, privacy (proposed, not a human or legal review) | Engineering, product owner, privacy |
 | [Sharing Model Review](design/SHARING-MODEL-REVIEW.md) | Agent review behind DEC-SHARE-LIST and DEC-SIGNIN-OPTIONAL: Share list, guests, same-match limits (proposed) | Engineering, product owner, privacy |

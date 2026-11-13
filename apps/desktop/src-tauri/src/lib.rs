@@ -2,6 +2,7 @@
 
 pub mod atomic;
 mod audio;
+mod capture_host;
 mod clock;
 mod commands;
 pub mod containment;
@@ -282,6 +283,28 @@ pub fn run() {
             {
                 eprintln!("resource-sampler unavailable: {error}");
             }
+            let gsi_runtime = runtime.clone();
+            let gsi = capture_host::GsiView::new(move || {
+                let shared = intake::lock(&gsi_runtime.shared);
+                let mut view = capture_host::GsiSnapshot::from_snapshot(&shared.snapshot());
+                // In match only while the intake phase is Live (pregame also exposes own data).
+                view.in_match = shared.phase == Some(kohbor_gsi::Phase::Live);
+                view.recent_events = shared
+                    .recent_health_events(std::time::Instant::now(), 5000)
+                    .into_iter()
+                    .map(|(id, at_ms)| capture_host::GsiEvent { id, at_ms })
+                    .collect();
+                view
+            });
+            let resource_sample = sample.clone();
+            let resources = capture_host::ResourceView::new(move || {
+                let (s, _) = *intake::lock(&resource_sample);
+                capture_host::ResourceSample {
+                    cpu_percent: s.cpu_percent,
+                    working_set_bytes: s.working_set_bytes,
+                }
+            });
+            capture_host::start(app.handle().clone(), gsi, resources);
             app.manage(AppState {
                 runtime,
                 host,
@@ -315,6 +338,9 @@ pub fn run() {
         commands::media_probe_pending,
         commands::audio_history,
         commands::set_muted,
+        capture_host::minimap_subscribe,
+        capture_host::capture_status,
+        capture_host::capture_invalidate,
         commands::demo_available,
         commands::demo_trigger
     ]);
@@ -333,6 +359,9 @@ pub fn run() {
         commands::media_probe_pending,
         commands::audio_history,
         commands::set_muted,
+        capture_host::minimap_subscribe,
+        capture_host::capture_status,
+        capture_host::capture_invalidate,
         commands::demo_available
     ]);
     let app = builder.build(tauri::generate_context!());

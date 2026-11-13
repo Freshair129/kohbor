@@ -63,32 +63,33 @@
     {
       "path": "crates/kohbor-capture",
       "type": "code",
-      "role": "reference",
-      "exists": false
+      "role": "reference"
     },
     {
       "path": "crates/kohbor-capture-native",
       "type": "code",
-      "role": "reference",
-      "exists": false
+      "role": "reference"
     },
     {
       "path": "crates/kohbor-vision",
       "type": "code",
-      "role": "reference",
-      "exists": false
+      "role": "reference"
     },
     {
       "path": "crates/kohbor-risk",
       "type": "code",
-      "role": "reference",
-      "exists": false
+      "role": "reference"
     },
     {
       "path": "spikes/capture",
       "type": "code",
       "role": "reference",
       "exists": false
+    },
+    {
+      "path": "crates/kohbor-minimap-cv",
+      "type": "code",
+      "role": "reference"
     }
   ],
   "open_questions": [
@@ -111,5 +112,12 @@
     "task_id": null,
     "on": "2026-11-13",
     "summary": "Refreshed after PR #10 merged: S3 roadmap rows, S3-5 design section 13 and requirement implementation refs reviewed in the diff; no card fact outside the lines changed."
-  }
+  },
+  "crates": [
+    "kohbor-capture",
+    "kohbor-capture-native",
+    "kohbor-vision",
+    "kohbor-risk",
+    "kohbor-minimap-cv"
+  ]
 }
