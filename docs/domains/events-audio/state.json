@@ -53,7 +53,7 @@
       "path": "docs/design/S3-5-HOST-CRITICAL-PATH.md",
       "type": "spec",
       "role": "governing",
-      "reviewed_sha256": "9cf4c8521c6ca25ab10625f91c954e8f955f0ee6e1f77a26e1d6ed699c29b087"
+      "reviewed_sha256": "288d64539b882a906c31bea58ae59c25b48c9afeb52e5de7a2ef9d5e782b82e7"
     },
     {
       "path": "docs/delivery/S3-1-AUDIO-SPIKE.md",

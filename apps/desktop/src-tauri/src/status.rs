@@ -1,6 +1,6 @@
 //! runtime.get_status payload (contracts/runtime-status.schema.json 1.1.0).
 
-use crate::containment::{Sample, WORKING_SET_LIMIT_BYTES};
+use crate::containment::Sample;
 use crate::intake::{IntakeState, Shared, EVENT_UNAVAILABLE};
 use kohbor_gsi::admission::{Ownership, Phase};
 use kohbor_gsi::FRESH_MAX_AGE_MS;
@@ -60,9 +60,7 @@ pub fn build(
         }
     };
     let memory = match sample.working_set_bytes {
-        Some(w) if w > WORKING_SET_LIMIT_BYTES => {
-            json!({"state": "over_budget", "working_set_bytes": w})
-        }
+        // No memory limit exists (DEC-RESOURCE-BUDGET): the value is reported, never judged. `over_budget` stays reserved in the contract.
         Some(w) => json!({"state": "available", "working_set_bytes": w}),
         None => json!({"state": "unavailable", "working_set_bytes": null}),
     };

@@ -96,7 +96,7 @@ The header carries the page title, match state, the command palette (Ctrl+K) and
 4. mode (shown as "ยืนยันไม่ได้", per GSI-INTAKE-SPEC §4.2)
 5. critical audio (`not ready` with a route to Voice Packs)
 6. map vision (unavailable in this build)
-7. resources (shown against the 10% and 2,000 MB limits; 900 MB before DEC-RESOURCE-BUDGET)
+7. resources (CPU shown against the 10% limit; RAM shown as a measured value with no limit until the owner sets one, DEC-RESOURCE-BUDGET)
 8. account (optional)
 
 A single healthy row never implies the others. The rest of the page:

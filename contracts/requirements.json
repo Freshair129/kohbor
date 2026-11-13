@@ -5405,13 +5405,13 @@
       "target_milestone": "M1",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE; DEC-RESOURCE-BUDGET",
-      "statement": "Every 1s normalized app-group CPU sample shall be ≤10%, aggregate peak full Working Set ≤2000000000 bytes (decimal) and, when the app group uses the GPU, its peak dedicated GPU memory (VRAM) ≤2000000000 bytes; GPU use is allowed; VRAM is measured, never assumed.",
-      "failure_behavior": "No excluding model/shared pages or substituting private/PSS/forced trim. A RAM or VRAM value that was not measured is unknown, never zero or within budget.",
+      "statement": "Every 1s normalized app-group CPU sample shall be ≤10%. Aggregate peak full Working Set and, when the app group uses the GPU, peak dedicated GPU memory (VRAM) shall be measured and reported with raw receipts; they have no pass/fail limit until the product owner sets one from the first measured baseline. GPU use is allowed. A value that was not measured is unknown, never zero or within budget.",
+      "failure_behavior": "No excluding model/shared pages or substituting private/PSS/forced trim. A RAM or VRAM value that was not measured is unknown, never zero or within budget. No RAM or VRAM limit is applied or claimed until the owner sets one.",
       "acceptance": {
         "scenario_id": "AC-QUALITY-002",
         "given": "host, WebView, sidecars and active external model processes are measured",
         "when": "warmup and idle/live/voice-alert profiles run",
-        "then": "all included process samples satisfy the fixed limits with raw receipts; app-group VRAM is measured per process with raw receipts when the GPU is used"
+        "then": "all included process samples satisfy the fixed CPU limit with raw receipts; app-group full Working Set and, when the GPU is used, VRAM are measured per process and reported with raw receipts for the idle, live and voice-alert profiles, as the baseline from which the owner sets a limit"
       },
       "verification": {
         "required_evidence": [
