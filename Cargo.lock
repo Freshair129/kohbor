@@ -1858,6 +1858,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "kohbor-capture"
+version = "0.0.1"
+
+[[package]]
 name = "kohbor-desktop"
 version = "0.0.1"
 dependencies = [
@@ -1933,6 +1937,13 @@ dependencies = [
  "kohbor-pack",
  "serde_json",
  "sha2",
+]
+
+[[package]]
+name = "kohbor-vision"
+version = "0.0.1"
+dependencies = [
+ "kohbor-capture",
 ]
 
 [[package]]

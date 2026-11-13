@@ -1,0 +1,11 @@
+[package]
+name = "kohbor-vision"
+description = "Pure enemy observation boundary for Kohbor: availability fields, class certification, tracker and missing-coverage rules. No I/O, no inference. Implements docs/design/S4-OBSERVATION-BOUNDARY.md section 4.2."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+kohbor-capture = { path = "../kohbor-capture" }
