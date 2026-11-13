@@ -1,0 +1,40 @@
+{
+  "artifact_sha256": "0e8f8942bd3aad802b3754769738e9a9a71bab0a5939401ddf7418328d1d92ff",
+  "commands": [
+    "cargo test -p kohbor-desktop --test latency_harness --offline --locked -j 4 -- --ignored"
+  ],
+  "environment": {
+    "game_patch": null,
+    "hardware": null,
+    "os_build": null,
+    "profile": null
+  },
+  "evidence_class": "synthetic",
+  "executed_at_utc": "2026-11-13T05:27:35Z",
+  "limitations": [
+    "engineering fixture; not QUALITY-001",
+    "fake sink",
+    "T3' is sink.submit accepted into the hand-off and not a rendered frame or sound",
+    "no acoustic measurement",
+    "generated test clip, not authorized critical media",
+    "DEC-CRITICAL-MEDIA open",
+    "T0 is the arrival Instant passed to Shared::accept: HTTP read, JSON parse, the registry read and the serve-side Shared lock are not in the measurement; F2 and F3 are not quantified",
+    "no warm-up discarded and no outlier removed; samples include scheduler stalls of this machine",
+    "one session epoch per burst trace (new match id), measured on a developer machine under no controlled load",
+    "QUALITY-001 remains NOT_RUN"
+  ],
+  "observed_result": "T0 to T3' microseconds: count=300, p50=198, p95=1781, max=92488",
+  "operator": "kohbor latency harness (stage A)",
+  "raw_evidence_paths": [
+    "F:\\cargo-lanes\\kohbor-s1\\evidence\\s3-6\\latency-stage-a.samples.json"
+  ],
+  "receipt_id": "s3-6a-68e29852170efe6cdba7e23a3952cc91",
+  "requirement_ids": [
+    "QUALITY-001"
+  ],
+  "scenario_id": "S3-6a-stage-a-engineering-fixture",
+  "schema_version": "1.0.0",
+  "source_revision": "1f41c67bd0feca87772d7b6c3c9d65cad47789a2",
+  "spec_version": "0.3.6",
+  "status": "INDETERMINATE"
+}

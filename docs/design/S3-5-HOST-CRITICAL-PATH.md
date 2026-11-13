@@ -2,8 +2,8 @@
 title: "S3-5 Host Critical Warning Path (design and task breakdown)"
 doc_id: "S3-5-HOST-CRITICAL-PATH"
 status: draft
-version: "0.1.0"
-updated: "2026-11-12"
+version: "0.1.1"
+updated: "2026-11-13"
 authority: "Lead architect decision under owner delegation for SPRINT-ROADMAP S3-5/S3-6; elaborates ALERT-001, ALERT-007, MEDIA-004..008, QUALITY-001 and EVENT-AUDIO-SPEC sections 4 to 7.1. Changes no requirement statement."
 approval_status: "agent_decision_not_owner_approved"
 ---
@@ -367,3 +367,33 @@ Parallel sets: {5a, 5b, 5k}; after 5d: {5e, 5g, 5h}; 5f alongside 5i and 5j.
 | DEC-EVENT-AUDIO (proposed) | Freezing audio-outcome 1.0.0 and the outcome set | Implementation against the proposal |
 | E-1 (first blood) | Voicing `first_blood` | It is recorded `detector_unavailable` |
 | Owner hardware session | Device loss, default-device change, acoustic latency evidence | Synthetic and native-silence evidence, reported as such |
+
+## 13. S3-6a result and S3-7 review dispositions (2026-11-13)
+
+Written by the lead after the independent read-only reviews S3-7a (S3-5l) and S3-7c (S3-6a and the S3-7 fixes). Agent reviews only; no owner approval, no native, live or acoustic evidence.
+
+**S3-6a stage A (synthetic, engineering fixture).** `apps/desktop/src-tauri/src/latency.rs` and `tests/latency_harness.rs`. The test is `#[ignore]` because the burst trace is replayed in real time (about 2 s per sample, about 10 minutes for 300): `cargo test -p kohbor-desktop --test latency_harness --offline --locked -j 4 -- --ignored`. It drives `Shared::accept`, the engine thread and the publisher with a silent fake sink and a generated clip, collects 300 admitted `health_danger` samples (one new match id per sample), writes `latency-stage-a.receipt.json` and `latency-stage-a.samples.json` under `<target>/evidence/s3-6/` (untracked) and validates the receipt against `contracts/evidence.schema.json`. The receipt is `synthetic`, status `INDETERMINATE`, requirement `QUALITY-001`, with the literal limitation "engineering fixture; not QUALITY-001". **QUALITY-001 stays NOT_RUN**: T0 here is the `arrival` passed to `accept`, T3' is the sink hand-off, nothing is audible, and the clip is generated.
+
+| Run | Source revision | T0 to T3' p50 / p95 / max (µs) | Note |
+| --- | --- | --- | --- |
+| 1a | `8ab8d94`, dirty tree (worker run) | 257 / 4,182 / 266,293 | Other builds may have run on the machine |
+| 1b | `8ab8d94`, dirty tree | 223 / 4,040 / 63,783 | Same |
+| 2 | `77277b2`, clean | 192 / 1,241 / 4,450 | No stall above 5 ms; not kept |
+| final | `1f41c67`, clean | 198 / 1,781 / 92,488 | Receipt and samples kept in `docs/delivery/evidence/s3-6a/` (the receipt's `raw_evidence_paths` is the lane path of the run; the sample file was copied unchanged) |
+
+Every run is a distribution on one developer machine under uncontrolled load. Single stalls of 60 to 266 ms appeared in three of the four runs, including the final run on a clean tree with no build of this session running (other processes, such as the banner lab session or a game, were not controlled). They show that scheduler or I/O stalls of tens of milliseconds occur on this machine and that nothing about the QUALITY-001 hard maximum of 300 ms can be inferred from p50 or p95 of this harness; the real measurement needs loopback audio on the owner's hardware. They are not explained by the code (the session-start write is on the baseline tick, not the trigger tick), and no outlier is removed. The harness does not include the HTTP read, JSON parse, registry read or the `Shared` lock held by status commands, so it does not quantify F2/F3.
+
+**Dispositions of review findings.**
+
+| # | Finding | Disposition |
+| --- | --- | --- |
+| S3-7a blocker | Unbounded `stop_engine` and joins at shutdown | Fixed (bounded attempts, `join_with_deadline`), tested |
+| 1 | `detected.clone()` in `Shared::accept` | Accepted. It runs only on a tick that detected an event, after T1 and before the non-blocking offer; the vector holds a handful of events. Independent review S3-7c agreed |
+| 2 | `media_inspect` size check then read to EOF | Fixed: `kohbor_pack::container::sha256_file_limited` reads at most limit + 1 bytes from the opened handle, rejects non-regular files by handle metadata, and `inspect_with_limit` requires the hashed length to equal both metadata snapshots. A symlink to a regular file is followed on purpose (user-selected path; install re-verifies the hash). Content changed at equal length between inspect and install is caught by the install-time hash, not by inspect |
+| 3a | Protocol mutex held while the server stops | Fixed: dispatch clones a sender under the lock and releases it; `stop_protocol` takes the server out first |
+| 3b | Protocol server join unbounded | Fixed in the same pass: `ProtocolServer::stop` uses `join_with_deadline` (5 s, detach) |
+| 3c | `kohbor-media` ignores origin/authority | Accepted risk, **not proven closed**. The scheme is served inside the app's own webview only, the CSP is `default-src 'self'` with `media-src` limited to the scheme, there is no remote navigation, and the worker re-validates install id, token, length and modification time. The token is a SHA-256 of a descriptor-relative path, so it is a handle, not a secret. Review S3-7c disagrees that CSP proves the caller; the open question (what Tauri/WebView2 guarantees about who can request a registered scheme on Windows) needs the dependency's documentation or native verification on the owner's machine |
+| 4 | Legacy commands have no shutdown gate | Narrowed: `gsi_setup` and `settings_patch` (the mutators) now answer `CANCELLED` once shutdown starts, before and after taking the settings gate. Read-only commands stay ungated. Writes were already atomic |
+| 5 | F2/F3: registry read per payload, file write at session start, `Shared` mutex held by status commands | Inherited and still open. The stage A harness does not measure them; a harness variant that goes through `serve` is needed before any claim |
+| S3-7c nit | `latency` is an always-compiled public module | Accepted: no production call site; smallest fix, if wanted, is a harness-only cargo feature that gates the module and the integration test |
+| flaky | `host::tests::stop_engine_is_bounded_when_the_engine_is_gone_or_the_lane_stays_full` asserts under 3 s and failed once in a loaded full-suite run, then passed in every other run | Recorded; the bound is 100 attempts of a 10 ms sleep. Not weakened. Re-examine if it fails again |
