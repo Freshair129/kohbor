@@ -92,14 +92,14 @@ svg#links{position:absolute;left:0;top:0;pointer-events:none}svg#links path{fill
 .kv{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:12px}.kv dt{color:var(--muted)}.kv dd{margin:0;word-break:break-word}
 .path{font:11.5px Consolas,"Cascadia Mono",monospace;word-break:break-all;color:var(--fg)}.path.miss{color:var(--s-blocked)}a{color:inherit}
 .small{font-size:11.5px;color:var(--muted)}
-/* board */
-.board{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;flex:1;min-height:0}
-.bcol{display:flex;flex-direction:column;min-height:0;border-radius:14px;border:1px solid var(--line);background:var(--card);border-top:3px solid var(--sc)}
-.bcol>h3{margin:0;padding:10px 12px 6px;font-size:12.5px;display:flex;justify-content:space-between;gap:6px;flex:none}.bcol>h3 span{color:var(--sc)}
-.bcol .cards{padding:0 8px 8px;overflow:auto;display:flex;flex-direction:column;gap:8px;min-height:0}
-.bc{border:1px solid var(--line);border-radius:11px;background:var(--card2);padding:8px 10px;cursor:pointer}.bc:hover{border-color:var(--sc)}
-.bc .h{display:flex;justify-content:space-between;gap:6px;font-weight:600;font-size:12px}.bc .h span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.bc .it{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:3px}
+/* roadmap */
+.rmwrap{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:12px;flex:1;min-height:0}
+.rmrow{display:flex;align-items:center;gap:8px;padding:5px 6px;border-bottom:1px dashed var(--line);cursor:pointer;border-radius:6px;min-height:30px}
+.rmrow:hover{background:var(--card2)}.rmrow.sel{outline:2px solid var(--acc);outline-offset:-1px}
+.rmrow.lv0{font-weight:700;background:var(--card2);margin-top:4px}.rmrow.lv1{padding-left:24px;font-weight:600}.rmrow.lv2{padding-left:46px;font-weight:400;font-size:12.5px}
+.rmrow .chev{width:12px;color:var(--muted);flex:none}.rmrow .lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rmrow .g{color:var(--sc);font-weight:700;width:14px;text-align:center;flex:none}.rmrow .vcount{font-size:11px;color:var(--muted);white-space:nowrap;min-width:92px;text-align:right}
+.cb{display:inline-block;width:18px;text-align:center;font-weight:700;flex:none;color:var(--muted)}.cb.on{color:var(--s-verified)}.cb.unk{color:var(--s-unknown);opacity:.8}
 /* tables */
 table{border-collapse:collapse;width:100%;font-size:12px}th{position:sticky;top:0;background:var(--bg2);text-align:left;color:var(--muted);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--line);z-index:1}
 td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}tr.r{cursor:pointer}tr.r:hover td{background:var(--card2)}
@@ -109,7 +109,7 @@ tr.det td{background:var(--card2);color:var(--muted)}tr.det b{color:var(--fg)}
 /* footer */
 #foot{grid-area:foot;display:flex;justify-content:space-between;gap:14px;align-items:center;padding:0 16px;border-top:1px solid var(--line);color:var(--muted);font-size:10.5px;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-transform:uppercase}
 #foot b{color:var(--acc);font-weight:600}
-@media (max-width:1100px){.grid3,.grid2,.mapwrap{grid-template-columns:1fr}.board{grid-template-columns:repeat(4,minmax(0,1fr));overflow:auto}.stats{grid-template-columns:repeat(2,1fr)}.view{overflow:auto}}
+@media (max-width:1100px){.grid3,.grid2,.mapwrap{grid-template-columns:1fr}.rmwrap{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.view{overflow:auto}}
 </style></head><body>
 <header id="top"></header>
 <nav id="rail" aria-label="views"></nav>
@@ -235,12 +235,60 @@ function showNode(id){const d=D.details[id],n=nodes[id],p=$("panelbody");p.textC
  if(info.design&&info.design.length){sec(p,"Design / spec / contract files");info.design.forEach(f=>p.appendChild(pathEl(f)))}
  if(info.evidence&&info.evidence.length){sec(p,"Evidence");info.evidence.forEach(f=>p.appendChild(pathEl({path:f,ok:true})))}else if(info.kind==="requirement"){sec(p,"Evidence");p.appendChild(E("div","small","none recorded (evidence_refs is empty)"))}
  if(info.notes&&info.notes.length){sec(p,"Notes");info.notes.forEach(t=>p.appendChild(E("div","small",t)))}p.scrollTop=0}
-/* ---------- roadmap board ---------- */
-function buildBoard(){const v=views.board;head(v,"Roadmap","Board by status",[chip("read-only: cards are areas, not tasks")]);const b=E("div","board");
- D.statuses.forEach(s=>{const cards=D.board[s.id]||[];const total=cards.reduce((a,c)=>a+c.n,0);const col=E("div","bcol s-"+s.id);const h=E("h3");h.appendChild(E("span","",s.glyph+" "+s.en));h.appendChild(E("span","",String(total)));h.title=s.th;col.appendChild(h);
-  const cw=E("div","cards");cards.forEach(c=>{const card=E("div","bc");const hh=E("div","h");hh.appendChild(E("span","",areaShort(c.t)));const r=E("span");if(c.p0)r.appendChild(E("span","badge p0",c.p0+" P0"));r.appendChild(document.createTextNode(" "+c.n));hh.appendChild(r);card.appendChild(hh);
-   c.items.forEach(it=>card.appendChild(E("div","it",(it.p==="P0"?"P0 ":"")+it.t)));if(c.n>c.items.length)card.appendChild(E("div","it","+"+(c.n-c.items.length)+" more"));card.addEventListener("click",()=>{mapFilter=s.id;focusArea(c.area)});cw.appendChild(card)});
-  if(!cards.length)cw.appendChild(E("div","small","none"));col.appendChild(cw);b.appendChild(col)});v.appendChild(b)}
+/* ---------- roadmap: overall -> phase -> sprint -> task ---------- */
+const RM=D.roadmap,RD=D.roadmap_details,rmNodes={},rmParent={};(function idx(n,p){rmNodes[n.i]=n;rmParent[n.i]=p;(n.c||[]).forEach(c=>idx(c,n))})(RM,null);
+const rmOpen=new Set(["rm:all"].concat((RM.c||[]).map(c=>c.i)));let rmSel="rm:all";
+function cnt(n){return Object.values(n.n).reduce((a,b)=>a+b,0)}
+function cb(state){const s=E("span","cb "+(state==="done"?"on":state==="unknown"?"unk":"off"),state==="done"?"☑":state==="open"?"☐":"?");s.title=state==="done"?"done: the data proves it":state==="open"?"not done":"unknown: no data";return s}
+function buildRoadmap(){const v=views.board;const tot=cnt(RM),ver=RM.n.verified,bu=RM.n.built;
+ head(v,"Roadmap","Plan → phase → sprint → task",[chip("source: SDP.md, SPRINT-ROADMAP.md, requirements registry"),chip("tasks are requirements")]);
+ const top=E("div","card");top.style.flex="none";const tb=E("div","body");const big=stackBar(RM.n);big.style.height="22px";big.style.borderRadius="11px";tb.appendChild(big);
+ const sm=E("div","legend");sm.style.marginTop="8px";
+ const vs=E("span","s-verified");vs.appendChild(E("i","dot"));vs.appendChild(document.createTextNode("✓ Verified (receipt-backed) "));vs.appendChild(E("b","",ver+" of "+tot));sm.appendChild(vs);
+ const bs=E("span","s-built");bs.appendChild(E("i","dot"));bs.appendChild(document.createTextNode("◐ Built, not verified (counted separately) "));bs.appendChild(E("b","",bu));sm.appendChild(bs);
+ D.statuses.forEach(s=>{if(s.id==="verified"||s.id==="built"||!RM.n[s.id])return;const sp=E("span","s-"+s.id);sp.appendChild(E("i","dot"));sp.appendChild(document.createTextNode(s.glyph+" "+s.en+" "));sp.appendChild(E("b","",RM.n[s.id]));sm.appendChild(sp)});
+ tb.appendChild(sm);tb.appendChild(E("div","small","Progress counts a task as verified only when its registry row has evidence_refs and new_build_status PASS. Built, not verified is never added to it. A task with missing data is unknown, not done."));top.appendChild(tb);v.appendChild(top);
+ const w=E("div","rmwrap");const l=E("div","card");l.appendChild(E("h3","","Phases, sprints and tasks"));const lb=E("div","body");lb.id="rmtree";l.appendChild(lb);w.appendChild(l);
+ const p=E("div","card");p.appendChild(E("h3","","Details"));const pb=E("div","body");pb.id="rmpanel";p.appendChild(pb);w.appendChild(p);v.appendChild(w);renderRm();showRm(rmSel)}
+function rmRow(n,level){const r=E("div","rmrow s-"+n.s+" lv"+level);r.dataset.id=n.i;if(n.i===rmSel)r.classList.add("sel");
+ const isTask=n.k==="task";const ch=E("span","chev",isTask?"":(rmOpen.has(n.i)?"▾":"▸"));r.appendChild(ch);
+ if(isTask){r.appendChild(E("span","g",ST[n.s].glyph));r.appendChild(E("span","lbl",n.t));if(n.p==="P0")r.appendChild(E("span","badge p0","P0"));r.appendChild(E("span","badge",n.m||"–"))}
+ else{r.appendChild(E("span","lbl",n.t));const bar=stackBar(n.n);bar.style.width="150px";bar.style.flex="none";r.appendChild(bar);r.appendChild(E("span","vcount","✓"+n.n.verified+" ◐"+n.n.built+" / "+cnt(n)))}
+ r.addEventListener("click",()=>{rmSel=n.i;if(!isTask){if(rmOpen.has(n.i))rmOpen.delete(n.i);else rmOpen.add(n.i)}renderRm();showRm(n.i)});return r}
+function renderRm(){const t=$("rmtree");t.textContent="";(function add(n,level){if(n.i!=="rm:all")t.appendChild(rmRow(n,level));if(n.i==="rm:all"||rmOpen.has(n.i))(n.c||[]).forEach(c=>add(c,level+(n.i==="rm:all"?0:1)))})(RM,0)}
+function rmSec(p,t){p.appendChild(E("h4","",t))}
+function rmList(p,title,items,fn){rmSec(p,title);if(!items||!items.length){p.appendChild(E("div","small","unknown: nothing recorded"));return}items.forEach(i=>p.appendChild(fn(i)))}
+function rmText(p,title,text,source){rmSec(p,title);p.appendChild(text?E("div","",text):E("div","small","unknown: not stated in the source"));if(text&&source)p.appendChild(E("div","small",source))}
+function showRm(id){const d=RD[id],n=rmNodes[id],p=$("rmpanel");p.textContent="";if(!d)return;
+ const h=E("div","",d.title);h.style.cssText="font-weight:700;font-size:14px;margin-bottom:6px";p.appendChild(h);
+ if(d.kind!=="task"){const st=E("div","why s-"+n.s);st.appendChild(E("b","",ST[n.s].glyph+" "+ST[n.s].en+" (most common status below)"));p.appendChild(st);const lg=E("div","legend");D.statuses.forEach(s=>{if(n.n[s.id]){const sp=E("span","s-"+s.id);sp.appendChild(E("i","dot"));sp.appendChild(document.createTextNode(s.glyph+" "));sp.appendChild(E("b","",n.n[s.id]));sp.title=s.en;lg.appendChild(sp)}});p.appendChild(lg)}
+ if(d.kind==="overall"){p.appendChild(E("div","small",d.note))}
+ if(d.kind==="phase"){rmList(p,"Milestones (SDP)",d.milestones,m=>{const x=E("div");x.appendChild(E("b","",m.id+" "));x.appendChild(document.createTextNode(m.deliverable||"unknown"));if(m.entry)x.appendChild(E("div","small","Entry: "+m.entry));x.appendChild(E("div","small","Exit gate: "+(m.exit||"unknown")));return x});
+  rmList(p,"Sprint outcomes (phase overview)",d.outcomes,o=>E("div","small","Sprint "+o.sprint+" · "+o.milestone+": "+o.outcome))}
+ if(d.kind==="sprint"){rmText(p,"Goal",d.goal,d.goal?"source: "+d.goal_source:"");rmText(p,"Exit gate",d.exit,"source: the Exit gate line of the sprint section");rmText(p,"Owner input needed",d.owner_input,"");
+  if(d.milestone_info){rmSec(p,"Milestone "+d.milestone+" (SDP)");p.appendChild(E("div","small","Deliverable: "+d.milestone_info.deliverable));p.appendChild(E("div","small","Entry: "+d.milestone_info.entry));p.appendChild(E("div","small","Exit gate: "+d.milestone_info.exit))}
+  rmList(p,"Planned work items",d.work_items,i=>{const x=E("div","li");x.style.cursor="default";x.appendChild(cb(i.state));const tx=E("div","tx");tx.appendChild(E("div","",i.id+" "+i.work));tx.appendChild(E("div","small",[i.model,i.risk,i.evidence].filter(Boolean).join(" · ")+" — "+i.basis));x.appendChild(tx);return x});
+  if(d.slices&&d.slices.length)rmList(p,"Planned slices",d.slices,s=>E("div","small",s.name+": "+s.work));
+  p.appendChild(E("div","small",d.rule))}
+ if(d.kind==="task")showTask(p,d,n);p.scrollTop=0}
+function linkList(p,title,files,miss){rmSec(p,title);if(!files||!files.length){p.appendChild(E("div","small","none recorded"));return}files.forEach(f=>p.appendChild(pathEl({path:f,ok:!miss})))}
+function showTask(p,d,n){const st=E("div","why s-"+n.s);st.appendChild(E("b","",ST[n.s].glyph+" "+ST[n.s].th+" / "+ST[n.s].en));st.appendChild(E("div","small","task ID "+d.id+" · "+d.priority+" · "+d.milestone+" · module "+d.module));st.appendChild(E("div","",d.why));p.appendChild(st);
+ const go=E("button","btn","Open in the mind map");go.addEventListener("click",()=>focusNode("req:"+d.id));p.appendChild(go);
+ rmText(p,"Where it sits",d.placement,"");rmText(p,"Requirement",d.statement,"");
+ rmSec(p,"Acceptance");if(d.acceptance){const dl=E("dl","kv");[["scenario",d.acceptance.scenario],["given",d.acceptance.given],["when",d.acceptance.when],["then",d.acceptance.then]].forEach(([k,x])=>{dl.appendChild(E("dt","",k));dl.appendChild(E("dd","",x||"unknown"))});p.appendChild(dl)}else p.appendChild(E("div","small","unknown: the registry has no acceptance text"));
+ rmText(p,"Success criteria",d.success,"the acceptance 'then' clause");rmText(p,"On failure",d.failure,"");
+ rmSec(p,"Exit criteria");p.appendChild(d.exit.sprint?E("div","","Sprint: "+d.exit.sprint):E("div","small","Sprint: unknown (the task is not in a sprint section with an exit gate)"));p.appendChild(d.exit.milestone?E("div","","Milestone "+d.milestone+" (SDP): "+d.exit.milestone):E("div","small","Milestone: unknown"));
+ rmSec(p,"Definition of done");p.appendChild(d.dod?E("div","small","SDP: "+d.dod):E("div","small","unknown: SDP.md not read"));
+ d.checks.forEach(c=>{const x=E("div","li");x.style.cursor="default";x.appendChild(cb(c.state));const tx=E("div","tx");tx.appendChild(E("div","",c.label));tx.appendChild(E("div","small",c.basis));x.appendChild(tx);p.appendChild(x)});
+ linkList(p,"Code",d.links.code,false);linkList(p,"Tests",d.links.tests,false);if(d.links.missing.length)linkList(p,"Listed but not on disk",d.links.missing,true);
+ linkList(p,"Docs, specs and contracts",d.links.docs,false);
+ rmSec(p,"Verification procedures");if(!d.links.procedures.length)p.appendChild(E("div","small","unknown: none listed"));d.links.procedures.forEach(pr=>{const x=E("div");x.appendChild(E("b","",pr.id+" "));x.appendChild(document.createTextNode(pr.title||"not found in TEST-PLAN or UAT-PLAN"));if(pr.file){x.appendChild(pathEl({path:pr.file,ok:true}))}p.appendChild(x)});
+ rmSec(p,"Evidence receipts");if(d.links.evidence.length)d.links.evidence.forEach(e=>p.appendChild(pathEl({path:e,ok:true})));else p.appendChild(E("div","small","none: evidence_refs is empty, so this task cannot count as verified"));
+ if(d.decisions.length){rmSec(p,"Decisions it names");d.decisions.forEach(x=>{const w=E("div");w.appendChild(E("b","",x.id+" "));w.appendChild(E("span","small","["+x.status+"]"));if(x.question)w.appendChild(E("div","small",x.question));p.appendChild(w)})}
+ if(d.claims.length){rmSec(p,"Active claims touching it");d.claims.forEach(c=>p.appendChild(E("div","path",c)))}
+ if(d.sprint_tasks.length){rmSec(p,"Sprint work items that name it");d.sprint_tasks.forEach(t=>{const x=E("div","small");x.appendChild(cb(t.state));x.appendChild(document.createTextNode(" "+t.id+" "+t.work));p.appendChild(x)})}
+ rmSec(p,"Changelog (git log of its implementation files, and changelog lines naming it)");if(!d.changelog.commits.length&&!d.changelog.lines.length)p.appendChild(E("div","small","none: no implementation file is committed and no changelog line names it"));
+ d.changelog.commits.forEach(c=>{const x=E("div","small");x.appendChild(E("b","mono",c.sha+" "));x.appendChild(document.createTextNode(fmtT(c.time).slice(0,10)+" "+c.title));p.appendChild(x)});d.changelog.lines.forEach(l=>p.appendChild(E("div","small",l)))}
 /* ---------- decisions ---------- */
 let decFilter="pending",decOwner=false,decQuery="";let decRows={};
 function openDecision(id){decFilter="all";decOwner=false;decQuery=id;const q=document.getElementById("decq");if(q)q.value=id;renderDecisions();const r=decRows[id];if(r){r.click()}}
@@ -286,7 +334,7 @@ function buildBuilds(){const v=views.builds;const B=D.builds;const withR=B.filte
   const lm=E("td");(r&&r.limits.length?r.limits:[]).forEach(x=>lm.appendChild(E("div","small",x)));if(!r||!r.limits.length)lm.appendChild(E("span","small",r?"the receipt lists none":"unknown"));tr.appendChild(lm);t.appendChild(tr)});
  body.appendChild(t);if(!B.length)body.appendChild(E("div","small","No builds folder was read (see sources)."));body.appendChild(E("div","small","Hashes are computed by the generator, never in the browser. A receipt is matched by SHA-256 only; a build is never marked verified here."));c.appendChild(body);v.appendChild(c)}
 /* ---------- start ---------- */
-buildChrome();buildOverview();buildMap();buildBoard();buildDecisions();buildAgents();buildBuilds();
+buildChrome();buildOverview();buildMap();buildRoadmap();buildDecisions();buildAgents();buildBuilds();
 const first=(location.hash||"").slice(1);setView(VIEWS.some(v=>v.id===first)?first:"overview");
 addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(VIEWS.some(v=>v.id===h)&&h!==current)setView(h)});
 </script></body></html>

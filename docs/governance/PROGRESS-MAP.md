@@ -1,7 +1,7 @@
 ---
 title: "Progress Map"
 doc_id: "PROGRESS-MAP"
-version: "0.2.0"
+version: "0.3.0"
 status: "draft"
 updated: "2026-11-14"
 owner: "Governance lead (integration owner)"
@@ -27,10 +27,30 @@ The look is a dark glass dashboard (teal and purple accent, a thin collapsible i
 | --- | --- | --- |
 | Overview | four stat cards (requirements verified of total and how many are only built; areas with active work; decisions that need the owner; active claims and how many are past expiry), status by area, the distribution, requirements by milestone, What next, Needs the owner | the tree, owner list, claims |
 | Mind map | the collapsible node tree and a details panel with the rule that fired, files, evidence, open decisions and claims | the tree |
-| Roadmap | read-only columns per status with one card per area (item count, P0 count, the first items); a click opens the area in the mind map | the counted leaves |
+| Roadmap | the plan as a hierarchy: an overall progress bar, then phase, sprint and task (a task is a requirement), with a details panel (see "Roadmap" below) | SDP.md, SPRINT-ROADMAP.md, the requirements registry, git |
 | Decisions | every record of `contracts/decisions.json` with a filter (open or provisional or proposed, decided, deferred, all), an owner-only switch, a search and the question, closure and safe interim | decisions |
 | Agents & work | claims with domain, model, role, branch, state and hours to expiry (measured at generation time), merged commits per day, recent merges from `git log` (offline), registry worktrees, pull requests with `--github` | ledger, git |
 | Builds | every `.exe` under the builds folder with size, time, SHA-256 and the release receipt that names that hash, the receipt's commit and whether it is in `origin/main`, its gate line, and the lines that say what was NOT done | builds folder, receipts |
+
+## Roadmap
+
+**Hierarchy.** Overall, then phase (A to E, from the Phase overview table of `SPRINT-ROADMAP.md`), then sprint (each `## Sprint N` section; Phase E is planned to milestone level, so its rows are milestones), then task. A task is one requirement of `contracts/requirements.json`; nothing about a task is typed in the tool.
+
+**Where a requirement sits** (the rule that placed it is shown on the task):
+
+1. the first sprint section whose text names its id (ranges such as `VOICE-001..007` are expanded), or the Phase E table row that names it;
+2. else the only sprint of its milestone;
+3. else a Phase E row for its milestone;
+4. else a "No sprint names these" bucket under the phase that owns the milestone (several sprints share it, so it is not guessed into one);
+5. else an "unplaced" bucket (its milestone is not in the plan).
+
+**Progress.** The overall bar and every phase and sprint bar show the status mix of the tasks below them. Verified counts only tasks whose registry row has `evidence_refs` and `new_build_status` PASS; built-not-verified is a separate count and is never added to it. Today no row has `evidence_refs`, so verified is 0.
+
+**Details.** A phase shows its SDP milestone deliverable, entry and exit gate and its sprint outcomes. A sprint shows its goal (the Goal line, else the phase Outcome, and the page says which), its exit gate, the owner input it needs, its planned work items and its milestone. A task shows its status and why, the acceptance scenario (given, when, then), success criteria (the "then" clause), the failure behaviour, exit criteria (the sprint's Exit gate and the SDP milestone exit gate), the SDP definition of done, a checklist, links to code, tests, docs, contracts and verification procedures (`TP-nn` in TEST-PLAN, `UAT-nn` in UAT-PLAN), evidence receipts, the decisions it names, active claims, and a changelog (git log of its implementation files plus changelog lines that name it).
+
+**Checkboxes tick only with data.** Acceptance defined: ticked when the registry has acceptance text, unknown when it has none. Implementation files exist: ticked when a listed file is on disk. Evidence class X: ticked only when the row has `evidence_refs` and PASS, otherwise open. Verification procedures: ticked when every named procedure is found in the plans, unknown when none is named. No open owner decision: open when an owner-only decision named by the row is open. A sprint work item (an `Sn-m` row) is ticked only when the Backlog status says passed or done **and** the row names a commit that exists in this checkout; a status without a commit, or with a commit this checkout lacks, is unknown, and a gate or review pass is never shown as a live or native result.
+
+**Unknown, not filled in.** A goal, exit gate, owner input, acceptance text, procedure or milestone gate that the source does not state is shown as "unknown". If `SPRINT-ROADMAP.md` or `SDP.md` is missing, tasks still come from the registry, sit in "unplaced" buckets, and every plan-derived field is unknown.
 
 ## Sources (each may be missing; a missing source is listed on the page as not read)
 
@@ -40,7 +60,7 @@ The look is a dark glass dashboard (teal and purple accent, a thin collapsible i
 | `contracts/decisions.json` | decisions that are open, proposed, provisional or deferred, their owner role and the question |
 | `docs/domains/*/state.json` and `CARD.md` section 3 | domains, and the Now / Next / Blocked lines |
 | Coordination ledger `claims/` and `registry/branches.json` (`--coord`, `KOHBOR_COORD_DIR`) | active work, who, branch |
-| `docs/delivery/SPRINT-ROADMAP.md` | phases and the Backlog status table |
+| `docs/delivery/SPRINT-ROADMAP.md`, `docs/delivery/SDP.md`, `docs/quality/TEST-PLAN.md`, `docs/quality/UAT-PLAN.md` | phases, sprints, sprint work items, the Backlog status table, SDP milestones and definition of done, verification procedures |
 | `docs/design`, `docs/delivery`, `docs/operations`, and `--design-dir` folders (`KOHBOR_DESIGN_DIR`, default `F:\kohbor-design\*`) | design documents that exist |
 | git | HEAD, branch, distance from `origin/main`, recent merged titles, and whether a receipt's commit is in `origin/main` |
 | Owner builds folder (`--builds-dir`, `KOHBOR_BUILDS_DIR`, default `F:\kohbor-local`) and `RELEASE-RECEIPT*.md` in the design folders | executables, hashed by the generator (never in the browser), matched to a receipt by SHA-256 only |

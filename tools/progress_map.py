@@ -171,6 +171,7 @@ def load_requirements(repo: Path, src: Sources) -> list[dict[str, Any]]:
                     "build_status": v.get("new_build_status", ""), "decisions": as_list(q.get("open_decisions")),
                     "design": as_list(q.get("design_refs")), "contracts": as_list(q.get("contract_refs")), "spec": as_list(q.get("spec_refs")),
                     "needs": as_list(q.get("product_need_ids")), "statement": q.get("statement", ""),
+                    "procedures": as_list(v.get("procedure_ids")), "acceptance": q.get("acceptance") or None, "failure": q.get("failure_behavior", ""),
                 })
             src.read("contracts/requirements.json", jpath, f"{len(out)} requirements")
         except (OSError, ValueError) as exc:
@@ -192,6 +193,7 @@ def load_requirements(repo: Path, src: Sources) -> list[dict[str, Any]]:
                         "build_status": r.get("new_build_status", ""), "decisions": split_semi(r.get("open_decisions")),
                         "design": split_semi(r.get("design_refs")), "contracts": split_semi(r.get("contract_refs")),
                         "spec": split_semi(r.get("spec_refs")), "needs": split_semi(r.get("product_need_ids")), "statement": "",
+                        "procedures": split_semi(r.get("procedure_ids")), "acceptance": None, "failure": "",
                     })
             elif len(rows) != len(out):
                 src.add("RTM consistency", str(cpath), "read", f"RTM has {len(rows)} rows, requirements.json has {len(out)}: regenerate the RTM")
@@ -321,32 +323,118 @@ def split_row(line: str) -> list[str]:
     return cells
 
 
-def load_roadmap(repo: Path, src: Sources) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
-    path = repo / "docs" / "delivery" / "SPRINT-ROADMAP.md"
-    if not path.is_file():
-        src.missing("SPRINT-ROADMAP.md", path)
-        return [], []
-    try:
-        lines = path.read_text(encoding="utf-8-sig").splitlines()
-    except OSError as exc:
-        src.error("SPRINT-ROADMAP.md", path, str(exc)[:120])
-        return [], []
-    phases: list[dict[str, str]] = []
-    tasks: list[dict[str, str]] = []
-    mode = ""
-    for line in lines:
+ID_RANGE = re.compile(r"\b([A-Z]{3,7})-(\d{3})(?:\s*(?:\.\.|–|—)\s*(\d{3}))?")
+SPRINT_TASK_ID = re.compile(r"\bS\d+-\d+[a-z]?\b")
+
+
+def expand_ids(text: str, known: set[str]) -> list[str]:
+    """Requirement ids named in a text, with ranges such as VOICE-001..007 or CORE-001–005 expanded; only ids that exist are returned."""
+    out: list[str] = []
+    for m in ID_RANGE.finditer(text):
+        pre, a, b = m.group(1), int(m.group(2)), m.group(3)
+        nums = range(a, int(b) + 1) if b and int(b) >= a else [a]
+        for n in nums:
+            rid = f"{pre}-{n:03d}"
+            if rid in known and rid not in out:
+                out.append(rid)
+    return out
+
+
+def section_text(lines: list[str], start: int) -> str:
+    out: list[str] = []
+    for line in lines[start + 1:]:
         if line.startswith("## "):
-            mode = "phase" if line.lower().startswith("## phase overview") else "backlog" if line.lower().startswith("## backlog status") else ""
+            break
+        out.append(line)
+    return "\n".join(out)
+
+
+def bold_field(text: str, name: str) -> str:
+    m = re.search(r"\*\*" + re.escape(name) + r"\.?\*\*\s*(.+)", text)
+    return m.group(1).strip() if m else ""
+
+
+def load_plan(repo: Path, src: Sources) -> dict[str, Any]:
+    """Phases, sprints and sprint tasks from docs/delivery/SPRINT-ROADMAP.md, milestones and the definition of done from docs/delivery/SDP.md."""
+    plan: dict[str, Any] = {"phase_rows": [], "sprints": [], "later": [], "backlog": [], "milestones": {}, "dod": "", "dor": ""}
+    rpath, spath = repo / "docs" / "delivery" / "SPRINT-ROADMAP.md", repo / "docs" / "delivery" / "SDP.md"
+    if rpath.is_file():
+        try:
+            lines = rpath.read_text(encoding="utf-8-sig").splitlines()
+        except OSError as exc:
+            lines = []
+            src.error("SPRINT-ROADMAP.md (plan)", rpath, str(exc)[:120])
+        mode = ""
+        for i, line in enumerate(lines):
+            if line.startswith("## "):
+                low = line.lower()
+                mode = "phase" if low.startswith("## phase overview") else "later" if low.startswith("## phase e") else "backlog" if low.startswith("## backlog status") else ""
+                m = re.match(r"^## Sprint (\d+) — (.*?)(?:\s*\((M[^)]*)\))?\s*$", line)
+                if m:
+                    body = section_text(lines, i)
+                    tasks, slices = [], []
+                    for row in body.splitlines():
+                        if not row.startswith("|") or re.match(r"^\|\s*-+", row):
+                            continue
+                        c = split_row(row)
+                        if len(c) >= 2 and re.match(r"^S\d+-\d+", c[0]):
+                            tasks.append({"id": c[0], "work": c[1], "model": c[2] if len(c) > 2 else "", "risk": c[4] if len(c) > 4 else "", "evidence": c[5] if len(c) > 5 else ""})
+                        elif len(c) >= 2 and c[0] not in ("Task", "Slice", "Phase", "Milestone"):
+                            slices.append({"name": c[0], "work": c[1], "model": c[2] if len(c) > 2 else ""})
+                    plan["sprints"].append({"n": int(m.group(1)), "title": m.group(2).strip(), "milestone": (m.group(3) or "").strip(), "text": body, "goal": bold_field(body, "Goal"),
+                                            "exit": bold_field(body, "Exit gate"), "owner_input": bold_field(body, "Owner input"), "tasks": tasks, "slices": slices})
+                continue
+            if not line.startswith("|") or re.match(r"^\|\s*-+", line):
+                continue
+            c = split_row(line)
+            if mode == "phase" and len(c) >= 4 and c[0].lower() != "phase":
+                plan["phase_rows"].append({"phase": c[0], "sprint": c[1], "milestone": c[2], "outcome": c[3]})
+            elif mode == "later" and len(c) >= 3 and c[0].lower() != "milestone":
+                plan["later"].append({"milestone": c[0], "scope": c[1], "note": c[2]})
+            elif mode == "backlog" and len(c) >= 3 and c[0].lower() != "task":
+                plan["backlog"].append({"task": c[0], "status": c[1], "note": c[2], "commit": c[3] if len(c) > 3 else ""})
+        src.read("SPRINT-ROADMAP.md (plan)", rpath, f"{len(plan['sprints'])} sprints, {len(plan['phase_rows'])} phase rows, {len(plan['later'])} later milestones")
+    else:
+        src.missing("SPRINT-ROADMAP.md (plan)", rpath)
+    if spath.is_file():
+        try:
+            stext = spath.read_text(encoding="utf-8-sig")
+        except OSError as exc:
+            stext = ""
+            src.error("SDP.md", spath, str(exc)[:120])
+        for row in stext.splitlines():
+            if row.startswith("| M") and not re.match(r"^\|\s*-+", row):
+                c = split_row(row)
+                if len(c) >= 4 and re.match(r"^M\d+[ab]?$", c[0]):
+                    plan["milestones"][c[0]] = {"deliverable": c[1], "entry": c[2], "exit": c[3]}
+        for key, head in (("dod", "## Definition of done"), ("dor", "## Definition of ready")):
+            m = re.search(re.escape(head) + r"\s*\n\n(.*?)(?:\n\n##|\Z)", stext, re.S)
+            plan[key] = m.group(1).strip() if m else ""
+        src.read("SDP.md", spath, f"{len(plan['milestones'])} milestones")
+    else:
+        src.missing("SDP.md", spath)
+    return plan
+
+
+def load_procedures(repo: Path, src: Sources) -> dict[str, dict[str, str]]:
+    """Verification procedures TP-nn (docs/quality/TEST-PLAN.md) and UAT-nn (docs/quality/UAT-PLAN.md)."""
+    out: dict[str, dict[str, str]] = {}
+    for rel, pat in (("docs/quality/TEST-PLAN.md", r"^\*\*(TP-\d+) — ([^*]+?)\.?\*\*\s*(.*)$"), ("docs/quality/UAT-PLAN.md", r"^###\s+(UAT-\d+) — (.+)$")):
+        p = repo / rel
+        if not p.is_file():
+            src.missing(rel, p)
             continue
-        if not line.startswith("|") or re.match(r"^\|\s*-+", line):
+        try:
+            lines = p.read_text(encoding="utf-8-sig").splitlines()
+        except OSError:
             continue
-        cells = split_row(line)
-        if mode == "phase" and len(cells) >= 4 and cells[0].lower() != "phase":
-            phases.append({"phase": cells[0], "sprint": cells[1], "milestone": cells[2], "outcome": cells[3]})
-        elif mode == "backlog" and len(cells) >= 3 and cells[0].lower() != "task":
-            tasks.append({"task": cells[0], "status": cells[1], "note": cells[2], "commit": cells[3] if len(cells) > 3 else ""})
-    src.read("SPRINT-ROADMAP.md", path, f"{len(phases)} phases, {len(tasks)} backlog rows")
-    return phases, tasks
+        for i, line in enumerate(lines):
+            m = re.match(pat, line.strip())
+            if m:
+                text = m.group(3) if m.lastindex and m.lastindex >= 3 else next((l.strip() for l in lines[i + 1:i + 6] if l.strip() and not l.startswith("#")), "")
+                out[m.group(1)] = {"id": m.group(1), "title": m.group(2).strip(), "text": text[:420], "file": rel}
+        src.read(rel, p, f"{sum(1 for v in out.values() if v['file'] == rel)} procedures")
+    return out
 
 
 def heading_of(path: Path) -> tuple[str, str]:
@@ -702,7 +790,9 @@ def build_model(repo: Path, coord: Path, design_dirs: list[Path], now: dt.dateti
     domains = load_domains(repo, src)
     claims = load_claims(coord, src)
     worktrees = load_branches(coord, src)
-    phases, task_rows = load_roadmap(repo, src)
+    plan = load_plan(repo, src)
+    phases, task_rows = plan["phase_rows"], plan["backlog"]
+    procs = load_procedures(repo, src)
     docs = load_docs(repo, design_dirs, src)
     git = load_git(repo, run, src)
     prs = load_github(repo, run, src) if github else []
@@ -726,11 +816,13 @@ def build_model(repo: Path, coord: Path, design_dirs: list[Path], now: dt.dateti
         buckets.setdefault(area, {}).setdefault(group, []).append(leaf)
 
     details: dict[str, dict[str, Any]] = {}
+    rstat: dict[str, tuple[str, str, dict[str, Any]]] = {}
     root_path = str(repo)
 
     # Requirements ---------------------------------------------------------------------------------------------------
     for q in sorted(reqs, key=lambda x: (ms_rank(x["milestone"]), prio_rank(x["priority"]), x["id"])):
         status, why, ex = derive_requirement(q, repo, claims, decs)
+        rstat[q["id"]] = (status, why, ex)
         area = area_for_requirement(q, areas)
         nid = "req:" + q["id"]
         label = f"{q['id']} {q['title']}".strip()
@@ -949,19 +1041,6 @@ def build_model(repo: Path, coord: Path, design_dirs: list[Path], now: dt.dateti
     done.sort(key=lambda c: c["started"], reverse=True)
     claims_view = live + done[:12]
 
-    board: dict[str, list[dict[str, Any]]] = {s["id"]: [] for s in STATUSES}
-    for a in root["c"]:
-        per: dict[str, list[dict[str, Any]]] = {}
-        for lf in iter_leaves(a):
-            if lf.get("rollup", True):
-                per.setdefault(lf["s"], []).append(lf)
-        for st_id, items in per.items():
-            items.sort(key=lambda lf: (prio_rank(lf["p"]), ms_rank(lf["m"]), lf["t"]))
-            board[st_id].append({"area": a["i"], "t": a["t"], "n": len(items), "p0": sum(1 for lf in items if lf["p"] == "P0"),
-                                 "items": [{"i": lf["i"], "t": lf["t"], "p": lf["p"], "m": lf["m"]} for lf in items[:4]]})
-    for col in board.values():
-        col.sort(key=lambda c: (-c["n"], c["t"]))
-
     area_bars = [{"i": a["i"], "t": a["t"], "en": a.get("en", ""), "n": a["n"], "claims": a.get("claims", 0)} for a in root["c"]]
     areas_in_progress = sum(1 for a in root["c"] if a.get("claims"))
     req_total = sum(req_totals.values())
@@ -973,6 +1052,11 @@ def build_model(repo: Path, coord: Path, design_dirs: list[Path], now: dt.dateti
         day = m["time"][:10]
         per_day[day] = per_day.get(day, 0) + 1
     activity = [{"day": k, "n": v} for k, v in sorted(per_day.items())]
+    try:
+        changelog_text = (repo / "docs" / "governance" / "CHANGELOG.md").read_text(encoding="utf-8-sig")
+    except OSError:
+        changelog_text = ""
+    roadmap_root, roadmap_details = build_roadmap(reqs, rstat, plan, procs, decs, repo, run, changelog_text)
     builds_view = scan_builds(builds_dir, load_receipts(receipt_dirs or [], src), repo, run, src)
 
     for n in iter_nodes(root):  # the counting flag is internal; the page never needs it
@@ -985,11 +1069,227 @@ def build_model(repo: Path, coord: Path, design_dirs: list[Path], now: dt.dateti
         "totals": totals, "req_totals": req_totals, "next": nxt, "owner": owner_list, "milestones": milestones,
         "git": git, "prs": prs, "gate": gate, "sources": src.items, "unmapped_docs": sorted(set(unmapped_docs)),
         "worktrees": [{"path": w.get("path", ""), "branch": w.get("branch", ""), "state": w.get("state", ""), "claim": w.get("owner_claim", "")} for w in worktrees],
-        "newest_commit_at": newest, "builds": builds_view, "decisions": decisions_view, "claims": claims_view, "board": board, "area_bars": area_bars,
+        "newest_commit_at": newest, "builds": builds_view, "decisions": decisions_view, "claims": claims_view, "roadmap": roadmap_root, "roadmap_details": roadmap_details, "area_bars": area_bars,
         "stats": stats, "activity": activity,
         "active_claims": [{"name": c["_name"], "domain": c.get("domain", ""), "task": c.get("task", ""), "branch": c.get("branch", ""), "expired": claim_expired(c, now)} for c in active],
     }
     return model
+
+
+TEST_FILE = re.compile(r"(^|/)tests?(/|$)|_test\.|\.test\.|/benches/")
+
+
+def all_ms(text: str) -> list[str]:
+    """Milestones named in a text; a range such as M5–M8 names every milestone in between."""
+    out: list[str] = []
+    for m in re.finditer(r"M(\d+)([ab]?)(?:\s*(?:–|—|-|\.\.)\s*M(\d+)([ab]?))?", text or ""):
+        a = int(m.group(1))
+        b = int(m.group(3)) if m.group(3) else a
+        for n in range(a, b + 1):
+            for tok in ([f"M{n}{m.group(2)}"] if n == a and not m.group(3) else [f"M{n}"] if n != a or m.group(3) else []):
+                if tok not in out:
+                    out.append(tok)
+    return out
+
+
+def first_ms(text: str) -> str:
+    m = re.search(r"M\d+[ab]?", text or "")
+    return m.group(0) if m else ""
+
+
+def build_roadmap(reqs: list[dict[str, Any]], rstat: dict[str, tuple[str, str, dict[str, Any]]], plan: dict[str, Any], procs: dict[str, dict[str, str]],
+                  decs: dict[str, dict[str, Any]], repo: Path, run: Runner, changelog: str) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
+    """Overall -> phase -> sprint -> task (a requirement). Every field is read from the plan, the registry or git; a missing field stays None (shown as unknown)."""
+    known = {q["id"] for q in reqs}
+    by_id = {q["id"]: q for q in reqs}
+    sprints = {sp["n"]: sp for sp in plan["sprints"]}
+    later = {first_ms(r["milestone"]): r for r in plan["later"]}
+    row_ms = {int(r["sprint"]): first_ms(r["milestone"]) for r in plan["phase_rows"] if r["sprint"].isdigit()}
+    sprint_ms = {n: first_ms(sp["milestone"]) or row_ms.get(n, "") for n, sp in sprints.items()}
+    # where each requirement is drawn, and why
+    place: dict[str, tuple[str, Any, str]] = {}
+    for n, sp in sorted(sprints.items()):
+        for rid in expand_ids(sp["text"], known):
+            place.setdefault(rid, ("sprint", n, f"named in the Sprint {n} section of SPRINT-ROADMAP.md"))
+    for ms, row in later.items():
+        for rid in expand_ids(row["scope"], known):
+            place.setdefault(rid, ("later", ms, f"named in the Phase E table ({ms})"))
+    ms_sprints: dict[str, list[int]] = {}
+    for n, ms in sprint_ms.items():
+        ms_sprints.setdefault(ms, []).append(n)
+    phase_of_ms: dict[str, str] = {}
+    phase_of_sprint: dict[int, str] = {}
+    phase_names: dict[str, str] = {}
+    phase_order: list[str] = []
+    for r in plan["phase_rows"]:
+        pid = r["phase"].split(".")[0].strip() or r["phase"]
+        phase_names[pid] = r["phase"]
+        if pid not in phase_order:
+            phase_order.append(pid)
+        for m in all_ms(r["milestone"]):
+            phase_of_ms.setdefault(m, pid)
+        if r["sprint"].isdigit():
+            phase_of_sprint[int(r["sprint"])] = pid
+    for q in reqs:
+        if q["id"] in place:
+            continue
+        ms = q["milestone"]
+        if len(ms_sprints.get(ms, [])) == 1:
+            place[q["id"]] = ("sprint", ms_sprints[ms][0], f"the only sprint of milestone {ms}; no sprint section names it")
+        elif ms in later:
+            place[q["id"]] = ("later", ms, f"milestone {ms} is in the Phase E table; its scope text does not name it")
+        elif ms in phase_of_ms:
+            place[q["id"]] = ("bucket", phase_of_ms[ms] + ":" + ms, f"no sprint names it and several sprints share milestone {ms}")
+        else:
+            place[q["id"]] = ("bucket", "unplaced:" + (ms or "none"), "its milestone is not in the plan")
+    backlog_tokens: dict[str, dict[str, str]] = {}
+    for row in plan["backlog"]:
+        for tok in SPRINT_TASK_ID.findall(row["task"]):
+            backlog_tokens.setdefault(tok, row)
+    commit_cache: dict[tuple[str, ...], list[dict[str, str]]] = {}
+    details: dict[str, dict[str, Any]] = {}
+
+    def commits_for(files: list[str]) -> list[dict[str, str]]:
+        key = tuple(files)
+        if key not in commit_cache:
+            out = run(["git", "--no-optional-locks", "log", "-n", "5", "--format=%h%x09%cI%x09%s", "--", *files], repo) if files else None
+            rows = []
+            for line in (out or "").splitlines():
+                p = line.split("\t", 2)
+                if len(p) == 3:
+                    rows.append({"sha": p[0], "time": p[1], "title": p[2]})
+            commit_cache[key] = rows
+        return commit_cache[key]
+
+    commit_ok: dict[str, bool] = {}
+
+    def commit_exists(sha: str) -> bool:
+        if sha not in commit_ok:
+            commit_ok[sha] = run(["git", "--no-optional-locks", "cat-file", "-t", sha], repo) is not None
+        return commit_ok[sha]
+
+    def sprint_task_state(tid: str) -> tuple[str, str]:
+        """done only when the Backlog row says passed or done AND names a commit that exists in this checkout; anything weaker is open or unknown."""
+        row = backlog_tokens.get(tid)
+        if row is None:
+            return "unknown", "no row in the Backlog status table names this task"
+        st = row["status"].lower()
+        if "passed" in st or re.search(r"\bdone\b", st):
+            shas = re.findall(r"\b[0-9a-f]{7,40}\b", row["commit"])
+            found = [s for s in shas if commit_exists(s)]
+            if found:
+                return "done", "Backlog status: " + row["status"] + "; commit " + found[0] + " exists here (a gate or review pass, not a live or native result)"
+            return "unknown", "Backlog status says " + row["status"] + " but " + ("none of its commits is found in this checkout" if shas else "no commit is recorded")
+        return "open", "Backlog status: " + row["status"]
+
+    def task_node(q: dict[str, Any]) -> dict[str, Any]:
+        status, why, ex = rstat[q["id"]]
+        kind, key, rule = place[q["id"]]
+        files_ok = ex["impl_ok"]
+        tests = [f for f in files_ok if TEST_FILE.search(f.replace("\\", "/"))]
+        code = [f for f in files_ok if f not in tests]
+        sprint_n = key if kind == "sprint" else None
+        stasks = [t for t in (sprints[sprint_n]["tasks"] if sprint_n in sprints else []) if re.search(r"(?<![A-Z0-9-])" + re.escape(q["id"]) + r"(?![0-9])", t["work"])]
+        accept = None
+        if q.get("acceptance") and (q["acceptance"].get("given") or q["acceptance"].get("then")):
+            a = q["acceptance"]
+            accept = {"scenario": a.get("scenario_id", ""), "given": a.get("given", ""), "when": a.get("when", ""), "then": a.get("then", "")}
+        pend = [d for d in q["decisions"] if d in decs and decision_pending_owner(decs[d])]
+        evidence_ok = bool(q["evidence"]) and q["build_status"] == "PASS"
+        checks: list[dict[str, str]] = []
+        checks.append({"label": "Acceptance scenario defined", "state": "done" if accept else "unknown",
+                       "basis": ("scenario " + accept["scenario"]) if accept else "the registry has no acceptance text for this requirement"})
+        checks.append({"label": "Implementation files exist", "state": "done" if files_ok else "open",
+                       "basis": f"{len(files_ok)} of {len(q['impl'])} listed file(s) exist on disk" if q["impl"] else "implementation_refs is empty"})
+        classes = q["required"] or []
+        if classes:
+            for c in classes:
+                checks.append({"label": f"Evidence class {c}: receipt", "state": "done" if evidence_ok else "open",
+                               "basis": "evidence_refs present and new_build_status PASS" if evidence_ok else ("no receipt in evidence_refs (new_build_status " + (q["build_status"] or "empty") + ")")})
+        else:
+            checks.append({"label": "Required evidence classes", "state": "unknown", "basis": "the registry lists none"})
+        pids = [p for p in q["procedures"] if re.match(r"^(TP|UAT)-\d+$", p)]
+        checks.append({"label": "Verification procedures named and found", "state": ("done" if pids and all(p in procs for p in pids) else "open") if pids else "unknown",
+                       "basis": (", ".join(pids) + (": all found in TEST-PLAN or UAT-PLAN" if pids and all(p in procs for p in pids) else ": at least one is not in TEST-PLAN or UAT-PLAN")) if pids else "no procedure id is listed"})
+        checks.append({"label": "No open owner decision blocks it", "state": "open" if pend else "done", "basis": ("open: " + ", ".join(pend)) if pend else "no open owner-only decision is named"})
+        ms_exit = plan["milestones"].get(q["milestone"], {}).get("exit")
+        sp_exit = sprints[sprint_n]["exit"] if sprint_n in sprints and sprints[sprint_n]["exit"] else None
+        changelog_lines = [l.strip()[:230] for l in changelog.splitlines() if re.search(r"(?<![A-Z0-9-])" + re.escape(q["id"]) + r"(?![0-9])", l)][:3]
+        nid = "rm:req:" + q["id"]
+        details[nid] = {
+            "kind": "task", "id": q["id"], "title": q["id"] + " " + q["title"], "status": status, "why": why, "priority": q["priority"], "milestone": q["milestone"], "module": q["module"],
+            "needs": q["needs"], "placement": rule, "statement": q["statement"], "failure": q.get("failure") or None, "acceptance": accept,
+            "success": accept["then"] if accept and accept["then"] else None,
+            "checks": checks, "dod": plan["dod"] or None, "exit": {"sprint": sp_exit, "milestone": ms_exit},
+            "links": {"code": code, "tests": tests, "docs": [r for r in q["design"] + q["spec"] + q["contracts"] if r],
+                      "missing": ex["impl_missing"], "procedures": [procs.get(p) or {"id": p, "title": None, "file": None} for p in pids], "evidence": q["evidence"]},
+            "decisions": [{"id": d, "status": decs[d]["status"] if d in decs else "not in decisions.json", "question": decision_question(decs[d]) if d in decs else ""} for d in q["decisions"]],
+            "claims": ex["claims"], "sprint_tasks": [{"id": t["id"], "work": t["work"][:200], "state": sprint_task_state(t["id"])[0]} for t in stasks],
+            "changelog": {"commits": commits_for(files_ok), "lines": changelog_lines}}
+        return {"i": nid, "t": q["id"] + " " + q["title"], "k": "task", "s": status, "p": q["priority"], "m": q["milestone"], "rollup": True}
+
+    def sprint_node(n: int) -> dict[str, Any]:
+        sp = sprints[n]
+        ms = sprint_ms[n]
+        kids = [task_node(by_id[rid]) for rid in sorted((r for r, p in place.items() if p[0] == "sprint" and p[1] == n), key=lambda r: (prio_rank(by_id[r]["priority"]), r))]
+        node = make_node(f"rm:sprint:{n}", f"Sprint {n} — {sp['title']} ({ms or '?'})", "sprint", kids)
+        items = []
+        for t in sp["tasks"]:
+            st, basis = sprint_task_state(t["id"])
+            items.append({"id": t["id"], "work": t["work"][:240], "model": t["model"], "risk": t["risk"], "evidence": t["evidence"], "state": st, "basis": basis})
+        pr = next((r for r in plan["phase_rows"] if r["sprint"] == str(n)), None)
+        details[node["i"]] = {"kind": "sprint", "title": node["t"], "status": node["s"], "goal": sp["goal"] or (pr["outcome"] if pr else None), "goal_source": "the Goal line of the sprint section" if sp["goal"] else "the Outcome column of the phase overview",
+                              "exit": sp["exit"] or None, "owner_input": sp["owner_input"] or None, "milestone": ms,
+                              "milestone_info": plan["milestones"].get(ms), "work_items": items, "slices": sp["slices"][:12],
+                              "requirements": [k["i"][7:] for k in kids], "rule": "tasks of this sprint are the requirements placed here by the rule shown on each"}
+        return node
+
+    def later_node(ms: str) -> dict[str, Any]:
+        row = later[ms]
+        kids = [task_node(by_id[rid]) for rid in sorted((r for r, p in place.items() if p[0] == "later" and p[1] == ms), key=lambda r: (prio_rank(by_id[r]["priority"]), r))]
+        node = make_node(f"rm:later:{ms}", f"{ms} — {row['scope'][:70]}", "sprint", kids)
+        details[node["i"]] = {"kind": "sprint", "title": f"{ms} (planned to milestone level, not yet to sprints)", "status": node["s"], "goal": row["note"] or None, "goal_source": "the Planning note of the Phase E table",
+                              "exit": None, "owner_input": None, "milestone": ms, "milestone_info": plan["milestones"].get(ms), "work_items": [], "slices": [],
+                              "requirements": [k["i"][7:] for k in kids], "rule": "Phase E is planned to milestone level only"}
+        return node
+
+    def bucket_node(key: str) -> dict[str, Any]:
+        kids = [task_node(by_id[rid]) for rid in sorted((r for r, p in place.items() if p[0] == "bucket" and p[1] == key), key=lambda r: (prio_rank(by_id[r]["priority"]), r))]
+        ms = key.split(":", 1)[1]
+        node = make_node(f"rm:bucket:{key}", f"No sprint names these ({ms})", "sprint", kids)
+        details[node["i"]] = {"kind": "sprint", "title": f"Requirements of milestone {ms} that no sprint section names", "status": node["s"], "goal": None, "goal_source": "",
+                              "exit": None, "owner_input": None, "milestone": ms, "milestone_info": plan["milestones"].get(ms), "work_items": [], "slices": [],
+                              "requirements": [k["i"][7:] for k in kids], "rule": "several sprints share this milestone, so the requirement is not guessed into one of them"}
+        return node
+
+    phases: list[dict[str, Any]] = []
+    order = phase_order or ["?"]
+    for pid in order:
+        kids: list[dict[str, Any]] = []
+        for n in sorted(sprints):
+            if phase_of_sprint.get(n, "?") == pid:
+                kids.append(sprint_node(n))
+        for ms, row in later.items():
+            if phase_of_ms.get(ms) == pid:
+                kids.append(later_node(ms))
+        for key in sorted({p[1] for p in place.values() if p[0] == "bucket" and p[1].startswith(pid + ":")}):
+            kids.append(bucket_node(key))
+        if not kids and pid == "?":
+            continue  # no phase table was read: requirements go to the unplaced buckets below, not under an invented phase
+        node = make_node(f"rm:phase:{pid}", phase_names.get(pid, pid), "phase", kids)
+        ms_list = sorted({m for r in plan["phase_rows"] if r["phase"].split(".")[0].strip() == pid for m in all_ms(r["milestone"])})
+        details[node["i"]] = {"kind": "phase", "title": node["t"], "status": node["s"], "milestones": [{"id": m, **plan["milestones"].get(m, {})} for m in ms_list],
+                              "outcomes": [{"sprint": r["sprint"], "milestone": r["milestone"], "outcome": r["outcome"]} for r in plan["phase_rows"] if r["phase"].split(".")[0].strip() == pid]}
+        phases.append(node)
+    unplaced = sorted({p[1] for p in place.values() if p[0] == "bucket" and p[1].startswith("unplaced:")})
+    for key in unplaced:
+        phases.append(bucket_node(key))
+    root = make_node("rm:all", "Overall", "root", phases)
+    details["rm:all"] = {"kind": "overall", "title": "Overall progress", "status": root["s"], "total": sum(root["n"].values()), "verified": root["n"]["verified"], "built": root["n"]["built"],
+                         "note": "Tasks are the requirements of contracts/requirements.json. Verified counts only requirements with receipt-backed evidence (evidence_refs and new_build_status PASS); built-not-verified is shown separately and never added to it."}
+    for n in iter_nodes(root):
+        n.pop("rollup", None)
+    return root, details
 
 
 def make_node(nid: str, label: str, kind: str, children: list[dict[str, Any]]) -> dict[str, Any]:
