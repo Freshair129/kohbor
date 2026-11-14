@@ -1,23 +1,24 @@
 ---
 domain: commerce
 tier: B
-card_version: 1
+card_version: 2
 verified_at_commit: 7ad4c7f
 verified_on: 2026-11-13
 verified_by: "claude-code governance session, seeded from DEC-COMMERCE-INTENT and the documents named below; agent work, not human review"
 ---
 
-# Commerce: store, wallet, payments, entitlement (seed card)
+# Commerce: store, wallet, payments, entitlement
 
-A map, not evidence. Almost empty on purpose.
+A map, not evidence. The delivery design exists as a proposal; nothing is built.
 
 ## 1. Purpose and boundary
 
-Not designed. No requirement, no design document, no design decision exists. Nothing may be built, hosted, priced or paid for from this card. Later owner of: store service, catalog, wallet, entitlement. Needs `account` (who buys), `packs` (what is sold, signature) and `release-ops` (hosting).
+A design of pack delivery exists as an agent proposal, not owner approved (docs/design/STORE-PACK-DELIVERY.md). No requirement is applied, no decision about it is closed, and payments are not designed. Nothing may be built, hosted, priced or paid for from this card or from that document. Later owner of: store service, catalog, wallet, entitlement. Needs `account` (who buys), `packs` (what is sold, signature) and `release-ops` (hosting).
 
 ## 2. Owner intent (a statement, not a design)
 
 - 2026-11-13, owner statement: Kohbor has a store system (none exists in the repository) and the owner plans to produce announcer packs in volume to earn revenue; rights and licensing are handled by the owner's rights team, an owner statement that is unverified and not a rights grant (DEC-COMMERCE-INTENT).
+- 2026-11-14, owner request ("เขียนเอกสาร", relayed by the coordinating session): write the store and pack delivery design as a document only. This authorised that one document. It authorised nothing else and did not widen the agent policy for this domain.
 - It authorises no payment provider, price, wallet, catalog, account requirement for buying, hosting, paid service or sale of any pack (DEC-COMMERCE-INTENT).
 - Engineering finishes pack production tooling first (DEC-COMMERCE-INTENT, safe interim).
 
@@ -33,16 +34,16 @@ Not designed. No requirement, no design document, no design decision exists. Not
 
 ## 4. Blocked by
 
-DEC-ACCOUNT-ORIGIN (hosting, operator, any paid service), DEC-PACK-CRYPTO (signed packs), DEC-PRIVACY-LEGAL, DEC-PREMIUM (deferred), the owner's rights documents for any pack that is sold, and the AGENTS.md rule on real-person voices and source-brand assets.
+DEC-ACCOUNT-ORIGIN (hosting, operator, any paid service), DEC-PACK-CRYPTO (signed packs), DEC-PRIVACY-LEGAL, DEC-PREMIUM (deferred), the nine open store decisions the design adds (listed in its section 13), the owner's rights documents for any pack that is sold or distributed, and the AGENTS.md rule on real-person voices and source-brand assets. The build order and which step waits for which decision is in the design, section 12.
 
-## 5. First questions for the owner (each would become a DEC id when asked)
+## 5. Questions for the owner (all are open decisions)
 
-What is sold (packs only?); is an account required to buy (DEC-SIGNIN-OPTIONAL keeps guests local); payment provider and operator; currency, refunds, tax; creator revenue share; relation to premium (DEC-PREMIUM).
+DEC-STORE-SCOPE (what is sold, account to buy, relation to premium), DEC-STORE-HOSTING (stack, spending ceiling), DEC-STORE-OFFLINE-POLICY, DEC-STORE-PAYMENT-PROVIDER, DEC-STORE-CURRENCY-TAX, DEC-STORE-REFUND, DEC-STORE-REVENUE-SHARE, DEC-STORE-RECORDS, DEC-STORE-TAKEDOWN. Recommended defaults, where the design has one, are in its section 13. Q-COM-1 in [state.json](state.json) is the follow-up for governance.
 
 ## 6. Artefacts
 
-None owned. Reads: the documents cited in section 3 (see [state.json](state.json)).
+Governing proposal: [STORE-PACK-DELIVERY](../../design/STORE-PACK-DELIVERY.md). Reads: the documents cited in section 3 (see [state.json](state.json)).
 
 ## 7. Who may write, how to claim, how to ask
 
-Owned by `governance` until the owner authorises a design. An agent may only draft neutral questions for the owner from the repository facts in section 3. It may not design, price, build, host, create a provider account or key, or decide rights and licensing. Ask the owner for anything about price, provider, hosting or what is sold.
+Owned by `governance`. The agent policy for this domain stays questions-only (docs/governance/AGENT-REGISTRY.json); the 2026-11-14 design was a one-time owner authorisation for that document. Further design work needs the owner to say so, and then the policy may move to design-only. An agent may not price, build, host, create a provider account or key, or decide rights and licensing. Ask the owner for anything about price, provider, hosting or what is sold.
