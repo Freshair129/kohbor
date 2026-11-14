@@ -634,6 +634,146 @@
       ]
     },
     {
+      "id": "DEC-STORE-SCOPE",
+      "status": "open",
+      "milestone": "unscheduled",
+      "blocks": "Catalog and entitlement scope: what is sold, whether an account is required to buy and to download, guest catalog browsing, free packs, updates of a purchased pack, and the relation to premium",
+      "owner_role": "product owner",
+      "proposed_on": "2026-11-14",
+      "proposal_ref": "docs/design/STORE-PACK-DELIVERY.md section 13",
+      "safe_interim": "Nothing is built, hosted, priced or paid for; the Store destination keeps its honest unavailable state and never gates local gameplay. Local verified import stays supported and is not purchase entitlement (MEDIA-008).",
+      "closure_evidence": "Owner answers to the questions in section 13 of the design, recorded here with the date and channel; DEC-PREMIUM closed or explicitly left deferred for the relation to premium.",
+      "related": [
+        "DEC-COMMERCE-INTENT",
+        "DEC-PREMIUM",
+        "DEC-SIGNIN-OPTIONAL"
+      ]
+    },
+    {
+      "id": "DEC-STORE-HOSTING",
+      "status": "open",
+      "milestone": "unscheduled",
+      "blocks": "Any hosting, domain, object storage, database or tunnel for the store; any provider account or key; any spend",
+      "owner_role": "product owner",
+      "proposed_on": "2026-11-14",
+      "proposal_ref": "docs/design/STORE-PACK-DELIVERY.md section 13",
+      "safe_interim": "Nothing is built, hosted, priced or paid for; the Store destination keeps its honest unavailable state and never gates local gameplay. Recommended default if confirmed: the proposed alpha stack for the alpha only, with a spending ceiling and alert set by the owner before any account is created, and no sales in the alpha.",
+      "closure_evidence": "Owner confirmation or replacement of the proposed stack (Cloudflare Pages, broker on the owner's PC through a tunnel, Postgres-only Supabase, Cloudflare R2, GitHub Releases) after the external facts of section 14 are verified from the vendors' current pages, with the spending ceiling recorded.",
+      "related": [
+        "DEC-ACCOUNT-ORIGIN",
+        "DEC-PRIVACY-LEGAL",
+        "DEC-COMMERCE-INTENT"
+      ]
+    },
+    {
+      "id": "DEC-STORE-OFFLINE-POLICY",
+      "status": "open",
+      "milestone": "unscheduled",
+      "blocks": "Client behaviour for installed store packs on sign-out, account switch, account deletion, revocation and offline use",
+      "owner_role": "product owner",
+      "proposed_on": "2026-11-14",
+      "proposal_ref": "docs/design/STORE-PACK-DELIVERY.md section 13",
+      "safe_interim": "Nothing is built, hosted, priced or paid for; the Store destination keeps its honest unavailable state and never gates local gameplay. Recommended default: installed packs stay installed and keep working in every one of those cases; a revoked pack stays installed but leaves selection at the next match barrier.",
+      "closure_evidence": "Owner decision on section 4 of the design (installed packs after sign-out, switch and deletion; revocation timing; revoked pack handling).",
+      "related": [
+        "CORE-003",
+        "MEDIA-008",
+        "DEC-SIGNIN-OPTIONAL",
+        "DEC-CRITICAL-MEDIA"
+      ]
+    },
+    {
+      "id": "DEC-STORE-PAYMENT-PROVIDER",
+      "status": "open",
+      "milestone": "unscheduled",
+      "blocks": "Any checkout, payment event handling, provider account or provider key",
+      "owner_role": "product owner",
+      "proposed_on": "2026-11-14",
+      "proposal_ref": "docs/design/STORE-PACK-DELIVERY.md section 13",
+      "safe_interim": "Nothing is built, hosted, priced or paid for; the Store destination keeps its honest unavailable state and never gates local gameplay. Agents do not choose a payment provider.",
+      "closure_evidence": "Owner choice of provider and legal operator, with its webhook authenticity method, and recorded closure of DEC-STORE-CURRENCY-TAX and DEC-STORE-REFUND.",
+      "related": [
+        "DEC-COMMERCE-INTENT",
+        "DEC-PRIVACY-LEGAL"
+      ]
+    },
+    {
+      "id": "DEC-STORE-CURRENCY-TAX",
+      "status": "open",
+      "milestone": "unscheduled",
+      "blocks": "Any price, price display, currency or tax handling",
+      "owner_role": "product owner",
+      "proposed_on": "2026-11-14",
+      "proposal_ref": "docs/design/STORE-PACK-DELIVERY.md section 13",
+      "safe_interim": "Nothing is built, hosted, priced or paid for; the Store destination keeps its honest unavailable state and never gates local gameplay. No price exists.",
+      "closure_evidence": "Owner decision on currency, price display and tax handling, with the legal basis recorded by the owner.",
+      "related": [
+        "DEC-STORE-PAYMENT-PROVIDER",
+        "DEC-PRIVACY-LEGAL"
+      ]
+    },
+    {
+      "id": "DEC-STORE-REFUND",
+      "status": "open",
+      "milestone": "unscheduled",
+      "blocks": "Refund and chargeback handling and its effect on entitlement",
+      "owner_role": "product owner",
+      "proposed_on": "2026-11-14",
+      "proposal_ref": "docs/design/STORE-PACK-DELIVERY.md section 13",
+      "safe_interim": "Nothing is built, hosted, priced or paid for; the Store destination keeps its honest unavailable state and never gates local gameplay. Recommended default: a refund ends the entitlement through the signed revocation list as designed.",
+      "closure_evidence": "Owner refund policy, including chargebacks and the effect on installed packs.",
+      "related": [
+        "DEC-STORE-PAYMENT-PROVIDER",
+        "DEC-STORE-OFFLINE-POLICY"
+      ]
+    },
+    {
+      "id": "DEC-STORE-REVENUE-SHARE",
+      "status": "open",
+      "milestone": "unscheduled",
+      "blocks": "Any creator revenue share, payout or publisher onboarding beyond the owner's own packs",
+      "owner_role": "product owner",
+      "proposed_on": "2026-11-14",
+      "proposal_ref": "docs/design/STORE-PACK-DELIVERY.md section 13",
+      "safe_interim": "Nothing is built, hosted, priced or paid for; the Store destination keeps its honest unavailable state and never gates local gameplay. Only the owner's own publisher key is in the design.",
+      "closure_evidence": "Owner decision on creator revenue share and payout, with the contract basis recorded by the owner.",
+      "related": [
+        "DEC-COMMERCE-INTENT",
+        "DEC-STORE-PAYMENT-PROVIDER"
+      ]
+    },
+    {
+      "id": "DEC-STORE-RECORDS",
+      "status": "open",
+      "milestone": "unscheduled",
+      "blocks": "The order table and its retention, and how it meets account deletion and backups",
+      "owner_role": "product owner",
+      "proposed_on": "2026-11-14",
+      "proposal_ref": "docs/design/STORE-PACK-DELIVERY.md section 13",
+      "safe_interim": "Nothing is built, hosted, priced or paid for; the Store destination keeps its honest unavailable state and never gates local gameplay. Recommended default: detach order rows from the person on account deletion and keep only provider references for the legally required period.",
+      "closure_evidence": "Owner decision, with legal advice obtained by the owner, on whether order records must be kept, for how long, and how backups follow account deletion.",
+      "related": [
+        "DEC-PRIVACY-LEGAL",
+        "DEC-RETENTION",
+        "DEC-ACCOUNT-ORIGIN"
+      ]
+    },
+    {
+      "id": "DEC-STORE-TAKEDOWN",
+      "status": "open",
+      "milestone": "unscheduled",
+      "blocks": "Handling of a pack withdrawn for rights reasons, including installed copies",
+      "owner_role": "product owner",
+      "proposed_on": "2026-11-14",
+      "proposal_ref": "docs/design/STORE-PACK-DELIVERY.md section 13",
+      "safe_interim": "Nothing is built, hosted, priced or paid for; the Store destination keeps its honest unavailable state and never gates local gameplay. Recommended default: withdraw from the catalog and stop re-download; installed copies stay unless a rights holder requires removal. Rights questions belong to the owner's rights side.",
+      "closure_evidence": "Owner and rights-team decision on the effect of a withdrawal on installed copies.",
+      "related": [
+        "DEC-COMMERCE-INTENT",
+        "DEC-STORE-OFFLINE-POLICY"
+      ]
+    },
+    {
       "id": "DEC-RESOURCE-BUDGET",
       "status": "provisional",
       "milestone": "M1",
