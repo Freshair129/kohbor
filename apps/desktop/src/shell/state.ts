@@ -1,10 +1,10 @@
 import type { Phase } from "../copy";
 import type { RuntimeStatus } from "../types";
 
-export type ShellTab = "live" | "packs" | "settings" | "status" | "logs";
+export type ShellTab = "live" | "packs" | "status" | "logs";
 export type HeaderTone = "fresh" | "stale" | "unknown" | "off" | "warn";
 
-export const SHELL_TABS: readonly ShellTab[] = ["live", "packs", "settings", "status"];
+export const SHELL_TABS: readonly ShellTab[] = ["live", "packs", "status"];
 
 export function shellTabs(developerMode: boolean): readonly ShellTab[] {
   return developerMode ? [...SHELL_TABS, "logs"] : SHELL_TABS;

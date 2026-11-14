@@ -112,7 +112,8 @@ test("developer mode defaults on, persists explicit off and tolerates unavailabl
 });
 
 test("hidden developer tab is excluded from keyboard navigation", () => {
-  assert.deepEqual(shellTabs(false), ["live", "packs", "settings", "status"]);
+  // Round 2 moves Settings into the account menu, outside tab keyboard navigation.
+  assert.deepEqual(shellTabs(false), ["live", "packs", "status"]);
   assert.equal(shellTabs(true).at(-1), "logs");
   assert.equal(nextShellTab("live", "End", shellTabs(false)), "status");
   assert.equal(nextShellTab("live", "End", shellTabs(true)), "logs");

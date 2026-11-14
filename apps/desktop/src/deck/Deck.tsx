@@ -12,6 +12,7 @@ import { AlertStrip } from "./AlertStrip";
 import { EventFeed } from "./EventFeed";
 import { AnnouncerStatus } from "./AnnouncerStatus";
 import { HeroPortrait } from "./HeroPortrait";
+import type { SteamStatus } from "../steam/model";
 import "./deck.css";
 
 function readableNumber(value: number | null): string {
@@ -26,6 +27,7 @@ export function Deck({
   mute,
   playback,
   hostLost,
+  steamStatus,
 }: {
   locale: Locale;
   status: RuntimeStatus | null;
@@ -34,6 +36,7 @@ export function Deck({
   mute: AudioMuteState;
   playback: PlaybackView;
   hostLost: boolean;
+  steamStatus: SteamStatus | null;
 }) {
   const text = deckCopy(locale);
   const own = deriveOwnHeroViewModel(snapshot);
@@ -126,7 +129,7 @@ export function Deck({
         {state.state === "standby" && (
           <p className="deck-standby-note" role="status">{locale === "th" ? state.reason.th : state.reason.en}</p>
         )}
-        <MinimapPanel locale={locale} layout="deck" renderAlerts={({ risk, captureLive }) => (
+        <MinimapPanel locale={locale} layout="deck" steamStatus={steamStatus} renderAlerts={({ risk, captureLive }) => (
           <AlertStrip own={{ ...own, ageMs: displayAgeMs }} state={state.state} risk={risk} captureLive={captureLive} locale={locale} />
         )} />
       </section>
