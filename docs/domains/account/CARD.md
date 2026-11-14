@@ -1,9 +1,9 @@
 ---
 domain: account
 tier: A
-card_version: 1
-verified_at_commit: 7ad4c7f
-verified_on: 2026-11-13
+card_version: 2
+verified_at_commit: d94cb96
+verified_on: 2026-11-14
 verified_by: "claude-code governance session, backfilled from the Domain Steward design and the documents named below; agent work, not human review"
 ---
 
@@ -29,7 +29,8 @@ A map, not evidence. Authority: decisions, PRD/SRS, contracts, code and tests, t
 - NOW: guests keep every local feature and have no network sharing in the first release (DEC-SIGNIN-OPTIONAL).
 - NEXT (no owner needed): apply the queued ACCOUNT-001..010 text and the SOCIAL-001, PEER-007, PEER-009 amendments through document control (docs/design/ACCOUNT-IDENTITY-REVIEW.md section 4.1).
 - NEXT (no owner needed): a pure client state machine against a fake provider (docs/design/REMAINING-SYSTEM-DESIGN.md section 3, "Evidence needed").
-- BLOCKED for deployment, not for the local build: where the broker and relay run and who pays (DEC-ACCOUNT-ORIGIN); a Kohbor-owned Google project (DEC-GOOGLE-PROJECT).
+- NOW (alpha/beta, owner statement 2026-11-14, provisional): broker and relay in Docker on the owner's PC through a Cloudflare Tunnel only, Supabase as Postgres only, free tiers only; nothing is provisioned (DEC-ACCOUNT-ORIGIN; docs/design/BACKEND-STACK.md).
+- BLOCKED for deployment, not for the local build: production hosting and who pays (DEC-ACCOUNT-ORIGIN); the owner creates the Kohbor-only Google project and consent screen (DEC-GOOGLE-PROJECT).
 - BLOCKED for any hosted sharing: a lawyer must confirm the legal items (DEC-PRIVACY-LEGAL).
 - OWNER STILL CONFIRMS: Google as the only sign-in, guests without Google, no recovery, session and limit values (docs/design/ACCOUNT-IDENTITY-REVIEW.md section 4.2).
 

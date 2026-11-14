@@ -1,7 +1,7 @@
 ---
 title: "Store and Pack Delivery Design"
 doc_id: "STORE-PACK-DELIVERY"
-version: "0.1.0"
+version: "0.1.1"
 status: "draft"
 updated: "2026-11-14"
 owner: "Product owner"
@@ -12,7 +12,7 @@ approval_status: "not_approved"
 
 **Agent design, proposed. Not an owner approval, not a legal, rights, security or financial review.** The owner authorised writing this design on 2026-11-14 (request "เขียนเอกสาร", relayed by the coordinating session). Nothing is built, hosted, priced or paid for by this document, and no provider account or key was created. Every choice below is a recommendation with its alternatives; the owner-only decisions are collected in section 13, each under a DEC id (all open).
 
-Evidence labels: `[R]` read in this repository; `[P]` proposed by the owner in chat on 2026-11-14 and recorded here as PROPOSED, to be confirmed under DEC-STORE-HOSTING; `[U]` unverified. **This session had no network, so no external fact (any vendor price, limit, term or behaviour) is verified.** Section 14 lists every external fact with what must be checked before the owner relies on it.
+Evidence labels: `[R]` read in this repository; `[P]` proposed by the owner in chat on 2026-11-14 and still PROPOSED (pack object storage only; every other part of the alpha/beta stack was confirmed by the owner, `[O]`, as recorded in DEC-STORE-HOSTING and DEC-ACCOUNT-ORIGIN); `[O]` stated by the owner (2026-11-14, "ตามนั้นเลย", relayed by the coordinating session; recorded by an agent); `[U]` unverified. **This session had no network, so no external fact (any vendor price, limit, term or behaviour) is verified.** Section 14 lists every external fact with what must be checked before the owner relies on it.
 
 ## 1. Scope and what this document does not decide
 
@@ -205,18 +205,18 @@ No vendor price or limit was verified. The sketch gives the arithmetic so the ow
 | Home PC network | ticket JSON only, about 2 KB per ticket `[U]` | negligible; the 300 GB never touches it |
 | Database size | about 150 B per entitlement row × 3,000 | well under 1 MB |
 
-What this does and does not show: at this scale cost is dominated by whether egress is free. R2 is proposed `[P]` because its egress is described as free `[U]`; on a store that charges per GB, 300 GB is a real line item and quotas (for example a Supabase Storage allowance) would likely bind first `[U]`. Free-tier limits, the behaviour on overrun (charge, throttle or block), and the Postgres inactivity pause on a free project `[U]` must be checked, and the owner must set a spending ceiling and an alert before any account is created (DEC-STORE-HOSTING). **No part of this design may incur spend without that decision.**
+What this does and does not show: at this scale cost is dominated by whether egress is free. R2 is proposed `[P]` because its egress is described as free `[U]`; on a store that charges per GB, 300 GB is a real line item and quotas (for example a Supabase Storage allowance) would likely bind first `[U]`. Free-tier limits, the behaviour on overrun (charge, throttle or block), and the Postgres inactivity pause on a free project `[U]` must be checked, and the alpha spending ceiling is THB 0 by the owner's statement `[O]` (DEC-STORE-HOSTING): any expected charge pauses the action and goes to the owner. **No part of this design may incur spend without a new owner decision.**
 
 ## 8. Alpha versus production
 
-Alpha and beta stack as proposed by the owner `[P]`, not yet confirmed:
+**Hosting part decided for the alpha/beta phase (DEC-STORE-HOSTING, provisional; DEC-ACCOUNT-ORIGIN; DEC-FRONTEND-HOSTING), owner statement "ตามนั้นเลย" 2026-11-14 `[O]`.** Production hosting and the final pack-storage choice stay open. The fuller operating notes (secrets, backups, monitoring, home-PC risks, who creates what) are in [BACKEND-STACK](BACKEND-STACK.md).
 
-| Part | Alpha / beta (proposed) | Alternative named |
+| Part | Alpha / beta (`[O]` unless marked) | Alternative named |
 | --- | --- | --- |
-| Web front end | Cloudflare Pages | any static host |
-| Broker, entitlement, relay | Docker on the owner's PC, exposed through Cloudflare Tunnel; Tailscale for owner administration only | Small VM later |
+| Web front end | Cloudflare Pages, built host-agnostic so it also builds for Vercel (DEC-FRONTEND-HOSTING) | Vercel or any static host |
+| Broker, entitlement, relay | Docker on the owner's PC, exposed only through Cloudflare Tunnel (no port forwarding); Tailscale for owner administration only | Small VM later |
 | Database | Supabase as Postgres only, no Supabase Auth, new project, never shared with another product | Self-hosted Postgres |
-| Pack storage | Cloudflare R2 | Supabase Storage (named alternative) |
+| Pack storage | Cloudflare R2, `[P]` PROPOSED (price and free-tier facts `[U]`) | Supabase Storage (named alternative) |
 | App updates | GitHub Releases, signed, separate from the store (UPDATE-001) | n/a |
 
 | Aspect | Alpha on the home PC | Production |
@@ -304,7 +304,7 @@ Evidence classes stay separate: fake-broker tests are synthetic; the alpha is a 
 | DEC | Question | Recommended default |
 | --- | --- | --- |
 | DEC-STORE-SCOPE | What is sold (packs only?), is an account required to buy and to download, may guests browse the catalog, are free packs allowed, do updates of a purchased pack come with it, and does premium include or discount packs (DEC-PREMIUM)? | Packs only; account required to buy and download; guests may browse; updates included; premium relation left to DEC-PREMIUM |
-| DEC-STORE-HOSTING | Confirm or replace the proposed stack (Pages, home-PC broker through Tunnel, Postgres-only Supabase, R2, GitHub Releases); the spending ceiling and alert; alpha sells nothing; where the production stack lives | Confirm for the alpha only; ceiling is the owner's; no spend before it is set |
+| DEC-STORE-HOSTING (provisional: hosting part decided for the alpha) | Remaining: R2 versus Supabase Storage after the section 14 facts are checked, and where the production stack lives. Decided `[O]`: Pages, home-PC broker through Tunnel, Postgres-only Supabase, GitHub Releases, alpha sells nothing, alpha spending ceiling THB 0 | Keep R2 proposed until its facts are verified; no spend without a new decision |
 | DEC-STORE-OFFLINE-POLICY | Sign-out, account switch and account deletion: installed packs stay; revocation staleness; revoked pack handling | Packs stay; revocation at next online check and match barrier; revoked packs stay installed but inactive |
 | DEC-STORE-PAYMENT-PROVIDER | Which payment provider and which legal operator | None recommended; agents do not choose a provider |
 | DEC-STORE-CURRENCY-TAX | Currency, price display and tax handling | None recommended |
@@ -334,4 +334,5 @@ All `[U]`. Before the owner relies on any row, check the vendor's current offici
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 0.1.1 | 2026-11-14 | The hosting part of DEC-STORE-HOSTING is recorded as decided for the alpha/beta phase on the owner's statement (broker on the owner's PC through a Tunnel, Postgres-only Supabase, Cloudflare Pages host-agnostic, GitHub Releases, THB 0 alpha ceiling). R2 stays proposed. Section 8 updated; operating notes moved to BACKEND-STACK. |
 | 0.1.0 | 2026-11-14 | First draft after the owner authorised a design: architecture, data model, client behaviour, failure modes, alpha and production notes, payment boundary, UI states, build order and nine owner questions. Nothing built, hosted, priced or paid for. |

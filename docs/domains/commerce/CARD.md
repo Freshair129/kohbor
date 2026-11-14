@@ -1,9 +1,9 @@
 ---
 domain: commerce
 tier: B
-card_version: 2
-verified_at_commit: 7ad4c7f
-verified_on: 2026-11-13
+card_version: 3
+verified_at_commit: d94cb96
+verified_on: 2026-11-14
 verified_by: "claude-code governance session, seeded from DEC-COMMERCE-INTENT and the documents named below; agent work, not human review"
 ---
 
@@ -34,15 +34,15 @@ A design of pack delivery exists as an agent proposal, not owner approved (docs/
 
 ## 4. Blocked by
 
-DEC-ACCOUNT-ORIGIN (hosting, operator, any paid service), DEC-PACK-CRYPTO (signed packs), DEC-PRIVACY-LEGAL, DEC-PREMIUM (deferred), the nine open store decisions the design adds (listed in its section 13), the owner's rights documents for any pack that is sold or distributed, and the AGENTS.md rule on real-person voices and source-brand assets. The build order and which step waits for which decision is in the design, section 12.
+DEC-ACCOUNT-ORIGIN (production hosting; the alpha/beta hosting is recorded as provisional on the owner's statement of 2026-11-14, see docs/design/BACKEND-STACK.md), DEC-PACK-CRYPTO (signed packs), DEC-PRIVACY-LEGAL, DEC-PREMIUM (deferred), the nine open store decisions the design adds (listed in its section 13), the owner's rights documents for any pack that is sold or distributed, and the AGENTS.md rule on real-person voices and source-brand assets. The build order and which step waits for which decision is in the design, section 12.
 
 ## 5. Questions for the owner (all are open decisions)
 
-DEC-STORE-SCOPE (what is sold, account to buy, relation to premium), DEC-STORE-HOSTING (stack, spending ceiling), DEC-STORE-OFFLINE-POLICY, DEC-STORE-PAYMENT-PROVIDER, DEC-STORE-CURRENCY-TAX, DEC-STORE-REFUND, DEC-STORE-REVENUE-SHARE, DEC-STORE-RECORDS, DEC-STORE-TAKEDOWN. Recommended defaults, where the design has one, are in its section 13. Q-COM-1 in [state.json](state.json) is the follow-up for governance.
+DEC-STORE-SCOPE (what is sold, account to buy, relation to premium), DEC-STORE-HOSTING (provisional: the hosting part is decided for the alpha, R2 versus Supabase Storage and production hosting are open), DEC-STORE-OFFLINE-POLICY, DEC-STORE-PAYMENT-PROVIDER, DEC-STORE-CURRENCY-TAX, DEC-STORE-REFUND, DEC-STORE-REVENUE-SHARE, DEC-STORE-RECORDS, DEC-STORE-TAKEDOWN. Recommended defaults, where the design has one, are in its section 13. Q-COM-1 in [state.json](state.json) is the follow-up for governance.
 
 ## 6. Artefacts
 
-Governing proposal: [STORE-PACK-DELIVERY](../../design/STORE-PACK-DELIVERY.md). Reads: the documents cited in section 3 (see [state.json](state.json)).
+Governing proposal: [STORE-PACK-DELIVERY](../../design/STORE-PACK-DELIVERY.md). Hosting reference: [BACKEND-STACK](../../design/BACKEND-STACK.md). Reads: the documents cited in section 3 (see [state.json](state.json)).
 
 ## 7. Who may write, how to claim, how to ask
 

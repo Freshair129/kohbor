@@ -1118,8 +1118,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 58828,
-      "sha256": "9c2ef7685043ea72f557d566392127c839188ed5e5105aa97f1aa3405a9da9dd"
+      "bytes": 65301,
+      "sha256": "bf8bb96d49afc13c11c36ecd3deb65e8820357bd27dee9cf2feb92b198dd5850"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -1808,8 +1808,8 @@
     },
     {
       "path": "docs/INDEX.md",
-      "bytes": 10855,
-      "sha256": "6c677f6fb1cabe7ea2ad148dd72b275005de7ac4fe94dd95691a5d3dbf756a6e"
+      "bytes": 11187,
+      "sha256": "385dc3622d6002b59000b0d8f187ffa183b6b0bf192136e90e76dd221b72e59b"
     },
     {
       "path": "docs/delivery/AGENT-WORKFLOW.md",
@@ -1875,6 +1875,11 @@
       "path": "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
       "bytes": 32071,
       "sha256": "30837fce8b73cb8dbbcfb4a4634867d34f311b33e50dbc85e5caf58e4fb7b841"
+    },
+    {
+      "path": "docs/design/BACKEND-STACK.md",
+      "bytes": 19783,
+      "sha256": "943da0610df6b11949c453cdec7b90b1276a6a6962a790f7d0ee89551e496f4f"
     },
     {
       "path": "docs/design/DDD.md",
@@ -1948,8 +1953,8 @@
     },
     {
       "path": "docs/design/STORE-PACK-DELIVERY.md",
-      "bytes": 36719,
-      "sha256": "5fa28aefb285d88e6a68095defbb0e179355ab5d54a780d2373ca535875b7c89"
+      "bytes": 37957,
+      "sha256": "72ed04975fc16b311cbe7cf6f03300c3eec7d042cbf6a21fa4cfe931d028866d"
     },
     {
       "path": "docs/design/UX-SPEC.md",
@@ -2268,13 +2273,13 @@
     },
     {
       "path": "docs/domains/account/CARD.md",
-      "bytes": 4326,
-      "sha256": "52754c16e688fff479a40994b941dbf5684915db32e547b4351acdd29055c32d"
+      "bytes": 4611,
+      "sha256": "ad8d28787ce99729ce4ea68596608e3b9f59a20de75a1f0927ca61ad61d34c4b"
     },
     {
       "path": "docs/domains/account/state.json",
-      "bytes": 2798,
-      "sha256": "f0efefe127fe73ade9c1d9ba9f86b0c5d278e0fb7849b04db8fcbd7b8a5618a2"
+      "bytes": 3133,
+      "sha256": "01b5601b8a5a160759800b54e52ab714d751da76ada6d061a76e6472585726a6"
     },
     {
       "path": "docs/domains/banner-lab/CARD.md",
@@ -2288,13 +2293,13 @@
     },
     {
       "path": "docs/domains/commerce/CARD.md",
-      "bytes": 4376,
-      "sha256": "326ff87e1787da5387ecc8a2ddb905dcd98d2283b13c586d921ff1e6602fb502"
+      "bytes": 4641,
+      "sha256": "40e4a836baf5fab132ef6a7ce67bbee3070f72bf2ce24551cf8efd51cd7f3ae7"
     },
     {
       "path": "docs/domains/commerce/state.json",
-      "bytes": 2469,
-      "sha256": "7d735fb133fe18b4c749fcaae6b79984b34faf792a337e9549182d295a4b02dc"
+      "bytes": 2760,
+      "sha256": "88d312311d14d7510d618480397d3017b156b612450a74fb941a693229111146"
     },
     {
       "path": "docs/domains/events-audio/CARD.md",
@@ -2378,13 +2383,13 @@
     },
     {
       "path": "docs/governance/CHANGELOG.md",
-      "bytes": 31624,
-      "sha256": "156205100063603110c5b6b63160cd89d412003bfc7d27e352ae9c819b88740e"
+      "bytes": 32232,
+      "sha256": "5a9c216fd5f173a00d2f85a724ae695ed84dd7234377522c1a323d354fe18d51"
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 21743,
-      "sha256": "df88375d3ab7161cd8b115a7dfcbbc1341ed294af222593d6f6d3c37be10a6af"
+      "bytes": 30743,
+      "sha256": "a7c670cfbf373e8ad35c030cba5882de7cc2a97da8838bb5de639338b9a30637"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
@@ -2403,8 +2408,8 @@
     },
     {
       "path": "docs/governance/PROGRESS-MAP.md",
-      "bytes": 5535,
-      "sha256": "f723fc711e8040cac898f08565885f9836752ec694894611d44368394e906473"
+      "bytes": 5943,
+      "sha256": "d08f81ad8b5d50e842575b45a659d03e18d1e938c4edcb011d64c762687fc7e8"
     },
     {
       "path": "docs/governance/RISK-REGISTER.md",
@@ -2963,8 +2968,8 @@
     },
     {
       "path": "tools/progress_map.py",
-      "bytes": 71416,
-      "sha256": "7d03f1427a2a266839ef8874945b7eb3f700494ad23bc8b8209aba32a864bc5c"
+      "bytes": 72264,
+      "sha256": "00cf661178f1521ed558da60d094b88de7f2e7fb0e1745cf17a35e74f25bb7d4"
     },
     {
       "path": "tools/render_diagrams.mjs",
@@ -3013,8 +3018,8 @@
     },
     {
       "path": "tools/tests/test_progress_map.py",
-      "bytes": 24621,
-      "sha256": "8c2271a5bee3c410305421b58a028b10bb578568af17956c03393965e222c6ea"
+      "bytes": 26595,
+      "sha256": "4055a5bc0b7def1e2881ba33db00a86f3357b5190d2b8de3137d2f1a230888ea"
     },
     {
       "path": "tools/tests/test_run_record.py",

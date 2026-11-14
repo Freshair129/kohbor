@@ -244,6 +244,38 @@ class StatusRules(Base):
         self.assertEqual(s["card:host-core:02"], "blocked")
 
 
+class DecisionPlacement(Base):
+    def test_decided_decisions_are_drawn_only_in_areas_without_requirement_rows(self) -> None:
+        self.fx.decisions([dec("DEC-FRONTEND-HOSTING", status="decided", decided_on="2026-11-14"), dec("DEC-UPDATE-ENDPOINT", status="decided")])
+        m = self.fx.build()
+        self.assertEqual(leaf(m, "dec:DEC-FRONTEND-HOSTING")["s"], "designed")  # backend area: no RTM rows
+        self.assertIn("nothing is built", m["details"]["dec:DEC-FRONTEND-HOSTING"]["why"])
+        self.assertFalse(any(n["i"] == "dec:DEC-UPDATE-ENDPOINT" for n in pm.iter_nodes(m["tree"])))  # updater has RTM modules
+
+    def test_exact_decision_id_beats_pattern(self) -> None:
+        self.fx.decisions([dec("DEC-ACCOUNT-ORIGIN"), dec("DEC-STORE-HOSTING"), dec("DEC-ACCOUNT-OTHER")])
+        m = self.fx.build()
+        under = {a["i"]: {n["i"] for n in pm.iter_nodes(a)} for a in m["tree"]["c"]}
+        self.assertIn("dec:DEC-ACCOUNT-ORIGIN", under["area:backend"])
+        self.assertIn("dec:DEC-STORE-HOSTING", under["area:backend"])
+        self.assertIn("dec:DEC-ACCOUNT-OTHER", under["area:account"])
+
+    def test_provisional_decision_still_needs_the_owner(self) -> None:
+        self.fx.decisions([dec("DEC-ACCOUNT-ORIGIN", status="provisional")])
+        m = self.fx.build()
+        self.assertEqual(leaf(m, "dec:DEC-ACCOUNT-ORIGIN")["s"], "blocked")
+        self.assertEqual([o["id"] for o in m["owner"]], ["DEC-ACCOUNT-ORIGIN"])
+
+    def test_external_draft_copy_yields_to_the_repository_document(self) -> None:
+        self.fx.file("docs/design/BACKEND-STACK.md", "# Repo stack")
+        ext = self.fx.root / "design"
+        ext.mkdir()
+        (ext / "BACKEND-STACK.md").write_text("# Draft copy", encoding="utf-8")
+        m = self.fx.build(design_dirs=[ext])
+        docs = [n for n in pm.iter_nodes(m["tree"]) if n["k"] == "document" and n["i"].startswith("doc:BACKEND-STACK")]
+        self.assertEqual([n["t"] for n in docs], ["Repo stack"])
+
+
 class Rollups(Base):
     def test_totals_and_what_next_order(self) -> None:
         self.fx.file("src/a.rs")

@@ -173,7 +173,8 @@
       "blocks": "automatic local deletion",
       "owner_role": "product owner",
       "safe_interim": "Bound new writes; stop recording on disk pressure; no destructive auto-cleanup.",
-      "closure_evidence": "Documented quotas/lifetimes and explicit user deletion behavior with recovery tests."
+      "closure_evidence": "Documented quotas/lifetimes and explicit user deletion behavior with recovery tests.",
+      "owner_statement_note": "2026-11-14, owner (quoted in docs/governance/DECISION-LOG.md section 'Backend workstream owner statements'): run an encrypted pg_dump of the alpha database every night; backup retention is decided together with the account-deletion policy. This sets the schedule only; DEC-RETENTION stays open for periods."
     },
     {
       "id": "DEC-PREMIUM",
@@ -497,23 +498,57 @@
     },
     {
       "id": "DEC-ACCOUNT-ORIGIN",
-      "status": "open",
+      "status": "provisional",
       "milestone": "M6",
       "blocks": "Deployment of the account broker and relay (not the local build)",
       "owner_role": "product owner",
-      "safe_interim": "No origin is inferred from the product name; nothing is hosted; local features are unaffected.",
-      "closure_evidence": "Owner decides where the broker and relay run, who operates them and any paid service (AGENTS.md forbids adding one by convenience).",
+      "safe_interim": "Local fake broker and local Postgres first; nothing is hosted or provisioned; local features are unaffected. Any public origin, domain registration, provider account or spend needs the owner's action.",
+      "closure_evidence": "The owner's production hosting decision (operator, region, backups and recovery objective, uptime target) and the alpha provisioning done by the owner; the alpha/beta record above stays valid until then.",
       "proposed_on": "2026-11-12",
       "proposal_ref": "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
       "related": [
         "DEC-ACCOUNT-IDENTITY",
+        "DEC-FRONTEND-HOSTING",
+        "DEC-GOOGLE-PROJECT",
+        "DEC-PRIVACY-LEGAL",
+        "DEC-RETENTION",
         "DEC-SOCIAL",
-        "DEC-PRIVACY-LEGAL"
+        "DEC-STORE-HOSTING"
+      ],
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-14",
+      "channel": "Owner statements in the engineering chat (2026-11-14), relayed by the coordinating session; recorded by an agent (governance session). Not a design review, not legal advice",
+      "owner_statement_th": "ตามนั้นเลย",
+      "owner_statement_note": "The owner answered 'ตามนั้นเลย' (go as stated) to the coordinating session's summary of the alpha/beta stack, after earlier confirmations recorded in docs/governance/DECISION-LOG.md section 'Backend workstream owner statements'",
+      "decision": "Recorded for the ALPHA/BETA phase ONLY. (1) The account broker and the relay run in Docker on the owner's PC and are reachable only through a Cloudflare Tunnel: no port forwarding; Tailscale is for the owner's administration only. (2) The database is Supabase used as Postgres ONLY: no Supabase Auth, a NEW Kohbor-only project, never shared with another product. (3) No paid service beyond free tiers without a new decision (the alpha spending ceiling is THB 0, see docs/governance/DECISION-LOG.md section 'Backend workstream owner statements'). Production hosting, its operator, recovery objectives and uptime targets stay OPEN. Nothing is provisioned by this record: the domain, the Cloudflare account and Tunnel, the Supabase project and every key are created by the owner (docs/design/BACKEND-STACK.md checklist).",
+      "affected": [
+        "docs/design/BACKEND-STACK.md",
+        "docs/design/STORE-PACK-DELIVERY.md section 8"
+      ]
+    },
+    {
+      "id": "DEC-FRONTEND-HOSTING",
+      "status": "decided",
+      "milestone": "unscheduled",
+      "blocks": "Publication of the static web front end (landing, download links, privacy page): the build target is decided, publication and the custom domain are not",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-14",
+      "channel": "Owner statements in the engineering chat (2026-11-14), relayed by the coordinating session; recorded by an agent (governance session). Not a design review, not legal advice",
+      "owner_statement_th": "ตามนั้นเลย",
+      "decision": "The static web front end is hosted on Cloudflare Pages in the owner's Cloudflare account, and it is built HOST-AGNOSTIC: the same static output must also build and deploy on Vercel, so no Cloudflare-only API is used. The initial address is the assigned Pages subdomain; the preferred custom domain is conditional on availability and the owner's registration (docs/governance/DECISION-LOG.md section 'Backend workstream owner statements'). Publishing anything needs the owner's approval. Pages limits and terms are UNVERIFIED.",
+      "safe_interim": "Nothing is published; the site is built only as static output locally. No Cloudflare or Vercel project exists.",
+      "closure_evidence": "The owner approves publication, supplies the assigned hostname or registers a domain, and the privacy page text passes the owner's legal review (DEC-PRIVACY-LEGAL).",
+      "related": [
+        "DEC-ACCOUNT-ORIGIN",
+        "DEC-STORE-HOSTING",
+        "DEC-PRIVACY-LEGAL",
+        "DEC-GOOGLE-PROJECT"
       ]
     },
     {
       "id": "DEC-GOOGLE-PROJECT",
-      "status": "open",
+      "status": "provisional",
       "milestone": "M6",
       "blocks": "Kohbor-owned Google sign-in project, consent screen and verification",
       "owner_role": "product owner",
@@ -523,7 +558,11 @@
       "proposal_ref": "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
       "related": [
         "DEC-ACCOUNT-IDENTITY"
-      ]
+      ],
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-14",
+      "channel": "Owner statements in the engineering chat (2026-11-14), relayed by the coordinating session; recorded by an agent (governance session). Not a design review, not legal advice; the statements are quoted in docs/governance/DECISION-LOG.md section 'Backend workstream owner statements'",
+      "decision": "Partly decided (quoted in the log): the product owner owns a NEW Kohbor-only Google Cloud project and manages its OAuth consent screen; the alpha privacy policy URL is the /privacy page of Kohbor's Cloudflare Pages site, once Google accepts that hostname (UNVERIFIED); alpha Google sign-in is limited to invited testers, at most 100. The project does not exist yet; nothing is created by this record."
     },
     {
       "id": "DEC-SIGNIN-FALLBACK",
@@ -635,7 +674,7 @@
     },
     {
       "id": "DEC-STORE-SCOPE",
-      "status": "open",
+      "status": "provisional",
       "milestone": "unscheduled",
       "blocks": "Catalog and entitlement scope: what is sold, whether an account is required to buy and to download, guest catalog browsing, free packs, updates of a purchased pack, and the relation to premium",
       "owner_role": "product owner",
@@ -647,23 +686,32 @@
         "DEC-COMMERCE-INTENT",
         "DEC-PREMIUM",
         "DEC-SIGNIN-OPTIONAL"
-      ]
+      ],
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-14",
+      "channel": "Owner statements in the engineering chat (2026-11-14), relayed by the coordinating session; recorded by an agent (governance session). Not a design review, not legal advice; the statements are quoted in docs/governance/DECISION-LOG.md section 'Backend workstream owner statements'",
+      "decision": "Partly decided (quoted in the log): after alpha the first Store release sells announcer packs only; premium is decided separately; a buyer signs in to a Kohbor account before buying and the entitlement is bound to the account for re-download on another device; the catalog may be browsed without signing in, and signing in is required to buy or to download a purchased pack. STILL OPEN: free packs, whether updates of a purchased pack are included, and the relation to premium (DEC-PREMIUM)."
     },
     {
       "id": "DEC-STORE-HOSTING",
-      "status": "open",
+      "status": "provisional",
       "milestone": "unscheduled",
       "blocks": "Any hosting, domain, object storage, database or tunnel for the store; any provider account or key; any spend",
       "owner_role": "product owner",
       "proposed_on": "2026-11-14",
       "proposal_ref": "docs/design/STORE-PACK-DELIVERY.md section 13",
-      "safe_interim": "Nothing is built, hosted, priced or paid for; the Store destination keeps its honest unavailable state and never gates local gameplay. Recommended default if confirmed: the proposed alpha stack for the alpha only, with a spending ceiling and alert set by the owner before any account is created, and no sales in the alpha.",
-      "closure_evidence": "Owner confirmation or replacement of the proposed stack (Cloudflare Pages, broker on the owner's PC through a tunnel, Postgres-only Supabase, Cloudflare R2, GitHub Releases) after the external facts of section 14 are verified from the vendors' current pages, with the spending ceiling recorded.",
+      "safe_interim": "Nothing is built, hosted or provisioned. No object storage, bucket, provider account or key exists; no spend before the owner creates and funds anything. The Store destination keeps its honest unavailable state.",
+      "closure_evidence": "The owner's choice between R2 and Supabase Storage after the provider facts of docs/design/STORE-PACK-DELIVERY.md section 14 are checked from the vendors' current pages, and the owner's production hosting decision.",
       "related": [
         "DEC-ACCOUNT-ORIGIN",
         "DEC-PRIVACY-LEGAL",
         "DEC-COMMERCE-INTENT"
-      ]
+      ],
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-14",
+      "channel": "Owner statements in the engineering chat (2026-11-14), relayed by the coordinating session; recorded by an agent (governance session). Not a design review, not legal advice",
+      "owner_statement_th": "ตามนั้นเลย",
+      "decision": "The hosting part is decided for the ALPHA/BETA phase as in DEC-ACCOUNT-ORIGIN: entitlement runs as a module of the broker on the owner's PC behind the Cloudflare Tunnel, the store tables live in the Kohbor-only Supabase Postgres, the static front end is on Cloudflare Pages (DEC-FRONTEND-HOSTING), and app updates use GitHub Releases (DEC-UPDATE-ENDPOINT). Pack object storage: Cloudflare R2 is PROPOSED with Supabase Storage as the named alternative; the choice, and every price, free-tier limit and term, are UNVERIFIED and need the owner's confirmation. The alpha sells nothing and the spending ceiling is THB 0 (docs/governance/DECISION-LOG.md section 'Backend workstream owner statements'). Production hosting for the store stays open."
     },
     {
       "id": "DEC-STORE-OFFLINE-POLICY",
