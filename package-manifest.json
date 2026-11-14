@@ -608,8 +608,8 @@
     },
     {
       "path": "apps/desktop/src/live/MinimapStage.tsx",
-      "bytes": 3122,
-      "sha256": "b05f6953a93169b4303684073557b01beb8c4a327b77bed34700fd23642398dd"
+      "bytes": 3704,
+      "sha256": "10ad906ab8eb94dd9312fe2b37e46c6484bf82db82c67a321976280030042a35"
     },
     {
       "path": "apps/desktop/src/live/PreviewDiagnosticsPanel.tsx",
@@ -788,8 +788,8 @@
     },
     {
       "path": "apps/desktop/src/logs/frontend.ts",
-      "bytes": 2380,
-      "sha256": "7d987e24df85485d14b988a13b612875bd7edf41ac6b16ec8a140e9afa98b2c8"
+      "bytes": 2698,
+      "sha256": "33b174ea509b12c49a1f3fd7bd6a34df93f0c4b876032c70ad195e8ed2ec00f4"
     },
     {
       "path": "apps/desktop/src/logs/host.ts",
@@ -1038,8 +1038,8 @@
     },
     {
       "path": "apps/desktop/tests/logs.test.ts",
-      "bytes": 11477,
-      "sha256": "645173c6d51bb7a0fa11848cc3091b5085ef0aa86f33fe0a59cbcf166d50b33f"
+      "bytes": 11559,
+      "sha256": "b5b4439a125e5eacc7047419380ef11c8a19b30389a382b4ddc494b4cc204af8"
     },
     {
       "path": "apps/desktop/tests/mediaStatus.test.ts",
@@ -1083,8 +1083,8 @@
     },
     {
       "path": "apps/desktop/tests/round2.test.ts",
-      "bytes": 16077,
-      "sha256": "1014f111adf26cc3f923148fa05936a0aa58794d01906e35df9d0645c867e3a2"
+      "bytes": 16207,
+      "sha256": "1a8672595363dd2883031bfe40db393de1ffd3c379d9dfb90736cbc4beb091c8"
     },
     {
       "path": "apps/desktop/tests/shell-css.test.ts",
@@ -1118,8 +1118,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 50668,
-      "sha256": "2530e7acc50b2b9510c126df308edd95f7e535c4b5642116c24f781f502f2bd1"
+      "bytes": 58828,
+      "sha256": "9c2ef7685043ea72f557d566392127c839188ed5e5105aa97f1aa3405a9da9dd"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -1453,8 +1453,8 @@
     },
     {
       "path": "crates/kohbor-game-assets/src/bin/kohbor-asset-probe.rs",
-      "bytes": 17955,
-      "sha256": "914c2aa45d24cdd87e474fecfc3e85aceec3341637d9b83d52e2bc8a724c689d"
+      "bytes": 18175,
+      "sha256": "2a7cecef27301350d78766b287f632112b00cd0e7554c3eeaec890575238c2f6"
     },
     {
       "path": "crates/kohbor-game-assets/src/lib.rs",
@@ -1468,8 +1468,8 @@
     },
     {
       "path": "crates/kohbor-game-assets/src/vpk.rs",
-      "bytes": 32232,
-      "sha256": "43fb0e175841b03496dd30d5c0372eb62b31093eb77aeb9b331139b85f823c1c"
+      "bytes": 32452,
+      "sha256": "c4061bd8e8214e9defb34c93a5f81e878a623931e627d2d4468215b163a100fc"
     },
     {
       "path": "crates/kohbor-gsi-capture/Cargo.toml",
@@ -1808,8 +1808,8 @@
     },
     {
       "path": "docs/INDEX.md",
-      "bytes": 10306,
-      "sha256": "b3266a62fc1c26a77e6b21b31af69cbcfeab9b029eb492c8b0e35a05df7ff399"
+      "bytes": 10855,
+      "sha256": "6c677f6fb1cabe7ea2ad148dd72b275005de7ac4fe94dd95691a5d3dbf756a6e"
     },
     {
       "path": "docs/delivery/AGENT-WORKFLOW.md",
@@ -1945,6 +1945,11 @@
       "path": "docs/design/SHARING-MODEL-REVIEW.md",
       "bytes": 29579,
       "sha256": "01dabedb687d4d5b7848dc940a7c15137a446d4d8dec4d4cb7114ec864f75f15"
+    },
+    {
+      "path": "docs/design/STORE-PACK-DELIVERY.md",
+      "bytes": 36719,
+      "sha256": "5fa28aefb285d88e6a68095defbb0e179355ab5d54a780d2373ca535875b7c89"
     },
     {
       "path": "docs/design/UX-SPEC.md",
@@ -2283,13 +2288,13 @@
     },
     {
       "path": "docs/domains/commerce/CARD.md",
-      "bytes": 3377,
-      "sha256": "80080ec6e8613329375cb149353ba779681854a77a1840457361c97e62a69a37"
+      "bytes": 4376,
+      "sha256": "326ff87e1787da5387ecc8a2ddb905dcd98d2283b13c586d921ff1e6602fb502"
     },
     {
       "path": "docs/domains/commerce/state.json",
-      "bytes": 1522,
-      "sha256": "59783fb05099f08bb61175a6f9147fdfba0c3e3d40adabe3c0f90f3f6c4afb9b"
+      "bytes": 2469,
+      "sha256": "7d735fb133fe18b4c749fcaae6b79984b34faf792a337e9549182d295a4b02dc"
     },
     {
       "path": "docs/domains/events-audio/CARD.md",
@@ -2373,13 +2378,13 @@
     },
     {
       "path": "docs/governance/CHANGELOG.md",
-      "bytes": 30576,
-      "sha256": "03babb0980f624ba4c168a12a2073646a40b678924c70f8bf9db2e9b60fad1e4"
+      "bytes": 31624,
+      "sha256": "156205100063603110c5b6b63160cd89d412003bfc7d27e352ae9c819b88740e"
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 19951,
-      "sha256": "6146ba9d4c4df2ac52fd1e8fc5fa1806413f6f7a48f4d26f7a0fd470f0052bfe"
+      "bytes": 21743,
+      "sha256": "df88375d3ab7161cd8b115a7dfcbbc1341ed294af222593d6f6d3c37be10a6af"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
@@ -2395,6 +2400,11 @@
       "path": "docs/governance/IMPLEMENTATION-READINESS.md",
       "bytes": 7438,
       "sha256": "87246ad7d54e76b6a0b507550954b7bb08ad321f64877e26d2079a0dd9dd44da"
+    },
+    {
+      "path": "docs/governance/PROGRESS-MAP.md",
+      "bytes": 5535,
+      "sha256": "f723fc711e8040cac898f08565885f9836752ec694894611d44368394e906473"
     },
     {
       "path": "docs/governance/RISK-REGISTER.md",
@@ -2952,6 +2962,11 @@
       "sha256": "3aab8974f2f92f647fa8f6786e95464df8f6dd0a96ad6745152a12e3a6c57939"
     },
     {
+      "path": "tools/progress_map.py",
+      "bytes": 71416,
+      "sha256": "7d03f1427a2a266839ef8874945b7eb3f700494ad23bc8b8209aba32a864bc5c"
+    },
+    {
       "path": "tools/render_diagrams.mjs",
       "bytes": 12359,
       "sha256": "389d45b012f14636febd00f280b454a1331a41ebcd52c3631e02aa27cc6cc2dd"
@@ -2995,6 +3010,11 @@
       "path": "tools/tests/test_janitor.py",
       "bytes": 12276,
       "sha256": "95fc7e1f589de196ec642731ef4b2e620084903feea3aa9f5db19c909281f434"
+    },
+    {
+      "path": "tools/tests/test_progress_map.py",
+      "bytes": 24621,
+      "sha256": "8c2271a5bee3c410305421b58a028b10bb578568af17956c03393965e222c6ea"
     },
     {
       "path": "tools/tests/test_run_record.py",

@@ -3,9 +3,11 @@
   "domain": "commerce",
   "tier": "B",
   "verified_at_commit": "7ad4c7f",
-  "verified_on": "2026-11-13",
-  "verified_by": "claude-code governance session, seeded from DEC-COMMERCE-INTENT; agent work, not human review",
-  "write_areas": [],
+  "verified_on": "2026-11-14",
+  "verified_by": "claude-code governance session; agent work, not human review. Design written on the owner's request of 2026-11-14, relayed by the coordinating session",
+  "write_areas": [
+    "docs/design/STORE-PACK-DELIVERY.md"
+  ],
   "requirement_ids": [],
   "proposed_requirement_ids": [],
   "decision_ids": [
@@ -14,10 +16,25 @@
     "DEC-ACCOUNT-ORIGIN",
     "DEC-PACK-CRYPTO",
     "DEC-PRIVACY-LEGAL",
-    "DEC-SIGNIN-OPTIONAL"
+    "DEC-SIGNIN-OPTIONAL",
+    "DEC-STORE-SCOPE",
+    "DEC-STORE-HOSTING",
+    "DEC-STORE-OFFLINE-POLICY",
+    "DEC-STORE-PAYMENT-PROVIDER",
+    "DEC-STORE-CURRENCY-TAX",
+    "DEC-STORE-REFUND",
+    "DEC-STORE-REVENUE-SHARE",
+    "DEC-STORE-RECORDS",
+    "DEC-STORE-TAKEDOWN"
   ],
   "task_id_prefixes": [],
   "artefacts": [
+    {
+      "path": "docs/design/STORE-PACK-DELIVERY.md",
+      "type": "design",
+      "role": "governing",
+      "reviewed_sha256": "5fa28aefb285d88e6a68095defbb0e179355ab5d54a780d2373ca535875b7c89"
+    },
     {
       "path": "docs/product/FEATURE-CATALOG.md",
       "type": "spec",
@@ -50,10 +67,17 @@
       "role": "source-of-truth"
     }
   ],
-  "open_questions": [],
+  "open_questions": [
+    {
+      "id": "Q-COM-1",
+      "owner": "governance lead",
+      "raised": "2026-11-14",
+      "text": "The twelve proposed store requirements (design section 11) and the store allow-list amendment to account rule 26 (design section 3) are applied nowhere. Who applies them, and when, if the owner accepts the design?"
+    }
+  ],
   "last_handoff": {
     "task_id": null,
-    "on": "2026-11-13",
-    "summary": "Seed card created from the owner statement of 2026-11-13; nothing designed."
+    "on": "2026-11-14",
+    "summary": "Store and pack delivery design written as a proposal; nine DEC-STORE-* decisions opened; nothing built, hosted, priced or paid for."
   }
 }
