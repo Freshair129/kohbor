@@ -65,6 +65,22 @@ pub fn spawn_device_supervisor(
                         break 'supervisor;
                     }
 
+                    if matches!(&opened, Ok(Err(()))) {
+                        crate::log_warn!(
+                            "audio",
+                            "device_open_failed",
+                            "audio output device open failed",
+                            code = "AUDIO_DEVICE_OPEN_FAILED"
+                        );
+                    } else if opened.is_err() {
+                        crate::log_error!(
+                            "audio",
+                            "device_open_panicked",
+                            "audio output device opener panicked",
+                            code = "AUDIO_DEVICE_OPEN_FAILED"
+                        );
+                    }
+
                     let sink = match opened {
                         Ok(Ok(sink)) => sink,
                         Ok(Err(())) | Err(_) => {
@@ -120,9 +136,9 @@ pub fn spawn_device_supervisor(
 
                     if handed_over {
                         attempt = 0;
-                        if stop_requested(&rx) {
-                            break 'supervisor;
-                        }
+                        // Successful enqueue ends the hand-over attempt. A Need
+                        // arriving after it must remain queued for the next open.
+                        crate::log_info!("audio", "device_opened", "audio output device opened");
                         break 'attempts;
                     }
                 }

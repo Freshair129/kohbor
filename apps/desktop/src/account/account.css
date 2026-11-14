@@ -1,0 +1,39 @@
+.account-trigger { flex: none; display: flex; align-items: center; gap: 10px; width: 238px; max-width: 28vw; min-width: 0; min-height: 38px; padding: 5px 10px; background: var(--raised); border: 1px solid var(--line); border-radius: 8px; color: var(--text); font-size: 12px; }
+.account-trigger > span:nth-child(2) { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+.account-avatar { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--line); border-radius: 50%; color: var(--text-2); }
+.account-menu { position: fixed; right: 12px; z-index: 200; display: grid; gap: 4px; width: min(340px, calc(100vw - 24px)); min-height: 0; overflow: hidden; padding: 12px; border: 1px solid var(--stale); border-radius: 12px; background: var(--raised); color: var(--text); font-size: 13px; }
+.account-menu button { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; width: 100%; min-height: 36px; padding: 8px 10px; color: var(--text); background: var(--raised); border: 1px solid transparent; border-radius: 6px; text-align: left; }
+.account-menu button > span:first-child { flex: 1; }
+.account-menu :is(small, .account-menu-version) { color: var(--muted); font-size: 11px; }
+.account-menu button:hover:not(:disabled) { border-color: var(--line); background: var(--surface); }
+.account-menu-profile { display: grid; gap: 6px; padding: 4px 8px 10px; border-bottom: 1px solid var(--line); }
+.account-menu-profile > strong, .account-menu-profile > small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-menu-profile > button { border: 1px dashed var(--stale); }
+.account-menu-version { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 10px; border-block: 1px solid var(--line); }
+.account-menu-version small { flex-basis: 100%; }
+.account-menu button:disabled, .account-card button:disabled { opacity: 0.6; cursor: default; }
+.account-trigger:focus-visible, .account-menu button:focus-visible, .account-page button:focus-visible, .friends-page button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.account-page { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 18px; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; padding: 18px; }
+.friends-page { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 18px; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; padding: 18px; }
+.account-page-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
+.account-page-heading h1 { margin: 6px 0; font-size: 28px; }
+.account-page-heading p { margin: 0; color: var(--text-2); font-size: 13px; }
+.account-page-heading small { color: var(--accent); font: 11px Consolas, monospace; letter-spacing: 0.1em; }
+.account-page-heading button { flex: none; }
+.account-page-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 0.85fr); min-width: 0; min-height: 0; gap: 18px; overflow: hidden; }
+.account-card { min-width: 0; min-height: 0; overflow: hidden; padding: 24px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.account-card h2 { margin: 0 0 14px; font-size: 17px; }
+.account-card p { margin: 14px 0; font-size: 13px; color: var(--text-2); overflow-wrap: anywhere; }
+.account-card small { color: var(--muted); }
+.account-card hr { margin: 24px 0; border: 0; border-top: 1px solid var(--line); }
+.account-card dl { margin-top: 32px; font-size: 13px; }
+.account-card dd { margin: 8px 0; padding: 12px; border: 1px dashed var(--stale); border-radius: 6px; color: var(--text-2); }
+.account-identity { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; }
+.account-identity .account-avatar { width: 60px; height: 60px; font-size: 24px; }
+.account-identity h2 { margin: 0; }
+.account-card .account-unknown { margin: 32px 0; font-size: 30px; }
+.friends-page-grid { display: grid; grid-template-columns: minmax(210px, 0.8fr) minmax(0, 2.7fr); gap: 18px; min-width: 0; min-height: 0; overflow: hidden; }
+.friends-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.friends-empty-mark { color: var(--stale); font-size: 68px; line-height: 1.4; }
+.friends-empty > small { color: var(--accent); margin-block: 14px 28px; }
+@media (max-height: 850px) { .account-page, .friends-page { padding: 12px; gap: 12px; } .account-card { padding: 18px; } .account-page-heading h1 { font-size: 24px; } .account-card p { margin-block: 10px; } .account-card hr { margin-block: 18px; } }

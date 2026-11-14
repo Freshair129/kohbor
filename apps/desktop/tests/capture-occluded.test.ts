@@ -97,6 +97,8 @@ test("covered badge overlays the bounded stage and its canvas uses the dimming d
   assert.match(css, /\.live-map-canvas\.is-stale\s*\{[^}]*opacity:\s*0\.42/);
   const panel = readFileSync(new URL("../src/live/MinimapPanel.tsx", import.meta.url), "utf8");
   assert.match(panel, /presentation\.dimmed\s*\?\s*" is-stale"/);
-  assert.match(panel, /className="live-map-covered"/);
+  // Round 2 wraps the retained canvas; the covered badge now belongs to that stage.
+  const stage = readFileSync(new URL("../src/live/MinimapStage.tsx", import.meta.url), "utf8");
+  assert.match(stage, /className="live-map-covered"/);
   assert.match(panel, /presentation\.coveredBadge/);
 });

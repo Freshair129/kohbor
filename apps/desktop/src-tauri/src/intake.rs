@@ -75,6 +75,7 @@ pub struct Shared {
     pub phase: Option<Phase>,
     pub ownership: Option<Ownership>,
     pub ownership_reason: Option<&'static str>,
+    freshness_state: Mutex<Option<bool>>,
     /// Current verified hero identity is transient and scoped to the process.
     session_hero_id: Option<String>,
     token: Option<String>,
@@ -124,7 +125,10 @@ fn platform_steamid64() -> Option<u64> {
             .open_subkey(r"Software\Valve\Steam\ActiveProcess")
             .ok()?;
         let id: u32 = key.get_value("ActiveUser").ok()?;
-        (id != 0).then(|| kohbor_gsi::steamid64_from_account_id(id))
+        crate::logging::register_secret(&id.to_string());
+        (id != 0)
+            .then(|| kohbor_gsi::steamid64_from_account_id(id))
+            .inspect(|owner| crate::logging::register_secret(&owner.to_string()))
     }
     #[cfg(not(windows))]
     {
@@ -278,14 +282,18 @@ fn owned_config_name() -> String {
 }
 
 fn new_token() -> Option<String> {
-    secrets::random::<32>().map(|b| base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(b))
+    secrets::random::<32>()
+        .map(|b| base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(b))
+        .inspect(|value| crate::logging::register_secret(value))
 }
 
 pub(crate) fn token_from(dir: &Path) -> Option<String> {
     let raw = secrets::load_or_create(&dir.join("gsi-token.bin"), || {
         new_token().map(String::into_bytes)
     })?;
-    String::from_utf8(raw).ok()
+    String::from_utf8(raw)
+        .ok()
+        .inspect(|value| crate::logging::register_secret(value))
 }
 
 fn unix_seconds() -> u64 {
@@ -316,6 +324,11 @@ impl Shared {
             secrets::random::<32>().map(|b| b.to_vec())
         });
         let key: Option<[u8; 32]> = key.and_then(|k| k.try_into().ok());
+        if let Some(key) = key.as_ref() {
+            crate::logging::register_secret(
+                &base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(key),
+            );
+        }
         let persisted: Option<PersistedSessions> = rt
             .as_ref()
             .and_then(|v| serde_json::from_value(v["sessions"].clone()).ok());
@@ -326,7 +339,12 @@ impl Shared {
         let (sessions, secret_ok) = match (key, persisted) {
             (Some(k), Some(p)) => (SessionTracker::restore(k, p), true),
             (Some(k), None) if corrupt => {
-                eprintln!("runtime-state unreadable: session epoch recovered from wall clock");
+                crate::log_warn!(
+                    "gsi",
+                    "runtime_state_recovered",
+                    "runtime state unreadable; session epoch recovered from wall clock",
+                    code = "RUNTIME_STATE_UNREADABLE"
+                );
                 let recovered = PersistedSessions {
                     schema_version: "1.0.0".into(),
                     last_session_epoch: unix_seconds(),
@@ -363,6 +381,7 @@ impl Shared {
             phase: None,
             ownership: None,
             ownership_reason: None,
+            freshness_state: Mutex::new(None),
             session_hero_id: None,
             token,
             engine: None,
@@ -387,6 +406,9 @@ impl Shared {
 
     /// Own snapshot (own-snapshot 2.1.0) for the latest admitted payload.
     pub fn snapshot(&self) -> Value {
+        if let Some(age_ms) = self.last_age_ms() {
+            self.log_freshness_transition(age_ms);
+        }
         let generation = self.generation.max(1);
         match &self.last_admitted {
             None => build_snapshot(
@@ -420,6 +442,22 @@ impl Shared {
         self.last_admitted
             .as_ref()
             .map(|(at, _)| duration_ms(now.saturating_duration_since(*at)))
+    }
+
+    fn log_freshness_transition(&self, age_ms: u64) {
+        let is_fresh = age_ms <= FRESH_MAX_AGE_MS;
+        let mut previous = lock(&self.freshness_state);
+        if *previous != Some(is_fresh) {
+            *previous = Some(is_fresh);
+            let state = if is_fresh { "fresh" } else { "stale" };
+            crate::log_info!(
+                "gsi",
+                "snapshot_freshness_changed",
+                "GSI snapshot crossed a freshness boundary",
+                state = state,
+                age_ms = age_ms
+            );
+        }
     }
 
     pub(crate) fn last_event_age_ms_at(&self, now: Instant) -> Option<u64> {
@@ -502,19 +540,43 @@ impl Shared {
     /// request (`None` when unreadable, which can never yield verified ownership).
     pub(crate) fn accept(&mut self, body: &Value, arrival: Instant, platform: Option<u64>) -> u16 {
         let Some(token) = self.token.clone() else {
+            crate::log_warn!(
+                "gsi",
+                "intake_unavailable",
+                "GSI intake rejected request",
+                code = "GSI_SECRET_UNAVAILABLE"
+            );
             return 503;
         };
         let presented = body.pointer("/auth/token").and_then(Value::as_str);
         if !presented.is_some_and(|t| token_matches(&token, t)) {
+            crate::log_warn!(
+                "gsi",
+                "request_rejected",
+                "GSI request rejected",
+                code = "GSI_AUTH_REJECTED"
+            );
             return 401;
         }
         if !self.rate_ok() {
+            crate::log_warn!(
+                "gsi",
+                "request_rejected",
+                "GSI request rejected",
+                code = "GSI_RATE_LIMITED"
+            );
             return 429;
         }
         // A different verified owner within a match is handled by the session tracker
         // as an owner change (new epoch, values withdrawn), so no session owner is passed.
         let mut outcome = admit(body, &token, platform, None);
-        if let Outcome::Rejected(_) = &outcome {
+        if let Outcome::Rejected(reason) = &outcome {
+            crate::log_warn!(
+                "gsi",
+                "admission_rejected",
+                "GSI payload rejected",
+                code = reason.code()
+            );
             // Authenticated but failing admission (for example a foreign provider):
             // it never renews freshness, changes session identity or consumes a
             // sequence number (GSI-INTAKE-SPEC §3, §5). The reply stays 200 so the
@@ -524,11 +586,14 @@ impl Shared {
         let stale_source_gap = self.last_admitted.as_ref().is_some_and(|(previous, _)| {
             arrival.saturating_duration_since(*previous) > Duration::from_millis(FRESH_MAX_AGE_MS)
         });
+        let previous_phase = self.phase;
+        let previous_ownership = self.ownership;
         let mut reset_detector = stale_source_gap;
         if let Outcome::Admitted(a) = &mut outcome {
             self.phase = Some(a.phase);
             if a.ownership == Ownership::Verified {
                 if let Some(owner) = a.steamid64 {
+                    crate::logging::register_secret(&owner.to_string());
                     let change = self.sessions.observe(a.match_id.as_deref(), owner, || {
                         secrets::random::<16>()
                             .map(|b| base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(b))
@@ -541,6 +606,20 @@ impl Shared {
                             | SessionChange::Resumed { .. }
                     ) {
                         reset_detector = true;
+                    }
+                    let change_code = match &change {
+                        SessionChange::Started { .. } => Some("started"),
+                        SessionChange::OwnerChanged { .. } => Some("owner_changed"),
+                        SessionChange::Resumed { .. } => Some("resumed"),
+                        SessionChange::Unchanged { .. } | SessionChange::NoEvidence => None,
+                    };
+                    if let Some(change) = change_code {
+                        crate::log_info!(
+                            "gsi",
+                            "session_changed",
+                            "GSI session ownership changed",
+                            change = change
+                        );
                     }
                     let changed_epoch = match &change {
                         SessionChange::Started { epoch }
@@ -622,6 +701,31 @@ impl Shared {
         }
         self.sequence += 1;
         self.last_admitted = Some((arrival, outcome));
+        if self.phase != previous_phase {
+            let phase = match self.phase {
+                Some(Phase::Draft) => "draft",
+                Some(Phase::Pregame) => "pregame",
+                Some(Phase::Live) => "live",
+                Some(Phase::PostGame) => "post_game",
+                None => "unknown",
+            };
+            crate::log_info!("gsi", "phase_changed", "GSI phase changed", phase = phase);
+        }
+        if self.ownership != previous_ownership {
+            let ownership = match self.ownership {
+                Some(Ownership::Verified) => "verified",
+                Some(Ownership::Unverified) => "unverified",
+                Some(Ownership::Mismatch) => "mismatch",
+                None => "unknown",
+            };
+            crate::log_info!(
+                "gsi",
+                "ownership_changed",
+                "GSI ownership state changed",
+                state = ownership
+            );
+        }
+        self.log_freshness_transition(0);
         200
     }
 
@@ -659,8 +763,28 @@ fn precheck(req: &tiny_http::Request) -> Option<u16> {
 
 fn serve(handle: Handle, server: Arc<tiny_http::Server>) {
     loop {
-        let Ok(mut req) = server.recv() else { break };
-        let status = precheck(&req).unwrap_or_else(|| {
+        let mut req = match server.recv() {
+            Ok(req) => req,
+            Err(_) => {
+                crate::log_info!("gsi", "listener_unbound", "GSI intake listener stopped");
+                break;
+            }
+        };
+        let status = if let Some(status) = precheck(&req) {
+            let code = match status {
+                403 => "GSI_ORIGIN_REJECTED",
+                413 => "GSI_BODY_REJECTED",
+                _ => "GSI_REQUEST_REJECTED",
+            };
+            crate::log_warn!(
+                "gsi",
+                "request_rejected",
+                "GSI request rejected",
+                code = code,
+                status = status
+            );
+            status
+        } else {
             let mut body = Vec::new();
             let read = req
                 .as_reader()
@@ -669,8 +793,20 @@ fn serve(handle: Handle, server: Arc<tiny_http::Server>) {
             // Arrival: the complete body is in hand, before parsing (§5).
             let arrival = Instant::now();
             if read.is_err() {
+                crate::log_warn!(
+                    "gsi",
+                    "request_rejected",
+                    "GSI request body read failed",
+                    code = "GSI_BODY_REJECTED"
+                );
                 400
             } else if body.len() > BODY_LIMIT_BYTES {
+                crate::log_warn!(
+                    "gsi",
+                    "request_rejected",
+                    "GSI request body rejected",
+                    code = "GSI_BODY_REJECTED"
+                );
                 413
             } else {
                 match strict_json::parse(&body) {
@@ -678,10 +814,18 @@ fn serve(handle: Handle, server: Arc<tiny_http::Server>) {
                         let platform = platform_steamid64();
                         lock(&handle).accept(&v, arrival, platform)
                     }
-                    Err(_) => 400,
+                    Err(_) => {
+                        crate::log_warn!(
+                            "gsi",
+                            "request_rejected",
+                            "GSI request parse failed",
+                            code = "GSI_BODY_REJECTED"
+                        );
+                        400
+                    }
                 }
             }
-        });
+        };
         let _ = req.respond(tiny_http::Response::empty(status));
     }
 }
@@ -742,6 +886,13 @@ impl Runtime {
         s.port = Some(port);
         s.state = IntakeState::Listening;
         s.next_generation();
+        drop(s);
+        crate::log_info!(
+            "gsi",
+            "listener_bound",
+            "GSI intake listener bound",
+            port = port
+        );
         Ok(())
     }
 
@@ -781,7 +932,12 @@ impl Runtime {
     /// `replace` is the explicit "replace owned configuration" action for a file
     /// that was edited outside the app (GSI-INTAKE-SPEC §2.2); it rotates the token.
     pub fn setup(&self, replace: bool) -> Result<(), &'static str> {
-        self.setup_with(locate_game, replace)
+        let result = self.setup_with(locate_game, replace);
+        match result {
+            Ok(()) => crate::log_info!("gsi", "setup_result", "GSI setup completed", result = "ok"),
+            Err(code) => crate::log_warn!("gsi", "setup_result", "GSI setup failed", code = code),
+        }
+        result
     }
 
     fn setup_with(
@@ -1547,6 +1703,10 @@ mod s0_6_tests {
             "kohbor-capture-native",
             "kohbor-minimap-cv",
             "kohbor-risk",
+            // Workspace path crate, reads the user's installed game files read-only,
+            // no network client; flate2: pinned compression library, no network.
+            "kohbor-game-assets",
+            "flate2",
             "tauri",
             "serde",
             "serde_json",

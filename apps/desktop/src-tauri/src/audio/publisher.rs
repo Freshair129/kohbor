@@ -140,6 +140,13 @@ pub fn spawn_publisher(
             while let Ok(output) = rx.recv() {
                 match output {
                     EngineOut::Playback(payload) => {
+                        // Bounded try_send only; the logging writer owns all
+                        // scanning, locks, and file I/O. Never log the payload.
+                        if payload["kind"] == "started" {
+                            crate::logging::try_clip_played(
+                                payload["event_type"].as_str().unwrap_or("unknown"),
+                            );
+                        }
                         if catch_unwind(AssertUnwindSafe(|| {
                             emitter.emit("playback://event", &payload)
                         }))
@@ -151,6 +158,12 @@ pub fn spawn_publisher(
                     EngineOut::Outcome(record) => history.push(record),
                     EngineOut::DeviceLost => {
                         increment(&history.publisher_counters.device_lost);
+                        crate::log_warn!(
+                            "audio",
+                            "device_lost",
+                            "audio output device was lost",
+                            code = "AUDIO_DEVICE_LOST"
+                        );
                     }
                     EngineOut::NeedSink => {
                         if let Some(device) = &device {

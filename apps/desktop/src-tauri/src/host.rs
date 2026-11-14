@@ -408,7 +408,12 @@ impl Host {
         let engine_shared = Arc::new(EngineShared::new());
         let (out_tx, out_rx) = mpsc::sync_channel(OUT_LANE);
         let (engine_tx, engine) =
-            Engine::spawn(clock, engine_shared.clone(), out_tx.clone(), false)?;
+            Engine::spawn(clock, engine_shared.clone(), out_tx.clone(), false).map_err(
+                |error| {
+                    crate::log_error!("audio", "engine_start_failed", format!("{error}"));
+                    error
+                },
+            )?;
         set_join_priority(&engine, ThreadPriority::AboveNormal);
 
         let history = HistoryHandle::new();
@@ -531,6 +536,7 @@ impl Host {
 
         lock(&runtime.shared).attach_engine(engine_tx.clone());
         runtime.start();
+        crate::log_info!("audio", "engine_started", "audio engine services started");
 
         let commands = CommandApi {
             media: Arc::new(media.clone()),
@@ -643,6 +649,7 @@ impl Host {
                 // Runtime's gsi-intake thread intentionally remains detached, as before.
             },
         );
+        crate::log_info!("audio", "engine_stopped", "audio engine services stopped");
     }
 }
 

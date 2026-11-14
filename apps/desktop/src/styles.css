@@ -39,7 +39,9 @@ body {
 .content { display: flex; flex-direction: column; gap: 12px; }
 /* The host stopped answering: values stay visible but read as not current. */
 .content.is-outdated { opacity: 0.55; }
-.shell-header { flex: 0 0 56px; height: 56px; max-height: 56px; display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; border-bottom: 1px solid var(--line); }
+.shell-header { flex: 0 0 92px; height: 92px; max-height: 92px; display: grid; grid-template-rows: 52px minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; border-bottom: 1px solid var(--line); }
+.shell-mainbar { display: flex; align-items: center; gap: 20px; min-width: 0; min-height: 0; overflow: hidden; }
+.shell-statusbar { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 0; overflow: hidden; }
 .shell-brand { flex: none; display: flex; align-items: baseline; gap: 7px; min-width: 138px; white-space: nowrap; }
 .shell-brand span:first-child { color: var(--text); font-size: 17px; font-weight: 700; letter-spacing: 0.01em; }
 .shell-brand span:last-child { color: var(--muted); font-size: 12px; }
@@ -61,7 +63,7 @@ body {
 .shell-version { flex: none; display: flex; align-items: center; gap: 5px; min-width: 0; max-width: 220px; color: var(--text-2); font-size: 11px; }
 .shell-version-number { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .shell-version-demo { flex: none; padding: 0 4px; border: 3px double var(--warning); border-radius: 3px; color: var(--warning); font-size: 9px; font-weight: 600; }
-.shell-tab-list { flex: 0 0 40px; display: flex; align-items: stretch; gap: 6px; min-width: 0; border-bottom: 1px solid var(--line); }
+.shell-tab-list { flex: 1 1 auto; display: flex; align-items: stretch; gap: 6px; min-width: 0; overflow: hidden; }
 .shell-tab-list button { min-width: 92px; min-height: 36px; padding: 0 14px; border-color: transparent; border-radius: 8px 8px 0 0; color: var(--text-2); font-size: 13px; }
 .shell-tab-list button[aria-selected="true"] { border-color: var(--line); border-bottom-color: var(--ground); background: var(--surface); color: var(--text); box-shadow: inset 0 2px 0 var(--accent); }
 .shell-tab-panel { flex: 1 1 auto; min-width: 0; min-height: 0; overflow: hidden; outline: none; }
@@ -80,6 +82,9 @@ body {
 .shell-locale-card { display: flex; align-items: center; gap: 16px; min-width: 0; padding: 10px 14px; }
 .shell-locale-card .card-head { flex: none; margin: 0; }
 .shell-locale-card .locale-control { margin: 0; }
+.shell-developer-toggle { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 13px; color: var(--text-2); }
+.shell-developer-toggle input { flex: none; }
+.shell-settings-title { margin: 0; font-size: 15px; font-weight: 600; }
 .shell-locale-card .locale-notice { flex: 0 1 auto; max-width: 420px; margin: 0; font-size: 12px; }
 .shell-guide-slot { min-width: 0; min-height: 0; overflow: hidden; }
 .shell-guide-slot .guide { min-height: 100%; align-content: center; }
@@ -273,8 +278,7 @@ body.overlay-body #root { width: 100%; height: 100%; min-height: 0; }
 
 @media (max-height: 700px) {
   .app { padding-block: 6px; gap: 6px; }
-  .shell-header { flex-basis: 52px; height: 52px; max-height: 52px; }
-  .shell-tab-list { flex-basis: 36px; }
+  .shell-header { flex-basis: 84px; height: 84px; max-height: 84px; grid-template-rows: 46px minmax(0, 1fr); }
   .shell-packs { grid-template-columns: minmax(0, 1fr) minmax(300px, 0.92fr); }
   .pack-list, .history-scroll { max-height: min(30vh, 280px); }
   .shell-status-grid { grid-template-rows: minmax(0, 1.08fr) minmax(0, 0.92fr); }

@@ -1,0 +1,9 @@
+.steam-start-bar { display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 0; overflow: hidden; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.steam-service-chips { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.steam-service-chips > span { display: inline-flex; gap: 5px; padding: 3px 8px; border: 1px solid var(--line); border-radius: 5px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.steam-service-chips b { color: var(--text-2); font-weight: 500; }
+.steam-launch-message { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); font-size: 12px; }
+.steam-start-bar > button { flex: none; min-height: 32px; padding: 4px 18px; border: 1px solid var(--accent); background: var(--accent-surface); color: var(--text); }
+.steam-start-bar > button:disabled { border-color: var(--line); background: var(--raised); color: var(--muted); }
+.steam-launch-reason { flex: none; color: var(--text-2); font-size: 12px; }
+.shell-screen.shell-live { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 8px; }
