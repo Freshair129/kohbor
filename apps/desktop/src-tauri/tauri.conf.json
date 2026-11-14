@@ -1,7 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Kohbor",
-  "version": "0.0.1",
   "identifier": "io.github.freshair129.kohbor",
   "build": {
     "beforeDevCommand": "corepack pnpm@12.18.0 dev",

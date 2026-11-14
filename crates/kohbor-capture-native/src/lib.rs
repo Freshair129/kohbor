@@ -5,6 +5,8 @@ mod capture_frame;
 mod capture_recovery;
 #[cfg(windows)]
 mod dxgi;
+#[cfg(any(windows, test))]
+mod occlusion;
 mod region;
 
 use std::{fmt, marker::PhantomData, rc::Rc};
@@ -86,6 +88,20 @@ impl MinimapGrabber {
         self.output
     }
 
+    /// Checks an output-local crop after translating it to desktop coordinates.
+    /// This reuses the game window identified by capture startup/game_window().
+    pub fn crop_occluded(&self, rect: Rect) -> Option<bool> {
+        #[cfg(windows)]
+        {
+            self.native.screen_rect(rect).and_then(crop_occluded)
+        }
+        #[cfg(not(windows))]
+        {
+            let _ = rect;
+            None
+        }
+    }
+
     /// Copies `rect` as tight BGRA rows into `out`.
     pub fn grab(&mut self, rect: Rect, timeout_ms: u32, out: &mut Vec<u8>) -> Grab {
         if !capture_frame::rect_fits_output(rect, self.output.width, self.output.height) {
@@ -163,6 +179,27 @@ pub fn game_window() -> Option<Rect> {
 
     #[cfg(not(windows))]
     {
+        None
+    }
+}
+
+/// Checks visible top-level windows above the last game window identified by the
+/// existing capture startup/game_window() lookup. `rect` uses desktop coordinates.
+/// No identified game window, a changed owner, or a failed required query is unknown.
+/// This checker never enumerates processes or reads window titles.
+///
+/// This is a rectangle/z-order check, not proof about the composited pixels. It
+/// cannot see exclusive overlays or DWM visuals absent from EnumWindows, and can
+/// over-count shaped/partially transparent windows. Unreadable layered alpha is
+/// unknown; layered click-through and known zero-alpha windows are skipped.
+pub fn crop_occluded(rect: Rect) -> Option<bool> {
+    #[cfg(windows)]
+    {
+        occlusion::platform::crop_occluded(rect)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = rect;
         None
     }
 }

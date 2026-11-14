@@ -28,6 +28,7 @@ const DEFAULT_DISPLAY_FPS: u8 = 30;
 const ANALYSIS_INTERVAL: Duration = Duration::from_millis(100);
 const STATUS_INTERVAL: Duration = Duration::from_millis(500);
 const RESOURCE_INTERVAL: Duration = Duration::from_secs(1);
+const OCCLUSION_INTERVAL: Duration = Duration::from_millis(500);
 const CAPTURE_TIMEOUT_MS: u32 = 15;
 const RETRY_INITIAL: Duration = Duration::from_millis(500);
 const RETRY_MAX: Duration = Duration::from_secs(5);
@@ -40,6 +41,7 @@ const CAPTURE_CONFIG_INVALID: &str = "CAPTURE_CONFIG_INVALID";
 const CAPTURE_CONFIG_WRITE_FAILED: &str = "CAPTURE_CONFIG_WRITE_FAILED";
 const MAX_SEEN_GSI_EVENT_KEYS: usize = 256;
 const RISK_HEARTBEAT_MS: u64 = 1000;
+const PHASE_REASON_OCCLUDED: &str = "occluded";
 
 static CAPTURE_STATUS: OnceLock<Mutex<Option<Value>>> = OnceLock::new();
 static FRAME_SUBSCRIBERS: OnceLock<Mutex<Vec<Channel<InvokeResponseBody>>>> = OnceLock::new();
@@ -738,6 +740,7 @@ fn unknown_capture_status() -> Value {
         "phase": "unknown",
         "fps_measured": null,
         "grab_fps": null,
+        "grab_timeouts_per_s": null,
         "sent_total": null,
         "grab_total": null,
         "frame_age_ms": null,
@@ -765,6 +768,7 @@ fn status_payload(
         "phase": phase,
         "fps_measured": fps_measured,
         "grab_fps": null,
+        "grab_timeouts_per_s": null,
         "sent_total": null,
         "grab_total": null,
         "frame_age_ms": frame_age_ms,
@@ -781,7 +785,10 @@ fn status_payload(
     })
 }
 
-fn capture_phase_label(phase: CapturePhase) -> &'static str {
+fn capture_phase_label(phase: Option<CapturePhase>) -> &'static str {
+    let Some(phase) = phase else {
+        return "idle";
+    };
     match phase {
         CapturePhase::Live => "live",
         CapturePhase::Lite | CapturePhase::Unsupported => "unsupported",
@@ -789,6 +796,44 @@ fn capture_phase_label(phase: CapturePhase) -> &'static str {
         CapturePhase::CoverageUnavailable => "coverage_unavailable",
         CapturePhase::Calibrating | CapturePhase::RecalibrationNeeded => "calibrating",
         CapturePhase::Lost => "lost",
+    }
+}
+
+struct PhaseReasonInputs {
+    capture_enabled: bool,
+    paused: bool,
+    user_invalidated: bool,
+    waiting_for_game: bool,
+    no_game_window: bool,
+    unsupported_reason: Option<&'static str>,
+    occluded: bool,
+    lost: bool,
+    previous_reason: Option<&'static str>,
+    calibrating: bool,
+}
+
+/// User controls precede the game gate; source/geometry diagnostics follow it.
+fn resolve_phase_reason(input: PhaseReasonInputs) -> Option<&'static str> {
+    if !input.capture_enabled {
+        Some("capture_disabled")
+    } else if input.paused {
+        Some("paused")
+    } else if input.user_invalidated {
+        Some("user_invalidated")
+    } else if input.waiting_for_game {
+        Some("waiting_for_game")
+    } else if input.no_game_window {
+        Some("no_game_window")
+    } else if let Some(reason) = input.unsupported_reason {
+        Some(reason)
+    } else if input.lost {
+        Some(input.previous_reason.unwrap_or("reopening"))
+    } else if input.occluded {
+        Some(PHASE_REASON_OCCLUDED)
+    } else if input.calibrating {
+        Some("calibrating")
+    } else {
+        input.previous_reason
     }
 }
 
@@ -887,6 +932,7 @@ trait FrameSource {
     fn output(&self) -> Option<OutputInfo>;
     fn profile_rect(&self, output: &OutputInfo) -> Option<(Rect, String)>;
     fn game_window(&self) -> Option<Rect>;
+    fn crop_occluded(&self, rect: Rect) -> Option<bool>;
     fn grab(&mut self, rect: Rect, timeout_ms: u32, out: &mut Vec<u8>) -> Grab;
     fn gpu_local_bytes(&self) -> Option<u64>;
     fn close(&mut self);
@@ -919,6 +965,10 @@ impl FrameSource for NativeFrameSource {
 
     fn game_window(&self) -> Option<Rect> {
         kohbor_capture_native::game_window()
+    }
+
+    fn crop_occluded(&self, rect: Rect) -> Option<bool> {
+        self.grabber.as_ref()?.crop_occluded(rect)
     }
 
     fn grab(&mut self, rect: Rect, timeout_ms: u32, out: &mut Vec<u8>) -> Grab {
@@ -1442,12 +1492,18 @@ struct CaptureHostWorker<S, C, A, R, E, H> {
     retry_generation: u64,
     command_generation: u64,
     session_epoch: Option<u64>,
+    game_phase: Option<GamePhase>,
+    recalibration_pending: bool,
+    occlusion: Option<bool>,
+    occlusion_rect: Option<Rect>,
+    next_occlusion_check: Instant,
     output: Option<OutputInfo>,
     profile_rect: Option<Rect>,
     profile_name: Option<String>,
     environment: Option<Environment>,
     latest_admitted: LatestValue<AdmittedPixels>,
     capture_rate: RateWindow,
+    grab_timeouts: RateWindow,
     grab_total: u64,
     grab_duration: DurationWindow,
     analysis_duration: DurationWindow,
@@ -1507,12 +1563,22 @@ where
             retry_generation,
             command_generation: commands.generation,
             session_epoch: None,
+            game_phase: None,
+            recalibration_pending: false,
+            occlusion: None,
+            occlusion_rect: None,
+            next_occlusion_check: now,
             output: None,
             profile_rect: None,
             profile_name: None,
             environment: None,
             latest_admitted: LatestValue::new(),
             capture_rate: {
+                let mut rate = RateWindow::default();
+                rate.start(now);
+                rate
+            },
+            grab_timeouts: {
                 let mut rate = RateWindow::default();
                 rate.start(now);
                 rate
@@ -1545,6 +1611,8 @@ where
             let config = self.config.get();
             let period = if config.paused
                 || !self.capture_enabled
+                || !game_phase_allows_capture(self.game_phase)
+                || self.occlusion == Some(true)
                 || self.user_invalidated
                 || !self.source_open
                 || self.unsupported_reason.is_some()
@@ -1571,16 +1639,38 @@ where
         }
         self.paused = config.paused;
         let gsi = catch_unwind(AssertUnwindSafe(|| self.gsi.read())).ok();
-        if self.paused {
-            self.phase_reason = Some("paused");
+        let was_game_capture_allowed = game_phase_allows_capture(self.game_phase);
+        self.game_phase = gsi.as_ref().and_then(|snapshot| snapshot.game_phase);
+        let game_capture_allowed = game_phase_allows_capture(self.game_phase);
+        if !game_capture_allowed || !was_game_capture_allowed {
+            self.recalibration_pending = true;
             self.clear_frames();
-        } else if !self.capture_enabled || self.user_invalidated {
+        }
+        if !game_capture_allowed {
+            self.phase_detail = None;
+            self.occlusion = None;
+            self.occlusion_rect = None;
+            if self.source_open {
+                self.source.close();
+                self.source_open = false;
+            }
+            self.proposal_search_rect = None;
+            self.proposal_frames_seen = 0;
+            self.proposal_best = None;
+            if config.proposal_status == ProposalStatus::Searching {
+                self.config.set_proposal(None, ProposalStatus::None);
+            }
+        }
+        if self.paused || !self.capture_enabled || self.user_invalidated || !game_capture_allowed {
             self.clear_frames();
         } else {
             self.ensure_source(now);
             if self.source_open {
                 self.refresh_capture_profile(now, now_ms, gsi.as_ref());
                 if self.source_open {
+                    self.update_occlusion(now);
+                }
+                if self.source_open && self.occlusion != Some(true) && !self.recalibration_pending {
                     self.start_proposal_if_requested();
                     let proposal_grab_due = self.proposal_search_rect.is_some();
                     if proposal_grab_due {
@@ -1719,6 +1809,11 @@ where
             return;
         };
         self.phase_detail = None;
+        let Some(window_rect) = self.source.game_window() else {
+            self.unsupported_reason = Some("no_game_window");
+            self.clear_frames();
+            return;
+        };
         let Some((rect, profile)) = self.source.profile_rect(&output) else {
             self.unsupported_reason = Some("unsupported_resolution");
             self.profile_rect = None;
@@ -1747,13 +1842,6 @@ where
             return;
         };
         let was_unsupported = self.unsupported_reason.is_some();
-        let Some(window_rect) = self.source.game_window() else {
-            self.unsupported_reason = Some("no_game_window");
-            self.profile_rect = Some(effective_rect);
-            self.profile_name = Some(profile);
-            self.clear_frames();
-            return;
-        };
 
         self.unsupported_reason = None;
         if was_unsupported {
@@ -1774,7 +1862,11 @@ where
         let new_rect = self.profile_rect != Some(effective_rect);
         let new_profile = self.profile_name.as_deref() != Some(profile.as_str());
         let new_environment = self.environment.as_ref() != Some(&environment);
-        let changed = was_unsupported || new_rect || new_profile || new_environment;
+        let changed = self.recalibration_pending
+            || was_unsupported
+            || new_rect
+            || new_profile
+            || new_environment;
         self.profile_rect = Some(effective_rect);
         self.profile_name = Some(profile.clone());
 
@@ -1806,6 +1898,8 @@ where
                 self.clear_frames();
                 return;
             }
+            self.recalibration_pending = false;
+            self.phase_reason = Some("calibrating");
             self.clear_frames();
             self.consecutive_passes = 0;
         } else if matches!(
@@ -1860,8 +1954,16 @@ where
 
     fn capture_proposal_frame(&mut self, now: Instant, now_ms: u64) {
         let command_generation = self.config.command_generation.load(Ordering::Acquire);
-        if self.paused || self.user_invalidated || command_generation != self.command_generation {
+        if !game_phase_allows_capture(self.game_phase)
+            || self.recalibration_pending
+            || self.paused
+            || self.user_invalidated
+            || command_generation != self.command_generation
+        {
             self.clear_frames();
+            return;
+        }
+        if self.occlusion == Some(true) {
             return;
         }
         let (Some(search_rect), Some(output)) = (self.proposal_search_rect, self.output) else {
@@ -1923,6 +2025,7 @@ where
                 }
             }
             Grab::Timeout => {
+                self.grab_timeouts.record(now);
                 if let Some(controller) = self.controller.as_mut() {
                     controller.record_cycle(now_ms, CycleOutcome::HealthyTimeout);
                 }
@@ -1966,8 +2069,16 @@ where
 
     fn capture_one(&mut self, now: Instant, now_ms: u64, _gsi: Option<&GsiSnapshot>) {
         let command_generation = self.config.command_generation.load(Ordering::Acquire);
-        if self.paused || self.user_invalidated || command_generation != self.command_generation {
+        if !game_phase_allows_capture(self.game_phase)
+            || self.recalibration_pending
+            || self.paused
+            || self.user_invalidated
+            || command_generation != self.command_generation
+        {
             self.clear_frames();
+            return;
+        }
+        if self.occlusion == Some(true) {
             return;
         }
         let (Some(rect), Some(output), Some(session_epoch)) =
@@ -1987,6 +2098,7 @@ where
         );
         match grab {
             Grab::Timeout => {
+                self.grab_timeouts.record(now);
                 if let Some(controller) = self.controller.as_mut() {
                     controller.record_cycle(now_ms, CycleOutcome::HealthyTimeout);
                 }
@@ -2134,11 +2246,16 @@ where
 
     fn admit_candidate(&mut self, candidate: CandidateFrame, now_ms: u64) -> bool {
         let _invalidate_gate = lock(&FRAME_INVALIDATE_GATE);
-        if self.user_invalidated
+        if !game_phase_allows_capture(self.game_phase)
+            || self.recalibration_pending
+            || self.user_invalidated
             || candidate.command_generation
                 != self.config.command_generation.load(Ordering::Acquire)
         {
             self.latest_admitted.clear();
+            return false;
+        }
+        if self.occlusion == Some(true) {
             return false;
         }
         let Some(controller) = self.controller.as_mut() else {
@@ -2173,17 +2290,24 @@ where
             .controller
             .as_ref()
             .is_some_and(CaptureAccess::crop_visible)
+            && game_phase_allows_capture(self.game_phase)
+            && !self.recalibration_pending
             && !externally_invalidated
             && !self.user_invalidated;
         let latest_admitted = crop_visible.then(|| self.latest_admitted.read()).flatten();
 
-        let mut coverage = if self.paused
+        let mut coverage = if !game_phase_allows_capture(self.game_phase)
+            || self.paused
             || externally_invalidated
             || self.user_invalidated
             || !self.capture_enabled
             || self.unsupported_reason.is_some()
+            || self.recalibration_pending
+            || self.lost
         {
             Coverage::Unavailable
+        } else if self.occlusion == Some(true) {
+            Coverage::Stale
         } else {
             self.controller
                 .as_ref()
@@ -2283,16 +2407,51 @@ where
         self.consecutive_passes = 0;
     }
 
+    /// Occlusion scans are bounded to one call per 500 ms, including across crop and
+    /// phase changes. A newly appearing occluder can remain unseen until that poll.
+    fn update_occlusion(&mut self, now: Instant) {
+        let Some(rect) = self
+            .profile_rect
+            .filter(|_| self.unsupported_reason.is_none())
+        else {
+            self.occlusion = None;
+            self.occlusion_rect = None;
+            return;
+        };
+        if self.occlusion_rect != Some(rect) {
+            // A result for an old crop says nothing about the new crop. Geometry
+            // changes already start their own fresh calibration in refresh_capture_profile.
+            self.occlusion_rect = Some(rect);
+            self.occlusion = None;
+        }
+        if now < self.next_occlusion_check {
+            return;
+        }
+        let was_occluded = self.occlusion == Some(true);
+        self.occlusion = self.source.crop_occluded(rect);
+        self.next_occlusion_check = now + OCCLUSION_INTERVAL;
+        if was_occluded && self.occlusion != Some(true) {
+            self.clear_frames();
+            self.recalibration_pending = true;
+            self.phase_reason = Some("calibrating");
+        } else if self.occlusion == Some(true) {
+            self.consecutive_passes = 0;
+        }
+    }
+
     fn phase(&self, now_ms: u64) -> &'static str {
         let commands = self.config.invalidation_state();
+        if !self.capture_enabled {
+            return "unsupported";
+        }
         if self.paused {
             return "paused";
         }
-        if !self.capture_enabled || commands.invalidated {
+        if commands.invalidated {
             return "unsupported";
         }
-        if commands.generation != self.command_generation {
-            return "calibrating";
+        if !game_phase_allows_capture(self.game_phase) {
+            return capture_phase_label(None);
         }
         if self.unsupported_reason.is_some() {
             return "unsupported";
@@ -2300,42 +2459,42 @@ where
         if self.lost {
             return "lost";
         }
+        if self.occlusion == Some(true) {
+            return "stale";
+        }
+        if commands.generation != self.command_generation || self.recalibration_pending {
+            return "calibrating";
+        }
         if self.session_epoch.is_none() {
             return "unknown";
         }
         self.controller.as_ref().map_or("unknown", |controller| {
-            capture_phase_label(controller.phase(now_ms))
+            capture_phase_label(Some(controller.phase(now_ms)))
         })
     }
 
     fn phase_reason(&self, now_ms: u64) -> Option<&'static str> {
         let commands = self.config.invalidation_state();
-        if self.paused {
-            return Some("paused");
-        }
-        if !self.capture_enabled {
-            return Some("capture_disabled");
-        }
-        if commands.invalidated {
-            return Some("user_invalidated");
-        }
-        if commands.generation != self.command_generation {
-            return Some("calibrating");
-        }
-        if let Some(reason) = self.unsupported_reason {
-            return Some(reason);
-        }
-        if self.lost {
-            return Some(self.phase_reason.unwrap_or("reopening"));
-        }
-        if self
-            .controller
-            .as_ref()
-            .is_none_or(|controller| controller.phase(now_ms) == CapturePhase::Calibrating)
-        {
-            return Some("calibrating");
-        }
-        self.phase_reason
+        let calibrating = self.recalibration_pending
+            || commands.generation != self.command_generation
+            || self.controller.as_ref().is_none_or(|controller| {
+                matches!(
+                    controller.phase(now_ms),
+                    CapturePhase::Calibrating | CapturePhase::RecalibrationNeeded
+                )
+            });
+        resolve_phase_reason(PhaseReasonInputs {
+            capture_enabled: self.capture_enabled,
+            paused: self.paused,
+            user_invalidated: commands.invalidated,
+            waiting_for_game: !game_phase_allows_capture(self.game_phase),
+            no_game_window: self.unsupported_reason == Some("no_game_window"),
+            unsupported_reason: self.unsupported_reason,
+            occluded: self.occlusion == Some(true),
+            lost: self.lost,
+            previous_reason: self.phase_reason,
+            calibrating,
+        })
     }
 
     fn frame_age_ms(&self, now_ms: u64) -> Option<u64> {
@@ -2355,7 +2514,11 @@ where
         now_ms: u64,
         subscribers: &mut Vec<Sink>,
     ) {
-        if self.paused {
+        if self.paused
+            || !game_phase_allows_capture(self.game_phase)
+            || self.occlusion == Some(true)
+            || self.recalibration_pending
+        {
             return;
         }
         let _invalidate_gate = lock(&FRAME_INVALIDATE_GATE);
@@ -2396,6 +2559,7 @@ where
         );
         payload["crop_confirmed"] = json!(config.crop_confirmed);
         payload["grab_fps"] = json!(self.capture_rate.rate(now));
+        payload["grab_timeouts_per_s"] = json!(self.grab_timeouts.rate(now));
         payload["sent_total"] = json!(self.display.sent_total);
         payload["grab_total"] = json!(self.grab_total);
         payload["display_fps"] = json!(config.display_fps);
@@ -2444,6 +2608,7 @@ where
         );
         payload["crop_confirmed"] = json!(config.crop_confirmed);
         payload["grab_fps"] = json!(self.capture_rate.rate(now));
+        payload["grab_timeouts_per_s"] = json!(self.grab_timeouts.rate(now));
         payload["sent_total"] = json!(self.display.sent_total);
         payload["grab_total"] = json!(self.grab_total);
         payload["display_fps"] = json!(config.display_fps);
@@ -2493,6 +2658,30 @@ pub struct GsiEvent {
     pub at_ms: u64,
 }
 
+/// Phase supplied by the intake, separate from the risk engine's Live-only in_match flag.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GamePhase {
+    Draft,
+    Pregame,
+    Live,
+    PostGame,
+}
+
+impl From<kohbor_gsi::Phase> for GamePhase {
+    fn from(phase: kohbor_gsi::Phase) -> Self {
+        match phase {
+            kohbor_gsi::Phase::Draft => Self::Draft,
+            kohbor_gsi::Phase::Pregame => Self::Pregame,
+            kohbor_gsi::Phase::Live => Self::Live,
+            kohbor_gsi::Phase::PostGame => Self::PostGame,
+        }
+    }
+}
+
+fn game_phase_allows_capture(phase: Option<GamePhase>) -> bool {
+    matches!(phase, Some(GamePhase::Pregame | GamePhase::Live))
+}
+
 /// Own-hero facts read from the intake snapshot. Unknown fields remain unknown unless observed.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct GsiSnapshot {
@@ -2504,6 +2693,8 @@ pub struct GsiSnapshot {
     pub hp_pct: Option<u8>,
     /// Set by the intake producer only while its phase is Live.
     pub in_match: bool,
+    /// Current intake phase. Unknown/no GSI must not authorize screen capture.
+    pub game_phase: Option<GamePhase>,
     pub age_ms: Option<u64>,
     /// Health events detected in the recent GSI window. Defaults to empty.
     pub recent_events: Vec<GsiEvent>,
@@ -2528,6 +2719,7 @@ impl GsiSnapshot {
             alive: value("alive").as_bool(),
             hp_pct,
             in_match: false,
+            game_phase: None,
             age_ms: snapshot["source"]["age_ms"].as_u64(),
             recent_events: Vec::new(),
         }
@@ -2685,6 +2877,8 @@ mod tests {
         grab_buffer_addresses: Vec<usize>,
         grab_buffer_capacities_on_entry: Vec<usize>,
         after_grab: Option<Arc<dyn Fn() + Send + Sync>>,
+        occlusion_result: Option<bool>,
+        occlusion_checks: std::cell::Cell<usize>,
     }
 
     impl FakeFrameSource {
@@ -2720,6 +2914,8 @@ mod tests {
                 grab_buffer_addresses: Vec::new(),
                 grab_buffer_capacities_on_entry: Vec::new(),
                 after_grab: None,
+                occlusion_result: None,
+                occlusion_checks: std::cell::Cell::new(0),
             }
         }
 
@@ -2773,6 +2969,11 @@ mod tests {
 
         fn game_window(&self) -> Option<Rect> {
             self.window
+        }
+
+        fn crop_occluded(&self, _rect: Rect) -> Option<bool> {
+            self.occlusion_checks.set(self.occlusion_checks.get() + 1);
+            self.occlusion_result
         }
 
         fn grab(&mut self, rect: Rect, _timeout_ms: u32, out: &mut Vec<u8>) -> Grab {
@@ -3106,7 +3307,7 @@ mod tests {
         FakeEvents,
         MvpFrameHeaderCodec,
     > {
-        CaptureHostWorker::new(
+        let mut worker = CaptureHostWorker::new(
             source,
             WorkerServices {
                 analyzer: FakeAnalyzer::default(),
@@ -3117,14 +3318,20 @@ mod tests {
                 },
                 events,
                 header_codec: MvpFrameHeaderCodec,
-                gsi: GsiView::new(GsiSnapshot::default),
+                gsi: GsiView::new(|| GsiSnapshot {
+                    game_phase: Some(GamePhase::Pregame),
+                    ..GsiSnapshot::default()
+                }),
                 resources: ResourceView::new(ResourceSample::default),
                 capture_enabled,
                 config: Arc::new(CaptureConfigStore::open(test_config_dir("worker"))),
                 proposer: Box::new(FakeFrameProposer::default()),
             },
             now,
-        )
+        );
+        // Existing frame/controller fixtures represent capture during an eligible phase.
+        worker.game_phase = Some(GamePhase::Pregame);
+        worker
     }
 
     fn calibrating_worker(
@@ -3221,6 +3428,329 @@ mod tests {
         FakeEvents(Arc::new(Mutex::new(Vec::new())))
     }
 
+    fn phase_source() -> FakeFrameSource {
+        let mut source = FakeFrameSource::supported();
+        source.profile.as_mut().unwrap().0.width = 64;
+        source.profile.as_mut().unwrap().0.height = 64;
+        source
+    }
+
+    fn install_game_phase(
+        worker: &mut CaptureHostWorker<
+            FakeFrameSource,
+            FakeCaptureAccess,
+            FakeAnalyzer,
+            FakeRisk,
+            FakeEvents,
+            MvpFrameHeaderCodec,
+        >,
+        phase: Option<GamePhase>,
+    ) -> Arc<Mutex<Option<GamePhase>>> {
+        let phase = Arc::new(Mutex::new(phase));
+        let feed = phase.clone();
+        worker.gsi = GsiView::new(move || GsiSnapshot {
+            game_phase: *lock(&feed),
+            session_epoch: Some(7),
+            age_ms: Some(0),
+            team: Some("radiant".to_owned()),
+            ..GsiSnapshot::default()
+        });
+        phase
+    }
+
+    fn latest_capture_status(events: &FakeEvents) -> Value {
+        lock(&events.0)
+            .iter()
+            .rev()
+            .find(|(event, _)| event == "capture://status")
+            .expect("worker emits capture status")
+            .1
+            .clone()
+    }
+
+    fn clean_occlusion_worker(start: Instant) -> Fix2Worker {
+        let mut worker = fix2_worker(start);
+        fix2_assert_revalidated(&mut worker, start, 0, 0);
+        worker
+    }
+
+    fn occlude(worker: &mut Fix2Worker, start: Instant) {
+        worker.source.occlusion_result = Some(true);
+        worker.cycle_at(start + Duration::from_millis(1100), 1100);
+    }
+
+    #[test]
+    fn occlusion_stops_grabs_and_keeps_the_last_clean_admission() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let mut worker = clean_occlusion_worker(start);
+        let clean = worker.latest_admitted.read().unwrap();
+        let grabs = worker.source.grabbed_rects.len();
+        worker
+            .source
+            .queue_sized_frame(DEFAULT_PROFILE_SIDE, DEFAULT_PROFILE_SIDE, 99);
+
+        occlude(&mut worker, start);
+
+        assert_eq!(worker.source.grabbed_rects.len(), grabs);
+        assert_eq!(worker.latest_admitted.read().unwrap().header, clean.header);
+    }
+
+    #[test]
+    fn occlusion_blocks_publication_even_without_a_prior_send() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let mut worker = clean_occlusion_worker(start);
+        occlude(&mut worker, start);
+        // A subscriber without any prior send must not receive the held frame as fresh.
+        worker.display.last_sequence = None;
+        let mut sinks = vec![FakeFrameSink::default()];
+
+        worker.publish_frame_to(start + Duration::from_millis(1200), 1200, &mut sinks);
+
+        assert!(sinks[0].messages.is_empty());
+    }
+
+    #[test]
+    fn occlusion_status_is_stale_and_preserves_the_clean_frame_age() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let mut worker = clean_occlusion_worker(start);
+        let acquired_at = worker
+            .latest_admitted
+            .read()
+            .unwrap()
+            .candidate
+            .acquired_at_ms;
+        occlude(&mut worker, start);
+
+        worker.publish_status(start + Duration::from_millis(1600), 1600);
+
+        let status = latest_capture_status(&worker.events);
+        assert_eq!(status["phase"], "stale");
+        assert_eq!(status["phase_reason"], "occluded");
+        assert_eq!(status["frame_age_ms"], 1600 - acquired_at);
+    }
+
+    #[test]
+    fn occlusion_sends_stale_coverage_and_unknown_visibility_without_analysis() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let mut worker = clean_occlusion_worker(start);
+        let analyses = worker.analyzer.calls;
+
+        occlude(&mut worker, start);
+
+        assert_eq!(
+            lock(&worker.risk.seen_coverage).last(),
+            Some(&Coverage::Stale)
+        );
+        assert_eq!(lock(&worker.risk.seen_visible).last(), Some(&None));
+        assert_eq!(worker.analyzer.calls, analyses);
+    }
+
+    fn assert_occlusion_recovery(next_result: Option<bool>) {
+        let start = Instant::now();
+        let mut worker = clean_occlusion_worker(start);
+        let generation = worker.controller.as_ref().unwrap().generation().unwrap();
+        occlude(&mut worker, start);
+        worker.source.occlusion_result = next_result;
+
+        worker.cycle_at(start + Duration::from_millis(1600), 1600);
+
+        assert_ne!(worker.phase(1600), "live");
+        assert!(worker.latest_admitted.read().is_none());
+        fix2_assert_revalidated(&mut worker, start, 1700, generation);
+    }
+
+    #[test]
+    fn occlusion_false_restarts_calibration_with_a_new_generation() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        assert_occlusion_recovery(Some(false));
+    }
+
+    #[test]
+    fn occlusion_unknown_after_true_restarts_calibration_with_a_new_generation() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        assert_occlusion_recovery(None);
+    }
+
+    #[test]
+    fn occlusion_unknown_does_not_block_normal_capture() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let worker = clean_occlusion_worker(start);
+        assert_eq!(worker.source.occlusion_result, None);
+        assert_eq!(worker.phase(986), "live");
+        assert!(worker.latest_admitted.read().is_some());
+    }
+
+    #[test]
+    fn occlusion_checks_are_limited_to_two_per_second() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let mut worker = fake_worker(phase_source(), true, start, events());
+        install_game_phase(&mut worker, Some(GamePhase::Pregame));
+        for ms in [0, 100, 200, 499] {
+            worker.cycle_at(start + Duration::from_millis(ms), ms);
+        }
+        assert_eq!(worker.source.occlusion_checks.get(), 1);
+        for ms in [500, 600, 999] {
+            worker.cycle_at(start + Duration::from_millis(ms), ms);
+        }
+        assert_eq!(worker.source.occlusion_checks.get(), 2);
+        worker.cycle_at(start + Duration::from_millis(1000), 1000);
+        assert_eq!(worker.source.occlusion_checks.get(), 3);
+    }
+
+    #[test]
+    fn occlusion_cache_is_used_until_the_next_half_second_check() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let mut worker = clean_occlusion_worker(start);
+        worker.source.occlusion_result = Some(false);
+        worker.cycle_at(start + Duration::from_millis(1100), 1100);
+        let checks = worker.source.occlusion_checks.get();
+        worker.source.occlusion_result = Some(true);
+        worker.cycle_at(start + Duration::from_millis(1200), 1200);
+        assert_eq!(worker.source.occlusion_checks.get(), checks);
+        assert_eq!(worker.phase(1200), "live");
+        worker.cycle_at(start + Duration::from_millis(1600), 1600);
+        assert_eq!(worker.source.occlusion_checks.get(), checks + 1);
+        assert_eq!(worker.phase(1600), "stale");
+    }
+
+    #[test]
+    fn occlusion_reason_follows_geometry_and_user_controls_in_precedence() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let mut worker = clean_occlusion_worker(start);
+        occlude(&mut worker, start);
+        assert_eq!(worker.phase_reason(1100), Some("occluded"));
+        for reason in [
+            "crop_out_of_bounds",
+            "unsupported_resolution",
+            "no_game_window",
+        ] {
+            worker.unsupported_reason = Some(reason);
+            assert_eq!(worker.phase_reason(1100), Some(reason));
+        }
+        worker.game_phase = None;
+        assert_eq!(worker.phase_reason(1100), Some("waiting_for_game"));
+        worker.config.invalidate_user();
+        assert_eq!(worker.phase_reason(1100), Some("user_invalidated"));
+        worker.paused = true;
+        assert_eq!(worker.phase_reason(1100), Some("paused"));
+        worker.capture_enabled = false;
+        assert_eq!(worker.phase_reason(1100), Some("capture_disabled"));
+    }
+
+    #[test]
+    fn occlusion_does_not_override_the_phase_gate_or_retain_frames_in_draft() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let mut worker = clean_occlusion_worker(start);
+        occlude(&mut worker, start);
+        let checks = worker.source.occlusion_checks.get();
+        worker.gsi = GsiView::new(|| GsiSnapshot {
+            game_phase: Some(GamePhase::Draft),
+            ..GsiSnapshot::default()
+        });
+
+        worker.cycle_at(start + Duration::from_millis(1200), 1200);
+
+        assert_eq!(worker.phase(1200), "idle");
+        assert_eq!(worker.phase_reason(1200), Some("waiting_for_game"));
+        assert!(worker.latest_admitted.read().is_none());
+        assert_eq!(worker.source.occlusion_checks.get(), checks);
+    }
+
+    #[test]
+    fn occlusion_timeout_status_is_null_before_one_second() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let mut worker = calibrating_worker(start, 0, []);
+        worker.capture_one(start, 0, None);
+        worker.publish_status(start + Duration::from_millis(999), 999);
+        let status = latest_capture_status(&worker.events);
+        assert!(status.get("grab_timeouts_per_s").is_some());
+        assert!(status["grab_timeouts_per_s"].is_null());
+    }
+
+    #[test]
+    fn occlusion_timeout_status_counts_timeouts_only_in_the_last_second() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let mut worker = calibrating_worker(start, 0, []);
+        worker.capture_one(start, 0, None);
+        worker.capture_one(start + Duration::from_millis(400), 400, None);
+        worker.source.queue_frame(1);
+        worker.capture_one(start + Duration::from_millis(500), 500, None);
+        worker.capture_one(start + Duration::from_millis(900), 900, None);
+        worker.publish_status(start + Duration::from_millis(1500), 1500);
+        assert_eq!(
+            latest_capture_status(&worker.events)["grab_timeouts_per_s"],
+            1
+        );
+        worker.publish_status(start + Duration::from_millis(2000), 2000);
+        assert_eq!(
+            latest_capture_status(&worker.events)["grab_timeouts_per_s"],
+            0
+        );
+    }
+
+    #[test]
+    fn occlusion_timeout_status_is_zero_after_one_second_without_a_timeout() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let mut worker = fake_worker(phase_source(), true, start, events());
+        worker.publish_status(start + Duration::from_secs(1), 1000);
+        assert_eq!(
+            latest_capture_status(&worker.events)["grab_timeouts_per_s"],
+            0
+        );
+    }
+
+    #[test]
+    fn occlusion_timeout_counter_includes_proposal_wait_timeouts() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let mut worker = worker_with_profile(start, phase_source().profile.unwrap().0);
+        worker.proposal_search_rect = worker.profile_rect;
+        worker.source.grabs.push_back((Grab::Timeout, Vec::new()));
+        worker.capture_proposal_frame(start + Duration::from_millis(100), 100);
+        worker.publish_status(start + Duration::from_millis(1000), 1000);
+        assert_eq!(
+            latest_capture_status(&worker.events)["grab_timeouts_per_s"],
+            1
+        );
+    }
+
+    #[test]
+    fn occlusion_cache_is_not_reused_for_a_different_crop() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let mut worker = clean_occlusion_worker(start);
+        occlude(&mut worker, start);
+        let checks = worker.source.occlusion_checks.get();
+        worker
+            .config
+            .set(CaptureConfigPatch {
+                crop: Some(CropOffsets {
+                    dx: 1,
+                    ..CropOffsets::default()
+                }),
+                ..CaptureConfigPatch::default()
+            })
+            .unwrap();
+
+        worker.cycle_at(start + Duration::from_millis(1200), 1200);
+
+        assert_eq!(worker.source.occlusion_checks.get(), checks);
+        assert_eq!(worker.phase(1200), "calibrating");
+        assert_ne!(worker.phase_reason(1200), Some("occluded"));
+    }
+
     fn admitted_pixels(sequence: u64, at_ms: u64) -> AdmittedPixels {
         let candidate = CandidateFrame {
             command_generation: 0,
@@ -3294,6 +3824,7 @@ mod tests {
     #[test]
     fn capture_phase_labels_match_the_renderer_contract() {
         let allowed = [
+            "idle",
             "unsupported",
             "calibrating",
             "live",
@@ -3312,10 +3843,476 @@ mod tests {
             CapturePhase::CoverageUnavailable,
             CapturePhase::Lost,
         ]
-        .map(capture_phase_label);
+        .map(|phase| capture_phase_label(Some(phase)));
 
         assert!(labels.iter().all(|label| allowed.contains(label)));
         assert!(allowed.contains(&"unknown"));
+        assert_eq!(capture_phase_label(None), "idle");
+    }
+
+    #[test]
+    fn capture_stays_idle_during_draft_then_grabs_in_pregame() {
+        let _status_gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let mut source = phase_source();
+        source.queue_sized_frame(64, 64, 1);
+        let mut worker = fake_worker(source, true, start, events());
+        let phase = install_game_phase(&mut worker, Some(GamePhase::Draft));
+
+        worker.cycle_at(start, 0);
+        assert!(worker.source.grabbed_rects.is_empty());
+        assert_eq!(worker.source.open_calls, 0);
+
+        *lock(&phase) = Some(GamePhase::Pregame);
+        worker.cycle_at(start + Duration::from_millis(100), 100);
+
+        assert_eq!(worker.source.grabbed_rects.len(), 1);
+        assert_eq!(worker.analyzer.structural_calls, 1);
+    }
+
+    #[test]
+    fn live_to_postgame_stops_grabs() {
+        let _status_gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let mut source = phase_source();
+        source.queue_sized_frame(64, 64, 1);
+        source.queue_sized_frame(64, 64, 2);
+        let mut worker = fake_worker(source, true, start, events());
+        let phase = install_game_phase(&mut worker, Some(GamePhase::Live));
+
+        worker.cycle_at(start, 0);
+        assert_eq!(worker.source.grabbed_rects.len(), 1);
+
+        *lock(&phase) = Some(GamePhase::PostGame);
+        worker.cycle_at(start + Duration::from_millis(100), 100);
+
+        assert_eq!(worker.source.grabbed_rects.len(), 1);
+    }
+
+    #[test]
+    fn unknown_game_phase_never_grabs_or_runs_vision_analysis() {
+        let _status_gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let mut source = phase_source();
+        source.queue_sized_frame(64, 64, 1);
+        let mut worker = fake_worker(source, true, start, events());
+        install_game_phase(&mut worker, None);
+
+        worker.cycle_at(start, 0);
+
+        assert!(worker.source.grabbed_rects.is_empty());
+        assert_eq!(worker.analyzer.structural_calls, 0);
+        assert_eq!(worker.analyzer.calls, 0);
+        assert_eq!(
+            lock(&worker.risk.seen_coverage).as_slice(),
+            &[Coverage::Unavailable]
+        );
+        assert_eq!(lock(&worker.risk.seen_visible).as_slice(), &[None]);
+    }
+
+    #[test]
+    fn idle_phase_clears_admitted_frames_before_publication() {
+        let _status_gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let mut worker = fake_worker(phase_source(), true, start, events());
+        let mut controller = FakeCaptureAccess::unvalidated(7);
+        controller.validated = true;
+        controller.last_healthy_ms = Some(0);
+        worker.controller = Some(controller);
+        worker.latest_admitted.replace(admitted_pixels(1, 0));
+        worker.consecutive_passes = 29;
+        install_game_phase(&mut worker, None);
+
+        worker.cycle_at(start + Duration::from_millis(100), 100);
+        let mut sinks = vec![FakeFrameSink::default()];
+        worker.publish_frame_to(start + Duration::from_millis(100), 100, &mut sinks);
+
+        assert!(worker.latest_admitted.read().is_none());
+        assert_eq!(worker.consecutive_passes, 0);
+        assert!(sinks[0].messages.is_empty());
+    }
+
+    #[test]
+    fn idle_status_reports_waiting_for_game() {
+        let _status_gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let sink = events();
+        let mut worker = fake_worker(phase_source(), true, start, sink.clone());
+        install_game_phase(&mut worker, Some(GamePhase::Draft));
+
+        worker.cycle_at(start, 0);
+
+        let status = latest_capture_status(&sink);
+        assert_eq!(status["phase"], "idle");
+        assert_eq!(status["phase_reason"], "waiting_for_game");
+    }
+
+    #[test]
+    fn phase_reason_precedence_is_explicit_and_stable() {
+        let cases = [
+            (
+                false,
+                true,
+                true,
+                true,
+                None,
+                true,
+                Some("access_lost"),
+                true,
+                Some("capture_disabled"),
+            ),
+            (
+                true,
+                true,
+                true,
+                true,
+                None,
+                true,
+                Some("access_lost"),
+                true,
+                Some("paused"),
+            ),
+            (
+                true,
+                false,
+                true,
+                true,
+                Some("no_game_window"),
+                false,
+                None,
+                true,
+                Some("user_invalidated"),
+            ),
+            (
+                true,
+                false,
+                false,
+                true,
+                Some("no_game_window"),
+                false,
+                None,
+                true,
+                Some("waiting_for_game"),
+            ),
+            (
+                true,
+                false,
+                false,
+                false,
+                Some("no_game_window"),
+                false,
+                None,
+                true,
+                Some("no_game_window"),
+            ),
+            (
+                true,
+                false,
+                false,
+                false,
+                Some("crop_out_of_bounds"),
+                false,
+                None,
+                true,
+                Some("crop_out_of_bounds"),
+            ),
+            (
+                true,
+                false,
+                false,
+                false,
+                Some("unsupported_resolution"),
+                false,
+                None,
+                true,
+                Some("unsupported_resolution"),
+            ),
+            (
+                true,
+                false,
+                false,
+                false,
+                None,
+                false,
+                None,
+                true,
+                Some("calibrating"),
+            ),
+            (
+                true,
+                false,
+                false,
+                false,
+                None,
+                true,
+                Some("access_lost"),
+                false,
+                Some("access_lost"),
+            ),
+            (true, false, false, false, None, false, None, false, None),
+        ];
+
+        for (
+            enabled,
+            paused,
+            invalidated,
+            waiting,
+            unsupported,
+            lost,
+            previous,
+            calibrating,
+            expected,
+        ) in cases
+        {
+            assert_eq!(
+                resolve_phase_reason(PhaseReasonInputs {
+                    capture_enabled: enabled,
+                    paused,
+                    user_invalidated: invalidated,
+                    waiting_for_game: waiting,
+                    no_game_window: unsupported == Some("no_game_window"),
+                    unsupported_reason: unsupported,
+                    occluded: false,
+                    lost,
+                    previous_reason: previous,
+                    calibrating,
+                }),
+                expected
+            );
+        }
+        for geometry_reason in ["crop_out_of_bounds", "unsupported_resolution"] {
+            assert_eq!(
+                resolve_phase_reason(PhaseReasonInputs {
+                    capture_enabled: true,
+                    paused: false,
+                    user_invalidated: false,
+                    waiting_for_game: false,
+                    no_game_window: true,
+                    unsupported_reason: Some(geometry_reason),
+                    occluded: false,
+                    lost: false,
+                    previous_reason: None,
+                    calibrating: true,
+                }),
+                Some("no_game_window")
+            );
+        }
+    }
+
+    #[test]
+    fn phase_flap_restarts_calibration_before_frames_can_go_live() {
+        let _status_gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let mut source = phase_source();
+        for sequence in 1..=32 {
+            source.queue_sized_frame(64, 64, sequence);
+        }
+        let mut worker = fake_worker(source, true, start, events());
+        let phase = install_game_phase(&mut worker, Some(GamePhase::Pregame));
+
+        for index in 0..30_u64 {
+            let at = start + Duration::from_millis(index * 100);
+            worker.cycle_at(at, index * 100);
+        }
+        assert!(worker.controller.as_ref().unwrap().crop_visible());
+        let first_generation = worker.controller.as_ref().unwrap().generation;
+
+        *lock(&phase) = Some(GamePhase::Draft);
+        worker.cycle_at(start + Duration::from_secs(3), 3000);
+        assert!(worker.latest_admitted.read().is_none());
+
+        *lock(&phase) = Some(GamePhase::Pregame);
+        worker.cycle_at(start + Duration::from_millis(3100), 3100);
+
+        let controller = worker.controller.as_ref().unwrap();
+        assert!(controller.generation > first_generation);
+        assert!(!controller.crop_visible());
+        assert!(worker.latest_admitted.read().is_none());
+        assert_eq!(worker.phase(3100), "calibrating");
+    }
+
+    #[test]
+    fn capture_disabled_reason_beats_waiting_for_game() {
+        let _status_gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let sink = events();
+        let mut worker = fake_worker(phase_source(), false, start, sink.clone());
+        install_game_phase(&mut worker, None);
+
+        worker.cycle_at(start, 0);
+
+        let status = latest_capture_status(&sink);
+        assert_eq!(status["phase"], "unsupported");
+        assert_eq!(status["phase_reason"], "capture_disabled");
+        assert!(worker.source.grabbed_rects.is_empty());
+    }
+
+    #[test]
+    fn paused_reason_beats_waiting_for_game() {
+        let _status_gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let sink = events();
+        let mut worker = fake_worker(phase_source(), true, start, sink.clone());
+        worker
+            .config
+            .set(CaptureConfigPatch {
+                paused: Some(true),
+                ..CaptureConfigPatch::default()
+            })
+            .unwrap();
+        install_game_phase(&mut worker, None);
+
+        worker.cycle_at(start, 0);
+
+        let status = latest_capture_status(&sink);
+        assert_eq!(status["phase"], "paused");
+        assert_eq!(status["phase_reason"], "paused");
+        assert!(worker.source.grabbed_rects.is_empty());
+    }
+
+    #[test]
+    fn user_invalidation_reason_beats_waiting_for_game() {
+        let _status_gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let sink = events();
+        let mut worker = fake_worker(phase_source(), true, start, sink.clone());
+        worker.config.invalidate_user();
+        install_game_phase(&mut worker, None);
+
+        worker.cycle_at(start, 0);
+
+        let status = latest_capture_status(&sink);
+        assert_eq!(status["phase"], "unsupported");
+        assert_eq!(status["phase_reason"], "user_invalidated");
+        assert!(worker.source.grabbed_rects.is_empty());
+    }
+
+    #[test]
+    fn active_phase_preserves_no_game_window_reason() {
+        let _status_gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let sink = events();
+        let mut source = phase_source();
+        source.window = None;
+        let mut worker = fake_worker(source, true, start, sink.clone());
+        install_game_phase(&mut worker, Some(GamePhase::Pregame));
+
+        worker.cycle_at(start, 0);
+
+        let status = latest_capture_status(&sink);
+        assert_eq!(status["phase"], "unsupported");
+        assert_eq!(status["phase_reason"], "no_game_window");
+        assert!(worker.source.grabbed_rects.is_empty());
+    }
+
+    #[test]
+    fn missing_window_reason_precedes_geometry_errors() {
+        let _status_gate = lock(&STATUS_TEST_GATE);
+        for resolution_error in [false, true] {
+            let start = Instant::now();
+            let mut source = phase_source();
+            source.window = None;
+            if resolution_error {
+                source.profile = None;
+            } else {
+                source.profile.as_mut().unwrap().0.width = 1;
+            }
+            let mut worker = fake_worker(source, true, start, events());
+            install_game_phase(&mut worker, Some(GamePhase::Pregame));
+
+            worker.cycle_at(start, 0);
+
+            assert_eq!(worker.phase_reason(0), Some("no_game_window"));
+            assert!(worker.source.grabbed_rects.is_empty());
+        }
+    }
+
+    #[test]
+    fn idle_risk_and_resource_ticks_continue_with_unavailable_vision() {
+        let _status_gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let sink = events();
+        let mut worker = fake_worker(phase_source(), true, start, sink.clone());
+        install_game_phase(&mut worker, None);
+
+        worker.cycle_at(start, 0);
+        worker.cycle_at(start + Duration::from_millis(100), 100);
+
+        assert_eq!(
+            lock(&worker.risk.seen_coverage).as_slice(),
+            &[Coverage::Unavailable; 2]
+        );
+        assert_eq!(lock(&worker.risk.seen_visible).as_slice(), &[None, None]);
+        assert!(lock(&sink.0)
+            .iter()
+            .any(|(event, _)| event == "resource://sample"));
+        assert!(worker.source.grabbed_rects.is_empty());
+    }
+
+    #[test]
+    fn game_phase_mapping_is_one_to_one_and_snapshots_start_unknown() {
+        let phases = [
+            (kohbor_gsi::Phase::Draft, GamePhase::Draft),
+            (kohbor_gsi::Phase::Pregame, GamePhase::Pregame),
+            (kohbor_gsi::Phase::Live, GamePhase::Live),
+            (kohbor_gsi::Phase::PostGame, GamePhase::PostGame),
+        ];
+        for (intake, capture) in phases {
+            assert_eq!(GamePhase::from(intake), capture);
+        }
+        assert_eq!(GsiSnapshot::default().game_phase, None);
+        assert_eq!(GsiSnapshot::from_snapshot(&json!({})).game_phase, None);
+    }
+
+    #[test]
+    fn occluded_cache_has_stale_status_and_waits_for_an_eligible_phase() {
+        let _status_gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let sink = events();
+        let mut worker = fake_worker(phase_source(), true, start, sink.clone());
+        assert_ne!(worker.phase_reason(0), Some(PHASE_REASON_OCCLUDED));
+
+        worker.occlusion = Some(true);
+        worker.publish_status(start, 0);
+        let status = latest_capture_status(&sink);
+        assert_eq!(status["phase"], "stale");
+        assert_eq!(status["phase_reason"], "occluded");
+
+        worker.game_phase = Some(GamePhase::Draft);
+        worker.publish_status(start, 0);
+        assert_eq!(
+            latest_capture_status(&sink)["phase_reason"],
+            "waiting_for_game"
+        );
+        assert!(worker.source.grabbed_rects.is_empty());
+    }
+
+    #[test]
+    fn idle_phase_blocks_proposal_grabs() {
+        let start = Instant::now();
+        let mut worker = fake_worker(phase_source(), true, start, events());
+        worker.game_phase = None;
+        worker.proposal_search_rect = worker.source.profile.as_ref().map(|(rect, _)| *rect);
+        worker.output = worker.source.output;
+
+        worker.capture_proposal_frame(start, 0);
+
+        assert!(worker.source.grabbed_rects.is_empty());
+        assert_eq!(worker.proposal_frames_seen, 0);
+    }
+
+    #[test]
+    fn idle_phase_rejects_candidate_admission() {
+        let start = Instant::now();
+        let mut worker = fake_worker(phase_source(), true, start, events());
+        let mut controller = FakeCaptureAccess::unvalidated(7);
+        controller.validated = true;
+        controller.generation = 1;
+        worker.controller = Some(controller);
+        worker.game_phase = None;
+
+        assert!(!worker.admit_candidate(admitted_pixels(1, 0).candidate, 0));
+        assert!(worker.latest_admitted.read().is_none());
     }
 
     #[test]
@@ -5152,6 +6149,7 @@ mod tests {
         worker.gsi = GsiView::new(|| GsiSnapshot {
             team: Some("radiant".to_owned()),
             session_epoch: Some(7),
+            game_phase: Some(GamePhase::Pregame),
             age_ms: Some(0),
             ..GsiSnapshot::default()
         });
@@ -5238,6 +6236,7 @@ mod tests {
         worker.gsi = GsiView::new(|| GsiSnapshot {
             team: Some("radiant".to_owned()),
             session_epoch: Some(7),
+            game_phase: Some(GamePhase::Pregame),
             age_ms: Some(0),
             ..GsiSnapshot::default()
         });
