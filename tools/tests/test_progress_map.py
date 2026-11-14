@@ -9,8 +9,10 @@ import contextlib
 import datetime as dt
 import io
 import json
+import os
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -820,6 +822,202 @@ class Roadmap(Base):
         self.setup_plan()
         self.reqs()
         self.assertEqual(pm.render_html(self.fx.build(run=fake_git)), pm.render_html(self.fx.build(run=fake_git)))
+
+
+class UnreadableClaims(Base):
+    def test_unreadable_claim_files_are_listed_not_skipped(self) -> None:
+        self.fx.claim("good", "host-core", ["x/**"])
+        (self.fx.coord / "claims" / "broken.json").write_text("{not json", encoding="utf-8")
+        (self.fx.coord / "claims" / "list.json").write_text("[1, 2]", encoding="utf-8")
+        m = self.fx.build()
+        self.assertEqual(m["unreadable_claims"], ["broken.json", "list.json"])
+        note = next(s for s in m["sources"] if s["name"] == "coordination claims")["note"]
+        self.assertIn("2 unreadable", note)
+        self.assertIn("broken.json", note)
+        self.assertEqual([c["name"] for c in m["claims"]], ["good"])
+
+    def test_a_claim_with_single_backslashes_is_still_read(self) -> None:
+        (self.fx.coord / "claims" / "old.json").write_text('{"domain": "host-core", "status": "active", "write_area": ["F:\\kohbor\\x"], "task": "t", "branch": "b"}', encoding="utf-8")
+        m = self.fx.build()
+        self.assertEqual(m["unreadable_claims"], [])
+        self.assertEqual([c["name"] for c in m["claims"]], ["old"])
+
+    def test_no_unreadable_claims_means_an_empty_list(self) -> None:
+        self.fx.claim("good", "host-core", ["x/**"])
+        self.assertEqual(self.fx.build()["unreadable_claims"], [])
+
+
+class RefMode(Base):
+    GIT = ["git", "-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "core.autocrlf=false", "-c", "commit.gpgsign=false"]
+
+    def git(self, *args: str) -> str:
+        return subprocess.run([*self.GIT, *args], cwd=self.fx.repo, capture_output=True, text=True, check=True).stdout
+
+    def init_repo(self) -> None:
+        subprocess.run([*self.GIT, "init", "-q", "-b", "main", str(self.fx.repo)], check=True)
+        self.fx.requirements([req("CORE-001")])
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "main state")
+        self.git("checkout", "-q", "-b", "feat/x")
+        self.fx.requirements([req("CORE-001"), req("CORE-002")])  # the working tree is ahead of main
+        self.fx.file("junk.txt", "uncommitted")
+
+    @unittest.skipIf(shutil.which("git") is None or os.environ.get("KOHBOR_TOOL_TESTS_SKIP_GIT") == "1", "git is not available or the git tests are skipped (gate --quick)")
+    def test_ref_reads_the_ref_not_the_working_tree(self) -> None:
+        self.init_repo()
+        with pm.materialized_ref(self.fx.repo, "main") as root:
+            self.assertTrue((root / "contracts" / "requirements.json").is_file())
+            self.assertFalse((root / "junk.txt").exists())
+            m = pm.build_model(root, self.fx.coord, [], NOW, run=pm.default_runner, git_repo=self.fx.repo, ref="main", gate_dir=self.fx.root / "nogate")
+        self.assertEqual([n["i"] for n in pm.iter_nodes(m["tree"]) if n["k"] == "requirement"], ["req:CORE-001"])
+        self.assertEqual(m["git"]["sha"], self.git("rev-parse", "--short", "main").strip())
+        self.assertEqual(m["git"]["branch"], "main")
+        self.assertFalse(m["git"]["dirty"])  # a ref has no uncommitted changes
+        self.assertEqual(m["git"]["ref"], "main")
+
+    @unittest.skipIf(shutil.which("git") is None or os.environ.get("KOHBOR_TOOL_TESTS_SKIP_GIT") == "1", "git is not available or the git tests are skipped (gate --quick)")
+    def test_ref_leaves_the_checkout_untouched_and_the_temp_tree_is_removed(self) -> None:
+        self.init_repo()
+        before = sorted(p.relative_to(self.fx.repo).as_posix() for p in self.fx.repo.rglob("*") if ".git" not in p.parts)
+        with pm.materialized_ref(self.fx.repo, "main") as root:
+            where = root
+        after = sorted(p.relative_to(self.fx.repo).as_posix() for p in self.fx.repo.rglob("*") if ".git" not in p.parts)
+        self.assertEqual(before, after)
+        self.assertFalse(where.exists())
+        self.assertEqual(self.git("rev-parse", "--abbrev-ref", "HEAD").strip(), "feat/x")  # no checkout happened
+
+    @unittest.skipIf(shutil.which("git") is None or os.environ.get("KOHBOR_TOOL_TESTS_SKIP_GIT") == "1", "git is not available or the git tests are skipped (gate --quick)")
+    def test_cli_ref_option_and_a_bad_ref(self) -> None:
+        self.init_repo()
+        out = io.StringIO()
+        dest = self.fx.root / "o.html"
+        with contextlib.redirect_stdout(out):
+            code = pm.main(["--repo", str(self.fx.repo), "--coord", str(self.fx.coord), "--design-dir", str(self.fx.root / "none"), "--builds-dir", str(self.fx.root / "nb"),
+                            "--ref", "main", "--out", str(dest)])
+        self.assertEqual(code, 0, out.getvalue())
+        self.assertEqual(json.loads(re.search(r'<script type="application/json" id="data">(.*?)</script>', dest.read_text(encoding="utf-8"), re.S).group(1))["git"]["ref"], "main")
+        err = io.StringIO()
+        with contextlib.redirect_stdout(err):
+            bad = pm.main(["--repo", str(self.fx.repo), "--coord", str(self.fx.coord), "--ref", "no/such/ref", "--out", str(self.fx.root / "x.html")])
+        self.assertEqual(bad, 1)
+        self.assertIn("no/such/ref", err.getvalue())
+        self.assertFalse((self.fx.root / "x.html").exists())
+
+
+class Chase(Base):
+    def setup_reqs(self) -> None:
+        self.fx.file("src/a.rs")
+        self.fx.requirements([
+            req("CORE-001", priority="P0", target_milestone="M1"),
+            req("CORE-002", priority="P0", target_milestone="M1"),
+            req("CORE-003", priority="P0", target_milestone="M2", verification={"implementation_refs": ["src/a.rs"], "evidence_refs": ["e"], "new_build_status": "PASS"}),
+            req("CORE-004", priority="extension", target_milestone="M6"),
+            req("CORE-005", priority="P1", target_milestone="M3"),
+        ])
+
+    def chase(self, **kw) -> dict:
+        return self.fx.build(**kw)["chase"]
+
+    def test_unowned_p0_p1_requirements_exclude_verified_and_owned_ones(self) -> None:
+        self.setup_reqs()
+        self.fx.claim("c1", "host-core", ["elsewhere/**"], tags=["CORE-001"])
+        ids = [r["id"] for r in self.chase()["unowned"]]
+        self.assertEqual(ids, ["CORE-002", "CORE-005"])  # CORE-001 is tagged by an active claim, CORE-003 is verified, CORE-004 is not P0 or P1
+
+    def test_a_done_claim_does_not_own(self) -> None:
+        self.setup_reqs()
+        self.fx.claim("c1", "host-core", ["elsewhere/**"], tags=["CORE-001"], status="done")
+        self.assertIn("CORE-001", [r["id"] for r in self.chase()["unowned"]])
+
+    def test_a_claim_that_names_the_requirement_or_covers_its_files_also_owns_it(self) -> None:
+        self.setup_reqs()
+        self.fx.claim("c1", "host-core", ["x/**"], note="working on CORE-002")
+        self.assertNotIn("CORE-002", [r["id"] for r in self.chase()["unowned"]])
+
+    def test_unowned_are_sorted_by_milestone_then_id(self) -> None:
+        self.setup_reqs()
+        self.assertEqual([r["id"] for r in self.chase()["unowned"]], ["CORE-001", "CORE-002", "CORE-005"])
+
+    def test_stale_claims_are_only_those_more_than_24h_past_expiry(self) -> None:
+        self.fx.claim("fresh", "host-core", ["a/**"], expires="2026-11-14T09:00:00+07:00")  # one hour past expiry at NOW (10:00)
+        self.fx.claim("old", "host-core", ["b/**"], expires="2026-11-12T09:00:00+07:00")  # 49 h past expiry
+        self.fx.claim("edge", "host-core", ["c/**"], expires="2026-11-13T10:00:00+07:00")  # exactly 24 h: not more than
+        self.fx.claim("closed", "host-core", ["d/**"], expires="2026-10-01T09:00:00+07:00", status="done")
+        stale = self.chase()["stale_claims"]
+        self.assertEqual([c["name"] for c in stale], ["old"])
+        self.assertEqual(stale[0]["hours_over"], 49.0)
+
+    def test_tag_hits_and_stats(self) -> None:
+        self.setup_reqs()
+        self.fx.decisions([dec("DEC-X")])
+        self.fx.claim("a", "host-core", ["a/**"], tags=["CORE-001"])
+        self.fx.claim("b", "host-core", ["b/**"], tags=[])
+        self.fx.claim("c", "host-core", ["c/**"], tags=["ZZZ-9"])
+        ch = self.chase()
+        self.assertEqual(sorted((f["code"], f["claim"]) for f in ch["tag_hits"]), [("T1", "b"), ("T1", "c"), ("T2", "c")])
+        self.assertEqual(ch["tag_stats"]["active"], 3)
+        self.assertEqual(ch["tag_stats"]["tagged"], 1)
+        self.assertEqual(ch["tag_stats"]["untagged"], ["b", "c"])
+
+    def test_t4_hit_for_a_missing_evidence_file(self) -> None:
+        self.setup_reqs()
+        self.fx.claim("a", "host-core", ["a/**"], tags=["CORE-001"], tags_done={"CORE-001": {"path": "gone.json", "sha256": "0" * 64, "commit": "x"}})
+        self.assertEqual([f["code"] for f in self.chase()["tag_hits"]], ["T4"])
+
+    def test_janitor_report_is_reused_when_present(self) -> None:
+        d = self.fx.coord / "registry" / "janitor-reports"
+        d.mkdir(parents=True)
+        (d / "janitor-2026-11-13.md").write_text("# Janitor report 2026-11-13\n\n## Red flags\n- none\n\n## Branches proposed\n- `a`\n", encoding="utf-8")
+        (d / "janitor-2026-11-14.md").write_text("# Janitor report 2026-11-14\n\n## Red flags\n- 4 worktrees\n", encoding="utf-8")
+        j = self.chase()["janitor"]
+        self.assertEqual(j["file"], "janitor-2026-11-14.md")
+        self.assertIn("4 worktrees", j["text"])
+
+    def test_no_janitor_report_is_none_not_invented(self) -> None:
+        self.assertIsNone(self.chase()["janitor"])
+
+    def test_needs_the_owner_section_uses_the_owner_list(self) -> None:
+        self.fx.decisions([dec("DEC-A", open_questions=["Which?"])])
+        self.assertEqual([o["id"] for o in self.chase()["owner"]], ["DEC-A"])
+
+    def test_markdown_has_every_section_and_is_deterministic(self) -> None:
+        self.setup_reqs()
+        self.fx.decisions([dec("DEC-A", open_questions=["Which one?"])])
+        self.fx.claim("old", "host-core", ["b/**"], expires="2026-11-12T09:00:00+07:00", tags=[])
+        m = self.fx.build()
+        text = pm.render_chase(m)
+        for head in ("## Unowned P0 and P1 requirements", "## Claims more than 24 h past expiry", "## Tag findings", "## Janitor report", "## Needs the owner"):
+            self.assertIn(head, text)
+        self.assertIn("CORE-001", text)
+        self.assertIn("DEC-A", text)
+        self.assertIn("Which one?", text)
+        self.assertIn("T1", text)
+        self.assertEqual(text, pm.render_chase(self.fx.build()))
+        self.assertTrue(text.endswith("\n"))
+
+    def test_markdown_says_none_instead_of_leaving_a_section_empty(self) -> None:
+        text = pm.render_chase(self.fx.build())
+        self.assertIn("none", text.split("## Needs the owner")[1])
+        self.assertIn("not found", text.split("## Janitor report")[1])
+
+    def test_cli_chase_writes_the_file_and_never_inside_the_repository(self) -> None:
+        self.setup_reqs()
+        dest = self.fx.root / "chase.md"
+        out = io.StringIO()
+        before = sorted(p.relative_to(self.fx.repo).as_posix() for p in self.fx.repo.rglob("*"))
+        with contextlib.redirect_stdout(out):
+            code = pm.main(["--repo", str(self.fx.repo), "--coord", str(self.fx.coord), "--design-dir", str(self.fx.root / "none"), "--builds-dir", str(self.fx.root / "nb"),
+                            "--out", str(self.fx.root / "m.html"), "--chase", "--chase-out", str(dest), "--now", "2026-11-14T10:00:00+07:00"])
+        self.assertEqual(code, 0, out.getvalue())
+        self.assertIn("## Unowned P0 and P1 requirements", dest.read_text(encoding="utf-8"))
+        self.assertEqual(before, sorted(p.relative_to(self.fx.repo).as_posix() for p in self.fx.repo.rglob("*")))
+
+    def test_claims_view_carries_tags_and_tag_counts_as_naming_the_requirement(self) -> None:
+        self.fx.requirements([req("CORE-001")])
+        self.fx.claim("c1", "host-core", ["x/**"], tags=["CORE-001", "PROC:thing"])
+        m = self.fx.build()
+        self.assertEqual(m["claims"][0]["tags"], ["CORE-001", "PROC:thing"])
+        self.assertEqual(leaf(m, "req:CORE-001")["s"], "progress")  # a tag is as good as naming it in the note
 
 
 class Cli(Base):

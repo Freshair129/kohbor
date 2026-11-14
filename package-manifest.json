@@ -1808,8 +1808,8 @@
     },
     {
       "path": "docs/INDEX.md",
-      "bytes": 11187,
-      "sha256": "385dc3622d6002b59000b0d8f187ffa183b6b0bf192136e90e76dd221b72e59b"
+      "bytes": 11668,
+      "sha256": "c72c3144afa931149694dd6b92efcf7b69dc039274a2750290e499887e0d4d53"
     },
     {
       "path": "docs/delivery/AGENT-WORKFLOW.md",
@@ -1915,6 +1915,11 @@
       "path": "docs/design/PACKAGE-FORMAT-REVIEW.md",
       "bytes": 28712,
       "sha256": "c6d8d549a310b2e72313cb4326819c1b38db3b60c7e719f40c631608a4d7dcef"
+    },
+    {
+      "path": "docs/design/PROGRESS-CHASE-STAGE1-PROPOSAL.md",
+      "bytes": 6085,
+      "sha256": "dfd8cc9922c46a25a4ebd72fdb03cb450a82a1441f520d0dd9b3e7fd0e1992ef"
     },
     {
       "path": "docs/design/REMAINING-SYSTEM-DESIGN.md",
@@ -2383,8 +2388,8 @@
     },
     {
       "path": "docs/governance/CHANGELOG.md",
-      "bytes": 33416,
-      "sha256": "d7448326e02812510b4a64cfd098f39b4ff3314c95b4402a7b31a1953e772348"
+      "bytes": 34024,
+      "sha256": "c3969fe6744dd6eee742f9ab7483902a2a10e5651e01790a63c9f8dfedd56104"
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
@@ -2408,13 +2413,18 @@
     },
     {
       "path": "docs/governance/PROGRESS-MAP.md",
-      "bytes": 12121,
-      "sha256": "8b5d8270ed2c8805c80ced26d6bd527781a4370fcee1c132dbc919b8bc6c23b5"
+      "bytes": 14482,
+      "sha256": "881d3b9d30d48c16c32f32009a490e10c1a07f13fad11a7456853b5585b31406"
     },
     {
       "path": "docs/governance/RISK-REGISTER.md",
       "bytes": 4414,
       "sha256": "249f66527ee8ff7940c29c238f6b4071fc5e9852258f82ce2e844ce5a8491460"
+    },
+    {
+      "path": "docs/operations/PROGRESS-CHASE-TH.md",
+      "bytes": 7747,
+      "sha256": "1b39bf08ea5eb10cd62fe540f98189e1278ce5520971e3e0e8e466e643cab3df"
     },
     {
       "path": "docs/operations/RUNBOOK.md",
@@ -2898,13 +2908,13 @@
     },
     {
       "path": "tools/check_claim_scope.py",
-      "bytes": 19145,
-      "sha256": "7414292c6da3437860d3aa2ae5352078fd7a52a62f1b44003819625b1c0cef07"
+      "bytes": 21038,
+      "sha256": "631508f1ddd5bf43889c2d48a635edebab058c4abe57156901b0ef87339a442b"
     },
     {
       "path": "tools/claim.py",
-      "bytes": 8996,
-      "sha256": "637d483b526bd951a9852608e565ce8022d240131288b23df0d503f2c6f85089"
+      "bytes": 15017,
+      "sha256": "e77a0976d9e17dc4e728941d231ff055dc05fe0ab5a83faefb3e1091eb4f9309"
     },
     {
       "path": "tools/diagram-renderer.json",
@@ -2968,13 +2978,13 @@
     },
     {
       "path": "tools/progress_map.py",
-      "bytes": 84206,
-      "sha256": "131a1a13655e14c2bd6d61a2429b5df326f087fa00b120a61327347ce6622504"
+      "bytes": 93827,
+      "sha256": "bacf624748e5078801497efbe30a18e8f0f60c54f4eab10334961f10c391c77f"
     },
     {
       "path": "tools/progress_map_template.html",
-      "bytes": 52869,
-      "sha256": "9a665455231fae535c2b9f52a938c0b3e49781372d391e7cfa558cfa0cbbccd5"
+      "bytes": 53476,
+      "sha256": "b8dd24e8457811e5ed48230139d77e55495416747ba373bc87f3d9376012346c"
     },
     {
       "path": "tools/render_diagrams.mjs",
@@ -2992,6 +3002,11 @@
       "sha256": "3ce35a14c5f4a4d1813312e81c0280236386f4db7fe52df1434f1873f1d704e6"
     },
     {
+      "path": "tools/tagpool.py",
+      "bytes": 5816,
+      "sha256": "a40bf7b996d1270f8c7cccfdd00bf0c1f7fb5abf22eedbe1e3751b66c60eda36"
+    },
+    {
       "path": "tools/tests/fixtures/brief-implement.txt",
       "bytes": 376,
       "sha256": "2443be231653ba18e96852d65744959a09df96d9845b1665a5011c7632d870f9"
@@ -3003,8 +3018,8 @@
     },
     {
       "path": "tools/tests/test_check_claim_scope.py",
-      "bytes": 19098,
-      "sha256": "78c3254d909f03c12366652c7e60a072b2a02bdde886aca6dc1abd5d92aa5cdc"
+      "bytes": 19192,
+      "sha256": "a15f44487b2d0d629b018356f843ca0726e50776d8fe8154b7d3c237233aff47"
     },
     {
       "path": "tools/tests/test_claim_and_who.py",
@@ -3023,13 +3038,18 @@
     },
     {
       "path": "tools/tests/test_progress_map.py",
-      "bytes": 47550,
-      "sha256": "577adbf0ee9627edb4f22d504e0b87a7014b6ff9ec3eab1f039a9428ce676588"
+      "bytes": 59477,
+      "sha256": "3f07a5dc29cab63ac0952dc5d77c872d38be131e75c787e76dbd4c0d2391051d"
     },
     {
       "path": "tools/tests/test_run_record.py",
       "bytes": 7187,
       "sha256": "665e492579ba4b2a91265f503581b8f5f30afc868457ec9849c95b5460c5f6b9"
+    },
+    {
+      "path": "tools/tests/test_tags.py",
+      "bytes": 15950,
+      "sha256": "52e98c91e9ed49e5b83c3b0ce1da41e6768ce819a04aee34ab8b2697f413d983"
     },
     {
       "path": "tools/tests/test_validate_agents.py",

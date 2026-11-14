@@ -8,7 +8,7 @@ Backlog table of docs/delivery/SPRINT-ROADMAP.md, design documents, and git. A s
 the page as not read; a node with no data is "unknown", never "done". It needs no network (``--github`` is optional) and
 writes nothing inside the repository (default output: F:\\kohbor-local\\progress\\progress-map.html).
 
-Usage: ``python tools/progress_map.py [--repo DIR] [--coord DIR] [--design-dir DIR] [--builds-dir DIR] [--out FILE] [--open] [--github]
+Usage: ``python tools/progress_map.py [--repo DIR] [--coord DIR] [--design-dir DIR] [--builds-dir DIR] [--ref REF] [--chase [--chase-out FILE]] [--out FILE] [--open] [--github]
 [--now ISO8601] [--stale-hours N] [--check] [--json]``
 
 Standard library only. The page uses inline CSS, JavaScript and SVG, no external font, script or image.
@@ -17,6 +17,7 @@ Standard library only. The page uses inline CSS, JavaScript and SVG, no external
 from __future__ import annotations
 
 import argparse
+import contextlib
 import csv
 import datetime as dt
 import fnmatch
@@ -29,13 +30,19 @@ import subprocess
 import sys
 import tempfile
 import webbrowser
+import zipfile
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Iterator
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import tagpool  # noqa: E402
 
 DEFAULT_OUT = r"F:\kohbor-local\progress\progress-map.html"
 DEFAULT_COORD = r"F:\kohbor-coord"
 DEFAULT_DESIGN = r"F:\kohbor-design"
 DEFAULT_BUILDS = r"F:\kohbor-local"
+DEFAULT_CHASE = r"F:\kohbor-local\progress\chase.md"
+STALE_CLAIM_HOURS = 24.0
 STALE_HOURS = 6.0
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -273,22 +280,39 @@ def load_domains(repo: Path, src: Sources) -> dict[str, dict[str, Any]]:
     return out
 
 
-def load_claims(coord: Path, src: Sources) -> list[dict[str, Any]]:
+def lenient_json(path: Path) -> Any:
+    """Like the ledger tools: a claim written with single backslashes in a path is still read."""
+    try:
+        text = path.read_text(encoding="utf-8-sig")
+    except OSError:
+        return None
+    for candidate in (text, text.replace(chr(92), chr(92) * 2)):
+        try:
+            return json.loads(candidate)
+        except ValueError:
+            continue
+    return None
+
+
+def load_claims(coord: Path, src: Sources) -> tuple[list[dict[str, Any]], list[str]]:
     cdir = coord / "claims"
     if not cdir.is_dir():
         src.missing("coordination claims", cdir)
-        return []
+        return [], []
     out: list[dict[str, Any]] = []
+    unreadable: list[str] = []
     for p in sorted(cdir.glob("*.json")):
-        try:
-            c = read_json(p)
-            if isinstance(c, dict):
-                c["_name"] = p.stem
-                out.append(c)
-        except (OSError, ValueError):
-            continue
-    src.read("coordination claims", cdir, f"{len(out)} claim files")
-    return out
+        c = lenient_json(p)
+        if isinstance(c, dict):
+            c["_name"] = p.stem
+            out.append(c)
+        else:
+            unreadable.append(p.name)
+    note = f"{len(out)} claim files"
+    if unreadable:
+        note += f"; {len(unreadable)} unreadable and not counted: {', '.join(unreadable[:6])}" + (" ..." if len(unreadable) > 6 else "")
+    src.read("coordination claims", cdir, note)
+    return out, unreadable
 
 
 def load_branches(coord: Path, src: Sources) -> list[dict[str, Any]]:
@@ -484,11 +508,46 @@ def default_runner(args: list[str], cwd: Path) -> str | None:
 Runner = Callable[[list[str], Path], "str | None"]
 
 
-def load_git(repo: Path, run: Runner, src: Sources) -> dict[str, Any]:
+@contextlib.contextmanager
+def materialized_ref(repo: Path, ref: str) -> Iterator[Path]:
+    """A read-only copy of the tree of ``ref`` in a temporary folder (git archive, no worktree, no checkout); removed on exit."""
+    try:
+        done = subprocess.run(["git", "--no-optional-locks", "archive", "--format=zip", ref], cwd=repo, capture_output=True, check=False, timeout=300)
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise RuntimeError(f"cannot read {ref}: {exc}") from exc
+    if done.returncode != 0:
+        raise RuntimeError(f"cannot read {ref}: " + done.stderr.decode("utf-8", "replace").strip()[:200])
+    with tempfile.TemporaryDirectory(prefix="progress-ref-") as tmp:
+        root = Path(tmp)
+        zpath = root / "tree.zip"
+        zpath.write_bytes(done.stdout)
+        out = root / "tree"
+        with zipfile.ZipFile(zpath) as zf:
+            zf.extractall(out)
+        zpath.unlink()
+        yield out
+
+
+def load_git(repo: Path, run: Runner, src: Sources, ref: str | None = None) -> dict[str, Any]:
     def g(*a: str) -> str | None:
         out = run(["git", "--no-optional-locks", *a], repo)
         return out.strip() if out is not None else None
 
+    if ref:
+        sha = g("rev-parse", "--short", ref)
+        if sha is None:
+            src.skipped("git", f"{ref} does not resolve")
+            return {"available": False, "ref": ref}
+        log = g("log", ref, "--first-parent", "-n", "30", "--pretty=%h%x09%cI%x09%s") or ""
+        merged = []
+        for line in log.splitlines():
+            parts = line.split("\t", 2)
+            if len(parts) == 3:
+                m = re.search(r"\(#(\d+)\)|pull request #(\d+)", parts[2])
+                merged.append({"sha": parts[0], "time": parts[1], "title": parts[2], "pr": (m.group(1) or m.group(2)) if m else ""})
+        src.read("git", repo, f"{ref} at {sha}; {len(merged)} recent commits")
+        return {"available": True, "ref": ref, "sha": sha, "branch": ref, "head_time": g("log", "-1", "--format=%cI", ref) or "", "origin_sha": "", "origin_time": "",
+                "behind": "", "dirty": False, "merged": merged, "merged_ref": ref}
     sha = g("rev-parse", "--short", "HEAD")
     if sha is None:
         src.skipped("git", "not a git repository or git unavailable")
@@ -666,7 +725,8 @@ def claim_hits_path(claim: dict[str, Any], path: str) -> bool:
 
 
 def claim_cites(claim: dict[str, Any], rid: str) -> bool:
-    text = " ".join(str(claim.get(k, "")) for k in ("task", "note"))
+    tags = claim.get("tags") if isinstance(claim.get("tags"), list) else []
+    text = " ".join([str(claim.get(k, "")) for k in ("task", "note")] + [str(x) for x in tags])
     return re.search(r"(?<![A-Z0-9-])" + re.escape(rid) + r"(?![0-9])", text) is not None
 
 
@@ -783,19 +843,20 @@ def area_for_decision(d: dict[str, Any], areas: list[dict[str, Any]], dom_area: 
 
 
 def build_model(repo: Path, coord: Path, design_dirs: list[Path], now: dt.datetime, run: Runner = default_runner,
-                builds_dir: Path | None = None, receipt_dirs: list[Path] | None = None, github: bool = False, gate_dir: Path | None = None, stale_hours: float = STALE_HOURS) -> dict[str, Any]:
+                builds_dir: Path | None = None, receipt_dirs: list[Path] | None = None, git_repo: Path | None = None, ref: str | None = None, github: bool = False, gate_dir: Path | None = None, stale_hours: float = STALE_HOURS) -> dict[str, Any]:
     src = Sources()
+    git_repo = git_repo or repo
     reqs = load_requirements(repo, src)
     decs_list = load_decisions(repo, src)
     domains = load_domains(repo, src)
-    claims = load_claims(coord, src)
+    claims, unreadable_claims = load_claims(coord, src)
     worktrees = load_branches(coord, src)
     plan = load_plan(repo, src)
     phases, task_rows = plan["phase_rows"], plan["backlog"]
     procs = load_procedures(repo, src)
     docs = load_docs(repo, design_dirs, src)
-    git = load_git(repo, run, src)
-    prs = load_github(repo, run, src) if github else []
+    git = load_git(git_repo, run, src, ref)
+    prs = load_github(git_repo, run, src) if github else []
     if not github:
         src.skipped("GitHub pull requests", "not requested (use --github); the map does not need it")
     gate = load_gate_log(gate_dir, src)
@@ -1035,7 +1096,8 @@ def build_model(repo: Path, coord: Path, design_dirs: list[Path], now: dt.dateti
                             "branch": str(c.get("branch", "")), "model": str(c.get("model") or holder.get("model", "")), "role": str(holder.get("role", "")),
                             "session": str((c.get("session") or {}).get("name", "") if isinstance(c.get("session"), dict) else c.get("session", "")),
                             "started": str(c.get("started", "")), "expires": str(c.get("expires", "")), "hours_left": left,
-                            "expired": claim_expired(c, now) and claim_active(c), "worktree": str(c.get("worktree") or ""), "note": str(c.get("note", ""))[:240]})
+                            "expired": claim_expired(c, now) and claim_active(c), "worktree": str(c.get("worktree") or ""), "note": str(c.get("note", ""))[:240],
+                            "tags": [str(x) for x in c.get("tags")] if isinstance(c.get("tags"), list) else []})
     done = [c for c in claims_view if c["status"].lower() not in ("active", "parked")]
     live = [c for c in claims_view if c["status"].lower() in ("active", "parked")]
     done.sort(key=lambda c: c["started"], reverse=True)
@@ -1056,12 +1118,13 @@ def build_model(repo: Path, coord: Path, design_dirs: list[Path], now: dt.dateti
         changelog_text = (repo / "docs" / "governance" / "CHANGELOG.md").read_text(encoding="utf-8-sig")
     except OSError:
         changelog_text = ""
-    roadmap_root, roadmap_details = build_roadmap(reqs, rstat, plan, procs, decs, repo, run, changelog_text)
-    builds_view = scan_builds(builds_dir, load_receipts(receipt_dirs or [], src), repo, run, src)
+    roadmap_root, roadmap_details = build_roadmap(reqs, rstat, plan, procs, decs, git_repo, run, changelog_text)
+    builds_view = scan_builds(builds_dir, load_receipts(receipt_dirs or [], src), git_repo, run, src)
 
     for n in iter_nodes(root):  # the counting flag is internal; the page never needs it
         n.pop("rollup", None)
 
+    chase = build_chase(reqs, rstat, claims, active, owner_list, repo, git_repo, coord, now)
     generated = now.isoformat(timespec="seconds")
     newest = max([t for t in (git.get("head_time"), git.get("origin_time")) if t] or [""])
     model = {
@@ -1069,7 +1132,7 @@ def build_model(repo: Path, coord: Path, design_dirs: list[Path], now: dt.dateti
         "totals": totals, "req_totals": req_totals, "next": nxt, "owner": owner_list, "milestones": milestones,
         "git": git, "prs": prs, "gate": gate, "sources": src.items, "unmapped_docs": sorted(set(unmapped_docs)),
         "worktrees": [{"path": w.get("path", ""), "branch": w.get("branch", ""), "state": w.get("state", ""), "claim": w.get("owner_claim", "")} for w in worktrees],
-        "newest_commit_at": newest, "builds": builds_view, "decisions": decisions_view, "claims": claims_view, "roadmap": roadmap_root, "roadmap_details": roadmap_details, "area_bars": area_bars,
+        "newest_commit_at": newest, "builds": builds_view, "decisions": decisions_view, "claims": claims_view, "unreadable_claims": unreadable_claims, "chase": chase, "roadmap": roadmap_root, "roadmap_details": roadmap_details, "area_bars": area_bars,
         "stats": stats, "activity": activity,
         "active_claims": [{"name": c["_name"], "domain": c.get("domain", ""), "task": c.get("task", ""), "branch": c.get("branch", ""), "expired": claim_expired(c, now)} for c in active],
     }
@@ -1292,6 +1355,95 @@ def build_roadmap(reqs: list[dict[str, Any]], rstat: dict[str, tuple[str, str, d
     return root, details
 
 
+def build_chase(reqs: list[dict[str, Any]], rstat: dict[str, tuple[str, str, dict[str, Any]]], claims: list[dict[str, Any]], active: list[dict[str, Any]],
+                owner_list: list[dict[str, Any]], repo: Path, git_repo: Path, coord: Path, now: dt.datetime) -> dict[str, Any]:
+    """What to chase: P0 and P1 requirements nobody owns, claims long past expiry, tag findings, the janitor report, and what only the owner can decide."""
+    active_tags = {str(x) for c in active for x in (c.get("tags") if isinstance(c.get("tags"), list) else [])}
+    unowned = []
+    for q in reqs:
+        if q["priority"] not in ("P0", "P1"):
+            continue
+        status, _why, ex = rstat[q["id"]]
+        if status == "verified" or q["id"] in active_tags or ex["claims"]:
+            continue
+        unowned.append({"id": q["id"], "title": q["title"], "priority": q["priority"], "milestone": q["milestone"], "status": status})
+    unowned.sort(key=lambda r: (ms_rank(r["milestone"]), r["id"]))
+    stale = []
+    for c in active:
+        try:
+            over = (now - dt.datetime.fromisoformat(str(c.get("expires", "")))).total_seconds() / 3600.0
+        except ValueError:
+            continue
+        if over > STALE_CLAIM_HOURS:
+            stale.append({"name": c["_name"], "domain": str(c.get("domain", "")), "branch": str(c.get("branch", "")), "hours_over": round(over, 1)})
+    stale.sort(key=lambda s: (-s["hours_over"], s["name"]))
+    pool = tagpool.load_pool(repo)
+    hits: list[dict[str, str]] = []
+    for c in claims:
+        if str(c.get("status", "")).lower() in ("active", "done"):
+            hits += tagpool.claim_findings(c["_name"], c, pool, git_repo)
+    hits.sort(key=lambda h: (h["code"], h["claim"]))
+    untagged = []
+    for c in active:
+        tags = c.get("tags") if isinstance(c.get("tags"), list) else []
+        if not any(tagpool.is_valid(x, pool) for x in tags) and (not pool["errors"] or not tags or all(tagpool.kind_of(x) is None for x in tags)):
+            untagged.append(c["_name"])
+    janitor = None
+    jdir = coord / "registry" / "janitor-reports"
+    reports = sorted(jdir.glob("janitor-*.md")) if jdir.is_dir() else []
+    if reports:
+        try:
+            janitor = {"file": reports[-1].name, "text": reports[-1].read_text(encoding="utf-8-sig")[:3000].strip()}
+        except OSError:
+            janitor = None
+    return {"unowned": unowned, "p01_total": sum(1 for q in reqs if q["priority"] in ("P0", "P1")), "stale_claims": stale, "tag_hits": hits,
+            "tag_pool_errors": pool["errors"], "tag_stats": {"active": len(active), "tagged": len(active) - len(untagged), "untagged": sorted(untagged)},
+            "janitor": janitor, "owner": owner_list}
+
+
+def render_chase(model: dict[str, Any]) -> str:
+    """The chase list as Markdown (chase.md): deterministic for the same model."""
+    ch = model["chase"]
+    g = model.get("git", {})
+    where = (g.get("ref") or g.get("branch") or "?") + " @ " + (g.get("sha") or "no git")
+    out = [f"# Progress chase — generated {model['generated_at']} from {where}", ""]
+    st = ch["tag_stats"]
+    out.append(f"Active claims: {st['active']}; tagged with a valid tag: {st['tagged']}; untagged: {len(st['untagged'])}.")
+    if model.get("unreadable_claims"):
+        out.append("Unreadable claim files (not counted): " + ", ".join(model["unreadable_claims"]))
+    notread = [f"{s['name']} ({s['status']})" for s in model["sources"] if s["status"] in ("missing", "error")]
+    if notread:
+        out.append("Sources not read: " + "; ".join(notread))
+    out += ["", "## Unowned P0 and P1 requirements", ""]
+    out.append(f"{len(ch['unowned'])} of {ch['p01_total']} are not verified and have no active claim that tags, names or covers them.")
+    out.append("")
+    out += [f"- {r['id']} ({r['priority']}, {r['milestone'] or '?'}, {ST_EN[r['status']]}) {r['title']}" for r in ch["unowned"]] or ["- none"]
+    out += ["", "## Claims more than 24 h past expiry", ""]
+    out += [f"- {s['name']} — {s['hours_over']} h past expiry (branch {s['branch'] or '?'}); an expired claim does not free its area: ask its holder or the owner" for s in ch["stale_claims"]] or ["- none"]
+    out += ["", "## Tag findings", ""]
+    if ch["tag_pool_errors"]:
+        out.append("The tag pool could not be read completely (" + "; ".join(ch["tag_pool_errors"]) + "): tags of the unreadable kinds are not judged.")
+        out.append("")
+    out += [f"- {h['code']} {h['message']}" for h in ch["tag_hits"]] or ["- none"]
+    out += ["", "## Janitor report", ""]
+    if ch["janitor"]:
+        out.append(f"Newest report: {ch['janitor']['file']} (report only: nothing was deleted)")
+        out.append("")
+        out += ["    " + line for line in ch["janitor"]["text"].splitlines()]
+    else:
+        out.append("not found: registry/janitor-reports has no janitor-*.md")
+    out += ["", "## Needs the owner", ""]
+    for o in ch["owner"]:
+        out.append(f"- {o['id']} ({o['status']}, {o['milestone'] or '?'}; {o['reqs']} requirement(s) wait): {o['question']}")
+    if not ch["owner"]:
+        out.append("- none")
+    out.append("")
+    return "\n".join(out)
+
+
+ST_EN = {s["id"]: s["en"] for s in STATUSES}
+
+
 def make_node(nid: str, label: str, kind: str, children: list[dict[str, Any]]) -> dict[str, Any]:
     """A group, area or root node. Leaf dicts get their own one-item count so every roll-up is uniform."""
     counts = {s["id"]: 0 for s in STATUSES}
@@ -1378,6 +1530,9 @@ def main(argv: list[str] | None = None) -> int:
                     help="extra design folder (repeatable); default: KOHBOR_DESIGN_DIR or F:\\kohbor-design when it exists")
     ap.add_argument("--builds-dir", default=os.environ.get("KOHBOR_BUILDS_DIR", DEFAULT_BUILDS),
                     help="folder of owner builds (every .exe below it is hashed and matched to release receipts); default KOHBOR_BUILDS_DIR or F:\\kohbor-local")
+    ap.add_argument("--ref", default=None, help="read the sources from this git ref (for example origin/main) instead of the working tree: git archive into a temporary folder, no worktree")
+    ap.add_argument("--chase", action="store_true", help="also write the chase list (unowned P0 and P1 requirements, long-expired claims, tag findings, janitor report, what needs the owner)")
+    ap.add_argument("--chase-out", default=DEFAULT_CHASE)
     ap.add_argument("--out", default=DEFAULT_OUT)
     ap.add_argument("--open", action="store_true", help="open the file in the default browser")
     ap.add_argument("--github", action="store_true", help="also read pull requests with the gh CLI (optional, needs network)")
@@ -1393,8 +1548,14 @@ def main(argv: list[str] | None = None) -> int:
         env = os.environ.get("KOHBOR_DESIGN_DIR", DEFAULT_DESIGN)
         base = Path(env)
         design = [str(p) for p in sorted(base.glob("*")) if p.is_dir()] if base.is_dir() else []
-    model = build_model(repo, Path(args.coord), [Path(d) for d in design], parse_now(args.now), builds_dir=Path(args.builds_dir), receipt_dirs=[Path(d) for d in design],
-                        github=args.github, stale_hours=args.stale_hours)
+    try:
+        with contextlib.ExitStack() as stack:
+            root = stack.enter_context(materialized_ref(repo, args.ref)) if args.ref else repo
+            model = build_model(root, Path(args.coord), [Path(d) for d in design], parse_now(args.now), builds_dir=Path(args.builds_dir), receipt_dirs=[Path(d) for d in design],
+                                git_repo=repo, ref=args.ref, github=args.github, stale_hours=args.stale_hours)
+    except RuntimeError as exc:
+        print(f"progress_map: {exc}")
+        return 1
     out = Path(args.out)
     if args.json:
         print(json.dumps(model, ensure_ascii=False, indent=1, sort_keys=True))
@@ -1411,6 +1572,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"progress_map: {out} matches HEAD {sha}")
         return 0
     write_atomic(out, render_html(model))
+    if args.chase:
+        write_atomic(Path(args.chase_out), render_chase(model))
+        print(f"progress_map: wrote {args.chase_out}: {len(model['chase']['unowned'])} unowned P0/P1, {len(model['chase']['stale_claims'])} long-expired claims, "
+              f"{len(model['chase']['tag_hits'])} tag finding(s), {model['chase']['tag_stats']['tagged']} of {model['chase']['tag_stats']['active']} active claims tagged")
     t = model["totals"]
     print(f"progress_map: wrote {out} ({out.stat().st_size} bytes) from {model['git'].get('sha', 'no git')}; "
           + ", ".join(f"{s['id']} {t[s['id']]}" for s in STATUSES))

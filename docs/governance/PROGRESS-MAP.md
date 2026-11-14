@@ -1,7 +1,7 @@
 ---
 title: "Progress Map"
 doc_id: "PROGRESS-MAP"
-version: "0.3.0"
+version: "0.4.0"
 status: "draft"
 updated: "2026-11-14"
 owner: "Governance lead (integration owner)"
@@ -15,6 +15,7 @@ approval_status: "not_approved"
 ```text
 python tools/progress_map.py [--out FILE] [--open] [--github] [--check] [--json] [--now ISO] [--stale-hours N]
                              [--repo DIR] [--coord DIR] [--design-dir DIR] [--builds-dir DIR]
+                             [--ref REF] [--chase [--chase-out FILE]]
 ```
 
 Default output `F:\kohbor-local\progress\progress-map.html` (outside the repository, never committed). The page needs no network, font, script or image from outside; it follows `prefers-color-scheme`. `--github` also reads pull requests with the `gh` CLI and is optional. `--check` exits 1 when the existing file was built from another commit than HEAD. The tool never writes inside the repository.
@@ -31,6 +32,26 @@ The look is a dark glass dashboard (teal and purple accent, a thin collapsible i
 | Decisions | every record of `contracts/decisions.json` with a filter (open or provisional or proposed, decided, deferred, all), an owner-only switch, a search and the question, closure and safe interim | decisions |
 | Agents & work | claims with domain, model, role, branch, state and hours to expiry (measured at generation time), merged commits per day, recent merges from `git log` (offline), registry worktrees, pull requests with `--github` | ledger, git |
 | Builds | every `.exe` under the builds folder with size, time, SHA-256 and the release receipt that names that hash, the receipt's commit and whether it is in `origin/main`, its gate line, and the lines that say what was NOT done | builds folder, receipts |
+
+## Reading a git ref, and the chase list
+
+`--ref origin/main` reads every source from that ref instead of the working tree: the tool runs `git archive` into a temporary folder (no worktree, no checkout, nothing written in the repository), builds the page from it and removes the folder. The stamp then names the ref and its commit, and the page cannot show uncommitted work. A ref that does not resolve is an error and writes nothing.
+
+`--chase` also writes `F:\kohbor-local\progress\chase.md` (`--chase-out` to change it), a Markdown list for whoever starts the next task:
+
+| Section | Rule |
+| --- | --- |
+| Unowned P0 and P1 requirements | priority P0 or P1, not verified, and no active claim tags it, names it in its task or note, or covers its implementation files; sorted by milestone, then id |
+| Claims more than 24 h past expiry | active claims whose expiry passed more than 24 hours ago (a shorter lapse is not listed, to avoid noise); an expired claim still does not free its area |
+| Tag findings | T1 an active claim has no valid tag, T2 a tag is not in the pool, T4 a `tags_done` evidence file is missing or changed (T3 is a branch property and is reported by `check_claim_scope.py`) |
+| Janitor report | the newest `registry/janitor-reports/janitor-*.md`, quoted; `not found` when there is none |
+| Needs the owner | open owner-only decisions with the question text, as on the page |
+
+The header counts active claims and how many carry a valid tag. Claim files that cannot be read are listed on the Agents view and in the header, never skipped silently.
+
+## Claim tags
+
+A claim names what it serves (`tools/claim.py open --tag ID`, `tag NAME --add ID`): a requirement id, `TASK:<first token of a sprint-table Task cell>`, a `DEC-` id, or `PROC:<slug>` for process work, which is counted separately and never as product progress. `tools/tagpool.py` reads the pool from `contracts/requirements.json`, `contracts/decisions.json` and the sprint tables of `SPRINT-ROADMAP.md`. `claim.py close --done-tag ID=EVIDENCE_PATH --open-tag ID` stores the evidence file's SHA-256 and the commit and prints one `Tags:` line for the handoff; a tag not named done stays open. A tag counts as naming a requirement for the "In progress" rule above. Nothing about tags changes the status rules.
 
 ## Roadmap
 
