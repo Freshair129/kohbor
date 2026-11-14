@@ -105,6 +105,13 @@ fn main() {
     let repository_root = repository_root.canonicalize().unwrap_or(repository_root);
 
     println!("cargo:rerun-if-env-changed=SOURCE_DATE_EPOCH");
+    // Release builds must never embed a stale commit or dirty marker: a ref update or an unstaged
+    // edit is not visible through the git metadata paths below, so a release build always re-runs
+    // this script (a path that never exists is always considered changed). Debug builds keep the
+    // cheaper metadata triggers.
+    if std::env::var("PROFILE").as_deref() == Ok("release") {
+        println!("cargo:rerun-if-changed=.kohbor-always-rerun-release");
+    }
     println!(
         "cargo:rerun-if-changed={}",
         repository_root.join(".git").display()

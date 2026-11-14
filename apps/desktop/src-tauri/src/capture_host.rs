@@ -2428,7 +2428,13 @@ where
             return;
         }
         let was_occluded = self.occlusion == Some(true);
-        self.occlusion = self.source.crop_occluded(rect);
+        let result = self.source.crop_occluded(rect);
+        // Unknown never releases a known occlusion: only a definite Some(false) does.
+        self.occlusion = if was_occluded && result.is_none() {
+            Some(true)
+        } else {
+            result
+        };
         self.next_occlusion_check = now + OCCLUSION_INTERVAL;
         if was_occluded && self.occlusion != Some(true) {
             self.clear_frames();
@@ -3570,9 +3576,18 @@ mod tests {
     }
 
     #[test]
-    fn occlusion_unknown_after_true_restarts_calibration_with_a_new_generation() {
+    fn occlusion_unknown_after_true_stays_occluded_until_a_definite_false() {
         let _gate = lock(&STATUS_TEST_GATE);
-        assert_occlusion_recovery(None);
+        let start = Instant::now();
+        let mut worker = clean_occlusion_worker(start);
+        occlude(&mut worker, start);
+        worker.source.occlusion_result = None;
+
+        worker.cycle_at(start + Duration::from_millis(1600), 1600);
+
+        assert_eq!(worker.occlusion, Some(true));
+        assert_eq!(worker.phase_reason(1600), Some("occluded"));
+        assert_eq!(worker.phase(1600), "stale");
     }
 
     #[test]
