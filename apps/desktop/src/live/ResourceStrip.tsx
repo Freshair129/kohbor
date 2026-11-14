@@ -7,7 +7,7 @@ import { useResources } from "./useResources";
 export function ResourceStrip({ locale, capture, metrics }: {
   locale: LiveLocale;
   capture: CaptureStatus | null;
-  metrics: PreviewMetrics;
+  metrics: Pick<PreviewMetrics, "received_fps" | "painted_fps">;
 }) {
   const { current } = useResources();
   const text = liveCopy(locale);

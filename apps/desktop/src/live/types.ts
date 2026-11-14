@@ -1,4 +1,5 @@
 export type CapturePhase =
+  | "idle"
   | "unsupported"
   | "calibrating"
   | "live"

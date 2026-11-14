@@ -18,6 +18,15 @@ const capturePayload = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
+test("capture parser admits intentional idle but still rejects unrecognized phases", () => {
+  const parsed = state.parseCaptureStatus(capturePayload({ phase: "idle", phase_reason: "waiting_for_game", fps_measured: null, frame_age_ms: null, display_fps: null }));
+  assert.equal(parsed?.phase, "idle");
+  assert.equal(parsed?.phase_reason, "waiting_for_game");
+  assert.equal(parsed?.display_fps, null);
+  assert.equal(state.parseCaptureStatus(capturePayload({ phase: "future_phase" })), null);
+  assert.equal(copy.phaseLabel("idle", "th"), "รอเกม");
+});
+
 const riskPayload = (overrides: Record<string, unknown> = {}) => ({
   meter: 2,
   gsi_source: true,

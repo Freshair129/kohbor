@@ -12,6 +12,7 @@ test("ally placeholders say the game supplies only the own hero", () => {
 test("enemy placeholders do not invent identities or unseen details", () => {
   assert.deepEqual(ENEMY_SLOT_IDS, ["E1", "E2", "E3", "E4", "E5"]);
   assert.equal(DECK_PLACEHOLDERS.enemies.th, "— ยังไม่เห็น · ต้องใช้ภาพ");
+  assert.equal(deckCopy("th").enemyCaption, "ศัตรู: ต้องใช้ภาพจากแผนที่ — ยังไม่เปิดใช้ในรุ่นนี้");
 });
 
 test("later-slice data and event feed stay explicit placeholders", () => {

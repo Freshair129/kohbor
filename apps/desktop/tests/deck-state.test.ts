@@ -45,6 +45,16 @@ function input(options: InputOptions = {}): DeckStateInput {
   };
 }
 
+test("intentional idle capture is waiting during draft and before pregame capture starts", () => {
+  for (const phase of ["none", "draft", "pregame", "live"] as const) {
+    const state = deriveDeckState(input({ phase, capturePhase: "idle", captureReason: "waiting_for_game" }));
+    assert.equal(state.state, "standby", phase);
+    assert.equal(state.reason.th, "รอเกมเริ่ม — แผนที่ย่อจะแสดงเมื่อเข้าช่วงก่อนเริ่มเกม");
+  }
+  assert.equal(deriveDeckState(input({ phase: "post_game", capturePhase: "idle", captureReason: "waiting_for_game" })).state, "debrief");
+  assert.equal(deriveDeckState(input({ snapshotAvailability: "stale", capturePhase: "idle", captureReason: "waiting_for_game" })).state, "stale");
+});
+
 test("derives every deck state from host, own snapshot and capture inputs", () => {
   const cases: [string, DeckStateInput, string][] = [
     ["standby for no game", input({ phase: "none" }), "standby"],

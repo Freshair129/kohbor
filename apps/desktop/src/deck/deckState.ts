@@ -78,6 +78,8 @@ function captureReason(capture: DeckStateInput["capture"]): { th: string; en: st
   if (th && en) return { th, en };
 
   switch (capture.phase) {
+    case "idle":
+      return { th: "รอเกม — ยังไม่ได้รับเหตุผลจากระบบหลัก", en: "Waiting — the host has not supplied a reason" };
     case "calibrating":
       return { th: "กำลังตรวจตำแหน่งแผนที่ — ยังไม่แสดงภาพสด", en: "Checking map position — no live picture yet" };
     case "stale":
@@ -109,6 +111,7 @@ export function deriveDeckState(input: DeckStateInput): DeckStateView {
   const phase = input.runtime?.session.phase ?? null;
   const intakeState = input.runtime?.intake.state ?? null;
   const hostLost = input.hostLost === true;
+  const waiting = input.capture?.phase === "idle";
 
   // A completed match remains a debrief even if every live source has gone away.
   if (phase === "post_game") {
@@ -120,7 +123,7 @@ export function deriveDeckState(input: DeckStateInput): DeckStateView {
 
   // Explicit no-game phases do not reuse a retained snapshot as current match data.
   if (phase === null || phase === "none" || phase === "draft" || phase === "unsupported") {
-    return view("standby", standbyReason(phase, intakeState));
+    return view("standby", waiting ? captureReason(input.capture) : standbyReason(phase, intakeState));
   }
 
   // Old data wins over capture state, including a capture that still reports live.
@@ -129,10 +132,11 @@ export function deriveDeckState(input: DeckStateInput): DeckStateView {
   }
 
   if (intakeState !== "receiving" || input.snapshotAvailability !== "fresh") {
-    return view("standby", standbyReason(phase, intakeState));
+    return view("standby", waiting ? captureReason(input.capture) : standbyReason(phase, intakeState));
   }
 
   const capture = input.capture;
+  if (waiting) return view("standby", captureReason(capture));
   if (capture?.phase === "live" && capture.paused !== true && capture.phase_reason !== "user_invalidated") {
     return view("live", {
       th: "ข้อมูลตัวคุณสดและได้รับภาพแผนที่",

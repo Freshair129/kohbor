@@ -26,6 +26,7 @@ import { useRisk } from "./useRisk";
 import { usePageVisibility } from "./usePageVisibility";
 import { useCanvasBox } from "./useCanvasBox";
 import { advanceInvalidation, phaseReasonText, UNSUPPORTED_CAPTURE_REASONS } from "./captureRecovery";
+import { deriveCaptureDisplay } from "./captureDisplay";
 import "./live.css";
 
 export function MinimapPanel({
@@ -45,7 +46,7 @@ export function MinimapPanel({
   const [invalidateError, setInvalidateError] = useState<string | null>(null);
   const [armedUntil, setArmedUntil] = useState<number | null>(null);
   const [locallyInvalidated, setLocallyInvalidated] = useState(false);
-  const userInvalidated = locallyInvalidated || capture?.phase_reason === "user_invalidated";
+  const userInvalidated = capture?.phase !== "idle" && (locallyInvalidated || capture?.phase_reason === "user_invalidated");
   const phase = userInvalidated ? "unsupported" : capture?.phase ?? null;
   const reason = userInvalidated ? "user_invalidated" : capture?.phase_reason ?? null;
   const controlsBusy = invalidating || captureConfig.busy;
@@ -110,18 +111,21 @@ export function MinimapPanel({
     }
   };
 
-  const age = formatNullable(capture?.frame_age_ms ?? null);
+  const display = deriveCaptureDisplay(capture, minimap.metrics);
+  const age = formatNullable(display.capture?.frame_age_ms ?? null);
   const reasonText = phaseReasonText(phase, reason, locale, capture?.phase_detail ?? null);
   const phaseText = reasonText
     ? `${phaseLabel(phase, locale)} · ${reasonText}`
     : phaseLabel(phase, locale);
   const statusBadge = `${phaseText} · ${age} ms`;
-  const rateBadge = previewRateText(capture?.fps_measured ?? null, minimap.metrics, locale);
+  const rateBadge = previewRateText(display.capture?.fps_measured ?? null, display.metrics, locale);
   const stale = phase === "stale";
 
   let plate: string | null = null;
   let plateTone = "";
-  if (phase === "unsupported") {
+  if (phase === "idle") {
+    plate = reasonText;
+  } else if (phase === "unsupported") {
     plate = reasonText;
   } else if (paused) {
     plate = phaseReasonText(phase, "paused", locale);
@@ -152,7 +156,7 @@ export function MinimapPanel({
     ? captureGatedRiskView(risk?.state ?? null, risk?.lastVisionEvent ?? null, null)
     : risk;
   const mockReason = reason ?? (phase === "unsupported" ? "none" : "live");
-  const mockReasonOptions: readonly string[] = [...UNSUPPORTED_CAPTURE_REASONS, "paused", "reopening", "access_lost", "calibrating", "unknown_mock_reason"];
+  const mockReasonOptions: readonly string[] = [...UNSUPPORTED_CAPTURE_REASONS, "waiting_for_game", "paused", "reopening", "access_lost", "calibrating", "unknown_mock_reason"];
   const proposal = config?.proposal ?? null;
   const proposalPatch = proposal && config?.profile_rect ? applyProposal(proposal, config.profile_rect) : null;
   const proposalVisible = proposal !== null && !captureConfig.proposalDismissed;
@@ -202,7 +206,7 @@ export function MinimapPanel({
         <section className="live-enemy-panel" aria-label={text.enemyCount("—")}>
           <EnemySeen risk={displayedRisk} locale={locale} />
         </section>
-        <ResourceStrip locale={locale} capture={capture} metrics={minimap.metrics} />
+        <ResourceStrip locale={locale} capture={display.capture} metrics={display.metrics} />
         {layout === "deck" && renderAlerts && <div className="live-deck-alerts">{renderAlerts({ risk: displayedRisk, captureLive: phase === "live" && !paused })}</div>}
         <div className="live-sidebar-status">
           {mock && <span className="live-experimental">{text.mockPreview}</span>}
@@ -325,9 +329,10 @@ export function MinimapPanel({
             <summary>{text.resourceDetails}</summary>
             <div className="live-disclosure-body live-resource-popover">
               <p className="live-preview-diagnostics mono">
-                grab {formatNullable(capture?.grab_fps ?? null, 1)} fps · {text.previewDropped} {formatNullable(minimap.metrics.dropped_count)}
-                {` · ${text.previewCost} ${formatNullable(minimap.metrics.parse_paint_ms_mean, 2)} ms`}
-                {` · ${text.sentTotal} ${formatNullable(capture?.sent_total ?? null)} · ${text.grabTotal} ${formatNullable(capture?.grab_total ?? null)}`}
+                grab {formatNullable(display.capture?.grab_fps ?? null, 1)} fps · {text.previewDropped} {formatNullable(display.metrics.dropped_count)}
+                {` · ${text.previewCost} ${formatNullable(display.metrics.parse_paint_ms_mean, 2)} ms`}
+                {` · ${text.sentTotal} ${formatNullable(display.capture?.sent_total ?? null)} · ${text.grabTotal} ${formatNullable(display.capture?.grab_total ?? null)}`}
+                {` · ${text.receivedTotal} ${formatNullable(display.metrics.received_total)} · ${text.paintedTotal} ${formatNullable(display.metrics.painted_total)}`}
               </p>
               <ResourcePanel locale={locale} />
             </div>

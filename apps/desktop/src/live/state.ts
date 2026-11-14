@@ -15,6 +15,7 @@ export const UNKNOWN_AFTER_MS = 3000;
 export const VISION_EVENT_MS = 5000;
 
 const CAPTURE_PHASES = new Set<CapturePhase>([
+  "idle",
   "unsupported",
   "calibrating",
   "live",
@@ -76,7 +77,7 @@ export function parseCaptureStatus(input: unknown): CaptureStatus | null {
   const cropConfirmed = input.crop_confirmed === undefined
     ? !input.auto_confirmed
     : input.crop_confirmed;
-  const displayFps = input.display_fps === undefined
+  const displayFps = input.display_fps === undefined || input.display_fps === null
     ? null
     : input.display_fps === 10 || input.display_fps === 15 || input.display_fps === 30
       ? input.display_fps

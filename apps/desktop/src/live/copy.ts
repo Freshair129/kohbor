@@ -11,8 +11,11 @@ const MESSAGES = {
     previewCost: "parse+paint เฉลี่ย",
     sentTotal: "ส่งทั้งหมด",
     grabTotal: "grab ทั้งหมด",
+    receivedTotal: "รับทั้งหมด",
+    paintedTotal: "วาดทั้งหมด",
     mapLabel: "แผนที่ย่อสด",
     phase: {
+      idle: "รอเกม",
       live: "สด",
       stale: "ข้อมูลเก่า",
       coverage_unavailable: "การมองเห็นใช้ไม่ได้",
@@ -101,8 +104,11 @@ const MESSAGES = {
     previewCost: "mean parse+paint",
     sentTotal: "sent total",
     grabTotal: "grab total",
+    receivedTotal: "received total",
+    paintedTotal: "painted total",
     mapLabel: "Live minimap",
     phase: {
+      idle: "Waiting for game",
       live: "Live",
       stale: "Stale",
       coverage_unavailable: "Coverage unavailable",

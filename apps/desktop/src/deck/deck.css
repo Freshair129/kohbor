@@ -442,12 +442,13 @@
 .live-sidebar-deck .live-sidebar-actions summary { padding: 3px 6px; font-size: 11px; }
 
 .live-deck-alerts { grid-column: 1 / -1; grid-row: 2; min-width: 0; min-height: 0; overflow: hidden; }
-.deck-alert-strip { display: flex; align-items: center; gap: 5px; min-width: 0; min-height: 22px; overflow: hidden; font-size: 11px; white-space: nowrap; }
+.deck-alert-strip { display: flex; align-items: center; gap: 6px; min-width: 0; min-height: 26px; overflow: hidden; padding: 2px 4px; border: 1px solid var(--line); border-radius: 5px; background: var(--ground); font-size: 11px; white-space: nowrap; }
 .deck-alert-strip > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .deck-alert-state { padding: 1px 6px; border: 1px dashed var(--stale); border-radius: 4px; color: var(--text-2); }
 .deck-alert-chip { padding: 1px 6px; border: 1px dashed var(--warning); border-radius: 4px; color: var(--warning); }
 .deck-alert-chip.is-critical { border: 3px double var(--critical); padding-block: 0; color: var(--critical); }
 .deck-alert-chip.is-experimental { border-color: var(--stale); color: var(--text-2); }
+.deck-alert-chip.is-experimental::before { content: "◇ "; }
 
 .deck-right-column {
   display: grid;
@@ -456,8 +457,10 @@
 }
 
 .deck-enemy-panel {
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
 }
+
+.deck-enemy-caption { min-width: 0; margin: 0; overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 
 .deck-enemy-list {
   display: grid;

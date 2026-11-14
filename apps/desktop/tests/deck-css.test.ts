@@ -29,6 +29,18 @@ test("history and announcer rows stay inside shrinking right-column tracks", () 
   assert.match(band, /grid-row:\s*2/);
 });
 
+test("alert band stays bounded, has no green encoding, and reserves a row for the enemy caption", () => {
+  const alertRules = [...css.matchAll(/([^{}]*\.deck-alert[^{}]*)\{([^}]+)\}/g)].map(rule => rule[2]).join("\n");
+  assert.doesNotMatch(alertRules, /var\(--accent(?:-surface)?\)|green|safe/i);
+  const strip = css.match(/\.deck-alert-strip\s*\{([^}]+)\}/)?.[1] ?? "";
+  assert.match(strip, /overflow:\s*hidden/);
+  assert.match(strip, /min-width:\s*0/);
+  const enemy = css.match(/\.deck-enemy-panel\s*\{([^}]+)\}/)?.[1] ?? "";
+  // The first match may be the shared card rule; require the explicit three-row panel rule too.
+  assert.ok(enemy.length > 0);
+  assert.match(css, /\.deck-enemy-panel\s*\{[^}]*grid-template-rows:\s*auto\s+auto\s+minmax\(0,\s*1fr\)/);
+});
+
 test("the deck map embeds the reusable minimap panel in a height-constrained grid", () => {
   const mapPanel = css.match(/\.live-tab\.live-deck-panel\s*\{([^}]+)\}/)?.[1] ?? "";
   assert.match(mapPanel, /grid-template-rows:\s*minmax\(0,\s*1fr\)\s+auto/);

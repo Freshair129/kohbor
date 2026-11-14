@@ -59,8 +59,9 @@ export function deriveHeaderState(
     : labels?.capturePhases[capture.phase] ?? "—";
   const captureLabel = capture === null || capturePhase === "—"
     ? "—"
+    : capture.phase === "idle" ? capturePhase
     : `${capturePhase} · ${capture.paused === null ? "—" : capture.paused ? labels?.capturePaused ?? "—" : labels?.captureRunning ?? "—"}`;
-  const captureTone: HeaderTone = capture === null || capturePhase === "—" || capture.phase === "unknown"
+  const captureTone: HeaderTone = capture === null || capturePhase === "—" || capture.phase === "unknown" || capture.phase === "idle"
     ? "unknown"
     : capture.paused === true || capture.phase === "unsupported"
       ? "off"

@@ -21,6 +21,7 @@ const MESSAGES = {
       capturePaused: "พักอยู่",
       captureRunning: "ทำงาน",
       capturePhases: {
+        idle: "รอเกม",
         unsupported: "ไม่รองรับ",
         calibrating: "กำลังปรับเทียบ",
         live: "ภาพสด",
@@ -293,6 +294,7 @@ const MESSAGES = {
       capturePaused: "paused",
       captureRunning: "running",
       capturePhases: {
+        idle: "Waiting for game",
         unsupported: "Unsupported",
         calibrating: "Calibrating",
         live: "Live image",

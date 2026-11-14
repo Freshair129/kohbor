@@ -6,6 +6,7 @@ const recovery = await import("../src/live/captureRecovery.ts");
 const { liveCopy } = await import("../src/live/copy.ts");
 
 const reasons = [
+  ["idle", "waiting_for_game", "รอเกมเริ่ม — แผนที่ย่อจะแสดงเมื่อเข้าช่วงก่อนเริ่มเกม", "Waiting for the game to start — the minimap appears from the pre-game phase"],
   ["unsupported", "user_invalidated", 'คุณทำเครื่องหมายว่าแผนที่ไม่ถูกต้อง — กด "ลองใหม่" เพื่อจับภาพต่อ', 'You marked the map as wrong — press "Retry" to resume capture'],
   ["unsupported", "no_game_window", "ไม่พบหน้าต่าง Dota 2 ที่มองเห็นได้ — เปิดเกมในโหมด Borderless", "No visible Dota 2 window found — open the game in Borderless mode"],
   ["unsupported", "crop_out_of_bounds", 'กรอบที่ตั้งไว้ออกนอกจอ — กด "รีเซ็ต" หรือปรับกรอบ', 'The configured crop is outside the screen — press "Reset" or adjust the crop'],

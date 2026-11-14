@@ -9,6 +9,7 @@ export const UNSUPPORTED_CAPTURE_REASONS = [
 
 const REASON_TEXT = {
   th: {
+    waiting_for_game: "รอเกมเริ่ม — แผนที่ย่อจะแสดงเมื่อเข้าช่วงก่อนเริ่มเกม",
     user_invalidated: 'คุณทำเครื่องหมายว่าแผนที่ไม่ถูกต้อง — กด "ลองใหม่" เพื่อจับภาพต่อ',
     no_game_window: "ไม่พบหน้าต่าง Dota 2 ที่มองเห็นได้ — เปิดเกมในโหมด Borderless",
     crop_out_of_bounds: 'กรอบที่ตั้งไว้ออกนอกจอ — กด "รีเซ็ต" หรือปรับกรอบ',
@@ -21,6 +22,7 @@ const REASON_TEXT = {
     calibrating: "กำลังตรวจตำแหน่งแผนที่ — ยังไม่แสดงภาพสด",
   },
   en: {
+    waiting_for_game: "Waiting for the game to start — the minimap appears from the pre-game phase",
     user_invalidated: 'You marked the map as wrong — press "Retry" to resume capture',
     no_game_window: "No visible Dota 2 window found — open the game in Borderless mode",
     crop_out_of_bounds: 'The configured crop is outside the screen — press "Reset" or adjust the crop',
@@ -42,6 +44,7 @@ export function phaseReasonText(
 ): string | null {
   const suffix = detail ? ` (${detail})` : "";
   if (reason === null) {
+    if (phase === "idle") return locale === "th" ? "รอเกม — ยังไม่ได้รับเหตุผลจากระบบหลัก" : "Waiting — the host has not supplied a reason";
     if (phase !== "unsupported") return null;
     return locale === "th" ? "จับภาพไม่ได้ (ไม่ทราบเหตุผล)" : "Capture unavailable (reason unknown)";
   }

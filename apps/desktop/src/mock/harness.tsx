@@ -93,11 +93,11 @@ function chooseMockDeckScenario(scenario: MockDeckScenario) {
   mockSnapshotAvailability = scenario === "standby" ? "unknown" : scenario === "stale" ? "stale" : "fresh";
   statusRevision += 1;
   const captureReason = {
-    standby: "no_game_window",
+    standby: "waiting_for_game",
     live: "live",
     novision: "calibrating",
     stale: "live",
-    debrief: "no_game_window",
+    debrief: "waiting_for_game",
   }[scenario];
   void import("../live/mock").then((driver) => driver.setMockCaptureReason(captureReason));
 }
@@ -401,6 +401,8 @@ export function installMockHarness() {
     },
     async invoke(command, args = {}) {
       if (command === "runtime_get_status") return currentStatus();
+      // Explicit synthetic build metadata; never a production-version fallback.
+      if (command === "app_version") return { version: "0.0.0-dev-sample", git_commit: null, build_date: null, profile: "debug", demo: true };
       if (command === "own_snapshot") return currentOwnSnapshot();
       if (command === "settings_get") return { ...settingsView };
       if (command === "settings_patch") {

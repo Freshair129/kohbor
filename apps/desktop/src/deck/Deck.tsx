@@ -36,6 +36,8 @@ export function Deck({
 }) {
   const text = deckCopy(locale);
   const own = deriveOwnHeroViewModel(snapshot);
+  // A retained payload's age is not a current age once the host stops answering.
+  const displayAgeMs = hostLost ? null : own.ageMs;
   const history = useAudioHistory(hostLost);
   const historyState = hostLost ? "failed" : history.state;
   const hostNowMs = hostLost ? null : hostNowFromAnchor(playback.clockAnchor, performance.now());
@@ -60,8 +62,8 @@ export function Deck({
           <div className="deck-hero-identity">
             <span className="deck-hero-id" title={own.heroId ?? undefined}>{own.heroId ?? "—"}</span>
             <span className="deck-hero-level"><span>{text.level}</span> <b>{readableNumber(own.level)}</b></span>
-            <span className={`deck-age-chip${stale ? " is-stale" : ""}`} aria-label={`${stale ? text.oldData : text.age}: ${seconds(own.ageMs, locale)}`}>
-              {stale ? text.oldData : text.age} · {seconds(own.ageMs, locale)}
+            <span className={`deck-age-chip${stale ? " is-stale" : ""}`} aria-label={`${stale ? text.oldData : text.age}: ${seconds(displayAgeMs, locale)}`}>
+              {stale ? text.oldData : text.age} · {seconds(displayAgeMs, locale)}
             </span>
           </div>
 
@@ -120,7 +122,7 @@ export function Deck({
           <p className="deck-standby-note" role="status">{locale === "th" ? state.reason.th : state.reason.en}</p>
         )}
         <MinimapPanel locale={locale} layout="deck" renderAlerts={({ risk, captureLive }) => (
-          <AlertStrip own={own} state={state.state} risk={risk} captureLive={captureLive} locale={locale} />
+          <AlertStrip own={{ ...own, ageMs: displayAgeMs }} state={state.state} risk={risk} captureLive={captureLive} locale={locale} />
         )} />
       </section>
 
@@ -129,6 +131,7 @@ export function Deck({
           <header className="deck-card-heading">
             <h2 id="deck-enemies-heading">{text.enemies}</h2>
           </header>
+          <p className="deck-enemy-caption" title={text.enemyCaption}>{text.enemyCaption}</p>
           <ul className="deck-enemy-list">
             {ENEMY_SLOT_IDS.map((slot) => (
               <li className="deck-enemy-slot" key={slot}>

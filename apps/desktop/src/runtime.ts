@@ -68,6 +68,12 @@ export function audioHistory(limit: number): Promise<unknown> {
   return invoke<unknown>("audio_history", { limit });
 }
 
+/** Build metadata is optional on older hosts; callers retain unknown on failure. */
+export function appVersion(): Promise<unknown> {
+  if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
+  return invoke<unknown>("app_version");
+}
+
 export function mediaList(): Promise<unknown> {
   if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
   return invoke<unknown>("media_list");

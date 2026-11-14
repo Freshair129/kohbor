@@ -13,6 +13,9 @@ import { Chip, Readiness } from "./Readiness";
 import { nextShellTab, deriveHeaderState, SHELL_TABS, type ShellTab } from "./shell/state";
 import { usePlayback, useRuntime } from "./runtime";
 import { useSettings } from "./settings";
+import { useAppVersion } from "./shell/useAppVersion";
+import { deriveAppVersionView } from "./shell/appVersionModel";
+import { AboutPanel, VersionHeader } from "./shell/VersionInfo";
 
 export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode } = {}) {
   const { status, snapshot, hostLost, setup } = useRuntime();
@@ -20,6 +23,7 @@ export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode }
   const capture = useCaptureStatus();
   const mute = useAudioMute(status);
   const playback = usePlayback();
+  const version = deriveAppVersionView(useAppVersion());
   const [activeTab, setActiveTab] = useState<ShellTab>("live");
   const tabRefs = useRef<Record<ShellTab, HTMLButtonElement | null>>({
     live: null,
@@ -143,6 +147,7 @@ export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode }
         )}
 
         <AudioMuteControl control={mute} locale={displayLocale} compact />
+        <VersionHeader view={version} />
       </header>
 
       <div className="shell-tab-list" role="tablist" aria-label={text.shell.navigationLabel}>
@@ -246,6 +251,7 @@ export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode }
                 <DemoPanel />
               </div>
             </div>
+            <AboutPanel view={version} locale={displayLocale} />
           </div>
         )}
       </section>

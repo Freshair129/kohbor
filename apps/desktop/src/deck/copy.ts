@@ -31,6 +31,7 @@ export function deckCopy(locale: Locale) {
       : ["ทอง", "K / D / A", "LH / DN", "GPM / XPM", "ไอเท็ม", "คูลดาวน์"],
     allies: english ? "ทีมเดียวกัน · ALLIES" : "ทีมเดียวกัน",
     enemies: english ? "ศัตรู · ENEMIES" : "ศัตรู",
+    enemyCaption: english ? "Enemies: minimap vision required — not enabled in this version" : "ศัตรู: ต้องใช้ภาพจากแผนที่ — ยังไม่เปิดใช้ในรุ่นนี้",
     eventFeed: english ? "เหตุการณ์ · EVENT FEED" : "เหตุการณ์ · EVENT FEED",
     soundPack: english ? "เสียงและแพ็ก · SOUND / PACK" : "เสียงและแพ็ก · SOUND / PACK",
     audioReadiness: english ? "Audio readiness" : "ความพร้อมเสียง",
