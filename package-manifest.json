@@ -1628,8 +1628,8 @@
     },
     {
       "path": "docs/INDEX.md",
-      "bytes": 10598,
-      "sha256": "a9f043a8fe89e2bc2863870e40ae5b45ff7fe3a0535403a3432dcc84992bfa36"
+      "bytes": 10855,
+      "sha256": "6c677f6fb1cabe7ea2ad148dd72b275005de7ac4fe94dd95691a5d3dbf756a6e"
     },
     {
       "path": "docs/delivery/AGENT-WORKFLOW.md",
@@ -2198,23 +2198,13 @@
     },
     {
       "path": "docs/governance/CHANGELOG.md",
-      "bytes": 31247,
-      "sha256": "365fc351d7059970319d3dcf2b6a0736ae3cf679dadf012f4a0b0893ad0d5681"
+      "bytes": 31834,
+      "sha256": "076138d5fb85d254499d6f0524c9520b9765226146a38c6e5cc3d6c6afb53e2f"
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 21743,
-      "sha256": "df88375d3ab7161cd8b115a7dfcbbc1341ed294af222593d6f6d3c37be10a6af"
-    },
-    {
-      "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 21743,
-      "sha256": "df88375d3ab7161cd8b115a7dfcbbc1341ed294af222593d6f6d3c37be10a6af"
-    },
-    {
-      "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 21743,
-      "sha256": "df88375d3ab7161cd8b115a7dfcbbc1341ed294af222593d6f6d3c37be10a6af"
+      "bytes": 21650,
+      "sha256": "3a99d38cae3b074cefa4a2547df01f79c2782b6830dbd8637367a903f75bd6d7"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
@@ -2230,6 +2220,11 @@
       "path": "docs/governance/IMPLEMENTATION-READINESS.md",
       "bytes": 7438,
       "sha256": "87246ad7d54e76b6a0b507550954b7bb08ad321f64877e26d2079a0dd9dd44da"
+    },
+    {
+      "path": "docs/governance/PROGRESS-MAP.md",
+      "bytes": 5535,
+      "sha256": "f723fc711e8040cac898f08565885f9836752ec694894611d44368394e906473"
     },
     {
       "path": "docs/governance/RISK-REGISTER.md",
@@ -2787,6 +2782,11 @@
       "sha256": "3aab8974f2f92f647fa8f6786e95464df8f6dd0a96ad6745152a12e3a6c57939"
     },
     {
+      "path": "tools/progress_map.py",
+      "bytes": 71416,
+      "sha256": "7d03f1427a2a266839ef8874945b7eb3f700494ad23bc8b8209aba32a864bc5c"
+    },
+    {
       "path": "tools/render_diagrams.mjs",
       "bytes": 12359,
       "sha256": "389d45b012f14636febd00f280b454a1331a41ebcd52c3631e02aa27cc6cc2dd"
@@ -2830,6 +2830,11 @@
       "path": "tools/tests/test_janitor.py",
       "bytes": 12276,
       "sha256": "95fc7e1f589de196ec642731ef4b2e620084903feea3aa9f5db19c909281f434"
+    },
+    {
+      "path": "tools/tests/test_progress_map.py",
+      "bytes": 24621,
+      "sha256": "8c2271a5bee3c410305421b58a028b10bb578568af17956c03393965e222c6ea"
     },
     {
       "path": "tools/tests/test_run_record.py",
