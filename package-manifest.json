@@ -2972,6 +2972,11 @@
       "sha256": "e4779602aef55db838281330c5976cfb6502816d2b30a53da26450789d69ce27"
     },
     {
+      "path": "tools/progress_map_template.html",
+      "bytes": 44141,
+      "sha256": "1793d30bf3c86bc95d8f23d1faa0e4542e200786c2f4aca9f12c416d6577d792"
+    },
+    {
       "path": "tools/render_diagrams.mjs",
       "bytes": 12359,
       "sha256": "389d45b012f14636febd00f280b454a1331a41ebcd52c3631e02aa27cc6cc2dd"
