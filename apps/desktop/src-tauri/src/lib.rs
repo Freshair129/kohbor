@@ -297,6 +297,43 @@ fn start_overlay_status_mirror(
     }
 }
 
+/// Closing the main (control) window ends the process; the hidden overlay window must never keep
+/// the app alive. UX-SPEC/SRS define no tray or background mode, so none exists.
+fn closing_control_window_exits_app(label: &str) -> bool {
+    label == "control"
+}
+
+#[cfg(test)]
+mod window_close_tests {
+    use super::closing_control_window_exits_app;
+
+    #[test]
+    fn only_the_control_window_close_ends_the_app() {
+        assert!(closing_control_window_exits_app("control"));
+        assert!(!closing_control_window_exits_app("overlay"));
+        assert!(!closing_control_window_exits_app(""));
+    }
+
+    #[test]
+    fn the_exit_path_logs_a_final_process_exit_line_after_shutdown() {
+        let source = include_str!("lib.rs");
+        let shutdown = source.rfind("host.shutdown();").unwrap();
+        let line = source.rfind("\"process_exit\"").unwrap();
+        assert!(line > shutdown);
+    }
+
+    #[test]
+    fn the_control_window_label_matches_the_tauri_config() {
+        let config: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        assert!(config["app"]["windows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|window| window["label"] == "control"));
+    }
+}
+
 pub fn run() {
     initialize_logging();
     let app_version = version::AppVersion::current();
@@ -323,6 +360,11 @@ pub fn run() {
                 tauri::WindowEvent::CloseRequested { .. } => {
                     crate::log_info!("app", "app_stopping", "window close requested");
                     logging::flush();
+                    // The overlay is a second, hidden window: without an explicit exit it keeps
+                    // the event loop (and the audio engine) alive after the control window closes.
+                    if closing_control_window_exits_app(window.label()) {
+                        window.app_handle().exit(0);
+                    }
                 }
                 tauri::WindowEvent::Destroyed => {
                     let _ = window;
@@ -501,6 +543,7 @@ pub fn run() {
             if matches!(event, tauri::RunEvent::Exit) {
                 crate::log_info!("app", "exit", "Kohbor is exiting");
                 handle.state::<AppState>().host.shutdown();
+                crate::log_info!("app", "process_exit", "all host threads stopped");
                 logging::flush();
             }
         }),

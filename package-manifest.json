@@ -287,6 +287,11 @@
       "sha256": "fd61c27aebeecb5a7d924ff64ff25dee81f72da90e16c8cd327a7e01f3a2e3cd"
     },
     {
+      "path": "apps/desktop/src-tauri/src/draft_bar.rs",
+      "bytes": 8403,
+      "sha256": "5e6ff5d3aa0cd863e339e70949a947d2f8b855599da52ade0883a7dcbdb02779"
+    },
+    {
       "path": "apps/desktop/src-tauri/src/host.rs",
       "bytes": 48878,
       "sha256": "90870b182ef15905431594246bed32692891dd424c3f80337b820a61b06fe53f"
