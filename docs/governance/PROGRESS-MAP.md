@@ -1,7 +1,7 @@
 ---
 title: "Progress Map"
 doc_id: "PROGRESS-MAP"
-version: "0.4.0"
+version: "0.5.0"
 status: "draft"
 updated: "2026-11-14"
 owner: "Governance lead (integration owner)"
@@ -64,6 +64,8 @@ A claim names what it serves (`tools/claim.py open --tag ID`, `tag NAME --add ID
 3. else a Phase E row for its milestone;
 4. else a "No sprint names these" bucket under the phase that owns the milestone (several sprints share it, so it is not guessed into one);
 5. else an "unplaced" bucket (its milestone is not in the plan).
+
+**Theme to epic (a second grouping of the same tasks).** A toggle in the Roadmap view switches from phase, sprint and task to theme, epic and task: a theme is a product need of `contracts/product-needs.json`, an epic is a domain, and the tasks are the same requirements. A requirement is placed in a domain by the card that lists it, else by the default modules of its registry row in `docs/domains/README.md`, else under an "unassigned" epic (shown, not guessed). A requirement that serves two needs appears under both and is counted once in the overall bar; one that names no need goes to a "No product need is named" theme. The toggle exists only when `contracts/product-needs.json` could be read; otherwise the view does not appear and the source is listed as missing.
 
 **Progress.** The overall bar and every phase and sprint bar show the status mix of the tasks below them. Verified counts only tasks whose registry row has `evidence_refs` and `new_build_status` PASS; built-not-verified is a separate count and is never added to it. Today no row has `evidence_refs`, so verified is 0.
 

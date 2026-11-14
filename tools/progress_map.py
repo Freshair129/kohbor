@@ -1119,6 +1119,8 @@ def build_model(repo: Path, coord: Path, design_dirs: list[Path], now: dt.dateti
     except OSError:
         changelog_text = ""
     roadmap_root, roadmap_details = build_roadmap(reqs, rstat, plan, procs, decs, git_repo, run, changelog_text)
+    themes_root, theme_details = build_themes(reqs, load_needs(repo, src), domains, load_registry(repo, src), rstat)
+    roadmap_details.update(theme_details)
     builds_view = scan_builds(builds_dir, load_receipts(receipt_dirs or [], src), git_repo, run, src)
 
     for n in iter_nodes(root):  # the counting flag is internal; the page never needs it
@@ -1132,7 +1134,7 @@ def build_model(repo: Path, coord: Path, design_dirs: list[Path], now: dt.dateti
         "totals": totals, "req_totals": req_totals, "next": nxt, "owner": owner_list, "milestones": milestones,
         "git": git, "prs": prs, "gate": gate, "sources": src.items, "unmapped_docs": sorted(set(unmapped_docs)),
         "worktrees": [{"path": w.get("path", ""), "branch": w.get("branch", ""), "state": w.get("state", ""), "claim": w.get("owner_claim", "")} for w in worktrees],
-        "newest_commit_at": newest, "builds": builds_view, "decisions": decisions_view, "claims": claims_view, "unreadable_claims": unreadable_claims, "chase": chase, "roadmap": roadmap_root, "roadmap_details": roadmap_details, "area_bars": area_bars,
+        "newest_commit_at": newest, "builds": builds_view, "decisions": decisions_view, "claims": claims_view, "unreadable_claims": unreadable_claims, "chase": chase, "roadmap": roadmap_root, "themes": themes_root, "roadmap_details": roadmap_details, "area_bars": area_bars,
         "stats": stats, "activity": activity,
         "active_claims": [{"name": c["_name"], "domain": c.get("domain", ""), "task": c.get("task", ""), "branch": c.get("branch", ""), "expired": claim_expired(c, now)} for c in active],
     }
@@ -1350,6 +1352,96 @@ def build_roadmap(reqs: list[dict[str, Any]], rstat: dict[str, tuple[str, str, d
     root = make_node("rm:all", "Overall", "root", phases)
     details["rm:all"] = {"kind": "overall", "title": "Overall progress", "status": root["s"], "total": sum(root["n"].values()), "verified": root["n"]["verified"], "built": root["n"]["built"],
                          "note": "Tasks are the requirements of contracts/requirements.json. Verified counts only requirements with receipt-backed evidence (evidence_refs and new_build_status PASS); built-not-verified is shown separately and never added to it."}
+    for n in iter_nodes(root):
+        n.pop("rollup", None)
+    return root, details
+
+
+def load_needs(repo: Path, src: Sources) -> list[dict[str, Any]]:
+    p = repo / "contracts" / "product-needs.json"
+    if not p.is_file():
+        src.missing("contracts/product-needs.json", p)
+        return []
+    try:
+        needs = [n for n in read_json(p).get("needs", []) if isinstance(n, dict) and n.get("id")]
+    except (OSError, ValueError, AttributeError) as exc:
+        src.error("contracts/product-needs.json", p, str(exc)[:120])
+        return []
+    src.read("contracts/product-needs.json", p, f"{len(needs)} product needs")
+    return sorted(needs, key=lambda n: n["id"])
+
+
+def load_registry(repo: Path, src: Sources) -> dict[str, dict[str, Any]]:
+    """The domain registry table of docs/domains/README.md: tier, what each domain answers for, and its default modules."""
+    p = repo / "docs" / "domains" / "README.md"
+    if not p.is_file():
+        src.missing("docs/domains/README.md", p)
+        return {}
+    rows: dict[str, dict[str, Any]] = {}
+    try:
+        lines = p.read_text(encoding="utf-8-sig").splitlines()
+    except OSError:
+        return {}
+    for line in lines:
+        m = re.match(r"^\|\s*`([a-z][a-z0-9-]*)`\s*\|\s*([ABC])\s*\|", line)
+        if not m:
+            continue
+        cells = [c.strip() for c in re.split(r"(?<!\\)\|", line.strip().strip("|"))]
+        defaults = [x.strip().strip("`") for x in (cells[5] if len(cells) >= 6 else "").split(",")]
+        rows[m.group(1)] = {"tier": m.group(2), "answers": cells[4] if len(cells) >= 5 else "", "defaults": [x for x in defaults if x and x.lower() not in ("none", "-")]}
+    src.read("docs/domains/README.md", p, f"{len(rows)} domains in the registry")
+    return rows
+
+
+def domain_of(q: dict[str, Any], domains: dict[str, dict[str, Any]], registry: dict[str, dict[str, Any]]) -> str:
+    """The primary domain of a requirement: the card that lists it, else the registry row whose default modules name it or its module, else unassigned."""
+    for dom in sorted(domains):
+        if q["id"] in as_list(domains[dom].get("requirement_ids")):
+            return dom
+    for dom, row in registry.items():
+        if q["id"] in row["defaults"] or q["module"] in row["defaults"]:
+            return dom
+    return "unassigned"
+
+
+def build_themes(reqs: list[dict[str, Any]], needs: list[dict[str, Any]], domains: dict[str, dict[str, Any]], registry: dict[str, dict[str, Any]],
+                 rstat: dict[str, tuple[str, str, dict[str, Any]]]) -> tuple[dict[str, Any] | None, dict[str, dict[str, Any]]]:
+    """Theme (a product need) -> epic (a domain) -> task (a requirement); a requirement that serves two needs appears under both."""
+    if not needs:
+        return None, {}
+    details: dict[str, dict[str, Any]] = {}
+    dom_order = list(registry) + [d for d in sorted(domains) if d not in registry]
+
+    def tasks_node(q: dict[str, Any], theme: str) -> dict[str, Any]:
+        status = rstat[q["id"]][0]
+        return {"i": f"rm:req:{q['id']}#{theme}", "d": "rm:req:" + q["id"], "t": q["id"] + " " + q["title"], "k": "task", "s": status, "p": q["priority"], "m": q["milestone"], "rollup": True}
+
+    def theme_node(key: str, title: str, members: list[dict[str, Any]], info: dict[str, Any]) -> dict[str, Any]:
+        by_dom: dict[str, list[dict[str, Any]]] = {}
+        for q in members:
+            by_dom.setdefault(domain_of(q, domains, registry), []).append(q)
+        epics = []
+        for dom in [d for d in dom_order if d in by_dom] + (["unassigned"] if "unassigned" in by_dom else []):
+            kids = [tasks_node(q, key) for q in sorted(by_dom[dom], key=lambda r: (prio_rank(r["priority"]), r["id"]))]
+            node = make_node(f"rm:epic:{key}:{dom}", dom, "epic", kids)
+            row = registry.get(dom, {})
+            details[node["i"]] = {"kind": "epic", "title": f"{dom} (domain)", "status": node["s"], "tier": row.get("tier", ""), "answers": row.get("answers", "") or None,
+                                  "note": "an epic is a domain of the registry; a requirement is placed by the card that lists it, else by the registry's default modules"
+                                  if dom != "unassigned" else "no domain card lists these requirements and no registry row names them or their module: shown here, not guessed"}
+            epics.append(node)
+        node = make_node(f"rm:theme:{key}", title, "theme", epics)
+        details[node["i"]] = {"kind": "theme", "title": title, "status": node["s"], **info}
+        return node
+
+    themes = []
+    for need in needs:
+        members = [q for q in reqs if need["id"] in q["needs"]]
+        themes.append(theme_node(need["id"], f"{need['id']} {need.get('title', '')}".strip(), members,
+                                 {"actor": need.get("actor") or None, "need": need.get("need") or None, "outcome": need.get("outcome") or None}))
+    orphans = [q for q in reqs if not q["needs"]]
+    if orphans:
+        themes.append(theme_node("none", "No product need is named", orphans, {"actor": None, "need": None, "outcome": None}))
+    root = make_node("rm:theme:all", "Themes", "root", themes)
     for n in iter_nodes(root):
         n.pop("rollup", None)
     return root, details

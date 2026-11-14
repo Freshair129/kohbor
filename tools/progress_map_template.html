@@ -236,33 +236,39 @@ function showNode(id){const d=D.details[id],n=nodes[id],p=$("panelbody");p.textC
  if(info.evidence&&info.evidence.length){sec(p,"Evidence");info.evidence.forEach(f=>p.appendChild(pathEl({path:f,ok:true})))}else if(info.kind==="requirement"){sec(p,"Evidence");p.appendChild(E("div","small","none recorded (evidence_refs is empty)"))}
  if(info.notes&&info.notes.length){sec(p,"Notes");info.notes.forEach(t=>p.appendChild(E("div","small",t)))}p.scrollTop=0}
 /* ---------- roadmap: overall -> phase -> sprint -> task ---------- */
-const RM=D.roadmap,RD=D.roadmap_details,rmNodes={},rmParent={};(function idx(n,p){rmNodes[n.i]=n;rmParent[n.i]=p;(n.c||[]).forEach(c=>idx(c,n))})(RM,null);
-const rmOpen=new Set(["rm:all"].concat((RM.c||[]).map(c=>c.i)));let rmSel="rm:all";
+const RM=D.roadmap,TH=D.themes,RD=D.roadmap_details,rmNodes={},rmParent={};
+function rmIdx(n,p){rmNodes[n.i]=n;rmParent[n.i]=p;(n.c||[]).forEach(c=>rmIdx(c,n))}rmIdx(RM,null);if(TH)rmIdx(TH,null);
+const rmOpen=new Set(["rm:all"].concat((RM.c||[]).map(c=>c.i)).concat(TH?["rm:theme:all"].concat(TH.c.map(c=>c.i)):[]));let rmSel="rm:all",rmMode="plan";
+function rmRoot(){return rmMode==="theme"&&TH?TH:RM}
 function cnt(n){return Object.values(n.n).reduce((a,b)=>a+b,0)}
 function cb(state){const s=E("span","cb "+(state==="done"?"on":state==="unknown"?"unk":"off"),state==="done"?"☑":state==="open"?"☐":"?");s.title=state==="done"?"done: the data proves it":state==="open"?"not done":"unknown: no data";return s}
 function buildRoadmap(){const v=views.board;const tot=cnt(RM),ver=RM.n.verified,bu=RM.n.built;
- head(v,"Roadmap","Plan → phase → sprint → task",[chip("source: SDP.md, SPRINT-ROADMAP.md, requirements registry"),chip("tasks are requirements")]);
+ const modes=[];if(TH){[["plan","Plan → phase → sprint"],["theme","Theme → epic"]].forEach(([k,l])=>{const b=E("button","btn",l);b.dataset.mode=k;b.title=k==="plan"?"phases and sprints from SDP.md and SPRINT-ROADMAP.md":"themes are product needs (contracts/product-needs.json), epics are domains (docs/domains)";b.addEventListener("click",()=>{rmMode=k;rmSel=rmRoot().i;renderRm();showRm(rmSel)});modes.push(b)})}
+ head(v,"Roadmap",TH?"Plan or theme → epic → task":"Plan → phase → sprint → task",modes.concat([chip("tasks are requirements")]));
  const top=E("div","card");top.style.flex="none";const tb=E("div","body");const big=stackBar(RM.n);big.style.height="22px";big.style.borderRadius="11px";tb.appendChild(big);
  const sm=E("div","legend");sm.style.marginTop="8px";
  const vs=E("span","s-verified");vs.appendChild(E("i","dot"));vs.appendChild(document.createTextNode("✓ Verified (receipt-backed) "));vs.appendChild(E("b","",ver+" of "+tot));sm.appendChild(vs);
  const bs=E("span","s-built");bs.appendChild(E("i","dot"));bs.appendChild(document.createTextNode("◐ Built, not verified (counted separately) "));bs.appendChild(E("b","",bu));sm.appendChild(bs);
  D.statuses.forEach(s=>{if(s.id==="verified"||s.id==="built"||!RM.n[s.id])return;const sp=E("span","s-"+s.id);sp.appendChild(E("i","dot"));sp.appendChild(document.createTextNode(s.glyph+" "+s.en+" "));sp.appendChild(E("b","",RM.n[s.id]));sm.appendChild(sp)});
  tb.appendChild(sm);tb.appendChild(E("div","small","Progress counts a task as verified only when its registry row has evidence_refs and new_build_status PASS. Built, not verified is never added to it. A task with missing data is unknown, not done."));top.appendChild(tb);v.appendChild(top);
- const w=E("div","rmwrap");const l=E("div","card");l.appendChild(E("h3","","Phases, sprints and tasks"));const lb=E("div","body");lb.id="rmtree";l.appendChild(lb);w.appendChild(l);
+ const w=E("div","rmwrap");const l=E("div","card");const ttl=E("h3","","Phases, sprints and tasks");ttl.id="rmtitle";l.appendChild(ttl);const lb=E("div","body");lb.id="rmtree";l.appendChild(lb);w.appendChild(l);
  const p=E("div","card");p.appendChild(E("h3","","Details"));const pb=E("div","body");pb.id="rmpanel";p.appendChild(pb);w.appendChild(p);v.appendChild(w);renderRm();showRm(rmSel)}
 function rmRow(n,level){const r=E("div","rmrow s-"+n.s+" lv"+level);r.dataset.id=n.i;if(n.i===rmSel)r.classList.add("sel");
  const isTask=n.k==="task";const ch=E("span","chev",isTask?"":(rmOpen.has(n.i)?"▾":"▸"));r.appendChild(ch);
  if(isTask){r.appendChild(E("span","g",ST[n.s].glyph));r.appendChild(E("span","lbl",n.t));if(n.p==="P0")r.appendChild(E("span","badge p0","P0"));r.appendChild(E("span","badge",n.m||"–"))}
  else{r.appendChild(E("span","lbl",n.t));const bar=stackBar(n.n);bar.style.width="150px";bar.style.flex="none";r.appendChild(bar);r.appendChild(E("span","vcount","✓"+n.n.verified+" ◐"+n.n.built+" / "+cnt(n)))}
  r.addEventListener("click",()=>{rmSel=n.i;if(!isTask){if(rmOpen.has(n.i))rmOpen.delete(n.i);else rmOpen.add(n.i)}renderRm();showRm(n.i)});return r}
-function renderRm(){const t=$("rmtree");t.textContent="";(function add(n,level){if(n.i!=="rm:all")t.appendChild(rmRow(n,level));if(n.i==="rm:all"||rmOpen.has(n.i))(n.c||[]).forEach(c=>add(c,level+(n.i==="rm:all"?0:1)))})(RM,0)}
+function renderRm(){const t=$("rmtree");t.textContent="";const root=rmRoot();$("rmtitle").textContent=rmMode==="theme"&&TH?"Themes (product needs), epics (domains) and tasks":"Phases, sprints and tasks";document.querySelectorAll("#v-board [data-mode]").forEach(b=>{b.style.borderColor=b.dataset.mode===rmMode?"var(--acc)":""});
+ (function add(n,level){if(n!==root)t.appendChild(rmRow(n,level));if(n===root||rmOpen.has(n.i))(n.c||[]).forEach(c=>add(c,level+(n===root?0:1)))})(root,0)}
 function rmSec(p,t){p.appendChild(E("h4","",t))}
 function rmList(p,title,items,fn){rmSec(p,title);if(!items||!items.length){p.appendChild(E("div","small","unknown: nothing recorded"));return}items.forEach(i=>p.appendChild(fn(i)))}
 function rmText(p,title,text,source){rmSec(p,title);p.appendChild(text?E("div","",text):E("div","small","unknown: not stated in the source"));if(text&&source)p.appendChild(E("div","small",source))}
-function showRm(id){const d=RD[id],n=rmNodes[id],p=$("rmpanel");p.textContent="";if(!d)return;
+function showRm(id){const n=rmNodes[id],d=RD[(n&&n.d)||id],p=$("rmpanel");p.textContent="";if(!d||!n)return;
  const h=E("div","",d.title);h.style.cssText="font-weight:700;font-size:14px;margin-bottom:6px";p.appendChild(h);
  if(d.kind!=="task"){const st=E("div","why s-"+n.s);st.appendChild(E("b","",ST[n.s].glyph+" "+ST[n.s].en+" (most common status below)"));p.appendChild(st);const lg=E("div","legend");D.statuses.forEach(s=>{if(n.n[s.id]){const sp=E("span","s-"+s.id);sp.appendChild(E("i","dot"));sp.appendChild(document.createTextNode(s.glyph+" "));sp.appendChild(E("b","",n.n[s.id]));sp.title=s.en;lg.appendChild(sp)}});p.appendChild(lg)}
  if(d.kind==="overall"){p.appendChild(E("div","small",d.note))}
+ if(d.kind==="theme"){rmText(p,"Actor",d.actor,"");rmText(p,"Need",d.need,"");rmText(p,"Outcome",d.outcome,"");p.appendChild(E("div","small","A theme is a product need of contracts/product-needs.json; a requirement that serves two needs is listed under both and counted once in the overall bar."))}
+ if(d.kind==="epic"){rmText(p,"Domain answers for",d.answers,"docs/domains/README.md");p.appendChild(E("div","small",(d.tier?"Tier "+d.tier+". ":"")+d.note))}
  if(d.kind==="phase"){rmList(p,"Milestones (SDP)",d.milestones,m=>{const x=E("div");x.appendChild(E("b","",m.id+" "));x.appendChild(document.createTextNode(m.deliverable||"unknown"));if(m.entry)x.appendChild(E("div","small","Entry: "+m.entry));x.appendChild(E("div","small","Exit gate: "+(m.exit||"unknown")));return x});
   rmList(p,"Sprint outcomes (phase overview)",d.outcomes,o=>E("div","small","Sprint "+o.sprint+" · "+o.milestone+": "+o.outcome))}
  if(d.kind==="sprint"){rmText(p,"Goal",d.goal,d.goal?"source: "+d.goal_source:"");rmText(p,"Exit gate",d.exit,"source: the Exit gate line of the sprint section");rmText(p,"Owner input needed",d.owner_input,"");

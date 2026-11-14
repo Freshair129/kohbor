@@ -1020,6 +1020,83 @@ class Chase(Base):
         self.assertEqual(leaf(m, "req:CORE-001")["s"], "progress")  # a tag is as good as naming it in the note
 
 
+REGISTRY = """# Domain Registry
+
+| id | tier | Card | Owns | Answers for | Default modules |
+| --- | --- | --- | --- | --- | --- |
+| `host-core` | B | [card](host-core/CARD.md) | x | Game-state intake and host shell | none |
+| `local-voice` | C | none | Nothing yet | Local push-to-talk conversation | voice, QUALITY-006 |
+"""
+
+
+class Themes(Base):
+    def setup_needs(self) -> None:
+        self.fx.file("contracts/product-needs.json", json.dumps({"needs": [
+            {"id": "PN-002", "title": "Hear alerts", "actor": "Player", "need": "Hear warnings", "outcome": "Alerted in time"},
+            {"id": "PN-001", "title": "Start local", "actor": "Local player", "need": "Start offline", "outcome": "Plays offline"}]}))
+        self.fx.file("docs/domains/README.md", REGISTRY)
+        self.fx.domain("host-core", requirement_ids=["CORE-001", "CORE-002"])
+        self.fx.requirements([
+            req("CORE-001", product_need_ids=["PN-001"]),
+            req("CORE-002", product_need_ids=["PN-001", "PN-002"]),
+            req("VOICE-001", module="voice", product_need_ids=["PN-002"]),
+            req("QUALITY-006", module="quality", product_need_ids=["PN-002"]),
+            req("MEDIA-001", module="media", product_need_ids=["PN-002"]),
+            req("ZZZ-001", module="zzz", product_need_ids=[]),
+        ])
+
+    def test_data_supports_the_view_and_themes_are_product_needs_in_id_order(self) -> None:
+        self.setup_needs()
+        m = self.fx.build()
+        self.assertEqual([t["i"] for t in m["themes"]["c"]], ["rm:theme:PN-001", "rm:theme:PN-002", "rm:theme:none"])
+        self.assertEqual(m["roadmap_details"]["rm:theme:PN-001"]["title"], "PN-001 Start local")
+        self.assertEqual(m["roadmap_details"]["rm:theme:PN-001"]["actor"], "Local player")
+        self.assertEqual(m["roadmap_details"]["rm:theme:PN-001"]["outcome"], "Plays offline")
+
+    def test_epics_are_domains_explicit_card_first_then_default_modules_then_unassigned(self) -> None:
+        self.setup_needs()
+        m = self.fx.build()
+        pn2 = next(t for t in m["themes"]["c"] if t["i"] == "rm:theme:PN-002")
+        epics = {e["i"]: sorted(k["d"][7:] for k in e["c"]) for e in pn2["c"]}
+        self.assertEqual(epics["rm:epic:PN-002:host-core"], ["CORE-002"])  # named by the host-core card
+        self.assertEqual(epics["rm:epic:PN-002:local-voice"], ["QUALITY-006", "VOICE-001"])  # default modules of the registry row, a single id included
+        self.assertEqual(epics["rm:epic:PN-002:unassigned"], ["MEDIA-001"])  # no card and no default names it: shown, not guessed
+
+    def test_a_requirement_with_two_needs_appears_under_both_with_unique_node_ids(self) -> None:
+        self.setup_needs()
+        m = self.fx.build()
+        ids = [n["i"] for n in pm.iter_nodes(m["themes"])]
+        self.assertEqual(len(ids), len(set(ids)))
+        under = [t["i"] for t in m["themes"]["c"] if any(k.get("d") == "rm:req:CORE-002" for k in pm.iter_nodes(t))]
+        self.assertEqual(under, ["rm:theme:PN-001", "rm:theme:PN-002"])
+        self.assertIn("rm:req:CORE-002", m["roadmap_details"])  # one shared detail record
+
+    def test_a_requirement_without_a_need_goes_to_an_honest_bucket(self) -> None:
+        self.setup_needs()
+        m = self.fx.build()
+        none = next(t for t in m["themes"]["c"] if t["i"] == "rm:theme:none")
+        self.assertEqual([k["d"] for k in pm.iter_nodes(none) if k["k"] == "task"], ["rm:req:ZZZ-001"])
+        self.assertEqual(m["roadmap_details"]["rm:theme:none"]["title"], "No product need is named")
+
+    def test_theme_counts_match_their_tasks(self) -> None:
+        self.setup_needs()
+        m = self.fx.build()
+        for theme in m["themes"]["c"]:
+            tasks = [n for n in pm.iter_nodes(theme) if n["k"] == "task"]
+            self.assertEqual(sum(theme["n"].values()), len(tasks))
+        self.assertEqual(sum(m["roadmap"]["n"].values()), 6)  # the plan tree counts each requirement once
+
+    def test_missing_product_needs_means_no_theme_view_not_an_invented_one(self) -> None:
+        self.fx.requirements([req("CORE-001")])
+        m = self.fx.build()
+        self.assertIsNone(m["themes"])
+        self.assertTrue(any(s["name"] == "contracts/product-needs.json" and s["status"] == "missing" for s in m["sources"]))
+
+    def test_theme_view_is_deterministic(self) -> None:
+        self.setup_needs()
+        self.assertEqual(pm.render_html(self.fx.build(run=fake_git)), pm.render_html(self.fx.build(run=fake_git)))
+
+
 class Cli(Base):
     def run_cli(self, *extra: str) -> tuple[int, str]:
         out = io.StringIO()
