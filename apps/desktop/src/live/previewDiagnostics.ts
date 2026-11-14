@@ -63,6 +63,7 @@ export function derivePreviewDiagnostics(capture: CaptureStatus | null, metrics:
         row("grab_delta_per_second", "Δ grab_total / s", rates?.grabPerSecond ?? null, perSecond, 1),
         row("fps_measured", locale === "th" ? "fps_measured · วินาทีล่าสุด" : "fps_measured · last second", host?.fps_measured ?? null, "fps", 1),
         row("grab_fps", "grab_fps", host?.grab_fps ?? null, "fps", 1),
+        row("grab_timeouts_per_s", "grab_timeouts_per_s", host?.grab_timeouts_per_s ?? null, locale === "th" ? "ครั้ง/วิ" : "timeouts/s"),
         row("grab_ms_mean", "grab_ms_mean", host?.grab_ms_mean ?? null, "ms", 2),
         row("analysis_ms_mean", "analysis_ms_mean", host?.analysis_ms_mean ?? null, "ms", 2),
       ],

@@ -9,6 +9,7 @@ export const UNSUPPORTED_CAPTURE_REASONS = [
 
 const REASON_TEXT = {
   th: {
+    occluded: "มีหน้าต่างอื่นทับแผนที่ (เช่น แถบงาน) — ภาพที่เห็นเป็นภาพล่าสุดก่อนถูกทับ",
     waiting_for_game: "รอเกมเริ่ม — แผนที่ย่อจะแสดงเมื่อเข้าช่วงก่อนเริ่มเกม",
     user_invalidated: 'คุณทำเครื่องหมายว่าแผนที่ไม่ถูกต้อง — กด "ลองใหม่" เพื่อจับภาพต่อ',
     no_game_window: "ไม่พบหน้าต่าง Dota 2 ที่มองเห็นได้ — เปิดเกมในโหมด Borderless",
@@ -22,6 +23,7 @@ const REASON_TEXT = {
     calibrating: "กำลังตรวจตำแหน่งแผนที่ — ยังไม่แสดงภาพสด",
   },
   en: {
+    occluded: "Another window covers the minimap (for example the taskbar) — showing the last clean frame",
     waiting_for_game: "Waiting for the game to start — the minimap appears from the pre-game phase",
     user_invalidated: 'You marked the map as wrong — press "Retry" to resume capture',
     no_game_window: "No visible Dota 2 window found — open the game in Borderless mode",

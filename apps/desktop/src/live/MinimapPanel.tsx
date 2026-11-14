@@ -30,6 +30,7 @@ import { deriveCaptureDisplay } from "./captureDisplay";
 import { useCaptureCounterRates } from "./useCaptureCounterRates";
 import { previewRateTooltip } from "./previewDiagnostics";
 import { PreviewDiagnosticsPanel } from "./PreviewDiagnosticsPanel";
+import { deriveMinimapPresentation } from "./minimapPresentation";
 import "./live.css";
 
 export function MinimapPanel({
@@ -123,7 +124,7 @@ export function MinimapPanel({
     : phaseLabel(phase, locale);
   const statusBadge = `${phaseText} · ${age} ms`;
   const rateBadge = previewRateText(display.capture?.fps_measured ?? null, display.metrics, locale);
-  const stale = phase === "stale";
+  const presentation = deriveMinimapPresentation(phase, reason, minimap.hasFrame, locale);
 
   let plate: string | null = null;
   let plateTone = "";
@@ -147,7 +148,8 @@ export function MinimapPanel({
         plate = reasonText ?? text.calibrating;
         break;
       case "stale":
-        plate = text.stale(age);
+        plate = presentation.staleOverlay === "age" ? text.stale(age)
+          : presentation.staleOverlay === "waiting" ? text.waitingFrame : null;
         break;
       default:
         if (!canShowPicture || !minimap.hasFrame) plate = text.waitingFrame;
@@ -160,7 +162,7 @@ export function MinimapPanel({
     ? captureGatedRiskView(risk?.state ?? null, risk?.lastVisionEvent ?? null, null)
     : risk;
   const mockReason = reason ?? (phase === "unsupported" ? "none" : "live");
-  const mockReasonOptions: readonly string[] = [...UNSUPPORTED_CAPTURE_REASONS, "waiting_for_game", "paused", "reopening", "access_lost", "calibrating", "unknown_mock_reason"];
+  const mockReasonOptions: readonly string[] = [...UNSUPPORTED_CAPTURE_REASONS, "waiting_for_game", "occluded", "paused", "reopening", "access_lost", "calibrating", "unknown_mock_reason"];
   const proposal = config?.proposal ?? null;
   const proposalPatch = proposal && config?.profile_rect ? applyProposal(proposal, config.profile_rect) : null;
   const proposalVisible = proposal !== null && !captureConfig.proposalDismissed;
@@ -191,13 +193,19 @@ export function MinimapPanel({
           <canvas
             ref={minimap.canvasRef}
             style={canvasBox.canvasStyle}
-            className={`live-map-canvas${stale ? " is-stale" : ""}`}
+            className={`live-map-canvas${presentation.dimmed ? " is-stale" : ""}`}
             aria-hidden="true"
           />
           {plate && (
             <div className={`live-map-plate${plateTone}`}>
               <span>{plate}</span>
               {userInvalidated && <button type="button" disabled={controlsBusy} onClick={() => void retry()}>{text.retryCapture}</button>}
+            </div>
+          )}
+          {presentation.coveredBadge && (
+            <div className="live-map-covered" role="status" title={reasonText ?? undefined}>
+              <strong>{presentation.coveredBadge}</strong>
+              <span>{reasonText}</span>
             </div>
           )}
         </div>

@@ -43,6 +43,7 @@ export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode }
       capturePhases: text.shell.capturePhases,
       capturePaused: text.shell.capturePaused,
       captureRunning: text.shell.captureRunning,
+      captureCovered: text.shell.captureCovered,
     },
     (ageMs) => seconds(ageMs, displayLocale),
   );

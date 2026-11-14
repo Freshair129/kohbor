@@ -95,6 +95,7 @@ function captureStatus() {
     phase: scenario,
     fps_measured: measured,
     grab_fps: measured,
+    grab_timeouts_per_s: null,
     sent_total: scenario === "idle" ? null : frameSequence,
     grab_total: scenario === "idle" ? null : frameSequence,
     frame_age_ms: age,
@@ -266,6 +267,7 @@ export function invalidateMock() {
 }
 
 function scenarioForReason(reason: string): MockScenario {
+  if (reason === "occluded") return "stale";
   if (reason === "waiting_for_game") return "idle";
   if (reason === "paused" || reason === "calibrating") return "calibrating";
   if (reason === "reopening" || reason === "access_lost") return "lost";

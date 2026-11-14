@@ -20,6 +20,7 @@ const MESSAGES = {
       gsiSetup: "ตั้งค่า GSI",
       capturePaused: "พักอยู่",
       captureRunning: "ทำงาน",
+      captureCovered: "ถูกบัง",
       capturePhases: {
         idle: "รอเกม",
         unsupported: "ไม่รองรับ",
@@ -293,6 +294,7 @@ const MESSAGES = {
       gsiSetup: "Set up GSI",
       capturePaused: "paused",
       captureRunning: "running",
+      captureCovered: "Covered",
       capturePhases: {
         idle: "Waiting for game",
         unsupported: "Unsupported",

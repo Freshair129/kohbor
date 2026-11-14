@@ -19,7 +19,7 @@ export function deriveCaptureDisplay(capture: CaptureStatus | null, metrics: Pre
   };
   if (capture?.phase !== "idle") return { capture, metrics: displayedMetrics };
   return {
-    capture: { ...capture, fps_measured: null, grab_fps: null, sent_total: null, grab_total: null,
+    capture: { ...capture, fps_measured: null, grab_fps: null, grab_timeouts_per_s: null, sent_total: null, grab_total: null,
       frame_age_ms: null, grab_ms_mean: null, analysis_ms_mean: null },
     metrics: displayedMetrics,
   };
