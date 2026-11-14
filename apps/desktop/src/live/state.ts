@@ -15,6 +15,7 @@ export const UNKNOWN_AFTER_MS = 3000;
 export const VISION_EVENT_MS = 5000;
 
 const CAPTURE_PHASES = new Set<CapturePhase>([
+  "idle",
   "unsupported",
   "calibrating",
   "live",
@@ -67,6 +68,7 @@ export function parseCaptureStatus(input: unknown): CaptureStatus | null {
       !Object.hasOwn(input, "auto_confirmed")) return null;
   const fps = nullableNumber(input.fps_measured);
   const grabFps = input.grab_fps === undefined ? null : nullableNumber(input.grab_fps);
+  const grabTimeouts = input.grab_timeouts_per_s === undefined ? null : nullableInteger(input.grab_timeouts_per_s);
   const sentTotal = input.sent_total === undefined ? null : nullableInteger(input.sent_total);
   const grabTotal = input.grab_total === undefined ? null : nullableInteger(input.grab_total);
   const age = nullableNumber(input.frame_age_ms);
@@ -76,7 +78,7 @@ export function parseCaptureStatus(input: unknown): CaptureStatus | null {
   const cropConfirmed = input.crop_confirmed === undefined
     ? !input.auto_confirmed
     : input.crop_confirmed;
-  const displayFps = input.display_fps === undefined
+  const displayFps = input.display_fps === undefined || input.display_fps === null
     ? null
     : input.display_fps === 10 || input.display_fps === 15 || input.display_fps === 30
       ? input.display_fps
@@ -89,6 +91,7 @@ export function parseCaptureStatus(input: unknown): CaptureStatus | null {
   if (
     fps === undefined || age === undefined || generation === undefined || rectProfile === undefined ||
     grabFps === undefined || (grabFps !== null && grabFps < 0) ||
+    grabTimeouts === undefined || (grabTimeouts !== null && grabTimeouts < 0) ||
     sentTotal === undefined || (sentTotal !== null && sentTotal < 0) ||
     grabTotal === undefined || (grabTotal !== null && grabTotal < 0) ||
     typeof input.auto_confirmed !== "boolean" || typeof cropConfirmed !== "boolean" ||
@@ -102,6 +105,7 @@ export function parseCaptureStatus(input: unknown): CaptureStatus | null {
     phase: input.phase as CapturePhase,
     fps_measured: fps,
     grab_fps: grabFps,
+    grab_timeouts_per_s: grabTimeouts,
     sent_total: sentTotal,
     grab_total: grabTotal,
     frame_age_ms: age,

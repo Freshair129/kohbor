@@ -14,6 +14,7 @@ mod media;
 pub mod secrets;
 pub mod settings;
 pub mod status;
+mod version;
 
 /// Runs the application only after containment succeeds.
 ///
@@ -256,6 +257,9 @@ pub fn run() {
     let builder = tauri::Builder::default()
         .register_asynchronous_uri_scheme_protocol("kohbor-media", commands::media_protocol_handler)
         .setup(|app| {
+            // The control window title stays "Kohbor — Command Deck": instance.rs finds the
+            // existing window by that exact title for second-instance focus. The version is shown
+            // in the header and the Status tab instead.
             let dir = data_dir(app)?;
             let settings_dir = dir.clone();
             let runtime = intake::Runtime::new(dir.clone());
@@ -295,6 +299,7 @@ pub fn run() {
                 let mut view = capture_host::GsiSnapshot::from_snapshot(&shared.snapshot());
                 // In match only while the intake phase is Live (pregame also exposes own data).
                 view.in_match = shared.phase == Some(kohbor_gsi::Phase::Live);
+                view.game_phase = shared.phase.map(capture_host::GamePhase::from);
                 view.recent_events = shared
                     .recent_health_events(std::time::Instant::now(), 5000)
                     .into_iter()
@@ -331,6 +336,7 @@ pub fn run() {
         });
     #[cfg(any(feature = "demo", debug_assertions))]
     let builder = builder.invoke_handler(tauri::generate_handler![
+        commands::app_version,
         commands::runtime_get_status,
         commands::own_snapshot,
         commands::gsi_setup,
@@ -359,6 +365,7 @@ pub fn run() {
     ]);
     #[cfg(not(any(feature = "demo", debug_assertions)))]
     let builder = builder.invoke_handler(tauri::generate_handler![
+        commands::app_version,
         commands::runtime_get_status,
         commands::own_snapshot,
         commands::gsi_setup,

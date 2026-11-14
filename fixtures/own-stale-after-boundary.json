@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.0.0",
+  "schema_version": "2.1.0",
   "session_epoch": 3,
   "availability": "stale",
   "source": {
@@ -39,6 +39,38 @@
       "respawn_seconds": {
         "value": 0,
         "availability": "stale"
+      },
+      "gold": {
+        "value": null,
+        "availability": "unknown"
+      },
+      "kills": {
+        "value": null,
+        "availability": "unknown"
+      },
+      "deaths": {
+        "value": null,
+        "availability": "unknown"
+      },
+      "assists": {
+        "value": null,
+        "availability": "unknown"
+      },
+      "last_hits": {
+        "value": null,
+        "availability": "unknown"
+      },
+      "denies": {
+        "value": null,
+        "availability": "unknown"
+      },
+      "gpm": {
+        "value": null,
+        "availability": "unknown"
+      },
+      "xpm": {
+        "value": null,
+        "availability": "unknown"
       }
     }
   }

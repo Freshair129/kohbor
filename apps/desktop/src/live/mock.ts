@@ -8,6 +8,7 @@ type MockScenario = CapturePhase | "unknown";
 type Listener = (payload: unknown) => void;
 
 const PHASES = new Set<MockScenario>([
+  "idle",
   "live",
   "stale",
   "coverage_unavailable",
@@ -94,8 +95,9 @@ function captureStatus() {
     phase: scenario,
     fps_measured: measured,
     grab_fps: measured,
-    sent_total: frameSequence,
-    grab_total: frameSequence,
+    grab_timeouts_per_s: null,
+    sent_total: scenario === "idle" ? null : frameSequence,
+    grab_total: scenario === "idle" ? null : frameSequence,
     frame_age_ms: age,
     rect_profile: "1920x1080@100%",
     calibration_generation: generationFor(scenario),
@@ -103,7 +105,7 @@ function captureStatus() {
     crop_confirmed: mockCaptureConfig.crop_confirmed,
     display_fps: mockCaptureConfig.display_fps,
     paused: mockCaptureConfig.paused,
-    phase_reason: mockPhaseReason ?? (mockCaptureConfig.paused ? "paused" : scenario === "calibrating" ? "calibrating" : scenario === "lost" ? "reopening" : null),
+    phase_reason: mockPhaseReason ?? (scenario === "idle" ? "waiting_for_game" : mockCaptureConfig.paused ? "paused" : scenario === "calibrating" ? "calibrating" : scenario === "lost" ? "reopening" : null),
     grab_ms_mean: scenario === "live" && !mockCaptureConfig.paused ? 1.5 : null,
     analysis_ms_mean: scenario === "live" && !mockCaptureConfig.paused ? 4.2 : null,
   };
@@ -265,6 +267,8 @@ export function invalidateMock() {
 }
 
 function scenarioForReason(reason: string): MockScenario {
+  if (reason === "occluded") return "stale";
+  if (reason === "waiting_for_game") return "idle";
   if (reason === "paused" || reason === "calibrating") return "calibrating";
   if (reason === "reopening" || reason === "access_lost") return "lost";
   return "unsupported";

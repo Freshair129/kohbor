@@ -1,4 +1,5 @@
 export type CapturePhase =
+  | "idle"
   | "unsupported"
   | "calibrating"
   | "live"
@@ -11,6 +12,7 @@ export interface CaptureStatus {
   phase: CapturePhase;
   fps_measured: number | null;
   grab_fps: number | null;
+  grab_timeouts_per_s: number | null;
   sent_total: number | null;
   grab_total: number | null;
   frame_age_ms: number | null;

@@ -151,9 +151,15 @@ fn adapter_maps_deaths_and_streak_with_checked_narrowing() {
         match_id: None,
         steamid64: None,
         counters: OwnCounters {
+            gold: Field::Missing,
             kills: Field::Value(7),
             deaths,
             kill_streak,
+            assists: Field::Missing,
+            last_hits: Field::Missing,
+            denies: Field::Missing,
+            gpm: Field::Missing,
+            xpm: Field::Missing,
             combined_score: Field::Value(8),
         },
         hero: HeroFields {

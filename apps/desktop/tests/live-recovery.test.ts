@@ -6,6 +6,7 @@ const recovery = await import("../src/live/captureRecovery.ts");
 const { liveCopy } = await import("../src/live/copy.ts");
 
 const reasons = [
+  ["idle", "waiting_for_game", "รอเกมเริ่ม — แผนที่ย่อจะแสดงเมื่อเข้าช่วงก่อนเริ่มเกม", "Waiting for the game to start — the minimap appears from the pre-game phase"],
   ["unsupported", "user_invalidated", 'คุณทำเครื่องหมายว่าแผนที่ไม่ถูกต้อง — กด "ลองใหม่" เพื่อจับภาพต่อ', 'You marked the map as wrong — press "Retry" to resume capture'],
   ["unsupported", "no_game_window", "ไม่พบหน้าต่าง Dota 2 ที่มองเห็นได้ — เปิดเกมในโหมด Borderless", "No visible Dota 2 window found — open the game in Borderless mode"],
   ["unsupported", "crop_out_of_bounds", 'กรอบที่ตั้งไว้ออกนอกจอ — กด "รีเซ็ต" หรือปรับกรอบ', 'The configured crop is outside the screen — press "Reset" or adjust the crop'],
@@ -67,7 +68,7 @@ test("recovery controls use explicit labels and a separate bottom section", () =
   assert.equal(liveCopy("en").mapWrong, "Mark map as wrong");
   assert.equal(liveCopy("th").confirmMarkWrong, "กดอีกครั้งเพื่อยืนยัน");
   assert.equal(liveCopy("th").retryCapture, "ลองใหม่");
-  const source = readFileSync(new URL("../src/live/LiveTab.tsx", import.meta.url), "utf8");
+  const source = readFileSync(new URL("../src/live/MinimapPanel.tsx", import.meta.url), "utf8");
   assert.ok(source.indexOf('className="live-mark-wrong-section"') > source.indexOf("text.displayRate"));
   assert.match(source, /config\?\.effective_rect/);
   const hook = readFileSync(new URL("../src/live/useCaptureConfig.ts", import.meta.url), "utf8");

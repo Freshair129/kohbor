@@ -18,6 +18,15 @@ const capturePayload = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
+test("capture parser admits intentional idle but still rejects unrecognized phases", () => {
+  const parsed = state.parseCaptureStatus(capturePayload({ phase: "idle", phase_reason: "waiting_for_game", fps_measured: null, frame_age_ms: null, display_fps: null }));
+  assert.equal(parsed?.phase, "idle");
+  assert.equal(parsed?.phase_reason, "waiting_for_game");
+  assert.equal(parsed?.display_fps, null);
+  assert.equal(state.parseCaptureStatus(capturePayload({ phase: "future_phase" })), null);
+  assert.equal(copy.phaseLabel("idle", "th"), "รอเกม");
+});
+
 const riskPayload = (overrides: Record<string, unknown> = {}) => ({
   meter: 2,
   gsi_source: true,
@@ -204,6 +213,23 @@ test("app-start collection is idempotent and counts resource samples before any 
   assert.equal(snapshot.capture.value?.phase, "live");
   assert.equal(snapshot.risk.value?.meter, 2);
   assert.deepEqual(snapshot.resourceSummary.appGroupBytes, { peak: 300, mean: 200, count: 2 });
+});
+
+test("capture diagnostic deltas use consecutive status arrivals even before a panel mounts", async () => {
+  let now = 1000;
+  const store = collection.createLiveCollection(() => now);
+  const handlers = new Map<string, (payload: unknown) => void>();
+  await store.start((kind, callback) => { handlers.set(kind, callback); });
+  const publish = handlers.get("capture")!;
+  publish(capturePayload({ sent_total: 100, grab_total: 200 }));
+  assert.equal(store.getSnapshot().captureCounterRates?.value?.sentPerSecond, null);
+  now = 2500;
+  publish(capturePayload({ sent_total: 127, grab_total: 245 }));
+  assert.equal(store.getSnapshot().captureCounterRates?.value?.sentPerSecond, 18);
+  assert.equal(store.getSnapshot().captureCounterRates?.value?.grabPerSecond, 30);
+  assert.equal(store.getSnapshot().captureCounterRates?.value?.elapsedMs, 1500);
+  assert.equal(store.getSnapshot().captureCounterRates?.receivedAt, 2500);
+  assert.equal(store.getSnapshot().capture.value?.fps_measured, 30, "existing host rate is not replaced by the diagnostic delta");
 });
 
 test("capture tag and vision copy use localized labels without a safe claim", () => {
