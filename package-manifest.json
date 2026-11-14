@@ -2383,18 +2383,8 @@
     },
     {
       "path": "docs/governance/CHANGELOG.md",
-      "bytes": 33005,
-      "sha256": "3cb15c86f11b93f40837a44eb65407e11529ec87c2f224085661036af1f07d60"
-    },
-    {
-      "path": "docs/governance/CHANGELOG.md",
-      "bytes": 33005,
-      "sha256": "3cb15c86f11b93f40837a44eb65407e11529ec87c2f224085661036af1f07d60"
-    },
-    {
-      "path": "docs/governance/CHANGELOG.md",
-      "bytes": 33005,
-      "sha256": "3cb15c86f11b93f40837a44eb65407e11529ec87c2f224085661036af1f07d60"
+      "bytes": 33416,
+      "sha256": "d7448326e02812510b4a64cfd098f39b4ff3314c95b4402a7b31a1953e772348"
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
@@ -2418,8 +2408,8 @@
     },
     {
       "path": "docs/governance/PROGRESS-MAP.md",
-      "bytes": 8858,
-      "sha256": "4592c5232a612d4c04560ceba2846edc61415034ebc8306b1ba0e813fe0336ba"
+      "bytes": 12121,
+      "sha256": "8b5d8270ed2c8805c80ced26d6bd527781a4370fcee1c132dbc919b8bc6c23b5"
     },
     {
       "path": "docs/governance/RISK-REGISTER.md",
@@ -2978,13 +2968,13 @@
     },
     {
       "path": "tools/progress_map.py",
-      "bytes": 64089,
-      "sha256": "0d605b48d405f3d0b34020a42ac893d9dc9f665bee0666ada38a8f2c20f097b9"
+      "bytes": 84206,
+      "sha256": "131a1a13655e14c2bd6d61a2429b5df326f087fa00b120a61327347ce6622504"
     },
     {
       "path": "tools/progress_map_template.html",
-      "bytes": 44141,
-      "sha256": "1793d30bf3c86bc95d8f23d1faa0e4542e200786c2f4aca9f12c416d6577d792"
+      "bytes": 52869,
+      "sha256": "9a665455231fae535c2b9f52a938c0b3e49781372d391e7cfa558cfa0cbbccd5"
     },
     {
       "path": "tools/render_diagrams.mjs",
@@ -3033,8 +3023,8 @@
     },
     {
       "path": "tools/tests/test_progress_map.py",
-      "bytes": 35115,
-      "sha256": "59645d0bb0997f6a9f32437f91ecebdb72fe1d9e739ef960d44ec1d7ed7d9d61"
+      "bytes": 47550,
+      "sha256": "577adbf0ee9627edb4f22d504e0b87a7014b6ff9ec3eab1f039a9428ce676588"
     },
     {
       "path": "tools/tests/test_run_record.py",
