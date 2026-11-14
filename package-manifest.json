@@ -1118,8 +1118,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 65301,
-      "sha256": "bf8bb96d49afc13c11c36ecd3deb65e8820357bd27dee9cf2feb92b198dd5850"
+      "bytes": 67359,
+      "sha256": "819c4438d36ee8a7409202ebf09e7091ce1b1771df1312bcdaed5b17c7073da6"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -2283,13 +2283,13 @@
     },
     {
       "path": "docs/domains/banner-lab/CARD.md",
-      "bytes": 8353,
-      "sha256": "75e8c0cdc3ed535c5059cb75f2f3ea26f4156e02d351577774995d34b7ef7df3"
+      "bytes": 8757,
+      "sha256": "a336eb7197649512557c6422e32e3980413a0112da0ca86ba452740dd825d2cc"
     },
     {
       "path": "docs/domains/banner-lab/state.json",
-      "bytes": 5077,
-      "sha256": "d6d02e5efd3ceb3fe358abbd7ce1ddb04a0856715589a69e6662a4056359a64b"
+      "bytes": 5168,
+      "sha256": "6b328fa163e1a2c4bc1b602886c57f443a7015c7092c50312094da64791ce84f"
     },
     {
       "path": "docs/domains/commerce/CARD.md",
@@ -2368,28 +2368,28 @@
     },
     {
       "path": "docs/governance/AGENT-REGISTRY-DESIGN.md",
-      "bytes": 44135,
-      "sha256": "a2867fcfd44dc272e733a56b10aaf3c5df5b846e9497c49d8869769d6a3f8903"
+      "bytes": 44382,
+      "sha256": "5a909c456fae9d5b60ba6cbd223d517daf90e3b77131e01760ceecec967a30db"
     },
     {
       "path": "docs/governance/AGENT-REGISTRY.json",
-      "bytes": 16695,
-      "sha256": "e8c7bd9b25b715b0ff299680fb9db2a3bf4b3b5847263a6f7b3cfd9999d649db"
+      "bytes": 17187,
+      "sha256": "f829b26bafdeaa3e0c622df57040cafce4bc297e8fc688c50f0b494243a23600"
     },
     {
       "path": "docs/governance/AGENT-REGISTRY.md",
-      "bytes": 13629,
-      "sha256": "9193de1b6627d2d36e7bc88ae1d08801f48a8ed0f00766c45d433492fc1e9dc8"
+      "bytes": 13623,
+      "sha256": "1b1c9493e2ed5d27f7ed92642dcc47225406ba440e51ed260f346e932636fde4"
     },
     {
       "path": "docs/governance/CHANGELOG.md",
-      "bytes": 32232,
-      "sha256": "5a9c216fd5f173a00d2f85a724ae695ed84dd7234377522c1a323d354fe18d51"
+      "bytes": 32575,
+      "sha256": "cf6eaef4242ec0b707e8f983925c9d6ac731971d56e29457a14617bf44941eed"
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 30743,
-      "sha256": "a7c670cfbf373e8ad35c030cba5882de7cc2a97da8838bb5de639338b9a30637"
+      "bytes": 31408,
+      "sha256": "27835662f16b7e30252abe10cd10550903e0dcd85c71d26249851fe1b3de41be"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
@@ -2968,8 +2968,8 @@
     },
     {
       "path": "tools/progress_map.py",
-      "bytes": 72264,
-      "sha256": "00cf661178f1521ed558da60d094b88de7f2e7fb0e1745cf17a35e74f25bb7d4"
+      "bytes": 72327,
+      "sha256": "04be144d8dae481ab6e3e9d36039efbb3c7ca6ea9fced5be39eaf3caf4f2e736"
     },
     {
       "path": "tools/render_diagrams.mjs",
@@ -3018,8 +3018,8 @@
     },
     {
       "path": "tools/tests/test_progress_map.py",
-      "bytes": 26595,
-      "sha256": "4055a5bc0b7def1e2881ba33db00a86f3357b5190d2b8de3137d2f1a230888ea"
+      "bytes": 27048,
+      "sha256": "36271ad4a0edc92013ad89f95a3aba4332b37f1330ac95c7421bb172d54f1eed"
     },
     {
       "path": "tools/tests/test_run_record.py",
@@ -3028,8 +3028,8 @@
     },
     {
       "path": "tools/tests/test_validate_agents.py",
-      "bytes": 30904,
-      "sha256": "423b92d3505d6df3a95467cd918989f931e9cbbad83c8493b7e0accb0facd835"
+      "bytes": 31601,
+      "sha256": "c2e4b8fa3a546c44a62f8e7da829481e96912f601d5bc9d1862212fa383209d8"
     },
     {
       "path": "tools/tests/test_validate_domains.py",

@@ -1,9 +1,9 @@
 ---
 domain: banner-lab
 tier: A
-card_version: 1
-verified_at_commit: 7ad4c7f
-verified_on: 2026-11-13
+card_version: 2
+verified_at_commit: d9db064
+verified_on: 2026-11-14
 verified_by: "claude-code subagent draft (read-only), integrated by the governance lead; agent work, not human review"
 ---
 
@@ -16,6 +16,7 @@ A map, not evidence. Authority order: decisions, PRD/SRS, contracts, code and te
 Production lab for event banners (silent WebM with alpha plus a mixed WAV) and for the synthetic announcer voice used by them. The lab is a producer; Kohbor only consumes finished files through the package tool.
 
 - Owns: `lab:fable/**` (the baseline lab and its design system), `lab:voice/**` (announcer-voice pipeline, internal), `lab:studio-mockups/**` and `lab:STUDIO-DESIGN*.md` (banner-studio: design material only, no application code exists), the disposable private copies `lab:fable-*/` and `lab:nk-*/`.
+- Workers (owner decision 2026-11-14, DEC-BANNER-WORKER): the default banner BUILD worker is `gpt-6.1-sol` (profile `sol-xhigh`); `astra-high` is kept for UI design mockups only and is not the banner default; `luna-max` stays the implementation worker; a build by Sol is reviewed by `terra-high`, never by Sol. Taste is not decided by any worker (docs/governance/AGENT-REGISTRY.json).
 - Read-only here: `lab:astra/` (competing lab, not adopted), `lab:nakom-src/` (owner-supplied inputs), `lab:workflow-design/` (design owned by governance), `lab:BRIEF.md` (original contract, facts).
 - Must not touch: anything inside the repository; any package, release or store; shipped lab files outside an owner-approved build (`lab:AGENTS.md` sections 3, 4); the voice clips (mix at one fixed gain only).
 - Interfaces: `packs` (the only entry from the lab into the repo is `kohbor-pack-build` in `crates/kohbor-pack-author`; the tool refuses an output directory inside a git worktree); `events-audio` (the lab reads `contracts/event-catalog.json`, never edits it; an unbound banner is "asset only" with a reason); `ui-overlay` (banner look is not a DEC-VISUALS token; overlay playback of the clips is untested); `governance` (claims, card write-back).
@@ -24,7 +25,7 @@ Production lab for event banners (silent WebM with alpha plus a mixed WAV) and f
 
 ## 2. Owner decisions (ids only; text lives in contracts/decisions.json)
 
-- Decided: DEC-BANNER-LAB-STYLE, DEC-PACK-AUDIO-OPTIONAL-VISUAL, DEC-COMMERCE-INTENT
+- Decided: DEC-BANNER-LAB-STYLE, DEC-BANNER-WORKER, DEC-PACK-AUDIO-OPTIONAL-VISUAL, DEC-COMMERCE-INTENT
 - DEC-BANNER-LAB-STYLE does NOT approve: DEC-VISUALS tokens, any clip as critical media (DEC-CRITICAL-MEDIA), rights to a voice, shipping any banner. Pipeline in one line: a WebGL2 renderer in headless Edge piped to a pinned ffmpeg, rebuilt by one command (`lab:fable/build.mjs`; `--only` and `--skip-pack` exist), then `kohbor-pack-build`.
 - Open: DEC-VISUALS, DEC-CRITICAL-MEDIA, DEC-EVENT-RUNE-SPAWN
 - Proposed: DEC-EVENT-AUDIO
