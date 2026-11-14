@@ -40,6 +40,16 @@ main.live-tab.live-dashboard { display: grid; grid-template-columns: minmax(0, 1
 .live-mock-reason-selector select { max-width: 100%; }
 .live-error { margin: 0; color: var(--warning); font-size: 12px; overflow-wrap: anywhere; }
 .live-preview-diagnostics { margin: 0 0 10px; color: var(--text-2); font-size: 12px; overflow-wrap: anywhere; }
+.live-preview-diagnostics h3 { margin: 0 0 8px; font-size: 14px; }
+.live-preview-diagnostic-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; min-width: 0; min-height: 0; }
+.live-preview-diagnostic-grid > section { min-width: 0; min-height: 0; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--ground); }
+.live-preview-diagnostic-grid h4 { margin: 0; font-size: 13px; }
+.live-preview-diagnostic-grid p { min-height: 32px; margin: 4px 0 8px; color: var(--muted); font-size: 10px; line-height: 1.4; }
+.live-preview-diagnostic-grid dl { margin: 0; }
+.live-preview-diagnostic-grid dl > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 6px; min-width: 0; padding: 3px 0; border-top: 1px solid var(--line-subtle); }
+.live-preview-diagnostic-grid dt { min-width: 0; font-size: 11px; }
+.live-preview-diagnostic-grid dd { display: flex; align-items: baseline; gap: 4px; margin: 0; white-space: nowrap; }
+.live-preview-diagnostic-grid dd small { color: var(--muted); font-size: 9px; }
 .live-auto-layout-tag { display: inline-flex; padding: 2px 5px; border: 1px solid var(--line); border-radius: 4px; color: var(--text-2); font-size: 11px; }
 .live-visibility-notice { color: var(--warning); font-size: 12px; overflow-wrap: anywhere; }
 .live-danger-panel, .live-enemy-panel { display: flex; flex-direction: column; gap: 8px; min-width: 0; min-height: 0; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }

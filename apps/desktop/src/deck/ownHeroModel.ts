@@ -2,6 +2,8 @@
 import type { OwnSnapshot } from "../types.ts";
 // @ts-ignore Explicit extensions support Node's TypeScript loader.
 import { OWN_STAT_FIELDS, type OwnStatKey } from "../ownSnapshot.ts";
+// @ts-ignore Explicit extensions support Node's TypeScript loader.
+import { displayHeroName, heroNameCaption, type HeroName } from "./heroName.ts";
 
 function freshValue<T>(field: { value: T | null; availability: string } | undefined): T | null {
   return field?.availability === "fresh" && field.value !== null && field.value !== undefined ? field.value : null;
@@ -15,6 +17,8 @@ function finiteNumber(field: { value: number | null; availability: string } | un
 export interface OwnHeroViewModel {
   snapshotAvailability: OwnSnapshot["availability"] | null;
   heroId: string | null;
+  heroName: HeroName | null;
+  heroCaption: string | null;
   level: number | null;
   hp: number | null;
   maxHp: number | null;
@@ -30,6 +34,7 @@ export interface OwnHeroViewModel {
 /** Keep each displayed value tied to that field's own freshness marker. */
 export function deriveOwnHeroViewModel(snapshot: OwnSnapshot | null): OwnHeroViewModel {
   const fields = snapshot?.own?.fields;
+  const heroId = freshValue(fields?.hero_id);
   const hp = finiteNumber(fields?.hp);
   const maxHp = finiteNumber(fields?.max_hp);
   const sourceAge = snapshot?.source.age_ms;
@@ -40,7 +45,9 @@ export function deriveOwnHeroViewModel(snapshot: OwnSnapshot | null): OwnHeroVie
 
   return {
     snapshotAvailability: snapshot?.availability ?? null,
-    heroId: freshValue(fields?.hero_id),
+    heroId,
+    heroName: displayHeroName(heroId),
+    heroCaption: heroNameCaption(heroId),
     level: finiteNumber(fields?.level),
     hp,
     maxHp,

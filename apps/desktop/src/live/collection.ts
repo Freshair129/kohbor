@@ -2,6 +2,8 @@
 import { addCaptureCostSample, addResourceSample, emptyResourceSummary, parseCaptureStatus, parseResourceMetrics, parseRiskState } from "./state.ts";
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
 import type { CaptureStatus, ResourceMetrics, ResourceSummary, RiskState, VisionEvent } from "./types.ts";
+// @ts-ignore Explicit extensions support Node's TypeScript loader.
+import { deriveHostCounterRates, type HostCounterRates } from "./previewDiagnostics.ts";
 
 export type LiveCollectionEventKind = "capture" | "risk" | "resource";
 export type TimedValue<T> = { value: T | null; receivedAt: number | null };
@@ -12,6 +14,7 @@ export type LiveCollectionSource = (
 
 export interface LiveCollectionSnapshot {
   capture: TimedValue<CaptureStatus>;
+  captureCounterRates: TimedValue<HostCounterRates>;
   risk: TimedValue<RiskState>;
   lastVisionEvent: TimedValue<VisionEvent>;
   resources: TimedValue<ResourceMetrics>;
@@ -34,6 +37,7 @@ function unknownValue<T>(): TimedValue<T> {
 export function createLiveCollection(now: () => number = () => performance.now()): LiveCollection {
   let snapshot: LiveCollectionSnapshot = {
     capture: unknownValue(),
+    captureCounterRates: unknownValue(),
     risk: unknownValue(),
     lastVisionEvent: unknownValue(),
     resources: unknownValue(),
@@ -50,9 +54,11 @@ export function createLiveCollection(now: () => number = () => performance.now()
     const receivedAt = now();
     if (kind === "capture") {
       const value = parseCaptureStatus(payload);
+      const current = { value, receivedAt };
       snapshot = {
         ...snapshot,
-        capture: { value, receivedAt },
+        capture: current,
+        captureCounterRates: { value: deriveHostCounterRates(snapshot.capture, current), receivedAt },
         resourceSummary: value ? addCaptureCostSample(snapshot.resourceSummary, value) : snapshot.resourceSummary,
       };
     } else if (kind === "risk") {

@@ -45,3 +45,14 @@ test("unknown or empty stage dimensions do not invent a canvas box", () => {
   assert.equal(fitCanvasBox(Number.NaN, 100), null);
   assert.equal(fitCanvasBox(100, 100, { width: 0, height: 292 }), null);
 });
+
+test("diagnostic columns shrink within the existing bounded resource popover", () => {
+  const css = readFileSync(new URL("../src/live/live.css", import.meta.url), "utf8");
+  const grid = css.match(/\.live-preview-diagnostic-grid\s*\{([^}]+)\}/)?.[1] ?? "";
+  assert.match(grid, /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(grid, /min-width:\s*0/);
+  const popover = css.match(/\.live-disclosure-body\s*\{([^}]+)\}/)?.[1] ?? "";
+  assert.match(popover, /position:\s*absolute/);
+  assert.match(popover, /bottom:\s*8px/);
+  assert.match(popover, /overflow:\s*auto/);
+});

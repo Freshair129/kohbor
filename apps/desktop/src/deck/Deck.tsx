@@ -11,6 +11,7 @@ import { deriveOwnHeroViewModel, ownHeroLifeLabel } from "./ownHeroModel";
 import { AlertStrip } from "./AlertStrip";
 import { EventFeed } from "./EventFeed";
 import { AnnouncerStatus } from "./AnnouncerStatus";
+import { HeroPortrait } from "./HeroPortrait";
 import "./deck.css";
 
 function readableNumber(value: number | null): string {
@@ -54,13 +55,17 @@ export function Deck({
     <main className="deck-root" lang={locale} data-state={state.state}>
       <section className="deck-column deck-own-column" aria-label={text.ownHero}>
         <section className={`deck-own-card${stale ? " is-stale" : ""}`} aria-labelledby="deck-own-heading">
+          <div className="deck-own-portrait"><HeroPortrait heroId={own.heroId} size="lg" alt={own.heroName?.name ?? text.ownHero} /></div>
           <header className="deck-card-heading">
             <h1 id="deck-own-heading">{text.ownHero}</h1>
             {hasLatestResult && <span className="deck-result-label">{text.latestResult}</span>}
           </header>
 
           <div className="deck-hero-identity">
-            <span className="deck-hero-id" title={own.heroId ?? undefined}>{own.heroId ?? "—"}</span>
+            <div className="deck-hero-title">
+              <strong className="deck-hero-name" title={own.heroName?.rawId}>{own.heroName?.name ?? "—"}</strong>
+              {own.heroCaption && <small className="deck-hero-raw" title={own.heroCaption}>{own.heroCaption}</small>}
+            </div>
             <span className="deck-hero-level"><span>{text.level}</span> <b>{readableNumber(own.level)}</b></span>
             <span className={`deck-age-chip${stale ? " is-stale" : ""}`} aria-label={`${stale ? text.oldData : text.age}: ${seconds(displayAgeMs, locale)}`}>
               {stale ? text.oldData : text.age} · {seconds(displayAgeMs, locale)}

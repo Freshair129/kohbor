@@ -404,6 +404,8 @@ export function installMockHarness() {
       // Explicit synthetic build metadata; never a production-version fallback.
       if (command === "app_version") return { version: "0.0.0-dev-sample", git_commit: null, build_date: null, profile: "debug", demo: true };
       if (command === "own_snapshot") return currentOwnSnapshot();
+      // Portrait sourcing is runtime-only and not present in the dev fixture bundle.
+      if (command === "hero_portrait") { requireArgs(command, args, ["hero_id"]); return null; }
       if (command === "settings_get") return { ...settingsView };
       if (command === "settings_patch") {
         const request = args.request as { patch?: { locale?: unknown } } | undefined;

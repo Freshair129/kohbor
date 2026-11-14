@@ -27,6 +27,9 @@ import { usePageVisibility } from "./usePageVisibility";
 import { useCanvasBox } from "./useCanvasBox";
 import { advanceInvalidation, phaseReasonText, UNSUPPORTED_CAPTURE_REASONS } from "./captureRecovery";
 import { deriveCaptureDisplay } from "./captureDisplay";
+import { useCaptureCounterRates } from "./useCaptureCounterRates";
+import { previewRateTooltip } from "./previewDiagnostics";
+import { PreviewDiagnosticsPanel } from "./PreviewDiagnosticsPanel";
 import "./live.css";
 
 export function MinimapPanel({
@@ -40,6 +43,7 @@ export function MinimapPanel({
 }) {
   const text = liveCopy(locale);
   const capture = useCaptureStatus();
+  const counterRates = useCaptureCounterRates();
   const captureConfig = useCaptureConfig();
   const risk = useRisk();
   const [invalidating, setInvalidating] = useState(false);
@@ -181,7 +185,7 @@ export function MinimapPanel({
         <header className="live-map-toolbar">
           <h1 id="live-map-heading">{text.mapLabel}</h1>
           <span className="live-map-badge mono" role="status" title={statusBadge}>{statusBadge}</span>
-          <span className="live-preview-rates mono" title={rateBadge}>{rateBadge}</span>
+          <span className="live-preview-rates mono" title={`${rateBadge} — ${previewRateTooltip(locale)}`}>{rateBadge}</span>
         </header>
         <div className="live-map-stage" ref={canvasBox.stageRef} aria-label={text.mapLabel}>
           <canvas
@@ -328,12 +332,7 @@ export function MinimapPanel({
           <details className="live-resource-disclosure">
             <summary>{text.resourceDetails}</summary>
             <div className="live-disclosure-body live-resource-popover">
-              <p className="live-preview-diagnostics mono">
-                grab {formatNullable(display.capture?.grab_fps ?? null, 1)} fps · {text.previewDropped} {formatNullable(display.metrics.dropped_count)}
-                {` · ${text.previewCost} ${formatNullable(display.metrics.parse_paint_ms_mean, 2)} ms`}
-                {` · ${text.sentTotal} ${formatNullable(display.capture?.sent_total ?? null)} · ${text.grabTotal} ${formatNullable(display.capture?.grab_total ?? null)}`}
-                {` · ${text.receivedTotal} ${formatNullable(display.metrics.received_total)} · ${text.paintedTotal} ${formatNullable(display.metrics.painted_total)}`}
-              </p>
+              <PreviewDiagnosticsPanel capture={capture} metrics={minimap.metrics} counterRates={counterRates} locale={locale} />
               <ResourcePanel locale={locale} />
             </div>
           </details>

@@ -1,0 +1,5 @@
+.hero-portrait { --hero-portrait-size: 48px; display: inline-grid; place-items: center; flex: none; width: var(--hero-portrait-size); height: var(--hero-portrait-size); aspect-ratio: 1; overflow: hidden; border: 1px solid var(--line); border-radius: 6px; background: var(--ground); color: var(--text-2); font-weight: 600; line-height: 1; }
+.hero-portrait-sm { --hero-portrait-size: 32px; font-size: 12px; }
+.hero-portrait-md { --hero-portrait-size: 48px; font-size: 16px; }
+.hero-portrait-lg { --hero-portrait-size: 64px; font-size: 20px; }
+.hero-portrait img { display: block; width: 100%; height: 100%; object-fit: cover; }

@@ -35,6 +35,8 @@ function snapshot(overrides: Partial<NonNullable<OwnSnapshot["own"]>["fields"]> 
 test("fresh own hero fields are projected without translating the hero id", () => {
   const result = deriveOwnHeroViewModel(snapshot());
   assert.equal(result.heroId, "npc_dota_hero_axe");
+  assert.equal(result.heroName?.name, "Axe");
+  assert.equal(result.heroName?.rawId, "npc_dota_hero_axe");
   assert.equal(result.level, 12);
   assert.equal(result.hp, 400);
   assert.equal(result.maxHp, 800);

@@ -215,6 +215,23 @@ test("app-start collection is idempotent and counts resource samples before any 
   assert.deepEqual(snapshot.resourceSummary.appGroupBytes, { peak: 300, mean: 200, count: 2 });
 });
 
+test("capture diagnostic deltas use consecutive status arrivals even before a panel mounts", async () => {
+  let now = 1000;
+  const store = collection.createLiveCollection(() => now);
+  const handlers = new Map<string, (payload: unknown) => void>();
+  await store.start((kind, callback) => { handlers.set(kind, callback); });
+  const publish = handlers.get("capture")!;
+  publish(capturePayload({ sent_total: 100, grab_total: 200 }));
+  assert.equal(store.getSnapshot().captureCounterRates?.value?.sentPerSecond, null);
+  now = 2500;
+  publish(capturePayload({ sent_total: 127, grab_total: 245 }));
+  assert.equal(store.getSnapshot().captureCounterRates?.value?.sentPerSecond, 18);
+  assert.equal(store.getSnapshot().captureCounterRates?.value?.grabPerSecond, 30);
+  assert.equal(store.getSnapshot().captureCounterRates?.value?.elapsedMs, 1500);
+  assert.equal(store.getSnapshot().captureCounterRates?.receivedAt, 2500);
+  assert.equal(store.getSnapshot().capture.value?.fps_measured, 30, "existing host rate is not replaced by the diagnostic delta");
+});
+
 test("capture tag and vision copy use localized labels without a safe claim", () => {
   const confirmed = state.parseCaptureStatus(capturePayload({ auto_confirmed: true }));
   const unconfirmed = state.parseCaptureStatus(capturePayload({ auto_confirmed: false }));

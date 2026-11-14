@@ -81,3 +81,13 @@ test("own hero tiles stay compact while their card can shrink at 768px viewport 
   assert.equal(component.match(/\{text\.statCaption\}/g)?.length, 1);
   assert.match(component, /className="deck-stats-caption"/);
 });
+
+test("64px portrait reuses the heading and identity rows instead of adding a card row", () => {
+  const card = css.match(/\.deck-own-card\s*\{([^}]+)\}/)?.[1] ?? "";
+  assert.match(card, /grid-template-columns:\s*64px\s+minmax\(0,\s*1fr\)/);
+  assert.match(card, /grid-template-rows:\s*repeat\(5,\s*auto\)/);
+  const portrait = css.match(/\.deck-own-portrait\s*\{([^}]+)\}/)?.[1] ?? "";
+  assert.match(portrait, /grid-row:\s*1\s*\/\s*3/);
+  const tileCss = readFileSync(new URL("../src/deck/heroPortrait.css", import.meta.url), "utf8");
+  assert.match(tileCss, /\.hero-portrait-lg\s*\{[^}]*--hero-portrait-size:\s*64px/);
+});
