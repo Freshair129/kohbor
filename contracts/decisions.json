@@ -637,6 +637,26 @@
       ]
     },
     {
+      "id": "DEC-BANNER-WORKER",
+      "status": "decided",
+      "milestone": "M2",
+      "blocks": "Which model builds banner-lab banners by default (a worker choice only; no banner look, taste pass or shipping is decided)",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-14",
+      "channel": "Owner message in the engineering chat session (2026-11-14) after the Nakom banner comparison, relayed by the coordinating session in English summary (the Thai original was not passed to the recording session); recorded by an agent (governance session)",
+      "decision": "The default banner-lab BUILD worker is gpt-6.1-sol (registry profile sol-xhigh). The owner's statement as relayed: Sol's banners are fine, Astra is not needed, let Sol make the banners. The astra-high profile stays registered for UI design mockups (the owner used it for the Command Deck mockups) and is not the banner default; gpt-6-luna (luna-max) stays the implementation worker. The build reviewer is a different model (terra-high), chosen by the lead, not by the owner. This is a worker choice only: it is not a taste pass for any banner, does not change DEC-BANNER-LAB-STYLE (which adopted the Fable 5.2 baseline and did not adopt the ASTRA result), does not approve DEC-VISUALS tokens, does not authorise any clip as critical media (DEC-CRITICAL-MEDIA) and settles no rights to the VRZO voice.",
+      "safe_interim": "Lab outputs stay outside the repository and the owner still listens to and approves every banner; nothing is shipped or committed.",
+      "closure_evidence": "Recorded in docs/governance/AGENT-REGISTRY.json (profile sol-xhigh owner_chosen, route lab-build) and the banner-lab card; no further evidence is needed for a worker choice.",
+      "proposed_on": "2026-11-14",
+      "proposal_ref": "owner message 2026-11-14 after Nakom comparison (relayed by the coordinating session)",
+      "related": [
+        "DEC-BANNER-LAB-STYLE",
+        "DEC-VISUALS",
+        "DEC-CRITICAL-MEDIA"
+      ]
+    },
+    {
       "id": "DEC-EVENT-RUNE-SPAWN",
       "status": "open",
       "milestone": "M3",

@@ -2,8 +2,8 @@
   "schema_version": "1.0.0",
   "domain": "banner-lab",
   "tier": "A",
-  "verified_at_commit": "7ad4c7f",
-  "verified_on": "2026-11-13",
+  "verified_at_commit": "d9db064",
+  "verified_on": "2026-11-14",
   "verified_by": "claude-code subagent draft (read-only), integrated by the governance lead; agent work, not human review",
   "write_areas": [
     "lab:fable/**",
@@ -20,6 +20,7 @@
   "proposed_requirement_ids": [],
   "decision_ids": [
     "DEC-BANNER-LAB-STYLE",
+    "DEC-BANNER-WORKER",
     "DEC-PACK-AUDIO-OPTIONAL-VISUAL",
     "DEC-COMMERCE-INTENT",
     "DEC-VISUALS",
@@ -192,9 +193,9 @@
     }
   ],
   "last_handoff": {
-    "by": "claude-code subagent draft (read-only)",
-    "on": "2026-11-13",
-    "note": "first backfill draft; no earlier handoff exists"
+    "by": "claude-code governance session",
+    "on": "2026-11-14",
+    "note": "default banner build worker recorded as gpt-6.1-sol by owner decision (DEC-BANNER-WORKER); astra-high kept for UI mockups"
   },
   "interface_requirement_ids": [
     "MEDIA-004"
