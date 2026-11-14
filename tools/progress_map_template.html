@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kohbor — Mission Control</title>
+<style>
+:root{color-scheme:dark;--bg:#080c0f;--bg2:#0d1317;--card:rgba(255,255,255,.035);--card2:rgba(255,255,255,.06);--line:rgba(255,255,255,.09);--fg:#e8eef0;--muted:#8796a0;
+--acc:#34d399;--acc2:#a78bfa;--glow:rgba(52,211,153,.10);--shadow:0 8px 30px rgba(0,0,0,.35);--rail:#0a1014;
+--s-verified:#34d399;--s-built:#60a5fa;--s-progress:#fbbf24;--s-designed:#a78bfa;--s-notstarted:#94a3b8;--s-blocked:#f87171;--s-unknown:#9ca3af}
+:root[data-theme=light]{color-scheme:light;--bg:#eef3f5;--bg2:#e6edf0;--card:#ffffff;--card2:#f5f9fa;--line:rgba(15,30,40,.13);--fg:#14202a;--muted:#566774;
+--acc:#0b8f63;--acc2:#6d4bd0;--glow:rgba(13,159,110,.10);--shadow:0 6px 22px rgba(20,40,50,.10);--rail:#f9fbfc;
+--s-verified:#0b8f63;--s-built:#2563b8;--s-progress:#b86a00;--s-designed:#6d4bd0;--s-notstarted:#5d6b7a;--s-blocked:#c0262d;--s-unknown:#5d6b7a}
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{background:radial-gradient(900px 500px at 8% -8%,var(--glow),transparent 60%),radial-gradient(700px 420px at 100% 100%,rgba(167,139,250,.07),transparent 60%),var(--bg);color:var(--fg);
+font:13px/1.4 "Prompt","Leelawadee UI","Noto Sans Thai",Tahoma,"Segoe UI",system-ui,sans-serif;display:grid;grid-template-rows:56px minmax(0,1fr) 28px;grid-template-columns:auto minmax(0,1fr);
+grid-template-areas:"top top" "rail main" "foot foot";overflow:hidden}
+.mono{font-family:Consolas,"Cascadia Mono","SF Mono",monospace}
+button{font:inherit;color:inherit;cursor:pointer}
+/* top bar */
+#top{grid-area:top;display:flex;align-items:center;gap:14px;padding:0 16px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,var(--card2),transparent);backdrop-filter:blur(8px)}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:15px;white-space:nowrap}
+.logo i{display:grid;place-items:center;width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#04110c;font-style:normal;font-weight:800}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:2px 10px;font-size:11px;color:var(--muted);white-space:nowrap}
+.nav{display:flex;gap:6px;overflow:auto;scrollbar-width:none;flex:1;min-width:0}
+.nav button{border:1px solid transparent;background:transparent;border-radius:999px;padding:6px 14px;color:var(--muted);white-space:nowrap;display:flex;gap:7px;align-items:center}
+.nav button:hover{color:var(--fg);background:var(--card)}
+.nav button.on{color:var(--acc);border-color:color-mix(in srgb,var(--acc) 55%,transparent);background:color-mix(in srgb,var(--acc) 10%,var(--card))}
+.pill{border-radius:999px;padding:5px 14px;font-weight:600;font-size:12px;border:1px solid color-mix(in srgb,var(--acc) 60%,transparent);background:color-mix(in srgb,var(--acc) 14%,transparent);color:var(--acc);white-space:nowrap}
+.pill.stale{border-color:var(--s-blocked);background:color-mix(in srgb,var(--s-blocked) 16%,transparent);color:var(--s-blocked)}
+.iconbtn{width:32px;height:32px;border-radius:10px;border:1px solid var(--line);background:var(--card);display:grid;place-items:center}
+.iconbtn:hover{border-color:var(--acc)}
+svg.i{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+/* rail */
+#rail{grid-area:rail;width:54px;border-right:1px solid var(--line);background:var(--rail);display:flex;flex-direction:column;padding:12px 7px;gap:6px;transition:width .15s;overflow:hidden}
+#rail.open{width:190px}
+#rail button{display:flex;align-items:center;gap:12px;border:1px solid transparent;border-radius:12px;background:transparent;color:var(--muted);height:38px;padding:0 10px;white-space:nowrap;text-align:left}
+#rail button:hover{color:var(--fg);background:var(--card)}
+#rail button.on{color:var(--acc);background:color-mix(in srgb,var(--acc) 12%,var(--card));border-color:color-mix(in srgb,var(--acc) 40%,transparent)}
+#rail .lab{opacity:0;transition:opacity .1s}#rail.open .lab{opacity:1}
+#rail .sp{flex:1}
+/* main + views */
+#main{grid-area:main;min-width:0;min-height:0;position:relative}
+.view{position:absolute;inset:0;display:none;flex-direction:column;padding:14px 20px 10px;gap:12px;min-height:0}
+.view.on{display:flex}
+.kicker{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--acc);font-weight:600}
+h1.t{margin:0;font-size:26px;line-height:1.15;font-weight:700;background:linear-gradient(90deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.vh{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex:none}
+.vh .r{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);min-height:0;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+.card>h3{margin:0;padding:12px 16px 4px;font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:8px;flex:none}
+.card>h3 small{font-weight:400;color:var(--muted);font-size:11px}
+.card .body{padding:6px 16px 12px;overflow:auto;min-height:0;flex:1}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;flex:none}
+.stat{padding:12px 16px;display:flex;justify-content:space-between;gap:8px;min-height:86px}
+.stat .l{color:var(--muted);font-size:11.5px}.stat .v{font-size:26px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums}.stat .s{font-size:11px;color:var(--muted);margin-top:1px}
+.stat svg.i{color:var(--acc);flex:none}
+.grid3{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,3fr) minmax(0,4fr);gap:12px;flex:1;min-height:0}
+.col{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
+.col>.card{flex:1}
+/* bars and lists */
+.row{display:grid;grid-template-columns:150px minmax(0,1fr) 34px;gap:8px;align-items:center;padding:6px 0;cursor:pointer;border-radius:6px}
+.row:hover{background:var(--card2)}
+.row .n{font-size:12px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+.row .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+.stack{display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--card2)}.stack i{display:block;height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:11.5px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:5px;cursor:pointer}.legend b{color:var(--fg);font-weight:600}
+.dot{width:9px;height:9px;border-radius:3px;background:var(--sc);display:inline-block;flex:none}
+.li{display:flex;gap:8px;padding:6px 4px;border-bottom:1px dashed var(--line);cursor:pointer;align-items:flex-start}.li:hover{background:var(--card2)}
+.li .tx{min-width:0;flex:1}.li .tt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.li .q{color:var(--muted);font-size:11.5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.badge{font-size:10px;border-radius:5px;padding:0 5px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.badge.p0{background:var(--s-blocked);border-color:var(--s-blocked);color:#fff;font-weight:700}
+.s-verified{--sc:var(--s-verified)}.s-built{--sc:var(--s-built)}.s-progress{--sc:var(--s-progress)}.s-designed{--sc:var(--s-designed)}.s-notstarted{--sc:var(--s-notstarted)}.s-blocked{--sc:var(--s-blocked)}.s-unknown{--sc:var(--s-unknown)}
+.tag{display:inline-flex;align-items:center;gap:5px;border:1px solid color-mix(in srgb,var(--sc) 50%,transparent);background:color-mix(in srgb,var(--sc) 14%,transparent);color:var(--sc);border-radius:999px;padding:0 9px;font-size:11px;white-space:nowrap}
+.tag.dash{border-style:dashed}
+/* map */
+.tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center;flex:none}
+.fchip{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);border-left:4px solid var(--sc);background:var(--card);border-radius:8px;padding:3px 9px;font-size:12px}
+.fchip[aria-pressed=true]{outline:2px solid var(--sc);outline-offset:1px}.fchip b{font-variant-numeric:tabular-nums}
+input[type=search],select{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:8px;padding:4px 10px;font:inherit;min-width:0}
+.btn{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:4px 10px}.btn:hover{border-color:var(--acc)}
+.mapwrap{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:12px;flex:1;min-height:0}
+#tree{position:relative;overflow:auto;padding:10px}#canvas{position:relative}
+svg#links{position:absolute;left:0;top:0;pointer-events:none}svg#links path{fill:none;stroke:var(--line);stroke-width:1.6}
+.node{position:absolute;height:34px;border:1px solid var(--line);border-left:5px solid var(--sc);border-radius:9px;background:var(--card2);background:color-mix(in srgb,var(--sc) 11%,var(--card2));display:flex;align-items:center;gap:6px;padding:0 8px;cursor:pointer;overflow:hidden;white-space:nowrap;user-select:none}
+.node:hover{border-color:var(--fg)}.node.sel{outline:2px solid var(--acc);outline-offset:1px}.node.dim{opacity:.25}.node.hit{box-shadow:0 0 0 2px var(--s-progress)}
+.node.s-unknown{border-style:dashed;border-left-style:solid}
+.node .g{color:var(--sc);font-weight:700;width:14px;text-align:center;flex:none}.node .l{overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+.node .bd{font-size:11px;color:var(--muted);flex:none}.node .ms{font-size:10px;color:var(--muted);flex:none}
+.node.root{font-weight:700;font-size:14px}.node.area{font-weight:600}
+.bar{position:absolute;left:0;right:0;bottom:0;height:3px;display:flex}.bar i{display:block;height:100%}
+#panel .body h4{margin:12px 0 4px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.why{background:var(--card2);border-left:4px solid var(--sc);padding:6px 9px;border-radius:8px;margin:6px 0}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:12px}.kv dt{color:var(--muted)}.kv dd{margin:0;word-break:break-word}
+.path{font:11.5px Consolas,"Cascadia Mono",monospace;word-break:break-all;color:var(--fg)}.path.miss{color:var(--s-blocked)}a{color:inherit}
+.small{font-size:11.5px;color:var(--muted)}
+/* roadmap */
+.rmwrap{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:12px;flex:1;min-height:0}
+.rmrow{display:flex;align-items:center;gap:8px;padding:5px 6px;border-bottom:1px dashed var(--line);cursor:pointer;border-radius:6px;min-height:30px}
+.rmrow:hover{background:var(--card2)}.rmrow.sel{outline:2px solid var(--acc);outline-offset:-1px}
+.rmrow.lv0{font-weight:700;background:var(--card2);margin-top:4px}.rmrow.lv1{padding-left:24px;font-weight:600}.rmrow.lv2{padding-left:46px;font-weight:400;font-size:12.5px}
+.rmrow .chev{width:12px;color:var(--muted);flex:none}.rmrow .lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rmrow .g{color:var(--sc);font-weight:700;width:14px;text-align:center;flex:none}.rmrow .vcount{font-size:11px;color:var(--muted);white-space:nowrap;min-width:92px;text-align:right}
+.cb{display:inline-block;width:18px;text-align:center;font-weight:700;flex:none;color:var(--muted)}.cb.on{color:var(--s-verified)}.cb.unk{color:var(--s-unknown);opacity:.8}
+/* tables */
+table{border-collapse:collapse;width:100%;font-size:12px}th{position:sticky;top:0;background:var(--bg2);text-align:left;color:var(--muted);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--line);z-index:1}
+td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}tr.r{cursor:pointer}tr.r:hover td{background:var(--card2)}
+tr.det td{background:var(--card2);color:var(--muted)}tr.det b{color:var(--fg)}
+.grid2{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:12px;flex:1;min-height:0}
+.tl{position:relative;margin-left:8px;padding-left:14px;border-left:2px solid var(--line)}.tl .e{position:relative;padding:3px 0 8px}.tl .e::before{content:"";position:absolute;left:-20px;top:7px;width:9px;height:9px;border-radius:50%;background:var(--acc);box-shadow:0 0 8px var(--acc)}
+/* footer */
+#foot{grid-area:foot;display:flex;justify-content:space-between;gap:14px;align-items:center;padding:0 16px;border-top:1px solid var(--line);color:var(--muted);font-size:10.5px;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-transform:uppercase}
+#foot b{color:var(--acc);font-weight:600}
+@media (max-width:1100px){.grid3,.grid2,.mapwrap{grid-template-columns:1fr}.rmwrap{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.view{overflow:auto}}
+</style></head><body>
+<header id="top"></header>
+<nav id="rail" aria-label="views"></nav>
+<main id="main"></main>
+<footer id="foot" class="mono"></footer>
+<script type="application/json" id="data">/*__DATA__*/</script>
+<script>
+"use strict";
+const D=JSON.parse(document.getElementById("data").textContent);
+const ST={};D.statuses.forEach(s=>ST[s.id]=s);
+const $=id=>document.getElementById(id);
+function E(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined&&text!==null)e.textContent=text;return e}
+const NS="http://www.w3.org/2000/svg";
+function S(tag,attrs){const e=document.createElementNS(NS,tag);for(const k in attrs||{})e.setAttribute(k,attrs[k]);return e}
+const ICONS={overview:"M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z",map:"M12 4a2 2 0 100 .01M5 19a2 2 0 100 .01M19 19a2 2 0 100 .01M12 6v5M12 11l-6 6M12 11l6 6",
+board:"M4 4h4v16H4zM10 4h4v10h-4zM16 4h4v13h-4z",decisions:"M12 3v18M5 7h14M5 7l-3 7a3 3 0 006 0zM19 7l-3 7a3 3 0 006 0z",agents:"M9 11a3 3 0 100-.01M3 20c0-3 3-5 6-5s6 2 6 5M17 9a2.5 2.5 0 100-.01M16 14c3 0 5 2 5 5",
+builds:"M12 2l9 5v10l-9 5-9-5V7zM12 12l9-5M12 12v10M12 12L3 7",sun:"M12 8a4 4 0 100 8 4 4 0 000-8zM12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5",
+chev:"M9 6l6 6-6 6",req:"M5 4h14v16H5zM9 9h6M9 13h6",prog:"M3 12h4l3-8 4 16 3-8h4",owner:"M12 3l9 16H3zM12 10v4M12 17v.01",claim:"M4 7h16v12H4zM9 7V4h6v3"};
+function icon(name){const s=S("svg",{class:"i",viewBox:"0 0 24 24"});s.appendChild(S("path",{d:ICONS[name]}));return s}
+const VIEWS=[{id:"overview",en:"Overview",th:"ภาพรวม"},{id:"map",en:"Mind map",th:"แผนที่"},{id:"board",en:"Roadmap",th:"บอร์ด"},{id:"decisions",en:"Decisions",th:"การตัดสินใจ"},{id:"agents",en:"Agents & work",th:"งานและเอเจนต์"},{id:"builds",en:"Builds",th:"บิลด์"}];
+const g=D.git||{};
+function fmtT(t){return t?t.replace("T"," ").replace(/([+-]\d\d:\d\d)$/," $1"):""}
+function areaShort(t){return t.replace(/\s*\[[^\]]*\]\s*$/,"")}
+let current="overview";const views={};
+/* ---------- chrome ---------- */
+function buildChrome(){
+ const top=$("top");const logo=E("div","logo");logo.appendChild(E("i","","K"));logo.appendChild(E("span","","Kohbor Mission Control"));top.appendChild(logo);
+ top.appendChild(E("span","chip mono",(g.sha||"no git")+(g.dirty?" +":"")));
+ const nav=E("div","nav");nav.id="navpills";VIEWS.forEach(v=>{const b=E("button");b.type="button";b.dataset.v=v.id;b.appendChild(icon(v.id));b.appendChild(document.createTextNode(v.en));b.title=v.th;b.addEventListener("click",()=>setView(v.id));nav.appendChild(b)});top.appendChild(nav);
+ const fresh=E("span","pill","FRESH");fresh.id="fresh";top.appendChild(fresh);
+ const th=E("button","iconbtn");th.type="button";th.title="theme";th.appendChild(icon("sun"));th.addEventListener("click",()=>{const r=document.documentElement;r.dataset.theme=r.dataset.theme==="light"?"dark":"light"});top.appendChild(th);
+ const rail=$("rail");VIEWS.forEach(v=>{const b=E("button");b.type="button";b.dataset.v=v.id;b.title=v.en+" / "+v.th;b.appendChild(icon(v.id));b.appendChild(E("span","lab",v.en));b.addEventListener("click",()=>setView(v.id));rail.appendChild(b)});
+ rail.appendChild(E("div","sp"));const tg=E("button");tg.type="button";tg.title="collapse / expand";tg.appendChild(icon("chev"));tg.appendChild(E("span","lab","Collapse"));tg.addEventListener("click",()=>{rail.classList.toggle("open")});rail.appendChild(tg);
+ const main=$("main");VIEWS.forEach(v=>{const s=E("section","view");s.id="v-"+v.id;main.appendChild(s);views[v.id]=s});
+ const age=(Date.now()-new Date(D.generated_at).getTime())/36e5;
+ if(isFinite(age)&&age>D.stale_hours){fresh.className="pill stale";fresh.textContent="STALE · "+(age<48?Math.round(age)+" h":Math.round(age/24)+" d")+" old";fresh.title="Regenerate: python tools/progress_map.py"}else{fresh.textContent="FRESH · "+(isFinite(age)?(age<1?"<1":Math.round(age))+" h":"?")+" old"}
+ const read=D.sources.filter(s=>s.status==="read").length;
+ const foot=$("foot");foot.textContent="";const l=E("span");l.innerHTML="";l.appendChild(document.createTextNode("COMMIT "));l.appendChild(E("b","",g.sha||"none"));l.appendChild(document.createTextNode(" · BRANCH "+(g.branch||"?")+(g.behind&&g.behind!=="0"?" · "+g.behind+" BEHIND ORIGIN/MAIN":"")+(g.dirty?" · UNCOMMITTED CHANGES":"")+" · GENERATED "+fmtT(D.generated_at)+" · SOURCES "+read+"/"+D.sources.length+" READ"));
+ const r=E("span");r.id="footview";foot.appendChild(l);foot.appendChild(r)}
+function head(view,kicker,title,right){const h=E("div","vh");const l=E("div");l.appendChild(E("div","kicker",kicker));l.appendChild(E("h1","t",title));h.appendChild(l);const r=E("div","r");(right||[]).forEach(x=>r.appendChild(x));h.appendChild(r);view.appendChild(h)}
+function chip(t,title){const c=E("span","chip",t);if(title)c.title=title;return c}
+function setView(id){current=id;VIEWS.forEach(v=>{views[v.id].classList.toggle("on",v.id===id)});document.querySelectorAll("#navpills button,#rail button[data-v]").forEach(b=>b.classList.toggle("on",b.dataset.v===id));
+ $("footview").textContent="VIEW "+id.toUpperCase();if(location.hash!=="#"+id)history.replaceState(null,"","#"+id);if(id==="map")renderMap()}
+/* ---------- overview ---------- */
+function statCard(label,value,sub,ic){const c=E("div","card stat");const l=E("div");l.appendChild(E("div","l",label));l.appendChild(E("div","v",value));l.appendChild(E("div","s",sub));c.appendChild(l);c.appendChild(icon(ic));return c}
+function donut(counts,total){const size=150,r=56,cw=18,C=2*Math.PI*r;const svg=S("svg",{viewBox:"0 0 "+size+" "+size,width:"118",height:"118"});svg.appendChild(S("circle",{cx:75,cy:75,r:r,fill:"none",stroke:"var(--card2)","stroke-width":cw}));
+ let off=0;D.statuses.forEach(s=>{const n=counts[s.id]||0;if(!n)return;const len=C*n/total;const c=S("circle",{cx:75,cy:75,r:r,fill:"none",stroke:"var(--s-"+s.id+")","stroke-width":cw,"stroke-dasharray":len+" "+(C-len),"stroke-dashoffset":-off,transform:"rotate(-90 75 75)"});if(s.id==="unknown")c.setAttribute("stroke-opacity",".6");svg.appendChild(c);off+=len});
+ const t=S("text",{x:75,y:72,"text-anchor":"middle",fill:"var(--fg)","font-size":"24","font-weight":"700"});t.textContent=total;svg.appendChild(t);const t2=S("text",{x:75,y:90,"text-anchor":"middle",fill:"var(--muted)","font-size":"10"});t2.textContent="items counted";svg.appendChild(t2);return svg}
+function legend(counts,onclick){const l=E("div","legend");D.statuses.forEach(s=>{const sp=E("span","s-"+s.id);sp.appendChild(E("i","dot"));sp.appendChild(document.createTextNode(s.glyph+" "+s.en+" "));sp.appendChild(E("b","",counts[s.id]||0));sp.title=s.th;if(onclick)sp.addEventListener("click",()=>onclick(s.id));l.appendChild(sp)});return l}
+function stackBar(n){const total=Object.values(n).reduce((a,b)=>a+b,0)||1;const st=E("div","stack");D.statuses.forEach(s=>{if(n[s.id]){const i=E("i");i.style.width=(100*n[s.id]/total)+"%";i.style.background="var(--s-"+s.id+")";i.title=s.en+": "+n[s.id];st.appendChild(i)}});return st}
+function buildOverview(){const v=views.overview;const st=D.stats;
+ head(v,"Overview","Command Control Center",[chip("generated "+fmtT(D.generated_at)),chip(D.totals.verified+" verified of "+Object.values(D.totals).reduce((a,b)=>a+b,0)+" items")]);
+ const row=E("div","stats");
+ row.appendChild(statCard("Requirements verified",st.req_verified+" / "+st.req_total,st.req_built+" built, not verified","req"));
+ row.appendChild(statCard("Areas with active work",st.areas_in_progress+" / "+st.areas_total,"an active claim exists in the area","prog"));
+ row.appendChild(statCard("Needs the owner",String(st.owner_needed),"open or provisional owner-only decisions","owner"));
+ row.appendChild(statCard("Active claims",String(st.claims_active),st.claims_expired+" past their expiry (still hold the area)","claim"));
+ v.appendChild(row);
+ const grid=E("div","grid3");
+ const c1=E("div","card");c1.appendChild(E("h3","","Status by area"));const b1=E("div","body");
+ D.area_bars.forEach(a=>{const r=E("div","row");r.title=a.en;r.appendChild(E("div","nm",areaShort(a.t)));r.appendChild(stackBar(a.n));const tot=Object.values(a.n).reduce((x,y)=>x+y,0);r.appendChild(E("div","n",tot||"–"));r.addEventListener("click",()=>focusArea(a.i));b1.appendChild(r)});
+ b1.appendChild(E("div","small","Bars show the leaves of each area by status. Click an area to open it in the mind map. An area with no counted leaves is unknown."));c1.appendChild(b1);grid.appendChild(c1);
+ const col2=E("div","col");const c2=E("div","card");c2.appendChild(E("h3","","Distribution"));const b2=E("div","body");b2.style.textAlign="center";b2.appendChild(donut(D.totals,Object.values(D.totals).reduce((a,b)=>a+b,0)||1));
+ const lg=legend(D.totals,id=>{mapFilter=id;setView("map")});lg.style.justifyContent="center";lg.style.marginTop="6px";b2.appendChild(lg);c2.appendChild(b2);col2.appendChild(c2);
+ const c3=E("div","card");c3.appendChild(E("h3","","Requirements by milestone"));const b3=E("div","body");
+ D.milestones.forEach(m=>{const r=E("div","row");r.style.gridTemplateColumns="44px minmax(0,1fr) 30px";r.title=m.outcome||"";r.appendChild(E("div","nm mono",m.id));r.appendChild(stackBar(m.n));r.appendChild(E("div","n",Object.values(m.n).reduce((a,b)=>a+b,0)));b3.appendChild(r)});c3.appendChild(b3);col2.appendChild(c3);grid.appendChild(col2);
+ const col3=E("div","col");const c4=E("div","card");const h4=E("h3","","What next");h4.appendChild(E("small","","P0 → milestone → unblocked"));c4.appendChild(h4);const b4=E("div","body");
+ D.next.slice(0,40).forEach(x=>{const li=E("div","li s-"+x.s);li.appendChild(E("i","dot"));const tx=E("div","tx");tx.appendChild(E("div","tt",x.t));li.appendChild(tx);if(x.p==="P0")li.appendChild(E("span","badge p0","P0"));li.appendChild(E("span","badge",x.m||"–"));li.addEventListener("click",()=>focusNode(x.i));b4.appendChild(li)});
+ if(!D.next.length)b4.appendChild(E("div","small","Nothing listed: no requirement data was read."));c4.appendChild(b4);col3.appendChild(c4);
+ const c5=E("div","card");const h5=E("h3","","Needs the owner");h5.appendChild(E("small","",D.owner.length+" decisions"));c5.appendChild(h5);const b5=E("div","body");
+ D.owner.forEach(o=>{const li=E("div","li s-blocked");li.appendChild(E("i","dot"));const tx=E("div","tx");tx.appendChild(E("div","tt",o.id));tx.appendChild(E("div","q",o.question));li.appendChild(tx);li.appendChild(E("span","badge",o.milestone||"–"));li.addEventListener("click",()=>{setView("decisions");openDecision(o.id)});b5.appendChild(li)});c5.appendChild(b5);col3.appendChild(c5);grid.appendChild(col3);
+ v.appendChild(grid)}
+/* ---------- mind map ---------- */
+const nodes={},parent={};(function idx(n,p){nodes[n.i]=n;parent[n.i]=p;(n.c||[]).forEach(c=>idx(c,n))})(D.tree,null);
+const open=new Set(["root"]);let sel=null,mapFilter=null,query="";const COLW=[130,240,190,300],GAPX=24,ROWH=34,GAPY=6;
+function depth(n){let d=0;for(let p=parent[n.i];p;p=parent[p.i])d++;return d}
+function xOf(d){let x=0;for(let i=0;i<d;i++)x+=COLW[Math.min(i,3)]+GAPX;return x}
+function kids(n){return open.has(n.i)?(n.c||[]):[]}
+function matches(n){if(!query)return true;const q=query.toLowerCase();return(n.t||"").toLowerCase().includes(q)||n.i.toLowerCase().includes(q)}
+function layout(){let cursor=0;const pos={};(function place(n,d){const ks=kids(n);if(!ks.length){pos[n.i]={x:xOf(d),y:cursor,w:COLW[Math.min(d,3)]};cursor+=ROWH+GAPY;return}
+  ks.forEach(c=>place(c,d+1));const a=pos[ks[0].i].y,b=pos[ks[ks.length-1].i].y;pos[n.i]={x:xOf(d),y:(a+b)/2,w:COLW[Math.min(d,3)]}})(D.tree,0);return{pos,height:Math.max(cursor,ROWH)}}
+let mapBuilt=false;
+function buildMap(){const v=views.map;head(v,"Mind map","Project tree",[chip("click a node: expand and see details")]);
+ const tools=E("div","tools");D.statuses.forEach(s=>{const b=E("button","fchip s-"+s.id);b.type="button";b.setAttribute("aria-pressed","false");b.dataset.s=s.id;b.appendChild(E("b","",D.totals[s.id]));b.appendChild(document.createTextNode(" "+s.glyph+" "+s.en));b.title=s.th+": leaves counted in this status";
+  b.addEventListener("click",()=>{mapFilter=mapFilter===s.id?null:s.id;renderMap()});tools.appendChild(b)});
+ const q=E("input");q.type="search";q.placeholder="search id or text";q.addEventListener("input",()=>{query=q.value.trim();open.clear();open.add("root");if(query)Object.values(nodes).forEach(n=>{if(matches(n)&&n.i!=="root")for(let p=parent[n.i];p;p=parent[p.i])open.add(p.i)});renderMap()});tools.appendChild(q);
+ const ea=E("button","btn","Expand all");ea.addEventListener("click",()=>{Object.values(nodes).forEach(n=>{if(n.c&&n.c.length)open.add(n.i)});renderMap()});tools.appendChild(ea);
+ const ca=E("button","btn","Collapse");ca.addEventListener("click",()=>{open.clear();open.add("root");sel=null;renderMap();showHome()});tools.appendChild(ca);v.appendChild(tools);
+ const w=E("div","mapwrap");const tc=E("div","card");const tree=E("div");tree.id="tree";tree.style.flex="1";const cv=E("div");cv.id="canvas";const sv=S("svg",{id:"links"});cv.appendChild(sv);tree.appendChild(cv);tc.appendChild(tree);w.appendChild(tc);
+ const pc=E("div","card");pc.id="panel";const pb=E("div","body");pb.id="panelbody";pc.appendChild(E("h3","","Details"));pc.appendChild(pb);w.appendChild(pc);v.appendChild(w);mapBuilt=true;showHome()}
+function renderMap(){if(!mapBuilt)return;const {pos,height}=layout();const cv=$("canvas");cv.querySelectorAll(".node").forEach(e=>e.remove());let maxX=0,paths="";
+ document.querySelectorAll(".fchip").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.s===mapFilter)));
+ for(const id in pos){const n=nodes[id],p=pos[id];maxX=Math.max(maxX,p.x+p.w);const el=E("div","node "+n.k+" s-"+n.s);el.style.cssText="left:"+p.x+"px;top:"+p.y+"px;width:"+p.w+"px";el.setAttribute("role","treeitem");el.tabIndex=0;el.dataset.id=id;
+  el.title=n.t+"\n"+ST[n.s].th+" / "+ST[n.s].en;if(id===sel)el.classList.add("sel");if((mapFilter&&!(n.n&&n.n[mapFilter]>0))||(query&&!matches(n)&&!(n.c&&n.c.length)))el.classList.add("dim");if(query&&matches(n))el.classList.add("hit");
+  el.appendChild(E("span","g",ST[n.s].glyph));el.appendChild(E("span","l",n.t));
+  if(n.k==="requirement"){if(n.p==="P0")el.appendChild(E("span","badge p0","P0"));if(n.m)el.appendChild(E("span","ms",n.m))}
+  if(n.c&&n.c.length){const tot=Object.values(n.n).reduce((a,b)=>a+b,0);el.appendChild(E("span","bd",(n.claims?("▶"+n.claims+" "):"")+tot+(open.has(id)?" ▾":" ▸")));const bar=E("div","bar");D.statuses.forEach(s=>{if(n.n[s.id]){const i=E("i");i.style.flex=n.n[s.id];i.style.background="var(--s-"+s.id+")";bar.appendChild(i)}});el.appendChild(bar)}
+  el.addEventListener("click",()=>choose(id));el.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();choose(id)}});cv.appendChild(el);
+  kids(n).forEach(c=>{const q=pos[c.i];const x1=p.x+p.w,y1=p.y+ROWH/2,x2=q.x,y2=q.y+ROWH/2,mx=(x1+x2)/2;paths+='<path d="M'+x1+" "+y1+"C"+mx+" "+y1+" "+mx+" "+y2+" "+x2+" "+y2+'"/>'})}
+ const svg=$("links");svg.setAttribute("width",maxX+20);svg.setAttribute("height",height);svg.innerHTML=paths;cv.style.width=(maxX+20)+"px";cv.style.height=height+"px"}
+function closeNode(n){open.delete(n.i);(n.c||[]).forEach(closeNode)}
+function choose(id){const n=nodes[id];sel=id;if(n.c&&n.c.length){if(open.has(id))closeNode(n);else{if(n.k==="area")(parent[id].c||[]).forEach(s=>{if(s!==n)closeNode(s)});open.add(id)}}renderMap();showNode(id);const el=document.querySelector('.node[data-id="'+CSS.escape(id)+'"]');if(el)el.scrollIntoView({block:"nearest",inline:"nearest"})}
+function focusNode(id){setView("map");for(let p=parent[id];p;p=parent[p.i])open.add(p.i);const n=nodes[id];if(n.k==="area")(parent[id].c||[]).forEach(s=>{if(s!==n)closeNode(s)});sel=id;renderMap();showNode(id);const el=document.querySelector('.node[data-id="'+CSS.escape(id)+'"]');if(el)el.scrollIntoView({block:"center",inline:"nearest"})}
+function focusArea(id){mapFilter=null;focusNode(id);open.add(id);renderMap()}
+function fileHref(path,abs){const a=abs?path:D.repo+"/"+path;return"file:///"+a.replace(/\\/g,"/").replace(/^\/+/,"")}
+function pathEl(f){const w=E("div");const a=E("a","path"+(f.ok?"":" miss"),f.path);a.href=fileHref(f.path,f.abs);a.target="_blank";a.rel="noopener";w.appendChild(a);if(!f.ok)w.appendChild(E("span","small"," (not found on disk)"));return w}
+function showHome(){const p=$("panelbody");p.textContent="";p.appendChild(E("div","small","Click a node. Leaves are requirements, decisions, delivered tasks, documents, active claims and card lines. The colour comes from the rule that fired; the panel shows that rule."));
+ const h=E("h4","","Status rules");p.appendChild(h);p.appendChild(E("div","small","✓ verified: evidence_refs present and new_build_status PASS · ◐ built: implementation files exist, no passing evidence · ▶ in progress: an active claim covers planned files or names it · ✎ designed only: a design or contract file exists, no code · ○ not started · ! needs the owner: an open owner-only decision blocks it · ? unknown: no data, never shown as done. docs/governance/PROGRESS-MAP.md"));
+ p.appendChild(E("h4","","Sources"));D.sources.forEach(s=>{const d=E("div","small");d.appendChild(E("b","",s.status.toUpperCase()+" "));d.appendChild(document.createTextNode(s.name+(s.note?" — "+s.note:"")));p.appendChild(d)});
+ if(D.unmapped_docs.length)p.appendChild(E("div","small","Documents not mapped to an area: "+D.unmapped_docs.join(", ")))}
+function sec(p,t){p.appendChild(E("h4","",t))}
+function showNode(id){const d=D.details[id],n=nodes[id],p=$("panelbody");p.textContent="";const back=E("button","btn","← overview of the map");back.addEventListener("click",()=>{sel=null;renderMap();showHome()});p.appendChild(back);
+ const info=d||{kind:n.k,status:n.s,why:"",title:n.t,fields:{},files:[],design:[],evidence:[],claims:[],decisions:[],notes:[]};
+ const h=E("div","",info.title||n.t);h.style.cssText="font-weight:700;margin:10px 0 4px;font-size:14px";p.appendChild(h);
+ const st=E("div","why s-"+n.s);st.appendChild(E("b","",ST[n.s].glyph+" "+ST[n.s].th+" / "+ST[n.s].en));st.appendChild(E("div","small","kind: "+info.kind));if(info.why)st.appendChild(E("div","",info.why));p.appendChild(st);
+ if(n.c&&n.c.length){sec(p,"Children by status");const w=E("div","legend");D.statuses.forEach(s=>{if(n.n[s.id]){const sp=E("span","s-"+s.id);sp.appendChild(E("i","dot"));sp.appendChild(document.createTextNode(s.glyph+" "));sp.appendChild(E("b","",n.n[s.id]));sp.title=s.en;w.appendChild(sp)}});p.appendChild(w)}
+ if(info.statement){sec(p,"Statement / question");p.appendChild(E("div","",info.statement))}
+ const kv=Object.entries(info.fields||{}).filter(e=>e[1]!==""&&e[1]!==undefined);if(kv.length){sec(p,"Fields");const dl=E("dl","kv");kv.forEach(([k,v])=>{dl.appendChild(E("dt","",k));dl.appendChild(E("dd","",v))});p.appendChild(dl)}
+ if(info.closure){sec(p,"To close it");p.appendChild(E("div","",info.closure))}if(info.safe_interim){sec(p,"Safe interim");p.appendChild(E("div","",info.safe_interim))}
+ if(info.decisions&&info.decisions.length){sec(p,"Open decisions");info.decisions.forEach(x=>{const w=E("div");w.appendChild(E("b","",x.id+" "));w.appendChild(E("span","small","["+x.status+"] "+(x.owner||"")));if(x.question)w.appendChild(E("div","small",x.question));p.appendChild(w)})}
+ if(info.claims&&info.claims.length){sec(p,"Active claims");info.claims.forEach(c=>p.appendChild(E("div","path",c)))}
+ if(info.files&&info.files.length){sec(p,"Files");info.files.forEach(f=>p.appendChild(pathEl(f)))}
+ if(info.design&&info.design.length){sec(p,"Design / spec / contract files");info.design.forEach(f=>p.appendChild(pathEl(f)))}
+ if(info.evidence&&info.evidence.length){sec(p,"Evidence");info.evidence.forEach(f=>p.appendChild(pathEl({path:f,ok:true})))}else if(info.kind==="requirement"){sec(p,"Evidence");p.appendChild(E("div","small","none recorded (evidence_refs is empty)"))}
+ if(info.notes&&info.notes.length){sec(p,"Notes");info.notes.forEach(t=>p.appendChild(E("div","small",t)))}p.scrollTop=0}
+/* ---------- roadmap: overall -> phase -> sprint -> task ---------- */
+const RM=D.roadmap,RD=D.roadmap_details,rmNodes={},rmParent={};(function idx(n,p){rmNodes[n.i]=n;rmParent[n.i]=p;(n.c||[]).forEach(c=>idx(c,n))})(RM,null);
+const rmOpen=new Set(["rm:all"].concat((RM.c||[]).map(c=>c.i)));let rmSel="rm:all";
+function cnt(n){return Object.values(n.n).reduce((a,b)=>a+b,0)}
+function cb(state){const s=E("span","cb "+(state==="done"?"on":state==="unknown"?"unk":"off"),state==="done"?"☑":state==="open"?"☐":"?");s.title=state==="done"?"done: the data proves it":state==="open"?"not done":"unknown: no data";return s}
+function buildRoadmap(){const v=views.board;const tot=cnt(RM),ver=RM.n.verified,bu=RM.n.built;
+ head(v,"Roadmap","Plan → phase → sprint → task",[chip("source: SDP.md, SPRINT-ROADMAP.md, requirements registry"),chip("tasks are requirements")]);
+ const top=E("div","card");top.style.flex="none";const tb=E("div","body");const big=stackBar(RM.n);big.style.height="22px";big.style.borderRadius="11px";tb.appendChild(big);
+ const sm=E("div","legend");sm.style.marginTop="8px";
+ const vs=E("span","s-verified");vs.appendChild(E("i","dot"));vs.appendChild(document.createTextNode("✓ Verified (receipt-backed) "));vs.appendChild(E("b","",ver+" of "+tot));sm.appendChild(vs);
+ const bs=E("span","s-built");bs.appendChild(E("i","dot"));bs.appendChild(document.createTextNode("◐ Built, not verified (counted separately) "));bs.appendChild(E("b","",bu));sm.appendChild(bs);
+ D.statuses.forEach(s=>{if(s.id==="verified"||s.id==="built"||!RM.n[s.id])return;const sp=E("span","s-"+s.id);sp.appendChild(E("i","dot"));sp.appendChild(document.createTextNode(s.glyph+" "+s.en+" "));sp.appendChild(E("b","",RM.n[s.id]));sm.appendChild(sp)});
+ tb.appendChild(sm);tb.appendChild(E("div","small","Progress counts a task as verified only when its registry row has evidence_refs and new_build_status PASS. Built, not verified is never added to it. A task with missing data is unknown, not done."));top.appendChild(tb);v.appendChild(top);
+ const w=E("div","rmwrap");const l=E("div","card");l.appendChild(E("h3","","Phases, sprints and tasks"));const lb=E("div","body");lb.id="rmtree";l.appendChild(lb);w.appendChild(l);
+ const p=E("div","card");p.appendChild(E("h3","","Details"));const pb=E("div","body");pb.id="rmpanel";p.appendChild(pb);w.appendChild(p);v.appendChild(w);renderRm();showRm(rmSel)}
+function rmRow(n,level){const r=E("div","rmrow s-"+n.s+" lv"+level);r.dataset.id=n.i;if(n.i===rmSel)r.classList.add("sel");
+ const isTask=n.k==="task";const ch=E("span","chev",isTask?"":(rmOpen.has(n.i)?"▾":"▸"));r.appendChild(ch);
+ if(isTask){r.appendChild(E("span","g",ST[n.s].glyph));r.appendChild(E("span","lbl",n.t));if(n.p==="P0")r.appendChild(E("span","badge p0","P0"));r.appendChild(E("span","badge",n.m||"–"))}
+ else{r.appendChild(E("span","lbl",n.t));const bar=stackBar(n.n);bar.style.width="150px";bar.style.flex="none";r.appendChild(bar);r.appendChild(E("span","vcount","✓"+n.n.verified+" ◐"+n.n.built+" / "+cnt(n)))}
+ r.addEventListener("click",()=>{rmSel=n.i;if(!isTask){if(rmOpen.has(n.i))rmOpen.delete(n.i);else rmOpen.add(n.i)}renderRm();showRm(n.i)});return r}
+function renderRm(){const t=$("rmtree");t.textContent="";(function add(n,level){if(n.i!=="rm:all")t.appendChild(rmRow(n,level));if(n.i==="rm:all"||rmOpen.has(n.i))(n.c||[]).forEach(c=>add(c,level+(n.i==="rm:all"?0:1)))})(RM,0)}
+function rmSec(p,t){p.appendChild(E("h4","",t))}
+function rmList(p,title,items,fn){rmSec(p,title);if(!items||!items.length){p.appendChild(E("div","small","unknown: nothing recorded"));return}items.forEach(i=>p.appendChild(fn(i)))}
+function rmText(p,title,text,source){rmSec(p,title);p.appendChild(text?E("div","",text):E("div","small","unknown: not stated in the source"));if(text&&source)p.appendChild(E("div","small",source))}
+function showRm(id){const d=RD[id],n=rmNodes[id],p=$("rmpanel");p.textContent="";if(!d)return;
+ const h=E("div","",d.title);h.style.cssText="font-weight:700;font-size:14px;margin-bottom:6px";p.appendChild(h);
+ if(d.kind!=="task"){const st=E("div","why s-"+n.s);st.appendChild(E("b","",ST[n.s].glyph+" "+ST[n.s].en+" (most common status below)"));p.appendChild(st);const lg=E("div","legend");D.statuses.forEach(s=>{if(n.n[s.id]){const sp=E("span","s-"+s.id);sp.appendChild(E("i","dot"));sp.appendChild(document.createTextNode(s.glyph+" "));sp.appendChild(E("b","",n.n[s.id]));sp.title=s.en;lg.appendChild(sp)}});p.appendChild(lg)}
+ if(d.kind==="overall"){p.appendChild(E("div","small",d.note))}
+ if(d.kind==="phase"){rmList(p,"Milestones (SDP)",d.milestones,m=>{const x=E("div");x.appendChild(E("b","",m.id+" "));x.appendChild(document.createTextNode(m.deliverable||"unknown"));if(m.entry)x.appendChild(E("div","small","Entry: "+m.entry));x.appendChild(E("div","small","Exit gate: "+(m.exit||"unknown")));return x});
+  rmList(p,"Sprint outcomes (phase overview)",d.outcomes,o=>E("div","small","Sprint "+o.sprint+" · "+o.milestone+": "+o.outcome))}
+ if(d.kind==="sprint"){rmText(p,"Goal",d.goal,d.goal?"source: "+d.goal_source:"");rmText(p,"Exit gate",d.exit,"source: the Exit gate line of the sprint section");rmText(p,"Owner input needed",d.owner_input,"");
+  if(d.milestone_info){rmSec(p,"Milestone "+d.milestone+" (SDP)");p.appendChild(E("div","small","Deliverable: "+d.milestone_info.deliverable));p.appendChild(E("div","small","Entry: "+d.milestone_info.entry));p.appendChild(E("div","small","Exit gate: "+d.milestone_info.exit))}
+  rmList(p,"Planned work items",d.work_items,i=>{const x=E("div","li");x.style.cursor="default";x.appendChild(cb(i.state));const tx=E("div","tx");tx.appendChild(E("div","",i.id+" "+i.work));tx.appendChild(E("div","small",[i.model,i.risk,i.evidence].filter(Boolean).join(" · ")+" — "+i.basis));x.appendChild(tx);return x});
+  if(d.slices&&d.slices.length)rmList(p,"Planned slices",d.slices,s=>E("div","small",s.name+": "+s.work));
+  p.appendChild(E("div","small",d.rule))}
+ if(d.kind==="task")showTask(p,d,n);p.scrollTop=0}
+function linkList(p,title,files,miss){rmSec(p,title);if(!files||!files.length){p.appendChild(E("div","small","none recorded"));return}files.forEach(f=>p.appendChild(pathEl({path:f,ok:!miss})))}
+function showTask(p,d,n){const st=E("div","why s-"+n.s);st.appendChild(E("b","",ST[n.s].glyph+" "+ST[n.s].th+" / "+ST[n.s].en));st.appendChild(E("div","small","task ID "+d.id+" · "+d.priority+" · "+d.milestone+" · module "+d.module));st.appendChild(E("div","",d.why));p.appendChild(st);
+ const go=E("button","btn","Open in the mind map");go.addEventListener("click",()=>focusNode("req:"+d.id));p.appendChild(go);
+ rmText(p,"Where it sits",d.placement,"");rmText(p,"Requirement",d.statement,"");
+ rmSec(p,"Acceptance");if(d.acceptance){const dl=E("dl","kv");[["scenario",d.acceptance.scenario],["given",d.acceptance.given],["when",d.acceptance.when],["then",d.acceptance.then]].forEach(([k,x])=>{dl.appendChild(E("dt","",k));dl.appendChild(E("dd","",x||"unknown"))});p.appendChild(dl)}else p.appendChild(E("div","small","unknown: the registry has no acceptance text"));
+ rmText(p,"Success criteria",d.success,"the acceptance 'then' clause");rmText(p,"On failure",d.failure,"");
+ rmSec(p,"Exit criteria");p.appendChild(d.exit.sprint?E("div","","Sprint: "+d.exit.sprint):E("div","small","Sprint: unknown (the task is not in a sprint section with an exit gate)"));p.appendChild(d.exit.milestone?E("div","","Milestone "+d.milestone+" (SDP): "+d.exit.milestone):E("div","small","Milestone: unknown"));
+ rmSec(p,"Definition of done");p.appendChild(d.dod?E("div","small","SDP: "+d.dod):E("div","small","unknown: SDP.md not read"));
+ d.checks.forEach(c=>{const x=E("div","li");x.style.cursor="default";x.appendChild(cb(c.state));const tx=E("div","tx");tx.appendChild(E("div","",c.label));tx.appendChild(E("div","small",c.basis));x.appendChild(tx);p.appendChild(x)});
+ linkList(p,"Code",d.links.code,false);linkList(p,"Tests",d.links.tests,false);if(d.links.missing.length)linkList(p,"Listed but not on disk",d.links.missing,true);
+ linkList(p,"Docs, specs and contracts",d.links.docs,false);
+ rmSec(p,"Verification procedures");if(!d.links.procedures.length)p.appendChild(E("div","small","unknown: none listed"));d.links.procedures.forEach(pr=>{const x=E("div");x.appendChild(E("b","",pr.id+" "));x.appendChild(document.createTextNode(pr.title||"not found in TEST-PLAN or UAT-PLAN"));if(pr.file){x.appendChild(pathEl({path:pr.file,ok:true}))}p.appendChild(x)});
+ rmSec(p,"Evidence receipts");if(d.links.evidence.length)d.links.evidence.forEach(e=>p.appendChild(pathEl({path:e,ok:true})));else p.appendChild(E("div","small","none: evidence_refs is empty, so this task cannot count as verified"));
+ if(d.decisions.length){rmSec(p,"Decisions it names");d.decisions.forEach(x=>{const w=E("div");w.appendChild(E("b","",x.id+" "));w.appendChild(E("span","small","["+x.status+"]"));if(x.question)w.appendChild(E("div","small",x.question));p.appendChild(w)})}
+ if(d.claims.length){rmSec(p,"Active claims touching it");d.claims.forEach(c=>p.appendChild(E("div","path",c)))}
+ if(d.sprint_tasks.length){rmSec(p,"Sprint work items that name it");d.sprint_tasks.forEach(t=>{const x=E("div","small");x.appendChild(cb(t.state));x.appendChild(document.createTextNode(" "+t.id+" "+t.work));p.appendChild(x)})}
+ rmSec(p,"Changelog (git log of its implementation files, and changelog lines naming it)");if(!d.changelog.commits.length&&!d.changelog.lines.length)p.appendChild(E("div","small","none: no implementation file is committed and no changelog line names it"));
+ d.changelog.commits.forEach(c=>{const x=E("div","small");x.appendChild(E("b","mono",c.sha+" "));x.appendChild(document.createTextNode(fmtT(c.time).slice(0,10)+" "+c.title));p.appendChild(x)});d.changelog.lines.forEach(l=>p.appendChild(E("div","small",l)))}
+/* ---------- decisions ---------- */
+let decFilter="pending",decOwner=false,decQuery="";let decRows={};
+function openDecision(id){decFilter="all";decOwner=false;decQuery=id;const q=document.getElementById("decq");if(q)q.value=id;renderDecisions();const r=decRows[id];if(r){r.click()}}
+function buildDecisions(){const v=views.decisions;head(v,"Decisions","Decision register",[chip(D.stats.decisions_total+" records"),chip(D.stats.owner_needed+" need the owner")]);
+ const tools=E("div","tools");[["pending","Open / provisional / proposed"],["decided","Decided"],["deferred","Deferred"],["all","All"]].forEach(([k,l])=>{const b=E("button","btn",l);b.dataset.k=k;b.addEventListener("click",()=>{decFilter=k;renderDecisions()});tools.appendChild(b)});
+ const lab=E("label","small");const cb=E("input");cb.type="checkbox";cb.addEventListener("change",()=>{decOwner=cb.checked;renderDecisions()});lab.appendChild(cb);lab.appendChild(document.createTextNode(" owner-only"));tools.appendChild(lab);
+ const q=E("input");q.type="search";q.id="decq";q.placeholder="search id, area, text";q.addEventListener("input",()=>{decQuery=q.value.trim();renderDecisions()});tools.appendChild(q);v.appendChild(tools);
+ const c=E("div","card");c.style.flex="1";const body=E("div","body");body.id="decbody";c.appendChild(body);v.appendChild(c);renderDecisions()}
+function renderDecisions(){const body=$("decbody");body.textContent="";document.querySelectorAll("#v-decisions .tools .btn").forEach(b=>{b.style.borderColor=b.dataset.k===decFilter?"var(--acc)":""});
+ const q=decQuery.toLowerCase();const rows=D.decisions.filter(d=>(decFilter==="all"||(decFilter==="pending"?d.pending:d.status===decFilter))&&(!decOwner||d.owner_only)&&(!q||(d.id+" "+d.area+" "+d.blocks+" "+d.question).toLowerCase().includes(q)));
+ const t=E("table");const hd=E("tr");["Decision","Status","Owner role","Milestone","Area","What it blocks / the question"].forEach(x=>hd.appendChild(E("th","",x)));t.appendChild(hd);decRows={};
+ rows.forEach(d=>{const tr=E("tr","r");tr.appendChild(E("td","mono",d.id));const sc=d.pending&&d.owner_only?"blocked":d.status==="decided"?"verified":"notstarted";const td=E("td");const tg=E("span","tag s-"+sc,d.status+(d.owner_only?" · owner":""));td.appendChild(tg);tr.appendChild(td);
+  tr.appendChild(E("td","",d.owner));tr.appendChild(E("td","mono",d.milestone));tr.appendChild(E("td","",areaShort(d.area)));tr.appendChild(E("td","",(d.question||d.blocks).slice(0,160)));
+  let det=null;tr.addEventListener("click",()=>{if(det){det.remove();det=null;return}det=E("tr","det");const c=E("td");c.colSpan=6;[["Blocks",d.blocks],["Question",d.question],["To close it",d.closure],["Safe interim",d.interim],["Decided on",d.decided_on],["Requirements waiting",String(d.reqs)]].forEach(([k,x])=>{if(x){const p=E("div");p.appendChild(E("b","",k+": "));p.appendChild(document.createTextNode(x));c.appendChild(p)}});det.appendChild(c);tr.after(det)});
+  decRows[d.id]=tr;t.appendChild(tr)});body.appendChild(t);if(!rows.length)body.appendChild(E("div","small","No decision matches. If contracts/decisions.json was not read, see Sources in the mind map panel."))}
+/* ---------- agents and work ---------- */
+function activityChart(){const A=D.activity;const w=420,h=110,pad=22;const svg=S("svg",{viewBox:"0 0 "+w+" "+h,width:"100%",height:"110",preserveAspectRatio:"none"});if(!A.length){return E("div","small","No git history was read.")}
+ const mx=Math.max.apply(null,A.map(a=>a.n));const step=A.length>1?(w-2*pad)/(A.length-1):0;const pts=A.map((a,i)=>[pad+i*step,h-pad-(h-2*pad)*a.n/mx]);
+ const defs=S("defs");const lg=S("linearGradient",{id:"ag",x1:0,y1:0,x2:0,y2:1});lg.appendChild(S("stop",{offset:"0%","stop-color":"var(--acc)","stop-opacity":".45"}));lg.appendChild(S("stop",{offset:"100%","stop-color":"var(--acc)","stop-opacity":"0"}));defs.appendChild(lg);svg.appendChild(defs);
+ for(let k=0;k<3;k++){svg.appendChild(S("line",{x1:pad,x2:w-pad,y1:pad+k*(h-2*pad)/2,y2:pad+k*(h-2*pad)/2,stroke:"var(--line)","stroke-width":1}))}
+ const d="M"+pts.map(p=>p[0]+" "+p[1]).join(" L");svg.appendChild(S("path",{d:d+" L"+pts[pts.length-1][0]+" "+(h-pad)+" L"+pts[0][0]+" "+(h-pad)+" Z",fill:"url(#ag)"}));svg.appendChild(S("path",{d:d,fill:"none",stroke:"var(--acc)","stroke-width":2}));
+ pts.forEach((p,i)=>{const c=S("circle",{cx:p[0],cy:p[1],r:3,fill:"var(--acc)"});const t=S("title");t.textContent=A[i].day+": "+A[i].n+" merged";c.appendChild(t);svg.appendChild(c)});
+ const a0=S("text",{x:pad,y:h-5,fill:"var(--muted)","font-size":"9"});a0.textContent=A[0].day;svg.appendChild(a0);const a1=S("text",{x:w-pad,y:h-5,fill:"var(--muted)","font-size":"9","text-anchor":"end"});a1.textContent=A[A.length-1].day;svg.appendChild(a1);return svg}
+function buildAgents(){const v=views.agents;head(v,"Agents & work","Claims, branches and activity",[chip(D.stats.claims_active+" active"),chip(D.stats.claims_expired+" past expiry")]);const grid=E("div","grid2");
+ const c1=E("div","card");c1.appendChild(E("h3","","Claims (coordination ledger)"));const b1=E("div","body");const t=E("table");const hd=E("tr");["Claim / task","Domain","Model","Branch","State","Expires"].forEach(x=>hd.appendChild(E("th","",x)));t.appendChild(hd);
+ D.claims.forEach(c=>{const tr=E("tr");const td=E("td");td.appendChild(E("div","mono",c.name));if(c.note)td.appendChild(E("div","small",c.note.slice(0,90)));tr.appendChild(td);tr.appendChild(E("td","",c.domain));tr.appendChild(E("td","",(c.model||c.session||"?")+(c.role?" · "+c.role:"")));tr.appendChild(E("td","mono",c.branch));
+  const st=E("td");const act=c.status.toLowerCase()==="active";const tg=E("span","tag s-"+(act?(c.expired?"blocked":"progress"):"notstarted"),c.status+(c.expired?" · expired":""));st.appendChild(tg);tr.appendChild(st);
+  tr.appendChild(E("td","mono",c.expires?c.expires.slice(5,16).replace("T"," ")+(c.hours_left!==null?" ("+(c.hours_left>=0?"in "+c.hours_left:Math.abs(c.hours_left)+" ago")+" h)":""):"–"));t.appendChild(tr)});b1.appendChild(t);
+ b1.appendChild(E("div","small","Hours are measured at generation time. An expired claim does not free its area: ask the owner before touching it."));c1.appendChild(b1);grid.appendChild(c1);
+ const col=E("div","col");const c2=E("div","card");const h2=E("h3","","Merged per day");h2.appendChild(E("small","",g.merged_ref||"git"));c2.appendChild(h2);const b2=E("div","body");b2.appendChild(activityChart());c2.appendChild(b2);col.appendChild(c2);col.firstChild.style.flex="none";
+ const c3=E("div","card");c3.appendChild(E("h3","","Recent merges (offline git log)"));const b3=E("div","body");const tl=E("div","tl");(g.merged||[]).slice(0,14).forEach(m=>{const e=E("div","e");const l1=E("div","tt");l1.appendChild(E("b","mono",m.sha+" "));l1.appendChild(document.createTextNode((m.pr?"#"+m.pr+" ":"")+m.title.replace(/\s*\(#\d+\)\s*$/,"")));e.appendChild(l1);e.appendChild(E("div","small",fmtT(m.time)));tl.appendChild(e)});b3.appendChild(tl);if(!(g.merged||[]).length)b3.appendChild(E("div","small","No git history was read."));c3.appendChild(b3);col.appendChild(c3);
+ const c4=E("div","card");c4.appendChild(E("h3","","Worktrees (registry)"));const b4=E("div","body");D.worktrees.forEach(w=>{const d=E("div","small");d.appendChild(E("b","mono",w.branch||"?"));d.appendChild(document.createTextNode(" · "+w.state+(w.claim?" · "+w.claim:"")));d.title=w.path;b4.appendChild(d)});c4.appendChild(b4);col.appendChild(c4);
+ if(D.prs.length){const c5=E("div","card");c5.appendChild(E("h3","","GitHub pull requests"));const b5=E("div","body");D.prs.slice(0,12).forEach(p=>b5.appendChild(E("div","small","#"+p.number+" "+p.state+" "+p.title)));c5.appendChild(b5);col.appendChild(c5)}
+ grid.appendChild(col);v.appendChild(grid)}
+/* ---------- builds ---------- */
+function mb(n){return(n/1048576).toFixed(2)+" MB"}
+function buildBuilds(){const v=views.builds;const B=D.builds;const withR=B.filter(b=>b.receipt).length;head(v,"Builds","Owner builds",[chip(B.length+" exe files"),chip(withR+" match a receipt hash"),chip("evidence class: build + gate only")]);
+ const c=E("div","card");c.style.flex="1";const body=E("div","body");const t=E("table");const hd=E("tr");["Build","Size","Modified","SHA-256 (computed here)","Receipt","Commit","What the receipt says was NOT done"].forEach(x=>hd.appendChild(E("th","",x)));t.appendChild(hd);
+ B.forEach(b=>{const tr=E("tr");const td=E("td");td.appendChild(E("div","mono",b.rel));td.title=b.path;tr.appendChild(td);tr.appendChild(E("td","mono",mb(b.size)));tr.appendChild(E("td","mono",b.modified.slice(0,16).replace("T"," ")));
+  const h=E("td","mono",b.sha256.slice(0,16)+"…");h.title=b.sha256;tr.appendChild(h);
+  const r=b.receipt;const rt=E("td");if(r){rt.appendChild(E("span","tag s-built","hash matches"));rt.appendChild(E("div","small",r.file+(r.label&&r.label!=="exe"?" · "+r.label:"")));if(r.gate)rt.appendChild(E("div","small",r.gate))}else{rt.appendChild(E("span","tag s-unknown dash","no receipt for this hash"));rt.appendChild(E("div","small","unknown: not claimed by any receipt"))}tr.appendChild(rt);
+  const cm=E("td");if(r&&r.commit){cm.appendChild(E("div","mono",r.commit.slice(0,10)));cm.appendChild(E("span","tag "+(r.commit_state==="in origin/main"?"s-verified":"s-notstarted"),r.commit_state))}else cm.appendChild(E("span","small","–"));tr.appendChild(cm);
+  const lm=E("td");(r&&r.limits.length?r.limits:[]).forEach(x=>lm.appendChild(E("div","small",x)));if(!r||!r.limits.length)lm.appendChild(E("span","small",r?"the receipt lists none":"unknown"));tr.appendChild(lm);t.appendChild(tr)});
+ body.appendChild(t);if(!B.length)body.appendChild(E("div","small","No builds folder was read (see sources)."));body.appendChild(E("div","small","Hashes are computed by the generator, never in the browser. A receipt is matched by SHA-256 only; a build is never marked verified here."));c.appendChild(body);v.appendChild(c)}
+/* ---------- start ---------- */
+buildChrome();buildOverview();buildMap();buildRoadmap();buildDecisions();buildAgents();buildBuilds();
+const first=(location.hash||"").slice(1);setView(VIEWS.some(v=>v.id===first)?first:"overview");
+addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(VIEWS.some(v=>v.id===h)&&h!==current)setView(h)});
+</script></body></html>

@@ -357,7 +357,13 @@ class ShippedRegistryTests(unittest.TestCase):
 
     def test_lab_build_banner_lab(self) -> None:
         a = self.r("lab-build", "banner-lab")
-        self.assertEqual((a["role"], a["model"], a["effort"], a["level"], a["usable"]), ("lab-worker", "gpt-6-astra", "high", "in_use_unconfirmed", False))
+        self.assertEqual((a["role"], a["model"], a["effort"], a["level"], a["usable"]), ("lab-worker", "gpt-6.1-sol", "xhigh", "owner_chosen", True))  # owner decision 2026-11-14 (DEC-BANNER-WORKER)
+        self.assertEqual(a["reviewer"]["profile"], "terra-high")
+        self.assertEqual(a["reviewer"]["model_separation"], "differs")
+
+    def test_lab_review_is_still_unconfirmed_and_astra_is_not_the_banner_default(self) -> None:
+        a = self.r("lab-review", "banner-lab")
+        self.assertEqual((a["model"], a["level"], a["usable"]), ("gpt-6.1-sol", "in_use_unconfirmed", False))
         self.assertIn("owner instruction", a["message"])
 
     def test_implement_commerce_is_blocked(self) -> None:
@@ -439,8 +445,10 @@ class BriefTests(unittest.TestCase):
                 self.assertTrue(any(f"no {key} line" in p for p in self.lint(**{key: None})))
 
     def test_unusable_or_blocked_routes_are_mismatches(self) -> None:
-        out = self.lint(DOMAIN="banner-lab", TASK_TYPE="lab-build", ROLE="lab-worker", MODEL="gpt-6-astra (high)")
+        out = self.lint(DOMAIN="banner-lab", TASK_TYPE="lab-review", ROLE="lab-reviewer", MODEL="gpt-6.1-sol (xhigh)")
         self.assertTrue(any("needs an owner instruction before use" in p for p in out), out)
+        astra = self.lint(DOMAIN="banner-lab", TASK_TYPE="lab-build", ROLE="lab-worker", MODEL="gpt-6-astra (high)")
+        self.assertTrue(any("gpt-6-astra differs from gpt-6.1-sol" in p for p in astra), astra)  # astra is no longer the banner build default
         self.assertTrue(any("blocked-by-policy" in p for p in self.lint(DOMAIN="commerce")))
         self.assertTrue(any("unknown domain" in p for p in self.lint(DOMAIN="nowhere")))
 

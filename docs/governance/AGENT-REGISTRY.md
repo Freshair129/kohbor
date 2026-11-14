@@ -2,8 +2,8 @@
 title: "Agent Registry, Router and Enforcement"
 doc_id: "AGENT-REGISTRY"
 status: draft
-version: "0.2.0"
-updated: "2026-11-13"
+version: "0.2.1"
+updated: "2026-11-14"
 authority: "Process only. The owner asked for this registry on 2026-11-13; this text implements the design in AGENT-REGISTRY-DESIGN.md, is an agent proposal and defines no product requirement"
 owner_role: "Governance lead (integration owner)"
 approval_status: "not_approved"
@@ -38,7 +38,7 @@ Registry content: 9 profiles, 9 roles (1 human, 8 agent), 15 task types, 16 rout
 | `luna-max` | codex-exec | gpt-6-luna (max) | owner_chosen | no | docs/delivery/AGENT-WORKFLOW.md section 1 (models and max effort are the owner's choice) |
 | `terra-high` | codex-exec | gpt-6.1-terra (high) | owner_chosen | no | docs/delivery/AGENT-WORKFLOW.md section 1 |
 | `astra-high` | codex-exec | gpt-6-astra (high) | in_use_unconfirmed | no | Banner-lab workspace guidance, one trial (card: docs/domains/banner-lab/CARD.md) |
-| `sol-xhigh` | codex-exec | gpt-6.1-sol (xhigh) | in_use_unconfirmed | no | Banner-lab workspace guidance, one trial (card: docs/domains/banner-lab/CARD.md) |
+| `sol-xhigh` | codex-exec | gpt-6.1-sol (xhigh) | owner_chosen | yes | owner message 2026-11-14 after Nakom comparison (relayed by the coordinating session) |
 | `claude-subagent-ro` | claude-code-subagent | session | in_use_unconfirmed | no | docs/delivery/AGENT-WORKFLOW.md section 7.5 |
 | `local-model` | local-model | local | excluded | no | Domain Steward design section 10 (a proposal, outside the repository; approved as part of decision 1 only in outline) |
 
@@ -81,7 +81,7 @@ Registry content: 9 profiles, 9 roles (1 human, 8 agent), 15 task types, 16 rout
 | `defect-repro` | * | `test-worker` | `terra-high` | none | owner_chosen | no |
 | `harness` | * | `test-worker` | `terra-high` | none | owner_chosen | no |
 | `review-diff` | * | `test-worker` | `terra-high` | none | owner_chosen | no |
-| `lab-build` | banner-lab | `lab-worker` | `astra-high` | `lab-reviewer` (sol-xhigh) | in_use_unconfirmed | no |
+| `lab-build` | banner-lab | `lab-worker` | `sol-xhigh` | `test-worker` (terra-high) | owner_chosen | yes |
 | `lab-review` | banner-lab | `lab-reviewer` | `sol-xhigh` | none | in_use_unconfirmed | no |
 | `design-plan` | * | `design-consultant` | `fable52-xhigh` | none | in_use_unconfirmed | no |
 | `design-plan` | governance | `lead` | `fable52-xhigh` | none | owner_chosen | yes |

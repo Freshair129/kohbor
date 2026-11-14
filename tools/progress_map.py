@@ -8,7 +8,7 @@ Backlog table of docs/delivery/SPRINT-ROADMAP.md, design documents, and git. A s
 the page as not read; a node with no data is "unknown", never "done". It needs no network (``--github`` is optional) and
 writes nothing inside the repository (default output: F:\\kohbor-local\\progress\\progress-map.html).
 
-Usage: ``python tools/progress_map.py [--repo DIR] [--coord DIR] [--design-dir DIR] [--out FILE] [--open] [--github]
+Usage: ``python tools/progress_map.py [--repo DIR] [--coord DIR] [--design-dir DIR] [--builds-dir DIR] [--out FILE] [--open] [--github]
 [--now ISO8601] [--stale-hours N] [--check] [--json]``
 
 Standard library only. The page uses inline CSS, JavaScript and SVG, no external font, script or image.
@@ -21,6 +21,7 @@ import csv
 import datetime as dt
 import fnmatch
 import glob
+import hashlib
 import json
 import os
 import re
@@ -34,6 +35,7 @@ from typing import Any, Callable
 DEFAULT_OUT = r"F:\kohbor-local\progress\progress-map.html"
 DEFAULT_COORD = r"F:\kohbor-coord"
 DEFAULT_DESIGN = r"F:\kohbor-design"
+DEFAULT_BUILDS = r"F:\kohbor-local"
 STALE_HOURS = 6.0
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -96,7 +98,7 @@ AREAS: list[dict[str, Any]] = [
      "modules": ["voice", "mem", "advice"], "requirements": ["QUALITY-006", "QUALITY-007"], "exclude": [], "docs": [],
      "decisions": [r"^DEC-(VOICE|STT|ADVICE|MEMORY|LLM)"], "tasks": []},
     {"id": "banner-lab", "th": "ห้องทดลองแบนเนอร์และเสียง", "en": "Banner lab", "domains": ["banner-lab", "banner-studio", "announcer-voice"],
-     "modules": [], "requirements": [], "exclude": [], "docs": [], "decisions": [r"^DEC-(BANNER-LAB|VOICE-RIGHTS)"], "tasks": []},
+     "modules": [], "requirements": [], "exclude": [], "docs": [], "decisions": [r"^DEC-(BANNER-LAB|VOICE-RIGHTS)"], "decision_ids": ["DEC-BANNER-WORKER", "DEC-BANNER-LAB-STYLE"], "tasks": []},
     {"id": "governance", "th": "กระบวนการและธรรมาภิบาล", "en": "Governance and process", "domains": ["governance"],
      "modules": [], "requirements": [], "exclude": [],
      "docs": ["AGENT-WORKFLOW", "AGENT-REGISTRY-DESIGN", "SPRINT-ROADMAP", "SDP", "SAD", "SDD", "DDD", "ICD", "MVP-PLAN", "MVP-PLAN.th", "WORKSTREAM-BRIEFS", "PREP-HANDOFF", "OWNER-HOWTO", "OWNER-HOWTO.th", "OWNER-HOWTO-fix1.th", "OWNER-HOWTO-fix2.th", "OWNER-HOWTO-fix3.th"], "decisions": [r"^DEC-(NAME|IDENTITY|AGENT|PROCESS|REGISTRY)"],
@@ -169,6 +171,7 @@ def load_requirements(repo: Path, src: Sources) -> list[dict[str, Any]]:
                     "build_status": v.get("new_build_status", ""), "decisions": as_list(q.get("open_decisions")),
                     "design": as_list(q.get("design_refs")), "contracts": as_list(q.get("contract_refs")), "spec": as_list(q.get("spec_refs")),
                     "needs": as_list(q.get("product_need_ids")), "statement": q.get("statement", ""),
+                    "procedures": as_list(v.get("procedure_ids")), "acceptance": q.get("acceptance") or None, "failure": q.get("failure_behavior", ""),
                 })
             src.read("contracts/requirements.json", jpath, f"{len(out)} requirements")
         except (OSError, ValueError) as exc:
@@ -190,6 +193,7 @@ def load_requirements(repo: Path, src: Sources) -> list[dict[str, Any]]:
                         "build_status": r.get("new_build_status", ""), "decisions": split_semi(r.get("open_decisions")),
                         "design": split_semi(r.get("design_refs")), "contracts": split_semi(r.get("contract_refs")),
                         "spec": split_semi(r.get("spec_refs")), "needs": split_semi(r.get("product_need_ids")), "statement": "",
+                        "procedures": split_semi(r.get("procedure_ids")), "acceptance": None, "failure": "",
                     })
             elif len(rows) != len(out):
                 src.add("RTM consistency", str(cpath), "read", f"RTM has {len(rows)} rows, requirements.json has {len(out)}: regenerate the RTM")
@@ -319,32 +323,118 @@ def split_row(line: str) -> list[str]:
     return cells
 
 
-def load_roadmap(repo: Path, src: Sources) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
-    path = repo / "docs" / "delivery" / "SPRINT-ROADMAP.md"
-    if not path.is_file():
-        src.missing("SPRINT-ROADMAP.md", path)
-        return [], []
-    try:
-        lines = path.read_text(encoding="utf-8-sig").splitlines()
-    except OSError as exc:
-        src.error("SPRINT-ROADMAP.md", path, str(exc)[:120])
-        return [], []
-    phases: list[dict[str, str]] = []
-    tasks: list[dict[str, str]] = []
-    mode = ""
-    for line in lines:
+ID_RANGE = re.compile(r"\b([A-Z]{3,7})-(\d{3})(?:\s*(?:\.\.|–|—)\s*(\d{3}))?")
+SPRINT_TASK_ID = re.compile(r"\bS\d+-\d+[a-z]?\b")
+
+
+def expand_ids(text: str, known: set[str]) -> list[str]:
+    """Requirement ids named in a text, with ranges such as VOICE-001..007 or CORE-001–005 expanded; only ids that exist are returned."""
+    out: list[str] = []
+    for m in ID_RANGE.finditer(text):
+        pre, a, b = m.group(1), int(m.group(2)), m.group(3)
+        nums = range(a, int(b) + 1) if b and int(b) >= a else [a]
+        for n in nums:
+            rid = f"{pre}-{n:03d}"
+            if rid in known and rid not in out:
+                out.append(rid)
+    return out
+
+
+def section_text(lines: list[str], start: int) -> str:
+    out: list[str] = []
+    for line in lines[start + 1:]:
         if line.startswith("## "):
-            mode = "phase" if line.lower().startswith("## phase overview") else "backlog" if line.lower().startswith("## backlog status") else ""
+            break
+        out.append(line)
+    return "\n".join(out)
+
+
+def bold_field(text: str, name: str) -> str:
+    m = re.search(r"\*\*" + re.escape(name) + r"\.?\*\*\s*(.+)", text)
+    return m.group(1).strip() if m else ""
+
+
+def load_plan(repo: Path, src: Sources) -> dict[str, Any]:
+    """Phases, sprints and sprint tasks from docs/delivery/SPRINT-ROADMAP.md, milestones and the definition of done from docs/delivery/SDP.md."""
+    plan: dict[str, Any] = {"phase_rows": [], "sprints": [], "later": [], "backlog": [], "milestones": {}, "dod": "", "dor": ""}
+    rpath, spath = repo / "docs" / "delivery" / "SPRINT-ROADMAP.md", repo / "docs" / "delivery" / "SDP.md"
+    if rpath.is_file():
+        try:
+            lines = rpath.read_text(encoding="utf-8-sig").splitlines()
+        except OSError as exc:
+            lines = []
+            src.error("SPRINT-ROADMAP.md (plan)", rpath, str(exc)[:120])
+        mode = ""
+        for i, line in enumerate(lines):
+            if line.startswith("## "):
+                low = line.lower()
+                mode = "phase" if low.startswith("## phase overview") else "later" if low.startswith("## phase e") else "backlog" if low.startswith("## backlog status") else ""
+                m = re.match(r"^## Sprint (\d+) — (.*?)(?:\s*\((M[^)]*)\))?\s*$", line)
+                if m:
+                    body = section_text(lines, i)
+                    tasks, slices = [], []
+                    for row in body.splitlines():
+                        if not row.startswith("|") or re.match(r"^\|\s*-+", row):
+                            continue
+                        c = split_row(row)
+                        if len(c) >= 2 and re.match(r"^S\d+-\d+", c[0]):
+                            tasks.append({"id": c[0], "work": c[1], "model": c[2] if len(c) > 2 else "", "risk": c[4] if len(c) > 4 else "", "evidence": c[5] if len(c) > 5 else ""})
+                        elif len(c) >= 2 and c[0] not in ("Task", "Slice", "Phase", "Milestone"):
+                            slices.append({"name": c[0], "work": c[1], "model": c[2] if len(c) > 2 else ""})
+                    plan["sprints"].append({"n": int(m.group(1)), "title": m.group(2).strip(), "milestone": (m.group(3) or "").strip(), "text": body, "goal": bold_field(body, "Goal"),
+                                            "exit": bold_field(body, "Exit gate"), "owner_input": bold_field(body, "Owner input"), "tasks": tasks, "slices": slices})
+                continue
+            if not line.startswith("|") or re.match(r"^\|\s*-+", line):
+                continue
+            c = split_row(line)
+            if mode == "phase" and len(c) >= 4 and c[0].lower() != "phase":
+                plan["phase_rows"].append({"phase": c[0], "sprint": c[1], "milestone": c[2], "outcome": c[3]})
+            elif mode == "later" and len(c) >= 3 and c[0].lower() != "milestone":
+                plan["later"].append({"milestone": c[0], "scope": c[1], "note": c[2]})
+            elif mode == "backlog" and len(c) >= 3 and c[0].lower() != "task":
+                plan["backlog"].append({"task": c[0], "status": c[1], "note": c[2], "commit": c[3] if len(c) > 3 else ""})
+        src.read("SPRINT-ROADMAP.md (plan)", rpath, f"{len(plan['sprints'])} sprints, {len(plan['phase_rows'])} phase rows, {len(plan['later'])} later milestones")
+    else:
+        src.missing("SPRINT-ROADMAP.md (plan)", rpath)
+    if spath.is_file():
+        try:
+            stext = spath.read_text(encoding="utf-8-sig")
+        except OSError as exc:
+            stext = ""
+            src.error("SDP.md", spath, str(exc)[:120])
+        for row in stext.splitlines():
+            if row.startswith("| M") and not re.match(r"^\|\s*-+", row):
+                c = split_row(row)
+                if len(c) >= 4 and re.match(r"^M\d+[ab]?$", c[0]):
+                    plan["milestones"][c[0]] = {"deliverable": c[1], "entry": c[2], "exit": c[3]}
+        for key, head in (("dod", "## Definition of done"), ("dor", "## Definition of ready")):
+            m = re.search(re.escape(head) + r"\s*\n\n(.*?)(?:\n\n##|\Z)", stext, re.S)
+            plan[key] = m.group(1).strip() if m else ""
+        src.read("SDP.md", spath, f"{len(plan['milestones'])} milestones")
+    else:
+        src.missing("SDP.md", spath)
+    return plan
+
+
+def load_procedures(repo: Path, src: Sources) -> dict[str, dict[str, str]]:
+    """Verification procedures TP-nn (docs/quality/TEST-PLAN.md) and UAT-nn (docs/quality/UAT-PLAN.md)."""
+    out: dict[str, dict[str, str]] = {}
+    for rel, pat in (("docs/quality/TEST-PLAN.md", r"^\*\*(TP-\d+) — ([^*]+?)\.?\*\*\s*(.*)$"), ("docs/quality/UAT-PLAN.md", r"^###\s+(UAT-\d+) — (.+)$")):
+        p = repo / rel
+        if not p.is_file():
+            src.missing(rel, p)
             continue
-        if not line.startswith("|") or re.match(r"^\|\s*-+", line):
+        try:
+            lines = p.read_text(encoding="utf-8-sig").splitlines()
+        except OSError:
             continue
-        cells = split_row(line)
-        if mode == "phase" and len(cells) >= 4 and cells[0].lower() != "phase":
-            phases.append({"phase": cells[0], "sprint": cells[1], "milestone": cells[2], "outcome": cells[3]})
-        elif mode == "backlog" and len(cells) >= 3 and cells[0].lower() != "task":
-            tasks.append({"task": cells[0], "status": cells[1], "note": cells[2], "commit": cells[3] if len(cells) > 3 else ""})
-    src.read("SPRINT-ROADMAP.md", path, f"{len(phases)} phases, {len(tasks)} backlog rows")
-    return phases, tasks
+        for i, line in enumerate(lines):
+            m = re.match(pat, line.strip())
+            if m:
+                text = m.group(3) if m.lastindex and m.lastindex >= 3 else next((l.strip() for l in lines[i + 1:i + 6] if l.strip() and not l.startswith("#")), "")
+                out[m.group(1)] = {"id": m.group(1), "title": m.group(2).strip(), "text": text[:420], "file": rel}
+        src.read(rel, p, f"{sum(1 for v in out.values() if v['file'] == rel)} procedures")
+    return out
 
 
 def heading_of(path: Path) -> tuple[str, str]:
@@ -408,7 +498,7 @@ def load_git(repo: Path, run: Runner, src: Sources) -> dict[str, Any]:
                             "origin_time": (g("log", "-1", "--format=%cI", "origin/main") or ""),
                             "behind": g("rev-list", "--count", "HEAD..origin/main") or "", "dirty": bool(g("status", "--porcelain"))}
     ref = "origin/main" if info["origin_sha"] else "HEAD"
-    log = g("log", ref, "--first-parent", "-n", "20", "--pretty=%h%x09%cI%x09%s") or ""
+    log = g("log", ref, "--first-parent", "-n", "30", "--pretty=%h%x09%cI%x09%s") or ""
     merged = []
     for line in log.splitlines():
         parts = line.split("\t", 2)
@@ -451,6 +541,95 @@ def load_gate_log(gate_dir: Path | None, src: Sources) -> dict[str, Any] | None:
     when = dt.datetime.fromtimestamp(os.path.getmtime(p)).astimezone().isoformat(timespec="seconds")
     src.read("tools/gate.py last result", p, "newest cached gate log; it may not belong to the current commit")
     return {"lines": lines, "time": when, "path": str(p)}
+
+
+def parse_receipt(text: str, path: str) -> dict[str, Any]:
+    """A release receipt written by a build session (outside the repository): commit, exe path, SHA-256 values, gate line, and the lines that say what was NOT done."""
+    title = ""
+    commit = ""
+    exe_paths: list[str] = []
+    hashes: dict[str, str] = {}
+    gate = ""
+    limits: list[str] = []
+    for line in text.splitlines():
+        s = line.strip()
+        if not title and s.startswith("# "):
+            title = s[2:].strip()
+        if not commit:
+            m = re.search(r"\bcommit\s+([0-9a-f]{40})\b", s)
+            if m and (s.startswith("- Source") or "Source" in s[:12]):
+                commit = m.group(1)
+        if s.startswith("- Exe:"):
+            m = re.search(r"([A-Za-z]:[/\\][^\s,)`]+\.exe)", s)
+            if m:
+                exe_paths.append(m.group(1).replace("\\", "/"))
+        for m in re.finditer(r"SHA-256(?:\s+([A-Za-z0-9._-]+))?\s*(?:\([^)]*\))?\s*:\s*`?([0-9a-f]{64})`?", s):
+            hashes[m.group(2)] = m.group(1) or "exe"
+        if s.startswith("- Gate"):
+            gate = s[2:].strip()[:220]
+        if re.search(r"\bNOT RUN\b|\bNOT run\b|\bnot run\b|\bNot signed\b|\bunsigned\b|no installer", s) and not s.startswith("#"):
+            limits.append(s.lstrip("- ").strip()[:260])
+    return {"name": Path(path).name, "title": title, "commit": commit, "exe_paths": exe_paths, "hashes": hashes, "gate": gate, "limits": limits[:3]}
+
+
+def load_receipts(dirs: list[Path], src: Sources) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for d in dirs:
+        if not d.is_dir():
+            continue
+        for p in sorted(d.glob("RELEASE-RECEIPT*.md")):
+            try:
+                out.append(parse_receipt(p.read_text(encoding="utf-8-sig"), str(p)))
+            except OSError:
+                continue
+    if out:
+        src.read("release receipts", f"{len(dirs)} folder(s)", f"{len(out)} receipt files")
+    else:
+        src.skipped("release receipts", "no RELEASE-RECEIPT*.md found in the design folders")
+    return out
+
+
+def sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def scan_builds(builds_dir: Path | None, receipts: list[dict[str, Any]], repo: Path, run: Runner, src: Sources) -> list[dict[str, Any]]:
+    """Owner builds: every .exe below the builds folder, hashed here (never in the browser), matched to a receipt by SHA-256 only."""
+    if builds_dir is None or not builds_dir.is_dir():
+        src.missing("owner builds", builds_dir or "(no builds folder)", "builds folder not found")
+        return []
+    by_hash: dict[str, tuple[dict[str, Any], str]] = {}
+    for r in receipts:
+        for h, label in r["hashes"].items():
+            by_hash.setdefault(h, (r, label))
+    out: list[dict[str, Any]] = []
+    for p in sorted(builds_dir.rglob("*.exe")):
+        rel = p.relative_to(builds_dir)
+        if len(rel.parts) > 4:
+            continue
+        try:
+            st = p.stat()
+            digest = sha256_file(p)
+        except OSError:
+            continue
+        hit = by_hash.get(digest)
+        rec = None
+        if hit:
+            r, label = hit
+            commit_state = "no commit in the receipt"
+            if r["commit"]:
+                got = run(["git", "--no-optional-locks", "rev-list", r["commit"], "--not", "origin/main", "--max-count=1"], repo)
+                commit_state = "commit not found in this checkout" if got is None else ("in origin/main" if not got.strip() else "not in origin/main")
+            rec = {"file": r["name"], "title": r["title"], "label": label, "commit": r["commit"], "commit_state": commit_state, "gate": r["gate"], "limits": r["limits"]}
+        out.append({"path": str(p), "rel": rel.as_posix(), "group": rel.parts[0] if len(rel.parts) > 1 else "", "name": p.name, "size": st.st_size,
+                    "modified": dt.datetime.fromtimestamp(st.st_mtime).astimezone().isoformat(timespec="seconds"), "sha256": digest, "receipt": rec})
+    out.sort(key=lambda b: (b["modified"], b["rel"]), reverse=True)
+    src.read("owner builds", builds_dir, f"{len(out)} exe files hashed; {sum(1 for b in out if b['receipt'])} match a receipt hash")
+    return out
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -604,14 +783,16 @@ def area_for_decision(d: dict[str, Any], areas: list[dict[str, Any]], dom_area: 
 
 
 def build_model(repo: Path, coord: Path, design_dirs: list[Path], now: dt.datetime, run: Runner = default_runner,
-                github: bool = False, gate_dir: Path | None = None, stale_hours: float = STALE_HOURS) -> dict[str, Any]:
+                builds_dir: Path | None = None, receipt_dirs: list[Path] | None = None, github: bool = False, gate_dir: Path | None = None, stale_hours: float = STALE_HOURS) -> dict[str, Any]:
     src = Sources()
     reqs = load_requirements(repo, src)
     decs_list = load_decisions(repo, src)
     domains = load_domains(repo, src)
     claims = load_claims(coord, src)
     worktrees = load_branches(coord, src)
-    phases, task_rows = load_roadmap(repo, src)
+    plan = load_plan(repo, src)
+    phases, task_rows = plan["phase_rows"], plan["backlog"]
+    procs = load_procedures(repo, src)
     docs = load_docs(repo, design_dirs, src)
     git = load_git(repo, run, src)
     prs = load_github(repo, run, src) if github else []
@@ -635,11 +816,13 @@ def build_model(repo: Path, coord: Path, design_dirs: list[Path], now: dt.dateti
         buckets.setdefault(area, {}).setdefault(group, []).append(leaf)
 
     details: dict[str, dict[str, Any]] = {}
+    rstat: dict[str, tuple[str, str, dict[str, Any]]] = {}
     root_path = str(repo)
 
     # Requirements ---------------------------------------------------------------------------------------------------
     for q in sorted(reqs, key=lambda x: (ms_rank(x["milestone"]), prio_rank(x["priority"]), x["id"])):
         status, why, ex = derive_requirement(q, repo, claims, decs)
+        rstat[q["id"]] = (status, why, ex)
         area = area_for_requirement(q, areas)
         nid = "req:" + q["id"]
         label = f"{q['id']} {q['title']}".strip()
@@ -801,8 +984,6 @@ def build_model(repo: Path, coord: Path, design_dirs: list[Path], now: dt.dateti
             totals[lf["s"]] += 1
             if lf["k"] == "requirement":
                 req_totals[lf["s"]] += 1
-    for n in iter_nodes(root):
-        n.pop("rollup", None)
 
     # What next and needs the owner ----------------------------------------------------------------------------------
     req_nodes = [lf for lf in iter_leaves(root) if lf["k"] == "requirement" and lf["s"] != "verified"]
@@ -829,6 +1010,58 @@ def build_model(repo: Path, coord: Path, design_dirs: list[Path], now: dt.dateti
                 ms[m]["outcome"] = ph["outcome"]
     milestones = sorted(ms.values(), key=lambda e: ms_rank(e["id"]))
 
+    # Views for the dashboard (all derived from the data above) ---------------------------------------------------------
+    area_label = {a["i"]: a["t"] for a in root["c"]}
+    decisions_view = []
+    for d in sorted(decs_list, key=lambda x: (0 if decision_pending_owner(x) else 1, ms_rank(str(x.get("milestone", "")).split("-")[0]), x["id"])):
+        aid = area_for_decision(d, areas, dom_area, dec_dom)
+        decisions_view.append({
+            "id": d["id"], "status": d.get("status", ""), "owner": str(d.get("owner_role", "")), "owner_only": bool(OWNER_PAT.search(str(d.get("owner_role", "")))),
+            "pending": d.get("status") in PENDING_DEC, "milestone": str(d.get("milestone", "")), "area": area_label.get("area:" + aid, aid),
+            "blocks": str(d.get("blocks", "")), "question": decision_question(d), "closure": str(d.get("closure_evidence", "")),
+            "interim": str(d.get("safe_interim", "")), "decided_on": str(d.get("decided_on", "")), "reqs": req_dec_count.get(d["id"], 0),
+            "node": "dec:" + d["id"] if ("dec:" + d["id"]) in details else ""})
+    order = {"active": 0, "parked": 1}
+    claims_view = []
+    for c in sorted(claims, key=lambda x: (order.get(str(x.get("status", "")).lower(), 2), str(x.get("started", "")), x["_name"]), reverse=False):
+        holder = c.get("holder") if isinstance(c.get("holder"), dict) else {}
+        left = None
+        try:
+            if claim_active(c):
+                left = round((dt.datetime.fromisoformat(str(c.get("expires", ""))) - now).total_seconds() / 3600.0, 1)
+        except ValueError:
+            left = None
+        claims_view.append({"name": c["_name"], "domain": str(c.get("domain", "")), "task": str(c.get("task", "")), "status": str(c.get("status", "")),
+                            "branch": str(c.get("branch", "")), "model": str(c.get("model") or holder.get("model", "")), "role": str(holder.get("role", "")),
+                            "session": str((c.get("session") or {}).get("name", "") if isinstance(c.get("session"), dict) else c.get("session", "")),
+                            "started": str(c.get("started", "")), "expires": str(c.get("expires", "")), "hours_left": left,
+                            "expired": claim_expired(c, now) and claim_active(c), "worktree": str(c.get("worktree") or ""), "note": str(c.get("note", ""))[:240]})
+    done = [c for c in claims_view if c["status"].lower() not in ("active", "parked")]
+    live = [c for c in claims_view if c["status"].lower() in ("active", "parked")]
+    done.sort(key=lambda c: c["started"], reverse=True)
+    claims_view = live + done[:12]
+
+    area_bars = [{"i": a["i"], "t": a["t"], "en": a.get("en", ""), "n": a["n"], "claims": a.get("claims", 0)} for a in root["c"]]
+    areas_in_progress = sum(1 for a in root["c"] if a.get("claims"))
+    req_total = sum(req_totals.values())
+    stats = {"req_total": req_total, "req_verified": req_totals["verified"], "req_built": req_totals["built"], "areas_total": len(root["c"]),
+             "areas_in_progress": areas_in_progress, "owner_needed": len(owner_list), "claims_active": len(active),
+             "claims_expired": sum(1 for c in active if claim_expired(c, now)), "decisions_total": len(decs_list)}
+    per_day: dict[str, int] = {}
+    for m in git.get("merged", []):
+        day = m["time"][:10]
+        per_day[day] = per_day.get(day, 0) + 1
+    activity = [{"day": k, "n": v} for k, v in sorted(per_day.items())]
+    try:
+        changelog_text = (repo / "docs" / "governance" / "CHANGELOG.md").read_text(encoding="utf-8-sig")
+    except OSError:
+        changelog_text = ""
+    roadmap_root, roadmap_details = build_roadmap(reqs, rstat, plan, procs, decs, repo, run, changelog_text)
+    builds_view = scan_builds(builds_dir, load_receipts(receipt_dirs or [], src), repo, run, src)
+
+    for n in iter_nodes(root):  # the counting flag is internal; the page never needs it
+        n.pop("rollup", None)
+
     generated = now.isoformat(timespec="seconds")
     newest = max([t for t in (git.get("head_time"), git.get("origin_time")) if t] or [""])
     model = {
@@ -836,10 +1069,227 @@ def build_model(repo: Path, coord: Path, design_dirs: list[Path], now: dt.dateti
         "totals": totals, "req_totals": req_totals, "next": nxt, "owner": owner_list, "milestones": milestones,
         "git": git, "prs": prs, "gate": gate, "sources": src.items, "unmapped_docs": sorted(set(unmapped_docs)),
         "worktrees": [{"path": w.get("path", ""), "branch": w.get("branch", ""), "state": w.get("state", ""), "claim": w.get("owner_claim", "")} for w in worktrees],
-        "newest_commit_at": newest,
+        "newest_commit_at": newest, "builds": builds_view, "decisions": decisions_view, "claims": claims_view, "roadmap": roadmap_root, "roadmap_details": roadmap_details, "area_bars": area_bars,
+        "stats": stats, "activity": activity,
         "active_claims": [{"name": c["_name"], "domain": c.get("domain", ""), "task": c.get("task", ""), "branch": c.get("branch", ""), "expired": claim_expired(c, now)} for c in active],
     }
     return model
+
+
+TEST_FILE = re.compile(r"(^|/)tests?(/|$)|_test\.|\.test\.|/benches/")
+
+
+def all_ms(text: str) -> list[str]:
+    """Milestones named in a text; a range such as M5–M8 names every milestone in between."""
+    out: list[str] = []
+    for m in re.finditer(r"M(\d+)([ab]?)(?:\s*(?:–|—|-|\.\.)\s*M(\d+)([ab]?))?", text or ""):
+        a = int(m.group(1))
+        b = int(m.group(3)) if m.group(3) else a
+        for n in range(a, b + 1):
+            for tok in ([f"M{n}{m.group(2)}"] if n == a and not m.group(3) else [f"M{n}"] if n != a or m.group(3) else []):
+                if tok not in out:
+                    out.append(tok)
+    return out
+
+
+def first_ms(text: str) -> str:
+    m = re.search(r"M\d+[ab]?", text or "")
+    return m.group(0) if m else ""
+
+
+def build_roadmap(reqs: list[dict[str, Any]], rstat: dict[str, tuple[str, str, dict[str, Any]]], plan: dict[str, Any], procs: dict[str, dict[str, str]],
+                  decs: dict[str, dict[str, Any]], repo: Path, run: Runner, changelog: str) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
+    """Overall -> phase -> sprint -> task (a requirement). Every field is read from the plan, the registry or git; a missing field stays None (shown as unknown)."""
+    known = {q["id"] for q in reqs}
+    by_id = {q["id"]: q for q in reqs}
+    sprints = {sp["n"]: sp for sp in plan["sprints"]}
+    later = {first_ms(r["milestone"]): r for r in plan["later"]}
+    row_ms = {int(r["sprint"]): first_ms(r["milestone"]) for r in plan["phase_rows"] if r["sprint"].isdigit()}
+    sprint_ms = {n: first_ms(sp["milestone"]) or row_ms.get(n, "") for n, sp in sprints.items()}
+    # where each requirement is drawn, and why
+    place: dict[str, tuple[str, Any, str]] = {}
+    for n, sp in sorted(sprints.items()):
+        for rid in expand_ids(sp["text"], known):
+            place.setdefault(rid, ("sprint", n, f"named in the Sprint {n} section of SPRINT-ROADMAP.md"))
+    for ms, row in later.items():
+        for rid in expand_ids(row["scope"], known):
+            place.setdefault(rid, ("later", ms, f"named in the Phase E table ({ms})"))
+    ms_sprints: dict[str, list[int]] = {}
+    for n, ms in sprint_ms.items():
+        ms_sprints.setdefault(ms, []).append(n)
+    phase_of_ms: dict[str, str] = {}
+    phase_of_sprint: dict[int, str] = {}
+    phase_names: dict[str, str] = {}
+    phase_order: list[str] = []
+    for r in plan["phase_rows"]:
+        pid = r["phase"].split(".")[0].strip() or r["phase"]
+        phase_names[pid] = r["phase"]
+        if pid not in phase_order:
+            phase_order.append(pid)
+        for m in all_ms(r["milestone"]):
+            phase_of_ms.setdefault(m, pid)
+        if r["sprint"].isdigit():
+            phase_of_sprint[int(r["sprint"])] = pid
+    for q in reqs:
+        if q["id"] in place:
+            continue
+        ms = q["milestone"]
+        if len(ms_sprints.get(ms, [])) == 1:
+            place[q["id"]] = ("sprint", ms_sprints[ms][0], f"the only sprint of milestone {ms}; no sprint section names it")
+        elif ms in later:
+            place[q["id"]] = ("later", ms, f"milestone {ms} is in the Phase E table; its scope text does not name it")
+        elif ms in phase_of_ms:
+            place[q["id"]] = ("bucket", phase_of_ms[ms] + ":" + ms, f"no sprint names it and several sprints share milestone {ms}")
+        else:
+            place[q["id"]] = ("bucket", "unplaced:" + (ms or "none"), "its milestone is not in the plan")
+    backlog_tokens: dict[str, dict[str, str]] = {}
+    for row in plan["backlog"]:
+        for tok in SPRINT_TASK_ID.findall(row["task"]):
+            backlog_tokens.setdefault(tok, row)
+    commit_cache: dict[tuple[str, ...], list[dict[str, str]]] = {}
+    details: dict[str, dict[str, Any]] = {}
+
+    def commits_for(files: list[str]) -> list[dict[str, str]]:
+        key = tuple(files)
+        if key not in commit_cache:
+            out = run(["git", "--no-optional-locks", "log", "-n", "5", "--format=%h%x09%cI%x09%s", "--", *files], repo) if files else None
+            rows = []
+            for line in (out or "").splitlines():
+                p = line.split("\t", 2)
+                if len(p) == 3:
+                    rows.append({"sha": p[0], "time": p[1], "title": p[2]})
+            commit_cache[key] = rows
+        return commit_cache[key]
+
+    commit_ok: dict[str, bool] = {}
+
+    def commit_exists(sha: str) -> bool:
+        if sha not in commit_ok:
+            commit_ok[sha] = run(["git", "--no-optional-locks", "cat-file", "-t", sha], repo) is not None
+        return commit_ok[sha]
+
+    def sprint_task_state(tid: str) -> tuple[str, str]:
+        """done only when the Backlog row says passed or done AND names a commit that exists in this checkout; anything weaker is open or unknown."""
+        row = backlog_tokens.get(tid)
+        if row is None:
+            return "unknown", "no row in the Backlog status table names this task"
+        st = row["status"].lower()
+        if "passed" in st or re.search(r"\bdone\b", st):
+            shas = re.findall(r"\b[0-9a-f]{7,40}\b", row["commit"])
+            found = [s for s in shas if commit_exists(s)]
+            if found:
+                return "done", "Backlog status: " + row["status"] + "; commit " + found[0] + " exists here (a gate or review pass, not a live or native result)"
+            return "unknown", "Backlog status says " + row["status"] + " but " + ("none of its commits is found in this checkout" if shas else "no commit is recorded")
+        return "open", "Backlog status: " + row["status"]
+
+    def task_node(q: dict[str, Any]) -> dict[str, Any]:
+        status, why, ex = rstat[q["id"]]
+        kind, key, rule = place[q["id"]]
+        files_ok = ex["impl_ok"]
+        tests = [f for f in files_ok if TEST_FILE.search(f.replace("\\", "/"))]
+        code = [f for f in files_ok if f not in tests]
+        sprint_n = key if kind == "sprint" else None
+        stasks = [t for t in (sprints[sprint_n]["tasks"] if sprint_n in sprints else []) if re.search(r"(?<![A-Z0-9-])" + re.escape(q["id"]) + r"(?![0-9])", t["work"])]
+        accept = None
+        if q.get("acceptance") and (q["acceptance"].get("given") or q["acceptance"].get("then")):
+            a = q["acceptance"]
+            accept = {"scenario": a.get("scenario_id", ""), "given": a.get("given", ""), "when": a.get("when", ""), "then": a.get("then", "")}
+        pend = [d for d in q["decisions"] if d in decs and decision_pending_owner(decs[d])]
+        evidence_ok = bool(q["evidence"]) and q["build_status"] == "PASS"
+        checks: list[dict[str, str]] = []
+        checks.append({"label": "Acceptance scenario defined", "state": "done" if accept else "unknown",
+                       "basis": ("scenario " + accept["scenario"]) if accept else "the registry has no acceptance text for this requirement"})
+        checks.append({"label": "Implementation files exist", "state": "done" if files_ok else "open",
+                       "basis": f"{len(files_ok)} of {len(q['impl'])} listed file(s) exist on disk" if q["impl"] else "implementation_refs is empty"})
+        classes = q["required"] or []
+        if classes:
+            for c in classes:
+                checks.append({"label": f"Evidence class {c}: receipt", "state": "done" if evidence_ok else "open",
+                               "basis": "evidence_refs present and new_build_status PASS" if evidence_ok else ("no receipt in evidence_refs (new_build_status " + (q["build_status"] or "empty") + ")")})
+        else:
+            checks.append({"label": "Required evidence classes", "state": "unknown", "basis": "the registry lists none"})
+        pids = [p for p in q["procedures"] if re.match(r"^(TP|UAT)-\d+$", p)]
+        checks.append({"label": "Verification procedures named and found", "state": ("done" if pids and all(p in procs for p in pids) else "open") if pids else "unknown",
+                       "basis": (", ".join(pids) + (": all found in TEST-PLAN or UAT-PLAN" if pids and all(p in procs for p in pids) else ": at least one is not in TEST-PLAN or UAT-PLAN")) if pids else "no procedure id is listed"})
+        checks.append({"label": "No open owner decision blocks it", "state": "open" if pend else "done", "basis": ("open: " + ", ".join(pend)) if pend else "no open owner-only decision is named"})
+        ms_exit = plan["milestones"].get(q["milestone"], {}).get("exit")
+        sp_exit = sprints[sprint_n]["exit"] if sprint_n in sprints and sprints[sprint_n]["exit"] else None
+        changelog_lines = [l.strip()[:230] for l in changelog.splitlines() if re.search(r"(?<![A-Z0-9-])" + re.escape(q["id"]) + r"(?![0-9])", l)][:3]
+        nid = "rm:req:" + q["id"]
+        details[nid] = {
+            "kind": "task", "id": q["id"], "title": q["id"] + " " + q["title"], "status": status, "why": why, "priority": q["priority"], "milestone": q["milestone"], "module": q["module"],
+            "needs": q["needs"], "placement": rule, "statement": q["statement"], "failure": q.get("failure") or None, "acceptance": accept,
+            "success": accept["then"] if accept and accept["then"] else None,
+            "checks": checks, "dod": plan["dod"] or None, "exit": {"sprint": sp_exit, "milestone": ms_exit},
+            "links": {"code": code, "tests": tests, "docs": [r for r in q["design"] + q["spec"] + q["contracts"] if r],
+                      "missing": ex["impl_missing"], "procedures": [procs.get(p) or {"id": p, "title": None, "file": None} for p in pids], "evidence": q["evidence"]},
+            "decisions": [{"id": d, "status": decs[d]["status"] if d in decs else "not in decisions.json", "question": decision_question(decs[d]) if d in decs else ""} for d in q["decisions"]],
+            "claims": ex["claims"], "sprint_tasks": [{"id": t["id"], "work": t["work"][:200], "state": sprint_task_state(t["id"])[0]} for t in stasks],
+            "changelog": {"commits": commits_for(files_ok), "lines": changelog_lines}}
+        return {"i": nid, "t": q["id"] + " " + q["title"], "k": "task", "s": status, "p": q["priority"], "m": q["milestone"], "rollup": True}
+
+    def sprint_node(n: int) -> dict[str, Any]:
+        sp = sprints[n]
+        ms = sprint_ms[n]
+        kids = [task_node(by_id[rid]) for rid in sorted((r for r, p in place.items() if p[0] == "sprint" and p[1] == n), key=lambda r: (prio_rank(by_id[r]["priority"]), r))]
+        node = make_node(f"rm:sprint:{n}", f"Sprint {n} — {sp['title']} ({ms or '?'})", "sprint", kids)
+        items = []
+        for t in sp["tasks"]:
+            st, basis = sprint_task_state(t["id"])
+            items.append({"id": t["id"], "work": t["work"][:240], "model": t["model"], "risk": t["risk"], "evidence": t["evidence"], "state": st, "basis": basis})
+        pr = next((r for r in plan["phase_rows"] if r["sprint"] == str(n)), None)
+        details[node["i"]] = {"kind": "sprint", "title": node["t"], "status": node["s"], "goal": sp["goal"] or (pr["outcome"] if pr else None), "goal_source": "the Goal line of the sprint section" if sp["goal"] else "the Outcome column of the phase overview",
+                              "exit": sp["exit"] or None, "owner_input": sp["owner_input"] or None, "milestone": ms,
+                              "milestone_info": plan["milestones"].get(ms), "work_items": items, "slices": sp["slices"][:12],
+                              "requirements": [k["i"][7:] for k in kids], "rule": "tasks of this sprint are the requirements placed here by the rule shown on each"}
+        return node
+
+    def later_node(ms: str) -> dict[str, Any]:
+        row = later[ms]
+        kids = [task_node(by_id[rid]) for rid in sorted((r for r, p in place.items() if p[0] == "later" and p[1] == ms), key=lambda r: (prio_rank(by_id[r]["priority"]), r))]
+        node = make_node(f"rm:later:{ms}", f"{ms} — {row['scope'][:70]}", "sprint", kids)
+        details[node["i"]] = {"kind": "sprint", "title": f"{ms} (planned to milestone level, not yet to sprints)", "status": node["s"], "goal": row["note"] or None, "goal_source": "the Planning note of the Phase E table",
+                              "exit": None, "owner_input": None, "milestone": ms, "milestone_info": plan["milestones"].get(ms), "work_items": [], "slices": [],
+                              "requirements": [k["i"][7:] for k in kids], "rule": "Phase E is planned to milestone level only"}
+        return node
+
+    def bucket_node(key: str) -> dict[str, Any]:
+        kids = [task_node(by_id[rid]) for rid in sorted((r for r, p in place.items() if p[0] == "bucket" and p[1] == key), key=lambda r: (prio_rank(by_id[r]["priority"]), r))]
+        ms = key.split(":", 1)[1]
+        node = make_node(f"rm:bucket:{key}", f"No sprint names these ({ms})", "sprint", kids)
+        details[node["i"]] = {"kind": "sprint", "title": f"Requirements of milestone {ms} that no sprint section names", "status": node["s"], "goal": None, "goal_source": "",
+                              "exit": None, "owner_input": None, "milestone": ms, "milestone_info": plan["milestones"].get(ms), "work_items": [], "slices": [],
+                              "requirements": [k["i"][7:] for k in kids], "rule": "several sprints share this milestone, so the requirement is not guessed into one of them"}
+        return node
+
+    phases: list[dict[str, Any]] = []
+    order = phase_order or ["?"]
+    for pid in order:
+        kids: list[dict[str, Any]] = []
+        for n in sorted(sprints):
+            if phase_of_sprint.get(n, "?") == pid:
+                kids.append(sprint_node(n))
+        for ms, row in later.items():
+            if phase_of_ms.get(ms) == pid:
+                kids.append(later_node(ms))
+        for key in sorted({p[1] for p in place.values() if p[0] == "bucket" and p[1].startswith(pid + ":")}):
+            kids.append(bucket_node(key))
+        if not kids and pid == "?":
+            continue  # no phase table was read: requirements go to the unplaced buckets below, not under an invented phase
+        node = make_node(f"rm:phase:{pid}", phase_names.get(pid, pid), "phase", kids)
+        ms_list = sorted({m for r in plan["phase_rows"] if r["phase"].split(".")[0].strip() == pid for m in all_ms(r["milestone"])})
+        details[node["i"]] = {"kind": "phase", "title": node["t"], "status": node["s"], "milestones": [{"id": m, **plan["milestones"].get(m, {})} for m in ms_list],
+                              "outcomes": [{"sprint": r["sprint"], "milestone": r["milestone"], "outcome": r["outcome"]} for r in plan["phase_rows"] if r["phase"].split(".")[0].strip() == pid]}
+        phases.append(node)
+    unplaced = sorted({p[1] for p in place.values() if p[0] == "bucket" and p[1].startswith("unplaced:")})
+    for key in unplaced:
+        phases.append(bucket_node(key))
+    root = make_node("rm:all", "Overall", "root", phases)
+    details["rm:all"] = {"kind": "overall", "title": "Overall progress", "status": root["s"], "total": sum(root["n"].values()), "verified": root["n"]["verified"], "built": root["n"]["built"],
+                         "note": "Tasks are the requirements of contracts/requirements.json. Verified counts only requirements with receipt-backed evidence (evidence_refs and new_build_status PASS); built-not-verified is shown separately and never added to it."}
+    for n in iter_nodes(root):
+        n.pop("rollup", None)
+    return root, details
 
 
 def make_node(nid: str, label: str, kind: str, children: list[dict[str, Any]]) -> dict[str, Any]:
@@ -879,160 +1329,19 @@ def iter_leaves(n: dict[str, Any]):
 # ---------------------------------------------------------------------------------------------------------------
 # HTML
 # ---------------------------------------------------------------------------------------------------------------
+TEMPLATE_PATH = Path(__file__).with_name("progress_map_template.html")
+
+
 def safe_json(obj: Any) -> str:
     text = json.dumps(obj, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return text.replace("</", "<\\/").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029").replace("<!--", "<\\!--")
 
 
 def render_html(model: dict[str, Any]) -> str:
-    return HTML_TEMPLATE.replace("/*__DATA__*/", safe_json(model))
+    template = TEMPLATE_PATH.read_text(encoding="utf-8")
+    return template.replace("/*__DATA__*/", safe_json(model))
 
 
-HTML_TEMPLATE = r"""<!doctype html>
-<html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Kohbor — แผนที่ความคืบหน้า</title>
-<style>
-:root{color-scheme:light dark;--bg:#f4f6f9;--fg:#1b2230;--muted:#586377;--panel:#ffffff;--line:#bfc8d6;--card:#ffffff;--hl:#fff3c4;
---s-verified:#1c7d4d;--s-built:#2a65ad;--s-progress:#c9741a;--s-designed:#7352bd;--s-notstarted:#6f7a8c;--s-blocked:#c1313a;--s-unknown:#5f6877}
-@media (prefers-color-scheme:dark){:root{--bg:#10141b;--fg:#e4e8ef;--muted:#9ba6b9;--panel:#181e28;--line:#3a4558;--card:#1d2431;--hl:#4a3f12;
---s-verified:#47c785;--s-built:#6eaaf0;--s-progress:#f2a652;--s-designed:#ab90f2;--s-notstarted:#9ba6b9;--s-blocked:#f2757a;--s-unknown:#9ba6b9}}
-*{box-sizing:border-box}html,body{height:100%;margin:0}
-body{background:var(--bg);color:var(--fg);font:13px/1.35 "Leelawadee UI","Noto Sans Thai",Tahoma,"Segoe UI",system-ui,sans-serif;display:flex;flex-direction:column;overflow:hidden}
-header{padding:8px 14px 6px;border-bottom:1px solid var(--line);background:var(--panel);flex:none}
-.row1{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
-h1{font-size:16px;margin:0}
-.stamp{color:var(--muted);font-size:12px}
-.stale{background:var(--s-blocked);color:#fff;border-radius:4px;padding:1px 8px;font-weight:600;font-size:12px}
-.row2{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px}
-.chip{display:inline-flex;gap:5px;align-items:center;border:1px solid var(--line);border-left:5px solid var(--sc);border-radius:5px;padding:2px 8px;background:var(--card);color:var(--fg);cursor:pointer;font:inherit}
-.chip b{font-variant-numeric:tabular-nums}.chip[aria-pressed=true]{outline:2px solid var(--sc);outline-offset:1px}
-input[type=search]{border:1px solid var(--line);border-radius:5px;padding:3px 8px;background:var(--card);color:var(--fg);font:inherit;width:170px}
-button.btn{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:5px;padding:3px 9px;font:inherit;cursor:pointer}
-button.btn:hover,.chip:hover{border-color:var(--fg)}
-main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 390px}
-#tree{overflow:auto;position:relative;padding:10px}
-#canvas{position:relative}
-svg#links{position:absolute;left:0;top:0;pointer-events:none}
-svg#links path{fill:none;stroke:var(--line);stroke-width:1.5}
-.node{position:absolute;height:34px;border:1px solid var(--line);border-left:6px solid var(--sc);border-radius:6px;background:var(--card);background:color-mix(in srgb,var(--sc) 11%,var(--card));
-display:flex;align-items:center;gap:6px;padding:0 7px;cursor:pointer;overflow:hidden;white-space:nowrap;color:var(--fg);user-select:none}
-.node:hover{border-color:var(--fg)}.node.sel{outline:2px solid var(--fg);outline-offset:1px}.node.dim{opacity:.28}.node.hit{background:var(--hl)}
-.node.s-unknown{border-style:dashed;border-left-style:solid}
-.node .g{color:var(--sc);font-weight:700;width:14px;text-align:center;flex:none}
-.node .l{overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
-.node .bd{font-size:11px;color:var(--muted);flex:none}
-.node .p0{background:var(--s-blocked);color:#fff;border-radius:3px;padding:0 4px;font-size:10px;font-weight:700;flex:none}
-.node .ms{font-size:10px;color:var(--muted);flex:none}
-.node.root{font-weight:700;font-size:14px;border-left-width:1px}
-.node.area{font-weight:600}
-.bar{position:absolute;left:0;right:0;bottom:0;height:4px;display:flex}.bar i{display:block;height:100%}
-.s-verified{--sc:var(--s-verified)}.s-built{--sc:var(--s-built)}.s-progress{--sc:var(--s-progress)}.s-designed{--sc:var(--s-designed)}
-.s-notstarted{--sc:var(--s-notstarted)}.s-blocked{--sc:var(--s-blocked)}.s-unknown{--sc:var(--s-unknown)}
-aside{border-left:1px solid var(--line);background:var(--panel);overflow:auto;padding:10px 12px}
-aside h2{font-size:14px;margin:0 0 4px}aside h3{font-size:12px;margin:12px 0 4px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
-aside ul{margin:0;padding:0;list-style:none}aside li{padding:3px 0;border-bottom:1px dotted var(--line)}
-aside .li{cursor:pointer}aside .li:hover{background:var(--bg)}.li .r{display:flex;gap:6px;align-items:baseline}
-.dot{display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--sc);flex:none}
-code,.path{font:11.5px Consolas,"Cascadia Mono",monospace;word-break:break-all}.path.miss{color:var(--s-blocked)}
-.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:12px}.kv dt{color:var(--muted)}.kv dd{margin:0;word-break:break-word}
-.why{background:var(--bg);border-left:4px solid var(--sc);padding:5px 8px;border-radius:4px;margin:6px 0}
-.small{font-size:11.5px;color:var(--muted)}a{color:inherit}
-.q{font-size:12px;margin:2px 0 0 0;color:var(--muted)}
-@media (max-width:1000px){main{grid-template-columns:1fr;grid-template-rows:60% 40%}aside{border-left:0;border-top:1px solid var(--line)}}
-</style></head><body>
-<header>
-<div class="row1"><h1>Kohbor — แผนที่ความคืบหน้า</h1><span class="stamp" id="stamp"></span><span class="stale" id="stale" hidden></span><span class="stamp" id="gitwarn"></span></div>
-<div class="row2" id="chips"></div>
-</header>
-<main><div id="tree" role="tree" aria-label="progress tree"><div id="canvas"><svg id="links"></svg></div></div><aside id="panel"></aside></main>
-<script type="application/json" id="data">/*__DATA__*/</script>
-<script>
-"use strict";
-const D=JSON.parse(document.getElementById("data").textContent);
-const ST={};D.statuses.forEach(s=>ST[s.id]=s);
-const nodes={},parent={};
-(function idx(n,p){nodes[n.i]=n;parent[n.i]=p;(n.c||[]).forEach(c=>idx(c,n))})(D.tree,null);
-const open=new Set(["root"]);let sel=null,filter=null,query="";
-const COLW=[130,250,195,290],GAPX=24,ROWH=34,GAPY=6;
-const $=id=>document.getElementById(id);
-function E(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e}
-function depth(n){let d=0;for(let p=parent[n.i];p;p=parent[p.i])d++;return d}
-function xOf(d){let x=0;for(let i=0;i<d;i++)x+=COLW[Math.min(i,3)]+GAPX;return x}
-function kids(n){return open.has(n.i)?(n.c||[]):[]}
-function matches(n){if(!query)return true;const q=query.toLowerCase();return(n.t||"").toLowerCase().includes(q)||n.i.toLowerCase().includes(q)}
-function dimmed(n){if(filter){return !(n.n&&n.n[filter]>0)}return false}
-function layout(){let cursor=0;const pos={};
- (function place(n,d){const ks=kids(n);if(!ks.length){pos[n.i]={x:xOf(d),y:cursor,w:COLW[Math.min(d,3)]};cursor+=ROWH+GAPY;return}
-  ks.forEach(c=>place(c,d+1));const a=pos[ks[0].i].y,b=pos[ks[ks.length-1].i].y;pos[n.i]={x:xOf(d),y:(a+b)/2,w:COLW[Math.min(d,3)]}})(D.tree,0);
- return{pos,height:Math.max(cursor,ROWH)}}
-function render(){const {pos,height}=layout();const cv=$("canvas");cv.querySelectorAll(".node").forEach(e=>e.remove());
- let maxX=0;const svg=$("links");let paths="";
- for(const id in pos){const n=nodes[id],p=pos[id];maxX=Math.max(maxX,p.x+p.w);
-  const el=E("div","node "+n.k+" s-"+n.s);el.style.left=p.x+"px";el.style.top=p.y+"px";el.style.width=p.w+"px";el.setAttribute("role","treeitem");el.tabIndex=0;el.dataset.id=id;
-  el.title=n.t+"\n"+ST[n.s].th+" / "+ST[n.s].en;if(id===sel)el.classList.add("sel");if(dimmed(n)||(query&&!matches(n)&&!(n.c&&n.c.length)))el.classList.add("dim");if(query&&matches(n))el.classList.add("hit");
-  el.appendChild(E("span","g",ST[n.s].glyph));el.appendChild(E("span","l",n.t));
-  if(n.k==="requirement"){if(n.p==="P0")el.appendChild(E("span","p0","P0"));if(n.m)el.appendChild(E("span","ms",n.m))}
-  if(n.c&&n.c.length){const tot=Object.values(n.n).reduce((a,b)=>a+b,0);el.appendChild(E("span","bd",(n.claims?("▶"+n.claims+" "):"")+tot+(open.has(id)?" ▾":" ▸")));
-   const bar=E("div","bar");D.statuses.forEach(s=>{if(n.n[s.id]){const i=E("i");i.style.flex=n.n[s.id];i.style.background="var(--s-"+s.id+")";bar.appendChild(i)}});el.appendChild(bar)}
-  el.addEventListener("click",()=>choose(id));el.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();choose(id)}});cv.appendChild(el);
-  kids(n).forEach(c=>{const q=pos[c.i];const x1=p.x+p.w,y1=p.y+ROWH/2,x2=q.x,y2=q.y+ROWH/2,mx=(x1+x2)/2;paths+=`<path d="M${x1} ${y1}C${mx} ${y1} ${mx} ${y2} ${x2} ${y2}"/>`})}
- svg.setAttribute("width",maxX+20);svg.setAttribute("height",height);svg.innerHTML=paths;cv.style.width=(maxX+20)+"px";cv.style.height=height+"px"}
-function choose(id){const n=nodes[id];sel=id;if(n.c&&n.c.length){if(open.has(id)){close(n)}else{if(n.k==="area"){(parent[id].c||[]).forEach(s=>{if(s!==n)close(s)})}open.add(id)}}render();showNode(id);const el=document.querySelector('.node[data-id="'+CSS.escape(id)+'"]');if(el)el.scrollIntoView({block:"nearest",inline:"nearest"})}
-function close(n){open.delete(n.i);(n.c||[]).forEach(close)}
-function reveal(id){for(let p=parent[id];p;p=parent[p.i])open.add(p.i);const n=nodes[id];if(n.k==="area")(parent[id].c||[]).forEach(s=>{if(s!==n)close(s)});sel=id;render();showNode(id);const el=document.querySelector('.node[data-id="'+CSS.escape(id)+'"]');if(el)el.scrollIntoView({block:"center",inline:"nearest"})}
-function dot(s){const d=E("span","dot");d.className="dot s-"+s;return d}
-function listItem(id,label,s,extra){const li=E("li","li");const r=E("div","r");r.appendChild(dot(s));r.appendChild(E("span","",label));if(extra){r.appendChild(E("span","small",extra))}li.appendChild(r);li.addEventListener("click",()=>reveal(id));return li}
-function sec(p,t){p.appendChild(E("h3","",t))}
-function fileHref(path,abs){const a=abs?path:D.repo+"/"+path;return"file:///"+a.replace(/\\/g,"/").replace(/^\/+/,"")}
-function pathEl(f){const wrap=E("div");const a=E("a","path"+(f.ok?"":" miss"),f.path);a.href=fileHref(f.path,f.abs);a.target="_blank";a.rel="noopener";wrap.appendChild(a);if(!f.ok)wrap.appendChild(E("span","small"," (not found on disk)"));return wrap}
-function showHome(){const p=$("panel");p.textContent="";
- p.appendChild(E("h2","","ภาพรวม / Overview"));
- sec(p,"ต้องทำต่อ / What next (P0 → earliest milestone → unblocked first)");const ul=E("ul");D.next.slice(0,12).forEach(x=>ul.appendChild(listItem(x.i,x.t,x.s,(x.p||"")+" "+(x.m||""))));p.appendChild(ul);
- if(D.next.length>12)p.appendChild(E("div","small","+"+(D.next.length-12)+" more requirements not yet verified"));
- sec(p,"ต้องให้เจ้าของตัดสินใจ / Needs the owner");const u2=E("ul");D.owner.slice(0,14).forEach(o=>{const li=listItem(o.i,o.id,"blocked",o.milestone+" · "+o.reqs+" req");li.appendChild(E("div","q",o.question));u2.appendChild(li)});p.appendChild(u2);
- if(D.owner.length>14)p.appendChild(E("div","small","+"+(D.owner.length-14)+" more open owner decisions"));
- if(D.active_claims.length){sec(p,"งานที่กำลังทำ / Active work (coordination ledger)");const u=E("ul");D.active_claims.forEach(c=>{const li=E("li","",c.domain+" · "+c.task+" · "+c.branch+(c.expired?" [expired]":""));u.appendChild(li)});p.appendChild(u)}
- if(D.milestones.length){sec(p,"Milestones (requirements by status)");const u=E("ul");D.milestones.forEach(m=>{const li=E("li");li.appendChild(E("b","",m.id+" "));const parts=D.statuses.filter(s=>m.n[s.id]).map(s=>s.glyph+m.n[s.id]).join("  ");li.appendChild(E("span","",parts));if(m.outcome)li.appendChild(E("div","small",m.outcome));u.appendChild(li)});p.appendChild(u)}
- if(D.git.merged&&D.git.merged.length){sec(p,"Recent merges ("+D.git.merged_ref+")");const u=E("ul");D.git.merged.slice(0,10).forEach(m=>u.appendChild(E("li","",m.sha+" "+m.title)));p.appendChild(u)}
- if(D.prs.length){sec(p,"GitHub pull requests");const u=E("ul");D.prs.slice(0,12).forEach(m=>u.appendChild(E("li","","#"+m.number+" "+m.state+" "+m.title)));p.appendChild(u)}
- if(D.gate){sec(p,"Last cached gate log (may not match this commit)");const pre=E("div","small",D.gate.time);p.appendChild(pre);D.gate.lines.forEach(l=>p.appendChild(E("div","path",l)))}
- sec(p,"Status rules");p.appendChild(E("div","small","✓ verified: evidence_refs present and new_build_status PASS. ◐ built: implementation files exist on disk, no passing evidence. ▶ in progress: an active claim covers its files. ✎ designed only: a design or contract file exists, no code. ○ not started. ! needs the owner: an open owner-only decision blocks it. ? unknown: no data, never shown as done. Details: docs/governance/PROGRESS-MAP.md"));
- sec(p,"Sources");const us=E("ul");D.sources.forEach(s=>{const li=E("li");li.appendChild(E("b","",s.status.toUpperCase()+" "));li.appendChild(E("span","",s.name+(s.note?" — "+s.note:"")));us.appendChild(li)});p.appendChild(us);
- if(D.unmapped_docs.length)p.appendChild(E("div","small","Documents not mapped to an area: "+D.unmapped_docs.join(", ")));
- p.scrollTop=0}
-function showNode(id){const d=D.details[id],n=nodes[id],p=$("panel");p.textContent="";const back=E("button","btn","← ภาพรวม / Overview");back.addEventListener("click",()=>{sel=null;render();showHome()});p.appendChild(back);
- const info=d||{kind:n.k,status:n.s,why:"",title:n.t,fields:{},files:[],design:[],evidence:[],claims:[],decisions:[],notes:[]};
- const h=E("h2","",info.title||n.t);h.style.marginTop="8px";p.appendChild(h);
- const st=E("div","why s-"+n.s);st.appendChild(E("b","",ST[n.s].glyph+" "+ST[n.s].th+" / "+ST[n.s].en));st.appendChild(E("div","small","kind: "+info.kind));if(info.why)st.appendChild(E("div","",info.why));p.appendChild(st);
- if(n.c&&n.c.length){sec(p,"Children by status");const w=E("div","row2");D.statuses.forEach(s=>{if(n.n[s.id]){const c=E("span","chip s-"+s.id);c.appendChild(E("b","",n.n[s.id]));c.appendChild(document.createTextNode(" "+s.glyph));c.title=s.en;w.appendChild(c)}});p.appendChild(w)}
- if(info.statement){sec(p,"Statement / question");p.appendChild(E("div","",info.statement))}
- const kvs=Object.entries(info.fields||{}).filter(e=>e[1]!==""&&e[1]!==undefined);if(kvs.length){sec(p,"Fields");const dl=E("dl","kv");kvs.forEach(([k,v])=>{dl.appendChild(E("dt","",k));dl.appendChild(E("dd","",v))});p.appendChild(dl)}
- if(info.closure){sec(p,"To close it");p.appendChild(E("div","",info.closure))}
- if(info.safe_interim){sec(p,"Safe interim");p.appendChild(E("div","",info.safe_interim))}
- if(info.decisions&&info.decisions.length){sec(p,"Open decisions");const ul=E("ul");info.decisions.forEach(x=>{const li=E("li");li.appendChild(E("b","",x.id+" "));li.appendChild(E("span","small","["+x.status+"] "+(x.owner||"")));if(x.question)li.appendChild(E("div","q",x.question));ul.appendChild(li)});p.appendChild(ul)}
- if(info.claims&&info.claims.length){sec(p,"Active claims");info.claims.forEach(c=>p.appendChild(E("div","path",c)))}
- if(info.files&&info.files.length){sec(p,"Files");info.files.forEach(f=>p.appendChild(pathEl(f)))}
- if(info.design&&info.design.length){sec(p,"Design / spec / contract files");info.design.forEach(f=>p.appendChild(pathEl(f)))}
- if(info.evidence&&info.evidence.length){sec(p,"Evidence");info.evidence.forEach(f=>p.appendChild(pathEl({path:f,ok:true})))}else if(info.kind==="requirement"){sec(p,"Evidence");p.appendChild(E("div","small","none recorded (evidence_refs is empty)"))}
- if(info.notes&&info.notes.length){sec(p,"Notes");info.notes.forEach(t=>p.appendChild(E("div","small",t)))}
- p.scrollTop=0}
-function setup(){
- const g=D.git||{};const when=new Date(D.generated_at);
- $("stamp").textContent="generated at "+D.generated_at.replace("T"," ")+" from commit "+(g.sha||"unknown")+(g.branch?" ("+g.branch+")":"")+(g.dirty?" + uncommitted changes":"");
- const age=(Date.now()-when.getTime())/36e5;const sh=D.stale_hours;
- if(isFinite(age)&&age>sh){const s=$("stale");s.hidden=false;s.textContent="STALE: generated "+(age<48?Math.round(age)+" h":Math.round(age/24)+" days")+" ago — regenerate with python tools/progress_map.py"}
- let w=[];if(g.behind&&g.behind!=="0")w.push("this checkout is "+g.behind+" commit(s) behind origin/main");if(g.origin_sha&&g.sha&&g.origin_sha!==g.sha)w.push("origin/main is "+g.origin_sha);$("gitwarn").textContent=w.join("; ");
- const chips=$("chips");D.statuses.forEach(s=>{const b=E("button","chip s-"+s.id);b.type="button";b.setAttribute("aria-pressed","false");b.appendChild(E("b","",D.totals[s.id]));b.appendChild(document.createTextNode(" "+s.glyph+" "+s.th+" / "+s.en));b.title="requirements: "+D.req_totals[s.id];
-  b.addEventListener("click",()=>{filter=filter===s.id?null:s.id;chips.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed","false"));if(filter)b.setAttribute("aria-pressed","true");render()});chips.appendChild(b)});
- const q=E("input");q.type="search";q.placeholder="ค้นหา / search id, text";q.addEventListener("input",()=>{query=q.value.trim();open.clear();open.add("root");if(query){Object.values(nodes).forEach(n=>{if(matches(n)&&n.i!=="root"){for(let p=parent[n.i];p;p=parent[p.i])open.add(p.i)}})}render()});chips.appendChild(q);
- const ea=E("button","btn","ขยายทั้งหมด / Expand all");ea.addEventListener("click",()=>{Object.values(nodes).forEach(n=>{if(n.c&&n.c.length)open.add(n.i)});render()});chips.appendChild(ea);
- const ca=E("button","btn","ย่อ / Collapse");ca.addEventListener("click",()=>{open.clear();open.add("root");sel=null;render();showHome()});chips.appendChild(ca);
- const ov=E("button","btn","ภาพรวม / Overview");ov.addEventListener("click",()=>{sel=null;render();showHome()});chips.appendChild(ov);
- const tot=Object.values(D.totals).reduce((a,b)=>a+b,0);chips.appendChild(E("span","stamp","  "+tot+" leaves; chip tooltip = requirements only"));
- open.add("root");render();showHome()}
-setup();
-</script></body></html>
-"""
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -1067,6 +1376,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--coord", default=os.environ.get("KOHBOR_COORD_DIR", DEFAULT_COORD))
     ap.add_argument("--design-dir", action="append", default=None,
                     help="extra design folder (repeatable); default: KOHBOR_DESIGN_DIR or F:\\kohbor-design when it exists")
+    ap.add_argument("--builds-dir", default=os.environ.get("KOHBOR_BUILDS_DIR", DEFAULT_BUILDS),
+                    help="folder of owner builds (every .exe below it is hashed and matched to release receipts); default KOHBOR_BUILDS_DIR or F:\\kohbor-local")
     ap.add_argument("--out", default=DEFAULT_OUT)
     ap.add_argument("--open", action="store_true", help="open the file in the default browser")
     ap.add_argument("--github", action="store_true", help="also read pull requests with the gh CLI (optional, needs network)")
@@ -1082,7 +1393,8 @@ def main(argv: list[str] | None = None) -> int:
         env = os.environ.get("KOHBOR_DESIGN_DIR", DEFAULT_DESIGN)
         base = Path(env)
         design = [str(p) for p in sorted(base.glob("*")) if p.is_dir()] if base.is_dir() else []
-    model = build_model(repo, Path(args.coord), [Path(d) for d in design], parse_now(args.now), github=args.github, stale_hours=args.stale_hours)
+    model = build_model(repo, Path(args.coord), [Path(d) for d in design], parse_now(args.now), builds_dir=Path(args.builds_dir), receipt_dirs=[Path(d) for d in design],
+                        github=args.github, stale_hours=args.stale_hours)
     out = Path(args.out)
     if args.json:
         print(json.dumps(model, ensure_ascii=False, indent=1, sort_keys=True))
