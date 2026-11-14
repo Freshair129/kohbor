@@ -385,7 +385,7 @@ impl Shared {
         self.persist_runtime();
     }
 
-    /// Own snapshot (own-snapshot 2.0.0) for the latest admitted payload.
+    /// Own snapshot (own-snapshot 2.1.0) for the latest admitted payload.
     pub fn snapshot(&self) -> Value {
         let generation = self.generation.max(1);
         match &self.last_admitted {

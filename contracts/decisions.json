@@ -672,6 +672,19 @@
         "apps/desktop/src/copy.ts",
         "docs/design/REMAINING-SYSTEM-DESIGN.md (DEC-MODELS note)"
       ]
+    },
+    {
+      "id": "DEC-OWN-SNAPSHOT-2-1",
+      "status": "decided",
+      "milestone": "M2",
+      "blocks": "Nothing else: the own-snapshot extension (schema 2.1.0) and, later, the items and abilities GSI blocks for the own-hero card",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-14",
+      "channel": "Owner message in the engineering chat session (2026-11-14), relayed by the coordinating session; recorded by an agent (MVP-2 integration lead)",
+      "owner_statement_th": "อนุญาต",
+      "decision": "The owner allows an additive extension of the own-snapshot contract to schema 2.1.0 with the own hero's gold, kills, deaths, assists, last hits, denies, gpm and xpm (from the GSI player block already requested), and, in a later slice, requesting the items and abilities GSI blocks for the own hero. All of it stays local and own-hero only, never sent to a cloud (cloud policy fixtures unchanged); a missing, invalid or unobserved field is unknown, never zero. Not decided here: any enemy or ally data, any change to freshness rules, the G-Meter, or the cfg data-block change itself beyond this approval of the intent (the owner re-runs GSI setup and restarts Dota once when the blocks are added).",
+      "closure_evidence": "MVP-2 slice 2a (own-snapshot 2.1.0) and slice 2b (items and abilities blocks) with their tests; native confirmation by the owner's match."
     }
   ]
 }

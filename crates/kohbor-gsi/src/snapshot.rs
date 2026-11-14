@@ -1,4 +1,4 @@
-//! Own-snapshot read model, contracts/own-snapshot.schema.json 2.0.0.
+//! Own-snapshot read model, contracts/own-snapshot.schema.json 2.1.0.
 
 use crate::admission::{Admitted, Field, Outcome, Ownership, Phase, Team};
 use serde::Serialize;
@@ -52,7 +52,7 @@ pub fn build(outcome: &Outcome, src: SourceState) -> Value {
                 seq: Option<u64>,
                 age: Option<u64>| {
         json!({
-            "schema_version": "2.0.0",
+            "schema_version": "2.1.0",
             "session_epoch": epoch,
             "availability": availability,
             "source": {"kind": "gsi", "generation": src.generation, "sequence": seq, "age_ms": age},
@@ -78,6 +78,7 @@ pub fn build(outcome: &Outcome, src: SourceState) -> Value {
     }
     let observed = age_availability(age);
     let h = &admitted.hero;
+    let c = &admitted.counters;
     let own = json!({
         "identity_revision": src.identity_revision,
         "team": admitted.team.map(|t| match t { Team::Radiant => "radiant", Team::Dire => "dire" }),
@@ -89,6 +90,14 @@ pub fn build(outcome: &Outcome, src: SourceState) -> Value {
             "mana_percent": field_json(&h.mana_percent, observed),
             "alive": field_json(&h.alive, observed),
             "respawn_seconds": field_json(&h.respawn_seconds, observed),
+            "gold": field_json(&c.gold, observed),
+            "kills": field_json(&c.kills, observed),
+            "deaths": field_json(&c.deaths, observed),
+            "assists": field_json(&c.assists, observed),
+            "last_hits": field_json(&c.last_hits, observed),
+            "denies": field_json(&c.denies, observed),
+            "gpm": field_json(&c.gpm, observed),
+            "xpm": field_json(&c.xpm, observed),
         }
     });
     base(observed, own, Some(epoch), Some(seq), Some(age))

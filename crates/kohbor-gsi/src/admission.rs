@@ -89,9 +89,15 @@ pub struct HeroFields {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct OwnCounters {
+    pub gold: Field<i64>,
     pub kills: Field<i64>,
     pub kill_streak: Field<i64>,
     pub deaths: Field<i64>,
+    pub assists: Field<i64>,
+    pub last_hits: Field<i64>,
+    pub denies: Field<i64>,
+    pub gpm: Field<i64>,
+    pub xpm: Field<i64>,
     pub combined_score: Field<i64>,
 }
 
@@ -210,8 +216,8 @@ pub fn admit(
     }))
 }
 
-fn int_field(hero: Option<&Value>, key: &str, min: i64, max: i64) -> Field<i64> {
-    match hero.and_then(|h| h.get(key)) {
+fn int_field(object: Option<&Value>, key: &str, min: i64, max: i64) -> Field<i64> {
+    match object.and_then(|o| o.get(key)) {
         None => Field::Missing,
         Some(v) => match v.as_i64() {
             Some(n) if (min..=max).contains(&n) => Field::Value(n),
@@ -233,9 +239,15 @@ fn own_counters(player: Option<&Value>, map: Option<&Value>) -> OwnCounters {
     };
 
     OwnCounters {
-        kills: int_field(player, "kills", 0, 100_000),
+        gold: int_field(player, "gold", 0, 1_000_000),
+        kills: int_field(player, "kills", 0, 10_000),
         kill_streak: int_field(player, "kill_streak", 0, 100_000),
-        deaths: int_field(player, "deaths", 0, 100_000),
+        deaths: int_field(player, "deaths", 0, 10_000),
+        assists: int_field(player, "assists", 0, 10_000),
+        last_hits: int_field(player, "last_hits", 0, 10_000),
+        denies: int_field(player, "denies", 0, 10_000),
+        gpm: int_field(player, "gpm", 0, 10_000),
+        xpm: int_field(player, "xpm", 0, 10_000),
         combined_score,
     }
 }

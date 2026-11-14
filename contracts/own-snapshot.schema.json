@@ -2,11 +2,11 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/spec/own-snapshot.schema.json",
   "title": "own-snapshot.schema.json",
-  "description": "Proposed neutral contract 2.0.0: per-field availability for admitted own-player game-state values. See docs/design/ICD.md and docs/design/GSI-INTAKE-SPEC.md. Snapshot freshness boundary: fresh <=2000 ms, stale >=2001 ms. A field is never fresher than its snapshot.",
+  "description": "Proposed neutral contract 2.1.0: per-field availability for admitted own-player game-state values. See docs/design/ICD.md and docs/design/GSI-INTAKE-SPEC.md. Snapshot freshness boundary: fresh <=2000 ms, stale >=2001 ms. A field is never fresher than its snapshot.",
   "type": "object",
   "properties": {
     "schema_version": {
-      "const": "2.0.0"
+      "const": "2.1.0"
     },
     "session_epoch": {
       "anyOf": [
@@ -131,6 +131,30 @@
             },
             "respawn_seconds": {
               "$ref": "#/$defs/respawn_seconds"
+            },
+            "gold": {
+              "$ref": "#/$defs/gold"
+            },
+            "kills": {
+              "$ref": "#/$defs/kills"
+            },
+            "deaths": {
+              "$ref": "#/$defs/deaths"
+            },
+            "assists": {
+              "$ref": "#/$defs/assists"
+            },
+            "last_hits": {
+              "$ref": "#/$defs/last_hits"
+            },
+            "denies": {
+              "$ref": "#/$defs/denies"
+            },
+            "gpm": {
+              "$ref": "#/$defs/gpm"
+            },
+            "xpm": {
+              "$ref": "#/$defs/xpm"
             }
           },
           "required": [
@@ -140,7 +164,15 @@
             "max_hp",
             "mana_percent",
             "alive",
-            "respawn_seconds"
+            "respawn_seconds",
+            "gold",
+            "kills",
+            "deaths",
+            "assists",
+            "last_hits",
+            "denies",
+            "gpm",
+            "xpm"
           ],
           "additionalProperties": false
         }
@@ -463,6 +495,366 @@
           "additionalProperties": false
         }
       ]
+    },
+    "gold": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000
+            },
+            "availability": {
+              "enum": [
+                "fresh",
+                "stale"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "null"
+            },
+            "availability": {
+              "enum": [
+                "unknown",
+                "invalid",
+                "unsupported"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "kills": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000
+            },
+            "availability": {
+              "enum": [
+                "fresh",
+                "stale"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "null"
+            },
+            "availability": {
+              "enum": [
+                "unknown",
+                "invalid",
+                "unsupported"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "deaths": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000
+            },
+            "availability": {
+              "enum": [
+                "fresh",
+                "stale"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "null"
+            },
+            "availability": {
+              "enum": [
+                "unknown",
+                "invalid",
+                "unsupported"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "assists": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000
+            },
+            "availability": {
+              "enum": [
+                "fresh",
+                "stale"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "null"
+            },
+            "availability": {
+              "enum": [
+                "unknown",
+                "invalid",
+                "unsupported"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "last_hits": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000
+            },
+            "availability": {
+              "enum": [
+                "fresh",
+                "stale"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "null"
+            },
+            "availability": {
+              "enum": [
+                "unknown",
+                "invalid",
+                "unsupported"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "denies": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000
+            },
+            "availability": {
+              "enum": [
+                "fresh",
+                "stale"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "null"
+            },
+            "availability": {
+              "enum": [
+                "unknown",
+                "invalid",
+                "unsupported"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "gpm": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000
+            },
+            "availability": {
+              "enum": [
+                "fresh",
+                "stale"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "null"
+            },
+            "availability": {
+              "enum": [
+                "unknown",
+                "invalid",
+                "unsupported"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "xpm": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000
+            },
+            "availability": {
+              "enum": [
+                "fresh",
+                "stale"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "null"
+            },
+            "availability": {
+              "enum": [
+                "unknown",
+                "invalid",
+                "unsupported"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        }
+      ]
     }
   },
   "allOf": [
@@ -550,6 +942,78 @@
                     }
                   },
                   "respawn_seconds": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "stale"
+                        }
+                      }
+                    }
+                  },
+                  "gold": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "stale"
+                        }
+                      }
+                    }
+                  },
+                  "kills": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "stale"
+                        }
+                      }
+                    }
+                  },
+                  "deaths": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "stale"
+                        }
+                      }
+                    }
+                  },
+                  "assists": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "stale"
+                        }
+                      }
+                    }
+                  },
+                  "last_hits": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "stale"
+                        }
+                      }
+                    }
+                  },
+                  "denies": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "stale"
+                        }
+                      }
+                    }
+                  },
+                  "gpm": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "stale"
+                        }
+                      }
+                    }
+                  },
+                  "xpm": {
                     "properties": {
                       "availability": {
                         "not": {
@@ -649,6 +1113,78 @@
                     }
                   },
                   "respawn_seconds": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "fresh"
+                        }
+                      }
+                    }
+                  },
+                  "gold": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "fresh"
+                        }
+                      }
+                    }
+                  },
+                  "kills": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "fresh"
+                        }
+                      }
+                    }
+                  },
+                  "deaths": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "fresh"
+                        }
+                      }
+                    }
+                  },
+                  "assists": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "fresh"
+                        }
+                      }
+                    }
+                  },
+                  "last_hits": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "fresh"
+                        }
+                      }
+                    }
+                  },
+                  "denies": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "fresh"
+                        }
+                      }
+                    }
+                  },
+                  "gpm": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "fresh"
+                        }
+                      }
+                    }
+                  },
+                  "xpm": {
                     "properties": {
                       "availability": {
                         "not": {

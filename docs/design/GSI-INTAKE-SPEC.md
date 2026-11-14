@@ -211,7 +211,7 @@ DPAPI failure at startup sets intake to `unavailable` (`GSI_SECRET_UNAVAILABLE`)
 
 ## 9. Read-model outputs
 
-- Own vitals go into [own-snapshot.schema.json](../../contracts/own-snapshot.schema.json) 2.0.0. Each field carries its own availability, so a missing HP value can be unknown while level stays observed.
+- Own vitals go into [own-snapshot.schema.json](../../contracts/own-snapshot.schema.json) 2.1.0, including own-player gold, kills, deaths, assists, last_hits, denies, gpm and xpm. Each field carries its own availability, so a missing HP value can be unknown while level stays observed.
 - Intake, ownership, session and mode health go into [runtime-status.schema.json](../../contracts/runtime-status.schema.json).
 - Port and configuration preferences go into [user-settings.schema.json](../../contracts/user-settings.schema.json).
 

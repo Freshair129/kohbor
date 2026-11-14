@@ -2,7 +2,7 @@
 //!
 //! Pure logic for docs/design/GSI-INTAKE-SPEC.md: strict body parsing, owned
 //! configuration rendering, source admission and ownership, the own-snapshot
-//! read model (contracts/own-snapshot.schema.json 2.0.0) and session continuity.
+//! read model (contracts/own-snapshot.schema.json 2.1.0) and session continuity.
 //! Network, file and registry access live in the callers.
 
 pub mod admission;

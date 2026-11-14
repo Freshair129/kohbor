@@ -11,9 +11,15 @@ fn admitted(phase: GsiPhase) -> Admitted {
         match_id: Some("synthetic-match".into()),
         steamid64: Some(76_561_197_960_265_729),
         counters: OwnCounters {
+            gold: Field::Missing,
             kills: Field::Value(3),
             kill_streak: Field::Value(2),
             deaths: Field::Missing,
+            assists: Field::Missing,
+            last_hits: Field::Missing,
+            denies: Field::Missing,
+            gpm: Field::Missing,
+            xpm: Field::Missing,
             combined_score: Field::Value(10),
         },
         hero: HeroFields {
