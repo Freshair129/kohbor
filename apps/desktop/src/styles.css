@@ -45,6 +45,11 @@ body {
 .shell-brand span:last-child { color: var(--muted); font-size: 12px; }
 .shell-statuses { flex: 1 1 auto; display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; }
 .shell-statuses > span { min-width: 0; }
+.shell-deck-status { display: flex; flex: 1 1 190px; align-items: center; gap: 5px; min-width: 0; overflow: hidden; }
+.shell-deck-status > .chip { flex: 0 1 auto; min-width: 0; }
+.shell-deck-reason { flex: 1 1 70px; min-width: 0; overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.shell-phase-chip { flex: 0 1 auto; min-width: 0; }
+.shell-phase-chip > .chip { max-width: 190px; }
 .shell-header .chip { max-width: 100%; padding: 3px 8px; font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
 .shell-age-badge { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 3px 8px; border: 1px solid var(--line); border-radius: 6px; color: var(--text-2); font-size: 12px; white-space: nowrap; }
 .shell-age-badge b { color: var(--text); font: 600 12px "IBM Plex Mono", Consolas, monospace; font-variant-numeric: tabular-nums; }
@@ -211,6 +216,10 @@ button[aria-busy="true"] { cursor: progress; }
 .mock-scenario-panel { position: fixed; z-index: 20; right: 12px; bottom: 12px; width: min(460px, calc(100vw - 24px)); max-height: min(70vh, 640px); overflow: auto; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); box-shadow: 0 8px 32px var(--ground); }
 .mock-scenario-heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
 .mock-scenario-panel > p { margin-bottom: 6px; font-size: 12px; overflow-wrap: anywhere; }
+.mock-deck-controls { display: grid; gap: 5px; margin: 10px 0; padding: 8px; border: 1px dashed var(--warning); border-radius: 7px; background: var(--warning-surface); font-size: 12px; }
+.mock-deck-controls > strong { color: var(--text); }
+.mock-deck-controls label { display: grid; grid-template-columns: minmax(0, 1fr) minmax(120px, 0.8fr); align-items: center; gap: 6px; min-width: 0; }
+.mock-deck-controls select { min-width: 0; padding: 4px 6px; font: inherit; }
 .mock-scenario-actions { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
 .mock-scenario-actions button { display: flex; flex-direction: column; align-items: flex-start; height: auto; min-height: 44px; padding: 6px 10px; white-space: normal; text-align: left; }
 

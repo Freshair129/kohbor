@@ -5,6 +5,7 @@ import settingsFixtureRaw from "../../../../fixtures/user-settings-valid.json?ra
 import { copy, type Locale } from "../copy";
 import type { PlaybackClass, PlaybackEndReason, PlaybackEvent } from "../playback";
 import type { OwnSnapshot, RuntimeStatus, UserSettingsView } from "../types";
+import { liveMockRequested } from "../live/mockMode";
 
 type MockCallback = (event: unknown) => void;
 type MockEventBinding = { event: string; callbackId: number };
@@ -30,6 +31,10 @@ let muted = false;
 // Synthetic media readiness for the dev switcher only; never derived from a real pack.
 let mediaOverride: RuntimeStatus["media"] | null = null;
 let statusRevision = statusFixture.status_revision;
+type MockDeckScenario = "standby" | "live" | "novision" | "stale" | "debrief";
+type MockSnapshotAvailability = "fresh" | "stale" | "unknown";
+let mockDeckScenario: MockDeckScenario = "live";
+let mockSnapshotAvailability: MockSnapshotAvailability = "fresh";
 let callbackId = 0;
 let eventId = 0;
 let playbackSequence = 0;
@@ -40,6 +45,20 @@ const channel = typeof BroadcastChannel === "undefined" ? null : new BroadcastCh
 function currentStatus(): RuntimeStatus {
   const status = structuredClone(statusFixture);
   status.status_revision = statusRevision;
+  if (liveMockRequested()) {
+    if (mockDeckScenario === "standby") {
+      status.session.phase = "none";
+      status.intake.state = "listening";
+      status.intake.last_admitted_age_ms = null;
+    } else if (mockDeckScenario === "debrief") {
+      status.session.phase = "post_game";
+      status.intake.state = "receiving";
+    } else {
+      status.session.phase = "live";
+      status.intake.state = mockDeckScenario === "stale" ? "stale" : "receiving";
+      status.intake.last_admitted_age_ms = mockDeckScenario === "stale" ? 3_200 : 32;
+    }
+  }
   // A scenario override wins, like the host's engine-health check which is tested before mute.
   status.media = mediaOverride
     ? { ...mediaOverride }
@@ -47,6 +66,42 @@ function currentStatus(): RuntimeStatus {
       ? { state: "unavailable", reason: "AUDIO_MUTED" }
       : structuredClone(statusFixture.media);
   return status;
+}
+
+function currentOwnSnapshot(): OwnSnapshot {
+  const snapshot = structuredClone(snapshotFixture);
+  if (!liveMockRequested()) return snapshot;
+  if (mockSnapshotAvailability === "unknown") {
+    snapshot.availability = "unknown";
+    snapshot.source.age_ms = null;
+    snapshot.own = null;
+  } else if (mockSnapshotAvailability === "stale") {
+    snapshot.availability = "stale";
+    snapshot.source.age_ms = 3_200;
+  } else {
+    snapshot.availability = "fresh";
+    snapshot.source.age_ms = 32;
+  }
+  return snapshot;
+}
+
+function chooseMockDeckScenario(scenario: MockDeckScenario) {
+  mockDeckScenario = scenario;
+  mockSnapshotAvailability = scenario === "standby" ? "unknown" : scenario === "stale" ? "stale" : "fresh";
+  statusRevision += 1;
+  const captureReason = {
+    standby: "no_game_window",
+    live: "live",
+    novision: "calibrating",
+    stale: "live",
+    debrief: "no_game_window",
+  }[scenario];
+  void import("../live/mock").then((driver) => driver.setMockCaptureReason(captureReason));
+}
+
+function chooseMockSnapshotAvailability(availability: MockSnapshotAvailability) {
+  mockSnapshotAvailability = availability;
+  statusRevision += 1;
 }
 
 function deliver(event: string, payload: unknown) {
@@ -343,7 +398,7 @@ export function installMockHarness() {
     },
     async invoke(command, args = {}) {
       if (command === "runtime_get_status") return currentStatus();
-      if (command === "own_snapshot") return structuredClone(snapshotFixture);
+      if (command === "own_snapshot") return currentOwnSnapshot();
       if (command === "settings_get") return { ...settingsView };
       if (command === "settings_patch") {
         const request = args.request as { patch?: { locale?: unknown } } | undefined;
@@ -452,6 +507,8 @@ type ScenarioName = (typeof SCENARIO_NAMES)[number];
 export function MockScenarioSwitcher() {
   const [lastScenario, setLastScenario] = useState<ScenarioName | null>(null);
   const [lastProbeReport, setLastProbeReport] = useState<string | null>(null);
+  const [deckScenario, setDeckScenario] = useState<MockDeckScenario>("live");
+  const [snapshotAvailability, setSnapshotAvailability] = useState<MockSnapshotAvailability>("fresh");
   const th = copy("th").mockScenarios;
   const en = copy("en").mockScenarios;
   const labels: Record<ScenarioName, [string, string]> = {
@@ -489,6 +546,46 @@ export function MockScenarioSwitcher() {
       </div>
       <p>{th.note}</p>
       <p className="muted small">{en.note}</p>
+      {liveMockRequested() && (
+        <section className="mock-deck-controls" aria-label="ตัวอย่างสถานะ Command Deck / Command Deck sample states">
+          <strong>ตัวอย่างข้อมูลสำหรับพัฒนา — ไม่ใช่ข้อมูลจากเกมจริง</strong>
+          <span className="muted small">DEV sample state — no real game data</span>
+          <label>
+            สถานะ Command Deck / Deck state
+            <select
+              value={deckScenario}
+              onChange={(event) => {
+                const next = event.currentTarget.value as MockDeckScenario;
+                setDeckScenario(next);
+                const defaultAvailability = next === "standby" ? "unknown" : next === "stale" ? "stale" : "fresh";
+                setSnapshotAvailability(defaultAvailability);
+                chooseMockDeckScenario(next);
+              }}
+            >
+              <option value="standby">รอข้อมูล / Standby</option>
+              <option value="live">สด / Live</option>
+              <option value="novision">ไม่มีภาพ / No vision</option>
+              <option value="stale">ข้อมูลเก่า / Stale</option>
+              <option value="debrief">หลังเกม / Debrief</option>
+            </select>
+          </label>
+          <label>
+            ความสดของ snapshot ตัวคุณ / Own snapshot
+            <select
+              value={snapshotAvailability}
+              onChange={(event) => {
+                const next = event.currentTarget.value as MockSnapshotAvailability;
+                setSnapshotAvailability(next);
+                chooseMockSnapshotAvailability(next);
+              }}
+            >
+              <option value="fresh">สด / Fresh</option>
+              <option value="stale">เก่า / Stale</option>
+              <option value="unknown">ไม่ทราบ / Unknown</option>
+            </select>
+          </label>
+        </section>
+      )}
       <div className="mock-scenario-actions">
         {SCENARIO_NAMES.map((name) => (
           <button

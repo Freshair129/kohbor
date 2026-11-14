@@ -22,7 +22,7 @@ test("Live has one definite grid row, two bounded columns and a shrinking map st
   const canvas = css.match(/\.live-map-canvas\s*\{([^}]+)\}/)?.[1] ?? "";
   for (const property of ["max-width", "max-height"]) assert.match(canvas, new RegExp(`${property}:\\s*100%`));
   for (const property of ["width", "height"]) assert.match(canvas, new RegExp(`(?:^|;)\\s*${property}:\\s*auto`));
-  assert.match(canvas, /aspect-ratio:\s*280\s*\/\s*274/);
+  assert.match(canvas, /aspect-ratio:\s*280\s*\/\s*280/);
   assert.match(css, /\.live-preview-rates\s*\{[^}]*white-space:\s*nowrap[^}]*text-overflow:\s*ellipsis/);
   const autoRules = [...css.matchAll(/([^{}]+)\{[^{}]*overflow(?:-y)?:\s*auto[^{}]*\}/g)];
   assert.ok(autoRules.length > 0);
@@ -37,7 +37,7 @@ test("canvas box scales up or down to fit while preserving the frame header aspe
   assert.ok(Math.abs(large.width / large.height - 280 / 274) < 1e-10);
   assert.deepEqual(fitCanvasBox(100, 50, { width: 200, height: 100 }), { width: 100, height: 50 });
   const fallback = fitCanvasBox(560, 548);
-  assert.deepEqual(fallback, { width: 560, height: 548 });
+  assert.deepEqual(fallback, { width: 548, height: 548 });
 });
 
 test("unknown or empty stage dimensions do not invent a canvas box", () => {

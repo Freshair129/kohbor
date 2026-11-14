@@ -10,19 +10,14 @@ import {
   packState,
   parseInspectResult,
   parseInstallResult,
-  parseMediaListing,
   sortRecords,
   type ChosenActivationPolicy,
   type InstallResult,
-  type MediaListing,
   type PackRecord,
 } from "./packs";
 import { Chip, type Tone } from "./Readiness";
-import { mediaActivate, mediaInspect, mediaInstall, mediaList } from "./runtime";
-
-const PENDING_POLL_MS = 3_000;
-
-type ListState = "loading" | "ok" | "unreadable" | "failed";
+import { mediaActivate, mediaInspect, mediaInstall } from "./runtime";
+import { useMediaListing } from "./useMediaListing";
 
 interface Inspected {
   path: string;
@@ -50,10 +45,14 @@ export function PackPanel({ locale, disabled = false }: { locale: Locale; disabl
   const pathId = useId();
   const hashId = useId();
 
-  const [listing, setListing] = useState<MediaListing | null>(null);
-  const [listState, setListState] = useState<ListState>("loading");
-  const [listError, setListError] = useState<string | null>(null);
-  const [listBusy, setListBusy] = useState(false);
+  const {
+    listing,
+    state: listState,
+    error: listError,
+    busy: listBusy,
+    refresh,
+    hasPending,
+  } = useMediaListing();
 
   const [pathInput, setPathInput] = useState("");
   const [inspected, setInspected] = useState<Inspected | null>(null);
@@ -63,7 +62,6 @@ export function PackPanel({ locale, disabled = false }: { locale: Locale; disabl
 
   const alive = useRef(true);
   const actionLock = useRef(false);
-  const listSeq = useRef(0);
 
   useEffect(() => {
     alive.current = true;
@@ -72,47 +70,12 @@ export function PackPanel({ locale, disabled = false }: { locale: Locale; disabl
     };
   }, []);
 
-  const refresh = useCallback(async () => {
-    const seq = ++listSeq.current;
-    setListBusy(true);
-    try {
-      const parsed = parseMediaListing(await mediaList());
-      if (!alive.current || seq !== listSeq.current) return;
-      if (parsed) {
-        setListing(parsed);
-        setListState("ok");
-        setListError(null);
-        // The chip in the list now carries the real state; an old "still waiting" line would contradict it.
-        setNotice((current) =>
-          current?.waitingInstallId && !parsed.pending.includes(current.waitingInstallId) ? null : current,
-        );
-      } else {
-        // An unreadable answer must not leave an old "active" pack looking current.
-        setListing(null);
-        setListState("unreadable");
-        setListError(null);
-      }
-    } catch (e) {
-      if (!alive.current || seq !== listSeq.current) return;
-      setListState("failed");
-      setListError(errorCode(e));
-    } finally {
-      if (alive.current && seq === listSeq.current) setListBusy(false);
-    }
-  }, []);
-
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  const hasPending = (listing?.pending.length ?? 0) > 0;
-  useEffect(() => {
-    if (!hasPending) return;
-    const id = window.setInterval(() => {
-      if (!document.hidden) void refresh();
-    }, PENDING_POLL_MS);
-    return () => window.clearInterval(id);
-  }, [hasPending, refresh]);
+    if (listState !== "ok" || !listing) return;
+    setNotice((current) =>
+      current?.waitingInstallId && !listing.pending.includes(current.waitingInstallId) ? null : current,
+    );
+  }, [listState, listing]);
 
   const describe = useCallback(
     (result: InstallResult): Notice => {

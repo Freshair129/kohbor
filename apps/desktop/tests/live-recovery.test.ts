@@ -67,7 +67,7 @@ test("recovery controls use explicit labels and a separate bottom section", () =
   assert.equal(liveCopy("en").mapWrong, "Mark map as wrong");
   assert.equal(liveCopy("th").confirmMarkWrong, "กดอีกครั้งเพื่อยืนยัน");
   assert.equal(liveCopy("th").retryCapture, "ลองใหม่");
-  const source = readFileSync(new URL("../src/live/LiveTab.tsx", import.meta.url), "utf8");
+  const source = readFileSync(new URL("../src/live/MinimapPanel.tsx", import.meta.url), "utf8");
   assert.ok(source.indexOf('className="live-mark-wrong-section"') > source.indexOf("text.displayRate"));
   assert.match(source, /config\?\.effective_rect/);
   const hook = readFileSync(new URL("../src/live/useCaptureConfig.ts", import.meta.url), "utf8");

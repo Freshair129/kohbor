@@ -4,7 +4,7 @@ export interface CanvasBox {
 }
 
 // Layout fallback specified by the owner; actual frame headers replace it on first paint.
-export const DEFAULT_CANVAS_FRAME: CanvasBox = { width: 280, height: 274 };
+export const DEFAULT_CANVAS_FRAME: CanvasBox = { width: 280, height: 280 };
 
 export function fitCanvasBox(
   availableWidth: number,
