@@ -10,6 +10,10 @@ const VPK_VERSION: u32 = 2;
 const VPK_HEADER_BYTES: u64 = 28;
 const DIR_ARCHIVE_INDEX: u16 = 0x7fff;
 const MAX_TREE_STRING_BYTES: usize = 4096;
+const MAX_PATH_COMPONENT_BYTES: usize = 255;
+const MAX_RETAINED_ENTRIES: usize = 100_000;
+// Account for both the Entry path and its HashMap key, including duplicates.
+const MAX_RETAINED_PATH_BYTES: usize = 16 * 1024 * 1024;
 const MAX_ENTRY_BYTES: u64 = 256 * 1024 * 1024;
 const HERO_ROOT: &str = "panorama/images/heroes/";
 
@@ -164,7 +168,15 @@ impl Vpk {
         let mut hero_entries = HashMap::new();
         let mut bounded = BoundedReader::new(file, u64::from(tree_size));
         parse_tree(&mut bounded, &dir_path, data_size, true, None, |entry| {
-            hero_entries.insert(normalize_path(&entry.path), entry);
+            hero_entries
+                .try_reserve(1)
+                .map_err(|_| Error::AllocationFailed)?;
+            let mut key = String::new();
+            key.try_reserve_exact(entry.path.len())
+                .map_err(|_| Error::AllocationFailed)?;
+            key.push_str(&entry.path);
+            hero_entries.insert(key, entry);
+            Ok(())
         })?;
 
         Ok(Self {
@@ -179,6 +191,9 @@ impl Vpk {
 
     /// Find an entry by slash-separated VPK path, case-insensitively.
     pub fn find(&self, path: &str) -> Option<Entry> {
+        if path.len() > MAX_TREE_STRING_BYTES + 2 * MAX_PATH_COMPONENT_BYTES + 2 {
+            return None;
+        }
         let query = normalize_path(path);
         if let Some(entry) = self.hero_entries.get(&query) {
             return Some(entry.clone());
@@ -196,6 +211,7 @@ impl Vpk {
             Some(&query),
             |entry| {
                 found = Some(entry);
+                Ok(())
             },
         )
         .ok()?;
@@ -312,13 +328,20 @@ fn normalize_path(path: &str) -> String {
     path.replace('\\', "/").to_ascii_lowercase()
 }
 
-fn is_hero_portrait_path(path: &str) -> bool {
-    path.starts_with(HERO_ROOT)
-        && path.ends_with(".vtex_c")
-        && path
-            .rsplit('/')
-            .next()
-            .is_some_and(|name| name.starts_with("npc_dota_hero_"))
+fn is_hero_portrait_parts(extension: &str, directory: &str, name: &str) -> bool {
+    (directory == HERO_ROOT.trim_end_matches('/') || directory.starts_with(HERO_ROOT))
+        && extension.eq_ignore_ascii_case("vtex_c")
+        && name
+            .get(.."npc_dota_hero_".len())
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case("npc_dota_hero_"))
+}
+
+fn path_parts_match(target: &str, extension: &str, directory: &str, name: &str) -> bool {
+    let (target_directory, file) = target.rsplit_once('/').unwrap_or(("", target));
+    let (target_name, target_extension) = file.rsplit_once('.').unwrap_or((file, " "));
+    directory == target_directory
+        && name.eq_ignore_ascii_case(target_name)
+        && extension.eq_ignore_ascii_case(target_extension)
 }
 
 struct BoundedReader<R> {
@@ -376,24 +399,37 @@ fn parse_tree<R, F>(
 ) -> Result<()>
 where
     R: Read,
-    F: FnMut(Entry),
+    F: FnMut(Entry) -> Result<()>,
 {
     let mut reader = BufReader::new(CountingReader::new(reader));
+    let mut retained_entries = 0_usize;
+    let mut retained_path_bytes = 0_usize;
     loop {
-        let extension = read_tree_string(&mut reader)?;
+        let extension = read_tree_string(&mut reader, MAX_PATH_COMPONENT_BYTES)?;
         if extension.is_empty() {
             break;
         }
+        validate_component(&extension)?;
         loop {
-            let directory = read_tree_string(&mut reader)?;
+            let directory = read_tree_string(&mut reader, MAX_TREE_STRING_BYTES)?;
             if directory.is_empty() {
                 break;
             }
+            for component in directory.split(['/', '\\']) {
+                validate_component(component)?;
+            }
+            // Normalize the shared prefix once, not once for every short record.
+            let directory = if directory == " " {
+                String::new()
+            } else {
+                normalize_path(&directory).trim_end_matches('/').to_owned()
+            };
             loop {
-                let name = read_tree_string(&mut reader)?;
+                let name = read_tree_string(&mut reader, MAX_PATH_COMPONENT_BYTES)?;
                 if name.is_empty() {
                     break;
                 }
+                validate_component(&name)?;
                 let mut record = [0_u8; 18];
                 reader
                     .read_exact(&mut record)
@@ -416,10 +452,12 @@ where
                 if archive_index == DIR_ARCHIVE_INDEX && end > u64::from(data_size) {
                     return Err(Error::InvalidTree("directory entry exceeds data section"));
                 }
-                let path = compose_path(&extension, &directory, &name);
-                let normalized = normalize_path(&path);
-                let capture = (capture_hero_paths && is_hero_portrait_path(&normalized))
-                    || target_path.is_some_and(|target| normalized == target);
+                // Filter by the already bounded components before allocating a full path.
+                let capture = (capture_hero_paths
+                    && is_hero_portrait_parts(&extension, &directory, &name))
+                    || target_path.is_some_and(|target| {
+                        path_parts_match(target, &extension, &directory, &name)
+                    });
                 let consumed = reader
                     .get_ref()
                     .bytes_read
@@ -430,6 +468,17 @@ where
                     .ok_or(Error::InvalidTree("preload offset overflow"))?;
                 skip_exact(&mut reader, usize::from(preload_len))?;
                 if capture {
+                    if retained_entries >= MAX_RETAINED_ENTRIES {
+                        return Err(Error::InvalidTree("retained entry limit exceeded"));
+                    }
+                    let path_len = composed_path_len(&extension, &directory, &name)?;
+                    retained_path_bytes = path_len
+                        .checked_mul(2)
+                        .and_then(|bytes| retained_path_bytes.checked_add(bytes))
+                        .filter(|bytes| *bytes <= MAX_RETAINED_PATH_BYTES)
+                        .ok_or(Error::InvalidTree("retained path byte limit exceeded"))?;
+                    retained_entries += 1;
+                    let path = compose_path(&extension, &directory, &name, path_len)?;
                     visit(Entry {
                         source_dir: Arc::clone(source_dir),
                         path,
@@ -439,7 +488,7 @@ where
                         archive_index,
                         offset,
                         length,
-                    });
+                    })?;
                 }
             }
         }
@@ -447,24 +496,48 @@ where
     Ok(())
 }
 
-fn compose_path(extension: &str, directory: &str, name: &str) -> String {
-    let mut path = if directory == " " {
-        name.to_owned()
-    } else {
-        format!(
-            "{}/{}",
-            directory.replace('\\', "/").trim_end_matches('/'),
-            name
-        )
-    };
+fn composed_path_len(extension: &str, directory: &str, name: &str) -> Result<usize> {
+    name.len()
+        .checked_add(if directory.is_empty() {
+            0
+        } else {
+            directory.len() + 1
+        })
+        .and_then(|len| {
+            len.checked_add(if extension == " " {
+                0
+            } else {
+                extension.len() + 1
+            })
+        })
+        .ok_or(Error::InvalidTree("path length overflow"))
+}
+
+fn compose_path(extension: &str, directory: &str, name: &str, path_len: usize) -> Result<String> {
+    let mut path = String::new();
+    path.try_reserve_exact(path_len)
+        .map_err(|_| Error::AllocationFailed)?;
+    if !directory.is_empty() {
+        path.push_str(directory);
+        path.push('/');
+    }
+    path.push_str(name);
     if extension != " " {
         path.push('.');
         path.push_str(extension);
     }
-    path
+    path.make_ascii_lowercase();
+    Ok(path)
 }
 
-fn read_tree_string(reader: &mut impl Read) -> Result<String> {
+fn validate_component(component: &str) -> Result<()> {
+    if component.len() > MAX_PATH_COMPONENT_BYTES || component.contains(['/', '\\']) {
+        return Err(Error::InvalidTree("invalid or oversized path component"));
+    }
+    Ok(())
+}
+
+fn read_tree_string(reader: &mut impl Read, max_bytes: usize) -> Result<String> {
     let mut bytes = Vec::new();
     loop {
         let mut byte = [0_u8; 1];
@@ -474,8 +547,8 @@ fn read_tree_string(reader: &mut impl Read) -> Result<String> {
         if byte[0] == 0 {
             break;
         }
-        if bytes.len() >= MAX_TREE_STRING_BYTES {
-            return Err(Error::InvalidTree("string exceeds 4096 bytes"));
+        if bytes.len() >= max_bytes {
+            return Err(Error::InvalidTree("tree string exceeds its byte limit"));
         }
         bytes.push(byte[0]);
     }
@@ -663,6 +736,98 @@ mod tests {
             second.read(&entry),
             Err(Error::EntryFromDifferentVpk)
         ));
+    }
+
+    #[test]
+    fn index_rejects_repeated_long_prefix_amplification() {
+        let temp = TempDir::new();
+        let prefix = format!(
+            "panorama/images/heroes/{}",
+            vec!["x".repeat(250); 14].join("/")
+        );
+        let bytes = synthetic_index_vpk(&prefix, "vtex_c", 2_500, None);
+        let path = temp.path().join("pak01_dir.vpk");
+        fs::write(&path, bytes).expect("synthetic amplified index");
+        assert!(matches!(
+            Vpk::open(path),
+            Err(Error::InvalidTree("retained path byte limit exceeded"))
+        ));
+    }
+
+    #[test]
+    fn index_rejects_excessive_entry_count() {
+        let temp = TempDir::new();
+        let bytes = synthetic_index_vpk("panorama/images/heroes", "vtex_c", 100_001, None);
+        let path = temp.path().join("pak01_dir.vpk");
+        fs::write(&path, bytes).expect("synthetic excessive index");
+        assert!(matches!(
+            Vpk::open(path),
+            Err(Error::InvalidTree("retained entry limit exceeded"))
+        ));
+    }
+
+    #[test]
+    fn index_rejects_oversize_path_components() {
+        let temp = TempDir::new();
+        let path = temp.path().join("pak01_dir.vpk");
+        let long = "x".repeat(256);
+        for (directory, extension, name) in [
+            (
+                format!("panorama/images/heroes/{long}"),
+                "vtex_c".to_owned(),
+                None,
+            ),
+            ("panorama/images/heroes".to_owned(), long.clone(), None),
+            (
+                "panorama/images/heroes".to_owned(),
+                "vtex_c".to_owned(),
+                Some(long.as_str()),
+            ),
+        ] {
+            fs::write(&path, synthetic_index_vpk(&directory, &extension, 1, name))
+                .expect("synthetic long component");
+            assert!(matches!(Vpk::open(&path), Err(Error::InvalidTree(_))));
+        }
+    }
+
+    #[test]
+    fn index_skips_unrelated_long_prefix_records() {
+        let temp = TempDir::new();
+        let prefix = format!(
+            "panorama/images/heroes_other/{}",
+            vec!["x".repeat(250); 14].join("/")
+        );
+        let path = temp.path().join("pak01_dir.vpk");
+        fs::write(&path, synthetic_index_vpk(&prefix, "vtex_c", 2_500, None))
+            .expect("synthetic unrelated records");
+        let vpk =
+            Vpk::open(&path).expect("unrelated records must not consume retained path budget");
+        assert_eq!(vpk.indexed_portrait_count(), 0);
+        assert!(vpk
+            .find(&format!("{prefix}/npc_dota_hero_0.vtex_c"))
+            .is_some());
+    }
+
+    fn synthetic_index_vpk(
+        directory: &str,
+        extension: &str,
+        count: usize,
+        name: Option<&str>,
+    ) -> Vec<u8> {
+        let mut tree = Vec::new();
+        write_cstr(&mut tree, extension);
+        write_cstr(&mut tree, directory);
+        for index in 0..count {
+            write_cstr(&mut tree, name.unwrap_or(&format!("npc_dota_hero_{index}")));
+            write_record(&mut tree, &[], &[], 0, 0);
+        }
+        tree.extend_from_slice(&[0, 0, 0]);
+        let mut bytes = vec![0; 28];
+        bytes[..4].copy_from_slice(&VPK_SIGNATURE.to_le_bytes());
+        bytes[4..8].copy_from_slice(&2_u32.to_le_bytes());
+        bytes[8..12].copy_from_slice(&(tree.len() as u32).to_le_bytes());
+        bytes.extend_from_slice(&tree);
+        bytes
     }
 
     fn synthetic_vpk() -> (Vec<u8>, Vec<u8>) {

@@ -2,7 +2,7 @@ use flate2::write::ZlibEncoder;
 use flate2::Compression;
 use kohbor_game_assets::{decode_vtex_c, hero_portrait_path, Vpk};
 use std::ffi::OsString;
-use std::fs::{self, File};
+use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -40,10 +40,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let (game_dir, portrait_dir, mut requests) = parse_args(std::env::args_os().skip(1))?;
     let resolved_game_dir = fs::canonicalize(&game_dir)?;
     for request in &mut requests {
-        request.output = output_outside_git_worktree(&request.output)?;
-        if path_is_within(&request.output, &resolved_game_dir) {
-            return Err("refusing output inside the game installation".into());
-        }
+        request.output = output_outside_protected_directories(&request.output, &resolved_game_dir)?;
     }
     for (index, request) in requests.iter().enumerate() {
         if requests[..index]
@@ -207,19 +204,40 @@ fn output_outside_git_worktree(path: &Path) -> Result<PathBuf, Box<dyn std::erro
         .unwrap_or(Path::new("."));
     let canonical_parent = fs::canonicalize(parent)?;
     let requested = canonical_parent.join(file_name);
-    let resolved = if requested.exists() {
-        fs::canonicalize(&requested)?
-    } else {
-        requested
-    };
-    for ancestor in resolved.ancestors() {
-        if ancestor.join(".git").exists() {
-            return Err(format!(
-                "refusing output inside Git worktree: {}",
-                resolved.display()
+    // Reject all existing directory entries, including dangling symlinks.
+    match fs::symlink_metadata(&requested) {
+        Ok(_) => {
+            return Err(
+                io::Error::new(io::ErrorKind::AlreadyExists, "output already exists").into(),
             )
-            .into());
         }
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error.into()),
+    }
+    for ancestor in canonical_parent.ancestors() {
+        match fs::symlink_metadata(ancestor.join(".git")) {
+            Ok(_) => {
+                return Err(format!(
+                    "refusing output inside Git worktree: {}",
+                    requested.display()
+                )
+                .into())
+            }
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
+    }
+    Ok(requested)
+}
+
+fn output_outside_protected_directories(
+    path: &Path,
+    resolved_game_dir: &Path,
+) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let resolved = output_outside_git_worktree(path)?;
+    let parent = resolved.parent().ok_or("output has no parent")?;
+    if path_is_within(parent, resolved_game_dir) {
+        return Err("refusing output inside the game installation".into());
     }
     Ok(resolved)
 }
@@ -261,7 +279,9 @@ fn write_png(path: &Path, image: &kohbor_game_assets::Image) -> io::Result<()> {
     push_chunk(&mut png, b"IHDR", &ihdr)?;
     push_chunk(&mut png, b"IDAT", &compressed)?;
     push_chunk(&mut png, b"IEND", &[])?;
-    let mut file = File::create(path)?;
+    // This atomic creation, not the preflight check, prevents a racing writer
+    // from having an existing file truncated or replaced.
+    let mut file = OpenOptions::new().write(true).create_new(true).open(path)?;
     file.write_all(&png)?;
     file.flush()?;
     Ok(())
@@ -350,7 +370,101 @@ fn peak_working_set_bytes() -> Option<usize> {
 mod tests {
     use super::{output_outside_git_worktree, parse_args};
     use std::ffi::OsString;
+    use std::fs;
     use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    struct TempDir(PathBuf);
+
+    impl TempDir {
+        fn new() -> Self {
+            let nonce = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("test clock")
+                .as_nanos();
+            let path = std::env::temp_dir()
+                .join(format!("kohbor-probe-test-{}-{nonce}", std::process::id()));
+            fs::create_dir(&path).expect("owned synthetic directory");
+            Self(path)
+        }
+    }
+
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn output_guard_refuses_existing_file() {
+        let temp = TempDir::new();
+        let path = temp.0.join("existing.png");
+        fs::write(&path, b"synthetic sentinel").expect("synthetic existing output");
+        assert!(output_outside_git_worktree(&path).is_err());
+        assert!(fs::read(path).expect("sentinel read") == b"synthetic sentinel");
+    }
+
+    #[test]
+    fn output_create_new_preserves_file_created_after_preflight() {
+        let temp = TempDir::new();
+        let path =
+            output_outside_git_worktree(&temp.0.join("raced.png")).expect("unused output path");
+        fs::write(&path, b"synthetic sentinel").expect("simulate another writer winning the race");
+        let image = kohbor_game_assets::Image {
+            width: 1,
+            height: 1,
+            rgba: vec![0, 0, 0, 255],
+        };
+        let error =
+            super::write_png(&path, &image).expect_err("existing output must not be truncated");
+        assert_eq!(error.kind(), std::io::ErrorKind::AlreadyExists);
+        assert!(fs::read(path).expect("sentinel read") == b"synthetic sentinel");
+    }
+
+    #[test]
+    fn output_guard_rejects_resolved_game_and_git_parents() {
+        let temp = TempDir::new();
+        let game = temp.0.join("synthetic-game");
+        let repo = temp.0.join("synthetic-repo");
+        fs::create_dir_all(game.join("nested")).expect("synthetic game directories");
+        fs::create_dir_all(repo.join("nested")).expect("synthetic git directories");
+        fs::write(repo.join(".git"), b"synthetic git marker").expect("synthetic git marker");
+        let game = fs::canonicalize(game).expect("resolved synthetic game");
+        assert!(super::output_outside_protected_directories(
+            &game.join("nested/../image.png"),
+            &game
+        )
+        .is_err());
+        assert!(super::output_outside_protected_directories(
+            &repo.join("nested/../image.png"),
+            &game
+        )
+        .is_err());
+        assert!(
+            super::output_outside_protected_directories(&temp.0.join("unused.png"), &game).is_ok()
+        );
+    }
+
+    #[test]
+    fn output_png_is_created_once_without_replacing_it() {
+        let temp = TempDir::new();
+        let path = temp.0.join("once.png");
+        let image = kohbor_game_assets::Image {
+            width: 1,
+            height: 1,
+            rgba: vec![0, 0, 0, 255],
+        };
+        super::write_png(&path, &image).expect("new synthetic PNG");
+        let before = fs::read(&path).expect("synthetic PNG read");
+        assert!(before.starts_with(b"\x89PNG\r\n\x1a\n"));
+        assert_eq!(
+            super::write_png(&path, &image)
+                .expect_err("second creation refused")
+                .kind(),
+            std::io::ErrorKind::AlreadyExists
+        );
+        assert!(fs::read(path).expect("unchanged synthetic PNG") == before);
+    }
 
     #[test]
     fn probe_refuses_output_under_the_repository_worktree() {

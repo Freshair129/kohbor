@@ -5,6 +5,8 @@ use std::io::{Read, Take};
 const PNG_SIGNATURE: &[u8; 8] = b"\x89PNG\r\n\x1a\n";
 const MAX_IMAGE_DIMENSION: u32 = 16_384;
 const MAX_RGBA_BYTES: usize = 256 * 1024 * 1024;
+const MAX_PNG_DIMENSION: u32 = 4096;
+const MAX_PNG_IDAT_BYTES: usize = 8 * 1024 * 1024;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Image {
@@ -317,6 +319,9 @@ fn alpha_palette(alpha0: u8, alpha1: u8) -> [u8; 8] {
 }
 
 fn decode_png_rgba(bytes: &[u8], expected_width: u32, expected_height: u32) -> Result<Vec<u8>> {
+    // This API can receive an arbitrary slice, without passing through Vpk::read.
+    // Bound dimensions before collecting any chunks or allocating decode buffers.
+    check_png_dimensions(expected_width, expected_height)?;
     if !bytes.starts_with(PNG_SIGNATURE) {
         return Err(Error::InvalidPng("signature mismatch"));
     }
@@ -348,6 +353,17 @@ fn decode_png_rgba(bytes: &[u8], expected_width: u32, expected_height: u32) -> R
         }
         let chunk_type = &bytes[type_at..data_at];
         let chunk_data = &bytes[data_at..data_end];
+        if header.is_none() && chunk_type != b"IHDR" {
+            return Err(Error::InvalidPng("IHDR must be first"));
+        }
+        if chunk_type == b"IDAT"
+            && compressed
+                .len()
+                .checked_add(length)
+                .is_none_or(|total| total > MAX_PNG_IDAT_BYTES)
+        {
+            return Err(Error::InvalidPng("compressed IDAT byte limit exceeded"));
+        }
         let expected_crc = u32_be_at(bytes, data_end)?;
         if png_crc32(&bytes[type_at..data_end]) != expected_crc {
             return Err(Error::InvalidPng("chunk CRC mismatch"));
@@ -372,6 +388,7 @@ fn decode_png_rgba(bytes: &[u8], expected_width: u32, expected_height: u32) -> R
                     chunk_data[6],
                     chunk_data[7],
                 ]);
+                check_png_dimensions(width, height)?;
                 if width != expected_width || height != expected_height {
                     return Err(Error::InvalidPng("IHDR dimensions disagree with VTEX"));
                 }
@@ -409,7 +426,7 @@ fn decode_png_rgba(bytes: &[u8], expected_width: u32, expected_height: u32) -> R
                 }
                 saw_idat = true;
                 compressed
-                    .try_reserve(chunk_data.len())
+                    .try_reserve_exact(chunk_data.len())
                     .map_err(|_| Error::AllocationFailed)?;
                 compressed.extend_from_slice(chunk_data);
             }
@@ -581,6 +598,16 @@ fn decode_png_rgba(bytes: &[u8], expected_width: u32, expected_height: u32) -> R
         }
     }
     Ok(rgba)
+}
+
+fn check_png_dimensions(width: u32, height: u32) -> Result<()> {
+    if width > MAX_PNG_DIMENSION || height > MAX_PNG_DIMENSION {
+        return Err(Error::InvalidPng("PNG dimensions exceed 4096"));
+    }
+    if width == 0 || height == 0 {
+        return Err(Error::InvalidPng("PNG dimensions must be positive"));
+    }
+    Ok(())
 }
 
 fn paeth(left: u8, above: u8, upper_left: u8) -> u8 {
@@ -815,6 +842,64 @@ mod tests {
     }
 
     #[test]
+    fn png_rejects_declared_dimensions_over_4096() {
+        for (width, height) in [(4097_u16, 1_u16), (1, 4097)] {
+            let filtered = vec![0; (usize::from(width) * 4 + 1) * usize::from(height)];
+            let png = make_png(u32::from(width), u32::from(height), 6, &filtered);
+            assert!(matches!(
+                decode_vtex_c(&make_vtex(width, height, 16, &png)),
+                Err(Error::InvalidPng("PNG dimensions exceed 4096"))
+            ));
+        }
+        let huge_header = make_png(u32::MAX, 1, 6, &[0, 0, 0, 0, 255]);
+        assert!(matches!(
+            decode_vtex_c(&make_vtex(1, 1, 16, &huge_header)),
+            Err(Error::InvalidPng("PNG dimensions exceed 4096"))
+        ));
+    }
+
+    #[test]
+    fn png_accepts_the_dimension_limit() {
+        for (width, height) in [(4096_u16, 1_u16), (1, 4096)] {
+            let filtered = vec![0; (usize::from(width) * 4 + 1) * usize::from(height)];
+            let png = make_png(u32::from(width), u32::from(height), 6, &filtered);
+            let image = decode_vtex_c(&make_vtex(width, height, 16, &png))
+                .expect("PNG at dimension boundary");
+            assert_eq!(
+                image.rgba.len(),
+                usize::from(width) * usize::from(height) * 4
+            );
+        }
+    }
+
+    #[test]
+    fn png_rejects_total_idat_over_eight_mib_across_chunks() {
+        let mut png = make_png(1, 1, 6, &[0, 0, 0, 0, 255]);
+        png.truncate(png.len() - 12);
+        let padding = vec![0; 4 * 1024 * 1024];
+        push_chunk(&mut png, b"IDAT", &padding);
+        push_chunk(&mut png, b"IDAT", &padding);
+        push_chunk(&mut png, b"IEND", &[]);
+        assert!(matches!(
+            decode_vtex_c(&make_vtex(1, 1, 18, &png)),
+            Err(Error::InvalidPng("compressed IDAT byte limit exceeded"))
+        ));
+    }
+
+    #[test]
+    fn png_requires_ihdr_before_allocating_chunk_data() {
+        let png = make_png(1, 1, 6, &[0, 0, 0, 0, 255]);
+        let mut reordered = png[..8].to_vec();
+        reordered.extend_from_slice(&png[33..png.len() - 12]);
+        reordered.extend_from_slice(&png[8..33]);
+        reordered.extend_from_slice(&png[png.len() - 12..]);
+        assert!(matches!(
+            decode_vtex_c(&make_vtex(1, 1, 16, &reordered)),
+            Err(Error::InvalidPng("IHDR must be first"))
+        ));
+    }
+
+    #[test]
     fn decodes_png_scanline_filters_and_palette_alpha() {
         let rows = [
             [255, 0, 0, 255, 0, 255, 0, 255],
@@ -1006,6 +1091,7 @@ mod tests {
         png.extend_from_slice(&crc.to_be_bytes());
     }
 
+    // Test-local vector construction only. The production decoder has no BC7 support.
     fn bc7_mode6_solid(color: [u8; 4]) -> [u8; 16] {
         let mut bits = Vec::with_capacity(128);
         for bit in 0..7 {
@@ -1029,6 +1115,8 @@ mod tests {
         block
     }
 
+    // Test-local mode-6 reference helper, never used by production decode_vtex_c.
+    // Passing these constructed vectors does not establish runtime BC7 support.
     fn decode_bc7_mode6_for_test(block: &[u8; 16]) -> Option<[u8; 64]> {
         let mut bit = 0_usize;
         let mut mode = None;

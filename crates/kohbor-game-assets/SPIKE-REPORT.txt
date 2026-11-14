@@ -5,6 +5,10 @@ read-only probe invocation** on 2026-11-14. This is not live-match, visual-match
 CV-accuracy, FPS, or release evidence. The lead approved retaining the round-1
 implementation as an exception to strict test-first sequencing.
 
+The native receipt below describes the round-2 source/artifact snapshot only.
+The round-3 review corrections and their source/synthetic evidence are appended
+at the end; the game probe was not rerun for those corrections.
+
 ## Result and census
 
 The installed VPK contains 554 candidate `npc_dota_hero_*` texture resources under
@@ -149,7 +153,7 @@ injection, or gameplay input.
 
 ## Verification and provenance
 
-Final results: **21 tests passed, 0 failed** (18 library + 3 binary); Clippy all
+Round-2 final results: **21 tests passed, 0 failed** (18 library + 3 binary); Clippy all
 targets with `-D warnings` passed; `cargo fmt --check` passed; release probe build
 passed. Tests construct all VPK/VTEX/PNG/BC7 buffers in code and use only owned
 synthetic temporary files. No test reads the owner's install or contains game
@@ -196,3 +200,57 @@ local use is claimed. No Valve image, texture, icon, screenshot or game bytes
 were written inside this repository or a test fixture. The generated PNGs stay
 in the explicitly authorized local scratch folder. No commit, push, PR, merge,
 shipping or publishing was performed; the lead owns review and integration.
+
+## Round 3: independent-review corrections
+
+Base revision: `76717fa81fb231b70ac7ebdba1cafb8a3ccef633`, with the scoped
+uncommitted corrections reported here. This round produced source and synthetic
+evidence only: no installed game file was read and the probe was not run against
+the game again. Earlier native timings and memory figures are historical
+round-2 observations, not measurements of this revised implementation.
+
+1. The VPK parser caps retained candidate records at 100,000 and retained path
+   bytes at 16 MiB, conservatively charging both the Entry path and HashMap key,
+   including repeated records. Each extension/name/directory component is at
+   most 255 bytes and each whole directory field at most 4096 bytes. Checked
+   budgets run before full-path/key allocation; HashMap and full-path reserves
+   are fallible. The hero-directory/extension/name filters operate on bounded
+   components before constructing full paths, and the shared directory prefix
+   is normalized once per group. Non-hero lookup still scans on demand without
+   retaining other entries in the index. Limits return error values.
+2. Probe output preflight refuses existing directory entries (including dangling
+   links), canonical parents inside a Git worktree or game installation, and
+   propagates metadata errors. PNG output uses OpenOptions with create_new(true)
+   so a file created by another writer after preflight causes AlreadyExists;
+   it is never truncated or replaced. Synthetic tests preserve sentinel bytes
+   across that simulated race and verify resolved game/Git parent rejection.
+3. Embedded PNG decoding independently caps declared/expected width and height
+   at 4096 each and cumulative compressed IDAT bytes at 8 MiB. IHDR must be
+   first and its dimensions pass the limit before chunk data is retained;
+   IDAT length sums are checked before CRC work/copy/reserve, with exact reserves.
+   These checks also protect direct decode_vtex_c calls on arbitrary slices
+   without relying on the VPK entry-size bound.
+4. Comments explicitly identify the BC7 helpers as test-local constructed-vector
+   utilities; production decode_vtex_c still has no BC7 decoder.
+
+Failing tests were observed before each production fix: the VPK regression run
+failed on the entry/path/component limits (3 failures), output regressions
+failed on existing-file/preflight-race preservation (2 failures), and PNG
+regressions failed on dimensions/cumulative IDAT/IHDR ordering (3 failures).
+Additional positive controls cover unrelated VPK prefixes, new-file creation,
+protected resolved parents, and the accepted PNG dimension boundary.
+
+Final acceptance: **33 passed, 0 failed** (26 library + 7 binary), including
+12 tests added in round 3; Clippy all targets with -D warnings passed; cargo fmt
+--check passed. Only synthetic bytes/files built in code were used. All Cargo
+commands used the same process-scoped F: lane and TEMP/TMP settings recorded
+above, offline operation, two build jobs, and an exclusive LOCK lease; tests
+also used RUST_TEST_THREADS=2. Formatting used the equivalent offline/jobs
+environment settings because cargo-fmt has no build-only flags. F: free space
+before final tests was 1,865,421,516,800 bytes. Cargo.toml and Cargo.lock were
+unchanged in this round; no new dependency, Git write or cleanup was performed.
+
+Round-3 source-manifest SHA-256, using the same recipe above:
+`102901441e85798a4bcf1969709d010e10224f9f002426cd6098753d58982077`.
+This report is excluded from the fingerprint; no round-3 native artifact hash
+or native acceptance is claimed. The lead owns review, commit and integration.
