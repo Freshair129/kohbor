@@ -8,8 +8,8 @@ pub const BODY_LIMIT_BYTES: usize = 131_072;
 /// Requests above this rate are dropped after authentication.
 pub const MAX_REQUESTS_PER_SECOND: u32 = 50;
 
-/// Data blocks requested in M1 (data minimization; abilities come later).
-pub const M1_DATA_BLOCKS: [&str; 4] = ["provider", "map", "player", "hero"];
+/// Data blocks requested for the local own-hero read model.
+pub const OWN_DATA_BLOCKS: [&str; 6] = ["provider", "map", "player", "hero", "abilities", "items"];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConfigError {
@@ -141,19 +141,21 @@ mod tests {
             slug: "kohbor",
             port,
             token: TOKEN,
-            data_blocks: &M1_DATA_BLOCKS,
+            data_blocks: &OWN_DATA_BLOCKS,
         }
     }
 
     #[test]
-    fn renders_loopback_uri_heartbeat_and_m1_blocks_only() {
+    fn renders_loopback_uri_heartbeat_and_all_own_data_blocks() {
         let text = cfg(3001).render().unwrap();
         assert!(text.contains("\"uri\"        \"http://127.0.0.1:3001/\""));
         assert!(text.contains("\"heartbeat\"  \"1.0\""));
-        for b in M1_DATA_BLOCKS {
+        for b in OWN_DATA_BLOCKS {
             assert!(text.contains(&format!("\"{b}\" \"1\"")));
         }
-        assert!(!text.contains("abilities") && !text.contains("items"));
+        // DEC-OWN-SNAPSHOT-2-1 authorizes these own-hero blocks locally.
+        assert!(text.contains("\"abilities\" \"1\""));
+        assert!(text.contains("\"items\" \"1\""));
         assert!(!text.contains('\r'));
         assert_eq!(
             cfg(3001).file_name().unwrap(),

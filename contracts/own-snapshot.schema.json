@@ -2,11 +2,11 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/spec/own-snapshot.schema.json",
   "title": "own-snapshot.schema.json",
-  "description": "Proposed neutral contract 2.1.0: per-field availability for admitted own-player game-state values. See docs/design/ICD.md and docs/design/GSI-INTAKE-SPEC.md. Snapshot freshness boundary: fresh <=2000 ms, stale >=2001 ms. A field is never fresher than its snapshot.",
+  "description": "Proposed neutral contract 2.2.0: per-field availability for admitted own-player game-state values. See docs/design/ICD.md and docs/design/GSI-INTAKE-SPEC.md. Snapshot freshness boundary: fresh <=2000 ms, stale >=2001 ms. A field is never fresher than its snapshot.",
   "type": "object",
   "properties": {
     "schema_version": {
-      "const": "2.1.0"
+      "const": "2.2.0"
     },
     "session_epoch": {
       "anyOf": [
@@ -155,6 +155,12 @@
             },
             "xpm": {
               "$ref": "#/$defs/xpm"
+            },
+            "items": {
+              "$ref": "#/$defs/items"
+            },
+            "abilities": {
+              "$ref": "#/$defs/abilities"
             }
           },
           "required": [
@@ -172,7 +178,9 @@
             "last_hits",
             "denies",
             "gpm",
-            "xpm"
+            "xpm",
+            "items",
+            "abilities"
           ],
           "additionalProperties": false
         }
@@ -855,6 +863,267 @@
           "additionalProperties": false
         }
       ]
+    },
+    "items": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "array",
+              "maxItems": 12,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "slot": {
+                    "enum": [
+                      "inventory0",
+                      "inventory1",
+                      "inventory2",
+                      "inventory3",
+                      "inventory4",
+                      "inventory5",
+                      "backpack0",
+                      "backpack1",
+                      "backpack2",
+                      "teleport",
+                      "neutral"
+                    ]
+                  },
+                  "name": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[a-z0-9_]{1,64}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "cooldown": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 3600
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "charges": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 999
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "can_cast": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "passive": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "slot",
+                  "name",
+                  "cooldown",
+                  "charges",
+                  "can_cast",
+                  "passive"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "availability": {
+              "enum": [
+                "fresh",
+                "stale"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "null"
+            },
+            "availability": {
+              "enum": [
+                "unknown",
+                "invalid",
+                "unsupported"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "abilities": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "array",
+              "maxItems": 8,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "slot": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 7
+                  },
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9_]{1,64}$"
+                  },
+                  "level": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 30
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "cooldown": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 3600
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "ultimate": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "can_cast": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "passive": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "active": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "slot",
+                  "name",
+                  "level",
+                  "cooldown",
+                  "ultimate",
+                  "can_cast",
+                  "passive",
+                  "active"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "availability": {
+              "enum": [
+                "fresh",
+                "stale"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "null"
+            },
+            "availability": {
+              "enum": [
+                "unknown",
+                "invalid",
+                "unsupported"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        }
+      ]
     }
   },
   "allOf": [
@@ -1014,6 +1283,24 @@
                     }
                   },
                   "xpm": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "stale"
+                        }
+                      }
+                    }
+                  },
+                  "items": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "stale"
+                        }
+                      }
+                    }
+                  },
+                  "abilities": {
                     "properties": {
                       "availability": {
                         "not": {
@@ -1185,6 +1472,24 @@
                     }
                   },
                   "xpm": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "fresh"
+                        }
+                      }
+                    }
+                  },
+                  "items": {
+                    "properties": {
+                      "availability": {
+                        "not": {
+                          "const": "fresh"
+                        }
+                      }
+                    }
+                  },
+                  "abilities": {
                     "properties": {
                       "availability": {
                         "not": {

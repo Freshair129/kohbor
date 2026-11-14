@@ -1,0 +1,32 @@
+.deck-loadout { display: grid; gap: 2px; grid-column: 1 / -1; min-width: 0; min-height: 0; overflow: hidden; }
+.deck-loadout-section { display: grid; gap: 2px; min-width: 0; min-height: 0; overflow: hidden; }
+.deck-loadout-section > header { display: flex; align-items: center; justify-content: space-between; gap: 4px; min-width: 0; }
+.deck-loadout-section h2 { margin: 0; color: var(--muted); font-size: 10px; font-weight: 500; line-height: 13px; }
+.deck-loadout-section header small { color: var(--text-2); font-size: 9px; }
+.deck-inventory { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 2px; min-width: 0; min-height: 0; }
+.deck-extra-items { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; min-width: 0; min-height: 0; }
+.deck-item-tile { position: relative; min-width: 0; height: 26px; overflow: hidden; padding: 1px 3px; border: 1px solid var(--line); border-radius: 3px; background: var(--raised); color: var(--text-2); }
+.deck-item-tile.is-small { height: 20px; padding-left: 16px; }
+.deck-item-tile.is-empty { border-style: dashed; background: var(--ground); }
+.deck-item-tile.is-unknown { color: var(--muted); background: var(--ground); }
+.deck-item-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; line-height: 11px; }
+.deck-item-tile.is-small .deck-item-name { font-size: 9px; line-height: 10px; }
+.deck-item-slot { position: absolute; left: 2px; top: 1px; font-size: 8px; color: var(--muted); }
+.deck-item-badges { position: absolute; right: 2px; bottom: 1px; display: flex; gap: 2px; font: 9px/10px Consolas, monospace; }
+.deck-item-badges b { padding-inline: 2px; border: 1px solid var(--stale); border-radius: 2px; background: var(--ground); font-weight: 400; }
+.deck-item-tile.is-small .deck-item-badges { font-size: 8px; line-height: 8px; }
+.deck-ability-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; min-width: 0; min-height: 0; }
+.deck-ability-tile { position: relative; height: 26px; min-width: 0; overflow: hidden; padding: 1px 3px; border: 1px solid var(--line); border-radius: 3px; background: var(--raised); color: var(--text-2); }
+.deck-ability-tile.is-ready { border-style: double; }
+.deck-ability-tile > strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; font-weight: 500; line-height: 11px; }
+.deck-ability-tile.is-ultimate > strong { padding-right: 20px; }
+.deck-ultimate-tag { position: absolute; right: 2px; top: 1px; padding-inline: 1px; border: 1px solid var(--stale); font: 8px/9px Consolas, monospace; }
+.deck-ability-detail { display: flex; align-items: center; justify-content: space-between; gap: 2px; min-width: 0; font: 9px/10px Consolas, monospace; }
+.deck-level-pips { display: flex; align-items: center; gap: 1px; min-width: 0; }
+.deck-level-pips i { display: block; flex: 0 0 4px; width: 4px; height: 4px; border: 1px solid var(--text-2); border-radius: 50%; font-size: 0; font-style: normal; }
+.deck-level-pips i.is-learned { background: var(--text-2); }
+.deck-ability-status { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deck-loadout-dash { min-height: 20px; padding: 1px 5px; border: 1px dashed var(--stale); border-radius: 3px; color: var(--muted); }
+.deck-loadout-section.is-stale { opacity: 0.68; border-inline-start: 1px dashed var(--stale); padding-left: 3px; }
+.deck-setup-hint { display: grid; gap: 1px; margin-top: 2px; }
+.deck-setup-hint span { overflow-wrap: anywhere; }

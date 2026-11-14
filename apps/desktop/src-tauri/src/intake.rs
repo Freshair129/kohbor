@@ -6,13 +6,16 @@ use crate::clock::MonoClock;
 use crate::{atomic, secrets};
 use base64::Engine;
 use kohbor_events::{adapter::tick_from_admitted, Detector, Event, EventId};
-use kohbor_gsi::admission::{token_matches, Ownership, Phase};
+use kohbor_gsi::admission::{parse_own_loadout, token_matches, OwnLoadout, Ownership, Phase};
 use kohbor_gsi::config::{
-    choose_port, claimed_ports, GsiConfig, BODY_LIMIT_BYTES, M1_DATA_BLOCKS,
-    MAX_REQUESTS_PER_SECOND, PORT_FIRST, PORT_LAST,
+    choose_port, claimed_ports, GsiConfig, BODY_LIMIT_BYTES, MAX_REQUESTS_PER_SECOND,
+    OWN_DATA_BLOCKS, PORT_FIRST, PORT_LAST,
 };
 use kohbor_gsi::session::{PersistedSessions, SessionChange, SessionTracker};
-use kohbor_gsi::{admit, build_snapshot, strict_json, Outcome, SourceState, FRESH_MAX_AGE_MS};
+use kohbor_gsi::{
+    admit, build_snapshot, build_snapshot_with_loadout, strict_json, Outcome, SourceState,
+    FRESH_MAX_AGE_MS,
+};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use socket2::SockRef;
@@ -66,6 +69,7 @@ pub struct Shared {
     pub generation: u64,
     sequence: u64,
     last_admitted: Option<(Instant, Outcome)>,
+    last_loadout: OwnLoadout,
     sessions: SessionTracker,
     detector: Detector,
     detector_epoch: Option<u64>,
@@ -372,6 +376,7 @@ impl Shared {
             generation,
             sequence: 0,
             last_admitted: None,
+            last_loadout: OwnLoadout::unknown(),
             sessions,
             detector: Detector::new(),
             detector_epoch: None,
@@ -400,11 +405,12 @@ impl Shared {
         self.generation += 1;
         self.sequence = 0;
         self.last_admitted = None;
+        self.last_loadout = OwnLoadout::unknown();
         self.reset_detector();
         self.persist_runtime();
     }
 
-    /// Own snapshot (own-snapshot 2.1.0) for the latest admitted payload.
+    /// Own snapshot (own-snapshot 2.2.0) for the latest admitted payload.
     pub fn snapshot(&self) -> Value {
         if let Some(age_ms) = self.last_age_ms() {
             self.log_freshness_transition(age_ms);
@@ -421,8 +427,9 @@ impl Shared {
                     identity_revision: 1,
                 },
             ),
-            Some((at, outcome)) => build_snapshot(
+            Some((at, outcome)) => build_snapshot_with_loadout(
                 outcome,
+                &self.last_loadout,
                 SourceState {
                     generation,
                     sequence: Some(self.sequence.max(1)),
@@ -583,6 +590,15 @@ impl Shared {
             // response reveals no admission detail.
             return 200;
         }
+        let loadout = match &outcome {
+            Outcome::Admitted(admitted)
+                if admitted.ownership == Ownership::Verified
+                    && matches!(admitted.phase, Phase::Pregame | Phase::Live) =>
+            {
+                parse_own_loadout(body)
+            }
+            _ => OwnLoadout::unknown(),
+        };
         let stale_source_gap = self.last_admitted.as_ref().is_some_and(|(previous, _)| {
             arrival.saturating_duration_since(*previous) > Duration::from_millis(FRESH_MAX_AGE_MS)
         });
@@ -701,6 +717,7 @@ impl Shared {
         }
         self.sequence += 1;
         self.last_admitted = Some((arrival, outcome));
+        self.last_loadout = loadout;
         if self.phase != previous_phase {
             let phase = match self.phase {
                 Some(Phase::Draft) => "draft",
@@ -1039,7 +1056,7 @@ impl Runtime {
             slug: SLUG,
             port,
             token: &token,
-            data_blocks: &M1_DATA_BLOCKS,
+            data_blocks: &OWN_DATA_BLOCKS,
         };
         let text = cfg.render().map_err(|_| "GSI_CONFIG_WRITE_FAILED")?;
         atomic::write(&target, text.as_bytes()).map_err(|_| "GSI_CONFIG_WRITE_FAILED")?;
@@ -1170,6 +1187,42 @@ mod tests {
     }
 
     #[test]
+    fn verified_intake_projects_own_items_and_abilities_into_snapshot() {
+        let mut shared = shared_with_token();
+        let token = shared.token.clone().unwrap();
+        let mut body = in_game(&token);
+        body["items"] = json!({
+            "slot0": {"name": "item_blink", "can_cast": true, "cooldown": 0.25,
+                      "passive": false, "charges": 0},
+            "slot6": {"name": "empty"}
+        });
+        body["abilities"] = json!({
+            "ability0": {"name": "axe_berserkers_call", "level": 4, "can_cast": true,
+                          "passive": false, "ability_active": true, "cooldown": 1.2,
+                          "ultimate": false}
+        });
+
+        assert_eq!(shared.accept(&body, Instant::now(), Some(owner())), 200);
+        let snapshot = shared.snapshot();
+        assert_eq!(
+            snapshot["own"]["fields"]["items"]["value"][0]["name"],
+            "item_blink"
+        );
+        assert_eq!(
+            snapshot["own"]["fields"]["items"]["value"][1]["name"],
+            Value::Null
+        );
+        assert_eq!(
+            snapshot["own"]["fields"]["abilities"]["value"][0]["active"],
+            true
+        );
+        assert_eq!(
+            snapshot["own"]["fields"]["abilities"]["value"][0]["cooldown"],
+            2
+        );
+    }
+
+    #[test]
     fn changed_hero_within_session_is_mismatched_and_withdrawn() {
         let mut s = shared_with_token();
         let tok = s.token.clone().unwrap();
@@ -1286,6 +1339,60 @@ mod tests {
             .find_map(|l| l.trim().strip_prefix("\"token\""))
             .map(|r| r.trim().trim_matches('"').to_owned())
             .expect("token line")
+    }
+
+    #[test]
+    fn previously_owned_config_with_old_blocks_is_rewritten_by_normal_setup() {
+        let rt = Runtime::new(temp_dir("setup-outdated-config-data"));
+        let game = temp_dir("setup-outdated-config-game");
+        let gdir = gsi_dir(&game);
+        fs::create_dir_all(&gdir).unwrap();
+        let target = gdir.join(owned_config_name());
+        let (data_dir, token) = {
+            let shared = lock(&rt.shared);
+            (shared.data_dir.clone(), shared.token.clone().unwrap())
+        };
+        let old_blocks = ["provider", "map", "player", "hero"];
+        let old_config = GsiConfig {
+            display_name: "Kohbor",
+            slug: SLUG,
+            port: 3005,
+            token: &token,
+            data_blocks: &old_blocks,
+        }
+        .render()
+        .unwrap();
+        fs::write(&target, &old_config).unwrap();
+        let mut settings = default_settings();
+        settings["revision"] = json!(41);
+        settings["gsi"] = json!({
+            "game_dir": game.to_string_lossy(),
+            "port": 3005,
+            "config_sha256": sha256_hex(old_config.as_bytes()),
+            "token_ref": "dpapi:gsi-token"
+        });
+        write_json_atomic(&settings_path(&data_dir), &settings).unwrap();
+
+        let port = rt.install_config(&game, false, |claimed| {
+            assert!(claimed.is_empty());
+            Some(3005)
+        });
+        assert_eq!(port, Ok(3005));
+        let rewritten = fs::read_to_string(&target).unwrap();
+        assert_ne!(rewritten, old_config);
+        for block in ["provider", "map", "player", "hero", "abilities", "items"] {
+            assert!(rewritten.contains(&format!("\"{block}\" \"1\"")));
+        }
+        assert_eq!(
+            token_in(&rewritten),
+            token,
+            "an owned version update keeps the token"
+        );
+        let updated = load_settings(&data_dir);
+        assert_eq!(
+            updated["gsi"]["config_sha256"],
+            sha256_hex(rewritten.as_bytes())
+        );
     }
 
     #[test]
