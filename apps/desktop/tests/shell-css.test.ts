@@ -59,6 +59,13 @@ test("the application shell occupies the viewport height", () => {
   assert.ok(declarationsFor(".app").some((declarations) => declarations.get("min-height") === "0"));
 });
 
+test("version metadata stays compact and About leaves a shrinking Status grid above it", () => {
+  assert.ok(declarationsFor(".shell-status").some(rule => rule.get("grid-template-rows") === "minmax(0, 1fr) auto"));
+  assert.ok(declarationsFor(".shell-about").some(rule => rule.get("min-height") === "0" && overflowY(rule) === "hidden"));
+  assert.ok(declarationsFor(".shell-version").some(rule => rule.get("max-width") === "220px"));
+  assert.ok(declarationsFor(".shell-version-number").some(rule => rule.get("overflow") === "hidden" && rule.get("text-overflow") === "ellipsis"));
+});
+
 test("history and pack lists scroll only inside bounded list regions", () => {
   for (const selector of [".history-scroll", ".pack-list"]) {
     const entries = declarationsFor(selector);

@@ -8,6 +8,7 @@ export function startLiveCollection(): Promise<void> {
 export { DangerMeter } from "./DangerMeter";
 export { EnemySeen } from "./EnemySeen";
 export { LiveTab } from "./LiveTab";
+export { MinimapPanel } from "./MinimapPanel";
 export { ResourcePanel } from "./ResourcePanel";
 export { RiskStrip } from "./RiskStrip";
 export { useCaptureStatus } from "./useCaptureStatus";

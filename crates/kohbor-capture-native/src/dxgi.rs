@@ -1,6 +1,6 @@
 // Provenance: ported from owner-authored G-Maiden 0.13.6 src-tauri/src/dxgi.rs, owner consent recorded in claim vision-risk__mvp1-capture-native.
 
-use std::{collections::HashSet, marker::PhantomData, rc::Rc, time::Instant};
+use std::{collections::HashSet, marker::PhantomData, rc::Rc, sync::Mutex, time::Instant};
 
 use kohbor_capture::Rect;
 use windows::{
@@ -48,7 +48,24 @@ pub(crate) struct GameWindow {
     rect: Rect,
 }
 
+// Cache only the identity already established by the existing game lookup. The
+// occlusion checker validates its owner and enumerates windows, never processes.
+static IDENTIFIED_GAME_WINDOW: Mutex<Option<(isize, u32)>> = Mutex::new(None);
+
+pub(crate) fn identified_game_window() -> Option<(isize, u32)> {
+    *IDENTIFIED_GAME_WINDOW
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+fn set_identified_game_window(window: Option<(isize, u32)>) {
+    *IDENTIFIED_GAME_WINDOW
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = window;
+}
+
 pub(crate) fn find_game_window() -> Result<GameWindow, crate::OpenError> {
+    set_identified_game_window(None);
     let process_ids = dota_process_ids()?;
     if process_ids.is_empty() {
         return Err(crate::OpenError::NoGameWindow);
@@ -69,7 +86,7 @@ pub(crate) fn find_game_window() -> Result<GameWindow, crate::OpenError> {
         .map_err(|error| crate::OpenError::Os(format!("EnumWindows failed: {error}")))?;
     }
 
-    let Some((hwnd, rect)) = scan.best else {
+    let Some((hwnd, rect, process_id)) = scan.best else {
         return Err(crate::OpenError::NoGameWindow);
     };
     // SAFETY: hwnd is a live top-level window returned by EnumWindows.
@@ -80,6 +97,7 @@ pub(crate) fn find_game_window() -> Result<GameWindow, crate::OpenError> {
         ));
     }
 
+    set_identified_game_window(Some((hwnd.0 as isize, process_id)));
     Ok(GameWindow {
         hwnd,
         monitor,
@@ -94,7 +112,7 @@ pub(crate) fn game_window() -> Option<Rect> {
 struct WindowScan {
     process_ids: HashSet<u32>,
     best_area: u64,
-    best: Option<(HWND, Rect)>,
+    best: Option<(HWND, Rect, u32)>,
 }
 
 unsafe extern "system" fn enum_windows_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
@@ -141,6 +159,7 @@ unsafe extern "system" fn enum_windows_proc(hwnd: HWND, lparam: LPARAM) -> BOOL 
                 width,
                 height,
             },
+            process_id,
         ));
     }
 
@@ -231,6 +250,16 @@ pub(crate) struct NativeCapture {
 }
 
 impl NativeCapture {
+    pub(crate) fn screen_rect(&self, rect: Rect) -> Option<Rect> {
+        // SAFETY: output is the live DXGI output owned by this capture session.
+        let description = unsafe { self.output.GetDesc() }.ok()?;
+        crate::occlusion::to_screen_rect(
+            rect,
+            description.DesktopCoordinates.left,
+            description.DesktopCoordinates.top,
+        )
+    }
+
     pub(crate) fn open(game: GameWindow) -> Result<(Self, crate::OutputInfo), crate::OpenError> {
         // SAFETY: the factory is a COM interface returned by DXGI; all COM
         // calls are checked before their results are used.

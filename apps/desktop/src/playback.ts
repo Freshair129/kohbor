@@ -34,6 +34,9 @@ export interface PlaybackState {
   currentPlaybackId: string | null;
   /** At most one verified native-provided visual can be visible. */
   visual: (PlaybackStartedEvent & { visual_url: string }) | null;
+  /** Audio lifecycle is independent of whether this clip has a visual. */
+  audio: PlaybackStartedEvent | null;
+  audioEndAtMs: number | null;
   /** Deadline in the event clock domain, including the 500 ms fail-safe margin. */
   failSafeAtMs: number | null;
   malformedEventCount: number;
@@ -111,6 +114,8 @@ export function createPlaybackState(): PlaybackState {
   return {
     currentPlaybackId: null,
     visual: null,
+    audio: null,
+    audioEndAtMs: null,
     failSafeAtMs: null,
     malformedEventCount: 0,
   };
@@ -122,8 +127,8 @@ export function reducePlayback(state: PlaybackState, input: unknown): PlaybackSt
   if (!event) return { ...state, malformedEventCount: state.malformedEventCount + 1 };
 
   if (event.kind === "ended") {
-    if (event.playback_id !== state.currentPlaybackId || !state.visual) return state;
-    return { ...state, visual: null, failSafeAtMs: null };
+    if (event.playback_id !== state.currentPlaybackId || (!state.visual && !state.audio)) return state;
+    return { ...state, visual: null, failSafeAtMs: null, audio: null, audioEndAtMs: null };
   }
 
   if (event.playback_id === state.currentPlaybackId) return state;
@@ -133,12 +138,19 @@ export function reducePlayback(state: PlaybackState, input: unknown): PlaybackSt
     ...state,
     currentPlaybackId: event.playback_id,
     visual,
+    audio: event.audio_duration_ms > 0 ? event : null,
+    audioEndAtMs: event.audio_duration_ms > 0 ? event.at_ms + event.audio_duration_ms : null,
     failSafeAtMs: visual ? event.at_ms + event.audio_duration_ms + event.visual_tail_ms + 500 : null,
   };
 }
 
 /** Hide a stuck visual at the native event timestamp plus audio, tail and grace period. */
 export function tickPlayback(state: PlaybackState, now_ms: number): PlaybackState {
-  if (state.visual === null || state.failSafeAtMs === null || now_ms < state.failSafeAtMs) return state;
-  return { ...state, visual: null, failSafeAtMs: null };
+  const audioExpired = state.audio !== null && state.audioEndAtMs !== null && now_ms >= state.audioEndAtMs;
+  const visualExpired = state.visual !== null && state.failSafeAtMs !== null && now_ms >= state.failSafeAtMs;
+  if (!audioExpired && !visualExpired) return state;
+  return { ...state,
+    ...(audioExpired ? { audio: null, audioEndAtMs: null } : {}),
+    ...(visualExpired ? { visual: null, failSafeAtMs: null } : {}),
+  };
 }

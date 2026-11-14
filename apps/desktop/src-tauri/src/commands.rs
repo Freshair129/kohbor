@@ -7,6 +7,11 @@ use serde_json::Value;
 use std::sync::atomic::Ordering;
 use tauri::Manager;
 
+#[tauri::command]
+pub(crate) fn app_version() -> Value {
+    crate::version::AppVersion::current().to_json()
+}
+
 #[tauri::command(async)]
 pub(crate) fn runtime_get_status(state: tauri::State<'_, AppState>) -> Value {
     let revision = state.revision.fetch_add(1, Ordering::Relaxed) + 1;

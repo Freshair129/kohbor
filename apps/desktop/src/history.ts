@@ -48,6 +48,14 @@ export interface AudioHistory {
 
 /** How many records the panel asks for and shows. */
 export const HISTORY_LIMIT = 100;
+/** Host buffer cap. Its limited snapshot returns the oldest prefix, so fetch it all. */
+export const HISTORY_FETCH_LIMIT = 256;
+
+export async function readAudioHistory(command: (limit: number) => Promise<unknown>): Promise<AudioHistory | null> {
+  return parseAudioHistory(await command(HISTORY_FETCH_LIMIT));
+}
+
+export type HistoryLoadState = "loading" | "ok" | "unreadable" | "failed";
 
 export const HISTORY_CLASSES: readonly HistoryClass[] = ["critical", "correction", "notice", "ordinary", "voice"];
 export const HISTORY_OUTCOMES: readonly HistoryOutcome[] = [

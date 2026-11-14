@@ -1,20 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react";
 import { copy, packReason, type Locale } from "./copy";
 import {
   formatElapsed,
   HISTORY_LIMIT,
   isDemoOutcomeRecord,
   outcomeTone,
-  parseAudioHistory,
-  type AudioHistory as AudioHistoryData,
   type OutcomeTone,
 } from "./history";
 import { Chip, type Tone } from "./Readiness";
-import { audioHistory } from "./runtime";
-
-const POLL_MS = 2_000;
-
-type LoadState = "loading" | "ok" | "unreadable" | "failed";
+import { useAudioHistory } from "./useAudioHistory";
 
 const CHIP_TONE: Record<OutcomeTone, Tone> = {
   played: "fresh",
@@ -22,84 +15,12 @@ const CHIP_TONE: Record<OutcomeTone, Tone> = {
   silent: "off",
 };
 
-function signature(history: AudioHistoryData): string {
-  const newest = history.records[0];
-  return `${history.records.length}:${history.skipped}:${newest?.instance_id ?? ""}:${newest?.outcome ?? ""}`;
-}
-
 export function AudioHistory({ locale, disabled = false }: { locale: Locale; disabled?: boolean }) {
   const text = copy(locale).history;
-  const [history, setHistory] = useState<AudioHistoryData | null>(null);
-  const [state, setState] = useState<LoadState>("loading");
-  const [errorCode, setErrorCode] = useState<string | null>(null);
-  const alive = useRef(true);
-  const seq = useRef(0);
-  const lastSignature = useRef<string | null>(null);
-
-  useEffect(() => {
-    alive.current = true;
-    return () => {
-      alive.current = false;
-    };
-  }, []);
-
-  const load = useCallback(async () => {
-    const mine = ++seq.current;
-    try {
-      const parsed = parseAudioHistory(await audioHistory(HISTORY_LIMIT));
-      if (!alive.current || mine !== seq.current) return;
-      if (!parsed) {
-        lastSignature.current = null;
-        setHistory(null);
-        setState("unreadable");
-        return;
-      }
-      const sig = signature(parsed);
-      if (sig !== lastSignature.current) {
-        lastSignature.current = sig;
-        setHistory(parsed);
-      }
-      setState("ok");
-      setErrorCode(null);
-    } catch (e) {
-      if (!alive.current || mine !== seq.current) return;
-      // Keep the last rows on screen, marked as not current, instead of presenting them as live.
-      setState("failed");
-      setErrorCode(typeof e === "string" ? e : e instanceof Error ? e.message : "UNKNOWN");
-    }
-  }, []);
-
-  useEffect(() => {
-    if (disabled) return;
-    let cancelled = false;
-    let running = false;
-    let timer: number | undefined;
-    const tick = async () => {
-      if (running || cancelled) return;
-      running = true;
-      window.clearTimeout(timer);
-      try {
-        await load();
-      } finally {
-        running = false;
-      }
-      // A hidden window does not poll; visibilitychange resumes it.
-      if (!cancelled && !document.hidden) timer = window.setTimeout(() => void tick(), POLL_MS);
-    };
-    void tick();
-    const onVisibility = () => {
-      if (!document.hidden) void tick();
-    };
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, [disabled, load]);
+  const { history, state, errorCode, load } = useAudioHistory(disabled);
 
   const outdated = state === "failed" || disabled;
-  const records = history?.records ?? [];
+  const records = history?.records.slice(0, HISTORY_LIMIT) ?? [];
 
   return (
     <section className="card history-panel" aria-labelledby="history-h">

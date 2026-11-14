@@ -3,20 +3,27 @@ import { AudioHistory } from "./AudioHistory";
 import { AudioMuteControl, AudioPanel, useAudioMute } from "./AudioPanel";
 import { copy, seconds, type Locale } from "./copy";
 import { DemoPanel } from "./DemoPanel";
+import { Deck } from "./deck/Deck";
+import { deckStateReasonForLocale, deriveDeckState } from "./deck/deckState";
 import { Guide } from "./Guide";
-import { LiveTab, startLiveCollection, useCaptureStatus } from "./live";
+import { startLiveCollection, useCaptureStatus } from "./live";
 import { OwnHero } from "./OwnHero";
 import { PackPanel } from "./PackPanel";
 import { Chip, Readiness } from "./Readiness";
 import { nextShellTab, deriveHeaderState, SHELL_TABS, type ShellTab } from "./shell/state";
-import { useRuntime } from "./runtime";
+import { usePlayback, useRuntime } from "./runtime";
 import { useSettings } from "./settings";
+import { useAppVersion } from "./shell/useAppVersion";
+import { deriveAppVersionView } from "./shell/appVersionModel";
+import { AboutPanel, VersionHeader } from "./shell/VersionInfo";
 
 export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode } = {}) {
   const { status, snapshot, hostLost, setup } = useRuntime();
   const { settings, loading, saving, notice, changeLocale } = useSettings();
   const capture = useCaptureStatus();
   const mute = useAudioMute(status);
+  const playback = usePlayback();
+  const version = deriveAppVersionView(useAppVersion());
   const [activeTab, setActiveTab] = useState<ShellTab>("live");
   const tabRefs = useRef<Record<ShellTab, HTMLButtonElement | null>>({
     live: null,
@@ -36,9 +43,31 @@ export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode }
       capturePhases: text.shell.capturePhases,
       capturePaused: text.shell.capturePaused,
       captureRunning: text.shell.captureRunning,
+      captureCovered: text.shell.captureCovered,
     },
     (ageMs) => seconds(ageMs, displayLocale),
   );
+  const deckState = deriveDeckState({
+    runtime: status,
+    snapshotAvailability: snapshot?.availability ?? null,
+    capture,
+    hostLost,
+  });
+  const deckReason = deckStateReasonForLocale(deckState, displayLocale);
+  const phase = status?.session.phase ?? null;
+  const phaseLabel = phase === null ? "—" : text.phases[phase];
+  const phaseTone = phase === "none" || phase === "draft"
+    ? "unknown"
+    : phase === "unsupported" || phase === "post_game"
+      ? "off"
+      : headerState.readiness.tone;
+  const deckTone = {
+    standby: "unknown",
+    live: "fresh",
+    novision: "warn",
+    stale: "stale",
+    debrief: "off",
+  } as const;
   const setupNeeded = status?.intake.state === "not_configured";
 
   useEffect(() => {
@@ -81,6 +110,17 @@ export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode }
           <span aria-label={`${text.readiness.title}: ${headerState.readiness.label}`}>
             <Chip tone={headerState.readiness.tone} label={headerState.readiness.label} />
           </span>
+          <span
+            className="shell-deck-status"
+            aria-label={`${displayLocale === "th" ? deckState.labelTh : deckState.labelEn}: ${deckReason}`}
+            title={deckReason}
+          >
+            <Chip tone={deckTone[deckState.state]} label={displayLocale === "th" ? deckState.labelTh : deckState.labelEn} />
+            <small className="shell-deck-reason">{deckReason}</small>
+          </span>
+          <span className="shell-phase-chip" title={`${text.shell.gamePhase}: ${phaseLabel}`} aria-label={`${text.shell.gamePhase}: ${phaseLabel}`}>
+            <Chip tone={phaseTone} label={`${text.shell.gamePhase}: ${phaseLabel}`} />
+          </span>
           <span className="shell-age-badge" aria-label={`${text.shell.gameAge}: ${headerState.gameAge}`}>
             <span>{text.shell.gameAge}</span>
             <b>{headerState.gameAge}</b>
@@ -108,6 +148,7 @@ export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode }
         )}
 
         <AudioMuteControl control={mute} locale={displayLocale} compact />
+        <VersionHeader view={version} />
       </header>
 
       <div className="shell-tab-list" role="tablist" aria-label={text.shell.navigationLabel}>
@@ -138,7 +179,7 @@ export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode }
       >
         {activeTab === "live" && (
           <div className="shell-screen shell-live">
-            <LiveTab locale={displayLocale} />
+            <Deck locale={displayLocale} status={status} snapshot={snapshot} state={deckState} mute={mute} playback={playback} hostLost={hostLost} />
           </div>
         )}
 
@@ -211,6 +252,7 @@ export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode }
                 <DemoPanel />
               </div>
             </div>
+            <AboutPanel view={version} locale={displayLocale} />
           </div>
         )}
       </section>

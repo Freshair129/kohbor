@@ -18,13 +18,14 @@ export function nextShellTab(current: ShellTab, key: string): ShellTab | null {
 }
 
 export type HeaderStatus = Pick<RuntimeStatus, "session" | "intake">;
-export type CaptureHeaderInput = { phase: string; paused: boolean | null } | null;
+export type CaptureHeaderInput = { phase: string; paused: boolean | null; phase_reason?: string | null } | null;
 export interface HeaderLabels {
   phases: Record<Phase, string>;
   staleSuffix: string;
   capturePhases: Record<string, string>;
   capturePaused: string;
   captureRunning: string;
+  captureCovered?: string;
 }
 
 export function deriveHeaderState(
@@ -57,11 +58,15 @@ export function deriveHeaderState(
   const capturePhase = capture === null
     ? "—"
     : labels?.capturePhases[capture.phase] ?? "—";
+  const covered = capture?.phase === "stale" && capture.phase_reason === "occluded";
   const captureLabel = capture === null || capturePhase === "—"
     ? "—"
+    : covered ? labels?.captureCovered ?? "—"
+    : capture.phase === "idle" ? capturePhase
     : `${capturePhase} · ${capture.paused === null ? "—" : capture.paused ? labels?.capturePaused ?? "—" : labels?.captureRunning ?? "—"}`;
-  const captureTone: HeaderTone = capture === null || capturePhase === "—" || capture.phase === "unknown"
+  const captureTone: HeaderTone = capture === null || capturePhase === "—" || capture.phase === "unknown" || capture.phase === "idle"
     ? "unknown"
+    : covered ? "stale"
     : capture.paused === true || capture.phase === "unsupported"
       ? "off"
       : capture.phase === "live" && capture.paused === false
