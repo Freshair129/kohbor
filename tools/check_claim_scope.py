@@ -19,6 +19,11 @@ Usage: ``python tools/check_claim_scope.py [--repo DIR] [--coord DIR] [--base RE
   Other entries are listed as "not a path pattern" and ignored.
 - Shared integration files are always allowed (docs/delivery/AGENT-WORKFLOW.md section 9.1 item 6).
 
+Tags (Stage 0 of the progress chase, tools/tagpool.py): every run also reports T1 an active claim on the branch has no valid tag,
+T2 a claim has a tag that is not in the pool, T3 the branch changes non-shared paths but no claim on it has a valid tag, and T4 a
+tags_done evidence file is missing or its hash differs. They are REPORT-ONLY like the rest and fail only under ``--enforce`` (the
+sprint-exit gate). A tag is never compared with the write area: tags say what the work serves, the write area says where it writes.
+
 Source-class evidence about process only.
 """
 
@@ -31,6 +36,9 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import tagpool  # noqa: E402
 
 SHARED = [
     "package-manifest.json",
@@ -253,6 +261,7 @@ def run(opts) -> dict:
                 candidates.append((f.name, data, False))
     wanted = {"active", "done"} if opts.include_done else {"active"}
     head_full = (git(repo, "rev-parse", "HEAD") or "").strip()
+    branch_claims = [(n, d) for n, d, _ in candidates if d.get("branch") == branch and d.get("status") in ("active", "done")]
     for name, data, explicit in candidates:
         if data.get("status") not in wanted:
             continue
@@ -308,6 +317,10 @@ def run(opts) -> dict:
     regexes = [glob_to_regex(p) for p in patterns]
     shared = [glob_to_regex(p) for p in SHARED]
     paths, used, _ = changed_paths(repo, bases)
+    pool = tagpool.load_pool(repo)
+    tag_findings: list[dict[str, str]] = []
+    for cname, cdata in branch_claims:
+        tag_findings += tagpool.claim_findings(cname, cdata, pool, repo)
     inside, outside, shared_hits = [], [], []
     for path in paths:
         if any(r.match(path) for r in shared):
@@ -316,7 +329,13 @@ def run(opts) -> dict:
             inside.append(path)
         else:
             outside.append(path)
+    nonshared = len(inside) + len(outside)
+    tagged = any(tagpool.is_valid(t, pool) for _, c in claims for t in (c.get("tags") if isinstance(c.get("tags"), list) else []))
+    any_tags = any(isinstance(c.get("tags"), list) and c.get("tags") for _, c in claims)
+    if nonshared and not tagged and (not pool["errors"] or not any_tags):
+        tag_findings.append({"code": "T3", "claim": "", "message": f"branch {branch} changes {nonshared} non-shared path(s) but no claim on it has a valid tag"})
     return {"branch": branch, "diff": used, "base": base, "base_source": base_source, "claims": [name for name, _ in claims], "patterns": patterns,
+            "tag_findings": tag_findings, "tag_pool_errors": pool["errors"],
             "ignored_entries": ignored, "whole_checkout_claim": whole, "vacuous": whole, "changed": len(paths), "inside": inside,
             "shared_integration_files": shared_hits, "outside": outside, "no_claim": not claims, "work_after_close": work_after_close,
             "claim_branch_mismatch": branch_mismatch, "base_override_ignored": override_ignored}
@@ -357,9 +376,9 @@ def main(argv: list[str] | None = None) -> int:
     except Exception as exc:  # a report-only tool must not break the gate by crashing
         rep = {"error": repr(exc), "outside": [], "no_claim": True, "changed": 0, "claims": [], "inside": [], "shared_integration_files": [], "ignored_entries": [],
                "branch": "?", "diff": "?", "base": "?", "base_source": "?", "vacuous": False, "work_after_close": [], "claim_branch_mismatch": [],
-               "base_override_ignored": None}
+               "base_override_ignored": None, "tag_findings": [], "tag_pool_errors": []}
     mode = "ENFORCED" if opts.enforce else "REPORT-ONLY"
-    bad = bool(rep["outside"]) or rep["no_claim"] or "error" in rep
+    bad = bool(rep["outside"]) or rep["no_claim"] or "error" in rep or bool(rep["tag_findings"])
     if opts.json:
         print(json.dumps(dict(rep, mode=mode), indent=2, ensure_ascii=False))
     else:
@@ -377,10 +396,14 @@ def main(argv: list[str] | None = None) -> int:
             print("NOTE scope check is vacuous: a claim covers the whole checkout, so every path counts as inside")
         for path in rep["outside"]:
             print("OUTSIDE " + path)
+        for f in rep["tag_findings"]:
+            print(f"{f['code']} {f['message']}")
+        if rep["tag_pool_errors"]:
+            print("NOTE tag pool could not be read completely (" + "; ".join(rep["tag_pool_errors"]) + "): tags of the unreadable kinds are not judged")
         for entry in rep["ignored_entries"]:
             print("NOTE write_area entry is not a path pattern and was ignored: " + entry)
         print(f"check_claim_scope: {mode}: {rep['changed']} changed, {len(rep['inside'])} inside, {len(rep['shared_integration_files'])} shared, "
-              f"{len(rep['outside'])} outside; branch {rep['branch']}; base {rep['base']} ({rep['base_source']}); claims {', '.join(rep['claims']) or 'none'}")
+              f"{len(rep['outside'])} outside; {len(rep['tag_findings'])} tag finding(s); branch {rep['branch']}; base {rep['base']} ({rep['base_source']}); claims {', '.join(rep['claims']) or 'none'}")
     return 1 if bad and opts.enforce else 0
 
 
