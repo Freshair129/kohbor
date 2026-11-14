@@ -121,15 +121,16 @@ test("hidden developer tab is excluded from keyboard navigation", () => {
   assert.equal(nextShellTab("logs", "ArrowRight", shellTabs(true)), "live");
 });
 
-test("frontend payload keeps only a bounded message and source basename, without object or stack content", () => {
-  assert.deepEqual(shapeFrontendError("error", "failed\n at C:\\Users\\private\\file.ts:2", "file:///C:/Users/private/app.js?key=secret"), {
-    level: "error", module: "renderer", msg: "failed", fields: { source: "app.js" },
-  });
-  assert.equal(shapeFrontendError("error", "x".repeat(600)).msg.length, 500);
+test("frontend payload carries a fixed message, a source basename and a hash, never the error text", () => {
+  const shaped = shapeFrontendError("error", "failed for player Alice123 at C:\Users\private\file.ts:2", "file:///C:/Users/private/app.js?key=secret");
+  assert.equal(shaped.msg, "Renderer error");
+  assert.equal(shaped.fields.source, "app.js");
+  assert.match(shaped.fields.code ?? "", /^[0-9a-f]{8}$/);
+  assert.doesNotMatch(JSON.stringify(shaped), /Alice|private|Users|secret/);
   assert.deepEqual(shapeFrontendError("unhandledrejection", { secret: "private", toString() { throw new Error(); } }, { path: "secret" }), {
     level: "error", module: "renderer", msg: "Unhandled promise rejection", fields: {},
   });
-  assert.doesNotMatch(shapeFrontendError("error", "Cannot open C:\\Users\\private\\file.txt").msg, /Users|private/);
+  assert.equal(shapeFrontendError("error", "same").fields.code, shapeFrontendError("error", "same").fields.code);
 });
 
 test("frontend forwarding allows at most five attempts in a rolling second and swallows host rejection", async () => {
@@ -148,7 +149,7 @@ test("frontend listeners install once and extract an Error message without its s
   installFrontendLogging(target, invoke); installFrontendLogging(target, invoke);
   const event = new Event("unhandledrejection"); Object.defineProperty(event, "reason", { value: new Error("rejected") });
   target.dispatchEvent(event); await Promise.resolve();
-  assert.equal(payloads.length, 1); assert.equal((payloads[0] as { msg: string }).msg, "rejected");
+  assert.equal(payloads.length, 1); assert.equal((payloads[0] as { msg: string }).msg, "Unhandled promise rejection");
   assert.doesNotMatch(JSON.stringify(payloads), /stack|logs\.test/);
 });
 

@@ -23,6 +23,16 @@ export function MinimapStage({ source, hasFrame, covered, stageRef, plate, child
   const showPlate = view === "unsupported" || view === "live";
   const showCover = view !== "live" && (view !== "occluded" || !hasFrame) && !(view === "unsupported" && plate);
   const finish = () => dispatch({ type: "finish", revealId: machine.revealId });
+  // The CSS animationend event is the normal completion; this timer is the safety net so a cancelled or
+  // disabled animation can never leave the opaque cover over an already painted live minimap.
+  useEffect(() => {
+    if (machine.view !== "first_frame" || !machine.frameReady) return;
+    const timer = window.setTimeout(
+      () => dispatch({ type: "finish", revealId: machine.revealId }),
+      (machine.reducedMotion ? 160 : 760) + 400,
+    );
+    return () => window.clearTimeout(timer);
+  }, [machine.view, machine.frameReady, machine.revealId, machine.reducedMotion]);
   return <div ref={stageRef} className="live-map-stage minimap-stage" data-state={view} data-frame-ready={hasFrame}
     data-reduced-motion={machine.reducedMotion} aria-label={locale === "th" ? "แผนที่ย่อ" : "Minimap"}>
     {children}

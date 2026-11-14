@@ -198,7 +198,8 @@ test("new shell, reserved pages and stage remain bounded; reveal adds duration t
   const pipeline = readFileSync(new URL("../src/live/MinimapPanel.tsx", import.meta.url), "utf8");
   assert.match(pipeline, /<MinimapStage/); assert.match(pipeline, /ref=\{minimap\.canvasRef\}/);
   const stage = readFileSync(new URL("../src/live/MinimapStage.tsx", import.meta.url), "utf8");
-  assert.doesNotMatch(stage, /setInterval|setTimeout|\bemit\(/);
+  // One bounded setTimeout is the reveal safety net (cleared on unmount); no polling and no host emit.
+  assert.doesNotMatch(stage, /setInterval|\bemit\(/); assert.match(stage, /clearTimeout/);
   const pages = readFileSync(new URL("../src/account/AccountPages.tsx", import.meta.url), "utf8");
   assert.match(pages, /เร็วๆ นี้/); assert.match(pages, /ยังไม่มีข้อมูลจำนวนเพื่อน/);
   assert.doesNotMatch(pages, /KB-MOCK|KB-DEMO|SteamID|steam_persona/);

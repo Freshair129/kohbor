@@ -1,18 +1,26 @@
 // @ts-ignore Explicit extensions support Node's TypeScript loader.
 import type { LogInvoke } from "./tail.ts";
 
-export interface FrontendErrorPayload { level: "error"; module: "renderer"; msg: string; fields: { source?: string } }
+export interface FrontendErrorPayload { level: "error"; module: "renderer"; msg: string; fields: { source?: string; code?: string } }
 type ErrorKind = "error" | "unhandledrejection";
 
-/** Only message text and a file basename cross IPC. Never serialize arbitrary rejection objects. */
+/** Arbitrary error text can contain a player or Steam name, so it is NEVER forwarded: only a fixed
+ * message, a file basename and a short hash of the original text cross IPC (the hash lets the same
+ * error be recognised without revealing it). Never serialize arbitrary rejection objects. */
+function shortHash(text: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i += 1) { h ^= text.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h.toString(16).padStart(8, "0");
+}
+
 export function shapeFrontendError(kind: ErrorKind, message: unknown, source?: unknown): FrontendErrorPayload {
   const fallback = kind === "error" ? "Renderer error" : "Unhandled promise rejection";
-  const msg = (typeof message === "string" ? message.split(/[\r\n]/, 1)[0]?.trim() : null) || fallback;
-  const sanitized = msg.replace(/file:\/\/[^\s"'<>]+/gi, "[path]")
-    .replace(/\b[A-Za-z]:[\\/][^\s"'<>]+/g, "[path]")
-    .replace(/\/(?:Users|home)\/[^\s"'<>]+/g, "[path]").slice(0, 500);
-  const filename = typeof source === "string" ? source.split(/[?#]/, 1)[0]?.split(/[\\/]/).at(-1)?.slice(0, 120) : null;
-  return { level: "error", module: "renderer", msg: sanitized, fields: filename ? { source: filename } : {} };
+  const original = typeof message === "string" ? message.slice(0, 2000) : "";
+  const filename = typeof source === "string" ? source.split(/[?#]/, 1)[0]?.split(/[\/]/).at(-1)?.slice(0, 120) : null;
+  const fields: { source?: string; code?: string } = {};
+  if (filename) fields.source = filename;
+  if (original) fields.code = shortHash(original);
+  return { level: "error", module: "renderer", msg: fallback, fields };
 }
 
 export function createFrontendForwarder(invoke: LogInvoke, now: () => number = () => performance.now()) {
