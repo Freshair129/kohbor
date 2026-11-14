@@ -382,8 +382,12 @@ mod tests {
                 .duration_since(UNIX_EPOCH)
                 .expect("test clock")
                 .as_nanos();
-            let path = std::env::temp_dir()
-                .join(format!("kohbor-probe-test-{}-{nonce}", std::process::id()));
+            static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+            let unique = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            let path = std::env::temp_dir().join(format!(
+                "kohbor-probe-test-{}-{nonce}-{unique}",
+                std::process::id()
+            ));
             fs::create_dir(&path).expect("owned synthetic directory");
             Self(path)
         }

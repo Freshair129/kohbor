@@ -618,8 +618,12 @@ mod tests {
                 .duration_since(UNIX_EPOCH)
                 .map(|duration| duration.as_nanos())
                 .unwrap_or(0);
-            let path = std::env::temp_dir()
-                .join(format!("kohbor-game-assets-{}-{nonce}", std::process::id()));
+            static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+            let unique = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            let path = std::env::temp_dir().join(format!(
+                "kohbor-game-assets-{}-{nonce}-{unique}",
+                std::process::id()
+            ));
             fs::create_dir_all(&path).expect("create synthetic VPK directory");
             Self(path)
         }
