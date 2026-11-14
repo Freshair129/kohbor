@@ -10,6 +10,7 @@ pub mod host;
 pub mod instance;
 pub mod intake;
 pub mod latency;
+pub mod logging;
 mod media;
 pub mod secrets;
 pub mod settings;
@@ -66,14 +67,46 @@ impl host::Emitter for tauri::AppHandle<tauri::Wry> {
 fn data_dir(app: &tauri::App<tauri::Wry>) -> tauri::Result<std::path::PathBuf> {
     #[cfg(any(feature = "demo", debug_assertions))]
     {
-        let demo = std::env::var("KOHBOR_DEMO").ok();
-        let requested = std::env::var("KOHBOR_DATA_DIR").ok();
-        if let Some(dir) = demo::data_dir_override(demo.as_deref(), requested.as_deref()) {
+        if let Some(dir) = demo_data_dir_override() {
             std::fs::create_dir_all(&dir)?;
             return Ok(dir);
         }
     }
     app.path().app_data_dir()
+}
+
+#[cfg(any(feature = "demo", debug_assertions))]
+fn demo_data_dir_override() -> Option<std::path::PathBuf> {
+    let demo = std::env::var("KOHBOR_DEMO").ok();
+    let requested = std::env::var("KOHBOR_DATA_DIR").ok();
+    demo::data_dir_override(demo.as_deref(), requested.as_deref())
+}
+
+#[cfg(not(any(feature = "demo", debug_assertions)))]
+fn demo_data_dir_override() -> Option<std::path::PathBuf> {
+    None
+}
+
+/// Initialise logging before the instance guard or Tauri setup can fail. On Windows,
+/// `app.path().app_data_dir()` resolves the roaming data root plus the configured bundle
+/// identifier; the demo override follows the same rule as `data_dir()` below.
+pub fn initialize_logging() {
+    let data_dir = demo_data_dir_override().or_else(|| {
+        let context: tauri::Context<tauri::Wry> = tauri::generate_context!();
+        let identifier = context.config().identifier.clone();
+        #[cfg(windows)]
+        let root = std::env::var_os("APPDATA").map(std::path::PathBuf::from);
+        #[cfg(not(windows))]
+        let root = std::env::var_os("XDG_DATA_HOME")
+            .map(std::path::PathBuf::from)
+            .or_else(|| {
+                std::env::var_os("HOME")
+                    .map(std::path::PathBuf::from)
+                    .map(|home| home.join(".local").join("share"))
+            });
+        root.map(|path| path.join(identifier))
+    });
+    logging::initialize(data_dir.as_deref());
 }
 
 /// Place the overlay on the primary monitor. Returns false (and the caller keeps the window hidden)
@@ -83,11 +116,11 @@ fn place_overlay_window(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
     let monitor = match window.primary_monitor() {
         Ok(Some(monitor)) => monitor,
         Ok(None) => {
-            eprintln!("overlay placement unavailable: no primary monitor");
+            crate::log_warn!("overlay", "placement_unavailable", "no primary monitor");
             return false;
         }
         Err(error) => {
-            eprintln!("overlay placement unavailable: {error}");
+            crate::log_warn!("overlay", "placement_unavailable", format!("{error}"));
             return false;
         }
     };
@@ -102,7 +135,7 @@ fn place_overlay_window(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
     let moved = window.set_position(tauri::PhysicalPosition::new(rect.x, rect.y));
     let sized = window.set_size(tauri::PhysicalSize::new(rect.w, rect.h));
     if let Err(error) = moved.as_ref().and(sized.as_ref()) {
-        eprintln!("overlay placement failed: {error}");
+        crate::log_warn!("overlay", "placement_failed", format!("{error}"));
         return false;
     }
     true
@@ -140,7 +173,7 @@ fn build_overlay_window(
     {
         Ok(window) => window,
         Err(error) => {
-            eprintln!("overlay window unavailable: {error}");
+            crate::log_warn!("overlay", "window_unavailable", format!("{error}"));
             return None;
         }
     };
@@ -149,7 +182,7 @@ fn build_overlay_window(
     let _ = place_overlay_window(&window);
 
     if let Err(error) = window.set_ignore_cursor_events(spec.ignore_cursor_events) {
-        eprintln!("overlay click-through unavailable: {error}");
+        crate::log_warn!("overlay", "click_through_unavailable", format!("{error}"));
     }
     Some(window)
 }
@@ -178,7 +211,7 @@ fn register_overlay_events(
         };
         if !visible {
             if let Err(error) = window.hide() {
-                eprintln!("overlay hide failed: {error}");
+                crate::log_warn!("overlay", "hide_failed", format!("{error}"));
             }
             return;
         }
@@ -189,13 +222,17 @@ fn register_overlay_events(
             return;
         }
         if let Err(error) = window.show() {
-            eprintln!("overlay show failed: {error}");
+            crate::log_warn!("overlay", "show_failed", format!("{error}"));
             let _ = window.hide();
             return;
         }
         if window.set_ignore_cursor_events(true).is_err() {
             let _ = window.hide();
-            eprintln!("overlay click-through failed after show; window hidden");
+            crate::log_warn!(
+                "overlay",
+                "click_through_failed",
+                "window hidden after failure"
+            );
         }
     });
 
@@ -209,7 +246,7 @@ fn register_overlay_events(
         }
         let payload = intake::lock(&last_status).clone();
         if let Err(error) = ready_handle.emit("overlay://status", payload) {
-            eprintln!("overlay status reply failed: {error}");
+            crate::log_warn!("overlay", "status_reply_failed", format!("{error}"));
         }
     });
 }
@@ -238,29 +275,52 @@ fn start_overlay_status_mirror(
                     previous = current.clone();
                     *intake::lock(&last_for_thread) = current.clone();
                     if let Err(error) = app_for_thread.emit("overlay://status", current) {
-                        eprintln!("overlay status update failed: {error}");
+                        crate::log_warn!("overlay", "status_update_failed", format!("{error}"));
                     }
                 }
             }
         })
     {
-        eprintln!("overlay status mirror unavailable: {error}");
+        crate::log_warn!("overlay", "status_mirror_unavailable", format!("{error}"));
     }
     // Deliver the current mirror once at startup. `overlay://ready` replays it
     // after the overlay webview has installed its listener.
     if let Err(error) = app.emit("overlay://status", intake::lock(&last_status).clone()) {
-        eprintln!("overlay status initial update failed: {error}");
+        crate::log_warn!(
+            "overlay",
+            "initial_status_update_failed",
+            format!("{error}")
+        );
     }
 }
 
 pub fn run() {
+    initialize_logging();
+    let app_version = version::AppVersion::current();
+    let commit = app_version
+        .git_commit
+        .as_deref()
+        .map(|value| value.chars().take(7).collect::<String>());
+    crate::log_info!(
+        "app",
+        "started",
+        "Kohbor started",
+        version = app_version.version,
+        commit = commit,
+        profile = app_version.profile,
+        demo = app_version.demo,
+        os = std::env::consts::OS,
+        arch = std::env::consts::ARCH
+    );
     let builder = tauri::Builder::default()
         .register_asynchronous_uri_scheme_protocol("kohbor-media", commands::media_protocol_handler)
         .setup(|app| {
             // The control window title stays "Kohbor — Command Deck": instance.rs finds the
             // existing window by that exact title for second-instance focus. The version is shown
             // in the header and the Status tab instead.
-            let dir = data_dir(app)?;
+            let dir = data_dir(app).inspect_err(|_error| {
+                crate::log_error!("app", "setup_failed", "APP_DATA_DIR_UNAVAILABLE");
+            })?;
             let settings_dir = dir.clone();
             let runtime = intake::Runtime::new(dir.clone());
             let sample = Arc::new(Mutex::new((
@@ -272,7 +332,10 @@ pub fn run() {
                 true,
             )));
             let emitter: Arc<dyn host::Emitter> = Arc::new(app.handle().clone());
-            let host = host::Host::start(dir, runtime.clone(), sample.clone(), emitter)?;
+            let host = host::Host::start(dir, runtime.clone(), sample.clone(), emitter)
+                .inspect_err(|_error| {
+                    crate::log_error!("app", "setup_failed", "HOST_SETUP_FAILED");
+                })?;
             let overlay_window = build_overlay_window(app);
             let (initial_media_state, initial_reason) = host.media_status();
             let initial_overlay_status =
@@ -291,7 +354,7 @@ pub fn run() {
                     }
                 })
             {
-                eprintln!("resource-sampler unavailable: {error}");
+                crate::log_warn!("resources", "sampler_unavailable", format!("{error}"));
             }
             let gsi_runtime = runtime.clone();
             let gsi = capture_host::GsiView::new(move || {
@@ -332,11 +395,17 @@ pub fn run() {
                 last_overlay_status.clone(),
             );
             start_overlay_status_mirror(app_handle, last_overlay_status, initial_overlay_status);
+            crate::log_info!("app", "setup_complete", "application setup completed");
             Ok(())
         });
     #[cfg(any(feature = "demo", debug_assertions))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         commands::app_version,
+        commands::log_tail,
+        commands::log_dir,
+        commands::log_open_folder,
+        commands::log_frontend,
+        commands::log_set_level,
         commands::runtime_get_status,
         commands::own_snapshot,
         commands::gsi_setup,
@@ -366,6 +435,11 @@ pub fn run() {
     #[cfg(not(any(feature = "demo", debug_assertions)))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         commands::app_version,
+        commands::log_tail,
+        commands::log_dir,
+        commands::log_open_folder,
+        commands::log_frontend,
+        commands::log_set_level,
         commands::runtime_get_status,
         commands::own_snapshot,
         commands::gsi_setup,
@@ -395,11 +469,14 @@ pub fn run() {
     match app {
         Ok(app) => app.run(|handle, event| {
             if matches!(event, tauri::RunEvent::Exit) {
+                crate::log_info!("app", "exit", "Kohbor is exiting");
                 handle.state::<AppState>().host.shutdown();
+                logging::flush();
             }
         }),
-        Err(error) => eprintln!("error while building Kohbor: {error}"),
+        Err(_error) => crate::log_error!("app", "build_failed", "TAURI_BUILD_FAILED"),
     }
+    logging::flush();
 }
 
 #[cfg(test)]

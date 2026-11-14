@@ -140,6 +140,17 @@ pub fn spawn_publisher(
             while let Ok(output) = rx.recv() {
                 match output {
                     EngineOut::Playback(payload) => {
+                        // File logging stays on the publisher, outside the
+                        // critical engine thread. Never log the media payload.
+                        if payload["kind"] == "started" {
+                            crate::log_info!(
+                                "audio",
+                                "clip_played",
+                                "announcer clip started",
+                                event_id = payload["event_type"].as_str().unwrap_or("unknown"),
+                                outcome = "admitted"
+                            );
+                        }
                         if catch_unwind(AssertUnwindSafe(|| {
                             emitter.emit("playback://event", &payload)
                         }))
@@ -151,6 +162,12 @@ pub fn spawn_publisher(
                     EngineOut::Outcome(record) => history.push(record),
                     EngineOut::DeviceLost => {
                         increment(&history.publisher_counters.device_lost);
+                        crate::log_warn!(
+                            "audio",
+                            "device_lost",
+                            "audio output device was lost",
+                            code = "AUDIO_DEVICE_LOST"
+                        );
                     }
                     EngineOut::NeedSink => {
                         if let Some(device) = &device {

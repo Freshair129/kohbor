@@ -3,13 +3,116 @@
 
 use crate::intake::lock;
 use crate::{settings, status, AppState};
-use serde_json::Value;
+use serde_json::{Map, Value};
 use std::sync::atomic::Ordering;
 use tauri::Manager;
 
 #[tauri::command]
 pub(crate) fn app_version() -> Value {
     crate::version::AppVersion::current().to_json()
+}
+
+fn is_reason_code(value: &str) -> bool {
+    value.len() >= 3
+        && value.len() <= 64
+        && value.contains('_')
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit() || byte == b'_')
+}
+
+fn log_media_result(operation: &'static str, result: &Result<Value, String>) {
+    match result {
+        Ok(value) => {
+            let status = value
+                .get("status")
+                .and_then(Value::as_str)
+                .filter(|status| {
+                    status.len() <= 32
+                        && status
+                            .bytes()
+                            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+                })
+                .unwrap_or("ok");
+            let reason = value
+                .get("reason")
+                .and_then(Value::as_str)
+                .filter(|reason| is_reason_code(reason))
+                .unwrap_or("NONE");
+            if matches!(status, "rejected" | "activation_error") {
+                crate::log_warn!(
+                    "media",
+                    "operation_result",
+                    "media operation returned a failure status",
+                    operation = operation,
+                    status = status,
+                    reason = reason
+                );
+            } else {
+                crate::log_info!(
+                    "media",
+                    "operation_result",
+                    "media operation completed",
+                    operation = operation,
+                    status = status,
+                    reason = reason
+                );
+            }
+        }
+        Err(error) => {
+            let code = error
+                .split(|ch: char| !(ch.is_ascii_uppercase() || ch.is_ascii_digit() || ch == '_'))
+                .find(|part| is_reason_code(part))
+                .unwrap_or("MEDIA_OPERATION_FAILED");
+            crate::log_warn!(
+                "media",
+                "operation_result",
+                "media operation failed",
+                operation = operation,
+                code = code
+            );
+        }
+    }
+}
+
+#[tauri::command]
+pub(crate) fn log_tail(since_seq: Option<u64>, limit: Option<u32>) -> Value {
+    crate::logging::tail(since_seq, limit)
+}
+
+#[tauri::command]
+pub(crate) fn log_dir() -> String {
+    crate::logging::log_dir()
+}
+
+#[tauri::command]
+pub(crate) fn log_open_folder() -> Result<(), String> {
+    crate::logging::open_log_dir()
+}
+
+#[tauri::command]
+pub(crate) fn log_frontend(
+    level: String,
+    module: String,
+    msg: String,
+    fields: Option<Value>,
+) -> bool {
+    let Ok(level) = crate::logging::Level::parse(&level) else {
+        // Invalid requests produce no line, so they cannot bypass the renderer
+        // limiter by flooding warnings before the rate-limited facade.
+        return false;
+    };
+    let fields = match fields {
+        Some(Value::Object(fields)) => fields,
+        Some(Value::Null) | None => Map::new(),
+        Some(value) => Map::from_iter([("value".to_owned(), value)]),
+    };
+    crate::logging::emit_frontend(level, &module, "frontend", &msg, fields)
+}
+
+#[tauri::command]
+pub(crate) fn log_set_level(level: String) -> Result<(), String> {
+    crate::logging::set_level(&level).map_err(str::to_owned)
 }
 
 #[tauri::command(async)]
@@ -74,7 +177,9 @@ pub(crate) fn media_inspect(
     state: tauri::State<'_, AppState>,
     source_path: String,
 ) -> Result<Value, String> {
-    state.host.commands.media_inspect(&source_path)
+    let result = state.host.commands.media_inspect(&source_path);
+    log_media_result("inspect", &result);
+    result
 }
 
 #[tauri::command(async)]
@@ -82,7 +187,9 @@ pub(crate) fn media_install(
     state: tauri::State<'_, AppState>,
     request: Value,
 ) -> Result<Value, String> {
-    state.host.commands.media_install(&request)
+    let result = state.host.commands.media_install(&request);
+    log_media_result("install", &result);
+    result
 }
 
 #[tauri::command(async)]
@@ -92,10 +199,12 @@ pub(crate) fn media_activate(
     install_id: String,
     policy: String,
 ) -> Result<Value, String> {
-    state
+    let result = state
         .host
         .commands
-        .media_activate(&request_id, &install_id, &policy)
+        .media_activate(&request_id, &install_id, &policy);
+    log_media_result("activate", &result);
+    result
 }
 
 #[tauri::command(async)]
