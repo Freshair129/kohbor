@@ -58,7 +58,7 @@ fn assert_contract(snapshot: &Value) {
     let errors: Vec<String> = v.iter_errors(snapshot).map(|e| e.to_string()).collect();
     assert!(
         errors.is_empty(),
-        "snapshot violates own-snapshot 2.1.0: {errors:?}\n{snapshot:#}"
+        "snapshot violates own-snapshot 2.2.0: {errors:?}\n{snapshot:#}"
     );
 }
 
@@ -104,6 +104,8 @@ fn indexed_own_snapshot_fixtures_match_their_schema_expectations() {
                 "denies",
                 "gpm",
                 "xpm",
+                "items",
+                "abilities",
             ] {
                 assert!(
                     fields.contains_key(name),
@@ -125,7 +127,7 @@ fn admitted(p: &Value) -> Outcome {
 fn fresh_snapshot_matches_contract() {
     let s = build_snapshot(&admitted(&payload()), src(2000));
     assert_eq!(s["availability"], "fresh");
-    assert_eq!(s["schema_version"], "2.1.0");
+    assert_eq!(s["schema_version"], "2.2.0");
     assert_eq!(s["own"]["fields"]["hp"]["value"], 850);
     assert_contract(&s);
 }
@@ -219,14 +221,14 @@ fn own_player_stats_reject_negative_out_of_range_and_overflow_values() {
 }
 
 #[test]
-fn captured_style_payload_produces_the_own_snapshot_2_1_golden() {
+fn captured_style_payload_produces_the_own_snapshot_2_2_golden() {
     let mut body = payload();
     for (key, value, _) in OWN_STAT_CASES {
         body["player"][key] = json!(value);
     }
     let snapshot = build_snapshot(&admitted(&body), src(2000));
     let expected = json!({
-        "schema_version": "2.1.0",
+        "schema_version": "2.2.0",
         "session_epoch": 3,
         "availability": "fresh",
         "source": {"kind": "gsi", "generation": 2, "sequence": 15, "age_ms": 2000},
@@ -248,7 +250,9 @@ fn captured_style_payload_produces_the_own_snapshot_2_1_golden() {
                 "last_hits": {"value": 100, "availability": "fresh"},
                 "denies": {"value": 8, "availability": "fresh"},
                 "gpm": {"value": 456, "availability": "fresh"},
-                "xpm": {"value": 512, "availability": "fresh"}
+                "xpm": {"value": 512, "availability": "fresh"},
+                "items": {"value": null, "availability": "unknown"},
+                "abilities": {"value": null, "availability": "unknown"}
             }
         }
     });

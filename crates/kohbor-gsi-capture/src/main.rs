@@ -11,7 +11,7 @@
 
 use base64::Engine;
 use kohbor_gsi::config::{
-    choose_port, claimed_ports, GsiConfig, BODY_LIMIT_BYTES, M1_DATA_BLOCKS, PORT_FIRST, PORT_LAST,
+    choose_port, claimed_ports, GsiConfig, BODY_LIMIT_BYTES, OWN_DATA_BLOCKS, PORT_FIRST, PORT_LAST,
 };
 use kohbor_gsi::strict_json;
 use serde_json::{json, Map, Value};
@@ -216,7 +216,7 @@ fn install(out: &Path, port: Option<u16>) -> Res<()> {
         slug: SPIKE_SLUG,
         port,
         token: &token,
-        data_blocks: &M1_DATA_BLOCKS,
+        data_blocks: &OWN_DATA_BLOCKS,
     };
     let text = cfg.render().map_err(|e| format!("{e:?}"))?;
     let name = cfg.file_name().map_err(|e| format!("{e:?}"))?;

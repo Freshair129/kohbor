@@ -25,7 +25,6 @@ export function deckCopy(locale: Locale) {
     oldData: english ? "Old data" : "ข้อมูลเก่า",
     latestResult: english ? "Latest result" : "ผลล่าสุด",
     statsHeading: english ? "More stats" : "ค่าสถานะอื่น",
-    statCaption: english ? "Items / cooldowns need the items/abilities blocks — coming next" : "ต้องเปิดบล็อก items/abilities — จะมาในขั้นถัดไป",
     statLabels: english
       ? ["Gold", "K / D / A", "LH / DN", "GPM / XPM", "Items", "Cooldowns"]
       : ["ทอง", "K / D / A", "LH / DN", "GPM / XPM", "ไอเท็ม", "คูลดาวน์"],

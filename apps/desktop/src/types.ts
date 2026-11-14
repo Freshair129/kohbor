@@ -58,8 +58,30 @@ export interface Field<T> {
   availability: FieldAvailability;
 }
 
+export type ItemSlot = "inventory0" | "inventory1" | "inventory2" | "inventory3" | "inventory4" | "inventory5"
+  | "backpack0" | "backpack1" | "backpack2" | "teleport" | "neutral";
+export interface OwnItem {
+  slot: ItemSlot;
+  /** Explicit null is an observed empty slot; an absent entry is unknown. */
+  name: string | null;
+  cooldown: number | null;
+  charges: number | null;
+  can_cast: boolean | null;
+  passive: boolean | null;
+}
+export interface OwnAbility {
+  slot: number;
+  name: string;
+  level: number | null;
+  cooldown: number | null;
+  ultimate: boolean | null;
+  can_cast: boolean | null;
+  passive: boolean | null;
+  active: boolean | null;
+}
+
 export interface OwnSnapshot {
-  schema_version: "2.0.0" | "2.1.0";
+  schema_version: "2.0.0" | "2.1.0" | "2.2.0";
   session_epoch: number | null;
   availability: FieldAvailability;
   source: { kind: "gsi"; generation: number; sequence: number | null; age_ms: number | null };
@@ -83,6 +105,9 @@ export interface OwnSnapshot {
       denies?: Field<number>;
       gpm?: Field<number>;
       xpm?: Field<number>;
+      /** Additive 2.2.0 fields. Missing blocks on any host version mean unknown. */
+      items?: Field<OwnItem[]>;
+      abilities?: Field<OwnAbility[]>;
     };
   };
 }

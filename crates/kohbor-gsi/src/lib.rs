@@ -2,7 +2,7 @@
 //!
 //! Pure logic for docs/design/GSI-INTAKE-SPEC.md: strict body parsing, owned
 //! configuration rendering, source admission and ownership, the own-snapshot
-//! read model (contracts/own-snapshot.schema.json 2.1.0) and session continuity.
+//! read model (contracts/own-snapshot.schema.json 2.2.0) and session continuity.
 //! Network, file and registry access live in the callers.
 
 pub mod admission;
@@ -12,4 +12,7 @@ pub mod snapshot;
 pub mod strict_json;
 
 pub use admission::{admit, steamid64_from_account_id, Outcome, Ownership, Phase};
-pub use snapshot::{build as build_snapshot, SourceState, FRESH_MAX_AGE_MS};
+pub use snapshot::{
+    build as build_snapshot, build_with_loadout as build_snapshot_with_loadout, SourceState,
+    FRESH_MAX_AGE_MS,
+};
