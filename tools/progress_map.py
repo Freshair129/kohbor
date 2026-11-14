@@ -96,7 +96,7 @@ AREAS: list[dict[str, Any]] = [
      "modules": ["voice", "mem", "advice"], "requirements": ["QUALITY-006", "QUALITY-007"], "exclude": [], "docs": [],
      "decisions": [r"^DEC-(VOICE|STT|ADVICE|MEMORY|LLM)"], "tasks": []},
     {"id": "banner-lab", "th": "ห้องทดลองแบนเนอร์และเสียง", "en": "Banner lab", "domains": ["banner-lab", "banner-studio", "announcer-voice"],
-     "modules": [], "requirements": [], "exclude": [], "docs": [], "decisions": [r"^DEC-(BANNER-LAB|VOICE-RIGHTS)"], "tasks": []},
+     "modules": [], "requirements": [], "exclude": [], "docs": [], "decisions": [r"^DEC-(BANNER-LAB|VOICE-RIGHTS)"], "decision_ids": ["DEC-BANNER-WORKER", "DEC-BANNER-LAB-STYLE"], "tasks": []},
     {"id": "governance", "th": "กระบวนการและธรรมาภิบาล", "en": "Governance and process", "domains": ["governance"],
      "modules": [], "requirements": [], "exclude": [],
      "docs": ["AGENT-WORKFLOW", "AGENT-REGISTRY-DESIGN", "SPRINT-ROADMAP", "SDP", "SAD", "SDD", "DDD", "ICD", "MVP-PLAN", "MVP-PLAN.th", "WORKSTREAM-BRIEFS", "PREP-HANDOFF", "OWNER-HOWTO", "OWNER-HOWTO.th", "OWNER-HOWTO-fix1.th", "OWNER-HOWTO-fix2.th", "OWNER-HOWTO-fix3.th"], "decisions": [r"^DEC-(NAME|IDENTITY|AGENT|PROCESS|REGISTRY)"],

@@ -260,6 +260,13 @@ class DecisionPlacement(Base):
         self.assertIn("dec:DEC-STORE-HOSTING", under["area:backend"])
         self.assertIn("dec:DEC-ACCOUNT-OTHER", under["area:account"])
 
+    def test_banner_decisions_go_to_the_banner_lab_area(self) -> None:
+        self.fx.decisions([dec("DEC-BANNER-WORKER", status="decided"), dec("DEC-BANNER-LAB-STYLE", status="decided")])
+        m = self.fx.build()
+        under = {a["i"]: {n["i"] for n in pm.iter_nodes(a)} for a in m["tree"]["c"]}
+        self.assertIn("dec:DEC-BANNER-WORKER", under["area:banner-lab"])
+        self.assertIn("dec:DEC-BANNER-LAB-STYLE", under["area:banner-lab"])
+
     def test_provisional_decision_still_needs_the_owner(self) -> None:
         self.fx.decisions([dec("DEC-ACCOUNT-ORIGIN", status="provisional")])
         m = self.fx.build()
