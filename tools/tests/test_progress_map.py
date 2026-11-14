@@ -419,7 +419,7 @@ class Cli(Base):
         code, _ = self.run_cli("--out", str(dest), "--check")
         self.assertEqual(code, 1)  # missing
         # a page built from another commit is stale
-        dest.write_text('..."git":{"sha":"deadbee"}...', encoding="utf-8")
+        dest.write_text('..."head_sha":"deadbee","x":1...', encoding="utf-8")
         self.assertEqual(pm.embedded_sha(dest), "deadbee")
 
     def test_json_mode_prints_the_model(self) -> None:

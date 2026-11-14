@@ -823,7 +823,7 @@ def build_model(repo: Path, coord: Path, design_dirs: list[Path], now: dt.dateti
     generated = now.isoformat(timespec="seconds")
     newest = max([t for t in (git.get("head_time"), git.get("origin_time")) if t] or [""])
     model = {
-        "generated_at": generated, "stale_hours": stale_hours, "repo": root_path, "statuses": STATUSES, "tree": root, "details": details,
+        "generated_at": generated, "head_sha": git.get("sha", ""), "stale_hours": stale_hours, "repo": root_path, "statuses": STATUSES, "tree": root, "details": details,
         "totals": totals, "req_totals": req_totals, "next": nxt, "owner": owner_list, "milestones": milestones,
         "git": git, "prs": prs, "gate": gate, "sources": src.items, "unmapped_docs": sorted(set(unmapped_docs)),
         "worktrees": [{"path": w.get("path", ""), "branch": w.get("branch", ""), "state": w.get("state", ""), "claim": w.get("owner_claim", "")} for w in worktrees],
@@ -1048,7 +1048,7 @@ def embedded_sha(path: Path) -> str | None:
         text = path.read_text(encoding="utf-8")
     except OSError:
         return None
-    m = re.search(r'"git":\{[^}]*?"sha":"([0-9a-f]+)"', text)
+    m = re.search(r'"head_sha":"([0-9a-f]+)"', text)
     return m.group(1) if m else None
 
 
