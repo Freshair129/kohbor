@@ -1,6 +1,6 @@
 # Software Engineering Documentation Index
 
-**Baseline 0.3.6 · Draft · index revised 2026-11-13 · application evidence NOT_RUN**
+**Baseline 0.3.6 · Draft · index revised 2026-11-14 · application evidence NOT_RUN**
 
 Start with PRD and SRS. Read the design, interface and verification documents for each implementation slice. Agent workflow is defined in root AGENTS.md and PROMPT.md and in [Agent Workflow](delivery/AGENT-WORKFLOW.md). To find who owns an area, what is decided and what is open there, read the [domain registry](domains/README.md) and the card of the domain you will touch (see "Domains" below).
 
@@ -28,6 +28,7 @@ This is the only index of documents. Every Markdown file in the tree, is linked 
 | [S4 Observation Boundary](design/S4-OBSERVATION-BOUNDARY.md) | Sprint 4 no-hardware slice: capture admission, freshness, coverage and the enemy observation boundary (agent decision, not owner approved) | Engineering, QA |
 | [Draft Bar](design/DRAFT-BAR-SPEC.md) | MVP-2 slice 5: reading the top hero bar during hero selection (mirror, hero identification, player names) with the third-party data contract (agent design, not owner approved) | Engineering, QA, Privacy |
 | [Remaining System Design](design/REMAINING-SYSTEM-DESIGN.md) | Agent design for Sprint 4 onward: capture, risk, account, store and entitlement, peer relay (proposed) | Architecture, engineering |
+| [Store and Pack Delivery](design/STORE-PACK-DELIVERY.md) | Agent design: catalog, entitlement, signed download, offline receipts and revocation, failure modes, alpha versus production, owner questions (proposed; nothing built, hosted or priced) | Architecture, engineering, product owner |
 | [Account and Identity Review](design/ACCOUNT-IDENTITY-REVIEW.md) | Agent review behind DEC-ACCOUNT-IDENTITY and DEC-GID-REUSE: sign-in, friend code, privacy (proposed, not a human or legal review) | Engineering, product owner, privacy |
 | [Sharing Model Review](design/SHARING-MODEL-REVIEW.md) | Agent review behind DEC-SHARE-LIST and DEC-SIGNIN-OPTIONAL: Share list, guests, same-match limits (proposed) | Engineering, product owner, privacy |
 | [Command Deck design notes](design/visuals/command-deck/DESIGN-NOTES.md) | Reasons behind the Command Deck HTML artboards (proposal, DEC-VISUALS) | UX, engineering |

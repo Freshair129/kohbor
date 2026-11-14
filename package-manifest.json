@@ -968,8 +968,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 50668,
-      "sha256": "2530e7acc50b2b9510c126df308edd95f7e535c4b5642116c24f781f502f2bd1"
+      "bytes": 58828,
+      "sha256": "9c2ef7685043ea72f557d566392127c839188ed5e5105aa97f1aa3405a9da9dd"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -1628,8 +1628,8 @@
     },
     {
       "path": "docs/INDEX.md",
-      "bytes": 10306,
-      "sha256": "b3266a62fc1c26a77e6b21b31af69cbcfeab9b029eb492c8b0e35a05df7ff399"
+      "bytes": 10598,
+      "sha256": "a9f043a8fe89e2bc2863870e40ae5b45ff7fe3a0535403a3432dcc84992bfa36"
     },
     {
       "path": "docs/delivery/AGENT-WORKFLOW.md",
@@ -1765,6 +1765,11 @@
       "path": "docs/design/SHARING-MODEL-REVIEW.md",
       "bytes": 29579,
       "sha256": "01dabedb687d4d5b7848dc940a7c15137a446d4d8dec4d4cb7114ec864f75f15"
+    },
+    {
+      "path": "docs/design/STORE-PACK-DELIVERY.md",
+      "bytes": 36719,
+      "sha256": "5fa28aefb285d88e6a68095defbb0e179355ab5d54a780d2373ca535875b7c89"
     },
     {
       "path": "docs/design/UX-SPEC.md",
@@ -2103,13 +2108,13 @@
     },
     {
       "path": "docs/domains/commerce/CARD.md",
-      "bytes": 3377,
-      "sha256": "80080ec6e8613329375cb149353ba779681854a77a1840457361c97e62a69a37"
+      "bytes": 4376,
+      "sha256": "326ff87e1787da5387ecc8a2ddb905dcd98d2283b13c586d921ff1e6602fb502"
     },
     {
       "path": "docs/domains/commerce/state.json",
-      "bytes": 1522,
-      "sha256": "59783fb05099f08bb61175a6f9147fdfba0c3e3d40adabe3c0f90f3f6c4afb9b"
+      "bytes": 2469,
+      "sha256": "7d735fb133fe18b4c749fcaae6b79984b34faf792a337e9549182d295a4b02dc"
     },
     {
       "path": "docs/domains/events-audio/CARD.md",
@@ -2193,13 +2198,23 @@
     },
     {
       "path": "docs/governance/CHANGELOG.md",
-      "bytes": 30576,
-      "sha256": "03babb0980f624ba4c168a12a2073646a40b678924c70f8bf9db2e9b60fad1e4"
+      "bytes": 31247,
+      "sha256": "365fc351d7059970319d3dcf2b6a0736ae3cf679dadf012f4a0b0893ad0d5681"
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 19951,
-      "sha256": "6146ba9d4c4df2ac52fd1e8fc5fa1806413f6f7a48f4d26f7a0fd470f0052bfe"
+      "bytes": 21743,
+      "sha256": "df88375d3ab7161cd8b115a7dfcbbc1341ed294af222593d6f6d3c37be10a6af"
+    },
+    {
+      "path": "docs/governance/DECISION-LOG.md",
+      "bytes": 21743,
+      "sha256": "df88375d3ab7161cd8b115a7dfcbbc1341ed294af222593d6f6d3c37be10a6af"
+    },
+    {
+      "path": "docs/governance/DECISION-LOG.md",
+      "bytes": 21743,
+      "sha256": "df88375d3ab7161cd8b115a7dfcbbc1341ed294af222593d6f6d3c37be10a6af"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
