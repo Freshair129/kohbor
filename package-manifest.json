@@ -1628,8 +1628,8 @@
     },
     {
       "path": "docs/INDEX.md",
-      "bytes": 10306,
-      "sha256": "b3266a62fc1c26a77e6b21b31af69cbcfeab9b029eb492c8b0e35a05df7ff399"
+      "bytes": 10563,
+      "sha256": "12043a46447ca21f60ded597ecbc766d5ffe4d8a7ca1c70f9c050dd6595f9c5e"
     },
     {
       "path": "docs/delivery/AGENT-WORKFLOW.md",
@@ -2193,8 +2193,8 @@
     },
     {
       "path": "docs/governance/CHANGELOG.md",
-      "bytes": 30576,
-      "sha256": "03babb0980f624ba4c168a12a2073646a40b678924c70f8bf9db2e9b60fad1e4"
+      "bytes": 30953,
+      "sha256": "853c31dccb18ed3ce29b5a89f6ec2c579fd3b8dedb0800d44752f2b778e3a126"
     },
     {
       "path": "docs/governance/DECISION-LOG.md",

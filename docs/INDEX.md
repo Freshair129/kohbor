@@ -49,6 +49,7 @@ This is the only index of documents. Every Markdown file in the tree, is linked 
 | [Implementation Readiness](governance/IMPLEMENTATION-READINESS.md) | Concrete remaining design work, safe starting points and evidence limits | Implementing agents, engineering, reviewers |
 | [Agent Registry, Router and Enforcement](governance/AGENT-REGISTRY.md) | Profiles, roles, task routes with the owner-evidence level of each, domain policies, who is working now, and what is enforced and what is only reported (agent proposal; source: `AGENT-REGISTRY.json`) | Engineering lead, owner, every agent |
 | [Agent Registry Design](governance/AGENT-REGISTRY-DESIGN.md) | Review of the first registry draft, the final design (registry schema, router, taxonomy, enforcement ladder) and the implementation plan P1 to P7 (P1 to P6 implemented) | Engineering lead, owner |
+| [Progress Map](governance/PROGRESS-MAP.md) | Generator `tools/progress_map.py`: one offline HTML mind map of every area and its derived status, the status rules, sources and limits (agent tool, not human reviewed) | Owner, engineering lead, every agent |
 | [Glossary](governance/GLOSSARY.md) | Requirement, module, component, domain, crate, write area and claim, the primary-domain rule and the generated map | All contributors |
 | [Changelog](governance/CHANGELOG.md) | What changed in the documentation baseline | Reviewers |
 
