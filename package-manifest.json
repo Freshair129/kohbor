@@ -1697,6 +1697,11 @@
       "sha256": "30837fce8b73cb8dbbcfb4a4634867d34f311b33e50dbc85e5caf58e4fb7b841"
     },
     {
+      "path": "docs/design/BACKEND-STACK.md",
+      "bytes": 19783,
+      "sha256": "943da0610df6b11949c453cdec7b90b1276a6a6962a790f7d0ee89551e496f4f"
+    },
+    {
       "path": "docs/design/DDD.md",
       "bytes": 8155,
       "sha256": "718bdba89410fa73f3258a5c4fe46b9e8e10d889743af2459ddaad7e1eaee5ab"
