@@ -85,7 +85,8 @@ AREAS: list[dict[str, Any]] = [
      "docs": ["STORE-PACK-DELIVERY"], "decisions": [r"^DEC-(STORE|COMMERCE|PREMIUM)"], "tasks": []},
     {"id": "backend", "th": "เซิร์ฟเวอร์และโฮสติ้ง", "en": "Backend hosting", "domains": [], "modules": [], "requirements": [], "exclude": [],
      "docs": ["BACKEND-STACK", "BACKEND-WORKSTREAM-PROMPT", "KOHBOR-EXECUTION-PLAN", "ACCOUNT-CLIENT-PROMPT"],
-     "decisions": [r"^DEC-(PRIVACY|RETENTION|BACKEND|HOSTING|RELAY)"], "tasks": []},
+     "decisions": [r"^DEC-(PRIVACY|RETENTION|BACKEND|HOSTING|RELAY)"], "decision_ids": ["DEC-ACCOUNT-ORIGIN", "DEC-FRONTEND-HOSTING", "DEC-STORE-HOSTING"],
+     "tasks": []},
     {"id": "updater", "th": "อัปเดตและปล่อยเวอร์ชัน", "en": "Updater and release", "domains": ["release-ops"],
      "modules": ["update"], "requirements": ["QUALITY-008"], "exclude": [],
      "docs": ["UPDATER-DESIGN", "UPDATER-NOTE", "RUNBOOK", "RELEASE-RECEIPT", "RELEASE-RECEIPT-fix1", "RELEASE-RECEIPT-fix2", "RELEASE-RECEIPT-fix3"], "decisions": [r"^DEC-(UPDATE|RELEASE|SIGN)"], "tasks": [r"[Uu]pdater"]},
@@ -590,6 +591,9 @@ def area_for_requirement(q: dict[str, Any], areas: list[dict[str, Any]]) -> str:
 
 
 def area_for_decision(d: dict[str, Any], areas: list[dict[str, Any]], dom_area: dict[str, str], dec_dom: dict[str, str]) -> str:
+    for a in areas:  # an exact id wins over any pattern
+        if d["id"] in a.get("decision_ids", []):
+            return a["id"]
     for a in areas:
         if any(re.search(p, d["id"]) for p in a["decisions"]):
             return a["id"]
@@ -657,11 +661,15 @@ def build_model(repo: Path, coord: Path, design_dirs: list[Path], now: dt.dateti
 
     # Decisions ------------------------------------------------------------------------------------------------------
     for d in sorted(decs_list, key=lambda x: (ms_rank(str(x.get("milestone", "")).split("-")[0]), x["id"])):
-        if d.get("status") not in PENDING_DEC | {"deferred"}:
-            continue
         area = area_for_decision(d, areas, dom_area, dec_dom)
+        a_cfg = next((a for a in areas if a["id"] == area), UNASSIGNED)
+        decided_shown = d.get("status") == "decided" and area != "unassigned" and not a_cfg["modules"] and not a_cfg["requirements"]  # areas without RTM rows: decisions are their structure
+        if d.get("status") not in PENDING_DEC | {"deferred"} and not decided_shown:
+            continue
         owner = bool(OWNER_PAT.search(str(d.get("owner_role", ""))))
-        if d["status"] in PENDING_DEC and owner:
+        if decided_shown:
+            status, why = "designed", f"decided by the owner on {d.get('decided_on', 'an unrecorded date')}; a decision, nothing is built from it yet"
+        elif d["status"] in PENDING_DEC and owner:
             status, why = "blocked", f"decision is {d['status']} and its owner role is {d.get('owner_role')}: only the owner can close it"
         elif d["status"] == "deferred":
             status, why = "notstarted", "deferred: the owner chose not to decide now"
@@ -694,8 +702,9 @@ def build_model(repo: Path, coord: Path, design_dirs: list[Path], now: dt.dateti
     unmapped_docs = []
     seen_paths: set[str] = set()
     stem_n: dict[str, int] = {}
+    repo_stems = {x["stem"] for x in docs if not x["external"]}
     for dcm in docs:
-        if dcm["path"] in seen_paths:
+        if dcm["path"] in seen_paths or (dcm["external"] and dcm["stem"] in repo_stems):  # a draft copy outside the repository yields to the repository document
             continue
         seen_paths.add(dcm["path"])
         aid = by_stem.get(dcm["stem"])
@@ -748,7 +757,7 @@ def build_model(repo: Path, coord: Path, design_dirs: list[Path], now: dt.dateti
     # Tree -----------------------------------------------------------------------------------------------------------
     area_list = [a for a in areas] + ([UNASSIGNED] if buckets.get("unassigned") else [])
     GROUP_ORDER = {"claim": 0, "task": 5, "dec": 6, "doc": 7, "card": 8}
-    GROUP_LABEL = {"claim": ("งานที่กำลังทำ", "Active work"), "task": ("งานที่ส่งมอบแล้ว", "Delivered tasks"), "dec": ("การตัดสินใจที่ค้าง", "Open decisions"),
+    GROUP_LABEL = {"claim": ("งานที่กำลังทำ", "Active work"), "task": ("งานที่ส่งมอบแล้ว", "Delivered tasks"), "dec": ("การตัดสินใจ", "Decisions"),
                    "doc": ("เอกสารออกแบบ", "Design documents"), "card": ("จากการ์ดโดเมน", "Domain card items")}
     root_children: list[dict[str, Any]] = []
     totals = {s["id"]: 0 for s in STATUSES}

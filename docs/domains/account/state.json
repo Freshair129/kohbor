@@ -2,8 +2,8 @@
   "schema_version": "1.0.0",
   "domain": "account",
   "tier": "A",
-  "verified_at_commit": "7ad4c7f",
-  "verified_on": "2026-11-13",
+  "verified_at_commit": "d94cb96",
+  "verified_on": "2026-11-14",
   "verified_by": "claude-code governance session, backfilled from the Domain Steward design and the documents named in artefacts; agent work, not human review",
   "write_areas": [
     "crates/kohbor-account/**",
@@ -29,16 +29,18 @@
   ],
   "decision_ids": [
     "DEC-ACCOUNT-IDENTITY",
-    "DEC-GID-REUSE",
-    "DEC-SIGNIN-OPTIONAL",
-    "DEC-SHARE-LIST",
-    "DEC-ACCOUNT-ORIGIN",
-    "DEC-GOOGLE-PROJECT",
     "DEC-ACCOUNT-LINK",
+    "DEC-ACCOUNT-ORIGIN",
+    "DEC-FRONTEND-HOSTING",
+    "DEC-GID-REUSE",
+    "DEC-GOOGLE-PROJECT",
+    "DEC-PRIVACY-LEGAL",
+    "DEC-RETENTION",
+    "DEC-SHARE-LIST",
     "DEC-SIGNIN-FALLBACK",
-    "DEC-STEAM-BINDING",
+    "DEC-SIGNIN-OPTIONAL",
     "DEC-SOCIAL",
-    "DEC-PRIVACY-LEGAL"
+    "DEC-STEAM-BINDING"
   ],
   "task_id_prefixes": [],
   "artefacts": [
@@ -53,6 +55,12 @@
       "type": "design",
       "role": "governing",
       "reviewed_sha256": "85ed331560c4f2cf8d484591eb00c0c84b6c93e9f10985147a73fc8d4fc1ba9a"
+    },
+    {
+      "path": "docs/design/BACKEND-STACK.md",
+      "type": "design",
+      "role": "reference",
+      "reviewed_sha256": "943da0610df6b11949c453cdec7b90b1276a6a6962a790f7d0ee89551e496f4f"
     },
     {
       "path": "docs/design/SHARING-MODEL-REVIEW.md",
@@ -93,8 +101,8 @@
   ],
   "last_handoff": {
     "task_id": null,
-    "on": "2026-11-13",
-    "summary": "Card backfilled from documents; no code, no service and no test exists."
+    "on": "2026-11-14",
+    "summary": "Alpha/beta hosting recorded as provisional on the owner's statement (DEC-ACCOUNT-ORIGIN); BACKEND-STACK added as a reference; nothing provisioned or built."
   },
   "planned_crates": [
     "kohbor-account"
