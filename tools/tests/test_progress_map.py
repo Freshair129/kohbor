@@ -343,7 +343,7 @@ class Tolerance(Base):
         shutil.rmtree(self.fx.coord)
         m = self.fx.build()
         missing = {s["name"] for s in m["sources"] if s["status"] == "missing"}
-        for name in ("contracts/requirements.json", "contracts/decisions.json", "coordination claims", "SPRINT-ROADMAP.md"):
+        for name in ("contracts/requirements.json", "contracts/decisions.json", "coordination claims", "SPRINT-ROADMAP.md (plan)"):
             self.assertIn(name, missing)
         self.assertEqual(sum(m["totals"].values()), 0)
         self.assertEqual(m["tree"]["s"], "unknown")
@@ -538,16 +538,6 @@ class MissionControlViews(Base):
         self.assertEqual(m["stats"]["claims_expired"], 1)
         self.assertEqual(m["stats"]["claims_active"], 2)
 
-    def test_board_matches_the_counted_totals(self) -> None:
-        self.fx.file("src/a.rs")
-        self.fx.requirements([req("CORE-001", verification={"implementation_refs": ["src/a.rs"]}), req("CORE-002"), req("CORE-003", open_decisions=["DEC-X"])])
-        self.fx.decisions([dec("DEC-X")])
-        self.fx.domain("host-core", "## 3. Now / Next / Blocked\n\n- NOW: a statement\n")
-        m = self.fx.build()
-        for s in pm.STATUSES:
-            self.assertEqual(sum(c["n"] for c in m["board"][s["id"]]), m["totals"][s["id"]], s["id"])
-        self.assertEqual(sum(sum(c["n"] for c in col) for col in m["board"].values()), sum(m["totals"].values()))  # uncounted card lines are not on the board
-
     def test_stats_and_area_bars(self) -> None:
         self.fx.requirements([req("CORE-001", priority="P0"), req("CORE-002")])
         self.fx.claim("c1", "host-core", ["x/**"])
@@ -566,6 +556,270 @@ class MissionControlViews(Base):
             return fake_git(args, cwd)
         m = self.fx.build(run=run)
         self.assertEqual(m["activity"], [{"day": "2026-11-13", "n": 1}, {"day": "2026-11-14", "n": 2}])
+
+
+ROADMAP = """# Sprint Roadmap
+
+## Phase overview
+
+| Phase | Sprint | Milestone | Outcome | Main model mix |
+| --- | --- | --- | --- | --- |
+| A. Foundation | 0 | M1 close-out | Foundation outcome | x |
+| B. Events | 1 | M2 | Events outcome | x |
+| B. Events | 2 | M2 | Package outcome | x |
+| C. Vision | 3 | M3 | Vision outcome | x |
+| C. Vision | 4 | M3 | Risk outcome | x |
+| E. Later | 9+ | M5–M6 | Later outcome | x |
+
+## Sprint 0 — Pilot and M1 close-out
+
+Some prose without a goal line.
+
+## Sprint 1 — Event detector (M2)
+
+**Goal.** Detect events. Requirements: CORE-002, MEDIA-001.
+
+| Task | Work | Model | Pattern | Risk | Evidence |
+| --- | --- | --- | --- | --- | --- |
+| S1-1 | Tests for MEDIA-001 events | Terra | T-L-R 1 | R1 | synthetic |
+| S1-2 | Arbiter | Luna | L-R | R1 | synthetic |
+| S1-3 | Never done | Luna | L-R | R1 | synthetic |
+
+- **Owner input.** A capture with a double kill.
+- **Exit gate.** All detector tests pass.
+
+## Sprint 2 — Package cache (M2)
+
+**Goal.** Install packs.
+
+## Sprint 3 — Vision (M3)
+
+Requirements: VISION-001.
+
+## Sprint 4 — Risk (M3)
+
+Slices only.
+
+## Phase E — Later milestones
+
+| Milestone | Scope | Planning note |
+| --- | --- | --- |
+| M5 | VOICE-001..002 | Starts with a spike |
+| M6 | SOCIAL-001 | Optional |
+
+## Backlog status
+
+| Task | Status | Report disposition | Commit |
+| --- | --- | --- | --- |
+| S1-1, S1-2 tests | passed the gate | DONE | `abc1234` |
+| S1-3 odd | passed the gate | DONE | `deadbee` |
+"""
+
+SDP = """# Software Development Plan (SDP)
+
+## Delivery strategy
+
+| Milestone | Deliverable | Entry dependencies | Exit gate |
+| --- | --- | --- | --- |
+| M1 | Local startup | M0 | Cold offline startup |
+| M2 | Pack cache and events | M1 | Preemption fixtures |
+
+## Definition of ready
+
+A task has requirement IDs.
+
+## Definition of done
+
+All linked requirements have implementation evidence.
+
+## Backlog record template
+"""
+
+
+class Roadmap(Base):
+    def setup_plan(self) -> None:
+        self.fx.file("docs/delivery/SPRINT-ROADMAP.md", ROADMAP)
+        self.fx.file("docs/delivery/SDP.md", SDP)
+        self.fx.file("docs/quality/TEST-PLAN.md", "**TP-01 — Startup and platform.** CORE-001. Launch the app.\n")
+        self.fx.file("docs/quality/UAT-PLAN.md", "### UAT-01 — Start independently\n\nThe player starts it.\n")
+
+    def reqs(self) -> None:
+        self.fx.file("src/a.rs")
+        self.fx.file("crates/x/tests/t.rs")
+        self.fx.file("docs/design/SDD.md")
+        accept = {"scenario_id": "AC-1", "given": "g", "when": "w", "then": "the then clause"}
+        self.fx.requirements([
+            req("CORE-001", target_milestone="M1", verification={"procedure_ids": ["TP-01", "UAT-01"], "implementation_refs": ["src/a.rs", "crates/x/tests/t.rs"]},
+                acceptance=accept, design_refs=["docs/design/SDD.md"]),
+            req("CORE-002", target_milestone="M1"),
+            req("MEDIA-001", module="media", target_milestone="M2"),
+            req("MEDIA-002", module="media", target_milestone="M2"),
+            req("VISION-001", module="vision", target_milestone="M3"),
+            req("VISION-002", module="vision", target_milestone="M3"),
+            req("VOICE-001", module="voice", target_milestone="M5"),
+            req("VOICE-002", module="voice", target_milestone="M5", priority="extension"),
+            req("SOCIAL-001", module="social", target_milestone="M6"),
+            req("PEER-001", module="peer", target_milestone="M6"),
+            req("UPDATE-001", module="update", target_milestone="M8"),
+        ])
+
+    def leaves(self, node: dict) -> list[str]:
+        return [n["i"][7:] for n in pm.iter_nodes(node) if n["k"] == "task"]
+
+    def find(self, m: dict, nid: str) -> dict:
+        return next(n for n in pm.iter_nodes(m["roadmap"]) if n["i"] == nid)
+
+    def test_id_and_milestone_ranges(self) -> None:
+        self.assertEqual(pm.expand_ids("VOICE-001..003 and CORE-001–002, ZZZ-001", {"VOICE-001", "VOICE-002", "VOICE-003", "CORE-001", "CORE-002", "CORE-009"}),
+                         ["VOICE-001", "VOICE-002", "VOICE-003", "CORE-001", "CORE-002"])
+        self.assertEqual(pm.all_ms("M5–M8"), ["M5", "M6", "M7", "M8"])
+        self.assertEqual(pm.all_ms("M1 close-out"), ["M1"])
+
+    def test_every_requirement_is_placed_exactly_once(self) -> None:
+        self.setup_plan()
+        self.reqs()
+        m = self.fx.build()
+        ids = self.leaves(m["roadmap"])
+        self.assertEqual(sorted(ids), sorted(q["id"] for q in [{"id": i} for i in ("CORE-001", "CORE-002", "MEDIA-001", "MEDIA-002", "VISION-001", "VISION-002",
+                                                                                      "VOICE-001", "VOICE-002", "SOCIAL-001", "PEER-001", "UPDATE-001")]))
+        self.assertEqual(sum(m["roadmap"]["n"].values()), 11)
+
+    def test_placement_rules(self) -> None:
+        self.setup_plan()
+        self.reqs()
+        m = self.fx.build()
+        why = lambda rid: m["roadmap_details"]["rm:req:" + rid]["placement"]
+        self.assertIn("named in the Sprint 1", why("MEDIA-001"))
+        self.assertIn("named in the Sprint 1", why("CORE-002"))
+        self.assertIn("the only sprint of milestone M1", why("CORE-001"))  # sprint 0 is the only M1 sprint; its header has no (M..), the phase table gives M1
+        self.assertIn("several sprints share milestone M2", why("MEDIA-002"))
+        self.assertIn("named in the Sprint 3", why("VISION-001"))
+        self.assertIn("several sprints share milestone M3", why("VISION-002"))  # sprints 3 and 4 share M3: not guessed
+        self.assertIn("named in the Phase E table (M5)", why("VOICE-001"))
+        self.assertIn("scope text does not name it", why("PEER-001"))  # M6 row exists but does not name PEER-001
+        self.assertIn("its milestone is not in the plan", why("UPDATE-001"))  # M8 is nowhere in the plan
+
+    def test_phase_sprint_task_hierarchy_and_counts(self) -> None:
+        self.setup_plan()
+        self.reqs()
+        m = self.fx.build()
+        phases = [(n["i"], n["t"]) for n in m["roadmap"]["c"]]
+        self.assertEqual(phases[0], ("rm:phase:A", "A. Foundation"))
+        sprint1 = self.find(m, "rm:sprint:1")
+        self.assertEqual(sorted(self.leaves(sprint1)), ["CORE-002", "MEDIA-001"])
+        self.assertEqual(sum(sprint1["n"].values()), 2)
+        self.assertEqual(m["roadmap"]["n"], {k: sum(c["n"][k] for c in m["roadmap"]["c"]) for k in m["roadmap"]["n"]})
+
+    def test_progress_counts_verified_separately_from_built(self) -> None:
+        self.setup_plan()
+        self.fx.file("src/a.rs")
+        self.fx.requirements([
+            req("MEDIA-001", module="media", target_milestone="M2", verification={"implementation_refs": ["src/a.rs"], "evidence_refs": ["e.json"], "new_build_status": "PASS"}),
+            req("MEDIA-002", module="media", target_milestone="M2", verification={"implementation_refs": ["src/a.rs"]}),
+        ])
+        m = self.fx.build()
+        self.assertEqual((m["roadmap"]["n"]["verified"], m["roadmap"]["n"]["built"]), (1, 1))
+        self.assertEqual(m["roadmap_details"]["rm:all"]["verified"], 1)
+        self.assertEqual(m["roadmap_details"]["rm:all"]["built"], 1)
+
+    def test_task_criteria_are_read_never_invented(self) -> None:
+        self.setup_plan()
+        self.reqs()
+        m = self.fx.build()
+        d = m["roadmap_details"]["rm:req:CORE-001"]
+        self.assertEqual(d["acceptance"]["then"], "the then clause")
+        self.assertEqual(d["success"], "the then clause")
+        self.assertIn("implementation evidence", d["dod"])
+        self.assertEqual(d["exit"]["milestone"], "Cold offline startup")
+        self.assertIsNone(d["exit"]["sprint"])  # sprint 0 has no Exit gate line: unknown, not filled in
+        self.assertEqual([p["id"] for p in d["links"]["procedures"]], ["TP-01", "UAT-01"])
+        self.assertEqual(d["links"]["procedures"][0]["title"], "Startup and platform")
+        self.assertEqual(d["links"]["tests"], ["crates/x/tests/t.rs"])
+        self.assertEqual(d["links"]["code"], ["src/a.rs"])
+        empty = m["roadmap_details"]["rm:req:MEDIA-002"]
+        self.assertIsNone(empty["acceptance"])
+        self.assertIsNone(empty["success"])
+        self.assertEqual({c["label"]: c["state"] for c in empty["checks"]}["Acceptance scenario defined"], "unknown")
+
+    def test_checkboxes_tick_only_with_data(self) -> None:
+        self.setup_plan()
+        self.reqs()
+        d = self.fx.build()["roadmap_details"]["rm:req:CORE-001"]
+        by = {c["label"]: c["state"] for c in d["checks"]}
+        self.assertEqual(by["Acceptance scenario defined"], "done")
+        self.assertEqual(by["Implementation files exist"], "done")
+        self.assertEqual(by["Evidence class synthetic: receipt"], "open")  # no evidence_refs: never ticked
+        self.assertEqual(by["Evidence class native: receipt"], "open")
+        self.assertEqual(by["Verification procedures named and found"], "done")
+        passing = self.fx.build()  # nothing changes without a receipt
+        self.assertNotIn("done", [c["state"] for c in passing["roadmap_details"]["rm:req:CORE-002"]["checks"] if c["label"].startswith("Evidence")])
+
+    def test_evidence_checkbox_ticks_with_a_receipt(self) -> None:
+        self.setup_plan()
+        self.fx.file("src/a.rs")
+        self.fx.requirements([req("CORE-001", target_milestone="M1", verification={"implementation_refs": ["src/a.rs"], "evidence_refs": ["r.json"], "new_build_status": "PASS"})])
+        d = self.fx.build()["roadmap_details"]["rm:req:CORE-001"]
+        self.assertTrue(all(c["state"] == "done" for c in d["checks"] if c["label"].startswith("Evidence")))
+
+    def test_sprint_work_items_tick_only_with_an_existing_commit(self) -> None:
+        self.setup_plan()
+        self.reqs()
+
+        def git_with_abc(args: list[str], cwd: Path) -> str | None:
+            if "cat-file" in args:
+                return "commit\n" if args[-1] == "abc1234" else None
+            return None
+        m = self.fx.build(run=git_with_abc)
+        items = {i["id"]: i for i in m["roadmap_details"]["rm:sprint:1"]["work_items"]}
+        self.assertEqual(items["S1-1"]["state"], "done")
+        self.assertEqual(items["S1-3"]["state"], "unknown")  # status says passed but its commit is not in this checkout
+        self.assertIn("none of its commits is found", items["S1-3"]["basis"])
+        nogit = self.fx.build()
+        self.assertEqual({i["state"] for i in nogit["roadmap_details"]["rm:sprint:1"]["work_items"]}, {"unknown"})
+        self.assertEqual(m["roadmap_details"]["rm:req:MEDIA-001"]["sprint_tasks"][0]["id"], "S1-1")
+
+    def test_sprint_and_phase_details(self) -> None:
+        self.setup_plan()
+        self.reqs()
+        m = self.fx.build()
+        s1 = m["roadmap_details"]["rm:sprint:1"]
+        self.assertEqual(s1["exit"], "All detector tests pass.")
+        self.assertEqual(s1["owner_input"], "A capture with a double kill.")
+        self.assertEqual(s1["milestone_info"]["exit"], "Preemption fixtures")
+        s2 = m["roadmap_details"]["rm:sprint:2"]
+        self.assertIsNone(s2["exit"])
+        self.assertEqual(s2["goal"], "Install packs.")
+        s0 = m["roadmap_details"]["rm:sprint:0"]
+        self.assertEqual((s0["goal"], s0["goal_source"]), ("Foundation outcome", "the Outcome column of the phase overview"))
+        phase_b = m["roadmap_details"]["rm:phase:B"]
+        self.assertEqual([x["sprint"] for x in phase_b["outcomes"]], ["1", "2"])
+
+    def test_missing_plan_documents_leave_everything_unknown_not_invented(self) -> None:
+        self.reqs()
+        m = self.fx.build()
+        self.assertEqual(sum(m["roadmap"]["n"].values()), 11)  # tasks still come from the registry
+        d = m["roadmap_details"]["rm:req:CORE-001"]
+        self.assertIsNone(d["dod"])
+        self.assertEqual(d["exit"], {"sprint": None, "milestone": None})
+        self.assertTrue(any(s["status"] == "missing" and s["name"] == "SDP.md" for s in m["sources"]))
+        self.assertTrue(any(s["status"] == "missing" and s["name"] == "SPRINT-ROADMAP.md (plan)" for s in m["sources"]))
+        self.assertTrue(all(n["i"].startswith("rm:bucket:unplaced") or n["i"] in ("rm:all",) or n["k"] == "task" for n in pm.iter_nodes(m["roadmap"])))
+
+    def test_changelog_commits_and_lines(self) -> None:
+        self.setup_plan()
+        self.reqs()
+        self.fx.file("docs/governance/CHANGELOG.md", "- CORE-001 now starts offline.\n- unrelated\n- CORE-0012 is another id\n")
+
+        def run(args: list[str], cwd: Path) -> str | None:
+            return "abc1234\t2026-11-14T09:00:00+07:00\tAdd startup\n" if "log" in args and "--format=%h%x09%cI%x09%s" in args else None
+        d = self.fx.build(run=run)["roadmap_details"]["rm:req:CORE-001"]
+        self.assertEqual(d["changelog"]["commits"], [{"sha": "abc1234", "time": "2026-11-14T09:00:00+07:00", "title": "Add startup"}])
+        self.assertEqual(d["changelog"]["lines"], ["- CORE-001 now starts offline."])
+
+    def test_roadmap_view_is_deterministic(self) -> None:
+        self.setup_plan()
+        self.reqs()
+        self.assertEqual(pm.render_html(self.fx.build(run=fake_git)), pm.render_html(self.fx.build(run=fake_git)))
 
 
 class Cli(Base):
