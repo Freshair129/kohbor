@@ -15,7 +15,7 @@ test("idle capture header says waiting instead of claiming capture is running", 
 test("tab keyboard navigation moves, wraps and honors Home and End", () => {
   assert.equal(nextShellTab("live", "ArrowRight"), "packs");
   assert.equal(nextShellTab("live", "ArrowLeft"), "status");
-  assert.equal(nextShellTab("settings", "Home"), "live");
+  assert.equal(nextShellTab("packs", "Home"), "live");
   assert.equal(nextShellTab("live", "End"), "status");
   assert.equal(nextShellTab("live", "Enter"), null);
 });

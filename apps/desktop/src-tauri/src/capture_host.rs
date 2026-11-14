@@ -1504,6 +1504,7 @@ struct CaptureHostWorker<S, C, A, R, E, H> {
     latest_admitted: LatestValue<AdmittedPixels>,
     capture_rate: RateWindow,
     grab_timeouts: RateWindow,
+    resource_failure_active: bool,
     grab_total: u64,
     grab_duration: DurationWindow,
     analysis_duration: DurationWindow,
@@ -1511,6 +1512,9 @@ struct CaptureHostWorker<S, C, A, R, E, H> {
     next_analysis: Instant,
     next_status: Instant,
     next_resource: Instant,
+    last_logged_status: Option<(&'static str, Option<&'static str>)>,
+    last_info_summary: Instant,
+    last_debug_summary: Instant,
     consecutive_passes: u32,
     last_risk_payload: Option<Value>,
     last_risk_emit_ms: Option<u64>,
@@ -1583,6 +1587,7 @@ where
                 rate.start(now);
                 rate
             },
+            resource_failure_active: false,
             grab_total: 0,
             grab_duration: DurationWindow::default(),
             analysis_duration: DurationWindow::default(),
@@ -1590,6 +1595,9 @@ where
             next_analysis: now,
             next_status: now,
             next_resource: now,
+            last_logged_status: None,
+            last_info_summary: now,
+            last_debug_summary: now,
             consecutive_passes: 0,
             last_risk_payload: None,
             last_risk_emit_ms: None,
@@ -1606,6 +1614,11 @@ where
             let now = Instant::now();
             let now_ms = self.elapsed_ms(now);
             if catch_unwind(AssertUnwindSafe(|| self.cycle_at(now, now_ms))).is_err() {
+                crate::log_error!(
+                    "capture_host",
+                    "capture_loop_panicked",
+                    "capture cycle panicked"
+                );
                 self.handle_panic(now, now_ms);
             }
             let config = self.config.get();
@@ -1648,11 +1661,10 @@ where
         }
         if !game_capture_allowed {
             self.phase_detail = None;
-            self.occlusion = None;
+            self.set_occlusion(None);
             self.occlusion_rect = None;
             if self.source_open {
-                self.source.close();
-                self.source_open = false;
+                self.close_source("game_phase_blocked");
             }
             self.proposal_search_rect = None;
             self.proposal_frames_seen = 0;
@@ -1768,8 +1780,15 @@ where
                 self.source_open = true;
                 self.output = self.source.output();
                 self.phase_reason = Some("calibrating");
+                crate::log_info!("capture_host", "grabber_opened", "frame grabber opened");
             }
             Err(error) => {
+                crate::log_warn!(
+                    "capture_host",
+                    "grabber_open_failed",
+                    format!("{error:?}"),
+                    error = format!("{error:?}")
+                );
                 self.mark_lost(now);
                 self.unsupported_reason = match error {
                     OpenError::NoGameWindow => Some("no_game_window"),
@@ -1789,6 +1808,20 @@ where
         self.next_open_at = now + delay;
     }
 
+    fn close_source(&mut self, reason: &'static str) {
+        let was_open = self.source_open;
+        self.source.close();
+        self.source_open = false;
+        if was_open {
+            crate::log_info!(
+                "capture_host",
+                "grabber_closed",
+                "frame grabber closed",
+                reason = reason
+            );
+        }
+    }
+
     fn mark_lost(&mut self, now: Instant) {
         self.lost = true;
         self.phase_reason = Some("reopening");
@@ -1803,8 +1836,7 @@ where
         self.invalidate_for_user(now_ms);
         let Some(output) = self.source.output() else {
             self.mark_lost(now);
-            self.source.close();
-            self.source_open = false;
+            self.close_source("output_unavailable");
             self.schedule_retry(now);
             return;
         };
@@ -1822,8 +1854,7 @@ where
             self.clear_frames();
             // OutputInfo is cached by the native grabber. Reopen after backoff so a
             // restored resolution/DPI can be observed without restarting the app.
-            self.source.close();
-            self.source_open = false;
+            self.close_source("unsupported_resolution");
             self.schedule_retry(now);
             return;
         };
@@ -2036,8 +2067,7 @@ where
                 if let Some(controller) = self.controller.as_mut() {
                     controller.record_cycle(now_ms, CycleOutcome::AccessLost);
                 }
-                self.source.close();
-                self.source_open = false;
+                self.close_source("proposal_capture_lost");
                 self.schedule_retry(now);
                 self.lost = true;
                 self.phase_reason = Some("access_lost");
@@ -2107,8 +2137,7 @@ where
                 if let Some(controller) = self.controller.as_mut() {
                     controller.record_cycle(now_ms, CycleOutcome::AccessLost);
                 }
-                self.source.close();
-                self.source_open = false;
+                self.close_source("access_lost");
                 self.schedule_retry(now);
                 self.lost = true;
                 self.phase_reason = Some("access_lost");
@@ -2118,8 +2147,7 @@ where
                 if let Some(controller) = self.controller.as_mut() {
                     controller.record_cycle(now_ms, CycleOutcome::AccessLost);
                 }
-                self.source.close();
-                self.source_open = false;
+                self.close_source("grab_failed");
                 self.schedule_retry(now);
                 self.lost = true;
                 self.phase_reason = Some("reopening");
@@ -2205,8 +2233,7 @@ where
                 }
                 let Some(sequence) = self.next_sequence.checked_add(1) else {
                     self.mark_lost(now);
-                    self.source.close();
-                    self.source_open = false;
+                    self.close_source("sequence_exhausted");
                     self.schedule_retry(now);
                     return;
                 };
@@ -2236,8 +2263,7 @@ where
             controller.record_cycle(now_ms, CycleOutcome::AccessLost);
         }
         self.consecutive_passes = 0;
-        self.source.close();
-        self.source_open = false;
+        self.close_source("profile_changed");
         self.schedule_retry(now);
         self.lost = true;
         self.phase_reason = Some("reopening");
@@ -2407,6 +2433,24 @@ where
         self.consecutive_passes = 0;
     }
 
+    fn set_occlusion(&mut self, occlusion: Option<bool>) {
+        if self.occlusion == occlusion {
+            return;
+        }
+        self.occlusion = occlusion;
+        let state = match occlusion {
+            Some(true) => "occluded",
+            Some(false) => "visible",
+            None => "unknown",
+        };
+        crate::log_info!(
+            "capture_host",
+            "occlusion_changed",
+            "capture occlusion state changed",
+            state = state
+        );
+    }
+
     /// Occlusion scans are bounded to one call per 500 ms, including across crop and
     /// phase changes. A newly appearing occluder can remain unseen until that poll.
     fn update_occlusion(&mut self, now: Instant) {
@@ -2414,7 +2458,7 @@ where
             .profile_rect
             .filter(|_| self.unsupported_reason.is_none())
         else {
-            self.occlusion = None;
+            self.set_occlusion(None);
             self.occlusion_rect = None;
             return;
         };
@@ -2422,7 +2466,7 @@ where
             // A result for an old crop says nothing about the new crop. Geometry
             // changes already start their own fresh calibration in refresh_capture_profile.
             self.occlusion_rect = Some(rect);
-            self.occlusion = None;
+            self.set_occlusion(None);
         }
         if now < self.next_occlusion_check {
             return;
@@ -2430,11 +2474,12 @@ where
         let was_occluded = self.occlusion == Some(true);
         let result = self.source.crop_occluded(rect);
         // Unknown never releases a known occlusion: only a definite Some(false) does.
-        self.occlusion = if was_occluded && result.is_none() {
+        let occlusion = if was_occluded && result.is_none() {
             Some(true)
         } else {
             result
         };
+        self.set_occlusion(occlusion);
         self.next_occlusion_check = now + OCCLUSION_INTERVAL;
         if was_occluded && self.occlusion != Some(true) {
             self.clear_frames();
@@ -2556,8 +2601,10 @@ where
 
     fn publish_status(&mut self, now: Instant, now_ms: u64) {
         let config = self.config.get();
+        let phase = self.phase(now_ms);
+        let phase_reason = self.phase_reason(now_ms);
         let mut payload = status_payload(
-            self.phase(now_ms),
+            phase,
             self.display.sent_rate.rate(now),
             self.frame_age_ms(now_ms),
             self.profile_name.as_deref(),
@@ -2570,23 +2617,73 @@ where
         payload["grab_total"] = json!(self.grab_total);
         payload["display_fps"] = json!(config.display_fps);
         payload["paused"] = json!(config.paused);
-        payload["phase_reason"] = json!(self.phase_reason(now_ms));
+        payload["phase_reason"] = json!(phase_reason);
         payload["phase_detail"] = json!(self.phase_detail.as_deref());
         payload["grab_ms_mean"] = json!(self.grab_duration.mean_ms(now));
         payload["analysis_ms_mean"] = json!(self.analysis_duration.mean_ms(now));
+        if self.last_logged_status != Some((phase, phase_reason)) {
+            self.last_logged_status = Some((phase, phase_reason));
+            crate::log_info!(
+                "capture_host",
+                "status_changed",
+                "capture status changed",
+                phase = phase,
+                phase_reason = phase_reason
+            );
+        }
+        if now.saturating_duration_since(self.last_info_summary) >= Duration::from_secs(30) {
+            crate::log_info!(
+                "capture_host",
+                "summary",
+                "capture host 30 second summary",
+                sent_fps = self.display.sent_rate.rate(now),
+                grab_fps = self.capture_rate.rate(now),
+                grab_ms_mean = self.grab_duration.mean_ms(now),
+                analysis_ms_mean = self.analysis_duration.mean_ms(now),
+                timeouts_per_s = self.grab_timeouts.rate(now),
+                phase = phase
+            );
+            self.last_info_summary = now;
+        }
+        if now.saturating_duration_since(self.last_debug_summary) >= Duration::from_secs(5) {
+            crate::log_debug!(
+                "capture_host",
+                "summary",
+                "capture host 5 second summary",
+                sent_fps = self.display.sent_rate.rate(now),
+                grab_fps = self.capture_rate.rate(now),
+                grab_ms_mean = self.grab_duration.mean_ms(now),
+                analysis_ms_mean = self.analysis_duration.mean_ms(now),
+                timeouts_per_s = self.grab_timeouts.rate(now),
+                phase = phase
+            );
+            self.last_debug_summary = now;
+        }
         *lock(capture_status_slot()) = Some(payload.clone());
         self.events.emit_value("capture://status", payload);
     }
 
     fn publish_resource(&mut self, now: Instant, now_ms: u64) {
-        let sample = catch_unwind(AssertUnwindSafe(|| self.resources.read())).ok();
+        let sample_result = catch_unwind(AssertUnwindSafe(|| self.resources.read()));
+        let mut sampler_failed = sample_result.is_err();
+        let sample = sample_result.ok();
         let gpu_local_bytes = if self.source_open {
-            catch_unwind(AssertUnwindSafe(|| self.source.gpu_local_bytes()))
-                .ok()
-                .flatten()
+            let gpu_result = catch_unwind(AssertUnwindSafe(|| self.source.gpu_local_bytes()));
+            sampler_failed |= gpu_result.is_err();
+            gpu_result.ok().flatten()
         } else {
             None
         };
+        if sampler_failed && !self.resource_failure_active {
+            crate::log_warn!("resources", "sampler_failed", "resource sampler panicked");
+        } else if !sampler_failed && self.resource_failure_active {
+            crate::log_info!(
+                "resources",
+                "sampler_recovered",
+                "resource sampler recovered"
+            );
+        }
+        self.resource_failure_active = sampler_failed;
         let payload = resource_payload(
             sample,
             gpu_local_bytes,
@@ -2601,8 +2698,7 @@ where
         self.lost = true;
         self.phase_reason = Some("reopening");
         self.clear_frames();
-        let _ = catch_unwind(AssertUnwindSafe(|| self.source.close()));
-        self.source_open = false;
+        let _ = catch_unwind(AssertUnwindSafe(|| self.close_source("capture_panic")));
         self.schedule_retry(now);
         let config = self.config.get();
         let mut payload = status_payload(
@@ -2784,7 +2880,11 @@ pub fn start(app: tauri::AppHandle, gsi: GsiView, resources: ResourceView, data_
         let status = status_payload("lost", None, None, None, None);
         *lock(capture_status_slot()) = Some(status.clone());
         app.emit_value("capture://status", status);
-        eprintln!("capture-host unavailable: {error}");
+        crate::log_error!(
+            "capture_host",
+            "thread_start_failed",
+            format!("capture-host unavailable: {error}")
+        );
     }
 }
 
@@ -2797,32 +2897,82 @@ pub(crate) async fn capture_get_config() -> CaptureConfig {
 
 #[tauri::command(async)]
 pub(crate) async fn capture_set_config(patch: Value) -> Result<CaptureConfig, String> {
-    test_config_store()?.set(parse_config_patch(patch)?)
+    let config = test_config_store()?.set(parse_config_patch(patch)?)?;
+    crate::log_info!(
+        "capture_host",
+        "config_changed",
+        "capture configuration changed",
+        crop_dx = config.crop.dx,
+        crop_dy = config.crop.dy,
+        crop_dw = config.crop.dw,
+        crop_dh = config.crop.dh,
+        display_fps = config.display_fps,
+        paused = config.paused
+    );
+    Ok(config)
 }
 
 #[tauri::command(async)]
 pub(crate) async fn capture_reset_crop() -> Result<CaptureConfig, String> {
-    test_config_store()?.reset_crop()
+    let config = test_config_store()?.reset_crop()?;
+    crate::log_info!(
+        "capture_host",
+        "crop_reset",
+        "capture crop reset",
+        crop_dx = config.crop.dx,
+        crop_dy = config.crop.dy,
+        crop_dw = config.crop.dw,
+        crop_dh = config.crop.dh
+    );
+    Ok(config)
 }
 
 #[tauri::command(async)]
 pub(crate) async fn capture_propose_crop() -> Result<CaptureConfig, String> {
-    Ok(test_config_store()?.request_proposal())
+    let config = test_config_store()?.request_proposal();
+    crate::log_info!(
+        "capture_host",
+        "crop_proposal_requested",
+        "crop proposal requested"
+    );
+    Ok(config)
 }
 
 #[tauri::command(async)]
 pub(crate) async fn capture_accept_proposal() -> Result<CaptureConfig, String> {
-    test_config_store()?.accept_proposal()
+    let config = test_config_store()?.accept_proposal()?;
+    crate::log_info!(
+        "capture_host",
+        "crop_proposal_accepted",
+        "crop proposal accepted",
+        crop_dx = config.crop.dx,
+        crop_dy = config.crop.dy,
+        crop_dw = config.crop.dw,
+        crop_dh = config.crop.dh
+    );
+    Ok(config)
 }
 
 #[tauri::command(async)]
 pub(crate) async fn capture_confirm_crop() -> Result<CaptureConfig, String> {
-    test_config_store()?.confirm_crop()
+    let config = test_config_store()?.confirm_crop()?;
+    crate::log_info!(
+        "capture_host",
+        "crop_confirmed",
+        "capture crop confirmed",
+        crop_dx = config.crop.dx,
+        crop_dy = config.crop.dy,
+        crop_dw = config.crop.dw,
+        crop_dh = config.crop.dh
+    );
+    Ok(config)
 }
 
 #[tauri::command(async)]
 pub(crate) async fn capture_retry() -> Result<CaptureConfig, String> {
-    Ok(test_config_store()?.retry())
+    let config = test_config_store()?.retry();
+    crate::log_info!("capture_host", "retry_requested", "capture retry requested");
+    Ok(config)
 }
 
 #[tauri::command(async)]
@@ -2847,6 +2997,7 @@ pub(crate) fn capture_status() -> Value {
 #[tauri::command(async)]
 pub(crate) fn capture_invalidate() -> Result<(), String> {
     test_config_store()?.invalidate_user();
+    crate::log_info!("capture_host", "invalidated", "capture invalidated by user");
     Ok(())
 }
 
@@ -6025,9 +6176,13 @@ mod tests {
             let wake = finished + Duration::from_nanos(rounded_sleep_ns as u64);
             now = wake.max(deadline);
         }
-        eprintln!(
-            "preview simulation: grabs={grabs}, sent={sent}, fps={:.1}, seconds=10",
-            sent as f64 / 10.0
+        crate::log_info!(
+            "capture_host",
+            "preview_simulation",
+            format!(
+                "preview simulation: grabs={grabs}, sent={sent}, fps={:.1}, seconds=10",
+                sent as f64 / 10.0
+            )
         );
         assert!(
             sent >= 280,
@@ -6282,6 +6437,49 @@ mod tests {
         assert_eq!(worker.phase(at_ms + 29 * 34), "live");
         assert!(worker.controller.as_ref().unwrap().generation().unwrap() > old_generation);
         assert_eq!(sinks[0].messages.len(), 1);
+    }
+
+    #[test]
+    fn fake_capture_frames_do_not_emit_per_frame_log_lines() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let mut worker = fix2_worker(start);
+
+        // The fake source supplies thirty frames while the worker completes its
+        // crop revalidation; only one admitted frame is published at the end.
+        let entries =
+            crate::logging::collect_test_logs(|| fix2_assert_revalidated(&mut worker, start, 0, 0));
+        let capture_entries: Vec<_> = entries
+            .iter()
+            .filter(|entry| entry.module == "capture_host")
+            .collect();
+        assert!(capture_entries
+            .iter()
+            .any(|entry| entry.event == "status_changed"));
+        assert!(capture_entries.len() < 30);
+        assert!(capture_entries
+            .iter()
+            .all(|entry| !entry.event.contains("frame")));
+        let _ = fs::remove_dir_all(&worker.config.data_dir);
+    }
+
+    #[test]
+    fn occlusion_logs_changes_including_reset_to_unknown_only_once() {
+        let start = Instant::now();
+        let mut worker = fake_worker(FakeFrameSource::supported(), true, start, events());
+        let entries = crate::logging::collect_test_logs(|| {
+            worker.set_occlusion(Some(true));
+            worker.set_occlusion(Some(true));
+            worker.set_occlusion(Some(false));
+            worker.set_occlusion(None);
+            worker.set_occlusion(None);
+        });
+        let states: Vec<_> = entries
+            .iter()
+            .filter(|entry| entry.event == "occlusion_changed")
+            .map(|entry| entry.fields["state"].as_str().unwrap())
+            .collect();
+        assert_eq!(states, ["occluded", "visible", "unknown"]);
     }
 
     #[test]

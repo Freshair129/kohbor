@@ -1,0 +1,25 @@
+:root { --kb-reveal-duration: 760ms; --kb-reduced-duration: 160ms; }
+.minimap-stage { position: relative; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; }
+.minimap-cover { position: absolute; inset: 0; z-index: 1; display: grid; place-items: center; pointer-events: none; }
+.minimap-leaf { position: absolute; top: 0; bottom: 0; width: 50.2%; background: var(--surface); border: 1px solid var(--line); }
+.minimap-leaf-left { left: 0; }
+.minimap-leaf-right { right: 0; }
+.minimap-placeholder { position: relative; z-index: 1; max-width: 90%; padding: 20px; text-align: center; color: var(--text); }
+.minimap-wait-mark { display: grid; place-items: center; width: 104px; height: 104px; margin: 0 auto 24px; border: 1px solid var(--stale); border-radius: 24px; background: var(--ground); color: var(--text-2); font-size: 50px; }
+.minimap-placeholder h2 { margin: 0; font-size: clamp(18px, 1.6vw, 30px); line-height: 1.4; font-weight: 600; }
+.minimap-placeholder p { color: var(--text-2); font-size: 13px; }
+.minimap-stage[data-state="occluded"] .live-map-canvas { opacity: 0.42; filter: grayscale(0.45); }
+.minimap-stage[data-state="occluded"] { border-style: dashed; }
+.minimap-stage .live-map-covered { z-index: 3; }
+.minimap-stage[data-state="first_frame"] .minimap-leaf-left { animation: kb-open-left var(--kb-reveal-duration) cubic-bezier(.22,.7,.18,1) both; }
+.minimap-stage[data-state="first_frame"] .minimap-leaf-right { animation: kb-open-right var(--kb-reveal-duration) cubic-bezier(.22,.7,.18,1) both; }
+.minimap-stage[data-state="first_frame"] .minimap-placeholder { animation: kb-message-away var(--kb-reduced-duration) ease-out both; }
+@keyframes kb-open-left { from { transform: translateX(0); } to { transform: translateX(-101%); } }
+@keyframes kb-open-right { from { transform: translateX(0); } to { transform: translateX(101%); } }
+@keyframes kb-message-away { to { opacity: 0; } }
+@keyframes kb-fade-cover { from { opacity: 1; } to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .minimap-stage[data-state="first_frame"] .minimap-leaf, .minimap-stage[data-state="first_frame"] .minimap-placeholder { animation: none; }
+  .minimap-stage[data-state="first_frame"] .minimap-cover { animation: kb-fade-cover var(--kb-reduced-duration) linear both; }
+}
+@media (max-height: 850px) { .minimap-wait-mark { width: 76px; height: 76px; margin-bottom: 18px; font-size: 36px; } .minimap-placeholder { padding: 14px; } }

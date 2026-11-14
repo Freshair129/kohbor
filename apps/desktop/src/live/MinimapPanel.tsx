@@ -31,16 +31,21 @@ import { useCaptureCounterRates } from "./useCaptureCounterRates";
 import { previewRateTooltip } from "./previewDiagnostics";
 import { PreviewDiagnosticsPanel } from "./PreviewDiagnosticsPanel";
 import { deriveMinimapPresentation } from "./minimapPresentation";
+import { MinimapStage } from "./MinimapStage";
+import { deriveMinimapState } from "./minimapStageModel";
+import type { SteamStatus } from "../steam/model";
 import "./live.css";
 
 export function MinimapPanel({
   locale = "th",
   layout = "standalone",
   renderAlerts,
+  steamStatus = null,
 }: {
   locale?: LiveLocale;
   layout?: "standalone" | "deck";
   renderAlerts?: (input: { risk: RiskView | null; captureLive: boolean }) => ReactNode;
+  steamStatus?: SteamStatus | null;
 }) {
   const text = liveCopy(locale);
   const capture = useCaptureStatus();
@@ -125,6 +130,7 @@ export function MinimapPanel({
   const statusBadge = `${phaseText} · ${age} ms`;
   const rateBadge = previewRateText(display.capture?.fps_measured ?? null, display.metrics, locale);
   const presentation = deriveMinimapPresentation(phase, reason, minimap.hasFrame, locale);
+  const mapSource = deriveMinimapState(steamStatus, capture, paused || userInvalidated);
 
   let plate: string | null = null;
   let plateTone = "";
@@ -189,26 +195,21 @@ export function MinimapPanel({
           <span className="live-map-badge mono" role="status" title={statusBadge}>{statusBadge}</span>
           <span className="live-preview-rates mono" title={`${rateBadge} — ${previewRateTooltip(locale)}`}>{rateBadge}</span>
         </header>
-        <div className="live-map-stage" ref={canvasBox.stageRef} aria-label={text.mapLabel}>
+        <MinimapStage source={mapSource} hasFrame={minimap.hasFrame} covered={presentation.coveredBadge !== null && !paused && !userInvalidated}
+          waitingReason={steamStatus === null && phase === "idle" ? reasonText : null}
+          stageRef={canvasBox.stageRef} locale={locale} plate={plate && (
+            <div className={`live-map-plate${plateTone}`}>
+              <span>{plate}</span>
+              {userInvalidated && <button type="button" disabled={controlsBusy} onClick={() => void retry()}>{text.retryCapture}</button>}
+            </div>
+          )}>
           <canvas
             ref={minimap.canvasRef}
             style={canvasBox.canvasStyle}
             className={`live-map-canvas${presentation.dimmed ? " is-stale" : ""}`}
             aria-hidden="true"
           />
-          {plate && (
-            <div className={`live-map-plate${plateTone}`}>
-              <span>{plate}</span>
-              {userInvalidated && <button type="button" disabled={controlsBusy} onClick={() => void retry()}>{text.retryCapture}</button>}
-            </div>
-          )}
-          {presentation.coveredBadge && (
-            <div className="live-map-covered" role="status" title={reasonText ?? undefined}>
-              <strong>{presentation.coveredBadge}</strong>
-              <span>{reasonText}</span>
-            </div>
-          )}
-        </div>
+        </MinimapStage>
       </section>
       <aside className={`live-sidebar${layout === "deck" ? " live-sidebar-deck" : ""}`} aria-label={text.title}>
         <section className="live-danger-panel" aria-labelledby="live-danger-heading">

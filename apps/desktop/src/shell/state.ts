@@ -1,19 +1,23 @@
 import type { Phase } from "../copy";
 import type { RuntimeStatus } from "../types";
 
-export type ShellTab = "live" | "packs" | "settings" | "status";
+export type ShellTab = "live" | "packs" | "status" | "logs";
 export type HeaderTone = "fresh" | "stale" | "unknown" | "off" | "warn";
 
-export const SHELL_TABS: readonly ShellTab[] = ["live", "packs", "settings", "status"];
+export const SHELL_TABS: readonly ShellTab[] = ["live", "packs", "status"];
 
-export function nextShellTab(current: ShellTab, key: string): ShellTab | null {
-  const index = SHELL_TABS.indexOf(current);
+export function shellTabs(developerMode: boolean): readonly ShellTab[] {
+  return developerMode ? [...SHELL_TABS, "logs"] : SHELL_TABS;
+}
+
+export function nextShellTab(current: ShellTab, key: string, tabs: readonly ShellTab[] = SHELL_TABS): ShellTab | null {
+  const index = tabs.indexOf(current);
   if (index < 0) return null;
 
-  if (key === "Home") return SHELL_TABS[0] ?? null;
-  if (key === "End") return SHELL_TABS[SHELL_TABS.length - 1] ?? null;
-  if (key === "ArrowRight") return SHELL_TABS[(index + 1) % SHELL_TABS.length] ?? null;
-  if (key === "ArrowLeft") return SHELL_TABS[(index + SHELL_TABS.length - 1) % SHELL_TABS.length] ?? null;
+  if (key === "Home") return tabs[0] ?? null;
+  if (key === "End") return tabs[tabs.length - 1] ?? null;
+  if (key === "ArrowRight") return tabs[(index + 1) % tabs.length] ?? null;
+  if (key === "ArrowLeft") return tabs[(index + tabs.length - 1) % tabs.length] ?? null;
   return null;
 }
 

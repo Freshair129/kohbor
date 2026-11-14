@@ -10,26 +10,45 @@ import { startLiveCollection, useCaptureStatus } from "./live";
 import { OwnHero } from "./OwnHero";
 import { PackPanel } from "./PackPanel";
 import { Chip, Readiness } from "./Readiness";
-import { nextShellTab, deriveHeaderState, SHELL_TABS, type ShellTab } from "./shell/state";
+import { nextShellTab, deriveHeaderState, shellTabs, type ShellTab } from "./shell/state";
 import { usePlayback, useRuntime } from "./runtime";
 import { useSettings } from "./settings";
 import { useAppVersion } from "./shell/useAppVersion";
 import { deriveAppVersionView } from "./shell/appVersionModel";
-import { AboutPanel, VersionHeader } from "./shell/VersionInfo";
+import { AboutPanel } from "./shell/VersionInfo";
+import { useDeveloperMode } from "./shell/useDeveloperMode";
+import { LogsTab } from "./logs/LogsTab";
+import { AccountMenu } from "./account/AccountMenu";
+import { AccountPage, FriendsPage } from "./account/AccountPages";
+import { guestAccountPort, type AccountPort } from "./account/accountView";
+import { useAccount } from "./account/useAccount";
+import { useDotaLauncher, useShowSteamName, useSteamStatus } from "./steam/hooks";
+import { steamPersonaName } from "./steam/model";
+import { StartDotaBar } from "./steam/StartDotaBar";
 
-export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode } = {}) {
+type ShellPage = ShellTab | "settings" | "account" | "friends";
+
+export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { devScenarioSwitcher?: ReactNode; accountPort?: AccountPort } = {}) {
   const { status, snapshot, hostLost, setup } = useRuntime();
   const { settings, loading, saving, notice, changeLocale } = useSettings();
   const capture = useCaptureStatus();
   const mute = useAudioMute(status);
   const playback = usePlayback();
   const version = deriveAppVersionView(useAppVersion());
-  const [activeTab, setActiveTab] = useState<ShellTab>("live");
+  const developerMode = useDeveloperMode();
+  const account = useAccount(accountPort);
+  const steamStatus = useSteamStatus();
+  const steamName = useShowSteamName();
+  const launch = useDotaLauncher(steamStatus);
+  const [activeTab, setActiveTab] = useState<ShellPage>("live");
+  const tabs = shellTabs(developerMode.enabled);
+  const currentTab = activeTab === "logs" && !developerMode.enabled ? "live" : activeTab;
+  const isTabPage = tabs.includes(currentTab as ShellTab);
   const tabRefs = useRef<Record<ShellTab, HTMLButtonElement | null>>({
     live: null,
     packs: null,
-    settings: null,
     status: null,
+    logs: null,
   });
   const displayLocale: Locale = settings?.locale ?? "th";
   const text = copy(displayLocale);
@@ -90,7 +109,7 @@ export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode }
             : null;
 
   const onTabKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>, current: ShellTab) => {
-    const next = nextShellTab(current, event.key);
+    const next = nextShellTab(current, event.key, tabs);
     if (next === null) return;
     event.preventDefault();
     setActiveTab(next);
@@ -101,89 +120,83 @@ export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode }
     <div className="app" lang={displayLocale}>
       {devScenarioSwitcher}
       <header className="shell-header">
-        <div className="shell-brand" aria-label="Kohbor เกาะเบาะ">
-          <span>Kohbor</span>
-          <span lang="th">เกาะเบาะ</span>
+        <div className="shell-mainbar">
+          <div className="shell-brand" aria-label="Kohbor เกาะเบาะ">
+            <span>Kohbor</span>
+            <span lang="th">เกาะเบาะ</span>
+          </div>
+
+          <div className="shell-tab-list" role="tablist" aria-label={text.shell.navigationLabel}>
+            {tabs.map((tab) => (
+              <button key={tab} ref={(element) => { tabRefs.current[tab] = element; }} id={`shell-tab-${tab}`} type="button" role="tab"
+                aria-selected={currentTab === tab} aria-controls="shell-panel" tabIndex={currentTab === tab || (!isTabPage && tab === "live") ? 0 : -1}
+                onClick={() => setActiveTab(tab)} onKeyDown={(event) => onTabKeyDown(event, tab)}>{text.shell.tabs[tab]}</button>
+            ))}
+          </div>
+          <AccountMenu account={account} port={accountPort} version={version} locale={displayLocale}
+            showSteamName={steamName.show} steamName={steamPersonaName(steamStatus, steamName.show)} navigate={setActiveTab} />
         </div>
+        <div className="shell-statusbar">
+          <div className="shell-statuses">
+            <span aria-label={`${text.readiness.title}: ${headerState.readiness.label}`}>
+              <Chip tone={headerState.readiness.tone} label={headerState.readiness.label} />
+            </span>
+            <span
+              className="shell-deck-status"
+              aria-label={`${displayLocale === "th" ? deckState.labelTh : deckState.labelEn}: ${deckReason}`}
+              title={deckReason}
+            >
+              <Chip tone={deckTone[deckState.state]} label={displayLocale === "th" ? deckState.labelTh : deckState.labelEn} />
+              <small className="shell-deck-reason">{deckReason}</small>
+            </span>
+            <span className="shell-phase-chip" title={`${text.shell.gamePhase}: ${phaseLabel}`} aria-label={`${text.shell.gamePhase}: ${phaseLabel}`}>
+              <Chip tone={phaseTone} label={`${text.shell.gamePhase}: ${phaseLabel}`} />
+            </span>
+            <span className="shell-age-badge" aria-label={`${text.shell.gameAge}: ${headerState.gameAge}`}>
+              <span>{text.shell.gameAge}</span>
+              <b>{headerState.gameAge}</b>
+            </span>
+            <span aria-label={`${text.shell.capture}: ${headerState.capture.label}`}>
+              <Chip tone={headerState.capture.tone} label={`${text.shell.capture} · ${headerState.capture.label}`} />
+            </span>
+          </div>
 
-        <div className="shell-statuses">
-          <span aria-label={`${text.readiness.title}: ${headerState.readiness.label}`}>
-            <Chip tone={headerState.readiness.tone} label={headerState.readiness.label} />
-          </span>
-          <span
-            className="shell-deck-status"
-            aria-label={`${displayLocale === "th" ? deckState.labelTh : deckState.labelEn}: ${deckReason}`}
-            title={deckReason}
-          >
-            <Chip tone={deckTone[deckState.state]} label={displayLocale === "th" ? deckState.labelTh : deckState.labelEn} />
-            <small className="shell-deck-reason">{deckReason}</small>
-          </span>
-          <span className="shell-phase-chip" title={`${text.shell.gamePhase}: ${phaseLabel}`} aria-label={`${text.shell.gamePhase}: ${phaseLabel}`}>
-            <Chip tone={phaseTone} label={`${text.shell.gamePhase}: ${phaseLabel}`} />
-          </span>
-          <span className="shell-age-badge" aria-label={`${text.shell.gameAge}: ${headerState.gameAge}`}>
-            <span>{text.shell.gameAge}</span>
-            <b>{headerState.gameAge}</b>
-          </span>
-          <span aria-label={`${text.shell.capture}: ${headerState.capture.label}`}>
-            <Chip tone={headerState.capture.tone} label={`${text.shell.capture} · ${headerState.capture.label}`} />
-          </span>
+          {hostLost && (
+            <span
+              className="shell-host-lost"
+              role="alert"
+              title={`${text.hostLost} — ${text.hostOutdated}`}
+              aria-label={`${text.hostLost} — ${text.hostOutdated}`}
+            >
+              {text.hostLost}
+            </span>
+          )}
+
+          {setupNeeded && (
+            <button type="button" className="shell-setup-hint" onClick={() => setActiveTab("settings")}>
+              {text.shell.gsiSetup}
+            </button>
+          )}
+
+          <AudioMuteControl control={mute} locale={displayLocale} compact />
         </div>
-
-        {hostLost && (
-          <span
-            className="shell-host-lost"
-            role="alert"
-            title={`${text.hostLost} — ${text.hostOutdated}`}
-            aria-label={`${text.hostLost} — ${text.hostOutdated}`}
-          >
-            {text.hostLost}
-          </span>
-        )}
-
-        {setupNeeded && (
-          <button type="button" className="shell-setup-hint" onClick={() => setActiveTab("settings")}>
-            {text.shell.gsiSetup}
-          </button>
-        )}
-
-        <AudioMuteControl control={mute} locale={displayLocale} compact />
-        <VersionHeader view={version} />
       </header>
-
-      <div className="shell-tab-list" role="tablist" aria-label={text.shell.navigationLabel}>
-        {SHELL_TABS.map((tab) => (
-          <button
-            key={tab}
-            ref={(element) => { tabRefs.current[tab] = element; }}
-            id={`shell-tab-${tab}`}
-            type="button"
-            role="tab"
-            aria-selected={activeTab === tab}
-            aria-controls="shell-panel"
-            tabIndex={activeTab === tab ? 0 : -1}
-            onClick={() => setActiveTab(tab)}
-            onKeyDown={(event) => onTabKeyDown(event, tab)}
-          >
-            {text.shell.tabs[tab]}
-          </button>
-        ))}
-      </div>
 
       <section
         id="shell-panel"
         className="shell-tab-panel"
-        role="tabpanel"
-        aria-labelledby={`shell-tab-${activeTab}`}
+        role={isTabPage ? "tabpanel" : "region"}
+        aria-labelledby={isTabPage ? `shell-tab-${currentTab}` : `page-${currentTab}-heading`}
         tabIndex={0}
       >
-        {activeTab === "live" && (
+        {currentTab === "live" && (
           <div className="shell-screen shell-live">
-            <Deck locale={displayLocale} status={status} snapshot={snapshot} state={deckState} mute={mute} playback={playback} hostLost={hostLost} />
+            <StartDotaBar status={steamStatus} control={launch} showSteamName={steamName.show} locale={displayLocale} />
+            <Deck locale={displayLocale} status={status} snapshot={snapshot} state={deckState} mute={mute} playback={playback} hostLost={hostLost} steamStatus={steamStatus} />
           </div>
         )}
 
-        {activeTab === "packs" && (
+        {currentTab === "packs" && (
           <div className="shell-screen shell-packs">
             <div className={`shell-pack-panel${hostLost ? " is-outdated" : ""}`}>
               <PackPanel locale={displayLocale} disabled={hostLost} />
@@ -194,9 +207,10 @@ export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode }
           </div>
         )}
 
-        {activeTab === "settings" && (
+        {currentTab === "settings" && (
           <div className="shell-screen shell-settings">
             <section className="card shell-locale-card" aria-label={text.languageLabel}>
+              <h1 id="page-settings-heading" className="shell-settings-title">{text.shell.tabs.settings}</h1>
               <label className="locale-control">
                 <span>{text.languageLabel}</span>
                 <select
@@ -210,6 +224,14 @@ export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode }
                   <option value="th">{text.localeOptions.th}</option>
                   <option value="en">{text.localeOptions.en}</option>
                 </select>
+              </label>
+              <label className="shell-developer-toggle">
+                <input type="checkbox" checked={developerMode.enabled} onChange={event => developerMode.change(event.currentTarget.checked)} />
+                <span>{text.shell.developerMode}</span>
+              </label>
+              <label className="shell-developer-toggle">
+                <input type="checkbox" checked={steamName.show} onChange={event => steamName.change(event.currentTarget.checked)} />
+                <span>{displayLocale === "th" ? "แสดงชื่อ Steam" : "Show Steam name"}</span>
               </label>
               {settingsNotice && <p className="locale-notice" role="status">{settingsNotice}</p>}
             </section>
@@ -225,7 +247,7 @@ export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode }
           </div>
         )}
 
-        {activeTab === "status" && (
+        {currentTab === "status" && (
           <div className={`shell-screen shell-status${hostLost ? " is-outdated" : ""}`}>
             <div className="shell-status-grid">
               <div className="shell-readiness">
@@ -255,6 +277,9 @@ export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode }
             <AboutPanel view={version} locale={displayLocale} />
           </div>
         )}
+        {developerMode.enabled && <LogsTab visible={currentTab === "logs"} locale={displayLocale} />}
+        {currentTab === "account" && <AccountPage account={account} locale={displayLocale} back={() => setActiveTab("live")} />}
+        {currentTab === "friends" && <FriendsPage locale={displayLocale} back={() => setActiveTab("live")} />}
       </section>
     </div>
   );
