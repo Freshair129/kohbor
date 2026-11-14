@@ -685,6 +685,32 @@
       "owner_statement_th": "อนุญาต",
       "decision": "The owner allows an additive extension of the own-snapshot contract to schema 2.1.0 with the own hero's gold, kills, deaths, assists, last hits, denies, gpm and xpm (from the GSI player block already requested), and, in a later slice, requesting the items and abilities GSI blocks for the own hero. All of it stays local and own-hero only, never sent to a cloud (cloud policy fixtures unchanged); a missing, invalid or unobserved field is unknown, never zero. Not decided here: any enemy or ally data, any change to freshness rules, the G-Meter, or the cfg data-block change itself beyond this approval of the intent (the owner re-runs GSI setup and restarts Dota once when the blocks are added).",
       "closure_evidence": "MVP-2 slice 2a (own-snapshot 2.1.0) and slice 2b (items and abilities blocks) with their tests; native confirmation by the owner's match."
+    },
+    {
+      "id": "DEC-UPDATE-ENDPOINT",
+      "status": "decided",
+      "milestone": "M8",
+      "blocks": "Nothing now: it names the update endpoint for the future auto-update feature (UPDATE-001..004). The updater itself stays OFF until a signed release exists, the owner generates the signing key and approves the consent flow",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-14",
+      "channel": "Owner message in the engineering chat session (2026-11-14), relayed by the coordinating session; recorded by an agent (MVP-2 integration lead)",
+      "owner_statement_th": "GitHub Releases",
+      "decision": "The update endpoint for automatic updates is GitHub Releases of the repository Freshair129/kohbor (a latest.json asset plus the installer and its signature on a release). Not decided here: whether releases must be public (a private repository's release assets need authentication, which the app must never hold), who generates and stores the update signing private key (the owner; never in the repository or in chat), the consent flow (default OFF, explicit user action for every download and install), Authenticode code signing, and any publishing of a release (owner release actions).",
+      "closure_evidence": "Updater design in the MVP-2 notes; implementation only after the owner generates the key, approves the flow and a signed release exists."
+    },
+    {
+      "id": "DEC-DRAFT-BAR",
+      "status": "decided",
+      "milestone": "M3",
+      "blocks": "The draft-bar feature (MVP-2 slice 5): reading the top hero bar during hero selection by screen capture, identifying heroes by CV and reading player names by OCR, all local",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-14",
+      "channel": "Owner message in the engineering chat session (2026-11-14), relayed by the coordinating session; recorded by an agent (MVP-2 integration lead). The owner's Thai statement is summarized by the relaying session, not quoted verbatim",
+      "owner_statement_th": "(สรุปจากผู้ประสานงาน) ภาพฮีโร่ไม่ต้องกังวลลิขสิทธิ์ เพราะแอปอื่นก็ทำและเราไม่ได้หาประโยชน์จากมัน จำเป็นต้องใช้ ความเสี่ยงเป็นของเจ้าของ; GSI เป็นแหล่งเดียวไม่ได้ ช่วงเลือกฮีโร่ต้องใช้ CV ระบุฮีโร่และแสดงชื่อผู้เล่น; ไม่มีอะไรออกจากเครื่อง แสดงในเครื่องเท่านั้น",
+      "decision": "GO for a local draft bar: capture the top hero bar during HERO_SELECTION, STRATEGY_TIME and TEAM_SHOWCASE, identify the ten heroes by CV and read the player names by OCR, and show them in the deck only. The owner accepts the copyright risk of using hero images for local identification and states nothing leaves the machine. Conditions set by the integration lead to keep the decision safe: (1) player names (ranks only if trivial) are read locally, held in memory for the current match only, never written to disk, logs or crash reports, never put into events, announcer text, clips, share exports or any projection, cleared at match end, with a visible setting to turn names off; (2) reference portraits are built at runtime from the user's installed game files read-only (no game memory, no injection) and no Valve art is committed or shipped; if that is infeasible the options are reported instead of bundling; (3) low confidence is shown as unknown, never guessed; (4) CPU and GPU cost is measured and reported, no limit set (DEC-RESOURCE-BUDGET); (5) 1920x1080 at 100 percent only, else unsupported with the real reason; (6) same duplicated frame, second sub-rectangle, only in the draft phases. Not decided here: any enemy or ally data from other sources, sharing, storage of names, and the contract text for third-party data, which must be written and versioned before the names path ships (SECURITY-PRIVACY: other players' data needs a separately versioned contract and permission change).",
+      "closure_evidence": "Slice 5a mirror, 5b hero identification, 5c names, each with tests and a Terra review; the third-party-data contract (docs/design/DRAFT-BAR-SPEC.md) before 5c; the owner's match for native confirmation."
     }
   ]
 }
