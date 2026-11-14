@@ -48,9 +48,50 @@ pub fn data_dir_override(demo: Option<&str>, dir: Option<&str>) -> Option<std::p
     (path.is_absolute() && !path.as_os_str().is_empty()).then_some(path)
 }
 
+/// Validate a demo-only fixed GSI test token (`KOHBOR_TEST_TOKEN`) so the replay tool
+/// (tools/gsi_replay.py) can authenticate to a demo instance without knowing any real token.
+/// Needs `KOHBOR_DEMO=1` and 16-128 URL-safe characters.
+#[cfg(any(feature = "demo", debug_assertions))]
+pub fn test_token(demo: Option<&str>, requested: Option<&str>) -> Option<String> {
+    let value = requested?;
+    let ok = demo_enabled(demo)
+        && (16..=128).contains(&value.len())
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_');
+    ok.then(|| value.to_string())
+}
+
+/// Pre-seed the demo data directory's GSI token file with the test token. `load_or_create`
+/// keeps an existing file, so a fresh temp `KOHBOR_DATA_DIR` is required (the how-to says so);
+/// the real app's data directory is never used by a demo run.
+#[cfg(any(feature = "demo", debug_assertions))]
+pub fn seed_test_token(dir: &std::path::Path) {
+    let demo = std::env::var("KOHBOR_DEMO").ok();
+    let requested = std::env::var("KOHBOR_TEST_TOKEN").ok();
+    if let Some(token) = test_token(demo.as_deref(), requested.as_deref()) {
+        crate::logging::register_secret(&token);
+        let _ = crate::secrets::load_or_create(&dir.join("gsi-token.bin"), || {
+            Some(token.clone().into_bytes())
+        });
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_token_needs_demo_flag_and_a_safe_long_value() {
+        let good = "demo-test-token_0123456789";
+        assert_eq!(test_token(Some("1"), Some(good)).as_deref(), Some(good));
+        assert_eq!(test_token(None, Some(good)), None);
+        assert_eq!(test_token(Some("0"), Some(good)), None);
+        assert_eq!(test_token(Some("1"), None), None);
+        assert_eq!(test_token(Some("1"), Some("short")), None);
+        assert_eq!(test_token(Some("1"), Some("has space 0123456789")), None);
+        assert_eq!(test_token(Some("1"), Some(&"a".repeat(129))), None);
+    }
 
     #[test]
     fn only_exact_one_enables_demo() {

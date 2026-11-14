@@ -7,6 +7,7 @@ import type { PlaybackClass, PlaybackEndReason, PlaybackEvent } from "../playbac
 import type { OwnSnapshot, RuntimeStatus, UserSettingsView } from "../types";
 import { liveMockRequested } from "../live/mockMode";
 import { parseOwnSnapshot } from "../ownSnapshot";
+import { addSampleLoadout } from "./sampleLoadout";
 
 type MockCallback = (event: unknown) => void;
 type MockEventBinding = { event: string; callbackId: number };
@@ -71,7 +72,7 @@ function currentStatus(): RuntimeStatus {
 }
 
 function currentOwnSnapshot(): OwnSnapshot {
-  const snapshot = structuredClone(snapshotFixture!);
+  const snapshot = addSampleLoadout(snapshotFixture!);
   if (!liveMockRequested()) return snapshot;
   if (mockSnapshotAvailability === "unknown") {
     snapshot.availability = "unknown";
@@ -556,7 +557,7 @@ export function MockScenarioSwitcher() {
       {liveMockRequested() && (
         <section className="mock-deck-controls" aria-label="ตัวอย่างสถานะ Command Deck / Command Deck sample states">
           <strong>ตัวอย่างข้อมูลสำหรับพัฒนา — ไม่ใช่ข้อมูลจากเกมจริง</strong>
-          <span className="muted small">DEV sample state — no real game data</span>
+          <span className="muted small">DEV SAMPLE 2.2.0 · items/abilities — no real game data</span>
           <label>
             สถานะ Command Deck / Deck state
             <select

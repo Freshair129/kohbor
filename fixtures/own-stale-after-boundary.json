@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.1.0",
+  "schema_version": "2.2.0",
   "session_epoch": 3,
   "availability": "stale",
   "source": {
@@ -69,6 +69,14 @@
         "availability": "unknown"
       },
       "xpm": {
+        "value": null,
+        "availability": "unknown"
+      },
+      "items": {
+        "value": null,
+        "availability": "unknown"
+      },
+      "abilities": {
         "value": null,
         "availability": "unknown"
       }

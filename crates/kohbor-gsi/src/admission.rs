@@ -3,6 +3,7 @@
 //! Field paths are assumptions A-5/A-6 until the M0 capture spike confirms them.
 
 use serde_json::Value;
+use std::collections::BTreeMap;
 
 /// SteamID64 = this base + 32-bit account ID (A-7).
 pub const STEAMID64_BASE: u64 = 76_561_197_960_265_728;
@@ -114,6 +115,85 @@ pub struct Admitted {
     pub hero: HeroFields,
 }
 
+/// Separate local own-hero projection so adding these fields does not change the
+/// existing `Admitted` contract consumed by event detection.
+#[derive(Debug, Clone, PartialEq)]
+pub struct OwnLoadout {
+    pub items: Field<Vec<ItemObservation>>,
+    pub abilities: Field<Vec<AbilityObservation>>,
+}
+
+impl OwnLoadout {
+    pub fn unknown() -> Self {
+        Self {
+            items: Field::Missing,
+            abilities: Field::Missing,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ItemSlot {
+    Inventory(u8),
+    Backpack(u8),
+    Teleport,
+    Neutral,
+}
+
+impl ItemSlot {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ItemSlot::Inventory(index) => match index {
+                0 => "inventory0",
+                1 => "inventory1",
+                2 => "inventory2",
+                3 => "inventory3",
+                4 => "inventory4",
+                _ => "inventory5",
+            },
+            ItemSlot::Backpack(index) => match index {
+                0 => "backpack0",
+                1 => "backpack1",
+                _ => "backpack2",
+            },
+            ItemSlot::Teleport => "teleport",
+            ItemSlot::Neutral => "neutral",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ItemObservation {
+    pub slot: ItemSlot,
+    pub name: Field<Option<String>>,
+    pub cooldown: Field<i64>,
+    pub charges: Field<i64>,
+    pub can_cast: Field<bool>,
+    pub passive: Field<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AbilityObservation {
+    /// The source `abilityN` index. Only the eight schema-defined slots are retained.
+    pub slot: u8,
+    pub name: Field<String>,
+    pub level: Field<i64>,
+    pub cooldown: Field<i64>,
+    pub ultimate: Field<bool>,
+    pub can_cast: Field<bool>,
+    pub passive: Field<bool>,
+    pub active: Field<bool>,
+}
+
+/// Parse only the bounded own-hero item and ability scalars from one admitted
+/// payload. Callers must gate use of the result on verified ownership.
+pub fn parse_own_loadout(body: &Value) -> OwnLoadout {
+    OwnLoadout {
+        items: item_fields(body.get("items")),
+        abilities: ability_fields(body.get("abilities")),
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Outcome {
     Rejected(Rejection),
@@ -214,6 +294,184 @@ pub fn admit(
         counters,
         hero,
     }))
+}
+
+fn item_fields(block: Option<&Value>) -> Field<Vec<ItemObservation>> {
+    const SOURCE_SLOTS: [(&str, ItemSlot); 11] = [
+        ("slot0", ItemSlot::Inventory(0)),
+        ("slot1", ItemSlot::Inventory(1)),
+        ("slot2", ItemSlot::Inventory(2)),
+        ("slot3", ItemSlot::Inventory(3)),
+        ("slot4", ItemSlot::Inventory(4)),
+        ("slot5", ItemSlot::Inventory(5)),
+        ("slot6", ItemSlot::Backpack(0)),
+        ("slot7", ItemSlot::Backpack(1)),
+        ("slot8", ItemSlot::Backpack(2)),
+        ("teleport0", ItemSlot::Teleport),
+        ("neutral0", ItemSlot::Neutral),
+    ];
+    let Some(block) = block else {
+        return Field::Missing;
+    };
+    let Value::Object(object) = block else {
+        return Field::Invalid;
+    };
+    let mut items = Vec::new();
+    for (source_key, slot) in SOURCE_SLOTS {
+        if let Some(item) = object.get(source_key) {
+            if items.len() == 12 {
+                break;
+            }
+            items.push(ItemObservation {
+                slot,
+                name: item_name_field(item),
+                cooldown: cooldown_field(item, "cooldown"),
+                charges: charges_field(item),
+                can_cast: bool_field(item, "can_cast"),
+                passive: bool_field(item, "passive"),
+            });
+        }
+    }
+    Field::Value(items)
+}
+
+fn ability_fields(block: Option<&Value>) -> Field<Vec<AbilityObservation>> {
+    let Some(block) = block else {
+        return Field::Missing;
+    };
+    let Value::Object(object) = block else {
+        return Field::Invalid;
+    };
+
+    let mut sources = BTreeMap::<u8, &Value>::new();
+    for (key, value) in object {
+        let Some(slot) = key
+            .strip_prefix("ability")
+            .and_then(|digits| digits.parse::<u8>().ok())
+            .filter(|slot| *slot <= 7)
+        else {
+            continue;
+        };
+        if ability_is_hidden(value) {
+            continue;
+        }
+        sources.entry(slot).or_insert(value);
+    }
+
+    let abilities = sources
+        .into_iter()
+        .take(8)
+        .map(|(slot, ability)| AbilityObservation {
+            slot,
+            name: identifier_field(ability, "name"),
+            level: scalar_int_field(ability, "level", 0, 30),
+            cooldown: cooldown_field(ability, "cooldown"),
+            ultimate: bool_field(ability, "ultimate"),
+            can_cast: bool_field(ability, "can_cast"),
+            passive: bool_field(ability, "passive"),
+            active: bool_field(ability, "ability_active"),
+        })
+        .collect();
+    Field::Value(abilities)
+}
+
+fn ability_is_hidden(ability: &Value) -> bool {
+    let Some(name) = ability.get("name").and_then(Value::as_str) else {
+        return false;
+    };
+    name.starts_with("special_bonus_")
+        || name.contains("generic_hidden")
+        || name.contains("attribute_bonus")
+}
+
+fn item_name_field(item: &Value) -> Field<Option<String>> {
+    match item {
+        Value::Object(object) => match object.get("name") {
+            None => Field::Missing,
+            Some(Value::String(name)) if name == "empty" => Field::Value(None),
+            Some(Value::String(name)) if valid_game_identifier(name) => {
+                Field::Value(Some(name.clone()))
+            }
+            Some(_) => Field::Invalid,
+        },
+        _ => Field::Invalid,
+    }
+}
+
+fn identifier_field(object: &Value, key: &str) -> Field<String> {
+    match object {
+        Value::Object(object) => match object.get(key) {
+            None => Field::Missing,
+            Some(Value::String(value)) if valid_game_identifier(value) => {
+                Field::Value(value.clone())
+            }
+            Some(_) => Field::Invalid,
+        },
+        _ => Field::Invalid,
+    }
+}
+
+fn valid_game_identifier(value: &str) -> bool {
+    (1..=64).contains(&value.len())
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+}
+
+fn charges_field(object: &Value) -> Field<i64> {
+    match object {
+        Value::Object(object) => match object.get("charges") {
+            Some(value) => bounded_integer(value, 0, 999),
+            None => match object.get("item_charges") {
+                Some(value) => bounded_integer(value, 0, 999),
+                None => Field::Missing,
+            },
+        },
+        _ => Field::Invalid,
+    }
+}
+
+fn scalar_int_field(object: &Value, key: &str, min: i64, max: i64) -> Field<i64> {
+    match object {
+        Value::Object(object) => match object.get(key) {
+            None => Field::Missing,
+            Some(value) => bounded_integer(value, min, max),
+        },
+        _ => Field::Invalid,
+    }
+}
+
+fn bounded_integer(value: &Value, min: i64, max: i64) -> Field<i64> {
+    match value.as_i64() {
+        Some(value) if (min..=max).contains(&value) => Field::Value(value),
+        _ => Field::Invalid,
+    }
+}
+
+fn cooldown_field(object: &Value, key: &str) -> Field<i64> {
+    match object {
+        Value::Object(object) => match object.get(key) {
+            None => Field::Missing,
+            Some(value) => match value.as_f64() {
+                Some(seconds) if seconds.is_finite() && (0.0..=3600.0).contains(&seconds) => {
+                    Field::Value(seconds.ceil() as i64)
+                }
+                _ => Field::Invalid,
+            },
+        },
+        _ => Field::Invalid,
+    }
+}
+
+fn bool_field(object: &Value, key: &str) -> Field<bool> {
+    match object {
+        Value::Object(object) => match object.get(key) {
+            None => Field::Missing,
+            Some(Value::Bool(value)) => Field::Value(*value),
+            Some(_) => Field::Invalid,
+        },
+        _ => Field::Invalid,
+    }
 }
 
 fn int_field(object: Option<&Value>, key: &str, min: i64, max: i64) -> Field<i64> {

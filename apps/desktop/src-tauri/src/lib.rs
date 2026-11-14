@@ -71,6 +71,7 @@ fn data_dir(app: &tauri::App<tauri::Wry>) -> tauri::Result<std::path::PathBuf> {
     {
         if let Some(dir) = demo_data_dir_override() {
             std::fs::create_dir_all(&dir)?;
+            demo::seed_test_token(&dir);
             return Ok(dir);
         }
     }
@@ -315,6 +316,21 @@ pub fn run() {
         arch = std::env::consts::ARCH
     );
     let builder = tauri::Builder::default()
+        .on_window_event(|window, event| {
+            // Exit-path breadcrumbs (fixed strings only): a log that ends without any of these
+            // means the process was terminated from outside, not closed by the app.
+            match event {
+                tauri::WindowEvent::CloseRequested { .. } => {
+                    crate::log_info!("app", "app_stopping", "window close requested");
+                    logging::flush();
+                }
+                tauri::WindowEvent::Destroyed => {
+                    let _ = window;
+                    crate::log_info!("app", "app_stopping", "window destroyed");
+                }
+                _ => {}
+            }
+        })
         .register_asynchronous_uri_scheme_protocol("kohbor-media", commands::media_protocol_handler)
         .setup(|app| {
             // The control window title stays "Kohbor — Command Deck": instance.rs finds the
@@ -478,6 +494,10 @@ pub fn run() {
     let app = builder.build(tauri::generate_context!());
     match app {
         Ok(app) => app.run(|handle, event| {
+            if matches!(event, tauri::RunEvent::ExitRequested { .. }) {
+                crate::log_info!("app", "app_stopping", "exit requested");
+                logging::flush();
+            }
             if matches!(event, tauri::RunEvent::Exit) {
                 crate::log_info!("app", "exit", "Kohbor is exiting");
                 handle.state::<AppState>().host.shutdown();

@@ -1,5 +1,7 @@
 // @ts-ignore Explicit extensions support Node's TypeScript loader.
 import type { Field, FieldAvailability, OwnSnapshot } from "./types.ts";
+// @ts-ignore Explicit extensions support Node's TypeScript loader.
+import { parseLoadoutField } from "./ownLoadout.ts";
 
 export const OWN_STAT_FIELDS = ["gold", "kills", "deaths", "assists", "last_hits", "denies", "gpm", "xpm"] as const;
 export type OwnStatKey = typeof OWN_STAT_FIELDS[number];
@@ -39,7 +41,7 @@ function field(input: unknown, name: string): Field<unknown> | null {
 export function parseOwnSnapshot(input: unknown): OwnSnapshot | null {
   const s = object(input);
   if (!s || !closed(s, ["schema_version", "session_epoch", "availability", "source", "own"])) return null;
-  if (s.schema_version !== "2.0.0" && s.schema_version !== "2.1.0") return null;
+  if (s.schema_version !== "2.0.0" && s.schema_version !== "2.1.0" && s.schema_version !== "2.2.0") return null;
   if (!availability(s.availability) || (s.session_epoch !== null && !integer(s.session_epoch, 1))) return null;
   const source = object(s.source);
   if (!source || !closed(source, ["kind", "generation", "sequence", "age_ms"]) || source.kind !== "gsi") return null;
@@ -55,7 +57,7 @@ export function parseOwnSnapshot(input: unknown): OwnSnapshot | null {
     if (rawOwn.team !== null && rawOwn.team !== "radiant" && rawOwn.team !== "dire") return null;
     const rawFields = object(rawOwn.fields);
     const names = [...BASE_FIELDS, ...OWN_STAT_FIELDS];
-    if (!rawFields || Object.keys(rawFields).some(key => !names.includes(key as typeof names[number]))) return null;
+    if (!rawFields || Object.keys(rawFields).some(key => ![...names, "items", "abilities"].includes(key))) return null;
     const parsed: Record<string, Field<unknown>> = {};
     for (const name of names) {
       const f = s.schema_version === "2.0.0" && OWN_STAT_FIELDS.includes(name as OwnStatKey) && !Object.hasOwn(rawFields, name)
@@ -65,6 +67,8 @@ export function parseOwnSnapshot(input: unknown): OwnSnapshot | null {
     }
     const hp = parsed.hp?.value; const maxHp = parsed.max_hp?.value;
     if (typeof hp === "number" && typeof maxHp === "number" && hp > maxHp) return null;
+    parsed.items = parseLoadoutField(rawFields.items, "items", s.availability);
+    parsed.abilities = parseLoadoutField(rawFields.abilities, "abilities", s.availability);
     own = { identity_revision: rawOwn.identity_revision, team: rawOwn.team, fields: parsed as unknown as NonNullable<OwnSnapshot["own"]>["fields"] };
   } else if (s.own !== null) return null;
   return {

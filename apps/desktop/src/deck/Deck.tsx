@@ -12,6 +12,8 @@ import { AlertStrip } from "./AlertStrip";
 import { EventFeed } from "./EventFeed";
 import { AnnouncerStatus } from "./AnnouncerStatus";
 import { HeroPortrait } from "./HeroPortrait";
+import { OwnLoadout } from "./OwnLoadout";
+import { deriveLoadoutViewModel } from "./loadoutModel";
 import type { SteamStatus } from "../steam/model";
 import "./deck.css";
 
@@ -40,6 +42,7 @@ export function Deck({
 }) {
   const text = deckCopy(locale);
   const own = deriveOwnHeroViewModel(snapshot);
+  const loadout = deriveLoadoutViewModel(snapshot, hostLost);
   // A retained payload's age is not a current age once the host stops answering.
   const displayAgeMs = hostLost ? null : own.ageMs;
   const history = useAudioHistory(hostLost);
@@ -48,7 +51,7 @@ export function Deck({
   const statValues = [readableNumber(own.stats.gold),
     [own.stats.kills, own.stats.deaths, own.stats.assists].map(readableNumber).join(" / "),
     [own.stats.last_hits, own.stats.denies].map(readableNumber).join(" / "),
-    [own.stats.gpm, own.stats.xpm].map(readableNumber).join(" / "), "—", "—"];
+    [own.stats.gpm, own.stats.xpm].map(readableNumber).join(" / ")];
   const stale = state.state === "stale" || own.snapshotAvailability === "stale";
   const hasLatestResult = state.state === "debrief" && own.hasOwnSnapshot;
   const hpWidth = own.hpPercent === null ? undefined : `${Math.max(0, Math.min(100, own.hpPercent))}%`;
@@ -96,33 +99,36 @@ export function Deck({
             </div>
           </div>
 
-          <section className="deck-stats" aria-label={text.statsHeading} aria-describedby="deck-stats-caption">
-            {text.statLabels.map((label, index) => (
-              <div className="deck-stat-tile" key={label}>
+          <section className="deck-stats" aria-label={text.statsHeading}>
+            {text.statLabels.slice(0, 4).map((label, index) => (
+              <div className="deck-stat-tile" key={label} title={`${label}: ${statValues[index]}`}>
                 <span>{label}</span>
                 <b>{statValues[index]}</b>
               </div>
             ))}
           </section>
-          <small className="deck-stats-caption" id="deck-stats-caption">{text.statCaption}</small>
+          <OwnLoadout model={loadout} locale={locale} />
         </section>
 
-        <section className="deck-ally-panel" aria-labelledby="deck-allies-heading">
-          <header className="deck-card-heading">
-            <h2 id="deck-allies-heading">{text.allies}</h2>
-          </header>
-          <ul className="deck-ally-list">
-            {ALLY_SLOT_IDS.map((slot) => (
-              <li className="deck-ally-slot" key={slot}>
-                <span className="deck-slot-token">{slot}</span>
-                <span className="deck-placeholder-copy">
-                  <b>{text.placeholder.allies[locale === "en" ? "en" : "th"]}</b>
-                  <small>{text.placeholder.allySource[locale === "en" ? "en" : "th"]}</small>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
+        <details className="deck-ally-disclosure">
+          <summary>{text.allies} · A1–A4</summary>
+          <section className="deck-ally-panel" aria-labelledby="deck-allies-heading">
+            <header className="deck-card-heading">
+              <h2 id="deck-allies-heading">{text.allies}</h2>
+            </header>
+            <ul className="deck-ally-list">
+              {ALLY_SLOT_IDS.map((slot) => (
+                <li className="deck-ally-slot" key={slot}>
+                  <span className="deck-slot-token">{slot}</span>
+                  <span className="deck-placeholder-copy">
+                    <b>{text.placeholder.allies[locale === "en" ? "en" : "th"]}</b>
+                    <small>{text.placeholder.allySource[locale === "en" ? "en" : "th"]}</small>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </details>
       </section>
 
       <section className="deck-column deck-map-column" aria-label={copy(locale).shell.tabs.live}>

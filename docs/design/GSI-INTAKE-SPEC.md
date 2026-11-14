@@ -61,6 +61,8 @@ The file uses the game's key-value text format (A-2). Values are proposals; the 
     "map"      "1"
     "player"   "1"
     "hero"     "1"
+    "abilities" "1"
+    "items"    "1"
   }
   "auth"
   {
@@ -69,7 +71,7 @@ The file uses the game's key-value text format (A-2). Values are proposals; the 
 }
 ```
 
-- **Data minimization:** M1 requests only `provider`, `map`, `player` and `hero`. The `abilities` block is added when the own-ability read model and PEER-010 contracts freeze (DEC-GAME-DATA, DEC-PEER-ABILITIES). Abilities, items, buildings and draft data are added only when their read-model contracts freeze under DEC-INTERFACES / DEC-GAME-DATA. Adding them is a configuration rewrite, which follows §2.4.
+- **Data minimization:** request `provider`, `map`, `player`, `hero`, `abilities` and `items`. The `abilities` and `items` blocks are approved only for the local own-hero read model by DEC-OWN-SNAPSHOT-2-1; their values stay local and are never cloud projected. Buildings and draft data remain unrequested until their read-model contracts freeze under DEC-INTERFACES / DEC-GAME-DATA. The owner runs “ตั้งค่าการเชื่อมต่อ Dota 2” again and restarts Dota once to reload the updated file. On setup, an owned file whose SHA-256 still matches `gsi.config_sha256` is rewritten with the current block list; a different hash remains an edited-outside-the-app conflict requiring explicit replacement (§2.2).
 - **Heartbeat:** `1.0` s is chosen so that a quiescent game (pause, idle, dead) still renews freshness well inside the 2,000 ms boundary of DATA-001. The game is expected to send at least one POST per heartbeat interval even without state change (A-3).
 - **Install token:** 32 bytes from the OS CSPRNG, base64url without padding (43 characters). Generated once per installation. The game requires the token in plain text in the file. The app copy is stored protected with Windows DPAPI in current-user scope (§7). Rotation: an explicit user action or a detected conflict replacement. Rotation increments the source generation (§5).
 
@@ -211,7 +213,7 @@ DPAPI failure at startup sets intake to `unavailable` (`GSI_SECRET_UNAVAILABLE`)
 
 ## 9. Read-model outputs
 
-- Own vitals go into [own-snapshot.schema.json](../../contracts/own-snapshot.schema.json) 2.1.0, including own-player gold, kills, deaths, assists, last_hits, denies, gpm and xpm. Each field carries its own availability, so a missing HP value can be unknown while level stays observed.
+- Own vitals go into [own-snapshot.schema.json](../../contracts/own-snapshot.schema.json) 2.2.0, including own-player gold, kills, deaths, assists, last_hits, denies, gpm and xpm. The additive `items` field contains inventory0–inventory5, backpack0–backpack2, teleport and neutral slots with nullable name, cooldown, charges, can_cast and passive values; `empty` names map to null and `item_charges` is used only when `charges` is missing. The `abilities` field contains at most eight non-hidden ability slots with nullable level, cooldown, ultimate, can_cast, passive and active values. Both remain local to the verified own hero, use the same 2,000 ms freshness rule, and preserve unknown values as null with availability. Each field carries its own availability, so a missing HP value can be unknown while level stays observed.
 - Intake, ownership, session and mode health go into [runtime-status.schema.json](../../contracts/runtime-status.schema.json).
 - Port and configuration preferences go into [user-settings.schema.json](../../contracts/user-settings.schema.json).
 

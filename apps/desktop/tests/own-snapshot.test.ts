@@ -3,7 +3,13 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { parseOwnSnapshot, OWN_STAT_FIELDS } from "../src/ownSnapshot.ts";
 
-const fixture = () => JSON.parse(readFileSync(new URL("../../../fixtures/own-fresh-at-boundary.json", import.meta.url), "utf8"));
+// Keep legacy coverage explicit while the host fixture advances additively to 2.2.
+const fixture = () => {
+  const snapshot = JSON.parse(readFileSync(new URL("../../../fixtures/own-fresh-at-boundary.json", import.meta.url), "utf8"));
+  snapshot.schema_version = "2.1.0";
+  delete snapshot.own.fields.items; delete snapshot.own.fields.abilities;
+  return snapshot;
+};
 
 test("2.1 snapshots retain fresh real zeros and unknowns without changing the input", () => {
   const input = fixture();
