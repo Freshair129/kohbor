@@ -112,8 +112,8 @@ Profiles and their evidence today:
 | `sonnet55-high` | Claude Code session, `claude-sonnet-5-5`, high | owner_chosen, relayed, for implementing this increment (the effort was not restated) | Same |
 | `luna-max` | Codex, `gpt-6-luna`, max | owner_chosen | Agent Workflow section 1 |
 | `terra-high` | Codex, `gpt-6.1-terra`, high | model owner_chosen; the effort is the lead's default | Agent Workflow section 1 |
-| `astra-high` | Codex, `gpt-6-astra`, high | in_use_unconfirmed | Banner-lab guidance, one trial |
-| `sol-xhigh` | Codex, `gpt-6.1-sol`, xhigh | in_use_unconfirmed | Banner-lab guidance, one trial |
+| `astra-high` | Codex, `gpt-6-astra`, high | in_use_unconfirmed; since 2026-11-14 not the banner build default, kept for UI design mockups | Banner-lab guidance, one trial |
+| `sol-xhigh` | Codex, `gpt-6.1-sol`, xhigh | owner_chosen since 2026-11-14 (default banner build worker, relayed) | Owner message 2026-11-14 after the Nakom comparison, relayed |
 | `claude-subagent-ro` | Claude Code subagent, read-only, model `session` or as launched | in_use_unconfirmed (used 2026-11-13 for card drafts and two reviews; the lead chose it) | Agent Workflow section 7.5 |
 | local model (Ollama) | none | excluded for cards, decisions, reviews and Thai text | Domain Steward design section 10 (a proposal) |
 
@@ -126,7 +126,7 @@ Task types (15) and default routes for every repository domain:
 | `code-question` | no | general-worker, `luna-max` | none | owner_chosen |
 | `test-from-contract`, `defect-repro`, `harness` | yes | test-worker, `terra-high` | none | owner_chosen |
 | `review-diff` | no | test-worker, `terra-high` | none | owner_chosen |
-| `lab-build` | yes, one lab folder | lab-worker, `astra-high` | lab-reviewer, `sol-xhigh` | in_use_unconfirmed |
+| `lab-build` | yes, one lab folder | lab-worker, `sol-xhigh` (owner decision 2026-11-14) | test-worker, `terra-high` (a different model than the builder) | owner_chosen (worker) |
 | `lab-review` (measurement, checklist, hashes) | no | lab-reviewer, `sol-xhigh`; alternative `terra-high` | none | in_use_unconfirmed |
 | `design-plan` | no (drafts only) | design-consultant, `fable52-xhigh` | the lead integrates | in_use_unconfirmed in general; owner_chosen (relayed) for domain `governance` in this increment |
 | `consult`, `card-backfill` | no | consultant, `claude-subagent-ro` | the lead verifies | in_use_unconfirmed |
@@ -143,7 +143,7 @@ Ten answers the implementation must reproduce (acceptance fixture):
 | `implement`, `packs` | general-worker, gpt-6-luna max, workspace-write, reviewer test-worker gpt-6.1-terra, owner_chosen, usable |
 | `review-diff`, `events-audio` | test-worker, gpt-6.1-terra high, read-only, usable, note "effort is the lead's default" |
 | `code-question`, `host-core` | general-worker, gpt-6-luna max, read-only, usable |
-| `lab-build`, `banner-lab` | lab-worker, gpt-6-astra high, in_use_unconfirmed, needs an owner instruction |
+| `lab-build`, `banner-lab` | lab-worker, gpt-6.1-sol xhigh, owner_chosen (relayed 2026-11-14), usable; reviewer gpt-6.1-terra high |
 | `implement`, `commerce` | blocked by policy questions-only; owner |
 | `design-plan`, `governance` | design-consultant or lead on claude-fable-5-2 xhigh, owner_chosen, relayed, scoped to this increment |
 | `implement`, `announcer-voice` | redirect to `banner-lab`; rights owner-only |
