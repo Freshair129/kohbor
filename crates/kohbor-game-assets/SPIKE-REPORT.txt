@@ -1,0 +1,198 @@
+# Installed-game portrait feasibility spike
+
+Task: MVP2-ASSETS, round 2. Evidence: source, synthetic tests, and **one local
+read-only probe invocation** on 2026-11-14. This is not live-match, visual-match,
+CV-accuracy, FPS, or release evidence. The lead approved retaining the round-1
+implementation as an exception to strict test-first sequencing.
+
+## Result and census
+
+The installed VPK contains 554 candidate `npc_dota_hero_*` texture resources under
+`panorama/images/heroes/`. The complete census is local-only at
+`F:/kohbor-local/asset-spike/census.txt` (46,534 bytes); it contains paths, pixel
+sizes, storage formats, and encoded entry sizes, with no pixels.
+
+| Directory | Entries | Observed dimensions and storage |
+| --- | ---: | --- |
+| `panorama/images/heroes/` | 191 | 128x72: 135 DXT5, 27 PNG, 24 RGBA8888; 256x144: 3 DXT5; 128x128: 1 DXT5; 384x216: 1 DXT5 |
+| `panorama/images/heroes/icons/` | 181 | 180 at 32x32 and 1 at 32x31, all RGBA8888 |
+| `panorama/images/heroes/selection/` | 182 | 142x188: 151 PNG, 18 DXT5; 71x94: 12 DXT5; 283x375: 1 PNG |
+
+Totals: 170 DXT5, 179 embedded PNG, 205 RGBA8888. No candidate hero portraits
+were found under `crops/` or `vert/`. No DXT1, BC7, ATI2, or LZ4-compressed
+portrait payload was observed. The observed raw DXT5 and RGBA8888 payload sizes
+match one base surface; the other observed payloads begin with a PNG signature.
+All observed portrait metadata had one mip.
+
+Example Lion resources:
+
+| Path below `panorama/images/heroes/` | Pixels | Storage | Full entry bytes |
+| --- | --- | --- | ---: |
+| `npc_dota_hero_lion_png.vtex_c` | 128x72 | DXT5 | 11,316 |
+| `icons/npc_dota_hero_lion_png.vtex_c` | 32x32 | RGBA8888 | 6,052 |
+| `selection/npc_dota_hero_lion_png.vtex_c` | 142x188 | PNG | 20,207 |
+
+The census describes this installed snapshot, not future patch compatibility.
+Only the two selection resources below were decoded in the native probe.
+
+## Implementation and API
+
+```rust,ignore
+let vpk = Vpk::open(game_root.join("game/dota/pak01_dir.vpk"))?;
+let entry = vpk.find("panorama/images/heroes/npc_dota_hero_lion_png.vtex_c");
+let bytes = vpk.read(&entry.ok_or(/* unavailable */)?)?;
+let image = decode_vtex_c(&bytes)?; // Image { width, height, rgba }
+let candidates = hero_portrait_path("npc_dota_hero_lion");
+```
+
+- VPK v2 signature/header and extension/path/name tree parsing, CRC, preload
+  metadata, numbered archive selection, and `0x7FFF` directory-file data.
+- Seek plus exact bounded entry reads, including preload bytes, with CRC32
+  verification. Missing files, corrupt/truncated inputs, foreign entries, and
+  out-of-bounds sections return errors. Reads have a 256 MiB entry limit.
+- Source 2 resource header version 12, relative block-table and block offsets,
+  VTEX version 1, 2D depth 1 and one mip. The relative-offset regression test
+  caught the round-1 assumption about the DATA table position; it is fixed.
+- RGBA8 output from DXT1, DXT5, embedded PNG (observed format codes 16/18), and
+  raw RGBA8888 (observed code 28). PNG decoding supports 8-bit grayscale, RGB,
+  palette, grayscale-alpha and RGBA, filters 0-4, palette transparency, CRC and
+  bounded zlib inflation; interlaced/16-bit PNG is unsupported.
+- No runtime BC7, ATI2, JPEG, LZ4, multi-mip, cubemap, volume or animated texture
+  support. Unsupported layouts/formats return errors. BC7 mode-6 known-answer
+  construction/decoding exists **only as a synthetic test utility**, and does
+  not establish runtime BC7 support; the census did not require it.
+- No persistent image cache or host integration is implemented. The library
+  opens game files for reading only. The probe is the only image writer.
+
+`flate2` 1.1.11, already pinned in the workspace, is the only external crate used
+by this package (embedded PNG zlib decoding and probe PNG output). Cargo.lock
+adds only `kohbor-game-assets` 0.0.1; every existing package record is unchanged.
+
+## Directory parsing and memory
+
+The 23,322,079-byte directory VPK has a 21,397,095-byte tree. `Vpk::open` streams
+the tree through an 8 KiB `BufReader`; it does not load the tree or an archive
+into a vector. It retains only 554 portrait metadata records and their path
+strings. Preload bytes are not retained in the index: `read` seeks to their tree
+position and reads them when needed. Other paths use a bounded tree rescan;
+portrait lookups use the retained index.
+
+Thus the 21.4 MB tree is not a RAM requirement; retained directory state is a
+small metadata index rather than tens of MB of directory contents. Exact heap
+allocation and parse-only peak were not instrumented. Windows reported a total
+process peak working set of 5,545,984 bytes (5.29 MiB) after open and 6,270,976
+bytes (5.98 MiB) after both images, including executable/runtime pages. These
+are process measurements, not an isolated heap figure or whole-app budget.
+
+## One native invocation
+
+2026-11-14T09:48:21.3547164+07:00; optimized release build; Rust
+1.96.0-x86_64-pc-windows-msvc; default package features. The owner was playing.
+The census had already read directory and small metadata ranges, so these are
+single observations with potentially warm OS caches, not cold-cache benchmarks.
+No FPS/CPU/VRAM impact or CV match quality was measured.
+
+```powershell
+F:/cargo-lanes/mvp2-assets/release/kohbor-asset-probe.exe `
+  --game-dir 'G:/steam/steamapps/common/dota 2 beta' `
+  --portrait-dir selection `
+  --hero lion --out F:/kohbor-local/asset-spike/lion.png `
+  --hero axe --out F:/kohbor-local/asset-spike/axe.png
+```
+
+Both selected resources are larger than their respective 128x72 root portraits.
+The game was opened read-only, and only these two PNGs were exported, outside
+the repository. No pixel data was printed or rendered into logs. The probe
+canonicalizes destinations and refuses `.git` ancestors and destinations under
+the game installation before opening the VPK.
+
+VPK open: **410.245 ms**, 554 indexed portraits.
+
+| Hero / selection resource | Find ms | Read + CRC ms | Decode ms | PNG write ms | Total image ms | RGBA8 dimensions / bytes | Entry bytes | Output PNG bytes |
+| --- | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: |
+| Lion | 0.007 | 1.993 | 0.612 | 4.890 | 7.563 | 142x188 / 106,784 | 20,207 | 24,340 |
+| Axe | 0.005 | 0.669 | 0.500 | 3.183 | 4.396 | 142x188 / 106,784 | 15,944 | 18,453 |
+
+The PNG write cost belongs to the development export. A host that keeps RGBA
+in memory does not need that export step. An independent local standard-library
+PNG check verified all output chunk CRCs, IHDR dimensions/RGBA8 metadata, and
+zlib scanline lengths without printing pixels; it did not reread game files.
+
+## Host recommendation
+
+| Use | Preferred directory | Reason and qualification |
+| --- | --- | --- |
+| Own-hero card, approximately 64 px square tile | `selection/` | Normally 142x188: enough resolution for an explicit square crop and downsample to 64x64. The UI must choose the crop/fit; this spike does not approve a visual crop. `icons/` is already cropped square but only 32x32, requiring 2x enlargement; reserve it for native 32 px use or an explicit lower-resolution fallback. The root's 128x72 image can supply a 72x72 crop, but gives less crop headroom. |
+| Draft-bar identity reference, approximately 119x65 screen box | heroes root | Common 128x72 portraits have aspect 1.778 versus screen box 1.831, with adequate native resolution and only modest resize/crop adjustment. Selection portraits are upright (142x188, aspect 0.755); icons are square and low-resolution. Use the root reference with separately verified box alignment/normalization; matching accuracy and actual screen composition remain unverified. |
+
+Reuse the game root selected by existing GSI setup discovery: `intake.rs`
+`locate_game`/`find_game` resolves Steam libraries and appmanifest_570, requires a
+unique install, and returns the installation root containing `game/dota/cfg`.
+Pass that root into the host asset service and join `game/dota/pak01_dir.vpk`;
+do not hardcode a Steam library. No intake code was changed.
+
+Recommended host command shape (proposal, not implemented):
+`load_local_hero_portrait { hero_id, purpose: own_card | draft_reference }`.
+The host derives the install/cache path internally, selects selection/root by
+purpose, and returns an image or an explicit unavailable reason. Perform one
+lazy/background VPK open and on-demand decoding off capture/audio critical
+threads; reuse an in-memory image cache rather than reading the VPK each frame.
+Unreadable, missing, stale or unsupported resources keep identity unavailable.
+
+Start with memory-only caching. If measurement later justifies disk caching,
+use only the host's established per-user application cache directory, keyed to
+the selected install, directory/entry revision and decoder version, and reject
+stale/corrupt cache entries. Do not ship generated files or place them in a Git
+worktree, fixture, game directory, package or network service. This spike
+implements no cache deletion, cloud path, telemetry, game-memory access,
+injection, or gameplay input.
+
+## Verification and provenance
+
+Final results: **21 tests passed, 0 failed** (18 library + 3 binary); Clippy all
+targets with `-D warnings` passed; `cargo fmt --check` passed; release probe build
+passed. Tests construct all VPK/VTEX/PNG/BC7 buffers in code and use only owned
+synthetic temporary files. No test reads the owner's install or contains game
+bytes. During development two regression tests deliberately failed (relative
+resource offsets and selection CLI), then passed after fixes; initial Clippy
+style/FFI-initialization errors were fixed before the final green checks.
+
+Commands, serialized in the task's owned lane:
+
+```text
+cargo test -p kohbor-game-assets --offline -j 2
+cargo clippy -p kohbor-game-assets --all-targets --offline -j 2 -- -D warnings
+cargo fmt -p kohbor-game-assets --check
+cargo build -p kohbor-game-assets --bin kohbor-asset-probe --release --offline -j 2
+```
+
+Every Cargo invocation used process-scoped
+`CARGO_TARGET_DIR=F:/cargo-lanes/mvp2-assets` and
+`TEMP=TMP=F:/cargo-lanes/mvp2-assets/tmp`. Formatting used
+`CARGO_NET_OFFLINE=true` and `CARGO_BUILD_JOBS=2`, because cargo-fmt does not accept
+the build-only `--offline/-j` switches. Final tests/Clippy/build and the probe
+held an exclusive file-sharing lease on the lane's `LOCK`, whose owner marker
+is `MVP2-ASSETS`. F: free space immediately before the release build was
+1,868,382,363,648 bytes; the lead supplied a 20 GB floor and 3-6 GB peak-write
+basis for this task. No cache or runtime data was deleted.
+
+Base Git revision: `b9a764d3b6f6afb76904774bafa9ec585237e6f6`, with the reported
+uncommitted source changes. Source snapshot SHA-256:
+`6a4daddedcf570e409dd7ec0c545b445328571fe6baf756a84858d4e721664d1`.
+Recipe: sort the root Cargo.toml/Cargo.lock, this crate's Cargo.toml and all
+`src/**/*.rs` by repository-relative POSIX path; hash the concatenation of each
+UTF-8 path, a NUL, and the binary SHA-256 digest of its exact bytes. This report
+is excluded from that source fingerprint.
+
+| Artifact | SHA-256 |
+| --- | --- |
+| Release probe, 333,312 bytes | `1b5f9ba5cb6e10ea09c49e49824430c7787c8d973777489fecab020b4060a8cf` |
+| Local census | `c99b5a95f1c51529a6ceb11e1348e4dd78dbf6b4c440682cf54433de037c3a0f` |
+| Local Lion PNG | `2064e6680c21a9d4f5ccbd521d92ad41dffe96a4eaafcdf178ce19596475379a` |
+| Local Axe PNG | `09dfefe24b2e9b783e039fe4841d260032b99fa4d9db93400b2115517adfdd3d` |
+
+Rights: no grant or conclusion beyond the owner's DEC-DRAFT-BAR decision for
+local use is claimed. No Valve image, texture, icon, screenshot or game bytes
+were written inside this repository or a test fixture. The generated PNGs stay
+in the explicitly authorized local scratch folder. No commit, push, PR, merge,
+shipping or publishing was performed; the lead owns review and integration.

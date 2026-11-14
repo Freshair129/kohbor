@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/kohbor-gsi", "crates/kohbor-events", "crates/kohbor-pack", "crates/kohbor-audio", "crates/kohbor-audio-native", "crates/kohbor-pack-author", "crates/kohbor-gsi-capture", "crates/kohbor-capture", "crates/kohbor-vision", "crates/kohbor-capture-native", "crates/kohbor-minimap-cv", "crates/kohbor-risk", "apps/desktop/src-tauri"]
+members = ["crates/kohbor-gsi", "crates/kohbor-events", "crates/kohbor-pack", "crates/kohbor-audio", "crates/kohbor-audio-native", "crates/kohbor-pack-author", "crates/kohbor-gsi-capture", "crates/kohbor-capture", "crates/kohbor-vision", "crates/kohbor-capture-native", "crates/kohbor-minimap-cv", "crates/kohbor-risk", "crates/kohbor-game-assets", "apps/desktop/src-tauri"]
 
 [workspace.package]
 version = "0.0.1"

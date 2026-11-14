@@ -1,0 +1,18 @@
+[package]
+name = "kohbor-game-assets"
+description = "Read-only local VPK and hero portrait texture access for Kohbor"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "kohbor-asset-probe"
+path = "src/bin/kohbor-asset-probe.rs"
+
+[dependencies]
+flate2 = { workspace = true }
