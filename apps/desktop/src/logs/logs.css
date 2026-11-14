@@ -1,0 +1,24 @@
+.logs-tab { height: 100%; min-width: 0; min-height: 0; overflow: hidden; display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.logs-tab[hidden] { display: none; }
+.logs-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; overflow: hidden; }
+.logs-toolbar label { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--text-2); font-size: 12px; }
+.logs-toolbar :is(input, select, button), .logs-status button { max-width: 100%; padding: 5px 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--raised); color: var(--text); font: inherit; font-size: 12px; }
+.logs-filter { flex: 1 1 230px; }
+.logs-filter input { width: 100%; min-width: 100px; }
+.logs-toolbar button:disabled { opacity: 0.5; cursor: default; }
+.logs-tab :is(button, input, select, textarea):focus-visible, .logs-list:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.logs-status { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 12px; min-width: 0; overflow: hidden; font-size: 12px; color: var(--text-2); }
+.logs-folder { flex: 1 1 240px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: text; }
+.logs-status strong { border: 1px dashed var(--warning); padding: 1px 6px; font-weight: 500; }
+.logs-list { min-width: 0; min-height: 0; overflow-y: auto; overflow-x: hidden; overflow-anchor: none; margin: 0; padding: 6px; list-style: none; background: var(--ground); border: 1px solid var(--line); font: 12px/1.6 Consolas, "Leelawadee UI", monospace; }
+.logs-row { display: grid; grid-template-columns: minmax(90px, 190px) 4.5em minmax(0, 1fr); align-items: baseline; gap: 10px; padding: 4px 2px; border-bottom: 1px solid var(--line-subtle); }
+.logs-line { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; color: var(--text); }
+.logs-time { min-width: 0; overflow-wrap: anywhere; color: var(--muted); }
+.logs-level { border: 1px solid currentColor; padding: 0 4px; font-size: 11px; text-align: center; text-transform: uppercase; }
+.logs-error .logs-level { color: var(--critical); }
+.logs-warn .logs-level { color: var(--warning); border-style: double; }
+.logs-info .logs-level { color: var(--text-2); }
+.logs-debug .logs-level { color: var(--muted); border-style: dashed; }
+.logs-empty { padding: 12px; color: var(--muted); }
+.logs-manual-copy { flex: 1 1 100%; }
+.logs-manual-copy textarea { flex: 1; min-width: 0; height: 28px; resize: none; overflow: hidden; background: var(--ground); color: var(--text); border: 1px solid var(--line); }

@@ -80,6 +80,8 @@ body {
 .shell-locale-card { display: flex; align-items: center; gap: 16px; min-width: 0; padding: 10px 14px; }
 .shell-locale-card .card-head { flex: none; margin: 0; }
 .shell-locale-card .locale-control { margin: 0; }
+.shell-developer-toggle { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 13px; color: var(--text-2); }
+.shell-developer-toggle input { flex: none; }
 .shell-locale-card .locale-notice { flex: 0 1 auto; max-width: 420px; margin: 0; font-size: 12px; }
 .shell-guide-slot { min-width: 0; min-height: 0; overflow: hidden; }
 .shell-guide-slot .guide { min-height: 100%; align-content: center; }

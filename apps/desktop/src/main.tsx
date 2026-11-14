@@ -18,10 +18,13 @@ import {
 } from "./runtime";
 import type { RuntimeStatus } from "./types";
 import "./styles.css";
+import { installFrontendLogging } from "./logs/frontend";
+import { logHostInvoke } from "./logs/host";
 
 const root = document.getElementById("root");
 const params = new URLSearchParams(window.location.search);
 const overlayView = params.get("view") === "overlay";
+if (!overlayView) installFrontendLogging(window, logHostInvoke);
 document.documentElement.classList.toggle("overlay-body", overlayView);
 document.body.classList.toggle("overlay-body", overlayView);
 

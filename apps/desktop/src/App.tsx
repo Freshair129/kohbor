@@ -10,12 +10,14 @@ import { startLiveCollection, useCaptureStatus } from "./live";
 import { OwnHero } from "./OwnHero";
 import { PackPanel } from "./PackPanel";
 import { Chip, Readiness } from "./Readiness";
-import { nextShellTab, deriveHeaderState, SHELL_TABS, type ShellTab } from "./shell/state";
+import { nextShellTab, deriveHeaderState, shellTabs, type ShellTab } from "./shell/state";
 import { usePlayback, useRuntime } from "./runtime";
 import { useSettings } from "./settings";
 import { useAppVersion } from "./shell/useAppVersion";
 import { deriveAppVersionView } from "./shell/appVersionModel";
 import { AboutPanel, VersionHeader } from "./shell/VersionInfo";
+import { useDeveloperMode } from "./shell/useDeveloperMode";
+import { LogsTab } from "./logs/LogsTab";
 
 export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode } = {}) {
   const { status, snapshot, hostLost, setup } = useRuntime();
@@ -24,12 +26,16 @@ export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode }
   const mute = useAudioMute(status);
   const playback = usePlayback();
   const version = deriveAppVersionView(useAppVersion());
+  const developerMode = useDeveloperMode();
   const [activeTab, setActiveTab] = useState<ShellTab>("live");
+  const tabs = shellTabs(developerMode.enabled);
+  const currentTab = tabs.includes(activeTab) ? activeTab : "settings";
   const tabRefs = useRef<Record<ShellTab, HTMLButtonElement | null>>({
     live: null,
     packs: null,
     settings: null,
     status: null,
+    logs: null,
   });
   const displayLocale: Locale = settings?.locale ?? "th";
   const text = copy(displayLocale);
@@ -90,7 +96,7 @@ export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode }
             : null;
 
   const onTabKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>, current: ShellTab) => {
-    const next = nextShellTab(current, event.key);
+    const next = nextShellTab(current, event.key, tabs);
     if (next === null) return;
     event.preventDefault();
     setActiveTab(next);
@@ -152,16 +158,16 @@ export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode }
       </header>
 
       <div className="shell-tab-list" role="tablist" aria-label={text.shell.navigationLabel}>
-        {SHELL_TABS.map((tab) => (
+        {tabs.map((tab) => (
           <button
             key={tab}
             ref={(element) => { tabRefs.current[tab] = element; }}
             id={`shell-tab-${tab}`}
             type="button"
             role="tab"
-            aria-selected={activeTab === tab}
+            aria-selected={currentTab === tab}
             aria-controls="shell-panel"
-            tabIndex={activeTab === tab ? 0 : -1}
+            tabIndex={currentTab === tab ? 0 : -1}
             onClick={() => setActiveTab(tab)}
             onKeyDown={(event) => onTabKeyDown(event, tab)}
           >
@@ -174,16 +180,16 @@ export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode }
         id="shell-panel"
         className="shell-tab-panel"
         role="tabpanel"
-        aria-labelledby={`shell-tab-${activeTab}`}
+        aria-labelledby={`shell-tab-${currentTab}`}
         tabIndex={0}
       >
-        {activeTab === "live" && (
+        {currentTab === "live" && (
           <div className="shell-screen shell-live">
             <Deck locale={displayLocale} status={status} snapshot={snapshot} state={deckState} mute={mute} playback={playback} hostLost={hostLost} />
           </div>
         )}
 
-        {activeTab === "packs" && (
+        {currentTab === "packs" && (
           <div className="shell-screen shell-packs">
             <div className={`shell-pack-panel${hostLost ? " is-outdated" : ""}`}>
               <PackPanel locale={displayLocale} disabled={hostLost} />
@@ -194,7 +200,7 @@ export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode }
           </div>
         )}
 
-        {activeTab === "settings" && (
+        {currentTab === "settings" && (
           <div className="shell-screen shell-settings">
             <section className="card shell-locale-card" aria-label={text.languageLabel}>
               <label className="locale-control">
@@ -211,6 +217,10 @@ export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode }
                   <option value="en">{text.localeOptions.en}</option>
                 </select>
               </label>
+              <label className="shell-developer-toggle">
+                <input type="checkbox" checked={developerMode.enabled} onChange={event => developerMode.change(event.currentTarget.checked)} />
+                <span>{text.shell.developerMode}</span>
+              </label>
               {settingsNotice && <p className="locale-notice" role="status">{settingsNotice}</p>}
             </section>
             <div className="shell-guide-slot">
@@ -225,7 +235,7 @@ export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode }
           </div>
         )}
 
-        {activeTab === "status" && (
+        {currentTab === "status" && (
           <div className={`shell-screen shell-status${hostLost ? " is-outdated" : ""}`}>
             <div className="shell-status-grid">
               <div className="shell-readiness">
@@ -255,6 +265,7 @@ export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode }
             <AboutPanel view={version} locale={displayLocale} />
           </div>
         )}
+        {developerMode.enabled && <LogsTab visible={currentTab === "logs"} locale={displayLocale} />}
       </section>
     </div>
   );
