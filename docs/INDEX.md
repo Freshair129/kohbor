@@ -45,6 +45,7 @@ This is the only index of documents. Every Markdown file in the tree, is linked 
 | [M1 Status](delivery/M1-STATUS.md) | Tauri host slice: containment, intake, runtime status, Overview UI; what ran | Engineering lead, owner |
 | [M0 Plan and Status](delivery/M0-PLAN.md) | Frozen identity, scope matrix, toolchain lock, module map, local-core slice results and capture-spike procedure | Engineering lead, owner |
 | [Operations Runbook](operations/RUNBOOK.md) | Installation, configuration, diagnostics, release and recovery | Maintainers, operators |
+| [Recorded GSI Replay](operations/GSI-REPLAY.md) | Local replay of a recorded GSI session into a temporary-data demo, with evidence limits | Developers, QA |
 | [Document Control](governance/DOCUMENT-CONTROL.md) | Authority, baseline versions, review and change control | All contributors |
 | [Decision Log](governance/DECISION-LOG.md) | Delegated choices and unresolved dependencies | Product, engineering |
 | [Risk Register](governance/RISK-REGISTER.md) | Delivery/technical uncertainty, mitigation and closure evidence | Product, engineering, QA |
