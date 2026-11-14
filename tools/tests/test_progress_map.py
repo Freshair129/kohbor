@@ -429,19 +429,151 @@ class Rendering(Base):
         data = re.search(r'<script type="application/json" id="data">(.*?)</script>', html, re.S).group(1)
         model = json.loads(data)
         self.assertIn("tree", model)
-        self.assertIn("prefers-color-scheme:dark", html)
+        self.assertIn("color-scheme:dark", html)  # dark glass by default; light only through the in-page theme button
+        self.assertIn('data-theme', html)
+        self.assertNotRegex(html, r"https?://(?!www\.w3\.org/2000/svg)")  # no URL at all except the SVG namespace
+        for view in ("overview", "map", "board", "decisions", "agents", "builds"):
+            self.assertIn('id:"%s"' % view, html)
 
     def test_stale_threshold_is_embedded_for_the_page(self) -> None:
         m = self.fx.build(stale_hours=3.0)
         self.assertEqual(m["stale_hours"], 3.0)
-        self.assertIn("STALE", pm.HTML_TEMPLATE)
+        self.assertIn("STALE", pm.TEMPLATE_PATH.read_text(encoding="utf-8"))
+
+
+RECEIPT = """# Test build receipt (outside the repo; evidence class: build + gate only)
+
+- Source: branch b, commit %(commit)s, tree clean when built.
+- Exe: F:/kohbor-local/b1/kohbor-desktop.exe, 11 bytes
+- SHA-256 kohbor-desktop.exe: %(h1)s
+- SHA-256 kohbor-capture-probe.exe (debug): %(h2)s
+- Gate: `python tools/gate.py` PASS 12 of 12 on this tree.
+- NOT run, unsigned, no installer.
+"""
+
+
+class MissionControlViews(Base):
+    def make_builds(self) -> tuple[Path, Path, str, str]:
+        builds = self.fx.root / "builds"
+        (builds / "b1").mkdir(parents=True)
+        (builds / "b2").mkdir(parents=True)
+        (builds / "b1" / "kohbor-desktop.exe").write_bytes(b"known build")
+        (builds / "b2" / "kohbor-desktop.exe").write_bytes(b"unclaimed build")
+        h1 = pm.sha256_file(builds / "b1" / "kohbor-desktop.exe")
+        receipts = self.fx.root / "design"
+        receipts.mkdir()
+        (receipts / "RELEASE-RECEIPT-b1.md").write_text(RECEIPT % {"commit": "a" * 40, "h1": h1, "h2": "c" * 64}, encoding="utf-8")
+        return builds, receipts, h1, pm.sha256_file(builds / "b2" / "kohbor-desktop.exe")
+
+    def test_receipt_parsing(self) -> None:
+        r = pm.parse_receipt(RECEIPT % {"commit": "b" * 40, "h1": "d" * 64, "h2": "e" * 64}, "x/RELEASE-RECEIPT-z.md")
+        self.assertEqual(r["commit"], "b" * 40)
+        self.assertEqual(r["exe_paths"], ["F:/kohbor-local/b1/kohbor-desktop.exe"])
+        self.assertEqual(r["hashes"]["d" * 64], "kohbor-desktop.exe")
+        self.assertEqual(r["hashes"]["e" * 64], "kohbor-capture-probe.exe")
+        self.assertTrue(r["gate"].startswith("Gate"))
+        self.assertTrue(any("unsigned" in x for x in r["limits"]))
+
+    def test_build_matches_a_receipt_by_hash_only(self) -> None:
+        builds, receipts, h1, h2 = self.make_builds()
+
+        def run(args: list[str], cwd: Path) -> str | None:
+            return "" if args[:2] == ["git", "--no-optional-locks"] and "rev-list" in args else None
+        m = self.fx.build(builds_dir=builds, receipt_dirs=[receipts], run=run)
+        by = {b["rel"]: b for b in m["builds"]}
+        known, other = by["b1/kohbor-desktop.exe"], by["b2/kohbor-desktop.exe"]
+        self.assertEqual(known["sha256"], h1)
+        self.assertEqual(known["receipt"]["commit"], "a" * 40)
+        self.assertEqual(known["receipt"]["commit_state"], "in origin/main")
+        self.assertTrue(known["receipt"]["limits"])
+        self.assertIsNone(other["receipt"])  # unknown, never claimed by a receipt
+        self.assertEqual(other["sha256"], h2)
+
+    def test_commit_states(self) -> None:
+        builds, receipts, _h1, _h2 = self.make_builds()
+        not_in_main = self.fx.build(builds_dir=builds, receipt_dirs=[receipts], run=lambda a, c: "deadbee\n" if "rev-list" in a else None)
+        self.assertEqual({b["rel"]: b for b in not_in_main["builds"]}["b1/kohbor-desktop.exe"]["receipt"]["commit_state"], "not in origin/main")
+        unknown = self.fx.build(builds_dir=builds, receipt_dirs=[receipts], run=no_git)
+        self.assertEqual({b["rel"]: b for b in unknown["builds"]}["b1/kohbor-desktop.exe"]["receipt"]["commit_state"], "commit not found in this checkout")
+
+    def test_missing_builds_folder_and_receipts_are_tolerated(self) -> None:
+        m = self.fx.build(builds_dir=self.fx.root / "absent")
+        self.assertEqual(m["builds"], [])
+        self.assertTrue(any(s["name"] == "owner builds" and s["status"] == "missing" for s in m["sources"]))
+        none = self.fx.build()
+        self.assertTrue(any(s["name"] == "owner builds" and s["status"] == "missing" for s in none["sources"]))
+
+    def test_build_view_is_deterministic(self) -> None:
+        builds, receipts, _a, _b = self.make_builds()
+        one = pm.render_html(self.fx.build(builds_dir=builds, receipt_dirs=[receipts]))
+        two = pm.render_html(self.fx.build(builds_dir=builds, receipt_dirs=[receipts]))
+        self.assertEqual(one, two)
+
+    def test_decision_table_covers_every_record_with_the_owner_flag(self) -> None:
+        self.fx.decisions([dec("DEC-A", open_questions=["Which?"]), dec("DEC-B", status="decided", decided_on="2026-11-14"), dec("DEC-C", owner="architect"),
+                           dec("DEC-D", status="deferred")])
+        m = self.fx.build()
+        rows = {d["id"]: d for d in m["decisions"]}
+        self.assertEqual(set(rows), {"DEC-A", "DEC-B", "DEC-C", "DEC-D"})
+        self.assertTrue(rows["DEC-A"]["owner_only"] and rows["DEC-A"]["pending"])
+        self.assertEqual(rows["DEC-A"]["question"], "Which?")
+        self.assertFalse(rows["DEC-C"]["owner_only"])
+        self.assertFalse(rows["DEC-B"]["pending"])
+        self.assertEqual(m["decisions"][0]["id"], "DEC-A")  # pending owner decisions first
+        self.assertEqual(m["stats"]["decisions_total"], 4)
+        self.assertEqual(m["stats"]["owner_needed"], 1)
+
+    def test_claims_view_has_model_branch_and_expiry(self) -> None:
+        self.fx.claim("c-live", "host-core", ["x/**"], model="gpt-6-luna (max)", branch="feat/x", expires="2026-11-14T22:00:00+07:00")
+        self.fx.claim("c-old", "host-core", ["y/**"], status="done", branch="feat/y")
+        self.fx.claim("c-late", "host-core", ["z/**"], expires="2026-11-14T08:00:00+07:00")
+        m = self.fx.build()
+        by = {c["name"]: c for c in m["claims"]}
+        self.assertEqual(by["c-live"]["model"], "gpt-6-luna (max)")
+        self.assertEqual(by["c-live"]["hours_left"], 12.0)
+        self.assertTrue(by["c-late"]["expired"])
+        self.assertLess(by["c-late"]["hours_left"], 0)
+        self.assertIsNone(by["c-old"]["hours_left"])
+        self.assertEqual([c["name"] for c in m["claims"]][-1], "c-old")  # finished claims after live ones
+        self.assertEqual(m["stats"]["claims_expired"], 1)
+        self.assertEqual(m["stats"]["claims_active"], 2)
+
+    def test_board_matches_the_counted_totals(self) -> None:
+        self.fx.file("src/a.rs")
+        self.fx.requirements([req("CORE-001", verification={"implementation_refs": ["src/a.rs"]}), req("CORE-002"), req("CORE-003", open_decisions=["DEC-X"])])
+        self.fx.decisions([dec("DEC-X")])
+        self.fx.domain("host-core", "## 3. Now / Next / Blocked\n\n- NOW: a statement\n")
+        m = self.fx.build()
+        for s in pm.STATUSES:
+            self.assertEqual(sum(c["n"] for c in m["board"][s["id"]]), m["totals"][s["id"]], s["id"])
+        self.assertEqual(sum(sum(c["n"] for c in col) for col in m["board"].values()), sum(m["totals"].values()))  # uncounted card lines are not on the board
+
+    def test_stats_and_area_bars(self) -> None:
+        self.fx.requirements([req("CORE-001", priority="P0"), req("CORE-002")])
+        self.fx.claim("c1", "host-core", ["x/**"])
+        m = self.fx.build()
+        self.assertEqual(m["stats"]["req_total"], 2)
+        self.assertEqual(m["stats"]["req_verified"], 0)
+        self.assertEqual(m["stats"]["areas_in_progress"], 1)
+        self.assertEqual(m["stats"]["areas_total"], len(m["area_bars"]))
+        core = next(a for a in m["area_bars"] if a["i"] == "area:core")
+        self.assertEqual(sum(core["n"].values()), 3)  # two requirements and the active claim
+
+    def test_activity_groups_merges_by_day(self) -> None:
+        def run(args: list[str], cwd: Path) -> str | None:
+            if "--first-parent" in args:
+                return "a1\t2026-11-14T09:00:00+07:00\tOne (#1)\na2\t2026-11-14T10:00:00+07:00\tTwo (#2)\na3\t2026-11-13T10:00:00+07:00\tThree\n"
+            return fake_git(args, cwd)
+        m = self.fx.build(run=run)
+        self.assertEqual(m["activity"], [{"day": "2026-11-13", "n": 1}, {"day": "2026-11-14", "n": 2}])
 
 
 class Cli(Base):
     def run_cli(self, *extra: str) -> tuple[int, str]:
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            code = pm.main(["--repo", str(self.fx.repo), "--coord", str(self.fx.coord), "--design-dir", str(self.fx.root / "none"), *extra])
+            code = pm.main(["--repo", str(self.fx.repo), "--coord", str(self.fx.coord), "--design-dir", str(self.fx.root / "none"),
+                            "--builds-dir", str(self.fx.root / "nobuilds"), *extra])
         return code, out.getvalue()
 
     def test_writes_one_file_to_out(self) -> None:
