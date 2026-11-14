@@ -1,13 +1,16 @@
 import { copy, seconds, type Locale } from "../copy";
-import { Chip } from "../Readiness";
 import { MinimapPanel } from "../live/MinimapPanel";
-import { mediaTone } from "../mediaStatus";
-import { useMediaListing } from "../useMediaListing";
+import { useAudioHistory } from "../useAudioHistory";
+import { hostNowFromAnchor } from "../hostClock";
+import type { PlaybackView } from "../runtime";
 import type { AudioMuteState } from "../AudioPanel";
 import type { OwnSnapshot, RuntimeStatus } from "../types";
 import { deckCopy, ALLY_SLOT_IDS, ENEMY_SLOT_IDS } from "./copy";
 import type { DeckStateView } from "./deckState";
 import { deriveOwnHeroViewModel, ownHeroLifeLabel } from "./ownHeroModel";
+import { AlertStrip } from "./AlertStrip";
+import { EventFeed } from "./EventFeed";
+import { AnnouncerStatus } from "./AnnouncerStatus";
 import "./deck.css";
 
 function readableNumber(value: number | null): string {
@@ -20,15 +23,26 @@ export function Deck({
   snapshot,
   state,
   mute,
+  playback,
+  hostLost,
 }: {
   locale: Locale;
   status: RuntimeStatus | null;
   snapshot: OwnSnapshot | null;
   state: DeckStateView;
   mute: AudioMuteState;
+  playback: PlaybackView;
+  hostLost: boolean;
 }) {
   const text = deckCopy(locale);
   const own = deriveOwnHeroViewModel(snapshot);
+  const history = useAudioHistory(hostLost);
+  const historyState = hostLost ? "failed" : history.state;
+  const hostNowMs = hostLost ? null : hostNowFromAnchor(playback.clockAnchor, performance.now());
+  const statValues = [readableNumber(own.stats.gold),
+    [own.stats.kills, own.stats.deaths, own.stats.assists].map(readableNumber).join(" / "),
+    [own.stats.last_hits, own.stats.denies].map(readableNumber).join(" / "),
+    [own.stats.gpm, own.stats.xpm].map(readableNumber).join(" / "), "—", "—"];
   const stale = state.state === "stale" || own.snapshotAvailability === "stale";
   const hasLatestResult = state.state === "debrief" && own.hasOwnSnapshot;
   const hpWidth = own.hpPercent === null ? undefined : `${Math.max(0, Math.min(100, own.hpPercent))}%`;
@@ -73,10 +87,10 @@ export function Deck({
           </div>
 
           <section className="deck-stats" aria-label={text.statsHeading} aria-describedby="deck-stats-caption">
-            {text.statLabels.map((label) => (
+            {text.statLabels.map((label, index) => (
               <div className="deck-stat-tile" key={label}>
                 <span>{label}</span>
-                <b>—</b>
+                <b>{statValues[index]}</b>
               </div>
             ))}
           </section>
@@ -105,7 +119,9 @@ export function Deck({
         {state.state === "standby" && (
           <p className="deck-standby-note" role="status">{locale === "th" ? state.reason.th : state.reason.en}</p>
         )}
-        <MinimapPanel locale={locale} layout="deck" />
+        <MinimapPanel locale={locale} layout="deck" renderAlerts={({ risk, captureLive }) => (
+          <AlertStrip own={own} state={state.state} risk={risk} captureLive={captureLive} locale={locale} />
+        )} />
       </section>
 
       <section className="deck-column deck-right-column" aria-label={text.enemies}>
@@ -123,65 +139,10 @@ export function Deck({
           </ul>
         </section>
 
-        <EventFeed locale={locale} />
-        <SoundPackStatus locale={locale} status={status} mute={mute} />
+        <EventFeed locale={locale} history={history.history} state={historyState} hostNowMs={hostNowMs} />
+        <AnnouncerStatus locale={locale} status={status} mute={mute} history={history.history}
+          historyState={historyState} hostNowMs={hostNowMs} playback={playback} hostLost={hostLost} />
       </section>
     </main>
-  );
-}
-
-function EventFeed({ locale }: { locale: Locale }) {
-  const text = deckCopy(locale);
-  return (
-    <section className="deck-event-panel" aria-labelledby="deck-events-heading">
-      <header className="deck-card-heading">
-        <h2 id="deck-events-heading">{text.eventFeed}</h2>
-      </header>
-      <ul className="deck-event-list" aria-label={text.eventFeed}>
-        <li>{text.placeholder.emptyEvents[locale === "en" ? "en" : "th"]}</li>
-      </ul>
-    </section>
-  );
-}
-
-function SoundPackStatus({
-  locale,
-  status,
-  mute,
-}: {
-  locale: Locale;
-  status: RuntimeStatus | null;
-  mute: AudioMuteState;
-}) {
-  const text = deckCopy(locale);
-  const audioText = copy(locale).audio;
-  const { listing, state } = useMediaListing();
-  const media = status?.media ?? null;
-  const mediaLabel = media === null ? audioText.mediaState.unknown : audioText.mediaState[media.state];
-  const packName = state === "ok" && listing
-    ? listing.active?.package_id ?? text.placeholder.noPack[locale === "en" ? "en" : "th"]
-    : "—";
-  const muteLabel = mute.muted === null ? "—" : mute.muted ? text.muted : text.unmuted;
-
-  return (
-    <section className="deck-sound-panel" aria-labelledby="deck-sound-heading">
-      <header className="deck-card-heading">
-        <h2 id="deck-sound-heading">{text.soundPack}</h2>
-      </header>
-      <div className="deck-sound-row">
-        <span>{text.audioReadiness}</span>
-        <Chip tone={mediaTone(media)} label={mediaLabel} />
-      </div>
-      <div className="deck-sound-row">
-        <span>{text.activePack}</span>
-        <strong title={state === "failed" ? "media_list unavailable" : undefined}>
-          {packName}
-        </strong>
-      </div>
-      <div className="deck-sound-row">
-        <span>{text.mute}</span>
-        <strong>{muteLabel}</strong>
-      </div>
-    </section>
   );
 }

@@ -15,7 +15,6 @@ export const DECK_PLACEHOLDERS = {
 
 export function deckCopy(locale: Locale) {
   const english = locale === "en";
-  const language = english ? "en" : "th";
   return {
     ownHero: english ? "ฮีโร่ของคุณ · YOUR HERO" : "ฮีโร่ของคุณ",
     level: english ? "LV" : "เลเวล",
@@ -26,7 +25,7 @@ export function deckCopy(locale: Locale) {
     oldData: english ? "Old data" : "ข้อมูลเก่า",
     latestResult: english ? "Latest result" : "ผลล่าสุด",
     statsHeading: english ? "More stats" : "ค่าสถานะอื่น",
-    statCaption: DECK_PLACEHOLDERS.unavailableInVersion[language],
+    statCaption: english ? "Items / cooldowns need the items/abilities blocks — coming next" : "ต้องเปิดบล็อก items/abilities — จะมาในขั้นถัดไป",
     statLabels: english
       ? ["Gold", "K / D / A", "LH / DN", "GPM / XPM", "Items", "Cooldowns"]
       : ["ทอง", "K / D / A", "LH / DN", "GPM / XPM", "ไอเท็ม", "คูลดาวน์"],
@@ -36,6 +35,8 @@ export function deckCopy(locale: Locale) {
     soundPack: english ? "เสียงและแพ็ก · SOUND / PACK" : "เสียงและแพ็ก · SOUND / PACK",
     audioReadiness: english ? "Audio readiness" : "ความพร้อมเสียง",
     activePack: english ? "Active pack" : "แพ็กที่ใช้อยู่",
+    packActive: english ? "Active" : "ใช้งาน",
+    lastClip: english ? "Last clip played" : "คลิปล่าสุดที่เล่น",
     mute: english ? "Mute" : "เสียง",
     muted: english ? "Muted" : "ปิดเสียง",
     unmuted: english ? "Unmuted" : "เปิดเสียง",

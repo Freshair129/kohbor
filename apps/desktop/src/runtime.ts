@@ -5,6 +5,8 @@ import { createPlaybackState, parsePlaybackEvent, reducePlayback, tickPlayback, 
 import { activateArgs, inspectArgs, type ChosenActivationPolicy } from "./packs";
 import { probeReportArgs, type MediaProbePendingResponse, type MediaProbeReport } from "./probe";
 import type { OwnSnapshot, RuntimeStatus } from "./types";
+import { parseOwnSnapshot } from "./ownSnapshot";
+import type { HostClockAnchor } from "./hostClock";
 
 const POLL_MS = 1000;
 const CALL_TIMEOUT_MS = 2500;
@@ -99,8 +101,11 @@ export function subscribeMediaProbeRequest(onPayload: (payload: unknown) => void
 }
 
 /** Lifecycle rendering only; native remains the sole owner of playback selection. */
-export function usePlayback(): PlaybackState {
+export interface PlaybackView extends PlaybackState { clockAnchor: HostClockAnchor | null }
+
+export function usePlayback(): PlaybackView {
   const [state, setState] = useState(createPlaybackState);
+  const [clockAnchor, setClockAnchor] = useState<HostClockAnchor | null>(null);
   const eventClockOffset = useRef<number | null>(null);
 
   useEffect(() => {
@@ -108,6 +113,8 @@ export function usePlayback(): PlaybackState {
     let unlisten: (() => void) | undefined;
     void subscribePlayback((input) => {
       const event = parsePlaybackEvent(input);
+      if (event) setClockAnchor(previous => previous && event.at_ms < previous.hostMs
+        ? null : { hostMs: event.at_ms, localMs: performance.now() });
       if (event?.kind === "started") eventClockOffset.current = performance.now() - event.at_ms;
       setState((current) => reducePlayback(current, event ?? input));
     })
@@ -125,9 +132,9 @@ export function usePlayback(): PlaybackState {
   }, []);
 
   useEffect(() => {
-    const visual = state.visual;
-    const deadline = state.failSafeAtMs;
-    if (!visual || deadline === null) return;
+    const deadlines = [state.audioEndAtMs, state.failSafeAtMs].filter((value): value is number => value !== null);
+    if (deadlines.length === 0) return;
+    const deadline = Math.min(...deadlines);
 
     const nowInEventClock = performance.now() - (eventClockOffset.current ?? performance.now());
     let remaining = Math.max(0, deadline - nowInEventClock);
@@ -141,15 +148,15 @@ export function usePlayback(): PlaybackState {
           return;
         }
         setState((current) =>
-          current.currentPlaybackId === visual.playback_id ? tickPlayback(current, deadline) : current,
+          current.currentPlaybackId === state.currentPlaybackId ? tickPlayback(current, deadline) : current,
         );
       }, wait);
     };
     schedule();
     return () => window.clearTimeout(timer);
-  }, [state.currentPlaybackId, state.failSafeAtMs, state.visual]);
+  }, [state.currentPlaybackId, state.failSafeAtMs, state.audioEndAtMs]);
 
-  return state;
+  return { ...state, clockAnchor };
 }
 
 function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
@@ -199,12 +206,17 @@ export function useRuntime(): Runtime {
       timer = undefined;
       try {
         const [s, o] = await withTimeout(
-          Promise.all([invoke<RuntimeStatus>("runtime_get_status"), invoke<OwnSnapshot>("own_snapshot")]),
+          Promise.all([invoke<RuntimeStatus>("runtime_get_status"), invoke<unknown>("own_snapshot")]),
           CALL_TIMEOUT_MS,
         );
+        const parsedSnapshot = parseOwnSnapshot(o);
+        if (!parsedSnapshot) {
+          if (alive) setSnapshot(null);
+          throw new Error("OWN_SNAPSHOT_UNREADABLE");
+        }
         if (alive) {
           setStatus(s);
-          setSnapshot(o);
+          setSnapshot(parsedSnapshot);
           setFailures(0);
         }
       } catch {

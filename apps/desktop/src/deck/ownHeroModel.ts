@@ -1,5 +1,7 @@
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
 import type { OwnSnapshot } from "../types.ts";
+// @ts-ignore Explicit extensions support Node's TypeScript loader.
+import { OWN_STAT_FIELDS, type OwnStatKey } from "../ownSnapshot.ts";
 
 function freshValue<T>(field: { value: T | null; availability: string } | undefined): T | null {
   return field?.availability === "fresh" && field.value !== null && field.value !== undefined ? field.value : null;
@@ -22,6 +24,7 @@ export interface OwnHeroViewModel {
   respawnSeconds: number | null;
   ageMs: number | null;
   hasOwnSnapshot: boolean;
+  stats: Record<OwnStatKey, number | null>;
 }
 
 /** Keep each displayed value tied to that field's own freshness marker. */
@@ -47,6 +50,7 @@ export function deriveOwnHeroViewModel(snapshot: OwnSnapshot | null): OwnHeroVie
     respawnSeconds: finiteNumber(fields?.respawn_seconds),
     ageMs,
     hasOwnSnapshot: snapshot?.own !== null && snapshot?.own !== undefined,
+    stats: Object.fromEntries(OWN_STAT_FIELDS.map(name => [name, finiteNumber(fields?.[name])])) as Record<OwnStatKey, number | null>,
   };
 }
 

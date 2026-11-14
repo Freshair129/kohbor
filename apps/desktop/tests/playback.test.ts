@@ -168,7 +168,10 @@ if (!playback) {
     );
     const beforeBoundary = tickPlayback(state, 3099);
 
-    assert.strictEqual(beforeBoundary, state);
+    // Audio now expires independently; the visual object and its deadline must stay unchanged.
+    assert.strictEqual(beforeBoundary.visual, state.visual);
+    assert.equal(beforeBoundary.failSafeAtMs, state.failSafeAtMs);
+    assert.equal(beforeBoundary.audio, null);
     assert.equal(beforeBoundary.visual?.playback_id, "pb_00000001");
   });
 

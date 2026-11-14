@@ -11,7 +11,7 @@ import { OwnHero } from "./OwnHero";
 import { PackPanel } from "./PackPanel";
 import { Chip, Readiness } from "./Readiness";
 import { nextShellTab, deriveHeaderState, SHELL_TABS, type ShellTab } from "./shell/state";
-import { useRuntime } from "./runtime";
+import { usePlayback, useRuntime } from "./runtime";
 import { useSettings } from "./settings";
 
 export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode } = {}) {
@@ -19,6 +19,7 @@ export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode }
   const { settings, loading, saving, notice, changeLocale } = useSettings();
   const capture = useCaptureStatus();
   const mute = useAudioMute(status);
+  const playback = usePlayback();
   const [activeTab, setActiveTab] = useState<ShellTab>("live");
   const tabRefs = useRef<Record<ShellTab, HTMLButtonElement | null>>({
     live: null,
@@ -172,7 +173,7 @@ export function App({ devScenarioSwitcher }: { devScenarioSwitcher?: ReactNode }
       >
         {activeTab === "live" && (
           <div className="shell-screen shell-live">
-            <Deck locale={displayLocale} status={status} snapshot={snapshot} state={deckState} mute={mute} />
+            <Deck locale={displayLocale} status={status} snapshot={snapshot} state={deckState} mute={mute} playback={playback} hostLost={hostLost} />
           </div>
         )}
 

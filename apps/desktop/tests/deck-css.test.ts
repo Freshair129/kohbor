@@ -18,6 +18,15 @@ test("only the bounded event list scrolls vertically inside the deck", () => {
   const eventList = css.match(/\.deck-event-list\s*\{([^}]+)\}/)?.[1] ?? "";
   assert.match(eventList, /min-height:\s*0/);
   assert.match(eventList, /overflow-y:\s*auto/);
+  assert.match(eventList, /overflow-x:\s*hidden/);
+});
+
+test("history and announcer rows stay inside shrinking right-column tracks", () => {
+  const right = css.match(/\.deck-right-column\s*\{([^}]+)\}/)?.[1] ?? "";
+  assert.match(right, /grid-template-rows:\s*minmax\(0,\s*1\.4fr\)\s+minmax\(0,\s*1fr\)\s+minmax\(0,\s*max-content\)/);
+  assert.doesNotMatch(right, /overflow(?:-y)?:\s*(auto|scroll)/);
+  const band = css.match(/\.live-deck-panel \.live-sidebar-deck\s*\{([^}]+)\}/)?.[1] ?? "";
+  assert.match(band, /grid-row:\s*2/);
 });
 
 test("the deck map embeds the reusable minimap panel in a height-constrained grid", () => {

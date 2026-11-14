@@ -410,7 +410,7 @@
   grid-row: 2;
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1.4fr);
-  grid-template-rows: minmax(38px, 1fr) auto;
+  grid-template-rows: minmax(38px, 1fr) auto auto;
   gap: 4px;
   padding: 4px;
 }
@@ -436,14 +436,22 @@
 .live-sidebar-deck .live-enemy-count { font-size: 14px; }
 .live-sidebar-deck .live-experimental { min-height: 15px; padding: 0 3px; font-size: 9px; }
 .live-sidebar-deck .live-resource-strip { grid-column: 3; grid-row: 1; gap: 2px 6px; padding: 3px 5px; font-size: 10px; }
-.live-sidebar-deck .live-sidebar-status { grid-column: 1; grid-row: 2; flex-direction: row; align-items: center; gap: 3px; }
+.live-sidebar-deck .live-sidebar-status { grid-column: 1; grid-row: 3; flex-direction: row; align-items: center; gap: 3px; }
 .live-sidebar-deck .live-sidebar-status > * { max-width: 100%; overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-.live-sidebar-deck .live-sidebar-actions { grid-column: 2 / 4; grid-row: 2; justify-content: flex-end; gap: 4px; margin: 0; }
+.live-sidebar-deck .live-sidebar-actions { grid-column: 2 / 4; grid-row: 3; justify-content: flex-end; gap: 4px; margin: 0; }
 .live-sidebar-deck .live-sidebar-actions summary { padding: 3px 6px; font-size: 11px; }
+
+.live-deck-alerts { grid-column: 1 / -1; grid-row: 2; min-width: 0; min-height: 0; overflow: hidden; }
+.deck-alert-strip { display: flex; align-items: center; gap: 5px; min-width: 0; min-height: 22px; overflow: hidden; font-size: 11px; white-space: nowrap; }
+.deck-alert-strip > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.deck-alert-state { padding: 1px 6px; border: 1px dashed var(--stale); border-radius: 4px; color: var(--text-2); }
+.deck-alert-chip { padding: 1px 6px; border: 1px dashed var(--warning); border-radius: 4px; color: var(--warning); }
+.deck-alert-chip.is-critical { border: 3px double var(--critical); padding-block: 0; color: var(--critical); }
+.deck-alert-chip.is-experimental { border-color: var(--stale); color: var(--text-2); }
 
 .deck-right-column {
   display: grid;
-  grid-template-rows: minmax(220px, 1.65fr) minmax(96px, 0.75fr) minmax(104px, 0.8fr);
+  grid-template-rows: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, max-content);
   gap: 8px;
 }
 
@@ -480,25 +488,40 @@
 }
 
 .deck-event-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   min-width: 0;
   min-height: 0;
   margin: 0;
   padding: 0 2px 0 0;
   list-style: none;
   overflow-y: auto;
+  overflow-x: hidden;
   color: var(--muted);
   font-size: 12px;
 }
 
 .deck-event-list li {
+  flex: none;
   padding: 8px;
   border: 1px dashed var(--line);
   border-radius: 6px;
   text-align: center;
 }
 
+.deck-event-list .deck-event-row { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 2px 6px; padding: 5px 6px; border-style: solid; text-align: left; }
+.deck-event-age { grid-column: 1; grid-row: 1 / 3; color: var(--muted); font-size: 11px; }
+.deck-event-name { grid-column: 2; grid-row: 1; min-width: 0; overflow: hidden; color: var(--text-2); text-overflow: ellipsis; white-space: nowrap; }
+.deck-event-outcome { grid-column: 3; grid-row: 1; font-size: 11px; }
+.deck-class-badge { grid-column: 2; grid-row: 2; justify-self: start; padding: 0 4px; border: 1px solid var(--line); border-radius: 3px; font-size: 9px; }
+.deck-event-row .history-demo-label { grid-column: 3; grid-row: 2; justify-self: end; margin: 0; font-size: 9px; }
+.deck-event-message[role="alert"] { color: var(--warning); }
+
 .deck-sound-panel {
-  grid-template-rows: auto repeat(3, minmax(0, 1fr));
+  grid-template-rows: auto;
+  grid-auto-rows: minmax(22px, auto);
+  align-content: start;
   gap: 4px;
 }
 
@@ -531,13 +554,17 @@
   white-space: nowrap;
 }
 
+.deck-last-clip > strong { display: flex; align-items: center; gap: 5px; }
+.deck-clip-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deck-clip-age { flex: none; color: var(--muted); font-size: 11px; }
+.deck-on-air > span:first-child { font-weight: 600; border-bottom: 2px solid var(--text-2); color: var(--text); }
+
 .deck-sound-row > .chip {
   max-width: 58%;
   padding: 2px 6px;
 }
 
 @media (max-height: 800px) {
-  .deck-right-column { grid-template-rows: minmax(200px, 1.65fr) minmax(88px, 0.75fr) minmax(96px, 0.8fr); }
   .deck-own-card { gap: 5px; padding: 8px; }
   .deck-stat-tile { padding: 3px 5px; }
   .deck-ally-panel, .deck-enemy-panel, .deck-event-panel, .deck-sound-panel { padding: 8px; }

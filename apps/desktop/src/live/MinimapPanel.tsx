@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import type { RiskView } from "./types";
 import { DangerMeter } from "./DangerMeter";
 import { EnemySeen } from "./EnemySeen";
 import { liveCopy, phaseLabel, type LiveLocale } from "./copy";
@@ -30,9 +31,11 @@ import "./live.css";
 export function MinimapPanel({
   locale = "th",
   layout = "standalone",
+  renderAlerts,
 }: {
   locale?: LiveLocale;
   layout?: "standalone" | "deck";
+  renderAlerts?: (input: { risk: RiskView | null; captureLive: boolean }) => ReactNode;
 }) {
   const text = liveCopy(locale);
   const capture = useCaptureStatus();
@@ -200,6 +203,7 @@ export function MinimapPanel({
           <EnemySeen risk={displayedRisk} locale={locale} />
         </section>
         <ResourceStrip locale={locale} capture={capture} metrics={minimap.metrics} />
+        {layout === "deck" && renderAlerts && <div className="live-deck-alerts">{renderAlerts({ risk: displayedRisk, captureLive: phase === "live" && !paused })}</div>}
         <div className="live-sidebar-status">
           {mock && <span className="live-experimental">{text.mockPreview}</span>}
           {showAutoLayoutUnconfirmed(capture) && <span className="live-auto-layout-tag">{text.autoLayoutUnconfirmed}</span>}

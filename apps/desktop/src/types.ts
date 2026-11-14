@@ -1,4 +1,4 @@
-// Shapes of runtime-status 1.1.0 and own-snapshot 2.0.0 contracts.
+// Shapes of runtime-status 1.1.0 and own-snapshot 2.1.0 (with 2.0.0 compatibility).
 
 import type { Locale } from "./copy";
 
@@ -59,7 +59,7 @@ export interface Field<T> {
 }
 
 export interface OwnSnapshot {
-  schema_version: "2.0.0";
+  schema_version: "2.0.0" | "2.1.0";
   session_epoch: number | null;
   availability: FieldAvailability;
   source: { kind: "gsi"; generation: number; sequence: number | null; age_ms: number | null };
@@ -74,6 +74,15 @@ export interface OwnSnapshot {
       mana_percent: Field<number>;
       alive: Field<boolean>;
       respawn_seconds: Field<number>;
+      /** Absent only on legacy 2.0.0 replies; absence means unknown. */
+      gold?: Field<number>;
+      kills?: Field<number>;
+      deaths?: Field<number>;
+      assists?: Field<number>;
+      last_hits?: Field<number>;
+      denies?: Field<number>;
+      gpm?: Field<number>;
+      xpm?: Field<number>;
     };
   };
 }

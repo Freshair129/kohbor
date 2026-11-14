@@ -45,6 +45,16 @@ test("fresh own hero fields are projected without translating the hero id", () =
   assert.equal(result.hasOwnSnapshot, true);
 });
 
+test("all eight GSI counters distinguish fresh zero from unknown, stale and invalid", () => {
+  for (const name of ["gold", "kills", "deaths", "assists", "last_hits", "denies", "gpm", "xpm"] as const) {
+    for (const availability of ["fresh", "unknown", "stale", "invalid", "unsupported"] as const) {
+      const result = deriveOwnHeroViewModel(snapshot({ [name]: field(0, availability) }));
+      assert.equal(result.stats[name], availability === "fresh" ? 0 : null, `${name}: ${availability}`);
+    }
+  }
+  assert.equal(deriveOwnHeroViewModel(snapshot()).stats.gold, null, "legacy missing field is unknown");
+});
+
 test("non-fresh fields become unknown values while the last snapshot age remains visible", () => {
   const result = deriveOwnHeroViewModel(snapshot({
     hero_id: field("npc_dota_hero_axe", "stale"),

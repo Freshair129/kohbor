@@ -6,6 +6,7 @@ import { copy, type Locale } from "../copy";
 import type { PlaybackClass, PlaybackEndReason, PlaybackEvent } from "../playback";
 import type { OwnSnapshot, RuntimeStatus, UserSettingsView } from "../types";
 import { liveMockRequested } from "../live/mockMode";
+import { parseOwnSnapshot } from "../ownSnapshot";
 
 type MockCallback = (event: unknown) => void;
 type MockEventBinding = { event: string; callbackId: number };
@@ -21,7 +22,8 @@ const PROBE_EVENT_NAME = "media://probe-request";
 const MOCK_CHANNEL = "kohbor-mock-playback";
 const MOCK_PROBE_REPORT_EVENT = "kohbor-mock-media-probe-report";
 const statusFixture = JSON.parse(runtimeStatusFixtureRaw) as RuntimeStatus;
-const snapshotFixture = JSON.parse(ownSnapshotFixtureRaw) as OwnSnapshot;
+const snapshotFixture = parseOwnSnapshot(JSON.parse(ownSnapshotFixtureRaw));
+if (!snapshotFixture) throw new Error("Invalid synthetic own snapshot fixture");
 const settingsFixture = JSON.parse(settingsFixtureRaw) as { revision: number; locale: Locale };
 let settingsView: UserSettingsView = {
   revision: settingsFixture.revision,
@@ -69,7 +71,7 @@ function currentStatus(): RuntimeStatus {
 }
 
 function currentOwnSnapshot(): OwnSnapshot {
-  const snapshot = structuredClone(snapshotFixture);
+  const snapshot = structuredClone(snapshotFixture!);
   if (!liveMockRequested()) return snapshot;
   if (mockSnapshotAvailability === "unknown") {
     snapshot.availability = "unknown";
@@ -78,6 +80,7 @@ function currentOwnSnapshot(): OwnSnapshot {
   } else if (mockSnapshotAvailability === "stale") {
     snapshot.availability = "stale";
     snapshot.source.age_ms = 3_200;
+    if (snapshot.own) for (const field of Object.values(snapshot.own.fields)) if (field.availability === "fresh") field.availability = "stale";
   } else {
     snapshot.availability = "fresh";
     snapshot.source.age_ms = 32;
