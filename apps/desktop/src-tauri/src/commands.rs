@@ -96,18 +96,22 @@ pub(crate) fn log_frontend(
     module: String,
     msg: String,
     fields: Option<Value>,
-) -> bool {
+) -> Result<bool, String> {
+    crate::logging::validate_frontend_input(&level, &module, &msg, fields.as_ref())
+        .map_err(str::to_owned)?;
     let Ok(level) = crate::logging::Level::parse(&level) else {
         // Invalid requests produce no line, so they cannot bypass the renderer
         // limiter by flooding warnings before the rate-limited facade.
-        return false;
+        return Ok(false);
     };
     let fields = match fields {
         Some(Value::Object(fields)) => fields,
         Some(Value::Null) | None => Map::new(),
         Some(value) => Map::from_iter([("value".to_owned(), value)]),
     };
-    crate::logging::emit_frontend(level, &module, "frontend", &msg, fields)
+    Ok(crate::logging::emit_frontend(
+        level, &module, "frontend", &msg, fields,
+    ))
 }
 
 #[tauri::command]

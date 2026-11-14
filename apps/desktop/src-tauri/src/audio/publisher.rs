@@ -140,15 +140,11 @@ pub fn spawn_publisher(
             while let Ok(output) = rx.recv() {
                 match output {
                     EngineOut::Playback(payload) => {
-                        // File logging stays on the publisher, outside the
-                        // critical engine thread. Never log the media payload.
+                        // Bounded try_send only; the logging writer owns all
+                        // scanning, locks, and file I/O. Never log the payload.
                         if payload["kind"] == "started" {
-                            crate::log_info!(
-                                "audio",
-                                "clip_played",
-                                "announcer clip started",
-                                event_id = payload["event_type"].as_str().unwrap_or("unknown"),
-                                outcome = "admitted"
+                            crate::logging::try_clip_played(
+                                payload["event_type"].as_str().unwrap_or("unknown"),
                             );
                         }
                         if catch_unwind(AssertUnwindSafe(|| {

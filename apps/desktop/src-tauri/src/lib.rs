@@ -12,9 +12,11 @@ pub mod intake;
 pub mod latency;
 pub mod logging;
 mod media;
+mod portraits;
 pub mod secrets;
 pub mod settings;
 pub mod status;
+mod steam;
 mod version;
 
 /// Runs the application only after containment succeeds.
@@ -379,6 +381,7 @@ pub fn run() {
                 }
             });
             capture_host::start(app.handle().clone(), gsi, resources, settings_dir.clone());
+            let steam_runtime = runtime.clone();
             app.manage(AppState {
                 runtime,
                 host,
@@ -387,6 +390,7 @@ pub fn run() {
                 sample,
                 revision: AtomicU64::new(0),
             });
+            steam::start_status_probe(app.handle().clone(), steam_runtime);
             let app_handle = app.handle().clone();
             let last_overlay_status = Arc::new(Mutex::new(initial_overlay_status.clone()));
             register_overlay_events(
@@ -401,6 +405,9 @@ pub fn run() {
     #[cfg(any(feature = "demo", debug_assertions))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         commands::app_version,
+        portraits::hero_portrait,
+        steam::launch_dota,
+        steam::steam_status,
         commands::log_tail,
         commands::log_dir,
         commands::log_open_folder,
@@ -435,6 +442,9 @@ pub fn run() {
     #[cfg(not(any(feature = "demo", debug_assertions)))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         commands::app_version,
+        portraits::hero_portrait,
+        steam::launch_dota,
+        steam::steam_status,
         commands::log_tail,
         commands::log_dir,
         commands::log_open_folder,

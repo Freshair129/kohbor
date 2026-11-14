@@ -27,6 +27,8 @@ kohbor-capture = { path = "../../../crates/kohbor-capture" }
 kohbor-capture-native = { path = "../../../crates/kohbor-capture-native" }
 kohbor-minimap-cv = { path = "../../../crates/kohbor-minimap-cv" }
 kohbor-risk = { path = "../../../crates/kohbor-risk" }
+kohbor-game-assets = { path = "../../../crates/kohbor-game-assets" }
+flate2 = { workspace = true }
 tauri = { version = "=2.12.5", features = [] }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -46,6 +48,7 @@ windows = { version = "=0.61.3", features = [
   "Win32_System_JobObjects",
   "Win32_System_ProcessStatus",
   "Win32_System_Threading",
+  "Win32_UI_Shell",
   "Win32_UI_WindowsAndMessaging",
 ] }
 

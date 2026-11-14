@@ -5,7 +5,8 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{self, BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
+use std::sync::mpsc::{self, Receiver, SyncSender, TrySendError};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -18,11 +19,434 @@ const RING_CAPACITY: usize = 2000;
 const DEFAULT_TAIL_LIMIT: usize = 200;
 const MAX_TAIL_LIMIT: usize = 1000;
 const REDACTED: &str = "[redacted]";
-const MAX_FIELD_NODES: usize = 256;
-const MAX_FIELD_DEPTH: usize = 8;
-const MAX_FIELD_STRING_CHARS: usize = 256;
-const MAX_FIELD_KEY_CHARS: usize = 128;
-const MAX_MESSAGE_CHARS: usize = 4096;
+const MAX_FIELDS: usize = 16;
+const MAX_MESSAGE_BYTES: usize = 1024;
+const MAX_FRONTEND_BYTES: usize = 300;
+const MAX_KEY_BYTES: usize = 64;
+const QUEUE_CAPACITY: usize = 4096;
+const FLUSH_TIMEOUT: Duration = Duration::from_millis(200);
+type WriterProbe = Box<dyn FnOnce() + Send>;
+
+#[cfg(test)]
+mod round3_tests {
+    use super::*;
+    use std::sync::mpsc;
+
+    fn root(tag: &str) -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "kohbor-log-r3-{tag}-{}-{nonce}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&path).unwrap();
+        path
+    }
+
+    fn registry() -> SecretRegistry {
+        let mut registry = SecretRegistry::default();
+        registry.register("Ab7+/!qZ");
+        registry
+    }
+
+    #[test]
+    fn registered_short_secret_and_lowercase_are_redacted() {
+        let registry = registry();
+        assert_eq!(
+            redact_registered("Ab7+/!qZ ab7+/!qz", &registry),
+            "[redacted] [redacted]"
+        );
+    }
+
+    #[test]
+    fn registered_secret_with_inserted_punctuation_is_redacted() {
+        assert_eq!(redact_registered("A.b.7.q.Z", &registry()), "[redacted]");
+    }
+
+    #[test]
+    fn registered_secret_url_encoded_and_stripped_variants_are_redacted() {
+        for variant in ["Ab7%2B%2F%21qZ", "%41%62%37%2b%2f%21%71%5a", "Ab7qZ"] {
+            assert_eq!(redact_registered(variant, &registry()), "[redacted]");
+        }
+    }
+
+    #[test]
+    fn secret_registry_has_a_six_byte_minimum_and_sixteen_value_cap() {
+        let mut registry = SecretRegistry::default();
+        registry.register("short");
+        assert!(registry.values.is_empty());
+        for index in 0..20 {
+            registry.register(&format!("credential-{index:02}"));
+        }
+        assert_eq!(registry.values.len(), 16);
+    }
+
+    #[test]
+    fn registered_values_are_removed_from_file_ring_and_field_keys() {
+        let logger = Arc::new(Logger::new_with_limits(Some(root("exact")), 4096, 5, 32));
+        with_test_logger(logger.clone(), || register_secret("Ab7+/!qZ"));
+        logger.log(
+            Level::Error,
+            "test",
+            "exact",
+            "Ab7%2B%2F%21qZ",
+            Map::from_iter([("Ab7+/!qZ".into(), json!("A.b.7.q.Z"))]),
+        );
+        logger.flush();
+        let disk = fs::read_to_string(logger.current_file().unwrap()).unwrap();
+        let ring = serde_json::to_string(&logger.entries()).unwrap();
+        for text in [&disk, &ring] {
+            for raw in ["Ab7+/!qZ", "Ab7%2B%2F%21qZ", "A.b.7.q.Z"] {
+                assert!(!text.contains(raw));
+            }
+            assert!(text.contains("[redacted]"));
+        }
+    }
+
+    #[test]
+    fn frontend_five_megabyte_message_is_cut_before_sanitizing() {
+        let logger = Logger::new_in_memory(32);
+        let message = "!".repeat(5 * 1024 * 1024);
+        logger.log_frontend_at(
+            Instant::now(),
+            Level::Error,
+            "renderer",
+            "frontend",
+            &message,
+            Fields::new(),
+        );
+        assert_eq!(logger.entries()[0].msg.len(), 300);
+    }
+
+    #[test]
+    fn frontend_drops_nested_oversized_and_disallowed_fields() {
+        let logger = Logger::new_in_memory(32);
+        logger.log_frontend_at(
+            Instant::now(),
+            Level::Info,
+            "renderer",
+            "frontend",
+            "safe",
+            Map::from_iter([
+                ("nested".into(), json!({"body": "private"})),
+                ("array".into(), json!([1, 2])),
+                ("large".into(), json!("!".repeat(41))),
+                ("punctuation".into(), json!("{private}")),
+                ("count".into(), json!(3)),
+                ("ok".into(), json!(true)),
+                ("code".into(), json!("ERROR_CODE")),
+            ]),
+        );
+        let entry = &logger.entries()[0];
+        assert_eq!(
+            entry.fields,
+            json!({"count": 3, "ok": true, "code": "ERROR_CODE"})
+        );
+    }
+
+    #[test]
+    fn frontend_hides_nine_digit_and_sixteen_character_runs() {
+        let logger = Logger::new_in_memory(32);
+        logger.log_frontend_at(
+            Instant::now(),
+            Level::Info,
+            "renderer",
+            "frontend",
+            "123456789 ABCDEFGHIJKLMNOP",
+            Fields::new(),
+        );
+        assert_eq!(logger.entries()[0].msg, "[redacted] [redacted]");
+    }
+
+    #[test]
+    fn frontend_command_validation_rejects_long_strings_without_content_scanning() {
+        let giant = "x".repeat(5 * 1024 * 1024);
+        assert_eq!(
+            validate_frontend_input("info", "renderer", &giant, None),
+            Err("LOG_INPUT_TOO_LARGE")
+        );
+        assert!(validate_frontend_input(
+            "info",
+            "renderer",
+            "safe",
+            Some(&json!({"nested": [giant]}))
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn overlong_field_keys_cannot_hide_sensitive_suffixes() {
+        let logger = Logger::new_in_memory(32);
+        let key = format!("{}password", "prefix".repeat(20));
+        logger.log(
+            Level::Info,
+            "test",
+            "key",
+            "safe",
+            Map::from_iter([(key, json!("short private value"))]),
+        );
+        assert!(logger.entries()[0].fields.as_object().unwrap().is_empty());
+    }
+
+    #[test]
+    fn redaction_expansion_cannot_exceed_output_byte_caps() {
+        let logger = Arc::new(Logger::new_in_memory(32));
+        with_test_logger(logger.clone(), || register_secret("AbCdEf"));
+        logger.log(
+            Level::Info,
+            "test",
+            "host",
+            &"AbCdEf".repeat(200),
+            Fields::new(),
+        );
+        logger.log_frontend_at(
+            Instant::now(),
+            Level::Info,
+            "renderer",
+            "frontend",
+            &"AbCdEf".repeat(50),
+            Map::from_iter([("safe".to_owned(), json!("AbCdEf".repeat(6)))]),
+        );
+        let entries = logger.entries();
+        assert!(entries[0].msg.len() <= 1024);
+        assert!(entries[1].msg.len() <= 300);
+        assert!(entries[1].fields["safe"].as_str().unwrap().len() <= 40);
+        assert!(entries.iter().all(|entry| !entry.msg.contains("AbCdEf")));
+    }
+
+    #[test]
+    fn host_message_and_fields_have_byte_and_count_caps() {
+        let logger = Logger::new_in_memory(32);
+        let fields = (0..40)
+            .map(|n| (format!("f{n}"), json!("€ ".repeat(500))))
+            .collect();
+        logger.log(Level::Info, "test", "bounds", &"€ ".repeat(1000), fields);
+        let entry = &logger.entries()[0];
+        assert!(entry.msg.len() <= 1024);
+        assert!(entry.fields.as_object().unwrap().len() <= 16);
+        assert!(entry.fields.as_object().unwrap().values().all(|value| value
+            .as_str()
+            .unwrap()
+            .len()
+            <= 1024));
+    }
+
+    #[test]
+    fn panic_with_logger_lock_held_finishes_and_flush_is_bounded() {
+        install_panic_hook();
+        let logger = Arc::new(Logger::new_in_memory(32));
+        let _guard = logger.state.lock().unwrap();
+        let start = Instant::now();
+        with_test_logger(logger.clone(), || {
+            assert!(std::panic::catch_unwind(|| panic!("private panic probe")).is_err());
+        });
+        logger.flush();
+        assert!(start.elapsed() < Duration::from_millis(450));
+    }
+
+    #[test]
+    fn panic_message_secret_is_redacted_without_forwarding_original_hook() {
+        install_panic_hook();
+        let logger = Arc::new(Logger::new_in_memory(32));
+        logger.register_for_test("Ab7+/!qZ");
+        with_test_logger(logger.clone(), || {
+            let _ = std::panic::catch_unwind(|| panic!("probe Ab7+/!qZ"));
+        });
+        let entries = logger.entries();
+        let entry = entries.iter().find(|entry| entry.event == "panic").unwrap();
+        assert_eq!(entry.msg, "probe [redacted]");
+    }
+
+    #[test]
+    fn reentrant_panic_reporting_uses_message_free_fallback() {
+        install_panic_hook();
+        let logger = Arc::new(Logger::new_in_memory(32));
+        with_test_logger(logger.clone(), || {
+            PANIC_ACTIVE.with(|active| {
+                active.set(true);
+                let _ = std::panic::catch_unwind(|| panic!("must not escape"));
+                active.set(false);
+            });
+        });
+        assert!(logger.entries().is_empty());
+    }
+
+    #[test]
+    fn reparse_attributes_are_refused_even_without_symlink_flag() {
+        assert!(redirected_directory(false, 0x400));
+        assert!(redirected_directory(true, 0));
+        assert!(!redirected_directory(false, 0x10));
+    }
+
+    #[test]
+    fn redirected_logs_directory_never_writes_or_deletes_target_files() {
+        let root = root("redirected");
+        let outside = root.join("outside");
+        fs::create_dir_all(&outside).unwrap();
+        for n in 0..7 {
+            fs::write(
+                outside.join(format!("kohbor-20200101-0000{n:02}.log")),
+                "protected",
+            )
+            .unwrap();
+        }
+        #[cfg(windows)]
+        let link = std::os::windows::fs::symlink_dir(&outside, root.join("logs"));
+        #[cfg(unix)]
+        let link = std::os::unix::fs::symlink(&outside, root.join("logs"));
+        if let Err(error) = link {
+            eprintln!("SKIP directory-symlink test: creation is not permitted: {error}");
+            return;
+        }
+        let logger = Logger::new_with_limits(Some(root), 512, 5, 32);
+        for _ in 0..12 {
+            logger.log(
+                Level::Warn,
+                "test",
+                "redirect",
+                "must stay in memory",
+                Fields::new(),
+            );
+        }
+        logger.flush();
+        assert!(logger.is_degraded());
+        assert_eq!(fs::read_dir(&outside).unwrap().count(), 7);
+        assert_eq!(
+            logger
+                .entries()
+                .iter()
+                .filter(|entry| entry.event == "log_storage_unavailable")
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn directory_replaced_after_initialization_is_refused_before_rotation() {
+        let root = root("rotation-redirect");
+        let outside = root.join("outside");
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(outside.join("kohbor-20200101-000000.log"), "protected").unwrap();
+        let logger = Logger::new_with_limits(Some(root.clone()), 512, 5, 32);
+        logger.flush();
+        assert!(logger.current_file().is_some());
+        // Windows can deny renaming a directory containing an open file. Close
+        // this test file at a rotation boundary before replacing the directory.
+        logger.state.lock().unwrap().writer.take();
+        fs::rename(root.join("logs"), root.join("original-logs")).unwrap();
+        #[cfg(windows)]
+        let link = std::os::windows::fs::symlink_dir(&outside, root.join("logs"));
+        #[cfg(unix)]
+        let link = std::os::unix::fs::symlink(&outside, root.join("logs"));
+        if let Err(error) = link {
+            eprintln!("SKIP rotation-symlink test: creation is not permitted: {error}");
+            return;
+        }
+        for _ in 0..12 {
+            logger.log(
+                Level::Warn,
+                "test",
+                "rotation",
+                &"x ".repeat(160),
+                Fields::new(),
+            );
+        }
+        logger.flush();
+        assert!(logger.is_degraded());
+        assert_eq!(fs::read_dir(&outside).unwrap().count(), 1);
+        assert_eq!(
+            fs::read_to_string(outside.join("kohbor-20200101-000000.log")).unwrap(),
+            "protected"
+        );
+    }
+
+    #[test]
+    fn stalled_fake_sink_does_not_block_ten_thousand_callers() {
+        let (entered_tx, entered_rx) = mpsc::sync_channel(1);
+        let (release_tx, release_rx) = mpsc::sync_channel(1);
+        let logger = Logger::with_test_sink(Box::new(move || {
+            let _ = entered_tx.send(());
+            let _ = release_rx.recv();
+        }));
+        logger.log(Level::Info, "test", "stall", "first", Fields::new());
+        entered_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+        let start = Instant::now();
+        for _ in 0..10_000 {
+            logger.log(Level::Info, "test", "queue", "small", Fields::new());
+        }
+        let elapsed = start.elapsed();
+        let dropped = logger.dropped_entries();
+        let flush_start = Instant::now();
+        logger.flush();
+        let flush_elapsed = flush_start.elapsed();
+        release_tx.send(()).unwrap();
+        assert!(elapsed < Duration::from_secs(1), "caller time: {elapsed:?}");
+        assert!(flush_elapsed < Duration::from_millis(300));
+        assert!(dropped > 0);
+        std::thread::sleep(Duration::from_millis(1100));
+        let entries = logger.entries();
+        let warnings: Vec<_> = entries
+            .iter()
+            .filter(|entry| entry.event == "log_entries_dropped")
+            .collect();
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(warnings[0].fields["dropped"], dropped);
+    }
+
+    #[test]
+    fn admission_logging_source_never_passes_body_or_payload_values() {
+        fn unsafe_arguments(source: &str) -> bool {
+            let mut stripped = String::new();
+            let mut quoted = false;
+            let mut escaped = false;
+            for ch in source.chars() {
+                if quoted {
+                    if escaped {
+                        escaped = false;
+                    } else if ch == '\\' {
+                        escaped = true;
+                    } else if ch == '"' {
+                        quoted = false;
+                    }
+                    stripped.push(' ');
+                } else if ch == '"' {
+                    quoted = true;
+                    stripped.push(' ');
+                } else {
+                    stripped.push(ch);
+                }
+            }
+            stripped.split("log_").skip(1).any(|tail| {
+                let Some((_, arguments)) = tail.split_once("!(") else {
+                    return false;
+                };
+                let mut depth = 1;
+                let end = arguments
+                    .char_indices()
+                    .find_map(|(index, ch)| {
+                        if ch == '(' {
+                            depth += 1;
+                        }
+                        if ch == ')' {
+                            depth -= 1;
+                        }
+                        (depth == 0).then_some(index)
+                    })
+                    .unwrap_or(arguments.len());
+                arguments[..end]
+                    .split(|ch: char| !(ch.is_ascii_alphanumeric() || ch == '_'))
+                    .any(|word| matches!(word, "payload" | "body"))
+            })
+        }
+        assert!(unsafe_arguments("log_info!(\"gsi\", \"event\", body);"));
+        assert!(!unsafe_arguments(
+            "log_info!(\"gsi\", \"event\", \"payload rejected\");"
+        ));
+        assert!(!unsafe_arguments(include_str!("intake.rs")));
+    }
+}
 
 pub type Fields = Map<String, Value>;
 
@@ -55,6 +479,9 @@ impl Level {
     }
 
     pub fn parse(value: &str) -> Result<Self, &'static str> {
+        if value.len() > 5 {
+            return Err("INVALID_LOG_LEVEL");
+        }
         match value.to_ascii_lowercase().as_str() {
             "error" => Ok(Self::Error),
             "warn" => Ok(Self::Warn),
@@ -108,7 +535,6 @@ impl LogEntry {
 }
 
 struct LoggerState {
-    requested_logs_dir: Option<PathBuf>,
     logs_dir: Option<PathBuf>,
     current_file: Option<PathBuf>,
     writer: Option<BufWriter<File>>,
@@ -119,78 +545,160 @@ struct LoggerState {
     degraded: bool,
     degradation_reported: bool,
 }
-
-#[derive(Default)]
-struct FrontendRateState {
-    window_started: Option<Instant>,
-    accepted: u32,
-    warning_emitted: bool,
-}
-
-pub struct Logger {
-    state: Mutex<LoggerState>,
-    level: AtomicU8,
-    flush_each_record: AtomicU8,
+struct SinkConfig {
+    data_dir: Option<PathBuf>,
     max_file_bytes: u64,
     max_files: usize,
     ring_capacity: usize,
-    frontend_rate: Mutex<FrontendRateState>,
+    memory_only: bool,
+    report_stderr: bool,
 }
-
+struct RawEntry {
+    at: SystemTime,
+    level: Level,
+    module: String,
+    event: String,
+    msg: String,
+    fields: Fields,
+    frontend: bool,
+}
+impl RawEntry {
+    fn bounded(
+        level: Level,
+        module: &str,
+        event: &str,
+        msg: &str,
+        fields: Fields,
+        frontend: bool,
+    ) -> Self {
+        let fields = fields
+            .into_iter()
+            .take(MAX_FIELDS)
+            .filter_map(|(key, value)| {
+                // Do not truncate away a sensitive suffix before classification.
+                // A key beyond the inspection budget makes its whole field ineligible.
+                if key.len() > MAX_KEY_BYTES {
+                    return None;
+                }
+                let value = match value {
+                    Value::String(text) if !frontend || text.len() <= 40 => Value::String(
+                        prefix(&text, if frontend { 40 } else { MAX_MESSAGE_BYTES }).to_owned(),
+                    ),
+                    Value::Number(_) | Value::Bool(_) => value,
+                    Value::Null if !frontend => value,
+                    _ => return None,
+                };
+                Some((prefix(&key, MAX_KEY_BYTES).to_owned(), value))
+            })
+            .collect();
+        Self {
+            at: SystemTime::now(),
+            level,
+            module: prefix(module, 64).to_owned(),
+            event: prefix(event, 96).to_owned(),
+            msg: prefix(
+                msg,
+                if frontend {
+                    MAX_FRONTEND_BYTES
+                } else {
+                    MAX_MESSAGE_BYTES
+                },
+            )
+            .to_owned(),
+            fields,
+            frontend,
+        }
+    }
+}
+enum WriterCommand {
+    Entry(RawEntry),
+    Flush(SyncSender<()>),
+}
+struct Sink {
+    state: Arc<Mutex<LoggerState>>,
+    config: SinkConfig,
+    secrets: Arc<Mutex<SecretRegistry>>,
+}
+pub struct Logger {
+    state: Arc<Mutex<LoggerState>>,
+    sender: SyncSender<WriterCommand>,
+    level: AtomicU8,
+    dropped: Arc<AtomicU64>,
+    pending_drops: Arc<AtomicU64>,
+    frontend_origin: Instant,
+    frontend_rate: AtomicU64,
+    requested_logs_dir: Option<PathBuf>,
+    #[cfg(test)]
+    secrets: Arc<Mutex<SecretRegistry>>,
+}
 impl Logger {
-    fn with_limits(
+    fn start(
+        config: SinkConfig,
+        secrets: Arc<Mutex<SecretRegistry>>,
+        probe: Option<WriterProbe>,
+    ) -> Self {
+        let requested_logs_dir = config.data_dir.as_ref().map(|dir| dir.join("logs"));
+        let state = Arc::new(Mutex::new(LoggerState {
+            logs_dir: None,
+            current_file: None,
+            writer: None,
+            file_len: 0,
+            ring: VecDeque::with_capacity(config.ring_capacity.max(1)),
+            next_seq: 0,
+            last_flush: Instant::now(),
+            degraded: config.memory_only,
+            degradation_reported: config.memory_only,
+        }));
+        let sink = Arc::new(Sink {
+            state: state.clone(),
+            config,
+            secrets: secrets.clone(),
+        });
+        let (sender, receiver) = mpsc::sync_channel(QUEUE_CAPACITY);
+        let dropped = Arc::new(AtomicU64::new(0));
+        let pending_drops = Arc::new(AtomicU64::new(0));
+        let worker_drops = pending_drops.clone();
+        let worker_sink = sink.clone();
+        if std::thread::Builder::new()
+            .name("log-writer".to_owned())
+            .spawn(move || {
+                crate::host::set_current_thread_priority(crate::host::ThreadPriority::BelowNormal);
+                writer_loop(worker_sink, receiver, worker_drops, probe);
+            })
+            .is_err()
+        {
+            let mut state = state.lock().unwrap_or_else(|poison| poison.into_inner());
+            sink.degrade(&mut state, "LOG_WRITER_UNAVAILABLE");
+        }
+        Self {
+            state,
+            sender,
+            level: AtomicU8::new(Level::Info.as_u8()),
+            dropped,
+            pending_drops,
+            frontend_origin: Instant::now(),
+            frontend_rate: AtomicU64::new(0),
+            requested_logs_dir,
+            #[cfg(test)]
+            secrets,
+        }
+    }
+    fn config(
         data_dir: Option<PathBuf>,
         max_file_bytes: u64,
         max_files: usize,
         ring_capacity: usize,
-        report_degradation: bool,
-    ) -> Self {
-        let requested_logs_dir = data_dir.map(|dir| dir.join("logs"));
-        let mut logger = Self {
-            state: Mutex::new(LoggerState {
-                requested_logs_dir: requested_logs_dir.clone(),
-                logs_dir: None,
-                current_file: None,
-                writer: None,
-                file_len: 0,
-                ring: VecDeque::with_capacity(ring_capacity.max(1)),
-                next_seq: 0,
-                last_flush: Instant::now(),
-                degraded: requested_logs_dir.is_none(),
-                degradation_reported: false,
-            }),
-            level: AtomicU8::new(Level::Info.as_u8()),
-            flush_each_record: AtomicU8::new(0),
+        report_stderr: bool,
+    ) -> SinkConfig {
+        SinkConfig {
+            data_dir,
             max_file_bytes: max_file_bytes.max(512),
             max_files: max_files.max(1),
             ring_capacity: ring_capacity.max(1),
-            frontend_rate: Mutex::new(FrontendRateState::default()),
-        };
-
-        let setup_result = requested_logs_dir.as_ref().map_or_else(
-            || {
-                Err(io::Error::new(
-                    io::ErrorKind::NotFound,
-                    "data directory unavailable",
-                ))
-            },
-            |logs_dir| {
-                fs::create_dir_all(logs_dir).and_then(|()| {
-                    let mut state = logger
-                        .state
-                        .lock()
-                        .unwrap_or_else(|poison| poison.into_inner());
-                    state.logs_dir = Some(logs_dir.clone());
-                    Self::open_new_file(&mut state, logger.max_files)
-                })
-            },
-        );
-        if setup_result.is_err() {
-            logger.mark_degraded(report_degradation);
+            memory_only: false,
+            report_stderr,
         }
-        logger
     }
-
     #[cfg(test)]
     fn new_with_limits(
         data_dir: Option<PathBuf>,
@@ -198,235 +706,98 @@ impl Logger {
         max_files: usize,
         ring_capacity: usize,
     ) -> Self {
-        Self::with_limits(data_dir, max_file_bytes, max_files, ring_capacity, false)
+        Self::start(
+            Self::config(data_dir, max_file_bytes, max_files, ring_capacity, false),
+            Arc::new(Mutex::new(SecretRegistry::default())),
+            None,
+        )
     }
-
     #[cfg(test)]
     fn new_in_memory(ring_capacity: usize) -> Self {
-        let logger = Self::with_limits(None, MAX_FILE_BYTES, MAX_FILES, ring_capacity, false);
-        let mut state = logger
-            .state
+        let mut config = Self::config(None, MAX_FILE_BYTES, MAX_FILES, ring_capacity, false);
+        config.memory_only = true;
+        Self::start(
+            config,
+            Arc::new(Mutex::new(SecretRegistry::default())),
+            None,
+        )
+    }
+    #[cfg(test)]
+    fn with_test_sink(probe: WriterProbe) -> Self {
+        let mut config = Self::config(None, MAX_FILE_BYTES, MAX_FILES, 8192, false);
+        config.memory_only = true;
+        Self::start(
+            config,
+            Arc::new(Mutex::new(SecretRegistry::default())),
+            Some(probe),
+        )
+    }
+    #[cfg(test)]
+    fn register_for_test(&self, value: &str) {
+        self.secrets
             .lock()
-            .unwrap_or_else(|poison| poison.into_inner());
-        state.ring.clear();
-        state.next_seq = 0;
-        state.degradation_reported = true;
-        drop(state);
-        logger
+            .unwrap_or_else(|poison| poison.into_inner())
+            .register(value);
     }
-
-    fn mark_degraded(&mut self, report_stderr: bool) {
-        let mut state = self
-            .state
-            .lock()
-            .unwrap_or_else(|poison| poison.into_inner());
-        state.degraded = true;
-        state.logs_dir = None;
-        state.current_file = None;
-        state.writer = None;
-        if !state.degradation_reported {
-            state.degradation_reported = true;
-            if report_stderr {
-                eprintln!("Kohbor log storage unavailable; keeping the in-memory log ring only.");
+    fn enqueue(&self, entry: RawEntry) -> bool {
+        match self.sender.try_send(WriterCommand::Entry(entry)) {
+            Ok(()) => true,
+            Err(TrySendError::Full(_)) | Err(TrySendError::Disconnected(_)) => {
+                self.dropped.fetch_add(1, Ordering::Relaxed);
+                self.pending_drops.fetch_add(1, Ordering::Relaxed);
+                false
             }
-            self.append_locked(
-                &mut state,
-                Level::Warn,
-                "logging",
-                "log_storage_unavailable",
-                "log directory unavailable; using the in-memory ring",
-                Fields::new(),
-            );
         }
     }
-
-    fn open_new_file(state: &mut LoggerState, max_files: usize) -> io::Result<()> {
-        let logs_dir = state
-            .logs_dir
-            .as_ref()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "logs directory unavailable"))?;
-        let now = SystemTime::now();
-        let mut seconds = now.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
-        let (mut file, path) = loop {
-            let name = log_filename_at(seconds);
-            let path = logs_dir.join(name);
-            match OpenOptions::new().write(true).create_new(true).open(&path) {
-                Ok(file) => break (file, path),
-                Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
-                    seconds = seconds.saturating_add(1);
-                }
-                Err(error) => return Err(error),
-            }
-        };
-        file.flush()?;
-        state.file_len = 0;
-        state.current_file = Some(path);
-        state.writer = Some(BufWriter::new(file));
-        retain_logs(logs_dir, max_files, state.current_file.as_deref())?;
-        state.last_flush = Instant::now();
-        Ok(())
-    }
-
-    fn write_line(&self, state: &mut LoggerState, line: &[u8]) -> io::Result<()> {
-        if state.logs_dir.is_none() {
-            return Err(io::Error::new(
-                io::ErrorKind::NotFound,
-                "logs directory unavailable",
-            ));
-        }
-        let should_roll = state.writer.is_none()
-            || (state.file_len > 0
-                && state.file_len.saturating_add(line.len() as u64) > self.max_file_bytes);
-        if should_roll {
-            if let Some(writer) = state.writer.as_mut() {
-                writer.flush()?;
-            }
-            Self::open_new_file(state, self.max_files)?;
-        }
-        if line.len() as u64 > self.max_file_bytes {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "log record exceeds the file size limit",
-            ));
-        }
-        let writer = state
-            .writer
-            .as_mut()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "log file unavailable"))?;
-        writer.write_all(line)?;
-        state.file_len = state.file_len.saturating_add(line.len() as u64);
-        Ok(())
-    }
-
-    fn append_locked(
-        &self,
-        state: &mut LoggerState,
-        level: Level,
-        module: &str,
-        event: &str,
-        msg: &str,
-        fields: Fields,
-    ) -> LogEntry {
-        state.next_seq = state.next_seq.saturating_add(1);
-        let app_version = crate::version::AppVersion::current();
-        let mut entry = LogEntry {
-            seq: state.next_seq,
-            ts: utc_timestamp(SystemTime::now()),
-            level,
-            module: redact_and_limit(module, 128),
-            event: redact_and_limit(event, 128),
-            msg: redact_and_limit(msg, MAX_MESSAGE_CHARS),
-            fields: redact_fields(fields),
-            v: app_version.version.to_owned(),
-            commit: app_version
-                .git_commit
-                .map(|commit| commit.chars().take(7).collect()),
-        };
-        fit_entry_to_file_limit(&mut entry, self.max_file_bytes);
-        state.ring.push_back(entry.clone());
-        while state.ring.len() > self.ring_capacity {
-            state.ring.pop_front();
-        }
-        entry
-    }
-
+    /// Host callers must never supply player names, OCR text, raw GSI payloads,
+    /// pack contents, screenshots, or credentials as diagnostics. This API copies
+    /// bounded scalar data and try_sends only; the writer performs all scanning,
+    /// secret redaction, ring updates, and file I/O.
     pub fn log(&self, level: Level, module: &str, event: &str, msg: &str, fields: Fields) {
+        let _ = self.try_log(level, module, event, msg, fields);
+    }
+    fn try_log(&self, level: Level, module: &str, event: &str, msg: &str, fields: Fields) -> bool {
         if level.as_u8() > self.level.load(Ordering::Relaxed) {
-            return;
+            return false;
         }
-        let mut state = self
-            .state
-            .lock()
-            .unwrap_or_else(|poison| poison.into_inner());
-        let entry = self.append_locked(&mut state, level, module, event, msg, fields);
-        if !state.degraded {
-            let mut bytes = match serde_json::to_vec(&entry.file_value()) {
-                Ok(bytes) => bytes,
-                Err(_) => return,
-            };
-            bytes.push(b'\n');
-            if let Err(_error) = self.write_line(&mut state, &bytes) {
-                self.degrade_locked(&mut state, true);
-                self.append_locked(
-                    &mut state,
-                    Level::Warn,
-                    "logging",
-                    "log_storage_unavailable",
-                    "log write failed; using the in-memory ring",
-                    Fields::new(),
-                );
-                return;
-            }
-        }
-        if matches!(level, Level::Error | Level::Warn) {
-            if let Some(writer) = state.writer.as_mut() {
-                if writer.flush().is_err() {
-                    self.degrade_locked(&mut state, true);
-                    self.append_locked(
-                        &mut state,
-                        Level::Warn,
-                        "logging",
-                        "log_storage_unavailable",
-                        "log flush failed; using the in-memory ring",
-                        Fields::new(),
-                    );
-                    return;
-                }
-                state.last_flush = Instant::now();
-            }
-        } else if self.flush_each_record.load(Ordering::Relaxed) != 0
-            || state.last_flush.elapsed() >= Duration::from_secs(1)
-        {
-            if let Some(writer) = state.writer.as_mut() {
-                if writer.flush().is_err() {
-                    self.degrade_locked(&mut state, true);
-                    return;
-                }
-            }
-            state.last_flush = Instant::now();
-        }
+        self.enqueue(RawEntry::bounded(level, module, event, msg, fields, false))
     }
-
-    fn degrade_locked(&self, state: &mut LoggerState, report_stderr: bool) {
-        state.degraded = true;
-        state.logs_dir = None;
-        state.current_file = None;
-        state.writer = None;
-        if !state.degradation_reported {
-            state.degradation_reported = true;
-            if report_stderr {
-                eprintln!("Kohbor log storage unavailable; keeping the in-memory log ring only.");
-            }
-        }
+    pub fn dropped_entries(&self) -> u64 {
+        self.dropped.load(Ordering::Relaxed)
     }
-
     pub fn flush(&self) {
-        let mut state = self
-            .state
-            .lock()
-            .unwrap_or_else(|poison| poison.into_inner());
-        if let Some(writer) = state.writer.as_mut() {
-            if writer.flush().is_err() {
-                self.degrade_locked(&mut state, true);
-            }
+        let (ack, reply) = mpsc::sync_channel(1);
+        if self.sender.try_send(WriterCommand::Flush(ack)).is_ok() {
+            let _ = reply.recv_timeout(FLUSH_TIMEOUT);
         }
-        state.last_flush = Instant::now();
     }
-
-    fn flush_if_due(&self) {
-        let due = {
-            let state = self
-                .state
-                .lock()
-                .unwrap_or_else(|poison| poison.into_inner());
-            state.last_flush.elapsed() >= Duration::from_secs(1)
+    fn panic_record(&self, message: &str, location: &str, line: u32, column: u32) {
+        let Ok(guard) = self.state.try_lock() else {
+            panic_stderr(line, column);
+            return;
         };
-        if due {
-            self.flush();
-        }
+        drop(guard);
+        let fields = Map::from_iter([
+            (
+                "location".to_owned(),
+                Value::String(prefix(location, MAX_MESSAGE_BYTES).to_owned()),
+            ),
+            ("line".to_owned(), json!(line)),
+            ("column".to_owned(), json!(column)),
+        ]);
+        self.enqueue(RawEntry::bounded(
+            Level::Error,
+            "panic",
+            "panic",
+            message,
+            fields,
+            false,
+        ));
+        self.flush();
     }
-
     pub fn entries(&self) -> Vec<LogEntry> {
+        #[cfg(test)]
+        self.flush();
         self.state
             .lock()
             .unwrap_or_else(|poison| poison.into_inner())
@@ -435,14 +806,15 @@ impl Logger {
             .cloned()
             .collect()
     }
-
     pub fn tail_value(&self, since_seq: Option<u64>, limit: Option<u32>) -> Value {
+        #[cfg(test)]
+        self.flush();
         let state = self
             .state
             .lock()
             .unwrap_or_else(|poison| poison.into_inner());
         let limit = limit
-            .map(|value| value as usize)
+            .map(|n| n as usize)
             .unwrap_or(DEFAULT_TAIL_LIMIT)
             .clamp(1, MAX_TAIL_LIMIT);
         let dropped = since_seq.is_some_and(|since| {
@@ -451,13 +823,11 @@ impl Logger {
                 .front()
                 .is_some_and(|first| first.seq > since.saturating_add(1))
         });
-        let matching: Vec<&LogEntry> = state
+        let matching: Vec<_> = state
             .ring
             .iter()
             .filter(|entry| since_seq.is_none_or(|since| entry.seq > since))
             .collect();
-        // Initial reads show the newest entries. A supplied cursor pages forward
-        // without skipping unread entries when the result reaches its limit.
         let start = if since_seq.is_some() {
             0
         } else {
@@ -465,39 +835,34 @@ impl Logger {
         };
         let selected = &matching[start..matching.len().min(start.saturating_add(limit))];
         let last_seq = selected.last().map_or(state.next_seq, |entry| entry.seq);
-        let entries: Vec<Value> = selected.iter().map(|entry| entry.tail_value()).collect();
-        json!({ "entries": entries, "last_seq": last_seq, "dropped": dropped })
+        json!({"entries": selected.iter().map(|entry| entry.tail_value()).collect::<Vec<_>>(), "last_seq": last_seq, "dropped": dropped})
     }
-
     pub fn set_level(&self, level: Level) {
         self.level.store(level.as_u8(), Ordering::Relaxed);
     }
-
     pub fn is_degraded(&self) -> bool {
+        #[cfg(test)]
+        self.flush();
         self.state
             .lock()
             .unwrap_or_else(|poison| poison.into_inner())
             .degraded
     }
-
     pub fn current_file(&self) -> Option<PathBuf> {
+        #[cfg(test)]
+        self.flush();
         self.state
             .lock()
             .unwrap_or_else(|poison| poison.into_inner())
             .current_file
             .clone()
     }
-
     pub fn log_dir_value(&self) -> String {
-        self.state
-            .lock()
-            .unwrap_or_else(|poison| poison.into_inner())
-            .requested_logs_dir
+        self.requested_logs_dir
             .as_ref()
             .map(|dir| dir.to_string_lossy().into_owned())
             .unwrap_or_default()
     }
-
     pub fn log_frontend_at(
         &self,
         now: Instant,
@@ -507,62 +872,344 @@ impl Logger {
         msg: &str,
         fields: Fields,
     ) -> bool {
-        let warn = {
-            let mut rate = self
-                .frontend_rate
-                .lock()
-                .unwrap_or_else(|poison| poison.into_inner());
-            if rate.window_started.is_none_or(|started| {
-                now.saturating_duration_since(started) >= Duration::from_secs(1)
-            }) {
-                rate.window_started = Some(now);
-                rate.accepted = 0;
-                rate.warning_emitted = false;
-            }
-            if rate.accepted < 20 {
-                rate.accepted += 1;
-                self.log(level, module, event, msg, fields);
-                return true;
-            }
-            if rate.warning_emitted {
-                false
+        let window = now
+            .saturating_duration_since(self.frontend_origin)
+            .as_secs()
+            .min(u64::from(u32::MAX));
+        let mut old = self.frontend_rate.load(Ordering::Relaxed);
+        loop {
+            let count = if old >> 32 == window {
+                old & 0xffff_ffff
             } else {
-                rate.warning_emitted = true;
-                true
+                0
+            };
+            if count > 20 {
+                return false;
             }
-        };
-        if warn {
-            self.log(
-                Level::Warn,
-                "logging",
-                "frontend_rate_limited",
-                "renderer log rate limit exceeded",
-                Fields::new(),
-            );
+            let new = (window << 32) | (count + 1);
+            match self.frontend_rate.compare_exchange_weak(
+                old,
+                new,
+                Ordering::Relaxed,
+                Ordering::Relaxed,
+            ) {
+                Ok(_) if count == 20 => {
+                    self.enqueue(RawEntry::bounded(
+                        Level::Warn,
+                        "logging",
+                        "frontend_rate_limited",
+                        "renderer log rate limit exceeded",
+                        Fields::new(),
+                        false,
+                    ));
+                    return false;
+                }
+                Ok(_) => {
+                    if level.as_u8() > self.level.load(Ordering::Relaxed) {
+                        return false;
+                    }
+                    return self
+                        .enqueue(RawEntry::bounded(level, module, event, msg, fields, true));
+                }
+                Err(current) => old = current,
+            }
         }
-        false
     }
 }
-
-fn retain_logs(logs_dir: &Path, max_files: usize, current_file: Option<&Path>) -> io::Result<()> {
-    let mut files: Vec<PathBuf> = fs::read_dir(logs_dir)?
+impl Sink {
+    fn initialize(&self) {
+        if self.config.memory_only {
+            return;
+        }
+        let mut state = self
+            .state
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let result = self
+            .config
+            .data_dir
+            .as_ref()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "LOG_DIRECTORY_UNAVAILABLE"))
+            .and_then(|root| {
+                let dir = root.join("logs");
+                match fs::symlink_metadata(&dir) {
+                    Ok(_) => check_logs_dir(&dir)?,
+                    Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+                    Err(error) => return Err(error),
+                }
+                fs::create_dir_all(&dir)?;
+                check_logs_dir(&dir)?;
+                state.logs_dir = Some(dir);
+                self.open_new_file(&mut state)
+            });
+        if result.is_err() {
+            self.degrade(&mut state, "LOG_DIRECTORY_UNAVAILABLE");
+        }
+    }
+    fn make_entry(&self, sequence: u64, raw: RawEntry) -> LogEntry {
+        let registry = self
+            .secrets
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let version = crate::version::AppVersion::current();
+        let mut entry = LogEntry {
+            seq: sequence,
+            ts: utc_timestamp(raw.at),
+            level: raw.level,
+            module: redact_with(&raw.module, &registry, raw.frontend),
+            event: redact_with(&raw.event, &registry, raw.frontend),
+            msg: redact_with(&raw.msg, &registry, raw.frontend),
+            fields: redact_scalar_fields(raw.fields, &registry, raw.frontend),
+            v: prefix(version.version, 64).to_owned(),
+            commit: version.git_commit.map(|value| prefix(&value, 7).to_owned()),
+        };
+        fit_entry_to_file_limit(&mut entry, self.config.max_file_bytes);
+        entry
+    }
+    fn append(&self, state: &mut LoggerState, raw: RawEntry) -> LogEntry {
+        state.next_seq = state.next_seq.saturating_add(1);
+        let entry = self.make_entry(state.next_seq, raw);
+        state.ring.push_back(entry.clone());
+        while state.ring.len() > self.config.ring_capacity {
+            state.ring.pop_front();
+        }
+        entry
+    }
+    fn degrade(&self, state: &mut LoggerState, code: &str) {
+        state.degraded = true;
+        state.writer = None;
+        state.logs_dir = None;
+        state.current_file = None;
+        if !state.degradation_reported {
+            state.degradation_reported = true;
+            self.append(
+                state,
+                RawEntry::bounded(
+                    Level::Warn,
+                    "logging",
+                    "log_storage_unavailable",
+                    "file logging unavailable; using the in-memory ring",
+                    Map::from_iter([("code".to_owned(), Value::String(code.to_owned()))]),
+                    false,
+                ),
+            );
+            if self.config.report_stderr {
+                let _ = io::stderr().write_all(b"Kohbor file logging unavailable; ring only.\n");
+            }
+        }
+    }
+    fn open_new_file(&self, state: &mut LoggerState) -> io::Result<()> {
+        let dir = state
+            .logs_dir
+            .as_ref()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "LOG_DIRECTORY_UNAVAILABLE"))?;
+        check_logs_dir(dir)?;
+        let mut seconds = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        let (file, path) = loop {
+            let path = dir.join(log_filename_at(seconds));
+            match OpenOptions::new().write(true).create_new(true).open(&path) {
+                Ok(file) => break (file, path),
+                Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
+                    seconds = seconds.saturating_add(1)
+                }
+                Err(error) => return Err(error),
+            }
+        };
+        state.writer = Some(BufWriter::new(file));
+        state.current_file = Some(path);
+        state.file_len = 0;
+        retain_logs(dir, self.config.max_files, state.current_file.as_deref())?;
+        state.last_flush = Instant::now();
+        Ok(())
+    }
+    fn write_line(&self, state: &mut LoggerState, line: &[u8]) -> io::Result<()> {
+        let dir = state
+            .logs_dir
+            .as_ref()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "LOG_DIRECTORY_UNAVAILABLE"))?;
+        check_logs_dir(dir)?;
+        if line.len() as u64 > self.config.max_file_bytes {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "LOG_RECORD_TOO_LARGE",
+            ));
+        }
+        if state.writer.is_none()
+            || state.file_len.saturating_add(line.len() as u64) > self.config.max_file_bytes
+        {
+            if let Some(writer) = state.writer.as_mut() {
+                writer.flush()?;
+            }
+            self.open_new_file(state)?;
+        }
+        let writer = state
+            .writer
+            .as_mut()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "LOG_FILE_UNAVAILABLE"))?;
+        writer.write_all(line)?;
+        state.file_len = state.file_len.saturating_add(line.len() as u64);
+        Ok(())
+    }
+    fn record(&self, raw: RawEntry) {
+        let mut state = self
+            .state
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let entry = self.append(&mut state, raw);
+        if state.degraded {
+            return;
+        }
+        let result = serde_json::to_vec(&entry.file_value())
+            .map_err(io::Error::other)
+            .and_then(|mut bytes| {
+                bytes.push(b'\n');
+                self.write_line(&mut state, &bytes)?;
+                if matches!(entry.level, Level::Error | Level::Warn) {
+                    if let Some(writer) = state.writer.as_mut() {
+                        writer.flush()?;
+                    }
+                    state.last_flush = Instant::now();
+                }
+                Ok(())
+            });
+        if result.is_err() {
+            self.degrade(&mut state, "LOG_WRITE_FAILED");
+        }
+    }
+    fn flush(&self) {
+        let mut state = self
+            .state
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        if state.degraded {
+            return;
+        }
+        let result = state
+            .logs_dir
+            .as_ref()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "LOG_DIRECTORY_UNAVAILABLE"))
+            .and_then(|dir| check_logs_dir(dir))
+            .and_then(|()| state.writer.as_mut().map_or(Ok(()), Write::flush));
+        if result.is_err() {
+            self.degrade(&mut state, "LOG_FLUSH_FAILED");
+        }
+        state.last_flush = Instant::now();
+    }
+}
+fn writer_loop(
+    sink: Arc<Sink>,
+    receiver: Receiver<WriterCommand>,
+    pending_drops: Arc<AtomicU64>,
+    mut probe: Option<WriterProbe>,
+) {
+    sink.initialize();
+    let mut next_periodic = Instant::now() + Duration::from_secs(1);
+    loop {
+        match receiver.recv_timeout(Duration::from_millis(100)) {
+            Ok(WriterCommand::Entry(raw)) => {
+                if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    if let Some(probe) = probe.take() {
+                        let _guard = sink
+                            .state
+                            .lock()
+                            .unwrap_or_else(|poison| poison.into_inner());
+                        probe();
+                    }
+                    sink.record(raw);
+                }))
+                .is_err()
+                {
+                    sink.record(RawEntry::bounded(
+                        Level::Error,
+                        "logging",
+                        "writer_panicked",
+                        "log writer recovered from a panic",
+                        Fields::new(),
+                        false,
+                    ));
+                }
+            }
+            Ok(WriterCommand::Flush(ack)) => {
+                sink.flush();
+                let _ = ack.try_send(());
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => {}
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                sink.flush();
+                break;
+            }
+        }
+        if Instant::now() >= next_periodic {
+            let dropped = pending_drops.swap(0, Ordering::Relaxed);
+            if dropped > 0 {
+                sink.record(RawEntry::bounded(
+                    Level::Warn,
+                    "logging",
+                    "log_entries_dropped",
+                    "bounded log queue dropped entries",
+                    Map::from_iter([("dropped".to_owned(), json!(dropped))]),
+                    false,
+                ));
+            }
+            sink.flush();
+            next_periodic = Instant::now() + Duration::from_secs(1);
+        }
+    }
+}
+fn redirected_directory(is_symlink: bool, attributes: u32) -> bool {
+    is_symlink || attributes & 0x400 != 0
+}
+fn redirected_metadata(metadata: &fs::Metadata) -> bool {
+    #[cfg(windows)]
+    let attributes = {
+        use std::os::windows::fs::MetadataExt;
+        metadata.file_attributes()
+    };
+    #[cfg(not(windows))]
+    let attributes = 0;
+    redirected_directory(metadata.file_type().is_symlink(), attributes)
+}
+fn check_logs_dir(dir: &Path) -> io::Result<()> {
+    let metadata = fs::symlink_metadata(dir)?;
+    if !metadata.is_dir() || redirected_metadata(&metadata) {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "LOG_DIRECTORY_REDIRECTED",
+        ));
+    }
+    Ok(())
+}
+fn retain_logs(dir: &Path, max_files: usize, current_file: Option<&Path>) -> io::Result<()> {
+    check_logs_dir(dir)?;
+    let mut files: Vec<PathBuf> = fs::read_dir(dir)?
         .filter_map(Result::ok)
         .filter_map(|entry| {
-            let file_type = entry.file_type().ok()?;
-            if !file_type.is_file() || !is_log_filename(&entry.file_name().to_string_lossy()) {
-                return None;
-            }
-            Some(entry.path())
+            let path = entry.path();
+            let metadata = fs::symlink_metadata(&path).ok()?;
+            (path.parent() == Some(dir)
+                && metadata.is_file()
+                && !redirected_metadata(&metadata)
+                && is_log_filename(&entry.file_name().to_string_lossy()))
+            .then_some(path)
         })
         .collect();
     files.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
     while files.len() > max_files {
-        let index = files
+        let Some(index) = files
             .iter()
             .position(|path| Some(path.as_path()) != current_file)
-            .unwrap_or(0);
+        else {
+            break;
+        };
         let oldest = files.remove(index);
-        fs::remove_file(oldest)?;
+        check_logs_dir(dir)?;
+        let metadata = fs::symlink_metadata(&oldest)?;
+        if metadata.is_file() && !redirected_metadata(&metadata) && oldest.parent() == Some(dir) {
+            fs::remove_file(oldest)?;
+        }
     }
     Ok(())
 }
@@ -634,42 +1281,365 @@ fn utc_timestamp(time: SystemTime) -> String {
     )
 }
 
-fn redact(input: &str) -> String {
+#[derive(Clone)]
+struct RegisteredSecret {
+    variants: Vec<String>,
+    normalized: Vec<char>,
+}
+#[derive(Clone, Default)]
+struct SecretRegistry {
+    values: VecDeque<RegisteredSecret>,
+}
+impl SecretRegistry {
+    fn register(&mut self, value: &str) {
+        let value = prefix(value, MAX_MESSAGE_BYTES);
+        if value.len() < 6
+            || self
+                .values
+                .iter()
+                .any(|secret| secret.variants.first().is_some_and(|v| v == value))
+        {
+            return;
+        }
+        let stripped: String = value.chars().filter(|ch| ch.is_alphanumeric()).collect();
+        let mut variants = vec![
+            value.to_owned(),
+            value.to_lowercase(),
+            stripped.clone(),
+            stripped.to_lowercase(),
+        ];
+        for text in variants.clone() {
+            let encoded = url_encode(&text, false);
+            let all_encoded = url_encode(&text, true);
+            variants.extend([
+                encoded.clone(),
+                encoded.to_lowercase(),
+                all_encoded.clone(),
+                all_encoded.to_lowercase(),
+            ]);
+        }
+        variants.retain(|value| !value.is_empty());
+        let normalized = normalized_units(value)
+            .into_iter()
+            .map(|(ch, _, _)| ch)
+            .collect();
+        if self.values.len() == 16 {
+            self.values.pop_front();
+        }
+        self.values.push_back(RegisteredSecret {
+            variants,
+            normalized,
+        });
+    }
+}
+static SECRETS: OnceLock<Arc<Mutex<SecretRegistry>>> = OnceLock::new();
+fn secret_registry() -> Arc<Mutex<SecretRegistry>> {
+    SECRETS
+        .get_or_init(|| Arc::new(Mutex::new(SecretRegistry::default())))
+        .clone()
+}
+/// Register known credentials/identity values in memory only. Values shorter
+/// than six bytes are ignored; only the newest sixteen distinct values remain.
+/// Never emit the value itself as a diagnostic.
+pub fn register_secret(value: &str) {
+    #[cfg(test)]
+    if let Some(logger) = SCOPED_TEST_LOGGER.with(|active| active.borrow().clone()) {
+        logger.register_for_test(value);
+        return;
+    }
+    secret_registry()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner())
+        .register(value);
+}
+fn prefix(input: &str, cap: usize) -> &str {
+    let mut end = input.len().min(cap);
+    while !input.is_char_boundary(end) {
+        end -= 1;
+    }
+    &input[..end]
+}
+
+fn cap_redacted_output(mut output: String, cap: usize) -> String {
+    if output.len() <= cap {
+        return output;
+    }
+    let mut end = prefix(&output, cap).len();
+    // Preserve a complete marker when replacement text crosses the byte cap.
+    if let Some(start) = output[..end].rfind('[') {
+        if output[start..].starts_with(REDACTED) && start + REDACTED.len() > end {
+            end = start;
+        }
+    }
+    output.truncate(end);
+    output
+}
+fn url_encode(input: &str, all: bool) -> String {
+    let mut result = String::new();
+    for byte in input.bytes() {
+        if !all && (is_base64url(byte) || byte == b'.' || byte == b'~') {
+            result.push(char::from(byte));
+        } else {
+            use std::fmt::Write as _;
+            let _ = write!(result, "%{byte:02X}");
+        }
+    }
+    result
+}
+fn hex_value(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
+    }
+}
+fn normalized_units(input: &str) -> Vec<(char, usize, usize)> {
     let bytes = input.as_bytes();
-    let mut output = String::with_capacity(input.len());
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut spans = Vec::with_capacity(bytes.len());
     let mut index = 0;
     while index < bytes.len() {
-        if let Some((_, username_end)) = profile_user_segment(bytes, index) {
-            output.push_str("C:\\Users\\<user>");
-            if username_end < bytes.len() {
-                output.push('\\');
-                index = username_end + 1;
+        let decoded_hex = if bytes[index] == b'%' && index + 2 < bytes.len() {
+            hex_value(bytes[index + 1]).zip(hex_value(bytes[index + 2]))
+        } else {
+            None
+        };
+        if let Some((high, low)) = decoded_hex {
+            decoded.push(high * 16 + low);
+            spans.push((index, index + 3));
+            index += 3;
+        } else {
+            decoded.push(bytes[index]);
+            spans.push((index, index + 1));
+            index += 1;
+        }
+    }
+    let mut result = Vec::new();
+    if let Ok(text) = std::str::from_utf8(&decoded) {
+        for (index, ch) in text.char_indices() {
+            for lower in ch.to_lowercase().filter(|ch| ch.is_alphanumeric()) {
+                result.push((lower, spans[index].0, spans[index + ch.len_utf8() - 1].1));
+            }
+        }
+    } else {
+        for (index, byte) in decoded
+            .iter()
+            .enumerate()
+            .filter(|(_, byte)| byte.is_ascii_alphanumeric())
+        {
+            result.push((
+                char::from(byte.to_ascii_lowercase()),
+                spans[index].0,
+                spans[index].1,
+            ));
+        }
+    }
+    result
+}
+fn redact_registered(input: &str, registry: &SecretRegistry) -> String {
+    let input = prefix(input, MAX_MESSAGE_BYTES);
+    let normalized = normalized_units(input);
+    let mut ranges = Vec::new();
+    for secret in &registry.values {
+        for variant in &secret.variants {
+            ranges.extend(
+                input
+                    .match_indices(variant)
+                    .map(|(start, value)| (start, start + value.len())),
+            );
+        }
+        let size = secret.normalized.len();
+        if size > 0 && size <= normalized.len() {
+            for (index, window) in normalized.windows(size).enumerate() {
+                if window
+                    .iter()
+                    .map(|unit| unit.0)
+                    .eq(secret.normalized.iter().copied())
+                {
+                    ranges.push((normalized[index].1, window[size - 1].2));
+                }
+            }
+        }
+    }
+    ranges.sort_unstable();
+    let mut result = String::new();
+    let mut previous = 0;
+    let mut merged: Vec<(usize, usize)> = Vec::new();
+    for (start, end) in ranges {
+        if let Some(last) = merged.last_mut() {
+            if start < last.1 {
+                last.1 = last.1.max(end);
+                continue;
+            }
+        }
+        merged.push((start, end));
+    }
+    for (start, end) in merged {
+        result.push_str(&input[previous..start]);
+        result.push_str(REDACTED);
+        previous = end;
+    }
+    result.push_str(&input[previous..]);
+    result
+}
+fn redact(input: &str) -> String {
+    let registry = secret_registry();
+    let guard = registry.lock().unwrap_or_else(|poison| poison.into_inner());
+    redact_with(prefix(input, MAX_MESSAGE_BYTES), &guard, false)
+}
+fn redact_with(input: &str, registry: &SecretRegistry, frontend: bool) -> String {
+    let registered = redact_registered(
+        prefix(
+            input,
+            if frontend {
+                MAX_FRONTEND_BYTES
             } else {
-                index = username_end;
+                MAX_MESSAGE_BYTES
+            },
+        ),
+        registry,
+    );
+    let bytes = registered.as_bytes();
+    let mut result = String::with_capacity(registered.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if let Some((_, end)) = profile_user_segment(bytes, index) {
+            result.push_str("C:\\Users\\<user>");
+            if end < bytes.len() {
+                result.push('\\');
+                index = end + 1;
+            } else {
+                index = end;
             }
             continue;
         }
-        if bytes[index..].starts_with(b"7656119") && bytes[index].is_ascii_digit() {
+        if bytes[index].is_ascii_digit() {
             let end = digit_run_end(bytes, index);
-            if end.saturating_sub(index) >= 17 {
-                output.push_str(REDACTED);
+            if (frontend && end - index >= 9)
+                || (bytes[index..].starts_with(b"7656119") && end - index >= 17)
+            {
+                result.push_str(REDACTED);
                 index = end;
                 continue;
             }
         }
         if is_base64url(bytes[index]) {
             let end = base64url_run_end(bytes, index);
-            if end.saturating_sub(index) >= 40 {
-                output.push_str(REDACTED);
+            if end - index >= if frontend { 16 } else { 40 } {
+                result.push_str(REDACTED);
                 index = end;
                 continue;
             }
         }
-        let ch = input[index..].chars().next().expect("valid UTF-8 boundary");
-        output.push(ch);
-        index += ch.len_utf8();
+        if let Some(ch) = registered[index..].chars().next() {
+            result.push(ch);
+            index += ch.len_utf8();
+        } else {
+            break;
+        }
     }
-    output
+    cap_redacted_output(
+        result,
+        if frontend {
+            MAX_FRONTEND_BYTES
+        } else {
+            MAX_MESSAGE_BYTES
+        },
+    )
+}
+fn frontend_string_allowed(text: &str) -> bool {
+    text.len() <= 40
+        && text
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b" ._:/-".contains(&byte))
+}
+fn redact_scalar_fields(fields: Fields, registry: &SecretRegistry, frontend: bool) -> Value {
+    Value::Object(
+        fields
+            .into_iter()
+            .take(MAX_FIELDS)
+            .filter_map(|(key, value)| {
+                if frontend
+                    && !matches!(&value, Value::Number(_) | Value::Bool(_))
+                    && !matches!(&value, Value::String(text) if frontend_string_allowed(text))
+                {
+                    return None;
+                }
+                let cleaned = if sensitive_field_name(&key) {
+                    Value::String(REDACTED.to_owned())
+                } else {
+                    match value {
+                        Value::String(text) => Value::String(redact_with(
+                            prefix(&text, MAX_MESSAGE_BYTES),
+                            registry,
+                            frontend,
+                        )),
+                        Value::Number(number) => {
+                            let text = number.to_string();
+                            let cleaned = redact_with(&text, registry, frontend);
+                            if cleaned == text {
+                                Value::Number(number)
+                            } else {
+                                Value::String(cleaned)
+                            }
+                        }
+                        other => other,
+                    }
+                };
+                let cleaned = match cleaned {
+                    Value::String(text) => Value::String(cap_redacted_output(
+                        text,
+                        if frontend { 40 } else { MAX_MESSAGE_BYTES },
+                    )),
+                    other => other,
+                };
+                Some((
+                    cap_redacted_output(redact_with(&key, registry, frontend), MAX_KEY_BYTES),
+                    cleaned,
+                ))
+            })
+            .collect(),
+    )
+}
+/// Length checks only: never scan the contents of oversized renderer strings.
+pub(crate) fn validate_frontend_input(
+    level: &str,
+    module: &str,
+    msg: &str,
+    fields: Option<&Value>,
+) -> Result<(), &'static str> {
+    if [level, module, msg].iter().any(|text| text.len() > 4096) {
+        return Err("LOG_INPUT_TOO_LARGE");
+    }
+    let mut pending: Vec<&Value> = fields.into_iter().collect();
+    let mut nodes = 0;
+    while let Some(value) = pending.pop() {
+        nodes += 1;
+        if nodes > 1024 {
+            return Err("LOG_INPUT_TOO_LARGE");
+        }
+        match value {
+            Value::String(text) if text.len() > 4096 => return Err("LOG_INPUT_TOO_LARGE"),
+            Value::Array(values) => {
+                if values.len() > 1024 {
+                    return Err("LOG_INPUT_TOO_LARGE");
+                }
+                pending.extend(values);
+            }
+            Value::Object(values) => {
+                if values.len() > 1024 || values.keys().any(|key| key.len() > 4096) {
+                    return Err("LOG_INPUT_TOO_LARGE");
+                }
+                pending.extend(values.values());
+            }
+            _ => {}
+        }
+        if pending.len() > 1024 {
+            return Err("LOG_INPUT_TOO_LARGE");
+        }
+    }
+    Ok(())
 }
 
 fn profile_user_segment(bytes: &[u8], index: usize) -> Option<(usize, usize)> {
@@ -717,81 +1687,6 @@ fn sensitive_field_name(name: &str) -> bool {
     .any(|needle| lower.contains(needle))
 }
 
-fn redact_fields(fields: Fields) -> Value {
-    let mut budget = MAX_FIELD_NODES;
-    redact_fields_with_budget(fields, &mut budget, 0)
-}
-
-fn redact_fields_with_budget(fields: Fields, budget: &mut usize, depth: usize) -> Value {
-    let mut redacted = Map::new();
-    for (key, value) in fields {
-        if *budget == 0 {
-            redacted.insert("_truncated".to_owned(), Value::Bool(true));
-            break;
-        }
-        *budget -= 1;
-        let sensitive = sensitive_field_name(&key);
-        let key = redact_and_limit(&key, MAX_FIELD_KEY_CHARS);
-        let value = if sensitive {
-            Value::String(REDACTED.to_owned())
-        } else {
-            redact_value(value, budget, depth + 1)
-        };
-        redacted.insert(key, value);
-    }
-    Value::Object(redacted)
-}
-
-fn redact_value(value: Value, budget: &mut usize, depth: usize) -> Value {
-    if *budget == 0 || depth >= MAX_FIELD_DEPTH {
-        return Value::String("[truncated]".to_owned());
-    }
-    *budget -= 1;
-    match value {
-        Value::String(text) => Value::String(redact_and_limit(&text, MAX_FIELD_STRING_CHARS)),
-        Value::Array(values) => {
-            let mut redacted = Vec::new();
-            for value in values {
-                if *budget == 0 {
-                    redacted.push(Value::String("[truncated]".to_owned()));
-                    break;
-                }
-                redacted.push(redact_value(value, budget, depth + 1));
-            }
-            Value::Array(redacted)
-        }
-        Value::Object(values) => {
-            let fields: Fields = values.into_iter().collect();
-            redact_fields_with_budget(fields, budget, depth + 1)
-        }
-        Value::Number(number) => {
-            let text = number.to_string();
-            let cleaned = redact(&text);
-            if cleaned != text {
-                Value::String(cleaned)
-            } else {
-                Value::Number(number)
-            }
-        }
-        other => other,
-    }
-}
-
-fn redact_and_limit(input: &str, max_chars: usize) -> String {
-    let mut redacted = redact(input);
-    if redacted.chars().count() > max_chars {
-        let mut end = redacted
-            .char_indices()
-            .nth(max_chars)
-            .map_or(redacted.len(), |(index, _)| index);
-        while !redacted.is_char_boundary(end) {
-            end -= 1;
-        }
-        redacted.truncate(end);
-    }
-    redacted
-}
-
 fn file_line_len(entry: &LogEntry) -> usize {
     serde_json::to_vec(&entry.file_value())
         .map_or(usize::MAX, |bytes| bytes.len().saturating_add(1))
@@ -828,104 +1723,92 @@ fn fit_entry_to_file_limit(entry: &mut LogEntry, max_file_bytes: u64) {
 
 static GLOBAL: OnceLock<Arc<Logger>> = OnceLock::new();
 static PANIC_HOOK: OnceLock<()> = OnceLock::new();
-
+thread_local! { static PANIC_ACTIVE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) }; }
 #[cfg(test)]
-thread_local! {
-    static SCOPED_TEST_LOGGER: std::cell::RefCell<Option<Arc<Logger>>> = const {
-        std::cell::RefCell::new(None)
-    };
-}
-
-/// Isolate fake-worker logging from other concurrently running unit tests.
+thread_local! { static SCOPED_TEST_LOGGER: std::cell::RefCell<Option<Arc<Logger>>> = const { std::cell::RefCell::new(None) }; }
 #[cfg(test)]
-pub(crate) fn collect_test_logs(action: impl FnOnce()) -> Vec<LogEntry> {
+fn with_test_logger<T>(logger: Arc<Logger>, action: impl FnOnce() -> T) -> T {
     struct Restore(Option<Arc<Logger>>);
     impl Drop for Restore {
         fn drop(&mut self) {
-            SCOPED_TEST_LOGGER.with(|active| active.replace(self.0.take()));
+            let _ = SCOPED_TEST_LOGGER.try_with(|active| active.replace(self.0.take()));
         }
     }
+    let _restore = Restore(SCOPED_TEST_LOGGER.with(|active| active.replace(Some(logger))));
+    action()
+}
+#[cfg(test)]
+pub(crate) fn collect_test_logs(action: impl FnOnce()) -> Vec<LogEntry> {
     let logger = Arc::new(Logger::new_in_memory(RING_CAPACITY));
-    let _restore = Restore(SCOPED_TEST_LOGGER.with(|active| active.replace(Some(logger.clone()))));
-    action();
+    with_test_logger(logger.clone(), action);
     logger.entries()
 }
-
 pub fn initialize(data_dir: Option<&Path>) {
     let logger = GLOBAL.get_or_init(|| {
-        let logger = Arc::new(Logger::with_limits(
+        let config = Logger::config(
             data_dir.map(Path::to_path_buf),
             MAX_FILE_BYTES,
             MAX_FILES,
             RING_CAPACITY,
             true,
-        ));
+        );
+        let logger = Arc::new(Logger::start(config, secret_registry(), None));
         if std::env::var("KOHBOR_LOG").is_ok_and(|value| value.eq_ignore_ascii_case("debug")) {
             logger.set_level(Level::Debug);
         }
-        start_flush_thread(&logger);
         logger
     });
     install_panic_hook();
-    let _ = logger;
+    logger.flush();
 }
-
-fn start_flush_thread(logger: &Arc<Logger>) {
-    let weak = Arc::downgrade(logger);
-    if let Err(error) = std::thread::Builder::new()
-        .name("log-flusher".to_owned())
-        .spawn(move || loop {
-            std::thread::sleep(Duration::from_secs(1));
-            let Some(logger) = weak.upgrade() else {
-                break;
-            };
-            logger.flush_if_due();
-        })
-    {
-        logger.flush_each_record.store(1, Ordering::Relaxed);
-        logger.log(
-            Level::Warn,
-            "logging",
-            "log_flusher_unavailable",
-            &format!(
-                "periodic log flush worker unavailable: {}",
-                redact(&error.to_string())
-            ),
-            Fields::new(),
-        );
-    }
+fn panic_stderr(line: u32, column: u32) {
+    let _ = writeln!(
+        io::stderr(),
+        "Kohbor panic: private details omitted (line {line}, column {column})."
+    );
 }
-
 pub fn install_panic_hook() {
     PANIC_HOOK.get_or_init(|| {
-        let previous = std::panic::take_hook();
-        std::panic::set_hook(Box::new(move |info| {
+        // The previous hook is intentionally not called: it would receive and
+        // print the original unredacted payload, including in debug builds.
+        std::panic::set_hook(Box::new(|info| {
+            let line = info.location().map_or(0, |location| location.line());
+            let column = info.location().map_or(0, |location| location.column());
+            if PANIC_ACTIVE
+                .try_with(|active| active.replace(true))
+                .unwrap_or(true)
+            {
+                panic_stderr(line, column);
+                return;
+            }
             let message = info
                 .payload()
                 .downcast_ref::<&str>()
                 .copied()
                 .or_else(|| info.payload().downcast_ref::<String>().map(String::as_str))
                 .unwrap_or("non-string panic payload");
-            let location = info.location().map_or_else(
-                || "unknown".to_owned(),
-                |location| {
-                    format!(
-                        "{}:{}:{}",
-                        location.file(),
-                        location.line(),
-                        location.column()
-                    )
-                },
-            );
-            let mut fields = Fields::new();
-            fields.insert("location".to_owned(), Value::String(location));
-            emit(Level::Error, "panic", "panic", message, fields);
-            flush();
-            previous(info);
+            let location = info
+                .location()
+                .map(|location| location.file())
+                .unwrap_or("unknown");
+            #[cfg(test)]
+            let scoped = SCOPED_TEST_LOGGER
+                .try_with(|active| active.try_borrow().ok().and_then(|logger| logger.clone()))
+                .ok()
+                .flatten();
+            #[cfg(not(test))]
+            let scoped: Option<Arc<Logger>> = None;
+            if let Some(logger) = scoped.as_ref().or_else(|| GLOBAL.get()) {
+                logger.panic_record(message, location, line, column);
+            }
+            panic_stderr(line, column);
+            let _ = PANIC_ACTIVE.try_with(|active| active.set(false));
         }));
     });
 }
-
+/// Host code must never pass player names, OCR text, raw payloads, screenshots,
+/// pack contents, or credential values. This facade performs bounded copies and
+/// a nonblocking try_send only; all redaction and sink work belongs to the writer.
 pub fn emit(level: Level, module: &str, event: &str, msg: &str, fields: Fields) {
     #[cfg(test)]
     if let Some(logger) = SCOPED_TEST_LOGGER.with(|active| active.borrow().clone()) {
@@ -934,74 +1817,67 @@ pub fn emit(level: Level, module: &str, event: &str, msg: &str, fields: Fields) 
     }
     if let Some(logger) = GLOBAL.get() {
         logger.log(level, module, event, msg, fields);
-    } else {
-        eprintln!(
-            "[{}] {} {}: {}",
-            level.as_str(),
-            redact(module),
-            redact(event),
-            redact(msg)
-        );
     }
+    // No synchronous stderr formatting or I/O on a hot caller before startup.
 }
-
+pub(crate) fn try_clip_played(event_id: &str) {
+    let fields = Map::from_iter([
+        (
+            "event_id".to_owned(),
+            Value::String(prefix(event_id, 80).to_owned()),
+        ),
+        ("outcome".to_owned(), Value::String("admitted".to_owned())),
+    ]);
+    emit(
+        Level::Info,
+        "audio",
+        "clip_played",
+        "announcer clip started",
+        fields,
+    );
+}
 pub fn emit_frontend(level: Level, module: &str, event: &str, msg: &str, fields: Fields) -> bool {
     GLOBAL.get().is_some_and(|logger| {
         logger.log_frontend_at(Instant::now(), level, module, event, msg, fields)
     })
 }
-
 pub fn tail(since_seq: Option<u64>, limit: Option<u32>) -> Value {
     GLOBAL
         .get()
         .map(|logger| logger.tail_value(since_seq, limit))
-        .unwrap_or_else(|| json!({ "entries": [], "last_seq": 0, "dropped": false }))
+        .unwrap_or_else(|| json!({"entries": [], "last_seq": 0, "dropped": false}))
 }
-
 pub fn set_level(value: &str) -> Result<(), &'static str> {
     let level = Level::parse(value)?;
-    if let Some(logger) = GLOBAL.get() {
-        logger.set_level(level);
-        Ok(())
-    } else {
-        Err("LOGGER_UNAVAILABLE")
-    }
+    GLOBAL
+        .get()
+        .ok_or("LOGGER_UNAVAILABLE")
+        .map(|logger| logger.set_level(level))
 }
-
 pub fn log_dir() -> String {
     GLOBAL
         .get()
         .map(|logger| redact(&logger.log_dir_value()))
         .unwrap_or_default()
 }
-
 pub fn open_log_dir() -> Result<(), String> {
     let dir = GLOBAL
         .get()
-        .map_or_else(String::new, |logger| logger.log_dir_value());
-    if dir.is_empty() {
-        return Err("LOG_DIRECTORY_UNAVAILABLE".to_owned());
-    }
+        .map(|logger| logger.log_dir_value())
+        .filter(|dir| !dir.is_empty())
+        .ok_or("LOG_DIRECTORY_UNAVAILABLE")?;
+    check_logs_dir(Path::new(&dir)).map_err(|_| "LOG_DIRECTORY_UNAVAILABLE".to_owned())?;
     Command::new("explorer.exe")
         .arg(dir)
         .spawn()
         .map(|_| ())
         .map_err(|_| "LOG_FOLDER_OPEN_FAILED".to_owned())
 }
-
 pub fn flush() {
     if let Some(logger) = GLOBAL.get() {
         logger.flush();
     }
 }
-
-#[cfg(test)]
-fn global_entries_for_test() -> Vec<LogEntry> {
-    GLOBAL
-        .get()
-        .map_or_else(Vec::new, |logger| logger.entries())
-}
-
 #[macro_export]
 macro_rules! __kohbor_log {
     ($level:expr, $module:expr, $event:expr, $message:expr $(, $key:ident = $value:expr)* $(,)?) => {{
@@ -1221,19 +2097,19 @@ mod tests {
     }
 
     #[test]
-    fn redacts_nested_values_recursively() {
+    fn host_payload_trees_are_dropped_before_queueing() {
         let logger = Logger::new_in_memory(16);
         log(
             &logger,
             Level::Info,
             "safe",
-            fields(&[("nested", json!({"caption": "76561197960265728", "safe": 3}))]),
+            fields(&[
+                ("nested", json!({"caption": "76561197960265728", "safe": 3})),
+                ("count", json!(3)),
+            ]),
         );
-        assert_eq!(
-            logger.entries()[0].fields["nested"]["caption"],
-            "[redacted]"
-        );
-        assert_eq!(logger.entries()[0].fields["nested"]["safe"], 3);
+        assert!(logger.entries()[0].fields.get("nested").is_none());
+        assert_eq!(logger.entries()[0].fields["count"], 3);
     }
 
     #[test]
@@ -1417,6 +2293,7 @@ mod tests {
             .unwrap();
         }
         let _logger = Logger::new_with_limits(Some(root.clone()), 4096, 5, 16);
+        assert!(_logger.current_file().is_some());
         let names = file_names(&root);
         assert_eq!(
             names
@@ -1444,6 +2321,7 @@ mod tests {
             .unwrap();
         }
         let _logger = Logger::new_with_limits(Some(root.clone()), 4096, 5, 16);
+        assert!(_logger.current_file().is_some());
         assert_eq!(fs::read_to_string(logs.join("notes.txt")).unwrap(), "keep");
     }
 
@@ -1461,6 +2339,7 @@ mod tests {
             .unwrap();
         }
         let _logger = Logger::new_with_limits(Some(root), 4096, 5, 16);
+        assert!(_logger.current_file().is_some());
         assert_eq!(
             fs::read_to_string(logs.join("kohbor-old.log")).unwrap(),
             "keep"
@@ -1597,9 +2476,12 @@ mod tests {
         super::initialize(Some(&root));
         super::install_panic_hook();
         let secret = token(44);
-        let result = std::panic::catch_unwind(|| panic!("logging panic hook probe {secret}"));
+        let logger = std::sync::Arc::new(Logger::new_in_memory(16));
+        let result = super::with_test_logger(logger.clone(), || {
+            std::panic::catch_unwind(|| panic!("logging panic hook probe {secret}"))
+        });
         assert!(result.is_err());
-        let entries = super::global_entries_for_test();
+        let entries = logger.entries();
         let entry = entries
             .iter()
             .find(|entry| {
@@ -1608,6 +2490,7 @@ mod tests {
             .unwrap();
         assert!(!entry.msg.contains(&secret));
         assert!(entry.fields.get("location").is_some());
+        assert!(entry.fields["line"].as_u64().is_some_and(|line| line > 0));
     }
 
     #[test]

@@ -125,7 +125,10 @@ fn platform_steamid64() -> Option<u64> {
             .open_subkey(r"Software\Valve\Steam\ActiveProcess")
             .ok()?;
         let id: u32 = key.get_value("ActiveUser").ok()?;
-        (id != 0).then(|| kohbor_gsi::steamid64_from_account_id(id))
+        crate::logging::register_secret(&id.to_string());
+        (id != 0)
+            .then(|| kohbor_gsi::steamid64_from_account_id(id))
+            .inspect(|owner| crate::logging::register_secret(&owner.to_string()))
     }
     #[cfg(not(windows))]
     {
@@ -279,14 +282,18 @@ fn owned_config_name() -> String {
 }
 
 fn new_token() -> Option<String> {
-    secrets::random::<32>().map(|b| base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(b))
+    secrets::random::<32>()
+        .map(|b| base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(b))
+        .inspect(|value| crate::logging::register_secret(value))
 }
 
 pub(crate) fn token_from(dir: &Path) -> Option<String> {
     let raw = secrets::load_or_create(&dir.join("gsi-token.bin"), || {
         new_token().map(String::into_bytes)
     })?;
-    String::from_utf8(raw).ok()
+    String::from_utf8(raw)
+        .ok()
+        .inspect(|value| crate::logging::register_secret(value))
 }
 
 fn unix_seconds() -> u64 {
@@ -317,6 +324,11 @@ impl Shared {
             secrets::random::<32>().map(|b| b.to_vec())
         });
         let key: Option<[u8; 32]> = key.and_then(|k| k.try_into().ok());
+        if let Some(key) = key.as_ref() {
+            crate::logging::register_secret(
+                &base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(key),
+            );
+        }
         let persisted: Option<PersistedSessions> = rt
             .as_ref()
             .and_then(|v| serde_json::from_value(v["sessions"].clone()).ok());
@@ -581,6 +593,7 @@ impl Shared {
             self.phase = Some(a.phase);
             if a.ownership == Ownership::Verified {
                 if let Some(owner) = a.steamid64 {
+                    crate::logging::register_secret(&owner.to_string());
                     let change = self.sessions.observe(a.match_id.as_deref(), owner, || {
                         secrets::random::<16>()
                             .map(|b| base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(b))
@@ -1690,6 +1703,10 @@ mod s0_6_tests {
             "kohbor-capture-native",
             "kohbor-minimap-cv",
             "kohbor-risk",
+            // Workspace path crate, reads the user's installed game files read-only,
+            // no network client; flate2: pinned compression library, no network.
+            "kohbor-game-assets",
+            "flate2",
             "tauri",
             "serde",
             "serde_json",

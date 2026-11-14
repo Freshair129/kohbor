@@ -1874,6 +1874,7 @@ name = "kohbor-desktop"
 version = "0.2.0-mvp2.1"
 dependencies = [
  "base64 0.22.1",
+ "flate2",
  "getrandom 0.2.17",
  "jsonschema",
  "kohbor-audio",
@@ -1881,6 +1882,7 @@ dependencies = [
  "kohbor-capture",
  "kohbor-capture-native",
  "kohbor-events",
+ "kohbor-game-assets",
  "kohbor-gsi",
  "kohbor-minimap-cv",
  "kohbor-pack",
