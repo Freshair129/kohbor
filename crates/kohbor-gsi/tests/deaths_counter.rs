@@ -42,8 +42,8 @@ fn present_deaths_and_inclusive_counter_bounds_are_admitted() {
     body["player"]["deaths"] = json!(0);
     assert_eq!(admitted(&body).counters.deaths, Field::Value(0));
 
-    body["player"]["deaths"] = json!(10_000);
-    assert_eq!(admitted(&body).counters.deaths, Field::Value(10_000));
+    body["player"]["deaths"] = json!(100_000);
+    assert_eq!(admitted(&body).counters.deaths, Field::Value(100_000));
 }
 
 #[test]
@@ -65,7 +65,7 @@ fn wrong_type_deaths_are_invalid() {
 
 #[test]
 fn out_of_range_deaths_are_invalid() {
-    for value in [json!(-1), json!(10_001), json!(u64::MAX)] {
+    for value in [json!(-1), json!(100_001), json!(u64::MAX)] {
         let mut body = payload();
         body["player"]["deaths"] = value;
         assert_eq!(admitted(&body).counters.deaths, Field::Invalid);

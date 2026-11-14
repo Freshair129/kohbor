@@ -240,9 +240,9 @@ fn own_counters(player: Option<&Value>, map: Option<&Value>) -> OwnCounters {
 
     OwnCounters {
         gold: int_field(player, "gold", 0, 1_000_000),
-        kills: int_field(player, "kills", 0, 10_000),
+        kills: int_field(player, "kills", 0, 100_000),
         kill_streak: int_field(player, "kill_streak", 0, 100_000),
-        deaths: int_field(player, "deaths", 0, 10_000),
+        deaths: int_field(player, "deaths", 0, 100_000),
         assists: int_field(player, "assists", 0, 10_000),
         last_hits: int_field(player, "last_hits", 0, 10_000),
         denies: int_field(player, "denies", 0, 10_000),

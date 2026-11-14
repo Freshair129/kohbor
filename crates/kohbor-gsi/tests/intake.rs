@@ -9,8 +9,8 @@ const TOKEN: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNO-_";
 const ACCOUNT: u32 = 12_345;
 const OWN_STAT_CASES: [(&str, i64, i64); 8] = [
     ("gold", 45_123, 1_000_000),
-    ("kills", 7, 10_000),
-    ("deaths", 2, 10_000),
+    ("kills", 7, 100_000),
+    ("deaths", 2, 100_000),
     ("assists", 9, 10_000),
     ("last_hits", 100, 10_000),
     ("denies", 8, 10_000),
