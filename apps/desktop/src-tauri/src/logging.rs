@@ -20,6 +20,7 @@ const DEFAULT_TAIL_LIMIT: usize = 200;
 const MAX_TAIL_LIMIT: usize = 1000;
 const REDACTED: &str = "[redacted]";
 const MAX_FIELDS: usize = 16;
+const MAX_SECRETS: usize = 64;
 const MAX_MESSAGE_BYTES: usize = 1024;
 const MAX_FRONTEND_BYTES: usize = 300;
 const MAX_KEY_BYTES: usize = 64;
@@ -73,14 +74,29 @@ mod round3_tests {
     }
 
     #[test]
-    fn secret_registry_has_a_six_byte_minimum_and_sixteen_value_cap() {
+    fn secret_registry_has_a_six_byte_minimum_and_never_evicts_an_active_value() {
         let mut registry = SecretRegistry::default();
         registry.register("short");
         assert!(registry.values.is_empty());
-        for index in 0..20 {
+        for index in 0..70 {
             registry.register(&format!("credential-{index:02}"));
         }
-        assert_eq!(registry.values.len(), 16);
+        assert_eq!(registry.values.len(), MAX_SECRETS);
+        assert!(registry.values.iter().any(|secret| secret
+            .variants
+            .first()
+            .is_some_and(|v| v == "credential-00")));
+    }
+
+    #[test]
+    fn a_message_cut_at_the_cap_never_keeps_the_prefix_of_a_secret_crossing_the_cut() {
+        let secret = "SECRETSECRETSECRETSECRETSECRETSECRET-0123456789";
+        // The secret starts 10 bytes before the cap: a plain cut would keep 10 readable bytes.
+        let text = format!("{}{}", "x".repeat(MAX_MESSAGE_BYTES - 10), secret);
+        let kept = safe_prefix(&text, MAX_MESSAGE_BYTES);
+        assert!(kept.len() <= MAX_MESSAGE_BYTES - SECRET_TAIL_GUARD);
+        assert!(!kept.contains("SECRET"));
+        assert_eq!(safe_prefix("short", MAX_MESSAGE_BYTES), "short");
     }
 
     #[test]
@@ -117,7 +133,11 @@ mod round3_tests {
             &message,
             Fields::new(),
         );
-        assert_eq!(logger.entries()[0].msg.len(), 300);
+        // Cut early by SECRET_TAIL_GUARD so a secret crossing the cut leaves no readable prefix.
+        assert_eq!(
+            logger.entries()[0].msg.len(),
+            MAX_FRONTEND_BYTES - SECRET_TAIL_GUARD
+        );
     }
 
     #[test]
@@ -582,7 +602,8 @@ impl RawEntry {
                 }
                 let value = match value {
                     Value::String(text) if !frontend || text.len() <= 40 => Value::String(
-                        prefix(&text, if frontend { 40 } else { MAX_MESSAGE_BYTES }).to_owned(),
+                        safe_prefix(&text, if frontend { 40 } else { MAX_MESSAGE_BYTES })
+                            .to_owned(),
                     ),
                     Value::Number(_) | Value::Bool(_) => value,
                     Value::Null if !frontend => value,
@@ -596,7 +617,7 @@ impl RawEntry {
             level,
             module: prefix(module, 64).to_owned(),
             event: prefix(event, 96).to_owned(),
-            msg: prefix(
+            msg: safe_prefix(
                 msg,
                 if frontend {
                     MAX_FRONTEND_BYTES
@@ -1323,8 +1344,10 @@ impl SecretRegistry {
             .into_iter()
             .map(|(ch, _, _)| ch)
             .collect();
-        if self.values.len() == 16 {
-            self.values.pop_front();
+        if self.values.len() >= MAX_SECRETS {
+            // Never evict an active credential: refuse the newest value instead (the caller set
+            // is tiny: token, install key, owner ids).
+            return;
         }
         self.values.push_back(RegisteredSecret {
             variants,
@@ -1339,7 +1362,7 @@ fn secret_registry() -> Arc<Mutex<SecretRegistry>> {
         .clone()
 }
 /// Register known credentials/identity values in memory only. Values shorter
-/// than six bytes are ignored; only the newest sixteen distinct values remain.
+/// than six bytes are ignored; up to 64 distinct values are kept and an active one is never evicted.
 /// Never emit the value itself as a diagnostic.
 pub fn register_secret(value: &str) {
     #[cfg(test)]
@@ -1352,6 +1375,19 @@ pub fn register_secret(value: &str) {
         .unwrap_or_else(|poison| poison.into_inner())
         .register(value);
 }
+/// Longest registered secret the redactor can be asked to hide. A message that has to be cut is cut
+/// this much EARLIER, so a secret that crosses the cut can never leave a readable prefix behind
+/// (exact-value redaction only sees what is left after truncation).
+const SECRET_TAIL_GUARD: usize = 128;
+
+fn safe_prefix(input: &str, cap: usize) -> &str {
+    if input.len() <= cap {
+        input
+    } else {
+        prefix(input, cap.saturating_sub(SECRET_TAIL_GUARD))
+    }
+}
+
 fn prefix(input: &str, cap: usize) -> &str {
     let mut end = input.len().min(cap);
     while !input.is_char_boundary(end) {
