@@ -11,6 +11,8 @@ mod profile;
 #[cfg(any(feature = "lab", debug_assertions))]
 pub mod dev_override;
 
+pub mod sandbox;
+
 pub use profile::{embedded, embedded_sha256, merge_override, Effective, ProfileError};
 
 use std::path::PathBuf;

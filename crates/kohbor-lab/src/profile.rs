@@ -356,6 +356,21 @@ impl Effective {
         }
     }
 
+    /// A copy with the named parameters replaced. The whole result is validated again, so
+    /// pairs such as trigger and re-arm can be moved together; the original is unchanged.
+    pub fn with_edits(&self, edits: &[(&str, &str, Value)]) -> Result<Effective, ProfileError> {
+        let mut doc: Value = serde_json::from_str(&self.export_json()).expect("own export parses");
+        for (event, name, value) in edits {
+            if doc["events"].get(*event).is_none() {
+                doc["events"][*event] = json!({"params": {}});
+            }
+            doc["events"][*event]["params"][*name] = value.clone();
+        }
+        let mut edited = merge_override(&doc.to_string())?;
+        edited.source = self.source.clone();
+        Ok(edited)
+    }
+
     /// `event.param` of every value that differs from the embedded default.
     pub fn overrides(&self) -> Vec<String> {
         SPECS

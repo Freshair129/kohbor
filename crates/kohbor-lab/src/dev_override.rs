@@ -3,7 +3,7 @@
 //! Needs `KOHBOR_LAB=1` and `KOHBOR_LAB_PROFILE=<absolute path>`. Any problem leaves the
 //! embedded default in force and reports why; a profile is never applied partially.
 
-use crate::{merge_override, ProfileError, Resolved, Source};
+use crate::{merge_override, Effective, ProfileError, Resolved, Source};
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -61,4 +61,20 @@ pub fn resolve_from_env() -> Resolved {
     resolve_from(&|name| std::env::var(name).ok(), &|path| {
         std::fs::read_to_string(path)
     })
+}
+
+/// Write the profile to `path` (absolute) through a temporary file and a rename, so a crash
+/// never leaves a half-written override behind.
+pub fn save(path: &Path, effective: &Effective) -> io::Result<()> {
+    if !path.is_absolute() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "the profile path must be absolute",
+        ));
+    }
+    let mut temporary = path.as_os_str().to_owned();
+    temporary.push(".tmp");
+    let temporary = PathBuf::from(temporary);
+    std::fs::write(&temporary, effective.export_json())?;
+    std::fs::rename(&temporary, path)
 }
