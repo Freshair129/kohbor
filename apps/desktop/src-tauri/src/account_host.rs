@@ -1489,10 +1489,7 @@ mod win32 {
 
     fn file_information(file: &File) -> std::io::Result<ByHandleFileInformation> {
         let mut info = std::mem::MaybeUninit::<ByHandleFileInformation>::zeroed();
-        if unsafe {
-            GetFileInformationByHandle(file.as_raw_handle() as *mut c_void, info.as_mut_ptr())
-        } == 0
-        {
+        if unsafe { GetFileInformationByHandle(file.as_raw_handle(), info.as_mut_ptr()) } == 0 {
             return Err(std::io::Error::last_os_error());
         }
         Ok(unsafe { info.assume_init() })
@@ -1552,14 +1549,9 @@ mod win32 {
             OPEN_EXISTING,
             FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
         )
-        .map_err(|error| {
-            trace_storage_open_error("volume_root_handle", &error);
-            error
-        })?;
-        let root_info = validate_plain_directory(&root_handle).map_err(|error| {
-            trace_storage_open_error("volume_root_validation", &error);
-            error
-        })?;
+        .inspect_err(|error| trace_storage_open_error("volume_root_handle", error))?;
+        let root_info = validate_plain_directory(&root_handle)
+            .inspect_err(|error| trace_storage_open_error("volume_root_validation", error))?;
         let volume = root_info.volume_serial;
         handles.push(root_handle);
         for (index, component) in components.iter().enumerate() {
@@ -1571,13 +1563,9 @@ mod win32 {
                 OPEN_EXISTING,
                 FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
             )
-            .map_err(|error| {
-                trace_storage_open_error("ancestor_or_leaf_handle", &error);
-                error
-            })?;
-            let info = validate_plain_directory(&handle).map_err(|error| {
-                trace_storage_open_error("ancestor_or_leaf_validation", &error);
-                error
+            .inspect_err(|error| trace_storage_open_error("ancestor_or_leaf_handle", error))?;
+            let info = validate_plain_directory(&handle).inspect_err(|error| {
+                trace_storage_open_error("ancestor_or_leaf_validation", error)
             })?;
             if info.volume_serial != volume {
                 return Err(std::io::Error::new(
@@ -1586,10 +1574,8 @@ mod win32 {
                 ));
             }
             if require_private_leaf && index + 1 == components.len() {
-                validate_security(&handle, true).map_err(|error| {
-                    trace_storage_open_error("leaf_owner_or_dacl", &error);
-                    error
-                })?;
+                validate_security(&handle, true)
+                    .inspect_err(|error| trace_storage_open_error("leaf_owner_or_dacl", error))?;
             }
             handles.push(handle);
         }
@@ -1637,8 +1623,7 @@ mod win32 {
         let acl_length = u32::try_from(acl_bytes).map_err(|_| {
             std::io::Error::new(std::io::ErrorKind::InvalidData, "DACL size overflow")
         })?;
-        let acl_words =
-            (acl_bytes + std::mem::size_of::<usize>() - 1) / std::mem::size_of::<usize>();
+        let acl_words = acl_bytes.div_ceil(std::mem::size_of::<usize>());
         let mut acl_storage = vec![0usize; acl_words];
         let acl = acl_storage.as_mut_ptr().cast::<c_void>();
         if unsafe { InitializeAcl(acl, acl_length, ACL_REVISION) } == 0 {
@@ -1872,7 +1857,7 @@ mod win32 {
         let disposition = FileDispositionInfo { delete_file: 1 };
         let succeeded = unsafe {
             SetFileInformationByHandle(
-                file.as_raw_handle() as *mut c_void,
+                file.as_raw_handle(),
                 FILE_DISPOSITION_INFO_CLASS,
                 &disposition as *const _ as *const c_void,
                 std::mem::size_of::<FileDispositionInfo>() as u32,
@@ -1900,11 +1885,7 @@ mod win32 {
             }
             return Err(std::io::Error::last_os_error());
         }
-        let mut buffer = vec![
-            0usize;
-            (needed as usize + std::mem::size_of::<usize>() - 1)
-                / std::mem::size_of::<usize>()
-        ];
+        let mut buffer = vec![0usize; (needed as usize).div_ceil(std::mem::size_of::<usize>())];
         if unsafe {
             GetTokenInformation(
                 handle,
@@ -1953,7 +1934,7 @@ mod win32 {
         let mut needed = 0u32;
         let first_query = unsafe {
             GetKernelObjectSecurity(
-                file.as_raw_handle() as *mut c_void,
+                file.as_raw_handle(),
                 requested,
                 ptr::null_mut(),
                 0,
@@ -1969,14 +1950,13 @@ mod win32 {
                 "security descriptor size is invalid",
             ));
         }
-        let word_count =
-            (needed as usize + std::mem::size_of::<usize>() - 1) / std::mem::size_of::<usize>();
+        let word_count = (needed as usize).div_ceil(std::mem::size_of::<usize>());
         let mut descriptor_buffer = vec![0usize; word_count];
         let descriptor_capacity = word_count * std::mem::size_of::<usize>();
         let mut actual = 0u32;
         if unsafe {
             GetKernelObjectSecurity(
-                file.as_raw_handle() as *mut c_void,
+                file.as_raw_handle(),
                 requested,
                 descriptor_buffer.as_mut_ptr().cast(),
                 u32::try_from(descriptor_capacity).map_err(|_| {
@@ -2185,10 +2165,12 @@ impl AccountHost {
 /// Lazily opens account storage for host-side callers. Keeping only the app
 /// data path in managed state avoids storage I/O during Tauri setup and keeps
 /// account-storage failures independent from core startup.
+#[cfg(feature = "demo")]
 pub struct DesktopAccountHost {
     app_data_root: PathBuf,
 }
 
+#[cfg(feature = "demo")]
 impl DesktopAccountHost {
     pub fn new(app_data_root: PathBuf) -> Self {
         Self { app_data_root }

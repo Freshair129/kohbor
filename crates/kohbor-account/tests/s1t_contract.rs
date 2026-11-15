@@ -24,7 +24,7 @@ mod host_recovery;
 #[path = "host_storage_lock/mod.rs"]
 mod host_storage_lock;
 
-#[path = "desktop_integration.rs"]
+#[path = "desktop_integration/mod.rs"]
 mod desktop_integration;
 
 #[path = "loopback_sign_in/mod.rs"]

@@ -10,3 +10,10 @@ publish = false
 path = "src/lib.rs"
 
 # This source pack has no dependencies. Do not add a workspace lockfile here.
+
+# account_host.rs is path-included by this crate's tests. Its demo bridge is
+# controlled by the Tauri package's feature, so declare the cfg value expected
+# here without defining or enabling an account-crate feature.
+[lints.rust.unexpected_cfgs]
+level = "warn"
+check-cfg = ['cfg(feature, values("demo"))']

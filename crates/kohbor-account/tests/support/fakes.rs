@@ -386,10 +386,6 @@ impl FakeSecretStore {
         items.sort();
         items
     }
-
-    pub fn set_unreadable(&mut self, unreadable: bool) {
-        self.unreadable = unreadable;
-    }
 }
 
 impl SecretStore for FakeSecretStore {

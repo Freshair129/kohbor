@@ -1,5 +1,6 @@
 //! Kohbor desktop host (M1 slice): containment, game-state intake, runtime status.
 
+#[cfg(feature = "demo")]
 mod account_host;
 pub mod atomic;
 mod audio;
@@ -343,6 +344,7 @@ pub fn run() {
             let settings_dir = dir.clone();
             // Account storage remains lazy so an unavailable account root or
             // provider cannot delay the independent local core startup.
+            #[cfg(feature = "demo")]
             app.manage(account_host::DesktopAccountHost::new(settings_dir.clone()));
             let runtime = intake::Runtime::new(dir.clone());
             let sample = Arc::new(Mutex::new((

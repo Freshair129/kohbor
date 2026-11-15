@@ -1,6 +1,6 @@
 use kohbor_account::{
-    AccountState, AuthMaterial, AuthorizationRequest, BrokerError, CallbackOutcome, Client,
-    OperationOutcome, ServiceConfig,
+    AccountState, AuthMaterial, AuthorizationRequest, CallbackOutcome, Client, OperationOutcome,
+    ServiceConfig,
 };
 
 use super::contract::{Account, ContractHarness, Event, Outcome, State};
@@ -200,9 +200,7 @@ impl ContractHarness for Harness {
     }
 
     fn local_core_probe(&self) -> bool {
-        self.local_core
-            .iter()
-            .any(|entry| *entry == "gameplay:local-sentinel")
+        self.local_core.contains(&"gameplay:local-sentinel")
     }
 
     fn broker_requests(&self) -> usize {

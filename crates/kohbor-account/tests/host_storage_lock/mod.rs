@@ -75,7 +75,7 @@ fn private_acl(path: &Path) {
         fn GetCurrentProcess() -> *mut c_void;
         fn CloseHandle(handle: *mut c_void) -> i32;
         fn LocalFree(mem: *mut c_void) -> *mut c_void;
-        fn CreateDirectoryW(path: *const u16, attributes: *const SecurityAttributes) -> i32;
+        fn CreateDirectoryW(path: *const u16, attributes: *mut c_void) -> i32;
     }
     #[repr(C)]
     struct SecurityAttributes {
@@ -98,11 +98,7 @@ fn private_acl(path: &Path) {
         );
         let mut needed = 0;
         GetTokenInformation(token, 1, ptr::null_mut(), 0, &mut needed);
-        let mut buf = vec![
-            0usize;
-            (needed as usize + std::mem::size_of::<usize>() - 1)
-                / std::mem::size_of::<usize>()
-        ];
+        let mut buf = vec![0usize; (needed as usize).div_ceil(std::mem::size_of::<usize>())];
         assert_ne!(
             GetTokenInformation(token, 1, buf.as_mut_ptr().cast(), needed, &mut needed),
             0,
@@ -131,12 +127,15 @@ fn private_acl(path: &Path) {
             0
         );
         let name: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
-        let attributes = SecurityAttributes {
+        let mut attributes = SecurityAttributes {
             length: std::mem::size_of::<SecurityAttributes>() as u32,
             descriptor: sd,
             inherit_handle: 0,
         };
-        let created = CreateDirectoryW(name.as_ptr(), &attributes);
+        let created = CreateDirectoryW(
+            name.as_ptr(),
+            (&mut attributes as *mut SecurityAttributes).cast(),
+        );
         let create_error = std::io::Error::last_os_error();
         LocalFree(sd);
         assert_ne!(created, 0, "create private fixture leaf: {create_error}");
@@ -148,11 +147,7 @@ fn private_acl(path: &Path) {
             "query fixture descriptor size: {}",
             std::io::Error::last_os_error()
         );
-        let mut descriptor = vec![
-            0usize;
-            (needed as usize + std::mem::size_of::<usize>() - 1)
-                / std::mem::size_of::<usize>()
-        ];
+        let mut descriptor = vec![0usize; (needed as usize).div_ceil(std::mem::size_of::<usize>())];
         assert_ne!(
             GetFileSecurityW(
                 name.as_ptr(),
