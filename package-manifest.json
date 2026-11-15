@@ -417,6 +417,11 @@
       "sha256": "e49758432fa0d634e3360b4a64d9411bcc81dd25399ecc267f146812e7c26664"
     },
     {
+      "path": "apps/desktop/src-tauri/src/update.rs",
+      "bytes": 35845,
+      "sha256": "5a13fd02fd7ac4ca043e4614e884ee53a38bdfba5c814e6e1f652647547d1571"
+    },
+    {
       "path": "apps/desktop/src-tauri/src/version.rs",
       "bytes": 3710,
       "sha256": "79e8fd56db8766f6432f1cfc746ffc3f60c58ed5ed6939ee05a8c6d960553930"
@@ -977,6 +982,11 @@
       "sha256": "9c1ebde383cd361c1867ce08c01a0f5e63dd7ba0d2d0eba0d7f843d69300d63a"
     },
     {
+      "path": "apps/desktop/src/mock/updateHarness.ts",
+      "bytes": 2105,
+      "sha256": "fa9359c2493ca7aaf0c5b5aed9e805a3f3ede6d0cd93899f68f3325d5f27f4e0"
+    },
+    {
       "path": "apps/desktop/src/overlayModel.ts",
       "bytes": 5059,
       "sha256": "96de23f6341fb285d044f84ff8e117171d01747a04bb4974b96e5eb2bbd99f2c"
@@ -1017,6 +1027,11 @@
       "sha256": "44681358adc8659f0de6af1b6bf86eb9af8a8625ae1b5bf3250220d0e81ad3e1"
     },
     {
+      "path": "apps/desktop/src/shell/UpdateControl.tsx",
+      "bytes": 4816,
+      "sha256": "6e76ebb2dbf15279f79caa2d4d83160ba2b1e8b460e4bc87b93bd22fb8fb03ed"
+    },
+    {
       "path": "apps/desktop/src/shell/VersionInfo.tsx",
       "bytes": 1257,
       "sha256": "0f4e4c9f6b49f8a32c8ac4a765b7934d1b1c39f86c82f669a976f4341a765a40"
@@ -1037,6 +1052,21 @@
       "sha256": "ff83b327785948fe9a6f239b33960a83c57a6ff79df3922df6a23431acc932ea"
     },
     {
+      "path": "apps/desktop/src/shell/updateCopy.ts",
+      "bytes": 5371,
+      "sha256": "274f595cf04b90238f774f8e35f778f1a82852e655cc1b7955b07a452f8ef336"
+    },
+    {
+      "path": "apps/desktop/src/shell/updateModel.ts",
+      "bytes": 6605,
+      "sha256": "e4c7e02484a2c39312a9450cb73bea32bb36edc40c70e92fc21a1ae91932b5a2"
+    },
+    {
+      "path": "apps/desktop/src/shell/updateStatusStore.ts",
+      "bytes": 2899,
+      "sha256": "2a109921c6bb6096052c4db7d2380cd248a2d3515eadd7ba10afbdb06e03d55a"
+    },
+    {
       "path": "apps/desktop/src/shell/useAppVersion.ts",
       "bytes": 481,
       "sha256": "a1869813fc40374e49d2940a4d28c2899f49d4fadf5e124ce4e64844b2952622"
@@ -1045,6 +1075,11 @@
       "path": "apps/desktop/src/shell/useDeveloperMode.ts",
       "bytes": 528,
       "sha256": "4723efe6711247f773bc4dacc5b657e57745f52acee7bb64edd976cc4681eb75"
+    },
+    {
+      "path": "apps/desktop/src/shell/useUpdateStatus.ts",
+      "bytes": 776,
+      "sha256": "53ead94932288fdb10705a203145d5f976f167cf8bb8897c1a377ffef66ba8ad"
     },
     {
       "path": "apps/desktop/src/steam/StartDotaBar.tsx",
@@ -1275,6 +1310,16 @@
       "path": "apps/desktop/tests/shell-state.test.ts",
       "bytes": 1374,
       "sha256": "08abc756991bc03cf6440535aa2003e3dc99d83027554555e7ce4797e4652919"
+    },
+    {
+      "path": "apps/desktop/tests/update-release-page.test.ts",
+      "bytes": 4969,
+      "sha256": "841871e756b8499c58c65b4b2012d8dc7416c61ed8b99ad63e1be3de2eabfefe"
+    },
+    {
+      "path": "apps/desktop/tests/update.test.ts",
+      "bytes": 15833,
+      "sha256": "01d7bdacb6e7945794be301ac9026901f28b8e098dae783ab1bc39c94ab0bf3c"
     },
     {
       "path": "apps/desktop/tsconfig.json",
