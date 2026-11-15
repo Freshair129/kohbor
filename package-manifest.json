@@ -24,12 +24,12 @@
     {
       "path": "Cargo.lock",
       "bytes": 121690,
-      "sha256": "ab53ed4e73658fd7753f28efccc3ac80970f8944751399bfded6829ae8721a4d"
+      "sha256": "3b31c83a88d2b1779ec63f06f36ab82e817c1b531bec2a5c470e5e03730f4373"
     },
     {
       "path": "Cargo.toml",
       "bytes": 854,
-      "sha256": "216ee44f0ed5a17ce0f75eae61e806b3b97098cae1954f5922cbbd9857a871bf"
+      "sha256": "1540ffd604222d9e49c463da08f259dfa2b6e03b5d54a4c7dc14ffae2853c58d"
     },
     {
       "path": "GUIDE-TH.md",
@@ -74,7 +74,7 @@
     {
       "path": "apps/desktop/package.json",
       "bytes": 683,
-      "sha256": "8bf3c440457cd6a2ad8a46a614408789fc1663da991dc3eff43707d264901819"
+      "sha256": "907d05f38c6e40a4f422f16842021a9ef128a0fb68fe004d87d3c9d8855bbf6a"
     },
     {
       "path": "apps/desktop/pnpm-lock.yaml",
@@ -318,8 +318,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/hud.rs",
-      "bytes": 45695,
-      "sha256": "b3b6cd73ca9d5d676634e09f4aaec6c50d7fab70c518ce82dcb0901e47bf79a8"
+      "bytes": 47004,
+      "sha256": "288cce552e45262fa2809e8f068632853694323ccf749bc3f8f113808ec814ef"
     },
     {
       "path": "apps/desktop/src-tauri/src/instance.rs",
@@ -333,8 +333,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lab.rs",
-      "bytes": 38401,
-      "sha256": "5f0f2aff14083c859f0a9df4466119caea20c36db51bc74679589bc74b31a4bb"
+      "bytes": 41347,
+      "sha256": "bbcc17ca5a1c82aa7cc94c7a3cf84bdb368f4276e4dd392013a38d5c24cbc85e"
     },
     {
       "path": "apps/desktop/src-tauri/src/latency.rs",
@@ -473,8 +473,8 @@
     },
     {
       "path": "apps/desktop/src/HudStage.tsx",
-      "bytes": 5282,
-      "sha256": "320a88c7c53c689a42866f20257e0c5e398991c09b4a466c13fc1fa71214d23f"
+      "bytes": 5408,
+      "sha256": "3ecf48941955a1c080b0036ebbe43ece567466edc6411a7984c1bd201f2e041e"
     },
     {
       "path": "apps/desktop/src/MediaProbeContext.tsx",
@@ -673,18 +673,18 @@
     },
     {
       "path": "apps/desktop/src/hud.css",
-      "bytes": 3592,
-      "sha256": "af5c8dc3446874f5dba1f96bb756eed6dabd0a97d825596d3764d64846f8d908"
+      "bytes": 3819,
+      "sha256": "ee40dc6331f92532030bbb56f392042500b4dad3b940a0b3fbac57c4c821f029"
     },
     {
       "path": "apps/desktop/src/hudCopy.ts",
-      "bytes": 1444,
-      "sha256": "bc8c91dd2c0580b41f4a7bae03fd6d04b6afceefb2274a9079bc8ef038db57fc"
+      "bytes": 1559,
+      "sha256": "1f31700980dfa2ff7e6e2d0626dd748eb71958e4db288467bdb6fbf2de5213e8"
     },
     {
       "path": "apps/desktop/src/hudModel.ts",
-      "bytes": 11835,
-      "sha256": "75fbd462e8085afce61dc948c9b665880894dd34dd806fdf0f1be9b9b7c52919"
+      "bytes": 12297,
+      "sha256": "4deabeef762d62b8b950cac8ecb5d8feff74f68cce2b6c2dd3f3b4495dd3b47f"
     },
     {
       "path": "apps/desktop/src/hudRuntime.ts",
@@ -693,13 +693,13 @@
     },
     {
       "path": "apps/desktop/src/lab/HudLayoutEditor.tsx",
-      "bytes": 13189,
-      "sha256": "1e4a52ec470e4db051b1e849c204d073d9811146f5f1c9a44d097670f88f11b5"
+      "bytes": 15689,
+      "sha256": "cd70409e1a931510d0fdc1edec92131c222a00c402c7ff53b6ce2e0aa77644d2"
     },
     {
       "path": "apps/desktop/src/lab/Lab.tsx",
-      "bytes": 9757,
-      "sha256": "218531a5e59295505bf2b47db83eec694bd540548406d4c36bb2c6bcdb32c5db"
+      "bytes": 11450,
+      "sha256": "2a05e6850731d69c6567e7708619018494b25a27295a0738e2ab3a7d661da7da"
     },
     {
       "path": "apps/desktop/src/lab/OverlayEditor.tsx",
@@ -713,8 +713,8 @@
     },
     {
       "path": "apps/desktop/src/lab/labHudLayout.ts",
-      "bytes": 9194,
-      "sha256": "cc65395c39a3bb4e4f88ce8824081c44305a6a048c29cbd63754038a21902af6"
+      "bytes": 9941,
+      "sha256": "b72052033c2a34f63074e045c8c72b0fc84808eb19137cf54dc6238b25440c04"
     },
     {
       "path": "apps/desktop/src/lab/labHudMock.ts",
@@ -1223,13 +1223,13 @@
     },
     {
       "path": "apps/desktop/tests/hudModel.test.ts",
-      "bytes": 21177,
-      "sha256": "c523d8160c797f9ae33464d5df056502ffbc8c1cf5cac1bae56dd984ce4496c6"
+      "bytes": 21739,
+      "sha256": "a2a2d7404886db635aa691bd3bf412bb691c1004829d11a1c33e12ede4fd7c31"
     },
     {
       "path": "apps/desktop/tests/lab-hud-layout.test.ts",
-      "bytes": 13461,
-      "sha256": "fd4efd9fb41fc8ed107e62cdd1fe7f4d4983cf099e11658657591c68d3bbb3d0"
+      "bytes": 16041,
+      "sha256": "aef069eaee5db52c6f46b11be78200d62f22de5bc732e00fed242c71e26bab03"
     },
     {
       "path": "apps/desktop/tests/lab-layout.test.ts",
