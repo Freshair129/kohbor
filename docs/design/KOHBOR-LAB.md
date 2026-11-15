@@ -304,3 +304,22 @@ Owner order (relayed): use the G-Maiden reference picture and "profile 1", and p
 - **Reference screenshot:** never committed or bundled. Loaded at runtime from `<data dir>/lab/assets/dota-overlay-reference.jpg` (fixed name, JPEG only, 8 MiB max, no links); absent means a plain 16:9 grid. Rights stay unverified (AGENTS.md); the owner authorised its local use.
 - **Test banner:** the existing dev `demo_trigger` (needs `KOHBOR_DEMO=1`).
 - **Evidence (this checkout):** Rust unit tests for layout bounds, merge, export round trip, reference-image rules; node tests for clamp, drag, nudge, overlap, parsing; `tsc` and both frontend builds pass; the normal bundle contains no Lab code. **UNVERIFIED:** the view was not launched, drag and fullscreen were not exercised in a webview, the real overlay window was not moved by an applied layout (hook not wired yet), the reference image was not loaded in the app. The default banner overlaps the host's `announcement` protected region, so the editor shows an overlap warning for the owner's own profile 1 (as drawn on a 16:9 monitor; expected from the region numbers, not observed).
+
+### 11.1 Build matrix (corrects earlier statements, 2026-11-15)
+
+Found by the host lead's binary scan: Lab's commands are registered only in the debug/demo handler list, so a release exe built with `--features lab` alone had no `lab_*` commands. Fixed: **`lab` implies `demo`** (`lab = ["demo", "kohbor-lab/lab"]` in the desktop `Cargo.toml`), and a stub `lab::dev` module (compiled only for `demo` without `lab` and without debug assertions) keeps the same handler names compiling and answers "unavailable". Earlier text that says "only the `lab` feature enables Lab in release" means `lab` (which pulls in `demo`).
+
+| Build | Result |
+|---|---|
+| shipping: `--release` (no features) | Lab absent; `lab::observe` is a plain passthrough |
+| demo only: `--release --features demo` | Compiles (was broken); `lab_*` stubs answer unavailable; no override reader |
+| Lab test build: `--release --features lab,tauri/custom-protocol` with `VITE_KOHBOR_LAB=1` | Lab commands real; needs `KOHBOR_LAB=1` (and `KOHBOR_DEMO=1` for Test banner) at run time |
+| debug builds | Lab real; same run-time switches |
+
+Verified by `cargo check -p kohbor-desktop --offline` for: `--release --features demo`, `--release --features lab`, `--release`, debug, debug `--features lab` (all finish without error). **Regression guard:** `cargo check -p kohbor-desktop --release --features demo` is not part of `tools/gate.py`; adding it is a proposal for the gate owner (about 1.5 minutes in a warm lane).
+
+### 11.2 Usability fixes after the build 10 screenshot (2026-11-15)
+
+- **Layout:** the Lab is no longer a fifth cell of the status grid (where it fell outside the visible, non-scrolling area). It is a fixed full-window studio panel opened from a small "Kohbor Lab (DEV)" launcher; inside, header (title, profile line, tabs `Events` | `Overlay editor`, Export, Close) plus ONE bounded scroll container (`overflow-y: auto`, `min-height: 0` chain, keyboard focusable, visible focus ring). Escape closes it unless the canvas is fullscreen. The shell's no-page-scroll rule is untouched (a test asserts the Lab CSS does not style `html/body/#root/.app`). The canvas width is `min(100%, (100dvh - 170px) * 16/9)` so it should fit at 1280x720 to 1920x1080 (computed, not yet seen on screen: UNVERIFIED).
+- **Neutral profile line:** an unset `KOHBOR_LAB_PROFILE` is no longer a rejection; the view says "embedded profile (no override file)". Real rejections (bad file) still show.
+- **Saved edits survive a restart:** when no profile file is selected by the environment, the first Lab command loads `<data dir>/lab/profile.override.json` if present (before this, saved edits were written but never re-read). Limitation: this happens when the Lab launcher first asks the host, so the overlay hook uses the compiled default until then.

@@ -28,8 +28,9 @@ pub fn resolve_from(
     if env(FLAG).as_deref() != Some("1") {
         return Resolved::embedded();
     }
+    // No path set is the normal case (no override file), not an error.
     let Some(raw) = env(PATH) else {
-        return refuse("PATH_MISSING", "KOHBOR_LAB_PROFILE is not set");
+        return Resolved::embedded();
     };
     let path = PathBuf::from(raw);
     if !path.is_absolute() {
@@ -60,6 +61,46 @@ pub fn resolve_from(
 pub fn resolve_from_env() -> Resolved {
     resolve_from(&|name| std::env::var(name).ok(), &|path| {
         std::fs::read_to_string(path)
+    })
+}
+
+/// The override a previous Lab save left at the fixed location, if any. `None` when there is no
+/// file; a refused file (link, not a plain file, too large, invalid profile) leaves the embedded
+/// default in force and says why. Used when `KOHBOR_LAB_PROFILE` selects nothing.
+pub fn load_saved(data_dir: &Path) -> Option<Resolved> {
+    let path = override_path(data_dir).ok()?;
+    let meta = match std::fs::symlink_metadata(&path) {
+        Ok(meta) => meta,
+        Err(_) => return None,
+    };
+    if is_link(&meta) || !meta.is_file() {
+        return Some(refuse(
+            "READ_FAILED",
+            "the saved override is not a plain file",
+        ));
+    }
+    if meta.len() as usize > MAX_BYTES {
+        return Some(refuse(
+            "TOO_LARGE",
+            "the saved override is larger than 64 KiB",
+        ));
+    }
+    let Ok(text) = std::fs::read_to_string(&path) else {
+        return Some(refuse(
+            "READ_FAILED",
+            "the saved override could not be read",
+        ));
+    };
+    Some(match merge_override(&text) {
+        Ok(effective) => Resolved {
+            effective: effective.with_source(Source::Override(path.clone())),
+            source: Source::Override(path),
+            rejected: None,
+        },
+        Err(error) => Resolved {
+            rejected: Some(error),
+            ..Resolved::embedded()
+        },
     })
 }
 

@@ -116,7 +116,7 @@ mod behaviour {
         assert_eq!(relative.rejected.unwrap().code, "PATH_NOT_ABSOLUTE");
         let missing = resolve_from(&env_with(Some("1"), None), &reader(GOOD));
         assert_eq!(missing.source, Source::Embedded);
-        assert_eq!(missing.rejected.unwrap().code, "PATH_MISSING");
+        assert!(missing.rejected.is_none(), "an unset path is not an error");
     }
 
     #[test]

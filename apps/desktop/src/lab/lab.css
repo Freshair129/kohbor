@@ -1,4 +1,3 @@
-.lab { border: 1px dashed currentColor; padding: 12px; margin: 12px 0; }
 .lab-head { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .lab-head h2 { margin: 0; }
 .lab-dev { border: 1px solid currentColor; padding: 0 6px; font-size: 0.75rem; }
@@ -36,3 +35,17 @@
 .lab-buttons { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .lab-note { font-size: .8rem; opacity: .8; }
 .lab-canvas-wrap:fullscreen { background: #000; display: flex; flex-direction: column; justify-content: center; }
+
+/* Bounded studio: a fixed full-window panel with its own scroll container. It lives outside the
+   shell grid, so the shell's no-page-scroll rule stays untouched. */
+.lab-launcher { position: fixed; right: 12px; bottom: 12px; z-index: 50; }
+.lab-overlay-root { position: fixed; inset: 0; z-index: 60; display: flex; background: var(--ground, #0e1116); color: var(--text, #e6eaf0); }
+.lab-panel { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 8px 12px; gap: 8px; }
+.lab-scroll { flex: 1 1 0; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; padding-right: 6px; }
+.lab-scroll:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.lab-tabs { display: flex; gap: 6px; }
+.lab-tabs [aria-selected="true"] { font-weight: 700; text-decoration: underline; }
+.lab-head { flex: 0 0 auto; }
+.lab-overlay { margin-top: 0; border-top: 0; padding-top: 0; }
+.lab-canvas { width: min(100%, calc((100dvh - 170px) * 16 / 9)); }
+.lab-canvas-wrap:fullscreen .lab-canvas { width: min(100vw, calc(100vh * 16 / 9)); }
