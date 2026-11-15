@@ -106,14 +106,21 @@ pub mod dev {
         Ok(with_slot(|s| s.resolved.effective.export_json()))
     }
 
-    /// Validate edits against the whole profile, write the dev override file (requires
-    /// `KOHBOR_LAB_PROFILE`), and keep the result for the next detector rebuild.
+    /// Validate edits against the whole profile and write the fixed dev override file
+    /// `<app data dir>/lab/profile.override.json` (never a renderer-supplied or
+    /// environment-supplied path; `KOHBOR_LAB_PROFILE` only selects what is READ at
+    /// startup). The result is kept for the next detector rebuild.
     #[tauri::command(async)]
-    pub fn lab_apply_edits(edits: Vec<Edit>) -> Result<Value, String> {
+    pub fn lab_apply_edits(app: tauri::AppHandle, edits: Vec<Edit>) -> Result<Value, String> {
+        use tauri::Manager;
         require()?;
-        let path =
-            std::env::var("KOHBOR_LAB_PROFILE").map_err(|_| "NO_OVERRIDE_PATH".to_owned())?;
-        let path = std::path::PathBuf::from(path);
+        let data_dir = match crate::demo_data_dir_override() {
+            Some(dir) => dir,
+            None => app
+                .path()
+                .app_data_dir()
+                .map_err(|_| "DATA_DIR_UNAVAILABLE".to_owned())?,
+        };
         with_slot(|s| {
             let list: Vec<(&str, &str, Value)> = edits
                 .iter()
@@ -124,7 +131,8 @@ pub mod dev {
                 .effective
                 .with_edits(&list)
                 .map_err(|e| format!("{}: {}", e.code, e.detail))?;
-            kohbor_lab::dev_override::save(&path, &edited).map_err(|_| "SAVE_FAILED".to_owned())?;
+            let path = kohbor_lab::dev_override::save_under(&data_dir, &edited)
+                .map_err(|_| "SAVE_REFUSED".to_owned())?;
             let edited = edited.with_source(kohbor_lab::Source::Override(path.clone()));
             s.resolved.effective = edited;
             s.resolved.source = kohbor_lab::Source::Override(path);
