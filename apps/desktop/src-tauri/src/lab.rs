@@ -166,7 +166,9 @@ pub fn current_config() -> Config {
 
 #[cfg(not(any(feature = "lab", debug_assertions)))]
 pub fn current_config() -> Config {
-    kohbor_lab::embedded().config()
+    // Release: no file, no environment, no kohbor-lab call. The embedded default equals
+    // `Config::default()` (kohbor-lab tests/profile.rs pins that).
+    Config::default()
 }
 
 /// One detector step; dev builds also record the explanation for the Lab view.

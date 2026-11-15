@@ -272,3 +272,24 @@ Owner decisions required (PROPOSED ids, not yet in DECISION-LOG):
 - Whether `RiskEngine` can expose a trace without changing its behaviour (UNVERIFIED; excluded from v1).
 - Source-scan and binary-symbol techniques for the release-ignores-override check (UNVERIFIED).
 - Frontend component choices for the UI (React 19 is in the repo; no Lab component exists).
+
+## 10. Implementation status (L1/L2, 2026-11-15)
+
+Owner decisions applied: DEC-LAB-GATE (dev-only, start now), tier 1 only. Evidence classes are kept apart.
+
+| Piece | Where | Evidence (this checkout) |
+|---|---|---|
+| Explain trace (`Detector::observe_traced`, guard rows for health_danger, health_low, mana_low, level_milestone, hero_kill, hero_death; other events listed without guards) | `crates/kohbor-events/src/{lib,trace}.rs` | CODE + synthetic tests: `tests/trace_parity.rs` (events identical to `observe`; `fired == all guards pass` on every tick of the 6 golden traces and synthetic walks). Not a second implementation: `observe` fills a scratch record at the same statements that decide. |
+| Profile crate: embedded default, bounded override, whole-profile validation, batch edits, export, describe | `crates/kohbor-lab` | Synthetic tests `tests/{profile,edit}.rs`: default == `Config::default()` == catalog defaults, bounds/unknown/duplicate/version/re-arm/critical-lock rejections, export round trip. |
+| Production ignores overrides | `dev_override.rs` behind `cfg(any(feature="lab", debug_assertions))` | `tests/release_gate.rs` source scan plus `cargo test --release -p kohbor-lab` run (release variant compiled and passing). Binary-level assertion: UNVERIFIED. |
+| Replay sandbox (offline, edited vs base) | `crates/kohbor-lab/src/sandbox.rs` | Synthetic: reproduces golden cue times `[2000, 25000]`; shows the cue lost when `max_hp_percent` is lowered to 10. Recorded `F:\gsi-log` sessions are NOT yet fed in (needs the admission pipeline of `kohbor-replay`): UNVERIFIED. |
+| Lab view model and view | `apps/desktop/src/lab/*`, `tests/lab-model.test.ts` | Model: 6 `node --test` tests pass. `Lab.tsx`: written, NOT typechecked or run (`node_modules` missing, host not wired): UNVERIFIED. |
+| Host adapter (`lab_status/describe/last_trace/export/apply_edits/replay`) | `apps/desktop/src-tauri/src/lab.rs` | Written, NOT compiled into the app yet: wiring needs edits to host files owned by the MVP lead (ACK pending). UNVERIFIED. |
+
+v1 profile scope narrowed to `events.<id>.params` (13 tunables of the existing `Config`). Unchanged from the plan: critical events cannot be disabled; override file applies at the next session boundary; `KOHBOR_LAB=1` and `KOHBOR_LAB_PROFILE=<absolute path>` are both required, and only in `lab`/debug builds.
+
+### 10.1 Host wiring conditions (MVP lead ACK, 2026-11-15, conditional)
+
+Host wiring (`lib.rs`, `intake.rs`, `App.tsx`, desktop `Cargo.toml`) is **not applied yet**. Conditions from the host lead: release parity is the bar (feature `lab` off and no debug assertions behaves exactly as today; `lab::observe` and `lab::current_config` are plain passthroughs there, no IO, no extra field or lock); `lab` not a default feature; `mod lab;` private; the six `lab_*` handlers only in the debug/demo handler list; `<Lab />` loaded with `React.lazy` behind the availability check so release bundles omit it; apply **after** the `mvp3/volume` branch lands (merge order decided by the coordinator) to avoid conflicts in `lib.rs`, `commands.rs` and `App.tsx`; Lab output stays synthetic/replay evidence, never live.
+
+Known deviations to settle at wiring time: (1) `kohbor-lab` cannot be an optional dependency because debug builds (debug assertions) need it without the feature; release builds do not call it (the linker drops it), which is a weaker guarantee than "not linked" (UNVERIFIED on the binary); (2) `lab_apply_edits` writes to `KOHBOR_LAB_PROFILE`, a dev-chosen absolute path, not necessarily under the app data directory; the lead asked for no writes outside it, so the path should be constrained or the write left to an explicit owner action; (3) `lab_export` contains parameters only (no steam id or names).

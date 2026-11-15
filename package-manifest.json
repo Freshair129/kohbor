@@ -23,13 +23,13 @@
     },
     {
       "path": "Cargo.lock",
-      "bytes": 121541,
-      "sha256": "b70926ba6887eef8a5d09e545519bdd90e9b16bbc09915d805a374dc6a536f7c"
+      "bytes": 121675,
+      "sha256": "27fd8a8719cf291f5318ff75272620c706f9d5a1f9ad80b2bbc74fded12c865b"
     },
     {
       "path": "Cargo.toml",
-      "bytes": 833,
-      "sha256": "10cdf460fda7c7895d94eb6b59d18d6d7f770b7cfc8f4ea0e7ffec2daf518c84"
+      "bytes": 854,
+      "sha256": "4497af2035dcaec60c453b95d6d11fb0d9348c38e320d47c0c45f19e7c659606"
     },
     {
       "path": "GUIDE-TH.md",
@@ -300,6 +300,11 @@
       "path": "apps/desktop/src-tauri/src/intake.rs",
       "bytes": 85094,
       "sha256": "d10bf9e58fd612d7b76b093b5a2e33ed6af76e09d220da947c8b81aac0aaf192"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/lab.rs",
+      "bytes": 6391,
+      "sha256": "61159206002525faccb787469e3ae973b8152ddb2a4074647aa01b9480528ed6"
     },
     {
       "path": "apps/desktop/src-tauri/src/latency.rs",
@@ -610,6 +615,26 @@
       "path": "apps/desktop/src/hostClock.ts",
       "bytes": 498,
       "sha256": "49c5536bc3c7c424019f0face5634a715a8d37230413c4e13d37d0060234ff01"
+    },
+    {
+      "path": "apps/desktop/src/lab/Lab.tsx",
+      "bytes": 7708,
+      "sha256": "56cdd2065cf249c667055c04149ae9a358c313be117a2dd26125b9a458ff7051"
+    },
+    {
+      "path": "apps/desktop/src/lab/lab.css",
+      "bytes": 1202,
+      "sha256": "bda99a06d09b7cd3b3ea7418831f4aa9e95a9c65abd2fceba48d967ff0b21919"
+    },
+    {
+      "path": "apps/desktop/src/lab/labModel.ts",
+      "bytes": 6237,
+      "sha256": "0b3f08653c6e3181f30fd807b4a31d10515b9691af737cb50a174c9b5e40b5d0"
+    },
+    {
+      "path": "apps/desktop/src/lab/labRuntime.ts",
+      "bytes": 1269,
+      "sha256": "79815bfc4254a73c6b28642daa42c48d58f77de20cd3acb8496acb27d7fa30a9"
     },
     {
       "path": "apps/desktop/src/live/DangerMeter.tsx",
@@ -1047,6 +1072,11 @@
       "sha256": "e6d3dc7df968403a06867c47654d838944f799ec27a34bcb181601dbdb7a797c"
     },
     {
+      "path": "apps/desktop/tests/lab-model.test.ts",
+      "bytes": 3505,
+      "sha256": "8dd978086a8cb89eadbecbdf8c360047ffd557ff36b284ee02023a0ef43589b5"
+    },
+    {
       "path": "apps/desktop/tests/live-capture-config.test.ts",
       "bytes": 6307,
       "sha256": "8d9c59a21d7e0374509945d6a9ffb4d15fe1ef99e6f1a3cdc9e6f2af8400288c"
@@ -1433,8 +1463,13 @@
     },
     {
       "path": "crates/kohbor-events/src/lib.rs",
-      "bytes": 25184,
-      "sha256": "7b795bf99f05e74c5c9c9679674b59c2eb94dcad67a8a94c960a571969aadf42"
+      "bytes": 27742,
+      "sha256": "6d7b794f72a1932df49b923e59402e008064f3d69c96e0ea9db5b391452a7d60"
+    },
+    {
+      "path": "crates/kohbor-events/src/trace.rs",
+      "bytes": 12029,
+      "sha256": "01110cacd5ce9146416ba0885464cf242d9c821118296024c0327ba017a13922"
     },
     {
       "path": "crates/kohbor-events/tests/adapter.rs",
@@ -1480,6 +1515,11 @@
       "path": "crates/kohbor-events/tests/streak_field.rs",
       "bytes": 5456,
       "sha256": "b2b91be767969ac3be2fed2d59748bc17a51f2726cc00afbf3bc973e0a1ac08b"
+    },
+    {
+      "path": "crates/kohbor-events/tests/trace_parity.rs",
+      "bytes": 7252,
+      "sha256": "0c2380419d0f22e060391266c302f9885b15488c79bcb4c4484d03e94ac059f4"
     },
     {
       "path": "crates/kohbor-game-assets/Cargo.toml",
@@ -1620,6 +1660,56 @@
       "path": "crates/kohbor-gsi/tests/items_abilities.rs",
       "bytes": 21753,
       "sha256": "06542d2bc489fecc4b8ded48fdd19bf7283011f378f3679d958434869365f129"
+    },
+    {
+      "path": "crates/kohbor-lab/Cargo.toml",
+      "bytes": 665,
+      "sha256": "4f86065db711f52ecd564ca58efd6c815cc52e63678e5e468f410740b44fe663"
+    },
+    {
+      "path": "crates/kohbor-lab/default-profile.json",
+      "bytes": 580,
+      "sha256": "e1c3d041f11c53ddf99a1c7eafdfc8000d81c7385cb514e49bdd9fac2e691d2a"
+    },
+    {
+      "path": "crates/kohbor-lab/src/dev_override.rs",
+      "bytes": 2585,
+      "sha256": "d12d247c80881d205e83e14c383de79af28d545c9dbbd8609a2eb6b0946e8989"
+    },
+    {
+      "path": "crates/kohbor-lab/src/lib.rs",
+      "bytes": 1565,
+      "sha256": "ecc0d0f7831db36d46c6eae4300f2dab122d230b0cce0059f33da0e0f1198b37"
+    },
+    {
+      "path": "crates/kohbor-lab/src/profile.rs",
+      "bytes": 15424,
+      "sha256": "6f1fb481ed6010b9484aa9559d1a88ae5315b605a304ba56651e81d611d90572"
+    },
+    {
+      "path": "crates/kohbor-lab/src/sandbox.rs",
+      "bytes": 4721,
+      "sha256": "6d14fb0962a6322cf6382648b9842cdabf77690616b1e11559dab5b3c72345a7"
+    },
+    {
+      "path": "crates/kohbor-lab/tests/edit.rs",
+      "bytes": 3131,
+      "sha256": "b33c8f981c4892eab086cfd822ffb9a42383daa4f51f23c74846d3488a2ee3af"
+    },
+    {
+      "path": "crates/kohbor-lab/tests/profile.rs",
+      "bytes": 7280,
+      "sha256": "a14b8e9d657168bafeb5f7c73f0a5cc0c2db6cdf11860c8486442eaa019be652"
+    },
+    {
+      "path": "crates/kohbor-lab/tests/release_gate.rs",
+      "bytes": 5451,
+      "sha256": "8d530e746a065687d26c2496c3d69b8d56fe1e24b38762bf66f93b385e96de4b"
+    },
+    {
+      "path": "crates/kohbor-lab/tests/sandbox.rs",
+      "bytes": 3354,
+      "sha256": "c03931f9c47a1c70f6f350fc6beb6afa52aab3f9e6cd64bab9a5ae8f434f24d1"
     },
     {
       "path": "crates/kohbor-minimap-cv/Cargo.toml",
@@ -1950,6 +2040,11 @@
       "path": "docs/design/ICD.md",
       "bytes": 9905,
       "sha256": "e6e2a3ac23887faf7b7e26dc53f77040990dc966dcd318807ea97a14d8849843"
+    },
+    {
+      "path": "docs/design/KOHBOR-LAB.md",
+      "bytes": 32038,
+      "sha256": "bfd3db1b3ce16a12455eb4a9f108b1e63a46d173610ada0f0713c3f5a9b28991"
     },
     {
       "path": "docs/design/MEDIA-PACK-SPEC.md",
