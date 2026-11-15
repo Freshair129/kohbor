@@ -803,6 +803,65 @@ fn preemption_ends_old_before_new_start() {
     assert!(has_outcome(&o, "preempted"), "audio preemption recorded");
     assert!(has_outcome(&o, "admitted"), "new request admitted");
 }
+
+#[test]
+fn interrupted_clip_emits_one_finished_record_with_exact_expected_frames() {
+    let (mut h, _) = setup();
+    offer(&h, 1, &[(EventId::HeroKill, None)]);
+    h.engine.step(10);
+    h.drain();
+    offer(&h, 2, &[(EventId::HealthDanger, None)]);
+    h.engine.step(20);
+
+    let out = h.drain();
+    let finished: Vec<_> = out
+        .iter()
+        .filter_map(|item| match item {
+            EngineOut::ClipFinished {
+                event_id,
+                reason,
+                expected_frames,
+                ..
+            } => Some((event_id.as_str(), reason.as_str(), expected_frames)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(finished, [("hero_kill", "interrupted", &Some(4_800))]);
+
+    h.engine.step(30);
+    assert!(h
+        .drain()
+        .iter()
+        .all(|item| !matches!(item, EngineOut::ClipFinished { .. })));
+}
+
+#[test]
+fn natural_clip_end_emits_one_finished_record() {
+    let (mut h, _) = setup();
+    offer(&h, 1, &[(EventId::HeroKill, None)]);
+    h.engine.step(10);
+    h.drain();
+    h.engine.step(5_000);
+
+    let out = h.drain();
+    let finished: Vec<_> = out
+        .iter()
+        .filter_map(|item| match item {
+            EngineOut::ClipFinished {
+                event_id, reason, ..
+            } => Some((event_id.as_str(), reason.as_str())),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(finished, [("hero_kill", "finished")]);
+
+    h.engine.step(5_010);
+    assert!(h
+        .drain()
+        .iter()
+        .all(|item| !matches!(item, EngineOut::ClipFinished { .. })));
+}
+
 #[test]
 fn unmute_does_not_restore_cancelled_playback() {
     let (mut h, log) = setup();

@@ -35,6 +35,7 @@ struct LivePlayback {
     id: PlaybackId,
     decision: Decision,
     audio_ends_at_ms: Option<u64>,
+    expected_frames: Option<u64>,
 }
 
 pub struct Engine {
@@ -427,7 +428,12 @@ impl Engine {
             if let Some(id) = decision.playback_id {
                 let audio_ends_at_ms = clip
                     .and_then(|clip| decision.decided_at_ms.checked_add(u64::from(clip.audio_ms)));
-                self.remember_live(id, decision.clone(), audio_ends_at_ms);
+                self.remember_live(
+                    id,
+                    decision.clone(),
+                    audio_ends_at_ms,
+                    clip.map(|clip| clip.pcm.len() as u64),
+                );
                 self.last_issued_id = self.last_issued_id.max(id.0);
             }
         }
@@ -449,13 +455,20 @@ impl Engine {
         }
     }
 
-    fn remember_live(&mut self, id: PlaybackId, decision: Decision, audio_ends_at_ms: Option<u64>) {
+    fn remember_live(
+        &mut self,
+        id: PlaybackId,
+        decision: Decision,
+        audio_ends_at_ms: Option<u64>,
+        expected_frames: Option<u64>,
+    ) {
         self.remove_live(id);
         if self.live.len() < 2 {
             self.live.push(LivePlayback {
                 id,
                 decision,
                 audio_ends_at_ms,
+                expected_frames,
             });
         }
     }
@@ -468,6 +481,7 @@ impl Engine {
                     id: live.id,
                     decision: live.decision.clone(),
                     audio_ends_at_ms: live.audio_ends_at_ms,
+                    expected_frames: live.expected_frames,
                 });
                 false
             } else {
@@ -483,12 +497,15 @@ impl Engine {
             match notice {
                 Notice::Decided(decision) => self.handle_decision(decision, None),
                 Notice::Finished { id, at_ms } => {
-                    self.remove_live(id);
+                    let live = self.remove_live(id);
                     let _ = self.try_output(EngineOut::Playback(playback_ended(
                         id,
                         EndReason::Finished,
                         at_ms,
                     )));
+                    if let Some(live) = live.as_ref() {
+                        self.emit_clip_finished(live, "finished");
+                    }
                 }
                 Notice::Cancelled { id, reason, at_ms } => {
                     let live = self.remove_live(id);
@@ -497,8 +514,15 @@ impl Engine {
                         EndReason::Cancelled(reason),
                         at_ms,
                     )));
+                    let finished_reason = match reason {
+                        CancelReason::Preempted => "interrupted",
+                        CancelReason::SessionFence => "cancelled_session",
+                        CancelReason::RevisionFence => "cancelled_revision",
+                        CancelReason::Muted => "cancelled_muted",
+                        CancelReason::DeviceLost => "cancelled_device_lost",
+                    };
                     if reason == CancelReason::Preempted {
-                        if let Some(live) = live {
+                        if let Some(live) = live.as_ref() {
                             let before_audio_end = live
                                 .audio_ends_at_ms
                                 .is_none_or(|audio_ends_at_ms| at_ms < audio_ends_at_ms);
@@ -511,9 +535,25 @@ impl Engine {
                             }
                         }
                     }
+                    if let Some(live) = live.as_ref() {
+                        self.emit_clip_finished(live, finished_reason);
+                    }
                 }
             }
         }
+    }
+
+    fn emit_clip_finished(&mut self, live: &LivePlayback, reason: &str) {
+        let Some(event_id) = live.decision.event_type.as_deref() else {
+            return;
+        };
+        let _ = self.try_output(EngineOut::ClipFinished {
+            event_id: event_id.to_owned(),
+            reason: reason.to_owned(),
+            expected_frames: live.expected_frames,
+            native_snapshot: super::diagnostics::native_playback_snapshot_json(live.id.0),
+            render_thread_priority: super::diagnostics::render_thread_priority(),
+        });
     }
 
     fn install_sink(&mut self, sink: Box<dyn Sink + Send>, now_ms: u64) {

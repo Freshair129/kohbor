@@ -155,6 +155,19 @@ pub fn spawn_publisher(
                             increment(&history.publisher_counters.emit_panics);
                         }
                     }
+                    EngineOut::ClipFinished {
+                        event_id,
+                        reason,
+                        expected_frames,
+                        native_snapshot,
+                        render_thread_priority,
+                    } => crate::logging::try_clip_finished(
+                        &event_id,
+                        &reason,
+                        expected_frames,
+                        native_snapshot.as_deref(),
+                        render_thread_priority,
+                    ),
                     EngineOut::Outcome(record) => history.push(record),
                     EngineOut::DeviceLost => {
                         increment(&history.publisher_counters.device_lost);

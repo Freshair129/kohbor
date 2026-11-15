@@ -5,7 +5,8 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError, TrySendError};
 use std::sync::Arc;
 #[cfg(feature = "latency-probe")]
-use std::time::{Duration, Instant};
+use std::time::Duration;
+use std::time::Instant;
 
 pub(super) const COMMAND_QUEUE_CAPACITY: usize = 8;
 pub(super) const EVENT_QUEUE_CAPACITY: usize = 16;
@@ -99,12 +100,288 @@ impl FirstFillProbeState {
     }
 }
 
+const DIAGNOSTIC_SLOT_COUNT: usize = COMMAND_QUEUE_CAPACITY + 1;
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct RenderObservation {
+    pub(crate) lateness_ns: u64,
+    pub(crate) period_ns: u64,
+    pub(crate) available_frames: u32,
+    pub(crate) requested_frames: u32,
+    pub(crate) padding_frames: u32,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct RenderStatsSnapshot {
+    first_fill_latency_ns: Option<u64>,
+    frames_available_total: Option<u64>,
+    frames_requested_total: Option<u64>,
+    late_fills: Option<u64>,
+    max_lateness_ns: Option<u64>,
+    min_padding_frames: Option<u32>,
+}
+
+#[derive(Default)]
+struct RenderStats {
+    first_fill_latency_ns: Option<u64>,
+    frames_available_total: u64,
+    frames_requested_total: u64,
+    late_fills: u64,
+    max_lateness_ns: Option<u64>,
+    min_padding_frames: Option<u32>,
+    callbacks_seen: bool,
+    timeouts_seen: bool,
+}
+
+impl RenderStats {
+    fn record_callback(&mut self, observation: RenderObservation) {
+        self.callbacks_seen = true;
+        self.frames_available_total = self
+            .frames_available_total
+            .saturating_add(u64::from(observation.available_frames));
+        self.frames_requested_total = self
+            .frames_requested_total
+            .saturating_add(u64::from(observation.requested_frames));
+        self.max_lateness_ns = Some(
+            self.max_lateness_ns
+                .map_or(observation.lateness_ns, |current| {
+                    current.max(observation.lateness_ns)
+                }),
+        );
+        self.min_padding_frames = Some(
+            self.min_padding_frames
+                .map_or(observation.padding_frames, |current| {
+                    current.min(observation.padding_frames)
+                }),
+        );
+        if observation.padding_frames == 0 || observation.lateness_ns > observation.period_ns {
+            self.late_fills = self.late_fills.saturating_add(1);
+        }
+    }
+
+    fn record_timeout(&mut self) {
+        self.timeouts_seen = true;
+        self.late_fills = self.late_fills.saturating_add(1);
+    }
+
+    fn record_first_fill(&mut self, latency_ns: u64) {
+        if self.first_fill_latency_ns.is_none() {
+            self.first_fill_latency_ns = Some(latency_ns);
+        }
+    }
+
+    fn snapshot(&self) -> RenderStatsSnapshot {
+        RenderStatsSnapshot {
+            first_fill_latency_ns: self.first_fill_latency_ns,
+            frames_available_total: self.callbacks_seen.then_some(self.frames_available_total),
+            frames_requested_total: self.callbacks_seen.then_some(self.frames_requested_total),
+            late_fills: (self.callbacks_seen || self.timeouts_seen).then_some(self.late_fills),
+            max_lateness_ns: self.max_lateness_ns,
+            min_padding_frames: self.min_padding_frames,
+        }
+    }
+}
+
+struct PlaybackMetrics {
+    playback_id: AtomicU64,
+    first_fill_latency_ns: AtomicU64,
+    first_fill_measured: AtomicBool,
+    frames_rendered: AtomicU64,
+    rendered_duration_known: AtomicBool,
+    frames_available_total: AtomicU64,
+    frames_requested_total: AtomicU64,
+    callback_frames_measured: AtomicBool,
+    late_fills: AtomicU64,
+    late_fills_measured: AtomicBool,
+    max_lateness_ns: AtomicU64,
+    lateness_measured: AtomicBool,
+    min_padding_frames: AtomicU64,
+    padding_measured: AtomicBool,
+}
+
+impl PlaybackMetrics {
+    fn new() -> Self {
+        Self {
+            playback_id: AtomicU64::new(INACTIVE_GENERATION),
+            first_fill_latency_ns: AtomicU64::new(0),
+            first_fill_measured: AtomicBool::new(false),
+            frames_rendered: AtomicU64::new(0),
+            rendered_duration_known: AtomicBool::new(true),
+            frames_available_total: AtomicU64::new(0),
+            frames_requested_total: AtomicU64::new(0),
+            callback_frames_measured: AtomicBool::new(false),
+            late_fills: AtomicU64::new(0),
+            late_fills_measured: AtomicBool::new(false),
+            max_lateness_ns: AtomicU64::new(0),
+            lateness_measured: AtomicBool::new(false),
+            min_padding_frames: AtomicU64::new(0),
+            padding_measured: AtomicBool::new(false),
+        }
+    }
+
+    fn reset(&self, playback_id: u64) {
+        self.playback_id
+            .store(INACTIVE_GENERATION, Ordering::Release);
+        self.first_fill_latency_ns.store(0, Ordering::Relaxed);
+        self.first_fill_measured.store(false, Ordering::Relaxed);
+        self.frames_rendered.store(0, Ordering::Relaxed);
+        self.rendered_duration_known.store(true, Ordering::Relaxed);
+        self.frames_available_total.store(0, Ordering::Relaxed);
+        self.frames_requested_total.store(0, Ordering::Relaxed);
+        self.callback_frames_measured
+            .store(false, Ordering::Relaxed);
+        self.late_fills.store(0, Ordering::Relaxed);
+        self.late_fills_measured.store(false, Ordering::Relaxed);
+        self.max_lateness_ns.store(0, Ordering::Relaxed);
+        self.lateness_measured.store(false, Ordering::Relaxed);
+        self.min_padding_frames.store(0, Ordering::Relaxed);
+        self.padding_measured.store(false, Ordering::Relaxed);
+        self.playback_id.store(playback_id, Ordering::Release);
+    }
+}
+
+pub(crate) struct PlaybackMetricsSnapshot {
+    pub(crate) first_fill_latency_ns: Option<u64>,
+    pub(crate) frames_rendered: Option<u64>,
+    pub(crate) rendered_duration_known: bool,
+    pub(crate) frames_available_total: Option<u64>,
+    pub(crate) frames_requested_total: Option<u64>,
+    pub(crate) late_fills: Option<u64>,
+    pub(crate) max_lateness_ns: Option<u64>,
+    pub(crate) min_padding_frames: Option<u64>,
+}
+
+pub(crate) struct SharedDiagnostics {
+    slots: [PlaybackMetrics; DIAGNOSTIC_SLOT_COUNT],
+}
+
+impl SharedDiagnostics {
+    fn new() -> Self {
+        Self {
+            slots: std::array::from_fn(|_| PlaybackMetrics::new()),
+        }
+    }
+
+    fn slot(&self, playback_id: u64) -> &PlaybackMetrics {
+        let index = (playback_id % DIAGNOSTIC_SLOT_COUNT as u64) as usize;
+        &self.slots[index]
+    }
+
+    fn begin_playback(&self, playback_id: u64) {
+        self.slot(playback_id).reset(playback_id);
+    }
+
+    fn publish_stats(&self, playback_id: u64, stats: RenderStatsSnapshot) {
+        let slot = self.slot(playback_id);
+        if slot.playback_id.load(Ordering::Acquire) != playback_id {
+            return;
+        }
+        if let Some(value) = stats.first_fill_latency_ns {
+            slot.first_fill_latency_ns.store(value, Ordering::Relaxed);
+            slot.first_fill_measured.store(true, Ordering::Release);
+        }
+        if let (Some(available), Some(requested)) =
+            (stats.frames_available_total, stats.frames_requested_total)
+        {
+            slot.frames_available_total
+                .store(available, Ordering::Relaxed);
+            slot.frames_requested_total
+                .store(requested, Ordering::Relaxed);
+            slot.callback_frames_measured.store(true, Ordering::Release);
+        }
+        if let Some(value) = stats.late_fills {
+            slot.late_fills.store(value, Ordering::Relaxed);
+            slot.late_fills_measured.store(true, Ordering::Release);
+        }
+        if let Some(value) = stats.max_lateness_ns {
+            slot.max_lateness_ns.store(value, Ordering::Relaxed);
+            slot.lateness_measured.store(true, Ordering::Release);
+        }
+        if let Some(value) = stats.min_padding_frames {
+            slot.min_padding_frames
+                .store(u64::from(value), Ordering::Relaxed);
+            slot.padding_measured.store(true, Ordering::Release);
+        }
+    }
+
+    fn record_rendered_frames(&self, playback_id: u64, frames: usize) {
+        let slot = self.slot(playback_id);
+        if slot.playback_id.load(Ordering::Acquire) == playback_id {
+            slot.frames_rendered
+                .fetch_add(frames as u64, Ordering::Relaxed);
+            slot.rendered_duration_known.store(true, Ordering::Release);
+        }
+    }
+
+    fn mark_render_write_pending(&self, playback_id: u64) {
+        let slot = self.slot(playback_id);
+        if slot.playback_id.load(Ordering::Acquire) == playback_id {
+            slot.rendered_duration_known.store(false, Ordering::Release);
+        }
+    }
+
+    fn complete_render_write_without_samples(&self, playback_id: u64) {
+        let slot = self.slot(playback_id);
+        if slot.playback_id.load(Ordering::Acquire) == playback_id {
+            slot.rendered_duration_known.store(true, Ordering::Release);
+        }
+    }
+
+    fn mark_rendered_duration_unknown(&self, playback_id: u64) {
+        let slot = self.slot(playback_id);
+        if slot.playback_id.load(Ordering::Acquire) == playback_id {
+            slot.rendered_duration_known.store(false, Ordering::Release);
+        }
+    }
+
+    pub(crate) fn snapshot(&self, playback_id: u64) -> Option<PlaybackMetricsSnapshot> {
+        let slot = self.slot(playback_id);
+        if slot.playback_id.load(Ordering::Acquire) != playback_id {
+            return None;
+        }
+        Some(PlaybackMetricsSnapshot {
+            first_fill_latency_ns: slot
+                .first_fill_measured
+                .load(Ordering::Acquire)
+                .then(|| slot.first_fill_latency_ns.load(Ordering::Relaxed)),
+            frames_rendered: Some(slot.frames_rendered.load(Ordering::Relaxed)),
+            rendered_duration_known: slot.rendered_duration_known.load(Ordering::Acquire),
+            frames_available_total: slot
+                .callback_frames_measured
+                .load(Ordering::Acquire)
+                .then(|| slot.frames_available_total.load(Ordering::Relaxed)),
+            frames_requested_total: slot
+                .callback_frames_measured
+                .load(Ordering::Acquire)
+                .then(|| slot.frames_requested_total.load(Ordering::Relaxed)),
+            late_fills: slot
+                .late_fills_measured
+                .load(Ordering::Acquire)
+                .then(|| slot.late_fills.load(Ordering::Relaxed)),
+            max_lateness_ns: slot
+                .lateness_measured
+                .load(Ordering::Acquire)
+                .then(|| slot.max_lateness_ns.load(Ordering::Relaxed)),
+            min_padding_frames: slot
+                .padding_measured
+                .load(Ordering::Acquire)
+                .then(|| slot.min_padding_frames.load(Ordering::Relaxed)),
+        })
+    }
+}
+
 enum Command {
     Submit {
         id: PlaybackId,
         generation: u64,
         samples: Arc<[i16]>,
+        submitted_at: Instant,
     },
+}
+
+pub(crate) struct RenderedBlock {
+    pub(crate) playback_id: PlaybackId,
+    pub(crate) frames: usize,
 }
 
 struct Playback {
@@ -113,6 +390,8 @@ struct Playback {
     samples: Arc<[i16]>,
     cursor: usize,
     finished_notified: bool,
+    submitted_at: Instant,
+    stats: RenderStats,
 }
 
 /// Device-independent render state. `fill` is called only on the audio-owner
@@ -125,6 +404,7 @@ pub(crate) struct Engine {
     current_generation: Arc<AtomicU64>,
     active: Option<Playback>,
     pending_command: Option<Command>,
+    diagnostics: Arc<SharedDiagnostics>,
     #[cfg(feature = "latency-probe")]
     first_fill_probe: Option<Arc<FirstFillProbeState>>,
 }
@@ -141,6 +421,7 @@ pub(crate) struct EngineHandle {
     device_stop_requested: Arc<AtomicBool>,
     next_generation: u64,
     current_id: Option<PlaybackId>,
+    diagnostics: Arc<SharedDiagnostics>,
 }
 
 /// Compact device notifications from WASAPI. Device loss has its own one-slot
@@ -183,6 +464,7 @@ impl Engine {
         let current_generation = Arc::new(AtomicU64::new(INACTIVE_GENERATION));
         let device_lost_pending = Arc::new(AtomicBool::new(false));
         let device_stop_requested = Arc::new(AtomicBool::new(false));
+        let diagnostics = Arc::new(SharedDiagnostics::new());
         let handle = EngineHandle {
             commands: command_sender,
             retired,
@@ -193,6 +475,7 @@ impl Engine {
             device_stop_requested: Arc::clone(&device_stop_requested),
             next_generation: INACTIVE_GENERATION,
             current_id: None,
+            diagnostics: Arc::clone(&diagnostics),
         };
         (
             Self {
@@ -202,6 +485,7 @@ impl Engine {
                 current_generation,
                 active: None,
                 pending_command: None,
+                diagnostics,
                 #[cfg(feature = "latency-probe")]
                 first_fill_probe: None,
             },
@@ -216,13 +500,60 @@ impl Engine {
 
     /// Fill the render block with the active samples, padding the final block or
     /// an idle/cancelled slot with silence.
+    #[cfg(test)]
     pub(crate) fn fill(&mut self, out: &mut [i16]) {
+        let _ = self.fill_observed(out, None);
+    }
+
+    pub(crate) fn fill_observed(
+        &mut self,
+        out: &mut [i16],
+        observation: Option<RenderObservation>,
+    ) -> Option<RenderedBlock> {
         out.fill(0);
         if !self.process_commands() {
-            return;
+            if let Some(observation) = observation {
+                self.record_active_callback(observation);
+            }
+            return None;
         }
-        self.render_active(out);
+        let rendered = self.render_active(out, observation);
         self.retire_terminal_active();
+        rendered
+    }
+
+    pub(crate) fn record_no_space_callback(&mut self, observation: RenderObservation) {
+        self.record_active_callback(observation);
+    }
+
+    pub(crate) fn record_event_timeout(&mut self) {
+        let diagnostics = &self.diagnostics;
+        if let Some(active) = self.active.as_mut() {
+            if active.generation == self.current_generation.load(Ordering::Acquire) {
+                active.stats.record_timeout();
+                diagnostics.publish_stats(active.id.0, active.stats.snapshot());
+            }
+        }
+    }
+
+    pub(crate) fn record_rendered_frames(&self, playback_id: PlaybackId, frames: usize) {
+        self.diagnostics
+            .record_rendered_frames(playback_id.0, frames);
+    }
+
+    pub(crate) fn mark_rendered_duration_unknown(&self, playback_id: PlaybackId) {
+        self.diagnostics
+            .mark_rendered_duration_unknown(playback_id.0);
+    }
+
+    fn record_active_callback(&mut self, observation: RenderObservation) {
+        let diagnostics = &self.diagnostics;
+        if let Some(active) = self.active.as_mut() {
+            if active.generation == self.current_generation.load(Ordering::Acquire) {
+                active.stats.record_callback(observation);
+                diagnostics.publish_stats(active.id.0, active.stats.snapshot());
+            }
+        }
     }
 
     fn process_commands(&mut self) -> bool {
@@ -251,6 +582,7 @@ impl Engine {
             id,
             generation,
             samples,
+            submitted_at,
         } = command;
         if self.current_generation.load(Ordering::Acquire) != generation {
             return match self.retired.try_send(samples) {
@@ -260,6 +592,7 @@ impl Engine {
                         id,
                         generation,
                         samples,
+                        submitted_at,
                     });
                     false
                 }
@@ -271,6 +604,7 @@ impl Engine {
                 id,
                 generation,
                 samples,
+                submitted_at,
             });
             return false;
         }
@@ -281,28 +615,49 @@ impl Engine {
             samples,
             cursor: 0,
             finished_notified: false,
+            submitted_at,
+            stats: RenderStats::default(),
         });
         true
     }
 
-    fn render_active(&mut self, out: &mut [i16]) {
+    fn render_active(
+        &mut self,
+        out: &mut [i16],
+        observation: Option<RenderObservation>,
+    ) -> Option<RenderedBlock> {
         let generation = self.current_generation.load(Ordering::Acquire);
-        let Some(active) = self.active.as_mut() else {
-            return;
-        };
+        let diagnostics = &self.diagnostics;
+        let active = self.active.as_mut()?;
         if generation != active.generation {
-            return;
+            return None;
         }
 
         let remaining = active.samples.len().saturating_sub(active.cursor);
         let count = remaining.min(out.len());
-        let Some(end) = active.cursor.checked_add(count) else {
-            return;
-        };
+        let end = active.cursor.checked_add(count)?;
+        if count > 0 {
+            diagnostics.mark_render_write_pending(active.id.0);
+        }
         out[..count].copy_from_slice(&active.samples[active.cursor..end]);
+        if let Some(observation) = observation {
+            active.stats.record_callback(observation);
+        }
         if self.current_generation.load(Ordering::Acquire) != generation {
             out.fill(0);
-            return;
+            if count > 0 {
+                diagnostics.complete_render_write_without_samples(active.id.0);
+            }
+            diagnostics.publish_stats(active.id.0, active.stats.snapshot());
+            return None;
+        }
+        if active.cursor == 0 && count > 0 {
+            active.stats.record_first_fill(
+                Instant::now()
+                    .saturating_duration_since(active.submitted_at)
+                    .as_nanos()
+                    .min(u128::from(u64::MAX)) as u64,
+            );
         }
         #[cfg(feature = "latency-probe")]
         if active.cursor == 0 && count > 0 {
@@ -310,6 +665,11 @@ impl Engine {
                 probe.record(active.id);
             }
         }
+        diagnostics.publish_stats(active.id.0, active.stats.snapshot());
+        let rendered = (count > 0).then_some(RenderedBlock {
+            playback_id: active.id,
+            frames: count,
+        });
         active.cursor = end;
         if active.cursor == active.samples.len() && !active.finished_notified {
             active.finished_notified = true;
@@ -322,6 +682,7 @@ impl Engine {
                 Ordering::Acquire,
             );
         }
+        rendered
     }
 
     fn retire_terminal_active(&mut self) -> bool {
@@ -342,6 +703,8 @@ impl Engine {
             samples,
             cursor,
             finished_notified,
+            submitted_at,
+            stats,
         } = active;
         match self.retired.try_send(samples) {
             Ok(()) => true,
@@ -352,6 +715,8 @@ impl Engine {
                     samples,
                     cursor,
                     finished_notified,
+                    submitted_at,
+                    stats,
                 });
                 false
             }
@@ -360,6 +725,10 @@ impl Engine {
 }
 
 impl EngineHandle {
+    pub(crate) fn diagnostics(&self) -> Arc<SharedDiagnostics> {
+        Arc::clone(&self.diagnostics)
+    }
+
     pub(crate) fn submit(&mut self, id: PlaybackId, samples: Arc<[i16]>) -> Result<(), SinkError> {
         self.reclaim_retired();
         let Some(generation) = self.next_generation.checked_add(1) else {
@@ -370,11 +739,14 @@ impl EngineHandle {
         };
         self.next_generation = generation;
         self.current_id = Some(id);
+        let submitted_at = Instant::now();
+        self.diagnostics.begin_playback(id.0);
         self.current_generation.store(generation, Ordering::Release);
         let command = Command::Submit {
             id,
             generation,
             samples,
+            submitted_at,
         };
         match self.commands.try_send(command) {
             Ok(()) => Ok(()),
@@ -433,11 +805,125 @@ impl EngineHandle {
 mod tests {
     #[cfg(feature = "latency-probe")]
     use super::FirstFillProbe;
-    use super::{Engine, COMMAND_QUEUE_CAPACITY, EVENT_QUEUE_CAPACITY};
+    use super::{
+        Engine, RenderObservation, RenderStats, SharedDiagnostics, COMMAND_QUEUE_CAPACITY,
+        EVENT_QUEUE_CAPACITY,
+    };
     use kohbor_audio::{PlaybackId, SinkError, SinkEvent};
     use std::sync::Arc;
     #[cfg(feature = "latency-probe")]
     use std::time::Instant;
+
+    fn observation(
+        lateness_ns: u64,
+        period_ns: u64,
+        available_frames: u32,
+        requested_frames: u32,
+        padding_frames: u32,
+    ) -> RenderObservation {
+        RenderObservation {
+            lateness_ns,
+            period_ns,
+            available_frames,
+            requested_frames,
+            padding_frames,
+        }
+    }
+
+    #[test]
+    fn render_stats_aggregate_on_time_frames_and_headroom() {
+        let mut stats = RenderStats::default();
+        stats.record_callback(observation(1_000_000, 10_000_000, 440, 480, 40));
+        stats.record_callback(observation(2_000_000, 10_000_000, 460, 480, 20));
+
+        let snapshot = stats.snapshot();
+        assert_eq!(snapshot.late_fills, Some(0));
+        assert_eq!(snapshot.max_lateness_ns, Some(2_000_000));
+        assert_eq!(snapshot.frames_available_total, Some(900));
+        assert_eq!(snapshot.frames_requested_total, Some(960));
+        assert_eq!(snapshot.min_padding_frames, Some(20));
+    }
+
+    #[test]
+    fn one_late_callback_counts_once_and_tracks_maximum_lateness() {
+        let mut stats = RenderStats::default();
+        stats.record_callback(observation(10_000_000, 10_000_000, 480, 480, 0));
+
+        let snapshot = stats.snapshot();
+        assert_eq!(snapshot.late_fills, Some(1));
+        assert_eq!(snapshot.max_lateness_ns, Some(10_000_000));
+    }
+
+    #[test]
+    fn empty_padding_fill_counts_as_possible_underrun() {
+        let mut stats = RenderStats::default();
+        stats.record_callback(observation(0, 10_000_000, 480, 480, 0));
+
+        assert_eq!(stats.snapshot().late_fills, Some(1));
+    }
+
+    #[test]
+    fn event_timeout_counts_as_late_fill_without_inventing_callback_frames() {
+        let mut stats = RenderStats::default();
+        stats.record_timeout();
+
+        let snapshot = stats.snapshot();
+        assert_eq!(snapshot.late_fills, Some(1));
+        assert_eq!(snapshot.frames_available_total, None);
+        assert_eq!(snapshot.frames_requested_total, None);
+        assert_eq!(snapshot.max_lateness_ns, None);
+        assert_eq!(snapshot.min_padding_frames, None);
+    }
+
+    #[test]
+    fn timeout_and_late_callback_are_each_counted_once() {
+        let mut stats = RenderStats::default();
+        stats.record_timeout();
+        stats.record_callback(observation(11_000_000, 10_000_000, 400, 480, 80));
+
+        assert_eq!(stats.snapshot().late_fills, Some(2));
+    }
+
+    #[test]
+    fn zero_lateness_on_time_callback_is_measured_as_zero_not_unknown() {
+        let mut stats = RenderStats::default();
+        stats.record_callback(observation(0, 10_000_000, 480, 480, 1));
+
+        let snapshot = stats.snapshot();
+        assert_eq!(snapshot.max_lateness_ns, Some(0));
+        assert_eq!(snapshot.late_fills, Some(0));
+    }
+
+    #[test]
+    fn no_callback_or_timeout_leaves_callback_measurements_unknown() {
+        let snapshot = RenderStats::default().snapshot();
+
+        assert_eq!(snapshot.late_fills, None);
+        assert_eq!(snapshot.max_lateness_ns, None);
+        assert_eq!(snapshot.frames_available_total, None);
+        assert_eq!(snapshot.frames_requested_total, None);
+        assert_eq!(snapshot.min_padding_frames, None);
+    }
+
+    #[test]
+    fn render_duration_is_unknown_until_the_wasapi_write_completes() {
+        let diagnostics = SharedDiagnostics::new();
+        diagnostics.begin_playback(7);
+        diagnostics.mark_render_write_pending(7);
+
+        let pending = diagnostics.snapshot(7).unwrap();
+        assert!(!pending.rendered_duration_known);
+        assert_eq!(pending.frames_rendered, Some(0));
+
+        diagnostics.record_rendered_frames(7, 480);
+        let completed = diagnostics.snapshot(7).unwrap();
+        assert!(completed.rendered_duration_known);
+        assert_eq!(completed.frames_rendered, Some(480));
+
+        diagnostics.mark_render_write_pending(7);
+        diagnostics.mark_rendered_duration_unknown(7);
+        assert!(!diagnostics.snapshot(7).unwrap().rendered_duration_known);
+    }
 
     fn pair() -> (Engine, super::EngineHandle) {
         Engine::new()
