@@ -26,6 +26,9 @@ const MAX_FRONTEND_BYTES: usize = 300;
 const MAX_KEY_BYTES: usize = 64;
 const QUEUE_CAPACITY: usize = 4096;
 const FLUSH_TIMEOUT: Duration = Duration::from_millis(200);
+/// Unit-test flush barrier: waits for the writer thread instead of racing it (hang guard only).
+#[cfg(test)]
+const TEST_FLUSH_BARRIER: Duration = Duration::from_secs(60);
 type WriterProbe = Box<dyn FnOnce() + Send>;
 
 #[cfg(test)]
@@ -262,7 +265,7 @@ mod round3_tests {
         with_test_logger(logger.clone(), || {
             assert!(std::panic::catch_unwind(|| panic!("private panic probe")).is_err());
         });
-        logger.flush();
+        logger.flush_bounded();
         assert!(start.elapsed() < Duration::from_millis(450));
     }
 
@@ -399,7 +402,7 @@ mod round3_tests {
         let elapsed = start.elapsed();
         let dropped = logger.dropped_entries();
         let flush_start = Instant::now();
-        logger.flush();
+        logger.flush_bounded();
         let flush_elapsed = flush_start.elapsed();
         release_tx.send(()).unwrap();
         assert!(elapsed < Duration::from_secs(1), "caller time: {elapsed:?}");
@@ -787,10 +790,26 @@ impl Logger {
         self.dropped.load(Ordering::Relaxed)
     }
     pub fn flush(&self) {
+        // Production keeps the bounded wait. In unit tests `flush` is the barrier behind
+        // `entries()`, `tail_value()` and `current_file()`: a 200 ms bound let a CPU-starved
+        // writer thread "finish" a flush it had not processed yet, so the test read stale state.
+        // The test barrier therefore waits for the writer's acknowledgement (the long bound is only
+        // a hang guard); the bounded behaviour itself is still tested through `flush_bounded`.
+        #[cfg(test)]
+        self.flush_within(TEST_FLUSH_BARRIER);
+        #[cfg(not(test))]
+        self.flush_within(FLUSH_TIMEOUT);
+    }
+    fn flush_within(&self, timeout: Duration) {
         let (ack, reply) = mpsc::sync_channel(1);
         if self.sender.try_send(WriterCommand::Flush(ack)).is_ok() {
-            let _ = reply.recv_timeout(FLUSH_TIMEOUT);
+            let _ = reply.recv_timeout(timeout);
         }
+    }
+    /// The production flush path (200 ms bound), for tests that assert it stays bounded.
+    #[cfg(test)]
+    fn flush_bounded(&self) {
+        self.flush_within(FLUSH_TIMEOUT);
     }
     fn panic_record(&self, message: &str, location: &str, line: u32, column: u32) {
         let Ok(guard) = self.state.try_lock() else {

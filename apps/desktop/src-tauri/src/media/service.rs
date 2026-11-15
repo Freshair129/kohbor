@@ -1012,10 +1012,16 @@ mod tests {
             .to_owned()
     }
 
+    /// Wait bound for events a test EXPECTS to happen (table swap, probe request, join). The service
+    /// thread has to be scheduled and decode fixtures; under heavy parallel load a 2 s bound expired
+    /// before the thread ran. This is a hang guard, not a latency requirement: the tests that assert
+    /// bounded behaviour (full channel, "within two seconds after release") keep their own bounds.
+    const EVENT_WAIT: Duration = Duration::from_secs(30);
+
     fn receive_swap(receiver: &EngineRx) -> Arc<PrewarmTable> {
         match receiver
             .control
-            .recv_timeout(Duration::from_secs(2))
+            .recv_timeout(EVENT_WAIT)
             .expect("service sends a control message")
         {
             Control::SwapTable { table } => table,
@@ -1801,7 +1807,7 @@ mod tests {
             let _ = activation_tx.send(result);
         });
         assert_eq!(
-            sleep_started_rx.recv_timeout(Duration::from_secs(2)),
+            sleep_started_rx.recv_timeout(EVENT_WAIT),
             Ok(()),
             "activation reaches injected prewarm sleeper"
         );
@@ -2087,7 +2093,7 @@ mod tests {
         let _ = receive_swap(&service.engine_rx);
 
         let request = probe_rx
-            .recv_timeout(Duration::from_secs(2))
+            .recv_timeout(EVENT_WAIT)
             .expect("table swap emits one renderer probe request");
         let items = request["items"].as_array().expect("probe items are listed");
         assert_eq!(request["install_id"], install_id);
