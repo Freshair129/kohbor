@@ -18,7 +18,23 @@ S0 working draft. The owner selected the alpha/beta architecture and authorized 
 
 Alpha sales are disabled. Use Free tier options with a spending ceiling of THB 0. If a charge is expected, notify the product owner immediately and pause the action before it can incur a charge. Resume that action only after separate spending authorization. This rule is separate from the broker and relay uptime alerts. The remaining DEC-STORE-HOSTING decisions are open.
 
-The first Store release after alpha sells announcer packs only (DEC-STORE-SCOPE). The owner will decide Premium separately under DEC-PREMIUM. Buyers must sign in to Kohbor before purchase. The Store binds the purchase entitlement to that account so the buyer can sign in on another device and download the pack again.
+The first Store release after alpha offers both free and paid announcer packs (DEC-STORE-SCOPE). The owner will decide Premium separately under DEC-PREMIUM. Buyers must sign in to Kohbor before purchase. The Store binds the purchase entitlement to that account so the buyer can sign in on another device and download the pack again. A purchase includes updates to the same pack at no extra charge. Each new pack has its own purchase entitlement. The owner will choose the payment provider and the entity that receives payments on behalf of the Store before paid sales open after alpha (DEC-STORE-PAYMENT-PROVIDER). The first Store release supports displaying prices and accepting payments in THB and USD (DEC-STORE-CURRENCY-TAX). Before paid sales open after alpha, the owner will decide how to handle tax and whether to display prices inclusive of tax when selecting the Store payee.
+
+A full refund ends the entitlement to download the refunded pack again or receive its updates (DEC-STORE-REFUND). Installed packs remain playable offline after sign-out or an account switch. After a full refund or entitlement revocation, disable playback when the app is online and detects the revocation. If a match is in progress, defer disabling playback until the match ends. Keep the installed files. (DEC-STORE-OFFLINE-POLICY). The owner will decide refund eligibility, partial refunds and chargebacks when selecting the payment provider, before paid sales open after alpha. The owner will decide creator revenue share and payout methods before paid sales open after alpha.
+
+The first Store release verifies pack authenticity with digital signatures and controls downloads through account entitlements. Pack files are distributed unencrypted. The signed-authority design and verification tests remain required for S4 (DEC-PACK-CRYPTO).
+
+The first Windows release uses an NSIS installer with in-app update support. A separate portable executable is deferred. (DEC-UPDATE-ENDPOINT).
+
+Defer buying a Windows Authenticode certificate under the THB 0 budget. Continue signing update assets with the updater signing key as planned.
+
+Draft the alpha privacy page in Thai based on the data Kohbor actually uses and retains. The product owner coordinates legal review before publication. (DEC-PRIVACY-LEGAL).
+
+Users can delete their Kohbor account from the in-app account page after signing in with Google again to confirm. The account and session data are removed from the active database. The 30-day encrypted backup rotation applies to earlier snapshots.
+
+## Remaining decisions
+
+Use the existing Kohbor specifications as defaults for remaining routine choices. Keep Premium and paid commerce deferred, keep diagnostics local, and enable no optional hosted feature until its acceptance and publication prerequisites are met. Before publication, compare the privacy notice with the deployed data flows and complete the owner's planned legal review.
 
 ## Environments and routes
 
@@ -29,8 +45,8 @@ The first Store release after alpha sells announcer packs only (DEC-STORE-SCOPE)
 | Relay | Fake peer transport | Separate Docker service on the same PC, published through the approved Tunnel after the hosted sharing gates. |
 | Administration | Local only | Owner-only Tailscale access. Keep admin paths out of public Tunnel routes. |
 | Database | Local Postgres first for S2 synthetic acceptance | A new Kohbor-only Supabase Free project for alpha, used solely for Postgres. Broker connects over TLS. No Supabase Auth or reuse of another product's project. |
-| Pack delivery | Synthetic catalog, entitlement and storage | Cloudflare R2 is PROPOSED for pack storage (owner confirmed the stack as proposed; R2 versus Supabase Storage is not final, DEC-STORE-HOSTING), with Supabase Storage as the named alternative. The Store catalog can be browsed without signing in. Buying or downloading purchased packs requires Kohbor sign-in. |
-| Updates | Local policy and synthetic checks | GitHub Releases and Tauri updater per DEC-UPDATE-ENDPOINT. Resolve anonymous access, signing and release authorization first. |
+| Pack delivery | Synthetic catalog, entitlement and storage | Cloudflare R2 is PROPOSED for pack storage (owner confirmed the stack as proposed; R2 versus Supabase Storage is not final, DEC-STORE-HOSTING), with Supabase Storage as the named alternative. The Store catalog can be browsed without signing in. Buying or downloading a Store pack requires Kohbor sign-in. When a user downloads a free pack, the Store adds it to that account's library. |
+| Updates | Local policy and synthetic checks | GitHub Releases and Tauri updater per DEC-UPDATE-ENDPOINT. Publish the installer and updater assets through GitHub Releases in a separate public release repository. Downloads require no sign-in. Keep the source repository private. The exact release repository and updater URL will be selected at integration. Signing and release authorization remain prerequisites. |
 
 Production hosting, recovery objectives and uptime targets remain owner decisions. For home-PC alpha, sleep, reboots, loss of power and ISP outages take online capabilities offline. The desktop local core stays usable. There is no permanent public API address in the initial phase.
 
@@ -38,14 +54,14 @@ Production hosting, recovery objectives and uptime targets remain owner decision
 
 1. In S1 the native host talks to a fake provider and broker under an explicit development configuration. In the hosted design, the host opens the system browser for Google OIDC with openid scope and PKCE S256. The broker validates the ID token and nonce, discards Google tokens and persists only the permitted account fields, including a keyed subject hash. Tokens remain in the native host.
 2. The broker issues distinct Ed25519 credentials with one audience per credential. The relay checks tickets offline with a public key. Only the allowed pairing metadata and peer DTOs enter the relay, and its state lives in memory. Raw match or team identifiers, account tokens and identity fields stay out of the relay. Draft Bar OCR stays local and in memory. Broker and relay logs must omit credentials, query strings containing signed URLs, identity payloads and peer payloads.
-3. When commerce is approved, the broker verifies entitlement and returns a short-lived signed R2 GET URL. The desktop downloads directly, then verifies digest, publisher signature and receipt before the MP-06 install transaction. Activation is separate. Store policy for installed copies, account deletion and revocation remains open.
+3. When commerce is approved, the broker verifies entitlement and returns a short-lived signed R2 GET URL. The desktop downloads directly, then verifies digest, publisher signature and receipt before the MP-06 install transaction. Activation is separate. After Kohbor account deletion, installed packs that have not been revoked remain playable offline. The right to download packs again from the library ends with the account.
 4. The site links to release assets. The updater verifies signed releases using its own trust root, independently of the account and Store.
 
 Keep database credentials, the OIDC subject pepper, token signing private material, the Tunnel token and any scoped R2 credentials outside the checkout in owner-managed files with restricted access. Compose files reference placeholders. The relay receives public verification material only. Publisher and updater private keys stay outside the broker and out of chat. Use separate trust domains. Containers must not mount the owner's project or app-data directories. A published-port container or Tunnel start requires owner authorization.
 
 ## Backups and monitoring
 
-- Before admitting real accounts, schedule a nightly alpha Postgres dump with `pg_dump` and encrypt the backup. Decide backup retention alongside the account-deletion policy under DEC-RETENTION. Backup ownership and restore objectives are pending. Rehearse a restore into an isolated database and verify that backups cannot reintroduce deleted accounts into service. Supabase Free can pause and does not provide automatic daily backups.
+- Before admitting real accounts, schedule a nightly alpha Postgres dump with `pg_dump` and encrypt the backup. Retain encrypted alpha database backups for 30 days, then delete them through scheduled rotation. This retention period is recorded under DEC-RETENTION. Backup ownership and restore objectives are pending. Rehearse a restore into an isolated database and verify that backups cannot reintroduce deleted accounts into service. Supabase Free can pause and does not provide automatic daily backups.
 - When the API opens, probe the broker and relay health endpoints every five minutes. Track consecutive failures separately for each service and notify the product owner after two consecutive failures for either service. Health responses carry no user identifiers. Broker readiness includes database reachability. The monitoring provider, alert channel and log retention remain open.
 - Pages has a 25 MiB per-asset limit, so the site links to separately hosted binaries. R2 Standard has usage-based charges above its included allowances. Presigned R2 GET URLs use the S3 API hostname and can be reused until expiration. Confirm applicable billing limits and range behavior before relying on them. Apply the THB 0 spending rule to expected charges from R2.
 
@@ -70,7 +86,7 @@ Use one claim and PR per stage. Run the project gate in an admitted workspace an
 2. After the local Postgres checks pass and backup and monitoring ownership are agreed, the owner creates the new Kohbor-only Supabase Free project for alpha. Set connection credentials in the local secret file outside the repository. Confirm the project plan and readiness without sharing a connection string.
 3. The product owner owns the new Kohbor-only Google Cloud project and manages its OAuth consent screen. Use the `/privacy` page on Kohbor's assigned Cloudflare Pages hostname as the alpha privacy policy URL, subject to Google accepting that hostname. Verify it against the consent screen requirements before configuring OAuth. Limit alpha Google sign-in to invited testers only, with at most 100 testers. Enter credentials locally.
 4. Before any R2 setup, verify that the planned usage and setup fit the THB 0 ceiling. If a charge is expected, notify the owner immediately and pause setup. The owner creates the private pack bucket and scoped credentials when needed and approved. The rights team confirms which packs may be distributed.
-5. Create the updater signing key on the owner's machine after choosing release visibility and Windows packaging. Provide only the public key when integration requires it.
+5. The product owner will generate and keep the updater private signing key on their own machine. Share only the public key with the team at integration. Key generation is deferred.
 
 ## Owner questions
 
@@ -78,9 +94,9 @@ Use one claim and PR per stage. Run the project gate in an admitted workspace an
 | --- | --- |
 | A | Deferred provisioning details: domain registrant and availability, backup ownership and restore objectives, monitoring provider and alert channel. |
 | B | DEC-GOOGLE-PROJECT: Verify that Google accepts the assigned Pages hostname before configuring the consent screen. |
-| C | Remaining Store scope details (free pack availability and download access, and included updates), payment operator, currency/tax/refunds, creator share, premium, offline and revocation policy, and DEC-PACK-CRYPTO. |
-| D | Updater signing custody, installer versus portable, release visibility and Windows Authenticode. |
-| E | DEC-PRIVACY-LEGAL, DEC-RETENTION including backup retention and account deletion, policy text and legal reviewer. |
+| C | Premium remains a separate decision. The signed-authority design and tests are pending under DEC-PACK-CRYPTO. Payment provider, Store payee, tax, refund eligibility, partial refunds, chargebacks, creator revenue share and payout methods are deferred until before paid sales open after alpha. |
+| D | Select the exact public release repository and updater URL at integration. Authenticode certificate purchase is deferred. |
+| E | DEC-PRIVACY-LEGAL, DEC-RETENTION for other data categories, policy text and legal reviewer. |
 
 Related baseline: [account identity](ACCOUNT-IDENTITY-REVIEW.md), [backend architecture D8 and ADR-A](REMAINING-SYSTEM-DESIGN.md), [media package transactions](MEDIA-PACK-SPEC.md), and [Draft Bar data boundaries](DRAFT-BAR-SPEC.md). [Store and Pack Delivery](STORE-PACK-DELIVERY.md) is on main through PR #20 and remains a proposal pending owner decisions.
 
@@ -92,7 +108,7 @@ Related baseline: [account identity](ACCOUNT-IDENTITY-REVIEW.md), [backend archi
 | Database | New Kohbor-only Supabase project used as Postgres only; no Supabase Auth; never shared with another product; tested against local Postgres first | Owner decision |
 | Static front end | Cloudflare Pages, built host-agnostic (also builds for Vercel) | Same build; host may change without code changes |
 | Pack storage | Cloudflare R2 PROPOSED, Supabase Storage the alternative; nothing exists yet | Owner decision after provider facts are checked |
-| App updates | GitHub Releases (DEC-UPDATE-ENDPOINT); separate signing key and trust root | Same, subject to release visibility and Windows code signing |
+| App updates | GitHub Releases (DEC-UPDATE-ENDPOINT); separate signing key and trust root | Same, using the separate public release repository and subject to the Windows code-signing decision |
 | Money | Alpha sells nothing; free tiers only; spending ceiling THB 0; any expected charge pauses the action and goes to the owner | Separate owner decisions (payments are not designed) |
 | Uptime | Best effort. Sleep, reboot, power or ISP loss take online features offline; the desktop local core keeps working | A stated target set by the owner |
 | Backups | Encrypted nightly `pg_dump`; a free Supabase project has no guaranteed point-in-time recovery (UNVERIFIED); restore rehearsed before real accounts | Provider backups plus dumps; objective set by the owner |
