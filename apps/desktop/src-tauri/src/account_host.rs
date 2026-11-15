@@ -703,6 +703,21 @@ impl AccountStorageGuard {
         }
     }
 
+    // The bounded protected bytes are the revision: tombstones and re-encryption
+    // can change even when the logical session remains absent or identical.
+    fn read_session_file_revision(&self) -> Result<Option<Vec<u8>>, StoreError> {
+        match read_protected_file_with_ciphertext(&self.inner, SESSION_FILE, MAX_PLAINTEXT_BYTES) {
+            Ok(None) => Ok(None),
+            Ok(Some((plaintext, protected)))
+                if plaintext.as_slice() == SESSION_TOMBSTONE
+                    || decode_session(&plaintext).is_some() =>
+            {
+                Ok(Some(protected))
+            }
+            Ok(Some(_)) | Err(_) => Err(StoreError::Unreadable),
+        }
+    }
+
     fn require_saved_session(&self, account_id: &str) -> Result<(), StoreError> {
         match self.read_session_file()? {
             Some(session) if session.account_id == account_id => Ok(()),
@@ -1119,6 +1134,15 @@ fn read_protected_file(
     name: &str,
     maximum_plaintext: usize,
 ) -> std::io::Result<Option<Vec<u8>>> {
+    read_protected_file_with_ciphertext(root, name, maximum_plaintext)
+        .map(|file| file.map(|(plaintext, _protected)| plaintext))
+}
+
+fn read_protected_file_with_ciphertext(
+    root: &StorageRoot,
+    name: &str,
+    maximum_plaintext: usize,
+) -> std::io::Result<Option<(Vec<u8>, Vec<u8>)>> {
     #[cfg(windows)]
     {
         let file = match win32::open_regular_file(
@@ -1154,7 +1178,7 @@ fn read_protected_file(
                     "protected file is unreadable",
                 )
             })?;
-        Ok(Some(plaintext))
+        Ok(Some((plaintext, protected)))
     }
     #[cfg(not(windows))]
     {
@@ -2263,10 +2287,21 @@ impl AccountHost {
 
         let timeout = request.timeout.min(MAX_BROWSER_SIGNIN_TIMEOUT);
 
-        let auth = self
-            .with_operation(|guard| client.begin_handoff(request.material, clock, guard))
-            .map_err(|_| BrowserSignInError::Io)?
-            .map_err(map_begin_handoff_error)?;
+        let (auth, session_revision) = self
+            .with_operation(|guard| {
+                let auth = client
+                    .begin_handoff(request.material, clock, guard)
+                    .map_err(map_begin_handoff_error)?;
+                let revision = match guard.read_session_file_revision() {
+                    Ok(revision) => revision,
+                    Err(_) => {
+                        client.cancel_handoff();
+                        return Err(BrowserSignInError::Io);
+                    }
+                };
+                Ok((auth, revision))
+            })
+            .map_err(|_| BrowserSignInError::Io)??;
 
         let listener = match TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0)) {
             Ok(listener) => listener,
@@ -2354,6 +2389,16 @@ impl AccountHost {
         // broker sign-in, recovery recheck, and session persistence.
         let callback_result = self.with_operation(|guard| {
             check_browser_wait(request.cancelled, deadline)?;
+            // Keep session contents unread while recovery is pending or unreadable.
+            if matches!(guard.load_recovery_marker(), Ok(RecoveryMarker::Clear)) {
+                if guard
+                    .read_session_file_revision()
+                    .map_err(|_| BrowserSignInError::Io)?
+                    != session_revision
+                {
+                    return Err(BrowserSignInError::Cancelled);
+                }
+            }
             Ok(client.deliver_callback(
                 (&callback.state, &callback.code),
                 request.service,

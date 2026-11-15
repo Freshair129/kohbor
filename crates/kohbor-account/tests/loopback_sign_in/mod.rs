@@ -1,8 +1,8 @@
 use crate::account_host::{AccountHost, BrowserSignInError as Error, BrowserSignInRequest};
-use crate::support::fakes::{new_trace, FakeBroker, FakeClock, FakeProvider};
+use crate::support::fakes::{new_trace, FakeBroker, FakeClock, FakeProvider, TraceObserver};
 use kohbor_account::{
-    AuthMaterial, CallbackOutcome, Client, Provider, ProviderError, ProviderIdentity, SecretStore,
-    ServiceConfig,
+    AuthMaterial, CallbackOutcome, Client, OperationOutcome, Provider, ProviderError,
+    ProviderIdentity, RecoveryMarker, SecretStore, ServiceConfig,
 };
 use std::{
     io::{Read, Write},
@@ -88,6 +88,75 @@ fn absent(host: &AccountHost, provider: &CountingProvider, broker: &FakeBroker) 
     assert_eq!(host.with_operation(|g| g.load_session()).unwrap(), Ok(None));
 }
 
+fn run_same_code_handoff(
+    host: &AccountHost,
+    client: &mut Client,
+    provider: &mut CountingProvider,
+    broker: &mut FakeBroker,
+    before_callback: impl FnOnce(),
+) -> Result<CallbackOutcome, Error> {
+    let service = service();
+    let cancelled = AtomicBool::new(false);
+    let mut worker = None;
+    let mut req = request(&service, &cancelled);
+    req.timeout = Duration::from_secs(5);
+    let result = host.sign_in_via_browser(
+        client,
+        req,
+        &FakeClock::new(1_000_000),
+        provider,
+        broker,
+        |_, addr| {
+            before_callback();
+            worker = Some(send(
+                addr,
+                "GET /callback?code=code_a&state=state-a HTTP/1.1\r\nHost: localhost\r\n\r\n",
+            ));
+            Ok(())
+        },
+    );
+    worker.unwrap().join().unwrap();
+    result
+}
+
+fn signed_in_fixture(host: &AccountHost) -> (Client, FakeBroker) {
+    let mut client = Client::new();
+    let mut provider = CountingProvider(0);
+    let mut broker = FakeBroker::new(new_trace());
+    assert_eq!(
+        run_same_code_handoff(host, &mut client, &mut provider, &mut broker, || {}),
+        Ok(CallbackOutcome::Accepted)
+    );
+    assert_eq!(provider.0, 1);
+    (client, broker)
+}
+
+fn complete_sign_out(host: &AccountHost, client: &mut Client, broker: &mut FakeBroker) {
+    let result = host
+        .with_operation(|guard| {
+            let mut observer = TraceObserver::new(new_trace());
+            client.sign_out(broker, guard, &mut observer)
+        })
+        .unwrap();
+    assert_eq!(result, OperationOutcome::Accepted);
+}
+
+fn assert_marker_clear(host: &AccountHost) {
+    assert_eq!(
+        host.with_operation(|guard| guard.load_recovery_marker())
+            .unwrap(),
+        Ok(RecoveryMarker::Clear)
+    );
+}
+
+fn assert_clear_and_absent(host: &AccountHost) {
+    assert_marker_clear(host);
+    assert_eq!(
+        host.with_operation(|guard| guard.load_session()).unwrap(),
+        Ok(None)
+    );
+}
+
 #[test]
 fn valid_callback_uses_pkce_persists_session_and_closes_listener() {
     let root = Root::new();
@@ -146,6 +215,112 @@ fn valid_callback_uses_pkce_persists_session_and_closes_listener() {
     assert!(
         TcpStream::connect_timeout(&address.unwrap().into(), Duration::from_millis(250)).is_err()
     );
+}
+
+#[test]
+fn stale_callback_after_other_host_sign_out_preserves_tombstone_and_clear_marker() {
+    for seed_tombstone in [false, true] {
+        let root = Root::new();
+        let host_a = root.open();
+        let host_b = root.open();
+        let session_path = root.0.join("account").join("account-session.bin");
+
+        if seed_tombstone {
+            let (mut seed_client, mut seed_broker) = signed_in_fixture(&host_b);
+            complete_sign_out(&host_b, &mut seed_client, &mut seed_broker);
+            assert_clear_and_absent(&host_b);
+        } else {
+            assert!(!session_path.exists());
+        }
+        let previous_tombstone = seed_tombstone.then(|| std::fs::read(&session_path).unwrap());
+
+        let mut client_a = Client::new();
+        let mut provider_a = CountingProvider(0);
+        let mut broker_a = FakeBroker::new(new_trace());
+        let mut new_tombstone = None;
+        let result = run_same_code_handoff(
+            &host_a,
+            &mut client_a,
+            &mut provider_a,
+            &mut broker_a,
+            || {
+                assert!(host_b.with_operation(|_| ()).is_ok());
+                let (mut client_b, mut broker_b) = signed_in_fixture(&host_b);
+                complete_sign_out(&host_b, &mut client_b, &mut broker_b);
+                assert_clear_and_absent(&host_b);
+
+                let tombstone = std::fs::read(&session_path).unwrap();
+                if let Some(previous) = previous_tombstone.as_ref() {
+                    assert_ne!(previous, &tombstone);
+                }
+                new_tombstone = Some(tombstone);
+            },
+        );
+
+        assert_eq!(result, Err(Error::Cancelled));
+        assert_eq!(client_a.state(), kohbor_account::AccountState::SignedOut);
+        absent(&host_a, &provider_a, &broker_a);
+        assert_marker_clear(&host_a);
+        assert_eq!(
+            std::fs::read(&session_path).unwrap(),
+            new_tombstone.unwrap()
+        );
+    }
+}
+
+#[test]
+fn stale_callback_preserves_same_account_session_replacement() {
+    let root = Root::new();
+    let host_a = root.open();
+    let host_b = root.open();
+    let session_path = root.0.join("account").join("account-session.bin");
+
+    let (_seed_client, _seed_broker) = signed_in_fixture(&host_b);
+    let previous_session = std::fs::read(&session_path).unwrap();
+
+    let mut client_a = Client::new();
+    let mut provider_a = CountingProvider(0);
+    let mut broker_a = FakeBroker::new(new_trace());
+    let mut replacement = None;
+    let result = run_same_code_handoff(
+        &host_a,
+        &mut client_a,
+        &mut provider_a,
+        &mut broker_a,
+        || {
+            assert!(host_b.with_operation(|_| ()).is_ok());
+            let (_client_b, _broker_b) = signed_in_fixture(&host_b);
+            let bytes = std::fs::read(&session_path).unwrap();
+            assert_ne!(previous_session, bytes);
+            assert_marker_clear(&host_b);
+            assert_eq!(
+                host_b
+                    .with_operation(|guard| guard.load_session())
+                    .unwrap()
+                    .unwrap()
+                    .unwrap()
+                    .account_id,
+                "acct_a"
+            );
+            replacement = Some(bytes);
+        },
+    );
+
+    assert_eq!(result, Err(Error::Cancelled));
+    assert_eq!(client_a.state(), kohbor_account::AccountState::SignedOut);
+    assert_eq!(provider_a.0, 0);
+    assert_eq!(broker_a.request_count(), 0);
+    assert_marker_clear(&host_a);
+    assert_eq!(
+        host_a
+            .with_operation(|guard| guard.load_session())
+            .unwrap()
+            .unwrap()
+            .unwrap()
+            .account_id,
+        "acct_a"
+    );
+    assert_eq!(std::fs::read(&session_path).unwrap(), replacement.unwrap());
 }
 
 #[test]
