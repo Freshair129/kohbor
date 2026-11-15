@@ -154,7 +154,7 @@ export function meterModel(riskView: RiskView | null): MeterModel {
 
   // A previously admitted alert or danger remains salient while sources report blind.
   if (activeAlert) {
-    return { level: 3, ticksLit: 3, tone: "critical", label: hudCopy.meterLabels.danger, blind: false };
+    return { level: 3, ticksLit: 4, tone: "critical", label: hudCopy.meterLabels.danger, blind: false };
   }
   if (!state || state.gsi_source !== true || state.vision_source !== true || level === null) return blindMeter();
 
@@ -167,7 +167,8 @@ export function meterModel(riskView: RiskView | null): MeterModel {
         : hudCopy.meterLabels.danger;
   return {
     level,
-    ticksLit: level === 0 ? 0 : level,
+    // Like the reference meter: segments 0..level are lit, so level 0 lights the first (grey) one.
+    ticksLit: level + 1,
     tone: levelTone(level),
     label,
     blind: false,

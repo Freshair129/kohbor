@@ -24,12 +24,12 @@
     {
       "path": "Cargo.lock",
       "bytes": 121690,
-      "sha256": "990d2a154bbe2da0b73b6c456af59526c5a22bfb35faaeca1d24064f238d8310"
+      "sha256": "6e46e740370a9181681d08627525f4df76d053959a04e033baf4832622f7d350"
     },
     {
       "path": "Cargo.toml",
       "bytes": 854,
-      "sha256": "5a9385a559c95eb1b4949f60e9af6275bbba386a0e0d73ba22a2b69a49846859"
+      "sha256": "5f62a7987f40a44775e4000bc997198d61a1b4f91816ddf3af9ab98151503e55"
     },
     {
       "path": "GUIDE-TH.md",
@@ -74,7 +74,7 @@
     {
       "path": "apps/desktop/package.json",
       "bytes": 683,
-      "sha256": "ce7ece8ae8a3a62b9e2d1ff2561f0d472654379976056c0d2579dda891a06bc2"
+      "sha256": "eebabe49945b09636bfe7fabfc8019994d833fad00b3d36fa66f52c250f55432"
     },
     {
       "path": "apps/desktop/pnpm-lock.yaml",
@@ -468,8 +468,8 @@
     },
     {
       "path": "apps/desktop/src/HudStage.tsx",
-      "bytes": 3762,
-      "sha256": "5dd38940e622be495c784bb154a493e590469b3f6de2b65e2ff76ff1f3e0d994"
+      "bytes": 4383,
+      "sha256": "e1105159d5c10edc4a6c5eda0b852d05ba82e88844515e9c6b185616a55c6b67"
     },
     {
       "path": "apps/desktop/src/MediaProbeContext.tsx",
@@ -668,18 +668,18 @@
     },
     {
       "path": "apps/desktop/src/hud.css",
-      "bytes": 2210,
-      "sha256": "eff4f70a6db640db06906a2387f830085b2a8b82aae608a11656cf895034864e"
+      "bytes": 3592,
+      "sha256": "af5c8dc3446874f5dba1f96bb756eed6dabd0a97d825596d3764d64846f8d908"
     },
     {
       "path": "apps/desktop/src/hudCopy.ts",
-      "bytes": 577,
-      "sha256": "dbf23f1518987ba9f77768cae32e294f518d1bb9674a968744fcfdc0f2a6eafa"
+      "bytes": 1444,
+      "sha256": "bc8c91dd2c0580b41f4a7bae03fd6d04b6afceefb2274a9079bc8ef038db57fc"
     },
     {
       "path": "apps/desktop/src/hudModel.ts",
-      "bytes": 8407,
-      "sha256": "ce3d2fd7a66a9343efbfe0c1025ad0453bc7fba9519a60c2c6cb3128633bd9da"
+      "bytes": 8493,
+      "sha256": "a32e9c3e93e5bd29485db96675a397327b7a3be88486b1768a6a8296b486e975"
     },
     {
       "path": "apps/desktop/src/hudRuntime.ts",
@@ -1168,8 +1168,8 @@
     },
     {
       "path": "apps/desktop/tests/hudModel.test.ts",
-      "bytes": 20597,
-      "sha256": "b11643832653c6cdafefe2fb0966a64879ec258be1d7cbb2019d101491214866"
+      "bytes": 21177,
+      "sha256": "c523d8160c797f9ae33464d5df056502ffbc8c1cf5cac1bae56dd984ce4496c6"
     },
     {
       "path": "apps/desktop/tests/lab-layout.test.ts",
@@ -2678,8 +2678,8 @@
     },
     {
       "path": "docs/governance/THIRD-PARTY-DATA.md",
-      "bytes": 1617,
-      "sha256": "2017da2c3df788ff8d2d392a3dad47194ca917e1e6d06818b0a9b0027e72a0bb"
+      "bytes": 2987,
+      "sha256": "02e909534a21782af9afaf1593082d4d3249f555335caa6885dfb73d95c838ed"
     },
     {
       "path": "docs/operations/GSI-REPLAY.md",

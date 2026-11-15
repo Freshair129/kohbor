@@ -187,31 +187,31 @@ test("HUD parser accepts only the five declared availability values", () => {
   }
 });
 
-test("meter level zero has no lit ticks and uses the no-risk label", () => {
+test("meter level zero lights only the first (grey) tick and uses the no-signal label", () => {
   const meterModel = api(model, "meterModel");
   assert.deepEqual(meterModel(riskView({ state: { meter: 0 } })), {
-    level: 0, ticksLit: 0, tone: "none", label: "ยังไม่มีสัญญาณเสี่ยง", blind: false,
+    level: 0, ticksLit: 1, tone: "none", label: "No signal", blind: false,
   });
 });
 
-test("meter level one lights one blue tick and keeps a text label", () => {
+test("meter level one lights two blue ticks and keeps a text label", () => {
   const meterModel = api(model, "meterModel");
   assert.deepEqual(meterModel(riskView({ state: { meter: 1 } })), {
-    level: 1, ticksLit: 1, tone: "ally", label: "มองไม่เห็น", blind: false,
+    level: 1, ticksLit: 2, tone: "ally", label: "Out of sight", blind: false,
   });
 });
 
-test("meter level two lights two amber ticks", () => {
+test("meter level two lights three amber ticks", () => {
   const meterModel = api(model, "meterModel");
   assert.deepEqual(meterModel(riskView({ state: { meter: 2 } })), {
-    level: 2, ticksLit: 2, tone: "warn", label: "เสี่ยง", blind: false,
+    level: 2, ticksLit: 3, tone: "warn", label: "Risky", blind: false,
   });
 });
 
-test("meter level three lights three red ticks and leaves the fourth unlit", () => {
+test("meter level three lights all four red ticks", () => {
   const meterModel = api(model, "meterModel");
   assert.deepEqual(meterModel(riskView({ state: { meter: 3 } })), {
-    level: 3, ticksLit: 3, tone: "critical", label: "อันตราย", blind: false,
+    level: 3, ticksLit: 4, tone: "critical", label: "Danger", blind: false,
   });
 });
 
@@ -219,7 +219,7 @@ test("meter is blind when no risk view or risk state exists", () => {
   const meterModel = api(model, "meterModel");
   for (const view of [null, { state: null, lastVisionEvent: null }]) {
     assert.deepEqual(meterModel(view), {
-      level: null, ticksLit: 0, tone: "unknown", label: "ข้อมูลยังไม่พร้อม", blind: true,
+      level: null, ticksLit: 0, tone: "unknown", label: "Data not ready", blind: true,
     });
   }
 });
@@ -230,7 +230,7 @@ test("meter is blind when capture or GSI source health is missing", () => {
     const result = meterModel(riskView({ state }));
     assert.equal(result.blind, true);
     assert.equal(result.ticksLit, 0);
-    assert.equal(result.label, "ข้อมูลยังไม่พร้อม");
+    assert.equal(result.label, "Data not ready");
   }
 });
 
@@ -311,8 +311,8 @@ test("net worth parser requires the approximate flag and drops it when the value
 test("HUD labels are centralized in Thai copy", () => {
   assert.ok(model, "hud model is implemented");
   assert.ok(model!.hudCopy, "HUD copy is exported");
-  assert.deepEqual(model!.hudCopy.chipLabels, { kda: "K/D/A", gold: "ทอง", gpm: "GPM", nw: "NW", xpm: "XPM" });
-  assert.equal(model!.hudCopy.meterTitle, "ความเสี่ยง");
+  assert.deepEqual(model!.hudCopy.chipLabels, { kda: "K/D/A", gold: "Gold", gpm: "GPM", nw: "NW", xpm: "XPM" });
+  assert.equal(model!.hudCopy.meterTitle, "Risk");
 });
 
 test("default HUD layout matches the requested six module positions and scales", () => {
@@ -437,3 +437,16 @@ test("HUD component uses the shared risk hook and starts live collection", () =>
   assert.match(source, /renderWhenHudVisible\(state\.visible/);
 });
 
+
+test("HUD copy: English is shown first, Thai stays one switch away, unknown never reads as safe", async () => {
+  const copy = await import("../src/hudCopy.ts");
+  assert.equal(copy.HUD_LANGUAGE, "en");
+  assert.equal(copy.hudCopy, copy.hudCopyTables.en);
+  assert.equal(copy.hudCopyTables.th.meterLabels.unavailable, "ข้อมูลยังไม่พร้อม");
+  assert.equal(copy.hudCopyTables.th.chipLabels.gold, "ทอง");
+  for (const table of [copy.hudCopyTables.en, copy.hudCopyTables.th]) {
+    assert.deepEqual(Object.keys(table.meterLabels).sort(), ["danger", "none", "risk", "unavailable", "unseen"]);
+    assert.doesNotMatch(table.meterLabels.unavailable, /safe|ปลอดภัย/i);
+    assert.doesNotMatch(JSON.stringify(table), /G-Maiden/i);
+  }
+});

@@ -14,6 +14,7 @@ import {
   type HudState,
 } from "./hudModel";
 import { subscribeHudState } from "./hudRuntime";
+import { HUD_LANGUAGE } from "./hudCopy";
 import "./hud.css";
 
 const HUD_WINDOW_HEIGHT_SCREEN_PERCENT = 9;
@@ -64,12 +65,25 @@ function GMeter({ view }: { view: RiskView | null }) {
 function StatChip({ state, kind }: { state: HudState; kind: ChipKind }) {
   const display = formatChip(kind, fieldFor(state, kind));
   return (
-    <div className="hud-chip" data-stale={display.stale}>
-      <span className="hud-chip-label">{visibleLabel(kind)}</span>
-      <span className="hud-chip-value">{display.text}</span>
-      {display.stale ? <span className="hud-stale-flag">{hudCopy.staleFlag}</span> : null}
+    <div className={`hud-chip hud-chip-${kind}`} data-stale={display.stale}>
+      <div className="hud-chip-value">{display.text}</div>
+      <div className="hud-chip-label">
+        {visibleLabel(kind)}
+        {display.stale ? <span className="hud-stale-flag">{hudCopy.staleFlag}</span> : null}
+      </div>
     </div>
   );
+}
+
+/** The reference design is laid out on a 1920 px wide screen; the strip is as wide as the screen. */
+function useOverlayScale(): number {
+  const [scale, setScale] = useState(() => window.innerWidth / 1920);
+  useEffect(() => {
+    const resize = () => setScale(window.innerWidth / 1920);
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, []);
+  return scale;
 }
 
 export function HudStage({
@@ -81,6 +95,7 @@ export function HudStage({
 }) {
   const [state, setState] = useState<HudState>(() => unknownHudState(false));
   const risk = useRisk();
+  const overlayScale = useOverlayScale();
 
   useEffect(() => {
     void startLiveCollection().catch(() => {});
@@ -104,7 +119,7 @@ export function HudStage({
   }, []);
 
   const content = renderWhenHudVisible(state.visible, () => (
-    <div className="hud-stage" role="status" aria-live="off" aria-label={hudCopy.stripLabel} lang="th">
+    <div className="hud-stage" role="status" aria-live="off" aria-label={hudCopy.stripLabel} lang={HUD_LANGUAGE} style={{ "--hud-overlay-scale": overlayScale } as CSSProperties}>
       {layout.filter((item) => item.enabled).map((item) => (
         <div className={`hud-module hud-module-${item.id}`} key={item.id} style={modulePosition(item)}>
           {item.id === "gmeter"
