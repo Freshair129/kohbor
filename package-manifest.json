@@ -327,16 +327,6 @@
       "sha256": "b88b386f377649efd81c0e913f006c5411d14cd61ee3c9539dd4d62e811c1a52"
     },
     {
-      "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 26089,
-      "sha256": "b88b386f377649efd81c0e913f006c5411d14cd61ee3c9539dd4d62e811c1a52"
-    },
-    {
-      "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 26089,
-      "sha256": "b88b386f377649efd81c0e913f006c5411d14cd61ee3c9539dd4d62e811c1a52"
-    },
-    {
       "path": "apps/desktop/src-tauri/src/logging.rs",
       "bytes": 88642,
       "sha256": "b53ab70dcbd2878b746a627a5301b1f82254939716ff8e1d307a63e2d3dbe659"
@@ -895,16 +885,6 @@
       "path": "apps/desktop/src/mediaUrl.ts",
       "bytes": 501,
       "sha256": "2a75a22f29f1b29f26eac8aaefe73a23077bcd07707c24f060419ac2bbce167e"
-    },
-    {
-      "path": "apps/desktop/src/mock/harness.tsx",
-      "bytes": 27595,
-      "sha256": "51041931bbf857260eac9e7a5bc92cfaf255ed62181d20ba00c7c880fbdd6e1b"
-    },
-    {
-      "path": "apps/desktop/src/mock/harness.tsx",
-      "bytes": 27595,
-      "sha256": "51041931bbf857260eac9e7a5bc92cfaf255ed62181d20ba00c7c880fbdd6e1b"
     },
     {
       "path": "apps/desktop/src/mock/harness.tsx",
