@@ -78,8 +78,22 @@ fn clamp_axis(position: i32, size: u32, origin: i32, extent: u32) -> i32 {
         .clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32
 }
 
+/// The layout used at show time. Release builds always use the compiled default; only builds with
+/// the `lab` feature (or debug assertions) may substitute a validated dev profile (Kohbor Lab).
+pub fn effective_banner_layout() -> BannerLayout {
+    #[cfg(any(feature = "lab", debug_assertions))]
+    {
+        crate::lab::banner_layout()
+    }
+    #[cfg(not(any(feature = "lab", debug_assertions)))]
+    {
+        DEFAULT_BANNER_LAYOUT
+    }
+}
+
 /// Place the whole transparent window in physical pixels on the selected monitor with the
 /// default layout.
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn place_overlay(monitor: &MonitorRect) -> Rect {
     place_overlay_with(monitor, &DEFAULT_BANNER_LAYOUT).unwrap_or(Rect {
         x: monitor.x,

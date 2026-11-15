@@ -133,12 +133,18 @@ fn place_overlay_window(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
     };
     let position = monitor.position();
     let size = monitor.size();
-    let rect = overlay::place_overlay(&overlay::MonitorRect {
-        x: position.x,
-        y: position.y,
-        w: size.width,
-        h: size.height,
-    });
+    // Fail closed when the (dev) layout disables the banner: the window stays hidden.
+    let Some(rect) = overlay::place_overlay_with(
+        &overlay::MonitorRect {
+            x: position.x,
+            y: position.y,
+            w: size.width,
+            h: size.height,
+        },
+        &overlay::effective_banner_layout(),
+    ) else {
+        return false;
+    };
     let moved = window.set_position(tauri::PhysicalPosition::new(rect.x, rect.y));
     let sized = window.set_size(tauri::PhysicalSize::new(rect.w, rect.h));
     if let Err(error) = moved.as_ref().and(sized.as_ref()) {
