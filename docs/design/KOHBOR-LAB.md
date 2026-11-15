@@ -1,0 +1,264 @@
+---
+title: "Kohbor Lab: dev-stage event-logic studio (design)"
+doc_id: "KOHBOR-LAB"
+status: draft
+version: "0.1.0"
+updated: "2026-11-15"
+authority: "Agent design proposal for owner review. Changes no requirement statement, contract or threshold. Everything marked PROPOSED needs the owner's decision before implementation; everything marked UNVERIFIED was not observed in code, a test or a run."
+approval_status: "agent_decision_not_owner_approved"
+---
+
+# Kohbor Lab: dev-stage event-logic studio
+
+## 0. Purpose, scope, evidence
+
+The owner cannot currently see how admitted GSI values become events (for example why `health_danger` fires), cannot change that logic without editing Rust, and cannot map events to announcer clips in one place. Kohbor Lab is a **development-stage view inside the desktop app** that makes the mapping visible, lets the owner edit bounded parameters live, pairs events with clips, and exports the whole configuration. The same defaults ship embedded in production, where no external file is read.
+
+Evidence classes used in this document: **CODE** (read in this checkout on 2026-11-15), **DOC** (stated in a spec, not re-verified in a run), **PROPOSED**, **UNVERIFIED**. Nothing here has been built or run; no Lab behaviour is claimed to work.
+
+Constraints inherited (AGENTS.md, MEDIA-PACK-SPEC): owner-reserved files (`contracts/**`, `AGENTS.md`, `docs/delivery/AGENT-WORKFLOW.md`) are not edited here; no cloud/telemetry; announcer clips are never downloaded; no fps/performance work in MVP; no G-Maiden code is reused. From G-AnnStudio (`EventTestGrid`, `PackEditor`, `EventPicker`) only UX concepts are used (a grid of event cards with a per-card test button, a per-event clip picker, an editor/test split). No code or data structures were copied.
+
+## 1. What exists today (CODE)
+
+| Fact | Where |
+|---|---|
+| The detector is pure logic: one `Tick` (kills, deaths, kill_streak, combined_score, level, hp, max_hp, mana_percent, alive, phase, trusted, epoch) in, `Vec<Event>` out. It reads no clock or file. | `crates/kohbor-events/src/lib.rs` |
+| 12 event ids exist in `EventId`; `contracts/event-catalog.json` registers 18 (the other 6: `enemy_missing`, `risk_alert`, `risk_revision`, `risk_unavailable`, `clip_requested`, `latency_probe`). | lib.rs, event-catalog.json |
+| `Config` has 13 tunables with catalog defaults and `Detector::with_config(Config)` exists. **No production caller passes a non-default config**: the host uses `Detector::new()` (intake.rs:381, :514) and so does `kohbor-replay`. So today every threshold is effectively compiled in. | lib.rs:139, intake.rs |
+| Catalog `tunables` carry `default/min/max/unit` for 9 events' parameters and map 1:1 onto `Config` fields (e.g. `health_low.threshold_percent` ↔ `health_low_threshold_percent`). Nothing in code enforces min/max on `Config`; UNVERIFIED whether a test checks the mapping. | event-catalog.json |
+| Event rank, tier range, voiced, critical flags are `match` arms on `EventId`, not data. | lib.rs:49-82 |
+| `kohbor-risk` rules (`MIN_ABSENCE_MS`, `ALERT_COOLDOWN_MS`, HP meter 50/30, median N=5, …) are `pub const`s tagged PROPOSED; not configurable. | kohbor-risk/src/lib.rs:7-48 |
+| MEDIA-PACK-SPEC MP-01: "Detector references identify reviewed native logic; they are not executable expressions or a runtime rule engine." | MEDIA-PACK-SPEC.md |
+| Demo gating: `#[cfg(any(feature="demo", debug_assertions))]` plus env `KOHBOR_DEMO=1`; data-dir override honoured only together with the demo flag; release builds ignore it. | lib.rs:70-88, demo.rs, S6-OVERLAY-SLICE §9 |
+| GSI keys actually read into the own snapshot: `player.{activity,steamid,team_name,kills,deaths,kill_streak,assists,…}`, `map.{radiant_score,dire_score,game_state}`, `hero.{name,level,health,max_health,mana_percent,alive,…}`, `items`, `abilities` (data blocks `provider,map,player,hero,abilities,items`). The detector consumes a subset, listed in §2.1. | gsi config.rs:11, admission.rs, own-snapshot.schema.json |
+| Offline replay exists: `tools/gsi_replay.py` replays a recorded session from `F:\gsi-log` into a demo instance; `kohbor-replay` (bin) feeds a recording through admission + detector + arbitrate. | tools/, kohbor-events/src/bin |
+
+**Tension to resolve (owner decision DEC-LAB-LOGIC):** the owner wants to "define which GSI keys combine, with which operators". MP-01 says the runtime is not a rule engine. This design therefore keeps expressiveness in three tiers (§2.3); stages 1-4 stay in tier 1, which needs no change to MP-01.
+
+## 2. Logic configuration data model (PROPOSED)
+
+The file is called a **Lab profile**. It is separate from `contracts/` (it is not a cross-boundary contract); its schema lives at `crates/kohbor-lab/schema/lab-profile.schema.json` (proposed new crate, see §3) and the embedded default at `crates/kohbor-lab/default-profile.json`.
+
+### 2.1 Signals (read-only, defined by the code, not by the file)
+
+A signal is a named, typed view of one admitted field, with unknown as a first-class state (never zero).
+
+| Signal id | Source | Type | Used by (CODE) |
+|---|---|---|---|
+| `gsi.hero.hp` / `max_hp` | `hero.health`, `hero.max_health` | u32 \| unknown | health_low, health_danger |
+| `derived.hp_percent` | hp·100/max_hp, valid only if max_hp>0 and hp≤max_hp | % \| unknown | health_low, health_danger |
+| `gsi.hero.mana_percent` | `hero.mana_percent` | % \| unknown | mana_low |
+| `gsi.hero.alive` | `hero.alive` | bool \| unknown | health_*, mana_low, respawn |
+| `gsi.hero.level` | `hero.level` | u32 | level_milestone |
+| `gsi.player.kills/deaths/kill_streak` | `player.*` | u32 | kill, death, streak, multi_kill |
+| `gsi.map.combined_score` | radiant+dire score | u32 | first_blood |
+| `gsi.map.phase` | `map.game_state` | enum | match_started/ended |
+| `vision.*`, `capture.*` (later) | CV/minimap (kohbor-vision, kohbor-minimap-cv) | counts | enemy_missing, risk_alert; **not in Lab stages 1-4** |
+
+The signal list ships in code and in the exported file (`signals[]`, informational) so the file documents itself; the loader ignores edits to it.
+
+### 2.2 Profile schema (draft 2020-12, abridged)
+
+```json
+{
+  "$id": "kohbor-lab-profile/1",
+  "type": "object",
+  "required": ["profile_version", "taxonomy_version", "events"],
+  "additionalProperties": false,
+  "properties": {
+    "profile_version": { "const": "1.0" },
+    "taxonomy_version": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$" },
+    "base": { "enum": ["embedded"], "description": "overrides are deltas on the embedded default" },
+    "events": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9_]{1,40}$" },
+      "additionalProperties": { "$ref": "#/$defs/event" }
+    },
+    "bindings": { "$ref": "#/$defs/bindings" }
+  },
+  "$defs": {
+    "event": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "detector": { "enum": ["native"] },
+        "params": { "type": "object", "description": "tier 1: keys exactly the catalog tunables of this event; each number inside catalog min..max" },
+        "condition": { "$ref": "#/$defs/condition", "description": "tier 2 only; absent in v1" },
+        "arming": { "$ref": "#/$defs/arming" },
+        "cooldown_ms": { "type": "integer", "minimum": 0 },
+        "tier": { "type": "object", "properties": { "min": {"type":"integer"}, "max": {"type":"integer"} } }
+      }
+    },
+    "condition": {
+      "description": "Tier 2 (not in v1). Bounded tree over whitelisted signals; no scripting.",
+      "oneOf": [
+        { "type": "object", "required": ["all"], "properties": { "all": { "type": "array", "items": { "$ref": "#/$defs/condition" } } } },
+        { "type": "object", "required": ["any"], "properties": { "any": { "type": "array", "items": { "$ref": "#/$defs/condition" } } } },
+        { "type": "object", "required": ["signal", "op", "value"], "properties": {
+            "signal": { "type": "string" },
+            "op": { "enum": ["<=", ">=", "<", ">", "==", "!=", "drop_ge", "rise_ge", "crossed_down", "crossed_up"] },
+            "value": { "type": "number" },
+            "window_ms": { "type": "integer", "minimum": 100, "maximum": 30000 }
+        } }
+      ]
+    },
+    "arming": {
+      "type": "object", "additionalProperties": false,
+      "properties": { "rearm": { "type": "number" }, "rearm_signal": { "type": "string" }, "rearm_on": { "enum": ["respawn", "threshold", "none"] } }
+    },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": { "type": "object", "properties": {
+        "tier": { "type": ["integer", "null"] },
+        "clip": { "type": "object", "properties": { "pack": {"type":"string"}, "mapping_key": {"type":"string"} } },
+        "banner": { "type": "object", "properties": { "pack": {"type":"string"}, "mapping_key": {"type":"string"} } }
+      } }
+    }
+  }
+}
+```
+
+Rules enforced by the loader, not just the schema (PROPOSED):
+
+1. **Delta over embedded default.** The file lists only what differs; absent = embedded value. An exported file is a full snapshot (all effective values) so it can be read back or diffed.
+2. **Bounds from the catalog.** Every `params` number must lie in the catalog `min..max`; out-of-range = whole profile rejected (not clamped silently).
+3. **Critical events cannot be disabled or silenced by the profile.** `health_danger` (and any `critical` catalog event): `enabled` must be absent or `true`; `cooldown_ms` and params stay within catalog bounds; a binding to no clip is allowed (fail-silent is MP-08) but Lab shows it as a red readiness gap.
+4. **Unknown keys are errors** (`additionalProperties:false`, strict JSON, duplicate keys rejected, same posture as `strict_json.rs`).
+5. **Bindings hold references, never bytes.** Clip/banner are `pack + mapping_key` pairs resolved through the existing package reader, so MP-03/MP-04 admission (digest, decode probe) still applies; Lab never reads loose files or downloads anything.
+
+### 2.3 Expressiveness tiers
+
+| Tier | What the owner can change | Needs |
+|---|---|---|
+| **1 Parameters** (stages 1-4) | The catalog tunables of existing native detectors, plus cooldown, enabled (non-critical), clip/banner binding | Wire `Config` from the profile. No contract change. |
+| **2 Condition templates** (stage 6, optional) | Re-express threshold-edge (health_low, mana_low) and burst-drop (health_danger) as a bounded `condition` tree over whitelisted signals, interpreted by one reviewed generic evaluator. Still no scripting. | Owner reading of MP-01 ("not a runtime rule engine") and catalog change `detector_ref` semantics. **DEC-LAB-LOGIC.** |
+| **3 Custom events** | A new event id built from a condition | Catalog minor bump, rank/arbitration, media mapping, EVENT-AUDIO-SPEC. Out of scope for this design. |
+
+Minimal tier-2 illustration of `health_danger` as data (equivalent to lib.rs `observe_health_danger`, UNVERIFIED until a parity test exists):
+`all[ hp_percent <= 25 , hp_percent drop_ge 15 within 2000ms ]`, arming `rearm_signal=hp_percent rearm=40`, `cooldown_ms=20000`, dead ticks excluded by the evaluator's implicit `alive==true` guard.
+
+## 3. Mapping onto the existing detector (PROPOSED)
+
+| Aspect | Configurable today | Hard-coded today | Lab approach |
+|---|---|---|---|
+| Thresholds, windows, cooldown, re-arm (13 `Config` fields) | Yes, via `Config` / `with_config` (unused by host) | Defaults in `Default for Config` | Profile `params` → `Config`; default JSON ↔ `Config::default()` kept equal by a test |
+| Level milestones list | Yes (`levels`) | default `[6,12,18,25]` | `params.levels` |
+| Rank, tier range, voiced, critical | No | `match` on `EventId` | Stay in code/catalog; Lab shows them read-only |
+| Alive/valid-hp guards, baseline/epoch/regression handling, first-blood rule (E-1), chain rule | No | Inline in `observe` | Stay native. Lab shows them as "guards" text per event (explain view), not editable |
+| Risk rules (`kohbor-risk`) | No (`pub const`) | PROPOSED consts | Out of Lab v1; shown read-only in explain view only if `RiskEngine` can expose trace (UNVERIFIED) |
+| Clip/banner mapping | By installed pack (kohbor-pack) | n/a | Profile `bindings` is a **dev preview overlay**; production mapping stays the pack's registry (MP-03/06) |
+
+**Explain trace (new, read-only):** to answer "why did health_danger fire", `observe` needs a side-output of intermediate values per tick. PROPOSED: a new `Detector::observe_traced(&Tick) -> (Vec<Event>, Trace)` where `Trace` lists per event: the input signals and values used, each sub-condition `{name, lhs, op, rhs, result}`, armed/cooldown state, and the reason it did not fire. `observe` stays byte-for-byte as is; a test asserts `observe_traced(..).0 == observe(..)` across all existing golden and `death_counter` fixtures. This is the one invasive piece: it touches `kohbor-events/src/lib.rs`, which is an owned crate, so it needs a claim in `F:\kohbor-coord` and its own PR.
+
+**Migration path (no existing test breaks):**
+
+1. New crate `kohbor-lab` (pure, no I/O): profile types, schema validation, `merge(default, override) -> Effective`, `effective_to_config() -> kohbor_events::Config`, export. `kohbor-events` gains no dependency on it.
+2. Host builds `Detector::with_config(effective.config)`; with no override, effective == `Config::default()`, so every current test, the health-danger golden trace (`fixtures/health-danger-golden.json`) and recorded-session replay results are unchanged. A parity test pins this.
+3. Evidence classes stay separate: unit/golden (synthetic) are re-run unchanged; replay results are labelled "recorded GSI, offline"; nothing from Lab counts as live-match, acoustic or FPS evidence.
+4. Tier 2 (if approved) is added behind a second evaluator, run **in parallel with the native detector in tests** until parity over all golden and recorded sessions is shown; the native path remains the default for critical events.
+
+## 4. Configuration precedence and production gating (PROPOSED)
+
+```
+effective profile = (dev override file, if allowed and valid)  >  embedded default
+```
+
+- **Embedded default**: `include_str!` of `default-profile.json`, parsed and validated at startup and in CI; a `profile_version` and a content SHA-256 are part of the build. Production reads nothing else.
+- **Dev override**: honoured only when **both** `cfg(any(feature="lab", debug_assertions))` is compiled in **and** `KOHBOR_LAB=1` with `KOHBOR_LAB_PROFILE=<absolute path>` is set, mirroring `KOHBOR_DEMO`. The code that reads the env var and file is compiled out of release builds (cfg), and a source-scan test (like `demo.rs:187`'s "release source does not contain KOHBOR_DEMO") asserts the release path has no reference to the override. UNVERIFIED: the exact scan technique; reuse of the demo test is assumed.
+- **Invalid override** → fall back to the embedded default, show a persistent "Lab profile rejected: <reason>" banner, and log it. Never partially apply.
+- **Hot reload (dev)**: Lab edits write the override file atomically (existing `atomic.rs` pattern) and apply at the next session boundary, never mid-tick (detector state would otherwise mix configs). "Live" in the UI means "applies from the next replayed/real session epoch", plus instant re-evaluation in the replay sandbox (§5.3).
+- **Export** always writes the full effective profile plus a header (`profile_version`, `taxonomy_version`, `embedded_default_sha256`, source revision). Promoting an export to the embedded default is a source change (replace `default-profile.json` in a PR), never a runtime action.
+
+## 5. Kohbor Lab UI (PROPOSED)
+
+A route in the control window, `Lab`, present only in lab/debug builds with `KOHBOR_LAB=1`, labelled **DEV** (same honesty rule as the demo chip: it can never be mistaken for a production feature). Not in UX-SPEC's destination inventory today; adding it there is a doc change for the owner.
+
+### 5.1 Layout
+
+```
++-------------------------------------------------------------------------------+
+| Kohbor Lab  [DEV]  profile: embedded | override (valid, sha 3f9a..)   [Export]  |
++---------------+-----------------------------------+---------------------------+
+| EVENTS        | EVENT DETAIL: health_danger        | SIGNAL INSPECTOR (live)   |
+| (cards)       |  category critical  rank -         |  gsi.hero.hp        412   |
+| multi_kill    |  Why it fires (guards)             |  gsi.hero.max_hp   2000   |
+| streak        |   [x] alive == true                |  derived.hp_%      20.6%  |
+| ...           |   [x] hp_% <= 25     now 20.6 OK   |  ---- vs threshold ----   |
+| health_low    |   [ ] drop >= 15pt/2s now 3 NO     |  hp_% <= 25   ####|--   |
+| health_danger |   [x] armed (rearm >= 40%)         |  drop  15pt/2s  #----|    |
+| mana_low      |   [x] cooldown 20s ok              |  ring buffer 2s: sparkline|
+| ...           |  Params  max_hp% [25]  drop [15]    +---------------------------+
+|  status dots: |          window [2000] rearm [40]  | CLIP / BANNER BINDING     |
+|  ok/unmapped/ |          cooldown [20000] (bounds) |  pack: [..]  key: [..]    |
+|  gap          |  Last fired: 12:03:11 (replay)     |  [Play clip] [Show banner]|
++---------------+-----------------------------------+---------------------------+
+| REPLAY / TEST:  [session: 01-mid-2026110... v] [Run] [step] timeline w/ event  |
+| markers; click marker -> detail shows that tick's values and which guard passed |
++-------------------------------------------------------------------------------+
+```
+
+### 5.2 Regions
+
+1. **Event cards** (concept from G-AnnStudio EventTestGrid): one card per catalog event the detector can emit (12), showing label (en/th from catalog), category, a status dot (bound / unmapped / safety-gap / disabled), last-fired time, and a **Test** button that triggers the demo path (`demo_trigger`, S6 §9) so the real arbiter, audio and overlay run. Non-detector catalog events appear greyed with "vision/native risk — not Lab v1".
+2. **Event detail / "why"**: per-event list of guard rows `{name, lhs value, operator, rhs threshold, pass/fail}` from the explain trace (§3). Unknown shows "—", never 0 (UX-SPEC §6). Parameter editors are numeric steppers with catalog min/max, unit, default, and a reset-to-default per field; changed fields are visibly marked and counted ("3 overrides").
+3. **Signal inspector (live)**: current admitted value of each signal next to the threshold it is compared against, with age/freshness (fresh ≤ 2000 ms per own-snapshot contract) and a short ring-buffer sparkline. Source selectable: live GSI, or the replay cursor.
+4. **Clip pairing** (concept from PackEditor/EventPicker): per event (and tier), choose a clip and optional banner from installed packs via the existing media listing; **Play** uses the same package reader and native audio owner as production (MP-04: preview and production share admission). A clip that fails admission/decode is shown with its reason code, never substituted.
+5. **Replay sandbox**: pick a recording in `F:\gsi-log` (read-only), run it through admission → `observe_traced` with the *edited, unsaved* params and show events on a timeline; compare "embedded vs edited" side by side (events gained/lost). This is offline and instantaneous because the detector is pure; it does not need `gsi_replay.py` or a demo instance. For an end-to-end check of the real host (audio, overlay), the owner still uses `tools/gsi_replay.py` into a demo instance as documented in `docs/operations/GSI-REPLAY.md`.
+6. **Export**: writes the full effective profile (JSON) and a short human summary (markdown: changed fields vs embedded default, safety-gap list). Import of a profile = pointing `KOHBOR_LAB_PROFILE` at it.
+
+## 6. Out of scope (intentional)
+
+- Arbitrary scripting, expressions strings, plugins or WASM rules. (Condition trees in tier 2 are data over a fixed whitelist of signals and operators.)
+- Custom new event ids (tier 3), editing rank/tier range/voiced/critical, editing arbitration or the ordinary/critical class matrix (EVENT-AUDIO-SPEC §4-§5).
+- Editing `kohbor-risk` rules and any CV/minimap/capture signals in stages 1-4 (listed as a later signal source only).
+- Cloud sync, telemetry, remote profile distribution, account-bound profiles, paid features, a profile store.
+- Any performance or fps tuning (owner: after core features). The inspector's sparkline is a fixed-size ring buffer; no measurement is claimed.
+- Rebuilding a pack authoring editor, importing or downloading clips, changing pack trust/authority. Lab only references already-installed packs.
+- Shipping the Lab in production builds.
+
+## 7. Stage plan and acceptance checks
+
+| Stage | Deliverable | Acceptance (evidence class) | Owner decision? |
+|---|---|---|---|
+| **L0** | This doc reviewed; owner picks DEC items below | PR review | Yes: DEC-LAB-LOGIC, DEC-LAB-GATE |
+| **L1 Read-only explain + export** (smallest useful) | `kohbor-lab` crate: embedded default, schema, `effective_to_config`, export; `observe_traced`; Lab route with event cards, "why" view, live signal inspector, **Export current effective profile**. No editing. | Unit: embedded default == `Config::default()` and == catalog defaults (synthetic). Parity: `observe_traced` events == `observe` over all existing fixtures + health-danger golden (synthetic). Replay: explain trace on one recorded session shows the sample that fires `health_danger` (recorded, offline). Release build: override code absent (source scan). | No (once L0 done) |
+| **L2 Editable thresholds** | Param editors with bounds; override file write; replay sandbox with edited params; host uses `with_config` from effective profile | Unit: out-of-bounds, unknown key, duplicate key, critical-disable are rejected, fall back to embedded + banner. Unit: edited health_low threshold changes replay output as predicted. Precedence test: override > embedded, release ignores override. | No |
+| **L3 Clip pairing + test** | Bindings editor, Play/Show banner via real reader and audio owner; safety-gap indicator for critical events | Integration (native): bound clip plays through production path (Windows native evidence, manual first); invalid media shows reason, plays nothing. Rights of clips remain the owner's rights team. | No |
+| **L4 Export/import polish** | Diff vs embedded, markdown summary, "promote to default" documented as a PR recipe | Round-trip: export → set as override → effective equal (synthetic). | No |
+| **L5 Live tuning against a real match** | Lab open during a live match with a dev build | Live-match evidence is its own class; may not be claimed from L1-L4 | Owner supplies match |
+| **L6 (optional) Tier-2 condition evaluator** | Generic evaluator + parity suite vs native for health_low, mana_low, health_danger | Parity on all goldens and recorded sessions; native remains default for critical until the owner signs off | **Yes: DEC-LAB-LOGIC** |
+
+Owner decisions required (PROPOSED ids, not yet in DECISION-LOG):
+
+- **DEC-LAB-LOGIC**: stay at tier 1 only, or approve tier 2 (reinterpret MP-01 for a bounded, reviewed evaluator). Recommendation: tier 1 now; revisit after L2 shows what the owner actually wants to change.
+- **DEC-LAB-GATE**: gating mechanism (new cargo feature `lab` vs reusing `demo`) and whether Lab may exist in a release-profile dev build. Recommendation: reuse the demo gating pattern with a separate `lab` feature.
+- **DEC-LAB-CONTRACTS**: the owner-reserved changes below.
+
+### 7.1 Proposed owner-reserved contract changes (not made here)
+
+1. `contracts/event-catalog.json`: add, per tunable, an optional `safety` flag (`floor`/`ceiling` the Lab may never cross, narrower than `min/max` for critical events) so the bounds live in one place instead of being duplicated in the Lab loader. Optional; the loader may initially read `min/max` only.
+2. A new `contracts/lab-profile.schema.json` **only if** profiles ever cross a process or machine boundary; while the file is dev-local, the crate-local schema in §2 suffices (recommended).
+3. `docs/design/UX-SPEC.md` §2: one row for the dev-only Lab destination, stating it is absent in production.
+4. `docs/domains/` registry: a domain card for Lab (steward, files owned) before L1 begins.
+
+## 8. Risks
+
+| Risk | Consequence | Mitigation |
+|---|---|---|
+| A mis-edit silently disables or dulls a safety event (e.g. `health_danger` window 500 ms, max_hp 10%, or clip unbound) | Safety cue never fires or is silent; owner believes it is working | Critical events not disable-able; catalog bounds enforced as errors; Lab shows an always-visible **Safety readiness** strip (event, effective params vs default, bound clip, last verified); "N overrides on critical events" badge; export summary lists them first; golden trace for `health_danger` re-run in the replay sandbox on every save |
+| Version skew: profile written for taxonomy/profile version X, app at Y | Unknown keys ignored or misapplied | `profile_version` and `taxonomy_version` required; MP-05 grammar and rules (older/equal OK, newer unknown inert but reported, different major rejected); `embedded_default_sha256` recorded so drift from the embedded base is shown |
+| Dev override leaks into production | Behaviour differs from tested defaults; unreviewed config in shipped app | cfg-compiled-out override path, env + feature both required, release source scan test, effective-profile hash shown in About/readiness; CI check that the release artifact contains no override symbol (UNVERIFIED how to assert on a binary) |
+| Embedded default and `Config::default()`/catalog drift apart | Tests pass but production uses different numbers | Parity tests (§7 L1) in the gate; single source of truth is `default-profile.json`, `Config::default()` derives from it or is asserted equal |
+| `observe_traced` diverges from `observe` | Explain view lies about why an event fired | Trace produced by the same code path (one function, two outputs), not a second implementation; parity test on all fixtures |
+| Mid-session reconfiguration corrupts detector state | Spurious or missed events | Apply only at session-epoch boundary or in a fresh sandbox detector |
+| Replay results mistaken for live evidence | False confidence | Every Lab result carries an evidence-class label (synthetic / recorded-offline / live) and the recording id; no PASS crosses classes (AGENTS.md) |
+| Recorded sessions in `F:\gsi-log` contain identifiers | Privacy leak via export | Export contains profile and aggregates only, never raw GSI bodies, steam ids or tokens |
+| Scope creep into a rule engine | MP-01 violated, maintenance cost | Tiers + out-of-scope list; tier 2 gated behind an owner decision |
+
+## 9. Open points / UNVERIFIED
+
+- Whether any test already asserts catalog tunables ↔ `Config` fields (UNVERIFIED).
+- Exact shape of an existing event/overlay path that a Lab Test button would call beyond `demo_trigger` (UNVERIFIED; read from S6 doc, not code).
+- Whether `RiskEngine` can expose a trace without changing its behaviour (UNVERIFIED; excluded from v1).
+- Source-scan and binary-symbol techniques for the release-ignores-override check (UNVERIFIED).
+- Frontend component choices for the UI (React 19 is in the repo; no Lab component exists).
