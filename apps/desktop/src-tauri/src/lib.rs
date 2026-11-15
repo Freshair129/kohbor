@@ -2,11 +2,14 @@
 
 pub mod atomic;
 mod audio;
+mod audio_prefs;
 mod capture_host;
 mod clock;
 mod commands;
 pub mod containment;
 pub mod host;
+mod hotkeys;
+mod hud;
 pub mod instance;
 pub mod intake;
 pub mod latency;
@@ -52,6 +55,9 @@ pub(crate) struct AppState {
     pub(crate) runtime: Arc<intake::Runtime>,
     pub(crate) host: host::Host,
     pub(crate) settings_dir: PathBuf,
+    pub(crate) audio_prefs: audio_prefs::AudioPrefsService,
+    pub(crate) hotkeys: Mutex<hotkeys::Controller>,
+    pub(crate) hud: Mutex<hud::Controller>,
     /// Serializes all commands that may replace user-settings.json.
     pub(crate) settings_gate: Mutex<()>,
     pub(crate) sample: Arc<Mutex<(Sample, bool)>>,
@@ -129,12 +135,18 @@ fn place_overlay_window(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
     };
     let position = monitor.position();
     let size = monitor.size();
-    let rect = overlay::place_overlay(&overlay::MonitorRect {
-        x: position.x,
-        y: position.y,
-        w: size.width,
-        h: size.height,
-    });
+    // Fail closed when the (dev) layout disables the banner: the window stays hidden.
+    let Some(rect) = overlay::place_overlay_with(
+        &overlay::MonitorRect {
+            x: position.x,
+            y: position.y,
+            w: size.width,
+            h: size.height,
+        },
+        &overlay::effective_banner_layout(),
+    ) else {
+        return false;
+    };
     let moved = window.set_position(tauri::PhysicalPosition::new(rect.x, rect.y));
     let sized = window.set_size(tauri::PhysicalSize::new(rect.w, rect.h));
     if let Err(error) = moved.as_ref().and(sized.as_ref()) {
@@ -186,6 +198,70 @@ fn build_overlay_window(
 
     if let Err(error) = window.set_ignore_cursor_events(spec.ignore_cursor_events) {
         crate::log_warn!("overlay", "click_through_unavailable", format!("{error}"));
+    }
+    Some(window)
+}
+
+/// Place the HUD strip at the monitor origin and size it to the monitor's physical width.
+pub(crate) fn place_hud_window(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
+    let monitor = match window.primary_monitor() {
+        Ok(Some(monitor)) => monitor,
+        Ok(None) | Err(_) => {
+            crate::log_warn!("hud", "placement_unavailable", "HUD monitor unavailable");
+            return false;
+        }
+    };
+    let position = monitor.position();
+    let size = monitor.size();
+    let rect = hud::place_hud_window(&overlay::MonitorRect {
+        x: position.x,
+        y: position.y,
+        w: size.width,
+        h: size.height,
+    });
+    let moved = window.set_position(tauri::PhysicalPosition::new(rect.x, rect.y));
+    let sized = window.set_size(tauri::PhysicalSize::new(rect.w, rect.h));
+    if moved.is_err() || sized.is_err() {
+        crate::log_warn!("hud", "placement_failed", "HUD placement failed");
+        return false;
+    }
+    true
+}
+
+fn build_hud_window(app: &mut tauri::App<tauri::Wry>) -> Option<tauri::WebviewWindow<tauri::Wry>> {
+    let spec = hud::hud_window_spec();
+    let window = match tauri::WebviewWindowBuilder::new(
+        app,
+        spec.label,
+        tauri::WebviewUrl::App(spec.url.into()),
+    )
+    .transparent(spec.transparent)
+    .decorations(spec.decorations)
+    .always_on_top(spec.always_on_top)
+    .skip_taskbar(spec.skip_taskbar)
+    .focusable(spec.focusable)
+    .focused(spec.focused)
+    .shadow(spec.shadow)
+    .resizable(spec.resizable)
+    .visible(spec.visible)
+    .additional_browser_args(WEBVIEW2_BROWSER_ARGS)
+    .inner_size(1920.0, 108.0)
+    .build()
+    {
+        Ok(window) => window,
+        Err(_) => {
+            crate::log_warn!("hud", "window_unavailable", "HUD window unavailable");
+            return None;
+        }
+    };
+
+    let _ = place_hud_window(&window);
+    if window
+        .set_ignore_cursor_events(spec.ignore_cursor_events)
+        .is_err()
+    {
+        let _ = window.hide();
+        crate::log_warn!("hud", "click_through_unavailable", "HUD remains hidden");
     }
     Some(window)
 }
@@ -297,6 +373,43 @@ fn start_overlay_status_mirror(
     }
 }
 
+/// Closing the main (control) window ends the process; the hidden overlay window must never keep
+/// the app alive. UX-SPEC/SRS define no tray or background mode, so none exists.
+fn closing_control_window_exits_app(label: &str) -> bool {
+    label == "control"
+}
+
+#[cfg(test)]
+mod window_close_tests {
+    use super::closing_control_window_exits_app;
+
+    #[test]
+    fn only_the_control_window_close_ends_the_app() {
+        assert!(closing_control_window_exits_app("control"));
+        assert!(!closing_control_window_exits_app("overlay"));
+        assert!(!closing_control_window_exits_app(""));
+    }
+
+    #[test]
+    fn the_exit_path_logs_a_final_process_exit_line_after_shutdown() {
+        let source = include_str!("lib.rs");
+        let shutdown = source.rfind("host.shutdown();").unwrap();
+        let line = source.rfind("\"process_exit\"").unwrap();
+        assert!(line > shutdown);
+    }
+
+    #[test]
+    fn the_control_window_label_matches_the_tauri_config() {
+        let config: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        assert!(config["app"]["windows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|window| window["label"] == "control"));
+    }
+}
+
 pub fn run() {
     initialize_logging();
     let app_version = version::AppVersion::current();
@@ -323,6 +436,11 @@ pub fn run() {
                 tauri::WindowEvent::CloseRequested { .. } => {
                     crate::log_info!("app", "app_stopping", "window close requested");
                     logging::flush();
+                    // The overlay is a second, hidden window: without an explicit exit it keeps
+                    // the event loop (and the audio engine) alive after the control window closes.
+                    if closing_control_window_exits_app(window.label()) {
+                        window.app_handle().exit(0);
+                    }
                 }
                 tauri::WindowEvent::Destroyed => {
                     let _ = window;
@@ -340,6 +458,8 @@ pub fn run() {
                 crate::log_error!("app", "setup_failed", "APP_DATA_DIR_UNAVAILABLE");
             })?;
             let settings_dir = dir.clone();
+            // Load volume preferences before Host::start creates the audio engine.
+            let audio_prefs = audio_prefs::AudioPrefsService::open(&dir);
             let runtime = intake::Runtime::new(dir.clone());
             let sample = Arc::new(Mutex::new((
                 Sample {
@@ -355,6 +475,8 @@ pub fn run() {
                     crate::log_error!("app", "setup_failed", "HOST_SETUP_FAILED");
                 })?;
             let overlay_window = build_overlay_window(app);
+            let hud_window = build_hud_window(app);
+            let hud_runtime = runtime.clone();
             let (initial_media_state, initial_reason) = host.media_status();
             let initial_overlay_status =
                 overlay::status_payload(initial_media_state, initial_reason);
@@ -402,10 +524,17 @@ pub fn run() {
                 runtime,
                 host,
                 settings_dir,
+                audio_prefs,
+                hotkeys: Mutex::new(hotkeys::Controller::default()),
+                hud: Mutex::new(hud::Controller::default()),
                 settings_gate: Mutex::new(()),
                 sample,
                 revision: AtomicU64::new(0),
             });
+            let hud_controller =
+                hud::Controller::start(app.handle().clone(), hud_runtime, hud_window);
+            *intake::lock(&app.state::<AppState>().hud) = hud_controller;
+            commands::start_hotkeys(app.handle(), &app.state::<AppState>());
             steam::start_status_probe(app.handle().clone(), steam_runtime);
             let app_handle = app.handle().clone();
             let last_overlay_status = Arc::new(Mutex::new(initial_overlay_status.clone()));
@@ -442,6 +571,9 @@ pub fn run() {
         commands::media_probe_pending,
         commands::audio_history,
         commands::set_muted,
+        commands::audio_prefs_get,
+        commands::audio_set_volume,
+        commands::audio_set_hotkeys,
         capture_host::minimap_subscribe,
         capture_host::capture_status,
         capture_host::capture_invalidate,
@@ -453,7 +585,23 @@ pub fn run() {
         capture_host::capture_accept_proposal,
         capture_host::capture_confirm_crop,
         commands::demo_available,
-        commands::demo_trigger
+        commands::demo_trigger,
+        lab::dev::lab_status,
+        lab::dev::lab_describe,
+        lab::dev::lab_last_trace,
+        lab::dev::lab_export,
+        lab::dev::lab_apply_edits,
+        lab::dev::lab_replay,
+        lab::dev::lab_layout_get,
+        lab::dev::lab_layout_preview,
+        lab::dev::lab_layout_apply,
+        lab::dev::lab_layout_export,
+        lab::dev::lab_reference_image,
+        lab::dev::lab_catalog,
+        lab::dev::lab_pack_bindings,
+        lab::dev::lab_pack_mapping_get,
+        lab::dev::lab_pack_mapping_apply,
+        lab::dev::lab_pack_mapping_export
     ]);
     #[cfg(not(any(feature = "demo", debug_assertions)))]
     let builder = builder.invoke_handler(tauri::generate_handler![
@@ -479,6 +627,9 @@ pub fn run() {
         commands::media_probe_pending,
         commands::audio_history,
         commands::set_muted,
+        commands::audio_prefs_get,
+        commands::audio_set_volume,
+        commands::audio_set_hotkeys,
         capture_host::minimap_subscribe,
         capture_host::capture_status,
         capture_host::capture_invalidate,
@@ -500,7 +651,11 @@ pub fn run() {
             }
             if matches!(event, tauri::RunEvent::Exit) {
                 crate::log_info!("app", "exit", "Kohbor is exiting");
-                handle.state::<AppState>().host.shutdown();
+                let state = handle.state::<AppState>();
+                intake::lock(&state.hud).stop();
+                intake::lock(&state.hotkeys).stop();
+                state.host.shutdown();
+                crate::log_info!("app", "process_exit", "all host threads stopped");
                 logging::flush();
             }
         }),
@@ -627,6 +782,7 @@ mod containment_failure_tests {
 }
 
 mod demo;
+mod lab;
 mod overlay;
 
 #[cfg(test)]

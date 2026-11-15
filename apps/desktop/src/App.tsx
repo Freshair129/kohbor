@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { AudioHistory } from "./AudioHistory";
 import { AudioMuteControl, AudioPanel, useAudioMute } from "./AudioPanel";
 import { copy, seconds, type Locale } from "./copy";
 import { DemoPanel } from "./DemoPanel";
+
+/** Dev-only (docs/design/KOHBOR-LAB.md): a normal release bundle drops the Lab code; a Lab test build sets VITE_KOHBOR_LAB=1 when building the frontend. */
+const LabPanel = import.meta.env.DEV || import.meta.env.VITE_KOHBOR_LAB === "1" ? lazy(() => import("./lab/Lab").then((m) => ({ default: m.Lab }))) : null;
 import { Deck } from "./deck/Deck";
 import { deckStateReasonForLocale, deriveDeckState } from "./deck/deckState";
 import { Guide } from "./Guide";
@@ -22,6 +25,7 @@ import { AccountMenu } from "./account/AccountMenu";
 import { AccountPage, FriendsPage } from "./account/AccountPages";
 import { guestAccountPort, type AccountPort } from "./account/accountView";
 import { useAccount } from "./account/useAccount";
+import { VolumeToast } from "./VolumeToast";
 import { useDotaLauncher, useShowSteamName, useSteamStatus } from "./steam/hooks";
 import { steamPersonaName } from "./steam/model";
 import { StartDotaBar } from "./steam/StartDotaBar";
@@ -273,6 +277,11 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
               <div className="shell-demo-panel">
                 <DemoPanel />
               </div>
+              {LabPanel && (
+                <Suspense fallback={null}>
+                  <LabPanel />
+                </Suspense>
+              )}
             </div>
             <AboutPanel view={version} locale={displayLocale} />
           </div>
@@ -281,6 +290,7 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
         {currentTab === "account" && <AccountPage account={account} locale={displayLocale} back={() => setActiveTab("live")} />}
         {currentTab === "friends" && <FriendsPage locale={displayLocale} back={() => setActiveTab("live")} />}
       </section>
+      <VolumeToast locale={displayLocale} />
     </div>
   );
 }

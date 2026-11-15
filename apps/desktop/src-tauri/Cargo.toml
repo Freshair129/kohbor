@@ -9,6 +9,9 @@ publish.workspace = true
 
 [features]
 demo = []
+# Dev-only Kohbor Lab override reader (docs/design/KOHBOR-LAB.md). Not a default feature.
+# `lab` implies `demo`: Lab's commands live in the demo/debug handler list, and its Test banner needs demo_trigger.
+lab = ["demo", "kohbor-lab/lab"]
 
 [lib]
 name = "kohbor_desktop_lib"
@@ -28,6 +31,7 @@ kohbor-capture-native = { path = "../../../crates/kohbor-capture-native" }
 kohbor-minimap-cv = { path = "../../../crates/kohbor-minimap-cv" }
 kohbor-risk = { path = "../../../crates/kohbor-risk" }
 kohbor-game-assets = { path = "../../../crates/kohbor-game-assets" }
+kohbor-lab = { path = "../../../crates/kohbor-lab" }
 flate2 = { workspace = true }
 tauri = { version = "=2.12.5", features = [] }
 serde = { workspace = true }
@@ -49,6 +53,7 @@ windows = { version = "=0.61.3", features = [
   "Win32_System_ProcessStatus",
   "Win32_System_Threading",
   "Win32_UI_Shell",
+  "Win32_UI_Input_KeyboardAndMouse",
   "Win32_UI_WindowsAndMessaging",
 ] }
 

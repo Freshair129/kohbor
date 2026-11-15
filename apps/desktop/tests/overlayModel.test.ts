@@ -1,6 +1,6 @@
 ﻿import assert from "node:assert/strict";
 import { test } from "node:test";
-import { chipForStatus, createChipState, reduceChip, overlayShouldShow, CHIP_SHOW_MS, DEMO_MARKER_WINDOW_MS } from "../src/overlayModel.ts";
+import { overlayChipForDisplay, chipForStatus, createChipState, reduceChip, overlayShouldShow, CHIP_SHOW_MS, DEMO_MARKER_WINDOW_MS } from "../src/overlayModel.ts";
 import { createPlaybackState, reducePlayback, tickPlayback } from "../src/playback.ts";
 const ready = { state: "ready", reason: null } as const;
 const muted = { state: "unavailable", reason: "AUDIO_MUTED" } as const;
@@ -83,4 +83,17 @@ test("scheduling: health danger then multi kill renders in arrival order", () =>
   let p = reducePlayback(createPlaybackState(), started("pb_00000001", { class: "critical", event_type: "health_danger", tier: null })); assert.equal(p.visual?.event_type, "health_danger");
   p = reducePlayback(p, started("pb_00000002", { event_type: "multi_kill", at_ms: 1001 })); assert.equal(p.visual?.event_type, "multi_kill");
   assert.equal(overlayShouldShow(p, empty, 1001), true);
+});
+
+test("overlay display: the benign ready chip is never shown, problem states and DEMO still are", () => {
+  assert.equal(overlayChipForDisplay(null), null);
+  assert.equal(overlayChipForDisplay(chipForStatus(ready)), null);
+  for (const media of [missing, muted]) {
+    const view = chipForStatus(media);
+    assert.equal(overlayChipForDisplay(view), view);
+  }
+  const unknown = chipForStatus(null);
+  assert.equal(overlayChipForDisplay(unknown), unknown);
+  const demo = { kind: "demo", reason: null, text_th: "DEMO" } as const;
+  assert.equal(overlayChipForDisplay(demo), demo);
 });

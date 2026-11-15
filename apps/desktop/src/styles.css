@@ -192,6 +192,23 @@ button[aria-busy="true"] { cursor: progress; }
 .audio-control, .audio-mute-control { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .audio-note { color: var(--text-2); font-size: 13px; overflow-wrap: anywhere; }
 
+/* Shared announcer volume and global hotkey preferences. */
+.volume-control { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.card-head > .volume-control { flex: 1 1 220px; max-width: 280px; }
+.volume-control-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; color: var(--text-2); font-size: 12px; }
+.volume-control-label output { flex: none; color: var(--text); font-variant-numeric: tabular-nums; }
+.volume-slider { display: block; width: 100%; min-width: 0; margin: 0; accent-color: var(--accent); }
+.volume-hotkeys { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 5px; min-width: 0; color: var(--text-2); font-size: 11px; line-height: 1.2; }
+.volume-hotkeys input { margin: 0; accent-color: var(--accent); }
+.volume-hotkeys strong { color: var(--text); font-weight: 600; }
+.volume-hint, .volume-muted, .volume-warning, .volume-error, .volume-unknown { margin: 0; font-size: 11px; line-height: 1.25; overflow-wrap: anywhere; }
+.volume-hint, .volume-unknown { color: var(--muted); }
+.volume-muted { color: var(--text-2); }
+.volume-warning, .volume-error { color: var(--warning); }
+.volume-toast { position: fixed; z-index: 30; top: 12px; right: 12px; display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; gap: 8px; width: min(260px, calc(100vw - 24px)); padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); box-shadow: 0 8px 28px var(--ground); font-size: 12px; font-variant-numeric: tabular-nums; }
+.volume-toast-bar { display: block; height: 6px; overflow: hidden; border: 1px solid var(--line); border-radius: 999px; background: var(--ground); }
+.volume-toast-bar > span { display: block; height: 100%; background: var(--accent); }
+
 /* Announcer-pack panel: shape, glyph and words carry state, as in the readiness chips. */
 .pack-panel { display: flex; flex-direction: column; gap: 10px; }
 .pack-panel .card-head { margin-bottom: 0; }
@@ -246,9 +263,6 @@ body.overlay-body #root { width: 100%; height: 100%; min-height: 0; }
 .overlay-stage { position: relative; width: 100%; min-width: 0; min-height: 0; aspect-ratio: 720 / 220; overflow: hidden; background: transparent; }
 .event-overlay-banner { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; pointer-events: none; animation: event-banner-enter 140ms ease-out both; }
 .event-overlay-banner video { display: block; width: 100%; height: 100%; object-fit: contain; background: transparent; }
-/* Mount point for the risk strip (720x28 logical, bottom edge of the stage); hidden while empty. */
-.overlay-risk-strip { position: absolute; z-index: 2; left: 0; right: 0; bottom: 0; height: calc(100% * 28 / 220); pointer-events: none; }
-.overlay-risk-strip:empty { display: none; }
 .overlay-chip-strip { display: flex; align-items: center; justify-content: flex-end; min-width: 0; min-height: 0; padding: 0 2.5%; background: transparent; }
 .overlay-chip { display: inline-flex; align-items: center; max-width: 100%; min-height: 24px; padding: 2px 10px; border: 1px solid rgb(197 206 220 / 34%); border-radius: 999px; background: rgb(14 18 27 / 88%); color: #f2f5f9; font-size: clamp(11px, 1.7vh, 14px); line-height: 1.25; overflow-wrap: anywhere; }
 .overlay-chip-ready { border-color: rgb(90 170 147 / 55%); }
@@ -266,6 +280,7 @@ body.overlay-body #root { width: 100%; height: 100%; min-height: 0; }
 
 @media (max-width: 640px) {
   .audio-readiness, .pack-active { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .card-head > .volume-control { flex-basis: 100%; max-width: none; }
   .mock-scenario-panel { width: min(360px, calc(100vw - 24px)); }
 }
 
