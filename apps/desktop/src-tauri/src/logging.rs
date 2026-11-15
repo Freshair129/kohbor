@@ -1872,6 +1872,29 @@ pub(crate) fn try_clip_played(event_id: &str) {
         fields,
     );
 }
+
+pub(crate) fn try_clip_finished(
+    event_id: &str,
+    reason: &str,
+    expected_frames: Option<u64>,
+    native_snapshot: Option<&str>,
+    render_thread_priority: Option<i32>,
+) {
+    let fields = crate::audio::diagnostics::clip_finished_fields(
+        event_id,
+        reason,
+        expected_frames,
+        native_snapshot,
+        render_thread_priority,
+    );
+    emit(
+        Level::Info,
+        "audio",
+        "clip_finished",
+        "announcer clip finished",
+        fields,
+    );
+}
 pub fn emit_frontend(level: Level, module: &str, event: &str, msg: &str, fields: Fields) -> bool {
     GLOBAL.get().is_some_and(|logger| {
         logger.log_frontend_at(Instant::now(), level, module, event, msg, fields)
@@ -1993,6 +2016,45 @@ mod tests {
 
     fn token(length: usize) -> String {
         "A".repeat(length)
+    }
+
+    #[test]
+    fn one_clip_keeps_the_existing_start_line_and_emits_one_bounded_finish_line() {
+        let logger = std::sync::Arc::new(Logger::new_in_memory(16));
+        super::with_test_logger(logger.clone(), || {
+            super::try_clip_played("hero_kill");
+            super::try_clip_finished(
+                "hero_kill",
+                "interrupted",
+                Some(48_000),
+                Some(
+                    r#"{"clip_start_latency_ns":12000000,"frames_rendered":12000,"rendered_duration_known":true,"frames_available_total":48000,"frames_requested_total":96000,"late_fills":2,"max_lateness_ns":20000000,"min_padding_frames":3}"#,
+                ),
+                Some(0),
+            );
+        });
+
+        let entries = logger.entries();
+        assert_eq!(entries.len(), 2, "one existing start and one finish line");
+        assert_eq!(
+            entries
+                .iter()
+                .filter(|entry| entry.event == "clip_played")
+                .count(),
+            1
+        );
+        let finished: Vec<_> = entries
+            .iter()
+            .filter(|entry| entry.event == "clip_finished")
+            .collect();
+        assert_eq!(finished.len(), 1, "at most one new line for the clip");
+        assert_eq!(finished[0].fields["reason"], "interrupted");
+        let finished_fields = finished[0].fields.as_object().expect("fields object");
+        assert!(!finished_fields.contains_key("pack_name"));
+        assert!(!finished_fields.contains_key("pack_path"));
+        let played_fields = entries[0].fields.as_object().expect("fields object");
+        let played_keys: Vec<_> = played_fields.keys().map(String::as_str).collect();
+        assert_eq!(played_keys, ["event_id", "outcome"]);
     }
 
     #[test]

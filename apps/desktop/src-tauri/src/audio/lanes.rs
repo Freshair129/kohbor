@@ -92,6 +92,13 @@ impl EngineShared {
 
 pub enum EngineOut {
     Playback(serde_json::Value),
+    ClipFinished {
+        event_id: String,
+        reason: String,
+        expected_frames: Option<u64>,
+        native_snapshot: Option<String>,
+        render_thread_priority: Option<i32>,
+    },
     Outcome(serde_json::Value),
     DeviceLost,
     /// The engine has no usable sink (startup, device loss, rebuild after a panic):

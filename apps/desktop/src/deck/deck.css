@@ -599,6 +599,11 @@
   padding: 2px 6px;
 }
 
+.deck-sound-panel > .volume-control {
+  border-top: 1px solid var(--line-subtle);
+  padding-top: 4px;
+}
+
 @media (max-height: 800px) {
   .deck-own-card { gap: 5px 8px; padding: 8px; }
   .deck-stat-tile { padding: 3px 5px; }

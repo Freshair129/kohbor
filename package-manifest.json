@@ -88,8 +88,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/Cargo.toml",
-      "bytes": 2013,
-      "sha256": "a62657e276eca3758f3b7bb366fe7eb59f2ce42818e6857ae0b4c85431879e29"
+      "bytes": 2050,
+      "sha256": "65a03be7e036bd4ba354f57974b3d69bd0ec637a7c9a464a481f77bb1c21cecf"
     },
     {
       "path": "apps/desktop/src-tauri/app-icon.png",
@@ -203,13 +203,18 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/device.rs",
-      "bytes": 17777,
-      "sha256": "507cd8f6a4b21930d787334bafdfe5d380c9e2634df93b10a1bc4e4ed070f6c0"
+      "bytes": 18335,
+      "sha256": "bdb3d467d5f06b19c781ae5d05a4b932889ff5c62469f73ebdd965e5bd6a5625"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/audio/diagnostics.rs",
+      "bytes": 10033,
+      "sha256": "4aeda59e5465e40e1d7c5794b66a27891b47793bd605da9480a5d80584c0cc22"
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/engine.rs",
-      "bytes": 27923,
-      "sha256": "778bf33d7da000d54fb2301de4da43e8a971e50d007d4dec3d09f31c7aab3c07"
+      "bytes": 29581,
+      "sha256": "9d104504cda15ea584366bab256c5cc688571d9ea0e72fdb491e9ffc71d2e9e5"
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/fake_sink.rs",
@@ -218,13 +223,13 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/lanes.rs",
-      "bytes": 14146,
-      "sha256": "d98021c5a16f6fa2714c5abcde294b35e2136384863ed5c19c48c740c69d5ef6"
+      "bytes": 14346,
+      "sha256": "8b14a4789927e7b73f536b7b4bc2f83417127551ddc5ebd89f8a1d98769aa67d"
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/mod.rs",
-      "bytes": 234,
-      "sha256": "548652ca8b711ed64e2ca0a0075d467fd47e01e9be5ae8f07a4865e980853302"
+      "bytes": 255,
+      "sha256": "08afc3f3ecdb87cb4666b37887dca135afe775d05d8be3bf593fa41fca54c28d"
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/outcome.rs",
@@ -233,8 +238,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/publisher.rs",
-      "bytes": 18989,
-      "sha256": "c9494f886f3195d628f0015231068b87eeb4289c63cac6b221b0ff217d131073"
+      "bytes": 19523,
+      "sha256": "0ce99e87ee38459d222d25b64d73f23980ab810d01bcaa008d9585d40f1b3438"
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/resolve.rs",
@@ -248,8 +253,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/tests_engine.rs",
-      "bytes": 58171,
-      "sha256": "90c2feaf3e10289ea05cae414ebf06289394d93681e299f0c2f81edc88a8c4b2"
+      "bytes": 59886,
+      "sha256": "e97ed17c2553aab777599732bbafc4f8c5992803559fdc9b9b0372eb6653ddb1"
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/tests_outcome.rs",
@@ -260,6 +265,11 @@
       "path": "apps/desktop/src-tauri/src/audio/tests_resolve.rs",
       "bytes": 7967,
       "sha256": "163a59e581346597c6b0232b71500f5a9bec5570628c8539408c1e4becb76588"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/audio_prefs.rs",
+      "bytes": 8104,
+      "sha256": "153856cf9ae599fdc53859e6cd9707116dd015d4fe016fcc049d4871e23ec730"
     },
     {
       "path": "apps/desktop/src-tauri/src/capture_host.rs",
@@ -273,8 +283,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/commands.rs",
-      "bytes": 10327,
-      "sha256": "2149245428b723ebac3f1318fbbdce5edcfb066f553d36b9526b3c655c3e76c7"
+      "bytes": 20095,
+      "sha256": "87609209a1f0630747ec84646dea0f494ec33ac02c25e21ed308988240ced766"
     },
     {
       "path": "apps/desktop/src-tauri/src/containment.rs",
@@ -290,6 +300,11 @@
       "path": "apps/desktop/src-tauri/src/host.rs",
       "bytes": 48878,
       "sha256": "90870b182ef15905431594246bed32692891dd424c3f80337b820a61b06fe53f"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/hotkeys.rs",
+      "bytes": 9277,
+      "sha256": "d60bc77678fbfc20791a48cf4952fa739f97a5ab701d217c3b85e5905fcde340"
     },
     {
       "path": "apps/desktop/src-tauri/src/instance.rs",
@@ -313,13 +328,23 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 23609,
-      "sha256": "a533f80db8e82089a6828f000e16f65c27aca57bb349fd75300b779813a2a789"
+      "bytes": 26089,
+      "sha256": "b88b386f377649efd81c0e913f006c5411d14cd61ee3c9539dd4d62e811c1a52"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/lib.rs",
+      "bytes": 26089,
+      "sha256": "b88b386f377649efd81c0e913f006c5411d14cd61ee3c9539dd4d62e811c1a52"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/lib.rs",
+      "bytes": 26089,
+      "sha256": "b88b386f377649efd81c0e913f006c5411d14cd61ee3c9539dd4d62e811c1a52"
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
-      "bytes": 86379,
-      "sha256": "447401bcd1938acd9d2bf7255f848bfb6b92addc9a74ccd4213a89a3953915eb"
+      "bytes": 88642,
+      "sha256": "b53ab70dcbd2878b746a627a5301b1f82254939716ff8e1d307a63e2d3dbe659"
     },
     {
       "path": "apps/desktop/src-tauri/src/main.rs",
@@ -408,8 +433,8 @@
     },
     {
       "path": "apps/desktop/src/App.tsx",
-      "bytes": 12990,
-      "sha256": "baab71a2d4762d56c9533bc35abe5c3ea257aa7b2b482ae66e0b57bfb230ce40"
+      "bytes": 13080,
+      "sha256": "7b6ced9ef6aef2353c8fb600715fc13591e56b0d9491377baaa47f76295e59dd"
     },
     {
       "path": "apps/desktop/src/AudioHistory.tsx",
@@ -458,13 +483,23 @@
     },
     {
       "path": "apps/desktop/src/PackPanel.tsx",
-      "bytes": 11926,
-      "sha256": "3234dfc66b4c5c51d9a85b997b3ff0022302f96b2532ae48e76c4228c64ce7ab"
+      "bytes": 12025,
+      "sha256": "4ada87e52a643d1d0084a6c79829590fb65326e347af02e0f24d09d9bee37228"
     },
     {
       "path": "apps/desktop/src/Readiness.tsx",
       "bytes": 6164,
       "sha256": "31beca0a4b08c10f4392bb677fe6ac1e6b124a3569f7e9edaca9bea61fcc7221"
+    },
+    {
+      "path": "apps/desktop/src/VolumeControl.tsx",
+      "bytes": 2575,
+      "sha256": "4ab28a16a0663030debe47d994ad3ae552c9b2fccfcf1f5b892cb16ce30b0cb6"
+    },
+    {
+      "path": "apps/desktop/src/VolumeToast.tsx",
+      "bytes": 1426,
+      "sha256": "3c9beb55a0c270e0bc08eb1b0d20147e65205fa4d6c4a505f1a41b421e7a4623"
     },
     {
       "path": "apps/desktop/src/account/AccountMenu.tsx",
@@ -497,9 +532,14 @@
       "sha256": "9fcbb20e6621489860a4f85a58ca03f1e48d0ba4feb15ed533477b92d8d6dff9"
     },
     {
+      "path": "apps/desktop/src/audioPrefs.ts",
+      "bytes": 13651,
+      "sha256": "3fbd9173c850f0e1e7876765c74770e5ed6b568f2549e87f181faf6f8a282849"
+    },
+    {
       "path": "apps/desktop/src/copy.ts",
-      "bytes": 50418,
-      "sha256": "4e2ce29eea2766a3bb5f8e46eaf88e0c26f1e0bc77dddd72a611d27ba05a2d76"
+      "bytes": 52541,
+      "sha256": "e3c95f70ff1840bba5c47e4fe9e2e905db3f9aff22c6f71849785d90014020b0"
     },
     {
       "path": "apps/desktop/src/deck/AlertStrip.tsx",
@@ -508,8 +548,8 @@
     },
     {
       "path": "apps/desktop/src/deck/AnnouncerStatus.tsx",
-      "bytes": 2726,
-      "sha256": "4e265b48f0e29b0e01172a354a0c26e16c86004294d058e0782a87795c3ffc94"
+      "bytes": 2824,
+      "sha256": "09da5aa15ebb85d43b73b474917672df69615f3872e25c9de7da050e9b51fc13"
     },
     {
       "path": "apps/desktop/src/deck/Deck.tsx",
@@ -548,8 +588,8 @@
     },
     {
       "path": "apps/desktop/src/deck/deck.css",
-      "bytes": 14790,
-      "sha256": "e415e6863b054eee14ee324b687fec0fd7a07c1617c061754bf67cb85609261e"
+      "bytes": 14895,
+      "sha256": "00cc4fd886703eb3808ff455aaeed6d7578a19a387c2f72f83523cb09fac76fe"
     },
     {
       "path": "apps/desktop/src/deck/deckState.ts",
@@ -883,8 +923,18 @@
     },
     {
       "path": "apps/desktop/src/mock/harness.tsx",
-      "bytes": 26968,
-      "sha256": "73f26f194b47e237cc21d32578fea58419c9a2b5a24e94ada69300afd1a2ee49"
+      "bytes": 27595,
+      "sha256": "51041931bbf857260eac9e7a5bc92cfaf255ed62181d20ba00c7c880fbdd6e1b"
+    },
+    {
+      "path": "apps/desktop/src/mock/harness.tsx",
+      "bytes": 27595,
+      "sha256": "51041931bbf857260eac9e7a5bc92cfaf255ed62181d20ba00c7c880fbdd6e1b"
+    },
+    {
+      "path": "apps/desktop/src/mock/harness.tsx",
+      "bytes": 27595,
+      "sha256": "51041931bbf857260eac9e7a5bc92cfaf255ed62181d20ba00c7c880fbdd6e1b"
     },
     {
       "path": "apps/desktop/src/mock/sampleLoadout.ts",
@@ -923,8 +973,8 @@
     },
     {
       "path": "apps/desktop/src/runtime.ts",
-      "bytes": 9988,
-      "sha256": "543d65fae200aaebf3017c19389fb89527298e7d57241a2401f4130fac355069"
+      "bytes": 10441,
+      "sha256": "742de8a244c970a4181b0fe3174c60f3e8a3c4d570ec6e2b8deafdff31dcefa1"
     },
     {
       "path": "apps/desktop/src/settings.ts",
@@ -993,8 +1043,8 @@
     },
     {
       "path": "apps/desktop/src/styles.css",
-      "bytes": 23034,
-      "sha256": "ab8187b288186959bc02573a4041979f1bff880820d0690bb109269c01fe40b3"
+      "bytes": 24945,
+      "sha256": "282e3a711aa4031c5875b420409bf1c0f8f63a4f44ef848bd0db0dfe9fe5a209"
     },
     {
       "path": "apps/desktop/src/types.ts",
@@ -1007,6 +1057,11 @@
       "sha256": "ee53a3585b79a13af32e4b6df019eacb3bbfd678a4d4c908ec0174daed85aae4"
     },
     {
+      "path": "apps/desktop/src/useAudioPrefs.ts",
+      "bytes": 521,
+      "sha256": "a31bf3d4fd3c0c2a2ec2a771664e8c4eb1ba7bf1c659e6b53228e29ed080a167"
+    },
+    {
       "path": "apps/desktop/src/useMediaListing.ts",
       "bytes": 1977,
       "sha256": "e154226035428d0fdb036a3432b0892f741dda36e46997392b14362928df0bc7"
@@ -1015,6 +1070,11 @@
       "path": "apps/desktop/tests/app-version.test.ts",
       "bytes": 1816,
       "sha256": "ab6d4ba96922e056820ddb27eadb28681eb75a1afeabc4cae225e36c8f686423"
+    },
+    {
+      "path": "apps/desktop/tests/audioPrefs.test.ts",
+      "bytes": 16036,
+      "sha256": "5a32ce9b8a620ae7d8590df516c21accdefe0d726f3ebd81b1c11bcce9f22a19"
     },
     {
       "path": "apps/desktop/tests/capture-idle.test.ts",
@@ -1298,18 +1358,18 @@
     },
     {
       "path": "crates/kohbor-audio-native/src/engine.rs",
-      "bytes": 28803,
-      "sha256": "49048c743def6641a730a416459877d3315b6930a46e271416fe4b43305f504b"
+      "bytes": 52392,
+      "sha256": "6848cfdca4802fba673356661b2577644c3c9cf4b5de089dc2af9ac5a01d9c36"
     },
     {
       "path": "crates/kohbor-audio-native/src/lib.rs",
-      "bytes": 167,
-      "sha256": "7ca07462c4aeaaceea4609f1f3303901f06ad10b10b3021c4d01b836f0681636"
+      "bytes": 1020,
+      "sha256": "b62b029e927893000370a784897f43d0dafd97ed049d1eaaf43fe6cc87bf6571"
     },
     {
       "path": "crates/kohbor-audio-native/src/wasapi_backend.rs",
-      "bytes": 19738,
-      "sha256": "848c810f5367093cad6afef6f1d21302edced75dd95f4b6d45f78aa1e3d4712f"
+      "bytes": 28810,
+      "sha256": "ac55d82e356412f78cef6752cfd72e0a827730a810ae3e2af5ec66ce3212a61b"
     },
     {
       "path": "crates/kohbor-audio/Cargo.toml",
@@ -1973,8 +2033,8 @@
     },
     {
       "path": "docs/delivery/SPRINT-ROADMAP.md",
-      "bytes": 21813,
-      "sha256": "a8dfbef3f86f74e54202b3620f70f9a60479ee332dea67e62f4252bc65425bad"
+      "bytes": 22164,
+      "sha256": "e4115708cac6bdebca4dc64a2006e0b464b423048ee4f7a717ffe9767fabf4ed"
     },
     {
       "path": "docs/delivery/evidence/m1-live-2026-11-11-draft.png",

@@ -25,6 +25,16 @@ pub fn backoff_ms(attempt: u32) -> u64 {
 pub type Opener = Box<dyn FnMut() -> Result<Box<dyn kohbor_audio::Sink + Send>, ()> + Send>;
 pub type Sleeper = Box<dyn FnMut(u64) + Send>;
 
+#[cfg(windows)]
+fn native_device_fields_json() -> Option<String> {
+    kohbor_audio_native::WasapiSink::device_opened_fields_json()
+}
+
+#[cfg(not(windows))]
+fn native_device_fields_json() -> Option<String> {
+    None
+}
+
 /// Runs a user supplied sleeper without allowing its panic to unwind the supervisor.
 /// A failed sleeper is terminal so retries cannot accidentally become a busy loop.
 fn sleep_safely(sleeper: &mut Sleeper, milliseconds: u64) -> bool {
@@ -138,7 +148,14 @@ pub fn spawn_device_supervisor(
                         attempt = 0;
                         // Successful enqueue ends the hand-over attempt. A Need
                         // arriving after it must remain queued for the next open.
-                        crate::log_info!("audio", "device_opened", "audio output device opened");
+                        let native_fields = native_device_fields_json();
+                        crate::logging::emit(
+                            crate::logging::Level::Info,
+                            "audio",
+                            "device_opened",
+                            "audio output device opened",
+                            super::diagnostics::device_open_fields(native_fields.as_deref()),
+                        );
                         break 'attempts;
                     }
                 }

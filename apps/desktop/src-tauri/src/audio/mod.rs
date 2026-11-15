@@ -1,4 +1,5 @@
 pub mod device;
+pub mod diagnostics;
 pub mod engine;
 pub mod fake_sink;
 pub mod lanes;
