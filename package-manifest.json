@@ -24,12 +24,12 @@
     {
       "path": "Cargo.lock",
       "bytes": 121690,
-      "sha256": "6e46e740370a9181681d08627525f4df76d053959a04e033baf4832622f7d350"
+      "sha256": "0366b379c5e0d4ccc56065c469b62fc609d075f306750875b40b51b313446115"
     },
     {
       "path": "Cargo.toml",
       "bytes": 854,
-      "sha256": "5f62a7987f40a44775e4000bc997198d61a1b4f91816ddf3af9ab98151503e55"
+      "sha256": "eb2016d9777a7245ad07e735c51220d996784df28cc1b76eb8bae37ef3d120d3"
     },
     {
       "path": "GUIDE-TH.md",
@@ -74,7 +74,7 @@
     {
       "path": "apps/desktop/package.json",
       "bytes": 683,
-      "sha256": "eebabe49945b09636bfe7fabfc8019994d833fad00b3d36fa66f52c250f55432"
+      "sha256": "e5e87a429a4caf0b6ab5d3259643ea574eeb6c148d87c91db913c509aa927211"
     },
     {
       "path": "apps/desktop/pnpm-lock.yaml",
@@ -88,8 +88,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/Cargo.toml",
-      "bytes": 2342,
-      "sha256": "bedad87bf75d9c3549acc752c04db7aca55b891dec623bb663ca4f8c39165f0b"
+      "bytes": 2355,
+      "sha256": "f01393f076846433e039990d3826d36550e371a56e1771f2317c3d9944655ba2"
     },
     {
       "path": "apps/desktop/src-tauri/app-icon.png",
@@ -293,8 +293,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/commands.rs",
-      "bytes": 20288,
-      "sha256": "675fe2617f09cd8d58b8d54d32171512ae6551ba61ad4f0e4c6ff2269173d900"
+      "bytes": 22683,
+      "sha256": "be6f6300237cf0c26e091def56c68c4167e1961b83095ba7e565365e92cacf33"
     },
     {
       "path": "apps/desktop/src-tauri/src/containment.rs",
@@ -343,8 +343,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 29737,
-      "sha256": "3d5f5a0f59170eb5fcd3a64a182036fbadfc5b2662e68ce9d1ff6a75c32ff8d4"
+      "bytes": 31506,
+      "sha256": "423f82f8a3b353a24920cf323f4ee20f70fd52e2d502a6d5d3c014f8c2a8a7f6"
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
@@ -438,8 +438,8 @@
     },
     {
       "path": "apps/desktop/src/App.tsx",
-      "bytes": 13558,
-      "sha256": "373efa856eb3ff4fd544a83d0ad89b022d0a024055f14c100bd8ef3535d3382b"
+      "bytes": 13913,
+      "sha256": "918460e75a99690fe81698dfc66d1f964d2bab3fd66cbe5aa2d704ed0f5c0823"
     },
     {
       "path": "apps/desktop/src/AudioHistory.tsx",
@@ -948,8 +948,8 @@
     },
     {
       "path": "apps/desktop/src/main.tsx",
-      "bytes": 5840,
-      "sha256": "d721cbc1ad2c0d7160b613ad220e682f11b794b3119bb112e09e347a9c762f2c"
+      "bytes": 6116,
+      "sha256": "f404d4ba734b9f7ad3461f4d19557d1b0c4a98bd3d2b1268849a8c2f8180ff31"
     },
     {
       "path": "apps/desktop/src/mediaStatus.ts",
@@ -963,8 +963,8 @@
     },
     {
       "path": "apps/desktop/src/mock/harness.tsx",
-      "bytes": 28209,
-      "sha256": "6c02d74b82284d760c5e0fecd25d92c6654ed282f92eb26c61ed711c10d58e84"
+      "bytes": 28856,
+      "sha256": "38cd91c47df3dffde992a324e075451eb984bd51b392fd910911a1046015dd6e"
     },
     {
       "path": "apps/desktop/src/mock/hudState.ts",
@@ -1008,8 +1008,8 @@
     },
     {
       "path": "apps/desktop/src/runtime.ts",
-      "bytes": 10441,
-      "sha256": "742de8a244c970a4181b0fe3174c60f3e8a3c4d570ec6e2b8deafdff31dcefa1"
+      "bytes": 10872,
+      "sha256": "095cf79fc249735883f0def4ee1c0ab356ff9b9859c257003d6ae12688c1c4fb"
     },
     {
       "path": "apps/desktop/src/settings.ts",
@@ -1018,8 +1018,8 @@
     },
     {
       "path": "apps/desktop/src/shell/VersionInfo.tsx",
-      "bytes": 1170,
-      "sha256": "6f99a8bdbaa32b8409b79cb3b568c58eac5e41bf343bdb8ec2d67622cc9c4e76"
+      "bytes": 1257,
+      "sha256": "0f4e4c9f6b49f8a32c8ac4a765b7934d1b1c39f86c82f669a976f4341a765a40"
     },
     {
       "path": "apps/desktop/src/shell/appVersionModel.ts",
@@ -1078,8 +1078,8 @@
     },
     {
       "path": "apps/desktop/src/styles.css",
-      "bytes": 24660,
-      "sha256": "b3f021b32a9fe4205d794e7ab1f756d01ca2b228a672d49ee526f16008b2cd47"
+      "bytes": 26192,
+      "sha256": "44967a419d08bbbd10a49f9d572394d5a0aa93b5efb5628154f935adb5db5aab"
     },
     {
       "path": "apps/desktop/src/types.ts",

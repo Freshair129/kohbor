@@ -20,7 +20,25 @@ pub mod secrets;
 pub mod settings;
 pub mod status;
 mod steam;
+mod update;
 mod version;
+
+macro_rules! generate_handler_with_updater_commands {
+    ($($command:path),* $(,)?) => {{
+        #[cfg(feature = "updater")]
+        {
+            tauri::generate_handler![
+                $($command,)*
+                commands::update_check,
+                commands::update_install
+            ]
+        }
+        #[cfg(not(feature = "updater"))]
+        {
+            tauri::generate_handler![$($command),*]
+        }
+    }};
+}
 
 /// Runs the application only after containment succeeds.
 ///
@@ -54,6 +72,8 @@ use tauri::{Emitter as TauriEmitter, Listener, Manager};
 pub(crate) struct AppState {
     pub(crate) runtime: Arc<intake::Runtime>,
     pub(crate) host: host::Host,
+    pub(crate) updater: Mutex<update::UpdateController<update::NullBackend>>,
+    pub(crate) match_active: Arc<dyn Fn() -> bool + Send + Sync>,
     pub(crate) settings_dir: PathBuf,
     pub(crate) audio_prefs: audio_prefs::AudioPrefsService,
     pub(crate) hotkeys: Mutex<hotkeys::Controller>,
@@ -529,9 +549,30 @@ pub fn run() {
             });
             capture_host::start(app.handle().clone(), gsi, resources, settings_dir.clone());
             let steam_runtime = runtime.clone();
+            // "A match is live" = draft, pregame or live (the same barrier as the pack activation).
+            let update_match_active: Arc<dyn Fn() -> bool + Send + Sync> = {
+                let runtime = runtime.clone();
+                Arc::new(move || {
+                    matches!(
+                        intake::lock(&runtime.shared).phase,
+                        Some(
+                            kohbor_gsi::admission::Phase::Draft
+                                | kohbor_gsi::admission::Phase::Pregame
+                                | kohbor_gsi::admission::Phase::Live
+                        )
+                    )
+                })
+            };
             app.manage(AppState {
                 runtime,
                 host,
+                updater: Mutex::new(update::UpdateController::new(
+                    update::UPDATE_ENDPOINT,
+                    update::UPDATE_PUBKEY,
+                    update::NullBackend,
+                    version::AppVersion::current().version,
+                )),
+                match_active: update_match_active,
                 settings_dir,
                 audio_prefs,
                 hotkeys: Mutex::new(hotkeys::Controller::default()),
@@ -557,8 +598,10 @@ pub fn run() {
             Ok(())
         });
     #[cfg(any(feature = "demo", debug_assertions))]
-    let builder = builder.invoke_handler(tauri::generate_handler![
+    let builder = builder.invoke_handler(generate_handler_with_updater_commands![
         commands::app_version,
+        commands::update_status,
+        commands::update_open_release_page,
         portraits::hero_portrait,
         steam::launch_dota,
         steam::steam_status,
@@ -608,8 +651,10 @@ pub fn run() {
         lab::dev::lab_reference_image
     ]);
     #[cfg(not(any(feature = "demo", debug_assertions)))]
-    let builder = builder.invoke_handler(tauri::generate_handler![
+    let builder = builder.invoke_handler(generate_handler_with_updater_commands![
         commands::app_version,
+        commands::update_status,
+        commands::update_open_release_page,
         portraits::hero_portrait,
         steam::launch_dota,
         steam::steam_status,

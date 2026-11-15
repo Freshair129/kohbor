@@ -19,6 +19,8 @@ import { useSettings } from "./settings";
 import { useAppVersion } from "./shell/useAppVersion";
 import { deriveAppVersionView } from "./shell/appVersionModel";
 import { AboutPanel } from "./shell/VersionInfo";
+import { UpdateControl } from "./shell/UpdateControl";
+import { useUpdateStatus } from "./shell/useUpdateStatus";
 import { useDeveloperMode } from "./shell/useDeveloperMode";
 import { LogsTab } from "./logs/LogsTab";
 import { AccountMenu } from "./account/AccountMenu";
@@ -39,6 +41,7 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
   const mute = useAudioMute(status);
   const playback = usePlayback();
   const version = deriveAppVersionView(useAppVersion());
+  const update = useUpdateStatus();
   const developerMode = useDeveloperMode();
   const account = useAccount(accountPort);
   const steamStatus = useSteamStatus();
@@ -283,7 +286,9 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
                 </Suspense>
               )}
             </div>
-            <AboutPanel view={version} locale={displayLocale} />
+            <AboutPanel view={version} locale={displayLocale}>
+              <UpdateControl appVersion={version} locale={displayLocale} snapshot={update} check={update.check} install={update.install} openReleasePage={update.openReleasePage} />
+            </AboutPanel>
           </div>
         )}
         {developerMode.enabled && <LogsTab visible={currentTab === "logs"} locale={displayLocale} />}

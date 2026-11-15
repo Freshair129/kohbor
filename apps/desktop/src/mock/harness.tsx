@@ -10,6 +10,7 @@ import { parseOwnSnapshot } from "../ownSnapshot";
 import { addSampleLoadout } from "./sampleLoadout";
 import { MockAudioPrefs } from "../audioPrefs";
 import { HUD_MOCK_INTERVAL_MS, mockHudStatePayload } from "./hudState";
+import { createMockUpdater, parseMockUpdateScenario } from "./updateHarness";
 
 type MockCallback = (event: unknown) => void;
 type MockEventBinding = { event: string; callbackId: number };
@@ -392,6 +393,7 @@ function runScenario(name: string) {
 }
 
 export function installMockHarness() {
+  const mockUpdate = createMockUpdater(parseMockUpdateScenario(new URLSearchParams(window.location.search).get("mockUpdate")));
   const target = window as unknown as Window & {
     __KOHBOR_MOCK_MEDIA_UNAVAILABLE__?: boolean;
     __TAURI_INTERNALS__?: MockTauriInternals;
@@ -411,6 +413,13 @@ export function installMockHarness() {
       if (command === "runtime_get_status") return currentStatus();
       // Explicit synthetic build metadata; never a production-version fallback.
       if (command === "app_version") return { version: "0.0.0-dev-sample", git_commit: null, build_date: null, profile: "debug", demo: true };
+      if (command === "update_open_release_page") return { opened: true, reason: null, url: "https://github.com/Freshair129/kohbor/releases/latest" };
+      if (command === "update_status") return mockUpdate.updateStatus();
+      if (command === "update_check") return mockUpdate.updateCheck();
+      if (command === "update_install") {
+        requireArgs(command, args, ["confirm"]);
+        return mockUpdate.updateInstall(args);
+      }
       if (command === "own_snapshot") return currentOwnSnapshot();
       // Portrait sourcing is runtime-only and not present in the dev fixture bundle.
       if (command === "hero_portrait") { requireArgs(command, args, ["hero_id"]); return null; }

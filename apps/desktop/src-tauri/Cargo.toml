@@ -9,6 +9,7 @@ publish.workspace = true
 
 [features]
 demo = []
+updater = []
 # Dev-only Kohbor Lab override reader (docs/design/KOHBOR-LAB.md). Not a default feature.
 # `lab` implies `demo`: Lab's commands live in the demo/debug handler list, and its Test banner needs demo_trigger.
 lab = ["demo", "kohbor-lab/lab"]

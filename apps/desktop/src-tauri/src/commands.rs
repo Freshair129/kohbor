@@ -15,6 +15,84 @@ pub(crate) fn app_version() -> Value {
     crate::version::AppVersion::current().to_json()
 }
 
+#[tauri::command]
+pub(crate) fn update_status(state: tauri::State<'_, AppState>) -> Value {
+    let match_active = (state.match_active)();
+    lock(&state.updater).status(match_active)
+}
+
+/// Manual "check for updates": opens the GitHub latest-release page in the default browser. No
+/// download, no install, no request from the app; refused while a match is pregame/live.
+#[tauri::command]
+pub(crate) fn update_open_release_page(state: tauri::State<'_, AppState>) -> Value {
+    let match_active = (state.match_active)();
+    let reply = crate::update::open_release_page_reply(match_active, open_in_default_browser);
+    crate::log_info!(
+        "updater",
+        "release_page",
+        "release page request completed",
+        opened = reply["opened"].as_bool().unwrap_or(false),
+        reason = reply["reason"].as_str().unwrap_or("NONE")
+    );
+    reply
+}
+
+/// Opens ONLY the fixed release page URL (the argument is checked against the constant), with
+/// explorer.exe and no shell parsing.
+fn open_in_default_browser(url: &str) -> bool {
+    if url != crate::update::RELEASE_PAGE_URL {
+        return false;
+    }
+    #[cfg(windows)]
+    {
+        std::process::Command::new("explorer.exe")
+            .arg(url)
+            .spawn()
+            .is_ok()
+    }
+    #[cfg(not(windows))]
+    {
+        false
+    }
+}
+
+#[cfg(feature = "updater")]
+#[tauri::command]
+pub(crate) fn update_check(state: tauri::State<'_, AppState>) -> Value {
+    let match_active = (state.match_active)();
+    let reply = lock(&state.updater).check(match_active);
+    log_update_action("update_check", &reply);
+    reply
+}
+
+#[cfg(feature = "updater")]
+#[tauri::command]
+pub(crate) fn update_install(state: tauri::State<'_, AppState>, confirm: bool) -> Value {
+    let match_active = (state.match_active)();
+    let reply = lock(&state.updater).install(confirm, match_active);
+    log_update_action("update_install", &reply);
+    reply
+}
+
+#[cfg(feature = "updater")]
+fn log_update_action(action: &'static str, reply: &Value) {
+    let state_after = reply
+        .get("state")
+        .and_then(Value::as_str)
+        .unwrap_or("unknown");
+    let reason = reply
+        .get("reason")
+        .and_then(Value::as_str)
+        .unwrap_or("NONE");
+    crate::log_info!(
+        "updater",
+        action,
+        "updater action completed",
+        state_after = state_after,
+        reason = reason
+    );
+}
+
 fn is_reason_code(value: &str) -> bool {
     value.len() >= 3
         && value.len() <= 64

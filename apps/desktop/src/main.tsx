@@ -135,7 +135,13 @@ function OverlayView({ MockHarness }: { MockHarness?: ComponentType }) {
 }
 
 async function start() {
-  const mockHarness = import.meta.env.DEV && params.get("mock") === "1"
+  const mockUpdateScenario = params.get("mockUpdate");
+  const mockHarnessRequested = params.get("mock") === "1"
+    || mockUpdateScenario === "available"
+    || mockUpdateScenario === "failed"
+    || mockUpdateScenario === "up_to_date"
+    || mockUpdateScenario === "downloading";
+  const mockHarness = import.meta.env.DEV && mockHarnessRequested
     ? await import("./mock/harness")
     : null;
   mockHarness?.installMockHarness();
