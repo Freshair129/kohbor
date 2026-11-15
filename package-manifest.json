@@ -323,8 +323,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/instance.rs",
-      "bytes": 2691,
-      "sha256": "d82c2c5d728452be8e88bdd12bb05ffc2954ad401177136467c7b79cfb1d1918"
+      "bytes": 3680,
+      "sha256": "9da6a576fc4001dda091b5e3c235547afcc30e5cfea66c5c82f0698dabb2ac5e"
     },
     {
       "path": "apps/desktop/src-tauri/src/intake.rs",
@@ -343,8 +343,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 29248,
-      "sha256": "d452d36416f123371c9fdc3857fd1c7fff88182d5792e7f8365c4c74934c46ad"
+      "bytes": 29737,
+      "sha256": "3d5f5a0f59170eb5fcd3a64a182036fbadfc5b2662e68ce9d1ff6a75c32ff8d4"
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
@@ -418,8 +418,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/version.rs",
-      "bytes": 1828,
-      "sha256": "bf262c0cd5952bbc477cf7f1d47c95faff211a469c705060fc5fc670650d0825"
+      "bytes": 3710,
+      "sha256": "79e8fd56db8766f6432f1cfc746ffc3f60c58ed5ed6939ee05a8c6d960553930"
     },
     {
       "path": "apps/desktop/src-tauri/tauri.conf.json",

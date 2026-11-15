@@ -8,12 +8,6 @@
 /// Named-mutex identity, derived from `app_id` (contracts/product-identity.json).
 pub const INSTANCE_NAME: &str = "Local\\io.github.freshair129.kohbor.instance";
 
-/// Must equal the control window title in `tauri.conf.json`; used only to bring
-/// the running instance forward. A mismatch degrades to "no focus", never to a
-/// second instance.
-#[cfg(windows)]
-const CONTROL_WINDOW_TITLE: windows::core::PCWSTR = windows::core::w!("Kohbor — Command Deck");
-
 /// Claim the instance name. Returns false when another process already holds it.
 /// The handle is intentionally kept for the life of the process.
 #[cfg(windows)]
@@ -38,14 +32,46 @@ pub fn acquire(name: &str) -> bool {
     }
 }
 
-/// Bring the already-running control window to the foreground, if it can be found.
+/// Bring the already-running control window to the foreground, if it can be found. The title
+/// carries the app version (`version::control_window_title`), so windows are matched by the
+/// `version::is_control_window_title` prefix rule. A miss degrades to "no focus", never to a
+/// second instance.
 #[cfg(windows)]
 pub fn focus_existing() {
+    use windows::core::BOOL;
+    use windows::Win32::Foundation::{HWND, LPARAM};
     use windows::Win32::UI::WindowsAndMessaging::{
-        FindWindowW, IsIconic, SetForegroundWindow, ShowWindow, SW_RESTORE,
+        EnumWindows, GetWindowTextW, IsIconic, IsWindowVisible, SetForegroundWindow, ShowWindow,
+        SW_RESTORE,
     };
-    unsafe {
-        if let Ok(hwnd) = FindWindowW(None, CONTROL_WINDOW_TITLE) {
+
+    unsafe extern "system" fn visit(hwnd: HWND, found: LPARAM) -> BOOL {
+        let mut buffer = [0u16; 160];
+        // SAFETY: the buffer is local and the call receives its length.
+        let length = unsafe { GetWindowTextW(hwnd, &mut buffer) };
+        if length > 0
+            && unsafe { IsWindowVisible(hwnd) }.as_bool()
+            && crate::version::is_control_window_title(&String::from_utf16_lossy(
+                &buffer[..length as usize],
+            ))
+        {
+            // SAFETY: `found` points at the local `Option<HWND>` below for the whole enumeration.
+            unsafe { *(found.0 as *mut Option<HWND>) = Some(hwnd) };
+            return BOOL::from(false);
+        }
+        BOOL::from(true)
+    }
+
+    let mut found: Option<HWND> = None;
+    // SAFETY: `found` outlives the synchronous enumeration.
+    let _ = unsafe {
+        EnumWindows(
+            Some(visit),
+            LPARAM(&mut found as *mut Option<HWND> as isize),
+        )
+    };
+    if let Some(hwnd) = found {
+        unsafe {
             if IsIconic(hwnd).as_bool() {
                 let _ = ShowWindow(hwnd, SW_RESTORE);
             }

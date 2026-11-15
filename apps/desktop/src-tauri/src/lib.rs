@@ -451,9 +451,18 @@ pub fn run() {
         })
         .register_asynchronous_uri_scheme_protocol("kohbor-media", commands::media_protocol_handler)
         .setup(|app| {
-            // The control window title stays "Kohbor — Command Deck": instance.rs finds the
-            // existing window by that exact title for second-instance focus. The version is shown
-            // in the header and the Status tab instead.
+            // The control window title carries the version (and ` · LAB` in Lab builds) so the owner
+            // can tell which exe is running; tauri.conf.json keeps the plain title as the fallback.
+            // instance.rs finds the existing window by the title prefix for second-instance focus.
+            if let Some(window) = app.get_webview_window("control") {
+                let title = version::control_window_title(
+                    version::AppVersion::current().version,
+                    cfg!(feature = "lab"),
+                );
+                if window.set_title(&title).is_err() {
+                    crate::log_warn!("app", "title_unavailable", "control window title not set");
+                }
+            }
             let dir = data_dir(app).inspect_err(|_error| {
                 crate::log_error!("app", "setup_failed", "APP_DATA_DIR_UNAVAILABLE");
             })?;
