@@ -134,7 +134,12 @@ pub(crate) fn runtime_get_status(state: tauri::State<'_, AppState>) -> Value {
 
 #[tauri::command(async)]
 pub(crate) fn own_snapshot(state: tauri::State<'_, AppState>) -> Value {
-    lock(&state.runtime.shared).snapshot()
+    own_snapshot_value(state.runtime.as_ref())
+}
+
+/// Shared read-model builder used by the command and the passive HUD.
+pub(crate) fn own_snapshot_value(runtime: &crate::intake::Runtime) -> Value {
+    lock(&runtime.shared).snapshot()
 }
 
 /// User action: write the owned game configuration and start listening.

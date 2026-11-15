@@ -42,8 +42,8 @@ pub struct BannerLayout {
 }
 
 pub const DEFAULT_BANNER_LAYOUT: BannerLayout = BannerLayout {
-    x_percent: 50.0,
-    y_percent: 10.5,
+    x_percent: 49.46,
+    y_percent: 10.3,
     scale: 0.45,
     enabled: true,
 };
@@ -78,8 +78,22 @@ fn clamp_axis(position: i32, size: u32, origin: i32, extent: u32) -> i32 {
         .clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32
 }
 
+/// The layout used at show time. Release builds always use the compiled default; only builds with
+/// the `lab` feature (or debug assertions) may substitute a validated dev profile (Kohbor Lab).
+pub fn effective_banner_layout() -> BannerLayout {
+    #[cfg(any(feature = "lab", debug_assertions))]
+    {
+        crate::lab::banner_layout()
+    }
+    #[cfg(not(any(feature = "lab", debug_assertions)))]
+    {
+        DEFAULT_BANNER_LAYOUT
+    }
+}
+
 /// Place the whole transparent window in physical pixels on the selected monitor with the
 /// default layout.
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn place_overlay(monitor: &MonitorRect) -> Rect {
     place_overlay_with(monitor, &DEFAULT_BANNER_LAYOUT).unwrap_or(Rect {
         x: monitor.x,
@@ -225,24 +239,24 @@ mod tests {
                 i64::from(stage.y) + i64::from(stage.h)
                     <= i64::from(window.y) + i64::from(window.h)
             );
-            // Position: the stage centre is at 50 % / 10.5 % unless the clamp had to move it.
-            let ideal_x = (f64::from(monitor.x) + f64::from(w) * 0.50 - f64::from(window.w) / 2.0)
+            // Position: the stage centre is at 49.46 % / 10.3 % unless the clamp had to move it.
+            let ideal_x = (f64::from(monitor.x) + f64::from(w) * 0.4946 - f64::from(window.w) / 2.0)
                 .round() as i64;
             let max_x = i64::from(monitor.x) + i64::from(w) - i64::from(window.w);
             assert_eq!(i64::from(window.x), ideal_x.min(max_x), "{monitor:?}");
-            let ideal_y = (f64::from(h) * 0.105 - f64::from(stage.h) / 2.0).round() as i64;
+            let ideal_y = (f64::from(h) * 0.103 - f64::from(stage.h) / 2.0).round() as i64;
             assert_eq!(i64::from(window.y), ideal_y, "{monitor:?}");
-            // The banner is horizontally centred (within 1 px of the monitor centre) near the top.
+            // The banner is nearly horizontally centred (within 2 % of the monitor width) near the top.
             assert!(
                 (2 * i64::from(window.x) + i64::from(window.w)
                     - 2 * i64::from(monitor.x)
                     - i64::from(w))
                 .abs()
-                    <= 2
+                    <= (f64::from(w) * 0.02) as i64 + 2
             );
             assert!(i64::from(window.y) + i64::from(stage.h) / 2 < i64::from(h) / 4);
             // Protected regions (UNVERIFIED Dota defaults) stay clear, EXCEPT the announcement area:
-            // the owner's real in-game G-Maiden choice (centre 50 % / 10.5 %) lands inside that
+            // the owner's real in-game G-Maiden choice (centre 49.46 % / 10.3 %) lands inside that
             // unverified default and outranks it (S6-OVERLAY-SLICE edit is PROPOSED, not made).
             for (name, x0, y0, x1, y1) in PROTECTED_REGIONS {
                 if name == "announcement" {
@@ -268,7 +282,7 @@ mod tests {
     #[test]
     fn exact_numbers_at_1080p_and_1440p() {
         // 1920x1080: 306 px wide stage (0.45 * 680), window 306x109, stage 306x94, centred at
-        // x=960 (left 807) with the stage centre 10.5 % down (top 66).
+        // x=949.6 (left 797) with the stage centre 10.3 % down (top 64).
         let m = MonitorRect {
             x: 0,
             y: 0,
@@ -278,8 +292,8 @@ mod tests {
         assert_eq!(
             place_overlay(&m),
             Rect {
-                x: 807,
-                y: 66,
+                x: 797,
+                y: 64,
                 w: 306,
                 h: 109
             }
@@ -296,8 +310,8 @@ mod tests {
         assert_eq!(
             place_overlay(&m),
             Rect {
-                x: 1076,
-                y: 89,
+                x: 1062,
+                y: 86,
                 w: 408,
                 h: 145
             }
@@ -315,8 +329,8 @@ mod tests {
         assert_eq!(
             DEFAULT_BANNER_LAYOUT,
             BannerLayout {
-                x_percent: 50.0,
-                y_percent: 10.5,
+                x_percent: 49.46,
+                y_percent: 10.3,
                 scale: 0.45,
                 enabled: true
             }

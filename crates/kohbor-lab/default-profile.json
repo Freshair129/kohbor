@@ -1,7 +1,7 @@
 {
   "profile_version": "1.0",
   "taxonomy_version": "1.1",
-  "layout": { "banner": { "x_percent": 50, "y_percent": 10.5, "scale": 0.45, "enabled": true } },
+  "layout": { "banner": { "x_percent": 49.46, "y_percent": 10.3, "scale": 0.45, "enabled": true } },
   "events": {
     "multi_kill": { "params": { "window_ms": 18000, "min_kills": 2 } },
     "streak": { "params": { "min_kills": 3 } },

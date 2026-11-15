@@ -9,6 +9,7 @@ mod commands;
 pub mod containment;
 pub mod host;
 mod hotkeys;
+mod hud;
 pub mod instance;
 pub mod intake;
 pub mod latency;
@@ -56,6 +57,7 @@ pub(crate) struct AppState {
     pub(crate) settings_dir: PathBuf,
     pub(crate) audio_prefs: audio_prefs::AudioPrefsService,
     pub(crate) hotkeys: Mutex<hotkeys::Controller>,
+    pub(crate) hud: Mutex<hud::Controller>,
     /// Serializes all commands that may replace user-settings.json.
     pub(crate) settings_gate: Mutex<()>,
     pub(crate) sample: Arc<Mutex<(Sample, bool)>>,
@@ -133,12 +135,18 @@ fn place_overlay_window(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
     };
     let position = monitor.position();
     let size = monitor.size();
-    let rect = overlay::place_overlay(&overlay::MonitorRect {
-        x: position.x,
-        y: position.y,
-        w: size.width,
-        h: size.height,
-    });
+    // Fail closed when the (dev) layout disables the banner: the window stays hidden.
+    let Some(rect) = overlay::place_overlay_with(
+        &overlay::MonitorRect {
+            x: position.x,
+            y: position.y,
+            w: size.width,
+            h: size.height,
+        },
+        &overlay::effective_banner_layout(),
+    ) else {
+        return false;
+    };
     let moved = window.set_position(tauri::PhysicalPosition::new(rect.x, rect.y));
     let sized = window.set_size(tauri::PhysicalSize::new(rect.w, rect.h));
     if let Err(error) = moved.as_ref().and(sized.as_ref()) {
@@ -190,6 +198,70 @@ fn build_overlay_window(
 
     if let Err(error) = window.set_ignore_cursor_events(spec.ignore_cursor_events) {
         crate::log_warn!("overlay", "click_through_unavailable", format!("{error}"));
+    }
+    Some(window)
+}
+
+/// Place the HUD strip at the monitor origin and size it to the monitor's physical width.
+pub(crate) fn place_hud_window(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
+    let monitor = match window.primary_monitor() {
+        Ok(Some(monitor)) => monitor,
+        Ok(None) | Err(_) => {
+            crate::log_warn!("hud", "placement_unavailable", "HUD monitor unavailable");
+            return false;
+        }
+    };
+    let position = monitor.position();
+    let size = monitor.size();
+    let rect = hud::place_hud_window(&overlay::MonitorRect {
+        x: position.x,
+        y: position.y,
+        w: size.width,
+        h: size.height,
+    });
+    let moved = window.set_position(tauri::PhysicalPosition::new(rect.x, rect.y));
+    let sized = window.set_size(tauri::PhysicalSize::new(rect.w, rect.h));
+    if moved.is_err() || sized.is_err() {
+        crate::log_warn!("hud", "placement_failed", "HUD placement failed");
+        return false;
+    }
+    true
+}
+
+fn build_hud_window(app: &mut tauri::App<tauri::Wry>) -> Option<tauri::WebviewWindow<tauri::Wry>> {
+    let spec = hud::hud_window_spec();
+    let window = match tauri::WebviewWindowBuilder::new(
+        app,
+        spec.label,
+        tauri::WebviewUrl::App(spec.url.into()),
+    )
+    .transparent(spec.transparent)
+    .decorations(spec.decorations)
+    .always_on_top(spec.always_on_top)
+    .skip_taskbar(spec.skip_taskbar)
+    .focusable(spec.focusable)
+    .focused(spec.focused)
+    .shadow(spec.shadow)
+    .resizable(spec.resizable)
+    .visible(spec.visible)
+    .additional_browser_args(WEBVIEW2_BROWSER_ARGS)
+    .inner_size(1920.0, 108.0)
+    .build()
+    {
+        Ok(window) => window,
+        Err(_) => {
+            crate::log_warn!("hud", "window_unavailable", "HUD window unavailable");
+            return None;
+        }
+    };
+
+    let _ = place_hud_window(&window);
+    if window
+        .set_ignore_cursor_events(spec.ignore_cursor_events)
+        .is_err()
+    {
+        let _ = window.hide();
+        crate::log_warn!("hud", "click_through_unavailable", "HUD remains hidden");
     }
     Some(window)
 }
@@ -403,6 +475,8 @@ pub fn run() {
                     crate::log_error!("app", "setup_failed", "HOST_SETUP_FAILED");
                 })?;
             let overlay_window = build_overlay_window(app);
+            let hud_window = build_hud_window(app);
+            let hud_runtime = runtime.clone();
             let (initial_media_state, initial_reason) = host.media_status();
             let initial_overlay_status =
                 overlay::status_payload(initial_media_state, initial_reason);
@@ -452,10 +526,14 @@ pub fn run() {
                 settings_dir,
                 audio_prefs,
                 hotkeys: Mutex::new(hotkeys::Controller::default()),
+                hud: Mutex::new(hud::Controller::default()),
                 settings_gate: Mutex::new(()),
                 sample,
                 revision: AtomicU64::new(0),
             });
+            let hud_controller =
+                hud::Controller::start(app.handle().clone(), hud_runtime, hud_window);
+            *intake::lock(&app.state::<AppState>().hud) = hud_controller;
             commands::start_hotkeys(app.handle(), &app.state::<AppState>());
             steam::start_status_probe(app.handle().clone(), steam_runtime);
             let app_handle = app.handle().clone();
@@ -570,6 +648,7 @@ pub fn run() {
             if matches!(event, tauri::RunEvent::Exit) {
                 crate::log_info!("app", "exit", "Kohbor is exiting");
                 let state = handle.state::<AppState>();
+                intake::lock(&state.hud).stop();
                 intake::lock(&state.hotkeys).stop();
                 state.host.shutdown();
                 crate::log_info!("app", "process_exit", "all host threads stopped");

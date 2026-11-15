@@ -9,6 +9,7 @@ import {
   type ChipState,
 } from "./overlayModel";
 import { OverlayStage } from "./OverlayStage";
+import { HudStage } from "./HudStage";
 import {
   emitOverlayReady,
   emitOverlayVisibility,
@@ -24,9 +25,12 @@ import { logHostInvoke } from "./logs/host";
 const root = document.getElementById("root");
 const params = new URLSearchParams(window.location.search);
 const overlayView = params.get("view") === "overlay";
-if (!overlayView) installFrontendLogging(window, logHostInvoke);
+const hudView = params.get("view") === "hud";
+if (!overlayView && !hudView) installFrontendLogging(window, logHostInvoke);
 document.documentElement.classList.toggle("overlay-body", overlayView);
 document.body.classList.toggle("overlay-body", overlayView);
+document.documentElement.classList.toggle("hud-body", hudView);
+document.body.classList.toggle("hud-body", hudView);
 
 function mediaFromOverlayStatus(payload: unknown): RuntimeStatus["media"] | null {
   if (typeof payload !== "object" || payload === null || Array.isArray(payload)) return null;
@@ -139,9 +143,12 @@ async function start() {
   if (!root) return;
   const MockScenarioSwitcher = mockHarness?.MockScenarioSwitcher;
   const OverlayMockHarness = mockHarness?.OverlayMockHarness;
+  const HudMockHarness = mockHarness?.HudMockHarness;
   createRoot(root).render(
     <StrictMode>
-      {overlayView ? (
+      {hudView ? (
+        <HudStage MockHarness={HudMockHarness} />
+      ) : overlayView ? (
         <OverlayView MockHarness={OverlayMockHarness} />
       ) : (
         <>

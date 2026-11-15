@@ -90,6 +90,11 @@ impl MediaHandle {
         self.request(JobKind::List)
     }
 
+    /// Read-only: the ACTIVE revision's verified bindings (no absolute paths).
+    pub fn active_bindings(&self) -> Result<Value, String> {
+        self.request(JobKind::ActiveBindings)
+    }
+
     pub fn probe_report(
         &self,
         install_id: &str,
@@ -219,6 +224,7 @@ enum JobKind {
         policy: ActivationPolicy,
     },
     List,
+    ActiveBindings,
     ProbeReport {
         install_id: String,
         revision: u64,
@@ -431,6 +437,13 @@ impl ServiceState {
                     .as_ref()
                     .ok_or_else(|| "MEDIA_INVALID".to_owned())?;
                 Ok(list_json(store))
+            }
+            JobKind::ActiveBindings => {
+                let store = self
+                    .store
+                    .as_ref()
+                    .ok_or_else(|| "MEDIA_INVALID".to_owned())?;
+                Ok(active_bindings_json(store, &self.config.catalog))
             }
             JobKind::Inspect(_)
             | JobKind::ProbeReport { .. }
@@ -821,6 +834,48 @@ fn inspect_with_limit(source_path: &str, limit: u64) -> Result<Value, String> {
         "container_sha256": container_sha256,
         "size_bytes": after.len(),
     }))
+}
+
+/// Bindings of the active revision, resolved (and re-verified) through the same `Store::resolve`
+/// the playback path uses. Only the payload file NAME is exposed, never a path. A binding that
+/// fails re-verification is reported as `invalid` (it will not play); unbound keys are omitted.
+fn active_bindings_json(store: &Store<NoHook>, catalog: &Catalog) -> Value {
+    let active = store.active().map(|active| {
+        json!({
+            "install_id": active.install_id,
+            "package_id": active.package_id,
+            "revision": active.revision,
+        })
+    });
+    let mut rows = Vec::new();
+    if active.is_some() {
+        for (id, tier) in crate::media::prewarm::key_space(catalog) {
+            let tier = tier.map(u32::from);
+            match store.resolve(id.as_str(), tier) {
+                Ok(media) => rows.push(json!({
+                    "event_id": id.as_str(),
+                    "tier": tier,
+                    "audio_name": media
+                        .mixed_audio
+                        .file_name()
+                        .and_then(|name| name.to_str()),
+                    "duration_ms": media.duration_ms,
+                    "has_visual": media.silent_visual.is_some(),
+                    "state": "ok",
+                })),
+                Err(kohbor_pack::store::ResolveError::Unmapped) => {}
+                Err(_) => rows.push(json!({
+                    "event_id": id.as_str(),
+                    "tier": tier,
+                    "audio_name": null,
+                    "duration_ms": null,
+                    "has_visual": false,
+                    "state": "invalid",
+                })),
+            }
+        }
+    }
+    json!({"active": active, "bindings": rows})
 }
 
 fn list_json(store: &Store<NoHook>) -> Value {
@@ -1303,6 +1358,39 @@ mod tests {
             "activation sends exactly one swap control message"
         );
         finish(service);
+    }
+
+    #[test]
+    fn active_bindings_lists_verified_rows_without_paths_and_is_empty_without_an_active_pack() {
+        let temp = TempDir::new("active-bindings");
+        let pkg = wav_fixture(&temp, "bindings-pack", "health_danger");
+        let mut store = kohbor_pack::store::Store::open(
+            &temp.path().join("store"),
+            catalog(),
+            kohbor_pack::Limits::default(),
+        )
+        .expect("open store");
+        let installed = install(&mut store, &pkg, "req-bindings-install-001");
+        let install_id = installed.record.expect("install record").install_id;
+        let empty = super::active_bindings_json(&store, &catalog());
+        assert_eq!(empty["active"], serde_json::Value::Null);
+        assert_eq!(empty["bindings"], json!([]));
+        activate(&mut store, "req-bindings-active-001", &install_id);
+        let listed = super::active_bindings_json(&store, &catalog());
+        assert_eq!(listed["active"]["install_id"], json!(install_id));
+        let rows = listed["bindings"].as_array().expect("rows");
+        assert_eq!(rows.len(), 1, "{listed}");
+        assert_eq!(rows[0]["event_id"], "health_danger");
+        assert_eq!(rows[0]["tier"], serde_json::Value::Null);
+        assert_eq!(rows[0]["state"], "ok");
+        let name = rows[0]["audio_name"].as_str().expect("file name");
+        assert!(!name.contains(['/', '\\', ':']), "{name}");
+        assert!(rows[0]["duration_ms"].as_u64().is_some());
+        let text = listed.to_string();
+        assert!(
+            !text.contains(temp.path().to_str().unwrap()),
+            "no absolute path: {text}"
+        );
     }
 
     #[test]
