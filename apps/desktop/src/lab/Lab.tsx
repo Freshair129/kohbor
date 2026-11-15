@@ -14,8 +14,9 @@ import {
   type EventTrace,
   type Trace,
 } from "./labModel";
-import { labApplyEdits, labExport, labLastTrace, labStatus } from "./labRuntime";
+import { labApplyEdits, labExport, labLastTrace, labStatus, stopLabHudMockEvents } from "./labRuntime";
 import { OverlayEditor } from "./OverlayEditor";
+import { HudLayoutEditor } from "./HudLayoutEditor";
 import "./lab.css";
 
 const POLL_MS = 1000;
@@ -27,7 +28,7 @@ function LabStudio({ onClose }: { onClose: () => void }) {
   const [drafts, setDrafts] = useState<Record<string, DraftEdit>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [exported, setExported] = useState<string | null>(null);
-  const [tab, setTab] = useState<"events" | "overlay">("events");
+  const [tab, setTab] = useState<"events" | "overlay" | "hud">("events");
 
   useEffect(() => {
     let active = true;
@@ -36,6 +37,7 @@ function LabStudio({ onClose }: { onClose: () => void }) {
     });
     return () => {
       active = false;
+      stopLabHudMockEvents();
     };
   }, []);
 
@@ -92,6 +94,9 @@ function LabStudio({ onClose }: { onClose: () => void }) {
           </button>
           <button type="button" role="tab" aria-selected={tab === "overlay"} onClick={() => setTab("overlay")}>
             Overlay editor
+          </button>
+          <button type="button" role="tab" aria-selected={tab === "hud"} onClick={() => setTab("hud")}>
+            HUD layout
           </button>
         </div>
         <button
@@ -226,8 +231,10 @@ function LabStudio({ onClose }: { onClose: () => void }) {
         <textarea className="lab-export" readOnly value={exported} aria-label="Exported profile" />
       )}
         </>
-      ) : (
+      ) : tab === "overlay" ? (
         <OverlayEditor />
+      ) : (
+        <HudLayoutEditor />
       )}
       </div>
     </section>
@@ -250,6 +257,7 @@ export function Lab() {
     });
     return () => {
       active = false;
+      stopLabHudMockEvents();
     };
   }, []);
 

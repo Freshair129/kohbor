@@ -223,7 +223,10 @@ fn build_overlay_window(
 }
 
 /// Place the HUD strip at the monitor origin and size it to the monitor's physical width.
-pub(crate) fn place_hud_window(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
+pub(crate) fn place_hud_window(
+    window: &tauri::WebviewWindow<tauri::Wry>,
+    layouts: &[(hud::HudModule, hud::HudModuleLayout); 6],
+) -> bool {
     let monitor = match window.primary_monitor() {
         Ok(Some(monitor)) => monitor,
         Ok(None) | Err(_) => {
@@ -233,12 +236,15 @@ pub(crate) fn place_hud_window(window: &tauri::WebviewWindow<tauri::Wry>) -> boo
     };
     let position = monitor.position();
     let size = monitor.size();
-    let rect = hud::place_hud_window(&overlay::MonitorRect {
-        x: position.x,
-        y: position.y,
-        w: size.width,
-        h: size.height,
-    });
+    let rect = hud::place_hud_window(
+        &overlay::MonitorRect {
+            x: position.x,
+            y: position.y,
+            w: size.width,
+            h: size.height,
+        },
+        layouts,
+    );
     let moved = window.set_position(tauri::PhysicalPosition::new(rect.x, rect.y));
     let sized = window.set_size(tauri::PhysicalSize::new(rect.w, rect.h));
     if moved.is_err() || sized.is_err() {
@@ -249,6 +255,8 @@ pub(crate) fn place_hud_window(window: &tauri::WebviewWindow<tauri::Wry>) -> boo
 }
 
 fn build_hud_window(app: &mut tauri::App<tauri::Wry>) -> Option<tauri::WebviewWindow<tauri::Wry>> {
+    #[cfg(any(feature = "lab", debug_assertions))]
+    lab::initialize_saved(app.handle());
     let spec = hud::hud_window_spec();
     let window = match tauri::WebviewWindowBuilder::new(
         app,
@@ -275,7 +283,8 @@ fn build_hud_window(app: &mut tauri::App<tauri::Wry>) -> Option<tauri::WebviewWi
         }
     };
 
-    let _ = place_hud_window(&window);
+    let layouts = hud::effective_hud_layouts();
+    let _ = place_hud_window(&window, &layouts);
     if window
         .set_ignore_cursor_events(spec.ignore_cursor_events)
         .is_err()
@@ -648,6 +657,10 @@ pub fn run() {
         lab::dev::lab_layout_preview,
         lab::dev::lab_layout_apply,
         lab::dev::lab_layout_export,
+        lab::dev::lab_hud_layout_get,
+        lab::dev::lab_hud_layout_apply,
+        lab::dev::lab_hud_layout_reset,
+        lab::dev::lab_hud_preview,
         lab::dev::lab_reference_image
     ]);
     #[cfg(not(any(feature = "demo", debug_assertions)))]

@@ -14,6 +14,18 @@ fn src(name: &str) -> String {
     fs::read_to_string(path).unwrap().replace("\r\n", "\n")
 }
 
+fn desktop_src(name: &str) -> String {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("..")
+        .join("apps")
+        .join("desktop")
+        .join("src-tauri")
+        .join("src")
+        .join(name);
+    fs::read_to_string(path).unwrap().replace("\r\n", "\n")
+}
+
 const GATE: &str = r#"#[cfg(any(feature = "lab", debug_assertions))]"#;
 const NOT_GATE: &str = r#"#[cfg(not(any(feature = "lab", debug_assertions)))]"#;
 
@@ -71,6 +83,72 @@ fn release_resolver_never_calls_the_override_reader() {
         .collect::<Vec<_>>()
         .join("\n");
     assert!(dev_fn.contains("dev_override::"), "{dev_fn}");
+}
+
+#[test]
+fn live_hud_layout_read_is_only_in_the_development_cfg_and_release_uses_the_constant() {
+    let hud = desktop_src("hud.rs");
+    assert_eq!(hud.matches("crate::lab::hud_layouts()").count(), 1);
+    assert!(
+        hud.contains(&format!(
+            "{GATE}\n    {{\n        crate::lab::hud_layouts()\n    }}"
+        )),
+        "the Lab layout reader must be inside the dev cfg"
+    );
+    assert!(
+        hud.contains(&format!(
+            "{NOT_GATE}\n    {{\n        DEFAULT_HUD_LAYOUTS\n    }}"
+        )),
+        "the release branch must return only the compiled default constant"
+    );
+    assert!(hud.contains(&format!(
+        "{GATE}\nconst HUD_LAYOUT_EVENT: &str = \"hud://layout\";"
+    )));
+}
+
+#[test]
+fn new_hud_commands_are_gated_and_have_demo_only_unavailable_stubs() {
+    let lab = desktop_src("lab.rs");
+    let lib = desktop_src("lib.rs");
+    let stub_cfg = "#[cfg(all(feature = \"demo\", not(any(feature = \"lab\", debug_assertions))))]\npub mod dev {";
+    let stub_start = lab.find(stub_cfg).expect("demo-only stub module");
+    let stubs = &lab[stub_start..];
+    let dev_start = lab
+        .find("#[cfg(any(feature = \"lab\", debug_assertions))]\npub mod dev {")
+        .expect("real dev module");
+    let real = &lab[dev_start..stub_start];
+    let gated_handlers = lib
+        .find("#[cfg(any(feature = \"demo\", debug_assertions))]\n    let builder = builder.invoke_handler")
+        .expect("development/demo handler list");
+    let release_handlers = lib
+        .find("#[cfg(not(any(feature = \"demo\", debug_assertions)))]\n    let builder = builder.invoke_handler")
+        .expect("release handler list");
+    let handler_text = &lib[gated_handlers..release_handlers];
+    let release_text = &lib[release_handlers..];
+
+    for command in [
+        "lab_hud_layout_get",
+        "lab_hud_layout_apply",
+        "lab_hud_layout_reset",
+        "lab_hud_preview",
+    ] {
+        assert!(
+            real.contains(&format!("pub fn {command}")),
+            "real {command}"
+        );
+        assert!(
+            stubs.contains(&format!("pub fn {command}")),
+            "stub {command}"
+        );
+        assert!(
+            handler_text.contains(&format!("lab::dev::{command}")),
+            "registered {command}"
+        );
+        assert!(
+            !release_text.contains(command),
+            "release handler contains {command}"
+        );
+    }
 }
 
 #[cfg(any(feature = "lab", debug_assertions))]

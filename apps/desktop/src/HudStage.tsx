@@ -4,20 +4,25 @@ import type { RiskView } from "./live/types";
 import {
   formatChip,
   HUD_DEFAULT_LAYOUT,
+  HUD_DEFAULT_LAYOUT_EVENT,
   hudCopy,
+  hudModulePlacement,
   meterModel,
+  applyHudLayoutEvent,
   parseHudState,
+  parseHudLayoutEvent,
   renderWhenHudVisible,
   unknownHudState,
+  visibleHudModules,
   type ChipKind,
+  type HudLayoutEvent,
   type HudLayoutItem,
   type HudState,
 } from "./hudModel";
-import { subscribeHudState } from "./hudRuntime";
+import { subscribeHudLayout, subscribeHudState } from "./hudRuntime";
 import { HUD_LANGUAGE } from "./hudCopy";
 import "./hud.css";
 
-const HUD_WINDOW_HEIGHT_SCREEN_PERCENT = 9;
 const CHIP_KINDS: readonly ChipKind[] = ["kda", "gold", "gpm", "nw", "xpm"];
 
 function fieldFor(state: HudState, kind: ChipKind) {
@@ -35,12 +40,13 @@ function visibleLabel(kind: ChipKind): string {
   return hudCopy.chipLabels[kind];
 }
 
-function modulePosition(item: HudLayoutItem): CSSProperties {
+function modulePosition(item: HudLayoutItem, stripHeightPercent: number): CSSProperties {
+  const placement = hudModulePlacement(item, stripHeightPercent);
   return {
-    left: `${item.x_percent}vw`,
-    // The native strip is 9% of the screen high and starts at y=0.
-    top: `${(item.y_percent / HUD_WINDOW_HEIGHT_SCREEN_PERCENT) * 100}vh`,
-    "--hud-scale": item.scale,
+    left: `${placement.left_vw}vw`,
+    // The module Y is screen-relative while this WebView covers only the native HUD strip.
+    top: `${placement.top_vh}vh`,
+    "--hud-scale": placement.scale,
   } as CSSProperties;
 }
 
@@ -94,11 +100,32 @@ export function HudStage({
   MockHarness?: ComponentType;
 }) {
   const [state, setState] = useState<HudState>(() => unknownHudState(false));
+  const [hudLayout, setHudLayout] = useState<HudLayoutEvent>(() => ({ ...HUD_DEFAULT_LAYOUT_EVENT, modules: layout }));
   const risk = useRisk();
   const overlayScale = useOverlayScale();
 
   useEffect(() => {
     void startLiveCollection().catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    let disposed = false;
+    let stop: (() => void) | undefined;
+    void subscribeHudLayout((payload) => {
+      if (parseHudLayoutEvent(payload) === null) return;
+      setHudLayout((current) => applyHudLayoutEvent(current, payload));
+    })
+      .then((unlisten) => {
+        if (disposed) unlisten();
+        else stop = unlisten;
+      })
+      .catch(() => {
+        // The baked-in layout remains in use when the host event is unavailable.
+      });
+    return () => {
+      disposed = true;
+      stop?.();
+    };
   }, []);
 
   useEffect(() => {
@@ -120,8 +147,8 @@ export function HudStage({
 
   const content = renderWhenHudVisible(state.visible, () => (
     <div className="hud-stage" role="status" aria-live="off" aria-label={hudCopy.stripLabel} lang={HUD_LANGUAGE} style={{ "--hud-overlay-scale": overlayScale } as CSSProperties}>
-      {layout.filter((item) => item.enabled).map((item) => (
-        <div className={`hud-module hud-module-${item.id}`} key={item.id} style={modulePosition(item)}>
+      {visibleHudModules(hudLayout).map((item) => (
+        <div className={`hud-module hud-module-${item.id}`} key={item.id} style={modulePosition(item, hudLayout.strip_height_percent)}>
           {item.id === "gmeter"
             ? <GMeter view={risk} />
             : <StatChip state={state} kind={item.id === "kda" ? "kda" : item.id} />}

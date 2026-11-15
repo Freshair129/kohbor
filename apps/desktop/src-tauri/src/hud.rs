@@ -122,12 +122,11 @@ pub const DEFAULT_HUD_LAYOUTS: [(HudModule, HudModuleLayout); 6] = [
     ),
 ];
 
-/// The Lab will hook here later; both builds use the owner-approved default for now.
 #[cfg_attr(not(test), allow(dead_code))]
 pub fn effective_hud_layouts() -> [(HudModule, HudModuleLayout); 6] {
     #[cfg(any(feature = "lab", debug_assertions))]
     {
-        DEFAULT_HUD_LAYOUTS
+        crate::lab::hud_layouts()
     }
     #[cfg(not(any(feature = "lab", debug_assertions)))]
     {
@@ -135,12 +134,26 @@ pub fn effective_hud_layouts() -> [(HudModule, HudModuleLayout); 6] {
     }
 }
 
-pub fn place_hud_window(monitor: &crate::overlay::MonitorRect) -> crate::overlay::Rect {
+pub fn strip_height_percent(layouts: &[(HudModule, HudModuleLayout); 6]) -> f64 {
+    layouts
+        .iter()
+        .filter(|(_, layout)| layout.enabled && layout.y_percent.is_finite())
+        .map(|(_, layout)| layout.y_percent + 3.5)
+        .fold(9.0_f64, f64::max)
+        .min(100.0)
+}
+
+pub fn place_hud_window(
+    monitor: &crate::overlay::MonitorRect,
+    layouts: &[(HudModule, HudModuleLayout); 6],
+) -> crate::overlay::Rect {
     crate::overlay::Rect {
         x: monitor.x,
         y: monitor.y,
         w: monitor.w,
-        h: (f64::from(monitor.h) * 0.09).round().max(1.0) as u32,
+        h: (f64::from(monitor.h) * strip_height_percent(layouts) / 100.0)
+            .round()
+            .max(1.0) as u32,
     }
 }
 
@@ -198,6 +211,81 @@ const HUD_STAT_FIELDS: [&str; 6] = ["kills", "deaths", "assists", "gold", "gpm",
 const HUD_POLL_INTERVAL: Duration = Duration::from_millis(500);
 const HUD_KEEPALIVE_INTERVAL: Duration = Duration::from_secs(2);
 const HUD_STATE_EVENT: &str = "hud://state";
+#[cfg(any(feature = "lab", debug_assertions))]
+const HUD_LAYOUT_EVENT: &str = "hud://layout";
+
+#[cfg(any(feature = "lab", debug_assertions))]
+#[derive(Default)]
+struct HudLayoutEmission {
+    last_payload: Option<Value>,
+    last_revision: Option<u64>,
+    last_emitted_at: Option<Instant>,
+}
+
+#[cfg(any(feature = "lab", debug_assertions))]
+impl HudLayoutEmission {
+    fn should_emit(&self, payload: &Value, revision: u64, now: Instant) -> bool {
+        self.last_payload.as_ref() != Some(payload)
+            || self.last_revision != Some(revision)
+            || self
+                .last_emitted_at
+                .is_none_or(|last| now.saturating_duration_since(last) >= HUD_KEEPALIVE_INTERVAL)
+    }
+
+    fn record_emitted(&mut self, payload: Value, revision: u64, now: Instant) {
+        self.last_payload = Some(payload);
+        self.last_revision = Some(revision);
+        self.last_emitted_at = Some(now);
+    }
+}
+
+#[cfg(any(feature = "lab", debug_assertions))]
+fn hud_layout_payload(layouts: &[(HudModule, HudModuleLayout); 6]) -> Value {
+    let modules: Vec<Value> = layouts
+        .iter()
+        .map(|(module, layout)| {
+            serde_json::json!({
+                "id": module.as_str(),
+                "x_percent": layout.x_percent,
+                "y_percent": layout.y_percent,
+                "scale": layout.scale,
+                "enabled": layout.enabled,
+            })
+        })
+        .collect();
+    serde_json::json!({
+        "schema": 1,
+        "strip_height_percent": strip_height_percent(layouts),
+        "modules": modules,
+    })
+}
+
+#[cfg(any(feature = "lab", debug_assertions))]
+fn synthetic_preview_state() -> Value {
+    // Preview data is synthetic and must never be confused with an observed match snapshot.
+    serde_json::json!({
+        "schema": 1,
+        "visible": true,
+        "fields": {
+            "kills": {"value": 5, "availability": "fresh"},
+            "deaths": {"value": 2, "availability": "fresh"},
+            "assists": {"value": 8, "availability": "fresh"},
+            "gold": {"value": 1234, "availability": "fresh"},
+            "gpm": {"value": 456, "availability": "fresh"},
+            "xpm": {"value": 789, "availability": "fresh"},
+        },
+        "net_worth": {"value": 21450, "availability": "fresh", "approximate": false},
+    })
+}
+
+#[cfg(any(feature = "lab", debug_assertions))]
+fn preview_state(snapshot: &Value, preview_active: bool) -> Value {
+    if preview_active {
+        synthetic_preview_state()
+    } else {
+        build_hud_state(snapshot)
+    }
+}
 
 /// The snapshot builder exposes fresh/stale only after verifying ownership and pregame/live phase.
 /// Any other top-level availability is deliberately reduced to an all-unknown hidden payload.
@@ -409,11 +497,45 @@ fn run_state_thread(
     stop: Receiver<()>,
 ) {
     let mut emission = EmissionTracker::default();
+    #[cfg(any(feature = "lab", debug_assertions))]
+    let mut layout_emission = HudLayoutEmission::default();
+    #[cfg(any(feature = "lab", debug_assertions))]
+    let mut last_layout: Option<(u64, Value)> = None;
     loop {
+        let layouts = effective_hud_layouts();
         let snapshot = crate::commands::own_snapshot_value(runtime.as_ref());
+        #[cfg(any(feature = "lab", debug_assertions))]
+        let payload = preview_state(&snapshot, crate::lab::hud_preview_active());
+        #[cfg(not(any(feature = "lab", debug_assertions)))]
         let payload = build_hud_state(&snapshot);
         let visible = payload["visible"].as_bool().unwrap_or(false);
         let now = Instant::now();
+
+        #[cfg(any(feature = "lab", debug_assertions))]
+        {
+            let revision = crate::lab::hud_layout_revision();
+            let layout_payload = hud_layout_payload(&layouts);
+            if layout_emission.should_emit(&layout_payload, revision, now) {
+                match app.emit_to("hud", HUD_LAYOUT_EVENT, layout_payload.clone()) {
+                    Ok(()) => layout_emission.record_emitted(layout_payload.clone(), revision, now),
+                    Err(_) => crate::log_warn!(
+                        "hud",
+                        "layout_emit_failed",
+                        "HUD layout event unavailable"
+                    ),
+                }
+            }
+
+            let layout_changed = last_layout
+                .as_ref()
+                .is_some_and(|(last_revision, previous)| {
+                    *last_revision != revision || previous != &layout_payload
+                });
+            if visible && layout_changed && !crate::place_hud_window(&window, &layouts) {
+                hide_window(&window);
+            }
+            last_layout = Some((revision, layout_payload));
+        }
 
         if !visible {
             hide_window(&window);
@@ -432,7 +554,7 @@ fn run_state_thread(
         }
 
         if visible && state_delivered {
-            show_window(&window);
+            show_window(&window, &layouts);
         }
 
         match stop.recv_timeout(HUD_POLL_INTERVAL) {
@@ -442,7 +564,10 @@ fn run_state_thread(
     }
 }
 
-fn show_window(window: &tauri::WebviewWindow<tauri::Wry>) {
+fn show_window(
+    window: &tauri::WebviewWindow<tauri::Wry>,
+    layouts: &[(HudModule, HudModuleLayout); 6],
+) {
     match window.is_visible() {
         Ok(true) => return,
         Ok(false) => {}
@@ -462,7 +587,7 @@ fn show_window(window: &tauri::WebviewWindow<tauri::Wry>) {
         crate::log_warn!("hud", "click_through_failed", "HUD remains hidden");
         return;
     }
-    if !crate::place_hud_window(window) {
+    if !crate::place_hud_window(window, layouts) {
         hide_window(window);
         return;
     }
@@ -495,10 +620,11 @@ fn hide_window(window: &tauri::WebviewWindow<tauri::Wry>) {
 #[cfg(test)]
 mod tests {
     use super::{
-        build_hud_state, effective_hud_layouts, hud_capability_permissions, hud_window_spec,
-        item_cost, item_prices, module_pixel_center, net_worth_field, place_hud_window,
-        unknown_net_worth, Controller, EmissionTracker, HudModule, HudModuleLayout,
-        DEFAULT_HUD_LAYOUTS,
+        build_hud_state, effective_hud_layouts, hud_capability_permissions, hud_layout_payload,
+        hud_window_spec, item_cost, item_prices, module_pixel_center, net_worth_field,
+        place_hud_window, preview_state, strip_height_percent, synthetic_preview_state,
+        unknown_net_worth, Controller, EmissionTracker, HudLayoutEmission, HudModule,
+        HudModuleLayout, DEFAULT_HUD_LAYOUTS,
     };
     use crate::overlay::{MonitorRect, Rect};
     use kohbor_gsi::admission::{
@@ -617,6 +743,167 @@ mod tests {
     }
 
     #[test]
+    fn default_strip_height_is_nine_percent() {
+        assert_eq!(strip_height_percent(&DEFAULT_HUD_LAYOUTS), 9.0);
+    }
+
+    #[test]
+    fn strip_height_contains_module_at_twelve_percent_plus_margin() {
+        let mut layouts = DEFAULT_HUD_LAYOUTS;
+        layouts[2].1.y_percent = 12.0;
+        assert_eq!(strip_height_percent(&layouts), 15.5);
+    }
+
+    #[test]
+    fn strip_height_ignores_disabled_modules() {
+        let mut layouts = DEFAULT_HUD_LAYOUTS;
+        layouts[2].1.y_percent = 92.0;
+        layouts[2].1.enabled = false;
+        assert_eq!(strip_height_percent(&layouts), 9.0);
+    }
+
+    #[test]
+    fn strip_height_caps_at_one_hundred_percent() {
+        let mut layouts = DEFAULT_HUD_LAYOUTS;
+        layouts[0].1.y_percent = 100.0;
+        assert_eq!(strip_height_percent(&layouts), 100.0);
+    }
+
+    #[test]
+    fn window_places_default_strip_at_1920_by_1080() {
+        assert_eq!(
+            place_hud_window(&monitor(0, 0, 1920, 1080), &DEFAULT_HUD_LAYOUTS),
+            Rect {
+                x: 0,
+                y: 0,
+                w: 1920,
+                h: 97
+            }
+        );
+    }
+
+    #[test]
+    fn window_places_default_strip_at_2560_by_1440() {
+        assert_eq!(
+            place_hud_window(&monitor(0, 0, 2560, 1440), &DEFAULT_HUD_LAYOUTS),
+            Rect {
+                x: 0,
+                y: 0,
+                w: 2560,
+                h: 130
+            }
+        );
+    }
+
+    #[test]
+    fn window_places_tall_strip_at_1920_by_1080() {
+        let mut layouts = DEFAULT_HUD_LAYOUTS;
+        layouts[4].1.y_percent = 40.0;
+        assert_eq!(
+            place_hud_window(&monitor(0, 0, 1920, 1080), &layouts),
+            Rect {
+                x: 0,
+                y: 0,
+                w: 1920,
+                h: 470
+            }
+        );
+    }
+
+    #[test]
+    fn window_places_tall_strip_at_2560_by_1440() {
+        let mut layouts = DEFAULT_HUD_LAYOUTS;
+        layouts[4].1.y_percent = 40.0;
+        assert_eq!(
+            place_hud_window(&monitor(0, 0, 2560, 1440), &layouts),
+            Rect {
+                x: 0,
+                y: 0,
+                w: 2560,
+                h: 626
+            }
+        );
+    }
+
+    #[test]
+    fn hud_layout_event_has_the_exact_schema_and_module_order() {
+        let payload = hud_layout_payload(&DEFAULT_HUD_LAYOUTS);
+        assert_eq!(
+            payload,
+            json!({
+                "schema": 1,
+                "strip_height_percent": 9.0,
+                "modules": [
+                    {"id":"gmeter","x_percent":50.0,"y_percent":5.5,"scale":0.65,"enabled":true},
+                    {"id":"kda","x_percent":9.64,"y_percent":2.2,"scale":0.78,"enabled":true},
+                    {"id":"gold","x_percent":13.56,"y_percent":2.2,"scale":0.78,"enabled":true},
+                    {"id":"gpm","x_percent":17.23,"y_percent":2.2,"scale":0.78,"enabled":true},
+                    {"id":"nw","x_percent":21.02,"y_percent":2.2,"scale":0.78,"enabled":true},
+                    {"id":"xpm","x_percent":24.82,"y_percent":2.2,"scale":0.78,"enabled":true}
+                ]
+            })
+        );
+    }
+
+    #[test]
+    fn layout_event_tracker_sends_initial_payload() {
+        let tracker = HudLayoutEmission::default();
+        assert!(tracker.should_emit(&json!({"schema":1}), 0, Instant::now()));
+    }
+
+    #[test]
+    fn layout_event_tracker_sends_when_revision_changes_even_if_payload_matches() {
+        let start = Instant::now();
+        let payload = json!({"schema":1});
+        let mut tracker = HudLayoutEmission::default();
+        assert!(tracker.should_emit(&payload, 1, start));
+        tracker.record_emitted(payload.clone(), 1, start);
+        assert!(!tracker.should_emit(&payload, 1, start + Duration::from_millis(500)));
+        assert!(tracker.should_emit(&payload, 2, start + Duration::from_millis(501)));
+    }
+
+    #[test]
+    fn layout_event_tracker_sends_keepalive_after_two_seconds() {
+        let start = Instant::now();
+        let payload = json!({"schema":1});
+        let mut tracker = HudLayoutEmission::default();
+        tracker.record_emitted(payload.clone(), 0, start);
+        assert!(tracker.should_emit(&payload, 0, start + Duration::from_secs(2)));
+    }
+
+    #[test]
+    fn no_active_preview_preserves_the_real_snapshot_state() {
+        let snapshot = admitted_snapshot(Phase::Live, Ownership::Verified, 0);
+        assert_eq!(preview_state(&snapshot, false), build_hud_state(&snapshot));
+    }
+
+    #[test]
+    fn active_preview_uses_only_the_fixed_synthetic_values() {
+        assert_eq!(
+            synthetic_preview_state(),
+            json!({
+                "schema":1,
+                "visible":true,
+                "fields": {
+                    "kills":{"value":5,"availability":"fresh"},
+                    "deaths":{"value":2,"availability":"fresh"},
+                    "assists":{"value":8,"availability":"fresh"},
+                    "gold":{"value":1234,"availability":"fresh"},
+                    "gpm":{"value":456,"availability":"fresh"},
+                    "xpm":{"value":789,"availability":"fresh"}
+                },
+                "net_worth":{"value":21450,"availability":"fresh","approximate":false}
+            })
+        );
+    }
+
+    #[test]
+    fn active_preview_replaces_the_snapshot_state() {
+        let snapshot = admitted_snapshot(Phase::Live, Ownership::Verified, 0);
+        assert_eq!(preview_state(&snapshot, true), synthetic_preview_state());
+    }
+
+    #[test]
     fn layout_clamps_low_x_percent() {
         assert_eq!(layout(-10.0, 20.0, 1.0).clamped().x_percent, 0.0);
     }
@@ -658,7 +945,7 @@ mod tests {
     #[test]
     fn window_spans_1920_monitor_with_rounded_nine_percent_height() {
         assert_eq!(
-            place_hud_window(&monitor(0, 0, 1920, 1080)),
+            place_hud_window(&monitor(0, 0, 1920, 1080), &DEFAULT_HUD_LAYOUTS),
             Rect {
                 x: 0,
                 y: 0,
@@ -671,7 +958,7 @@ mod tests {
     #[test]
     fn window_spans_2560_monitor_with_rounded_nine_percent_height() {
         assert_eq!(
-            place_hud_window(&monitor(0, 0, 2560, 1440)),
+            place_hud_window(&monitor(0, 0, 2560, 1440), &DEFAULT_HUD_LAYOUTS),
             Rect {
                 x: 0,
                 y: 0,
@@ -684,7 +971,7 @@ mod tests {
     #[test]
     fn window_keeps_monitor_origin_offset() {
         assert_eq!(
-            place_hud_window(&monitor(1920, -120, 1920, 1080)),
+            place_hud_window(&monitor(1920, -120, 1920, 1080), &DEFAULT_HUD_LAYOUTS),
             Rect {
                 x: 1920,
                 y: -120,
@@ -697,7 +984,7 @@ mod tests {
     #[test]
     fn zero_height_monitor_still_gets_one_pixel_window() {
         assert_eq!(
-            place_hud_window(&monitor(5, 7, 100, 0)),
+            place_hud_window(&monitor(5, 7, 100, 0), &DEFAULT_HUD_LAYOUTS),
             Rect {
                 x: 5,
                 y: 7,
@@ -733,7 +1020,11 @@ mod tests {
     }
 
     #[test]
-    fn effective_layouts_are_compiled_defaults_until_lab_hook_exists() {
+    fn effective_layouts_use_compiled_defaults_when_lab_is_disabled() {
+        #[cfg(any(feature = "lab", debug_assertions))]
+        if crate::lab::dev::enabled() {
+            return;
+        }
         assert_eq!(effective_hud_layouts(), DEFAULT_HUD_LAYOUTS);
     }
 

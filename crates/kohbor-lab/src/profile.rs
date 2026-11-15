@@ -76,27 +76,42 @@ pub struct BannerLayout {
     pub enabled: bool,
 }
 
+/// Placement of one live HUD module; x/y identify its centre in screen-percent coordinates.
 #[derive(Debug, Clone, Copy, PartialEq)]
+pub struct HudLayout {
+    pub x_percent: f64,
+    pub y_percent: f64,
+    pub scale: f64,
+    pub enabled: bool,
+}
+
+/// HUD modules appear in this order in profiles, command payloads and event payloads.
+pub const HUD_MODULE_IDS: [&str; 6] = ["gmeter", "kda", "gold", "gpm", "nw", "xpm"];
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Layout {
     pub banner: BannerLayout,
+    pub hud: [HudLayout; 6],
 }
 
 pub const PERCENT_BOUNDS: (f64, f64) = (0.0, 100.0);
 pub const SCALE_BOUNDS: (f64, f64) = (0.2, 3.0);
 const LAYOUT_FIELDS: [&str; 4] = ["x_percent", "y_percent", "scale", "enabled"];
 
-fn check_range(name: &str, value: &Value, bounds: (f64, f64)) -> Result<f64, ProfileError> {
-    let number = value.as_f64().ok_or_else(|| {
-        err(
-            "LAYOUT_TYPE",
-            format!("layout.banner.{name} must be a number"),
-        )
-    })?;
+fn check_range(
+    path: &str,
+    name: &str,
+    value: &Value,
+    bounds: (f64, f64),
+) -> Result<f64, ProfileError> {
+    let number = value
+        .as_f64()
+        .ok_or_else(|| err("LAYOUT_TYPE", format!("{path}.{name} must be a number")))?;
     if !number.is_finite() || number < bounds.0 || number > bounds.1 {
         return Err(err(
             "LAYOUT_OUT_OF_RANGE",
             format!(
-                "layout.banner.{name} = {number} is outside {}..{}",
+                "{path}.{name} = {number} is outside {}..{}",
                 bounds.0, bounds.1
             ),
         ));
@@ -104,46 +119,85 @@ fn check_range(name: &str, value: &Value, bounds: (f64, f64)) -> Result<f64, Pro
     Ok(number)
 }
 
-/// Validate the `layout` object of a profile and return the banner fields it names.
-fn parse_layout(value: &Value) -> Result<Vec<(&'static str, Value)>, ProfileError> {
+type FieldPatches = Vec<(&'static str, Value)>;
+
+#[derive(Default)]
+struct LayoutPatches {
+    banner: FieldPatches,
+    hud: Vec<(usize, &'static str, Value)>,
+}
+
+fn parse_module_fields(path: &str, value: &Value) -> Result<FieldPatches, ProfileError> {
+    let body = value
+        .as_object()
+        .ok_or_else(|| err("LAYOUT_TYPE", format!("{path} must be an object")))?;
+    let mut named = Vec::new();
+    for (name, field) in body {
+        let Some(known) = LAYOUT_FIELDS
+            .iter()
+            .find(|field_name| **field_name == name.as_str())
+        else {
+            return Err(err(
+                "UNKNOWN_FIELD",
+                format!("{path}.{name} is not a field"),
+            ));
+        };
+        match *known {
+            "x_percent" | "y_percent" => {
+                check_range(path, known, field, PERCENT_BOUNDS)?;
+            }
+            "scale" => {
+                check_range(path, known, field, SCALE_BOUNDS)?;
+            }
+            _ => {
+                if !field.is_boolean() {
+                    return Err(err(
+                        "LAYOUT_TYPE",
+                        format!("{path}.enabled must be a boolean"),
+                    ));
+                }
+            }
+        }
+        named.push((*known, field.clone()));
+    }
+    Ok(named)
+}
+
+/// Validate the `layout` object of a profile and return the fields it names.
+fn parse_layout(value: &Value) -> Result<LayoutPatches, ProfileError> {
     let modules = value
         .as_object()
         .ok_or_else(|| err("LAYOUT_TYPE", "layout must be an object"))?;
-    let mut named = Vec::new();
+    let mut named = LayoutPatches::default();
     for (module, body) in modules {
-        if module != "banner" {
-            return Err(err(
-                "UNKNOWN_MODULE",
-                format!("layout.{module} is not an editable module (banner only)"),
-            ));
-        }
-        let body = body
-            .as_object()
-            .ok_or_else(|| err("LAYOUT_TYPE", "layout.banner must be an object"))?;
-        for (name, field) in body {
-            let Some(known) = LAYOUT_FIELDS.iter().find(|f| **f == name.as_str()) else {
-                return Err(err(
-                    "UNKNOWN_FIELD",
-                    format!("layout.banner.{name} is not a field"),
-                ));
-            };
-            match *known {
-                "x_percent" | "y_percent" => {
-                    check_range(known, field, PERCENT_BOUNDS)?;
-                }
-                "scale" => {
-                    check_range(known, field, SCALE_BOUNDS)?;
-                }
-                _ => {
-                    if !field.is_boolean() {
+        match module.as_str() {
+            "banner" => {
+                named.banner = parse_module_fields("layout.banner", body)?;
+            }
+            "hud" => {
+                let hud_modules = body
+                    .as_object()
+                    .ok_or_else(|| err("LAYOUT_TYPE", "layout.hud must be an object"))?;
+                for (hud_module, fields) in hud_modules {
+                    let Some(index) = HUD_MODULE_IDS.iter().position(|id| *id == hud_module) else {
                         return Err(err(
-                            "LAYOUT_TYPE",
-                            "layout.banner.enabled must be a boolean",
+                            "UNKNOWN_MODULE",
+                            format!("layout.hud.{hud_module} is not an editable HUD module"),
                         ));
+                    };
+                    for (name, value) in
+                        parse_module_fields(&format!("layout.hud.{hud_module}"), fields)?
+                    {
+                        named.hud.push((index, name, value));
                     }
                 }
             }
-            named.push((*known, field.clone()));
+            _ => {
+                return Err(err(
+                    "UNKNOWN_MODULE",
+                    format!("layout.{module} is not an editable module"),
+                ));
+            }
         }
     }
     Ok(named)
@@ -168,9 +222,40 @@ fn layout_json(layout: &BannerLayout) -> Value {
     })
 }
 
+fn hud_layout_json(layout: &HudLayout) -> Value {
+    json!({
+        "x_percent": layout.x_percent, "y_percent": layout.y_percent,
+        "scale": layout.scale, "enabled": layout.enabled,
+    })
+}
+
+fn layouts_json(layout: &Layout) -> Value {
+    let mut hud = Map::new();
+    for (id, module_layout) in HUD_MODULE_IDS.iter().zip(layout.hud) {
+        hud.insert((*id).to_owned(), hud_layout_json(&module_layout));
+    }
+    json!({"banner": layout_json(&layout.banner), "hud": hud})
+}
+
+fn apply_hud_layout(
+    mut base: [HudLayout; 6],
+    patches: &[(usize, &'static str, Value)],
+) -> [HudLayout; 6] {
+    for (index, name, value) in patches {
+        let module = &mut base[*index];
+        match *name {
+            "x_percent" => module.x_percent = value.as_f64().unwrap_or(module.x_percent),
+            "y_percent" => module.y_percent = value.as_f64().unwrap_or(module.y_percent),
+            "scale" => module.scale = value.as_f64().unwrap_or(module.scale),
+            _ => module.enabled = value.as_bool().unwrap_or(module.enabled),
+        }
+    }
+    base
+}
+
 struct Parsed {
     values: Values,
-    layout: Vec<(&'static str, Value)>,
+    layout: LayoutPatches,
 }
 
 /// A validated profile: every supported tunable has a value.
@@ -379,7 +464,7 @@ fn parse_named(text: &str) -> Result<Parsed, ProfileError> {
     }
     let layout = match root.get("layout") {
         Some(value) => parse_layout(value)?,
-        None => Vec::new(),
+        None => LayoutPatches::default(),
     };
     Ok(Parsed {
         values: named,
@@ -416,10 +501,23 @@ pub fn embedded() -> Effective {
     let parsed = parse_named(EMBEDDED).expect("embedded default profile is valid");
     let values = parsed.values;
     assert_eq!(
-        parsed.layout.len(),
+        parsed.layout.banner.len(),
         LAYOUT_FIELDS.len(),
-        "embedded layout is complete"
+        "embedded banner layout is complete"
     );
+    for (index, module_id) in HUD_MODULE_IDS.iter().enumerate() {
+        assert_eq!(
+            parsed
+                .layout
+                .hud
+                .iter()
+                .filter(|(module, _, _)| *module == index)
+                .count(),
+            LAYOUT_FIELDS.len(),
+            "embedded HUD layout is complete for {}",
+            module_id
+        );
+    }
     let layout = Layout {
         banner: apply_layout(
             BannerLayout {
@@ -428,7 +526,16 @@ pub fn embedded() -> Effective {
                 scale: 0.0,
                 enabled: false,
             },
-            &parsed.layout,
+            &parsed.layout.banner,
+        ),
+        hud: apply_hud_layout(
+            [HudLayout {
+                x_percent: 0.0,
+                y_percent: 0.0,
+                scale: 0.0,
+                enabled: false,
+            }; 6],
+            &parsed.layout.hud,
         ),
     };
     assert_eq!(
@@ -439,8 +546,8 @@ pub fn embedded() -> Effective {
     Effective {
         defaults: values.clone(),
         values,
+        default_layout: layout.clone(),
         layout,
-        default_layout: layout,
         source: Source::Embedded,
     }
 }
@@ -450,7 +557,8 @@ pub fn merge_override(text: &str) -> Result<Effective, ProfileError> {
     let mut effective = embedded();
     let parsed = parse_named(text)?;
     effective.values.extend(parsed.values);
-    effective.layout.banner = apply_layout(effective.layout.banner, &parsed.layout);
+    effective.layout.banner = apply_layout(effective.layout.banner, &parsed.layout.banner);
+    effective.layout.hud = apply_hud_layout(effective.layout.hud, &parsed.layout.hud);
     check_pairs(&effective.values)?;
     Ok(effective)
 }
@@ -500,7 +608,7 @@ impl Effective {
     }
 
     pub fn layout(&self) -> Layout {
-        self.layout
+        self.layout.clone()
     }
 
     /// A copy with the banner layout replaced; validated like a profile file.
@@ -513,6 +621,51 @@ impl Effective {
         }
         let mut doc: Value = serde_json::from_str(&self.export_json()).expect("own export parses");
         doc["layout"]["banner"] = layout_json(&banner);
+        let mut edited = merge_override(&doc.to_string())?;
+        edited.source = self.source.clone();
+        Ok(edited)
+    }
+
+    /// A copy with the named HUD module layouts replaced; unspecified modules are preserved.
+    /// The final profile is reparsed so bounds and field rules remain identical to file input.
+    pub fn with_hud_layout(
+        &self,
+        modules: &[(&str, HudLayout)],
+    ) -> Result<Effective, ProfileError> {
+        let mut updated = self.layout.hud;
+        let mut seen = [false; 6];
+        for (id, layout) in modules {
+            let Some(index) = HUD_MODULE_IDS.iter().position(|known| known == id) else {
+                return Err(err(
+                    "UNKNOWN_MODULE",
+                    format!("layout.hud.{id} is not an editable HUD module"),
+                ));
+            };
+            if seen[index] {
+                return Err(err(
+                    "DUPLICATE_KEY",
+                    format!("layout.hud.{id} is named more than once"),
+                ));
+            }
+            seen[index] = true;
+            if ![layout.x_percent, layout.y_percent, layout.scale]
+                .into_iter()
+                .all(f64::is_finite)
+            {
+                return Err(err(
+                    "LAYOUT_OUT_OF_RANGE",
+                    format!("layout.hud.{id} numbers must be finite"),
+                ));
+            }
+            updated[index] = *layout;
+        }
+
+        let mut doc: Value = serde_json::from_str(&self.export_json()).expect("own export parses");
+        let mut hud = Map::new();
+        for (id, layout) in HUD_MODULE_IDS.iter().zip(updated) {
+            hud.insert((*id).to_owned(), hud_layout_json(&layout));
+        }
+        doc["layout"]["hud"] = Value::Object(hud);
         let mut edited = merge_override(&doc.to_string())?;
         edited.source = self.source.clone();
         Ok(edited)
@@ -540,7 +693,7 @@ impl Effective {
             .filter(|(e, n, _)| self.values[&(*e, *n)] != self.defaults[&(*e, *n)])
             .map(|(e, n, _)| format!("{e}.{n}"))
             .collect();
-        let (now, base) = (&self.layout.banner, &self.default_layout.banner);
+        let (now, base) = (self.layout.banner, self.default_layout.banner);
         for (name, differs) in [
             ("x_percent", now.x_percent != base.x_percent),
             ("y_percent", now.y_percent != base.y_percent),
@@ -549,6 +702,20 @@ impl Effective {
         ] {
             if differs {
                 changed.push(format!("layout.banner.{name}"));
+            }
+        }
+        for (index, id) in HUD_MODULE_IDS.iter().enumerate() {
+            let now = self.layout.hud[index];
+            let base = self.default_layout.hud[index];
+            for (name, differs) in [
+                ("x_percent", now.x_percent != base.x_percent),
+                ("y_percent", now.y_percent != base.y_percent),
+                ("scale", now.scale != base.scale),
+                ("enabled", now.enabled != base.enabled),
+            ] {
+                if differs {
+                    changed.push(format!("layout.hud.{id}.{name}"));
+                }
             }
         }
         changed
@@ -578,7 +745,7 @@ impl Effective {
                 "source": self.source_label(),
                 "overrides": self.overrides(),
             },
-            "layout": {"banner": layout_json(&self.layout.banner)},
+            "layout": layouts_json(&self.layout),
             "events": events,
         });
         serde_json::to_string_pretty(&doc).expect("serializable") + "\n"
@@ -610,7 +777,11 @@ impl Effective {
             "overrides": self.overrides(),
             "layout": {
                 "banner": layout_json(&self.layout.banner),
-                "default": {"banner": layout_json(&self.default_layout.banner)},
+                "hud": layouts_json(&self.layout)["hud"].clone(),
+                "default": {
+                    "banner": layout_json(&self.default_layout.banner),
+                    "hud": layouts_json(&self.default_layout)["hud"].clone(),
+                },
                 "bounds": {
                     "x_percent": [PERCENT_BOUNDS.0, PERCENT_BOUNDS.1],
                     "y_percent": [PERCENT_BOUNDS.0, PERCENT_BOUNDS.1],

@@ -11,7 +11,12 @@ pub mod dev {
     use kohbor_lab::{sandbox, Resolved};
     use serde::Deserialize;
     use serde_json::{json, Value};
+    use std::path::Path;
+    use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::{Mutex, OnceLock};
+
+    static HUD_LAYOUT_REVISION: AtomicU64 = AtomicU64::new(0);
+    static HUD_PREVIEW_UNTIL_MS: AtomicU64 = AtomicU64::new(0);
 
     #[derive(Deserialize)]
     pub struct Edit {
@@ -42,15 +47,19 @@ pub mod dev {
         f(&mut guard)
     }
 
-    fn data_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    fn data_dir_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
         use tauri::Manager;
-        let dir = match crate::demo_data_dir_override() {
+        Ok(match crate::demo_data_dir_override() {
             Some(dir) => dir,
             None => app
                 .path()
                 .app_data_dir()
                 .map_err(|_| "DATA_DIR_UNAVAILABLE".to_owned())?,
-        };
+        })
+    }
+
+    fn data_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+        let dir = data_dir_path(app)?;
         // Once per run: when no KOHBOR_LAB_PROFILE selected a file, pick up what a previous
         // Lab save left at the fixed location so edits survive a restart.
         with_slot(|s| {
@@ -66,6 +75,40 @@ pub mod dev {
             }
         });
         Ok(dir)
+    }
+
+    pub fn initialize_saved(app: &tauri::AppHandle) {
+        if !enabled() {
+            return;
+        }
+        let Ok(dir) = data_dir_path(app) else {
+            return;
+        };
+        let selected = with_slot(|s| {
+            if s.resolved.rejected.is_none()
+                && matches!(s.resolved.source, kohbor_lab::Source::Override(_))
+            {
+                Some(s.resolved.effective.clone())
+            } else {
+                None
+            }
+        });
+        let selected = selected.or_else(|| {
+            let can_load_saved = with_slot(|s| {
+                matches!(s.resolved.source, kohbor_lab::Source::Embedded)
+                    && s.resolved.rejected.is_none()
+            });
+            can_load_saved
+                .then(|| kohbor_lab::dev_override::load_saved(&dir))
+                .flatten()
+                .filter(|resolved| resolved.rejected.is_none())
+                .map(|resolved| resolved.effective)
+        });
+        if let Some(effective) = selected {
+            *hud_layout_override()
+                .lock()
+                .unwrap_or_else(|error| error.into_inner()) = Some(effective.layout().hud);
+        }
     }
 
     pub fn enabled() -> bool {
@@ -196,6 +239,179 @@ pub mod dev {
         host_layout(with_slot(|s| s.resolved.effective.layout().banner))
     }
 
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    pub struct HudLayoutIn {
+        pub id: String,
+        pub x_percent: f64,
+        pub y_percent: f64,
+        pub scale: f64,
+        pub enabled: bool,
+    }
+
+    fn host_hud_layouts(
+        effective: &kohbor_lab::Effective,
+    ) -> [(crate::hud::HudModule, crate::hud::HudModuleLayout); 6] {
+        host_hud_layouts_from_profile(&effective.layout().hud)
+    }
+
+    fn host_hud_layouts_from_profile(
+        layouts: &[kohbor_lab::HudLayout; 6],
+    ) -> [(crate::hud::HudModule, crate::hud::HudModuleLayout); 6] {
+        std::array::from_fn(|index| {
+            let layout = layouts[index];
+            (
+                crate::hud::DEFAULT_HUD_LAYOUTS[index].0,
+                crate::hud::HudModuleLayout {
+                    x_percent: layout.x_percent,
+                    y_percent: layout.y_percent,
+                    scale: layout.scale,
+                    enabled: layout.enabled,
+                },
+            )
+        })
+    }
+
+    pub fn hud_layouts() -> [(crate::hud::HudModule, crate::hud::HudModuleLayout); 6] {
+        if let Some(layouts) = *hud_layout_override()
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+        {
+            host_hud_layouts_from_profile(&layouts)
+        } else {
+            with_slot(|s| host_hud_layouts(&s.resolved.effective))
+        }
+    }
+
+    fn hud_layout_override() -> &'static Mutex<Option<[kohbor_lab::HudLayout; 6]>> {
+        static HUD_LAYOUT: OnceLock<Mutex<Option<[kohbor_lab::HudLayout; 6]>>> = OnceLock::new();
+        HUD_LAYOUT.get_or_init(|| Mutex::new(None))
+    }
+
+    fn set_hud_layout_override(layouts: [kohbor_lab::HudLayout; 6]) {
+        *hud_layout_override()
+            .lock()
+            .unwrap_or_else(|error| error.into_inner()) = Some(layouts);
+    }
+
+    pub fn hud_layout_revision() -> u64 {
+        HUD_LAYOUT_REVISION.load(Ordering::SeqCst)
+    }
+
+    fn epoch_now_ms() -> u64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_millis().min(u128::from(u64::MAX)) as u64)
+            .unwrap_or(0)
+    }
+
+    fn preview_active_at(deadline: u64, now_ms: u64) -> bool {
+        deadline != 0 && now_ms < deadline
+    }
+
+    pub fn hud_preview_active() -> bool {
+        preview_active_at(HUD_PREVIEW_UNTIL_MS.load(Ordering::SeqCst), epoch_now_ms())
+    }
+
+    fn set_hud_preview_at(
+        preview_until: &AtomicU64,
+        seconds: u64,
+        now_ms: u64,
+    ) -> Result<u64, String> {
+        if !(1..=60).contains(&seconds) {
+            return Err("PREVIEW_SECONDS_OUT_OF_RANGE".to_owned());
+        }
+        let deadline = now_ms.saturating_add(seconds.saturating_mul(1000));
+        if deadline <= now_ms {
+            return Err("PREVIEW_DEADLINE_OUT_OF_RANGE".to_owned());
+        }
+        preview_until.store(deadline, Ordering::SeqCst);
+        Ok(deadline)
+    }
+
+    fn hud_layout_rows(layouts: &[kohbor_lab::HudLayout; 6]) -> Vec<Value> {
+        kohbor_lab::HUD_MODULE_IDS
+            .iter()
+            .zip(layouts)
+            .map(|(id, layout)| {
+                json!({
+                    "id": id,
+                    "x_percent": layout.x_percent,
+                    "y_percent": layout.y_percent,
+                    "scale": layout.scale,
+                    "enabled": layout.enabled,
+                })
+            })
+            .collect()
+    }
+
+    fn hud_layout_view(effective: &kohbor_lab::Effective) -> Value {
+        let current = effective.layout().hud;
+        let defaults = kohbor_lab::embedded().layout().hud;
+        let layouts = host_hud_layouts(effective);
+        let source = effective.describe_json()["source"].clone();
+        json!({
+            "modules": hud_layout_rows(&current),
+            "default": hud_layout_rows(&defaults),
+            "bounds": {
+                "x_percent": [kohbor_lab::PERCENT_BOUNDS.0, kohbor_lab::PERCENT_BOUNDS.1],
+                "y_percent": [kohbor_lab::PERCENT_BOUNDS.0, kohbor_lab::PERCENT_BOUNDS.1],
+                "scale": [kohbor_lab::SCALE_BOUNDS.0, kohbor_lab::SCALE_BOUNDS.1],
+            },
+            "strip_height_percent": crate::hud::strip_height_percent(&layouts),
+            "source": source,
+        })
+    }
+
+    fn apply_hud_layout_at(
+        data_dir: &Path,
+        effective: &kohbor_lab::Effective,
+        modules: &[HudLayoutIn],
+        revision: &AtomicU64,
+    ) -> Result<kohbor_lab::Effective, String> {
+        let updates: Vec<(&str, kohbor_lab::HudLayout)> = modules
+            .iter()
+            .map(|module| {
+                (
+                    module.id.as_str(),
+                    kohbor_lab::HudLayout {
+                        x_percent: module.x_percent,
+                        y_percent: module.y_percent,
+                        scale: module.scale,
+                        enabled: module.enabled,
+                    },
+                )
+            })
+            .collect();
+        let edited = effective
+            .with_hud_layout(&updates)
+            .map_err(|error| format!("{}: {}", error.code, error.detail))?;
+        let path = kohbor_lab::dev_override::save_under(data_dir, &edited)
+            .map_err(|_| "SAVE_REFUSED".to_owned())?;
+        revision.fetch_add(1, Ordering::SeqCst);
+        Ok(edited.with_source(kohbor_lab::Source::Override(path)))
+    }
+
+    fn reset_hud_layout_at(
+        data_dir: &Path,
+        effective: &kohbor_lab::Effective,
+        revision: &AtomicU64,
+    ) -> Result<kohbor_lab::Effective, String> {
+        let defaults = kohbor_lab::embedded().layout().hud;
+        let modules: Vec<HudLayoutIn> = kohbor_lab::HUD_MODULE_IDS
+            .iter()
+            .zip(defaults)
+            .map(|(id, layout)| HudLayoutIn {
+                id: (*id).to_owned(),
+                x_percent: layout.x_percent,
+                y_percent: layout.y_percent,
+                scale: layout.scale,
+                enabled: layout.enabled,
+            })
+            .collect();
+        apply_hud_layout_at(data_dir, effective, &modules, revision)
+    }
+
     fn layout_view(s: &Slot) -> Value {
         let described = describe_with_context(s);
         let zones: Vec<Value> = crate::overlay::PROTECTED_REGIONS
@@ -289,6 +505,57 @@ pub mod dev {
         }))
     }
 
+    #[tauri::command(async)]
+    pub fn lab_hud_layout_get(app: tauri::AppHandle) -> Result<Value, String> {
+        require()?;
+        data_dir(&app)?;
+        Ok(with_slot(|s| hud_layout_view(&s.resolved.effective)))
+    }
+
+    #[tauri::command(async)]
+    pub fn lab_hud_layout_apply(
+        app: tauri::AppHandle,
+        modules: Vec<HudLayoutIn>,
+    ) -> Result<Value, String> {
+        require()?;
+        let data_dir = data_dir(&app)?;
+        with_slot(|s| {
+            let edited = apply_hud_layout_at(
+                &data_dir,
+                &s.resolved.effective,
+                &modules,
+                &HUD_LAYOUT_REVISION,
+            )?;
+            set_hud_layout_override(edited.layout().hud);
+            s.resolved.source = edited.source().clone();
+            s.resolved.effective = edited;
+            s.resolved.rejected = None;
+            Ok(hud_layout_view(&s.resolved.effective))
+        })
+    }
+
+    #[tauri::command(async)]
+    pub fn lab_hud_layout_reset(app: tauri::AppHandle) -> Result<Value, String> {
+        require()?;
+        let data_dir = data_dir(&app)?;
+        with_slot(|s| {
+            let reset =
+                reset_hud_layout_at(&data_dir, &s.resolved.effective, &HUD_LAYOUT_REVISION)?;
+            set_hud_layout_override(reset.layout().hud);
+            s.resolved.source = reset.source().clone();
+            s.resolved.effective = reset;
+            s.resolved.rejected = None;
+            Ok(hud_layout_view(&s.resolved.effective))
+        })
+    }
+
+    #[tauri::command(async)]
+    pub fn lab_hud_preview(seconds: u64) -> Result<Value, String> {
+        require()?;
+        let preview_until_ms = set_hud_preview_at(&HUD_PREVIEW_UNTIL_MS, seconds, epoch_now_ms())?;
+        Ok(json!({"preview_until_ms": preview_until_ms}))
+    }
+
     /// The reference screenshot as a data URL, only from the fixed dev location under the app
     /// data dir (never from the repository or the installer). `None` when it is absent.
     #[tauri::command(async)]
@@ -328,6 +595,236 @@ pub mod dev {
             }
             Ok(out)
         })
+    }
+
+    #[cfg(test)]
+    mod hud_layout_tests {
+        use super::*;
+        use std::path::PathBuf;
+        use std::sync::atomic::{AtomicU64, Ordering};
+
+        fn temp_data_dir(tag: &str) -> PathBuf {
+            static NEXT: AtomicU64 = AtomicU64::new(0);
+            let dir = std::env::temp_dir().join(format!(
+                "kohbor-hudlab-{tag}-{}-{}",
+                std::process::id(),
+                NEXT.fetch_add(1, Ordering::Relaxed)
+            ));
+            std::fs::create_dir_all(&dir).unwrap();
+            dir
+        }
+
+        fn six_modules() -> Vec<HudLayoutIn> {
+            [
+                ("gmeter", 50.0, 5.5, 0.65),
+                ("kda", 9.64, 2.2, 0.78),
+                ("gold", 13.56, 2.2, 0.78),
+                ("gpm", 17.23, 2.2, 0.78),
+                ("nw", 21.02, 2.2, 0.78),
+                ("xpm", 24.82, 2.2, 0.78),
+            ]
+            .into_iter()
+            .map(|(id, x_percent, y_percent, scale)| HudLayoutIn {
+                id: id.to_owned(),
+                x_percent,
+                y_percent,
+                scale,
+                enabled: true,
+            })
+            .collect()
+        }
+
+        fn embedded_with_other_edits() -> kohbor_lab::Effective {
+            kohbor_lab::embedded()
+                .with_layout(kohbor_lab::BannerLayout {
+                    x_percent: 37.0,
+                    ..kohbor_lab::embedded().layout().banner
+                })
+                .unwrap()
+                .with_edits(&[("health_danger", "cooldown_ms", json!(60000))])
+                .unwrap()
+        }
+
+        #[test]
+        fn get_view_has_six_current_and_default_modules_and_bounds() {
+            let view = hud_layout_view(&kohbor_lab::embedded());
+            assert_eq!(view["modules"].as_array().unwrap().len(), 6);
+            assert_eq!(view["default"].as_array().unwrap().len(), 6);
+            assert_eq!(
+                view["modules"][0],
+                json!({"id":"gmeter","x_percent":50.0,"y_percent":5.5,"scale":0.65,"enabled":true})
+            );
+            assert_eq!(
+                view["bounds"],
+                json!({
+                    "x_percent":[0.0,100.0],"y_percent":[0.0,100.0],"scale":[0.2,3.0]
+                })
+            );
+            assert_eq!(view["strip_height_percent"], json!(9.0));
+            assert_eq!(view["source"], json!("embedded"));
+            let keys: Vec<_> = view
+                .as_object()
+                .unwrap()
+                .keys()
+                .map(String::as_str)
+                .collect();
+            assert_eq!(
+                keys,
+                [
+                    "bounds",
+                    "default",
+                    "modules",
+                    "source",
+                    "strip_height_percent"
+                ]
+            );
+        }
+
+        #[test]
+        fn apply_saves_at_the_fixed_confined_path_and_preserves_profile_values() {
+            let dir = temp_data_dir("apply");
+            let revision = AtomicU64::new(0);
+            let mut modules = six_modules();
+            modules[0].x_percent = 64.0;
+            let edited =
+                apply_hud_layout_at(&dir, &embedded_with_other_edits(), &modules, &revision)
+                    .unwrap();
+            let expected = dir.join("lab").join("profile.override.json");
+            assert_eq!(
+                edited.source(),
+                &kohbor_lab::Source::Override(expected.clone())
+            );
+            let saved: Value =
+                serde_json::from_str(&std::fs::read_to_string(&expected).unwrap()).unwrap();
+            assert_eq!(saved["layout"]["hud"]["gmeter"]["x_percent"], json!(64.0));
+            assert_eq!(saved["layout"]["banner"]["x_percent"], json!(37.0));
+            assert_eq!(
+                saved["events"]["health_danger"]["params"]["cooldown_ms"],
+                json!(60000)
+            );
+            assert_eq!(revision.load(Ordering::SeqCst), 1);
+            std::fs::remove_dir_all(dir).unwrap();
+        }
+
+        #[test]
+        fn apply_rejects_unknown_module_ids_without_writing() {
+            let dir = temp_data_dir("bad-id");
+            let mut modules = six_modules();
+            modules[0].id = "../../override".to_owned();
+            let error =
+                apply_hud_layout_at(&dir, &kohbor_lab::embedded(), &modules, &AtomicU64::new(0))
+                    .unwrap_err();
+            assert!(error.starts_with("UNKNOWN_MODULE"), "{error}");
+            assert!(!dir.join("lab").exists());
+            std::fs::remove_dir_all(dir).unwrap();
+        }
+
+        #[test]
+        fn apply_rejects_out_of_bounds_values_without_writing() {
+            let dir = temp_data_dir("bad-bounds");
+            let mut modules = six_modules();
+            modules[1].scale = 3.01;
+            let error =
+                apply_hud_layout_at(&dir, &kohbor_lab::embedded(), &modules, &AtomicU64::new(0))
+                    .unwrap_err();
+            assert!(error.starts_with("LAYOUT_OUT_OF_RANGE"), "{error}");
+            assert!(!dir.join("lab").exists());
+            std::fs::remove_dir_all(dir).unwrap();
+        }
+
+        #[test]
+        fn apply_rejects_duplicate_module_ids() {
+            let dir = temp_data_dir("duplicate");
+            let mut modules = six_modules();
+            modules[1].id = "gmeter".to_owned();
+            let error =
+                apply_hud_layout_at(&dir, &kohbor_lab::embedded(), &modules, &AtomicU64::new(0))
+                    .unwrap_err();
+            assert!(error.starts_with("DUPLICATE_KEY"), "{error}");
+            std::fs::remove_dir_all(dir).unwrap();
+        }
+
+        #[test]
+        fn apply_rejects_non_finite_values() {
+            let dir = temp_data_dir("non-finite");
+            let mut modules = six_modules();
+            modules[0].y_percent = f64::INFINITY;
+            let error =
+                apply_hud_layout_at(&dir, &kohbor_lab::embedded(), &modules, &AtomicU64::new(0))
+                    .unwrap_err();
+            assert!(error.starts_with("LAYOUT_OUT_OF_RANGE"), "{error}");
+            assert!(!dir.join("lab").exists());
+            std::fs::remove_dir_all(dir).unwrap();
+        }
+
+        #[test]
+        fn apply_command_input_rejects_unknown_fields() {
+            let parsed: Result<Vec<HudLayoutIn>, _> = serde_json::from_value(json!([{
+                "id":"gmeter","x_percent":50,"y_percent":5.5,"scale":0.65,
+                "enabled":true,"opacity":0.5
+            }]));
+            assert!(parsed.is_err());
+        }
+
+        #[test]
+        fn reset_restores_only_hud_defaults_and_keeps_banner_and_event_edits() {
+            let dir = temp_data_dir("reset");
+            let revision = AtomicU64::new(0);
+            let mut modules = six_modules();
+            modules[0].x_percent = 64.0;
+            let edited =
+                apply_hud_layout_at(&dir, &embedded_with_other_edits(), &modules, &revision)
+                    .unwrap();
+            let reset = reset_hud_layout_at(&dir, &edited, &revision).unwrap();
+            assert_eq!(reset.layout().hud, kohbor_lab::embedded().layout().hud);
+            assert_eq!(reset.layout().banner.x_percent, 37.0);
+            assert_eq!(reset.config().danger_cooldown_ms, 60000);
+            assert_eq!(revision.load(Ordering::SeqCst), 2);
+            std::fs::remove_dir_all(dir).unwrap();
+        }
+
+        #[test]
+        fn reset_writes_the_fixed_profile_override_file() {
+            let dir = temp_data_dir("reset-file");
+            let reset =
+                reset_hud_layout_at(&dir, &kohbor_lab::embedded(), &AtomicU64::new(0)).unwrap();
+            let path = dir.join("lab").join("profile.override.json");
+            assert_eq!(reset.source(), &kohbor_lab::Source::Override(path.clone()));
+            assert!(path.is_file());
+            let saved: Value =
+                serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+            assert_eq!(saved["layout"]["hud"]["gmeter"]["x_percent"], json!(50.0));
+            std::fs::remove_dir_all(dir).unwrap();
+        }
+
+        #[test]
+        fn preview_deadline_is_atomic_and_uses_requested_duration() {
+            let preview_until = AtomicU64::new(0);
+            let deadline = set_hud_preview_at(&preview_until, 7, 10_000).unwrap();
+            assert_eq!(deadline, 17_000);
+            assert_eq!(preview_until.load(Ordering::SeqCst), deadline);
+        }
+
+        #[test]
+        fn preview_is_active_before_its_deadline_and_expires_at_deadline() {
+            let preview_until = AtomicU64::new(0);
+            set_hud_preview_at(&preview_until, 3, 1_000).unwrap();
+            assert!(preview_active_at(
+                preview_until.load(Ordering::SeqCst),
+                3_999
+            ));
+            assert!(!preview_active_at(
+                preview_until.load(Ordering::SeqCst),
+                4_000
+            ));
+        }
+
+        #[test]
+        fn preview_duration_must_be_from_one_through_sixty_seconds() {
+            let preview_until = AtomicU64::new(0);
+            assert!(set_hud_preview_at(&preview_until, 0, 0).is_err());
+            assert!(set_hud_preview_at(&preview_until, 61, 0).is_err());
+        }
     }
 }
 
@@ -381,6 +878,24 @@ pub mod dev {
         Err(UNAVAILABLE.to_owned())
     }
     #[tauri::command(async)]
+    pub fn lab_hud_layout_get() -> Result<Value, String> {
+        Err(UNAVAILABLE.to_owned())
+    }
+    #[tauri::command(async)]
+    pub fn lab_hud_layout_apply(modules: Value) -> Result<Value, String> {
+        let _ = modules;
+        Err(UNAVAILABLE.to_owned())
+    }
+    #[tauri::command(async)]
+    pub fn lab_hud_layout_reset() -> Result<Value, String> {
+        Err(UNAVAILABLE.to_owned())
+    }
+    #[tauri::command(async)]
+    pub fn lab_hud_preview(seconds: u64) -> Result<Value, String> {
+        let _ = seconds;
+        Err(UNAVAILABLE.to_owned())
+    }
+    #[tauri::command(async)]
     pub fn lab_reference_image() -> Result<Option<String>, String> {
         Err(UNAVAILABLE.to_owned())
     }
@@ -392,6 +907,26 @@ pub mod dev {
 #[allow(dead_code)]
 pub fn banner_layout() -> crate::overlay::BannerLayout {
     dev::banner_layout()
+}
+
+#[cfg(any(feature = "lab", debug_assertions))]
+pub fn initialize_saved(app: &tauri::AppHandle<tauri::Wry>) {
+    dev::initialize_saved(app)
+}
+
+#[cfg(any(feature = "lab", debug_assertions))]
+pub fn hud_layouts() -> [(crate::hud::HudModule, crate::hud::HudModuleLayout); 6] {
+    dev::hud_layouts()
+}
+
+#[cfg(any(feature = "lab", debug_assertions))]
+pub fn hud_layout_revision() -> u64 {
+    dev::hud_layout_revision()
+}
+
+#[cfg(any(feature = "lab", debug_assertions))]
+pub fn hud_preview_active() -> bool {
+    dev::hud_preview_active()
 }
 
 /// Parameters for a newly built detector.
@@ -470,6 +1005,24 @@ mod tests {
         assert_eq!(lab.scale, host.scale);
         assert_eq!(lab.enabled, host.enabled);
         assert_eq!(super::dev::banner_layout(), host);
+    }
+
+    #[cfg(any(feature = "lab", debug_assertions))]
+    #[test]
+    fn embedded_hud_defaults_equal_the_compiled_host_defaults() {
+        let embedded = kohbor_lab::embedded().layout().hud;
+        for (index, ((id, actual), (module, expected))) in kohbor_lab::HUD_MODULE_IDS
+            .iter()
+            .zip(embedded)
+            .zip(crate::hud::DEFAULT_HUD_LAYOUTS)
+            .enumerate()
+        {
+            assert_eq!(*id, module.as_str(), "module at index {index}");
+            assert_eq!(actual.x_percent, expected.x_percent, "{id}.x_percent");
+            assert_eq!(actual.y_percent, expected.y_percent, "{id}.y_percent");
+            assert_eq!(actual.scale, expected.scale, "{id}.scale");
+            assert_eq!(actual.enabled, expected.enabled, "{id}.enabled");
+        }
     }
 
     #[test]

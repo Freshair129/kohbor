@@ -42,6 +42,27 @@ export interface HudLayoutItem {
   enabled: boolean;
 }
 
+export interface HudLayoutEvent {
+  schema: 1;
+  strip_height_percent: number;
+  modules: readonly HudLayoutItem[];
+}
+
+export interface HudLayoutBounds {
+  x_percent: readonly [number, number];
+  y_percent: readonly [number, number];
+  scale: readonly [number, number];
+}
+
+export const HUD_DEFAULT_STRIP_HEIGHT_PERCENT = 9;
+export const HUD_LAYOUT_BOUNDS: HudLayoutBounds = {
+  x_percent: [0, 100],
+  y_percent: [0, 100],
+  scale: [0.2, 3.0],
+};
+
+const HUD_MODULE_IDS: readonly HudModuleId[] = ["gmeter", "kda", "gold", "gpm", "nw", "xpm"];
+
 export const HUD_DEFAULT_LAYOUT = [
   { id: "gmeter", x_percent: 50, y_percent: 5.5, scale: 0.65, enabled: true },
   { id: "kda", x_percent: 9.64, y_percent: 2.2, scale: 0.78, enabled: true },
@@ -50,6 +71,65 @@ export const HUD_DEFAULT_LAYOUT = [
   { id: "nw", x_percent: 21.02, y_percent: 2.2, scale: 0.78, enabled: true },
   { id: "xpm", x_percent: 24.82, y_percent: 2.2, scale: 0.78, enabled: true },
 ] as const satisfies readonly HudLayoutItem[];
+
+export const HUD_DEFAULT_LAYOUT_EVENT: HudLayoutEvent = {
+  schema: 1,
+  strip_height_percent: HUD_DEFAULT_STRIP_HEIGHT_PERCENT,
+  modules: HUD_DEFAULT_LAYOUT,
+};
+
+function isFiniteInRange(value: unknown, range: readonly [number, number]): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= range[0] && value <= range[1];
+}
+
+/** Parse exactly the six known module records. A malformed row invalidates the whole collection. */
+export function parseHudLayoutModules(input: unknown): HudLayoutItem[] | null {
+  if (!Array.isArray(input) || input.length !== HUD_MODULE_IDS.length) return null;
+  const ids = new Set<HudModuleId>();
+  const modules: HudLayoutItem[] = [];
+  for (const value of input) {
+    if (!record(value) || !exactKeys(value, ["id", "x_percent", "y_percent", "scale", "enabled"])) return null;
+    if (typeof value.id !== "string" || !HUD_MODULE_IDS.includes(value.id as HudModuleId)) return null;
+    const id = value.id as HudModuleId;
+    if (ids.has(id)) return null;
+    if (!isFiniteInRange(value.x_percent, HUD_LAYOUT_BOUNDS.x_percent)
+      || !isFiniteInRange(value.y_percent, HUD_LAYOUT_BOUNDS.y_percent)
+      || !isFiniteInRange(value.scale, HUD_LAYOUT_BOUNDS.scale)
+      || typeof value.enabled !== "boolean") return null;
+    ids.add(id);
+    modules.push({ id, x_percent: value.x_percent, y_percent: value.y_percent, scale: value.scale, enabled: value.enabled });
+  }
+  return ids.size === HUD_MODULE_IDS.length ? modules : null;
+}
+
+/** Strict all-or-nothing parser for the dev-only live layout event payload. */
+export function parseHudLayoutEvent(input: unknown): HudLayoutEvent | null {
+  if (!record(input) || !exactKeys(input, ["schema", "strip_height_percent", "modules"]) || input.schema !== 1) return null;
+  if (!isFiniteInRange(input.strip_height_percent, [HUD_DEFAULT_STRIP_HEIGHT_PERCENT, 100])) return null;
+  const modules = parseHudLayoutModules(input.modules);
+  if (modules === null) return null;
+  return { schema: 1, strip_height_percent: input.strip_height_percent, modules };
+}
+
+/** Preserve the current layout unless an entire valid event arrives. */
+export function applyHudLayoutEvent(current: HudLayoutEvent, input: unknown): HudLayoutEvent {
+  return parseHudLayoutEvent(input) ?? current;
+}
+
+export function visibleHudModules(layout: HudLayoutEvent): HudLayoutItem[] {
+  return layout.modules.filter((module) => module.enabled);
+}
+
+export function hudModulePlacement(item: HudLayoutItem, stripHeightPercent: number) {
+  const safeHeight = isFiniteInRange(stripHeightPercent, [HUD_DEFAULT_STRIP_HEIGHT_PERCENT, 100])
+    ? stripHeightPercent
+    : HUD_DEFAULT_STRIP_HEIGHT_PERCENT;
+  return {
+    left_vw: item.x_percent,
+    top_vh: (item.y_percent / safeHeight) * 100,
+    scale: item.scale,
+  };
+}
 
 const FIELD_NAMES = ["kills", "deaths", "assists", "gold", "gpm", "xpm"] as const;
 const AVAILABILITIES = new Set<HudAvailability>(["fresh", "stale", "unknown", "invalid", "unsupported"]);

@@ -1,6 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
-import { parseDescription, parseTrace, type Description, type Trace } from "./labModel";
-import { parseLayoutView, parsePreview, type BannerLayout, type LayoutView, type Preview } from "./labLayout";
+// @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
+import { parseDescription, parseTrace, type Description, type Trace } from "./labModel.ts";
+// @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
+import { parseLayoutView, parsePreview, type BannerLayout, type LayoutView, type Preview } from "./labLayout.ts";
+// @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
+import { parseLabHudLayoutReply, parseLabHudPreviewReply, type LabHudLayoutReply, type LabHudModule, type LabHudPreviewReply } from "./labHudLayout.ts";
+// @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
+import { createLabHudLayoutMock, MOCK_LAB_DESCRIPTION } from "./labHudMock.ts";
 
 export interface LabEdit {
   event: string;
@@ -12,8 +18,65 @@ function hostAvailable(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
+function browserMockRequested(): boolean {
+  return import.meta.env.DEV
+    && typeof window !== "undefined"
+    && new URLSearchParams(window.location.search).get("mock") === "1";
+}
+
+type LabHudMock = ReturnType<typeof createLabHudLayoutMock>;
+let browserHudMock: LabHudMock | null = null;
+let browserHudLayoutChannel: BroadcastChannel | null = null;
+
+function getBrowserHudMock(): LabHudMock {
+  if (browserHudMock !== null) return browserHudMock;
+  browserHudMock = createLabHudLayoutMock({
+    emit(event, payload) {
+      if (typeof BroadcastChannel !== "undefined") {
+        browserHudLayoutChannel ??= new BroadcastChannel("kohbor-mock-hud-layout");
+        browserHudLayoutChannel.postMessage(payload);
+      }
+      if (hostAvailable()) {
+        void invoke("plugin:event|emit", { event, payload }).catch(() => {});
+      } else {
+        window.dispatchEvent(new CustomEvent(event, { detail: payload }));
+      }
+    },
+  });
+  return browserHudMock;
+}
+
+export function stopLabHudMockEvents(): void {
+  browserHudMock?.stop();
+  browserHudLayoutChannel?.close();
+  browserHudLayoutChannel = null;
+}
+
+function mockArgsMatch(args: Record<string, unknown> | undefined, keys: readonly string[]): args is Record<string, unknown> {
+  if (args === undefined) return keys.length === 0;
+  const ownKeys = Object.keys(args);
+  return ownKeys.length === keys.length && keys.every((key) => Object.hasOwn(args, key));
+}
+
+function callLabHudMock(command: string, args?: Record<string, unknown>): unknown {
+  const mock = getBrowserHudMock();
+  if (command === "lab_hud_layout_get" && mockArgsMatch(args, [])) return mock.get();
+  if (command === "lab_hud_layout_apply" && mockArgsMatch(args, ["modules"]) && Array.isArray(args.modules)) {
+    return mock.apply(args.modules as LabHudModule[]);
+  }
+  if (command === "lab_hud_layout_reset" && mockArgsMatch(args, [])) return mock.reset();
+  if (command === "lab_hud_preview" && mockArgsMatch(args, ["seconds"]) && typeof args.seconds === "number") {
+    return mock.preview(args.seconds);
+  }
+  throw new Error(`Unsupported Lab mock command: ${command}`);
+}
+
 /** `null` when Lab is not available (release build, no KOHBOR_LAB=1, or no host). */
 export async function labStatus(): Promise<Description | null> {
+  if (browserMockRequested()) {
+    getBrowserHudMock().start();
+    return parseDescription(MOCK_LAB_DESCRIPTION);
+  }
   if (!hostAvailable()) return null;
   try {
     const value = await invoke<unknown>("lab_status");
@@ -27,6 +90,7 @@ export async function labStatus(): Promise<Description | null> {
 }
 
 export async function labLastTrace(): Promise<Trace | null> {
+  if (browserMockRequested()) return null;
   return parseTrace(await invoke<unknown>("lab_last_trace"));
 }
 
@@ -65,6 +129,44 @@ export async function labLayoutExport(): Promise<string> {
 
 /** Data URL of the dev-only reference screenshot, or `null` when it is not installed. */
 export async function labReferenceImage(): Promise<string | null> {
+  if (browserMockRequested()) return null;
   const value = await invoke<unknown>("lab_reference_image");
   return typeof value === "string" ? value : null;
 }
+
+export type LabHudInvoke = (command: string, args?: Record<string, unknown>) => Promise<unknown>;
+
+export function createLabHudLayoutApi(call: LabHudInvoke) {
+  return {
+    async get(): Promise<LabHudLayoutReply> {
+      const reply = parseLabHudLayoutReply(await call("lab_hud_layout_get"));
+      if (reply === null) throw new Error("LAB_HUD_BAD_RESPONSE");
+      return reply;
+    },
+    async apply(modules: readonly LabHudModule[]): Promise<LabHudLayoutReply> {
+      const reply = parseLabHudLayoutReply(await call("lab_hud_layout_apply", { modules }));
+      if (reply === null) throw new Error("LAB_HUD_BAD_RESPONSE");
+      return reply;
+    },
+    async reset(): Promise<LabHudLayoutReply> {
+      const reply = parseLabHudLayoutReply(await call("lab_hud_layout_reset"));
+      if (reply === null) throw new Error("LAB_HUD_BAD_RESPONSE");
+      return reply;
+    },
+    async preview(seconds: number): Promise<LabHudPreviewReply> {
+      if (!Number.isInteger(seconds) || seconds < 1 || seconds > 60) throw new RangeError("LAB_HUD_PREVIEW_SECONDS");
+      const reply = parseLabHudPreviewReply(await call("lab_hud_preview", { seconds }));
+      if (reply === null) throw new Error("LAB_HUD_BAD_RESPONSE");
+      return reply;
+    },
+  };
+}
+
+const labHudLayoutApi = createLabHudLayoutApi((command, args) => browserMockRequested()
+  ? Promise.resolve(callLabHudMock(command, args))
+  : invoke<unknown>(command, args));
+
+export const labHudLayoutGet = () => labHudLayoutApi.get();
+export const labHudLayoutApply = (modules: readonly LabHudModule[]) => labHudLayoutApi.apply(modules);
+export const labHudLayoutReset = () => labHudLayoutApi.reset();
+export const labHudPreview = (seconds: number) => labHudLayoutApi.preview(seconds);
