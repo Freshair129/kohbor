@@ -308,8 +308,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/host.rs",
-      "bytes": 48878,
-      "sha256": "90870b182ef15905431594246bed32692891dd424c3f80337b820a61b06fe53f"
+      "bytes": 49428,
+      "sha256": "727987f016d2333732362de333f94f5903873eb2c601de696efd5588eeef940e"
     },
     {
       "path": "apps/desktop/src-tauri/src/hotkeys.rs",
@@ -383,8 +383,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/media/service.rs",
-      "bytes": 76436,
-      "sha256": "0cd578453ad62b1cc6a039a5316a442e0ace54c1270136fafd2d5676debbe929"
+      "bytes": 80292,
+      "sha256": "8e95b293b950d88349624426b81d43fc38f67c34829c826a75dd8de947562c8d"
     },
     {
       "path": "apps/desktop/src-tauri/src/overlay.rs",
