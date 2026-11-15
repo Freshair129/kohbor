@@ -1884,6 +1884,7 @@ dependencies = [
  "kohbor-events",
  "kohbor-game-assets",
  "kohbor-gsi",
+ "kohbor-lab",
  "kohbor-minimap-cv",
  "kohbor-pack",
  "kohbor-pack-author",

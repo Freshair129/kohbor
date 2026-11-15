@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { AudioHistory } from "./AudioHistory";
 import { AudioMuteControl, AudioPanel, useAudioMute } from "./AudioPanel";
 import { copy, seconds, type Locale } from "./copy";
 import { DemoPanel } from "./DemoPanel";
+
+/** Dev-only (docs/design/KOHBOR-LAB.md): the guard lets a release bundle drop the Lab code. */
+const LabPanel = import.meta.env.DEV ? lazy(() => import("./lab/Lab").then((m) => ({ default: m.Lab }))) : null;
 import { Deck } from "./deck/Deck";
 import { deckStateReasonForLocale, deriveDeckState } from "./deck/deckState";
 import { Guide } from "./Guide";
@@ -274,6 +277,11 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
               <div className="shell-demo-panel">
                 <DemoPanel />
               </div>
+              {LabPanel && (
+                <Suspense fallback={null}>
+                  <LabPanel />
+                </Suspense>
+              )}
             </div>
             <AboutPanel view={version} locale={displayLocale} />
           </div>

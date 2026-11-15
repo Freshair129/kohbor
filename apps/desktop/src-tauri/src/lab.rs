@@ -111,7 +111,8 @@ pub mod dev {
     #[tauri::command(async)]
     pub fn lab_apply_edits(edits: Vec<Edit>) -> Result<Value, String> {
         require()?;
-        let path = std::env::var("KOHBOR_LAB_PROFILE").map_err(|_| "NO_OVERRIDE_PATH".to_owned())?;
+        let path =
+            std::env::var("KOHBOR_LAB_PROFILE").map_err(|_| "NO_OVERRIDE_PATH".to_owned())?;
         let path = std::path::PathBuf::from(path);
         with_slot(|s| {
             let list: Vec<(&str, &str, Value)> = edits
@@ -123,8 +124,7 @@ pub mod dev {
                 .effective
                 .with_edits(&list)
                 .map_err(|e| format!("{}: {}", e.code, e.detail))?;
-            kohbor_lab::dev_override::save(&path, &edited)
-                .map_err(|_| "SAVE_FAILED".to_owned())?;
+            kohbor_lab::dev_override::save(&path, &edited).map_err(|_| "SAVE_FAILED".to_owned())?;
             let edited = edited.with_source(kohbor_lab::Source::Override(path.clone()));
             s.resolved.effective = edited;
             s.resolved.source = kohbor_lab::Source::Override(path);
@@ -180,4 +180,54 @@ pub fn observe(detector: &mut Detector, tick: &Tick) -> Vec<Event> {
 #[cfg(not(any(feature = "lab", debug_assertions)))]
 pub fn observe(detector: &mut Detector, tick: &Tick) -> Vec<Event> {
     detector.observe(tick)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use kohbor_events::Phase;
+
+    /// The host path must emit exactly what the plain detector emits (release and dev).
+    #[test]
+    fn host_observe_equals_plain_observe_on_the_golden_replay() {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../../fixtures/health-danger-golden.json"
+        );
+        let fixture: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(path).expect("golden fixture")).unwrap();
+        let mut checked = 0;
+        for trace in fixture["traces"].as_array().unwrap() {
+            let mut plain = Detector::with_config(Config::default());
+            let mut host = Detector::with_config(current_config());
+            for sample in trace["samples"].as_array().unwrap() {
+                let tick = Tick {
+                    at_ms: sample["t_ms"].as_u64().unwrap(),
+                    session_epoch: 1,
+                    phase: Phase::Live,
+                    trusted: sample["availability"] == "fresh",
+                    kills: Some(0),
+                    deaths: Some(0),
+                    kill_streak: None,
+                    combined_score: Some(0),
+                    level: Some(1),
+                    hp: sample["hp"].as_u64().map(|n| n as u32),
+                    max_hp: sample["max_hp"].as_u64().map(|n| n as u32),
+                    mana_percent: Some(100),
+                    alive: sample["alive"].as_bool(),
+                };
+                assert_eq!(observe(&mut host, &tick), plain.observe(&tick));
+                checked += 1;
+            }
+        }
+        assert!(checked > 20);
+    }
+
+    #[test]
+    fn default_host_config_is_the_detector_default() {
+        // Dev builds without KOHBOR_LAB set resolve to the embedded default.
+        if std::env::var("KOHBOR_LAB").is_err() {
+            assert_eq!(current_config(), Config::default());
+        }
+    }
 }

@@ -378,7 +378,7 @@ impl Shared {
             last_admitted: None,
             last_loadout: OwnLoadout::unknown(),
             sessions,
-            detector: Detector::new(),
+            detector: Detector::with_config(crate::lab::current_config()),
             detector_epoch: None,
             events: VecDeque::with_capacity(MAX_STORED_EVENTS),
             started_at,
@@ -511,7 +511,7 @@ impl Shared {
     }
 
     fn reset_detector(&mut self) {
-        self.detector = Detector::new();
+        self.detector = Detector::with_config(crate::lab::current_config());
         self.detector_epoch = None;
     }
 
@@ -689,7 +689,7 @@ impl Shared {
                 if let Some(epoch) = self.sessions.current().map(|session| session.epoch) {
                     let at_ms = duration_ms(arrival.saturating_duration_since(self.started_at));
                     let tick = tick_from_admitted(admitted, at_ms, epoch, true);
-                    let detected = self.detector.observe(&tick);
+                    let detected = crate::lab::observe(&mut self.detector, &tick);
                     let detected_at = Instant::now();
                     if !detected.is_empty() {
                         if let Some(tx) = &self.engine {

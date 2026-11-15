@@ -507,7 +507,13 @@ pub fn run() {
         capture_host::capture_accept_proposal,
         capture_host::capture_confirm_crop,
         commands::demo_available,
-        commands::demo_trigger
+        commands::demo_trigger,
+        lab::dev::lab_status,
+        lab::dev::lab_describe,
+        lab::dev::lab_last_trace,
+        lab::dev::lab_export,
+        lab::dev::lab_apply_edits,
+        lab::dev::lab_replay
     ]);
     #[cfg(not(any(feature = "demo", debug_assertions)))]
     let builder = builder.invoke_handler(tauri::generate_handler![
@@ -687,6 +693,7 @@ mod containment_failure_tests {
 }
 
 mod demo;
+mod lab;
 mod overlay;
 
 #[cfg(test)]
