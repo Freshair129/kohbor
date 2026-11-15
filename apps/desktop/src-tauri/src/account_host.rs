@@ -2390,14 +2390,16 @@ impl AccountHost {
         let callback_result = self.with_operation(|guard| {
             check_browser_wait(request.cancelled, deadline)?;
             // Keep session contents unread while recovery is pending or unreadable.
-            if matches!(guard.load_recovery_marker(), Ok(RecoveryMarker::Clear)) {
-                if guard
+            if guard
+                .load_recovery_marker()
+                .map_err(|_| BrowserSignInError::Io)?
+                == RecoveryMarker::Clear
+                && guard
                     .read_session_file_revision()
                     .map_err(|_| BrowserSignInError::Io)?
                     != session_revision
-                {
-                    return Err(BrowserSignInError::Cancelled);
-                }
+            {
+                return Err(BrowserSignInError::Cancelled);
             }
             Ok(client.deliver_callback(
                 (&callback.state, &callback.code),
