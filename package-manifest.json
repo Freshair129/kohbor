@@ -24,12 +24,12 @@
     {
       "path": "Cargo.lock",
       "bytes": 121690,
-      "sha256": "112a1a4330e12b8d0f19c983f4ca25cecf04e1a2e8ddbc3e58552504646238a5"
+      "sha256": "990d2a154bbe2da0b73b6c456af59526c5a22bfb35faaeca1d24064f238d8310"
     },
     {
       "path": "Cargo.toml",
       "bytes": 854,
-      "sha256": "127afb0094b50347827b01ce25571c314b1a512dd7c213418841095e403d9418"
+      "sha256": "5a9385a559c95eb1b4949f60e9af6275bbba386a0e0d73ba22a2b69a49846859"
     },
     {
       "path": "GUIDE-TH.md",
@@ -74,7 +74,7 @@
     {
       "path": "apps/desktop/package.json",
       "bytes": 683,
-      "sha256": "626392f977571e00e2ccf45375f91228d9af475eb645201a512b7f420864b609"
+      "sha256": "ce7ece8ae8a3a62b9e2d1ff2561f0d472654379976056c0d2579dda891a06bc2"
     },
     {
       "path": "apps/desktop/pnpm-lock.yaml",
@@ -115,6 +115,11 @@
       "path": "apps/desktop/src-tauri/capabilities/overlay.json",
       "bytes": 210,
       "sha256": "50dca67cae49a29f8a8ff625abdf09eccd10f2f88482b4026f33a702b5acd46f"
+    },
+    {
+      "path": "apps/desktop/src-tauri/data/item-prices.json",
+      "bytes": 6019,
+      "sha256": "1d9fdd96788b91ed4cb1b8db140f8575540916aa654d15dbc859acd1b7259fd3"
     },
     {
       "path": "apps/desktop/src-tauri/icons/128x128.png",
@@ -2670,6 +2675,11 @@
       "path": "docs/governance/RISK-REGISTER.md",
       "bytes": 4414,
       "sha256": "249f66527ee8ff7940c29c238f6b4071fc5e9852258f82ce2e844ce5a8491460"
+    },
+    {
+      "path": "docs/governance/THIRD-PARTY-DATA.md",
+      "bytes": 1617,
+      "sha256": "2017da2c3df788ff8d2d392a3dad47194ca917e1e6d06818b0a9b0027e72a0bb"
     },
     {
       "path": "docs/operations/GSI-REPLAY.md",
