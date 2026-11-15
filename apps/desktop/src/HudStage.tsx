@@ -147,6 +147,7 @@ export function HudStage({
 
   const content = renderWhenHudVisible(state.visible, () => (
     <div className="hud-stage" role="status" aria-live="off" aria-label={hudCopy.stripLabel} lang={HUD_LANGUAGE} style={{ "--hud-overlay-scale": overlayScale } as CSSProperties}>
+      {state.synthetic === true && <div className="hud-synthetic-badge" data-synthetic="true">{hudCopy.syntheticBadge}</div>}
       {visibleHudModules(hudLayout).map((item) => (
         <div className={`hud-module hud-module-${item.id}`} key={item.id} style={modulePosition(item, hudLayout.strip_height_percent)}>
           {item.id === "gmeter"

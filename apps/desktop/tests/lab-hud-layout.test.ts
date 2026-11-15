@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   changeHudLayoutDraft,
   clampHudModule,
+  commitHudNumber,
   computeHudStripHeightPercent,
   confirmHudLayout,
   createHudLayoutEditorState,
@@ -295,4 +296,48 @@ test("Lab mock rejects partial or malformed module application without publishin
   assert.throws(() => mock.apply(modules().slice(1)), /MOCK_HUD_LAYOUT_INVALID/);
   assert.equal(emissions, 0);
   assert.equal(mock.get().source, "embedded");
+});
+
+test("F2: edits made while a save is in flight survive the confirmation", () => {
+  const confirmed = layoutReply();
+  const state0 = createHudLayoutEditorState(confirmed);
+  const sent = updateHudModule(state0.draft, "kda", { x_percent: 30 }, HUD_LAYOUT_BOUNDS);
+  const state1 = changeHudLayoutDraft(state0, sent);
+  const edited = updateHudModule(state1.draft, "gold", { y_percent: 20 }, HUD_LAYOUT_BOUNDS);
+  const state2 = changeHudLayoutDraft(state1, edited);
+  const reply = layoutReply({ modules: sent, source: "override" });
+  const after = confirmHudLayout(state2, reply, sent);
+  assert.deepEqual(after.confirmed, reply);
+  assert.deepEqual(after.draft, edited, "the newer edit is kept");
+  assert.equal(hudLayoutHasUnsavedChanges(after), true);
+});
+
+test("F2: unchanged draft is replaced by the confirmed reply; no sent snapshot behaves as before", () => {
+  const state0 = createHudLayoutEditorState(layoutReply());
+  const sent = updateHudModule(state0.draft, "kda", { x_percent: 30 }, HUD_LAYOUT_BOUNDS);
+  const state1 = changeHudLayoutDraft(state0, sent);
+  const reply = layoutReply({ modules: sent, source: "override" });
+  assert.equal(hudLayoutHasUnsavedChanges(confirmHudLayout(state1, reply, sent)), false);
+  assert.equal(hudLayoutHasUnsavedChanges(confirmHudLayout(state1, reply)), false);
+});
+
+test("F4: typed numbers commit on blur only and clamp then", () => {
+  const bounds = HUD_LAYOUT_BOUNDS.scale;
+  assert.equal(commitHudNumber("", bounds), null);
+  assert.equal(commitHudNumber("abc", bounds), null);
+  assert.equal(commitHudNumber("1", bounds), 1);
+  assert.equal(commitHudNumber("0.1", bounds), bounds[0]);
+  assert.equal(commitHudNumber("9", bounds), bounds[1]);
+  assert.equal(commitHudNumber("-1", HUD_LAYOUT_BOUNDS.x_percent), 0);
+  assert.equal(commitHudNumber("12.5", HUD_LAYOUT_BOUNDS.x_percent), 12.5);
+});
+
+
+test("F5/F6: editor source keeps the editor mounted across tabs and exposes slider value attributes", async () => {
+  const { readFileSync } = await import("node:fs");
+  const editor = readFileSync(new URL("../src/lab/HudLayoutEditor.tsx", import.meta.url), "utf8");
+  const lab = readFileSync(new URL("../src/lab/Lab.tsx", import.meta.url), "utf8");
+  for (const attribute of ["aria-valuemin", "aria-valuemax", "aria-valuenow", "aria-valuetext"]) assert.ok(editor.includes(attribute), attribute);
+  assert.ok(lab.includes("hidden={tab !== \"hud\"}"), "HUD editor is hidden, not unmounted, on tab switch");
+  assert.ok(lab.includes("alertdialog"), "closing the Lab with unsaved HUD edits asks first");
 });

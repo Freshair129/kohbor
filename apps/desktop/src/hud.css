@@ -171,3 +171,15 @@ body.hud-body #root {
 .hud-gmeter-critical .hud-gmeter-label {
   color: var(--hud-bad);
 }
+
+.hud-synthetic-badge {
+  position: absolute;
+  right: 0.5vw;
+  top: 0;
+  padding: 0 0.6vw;
+  font: 700 0.9vw/1.6 system-ui, sans-serif;
+  color: #111;
+  background: #ffd23f;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+}

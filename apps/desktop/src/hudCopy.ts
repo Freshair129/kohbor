@@ -17,6 +17,7 @@ const english = {
     xpm: "XPM",
   },
   staleFlag: "stale",
+  syntheticBadge: "SYNTHETIC PREVIEW",
 } as const;
 
 const thai = {
@@ -37,6 +38,7 @@ const thai = {
     xpm: "XPM",
   },
   staleFlag: "ข้อมูลเก่า",
+  syntheticBadge: "ตัวอย่างสังเคราะห์",
 } as const;
 
 export type HudCopy = { [K in keyof typeof english]: (typeof english)[K] extends string ? string : { [P in keyof (typeof english)[K]]: string } };

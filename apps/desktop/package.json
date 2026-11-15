@@ -1,7 +1,7 @@
 {
   "name": "kohbor-desktop",
   "private": true,
-  "version": "0.3.0-dev.16",
+  "version": "0.3.0-dev.17",
   "type": "module",
   "packageManager": "pnpm@12.18.0",
   "engines": {

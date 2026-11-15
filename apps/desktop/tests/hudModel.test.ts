@@ -450,3 +450,17 @@ test("HUD copy: English is shown first, Thai stays one switch away, unknown neve
     assert.doesNotMatch(JSON.stringify(table), /G-Maiden/i);
   }
 });
+
+test("F3: parseHudState accepts only the optional synthetic marker true", () => {
+  const parseHudState = api(model, "parseHudState");
+  const marked = parseHudState({ ...validHud(), synthetic: true });
+  assert.equal(marked.synthetic, true);
+  assert.equal(marked.visible, true);
+  assert.equal(parseHudState(validHud()).synthetic, undefined);
+  for (const bad of [false, 1, "true", null]) {
+    const parsed = parseHudState({ ...validHud(), synthetic: bad });
+    assert.equal(parsed.synthetic, undefined, String(bad));
+    assertAllUnknown(parsed);
+  }
+});
+

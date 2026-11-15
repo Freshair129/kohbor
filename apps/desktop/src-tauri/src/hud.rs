@@ -275,11 +275,31 @@ fn synthetic_preview_state() -> Value {
             "xpm": {"value": 789, "availability": "fresh"},
         },
         "net_worth": {"value": 21450, "availability": "fresh", "approximate": false},
+        // Marker for the renderer (extra key only in this Lab preview payload): the HUD shows a
+        // visible SYNTHETIC badge so the numbers can never be read as an observed match state.
+        "synthetic": true,
     })
+}
+
+/// True while the REAL (non-preview) state says the HUD is visible, i.e. a verified owner is in a
+/// pregame/live match. The Lab preview refuses to run then, so synthetic numbers never replace
+/// real match data.
+#[cfg(any(feature = "lab", debug_assertions))]
+static REAL_HUD_VISIBLE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+#[cfg(any(feature = "lab", debug_assertions))]
+pub fn real_hud_visible() -> bool {
+    REAL_HUD_VISIBLE.load(std::sync::atomic::Ordering::SeqCst)
 }
 
 #[cfg(any(feature = "lab", debug_assertions))]
 fn preview_state(snapshot: &Value, preview_active: bool) -> Value {
+    REAL_HUD_VISIBLE.store(
+        build_hud_state(snapshot)["visible"]
+            .as_bool()
+            .unwrap_or(false),
+        std::sync::atomic::Ordering::SeqCst,
+    );
     if preview_active {
         synthetic_preview_state()
     } else {
@@ -892,8 +912,20 @@ mod tests {
                     "gpm":{"value":456,"availability":"fresh"},
                     "xpm":{"value":789,"availability":"fresh"}
                 },
-                "net_worth":{"value":21450,"availability":"fresh","approximate":false}
+                "net_worth":{"value":21450,"availability":"fresh","approximate":false},
+                "synthetic": true
             })
+        );
+    }
+
+    #[test]
+    fn real_data_never_carries_the_synthetic_marker() {
+        let live = admitted_snapshot(Phase::Live, Ownership::Verified, 0);
+        let real = build_hud_state(&live);
+        assert!(real.get("synthetic").is_none());
+        assert_eq!(
+            synthetic_preview_state()["synthetic"],
+            serde_json::json!(true)
         );
     }
 

@@ -214,8 +214,27 @@ export function changeHudLayoutDraft(state: HudLayoutEditorState, draft: LabHudM
   return { ...state, draft: draft.map((module) => ({ ...module })), error: null };
 }
 
-export function confirmHudLayout(state: HudLayoutEditorState, confirmed: LabHudLayoutReply): HudLayoutEditorState {
+/**
+ * Adopt a host reply as the confirmed layout. When `sent` (the snapshot that was submitted) is given
+ * and the draft has been edited since, the newer edits are kept instead of being discarded.
+ */
+export function confirmHudLayout(
+  state: HudLayoutEditorState,
+  confirmed: LabHudLayoutReply,
+  sent?: readonly LabHudModule[],
+): HudLayoutEditorState {
+  if (sent !== undefined && !sameHudLayout(state.draft, sent)) {
+    return { ...state, confirmed, error: null };
+  }
   return createHudLayoutEditorState(confirmed);
+}
+
+/** Commit a typed number: null while the text is not (yet) a finite number; otherwise clamped to the bounds. */
+export function commitHudNumber(text: string, bounds: readonly [number, number]): number | null {
+  if (text.trim() === "") return null;
+  const value = Number(text);
+  if (!Number.isFinite(value)) return null;
+  return Math.min(bounds[1], Math.max(bounds[0], value));
 }
 
 export function failHudLayoutAction(state: HudLayoutEditorState, error: string): HudLayoutEditorState {

@@ -21,7 +21,23 @@ import "./lab.css";
 
 const POLL_MS = 1000;
 
-function LabStudio({ onClose }: { onClose: () => void }) {
+function LabStudio({
+  onClose,
+  hudUnsaved,
+  onHudUnsaved,
+  closePending,
+  onConfirmClose,
+  onCancelClose,
+}: {
+  onClose: () => void;
+  hudUnsaved: boolean;
+  onHudUnsaved: (unsaved: boolean) => void;
+  closePending: boolean;
+  onConfirmClose: () => void;
+  onCancelClose: () => void;
+}) {
+  // The HUD editor stays mounted once visited so switching tabs never drops its unsaved draft.
+  const [hudVisited, setHudVisited] = useState(false);
   const [description, setDescription] = useState<Description | null>(null);
   const [trace, setTrace] = useState<Trace | null>(null);
   const [selected, setSelected] = useState<string>("health_danger");
@@ -95,8 +111,8 @@ function LabStudio({ onClose }: { onClose: () => void }) {
           <button type="button" role="tab" aria-selected={tab === "overlay"} onClick={() => setTab("overlay")}>
             Overlay editor
           </button>
-          <button type="button" role="tab" aria-selected={tab === "hud"} onClick={() => setTab("hud")}>
-            HUD layout
+          <button type="button" role="tab" aria-selected={tab === "hud"} onClick={() => { setTab("hud"); setHudVisited(true); }}>
+            HUD layout{hudUnsaved ? " •" : ""}
           </button>
         </div>
         <button
@@ -227,14 +243,25 @@ function LabStudio({ onClose }: { onClose: () => void }) {
         </div>
       </div>
 
+      {closePending && (
+        <div className="lab-warn" role="alertdialog" aria-label="ยืนยันการปิด Lab">
+          <p>HUD layout มีการเปลี่ยนแปลงที่ยังไม่บันทึก การปิด Lab จะทิ้งการแก้ไขเหล่านี้</p>
+          <button type="button" onClick={onConfirmClose}>ปิดและทิ้ง</button>
+          <button type="button" onClick={onCancelClose}>กลับไปแก้</button>
+        </div>
+      )}
+
       {exported !== null && (
         <textarea className="lab-export" readOnly value={exported} aria-label="Exported profile" />
       )}
         </>
       ) : tab === "overlay" ? (
         <OverlayEditor />
-      ) : (
-        <HudLayoutEditor />
+      ) : null}
+      {(hudVisited || tab === "hud") && (
+        <div hidden={tab !== "hud"}>
+          <HudLayoutEditor onUnsavedChange={onHudUnsaved} />
+        </div>
       )}
       </div>
     </section>
@@ -249,6 +276,12 @@ function LabStudio({ onClose }: { onClose: () => void }) {
 export function Lab() {
   const [available, setAvailable] = useState(false);
   const [open, setOpen] = useState(false);
+  const [hudUnsaved, setHudUnsaved] = useState(false);
+  const [closePending, setClosePending] = useState(false);
+  const requestClose = () => {
+    if (hudUnsaved) setClosePending(true);
+    else setOpen(false);
+  };
 
   useEffect(() => {
     let active = true;
@@ -264,16 +297,26 @@ export function Lab() {
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && document.fullscreenElement === null) setOpen(false);
+      if (event.key === "Escape" && document.fullscreenElement === null) {
+        if (hudUnsaved) setClosePending(true);
+        else setOpen(false);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
+  }, [open, hudUnsaved]);
 
   if (!available) return null;
   return open ? (
     <div className="lab-overlay-root">
-      <LabStudio onClose={() => setOpen(false)} />
+      <LabStudio
+        onClose={requestClose}
+        hudUnsaved={hudUnsaved}
+        onHudUnsaved={setHudUnsaved}
+        closePending={closePending}
+        onConfirmClose={() => { setClosePending(false); setHudUnsaved(false); setOpen(false); }}
+        onCancelClose={() => setClosePending(false)}
+      />
     </div>
   ) : (
     <button type="button" className="lab-launcher" onClick={() => setOpen(true)}>

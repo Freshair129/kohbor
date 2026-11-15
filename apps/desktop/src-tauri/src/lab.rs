@@ -273,13 +273,16 @@ pub mod dev {
     }
 
     pub fn hud_layouts() -> [(crate::hud::HudModule, crate::hud::HudModuleLayout); 6] {
-        if let Some(layouts) = *hud_layout_override()
+        // Copy the option out FIRST so the OVERRIDE guard is dropped before the SLOT lock is taken.
+        // (An `if let` scrutinee keeps its temporary guard alive through the `else` branch in
+        // edition 2021, which gave the lock order OVERRIDE -> SLOT here while apply/reset take
+        // SLOT -> OVERRIDE: a deadlock when the first save overlapped the 500 ms HUD poll.)
+        let saved = *hud_layout_override()
             .lock()
-            .unwrap_or_else(|error| error.into_inner())
-        {
-            host_hud_layouts_from_profile(&layouts)
-        } else {
-            with_slot(|s| host_hud_layouts(&s.resolved.effective))
+            .unwrap_or_else(|error| error.into_inner());
+        match saved {
+            Some(layouts) => host_hud_layouts_from_profile(&layouts),
+            None => with_slot(|s| host_hud_layouts(&s.resolved.effective)),
         }
     }
 
@@ -549,9 +552,21 @@ pub mod dev {
         })
     }
 
+    /// The preview is refused while the real HUD is visible (a verified match), so synthetic numbers
+    /// never replace real match data.
+    pub(super) fn preview_refusal(real_hud_visible: bool) -> Result<(), String> {
+        if real_hud_visible {
+            Err("MATCH_ACTIVE".to_owned())
+        } else {
+            Ok(())
+        }
+    }
+
     #[tauri::command(async)]
     pub fn lab_hud_preview(seconds: u64) -> Result<Value, String> {
         require()?;
+        // Never replace real match data with synthetic numbers.
+        preview_refusal(crate::hud::real_hud_visible())?;
         let preview_until_ms = set_hud_preview_at(&HUD_PREVIEW_UNTIL_MS, seconds, epoch_now_ms())?;
         Ok(json!({"preview_until_ms": preview_until_ms}))
     }
@@ -798,6 +813,12 @@ pub mod dev {
         }
 
         #[test]
+        fn preview_is_refused_while_the_real_hud_is_visible() {
+            assert_eq!(preview_refusal(true), Err("MATCH_ACTIVE".to_owned()));
+            assert_eq!(preview_refusal(false), Ok(()));
+        }
+
+        #[test]
         fn preview_deadline_is_atomic_and_uses_requested_duration() {
             let preview_until = AtomicU64::new(0);
             let deadline = set_hud_preview_at(&preview_until, 7, 10_000).unwrap();
@@ -824,6 +845,50 @@ pub mod dev {
             let preview_until = AtomicU64::new(0);
             assert!(set_hud_preview_at(&preview_until, 0, 0).is_err());
             assert!(set_hud_preview_at(&preview_until, 61, 0).is_err());
+        }
+    }
+
+    /// Lock-order regression: apply/reset take SLOT then OVERRIDE; `hud_layouts` must never hold
+    /// OVERRIDE while it takes SLOT. Two threads hammer both orders; a lock-order inversion would
+    /// hang, and the watchdog turns that hang into a failure instead of a stuck test run.
+    #[cfg(test)]
+    mod lock_order_tests {
+        use super::*;
+        use std::sync::mpsc;
+        use std::time::Duration;
+
+        #[test]
+        fn hud_layouts_never_holds_the_override_lock_while_taking_the_slot_lock() {
+            const ROUNDS: usize = 20_000;
+            let defaults = kohbor_lab::embedded().layout().hud;
+            let (done_tx, done_rx) = mpsc::channel();
+            let writer_tx = done_tx.clone();
+            let writer = std::thread::spawn(move || {
+                for _ in 0..ROUNDS {
+                    // The same order as lab_hud_layout_apply: SLOT, then OVERRIDE.
+                    with_slot(|_| set_hud_layout_override(defaults));
+                    *hud_layout_override()
+                        .lock()
+                        .unwrap_or_else(|error| error.into_inner()) = None;
+                }
+                let _ = writer_tx.send("writer");
+            });
+            let reader = std::thread::spawn(move || {
+                for _ in 0..ROUNDS {
+                    let _ = hud_layouts();
+                }
+                let _ = done_tx.send("reader");
+            });
+            for _ in 0..2 {
+                done_rx
+                    .recv_timeout(Duration::from_secs(60))
+                    .expect("lock-order inversion between hud_layouts and the apply path");
+            }
+            writer.join().unwrap();
+            reader.join().unwrap();
+            *hud_layout_override()
+                .lock()
+                .unwrap_or_else(|error| error.into_inner()) = None;
         }
     }
 }

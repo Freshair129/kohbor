@@ -6,6 +6,7 @@ import {
   createHudLayoutEditorState,
   failHudLayoutAction,
   hudLayoutHasUnsavedChanges,
+  commitHudNumber,
   hudModuleBox,
   modulesOutsideHudStrip,
   nudgeHudModule,
@@ -38,12 +39,51 @@ interface DragState {
   modules: readonly LabHudModule[];
 }
 
-export function HudLayoutEditor() {
+interface NumberFieldProps {
+  label: string;
+  bounds: readonly [number, number];
+  step: number;
+  value: number;
+  onCommit: (value: number) => void;
+}
+
+/** Keeps the typed text locally; the value is clamped and committed on blur / Enter, never per keystroke. */
+function HudNumberField({ label, bounds, step, value, onCommit }: NumberFieldProps) {
+  const [text, setText] = useState<string | null>(null);
+  const commit = () => {
+    if (text === null) return;
+    const next = commitHudNumber(text, bounds);
+    if (next !== null) onCommit(next);
+    setText(null);
+  };
+  return (
+    <label className="lab-hud-field">
+      {label} ({bounds[0]}–{bounds[1]})
+      <input
+        type="number"
+        min={bounds[0]}
+        max={bounds[1]}
+        step={step}
+        value={text ?? String(value)}
+        onChange={(event) => setText(event.currentTarget.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") commit();
+          if (event.key === "Escape") setText(null);
+        }}
+      />
+    </label>
+  );
+}
+
+export function HudLayoutEditor({ onUnsavedChange }: { onUnsavedChange?: (unsaved: boolean) => void } = {}) {
   const [editor, setEditor] = useState<HudLayoutEditorState | null>(null);
   const [selected, setSelected] = useState<HudModuleId>("gmeter");
   const [reference, setReference] = useState<string | null>(null);
   const [previewRequested, setPreviewRequested] = useState(false);
   const [loadingError, setLoadingError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
   const canvas = useRef<HTMLDivElement | null>(null);
   const canvasWrap = useRef<HTMLDivElement | null>(null);
   const drag = useRef<DragState | null>(null);
@@ -63,6 +103,11 @@ export function HudLayoutEditor() {
       active = false;
     };
   }, []);
+
+  const unsavedNow = editor !== null && hudLayoutHasUnsavedChanges(editor);
+  useEffect(() => {
+    onUnsavedChange?.(unsavedNow);
+  }, [unsavedNow, onUnsavedChange]);
 
   if (editor === null) {
     return <section className="lab-hud-layout" aria-labelledby="lab-hud-layout-title">
@@ -130,27 +175,42 @@ export function HudLayoutEditor() {
   };
 
   const numberField = (label: string, key: "x_percent" | "y_percent" | "scale", step: number) => (
-    <label className="lab-hud-field">
-      {label} ({editor.confirmed.bounds[key][0]}–{editor.confirmed.bounds[key][1]})
-      <input
-        type="number"
-        min={editor.confirmed.bounds[key][0]}
-        max={editor.confirmed.bounds[key][1]}
-        step={step}
-        value={selectedModule[key]}
-        onChange={(event) => {
-          const value = event.currentTarget.valueAsNumber;
-          if (Number.isFinite(value)) updateSelected({ [key]: value });
-        }}
-      />
-    </label>
+    <HudNumberField
+      key={`${selectedModule.id}-${key}`}
+      label={label}
+      bounds={editor.confirmed.bounds[key]}
+      step={step}
+      value={selectedModule[key]}
+      onCommit={(value) => updateSelected({ [key]: value })}
+    />
   );
 
   const runAction = <T,>(action: () => Promise<T>, onSuccess: (value: T) => void) => {
+    if (busy) return;
+    setBusy(true);
     setEditor((state) => state === null ? state : failHudLayoutAction(state, ""));
-    void action().then(onSuccess).catch((reason: unknown) => {
-      setEditor((state) => state === null ? state : failHudLayoutAction(state, String(reason)));
-    });
+    void action()
+      .then(onSuccess)
+      .catch((reason: unknown) => {
+        setEditor((state) => state === null ? state : failHudLayoutAction(state, String(reason)));
+      })
+      .finally(() => setBusy(false));
+  };
+
+  const sendSave = () => {
+    const sent = editor.draft.map((module) => ({ ...module }));
+    runAction(
+      () => labHudLayoutApply(sent),
+      (reply) => setEditor((state) => state === null ? state : confirmHudLayout(state, reply, sent)),
+    );
+  };
+
+  const sendReset = () => {
+    setConfirmReset(false);
+    runAction(
+      () => labHudLayoutReset(),
+      (reply) => setEditor((state) => state === null ? state : confirmHudLayout(state, reply)),
+    );
   };
 
   const toggleFullscreen = () => {
@@ -198,6 +258,9 @@ export function HudLayoutEditor() {
                   role="slider"
                   tabIndex={0}
                   aria-label={`${MODULE_LABELS[module.id]} position`}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round(module.x_percent * 100) / 100}
                   aria-valuetext={`x ${module.x_percent}%, y ${module.y_percent}%, scale ${module.scale}`}
                   onPointerDown={(event) => onPointerDown(event, module.id)}
                   onPointerMove={onPointerMove}
@@ -251,7 +314,7 @@ export function HudLayoutEditor() {
                 max={editor.confirmed.bounds.scale[1]}
                 step={0.01}
                 value={selectedModule.scale}
-                onChange={(event) => updateSelected({ scale: event.currentTarget.valueAsNumber })}
+                onChange={(event) => { const value = event.currentTarget.valueAsNumber; if (Number.isFinite(value)) updateSelected({ scale: value }); }}
               />
             </label>
           </div>
@@ -262,30 +325,29 @@ export function HudLayoutEditor() {
           <p className="lab-note">ลากกรอบเพื่อย้าย หรือใช้ปุ่มลูกศร (Shift = 1%) · ตำแหน่งเป็นจุดกึ่งกลางของหน้าจอ</p>
 
           <div className="lab-buttons">
+            <button type="button" disabled={!unsaved || busy} onClick={sendSave}>บันทึก</button>
             <button
               type="button"
-              disabled={!unsaved}
-              onClick={() => runAction(
-                () => labHudLayoutApply(editor.draft),
-                (reply) => setEditor((state) => state === null ? state : confirmHudLayout(state, reply)),
-              )}
-            >บันทึก</button>
-            <button
-              type="button"
-              onClick={() => runAction(
-                () => labHudLayoutReset(),
-                (reply) => setEditor((state) => state === null ? state : confirmHudLayout(state, reply)),
-              )}
+              disabled={busy}
+              onClick={() => { if (unsaved) setConfirmReset(true); else sendReset(); }}
             >รีเซ็ตเป็นค่าเริ่มต้น</button>
             <button
               type="button"
+              disabled={busy}
               onClick={() => runAction(
                 () => labHudPreview(10),
                 () => setPreviewRequested(true),
               )}
             >ดู HUD จริง 10 วินาที</button>
           </div>
-          <p>ตัวอย่าง HUD ใช้ข้อมูลสังเคราะห์ ไม่ได้อ่านข้อมูลเกมจริง</p>
+          {confirmReset && (
+            <div className="lab-warn" role="alertdialog" aria-label="ยืนยันการรีเซ็ต">
+              <p>มีการเปลี่ยนแปลงที่ยังไม่บันทึก การรีเซ็ตจะทิ้งการแก้ไขเหล่านี้</p>
+              <button type="button" onClick={sendReset}>รีเซ็ตและทิ้งการแก้ไข</button>
+              <button type="button" onClick={() => setConfirmReset(false)}>กลับไปแก้ต่อ</button>
+            </div>
+          )}
+          <p>ตัวอย่าง HUD ใช้ข้อมูลสังเคราะห์ (SYNTHETIC) ไม่ได้อ่านข้อมูลเกมจริง หน้าต่าง HUD จะมีป้ายตัวอย่างสังเคราะห์ และใช้ไม่ได้ระหว่างแมตช์จริง</p>
           {previewRequested && <p role="status">ส่งคำขอแสดง HUD จริงด้วยข้อมูลสังเคราะห์ 10 วินาทีแล้ว</p>}
           {editor.error && <p className="lab-warn" role="alert">ดำเนินการกับโฮสต์ไม่สำเร็จ: {editor.error}</p>}
         </aside>

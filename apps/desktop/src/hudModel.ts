@@ -22,6 +22,8 @@ export interface HudNetWorth extends HudField {
 export interface HudState {
   schema: 1;
   visible: boolean;
+  /** Set only by the dev-only Lab preview: the numbers are SYNTHETIC, never observed. */
+  synthetic?: true;
   fields: {
     kills: HudField;
     deaths: HudField;
@@ -182,7 +184,10 @@ function parseNetWorth(input: unknown): HudNetWorth | null {
 export function parseHudState(input: unknown): HudState {
   if (!record(input)) return unknownHudState(true);
   const visible = typeof input.visible === "boolean" ? input.visible : true;
-  if (!exactKeys(input, ["schema", "visible", "fields", "net_worth"]) || input.schema !== 1 || typeof input.visible !== "boolean") {
+  const hasSynthetic = Object.prototype.hasOwnProperty.call(input, "synthetic");
+  if (hasSynthetic && input.synthetic !== true) return unknownHudState(visible);
+  const baseKeys = hasSynthetic ? ["schema", "visible", "fields", "net_worth", "synthetic"] : ["schema", "visible", "fields", "net_worth"];
+  if (!exactKeys(input, baseKeys) || input.schema !== 1 || typeof input.visible !== "boolean") {
     return unknownHudState(visible);
   }
   if (!record(input.fields) || !exactKeys(input.fields, FIELD_NAMES)) return unknownHudState(visible);
@@ -195,7 +200,7 @@ export function parseHudState(input: unknown): HudState {
   }
   const netWorth = parseNetWorth(input.net_worth);
   if (netWorth === null) return unknownHudState(visible);
-  return { schema: 1, visible, fields, net_worth: netWorth };
+  return hasSynthetic ? { schema: 1, visible, synthetic: true, fields, net_worth: netWorth } : { schema: 1, visible, fields, net_worth: netWorth };
 }
 
 export interface MeterModel {
