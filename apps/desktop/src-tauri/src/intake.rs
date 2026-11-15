@@ -1837,17 +1837,11 @@ mod s0_6_tests {
                 && !line.starts_with(']')
             {
                 if let Some((name, value)) = line.split_once('=') {
-                    // S1-C uses a std-only workspace crate behind the demo feature.
+                    // The std-only account crate is an optional workspace dependency.
                     if name.trim() == "kohbor-account" {
                         assert_eq!(
                             value.trim(),
                             r#"{ path = "../../../crates/kohbor-account", optional = true }"#
-                        );
-                        assert!(
-                            manifest
-                                .lines()
-                                .any(|line| line.trim() == r#"demo = ["dep:kohbor-account"]"#),
-                            "the account dependency must be enabled by the demo feature"
                         );
                         continue;
                     }
