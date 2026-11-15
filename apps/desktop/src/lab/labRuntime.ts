@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { parseDescription, parseTrace, type Description, type Trace } from "./labModel";
 import { parseCatalog, type CatalogView } from "./labCatalog";
+import { parseActiveBindings, parseDraft, toMappingDocument, type ActiveBindings, type DraftBinding } from "./labMapping";
 import { parseLayoutView, parsePreview, type BannerLayout, type LayoutView, type Preview } from "./labLayout";
 
 export interface LabEdit {
@@ -74,4 +75,28 @@ export async function labCatalog(): Promise<CatalogView> {
   const view = parseCatalog(await invoke<unknown>("lab_catalog"));
   if (view === null) throw new Error("LAB_BAD_RESPONSE");
   return view;
+}
+
+export async function labPackBindings(): Promise<ActiveBindings> {
+  const parsed = parseActiveBindings(await invoke<unknown>("lab_pack_bindings"));
+  if (parsed === null) throw new Error("LAB_BAD_RESPONSE");
+  return parsed;
+}
+
+export async function labPackMappingGet(): Promise<DraftBinding[]> {
+  const view = await invoke<unknown>("lab_pack_mapping_get");
+  const draft = parseDraft(typeof view === "object" && view !== null ? (view as { draft?: unknown }).draft : null);
+  if (draft === null) throw new Error("LAB_BAD_RESPONSE");
+  return draft;
+}
+
+export async function labPackMappingApply(draft: DraftBinding[]): Promise<DraftBinding[]> {
+  const view = await invoke<unknown>("lab_pack_mapping_apply", { mapping: toMappingDocument(draft) });
+  const saved = parseDraft(typeof view === "object" && view !== null ? (view as { draft?: unknown }).draft : null);
+  if (saved === null) throw new Error("LAB_BAD_RESPONSE");
+  return saved;
+}
+
+export async function labPackMappingExport(): Promise<string> {
+  return invoke<string>("lab_pack_mapping_export");
 }

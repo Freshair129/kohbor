@@ -27,6 +27,8 @@ export interface CatalogRow {
   tunablesEditable: number;
   gMaiden: GMaidenRef[];
   lastFired: LastFired | null;
+  mediaMappable: boolean;
+  tierRange: [number, number] | null;
 }
 
 export interface PossibleEvent {
@@ -121,9 +123,14 @@ function parseRow(value: unknown): CatalogRow | null {
   ) {
     return null;
   }
+  const range = isObject(value.tier_range) ? value.tier_range : null;
+  const tierRange: [number, number] | null =
+    range !== null && typeof range.min === "number" && typeof range.max === "number" ? [range.min, range.max] : null;
   return {
     id, labelTh, labelEn, category, source, sourceLabelTh, status, statusTh, detectorRef,
     tunables, tunablesEditable: editable, gMaiden, lastFired,
+    mediaMappable: value.media_mappable === true,
+    tierRange,
   };
 }
 
