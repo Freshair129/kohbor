@@ -597,7 +597,11 @@ pub fn run() {
         lab::dev::lab_layout_apply,
         lab::dev::lab_layout_export,
         lab::dev::lab_reference_image,
-        lab::dev::lab_catalog
+        lab::dev::lab_catalog,
+        lab::dev::lab_pack_bindings,
+        lab::dev::lab_pack_mapping_get,
+        lab::dev::lab_pack_mapping_apply,
+        lab::dev::lab_pack_mapping_export
     ]);
     #[cfg(not(any(feature = "demo", debug_assertions)))]
     let builder = builder.invoke_handler(tauri::generate_handler![

@@ -7,6 +7,7 @@
 //! no code that reads an override (tests/release_gate.rs).
 
 pub mod catalog;
+pub mod mapping;
 mod profile;
 
 #[cfg(any(feature = "lab", debug_assertions))]

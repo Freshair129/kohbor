@@ -145,7 +145,35 @@ pub fn override_path(data_dir: &Path) -> io::Result<PathBuf> {
 /// the directory, the target and the temporary file, and any result that resolves outside
 /// `data_dir`. Returns the path written.
 pub fn save_under(data_dir: &Path, effective: &Effective) -> io::Result<PathBuf> {
-    let target = override_path(data_dir)?;
+    write_fixed(data_dir, OVERRIDE_FILE, &effective.export_json())
+}
+
+pub const MAPPING_FILE: &str = "pack-mapping.override.json";
+
+/// Write the dev pack-mapping draft (already validated by `mapping::parse`) to its fixed file
+/// next to the profile override, with the same confinement rules.
+pub fn save_mapping_under(data_dir: &Path, text: &str) -> io::Result<PathBuf> {
+    write_fixed(data_dir, MAPPING_FILE, text)
+}
+
+/// The saved mapping draft text, if any (plain file only, 64 KiB at most).
+pub fn load_mapping(data_dir: &Path) -> io::Result<Option<String>> {
+    let path = override_path(data_dir)?.with_file_name(MAPPING_FILE);
+    let meta = match std::fs::symlink_metadata(&path) {
+        Ok(meta) => meta,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error),
+    };
+    if is_link(&meta) || !meta.is_file() || meta.len() as usize > MAX_BYTES {
+        return Err(refuse_input(
+            "the mapping draft is not an acceptable plain file",
+        ));
+    }
+    std::fs::read_to_string(&path).map(Some)
+}
+
+fn write_fixed(data_dir: &Path, file: &str, text: &str) -> io::Result<PathBuf> {
+    let target = override_path(data_dir)?.with_file_name(file);
     let dir = data_dir.join(OVERRIDE_DIR);
     if !std::fs::metadata(data_dir)?.is_dir() {
         return Err(refuse_input("the data directory is not a directory"));
@@ -163,7 +191,7 @@ pub fn save_under(data_dir: &Path, effective: &Effective) -> io::Result<PathBuf>
             "the lab directory resolves outside the data directory",
         ));
     }
-    let temporary = dir.join(format!("{OVERRIDE_FILE}.tmp"));
+    let temporary = dir.join(format!("{file}.tmp"));
     for path in [&target, &temporary] {
         if let Ok(meta) = std::fs::symlink_metadata(path) {
             if is_link(&meta) || !meta.is_file() {
@@ -171,7 +199,7 @@ pub fn save_under(data_dir: &Path, effective: &Effective) -> io::Result<PathBuf>
             }
         }
     }
-    std::fs::write(&temporary, effective.export_json())?;
+    std::fs::write(&temporary, text)?;
     std::fs::rename(&temporary, &target)?;
     Ok(target)
 }

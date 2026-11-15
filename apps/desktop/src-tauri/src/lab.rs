@@ -377,6 +377,63 @@ pub mod dev {
         Ok(table)
     }
 
+    /// The ACTIVE pack's bindings, read-only, from the media service (same re-verification as
+    /// playback). Rows exist only for bound keys; file names are payload names, never paths.
+    #[tauri::command(async)]
+    pub fn lab_pack_bindings(state: tauri::State<'_, crate::AppState>) -> Result<Value, String> {
+        require()?;
+        state.host.commands.media_active_bindings()
+    }
+
+    fn mapping_view(data_dir: &std::path::Path) -> Result<Value, String> {
+        let text = kohbor_lab::dev_override::load_mapping(data_dir)
+            .map_err(|_| "MAPPING_READ_REFUSED".to_owned())?;
+        let parsed = match &text {
+            Some(text) => Some(
+                kohbor_lab::mapping::parse(text)
+                    .map_err(|e| format!("{}: {}", e.code, e.detail))?,
+            ),
+            None => None,
+        };
+        Ok(json!({
+            "draft": parsed.map(|m| serde_json::from_str::<Value>(&m.to_json()).unwrap_or(Value::Null)),
+            "note": "dev preview draft; the shipped mapping stays the pack descriptor",
+        }))
+    }
+
+    #[tauri::command(async)]
+    pub fn lab_pack_mapping_get(app: tauri::AppHandle) -> Result<Value, String> {
+        require()?;
+        mapping_view(&data_dir(&app)?)
+    }
+
+    /// Validate a mapping draft (rebuild-tool format) and write it to the fixed dev file.
+    #[tauri::command(async)]
+    pub fn lab_pack_mapping_apply(app: tauri::AppHandle, mapping: Value) -> Result<Value, String> {
+        require()?;
+        let data_dir = data_dir(&app)?;
+        let parsed = kohbor_lab::mapping::parse(&mapping.to_string())
+            .map_err(|e| format!("{}: {}", e.code, e.detail))?;
+        kohbor_lab::dev_override::save_mapping_under(&data_dir, &parsed.to_json())
+            .map_err(|_| "SAVE_REFUSED".to_owned())?;
+        mapping_view(&data_dir)
+    }
+
+    /// The saved draft as text for `rebuild.py`; empty mapping when nothing was saved.
+    #[tauri::command(async)]
+    pub fn lab_pack_mapping_export(app: tauri::AppHandle) -> Result<String, String> {
+        require()?;
+        let data_dir = data_dir(&app)?;
+        let text = kohbor_lab::dev_override::load_mapping(&data_dir)
+            .map_err(|_| "MAPPING_READ_REFUSED".to_owned())?;
+        Ok(match text {
+            Some(text) => kohbor_lab::mapping::parse(&text)
+                .map(|m| m.to_json())
+                .map_err(|e| format!("{}: {}", e.code, e.detail))?,
+            None => kohbor_lab::mapping::Mapping::default().to_json(),
+        })
+    }
+
     /// Replay supplied ticks with the current profile, optionally compared with edits.
     #[tauri::command(async)]
     pub fn lab_replay(ticks: Value, edits: Option<Vec<Edit>>) -> Result<Value, String> {
@@ -441,6 +498,22 @@ pub mod dev {
     }
     #[tauri::command(async)]
     pub fn lab_catalog() -> Result<Value, String> {
+        Err(UNAVAILABLE.to_owned())
+    }
+    #[tauri::command(async)]
+    pub fn lab_pack_bindings() -> Result<Value, String> {
+        Err(UNAVAILABLE.to_owned())
+    }
+    #[tauri::command(async)]
+    pub fn lab_pack_mapping_get() -> Result<Value, String> {
+        Err(UNAVAILABLE.to_owned())
+    }
+    #[tauri::command(async)]
+    pub fn lab_pack_mapping_apply() -> Result<Value, String> {
+        Err(UNAVAILABLE.to_owned())
+    }
+    #[tauri::command(async)]
+    pub fn lab_pack_mapping_export() -> Result<String, String> {
         Err(UNAVAILABLE.to_owned())
     }
     #[tauri::command(async)]

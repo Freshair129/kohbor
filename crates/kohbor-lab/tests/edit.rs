@@ -242,6 +242,29 @@ mod saved {
 }
 
 #[cfg(any(feature = "lab", debug_assertions))]
+mod mapping_draft {
+    use kohbor_lab::dev_override::{load_mapping, save_mapping_under, MAPPING_FILE, OVERRIDE_DIR};
+
+    fn temp_dir(tag: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("kohbor-lab-map-{tag}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn the_draft_lives_at_one_fixed_name_and_reloads() {
+        let dir = temp_dir("fixed");
+        assert_eq!(load_mapping(&dir).unwrap(), None);
+        let path = save_mapping_under(&dir, "{\"x\":1}\n").unwrap();
+        assert_eq!(path, dir.join(OVERRIDE_DIR).join(MAPPING_FILE));
+        assert_eq!(load_mapping(&dir).unwrap().as_deref(), Some("{\"x\":1}\n"));
+        assert!(save_mapping_under(std::path::Path::new("relative"), "{}").is_err());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+#[cfg(any(feature = "lab", debug_assertions))]
 mod reference_image {
     use kohbor_lab::dev_override::{read_reference_image, ASSET_DIR, ASSET_FILE, OVERRIDE_DIR};
     use std::path::PathBuf;

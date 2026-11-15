@@ -57,7 +57,7 @@ impl fmt::Display for ProfileError {
     }
 }
 
-fn err(code: &'static str, detail: impl Into<String>) -> ProfileError {
+pub(crate) fn err(code: &'static str, detail: impl Into<String>) -> ProfileError {
     ProfileError {
         code,
         detail: detail.into(),
@@ -280,7 +280,7 @@ fn check_value(event: &str, name: &str, kind: Kind, value: &Value) -> Result<(),
     Ok(())
 }
 
-fn strict(bytes: &[u8]) -> Result<Map<String, Value>, ProfileError> {
+pub(crate) fn strict(bytes: &[u8]) -> Result<Map<String, Value>, ProfileError> {
     match strict_json::parse(bytes) {
         Ok(Value::Object(map)) => Ok(map),
         Ok(_) => Err(err("SYNTAX", "the profile must be a JSON object")),
