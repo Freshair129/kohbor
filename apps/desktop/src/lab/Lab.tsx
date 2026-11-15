@@ -15,6 +15,7 @@ import {
   type Trace,
 } from "./labModel";
 import { labApplyEdits, labExport, labLastTrace, labStatus } from "./labRuntime";
+import { CatalogTab } from "./CatalogTab";
 import { OverlayEditor } from "./OverlayEditor";
 import "./lab.css";
 
@@ -27,7 +28,7 @@ function LabStudio({ onClose }: { onClose: () => void }) {
   const [drafts, setDrafts] = useState<Record<string, DraftEdit>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [exported, setExported] = useState<string | null>(null);
-  const [tab, setTab] = useState<"events" | "overlay">("events");
+  const [tab, setTab] = useState<"events" | "catalog" | "overlay">("events");
 
   useEffect(() => {
     let active = true;
@@ -90,6 +91,9 @@ function LabStudio({ onClose }: { onClose: () => void }) {
           <button type="button" role="tab" aria-selected={tab === "events"} onClick={() => setTab("events")}>
             Events
           </button>
+          <button type="button" role="tab" aria-selected={tab === "catalog"} onClick={() => setTab("catalog")}>
+            Event catalog
+          </button>
           <button type="button" role="tab" aria-selected={tab === "overlay"} onClick={() => setTab("overlay")}>
             Overlay editor
           </button>
@@ -122,7 +126,15 @@ function LabStudio({ onClose }: { onClose: () => void }) {
         ))}
       </ul>
 
-      {tab === "events" ? (
+      {tab === "catalog" ? (
+        <CatalogTab
+          knownEditable={Object.keys(description.events)}
+          onOpenEvent={(id) => {
+            setSelected(id);
+            setTab("events");
+          }}
+        />
+      ) : tab === "events" ? (
         <>
       <div className="lab-body">
         <nav className="lab-events" aria-label="Events">

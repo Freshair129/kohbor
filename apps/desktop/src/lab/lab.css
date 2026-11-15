@@ -49,3 +49,13 @@
 .lab-overlay { margin-top: 0; border-top: 0; padding-top: 0; }
 .lab-canvas { width: min(100%, calc((100dvh - 170px) * 16 / 9)); }
 .lab-canvas-wrap:fullscreen .lab-canvas { width: min(100vw, calc(100vh * 16 / 9)); }
+
+.lab-filters { display: flex; flex-wrap: wrap; gap: 12px; margin: 8px 0; }
+.lab-filters label { display: flex; flex-direction: column; font-size: .8rem; gap: 2px; }
+.lab-table-wrap { overflow-x: auto; }
+.lab-table-wrap:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.lab-table { border-collapse: collapse; width: 100%; font-size: .85rem; }
+.lab-table th, .lab-table td { text-align: left; padding: 3px 8px; border-bottom: 1px solid rgba(128, 128, 128, .35); vertical-align: top; }
+.lab-table thead th { position: sticky; top: 0; background: var(--surface, #161b22); }
+.lab-status-catalog_only td, .lab-status-test_only td { opacity: .75; }
+.lab-muted { opacity: .7; }

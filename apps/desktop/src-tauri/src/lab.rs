@@ -13,6 +13,45 @@ pub mod dev {
     use serde_json::{json, Value};
     use std::sync::{Mutex, OnceLock};
 
+    #[cfg(test)]
+    mod fired_tests {
+        use super::*;
+        use kohbor_events::Phase;
+
+        fn tick(at_ms: u64, kills: u32) -> Tick {
+            Tick {
+                at_ms,
+                session_epoch: 7,
+                phase: Phase::Live,
+                trusted: true,
+                kills: Some(kills),
+                deaths: Some(0),
+                kill_streak: None,
+                combined_score: Some(5),
+                level: Some(1),
+                hp: Some(1000),
+                max_hp: Some(1000),
+                mana_percent: Some(100),
+                alive: Some(true),
+            }
+        }
+
+        #[test]
+        fn detector_events_are_counted_with_their_time() {
+            let mut detector = Detector::new();
+            observe(&mut detector, &tick(0, 0));
+            let events = observe(&mut detector, &tick(1_500, 1));
+            assert!(events.iter().any(|e| e.id.as_str() == "hero_kill"));
+            let seen = with_slot(|s| s.fired.get("hero_kill").copied());
+            let (count, _tier, at_ms) = seen.expect("hero_kill recorded");
+            assert!(count >= 1);
+            assert!(
+                at_ms >= 1_500 || count > 1,
+                "time of the latest firing is kept"
+            );
+        }
+    }
+
     #[derive(Deserialize)]
     pub struct Edit {
         pub event: String,
@@ -24,6 +63,8 @@ pub mod dev {
         resolved: Resolved,
         last_trace: Option<Value>,
         saved_checked: bool,
+        /// Per event id: (count since start, last tier, last tick time in ms of the session clock).
+        fired: std::collections::BTreeMap<&'static str, (u64, Option<u8>, u64)>,
     }
 
     fn slot() -> &'static Mutex<Slot> {
@@ -33,6 +74,7 @@ pub mod dev {
                 resolved: kohbor_lab::resolve_effective(),
                 last_trace: None,
                 saved_checked: false,
+                fired: std::collections::BTreeMap::new(),
             })
         })
     }
@@ -85,7 +127,13 @@ pub mod dev {
     pub fn observe(detector: &mut Detector, tick: &Tick) -> Vec<Event> {
         let (events, trace) = detector.observe_traced(tick);
         let json = trace.to_json();
-        with_slot(|s| s.last_trace = Some(json));
+        with_slot(|s| {
+            s.last_trace = Some(json);
+            for event in &events {
+                let entry = s.fired.entry(event.id.as_str()).or_insert((0, None, 0));
+                *entry = (entry.0 + 1, event.tier, event.at_ms);
+            }
+        });
         events
     }
 
@@ -306,6 +354,29 @@ pub mod dev {
         }))
     }
 
+    /// The event catalog table (kohbor_lab::catalog) with what this run has seen: how many times
+    /// the detector emitted each event and when (session clock, milliseconds). Clip bindings are
+    /// merged by the UI from `lab_pack_bindings` once the host exposes them.
+    #[tauri::command(async)]
+    pub fn lab_catalog() -> Result<Value, String> {
+        require()?;
+        let mut table = kohbor_lab::catalog::table();
+        with_slot(|s| {
+            if let Some(rows) = table["events"].as_array_mut() {
+                for row in rows {
+                    let id = row["id"].as_str().unwrap_or_default().to_owned();
+                    row["last_fired"] = match s.fired.get(id.as_str()) {
+                        Some((count, tier, at_ms)) => {
+                            json!({"count": count, "tier": tier, "at_ms": at_ms})
+                        }
+                        None => Value::Null,
+                    };
+                }
+            }
+        });
+        Ok(table)
+    }
+
     /// Replay supplied ticks with the current profile, optionally compared with edits.
     #[tauri::command(async)]
     pub fn lab_replay(ticks: Value, edits: Option<Vec<Edit>>) -> Result<Value, String> {
@@ -366,6 +437,10 @@ pub mod dev {
     }
     #[tauri::command(async)]
     pub fn lab_layout_get() -> Result<Value, String> {
+        Err(UNAVAILABLE.to_owned())
+    }
+    #[tauri::command(async)]
+    pub fn lab_catalog() -> Result<Value, String> {
         Err(UNAVAILABLE.to_owned())
     }
     #[tauri::command(async)]

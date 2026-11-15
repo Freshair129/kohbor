@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { parseDescription, parseTrace, type Description, type Trace } from "./labModel";
+import { parseCatalog, type CatalogView } from "./labCatalog";
 import { parseLayoutView, parsePreview, type BannerLayout, type LayoutView, type Preview } from "./labLayout";
 
 export interface LabEdit {
@@ -67,4 +68,10 @@ export async function labLayoutExport(): Promise<string> {
 export async function labReferenceImage(): Promise<string | null> {
   const value = await invoke<unknown>("lab_reference_image");
   return typeof value === "string" ? value : null;
+}
+
+export async function labCatalog(): Promise<CatalogView> {
+  const view = parseCatalog(await invoke<unknown>("lab_catalog"));
+  if (view === null) throw new Error("LAB_BAD_RESPONSE");
+  return view;
 }
