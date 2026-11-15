@@ -193,3 +193,51 @@ mod writes {
         let _ = std::fs::remove_dir_all(&outside);
     }
 }
+
+#[cfg(any(feature = "lab", debug_assertions))]
+mod reference_image {
+    use kohbor_lab::dev_override::{read_reference_image, ASSET_DIR, ASSET_FILE, OVERRIDE_DIR};
+    use std::path::PathBuf;
+
+    fn temp_dir(tag: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("kohbor-lab-ref-{tag}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn put(dir: &std::path::Path, bytes: &[u8]) {
+        let folder = dir.join(OVERRIDE_DIR).join(ASSET_DIR);
+        std::fs::create_dir_all(&folder).unwrap();
+        std::fs::write(folder.join(ASSET_FILE), bytes).unwrap();
+    }
+
+    #[test]
+    fn absent_image_is_none_not_an_error() {
+        let dir = temp_dir("absent");
+        assert_eq!(read_reference_image(&dir).unwrap(), None);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn reads_a_jpeg_from_the_fixed_location_only() {
+        let dir = temp_dir("ok");
+        let jpeg = [0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3];
+        put(&dir, &jpeg);
+        assert_eq!(read_reference_image(&dir).unwrap(), Some(jpeg.to_vec()));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn refuses_non_jpeg_oversize_and_bad_data_dirs() {
+        let dir = temp_dir("bad");
+        put(&dir, b"not a jpeg");
+        assert!(read_reference_image(&dir).is_err());
+        let mut big = vec![0xFF, 0xD8, 0xFF];
+        big.resize(8 * 1024 * 1024 + 1, 0);
+        put(&dir, &big);
+        assert!(read_reference_image(&dir).is_err());
+        assert!(read_reference_image(std::path::Path::new("relative")).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}

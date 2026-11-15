@@ -66,11 +66,120 @@ fn err(code: &'static str, detail: impl Into<String>) -> ProfileError {
 
 type Values = BTreeMap<(&'static str, &'static str), Value>;
 
+/// Banner overlay placement: percent of the primary monitor, centre of the art stage
+/// (the host's `overlay::BannerLayout` has the same fields; a host test pins the default).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BannerLayout {
+    pub x_percent: f64,
+    pub y_percent: f64,
+    pub scale: f64,
+    pub enabled: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Layout {
+    pub banner: BannerLayout,
+}
+
+pub const PERCENT_BOUNDS: (f64, f64) = (0.0, 100.0);
+pub const SCALE_BOUNDS: (f64, f64) = (0.2, 3.0);
+const LAYOUT_FIELDS: [&str; 4] = ["x_percent", "y_percent", "scale", "enabled"];
+
+fn check_range(name: &str, value: &Value, bounds: (f64, f64)) -> Result<f64, ProfileError> {
+    let number = value.as_f64().ok_or_else(|| {
+        err(
+            "LAYOUT_TYPE",
+            format!("layout.banner.{name} must be a number"),
+        )
+    })?;
+    if !number.is_finite() || number < bounds.0 || number > bounds.1 {
+        return Err(err(
+            "LAYOUT_OUT_OF_RANGE",
+            format!(
+                "layout.banner.{name} = {number} is outside {}..{}",
+                bounds.0, bounds.1
+            ),
+        ));
+    }
+    Ok(number)
+}
+
+/// Validate the `layout` object of a profile and return the banner fields it names.
+fn parse_layout(value: &Value) -> Result<Vec<(&'static str, Value)>, ProfileError> {
+    let modules = value
+        .as_object()
+        .ok_or_else(|| err("LAYOUT_TYPE", "layout must be an object"))?;
+    let mut named = Vec::new();
+    for (module, body) in modules {
+        if module != "banner" {
+            return Err(err(
+                "UNKNOWN_MODULE",
+                format!("layout.{module} is not an editable module (banner only)"),
+            ));
+        }
+        let body = body
+            .as_object()
+            .ok_or_else(|| err("LAYOUT_TYPE", "layout.banner must be an object"))?;
+        for (name, field) in body {
+            let Some(known) = LAYOUT_FIELDS.iter().find(|f| **f == name.as_str()) else {
+                return Err(err(
+                    "UNKNOWN_FIELD",
+                    format!("layout.banner.{name} is not a field"),
+                ));
+            };
+            match *known {
+                "x_percent" | "y_percent" => {
+                    check_range(known, field, PERCENT_BOUNDS)?;
+                }
+                "scale" => {
+                    check_range(known, field, SCALE_BOUNDS)?;
+                }
+                _ => {
+                    if !field.is_boolean() {
+                        return Err(err(
+                            "LAYOUT_TYPE",
+                            "layout.banner.enabled must be a boolean",
+                        ));
+                    }
+                }
+            }
+            named.push((*known, field.clone()));
+        }
+    }
+    Ok(named)
+}
+
+fn apply_layout(mut base: BannerLayout, patches: &[(&'static str, Value)]) -> BannerLayout {
+    for (name, value) in patches {
+        match *name {
+            "x_percent" => base.x_percent = value.as_f64().unwrap_or(base.x_percent),
+            "y_percent" => base.y_percent = value.as_f64().unwrap_or(base.y_percent),
+            "scale" => base.scale = value.as_f64().unwrap_or(base.scale),
+            _ => base.enabled = value.as_bool().unwrap_or(base.enabled),
+        }
+    }
+    base
+}
+
+fn layout_json(layout: &BannerLayout) -> Value {
+    json!({
+        "x_percent": layout.x_percent, "y_percent": layout.y_percent,
+        "scale": layout.scale, "enabled": layout.enabled,
+    })
+}
+
+struct Parsed {
+    values: Values,
+    layout: Vec<(&'static str, Value)>,
+}
+
 /// A validated profile: every supported tunable has a value.
 #[derive(Debug, Clone)]
 pub struct Effective {
     values: Values,
     defaults: Values,
+    layout: Layout,
+    default_layout: Layout,
     source: Source,
 }
 
@@ -182,10 +291,18 @@ fn strict(bytes: &[u8]) -> Result<Map<String, Value>, ProfileError> {
 }
 
 /// Validate a profile document and return the parameters it names.
-fn parse_named(text: &str) -> Result<Values, ProfileError> {
+fn parse_named(text: &str) -> Result<Parsed, ProfileError> {
     let root = strict(text.as_bytes())?;
     for key in root.keys() {
-        if !["profile_version", "taxonomy_version", "events", "generated"].contains(&key.as_str()) {
+        if ![
+            "profile_version",
+            "taxonomy_version",
+            "events",
+            "generated",
+            "layout",
+        ]
+        .contains(&key.as_str())
+        {
             return Err(err(
                 "UNKNOWN_FIELD",
                 format!("unknown top-level field {key}"),
@@ -260,7 +377,14 @@ fn parse_named(text: &str) -> Result<Values, ProfileError> {
             named.insert((e, n), value.clone());
         }
     }
-    Ok(named)
+    let layout = match root.get("layout") {
+        Some(value) => parse_layout(value)?,
+        None => Vec::new(),
+    };
+    Ok(Parsed {
+        values: named,
+        layout,
+    })
 }
 
 fn check_pairs(values: &Values) -> Result<(), ProfileError> {
@@ -289,7 +413,24 @@ pub fn embedded_sha256() -> String {
 }
 
 pub fn embedded() -> Effective {
-    let values = parse_named(EMBEDDED).expect("embedded default profile is valid");
+    let parsed = parse_named(EMBEDDED).expect("embedded default profile is valid");
+    let values = parsed.values;
+    assert_eq!(
+        parsed.layout.len(),
+        LAYOUT_FIELDS.len(),
+        "embedded layout is complete"
+    );
+    let layout = Layout {
+        banner: apply_layout(
+            BannerLayout {
+                x_percent: 0.0,
+                y_percent: 0.0,
+                scale: 0.0,
+                enabled: false,
+            },
+            &parsed.layout,
+        ),
+    };
     assert_eq!(
         values.len(),
         SPECS.len(),
@@ -298,6 +439,8 @@ pub fn embedded() -> Effective {
     Effective {
         defaults: values.clone(),
         values,
+        layout,
+        default_layout: layout,
         source: Source::Embedded,
     }
 }
@@ -305,8 +448,9 @@ pub fn embedded() -> Effective {
 /// Embedded default overlaid with the parameters a profile document names.
 pub fn merge_override(text: &str) -> Result<Effective, ProfileError> {
     let mut effective = embedded();
-    let named = parse_named(text)?;
-    effective.values.extend(named);
+    let parsed = parse_named(text)?;
+    effective.values.extend(parsed.values);
+    effective.layout.banner = apply_layout(effective.layout.banner, &parsed.layout);
     check_pairs(&effective.values)?;
     Ok(effective)
 }
@@ -355,6 +499,25 @@ impl Effective {
         }
     }
 
+    pub fn layout(&self) -> Layout {
+        self.layout
+    }
+
+    /// A copy with the banner layout replaced; validated like a profile file.
+    pub fn with_layout(&self, banner: BannerLayout) -> Result<Effective, ProfileError> {
+        let finite = [banner.x_percent, banner.y_percent, banner.scale]
+            .iter()
+            .all(|n| n.is_finite());
+        if !finite {
+            return Err(err("LAYOUT_OUT_OF_RANGE", "layout numbers must be finite"));
+        }
+        let mut doc: Value = serde_json::from_str(&self.export_json()).expect("own export parses");
+        doc["layout"]["banner"] = layout_json(&banner);
+        let mut edited = merge_override(&doc.to_string())?;
+        edited.source = self.source.clone();
+        Ok(edited)
+    }
+
     /// A copy with the named parameters replaced. The whole result is validated again, so
     /// pairs such as trigger and re-arm can be moved together; the original is unchanged.
     pub fn with_edits(&self, edits: &[(&str, &str, Value)]) -> Result<Effective, ProfileError> {
@@ -372,11 +535,23 @@ impl Effective {
 
     /// `event.param` of every value that differs from the embedded default.
     pub fn overrides(&self) -> Vec<String> {
-        SPECS
+        let mut changed: Vec<String> = SPECS
             .iter()
             .filter(|(e, n, _)| self.values[&(*e, *n)] != self.defaults[&(*e, *n)])
             .map(|(e, n, _)| format!("{e}.{n}"))
-            .collect()
+            .collect();
+        let (now, base) = (&self.layout.banner, &self.default_layout.banner);
+        for (name, differs) in [
+            ("x_percent", now.x_percent != base.x_percent),
+            ("y_percent", now.y_percent != base.y_percent),
+            ("scale", now.scale != base.scale),
+            ("enabled", now.enabled != base.enabled),
+        ] {
+            if differs {
+                changed.push(format!("layout.banner.{name}"));
+            }
+        }
+        changed
     }
 
     fn source_label(&self) -> &'static str {
@@ -403,6 +578,7 @@ impl Effective {
                 "source": self.source_label(),
                 "overrides": self.overrides(),
             },
+            "layout": {"banner": layout_json(&self.layout.banner)},
             "events": events,
         });
         serde_json::to_string_pretty(&doc).expect("serializable") + "\n"
@@ -432,6 +608,15 @@ impl Effective {
             "source": self.source_label(),
             "embedded_default_sha256": embedded_sha256(),
             "overrides": self.overrides(),
+            "layout": {
+                "banner": layout_json(&self.layout.banner),
+                "default": {"banner": layout_json(&self.default_layout.banner)},
+                "bounds": {
+                    "x_percent": [PERCENT_BOUNDS.0, PERCENT_BOUNDS.1],
+                    "y_percent": [PERCENT_BOUNDS.0, PERCENT_BOUNDS.1],
+                    "scale": [SCALE_BOUNDS.0, SCALE_BOUNDS.1],
+                },
+            },
             "events": events,
         })
     }

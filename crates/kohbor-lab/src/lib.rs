@@ -13,7 +13,10 @@ pub mod dev_override;
 
 pub mod sandbox;
 
-pub use profile::{embedded, embedded_sha256, merge_override, Effective, ProfileError};
+pub use profile::{
+    embedded, embedded_sha256, merge_override, BannerLayout, Effective, Layout, ProfileError,
+    PERCENT_BOUNDS, SCALE_BOUNDS,
+};
 
 use std::path::PathBuf;
 

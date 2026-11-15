@@ -134,3 +134,46 @@ pub fn save_under(data_dir: &Path, effective: &Effective) -> io::Result<PathBuf>
     std::fs::rename(&temporary, &target)?;
     Ok(target)
 }
+
+pub const ASSET_DIR: &str = "assets";
+pub const ASSET_FILE: &str = "dota-overlay-reference.jpg";
+const MAX_REFERENCE_BYTES: u64 = 8 * 1024 * 1024;
+
+/// The owner's Dota reference screenshot, loaded at runtime from the fixed dev location
+/// `<data_dir>/lab/assets/dota-overlay-reference.jpg`. It is never part of the repository or
+/// the installer. `Ok(None)` when it is not there; an error when it is a link, not a plain
+/// file, larger than 8 MiB, or not a JPEG.
+pub fn read_reference_image(data_dir: &Path) -> io::Result<Option<Vec<u8>>> {
+    let file = override_path(data_dir)?
+        .with_file_name(ASSET_DIR)
+        .join(ASSET_FILE);
+    let folders = [
+        data_dir.join(OVERRIDE_DIR),
+        data_dir.join(OVERRIDE_DIR).join(ASSET_DIR),
+    ];
+    for folder in &folders {
+        match std::fs::symlink_metadata(folder) {
+            Ok(meta) if is_link(&meta) || !meta.is_dir() => {
+                return Err(refuse_input("the asset folder is not a plain directory"));
+            }
+            Ok(_) => {}
+            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+            Err(error) => return Err(error),
+        }
+    }
+    let meta = match std::fs::symlink_metadata(&file) {
+        Ok(meta) => meta,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error),
+    };
+    if is_link(&meta) || !meta.is_file() || meta.len() > MAX_REFERENCE_BYTES {
+        return Err(refuse_input(
+            "the reference image is not an acceptable plain file",
+        ));
+    }
+    let bytes = std::fs::read(&file)?;
+    if !bytes.starts_with(&[0xFF, 0xD8, 0xFF]) {
+        return Err(refuse_input("the reference image is not a JPEG"));
+    }
+    Ok(Some(bytes))
+}
