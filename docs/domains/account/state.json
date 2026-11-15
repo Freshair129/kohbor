@@ -81,8 +81,12 @@
     {
       "path": "crates/kohbor-account",
       "type": "code",
-      "role": "governing",
-      "exists": false
+      "role": "governing"
+    },
+    {
+      "path": "apps/desktop/src/account/s1c/README.md",
+      "type": "guide",
+      "role": "reference"
     }
   ],
   "open_questions": [
@@ -104,7 +108,7 @@
     "on": "2026-11-14",
     "summary": "Alpha/beta hosting recorded as provisional on the owner's statement (DEC-ACCOUNT-ORIGIN); BACKEND-STACK added as a reference; nothing provisioned or built."
   },
-  "planned_crates": [
+  "crates": [
     "kohbor-account"
   ]
 }
