@@ -43,7 +43,7 @@ pub struct BannerLayout {
 
 pub const DEFAULT_BANNER_LAYOUT: BannerLayout = BannerLayout {
     x_percent: 49.46,
-    y_percent: 12.82,
+    y_percent: 10.3,
     scale: 0.45,
     enabled: true,
 };
@@ -239,12 +239,12 @@ mod tests {
                 i64::from(stage.y) + i64::from(stage.h)
                     <= i64::from(window.y) + i64::from(window.h)
             );
-            // Position: the stage centre is at 49.46 % / 12.82 % unless the clamp had to move it.
+            // Position: the stage centre is at 49.46 % / 10.3 % unless the clamp had to move it.
             let ideal_x = (f64::from(monitor.x) + f64::from(w) * 0.4946 - f64::from(window.w) / 2.0)
                 .round() as i64;
             let max_x = i64::from(monitor.x) + i64::from(w) - i64::from(window.w);
             assert_eq!(i64::from(window.x), ideal_x.min(max_x), "{monitor:?}");
-            let ideal_y = (f64::from(h) * 0.1282 - f64::from(stage.h) / 2.0).round() as i64;
+            let ideal_y = (f64::from(h) * 0.103 - f64::from(stage.h) / 2.0).round() as i64;
             assert_eq!(i64::from(window.y), ideal_y, "{monitor:?}");
             // The banner is nearly horizontally centred (within 2 % of the monitor width) near the top.
             assert!(
@@ -256,7 +256,7 @@ mod tests {
             );
             assert!(i64::from(window.y) + i64::from(stage.h) / 2 < i64::from(h) / 4);
             // Protected regions (UNVERIFIED Dota defaults) stay clear, EXCEPT the announcement area:
-            // the owner's real in-game G-Maiden choice (centre 49.46 % / 12.82 %) lands inside that
+            // the owner's real in-game G-Maiden choice (centre 49.46 % / 10.3 %) lands inside that
             // unverified default and outranks it (S6-OVERLAY-SLICE edit is PROPOSED, not made).
             for (name, x0, y0, x1, y1) in PROTECTED_REGIONS {
                 if name == "announcement" {
@@ -282,7 +282,7 @@ mod tests {
     #[test]
     fn exact_numbers_at_1080p_and_1440p() {
         // 1920x1080: 306 px wide stage (0.45 * 680), window 306x109, stage 306x94, centred at
-        // x=949.6 (left 797) with the stage centre 12.82 % down (top 91).
+        // x=949.6 (left 797) with the stage centre 10.3 % down (top 64).
         let m = MonitorRect {
             x: 0,
             y: 0,
@@ -293,7 +293,7 @@ mod tests {
             place_overlay(&m),
             Rect {
                 x: 797,
-                y: 91,
+                y: 64,
                 w: 306,
                 h: 109
             }
@@ -311,7 +311,7 @@ mod tests {
             place_overlay(&m),
             Rect {
                 x: 1062,
-                y: 122,
+                y: 86,
                 w: 408,
                 h: 145
             }
@@ -330,7 +330,7 @@ mod tests {
             DEFAULT_BANNER_LAYOUT,
             BannerLayout {
                 x_percent: 49.46,
-                y_percent: 12.82,
+                y_percent: 10.3,
                 scale: 0.45,
                 enabled: true
             }

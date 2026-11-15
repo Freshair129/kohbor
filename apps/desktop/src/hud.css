@@ -1,0 +1,122 @@
+html.hud-body,
+body.hud-body {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  overflow: hidden;
+  background: transparent !important;
+}
+
+body.hud-body #root {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.hud-stage,
+.hud-stage * {
+  pointer-events: none;
+}
+
+.hud-stage {
+  --hud-font-unit: 19.5vh;
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: transparent;
+  color: #f2f5f9;
+  font-family: "IBM Plex Sans Thai", "Leelawadee UI", system-ui, sans-serif;
+  font-size: clamp(17px, var(--hud-font-unit), 22px);
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.hud-module {
+  position: absolute;
+  transform: translate(-50%, -50%) scale(var(--hud-scale));
+  transform-origin: center;
+}
+
+.hud-chip,
+.hud-gmeter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 5px 10px;
+  border: 1px solid rgb(197 206 220 / 40%);
+  border-radius: 999px;
+  background: rgb(14 18 27 / 90%);
+  color: #f2f5f9;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 34%);
+  font-size: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-chip-label,
+.hud-gmeter-title {
+  color: #d4dbe5;
+  font-weight: 600;
+}
+
+.hud-chip-value {
+  color: #f2f5f9;
+  font-family: "IBM Plex Mono", Consolas, monospace;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-chip[data-stale="true"] .hud-chip-value {
+  color: #9aa6b5;
+}
+
+.hud-stale-flag {
+  padding-left: 7px;
+  border-left: 1px solid #6b7686;
+  color: #9aa6b5;
+  font-size: 0.72em;
+}
+
+.hud-meter-ticks {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.hud-meter-tick {
+  display: block;
+  width: 0.84em;
+  height: 0.42em;
+  border: 1px solid #6b7686;
+  border-radius: 2px;
+  background: rgb(14 18 27 / 92%);
+}
+
+.hud-gmeter-none .hud-gmeter-label {
+  color: #9aa6b5;
+}
+
+.hud-gmeter-ally .hud-meter-tick.is-lit {
+  border-color: #6ca8ff;
+  background: #6ca8ff;
+}
+
+.hud-gmeter-warn .hud-meter-tick.is-lit {
+  border-color: #f2b544;
+  background: #f2b544;
+}
+
+.hud-gmeter-critical .hud-meter-tick.is-lit {
+  border-color: #ff5a4a;
+  background: #ff5a4a;
+}
+
+.hud-gmeter-unknown .hud-gmeter-label {
+  color: #c3cbd6;
+}

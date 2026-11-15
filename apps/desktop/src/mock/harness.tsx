@@ -9,6 +9,7 @@ import { liveMockRequested } from "../live/mockMode";
 import { parseOwnSnapshot } from "../ownSnapshot";
 import { addSampleLoadout } from "./sampleLoadout";
 import { MockAudioPrefs } from "../audioPrefs";
+import { HUD_MOCK_INTERVAL_MS, mockHudStatePayload } from "./hudState";
 
 type MockCallback = (event: unknown) => void;
 type MockEventBinding = { event: string; callbackId: number };
@@ -20,6 +21,7 @@ type MockTauriInternals = {
 const EVENT_NAME = "playback://event";
 const OVERLAY_STATUS_EVENT = "overlay://status";
 const OVERLAY_DEMO_EVENT = "overlay://demo";
+const HUD_STATE_EVENT = "hud://state";
 const PROBE_EVENT_NAME = "media://probe-request";
 const MOCK_CHANNEL = "kohbor-mock-playback";
 const MOCK_PROBE_REPORT_EVENT = "kohbor-mock-media-probe-report";
@@ -518,6 +520,20 @@ export function OverlayMockHarness() {
       <output>{lastPlaybackId ?? "กำลังเตรียมตัวอย่าง"}</output>
     </aside>
   );
+}
+
+/** Synthetic HUD payload for browser preview; live risk is supplied by the existing live mock source. */
+export function HudMockHarness() {
+  useEffect(() => {
+    const initial = window.setTimeout(() => deliver(HUD_STATE_EVENT, mockHudStatePayload), 100);
+    const interval = window.setInterval(() => deliver(HUD_STATE_EVENT, mockHudStatePayload), HUD_MOCK_INTERVAL_MS);
+    return () => {
+      window.clearTimeout(initial);
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  return null;
 }
 
 const SCENARIO_NAMES = [

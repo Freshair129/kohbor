@@ -163,9 +163,10 @@ test("logs layout has a shrinking bounded list as its only scrolling region", ()
   assert.match(css, /\.logs-line\s*\{[^}]*overflow-wrap:\s*anywhere[^}]*white-space:\s*pre-wrap/);
 });
 
-test("frontend forwarding starts only in the control-window path and the missing host state is explicit", () => {
+test("frontend forwarding starts only in the control-window path, not overlays or HUDs", () => {
   const main = readFileSync(new URL("../src/main.tsx", import.meta.url), "utf8");
-  assert.match(main, /if\s*\(!overlayView\)\s*installFrontendLogging\(/);
+  assert.match(main, /if\s*\(!overlayView\s*&&\s*!hudView\)\s*installFrontendLogging\(/);
+  assert.match(main, /const hudView = params\.get\("view"\) === "hud"/);
   const messages = readFileSync(new URL("../src/logs/copy.ts", import.meta.url), "utf8");
   assert.match(messages, /ยังไม่มีบันทึกจากโฮสต์/); assert.match(messages, /บางบรรทัดถูกข้าม/);
 });

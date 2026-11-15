@@ -14,7 +14,7 @@ import {
 } from "../src/lab/labLayout.ts";
 
 const BOUNDS: Bounds = { x_percent: [0, 100], y_percent: [0, 100], scale: [0.2, 3] };
-const BASE = { x_percent: 49.46, y_percent: 12.82, scale: 0.45, enabled: true };
+const BASE = { x_percent: 50, y_percent: 10.5, scale: 0.45, enabled: true };
 
 test("clamp keeps every field inside the bounds and rounds to two decimals", () => {
   const clamped = clampLayout({ x_percent: 120, y_percent: -4, scale: 9, enabled: true }, BOUNDS);

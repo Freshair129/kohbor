@@ -18,7 +18,7 @@ fn embedded_banner_default_is_the_owners_saved_layout() {
         banner,
         BannerLayout {
             x_percent: 49.46,
-            y_percent: 12.82,
+            y_percent: 10.3,
             scale: 0.45,
             enabled: true
         }
@@ -31,7 +31,7 @@ fn partial_banner_override_changes_only_named_fields() {
     let banner = effective.layout().banner;
     assert_eq!(banner.x_percent, 62.5);
     assert_eq!(banner.scale, 0.8);
-    assert_eq!(banner.y_percent, 12.82);
+    assert_eq!(banner.y_percent, 10.3);
     assert!(banner.enabled);
     assert_eq!(
         effective.overrides(),
