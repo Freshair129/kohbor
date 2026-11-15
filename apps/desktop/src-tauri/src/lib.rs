@@ -513,7 +513,12 @@ pub fn run() {
         lab::dev::lab_last_trace,
         lab::dev::lab_export,
         lab::dev::lab_apply_edits,
-        lab::dev::lab_replay
+        lab::dev::lab_replay,
+        lab::dev::lab_layout_get,
+        lab::dev::lab_layout_preview,
+        lab::dev::lab_layout_apply,
+        lab::dev::lab_layout_export,
+        lab::dev::lab_reference_image
     ]);
     #[cfg(not(any(feature = "demo", debug_assertions)))]
     let builder = builder.invoke_handler(tauri::generate_handler![

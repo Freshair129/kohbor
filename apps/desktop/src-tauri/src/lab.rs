@@ -40,6 +40,17 @@ pub mod dev {
         f(&mut guard)
     }
 
+    fn data_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+        use tauri::Manager;
+        match crate::demo_data_dir_override() {
+            Some(dir) => Ok(dir),
+            None => app
+                .path()
+                .app_data_dir()
+                .map_err(|_| "DATA_DIR_UNAVAILABLE".to_owned()),
+        }
+    }
+
     pub fn enabled() -> bool {
         std::env::var("KOHBOR_LAB").ok().as_deref() == Some("1")
     }
@@ -112,15 +123,8 @@ pub mod dev {
     /// startup). The result is kept for the next detector rebuild.
     #[tauri::command(async)]
     pub fn lab_apply_edits(app: tauri::AppHandle, edits: Vec<Edit>) -> Result<Value, String> {
-        use tauri::Manager;
         require()?;
-        let data_dir = match crate::demo_data_dir_override() {
-            Some(dir) => dir,
-            None => app
-                .path()
-                .app_data_dir()
-                .map_err(|_| "DATA_DIR_UNAVAILABLE".to_owned())?,
-        };
+        let data_dir = data_dir(&app)?;
         with_slot(|s| {
             let list: Vec<(&str, &str, Value)> = edits
                 .iter()
@@ -139,6 +143,145 @@ pub mod dev {
             s.resolved.rejected = None;
             Ok(describe_with_context(s))
         })
+    }
+
+    #[derive(Deserialize)]
+    pub struct LayoutIn {
+        pub x_percent: f64,
+        pub y_percent: f64,
+        pub scale: f64,
+        pub enabled: bool,
+    }
+
+    fn core_layout(input: &LayoutIn) -> kohbor_lab::BannerLayout {
+        kohbor_lab::BannerLayout {
+            x_percent: input.x_percent,
+            y_percent: input.y_percent,
+            scale: input.scale,
+            enabled: input.enabled,
+        }
+    }
+
+    fn host_layout(layout: kohbor_lab::BannerLayout) -> crate::overlay::BannerLayout {
+        crate::overlay::BannerLayout {
+            x_percent: layout.x_percent,
+            y_percent: layout.y_percent,
+            scale: layout.scale,
+            enabled: layout.enabled,
+        }
+    }
+
+    /// The layout the overlay uses at show time in dev/test builds.
+    pub fn banner_layout() -> crate::overlay::BannerLayout {
+        host_layout(with_slot(|s| s.resolved.effective.layout().banner))
+    }
+
+    fn layout_view(s: &Slot) -> Value {
+        let described = describe_with_context(s);
+        let zones: Vec<Value> = crate::overlay::PROTECTED_REGIONS
+            .iter()
+            .map(|(name, x0, y0, x1, y1)| json!({"name": name, "x0": x0, "y0": y0, "x1": x1, "y1": y1}))
+            .collect();
+        json!({
+            "banner": described["layout"]["banner"],
+            "default": described["layout"]["default"]["banner"],
+            "bounds": described["layout"]["bounds"],
+            "hud_zones": zones,
+            "source": described["source"],
+            "override_path": described["override_path"],
+            "applies": "on the next overlay show (the overlay re-places itself before every show)",
+        })
+    }
+
+    #[tauri::command(async)]
+    pub fn lab_layout_get() -> Result<Value, String> {
+        require()?;
+        Ok(with_slot(|s| layout_view(s)))
+    }
+
+    /// Where the real host would put the window for `layout` on a monitor of the given size:
+    /// the same `overlay::place_overlay_with` the overlay uses, so the editor draws the clamped
+    /// rectangle, not an ideal one. `stage` is the art area; the status strip hangs below it.
+    #[tauri::command(async)]
+    pub fn lab_layout_preview(
+        layout: LayoutIn,
+        monitor_w: u32,
+        monitor_h: u32,
+    ) -> Result<Value, String> {
+        require()?;
+        if !(320..=16_384).contains(&monitor_w) || !(240..=16_384).contains(&monitor_h) {
+            return Err("MONITOR_SIZE_OUT_OF_RANGE".to_owned());
+        }
+        let monitor = crate::overlay::MonitorRect {
+            x: 0,
+            y: 0,
+            w: monitor_w,
+            h: monitor_h,
+        };
+        let placed =
+            crate::overlay::place_overlay_with(&monitor, &host_layout(core_layout(&layout)));
+        Ok(match placed {
+            None => json!({"disabled": true}),
+            Some(window) => {
+                let (stage_w, stage_logical_h) = crate::overlay::STAGE_LOGICAL;
+                let stage_h = (f64::from(window.w) * f64::from(stage_logical_h)
+                    / f64::from(stage_w))
+                .round() as u32;
+                json!({
+                    "disabled": false,
+                    "window": {"x": window.x, "y": window.y, "w": window.w, "h": window.h},
+                    "stage": {"x": window.x, "y": window.y, "w": window.w, "h": stage_h.min(window.h)},
+                })
+            }
+        })
+    }
+
+    /// Validate the layout like a profile file and write the fixed dev override file.
+    #[tauri::command(async)]
+    pub fn lab_layout_apply(app: tauri::AppHandle, layout: LayoutIn) -> Result<Value, String> {
+        require()?;
+        let data_dir = data_dir(&app)?;
+        with_slot(|s| {
+            let edited = s
+                .resolved
+                .effective
+                .with_layout(core_layout(&layout))
+                .map_err(|e| format!("{}: {}", e.code, e.detail))?;
+            let path = kohbor_lab::dev_override::save_under(&data_dir, &edited)
+                .map_err(|_| "SAVE_REFUSED".to_owned())?;
+            s.resolved.effective = edited.with_source(kohbor_lab::Source::Override(path.clone()));
+            s.resolved.source = kohbor_lab::Source::Override(path);
+            s.resolved.rejected = None;
+            Ok(layout_view(s))
+        })
+    }
+
+    /// The layout as JSON for copying; no paths, no identifiers.
+    #[tauri::command(async)]
+    pub fn lab_layout_export() -> Result<String, String> {
+        require()?;
+        Ok(with_slot(|s| {
+            let banner = s.resolved.effective.describe_json()["layout"]["banner"].clone();
+            serde_json::to_string_pretty(&json!({"layout": {"banner": banner}})).unwrap_or_default()
+                + "\n"
+        }))
+    }
+
+    /// The reference screenshot as a data URL, only from the fixed dev location under the app
+    /// data dir (never from the repository or the installer). `None` when it is absent.
+    #[tauri::command(async)]
+    pub fn lab_reference_image(app: tauri::AppHandle) -> Result<Option<String>, String> {
+        use base64::Engine;
+        require()?;
+        let data_dir = data_dir(&app)?;
+        let bytes = kohbor_lab::dev_override::read_reference_image(&data_dir)
+            .map_err(|_| "REFERENCE_IMAGE_REFUSED".to_owned())?;
+        Ok(bytes.map(|b| {
+            format!(
+                "data:image/jpeg;base64,{}",
+                base64::engine::general_purpose::STANDARD.encode(b)
+            )
+        }))
     }
 
     /// Replay supplied ticks with the current profile, optionally compared with edits.
@@ -164,6 +307,14 @@ pub mod dev {
             Ok(out)
         })
     }
+}
+
+/// The banner layout the overlay uses at show time in dev/test builds. The host lead wires this
+/// into `overlay::effective_banner_layout()` (one line under the same cfg).
+#[cfg(any(feature = "lab", debug_assertions))]
+#[allow(dead_code)]
+pub fn banner_layout() -> crate::overlay::BannerLayout {
+    dev::banner_layout()
 }
 
 /// Parameters for a newly built detector.
@@ -229,6 +380,19 @@ mod tests {
             }
         }
         assert!(checked > 20);
+    }
+
+    /// The Lab profile default for the banner must be the host's compiled default.
+    #[cfg(any(feature = "lab", debug_assertions))]
+    #[test]
+    fn lab_layout_default_equals_the_overlay_default() {
+        let lab = kohbor_lab::embedded().layout().banner;
+        let host = crate::overlay::DEFAULT_BANNER_LAYOUT;
+        assert_eq!(lab.x_percent, host.x_percent);
+        assert_eq!(lab.y_percent, host.y_percent);
+        assert_eq!(lab.scale, host.scale);
+        assert_eq!(lab.enabled, host.enabled);
+        assert_eq!(super::dev::banner_layout(), host);
     }
 
     #[test]

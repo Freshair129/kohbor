@@ -14,6 +14,7 @@ import {
   type Trace,
 } from "./labModel";
 import { labApplyEdits, labExport, labLastTrace, labStatus } from "./labRuntime";
+import { OverlayEditor } from "./OverlayEditor";
 import "./lab.css";
 
 const POLL_MS = 1000;
@@ -212,6 +213,8 @@ export function Lab() {
       {exported !== null && (
         <textarea className="lab-export" readOnly value={exported} aria-label="Exported profile" />
       )}
+
+      <OverlayEditor />
     </section>
   );
 }
