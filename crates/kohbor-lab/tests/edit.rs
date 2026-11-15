@@ -195,6 +195,53 @@ mod writes {
 }
 
 #[cfg(any(feature = "lab", debug_assertions))]
+mod saved {
+    use super::*;
+    use kohbor_lab::dev_override::{load_saved, save_under, OVERRIDE_DIR, OVERRIDE_FILE};
+    use kohbor_lab::Source;
+
+    fn temp_dir(tag: &str) -> std::path::PathBuf {
+        let dir =
+            std::env::temp_dir().join(format!("kohbor-lab-saved-{tag}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn nothing_saved_is_none() {
+        let dir = temp_dir("none");
+        assert!(load_saved(&dir).is_none());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_saved_profile_is_loaded_back_after_a_restart() {
+        let dir = temp_dir("roundtrip");
+        let edited = embedded()
+            .with_edits(&[("health_danger", "cooldown_ms", json!(60000))])
+            .unwrap();
+        let path = save_under(&dir, &edited).unwrap();
+        let loaded = load_saved(&dir).expect("saved file found");
+        assert!(loaded.rejected.is_none());
+        assert_eq!(loaded.source, Source::Override(path));
+        assert_eq!(loaded.effective.config().danger_cooldown_ms, 60000);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn an_invalid_saved_file_falls_back_whole_and_says_why() {
+        let dir = temp_dir("invalid");
+        std::fs::create_dir_all(dir.join(OVERRIDE_DIR)).unwrap();
+        std::fs::write(dir.join(OVERRIDE_DIR).join(OVERRIDE_FILE), "{").unwrap();
+        let loaded = load_saved(&dir).expect("file exists");
+        assert_eq!(loaded.source, Source::Embedded);
+        assert_eq!(loaded.rejected.unwrap().code, "SYNTAX");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+#[cfg(any(feature = "lab", debug_assertions))]
 mod reference_image {
     use kohbor_lab::dev_override::{read_reference_image, ASSET_DIR, ASSET_FILE, OVERRIDE_DIR};
     use std::path::PathBuf;

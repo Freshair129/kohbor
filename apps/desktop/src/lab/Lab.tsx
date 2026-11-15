@@ -6,6 +6,7 @@ import {
   editsFromDrafts,
   formatValue,
   guardStatus,
+  profileLabel,
   safetyReport,
   withDraft,
   type Description,
@@ -19,14 +20,14 @@ import "./lab.css";
 
 const POLL_MS = 1000;
 
-/** Dev-only studio (docs/design/KOHBOR-LAB.md). Renders nothing unless the host says Lab is available. */
-export function Lab() {
+function LabStudio({ onClose }: { onClose: () => void }) {
   const [description, setDescription] = useState<Description | null>(null);
   const [trace, setTrace] = useState<Trace | null>(null);
   const [selected, setSelected] = useState<string>("health_danger");
   const [drafts, setDrafts] = useState<Record<string, DraftEdit>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [exported, setExported] = useState<string | null>(null);
+  const [tab, setTab] = useState<"events" | "overlay">("events");
 
   useEffect(() => {
     let active = true;
@@ -80,14 +81,19 @@ export function Lab() {
   const entry = description.events[selected];
 
   return (
-    <section className="lab" aria-labelledby="lab-title">
+    <section className="lab-panel" aria-labelledby="lab-title">
       <header className="lab-head">
         <h2 id="lab-title">Kohbor Lab</h2>
         <span className="lab-dev">DEV</span>
-        <span>
-          profile: {description.source}
-          {description.overrides.length > 0 ? ` (${description.overrides.length} overrides)` : ""}
-        </span>
+        <span>{profileLabel(description)}</span>
+        <div className="lab-tabs" role="tablist" aria-label="Lab sections">
+          <button type="button" role="tab" aria-selected={tab === "events"} onClick={() => setTab("events")}>
+            Events
+          </button>
+          <button type="button" role="tab" aria-selected={tab === "overlay"} onClick={() => setTab("overlay")}>
+            Overlay editor
+          </button>
+        </div>
         <button
           type="button"
           onClick={() => {
@@ -96,8 +102,12 @@ export function Lab() {
         >
           Export profile
         </button>
+        <button type="button" onClick={onClose}>
+          Close
+        </button>
       </header>
 
+      <div className="lab-scroll" tabIndex={0} aria-label="Kohbor Lab content">
       {description.rejected && (
         <p className="lab-warn" role="status">
           Override rejected ({description.rejected.code}): {description.rejected.detail}. The embedded default is in force.
@@ -112,6 +122,8 @@ export function Lab() {
         ))}
       </ul>
 
+      {tab === "events" ? (
+        <>
       <div className="lab-body">
         <nav className="lab-events" aria-label="Events">
           {Object.entries(description.events).map(([id, eventDescription]) => {
@@ -213,8 +225,51 @@ export function Lab() {
       {exported !== null && (
         <textarea className="lab-export" readOnly value={exported} aria-label="Exported profile" />
       )}
-
-      <OverlayEditor />
+        </>
+      ) : (
+        <OverlayEditor />
+      )}
+      </div>
     </section>
+  );
+}
+
+/**
+ * Dev-only studio (docs/design/KOHBOR-LAB.md). Renders nothing unless the host says Lab is
+ * available. It is a fixed full-window panel with its own scroll container, opened from a small
+ * launcher, so it does not depend on (or change) the shell's no-page-scroll layout.
+ */
+export function Lab() {
+  const [available, setAvailable] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void labStatus().then((value) => {
+      if (active) setAvailable(value !== null);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && document.fullscreenElement === null) setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  if (!available) return null;
+  return open ? (
+    <div className="lab-overlay-root">
+      <LabStudio onClose={() => setOpen(false)} />
+    </div>
+  ) : (
+    <button type="button" className="lab-launcher" onClick={() => setOpen(true)}>
+      Kohbor Lab (DEV)
+    </button>
   );
 }

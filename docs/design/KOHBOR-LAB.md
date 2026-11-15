@@ -317,3 +317,9 @@ Found by the host lead's binary scan: Lab's commands are registered only in the 
 | debug builds | Lab real; same run-time switches |
 
 Verified by `cargo check -p kohbor-desktop --offline` for: `--release --features demo`, `--release --features lab`, `--release`, debug, debug `--features lab` (all finish without error). **Regression guard:** `cargo check -p kohbor-desktop --release --features demo` is not part of `tools/gate.py`; adding it is a proposal for the gate owner (about 1.5 minutes in a warm lane).
+
+### 11.2 Usability fixes after the build 10 screenshot (2026-11-15)
+
+- **Layout:** the Lab is no longer a fifth cell of the status grid (where it fell outside the visible, non-scrolling area). It is a fixed full-window studio panel opened from a small "Kohbor Lab (DEV)" launcher; inside, header (title, profile line, tabs `Events` | `Overlay editor`, Export, Close) plus ONE bounded scroll container (`overflow-y: auto`, `min-height: 0` chain, keyboard focusable, visible focus ring). Escape closes it unless the canvas is fullscreen. The shell's no-page-scroll rule is untouched (a test asserts the Lab CSS does not style `html/body/#root/.app`). The canvas width is `min(100%, (100dvh - 170px) * 16/9)` so it should fit at 1280x720 to 1920x1080 (computed, not yet seen on screen: UNVERIFIED).
+- **Neutral profile line:** an unset `KOHBOR_LAB_PROFILE` is no longer a rejection; the view says "embedded profile (no override file)". Real rejections (bad file) still show.
+- **Saved edits survive a restart:** when no profile file is selected by the environment, the first Lab command loads `<data dir>/lab/profile.override.json` if present (before this, saved edits were written but never re-read). Limitation: this happens when the Lab launcher first asks the host, so the overlay hook uses the compiled default until then.

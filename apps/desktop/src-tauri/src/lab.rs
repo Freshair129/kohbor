@@ -23,6 +23,7 @@ pub mod dev {
     struct Slot {
         resolved: Resolved,
         last_trace: Option<Value>,
+        saved_checked: bool,
     }
 
     fn slot() -> &'static Mutex<Slot> {
@@ -31,6 +32,7 @@ pub mod dev {
             Mutex::new(Slot {
                 resolved: kohbor_lab::resolve_effective(),
                 last_trace: None,
+                saved_checked: false,
             })
         })
     }
@@ -42,13 +44,28 @@ pub mod dev {
 
     fn data_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
         use tauri::Manager;
-        match crate::demo_data_dir_override() {
-            Some(dir) => Ok(dir),
+        let dir = match crate::demo_data_dir_override() {
+            Some(dir) => dir,
             None => app
                 .path()
                 .app_data_dir()
-                .map_err(|_| "DATA_DIR_UNAVAILABLE".to_owned()),
-        }
+                .map_err(|_| "DATA_DIR_UNAVAILABLE".to_owned())?,
+        };
+        // Once per run: when no KOHBOR_LAB_PROFILE selected a file, pick up what a previous
+        // Lab save left at the fixed location so edits survive a restart.
+        with_slot(|s| {
+            if !s.saved_checked {
+                s.saved_checked = true;
+                if matches!(s.resolved.source, kohbor_lab::Source::Embedded)
+                    && s.resolved.rejected.is_none()
+                {
+                    if let Some(found) = kohbor_lab::dev_override::load_saved(&dir) {
+                        s.resolved = found;
+                    }
+                }
+            }
+        });
+        Ok(dir)
     }
 
     pub fn enabled() -> bool {
@@ -88,10 +105,11 @@ pub mod dev {
     }
 
     #[tauri::command(async)]
-    pub fn lab_status() -> Value {
+    pub fn lab_status(app: tauri::AppHandle) -> Value {
         if !enabled() {
             return json!({"available": false});
         }
+        let _ = data_dir(&app);
         with_slot(|s| {
             let mut value = describe_with_context(s);
             value["available"] = json!(true);
@@ -100,8 +118,9 @@ pub mod dev {
     }
 
     #[tauri::command(async)]
-    pub fn lab_describe() -> Result<Value, String> {
+    pub fn lab_describe(app: tauri::AppHandle) -> Result<Value, String> {
         require()?;
+        data_dir(&app)?;
         Ok(with_slot(|s| describe_with_context(s)))
     }
 
@@ -112,8 +131,9 @@ pub mod dev {
     }
 
     #[tauri::command(async)]
-    pub fn lab_export() -> Result<String, String> {
+    pub fn lab_export(app: tauri::AppHandle) -> Result<String, String> {
         require()?;
+        data_dir(&app)?;
         Ok(with_slot(|s| s.resolved.effective.export_json()))
     }
 
@@ -194,8 +214,9 @@ pub mod dev {
     }
 
     #[tauri::command(async)]
-    pub fn lab_layout_get() -> Result<Value, String> {
+    pub fn lab_layout_get(app: tauri::AppHandle) -> Result<Value, String> {
         require()?;
+        data_dir(&app)?;
         Ok(with_slot(|s| layout_view(s)))
     }
 
@@ -258,8 +279,9 @@ pub mod dev {
 
     /// The layout as JSON for copying; no paths, no identifiers.
     #[tauri::command(async)]
-    pub fn lab_layout_export() -> Result<String, String> {
+    pub fn lab_layout_export(app: tauri::AppHandle) -> Result<String, String> {
         require()?;
+        data_dir(&app)?;
         Ok(with_slot(|s| {
             let banner = s.resolved.effective.describe_json()["layout"]["banner"].clone();
             serde_json::to_string_pretty(&json!({"layout": {"banner": banner}})).unwrap_or_default()

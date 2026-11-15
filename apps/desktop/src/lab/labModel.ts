@@ -204,3 +204,10 @@ export function safetyReport(description: Description): SafetyRow[] {
       return { event, status: changed.length > 0 ? ("overridden" as const) : ("default" as const), changed };
     });
 }
+
+/** Neutral profile line: no override file is the normal case, not an error. */
+export function profileLabel(description: Description): string {
+  if (description.source === "embedded") return "embedded profile (no override file)";
+  const count = description.overrides.length;
+  return `override file (${count} ${count === 1 ? "change" : "changes"})`;
+}
