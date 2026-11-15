@@ -309,6 +309,61 @@ pub mod dev {
     }
 }
 
+/// Demo-only release builds (`--features demo` without `lab`, no debug assertions) still register
+/// the `lab::dev::*` handler names; these stubs keep that list compiling and answer
+/// "unavailable". No Lab logic, no file or environment access.
+#[cfg(all(feature = "demo", not(any(feature = "lab", debug_assertions))))]
+pub mod dev {
+    use serde_json::{json, Value};
+
+    const UNAVAILABLE: &str = "CAPABILITY_UNAVAILABLE";
+
+    #[tauri::command(async)]
+    pub fn lab_status() -> Value {
+        json!({"available": false})
+    }
+    #[tauri::command(async)]
+    pub fn lab_describe() -> Result<Value, String> {
+        Err(UNAVAILABLE.to_owned())
+    }
+    #[tauri::command(async)]
+    pub fn lab_last_trace() -> Result<Value, String> {
+        Err(UNAVAILABLE.to_owned())
+    }
+    #[tauri::command(async)]
+    pub fn lab_export() -> Result<String, String> {
+        Err(UNAVAILABLE.to_owned())
+    }
+    #[tauri::command(async)]
+    pub fn lab_apply_edits() -> Result<Value, String> {
+        Err(UNAVAILABLE.to_owned())
+    }
+    #[tauri::command(async)]
+    pub fn lab_replay() -> Result<Value, String> {
+        Err(UNAVAILABLE.to_owned())
+    }
+    #[tauri::command(async)]
+    pub fn lab_layout_get() -> Result<Value, String> {
+        Err(UNAVAILABLE.to_owned())
+    }
+    #[tauri::command(async)]
+    pub fn lab_layout_preview() -> Result<Value, String> {
+        Err(UNAVAILABLE.to_owned())
+    }
+    #[tauri::command(async)]
+    pub fn lab_layout_apply() -> Result<Value, String> {
+        Err(UNAVAILABLE.to_owned())
+    }
+    #[tauri::command(async)]
+    pub fn lab_layout_export() -> Result<String, String> {
+        Err(UNAVAILABLE.to_owned())
+    }
+    #[tauri::command(async)]
+    pub fn lab_reference_image() -> Result<Option<String>, String> {
+        Err(UNAVAILABLE.to_owned())
+    }
+}
+
 /// The banner layout the overlay uses at show time in dev/test builds. The host lead wires this
 /// into `overlay::effective_banner_layout()` (one line under the same cfg).
 #[cfg(any(feature = "lab", debug_assertions))]
