@@ -316,8 +316,7 @@ impl Effective {
         &self.source
     }
 
-    #[cfg(any(feature = "lab", debug_assertions))]
-    pub(crate) fn with_source(mut self, source: Source) -> Self {
+    pub fn with_source(mut self, source: Source) -> Self {
         self.source = source;
         self
     }

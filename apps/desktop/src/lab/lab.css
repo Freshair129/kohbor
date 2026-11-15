@@ -1,0 +1,19 @@
+.lab { border: 1px dashed currentColor; padding: 12px; margin: 12px 0; }
+.lab-head { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.lab-head h2 { margin: 0; }
+.lab-dev { border: 1px solid currentColor; padding: 0 6px; font-size: 0.75rem; }
+.lab-warn { font-weight: 600; }
+.lab-safety { display: flex; gap: 12px; list-style: none; padding: 0; margin: 8px 0; flex-wrap: wrap; }
+.lab-ok::before { content: "OK "; }
+.lab-bad::before { content: "CHANGED "; font-weight: 700; }
+.lab-body { display: grid; grid-template-columns: minmax(140px, 220px) 1fr; gap: 12px; }
+.lab-events { display: flex; flex-direction: column; gap: 4px; }
+.lab-events button[aria-pressed="true"] { font-weight: 700; }
+.lab-events .lab-fired { outline: 2px solid currentColor; }
+.lab-guards { border-collapse: collapse; width: 100%; }
+.lab-guards th, .lab-guards td { text-align: left; padding: 2px 8px; border-bottom: 1px solid rgba(128, 128, 128, 0.4); }
+.lab-fail td:last-child { font-weight: 700; }
+.lab-unknown td { opacity: 0.7; }
+.lab-params label { display: block; margin: 4px 0; }
+.lab-params input { margin-left: 8px; width: 7em; }
+.lab-export { width: 100%; min-height: 12em; font-family: monospace; }
