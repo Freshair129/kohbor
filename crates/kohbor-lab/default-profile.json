@@ -1,0 +1,14 @@
+{
+  "profile_version": "1.0",
+  "taxonomy_version": "1.1",
+  "events": {
+    "multi_kill": { "params": { "window_ms": 18000, "min_kills": 2 } },
+    "streak": { "params": { "min_kills": 3 } },
+    "level_milestone": { "params": { "levels": [6, 12, 18, 25] } },
+    "health_low": { "params": { "threshold_percent": 20, "rearm_percent": 30 } },
+    "mana_low": { "params": { "threshold_percent": 15, "rearm_percent": 25 } },
+    "health_danger": {
+      "params": { "max_hp_percent": 25, "drop_points": 15, "window_ms": 2000, "rearm_percent": 40, "cooldown_ms": 20000 }
+    }
+  }
+}

@@ -10,6 +10,15 @@ approval_status: "agent_decision_not_owner_approved"
 
 # Kohbor Lab: dev-stage event-logic studio
 
+## Owner decision record (2026-11-15, relayed by the coordinator session)
+
+Owner statement (Thai, as relayed): "เปิดให้ใช้เฉพาะเดฟก่อน แล้วเริ่มเลย".
+
+- **DEC-LAB-GATE: decided.** Kohbor Lab is dev-only (demo/debug gating, absent from release builds), and building starts now with stage L1, then L2 if L1 is green.
+- **DEC-LAB-LOGIC: not decided.** User-composed conditions (tier 2) stay out; implementation is tier 1 (parameters) only.
+- This is recorded here only. `contracts/decisions.json` and the DECISION-LOG are owner-reserved and are **not** edited; adding DEC-LAB-GATE there is a proposal for the owner (§7.1, item 5).
+- v1 profile scope narrowed by implementation (see §10): `events.<id>.params` only. The `enabled`, `condition`, `arming` and `bindings` fields of §2.2 are deferred (bindings to L3, others to tier 2).
+
 ## 0. Purpose, scope, evidence
 
 The owner cannot currently see how admitted GSI values become events (for example why `health_danger` fires), cannot change that logic without editing Rust, and cannot map events to announcer clips in one place. Kohbor Lab is a **development-stage view inside the desktop app** that makes the mapping visible, lets the owner edit bounded parameters live, pairs events with clips, and exports the whole configuration. The same defaults ship embedded in production, where no external file is read.
@@ -240,6 +249,7 @@ Owner decisions required (PROPOSED ids, not yet in DECISION-LOG):
 2. A new `contracts/lab-profile.schema.json` **only if** profiles ever cross a process or machine boundary; while the file is dev-local, the crate-local schema in §2 suffices (recommended).
 3. `docs/design/UX-SPEC.md` §2: one row for the dev-only Lab destination, stating it is absent in production.
 4. `docs/domains/` registry: a domain card for Lab (steward, files owned) before L1 begins.
+5. Decision log: record DEC-LAB-GATE (decided 2026-11-15) and DEC-LAB-LOGIC (open, tier 2) in `contracts/decisions.json`.
 
 ## 8. Risks
 
