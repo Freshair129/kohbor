@@ -70,7 +70,7 @@ class ScopeGitTests(unittest.TestCase):
         p.write_text(text, encoding="utf-8")
 
     def claim(self, name: str, **fields) -> None:
-        data = {"status": "active", "branch": "feat/x", "write_area": ["crates/a/**"]}
+        data = {"status": "active", "branch": "feat/x", "write_area": ["crates/a/**"], "tags": ["PROC:scope-test"]}  # tagged: the scope tests are not about tags (see test_tags.py)
         data.update(fields)
         (self.coord / "claims" / name).write_text(json.dumps(data), encoding="utf-8")
 

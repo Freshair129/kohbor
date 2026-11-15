@@ -45,12 +45,15 @@ This is the only index of documents. Every Markdown file in the tree, is linked 
 | [M1 Status](delivery/M1-STATUS.md) | Tauri host slice: containment, intake, runtime status, Overview UI; what ran | Engineering lead, owner |
 | [M0 Plan and Status](delivery/M0-PLAN.md) | Frozen identity, scope matrix, toolchain lock, module map, local-core slice results and capture-spike procedure | Engineering lead, owner |
 | [Operations Runbook](operations/RUNBOOK.md) | Installation, configuration, diagnostics, release and recovery | Maintainers, operators |
+| [Recorded GSI Replay](operations/GSI-REPLAY.md) | Local replay of a recorded GSI session into a temporary-data demo, with evidence limits | Developers, QA |
 | [Document Control](governance/DOCUMENT-CONTROL.md) | Authority, baseline versions, review and change control | All contributors |
 | [Decision Log](governance/DECISION-LOG.md) | Delegated choices and unresolved dependencies | Product, engineering |
 | [Risk Register](governance/RISK-REGISTER.md) | Delivery/technical uncertainty, mitigation and closure evidence | Product, engineering, QA |
 | [Implementation Readiness](governance/IMPLEMENTATION-READINESS.md) | Concrete remaining design work, safe starting points and evidence limits | Implementing agents, engineering, reviewers |
 | [Agent Registry, Router and Enforcement](governance/AGENT-REGISTRY.md) | Profiles, roles, task routes with the owner-evidence level of each, domain policies, who is working now, and what is enforced and what is only reported (agent proposal; source: `AGENT-REGISTRY.json`) | Engineering lead, owner, every agent |
 | [Agent Registry Design](governance/AGENT-REGISTRY-DESIGN.md) | Review of the first registry draft, the final design (registry schema, router, taxonomy, enforcement ladder) and the implementation plan P1 to P7 (P1 to P6 implemented) | Engineering lead, owner |
+| [Progress Chase: Stage 1 wording](design/PROGRESS-CHASE-STAGE1-PROPOSAL.md) | Proposed wording for AGENT-WORKFLOW sections 6, 9.1 and 9.2 and the handoff template to use claim tags and the chase list; not applied (owner-reserved) | Owner, engineering lead |
+| [Progress Chase on Windows (Thai)](operations/PROGRESS-CHASE-TH.md) | Owner README: how to create the Task Scheduler job that refreshes the progress map and the chase list (the job is not created by an agent) | Owner |
 | [Progress Map](governance/PROGRESS-MAP.md) | Generator `tools/progress_map.py`: one offline HTML mind map of every area and its derived status, the status rules, sources and limits (agent tool, not human reviewed) | Owner, engineering lead, every agent |
 | [Glossary](governance/GLOSSARY.md) | Requirement, module, component, domain, crate, write area and claim, the primary-domain rule and the generated map | All contributors |
 | [Changelog](governance/CHANGELOG.md) | What changed in the documentation baseline | Reviewers |
