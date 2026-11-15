@@ -2,11 +2,13 @@
 
 pub mod atomic;
 mod audio;
+mod audio_prefs;
 mod capture_host;
 mod clock;
 mod commands;
 pub mod containment;
 pub mod host;
+mod hotkeys;
 pub mod instance;
 pub mod intake;
 pub mod latency;
@@ -52,6 +54,8 @@ pub(crate) struct AppState {
     pub(crate) runtime: Arc<intake::Runtime>,
     pub(crate) host: host::Host,
     pub(crate) settings_dir: PathBuf,
+    pub(crate) audio_prefs: audio_prefs::AudioPrefsService,
+    pub(crate) hotkeys: Mutex<hotkeys::Controller>,
     /// Serializes all commands that may replace user-settings.json.
     pub(crate) settings_gate: Mutex<()>,
     pub(crate) sample: Arc<Mutex<(Sample, bool)>>,
@@ -382,6 +386,8 @@ pub fn run() {
                 crate::log_error!("app", "setup_failed", "APP_DATA_DIR_UNAVAILABLE");
             })?;
             let settings_dir = dir.clone();
+            // Load volume preferences before Host::start creates the audio engine.
+            let audio_prefs = audio_prefs::AudioPrefsService::open(&dir);
             let runtime = intake::Runtime::new(dir.clone());
             let sample = Arc::new(Mutex::new((
                 Sample {
@@ -444,10 +450,13 @@ pub fn run() {
                 runtime,
                 host,
                 settings_dir,
+                audio_prefs,
+                hotkeys: Mutex::new(hotkeys::Controller::default()),
                 settings_gate: Mutex::new(()),
                 sample,
                 revision: AtomicU64::new(0),
             });
+            commands::start_hotkeys(app.handle(), &app.state::<AppState>());
             steam::start_status_probe(app.handle().clone(), steam_runtime);
             let app_handle = app.handle().clone();
             let last_overlay_status = Arc::new(Mutex::new(initial_overlay_status.clone()));
@@ -484,6 +493,9 @@ pub fn run() {
         commands::media_probe_pending,
         commands::audio_history,
         commands::set_muted,
+        commands::audio_prefs_get,
+        commands::audio_set_volume,
+        commands::audio_set_hotkeys,
         capture_host::minimap_subscribe,
         capture_host::capture_status,
         capture_host::capture_invalidate,
@@ -521,6 +533,9 @@ pub fn run() {
         commands::media_probe_pending,
         commands::audio_history,
         commands::set_muted,
+        commands::audio_prefs_get,
+        commands::audio_set_volume,
+        commands::audio_set_hotkeys,
         capture_host::minimap_subscribe,
         capture_host::capture_status,
         capture_host::capture_invalidate,
@@ -542,7 +557,9 @@ pub fn run() {
             }
             if matches!(event, tauri::RunEvent::Exit) {
                 crate::log_info!("app", "exit", "Kohbor is exiting");
-                handle.state::<AppState>().host.shutdown();
+                let state = handle.state::<AppState>();
+                intake::lock(&state.hotkeys).stop();
+                state.host.shutdown();
                 crate::log_info!("app", "process_exit", "all host threads stopped");
                 logging::flush();
             }

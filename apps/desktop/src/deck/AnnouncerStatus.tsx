@@ -8,6 +8,7 @@ import type { PlaybackState } from "../playback";
 import type { RuntimeStatus } from "../types";
 import { deckCopy } from "./copy";
 import { deriveLastClip, deriveOnAir, shortPlaybackId } from "./eventFeedModel";
+import { VolumeControl } from "../VolumeControl";
 
 export function AnnouncerStatus({ locale, status, mute, history, historyState, hostNowMs, playback, hostLost }: {
   locale: Locale; status: RuntimeStatus | null; mute: AudioMuteState; history: AudioHistory | null;
@@ -33,6 +34,7 @@ export function AnnouncerStatus({ locale, status, mute, history, historyState, h
         </strong>
       </div>
       {onAir && <div className="deck-sound-row deck-on-air"><span>ON AIR</span><strong title={onAir.playbackId}>{onAir.eventLabel} · {shortPlaybackId(onAir.playbackId)}</strong></div>}
+      <VolumeControl locale={locale} compact />
     </section>
   );
 }

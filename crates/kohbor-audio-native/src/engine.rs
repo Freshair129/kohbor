@@ -1,3 +1,4 @@
+use crate::master_volume_percent;
 use kohbor_audio::{PlaybackId, SinkError, SinkEvent};
 #[cfg(feature = "latency-probe")]
 use std::sync::atomic::fence;
@@ -12,6 +13,91 @@ pub(super) const COMMAND_QUEUE_CAPACITY: usize = 8;
 pub(super) const EVENT_QUEUE_CAPACITY: usize = 16;
 const RETIREMENT_QUEUE_CAPACITY: usize = COMMAND_QUEUE_CAPACITY + 1;
 const INACTIVE_GENERATION: u64 = 0;
+const RAMP_SAMPLE_COUNT: usize = 480;
+
+#[derive(Clone, Copy, Debug)]
+struct GainRamp {
+    start_gain: f32,
+    target_gain: f32,
+    current_gain: f32,
+    remaining_samples: usize,
+}
+
+impl GainRamp {
+    fn new(percent: u8) -> Self {
+        let gain = f32::from(percent.min(100)) / 100.0;
+        Self {
+            start_gain: gain,
+            target_gain: gain,
+            current_gain: gain,
+            remaining_samples: 0,
+        }
+    }
+
+    fn set_percent(&mut self, percent: u8) {
+        let target_gain = f32::from(percent.min(100)) / 100.0;
+        if target_gain != self.target_gain {
+            self.start_gain = self.current_gain;
+            self.target_gain = target_gain;
+            self.remaining_samples = RAMP_SAMPLE_COUNT;
+        }
+    }
+
+    fn next_gain(&mut self) -> f32 {
+        if self.remaining_samples > 0 {
+            let completed = RAMP_SAMPLE_COUNT - self.remaining_samples + 1;
+            let progress = completed as f32 / RAMP_SAMPLE_COUNT as f32;
+            self.current_gain = if self.remaining_samples == 1 {
+                self.target_gain
+            } else {
+                self.start_gain + (self.target_gain - self.start_gain) * progress
+            };
+            self.remaining_samples -= 1;
+        }
+        self.current_gain
+    }
+
+    #[cfg(test)]
+    fn current(&self) -> f32 {
+        self.current_gain
+    }
+
+    fn apply(&mut self, samples: &mut [i16], percent: u8) {
+        self.set_percent(percent);
+        if self.remaining_samples == 0 {
+            if self.target_gain == 1.0 {
+                return;
+            }
+            if self.target_gain == 0.0 {
+                samples.fill(0);
+                return;
+            }
+            for sample in samples {
+                *sample = scale_sample(*sample, self.target_gain);
+            }
+            return;
+        }
+        for sample in samples {
+            *sample = scale_sample(*sample, self.next_gain());
+        }
+    }
+}
+
+fn scale_sample(sample: i16, gain: f32) -> i16 {
+    if gain == 0.0 {
+        return 0;
+    }
+    if gain == 1.0 {
+        return sample;
+    }
+    (f32::from(sample) * gain)
+        .round()
+        .clamp(f32::from(i16::MIN), f32::from(i16::MAX)) as i16
+}
+
+fn apply_master_gain(samples: &mut [i16], ramp: &mut GainRamp, percent: u8) {
+    ramp.apply(samples, percent);
+}
 
 #[cfg(feature = "latency-probe")]
 pub(crate) struct FirstFillProbeState {
@@ -405,6 +491,7 @@ pub(crate) struct Engine {
     active: Option<Playback>,
     pending_command: Option<Command>,
     diagnostics: Arc<SharedDiagnostics>,
+    gain_ramp: GainRamp,
     #[cfg(feature = "latency-probe")]
     first_fill_probe: Option<Arc<FirstFillProbeState>>,
 }
@@ -486,6 +573,7 @@ impl Engine {
                 active: None,
                 pending_command: None,
                 diagnostics,
+                gain_ramp: GainRamp::new(master_volume_percent()),
                 #[cfg(feature = "latency-probe")]
                 first_fill_probe: None,
             },
@@ -518,6 +606,7 @@ impl Engine {
             return None;
         }
         let rendered = self.render_active(out, observation);
+        apply_master_gain(out, &mut self.gain_ramp, master_volume_percent());
         self.retire_terminal_active();
         rendered
     }
@@ -806,8 +895,8 @@ mod tests {
     #[cfg(feature = "latency-probe")]
     use super::FirstFillProbe;
     use super::{
-        Engine, RenderObservation, RenderStats, SharedDiagnostics, COMMAND_QUEUE_CAPACITY,
-        EVENT_QUEUE_CAPACITY,
+        apply_master_gain, scale_sample, Engine, GainRamp, RenderObservation, RenderStats,
+        SharedDiagnostics, COMMAND_QUEUE_CAPACITY, EVENT_QUEUE_CAPACITY, RAMP_SAMPLE_COUNT,
     };
     use kohbor_audio::{PlaybackId, SinkError, SinkEvent};
     use std::sync::Arc;
@@ -828,6 +917,93 @@ mod tests {
             requested_frames,
             padding_frames,
         }
+    }
+
+    #[test]
+    fn settled_zero_volume_is_exact_silence() {
+        let mut ramp = GainRamp::new(0);
+        let mut samples = [i16::MIN, -1, 0, 1, i16::MAX];
+
+        apply_master_gain(&mut samples, &mut ramp, 0);
+
+        assert_eq!(samples, [0; 5]);
+    }
+
+    #[test]
+    fn settled_hundred_percent_is_bit_exact_passthrough() {
+        let mut ramp = GainRamp::new(100);
+        let original = [i16::MIN, -12345, -1, 0, 1, 12345, i16::MAX];
+        let mut samples = original;
+
+        apply_master_gain(&mut samples, &mut ramp, 100);
+
+        assert_eq!(samples, original);
+    }
+
+    #[test]
+    fn settled_sixty_percent_scales_samples() {
+        let mut ramp = GainRamp::new(60);
+        let mut samples = [10_000, -10_000, 1, -1];
+
+        apply_master_gain(&mut samples, &mut ramp, 60);
+
+        assert_eq!(samples, [6_000, -6_000, 1, -1]);
+    }
+
+    #[test]
+    fn a_volume_change_scales_the_next_block_of_an_active_clip() {
+        let mut ramp = GainRamp::new(100);
+        let mut first_block = [10_000; 1];
+        apply_master_gain(&mut first_block, &mut ramp, 100);
+        assert_eq!(first_block, [10_000]);
+
+        let mut next_block = [10_000; RAMP_SAMPLE_COUNT];
+        apply_master_gain(&mut next_block, &mut ramp, 60);
+
+        assert!(next_block[0] < 10_000);
+        assert_eq!(next_block[RAMP_SAMPLE_COUNT - 1], 6_000);
+    }
+
+    #[test]
+    fn gain_sample_conversion_saturates_to_i16() {
+        assert_eq!(scale_sample(i16::MAX, 1.5), i16::MAX);
+        assert_eq!(scale_sample(i16::MIN, 1.5), i16::MIN);
+    }
+
+    #[test]
+    fn volume_ramp_is_monotonic_and_ends_exactly_at_target() {
+        let mut ramp = GainRamp::new(0);
+        ramp.set_percent(100);
+        let gains = (0..RAMP_SAMPLE_COUNT)
+            .map(|_| ramp.next_gain())
+            .collect::<Vec<_>>();
+
+        assert!(gains.windows(2).all(|pair| pair[0] <= pair[1]));
+        assert_eq!(gains.last().copied(), Some(1.0));
+        assert_eq!(ramp.current(), 1.0);
+
+        ramp.set_percent(0);
+        let descending = (0..RAMP_SAMPLE_COUNT)
+            .map(|_| ramp.next_gain())
+            .collect::<Vec<_>>();
+        assert!(descending.windows(2).all(|pair| pair[0] >= pair[1]));
+        assert_eq!(descending.last().copied(), Some(0.0));
+        assert_eq!(ramp.current(), 0.0);
+    }
+
+    #[test]
+    fn volume_ramp_step_is_bounded_by_ten_milliseconds() {
+        let mut ramp = GainRamp::new(0);
+        ramp.set_percent(100);
+        let gains = (0..RAMP_SAMPLE_COUNT)
+            .map(|_| ramp.next_gain())
+            .collect::<Vec<_>>();
+        let maximum_step = 1.0 / RAMP_SAMPLE_COUNT as f32;
+
+        assert!(gains[0] <= maximum_step + f32::EPSILON);
+        assert!(gains
+            .windows(2)
+            .all(|pair| (pair[1] - pair[0]).abs() <= maximum_step + f32::EPSILON));
     }
 
     #[test]

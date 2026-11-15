@@ -391,7 +391,8 @@ fn instance_ids_use_original_position() {
         .any(|v| v["instance_id"] == "ev_g3_s120_1" && v["outcome"] == "admitted"));
 }
 #[test]
-fn mute_ack_cancels_and_blocks() {
+fn mute_still_wins_when_master_volume_is_one_hundred() {
+    kohbor_audio_native::set_master_volume_percent(100);
     let (mut h, log) = setup();
     offer(&h, 1, &[(EventId::HeroKill, None)]);
     h.engine.step(10);
@@ -418,7 +419,8 @@ fn mute_ack_cancels_and_blocks() {
             .iter()
             .filter(|x| matches!(x, Call::Submit(..)))
             .count(),
-        1
+        1,
+        "full master volume does not bypass mute"
     );
 }
 #[test]

@@ -22,6 +22,7 @@ import { AccountMenu } from "./account/AccountMenu";
 import { AccountPage, FriendsPage } from "./account/AccountPages";
 import { guestAccountPort, type AccountPort } from "./account/accountView";
 import { useAccount } from "./account/useAccount";
+import { VolumeToast } from "./VolumeToast";
 import { useDotaLauncher, useShowSteamName, useSteamStatus } from "./steam/hooks";
 import { steamPersonaName } from "./steam/model";
 import { StartDotaBar } from "./steam/StartDotaBar";
@@ -281,6 +282,7 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
         {currentTab === "account" && <AccountPage account={account} locale={displayLocale} back={() => setActiveTab("live")} />}
         {currentTab === "friends" && <FriendsPage locale={displayLocale} back={() => setActiveTab("live")} />}
       </section>
+      <VolumeToast locale={displayLocale} />
     </div>
   );
 }

@@ -8,6 +8,7 @@ import type { OwnSnapshot, RuntimeStatus, UserSettingsView } from "../types";
 import { liveMockRequested } from "../live/mockMode";
 import { parseOwnSnapshot } from "../ownSnapshot";
 import { addSampleLoadout } from "./sampleLoadout";
+import { MockAudioPrefs } from "../audioPrefs";
 
 type MockCallback = (event: unknown) => void;
 type MockEventBinding = { event: string; callbackId: number };
@@ -115,6 +116,10 @@ function deliver(event: string, payload: unknown) {
     callbacks.get(binding.callbackId)?.({ id, event, payload });
   }
 }
+
+const AUDIO_VOLUME_EVENT = "audio://volume";
+const mockAudioPrefs = new MockAudioPrefs();
+mockAudioPrefs.subscribeVolume((payload) => deliver(AUDIO_VOLUME_EVENT, payload));
 
 function dispatchScenarioEvent(event: unknown) {
   deliver(EVENT_NAME, event);
@@ -421,6 +426,15 @@ export function installMockHarness() {
         muted = args.muted;
         statusRevision += 1;
         return { muted };
+      }
+      if (command === "audio_prefs_get") return mockAudioPrefs.get();
+      if (command === "audio_set_volume") {
+        requireArgs(command, args, ["percent"]);
+        return mockAudioPrefs.setVolume(args.percent as number);
+      }
+      if (command === "audio_set_hotkeys") {
+        requireArgs(command, args, ["enabled"]);
+        return mockAudioPrefs.setHotkeys(args.enabled as boolean);
       }
       if (command === "media_probe_report") {
         requireArgs(command, args, ["installId", "revision", "pathSha256", "ok", "durationMs"]);
