@@ -24,12 +24,12 @@
     {
       "path": "Cargo.lock",
       "bytes": 121690,
-      "sha256": "d751754b810ad5ae8ae19bf75df53ac4aac3e668ef15ffc7c417f3b8c124fab6"
+      "sha256": "112a1a4330e12b8d0f19c983f4ca25cecf04e1a2e8ddbc3e58552504646238a5"
     },
     {
       "path": "Cargo.toml",
       "bytes": 854,
-      "sha256": "5e10e8472008dfad95205c871878b6be4d00ba02940ac0677975ecf83dd27c37"
+      "sha256": "127afb0094b50347827b01ce25571c314b1a512dd7c213418841095e403d9418"
     },
     {
       "path": "GUIDE-TH.md",
@@ -74,7 +74,7 @@
     {
       "path": "apps/desktop/package.json",
       "bytes": 683,
-      "sha256": "af0cc82a6e94ef697b55aaaa25653aeeaa154191f444e8b024af0e247b391630"
+      "sha256": "626392f977571e00e2ccf45375f91228d9af475eb645201a512b7f420864b609"
     },
     {
       "path": "apps/desktop/pnpm-lock.yaml",
@@ -373,8 +373,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/overlay.rs",
-      "bytes": 15697,
-      "sha256": "02618cf8681f2adf9aad01d5e08cdb27bd036b8dba6ba4dcbbd2c53522232649"
+      "bytes": 15752,
+      "sha256": "c51639691a95295d0f42548ac99509d0c1c8e5d2002103ce2872f57065a8af3d"
     },
     {
       "path": "apps/desktop/src-tauri/src/portraits.rs",
@@ -1123,8 +1123,8 @@
     },
     {
       "path": "apps/desktop/tests/lab-layout.test.ts",
-      "bytes": 4607,
-      "sha256": "8ba505c82e19678718af63c8042ade73baaa4e5168e172754b878ce276f37ee7"
+      "bytes": 4611,
+      "sha256": "67ee9d3103214dc076c2b15fbd314504758557ce216b10e7fe288b0100d89641"
     },
     {
       "path": "apps/desktop/tests/lab-model.test.ts",
@@ -1728,8 +1728,8 @@
     },
     {
       "path": "crates/kohbor-lab/default-profile.json",
-      "bytes": 678,
-      "sha256": "d91e664cd27a02356d2052fb3984494d64a293b574a4a83c2fc0444dfc87cf9f"
+      "bytes": 682,
+      "sha256": "88bdaff7ed2a8c58e455a34dbd6fc6e139db0e90b0f4217ca555911aec482f9c"
     },
     {
       "path": "crates/kohbor-lab/src/dev_override.rs",
@@ -1758,8 +1758,8 @@
     },
     {
       "path": "crates/kohbor-lab/tests/layout.rs",
-      "bytes": 4912,
-      "sha256": "d3d198a8b10cdf257a3b82b3a7c0e6b3a876123d4aa7bc3a4d34cf50991e99f6"
+      "bytes": 4918,
+      "sha256": "22813fa85d33d52674b1d6f4d0cb696d9c9ee14e12ab970b2381b2426b19458e"
     },
     {
       "path": "crates/kohbor-lab/tests/profile.rs",

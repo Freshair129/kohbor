@@ -12,13 +12,13 @@ fn code(result: Result<Effective, ProfileError>) -> &'static str {
 }
 
 #[test]
-fn embedded_banner_default_is_the_owners_profile_one() {
+fn embedded_banner_default_is_the_owners_saved_layout() {
     let banner = embedded().layout().banner;
     assert_eq!(
         banner,
         BannerLayout {
-            x_percent: 50.0,
-            y_percent: 10.5,
+            x_percent: 49.46,
+            y_percent: 12.82,
             scale: 0.45,
             enabled: true
         }
@@ -31,7 +31,7 @@ fn partial_banner_override_changes_only_named_fields() {
     let banner = effective.layout().banner;
     assert_eq!(banner.x_percent, 62.5);
     assert_eq!(banner.scale, 0.8);
-    assert_eq!(banner.y_percent, 10.5);
+    assert_eq!(banner.y_percent, 12.82);
     assert!(banner.enabled);
     assert_eq!(
         effective.overrides(),
@@ -104,7 +104,7 @@ fn with_layout_validates_and_round_trips_through_export() {
     };
     let edited = base.with_layout(moved).unwrap();
     assert_eq!(edited.layout().banner, moved);
-    assert_eq!(base.layout().banner.x_percent, 50.0, "original untouched");
+    assert_eq!(base.layout().banner.x_percent, 49.46, "original untouched");
     assert!(base
         .with_layout(BannerLayout {
             scale: 9.0,
@@ -137,7 +137,7 @@ fn describe_reports_layout_with_defaults_and_bounds() {
     assert_eq!(described["layout"]["banner"]["x_percent"], json!(40.0));
     assert_eq!(
         described["layout"]["default"]["banner"]["x_percent"],
-        json!(50.0)
+        json!(49.46)
     );
     assert_eq!(described["layout"]["bounds"]["scale"], json!([0.2, 3.0]));
 }
