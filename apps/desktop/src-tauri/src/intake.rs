@@ -1813,6 +1813,10 @@ mod s0_6_tests {
             // Workspace path crate, reads the user's installed game files read-only,
             // no network client; flate2: pinned compression library, no network.
             "kohbor-game-assets",
+            // Kohbor Lab (docs/design/KOHBOR-LAB.md): workspace path crate, pure logic
+            // (serde_json, sha2); its override reader is cfg-gated out of release builds
+            // and reads only a local file; no network client.
+            "kohbor-lab",
             "flate2",
             "tauri",
             "serde",
