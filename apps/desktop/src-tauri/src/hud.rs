@@ -1,6 +1,7 @@
 use serde_json::{Map, Value};
+use std::collections::HashMap;
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 use tauri::Emitter;
@@ -223,7 +224,82 @@ pub fn build_hud_state(snapshot: &Value) -> Value {
         "schema": 1,
         "visible": visible,
         "fields": fields,
-        "net_worth": {"value": null, "availability": "unsupported"}
+        "net_worth": if visible { net_worth_field(snapshot) } else { unknown_net_worth() }
+    })
+}
+
+/// Item name -> shop cost in gold (294 entries). Third-party data, see
+/// docs/governance/THIRD-PARTY-DATA.md. Parsed strictly once; a bad table makes every net worth unknown.
+const ITEM_PRICES_JSON: &str = include_str!("../data/item-prices.json");
+
+fn item_prices() -> Option<&'static HashMap<String, u32>> {
+    static PRICES: OnceLock<Option<HashMap<String, u32>>> = OnceLock::new();
+    PRICES
+        .get_or_init(|| {
+            let value: Value = serde_json::from_str(ITEM_PRICES_JSON).ok()?;
+            let object = value.as_object()?;
+            let mut map = HashMap::with_capacity(object.len());
+            for (name, cost) in object {
+                map.insert(name.clone(), u32::try_from(cost.as_u64()?).ok()?);
+            }
+            (!map.is_empty()).then_some(map)
+        })
+        .as_ref()
+}
+
+/// Cost of an internal item name, bare or `item_`-prefixed. `None` = not in the table (unknown).
+pub fn item_cost(name: &str) -> Option<u32> {
+    let bare = name.strip_prefix("item_").unwrap_or(name);
+    item_prices()?.get(bare).copied()
+}
+
+fn unknown_net_worth() -> Value {
+    serde_json::json!({"value": null, "availability": "unknown", "approximate": false})
+}
+
+/// Net worth is DERIVED (the game does not send it for the local player): gold + the shop cost of
+/// every named item in the own items block (inventory, backpack, teleport, neutral; an observed empty
+/// slot has a null name and costs nothing). Unknown gold, or an items block that is not a complete
+/// fresh/stale observation, gives unknown (never a partial sum shown as complete). An item name that
+/// is missing from the price table is counted as 0 and the result is flagged `approximate`.
+pub fn net_worth_field(snapshot: &Value) -> Value {
+    let live = |name: &str| -> Option<(&Value, bool)> {
+        let field = snapshot.pointer(&format!("/own/fields/{name}"))?;
+        match field.get("availability").and_then(Value::as_str)? {
+            "fresh" => Some((field.get("value")?, false)),
+            "stale" => Some((field.get("value")?, true)),
+            _ => None,
+        }
+    };
+    let (Some((gold, gold_stale)), Some((items, items_stale))) = (live("gold"), live("items"))
+    else {
+        return unknown_net_worth();
+    };
+    let (Some(gold), Some(items)) = (gold.as_u64(), items.as_array()) else {
+        return unknown_net_worth();
+    };
+    if item_prices().is_none() {
+        return unknown_net_worth();
+    }
+    let mut total = gold;
+    let mut approximate = false;
+    for item in items {
+        match item.get("name") {
+            Some(Value::Null) => {}
+            Some(Value::String(name)) => match item_cost(name) {
+                Some(cost) => total = total.saturating_add(u64::from(cost)),
+                None => approximate = true,
+            },
+            _ => return unknown_net_worth(),
+        }
+    }
+    if total > 10_000_000 {
+        return unknown_net_worth();
+    }
+    serde_json::json!({
+        "value": total,
+        "availability": if gold_stale || items_stale { "stale" } else { "fresh" },
+        "approximate": approximate,
     })
 }
 
@@ -420,8 +496,9 @@ fn hide_window(window: &tauri::WebviewWindow<tauri::Wry>) {
 mod tests {
     use super::{
         build_hud_state, effective_hud_layouts, hud_capability_permissions, hud_window_spec,
-        module_pixel_center, place_hud_window, Controller, EmissionTracker, HudModule,
-        HudModuleLayout, DEFAULT_HUD_LAYOUTS,
+        item_cost, item_prices, module_pixel_center, net_worth_field, place_hud_window,
+        unknown_net_worth, Controller, EmissionTracker, HudModule, HudModuleLayout,
+        DEFAULT_HUD_LAYOUTS,
     };
     use crate::overlay::{MonitorRect, Rect};
     use kohbor_gsi::admission::{
@@ -430,6 +507,7 @@ mod tests {
     use kohbor_gsi::snapshot::SourceState;
     use kohbor_gsi::{build_snapshot, build_snapshot_with_loadout, Outcome, Ownership, Phase};
     use serde_json::{json, Value};
+    use std::collections::HashMap;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
     use std::time::{Duration, Instant};
@@ -842,7 +920,7 @@ mod tests {
     }
 
     #[test]
-    fn payload_has_exact_schema_and_unsupported_net_worth() {
+    fn payload_has_exact_schema_and_unknown_net_worth_without_items() {
         let state = build_hud_state(&admitted_snapshot(Phase::Live, Ownership::Verified, 0));
         assert_eq!(
             state,
@@ -857,9 +935,98 @@ mod tests {
                     "gpm": {"value":456,"availability":"fresh"},
                     "xpm": {"value":789,"availability":"fresh"}
                 },
-                "net_worth": {"value":null,"availability":"unsupported"}
+                "net_worth": {"value":null,"availability":"unknown","approximate":false}
             })
         );
+    }
+
+    fn nw_snapshot(gold: Value, items: Value) -> Value {
+        json!({"own": {"fields": {"gold": gold, "items": items}}})
+    }
+
+    fn items_value(names: &[Option<&str>]) -> Value {
+        json!({"value": names.iter().enumerate().map(|(i, n)| json!({"slot": format!("inventory{i}"), "name": n})).collect::<Vec<_>>(), "availability": "fresh"})
+    }
+
+    #[test]
+    fn price_table_parses_and_resolves_bare_and_prefixed_names() {
+        assert_eq!(item_prices().map(HashMap::len), Some(294));
+        assert_eq!(item_cost("blink"), Some(2250));
+        assert_eq!(item_cost("item_blink"), Some(2250));
+        assert_eq!(item_cost("not_an_item"), None);
+    }
+
+    #[test]
+    fn net_worth_is_gold_plus_item_costs_and_exact_when_all_names_are_known() {
+        let snapshot = nw_snapshot(
+            json!({"value": 1000, "availability": "fresh"}),
+            items_value(&[Some("blink"), Some("item_branches"), None]),
+        );
+        assert_eq!(
+            net_worth_field(&snapshot),
+            json!({"value": 1000 + 2250 + 55, "availability": "fresh", "approximate": false})
+        );
+    }
+
+    #[test]
+    fn unknown_item_name_is_counted_as_zero_and_flagged_approximate() {
+        let snapshot = nw_snapshot(
+            json!({"value": 500, "availability": "fresh"}),
+            items_value(&[Some("blink"), Some("brand_new_item")]),
+        );
+        assert_eq!(
+            net_worth_field(&snapshot),
+            json!({"value": 2750, "availability": "fresh", "approximate": true})
+        );
+    }
+
+    #[test]
+    fn empty_slots_cost_nothing_and_stale_inputs_make_a_stale_result() {
+        let snapshot = nw_snapshot(
+            json!({"value": 300, "availability": "stale"}),
+            items_value(&[None, None]),
+        );
+        assert_eq!(
+            net_worth_field(&snapshot),
+            json!({"value": 300, "availability": "stale", "approximate": false})
+        );
+    }
+
+    #[test]
+    fn missing_gold_or_unavailable_items_are_unknown_never_a_partial_sum() {
+        let unknown = unknown_net_worth();
+        assert_eq!(net_worth_field(&json!({})), unknown);
+        assert_eq!(
+            net_worth_field(&nw_snapshot(
+                json!({"value": null, "availability": "unknown"}),
+                items_value(&[Some("blink")])
+            )),
+            unknown
+        );
+        for availability in ["unknown", "invalid", "unsupported"] {
+            assert_eq!(
+                net_worth_field(&nw_snapshot(
+                    json!({"value": 900, "availability": "fresh"}),
+                    json!({"value": null, "availability": availability})
+                )),
+                unknown,
+                "{availability}"
+            );
+        }
+        // An item entry without a name (unknown, not observed empty) invalidates the whole sum.
+        assert_eq!(
+            net_worth_field(&nw_snapshot(
+                json!({"value": 900, "availability": "fresh"}),
+                json!({"value": [{"slot": "inventory0"}], "availability": "fresh"})
+            )),
+            unknown
+        );
+    }
+
+    #[test]
+    fn hidden_state_has_an_unknown_net_worth() {
+        let state = build_hud_state(&json!({"availability": "unknown"}));
+        assert_eq!(state["net_worth"], unknown_net_worth());
     }
 
     #[test]

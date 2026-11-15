@@ -11,5 +11,5 @@ export const mockHudStatePayload = {
     gpm: { value: 456, availability: "fresh" },
     xpm: { value: 789, availability: "fresh" },
   },
-  net_worth: { value: null, availability: "unsupported" },
+  net_worth: { value: 21_450, availability: "fresh", approximate: false },
 } as const;

@@ -107,6 +107,11 @@
       "sha256": "0536177dfa0153d80d9bc6fb718592a62f9626ca71e8aa1469f3651c0ebc1681"
     },
     {
+      "path": "apps/desktop/src-tauri/capabilities/hud.json",
+      "bytes": 198,
+      "sha256": "df9810d7f0f4f782638b20e7372b529bd977e128296a2b6b9c4658d3ec7d53c6"
+    },
+    {
       "path": "apps/desktop/src-tauri/capabilities/overlay.json",
       "bytes": 210,
       "sha256": "50dca67cae49a29f8a8ff625abdf09eccd10f2f88482b4026f33a702b5acd46f"
@@ -307,6 +312,11 @@
       "sha256": "d60bc77678fbfc20791a48cf4952fa739f97a5ab701d217c3b85e5905fcde340"
     },
     {
+      "path": "apps/desktop/src-tauri/src/hud.rs",
+      "bytes": 35341,
+      "sha256": "14d54cb2072729ee0661c2bf5202253282a6087f572c1656c65aa24594a0fec7"
+    },
+    {
       "path": "apps/desktop/src-tauri/src/instance.rs",
       "bytes": 2691,
       "sha256": "d82c2c5d728452be8e88bdd12bb05ffc2954ad401177136467c7b79cfb1d1918"
@@ -450,6 +460,11 @@
       "path": "apps/desktop/src/Guide.tsx",
       "bytes": 5201,
       "sha256": "d34ed86dd9f14d30497d83aef3ba17f9d097e4d7d55a739211a7add278223e45"
+    },
+    {
+      "path": "apps/desktop/src/HudStage.tsx",
+      "bytes": 3762,
+      "sha256": "5dd38940e622be495c784bb154a493e590469b3f6de2b65e2ff76ff1f3e0d994"
     },
     {
       "path": "apps/desktop/src/MediaProbeContext.tsx",
@@ -645,6 +660,26 @@
       "path": "apps/desktop/src/hostClock.ts",
       "bytes": 498,
       "sha256": "49c5536bc3c7c424019f0face5634a715a8d37230413c4e13d37d0060234ff01"
+    },
+    {
+      "path": "apps/desktop/src/hud.css",
+      "bytes": 2210,
+      "sha256": "eff4f70a6db640db06906a2387f830085b2a8b82aae608a11656cf895034864e"
+    },
+    {
+      "path": "apps/desktop/src/hudCopy.ts",
+      "bytes": 577,
+      "sha256": "dbf23f1518987ba9f77768cae32e294f518d1bb9674a968744fcfdc0f2a6eafa"
+    },
+    {
+      "path": "apps/desktop/src/hudModel.ts",
+      "bytes": 8407,
+      "sha256": "ce3d2fd7a66a9343efbfe0c1025ad0453bc7fba9519a60c2c6cb3128633bd9da"
+    },
+    {
+      "path": "apps/desktop/src/hudRuntime.ts",
+      "bytes": 824,
+      "sha256": "190a9d5be79b80bf23179994e16133896fcfb6608ba30a141c1df28302eadb23"
     },
     {
       "path": "apps/desktop/src/lab/Lab.tsx",
@@ -927,6 +962,11 @@
       "sha256": "6c02d74b82284d760c5e0fecd25d92c6654ed282f92eb26c61ed711c10d58e84"
     },
     {
+      "path": "apps/desktop/src/mock/hudState.ts",
+      "bytes": 509,
+      "sha256": "62d61c1cae0cf430983b3d5c555954bc952ab2eaf745cd356195e921cd870018"
+    },
+    {
       "path": "apps/desktop/src/mock/sampleLoadout.ts",
       "bytes": 1371,
       "sha256": "9c1ebde383cd361c1867ce08c01a0f5e63dd7ba0d2d0eba0d7f843d69300d63a"
@@ -1120,6 +1160,11 @@
       "path": "apps/desktop/tests/history.test.ts",
       "bytes": 4339,
       "sha256": "e6d3dc7df968403a06867c47654d838944f799ec27a34bcb181601dbdb7a797c"
+    },
+    {
+      "path": "apps/desktop/tests/hudModel.test.ts",
+      "bytes": 20597,
+      "sha256": "b11643832653c6cdafefe2fb0966a64879ec258be1d7cbb2019d101491214866"
     },
     {
       "path": "apps/desktop/tests/lab-layout.test.ts",
@@ -2008,8 +2053,8 @@
     },
     {
       "path": "docs/INDEX.md",
-      "bytes": 12089,
-      "sha256": "c61a584772e3cd3b8f93c13e9e0f08799701b8b12aae17de4ae9093e61fe660f"
+      "bytes": 12316,
+      "sha256": "9fab6bfef8039977e60d14227ee620acdea14fbbe8bf5bce7dd23f8cfd278643"
     },
     {
       "path": "docs/delivery/AGENT-WORKFLOW.md",

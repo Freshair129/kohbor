@@ -14,6 +14,11 @@ export interface HudField {
   availability: HudAvailability;
 }
 
+/** Net worth is derived by the host (gold + item costs); `approximate` = some item had no known price. */
+export interface HudNetWorth extends HudField {
+  approximate: boolean;
+}
+
 export interface HudState {
   schema: 1;
   visible: boolean;
@@ -25,7 +30,7 @@ export interface HudState {
     gpm: HudField;
     xpm: HudField;
   };
-  net_worth: HudField;
+  net_worth: HudNetWorth;
 }
 
 export type HudModuleId = "gmeter" | "kda" | "gold" | "gpm" | "nw" | "xpm";
@@ -74,7 +79,7 @@ export function unknownHudState(visible = false): HudState {
       gpm: unknownField(),
       xpm: unknownField(),
     },
-    net_worth: unknownField(),
+    net_worth: { ...unknownField(), approximate: false },
   };
 }
 
@@ -84,6 +89,13 @@ function parseField(input: unknown): HudField | null {
   if (input.value !== null && typeof input.value !== "number") return null;
   if (typeof input.value === "number" && (!Number.isInteger(input.value) || input.value < 0)) return unknownField();
   return { value: input.value, availability: input.availability as HudAvailability };
+}
+
+function parseNetWorth(input: unknown): HudNetWorth | null {
+  if (!record(input) || !exactKeys(input, ["value", "availability", "approximate"]) || typeof input.approximate !== "boolean") return null;
+  const field = parseField({ value: input.value, availability: input.availability });
+  if (field === null) return null;
+  return { ...field, approximate: field.value === null ? false : input.approximate };
 }
 
 /** Parse the closed host DTO. Bad shape invalidates every value; bad numeric range invalidates one field. */
@@ -101,7 +113,7 @@ export function parseHudState(input: unknown): HudState {
     if (field === null) return unknownHudState(visible);
     fields[name] = field;
   }
-  const netWorth = parseField(input.net_worth);
+  const netWorth = parseNetWorth(input.net_worth);
   if (netWorth === null) return unknownHudState(visible);
   return { schema: 1, visible, fields, net_worth: netWorth };
 }
@@ -190,10 +202,10 @@ export function formatChip(kind: ChipKind, input: HudField | KdaFields | unknown
   }
 
   const parsed = knownValue(input);
-  if (parsed === null || (kind === "nw" && (!record(input) || input.availability !== "fresh"))) {
-    return { text: "—", stale: false };
-  }
-  return { text: numberText(parsed.value), stale: parsed.stale };
+  if (parsed === null) return { text: "—", stale: false };
+  // Net worth is derived by the host; `approximate` (an item without a known price) shows a leading "~".
+  const approximate = kind === "nw" && record(input) && input.approximate === true;
+  return { text: `${approximate ? "~" : ""}${numberText(parsed.value)}`, stale: parsed.stale };
 }
 
 /** Shared render gate lets the mounted HUD keep its listeners while drawing nothing when hidden. */

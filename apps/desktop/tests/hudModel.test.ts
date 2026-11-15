@@ -17,7 +17,7 @@ const validHud = () => ({
     gpm: { value: 456, availability: "fresh" },
     xpm: { value: 789, availability: "fresh" },
   },
-  net_worth: { value: null, availability: "unsupported" },
+  net_worth: { value: 12_345, availability: "fresh", approximate: false },
 });
 
 function api<T extends Record<string, any>>(module: T | null, name: string): any {
@@ -31,7 +31,7 @@ function assertAllUnknown(state: any, visible = true) {
   for (const field of Object.values(state.fields) as any[]) {
     assert.deepEqual(field, { value: null, availability: "unknown" });
   }
-  assert.deepEqual(state.net_worth, { value: null, availability: "unknown" });
+  assert.deepEqual(state.net_worth, { value: null, availability: "unknown", approximate: false });
 }
 
 function riskView(overrides: Record<string, unknown> = {}) {
@@ -57,7 +57,7 @@ test("HUD parser accepts the exact schema and preserves fresh integer fields", (
   assert.equal(parsed.schema, 1);
   assert.equal(parsed.visible, true);
   assert.deepEqual(parsed.fields.kills, { value: 3, availability: "fresh" });
-  assert.deepEqual(parsed.net_worth, { value: null, availability: "unsupported" });
+  assert.deepEqual(parsed.net_worth, { value: 12_345, availability: "fresh", approximate: false });
 });
 
 test("HUD parser treats null, primitives and arrays as a visible wholly unknown state", () => {
@@ -172,9 +172,9 @@ test("HUD parser makes fractional and non-finite stat values unknown", () => {
 test("HUD parser makes an invalid net worth value unknown while preserving other fields", () => {
   const parseHudState = api(model, "parseHudState");
   const payload = validHud();
-  payload.net_worth = { value: -10, availability: "fresh" };
+  payload.net_worth = { value: -10, availability: "fresh", approximate: false };
   const parsed = parseHudState(payload);
-  assert.deepEqual(parsed.net_worth, { value: null, availability: "unknown" });
+  assert.deepEqual(parsed.net_worth, { value: null, availability: "unknown", approximate: false });
   assert.deepEqual(parsed.fields.gold, { value: 1_234, availability: "fresh" });
 });
 
@@ -284,12 +284,28 @@ test("unknown, invalid and unsupported chip values show a dash, never zero", () 
   assert.equal(formatChip("gold", { value: -1, availability: "fresh" }).text, "—");
 });
 
-test("net worth is shown only for a fresh integer", () => {
+test("net worth: fresh and stale integers show, approximate gets a leading ~, unknown states show a dash", () => {
   const formatChip = api(model, "formatChip");
-  assert.equal(formatChip("nw", { value: 12_345, availability: "fresh" }).text, "12,345");
-  for (const availability of ["stale", "unknown", "invalid", "unsupported"]) {
-    assert.equal(formatChip("nw", { value: 12_345, availability }).text, "—");
+  assert.deepEqual(formatChip("nw", { value: 12_345, availability: "fresh", approximate: false }), { text: "12,345", stale: false });
+  assert.deepEqual(formatChip("nw", { value: 12_345, availability: "stale", approximate: false }), { text: "12,345", stale: true });
+  assert.equal(formatChip("nw", { value: 12_345, availability: "fresh", approximate: true }).text, "~12,345");
+  for (const availability of ["unknown", "invalid", "unsupported"]) {
+    assert.equal(formatChip("nw", { value: 12_345, availability, approximate: false }).text, "—");
   }
+  assert.equal(formatChip("nw", { value: null, availability: "fresh", approximate: false }).text, "—");
+  assert.equal(formatChip("nw", { value: -5, availability: "fresh", approximate: false }).text, "—");
+  // The approximate marker is net-worth only: other chips never get a tilde.
+  assert.equal(formatChip("gold", { value: 1_000, availability: "fresh", approximate: true }).text, "1,000");
+});
+
+test("net worth parser requires the approximate flag and drops it when the value is unknown", () => {
+  const parseHudState = api(model, "parseHudState");
+  const withNw = (net_worth: unknown) => parseHudState({ ...validHud(), net_worth });
+  assert.deepEqual(withNw({ value: 9_000, availability: "fresh", approximate: true }).net_worth, { value: 9_000, availability: "fresh", approximate: true });
+  assert.deepEqual(withNw({ value: null, availability: "unknown", approximate: true }).net_worth, { value: null, availability: "unknown", approximate: false });
+  assertAllUnknown(withNw({ value: 9_000, availability: "fresh" }));
+  assertAllUnknown(withNw({ value: 9_000, availability: "fresh", approximate: "yes" }));
+  assertAllUnknown(withNw({ value: 9_000, availability: "fresh", approximate: false, extra: 1 }));
 });
 
 test("HUD labels are centralized in Thai copy", () => {
@@ -394,7 +410,7 @@ test("mock HUD payload round-trips through the strict parser with fresh sample n
   assert.equal(parsed.visible, true);
   assert.equal(parsed.fields.kills.availability, "fresh");
   assert.equal(parsed.fields.gold.value, 1_234);
-  assert.equal(parsed.net_worth.availability, "unsupported");
+  assert.equal(parsed.net_worth.availability, "fresh");
 });
 
 test("mock HUD preview emits periodically and uses the live synthetic risk scenario", () => {
