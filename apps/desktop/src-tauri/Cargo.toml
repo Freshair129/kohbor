@@ -18,6 +18,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "=2.7.4", features = [] }
 
 [dependencies]
+kohbor-account = { path = "../../../crates/kohbor-account" }
 kohbor-gsi = { path = "../../../crates/kohbor-gsi" }
 kohbor-events = { path = "../../../crates/kohbor-events" }
 kohbor-audio = { path = "../../../crates/kohbor-audio" }

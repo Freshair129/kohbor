@@ -1,0 +1,12 @@
+[package]
+name = "kohbor-account"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+# This source pack has no dependencies. Do not add a workspace lockfile here.
