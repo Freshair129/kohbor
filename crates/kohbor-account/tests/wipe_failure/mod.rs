@@ -48,8 +48,7 @@ impl Fixture {
         );
         match request {
             Ok(request) => self.client.deliver_callback(
-                &request.state,
-                code,
+                (&request.state, code),
                 &self.service,
                 &self.clock,
                 &mut self.provider,

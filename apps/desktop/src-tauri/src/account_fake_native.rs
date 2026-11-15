@@ -493,8 +493,7 @@ fn delete_fake_account(
                 return Err("ACCOUNT_FAKE_DELETE_REAUTH_FAILED");
             }
             let callback = client.deliver_callback(
-                AUTH_STATE,
-                SYNTHETIC_CODE,
+                (AUTH_STATE, SYNTHETIC_CODE),
                 &service,
                 &clock,
                 &mut provider,

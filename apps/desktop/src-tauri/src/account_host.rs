@@ -2373,8 +2373,7 @@ impl AccountHost {
         let callback_result = self.with_operation(|guard| {
             check_browser_wait(request.cancelled, deadline)?;
             Ok(client.deliver_callback(
-                &callback.state,
-                &callback.code,
+                (&callback.state, &callback.code),
                 request.service,
                 clock,
                 provider,

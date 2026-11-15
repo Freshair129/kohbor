@@ -83,8 +83,7 @@ impl Harness {
             return CallbackOutcome::Rejected;
         };
         self.client.deliver_callback(
-            &request.state,
-            code,
+            (&request.state, code),
             service,
             &self.clock,
             &mut self.provider,
@@ -139,8 +138,7 @@ impl ContractHarness for Harness {
             return Outcome::Rejected;
         };
         Self::callback_outcome(self.client.deliver_callback(
-            state,
-            code,
+            (state, code),
             service,
             &self.clock,
             &mut self.provider,

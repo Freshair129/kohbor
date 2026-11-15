@@ -381,8 +381,7 @@ fn callback_started_before_pending_cannot_create_account_b() {
     };
     assert_ne!(
         client.deliver_callback(
-            &request.state,
-            "code_b",
+            (&request.state, "code_b"),
             &service,
             &clock,
             &mut provider,

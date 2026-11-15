@@ -347,8 +347,7 @@ impl Client {
 
     pub fn deliver_callback<C, P, B, S>(
         &mut self,
-        state: &str,
-        code: &str,
+        (state, code): (&str, &str),
         service: &ServiceConfig,
         clock: &C,
         provider: &mut P,
@@ -846,7 +845,7 @@ pub fn pkce_s256(verifier: &str) -> String {
 
 fn base64url(bytes: &[u8]) -> String {
     const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-    let mut output = String::with_capacity((bytes.len() * 4 + 2) / 3);
+    let mut output = String::with_capacity((bytes.len() * 4).div_ceil(3));
     for chunk in bytes.chunks(3) {
         let a = chunk[0] as u32;
         let b = chunk.get(1).copied().unwrap_or(0) as u32;

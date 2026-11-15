@@ -152,8 +152,7 @@ fn ambiguous_delete_survives_fresh_client_and_file_handle_without_restore_or_ret
         .unwrap();
     assert_eq!(
         client.deliver_callback(
-            &request.state,
-            "code_a",
+            (&request.state, "code_a"),
             &service,
             &clock,
             &mut provider,
