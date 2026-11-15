@@ -1,14 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  anyChanged,
   blockingGuards,
+  draftKey,
+  editsFromDrafts,
   formatValue,
   guardStatus,
   safetyReport,
+  withDraft,
   type Description,
+  type DraftEdit,
   type EventTrace,
   type Trace,
 } from "./labModel";
-import { labApplyEdits, labExport, labLastTrace, labStatus, type LabEdit } from "./labRuntime";
+import { labApplyEdits, labExport, labLastTrace, labStatus } from "./labRuntime";
 import "./lab.css";
 
 const POLL_MS = 1000;
@@ -18,7 +23,7 @@ export function Lab() {
   const [description, setDescription] = useState<Description | null>(null);
   const [trace, setTrace] = useState<Trace | null>(null);
   const [selected, setSelected] = useState<string>("health_danger");
-  const [drafts, setDrafts] = useState<Record<string, number>>({});
+  const [drafts, setDrafts] = useState<Record<string, DraftEdit>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [exported, setExported] = useState<string | null>(null);
 
@@ -56,13 +61,8 @@ export function Lab() {
     [trace, selected],
   );
 
-  const draftKey = (event: string, name: string) => `${event}.${name}`;
-
   const apply = useCallback(() => {
-    const edits: LabEdit[] = Object.entries(drafts).map(([key, value]) => {
-      const [event, name] = key.split(".");
-      return { event, name, value };
-    });
+    const edits = editsFromDrafts(drafts);
     if (edits.length === 0) return;
     setMessage(null);
     void labApplyEdits(edits)
@@ -77,7 +77,6 @@ export function Lab() {
   if (description === null) return null;
   const safety = safetyReport(description);
   const entry = description.events[selected];
-  const ids = Object.keys(description.events);
 
   return (
     <section className="lab" aria-labelledby="lab-title">
@@ -114,7 +113,7 @@ export function Lab() {
 
       <div className="lab-body">
         <nav className="lab-events" aria-label="Events">
-          {ids.map((id) => {
+          {Object.entries(description.events).map(([id, eventDescription]) => {
             const fired = trace?.events.find((event) => event.id === id)?.fired === true;
             return (
               <button
@@ -125,9 +124,7 @@ export function Lab() {
                 onClick={() => setSelected(id)}
               >
                 {id}
-                {description.events[id].params && Object.values(description.events[id].params).some((p) => p.changed)
-                  ? " *"
-                  : ""}
+                {anyChanged(eventDescription) ? " *" : ""}
               </button>
             );
           })}
@@ -180,19 +177,21 @@ export function Lab() {
               <legend>Parameters {entry.critical ? "(safety event: bounded, cannot be disabled)" : ""}</legend>
               {Object.entries(entry.params).map(([name, param]) => {
                 const key = draftKey(selected, name);
-                const scalar = typeof param.value === "number";
+                const current = typeof param.value === "number" ? param.value : null;
                 return (
                   <label key={name}>
                     {name} ({param.unit}) default {String(param.default)}, allowed {param.min}..{param.max}
-                    {scalar ? (
+                    {current !== null ? (
                       <input
                         type="number"
                         min={param.min}
                         max={param.max}
-                        value={drafts[key] ?? (param.value as number)}
+                        value={drafts[key]?.value ?? current}
                         onChange={(event) => {
                           const next = Number(event.currentTarget.value);
-                          if (Number.isInteger(next)) setDrafts({ ...drafts, [key]: next });
+                          if (Number.isInteger(next)) {
+                            setDrafts(withDraft(drafts, { event: selected, name, value: next }, current));
+                          }
                         }}
                       />
                     ) : (

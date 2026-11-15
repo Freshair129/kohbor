@@ -156,6 +156,37 @@ export function parseDescription(value: unknown): Description | null {
   };
 }
 
+export interface DraftEdit {
+  event: string;
+  name: string;
+  value: number;
+}
+
+export function draftKey(event: string, name: string): string {
+  return `${event}.${name}`;
+}
+
+/** Record a pending edit; setting a value back to the current one drops the draft. */
+export function withDraft(
+  drafts: Record<string, DraftEdit>,
+  edit: DraftEdit,
+  current: number,
+): Record<string, DraftEdit> {
+  const key = draftKey(edit.event, edit.name);
+  const next = { ...drafts };
+  if (edit.value === current) delete next[key];
+  else next[key] = edit;
+  return next;
+}
+
+export function editsFromDrafts(drafts: Record<string, DraftEdit>): DraftEdit[] {
+  return Object.values(drafts);
+}
+
+export function anyChanged(event: EventDescription): boolean {
+  return Object.values(event.params).some((param) => param.changed);
+}
+
 export interface SafetyRow {
   event: string;
   status: "default" | "overridden";

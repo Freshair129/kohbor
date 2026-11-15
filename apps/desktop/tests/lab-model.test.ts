@@ -112,3 +112,17 @@ test("safety report lists critical events first and flags overrides on them", ()
   assert.equal(report[0].status, "overridden");
   assert.equal(report.length, 1, "non-critical events are not part of the safety strip");
 });
+
+test("drafts: setting a value back to the current one removes the edit", async () => {
+  const { withDraft, editsFromDrafts, draftKey, anyChanged } = await import("../src/lab/labModel.ts");
+  let drafts = withDraft({}, { event: "health_danger", name: "cooldown_ms", value: 30000 }, 20000);
+  assert.equal(Object.keys(drafts).length, 1);
+  assert.deepEqual(editsFromDrafts(drafts), [{ event: "health_danger", name: "cooldown_ms", value: 30000 }]);
+  assert.equal(draftKey("a", "b"), "a.b");
+  drafts = withDraft(drafts, { event: "health_danger", name: "cooldown_ms", value: 20000 }, 20000);
+  assert.deepEqual(editsFromDrafts(drafts), []);
+  const parsed = parseDescription(DESCRIPTION);
+  assert.ok(parsed);
+  assert.equal(anyChanged(parsed.events.health_danger), true);
+  assert.equal(anyChanged(parsed.events.health_low), false);
+});
