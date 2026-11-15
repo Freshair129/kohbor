@@ -30,25 +30,41 @@ pub const PROTECTED_REGIONS: [(&str, f64, f64, f64, f64); 4] = [
     ("announcement", 0.30, 0.08, 0.70, 0.19),
 ];
 
-/// Default banner layout (follows the owner-chosen G-Maiden defaults, DEC pending in S6-OVERLAY-SLICE):
-/// the stage CENTRE sits at 89 % across and 44 % down the monitor, the banner is 0.7 of
-/// min(680 px, 72 % of the width), where the 680 px part scales with the monitor height / 1080.
-pub const BANNER_CENTER_PERCENT: (f64, f64) = (89.0, 44.0);
-pub const BANNER_SCALE: f64 = 0.7;
+/// Banner layout: the stage CENTRE sits at `x_percent` / `y_percent` of the monitor and the stage
+/// is `scale` times min(680 px * H/1080, 72 % of the width) wide. This is a single struct so a dev
+/// profile (Kohbor Lab) can override it; the shipped default is the owner's G-Maiden "profile 1".
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BannerLayout {
+    pub x_percent: f64,
+    pub y_percent: f64,
+    pub scale: f64,
+    pub enabled: bool,
+}
+
+pub const DEFAULT_BANNER_LAYOUT: BannerLayout = BannerLayout {
+    x_percent: 50.0,
+    y_percent: 10.5,
+    scale: 0.45,
+    enabled: true,
+};
+
 const BANNER_BASE_WIDTH_PX: f64 = 680.0;
 const BANNER_MAX_WIDTH_FRACTION: f64 = 0.72;
+const BANNER_SCALE_RANGE: (f64, f64) = (0.2, 3.0);
 
 /// Width in physical pixels of the art stage (before rounding).
-fn banner_stage_width(monitor: &MonitorRect) -> f64 {
+fn banner_stage_width(monitor: &MonitorRect, layout: &BannerLayout) -> f64 {
     let height_scale = f64::from(monitor.h) / 1080.0;
-    BANNER_SCALE
+    layout
+        .scale
+        .clamp(BANNER_SCALE_RANGE.0, BANNER_SCALE_RANGE.1)
         * (BANNER_BASE_WIDTH_PX * height_scale)
             .min(BANNER_MAX_WIDTH_FRACTION * f64::from(monitor.w))
 }
 
 /// Reference-to-physical scale: the 720-reference-pixel stage becomes `banner_stage_width` wide.
-fn scale_for(monitor: &MonitorRect) -> f64 {
-    banner_stage_width(monitor) / f64::from(STAGE_LOGICAL.0)
+fn scale_for(monitor: &MonitorRect, layout: &BannerLayout) -> f64 {
+    banner_stage_width(monitor, layout) / f64::from(STAGE_LOGICAL.0)
 }
 
 fn scaled(value: u32, scale: f64) -> u32 {
@@ -62,26 +78,42 @@ fn clamp_axis(position: i32, size: u32, origin: i32, extent: u32) -> i32 {
         .clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32
 }
 
-/// Place the whole transparent window in physical pixels on the selected monitor.
-/// The art stage CENTRE is at `BANNER_CENTER_PERCENT` of the monitor; the 36-reference-pixel
-/// status strip hangs below the stage and scales with it. The window is clamped inside the
-/// monitor, so near the right edge the banner is pushed left rather than cut off.
+/// Place the whole transparent window in physical pixels on the selected monitor with the
+/// default layout.
 pub fn place_overlay(monitor: &MonitorRect) -> Rect {
-    let scale = scale_for(monitor);
+    place_overlay_with(monitor, &DEFAULT_BANNER_LAYOUT).unwrap_or(Rect {
+        x: monitor.x,
+        y: monitor.y,
+        w: 1,
+        h: 1,
+    })
+}
+
+/// Place the window for `layout`; `None` when the layout is disabled. The art stage CENTRE is at
+/// the layout percentages (clamped to 0..=100); the 36-reference-pixel status strip hangs below
+/// the stage and scales with it. The window is clamped inside the monitor, so near an edge the
+/// banner is pushed inwards rather than cut off.
+pub fn place_overlay_with(monitor: &MonitorRect, layout: &BannerLayout) -> Option<Rect> {
+    if !layout.enabled {
+        return None;
+    }
+    let scale = scale_for(monitor, layout);
     let w = scaled(WINDOW_LOGICAL.0, scale).min(monitor.w.max(1));
     let h = scaled(WINDOW_LOGICAL.1, scale).min(monitor.h.max(1));
     let stage_h = scaled(STAGE_LOGICAL.1, scale).min(h);
-    let centre_x = f64::from(monitor.x) + f64::from(monitor.w) * BANNER_CENTER_PERCENT.0 / 100.0;
-    let centre_y = f64::from(monitor.y) + f64::from(monitor.h) * BANNER_CENTER_PERCENT.1 / 100.0;
+    let centre_x =
+        f64::from(monitor.x) + f64::from(monitor.w) * layout.x_percent.clamp(0.0, 100.0) / 100.0;
+    let centre_y =
+        f64::from(monitor.y) + f64::from(monitor.h) * layout.y_percent.clamp(0.0, 100.0) / 100.0;
     let x = (centre_x - f64::from(w) / 2.0).round();
     let y = (centre_y - f64::from(stage_h) / 2.0).round();
     let to_i32 = |value: f64| value.clamp(f64::from(i32::MIN), f64::from(i32::MAX)) as i32;
-    Rect {
+    Some(Rect {
         x: clamp_axis(to_i32(x), w, monitor.x, monitor.w),
         y: clamp_axis(to_i32(y), h, monitor.y, monitor.h),
         w,
         h,
-    }
+    })
 }
 
 /// The clip stage occupies the top 220 of the 256 reference-pixel window.
@@ -91,7 +123,7 @@ pub fn place_overlay(monitor: &MonitorRect) -> Rect {
 pub fn stage_rect(monitor: &MonitorRect) -> Rect {
     let window = place_overlay(monitor);
     Rect {
-        h: scaled(STAGE_LOGICAL.1, scale_for(monitor)).min(window.h),
+        h: scaled(STAGE_LOGICAL.1, scale_for(monitor, &DEFAULT_BANNER_LAYOUT)).min(window.h),
         ..window
     }
 }
@@ -174,8 +206,8 @@ mod tests {
                         <= i64::from(monitor.y) + i64::from(monitor.h),
                 "{monitor:?} {window:?}"
             );
-            // Size: stage width = 0.7 * min(680 * H/1080, 0.72 * W); window and stage keep 720:256 and 720:220.
-            let stage_width = 0.7 * (680.0 * f64::from(h) / 1080.0).min(0.72 * f64::from(w));
+            // Size: stage width = 0.45 * min(680 * H/1080, 0.72 * W); window and stage keep 720:256 and 720:220.
+            let stage_width = 0.45 * (680.0 * f64::from(h) / 1080.0).min(0.72 * f64::from(w));
             let scale = stage_width / 720.0;
             assert_eq!(
                 (window.w, window.h),
@@ -193,20 +225,29 @@ mod tests {
                 i64::from(stage.y) + i64::from(stage.h)
                     <= i64::from(window.y) + i64::from(window.h)
             );
-            // Position: the stage centre is at 89 % / 44 % unless the clamp had to move it.
-            let ideal_x = (f64::from(monitor.x) + f64::from(w) * 0.89 - f64::from(window.w) / 2.0)
+            // Position: the stage centre is at 50 % / 10.5 % unless the clamp had to move it.
+            let ideal_x = (f64::from(monitor.x) + f64::from(w) * 0.50 - f64::from(window.w) / 2.0)
                 .round() as i64;
             let max_x = i64::from(monitor.x) + i64::from(w) - i64::from(window.w);
             assert_eq!(i64::from(window.x), ideal_x.min(max_x), "{monitor:?}");
-            let ideal_y = (f64::from(h) * 0.44 - f64::from(stage.h) / 2.0).round() as i64;
+            let ideal_y = (f64::from(h) * 0.105 - f64::from(stage.h) / 2.0).round() as i64;
             assert_eq!(i64::from(window.y), ideal_y, "{monitor:?}");
-            // The banner sits on the right side, above the vertical middle of the screen.
+            // The banner is horizontally centred (within 1 px of the monitor centre) near the top.
             assert!(
-                i64::from(window.x) + i64::from(window.w) / 2
-                    > i64::from(monitor.x) + i64::from(w) / 2
+                (2 * i64::from(window.x) + i64::from(window.w)
+                    - 2 * i64::from(monitor.x)
+                    - i64::from(w))
+                .abs()
+                    <= 2
             );
-            // Protected regions (UNVERIFIED Dota defaults) stay clear.
+            assert!(i64::from(window.y) + i64::from(stage.h) / 2 < i64::from(h) / 4);
+            // Protected regions (UNVERIFIED Dota defaults) stay clear, EXCEPT the announcement area:
+            // the owner's real in-game G-Maiden choice (centre 50 % / 10.5 %) lands inside that
+            // unverified default and outranks it (S6-OVERLAY-SLICE edit is PROPOSED, not made).
             for (name, x0, y0, x1, y1) in PROTECTED_REGIONS {
+                if name == "announcement" {
+                    continue;
+                }
                 let (left, top, right, bottom) = (
                     f64::from(monitor.x) + x0 * f64::from(w),
                     f64::from(monitor.y) + y0 * f64::from(h),
@@ -226,40 +267,91 @@ mod tests {
 
     #[test]
     fn exact_numbers_at_1080p_and_1440p() {
-        // 1920x1080: 476 px wide stage, window 476x169, stage 476x145; the right edge clamp moves
-        // the unclamped x=1471 to 1444 (centre ~1682 px); the stage centre height is 0.44 * 1080.
-        let r = place_overlay(&MonitorRect {
+        // 1920x1080: 306 px wide stage (0.45 * 680), window 306x109, stage 306x94, centred at
+        // x=960 (left 807) with the stage centre 10.5 % down (top 66).
+        let m = MonitorRect {
             x: 0,
             y: 0,
             w: 1920,
             h: 1080,
-        });
+        };
         assert_eq!(
-            r,
+            place_overlay(&m),
             Rect {
-                x: 1444,
-                y: 403,
-                w: 476,
-                h: 169
+                x: 807,
+                y: 66,
+                w: 306,
+                h: 109
             }
         );
-        let s = stage_rect(&MonitorRect {
-            x: 0,
-            y: 0,
-            w: 1920,
-            h: 1080,
-        });
-        assert_eq!((s.w, s.h), (476, 145));
-        // 2560x1440: the 680 px part scales with H/1080 so the banner is 635 px wide.
-        let r = place_overlay(&MonitorRect {
+        let s = stage_rect(&m);
+        assert_eq!((s.w, s.h), (306, 94));
+        // 2560x1440: the 680 px part scales with H/1080, so the stage is 408 px wide.
+        let m = MonitorRect {
             x: 0,
             y: 0,
             w: 2560,
             h: 1440,
-        });
-        assert_eq!((r.w, r.h), (635, 226));
-        // Unclamped x would be 1961; the monitor edge clamp gives 2560 - 635 = 1925.
-        assert_eq!((r.x, r.y), (1925, 537));
+        };
+        assert_eq!(
+            place_overlay(&m),
+            Rect {
+                x: 1076,
+                y: 89,
+                w: 408,
+                h: 145
+            }
+        );
+    }
+
+    #[test]
+    fn layout_struct_overrides_and_disabled_hides() {
+        let m = MonitorRect {
+            x: 0,
+            y: 0,
+            w: 1920,
+            h: 1080,
+        };
+        assert_eq!(
+            DEFAULT_BANNER_LAYOUT,
+            BannerLayout {
+                x_percent: 50.0,
+                y_percent: 10.5,
+                scale: 0.45,
+                enabled: true
+            }
+        );
+        // The previous (build 8) layout is reproducible through the struct.
+        let right = BannerLayout {
+            x_percent: 89.0,
+            y_percent: 44.0,
+            scale: 0.7,
+            enabled: true,
+        };
+        assert_eq!(
+            place_overlay_with(&m, &right),
+            Some(Rect {
+                x: 1444,
+                y: 403,
+                w: 476,
+                h: 169
+            })
+        );
+        let off = BannerLayout {
+            enabled: false,
+            ..DEFAULT_BANNER_LAYOUT
+        };
+        assert_eq!(place_overlay_with(&m, &off), None);
+        // Out-of-range values are clamped: percentages to 0..=100 and scale to 0.2..=3.0.
+        let wild = BannerLayout {
+            x_percent: 500.0,
+            y_percent: -20.0,
+            scale: 99.0,
+            enabled: true,
+        };
+        let r = place_overlay_with(&m, &wild).unwrap();
+        assert!(r.x >= 0 && r.y >= 0 && i64::from(r.x) + i64::from(r.w) <= 1920);
+        assert!(i64::from(r.y) + i64::from(r.h) <= 1080);
     }
 
     #[test]
@@ -273,7 +365,7 @@ mod tests {
             h: 1080,
         };
         let r = place_overlay(&narrow);
-        assert_eq!(r.w, (0.7 * 460.8_f64).round() as u32);
+        assert_eq!(r.w, (0.45 * 460.8_f64).round() as u32);
         assert!(i64::from(r.x) + i64::from(r.w) <= 640);
     }
 
