@@ -4,8 +4,8 @@ import { AudioMuteControl, AudioPanel, useAudioMute } from "./AudioPanel";
 import { copy, seconds, type Locale } from "./copy";
 import { DemoPanel } from "./DemoPanel";
 
-/** Dev-only (docs/design/KOHBOR-LAB.md): the guard lets a release bundle drop the Lab code. */
-const LabPanel = import.meta.env.DEV ? lazy(() => import("./lab/Lab").then((m) => ({ default: m.Lab }))) : null;
+/** Dev-only (docs/design/KOHBOR-LAB.md): a normal release bundle drops the Lab code; a Lab test build sets VITE_KOHBOR_LAB=1 when building the frontend. */
+const LabPanel = import.meta.env.DEV || import.meta.env.VITE_KOHBOR_LAB === "1" ? lazy(() => import("./lab/Lab").then((m) => ({ default: m.Lab }))) : null;
 import { Deck } from "./deck/Deck";
 import { deckStateReasonForLocale, deriveDeckState } from "./deck/deckState";
 import { Guide } from "./Guide";
