@@ -2,7 +2,7 @@ use crate::master_volume_percent;
 use kohbor_audio::{PlaybackId, SinkError, SinkEvent};
 #[cfg(feature = "latency-probe")]
 use std::sync::atomic::fence;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError, TrySendError};
 use std::sync::Arc;
 #[cfg(feature = "latency-probe")]
@@ -190,8 +190,8 @@ const DIAGNOSTIC_SLOT_COUNT: usize = COMMAND_QUEUE_CAPACITY + 1;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct RenderObservation {
-    pub(crate) lateness_ns: u64,
-    pub(crate) period_ns: u64,
+    pub(crate) lateness_ns: Option<i64>,
+    pub(crate) period_ns: Option<u64>,
     pub(crate) available_frames: u32,
     pub(crate) requested_frames: u32,
     pub(crate) padding_frames: u32,
@@ -203,7 +203,7 @@ struct RenderStatsSnapshot {
     frames_available_total: Option<u64>,
     frames_requested_total: Option<u64>,
     late_fills: Option<u64>,
-    max_lateness_ns: Option<u64>,
+    max_lateness_ns: Option<i64>,
     min_padding_frames: Option<u32>,
 }
 
@@ -213,7 +213,7 @@ struct RenderStats {
     frames_available_total: u64,
     frames_requested_total: u64,
     late_fills: u64,
-    max_lateness_ns: Option<u64>,
+    max_lateness_ns: Option<i64>,
     min_padding_frames: Option<u32>,
     callbacks_seen: bool,
     timeouts_seen: bool,
@@ -228,19 +228,26 @@ impl RenderStats {
         self.frames_requested_total = self
             .frames_requested_total
             .saturating_add(u64::from(observation.requested_frames));
-        self.max_lateness_ns = Some(
-            self.max_lateness_ns
-                .map_or(observation.lateness_ns, |current| {
-                    current.max(observation.lateness_ns)
-                }),
-        );
+        if let Some(lateness_ns) = observation.lateness_ns {
+            self.max_lateness_ns = Some(
+                self.max_lateness_ns
+                    .map_or(lateness_ns, |current| current.max(lateness_ns)),
+            );
+        }
         self.min_padding_frames = Some(
             self.min_padding_frames
                 .map_or(observation.padding_frames, |current| {
                     current.min(observation.padding_frames)
                 }),
         );
-        if observation.padding_frames == 0 || observation.lateness_ns > observation.period_ns {
+        let exceeded_period = observation
+            .lateness_ns
+            .zip(observation.period_ns)
+            .is_some_and(|(lateness_ns, period_ns)| {
+                lateness_ns > 0
+                    && u64::try_from(lateness_ns).is_ok_and(|lateness_ns| lateness_ns > period_ns)
+            });
+        if observation.padding_frames == 0 || exceeded_period {
             self.late_fills = self.late_fills.saturating_add(1);
         }
     }
@@ -270,16 +277,21 @@ impl RenderStats {
 
 struct PlaybackMetrics {
     playback_id: AtomicU64,
+    pcm_frames: AtomicU64,
+    cursor_frames: AtomicU64,
     first_fill_latency_ns: AtomicU64,
     first_fill_measured: AtomicBool,
     frames_rendered: AtomicU64,
     rendered_duration_known: AtomicBool,
+    snapshot_pending: AtomicBool,
+    write_error_count: AtomicU64,
+    event_timeout_count: AtomicU64,
     frames_available_total: AtomicU64,
     frames_requested_total: AtomicU64,
     callback_frames_measured: AtomicBool,
     late_fills: AtomicU64,
     late_fills_measured: AtomicBool,
-    max_lateness_ns: AtomicU64,
+    max_lateness_ns: AtomicI64,
     lateness_measured: AtomicBool,
     min_padding_frames: AtomicU64,
     padding_measured: AtomicBool,
@@ -289,29 +301,39 @@ impl PlaybackMetrics {
     fn new() -> Self {
         Self {
             playback_id: AtomicU64::new(INACTIVE_GENERATION),
+            pcm_frames: AtomicU64::new(0),
+            cursor_frames: AtomicU64::new(0),
             first_fill_latency_ns: AtomicU64::new(0),
             first_fill_measured: AtomicBool::new(false),
             frames_rendered: AtomicU64::new(0),
             rendered_duration_known: AtomicBool::new(true),
+            snapshot_pending: AtomicBool::new(false),
+            write_error_count: AtomicU64::new(0),
+            event_timeout_count: AtomicU64::new(0),
             frames_available_total: AtomicU64::new(0),
             frames_requested_total: AtomicU64::new(0),
             callback_frames_measured: AtomicBool::new(false),
             late_fills: AtomicU64::new(0),
             late_fills_measured: AtomicBool::new(false),
-            max_lateness_ns: AtomicU64::new(0),
+            max_lateness_ns: AtomicI64::new(0),
             lateness_measured: AtomicBool::new(false),
             min_padding_frames: AtomicU64::new(0),
             padding_measured: AtomicBool::new(false),
         }
     }
 
-    fn reset(&self, playback_id: u64) {
+    fn reset(&self, playback_id: u64, pcm_frames: u64) {
         self.playback_id
             .store(INACTIVE_GENERATION, Ordering::Release);
+        self.pcm_frames.store(pcm_frames, Ordering::Relaxed);
+        self.cursor_frames.store(0, Ordering::Relaxed);
         self.first_fill_latency_ns.store(0, Ordering::Relaxed);
         self.first_fill_measured.store(false, Ordering::Relaxed);
         self.frames_rendered.store(0, Ordering::Relaxed);
         self.rendered_duration_known.store(true, Ordering::Relaxed);
+        self.snapshot_pending.store(false, Ordering::Relaxed);
+        self.write_error_count.store(0, Ordering::Relaxed);
+        self.event_timeout_count.store(0, Ordering::Relaxed);
         self.frames_available_total.store(0, Ordering::Relaxed);
         self.frames_requested_total.store(0, Ordering::Relaxed);
         self.callback_frames_measured
@@ -327,13 +349,18 @@ impl PlaybackMetrics {
 }
 
 pub(crate) struct PlaybackMetricsSnapshot {
+    pub(crate) pcm_frames: u64,
+    pub(crate) cursor_frames: u64,
     pub(crate) first_fill_latency_ns: Option<u64>,
     pub(crate) frames_rendered: Option<u64>,
     pub(crate) rendered_duration_known: bool,
+    pub(crate) snapshot_pending: bool,
+    pub(crate) write_error_count: Option<u64>,
+    pub(crate) event_timeout_count: u64,
     pub(crate) frames_available_total: Option<u64>,
     pub(crate) frames_requested_total: Option<u64>,
     pub(crate) late_fills: Option<u64>,
-    pub(crate) max_lateness_ns: Option<u64>,
+    pub(crate) max_lateness_ns: Option<i64>,
     pub(crate) min_padding_frames: Option<u64>,
 }
 
@@ -353,8 +380,8 @@ impl SharedDiagnostics {
         &self.slots[index]
     }
 
-    fn begin_playback(&self, playback_id: u64) {
-        self.slot(playback_id).reset(playback_id);
+    fn begin_playback(&self, playback_id: u64, pcm_frames: u64) {
+        self.slot(playback_id).reset(playback_id, pcm_frames);
     }
 
     fn publish_stats(&self, playback_id: u64, stats: RenderStatsSnapshot) {
@@ -396,6 +423,30 @@ impl SharedDiagnostics {
             slot.frames_rendered
                 .fetch_add(frames as u64, Ordering::Relaxed);
             slot.rendered_duration_known.store(true, Ordering::Release);
+            slot.snapshot_pending.store(false, Ordering::Release);
+        }
+    }
+
+    fn record_cursor_frames(&self, playback_id: u64, frames: usize) {
+        let slot = self.slot(playback_id);
+        if slot.playback_id.load(Ordering::Acquire) == playback_id {
+            slot.cursor_frames.store(frames as u64, Ordering::Release);
+        }
+    }
+
+    fn record_write_error(&self, playback_id: u64) {
+        let slot = self.slot(playback_id);
+        if slot.playback_id.load(Ordering::Acquire) == playback_id {
+            slot.write_error_count.fetch_add(1, Ordering::Relaxed);
+            slot.rendered_duration_known.store(true, Ordering::Relaxed);
+            slot.snapshot_pending.store(false, Ordering::Release);
+        }
+    }
+
+    fn record_event_timeout(&self, playback_id: u64) {
+        let slot = self.slot(playback_id);
+        if slot.playback_id.load(Ordering::Acquire) == playback_id {
+            slot.event_timeout_count.fetch_add(1, Ordering::Relaxed);
         }
     }
 
@@ -403,6 +454,7 @@ impl SharedDiagnostics {
         let slot = self.slot(playback_id);
         if slot.playback_id.load(Ordering::Acquire) == playback_id {
             slot.rendered_duration_known.store(false, Ordering::Release);
+            slot.snapshot_pending.store(true, Ordering::Release);
         }
     }
 
@@ -410,13 +462,7 @@ impl SharedDiagnostics {
         let slot = self.slot(playback_id);
         if slot.playback_id.load(Ordering::Acquire) == playback_id {
             slot.rendered_duration_known.store(true, Ordering::Release);
-        }
-    }
-
-    fn mark_rendered_duration_unknown(&self, playback_id: u64) {
-        let slot = self.slot(playback_id);
-        if slot.playback_id.load(Ordering::Acquire) == playback_id {
-            slot.rendered_duration_known.store(false, Ordering::Release);
+            slot.snapshot_pending.store(false, Ordering::Release);
         }
     }
 
@@ -425,13 +471,21 @@ impl SharedDiagnostics {
         if slot.playback_id.load(Ordering::Acquire) != playback_id {
             return None;
         }
+        let snapshot_pending = slot.snapshot_pending.load(Ordering::Acquire);
         Some(PlaybackMetricsSnapshot {
+            pcm_frames: slot.pcm_frames.load(Ordering::Relaxed),
+            cursor_frames: slot.cursor_frames.load(Ordering::Acquire),
             first_fill_latency_ns: slot
                 .first_fill_measured
                 .load(Ordering::Acquire)
                 .then(|| slot.first_fill_latency_ns.load(Ordering::Relaxed)),
-            frames_rendered: Some(slot.frames_rendered.load(Ordering::Relaxed)),
+            frames_rendered: (!snapshot_pending)
+                .then(|| slot.frames_rendered.load(Ordering::Relaxed)),
             rendered_duration_known: slot.rendered_duration_known.load(Ordering::Acquire),
+            snapshot_pending,
+            write_error_count: (!snapshot_pending)
+                .then(|| slot.write_error_count.load(Ordering::Relaxed)),
+            event_timeout_count: slot.event_timeout_count.load(Ordering::Relaxed),
             frames_available_total: slot
                 .callback_frames_measured
                 .load(Ordering::Acquire)
@@ -620,6 +674,7 @@ impl Engine {
         if let Some(active) = self.active.as_mut() {
             if active.generation == self.current_generation.load(Ordering::Acquire) {
                 active.stats.record_timeout();
+                diagnostics.record_event_timeout(active.id.0);
                 diagnostics.publish_stats(active.id.0, active.stats.snapshot());
             }
         }
@@ -630,9 +685,8 @@ impl Engine {
             .record_rendered_frames(playback_id.0, frames);
     }
 
-    pub(crate) fn mark_rendered_duration_unknown(&self, playback_id: PlaybackId) {
-        self.diagnostics
-            .mark_rendered_duration_unknown(playback_id.0);
+    pub(crate) fn record_write_error(&self, playback_id: PlaybackId) {
+        self.diagnostics.record_write_error(playback_id.0);
     }
 
     fn record_active_callback(&mut self, observation: RenderObservation) {
@@ -760,6 +814,7 @@ impl Engine {
             frames: count,
         });
         active.cursor = end;
+        diagnostics.record_cursor_frames(active.id.0, active.cursor);
         if active.cursor == active.samples.len() && !active.finished_notified {
             active.finished_notified = true;
             let id = active.id;
@@ -829,7 +884,8 @@ impl EngineHandle {
         self.next_generation = generation;
         self.current_id = Some(id);
         let submitted_at = Instant::now();
-        self.diagnostics.begin_playback(id.0);
+        self.diagnostics
+            .begin_playback(id.0, u64::try_from(samples.len()).unwrap_or(u64::MAX));
         self.current_generation.store(generation, Ordering::Release);
         let command = Command::Submit {
             id,
@@ -911,8 +967,8 @@ mod tests {
         padding_frames: u32,
     ) -> RenderObservation {
         RenderObservation {
-            lateness_ns,
-            period_ns,
+            lateness_ns: Some(lateness_ns as i64),
+            period_ns: Some(period_ns),
             available_frames,
             requested_frames,
             padding_frames,
@@ -1082,23 +1138,125 @@ mod tests {
     }
 
     #[test]
+    fn first_callback_keeps_maximum_lateness_unmeasured() {
+        let mut stats = RenderStats::default();
+        stats.record_callback(RenderObservation {
+            lateness_ns: None,
+            period_ns: Some(10_000_000),
+            available_frames: 480,
+            requested_frames: 480,
+            padding_frames: 20,
+        });
+
+        let snapshot = stats.snapshot();
+        assert_eq!(snapshot.max_lateness_ns, None);
+        assert_eq!(snapshot.late_fills, Some(0));
+    }
+
+    #[test]
     fn render_duration_is_unknown_until_the_wasapi_write_completes() {
         let diagnostics = SharedDiagnostics::new();
-        diagnostics.begin_playback(7);
+        diagnostics.begin_playback(7, 1_000);
         diagnostics.mark_render_write_pending(7);
 
         let pending = diagnostics.snapshot(7).unwrap();
         assert!(!pending.rendered_duration_known);
-        assert_eq!(pending.frames_rendered, Some(0));
+        assert!(pending.snapshot_pending);
+        assert_eq!(pending.pcm_frames, 1_000);
+        assert_eq!(pending.frames_rendered, None);
+        assert_eq!(pending.write_error_count, None);
 
         diagnostics.record_rendered_frames(7, 480);
         let completed = diagnostics.snapshot(7).unwrap();
         assert!(completed.rendered_duration_known);
+        assert!(!completed.snapshot_pending);
         assert_eq!(completed.frames_rendered, Some(480));
+        assert_eq!(completed.write_error_count, Some(0));
 
         diagnostics.mark_render_write_pending(7);
-        diagnostics.mark_rendered_duration_unknown(7);
-        assert!(!diagnostics.snapshot(7).unwrap().rendered_duration_known);
+        diagnostics.record_write_error(7);
+        let failed = diagnostics.snapshot(7).unwrap();
+        assert!(failed.rendered_duration_known);
+        assert!(!failed.snapshot_pending);
+        assert_eq!(failed.frames_rendered, Some(480));
+        assert_eq!(failed.write_error_count, Some(1));
+    }
+
+    #[test]
+    fn finish_accounting_keeps_submitted_cursor_and_successful_write_counts_distinct() {
+        let diagnostics = SharedDiagnostics::new();
+        diagnostics.begin_playback(11, 960);
+        diagnostics.mark_render_write_pending(11);
+        diagnostics.record_cursor_frames(11, 960);
+
+        let pending = diagnostics.snapshot(11).unwrap();
+        assert_eq!(pending.pcm_frames, 960);
+        assert_eq!(pending.cursor_frames, 960);
+        assert_eq!(pending.frames_rendered, None);
+        assert!(pending.snapshot_pending);
+
+        diagnostics.record_rendered_frames(11, 960);
+        let written = diagnostics.snapshot(11).unwrap();
+        assert_eq!(written.frames_rendered, Some(960));
+        assert_eq!(written.pcm_frames, written.cursor_frames);
+        assert!(!written.snapshot_pending);
+    }
+
+    #[test]
+    fn finish_event_is_visible_before_the_final_successful_write_is_recorded() {
+        let (mut render, mut coordinator) = pair();
+        let diagnostics = coordinator.diagnostics();
+        submit(&mut coordinator, 14, &[1, 2, 3, 4]);
+
+        let mut output = [0; 4];
+        let rendered = render
+            .fill_observed(&mut output, Some(observation(0, 10, 4, 4, 4)))
+            .expect("clip frames render");
+
+        assert_eq!(rendered.frames, 4);
+        assert_eq!(
+            coordinator.poll_event(),
+            Some(SinkEvent::Finished { id: PlaybackId(14) })
+        );
+        let pending = diagnostics.snapshot(14).unwrap();
+        assert_eq!(pending.pcm_frames, 4);
+        assert_eq!(pending.cursor_frames, 4);
+        assert_eq!(pending.frames_rendered, None);
+        assert!(pending.snapshot_pending);
+
+        render.record_rendered_frames(rendered.playback_id, rendered.frames);
+        let written = diagnostics.snapshot(14).unwrap();
+        assert_eq!(written.frames_rendered, Some(4));
+        assert!(!written.snapshot_pending);
+    }
+
+    #[test]
+    fn a_failed_device_write_is_counted_without_inflating_successful_frames() {
+        let diagnostics = SharedDiagnostics::new();
+        diagnostics.begin_playback(12, 1_440);
+        diagnostics.record_rendered_frames(12, 480);
+        diagnostics.mark_render_write_pending(12);
+        diagnostics.record_cursor_frames(12, 960);
+        diagnostics.record_write_error(12);
+
+        let snapshot = diagnostics.snapshot(12).unwrap();
+        assert_eq!(snapshot.pcm_frames, 1_440);
+        assert_eq!(snapshot.cursor_frames, 960);
+        assert_eq!(snapshot.frames_rendered, Some(480));
+        assert_eq!(snapshot.write_error_count, Some(1));
+        assert!(!snapshot.snapshot_pending);
+    }
+
+    #[test]
+    fn event_timeout_count_is_exact_per_playback() {
+        let diagnostics = SharedDiagnostics::new();
+        diagnostics.begin_playback(13, 480);
+
+        diagnostics.record_event_timeout(13);
+        diagnostics.record_event_timeout(13);
+
+        assert_eq!(diagnostics.snapshot(13).unwrap().event_timeout_count, 2);
+        assert_eq!(diagnostics.snapshot(13).unwrap().write_error_count, Some(0));
     }
 
     fn pair() -> (Engine, super::EngineHandle) {
