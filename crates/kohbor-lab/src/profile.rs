@@ -183,7 +183,7 @@ pub struct Effective {
     source: Source,
 }
 
-fn catalog() -> &'static Value {
+pub(crate) fn catalog() -> &'static Value {
     static PARSED: OnceLock<Value> = OnceLock::new();
     PARSED.get_or_init(|| serde_json::from_str(CATALOG).expect("catalog is valid JSON"))
 }
@@ -620,4 +620,12 @@ impl Effective {
             "events": events,
         })
     }
+}
+
+/// `(event, param)` pairs the profile can edit (the 13 detector tunables).
+pub(crate) fn editable_tunables() -> Vec<(&'static str, &'static str)> {
+    SPECS
+        .iter()
+        .map(|(event, name, _)| (*event, *name))
+        .collect()
 }

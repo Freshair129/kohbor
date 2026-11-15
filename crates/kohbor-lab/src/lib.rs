@@ -6,6 +6,7 @@
 //! debug assertions) and only when the environment asks for it. Release builds contain
 //! no code that reads an override (tests/release_gate.rs).
 
+pub mod catalog;
 mod profile;
 
 #[cfg(any(feature = "lab", debug_assertions))]
