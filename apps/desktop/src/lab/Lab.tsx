@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   anyChanged,
   blockingGuards,
@@ -20,6 +20,11 @@ import { HudLayoutEditor } from "./HudLayoutEditor";
 import "./lab.css";
 
 const POLL_MS = 1000;
+
+type ProfileExport =
+  | { status: "exporting" }
+  | { status: "exported"; profile: string }
+  | { status: "failed"; error: string };
 
 function LabStudio({
   onClose,
@@ -43,7 +48,8 @@ function LabStudio({
   const [selected, setSelected] = useState<string>("health_danger");
   const [drafts, setDrafts] = useState<Record<string, DraftEdit>>({});
   const [message, setMessage] = useState<string | null>(null);
-  const [exported, setExported] = useState<string | null>(null);
+  const [profileExport, setProfileExport] = useState<ProfileExport | null>(null);
+  const exportResult = useRef<HTMLDivElement>(null);
   const [tab, setTab] = useState<"events" | "overlay" | "hud">("events");
 
   useEffect(() => {
@@ -94,6 +100,10 @@ function LabStudio({
       .catch((reason: unknown) => setMessage(String(reason)));
   }, [drafts]);
 
+  useEffect(() => {
+    exportResult.current?.scrollIntoView({ block: "nearest" });
+  }, [profileExport]);
+
   if (description === null) return null;
   const safety = safetyReport(description);
   const entry = description.events[selected];
@@ -117,8 +127,13 @@ function LabStudio({
         </div>
         <button
           type="button"
+          disabled={profileExport?.status === "exporting"}
+          aria-busy={profileExport?.status === "exporting"}
           onClick={() => {
-            void labExport().then(setExported).catch((reason: unknown) => setMessage(String(reason)));
+            setProfileExport({ status: "exporting" });
+            void labExport()
+              .then((profile) => setProfileExport({ status: "exported", profile }))
+              .catch((reason: unknown) => setProfileExport({ status: "failed", error: String(reason) }));
           }}
         >
           Export profile
@@ -129,6 +144,15 @@ function LabStudio({
       </header>
 
       <div className="lab-scroll" tabIndex={0} aria-label="Kohbor Lab content">
+      {profileExport !== null && profileExport.status !== "exporting" && (
+        <div ref={exportResult}>
+          {profileExport.status === "exported" ? (
+            <textarea className="lab-export" readOnly value={profileExport.profile} aria-label="Exported profile" />
+          ) : (
+            <p className="lab-warn" role="alert">Could not export profile. {profileExport.error}</p>
+          )}
+        </div>
+      )}
       {description.rejected && (
         <p className="lab-warn" role="status">
           Override rejected ({description.rejected.code}): {description.rejected.detail}. The embedded default is in force.
@@ -249,10 +273,6 @@ function LabStudio({
           <button type="button" onClick={onConfirmClose}>ปิดและทิ้ง</button>
           <button type="button" onClick={onCancelClose}>กลับไปแก้</button>
         </div>
-      )}
-
-      {exported !== null && (
-        <textarea className="lab-export" readOnly value={exported} aria-label="Exported profile" />
       )}
         </>
       ) : tab === "overlay" ? (

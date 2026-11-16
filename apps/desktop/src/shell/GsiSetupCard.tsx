@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { gsiCopy, gsiNeedsAttention, gsiPhase, gsiStateLabel, isConfigConflict } from "./gsiSetupModel";
+import { gsiCopy, gsiNeedsAttention, gsiPhase, gsiSetupFailure, gsiStateLabel, isConfigConflict } from "./gsiSetupModel";
 import { reason } from "../copy";
 import type { RuntimeStatus } from "../types";
 import "./gsiSetup.css";
@@ -35,15 +35,15 @@ export function GsiSetupCard({ status, locale, setup }: {
   if (!gsiNeedsAttention(phase)) {
     return <p className="gsi-card gsi-ok" role="status"><span aria-hidden="true">●</span> {gsiStateLabel("receiving", locale)}</p>;
   }
-  const showFailure = failed !== null && failed !== status?.intake.reason;
+  const failure = gsiSetupFailure(status, failed);
   return (
     <section className={`gsi-card gsi-${phase}`} aria-label={text.title}>
       <div className="gsi-text">
         <strong>{text.title}</strong>
         <span role="status">{gsiStateLabel(phase, locale)}</span>
         {conflict && <span>{text.conflict}</span>}
-        {installed && !showFailure && <span role="status">{text.done}</span>}
-        {showFailure && <span className="gsi-error" role="alert">{reason(failed, locale)}</span>}
+        {installed && failure === null && <span role="status">{text.done}</span>}
+        {failure !== null && <span className="gsi-error" role="alert">{reason(failure, locale)}</span>}
       </div>
       <div className="gsi-actions">
         {conflict ? (

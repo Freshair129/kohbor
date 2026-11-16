@@ -24,6 +24,13 @@ export function isConfigConflict(status: RuntimeStatus | null): boolean {
   return status?.intake.state === "unavailable" && status.intake.reason === "GSI_CONFIG_CONFLICT";
 }
 
+export function gsiSetupFailure(status: RuntimeStatus | null, commandFailure: string | null): string | null {
+  const hostFailure = status?.intake.state === "unavailable" ? status.intake.reason : null;
+  const failure = commandFailure ?? hostFailure;
+  // The card already explains this reason when it offers the replacement action.
+  return failure === "GSI_CONFIG_CONFLICT" && isConfigConflict(status) ? null : failure;
+}
+
 const LABELS = {
   th: {
     not_installed: "ยังไม่ได้ติดตั้งไฟล์เชื่อมต่อ Dota 2",

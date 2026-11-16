@@ -343,13 +343,27 @@ fn parse_volume_percent(value: &Value) -> Result<u8, String> {
         .ok_or_else(|| "AUDIO_VOLUME_INVALID".to_owned())
 }
 
-fn audio_prefs_payload(prefs: &AudioPrefs, hotkeys_registered: bool, muted: Option<bool>) -> Value {
-    serde_json::json!({
-        "master_volume_percent": prefs.master_volume_percent,
-        "hotkeys_enabled": prefs.hotkeys_enabled,
-        "hotkeys_registered": hotkeys_registered,
-        "muted": muted,
-    })
+#[derive(serde::Serialize)]
+pub(crate) struct AudioPrefsReply {
+    master_volume_percent: u8,
+    hotkeys_enabled: bool,
+    hotkeys_registered: bool,
+    muted: Option<bool>,
+}
+
+fn audio_prefs_reply(prefs: &AudioPrefs, hotkeys_registered: bool) -> AudioPrefsReply {
+    AudioPrefsReply {
+        master_volume_percent: prefs.master_volume_percent,
+        hotkeys_enabled: prefs.hotkeys_enabled,
+        hotkeys_registered,
+        // The host has no read-only mute snapshot.
+        muted: None,
+    }
+}
+
+fn audio_prefs_snapshot(state: &AppState) -> AudioPrefsReply {
+    let hotkeys = lock(&state.hotkeys);
+    audio_prefs_reply(&state.audio_prefs.current(), hotkeys.is_registered())
 }
 
 fn apply_volume_value(
@@ -357,16 +371,16 @@ fn apply_volume_value(
     value: &Value,
     source: &'static str,
     emit: impl FnOnce(Value),
-) -> Result<AudioPrefs, String> {
+) -> Result<(), String> {
     if !matches!(source, "ui" | "hotkey") {
         return Err("AUDIO_VOLUME_INVALID".to_owned());
     }
     let percent = parse_volume_percent(value)?;
-    let (updated, changed) = prefs.set_volume_percent(percent)?;
+    let (_, changed) = prefs.set_volume_percent(percent)?;
     if changed {
         emit(serde_json::json!({"percent": percent, "source": source}));
     }
-    Ok(updated)
+    Ok(())
 }
 
 fn apply_hotkey_step(
@@ -468,10 +482,8 @@ pub(crate) fn start_hotkeys(app: &tauri::AppHandle, state: &AppState) {
 }
 
 #[tauri::command(async)]
-pub(crate) fn audio_prefs_get(state: tauri::State<'_, AppState>) -> Value {
-    let registered = lock(&state.hotkeys).is_registered();
-    // Host does not currently expose a read-only mute snapshot to commands.
-    audio_prefs_payload(&state.audio_prefs.current(), registered, None)
+pub(crate) fn audio_prefs_get(state: tauri::State<'_, AppState>) -> AudioPrefsReply {
+    audio_prefs_snapshot(&state)
 }
 
 #[tauri::command(async)]
@@ -479,10 +491,11 @@ pub(crate) fn audio_set_volume(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     percent: Value,
-) -> Result<AudioPrefs, String> {
+) -> Result<AudioPrefsReply, String> {
     apply_volume_value(&state.audio_prefs, &percent, "ui", |payload| {
         emit_volume_change(&app, payload);
-    })
+    })?;
+    Ok(audio_prefs_snapshot(&state))
 }
 
 #[tauri::command(async)]
@@ -490,7 +503,7 @@ pub(crate) fn audio_set_hotkeys(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     enabled: bool,
-) -> Result<AudioPrefs, String> {
+) -> Result<AudioPrefsReply, String> {
     let mut hotkeys = lock(&state.hotkeys);
     let previously_enabled = state.audio_prefs.current().hotkeys_enabled;
     let callback = volume_callback(app.clone());
@@ -507,7 +520,7 @@ pub(crate) fn audio_set_hotkeys(
     if previously_enabled != enabled {
         log_hotkeys_state(enabled, registered);
     }
-    Ok(prefs)
+    Ok(audio_prefs_reply(&prefs, registered))
 }
 
 #[tauri::command(async)]
@@ -587,7 +600,7 @@ pub(crate) fn media_protocol_handler(
 #[cfg(test)]
 mod audio_volume_tests {
     use super::{
-        apply_hotkey_step, apply_hotkeys_setting, apply_volume_value, audio_prefs_payload,
+        apply_hotkey_step, apply_hotkeys_setting, apply_volume_value, audio_prefs_reply,
         parse_volume_percent,
     };
     use crate::audio_prefs::{AudioPrefs, AudioPrefsService, AudioPrefsStore};
@@ -700,24 +713,24 @@ mod audio_volume_tests {
     }
 
     #[test]
-    fn prefs_get_payload_carries_registration_and_unknown_mute_state() {
-        let payload = audio_prefs_payload(
-            &AudioPrefs {
-                master_volume_percent: 37,
-                hotkeys_enabled: true,
-            },
-            true,
-            None,
-        );
-
-        assert_eq!(
-            payload,
-            json!({
-                "master_volume_percent": 37,
-                "hotkeys_enabled": true,
-                "hotkeys_registered": true,
-                "muted": null
-            })
-        );
+    fn shared_prefs_reply_serializes_registration_and_unknown_mute_state() {
+        for (enabled, registered) in [(true, true), (true, false), (false, false)] {
+            let reply = audio_prefs_reply(
+                &AudioPrefs {
+                    master_volume_percent: 37,
+                    hotkeys_enabled: enabled,
+                },
+                registered,
+            );
+            assert_eq!(
+                json!(reply),
+                json!({
+                    "master_volume_percent": 37,
+                    "hotkeys_enabled": enabled,
+                    "hotkeys_registered": registered,
+                    "muted": null
+                })
+            );
+        }
     }
 }
