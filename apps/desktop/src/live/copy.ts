@@ -7,6 +7,7 @@ const MESSAGES = {
   th: {
     title: "สด",
     resourceDetails: "ละเอียด",
+    closeDialog: "ปิด",
     previewDropped: "ทิ้ง",
     previewCost: "parse+paint เฉลี่ย",
     sentTotal: "ส่งทั้งหมด",
@@ -100,6 +101,7 @@ const MESSAGES = {
   en: {
     title: "Live",
     resourceDetails: "Details",
+    closeDialog: "Close",
     previewDropped: "dropped",
     previewCost: "mean parse+paint",
     sentTotal: "sent total",

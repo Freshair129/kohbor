@@ -1,0 +1,10 @@
+.gsi-card { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; margin: 0 0 8px; padding: 8px 12px; box-sizing: border-box; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-size: 12px; }
+.gsi-ok { color: var(--text-2); border-color: transparent; background: transparent; padding-block: 2px; }
+.gsi-ok span { color: var(--ok, #4caf50); }
+.gsi-not_installed, .gsi-problem, .gsi-stale { border-color: var(--warning); background: var(--warning-surface); }
+.gsi-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 200px; overflow-wrap: anywhere; }
+.gsi-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.gsi-actions button { min-height: 32px; padding: 4px 12px; cursor: pointer; }
+.gsi-primary { border-color: var(--accent); }
+.gsi-error { color: var(--stale); }
+.shell-live-top { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
