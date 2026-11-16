@@ -135,6 +135,13 @@ function OverlayView({ MockHarness }: { MockHarness?: ComponentType }) {
 }
 
 async function start() {
+  if (import.meta.env.DEV && params.get("view") === "s1c-native") {
+    if (!root) return;
+    const { mountNativeAccount } = await import("./account/s1c/native-account.mjs");
+    await mountNativeAccount(root);
+    return;
+  }
+
   const mockUpdateScenario = params.get("mockUpdate");
   const mockHarnessRequested = params.get("mock") === "1"
     || mockUpdateScenario === "available"

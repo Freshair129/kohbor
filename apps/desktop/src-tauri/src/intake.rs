@@ -1840,7 +1840,15 @@ mod s0_6_tests {
                 && !line.starts_with('"')
                 && !line.starts_with(']')
             {
-                if let Some((name, _)) = line.split_once('=') {
+                if let Some((name, value)) = line.split_once('=') {
+                    // The std-only account crate is an optional workspace dependency.
+                    if name.trim() == "kohbor-account" {
+                        assert_eq!(
+                            value.trim(),
+                            r#"{ path = "../../../crates/kohbor-account", optional = true }"#
+                        );
+                        continue;
+                    }
                     assert!(
                         allowed.contains(&name.trim()),
                         "review new host dependency: {name}"

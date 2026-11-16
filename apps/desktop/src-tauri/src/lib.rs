@@ -1,5 +1,7 @@
 //! Kohbor desktop host (M1 slice): containment, game-state intake, runtime status.
 
+#[cfg(feature = "demo")]
+mod account_host;
 pub mod atomic;
 mod audio;
 mod audio_prefs;
@@ -24,18 +26,18 @@ mod update;
 mod version;
 
 macro_rules! generate_handler_with_updater_commands {
-    ($($command:path),* $(,)?) => {{
+    ($($(#[$meta:meta])* $command:path),* $(,)?) => {{
         #[cfg(feature = "updater")]
         {
             tauri::generate_handler![
-                $($command,)*
+                $($(#[$meta])* $command,)*
                 commands::update_check,
                 commands::update_install
             ]
         }
         #[cfg(not(feature = "updater"))]
         {
-            tauri::generate_handler![$($command),*]
+            tauri::generate_handler![$($(#[$meta])* $command),*]
         }
     }};
 }
@@ -498,6 +500,10 @@ pub fn run() {
             let settings_dir = dir.clone();
             // Load volume preferences before Host::start creates the audio engine.
             let audio_prefs = audio_prefs::AudioPrefsService::open(&dir);
+            // Account storage remains lazy so an unavailable account root or
+            // provider cannot delay the independent local core startup.
+            #[cfg(feature = "demo")]
+            app.manage(account_host::DesktopAccountHost::new(settings_dir.clone()));
             let runtime = intake::Runtime::new(dir.clone());
             let sample = Arc::new(Mutex::new((
                 Sample {
@@ -645,6 +651,8 @@ pub fn run() {
         capture_host::capture_propose_crop,
         capture_host::capture_accept_proposal,
         capture_host::capture_confirm_crop,
+        #[cfg(feature = "demo")]
+        account_host::account_fake_native,
         commands::demo_available,
         commands::demo_trigger,
         lab::dev::lab_status,
