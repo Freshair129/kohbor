@@ -1847,11 +1847,11 @@ dependencies = [
 
 [[package]]
 name = "kohbor-account"
-version = "0.2.0-mvp2.1"
+version = "0.3.0-dev.18"
 
 [[package]]
 name = "kohbor-audio"
-version = "0.2.0-mvp2.1"
+version = "0.3.0-dev.18"
 
 [[package]]
 name = "kohbor-audio-native"
@@ -1863,11 +1863,11 @@ dependencies = [
 
 [[package]]
 name = "kohbor-capture"
-version = "0.2.0-mvp2.1"
+version = "0.3.0-dev.18"
 
 [[package]]
 name = "kohbor-capture-native"
-version = "0.2.0-mvp2.1"
+version = "0.3.0-dev.18"
 dependencies = [
  "kohbor-capture",
  "windows 0.61.3",
@@ -1875,7 +1875,7 @@ dependencies = [
 
 [[package]]
 name = "kohbor-desktop"
-version = "0.2.0-mvp2.1"
+version = "0.3.0-dev.18"
 dependencies = [
  "base64 0.22.1",
  "flate2",
@@ -1889,6 +1889,7 @@ dependencies = [
  "kohbor-events",
  "kohbor-game-assets",
  "kohbor-gsi",
+ "kohbor-lab",
  "kohbor-minimap-cv",
  "kohbor-pack",
  "kohbor-pack-author",
@@ -1906,7 +1907,7 @@ dependencies = [
 
 [[package]]
 name = "kohbor-events"
-version = "0.2.0-mvp2.1"
+version = "0.3.0-dev.18"
 dependencies = [
  "base64 0.22.1",
  "kohbor-gsi",
@@ -1915,14 +1916,14 @@ dependencies = [
 
 [[package]]
 name = "kohbor-game-assets"
-version = "0.2.0-mvp2.1"
+version = "0.3.0-dev.18"
 dependencies = [
  "flate2",
 ]
 
 [[package]]
 name = "kohbor-gsi"
-version = "0.2.0-mvp2.1"
+version = "0.3.0-dev.18"
 dependencies = [
  "hmac",
  "jsonschema",
@@ -1933,7 +1934,7 @@ dependencies = [
 
 [[package]]
 name = "kohbor-gsi-capture"
-version = "0.2.0-mvp2.1"
+version = "0.3.0-dev.18"
 dependencies = [
  "base64 0.22.1",
  "getrandom 0.2.17",
@@ -1945,12 +1946,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "kohbor-lab"
+version = "0.3.0-dev.18"
+dependencies = [
+ "kohbor-events",
+ "kohbor-gsi",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "kohbor-minimap-cv"
-version = "0.2.0-mvp2.1"
+version = "0.3.0-dev.18"
 
 [[package]]
 name = "kohbor-pack"
-version = "0.2.0-mvp2.1"
+version = "0.3.0-dev.18"
 dependencies = [
  "flate2",
  "kohbor-gsi",
@@ -1960,7 +1971,7 @@ dependencies = [
 
 [[package]]
 name = "kohbor-pack-author"
-version = "0.2.0-mvp2.1"
+version = "0.3.0-dev.18"
 dependencies = [
  "flate2",
  "kohbor-gsi",
@@ -1971,14 +1982,14 @@ dependencies = [
 
 [[package]]
 name = "kohbor-risk"
-version = "0.2.0-mvp2.1"
+version = "0.3.0-dev.18"
 dependencies = [
  "kohbor-capture",
 ]
 
 [[package]]
 name = "kohbor-vision"
-version = "0.2.0-mvp2.1"
+version = "0.3.0-dev.18"
 dependencies = [
  "kohbor-capture",
 ]

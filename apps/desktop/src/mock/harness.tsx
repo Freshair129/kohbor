@@ -9,6 +9,8 @@ import { liveMockRequested } from "../live/mockMode";
 import { parseOwnSnapshot } from "../ownSnapshot";
 import { addSampleLoadout } from "./sampleLoadout";
 import { MockAudioPrefs } from "../audioPrefs";
+import { HUD_MOCK_INTERVAL_MS, mockHudStatePayload } from "./hudState";
+import { createMockUpdater, parseMockUpdateScenario } from "./updateHarness";
 
 type MockCallback = (event: unknown) => void;
 type MockEventBinding = { event: string; callbackId: number };
@@ -20,6 +22,7 @@ type MockTauriInternals = {
 const EVENT_NAME = "playback://event";
 const OVERLAY_STATUS_EVENT = "overlay://status";
 const OVERLAY_DEMO_EVENT = "overlay://demo";
+const HUD_STATE_EVENT = "hud://state";
 const PROBE_EVENT_NAME = "media://probe-request";
 const MOCK_CHANNEL = "kohbor-mock-playback";
 const MOCK_PROBE_REPORT_EVENT = "kohbor-mock-media-probe-report";
@@ -390,6 +393,7 @@ function runScenario(name: string) {
 }
 
 export function installMockHarness() {
+  const mockUpdate = createMockUpdater(parseMockUpdateScenario(new URLSearchParams(window.location.search).get("mockUpdate")));
   const target = window as unknown as Window & {
     __KOHBOR_MOCK_MEDIA_UNAVAILABLE__?: boolean;
     __TAURI_INTERNALS__?: MockTauriInternals;
@@ -409,6 +413,13 @@ export function installMockHarness() {
       if (command === "runtime_get_status") return currentStatus();
       // Explicit synthetic build metadata; never a production-version fallback.
       if (command === "app_version") return { version: "0.0.0-dev-sample", git_commit: null, build_date: null, profile: "debug", demo: true };
+      if (command === "update_open_release_page") return { opened: true, reason: null, url: "https://github.com/Freshair129/kohbor/releases/latest" };
+      if (command === "update_status") return mockUpdate.updateStatus();
+      if (command === "update_check") return mockUpdate.updateCheck();
+      if (command === "update_install") {
+        requireArgs(command, args, ["confirm"]);
+        return mockUpdate.updateInstall(args);
+      }
       if (command === "own_snapshot") return currentOwnSnapshot();
       // Portrait sourcing is runtime-only and not present in the dev fixture bundle.
       if (command === "hero_portrait") { requireArgs(command, args, ["hero_id"]); return null; }
@@ -518,6 +529,20 @@ export function OverlayMockHarness() {
       <output>{lastPlaybackId ?? "กำลังเตรียมตัวอย่าง"}</output>
     </aside>
   );
+}
+
+/** Synthetic HUD payload for browser preview; live risk is supplied by the existing live mock source. */
+export function HudMockHarness() {
+  useEffect(() => {
+    const initial = window.setTimeout(() => deliver(HUD_STATE_EVENT, mockHudStatePayload), 100);
+    const interval = window.setInterval(() => deliver(HUD_STATE_EVENT, mockHudStatePayload), HUD_MOCK_INTERVAL_MS);
+    return () => {
+      window.clearTimeout(initial);
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  return null;
 }
 
 const SCENARIO_NAMES = [

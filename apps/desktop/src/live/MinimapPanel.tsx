@@ -35,6 +35,7 @@ import { MinimapStage } from "./MinimapStage";
 import { deriveMinimapState } from "./minimapStageModel";
 import type { SteamStatus } from "../steam/model";
 import "./live.css";
+import { DialogButton } from "../shared/Dialog";
 
 export function MinimapPanel({
   locale = "th",
@@ -229,9 +230,8 @@ export function MinimapPanel({
           {captureConfig.error && <span className="live-error" role="alert">{captureConfig.error}</span>}
         </div>
         <div className="live-sidebar-actions">
-          <details className="live-controls-disclosure">
-            <summary>{text.cropSettings}</summary>
-            <div className="live-disclosure-body live-controls-popover">
+          <DialogButton label={text.cropSettings} closeLabel={text.closeDialog} className="live-dialog">
+            <div className="live-controls-popover">
               <section className="live-capture-controls" aria-labelledby="live-capture-controls-heading">
                 <h3 id="live-capture-controls-heading">{text.captureControls}</h3>
                 <p className="live-effective-rect mono">
@@ -337,14 +337,13 @@ export function MinimapPanel({
                 </section>
               </section>
             </div>
-          </details>
-          <details className="live-resource-disclosure">
-            <summary>{text.resourceDetails}</summary>
-            <div className="live-disclosure-body live-resource-popover">
+          </DialogButton>
+          <DialogButton label={text.resourceDetails} closeLabel={text.closeDialog} className="live-dialog">
+            <div className="live-resource-popover">
               <PreviewDiagnosticsPanel capture={capture} metrics={minimap.metrics} counterRates={counterRates} locale={locale} />
               <ResourcePanel locale={locale} />
             </div>
-          </details>
+          </DialogButton>
         </div>
       </aside>
     </>

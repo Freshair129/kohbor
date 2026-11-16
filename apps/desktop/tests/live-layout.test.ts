@@ -25,8 +25,7 @@ test("Live has one definite grid row, two bounded columns and a shrinking map st
   assert.match(canvas, /aspect-ratio:\s*280\s*\/\s*280/);
   assert.match(css, /\.live-preview-rates\s*\{[^}]*white-space:\s*nowrap[^}]*text-overflow:\s*ellipsis/);
   const autoRules = [...css.matchAll(/([^{}]+)\{[^{}]*overflow(?:-y)?:\s*auto[^{}]*\}/g)];
-  assert.ok(autoRules.length > 0);
-  for (const rule of autoRules) assert.match(rule[1]!, /live-disclosure-body/);
+  for (const rule of autoRules) assert.doesNotMatch(rule[1]!, /\.live-tab/, "live panels do not scroll themselves; the dialog does");
 });
 
 test("canvas box scales up or down to fit while preserving the frame header aspect", () => {
@@ -51,8 +50,8 @@ test("diagnostic columns shrink within the existing bounded resource popover", (
   const grid = css.match(/\.live-preview-diagnostic-grid\s*\{([^}]+)\}/)?.[1] ?? "";
   assert.match(grid, /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
   assert.match(grid, /min-width:\s*0/);
-  const popover = css.match(/\.live-disclosure-body\s*\{([^}]+)\}/)?.[1] ?? "";
-  assert.match(popover, /position:\s*absolute/);
-  assert.match(popover, /bottom:\s*8px/);
-  assert.match(popover, /overflow:\s*auto/);
+  assert.doesNotMatch(css, /\.live-disclosure-body/, "no floating absolute popover remains");
+  const dialogCss = readFileSync(new URL("../src/shared/dialog.css", import.meta.url), "utf8");
+  assert.match(dialogCss.match(/\.dialog-body\s*\{([^}]+)\}/)?.[1] ?? "", /overflow:\s*auto/);
+  assert.match(dialogCss.match(/\.dialog-panel\s*\{([^}]+)\}/)?.[1] ?? "", /max-height:\s*100%/);
 });

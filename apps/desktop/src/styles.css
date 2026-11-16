@@ -96,6 +96,21 @@ body {
 .shell-about dl > div { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: 6px; min-width: 0; font-size: 11px; }
 .shell-about dt { color: var(--muted); }
 .shell-about dd { min-width: 0; margin: 0; overflow: hidden; color: var(--text-2); text-overflow: ellipsis; white-space: nowrap; }
+.shell-update-control { flex: 0 1 340px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 3px 8px; min-width: 190px; max-width: 360px; color: var(--text-2); font-size: 10px; line-height: 1.25; }
+.shell-update-version, .shell-update-state, .shell-update-error, .shell-update-actions { grid-column: 1 / -1; min-width: 0; }
+.shell-update-version { color: var(--muted); white-space: nowrap; }
+.shell-update-state { display: grid; gap: 2px; max-height: 54px; overflow: auto; scrollbar-width: thin; }
+.shell-update-state strong { color: var(--text); font-size: 11px; font-weight: 600; }
+.shell-update-control[data-tone="positive"] .shell-update-state strong { color: var(--accent); }
+.shell-update-control[data-tone="warning"] .shell-update-state strong { color: var(--warning); }
+.shell-update-control[data-tone="critical"] .shell-update-state strong { color: var(--critical); }
+.shell-update-detail { white-space: pre-wrap; overflow-wrap: anywhere; }
+.shell-update-error { color: var(--critical); }
+.shell-update-a11y { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.shell-update-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.shell-update-actions button { min-height: 24px; padding: 2px 7px; font-size: 10px; }
+.shell-update-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.shell-update-confirm > span { flex: 1 0 100%; color: var(--text); }
 .shell-readiness { grid-area: readiness; min-width: 0; min-height: 0; overflow: hidden; }
 .shell-own-hero { grid-area: own; min-width: 0; min-height: 0; overflow: hidden; }
 .shell-audio-panel { grid-area: audio; min-width: 0; min-height: 0; overflow: hidden; }
@@ -263,9 +278,6 @@ body.overlay-body #root { width: 100%; height: 100%; min-height: 0; }
 .overlay-stage { position: relative; width: 100%; min-width: 0; min-height: 0; aspect-ratio: 720 / 220; overflow: hidden; background: transparent; }
 .event-overlay-banner { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; pointer-events: none; animation: event-banner-enter 140ms ease-out both; }
 .event-overlay-banner video { display: block; width: 100%; height: 100%; object-fit: contain; background: transparent; }
-/* Mount point for the risk strip (720x28 logical, bottom edge of the stage); hidden while empty. */
-.overlay-risk-strip { position: absolute; z-index: 2; left: 0; right: 0; bottom: 0; height: calc(100% * 28 / 220); pointer-events: none; }
-.overlay-risk-strip:empty { display: none; }
 .overlay-chip-strip { display: flex; align-items: center; justify-content: flex-end; min-width: 0; min-height: 0; padding: 0 2.5%; background: transparent; }
 .overlay-chip { display: inline-flex; align-items: center; max-width: 100%; min-height: 24px; padding: 2px 10px; border: 1px solid rgb(197 206 220 / 34%); border-radius: 999px; background: rgb(14 18 27 / 88%); color: #f2f5f9; font-size: clamp(11px, 1.7vh, 14px); line-height: 1.25; overflow-wrap: anywhere; }
 .overlay-chip-ready { border-color: rgb(90 170 147 / 55%); }

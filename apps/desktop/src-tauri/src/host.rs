@@ -47,6 +47,10 @@ pub trait MediaJobs: Send + Sync {
         policy: ActivationPolicy,
     ) -> Result<Value, String>;
     fn list(&self) -> Result<Value, String>;
+    /// Read-only active-pack bindings; implementations without a store report it unavailable.
+    fn active_bindings(&self) -> Result<Value, String> {
+        Err("CAPABILITY_UNAVAILABLE".to_owned())
+    }
     fn probe_report(
         &self,
         install_id: &str,
@@ -78,6 +82,10 @@ impl MediaJobs for MediaHandle {
 
     fn list(&self) -> Result<Value, String> {
         MediaHandle::list(self)
+    }
+
+    fn active_bindings(&self) -> Result<Value, String> {
+        MediaHandle::active_bindings(self)
     }
 
     fn probe_report(
@@ -187,6 +195,12 @@ impl CommandApi {
     pub fn media_list(&self) -> Result<Value, String> {
         self.ensure_running()?;
         self.media.list()
+    }
+
+    /// Read-only active-pack bindings (event, tier, payload file name, duration); no paths.
+    pub fn media_active_bindings(&self) -> Result<Value, String> {
+        self.ensure_running()?;
+        self.media.active_bindings()
     }
 
     pub fn media_probe_report(

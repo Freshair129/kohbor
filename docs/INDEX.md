@@ -24,6 +24,7 @@ This is the only index of documents. Every Markdown file in the tree, is linked 
 | [Media Package Specification](design/MEDIA-PACK-SPEC.md) | Media formats, trust, installation and playback lifecycle | Media, engineering, QA |
 | [S3-5 Host Critical Warning Path](design/S3-5-HOST-CRITICAL-PATH.md) | Design and task breakdown of the host critical warning path (agent decision, not owner approved) | Engineering, media |
 | [S6 Overlay Slice](design/S6-OVERLAY-SLICE.md) | Plan of the in-game banner overlay window, placement, honest chip states and the no-game demo trigger (agent plan, not owner approved) | Engineering, UX, product owner |
+| [Kohbor Lab](design/KOHBOR-LAB.md) | Design of the dev-only event-logic studio: signal inspector, bounded profile schema, replay sandbox, clip pairing, export, embedded-default precedence (agent proposal, not owner approved) | Engineering, UX, product owner |
 | [Package Format Review](design/PACKAGE-FORMAT-REVIEW.md) | Agent review: whether a package needs its own file type, signature and encryption options | Engineering, product owner |
 | [S4 Observation Boundary](design/S4-OBSERVATION-BOUNDARY.md) | Sprint 4 no-hardware slice: capture admission, freshness, coverage and the enemy observation boundary (agent decision, not owner approved) | Engineering, QA |
 | [Draft Bar](design/DRAFT-BAR-SPEC.md) | MVP-2 slice 5: reading the top hero bar during hero selection (mirror, hero identification, player names) with the third-party data contract (agent design, not owner approved) | Engineering, QA, Privacy |
@@ -48,6 +49,7 @@ This is the only index of documents. Every Markdown file in the tree, is linked 
 | [Recorded GSI Replay](operations/GSI-REPLAY.md) | Local replay of a recorded GSI session into a temporary-data demo, with evidence limits | Developers, QA |
 | [Document Control](governance/DOCUMENT-CONTROL.md) | Authority, baseline versions, review and change control | All contributors |
 | [Decision Log](governance/DECISION-LOG.md) | Delegated choices and unresolved dependencies | Product, engineering |
+| [Third-party Data](governance/THIRD-PARTY-DATA.md) | Data files copied into the repository: origin, hash, use, authorisation and what is not established (item price table for the HUD net worth) | Engineering, owner, rights |
 | [Risk Register](governance/RISK-REGISTER.md) | Delivery/technical uncertainty, mitigation and closure evidence | Product, engineering, QA |
 | [Implementation Readiness](governance/IMPLEMENTATION-READINESS.md) | Concrete remaining design work, safe starting points and evidence limits | Implementing agents, engineering, reviewers |
 | [Agent Registry, Router and Enforcement](governance/AGENT-REGISTRY.md) | Profiles, roles, task routes with the owner-evidence level of each, domain policies, who is working now, and what is enforced and what is only reported (agent proposal; source: `AGENT-REGISTRY.json`) | Engineering lead, owner, every agent |

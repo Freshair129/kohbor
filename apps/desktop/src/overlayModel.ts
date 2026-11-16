@@ -122,3 +122,8 @@ export function overlayShouldShow(playback: PlaybackState, chip: ChipState, now_
   if (playback.visual !== null) return true;
   return chip.view !== null && chip.shownUntilMs !== null && now_ms < chip.shownUntilMs;
 }
+
+/** The benign "ready" status is noise during a match: only problem states, unknown and DEMO show. */
+export function overlayChipForDisplay(view: ChipView | null): ChipView | null {
+  return view === null || view.kind === "ready" ? null : view;
+}

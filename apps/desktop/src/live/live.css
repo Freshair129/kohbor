@@ -24,9 +24,7 @@ main.live-tab.live-dashboard { display: grid; grid-template-columns: minmax(0, 1
 .live-sidebar-status { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; min-width: 0; min-height: 0; }
 .live-sidebar-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; margin-top: auto; min-width: 0; min-height: 0; }
 .live-sidebar-actions > details { min-width: 0; min-height: 0; }
-.live-disclosure-body { position: absolute; z-index: 20; top: 8px; right: 8px; bottom: 8px; width: min(650px, calc(100% - 16px)); min-width: 0; min-height: 0; box-sizing: border-box; overflow: auto; border: 1px solid var(--text-2); border-radius: 8px; background: var(--surface); box-shadow: 0 12px 36px #0009; }
-.live-tab details:not([open]) > .live-disclosure-body { display: none; }
-.live-resource-popover { width: min(820px, calc(100% - 16px)); padding: 10px; }
+.live-resource-popover { min-width: 0; }
 .live-capture-controls { display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; padding: 12px; box-sizing: border-box; }
 .live-capture-controls h3 { margin: 0; font-size: 14px; }
 .live-capture-control-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; min-height: 0; }

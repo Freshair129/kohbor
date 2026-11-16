@@ -146,9 +146,9 @@ test("dashboard fills its panel and keeps vertical scrolling off the dashboard r
   assert.match(css, /\.live-map-canvas\s*\{[^}]*object-fit:\s*contain/);
   assert.match(css, /:focus-visible/);
   const component = readFileSync(new URL("../src/live/MinimapPanel.tsx", import.meta.url), "utf8");
-  assert.match(component, /<details className="live-controls-disclosure">/);
-  assert.match(component, /<details className="live-resource-disclosure">/);
-  assert.doesNotMatch(component, /<details[^>]*\bopen(?:=|\s|>)/);
+  assert.match(component, /<DialogButton label={text.cropSettings}/);
+  assert.match(component, /<DialogButton label={text.resourceDetails}/);
+  assert.doesNotMatch(component, /<details/);
   const hook = readFileSync(new URL("../src/live/useMinimap.ts", import.meta.url), "utf8");
   assert.doesNotMatch(hook, /requestAnimationFrame/);
 });

@@ -5,6 +5,9 @@
 //! file or touches the network.
 
 pub mod adapter;
+pub mod trace;
+
+use trace::{Danger, LevelEvidence, Scratch, Status, Threshold};
 
 use std::collections::VecDeque;
 
@@ -205,6 +208,7 @@ pub struct Detector {
     danger_armed: bool,
     danger_last_cue_ms: Option<u64>,
     danger_samples: VecDeque<HealthSample>,
+    scratch: Scratch,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -244,17 +248,21 @@ impl Detector {
             danger_armed: true,
             danger_last_cue_ms: None,
             danger_samples: VecDeque::new(),
+            scratch: Scratch::default(),
         }
     }
 
     /// Feed one admitted tick. Returns the events it produced, in [`EventId`]
     /// declaration order, at most one event per id.
     pub fn observe(&mut self, tick: &Tick) -> Vec<Event> {
+        self.scratch = Scratch::default();
         if !tick.trusted {
+            self.scratch.status = Status::Untrusted;
             return Vec::new();
         }
 
         if self.session_epoch != Some(tick.session_epoch) {
+            self.scratch.status = Status::Baseline;
             self.set_baseline(tick, false);
             return Vec::new();
         }
@@ -262,6 +270,7 @@ impl Detector {
             .last_at_ms
             .is_some_and(|last_at_ms| tick.at_ms < last_at_ms)
         {
+            self.scratch.status = Status::Baseline;
             self.set_baseline(tick, true);
             return Vec::new();
         }
@@ -298,6 +307,22 @@ impl Detector {
         let kill_streak_regressed = matches!((previous_kill_streak, tick.kill_streak),
             (Some(previous), Some(current)) if current < previous);
         let kill_streak_reset = kill_streak_regressed && !died;
+
+        self.scratch.alive = tick.alive;
+        self.scratch.hp_valid = tick
+            .hp
+            .zip(tick.max_hp)
+            .filter(|(hp, max_hp)| *max_hp > 0 && hp <= max_hp);
+        self.scratch.mana_percent = tick.mana_percent;
+        self.scratch.phase_live = tick.phase == Phase::Live;
+        self.scratch.kill_delta = kill_delta;
+        self.scratch.kills_regressed = kills_regressed;
+        self.scratch.died = died;
+        self.scratch.level_regressed = level_regressed;
+        self.scratch.level = Some(LevelEvidence {
+            previous: previous_level,
+            current: tick.level,
+        });
 
         let match_started =
             previous_phase.is_some_and(|phase| phase != Phase::Live) && tick.phase == Phase::Live;
@@ -407,6 +432,10 @@ impl Detector {
                 .filter(|(hp, max_hp)| *max_hp > 0 && hp <= max_hp)
             {
                 if !self.health_low_observed {
+                    self.scratch.health = Some(Threshold {
+                        was_observed: false,
+                        armed: self.health_low_armed,
+                    });
                     self.health_low_observed = true;
                     self.health_low_armed =
                         !percent_at_or_below(hp, max_hp, self.config.health_low_threshold_percent);
@@ -414,6 +443,10 @@ impl Detector {
                     if percent_at_or_above(hp, max_hp, self.config.health_low_rearm_percent) {
                         self.health_low_armed = true;
                     }
+                    self.scratch.health = Some(Threshold {
+                        was_observed: true,
+                        armed: self.health_low_armed,
+                    });
                     if self.health_low_armed
                         && percent_at_or_below(hp, max_hp, self.config.health_low_threshold_percent)
                     {
@@ -428,12 +461,20 @@ impl Detector {
         if tick.alive == Some(true) {
             if let Some(mana_percent) = tick.mana_percent {
                 if !self.mana_low_observed {
+                    self.scratch.mana = Some(Threshold {
+                        was_observed: false,
+                        armed: self.mana_low_armed,
+                    });
                     self.mana_low_observed = true;
                     self.mana_low_armed = mana_percent > self.config.mana_low_threshold_percent;
                 } else {
                     if mana_percent >= self.config.mana_low_rearm_percent {
                         self.mana_low_armed = true;
                     }
+                    self.scratch.mana = Some(Threshold {
+                        was_observed: true,
+                        armed: self.mana_low_armed,
+                    });
                     if self.mana_low_armed && mana_percent <= self.config.mana_low_threshold_percent
                     {
                         mana_low = true;
@@ -580,6 +621,16 @@ impl Detector {
         if percent_at_or_above(hp, max_hp, self.config.danger_rearm_percent) {
             self.danger_armed = true;
         }
+        let best_drop = self
+            .danger_samples
+            .iter()
+            .map(|sample| {
+                f64::from(sample.hp) * 100.0 / f64::from(sample.max_hp)
+                    - f64::from(hp) * 100.0 / f64::from(max_hp)
+            })
+            .fold(None, |best: Option<f64>, drop| {
+                Some(best.map_or(drop, |b| b.max(drop)))
+            });
 
         let dropped_enough = self.danger_samples.iter().any(|sample| {
             tick.at_ms
@@ -603,6 +654,20 @@ impl Detector {
         let cooldown_elapsed = self.danger_last_cue_ms.is_none_or(|last_cue_ms| {
             tick.at_ms >= last_cue_ms
                 && tick.at_ms.saturating_sub(last_cue_ms) >= self.config.danger_cooldown_ms
+        });
+        self.scratch.danger = Some(Danger {
+            best_drop,
+            dropped_enough,
+            armed: self.danger_armed,
+            cooldown_remaining_ms: self.danger_last_cue_ms.map_or(0, |last| {
+                if tick.at_ms < last {
+                    u64::MAX
+                } else {
+                    self.config
+                        .danger_cooldown_ms
+                        .saturating_sub(tick.at_ms - last)
+                }
+            }),
         });
         if self.danger_armed && is_dangerous && dropped_enough && cooldown_elapsed {
             self.danger_armed = false;

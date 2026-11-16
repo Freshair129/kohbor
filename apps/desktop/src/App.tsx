@@ -1,9 +1,14 @@
-import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { AudioHistory } from "./AudioHistory";
 import { AudioMuteControl, AudioPanel, useAudioMute } from "./AudioPanel";
 import { copy, seconds, type Locale } from "./copy";
 import { DemoPanel } from "./DemoPanel";
+
+/** Dev-only (docs/design/KOHBOR-LAB.md): a normal release bundle drops the Lab code; a Lab test build sets VITE_KOHBOR_LAB=1 when building the frontend. */
+const LabPanel = import.meta.env.DEV || import.meta.env.VITE_KOHBOR_LAB === "1" ? lazy(() => import("./lab/Lab").then((m) => ({ default: m.Lab }))) : null;
 import { Deck } from "./deck/Deck";
+import { GsiSetupCard } from "./shell/GsiSetupCard";
+import { gsiNeedsAttention, gsiPhase } from "./shell/gsiSetupModel";
 import { deckStateReasonForLocale, deriveDeckState } from "./deck/deckState";
 import { Guide } from "./Guide";
 import { startLiveCollection, useCaptureStatus } from "./live";
@@ -16,6 +21,8 @@ import { useSettings } from "./settings";
 import { useAppVersion } from "./shell/useAppVersion";
 import { deriveAppVersionView } from "./shell/appVersionModel";
 import { AboutPanel } from "./shell/VersionInfo";
+import { UpdateControl } from "./shell/UpdateControl";
+import { useUpdateStatus } from "./shell/useUpdateStatus";
 import { useDeveloperMode } from "./shell/useDeveloperMode";
 import { LogsTab } from "./logs/LogsTab";
 import { AccountMenu } from "./account/AccountMenu";
@@ -36,6 +43,7 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
   const mute = useAudioMute(status);
   const playback = usePlayback();
   const version = deriveAppVersionView(useAppVersion());
+  const update = useUpdateStatus();
   const developerMode = useDeveloperMode();
   const account = useAccount(accountPort);
   const steamStatus = useSteamStatus();
@@ -88,7 +96,7 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
     stale: "stale",
     debrief: "off",
   } as const;
-  const setupNeeded = status?.intake.state === "not_configured";
+  const setupNeeded = gsiNeedsAttention(gsiPhase(hostLost ? null : status ?? null));
 
   useEffect(() => {
     void startLiveCollection();
@@ -173,8 +181,8 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
             </span>
           )}
 
-          {setupNeeded && (
-            <button type="button" className="shell-setup-hint" onClick={() => setActiveTab("settings")}>
+          {setupNeeded && currentTab !== "live" && (
+            <button type="button" className="shell-setup-hint" onClick={() => setActiveTab("live")}>
               {text.shell.gsiSetup}
             </button>
           )}
@@ -192,8 +200,11 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
       >
         {currentTab === "live" && (
           <div className="shell-screen shell-live">
-            <StartDotaBar status={steamStatus} control={launch} showSteamName={steamName.show} locale={displayLocale} />
-            <Deck locale={displayLocale} status={status} snapshot={snapshot} state={deckState} mute={mute} playback={playback} hostLost={hostLost} steamStatus={steamStatus} />
+            <div className="shell-live-top">
+              <GsiSetupCard status={hostLost ? null : status} locale={displayLocale} setup={setup} />
+              <StartDotaBar status={steamStatus} control={launch} showSteamName={steamName.show} locale={displayLocale} />
+            </div>
+            <Deck locale={displayLocale} status={status} snapshot={snapshot} state={deckState} mute={mute} playback={playback} hostLost={hostLost} steamStatus={steamStatus} gsiSetup={setup} />
           </div>
         )}
 
@@ -274,8 +285,15 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
               <div className="shell-demo-panel">
                 <DemoPanel />
               </div>
+              {LabPanel && (
+                <Suspense fallback={null}>
+                  <LabPanel />
+                </Suspense>
+              )}
             </div>
-            <AboutPanel view={version} locale={displayLocale} />
+            <AboutPanel view={version} locale={displayLocale}>
+              <UpdateControl appVersion={version} locale={displayLocale} snapshot={update} check={update.check} install={update.install} openReleasePage={update.openReleasePage} />
+            </AboutPanel>
           </div>
         )}
         {developerMode.enabled && <LogsTab visible={currentTab === "logs"} locale={displayLocale} />}

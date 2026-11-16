@@ -1,4 +1,5 @@
-import { seconds } from "../copy";
+import { useState } from "react";
+import { reason, seconds } from "../copy";
 import { abilityStatusText, type ItemTile, type LoadoutViewModel } from "./loadoutModel";
 import "./loadout.css";
 
@@ -16,8 +17,19 @@ function ItemSlotTile({ tile, small, locale }: { tile: ItemTile; small?: boolean
   </div>;
 }
 
-export function OwnLoadout({ model, locale }: { model: LoadoutViewModel; locale: "th" | "en" }) {
+export function OwnLoadout({ model, locale, gsiSetup }: {
+  model: LoadoutViewModel;
+  locale: "th" | "en";
+  gsiSetup?: (replace: boolean) => Promise<string | null>;
+}) {
   const th = locale === "th";
+  const [setupState, setSetupState] = useState<"idle" | "busy" | "done" | string>("idle");
+  const runSetup = async () => {
+    if (!gsiSetup) return;
+    setSetupState("busy");
+    const error = await gsiSetup(false);
+    setSetupState(error === null ? "done" : `error:${error}`);
+  };
   const old = (age: number | null) => `${th ? "ข้อมูลเก่า" : "Old data"} · ${seconds(age, locale)}`;
   return <section className="deck-loadout" aria-label={th ? "ไอเท็มและสกิล" : "Items and abilities"}>
     <section className={`deck-loadout-section${model.items.stale ? " is-stale" : ""}`} aria-label={th ? "ไอเท็ม" : "Items"}>
@@ -42,6 +54,11 @@ export function OwnLoadout({ model, locale }: { model: LoadoutViewModel; locale:
     {model.setupHint && <small className="deck-stats-caption deck-setup-hint">
       <span>{th ? "ต้องตั้งค่าการเชื่อมต่อ Dota 2 ใหม่หนึ่งครั้ง" : "Run Dota 2 connection setup once again"}</span>
       <span>{th ? "เกมที่เปิดก่อนเพิ่มบล็อก items/abilities ใน cfg จะยังไม่ส่งข้อมูลส่วนนี้" : "A game started before the cfg gained items/abilities blocks will not send them yet."}</span>
+      {gsiSetup && <button type="button" className="deck-setup-button" disabled={setupState === "busy"} onClick={() => void runSetup()}>
+        {setupState === "busy" ? (th ? "กำลังติดตั้ง…" : "Installing…") : (th ? "ตั้งค่า GSI / ติดตั้งไฟล์เชื่อมต่อ Dota 2" : "Set up GSI / install the Dota 2 connection file")}
+      </button>}
+      {setupState === "done" && <span role="status">{th ? "ติดตั้งแล้ว — ปิดแล้วเปิด Dota 2 ใหม่หนึ่งครั้ง" : "Installed — restart Dota 2 once."}</span>}
+      {setupState.startsWith("error:") && <span role="alert">{reason(setupState.slice(6), locale)}</span>}
     </small>}
   </section>;
 }

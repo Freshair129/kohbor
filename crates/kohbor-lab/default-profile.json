@@ -1,0 +1,25 @@
+{
+  "profile_version": "1.0",
+  "taxonomy_version": "1.1",
+  "layout": {
+    "banner": { "x_percent": 49.46, "y_percent": 10.3, "scale": 0.45, "enabled": true },
+    "hud": {
+      "gmeter": { "x_percent": 50.0, "y_percent": 5.5, "scale": 0.65, "enabled": true },
+      "kda": { "x_percent": 9.64, "y_percent": 2.2, "scale": 0.78, "enabled": true },
+      "gold": { "x_percent": 13.56, "y_percent": 2.2, "scale": 0.78, "enabled": true },
+      "gpm": { "x_percent": 17.23, "y_percent": 2.2, "scale": 0.78, "enabled": true },
+      "nw": { "x_percent": 21.02, "y_percent": 2.2, "scale": 0.78, "enabled": true },
+      "xpm": { "x_percent": 24.82, "y_percent": 2.2, "scale": 0.78, "enabled": true }
+    }
+  },
+  "events": {
+    "multi_kill": { "params": { "window_ms": 18000, "min_kills": 2 } },
+    "streak": { "params": { "min_kills": 3 } },
+    "level_milestone": { "params": { "levels": [6, 12, 18, 25] } },
+    "health_low": { "params": { "threshold_percent": 20, "rearm_percent": 30 } },
+    "mana_low": { "params": { "threshold_percent": 15, "rearm_percent": 25 } },
+    "health_danger": {
+      "params": { "max_hp_percent": 25, "drop_points": 15, "window_ms": 2000, "rearm_percent": 40, "cooldown_ms": 20000 }
+    }
+  }
+}

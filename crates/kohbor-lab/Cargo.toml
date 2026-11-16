@@ -1,0 +1,19 @@
+[package]
+name = "kohbor-lab"
+description = "Kohbor Lab: bounded, versioned detector profile (embedded default, dev-only override), explain and export. Pure logic; see docs/design/KOHBOR-LAB.md."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+# Dev-only override of the embedded profile. Release builds without this feature (and
+# without debug assertions) contain no code that reads an override.
+lab = []
+
+[dependencies]
+kohbor-events = { path = "../kohbor-events" }
+kohbor-gsi = { path = "../kohbor-gsi" }
+serde_json = { workspace = true }
+sha2 = { workspace = true }

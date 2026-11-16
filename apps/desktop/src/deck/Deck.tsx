@@ -30,6 +30,7 @@ export function Deck({
   playback,
   hostLost,
   steamStatus,
+  gsiSetup,
 }: {
   locale: Locale;
   status: RuntimeStatus | null;
@@ -39,6 +40,8 @@ export function Deck({
   playback: PlaybackView;
   hostLost: boolean;
   steamStatus: SteamStatus | null;
+  /** Runs the same gsi_setup flow as the connection card; shown as a button on the items/abilities hint. */
+  gsiSetup?: (replace: boolean) => Promise<string | null>;
 }) {
   const text = deckCopy(locale);
   const own = deriveOwnHeroViewModel(snapshot);
@@ -107,7 +110,7 @@ export function Deck({
               </div>
             ))}
           </section>
-          <OwnLoadout model={loadout} locale={locale} />
+          <OwnLoadout model={loadout} locale={locale} gsiSetup={gsiSetup} />
         </section>
 
         <details className="deck-ally-disclosure">

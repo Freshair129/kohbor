@@ -1,0 +1,185 @@
+html.hud-body,
+body.hud-body {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  overflow: hidden;
+  background: transparent !important;
+}
+
+body.hud-body #root {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.hud-stage,
+.hud-stage * {
+  pointer-events: none;
+}
+
+/*
+ * Look of the reference overlay (owner's earlier project, copied by his authorisation; see
+ * docs/governance/THIRD-PARTY-DATA.md): dark glass pills with a cyan edge, small uppercase muted
+ * labels, bold values, a four-segment risk meter. Sizes are in reference pixels (1920 px wide screen)
+ * and scaled by --hud-overlay-scale (screen width / 1920) times the module scale.
+ */
+.hud-stage {
+  --hud-ice: #8fd4ff;
+  --hud-text: #e7eef6;
+  --hud-muted: #8794a6;
+  --hud-warn: #ffcf6b;
+  --hud-bad: #ff7b85;
+  --hud-edge: rgb(143 212 255 / 22%);
+  --hud-glass: rgb(14 17 24 / 88%);
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: transparent;
+  color: var(--hud-text);
+  font-family: "Segoe UI", system-ui, sans-serif;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.hud-module {
+  position: absolute;
+  transform: translate(-50%, -50%) scale(calc(var(--hud-scale) * var(--hud-overlay-scale, 1)));
+  transform-origin: center;
+}
+
+.hud-chip,
+.hud-gmeter {
+  background: var(--hud-glass);
+  border: 1px solid var(--hud-edge);
+  border-radius: 16px;
+  box-shadow: 0 8px 40px rgb(0 0 0 / 50%), inset 0 1px 0 rgb(143 212 255 / 22%), inset 0 -1px 0 rgb(0 0 0 / 35%);
+  color: var(--hud-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-chip {
+  min-width: 46px;
+  padding: 7px 13px;
+  text-align: center;
+}
+
+.hud-chip-value {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--hud-text);
+}
+
+.hud-chip-gold .hud-chip-value {
+  color: var(--hud-warn);
+}
+
+.hud-chip-nw .hud-chip-value {
+  color: var(--hud-ice);
+}
+
+.hud-chip-label {
+  margin-top: 2px;
+  font-size: 9px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--hud-muted);
+}
+
+.hud-chip[data-stale="true"] .hud-chip-value {
+  opacity: 0.55;
+}
+
+.hud-stale-flag {
+  margin-left: 5px;
+  padding-left: 5px;
+  border-left: 1px solid var(--hud-muted);
+}
+
+.hud-gmeter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 158px;
+  padding: 7px 12px;
+}
+
+.hud-gmeter-title {
+  font-size: 10px;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--hud-muted);
+}
+
+.hud-meter-ticks {
+  display: flex;
+  gap: 3px;
+}
+
+.hud-meter-tick {
+  display: block;
+  width: 16px;
+  height: 8px;
+  border-radius: 2px;
+  background: rgb(255 255 255 / 8%);
+  transition: background 200ms ease, box-shadow 200ms ease;
+}
+
+.hud-gmeter-label {
+  margin-left: auto;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--hud-muted);
+}
+
+/* Lit ticks and the label share the level colour; unknown (blind) keeps every tick unlit. */
+.hud-gmeter-none .hud-meter-tick.is-lit {
+  background: var(--hud-muted);
+  box-shadow: 0 0 6px rgb(91 227 167 / 35%);
+}
+
+.hud-gmeter-ally .hud-meter-tick.is-lit {
+  background: var(--hud-ice);
+  box-shadow: 0 0 6px rgb(143 212 255 / 35%);
+}
+
+.hud-gmeter-ally .hud-gmeter-label {
+  color: var(--hud-ice);
+}
+
+.hud-gmeter-warn .hud-meter-tick.is-lit {
+  background: var(--hud-warn);
+  box-shadow: 0 0 6px rgb(255 207 107 / 50%);
+}
+
+.hud-gmeter-warn .hud-gmeter-label {
+  color: var(--hud-warn);
+}
+
+.hud-gmeter-critical .hud-meter-tick.is-lit {
+  background: var(--hud-bad);
+  box-shadow: 0 0 6px rgb(255 123 133 / 60%);
+}
+
+.hud-gmeter-critical .hud-gmeter-label {
+  color: var(--hud-bad);
+}
+
+.hud-synthetic-badge {
+  position: absolute;
+  right: 0.5vw;
+  top: 0;
+  padding: 0 0.6vw;
+  font: 700 0.9vw/1.6 system-ui, sans-serif;
+  color: #111;
+  background: #ffd23f;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+}
