@@ -24,12 +24,12 @@
     {
       "path": "Cargo.lock",
       "bytes": 121690,
-      "sha256": "3b31c83a88d2b1779ec63f06f36ab82e817c1b531bec2a5c470e5e03730f4373"
+      "sha256": "11a16688c324409b93a9705a8ee1d69c56e7fbb08233ccb6bb0dbc7f0442a377"
     },
     {
       "path": "Cargo.toml",
       "bytes": 854,
-      "sha256": "1540ffd604222d9e49c463da08f259dfa2b6e03b5d54a4c7dc14ffae2853c58d"
+      "sha256": "0a956442151456fe416ca8b71d5ee3d1855e224003e3ee1b5c87dbc529aa9a44"
     },
     {
       "path": "GUIDE-TH.md",
@@ -74,7 +74,7 @@
     {
       "path": "apps/desktop/package.json",
       "bytes": 683,
-      "sha256": "907d05f38c6e40a4f422f16842021a9ef128a0fb68fe004d87d3c9d8855bbf6a"
+      "sha256": "be2482b30cdf973fb0cbefb1ebf087edb8e9ac4cad3f5eaac6baa832e9e9c6ff"
     },
     {
       "path": "apps/desktop/pnpm-lock.yaml",
@@ -443,8 +443,8 @@
     },
     {
       "path": "apps/desktop/src/App.tsx",
-      "bytes": 13913,
-      "sha256": "918460e75a99690fe81698dfc66d1f964d2bab3fd66cbe5aa2d704ed0f5c0823"
+      "bytes": 14261,
+      "sha256": "523f4158faeced75e32542cf18e5ef91d1ef5db5869bd6d839394e774e06715c"
     },
     {
       "path": "apps/desktop/src/AudioHistory.tsx",
@@ -568,8 +568,8 @@
     },
     {
       "path": "apps/desktop/src/deck/Deck.tsx",
-      "bytes": 8222,
-      "sha256": "b106a15381b21990dc1309036b89f2455714d01df6bebbdfefe9eec3684cfa97"
+      "bytes": 8422,
+      "sha256": "4442d8f089682943915b9f25dc387425d6e105885217e184e7c3b858245c4801"
     },
     {
       "path": "apps/desktop/src/deck/EventFeed.tsx",
@@ -583,8 +583,8 @@
     },
     {
       "path": "apps/desktop/src/deck/OwnLoadout.tsx",
-      "bytes": 4271,
-      "sha256": "450dc8673e7ca94e4417f113fc2a03e6a136e578dabe467e40b8cfcf9d8d37da"
+      "bytes": 5425,
+      "sha256": "35cdf07d0cd4c3b098068eb8925efcbd2f704bbd62ffe09a87dc9881ac6b394d"
     },
     {
       "path": "apps/desktop/src/deck/abilityName.ts",
@@ -603,8 +603,8 @@
     },
     {
       "path": "apps/desktop/src/deck/deck.css",
-      "bytes": 14895,
-      "sha256": "00cc4fd886703eb3808ff455aaeed6d7578a19a387c2f72f83523cb09fac76fe"
+      "bytes": 14864,
+      "sha256": "46b0d46644598e559c31cb33ffd5f3421e05668c08030c0c36d4e540a79c8803"
     },
     {
       "path": "apps/desktop/src/deck/deckState.ts",
@@ -753,8 +753,8 @@
     },
     {
       "path": "apps/desktop/src/live/MinimapPanel.tsx",
-      "bytes": 18519,
-      "sha256": "81f3a65c6ab1bfb8aa5dc0cafb05bad893f8bd4546dd4c114317780ee4f2c84a"
+      "bytes": 18530,
+      "sha256": "f1fe7ec4fa6f47cdeb70783aedc0b6b61f7e701fae1a91cf8c6e642e94b81c94"
     },
     {
       "path": "apps/desktop/src/live/MinimapStage.tsx",
@@ -808,8 +808,8 @@
     },
     {
       "path": "apps/desktop/src/live/copy.ts",
-      "bytes": 9921,
-      "sha256": "bb6bf1de32157942593ef572c57786945f1ee9961d420673888a9909e52ca275"
+      "bytes": 9977,
+      "sha256": "eb873ffd979a4de8826c033a6db4515a08b8b8d2cbedc2c555799a70e299c78c"
     },
     {
       "path": "apps/desktop/src/live/events.ts",
@@ -833,8 +833,8 @@
     },
     {
       "path": "apps/desktop/src/live/live.css",
-      "bytes": 11119,
-      "sha256": "2e33e6288abe6a40ac219315f727999abca5667391f7e47f5187991b4d99fb38"
+      "bytes": 10694,
+      "sha256": "895b1bb3acffd3367c0fb5124da746a872b255d1f8ea012b2cd2dfbc42e66adc"
     },
     {
       "path": "apps/desktop/src/live/meter.ts",
@@ -1042,6 +1042,26 @@
       "sha256": "44681358adc8659f0de6af1b6bf86eb9af8a8625ae1b5bf3250220d0e81ad3e1"
     },
     {
+      "path": "apps/desktop/src/shared/Dialog.tsx",
+      "bytes": 3274,
+      "sha256": "cdf0657ce6911a9dd561d8a7968b9ca18866ba8eab2557c252b2854a3ab6aabf"
+    },
+    {
+      "path": "apps/desktop/src/shared/dialog.css",
+      "bytes": 1244,
+      "sha256": "893cdb61961afded33663173886144a6356ea7f4311d24e473a79e7fe6c544f8"
+    },
+    {
+      "path": "apps/desktop/src/shared/dialogModel.ts",
+      "bytes": 1011,
+      "sha256": "8122dd7f4c2e0085459dfc28bc9ac4c6d2d7a7846690b0942d903b2112f9ac63"
+    },
+    {
+      "path": "apps/desktop/src/shell/GsiSetupCard.tsx",
+      "bytes": 2710,
+      "sha256": "f3da8d2f73a765bc576091af621d0fa4327a8b78fb18639c81f90354bf7e0862"
+    },
+    {
       "path": "apps/desktop/src/shell/UpdateControl.tsx",
       "bytes": 4816,
       "sha256": "6e76ebb2dbf15279f79caa2d4d83160ba2b1e8b460e4bc87b93bd22fb8fb03ed"
@@ -1060,6 +1080,16 @@
       "path": "apps/desktop/src/shell/developerMode.ts",
       "bytes": 718,
       "sha256": "1010f1bbd6d8ee67542df8e307855773eaa8a93c015b0ff2f5e1efb970247869"
+    },
+    {
+      "path": "apps/desktop/src/shell/gsiSetup.css",
+      "bytes": 965,
+      "sha256": "d042f21270e801c8e254d95dcd9162960e0e9a6e8f272e11ed9b6f5fc6edcc9d"
+    },
+    {
+      "path": "apps/desktop/src/shell/gsiSetupModel.ts",
+      "bytes": 3740,
+      "sha256": "08909dcd3538ed4786b19530a8df6c3ed5e35d5e0f58334d07349d22552d6223"
     },
     {
       "path": "apps/desktop/src/shell/state.ts",
@@ -1202,6 +1232,16 @@
       "sha256": "ab3260163c46fe066008fc15e8862dd43f1b06a60b44e3dc31eca9c1869e037b"
     },
     {
+      "path": "apps/desktop/tests/dialog.test.ts",
+      "bytes": 2362,
+      "sha256": "d878d29bbaab63a1e2b9b1e50b48c6c65818f3b0a3a173edce986fb7e5988bac"
+    },
+    {
+      "path": "apps/desktop/tests/gsi-setup-model.test.ts",
+      "bytes": 2741,
+      "sha256": "7c693120ec236a810cc655cadf8c0cf1c9206b4e36064d03aa155db76ff127eb"
+    },
+    {
       "path": "apps/desktop/tests/hero-name.test.ts",
       "bytes": 1822,
       "sha256": "205795872c315b580cc0a0b7ab964c5f924239aeac57ece88e73966bb1ab2b12"
@@ -1253,13 +1293,13 @@
     },
     {
       "path": "apps/desktop/tests/live-layout.test.ts",
-      "bytes": 3259,
-      "sha256": "b7bd749cd0ece79984378c14747e31478132e1c83c45501ea17cdff22840b52d"
+      "bytes": 3445,
+      "sha256": "6bc568dc40510a6deb7f87b59f306d26e5d41f2028f66fcee678f4f0665d41c1"
     },
     {
       "path": "apps/desktop/tests/live-preview.test.ts",
-      "bytes": 6846,
-      "sha256": "8772e735b50cb41c0c5a22028d8e75e41d527411babd5375e8e33b8a6f3be059"
+      "bytes": 6814,
+      "sha256": "316d68b0ce03d49ab50d290f9f8f6ca087194cb3befaf1a866bb2683d0125019"
     },
     {
       "path": "apps/desktop/tests/live-recovery.test.ts",
