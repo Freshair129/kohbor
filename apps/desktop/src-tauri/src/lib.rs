@@ -4,11 +4,13 @@
 mod account_host;
 pub mod atomic;
 mod audio;
+mod audio_prefs;
 mod capture_host;
 mod clock;
 mod commands;
 pub mod containment;
 pub mod host;
+mod hotkeys;
 pub mod instance;
 pub mod intake;
 pub mod latency;
@@ -54,6 +56,8 @@ pub(crate) struct AppState {
     pub(crate) runtime: Arc<intake::Runtime>,
     pub(crate) host: host::Host,
     pub(crate) settings_dir: PathBuf,
+    pub(crate) audio_prefs: audio_prefs::AudioPrefsService,
+    pub(crate) hotkeys: Mutex<hotkeys::Controller>,
     /// Serializes all commands that may replace user-settings.json.
     pub(crate) settings_gate: Mutex<()>,
     pub(crate) sample: Arc<Mutex<(Sample, bool)>>,
@@ -299,6 +303,43 @@ fn start_overlay_status_mirror(
     }
 }
 
+/// Closing the main (control) window ends the process; the hidden overlay window must never keep
+/// the app alive. UX-SPEC/SRS define no tray or background mode, so none exists.
+fn closing_control_window_exits_app(label: &str) -> bool {
+    label == "control"
+}
+
+#[cfg(test)]
+mod window_close_tests {
+    use super::closing_control_window_exits_app;
+
+    #[test]
+    fn only_the_control_window_close_ends_the_app() {
+        assert!(closing_control_window_exits_app("control"));
+        assert!(!closing_control_window_exits_app("overlay"));
+        assert!(!closing_control_window_exits_app(""));
+    }
+
+    #[test]
+    fn the_exit_path_logs_a_final_process_exit_line_after_shutdown() {
+        let source = include_str!("lib.rs");
+        let shutdown = source.rfind("host.shutdown();").unwrap();
+        let line = source.rfind("\"process_exit\"").unwrap();
+        assert!(line > shutdown);
+    }
+
+    #[test]
+    fn the_control_window_label_matches_the_tauri_config() {
+        let config: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        assert!(config["app"]["windows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|window| window["label"] == "control"));
+    }
+}
+
 pub fn run() {
     initialize_logging();
     let app_version = version::AppVersion::current();
@@ -325,6 +366,11 @@ pub fn run() {
                 tauri::WindowEvent::CloseRequested { .. } => {
                     crate::log_info!("app", "app_stopping", "window close requested");
                     logging::flush();
+                    // The overlay is a second, hidden window: without an explicit exit it keeps
+                    // the event loop (and the audio engine) alive after the control window closes.
+                    if closing_control_window_exits_app(window.label()) {
+                        window.app_handle().exit(0);
+                    }
                 }
                 tauri::WindowEvent::Destroyed => {
                     let _ = window;
@@ -342,6 +388,8 @@ pub fn run() {
                 crate::log_error!("app", "setup_failed", "APP_DATA_DIR_UNAVAILABLE");
             })?;
             let settings_dir = dir.clone();
+            // Load volume preferences before Host::start creates the audio engine.
+            let audio_prefs = audio_prefs::AudioPrefsService::open(&dir);
             // Account storage remains lazy so an unavailable account root or
             // provider cannot delay the independent local core startup.
             #[cfg(feature = "demo")]
@@ -408,10 +456,13 @@ pub fn run() {
                 runtime,
                 host,
                 settings_dir,
+                audio_prefs,
+                hotkeys: Mutex::new(hotkeys::Controller::default()),
                 settings_gate: Mutex::new(()),
                 sample,
                 revision: AtomicU64::new(0),
             });
+            commands::start_hotkeys(app.handle(), &app.state::<AppState>());
             steam::start_status_probe(app.handle().clone(), steam_runtime);
             let app_handle = app.handle().clone();
             let last_overlay_status = Arc::new(Mutex::new(initial_overlay_status.clone()));
@@ -448,6 +499,9 @@ pub fn run() {
         commands::media_probe_pending,
         commands::audio_history,
         commands::set_muted,
+        commands::audio_prefs_get,
+        commands::audio_set_volume,
+        commands::audio_set_hotkeys,
         capture_host::minimap_subscribe,
         capture_host::capture_status,
         capture_host::capture_invalidate,
@@ -487,6 +541,9 @@ pub fn run() {
         commands::media_probe_pending,
         commands::audio_history,
         commands::set_muted,
+        commands::audio_prefs_get,
+        commands::audio_set_volume,
+        commands::audio_set_hotkeys,
         capture_host::minimap_subscribe,
         capture_host::capture_status,
         capture_host::capture_invalidate,
@@ -508,7 +565,10 @@ pub fn run() {
             }
             if matches!(event, tauri::RunEvent::Exit) {
                 crate::log_info!("app", "exit", "Kohbor is exiting");
-                handle.state::<AppState>().host.shutdown();
+                let state = handle.state::<AppState>();
+                intake::lock(&state.hotkeys).stop();
+                state.host.shutdown();
+                crate::log_info!("app", "process_exit", "all host threads stopped");
                 logging::flush();
             }
         }),

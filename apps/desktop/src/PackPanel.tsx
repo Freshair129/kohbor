@@ -18,6 +18,7 @@ import {
 import { Chip, type Tone } from "./Readiness";
 import { mediaActivate, mediaInspect, mediaInstall } from "./runtime";
 import { useMediaListing } from "./useMediaListing";
+import { VolumeControl } from "./VolumeControl";
 
 interface Inspected {
   path: string;
@@ -193,6 +194,7 @@ export function PackPanel({ locale, disabled = false }: { locale: Locale; disabl
     <section className="card pack-panel" aria-labelledby="packs-h">
       <div className="card-head">
         <h2 id="packs-h">{text.title}</h2>
+        <VolumeControl locale={locale} compact />
         <button type="button" onClick={() => void refresh()} disabled={disabled || listBusy} aria-busy={listBusy}>
           {listBusy ? text.refreshing : text.refresh}
         </button>

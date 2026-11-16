@@ -7,6 +7,7 @@ import { probeReportArgs, type MediaProbePendingResponse, type MediaProbeReport 
 import type { OwnSnapshot, RuntimeStatus } from "./types";
 import { parseOwnSnapshot } from "./ownSnapshot";
 import type { HostClockAnchor } from "./hostClock";
+import { createAudioPrefsClient } from "./audioPrefs";
 
 const POLL_MS = 1000;
 const CALL_TIMEOUT_MS = 2500;
@@ -57,6 +58,17 @@ export function demoTrigger(eventId: string, tier: number | null): Promise<void>
 function hostAvailable(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
+
+export const audioPrefsClient = createAudioPrefsClient({
+  invoke: (command, args) => {
+    if (!hostAvailable()) return Promise.reject(new Error("CAPABILITY_UNAVAILABLE"));
+    return invoke<unknown>(command, args);
+  },
+  listen: (event, onPayload) => {
+    if (!hostAvailable()) return Promise.resolve(() => {});
+    return listen<unknown>(event, (value) => onPayload(value.payload));
+  },
+});
 
 /**
  * Pack-store commands. Outside the Tauri webview there is no host, so each call
