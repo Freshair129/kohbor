@@ -23,13 +23,13 @@
     },
     {
       "path": "Cargo.lock",
-      "bytes": 121690,
-      "sha256": "11a16688c324409b93a9705a8ee1d69c56e7fbb08233ccb6bb0dbc7f0442a377"
+      "bytes": 121771,
+      "sha256": "7a945484cfca574f71eb41a0d07c720ae4238ad402cc54508d45737393b5875b"
     },
     {
       "path": "Cargo.toml",
-      "bytes": 854,
-      "sha256": "0a956442151456fe416ca8b71d5ee3d1855e224003e3ee1b5c87dbc529aa9a44"
+      "bytes": 879,
+      "sha256": "33d667ca4c3e602cc66adefe409e7b71b5ca7f62d6925fdcd5b9a869388e3097"
     },
     {
       "path": "GUIDE-TH.md",
@@ -88,8 +88,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/Cargo.toml",
-      "bytes": 2355,
-      "sha256": "f01393f076846433e039990d3826d36550e371a56e1771f2317c3d9944655ba2"
+      "bytes": 2453,
+      "sha256": "c6873934963bfd1bd654f0c66b86b01fb193117d825e6c88058585c9858be55b"
     },
     {
       "path": "apps/desktop/src-tauri/app-icon.png",
@@ -205,6 +205,16 @@
       "path": "apps/desktop/src-tauri/icons/icon.png",
       "bytes": 3512,
       "sha256": "a6d165718f8a88ec1e4796d66a31f9a86129397d8adc29963886599ba12ad628"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/account_fake_native.rs",
+      "bytes": 35268,
+      "sha256": "f3d541412c1454484a084a9aa13b6f1847d43b665b707c43ec469d383425c89c"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/account_host.rs",
+      "bytes": 98066,
+      "sha256": "fe637f5eedf5741df56cd2e476b5c0e923acd2f084457d0099cd4ffd198ee100"
     },
     {
       "path": "apps/desktop/src-tauri/src/atomic.rs",
@@ -328,8 +338,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/intake.rs",
-      "bytes": 85451,
-      "sha256": "8e4991e537aacc6f0d220e121eaa5198a03f7db3fd0c9071b0caefad92103981"
+      "bytes": 85854,
+      "sha256": "5815f47114ae82e394f30a5bfaecfb2b8096190cde7ecf5fa355f3bb679eab17"
     },
     {
       "path": "apps/desktop/src-tauri/src/lab.rs",
@@ -343,8 +353,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 31927,
-      "sha256": "9ea8d67c66b991bf95203cc896e3431e7af4f05d765634b8cc4eea9d10762319"
+      "bytes": 32363,
+      "sha256": "fa574c6b57ef2af69f99b522627a9e0a6a45f106b14dbfa1281d9cbbab2b5e85"
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
@@ -540,6 +550,46 @@
       "path": "apps/desktop/src/account/menuModel.ts",
       "bytes": 919,
       "sha256": "24814e45c3abc361f167c424e013c19703d128cd421766c515495a83995bd8e0"
+    },
+    {
+      "path": "apps/desktop/src/account/s1c/README.md",
+      "bytes": 1015,
+      "sha256": "af0c42333ec8394bb0abd73bca7933e6352aaaa4de81095e339911babf178be5"
+    },
+    {
+      "path": "apps/desktop/src/account/s1c/account-slice.css",
+      "bytes": 10426,
+      "sha256": "c9c2c21ada7212a40bb7a151c8d88fc42b95776bc188b4a59237e7823b90715d"
+    },
+    {
+      "path": "apps/desktop/src/account/s1c/account-slice.mjs",
+      "bytes": 31255,
+      "sha256": "ca63b7e44021bf1da9d5d8641c945aeeda2305089effac9cf41030667e61f6c2"
+    },
+    {
+      "path": "apps/desktop/src/account/s1c/app.mjs",
+      "bytes": 261,
+      "sha256": "9fb87bbcc7137befe7041f9171d30e40aa1af60fe519b4e823f11d467c6a9e14"
+    },
+    {
+      "path": "apps/desktop/src/account/s1c/fake-account.mjs",
+      "bytes": 8147,
+      "sha256": "adba38383da25c42f5ab9c095ddd3e8bd0dbeaf491a5211ccd4c01a8d89eebbc"
+    },
+    {
+      "path": "apps/desktop/src/account/s1c/index.html",
+      "bytes": 488,
+      "sha256": "ca9d8794e1a6e05ea2c000cf9e06e21a84701f78e52f37b1c51e4468320d1f75"
+    },
+    {
+      "path": "apps/desktop/src/account/s1c/native-account.d.mts",
+      "bytes": 73,
+      "sha256": "8eb85d793f7bb98929d851430922d20f0d7e67c23d88be5c07bc6515e0bcb11c"
+    },
+    {
+      "path": "apps/desktop/src/account/s1c/native-account.mjs",
+      "bytes": 14609,
+      "sha256": "3b6ca089ab0d4eccbf33be2f50464ff0f6d1d8cd975396d8632b70ad64f57d7c"
     },
     {
       "path": "apps/desktop/src/account/useAccount.ts",
@@ -968,8 +1018,8 @@
     },
     {
       "path": "apps/desktop/src/main.tsx",
-      "bytes": 6116,
-      "sha256": "f404d4ba734b9f7ad3461f4d19557d1b0c4a98bd3d2b1268849a8c2f8180ff31"
+      "bytes": 6345,
+      "sha256": "00adad6195def73880e74516a5979c304f87ab795fcc848575e8af48b1294b6b"
     },
     {
       "path": "apps/desktop/src/mediaStatus.ts",
@@ -1180,6 +1230,11 @@
       "path": "apps/desktop/src/useMediaListing.ts",
       "bytes": 1977,
       "sha256": "e154226035428d0fdb036a3432b0892f741dda36e46997392b14362928df0bc7"
+    },
+    {
+      "path": "apps/desktop/tests/account-s1c.test.ts",
+      "bytes": 6588,
+      "sha256": "3c04d8bebaa8f826efec935086ee2798738cebe4d730a3df4fa8538b0760a11b"
     },
     {
       "path": "apps/desktop/tests/app-version.test.ts",
@@ -1510,6 +1565,66 @@
       "path": "contracts/user-settings.schema.json",
       "bytes": 2345,
       "sha256": "0ae958cbe2a97cc2597e37c4dfe69557acc72726bd82a753ad526b6d5b36bb7b"
+    },
+    {
+      "path": "crates/kohbor-account/Cargo.toml",
+      "bytes": 569,
+      "sha256": "9a25889e0b06ad3c6bf2701f78bd62026643a0ffeb5faf56df98ad6f6075928d"
+    },
+    {
+      "path": "crates/kohbor-account/src/lib.rs",
+      "bytes": 33333,
+      "sha256": "79e30002dca5b8763fdbc2f2acbe14f84b0ee369d2a7ab2dc7042fd0dc5aa2c6"
+    },
+    {
+      "path": "crates/kohbor-account/tests/desktop_integration/mod.rs",
+      "bytes": 6210,
+      "sha256": "2d3d366f14854a09c18c3d9a4b3e5d003f7bb7634f556e13e0719de99feaed7e"
+    },
+    {
+      "path": "crates/kohbor-account/tests/host_recovery/mod.rs",
+      "bytes": 6375,
+      "sha256": "ab944953c7e53b1120856e406c41ee2cd6ee6e3b1c1ab2a27375384960fd5d4f"
+    },
+    {
+      "path": "crates/kohbor-account/tests/host_storage_lock/mod.rs",
+      "bytes": 15171,
+      "sha256": "5d9c35e189b9206047267d05a5be7513cd29621aff5090f93f6b83ec1ab1dccb"
+    },
+    {
+      "path": "crates/kohbor-account/tests/loopback_sign_in/mod.rs",
+      "bytes": 15716,
+      "sha256": "b9d0f23b32e4ed3d7406600b6db88908cf6e1f36127d0ca51006304f39e5d569"
+    },
+    {
+      "path": "crates/kohbor-account/tests/s1t_contract.rs",
+      "bytes": 688,
+      "sha256": "0e385e1fd96312a5785a8459b5464b8cf3ef8051e70d62a3bee06772328b66c2"
+    },
+    {
+      "path": "crates/kohbor-account/tests/support/contract.rs",
+      "bytes": 9792,
+      "sha256": "82850cc6284566faf0306de4a281107ac2745f41be2301ac25acebbca9d55129"
+    },
+    {
+      "path": "crates/kohbor-account/tests/support/driver.rs",
+      "bytes": 11246,
+      "sha256": "e40cb04247bc8b1ffbb5e8dec36b1636a4fe0d713145f8da5dbda3dbf97ab90e"
+    },
+    {
+      "path": "crates/kohbor-account/tests/support/fakes.rs",
+      "bytes": 14973,
+      "sha256": "21417a618c0f689dd581706dc090dc0bf74fb54918d6eea452dfd92cc7e1c234"
+    },
+    {
+      "path": "crates/kohbor-account/tests/support/mod.rs",
+      "bytes": 49,
+      "sha256": "268f957e7c82f076d75cd11aea2b2e3135fee860d3abc0a5376572fbfb66e4aa"
+    },
+    {
+      "path": "crates/kohbor-account/tests/wipe_failure/mod.rs",
+      "bytes": 6458,
+      "sha256": "31367707fe054a986bfdec4adde8f13e1a14bfb8450321d95da1e1ea74edd88c"
     },
     {
       "path": "crates/kohbor-audio-native/Cargo.toml",
@@ -2238,8 +2353,8 @@
     },
     {
       "path": "docs/design/BACKEND-STACK.md",
-      "bytes": 19783,
-      "sha256": "943da0610df6b11949c453cdec7b90b1276a6a6962a790f7d0ee89551e496f4f"
+      "bytes": 23007,
+      "sha256": "5d4cab102bf61656da488037e7e7e0fde6f4f8fb2ceb251d549ffd6bb735f665"
     },
     {
       "path": "docs/design/DDD.md",
@@ -2643,13 +2758,13 @@
     },
     {
       "path": "docs/domains/account/CARD.md",
-      "bytes": 4611,
-      "sha256": "ad8d28787ce99729ce4ea68596608e3b9f59a20de75a1f0927ca61ad61d34c4b"
+      "bytes": 4557,
+      "sha256": "f02e348163da200ff09a6db1eca2fb47a4f9bcf16d1ce07b5ea0b04c19dc3680"
     },
     {
       "path": "docs/domains/account/state.json",
-      "bytes": 3133,
-      "sha256": "01b5601b8a5a160759800b54e52ab714d751da76ada6d061a76e6472585726a6"
+      "bytes": 3220,
+      "sha256": "1f6c1537b587d413a358e33eb6157884f70dfe513d11da770ee97288d4c2d5b9"
     },
     {
       "path": "docs/domains/banner-lab/CARD.md",
@@ -2758,8 +2873,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 31408,
-      "sha256": "27835662f16b7e30252abe10cd10550903e0dcd85c71d26249851fe1b3de41be"
+      "bytes": 43544,
+      "sha256": "df200eb01eda5674ef2384fb30430a2e188e3964ad513317ec5fcde6431d73d4"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
