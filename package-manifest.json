@@ -328,8 +328,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/hud.rs",
-      "bytes": 47004,
-      "sha256": "288cce552e45262fa2809e8f068632853694323ccf749bc3f8f113808ec814ef"
+      "bytes": 46994,
+      "sha256": "476cf8f5ddba08e6db2bcab9267fc3a859d736c4fbb03e337d4b351ce6c728f9"
     },
     {
       "path": "apps/desktop/src-tauri/src/instance.rs",
@@ -733,8 +733,8 @@
     },
     {
       "path": "apps/desktop/src/hudModel.ts",
-      "bytes": 12297,
-      "sha256": "4deabeef762d62b8b950cac8ecb5d8feff74f68cce2b6c2dd3f3b4495dd3b47f"
+      "bytes": 12293,
+      "sha256": "8e679fcd3cdf995693f0135e9ce5dc9a033a3124c0e74c1574696b8910f8362c"
     },
     {
       "path": "apps/desktop/src/hudRuntime.ts",

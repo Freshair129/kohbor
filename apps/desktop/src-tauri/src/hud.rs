@@ -365,11 +365,11 @@ fn unknown_net_worth() -> Value {
     serde_json::json!({"value": null, "availability": "unknown", "approximate": false})
 }
 
-/// Net worth is DERIVED (the game does not send it for the local player): gold + the shop cost of
-/// every named item in the own items block (inventory, backpack, teleport, neutral; an observed empty
-/// slot has a null name and costs nothing). Unknown gold, or an items block that is not a complete
+/// Net worth is derived (the game does not send it for the local player): observed gold plus the shop
+/// costs available in the item price table. The table-based value is always approximate, including
+/// when every observed item name is present. Unknown gold, or an items block that is not a complete
 /// fresh/stale observation, gives unknown (never a partial sum shown as complete). An item name that
-/// is missing from the price table is counted as 0 and the result is flagged `approximate`.
+/// is missing from the price table is counted as 0 and remains part of the estimate.
 pub fn net_worth_field(snapshot: &Value) -> Value {
     let live = |name: &str| -> Option<(&Value, bool)> {
         let field = snapshot.pointer(&format!("/own/fields/{name}"))?;
@@ -390,7 +390,7 @@ pub fn net_worth_field(snapshot: &Value) -> Value {
         return unknown_net_worth();
     }
     let mut total = gold;
-    let mut approximate = false;
+    let mut approximate = true;
     for item in items {
         match item.get("name") {
             Some(Value::Null) => {}
@@ -1280,14 +1280,14 @@ mod tests {
     }
 
     #[test]
-    fn net_worth_is_gold_plus_item_costs_and_exact_when_all_names_are_known() {
+    fn net_worth_is_estimated_even_when_all_observed_item_names_are_known() {
         let snapshot = nw_snapshot(
             json!({"value": 1000, "availability": "fresh"}),
             items_value(&[Some("blink"), Some("item_branches"), None]),
         );
         assert_eq!(
             net_worth_field(&snapshot),
-            json!({"value": 1000 + 2250 + 55, "availability": "fresh", "approximate": false})
+            json!({"value": 1000 + 2250 + 55, "availability": "fresh", "approximate": true})
         );
     }
 
@@ -1311,7 +1311,7 @@ mod tests {
         );
         assert_eq!(
             net_worth_field(&snapshot),
-            json!({"value": 300, "availability": "stale", "approximate": false})
+            json!({"value": 300, "availability": "stale", "approximate": true})
         );
     }
 
