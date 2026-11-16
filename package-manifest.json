@@ -653,8 +653,8 @@
     },
     {
       "path": "apps/desktop/src/deck/deck.css",
-      "bytes": 14864,
-      "sha256": "46b0d46644598e559c31cb33ffd5f3421e05668c08030c0c36d4e540a79c8803"
+      "bytes": 18726,
+      "sha256": "032907c5e50797aba984e88c452c72f582c1aba5085a3eb63b02e312064fcaa3"
     },
     {
       "path": "apps/desktop/src/deck/deckState.ts",
@@ -1133,8 +1133,8 @@
     },
     {
       "path": "apps/desktop/src/shell/gsiSetup.css",
-      "bytes": 965,
-      "sha256": "d042f21270e801c8e254d95dcd9162960e0e9a6e8f272e11ed9b6f5fc6edcc9d"
+      "bytes": 2341,
+      "sha256": "9ccdca467ee62e8e7cfd77bdc5dc5f2a52360667080b2fa647397401aeabe86a"
     },
     {
       "path": "apps/desktop/src/shell/gsiSetupModel.ts",

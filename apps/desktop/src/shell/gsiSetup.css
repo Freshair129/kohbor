@@ -8,3 +8,59 @@
 .gsi-primary { border-color: var(--accent); }
 .gsi-error { color: var(--stale); }
 .shell-live-top { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+
+/* Keep Live setup, service states and action labels readable in narrow windows. */
+@media (max-width: 640px) {
+  .app:has(.shell-live) .gsi-card { align-items: stretch; }
+  .app:has(.shell-live) .gsi-text { flex-basis: 100%; }
+  .app:has(.shell-live) .gsi-actions { flex: 1 1 100%; min-width: 0; }
+  .app:has(.shell-live) .gsi-actions button {
+    flex: 1 1 140px;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .app:has(.shell-live) .steam-start-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    overflow: visible;
+  }
+
+  .app:has(.shell-live) .steam-service-chips {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    flex: 1 1 100%;
+    gap: 4px;
+  }
+
+  .app:has(.shell-live) .steam-service-chips > span {
+    min-width: 0;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    padding-inline: 5px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .app:has(.shell-live) .steam-launch-message {
+    flex: 1 1 100%;
+    white-space: normal;
+    overflow: visible;
+    overflow-wrap: anywhere;
+  }
+
+  .app:has(.shell-live) .steam-start-bar > button {
+    max-width: 100%;
+    white-space: normal;
+    padding-inline: 10px;
+  }
+
+  .app:has(.shell-live) .steam-launch-reason {
+    flex: 1 1 100%;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
