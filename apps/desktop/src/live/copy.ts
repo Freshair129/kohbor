@@ -1,5 +1,6 @@
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
 import type { CapturePhase, VisionEvent } from "./types.ts";
+import type { CaptureConfig } from "./captureConfig";
 
 export type LiveLocale = "th" | "en";
 
@@ -60,6 +61,7 @@ const MESSAGES = {
     proposalSearching: "กำลังค้นหากรอบแผนที่",
     proposalFound: "พบกรอบแผนที่",
     proposalNotFound: "ไม่พบกรอบแผนที่",
+    proposalNotFoundCropKept: "ไม่พบกรอบแผนที่ใหม่ กรอบที่คุณบันทึกไว้ยังอยู่",
     proposalNone: "ยังไม่มีผลการค้นหา",
     displayRate: "อัตราการแสดงภาพ",
     rateUnit: "fps",
@@ -154,6 +156,7 @@ const MESSAGES = {
     proposalSearching: "Searching for minimap frame",
     proposalFound: "Minimap frame found",
     proposalNotFound: "No minimap frame found",
+    proposalNotFoundCropKept: "No new minimap frame found. Your saved crop was kept.",
     proposalNone: "No search result",
     displayRate: "Display rate",
     rateUnit: "fps",
@@ -196,6 +199,19 @@ const MESSAGES = {
 
 export function liveCopy(locale: LiveLocale) {
   return MESSAGES[locale];
+}
+
+export function proposalStatusLabel(
+  config: Pick<CaptureConfig, "proposal_status" | "crop_confirmed"> | null,
+  locale: LiveLocale,
+): string {
+  const text = liveCopy(locale);
+  switch (config?.proposal_status) {
+    case "searching": return text.proposalSearching;
+    case "found": return text.proposalFound;
+    case "not_found": return config.crop_confirmed ? text.proposalNotFoundCropKept : text.proposalNotFound;
+    default: return text.proposalNone;
+  }
 }
 
 export function phaseLabel(phase: CapturePhase | null, locale: LiveLocale): string {

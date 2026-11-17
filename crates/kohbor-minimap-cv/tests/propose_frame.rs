@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use kohbor_minimap_cv::{propose_frame, FrameProposal};
+use kohbor_minimap_cv::{propose_frame, propose_frame_above_confidence, FrameProposal};
 
 const BYTES_PER_PIXEL: u32 = 4;
 const FRAME_BORDER: u32 = 3;
@@ -37,6 +37,16 @@ fn put_pixel(pixels: &mut [u8], stride: u32, x: u32, y: u32, bgra: [u8; 4]) {
 }
 
 fn paint_frame(pixels: &mut [u8], stride: u32, rect: Rect, border: [u8; 4]) {
+    paint_frame_with_texture(pixels, stride, rect, border, [22, 48]);
+}
+
+fn paint_frame_with_texture(
+    pixels: &mut [u8],
+    stride: u32,
+    rect: Rect,
+    border: [u8; 4],
+    texture: [u8; 2],
+) {
     for y in rect.y..rect.y + rect.height {
         for x in rect.x..rect.x + rect.width {
             let on_border = x < rect.x + FRAME_BORDER
@@ -46,9 +56,9 @@ fn paint_frame(pixels: &mut [u8], stride: u32, rect: Rect, border: [u8; 4]) {
             let pixel = if on_border {
                 border
             } else if ((x / 8) + (y / 8)) % 2 == 0 {
-                [22, 22, 22, 255]
+                [texture[0], texture[0], texture[0], 255]
             } else {
-                [48, 48, 48, 255]
+                [texture[1], texture[1], texture[1], 255]
             };
             put_pixel(pixels, stride, x, y, pixel);
         }
@@ -206,6 +216,68 @@ fn selects_the_larger_of_two_consistent_rectangles() {
 
     let proposal = propose_frame(&pixels, width, height, stride).expect("one consistent frame");
     assert_near(proposal, larger);
+}
+
+#[test]
+fn confidence_filter_keeps_the_smaller_eligible_frame_in_a_native_sized_search() {
+    let side = 328;
+    let stride = side * BYTES_PER_PIXEL;
+    let mut pixels = [35, 55, 83, 255].repeat((side * side) as usize);
+    let outer = Rect {
+        x: 0,
+        y: 48,
+        width: 280,
+        height: 280,
+    };
+    let inner = Rect {
+        x: 60,
+        y: 108,
+        width: 160,
+        height: 160,
+    };
+    paint_frame(&mut pixels, stride, outer, [110, 110, 110, 255]);
+    paint_frame_with_texture(&mut pixels, stride, inner, [255; 4], [0, 100]);
+
+    let legacy = propose_frame(&pixels, side, side, stride).expect("outer frame");
+    assert_near(legacy, outer);
+    assert!(legacy.confidence_milli <= 600, "legacy={legacy:?}");
+
+    let eligible = propose_frame_above_confidence(&pixels, side, side, stride, 600)
+        .expect("eligible inner frame");
+    assert_near(eligible, inner);
+    assert_eq!(eligible.confidence_milli, 1000);
+    assert_eq!(
+        propose_frame_above_confidence(&pixels, side, side, stride, eligible.confidence_milli),
+        None,
+        "a candidate exactly at the threshold is ineligible"
+    );
+}
+
+#[test]
+fn confidence_filter_rejects_marginal_and_dark_frames() {
+    let side = 328;
+    let stride = side * BYTES_PER_PIXEL;
+    let rect = Rect {
+        x: 0,
+        y: 48,
+        width: 280,
+        height: 280,
+    };
+    let mut pixels = noisy_image(side, side, stride);
+    paint_frame(&mut pixels, stride, rect, BORDER_BGRA);
+    let marginal = propose_frame(&pixels, side, side, stride).expect("marginal frame");
+    assert_eq!(marginal.confidence_milli, 379);
+    assert_eq!(
+        propose_frame_above_confidence(&pixels, side, side, stride, 600),
+        None
+    );
+
+    paint_frame(&mut pixels, stride, rect, [20, 20, 20, 255]);
+    assert_eq!(propose_frame(&pixels, side, side, stride), None);
+    assert_eq!(
+        propose_frame_above_confidence(&pixels, side, side, stride, 600),
+        None
+    );
 }
 
 #[test]

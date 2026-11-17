@@ -1152,7 +1152,13 @@ impl FrameProposer for CvFrameProposer {
         height: u32,
         stride: u32,
     ) -> Option<FrameProposal> {
-        kohbor_minimap_cv::propose_frame(bgra, width, height, stride)
+        kohbor_minimap_cv::propose_frame_above_confidence(
+            bgra,
+            width,
+            height,
+            stride,
+            CROP_PROPOSAL_MIN_CONFIDENCE,
+        )
     }
 }
 
@@ -5957,27 +5963,70 @@ mod tests {
     }
 
     #[test]
-    fn crop_proposal_reports_not_found_after_five_low_confidence_frames() {
+    fn crop_proposal_keeps_the_saved_confirmed_crop_when_no_frame_qualifies() {
         let start = Instant::now();
         let profile = Rect {
-            x: 100,
-            y: 200,
-            width: 64,
-            height: 64,
+            x: 0,
+            y: 800,
+            width: 280,
+            height: 280,
         };
         let mut worker = worker_with_profile(start, profile);
-        worker.config.request_proposal();
+        let crop = CropOffsets {
+            dx: 2,
+            dy: 0,
+            dw: -2,
+            dh: -2,
+        };
+        worker
+            .config
+            .set(CaptureConfigPatch {
+                crop: Some(crop),
+                ..CaptureConfigPatch::default()
+            })
+            .unwrap();
+        let confirmed = worker.config.confirm_crop().unwrap();
+        worker.invalidate_for_user(0);
+        let gsi = GsiSnapshot {
+            session_epoch: Some(7),
+            age_ms: Some(0),
+            ..GsiSnapshot::default()
+        };
+        worker.refresh_capture_profile(start, 0, Some(&gsi));
+        assert_eq!(
+            worker.profile_rect.map(ScreenRect::from),
+            confirmed.effective_rect
+        );
+        let settings_path = worker.config.data_dir.join(CAPTURE_CONFIG_FILE);
+        let mut original_bytes = std::fs::read(&settings_path).unwrap();
+        // Distinguish no write from an atomic rewrite of the same settings.
+        original_bytes.push(b'\n');
+        std::fs::write(&settings_path, &original_bytes).unwrap();
+
+        let searching = worker.config.request_proposal();
+        assert_eq!(searching.proposal_status, ProposalStatus::Searching);
+        assert!(searching.proposal.is_none());
+        assert_eq!(searching.crop, crop);
+        assert!(searching.crop_confirmed);
+        assert_eq!(searching.effective_rect, confirmed.effective_rect);
+        assert_eq!(std::fs::read(&settings_path).unwrap(), original_bytes);
+
         worker.start_proposal_if_requested();
-        let proposals = Arc::new(Mutex::new(VecDeque::from(vec![
+        let marginal = |confidence_milli| {
             Some(FrameProposal {
-                x: 10,
-                y: 10,
-                width: 64,
-                height: 64,
-                confidence_milli: 600,
-            });
-            CROP_SEARCH_MAX_FRAMES
-                as usize
+                x: 0,
+                y: 48,
+                width: 280,
+                height: 280,
+                confidence_milli,
+            })
+        };
+        let proposals = Arc::new(Mutex::new(VecDeque::from([
+            marginal(600),
+            marginal(379),
+            None,
+            None,
+            None,
         ])));
         worker.proposer = Box::new(FakeFrameProposer {
             proposals,
@@ -5986,13 +6035,25 @@ mod tests {
         for sequence in 1..=CROP_SEARCH_MAX_FRAMES {
             worker
                 .source
-                .queue_sized_frame(160, 160, u64::from(sequence));
+                .queue_sized_frame(328, 328, u64::from(sequence));
             worker.capture_proposal_frame(start, u64::from(sequence));
         }
 
         let config = worker.config.get();
         assert_eq!(config.proposal_status, ProposalStatus::NotFound);
         assert!(config.proposal.is_none());
+        assert_eq!(worker.grab_total, u64::from(CROP_SEARCH_MAX_FRAMES));
+        assert_eq!(config.crop, crop);
+        assert!(config.crop_confirmed);
+        assert_eq!(config.effective_rect, confirmed.effective_rect);
+        assert_eq!(
+            worker.profile_rect.map(ScreenRect::from),
+            confirmed.effective_rect
+        );
+        assert_eq!(std::fs::read(&settings_path).unwrap(), original_bytes);
+        let reopened = CaptureConfigStore::open(worker.config.data_dir.clone()).get();
+        assert_eq!(reopened.crop, crop);
+        assert!(reopened.crop_confirmed);
         let _ = std::fs::remove_dir_all(&worker.config.data_dir);
     }
 

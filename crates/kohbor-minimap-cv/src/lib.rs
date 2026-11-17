@@ -713,6 +713,30 @@ pub struct FrameProposal {
 /// bright, greyish edges enclosing a darker textured interior. It is based on
 /// synthetic evidence only; accuracy on real game pixels is unknown.
 pub fn propose_frame(bgra: &[u8], width: u32, height: u32, stride: u32) -> Option<FrameProposal> {
+    propose_frame_with_filter(bgra, width, height, stride, |_| true)
+}
+
+/// Proposes the largest frame scoring strictly above `min_confidence_milli`.
+/// Lower confidence rectangles are excluded before ranking by area.
+pub fn propose_frame_above_confidence(
+    bgra: &[u8],
+    width: u32,
+    height: u32,
+    stride: u32,
+    min_confidence_milli: u16,
+) -> Option<FrameProposal> {
+    propose_frame_with_filter(bgra, width, height, stride, |confidence| {
+        confidence > min_confidence_milli
+    })
+}
+
+fn propose_frame_with_filter(
+    bgra: &[u8],
+    width: u32,
+    height: u32,
+    stride: u32,
+    eligible: impl Fn(u16) -> bool,
+) -> Option<FrameProposal> {
     let frame = FrameView::new(bgra, width, height, stride)?;
     if frame.width < constants::FRAME_PROPOSAL_MIN_SIDE
         || frame.height < constants::FRAME_PROPOSAL_MIN_SIDE
@@ -773,6 +797,9 @@ pub fn propose_frame(bgra: &[u8], width: u32, height: u32, stride: u32) -> Optio
                     ) else {
                         continue;
                     };
+                    if !eligible(confidence) {
+                        continue;
+                    }
                     let (Ok(x), Ok(y), Ok(width), Ok(height)) = (
                         i32::try_from(left.start),
                         i32::try_from(top.start),
