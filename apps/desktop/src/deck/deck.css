@@ -236,12 +236,22 @@
   background: var(--raised);
 }
 
+.deck-stat-tile.is-paired-rate { padding-block: 1px; }
+
 .deck-stat-tile > span {
   overflow: hidden;
   color: var(--muted);
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.deck-stat-tile.is-paired-rate > span {
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+  line-height: 1;
 }
 
 .deck-stat-tile > b {
@@ -434,10 +444,6 @@
   max-height: 100%;
 }
 
-.live-deck-panel .live-map-toolbar {
-  flex-basis: 28px;
-}
-
 .live-deck-panel .live-sidebar-deck {
   grid-row: 2;
   display: grid;
@@ -608,4 +614,157 @@
   .deck-own-card { gap: 5px 8px; padding: 8px; }
   .deck-stat-tile { padding: 3px 5px; }
   .deck-ally-panel, .deck-enemy-panel, .deck-event-panel, .deck-sound-panel { padding: 8px; }
+}
+
+/* Narrow Live layout: keep every region in a bounded vertical reading order. */
+@media (max-width: 640px) {
+  .app:has(.shell-live) .shell-header {
+    flex: 0 0 auto;
+    height: auto;
+    max-height: none;
+    grid-template-rows: auto auto;
+    overflow: visible;
+  }
+
+  .app:has(.shell-live) .shell-mainbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "brand account"
+      "tabs tabs";
+    align-items: center;
+    gap: 4px 8px;
+    padding-bottom: 4px;
+    overflow: visible;
+  }
+
+  .app:has(.shell-live) .shell-brand { grid-area: brand; min-width: 0; }
+  .app:has(.shell-live) .shell-mainbar > .account-trigger {
+    grid-area: account;
+    width: min(180px, 48vw);
+    max-width: 48vw;
+    gap: 5px;
+    padding-inline: 6px;
+  }
+
+  .app:has(.shell-live) .shell-tab-list {
+    grid-area: tabs;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+    gap: 4px;
+    overflow: visible;
+  }
+
+  .app:has(.shell-live) .shell-tab-list button {
+    width: 100%;
+    min-width: 0;
+    min-height: 36px;
+    padding-inline: 4px;
+    border-radius: 6px;
+    line-height: 1.2;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .app:has(.shell-live) .shell-statusbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 4px 8px;
+    overflow: visible;
+  }
+
+  .app:has(.shell-live) .shell-statuses {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: 4px;
+    overflow: visible;
+  }
+
+  .app:has(.shell-live) .shell-statuses > span { min-width: 0; }
+  .app:has(.shell-live) .shell-header .chip {
+    white-space: normal;
+    overflow: visible;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+  }
+
+  .app:has(.shell-live) .shell-deck-status {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+
+  .app:has(.shell-live) .shell-deck-reason {
+    flex: none;
+    white-space: normal;
+    overflow: visible;
+    overflow-wrap: anywhere;
+  }
+
+  .app:has(.shell-live) .shell-age-badge {
+    flex-wrap: wrap;
+    gap: 2px 6px;
+    white-space: normal;
+  }
+
+  .app:has(.shell-live) .shell-statusbar > .shell-host-lost {
+    grid-column: 1;
+    grid-row: 2;
+    max-width: none;
+    white-space: normal;
+    overflow: visible;
+    overflow-wrap: anywhere;
+  }
+
+  .app:has(.shell-live) .shell-statusbar > .shell-mute-control {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: end;
+  }
+
+  .app:has(.shell-live) .shell-tab-panel {
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .app:has(.shell-live) .shell-screen.shell-live {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+  }
+
+  .app:has(.shell-live) .deck-root {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+    grid-template-areas: "map" "own" "right";
+    align-content: start;
+    gap: 8px 0;
+    height: auto;
+    overflow: visible;
+  }
+
+  .app:has(.shell-live) .deck-own-column { grid-area: own; grid-template-rows: auto auto; }
+  .app:has(.shell-live) .deck-ally-panel { grid-template-rows: auto auto; }
+  .app:has(.shell-live) .deck-ally-list { grid-template-rows: repeat(4, minmax(40px, auto)); }
+
+  .app:has(.shell-live) .deck-map-column {
+    grid-area: map;
+    height: clamp(460px, 92vw, 560px);
+  }
+
+  .app:has(.shell-live) .deck-right-column {
+    grid-area: right;
+    grid-template-rows: auto auto auto;
+  }
+
+  .app:has(.shell-live) .deck-enemy-panel { grid-template-rows: auto auto auto; }
+  .app:has(.shell-live) .deck-enemy-list { grid-template-rows: repeat(5, minmax(36px, auto)); }
+  .app:has(.shell-live) .deck-event-panel { grid-template-rows: auto auto; }
+  .app:has(.shell-live) .deck-event-list { max-height: 240px; }
 }

@@ -14,7 +14,7 @@ export interface HudField {
   availability: HudAvailability;
 }
 
-/** Net worth is derived by the host (gold + item costs); `approximate` = some item had no known price. */
+/** Net worth is a host-derived gold-plus-item-cost estimate; synthetic preview data can remain exact. */
 export interface HudNetWorth extends HudField {
   approximate: boolean;
 }
@@ -289,7 +289,7 @@ export function formatChip(kind: ChipKind, input: HudField | KdaFields | unknown
 
   const parsed = knownValue(input);
   if (parsed === null) return { text: "—", stale: false };
-  // Net worth is derived by the host; `approximate` (an item without a known price) shows a leading "~".
+  // Host-marked net-worth estimates show a leading "~"; unknown and stale availability stay separate.
   const approximate = kind === "nw" && record(input) && input.approximate === true;
   return { text: `${approximate ? "~" : ""}${numberText(parsed.value)}`, stale: parsed.stale };
 }
