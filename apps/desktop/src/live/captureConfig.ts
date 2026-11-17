@@ -38,6 +38,17 @@ export interface CropNudge {
   dy: number;
 }
 
+/** Complete a partial crop edit from the last confirmed host snapshot. */
+export function mergeCropPatch(current: CropOffsets | null | undefined, patch: Partial<CropOffsets>): CropOffsets | null {
+  if (!current) return null;
+  return {
+    dx: patch.dx ?? current.dx,
+    dy: patch.dy ?? current.dy,
+    dw: patch.dw ?? current.dw,
+    dh: patch.dh ?? current.dh,
+  };
+}
+
 export const CAPTURE_DISPLAY_RATES = [10, 15, 30] as const satisfies readonly CaptureDisplayRate[];
 
 const MIN_DIMENSION = 64;

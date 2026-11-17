@@ -41,6 +41,16 @@ test("crop nudge returns a patch and clamps movement to the contract offsets", (
   assert.deepEqual(config.nudge(199, -199, { dx: 5, dy: -5 }), { crop: { dx: 200, dy: -200 } });
 });
 
+test("crop edits merge partial nudge and resize patches with the confirmed offsets", () => {
+  const current = { dx: 12, dy: -8, dw: 6, dh: 4 };
+  const nudgePatch = config.nudge(current.dx, current.dy, { dx: -1, dy: 5 }).crop!;
+  const resizePatch = config.shrink(makeConfig({ crop: current }), 2)!.crop!;
+
+  assert.deepEqual(config.mergeCropPatch(current, nudgePatch), { dx: 11, dy: -3, dw: 6, dh: 4 });
+  assert.deepEqual(config.mergeCropPatch(current, resizePatch), { dx: 12, dy: -8, dw: 4, dh: 2 });
+  assert.equal(config.mergeCropPatch(null, nudgePatch), null);
+});
+
 test("grow and shrink clamp dimensions within the effective and relative-offset bounds", () => {
   const atMaximum = makeConfig({ crop: { dx: 0, dy: 0, dw: 200, dh: 200 } });
   const smallProfile = { x: 0, y: 788, width: 200, height: 200 };

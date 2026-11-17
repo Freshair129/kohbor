@@ -838,8 +838,8 @@
     },
     {
       "path": "apps/desktop/src/live/captureConfig.ts",
-      "bytes": 6559,
-      "sha256": "578441e41305b5868a7ce2e7fb18fc1dbdc978f3a14eb07c3d17b4ac2058fdab"
+      "bytes": 6933,
+      "sha256": "247e8e082f9b49ef6adeedabfa2830d524b2a9f28eba984d7e415fbc68482f50"
     },
     {
       "path": "apps/desktop/src/live/captureDisplay.ts",
@@ -943,8 +943,8 @@
     },
     {
       "path": "apps/desktop/src/live/useCaptureConfig.ts",
-      "bytes": 3459,
-      "sha256": "0474993cc2b3c4591060ed77dcc1c2b9e39dfe74d8c2d89c95f472ee06c1a7a1"
+      "bytes": 3634,
+      "sha256": "4abae2d2106cb0608ce52f304228cff25ffc61a600e27d46fe1e98802087c0aa"
     },
     {
       "path": "apps/desktop/src/live/useCaptureCounterRates.ts",
@@ -1343,8 +1343,8 @@
     },
     {
       "path": "apps/desktop/tests/live-capture-config.test.ts",
-      "bytes": 6307,
-      "sha256": "8d9c59a21d7e0374509945d6a9ffb4d15fe1ef99e6f1a3cdc9e6f2af8400288c"
+      "bytes": 6880,
+      "sha256": "4f62f5f40b7839ca196120b763140f92708c0954221ecb4bad563d212f817c00"
     },
     {
       "path": "apps/desktop/tests/live-layout.test.ts",
