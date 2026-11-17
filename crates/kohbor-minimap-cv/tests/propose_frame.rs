@@ -230,12 +230,12 @@ fn confidence_filter_keeps_the_smaller_eligible_frame_in_a_native_sized_search()
         height: 280,
     };
     let inner = Rect {
-        x: 60,
+        x: 30,
         y: 108,
         width: 160,
         height: 160,
     };
-    paint_frame(&mut pixels, stride, outer, [110, 110, 110, 255]);
+    paint_frame(&mut pixels, stride, outer, [80, 80, 80, 255]);
     paint_frame_with_texture(&mut pixels, stride, inner, [255; 4], [0, 100]);
 
     let legacy = propose_frame(&pixels, side, side, stride).expect("outer frame");

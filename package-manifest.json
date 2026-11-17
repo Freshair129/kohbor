@@ -2073,8 +2073,8 @@
     },
     {
       "path": "crates/kohbor-minimap-cv/tests/propose_frame.rs",
-      "bytes": 10600,
-      "sha256": "ab3c7deb6ed9c48e163c006e37b5ebdce10d61e6cb934da39c8a472b1b74943b"
+      "bytes": 10597,
+      "sha256": "3e1fc1cec97c79b421e4f827f46b5c60e6342914d662e20b856a54d7bdfa27f6"
     },
     {
       "path": "crates/kohbor-minimap-cv/tests/synthetic.rs",
