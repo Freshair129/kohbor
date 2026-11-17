@@ -225,12 +225,19 @@ test("muted volume model uses the localized applies-when-unmuted message", () =>
 test("hotkeys model exposes enabled, disabled, and registration-conflict states", () => {
   const text = copy("th").audio.volume;
   const enabled = audioPrefs.volumeControlModel(validPrefs, null, text);
-  const disabled = audioPrefs.volumeControlModel({ ...validPrefs, hotkeys_enabled: false }, null, text);
+  const disabled = audioPrefs.volumeControlModel({ ...validPrefs, hotkeys_enabled: false, hotkeys_registered: false }, null, text);
   const conflict = audioPrefs.volumeControlModel({ ...validPrefs, hotkeys_registered: false }, null, text);
+  const registrationUnknown = audioPrefs.volumeControlModel({ ...validPrefs, hotkeys_registered: null }, null, text);
   assert.equal(enabled.hotkeysEnabled, true);
+  assert.equal(enabled.hotkeysRegistrationFailed, false);
+  assert.equal(enabled.hotkeysRegistrationMessage, null);
   assert.equal(disabled.hotkeysEnabled, false);
+  assert.equal(disabled.hotkeysRegistrationFailed, false);
+  assert.equal(disabled.hotkeysRegistrationMessage, null);
   assert.equal(conflict.hotkeysRegistrationFailed, true);
   assert.equal(conflict.hotkeysRegistrationMessage, "ลงทะเบียนปุ่มลัดไม่ได้ อาจชนกับโปรแกรมอื่น");
+  assert.equal(registrationUnknown.hotkeysRegistrationFailed, false);
+  assert.equal(registrationUnknown.hotkeysRegistrationMessage, null);
 });
 
 test("toast controller has no visible value before a volume event", () => {

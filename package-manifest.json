@@ -598,8 +598,8 @@
     },
     {
       "path": "apps/desktop/src/audioPrefs.ts",
-      "bytes": 13651,
-      "sha256": "3fbd9173c850f0e1e7876765c74770e5ed6b568f2549e87f181faf6f8a282849"
+      "bytes": 13710,
+      "sha256": "6cc556f4d71239a1396f94787d99992c040e9668652c917bdc6716e4b8a44641"
     },
     {
       "path": "apps/desktop/src/copy.ts",
@@ -1243,8 +1243,8 @@
     },
     {
       "path": "apps/desktop/tests/audioPrefs.test.ts",
-      "bytes": 16036,
-      "sha256": "5a32ce9b8a620ae7d8590df516c21accdefe0d726f3ebd81b1c11bcce9f22a19"
+      "bytes": 16555,
+      "sha256": "16ffe9bd9a6d8b391cd931e0b62691fdcd721008a34cacae639c8d0cea001835"
     },
     {
       "path": "apps/desktop/tests/capture-idle.test.ts",
