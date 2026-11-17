@@ -444,10 +444,6 @@
   max-height: 100%;
 }
 
-.live-deck-panel .live-map-toolbar {
-  flex-basis: 28px;
-}
-
 .live-deck-panel .live-sidebar-deck {
   grid-row: 2;
   display: grid;

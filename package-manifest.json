@@ -653,8 +653,8 @@
     },
     {
       "path": "apps/desktop/src/deck/deck.css",
-      "bytes": 18937,
-      "sha256": "c8592bcfcc103fdbdfd8eea1d9b87540d21e46c6e62ad708306b04915dbcb1f7"
+      "bytes": 18877,
+      "sha256": "325acb11c96d2fcebc4572624fb5e1f8e24d9f23cfcc2fdb1f7a8597345dc430"
     },
     {
       "path": "apps/desktop/src/deck/deckState.ts",
