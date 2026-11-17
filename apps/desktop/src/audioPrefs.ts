@@ -149,7 +149,9 @@ export function volumeControlModel(
   const percent = unknown
     ? null
     : isValidVolumePercent(draftPercent) ? draftPercent : prefs.master_volume_percent;
-  const hotkeysRegistrationFailed = prefs?.hotkeys_registered === false;
+  const hotkeysRegistrationFailed = prefs !== null
+    && prefs.hotkeys_enabled === true
+    && prefs.hotkeys_registered === false;
   return {
     unknown,
     percent,
