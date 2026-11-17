@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
 import {
+  mergeCropPatch,
   parseCaptureConfig,
   type CaptureConfig,
   type CaptureConfigPatch,
@@ -88,8 +89,11 @@ export function useCaptureConfig() {
     error,
     busy,
     proposalDismissed,
-    setCrop: (crop: NonNullable<CaptureConfigPatch["crop"]>) =>
-      runAction("capture_set_config", { patch: { crop } satisfies CaptureConfigPatch }),
+    setCrop: (crop: NonNullable<CaptureConfigPatch["crop"]>) => {
+      const completeCrop = mergeCropPatch(config?.crop, crop);
+      if (busy || !completeCrop) return Promise.resolve(false);
+      return runAction("capture_set_config", { patch: { crop: completeCrop } satisfies CaptureConfigPatch });
+    },
     setDisplayRate: (display_fps: CaptureDisplayRate) =>
       runAction("capture_set_config", { patch: { display_fps } satisfies CaptureConfigPatch }),
     setPaused: (paused: boolean) => runAction("capture_set_config", { patch: { paused } satisfies CaptureConfigPatch }),
