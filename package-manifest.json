@@ -1348,8 +1348,8 @@
     },
     {
       "path": "apps/desktop/tests/live-layout.test.ts",
-      "bytes": 3445,
-      "sha256": "6bc568dc40510a6deb7f87b59f306d26e5d41f2028f66fcee678f4f0665d41c1"
+      "bytes": 4280,
+      "sha256": "f4bd3eadc93f485ba96897611dac5acf039ac7845b93edbe9adaa0e314c908b3"
     },
     {
       "path": "apps/desktop/tests/live-preview.test.ts",

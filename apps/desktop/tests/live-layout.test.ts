@@ -23,7 +23,20 @@ test("Live has one definite grid row, two bounded columns and a shrinking map st
   for (const property of ["max-width", "max-height"]) assert.match(canvas, new RegExp(`${property}:\\s*100%`));
   for (const property of ["width", "height"]) assert.match(canvas, new RegExp(`(?:^|;)\\s*${property}:\\s*auto`));
   assert.match(canvas, /aspect-ratio:\s*280\s*\/\s*280/);
-  assert.match(css, /\.live-preview-rates\s*\{[^}]*white-space:\s*nowrap[^}]*text-overflow:\s*ellipsis/);
+  const toolbar = css.match(/\.live-map-toolbar\s*\{([^}]+)\}/)?.[1] ?? "";
+  assert.match(toolbar, /flex:\s*0\s+0\s+auto/);
+  assert.match(toolbar, /flex-wrap:\s*wrap/);
+  assert.match(toolbar, /min-height:\s*0/);
+  const deckCss = readFileSync(new URL("../src/deck/deck.css", import.meta.url), "utf8");
+  const deckToolbar = deckCss.match(/\.live-deck-panel\s+\.live-map-toolbar\s*\{([^}]+)\}/)?.[1] ?? "";
+  assert.doesNotMatch(deckToolbar, /flex(?:-basis)?\s*:\s*[^;]*(?:\d+(?:px|rem|em|%))/,
+    "deck layout does not fix the height of a wrapping toolbar");
+  for (const selector of ["live-map-badge", "live-preview-rates"]) {
+    const textRule = css.match(new RegExp(`\\.${selector}\\s*\\{([^}]+)\\}`))?.[1] ?? "";
+    assert.match(textRule, /overflow-wrap:\s*anywhere/);
+    assert.match(textRule, /white-space:\s*normal/);
+    assert.doesNotMatch(textRule, /overflow:\s*hidden|text-overflow:\s*ellipsis|white-space:\s*nowrap/);
+  }
   const autoRules = [...css.matchAll(/([^{}]+)\{[^{}]*overflow(?:-y)?:\s*auto[^{}]*\}/g)];
   for (const rule of autoRules) assert.doesNotMatch(rule[1]!, /\.live-tab/, "live panels do not scroll themselves; the dialog does");
 });
