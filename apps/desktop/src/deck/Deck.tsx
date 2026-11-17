@@ -104,7 +104,7 @@ export function Deck({
 
           <section className="deck-stats" aria-label={text.statsHeading}>
             {text.statLabels.slice(0, 4).map((label, index) => (
-              <div className="deck-stat-tile" key={label} title={`${label}: ${statValues[index]}`}>
+              <div className={`deck-stat-tile${index === 3 ? " is-paired-rate" : ""}`} key={label} title={`${label}: ${statValues[index]}`}>
                 <span>{label}</span>
                 <b>{statValues[index]}</b>
               </div>

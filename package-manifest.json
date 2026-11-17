@@ -618,8 +618,8 @@
     },
     {
       "path": "apps/desktop/src/deck/Deck.tsx",
-      "bytes": 8422,
-      "sha256": "4442d8f089682943915b9f25dc387425d6e105885217e184e7c3b858245c4801"
+      "bytes": 8463,
+      "sha256": "6cd2cf24dce1c7425d557d1f4428dcd07b3c6eee6a28e4f31b72714e9d8d3c99"
     },
     {
       "path": "apps/desktop/src/deck/EventFeed.tsx",
@@ -653,8 +653,8 @@
     },
     {
       "path": "apps/desktop/src/deck/deck.css",
-      "bytes": 18726,
-      "sha256": "032907c5e50797aba984e88c452c72f582c1aba5085a3eb63b02e312064fcaa3"
+      "bytes": 18937,
+      "sha256": "c8592bcfcc103fdbdfd8eea1d9b87540d21e46c6e62ad708306b04915dbcb1f7"
     },
     {
       "path": "apps/desktop/src/deck/deckState.ts",
@@ -883,8 +883,8 @@
     },
     {
       "path": "apps/desktop/src/live/live.css",
-      "bytes": 10694,
-      "sha256": "895b1bb3acffd3367c0fb5124da746a872b255d1f8ea012b2cd2dfbc42e66adc"
+      "bytes": 10640,
+      "sha256": "05013f5c270d6685aa1e9a520e490f923a453ea929dcbd27a8435a10c90a7a64"
     },
     {
       "path": "apps/desktop/src/live/meter.ts",

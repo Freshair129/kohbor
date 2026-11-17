@@ -236,12 +236,22 @@
   background: var(--raised);
 }
 
+.deck-stat-tile.is-paired-rate { padding-block: 1px; }
+
 .deck-stat-tile > span {
   overflow: hidden;
   color: var(--muted);
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.deck-stat-tile.is-paired-rate > span {
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+  line-height: 1;
 }
 
 .deck-stat-tile > b {
