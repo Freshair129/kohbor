@@ -1,6 +1,8 @@
 //! Kohbor desktop host (M1 slice): containment, game-state intake, runtime status.
 
+// Demo/Lab-only account scaffolding: parts of the recovery/delete flow are not wired to a command yet.
 #[cfg(feature = "demo")]
+#[allow(dead_code)]
 mod account_host;
 pub mod atomic;
 mod audio;
