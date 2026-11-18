@@ -293,8 +293,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/capture_host.rs",
-      "bytes": 253137,
-      "sha256": "b9afc8592d2198d1cd02f1fbd2cd8ead670a693eb9466dbe65d6343df634a9e0"
+      "bytes": 272784,
+      "sha256": "d8d758e5a05bc4ad1d009c55a85efd946c59b2c4b5bd72a9f82e0d02efab47e6"
     },
     {
       "path": "apps/desktop/src-tauri/src/clock.rs",
@@ -2063,8 +2063,8 @@
     },
     {
       "path": "crates/kohbor-minimap-cv/src/lib.rs",
-      "bytes": 47098,
-      "sha256": "23837af45637c4ce88550873397a35daa61f3b4bb60a090eec4ff7adfde6d2a1"
+      "bytes": 53366,
+      "sha256": "b9bc933071e183c8229c34ae5d76f8464f290327743198894e54df893899946d"
     },
     {
       "path": "crates/kohbor-minimap-cv/tests/api_shape.rs",
@@ -2075,6 +2075,11 @@
       "path": "crates/kohbor-minimap-cv/tests/propose_frame.rs",
       "bytes": 10597,
       "sha256": "3e1fc1cec97c79b421e4f827f46b5c60e6342914d662e20b856a54d7bdfa27f6"
+    },
+    {
+      "path": "crates/kohbor-minimap-cv/tests/stage_trace.rs",
+      "bytes": 8123,
+      "sha256": "2b7dc4c5815124b6c7c42ab1f551f00e7d2446e4a0f9148346cce572a848a656"
     },
     {
       "path": "crates/kohbor-minimap-cv/tests/synthetic.rs",
