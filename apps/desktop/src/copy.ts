@@ -13,7 +13,7 @@ const MESSAGES = {
     overview: "ภาพรวม",
     shell: {
       navigationLabel: "หน้าหลัก",
-      tabs: { live: "สด", packs: "แพ็กเสียง", settings: "ตั้งค่า", status: "สถานะ", logs: "บันทึก" },
+      tabs: { live: "สด", packs: "แพ็กเสียง", settings: "ตั้งค่า", status: "สถานะ", replay: "รีเพลย์", logs: "บันทึก" },
       developerMode: "โหมดนักพัฒนา",
       gameAge: "ข้อมูลเกม",
       gamePhase: "ระยะเกม",
@@ -346,7 +346,7 @@ const MESSAGES = {
     overview: "Overview",
     shell: {
       navigationLabel: "Main pages",
-      tabs: { live: "Live", packs: "Packs", settings: "Settings", status: "Status", logs: "Logs" },
+      tabs: { live: "Live", packs: "Packs", settings: "Settings", status: "Status", replay: "Replay", logs: "Logs" },
       developerMode: "Developer mode",
       gameAge: "Game data",
       gamePhase: "Game phase",
