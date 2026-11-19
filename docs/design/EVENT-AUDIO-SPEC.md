@@ -187,7 +187,7 @@ Each row is the class of a new request (incoming); each column is the class alre
 
 **Preemption** cancels both the audio and its paired visual tail under the same playback generation (MEDIA-005). It records `preempted` for the old playback and fences any late completion. C1 admission never takes a Voice, renderer, disk or network lock (ALERT-001).
 
-If both queues wait, C2 starts before C4; C4 keeps its original enqueue time and TTL while C2 plays. Equal C4 ranks keep the newer request. A C1 request does not start a queued C4 as a side effect before its own admission.
+If both queues wait, C2 starts before C4. C4 keeps its original enqueue time and TTL while C2 plays. Equal C4 ranks keep the newer request. The owner checks TTL at the time it processes the queue, even if the previous audio ended earlier. C1 admission never starts a queued request. Mute, session or revision changes, device loss and stop clear waiting requests with the applicable outcome without submitting them.
 
 **Prewarm.** All C1 and C2 media of the active revision are decoded to PCM in memory when the revision activates. Critical readiness is `ready` only when every **available** C1/C2 event has verified, prewarmed media (MP-08, ALERT-007). In M2 that is no events while `health_danger` is unapproved, so readiness reports `not_ready` with reason `MEDIA_UNMAPPED`. It never reports a vacuous "ready".
 

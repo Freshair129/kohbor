@@ -291,6 +291,14 @@ struct QueuedOrdinary {
     queued_at_ms: u64,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum QueueAdvance {
+    All,
+    CorrectionOnly,
+    ExpireOnly,
+    Fence,
+}
+
 /// Pure, single-owner arbitration state. Every timestamp-bearing call uses
 /// `max(at_ms, last_at_ms)`; owner time never moves backwards.
 pub struct AudioOwner<S: Sink> {
@@ -515,9 +523,10 @@ impl<S: Sink> AudioOwner<S> {
     /// Advance time: audio that ended is finished (`Notice::Finished` once the
     /// audio and the declared visual tail are over); a queued C2 or C4 starts when
     /// the channel frees (`Decided(Admitted)`), using that audio deadline as its
-    /// decision time; queued requests expire at `queued_at + ttl + 1` ms.
+    /// decision time if still eligible at the call time. Queued requests expire
+    /// at `queued_at + ttl + 1` ms.
     pub fn tick(&mut self, at_ms: u64) {
-        self.advance(at_ms);
+        self.advance(at_ms, QueueAdvance::All);
     }
 
     /// The sink reports that `id` finished (device callback). Ignored for an id
@@ -532,14 +541,14 @@ impl<S: Sink> AudioOwner<S> {
         {
             return;
         }
-        let at_ms = self.advance(at_ms);
+        let at_ms = self.advance(at_ms, QueueAdvance::All);
         if self
             .active
             .as_ref()
             .is_some_and(|playback| playback.id == id)
         {
             self.finish_audio(at_ms);
-            self.advance_to(at_ms, true);
+            self.advance_to(at_ms, QueueAdvance::All);
         }
     }
 
@@ -573,7 +582,7 @@ impl<S: Sink> AudioOwner<S> {
     /// Global mute: on cancels the active playback (`Muted`) and the queue; later
     /// requests get `Muted`. Off restores nothing.
     pub fn set_muted(&mut self, at_ms: u64, muted: bool) {
-        let at_ms = self.advance(at_ms);
+        let at_ms = self.advance_for_fence(at_ms, muted);
         self.muted = muted;
         if muted {
             self.cancel_active(CancelReason::Muted, at_ms);
@@ -586,7 +595,7 @@ impl<S: Sink> AudioOwner<S> {
     /// epoch differs (`SessionFence`). The initial session is 0 (no request with
     /// epoch 0 is stale before `set_session` is called).
     pub fn set_session(&mut self, at_ms: u64, session_epoch: u64) {
-        let at_ms = self.advance(at_ms);
+        let at_ms = self.advance_for_fence(at_ms, session_epoch != self.session_epoch);
         self.session_epoch = session_epoch;
         if self
             .active
@@ -619,7 +628,7 @@ impl<S: Sink> AudioOwner<S> {
     /// queue when their revision differs (`RevisionFence`); a voice playback is not
     /// affected. The initial revision is 0.
     pub fn set_revision(&mut self, at_ms: u64, package_revision: u64) {
-        let at_ms = self.advance(at_ms);
+        let at_ms = self.advance_for_fence(at_ms, package_revision != self.package_revision);
         self.package_revision = package_revision;
         if self.active.as_ref().is_some_and(|playback| {
             playback.class != AudioClass::Voice
@@ -649,7 +658,7 @@ impl<S: Sink> AudioOwner<S> {
     /// playback (`DeviceLost`) and the queue; requests then get `ChannelBusy` with
     /// `Detail::DeviceUnavailable` until it is `true` again. Initially available.
     pub fn set_device_available(&mut self, at_ms: u64, available: bool) {
-        let at_ms = self.advance(at_ms);
+        let at_ms = self.advance_for_fence(at_ms, !available);
         self.device_available = available;
         if !available {
             self.cancel_active(CancelReason::DeviceLost, at_ms);
@@ -911,26 +920,34 @@ impl<S: Sink> AudioOwner<S> {
         None
     }
 
-    fn advance(&mut self, at_ms: u64) -> u64 {
+    fn advance(&mut self, at_ms: u64, queue: QueueAdvance) -> u64 {
         let effective_at_ms = self.effective_at(at_ms);
-        self.advance_to(effective_at_ms, true);
+        self.advance_to(effective_at_ms, queue);
         effective_at_ms
     }
 
     fn advance_for_request(&mut self, at_ms: u64, incoming_class: AudioClass) -> u64 {
-        let effective_at_ms = self.effective_at(at_ms);
-        // Higher-priority C1/C2/C3 requests must not start a waiting C4 as a
-        // side effect before their own admission; C1 must not wait on a new C4
-        // sink submit. C2's own queue still takes precedence over C4.
-        let allow_ordinary_start = !matches!(
-            incoming_class,
-            AudioClass::Critical | AudioClass::Correction | AudioClass::Notice
-        );
-        self.advance_to(effective_at_ms, allow_ordinary_start);
-        effective_at_ms
+        // C1 admission must never wait on a queued sink submit.
+        let queue = match incoming_class {
+            AudioClass::Critical => QueueAdvance::ExpireOnly,
+            AudioClass::Correction | AudioClass::Notice => QueueAdvance::CorrectionOnly,
+            AudioClass::Ordinary | AudioClass::Voice => QueueAdvance::All,
+        };
+        self.advance(at_ms, queue)
     }
 
-    fn advance_to(&mut self, at_ms: u64, allow_ordinary_start: bool) {
+    fn advance_for_fence(&mut self, at_ms: u64, fencing: bool) -> u64 {
+        // Finish elapsed playback, then let the caller decide the queue with
+        // its fence outcome.
+        let queue = if fencing {
+            QueueAdvance::Fence
+        } else {
+            QueueAdvance::All
+        };
+        self.advance(at_ms, queue)
+    }
+
+    fn advance_to(&mut self, at_ms: u64, queue: QueueAdvance) {
         let channel_was_idle = self.active.is_none();
         loop {
             let audio_end = self
@@ -943,12 +960,15 @@ impl<S: Sink> AudioOwner<S> {
                 .as_ref()
                 .and_then(|tail| tail.ends_at_ms)
                 .filter(|ends_at_ms| *ends_at_ms <= at_ms);
-            let correction_expiry = self
-                .correction_expiry_at()
-                .filter(|expires_at_ms| *expires_at_ms <= at_ms);
-            let ordinary_expiry = self
-                .ordinary_expiry_at()
-                .filter(|expires_at_ms| *expires_at_ms <= at_ms);
+            let (correction_expiry, ordinary_expiry) = if queue == QueueAdvance::Fence {
+                (None, None)
+            } else {
+                (
+                    self.correction_expiry_at()
+                        .filter(|expiry| *expiry <= at_ms),
+                    self.ordinary_expiry_at().filter(|expiry| *expiry <= at_ms),
+                )
+            };
             let next_event = [audio_end, tail_end, correction_expiry, ordinary_expiry]
                 .into_iter()
                 .flatten()
@@ -987,14 +1007,14 @@ impl<S: Sink> AudioOwner<S> {
             if !channel_was_idle && audio_end == Some(event_at_ms) && self.active.is_none() {
                 // C2 takes the freed slot first. A waiting C4 stays queued until
                 // C2 ends or the C4 TTL expires.
-                self.start_queued(event_at_ms, allow_ordinary_start);
+                self.start_queued(event_at_ms, at_ms, queue);
             }
         }
 
         // If a prior submit failed while the channel was idle, reconsider the
         // highest-priority surviving queue on this call.
         if channel_was_idle && self.active.is_none() {
-            self.start_queued(at_ms, allow_ordinary_start);
+            self.start_queued(at_ms, at_ms, queue);
         }
     }
 
@@ -1111,18 +1131,27 @@ impl<S: Sink> AudioOwner<S> {
         }
     }
 
-    fn start_queued(&mut self, at_ms: u64, allow_ordinary_start: bool) {
-        let request = self
-            .queued_correction
-            .take()
-            .map(|queued| queued.request)
-            .or_else(|| {
-                if allow_ordinary_start {
-                    self.queued_ordinary.take().map(|queued| queued.request)
-                } else {
-                    None
-                }
-            });
+    fn start_queued(&mut self, at_ms: u64, call_at_ms: u64, queue: QueueAdvance) {
+        if matches!(queue, QueueAdvance::ExpireOnly | QueueAdvance::Fence) {
+            return;
+        }
+        // The audio end may be historical. Eligibility is checked at the time
+        // of the call because the sink submit happens now.
+        let request = if self.queued_correction.is_some()
+            && self
+                .correction_expiry_at()
+                .is_none_or(|expiry| call_at_ms < expiry)
+        {
+            self.queued_correction.take().map(|queued| queued.request)
+        } else if queue == QueueAdvance::All
+            && self
+                .ordinary_expiry_at()
+                .is_none_or(|expiry| call_at_ms < expiry)
+        {
+            self.queued_ordinary.take().map(|queued| queued.request)
+        } else {
+            None
+        };
         let Some(request) = request else {
             return;
         };

@@ -1673,8 +1673,8 @@
     },
     {
       "path": "crates/kohbor-audio/src/owner.rs",
-      "bytes": 42642,
-      "sha256": "d7bb262907f5b27abc28b69f35545190262473802fb7d3f6ee2ee101ed8314de"
+      "bytes": 43717,
+      "sha256": "cfa4bbe4ab65e0d6d1e712b007e889b4eea20026193ddd4da390e99a9b36cf44"
     },
     {
       "path": "crates/kohbor-audio/src/pcm.rs",
@@ -1703,8 +1703,8 @@
     },
     {
       "path": "crates/kohbor-audio/tests/owner_matrix.rs",
-      "bytes": 17318,
-      "sha256": "56427dc7f5e1473ad25c2472282538087bdc1822985852d8841ae5ca0feec229"
+      "bytes": 21116,
+      "sha256": "de201d41963bd3bfb0063f8a2962a2242216847e225d8b60590f17eb8ea52814"
     },
     {
       "path": "crates/kohbor-audio/tests/owner_state.rs",
@@ -1723,8 +1723,8 @@
     },
     {
       "path": "crates/kohbor-audio/tests/review_fixes.rs",
-      "bytes": 11413,
-      "sha256": "0959dcd7ac58ba1075fcf722f5bf5a40ddb570f4a5eb5dc1d4d4721eb00598c7"
+      "bytes": 11396,
+      "sha256": "1440fcf3d307012aa30145f77a51b35172b847405bd3d55c8642a1a87d1f6290"
     },
     {
       "path": "crates/kohbor-audio/tests/sink_contract.rs",
@@ -2383,8 +2383,8 @@
     },
     {
       "path": "docs/design/EVENT-AUDIO-SPEC.md",
-      "bytes": 28056,
-      "sha256": "e66b99c8e4c7a057379374d49c475d90529fb84da4a706202af7a844f1b03977"
+      "bytes": 28248,
+      "sha256": "6540fe4c46ada9947aed029ee7f6f1d472e0267cd6d2dd847cc96353b74f7523"
     },
     {
       "path": "docs/design/GSI-INTAKE-SPEC.md",

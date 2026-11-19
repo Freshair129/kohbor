@@ -564,3 +564,110 @@ fn incoming_c3_does_not_start_waiting_c4_before_admission() {
             if decision.instance_id == "ordinary" && decision.outcome == Outcome::Admitted
     )));
 }
+
+#[test]
+fn delayed_tick_does_not_submit_expired_queued_audio() {
+    for class in [Correction, Ordinary] {
+        for tick_at_ms in [3_002, 4_000] {
+            let mut o = owner();
+            o.request(0, request(Critical)).unwrap();
+            let mut queued = request(class);
+            queued.instance_id = "queued".into();
+            assert!(o.request(1, queued).is_none());
+
+            o.tick(tick_at_ms);
+
+            assert_eq!(
+                o.sink().calls.borrow().as_slice(),
+                &[Call::Submit(PlaybackId(1))],
+                "{class:?} must not reach the sink at {tick_at_ms}"
+            );
+            assert!(o.drain_notices().iter().any(|notice| matches!(
+                notice,
+                EventNotice::Decided(d)
+                    if d.instance_id == "queued"
+                        && d.outcome == Outcome::CriticalActive
+                        && d.detail == Some(kohbor_audio::Detail::QueueExpired)
+                        && d.playback_id.is_none()
+            )));
+        }
+    }
+}
+
+#[test]
+fn incoming_c1_does_not_submit_queued_c2_before_admission() {
+    let mut o = owner();
+    o.request(0, request(Critical)).unwrap();
+    let mut correction = request(Correction);
+    correction.instance_id = "correction".into();
+    assert!(o.request(1, correction).is_none());
+
+    let critical = o.request(100, request(Critical)).unwrap();
+    assert_eq!(critical.outcome, Outcome::Admitted);
+    assert_eq!(critical.playback_id, Some(PlaybackId(2)));
+    assert_eq!(
+        o.sink().calls.borrow().as_slice(),
+        &[Call::Submit(PlaybackId(1)), Call::Submit(PlaybackId(2))]
+    );
+    assert!(!o.drain_notices().iter().any(|notice| matches!(
+        notice,
+        EventNotice::Decided(d) if d.instance_id == "correction"
+    )));
+
+    o.tick(200);
+    assert!(o.drain_notices().iter().any(|notice| matches!(
+        notice,
+        EventNotice::Decided(d)
+            if d.instance_id == "correction"
+                && d.outcome == Outcome::Admitted
+                && d.playback_id == Some(PlaybackId(3))
+    )));
+}
+
+#[test]
+fn fences_at_audio_end_decide_queued_audio_without_submitting_it() {
+    type Fence = fn(&mut kohbor_audio::AudioOwner<FakeSink>, u64);
+    let fences: [(Fence, Outcome, Option<kohbor_audio::Detail>); 5] = [
+        (|o, at| o.set_muted(at, true), Outcome::Muted, None),
+        (|o, at| o.set_session(at, 2), Outcome::StaleSession, None),
+        (
+            |o, at| o.set_revision(at, 2),
+            Outcome::SupersededRevision,
+            None,
+        ),
+        (
+            |o, at| o.set_device_available(at, false),
+            Outcome::ChannelBusy,
+            Some(kohbor_audio::Detail::DeviceUnavailable),
+        ),
+        (|o, at| o.stop(at), Outcome::ChannelBusy, None),
+    ];
+    for (fence, outcome, detail) in fences {
+        let mut o = owner();
+        o.request(0, request(Critical)).unwrap();
+        let mut correction = request(Correction);
+        correction.instance_id = "correction".into();
+        assert!(o.request(1, correction).is_none());
+        assert!(o.request(1, ranked_ordinary("ordinary", 90)).is_none());
+
+        fence(&mut o, 100);
+        o.tick(200);
+
+        assert_eq!(
+            o.sink().calls.borrow().as_slice(),
+            &[Call::Submit(PlaybackId(1))],
+            "{outcome:?} must not submit queued audio"
+        );
+        let notices = o.drain_notices();
+        for id in ["correction", "ordinary"] {
+            assert!(notices.iter().any(|notice| matches!(
+                notice,
+                EventNotice::Decided(d)
+                    if d.instance_id == id
+                        && d.outcome == outcome
+                        && d.detail == detail
+                        && d.playback_id.is_none()
+            )));
+        }
+    }
+}
