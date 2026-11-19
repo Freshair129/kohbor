@@ -303,6 +303,26 @@ pub(crate) fn media_list(state: tauri::State<'_, AppState>) -> Result<Value, Str
 }
 
 #[tauri::command(async)]
+pub(crate) fn media_cabinet(state: tauri::State<'_, AppState>) -> Result<Value, String> {
+    state.host.commands.media_cabinet()
+}
+
+#[tauri::command(async)]
+pub(crate) fn media_audition(
+    state: tauri::State<'_, AppState>,
+    event_id: String,
+    tier: Option<u8>,
+) -> Result<(), String> {
+    let session_epoch = crate::intake::lock(&state.runtime.shared)
+        .epoch
+        .unwrap_or(1);
+    state
+        .host
+        .commands
+        .media_audition(&event_id, tier, session_epoch)
+}
+
+#[tauri::command(async)]
 pub(crate) fn media_probe_report(
     state: tauri::State<'_, AppState>,
     install_id: String,

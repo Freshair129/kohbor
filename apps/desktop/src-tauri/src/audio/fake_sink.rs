@@ -25,6 +25,7 @@ pub struct Script {
     pub fail_next: bool,
     pub panic_next: bool,
     pub panic_next_poll: bool,
+    pub on_next_poll: Option<Box<dyn FnOnce() + Send>>,
 }
 pub type Log = Arc<Mutex<Script>>;
 pub struct FakeSink(pub Log);
@@ -55,8 +56,12 @@ impl Sink for FakeSink {
         let mut script = self.0.lock().unwrap();
         let should_panic = std::mem::take(&mut script.panic_next_poll);
         let event = script.events.pop_front();
+        let on_poll = script.on_next_poll.take();
         drop(script);
         assert!(!should_panic, "scripted poll panic");
+        if let Some(on_poll) = on_poll {
+            on_poll();
+        }
         event
     }
 }

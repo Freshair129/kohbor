@@ -66,6 +66,35 @@ pub fn key_space(catalog: &Catalog) -> Vec<(EventId, Option<u8>)> {
     keys
 }
 
+/// Return one cabinet key for each voiced detector event and catalog tier.
+/// Tiered events have only their declared tier tiles; the tier-less binding,
+/// when present, remains an admission fallback and is reflected in each tile.
+pub fn cabinet_key_space(catalog: &Catalog) -> Vec<(EventId, Option<u8>)> {
+    let mut keys = Vec::new();
+    for id in crate::media::inventory::ALL_EVENTS
+        .iter()
+        .copied()
+        .filter(|id| id.voiced())
+    {
+        let Some(event) = catalog.event(id.as_str()) else {
+            continue;
+        };
+        if let Some((minimum, maximum)) = event.tier_range {
+            if minimum == 0 || maximum < minimum || maximum > 100 {
+                continue;
+            }
+            for tier in minimum..=maximum {
+                if let Ok(tier) = u8::try_from(tier) {
+                    keys.push((id, Some(tier)));
+                }
+            }
+        } else {
+            keys.push((id, None));
+        }
+    }
+    keys
+}
+
 /// Resolve, verify, read and decode all playable keys without touching the engine.
 ///
 /// The table retains at most 40 million decoded i16 samples (80 MB, about 76.3
@@ -442,7 +471,7 @@ mod tests {
     use serde_json::Value;
 
     use super::test_support::{activate, catalog, install, package, BindingSpec, TempDir};
-    use super::{build_table, key_space, new_visual_index_handle};
+    use super::{build_table, cabinet_key_space, key_space, new_visual_index_handle};
     use crate::audio::lanes::EngineShared;
     use crate::audio::resolve::Lookup;
     use crate::media::inventory::{facts_from_table, media_status, ALL_EVENTS};
@@ -588,6 +617,45 @@ mod tests {
             unique.len(),
             keys.len(),
             "derived event and tier pairs are unique"
+        );
+    }
+
+    #[test]
+    fn cabinet_key_space_has_only_catalog_tiers_for_each_voiced_tile() {
+        let keys = cabinet_key_space(&catalog());
+        let unique: HashSet<_> = keys.iter().copied().collect();
+        assert_eq!(
+            keys.len(),
+            21,
+            "four multi-kill, eight streak and nine untiered tiles"
+        );
+        assert_eq!(
+            unique.len(),
+            keys.len(),
+            "catalog event/tier tiles are unique"
+        );
+        assert!(keys.iter().all(|(id, _)| id.voiced()));
+        assert!(!keys.iter().any(|(id, _)| *id == EventId::HeroRespawn));
+        assert_eq!(
+            keys.iter()
+                .filter_map(|(id, tier)| (*id == EventId::MultiKill).then_some(*tier))
+                .collect::<Vec<_>>(),
+            vec![Some(2), Some(3), Some(4), Some(5)]
+        );
+        assert_eq!(
+            keys.iter()
+                .filter_map(|(id, tier)| (*id == EventId::Streak).then_some(*tier))
+                .collect::<Vec<_>>(),
+            vec![
+                Some(3),
+                Some(4),
+                Some(5),
+                Some(6),
+                Some(7),
+                Some(8),
+                Some(9),
+                Some(10)
+            ]
         );
     }
 
