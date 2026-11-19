@@ -5,12 +5,47 @@ use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, SyncSender, TrySendError};
 use std::sync::Arc;
 use std::thread::Thread;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 pub const CRITICAL_LANE: usize = 8;
 pub const ORDINARY_LANE: usize = 64;
 pub const CONTROL_LANE: usize = 32;
 pub const OUT_LANE: usize = 256;
+pub const AUDITION_ADMISSION_TIMEOUT: Duration = Duration::from_secs(1);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AuditionRefusal {
+    MatchActive,
+    EventUnavailable,
+    NoActivePack,
+    Unmapped,
+    MediaStateUnknown,
+    Busy,
+    Muted,
+}
+
+impl AuditionRefusal {
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::MatchActive => "AUDITION_MATCH_ACTIVE",
+            Self::EventUnavailable => "AUDITION_EVENT_UNAVAILABLE",
+            Self::NoActivePack => "AUDITION_NO_ACTIVE_PACK",
+            Self::Unmapped => "AUDITION_UNMAPPED",
+            Self::MediaStateUnknown => "AUDITION_MEDIA_STATE_UNKNOWN",
+            Self::Busy => "AUDITION_BUSY",
+            Self::Muted => "AUDITION_MUTED",
+        }
+    }
+}
+
+pub struct AuditionRequest {
+    pub event: Event,
+    pub install_id: String,
+    pub session_epoch: u64,
+    pub sequence: u64,
+    pub expires_at: Instant,
+    pub reply: SyncSender<Result<(), AuditionRefusal>>,
+}
 
 #[derive(Debug)]
 pub struct TickMsg {
@@ -49,6 +84,7 @@ pub enum Offer {
 pub struct EngineTx {
     critical: SyncSender<TickMsg>,
     ordinary: SyncSender<TickMsg>,
+    audition: SyncSender<AuditionRequest>,
     control: SyncSender<Control>,
     thread: Thread,
     shared: Arc<EngineShared>,
@@ -57,10 +93,12 @@ pub struct EngineTx {
 pub struct EngineRx {
     pub(crate) critical: Receiver<TickMsg>,
     pub(crate) ordinary: Receiver<TickMsg>,
+    pub(crate) audition: Receiver<AuditionRequest>,
     pub(crate) control: Receiver<Control>,
 }
 
 pub struct EngineShared {
+    audition_match_active: AtomicBool,
     pub heartbeat_ms: AtomicU64,
     pub muted: AtomicBool,
     pub device_available: AtomicBool,
@@ -76,6 +114,7 @@ pub struct EngineShared {
 impl EngineShared {
     pub fn new() -> Self {
         Self {
+            audition_match_active: AtomicBool::new(false),
             heartbeat_ms: AtomicU64::new(0),
             muted: AtomicBool::new(false),
             device_available: AtomicBool::new(false),
@@ -88,10 +127,23 @@ impl EngineShared {
             degraded: AtomicBool::new(false),
         }
     }
+
+    pub fn audition_match_active(&self) -> bool {
+        self.audition_match_active.load(Ordering::Acquire)
+    }
 }
 
 pub enum EngineOut {
     Playback(serde_json::Value),
+    ClipQueued {
+        event_id: String,
+        tier: Option<u8>,
+    },
+    ClipDropped {
+        event_id: String,
+        tier: Option<u8>,
+        outcome: kohbor_audio::Outcome,
+    },
     ClipFinished {
         event_id: String,
         reason: String,
@@ -100,6 +152,7 @@ pub enum EngineOut {
         render_thread_priority: Option<i32>,
     },
     Outcome(serde_json::Value),
+    AuditionMatchChanged(bool),
     DeviceLost,
     /// The engine has no usable sink (startup, device loss, rebuild after a panic):
     /// the audio-device supervisor should open one and answer `Control::SinkReady`.
@@ -158,17 +211,43 @@ impl EngineTx {
             }
         }
     }
+
+    pub fn offer_audition(&self, request: AuditionRequest) -> Result<(), AuditionRefusal> {
+        self.audition
+            .try_send(request)
+            .map_err(|_| AuditionRefusal::Busy)?;
+        self.thread.unpark();
+        Ok(())
+    }
+
+    pub fn set_audition_match_active(&self, active: bool) {
+        if self
+            .shared
+            .audition_match_active
+            .swap(active, Ordering::AcqRel)
+            != active
+        {
+            self.thread.unpark();
+        }
+    }
+
+    pub fn audition_match_active(&self) -> bool {
+        self.shared.audition_match_active()
+    }
 }
 
 pub fn lanes(thread: Thread, shared: Arc<EngineShared>) -> (EngineTx, EngineRx) {
     let (critical_tx, critical_rx) = mpsc::sync_channel(CRITICAL_LANE);
     let (ordinary_tx, ordinary_rx) = mpsc::sync_channel(ORDINARY_LANE);
+    // A preview can neither occupy a real-event slot nor queue behind another preview.
+    let (audition_tx, audition_rx) = mpsc::sync_channel(1);
     let (control_tx, control_rx) = mpsc::sync_channel(CONTROL_LANE);
 
     (
         EngineTx {
             critical: critical_tx,
             ordinary: ordinary_tx,
+            audition: audition_tx,
             control: control_tx,
             thread,
             shared,
@@ -176,6 +255,7 @@ pub fn lanes(thread: Thread, shared: Arc<EngineShared>) -> (EngineTx, EngineRx) 
         EngineRx {
             critical: critical_rx,
             ordinary: ordinary_rx,
+            audition: audition_rx,
             control: control_rx,
         },
     )

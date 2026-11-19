@@ -1,12 +1,12 @@
 use super::fake_sink::{table, tick, Call, FakeSink, Harness};
-use super::lanes::{Control, EngineOut, Offer};
+use super::lanes::{AuditionRefusal, AuditionRequest, Control, EngineOut, Offer};
 use super::resolve::{Entry, PrewarmTable};
 use super::slot_sink::SlotSink;
 use kohbor_audio::{PlaybackId, Sink, SinkEvent};
-use kohbor_events::EventId;
+use kohbor_events::{Event, EventId};
 use serde_json::Value;
 use std::sync::{atomic::Ordering, mpsc, Arc};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 const SAFE: u64 = 9_007_199_254_740_991;
 fn valid_id(s: &str, max: usize) -> bool {
@@ -222,6 +222,235 @@ fn has_end(out: &[EngineOut], reason: &str) -> bool {
         .any(|v| v["kind"] == "ended" && v["reason"] == reason)
 }
 
+fn offer_audition(h: &Harness, id: EventId) -> mpsc::Receiver<Result<(), AuditionRefusal>> {
+    let (reply, result) = mpsc::sync_channel(1);
+    h.tx.offer_audition(AuditionRequest {
+        event: Event {
+            id,
+            tier: None,
+            at_ms: 0,
+        },
+        install_id: "ins_0000000007".to_owned(),
+        session_epoch: 1,
+        sequence: 1,
+        expires_at: Instant::now() + Duration::from_secs(30),
+        reply,
+    })
+    .unwrap();
+    result
+}
+
+#[test]
+fn engine_refuses_a_queued_audition_when_a_match_begins_before_admission() {
+    let (mut h, log) = setup();
+    let queued = offer_audition(&h, EventId::HeroKill);
+    h.tx.set_audition_match_active(true);
+
+    h.engine.step(10);
+    assert_eq!(
+        queued.try_recv().unwrap(),
+        Err(AuditionRefusal::MatchActive)
+    );
+    assert!(log.lock().unwrap().calls.is_empty());
+    let outputs = h.drain();
+    assert!(outputs
+        .iter()
+        .any(|output| matches!(output, EngineOut::AuditionMatchChanged(true))));
+    assert!(playbacks(&outputs).is_empty());
+}
+
+#[test]
+fn engine_ends_a_playing_audition_when_the_game_phase_changes() {
+    let (mut h, log) = setup();
+    let audition = offer_audition(&h, EventId::HeroKill);
+    h.engine.step(10);
+    assert_eq!(audition.try_recv().unwrap(), Ok(()));
+    h.drain();
+
+    h.tx.set_audition_match_active(true);
+    h.engine.step(11);
+    assert_eq!(
+        log.lock().unwrap().calls,
+        vec![
+            Call::Submit(PlaybackId(1), 4800),
+            Call::Cancel(PlaybackId(1)),
+        ]
+    );
+    assert!(has_end(&h.drain(), "cancelled_session"));
+
+    h.tx.set_audition_match_active(false);
+    h.engine.step(12);
+    assert!(h
+        .drain()
+        .iter()
+        .any(|output| matches!(output, EngineOut::AuditionMatchChanged(false))));
+}
+
+#[test]
+fn audition_yields_to_a_real_request_already_in_the_queue() {
+    let (mut h, log) = setup();
+    let queued = offer_audition(&h, EventId::HealthDanger);
+    offer(&h, 1, &[(EventId::HeroKill, None)]);
+
+    h.engine.step(10);
+    assert_eq!(queued.try_recv().unwrap(), Err(AuditionRefusal::Busy));
+    assert_eq!(
+        log.lock().unwrap().calls,
+        vec![Call::Submit(PlaybackId(1), 4800)]
+    );
+    assert!(
+        outcomes(&h.drain())
+            .iter()
+            .any(|decision| decision["event_type"] == "hero_kill"
+                && decision["outcome"] == "admitted")
+    );
+}
+
+#[test]
+fn audition_yields_to_events_arriving_after_the_lane_drains() {
+    for (id, frames) in [(EventId::HealthDanger, 4801), (EventId::HeroKill, 4800)] {
+        let (mut h, log) = setup();
+        let audition = offer_audition(&h, EventId::HeroKill);
+        let tx = h.tx.clone();
+        let message = tick(h.origin, 1, 3, 1, &[(id, None)]);
+        // The engine polls the sink after draining both real-event lanes.
+        log.lock().unwrap().on_next_poll = Some(Box::new(move || {
+            assert_eq!(tx.offer_tick(message), Offer::Sent);
+        }));
+
+        h.engine.step(10);
+
+        assert_eq!(
+            audition.try_recv().unwrap(),
+            Err(AuditionRefusal::Busy),
+            "{id:?}"
+        );
+        assert_eq!(
+            log.lock().unwrap().calls,
+            vec![Call::Submit(PlaybackId(1), frames)]
+        );
+        let outputs = h.drain();
+        let started = playbacks(&outputs);
+        assert_eq!(started.len(), 1);
+        assert_eq!(started[0]["kind"], "started");
+        assert_eq!(started[0]["event_type"], id.as_str());
+    }
+}
+
+#[test]
+fn ordinary_game_event_interrupts_a_playing_audition() {
+    let (mut h, log) = setup();
+    let audition = offer_audition(&h, EventId::HealthDanger);
+    h.engine.step(10);
+    assert_eq!(audition.try_recv().unwrap(), Ok(()));
+    h.drain();
+
+    offer(&h, 1, &[(EventId::HeroKill, None)]);
+    h.engine.step(11);
+    assert_eq!(
+        log.lock().unwrap().calls,
+        vec![
+            Call::Submit(PlaybackId(1), 4801),
+            Call::Cancel(PlaybackId(1)),
+            Call::Submit(PlaybackId(2), 4800),
+        ]
+    );
+    assert!(has_end(&h.drain(), "cancelled_preempted"));
+}
+
+#[test]
+fn audition_cannot_interrupt_real_audio_or_its_visual_tail() {
+    let (mut h, log) = setup();
+    assert!(h
+        .tx
+        .control(Control::SwapTable {
+            table: table(
+                7,
+                &[
+                    (EventId::HeroKill, None, 4800, 70, None),
+                    (EventId::HealthDanger, None, 4801, 0, None),
+                ]
+            ),
+        })
+        .is_ok());
+    h.engine.step(0);
+    offer(&h, 1, &[(EventId::HeroKill, None)]);
+    h.engine.step(10);
+    h.drain();
+
+    for at_ms in [11, 111] {
+        let audition = offer_audition(&h, EventId::HealthDanger);
+        h.engine.step(at_ms);
+        assert_eq!(audition.try_recv().unwrap(), Err(AuditionRefusal::Busy));
+        assert!(playbacks(&h.drain()).is_empty());
+    }
+    assert_eq!(
+        log.lock().unwrap().calls,
+        vec![Call::Submit(PlaybackId(1), 4800)]
+    );
+}
+
+#[test]
+fn even_an_unmapped_game_event_ends_an_audition_tail_and_drops_the_queued_request() {
+    let (mut h, log) = setup();
+    assert!(h
+        .tx
+        .control(Control::SwapTable {
+            table: table(7, &[(EventId::HeroKill, None, 4800, 100, None)]),
+        })
+        .is_ok());
+    h.engine.step(0);
+    let audition = offer_audition(&h, EventId::HeroKill);
+    h.engine.step(10);
+    assert_eq!(audition.try_recv().unwrap(), Ok(()));
+    h.drain();
+
+    let queued = offer_audition(&h, EventId::HeroKill);
+    offer(&h, 1, &[(EventId::HeroDeath, None)]);
+    h.engine.step(111);
+    assert_eq!(queued.try_recv().unwrap(), Err(AuditionRefusal::Busy));
+    let outputs = h.drain();
+    assert!(has_outcome(&outputs, "unmapped"));
+    assert!(has_end(&outputs, "cancelled_preempted"));
+    assert_eq!(
+        log.lock().unwrap().calls,
+        vec![Call::Submit(PlaybackId(1), 4800)]
+    );
+}
+
+#[test]
+fn first_blood_audition_plays_even_when_first_blood_detection_is_unavailable() {
+    let (mut h, log) = setup();
+    let visual = "kohbor-media://localhost/v1/ins_0000000007/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    assert!(h
+        .tx
+        .control(Control::SwapTable {
+            table: table(7, &[(EventId::FirstBlood, None, 4800, 0, Some(visual))]),
+        })
+        .is_ok());
+    h.engine.step(0);
+    h.drain();
+
+    offer(&h, 1, &[(EventId::FirstBlood, None)]);
+    h.engine.step(10);
+    assert!(has_outcome(&h.drain(), "detector_unavailable"));
+    assert!(log.lock().unwrap().calls.is_empty());
+
+    let audition = offer_audition(&h, EventId::FirstBlood);
+    h.engine.step(11);
+    assert_eq!(audition.try_recv().unwrap(), Ok(()));
+    let outputs = h.drain();
+    assert_eq!(
+        log.lock().unwrap().calls,
+        vec![Call::Submit(PlaybackId(1), 4800)]
+    );
+    assert!(playbacks(&outputs)
+        .iter()
+        .any(|item| item["kind"] == "started"
+            && item["event_type"] == "audition"
+            && item["visual_url"] == visual));
+}
+
 #[test]
 fn critical_whole_path() {
     let (mut h, log) = setup();
@@ -261,6 +490,40 @@ fn ordinary_hero_kill_plays() {
     );
     assert_eq!(playbacks(&h.drain())[0]["class"], "ordinary");
 }
+
+#[test]
+fn audition_uses_engine_admission_and_keeps_the_verified_visual_banner() {
+    let (sink, log) = FakeSink::new();
+    let mut h = Harness::new(Some(Box::new(sink)), false, 256);
+    let visual = "kohbor-media://localhost/v1/ins_0000000007/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    assert!(h
+        .tx
+        .control(Control::SwapTable {
+            table: table(7, &[(EventId::HeroKill, None, 4800, 0, Some(visual))]),
+        })
+        .is_ok());
+    h.engine.step(0);
+    h.drain();
+    let audition = offer_audition(&h, EventId::HeroKill);
+
+    h.engine.step(10);
+    assert_eq!(audition.try_recv().unwrap(), Ok(()));
+    let outputs = h.drain();
+
+    let outcome = outcomes(&outputs)
+        .into_iter()
+        .find(|item| item["outcome"] == "admitted")
+        .expect("audition admitted through the audio owner");
+    assert_eq!(outcome["event_type"], "audition");
+    let playback = playbacks(&outputs)
+        .into_iter()
+        .find(|item| item["kind"] == "started")
+        .expect("playback lifecycle start");
+    assert_eq!(playback["event_type"], "audition");
+    assert_eq!(playback["visual_url"], visual);
+    assert_eq!(log.lock().unwrap().calls.len(), 1, "clip submitted once");
+}
+
 #[test]
 fn initial_missing_sink_requests_once() {
     let mut h = Harness::new(None, false, 256);
@@ -319,15 +582,79 @@ fn critical_blocks_same_tick_ordinary() {
     );
     h.engine.step(10);
     let o = h.drain();
-    assert!(
-        has_outcome(&o, "critical_active"),
-        "ordinary sees critical active"
-    );
+    assert!(o.iter().any(|output| matches!(
+        output,
+        EngineOut::ClipQueued { event_id, tier }
+            if event_id == "hero_kill" && tier.is_none()
+    )));
+    assert!(!has_outcome(&o, "critical_active"));
     assert_eq!(
         log.lock().unwrap().calls.len(),
         1,
         "only critical submitted"
     );
+}
+
+#[test]
+fn ordinary_offered_during_critical_is_started_after_critical_finishes() {
+    let (sink, log) = FakeSink::new();
+    let mut h = Harness::new(Some(Box::new(sink)), false, 256);
+    let visual = "kohbor-media://localhost/v1/ins_0000000007/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    assert!(h
+        .tx
+        .control(Control::SwapTable {
+            table: table(
+                7,
+                &[
+                    (EventId::HealthDanger, None, 4801, 0, None),
+                    (EventId::MultiKill, Some(2), 4800, 0, Some(visual)),
+                ],
+            ),
+        })
+        .is_ok());
+    h.engine.step(0);
+    h.drain();
+    offer(&h, 1, &[(EventId::HealthDanger, None)]);
+    h.engine.step(10);
+    let critical = h.drain();
+    assert!(critical.iter().any(|output| matches!(
+        output,
+        EngineOut::Outcome(record)
+            if record["event_type"] == "health_danger" && record["outcome"] == "admitted"
+    )));
+
+    offer(&h, 2, &[(EventId::MultiKill, Some(2))]);
+    h.engine.step(20);
+    let queued = h.drain();
+    assert!(queued.iter().any(|output| matches!(
+        output,
+        EngineOut::ClipQueued { event_id, tier }
+            if event_id == "multi_kill" && *tier == Some(2)
+    )));
+    assert!(!outcomes(&queued)
+        .iter()
+        .any(|record| record["event_type"] == "multi_kill"));
+    assert_eq!(log.lock().unwrap().calls.len(), 1);
+
+    log.lock()
+        .unwrap()
+        .events
+        .push_back(SinkEvent::Finished { id: PlaybackId(1) });
+    h.engine.step(30);
+    let resumed = h.drain();
+    assert!(resumed.iter().any(|output| matches!(
+        output,
+        EngineOut::Outcome(record)
+            if record["event_type"] == "multi_kill" && record["outcome"] == "admitted"
+    )));
+    assert!(playbacks(&resumed).iter().any(|playback| {
+        playback["kind"] == "started"
+            && playback["event_type"] == "multi_kill"
+            && playback["tier"] == 2
+            && playback["visual_url"] == visual
+            && playback["playback_id"] == "pb_0000000002"
+    }));
+    assert_eq!(log.lock().unwrap().calls.len(), 2);
 }
 #[test]
 fn unmapped_critical_does_not_block_ordinary() {
@@ -1792,9 +2119,13 @@ fn critical_lane_precedes_ordinary_lane() {
         "critical submitted before earlier ordinary"
     );
     assert!(
-        has_outcome(&o, "critical_active"),
-        "ordinary sees active critical"
+        o.iter().any(|output| matches!(
+            output,
+            EngineOut::ClipQueued { event_id, .. } if event_id == "hero_kill"
+        )),
+        "ordinary waits in the C4 slot while critical plays"
     );
+    assert!(!has_outcome(&o, "critical_active"));
 }
 #[test]
 fn slot_empty_changed_flag_is_false() {

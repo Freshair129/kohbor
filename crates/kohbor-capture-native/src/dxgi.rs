@@ -1,6 +1,12 @@
 // Provenance: ported from owner-authored G-Maiden 0.13.6 src-tauri/src/dxgi.rs, owner consent recorded in claim vision-risk__mvp1-capture-native.
 
-use std::{collections::HashSet, marker::PhantomData, rc::Rc, sync::Mutex, time::Instant};
+use std::{
+    collections::HashSet,
+    marker::PhantomData,
+    rc::Rc,
+    sync::Mutex,
+    time::{Duration, Instant},
+};
 
 use kohbor_capture::Rect;
 use windows::{
@@ -64,8 +70,45 @@ fn set_identified_game_window(window: Option<(isize, u32)>) {
         .unwrap_or_else(std::sync::PoisonError::into_inner) = window;
 }
 
+/// How long a validated cached game window may be reused before the full
+/// process and window scan runs again. The scan cost grows with the number of
+/// processes on the machine, so it must not run on every capture cycle.
+const GAME_WINDOW_FULL_RESCAN_INTERVAL: Duration = Duration::from_secs(5);
+
+static LAST_FULL_GAME_WINDOW_SCAN: Mutex<Option<Instant>> = Mutex::new(None);
+
+fn last_full_game_window_scan() -> Option<Instant> {
+    *LAST_FULL_GAME_WINDOW_SCAN
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+fn set_last_full_game_window_scan(at: Option<Instant>) {
+    *LAST_FULL_GAME_WINDOW_SCAN
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = at;
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum GameWindowLookup {
+    UseCached,
+    FullScan,
+}
+
+/// The cached window is used only while it still validates and the last
+/// successful full scan is recent. Everything else runs the full scan.
+fn game_window_lookup(cached_valid: bool, since_full_scan: Option<Duration>) -> GameWindowLookup {
+    match since_full_scan {
+        Some(age) if cached_valid && age < GAME_WINDOW_FULL_RESCAN_INTERVAL => {
+            GameWindowLookup::UseCached
+        }
+        _ => GameWindowLookup::FullScan,
+    }
+}
+
 pub(crate) fn find_game_window() -> Result<GameWindow, crate::OpenError> {
     set_identified_game_window(None);
+    set_last_full_game_window_scan(None);
     let process_ids = dota_process_ids()?;
     if process_ids.is_empty() {
         return Err(crate::OpenError::NoGameWindow);
@@ -98,6 +141,7 @@ pub(crate) fn find_game_window() -> Result<GameWindow, crate::OpenError> {
     }
 
     set_identified_game_window(Some((hwnd.0 as isize, process_id)));
+    set_last_full_game_window_scan(Some(Instant::now()));
     Ok(GameWindow {
         hwnd,
         monitor,
@@ -105,8 +149,61 @@ pub(crate) fn find_game_window() -> Result<GameWindow, crate::OpenError> {
     })
 }
 
+/// Called on every capture cycle. Reuses the window identified by the last
+/// full scan while it is still the same visible window of the same process,
+/// and reads its current rectangle. The full scan (process snapshot plus
+/// window enumeration) runs when that check fails and at a slow interval.
 pub(crate) fn game_window() -> Option<Rect> {
-    find_game_window().ok().map(|window| window.rect)
+    let since_full_scan = last_full_game_window_scan().map(|at| at.elapsed());
+    let cached = since_full_scan.and_then(|_| cached_game_window_rect());
+    match game_window_lookup(cached.is_some(), since_full_scan) {
+        GameWindowLookup::UseCached => cached,
+        GameWindowLookup::FullScan => find_game_window().ok().map(|window| window.rect),
+    }
+}
+
+/// Current rectangle of the cached game window, if the handle still belongs to
+/// the process identified by the last full scan and is visible and not minimized.
+fn cached_game_window_rect() -> Option<Rect> {
+    let (handle, expected_owner) = identified_game_window()?;
+    let hwnd = HWND(handle as *mut core::ffi::c_void);
+    let mut owner = 0;
+    // SAFETY: the API validates the cached handle; owner is a local out-param.
+    let thread = unsafe { GetWindowThreadProcessId(hwnd, Some(&mut owner)) };
+    if thread == 0 || owner != expected_owner {
+        return None;
+    }
+    visible_window_rect(hwnd)
+}
+
+/// Rectangle of a visible, non-minimized window with a non-empty area.
+fn visible_window_rect(hwnd: HWND) -> Option<Rect> {
+    // Ignore hidden/minimized windows; they cannot identify the visible Dota output.
+    // SAFETY: both calls validate the handle and take no pointers.
+    if !unsafe { IsWindowVisible(hwnd).as_bool() } || unsafe { IsIconic(hwnd).as_bool() } {
+        return None;
+    }
+
+    let mut window_rect = RECT::default();
+    // SAFETY: the API validates the handle and window_rect is caller-owned storage.
+    if unsafe { GetWindowRect(hwnd, &mut window_rect) }.is_err() {
+        return None;
+    }
+
+    let width = i64::from(window_rect.right) - i64::from(window_rect.left);
+    let height = i64::from(window_rect.bottom) - i64::from(window_rect.top);
+    let (Ok(width), Ok(height)) = (u32::try_from(width), u32::try_from(height)) else {
+        return None;
+    };
+    if width == 0 || height == 0 {
+        return None;
+    }
+    Some(Rect {
+        x: window_rect.left,
+        y: window_rect.top,
+        width,
+        height,
+    })
 }
 
 struct WindowScan {
@@ -127,40 +224,15 @@ unsafe extern "system" fn enum_windows_proc(hwnd: HWND, lparam: LPARAM) -> BOOL 
     if !scan.process_ids.contains(&process_id) {
         return BOOL(1);
     }
-    // Ignore hidden/minimized windows; they cannot identify the visible Dota output.
-    if !unsafe { IsWindowVisible(hwnd).as_bool() } || unsafe { IsIconic(hwnd).as_bool() } {
-        return BOOL(1);
-    }
-
-    let mut window_rect = RECT::default();
-    // SAFETY: hwnd came from EnumWindows and window_rect is caller-owned storage.
-    if unsafe { GetWindowRect(hwnd, &mut window_rect) }.is_err() {
-        return BOOL(1);
-    }
-
-    let width = i64::from(window_rect.right) - i64::from(window_rect.left);
-    let height = i64::from(window_rect.bottom) - i64::from(window_rect.top);
-    let (Ok(width), Ok(height)) = (u32::try_from(width), u32::try_from(height)) else {
+    let Some(rect) = visible_window_rect(hwnd) else {
         return BOOL(1);
     };
-    if width == 0 || height == 0 {
-        return BOOL(1);
-    }
-    let Some(area) = u64::from(width).checked_mul(u64::from(height)) else {
+    let Some(area) = u64::from(rect.width).checked_mul(u64::from(rect.height)) else {
         return BOOL(1);
     };
     if area > scan.best_area {
         scan.best_area = area;
-        scan.best = Some((
-            hwnd,
-            Rect {
-                x: window_rect.left,
-                y: window_rect.top,
-                width,
-                height,
-            },
-            process_id,
-        ));
+        scan.best = Some((hwnd, rect, process_id));
     }
 
     BOOL(1)
@@ -676,4 +748,55 @@ fn display_fingerprint(device_name: &[u16; 32]) -> Option<u64> {
                 (hash ^ u64::from(*character)).wrapping_mul(1_099_511_628_211)
             }),
     )
+}
+
+#[cfg(test)]
+mod game_window_cache_tests {
+    use super::*;
+
+    #[test]
+    fn cached_window_is_used_only_while_valid_and_recently_scanned() {
+        let recent = Some(Duration::from_millis(33));
+        assert_eq!(
+            game_window_lookup(true, recent),
+            GameWindowLookup::UseCached
+        );
+        // An invalid cached window always falls back to the full scan.
+        assert_eq!(
+            game_window_lookup(false, recent),
+            GameWindowLookup::FullScan
+        );
+        // No successful full scan yet: nothing to reuse.
+        assert_eq!(game_window_lookup(true, None), GameWindowLookup::FullScan);
+        assert_eq!(game_window_lookup(false, None), GameWindowLookup::FullScan);
+    }
+
+    #[test]
+    fn full_scan_repeats_at_the_rescan_interval() {
+        let just_before = GAME_WINDOW_FULL_RESCAN_INTERVAL - Duration::from_millis(1);
+        assert_eq!(
+            game_window_lookup(true, Some(just_before)),
+            GameWindowLookup::UseCached
+        );
+        assert_eq!(
+            game_window_lookup(true, Some(GAME_WINDOW_FULL_RESCAN_INTERVAL)),
+            GameWindowLookup::FullScan
+        );
+        assert_eq!(
+            game_window_lookup(true, Some(Duration::from_secs(3600))),
+            GameWindowLookup::FullScan
+        );
+    }
+
+    #[test]
+    fn a_handle_that_is_not_a_window_never_validates() {
+        // No window can have this handle value, so the owner lookup fails and
+        // the cached path reports nothing instead of a stale rectangle.
+        let hwnd = HWND(usize::MAX as *mut core::ffi::c_void);
+        let mut owner = 0;
+        // SAFETY: the API validates the handle; owner is a local out-param.
+        let thread = unsafe { GetWindowThreadProcessId(hwnd, Some(&mut owner)) };
+        assert_eq!(thread, 0);
+        assert_eq!(visible_window_rect(hwnd), None);
+    }
 }

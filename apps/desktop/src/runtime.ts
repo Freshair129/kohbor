@@ -98,6 +98,23 @@ export function mediaList(): Promise<unknown> {
   return invoke<unknown>("media_list");
 }
 
+export function mediaCabinet(): Promise<unknown> {
+  if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
+  return invoke<unknown>("media_cabinet");
+}
+
+export function mediaAudition(eventId: string, tier: number | null): Promise<void> {
+  if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
+  return invoke<void>("media_audition", { eventId, tier });
+}
+
+export function subscribeAuditionMatch(onActive: (active: boolean) => void): Promise<() => void> {
+  if (!hostAvailable()) return Promise.resolve(() => {});
+  return listen<unknown>("media://audition-match", ({ payload }) => {
+    if (typeof payload === "boolean") onActive(payload);
+  });
+}
+
 export function mediaInspect(sourcePath: string): Promise<unknown> {
   if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
   return invoke<unknown>("media_inspect", inspectArgs(sourcePath));

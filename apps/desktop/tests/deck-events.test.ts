@@ -54,6 +54,14 @@ test("last clip is the newest admitted playback, ignoring newer blocked or id-le
   assert.equal(deriveLastClip(history([record()]), "failed", 6000, "th"), null);
 });
 
+test("auditions stay in audio history but never appear as match-feed events or last match clips", () => {
+  const audition = { ...record(6000), event_type: "audition" };
+  const realEvent = record(5000);
+  const feed = deriveEventFeed(history([realEvent, audition]), "ok", 7000, "th");
+  assert.deepEqual(feed.rows.map((row) => row.record.event_type), ["health_low"]);
+  assert.equal(deriveLastClip(history([realEvent, audition]), "ok", 7000, "th")?.record.event_type, "health_low");
+});
+
 test("ON AIR follows audio-only, voice and visual lifecycle, never the retained duplicate fence", () => {
   let state = reducePlayback(createPlaybackState(), started());
   assert.equal(deriveOnAir(state, "th")?.eventLabel, "เลือดต่ำ");
