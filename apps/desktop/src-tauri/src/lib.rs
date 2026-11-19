@@ -1,6 +1,8 @@
 //! Kohbor desktop host (M1 slice): containment, game-state intake, runtime status.
 
+// Demo/Lab-only account scaffolding: parts of the recovery/delete flow are not wired to a command yet.
 #[cfg(feature = "demo")]
+#[allow(dead_code)]
 mod account_host;
 pub mod atomic;
 mod audio;
@@ -530,10 +532,29 @@ pub fn run() {
                 .spawn(move || {
                     let mut sampler = Sampler::new();
                     let mut throttle = Throttle::default();
+                    let mut window = containment::ResourceWindow::default();
                     loop {
                         let s = sampler.sample();
                         let t = throttle.update(&s);
                         *intake::lock(&sink) = (s, t);
+                        if let Some(r) = window.push(&s, t) {
+                            // Diagnostic only (owner request 2026-11-19): job-wide CPU against the
+                            // 10% hard cap, to explain capture fps drops. Never used to admit work.
+                            crate::log_info!(
+                                "resources",
+                                "summary",
+                                "resource 30 second summary",
+                                samples = r.samples,
+                                cpu_missing = r.cpu_missing,
+                                cpu_mean = r.cpu_mean,
+                                cpu_max = r.cpu_max,
+                                cpu_cap_percent = f64::from(containment::CPU_RATE_HARD_CAP) / 100.0,
+                                near_cap_samples = r.near_cap_samples,
+                                throttled_samples = r.throttled_samples,
+                                working_set_mb_max = r.working_set_mb_max,
+                                process_count_max = r.process_count_max
+                            );
+                        }
                         std::thread::sleep(std::time::Duration::from_secs(1));
                     }
                 })

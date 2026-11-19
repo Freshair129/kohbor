@@ -681,6 +681,8 @@ impl<H: Hook> Store<H> {
     /// request the result is reported for.
     ///
     /// - `ActivationPolicy::Never` -> `installed` (no change).
+    /// - No revision is active: activate at once under `NowIfIdle` and `AfterMatch`,
+    ///   even while `state.match_active` (nothing to keep usable).
     /// - `NowIfIdle`: activate when `!state.match_active` and the currently active
     ///   revision is not in `state.leased_install_ids`; otherwise `deferred` with
     ///   reason `ACTIVATION_DEFERRED`, the pending activation recorded in the
@@ -741,14 +743,7 @@ impl<H: Hook> Store<H> {
             self.add_pending(request_id, install_id)?;
         }
 
-        let blocked = state.match_active
-            || self.active.as_ref().is_some_and(|active| {
-                state
-                    .leased_install_ids
-                    .iter()
-                    .any(|leased| leased == &active.install_id)
-            });
-        if blocked {
+        if self.activation_blocked(state) {
             self.add_pending(request_id, install_id)?;
             return Ok(activation_result(
                 request_id,
@@ -831,14 +826,7 @@ impl<H: Hook> Store<H> {
         let pending = self.registry.pending_activations.clone();
         let mut results = Vec::new();
         for activation in pending {
-            let blocked = state.match_active
-                || self.active.as_ref().is_some_and(|active| {
-                    state
-                        .leased_install_ids
-                        .iter()
-                        .any(|leased| leased == &active.install_id)
-                });
-            if blocked {
+            if self.activation_blocked(state) {
                 continue;
             }
             let result = self.activate(
@@ -852,6 +840,21 @@ impl<H: Hook> Store<H> {
             }
         }
         Ok(results)
+    }
+
+    /// Whether switching the active revision must wait. A match or a lease only
+    /// protects an existing active revision; with no active revision there is
+    /// nothing to keep usable, so the first activation never waits (owner
+    /// decision 2026-11-19: a pack installed mid-match with none active plays at once).
+    fn activation_blocked(&self, state: &ActivationState) -> bool {
+        let Some(active) = self.active.as_ref() else {
+            return false;
+        };
+        state.match_active
+            || state
+                .leased_install_ids
+                .iter()
+                .any(|leased| leased == &active.install_id)
     }
 
     pub fn active(&self) -> Option<ActiveRevision> {

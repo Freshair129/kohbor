@@ -208,8 +208,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/account_fake_native.rs",
-      "bytes": 35268,
-      "sha256": "f3d541412c1454484a084a9aa13b6f1847d43b665b707c43ec469d383425c89c"
+      "bytes": 35188,
+      "sha256": "57003e617471c7fe701db314029c40c19f92bffce92faeb5c5c592438a595042"
     },
     {
       "path": "apps/desktop/src-tauri/src/account_host.rs",
@@ -293,8 +293,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/capture_host.rs",
-      "bytes": 250881,
-      "sha256": "678cef5d2e363b11ac59fb9a9fe457769793c606e1faf7a12b47619e1cda62cf"
+      "bytes": 275612,
+      "sha256": "abaf409bd8fbb1dd41d5071589ae9da40ea2dbe05e01152087c3fccc93148c5e"
     },
     {
       "path": "apps/desktop/src-tauri/src/clock.rs",
@@ -308,8 +308,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/containment.rs",
-      "bytes": 10986,
-      "sha256": "880a2320dab69e663985ecf31835ee076dae82706d35a16bc67c00f65260f6c1"
+      "bytes": 15779,
+      "sha256": "f0b83c2117ff6af730c526b5237d23d3d4c301e25cbd3611a3e6f83810742ed4"
     },
     {
       "path": "apps/desktop/src-tauri/src/demo.rs",
@@ -353,8 +353,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 32497,
-      "sha256": "08df24fcb383014cacfde2cabed96c56ee5736199bc2e07e2b05b12c5c2a0f2c"
+      "bytes": 33828,
+      "sha256": "9479504ddef11311c85f2f3628019174a38dbd5ced7206e19bd713e8fb067d88"
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
@@ -393,8 +393,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/media/service.rs",
-      "bytes": 83701,
-      "sha256": "4f4cf63280ec0e28f1b9630fb219613e7d91bd64c9a9840221bc82d1b6040adc"
+      "bytes": 86381,
+      "sha256": "5a443020b9bab2c0c3b43649c7b858869988684c6db9a48adcda7f1d49bde400"
     },
     {
       "path": "apps/desktop/src-tauri/src/overlay.rs",
@@ -813,8 +813,8 @@
     },
     {
       "path": "apps/desktop/src/live/MinimapPanel.tsx",
-      "bytes": 18530,
-      "sha256": "f1fe7ec4fa6f47cdeb70783aedc0b6b61f7e701fae1a91cf8c6e642e94b81c94"
+      "bytes": 18341,
+      "sha256": "7ffb91d5fd35c023ccf1e4a1271af2803ac81f5cda4b401c86ef3451d6af56ce"
     },
     {
       "path": "apps/desktop/src/live/MinimapStage.tsx",
@@ -868,8 +868,8 @@
     },
     {
       "path": "apps/desktop/src/live/copy.ts",
-      "bytes": 9977,
-      "sha256": "eb873ffd979a4de8826c033a6db4515a08b8b8d2cbedc2c555799a70e299c78c"
+      "bytes": 10757,
+      "sha256": "b5765f99723530c724135ffa4fca173f0a5a7683529c6567b2b38248462c23e8"
     },
     {
       "path": "apps/desktop/src/live/events.ts",
@@ -1358,8 +1358,8 @@
     },
     {
       "path": "apps/desktop/tests/live-capture-config.test.ts",
-      "bytes": 6880,
-      "sha256": "4f62f5f40b7839ca196120b763140f92708c0954221ecb4bad563d212f817c00"
+      "bytes": 7599,
+      "sha256": "cb8571192fa148af179e06548d475c9cd0584625f42a1a88e51edfaf45734fc5"
     },
     {
       "path": "apps/desktop/tests/live-layout.test.ts",
@@ -1758,8 +1758,8 @@
     },
     {
       "path": "crates/kohbor-capture-native/src/dxgi.rs",
-      "bytes": 26353,
-      "sha256": "93c82e402e5dd3b5f2a2f85243a5f8b6bec7f205b492cb375e6246f783d49f5e"
+      "bytes": 31064,
+      "sha256": "1cbce507852c2ece22a0558c15da43cfeefd18b75e4e512dee1dae50e6d3704f"
     },
     {
       "path": "crates/kohbor-capture-native/src/lib.rs",
@@ -2078,8 +2078,8 @@
     },
     {
       "path": "crates/kohbor-minimap-cv/src/lib.rs",
-      "bytes": 46322,
-      "sha256": "db25981070a627840d78cf640acccb3db0ac8146ce8839fb49cacbcc6487e2d5"
+      "bytes": 53366,
+      "sha256": "b9bc933071e183c8229c34ae5d76f8464f290327743198894e54df893899946d"
     },
     {
       "path": "crates/kohbor-minimap-cv/tests/api_shape.rs",
@@ -2088,8 +2088,13 @@
     },
     {
       "path": "crates/kohbor-minimap-cv/tests/propose_frame.rs",
-      "bytes": 8331,
-      "sha256": "dca955a5e34e155c63729fa400f7ed943a60c5d9cf5b4c69a4a449dd30691462"
+      "bytes": 10597,
+      "sha256": "3e1fc1cec97c79b421e4f827f46b5c60e6342914d662e20b856a54d7bdfa27f6"
+    },
+    {
+      "path": "crates/kohbor-minimap-cv/tests/stage_trace.rs",
+      "bytes": 8123,
+      "sha256": "2b7dc4c5815124b6c7c42ab1f551f00e7d2446e4a0f9148346cce572a848a656"
     },
     {
       "path": "crates/kohbor-minimap-cv/tests/synthetic.rs",
@@ -2178,8 +2183,8 @@
     },
     {
       "path": "crates/kohbor-pack/src/store.rs",
-      "bytes": 84971,
-      "sha256": "d55515b4d9b88a979f22bdc38f878d50baa695c90e65b2c1ff600307f1d7a72e"
+      "bytes": 85262,
+      "sha256": "4bc6032f45f4cc050112cb4c05590ddd8bb64c9b13db8bcc8ee44a3c45cb728a"
     },
     {
       "path": "crates/kohbor-pack/src/trust.rs",
@@ -2188,8 +2193,8 @@
     },
     {
       "path": "crates/kohbor-pack/tests/activation.rs",
-      "bytes": 11091,
-      "sha256": "e90379728206adf98b588e5da5e70beb1ba3d88d036afd74525d14f70f37d7f6"
+      "bytes": 12825,
+      "sha256": "24de9d20c808aff1e4721e3ee83680a005ff3df9011420431fdfae5b03e0d375"
     },
     {
       "path": "crates/kohbor-pack/tests/audio_only.rs",
@@ -2383,8 +2388,8 @@
     },
     {
       "path": "docs/design/EVENT-AUDIO-SPEC.md",
-      "bytes": 27333,
-      "sha256": "71cc80c4ea46efd8c1e7351b48101029ffd4cb47ad203c659b4677254066709a"
+      "bytes": 27805,
+      "sha256": "c877591ea1da00d82fa2d9f16ea5542e6dc753f07de6f5c54f99f896087b1b25"
     },
     {
       "path": "docs/design/GSI-INTAKE-SPEC.md",
