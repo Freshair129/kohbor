@@ -1,13 +1,16 @@
 import type { Phase } from "../copy";
 import type { RuntimeStatus } from "../types";
 
-export type ShellTab = "live" | "packs" | "status" | "logs";
+export type ShellTab = "live" | "packs" | "status" | "replay" | "logs";
 export type HeaderTone = "fresh" | "stale" | "unknown" | "off" | "warn";
 
 export const SHELL_TABS: readonly ShellTab[] = ["live", "packs", "status"];
 
-export function shellTabs(developerMode: boolean): readonly ShellTab[] {
-  return developerMode ? [...SHELL_TABS, "logs"] : SHELL_TABS;
+export function shellTabs(developerMode: boolean, replayPreview = false): readonly ShellTab[] {
+  const tabs: ShellTab[] = [...SHELL_TABS];
+  if (replayPreview) tabs.push("replay");
+  if (developerMode) tabs.push("logs");
+  return tabs;
 }
 
 export function nextShellTab(current: ShellTab, key: string, tabs: readonly ShellTab[] = SHELL_TABS): ShellTab | null {

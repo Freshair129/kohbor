@@ -453,8 +453,8 @@
     },
     {
       "path": "apps/desktop/src/App.tsx",
-      "bytes": 14261,
-      "sha256": "523f4158faeced75e32542cf18e5ef91d1ef5db5869bd6d839394e774e06715c"
+      "bytes": 14826,
+      "sha256": "c01eb548066ede910d5236b784828ce867ce7f9ea921f746528d5d647501c0f0"
     },
     {
       "path": "apps/desktop/src/AudioHistory.tsx",
@@ -603,8 +603,8 @@
     },
     {
       "path": "apps/desktop/src/copy.ts",
-      "bytes": 52541,
-      "sha256": "e3c95f70ff1840bba5c47e4fe9e2e905db3f9aff22c6f71849785d90014020b0"
+      "bytes": 52592,
+      "sha256": "45679c57520d4f42082c922f865f33bb5f71926fed1637c19d1fd916d221e8a3"
     },
     {
       "path": "apps/desktop/src/deck/AlertStrip.tsx",
@@ -1082,6 +1082,41 @@
       "sha256": "840609524f7e7aa3e00cc734439c1679efd6e0b43d174789905663a8732d9eb5"
     },
     {
+      "path": "apps/desktop/src/replay/ReplayPanel.tsx",
+      "bytes": 3158,
+      "sha256": "8f39dbc336f40d35379b37d053d6ffeceab83481091433e1cc44fee776a0360b"
+    },
+    {
+      "path": "apps/desktop/src/replay/admission.ts",
+      "bytes": 842,
+      "sha256": "a20683af0ee42c1b2c31b3ba70a3a5053d58ccb11ebef93bdc4a63b3a9e614a4"
+    },
+    {
+      "path": "apps/desktop/src/replay/report.ts",
+      "bytes": 8606,
+      "sha256": "3e69cd5cebfc6bf2c301ca0b2c7be0f34174c5cdadc06937f5e4e0c09ff51d68"
+    },
+    {
+      "path": "apps/desktop/src/replay/viewer.css",
+      "bytes": 8016,
+      "sha256": "1d6c072030cc925b86f9a5cc5d041d92ed634421853a9a06bfdebfad0d6c3833"
+    },
+    {
+      "path": "apps/desktop/src/replay/viewer.d.mts",
+      "bytes": 207,
+      "sha256": "37a1d2b4c9d0e3be5976205bb82f6ffc8406fb978af662fd7fb45b39b0a8ecdb"
+    },
+    {
+      "path": "apps/desktop/src/replay/viewer.html",
+      "bytes": 5644,
+      "sha256": "1b720021df6c3614faea0dc43f3f4ee927708ebb83c100155dfb2d761e4bc112"
+    },
+    {
+      "path": "apps/desktop/src/replay/viewer.mjs",
+      "bytes": 39343,
+      "sha256": "aaa12d09c27f413237bcb7e73fa11798a724733ca737b16975b3b8d5a1bf2fe2"
+    },
+    {
       "path": "apps/desktop/src/runtime.ts",
       "bytes": 10872,
       "sha256": "095cf79fc249735883f0def4ee1c0ab356ff9b9859c257003d6ae12688c1c4fb"
@@ -1143,8 +1178,8 @@
     },
     {
       "path": "apps/desktop/src/shell/state.ts",
-      "bytes": 3413,
-      "sha256": "ff83b327785948fe9a6f239b33960a83c57a6ff79df3922df6a23431acc932ea"
+      "bytes": 3525,
+      "sha256": "bc9b66f87e3924306da21146f24140d9f94e3cd1d6c217f0411e9aff8fa8d07a"
     },
     {
       "path": "apps/desktop/src/shell/updateCopy.ts",
@@ -1407,6 +1442,11 @@
       "sha256": "40d9aaa5c5c89f7231ce8382e7bd7bbcd4b4a2f74e9f8b131d2c49e68014d564"
     },
     {
+      "path": "apps/desktop/tests/post-match-replay.test.ts",
+      "bytes": 6409,
+      "sha256": "0fbee29a9781b8863950dc4bad81cbed5999e9ce8b691a318d434bd7fa9d56b9"
+    },
+    {
       "path": "apps/desktop/tests/preview-diagnostics.test.ts",
       "bytes": 4696,
       "sha256": "7477a61e562d93e1f692025aa16547c273d7ae19d091e3495df4b25ac591a9c5"
@@ -1428,8 +1468,8 @@
     },
     {
       "path": "apps/desktop/tests/shell-state.test.ts",
-      "bytes": 1374,
-      "sha256": "08abc756991bc03cf6440535aa2003e3dc99d83027554555e7ce4797e4652919"
+      "bytes": 1794,
+      "sha256": "027d012ca0947ccabc0c2819d1d665fdbeba5293f311c681fdd278cdfe782594"
     },
     {
       "path": "apps/desktop/tests/update-release-page.test.ts",
@@ -2283,8 +2323,8 @@
     },
     {
       "path": "docs/INDEX.md",
-      "bytes": 12316,
-      "sha256": "9fab6bfef8039977e60d14227ee620acdea14fbbe8bf5bce7dd23f8cfd278643"
+      "bytes": 12478,
+      "sha256": "29ad7e283651fbd3f5e846d9d48f4a672e8b51d164142555b7071077c04b9eaa"
     },
     {
       "path": "docs/delivery/AGENT-WORKFLOW.md",
@@ -2395,6 +2435,11 @@
       "path": "docs/design/PACKAGE-FORMAT-REVIEW.md",
       "bytes": 28712,
       "sha256": "c6d8d549a310b2e72313cb4326819c1b38db3b60c7e719f40c631608a4d7dcef"
+    },
+    {
+      "path": "docs/design/POST-MATCH-REPLAY-PREVIEW.md",
+      "bytes": 4621,
+      "sha256": "b0b16f7132229dba22236bf61f45b45ebce0db33ef2fb9e9699aeeca4641312a"
     },
     {
       "path": "docs/design/PROGRESS-CHASE-STAGE1-PROPOSAL.md",

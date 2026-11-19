@@ -33,6 +33,11 @@ import { VolumeToast } from "./VolumeToast";
 import { useDotaLauncher, useShowSteamName, useSteamStatus } from "./steam/hooks";
 import { steamPersonaName } from "./steam/model";
 import { StartDotaBar } from "./steam/StartDotaBar";
+import { canOpenPostMatchReplay } from "./replay/admission";
+
+const ReplayPanel = import.meta.env.DEV || import.meta.env.VITE_KOHBOR_LAB === "1"
+  ? lazy(() => import("./replay/ReplayPanel").then((module) => ({ default: module.ReplayPanel })))
+  : null;
 
 type ShellPage = ShellTab | "settings" | "account" | "friends";
 
@@ -50,13 +55,14 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
   const steamName = useShowSteamName();
   const launch = useDotaLauncher(steamStatus);
   const [activeTab, setActiveTab] = useState<ShellPage>("live");
-  const tabs = shellTabs(developerMode.enabled);
+  const tabs = shellTabs(developerMode.enabled, ReplayPanel !== null);
   const currentTab = activeTab === "logs" && !developerMode.enabled ? "live" : activeTab;
   const isTabPage = tabs.includes(currentTab as ShellTab);
   const tabRefs = useRef<Record<ShellTab, HTMLButtonElement | null>>({
     live: null,
     packs: null,
     status: null,
+    replay: null,
     logs: null,
   });
   const displayLocale: Locale = settings?.locale ?? "th";
@@ -295,6 +301,11 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
               <UpdateControl appVersion={version} locale={displayLocale} snapshot={update} check={update.check} install={update.install} openReleasePage={update.openReleasePage} />
             </AboutPanel>
           </div>
+        )}
+        {ReplayPanel && currentTab === "replay" && (
+          <Suspense fallback={<p role="status">{text.loading}</p>}>
+            <ReplayPanel locale={displayLocale} available={canOpenPostMatchReplay(status, steamStatus, hostLost)} />
+          </Suspense>
         )}
         {developerMode.enabled && <LogsTab visible={currentTab === "logs"} locale={displayLocale} />}
         {currentTab === "account" && <AccountPage account={account} locale={displayLocale} back={() => setActiveTab("live")} />}

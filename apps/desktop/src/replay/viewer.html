@@ -1,0 +1,72 @@
+<main class="shell">
+<header>
+<p class="headline"><strong id="early-mid">–</strong> ที่ตายก่อนนาที 15 อยู่รอบเลนกลาง</p>
+</header>
+<div class="controls">
+<label for="patch">แพตช์เกม<select id="patch"></select></label>
+<label for="match">เกม<select id="match"><option id="all-matches" value="all">ทุกเกม</option><option id="custom-match-option" value="custom" hidden>เลือกเอง</option></select></label>
+<button class="replay-mode" type="button" id="pick-matches" aria-expanded="false" aria-controls="match-picker">เลือกหลายเกม</button>
+<label id="phase-control" for="phase">ช่วงเวลา<select id="phase"><option value="all">ทั้งเกม</option><option value="early">ก่อนนาที 10</option><option value="rotation">นาที 10 ถึงก่อน 15</option><option value="late">ตั้งแต่นาที 15</option></select></label>
+<label id="layer-control" for="layer">ชั้นข้อมูล<select id="layer"><option value="both">ฮีตแมป + จุดตาย</option><option value="heat">ฮีตแมป</option><option value="deaths">จุดตาย</option></select></label>
+<button class="replay-mode" type="button" id="replay-mode" aria-expanded="false" aria-controls="replay-controls">รีเพลย์เส้นทาง</button>
+</div>
+<form id="match-picker" class="match-picker" aria-labelledby="match-picker-title" hidden>
+<h2 class="match-picker-title" id="match-picker-title">เลือกเกมที่ต้องการเทียบ</h2>
+<div class="match-options" id="match-options"></div>
+<div class="match-picker-actions"><button class="replay-play" type="submit" id="apply-matches" disabled>ใช้เกมที่เลือก</button></div>
+</form>
+<div id="replay-controls" class="replay-controls" hidden>
+<button class="replay-play" id="replay-play" type="button" aria-pressed="false">เล่น</button>
+<div class="replay-speed" id="replay-speed" role="group" aria-label="ความเร็วรีเพลย์">
+<button type="button" value="1" aria-pressed="true">1×</button>
+<button type="button" value="2" aria-pressed="false">2×</button>
+<button type="button" value="5" aria-pressed="false">5×</button>
+<button type="button" value="10" aria-pressed="false">10×</button>
+</div>
+<div class="replay-timeline">
+<input id="replay-time" type="range" min="0" max="1" value="0" step="any" list="replay-death-times" aria-label="เวลาในรีเพลย์">
+<datalist id="replay-death-times"></datalist>
+<span class="replay-clock"><time id="replay-current">0:00</time> / <time id="replay-duration">0:00</time></span>
+</div>
+<span class="replay-status" id="replay-status"></span>
+<p class="replay-combat" id="replay-combat" hidden></p>
+</div>
+<div class="grid">
+<figure>
+<div class="map"><canvas id="map" width="1000" height="959" aria-label="ฮีตแมปตำแหน่งและจุดตาย กดหมุดหรือเลือกจากรายการเพื่อดูรายละเอียด"></canvas></div>
+<figcaption>
+<strong id="map-patch"></strong>
+<span class="legend" id="overview-heat-legend"><i class="scale"></i> อยู่บ่อยขึ้นตามตัวกรอง</span>
+<span class="legend"><i class="key"></i> <span id="death-legend-text">จุดตาย</span></span>
+<span class="legend" id="overview-mid-legend"><i class="key mid"></i> รอบเลนกลาง</span>
+<span class="legend" id="replay-legend" hidden><i class="route-key"></i> เส้นทาง 45 วินาทีล่าสุด · สีตามรายชื่อฮีโร่</span>
+</figcaption>
+</figure>
+<aside aria-label="ฮีโร่และจังหวะตาย">
+<div class="detail" id="detail" aria-live="polite"></div>
+<section class="replay-roster" id="replay-roster" aria-label="เลือกฮีโร่บนแผนที่">
+<div class="roster-presets" id="replay-roster-presets" role="group" aria-label="เลือกทีม"></div>
+<label class="roster-solo" for="replay-roster-solo">ดูรายตัว
+<select id="replay-roster-solo" data-roster-focus="solo"></select>
+</label>
+<div class="roster-teams" id="replay-roster-teams"></div>
+</section>
+
+<div class="metrics" aria-live="polite">
+<div class="metric"><strong id="samples">–</strong><span>วินาทีที่ฮีโร่มีชีวิต</span></div>
+<div class="metric"><strong id="dead">–</strong><span>ครั้งที่เราตาย</span></div>
+<div class="metric"><strong id="mid">–</strong><span>ตายรอบเลนกลาง</span></div>
+</div>
+<h2>จังหวะตาย</h2>
+<div class="events" id="events"></div>
+</aside>
+</div>
+<footer class="foot">
+<details id="assumptions">
+<summary>วิธีอ่านฮีตแมป</summary>
+<p>ฮีตแมปใช้ตำแหน่งฮีโร่จาก DEM หนึ่งตัวอย่างต่อวินาทีขณะมีชีวิต</p>
+<p>หมุดแสดงพิกัด ณ tick ที่ตาย วงรอบเลนกลางใช้รัศมี 2,200 หน่วย</p>
+<p>เลือกหลายเกมในแพตช์เดียวกันเพื่อเทียบจากเวลา 0:00 กดจุดตายเพื่อดู 15 วินาทีก่อนหน้า</p>
+</details>
+</footer>
+</main>
