@@ -4,7 +4,7 @@
 
 #![allow(dead_code, unused_variables)]
 
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::io;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{self, SyncSender, TryRecvError, TrySendError};
@@ -19,14 +19,27 @@ use kohbor_audio::{
 use kohbor_events::{arbitrate, Event, EventId};
 
 use super::lanes::{
-    AuditionRefusal, AuditionRequest, Control, EngineOut, EngineRx, EngineShared, EngineTx, TickMsg,
+    AuditionRefusal, AuditionRequest, ClipVariantLog, Control, EngineOut, EngineRx, EngineShared,
+    EngineTx, TickMsg,
 };
 use super::outcome::{
     playback_ended, playback_started, pre_owner_record, preempted_record, record, EndReason,
 };
-use super::resolve::{class_of, instance_id, Clip, Lookup, PrewarmTable};
+use super::resolve::{class_of, instance_id, BindingLookup, PrewarmTable, SelectedClip};
 use super::slot_sink::SlotSink;
 use crate::clock::MonoClock;
+use crate::media::selection::{SelectionFailure, VariantSelector};
+
+fn variant_log(selected: &SelectedClip) -> ClipVariantLog {
+    ClipVariantLog {
+        variant_id: selected.variant_id.clone(),
+        clip_id: selected.clip_id.clone(),
+        selection: selected
+            .selection
+            .map(|selection| selection.as_str().to_owned()),
+        has_visual: selected.media.visual_url.is_some(),
+    }
+}
 
 const CONTROL_BUDGET: usize = 32;
 const ORDINARY_BUDGET: usize = 16;
@@ -47,7 +60,7 @@ struct LivePlayback {
 struct PendingClip {
     instance_id: String,
     tier: Option<u8>,
-    clip: Clip,
+    selected: SelectedClip,
 }
 
 pub struct Engine {
@@ -61,6 +74,8 @@ pub struct Engine {
     owner: AudioOwner<SlotSink>,
     config: Config,
     table: Arc<PrewarmTable>,
+    selector: VariantSelector,
+    reported_invalid_variants: HashSet<(EventId, Option<u8>, usize)>,
     latency: bool,
     session_epoch: u64,
     audition_session: bool,
@@ -111,6 +126,8 @@ impl Engine {
             owner,
             config,
             table: PrewarmTable::empty(),
+            selector: VariantSelector::from_entropy(),
+            reported_invalid_variants: HashSet::new(),
             latency,
             session_epoch: 0,
             audition_session: false,
@@ -244,6 +261,8 @@ impl Engine {
             Control::Session { epoch } => {
                 if epoch > self.session_epoch {
                     self.session_epoch = epoch;
+                    self.selector.reset_for_session(epoch);
+                    self.reported_invalid_variants.clear();
                     self.owner.set_session(now_ms, epoch);
                     self.audition_session = false;
                     self.drain_notices();
@@ -256,6 +275,9 @@ impl Engine {
                 let _ = ack.try_send(muted);
             }
             Control::SwapTable { table } => {
+                if table.fence != self.table.fence {
+                    self.reported_invalid_variants.clear();
+                }
                 self.owner.set_revision(now_ms, table.fence);
                 self.drain_notices();
                 let old = std::mem::replace(&mut self.table, table);
@@ -291,6 +313,8 @@ impl Engine {
         }
         if message.session_epoch > self.session_epoch {
             self.session_epoch = message.session_epoch;
+            self.selector.reset_for_session(message.session_epoch);
+            self.reported_invalid_variants.clear();
             self.owner.set_session(now_ms, message.session_epoch);
             self.drain_notices();
         }
@@ -303,21 +327,14 @@ impl Engine {
             if crate::intake::EVENT_UNAVAILABLE.contains(&event.id) {
                 self.record_pre_owner(
                     &message,
-                    event.id,
-                    event.tier,
+                    event,
                     &key,
                     Outcome::DetectorUnavailable,
+                    None,
                     now_ms,
                 );
             } else if !event.id.voiced() {
-                self.record_pre_owner(
-                    &message,
-                    event.id,
-                    event.tier,
-                    &key,
-                    Outcome::NotVoiced,
-                    now_ms,
-                );
+                self.record_pre_owner(&message, event, &key, Outcome::NotVoiced, None, now_ms);
             } else if event.id.is_critical() {
                 critical.push((event, key));
             } else {
@@ -349,10 +366,10 @@ impl Engine {
                 if let Some((event, key)) = ordinary.get(position) {
                     self.record_pre_owner(
                         &message,
-                        event.id,
-                        event.tier,
+                        *event,
                         key,
                         Outcome::LowerRankSameTick,
+                        None,
                         now_ms,
                     );
                 }
@@ -388,23 +405,63 @@ impl Engine {
     }
 
     fn handle_voiced_event(&mut self, message: &TickMsg, event: Event, key: String, now_ms: u64) {
+        self.request_voiced_event(message, event, key, now_ms);
+        if message.session_epoch == self.session_epoch {
+            self.report_invalid_variants(event);
+        }
+    }
+
+    fn report_invalid_variants(&mut self, event: Event) {
+        let table = Arc::clone(&self.table);
+        let BindingLookup::Variants {
+            bound_tier,
+            binding,
+        } = table.lookup_binding(event.id, event.tier)
+        else {
+            return;
+        };
+        for (index, variant) in binding.variants.iter().enumerate() {
+            let Err(reason) = &variant.media else {
+                continue;
+            };
+            let key = (event.id, bound_tier, index);
+            if self.reported_invalid_variants.contains(&key) {
+                continue;
+            }
+            if self.try_output(EngineOut::ClipVariantInvalid {
+                event_id: event.id,
+                tier: bound_tier,
+                variant_id: variant.variant_id.clone(),
+                clip_id: variant.clip_id.clone(),
+                reason,
+            }) {
+                self.reported_invalid_variants.insert(key);
+            }
+        }
+    }
+
+    fn request_voiced_event(&mut self, message: &TickMsg, event: Event, key: String, now_ms: u64) {
         let event_type = event.id.as_str();
         let class = class_of(event.id);
-        let clip = match self.resolve_clip(event) {
-            Ok(clip) => clip,
-            Err(outcome) => {
-                self.record_pre_owner(message, event.id, event.tier, &key, outcome, now_ms);
-                return;
-            }
-        };
+        let selected =
+            match self
+                .selector
+                .select(&self.table, event.id, event.tier, message.session_epoch)
+            {
+                Ok(selected) => selected,
+                Err(failure) => {
+                    self.record_pre_owner(message, event, &key, failure.into(), None, now_ms);
+                    return;
+                }
+            };
 
         if self.is_degraded() {
             self.record_pre_owner(
                 message,
-                event.id,
-                event.tier,
+                event,
                 &key,
                 Outcome::ChannelBusy,
+                Some(variant_log(&selected)),
                 now_ms,
             );
             return;
@@ -422,8 +479,8 @@ impl Engine {
                 None
             },
             package_revision: Some(self.table.fence),
-            pcm: clip.pcm.clone(),
-            visual_tail_ms: clip.visual_tail_ms,
+            pcm: selected.media.pcm.clone(),
+            visual_tail_ms: selected.media.visual_tail_ms,
         };
 
         let t2 = Instant::now();
@@ -437,7 +494,7 @@ impl Engine {
             let admitted = decision.outcome == Outcome::Admitted;
             let id = decision.playback_id;
             let decision_instance_id = decision.instance_id.clone();
-            self.handle_decision(decision, Some(&clip), event.tier);
+            self.handle_decision(decision, Some(&selected), event.tier);
             if admitted && self.latency {
                 let _ = self.try_output(EngineOut::Latency {
                     instance_id: decision_instance_id,
@@ -455,22 +512,24 @@ impl Engine {
             // A replacement emits the previous request's decision immediately.
             // Drain it before associating this request's clip with the queue slot.
             self.drain_notices();
-            self.remember_pending_clip(&key, event.tier, clip.clone());
+            self.remember_pending_clip(&key, event.tier, selected.clone());
             if class == AudioClass::Ordinary {
                 let _ = self.try_output(EngineOut::ClipQueued {
                     event_id: event_type.to_owned(),
                     tier: event.tier,
+                    variant: variant_log(&selected),
                 });
             }
         }
     }
 
-    fn resolve_clip(&self, event: Event) -> Result<Clip, Outcome> {
-        match self.table.lookup(event.id, event.tier) {
-            Lookup::Ready(clip) => Ok(clip.clone()),
-            Lookup::Unmapped => Err(Outcome::Unmapped),
-            Lookup::Invalid => Err(Outcome::InvalidMedia),
-        }
+    fn resolve_audition_clip(&self, event: Event) -> Result<SelectedClip, Outcome> {
+        VariantSelector::first_ready(&self.table, event.id, event.tier).map_err(|failure| {
+            match failure {
+                SelectionFailure::Unmapped => Outcome::Unmapped,
+                SelectionFailure::InvalidMedia => Outcome::InvalidMedia,
+            }
+        })
     }
 
     fn request_playback(&mut self, now_ms: u64, request: Request) -> Option<Decision> {
@@ -498,7 +557,7 @@ impl Engine {
             return Err(AuditionRefusal::MediaStateUnknown);
         }
         let clip = self
-            .resolve_clip(audition.event)
+            .resolve_audition_clip(audition.event)
             .map_err(|outcome| match outcome {
                 Outcome::Unmapped => AuditionRefusal::Unmapped,
                 _ => AuditionRefusal::MediaStateUnknown,
@@ -511,8 +570,8 @@ impl Engine {
             ordinary_rank: 0,
             episode: None,
             package_revision: Some(self.table.fence),
-            pcm: clip.pcm.clone(),
-            visual_tail_ms: clip.visual_tail_ms,
+            pcm: clip.media.pcm.clone(),
+            visual_tail_ms: clip.media.visual_tail_ms,
         };
         if Instant::now() >= audition.expires_at {
             return Err(AuditionRefusal::Busy);
@@ -563,10 +622,10 @@ impl Engine {
     fn record_pre_owner(
         &mut self,
         message: &TickMsg,
-        event_id: EventId,
-        tier: Option<u8>,
+        event: Event,
         key: &str,
         outcome: Outcome,
+        variant: Option<ClipVariantLog>,
         now_ms: u64,
     ) {
         let revision = if self.table.fence == 0 {
@@ -576,9 +635,9 @@ impl Engine {
         };
         if let Some(value) = pre_owner_record(
             key,
-            Some(event_id.as_str()),
+            Some(event.id.as_str()),
             message.session_epoch,
-            class_of(event_id),
+            class_of(event.id),
             outcome,
             revision,
             now_ms,
@@ -587,19 +646,32 @@ impl Engine {
         } else {
             Self::increment_u64(&self.shared.out_dropped);
         }
-        self.emit_clip_dropped(event_id.as_str(), tier, outcome);
+        self.emit_clip_dropped(event.id.as_str(), event.tier, outcome, variant);
     }
 
-    fn handle_decision(&mut self, decision: Decision, clip: Option<&Clip>, tier: Option<u8>) {
+    fn handle_decision(
+        &mut self,
+        decision: Decision,
+        clip: Option<&SelectedClip>,
+        tier: Option<u8>,
+    ) {
         if decision.outcome == Outcome::Admitted {
+            if decision.event_type.as_deref() != Some("audition") {
+                if let Some(clip) = clip {
+                    self.selector.record_played(clip);
+                }
+            }
             if let Some(id) = decision.playback_id {
-                let audio_ends_at_ms = clip
-                    .and_then(|clip| decision.decided_at_ms.checked_add(u64::from(clip.audio_ms)));
+                let audio_ends_at_ms = clip.and_then(|clip| {
+                    decision
+                        .decided_at_ms
+                        .checked_add(u64::from(clip.media.audio_ms))
+                });
                 self.remember_live(
                     id,
                     decision.clone(),
                     audio_ends_at_ms,
-                    clip.map(|clip| clip.pcm.len() as u64),
+                    clip.map(|clip| clip.media.pcm.len() as u64),
                 );
                 self.last_issued_id = self.last_issued_id.max(id.0);
             }
@@ -613,12 +685,20 @@ impl Engine {
         }
         if decision.outcome != Outcome::Admitted && decision.class != AudioClass::Voice {
             if let Some(event_id) = decision.event_type.as_deref() {
-                self.emit_clip_dropped(event_id, tier, decision.outcome);
+                self.emit_clip_dropped(event_id, tier, decision.outcome, clip.map(variant_log));
             }
         }
         if decision.outcome == Outcome::Admitted {
             if let Some(clip) = clip {
-                if let Some(value) = playback_started(&decision, clip) {
+                if decision.event_type.as_deref() != Some("audition") {
+                    if let Some(event_id) = decision.event_type.as_deref() {
+                        let _ = self.try_output(EngineOut::ClipPlayed {
+                            event_id: event_id.to_owned(),
+                            variant: variant_log(clip),
+                        });
+                    }
+                }
+                if let Some(value) = playback_started(&decision, &clip.media) {
                     let _ = self.try_output(EngineOut::Playback(value));
                 } else {
                     Self::increment_u64(&self.shared.out_dropped);
@@ -627,7 +707,13 @@ impl Engine {
         }
     }
 
-    fn emit_clip_dropped(&mut self, event_id: &str, tier: Option<u8>, outcome: Outcome) {
+    fn emit_clip_dropped(
+        &mut self,
+        event_id: &str,
+        tier: Option<u8>,
+        outcome: Outcome,
+        variant: Option<ClipVariantLog>,
+    ) {
         if event_id == "audition" {
             return;
         }
@@ -635,10 +721,16 @@ impl Engine {
             event_id: event_id.to_owned(),
             tier,
             outcome,
+            variant,
         });
     }
 
-    fn remember_pending_clip(&mut self, instance_id: &str, tier: Option<u8>, clip: Clip) {
+    fn remember_pending_clip(
+        &mut self,
+        instance_id: &str,
+        tier: Option<u8>,
+        selected: SelectedClip,
+    ) {
         if let Some(position) = self
             .pending_clips
             .iter()
@@ -649,7 +741,7 @@ impl Engine {
         self.pending_clips.push(PendingClip {
             instance_id: instance_id.to_owned(),
             tier,
-            clip,
+            selected,
         });
     }
 
@@ -707,7 +799,7 @@ impl Engine {
                 let pending = self.take_pending_clip(&decision.instance_id);
                 self.handle_decision(
                     decision,
-                    pending.as_ref().map(|pending| &pending.clip),
+                    pending.as_ref().map(|pending| &pending.selected),
                     pending.as_ref().and_then(|pending| pending.tier),
                 );
             }
@@ -722,7 +814,7 @@ impl Engine {
                     let pending = self.take_pending_clip(&decision.instance_id);
                     self.handle_decision(
                         decision,
-                        pending.as_ref().map(|pending| &pending.clip),
+                        pending.as_ref().map(|pending| &pending.selected),
                         pending.as_ref().and_then(|pending| pending.tier),
                     );
                 }

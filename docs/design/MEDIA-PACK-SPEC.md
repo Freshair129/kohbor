@@ -103,7 +103,7 @@ Retain prior revisions for repair and rollback; never garbage-collect a leased r
 
 ## MP-08 — Fail-silent behavior and safety readiness
 
-Missing, unmapped, or invalid event media MUST produce silence and a reason-coded local result. Do not substitute unrelated clips, original audio, loose files, embedded defaults, generated event visuals, or event TTS.
+`Store::resolve_variants` re-verifies each variant independently and reports each payload failure alongside any verified siblings in descriptor order, failing the binding if none verify. Playback uses the remaining verified variants of that binding or produces silence with a reason-coded result if none remain. The compatibility API `Store::resolve` still checks only the first variant's pair for playback. Do not substitute unrelated clips, original audio, loose files, embedded defaults, generated event visuals, or event TTS.
 
 Critical safety readiness is a separate state. The application MUST verify and prewarm its required critical cues before claiming audible safety alerts are ready. No archive decompression, disk I/O, cloud request, language-model inference, or renderer dependency may enter the critical audio admission path.
 

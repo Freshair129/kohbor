@@ -5,4 +5,5 @@ pub mod inventory;
 pub mod prewarm;
 pub mod probe;
 pub mod protocol;
+pub mod selection;
 pub mod service;

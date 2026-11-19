@@ -6,13 +6,17 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
-use kohbor_audio::pcm::decode_wav;
+use kohbor_audio::pcm::{decode_wav, Pcm};
 use kohbor_events::EventId;
 use kohbor_pack::catalog::Catalog;
+use kohbor_pack::descriptor::Selection;
+use kohbor_pack::error::RejectReason;
 use kohbor_pack::store::{Hook, ResolveError, Store};
 use sha2::{Digest, Sha256};
 
-use crate::audio::resolve::{Clip, Entry, PrewarmTable};
+use crate::audio::resolve::{
+    Clip, Entry, PrewarmTable, VariantMedia, VariantSelection, VariantSet,
+};
 
 /// Verified visual file metadata captured alongside the audio table.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -95,7 +99,10 @@ pub fn cabinet_key_space(catalog: &Catalog) -> Vec<(EventId, Option<u8>)> {
     keys
 }
 
-/// Resolve, verify, read and decode all playable keys without touching the engine.
+/// Resolve, verify, read and decode every variant of all playable keys without
+/// touching the engine. The unique source WAV payloads are bounded by the pack's
+/// 32 MiB aggregate payload limit; decoded PCM is smaller than its WAV file, and
+/// shared paths reuse the same `Arc<[i16]>` allocation.
 ///
 /// The table retains at most 40 million decoded i16 samples (80 MB, about 76.3
 /// MiB). The product design's future 26-key maximum is 37.44 MB (18.72 million
@@ -122,6 +129,7 @@ pub fn build_table<H: Hook>(
     let mut entries = Vec::with_capacity(keys.len());
     let mut decoded_samples = 0_u64;
     let mut over_memory_bound = false;
+    let mut pcm_by_path: HashMap<PathBuf, Pcm> = HashMap::new();
 
     for (id, tier) in keys {
         pause();
@@ -130,59 +138,91 @@ pub fn build_table<H: Hook>(
             continue;
         }
 
-        let resolved = match store.resolve(id.as_str(), tier.map(u32::from)) {
-            Ok(resolved) if resolved.install_id == active.install_id => resolved,
-            Ok(_) | Err(ResolveError::Invalid(_)) => {
+        let resolved = match store.resolve_variants(id.as_str(), tier.map(u32::from)) {
+            Ok(variants) | Err(ResolveError::NoVerifiedVariants(variants)) => variants,
+            Err(ResolveError::Invalid(_)) => {
                 entries.push((id, tier, Entry::Invalid));
                 continue;
             }
             Err(ResolveError::Unmapped | ResolveError::Inert) => continue,
         };
+        let selection = resolved
+            .iter()
+            .find_map(|variant| variant.media.as_ref().ok())
+            .and_then(|media| media.selection)
+            .map(|selection| match selection {
+                Selection::Random => VariantSelection::Random,
+                Selection::Shuffle => VariantSelection::Shuffle,
+                Selection::Sequence => VariantSelection::Sequence,
+            });
+        let mut variants = Vec::with_capacity(resolved.len());
+        for variant in resolved {
+            pause();
+            let weight = variant
+                .media
+                .as_ref()
+                .ok()
+                .and_then(|media| media.weight)
+                .unwrap_or(1);
+            let media = variant.media.and_then(|media| {
+                if media.install_id != active.install_id {
+                    return Err(RejectReason::UnknownInstall);
+                }
+                let pcm = if let Some(pcm) = pcm_by_path.get(&media.mixed_audio) {
+                    pcm.clone()
+                } else {
+                    let audio_bytes = fs::read(&media.mixed_audio)
+                        .map_err(|_| RejectReason::SourceUnavailable)?;
+                    let pcm = decode_wav(&audio_bytes).ok_or(RejectReason::MixedAudioInvalid)?;
+                    let sample_count = u64::try_from(pcm.len()).unwrap_or(u64::MAX);
+                    if sample_count > MAX_PREWARMED_SAMPLES.saturating_sub(decoded_samples) {
+                        over_memory_bound = true;
+                        return Err(RejectReason::EntryTooLarge);
+                    }
+                    decoded_samples = decoded_samples.saturating_add(sample_count);
+                    pcm_by_path.insert(media.mixed_audio, pcm.clone());
+                    pcm
+                };
+                let visual_url = if let Some(path) = media.silent_visual.as_deref() {
+                    let (token, visual) =
+                        visual_entry(&revision_root, path).ok_or(RejectReason::VisualInvalid)?;
+                    visual_index.entries.insert(token.clone(), visual);
+                    Some(Arc::<str>::from(format!(
+                        "kohbor-media://localhost/v1/{}/{token}",
+                        active.install_id
+                    )))
+                } else {
+                    None
+                };
 
-        let audio_bytes = match fs::read(&resolved.mixed_audio) {
-            Ok(bytes) => bytes,
-            Err(_) => {
-                entries.push((id, tier, Entry::Invalid));
-                continue;
+                Ok(Clip {
+                    audio_ms: audio_duration_ms(u64::try_from(pcm.len()).unwrap_or(u64::MAX)),
+                    pcm,
+                    bound_tier: tier,
+                    visual_tail_ms: media.visual_tail_ms,
+                    visual_url,
+                })
+            });
+            if over_memory_bound {
+                break;
             }
-        };
-        let Some(pcm) = decode_wav(&audio_bytes) else {
-            entries.push((id, tier, Entry::Invalid));
-            continue;
-        };
-        let sample_count = u64::try_from(pcm.len()).unwrap_or(u64::MAX);
-        if sample_count > MAX_PREWARMED_SAMPLES.saturating_sub(decoded_samples) {
-            over_memory_bound = true;
-            entries.push((id, tier, Entry::Invalid));
-            continue;
+            variants.push(VariantMedia {
+                variant_id: variant.variant_id,
+                clip_id: variant.clip_id,
+                weight,
+                media: media.map_err(|reason| reason.as_str()),
+            });
         }
 
-        let visual_url = if let Some(path) = resolved.silent_visual.as_deref() {
-            let Some((token, visual)) = visual_entry(&revision_root, path) else {
-                entries.push((id, tier, Entry::Invalid));
-                continue;
-            };
-            visual_index.entries.insert(token.clone(), visual);
-            Some(Arc::<str>::from(format!(
-                "kohbor-media://localhost/v1/{}/{token}",
-                active.install_id
-            )))
+        let entry = if over_memory_bound {
+            Entry::Invalid
         } else {
-            None
+            Entry::Variants(VariantSet {
+                selection,
+                variants,
+            })
         };
-
-        decoded_samples = decoded_samples.saturating_add(sample_count);
-        entries.push((
-            id,
-            tier,
-            Entry::Ready(Clip {
-                pcm,
-                bound_tier: tier,
-                audio_ms: audio_duration_ms(sample_count),
-                visual_tail_ms: resolved.visual_tail_ms,
-                visual_url,
-            }),
-        ));
+        entries.push((id, tier, entry));
     }
 
     (
@@ -466,6 +506,7 @@ mod tests {
 
     use kohbor_audio::CriticalMedia;
     use kohbor_events::EventId;
+    use kohbor_pack::error::RejectReason;
     use kohbor_pack::store::{ResolveError, Store};
     use kohbor_pack::Limits;
     use serde_json::Value;
@@ -475,6 +516,7 @@ mod tests {
     use crate::audio::lanes::EngineShared;
     use crate::audio::resolve::Lookup;
     use crate::media::inventory::{facts_from_table, media_status, ALL_EVENTS};
+    use crate::media::selection::VariantSelector;
 
     fn open_store(root: &TempDir) -> Store<kohbor_pack::store::NoHook> {
         Store::open(&root.path().join("store"), catalog(), Limits::default())
@@ -694,7 +736,7 @@ mod tests {
     }
 
     #[test]
-    fn loader_pauses_once_before_every_catalog_key() {
+    fn loader_pauses_for_each_catalog_key_and_decoded_variant() {
         let temp = TempDir::new("pause-count");
         let (store, _) = activated_store(
             &temp,
@@ -704,7 +746,10 @@ mod tests {
         );
         let mut calls = 0;
         let _ = build_table(&store, &catalog(), &mut || calls += 1);
-        assert_eq!(calls, 23, "pause callback runs before all 23 keys");
+        assert_eq!(
+            calls, 24,
+            "pause callback runs once for 23 keys and once for the decoded variant"
+        );
     }
 
     #[test]
@@ -750,6 +795,36 @@ mod tests {
                     panic!("generated voiced binding should be ready")
                 }
             }
+        }
+    }
+
+    #[test]
+    fn schema_1_3_binding_stays_a_single_v1_variant_and_repeats_unchanged() {
+        let temp = TempDir::new("legacy-single-variant");
+        let (store, _) = activated_store(
+            &temp,
+            "legacy-single-variant-pack",
+            &[audio("hero_kill", 960)],
+            "req-legacy",
+        );
+        let resolved = store
+            .resolve_variants("hero_kill", None)
+            .expect("legacy binding resolves through the V1 variants API");
+        assert_eq!(resolved.len(), 1);
+        assert_eq!(resolved[0].variant_id, "v1");
+        assert_eq!(resolved[0].media.as_ref().unwrap().selection, None);
+
+        let (table, _) = build_table(&store, &catalog(), &mut || {});
+        let mut selector = VariantSelector::with_seed(0x130);
+        for _ in 0..4 {
+            let selected = selector
+                .select(&table, EventId::HeroKill, None, 1)
+                .expect("the legacy clip remains ready");
+            assert_eq!(selected.variant_id, "v1");
+            assert_eq!(selected.media.pcm.len(), 960);
+            assert!(selected.media.pcm.iter().all(|sample| *sample == 0));
+            assert_eq!(selected.selection, None);
+            selector.record_played(&selected);
         }
     }
 
@@ -807,6 +882,7 @@ mod tests {
             &fs::read(revision.join("descriptor.json")).expect("installed descriptor is readable"),
         )
         .expect("installed descriptor is valid JSON");
+        assert_eq!(descriptor["schema_version"], "1.3.0");
         let relative = descriptor["bindings"][0]["mixed_audio_path"]
             .as_str()
             .expect("binding has mixed audio path");
@@ -816,11 +892,28 @@ mod tests {
             .get_mut(44)
             .expect("WAV sample follows its 44-byte header") ^= 0xff;
         fs::write(path, bytes).expect("flip one installed audio byte");
+        assert_eq!(
+            store.resolve("health_danger", None),
+            Err(ResolveError::Invalid(RejectReason::DigestMismatch))
+        );
+        let Err(ResolveError::NoVerifiedVariants(variants)) =
+            store.resolve_variants("health_danger", None)
+        else {
+            panic!("the corrupted legacy binding should have no verified variant");
+        };
+        assert_eq!(variants.len(), 1);
+        assert_eq!(variants[0].variant_id, "v1");
+        assert_eq!(variants[0].media, Err(RejectReason::DigestMismatch));
         let (table, _) = build_table(&store, &catalog(), &mut || {});
         assert!(
             matches!(table.lookup(EventId::HealthDanger, None), Lookup::Invalid),
             "digest recheck rejects modified installed WAV"
         );
+        let mut selector = VariantSelector::with_seed(1);
+        assert!(matches!(
+            selector.select(&table, EventId::HealthDanger, None, 1),
+            Err(crate::media::selection::SelectionFailure::InvalidMedia)
+        ));
         let facts = facts_from_table(&table, &|_| Some(true), true);
         let shared = EngineShared::new();
         shared.heartbeat_ms.store(10, Ordering::Relaxed);

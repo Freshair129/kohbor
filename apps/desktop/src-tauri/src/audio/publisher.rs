@@ -1,8 +1,9 @@
 #![allow(dead_code)] // Public host integration points are wired in the following slice.
 
 use super::device::DeviceCmd;
-use super::lanes::EngineOut;
-use serde_json::Value;
+use super::lanes::{ClipVariantLog, EngineOut};
+use kohbor_events::EventId;
+use serde_json::{Map, Value};
 use std::collections::VecDeque;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -140,15 +141,6 @@ pub fn spawn_publisher(
             while let Ok(output) = rx.recv() {
                 match output {
                     EngineOut::Playback(payload) => {
-                        // Bounded try_send only; the logging writer owns all
-                        // scanning, locks, and file I/O. Never log the payload.
-                        if payload["kind"] == "started"
-                            && payload["event_type"].as_str() != Some("audition")
-                        {
-                            crate::logging::try_clip_played(
-                                payload["event_type"].as_str().unwrap_or("unknown"),
-                            );
-                        }
                         if catch_unwind(AssertUnwindSafe(|| {
                             emitter.emit("playback://event", &payload)
                         }))
@@ -157,14 +149,31 @@ pub fn spawn_publisher(
                             increment(&history.publisher_counters.emit_panics);
                         }
                     }
-                    EngineOut::ClipQueued { event_id, tier } => {
-                        crate::logging::try_clip_queued(&event_id, tier);
+                    EngineOut::ClipPlayed { event_id, variant } => {
+                        log_clip_played(&event_id, &variant);
+                    }
+                    EngineOut::ClipVariantInvalid {
+                        event_id,
+                        tier,
+                        variant_id,
+                        clip_id,
+                        reason,
+                    } => {
+                        log_invalid_variant(event_id, tier, &variant_id, clip_id.as_deref(), reason)
+                    }
+                    EngineOut::ClipQueued {
+                        event_id,
+                        tier,
+                        variant,
+                    } => {
+                        log_clip_queued(&event_id, tier, &variant);
                     }
                     EngineOut::ClipDropped {
                         event_id,
                         tier,
                         outcome,
-                    } => crate::logging::try_clip_dropped(&event_id, tier, outcome.as_str()),
+                        variant,
+                    } => log_clip_dropped(&event_id, tier, outcome.as_str(), variant.as_ref()),
                     EngineOut::ClipFinished {
                         event_id,
                         reason,
@@ -242,6 +251,129 @@ pub fn spawn_publisher(
         })
 }
 
+fn log_invalid_variant(
+    event_id: EventId,
+    tier: Option<u8>,
+    variant_id: &str,
+    clip_id: Option<&str>,
+    reason: &'static str,
+) {
+    let mut fields = Map::from_iter([
+        ("event_id".to_owned(), Value::from(event_id.as_str())),
+        ("tier".to_owned(), tier.map_or(Value::Null, Value::from)),
+        ("variant_id".to_owned(), Value::from(variant_id)),
+        ("reason".to_owned(), Value::from(reason)),
+    ]);
+    if let Some(clip_id) = clip_id {
+        fields.insert("clip_id".to_owned(), Value::from(clip_id));
+    }
+    crate::logging::emit(
+        crate::logging::Level::Warn,
+        "audio",
+        "clip_variant_invalid",
+        "announcer variant skipped",
+        fields,
+    );
+}
+
+fn clip_fields(
+    event_id: &str,
+    tier: Option<u8>,
+    outcome: Option<&str>,
+    variant: Option<&ClipVariantLog>,
+    has_visual: Option<bool>,
+) -> Map<String, Value> {
+    let mut fields = Map::from_iter([(
+        "event_id".to_owned(),
+        Value::String(event_id.chars().take(80).collect()),
+    )]);
+    if let Some(tier) = tier {
+        fields.insert("tier".to_owned(), Value::from(tier));
+    } else if has_visual.is_none() {
+        fields.insert("tier".to_owned(), Value::Null);
+    }
+    if let Some(outcome) = outcome {
+        fields.insert(
+            "outcome".to_owned(),
+            Value::String(outcome.chars().take(80).collect()),
+        );
+    }
+    if let Some(variant) = variant {
+        fields.insert(
+            "variant_id".to_owned(),
+            Value::String(variant.variant_id.chars().take(32).collect()),
+        );
+        if let Some(clip_id) = variant.clip_id.as_deref() {
+            fields.insert(
+                "clip_id".to_owned(),
+                Value::String(clip_id.chars().take(48).collect()),
+            );
+        }
+        fields.insert(
+            "selection".to_owned(),
+            variant
+                .selection
+                .as_ref()
+                .map(|selection| Value::String(selection.chars().take(16).collect()))
+                .unwrap_or(Value::Null),
+        );
+    }
+    if let Some(has_visual) = has_visual {
+        fields.insert("has_visual".to_owned(), Value::Bool(has_visual));
+    }
+    fields
+}
+
+fn log_clip_played(event_id: &str, variant: &ClipVariantLog) {
+    if event_id == "audition" {
+        return;
+    }
+    crate::logging::emit(
+        crate::logging::Level::Info,
+        "audio",
+        "clip_played",
+        "announcer clip started",
+        clip_fields(
+            event_id,
+            None,
+            Some("admitted"),
+            Some(variant),
+            Some(variant.has_visual),
+        ),
+    );
+}
+
+fn log_clip_queued(event_id: &str, tier: Option<u8>, variant: &ClipVariantLog) {
+    if event_id == "audition" {
+        return;
+    }
+    crate::logging::emit(
+        crate::logging::Level::Info,
+        "audio",
+        "clip_queued",
+        "announcer clip queued",
+        clip_fields(event_id, tier, None, Some(variant), None),
+    );
+}
+
+fn log_clip_dropped(
+    event_id: &str,
+    tier: Option<u8>,
+    outcome: &str,
+    variant: Option<&ClipVariantLog>,
+) {
+    if event_id == "audition" {
+        return;
+    }
+    crate::logging::emit(
+        crate::logging::Level::Info,
+        "audio",
+        "clip_dropped",
+        "announcer clip dropped",
+        clip_fields(event_id, tier, Some(outcome), variant, None),
+    );
+}
+
 #[allow(dead_code)] // Wired to the Tauri command in the following host integration slice.
 pub fn audio_history_command(history: &HistoryHandle, limit: Option<u32>) -> Vec<Value> {
     if history.is_empty() {
@@ -277,6 +409,91 @@ mod tests {
             "package_revision": 1,
             "decided_monotonic_ms": id,
         })
+    }
+
+    #[test]
+    fn invalid_variant_log_contains_only_binding_provenance_and_reason() {
+        let entries = crate::logging::collect_test_logs(|| {
+            super::log_invalid_variant(
+                EventId::Streak,
+                Some(3),
+                "broken",
+                Some("vrzo-th-0019"),
+                "digest_mismatch",
+            );
+            super::log_invalid_variant(EventId::Streak, None, "broken", None, "digest_mismatch");
+        });
+        assert_eq!(entries.len(), 2);
+        assert!(entries
+            .iter()
+            .all(|entry| entry.module == "audio" && entry.event == "clip_variant_invalid"));
+        assert_eq!(
+            entries[0].fields,
+            json!({
+                "event_id": "streak",
+                "tier": 3,
+                "variant_id": "broken",
+                "clip_id": "vrzo-th-0019",
+                "reason": "digest_mismatch"
+            })
+        );
+        assert_eq!(
+            entries[1].fields,
+            json!({
+                "event_id": "streak", "tier": null, "variant_id": "broken", "reason": "digest_mismatch"
+            })
+        );
+    }
+
+    #[test]
+    fn clip_logs_keep_variant_provenance_and_visual_presence() {
+        let variant = ClipVariantLog {
+            variant_id: "kill-02".to_owned(),
+            clip_id: Some("vrzo-th-0019".to_owned()),
+            selection: Some("shuffle".to_owned()),
+            has_visual: false,
+        };
+        let played = super::clip_fields(
+            "hero_kill",
+            None,
+            Some("admitted"),
+            Some(&variant),
+            Some(variant.has_visual),
+        );
+        assert_eq!(played["variant_id"], "kill-02");
+        assert_eq!(played["clip_id"], "vrzo-th-0019");
+        assert_eq!(played["selection"], "shuffle");
+        assert_eq!(played["has_visual"], false);
+
+        let mut with_visual = variant.clone();
+        with_visual.has_visual = true;
+        let visually_played = super::clip_fields(
+            "hero_kill",
+            None,
+            Some("admitted"),
+            Some(&with_visual),
+            Some(with_visual.has_visual),
+        );
+        assert_eq!(visually_played["has_visual"], true);
+
+        let queued = super::clip_fields("hero_kill", Some(2), None, Some(&variant), None);
+        assert_eq!(queued["variant_id"], "kill-02");
+        assert_eq!(queued["clip_id"], "vrzo-th-0019");
+        assert_eq!(queued["selection"], "shuffle");
+
+        let dropped = super::clip_fields(
+            "hero_kill",
+            Some(2),
+            Some("channel_busy"),
+            Some(&variant),
+            None,
+        );
+        assert_eq!(dropped["variant_id"], "kill-02");
+        assert_eq!(dropped["selection"], "shuffle");
+
+        let tierless_dropped =
+            super::clip_fields("hero_kill", None, Some("channel_busy"), None, None);
+        assert_eq!(tierless_dropped["tier"], Value::Null);
     }
 
     fn publisher(

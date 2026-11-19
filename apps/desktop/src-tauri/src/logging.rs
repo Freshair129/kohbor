@@ -1875,6 +1875,7 @@ pub fn emit(level: Level, module: &str, event: &str, msg: &str, fields: Fields) 
     }
     // No synchronous stderr formatting or I/O on a hot caller before startup.
 }
+#[cfg(test)]
 pub(crate) fn try_clip_played(event_id: &str) {
     if event_id == "audition" {
         return;
@@ -1895,6 +1896,7 @@ pub(crate) fn try_clip_played(event_id: &str) {
     );
 }
 
+#[cfg(test)]
 pub(crate) fn try_clip_queued(event_id: &str, tier: Option<u8>) {
     if event_id == "audition" {
         return;
@@ -1918,6 +1920,7 @@ pub(crate) fn try_clip_queued(event_id: &str, tier: Option<u8>) {
     );
 }
 
+#[cfg(test)]
 pub(crate) fn try_clip_dropped(event_id: &str, tier: Option<u8>, outcome: &str) {
     if event_id == "audition" {
         return;
