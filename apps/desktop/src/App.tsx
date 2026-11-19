@@ -33,7 +33,7 @@ import { VolumeToast } from "./VolumeToast";
 import { useDotaLauncher, useShowSteamName, useSteamStatus } from "./steam/hooks";
 import { steamPersonaName } from "./steam/model";
 import { StartDotaBar } from "./steam/StartDotaBar";
-import { canOpenPostMatchReplay } from "./replay/admission";
+import { canOpenPostMatchReplay, useMatchEnded } from "./replay/admission";
 
 const ReplayPanel = import.meta.env.DEV || import.meta.env.VITE_KOHBOR_LAB === "1"
   ? lazy(() => import("./replay/ReplayPanel").then((module) => ({ default: module.ReplayPanel })))
@@ -52,6 +52,7 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
   const developerMode = useDeveloperMode();
   const account = useAccount(accountPort);
   const steamStatus = useSteamStatus();
+  const matchEnded = useMatchEnded(status, steamStatus);
   const steamName = useShowSteamName();
   const launch = useDotaLauncher(steamStatus);
   const [activeTab, setActiveTab] = useState<ShellPage>("live");
@@ -304,7 +305,7 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
         )}
         {ReplayPanel && currentTab === "replay" && (
           <Suspense fallback={<p role="status">{text.loading}</p>}>
-            <ReplayPanel locale={displayLocale} available={canOpenPostMatchReplay(status, steamStatus, hostLost)} />
+            <ReplayPanel locale={displayLocale} available={canOpenPostMatchReplay(status, steamStatus, hostLost, matchEnded)} />
           </Suspense>
         )}
         {developerMode.enabled && <LogsTab visible={currentTab === "logs"} locale={displayLocale} />}
