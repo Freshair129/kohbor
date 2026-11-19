@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { AudioHistory } from "./AudioHistory";
 import { AudioMuteControl, AudioPanel, useAudioMute } from "./AudioPanel";
+import { cabinetPhaseBlocksAudition } from "./cabinet";
 import { copy, seconds, type Locale } from "./copy";
 import { DemoPanel } from "./DemoPanel";
 
@@ -218,7 +219,11 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
         {currentTab === "packs" && (
           <div className="shell-screen shell-packs">
             <div className={`shell-pack-panel${hostLost ? " is-outdated" : ""}`}>
-              <PackPanel locale={displayLocale} disabled={hostLost} />
+              <PackPanel
+                locale={displayLocale}
+                disabled={hostLost}
+                matchActive={cabinetPhaseBlocksAudition(phase)}
+              />
             </div>
             <div className={`shell-history-panel${hostLost ? " is-outdated" : ""}`}>
               <AudioHistory locale={displayLocale} disabled={hostLost} />

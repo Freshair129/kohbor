@@ -2,6 +2,13 @@ mod common;
 use common::*;
 use kohbor_audio::{AudioClass::*, CancelReason, Notice as EventNotice, Outcome, PlaybackId};
 
+fn ranked_ordinary(instance_id: &str, rank: u32) -> kohbor_audio::Request {
+    let mut request = request(Ordinary);
+    request.instance_id = instance_id.to_owned();
+    request.ordinary_rank = rank;
+    request
+}
+
 macro_rules! matrix {
     ($name:ident, $incoming:expr, $active:expr, $expected:expr, $preempt:expr) => {
         #[test]
@@ -145,20 +152,8 @@ row!(
 row!(c3_c4, Notice, Some(Ordinary), Some(Outcome::Admitted), true);
 row!(c3_c5, Notice, Some(Voice), Some(Outcome::Admitted), true);
 row!(c4_idle, Ordinary, None, Some(Outcome::Admitted), false);
-row!(
-    c4_c1,
-    Ordinary,
-    Some(Critical),
-    Some(Outcome::CriticalActive),
-    false
-);
-row!(
-    c4_c2,
-    Ordinary,
-    Some(Correction),
-    Some(Outcome::CriticalActive),
-    false
-);
+row!(c4_c1, Ordinary, Some(Critical), None, false);
+row!(c4_c2, Ordinary, Some(Correction), None, false);
 row!(
     c4_c3,
     Ordinary,
@@ -309,4 +304,370 @@ fn queued_c2_ttl_inclusive() {
         .drain_notices()
         .iter()
         .any(|n| matches!(n,EventNotice::Decided(d) if d.outcome==Outcome::Admitted)));
+}
+
+#[test]
+fn queued_c4_starts_after_c1_ends() {
+    let mut o = owner();
+    o.request(0, request(Critical));
+
+    assert!(
+        o.request(1, request(Ordinary)).is_none(),
+        "C4 waits in the ordinary slot while C1 owns the channel"
+    );
+    o.tick(100);
+
+    let decisions: Vec<_> = o
+        .drain_notices()
+        .into_iter()
+        .filter_map(|notice| match notice {
+            EventNotice::Decided(decision) => Some(decision),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(decisions.len(), 1);
+    assert_eq!(decisions[0].outcome, Outcome::Admitted);
+    assert_eq!(decisions[0].playback_id, Some(PlaybackId(2)));
+}
+
+#[test]
+fn queued_c4_expires_after_its_ttl() {
+    let mut o = owner();
+    let mut critical = request(Critical);
+    critical.pcm = ms(5_000);
+    o.request(0, critical);
+    assert!(o.request(1, ranked_ordinary("expired", 90)).is_none());
+
+    o.tick(3_002);
+
+    assert!(o.drain_notices().iter().any(|notice| matches!(
+        notice,
+        EventNotice::Decided(decision)
+            if decision.instance_id == "expired"
+                && decision.outcome == Outcome::CriticalActive
+                && decision.detail == Some(kohbor_audio::Detail::QueueExpired)
+    )));
+    assert_eq!(o.active_class(3_002), Some(Critical));
+}
+
+#[test]
+fn higher_rank_replaces_lower_rank_in_c4_queue() {
+    let mut o = owner();
+    o.request(0, request(Critical));
+    assert!(o.request(1, ranked_ordinary("hero_kill", 60)).is_none());
+    assert!(o.request(2, ranked_ordinary("multi_kill", 90)).is_none());
+
+    assert!(o.drain_notices().iter().any(|notice| matches!(
+        notice,
+        EventNotice::Decided(decision)
+            if decision.instance_id == "hero_kill"
+                && decision.outcome == Outcome::CriticalActive
+                && decision.detail == Some(kohbor_audio::Detail::QueueReplaced)
+    )));
+    o.tick(100);
+    assert!(o.drain_notices().iter().any(|notice| matches!(
+        notice,
+        EventNotice::Decided(decision)
+            if decision.instance_id == "multi_kill" && decision.outcome == Outcome::Admitted
+    )));
+}
+
+#[test]
+fn lower_rank_loses_to_existing_c4_queue_entry() {
+    let mut o = owner();
+    o.request(0, request(Critical));
+    assert!(o.request(1, ranked_ordinary("multi_kill", 90)).is_none());
+    let loser = o.request(2, ranked_ordinary("hero_kill", 60)).unwrap();
+    assert_eq!(loser.outcome, Outcome::CriticalActive);
+    assert_eq!(loser.detail, Some(kohbor_audio::Detail::QueueReplaced));
+    o.tick(100);
+    assert!(o.drain_notices().iter().any(|notice| matches!(
+        notice,
+        EventNotice::Decided(decision)
+            if decision.instance_id == "multi_kill" && decision.outcome == Outcome::Admitted
+    )));
+}
+
+#[test]
+fn newer_equal_rank_replaces_older_c4_queue_entry() {
+    let mut o = owner();
+    o.request(0, request(Critical));
+    assert!(o.request(1, ranked_ordinary("first", 90)).is_none());
+    assert!(o.request(2, ranked_ordinary("second", 90)).is_none());
+
+    assert!(o.drain_notices().iter().any(|notice| matches!(
+        notice,
+        EventNotice::Decided(decision)
+            if decision.instance_id == "first"
+                && decision.outcome == Outcome::CriticalActive
+                && decision.detail == Some(kohbor_audio::Detail::QueueReplaced)
+    )));
+    o.tick(100);
+    assert!(o.drain_notices().iter().any(|notice| matches!(
+        notice,
+        EventNotice::Decided(decision)
+            if decision.instance_id == "second" && decision.outcome == Outcome::Admitted
+    )));
+}
+
+#[test]
+fn queued_c2_starts_before_waiting_c4() {
+    let mut o = owner();
+    let mut critical = request(Critical);
+    critical.pcm = ms(500);
+    o.request(0, critical);
+    assert!(o.request(1, ranked_ordinary("ordinary", 90)).is_none());
+    let mut correction = request(Correction);
+    correction.instance_id = "correction".into();
+    assert!(o.request(2, correction).is_none());
+
+    o.tick(500);
+    let first = o.drain_notices();
+    assert!(first.iter().any(|notice| matches!(
+        notice,
+        EventNotice::Decided(decision)
+            if decision.instance_id == "correction"
+                && decision.class == Correction
+                && decision.outcome == Outcome::Admitted
+                && decision.playback_id == Some(PlaybackId(2))
+    )));
+    assert_eq!(o.active_class(500), Some(Correction));
+
+    o.tick(600);
+    assert!(o.drain_notices().iter().any(|notice| matches!(
+        notice,
+        EventNotice::Decided(decision)
+            if decision.instance_id == "ordinary"
+                && decision.class == Ordinary
+                && decision.outcome == Outcome::Admitted
+                && decision.playback_id == Some(PlaybackId(3))
+    )));
+}
+
+#[test]
+fn queued_c4_is_cleared_by_session_revision_and_mute_fences() {
+    let mut session_owner = owner();
+    session_owner.request(0, request(Critical));
+    assert!(session_owner
+        .request(1, ranked_ordinary("session", 90))
+        .is_none());
+    session_owner.set_session(2, 2);
+    assert!(session_owner.drain_notices().iter().any(|notice| matches!(
+        notice,
+        EventNotice::Decided(decision)
+            if decision.instance_id == "session" && decision.outcome == Outcome::StaleSession
+    )));
+
+    let mut revision_owner = owner();
+    revision_owner.request(0, request(Critical));
+    assert!(revision_owner
+        .request(1, ranked_ordinary("revision", 90))
+        .is_none());
+    revision_owner.set_revision(2, 2);
+    assert!(revision_owner.drain_notices().iter().any(|notice| matches!(
+        notice,
+        EventNotice::Decided(decision)
+            if decision.instance_id == "revision"
+                && decision.outcome == Outcome::SupersededRevision
+    )));
+
+    let mut muted_owner = owner();
+    muted_owner.request(0, request(Critical));
+    assert!(muted_owner
+        .request(1, ranked_ordinary("muted", 90))
+        .is_none());
+    muted_owner.set_muted(2, true);
+    assert!(muted_owner.drain_notices().iter().any(|notice| matches!(
+        notice,
+        EventNotice::Decided(decision)
+            if decision.instance_id == "muted" && decision.outcome == Outcome::Muted
+    )));
+}
+
+#[test]
+fn queued_c4_is_cleared_when_device_is_lost_or_owner_stops() {
+    let mut device_owner = owner();
+    device_owner.request(0, request(Critical));
+    assert!(device_owner
+        .request(1, ranked_ordinary("device", 90))
+        .is_none());
+    device_owner.set_device_available(2, false);
+    assert!(device_owner.drain_notices().iter().any(|notice| matches!(
+        notice,
+        EventNotice::Decided(decision)
+            if decision.instance_id == "device"
+                && decision.outcome == Outcome::ChannelBusy
+                && decision.detail == Some(kohbor_audio::Detail::DeviceUnavailable)
+    )));
+
+    let mut stopped_owner = owner();
+    stopped_owner.request(0, request(Critical));
+    assert!(stopped_owner
+        .request(1, ranked_ordinary("stopped", 90))
+        .is_none());
+    stopped_owner.stop(2);
+    assert!(stopped_owner.drain_notices().iter().any(|notice| matches!(
+        notice,
+        EventNotice::Decided(decision)
+            if decision.instance_id == "stopped"
+                && decision.outcome == Outcome::ChannelBusy
+                && decision.detail.is_none()
+    )));
+}
+
+#[test]
+fn incoming_c1_does_not_start_waiting_c4_before_admission() {
+    let mut o = owner();
+    o.request(0, request(Critical));
+    assert!(o.request(1, ranked_ordinary("ordinary", 90)).is_none());
+
+    assert_eq!(
+        o.request(100, request(Critical)).unwrap().outcome,
+        Outcome::Admitted
+    );
+    assert_eq!(o.active_class(100), Some(Critical));
+    assert!(!o.drain_notices().iter().any(|notice| matches!(
+        notice,
+        EventNotice::Decided(decision)
+            if decision.instance_id == "ordinary" && decision.outcome == Outcome::Admitted
+    )));
+
+    o.tick(200);
+    assert!(o.drain_notices().iter().any(|notice| matches!(
+        notice,
+        EventNotice::Decided(decision)
+            if decision.instance_id == "ordinary" && decision.outcome == Outcome::Admitted
+    )));
+}
+
+#[test]
+fn incoming_c3_does_not_start_waiting_c4_before_admission() {
+    let mut o = owner();
+    let mut critical = request(Critical);
+    critical.pcm = ms(100);
+    o.request(0, critical);
+    assert!(o.request(1, ranked_ordinary("ordinary", 90)).is_none());
+
+    let notice = o.request(100, request(Notice)).unwrap();
+    assert_eq!(notice.outcome, Outcome::Admitted);
+    assert_eq!(o.active_class(100), Some(Notice));
+    assert!(!o.drain_notices().iter().any(|notice| matches!(
+        notice,
+        EventNotice::Decided(decision)
+            if decision.instance_id == "ordinary" && decision.outcome == Outcome::Admitted
+    )));
+
+    o.tick(200);
+    assert!(o.drain_notices().iter().any(|notice| matches!(
+        notice,
+        EventNotice::Decided(decision)
+            if decision.instance_id == "ordinary" && decision.outcome == Outcome::Admitted
+    )));
+}
+
+#[test]
+fn delayed_tick_does_not_submit_expired_queued_audio() {
+    for class in [Correction, Ordinary] {
+        for tick_at_ms in [3_002, 4_000] {
+            let mut o = owner();
+            o.request(0, request(Critical)).unwrap();
+            let mut queued = request(class);
+            queued.instance_id = "queued".into();
+            assert!(o.request(1, queued).is_none());
+
+            o.tick(tick_at_ms);
+
+            assert_eq!(
+                o.sink().calls.borrow().as_slice(),
+                &[Call::Submit(PlaybackId(1))],
+                "{class:?} must not reach the sink at {tick_at_ms}"
+            );
+            assert!(o.drain_notices().iter().any(|notice| matches!(
+                notice,
+                EventNotice::Decided(d)
+                    if d.instance_id == "queued"
+                        && d.outcome == Outcome::CriticalActive
+                        && d.detail == Some(kohbor_audio::Detail::QueueExpired)
+                        && d.playback_id.is_none()
+            )));
+        }
+    }
+}
+
+#[test]
+fn incoming_c1_does_not_submit_queued_c2_before_admission() {
+    let mut o = owner();
+    o.request(0, request(Critical)).unwrap();
+    let mut correction = request(Correction);
+    correction.instance_id = "correction".into();
+    assert!(o.request(1, correction).is_none());
+
+    let critical = o.request(100, request(Critical)).unwrap();
+    assert_eq!(critical.outcome, Outcome::Admitted);
+    assert_eq!(critical.playback_id, Some(PlaybackId(2)));
+    assert_eq!(
+        o.sink().calls.borrow().as_slice(),
+        &[Call::Submit(PlaybackId(1)), Call::Submit(PlaybackId(2))]
+    );
+    assert!(!o.drain_notices().iter().any(|notice| matches!(
+        notice,
+        EventNotice::Decided(d) if d.instance_id == "correction"
+    )));
+
+    o.tick(200);
+    assert!(o.drain_notices().iter().any(|notice| matches!(
+        notice,
+        EventNotice::Decided(d)
+            if d.instance_id == "correction"
+                && d.outcome == Outcome::Admitted
+                && d.playback_id == Some(PlaybackId(3))
+    )));
+}
+
+#[test]
+fn fences_at_audio_end_decide_queued_audio_without_submitting_it() {
+    type Fence = fn(&mut kohbor_audio::AudioOwner<FakeSink>, u64);
+    let fences: [(Fence, Outcome, Option<kohbor_audio::Detail>); 5] = [
+        (|o, at| o.set_muted(at, true), Outcome::Muted, None),
+        (|o, at| o.set_session(at, 2), Outcome::StaleSession, None),
+        (
+            |o, at| o.set_revision(at, 2),
+            Outcome::SupersededRevision,
+            None,
+        ),
+        (
+            |o, at| o.set_device_available(at, false),
+            Outcome::ChannelBusy,
+            Some(kohbor_audio::Detail::DeviceUnavailable),
+        ),
+        (|o, at| o.stop(at), Outcome::ChannelBusy, None),
+    ];
+    for (fence, outcome, detail) in fences {
+        let mut o = owner();
+        o.request(0, request(Critical)).unwrap();
+        let mut correction = request(Correction);
+        correction.instance_id = "correction".into();
+        assert!(o.request(1, correction).is_none());
+        assert!(o.request(1, ranked_ordinary("ordinary", 90)).is_none());
+
+        fence(&mut o, 100);
+        o.tick(200);
+
+        assert_eq!(
+            o.sink().calls.borrow().as_slice(),
+            &[Call::Submit(PlaybackId(1))],
+            "{outcome:?} must not submit queued audio"
+        );
+        let notices = o.drain_notices();
+        for id in ["correction", "ordinary"] {
+            assert!(notices.iter().any(|notice| matches!(
+                notice,
+                EventNotice::Decided(d)
+                    if d.instance_id == id
+                        && d.outcome == outcome
+                        && d.detail == detail
+                        && d.playback_id.is_none()
+            )));
+        }
+    }
 }

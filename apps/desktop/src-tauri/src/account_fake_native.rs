@@ -624,9 +624,8 @@ fn is_expected_synthetic_session(session: &PersistedSession) -> bool {
                 return false;
             }
             has_cache_label = true;
-        } else if label.starts_with(TEST_DISPLAY_NAME_LABEL_PREFIX) {
+        } else if let Some(name) = label.strip_prefix(TEST_DISPLAY_NAME_LABEL_PREFIX) {
             display_name_count += 1;
-            let name = &label[TEST_DISPLAY_NAME_LABEL_PREFIX.len()..];
             if normalize_demo_display_name(name).as_deref() != Some(name) {
                 return false;
             }
@@ -806,8 +805,7 @@ fn send_synthetic_callback(address: SocketAddrV4) -> bool {
     // The host only sends a fixed, sanitized acknowledgement. Reading it keeps
     // the local loopback exchange complete without retaining response contents.
     let mut response = Vec::new();
-    let read_ok = stream.read_to_end(&mut response).is_ok();
-    read_ok
+    stream.read_to_end(&mut response).is_ok()
 }
 
 struct SyntheticClock;

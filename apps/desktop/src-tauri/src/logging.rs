@@ -1876,6 +1876,9 @@ pub fn emit(level: Level, module: &str, event: &str, msg: &str, fields: Fields) 
     // No synchronous stderr formatting or I/O on a hot caller before startup.
 }
 pub(crate) fn try_clip_played(event_id: &str) {
+    if event_id == "audition" {
+        return;
+    }
     let fields = Map::from_iter([
         (
             "event_id".to_owned(),
@@ -1888,6 +1891,56 @@ pub(crate) fn try_clip_played(event_id: &str) {
         "audio",
         "clip_played",
         "announcer clip started",
+        fields,
+    );
+}
+
+pub(crate) fn try_clip_queued(event_id: &str, tier: Option<u8>) {
+    if event_id == "audition" {
+        return;
+    }
+    let fields = Map::from_iter([
+        (
+            "event_id".to_owned(),
+            Value::String(prefix(event_id, 80).to_owned()),
+        ),
+        (
+            "tier".to_owned(),
+            tier.map(Value::from).unwrap_or(Value::Null),
+        ),
+    ]);
+    emit(
+        Level::Info,
+        "audio",
+        "clip_queued",
+        "announcer clip queued",
+        fields,
+    );
+}
+
+pub(crate) fn try_clip_dropped(event_id: &str, tier: Option<u8>, outcome: &str) {
+    if event_id == "audition" {
+        return;
+    }
+    let fields = Map::from_iter([
+        (
+            "event_id".to_owned(),
+            Value::String(prefix(event_id, 80).to_owned()),
+        ),
+        (
+            "tier".to_owned(),
+            tier.map(Value::from).unwrap_or(Value::Null),
+        ),
+        (
+            "outcome".to_owned(),
+            Value::String(prefix(outcome, 80).to_owned()),
+        ),
+    ]);
+    emit(
+        Level::Info,
+        "audio",
+        "clip_dropped",
+        "announcer clip dropped",
         fields,
     );
 }
@@ -2074,6 +2127,74 @@ mod tests {
         let played_fields = entries[0].fields.as_object().expect("fields object");
         let played_keys: Vec<_> = played_fields.keys().map(String::as_str).collect();
         assert_eq!(played_keys, ["event_id", "outcome"]);
+    }
+
+    #[test]
+    fn clip_queue_and_drop_lines_are_bounded_and_exclude_auditions() {
+        let logger = std::sync::Arc::new(Logger::new_in_memory(16));
+        let long_event_id = "e!".repeat(60);
+        let long_outcome = "o!".repeat(60);
+        super::with_test_logger(logger.clone(), || {
+            super::try_clip_queued("multi_kill", Some(2));
+            super::try_clip_dropped("multi_kill", Some(2), "critical_active");
+            super::try_clip_dropped("hero_kill", None, "channel_busy");
+            super::try_clip_queued(&long_event_id, None);
+            super::try_clip_dropped(&long_event_id, None, &long_outcome);
+            super::try_clip_played("audition");
+            super::try_clip_queued("audition", Some(2));
+            super::try_clip_dropped("audition", Some(2), "critical_active");
+        });
+
+        let entries = logger.entries();
+        assert_eq!(entries.len(), 5, "auditions do not enter match clip logs");
+        let queued: Vec<_> = entries
+            .iter()
+            .filter(|entry| entry.event == "clip_queued")
+            .collect();
+        assert_eq!(queued.len(), 2);
+        assert_eq!(queued[0].fields["event_id"], "multi_kill");
+        assert_eq!(queued[0].fields["tier"], 2);
+        assert_eq!(queued[1].fields["event_id"].as_str().unwrap().len(), 80);
+        assert!(queued[1].fields["tier"].is_null());
+        let queued_keys: Vec<_> = queued[0]
+            .fields
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        assert_eq!(queued_keys, ["event_id", "tier"]);
+
+        let dropped: Vec<_> = entries
+            .iter()
+            .filter(|entry| entry.event == "clip_dropped")
+            .collect();
+        assert_eq!(dropped.len(), 3);
+        assert!(dropped.iter().any(|entry| {
+            entry.fields["event_id"] == "multi_kill"
+                && entry.fields["tier"] == 2
+                && entry.fields["outcome"] == "critical_active"
+        }));
+        assert!(dropped.iter().any(|entry| {
+            entry.fields["event_id"] == "hero_kill"
+                && entry.fields["tier"].is_null()
+                && entry.fields["outcome"] == "channel_busy"
+        }));
+        assert!(dropped.iter().any(|entry| {
+            entry.fields["event_id"].as_str().unwrap().len() == 80
+                && entry.fields["tier"].is_null()
+                && entry.fields["outcome"].as_str().unwrap().len() == 80
+        }));
+        for entry in dropped {
+            let keys: Vec<_> = entry
+                .fields
+                .as_object()
+                .unwrap()
+                .keys()
+                .map(String::as_str)
+                .collect();
+            assert_eq!(keys, ["event_id", "outcome", "tier"]);
+        }
     }
 
     #[test]

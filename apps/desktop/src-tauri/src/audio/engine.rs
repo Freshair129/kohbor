@@ -18,7 +18,9 @@ use kohbor_audio::{
 };
 use kohbor_events::{arbitrate, Event, EventId};
 
-use super::lanes::{Control, EngineOut, EngineRx, EngineShared, EngineTx, TickMsg};
+use super::lanes::{
+    AuditionRefusal, AuditionRequest, Control, EngineOut, EngineRx, EngineShared, EngineTx, TickMsg,
+};
 use super::outcome::{
     playback_ended, playback_started, pre_owner_record, preempted_record, record, EndReason,
 };
@@ -30,6 +32,10 @@ const CONTROL_BUDGET: usize = 32;
 const ORDINARY_BUDGET: usize = 16;
 const REBUILD_WINDOW_MS: u64 = 60_000;
 const MAX_REBUILDS_IN_WINDOW: usize = 3;
+const AUDITION_GENERATION: u64 = u64::MAX - 1;
+// Outside the contract's match epoch range. The owner can cancel the audition
+// and its visual tail through the normal session fence.
+const AUDITION_EPOCH: u64 = u64::MAX;
 
 struct LivePlayback {
     id: PlaybackId,
@@ -38,11 +44,18 @@ struct LivePlayback {
     expected_frames: Option<u64>,
 }
 
+struct PendingClip {
+    instance_id: String,
+    tier: Option<u8>,
+    clip: Clip,
+}
+
 pub struct Engine {
     clock: MonoClock,
     shared: Arc<EngineShared>,
     critical: mpsc::Receiver<TickMsg>,
     ordinary: mpsc::Receiver<TickMsg>,
+    audition: mpsc::Receiver<AuditionRequest>,
     control: mpsc::Receiver<Control>,
     out: SyncSender<EngineOut>,
     owner: AudioOwner<SlotSink>,
@@ -50,9 +63,12 @@ pub struct Engine {
     table: Arc<PrewarmTable>,
     latency: bool,
     session_epoch: u64,
+    audition_session: bool,
+    audition_match_reported: bool,
     muted: bool,
     last_issued_id: u64,
     live: Vec<LivePlayback>,
+    pending_clips: Vec<PendingClip>,
     rebuild_instants: VecDeque<u64>,
     need_sink_requested: bool,
     replacement_pending: bool,
@@ -89,6 +105,7 @@ impl Engine {
             shared,
             critical: rx.critical,
             ordinary: rx.ordinary,
+            audition: rx.audition,
             control: rx.control,
             out,
             owner,
@@ -96,9 +113,12 @@ impl Engine {
             table: PrewarmTable::empty(),
             latency,
             session_epoch: 0,
+            audition_session: false,
+            audition_match_reported: false,
             muted: false,
             last_issued_id: 0,
             live: Vec::with_capacity(2),
+            pending_clips: Vec::with_capacity(2),
             rebuild_instants: VecDeque::new(),
             need_sink_requested: false,
             replacement_pending: false,
@@ -110,7 +130,8 @@ impl Engine {
     /// One iteration at `now_ms` (the caller supplies the time; tests never sleep).
     /// Order: (1) drain the whole critical lane; (2) drain up to 32 control messages;
     /// (3) drain up to 16 ordinary ticks; (4) `owner.pump_sink_events(now)` and
-    /// `owner.tick(now)`, convert `drain_notices()` into outputs; (5) store the atomics of
+    /// `owner.tick(now)`, convert `drain_notices()` into outputs; (5) consider one
+    /// audition only after game audio; (6) store the atomics of
     /// `EngineShared` (heartbeat_ms = now_ms, muted, device_available, lease_active, fence).
     /// Returns how long the caller may park: 10 ms while the owner has an active playback or
     /// a visual, otherwise 250 ms.
@@ -135,6 +156,16 @@ impl Engine {
 
     fn step_body(&mut self, now_ms: u64) {
         if !self.shutdown {
+            let match_active = self.shared.audition_match_active();
+            if match_active {
+                self.stop_audition(now_ms, false);
+            }
+            if match_active != self.audition_match_reported
+                && self.try_output(EngineOut::AuditionMatchChanged(match_active))
+            {
+                self.audition_match_reported = match_active;
+            }
+            let mut real_event_seen = false;
             if !self.is_degraded()
                 && (self.owner.sink().is_empty()
                     || self.replacement_pending
@@ -144,6 +175,7 @@ impl Engine {
             }
 
             while let Ok(message) = self.critical.try_recv() {
+                real_event_seen |= !message.events.is_empty();
                 self.handle_tick(message, now_ms);
             }
 
@@ -161,7 +193,10 @@ impl Engine {
             if !self.shutdown {
                 for _ in 0..ORDINARY_BUDGET {
                     match self.ordinary.try_recv() {
-                        Ok(message) => self.handle_tick(message, now_ms),
+                        Ok(message) => {
+                            real_event_seen |= !message.events.is_empty();
+                            self.handle_tick(message, now_ms);
+                        }
                         Err(TryRecvError::Empty) | Err(TryRecvError::Disconnected) => break,
                     }
                 }
@@ -190,6 +225,13 @@ impl Engine {
                 self.drain_notices();
                 self.install_pending_if_idle(now_ms);
             }
+
+            if !self.shutdown {
+                if let Ok(request) = self.audition.try_recv() {
+                    let result = self.admit_audition(&request, now_ms, real_event_seen);
+                    let _ = request.reply.try_send(result);
+                }
+            }
         }
 
         if self.shutdown {
@@ -203,6 +245,7 @@ impl Engine {
                 if epoch > self.session_epoch {
                     self.session_epoch = epoch;
                     self.owner.set_session(now_ms, epoch);
+                    self.audition_session = false;
                     self.drain_notices();
                 }
             }
@@ -243,6 +286,9 @@ impl Engine {
     }
 
     fn handle_tick(&mut self, message: TickMsg, now_ms: u64) {
+        if !message.events.is_empty() {
+            self.stop_audition(now_ms, true);
+        }
         if message.session_epoch > self.session_epoch {
             self.session_epoch = message.session_epoch;
             self.owner.set_session(now_ms, message.session_epoch);
@@ -258,12 +304,20 @@ impl Engine {
                 self.record_pre_owner(
                     &message,
                     event.id,
+                    event.tier,
                     &key,
                     Outcome::DetectorUnavailable,
                     now_ms,
                 );
             } else if !event.id.voiced() {
-                self.record_pre_owner(&message, event.id, &key, Outcome::NotVoiced, now_ms);
+                self.record_pre_owner(
+                    &message,
+                    event.id,
+                    event.tier,
+                    &key,
+                    Outcome::NotVoiced,
+                    now_ms,
+                );
             } else if event.id.is_critical() {
                 critical.push((event, key));
             } else {
@@ -296,6 +350,7 @@ impl Engine {
                     self.record_pre_owner(
                         &message,
                         event.id,
+                        event.tier,
                         key,
                         Outcome::LowerRankSameTick,
                         now_ms,
@@ -333,31 +388,36 @@ impl Engine {
     }
 
     fn handle_voiced_event(&mut self, message: &TickMsg, event: Event, key: String, now_ms: u64) {
+        let event_type = event.id.as_str();
         let class = class_of(event.id);
-        let clip = match self.table.lookup(event.id, event.tier) {
-            Lookup::Ready(clip) => clip.clone(),
-            Lookup::Unmapped => {
-                self.record_pre_owner(message, event.id, &key, Outcome::Unmapped, now_ms);
-                return;
-            }
-            Lookup::Invalid => {
-                self.record_pre_owner(message, event.id, &key, Outcome::InvalidMedia, now_ms);
+        let clip = match self.resolve_clip(event) {
+            Ok(clip) => clip,
+            Err(outcome) => {
+                self.record_pre_owner(message, event.id, event.tier, &key, outcome, now_ms);
                 return;
             }
         };
 
         if self.is_degraded() {
-            self.record_pre_owner(message, event.id, &key, Outcome::ChannelBusy, now_ms);
+            self.record_pre_owner(
+                message,
+                event.id,
+                event.tier,
+                &key,
+                Outcome::ChannelBusy,
+                now_ms,
+            );
             return;
         }
 
         let request = Request {
             instance_id: key.clone(),
-            event_type: Some(event.id.as_str().to_owned()),
+            event_type: Some(event_type.to_owned()),
             session_epoch: message.session_epoch,
             class,
+            ordinary_rank: event.id.rank().unwrap_or_default(),
             episode: if class == AudioClass::Critical {
-                Some(key)
+                Some(key.clone())
             } else {
                 None
             },
@@ -366,23 +426,22 @@ impl Engine {
             visual_tail_ms: clip.visual_tail_ms,
         };
 
-        self.last_issued_id = self.last_issued_id.saturating_add(1);
         let t2 = Instant::now();
         let t2_us = Self::offset_us(message.arrival, t2);
-        let decision = self.owner.request(now_ms, request);
+        let decision = self.request_playback(now_ms, request);
         let t3 = Instant::now();
         let t3p_us = Self::offset_us(message.arrival, t3);
 
-        self.drain_notices();
         if let Some(decision) = decision {
+            self.drain_notices();
             let admitted = decision.outcome == Outcome::Admitted;
             let id = decision.playback_id;
             let decision_instance_id = decision.instance_id.clone();
-            self.handle_decision(decision, Some(&clip));
+            self.handle_decision(decision, Some(&clip), event.tier);
             if admitted && self.latency {
                 let _ = self.try_output(EngineOut::Latency {
                     instance_id: decision_instance_id,
-                    event_type: Some(event.id.as_str().to_owned()),
+                    event_type: Some(event_type.to_owned()),
                     t0_ms: self.clock.ms_at(message.arrival),
                     t1_us: Self::offset_us(message.arrival, message.detected),
                     t2_us,
@@ -392,6 +451,112 @@ impl Engine {
             if let Some(id) = id {
                 self.last_issued_id = self.last_issued_id.max(id.0);
             }
+        } else {
+            // A replacement emits the previous request's decision immediately.
+            // Drain it before associating this request's clip with the queue slot.
+            self.drain_notices();
+            self.remember_pending_clip(&key, event.tier, clip.clone());
+            if class == AudioClass::Ordinary {
+                let _ = self.try_output(EngineOut::ClipQueued {
+                    event_id: event_type.to_owned(),
+                    tier: event.tier,
+                });
+            }
+        }
+    }
+
+    fn resolve_clip(&self, event: Event) -> Result<Clip, Outcome> {
+        match self.table.lookup(event.id, event.tier) {
+            Lookup::Ready(clip) => Ok(clip.clone()),
+            Lookup::Unmapped => Err(Outcome::Unmapped),
+            Lookup::Invalid => Err(Outcome::InvalidMedia),
+        }
+    }
+
+    fn request_playback(&mut self, now_ms: u64, request: Request) -> Option<Decision> {
+        self.last_issued_id = self.last_issued_id.saturating_add(1);
+        self.owner.request(now_ms, request)
+    }
+
+    fn admit_audition(
+        &mut self,
+        audition: &AuditionRequest,
+        now_ms: u64,
+        real_event_seen: bool,
+    ) -> Result<(), AuditionRefusal> {
+        if self.shared.audition_match_active() {
+            return Err(AuditionRefusal::MatchActive);
+        }
+        if real_event_seen
+            || self.is_degraded()
+            || self.owner.active(now_ms).is_some()
+            || self.owner.visual(now_ms).is_some()
+        {
+            return Err(AuditionRefusal::Busy);
+        }
+        if self.table.install_id.as_deref() != Some(audition.install_id.as_str()) {
+            return Err(AuditionRefusal::MediaStateUnknown);
+        }
+        let clip = self
+            .resolve_clip(audition.event)
+            .map_err(|outcome| match outcome {
+                Outcome::Unmapped => AuditionRefusal::Unmapped,
+                _ => AuditionRefusal::MediaStateUnknown,
+            })?;
+        let request = Request {
+            instance_id: instance_id(AUDITION_GENERATION, audition.sequence, 0),
+            event_type: Some("audition".to_owned()),
+            session_epoch: AUDITION_EPOCH,
+            class: AudioClass::Ordinary,
+            ordinary_rank: 0,
+            episode: None,
+            package_revision: Some(self.table.fence),
+            pcm: clip.pcm.clone(),
+            visual_tail_ms: clip.visual_tail_ms,
+        };
+        if Instant::now() >= audition.expires_at {
+            return Err(AuditionRefusal::Busy);
+        }
+        if self.shared.audition_match_active() {
+            return Err(AuditionRefusal::MatchActive);
+        }
+        // A tick can arrive while the sink is polled after the lane drains.
+        let pending_tick = self
+            .critical
+            .try_recv()
+            .or_else(|_| self.ordinary.try_recv());
+        if let Ok(message) = pending_tick {
+            self.handle_tick(message, now_ms);
+            return Err(AuditionRefusal::Busy);
+        }
+        self.owner.set_session(now_ms, AUDITION_EPOCH);
+        self.audition_session = true;
+        let decision = self.request_playback(now_ms, request);
+        self.drain_notices();
+        match decision {
+            Some(mut decision) if decision.outcome == Outcome::Admitted => {
+                // The owner fence is local. The outcome record uses the host's
+                // positive epoch and identifies the playback as an audition.
+                decision.session_epoch = audition.session_epoch;
+                self.handle_decision(decision, Some(&clip), None);
+                Ok(())
+            }
+            decision => {
+                self.stop_audition(now_ms, false);
+                if decision.is_some_and(|decision| decision.outcome == Outcome::Muted) {
+                    Err(AuditionRefusal::Muted)
+                } else {
+                    Err(AuditionRefusal::Busy)
+                }
+            }
+        }
+    }
+
+    fn stop_audition(&mut self, now_ms: u64, preempted: bool) {
+        if self.audition_session {
+            self.audition_session = false;
+            self.owner.set_session(now_ms, self.session_epoch);
+            self.publish_notices(preempted);
         }
     }
 
@@ -399,6 +564,7 @@ impl Engine {
         &mut self,
         message: &TickMsg,
         event_id: EventId,
+        tier: Option<u8>,
         key: &str,
         outcome: Outcome,
         now_ms: u64,
@@ -421,9 +587,10 @@ impl Engine {
         } else {
             Self::increment_u64(&self.shared.out_dropped);
         }
+        self.emit_clip_dropped(event_id.as_str(), tier, outcome);
     }
 
-    fn handle_decision(&mut self, decision: Decision, clip: Option<&Clip>) {
+    fn handle_decision(&mut self, decision: Decision, clip: Option<&Clip>, tier: Option<u8>) {
         if decision.outcome == Outcome::Admitted {
             if let Some(id) = decision.playback_id {
                 let audio_ends_at_ms = clip
@@ -444,6 +611,11 @@ impl Engine {
             }
             None => Self::increment_u64(&self.shared.out_dropped),
         }
+        if decision.outcome != Outcome::Admitted && decision.class != AudioClass::Voice {
+            if let Some(event_id) = decision.event_type.as_deref() {
+                self.emit_clip_dropped(event_id, tier, decision.outcome);
+            }
+        }
         if decision.outcome == Outcome::Admitted {
             if let Some(clip) = clip {
                 if let Some(value) = playback_started(&decision, clip) {
@@ -453,6 +625,40 @@ impl Engine {
                 }
             }
         }
+    }
+
+    fn emit_clip_dropped(&mut self, event_id: &str, tier: Option<u8>, outcome: Outcome) {
+        if event_id == "audition" {
+            return;
+        }
+        let _ = self.try_output(EngineOut::ClipDropped {
+            event_id: event_id.to_owned(),
+            tier,
+            outcome,
+        });
+    }
+
+    fn remember_pending_clip(&mut self, instance_id: &str, tier: Option<u8>, clip: Clip) {
+        if let Some(position) = self
+            .pending_clips
+            .iter()
+            .position(|pending| pending.instance_id == instance_id)
+        {
+            self.pending_clips.remove(position);
+        }
+        self.pending_clips.push(PendingClip {
+            instance_id: instance_id.to_owned(),
+            tier,
+            clip,
+        });
+    }
+
+    fn take_pending_clip(&mut self, instance_id: &str) -> Option<PendingClip> {
+        let position = self
+            .pending_clips
+            .iter()
+            .position(|pending| pending.instance_id == instance_id)?;
+        Some(self.pending_clips.remove(position))
     }
 
     fn remember_live(
@@ -492,10 +698,34 @@ impl Engine {
     }
 
     fn drain_notices(&mut self) {
+        self.publish_notices(false);
+    }
+
+    fn drain_panic_decisions(&mut self) {
+        for notice in self.owner.drain_notices() {
+            if let Notice::Decided(decision) = notice {
+                let pending = self.take_pending_clip(&decision.instance_id);
+                self.handle_decision(
+                    decision,
+                    pending.as_ref().map(|pending| &pending.clip),
+                    pending.as_ref().and_then(|pending| pending.tier),
+                );
+            }
+        }
+    }
+
+    fn publish_notices(&mut self, preempting_audition: bool) {
         let notices = self.owner.drain_notices();
         for notice in notices {
             match notice {
-                Notice::Decided(decision) => self.handle_decision(decision, None),
+                Notice::Decided(decision) => {
+                    let pending = self.take_pending_clip(&decision.instance_id);
+                    self.handle_decision(
+                        decision,
+                        pending.as_ref().map(|pending| &pending.clip),
+                        pending.as_ref().and_then(|pending| pending.tier),
+                    );
+                }
                 Notice::Finished { id, at_ms } => {
                     let live = self.remove_live(id);
                     let _ = self.try_output(EngineOut::Playback(playback_ended(
@@ -509,6 +739,17 @@ impl Engine {
                 }
                 Notice::Cancelled { id, reason, at_ms } => {
                     let live = self.remove_live(id);
+                    let reason = if preempting_audition
+                        && reason == CancelReason::SessionFence
+                        && live
+                            .as_ref()
+                            .and_then(|live| live.decision.event_type.as_deref())
+                            == Some("audition")
+                    {
+                        CancelReason::Preempted
+                    } else {
+                        reason
+                    };
                     let _ = self.try_output(EngineOut::Playback(playback_ended(
                         id,
                         EndReason::Cancelled(reason),
@@ -588,6 +829,8 @@ impl Engine {
     }
 
     fn finish_shutdown(&mut self, now_ms: u64) {
+        self.owner.stop(now_ms);
+        self.drain_notices();
         let replacement = AudioOwner::with_first_playback_id(
             SlotSink::empty(),
             self.config,
@@ -607,6 +850,9 @@ impl Engine {
     }
 
     fn rebuild_after_panic(&mut self, now_ms: u64) {
+        self.owner.stop(now_ms);
+        self.drain_panic_decisions();
+        self.audition_session = false;
         let _ =
             self.shared
                 .rebuilds

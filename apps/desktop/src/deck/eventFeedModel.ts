@@ -1,5 +1,5 @@
 // @ts-ignore Explicit source extensions support the Node test runner.
-import { isDemoOutcomeRecord, type AudioHistory, type AudioOutcomeRecord, type HistoryLoadState, type HistoryOutcome } from "../history.ts";
+import { isAuditionOutcomeRecord, isDemoOutcomeRecord, type AudioHistory, type AudioOutcomeRecord, type HistoryLoadState, type HistoryOutcome } from "../history.ts";
 // @ts-ignore Explicit source extensions support the Node test runner.
 import { eventLabel } from "../eventLabels.ts";
 // @ts-ignore Explicit source extensions support the Node test runner.
@@ -17,7 +17,9 @@ function outcomeLabel(outcome: HistoryOutcome, locale: "th" | "en"): string {
   return words[outcome]?.[locale === "th" ? 0 : 1] ?? (locale === "th" ? "ไม่เล่น" : "Not played");
 }
 function newest(history: AudioHistory | null): AudioOutcomeRecord[] {
-  return [...(history?.records ?? [])].sort((a, b) => b.decided_monotonic_ms - a.decided_monotonic_ms);
+  return [...(history?.records ?? [])]
+    .filter((record) => !isAuditionOutcomeRecord(record))
+    .sort((a, b) => b.decided_monotonic_ms - a.decided_monotonic_ms);
 }
 function row(record: AudioOutcomeRecord, hostNowMs: number | null, locale: "th" | "en") {
   return { record, eventLabel: eventLabel(record.event_type, locale), audioClass: record.audio_class,
