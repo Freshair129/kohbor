@@ -35,7 +35,7 @@ kohbor-risk = { path = "../../../crates/kohbor-risk" }
 kohbor-game-assets = { path = "../../../crates/kohbor-game-assets" }
 kohbor-lab = { path = "../../../crates/kohbor-lab" }
 flate2 = { workspace = true }
-tauri = { version = "=2.12.5", features = [] }
+tauri = { version = "=2.12.5", features = ["tray-icon"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 getrandom = { workspace = true }

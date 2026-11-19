@@ -88,8 +88,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/Cargo.toml",
-      "bytes": 2453,
-      "sha256": "c6873934963bfd1bd654f0c66b86b01fb193117d825e6c88058585c9858be55b"
+      "bytes": 2464,
+      "sha256": "c7c008a52db7696ed3a4f838559ae26b7ac8e919e316d59064a19ecb913b3fde"
     },
     {
       "path": "apps/desktop/src-tauri/app-icon.png",
@@ -333,8 +333,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/instance.rs",
-      "bytes": 3680,
-      "sha256": "9da6a576fc4001dda091b5e3c235547afcc30e5cfea66c5c82f0698dabb2ac5e"
+      "bytes": 6501,
+      "sha256": "10412f0554697e7a48fa114d9aec1edbedae89a805d76269eb084d91240328e5"
     },
     {
       "path": "apps/desktop/src-tauri/src/intake.rs",
@@ -353,8 +353,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 33828,
-      "sha256": "9479504ddef11311c85f2f3628019174a38dbd5ced7206e19bd713e8fb067d88"
+      "bytes": 34698,
+      "sha256": "be8da81e40a07c7d508577c203ee4341bd0f8e5e069c96caa1c63a376351372c"
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
@@ -425,6 +425,11 @@
       "path": "apps/desktop/src-tauri/src/steam.rs",
       "bytes": 39421,
       "sha256": "e49758432fa0d634e3360b4a64d9411bcc81dd25399ecc267f146812e7c26664"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/tray.rs",
+      "bytes": 4145,
+      "sha256": "23d2731668da2aceb15aaaeb99f58d80c8c8b17194defdfce75aee6f468705ad"
     },
     {
       "path": "apps/desktop/src-tauri/src/update.rs",
