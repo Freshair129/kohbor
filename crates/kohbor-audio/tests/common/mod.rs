@@ -46,6 +46,7 @@ pub fn request(class: AudioClass) -> Request {
         },
         session_epoch: 1,
         class,
+        ordinary_rank: 0,
         episode: None,
         package_revision: if class == AudioClass::Voice {
             None

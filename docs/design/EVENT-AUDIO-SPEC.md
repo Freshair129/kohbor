@@ -3,7 +3,7 @@ title: "Event and Audio Specification (M2)"
 doc_id: "EVENT-AUDIO-SPEC"
 status: draft
 version: "0.3.6"
-updated: "2026-11-11"
+updated: "2026-11-19"
 authority: "DEC-BASELINE; elaborates MEDIA-001..008, ALERT-001, ALERT-007, VOICE-006, QUALITY-001, QUALITY-007 under DEC-EVENT-AUDIO and DEC-HEALTH-DANGER"
 owner_role: "Integration owner (catalog, arbitration, formats); product owner (health danger, mute)"
 approval_status: "not_approved"
@@ -180,12 +180,14 @@ Each row is the class of a new request (incoming); each column is the class alre
 | C1 | play | preempt if a different episode; otherwise drop `cooldown` | preempt | preempt | preempt | preempt |
 | C2 | play | queue (latest only, TTL 3,000 ms) then play; drop `critical_active` on expiry | preempt (newer revision) | preempt | preempt | preempt |
 | C3 | play | drop `critical_active` | drop `critical_active` | drop `channel_busy` | preempt | preempt |
-| C4 | play | drop `critical_active` | drop `critical_active` | drop `channel_busy` | drop `channel_busy` | preempt |
+| C4 | play | queue (one slot, higher rank wins, TTL 3,000 ms) then play; drop `critical_active` on expiry or replacement | queue (one slot, higher rank wins, TTL 3,000 ms) then play; drop `critical_active` on expiry or replacement | drop `channel_busy` | drop `channel_busy` | preempt |
 | C5 | play | wait* | wait* | wait* | wait* | supersede (VOICE-003) |
 
 \* **Wait** means the voice answer starts after the active output ends. The voice turn's own deadline and cancellation still apply. A voice answer never preempts event audio.
 
 **Preemption** cancels both the audio and its paired visual tail under the same playback generation (MEDIA-005). It records `preempted` for the old playback and fences any late completion. C1 admission never takes a Voice, renderer, disk or network lock (ALERT-001).
+
+If both queues wait, C2 starts before C4; C4 keeps its original enqueue time and TTL while C2 plays. Equal C4 ranks keep the newer request. A C1 request does not start a queued C4 as a side effect before its own admission.
 
 **Prewarm.** All C1 and C2 media of the active revision are decoded to PCM in memory when the revision activates. Critical readiness is `ready` only when every **available** C1/C2 event has verified, prewarmed media (MP-08, ALERT-007). In M2 that is no events while `health_danger` is unapproved, so readiness reports `not_ready` with reason `MEDIA_UNMAPPED`. It never reports a vacuous "ready".
 
@@ -206,7 +208,7 @@ Detection is recorded as an event ([event.schema.json](../../contracts/event.sch
 | `detector_unavailable` | The event is registered but its detector is not available in this runtime |
 | `stale_session` | The session or source generation changed before admission |
 | `superseded_revision` | The active package revision changed before admission |
-| `critical_active` | Dropped because C1/C2 audio is active |
+| `critical_active` | Dropped by C1/C2 policy, or because a queued C2/C4 request expired or was replaced |
 | `channel_busy` | Dropped per the priority matrix |
 | `lower_rank_same_tick` | Lost ordinary same-tick arbitration |
 | `cooldown` | An episode or global cooldown is active |
@@ -284,3 +286,7 @@ The Windows transport framing (named pipe, 16 KiB frames, handshake) stays with 
   - the product owner confirms the ordinary ranks not fixed by MP-02 (done: confirmed 2026-11-11).
 - The tier dimension of `multi_kill` and `streak` was added on the owner's decision of 2026-11-11 (recorded in contracts/decisions.json). Its detector and lookup still need fixtures in M2.
 - **DEC-HEALTH-DANGER** is **decided**: the owner approved §3 as proposed on 2026-11-11. The catalog status is `active`, and the golden traces (burst, slow drain, stale sample, death/cooldown, inclusive boundary) are in fixtures. Audible use still depends on verified critical media (DEC-CRITICAL-MEDIA).
+
+## Change history
+
+- **2026-11-19 (owner decision, “Queue and log”):** C4 requests during C1/C2 use one rank-prioritized queue slot with a 3,000 ms TTL; expiry or replacement records `critical_active`. Event drop and queue logging are specified without adding an outcome reason.

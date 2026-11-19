@@ -157,6 +157,14 @@ pub fn spawn_publisher(
                             increment(&history.publisher_counters.emit_panics);
                         }
                     }
+                    EngineOut::ClipQueued { event_id, tier } => {
+                        crate::logging::try_clip_queued(&event_id, tier);
+                    }
+                    EngineOut::ClipDropped {
+                        event_id,
+                        tier,
+                        outcome,
+                    } => crate::logging::try_clip_dropped(&event_id, tier, outcome.as_str()),
                     EngineOut::ClipFinished {
                         event_id,
                         reason,

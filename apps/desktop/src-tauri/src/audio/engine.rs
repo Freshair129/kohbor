@@ -44,6 +44,12 @@ struct LivePlayback {
     expected_frames: Option<u64>,
 }
 
+struct PendingClip {
+    instance_id: String,
+    tier: Option<u8>,
+    clip: Clip,
+}
+
 pub struct Engine {
     clock: MonoClock,
     shared: Arc<EngineShared>,
@@ -62,6 +68,7 @@ pub struct Engine {
     muted: bool,
     last_issued_id: u64,
     live: Vec<LivePlayback>,
+    pending_clips: Vec<PendingClip>,
     rebuild_instants: VecDeque<u64>,
     need_sink_requested: bool,
     replacement_pending: bool,
@@ -111,6 +118,7 @@ impl Engine {
             muted: false,
             last_issued_id: 0,
             live: Vec::with_capacity(2),
+            pending_clips: Vec::with_capacity(2),
             rebuild_instants: VecDeque::new(),
             need_sink_requested: false,
             replacement_pending: false,
@@ -296,12 +304,20 @@ impl Engine {
                 self.record_pre_owner(
                     &message,
                     event.id,
+                    event.tier,
                     &key,
                     Outcome::DetectorUnavailable,
                     now_ms,
                 );
             } else if !event.id.voiced() {
-                self.record_pre_owner(&message, event.id, &key, Outcome::NotVoiced, now_ms);
+                self.record_pre_owner(
+                    &message,
+                    event.id,
+                    event.tier,
+                    &key,
+                    Outcome::NotVoiced,
+                    now_ms,
+                );
             } else if event.id.is_critical() {
                 critical.push((event, key));
             } else {
@@ -334,6 +350,7 @@ impl Engine {
                     self.record_pre_owner(
                         &message,
                         event.id,
+                        event.tier,
                         key,
                         Outcome::LowerRankSameTick,
                         now_ms,
@@ -376,13 +393,20 @@ impl Engine {
         let clip = match self.resolve_clip(event) {
             Ok(clip) => clip,
             Err(outcome) => {
-                self.record_pre_owner(message, event.id, &key, outcome, now_ms);
+                self.record_pre_owner(message, event.id, event.tier, &key, outcome, now_ms);
                 return;
             }
         };
 
         if self.is_degraded() {
-            self.record_pre_owner(message, event.id, &key, Outcome::ChannelBusy, now_ms);
+            self.record_pre_owner(
+                message,
+                event.id,
+                event.tier,
+                &key,
+                Outcome::ChannelBusy,
+                now_ms,
+            );
             return;
         }
 
@@ -391,8 +415,9 @@ impl Engine {
             event_type: Some(event_type.to_owned()),
             session_epoch: message.session_epoch,
             class,
+            ordinary_rank: event.id.rank().unwrap_or_default(),
             episode: if class == AudioClass::Critical {
-                Some(key)
+                Some(key.clone())
             } else {
                 None
             },
@@ -407,12 +432,12 @@ impl Engine {
         let t3 = Instant::now();
         let t3p_us = Self::offset_us(message.arrival, t3);
 
-        self.drain_notices();
         if let Some(decision) = decision {
+            self.drain_notices();
             let admitted = decision.outcome == Outcome::Admitted;
             let id = decision.playback_id;
             let decision_instance_id = decision.instance_id.clone();
-            self.handle_decision(decision, Some(&clip));
+            self.handle_decision(decision, Some(&clip), event.tier);
             if admitted && self.latency {
                 let _ = self.try_output(EngineOut::Latency {
                     instance_id: decision_instance_id,
@@ -425,6 +450,17 @@ impl Engine {
             }
             if let Some(id) = id {
                 self.last_issued_id = self.last_issued_id.max(id.0);
+            }
+        } else {
+            // A replacement emits the previous request's decision immediately.
+            // Drain it before associating this request's clip with the queue slot.
+            self.drain_notices();
+            self.remember_pending_clip(&key, event.tier, clip.clone());
+            if class == AudioClass::Ordinary {
+                let _ = self.try_output(EngineOut::ClipQueued {
+                    event_id: event_type.to_owned(),
+                    tier: event.tier,
+                });
             }
         }
     }
@@ -472,6 +508,7 @@ impl Engine {
             event_type: Some("audition".to_owned()),
             session_epoch: AUDITION_EPOCH,
             class: AudioClass::Ordinary,
+            ordinary_rank: 0,
             episode: None,
             package_revision: Some(self.table.fence),
             pcm: clip.pcm.clone(),
@@ -501,7 +538,7 @@ impl Engine {
                 // The owner fence is local. The outcome record uses the host's
                 // positive epoch and identifies the playback as an audition.
                 decision.session_epoch = audition.session_epoch;
-                self.handle_decision(decision, Some(&clip));
+                self.handle_decision(decision, Some(&clip), None);
                 Ok(())
             }
             decision => {
@@ -527,6 +564,7 @@ impl Engine {
         &mut self,
         message: &TickMsg,
         event_id: EventId,
+        tier: Option<u8>,
         key: &str,
         outcome: Outcome,
         now_ms: u64,
@@ -549,9 +587,10 @@ impl Engine {
         } else {
             Self::increment_u64(&self.shared.out_dropped);
         }
+        self.emit_clip_dropped(event_id.as_str(), tier, outcome);
     }
 
-    fn handle_decision(&mut self, decision: Decision, clip: Option<&Clip>) {
+    fn handle_decision(&mut self, decision: Decision, clip: Option<&Clip>, tier: Option<u8>) {
         if decision.outcome == Outcome::Admitted {
             if let Some(id) = decision.playback_id {
                 let audio_ends_at_ms = clip
@@ -572,6 +611,11 @@ impl Engine {
             }
             None => Self::increment_u64(&self.shared.out_dropped),
         }
+        if decision.outcome != Outcome::Admitted && decision.class != AudioClass::Voice {
+            if let Some(event_id) = decision.event_type.as_deref() {
+                self.emit_clip_dropped(event_id, tier, decision.outcome);
+            }
+        }
         if decision.outcome == Outcome::Admitted {
             if let Some(clip) = clip {
                 if let Some(value) = playback_started(&decision, clip) {
@@ -581,6 +625,40 @@ impl Engine {
                 }
             }
         }
+    }
+
+    fn emit_clip_dropped(&mut self, event_id: &str, tier: Option<u8>, outcome: Outcome) {
+        if event_id == "audition" {
+            return;
+        }
+        let _ = self.try_output(EngineOut::ClipDropped {
+            event_id: event_id.to_owned(),
+            tier,
+            outcome,
+        });
+    }
+
+    fn remember_pending_clip(&mut self, instance_id: &str, tier: Option<u8>, clip: Clip) {
+        if let Some(position) = self
+            .pending_clips
+            .iter()
+            .position(|pending| pending.instance_id == instance_id)
+        {
+            self.pending_clips.remove(position);
+        }
+        self.pending_clips.push(PendingClip {
+            instance_id: instance_id.to_owned(),
+            tier,
+            clip,
+        });
+    }
+
+    fn take_pending_clip(&mut self, instance_id: &str) -> Option<PendingClip> {
+        let position = self
+            .pending_clips
+            .iter()
+            .position(|pending| pending.instance_id == instance_id)?;
+        Some(self.pending_clips.remove(position))
     }
 
     fn remember_live(
@@ -623,11 +701,31 @@ impl Engine {
         self.publish_notices(false);
     }
 
+    fn drain_panic_decisions(&mut self) {
+        for notice in self.owner.drain_notices() {
+            if let Notice::Decided(decision) = notice {
+                let pending = self.take_pending_clip(&decision.instance_id);
+                self.handle_decision(
+                    decision,
+                    pending.as_ref().map(|pending| &pending.clip),
+                    pending.as_ref().and_then(|pending| pending.tier),
+                );
+            }
+        }
+    }
+
     fn publish_notices(&mut self, preempting_audition: bool) {
         let notices = self.owner.drain_notices();
         for notice in notices {
             match notice {
-                Notice::Decided(decision) => self.handle_decision(decision, None),
+                Notice::Decided(decision) => {
+                    let pending = self.take_pending_clip(&decision.instance_id);
+                    self.handle_decision(
+                        decision,
+                        pending.as_ref().map(|pending| &pending.clip),
+                        pending.as_ref().and_then(|pending| pending.tier),
+                    );
+                }
                 Notice::Finished { id, at_ms } => {
                     let live = self.remove_live(id);
                     let _ = self.try_output(EngineOut::Playback(playback_ended(
@@ -731,6 +829,8 @@ impl Engine {
     }
 
     fn finish_shutdown(&mut self, now_ms: u64) {
+        self.owner.stop(now_ms);
+        self.drain_notices();
         let replacement = AudioOwner::with_first_playback_id(
             SlotSink::empty(),
             self.config,
@@ -750,6 +850,8 @@ impl Engine {
     }
 
     fn rebuild_after_panic(&mut self, now_ms: u64) {
+        self.owner.stop(now_ms);
+        self.drain_panic_decisions();
         self.audition_session = false;
         let _ =
             self.shared

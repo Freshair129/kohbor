@@ -56,6 +56,7 @@ fn request(class: AudioClass) -> Request {
         event_type: (class != AudioClass::Voice).then(|| "event".into()),
         session_epoch: 1,
         class,
+        ordinary_rank: 0,
         episode: None,
         package_revision: (class != AudioClass::Voice).then_some(1),
         pcm: ms(100),
