@@ -453,8 +453,8 @@
     },
     {
       "path": "apps/desktop/src/App.tsx",
-      "bytes": 14992,
-      "sha256": "fb95e5e688ab684b74967c1b7d66ea72cbbc7b59b8acf6ab193ba08af8ba50ff"
+      "bytes": 15076,
+      "sha256": "a32dc852384b633888e9d7890a6899ea9423d967e4631c040db5bd82bf3e7c6a"
     },
     {
       "path": "apps/desktop/src/AudioHistory.tsx",
@@ -1098,8 +1098,8 @@
     },
     {
       "path": "apps/desktop/src/replay/admission.ts",
-      "bytes": 842,
-      "sha256": "a20683af0ee42c1b2c31b3ba70a3a5053d58ccb11ebef93bdc4a63b3a9e614a4"
+      "bytes": 2237,
+      "sha256": "06e7bd4faa98b8fd74ebf479a634f9b895cb0768f2a2303fb6a06078179440a7"
     },
     {
       "path": "apps/desktop/src/replay/report.ts",
@@ -1458,8 +1458,8 @@
     },
     {
       "path": "apps/desktop/tests/post-match-replay.test.ts",
-      "bytes": 6409,
-      "sha256": "0fbee29a9781b8863950dc4bad81cbed5999e9ce8b691a318d434bd7fa9d56b9"
+      "bytes": 8359,
+      "sha256": "2e71809b2ee37b022f5177b6870cf3281d5c5786199e471e03ea8f1fb3e6cdfd"
     },
     {
       "path": "apps/desktop/tests/preview-diagnostics.test.ts",
@@ -2458,8 +2458,8 @@
     },
     {
       "path": "docs/design/POST-MATCH-REPLAY-PREVIEW.md",
-      "bytes": 4621,
-      "sha256": "b0b16f7132229dba22236bf61f45b45ebce0db33ef2fb9e9699aeeca4641312a"
+      "bytes": 4958,
+      "sha256": "08b28d4dc4a55c8f365cbe568fc7b5e6a4e02a6efe4373844ffe3e2421fab767"
     },
     {
       "path": "docs/design/PROGRESS-CHASE-STAGE1-PROPOSAL.md",

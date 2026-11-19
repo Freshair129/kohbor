@@ -8,7 +8,7 @@ Selecting a death shows the credited attacker, ability or attack, and selected C
 
 ## Runtime boundary
 
-The existing development and Lab build condition controls the preview tab. A known closed Dota process or corroborating post-game runtime and Steam status allows the import. Draft, pregame, live play, launch pending and lost host status block it. Leaving the tab or losing admission unmounts the viewer, cancels playback and discards the in-memory report. The import has no native command, network path, live projection, account dependency or persistence.
+The existing development and Lab build condition controls the preview tab. A known closed Dota process or corroborating post-game runtime and Steam status allows the import. Dota reports the post-game phase for only a few seconds before it returns to the menu with an unknown phase. The app therefore remembers a corroborated post-game observation and keeps the import available in the Dota menu until it observes the next draft, pregame or live phase or a pending launch. This memory is not persisted. Draft, pregame, live play, launch pending and lost host status block the import. Leaving the tab or losing admission unmounts the viewer, cancels playback and discards the in-memory report. The import has no native command, network path, live projection, account dependency or persistence.
 
 DATA-005 and AC-DATA-005 continue to govern the live display. This preview neither modifies that observation path nor supplies its acceptance evidence. A reviewed post-match data contract and native WebView2 admission and behavior verification are prerequisites for promotion beyond Lab. Browser results and synthetic source tests do not record a live or native acceptance pass.
 

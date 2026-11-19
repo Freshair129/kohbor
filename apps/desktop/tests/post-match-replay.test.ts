@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { canOpenPostMatchReplay } from "../src/replay/admission.ts";
+import { canOpenPostMatchReplay, nextMatchEnded } from "../src/replay/admission.ts";
 import { readPostMatchReplay, REPORT_FORMAT } from "../src/replay/report.ts";
 import type { RuntimeStatus } from "../src/types.ts";
 
@@ -17,6 +17,38 @@ test("preview is admitted with Dota closed or a corroborated post-game phase", (
   assert.equal(canOpenPostMatchReplay(confirmed, { ...postGame, launch_pending: true }, false), false);
   assert.equal(canOpenPostMatchReplay(confirmed, postGame, true), false);
   assert.equal(canOpenPostMatchReplay(null, null, false), false);
+});
+
+test("an observed match end keeps the preview open in the Dota menu until the next match", () => {
+  type Runtime = Pick<RuntimeStatus, "session" | "intake">;
+  const runtime = (phase: Runtime["session"]["phase"]) =>
+    ({ session: { phase }, intake: { state: "receiving" } }) as Runtime;
+  const menu = { dota_running: true, game_phase: "unknown", gsi: "receiving", launch_pending: false } as const;
+
+  // Live play, then the corroborated post-game phase, then the menu.
+  let ended = nextMatchEnded(false, runtime("live"), { ...postGame, game_phase: "live" });
+  assert.equal(ended, false);
+  ended = nextMatchEnded(ended, runtime("post_game"), postGame);
+  assert.equal(ended, true);
+  ended = nextMatchEnded(ended, runtime("none"), menu);
+  assert.equal(ended, true);
+  assert.equal(canOpenPostMatchReplay(runtime("none"), menu, false, ended), true);
+  assert.equal(canOpenPostMatchReplay(runtime("none"), menu, false, false), false);
+
+  // An uncorroborated post-game report does not count as an observed end.
+  assert.equal(nextMatchEnded(false, null, postGame), false);
+  // Blocking states still win over a remembered end.
+  assert.equal(canOpenPostMatchReplay(runtime("none"), { ...menu, launch_pending: true }, false, true), false);
+  assert.equal(canOpenPostMatchReplay(runtime("none"), menu, true, true), false);
+  assert.equal(canOpenPostMatchReplay(runtime("draft"), menu, false, true), false);
+  assert.equal(canOpenPostMatchReplay(runtime("none"), { ...menu, game_phase: "draft" }, false, true), false);
+
+  // The next draft, pregame, live phase or launch clears the remembered end.
+  for (const phase of ["draft", "pregame", "live"] as const) {
+    assert.equal(nextMatchEnded(true, runtime(phase), menu), false);
+    assert.equal(nextMatchEnded(true, runtime("none"), { ...menu, game_phase: phase }), false);
+  }
+  assert.equal(nextMatchEnded(true, runtime("none"), { ...menu, launch_pending: true }), false);
 });
 
 function report() {
