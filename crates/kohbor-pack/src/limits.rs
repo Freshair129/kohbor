@@ -11,6 +11,8 @@ pub const MAX_PAYLOAD_BYTES: u64 = 32 * MIB;
 pub const MAX_DESCRIPTOR_BYTES: u64 = 2 * MIB;
 pub const MAX_PAYLOAD_COUNT: usize = 2048;
 pub const MAX_BINDINGS: usize = 128;
+pub const MAX_VARIANTS_PER_BINDING: usize = 16;
+pub const MAX_VARIANTS_PER_PACK: usize = 512;
 pub const MAX_AUDIO_MS: u32 = 15_000;
 pub const MAX_VISUAL_TAIL_MS: u32 = 3_200;
 /// Required mixed-audio sample rate (EVENT-AUDIO-SPEC section 6).

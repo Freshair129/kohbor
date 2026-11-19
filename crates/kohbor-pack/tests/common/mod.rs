@@ -18,21 +18,31 @@ pub fn catalog() -> Catalog {
             CatalogEvent {
                 id: "multi_kill".into(),
                 media_mappable: true,
+                critical_media_required: false,
                 tier_range: Some((2, 5)),
             },
             CatalogEvent {
                 id: "streak".into(),
                 media_mappable: true,
+                critical_media_required: false,
                 tier_range: Some((3, 10)),
             },
             CatalogEvent {
                 id: "first_blood".into(),
                 media_mappable: true,
+                critical_media_required: false,
                 tier_range: None,
             },
             CatalogEvent {
                 id: "non_mappable".into(),
                 media_mappable: false,
+                critical_media_required: false,
+                tier_range: None,
+            },
+            CatalogEvent {
+                id: "health_danger".into(),
+                media_mappable: true,
+                critical_media_required: true,
                 tier_range: None,
             },
         ],

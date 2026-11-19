@@ -1,9 +1,9 @@
 ---
 title: "Media Package Specification"
 doc_id: "MEDIA-PACK-SPEC"
-version: "0.3.6"
+version: "0.3.7"
 status: "draft"
-updated: "2026-11-11"
+updated: "2026-11-20"
 owner: "Product owner"
 approval_status: "not_approved"
 ---
@@ -38,7 +38,9 @@ Preemption MUST cancel both the old audio and its paired visual lifecycle. Outco
 
 ## MP-03 — Package contents and integrity
 
-A package MUST contain a descriptor, event registry, payload size/digest inventory, and referenced media. Every playable mapping identifies one mixed audio asset and, optionally, its paired silent video. A mapping without a video is an audio-only mapping: it plays its audio and shows no banner, and it declares no visual tail. A mapping with a video is paired by event key inside the same package; the author guarantees the timing between them. Pairing a voice from one package with a banner from another is not part of the first release (see DEC-PACK-BANNER-ADDON). Original audio may be retained for identity/provenance; it MUST NOT replace invalid mixed audio.
+A package MUST contain a descriptor, event registry, payload size/digest inventory, and referenced media. Descriptor 1.3.0 keeps one media pair on each binding. In 1.4.0 a binding keeps `event_id` and optional `tier`, and its media fields live only inside `variants[]`; binding-level media fields are not accepted. Each variant has a pack-unique `variant_id`, one mixed audio asset and, optionally, its paired silent video and identity audio. `clip_id` is optional provenance for local logs only and MUST NOT be trusted as identity or authority. A variant without video is audio-only: it plays its audio, shows no banner, and declares no visual tail. A variant with video is paired by event key inside the same package; the author guarantees the timing. Pairing a voice from one package with a banner from another is not part of the first release (see DEC-PACK-BANNER-ADDON). Original audio may be retained for identity/provenance; it MUST NOT replace invalid mixed audio.
+
+One variant has no `selection`; two or more variants require exactly one of `random`, `shuffle` or `sequence`. Optional `weight` (1-100, default 1) is valid only with `random`. `when` is reserved for phase 2 and a 1.4.0 reader MUST reject it with a clear reason. The reader continues to admit 1.3.0, mapping each binding to one deterministic variant. These descriptor choices are recorded in DEC-VOICE-VARIANTS.
 
 The initial container profile uses indexed ZIP with deterministic ordering: descriptor first, then ASCII-sorted payload paths, fixed timestamp 1980-01-01, and regular-file permissions 0644. JSON, WAV and optional inert source/font assets use Deflate level 6; already compressed video uses Stored. Readers admit methods 0 and 8. SHA-256 covers decompressed payload bytes. Copy/export preserves existing bytes; rebuilding changed content creates a new revision.
 
@@ -50,14 +52,16 @@ The initial container profile uses indexed ZIP with deterministic ordering: desc
 | Descriptor or registry, each | 2 MiB |
 | Payload count | 2,048 |
 | Event mapping keys | 128 |
+| Variants per binding | 16 |
+| Variants per pack | 512 |
 
 Admission MUST reject traversal/unsafe paths, duplicate ZIP records or JSON keys, encryption, unexpected extras/comments, hidden prefixes/suffixes, header disagreement, dangling references, unsupported media, and size/digest mismatches. Extraction MUST use bounded streaming into staging. An invalid package MUST leave the previously installed and active revision intact.
 
 ## MP-04 — Audio and video contract
 
-Event playback MUST use verified mixed PCM WAV and, when the mapping has one, paired silent WebM with a supported video track and no audio track. The authoring output profile uses mono 48 kHz PCM16 audio. The native player MUST successfully decode media before advertising readiness; a plausible file extension or container header is insufficient. [EVENT-AUDIO-SPEC §6](EVENT-AUDIO-SPEC.md) proposes the exact WAV profile, the VP9/VP8 WebM track rules and a renderer decode probe for the video that the renderer plays.
+Every admitted variant MUST be checked independently: its mixed PCM WAV and optional silent WebM with a supported video track and no audio track. If identity audio is present, its sample count MUST match that same variant's mixed audio. The authoring output profile uses mono 48 kHz PCM16 audio. The native player MUST successfully decode media before advertising readiness; a plausible file extension or container header is insufficient. [EVENT-AUDIO-SPEC §6](EVENT-AUDIO-SPEC.md) proposes the exact WAV profile, the VP9/VP8 WebM track rules and a renderer decode probe for the video that the renderer plays.
 
-Audio duration is at most 15,000 ms. Original and mixed audio durations MUST match. The optional visual tail is an integer from zero to 3,200 ms, default zero, and must be zero for an audio-only mapping. Video may continue only for that declared tail after natural audio completion. Stop, mute, preemption, or session invalidation cancels it immediately.
+Each variant's audio duration is at most 15,000 ms. Its optional visual tail is an integer from zero to 3,200 ms, default zero, and MUST be zero for an audio-only variant. Video may continue only for that declared tail after natural audio completion. Stop, mute, preemption, or session invalidation cancels it immediately. A catalog event with `critical_media_required: true` MUST have exactly one variant, so critical readiness cannot select an unchecked alternative. Selection execution and history belong to the runtime; this descriptor change does not replace the native readiness gate.
 
 Native audio is the single audio owner. Video is always muted. The renderer consumes the admitted pair’s lifecycle and MUST NOT independently choose media or restart an event. Event preview and production playback MUST use the same package reader and admission rules.
 

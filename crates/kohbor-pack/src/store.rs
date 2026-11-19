@@ -34,7 +34,7 @@ use std::path::{Component, Path, PathBuf};
 
 use crate::catalog::Catalog;
 use crate::container;
-use crate::descriptor::{self, Descriptor};
+use crate::descriptor::{self, Descriptor, Selection};
 use crate::error::RejectReason;
 use crate::fsutil::{flush_dir, is_directory_reparse_point, is_link_or_reparse_point};
 use crate::limits::{Limits, MAX_DESCRIPTOR_BYTES, MAX_PAYLOAD_BYTES};
@@ -298,12 +298,16 @@ pub struct ActiveRevision {
     pub container_sha256: String,
 }
 
-/// Verified media for one event, resolved from the ACTIVE revision only.
+/// Verified playback media for one event variant, resolved from the ACTIVE revision only.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolvedMedia {
     pub install_id: String,
     pub event_id: String,
     pub tier: Option<u32>,
+    pub variant_id: String,
+    pub clip_id: Option<String>,
+    pub selection: Option<Selection>,
+    pub weight: Option<u8>,
     pub mixed_audio: PathBuf,
     pub silent_visual: Option<PathBuf>,
     pub duration_ms: u32,
@@ -884,17 +888,42 @@ impl<H: Hook> Store<H> {
             .collect()
     }
 
-    /// Resolve the media pair for an event from the active revision only.
+    /// Resolve the first variant for an event from the active revision only.
     /// `tier == Some(n)` resolves only the binding with exactly that tier;
     /// `tier == None` resolves only the tier-less binding. There is no fallback
     /// to another tier or from a tier to the tier-less binding (`Unmapped`).
-    /// Bindings whose event id is inert give `Inert`. Both files are re-verified (exists, size, SHA-256) before the
-    /// pair is returned. No loose-file, default-pack or generated fallback.
+    /// Bindings whose event id is inert give `Inert`. The first variant's files
+    /// are re-verified (exists, size, SHA-256) before the playback pair is returned. No
+    /// loose-file, default-pack or generated fallback.
     pub fn resolve(
         &self,
         event_id: &str,
         tier: Option<u32>,
     ) -> Result<ResolvedMedia, ResolveError> {
+        self.resolve_inner(event_id, tier, false)?
+            .into_iter()
+            .next()
+            .ok_or(ResolveError::Unmapped)
+    }
+
+    /// Resolve every variant of the active binding using the same exact-tier
+    /// lookup as [`Store::resolve`]. Each returned variant's mixed audio and
+    /// optional visual payload are re-verified before return. Variant order
+    /// matches the descriptor.
+    pub fn resolve_variants(
+        &self,
+        event_id: &str,
+        tier: Option<u32>,
+    ) -> Result<Vec<ResolvedMedia>, ResolveError> {
+        self.resolve_inner(event_id, tier, true)
+    }
+
+    fn resolve_inner(
+        &self,
+        event_id: &str,
+        tier: Option<u32>,
+        all_variants: bool,
+    ) -> Result<Vec<ResolvedMedia>, ResolveError> {
         let active = self.active.as_ref().ok_or(ResolveError::Unmapped)?;
         let installed = self
             .registry
@@ -944,42 +973,58 @@ impl<H: Hook> Store<H> {
         else {
             return Err(ResolveError::Unmapped);
         };
-        let mixed = parsed
-            .descriptor
-            .files
+        let mut resolved = Vec::with_capacity(if all_variants {
+            binding.variants.len()
+        } else {
+            1
+        });
+        for variant in binding
+            .variants
             .iter()
-            .find(|file| file.path == binding.mixed_audio_path)
-            .ok_or(ResolveError::Invalid(RejectReason::DanglingReference))?;
-        let mixed_path =
-            revision_payload_path(&self.root, &installed.record.install_id, &mixed.path)
-                .map_err(ResolveError::Invalid)?;
-        verify_payload_file(&mixed_path, mixed.size_bytes, &mixed.sha256)
-            .map_err(ResolveError::Invalid)?;
-        let visual_path = if let Some(path) = binding.silent_visual_path.as_deref() {
-            let visual = parsed
+            .take(if all_variants { usize::MAX } else { 1 })
+        {
+            let mixed = parsed
                 .descriptor
                 .files
                 .iter()
-                .find(|file| file.path == path)
+                .find(|file| file.path == variant.mixed_audio_path)
                 .ok_or(ResolveError::Invalid(RejectReason::DanglingReference))?;
-            let visual_path =
-                revision_payload_path(&self.root, &installed.record.install_id, &visual.path)
+            let mixed_path =
+                revision_payload_path(&self.root, &installed.record.install_id, &mixed.path)
                     .map_err(ResolveError::Invalid)?;
-            verify_payload_file(&visual_path, visual.size_bytes, &visual.sha256)
+            verify_payload_file(&mixed_path, mixed.size_bytes, &mixed.sha256)
                 .map_err(ResolveError::Invalid)?;
-            Some(visual_path)
-        } else {
-            None
-        };
-        Ok(ResolvedMedia {
-            install_id: installed.record.install_id.clone(),
-            event_id: binding.event_id.clone(),
-            tier: binding.tier,
-            mixed_audio: mixed_path,
-            silent_visual: visual_path,
-            duration_ms: binding.duration_ms,
-            visual_tail_ms: binding.visual_tail_ms,
-        })
+            let visual_path = if let Some(path) = variant.silent_visual_path.as_deref() {
+                let visual = parsed
+                    .descriptor
+                    .files
+                    .iter()
+                    .find(|file| file.path == path)
+                    .ok_or(ResolveError::Invalid(RejectReason::DanglingReference))?;
+                let visual_path =
+                    revision_payload_path(&self.root, &installed.record.install_id, &visual.path)
+                        .map_err(ResolveError::Invalid)?;
+                verify_payload_file(&visual_path, visual.size_bytes, &visual.sha256)
+                    .map_err(ResolveError::Invalid)?;
+                Some(visual_path)
+            } else {
+                None
+            };
+            resolved.push(ResolvedMedia {
+                install_id: installed.record.install_id.clone(),
+                event_id: binding.event_id.clone(),
+                tier: binding.tier,
+                variant_id: variant.variant_id.clone(),
+                clip_id: variant.clip_id.clone(),
+                selection: binding.selection,
+                weight: variant.weight,
+                mixed_audio: mixed_path,
+                silent_visual: visual_path,
+                duration_ms: variant.duration_ms,
+                visual_tail_ms: variant.visual_tail_ms,
+            });
+        }
+        Ok(resolved)
     }
 
     /// The data root this store owns.

@@ -601,6 +601,27 @@
       ]
     },
     {
+      "id": "DEC-VOICE-VARIANTS",
+      "status": "decided",
+      "milestone": "M2",
+      "blocks": "Pack descriptor 1.4.0 and several voice variants for one event and tier",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-20",
+      "channel": "Owner approval recorded on 2026-11-20: \"Approve rev 2\".",
+      "decision": "Adopt pack descriptor 1.4.0 with each binding retaining event_id and optional tier while all media fields live only in variants[]. A binding contains 1-16 variants; variant_id is unique within the pack and clip_id is provenance for local logs only. Multiple variants require one of random, shuffle or sequence; a single variant has no selection. weight is valid only with random. Continue to admit 1.3.0 by mapping each binding to one stable variant. Conditions are not part of phase 1: a variant carrying when is explicitly rejected; condition evaluation and catalog facts belong to phase 2. Critical-media bindings contain exactly one variant. This decision does not grant media rights or change the critical-media authority/readiness decision.",
+      "safe_interim": "Continue admitting 1.3.0 descriptors. Admit 1.4.0 only after the V1 reader is available.",
+      "closure_evidence": "V1 schema and parser implementation, fixtures, per-variant media verification, and all-variant store resolution tests; V4 owns runtime selection behavior.",
+      "proposal_ref": "F:/kohbor-coord/reports/2026-11-20-voice-variants-schema-proposal.md (revision 2)",
+      "phase_split_ref": "F:/kohbor-coord/reports/2026-11-20-voice-variants-plan.md (phase 1 and phase 2)",
+      "phase_split": "Phase 1 accepts random, shuffle and sequence, and rejects when with conditions_reserved. Condition filtering and catalog facts are phase 2.",
+      "related": [
+        "MEDIA-004",
+        "MEDIA-006",
+        "DEC-CRITICAL-MEDIA"
+      ]
+    },
+    {
       "id": "DEC-PACK-BANNER-ADDON",
       "status": "deferred",
       "milestone": "M6",
