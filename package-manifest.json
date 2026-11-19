@@ -293,8 +293,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/capture_host.rs",
-      "bytes": 253709,
-      "sha256": "35136916658a3526558959a78e48e1d7729c169277a5922ca0083dbca50ba2ae"
+      "bytes": 255965,
+      "sha256": "3efc2ef7f72ddee68854afb98bee0619166f35b8ea4541ca353745d35053c7d1"
     },
     {
       "path": "apps/desktop/src-tauri/src/clock.rs",
@@ -803,8 +803,8 @@
     },
     {
       "path": "apps/desktop/src/live/MinimapPanel.tsx",
-      "bytes": 18530,
-      "sha256": "f1fe7ec4fa6f47cdeb70783aedc0b6b61f7e701fae1a91cf8c6e642e94b81c94"
+      "bytes": 18341,
+      "sha256": "7ffb91d5fd35c023ccf1e4a1271af2803ac81f5cda4b401c86ef3451d6af56ce"
     },
     {
       "path": "apps/desktop/src/live/MinimapStage.tsx",
@@ -858,8 +858,8 @@
     },
     {
       "path": "apps/desktop/src/live/copy.ts",
-      "bytes": 9977,
-      "sha256": "eb873ffd979a4de8826c033a6db4515a08b8b8d2cbedc2c555799a70e299c78c"
+      "bytes": 10757,
+      "sha256": "b5765f99723530c724135ffa4fca173f0a5a7683529c6567b2b38248462c23e8"
     },
     {
       "path": "apps/desktop/src/live/events.ts",
@@ -1343,8 +1343,8 @@
     },
     {
       "path": "apps/desktop/tests/live-capture-config.test.ts",
-      "bytes": 6880,
-      "sha256": "4f62f5f40b7839ca196120b763140f92708c0954221ecb4bad563d212f817c00"
+      "bytes": 7599,
+      "sha256": "cb8571192fa148af179e06548d475c9cd0584625f42a1a88e51edfaf45734fc5"
     },
     {
       "path": "apps/desktop/tests/live-layout.test.ts",
@@ -2063,8 +2063,8 @@
     },
     {
       "path": "crates/kohbor-minimap-cv/src/lib.rs",
-      "bytes": 46322,
-      "sha256": "db25981070a627840d78cf640acccb3db0ac8146ce8839fb49cacbcc6487e2d5"
+      "bytes": 47098,
+      "sha256": "23837af45637c4ce88550873397a35daa61f3b4bb60a090eec4ff7adfde6d2a1"
     },
     {
       "path": "crates/kohbor-minimap-cv/tests/api_shape.rs",
@@ -2073,8 +2073,8 @@
     },
     {
       "path": "crates/kohbor-minimap-cv/tests/propose_frame.rs",
-      "bytes": 8331,
-      "sha256": "dca955a5e34e155c63729fa400f7ed943a60c5d9cf5b4c69a4a449dd30691462"
+      "bytes": 10597,
+      "sha256": "3e1fc1cec97c79b421e4f827f46b5c60e6342914d662e20b856a54d7bdfa27f6"
     },
     {
       "path": "crates/kohbor-minimap-cv/tests/synthetic.rs",
