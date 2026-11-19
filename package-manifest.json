@@ -208,8 +208,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/account_fake_native.rs",
-      "bytes": 35268,
-      "sha256": "f3d541412c1454484a084a9aa13b6f1847d43b665b707c43ec469d383425c89c"
+      "bytes": 35188,
+      "sha256": "57003e617471c7fe701db314029c40c19f92bffce92faeb5c5c592438a595042"
     },
     {
       "path": "apps/desktop/src-tauri/src/account_host.rs",
@@ -293,8 +293,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/capture_host.rs",
-      "bytes": 250881,
-      "sha256": "678cef5d2e363b11ac59fb9a9fe457769793c606e1faf7a12b47619e1cda62cf"
+      "bytes": 253709,
+      "sha256": "35136916658a3526558959a78e48e1d7729c169277a5922ca0083dbca50ba2ae"
     },
     {
       "path": "apps/desktop/src-tauri/src/clock.rs",
@@ -353,8 +353,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 32363,
-      "sha256": "fa574c6b57ef2af69f99b522627a9e0a6a45f106b14dbfa1281d9cbbab2b5e85"
+      "bytes": 32487,
+      "sha256": "ca21ee52ae3d42200c685b7e9bf466f25d9fd517229710df7046b87299958949"
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
@@ -1743,8 +1743,8 @@
     },
     {
       "path": "crates/kohbor-capture-native/src/dxgi.rs",
-      "bytes": 26353,
-      "sha256": "93c82e402e5dd3b5f2a2f85243a5f8b6bec7f205b492cb375e6246f783d49f5e"
+      "bytes": 31064,
+      "sha256": "1cbce507852c2ece22a0558c15da43cfeefd18b75e4e512dee1dae50e6d3704f"
     },
     {
       "path": "crates/kohbor-capture-native/src/lib.rs",
