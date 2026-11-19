@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { copy, packReason, type Locale } from "./copy";
+import { EventCabinet } from "./EventCabinet";
 import {
   buildInstallRequest,
   errorCode,
@@ -41,7 +42,7 @@ const STATE_TONE: Record<"active" | "pending" | "installed", Tone> = {
   installed: "unknown",
 };
 
-export function PackPanel({ locale, disabled = false }: { locale: Locale; disabled?: boolean }) {
+export function PackPanel({ locale, disabled = false, matchActive = false }: { locale: Locale; disabled?: boolean; matchActive?: boolean }) {
   const text = copy(locale).packs;
   const pathId = useId();
   const hashId = useId();
@@ -60,6 +61,7 @@ export function PackPanel({ locale, disabled = false }: { locale: Locale; disabl
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [cabinetRefreshKey, setCabinetRefreshKey] = useState(0);
 
   const alive = useRef(true);
   const actionLock = useRef(false);
@@ -189,13 +191,17 @@ export function PackPanel({ locale, disabled = false }: { locale: Locale; disabl
   const actionsBlocked = disabled || busy !== null;
   const records = listing ? sortRecords(listing.records) : [];
   const listOutdated = listState === "failed";
+  const refreshAll = () => {
+    void refresh();
+    setCabinetRefreshKey((key) => key + 1);
+  };
 
   return (
     <section className="card pack-panel" aria-labelledby="packs-h">
       <div className="card-head">
         <h2 id="packs-h">{text.title}</h2>
         <VolumeControl locale={locale} compact />
-        <button type="button" onClick={() => void refresh()} disabled={disabled || listBusy} aria-busy={listBusy}>
+        <button type="button" onClick={refreshAll} disabled={disabled || listBusy} aria-busy={listBusy}>
           {listBusy ? text.refreshing : text.refresh}
         </button>
       </div>
@@ -236,6 +242,14 @@ export function PackPanel({ locale, disabled = false }: { locale: Locale; disabl
               </>
             )}
           </div>
+
+          <EventCabinet
+            locale={locale}
+            activePack={listing.active}
+            refreshKey={cabinetRefreshKey}
+            disabled={disabled}
+            matchActive={matchActive}
+          />
 
           <h3 className="pack-subhead">{text.listHeading}</h3>
           {records.length === 0 ? (

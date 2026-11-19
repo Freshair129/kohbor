@@ -142,7 +142,9 @@ pub fn spawn_publisher(
                     EngineOut::Playback(payload) => {
                         // Bounded try_send only; the logging writer owns all
                         // scanning, locks, and file I/O. Never log the payload.
-                        if payload["kind"] == "started" {
+                        if payload["kind"] == "started"
+                            && payload["event_type"].as_str() != Some("audition")
+                        {
                             crate::logging::try_clip_played(
                                 payload["event_type"].as_str().unwrap_or("unknown"),
                             );
@@ -168,7 +170,26 @@ pub fn spawn_publisher(
                         native_snapshot.as_deref(),
                         render_thread_priority,
                     ),
-                    EngineOut::Outcome(record) => history.push(record),
+                    EngineOut::Outcome(record) => {
+                        if record["event_type"].as_str() == Some("audition") {
+                            crate::log_info!(
+                                "media",
+                                "audition",
+                                "pack clip audition outcome",
+                                outcome = record["outcome"].as_str().unwrap_or("unknown")
+                            );
+                        }
+                        history.push(record);
+                    }
+                    EngineOut::AuditionMatchChanged(active) => {
+                        if catch_unwind(AssertUnwindSafe(|| {
+                            emitter.emit("media://audition-match", &Value::Bool(active))
+                        }))
+                        .is_err()
+                        {
+                            increment(&history.publisher_counters.emit_panics);
+                        }
+                    }
                     EngineOut::DeviceLost => {
                         increment(&history.publisher_counters.device_lost);
                         crate::log_warn!(
