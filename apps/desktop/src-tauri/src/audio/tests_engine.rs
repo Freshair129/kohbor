@@ -582,15 +582,79 @@ fn critical_blocks_same_tick_ordinary() {
     );
     h.engine.step(10);
     let o = h.drain();
-    assert!(
-        has_outcome(&o, "critical_active"),
-        "ordinary sees critical active"
-    );
+    assert!(o.iter().any(|output| matches!(
+        output,
+        EngineOut::ClipQueued { event_id, tier }
+            if event_id == "hero_kill" && tier.is_none()
+    )));
+    assert!(!has_outcome(&o, "critical_active"));
     assert_eq!(
         log.lock().unwrap().calls.len(),
         1,
         "only critical submitted"
     );
+}
+
+#[test]
+fn ordinary_offered_during_critical_is_started_after_critical_finishes() {
+    let (sink, log) = FakeSink::new();
+    let mut h = Harness::new(Some(Box::new(sink)), false, 256);
+    let visual = "kohbor-media://localhost/v1/ins_0000000007/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    assert!(h
+        .tx
+        .control(Control::SwapTable {
+            table: table(
+                7,
+                &[
+                    (EventId::HealthDanger, None, 4801, 0, None),
+                    (EventId::MultiKill, Some(2), 4800, 0, Some(visual)),
+                ],
+            ),
+        })
+        .is_ok());
+    h.engine.step(0);
+    h.drain();
+    offer(&h, 1, &[(EventId::HealthDanger, None)]);
+    h.engine.step(10);
+    let critical = h.drain();
+    assert!(critical.iter().any(|output| matches!(
+        output,
+        EngineOut::Outcome(record)
+            if record["event_type"] == "health_danger" && record["outcome"] == "admitted"
+    )));
+
+    offer(&h, 2, &[(EventId::MultiKill, Some(2))]);
+    h.engine.step(20);
+    let queued = h.drain();
+    assert!(queued.iter().any(|output| matches!(
+        output,
+        EngineOut::ClipQueued { event_id, tier }
+            if event_id == "multi_kill" && *tier == Some(2)
+    )));
+    assert!(!outcomes(&queued)
+        .iter()
+        .any(|record| record["event_type"] == "multi_kill"));
+    assert_eq!(log.lock().unwrap().calls.len(), 1);
+
+    log.lock()
+        .unwrap()
+        .events
+        .push_back(SinkEvent::Finished { id: PlaybackId(1) });
+    h.engine.step(30);
+    let resumed = h.drain();
+    assert!(resumed.iter().any(|output| matches!(
+        output,
+        EngineOut::Outcome(record)
+            if record["event_type"] == "multi_kill" && record["outcome"] == "admitted"
+    )));
+    assert!(playbacks(&resumed).iter().any(|playback| {
+        playback["kind"] == "started"
+            && playback["event_type"] == "multi_kill"
+            && playback["tier"] == 2
+            && playback["visual_url"] == visual
+            && playback["playback_id"] == "pb_0000000002"
+    }));
+    assert_eq!(log.lock().unwrap().calls.len(), 2);
 }
 #[test]
 fn unmapped_critical_does_not_block_ordinary() {
@@ -2055,9 +2119,13 @@ fn critical_lane_precedes_ordinary_lane() {
         "critical submitted before earlier ordinary"
     );
     assert!(
-        has_outcome(&o, "critical_active"),
-        "ordinary sees active critical"
+        o.iter().any(|output| matches!(
+            output,
+            EngineOut::ClipQueued { event_id, .. } if event_id == "hero_kill"
+        )),
+        "ordinary waits in the C4 slot while critical plays"
     );
+    assert!(!has_outcome(&o, "critical_active"));
 }
 #[test]
 fn slot_empty_changed_flag_is_false() {

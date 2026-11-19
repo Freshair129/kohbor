@@ -135,6 +135,15 @@ impl EngineShared {
 
 pub enum EngineOut {
     Playback(serde_json::Value),
+    ClipQueued {
+        event_id: String,
+        tier: Option<u8>,
+    },
+    ClipDropped {
+        event_id: String,
+        tier: Option<u8>,
+        outcome: kohbor_audio::Outcome,
+    },
     ClipFinished {
         event_id: String,
         reason: String,
