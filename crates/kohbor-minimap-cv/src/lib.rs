@@ -707,13 +707,102 @@ pub struct FrameProposal {
     pub confidence_milli: u16,
 }
 
+/// Why one scored rectangle was rejected before a confidence existed. Diagnostic only.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScoreReject {
+    Geometry,
+    SideMeasure,
+    InteriorSample,
+    Texture,
+    Darkness,
+}
+
+/// Exclusive terminal outcome of one detector pass. Diagnostic only.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CvTerminal {
+    Proposed,
+    InvalidFrame,
+    TooSmall,
+    ProfileUnavailable,
+    EdgeSearchFailed,
+    /// At least one axis produced no edge candidates.
+    NoEdges,
+    /// Edges exist but no rectangle survived the width, height and aspect filters.
+    NoRectangleCandidate,
+    /// Rectangles reached scoring but every one was rejected before a score existed.
+    ScoreRejected,
+    /// At least one score existed and none was strictly above the minimum.
+    ConfidenceNotAboveMinimum,
+}
+
+/// Counters observed during one detector pass (in memory, saturating, no pixels).
+///
+/// This only observes the existing detector: collecting it never changes a proposal.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct StageTrace {
+    pub invalid_frame: u16,
+    pub too_small: u16,
+    pub profile_unavailable: u16,
+    pub edge_search_failed: u16,
+    pub horizontal_edges: u16,
+    pub vertical_edges: u16,
+    pub width_out_of_range: u16,
+    pub height_out_of_range: u16,
+    pub aspect_out_of_range: u16,
+    pub aspect_agreement_unavailable: u16,
+    pub scored_attempts: u16,
+    pub reject_geometry: u16,
+    pub reject_side_measure: u16,
+    pub reject_interior_sample: u16,
+    pub reject_texture: u16,
+    pub reject_darkness: u16,
+    pub scores_produced: u16,
+    pub scores_not_above_minimum: u16,
+    pub eligible: u16,
+    /// Highest score computed; meaningful only when `scores_produced > 0`.
+    pub max_score_milli: u16,
+}
+
+impl StageTrace {
+    /// The first applicable stage that ended this pass, or `Proposed`.
+    pub fn terminal(&self, proposed: bool) -> CvTerminal {
+        if proposed {
+            CvTerminal::Proposed
+        } else if self.invalid_frame > 0 {
+            CvTerminal::InvalidFrame
+        } else if self.too_small > 0 {
+            CvTerminal::TooSmall
+        } else if self.profile_unavailable > 0 {
+            CvTerminal::ProfileUnavailable
+        } else if self.edge_search_failed > 0 {
+            CvTerminal::EdgeSearchFailed
+        } else if self.horizontal_edges == 0 || self.vertical_edges == 0 {
+            CvTerminal::NoEdges
+        } else if self.scored_attempts == 0 {
+            CvTerminal::NoRectangleCandidate
+        } else if self.scores_produced == 0 {
+            CvTerminal::ScoreRejected
+        } else {
+            CvTerminal::ConfidenceNotAboveMinimum
+        }
+    }
+}
+
+macro_rules! note_stage {
+    ($trace:expr, $field:ident) => {
+        if let Some(trace) = $trace.as_deref_mut() {
+            trace.$field = trace.$field.saturating_add(1);
+        }
+    };
+}
+
 /// Proposes a minimap frame rectangle inside a BGRA search image.
 ///
 /// Coordinates are relative to the passed image. The detector looks for four
 /// bright, greyish edges enclosing a darker textured interior. It is based on
 /// synthetic evidence only; accuracy on real game pixels is unknown.
 pub fn propose_frame(bgra: &[u8], width: u32, height: u32, stride: u32) -> Option<FrameProposal> {
-    propose_frame_with_filter(bgra, width, height, stride, |_| true)
+    propose_frame_with_filter(bgra, width, height, stride, |_| true, None)
 }
 
 /// Proposes the largest frame scoring strictly above `min_confidence_milli`.
@@ -725,9 +814,34 @@ pub fn propose_frame_above_confidence(
     stride: u32,
     min_confidence_milli: u16,
 ) -> Option<FrameProposal> {
-    propose_frame_with_filter(bgra, width, height, stride, |confidence| {
-        confidence > min_confidence_milli
-    })
+    propose_frame_with_filter(
+        bgra,
+        width,
+        height,
+        stride,
+        |confidence| confidence > min_confidence_milli,
+        None,
+    )
+}
+
+/// Same search and ranking as [`propose_frame_above_confidence`], additionally
+/// filling `trace` with in-memory stage counters. The returned proposal is identical.
+pub fn propose_frame_above_confidence_traced(
+    bgra: &[u8],
+    width: u32,
+    height: u32,
+    stride: u32,
+    min_confidence_milli: u16,
+    trace: &mut StageTrace,
+) -> Option<FrameProposal> {
+    propose_frame_with_filter(
+        bgra,
+        width,
+        height,
+        stride,
+        |confidence| confidence > min_confidence_milli,
+        Some(trace),
+    )
 }
 
 fn propose_frame_with_filter(
@@ -736,17 +850,35 @@ fn propose_frame_with_filter(
     height: u32,
     stride: u32,
     eligible: impl Fn(u16) -> bool,
+    mut trace: Option<&mut StageTrace>,
 ) -> Option<FrameProposal> {
-    let frame = FrameView::new(bgra, width, height, stride)?;
+    let Some(frame) = FrameView::new(bgra, width, height, stride) else {
+        note_stage!(trace, invalid_frame);
+        return None;
+    };
     if frame.width < constants::FRAME_PROPOSAL_MIN_SIDE
         || frame.height < constants::FRAME_PROPOSAL_MIN_SIDE
     {
+        note_stage!(trace, too_small);
         return None;
     }
 
-    let (row_profile, column_profile) = frame_luminance_profiles(&frame)?;
-    let horizontal_edges = find_frame_edges(&row_profile)?;
-    let vertical_edges = find_frame_edges(&column_profile)?;
+    let Some((row_profile, column_profile)) = frame_luminance_profiles(&frame) else {
+        note_stage!(trace, profile_unavailable);
+        return None;
+    };
+    let Some(horizontal_edges) = find_frame_edges(&row_profile) else {
+        note_stage!(trace, edge_search_failed);
+        return None;
+    };
+    let Some(vertical_edges) = find_frame_edges(&column_profile) else {
+        note_stage!(trace, edge_search_failed);
+        return None;
+    };
+    if let Some(trace) = trace.as_deref_mut() {
+        trace.horizontal_edges = u16::try_from(horizontal_edges.len()).unwrap_or(u16::MAX);
+        trace.vertical_edges = u16::try_from(vertical_edges.len()).unwrap_or(u16::MAX);
+    }
     let mut best: Option<(u64, FrameProposal)> = None;
 
     for (left_index, left) in vertical_edges.iter().enumerate() {
@@ -760,6 +892,7 @@ fn propose_frame_with_filter(
             if !(constants::FRAME_PROPOSAL_MIN_SIDE..=constants::FRAME_PROPOSAL_MAX_SIDE)
                 .contains(&width)
             {
+                note_stage!(trace, width_out_of_range);
                 continue;
             }
 
@@ -774,6 +907,7 @@ fn propose_frame_with_filter(
                     if !(constants::FRAME_PROPOSAL_MIN_SIDE..=constants::FRAME_PROPOSAL_MAX_SIDE)
                         .contains(&height)
                     {
+                        note_stage!(trace, height_out_of_range);
                         continue;
                     }
 
@@ -782,24 +916,47 @@ fn propose_frame_with_filter(
                         ..=constants::FRAME_PROPOSAL_MAX_ASPECT)
                         .contains(&aspect)
                     {
+                        note_stage!(trace, aspect_out_of_range);
                         continue;
                     }
                     let Some(aspect_agreement) = frame_aspect_agreement(aspect) else {
+                        note_stage!(trace, aspect_agreement_unavailable);
                         continue;
                     };
-                    let Some(confidence) = score_frame_rectangle(
+                    note_stage!(trace, scored_attempts);
+                    let confidence = match score_frame_rectangle(
                         &frame,
                         *left,
                         *right,
                         *top,
                         *bottom,
                         aspect_agreement,
-                    ) else {
-                        continue;
+                    ) {
+                        Ok(confidence) => confidence,
+                        Err(reason) => {
+                            match reason {
+                                ScoreReject::Geometry => note_stage!(trace, reject_geometry),
+                                ScoreReject::SideMeasure => {
+                                    note_stage!(trace, reject_side_measure)
+                                }
+                                ScoreReject::InteriorSample => {
+                                    note_stage!(trace, reject_interior_sample)
+                                }
+                                ScoreReject::Texture => note_stage!(trace, reject_texture),
+                                ScoreReject::Darkness => note_stage!(trace, reject_darkness),
+                            }
+                            continue;
+                        }
                     };
+                    if let Some(trace) = trace.as_deref_mut() {
+                        trace.scores_produced = trace.scores_produced.saturating_add(1);
+                        trace.max_score_milli = trace.max_score_milli.max(confidence);
+                    }
                     if !eligible(confidence) {
+                        note_stage!(trace, scores_not_above_minimum);
                         continue;
                     }
+                    note_stage!(trace, eligible);
                     let (Ok(x), Ok(y), Ok(width), Ok(height)) = (
                         i32::try_from(left.start),
                         i32::try_from(top.start),
@@ -993,51 +1150,66 @@ fn score_frame_rectangle(
     top: FrameEdge,
     bottom: FrameEdge,
     aspect_agreement: f32,
-) -> Option<u16> {
+) -> Result<u16, ScoreReject> {
     let x_start = left.start;
     let x_end = right.end;
     let y_start = top.start;
     let y_end = bottom.end;
     if x_end <= x_start || y_end <= y_start {
-        return None;
+        return Err(ScoreReject::Geometry);
     }
-    let right_inside = right.start.checked_sub(constants::ONE_INDEX)?;
-    let bottom_inside = bottom.start.checked_sub(constants::ONE_INDEX)?;
+    let right_inside = right
+        .start
+        .checked_sub(constants::ONE_INDEX)
+        .ok_or(ScoreReject::Geometry)?;
+    let bottom_inside = bottom
+        .start
+        .checked_sub(constants::ONE_INDEX)
+        .ok_or(ScoreReject::Geometry)?;
 
-    let top_evidence = measure_horizontal_side(frame, x_start, x_end, top, top.end)?;
-    let bottom_evidence = measure_horizontal_side(frame, x_start, x_end, bottom, bottom_inside)?;
-    let left_evidence = measure_vertical_side(frame, y_start, y_end, left, left.end)?;
-    let right_evidence = measure_vertical_side(frame, y_start, y_end, right, right_inside)?;
+    let top_evidence = measure_horizontal_side(frame, x_start, x_end, top, top.end)
+        .ok_or(ScoreReject::SideMeasure)?;
+    let bottom_evidence = measure_horizontal_side(frame, x_start, x_end, bottom, bottom_inside)
+        .ok_or(ScoreReject::SideMeasure)?;
+    let left_evidence = measure_vertical_side(frame, y_start, y_end, left, left.end)
+        .ok_or(ScoreReject::SideMeasure)?;
+    let right_evidence = measure_vertical_side(frame, y_start, y_end, right, right_inside)
+        .ok_or(ScoreReject::SideMeasure)?;
     let sides = [top_evidence, bottom_evidence, left_evidence, right_evidence];
 
     let interior_x_start = left
         .end
-        .checked_add(constants::FRAME_PROPOSAL_INTERIOR_INSET)?;
+        .checked_add(constants::FRAME_PROPOSAL_INTERIOR_INSET)
+        .ok_or(ScoreReject::InteriorSample)?;
     let interior_x_end = right
         .start
-        .checked_sub(constants::FRAME_PROPOSAL_INTERIOR_INSET)?;
+        .checked_sub(constants::FRAME_PROPOSAL_INTERIOR_INSET)
+        .ok_or(ScoreReject::InteriorSample)?;
     let interior_y_start = top
         .end
-        .checked_add(constants::FRAME_PROPOSAL_INTERIOR_INSET)?;
+        .checked_add(constants::FRAME_PROPOSAL_INTERIOR_INSET)
+        .ok_or(ScoreReject::InteriorSample)?;
     let interior_y_end = bottom
         .start
-        .checked_sub(constants::FRAME_PROPOSAL_INTERIOR_INSET)?;
+        .checked_sub(constants::FRAME_PROPOSAL_INTERIOR_INSET)
+        .ok_or(ScoreReject::InteriorSample)?;
     let texture = sample_interior_texture(
         frame,
         interior_x_start,
         interior_x_end,
         interior_y_start,
         interior_y_end,
-    )?;
+    )
+    .ok_or(ScoreReject::InteriorSample)?;
     if texture.standard_deviation < constants::FRAME_PROPOSAL_MIN_TEXTURE_STDDEV {
-        return None;
+        return Err(ScoreReject::Texture);
     }
 
     let mean_border_luma =
         sides.iter().map(|side| side.mean_border_luma).sum::<f32>() / sides.len() as f32;
     let darkness_gap = mean_border_luma - texture.mean_luma;
     if darkness_gap < constants::FRAME_PROPOSAL_MIN_DARKNESS_GAP {
-        return None;
+        return Err(ScoreReject::Darkness);
     }
 
     let minimum_edge_strength = left
@@ -1066,7 +1238,7 @@ fn score_frame_rectangle(
         * aspect_agreement)
         .round()
         .clamp(0.0, constants::FRAME_PROPOSAL_CONFIDENCE_MAX) as u16;
-    Some(confidence)
+    Ok(confidence)
 }
 
 fn measure_horizontal_side(
