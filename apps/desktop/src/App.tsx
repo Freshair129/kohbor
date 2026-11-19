@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { AudioHistory } from "./AudioHistory";
 import { AudioMuteControl, AudioPanel, useAudioMute } from "./AudioPanel";
+import { cabinetPhaseBlocksAudition } from "./cabinet";
 import { copy, seconds, type Locale } from "./copy";
 import { DemoPanel } from "./DemoPanel";
 
@@ -33,6 +34,11 @@ import { VolumeToast } from "./VolumeToast";
 import { useDotaLauncher, useShowSteamName, useSteamStatus } from "./steam/hooks";
 import { steamPersonaName } from "./steam/model";
 import { StartDotaBar } from "./steam/StartDotaBar";
+import { canOpenPostMatchReplay, useMatchEnded } from "./replay/admission";
+
+const ReplayPanel = import.meta.env.DEV || import.meta.env.VITE_KOHBOR_LAB === "1"
+  ? lazy(() => import("./replay/ReplayPanel").then((module) => ({ default: module.ReplayPanel })))
+  : null;
 
 type ShellPage = ShellTab | "settings" | "account" | "friends";
 
@@ -47,16 +53,18 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
   const developerMode = useDeveloperMode();
   const account = useAccount(accountPort);
   const steamStatus = useSteamStatus();
+  const matchEnded = useMatchEnded(status, steamStatus);
   const steamName = useShowSteamName();
   const launch = useDotaLauncher(steamStatus);
   const [activeTab, setActiveTab] = useState<ShellPage>("live");
-  const tabs = shellTabs(developerMode.enabled);
+  const tabs = shellTabs(developerMode.enabled, ReplayPanel !== null);
   const currentTab = activeTab === "logs" && !developerMode.enabled ? "live" : activeTab;
   const isTabPage = tabs.includes(currentTab as ShellTab);
   const tabRefs = useRef<Record<ShellTab, HTMLButtonElement | null>>({
     live: null,
     packs: null,
     status: null,
+    replay: null,
     logs: null,
   });
   const displayLocale: Locale = settings?.locale ?? "th";
@@ -211,7 +219,11 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
         {currentTab === "packs" && (
           <div className="shell-screen shell-packs">
             <div className={`shell-pack-panel${hostLost ? " is-outdated" : ""}`}>
-              <PackPanel locale={displayLocale} disabled={hostLost} />
+              <PackPanel
+                locale={displayLocale}
+                disabled={hostLost}
+                matchActive={cabinetPhaseBlocksAudition(phase)}
+              />
             </div>
             <div className={`shell-history-panel${hostLost ? " is-outdated" : ""}`}>
               <AudioHistory locale={displayLocale} disabled={hostLost} />
@@ -295,6 +307,11 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
               <UpdateControl appVersion={version} locale={displayLocale} snapshot={update} check={update.check} install={update.install} openReleasePage={update.openReleasePage} />
             </AboutPanel>
           </div>
+        )}
+        {ReplayPanel && currentTab === "replay" && (
+          <Suspense fallback={<p role="status">{text.loading}</p>}>
+            <ReplayPanel locale={displayLocale} available={canOpenPostMatchReplay(status, steamStatus, hostLost, matchEnded)} />
+          </Suspense>
         )}
         {developerMode.enabled && <LogsTab visible={currentTab === "logs"} locale={displayLocale} />}
         {currentTab === "account" && <AccountPage account={account} locale={displayLocale} back={() => setActiveTab("live")} />}

@@ -56,6 +56,7 @@ fn request(class: AudioClass) -> Request {
         event_type: (class != AudioClass::Voice).then(|| "event".into()),
         session_epoch: 1,
         class,
+        ordinary_rank: 0,
         episode: None,
         package_revision: (class != AudioClass::Voice).then_some(1),
         pcm: ms(100),
@@ -177,7 +178,7 @@ fn queued_correction_that_reaches_strict_expiry_does_not_start() {
 }
 
 #[test]
-fn queued_correction_does_not_expire_if_critical_frees_channel_before_ttl() {
+fn queued_correction_can_start_at_its_last_eligible_tick() {
     let mut owner = owner();
     let mut critical = request(AudioClass::Critical);
     critical.pcm = ms(3_001);
@@ -186,7 +187,7 @@ fn queued_correction_does_not_expire_if_critical_frees_channel_before_ttl() {
     correction.pcm = ms(10_000);
     assert!(owner.request(1, correction).is_none());
 
-    owner.tick(5_000);
+    owner.tick(3_001);
     assert!(matches!(
         owner.drain_notices().as_slice(),
         [
@@ -197,7 +198,7 @@ fn queued_correction_does_not_expire_if_critical_frees_channel_before_ttl() {
             Notice::Decided(decision),
         ] if decision.outcome == Outcome::Admitted && decision.decided_at_ms == 3_001
     ));
-    assert_eq!(owner.active(5_000), Some(PlaybackId(2)));
+    assert_eq!(owner.active(3_001), Some(PlaybackId(2)));
 }
 
 #[test]

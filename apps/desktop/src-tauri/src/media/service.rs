@@ -18,7 +18,7 @@ use kohbor_pack::{limits::MAX_CONTAINER_BYTES, Limits};
 use serde_json::{json, Value};
 
 use crate::audio::lanes::{Control, EngineShared, EngineTx};
-use crate::audio::resolve::PrewarmTable;
+use crate::audio::resolve::{Lookup, PrewarmTable};
 use crate::media::inventory::{facts_from_table, MediaFacts};
 use crate::media::prewarm::{build_table, VisualIndexHandle};
 use crate::media::probe::{ProbeItem, ProbeRequest, ProbeState};
@@ -443,7 +443,9 @@ impl ServiceState {
                     .store
                     .as_ref()
                     .ok_or_else(|| "MEDIA_INVALID".to_owned())?;
-                Ok(active_bindings_json(store, &self.config.catalog))
+                let mut bindings = active_bindings_json(store, &self.config.catalog, &self.table);
+                bindings["media_match_active"] = json!((self.config.match_active)());
+                Ok(bindings)
             }
             JobKind::Inspect(_)
             | JobKind::ProbeReport { .. }
@@ -836,46 +838,66 @@ fn inspect_with_limit(source_path: &str, limit: u64) -> Result<Value, String> {
     }))
 }
 
-/// Bindings of the active revision, resolved (and re-verified) through the same `Store::resolve`
-/// the playback path uses. Only the payload file NAME is exposed, never a path. A binding that
-/// fails re-verification is reported as `invalid` (it will not play); unbound keys are omitted.
-fn active_bindings_json(store: &Store<NoHook>, catalog: &Catalog) -> Value {
-    let active = store.active().map(|active| {
+/// Every voiced event/tier binding of the active revision, resolved and re-verified through the
+/// same prewarmed table and `Store::resolve` used by playback. No payload paths are exposed.
+fn active_bindings_json(store: &Store<NoHook>, catalog: &Catalog, table: &PrewarmTable) -> Value {
+    let active_revision = store.active();
+    let active = active_revision.as_ref().map(|active| {
         json!({
             "install_id": active.install_id,
             "package_id": active.package_id,
             "revision": active.revision,
         })
     });
-    let mut rows = Vec::new();
-    if active.is_some() {
-        for (id, tier) in crate::media::prewarm::key_space(catalog) {
-            let tier = tier.map(u32::from);
-            match store.resolve(id.as_str(), tier) {
-                Ok(media) => rows.push(json!({
+    let table_matches_active = active_revision
+        .as_ref()
+        .is_some_and(|active| table.install_id.as_deref() == Some(active.install_id.as_str()));
+    let bindings = crate::media::prewarm::cabinet_key_space(catalog)
+        .into_iter()
+        .map(|(id, tier)| {
+            let tier_json = tier.map(u32::from);
+            let row = |mapped, duration_ms, has_visual, state| {
+                json!({
                     "event_id": id.as_str(),
-                    "tier": tier,
-                    "audio_name": media
-                        .mixed_audio
-                        .file_name()
-                        .and_then(|name| name.to_str()),
-                    "duration_ms": media.duration_ms,
-                    "has_visual": media.silent_visual.is_some(),
-                    "state": "ok",
-                })),
-                Err(kohbor_pack::store::ResolveError::Unmapped) => {}
-                Err(_) => rows.push(json!({
-                    "event_id": id.as_str(),
-                    "tier": tier,
-                    "audio_name": null,
-                    "duration_ms": null,
-                    "has_visual": false,
-                    "state": "invalid",
-                })),
+                    "tier": tier_json,
+                    "mapped": mapped,
+                    "duration_ms": duration_ms,
+                    "has_visual": has_visual,
+                    "state": state,
+                })
+            };
+            if active_revision.is_none() {
+                return row(false, Value::Null, false, "unknown");
             }
-        }
-    }
-    json!({"active": active, "bindings": rows})
+            if !table_matches_active {
+                return row(false, Value::Null, false, "unknown");
+            }
+            let Lookup::Ready(clip) = table.lookup(id, tier) else {
+                return match table.lookup(id, tier) {
+                    Lookup::Unmapped => row(false, Value::Null, false, "unmapped"),
+                    Lookup::Invalid => row(false, Value::Null, false, "unknown"),
+                    Lookup::Ready(_) => row(false, Value::Null, false, "unknown"),
+                };
+            };
+            let resolved_tier = clip.bound_tier.map(u32::from);
+            match store.resolve(id.as_str(), resolved_tier) {
+                Ok(media)
+                    if active_revision
+                        .as_ref()
+                        .is_some_and(|active| media.install_id == active.install_id) =>
+                {
+                    row(
+                        true,
+                        json!(clip.audio_ms),
+                        clip.visual_url.is_some(),
+                        "ready",
+                    )
+                }
+                Ok(_) | Err(_) => row(false, Value::Null, false, "unknown"),
+            }
+        })
+        .collect::<Vec<_>>();
+    json!({"active": active, "bindings": bindings})
 }
 
 fn list_json(store: &Store<NoHook>) -> Value {
@@ -1370,33 +1392,86 @@ mod tests {
     fn active_bindings_lists_verified_rows_without_paths_and_is_empty_without_an_active_pack() {
         let temp = TempDir::new("active-bindings");
         let pkg = wav_fixture(&temp, "bindings-pack", "health_danger");
+        let catalog = catalog();
         let mut store = kohbor_pack::store::Store::open(
             &temp.path().join("store"),
-            catalog(),
+            catalog.clone(),
             kohbor_pack::Limits::default(),
         )
         .expect("open store");
         let installed = install(&mut store, &pkg, "req-bindings-install-001");
         let install_id = installed.record.expect("install record").install_id;
-        let empty = super::active_bindings_json(&store, &catalog());
+        let empty = super::active_bindings_json(&store, &catalog, &PrewarmTable::empty());
         assert_eq!(empty["active"], serde_json::Value::Null);
-        assert_eq!(empty["bindings"], json!([]));
+        let empty_rows = empty["bindings"].as_array().expect("catalog rows");
+        assert_eq!(
+            empty_rows.len(),
+            crate::media::prewarm::cabinet_key_space(&catalog).len()
+        );
+        assert!(empty_rows.iter().all(|row| {
+            row["mapped"] == false && row["duration_ms"].is_null() && row["state"] == "unknown"
+        }));
+        assert!(!empty_rows
+            .iter()
+            .any(|row| row["event_id"] == "hero_respawn"));
         activate(&mut store, "req-bindings-active-001", &install_id);
-        let listed = super::active_bindings_json(&store, &catalog());
+        let mut pause = || {};
+        let (table, _) = crate::media::prewarm::build_table(&store, &catalog, &mut pause);
+        let listed = super::active_bindings_json(&store, &catalog, &table);
         assert_eq!(listed["active"]["install_id"], json!(install_id));
+        assert_eq!(listed["active"]["package_id"], "bindings-pack");
         let rows = listed["bindings"].as_array().expect("rows");
-        assert_eq!(rows.len(), 1, "{listed}");
-        assert_eq!(rows[0]["event_id"], "health_danger");
-        assert_eq!(rows[0]["tier"], serde_json::Value::Null);
-        assert_eq!(rows[0]["state"], "ok");
-        let name = rows[0]["audio_name"].as_str().expect("file name");
-        assert!(!name.contains(['/', '\\', ':']), "{name}");
-        assert!(rows[0]["duration_ms"].as_u64().is_some());
+        assert_eq!(
+            rows.len(),
+            crate::media::prewarm::cabinet_key_space(&catalog).len(),
+            "{listed}"
+        );
+        let mapped = rows
+            .iter()
+            .find(|row| row["event_id"] == "health_danger")
+            .expect("health danger cabinet row");
+        assert_eq!(mapped["tier"], serde_json::Value::Null);
+        assert_eq!(mapped["mapped"], true);
+        assert_eq!(mapped["state"], "ready");
+        assert!(mapped["duration_ms"].as_u64().is_some());
+        assert_eq!(mapped["has_visual"], false);
+        let unmapped = rows
+            .iter()
+            .find(|row| row["event_id"] == "hero_kill")
+            .expect("unmapped event row");
+        assert_eq!(unmapped["mapped"], false);
+        assert_eq!(unmapped["state"], "unmapped");
         let text = listed.to_string();
         assert!(
             !text.contains(temp.path().to_str().unwrap()),
             "no absolute path: {text}"
         );
+    }
+
+    #[test]
+    fn active_bindings_command_includes_the_live_media_match_flag() {
+        let temp = TempDir::new("active-bindings-match");
+        let match_flag = Arc::new(AtomicBool::new(false));
+        let sampled_flag = match_flag.clone();
+        let service = setup(
+            temp.path(),
+            Arc::new(move || sampled_flag.load(Ordering::Relaxed)),
+            passing_probe(),
+            Box::new(|_| {}),
+            DEFAULT_RESUME_INTERVAL_MS,
+            0,
+        );
+
+        assert_eq!(
+            service.handle.active_bindings().unwrap()["media_match_active"],
+            false
+        );
+        match_flag.store(true, Ordering::Relaxed);
+        assert_eq!(
+            service.handle.active_bindings().unwrap()["media_match_active"],
+            true
+        );
+        finish(service);
     }
 
     #[test]
@@ -1487,17 +1562,31 @@ mod tests {
     #[test]
     fn deferred_match_activation_resumes_after_match_barrier_clears() {
         let temp = TempDir::new("deferred-match");
+        // A match only defers a switch away from an active revision, so start with one.
+        let first = wav_fixture(&temp, "deferred-match-first", "health_danger");
         let pkg = wav_fixture(&temp, "deferred-match-pack", "health_danger");
+        let store_root = temp.path().join("store");
+        let mut store =
+            kohbor_pack::store::Store::open(&store_root, catalog(), kohbor_pack::Limits::default())
+                .expect("open deferred-match fixture store");
+        let first_id = install(&mut store, &first, "req-deferred-first-inst-001")
+            .record
+            .expect("first install returns record")
+            .install_id;
+        let _ = activate(&mut store, "req-deferred-first-act-001", &first_id);
+        drop(store);
         let match_flag = Arc::new(AtomicBool::new(true));
         let match_probe = match_flag.clone();
         let service = setup(
-            &temp.path().join("store"),
+            &store_root,
             Arc::new(move || match_probe.load(Ordering::Acquire)),
             passing_probe(),
             Box::new(|_| {}),
             20,
             0,
         );
+        let initial = receive_swap(&service.engine_rx);
+        assert_eq!(initial.install_id.as_deref(), Some(first_id.as_str()));
         let install_id = install_via_service(&service.handle, &pkg, "req-deferred-install-001");
         let result = service
             .handle
@@ -2157,17 +2246,29 @@ mod tests {
     #[test]
     fn list_records_deferred_activation_until_resume() {
         let temp = TempDir::new("pending-list");
+        let first = wav_fixture(&temp, "pending-list-first", "health_danger");
         let pkg = wav_fixture(&temp, "pending-list-pack", "health_danger");
+        let store_root = temp.path().join("store");
+        let mut store =
+            kohbor_pack::store::Store::open(&store_root, catalog(), kohbor_pack::Limits::default())
+                .expect("open pending-list fixture store");
+        let first_id = install(&mut store, &first, "req-pending-first-inst-001")
+            .record
+            .expect("first install returns record")
+            .install_id;
+        let _ = activate(&mut store, "req-pending-first-act-001", &first_id);
+        drop(store);
         let active = Arc::new(AtomicBool::new(true));
         let flag = active.clone();
         let service = setup(
-            &temp.path().join("store"),
+            &store_root,
             Arc::new(move || flag.load(Ordering::Acquire)),
             passing_probe(),
             Box::new(|_| {}),
             20,
             0,
         );
+        let _ = receive_swap(&service.engine_rx);
         let install_id = install_via_service(&service.handle, &pkg, "req-pending-install-001");
         let deferred = service
             .handle
@@ -2187,12 +2288,45 @@ mod tests {
             json!([install_id]),
             "list exposes deferred install id"
         );
-        assert!(
-            listing["active"].is_null(),
+        assert_eq!(
+            listing["active"]["install_id"], first_id,
             "deferred revision is not active until resumed"
         );
         active.store(false, Ordering::Release);
         let _ = receive_swap(&service.engine_rx);
+        finish(service);
+    }
+
+    #[test]
+    fn first_activation_mid_match_swaps_the_table_at_once() {
+        let temp = TempDir::new("first-mid-match");
+        let pkg = wav_fixture(&temp, "first-mid-match-pack", "health_danger");
+        let service = setup(
+            &temp.path().join("store"),
+            Arc::new(|| true),
+            passing_probe(),
+            Box::new(|_| {}),
+            20,
+            0,
+        );
+        let install_id = install_via_service(&service.handle, &pkg, "req-first-mid-inst-001");
+        let result = service
+            .handle
+            .activate(
+                "req-first-mid-act-001",
+                &install_id,
+                ActivationPolicy::NowIfIdle,
+            )
+            .expect("first activation during a match");
+        assert_eq!(
+            result["status"], "active",
+            "with no active revision a match does not defer"
+        );
+        let table = receive_swap(&service.engine_rx);
+        assert_eq!(table.install_id.as_deref(), Some(install_id.as_str()));
+        let listing = service.handle.list().expect("listable");
+        assert_eq!(listing["active"]["install_id"], install_id);
+        assert_eq!(listing["pending"], json!([]));
         finish(service);
     }
 

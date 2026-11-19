@@ -695,6 +695,14 @@ impl DurationWindow {
         Some(total_ms / self.samples.len() as f64)
     }
 
+    fn max_ms(&mut self, now: Instant) -> Option<f64> {
+        self.prune(now);
+        self.samples
+            .iter()
+            .map(|(_, duration)| duration.as_secs_f64() * 1000.0)
+            .reduce(f64::max)
+    }
+
     fn prune(&mut self, now: Instant) {
         while self
             .samples
@@ -1130,6 +1138,69 @@ impl FrameAnalyzer for MinimapAnalyzer {
     }
 }
 
+/// Lab-only, in-memory observation of one ordinary Auto-find request (B0 diagnostic).
+///
+/// It records closed stage codes and saturating counters only: no pixels, no raw GSI, no paths,
+/// no files. It never starts a search, grabs a frame, changes a threshold or touches the saved
+/// crop. Compiled out of every build without the `lab` feature.
+#[cfg(feature = "lab")]
+pub(crate) mod stage_diag {
+    use kohbor_minimap_cv::{CvTerminal, StageTrace};
+
+    pub(crate) const MAX_ATTEMPTS: usize = 5;
+    /// A visible local arm applies to the next ordinary request only, and expires.
+    pub(crate) const ARM_TTL_SECS: u64 = 30;
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub(crate) enum RequestOutcome {
+        Started,
+        NoProfile,
+        NoOutput,
+        NoSearchRect,
+    }
+
+    /// Why the capture cycle could not run an attempt (last proven block, not an attempt).
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub(crate) enum Blocked {
+        PhaseOrInvalidated,
+        Occluded,
+        NoSearchRegion,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub(crate) enum AttemptOutcome {
+        Timeout,
+        AccessLost,
+        FrameShapeMismatch,
+        /// The detector ran and returned no proposal.
+        Cv(CvTerminal),
+        /// The detector returned a proposal that the host's confidence recheck refused.
+        ConfidenceRecheckFailed,
+        /// Absolute geometry rejected the ranked winner.
+        GeometryRejected,
+        /// The proposal reached the host's best-candidate slot.
+        Candidate,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub(crate) struct Attempt {
+        pub(crate) outcome: AttemptOutcome,
+        pub(crate) cv: Option<StageTrace>,
+    }
+
+    #[derive(Debug, Clone, Default, PartialEq, Eq)]
+    pub(crate) struct Report {
+        pub(crate) request: Option<RequestOutcome>,
+        /// Output dimensions and search rectangle (x, y, width, height), output-local pixels.
+        pub(crate) output: Option<(u32, u32)>,
+        pub(crate) search: Option<(i32, i32, u32, u32)>,
+        pub(crate) attempts: Vec<Attempt>,
+        pub(crate) last_blocked: Option<Blocked>,
+        pub(crate) finished: bool,
+        pub(crate) found: bool,
+    }
+}
+
 /// The CV crate is kept behind this seam so all host behavior can be exercised with a fake
 /// proposer while the implementation in that crate is still being completed.
 trait FrameProposer: Send {
@@ -1140,6 +1211,19 @@ trait FrameProposer: Send {
         height: u32,
         stride: u32,
     ) -> Option<FrameProposal>;
+
+    /// Same result as [`FrameProposer::propose`]; a real detector also fills `trace`.
+    #[cfg(feature = "lab")]
+    fn propose_traced(
+        &mut self,
+        bgra: &[u8],
+        width: u32,
+        height: u32,
+        stride: u32,
+        _trace: &mut kohbor_minimap_cv::StageTrace,
+    ) -> Option<FrameProposal> {
+        self.propose(bgra, width, height, stride)
+    }
 }
 
 struct CvFrameProposer;
@@ -1152,7 +1236,32 @@ impl FrameProposer for CvFrameProposer {
         height: u32,
         stride: u32,
     ) -> Option<FrameProposal> {
-        kohbor_minimap_cv::propose_frame(bgra, width, height, stride)
+        kohbor_minimap_cv::propose_frame_above_confidence(
+            bgra,
+            width,
+            height,
+            stride,
+            CROP_PROPOSAL_MIN_CONFIDENCE,
+        )
+    }
+
+    #[cfg(feature = "lab")]
+    fn propose_traced(
+        &mut self,
+        bgra: &[u8],
+        width: u32,
+        height: u32,
+        stride: u32,
+        trace: &mut kohbor_minimap_cv::StageTrace,
+    ) -> Option<FrameProposal> {
+        kohbor_minimap_cv::propose_frame_above_confidence_traced(
+            bgra,
+            width,
+            height,
+            stride,
+            CROP_PROPOSAL_MIN_CONFIDENCE,
+            trace,
+        )
     }
 }
 
@@ -1478,6 +1587,10 @@ struct CaptureHostWorker<S, C, A, R, E, H> {
     proposal_search_rect: Option<Rect>,
     proposal_frames_seen: u8,
     proposal_best: Option<(Rect, u16)>,
+    #[cfg(feature = "lab")]
+    stage_diag_armed_at: Option<Instant>,
+    #[cfg(feature = "lab")]
+    stage_diag: Option<stage_diag::Report>,
     next_sequence: u64,
     next_open_at: Instant,
     retry: RetryBackoff,
@@ -1508,6 +1621,9 @@ struct CaptureHostWorker<S, C, A, R, E, H> {
     grab_total: u64,
     grab_duration: DurationWindow,
     analysis_duration: DurationWindow,
+    /// Whole capture cycle and game-window lookup time, for the log summary only.
+    cycle_duration: DurationWindow,
+    lookup_duration: DurationWindow,
     display: DisplayLimiter,
     next_analysis: Instant,
     next_status: Instant,
@@ -1553,6 +1669,10 @@ where
             proposal_search_rect: None,
             proposal_frames_seen: 0,
             proposal_best: None,
+            #[cfg(feature = "lab")]
+            stage_diag_armed_at: None,
+            #[cfg(feature = "lab")]
+            stage_diag: None,
             next_sequence: 0,
             next_open_at: now,
             retry: RetryBackoff::default(),
@@ -1591,6 +1711,8 @@ where
             grab_total: 0,
             grab_duration: DurationWindow::default(),
             analysis_duration: DurationWindow::default(),
+            cycle_duration: DurationWindow::default(),
+            lookup_duration: DurationWindow::default(),
             display: DisplayLimiter::new(now),
             next_analysis: now,
             next_status: now,
@@ -1621,6 +1743,11 @@ where
                 );
                 self.handle_panic(now, now_ms);
             }
+            let cycle_finished = Instant::now();
+            self.cycle_duration.record(
+                cycle_finished,
+                cycle_finished.saturating_duration_since(now),
+            );
             let config = self.config.get();
             let period = if config.paused
                 || !self.capture_enabled
@@ -1841,7 +1968,14 @@ where
             return;
         };
         self.phase_detail = None;
-        let Some(window_rect) = self.source.game_window() else {
+        let lookup_started = Instant::now();
+        let window_rect = self.source.game_window();
+        let lookup_finished = Instant::now();
+        self.lookup_duration.record(
+            lookup_finished,
+            lookup_finished.saturating_duration_since(lookup_started),
+        );
+        let Some(window_rect) = window_rect else {
             self.unsupported_reason = Some("no_game_window");
             self.clear_frames();
             return;
@@ -1961,23 +2095,142 @@ where
         }
     }
 
+    /// Arms the in-memory stage observer for the next ordinary Auto-find request (Lab only).
+    #[cfg(feature = "lab")]
+    #[allow(dead_code)]
+    pub(crate) fn arm_stage_diagnostic(&mut self, now: Instant) {
+        self.stage_diag_armed_at = Some(now);
+    }
+
+    #[cfg(feature = "lab")]
+    #[allow(dead_code)]
+    pub(crate) fn stage_report(&self) -> Option<&stage_diag::Report> {
+        self.stage_diag.as_ref()
+    }
+
+    #[cfg(feature = "lab")]
+    fn diag_begin_request(&mut self) {
+        let armed = self
+            .stage_diag_armed_at
+            .take()
+            .is_some_and(|at| at.elapsed() <= Duration::from_secs(stage_diag::ARM_TTL_SECS));
+        self.stage_diag = armed.then(stage_diag::Report::default);
+    }
+
+    #[cfg(feature = "lab")]
+    fn diag_request(&mut self, outcome: stage_diag::RequestOutcome) {
+        if let Some(report) = self.stage_diag.as_mut() {
+            report.request = Some(outcome);
+            if outcome != stage_diag::RequestOutcome::Started {
+                report.finished = true;
+            }
+        }
+    }
+
+    #[cfg(feature = "lab")]
+    fn diag_active(&self) -> bool {
+        self.stage_diag
+            .as_ref()
+            .is_some_and(|report| !report.finished)
+    }
+
+    #[cfg(feature = "lab")]
+    fn diag_blocked(&mut self, blocked: stage_diag::Blocked) {
+        if let Some(report) = self.stage_diag.as_mut().filter(|report| !report.finished) {
+            report.last_blocked = Some(blocked);
+        }
+    }
+
+    #[cfg(feature = "lab")]
+    fn diag_push(
+        &mut self,
+        outcome: stage_diag::AttemptOutcome,
+        cv: Option<kohbor_minimap_cv::StageTrace>,
+    ) {
+        if let Some(report) = self.stage_diag.as_mut().filter(|report| !report.finished) {
+            if report.attempts.len() < stage_diag::MAX_ATTEMPTS {
+                report.attempts.push(stage_diag::Attempt { outcome, cv });
+            }
+        }
+    }
+
+    #[cfg(feature = "lab")]
+    fn diag_finish(&mut self, found: bool) {
+        if let Some(report) = self.stage_diag.as_mut() {
+            report.finished = true;
+            report.found = found;
+        }
+    }
+
+    /// The only call site of the proposer. Without the `lab` feature this is the original call.
+    #[cfg(not(feature = "lab"))]
+    fn run_proposer(&mut self, width: u32, height: u32, stride: u32) -> Option<FrameProposal> {
+        self.proposer
+            .propose(&self.proposal_buffer, width, height, stride)
+    }
+
+    #[cfg(feature = "lab")]
+    fn run_proposer(&mut self, width: u32, height: u32, stride: u32) -> Option<FrameProposal> {
+        if !self.diag_active() {
+            return self
+                .proposer
+                .propose(&self.proposal_buffer, width, height, stride);
+        }
+        let mut trace = kohbor_minimap_cv::StageTrace::default();
+        let proposal =
+            self.proposer
+                .propose_traced(&self.proposal_buffer, width, height, stride, &mut trace);
+        let outcome = match proposal {
+            None => stage_diag::AttemptOutcome::Cv(trace.terminal(false)),
+            Some(found) if found.confidence_milli <= CROP_PROPOSAL_MIN_CONFIDENCE => {
+                stage_diag::AttemptOutcome::ConfidenceRecheckFailed
+            }
+            Some(found) => match (self.proposal_search_rect, self.output) {
+                (Some(search), Some(output))
+                    if absolute_proposal(search, output, found).is_some() =>
+                {
+                    stage_diag::AttemptOutcome::Candidate
+                }
+                _ => stage_diag::AttemptOutcome::GeometryRejected,
+            },
+        };
+        self.diag_push(outcome, Some(trace));
+        proposal
+    }
+
     fn start_proposal_if_requested(&mut self) {
         if !self.config.take_proposal_request() {
             return;
         }
+        #[cfg(feature = "lab")]
+        self.diag_begin_request();
         let config = self.config.get();
         let Some(profile) = config.profile_rect.map(Rect::from) else {
+            #[cfg(feature = "lab")]
+            self.diag_request(stage_diag::RequestOutcome::NoProfile);
             self.config.set_proposal(None, ProposalStatus::NotFound);
             return;
         };
         let Some(output) = self.output.or_else(|| self.source.output()) else {
+            #[cfg(feature = "lab")]
+            self.diag_request(stage_diag::RequestOutcome::NoOutput);
             self.config.set_proposal(None, ProposalStatus::NotFound);
             return;
         };
         let Some(search) = inflated_search_rect(profile, output) else {
+            #[cfg(feature = "lab")]
+            self.diag_request(stage_diag::RequestOutcome::NoSearchRect);
             self.config.set_proposal(None, ProposalStatus::NotFound);
             return;
         };
+        #[cfg(feature = "lab")]
+        {
+            self.diag_request(stage_diag::RequestOutcome::Started);
+            if let Some(report) = self.stage_diag.as_mut() {
+                report.output = Some((output.width, output.height));
+                report.search = Some((search.x, search.y, search.width, search.height));
+            }
+        }
         self.proposal_search_rect = Some(search);
         self.proposal_frames_seen = 0;
         self.proposal_best = None;
@@ -1991,13 +2244,19 @@ where
             || self.user_invalidated
             || command_generation != self.command_generation
         {
+            #[cfg(feature = "lab")]
+            self.diag_blocked(stage_diag::Blocked::PhaseOrInvalidated);
             self.clear_frames();
             return;
         }
         if self.occlusion == Some(true) {
+            #[cfg(feature = "lab")]
+            self.diag_blocked(stage_diag::Blocked::Occluded);
             return;
         }
         let (Some(search_rect), Some(output)) = (self.proposal_search_rect, self.output) else {
+            #[cfg(feature = "lab")]
+            self.diag_blocked(stage_diag::Blocked::NoSearchRegion);
             return;
         };
         if self.proposal_frames_seen >= CROP_SEARCH_MAX_FRAMES {
@@ -2016,6 +2275,8 @@ where
             grab_finished.saturating_duration_since(grab_started),
         );
         if self.config.command_generation.load(Ordering::Acquire) != command_generation {
+            #[cfg(feature = "lab")]
+            self.diag_blocked(stage_diag::Blocked::PhaseOrInvalidated);
             self.clear_frames();
             return;
         }
@@ -2029,6 +2290,14 @@ where
                 let expected_len = usize::try_from(height)
                     .ok()
                     .and_then(|height| height.checked_mul(stride as usize));
+                #[cfg(feature = "lab")]
+                if !(width == search_rect.width
+                    && height == search_rect.height
+                    && stride == width.saturating_mul(4)
+                    && expected_len == Some(self.proposal_buffer.len()))
+                {
+                    self.diag_push(stage_diag::AttemptOutcome::FrameShapeMismatch, None);
+                }
                 if width == search_rect.width
                     && height == search_rect.height
                     && stride == width.saturating_mul(4)
@@ -2036,10 +2305,7 @@ where
                 {
                     self.record_grab(now);
                     self.retry.reset();
-                    if let Some(proposal) =
-                        self.proposer
-                            .propose(&self.proposal_buffer, width, height, stride)
-                    {
+                    if let Some(proposal) = self.run_proposer(width, height, stride) {
                         if proposal.confidence_milli > CROP_PROPOSAL_MIN_CONFIDENCE {
                             if let Some(absolute) = absolute_proposal(search_rect, output, proposal)
                             {
@@ -2056,12 +2322,19 @@ where
                 }
             }
             Grab::Timeout => {
+                #[cfg(feature = "lab")]
+                self.diag_push(stage_diag::AttemptOutcome::Timeout, None);
                 self.grab_timeouts.record(now);
                 if let Some(controller) = self.controller.as_mut() {
                     controller.record_cycle(now_ms, CycleOutcome::HealthyTimeout);
                 }
             }
             Grab::AccessLost | Grab::Failed(_) => {
+                #[cfg(feature = "lab")]
+                {
+                    self.diag_push(stage_diag::AttemptOutcome::AccessLost, None);
+                    self.diag_finish(false);
+                }
                 self.config.set_proposal(None, ProposalStatus::NotFound);
                 self.proposal_search_rect = None;
                 if let Some(controller) = self.controller.as_mut() {
@@ -2087,6 +2360,8 @@ where
         } else {
             ProposalStatus::NotFound
         };
+        #[cfg(feature = "lab")]
+        self.diag_finish(proposal.is_some());
         self.config.set_proposal(proposal, status);
         self.proposal_search_rect = None;
         self.proposal_frames_seen = 0;
@@ -2640,6 +2915,9 @@ where
                 grab_fps = self.capture_rate.rate(now),
                 grab_ms_mean = self.grab_duration.mean_ms(now),
                 analysis_ms_mean = self.analysis_duration.mean_ms(now),
+                cycle_ms_mean = self.cycle_duration.mean_ms(now),
+                cycle_ms_max = self.cycle_duration.max_ms(now),
+                lookup_ms_mean = self.lookup_duration.mean_ms(now),
                 timeouts_per_s = self.grab_timeouts.rate(now),
                 phase = phase
             );
@@ -2654,6 +2932,9 @@ where
                 grab_fps = self.capture_rate.rate(now),
                 grab_ms_mean = self.grab_duration.mean_ms(now),
                 analysis_ms_mean = self.analysis_duration.mean_ms(now),
+                cycle_ms_mean = self.cycle_duration.mean_ms(now),
+                cycle_ms_max = self.cycle_duration.max_ms(now),
+                lookup_ms_mean = self.lookup_duration.mean_ms(now),
                 timeouts_per_s = self.grab_timeouts.rate(now),
                 phase = phase
             );
@@ -5957,27 +6238,70 @@ mod tests {
     }
 
     #[test]
-    fn crop_proposal_reports_not_found_after_five_low_confidence_frames() {
+    fn crop_proposal_keeps_the_saved_confirmed_crop_when_no_frame_qualifies() {
         let start = Instant::now();
         let profile = Rect {
-            x: 100,
-            y: 200,
-            width: 64,
-            height: 64,
+            x: 0,
+            y: 800,
+            width: 280,
+            height: 280,
         };
         let mut worker = worker_with_profile(start, profile);
-        worker.config.request_proposal();
+        let crop = CropOffsets {
+            dx: 2,
+            dy: 0,
+            dw: -2,
+            dh: -2,
+        };
+        worker
+            .config
+            .set(CaptureConfigPatch {
+                crop: Some(crop),
+                ..CaptureConfigPatch::default()
+            })
+            .unwrap();
+        let confirmed = worker.config.confirm_crop().unwrap();
+        worker.invalidate_for_user(0);
+        let gsi = GsiSnapshot {
+            session_epoch: Some(7),
+            age_ms: Some(0),
+            ..GsiSnapshot::default()
+        };
+        worker.refresh_capture_profile(start, 0, Some(&gsi));
+        assert_eq!(
+            worker.profile_rect.map(ScreenRect::from),
+            confirmed.effective_rect
+        );
+        let settings_path = worker.config.data_dir.join(CAPTURE_CONFIG_FILE);
+        let mut original_bytes = std::fs::read(&settings_path).unwrap();
+        // Distinguish no write from an atomic rewrite of the same settings.
+        original_bytes.push(b'\n');
+        std::fs::write(&settings_path, &original_bytes).unwrap();
+
+        let searching = worker.config.request_proposal();
+        assert_eq!(searching.proposal_status, ProposalStatus::Searching);
+        assert!(searching.proposal.is_none());
+        assert_eq!(searching.crop, crop);
+        assert!(searching.crop_confirmed);
+        assert_eq!(searching.effective_rect, confirmed.effective_rect);
+        assert_eq!(std::fs::read(&settings_path).unwrap(), original_bytes);
+
         worker.start_proposal_if_requested();
-        let proposals = Arc::new(Mutex::new(VecDeque::from(vec![
+        let marginal = |confidence_milli| {
             Some(FrameProposal {
-                x: 10,
-                y: 10,
-                width: 64,
-                height: 64,
-                confidence_milli: 600,
-            });
-            CROP_SEARCH_MAX_FRAMES
-                as usize
+                x: 0,
+                y: 48,
+                width: 280,
+                height: 280,
+                confidence_milli,
+            })
+        };
+        let proposals = Arc::new(Mutex::new(VecDeque::from([
+            marginal(600),
+            marginal(379),
+            None,
+            None,
+            None,
         ])));
         worker.proposer = Box::new(FakeFrameProposer {
             proposals,
@@ -5986,13 +6310,25 @@ mod tests {
         for sequence in 1..=CROP_SEARCH_MAX_FRAMES {
             worker
                 .source
-                .queue_sized_frame(160, 160, u64::from(sequence));
+                .queue_sized_frame(328, 328, u64::from(sequence));
             worker.capture_proposal_frame(start, u64::from(sequence));
         }
 
         let config = worker.config.get();
         assert_eq!(config.proposal_status, ProposalStatus::NotFound);
         assert!(config.proposal.is_none());
+        assert_eq!(worker.grab_total, u64::from(CROP_SEARCH_MAX_FRAMES));
+        assert_eq!(config.crop, crop);
+        assert!(config.crop_confirmed);
+        assert_eq!(config.effective_rect, confirmed.effective_rect);
+        assert_eq!(
+            worker.profile_rect.map(ScreenRect::from),
+            confirmed.effective_rect
+        );
+        assert_eq!(std::fs::read(&settings_path).unwrap(), original_bytes);
+        let reopened = CaptureConfigStore::open(worker.config.data_dir.clone()).get();
+        assert_eq!(reopened.crop, crop);
+        assert!(reopened.crop_confirmed);
         let _ = std::fs::remove_dir_all(&worker.config.data_dir);
     }
 
@@ -7140,5 +7476,315 @@ mod tests {
         assert_eq!(status["phase_reason"], "unsupported_resolution");
         assert!(status.as_object().unwrap().contains_key("phase_detail"));
         assert!(status["phase_detail"].is_null());
+    }
+
+    #[test]
+    fn duration_window_max_covers_only_the_last_second() {
+        let start = Instant::now();
+        let mut window = DurationWindow::default();
+        assert_eq!(window.max_ms(start), None);
+        window.record(start, Duration::from_millis(40));
+        window.record(start + Duration::from_millis(100), Duration::from_millis(3));
+        assert_eq!(
+            window.max_ms(start + Duration::from_millis(100)),
+            Some(40.0)
+        );
+        // The 40 ms sample is older than one second here; only the 3 ms sample remains.
+        assert_eq!(
+            window.max_ms(start + Duration::from_millis(1050)),
+            Some(3.0)
+        );
+        assert_eq!(window.max_ms(start + Duration::from_secs(3)), None);
+    }
+
+    #[test]
+    fn game_window_lookup_time_is_recorded_for_the_summary() {
+        let start = Instant::now();
+        let mut worker = worker_with_profile(
+            start,
+            Rect {
+                x: 0,
+                y: 800,
+                width: 280,
+                height: 280,
+            },
+        );
+        // worker_with_profile already ran one profile refresh, which looks the window up once.
+        let now = Instant::now();
+        assert!(worker.lookup_duration.mean_ms(now).is_some());
+        assert_eq!(worker.lookup_duration.samples.len(), 1);
+        assert!(worker.cycle_duration.samples.is_empty());
+        let _ = std::fs::remove_dir_all(&worker.config.data_dir);
+    }
+
+    #[cfg(feature = "lab")]
+    mod stage_diag_cases {
+        use super::*;
+        use stage_diag::{Attempt, AttemptOutcome, Blocked, RequestOutcome};
+
+        const SIDE: u32 = 328;
+        const BORDER: u32 = 3;
+
+        fn put(pixels: &mut [u8], x: u32, y: u32, bgra: [u8; 4]) {
+            let offset = ((y * SIDE + x) * 4) as usize;
+            pixels[offset..offset + 4].copy_from_slice(&bgra);
+        }
+
+        fn paint(pixels: &mut [u8], r: (u32, u32, u32, u32), border: [u8; 4], texture: [u8; 2]) {
+            let (rx, ry, rw, rh) = r;
+            for y in ry..ry + rh {
+                for x in rx..rx + rw {
+                    let on_border = x < rx + BORDER
+                        || y < ry + BORDER
+                        || x >= rx + rw - BORDER
+                        || y >= ry + rh - BORDER;
+                    let pixel = if on_border {
+                        border
+                    } else if ((x / 8) + (y / 8)) % 2 == 0 {
+                        [texture[0], texture[0], texture[0], 255]
+                    } else {
+                        [texture[1], texture[1], texture[1], 255]
+                    };
+                    put(pixels, x, y, pixel);
+                }
+            }
+        }
+
+        fn nested_frame() -> Vec<u8> {
+            let mut pixels = [35, 55, 83, 255].repeat((SIDE * SIDE) as usize);
+            paint(&mut pixels, (0, 48, 280, 280), [80, 80, 80, 255], [22, 48]);
+            paint(&mut pixels, (30, 108, 160, 160), [255; 4], [0, 100]);
+            pixels
+        }
+
+        fn marginal_frame() -> Vec<u8> {
+            let mut pixels = vec![0; (SIDE * SIDE * 4) as usize];
+            for y in 0..SIDE {
+                for x in 0..SIDE {
+                    let noise =
+                        ((x.wrapping_mul(37) ^ y.wrapping_mul(71) ^ x.wrapping_mul(y)) % 29) as u8;
+                    put(&mut pixels, x, y, [35 + noise, 55 + noise, 83 + noise, 255]);
+                }
+            }
+            paint(
+                &mut pixels,
+                (0, 48, 280, 280),
+                [170, 170, 170, 255],
+                [22, 48],
+            );
+            pixels
+        }
+
+        fn uniform_frame() -> Vec<u8> {
+            [35, 55, 83, 255].repeat((SIDE * SIDE) as usize)
+        }
+
+        fn frame(pixels: Vec<u8>) -> (Grab, Vec<u8>) {
+            (
+                Grab::Frame {
+                    width: SIDE,
+                    height: SIDE,
+                    stride: SIDE * 4,
+                    acquired_us: 1000,
+                },
+                pixels,
+            )
+        }
+
+        struct Outcome {
+            status: ProposalStatus,
+            proposal: Option<ScreenRect>,
+            crop_unchanged: bool,
+            report: Option<stage_diag::Report>,
+            grab_total: u64,
+        }
+
+        fn search(grabs: Vec<(Grab, Vec<u8>)>, armed: bool, occluded: bool) -> Outcome {
+            let start = Instant::now();
+            let profile = Rect {
+                x: 0,
+                y: 800,
+                width: 280,
+                height: 280,
+            };
+            let mut worker = worker_with_profile(start, profile);
+            let crop_before = worker.config.get().crop;
+            if armed {
+                worker.arm_stage_diagnostic(Instant::now());
+            }
+            worker.config.request_proposal();
+            worker.start_proposal_if_requested();
+            worker.proposer = Box::new(CvFrameProposer);
+            if occluded {
+                worker.occlusion = Some(true);
+            }
+            for grab in grabs {
+                worker.source.grabs.push_back(grab);
+            }
+            for sequence in 1..=CROP_SEARCH_MAX_FRAMES {
+                worker.capture_proposal_frame(
+                    start + Duration::from_millis(u64::from(sequence) * 10),
+                    u64::from(sequence) * 10,
+                );
+            }
+            let config = worker.config.get();
+            let outcome = Outcome {
+                status: config.proposal_status,
+                proposal: config.proposal,
+                crop_unchanged: config.crop == crop_before,
+                report: worker.stage_report().cloned(),
+                grab_total: worker.grab_total as u64,
+            };
+            let _ = std::fs::remove_dir_all(&worker.config.data_dir);
+            outcome
+        }
+
+        fn five(make: impl Fn() -> (Grab, Vec<u8>)) -> Vec<(Grab, Vec<u8>)> {
+            (0..CROP_SEARCH_MAX_FRAMES).map(|_| make()).collect()
+        }
+
+        #[test]
+        fn observer_on_and_off_give_the_same_proposal_and_keep_the_crop() {
+            for make in [
+                nested_frame as fn() -> Vec<u8>,
+                marginal_frame,
+                uniform_frame,
+            ] {
+                let off = search(five(|| frame(make())), false, false);
+                let on = search(five(|| frame(make())), true, false);
+                assert_eq!(off.status, on.status);
+                assert_eq!(off.proposal, on.proposal);
+                assert_eq!(off.grab_total, on.grab_total);
+                assert!(off.crop_unchanged && on.crop_unchanged);
+                assert!(off.report.is_none(), "unarmed search must record nothing");
+                assert!(on.report.is_some());
+            }
+        }
+
+        #[test]
+        fn strong_inner_frame_is_found_and_every_attempt_is_a_candidate() {
+            let outcome = search(five(|| frame(nested_frame())), true, false);
+            assert_eq!(outcome.status, ProposalStatus::Found);
+            let report = outcome.report.expect("report");
+            assert_eq!(report.request, Some(RequestOutcome::Started));
+            assert_eq!(report.output, Some((1920, 1080)));
+            assert_eq!(report.search, Some((0, 752, 328, 328)));
+            assert!(report.finished && report.found);
+            assert_eq!(report.attempts.len(), 5);
+            for Attempt { outcome, cv } in &report.attempts {
+                assert_eq!(*outcome, AttemptOutcome::Candidate);
+                assert_eq!(cv.expect("trace").max_score_milli, 1000);
+            }
+        }
+
+        #[test]
+        fn marginal_frame_is_not_found_at_the_confidence_filter() {
+            let outcome = search(five(|| frame(marginal_frame())), true, false);
+            assert_eq!(outcome.status, ProposalStatus::NotFound);
+            assert!(outcome.crop_unchanged);
+            let report = outcome.report.expect("report");
+            assert!(report.finished && !report.found);
+            assert_eq!(report.attempts.len(), 5);
+            for attempt in &report.attempts {
+                assert_eq!(
+                    attempt.outcome,
+                    AttemptOutcome::Cv(kohbor_minimap_cv::CvTerminal::ConfidenceNotAboveMinimum)
+                );
+                assert_eq!(attempt.cv.expect("trace").max_score_milli, 379);
+            }
+        }
+
+        #[test]
+        fn uniform_frame_is_not_found_before_any_scoring() {
+            let outcome = search(five(|| frame(uniform_frame())), true, false);
+            let report = outcome.report.expect("report");
+            assert!(report
+                .attempts
+                .iter()
+                .all(|a| a.outcome == AttemptOutcome::Cv(kohbor_minimap_cv::CvTerminal::NoEdges)));
+        }
+
+        #[test]
+        fn wrong_shape_timeout_and_access_loss_are_distinct_outcomes() {
+            let shaped = five(|| {
+                (
+                    Grab::Frame {
+                        width: 100,
+                        height: 100,
+                        stride: 400,
+                        acquired_us: 1000,
+                    },
+                    vec![0; 400 * 100],
+                )
+            });
+            let report = search(shaped, true, false).report.expect("report");
+            assert!(report
+                .attempts
+                .iter()
+                .all(|a| a.outcome == AttemptOutcome::FrameShapeMismatch));
+
+            let timeouts = five(|| (Grab::Timeout, Vec::new()));
+            let report = search(timeouts, true, false).report.expect("report");
+            assert!(report
+                .attempts
+                .iter()
+                .all(|a| a.outcome == AttemptOutcome::Timeout));
+            assert!(report.finished && !report.found);
+
+            let lost = vec![(Grab::AccessLost, Vec::new())];
+            let outcome = search(lost, true, false);
+            let report = outcome.report.expect("report");
+            assert_eq!(report.attempts.len(), 1);
+            assert_eq!(report.attempts[0].outcome, AttemptOutcome::AccessLost);
+            assert!(report.finished && !report.found);
+            assert_eq!(outcome.status, ProposalStatus::NotFound);
+        }
+
+        #[test]
+        fn occlusion_is_a_block_not_an_attempt() {
+            let outcome = search(five(|| frame(nested_frame())), true, true);
+            let report = outcome.report.expect("report");
+            assert!(report.attempts.is_empty());
+            assert_eq!(report.last_blocked, Some(Blocked::Occluded));
+            assert!(
+                !report.finished,
+                "a blocked search has not reached a terminal outcome"
+            );
+            assert!(outcome.crop_unchanged);
+        }
+
+        #[test]
+        fn request_level_failures_and_expired_arms_are_recorded_or_ignored() {
+            let start = Instant::now();
+            // No profile: ends immediately with zero attempts.
+            let mut worker = fake_worker(FakeFrameSource::supported(), true, start, events());
+            worker.arm_stage_diagnostic(Instant::now());
+            worker.config.request_proposal();
+            worker.start_proposal_if_requested();
+            let report = worker.stage_report().cloned().expect("report");
+            assert_eq!(report.request, Some(RequestOutcome::NoProfile));
+            assert!(report.finished && report.attempts.is_empty());
+            let _ = std::fs::remove_dir_all(&worker.config.data_dir);
+
+            // An arm older than the TTL does not observe the request.
+            let mut worker = worker_with_profile(
+                start,
+                Rect {
+                    x: 0,
+                    y: 800,
+                    width: 280,
+                    height: 280,
+                },
+            );
+            if let Some(old) =
+                Instant::now().checked_sub(Duration::from_secs(stage_diag::ARM_TTL_SECS + 1))
+            {
+                worker.arm_stage_diagnostic(old);
+                worker.config.request_proposal();
+                worker.start_proposal_if_requested();
+                assert!(worker.stage_report().is_none());
+            }
+            let _ = std::fs::remove_dir_all(&worker.config.data_dir);
+        }
     }
 }

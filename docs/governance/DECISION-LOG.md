@@ -3,7 +3,7 @@ title: "Decision Log and Open Items"
 doc_id: "DECISION-LOG"
 status: draft
 version: "0.3.6"
-updated: "2026-11-13"
+updated: "2026-11-19"
 authority: "DEC-BASELINE; see DOCUMENT-CONTROL"
 owner_role: "Product and engineering owners; people not assigned"
 approval_status: "not_approved"
@@ -77,6 +77,10 @@ The machine-readable source is contracts/decisions.json. Each record names an ow
 - DEC-VOICE-BUFFER: define single-owner PCM handoff, stream termination, bounded decoding lifetime, zeroization and cancellation before local STT integration. No persistent audio/transcript is allowed.
 - DEC-OBS-BUDGET: define the combined recording-profile acceptance decision after reporting app and external OBS separately; existing app/latency/FPS limits remain intact.
 - DEC-NATIVE-EVIDENCE: assign actual Windows/Dota/OBS/audio devices and testers. This is an execution dependency, not a reason to fabricate a pass.
+
+## Audio arbitration owner statement
+
+- **Queue and log (2026-11-19, product owner, under DEC-EVENT-AUDIO):** C4 ordinary announcements that arrive while C1/C2 owns the channel wait in one rank-prioritized slot for up to 3,000 ms. Higher ordinary rank wins slot contention; a newer event wins equal rank. Expiry and replacement use the existing `critical_active` outcome. Log queued C4 requests and every non-admitted non-audition event decision without adding an outcome reason.
 
 ## Backend workstream owner statements
 

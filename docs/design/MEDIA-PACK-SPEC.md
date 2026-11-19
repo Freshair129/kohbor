@@ -61,6 +61,10 @@ Audio duration is at most 15,000 ms. Original and mixed audio durations MUST mat
 
 Native audio is the single audio owner. Video is always muted. The renderer consumes the admitted pair’s lifecycle and MUST NOT independently choose media or restart an event. Event preview and production playback MUST use the same package reader and admission rules.
 
+### Event cabinet audition
+
+The Packs page cabinet lists each voiced detector event and its catalog tiers from the verified active pack. The audio engine considers one audition after game requests and admits it only when the channel and visual are idle. A game request cancels a pending or playing audition. The owner plays the verified clip and paired visual through its regular lifecycle. The audition outcome is recorded independently of match events. The host checks the media match flag and checks the GSI phase again at admission. Draft (including strategy), pregame, live and postgame block auditions until GSI reports an unknown or idle phase and the media match flag is clear.
+
 ## MP-05 — Taxonomy compatibility
 
 New packages MUST explicitly declare a taxonomy version. The canonical grammar is `MAJOR.MINOR`: two unsigned 32-bit ASCII integers, without signs, whitespace, suffixes, patch components, or leading zeros except literal zero. Missing, null, wrong-type, or malformed versions are rejected for the new format.

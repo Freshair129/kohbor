@@ -70,6 +70,7 @@ fn request() -> Request {
         event_type: Some("health_low".to_owned()),
         session_epoch: 1,
         class: AudioClass::Ordinary,
+        ordinary_rank: 0,
         episode: None,
         package_revision: Some(1),
         pcm: Arc::from(vec![7_i16; 4_800]),

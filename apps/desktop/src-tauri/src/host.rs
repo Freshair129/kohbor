@@ -2,7 +2,10 @@
 
 use crate::audio::device::{spawn_device_supervisor, DeviceCmd, Opener, Sleeper};
 use crate::audio::engine::Engine;
-use crate::audio::lanes::{Control, EngineOut, EngineShared, EngineTx, OUT_LANE};
+use crate::audio::lanes::{
+    AuditionRefusal, AuditionRequest, Control, EngineOut, EngineShared, EngineTx,
+    AUDITION_ADMISSION_TIMEOUT, OUT_LANE,
+};
 use crate::audio::publisher::{self, HistoryHandle};
 use crate::clock::MonoClock;
 use crate::containment::Sample;
@@ -11,12 +14,13 @@ use crate::media::inventory::media_status;
 use crate::media::prewarm::{new_visual_index_handle, VisualIndexHandle};
 use crate::media::protocol::{self, ProtocolRequest, ProtocolResponse};
 use crate::media::service::{self, FactsHandle, MediaHandle, ServiceConfig};
+use kohbor_events::Event;
 use kohbor_pack::catalog::Catalog;
 use kohbor_pack::store::ActivationPolicy;
 use serde_json::{json, Value};
 use std::io;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{self, SyncSender, TrySendError};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
@@ -197,10 +201,82 @@ impl CommandApi {
         self.media.list()
     }
 
-    /// Read-only active-pack bindings (event, tier, payload file name, duration); no paths.
+    /// Read-only active-pack event/tier bindings and verification status; no paths.
     pub fn media_active_bindings(&self) -> Result<Value, String> {
         self.ensure_running()?;
         self.media.active_bindings()
+    }
+
+    /// Cabinet snapshot from the same active-pack resolver used by playback.
+    pub fn media_cabinet(&self) -> Result<Value, String> {
+        self.ensure_running()?;
+        let mut cabinet = self.media.active_bindings()?;
+        let object = cabinet
+            .as_object_mut()
+            .ok_or_else(|| "MEDIA_INVALID".to_owned())?;
+        let media_match_active = object
+            .remove("media_match_active")
+            .and_then(|value| value.as_bool())
+            .ok_or_else(|| "MEDIA_STATE_UNKNOWN".to_owned())?;
+        object.insert(
+            "match_active".to_owned(),
+            Value::Bool(self.engine.audition_match_active() || media_match_active),
+        );
+        Ok(cabinet)
+    }
+
+    /// Audition one admitted pack clip through the existing engine and audio owner.
+    /// It creates no intake event and is tagged separately in audio outcome history.
+    pub fn media_audition(
+        &self,
+        event_id: &str,
+        tier: Option<u8>,
+        session_epoch: u64,
+    ) -> Result<(), String> {
+        self.ensure_running()?;
+        self.request_audition(event_id, tier, session_epoch)
+            .map_err(|reason| {
+                log_audition_outcome(reason.code());
+                reason.code().to_owned()
+            })
+    }
+
+    fn request_audition(
+        &self,
+        event_id: &str,
+        tier: Option<u8>,
+        session_epoch: u64,
+    ) -> Result<(), AuditionRefusal> {
+        if self.engine.audition_match_active() {
+            return Err(AuditionRefusal::MatchActive);
+        }
+        let event = crate::demo::demo_event(event_id, tier)
+            .map_err(|_| AuditionRefusal::EventUnavailable)?;
+        if !event.id.voiced() {
+            return Err(AuditionRefusal::EventUnavailable);
+        }
+        let bindings = self
+            .media
+            .active_bindings()
+            .map_err(|_| AuditionRefusal::MediaStateUnknown)?;
+        let install_id = audition_preflight(event, &bindings)?;
+
+        static AUDITION_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+        let (reply, result) = mpsc::sync_channel(1);
+        self.engine.offer_audition(AuditionRequest {
+            event,
+            install_id: install_id.to_owned(),
+            session_epoch: session_epoch.max(1),
+            sequence: AUDITION_SEQUENCE
+                .fetch_add(1, Ordering::Relaxed)
+                .saturating_add(1),
+            expires_at: Instant::now() + AUDITION_ADMISSION_TIMEOUT,
+            reply,
+        })?;
+        // The command can wait for the admission result. The engine only uses try_send.
+        result
+            .recv_timeout(AUDITION_ADMISSION_TIMEOUT)
+            .map_err(|_| AuditionRefusal::Busy)?
     }
 
     pub fn media_probe_report(
@@ -248,6 +324,62 @@ impl CommandApi {
             Err(_) => Err("CAPABILITY_UNAVAILABLE".to_owned()),
         }
     }
+}
+
+fn audition_preflight(event: Event, bindings: &Value) -> Result<&str, AuditionRefusal> {
+    let media_match_active = bindings
+        .as_object()
+        .and_then(|object| object.get("media_match_active"))
+        .and_then(Value::as_bool)
+        .ok_or(AuditionRefusal::MediaStateUnknown)?;
+    if media_match_active {
+        return Err(AuditionRefusal::MatchActive);
+    }
+    let active = bindings
+        .as_object()
+        .and_then(|object| object.get("active"))
+        .ok_or(AuditionRefusal::MediaStateUnknown)?;
+    if active.is_null() {
+        return Err(AuditionRefusal::NoActivePack);
+    }
+    let install_id = active
+        .get("install_id")
+        .and_then(Value::as_str)
+        .ok_or(AuditionRefusal::MediaStateUnknown)?;
+    let rows = bindings
+        .as_object()
+        .and_then(|object| object.get("bindings"))
+        .and_then(Value::as_array)
+        .ok_or(AuditionRefusal::MediaStateUnknown)?;
+    let row = rows
+        .iter()
+        .find(|row| {
+            row["event_id"].as_str() == Some(event.id.as_str())
+                && match event.tier {
+                    Some(value) => row["tier"].as_u64() == Some(u64::from(value)),
+                    None => row["tier"].is_null(),
+                }
+        })
+        .ok_or(AuditionRefusal::MediaStateUnknown)?;
+    match (
+        row["state"].as_str(),
+        row["mapped"].as_bool(),
+        row["duration_ms"].as_u64(),
+        row["has_visual"].as_bool(),
+    ) {
+        (Some("ready"), Some(true), Some(_), Some(_)) => Ok(install_id),
+        (Some("unmapped"), Some(false), None, Some(false)) => Err(AuditionRefusal::Unmapped),
+        _ => Err(AuditionRefusal::MediaStateUnknown),
+    }
+}
+
+fn log_audition_outcome(outcome: &str) {
+    crate::log_info!(
+        "media",
+        "audition",
+        "pack clip audition request completed",
+        outcome = outcome
+    );
 }
 
 struct PublisherEmitter(Arc<dyn Emitter>);
@@ -491,6 +623,9 @@ impl Host {
             visual_index: visual_index.clone(),
             facts: facts.clone(),
             probe: Arc::new(|_| None),
+            // The activation flag is also read at audition preflight. Its production
+            // inputs are a subset of the game phases the engine checks atomically,
+            // so admission covers the barrier without locking intake or probing Dota.
             match_active: {
                 let runtime = runtime.clone();
                 Arc::new(move || {
@@ -766,6 +901,7 @@ mod tests {
 
     struct FakeMediaJobs {
         inspect: Result<Value, String>,
+        bindings: Result<Value, String>,
         calls: AtomicUsize,
     }
 
@@ -787,6 +923,10 @@ mod tests {
         }
         fn list(&self) -> Result<Value, String> {
             Ok(Value::Null)
+        }
+        fn active_bindings(&self) -> Result<Value, String> {
+            self.calls.fetch_add(1, Ordering::Relaxed);
+            self.bindings.clone()
         }
         fn probe_report(
             &self,
@@ -811,10 +951,26 @@ mod tests {
         EngineTx,
         mpsc::Receiver<Control>,
     ) {
+        let (api, backend, engine, control, _) =
+            command_api_with_bindings(inspect, Ok(json!({"active": null, "bindings": []})));
+        (api, backend, engine, control)
+    }
+
+    fn command_api_with_bindings(
+        inspect: Result<Value, String>,
+        bindings: Result<Value, String>,
+    ) -> (
+        CommandApi,
+        Arc<FakeMediaJobs>,
+        EngineTx,
+        mpsc::Receiver<Control>,
+        mpsc::Receiver<AuditionRequest>,
+    ) {
         let shared = Arc::new(EngineShared::new());
         let (engine, rx) = lanes::lanes(thread::current(), shared);
         let backend = Arc::new(FakeMediaJobs {
             inspect,
+            bindings,
             calls: AtomicUsize::new(0),
         });
         let api = CommandApi {
@@ -823,7 +979,7 @@ mod tests {
             history: HistoryHandle::new(),
             shutting_down: Arc::new(AtomicBool::new(false)),
         };
-        (api, backend, engine, rx.control)
+        (api, backend, engine, rx.control, rx.audition)
     }
 
     #[test]
@@ -884,6 +1040,144 @@ mod tests {
         );
         assert_eq!(api.audio_history(None), Err("CANCELLED".to_owned()));
         assert_eq!(backend.calls.load(Ordering::Relaxed), 0);
+    }
+
+    #[test]
+    fn cabinet_command_returns_active_binding_snapshot_and_match_state() {
+        let bindings = json!({
+            "media_match_active": false,
+            "active": {"install_id": "ins_0000000001", "package_id": "voice.pack", "revision": 1},
+            "bindings": [{"event_id": "hero_kill", "tier": null, "mapped": true,
+                "duration_ms": 900, "has_visual": true, "state": "ready"}],
+        });
+        let (api, _, engine, _, _) =
+            command_api_with_bindings(Ok(Value::Null), Ok(bindings.clone()));
+
+        engine.set_audition_match_active(true);
+        let snapshot = api.media_cabinet().expect("cabinet snapshot");
+
+        assert_eq!(snapshot["active"], bindings["active"]);
+        assert_eq!(snapshot["bindings"], bindings["bindings"]);
+        assert_eq!(snapshot["match_active"], true);
+
+        let (api, _, _, _, _) = command_api_with_bindings(
+            Ok(Value::Null),
+            Ok(json!({
+                "media_match_active": true,
+                "active": null,
+                "bindings": [],
+            })),
+        );
+        assert_eq!(api.media_cabinet().unwrap()["match_active"], true);
+    }
+
+    #[test]
+    fn audition_command_refuses_match_unknown_event_no_pack_and_unmapped_clip() {
+        let (api, backend, engine, _, _) = command_api_with_bindings(
+            Ok(Value::Null),
+            Ok(json!({"media_match_active": false, "active": null, "bindings": []})),
+        );
+        engine.set_audition_match_active(true);
+        assert_eq!(
+            api.media_audition("hero_kill", None, 1),
+            Err("AUDITION_MATCH_ACTIVE".to_owned())
+        );
+        assert_eq!(backend.calls.load(Ordering::Relaxed), 0);
+        engine.set_audition_match_active(false);
+        assert_eq!(
+            api.media_audition("hero_respawn", None, 1),
+            Err("AUDITION_EVENT_UNAVAILABLE".to_owned())
+        );
+        assert_eq!(
+            api.media_audition("multi_kill", Some(1), 1),
+            Err("AUDITION_EVENT_UNAVAILABLE".to_owned())
+        );
+        assert_eq!(
+            api.media_audition("hero_kill", None, 1),
+            Err("AUDITION_NO_ACTIVE_PACK".to_owned())
+        );
+
+        let (unmapped, _, _, _, _) = command_api_with_bindings(
+            Ok(Value::Null),
+            Ok(json!({
+                "media_match_active": false,
+                "active": {"install_id": "ins_0000000001", "package_id": "voice.pack", "revision": 1},
+                "bindings": [{"event_id": "hero_kill", "tier": null, "mapped": false,
+                    "duration_ms": null, "has_visual": false, "state": "unmapped"}],
+            })),
+        );
+        assert_eq!(
+            unmapped.media_audition("hero_kill", None, 1),
+            Err("AUDITION_UNMAPPED".to_owned())
+        );
+
+        let (unknown, _, _, _, _) = command_api_with_bindings(
+            Ok(Value::Null),
+            Ok(json!({
+                "media_match_active": false,
+                "active": {"install_id": "ins_0000000001", "package_id": "voice.pack", "revision": 1},
+                "bindings": [{"event_id": "hero_kill", "tier": null, "mapped": false,
+                    "duration_ms": null, "has_visual": false, "state": "unknown"}],
+            })),
+        );
+        assert_eq!(
+            unknown.media_audition("hero_kill", None, 1),
+            Err("AUDITION_MEDIA_STATE_UNKNOWN".to_owned())
+        );
+
+        let (media_match, _, _, _, _) = command_api_with_bindings(
+            Ok(Value::Null),
+            Ok(json!({
+                "media_match_active": true,
+                "active": {"install_id": "ins_0000000001", "package_id": "voice.pack", "revision": 1},
+                "bindings": [{"event_id": "hero_kill", "tier": null, "mapped": true,
+                    "duration_ms": 900, "has_visual": false, "state": "ready"}],
+            })),
+        );
+        assert_eq!(
+            media_match.media_audition("hero_kill", None, 1),
+            Err("AUDITION_MATCH_ACTIVE".to_owned())
+        );
+
+        let (missing_match_state, _, _, _, _) = command_api_with_bindings(
+            Ok(Value::Null),
+            Ok(json!({
+                "active": {"install_id": "ins_0000000001", "package_id": "voice.pack", "revision": 1},
+                "bindings": [{"event_id": "hero_kill", "tier": null, "mapped": true,
+                    "duration_ms": 900, "has_visual": false, "state": "ready"}],
+            })),
+        );
+        assert_eq!(
+            missing_match_state.media_audition("hero_kill", None, 1),
+            Err("AUDITION_MEDIA_STATE_UNKNOWN".to_owned())
+        );
+    }
+
+    #[test]
+    fn mapped_audition_is_offered_to_the_engine_without_detector_intake() {
+        let bindings = json!({
+            "media_match_active": false,
+            "active": {"install_id": "ins_0000000001", "package_id": "voice.pack", "revision": 1},
+            "bindings": [{"event_id": "multi_kill", "tier": 2, "mapped": true,
+                "duration_ms": 900, "has_visual": true, "state": "ready"}],
+        });
+        let (api, _, _, _, auditions) = command_api_with_bindings(Ok(Value::Null), Ok(bindings));
+
+        thread::scope(|scope| {
+            for outcome in [Ok(()), Err(AuditionRefusal::MatchActive)] {
+                let call = scope.spawn(|| api.media_audition("multi_kill", Some(2), 8));
+                let request = auditions.recv_timeout(Duration::from_secs(1)).unwrap();
+                assert_eq!(request.session_epoch, 8);
+                assert_eq!(request.install_id, "ins_0000000001");
+                assert_eq!(request.event.id, kohbor_events::EventId::MultiKill);
+                assert_eq!(request.event.tier, Some(2));
+                request.reply.try_send(outcome).unwrap();
+                assert_eq!(
+                    call.join().unwrap(),
+                    outcome.map_err(|reason| reason.code().to_owned())
+                );
+            }
+        });
     }
 
     #[test]

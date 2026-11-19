@@ -39,6 +39,11 @@ export function isDemoOutcomeRecord(record: Pick<AudioOutcomeRecord, "instance_i
   return DEMO_INSTANCE_ID.test(record.instance_id);
 }
 
+/** Auditions stay in audio history, but they are not events in the match feed. */
+export function isAuditionOutcomeRecord(record: Pick<AudioOutcomeRecord, "event_type">): boolean {
+  return record.event_type === "audition";
+}
+
 export interface AudioHistory {
   /** Newest first. */
   records: AudioOutcomeRecord[];

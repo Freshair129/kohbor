@@ -13,7 +13,7 @@ const MESSAGES = {
     overview: "ภาพรวม",
     shell: {
       navigationLabel: "หน้าหลัก",
-      tabs: { live: "สด", packs: "แพ็กเสียง", settings: "ตั้งค่า", status: "สถานะ", logs: "บันทึก" },
+      tabs: { live: "สด", packs: "แพ็กเสียง", settings: "ตั้งค่า", status: "สถานะ", replay: "รีเพลย์", logs: "บันทึก" },
       developerMode: "โหมดนักพัฒนา",
       gameAge: "ข้อมูลเกม",
       gamePhase: "ระยะเกม",
@@ -223,6 +223,50 @@ const MESSAGES = {
         CAPABILITY_UNAVAILABLE: "ระบบหลักยุ่งหรือยังไม่พร้อมรับคำสั่งนี้ ลองใหม่อีกครั้ง",
         UNKNOWN: "ไม่ทราบสาเหตุ",
       },
+      cabinet: {
+        title: "ตู้เหตุการณ์",
+        summary: (mapped: number, total: number) => `มีคลิป ${mapped} / ${total}`,
+        summaryUnknown: "มีคลิป — / —",
+        activePack: "แพ็กที่กำลังใช้",
+        noActivePack: "ไม่มีแพ็กที่เปิดใช้",
+        loading: "กำลังอ่านคลิปในแพ็กที่เปิดใช้…",
+        unknown: "ยังไม่ทราบสถานะคลิป — ปิดการทดลองฟังไว้",
+        stateUnknown: "ยังยืนยันสถานะคลิปไม่ได้",
+        tier: (value: number) => `ระดับ ${value}`,
+        untiered: "ทั่วไป",
+        duration: (value: string) => `ความยาว ${value}`,
+        hasBanner: "มีภาพแบนเนอร์",
+        audioOnly: "เสียงอย่างเดียว",
+        play: "ฟังตัวอย่าง",
+        playing: "กำลังส่งเล่น…",
+        started: "เริ่มเล่นคลิปทดลองแล้ว",
+        unmapped: "ไม่มีคลิปในแพ็ก",
+        note: "การทดลองฟังไม่ถูกนับเป็นเหตุการณ์หรือสถิติในแมตช์",
+        events: {
+          multi_kill: "ฆ่าต่อเนื่อง",
+          streak: "สตรีคการฆ่า",
+          first_blood: "เฟิร์สบลัด",
+          hero_kill: "ฆ่าได้",
+          hero_death: "ตาย",
+          level_milestone: "เลเวลสำคัญ",
+          health_low: "เลือดต่ำ",
+          mana_low: "มานาต่ำ",
+          match_ended: "จบเกม",
+          match_started: "เริ่มเกม",
+          health_danger: "อันตราย เลือดลดเร็ว",
+        },
+        reasons: {
+          AUDITION_MATCH_ACTIVE: "ทดลองฟังได้เมื่อออกจากแมตช์แล้ว",
+          AUDITION_NO_ACTIVE_PACK: "เปิดใช้แพ็กก่อนจึงจะทดลองฟังได้",
+          AUDITION_UNMAPPED: "ไม่มีคลิปในแพ็กที่เปิดใช้",
+          AUDITION_MEDIA_STATE_UNKNOWN: "ยังยืนยันคลิปของแพ็กที่เปิดใช้ไม่ได้",
+          AUDITION_EVENT_UNAVAILABLE: "เหตุการณ์หรือลำดับนี้ไม่มีในแค็ตตาล็อก",
+          AUDITION_BUSY: "ระบบเสียงกำลังยุ่ง ลองอีกครั้ง",
+          AUDITION_MUTED: "เปิดเสียงก่อนทดลองฟัง",
+          CAPABILITY_UNAVAILABLE: "ระบบหลักยังไม่พร้อม — ลองโหลดสถานะใหม่",
+          UNKNOWN: "ยังไม่ทราบสาเหตุ",
+        },
+      },
     },
     history: {
       title: "ประวัติการตัดสินเสียง",
@@ -302,7 +346,7 @@ const MESSAGES = {
     overview: "Overview",
     shell: {
       navigationLabel: "Main pages",
-      tabs: { live: "Live", packs: "Packs", settings: "Settings", status: "Status", logs: "Logs" },
+      tabs: { live: "Live", packs: "Packs", settings: "Settings", status: "Status", replay: "Replay", logs: "Logs" },
       developerMode: "Developer mode",
       gameAge: "Game data",
       gamePhase: "Game phase",
@@ -512,6 +556,50 @@ const MESSAGES = {
         CAPABILITY_UNAVAILABLE: "The host is busy or not ready for this command — try again",
         UNKNOWN: "Unknown cause",
       },
+      cabinet: {
+        title: "Event cabinet",
+        summary: (mapped: number, total: number) => `Clips ${mapped} / ${total}`,
+        summaryUnknown: "Clips — / —",
+        activePack: "Active pack",
+        noActivePack: "No pack is active",
+        loading: "Reading clips from the active pack…",
+        unknown: "Clip status is unknown — audition is disabled",
+        stateUnknown: "Could not verify this clip",
+        tier: (value: number) => `Tier ${value}`,
+        untiered: "General",
+        duration: (value: string) => `Duration ${value}`,
+        hasBanner: "Banner included",
+        audioOnly: "Audio only",
+        play: "Audition",
+        playing: "Sending to playback…",
+        started: "Audition playback started",
+        unmapped: "No clip in this pack",
+        note: "Auditions are not counted as match events or statistics",
+        events: {
+          multi_kill: "Multi-kill",
+          streak: "Kill streak",
+          first_blood: "First blood",
+          hero_kill: "Kill",
+          hero_death: "Death",
+          level_milestone: "Level milestone",
+          health_low: "Low health",
+          mana_low: "Low mana",
+          match_ended: "Match ended",
+          match_started: "Match started",
+          health_danger: "Health danger",
+        },
+        reasons: {
+          AUDITION_MATCH_ACTIVE: "Audition is available after leaving the match",
+          AUDITION_NO_ACTIVE_PACK: "Activate a pack before auditioning a clip",
+          AUDITION_UNMAPPED: "The active pack has no clip for this event",
+          AUDITION_MEDIA_STATE_UNKNOWN: "Could not verify the active pack's clip",
+          AUDITION_EVENT_UNAVAILABLE: "This event or tier is not in the catalog",
+          AUDITION_BUSY: "The audio system is busy — try again",
+          AUDITION_MUTED: "Unmute audio before auditioning a clip",
+          CAPABILITY_UNAVAILABLE: "The host is not ready — refresh its status",
+          UNKNOWN: "Unknown cause",
+        },
+      },
     },
     history: {
       title: "Audio decision history",
@@ -589,6 +677,17 @@ const MESSAGES = {
 
 export function copy(locale: Locale) {
   return MESSAGES[locale];
+}
+
+export function cabinetEventLabel(eventId: string, locale: Locale): string {
+  const events = copy(locale).packs.cabinet.events as Record<string, string>;
+  return events[eventId] ?? eventId;
+}
+
+export function cabinetReason(code: string | null | undefined, locale: Locale): string {
+  const reasons = copy(locale).packs.cabinet.reasons as Record<string, string>;
+  const unknown = reasons.UNKNOWN ?? (locale === "th" ? "ยังไม่ทราบสาเหตุ" : "Unknown cause");
+  return code ? reasons[code] ?? unknown : unknown;
 }
 
 const REASON_TH: Record<string, string> = {

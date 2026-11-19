@@ -25,6 +25,7 @@ This is the only index of documents. Every Markdown file in the tree, is linked 
 | [S3-5 Host Critical Warning Path](design/S3-5-HOST-CRITICAL-PATH.md) | Design and task breakdown of the host critical warning path (agent decision, not owner approved) | Engineering, media |
 | [S6 Overlay Slice](design/S6-OVERLAY-SLICE.md) | Plan of the in-game banner overlay window, placement, honest chip states and the no-game demo trigger (agent plan, not owner approved) | Engineering, UX, product owner |
 | [Kohbor Lab](design/KOHBOR-LAB.md) | Design of the dev-only event-logic studio: signal inspector, bounded profile schema, replay sandbox, clip pairing, export, embedded-default precedence (agent proposal, not owner approved) | Engineering, UX, product owner |
+| [Post-match Replay preview](design/POST-MATCH-REPLAY-PREVIEW.md) | Lab import format, offline replay controls, and post-match admission | Engineering, UX, QA |
 | [Package Format Review](design/PACKAGE-FORMAT-REVIEW.md) | Agent review: whether a package needs its own file type, signature and encryption options | Engineering, product owner |
 | [S4 Observation Boundary](design/S4-OBSERVATION-BOUNDARY.md) | Sprint 4 no-hardware slice: capture admission, freshness, coverage and the enemy observation boundary (agent decision, not owner approved) | Engineering, QA |
 | [Draft Bar](design/DRAFT-BAR-SPEC.md) | MVP-2 slice 5: reading the top hero bar during hero selection (mirror, hero identification, player names) with the third-party data contract (agent design, not owner approved) | Engineering, QA, Privacy |

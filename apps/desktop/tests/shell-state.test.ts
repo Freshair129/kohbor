@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { deriveHeaderState, nextShellTab } from "../src/shell/state.ts";
+import { deriveHeaderState, nextShellTab, shellTabs } from "../src/shell/state.ts";
 import { copy } from "../src/copy.ts";
 
 test("idle capture header says waiting instead of claiming capture is running", () => {
@@ -18,6 +18,14 @@ test("tab keyboard navigation moves, wraps and honors Home and End", () => {
   assert.equal(nextShellTab("packs", "Home"), "live");
   assert.equal(nextShellTab("live", "End"), "status");
   assert.equal(nextShellTab("live", "Enter"), null);
+});
+
+test("after-match replay is reachable through preview tab keyboard navigation", () => {
+  assert.deepEqual(shellTabs(false), ["live", "packs", "status"]);
+  const tabs = shellTabs(true, true);
+  assert.deepEqual(tabs, ["live", "packs", "status", "replay", "logs"]);
+  assert.equal(nextShellTab("status", "ArrowRight", tabs), "replay");
+  assert.equal(nextShellTab("replay", "ArrowRight", tabs), "logs");
 });
 
 test("header data stays visibly unknown before status and capture arrive", () => {

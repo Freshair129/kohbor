@@ -313,7 +313,17 @@ impl Shared {
     }
 
     pub(crate) fn attach_engine(&mut self, tx: EngineTx) {
+        tx.set_audition_match_active(self.phase.is_some());
         self.engine = Some(tx);
+    }
+
+    fn set_phase(&mut self, phase: Option<Phase>) {
+        if self.phase.is_some() != phase.is_some() {
+            if let Some(tx) = &self.engine {
+                tx.set_audition_match_active(phase.is_some());
+            }
+        }
+        self.phase = phase;
     }
 
     pub fn new(data_dir: PathBuf) -> Self {
@@ -606,7 +616,7 @@ impl Shared {
         let previous_ownership = self.ownership;
         let mut reset_detector = stale_source_gap;
         if let Outcome::Admitted(a) = &mut outcome {
-            self.phase = Some(a.phase);
+            self.set_phase(Some(a.phase));
             if a.ownership == Ownership::Verified {
                 if let Some(owner) = a.steamid64 {
                     crate::logging::register_secret(&owner.to_string());
@@ -672,7 +682,7 @@ impl Shared {
             };
         } else {
             reset_detector = true;
-            self.phase = None;
+            self.set_phase(None);
             if matches!(outcome, Outcome::NotPlaying) {
                 // Menu/idle data is admitted as a fresh source heartbeat, but it
                 // carries no active ownership assertion or reason.
@@ -1135,6 +1145,43 @@ mod tests {
         assert_eq!(s.accept(&menu(&tok), Instant::now(), None), 200);
         assert_eq!(s.snapshot()["availability"], "unknown");
         assert!(s.last_age_ms().is_some());
+    }
+
+    #[test]
+    fn gsi_blocks_audition_from_selection_through_postgame_even_without_a_session_epoch() {
+        let mut s = shared_with_token();
+        let token = s.token.clone().unwrap();
+        let (tx, _rx) = crate::audio::lanes::lanes(
+            std::thread::current(),
+            Arc::new(crate::audio::lanes::EngineShared::new()),
+        );
+        s.attach_engine(tx.clone());
+        assert!(!tx.audition_match_active());
+        for game_state in [
+            "DOTA_GAMERULES_STATE_HERO_SELECTION",
+            "DOTA_GAMERULES_STATE_STRATEGY_TIME",
+            "DOTA_GAMERULES_STATE_PRE_GAME",
+            "DOTA_GAMERULES_STATE_GAME_IN_PROGRESS",
+            "DOTA_GAMERULES_STATE_POST_GAME",
+        ] {
+            let mut body = in_game(&token);
+            body["map"]["game_state"] = json!(game_state);
+            assert_eq!(s.accept(&body, Instant::now(), None), 200);
+            assert!(tx.audition_match_active(), "{game_state}");
+            assert_eq!(s.epoch, None, "phase can be known before session ownership");
+        }
+        assert_eq!(s.phase, Some(Phase::PostGame));
+        assert_eq!(s.accept(&menu(&token), Instant::now(), None), 200);
+        assert!(!tx.audition_match_active());
+
+        let mut postgame = in_game(&token);
+        postgame["map"]["game_state"] = json!("DOTA_GAMERULES_STATE_POST_GAME");
+        assert_eq!(s.accept(&postgame, Instant::now(), None), 200);
+        assert_eq!(s.phase, Some(Phase::PostGame));
+        assert!(
+            tx.audition_match_active(),
+            "postgame alone blocks admission"
+        );
     }
 
     #[test]
