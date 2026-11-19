@@ -42,15 +42,15 @@ pub fn focus_existing() {
     use windows::Win32::Foundation::{HWND, LPARAM};
     use windows::Win32::UI::WindowsAndMessaging::{
         EnumWindows, GetWindowTextW, IsIconic, IsWindowVisible, SetForegroundWindow, ShowWindow,
-        SW_RESTORE,
+        SW_RESTORE, SW_SHOW,
     };
 
     unsafe extern "system" fn visit(hwnd: HWND, found: LPARAM) -> BOOL {
         let mut buffer = [0u16; 160];
         // SAFETY: the buffer is local and the call receives its length.
         let length = unsafe { GetWindowTextW(hwnd, &mut buffer) };
+        // A control window hidden to the tray is not visible but must still be found and shown.
         if length > 0
-            && unsafe { IsWindowVisible(hwnd) }.as_bool()
             && crate::version::is_control_window_title(&String::from_utf16_lossy(
                 &buffer[..length as usize],
             ))
@@ -74,6 +74,8 @@ pub fn focus_existing() {
         unsafe {
             if IsIconic(hwnd).as_bool() {
                 let _ = ShowWindow(hwnd, SW_RESTORE);
+            } else if !IsWindowVisible(hwnd).as_bool() {
+                let _ = ShowWindow(hwnd, SW_SHOW);
             }
             let _ = SetForegroundWindow(hwnd);
         }

@@ -22,6 +22,7 @@ pub mod secrets;
 pub mod settings;
 pub mod status;
 mod steam;
+mod tray;
 mod update;
 mod version;
 
@@ -404,8 +405,9 @@ fn start_overlay_status_mirror(
     }
 }
 
-/// Closing the main (control) window ends the process; the hidden overlay window must never keep
-/// the app alive. UX-SPEC/SRS define no tray or background mode, so none exists.
+/// Closing the main (control) window hides it to the tray when the tray icon exists (owner request
+/// 2026-11-19; see `tray.rs`); without a tray icon it ends the process. The hidden overlay window
+/// must never keep the app alive.
 fn closing_control_window_exits_app(label: &str) -> bool {
     label == "control"
 }
@@ -464,7 +466,19 @@ pub fn run() {
             // Exit-path breadcrumbs (fixed strings only): a log that ends without any of these
             // means the process was terminated from outside, not closed by the app.
             match event {
-                tauri::WindowEvent::CloseRequested { .. } => {
+                tauri::WindowEvent::CloseRequested { api, .. } => {
+                    if closing_control_window_exits_app(window.label())
+                        && window.app_handle().tray_by_id(tray::TRAY_ID).is_some()
+                    {
+                        api.prevent_close();
+                        let _ = window.hide();
+                        crate::log_info!(
+                            "app",
+                            "hidden_to_tray",
+                            "control window hidden to the tray"
+                        );
+                        return;
+                    }
                     crate::log_info!("app", "app_stopping", "window close requested");
                     logging::flush();
                     // The overlay is a second, hidden window: without an explicit exit it keeps
@@ -492,6 +506,10 @@ pub fn run() {
                 );
                 if window.set_title(&title).is_err() {
                     crate::log_warn!("app", "title_unavailable", "control window title not set");
+                }
+                if tray::install(app, &title).is_err() {
+                    // Without a tray icon, closing the control window ends the process as before.
+                    crate::log_warn!("app", "tray_unavailable", "tray icon not created");
                 }
             }
             let dir = data_dir(app).inspect_err(|_error| {
