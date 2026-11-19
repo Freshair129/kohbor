@@ -695,6 +695,14 @@ impl DurationWindow {
         Some(total_ms / self.samples.len() as f64)
     }
 
+    fn max_ms(&mut self, now: Instant) -> Option<f64> {
+        self.prune(now);
+        self.samples
+            .iter()
+            .map(|(_, duration)| duration.as_secs_f64() * 1000.0)
+            .reduce(f64::max)
+    }
+
     fn prune(&mut self, now: Instant) {
         while self
             .samples
@@ -1613,6 +1621,9 @@ struct CaptureHostWorker<S, C, A, R, E, H> {
     grab_total: u64,
     grab_duration: DurationWindow,
     analysis_duration: DurationWindow,
+    /// Whole capture cycle and game-window lookup time, for the log summary only.
+    cycle_duration: DurationWindow,
+    lookup_duration: DurationWindow,
     display: DisplayLimiter,
     next_analysis: Instant,
     next_status: Instant,
@@ -1700,6 +1711,8 @@ where
             grab_total: 0,
             grab_duration: DurationWindow::default(),
             analysis_duration: DurationWindow::default(),
+            cycle_duration: DurationWindow::default(),
+            lookup_duration: DurationWindow::default(),
             display: DisplayLimiter::new(now),
             next_analysis: now,
             next_status: now,
@@ -1730,6 +1743,11 @@ where
                 );
                 self.handle_panic(now, now_ms);
             }
+            let cycle_finished = Instant::now();
+            self.cycle_duration.record(
+                cycle_finished,
+                cycle_finished.saturating_duration_since(now),
+            );
             let config = self.config.get();
             let period = if config.paused
                 || !self.capture_enabled
@@ -1950,7 +1968,14 @@ where
             return;
         };
         self.phase_detail = None;
-        let Some(window_rect) = self.source.game_window() else {
+        let lookup_started = Instant::now();
+        let window_rect = self.source.game_window();
+        let lookup_finished = Instant::now();
+        self.lookup_duration.record(
+            lookup_finished,
+            lookup_finished.saturating_duration_since(lookup_started),
+        );
+        let Some(window_rect) = window_rect else {
             self.unsupported_reason = Some("no_game_window");
             self.clear_frames();
             return;
@@ -2890,6 +2915,9 @@ where
                 grab_fps = self.capture_rate.rate(now),
                 grab_ms_mean = self.grab_duration.mean_ms(now),
                 analysis_ms_mean = self.analysis_duration.mean_ms(now),
+                cycle_ms_mean = self.cycle_duration.mean_ms(now),
+                cycle_ms_max = self.cycle_duration.max_ms(now),
+                lookup_ms_mean = self.lookup_duration.mean_ms(now),
                 timeouts_per_s = self.grab_timeouts.rate(now),
                 phase = phase
             );
@@ -2904,6 +2932,9 @@ where
                 grab_fps = self.capture_rate.rate(now),
                 grab_ms_mean = self.grab_duration.mean_ms(now),
                 analysis_ms_mean = self.analysis_duration.mean_ms(now),
+                cycle_ms_mean = self.cycle_duration.mean_ms(now),
+                cycle_ms_max = self.cycle_duration.max_ms(now),
+                lookup_ms_mean = self.lookup_duration.mean_ms(now),
                 timeouts_per_s = self.grab_timeouts.rate(now),
                 phase = phase
             );
@@ -7445,6 +7476,45 @@ mod tests {
         assert_eq!(status["phase_reason"], "unsupported_resolution");
         assert!(status.as_object().unwrap().contains_key("phase_detail"));
         assert!(status["phase_detail"].is_null());
+    }
+
+    #[test]
+    fn duration_window_max_covers_only_the_last_second() {
+        let start = Instant::now();
+        let mut window = DurationWindow::default();
+        assert_eq!(window.max_ms(start), None);
+        window.record(start, Duration::from_millis(40));
+        window.record(start + Duration::from_millis(100), Duration::from_millis(3));
+        assert_eq!(
+            window.max_ms(start + Duration::from_millis(100)),
+            Some(40.0)
+        );
+        // The 40 ms sample is older than one second here; only the 3 ms sample remains.
+        assert_eq!(
+            window.max_ms(start + Duration::from_millis(1050)),
+            Some(3.0)
+        );
+        assert_eq!(window.max_ms(start + Duration::from_secs(3)), None);
+    }
+
+    #[test]
+    fn game_window_lookup_time_is_recorded_for_the_summary() {
+        let start = Instant::now();
+        let mut worker = worker_with_profile(
+            start,
+            Rect {
+                x: 0,
+                y: 800,
+                width: 280,
+                height: 280,
+            },
+        );
+        // worker_with_profile already ran one profile refresh, which looks the window up once.
+        let now = Instant::now();
+        assert!(worker.lookup_duration.mean_ms(now).is_some());
+        assert_eq!(worker.lookup_duration.samples.len(), 1);
+        assert!(worker.cycle_duration.samples.is_empty());
+        let _ = std::fs::remove_dir_all(&worker.config.data_dir);
     }
 
     #[cfg(feature = "lab")]

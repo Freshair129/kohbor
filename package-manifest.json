@@ -208,8 +208,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/account_fake_native.rs",
-      "bytes": 35268,
-      "sha256": "f3d541412c1454484a084a9aa13b6f1847d43b665b707c43ec469d383425c89c"
+      "bytes": 35188,
+      "sha256": "57003e617471c7fe701db314029c40c19f92bffce92faeb5c5c592438a595042"
     },
     {
       "path": "apps/desktop/src-tauri/src/account_host.rs",
@@ -293,8 +293,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/capture_host.rs",
-      "bytes": 272784,
-      "sha256": "d8d758e5a05bc4ad1d009c55a85efd946c59b2c4b5bd72a9f82e0d02efab47e6"
+      "bytes": 275612,
+      "sha256": "abaf409bd8fbb1dd41d5071589ae9da40ea2dbe05e01152087c3fccc93148c5e"
     },
     {
       "path": "apps/desktop/src-tauri/src/clock.rs",
@@ -353,8 +353,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 32363,
-      "sha256": "fa574c6b57ef2af69f99b522627a9e0a6a45f106b14dbfa1281d9cbbab2b5e85"
+      "bytes": 32487,
+      "sha256": "ca21ee52ae3d42200c685b7e9bf466f25d9fd517229710df7046b87299958949"
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
@@ -393,8 +393,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/media/service.rs",
-      "bytes": 80721,
-      "sha256": "fa4fc2716322fbac4c2529b0ec73f9f32de2bc82d097bff1d71bb56adaf01b8d"
+      "bytes": 83401,
+      "sha256": "fa3bf7d43a56587f00ba2e715eeba8e6d1bbdd02bd119f361043ea3207a4364f"
     },
     {
       "path": "apps/desktop/src-tauri/src/overlay.rs",
@@ -1743,8 +1743,8 @@
     },
     {
       "path": "crates/kohbor-capture-native/src/dxgi.rs",
-      "bytes": 26353,
-      "sha256": "93c82e402e5dd3b5f2a2f85243a5f8b6bec7f205b492cb375e6246f783d49f5e"
+      "bytes": 31064,
+      "sha256": "1cbce507852c2ece22a0558c15da43cfeefd18b75e4e512dee1dae50e6d3704f"
     },
     {
       "path": "crates/kohbor-capture-native/src/lib.rs",
@@ -2168,8 +2168,8 @@
     },
     {
       "path": "crates/kohbor-pack/src/store.rs",
-      "bytes": 84971,
-      "sha256": "d55515b4d9b88a979f22bdc38f878d50baa695c90e65b2c1ff600307f1d7a72e"
+      "bytes": 85262,
+      "sha256": "4bc6032f45f4cc050112cb4c05590ddd8bb64c9b13db8bcc8ee44a3c45cb728a"
     },
     {
       "path": "crates/kohbor-pack/src/trust.rs",
@@ -2178,8 +2178,8 @@
     },
     {
       "path": "crates/kohbor-pack/tests/activation.rs",
-      "bytes": 11091,
-      "sha256": "e90379728206adf98b588e5da5e70beb1ba3d88d036afd74525d14f70f37d7f6"
+      "bytes": 12825,
+      "sha256": "24de9d20c808aff1e4721e3ee83680a005ff3df9011420431fdfae5b03e0d375"
     },
     {
       "path": "crates/kohbor-pack/tests/audio_only.rs",
@@ -2373,8 +2373,8 @@
     },
     {
       "path": "docs/design/EVENT-AUDIO-SPEC.md",
-      "bytes": 27333,
-      "sha256": "71cc80c4ea46efd8c1e7351b48101029ffd4cb47ad203c659b4677254066709a"
+      "bytes": 27805,
+      "sha256": "c877591ea1da00d82fa2d9f16ea5542e6dc753f07de6f5c54f99f896087b1b25"
     },
     {
       "path": "docs/design/GSI-INTAKE-SPEC.md",
