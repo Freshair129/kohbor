@@ -78,6 +78,14 @@ test("proposal acceptance uses the profile origin and dimensions and rejects out
   assert.equal(config.applyProposal({ x: 10, y: 800, width: 290, height: 300 }, null), null);
 });
 
+test("a failed search explains when a confirmed crop was kept", () => {
+  const confirmed = { proposal_status: "not_found", crop_confirmed: true } as const;
+  assert.equal(copy.proposalStatusLabel(confirmed, "en"), "No new minimap frame found. Your saved crop was kept.");
+  assert.equal(copy.proposalStatusLabel(confirmed, "th"), "ไม่พบกรอบแผนที่ใหม่ กรอบที่คุณบันทึกไว้ยังอยู่");
+  assert.equal(copy.proposalStatusLabel({ ...confirmed, crop_confirmed: false }, "en"), "No minimap frame found");
+  assert.equal(copy.proposalStatusLabel({ ...confirmed, proposal_status: "searching" }, "en"), "Searching for minimap frame");
+});
+
 test("capture rates and pause transitions expose only the supported choices", () => {
   assert.deepEqual(config.CAPTURE_DISPLAY_RATES, [10, 15, 30]);
   assert.deepEqual(config.togglePause(false), { paused: true });

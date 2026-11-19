@@ -3,7 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { RiskView } from "./types";
 import { DangerMeter } from "./DangerMeter";
 import { EnemySeen } from "./EnemySeen";
-import { liveCopy, phaseLabel, type LiveLocale } from "./copy";
+import { liveCopy, phaseLabel, proposalStatusLabel, type LiveLocale } from "./copy";
 import { captureGatedRiskView, formatNullable, showAutoLayoutUnconfirmed } from "./state";
 import { liveMockRequested } from "./mockMode";
 import {
@@ -173,13 +173,7 @@ export function MinimapPanel({
   const proposal = config?.proposal ?? null;
   const proposalPatch = proposal && config?.profile_rect ? applyProposal(proposal, config.profile_rect) : null;
   const proposalVisible = proposal !== null && !captureConfig.proposalDismissed;
-  const proposalLabel = config?.proposal_status === "searching"
-    ? text.proposalSearching
-    : config?.proposal_status === "found"
-      ? text.proposalFound
-      : config?.proposal_status === "not_found"
-        ? text.proposalNotFound
-        : text.proposalNone;
+  const proposalLabel = proposalStatusLabel(config, locale);
 
   const nudgeCrop = (moveX: -1 | 0 | 1, moveY: -1 | 0 | 1, shiftKey: boolean) => {
     if (!config) return;
