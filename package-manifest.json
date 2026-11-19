@@ -333,8 +333,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/instance.rs",
-      "bytes": 3836,
-      "sha256": "25f2a19883ea3cda8adf283c0abb7b9516d6d9d7ec9674ea22d8be15ac36303f"
+      "bytes": 6501,
+      "sha256": "10412f0554697e7a48fa114d9aec1edbedae89a805d76269eb084d91240328e5"
     },
     {
       "path": "apps/desktop/src-tauri/src/intake.rs",

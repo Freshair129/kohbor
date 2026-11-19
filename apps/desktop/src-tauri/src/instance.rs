@@ -49,11 +49,13 @@ pub fn focus_existing() {
         let mut buffer = [0u16; 160];
         // SAFETY: the buffer is local and the call receives its length.
         let length = unsafe { GetWindowTextW(hwnd, &mut buffer) };
-        // A control window hidden to the tray is not visible but must still be found and shown.
+        // A control window hidden to the tray is not visible but must still be found and shown, so
+        // the title alone is not enough: the window must also belong to a process running this exe.
         if length > 0
             && crate::version::is_control_window_title(&String::from_utf16_lossy(
                 &buffer[..length as usize],
             ))
+            && owned_by_this_exe(hwnd)
         {
             // SAFETY: `found` points at the local `Option<HWND>` below for the whole enumeration.
             unsafe { *(found.0 as *mut Option<HWND>) = Some(hwnd) };
@@ -79,6 +81,84 @@ pub fn focus_existing() {
             }
             let _ = SetForegroundWindow(hwnd);
         }
+    }
+}
+
+/// Whether two executable paths name the same file name (case-insensitive, as on Windows).
+fn same_exe_name(a: &std::path::Path, b: &std::path::Path) -> bool {
+    match (a.file_name(), b.file_name()) {
+        (Some(a), Some(b)) => a
+            .to_string_lossy()
+            .eq_ignore_ascii_case(&b.to_string_lossy()),
+        _ => false,
+    }
+}
+
+/// Whether `hwnd` belongs to a process whose image has the same file name as this exe.
+/// Any failure (no access, process gone) is treated as "not ours".
+#[cfg(windows)]
+fn owned_by_this_exe(hwnd: windows::Win32::Foundation::HWND) -> bool {
+    use windows::core::PWSTR;
+    use windows::Win32::Foundation::CloseHandle;
+    use windows::Win32::System::Threading::{
+        OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32,
+        PROCESS_QUERY_LIMITED_INFORMATION,
+    };
+    use windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId;
+
+    let Ok(current) = std::env::current_exe() else {
+        return false;
+    };
+    let mut pid = 0u32;
+    // SAFETY: `pid` is a local out-parameter.
+    unsafe { GetWindowThreadProcessId(hwnd, Some(&mut pid as *mut u32)) };
+    if pid == 0 {
+        return false;
+    }
+    // SAFETY: the handle is closed below on every path that opened it.
+    let Ok(process) = (unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) })
+    else {
+        return false;
+    };
+    let mut buffer = [0u16; 1024];
+    let mut size = buffer.len() as u32;
+    // SAFETY: the buffer is local and `size` carries its length.
+    let ok = unsafe {
+        QueryFullProcessImageNameW(
+            process,
+            PROCESS_NAME_WIN32,
+            PWSTR(buffer.as_mut_ptr()),
+            &mut size,
+        )
+    }
+    .is_ok();
+    // SAFETY: `process` was opened above.
+    let _ = unsafe { CloseHandle(process) };
+    ok && same_exe_name(
+        std::path::Path::new(&String::from_utf16_lossy(&buffer[..size as usize])),
+        &current,
+    )
+}
+
+#[cfg(test)]
+mod exe_name_tests {
+    use super::same_exe_name;
+    use std::path::Path;
+
+    #[test]
+    fn only_the_same_exe_file_name_matches() {
+        assert!(same_exe_name(
+            Path::new(r"C:\a\kohbor-desktop.exe"),
+            Path::new(r"D:\b\KOHBOR-DESKTOP.EXE")
+        ));
+        assert!(!same_exe_name(
+            Path::new(r"C:\a\other.exe"),
+            Path::new(r"C:\a\kohbor-desktop.exe")
+        ));
+        assert!(!same_exe_name(
+            Path::new(""),
+            Path::new(r"C:\a\kohbor-desktop.exe")
+        ));
     }
 }
 
