@@ -288,9 +288,142 @@ impl Throttle {
     }
 }
 
+/// Samples per resource summary line; the sampler runs once per second.
+pub const RESOURCE_SUMMARY_SAMPLES: u32 = 30;
+
+/// Diagnostic summary of one window of resource samples. Monitoring only:
+/// nothing may admit, throttle or refuse work from it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ResourceSummary {
+    pub samples: u32,
+    /// Samples whose CPU metric was unavailable; they are excluded from the CPU figures.
+    pub cpu_missing: u32,
+    /// Mean of the available CPU samples (percent of total system CPU), or None if none were available.
+    pub cpu_mean: Option<f64>,
+    pub cpu_max: Option<f64>,
+    /// Available samples at or above 95% of the job hard cap (9.5% of total CPU).
+    pub near_cap_samples: u32,
+    pub throttled_samples: u32,
+    pub working_set_mb_max: Option<f64>,
+    pub process_count_max: Option<u32>,
+}
+
+/// Accumulates one sample per tick and yields a summary every `RESOURCE_SUMMARY_SAMPLES` samples.
+#[derive(Debug, Default)]
+pub struct ResourceWindow {
+    samples: u32,
+    cpu_missing: u32,
+    cpu_sum: f64,
+    cpu_max: Option<f64>,
+    near_cap: u32,
+    throttled: u32,
+    working_set_max: Option<u64>,
+    process_count_max: Option<u32>,
+}
+
+impl ResourceWindow {
+    pub fn push(&mut self, s: &Sample, throttled: bool) -> Option<ResourceSummary> {
+        self.samples += 1;
+        match s.cpu_percent {
+            Some(c) => {
+                self.cpu_sum += c;
+                self.cpu_max = Some(self.cpu_max.map_or(c, |m| m.max(c)));
+                if c >= f64::from(CPU_RATE_HARD_CAP) / 100.0 * 0.95 {
+                    self.near_cap += 1;
+                }
+            }
+            None => self.cpu_missing += 1,
+        }
+        if throttled {
+            self.throttled += 1;
+        }
+        if let Some(w) = s.working_set_bytes {
+            self.working_set_max = Some(self.working_set_max.map_or(w, |m| m.max(w)));
+        }
+        if let Some(p) = s.process_count {
+            self.process_count_max = Some(self.process_count_max.map_or(p, |m| m.max(p)));
+        }
+        if self.samples < RESOURCE_SUMMARY_SAMPLES {
+            return None;
+        }
+        let available = self.samples - self.cpu_missing;
+        let summary = ResourceSummary {
+            samples: self.samples,
+            cpu_missing: self.cpu_missing,
+            cpu_mean: (available > 0).then(|| self.cpu_sum / f64::from(available)),
+            cpu_max: self.cpu_max,
+            near_cap_samples: self.near_cap,
+            throttled_samples: self.throttled,
+            working_set_mb_max: self.working_set_max.map(|w| w as f64 / (1024.0 * 1024.0)),
+            process_count_max: self.process_count_max,
+        };
+        *self = Self::default();
+        Some(summary)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn resource_window_summarizes_every_30_samples_and_keeps_missing_cpu_unknown() {
+        let mut w = ResourceWindow::default();
+        for i in 0..29 {
+            let cpu = if i == 0 {
+                None
+            } else {
+                Some(if i == 1 { 9.6 } else { 2.0 })
+            };
+            let sample = Sample {
+                cpu_percent: cpu,
+                working_set_bytes: Some(if i == 5 {
+                    300 * 1024 * 1024
+                } else {
+                    1024 * 1024
+                }),
+                process_count: Some(if i == 7 { 9 } else { 4 }),
+            };
+            assert_eq!(w.push(&sample, i < 3), None);
+        }
+        let last = Sample {
+            cpu_percent: Some(2.0),
+            working_set_bytes: None,
+            process_count: None,
+        };
+        let summary = w.push(&last, false).expect("30th sample closes the window");
+        assert_eq!(summary.samples, 30);
+        assert_eq!(summary.cpu_missing, 1);
+        let mean = summary.cpu_mean.unwrap();
+        assert!((mean - (9.6 + 2.0 * 28.0) / 29.0).abs() < 1e-9);
+        assert_eq!(summary.cpu_max, Some(9.6));
+        assert_eq!(summary.near_cap_samples, 1);
+        assert_eq!(summary.throttled_samples, 3);
+        assert_eq!(summary.working_set_mb_max, Some(300.0));
+        assert_eq!(summary.process_count_max, Some(9));
+
+        let mut empty = ResourceWindow::default();
+        let none = Sample {
+            cpu_percent: None,
+            working_set_bytes: None,
+            process_count: None,
+        };
+        let mut out = None;
+        for _ in 0..30 {
+            out = empty.push(&none, true);
+        }
+        let out = out.expect("window closes without metrics");
+        assert_eq!(
+            (out.cpu_mean, out.cpu_max, out.cpu_missing),
+            (None, None, 30)
+        );
+        assert_eq!(out.working_set_mb_max, None);
+        assert_eq!(
+            w.push(&last, false),
+            None,
+            "the window restarts after a summary"
+        );
+    }
 
     fn s(cpu: Option<f64>, mem: u64) -> Sample {
         Sample {
