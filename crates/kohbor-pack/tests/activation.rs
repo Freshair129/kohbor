@@ -179,8 +179,23 @@ fn pending_activations_resume_oldest_first() {
         match_active: true,
         ..ActivationState::default()
     };
+    // A match only defers a switch away from an active revision, so start with one.
+    let (path, bytes) = store_package(&temp.0, "test-pack", 1, false);
+    let first = store
+        .install(&request(path, &bytes, "request_1"))
+        .unwrap()
+        .record
+        .unwrap();
+    store
+        .activate(
+            "request_1",
+            &first.install_id,
+            Policy::NowIfIdle,
+            &ActivationState::default(),
+        )
+        .unwrap();
     let mut ids = Vec::new();
-    for revision in 1..=3 {
+    for revision in 2..=4 {
         let (path, bytes) = store_package(&temp.0, "test-pack", revision, false);
         let request_id = format!("request_{revision}");
         let record = store
@@ -292,6 +307,41 @@ fn now_if_idle_defers_for_match_and_lease() {
             store.pending_activations(),
             vec![new.install_id],
             "leased={leased}: pending"
+        );
+    }
+}
+
+#[test]
+fn first_activation_is_not_deferred_by_a_match_or_lease() {
+    for policy in [Policy::NowIfIdle, Policy::AfterMatch] {
+        let temp = TempDir::new();
+        let (path, bytes) = store_package(&temp.0, "test-pack", 1, false);
+        let mut store = Store::open(&temp.0.join("store"), catalog(), Limits::default()).unwrap();
+        let id = store
+            .install(&request(path, &bytes, "request_1"))
+            .unwrap()
+            .record
+            .unwrap()
+            .install_id;
+        let in_match = ActivationState {
+            match_active: true,
+            leased_install_ids: vec!["ins_0000000099".to_owned()],
+        };
+        let result = store.activate("request_1", &id, policy, &in_match).unwrap();
+        assert_eq!(result.status, Status::Active, "{policy:?}: status");
+        assert_eq!(result.reason, None, "{policy:?}: reason");
+        assert_eq!(
+            store.active().unwrap().install_id,
+            id,
+            "{policy:?}: pointer"
+        );
+        assert!(
+            store.pending_activations().is_empty(),
+            "{policy:?}: no pending"
+        );
+        assert!(
+            store.resolve("first_blood", None).is_ok(),
+            "{policy:?}: resolvable mid-match"
         );
     }
 }
