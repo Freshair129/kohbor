@@ -1487,17 +1487,31 @@ mod tests {
     #[test]
     fn deferred_match_activation_resumes_after_match_barrier_clears() {
         let temp = TempDir::new("deferred-match");
+        // A match only defers a switch away from an active revision, so start with one.
+        let first = wav_fixture(&temp, "deferred-match-first", "health_danger");
         let pkg = wav_fixture(&temp, "deferred-match-pack", "health_danger");
+        let store_root = temp.path().join("store");
+        let mut store =
+            kohbor_pack::store::Store::open(&store_root, catalog(), kohbor_pack::Limits::default())
+                .expect("open deferred-match fixture store");
+        let first_id = install(&mut store, &first, "req-deferred-first-inst-001")
+            .record
+            .expect("first install returns record")
+            .install_id;
+        let _ = activate(&mut store, "req-deferred-first-act-001", &first_id);
+        drop(store);
         let match_flag = Arc::new(AtomicBool::new(true));
         let match_probe = match_flag.clone();
         let service = setup(
-            &temp.path().join("store"),
+            &store_root,
             Arc::new(move || match_probe.load(Ordering::Acquire)),
             passing_probe(),
             Box::new(|_| {}),
             20,
             0,
         );
+        let initial = receive_swap(&service.engine_rx);
+        assert_eq!(initial.install_id.as_deref(), Some(first_id.as_str()));
         let install_id = install_via_service(&service.handle, &pkg, "req-deferred-install-001");
         let result = service
             .handle
@@ -2157,17 +2171,29 @@ mod tests {
     #[test]
     fn list_records_deferred_activation_until_resume() {
         let temp = TempDir::new("pending-list");
+        let first = wav_fixture(&temp, "pending-list-first", "health_danger");
         let pkg = wav_fixture(&temp, "pending-list-pack", "health_danger");
+        let store_root = temp.path().join("store");
+        let mut store =
+            kohbor_pack::store::Store::open(&store_root, catalog(), kohbor_pack::Limits::default())
+                .expect("open pending-list fixture store");
+        let first_id = install(&mut store, &first, "req-pending-first-inst-001")
+            .record
+            .expect("first install returns record")
+            .install_id;
+        let _ = activate(&mut store, "req-pending-first-act-001", &first_id);
+        drop(store);
         let active = Arc::new(AtomicBool::new(true));
         let flag = active.clone();
         let service = setup(
-            &temp.path().join("store"),
+            &store_root,
             Arc::new(move || flag.load(Ordering::Acquire)),
             passing_probe(),
             Box::new(|_| {}),
             20,
             0,
         );
+        let _ = receive_swap(&service.engine_rx);
         let install_id = install_via_service(&service.handle, &pkg, "req-pending-install-001");
         let deferred = service
             .handle
@@ -2187,12 +2213,45 @@ mod tests {
             json!([install_id]),
             "list exposes deferred install id"
         );
-        assert!(
-            listing["active"].is_null(),
+        assert_eq!(
+            listing["active"]["install_id"], first_id,
             "deferred revision is not active until resumed"
         );
         active.store(false, Ordering::Release);
         let _ = receive_swap(&service.engine_rx);
+        finish(service);
+    }
+
+    #[test]
+    fn first_activation_mid_match_swaps_the_table_at_once() {
+        let temp = TempDir::new("first-mid-match");
+        let pkg = wav_fixture(&temp, "first-mid-match-pack", "health_danger");
+        let service = setup(
+            &temp.path().join("store"),
+            Arc::new(|| true),
+            passing_probe(),
+            Box::new(|_| {}),
+            20,
+            0,
+        );
+        let install_id = install_via_service(&service.handle, &pkg, "req-first-mid-inst-001");
+        let result = service
+            .handle
+            .activate(
+                "req-first-mid-act-001",
+                &install_id,
+                ActivationPolicy::NowIfIdle,
+            )
+            .expect("first activation during a match");
+        assert_eq!(
+            result["status"], "active",
+            "with no active revision a match does not defer"
+        );
+        let table = receive_swap(&service.engine_rx);
+        assert_eq!(table.install_id.as_deref(), Some(install_id.as_str()));
+        let listing = service.handle.list().expect("listable");
+        assert_eq!(listing["active"]["install_id"], install_id);
+        assert_eq!(listing["pending"], json!([]));
         finish(service);
     }
 
