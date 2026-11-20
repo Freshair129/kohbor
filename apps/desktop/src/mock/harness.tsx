@@ -201,8 +201,13 @@ function mockPackSummaries() {
   })) };
 }
 
-function mockEventMap() {
-  const { active } = mockListing();
+function mockEventMap(installId?: string) {
+  const { active: current, records } = mockListing();
+  const selected = installId === undefined ? null : records.find(record => record.install_id === installId);
+  if (installId !== undefined && !selected) throw "UNKNOWN_INSTALL";
+  const active = selected ? {
+    install_id: selected.install_id, package_id: selected.package_id, revision: selected.revision,
+  } : current;
   return {
     schema_version: "1.0.0", active, media_match_active: currentStatus().session.phase !== "none",
     events: eventCatalog.events.filter(event => event.status === "active").flatMap(event => {
@@ -503,6 +508,11 @@ export function installMockHarness() {
       if (command === "media_list") return mockListing();
       if (command === "media_pack_summaries") return mockPackSummaries();
       if (command === "media_event_map") return mockEventMap();
+      if (command === "media_installed_event_map") {
+        requireArgs(command, args, ["installId"]);
+        if (typeof args.installId !== "string") throw "UNKNOWN_INSTALL";
+        return mockEventMap(args.installId);
+      }
       if (command === "media_audition") throw "CAPABILITY_UNAVAILABLE";
       if (command === "media_inspect") return mockInspect(args);
       if (command === "media_install") return mockInstall(args);

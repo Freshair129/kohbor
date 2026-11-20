@@ -308,8 +308,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/commands.rs",
-      "bytes": 42885,
-      "sha256": "5e79dadc46d33034bfcf7f728bdbc9b7bedc4e85df5a4af28fcde587820716eb"
+      "bytes": 43109,
+      "sha256": "f5675e15970bae0997d6ad4647a785ec0ee0589ea96f5a7c7663095bfc743eb6"
     },
     {
       "path": "apps/desktop/src-tauri/src/containment.rs",
@@ -323,8 +323,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/host.rs",
-      "bytes": 69315,
-      "sha256": "67324667cf01d485191ac7230f582d8de0e5187d66a45fa7e2578597e6842734"
+      "bytes": 69920,
+      "sha256": "a8473959f94fe28d21b2cad1e6ffc23952559b6df6c6adf69b8bad7131175031"
     },
     {
       "path": "apps/desktop/src-tauri/src/hotkeys.rs",
@@ -358,8 +358,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 55399,
-      "sha256": "4bbdd7d16b5d9dde2d6bb29f15eae250ab62b6a483a064d5bba7ca5b1070d452"
+      "bytes": 55489,
+      "sha256": "8ec0d20ef36d65729bea503148fcacd6c4bb9b4bac4761580c8d5b47e7fd7b2c"
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
@@ -383,8 +383,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/media/prewarm.rs",
-      "bytes": 53442,
-      "sha256": "552f09eefc82d6bf52eab80f5dcbcf03b541eda2475399a2ae95ea9c084c051b"
+      "bytes": 54423,
+      "sha256": "f184f5a2a6e4df5f316c77b2b32f6068113fa579b5f9e03044a6226a974fc087"
     },
     {
       "path": "apps/desktop/src-tauri/src/media/probe.rs",
@@ -403,8 +403,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/media/service.rs",
-      "bytes": 131992,
-      "sha256": "0d065f772440090b2bd258ccae12b7e6ac36733110b3e1cc567e4dc545edb287"
+      "bytes": 141149,
+      "sha256": "77bb2f6c64da56896e23190e4ac535b201d0abb5003f4380545a8558afac63f5"
     },
     {
       "path": "apps/desktop/src-tauri/src/overlay.rs",
@@ -1048,13 +1048,13 @@
     },
     {
       "path": "apps/desktop/src/mediaUrl.ts",
-      "bytes": 1358,
-      "sha256": "32e74fde225da50a3762e4e236df883a29f3d76cc2eb3c930c4f0b6db7299e75"
+      "bytes": 887,
+      "sha256": "e36d5167341766c3f8a1f3f09b7aed1deb6eb3b86e94b8f105de40e12e639130"
     },
     {
       "path": "apps/desktop/src/mock/harness.tsx",
-      "bytes": 31733,
-      "sha256": "96e8261d4b9997aa57a7cd6c122a5a2aa131661b066ea0a435cd03af0e27d9cc"
+      "bytes": 32321,
+      "sha256": "9052450263b35e177530540a3d5ef2da37ca39b5934dd301ece5e2f008531947"
     },
     {
       "path": "apps/desktop/src/mock/hudState.ts",
@@ -1133,13 +1133,13 @@
     },
     {
       "path": "apps/desktop/src/packs/PackLibrary.tsx",
-      "bytes": 21802,
-      "sha256": "f0bd2e02524d083ffba70cbe676c3a10490af210d1479393ad2caf43ec100bd4"
+      "bytes": 21727,
+      "sha256": "e7a6746d00901bceb5345a65afa681ef2755112704fb877df287ee5ca8641370"
     },
     {
       "path": "apps/desktop/src/packs/PacksPage.tsx",
-      "bytes": 23722,
-      "sha256": "6f04708b6a28240029ea55048a628aa9fc09cd9aad64f3a41af6608342253e5c"
+      "bytes": 26422,
+      "sha256": "d01c197bfbbc5f870b92092bd376eb6f8f25f3f3154a39cbc47d7643e14ff2b9"
     },
     {
       "path": "apps/desktop/src/packs/SoundRows.tsx",
@@ -1153,8 +1153,8 @@
     },
     {
       "path": "apps/desktop/src/packs/browseApi.ts",
-      "bytes": 6958,
-      "sha256": "e9411bc9db7d85e8ea9fc7c9866819a8f3fee9cc365b96d94c11dddd2f46daca"
+      "bytes": 6906,
+      "sha256": "4a354db8db2ffd4b1593a496943d4d356613096693c8b814c76a98b3b9f7c095"
     },
     {
       "path": "apps/desktop/src/packs/browseModel.ts",
@@ -1193,8 +1193,8 @@
     },
     {
       "path": "apps/desktop/src/packs/previewModel.ts",
-      "bytes": 1996,
-      "sha256": "fd8715434e1757905ffe446d9c7915c00551a7ce0e2a35258c9d192aefdc3bc3"
+      "bytes": 2995,
+      "sha256": "e03a63d76d9b04a9dfb51792fea5135277c3f4b659daef1abfabed8c15ea82e1"
     },
     {
       "path": "apps/desktop/src/packs/recapModel.ts",
@@ -1203,8 +1203,8 @@
     },
     {
       "path": "apps/desktop/src/packs/variant-model.ts",
-      "bytes": 1970,
-      "sha256": "01ff81d323efc033d93edb0cfcac0aa8b0a0252cf9ce06e8c9de498cae095de9"
+      "bytes": 2262,
+      "sha256": "e38e3e3142d38147efcabd57be38fc96146f516f1a8a033f299bef8bd94f5e6a"
     },
     {
       "path": "apps/desktop/src/playback.ts",
@@ -1258,8 +1258,8 @@
     },
     {
       "path": "apps/desktop/src/runtime.ts",
-      "bytes": 17136,
-      "sha256": "c187a88140fd227323cce50fdb3af3e1f343b7d6d5d450e7792566cc2ccc179a"
+      "bytes": 17365,
+      "sha256": "b0d5f109b5e818353c87461ea8bef4be86ad8620562e6ee81e3f45ec595316f4"
     },
     {
       "path": "apps/desktop/src/settings.ts",
@@ -1443,8 +1443,8 @@
     },
     {
       "path": "apps/desktop/src/styles.css",
-      "bytes": 52572,
-      "sha256": "79e98bbd649b39a92e32b39d8830dc3a04af47a8126e8a430b937d31da7c441b"
+      "bytes": 53392,
+      "sha256": "ddb4ab3494af772032254830e3ffbc537c3b53f8ceda289d9889dfefc858310d"
     },
     {
       "path": "apps/desktop/src/types.ts",
@@ -1483,13 +1483,13 @@
     },
     {
       "path": "apps/desktop/tests/browse-ui-components.test.ts",
-      "bytes": 3723,
-      "sha256": "58e0929c0a97c0d780525b840682ddcf79f01bbd4cfd9dcff9ffe50c914f14e0"
+      "bytes": 6097,
+      "sha256": "3caf2e590cafeb0df9344b30cace94f369431b6391ec3ebe89b6aa0f41c48d88"
     },
     {
       "path": "apps/desktop/tests/browse-ui-models.test.ts",
-      "bytes": 10481,
-      "sha256": "56b02c883a28c3d1f0b3abc77eacdc764abf88ec3c4674efaf00ab9badc3299d"
+      "bytes": 14370,
+      "sha256": "3b07e12fc92ff011b74e2d7cdc634c0898d7da27a3fa53cf2cdf8d225c35bd54"
     },
     {
       "path": "apps/desktop/tests/capture-idle.test.ts",
@@ -1673,8 +1673,8 @@
     },
     {
       "path": "apps/desktop/tests/packs-page.test.ts",
-      "bytes": 5816,
-      "sha256": "0db443fc29f4e98664a53b2b0c9691ff5989975cc1e18c4cf4d3ebc0b7d6005c"
+      "bytes": 5723,
+      "sha256": "416024bc87a3781135bad8c31fe765d34fc82f30111b59b8991331f92f1018b7"
     },
     {
       "path": "apps/desktop/tests/packs.test.ts",
@@ -1838,8 +1838,8 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 191678,
-      "sha256": "1b30f6afb0f8a3eb35eb1b62fe2ae762e4b677edfa2c82b302d4268fa3580bd8"
+      "bytes": 192216,
+      "sha256": "5f79dc4cb8dabfbedc13da67cb86276134118e78cf99e89e02bde95f2b0c87d6"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -2458,8 +2458,8 @@
     },
     {
       "path": "crates/kohbor-pack/src/store.rs",
-      "bytes": 105318,
-      "sha256": "f2e031a9aba595996d88411b8d293e1feac90ca9fb937b1813f448303d4eadb6"
+      "bytes": 106947,
+      "sha256": "eee859ead002d4eff1bd06f9f341e0e59524cb8d902c4dfdb3cd19233dc712de"
     },
     {
       "path": "crates/kohbor-pack/src/trust.rs",
@@ -2688,8 +2688,8 @@
     },
     {
       "path": "docs/design/MEDIA-PACK-SPEC.md",
-      "bytes": 21814,
-      "sha256": "82302e4a2b4757a3901417ec9d60ee1feae6efd2e89aa4dc5c27e254d50604ea"
+      "bytes": 22326,
+      "sha256": "7c92ab543cdaacf56d21e4252bae6435ac9730ba306636ead13718e024acad2d"
     },
     {
       "path": "docs/design/PACKAGE-FORMAT-REVIEW.md",
@@ -3258,8 +3258,8 @@
     },
     {
       "path": "docs/requirements/RTM.csv",
-      "bytes": 43842,
-      "sha256": "07f45913e394d17763108a22779a34d1cef579a8c5849ce5ab59794af81901b8"
+      "bytes": 43969,
+      "sha256": "8113996faccee788c1d452e9c379ac7ec317b26b3a67a5a88941a3c2e8c3cf02"
     },
     {
       "path": "docs/requirements/SRS.md",

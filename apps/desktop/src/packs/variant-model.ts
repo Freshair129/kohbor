@@ -26,6 +26,11 @@ export interface VariantRowPresentation {
   bannerText: string;
 }
 
+export function browseVoiceLabel(variant: EventVariant, eventName: string, index: number, locale: EventVariantsLocale): string {
+  const fallback = locale === "th" ? `เสียงที่ ${index + 1}` : `Voice ${index + 1}`;
+  return variant.caption ?? `${eventName} · ${fallback}`;
+}
+
 export function variantSelectionLabel(
   selection: VariantSelection,
   copy: EventVariantsCopy,

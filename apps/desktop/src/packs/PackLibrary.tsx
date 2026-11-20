@@ -1,14 +1,14 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { packsPageCopy, type Locale } from "../copy";
-import { packCoverWebviewUrl, packVisualWebviewUrl } from "../mediaUrl";
+import { packCoverWebviewUrl } from "../mediaUrl";
 import { formatBytes } from "../packs";
 import { Chip } from "../Readiness";
 import { BROWSE_EVENT_CATEGORIES, browseCategoryRows, soundLabel, soundKey, type BrowseEventCategory } from "./eventMap";
 import type { BrowseBinding, BrowsePackDetail } from "./browseApi";
 import type { BrowsePreviewState } from "./previewModel";
 import type { PackSummary } from "./model";
-import { EventVariants } from "./EventVariants";
-import type { VariantAuditionResult } from "./variant-model";
+import { browseVoiceLabel, type VariantAuditionResult } from "./variant-model";
+import { eventVariantsCopy } from "./event-variants.copy";
 
 const PLATFORM = navigator.userAgent.includes("Windows") ? "windows" : "other";
 
@@ -111,13 +111,14 @@ function factValue(value: string | null, fallback: string) {
   return value?.trim() ? value : fallback;
 }
 
-function relativeVariantUrl(logical: string | null) {
-  return logical ? packVisualWebviewUrl(logical, PLATFORM) : null;
+function canPreviewBinding(binding: BrowseBinding) {
+  return binding.variants.length > 0 && (binding.state === "ready" || binding.state === "inherited"
+    || (binding.state === "detector_unavailable" && binding.reason === "EVENT_UNAVAILABLE"));
 }
 
 export function PackDrawer({ pack, packs, detail, loading, locale, preview, previewNotice, matchLocked,
   overlayPreview, onOverlayPreview, onClose, returnFocus, onStep, onEquip, actionBusy,
-  onAuditionVariant, onPlayCategory, onPreviewVisualError,
+  onAuditionVariant, onPlayCategory, previewVideo, onPreviewVisualError,
 }: {
   pack: PackSummary; packs: readonly PackSummary[]; detail: BrowsePackDetail | null; loading: boolean;
   locale: Locale; preview: BrowsePreviewState; previewNotice: string | null; matchLocked: boolean; overlayPreview: boolean;
@@ -125,19 +126,19 @@ export function PackDrawer({ pack, packs, detail, loading, locale, preview, prev
   onStep: (pack: PackSummary) => void; onEquip: () => void; actionBusy: boolean;
   onAuditionVariant: (binding: BrowseBinding, variantId: string) => Promise<VariantAuditionResult>;
   onPlayCategory: (bindings: readonly BrowseBinding[]) => void;
+  previewVideo: RefObject<HTMLVideoElement | null>;
   onPreviewVisualError: (playbackId: string, reason: string) => void;
 }) {
   const id = useId();
   const dialog = useRef<HTMLDialogElement>(null);
   const close = useRef<HTMLButtonElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
   const text = packsPageCopy(locale);
+  const voiceText = eventVariantsCopy(locale);
   const [category, setCategory] = useState<BrowseEventCategory>("kill");
-  const [reducedMotion, setReducedMotion] = useState(() => typeof window !== "undefined"
-    && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   const packIndex = packs.findIndex(item => item.installId === pack.installId);
-  const opened = preview.installId === pack.installId && preview.playbackId !== null;
-  const videoUrl = opened && preview.hasVisual ? relativeVariantUrl(preview.visualUrl) : null;
+  const previewId = preview.installId === pack.installId ? preview.playbackId : null;
+  const showVideo = previewId !== null && preview.visualUrl !== null;
+  const playing = previewId !== null && preview.playing;
   const origin = originLabel(pack, locale);
   const [coverFailed, setCoverFailed] = useState(false);
 
@@ -151,36 +152,14 @@ export function PackDrawer({ pack, packs, detail, loading, locale, preview, prev
     };
   }, [returnFocus]);
 
-  useEffect(() => {
-    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const update = () => setReducedMotion(query.matches);
-    update();
-    query.addEventListener?.("change", update);
-    return () => query.removeEventListener?.("change", update);
-  }, []);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !videoUrl || !opened) return;
-    const sync = () => {
-      const elapsed = preview.receivedAtMs === null ? 0 : Math.max(0, (performance.now() - preview.receivedAtMs) / 1000);
-      if (Number.isFinite(video.duration) && video.duration > 0) video.currentTime = Math.min(elapsed, video.duration);
-      if (!reducedMotion) void video.play().catch(() => onPreviewVisualError(preview.playbackId!, "VIDEO_START_FAILED"));
-      else video.pause();
-    };
-    if (video.readyState >= 2) sync();
-    return () => { video.pause(); };
-  }, [opened, preview.playbackId, preview.receivedAtMs, reducedMotion, videoUrl, onPreviewVisualError]);
-
   const rows = browseCategoryRows(category);
   const detailByKey = new Map(detail?.bindings.map(binding => [soundKey(binding), binding]) ?? []);
   const playableRows = rows.flatMap(row => {
     const binding = detailByKey.get(soundKey(row));
-    return binding && (binding.state === "ready" || binding.state === "inherited") && binding.variants.length > 0
-      ? [binding] : [];
+    return binding && canPreviewBinding(binding) ? [binding] : [];
   });
   const categoryVoiceCount = playableRows.reduce((sum, row) => sum + row.variants.length, 0);
-  const activeVariants = new Map(detail?.bindings.map(binding => [soundKey(binding), binding]) ?? []);
+  const technicalRows = detail?.bindings.filter(binding => binding.state !== "inherited" && binding.variants.length > 0) ?? [];
 
   return <dialog ref={dialog} className="packs-drawer glass--overlay glass-sheet" aria-labelledby={id} onCancel={event => {
     event.preventDefault();
@@ -220,28 +199,20 @@ export function PackDrawer({ pack, packs, detail, loading, locale, preview, prev
         </div>
       </header>
 
-      <section className="packs-preview-stage" aria-label={locale === "th" ? "ตัวอย่างเสียงและแบนเนอร์" : "Sound and banner preview"}>
+      <section className="packs-preview-stage glass-solid" aria-label={locale === "th" ? "ตัวอย่างเสียงและแบนเนอร์" : "Sound and banner preview"}>
         <div className="packs-preview-frame">
-          {!videoUrl && !opened && pack.coverUrl && !coverFailed && <img className="packs-preview-poster" src={packCoverWebviewUrl(pack.coverUrl, PLATFORM) ?? undefined}
+          {!previewId && pack.coverUrl && !coverFailed && <img className="packs-preview-poster" src={packCoverWebviewUrl(pack.coverUrl, PLATFORM) ?? undefined}
             alt="" onError={() => setCoverFailed(true)} />}
-          {videoUrl && <video key={`${preview.playbackId}:${videoUrl}`} ref={videoRef} src={videoUrl} muted playsInline preload="auto"
-            poster={pack.coverUrl ? packCoverWebviewUrl(pack.coverUrl, PLATFORM) ?? undefined : undefined} aria-hidden="true"
-            onLoadedData={event => {
-              const video = event.currentTarget;
-              const elapsed = preview.receivedAtMs === null ? 0 : Math.max(0, (performance.now() - preview.receivedAtMs) / 1000);
-              if (Number.isFinite(video.duration) && video.duration > 0) video.currentTime = Math.min(elapsed, video.duration);
-              if (!reducedMotion) void video.play().catch(() => onPreviewVisualError(preview.playbackId!, "VIDEO_START_FAILED"));
-              else video.pause();
-            }} onError={() => onPreviewVisualError(preview.playbackId!, "VIDEO_ERROR")} />}
-          {!opened && !pack.coverUrl && <p className="packs-preview-empty">{text.previewIdle}</p>}
-          {opened && !preview.hasVisual && <p className="packs-preview-empty">{text.previewAudioOnly}</p>}
-          {opened && preview.hasVisual && !videoUrl && <p className="packs-preview-empty">{text.previewUnknown}</p>}
-          {opened && preview.visualFailure && <p className="packs-preview-empty">{text.previewFailed}: {preview.visualFailure}</p>}
+          <video ref={previewVideo} className={showVideo ? undefined : "packs-preview-video-hidden"}
+            muted playsInline preload="auto" aria-hidden="true"
+            onError={() => { if (previewId && showVideo) onPreviewVisualError(previewId, "VIDEO_ERROR"); }} />
+          {!previewId && (!pack.coverUrl || coverFailed) && <p className="packs-preview-empty">{text.previewIdle}</p>}
+          {previewId && !preview.hasVisual && <p className="packs-preview-empty">{text.previewAudioOnly}</p>}
+          {previewId && preview.visualFailure && <p className="packs-preview-empty" role="status">{text.previewFailed}</p>}
         </div>
-        <span className={`packs-preview-progress${opened ? " is-playing" : ""}`} style={{ "--preview-duration": `${Math.max(0.08, preview.durationMs ?? 0)}ms` } as CSSProperties} aria-hidden="true"><span /></span>
-        <p className="packs-preview-status" role="status">{previewNotice ?? (opened
-          ? preview.visualFailure ? `${text.previewFailed}: ${preview.visualFailure}` : preview.hasVisual ? text.listening : text.previewAudioOnly
-          : loading ? text.previewLoading : text.previewIdle)}</p>
+        <span key={previewId ?? "idle"} className={`packs-preview-progress${playing ? " is-playing" : ""}`}
+          style={{ "--preview-duration": `${Math.max(1, preview.durationMs ?? 0)}ms` } as CSSProperties} aria-hidden="true"><span /></span>
+        <p className="packs-preview-status" role="status">{previewNotice ?? (loading ? text.previewLoading : "")}</p>
         <div className="packs-preview-controls">
           <label><input type="checkbox" checked={overlayPreview} disabled={!pack.active || matchLocked}
             onChange={event => onOverlayPreview(event.currentTarget.checked)} />{text.overlayOption}</label>
@@ -249,13 +220,19 @@ export function PackDrawer({ pack, packs, detail, loading, locale, preview, prev
         </div>
       </section>
 
-      <div className="packs-drawer-scroll" tabIndex={0}>
+      <div className="packs-drawer-tabs" role="tablist" aria-label={locale === "th" ? "หมวดเหตุการณ์" : "Event categories"}>
+        {BROWSE_EVENT_CATEGORIES.map(name => <button key={name} type="button" role="tab" data-category={name}
+          aria-selected={category === name} aria-controls={`${id}-events`} tabIndex={category === name ? 0 : -1}
+          onClick={() => setCategory(name)}>{text.groups[name]} <span>{pack.bindings.filter(binding => browseCategoryRows(name).some(row => soundKey(row) === soundKey(binding))).reduce((n, binding) => n + binding.variantCount, 0)}</span>
+        </button>)}
+      </div>
+      <div className="packs-drawer-scroll glass-solid" tabIndex={0}>
         <div className="packs-drawer-info"><span className={origin.className}>{origin.label}</span>
           <Chip tone={pack.active ? "fresh" : "off"} label={pack.active ? text.states.active : text.states.installed} />
           {pack.pending && <Chip tone="warn" label={text.pending} />}
           {pack.problem && <Chip tone="warn" label={text.problems[pack.problem]} />}
         </div>
-        <details className="packs-facts-wrap" open={window.innerHeight >= 860}>
+        <details className="packs-facts-wrap">
           <summary>{locale === "th" ? "เกี่ยวกับแพ็กนี้" : "About this pack"}</summary>
           <p dir="auto">{factValue(pack.presentation.description, text.noPackField)}</p>
           <dl className="packs-facts">
@@ -267,12 +244,6 @@ export function PackDrawer({ pack, packs, detail, loading, locale, preview, prev
             <dt>{locale === "th" ? "เกม" : "Game"}</dt><dd>{pack.gameId === "dota2" ? "Dota 2" : "—"}</dd>
           </dl>
         </details>
-        <div className="packs-drawer-tabs" role="tablist" aria-label={locale === "th" ? "หมวดเหตุการณ์" : "Event categories"}>
-          {BROWSE_EVENT_CATEGORIES.map(name => <button key={name} type="button" role="tab" data-category={name}
-            aria-selected={category === name} aria-controls={`${id}-events`} tabIndex={category === name ? 0 : -1}
-            onClick={() => setCategory(name)}>{text.groups[name]} <span>{pack.bindings.filter(binding => browseCategoryRows(name).some(row => soundKey(row) === soundKey(binding))).reduce((n, binding) => n + binding.variantCount, 0)}</span>
-          </button>)}
-        </div>
         <div className="packs-event-list" id={`${id}-events`} role="tabpanel">
           <div className="packs-section-heading">
             <h3>{text.groups[category]}</h3><span className="muted">{categoryVoiceCount} {text.voices(categoryVoiceCount)}</span>
@@ -287,31 +258,58 @@ export function PackDrawer({ pack, packs, detail, loading, locale, preview, prev
               const summaryBinding = pack.bindings.find(binding => soundKey(binding) === key);
               const binding = detailByKey.get(key);
               const label = soundLabel(row, locale);
-              if (!summaryBinding) return <div className="packs-event-row packs-event-row--missing" key={key}>
+              if ((!binding && !summaryBinding) || binding?.state === "unmapped") return <div className="packs-event-row packs-event-row--missing" key={key}>
                 <strong>{label.title}</strong>{label.tier && <span className="muted"> · {label.tier}</span>}
                 <p>{text.eventMissing}</p>
               </div>;
               if (!binding) return <div className="packs-event-row" key={key}><strong>{label.title}</strong><p>{text.eventUnknown}</p></div>;
-              if (binding.state === "detector_unavailable") return <div className="packs-event-row packs-event-row--missing" key={key}>
+              if (binding.state === "detector_unavailable" && !canPreviewBinding(binding)) return <div className="packs-event-row packs-event-row--missing" key={key}>
                 <strong>{label.title}</strong><p>{text.detectorUnavailable}</p>
               </div>;
               if (binding.state === "not_voiced") return <div className="packs-event-row packs-event-row--missing" key={key}>
                 <strong>{label.title}</strong><p>{text.eventMissing}</p>
               </div>;
-              if ((binding.state !== "ready" && binding.state !== "inherited") || binding.variants.length === 0) return <div className="packs-event-row" key={key}>
+              if (!canPreviewBinding(binding)) return <div className="packs-event-row" key={key}>
                 <strong>{label.title}</strong><p>{text.eventUnknown}</p>
               </div>;
               return <section className="packs-event-row" key={key}>
                 <div><strong>{label.title}</strong>{label.tier && <span className="muted"> · {label.tier}</span>}
                   {binding.state === "inherited" && <p className="muted">{text.inheritedFrom(binding.resolved_from_tier)}</p>}</div>
-                <EventVariants variants={binding.variants} selection={binding.selection} locale={locale} disabled={matchLocked || actionBusy}
-                  onAudition={variantId => onAuditionVariant(binding, variantId)} />
+                <ul className="packs-voice-list">
+                  {binding.variants.map((variant, index) => {
+                    const labelText = browseVoiceLabel(variant, [label.title, label.tier].filter(Boolean).join(" · "), index, locale);
+                    const isPlaying = playing && preview.soundKey === key && preview.variantId === variant.variant_id;
+                    return <li className="packs-voice-row" data-playing={isPlaying} key={variant.variant_id}>
+                      <div>
+                        <strong className="packs-voice-caption" dir="auto">{labelText}</strong>
+                        <span className="packs-voice-meta">
+                          {(variant.duration_ms / 1000).toFixed(1)} {voiceText.secondsUnit}
+                          {variant.has_visual && ` · ${voiceText.bannerYes}`}
+                          {isPlaying && ` · ${voiceText.playing}`}
+                        </span>
+                      </div>
+                      <button type="button" aria-label={`${voiceText.play} ${labelText}`} disabled={matchLocked || actionBusy}
+                        onClick={() => { void onAuditionVariant(binding, variant.variant_id).catch(() => {}); }}>
+                        {isPlaying ? voiceText.playing : voiceText.play}
+                      </button>
+                    </li>;
+                  })}
+                </ul>
               </section>;
             })}
           </div>
-          {detail && <span className="sr-only" aria-live="polite">{previewNotice}</span>}
-          {activeVariants.size === 0 && !loading && <p className="muted">{text.unsupportedPreview}</p>}
         </div>
+        {technicalRows.length > 0 && <details className="packs-facts-wrap packs-technical">
+          <summary>{locale === "th" ? "ข้อมูลทางเทคนิค" : "Technical details"}</summary>
+          <ul>{technicalRows.flatMap(binding => {
+            const event = soundLabel(binding, locale);
+            return binding.variants.map((variant, index) => <li key={`${soundKey(binding)}:${variant.variant_id}`}>
+              {browseVoiceLabel(variant, [event.title, event.tier].filter(Boolean).join(" · "), index, locale)}
+              {" · "}{voiceText.variantId} <code>{variant.variant_id}</code>
+              {variant.clip_id && <>{" · "}{voiceText.clipId} <code>{variant.clip_id}</code></>}
+            </li>);
+          })}</ul>
+        </details>}
       </div>
 
       <footer className="packs-drawer-footer">

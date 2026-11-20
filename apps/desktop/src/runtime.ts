@@ -144,6 +144,11 @@ export function mediaEventMap(): Promise<unknown> {
   return invoke<unknown>("media_event_map");
 }
 
+export function mediaInstalledEventMap(installId: string): Promise<unknown> {
+  if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
+  return invoke<unknown>("media_installed_event_map", { installId });
+}
+
 export interface MediaAuditionResult {
   audio_started: boolean;
   audio_ended: boolean;

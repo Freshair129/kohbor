@@ -466,7 +466,16 @@ pub(crate) mod test_support {
     }
 
     pub fn package(temp: &TempDir, package_id: &str, bindings: &[BindingSpec]) -> Package {
-        package_with_options(temp, package_id, bindings, None, None)
+        package_with_options(temp, package_id, bindings, None, None, None)
+    }
+
+    pub fn package_with_caption(
+        temp: &TempDir,
+        package_id: &str,
+        binding: BindingSpec,
+        caption: &str,
+    ) -> Package {
+        package_with_options(temp, package_id, &[binding], None, None, Some(caption))
     }
 
     pub fn package_with_cover(
@@ -486,6 +495,7 @@ pub(crate) mod test_support {
                 cover: Some("cover.png".to_owned()),
             }),
             Some(cover_bytes.to_vec()),
+            None,
         )
     }
 
@@ -495,6 +505,7 @@ pub(crate) mod test_support {
         bindings: &[BindingSpec],
         presentation: Option<kohbor_pack_author::PresentationOptions>,
         cover_bytes: Option<Vec<u8>>,
+        caption: Option<&str>,
     ) -> Package {
         let clips = temp.path().join("clips");
         fs::create_dir_all(&clips).expect("create generated input clip directory");
@@ -519,6 +530,21 @@ pub(crate) mod test_support {
                 fs::write(clips.join(&visual_name), webm())
                     .expect("write generated single-track VP9 WebM input");
                 row["visual"] = json!(visual_name);
+            }
+            if let Some(caption) = caption {
+                let mut variant = row;
+                let mut fields = json!({ "event_id": binding.event_id });
+                if let Some(tier) = binding.tier {
+                    fields["tier"] = json!(tier);
+                }
+                for key in ["event_id", "tier"] {
+                    variant.as_object_mut().unwrap().remove(key);
+                }
+                variant["variant_id"] = json!("v1");
+                variant["clip_id"] = json!("kohbor-en-0001");
+                variant["caption"] = json!(caption);
+                fields["variants"] = json!([variant]);
+                row = fields;
             }
             mapping_bindings.push(row);
         }

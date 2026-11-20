@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { AudioMuteControl, type AudioMuteState } from "../AudioPanel";
 import { auditionReason, copy, packReason, packsPageCopy, type Locale, type Phase } from "../copy";
 import { errorCode, newRequestId, parseInstallResult, sortRecords } from "../packs";
+import { toWebviewUrl } from "../mediaUrl";
 import { matchRecapCommand, mediaActivate, mediaAudition, mediaAuditionVariant, mediaEventMap, subscribeAuditionMatch } from "../runtime";
 import { useMediaListing } from "../useMediaListing";
 import { VolumeControl } from "../VolumeControl";
@@ -18,7 +19,7 @@ import { InstallDialog } from "./InstallDialog";
 import { installDialogCopy } from "./InstallDialog.copy";
 import { browseApi, type BrowseBinding, type BrowsePackDetail } from "./browseApi";
 import { countPackOrigins, filterBrowsePacks, originFiltersAvailable, type BrowseFilters } from "./browseModel";
-import { createBrowsePreviewState, reduceBrowsePreview } from "./previewModel";
+import { createBrowsePreviewState, holdBrowseVideo, playBrowseVideo, prepareBrowseVideo, reduceBrowsePreview } from "./previewModel";
 
 export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, onStoreBack, onStoreOpen }: {
   locale: Locale; disabled: boolean; phase: Phase | null; mute: AudioMuteState; storeOnly?: boolean;
@@ -52,7 +53,11 @@ export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, on
   const [preview, setPreview] = useState(createBrowsePreviewState);
   const [previewNotice, setPreviewNotice] = useState<string | null>(null);
   const [overlayPreview, setOverlayPreview] = useState(false);
-  const visualUrls = useRef(new Map<string, string | null>());
+  const previewVideo = useRef<HTMLVideoElement>(null);
+  const previewSubscription = useRef<Promise<boolean> | null>(null);
+  const pendingPreview = useRef<{
+    installId: string; variantId: string; soundKey: string; hasVisual: boolean; visualUrl: string | null;
+  } | null>(null);
   const previewRef = useRef(preview);
   previewRef.current = preview;
   const openIdRef = useRef<string | null>(open?.id ?? null);
@@ -108,25 +113,46 @@ export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, on
 
   useEffect(() => {
     let disposed = false;
-    let cleanup: (() => void)[] = [];
+    let cleanup: (() => void) | undefined;
     const subscription = browseApi.subscribe(event => {
       if (event.installId !== openIdRef.current) return;
       if ("startedMonotonicMs" in event) {
-        const visualUrl = event.visualUrl ?? visualUrls.current.get(`${event.installId}:${event.variantId}`) ?? null;
+        const pending = pendingPreview.current;
+        const key = soundKey({ event_id: event.eventId, tier: event.tier });
+        if (!pending || pending.installId !== event.installId || pending.variantId !== event.variantId
+          || pending.soundKey !== key) return;
+        pendingPreview.current = null;
         commitPreview({ type: "started", playbackId: event.playbackId, installId: event.installId, variantId: event.variantId,
-          startedMonotonicMs: event.startedMonotonicMs, receivedAtMs: performance.now(), durationMs: event.durationMs,
-          hasVisual: event.hasVisual, visualUrl });
+          durationMs: event.durationMs,
+          soundKey: key, hasVisual: pending.hasVisual, visualUrl: pending.visualUrl });
+        if (pending.visualUrl && previewVideo.current) {
+          void playBrowseVideo(previewVideo.current).catch(() => {
+            if (previewRef.current.playing) {
+              commitPreview({ type: "visual-failed", playbackId: event.playbackId, reason: "VIDEO_START_FAILED" });
+            }
+          });
+        }
         setPreviewNotice(text.listening);
         return;
       }
       const previous = previewRef.current;
       const next = commitPreview({ type: "ended", playbackId: event.playbackId, reason: event.reason });
       if (previous === next || previous.installId !== event.installId) return;
+      if (previewVideo.current && previous.visualUrl) holdBrowseVideo(previewVideo.current, event.reason === "finished");
       setPreviewNotice(event.reason === "finished" ? text.listenAudio.finished
         : event.reason === "cut" ? text.listenAudio.cut : auditionReason(event.reason.toUpperCase(), locale));
     });
-    void subscription.then(unsubscribe => { if (disposed) unsubscribe(); else cleanup = [unsubscribe]; }, () => {});
-    return () => { disposed = true; cleanup.forEach(unsubscribe => unsubscribe()); };
+    const readiness = subscription.then(unsubscribe => {
+      if (disposed) unsubscribe();
+      else cleanup = unsubscribe;
+      return !disposed;
+    }, () => false);
+    previewSubscription.current = readiness;
+    return () => {
+      disposed = true;
+      if (previewSubscription.current === readiness) previewSubscription.current = null;
+      cleanup?.();
+    };
   }, [commitPreview, locale, text.listening, text.listenAudio.cut, text.listenAudio.finished]);
 
   useEffect(() => {
@@ -143,10 +169,10 @@ export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, on
   }, []);
 
   useEffect(() => {
-    if (disabled || matchSignal === null || (tab !== "events" && !open)) return;
+    if (disabled || matchSignal === null || tab !== "events") return;
     setMapLoad(null);
     return beginEventMapRefresh(mediaEventMap, setMapLoad);
-  }, [activeId, phaseLock, matchSignal, refreshId, disabled, tab, open]);
+  }, [activeId, phaseLock, matchSignal, refreshId, disabled, tab]);
 
   const summariesById = new Map(summaries?.map(pack => [pack.installId, pack]));
   const cards = (listing.listing ? sortRecords(listing.listing.records) : []).map(record => {
@@ -170,11 +196,13 @@ export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, on
   });
   const activeCard = cards.find(pack => pack.active);
   const detail = open && cards.find(pack => pack.installId === open.id);
-  const detailData = open ? packDetails[open.id] ?? null : null;
+  const cachedDetail = open ? packDetails[open.id] : null;
+  const detailData = listingCurrent && cachedDetail && detail
+    && cachedDetail.packageId === detail.packageId && cachedDetail.revision === detail.revision ? cachedDetail : null;
   const detailLoading = open !== null && detailLoadingId === open.id;
 
   useEffect(() => {
-    if (!open || !detail) {
+    if (!open || !detail || !listingCurrent) {
       setDetailLoadingId(null);
       return;
     }
@@ -190,10 +218,12 @@ export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, on
       setDetailLoadingId(null);
     });
     return () => { current = false; };
-  }, [open?.id, detail?.installId, detail?.packageId, detail?.revision, refreshId, listingCurrent]);
+  }, [open?.id, detail?.installId, detail?.packageId, detail?.revision, detail?.active, refreshId, listingCurrent, matchSignal]);
 
   useEffect(() => {
     commitPreview({ type: "reset" });
+    pendingPreview.current = null;
+    previewVideo.current?.pause();
     setPreviewNotice(null);
     setOverlayPreview(false);
   }, [commitPreview, open?.id]);
@@ -202,6 +232,8 @@ export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, on
   const currentMap = matchesActive && !disabled ? loadedMap : null;
   const locked = phaseLock || matchSignal?.active === true || currentMap?.match_active === true;
   const browseMatchLocked = locked || detailData?.matchActive === true;
+  const currentBrowseBlock = useRef({ locked: browseMatchLocked, muted: mute.muted === true, disabled: !listingCurrent });
+  currentBrowseBlock.current = { locked: browseMatchLocked, muted: mute.muted === true, disabled: !listingCurrent };
   const mappedSounds = new Map(currentMap?.bindings.map(row => [soundKey(row), row]));
 
   const refresh = () => {
@@ -282,24 +314,39 @@ export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, on
     if (!variant) throw new Error("AUDITION_REQUEST_INVALID");
     auditionLock.current = true;
     setBusyKey(soundKey(binding));
-    setPreviewNotice(text.listening);
+    commitPreview({ type: "reset" });
+    pendingPreview.current = null;
+    setPreviewNotice(text.previewLoading);
     try {
-      const visualUrl = variant.has_visual
-        ? variant.visualUrl ?? await browseApi.visualUrl(detail.installId, binding.event_id, binding.tier, variantId)
-        : null;
-      if (browseMatchLocked) throw new Error("AUDITION_MATCH_ACTIVE");
-      visualUrls.current.set(`${detail.installId}:${variantId}`, visualUrl);
+      const video = previewVideo.current;
+      let visualUrl: string | null = null;
+      if (variant.has_visual && video) {
+        const logical = await browseApi.visualUrl(detail.installId, binding.event_id, binding.tier, variantId).catch(() => null);
+        const platform = navigator.userAgent.includes("Windows") ? "windows" : "other";
+        const url = logical && toWebviewUrl(logical, platform);
+        if (url && video === previewVideo.current && openIdRef.current === detail.installId
+          && await prepareBrowseVideo(video, url)) visualUrl = url;
+      }
+      if (!await previewSubscription.current) throw new Error("CAPABILITY_UNAVAILABLE");
+      if (openIdRef.current !== detail.installId || video !== previewVideo.current || currentBrowseBlock.current.disabled) {
+        throw new Error("AUDITION_MEDIA_STATE_UNKNOWN");
+      }
+      if (currentBrowseBlock.current.locked) throw new Error("AUDITION_MATCH_ACTIVE");
+      if (currentBrowseBlock.current.muted) throw new Error("AUDITION_MUTED");
+      pendingPreview.current = { installId: detail.installId, variantId, soundKey: soundKey(binding),
+        hasVisual: variant.has_visual, visualUrl };
       const result = await browseApi.audition({
         pack: detail, eventId: binding.event_id, tier: binding.tier, variantId,
         overlay: detail.active && overlayPreview,
       });
       const audio = !result.audio_started ? "unknown"
         : !result.audio_ended ? "started" : result.audio_end_reason === "finished" ? "finished" : "cut";
-      const visual = text.listenVisual[result.visual_status] ?? text.listenVisual.unknown;
-      setPreviewNotice(`${text.listenAudio[audio]} · ${visual}`);
+      if (openIdRef.current === detail.installId) setPreviewNotice(text.listenAudio[audio]);
+      if (!result.audio_started) pendingPreview.current = null;
       return result;
     } catch (failure) {
-      setPreviewNotice(auditionReason(errorCode(failure), locale));
+      pendingPreview.current = null;
+      if (openIdRef.current === detail.installId) setPreviewNotice(auditionReason(errorCode(failure), locale));
       throw failure;
     } finally {
       auditionLock.current = false;
@@ -310,7 +357,8 @@ export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, on
     const selectedId = open?.id;
     for (const binding of bindings) {
       for (const variant of binding.variants) {
-        if (!selectedId || open?.id !== selectedId || browseMatchLocked || mute.muted === true) return;
+        if (!selectedId || openIdRef.current !== selectedId || currentBrowseBlock.current.locked
+          || currentBrowseBlock.current.muted || currentBrowseBlock.current.disabled) return;
         try { await auditionBrowseVariant(binding, variant.variant_id); }
         catch { return; }
       }
@@ -318,8 +366,7 @@ export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, on
   };
   const reportPreviewVisualError = useCallback((playbackId: string, reason: string) => {
     commitPreview({ type: "visual-failed", playbackId, reason });
-    setPreviewNotice(text.previewFailed);
-  }, [commitPreview, text.previewFailed]);
+  }, [commitPreview]);
   const listen = { block, play: (row: SoundKey) => void play(row), busyKey };
   const mapError = !!mapLoad && !currentMap;
   const changeTab = (name: PacksTab) => {
@@ -428,8 +475,9 @@ export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, on
             : <p role="status">{copy(locale).history.loading}</p>
         )}
       </div>)}
-      {detail && open && <PackDrawer pack={detail} packs={visibleCards} detail={detailData} loading={detailLoading} locale={locale}
+      {detail && open && <PackDrawer key={detail.installId} pack={detail} packs={visibleCards} detail={detailData} loading={detailLoading} locale={locale}
         preview={preview} previewNotice={previewNotice} matchLocked={browseMatchLocked || mute.muted === true} overlayPreview={overlayPreview}
+        previewVideo={previewVideo}
         onOverlayPreview={value => setOverlayPreview(detail.active && value)} returnFocus={open.from}
         onClose={() => { setOpen(null); commitPreview({ type: "reset" }); }}
         onStep={pack => setOpen(current => current ? { ...current, id: pack.installId } : current)}

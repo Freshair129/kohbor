@@ -369,6 +369,14 @@ pub struct ResolvedVariant {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResolvedBinding {
+    pub event_id: String,
+    pub tier: Option<u32>,
+    pub selection: Option<Selection>,
+    pub variants: Vec<ResolvedVariant>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ResolveError {
     /// No active revision, or no binding for the event (and tier).
     Unmapped,
@@ -1251,6 +1259,32 @@ impl<H: Hook> Store<H> {
             .map_err(ResolveError::Invalid)
     }
 
+    /// Read the installed revision once and verify each mapped binding in descriptor order.
+    /// Failed variants retain their verification errors. No activation is performed.
+    pub fn resolve_installed_bindings(
+        &self,
+        install_id: &str,
+    ) -> Result<Vec<ResolvedBinding>, ResolveError> {
+        let parsed = self.verified_installed_descriptor(install_id)?;
+        Ok(parsed
+            .descriptor
+            .bindings
+            .iter()
+            .filter(|binding| !parsed.inert_event_ids.contains(&binding.event_id))
+            .map(|binding| ResolvedBinding {
+                event_id: binding.event_id.clone(),
+                tier: binding.tier,
+                selection: binding.selection,
+                variants: self.verify_binding_variants(
+                    install_id,
+                    &parsed.descriptor,
+                    binding,
+                    true,
+                ),
+            })
+            .collect())
+    }
+
     fn resolve_inner(
         &self,
         event_id: &str,
@@ -1268,6 +1302,23 @@ impl<H: Hook> Store<H> {
         tier: Option<u32>,
         all_variants: bool,
     ) -> Result<Vec<ResolvedVariant>, ResolveError> {
+        let parsed = self.verified_installed_descriptor(install_id)?;
+        if parsed.inert_event_ids.iter().any(|inert| inert == event_id) {
+            return Err(ResolveError::Inert);
+        }
+        let binding = parsed
+            .descriptor
+            .bindings
+            .iter()
+            .find(|binding| binding.event_id == event_id && binding.tier == tier)
+            .ok_or(ResolveError::Unmapped)?;
+        Ok(self.verify_binding_variants(install_id, &parsed.descriptor, binding, all_variants))
+    }
+
+    fn verified_installed_descriptor(
+        &self,
+        install_id: &str,
+    ) -> Result<descriptor::ParsedDescriptor, ResolveError> {
         let installed = self
             .registry
             .records
@@ -1305,30 +1356,28 @@ impl<H: Hook> Store<H> {
         {
             return Err(ResolveError::Invalid(RejectReason::DigestMismatch));
         }
-        if parsed.inert_event_ids.iter().any(|inert| inert == event_id) {
-            return Err(ResolveError::Inert);
-        }
-        let Some(binding) = parsed
-            .descriptor
-            .bindings
-            .iter()
-            .find(|binding| binding.event_id == event_id && binding.tier == tier)
-        else {
-            return Err(ResolveError::Unmapped);
-        };
+        Ok(parsed)
+    }
+
+    fn verify_binding_variants(
+        &self,
+        install_id: &str,
+        descriptor: &Descriptor,
+        binding: &descriptor::Binding,
+        all_variants: bool,
+    ) -> Vec<ResolvedVariant> {
         let mut resolved = Vec::with_capacity(if all_variants {
             binding.variants.len()
         } else {
             1
         });
         let verify = |relative: &str| -> Result<PathBuf, RejectReason> {
-            let file = parsed
-                .descriptor
+            let file = descriptor
                 .files
                 .iter()
                 .find(|file| file.path == relative)
                 .ok_or(RejectReason::DanglingReference)?;
-            let path = revision_payload_path(&self.root, &installed.record.install_id, &file.path)?;
+            let path = revision_payload_path(&self.root, install_id, &file.path)?;
             verify_payload_file(&path, file.size_bytes, &file.sha256)?;
             Ok(path)
         };
@@ -1344,7 +1393,7 @@ impl<H: Hook> Store<H> {
                     .map(verify)
                     .transpose()?;
                 Ok(ResolvedMedia {
-                    install_id: installed.record.install_id.clone(),
+                    install_id: install_id.to_owned(),
                     event_id: binding.event_id.clone(),
                     tier: binding.tier,
                     variant_id: variant.variant_id.clone(),
@@ -1364,7 +1413,7 @@ impl<H: Hook> Store<H> {
                 media,
             });
         }
-        Ok(resolved)
+        resolved
     }
 
     /// The data root this store owns.

@@ -388,6 +388,14 @@ pub(crate) fn media_event_map(state: tauri::State<'_, AppState>) -> Result<Value
     state.host.commands.media_event_map()
 }
 
+#[tauri::command(async)]
+pub(crate) fn media_installed_event_map(
+    state: tauri::State<'_, AppState>,
+    install_id: String,
+) -> Result<Value, String> {
+    state.host.commands.media_installed_event_map(&install_id)
+}
+
 #[derive(Clone, Default)]
 pub(crate) struct AuditionTracker {
     sequence: Arc<std::sync::atomic::AtomicU64>,

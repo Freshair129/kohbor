@@ -91,6 +91,9 @@ pub trait MediaJobs: Send + Sync {
         Err("CAPABILITY_UNAVAILABLE".to_owned())
     }
     fn event_map(&self) -> Result<Value, String>;
+    fn installed_event_map(&self, _install_id: &str) -> Result<Value, String> {
+        Err("CAPABILITY_UNAVAILABLE".to_owned())
+    }
     fn probe_report(
         &self,
         install_id: &str,
@@ -178,6 +181,10 @@ impl MediaJobs for MediaHandle {
 
     fn event_map(&self) -> Result<Value, String> {
         MediaHandle::event_map(self)
+    }
+
+    fn installed_event_map(&self, install_id: &str) -> Result<Value, String> {
+        MediaHandle::installed_event_map(self, install_id)
     }
 
     fn probe_report(
@@ -341,7 +348,15 @@ impl CommandApi {
     /// remains available until the P1 page removes it.
     pub fn media_event_map(&self) -> Result<Value, String> {
         self.ensure_running()?;
-        let mut event_map = self.media.event_map()?;
+        self.with_audition_match(self.media.event_map()?)
+    }
+
+    pub fn media_installed_event_map(&self, install_id: &str) -> Result<Value, String> {
+        self.ensure_running()?;
+        self.with_audition_match(self.media.installed_event_map(install_id)?)
+    }
+
+    fn with_audition_match(&self, mut event_map: Value) -> Result<Value, String> {
         let object = event_map
             .as_object_mut()
             .ok_or_else(|| "MEDIA_INVALID".to_owned())?;
@@ -417,7 +432,6 @@ impl CommandApi {
             .map_err(|_| AuditionRefusal::MediaStateUnknown)?;
         let install_id = audition_preflight(event, &bindings)?;
 
-        static AUDITION_SEQUENCE: AtomicU64 = AtomicU64::new(0);
         let (reply, result) = mpsc::sync_channel(1);
         self.engine.offer_audition(AuditionRequest {
             event,
@@ -426,9 +440,7 @@ impl CommandApi {
             selected: None,
             overlay,
             session_epoch: session_epoch.max(1),
-            sequence: AUDITION_SEQUENCE
-                .fetch_add(1, Ordering::Relaxed)
-                .saturating_add(1),
+            sequence: next_audition_sequence(),
             expires_at: Instant::now() + AUDITION_ADMISSION_TIMEOUT,
             reply,
         })?;
@@ -544,6 +556,11 @@ impl CommandApi {
             Err(_) => Err("CAPABILITY_UNAVAILABLE".to_owned()),
         }
     }
+}
+
+pub(crate) fn next_audition_sequence() -> u64 {
+    static SEQUENCE: AtomicU64 = AtomicU64::new(0);
+    SEQUENCE.fetch_add(1, Ordering::Relaxed).saturating_add(1)
 }
 
 fn valid_audition_variant_id(value: &str) -> bool {

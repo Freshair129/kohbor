@@ -14,9 +14,8 @@ test("installed-packs primary action opens InstallDialog and refreshes the cards
   assert.match(packsPageSource, /onInstalled=\{refresh\}/);
 });
 
-test("event variants mount in the pack detail and expandable event-sounds rows", () => {
-  assert.match(packLibrarySource, /<EventVariants variants=\{binding\.variants\} selection=\{binding\.selection\}/);
-  assert.match(packLibrarySource, /onAudition=\{variantId => onAuditionVariant\(binding, variantId\)\}/);
+test("pack details and expandable event-sounds rows wire their audition buttons", () => {
+  assert.match(packLibrarySource, /<ul className="packs-voice-list">[\s\S]*?onAuditionVariant\(binding, variant\.variant_id\)/);
   assert.match(soundRowsSource, /aria-expanded=\{expanded === soundKey\(row\)\}/);
   assert.match(soundRowsSource, /<EventVariants variants=\{row\.variants\} selection=\{row\.selection\}/);
   assert.match(packsPageSource, /mediaAuditionVariant\(row\.event_id, row\.tier, variantId\)/);

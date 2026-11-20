@@ -3,14 +3,13 @@ import { parseMediaEventMap, type EventSound } from "./eventMap.ts";
 // @ts-ignore Explicit source extensions support the Node test runner.
 import { mapPackSummaries, type PackSummary } from "./model.ts";
 // @ts-ignore Explicit source extensions support the Node test runner.
-import type { MediaAuditionPlaybackEvent } from "../runtime.ts";
+import type { MediaAuditionPlaybackEvent, MediaVariantVisualUrl } from "../runtime.ts";
 // @ts-ignore Explicit source extensions support the Node test runner.
 import type { MediaPackSummaries } from "../mediaPackSummaries.ts";
 // @ts-ignore Explicit source extensions support the Node test runner.
-import type { EventVariant, VariantAuditionResult } from "./variant-model.ts";
+import type { VariantAuditionResult } from "./variant-model.ts";
 
-export interface BrowseVariant extends EventVariant { visualUrl: string | null }
-export interface BrowseBinding extends Omit<EventSound, "variants"> { variants: BrowseVariant[] }
+export type BrowseBinding = EventSound;
 export interface BrowsePackDetail {
   installId: string;
   packageId: string;
@@ -29,6 +28,8 @@ export interface BrowseStartedEvent {
   playbackId: string;
   installId: string;
   variantId: string;
+  eventId: string;
+  tier: number | null;
   startedMonotonicMs: number;
   durationMs: number;
   hasVisual: boolean;
@@ -39,7 +40,7 @@ export interface BrowseEndedEvent { playbackId: string; installId: string; varia
 export interface BrowseApiPorts {
   summaries: () => Promise<MediaPackSummaries>;
   detail: (installId: string) => Promise<unknown>;
-  visualUrl: (installId: string, eventId: string, tier: number | null, variantId: string) => Promise<unknown>;
+  visualUrl: (installId: string, eventId: string, tier: number | null, variantId: string) => Promise<MediaVariantVisualUrl>;
   audition: (request: BrowseAuditionRequest) => Promise<unknown>;
   subscribe: (onEvent: (event: MediaAuditionPlaybackEvent) => void) => Promise<() => void>;
 }
@@ -61,7 +62,7 @@ function parseDetail(value: unknown, pack: PackSummary): BrowsePackDetail | null
     || parsed.active.revision !== pack.revision) return null;
   return {
     installId: pack.installId, packageId: pack.packageId, revision: pack.revision, matchActive: parsed.match_active,
-    bindings: parsed.bindings.map(binding => ({ ...binding, variants: binding.variants.map(variant => ({ ...variant, visualUrl: null })) })),
+    bindings: parsed.bindings,
   };
 }
 
@@ -76,38 +77,45 @@ function parseAuditionResult(value: unknown): VariantAuditionResult | null {
 }
 
 export function createBrowseApi(ports: BrowseApiPorts): BrowseApi {
-  const playback = new Map<string, { installId: string; variantId: string }>();
-  let requested: { installId: string; variantId: string } | null = null;
+  type Voice = { installId: string; variantId: string; eventId: string; tier: number | null };
+  let playback: (Voice & { playbackId: string }) | null = null;
+  let requested: Voice | null = null;
   return {
     async summaries() { return mapPackSummaries(await ports.summaries()); },
-    async detail(pack) { return pack.active ? parseDetail(await ports.detail(pack.installId), pack) : null; },
+    async detail(pack) { return parseDetail(await ports.detail(pack.installId), pack); },
     async visualUrl(installId, eventId, tier, variantId) {
-      const result = object(await ports.visualUrl(installId, eventId, tier, variantId));
-      const url = result?.visual_url;
-      return typeof url === "string" && url.startsWith(`kohbor-media://localhost/v1/${installId}/`) ? url : null;
+      const { visual_url } = await ports.visualUrl(installId, eventId, tier, variantId);
+      return visual_url?.startsWith(`kohbor-media://localhost/v1/${installId}/`) ? visual_url : null;
     },
     async audition(request) {
       if (request.overlay && !request.pack.active) throw new Error("OVERLAY_ONLY_ACTIVE_PACK");
-      requested = { installId: request.pack.installId, variantId: request.variantId };
-      const result = parseAuditionResult(await ports.audition(request));
-      if (!result) throw new Error("AUDITION_RESULT_UNREADABLE");
-      return result;
+      const voice = { installId: request.pack.installId, variantId: request.variantId, eventId: request.eventId, tier: request.tier };
+      requested = voice;
+      try {
+        const result = parseAuditionResult(await ports.audition(request));
+        if (!result) throw new Error("AUDITION_RESULT_UNREADABLE");
+        if (!result.audio_started && requested === voice) requested = null;
+        return result;
+      } catch (error) {
+        if (requested === voice) requested = null;
+        throw error;
+      }
     },
     async subscribe(onEvent) {
       return ports.subscribe(event => {
         if (event.kind === "started") {
           const active = requested;
           if (!active) return;
-          playback.set(event.playback_id, active);
-          onEvent({ playbackId: event.playback_id, installId: active.installId, variantId: active.variantId,
+          requested = null;
+          playback = { ...active, playbackId: event.playback_id };
+          onEvent({ ...playback,
             startedMonotonicMs: event.at_ms, durationMs: event.audio_duration_ms,
             hasVisual: event.visual_url !== null, visualUrl: event.visual_url });
         } else {
-          const active = playback.get(event.playback_id);
-          if (!active) return;
-          playback.delete(event.playback_id);
-          if (requested?.installId === active.installId && requested.variantId === active.variantId) requested = null;
-          onEvent({ playbackId: event.playback_id, ...active, reason: event.reason });
+          if (playback?.playbackId !== event.playback_id) return;
+          const { playbackId, installId, variantId } = playback;
+          playback = null;
+          onEvent({ playbackId, installId, variantId, reason: event.reason });
         }
       });
     },
@@ -123,7 +131,7 @@ export function createBrowseAuditionPort(
 
 const tauriBrowsePorts: BrowseApiPorts = {
   summaries: async () => (await import("../runtime")).mediaPackSummaries(),
-  detail: async () => (await import("../runtime")).mediaEventMap(),
+  detail: async installId => (await import("../runtime")).mediaInstalledEventMap(installId),
   visualUrl: async (installId, eventId, tier, variantId) => (await import("../runtime")).mediaVariantVisualUrl(installId, eventId, tier, variantId),
   audition: createBrowseAuditionPort(
     request => import("../runtime").then(runtime => runtime.mediaAuditionVariant(request.eventId, request.tier, request.variantId, request.overlay)),
