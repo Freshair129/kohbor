@@ -71,6 +71,9 @@ pub struct VariantMedia {
     pub media: Result<Clip, &'static str>,
 }
 
+/// Prewarm already records this budget exclusion when building the table.
+pub const PREWARM_CAP_REASON: &str = "prewarm_cap";
+
 /// The ordered variants and mode for one exact `(event, bound tier)` binding.
 #[derive(Debug, Clone)]
 pub struct VariantSet {

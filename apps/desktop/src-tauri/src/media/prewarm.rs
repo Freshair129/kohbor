@@ -11,11 +11,12 @@ use kohbor_events::EventId;
 use kohbor_pack::catalog::Catalog;
 use kohbor_pack::descriptor::Selection;
 use kohbor_pack::error::RejectReason;
-use kohbor_pack::store::{Hook, ResolveError, Store};
+use kohbor_pack::media::inspect_wav;
+use kohbor_pack::store::{Hook, ResolveError, ResolvedVariant, Store};
 use sha2::{Digest, Sha256};
 
 use crate::audio::resolve::{
-    Clip, Entry, PrewarmTable, VariantMedia, VariantSelection, VariantSet,
+    Clip, Entry, PrewarmTable, VariantMedia, VariantSelection, VariantSet, PREWARM_CAP_REASON,
 };
 
 /// Verified visual file metadata captured alongside the audio table.
@@ -99,16 +100,11 @@ pub fn cabinet_key_space(catalog: &Catalog) -> Vec<(EventId, Option<u8>)> {
     keys
 }
 
-/// Resolve, verify, read and decode every variant of all playable keys without
-/// touching the engine. The unique source WAV payloads are bounded by the pack's
-/// 32 MiB aggregate payload limit; decoded PCM is smaller than its WAV file, and
-/// shared paths reuse the same `Arc<[i16]>` allocation.
-///
-/// The table retains at most 40 million decoded i16 samples (80 MB, about 76.3
-/// MiB). The product design's future 26-key maximum is 37.44 MB (18.72 million
-/// samples, about 35.7 MiB); this wider guard is defensive for future inventories.
-/// If a decoded clip would exceed the guard, that key and all remaining keys are
-/// marked invalid and are not loaded.
+/// Prewarm critical clips and then the first variant of every other binding.
+/// Use the remaining PCM budget for additional variants in descriptor order.
+/// The cap bounds retained samples across unique audio paths. Even at 15 seconds
+/// each, the 23 current event/tier keys need less than 17 million samples for
+/// their first variants. File I/O and decoding stay off the audio engine.
 pub fn build_table<H: Hook>(
     store: &Store<H>,
     catalog: &Catalog,
@@ -125,19 +121,89 @@ pub fn build_table<H: Hook>(
         install_id: Some(install_id.clone()),
         entries: HashMap::new(),
     };
-    let keys = key_space(catalog);
+    let mut keys = key_space(catalog);
+    keys.sort_by_key(|(id, _)| !id.is_critical());
     let mut entries = Vec::with_capacity(keys.len());
-    let mut decoded_samples = 0_u64;
-    let mut over_memory_bound = false;
+    let mut deferred = Vec::new();
+    let mut remaining_samples = MAX_PREWARMED_SAMPLES;
     let mut pcm_by_path: HashMap<PathBuf, Pcm> = HashMap::new();
+    let mut load_variant = |id: EventId, tier: Option<u8>, variant: ResolvedVariant| {
+        let weight = variant
+            .media
+            .as_ref()
+            .ok()
+            .and_then(|media| media.weight)
+            .unwrap_or(1);
+        let media = variant
+            .media
+            .map_err(|reason| reason.as_str())
+            .and_then(|media| {
+                if media.install_id != active.install_id {
+                    return Err(RejectReason::UnknownInstall.as_str());
+                }
+                let visual = media
+                    .silent_visual
+                    .as_deref()
+                    .map(|path| {
+                        visual_entry(&revision_root, path)
+                            .ok_or(RejectReason::VisualInvalid.as_str())
+                    })
+                    .transpose()?;
+                let pcm = if let Some(pcm) = pcm_by_path.get(&media.mixed_audio) {
+                    pcm.clone()
+                } else {
+                    let audio_bytes = fs::read(&media.mixed_audio)
+                        .map_err(|_| RejectReason::SourceUnavailable.as_str())?;
+                    let samples = inspect_wav(&audio_bytes, RejectReason::MixedAudioInvalid)
+                        .map_err(|reason| reason.as_str())?
+                        .samples;
+                    if samples > remaining_samples {
+                        return Err(PREWARM_CAP_REASON);
+                    }
+                    let pcm = decode_wav(&audio_bytes)
+                        .filter(|pcm| u64::try_from(pcm.len()).ok() == Some(samples))
+                        .ok_or(RejectReason::MixedAudioInvalid.as_str())?;
+                    remaining_samples -= samples;
+                    pcm_by_path.insert(media.mixed_audio, pcm.clone());
+                    pcm
+                };
+                let visual_url = visual.map(|(token, visual)| {
+                    let url = Arc::<str>::from(format!(
+                        "kohbor-media://localhost/v1/{}/{token}",
+                        active.install_id
+                    ));
+                    visual_index.entries.insert(token, visual);
+                    url
+                });
+                Ok(Clip {
+                    audio_ms: audio_duration_ms(u64::try_from(pcm.len()).unwrap_or(u64::MAX)),
+                    pcm,
+                    bound_tier: tier,
+                    visual_tail_ms: media.visual_tail_ms,
+                    visual_url,
+                })
+            });
+        if matches!(media, Err(PREWARM_CAP_REASON)) {
+            crate::log_info!(
+                "audio",
+                "clip_variant_skipped",
+                "announcer variant exceeds the prewarm budget",
+                event_id = id.as_str(),
+                tier = tier,
+                variant_id = &variant.variant_id,
+                reason = PREWARM_CAP_REASON,
+            );
+        }
+        VariantMedia {
+            variant_id: variant.variant_id,
+            clip_id: variant.clip_id,
+            weight,
+            media,
+        }
+    };
 
     for (id, tier) in keys {
         pause();
-        if over_memory_bound {
-            entries.push((id, tier, Entry::Invalid));
-            continue;
-        }
-
         let resolved = match store.resolve_variants(id.as_str(), tier.map(u32::from)) {
             Ok(variants) | Err(ResolveError::NoVerifiedVariants(variants)) => variants,
             Err(ResolveError::Invalid(_)) => {
@@ -156,73 +222,31 @@ pub fn build_table<H: Hook>(
                 Selection::Sequence => VariantSelection::Sequence,
             });
         let mut variants = Vec::with_capacity(resolved.len());
-        for variant in resolved {
+        let mut resolved = resolved.into_iter();
+        if let Some(first) = resolved.next() {
             pause();
-            let weight = variant
-                .media
-                .as_ref()
-                .ok()
-                .and_then(|media| media.weight)
-                .unwrap_or(1);
-            let media = variant.media.and_then(|media| {
-                if media.install_id != active.install_id {
-                    return Err(RejectReason::UnknownInstall);
-                }
-                let pcm = if let Some(pcm) = pcm_by_path.get(&media.mixed_audio) {
-                    pcm.clone()
-                } else {
-                    let audio_bytes = fs::read(&media.mixed_audio)
-                        .map_err(|_| RejectReason::SourceUnavailable)?;
-                    let pcm = decode_wav(&audio_bytes).ok_or(RejectReason::MixedAudioInvalid)?;
-                    let sample_count = u64::try_from(pcm.len()).unwrap_or(u64::MAX);
-                    if sample_count > MAX_PREWARMED_SAMPLES.saturating_sub(decoded_samples) {
-                        over_memory_bound = true;
-                        return Err(RejectReason::EntryTooLarge);
-                    }
-                    decoded_samples = decoded_samples.saturating_add(sample_count);
-                    pcm_by_path.insert(media.mixed_audio, pcm.clone());
-                    pcm
-                };
-                let visual_url = if let Some(path) = media.silent_visual.as_deref() {
-                    let (token, visual) =
-                        visual_entry(&revision_root, path).ok_or(RejectReason::VisualInvalid)?;
-                    visual_index.entries.insert(token.clone(), visual);
-                    Some(Arc::<str>::from(format!(
-                        "kohbor-media://localhost/v1/{}/{token}",
-                        active.install_id
-                    )))
-                } else {
-                    None
-                };
-
-                Ok(Clip {
-                    audio_ms: audio_duration_ms(u64::try_from(pcm.len()).unwrap_or(u64::MAX)),
-                    pcm,
-                    bound_tier: tier,
-                    visual_tail_ms: media.visual_tail_ms,
-                    visual_url,
-                })
-            });
-            if over_memory_bound {
-                break;
-            }
-            variants.push(VariantMedia {
-                variant_id: variant.variant_id,
-                clip_id: variant.clip_id,
-                weight,
-                media: media.map_err(|reason| reason.as_str()),
-            });
+            variants.push(load_variant(id, tier, first));
         }
-
-        let entry = if over_memory_bound {
-            Entry::Invalid
-        } else {
+        if resolved.len() > 0 {
+            deferred.push((entries.len(), resolved));
+        }
+        entries.push((
+            id,
+            tier,
             Entry::Variants(VariantSet {
                 selection,
                 variants,
-            })
-        };
-        entries.push((id, tier, entry));
+            }),
+        ));
+    }
+
+    for (index, variants) in deferred {
+        if let Some((id, tier, Entry::Variants(binding))) = entries.get_mut(index) {
+            for variant in variants {
+                pause();
+                binding.variants.push(load_variant(*id, *tier, variant));
+            }
+        }
     }
 
     (
@@ -510,11 +534,14 @@ mod tests {
     use kohbor_pack::store::{ResolveError, Store};
     use kohbor_pack::Limits;
     use serde_json::Value;
+    use sha2::{Digest, Sha256};
 
-    use super::test_support::{activate, catalog, install, package, BindingSpec, TempDir};
+    use super::test_support::{
+        activate, catalog, install, package, pcm_wav, BindingSpec, Package, TempDir,
+    };
     use super::{build_table, cabinet_key_space, key_space, new_visual_index_handle};
     use crate::audio::lanes::EngineShared;
-    use crate::audio::resolve::Lookup;
+    use crate::audio::resolve::{BindingLookup, Lookup};
     use crate::media::inventory::{facts_from_table, media_status, ALL_EVENTS};
     use crate::media::selection::VariantSelector;
 
@@ -553,6 +580,209 @@ mod tests {
             "generated package activates"
         );
         (store, install_id)
+    }
+
+    #[test]
+    fn oversized_pcm_pack_keeps_critical_and_first_variants_playable() {
+        use serde_json::json;
+
+        const SAMPLES: usize = 720_000;
+        let temp = TempDir::new("prewarm-cap");
+        let mut store = open_store(&temp);
+        let wav = pcm_wav(SAMPLES);
+        let digest = format!("{:x}", Sha256::digest(&wav));
+        let mut files = Vec::new();
+        let mut paths = Vec::new();
+        let keys = [
+            (EventId::MultiKill, Some(2)),
+            (EventId::MultiKill, Some(3)),
+            (EventId::MultiKill, Some(4)),
+            (EventId::MultiKill, Some(5)),
+            (EventId::HealthDanger, None),
+        ];
+        let bindings: Vec<_> = keys
+            .iter()
+            .map(|&(id, tier)| {
+                let count = if id.is_critical() { 1 } else { 14 };
+                let variants: Vec<_> = (0..count)
+                    .map(|_| {
+                        let index = files.len();
+                        let path = format!("audio/clip-{index}.wav");
+                        files.push(json!({
+                            "path": path,
+                            "size_bytes": wav.len(),
+                            "sha256": digest,
+                            "role": "mixed_audio",
+                        }));
+                        paths.push(path.clone());
+                        json!({
+                            "variant_id": format!("clip-{index}"), "mixed_audio_path": path,
+                            "duration_ms": 15_000, "visual_tail_ms": 0,
+                        })
+                    })
+                    .collect();
+                let mut binding = json!({"event_id": id.as_str(), "variants": variants});
+                if let Some(tier) = tier {
+                    binding["tier"] = json!(tier);
+                }
+                if count > 1 {
+                    binding["selection"] = json!("sequence");
+                }
+                binding
+            })
+            .collect();
+        assert!(paths.len() * SAMPLES > super::MAX_PREWARMED_SAMPLES as usize);
+        let descriptor = serde_json::to_vec(&json!({
+            "schema_version": "1.4.0", "package_id": "prewarm-cap-pack",
+            "revision": 1, "taxonomy_version": "1.1", "display_name": "Prewarm cap fixture",
+            "publisher_key_id": null, "files": files, "bindings": bindings,
+        }))
+        .unwrap();
+        let archive = fixture_zip(&descriptor, &paths, &wav);
+        let package = Package {
+            package_path: temp.path().join("prewarm-cap.zip"),
+            digest: format!("{:x}", Sha256::digest(&archive)),
+            package_id: "prewarm-cap-pack".to_owned(),
+        };
+        fs::write(&package.package_path, archive).unwrap();
+        let installed = install(&mut store, &package, "req-cap-install");
+        let Some(record) = installed.record else {
+            panic!(
+                "fixture install failed: {:?} {:?}, reject: {:?}",
+                installed.status, installed.reason, installed.reject,
+            );
+        };
+        assert_eq!(
+            activate(&mut store, "req-cap-active", &record.install_id)
+                .status
+                .as_str(),
+            "active"
+        );
+
+        let mut table = None;
+        let logs = crate::logging::collect_test_logs(|| {
+            table = Some(build_table(&store, &catalog(), &mut || {}).0);
+        });
+        let table = table.unwrap();
+        let mut retained = 0;
+        for (id, tier) in keys {
+            let BindingLookup::Variants { binding, .. } = table.lookup_binding(id, tier) else {
+                panic!("the binding must remain playable: {id:?} {tier:?}");
+            };
+            let first = binding.variants[0]
+                .media
+                .as_ref()
+                .expect("first variant must be prewarmed");
+            assert_eq!(first.pcm.len(), SAMPLES);
+            retained += binding
+                .variants
+                .iter()
+                .filter_map(|variant| variant.media.as_ref().ok())
+                .map(|clip| clip.pcm.len())
+                .sum::<usize>();
+        }
+        assert!(retained <= super::MAX_PREWARMED_SAMPLES as usize);
+        assert_eq!(retained, 55 * SAMPLES);
+        let skipped: Vec<_> = logs
+            .iter()
+            .filter(|log| log.event == "clip_variant_skipped")
+            .collect();
+        assert_eq!(skipped.len(), 2);
+        assert_eq!(skipped[0].fields["variant_id"], "clip-54");
+        assert_eq!(skipped[1].fields["variant_id"], "clip-55");
+        assert!(skipped.iter().all(|log| log.module == "audio"
+            && log.fields["event_id"] == "multi_kill"
+            && log.fields["tier"] == 5
+            && log.fields["reason"] == "prewarm_cap"));
+    }
+
+    /// Store the descriptor and reuse one raw DEFLATE stream under distinct
+    /// WAV paths so the real ZIP installer sees independent payloads.
+    fn fixture_zip(descriptor: &[u8], audio_paths: &[String], wav: &[u8]) -> Vec<u8> {
+        use flate2::{write::DeflateEncoder, Compression, Crc};
+        use std::io::Write;
+
+        let crc = |bytes: &[u8]| {
+            let mut crc = Crc::new();
+            crc.update(bytes);
+            crc.sum()
+        };
+        let mut encoder = DeflateEncoder::new(Vec::new(), Compression::fast());
+        encoder.write_all(wav).unwrap();
+        let compressed = encoder.finish().unwrap();
+        let mut zip = Vec::new();
+        let mut directory = Vec::new();
+        let mut push_entry = |name: &str, raw_size: usize, bytes: &[u8], method: u16, crc: u32| {
+            let offset = zip.len() as u32;
+            let mut header = Vec::new();
+            for word in [20_u16, 0, method, 0, 33] {
+                header.extend(word.to_le_bytes());
+            }
+            for word in [crc, bytes.len() as u32, raw_size as u32] {
+                header.extend(word.to_le_bytes());
+            }
+            header.extend((name.len() as u16).to_le_bytes());
+            header.extend(0_u16.to_le_bytes());
+            zip.extend(0x04034b50_u32.to_le_bytes());
+            zip.extend(&header);
+            zip.extend(name.as_bytes());
+            zip.extend(bytes);
+            directory.extend(0x02014b50_u32.to_le_bytes());
+            directory.extend(0x0314_u16.to_le_bytes());
+            directory.extend(header);
+            directory.extend([0_u8; 6]);
+            directory.extend((0o100644_u32 << 16).to_le_bytes());
+            directory.extend(offset.to_le_bytes());
+            directory.extend(name.as_bytes());
+        };
+        push_entry(
+            "descriptor.json",
+            descriptor.len(),
+            descriptor,
+            0,
+            crc(descriptor),
+        );
+        let wav_crc = crc(wav);
+        // The container requires byte-sorted payload entries after the descriptor.
+        let mut ordered_paths: Vec<_> = audio_paths.iter().collect();
+        ordered_paths.sort_unstable();
+        for name in ordered_paths {
+            push_entry(name, wav.len(), &compressed, 8, wav_crc);
+        }
+        let directory_start = zip.len() as u32;
+        let count = (audio_paths.len() + 1) as u16;
+        zip.extend(&directory);
+        zip.extend(0x06054b50_u32.to_le_bytes());
+        for word in [0, 0, count, count] {
+            zip.extend(word.to_le_bytes());
+        }
+        zip.extend((directory.len() as u32).to_le_bytes());
+        zip.extend(directory_start.to_le_bytes());
+        zip.extend(0_u16.to_le_bytes());
+        zip
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn unrelated_revision_link_blocks_prewarm() {
+        let temp = TempDir::new("prewarm-unrelated-link");
+        let (store, install_id) = activated_store(
+            &temp,
+            "unrelated-link-pack",
+            &[audio("health_danger", 480)],
+            "req-link",
+        );
+        let revision = store.root().join("revisions").join(install_id);
+        let outside = temp.path().join("outside");
+        fs::write(&outside, b"unrelated").unwrap();
+        std::os::unix::fs::symlink(outside, revision.join("unrelated")).unwrap();
+
+        let (table, visuals) = build_table(&store, &catalog(), &mut || {});
+        assert!(matches!(
+            table.lookup(EventId::HealthDanger, None),
+            Lookup::Invalid
+        ));
+        assert!(visuals.entries.is_empty());
     }
 
     #[test]

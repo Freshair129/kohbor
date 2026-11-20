@@ -25,7 +25,9 @@ use super::lanes::{
 use super::outcome::{
     playback_ended, playback_started, pre_owner_record, preempted_record, record, EndReason,
 };
-use super::resolve::{class_of, instance_id, BindingLookup, PrewarmTable, SelectedClip};
+use super::resolve::{
+    class_of, instance_id, BindingLookup, PrewarmTable, SelectedClip, PREWARM_CAP_REASON,
+};
 use super::slot_sink::SlotSink;
 use crate::clock::MonoClock;
 use crate::media::selection::{SelectionFailure, VariantSelector};
@@ -424,6 +426,9 @@ impl Engine {
             let Err(reason) = &variant.media else {
                 continue;
             };
+            if *reason == PREWARM_CAP_REASON {
+                continue;
+            }
             let key = (event.id, bound_tier, index);
             if self.reported_invalid_variants.contains(&key) {
                 continue;

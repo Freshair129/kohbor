@@ -202,7 +202,7 @@ fn variant_reverification_is_independent_and_keeps_descriptor_order() {
 
 #[cfg(unix)]
 #[test]
-fn a_linked_payload_is_rejected_without_disabling_verified_siblings() {
+fn a_linked_payload_rejects_the_revision_before_resolving_either_api() {
     use kohbor_pack::store::ResolveError;
 
     let (temp, store, revision) = active_variant_store();
@@ -211,9 +211,10 @@ fn a_linked_payload_is_rejected_without_disabling_verified_siblings() {
     std::fs::rename(&first, &other_location).unwrap();
     std::os::unix::fs::symlink(other_location, first).unwrap();
 
-    let variants = store.resolve_variants("first_blood", None).unwrap();
-    assert_eq!(variants[0].media, Err(RejectReason::UnsafePath));
-    assert!(variants[1..].iter().all(|variant| variant.media.is_ok()));
+    assert_eq!(
+        store.resolve_variants("first_blood", None),
+        Err(ResolveError::Invalid(RejectReason::UnsafePath))
+    );
     assert_eq!(
         store.resolve("first_blood", None),
         Err(ResolveError::Invalid(RejectReason::UnsafePath))

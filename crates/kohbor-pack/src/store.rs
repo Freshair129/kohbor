@@ -921,7 +921,8 @@ impl<H: Hook> Store<H> {
 
     /// Resolve every variant of the active binding using the same exact-tier
     /// lookup as [`Store::resolve`]. Each returned variant's mixed audio and
-    /// optional visual payload are re-verified independently in descriptor order.
+    /// optional visual payload are re-verified independently in descriptor order
+    /// after checking that the active revision tree contains no links.
     /// If none verify, the error retains the rejected variants.
     pub fn resolve_variants(
         &self,
@@ -965,12 +966,8 @@ impl<H: Hook> Store<H> {
                 return Err(ResolveError::Invalid(RejectReason::UnsafePath));
             }
         }
-        // Preserve the legacy resolver's whole-tree check. Variant resolution
-        // checks every component of each referenced payload independently.
-        if !all_variants {
-            ensure_store_tree_no_links(&revision_dir)
-                .map_err(|_| ResolveError::Invalid(RejectReason::UnsafePath))?;
-        }
+        ensure_store_tree_no_links(&revision_dir)
+            .map_err(|_| ResolveError::Invalid(RejectReason::UnsafePath))?;
         let descriptor_path = revision_dir.join("descriptor.json");
         let descriptor_bytes = read_resolve_file(&descriptor_path, self.limits.descriptor_bytes)
             .map_err(ResolveError::Invalid)?;
