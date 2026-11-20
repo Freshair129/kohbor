@@ -458,8 +458,8 @@
     },
     {
       "path": "apps/desktop/src/App.tsx",
-      "bytes": 15076,
-      "sha256": "a32dc852384b633888e9d7890a6899ea9423d967e4631c040db5bd82bf3e7c6a"
+      "bytes": 14793,
+      "sha256": "f97eaccc734efbff409e590b0d5acbb7c6f96cf82ebbe7d6f68b569d50647427"
     },
     {
       "path": "apps/desktop/src/AudioHistory.tsx",
@@ -618,8 +618,8 @@
     },
     {
       "path": "apps/desktop/src/copy.ts",
-      "bytes": 58344,
-      "sha256": "ac972a5a1afed690439b76440471bb68c614b1b6024d73ed86a7686ded92570b"
+      "bytes": 61233,
+      "sha256": "a70590903838cac3b1957ff671706b03c5dca61220c6b815cc68cffc9001cafd"
     },
     {
       "path": "apps/desktop/src/deck/AlertStrip.tsx",
@@ -1193,8 +1193,8 @@
     },
     {
       "path": "apps/desktop/src/shell/state.ts",
-      "bytes": 3525,
-      "sha256": "bc9b66f87e3924306da21146f24140d9f94e3cd1d6c217f0411e9aff8fa8d07a"
+      "bytes": 5909,
+      "sha256": "8685169de61fe8431b867649769067b0640650fa9bf08d3afa50e826cb9d2c35"
     },
     {
       "path": "apps/desktop/src/shell/updateCopy.ts",
@@ -1258,8 +1258,8 @@
     },
     {
       "path": "apps/desktop/src/styles.css",
-      "bytes": 28656,
-      "sha256": "4fa217aec3a50a5234cd648a3f26219b9a8ef8d93c232b399af9696c5f115691"
+      "bytes": 34234,
+      "sha256": "33fbb36f18c7b76addb81cbdba1947684b7336b54f16328d4c09cb5ec480e435"
     },
     {
       "path": "apps/desktop/src/types.ts",
@@ -1423,8 +1423,8 @@
     },
     {
       "path": "apps/desktop/tests/logs.test.ts",
-      "bytes": 11631,
-      "sha256": "dffaa351b9574dc1c29f4e8a90e407906a8b1e3fec663e2b227f1e63b989746e"
+      "bytes": 11507,
+      "sha256": "ffb1667d660af3abec76b02424c4b0615effb0537502e54123b7b9c9aad19711"
     },
     {
       "path": "apps/desktop/tests/mediaStatus.test.ts",
@@ -1478,18 +1478,18 @@
     },
     {
       "path": "apps/desktop/tests/round2.test.ts",
-      "bytes": 16207,
-      "sha256": "1a8672595363dd2883031bfe40db393de1ffd3c379d9dfb90736cbc4beb091c8"
+      "bytes": 17794,
+      "sha256": "9fe1c3742eb6531183058cdd2746fad924a777710fb6eda71d08e08494119429"
     },
     {
       "path": "apps/desktop/tests/shell-css.test.ts",
-      "bytes": 3410,
-      "sha256": "ac10f9247b66ffad6cd1fd02dc67e411e5b8ee83b49b4bda34006a254c810388"
+      "bytes": 4904,
+      "sha256": "1f034cf3eeb2eadadbbf64dabf33186b2288fde098c69b2f2035d13bc5c0e9e1"
     },
     {
       "path": "apps/desktop/tests/shell-state.test.ts",
-      "bytes": 1794,
-      "sha256": "027d012ca0947ccabc0c2819d1d665fdbeba5293f311c681fdd278cdfe782594"
+      "bytes": 4536,
+      "sha256": "c5b5edcb025d11ff105eb5f3635a4b8a12f58fe69ce23382ec95af2a5ef0818a"
     },
     {
       "path": "apps/desktop/tests/update-release-page.test.ts",
@@ -2513,8 +2513,8 @@
     },
     {
       "path": "docs/design/UX-SPEC.md",
-      "bytes": 15336,
-      "sha256": "be41a2dbcb4bdb20883e16fafed4b6dab4ff74e9b635205c94572ec55ecc18af"
+      "bytes": 17040,
+      "sha256": "ef53a208aa4f451e3a90e868bdc28d58a3e87996e012831a761e501921b108cf"
     },
     {
       "path": "docs/design/VISUAL-DESIGN-PROPOSAL.md",
@@ -2548,8 +2548,8 @@
     },
     {
       "path": "docs/design/visuals/command-deck/DESIGN-NOTES.md",
-      "bytes": 29285,
-      "sha256": "a7bc307fef196fb246e62e3e2335fb0f1609b26639bc8143264a6ed2adeb8d13"
+      "bytes": 29770,
+      "sha256": "b5684863560777fd6c66ea73e285cbc5961638bf4d71bf012878d0ef73545d2a"
     },
     {
       "path": "docs/design/visuals/command-deck/cards.html",
@@ -2588,8 +2588,8 @@
     },
     {
       "path": "docs/design/visuals/command-deck/tokens.css",
-      "bytes": 26167,
-      "sha256": "2a2fd0294ad4a1ce8179e4e0909e91c7d9ed166864ae56bb73e8a6011d7282c8"
+      "bytes": 28744,
+      "sha256": "b2aef5605049ea6cae9e5ee8ae1c16895a778bb9707047ec6862f8eb311b9ee4"
     },
     {
       "path": "docs/design/visuals/s3-audio-ui/DESIGN-NOTES.md",
@@ -2610,11 +2610,6 @@
       "path": "docs/design/visuals/s3-audio-ui/overlay.html",
       "bytes": 31257,
       "sha256": "ebb7d97af909d670b289375030d74b25a05dbd00da347f98c3911eccbab2271d"
-    },
-    {
-      "path": "docs/design/visuals/s3-audio-ui/tokens.css",
-      "bytes": 6884,
-      "sha256": "f0ddf516ae9c5d65bebf55e326fd36b1478659db6e6e67ae6a9f51455166102b"
     },
     {
       "path": "docs/diagrams/INDEX.html",

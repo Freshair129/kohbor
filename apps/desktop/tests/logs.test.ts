@@ -5,7 +5,7 @@ import { filterLogEntries, formatLogLine, copyLogLines, mergeLogEntries, shouldF
 import { createLogTail } from "../src/logs/tail.ts";
 import { shapeFrontendError, createFrontendForwarder, installFrontendLogging } from "../src/logs/frontend.ts";
 import { DEVELOPER_MODE_DEFAULT, DEVELOPER_MODE_KEY, readDeveloperMode, writeDeveloperMode } from "../src/shell/developerMode.ts";
-import { shellTabs, nextShellTab } from "../src/shell/state.ts";
+import { SHELL_NAV_ITEMS, nextShellDestination } from "../src/shell/state.ts";
 
 const entry = (seq: number, level: LogEntry["level"] = "info"): LogEntry => ({ seq, ts: `t${seq}`, level,
   module: "capture", event: "frame", msg: `message ${seq}`, fields: { count: seq } });
@@ -111,14 +111,11 @@ test("developer mode defaults on, persists explicit off and tolerates unavailabl
   assert.equal(writeDeveloperMode({ setItem: () => { throw new Error("denied"); } }, true), false);
 });
 
-test("hidden developer tab is excluded from keyboard navigation", () => {
-  // Round 2 moves Settings into the account menu, outside tab keyboard navigation.
-  assert.deepEqual(shellTabs(false), ["live", "packs", "status"]);
-  assert.equal(shellTabs(true).at(-1), "logs");
-  assert.equal(nextShellTab("live", "End", shellTabs(false)), "status");
-  assert.equal(nextShellTab("live", "End", shellTabs(true)), "logs");
-  assert.equal(nextShellTab("status", "ArrowRight", shellTabs(true)), "logs");
-  assert.equal(nextShellTab("logs", "ArrowRight", shellTabs(true)), "live");
+test("shell navigation keeps Logs and Settings in the second rail group", () => {
+  assert.deepEqual(SHELL_NAV_ITEMS.map(({ id }) => id), ["overview", "live", "packs", "insights", "store", "status", "logs", "settings"]);
+  assert.equal(nextShellDestination("overview", "End"), "settings");
+  assert.equal(nextShellDestination("status", "ArrowDown"), "logs");
+  assert.equal(nextShellDestination("settings", "ArrowDown"), "overview");
 });
 
 test("frontend payload carries a fixed message, a source basename and a hash, never the error text", () => {

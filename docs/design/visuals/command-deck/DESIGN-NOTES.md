@@ -1,6 +1,6 @@
 # Command Deck — design notes
 
-Status: **proposal, not approved**. DEC-VISUALS stays open. Sample data only. Nothing here is loaded by the application or replaces existing code. Account, friends, presence and Share list services do not exist; their screens are "design only, service pending" (DEC-SOCIAL, SOCIAL-003). Revised for the owner's Share list model; see section 13.
+Status: The owner selected Command Deck as the application UI core on 2026-11-20. Screen-content and interaction proposals in this document remain unapproved; sample data is not production data. The shared token file is loaded by the application shell. Account, friends, presence and Share list services do not exist; their screens are "design only, service pending" (DEC-SOCIAL, SOCIAL-003). Revised for the owner's Share list model; see section 13.
 
 Files: `index.html` (gallery), `deck-live.html` (A), `minimap.html` (B), `cards.html` (C), `social.html` (D + G), `inspector.html` (E), `glance-and-idle.html` (F), `tokens.css` (tokens + shared component styles). Plain HTML/CSS, no build step. `deck-live.html?fill=1` is the deck at the viewport size; the other pages frame it in scaled iframes. Parameters: `state`, `share=on|notice|paused|none`, `mode=glance|detail`, `econ=1`, `solo=map`, `theme=dark|light|auto`, `lang=th|en`.
 
@@ -152,11 +152,11 @@ Map overlay (fixed in both themes, on `--map-ground` #0b0f14): own 9.3, ally 7.9
 
 ## 7. Tokens
 
-Reused unchanged from `apps/desktop/src/styles.css`: `--ground --surface --raised --line --line-subtle --text --text-2 --muted --accent --accent-surface --ally --warning --warning-surface --stale --critical`, the font stacks, radii 6/8/10/12, 44-px target.
+The application imports this token set. Shared names now include `--ground --surface --raised --line --line-subtle --line-strong --text --text-2 --muted --accent --accent-surface --ally --warning --warning-surface --stale --critical`, the font stacks, radii 6/8/10/12, and the 44-px target.
 
-Shared with the parallel `s3-audio-ui/tokens.css` (same names and values): `--line-strong --critical-ink --critical-surface`, every light-theme value, `--ease-out --dur-enter --dur-critical --dur-exit`.
+Sprint 3 audio tokens were merged here; `s3-audio-ui/tokens.css` is retired. The merged audio names include `--switch-track-off/on/thumb`, `--lh-chip`, `--fs-title/body/detail/caption`, `--sp-1…6`, `--ov-mat/halo/accent/hot/critical/critical-ink/rail-off`, `--ease-in/over`, and `--dur-enter-top/cut/tail`. Existing overlay chip colours remain named tokens so this shell change does not recolour overlay views.
 
-New here: `--enemy` (in design-tokens.json, not yet in styles.css) and its light value, `--ally-surface --enemy-surface --hatch --scrim`, `--u` and the scaled roles `--fz-banner/hero/num/label/sec/det`, `--g1…g6`, `--bw`, `--lh-tight`, `--dur-once`, and the fixed map set `--map-ground/own/ally/enemy/missing/critical/critical-ink/text/muted/halo/plate`. The focus ring is 3 px (shipped: 2 px).
+Other tokens include `--enemy` and its light value, `--ally-surface --enemy-surface --hatch --scrim`, `--u` and the scaled roles `--fz-banner/hero/num/label/sec/det`, `--g1…6`, `--bw`, `--lh-tight`, `--dur-once`, and the fixed map set `--map-ground/own/ally/enemy/missing/critical/critical-ink/text/muted/halo/plate`. P0 adds the 72-px rail width token and B1.1's decorative cyan/violet/pink/lime colours at a default `--power` of 55%; the rail uses the cyan-to-violet direction from B1.1. The focus ring is 3 px (shipped: 2 px).
 
 ## 8. Second-monitor ergonomics
 

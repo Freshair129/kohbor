@@ -1,27 +1,89 @@
 import type { Phase } from "../copy";
 import type { RuntimeStatus } from "../types";
 
-export type ShellTab = "live" | "packs" | "status" | "replay" | "logs";
 export type HeaderTone = "fresh" | "stale" | "unknown" | "off" | "warn";
 
-export const SHELL_TABS: readonly ShellTab[] = ["live", "packs", "status"];
+export type ShellDestination = "overview" | "live" | "packs" | "insights" | "store" | "status" | "logs" | "settings";
+export type ShellNavigationGroup = "primary" | "secondary";
+export type ShellNavigationItem = { id: ShellDestination; group: ShellNavigationGroup };
 
-export function shellTabs(developerMode: boolean, replayPreview = false): readonly ShellTab[] {
-  const tabs: ShellTab[] = [...SHELL_TABS];
-  if (replayPreview) tabs.push("replay");
-  if (developerMode) tabs.push("logs");
-  return tabs;
+export const DEFAULT_SHELL_DESTINATION = "live" satisfies ShellDestination;
+
+export const SHELL_NAV_ITEMS = [
+  { id: "overview", group: "primary" },
+  { id: "live", group: "primary" },
+  { id: "packs", group: "primary" },
+  { id: "insights", group: "primary" },
+  { id: "store", group: "primary" },
+  { id: "status", group: "secondary" },
+  { id: "logs", group: "secondary" },
+  { id: "settings", group: "secondary" },
+] as const satisfies readonly ShellNavigationItem[];
+
+export type InsightsView = "summary" | "replay";
+
+export function insightsViews(replayAvailable: boolean): readonly InsightsView[] {
+  return replayAvailable ? ["summary", "replay"] : ["summary"];
 }
 
-export function nextShellTab(current: ShellTab, key: string, tabs: readonly ShellTab[] = SHELL_TABS): ShellTab | null {
-  const index = tabs.indexOf(current);
+export function navigationItemState(destination: ShellDestination, current: ShellDestination | "account") {
+  const active = current === destination;
+  const tabStop = active || (current === "account" && destination === DEFAULT_SHELL_DESTINATION);
+  return { ariaCurrent: active ? "page" as const : undefined, tabIndex: tabStop ? 0 : -1 };
+}
+
+export function nextShellDestination(current: ShellDestination, key: string): ShellDestination | null {
+  const destinations = SHELL_NAV_ITEMS.map((item) => item.id);
+  const index = destinations.indexOf(current);
   if (index < 0) return null;
 
-  if (key === "Home") return tabs[0] ?? null;
-  if (key === "End") return tabs[tabs.length - 1] ?? null;
-  if (key === "ArrowRight") return tabs[(index + 1) % tabs.length] ?? null;
-  if (key === "ArrowLeft") return tabs[(index + tabs.length - 1) % tabs.length] ?? null;
+  if (key === "Home") return destinations[0] ?? null;
+  if (key === "End") return destinations[destinations.length - 1] ?? null;
+  if (key === "ArrowDown") return destinations[(index + 1) % destinations.length] ?? null;
+  if (key === "ArrowUp") return destinations[(index + destinations.length - 1) % destinations.length] ?? null;
   return null;
+}
+
+export type StatusLineLabels = {
+  gsi: string;
+  gamePhase: string;
+  gameAge: string;
+  capture: string;
+  gsiSetup: string;
+};
+
+export type StatusLineModelInput = {
+  labels: StatusLineLabels;
+  gsi: { label: string; tone: HeaderTone };
+  phase: { label: string; tone: HeaderTone };
+  gameAge: string;
+  capture: { label: string; tone: HeaderTone };
+  deck: { label: string; tone: HeaderTone; reason: string };
+  setupAvailable: boolean;
+  hostLost: boolean;
+};
+
+export type StatusLineItem = {
+  id: "gsi" | "phase" | "age" | "capture" | "deck";
+  label: string;
+  tone: HeaderTone;
+  detail?: string;
+};
+
+export function statusLineModel(input: StatusLineModelInput) {
+  const { labels } = input;
+  const items: StatusLineItem[] = [
+    { id: "gsi", label: `${labels.gsi} · ${input.gsi.label}`, tone: input.gsi.tone },
+    { id: "phase", label: `${labels.gamePhase}: ${input.phase.label}`, tone: input.phase.tone },
+    { id: "age", label: `${labels.gameAge}: ${input.gameAge}`, tone: "unknown" },
+    { id: "capture", label: `${labels.capture} · ${input.capture.label}`, tone: input.capture.tone },
+    { id: "deck", label: input.deck.label, tone: input.deck.tone, detail: input.deck.reason },
+  ];
+  return {
+    items,
+    setupAction: input.setupAvailable ? { label: labels.gsiSetup, destination: "status" as const } : null,
+    hostLost: input.hostLost,
+  };
 }
 
 export type HeaderStatus = Pick<RuntimeStatus, "session" | "intake">;

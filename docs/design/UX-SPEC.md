@@ -23,16 +23,22 @@ Logical destinations below do not prescribe URL paths, file names or IPC identif
 
 | Surface / destination | Content and actions | Boundaries |
 |---|---|---|
-| Control: Overview | Readiness, observed match summary, audio controls, companion activity | Never fill live areas with demo statistics |
-| Control: Live | Tabs for Live field, Build, CV heroes, Cooperative sharing | Shared destination for every tier |
-| Control: Voice Packs | Installed inventory, verification, activation, explicit preview | Preview does not simulate a live event |
-| Control: Store | Catalog, wallet, inventory, transaction history | Optional account services; no gate on local gameplay |
-| Control: Insights | Summary and local history tabs | Separate simple evidence summary from deferred deep analysis |
-| Control: Account | Optional sign-in, linked identity and supported account settings | Identity does not authorize game-data sharing |
-| Control: Settings | General, Overlay, Audio and alerts, AI, Modules and CV, Privacy, System | Bounded categories; explain unavailable capabilities |
+| Control: Overview | Reserved destination; currently shows “ยังไม่มีหน้านี้” | Overview content is pending design |
+| Control: Live | Default destination with the existing GSI setup, Dota launch status and Deck | Never fill live areas with demo statistics |
+| Control: Voice Packs | Current installed-pack and audio-history panels; the P1 content redesign is pending | Preview does not simulate a live event |
+| Control: Store | Reserved destination; currently shows “ยังไม่มีหน้านี้” | No catalog, wallet or transaction service is available |
+| Control: Insights | Summary placeholder and Replay subview when that existing Lab/preview page is available | Replay remains inside Insights; no summary data is fabricated |
+| Control: Status | Current readiness, own-hero, audio and build/version status panels | Unknown values remain unknown; GSI setup action opens this destination |
+| Control: Logs | Existing local logs page; requires Developer mode | When disabled, explain the setting needed to open it |
+| Control: Account | Avatar flyout with the existing account page, settings, version and only supported sign-in/out actions | Presence stays unknown unless a real presence source exists; identity does not authorize game-data sharing |
+| Control: Settings | Existing language, Developer mode, Steam-name display and connection guide controls | Bounded categories; explain unavailable capabilities |
 | Gameplay overlay | Passive alerts, event media, selected stat modules, companion status | Transparent, always-on-top, click-through; no control-window chrome |
 
-The control window retains seven main destinations. Build and History remain subviews, not extra main pages. Local clip controls require a clearly documented placement within this structure; a new main destination is a deliberate design decision. Do not inherit a prototype navigation bar as production routing.
+The owner-selected desktop shell uses a 72u left rail with icon-plus-Thai-label navigation: Overview, Live, Voice Packs, Insights and Store in the primary group; Status, Logs and Settings in the bottom group. The right rail contains only the profile avatar and its flyout; notifications, friends, party and quick-add controls are not rendered. Replay is an Insights subview, never a main destination. The page header keeps the global mute control; a thin status line below it carries GSI intake, game phase, data age, capture and current Deck status, with a GSI setup action that opens Status. Content sits on a raised Command Deck surface. The Pulse Grid rail ribbon is decorative, has no pointer interaction and never represents status; its default `--power` is 55%. The ribbon-off setting is a TODO until Settings has a lighting preference.
+
+Use the normal keyboard tab order/roving rail focus and expose the active navigation entry with `aria-current="page"`. At 1920 × 1080, 1366 × 768 and 1280 × 720 the shell must not create horizontal scroll or cut Thai labels. The page-content scope remains slice-specific: P0 changes navigation and chrome, while the Packs page redesign remains P1.
+
+Build and History remain subviews, not extra main pages. Local clip controls require a clearly documented placement within this structure; a new main destination is a deliberate design decision. Do not inherit a prototype navigation bar as production routing.
 
 This inventory describes the target information architecture, not a requirement to complete every service in the desktop MVP. A retained destination for deferred Store, wallet or account-security capabilities presents an honest unavailable or not-in-this-build state, with no simulated transactions or apparently working controls. Mark each destination's delivered, unavailable or deferred state in the build scope. Its navigation entry does not establish backend readiness, operational authorization or completed feature acceptance.
 

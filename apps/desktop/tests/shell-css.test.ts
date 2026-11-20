@@ -4,6 +4,8 @@ import { test } from "node:test";
 
 const css = readFileSync(new URL("../src/styles.css", import.meta.url), "utf8")
   .replace(/\/\*[\s\S]*?\*\//g, "");
+const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+const leftRailSource = readFileSync(new URL("../src/shell/RailLeft.tsx", import.meta.url), "utf8");
 
 function parseRules(source: string): Map<string, Map<string, string>[]> {
   const rules = new Map<string, Map<string, string>[]>();
@@ -57,6 +59,23 @@ test("the application shell occupies the viewport height", () => {
   const heights = declarationsFor(".app").map((declarations) => declarations.get("height"));
   assert.ok(heights.some((height) => height === "100dvh" || height === "100vh"));
   assert.ok(declarationsFor(".app").some((declarations) => declarations.get("min-height") === "0"));
+});
+
+test("the app uses a tokenized two-rail grid and no top tab bar", () => {
+  assert.ok(declarationsFor(".app").some((rule) => rule.get("grid-template-columns") === "var(--rail-width) minmax(0, 1fr) var(--rail-width)"));
+  assert.ok(declarationsFor(".shell-rail").some((rule) => rule.get("min-width") === "0"));
+  assert.ok(declarationsFor(".shell-main").some((rule) => rule.get("min-width") === "0" && rule.get("background") === "var(--surface)"));
+  assert.match(css, /@import\s+"\.\.\/\.\.\/\.\.\/docs\/design\/visuals\/command-deck\/tokens\.css"/);
+  assert.doesNotMatch(css, /#[0-9a-fA-F]{3,8}\b|(?:rgb|rgba|hsl|hsla)\([^)]*\)/);
+  assert.doesNotMatch(appSource, /shell-tab-list|shell-tab-panel|shell-header/);
+});
+
+test("rail labels wrap in Thai and the decorative ribbons cannot receive pointer input", () => {
+  assert.ok(declarationsFor(".shell-rail-link > span").some((rule) => rule.get("white-space") === "normal" && rule.get("overflow-wrap") === "anywhere"));
+  assert.ok(declarationsFor(".shell-status-items").some((rule) => rule.get("flex-wrap") === "wrap"));
+  assert.ok(declarationsFor(".pulse-grid-ribbon").some((rule) => rule.get("pointer-events") === "none"));
+  assert.match(leftRailSource, /aria-current=\{state\.ariaCurrent\}/);
+  assert.match(leftRailSource, /<nav[^>]*aria-label=/);
 });
 
 test("version metadata stays compact and About leaves a shrinking Status grid above it", () => {
