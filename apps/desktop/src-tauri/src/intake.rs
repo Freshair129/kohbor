@@ -100,7 +100,12 @@ struct AuthRejectLogLimiter {
 enum AuthRejectLogAction {
     First,
     Suppressed,
-    Summary { count: u64 },
+    /// `window_ms` is the real time since the previous log line, not a fixed 60 s, so a burst followed by a long
+    /// quiet gap is never reported as "the last 60 seconds".
+    Summary {
+        count: u64,
+        window_ms: u64,
+    },
 }
 
 impl AuthRejectLogLimiter {
@@ -114,9 +119,11 @@ impl AuthRejectLogLimiter {
             return AuthRejectLogAction::Suppressed;
         }
         let count = self.suppressed;
+        let window_ms = u64::try_from(now.saturating_duration_since(last_emitted).as_millis())
+            .unwrap_or(u64::MAX);
         self.suppressed = 0;
         self.last_emitted = Some(now);
-        AuthRejectLogAction::Summary { count }
+        AuthRejectLogAction::Summary { count, window_ms }
     }
 }
 
@@ -608,13 +615,13 @@ impl Shared {
                     code = "GSI_AUTH_REJECTED"
                 ),
                 AuthRejectLogAction::Suppressed => {}
-                AuthRejectLogAction::Summary { count } => crate::log_info!(
+                AuthRejectLogAction::Summary { count, window_ms } => crate::log_info!(
                     "gsi",
                     "request_rejected_summary",
-                    "GSI auth rejections suppressed during the last 60 seconds",
+                    "GSI auth rejections counted since the previous rejection log line",
                     code = "GSI_AUTH_REJECTED",
                     count = count,
-                    window_ms = 60_000
+                    window_ms = window_ms
                 ),
             }
             return 401;
@@ -1148,7 +1155,10 @@ mod tests {
         );
         assert_eq!(
             limiter.observe(start + Duration::from_secs(60)),
-            AuthRejectLogAction::Summary { count: 3 }
+            AuthRejectLogAction::Summary {
+                count: 3,
+                window_ms: 60_000
+            }
         );
         assert_eq!(
             limiter.observe(start + Duration::from_secs(61)),
@@ -1156,7 +1166,28 @@ mod tests {
         );
         assert_eq!(
             limiter.observe(start + Duration::from_secs(120)),
-            AuthRejectLogAction::Summary { count: 2 }
+            AuthRejectLogAction::Summary {
+                count: 2,
+                window_ms: 60_000
+            }
+        );
+    }
+
+    #[test]
+    fn auth_rejection_summary_reports_the_real_gap_after_a_quiet_period() {
+        let start = Instant::now();
+        let mut limiter = AuthRejectLogLimiter::default();
+        assert_eq!(limiter.observe(start), AuthRejectLogAction::First);
+        assert_eq!(
+            limiter.observe(start + Duration::from_secs(2)),
+            AuthRejectLogAction::Suppressed
+        );
+        assert_eq!(
+            limiter.observe(start + Duration::from_secs(3_600)),
+            AuthRejectLogAction::Summary {
+                count: 2,
+                window_ms: 3_600_000
+            }
         );
     }
 

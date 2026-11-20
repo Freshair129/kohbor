@@ -338,8 +338,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/intake.rs",
-      "bytes": 90330,
-      "sha256": "1aa3a073c8cf87d373295d473f1451bcc19e5a520941bfa4445de81633ea559d"
+      "bytes": 91445,
+      "sha256": "5e4025ef21026d3a1f4e2acf0826d73aadea3796796a9548f08e8748f4d6eeba"
     },
     {
       "path": "apps/desktop/src-tauri/src/lab.rs",
@@ -483,8 +483,8 @@
     },
     {
       "path": "apps/desktop/src/EventBanner.tsx",
-      "bytes": 2137,
-      "sha256": "c530eee14c06ec0c9c39cbe4bbdf8c338f043db77de40b380914d3d7832a9fd4"
+      "bytes": 2330,
+      "sha256": "6f4afa7c241ff190fb644b79628ec3d368b3912d196be79df2a1645ea4e8c691"
     },
     {
       "path": "apps/desktop/src/EventCabinet.tsx",
@@ -2464,7 +2464,7 @@
     {
       "path": "docs/design/MEDIA-PACK-SPEC.md",
       "bytes": 18493,
-      "sha256": "b80a8087aae3960972e69316c6086920af49fe89bc6693490d0f08c62618debb"
+      "sha256": "e0fdb470b34ee18561680d6bc21c937887ee201973a4df1df47f15a5a7c5211c"
     },
     {
       "path": "docs/design/PACKAGE-FORMAT-REVIEW.md",
