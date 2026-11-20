@@ -303,8 +303,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/commands.rs",
-      "bytes": 38322,
-      "sha256": "d51690f2c9501faedbddb2827922f8147739ca0a5ba145d3853addc8a11b8418"
+      "bytes": 37741,
+      "sha256": "a10cd85b49f22fc500cb198a47585519a0bb4a8665f90b71b759508a12c780db"
     },
     {
       "path": "apps/desktop/src-tauri/src/containment.rs",
@@ -318,8 +318,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/host.rs",
-      "bytes": 61814,
-      "sha256": "16d18a3fc4e6a95ef96d0aea29b40c390a35242474a08f0d45d27441ae174947"
+      "bytes": 62077,
+      "sha256": "ef51b6b32e7cf79647941bb925a637af181dfb483d5726c640743c3668df919c"
     },
     {
       "path": "apps/desktop/src-tauri/src/hotkeys.rs",
@@ -398,8 +398,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/media/service.rs",
-      "bytes": 97877,
-      "sha256": "79a840e90a08f87766f9cdca6e67d9b4c08ddabc4a412fc92f05ea90ebf15036"
+      "bytes": 98502,
+      "sha256": "a54e40367d5337e7a1b77b4b56a5e3b5d26334e5b3184d0ffcaa5cd5bd5ea2c1"
     },
     {
       "path": "apps/desktop/src-tauri/src/overlay.rs",
@@ -1348,8 +1348,8 @@
     },
     {
       "path": "apps/desktop/tests/event-cabinet.test.ts",
-      "bytes": 9918,
-      "sha256": "5b7442ef5d6f94e8f82d403046ba50db6ae4964e29ba5645673aafc233d8dee7"
+      "bytes": 10034,
+      "sha256": "888affcff4f47adb6a88fc5cab4522fdebf35a634f8feaac4afc415c3dcbbe04"
     },
     {
       "path": "apps/desktop/tests/gsi-setup-model.test.ts",

@@ -499,25 +499,12 @@ fn wait_for_audition_result(receiver: &Receiver<AuditionSignal>) -> MediaAuditio
     const VISUAL_GRACE: Duration = Duration::from_secs(6);
 
     let started = Instant::now();
-    let mut playback_id = None;
-    let mut has_visual = None;
-    let mut audio_ended = false;
-    let mut audio_timed_out = false;
-    let mut audio_end_reason = None;
-    let mut visual_status = None;
-    let mut visual_reason = None;
-    let mut video_error_code = None;
-
-    loop {
+    let (playback_id, has_visual) = loop {
         match receiver.recv_timeout(START_TIMEOUT.saturating_sub(started.elapsed())) {
             Ok(AuditionSignal::Started {
-                playback_id: id,
-                has_visual: visual,
-            }) => {
-                playback_id = Some(id);
-                has_visual = Some(visual);
-                break;
-            }
+                playback_id,
+                has_visual,
+            }) => break (playback_id, has_visual),
             Ok(_) => continue,
             Err(_) => {
                 return audition_result(
@@ -530,27 +517,19 @@ fn wait_for_audition_result(receiver: &Receiver<AuditionSignal>) -> MediaAuditio
                 );
             }
         }
-    }
-    let Some(playback_id) = playback_id else {
-        return audition_result(
-            false,
-            false,
-            Some("AUDIO_START_UNCONFIRMED".to_owned()),
-            "unknown",
-            Some("AUDITION_RESULT_UNAVAILABLE".to_owned()),
-            None,
-        );
     };
-    if has_visual == Some(false) {
-        visual_status = Some("none");
-    }
+
+    let mut audio_ended = false;
+    let mut audio_timed_out = false;
+    let mut audio_end_reason = None;
+    let mut visual_status = (!has_visual).then_some("none");
+    let mut visual_reason = None;
+    let mut video_error_code = None;
 
     let end_deadline = Instant::now() + END_TIMEOUT;
     let mut visual_deadline = None;
     loop {
-        if (audio_ended || audio_timed_out)
-            && (has_visual == Some(false) || visual_status.is_some())
-        {
+        if (audio_ended || audio_timed_out) && visual_status.is_some() {
             break;
         }
         let now = Instant::now();
@@ -559,7 +538,7 @@ fn wait_for_audition_result(receiver: &Receiver<AuditionSignal>) -> MediaAuditio
             audio_timed_out = true;
             visual_deadline.get_or_insert(now + VISUAL_GRACE);
         }
-        if has_visual == Some(true) && visual_status.is_none() {
+        if has_visual && visual_status.is_none() {
             if visual_deadline.is_none() && audio_ended {
                 visual_deadline = Some(now + VISUAL_GRACE);
             }
@@ -579,7 +558,7 @@ fn wait_for_audition_result(receiver: &Receiver<AuditionSignal>) -> MediaAuditio
         } else {
             end_deadline.saturating_duration_since(now)
         };
-        if has_visual == Some(true) && visual_status.is_none() {
+        if has_visual && visual_status.is_none() {
             if let Some(deadline) = visual_deadline {
                 wait = wait.min(deadline.saturating_duration_since(now));
             }
@@ -613,14 +592,14 @@ fn wait_for_audition_result(receiver: &Receiver<AuditionSignal>) -> MediaAuditio
                     audio_end_reason = Some("AUDIO_END_UNCONFIRMED".to_owned());
                     audio_timed_out = true;
                     visual_deadline.get_or_insert(Instant::now() + VISUAL_GRACE);
-                    if has_visual != Some(true) {
+                    if !has_visual {
                         break;
                     }
                 }
             }
             Err(mpsc::RecvTimeoutError::Disconnected) => {
                 audio_end_reason = Some("AUDITION_RESULT_UNAVAILABLE".to_owned());
-                if has_visual == Some(true) && visual_status.is_none() {
+                if has_visual && visual_status.is_none() {
                     visual_status = Some("unknown");
                     visual_reason = Some("AUDITION_RESULT_UNAVAILABLE".to_owned());
                 }

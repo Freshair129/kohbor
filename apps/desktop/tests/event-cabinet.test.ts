@@ -45,7 +45,10 @@ const snapshot = {
 test("parses the versioned host event map including unavailable and not-voiced catalog rows", () => {
   const parsed = cabinet.parseMediaCabinet(snapshot);
   assert.ok(parsed);
-  assert.equal(parsed.bindings.length, 26);
+  assert.deepEqual(
+    parsed.bindings.map(({ event_id, tier }) => [event_id, tier]),
+    expectedBindings.map(({ event_id, tier }) => [event_id, tier]),
+  );
   assert.equal(parsed.bindings.find((row) => row.event_id === "first_blood")?.state, "detector_unavailable");
   assert.equal(parsed.bindings.find((row) => row.event_id === "hero_respawn")?.state, "not_voiced");
   assert.equal(parsed.bindings.some((row) => row.event_id === "latency_probe"), false);

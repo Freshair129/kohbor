@@ -1532,11 +1532,23 @@ mod tests {
             .as_array()
             .expect("event map exposes an array");
         assert_eq!(event_map["schema_version"], "1.0.0");
-        assert_eq!(
-            rows.len(),
-            26,
-            "active catalog event/tier rows are host-owned"
-        );
+        let mut expected_keys = Vec::new();
+        for event in &catalog.events {
+            if let Some((first, last)) = event.tier_range {
+                expected_keys.extend((first..=last).map(|tier| (event.id.as_str(), json!(tier))));
+            } else {
+                expected_keys.push((event.id.as_str(), Value::Null));
+            }
+        }
+        let actual_keys: Vec<_> = rows
+            .iter()
+            .map(|row| {
+                let id = row["event_id"].as_str().expect("row has an event ID");
+                let tier = row.get("tier").expect("row has a nullable tier");
+                (id, tier.clone())
+            })
+            .collect();
+        assert_eq!(actual_keys, expected_keys, "one row per active catalog key");
 
         let row = |event_id: &str, tier: Option<u64>| {
             rows.iter().find(|row| {

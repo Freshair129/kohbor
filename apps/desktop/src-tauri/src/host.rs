@@ -55,6 +55,7 @@ pub trait MediaJobs: Send + Sync {
     fn active_bindings(&self) -> Result<Value, String> {
         Err("CAPABILITY_UNAVAILABLE".to_owned())
     }
+    fn event_map(&self) -> Result<Value, String>;
     fn probe_report(
         &self,
         install_id: &str,
@@ -90,6 +91,10 @@ impl MediaJobs for MediaHandle {
 
     fn active_bindings(&self) -> Result<Value, String> {
         MediaHandle::active_bindings(self)
+    }
+
+    fn event_map(&self) -> Result<Value, String> {
+        MediaHandle::event_map(self)
     }
 
     fn probe_report(
@@ -947,6 +952,9 @@ mod tests {
         fn active_bindings(&self) -> Result<Value, String> {
             self.calls.fetch_add(1, Ordering::Relaxed);
             self.bindings.clone()
+        }
+        fn event_map(&self) -> Result<Value, String> {
+            Err("CAPABILITY_UNAVAILABLE".to_owned())
         }
         fn probe_report(
             &self,
