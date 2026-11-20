@@ -355,7 +355,7 @@ test("volume labels, error messages, and Dota hotkey hint exist in both locales"
 
 test("deck and pack placements use the same VolumeControl and shared prefs hook", () => {
   const deck = readFileSync(new URL("../src/deck/AnnouncerStatus.tsx", import.meta.url), "utf8");
-  const packs = readFileSync(new URL("../src/PackPanel.tsx", import.meta.url), "utf8");
+  const packs = readFileSync(new URL("../src/packs/PacksPage.tsx", import.meta.url), "utf8");
   const control = readFileSync(new URL("../src/VolumeControl.tsx", import.meta.url), "utf8");
   const hook = readFileSync(new URL("../src/useAudioPrefs.ts", import.meta.url), "utf8");
   assert.match(deck, /<VolumeControl/);

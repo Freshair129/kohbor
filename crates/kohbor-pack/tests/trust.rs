@@ -11,6 +11,7 @@ fn descriptor(id: &str, name: &str, key: Option<&str>) -> Descriptor {
         taxonomy: TaxonomyVersion { major: 1, minor: 1 },
         display_name: name.into(),
         publisher_key_id: key.map(str::to_owned),
+        presentation: None,
         files: vec![],
         bindings: vec![],
     }
@@ -54,7 +55,7 @@ fn trust_strings_match_schema() {
     let schema: serde_json::Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
     assert_eq!(
         AuthorityClass::LocalImport.as_str(),
-        schema["properties"]["record"]["anyOf"][0]["properties"]["authority_class"]["const"]
+        schema["properties"]["record"]["anyOf"][0]["properties"]["authority_class"]["enum"][0]
             .as_str()
             .unwrap()
     );
@@ -65,6 +66,26 @@ fn trust_strings_match_schema() {
     for p in [PublisherClaim::None, PublisherClaim::Unverified] {
         assert!(values.contains(&serde_json::json!(p.as_str())));
     }
+}
+
+#[test]
+fn authority_class_comes_from_install_origin_and_not_pack_names() {
+    use kohbor_pack::trust::{assess_for_origin, InstallOrigin};
+
+    let descriptor_named_system = descriptor("system", "Local impostor", Some("claim-key"));
+    assert_eq!(
+        assess_for_origin(&descriptor_named_system, InstallOrigin::LocalFile).authority_class,
+        AuthorityClass::LocalImport
+    );
+    assert_eq!(
+        assess_for_origin(&descriptor_named_system, InstallOrigin::ShippedWithApp).authority_class,
+        AuthorityClass::System
+    );
+    let ordinary_name = descriptor("ordinary", "system", None);
+    assert_eq!(
+        assess_for_origin(&ordinary_name, InstallOrigin::LocalFile).authority_class,
+        AuthorityClass::LocalImport
+    );
 }
 #[test]
 fn staged_descriptor_cannot_grant_trust() {

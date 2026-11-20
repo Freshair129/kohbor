@@ -1,6 +1,9 @@
 use super::fake_sink::{table, tick, Call, FakeSink, Harness};
 use super::lanes::{AuditionRefusal, AuditionRequest, Control, EngineOut, Offer};
-use super::resolve::{Clip, Entry, PrewarmTable, VariantMedia, VariantSelection, VariantSet};
+use super::outcome::PlaybackEnd;
+use super::resolve::{
+    Clip, Entry, PrewarmTable, SelectedClip, VariantMedia, VariantSelection, VariantSet,
+};
 use super::slot_sink::SlotSink;
 use kohbor_audio::{PlaybackId, Sink, SinkEvent};
 use kohbor_events::{Event, EventId};
@@ -23,6 +26,10 @@ fn valid_event(s: &str) -> bool {
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
 }
 fn check_record(v: &Value) {
+    assert!(
+        super::outcome::is_valid_record(v),
+        "audio-outcome 1.1.0 shape"
+    );
     let schema: Value = serde_json::from_str(include_str!(
         "../../../../../contracts/audio-outcome.schema.json"
     ))
@@ -223,6 +230,14 @@ fn has_end(out: &[EngineOut], reason: &str) -> bool {
 }
 
 fn offer_audition(h: &Harness, id: EventId) -> mpsc::Receiver<Result<(), AuditionRefusal>> {
+    offer_audition_variant(h, id, None)
+}
+
+fn offer_audition_variant(
+    h: &Harness,
+    id: EventId,
+    variant_id: Option<&str>,
+) -> mpsc::Receiver<Result<(), AuditionRefusal>> {
     let (reply, result) = mpsc::sync_channel(1);
     h.tx.offer_audition(AuditionRequest {
         event: Event {
@@ -230,9 +245,53 @@ fn offer_audition(h: &Harness, id: EventId) -> mpsc::Receiver<Result<(), Auditio
             tier: None,
             at_ms: 0,
         },
+        variant_id: variant_id.map(str::to_owned),
         install_id: "ins_0000000007".to_owned(),
+        selected: None,
+        overlay: true,
         session_epoch: 1,
         sequence: 1,
+        expires_at: Instant::now() + Duration::from_secs(30),
+        reply,
+    })
+    .unwrap();
+    result
+}
+
+fn offer_drawer_preview(
+    h: &Harness,
+    install_id: &str,
+) -> mpsc::Receiver<Result<(), AuditionRefusal>> {
+    let (reply, result) = mpsc::sync_channel(1);
+    let selected = SelectedClip {
+        event_id: EventId::HeroKill,
+        bound_tier: None,
+        variant_index: 0,
+        variant_id: "v1".to_owned(),
+        clip_id: None,
+        selection: None,
+        media: Clip {
+            pcm: Arc::from(vec![0_i16; 480]),
+            bound_tier: None,
+            audio_ms: 10,
+            visual_tail_ms: 900,
+            visual_url: Some(Arc::from(
+                "kohbor-media://localhost/v1/ins_0000000008/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            )),
+        },
+    };
+    h.tx.offer_audition(AuditionRequest {
+        event: Event {
+            id: EventId::HeroKill,
+            tier: None,
+            at_ms: 0,
+        },
+        variant_id: Some("v1".to_owned()),
+        install_id: install_id.to_owned(),
+        selected: Some(selected),
+        overlay: false,
+        session_epoch: 1,
+        sequence: 2,
         expires_at: Instant::now() + Duration::from_secs(30),
         reply,
     })
@@ -522,6 +581,118 @@ fn audition_uses_engine_admission_and_keeps_the_verified_visual_banner() {
     assert_eq!(playback["event_type"], "audition");
     assert_eq!(playback["visual_url"], visual);
     assert_eq!(log.lock().unwrap().calls.len(), 1, "clip submitted once");
+}
+
+#[test]
+fn audition_without_overlay_flag_is_audio_only() {
+    let (sink, log) = FakeSink::new();
+    let mut h = Harness::new(Some(Box::new(sink)), false, 256);
+    let visual = "kohbor-media://localhost/v1/ins_0000000007/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    assert!(h
+        .tx
+        .control(Control::SwapTable {
+            table: table(7, &[(EventId::HeroKill, None, 4800, 900, Some(visual))]),
+        })
+        .is_ok());
+    h.engine.step(0);
+    h.drain();
+    let (reply, result) = mpsc::sync_channel(1);
+    h.tx.offer_audition(AuditionRequest {
+        event: Event {
+            id: EventId::HeroKill,
+            tier: None,
+            at_ms: 0,
+        },
+        variant_id: None,
+        install_id: "ins_0000000007".to_owned(),
+        selected: None,
+        overlay: false,
+        session_epoch: 1,
+        sequence: 3,
+        expires_at: Instant::now() + Duration::from_secs(30),
+        reply,
+    })
+    .unwrap();
+    h.engine.step(10);
+    assert_eq!(result.try_recv().unwrap(), Ok(()));
+    let drained = h.drain();
+    let playback = playbacks(&drained)
+        .into_iter()
+        .find(|item| item["kind"] == "started")
+        .unwrap();
+    assert!(playback["visual_url"].is_null());
+    assert_eq!(playback["visual_tail_ms"], 0);
+    assert_eq!(log.lock().unwrap().calls.len(), 1);
+}
+
+#[test]
+fn drawer_preview_uses_the_nonactive_clip_without_overlay_visuals() {
+    let (sink, log) = FakeSink::new();
+    let mut h = Harness::new(Some(Box::new(sink)), false, 256);
+    assert!(h
+        .tx
+        .control(Control::SwapTable {
+            table: table(7, &[(EventId::HeroKill, None, 4800, 0, None)])
+        })
+        .is_ok());
+    h.engine.step(0);
+    h.drain();
+    let preview = offer_drawer_preview(&h, "ins_0000000008");
+    h.engine.step(10);
+    assert_eq!(preview.try_recv().unwrap(), Ok(()));
+    let outputs = h.drain();
+    let outcome = outcomes(&outputs)
+        .into_iter()
+        .find(|item| item["outcome"] == "admitted")
+        .unwrap();
+    assert_eq!(outcome["package_revision"], 8);
+    let playback = playbacks(&outputs)
+        .into_iter()
+        .find(|item| item["kind"] == "started")
+        .unwrap();
+    assert_eq!(playback["event_type"], "audition");
+    assert!(
+        playback["visual_url"].is_null(),
+        "drawer clip visuals never reach the overlay"
+    );
+    assert_eq!(playback["visual_tail_ms"], 0);
+    assert_eq!(
+        log.lock().unwrap().calls,
+        vec![Call::Submit(PlaybackId(1), 480)]
+    );
+
+    offer(&h, 1, &[(EventId::HeroKill, None)]);
+    h.engine.step(11);
+    assert!(has_end(&h.drain(), "cancelled_preempted"));
+    assert_eq!(
+        log.lock().unwrap().calls,
+        vec![
+            Call::Submit(PlaybackId(1), 480),
+            Call::Cancel(PlaybackId(1)),
+            Call::Submit(PlaybackId(2), 4800),
+        ]
+    );
+}
+
+#[test]
+fn drawer_preview_is_refused_when_a_match_is_active() {
+    let (sink, _) = FakeSink::new();
+    let mut h = Harness::new(Some(Box::new(sink)), false, 256);
+    assert!(h
+        .tx
+        .control(Control::SwapTable {
+            table: table(7, &[(EventId::HeroKill, None, 4800, 0, None)])
+        })
+        .is_ok());
+    h.engine.step(0);
+    h.drain();
+    let preview = offer_drawer_preview(&h, "ins_0000000008");
+    h.tx.set_audition_match_active(true);
+    h.engine.step(10);
+    assert_eq!(
+        preview.try_recv().unwrap(),
+        Err(AuditionRefusal::MatchActive)
+    );
 }
 
 #[test]
@@ -832,6 +1003,30 @@ fn variant_table(variants: &[(&str, Result<usize, &'static str>)]) -> Arc<Prewar
 }
 
 #[test]
+fn audition_submits_the_exact_requested_variant() {
+    let (sink, log) = FakeSink::new();
+    let mut h = Harness::new(Some(Box::new(sink)), false, 256);
+    assert!(h
+        .tx
+        .control(Control::SwapTable {
+            table: variant_table(&[("first", Ok(4_800)), ("chosen", Ok(9_600))]),
+        })
+        .is_ok());
+    h.engine.step(0);
+    h.drain();
+
+    let audition = offer_audition_variant(&h, EventId::Streak, Some("chosen"));
+    h.engine.step(10);
+
+    assert_eq!(audition.try_recv().unwrap(), Ok(()));
+    assert_eq!(
+        log.lock().unwrap().calls,
+        vec![Call::Submit(PlaybackId(1), 9_600)],
+        "audition submits the samples from the named variant"
+    );
+}
+
+#[test]
 fn instance_ids_use_original_position() {
     let (mut h, _) = setup();
     offer(
@@ -945,6 +1140,13 @@ fn device_loss_reports_and_fences() {
     h.engine.step(20);
     let o = h.drain();
     assert!(has_end(&o, "cancelled_device_lost"));
+    assert!(o.iter().any(|x| matches!(
+        x,
+        EngineOut::PlaybackEnd {
+            end: PlaybackEnd::Failed,
+            ..
+        }
+    )));
     assert!(o.iter().any(|x| matches!(x, EngineOut::DeviceLost)));
     let lost = o
         .iter()
@@ -1275,6 +1477,13 @@ fn interrupted_clip_emits_one_finished_record_with_exact_expected_frames() {
     h.engine.step(20);
 
     let out = h.drain();
+    assert!(out.iter().any(|item| matches!(
+        item,
+        EngineOut::PlaybackEnd {
+            end: PlaybackEnd::Cut,
+            ..
+        }
+    )));
     let finished: Vec<_> = out
         .iter()
         .filter_map(|item| match item {
@@ -1305,6 +1514,13 @@ fn natural_clip_end_emits_one_finished_record() {
     h.engine.step(5_000);
 
     let out = h.drain();
+    assert!(out.iter().any(|item| matches!(
+        item,
+        EngineOut::PlaybackEnd {
+            end: PlaybackEnd::Finished,
+            ..
+        }
+    )));
     let finished: Vec<_> = out
         .iter()
         .filter_map(|item| match item {
@@ -2365,13 +2581,18 @@ fn record_checker_accepts_valid_outcomes() {
         } else {
             Value::Null
         };
-        let v = serde_json::json!({"schema_version":"1.0.0","instance_id":"ev_g3_s1_0","event_type":"hero_kill","session_epoch":1,"audio_class":"ordinary","outcome":outcome,"playback_id":id,"package_revision":7,"decided_monotonic_ms":10});
+        let playback_end = if outcome == "preempted" {
+            serde_json::json!("cut")
+        } else {
+            Value::Null
+        };
+        let v = serde_json::json!({"schema_version":"1.1.0","instance_id":"ev_g3_s1_0","event_type":"hero_kill","session_epoch":1,"audio_class":"ordinary","outcome":outcome,"playback_id":id,"package_revision":7,"decided_monotonic_ms":10,"tier":null,"variant_id":null,"clip_id":null,"selection":null,"game_clock_seconds":null,"match_id":"local_match_1","playback_end":playback_end});
         check_record(&v);
     }
 }
 #[test]
 fn record_checker_rejects_malformed_outcomes() {
-    let base = serde_json::json!({"schema_version":"1.0.0","instance_id":"ev_g3_s1_0","event_type":"hero_kill","session_epoch":1,"audio_class":"ordinary","outcome":"admitted","playback_id":"pb_0000000001","package_revision":7,"decided_monotonic_ms":10});
+    let base = serde_json::json!({"schema_version":"1.1.0","instance_id":"ev_g3_s1_0","event_type":"hero_kill","session_epoch":1,"audio_class":"ordinary","outcome":"admitted","playback_id":"pb_0000000001","package_revision":7,"decided_monotonic_ms":10,"tier":null,"variant_id":null,"clip_id":null,"selection":null,"game_clock_seconds":null,"match_id":"local_match_1","playback_end":null});
     for (field, bad) in [
         ("instance_id", serde_json::json!("bad")),
         ("session_epoch", serde_json::json!(0)),

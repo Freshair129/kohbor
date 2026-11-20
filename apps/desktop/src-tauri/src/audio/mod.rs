@@ -5,6 +5,7 @@ pub mod fake_sink;
 pub mod lanes;
 pub mod outcome;
 pub mod publisher;
+pub mod recap;
 pub mod resolve;
 pub mod slot_sink;
 

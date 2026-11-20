@@ -24,6 +24,7 @@ use super::lanes::{
 };
 use super::outcome::{
     playback_ended, playback_started, pre_owner_record, preempted_record, record, EndReason,
+    OutcomeDetails, PlaybackEnd,
 };
 use super::resolve::{
     class_of, instance_id, BindingLookup, PrewarmTable, SelectedClip, PREWARM_CAP_REASON,
@@ -43,6 +44,20 @@ fn variant_log(selected: &SelectedClip) -> ClipVariantLog {
     }
 }
 
+fn outcome_details(
+    tier: Option<u8>,
+    variant: Option<&ClipVariantLog>,
+    game_clock_seconds: Option<u64>,
+) -> OutcomeDetails {
+    OutcomeDetails {
+        tier,
+        variant_id: variant.map(|value| value.variant_id.clone()),
+        clip_id: variant.and_then(|value| value.clip_id.clone()),
+        selection: variant.and_then(|value| value.selection.clone()),
+        game_clock_seconds,
+    }
+}
+
 const CONTROL_BUDGET: usize = 32;
 const ORDINARY_BUDGET: usize = 16;
 const REBUILD_WINDOW_MS: u64 = 60_000;
@@ -57,12 +72,14 @@ struct LivePlayback {
     decision: Decision,
     audio_ends_at_ms: Option<u64>,
     expected_frames: Option<u64>,
+    details: OutcomeDetails,
 }
 
 struct PendingClip {
     instance_id: String,
     tier: Option<u8>,
     selected: SelectedClip,
+    game_clock_seconds: Option<u64>,
 }
 
 pub struct Engine {
@@ -499,7 +516,12 @@ impl Engine {
             let admitted = decision.outcome == Outcome::Admitted;
             let id = decision.playback_id;
             let decision_instance_id = decision.instance_id.clone();
-            self.handle_decision(decision, Some(&selected), event.tier);
+            self.handle_decision(
+                decision,
+                Some(&selected),
+                event.tier,
+                message.game_clock_seconds,
+            );
             if admitted && self.latency {
                 let _ = self.try_output(EngineOut::Latency {
                     instance_id: decision_instance_id,
@@ -517,7 +539,12 @@ impl Engine {
             // A replacement emits the previous request's decision immediately.
             // Drain it before associating this request's clip with the queue slot.
             self.drain_notices();
-            self.remember_pending_clip(&key, event.tier, selected.clone());
+            self.remember_pending_clip(
+                &key,
+                event.tier,
+                selected.clone(),
+                message.game_clock_seconds,
+            );
             if class == AudioClass::Ordinary {
                 let _ = self.try_output(EngineOut::ClipQueued {
                     event_id: event_type.to_owned(),
@@ -528,13 +555,17 @@ impl Engine {
         }
     }
 
-    fn resolve_audition_clip(&self, event: Event) -> Result<SelectedClip, Outcome> {
-        VariantSelector::first_ready(&self.table, event.id, event.tier).map_err(|failure| {
-            match failure {
-                SelectionFailure::Unmapped => Outcome::Unmapped,
-                SelectionFailure::InvalidMedia => Outcome::InvalidMedia,
+    fn resolve_audition_clip(
+        &self,
+        event: Event,
+        variant_id: Option<&str>,
+    ) -> Result<SelectedClip, SelectionFailure> {
+        match variant_id {
+            Some(variant_id) => {
+                VariantSelector::by_id(&self.table, event.id, event.tier, variant_id)
             }
-        })
+            None => VariantSelector::first_ready(&self.table, event.id, event.tier),
+        }
     }
 
     fn request_playback(&mut self, now_ms: u64, request: Request) -> Option<Decision> {
@@ -558,15 +589,36 @@ impl Engine {
         {
             return Err(AuditionRefusal::Busy);
         }
-        if self.table.install_id.as_deref() != Some(audition.install_id.as_str()) {
-            return Err(AuditionRefusal::MediaStateUnknown);
+        let mut clip = if let Some(selected) = audition.selected.as_ref() {
+            if audition.overlay
+                || self.table.install_id.as_deref() == Some(audition.install_id.as_str())
+            {
+                return Err(AuditionRefusal::ActivePack);
+            }
+            if selected.event_id != audition.event.id
+                || selected.bound_tier != audition.event.tier
+                || selected.variant_id != audition.variant_id.as_deref().unwrap_or("")
+            {
+                return Err(AuditionRefusal::VariantUnavailable);
+            }
+            selected.clone()
+        } else {
+            if self.table.install_id.as_deref() != Some(audition.install_id.as_str()) {
+                return Err(AuditionRefusal::MediaStateUnknown);
+            }
+            self.resolve_audition_clip(audition.event, audition.variant_id.as_deref())
+                .map_err(|failure| match failure {
+                    SelectionFailure::Unmapped => AuditionRefusal::Unmapped,
+                    SelectionFailure::InvalidMedia => AuditionRefusal::MediaStateUnknown,
+                    SelectionFailure::VariantUnavailable => AuditionRefusal::VariantUnavailable,
+                })?
+        };
+        if !audition.overlay {
+            clip.media.visual_url = None;
+            clip.media.visual_tail_ms = 0;
         }
-        let clip = self
-            .resolve_audition_clip(audition.event)
-            .map_err(|outcome| match outcome {
-                Outcome::Unmapped => AuditionRefusal::Unmapped,
-                _ => AuditionRefusal::MediaStateUnknown,
-            })?;
+        let source_revision = Self::install_id_number(&audition.install_id)
+            .ok_or(AuditionRefusal::MediaStateUnknown)?;
         let request = Request {
             instance_id: instance_id(AUDITION_GENERATION, audition.sequence, 0),
             event_type: Some("audition".to_owned()),
@@ -574,6 +626,7 @@ impl Engine {
             class: AudioClass::Ordinary,
             ordinary_rank: 0,
             episode: None,
+            // The owner uses the active table fence to admit and cancel audio.
             package_revision: Some(self.table.fence),
             pcm: clip.media.pcm.clone(),
             visual_tail_ms: clip.media.visual_tail_ms,
@@ -599,10 +652,10 @@ impl Engine {
         self.drain_notices();
         match decision {
             Some(mut decision) if decision.outcome == Outcome::Admitted => {
-                // The owner fence is local. The outcome record uses the host's
-                // positive epoch and identifies the playback as an audition.
+                // Report the host epoch and the pack that supplied the clip.
                 decision.session_epoch = audition.session_epoch;
-                self.handle_decision(decision, Some(&clip), None);
+                decision.package_revision = Some(source_revision);
+                self.handle_decision(decision, Some(&clip), audition.event.tier, None);
                 Ok(())
             }
             decision => {
@@ -614,6 +667,14 @@ impl Engine {
                 }
             }
         }
+    }
+
+    fn install_id_number(install_id: &str) -> Option<u64> {
+        let digits = install_id.strip_prefix("ins_")?;
+        if digits.len() != 10 || !digits.bytes().all(|byte| byte.is_ascii_digit()) {
+            return None;
+        }
+        digits.parse().ok().filter(|value| *value > 0)
     }
 
     fn stop_audition(&mut self, now_ms: u64, preempted: bool) {
@@ -638,6 +699,7 @@ impl Engine {
         } else {
             Some(self.table.fence)
         };
+        let details = outcome_details(event.tier, variant.as_ref(), message.game_clock_seconds);
         if let Some(value) = pre_owner_record(
             key,
             Some(event.id.as_str()),
@@ -646,6 +708,7 @@ impl Engine {
             outcome,
             revision,
             now_ms,
+            &details,
         ) {
             let _ = self.try_output(EngineOut::Outcome(value));
         } else {
@@ -659,7 +722,10 @@ impl Engine {
         decision: Decision,
         clip: Option<&SelectedClip>,
         tier: Option<u8>,
+        game_clock_seconds: Option<u64>,
     ) {
+        let clip_log = clip.map(variant_log);
+        let details = outcome_details(tier, clip_log.as_ref(), game_clock_seconds);
         if decision.outcome == Outcome::Admitted {
             if decision.event_type.as_deref() != Some("audition") {
                 if let Some(clip) = clip {
@@ -677,12 +743,14 @@ impl Engine {
                     decision.clone(),
                     audio_ends_at_ms,
                     clip.map(|clip| clip.media.pcm.len() as u64),
+                    details.clone(),
                 );
                 self.last_issued_id = self.last_issued_id.max(id.0);
             }
         }
 
-        match record(&decision) {
+        let playback_end = (decision.outcome == Outcome::Preempted).then_some(PlaybackEnd::Cut);
+        match record(&decision, &details, playback_end) {
             Some(value) => {
                 let _ = self.try_output(EngineOut::Outcome(value));
             }
@@ -735,6 +803,7 @@ impl Engine {
         instance_id: &str,
         tier: Option<u8>,
         selected: SelectedClip,
+        game_clock_seconds: Option<u64>,
     ) {
         if let Some(position) = self
             .pending_clips
@@ -747,6 +816,7 @@ impl Engine {
             instance_id: instance_id.to_owned(),
             tier,
             selected,
+            game_clock_seconds,
         });
     }
 
@@ -764,6 +834,7 @@ impl Engine {
         decision: Decision,
         audio_ends_at_ms: Option<u64>,
         expected_frames: Option<u64>,
+        details: OutcomeDetails,
     ) {
         self.remove_live(id);
         if self.live.len() < 2 {
@@ -772,6 +843,7 @@ impl Engine {
                 decision,
                 audio_ends_at_ms,
                 expected_frames,
+                details,
             });
         }
     }
@@ -785,6 +857,7 @@ impl Engine {
                     decision: live.decision.clone(),
                     audio_ends_at_ms: live.audio_ends_at_ms,
                     expected_frames: live.expected_frames,
+                    details: live.details.clone(),
                 });
                 false
             } else {
@@ -806,6 +879,9 @@ impl Engine {
                     decision,
                     pending.as_ref().map(|pending| &pending.selected),
                     pending.as_ref().and_then(|pending| pending.tier),
+                    pending
+                        .as_ref()
+                        .and_then(|pending| pending.game_clock_seconds),
                 );
             }
         }
@@ -821,10 +897,20 @@ impl Engine {
                         decision,
                         pending.as_ref().map(|pending| &pending.selected),
                         pending.as_ref().and_then(|pending| pending.tier),
+                        pending
+                            .as_ref()
+                            .and_then(|pending| pending.game_clock_seconds),
                     );
                 }
                 Notice::Finished { id, at_ms } => {
                     let live = self.remove_live(id);
+                    if let Some(live) = live.as_ref() {
+                        let _ = self.try_output(EngineOut::PlaybackEnd {
+                            playback_id: id,
+                            instance_id: live.decision.instance_id.clone(),
+                            end: PlaybackEnd::Finished,
+                        });
+                    }
                     let _ = self.try_output(EngineOut::Playback(playback_ended(
                         id,
                         EndReason::Finished,
@@ -847,6 +933,24 @@ impl Engine {
                     } else {
                         reason
                     };
+                    let audio_still_running = live.as_ref().is_none_or(|live| {
+                        live.audio_ends_at_ms
+                            .is_none_or(|end_at_ms| at_ms < end_at_ms)
+                    });
+                    let playback_end = if !audio_still_running {
+                        PlaybackEnd::Finished
+                    } else if reason == CancelReason::DeviceLost {
+                        PlaybackEnd::Failed
+                    } else {
+                        PlaybackEnd::Cut
+                    };
+                    if let Some(live) = live.as_ref() {
+                        let _ = self.try_output(EngineOut::PlaybackEnd {
+                            playback_id: id,
+                            instance_id: live.decision.instance_id.clone(),
+                            end: playback_end,
+                        });
+                    }
                     let _ = self.try_output(EngineOut::Playback(playback_ended(
                         id,
                         EndReason::Cancelled(reason),
@@ -865,7 +969,9 @@ impl Engine {
                                 .audio_ends_at_ms
                                 .is_none_or(|audio_ends_at_ms| at_ms < audio_ends_at_ms);
                             if before_audio_end {
-                                if let Some(value) = preempted_record(&live.decision, at_ms) {
+                                if let Some(value) =
+                                    preempted_record(&live.decision, at_ms, &live.details)
+                                {
                                     let _ = self.try_output(EngineOut::Outcome(value));
                                 } else {
                                     Self::increment_u64(&self.shared.out_dropped);

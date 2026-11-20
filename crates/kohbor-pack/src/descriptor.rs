@@ -1,4 +1,4 @@
-//! Package descriptor (`descriptor.json`, media-manifest 1.3.0 and 1.4.0): strict
+//! Package descriptor (`descriptor.json`, media-manifest 1.3.0, 1.4.0, and proposed 1.4.1): strict
 //! parsing plus the semantic rules of EVENT-AUDIO-SPEC section 7 and MP-03/MP-05.
 //! Pure: bytes in, a typed descriptor or one specific [`RejectReason`] out.
 
@@ -19,6 +19,7 @@ pub enum FileRole {
     IdentityAudio,
     SourceAsset,
     Font,
+    Cover,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -51,6 +52,8 @@ pub struct Variant {
     pub variant_id: String,
     /// Provenance for local logs only; never an authority or trust claim.
     pub clip_id: Option<String>,
+    /// Optional display-only text. Never used as identity, authority, or audio input.
+    pub caption: Option<String>,
     pub mixed_audio_path: String,
     pub silent_visual_path: Option<String>,
     pub duration_ms: u32,
@@ -75,8 +78,17 @@ pub struct Descriptor {
     pub display_name: String,
     /// A claim only; never trust (MEDIA-008).
     pub publisher_key_id: Option<String>,
+    pub presentation: Option<Presentation>,
     pub files: Vec<FileEntry>,
     pub bindings: Vec<Binding>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Presentation {
+    pub description: Option<String>,
+    pub author: Option<String>,
+    pub languages: Vec<String>,
+    pub cover: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -93,10 +105,10 @@ pub struct ParsedDescriptor {
 /// Order of checks (the first failure is the reported reason):
 /// 1. size > `limits.descriptor_bytes` -> `EntryTooLarge`; not UTF-8 JSON ->
 ///    `DescriptorSyntax`; duplicate object key anywhere -> `DuplicateJsonKey`.
-/// 2. Shape per media-manifest 1.3.0 or 1.4.0 with
+/// 2. Shape per media-manifest 1.3.0, 1.4.0, or proposed 1.4.1 with
 ///    `additionalProperties: false`: an unknown key -> `UnknownField(key)` (this
 ///    is how a self-declared `trusted_public_key` or authority claim is rejected);
-///    a 1.4.0 variant carrying reserved `when` -> `ConditionsReserved`; invalid
+///    a 1.4.x variant carrying reserved `when` -> `ConditionsReserved`; invalid
 ///    selection, variant IDs, clip IDs, weights or variant counts have specific
 ///    reasons; any other schema violation (type, pattern, range, counts,
 ///    unsupported schema version, missing/null `taxonomy_version`, or a
@@ -146,7 +158,9 @@ pub fn parse_descriptor(
     validate_schema(&value, limits)?;
 
     let root = value.as_object().ok_or_else(|| schema_error(""))?;
-    let legacy_v13 = required_string(root, "schema_version", "/schema_version")? == "1.3.0";
+    let schema_version = required_string(root, "schema_version", "/schema_version")?;
+    let legacy_v13 = schema_version == "1.3.0";
+    let captions_supported = matches!(schema_version, "1.4.1" | "1.4.2");
     let taxonomy_text = required_string(root, "taxonomy_version", "/taxonomy_version")?;
     let taxonomy = TaxonomyVersion::parse(taxonomy_text).ok_or(RejectReason::TaxonomyMalformed)?;
     if taxonomy.major != catalog.taxonomy.major {
@@ -170,6 +184,7 @@ pub fn parse_descriptor(
             "identity_audio" => FileRole::IdentityAudio,
             "source_asset" => FileRole::SourceAsset,
             "font" => FileRole::Font,
+            "cover" => FileRole::Cover,
             _ => return Err(schema_error(&format!("{pointer}/role"))),
         };
         files.push(FileEntry {
@@ -200,7 +215,7 @@ pub fn parse_descriptor(
         };
         let (selection, variants) = if legacy_v13 {
             let variant_id = format!("v{}", index + 1);
-            let variant = parse_variant_fields(object, &pointer, variant_id, None, None)?;
+            let variant = parse_variant_fields(object, &pointer, variant_id, None, None, None)?;
             (None, vec![variant])
         } else {
             let variant_values = object
@@ -242,6 +257,20 @@ pub fn parse_descriptor(
                             .ok_or(RejectReason::ClipIdInvalid)
                     })
                     .transpose()?;
+                let caption = if captions_supported {
+                    variant_object
+                        .get("caption")
+                        .map(|value| {
+                            value
+                                .as_str()
+                                .filter(|text| caption_is_valid(text))
+                                .map(str::to_owned)
+                                .ok_or(RejectReason::CaptionInvalid)
+                        })
+                        .transpose()?
+                } else {
+                    None
+                };
                 let weight = variant_object
                     .get("weight")
                     .map(|value| {
@@ -260,6 +289,7 @@ pub fn parse_descriptor(
                     variant_id,
                     clip_id,
                     weight,
+                    caption,
                 )?);
             }
             (selection, variants)
@@ -274,6 +304,20 @@ pub fn parse_descriptor(
     }
 
     // Schema-valid paths can still contain semantically unsafe segments.
+    let presentation = parse_presentation(root, schema_version)?;
+    if let Some(cover_path) = presentation
+        .as_ref()
+        .and_then(|value| value.cover.as_deref())
+    {
+        check_reference(&files, cover_path, FileRole::Cover)?;
+        let cover = files
+            .iter()
+            .find(|file| file.path == cover_path)
+            .ok_or(RejectReason::DanglingReference)?;
+        if cover.size_bytes > 1_048_576 {
+            return Err(RejectReason::CoverInvalid);
+        }
+    }
     for file in &files {
         if !safe_manifest_path(&file.path) {
             return Err(RejectReason::UnsafePath);
@@ -371,6 +415,14 @@ pub fn parse_descriptor(
         {
             return Err(RejectReason::UnpairedBinding);
         }
+        if file.role == FileRole::Cover
+            && presentation
+                .as_ref()
+                .and_then(|value| value.cover.as_deref())
+                != Some(file.path.as_str())
+        {
+            return Err(RejectReason::UnpairedBinding);
+        }
     }
 
     Ok(ParsedDescriptor {
@@ -384,6 +436,7 @@ pub fn parse_descriptor(
                 "publisher_key_id",
                 "/publisher_key_id",
             )?,
+            presentation,
             files,
             bindings,
         },
@@ -397,22 +450,23 @@ fn validate_schema(value: &Value, limits: Limits) -> Result<(), RejectReason> {
         .get("schema_version")
         .and_then(Value::as_str)
         .ok_or_else(|| schema_error("/schema_version"))?;
-    if !matches!(schema_version, "1.3.0" | "1.4.0") {
+    if !matches!(schema_version, "1.3.0" | "1.4.0" | "1.4.1" | "1.4.2") {
         return Err(schema_error("/schema_version"));
     }
-    reject_unknown_keys(
-        root,
-        &[
-            "schema_version",
-            "package_id",
-            "revision",
-            "taxonomy_version",
-            "display_name",
-            "publisher_key_id",
-            "files",
-            "bindings",
-        ],
-    )?;
+    let mut root_keys = vec![
+        "schema_version",
+        "package_id",
+        "revision",
+        "taxonomy_version",
+        "display_name",
+        "publisher_key_id",
+        "files",
+        "bindings",
+    ];
+    if schema_version == "1.4.2" {
+        root_keys.push("presentation");
+    }
+    reject_unknown_keys(root, &root_keys)?;
 
     if let Some(files) = root.get("files").and_then(Value::as_array) {
         for item in files {
@@ -445,8 +499,7 @@ fn validate_schema(value: &Value, limits: Limits) -> Result<(), RejectReason> {
                                 if variant_object.contains_key("when") {
                                     return Err(RejectReason::ConditionsReserved);
                                 }
-                                reject_unknown_keys(
-                                    variant_object,
+                                let allowed = if matches!(schema_version, "1.4.1" | "1.4.2") {
                                     &[
                                         "variant_id",
                                         "clip_id",
@@ -456,8 +509,21 @@ fn validate_schema(value: &Value, limits: Limits) -> Result<(), RejectReason> {
                                         "visual_tail_ms",
                                         "identity_audio_path",
                                         "weight",
-                                    ],
-                                )?;
+                                        "caption",
+                                    ][..]
+                                } else {
+                                    &[
+                                        "variant_id",
+                                        "clip_id",
+                                        "mixed_audio_path",
+                                        "silent_visual_path",
+                                        "duration_ms",
+                                        "visual_tail_ms",
+                                        "identity_audio_path",
+                                        "weight",
+                                    ][..]
+                                };
+                                reject_unknown_keys(variant_object, allowed)?;
                             }
                         }
                     }
@@ -497,6 +563,9 @@ fn validate_schema(value: &Value, limits: Limits) -> Result<(), RejectReason> {
         Some(Value::String(value)) if !value.is_empty() && value.chars().count() <= 96 => {}
         _ => return Err(schema_error("/publisher_key_id")),
     }
+    if let Some(presentation) = root.get("presentation") {
+        validate_presentation(presentation)?;
+    }
 
     let files = root
         .get("files")
@@ -526,7 +595,8 @@ fn validate_schema(value: &Value, limits: Limits) -> Result<(), RejectReason> {
             return Err(schema_error(&format!("{pointer}/sha256")));
         }
         match required_string(object, "role", &format!("{pointer}/role"))? {
-            "mixed_audio" | "silent_visual" | "identity_audio" | "source_asset" | "font" => {}
+            "mixed_audio" | "silent_visual" | "identity_audio" | "source_asset" | "font"
+            | "cover" => {}
             _ => return Err(schema_error(&format!("{pointer}/role"))),
         }
     }
@@ -665,6 +735,187 @@ fn validate_schema(value: &Value, limits: Limits) -> Result<(), RejectReason> {
     Ok(())
 }
 
+fn validate_presentation(value: &Value) -> Result<(), RejectReason> {
+    let object = value
+        .as_object()
+        .ok_or_else(|| schema_error("/presentation"))?;
+    reject_unknown_keys(object, &["description", "author", "languages", "cover"])?;
+    if object.is_empty() {
+        return Err(schema_error("/presentation"));
+    }
+    for (key, maximum) in [("description", 500usize), ("author", 80usize)] {
+        if let Some(value) = object.get(key) {
+            let text = value
+                .as_str()
+                .ok_or_else(|| schema_error(&format!("/presentation/{key}")))?;
+            if text.chars().count() > maximum
+                || text.chars().any(|character| {
+                    character.is_control() || matches!(character, '\u{2028}' | '\u{2029}')
+                })
+            {
+                return Err(schema_error(&format!("/presentation/{key}")));
+            }
+        }
+    }
+    if let Some(value) = object.get("languages") {
+        let languages = value
+            .as_array()
+            .filter(|languages| languages.len() <= 8)
+            .ok_or_else(|| schema_error("/presentation/languages"))?;
+        let mut seen = HashSet::new();
+        for language in languages {
+            let tag = language
+                .as_str()
+                .filter(|tag| language_tag_is_valid(tag))
+                .ok_or_else(|| schema_error("/presentation/languages"))?;
+            if !seen.insert(tag.to_ascii_lowercase()) {
+                return Err(schema_error("/presentation/languages"));
+            }
+        }
+    }
+    if let Some(value) = object.get("cover") {
+        let path = value
+            .as_str()
+            .filter(|path| valid_path_pattern(path) && safe_manifest_path(path))
+            .ok_or_else(|| schema_error("/presentation/cover"))?;
+        if path.is_empty() {
+            return Err(schema_error("/presentation/cover"));
+        }
+    }
+    Ok(())
+}
+
+fn parse_presentation(
+    root: &Map<String, Value>,
+    schema_version: &str,
+) -> Result<Option<Presentation>, RejectReason> {
+    let Some(value) = root.get("presentation") else {
+        return Ok(None);
+    };
+    if schema_version != "1.4.2" {
+        return Err(RejectReason::unknown_field("presentation"));
+    }
+    validate_presentation(value)?;
+    let object = value
+        .as_object()
+        .ok_or_else(|| schema_error("/presentation"))?;
+    let description = object
+        .get("description")
+        .and_then(Value::as_str)
+        .map(str::to_owned);
+    let author = object
+        .get("author")
+        .and_then(Value::as_str)
+        .map(str::to_owned);
+    let languages = object
+        .get("languages")
+        .and_then(Value::as_array)
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::to_owned)
+                .collect()
+        })
+        .unwrap_or_default();
+    let cover = object
+        .get("cover")
+        .and_then(Value::as_str)
+        .map(str::to_owned);
+    Ok(Some(Presentation {
+        description,
+        author,
+        languages,
+        cover,
+    }))
+}
+
+/// Validate the BCP-47 subtag grammar without depending on locale services.
+pub fn language_tag_is_valid(tag: &str) -> bool {
+    if tag.is_empty() || tag.len() > 63 || !tag.is_ascii() {
+        return false;
+    }
+    let parts = tag.split('-').collect::<Vec<_>>();
+    let Some(language) = parts.first() else {
+        return false;
+    };
+    let alpha = |part: &str| part.bytes().all(|byte| byte.is_ascii_alphabetic());
+    let alnum = |part: &str| part.bytes().all(|byte| byte.is_ascii_alphanumeric());
+    if language.eq_ignore_ascii_case("x") {
+        return parts.len() > 1
+            && parts[1..]
+                .iter()
+                .all(|part| (1..=8).contains(&part.len()) && alnum(part));
+    }
+    let language_len = language.len();
+    if !(2..=8).contains(&language_len) || !alpha(language) {
+        return false;
+    }
+    let mut index = 1usize;
+    if language_len <= 3 {
+        let mut extlangs = 0;
+        while index < parts.len() && parts[index].len() == 3 && alpha(parts[index]) && extlangs < 3
+        {
+            index += 1;
+            extlangs += 1;
+        }
+    }
+    if index < parts.len() && parts[index].len() == 4 && alpha(parts[index]) {
+        index += 1;
+    }
+    if index < parts.len() {
+        let region = parts[index];
+        if (region.len() == 2 && alpha(region))
+            || (region.len() == 3 && region.bytes().all(|byte| byte.is_ascii_digit()))
+        {
+            index += 1;
+        }
+    }
+    let mut variants = HashSet::new();
+    while index < parts.len() {
+        let part = parts[index];
+        let variant = ((5..=8).contains(&part.len()) && alnum(part))
+            || (part.len() == 4 && part.as_bytes()[0].is_ascii_digit() && alnum(part));
+        if !variant {
+            break;
+        }
+        if !variants.insert(part.to_ascii_lowercase()) {
+            return false;
+        }
+        index += 1;
+    }
+    let mut extensions = HashSet::new();
+    while index < parts.len() {
+        let singleton = parts[index];
+        if singleton.len() != 1
+            || !alnum(singleton)
+            || singleton.eq_ignore_ascii_case("x")
+            || !extensions.insert(singleton.to_ascii_lowercase())
+        {
+            break;
+        }
+        index += 1;
+        let start = index;
+        while index < parts.len() && (2..=8).contains(&parts[index].len()) && alnum(parts[index]) {
+            index += 1;
+        }
+        if index == start {
+            return false;
+        }
+    }
+    if index < parts.len() && parts[index].eq_ignore_ascii_case("x") {
+        index += 1;
+        let start = index;
+        while index < parts.len() && (1..=8).contains(&parts[index].len()) && alnum(parts[index]) {
+            index += 1;
+        }
+        if index == start {
+            return false;
+        }
+    }
+    index == parts.len()
+}
+
 fn validate_legacy_binding(object: &Map<String, Value>, pointer: &str) -> Result<(), RejectReason> {
     for key in ["mixed_audio_path", "identity_audio_path"] {
         if key == "identity_audio_path" && !object.contains_key(key) {
@@ -716,6 +967,7 @@ fn parse_variant_fields(
     variant_id: String,
     clip_id: Option<String>,
     weight: Option<u8>,
+    caption: Option<String>,
 ) -> Result<Variant, RejectReason> {
     let identity_audio_path = object
         .get("identity_audio_path")
@@ -735,6 +987,7 @@ fn parse_variant_fields(
     Ok(Variant {
         variant_id,
         clip_id,
+        caption,
         mixed_audio_path: required_string(
             object,
             "mixed_audio_path",
@@ -908,6 +1161,16 @@ fn valid_clip_id(text: &str) -> bool {
         && language.bytes().all(|byte| byte.is_ascii_lowercase())
         && number.len() == 4
         && number.bytes().all(|byte| byte.is_ascii_digit())
+}
+
+/// Captions are trimmed, single-line display text with 1 to 200 Unicode scalar
+/// values. Authors should supply NFC text.
+pub fn caption_is_valid(text: &str) -> bool {
+    text == text.trim()
+        && (1..=200).contains(&text.chars().count())
+        && !text
+            .chars()
+            .any(|character| character.is_control() || matches!(character, '\u{2028}' | '\u{2029}'))
 }
 
 fn check_reference(

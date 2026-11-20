@@ -20,6 +20,83 @@ pub struct Rect {
 pub const STAGE_LOGICAL: (u32, u32) = (720, 220);
 pub const WINDOW_LOGICAL: (u32, u32) = (720, 256);
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OverlayWindowState {
+    Unmapped,
+    Mapping,
+    Mapped,
+    Failed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum OverlayVisibilityRequest {
+    MapAtStartup,
+    ContentShown,
+    ContentHidden,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum OverlayVisibilityAction {
+    MapWindow,
+    RaiseWindow,
+    ClearContent,
+    Noop,
+    FailClosed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct OverlayVisibilityMachine {
+    state: OverlayWindowState,
+}
+
+impl Default for OverlayVisibilityMachine {
+    fn default() -> Self {
+        Self {
+            state: OverlayWindowState::Unmapped,
+        }
+    }
+}
+
+impl OverlayVisibilityMachine {
+    pub(crate) fn request(&mut self, request: OverlayVisibilityRequest) -> OverlayVisibilityAction {
+        match request {
+            OverlayVisibilityRequest::MapAtStartup => match self.state {
+                OverlayWindowState::Unmapped => {
+                    self.state = OverlayWindowState::Mapping;
+                    OverlayVisibilityAction::MapWindow
+                }
+                OverlayWindowState::Mapping | OverlayWindowState::Mapped => {
+                    OverlayVisibilityAction::Noop
+                }
+                OverlayWindowState::Failed => OverlayVisibilityAction::FailClosed,
+            },
+            OverlayVisibilityRequest::ContentShown => match self.state {
+                OverlayWindowState::Mapped => OverlayVisibilityAction::RaiseWindow,
+                OverlayWindowState::Unmapped
+                | OverlayWindowState::Mapping
+                | OverlayWindowState::Failed => OverlayVisibilityAction::FailClosed,
+            },
+            OverlayVisibilityRequest::ContentHidden => OverlayVisibilityAction::ClearContent,
+        }
+    }
+
+    pub(crate) fn complete(&mut self, action: OverlayVisibilityAction, succeeded: bool) {
+        match (self.state, action) {
+            (OverlayWindowState::Mapping, OverlayVisibilityAction::MapWindow) => {
+                self.state = if succeeded {
+                    OverlayWindowState::Mapped
+                } else {
+                    OverlayWindowState::Failed
+                };
+            }
+            (OverlayWindowState::Mapped, OverlayVisibilityAction::RaiseWindow) if !succeeded => {
+                self.state = OverlayWindowState::Failed;
+            }
+            _ => {}
+        }
+    }
+}
+
 // Pinned by tests as the placement contract (docs/design/S6-OVERLAY-SLICE.md section 3); the runtime path
 // derives the same geometry through `place_overlay`, so these are not read outside tests.
 #[cfg_attr(not(test), allow(dead_code))]
@@ -189,6 +266,108 @@ pub fn status_payload(state: &str, reason: Option<&str>) -> Value {
     })
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VideoDiagnosticOutcome {
+    Started,
+    Failed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VideoDiagnostic {
+    pub playback_id: String,
+    pub event_type: Option<String>,
+    pub outcome: VideoDiagnosticOutcome,
+    pub error_code: Option<u8>,
+    pub reason_code: &'static str,
+}
+
+impl VideoDiagnostic {
+    pub fn log_event_name(&self) -> &'static str {
+        match self.outcome {
+            VideoDiagnosticOutcome::Started => "video_started",
+            VideoDiagnosticOutcome::Failed => "video_failed",
+        }
+    }
+
+    pub fn log_message(&self) -> &'static str {
+        match self.outcome {
+            VideoDiagnosticOutcome::Started => "overlay video started playing",
+            VideoDiagnosticOutcome::Failed => "overlay video failed",
+        }
+    }
+}
+
+/// Parse the overlay renderer's bounded video lifecycle event. It contains no URL,
+/// media path, or user-provided text; the overlay capability needs event access only.
+pub fn parse_video_diagnostic(payload: &Value) -> Option<VideoDiagnostic> {
+    let object = payload.as_object()?;
+    if object.len() != 5 {
+        return None;
+    }
+    let playback_id = object.get("playback_id")?.as_str()?;
+    let digits = playback_id.strip_prefix("pb_")?;
+    if !(10..=20).contains(&digits.len()) || !digits.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    let event_type = match object.get("event_type")? {
+        Value::Null => None,
+        Value::String(value)
+            if !value.is_empty()
+                && value.len() <= 80
+                && value.as_bytes()[0].is_ascii_lowercase()
+                && value.bytes().all(|byte| {
+                    byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_'
+                }) =>
+        {
+            Some(value.clone())
+        }
+        _ => return None,
+    };
+    let error_code = match object.get("error_code")? {
+        Value::Null => None,
+        Value::Number(value) => {
+            let value = u8::try_from(value.as_u64()?).ok()?;
+            if !(1..=4).contains(&value) {
+                return None;
+            }
+            Some(value)
+        }
+        _ => return None,
+    };
+    let reason_code = match object.get("reason_code")?.as_str()? {
+        "NONE" => "NONE",
+        "VIDEO_ERROR" => "VIDEO_ERROR",
+        "VIDEO_URL_UNAVAILABLE" => "VIDEO_URL_UNAVAILABLE",
+        "VIDEO_START_TIMEOUT" => "VIDEO_START_TIMEOUT",
+        _ => return None,
+    };
+    let outcome = match object.get("outcome")?.as_str()? {
+        "started" if error_code.is_none() && reason_code == "NONE" => {
+            VideoDiagnosticOutcome::Started
+        }
+        "failed" if reason_code != "NONE" => VideoDiagnosticOutcome::Failed,
+        _ => return None,
+    };
+    Some(VideoDiagnostic {
+        playback_id: playback_id.to_owned(),
+        event_type,
+        outcome,
+        error_code,
+        reason_code,
+    })
+}
+
+/// Shared parse/log seam: production supplies the host logger, tests capture the same bounded
+/// record without needing a live Tauri window.
+pub fn parse_and_log_video_diagnostic(
+    payload: &Value,
+    mut log: impl FnMut(&VideoDiagnostic),
+) -> Option<VideoDiagnostic> {
+    let diagnostic = parse_video_diagnostic(payload)?;
+    log(&diagnostic);
+    Some(diagnostic)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -319,6 +498,79 @@ mod tests {
     }
 
     #[test]
+    fn parses_only_bounded_overlay_video_diagnostics() {
+        let parsed = parse_video_diagnostic(&json!({
+            "playback_id": "pb_0000000001",
+            "event_type": "hero_kill",
+            "outcome": "failed",
+            "error_code": 4,
+            "reason_code": "VIDEO_ERROR"
+        }))
+        .expect("valid video error event parses");
+        assert_eq!(parsed.playback_id, "pb_0000000001");
+        assert_eq!(parsed.event_type.as_deref(), Some("hero_kill"));
+        assert_eq!(parsed.outcome, VideoDiagnosticOutcome::Failed);
+        assert_eq!(parsed.error_code, Some(4));
+        assert_eq!(parsed.reason_code, "VIDEO_ERROR");
+        assert_eq!(parsed.log_event_name(), "video_failed");
+        assert_eq!(parsed.log_message(), "overlay video failed");
+
+        let started = parse_video_diagnostic(&json!({
+            "playback_id": "pb_0000000002",
+            "event_type": null,
+            "outcome": "started",
+            "error_code": null,
+            "reason_code": "NONE"
+        }))
+        .expect("valid started event parses");
+        assert_eq!(started.outcome, VideoDiagnosticOutcome::Started);
+        assert_eq!(started.event_type, None);
+        assert_eq!(started.log_event_name(), "video_started");
+
+        for payload in [
+            json!({"playback_id":"pb_0000000001","event_type":"hero_kill","outcome":"failed","error_code":9,"reason_code":"VIDEO_ERROR"}),
+            json!({"playback_id":"pb_0000000001","event_type":"hero_kill","outcome":"failed","error_code":4,"reason_code":"VIDEO_ERROR","url":"secret"}),
+            json!({"playback_id":"pb_0000000001","event_type":"../path","outcome":"failed","error_code":4,"reason_code":"VIDEO_ERROR"}),
+        ] {
+            assert!(parse_video_diagnostic(&payload).is_none());
+        }
+    }
+
+    #[test]
+    fn diagnostic_log_seam_emits_only_valid_overlay_records() {
+        let mut logged = Vec::new();
+        let payload = json!({
+            "playback_id": "pb_0000000003",
+            "event_type": "audition",
+            "outcome": "failed",
+            "error_code": null,
+            "reason_code": "VIDEO_URL_UNAVAILABLE"
+        });
+        let parsed = parse_and_log_video_diagnostic(&payload, |diagnostic| {
+            logged.push((diagnostic.log_event_name(), diagnostic.reason_code));
+        })
+        .expect("valid failure parses");
+        assert_eq!(parsed.log_event_name(), "video_failed");
+        assert_eq!(logged, [("video_failed", "VIDEO_URL_UNAVAILABLE")]);
+
+        let invalid = json!({"playback_id":"bad","event_type":"audition","outcome":"failed","error_code":4,"reason_code":"VIDEO_ERROR"});
+        assert!(
+            parse_and_log_video_diagnostic(&invalid, |_| panic!("invalid event was logged"))
+                .is_none()
+        );
+
+        let timed_out = parse_video_diagnostic(&json!({
+            "playback_id": "pb_0000000004",
+            "event_type": "audition",
+            "outcome": "failed",
+            "error_code": null,
+            "reason_code": "VIDEO_START_TIMEOUT"
+        }))
+        .expect("non-starting video is an explicit bounded failure");
+        assert_eq!(timed_out.reason_code, "VIDEO_START_TIMEOUT");
+    }
+
+    #[test]
     fn layout_struct_overrides_and_disabled_hides() {
         let m = MonitorRect {
             x: 0,
@@ -438,6 +690,77 @@ mod tests {
         assert_eq!(
             status_payload("ready", None),
             json!({"media":{"state":"ready","reason":null}})
+        );
+    }
+
+    #[test]
+    fn visibility_state_maps_once_and_raises_for_content_shows() {
+        let mut machine = OverlayVisibilityMachine::default();
+        assert_eq!(
+            machine.request(OverlayVisibilityRequest::MapAtStartup),
+            OverlayVisibilityAction::MapWindow
+        );
+        assert_eq!(
+            machine.request(OverlayVisibilityRequest::MapAtStartup),
+            OverlayVisibilityAction::Noop
+        );
+        machine.complete(OverlayVisibilityAction::MapWindow, true);
+
+        assert_eq!(
+            machine.request(OverlayVisibilityRequest::MapAtStartup),
+            OverlayVisibilityAction::Noop
+        );
+        assert_eq!(
+            machine.request(OverlayVisibilityRequest::ContentShown),
+            OverlayVisibilityAction::RaiseWindow
+        );
+        machine.complete(OverlayVisibilityAction::RaiseWindow, true);
+        assert_eq!(
+            machine.request(OverlayVisibilityRequest::ContentShown),
+            OverlayVisibilityAction::RaiseWindow
+        );
+    }
+
+    #[test]
+    fn visibility_state_clears_content_without_hiding_the_mapped_window() {
+        let mut machine = OverlayVisibilityMachine::default();
+        machine.request(OverlayVisibilityRequest::MapAtStartup);
+        machine.complete(OverlayVisibilityAction::MapWindow, true);
+
+        assert_eq!(
+            machine.request(OverlayVisibilityRequest::ContentHidden),
+            OverlayVisibilityAction::ClearContent
+        );
+        assert_eq!(
+            machine.request(OverlayVisibilityRequest::ContentShown),
+            OverlayVisibilityAction::RaiseWindow
+        );
+    }
+
+    #[test]
+    fn visibility_state_fails_closed_after_map_or_raise_failure() {
+        let mut map_failed = OverlayVisibilityMachine::default();
+        assert_eq!(
+            map_failed.request(OverlayVisibilityRequest::MapAtStartup),
+            OverlayVisibilityAction::MapWindow
+        );
+        map_failed.complete(OverlayVisibilityAction::MapWindow, false);
+        assert_eq!(
+            map_failed.request(OverlayVisibilityRequest::ContentShown),
+            OverlayVisibilityAction::FailClosed
+        );
+
+        let mut raise_failed = OverlayVisibilityMachine::default();
+        raise_failed.request(OverlayVisibilityRequest::MapAtStartup);
+        raise_failed.complete(OverlayVisibilityAction::MapWindow, true);
+        assert_eq!(
+            raise_failed.request(OverlayVisibilityRequest::ContentShown),
+            OverlayVisibilityAction::RaiseWindow
+        );
+        raise_failed.complete(OverlayVisibilityAction::RaiseWindow, false);
+        assert_eq!(
+            raise_failed.request(OverlayVisibilityRequest::ContentShown),
+            OverlayVisibilityAction::FailClosed
         );
     }
 }

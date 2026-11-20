@@ -1,0 +1,123 @@
+/*
+ * Kohbor / เกาะเบาะ — GoVibe treatment mapped onto the approved Barber palette.
+ * Load after tokens.glass.css. Values are from GOVIBE-STYLE.md; no source assets are used.
+ * Theme-dependent custom properties are repeated on [data-theme] because .app has its own dark theme.
+ */
+
+:root {
+  --glass-a1: 65%;
+  --glass-saturate: 100%;
+  --glass-blur-2: 20px;
+  --glass-blur-3: 20px;
+  --glass-shadow-1: 0 20px 50px rgb(0 0 0 / 0.15);
+  --glass-shadow-2: 0 12px 40px rgb(0 0 0 / 0.60);
+  --glass-shadow-3: 0 25px 60px -15px rgb(0 0 0 / 0.60);
+  --gv-shadow-hover: 0 20px 40px rgb(0 0 0 / 0.30), 0 5px 15px rgb(0 0 0 / 0.30);
+  --glass-r-1: 16px;
+  --glass-r-2: 16px;
+  --glass-r-3: 20px;
+  --gv-r-control: 12px;
+  --gv-r-nav: 8px;
+  --gv-orb-a: 18%;
+  --gv-orb-b: 12%;
+  --gv-orb-c: 8%;
+  --gv-orb-d: 8%;
+  --gv-rail-collapsed: 72px;
+  --gv-rail-expanded: 240px;
+  --gv-rail-dur: 280ms;
+  --gv-rail-ease: cubic-bezier(0.25, 0.8, 0.25, 1);
+  --gv-rail-label-dur: 160ms;
+  --gv-rail-label-shift: -10px;
+  --gv-dur-hover: 200ms;
+}
+
+/* Recompute every property that uses a theme token on the themed app element itself. */
+:root, [data-theme] {
+  --glass-a1: 65%;
+  --glass-saturate: 100%;
+  --glass-blur-2: 20px;
+  --glass-blur-3: 20px;
+  --glass-stroke: color-mix(in srgb, var(--text) 8%, transparent);
+  --glass-stroke-strong: color-mix(in srgb, var(--text) 25%, transparent);
+  --glass-highlight: inset 0 1px 0 color-mix(in srgb, var(--text) 6%, transparent);
+  --glass-highlight-strong: inset 0 1px 0 color-mix(in srgb, var(--text) 12%, transparent);
+  --glass-lowlight: 0 0 #0000;
+  --glass-edge: linear-gradient(color-mix(in srgb, var(--text) 15%, transparent), color-mix(in srgb, var(--text) 15%, transparent));
+  --glass-specular: linear-gradient(transparent, transparent);
+  --glass-shadow-1: 0 20px 50px rgb(0 0 0 / 0.15);
+  --glass-shadow-2: 0 12px 40px rgb(0 0 0 / 0.60);
+  --glass-shadow-3: 0 25px 60px -15px rgb(0 0 0 / 0.60);
+  --gv-shadow-hover: 0 20px 40px rgb(0 0 0 / 0.30), 0 5px 15px rgb(0 0 0 / 0.30);
+  --glass-r-1: 16px;
+  --glass-r-2: 16px;
+  --glass-r-3: 20px;
+  --glass-tint-hover: color-mix(in srgb, var(--text) 5%, transparent);
+
+  --gv-well-bar: rgb(0 0 0 / 0.40);
+  --gv-well-chip: rgb(0 0 0 / 0.20);
+  --gv-well-stroke: color-mix(in srgb, var(--text) 5%, transparent);
+  --gv-well-shadow: inset 0 2px 4px rgb(0 0 0 / 0.05);
+  --gv-tint-active: color-mix(in srgb, var(--text) 10%, transparent);
+  --gv-tint-hover: color-mix(in srgb, var(--text) 5%, transparent);
+  --gv-stroke-active: color-mix(in srgb, var(--text) 20%, transparent);
+  --gv-glare: radial-gradient(circle 250px at 18% 0%, color-mix(in srgb, var(--text) 6%, transparent), transparent 80%);
+
+  --glass-field:
+    radial-gradient(circle at 10vw calc(20vw - 10vh), color-mix(in srgb, var(--brand) var(--gv-orb-a), transparent) 0, color-mix(in srgb, var(--brand) var(--gv-orb-a), transparent) max(0px, calc(20vw - 150px)), transparent calc(20vw + 200px)),
+    radial-gradient(circle at 12.5vw calc(22.5vw - 10vh), color-mix(in srgb, var(--brand) var(--gv-orb-b), transparent) 0, color-mix(in srgb, var(--brand) var(--gv-orb-b), transparent) max(0px, calc(22.5vw - 150px)), transparent calc(22.5vw + 200px)),
+    radial-gradient(circle at 72.5vw calc(105vh - 17.5vw), color-mix(in srgb, var(--text) var(--gv-orb-c), transparent) 0, color-mix(in srgb, var(--text) var(--gv-orb-c), transparent) max(0px, calc(17.5vw - 150px)), transparent calc(17.5vw + 200px)),
+    radial-gradient(circle at 60vw calc(40vh + 10vw), color-mix(in srgb, var(--brand) var(--gv-orb-d), transparent) 0, transparent calc(10vw + 200px)),
+    var(--ground);
+}
+
+:root[data-glass="low"], [data-theme][data-glass="low"] {
+  --gv-orb-a: 11%; --gv-orb-b: 7%; --gv-orb-c: 5%; --gv-orb-d: 5%; --glass-saturate: 100%;
+}
+:root[data-glass="high"], [data-theme][data-glass="high"] {
+  --gv-orb-a: 24%; --gv-orb-b: 16%; --gv-orb-c: 11%; --gv-orb-d: 11%; --glass-saturate: 100%;
+}
+
+.gv-hover { transition: border-color var(--gv-dur-hover) ease, box-shadow var(--gv-dur-hover) ease; }
+.gv-hover:hover { border-color: var(--glass-stroke-strong); box-shadow: var(--glass-highlight), var(--gv-shadow-hover); }
+.gv-segment { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid var(--gv-well-stroke); border-radius: var(--gv-r-control); background: var(--gv-well-bar); }
+.gv-chip-well { display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px; border: 1px solid var(--gv-well-stroke); border-radius: 6px; background: var(--gv-well-chip); box-shadow: var(--gv-well-shadow); }
+.gv-scroll { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--text) 12%, transparent) color-mix(in srgb, var(--text) 2%, transparent); }
+
+/* The fallback is applied to both the document root and every themed app root. */
+:root[data-glass="off"], [data-theme][data-glass="off"] {
+  --glass-field: var(--ground);
+  --glass-fill-1: var(--surface); --glass-fill-2: var(--raised); --glass-fill-3: var(--surface);
+  --glass-well: var(--ground); --glass-scrim: var(--scrim);
+  --glass-backdrop-2: none; --glass-backdrop-3: none;
+  --glass-stroke: var(--line); --glass-stroke-strong: var(--line-strong);
+  --glass-edge: linear-gradient(var(--line-strong), var(--line-strong));
+  --glass-highlight: 0 0 #0000; --glass-highlight-strong: 0 0 #0000; --glass-lowlight: 0 0 #0000;
+  --glass-shadow-1: 0 0 #0000; --gv-shadow-hover: 0 0 #0000;
+  --glass-specular: linear-gradient(transparent, transparent); --gv-glare: linear-gradient(transparent, transparent);
+  --gv-well-bar: var(--ground); --gv-well-chip: var(--ground); --gv-well-stroke: var(--line); --gv-well-shadow: 0 0 #0000;
+  --gv-tint-active: var(--raised); --gv-tint-hover: var(--accent-surface); --gv-stroke-active: var(--line-strong);
+}
+
+@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+  :root, :root[data-glass], [data-theme], [data-theme][data-glass] {
+    --glass-field: var(--ground);
+    --glass-fill-1: var(--surface); --glass-fill-2: var(--raised); --glass-fill-3: var(--surface);
+    --glass-well: var(--ground); --glass-scrim: var(--scrim);
+    --glass-backdrop-2: none; --glass-backdrop-3: none;
+    --glass-stroke: var(--line); --glass-stroke-strong: var(--line-strong);
+    --glass-edge: linear-gradient(var(--line-strong), var(--line-strong));
+    --glass-highlight: 0 0 #0000; --glass-highlight-strong: 0 0 #0000; --glass-lowlight: 0 0 #0000;
+    --glass-shadow-1: 0 0 #0000; --gv-shadow-hover: 0 0 #0000;
+    --glass-specular: linear-gradient(transparent, transparent); --gv-glare: linear-gradient(transparent, transparent);
+    --gv-well-bar: var(--ground); --gv-well-chip: var(--ground); --gv-well-stroke: var(--line); --gv-well-shadow: 0 0 #0000;
+    --gv-tint-active: var(--raised); --gv-tint-hover: var(--accent-surface); --gv-stroke-active: var(--line-strong);
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root, [data-theme] { --glass-fill-2: var(--raised); --glass-fill-3: var(--surface); --glass-backdrop-2: none; --glass-backdrop-3: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root, [data-theme] { --gv-rail-dur: 0ms; --gv-rail-label-dur: 0ms; --gv-rail-label-shift: 0px; --gv-dur-hover: 0ms; }
+}

@@ -1,11 +1,38 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { AudioHistory } from "../AudioHistory";
+import { packsPageCopy, type Locale } from "../copy";
+import { useMediaListing } from "../useMediaListing";
 import { logsCopy } from "./copy";
 import { copyLogLines, filterLogEntries, formatLogBody, shouldFollowLogs, type LogFilter } from "./model";
 import { openLogDirectory, readLogDirectory } from "./host";
 import { useLogs } from "./useLogs";
 import "./logs.css";
 
-export function LogsTab({ visible, locale }: { visible: boolean; locale: "th" | "en" }) {
+export function LogsTab({ visible, locale }: { visible: boolean; locale: Locale }) {
+  const [rawAudio, setRawAudio] = useState(false);
+  const text = packsPageCopy(locale);
+  return <div className="logs-page" hidden={!visible}>
+    <button type="button" aria-pressed={rawAudio} onClick={() => setRawAudio(value => !value)}>{text.rawAudio}</button>
+    {rawAudio && visible && <div className="logs-audio">
+      <AudioHistory locale={locale} disabled={!visible} />
+      <PackDiagnostics locale={locale} />
+    </div>}
+    <HostLogs visible={visible && !rawAudio} locale={locale} />
+  </div>;
+}
+
+function PackDiagnostics({ locale }: { locale: Locale }) {
+  const text = packsPageCopy(locale);
+  const { listing } = useMediaListing();
+  return <details>
+    <summary>{text.technical}</summary>
+    <ul>{listing?.records.map(row => <li key={row.install_id}>
+      <code>{row.package_id} · {row.install_id} · sha256:{row.container_sha256}</code>
+    </li>)}</ul>
+  </details>;
+}
+
+function HostLogs({ visible, locale }: { visible: boolean; locale: Locale }) {
   const text = logsCopy(locale);
   const { state, tail } = useLogs(visible);
   const [level, setLevel] = useState<LogFilter>("all");

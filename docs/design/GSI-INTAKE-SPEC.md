@@ -105,6 +105,8 @@ The file uses the game's key-value text format (A-2). Values are proposals; the 
 
 A rejected request never renews freshness, never changes session identity and never advances the source sequence.
 
+`GSI_AUTH_REJECTED` keeps the same 401 response and admission behavior. Its log emits the first rejection, suppresses repeated lines for 60 seconds, then emits one `gsi/request_rejected_summary` info line with `code`, the suppressed `count`, and `window_ms: 60000`. Other request-rejection codes retain their existing logging behavior. Log fields never include the token or payload.
+
 ## 4. Source admission (DATA-003, CORE-005)
 
 Admission runs on each authenticated body. Field names are assumed GSI paths (A-5); the spike records the actual payloads.

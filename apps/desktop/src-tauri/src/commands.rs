@@ -7,7 +7,9 @@ use crate::intake::lock;
 use crate::{settings, status, AppState};
 use serde_json::{Map, Value};
 use std::sync::atomic::Ordering;
+use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 use tauri::{Emitter as TauriEmitter, Manager};
 
 #[tauri::command]
@@ -273,6 +275,62 @@ pub(crate) fn media_inspect(
 }
 
 #[tauri::command(async)]
+pub(crate) fn media_package_summary(
+    state: tauri::State<'_, AppState>,
+    source_path: String,
+) -> Result<Value, String> {
+    let result = state.host.commands.media_package_summary(&source_path);
+    log_media_result("package_summary", &result);
+    result
+}
+
+#[tauri::command]
+pub(crate) fn media_package_size_limit() -> u64 {
+    kohbor_pack::Limits::default().container_bytes
+}
+
+#[tauri::command(async)]
+pub(crate) fn media_package_summary_bytes(
+    state: tauri::State<'_, AppState>,
+    request: tauri::ipc::Request<'_>,
+) -> Result<Value, String> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err("SOURCE_INVALID".to_owned());
+    };
+    let result = state.host.commands.media_package_bytes(bytes, None);
+    log_media_result("package_summary_bytes", &result);
+    result
+}
+
+#[tauri::command(async)]
+pub(crate) fn media_install_bytes(
+    state: tauri::State<'_, AppState>,
+    request: tauri::ipc::Request<'_>,
+) -> Result<Value, String> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err("SOURCE_INVALID".to_owned());
+    };
+    let header = |name: &'static str| {
+        request
+            .headers()
+            .get(name)
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_owned)
+            .ok_or_else(|| "SOURCE_INVALID".to_owned())
+    };
+    let identity = (
+        header("x-kohbor-request-id")?,
+        header("x-kohbor-container-sha256")?,
+    );
+    let result = state
+        .host
+        .commands
+        .media_package_bytes(bytes, Some(identity));
+    log_media_result("install_bytes", &result);
+    result
+}
+
+#[tauri::command(async)]
 pub(crate) fn media_install(
     state: tauri::State<'_, AppState>,
     request: Value,
@@ -298,8 +356,26 @@ pub(crate) fn media_activate(
 }
 
 #[tauri::command(async)]
+pub(crate) fn media_cancel_pending_activation(
+    state: tauri::State<'_, AppState>,
+    install_id: String,
+) -> Result<Value, String> {
+    let result = state
+        .host
+        .commands
+        .media_cancel_pending_activation(&install_id);
+    log_media_result("cancel_pending_activation", &result);
+    result
+}
+
+#[tauri::command(async)]
 pub(crate) fn media_list(state: tauri::State<'_, AppState>) -> Result<Value, String> {
     state.host.commands.media_list()
+}
+
+#[tauri::command(async)]
+pub(crate) fn media_pack_summaries(state: tauri::State<'_, AppState>) -> Result<Value, String> {
+    state.host.commands.media_pack_summaries()
 }
 
 #[tauri::command(async)]
@@ -308,18 +384,457 @@ pub(crate) fn media_cabinet(state: tauri::State<'_, AppState>) -> Result<Value, 
 }
 
 #[tauri::command(async)]
+pub(crate) fn media_event_map(state: tauri::State<'_, AppState>) -> Result<Value, String> {
+    state.host.commands.media_event_map()
+}
+
+#[tauri::command(async)]
+pub(crate) fn media_installed_event_map(
+    state: tauri::State<'_, AppState>,
+    install_id: String,
+) -> Result<Value, String> {
+    state.host.commands.media_installed_event_map(&install_id)
+}
+
+#[derive(Clone, Default)]
+pub(crate) struct AuditionTracker {
+    sequence: Arc<std::sync::atomic::AtomicU64>,
+    active: Arc<std::sync::Mutex<Option<PendingAudition>>>,
+    last_request: Arc<std::sync::Mutex<Option<Instant>>>,
+}
+
+struct PendingAudition {
+    ticket: u64,
+    playback_id: Option<String>,
+    early_visual: Option<crate::overlay::VideoDiagnostic>,
+    sender: Sender<AuditionSignal>,
+}
+
+#[derive(Debug, Clone)]
+enum AuditionSignal {
+    Started {
+        playback_id: String,
+        has_visual: bool,
+    },
+    Ended {
+        playback_id: String,
+        reason: String,
+    },
+    Visual(crate::overlay::VideoDiagnostic),
+}
+
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+pub(crate) struct MediaAuditionResult {
+    audio_started: bool,
+    audio_ended: bool,
+    audio_end_reason: Option<String>,
+    visual_status: &'static str,
+    visual_reason: Option<String>,
+    video_error_code: Option<u8>,
+}
+
+struct AuditionWait {
+    ticket: u64,
+    receiver: Receiver<AuditionSignal>,
+}
+
+impl AuditionTracker {
+    fn begin(&self) -> Result<AuditionWait, String> {
+        const MIN_AUDITION_INTERVAL: Duration = Duration::from_millis(750);
+        let (sender, receiver) = mpsc::channel();
+        let mut active = crate::intake::lock(&self.active);
+        if active.is_some() {
+            return Err("AUDITION_BUSY".to_owned());
+        }
+        let now = Instant::now();
+        let mut last_request = crate::intake::lock(&self.last_request);
+        if last_request
+            .is_some_and(|last| now.saturating_duration_since(last) < MIN_AUDITION_INTERVAL)
+        {
+            return Err("AUDITION_RATE_LIMITED".to_owned());
+        }
+        *last_request = Some(now);
+        drop(last_request);
+        let ticket = self
+            .sequence
+            .fetch_add(1, Ordering::Relaxed)
+            .saturating_add(1);
+        *active = Some(PendingAudition {
+            ticket,
+            playback_id: None,
+            early_visual: None,
+            sender,
+        });
+        Ok(AuditionWait { ticket, receiver })
+    }
+
+    fn finish(&self, ticket: u64) {
+        let mut active = crate::intake::lock(&self.active);
+        if active
+            .as_ref()
+            .is_some_and(|pending| pending.ticket == ticket)
+        {
+            *active = None;
+        }
+    }
+
+    pub(crate) fn observe_playback(&self, payload: &Value) {
+        let Some(object) = payload.as_object() else {
+            return;
+        };
+        let kind = object.get("kind").and_then(Value::as_str);
+        if kind == Some("started")
+            && object.get("event_type").and_then(Value::as_str) != Some("audition")
+        {
+            return;
+        }
+        let Some(playback_id) = object.get("playback_id").and_then(Value::as_str) else {
+            return;
+        };
+        if !valid_audition_playback_id(playback_id) {
+            return;
+        }
+
+        let mut active = crate::intake::lock(&self.active);
+        let Some(pending) = active.as_mut() else {
+            return;
+        };
+        match kind {
+            Some("started") => {
+                if pending.playback_id.is_some() {
+                    return;
+                }
+                let Some(has_visual) = object.get("visual_url").map(|url| !url.is_null()) else {
+                    return;
+                };
+                pending.playback_id = Some(playback_id.to_owned());
+                let _ = pending.sender.send(AuditionSignal::Started {
+                    playback_id: playback_id.to_owned(),
+                    has_visual,
+                });
+                if let Some(visual) = pending.early_visual.take() {
+                    if visual.playback_id == playback_id {
+                        let _ = pending.sender.send(AuditionSignal::Visual(visual));
+                    }
+                }
+            }
+            Some("ended") if pending.playback_id.as_deref() == Some(playback_id) => {
+                let Some(reason) = object.get("reason").and_then(Value::as_str) else {
+                    return;
+                };
+                if !valid_audition_reason(reason) {
+                    return;
+                }
+                let _ = pending.sender.send(AuditionSignal::Ended {
+                    playback_id: playback_id.to_owned(),
+                    reason: reason.to_owned(),
+                });
+            }
+            _ => {}
+        }
+    }
+
+    pub(crate) fn observe_visual(&self, visual: crate::overlay::VideoDiagnostic) {
+        let mut active = crate::intake::lock(&self.active);
+        let Some(pending) = active.as_mut() else {
+            return;
+        };
+        match pending.playback_id.as_deref() {
+            Some(playback_id) if playback_id == visual.playback_id => {
+                let _ = pending.sender.send(AuditionSignal::Visual(visual));
+            }
+            None => pending.early_visual = Some(visual),
+            _ => {}
+        }
+    }
+}
+
+fn valid_audition_playback_id(value: &str) -> bool {
+    let Some(digits) = value.strip_prefix("pb_") else {
+        return false;
+    };
+    (10..=20).contains(&digits.len()) && digits.bytes().all(|byte| byte.is_ascii_digit())
+}
+
+fn valid_audition_reason(value: &str) -> bool {
+    matches!(
+        value,
+        "finished"
+            | "cancelled_preempted"
+            | "cancelled_session"
+            | "cancelled_revision"
+            | "cancelled_muted"
+            | "cancelled_device_lost"
+    )
+}
+
+fn audition_result(
+    audio_started: bool,
+    audio_ended: bool,
+    audio_end_reason: Option<String>,
+    visual_status: &'static str,
+    visual_reason: Option<String>,
+    video_error_code: Option<u8>,
+) -> MediaAuditionResult {
+    MediaAuditionResult {
+        audio_started,
+        audio_ended,
+        audio_end_reason,
+        visual_status,
+        visual_reason,
+        video_error_code,
+    }
+}
+
+fn wait_for_audition_result(receiver: &Receiver<AuditionSignal>) -> MediaAuditionResult {
+    const START_TIMEOUT: Duration = Duration::from_secs(5);
+    const END_TIMEOUT: Duration = Duration::from_secs(30);
+    const VISUAL_GRACE: Duration = Duration::from_secs(6);
+
+    let started = Instant::now();
+    let (playback_id, has_visual) = loop {
+        match receiver.recv_timeout(START_TIMEOUT.saturating_sub(started.elapsed())) {
+            Ok(AuditionSignal::Started {
+                playback_id,
+                has_visual,
+            }) => break (playback_id, has_visual),
+            Ok(_) => continue,
+            Err(_) => {
+                return audition_result(
+                    false,
+                    false,
+                    Some("AUDIO_START_UNCONFIRMED".to_owned()),
+                    "unknown",
+                    Some("AUDITION_RESULT_UNAVAILABLE".to_owned()),
+                    None,
+                );
+            }
+        }
+    };
+
+    let mut audio_ended = false;
+    let mut audio_timed_out = false;
+    let mut audio_end_reason = None;
+    let mut visual_status = (!has_visual).then_some("none");
+    let mut visual_reason = None;
+    let mut video_error_code = None;
+
+    let end_deadline = Instant::now() + END_TIMEOUT;
+    let mut visual_deadline = None;
+    loop {
+        if (audio_ended || audio_timed_out) && visual_status.is_some() {
+            break;
+        }
+        let now = Instant::now();
+        if !audio_ended && !audio_timed_out && now >= end_deadline {
+            audio_end_reason = Some("AUDIO_END_UNCONFIRMED".to_owned());
+            audio_timed_out = true;
+            visual_deadline.get_or_insert(now + VISUAL_GRACE);
+        }
+        if has_visual && visual_status.is_none() {
+            if visual_deadline.is_none() && audio_ended {
+                visual_deadline = Some(now + VISUAL_GRACE);
+            }
+            if visual_deadline.is_some_and(|deadline| now >= deadline) {
+                visual_status = Some("unknown");
+                visual_reason = Some("VIDEO_DIAGNOSTIC_UNAVAILABLE".to_owned());
+            }
+        }
+        if audio_end_reason.is_some() && visual_status.is_some() {
+            break;
+        }
+
+        let mut wait = if audio_ended || audio_timed_out {
+            visual_deadline
+                .map(|deadline| deadline.saturating_duration_since(now))
+                .unwrap_or(VISUAL_GRACE)
+        } else {
+            end_deadline.saturating_duration_since(now)
+        };
+        if has_visual && visual_status.is_none() {
+            if let Some(deadline) = visual_deadline {
+                wait = wait.min(deadline.saturating_duration_since(now));
+            }
+        }
+        match receiver.recv_timeout(wait) {
+            Ok(AuditionSignal::Ended {
+                playback_id: id,
+                reason,
+            }) if id == playback_id => {
+                audio_ended = true;
+                audio_end_reason = Some(reason);
+                visual_deadline.get_or_insert(Instant::now() + VISUAL_GRACE);
+            }
+            Ok(AuditionSignal::Visual(visual)) if visual.playback_id == playback_id => {
+                match visual.outcome {
+                    crate::overlay::VideoDiagnosticOutcome::Started => {
+                        visual_status = Some("shown");
+                    }
+                    crate::overlay::VideoDiagnosticOutcome::Failed => {
+                        visual_status = Some("failed");
+                        visual_reason = Some(visual.reason_code.to_owned());
+                        video_error_code = visual.error_code;
+                    }
+                }
+            }
+            Ok(AuditionSignal::Started { .. })
+            | Ok(AuditionSignal::Ended { .. })
+            | Ok(AuditionSignal::Visual(_)) => {}
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                if !audio_ended && !audio_timed_out {
+                    audio_end_reason = Some("AUDIO_END_UNCONFIRMED".to_owned());
+                    audio_timed_out = true;
+                    visual_deadline.get_or_insert(Instant::now() + VISUAL_GRACE);
+                    if !has_visual {
+                        break;
+                    }
+                }
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                audio_end_reason = Some("AUDITION_RESULT_UNAVAILABLE".to_owned());
+                if has_visual && visual_status.is_none() {
+                    visual_status = Some("unknown");
+                    visual_reason = Some("AUDITION_RESULT_UNAVAILABLE".to_owned());
+                }
+                break;
+            }
+        }
+    }
+
+    audition_result(
+        true,
+        audio_ended,
+        audio_end_reason,
+        visual_status.unwrap_or("unknown"),
+        visual_reason,
+        video_error_code,
+    )
+}
+
+fn log_audition_result(result: &MediaAuditionResult) {
+    crate::log_info!(
+        "media",
+        "audition_result",
+        "pack clip audition lifecycle reported",
+        audio_started = result.audio_started,
+        audio_ended = result.audio_ended,
+        audio_end_reason = result.audio_end_reason.as_deref().unwrap_or("NONE"),
+        visual_status = result.visual_status,
+        visual_reason = result.visual_reason.as_deref().unwrap_or("NONE"),
+        video_error_code_known = result.video_error_code.is_some(),
+        video_error_code = result.video_error_code.unwrap_or_default()
+    );
+}
+
+#[tauri::command(async)]
 pub(crate) fn media_audition(
     state: tauri::State<'_, AppState>,
     event_id: String,
     tier: Option<u8>,
-) -> Result<(), String> {
+    overlay: Option<bool>,
+) -> Result<MediaAuditionResult, String> {
+    run_media_audition(
+        &state,
+        &event_id,
+        tier,
+        None,
+        overlay.unwrap_or(false),
+        None,
+    )
+}
+
+#[tauri::command(async)]
+pub(crate) fn media_audition_variant(
+    state: tauri::State<'_, AppState>,
+    event_id: String,
+    tier: Option<u8>,
+    variant_id: String,
+    overlay: Option<bool>,
+) -> Result<MediaAuditionResult, String> {
+    run_media_audition(
+        &state,
+        &event_id,
+        tier,
+        Some(&variant_id),
+        overlay.unwrap_or(false),
+        None,
+    )
+}
+
+#[tauri::command(async)]
+pub(crate) fn media_audition_installed_variant(
+    state: tauri::State<'_, AppState>,
+    install_id: String,
+    event_id: String,
+    tier: Option<u8>,
+    variant_id: String,
+) -> Result<MediaAuditionResult, String> {
+    run_media_audition(
+        &state,
+        &event_id,
+        tier,
+        Some(&variant_id),
+        false,
+        Some(&install_id),
+    )
+}
+
+fn run_media_audition(
+    state: &AppState,
+    event_id: &str,
+    tier: Option<u8>,
+    variant_id: Option<&str>,
+    overlay: bool,
+    installed_pack: Option<&str>,
+) -> Result<MediaAuditionResult, String> {
+    let pending = state.audition.begin()?;
     let session_epoch = crate::intake::lock(&state.runtime.shared)
         .epoch
         .unwrap_or(1);
+    let audition = match installed_pack {
+        Some(install_id) => state.host.commands.media_audition_installed_variant(
+            install_id,
+            event_id,
+            tier,
+            variant_id.unwrap_or_default(),
+            session_epoch,
+        ),
+        None => match variant_id {
+            Some(variant_id) => state.host.commands.media_audition_variant(
+                event_id,
+                tier,
+                variant_id,
+                session_epoch,
+                overlay,
+            ),
+            None => state
+                .host
+                .commands
+                .media_audition(event_id, tier, session_epoch, overlay),
+        },
+    };
+    if let Err(error) = audition {
+        state.audition.finish(pending.ticket);
+        return Err(error);
+    }
+    let result = wait_for_audition_result(&pending.receiver);
+    state.audition.finish(pending.ticket);
+    log_audition_result(&result);
+    Ok(result)
+}
+
+#[tauri::command(async)]
+pub(crate) fn media_variant_visual_url(
+    state: tauri::State<'_, AppState>,
+    install_id: String,
+    event_id: String,
+    tier: Option<u8>,
+    variant_id: String,
+) -> Result<Value, String> {
     state
         .host
         .commands
-        .media_audition(&event_id, tier, session_epoch)
+        .media_variant_visual_url(&install_id, &event_id, tier, &variant_id)
 }
 
 #[tauri::command(async)]
@@ -348,6 +863,16 @@ pub(crate) fn audio_history(
     limit: Option<u32>,
 ) -> Result<Vec<Value>, String> {
     state.host.commands.audio_history(limit)
+}
+
+#[tauri::command(async)]
+pub(crate) fn match_recap(state: tauri::State<'_, AppState>) -> Result<Value, String> {
+    state.host.commands.match_recap()
+}
+
+#[tauri::command(async)]
+pub(crate) fn clear_match_recap(state: tauri::State<'_, AppState>) -> Result<Value, String> {
+    state.host.commands.clear_match_recap()
 }
 
 #[tauri::command(async)]
@@ -602,6 +1127,15 @@ pub(crate) fn media_protocol_handler(
     state
         .host
         .dispatch_protocol(protocol_request, move |response| {
+            if !(200..300).contains(&response.status) {
+                crate::log_info!(
+                    "media",
+                    "protocol_response",
+                    "media protocol request returned a non-success response",
+                    status = response.status,
+                    reason_code = response.reason_code.unwrap_or("MEDIA_RESPONSE_UNKNOWN")
+                );
+            }
             let mut output = tauri::http::Response::new(response.body);
             *output.status_mut() = tauri::http::StatusCode::from_u16(response.status)
                 .unwrap_or(tauri::http::StatusCode::SERVICE_UNAVAILABLE);
@@ -752,5 +1286,63 @@ mod audio_volume_tests {
                 })
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod audition_result_tests {
+    use super::{wait_for_audition_result, AuditionSignal};
+    use crate::overlay::{VideoDiagnostic, VideoDiagnosticOutcome};
+    use std::sync::mpsc;
+
+    fn result_with_visual(outcome: Option<VideoDiagnosticOutcome>) -> super::MediaAuditionResult {
+        let (sender, receiver) = mpsc::channel();
+        sender
+            .send(AuditionSignal::Started {
+                playback_id: "pb_0000000001".to_owned(),
+                has_visual: outcome.is_some(),
+            })
+            .expect("send started lifecycle");
+        if let Some(outcome) = outcome {
+            sender
+                .send(AuditionSignal::Visual(VideoDiagnostic {
+                    playback_id: "pb_0000000001".to_owned(),
+                    event_type: Some("audition".to_owned()),
+                    outcome,
+                    error_code: (outcome == VideoDiagnosticOutcome::Failed).then_some(4),
+                    reason_code: if outcome == VideoDiagnosticOutcome::Failed {
+                        "VIDEO_ERROR"
+                    } else {
+                        "NONE"
+                    },
+                }))
+                .expect("send video lifecycle");
+        }
+        sender
+            .send(AuditionSignal::Ended {
+                playback_id: "pb_0000000001".to_owned(),
+                reason: "finished".to_owned(),
+            })
+            .expect("send ended lifecycle");
+        wait_for_audition_result(&receiver)
+    }
+
+    #[test]
+    fn audition_result_distinguishes_visual_started_failed_and_none() {
+        let shown = result_with_visual(Some(VideoDiagnosticOutcome::Started));
+        assert!(shown.audio_started && shown.audio_ended);
+        assert_eq!(shown.audio_end_reason.as_deref(), Some("finished"));
+        assert_eq!(shown.visual_status, "shown");
+        assert_eq!(shown.visual_reason, None);
+
+        let failed = result_with_visual(Some(VideoDiagnosticOutcome::Failed));
+        assert_eq!(failed.visual_status, "failed");
+        assert_eq!(failed.visual_reason.as_deref(), Some("VIDEO_ERROR"));
+        assert_eq!(failed.video_error_code, Some(4));
+
+        let none = result_with_visual(None);
+        assert_eq!(none.visual_status, "none");
+        assert_eq!(none.visual_reason, None);
+        assert_eq!(none.video_error_code, None);
     }
 }

@@ -7,7 +7,7 @@ import { parseSteamStatus, deriveLaunchView, launchResultText, steamPersonaName,
 import { connectSteamStatus, createDotaLauncher } from "../src/steam/controller.ts";
 import { readShowSteamName, writeShowSteamName } from "../src/steam/steamName.ts";
 import { deriveMinimapState, createRevealState, reduceReveal, revealDuration, minimapPlaceholderText, type MinimapState } from "../src/live/minimapStageModel.ts";
-import { shellTabs } from "../src/shell/state.ts";
+import { SHELL_NAV_ITEMS } from "../src/shell/state.ts";
 
 const steam = (changes = {}) => parseSteamStatus({ steam_running: true, dota_running: false, persona_name: "local-persona",
   gsi: "waiting", game_phase: "none", launch_pending: false, minimap_state: "not_running", ...changes })!;
@@ -174,9 +174,32 @@ test("all state transitions cancel reveal appropriately and stale completion can
   assert.equal(reduceReveal(second, { type: "finish", revealId: first.revealId }).view, "first_frame");
 });
 
-test("tab bar contains Live/Packs/Status and optional Logs; account/settings/friends stay outside", () => {
-  assert.deepEqual(shellTabs(false), ["live", "packs", "status"]);
-  assert.deepEqual(shellTabs(true), ["live", "packs", "status", "logs"]);
+test("two-rail shell exposes the agreed destinations and keeps reserved social items absent", () => {
+  assert.deepEqual(SHELL_NAV_ITEMS.map(({ id }) => id), ["overview", "live", "packs", "insights", "store", "status", "logs", "settings"]);
+  const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  assert.match(app, /<RailLeft/); assert.match(app, /<RailRight/); assert.match(app, /<StatusLine/);
+  assert.doesNotMatch(app, /<FriendsPage|<FriendsTab|FriendsPage/);
+});
+
+test("the right rail reserves a friends slot that says no friends system exists yet and holds no data or actions", () => {
+  const rail = readFileSync(new URL("../src/shell/RailRight.tsx", import.meta.url), "utf8");
+  const slot = rail.match(/<section className="shell-rail-friends"[\s\S]*?<\/section>/)?.[0] ?? "";
+  assert.match(slot, /data-slot="friends-reserved"/);
+  assert.match(slot, /labels\.friendsNotYet/);
+  assert.doesNotMatch(slot, /<button|<a |onClick|friends\.|friendCode|map\(/);
+  const css = readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
+  assert.match(css, /\.shell-rail-friends \{[^}]*pointer-events: none/);
+});
+
+test("the shell starts on Live, keeps the original Live content, and returns there from Account", () => {
+  const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  assert.match(app, /useState<ShellPage>\(DEFAULT_SHELL_DESTINATION\)/);
+  assert.match(app, /activePage === "overview" && <EmptyPage title=\{text\.shell\.emptyPage\}/);
+  const livePage = app.match(/activePage === "live" && \(([\s\S]*?)\n\s*\)\}/)?.[1] ?? "";
+  for (const component of ["GsiSetupCard", "StartDotaBar", "Deck"]) {
+    assert.ok(livePage.includes("<" + component + " "), component);
+  }
+  assert.match(app, /<AccountPage[^>]*back=\{\(\) => navigate\(DEFAULT_SHELL_DESTINATION\)\}/);
 });
 
 test("new shell, reserved pages and stage remain bounded; reveal adds duration tokens only", () => {
@@ -189,12 +212,12 @@ test("new shell, reserved pages and stage remain bounded; reveal adds duration t
     assert.match(css, new RegExp(`\\.${selector}\\s*\\{[^}]*min-height:\\s*0[^}]*overflow:\\s*hidden`));
   }
   const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
-  assert.match(app, /AccountMenu/); assert.match(app, /StartDotaBar/);
+  assert.match(app, /<RailRight/); assert.match(app, /StartDotaBar/);
   const shell = readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
-  for (const selector of ["shell-header", "shell-mainbar", "shell-statusbar"]) {
-    assert.match(shell, new RegExp(`\\.${selector}\\s*\\{[^}]*min-height:\\s*0[^}]*overflow:\\s*hidden`));
-  }
-  assert.match(shell, /@media\s*\(max-height:\s*700px\)\s*\{[\s\S]*?\.shell-header\s*\{[^}]*height:\s*84px[^}]*grid-template-rows:\s*46px minmax\(0,\s*1fr\)/);
+  assert.match(shell, /\.shell-main\s*\{[^}]*min-height:\s*0[^}]*overflow:\s*hidden/);
+  assert.match(shell, /\.shell-page-header\s*\{[^}]*min-width:\s*0/);
+  assert.match(shell, /\.shell-status-line\s*\{[^}]*min-width:\s*0/);
+  assert.match(shell, /@media\s*\(max-height:\s*700px\)\s*\{[\s\S]*?\.shell-page-header\s*\{[^}]*min-height:\s*62px/);
   const pipeline = readFileSync(new URL("../src/live/MinimapPanel.tsx", import.meta.url), "utf8");
   assert.match(pipeline, /<MinimapStage/); assert.match(pipeline, /ref=\{minimap\.canvasRef\}/);
   const stage = readFileSync(new URL("../src/live/MinimapStage.tsx", import.meta.url), "utf8");

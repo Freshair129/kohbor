@@ -1,6 +1,6 @@
 # Command Deck — design notes
 
-Status: **proposal, not approved**. DEC-VISUALS stays open. Sample data only. Nothing here is loaded by the application or replaces existing code. Account, friends, presence and Share list services do not exist; their screens are "design only, service pending" (DEC-SOCIAL, SOCIAL-003). Revised for the owner's Share list model; see section 13.
+Status: The owner selected Command Deck as the application UI core on 2026-11-20. Screen-content and interaction proposals in this document remain unapproved; sample data is not production data. The shared token file is loaded by the application shell. Account, friends, presence and Share list services do not exist; their screens are "design only, service pending" (DEC-SOCIAL, SOCIAL-003). Revised for the owner's Share list model; see section 13.
 
 Files: `index.html` (gallery), `deck-live.html` (A), `minimap.html` (B), `cards.html` (C), `social.html` (D + G), `inspector.html` (E), `glance-and-idle.html` (F), `tokens.css` (tokens + shared component styles). Plain HTML/CSS, no build step. `deck-live.html?fill=1` is the deck at the viewport size; the other pages frame it in scaled iframes. Parameters: `state`, `share=on|notice|paused|none`, `mode=glance|detail`, `econ=1`, `solo=map`, `theme=dark|light|auto`, `lang=th|en`.
 
@@ -53,7 +53,7 @@ In every degraded state the enemy column says **ไม่มีข้อมู�
 
 | State | Source of truth | What the user sees | Thai | English |
 | --- | --- | --- | --- | --- |
-| Own, live | local GSI, owner verified | Teal border, double-ring token, HP number + bar, mana %, abilities | — | — |
+| Own, live | local GSI, owner verified | Bone (`--accent`) line, double-ring token, HP number + bar, mana %, abilities | — | — |
 | Own, stale | `intake.state = stale` | Dashed border, grey bars, old values dimmed, age | ข้อมูลเก่า · 3.2 วิ | Stale · 3.2 s |
 | Own, unverified | `ownership.state = unverified` | No values | ยืนยันผู้เล่นไม่ได้ — ไม่แสดงค่า | Player could not be verified — values hidden |
 | Ally, vitals only | friend granted you vitals, not abilities | Vitals; one worded line instead of tiles | สกิล: เขาไม่ได้อนุญาต | Abilities: not granted to you |
@@ -135,28 +135,31 @@ No flashing, no pulsing, no looping emphasis. Nothing moves because of predictio
 
 | Token | Dark: on ground / surface / raised | Light: on ground / surface / raised | Non-colour cue |
 | --- | --- | --- | --- |
-| `--text` | 15.7 / 14.3 / 12.9 | 16.0 / 17.5 / 15.0 | — |
-| `--text-2` | 11.6 / 10.6 / 9.5 | 9.5 / 10.4 / 8.9 | — |
-| `--muted` | 7.7 / 7.0 / 6.3 | 5.8 / 6.3 / 5.4 | — |
-| `--accent` (own, live, sharing) | 9.1 / 8.3 / 7.5 | 5.3 / 5.8 / 5.0 | filled dot, double ring, ⇄, words |
-| `--ally` | 7.8 / 7.2 / 6.4 | 5.6 / 6.1 / 5.2 | ring shape, A-label |
-| `--enemy` | 8.1 / 7.4 / 6.7 | 5.5 / 6.0 / 5.2 | diamond shape, E-label, ◆ |
-| `--warning` (missing) | 10.3 / 9.4 / 8.5 | 5.4 / 5.9 / 5.1 | dashed diamond, ◇, words |
-| `--critical` | 6.1 / 5.6 / 5.1 | 5.3 / 5.8 / 4.9 | striped frame, ▲, banner words |
-| `--stale` (strokes only, never text) | 4.1 / 3.8 / 3.4 | 4.2 / 4.6 / 4.0 | dashed line, hollow dot, hatching |
-| `--line-strong` (control outlines) | 5.5 / 5.0 / 4.5 | 4.2 / 4.6 / 4.0 | — |
+| `--text` / `--accent` | 14.8 / 13.7 / 12.2 | 13.7 / 15.5 / 12.3 | filled dot, double ring, ⇄, words |
+| `--text-2` | 10.6 / 9.8 / 8.7 | 9.3 / 10.5 / 8.3 | — |
+| `--muted` | 7.0 / 6.5 / 5.8 | 6.2 / 7.1 / 5.6 | — |
+| `--line-strong` (control outlines) | 5.3 / 4.9 / 4.3 | 4.4 / 5.0 / 4.0 | — |
+| `--stale` (strokes only, never text) | 4.0 / 3.7 / 3.3 | 4.4 / 5.0 / 4.0 | dashed line, hollow dot, hatching |
+| `--ally` | 8.1 / 7.5 / 6.7 | 5.6 / 6.4 / 5.0 | ring shape, A-label |
+| `--enemy` | 7.8 / 7.2 / 6.4 | 5.3 / 6.0 / 4.7 | diamond shape, E-label, ◆ |
+| `--warning` | 9.7 / 9.0 / 8.0 | 5.6 / 6.3 / 5.0 | ! or ◇, dashed where missing |
+| `--critical` (Signal Rose) | 6.3 / 5.8 / 5.2 | 6.2 / 7.0 / 5.5 | striped frame, ▲, banner words |
+| `--brand-edge` (edges only, never text) | 4.1 / 3.8 / 3.4 | — | — |
+| `--brand` (fill only; not ink or line) | 2.8 / 2.6 / 2.3 | — | Bone label and action/destination words |
 
-Pairs: critical ink on critical 6.2 (dark) / 5.8 (light); text on accent-surface 11.7 / 15.1; text on warning-surface 12.7 / 15.8; warning on warning-surface 8.4 / 5.4; text on critical-surface 14.3 / 14.8.
+Pairs: Bone on Barber Red 5.3 (dark and light); Bone on hover red 4.7 (dark) / 6.4 (light); focus ring against red fill / surface / raised 5.3 / 13.7 / 12.2 (dark), 2.6 / 15.5 / 12.3 (light; 2-px offset places the ring on the surface); text on accent-surface 10.3 / 11.0; text on warning-surface 12.4 / 13.9; warning on warning-surface 8.1 / 5.6; text on critical-surface 13.6 / 13.1; critical ink on critical 6.5 / 7.7.
 
-Map overlay (fixed in both themes, on `--map-ground` #0b0f14): own 9.3, ally 7.9, enemy 8.2, missing 10.5, critical 6.2, text 15.9, muted 7.8. Labels sit on an 88% dark plate, so these hold over any picture; marker strokes have a dark halo. Contrast over a real captured frame is not verified.
+Barber Red fails as ink or a thin line on dark surfaces. Bone is the only label ink on its fill; the lighter `--brand-edge` is for edges only and also fails as text. Rose, amber, blue and orange keep danger, warning, ally and enemy apart from the brand. Map overlay colours are fixed in both themes: on `--map-ground` (`#101010`), own 15.3, ally 8.4, enemy 8.0, missing 10.1, critical 6.5, text 15.3 and muted 7.3. Labels use an 88% dark plate and marker strokes use a dark halo; contrast over a real captured frame is not verified. These ratios are arithmetic from hex values; no rendered or colour-vision-simulation check was run.
 
 ## 7. Tokens
 
-Reused unchanged from `apps/desktop/src/styles.css`: `--ground --surface --raised --line --line-subtle --text --text-2 --muted --accent --accent-surface --ally --warning --warning-surface --stale --critical`, the font stacks, radii 6/8/10/12, 44-px target.
+The application imports this token set. Shared names include `--ground --surface --raised --line --line-subtle --line-strong --text --text-2 --muted --accent --accent-surface --brand --brand-ink --brand-hover --brand-edge --ally --warning --warning-surface --stale --critical`, the font stacks, radii 6/8/10/12, and the 44-px target. Barber Red is used as a fill with Bone ink; its contrast is too low for text or a thin line.
 
-Shared with the parallel `s3-audio-ui/tokens.css` (same names and values): `--line-strong --critical-ink --critical-surface`, every light-theme value, `--ease-out --dur-enter --dur-critical --dur-exit`.
+Sprint 3 audio tokens were merged here; `s3-audio-ui/tokens.css` is retired. The merged audio names include `--switch-track-off/on/thumb`, `--lh-chip`, `--fs-title/body/detail/caption`, `--sp-1…6`, `--ov-mat/halo/accent/hot/critical/critical-ink/rail-off`, `--ease-in/over`, and `--dur-enter-top/cut/tail`. Overlay chip colours now follow Bone, neutral ready, warning amber and ally blue tokens.
 
-New here: `--enemy` (in design-tokens.json, not yet in styles.css) and its light value, `--ally-surface --enemy-surface --hatch --scrim`, `--u` and the scaled roles `--fz-banner/hero/num/label/sec/det`, `--g1…g6`, `--bw`, `--lh-tight`, `--dur-once`, and the fixed map set `--map-ground/own/ally/enemy/missing/critical/critical-ink/text/muted/halo/plate`. The focus ring is 3 px (shipped: 2 px).
+Other tokens include `--enemy` and its light value, `--ally-surface --enemy-surface --hatch --scrim`, `--u` and the scaled roles `--fz-banner/hero/num/label/sec/det`, `--g1…6`, `--bw`, `--lh-tight`, `--dur-once`, and the fixed map set `--map-ground/own/ally/enemy/missing/critical/critical-ink/text/muted/halo/plate`. P0 adds the 72-px rail width token and the decorative Pulse Grid order Bone → lit red → Barber Red → warm ash at a default `--power` of 55%. Compatibility names `--cyan/--violet/--pink/--lime` remain for this port; they no longer describe semantic hues. The rail ribbon runs from Bone to lit red and casts a neutral Bone glow. Primary actions and the active rail item use Barber Red fill with Bone ink; the selected sub-tab adds a lit-red edge while its Bone label remains the second cue. Danger uses Signal Rose with ▲, and destructive buttons use a Rose outline. The focus ring is 3 px (shipped: 2 px).
+
+`contracts/design-tokens.json` remains owner-reserved and still needs the matching palette update; it was not changed in this port.
 
 ## 8. Second-monitor ergonomics
 

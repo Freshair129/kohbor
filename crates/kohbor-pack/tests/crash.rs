@@ -4,12 +4,18 @@ use kohbor_pack::{
     limits::Limits,
     store::{ActivationPolicy, ActivationState, Hook, Injection, Step, Store, StoreError},
 };
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::RefCell,
+    path::Path,
+    rc::Rc,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 struct Recorder {
     stop: Option<Step>,
     injection: Injection,
     seen: Rc<RefCell<Vec<Step>>>,
+    install_time_ms: u64,
 }
 impl Hook for Recorder {
     fn before(&mut self, step: Step) -> Injection {
@@ -19,6 +25,10 @@ impl Hook for Recorder {
         } else {
             Injection::Proceed
         }
+    }
+
+    fn install_time(&self) -> SystemTime {
+        UNIX_EPOCH + Duration::from_millis(self.install_time_ms)
     }
 }
 
@@ -31,6 +41,7 @@ fn uninterrupted_transactions_visit_every_step_in_order() {
         stop: None,
         injection: Injection::Proceed,
         seen: seen.clone(),
+        install_time_ms: 1_795_000_000_000,
     };
     let mut store =
         Store::open_with_hook(&temp.0.join("store"), catalog(), Limits::default(), hook).unwrap();
@@ -51,6 +62,9 @@ fn uninterrupted_transactions_visit_every_step_in_order() {
 }
 
 fn crash_case(step: Step, has_old: bool) {
+    const OLD_INSTALL_TIME_MS: u64 = 1_795_000_000_123;
+    const NEW_INSTALL_TIME_MS: u64 = 1_795_000_001_456;
+
     let temp = TempDir::new();
     let root = temp.0.join("crashed");
     let reference = temp.0.join("reference");
@@ -59,8 +73,19 @@ fn crash_case(step: Step, has_old: bool) {
     let old_req = request(old_path, &old_bytes, "request_old");
     let req = request(path, &bytes, "request_new");
     let idle = ActivationState::default();
+    // Give corresponding installs in the two independent stores the same time
+    // while keeping old and new records distinguishable during recovery.
+    let open = |dir: &Path, stop: Option<Step>, install_time_ms: u64| {
+        let hook = Recorder {
+            stop,
+            injection: Injection::Crash,
+            seen: Rc::new(RefCell::new(Vec::new())),
+            install_time_ms,
+        };
+        Store::open_with_hook(dir, catalog(), Limits::default(), hook).unwrap()
+    };
     for dir in [&root, &reference] {
-        let mut s = Store::open(dir, catalog(), Limits::default()).unwrap();
+        let mut s = open(dir, None, OLD_INSTALL_TIME_MS);
         if has_old {
             let old = s.install(&old_req).unwrap().record.unwrap();
             s.activate(
@@ -72,11 +97,15 @@ fn crash_case(step: Step, has_old: bool) {
             .unwrap();
         }
     }
-    let mut baseline = Store::open(&reference, catalog(), Limits::default()).unwrap();
+    let mut baseline = open(&reference, None, NEW_INSTALL_TIME_MS);
     let previous_records = baseline.records();
+    if has_old {
+        assert_eq!(previous_records[0].installed_at, Some(OLD_INSTALL_TIME_MS));
+    }
     let previous_active = baseline.active();
     let expected = baseline.install(&req).unwrap();
     let expected_record = expected.record.clone().unwrap();
+    assert_eq!(expected_record.installed_at, Some(NEW_INSTALL_TIME_MS));
     let activation_step = matches!(step, Step::WriteActiveTemp | Step::RenameActive);
     if activation_step {
         baseline
@@ -89,12 +118,7 @@ fn crash_case(step: Step, has_old: bool) {
             .unwrap();
     }
     drop(baseline);
-    let hook = Recorder {
-        stop: Some(step),
-        injection: Injection::Crash,
-        seen: Rc::new(RefCell::new(Vec::new())),
-    };
-    let mut store = Store::open_with_hook(&root, catalog(), Limits::default(), hook).unwrap();
+    let mut store = open(&root, Some(step), NEW_INSTALL_TIME_MS);
     let outcome = store.install(&req);
     if activation_step {
         let record = outcome.unwrap().record.unwrap();
@@ -179,6 +203,7 @@ fn crash_case(step: Step, has_old: bool) {
         "{step:?}: retry result"
     );
     if activation_step {
+        assert_eq!(retry.record.as_ref(), Some(&expected_record));
         recovered
             .activate(
                 &req.request_id,
@@ -370,6 +395,7 @@ fn install_io_errors_leave_no_committed_record() {
             stop: Some(step),
             injection: Injection::IoError,
             seen: Rc::new(RefCell::new(Vec::new())),
+            install_time_ms: 1_795_000_000_000,
         };
         let mut store = Store::open_with_hook(&root, catalog(), Limits::default(), hook).unwrap();
         let req = request(path, &bytes, "request_1");

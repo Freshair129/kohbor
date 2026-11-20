@@ -1,10 +1,10 @@
 /*
- * Kohbor / เกาะเบาะ — Command Deck proposal (DEC-VISUALS: OPEN, not approved).
- * Part 1: tokens.  Part 2: shared mockup components.  Nothing here is loaded by the application.
+ * Kohbor / เกาะเบาะ — Command Deck (owner-selected UI core, 2026-11-20).
+ * Part 1: shared tokens. Part 2: shared mockup components.
  *
- * "maps to" names the variable in apps/desktop/src/styles.css (contracts/design-tokens.json 0.1.0).
- * "NEW" = added by this proposal. "S3" = same name and value as the parallel proposal in ../s3-audio-ui/tokens.css.
- * The shipped stylesheet is dark-only, so every light value is NEW (values shared with S3 where the name exists there).
+ * Shared token names are catalogued in contracts/design-tokens.json; its owner-reserved palette update is pending.
+ * "NEW" = added by this design. Sprint 3 audio tokens are merged into this file.
+ * The shipped app pins dark; light values remain available for design previews and future theme support.
  *
  * Theme resolution: 1. :root -> dark (shipped default)  2. prefers-color-scheme: light, unless data-theme="dark"
  *                   3. [data-theme="light"|"dark"] explicit override on <html> or any wrapper.
@@ -15,68 +15,114 @@
 :root,
 [data-theme="dark"] {
   color-scheme: dark;
-  --ground: #0e1116;            /* --ground */
-  --surface: #161b22;           /* --surface */
-  --raised: #1d2430;            /* --raised */
-  --line: #2a3341;              /* --line */
-  --line-subtle: #222a36;       /* --line-subtle */
-  --line-strong: #7f8b9b;       /* S3   control outlines, 5.0:1 on surface */
-  --text: #e6eaf0;              /* --text    14.3:1 on surface */
-  --text-2: #c3cbd6;            /* --text-2  10.6:1 */
-  --muted: #9aa6b5;             /* --muted    7.0:1 */
-  --accent: #3cc8b4;            /* --accent   8.3:1 */
-  --accent-surface: #12302c;    /* --accent-surface */
-  --ally: #6ca8ff;              /* --ally     7.2:1 */
-  --ally-surface: #14233a;      /* NEW  selected/own-team tint */
-  --enemy: #ff8a4c;             /* design-tokens.json "enemy"; not yet in styles.css  7.4:1 */
-  --enemy-surface: #2d1b10;     /* NEW */
-  --warning: #f2b544;           /* --warning  9.4:1 */
-  --warning-surface: #2b2414;   /* --warning-surface */
-  --stale: #6b7686;             /* --stale    3.8:1 — borders, glyphs, hatching only; never text */
-  --critical: #ff5a4a;          /* --critical 5.6:1 */
-  --critical-ink: #1a0b08;      /* S3   6.2:1 on --critical */
-  --critical-surface: #2a1512;  /* S3 */
-  --hatch: rgba(154, 166, 181, 0.16);   /* NEW  diagonal hatching for stale / no-coverage areas */
-  --scrim: rgba(14, 17, 22, 0.72);      /* NEW  behind sheets */
+  --ground: #141414;            /* Charcoal, one step down: rails, page ground */
+  --surface: #1c1c1c;           /* Charcoal Black, exact: content area, cards */
+  --raised: #272625;            /* Charcoal + 5% Bone: controls, tiles, menus */
+  --line: #3b3936;              /* Charcoal + 15% Bone: separators (decorative, 1.5:1) */
+  --line-subtle: #2d2c2a;       /* Charcoal + 8% Bone */
+  --line-strong: #8f897e;       /* Bone 55%: control outlines, 4.9:1 (4.3 on raised) */
+  --text: #ede6d8;              /* Bone White, exact  13.7:1 */
+  --text-2: #cbc4b7;            /* Bone 84%            9.8:1 */
+  --muted: #a69f93;             /* Bone 66%            6.5:1 (5.8 on raised) */
+  --accent: #ede6d8;            /* Bone: own / live / fresh / selected line / focus ring  13.7:1 */
+  --accent-surface: #34322e;    /* Charcoal + 12% Bone: fresh / pressed tint; text on it 10.3:1 */
+  --brand: #b3261e;             /* NEW  Barber Red, exact. FILL ONLY (2.6:1 on surface: never text, never a thin line) */
+  --brand-ink: #ede6d8;         /* NEW  Bone on Barber Red  5.3:1 */
+  --brand-hover: #c12b22;       /* NEW  hover / pressed fill; Bone on it 4.7:1 */
+  --brand-edge: #d4453a;        /* NEW  lit red for 1-3 px edges and the ribbon only  3.8:1 (3.4 on raised); never text */
+  --ally: #7fb0e6;              /* 7.5:1 */
+  --ally-surface: #18242f;
+  --enemy: #f0914f;             /* 7.2:1 */
+  --enemy-surface: #2e1e12;
+  --warning: #e9b44c;           /* 9.0:1 */
+  --warning-surface: #2c2413;   /* text on it 12.4:1, warning on it 8.1:1 */
+  --stale: #7a756c;             /* 3.7:1 — borders, glyphs, hatching only; never text */
+  --critical: #ff5c93;          /* Signal Rose, hue 340, deliberately NOT red  5.8:1 (5.2 on raised) */
+  --critical-ink: #1c0a11;      /* 6.5:1 on --critical */
+  --critical-surface: #33121f;  /* text on it 13.6:1, critical on it 5.8:1 */
+  --hatch: rgba(166, 159, 147, 0.16);
+  --scrim: rgba(20, 20, 20, 0.72);
+  --rail-width: 72px;
+  --g5: calc(20 * var(--u));
+  --lh-chip: 1.5;
+  --fs-title: 16px; --fs-body: 14px; --fs-detail: 13px; --fs-caption: 12px;
+  --sp-1: var(--g1); --sp-2: var(--g2); --sp-3: var(--g3); --sp-4: var(--g4); --sp-5: var(--g5); --sp-6: var(--g6);
+  --switch-track-off: var(--raised); --switch-track-on: var(--warning-surface); --switch-thumb: var(--text);
+  --ov-mat: color-mix(in srgb, var(--ground) 90%, transparent);
+  --ov-halo: color-mix(in srgb, var(--text) 55%, transparent);
+  --ov-accent: var(--accent); --ov-hot: var(--text); --ov-critical: var(--critical); --ov-critical-ink: var(--critical-ink);
+  --ov-rail-off: color-mix(in srgb, var(--text) 45%, transparent);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1); --ease-over: cubic-bezier(0.2, 1.3, 0.4, 1);
+  --dur-enter-top: 220ms; --dur-cut: 90ms; --dur-tail: 120ms;
+  /* Decorative Pulse Grid colours. Names kept for drop-in (rename to --pulse-1..4 later). Order: Bone, lit red, Barber Red, ash. */
+  --power: 55%; --cyan: #ede6d8; --violet: #d4453a; --pink: #b3261e; --lime: #8f897e;
+  --led-a: color-mix(in srgb, var(--cyan) var(--power), var(--raised));
+  --led-v: color-mix(in srgb, var(--violet) var(--power), var(--raised));
+  --led-p: color-mix(in srgb, var(--pink) var(--power), var(--raised));
+  --led-l: color-mix(in srgb, var(--lime) var(--power), var(--raised));
+  /* Overlay-only chip colours (drawn over the game picture). */
+  --overlay-chip-line: rgb(237 230 216 / 34%); --overlay-chip-background: rgb(20 20 20 / 88%); --overlay-chip-text: #ede6d8;
+  --overlay-chip-ready-line: rgb(237 230 216 / 60%); --overlay-chip-warning-line: rgb(233 180 76 / 64%);
+  --overlay-chip-demo-line: rgb(127 176 230 / 70%); --overlay-chip-demo-text: #dce8f5;
 }
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
     color-scheme: light;
-    --ground: #f3f5f8; --surface: #ffffff; --raised: #eaeef3; --line: #c9d0da; --line-subtle: #dfe4ea; --line-strong: #6b7686;
-    --text: #141a22; --text-2: #364150; --muted: #56616f;
-    --accent: #0a7265; --accent-surface: #dcf3ef;
-    --ally: #1f5fbf; --ally-surface: #e3edfb; --enemy: #a8440b; --enemy-surface: #fdeadd;
-    --warning: #8a5a00; --warning-surface: #fff3d1; --stale: #6b7686;
-    --critical: #c22a1c; --critical-ink: #ffffff; --critical-surface: #fde7e4;
-    --hatch: rgba(86, 97, 111, 0.16); --scrim: rgba(20, 26, 34, 0.45);
+    --ground: #ede6d8; --surface: #f8f4ec; --raised: #e2dac9; --line: #c4bba9; --line-subtle: #d9d1c0; --line-strong: #6e685e;
+    --text: #1c1c1c; --text-2: #3b3936; --muted: #57524a;
+    --accent: #1c1c1c; --accent-surface: #d8cfbc;
+    --brand: #b3261e; --brand-ink: #ede6d8; --brand-hover: #9c2019; --brand-edge: #8f1d17;
+    --ally: #1f5a9e; --ally-surface: #dbe6f0; --enemy: #96470a; --enemy-surface: #f5e1cf;
+    --warning: #7a5200; --warning-surface: #f6e7bd; --stale: #6e685e;
+    --critical: #a3104f; --critical-ink: #ffffff; --critical-surface: #f6dbe5;
+    --hatch: rgba(87, 82, 74, 0.16); --scrim: rgba(28, 28, 28, 0.45);
+    --switch-track-off: var(--raised); --switch-track-on: var(--warning-surface); --switch-thumb: var(--text);
+    --cyan: #1c1c1c; --violet: #b3261e; --pink: #8f1d17; --lime: #6e685e;
+    --led-a: color-mix(in srgb, var(--cyan) var(--power), var(--raised));
+    --led-v: color-mix(in srgb, var(--violet) var(--power), var(--raised));
+    --led-p: color-mix(in srgb, var(--pink) var(--power), var(--raised));
+    --led-l: color-mix(in srgb, var(--lime) var(--power), var(--raised));
   }
 }
 [data-theme="light"] {
   color-scheme: light;
-  --ground: #f3f5f8;            /* S3 */
-  --surface: #ffffff;           /* S3 */
-  --raised: #eaeef3;            /* S3 */
-  --line: #c9d0da;              /* S3 */
-  --line-subtle: #dfe4ea;       /* S3 */
-  --line-strong: #6b7686;       /* S3   4.6:1 on surface */
-  --text: #141a22;              /* S3  17.5:1 on surface */
-  --text-2: #364150;            /* S3  10.4:1 */
-  --muted: #56616f;             /* S3   6.3:1 */
-  --accent: #0a7265;            /* S3   5.8:1 */
-  --accent-surface: #dcf3ef;    /* S3 */
-  --ally: #1f5fbf;              /* S3   6.1:1 */
-  --ally-surface: #e3edfb;      /* NEW */
-  --enemy: #a8440b;             /* NEW  6.0:1 */
-  --enemy-surface: #fdeadd;     /* NEW */
-  --warning: #8a5a00;           /* S3   5.9:1 */
-  --warning-surface: #fff3d1;   /* S3 */
-  --stale: #6b7686;             /* S3   4.6:1 — still borders/glyphs only */
-  --critical: #c22a1c;          /* S3   5.8:1 */
-  --critical-ink: #ffffff;      /* S3   5.8:1 on --critical */
-  --critical-surface: #fde7e4;  /* S3 */
-  --hatch: rgba(86, 97, 111, 0.16);
-  --scrim: rgba(20, 26, 34, 0.45);
+  --ground: #ede6d8;            /* Bone White, exact */
+  --surface: #f8f4ec;           /* Bone, one tint up */
+  --raised: #e2dac9;            /* Bone, one shade down */
+  --line: #c4bba9;
+  --line-subtle: #d9d1c0;
+  --line-strong: #6e685e;       /* 5.0:1 (4.0 on raised) */
+  --text: #1c1c1c;              /* Charcoal Black, exact  15.5:1 */
+  --text-2: #3b3936;            /* 10.5:1 */
+  --muted: #57524a;             /*  7.1:1 (5.6 on raised) */
+  --accent: #1c1c1c;            /* Charcoal: same job as Bone has on dark */
+  --accent-surface: #d8cfbc;    /* text on it 11.0:1 */
+  --brand: #b3261e;             /* NEW  Barber Red, exact (6.0:1 here, but kept fill-only so both themes follow one rule) */
+  --brand-ink: #ede6d8;         /* NEW  5.3:1 on --brand */
+  --brand-hover: #9c2019;       /* NEW  Bone on it 6.4:1 */
+  --brand-edge: #8f1d17;        /* NEW  8.1:1 */
+  --ally: #1f5a9e;              /* 6.4:1 */
+  --ally-surface: #dbe6f0;
+  --enemy: #96470a;             /* 6.0:1 (4.7 on raised) */
+  --enemy-surface: #f5e1cf;
+  --warning: #7a5200;           /* 6.3:1 */
+  --warning-surface: #f6e7bd;   /* warning on it 5.6:1 */
+  --stale: #6e685e;             /* still borders/glyphs only */
+  --critical: #a3104f;          /* Signal Rose, dark  7.0:1 */
+  --critical-ink: #ffffff;      /* 7.7:1 on --critical */
+  --critical-surface: #f6dbe5;  /* critical on it 5.9:1 */
+  --hatch: rgba(87, 82, 74, 0.16);
+  --scrim: rgba(28, 28, 28, 0.45);
+  --switch-track-off: var(--raised); --switch-track-on: var(--warning-surface); --switch-thumb: var(--text);
+  --cyan: #1c1c1c; --violet: #b3261e; --pink: #8f1d17; --lime: #6e685e;
+  --led-a: color-mix(in srgb, var(--cyan) var(--power), var(--raised));
+  --led-v: color-mix(in srgb, var(--violet) var(--power), var(--raised));
+  --led-p: color-mix(in srgb, var(--pink) var(--power), var(--raised));
+  --led-l: color-mix(in srgb, var(--lime) var(--power), var(--raised));
 }
+[data-light="0"] { --power: 20%; }
+[data-light="1"] { --power: 55%; }
+[data-light="2"] { --power: 100%; }
 
 :root {
   /* Scale unit. 1u = 1 CSS px on a 1920x1080 deck. deck-live.html redefines it from the viewport. */
@@ -101,18 +147,18 @@
   --target-min: 44px;                             /* shipped button min-height; never scaled down */
   --focus-ring: 3px solid var(--accent);          /* shipped is 2px; 3px for 1 m viewing */
 
-  /* Minimap overlay: fixed in both themes because it is drawn over a captured (dark) game image. All NEW. */
-  --map-ground: #0b0f14;
-  --map-own: #3cc8b4;       /* 9.3:1 on map-ground */
-  --map-ally: #6ca8ff;      /* 7.9:1 */
-  --map-enemy: #ff8a4c;     /* 8.2:1 */
-  --map-missing: #f2b544;   /* 10.5:1 */
-  --map-critical: #ff5a4a;  /* 6.2:1 */
-  --map-critical-ink: #1a0b08;
-  --map-text: #e6eaf0;      /* 15.9:1 */
-  --map-muted: #9aa6b5;     /* 7.8:1 */
-  --map-halo: #0e1116;      /* dark outline behind every marker stroke */
-  --map-plate: rgba(14, 17, 22, 0.88);
+  /* Minimap overlay: fixed in both themes and drawn over a captured (dark) game image. */
+  --map-ground: #101010;
+  --map-own: #ede6d8;       /* 15.3:1  Bone; the double ring is the "own" cue */
+  --map-ally: #7fb0e6;      /* 8.4:1 */
+  --map-enemy: #f0914f;     /* 8.0:1 */
+  --map-missing: #e9b44c;   /* 10.1:1 */
+  --map-critical: #ff5c93;  /* 6.5:1 */
+  --map-critical-ink: #1c0a11;
+  --map-text: #ede6d8;      /* 15.3:1 */
+  --map-muted: #a69f93;     /* 7.3:1 */
+  --map-halo: #141414;
+  --map-plate: rgba(20, 20, 20, 0.88);
 
   /* Motion (NEW; names shared with S3 where they exist). transform/opacity only. */
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -141,8 +187,13 @@ html[data-lang="both"] .en { opacity: 0.8; font-size: 0.86em; }
 html[data-lang="both"] .en::before { content: " / "; }
 
 button, .btn { min-height: var(--target-min); min-width: var(--target-min); padding: 0 16px; border-radius: var(--r-control); border: 1px solid var(--line-strong); background: var(--raised); color: var(--text); font: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; }
-button.primary, .btn.primary { border: 2px solid var(--accent); background: var(--accent-surface); font-weight: 600; }
-button.danger { border: 2px solid var(--critical); }
+button.primary, .btn.primary { border: 2px solid var(--brand-edge); background: var(--brand); color: var(--brand-ink); font-weight: 600; }
+button.primary:hover:not(:disabled), .btn.primary:hover:not(:disabled) { border-color: var(--brand-ink); background: var(--brand-hover); }
+.shell-rail-link[aria-current="page"] { border-color: var(--brand-edge); background: var(--brand); color: var(--brand-ink); box-shadow: none; }
+.shell-subtabs button[aria-selected="true"] { border-bottom-color: var(--brand-edge); }
+button.danger { border: 2px solid var(--critical); background: transparent; color: var(--text); }
+button.danger::before { content: "▲"; color: var(--critical); }
+button.danger:hover:not(:disabled) { border-color: var(--critical); background: var(--critical-surface); }
 button:hover:not(:disabled) { border-color: var(--text); }
 button:disabled { opacity: 0.6; cursor: not-allowed; border-style: dashed; }
 button[aria-pressed="true"] { border: 2px solid var(--accent); background: var(--accent-surface); }
@@ -263,7 +314,7 @@ html:not([data-econ="1"]) .econ-live { display: none; }
 /* ---- minimap overlay markers (drawn over the captured frame; fixed colours) ---- */
 .mk { position: absolute; left: calc(var(--x) * 1%); top: calc(var(--y) * 1%); width: 0; height: 0; --s: calc(40 * var(--u)); }
 .mk::before { content: ""; position: absolute; width: var(--s); height: var(--s); left: calc(var(--s) / -2); top: calc(var(--s) / -2); border: max(3px, calc(5 * var(--u))) solid var(--c); border-radius: 50%; box-shadow: 0 0 0 max(1px, calc(2 * var(--u))) var(--map-halo), inset 0 0 0 max(1px, calc(2 * var(--u))) var(--map-halo); }
-.mk::after { content: ""; position: absolute; width: calc(12 * var(--u)); height: calc(12 * var(--u)); left: calc(-6 * var(--u)); top: calc(-6 * var(--u)); border-radius: 50%; background: rgba(230, 234, 240, 0.55); }   /* stand-in for the icon already in the captured image */
+.mk::after { content: ""; position: absolute; width: calc(12 * var(--u)); height: calc(12 * var(--u)); left: calc(-6 * var(--u)); top: calc(-6 * var(--u)); border-radius: 50%; background: var(--map-text); }   /* stand-in for the icon already in the captured image */
 .mk b { position: absolute; left: calc(var(--s) * 0.75); top: calc(var(--s) * -0.45); padding: 0 calc(7 * var(--u)); background: var(--map-plate); color: var(--c); border: 1px solid var(--c); border-radius: 4px; font-size: var(--fz-sec); font-weight: 700; line-height: 1.4; white-space: nowrap; }
 .mk-own { --c: var(--map-own); --s: calc(46 * var(--u)); }
 .mk-own::before { border-style: double; border-width: max(5px, calc(9 * var(--u))); }

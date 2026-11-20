@@ -40,7 +40,7 @@ use crate::fsutil::{flush_dir, is_directory_reparse_point, is_link_or_reparse_po
 use crate::limits::{Limits, MAX_DESCRIPTOR_BYTES, MAX_PAYLOAD_BYTES};
 use crate::trust::{self, AuthorityClass, PublisherClaim};
 use kohbor_gsi::strict_json;
-use serde_json::{Map, Number, Value};
+use serde_json::{json, Map, Number, Value};
 use sha2::{Digest, Sha256};
 
 /// Transaction steps in execution order. Install runs the first six steps that
@@ -96,6 +96,11 @@ pub enum Injection {
 
 pub trait Hook {
     fn before(&mut self, step: Step) -> Injection;
+
+    /// Clock used when creating a new install record. Crash fixtures can pin it.
+    fn install_time(&self) -> std::time::SystemTime {
+        std::time::SystemTime::now()
+    }
 }
 
 /// The production hook: never injects anything.
@@ -233,9 +238,39 @@ pub struct Record {
     pub container_sha256: String,
     pub authority_class: AuthorityClass,
     pub publisher_claim: PublisherClaim,
+    /// Unix milliseconds from the host clock; absent only for pre-1.1.0 registry entries.
+    pub installed_at: Option<u64>,
+    /// Original verified container size; absent only for pre-1.1.0 registry entries.
+    pub size_bytes: Option<u64>,
 }
 
-/// media-install-result 1.0.0.
+/// Catalog bindings declared by an installed, integrity-checked descriptor.
+pub struct InstalledPackBinding {
+    pub event_id: String,
+    pub tier: Option<u32>,
+    pub selection: Option<Selection>,
+    pub variant_count: usize,
+    pub banner_count: usize,
+}
+
+/// The selected silent visual, checked against its descriptor before serving.
+pub struct InstalledPackCover {
+    pub path: PathBuf,
+    pub sha256: String,
+    pub size_bytes: u64,
+    pub modified: std::time::SystemTime,
+    pub content_type: &'static str,
+}
+
+pub struct InstalledPackSummary {
+    pub display_name: String,
+    pub publisher_claim: Option<String>,
+    pub presentation: Option<descriptor::Presentation>,
+    pub bindings: Vec<InstalledPackBinding>,
+    pub cover: Result<Option<InstalledPackCover>, RejectReason>,
+}
+
+/// media-install-result 1.0.0 (local import) or 1.1.0 (host-shipped system pack).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InstallResult {
     pub request_id: String,
@@ -250,13 +285,23 @@ pub struct InstallResult {
 }
 
 impl InstallResult {
-    /// The media-install-result 1.0.0 document; it must validate against
+    /// The versioned media-install-result document; it must validate against
     /// contracts/media-install-result.schema.json.
     pub fn to_json(&self) -> serde_json::Value {
         let mut object = Map::new();
         object.insert(
             "schema_version".to_owned(),
-            Value::String("1.0.0".to_owned()),
+            Value::String(
+                if self
+                    .record
+                    .as_ref()
+                    .is_some_and(|record| record.authority_class == AuthorityClass::System)
+                {
+                    "1.1.0".to_owned()
+                } else {
+                    "1.0.0".to_owned()
+                },
+            ),
         );
         object.insert(
             "request_id".to_owned(),
@@ -319,7 +364,16 @@ pub struct ResolvedMedia {
 pub struct ResolvedVariant {
     pub variant_id: String,
     pub clip_id: Option<String>,
+    pub caption: Option<String>,
     pub media: Result<ResolvedMedia, RejectReason>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResolvedBinding {
+    pub event_id: String,
+    pub tier: Option<u32>,
+    pub selection: Option<Selection>,
+    pub variants: Vec<ResolvedVariant>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -423,6 +477,23 @@ impl<H: Hook> Store<H> {
     ///   names a publisher key is installed as `local_import` with claim `unverified`.
     /// - A previously active revision stays active and untouched by any install.
     pub fn install(&mut self, request: &InstallRequest) -> Result<InstallResult, StoreError> {
+        self.install_with_origin(request, trust::InstallOrigin::LocalFile)
+    }
+
+    /// Install bytes supplied by host code from the application bundle. This path is
+    /// deliberately separate from file import so descriptor names cannot grant system authority.
+    pub fn install_shipped_with_app(
+        &mut self,
+        request: &InstallRequest,
+    ) -> Result<InstallResult, StoreError> {
+        self.install_with_origin(request, trust::InstallOrigin::ShippedWithApp)
+    }
+
+    fn install_with_origin(
+        &mut self,
+        request: &InstallRequest,
+        origin: trust::InstallOrigin,
+    ) -> Result<InstallResult, StoreError> {
         if !valid_install_request(request) {
             return Err(StoreError::Io("invalid install request fields".to_owned()));
         }
@@ -535,6 +606,9 @@ impl<H: Hook> Store<H> {
             }
         };
         let descriptor_sha256 = sha256(&descriptor_bytes);
+        let container_size_bytes = fs::metadata(&copied_path)
+            .map_err(|error| io_error("stat copied media package", error))?
+            .len();
         remove_path(&copied_path)?;
 
         let descriptor = &staged.parsed.descriptor;
@@ -563,7 +637,7 @@ impl<H: Hook> Store<H> {
                         return Err(StoreError::Io("install_id counter exhausted".to_owned()));
                     }
                 };
-                let assessment = trust::assess(descriptor);
+                let assessment = trust::assess_for_origin(descriptor, origin);
                 (
                     Record {
                         install_id: format!("ins_{next:010}"),
@@ -572,6 +646,8 @@ impl<H: Hook> Store<H> {
                         container_sha256: staged.container_sha256.clone(),
                         authority_class: assessment.authority_class,
                         publisher_claim: assessment.publisher_claim,
+                        installed_at: Some(system_time_unix_ms(self.hook.install_time())),
+                        size_bytes: Some(container_size_bytes),
                     },
                     true,
                     next,
@@ -690,6 +766,132 @@ impl<H: Hook> Store<H> {
         }
         self.registry = candidate;
         Ok(result)
+    }
+
+    /// Validate and summarize a package through the installer's normal copy,
+    /// container, descriptor, inventory and media checks. Only a temporary
+    /// staging directory is created; the registry, revisions and active pointer
+    /// are left untouched.
+    pub fn summarize_package(&mut self, source: &Path) -> Result<Value, StoreError> {
+        let source_size = fs::metadata(source)
+            .ok()
+            .filter(|metadata| metadata.is_file())
+            .map(|metadata| metadata.len());
+        let staging = self.create_staging_dir()?;
+        let summary = (|| {
+            let copied_path = staging.join("source.container");
+            let copied_digest = match copy_source(source, &copied_path, self.limits) {
+                Ok(digest) => digest,
+                Err(reason) => return Ok(rejected_package_summary(source_size, None, &reason)),
+            };
+            let size_bytes = fs::metadata(&copied_path)
+                .ok()
+                .filter(|metadata| metadata.is_file())
+                .map(|metadata| metadata.len())
+                .or(source_size);
+            let staged = match container::stage_package_for_store(
+                &copied_path,
+                &staging,
+                &self.catalog,
+                &self.limits,
+            ) {
+                Ok(staged) => staged,
+                Err(container::StageError::Rejected(reason)) => {
+                    return Ok(rejected_package_summary(
+                        size_bytes,
+                        Some(copied_digest),
+                        &reason,
+                    ));
+                }
+                Err(container::StageError::Io(error)) => {
+                    return Err(io_error("stage package summary", error));
+                }
+            };
+            if staged.container_sha256 != copied_digest {
+                let reason = RejectReason::ContainerDigestMismatch;
+                return Ok(rejected_package_summary(
+                    size_bytes,
+                    Some(copied_digest),
+                    &reason,
+                ));
+            }
+
+            let descriptor = &staged.parsed.descriptor;
+            let revision_conflict = self.registry.records.iter().any(|installed| {
+                installed.record.package_id == descriptor.package_id
+                    && installed.record.revision == descriptor.revision
+                    && installed.record.container_sha256 != staged.container_sha256
+            });
+            let rejection = revision_conflict.then_some(RejectReason::RevisionConflict);
+            Ok(package_summary_json(
+                descriptor,
+                staged.container_sha256,
+                size_bytes,
+                rejection.as_ref(),
+            ))
+        })();
+
+        remove_path(&staging)?;
+        summary
+    }
+
+    /// Import bytes supplied by the file picker using the same staging checks
+    /// as a dropped file. The upload itself is never published.
+    pub fn summarize_package_bytes(&mut self, bytes: &[u8]) -> Result<Value, StoreError> {
+        self.with_package_bytes(bytes, |store, source| store.summarize_package(&source))
+    }
+
+    /// Use the existing installer and confirm the digest from the preview.
+    pub fn install_package_bytes(
+        &mut self,
+        bytes: &[u8],
+        request_id: String,
+        expected_container_sha256: String,
+    ) -> Result<InstallResult, StoreError> {
+        if !valid_token(&request_id, 8, 64) || !valid_sha256(&expected_container_sha256) {
+            return Err(StoreError::Io(
+                "invalid upload install request fields".to_owned(),
+            ));
+        }
+        self.with_package_bytes(bytes, |store, source_path| {
+            store.install(&InstallRequest {
+                request_id,
+                profile_id: "default".to_owned(),
+                source_path,
+                expected_container_sha256,
+                project_binding: None,
+                activation_policy: ActivationPolicy::Never,
+            })
+        })
+    }
+
+    fn with_package_bytes<T>(
+        &mut self,
+        bytes: &[u8],
+        use_source: impl FnOnce(&mut Self, PathBuf) -> Result<T, StoreError>,
+    ) -> Result<T, StoreError> {
+        if bytes.len() as u64 > self.limits.container_bytes {
+            return Err(StoreError::Io(
+                "package upload exceeds container size limit".to_owned(),
+            ));
+        }
+        ensure_store_directory(&self.root, "store root")?;
+        ensure_store_directory(&self.root.join("staging"), "staging")?;
+        let staging = self.create_staging_dir()?;
+        let path = staging.join("upload.zip");
+        let result = (|| {
+            let mut file = OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&path)
+                .map_err(|error| io_error("create package upload", error))?;
+            file.write_all(bytes)
+                .map_err(|error| io_error("write package upload", error))?;
+            drop(file);
+            use_source(self, path)
+        })();
+        remove_path(&staging)?;
+        result
     }
 
     /// Activation transaction for an installed revision. `request_id` names the
@@ -890,6 +1092,91 @@ impl<H: Hook> Store<H> {
             .collect()
     }
 
+    /// Read installed metadata without selecting a pack or opening any audio payload.
+    /// Counts describe the descriptor's catalog mappings, not playback readiness.
+    pub fn installed_pack_summary(
+        &self,
+        install_id: &str,
+    ) -> Result<InstalledPackSummary, StoreError> {
+        let installed = self
+            .registry
+            .records
+            .iter()
+            .find(|installed| installed.record.install_id == install_id)
+            .ok_or_else(|| StoreError::Corrupt("unknown install".to_owned()))?;
+        revision_payload_path(&self.root, install_id, "descriptor.json").map_err(|reason| {
+            StoreError::Corrupt(format!("installed descriptor path: {}", reason.as_str()))
+        })?;
+        let descriptor = verify_revision(&self.root, installed, &self.catalog, self.limits, false)?;
+        let bindings: Vec<_> = descriptor
+            .bindings
+            .iter()
+            .filter(|binding| {
+                self.catalog
+                    .event(&binding.event_id)
+                    .is_some_and(|event| event.media_mappable)
+            })
+            .collect();
+        let cover = descriptor
+            .presentation
+            .as_ref()
+            .and_then(|presentation| presentation.cover.as_deref())
+            .map(|relative| {
+                let file = descriptor
+                    .files
+                    .iter()
+                    .find(|file| file.path == relative)
+                    .ok_or(RejectReason::DanglingReference)?;
+                if file.size_bytes > 1_048_576 {
+                    return Err(RejectReason::CoverInvalid);
+                }
+                let path = revision_payload_path(&self.root, install_id, relative)?;
+                let modified = |path: &Path| {
+                    fs::symlink_metadata(path)
+                        .and_then(|metadata| metadata.modified())
+                        .map_err(|_| RejectReason::SourceUnavailable)
+                };
+                let before = modified(&path)?;
+                verify_payload_file(&path, file.size_bytes, &file.sha256)?;
+                let bytes = fs::read(&path).map_err(|_| RejectReason::SourceUnavailable)?;
+                if sha256(&bytes) != file.sha256 {
+                    return Err(RejectReason::DigestMismatch);
+                }
+                let image = crate::media::inspect_cover(&bytes)?;
+                if modified(&path)? != before {
+                    return Err(RejectReason::DigestMismatch);
+                }
+                Ok(InstalledPackCover {
+                    path,
+                    sha256: file.sha256.clone(),
+                    size_bytes: file.size_bytes,
+                    modified: before,
+                    content_type: image.content_type,
+                })
+            })
+            .transpose();
+        Ok(InstalledPackSummary {
+            display_name: descriptor.display_name,
+            publisher_claim: descriptor.publisher_key_id,
+            presentation: descriptor.presentation,
+            bindings: bindings
+                .into_iter()
+                .map(|binding| InstalledPackBinding {
+                    event_id: binding.event_id.clone(),
+                    tier: binding.tier,
+                    selection: binding.selection,
+                    variant_count: binding.variants.len(),
+                    banner_count: binding
+                        .variants
+                        .iter()
+                        .filter(|variant| variant.silent_visual_path.is_some())
+                        .count(),
+                })
+                .collect(),
+            cover,
+        })
+    }
+
     /// Install IDs with a pending (deferred) activation, oldest first.
     pub fn pending_activations(&self) -> Vec<String> {
         self.registry
@@ -897,6 +1184,22 @@ impl<H: Hook> Store<H> {
             .iter()
             .map(|pending| pending.install_id.clone())
             .collect()
+    }
+
+    /// Cancel one deferred activation without uninstalling its revision. Returns
+    /// false when the id is invalid or no activation for it is pending.
+    pub fn cancel_pending_activation(&mut self, install_id: &str) -> Result<bool, StoreError> {
+        if valid_install_id(install_id).is_none()
+            || !self
+                .registry
+                .pending_activations
+                .iter()
+                .any(|pending| pending.install_id == install_id)
+        {
+            return Ok(false);
+        }
+        self.remove_pending_for(install_id)?;
+        Ok(true)
     }
 
     /// Resolve the first variant for an event from the active revision only.
@@ -937,6 +1240,51 @@ impl<H: Hook> Store<H> {
         }
     }
 
+    /// Resolve one exact variant from an installed revision without activating it.
+    /// This is reserved for the drawer preview path; callers must still enforce the
+    /// match barrier and must not route its visual to the in-game overlay.
+    pub fn resolve_installed_variant(
+        &self,
+        install_id: &str,
+        event_id: &str,
+        tier: Option<u32>,
+        variant_id: &str,
+    ) -> Result<ResolvedMedia, ResolveError> {
+        let variants = self.resolve_inner_for_install(install_id, event_id, tier, true)?;
+        variants
+            .into_iter()
+            .find(|variant| variant.variant_id == variant_id)
+            .ok_or(ResolveError::Unmapped)?
+            .media
+            .map_err(ResolveError::Invalid)
+    }
+
+    /// Read the installed revision once and verify each mapped binding in descriptor order.
+    /// Failed variants retain their verification errors. No activation is performed.
+    pub fn resolve_installed_bindings(
+        &self,
+        install_id: &str,
+    ) -> Result<Vec<ResolvedBinding>, ResolveError> {
+        let parsed = self.verified_installed_descriptor(install_id)?;
+        Ok(parsed
+            .descriptor
+            .bindings
+            .iter()
+            .filter(|binding| !parsed.inert_event_ids.contains(&binding.event_id))
+            .map(|binding| ResolvedBinding {
+                event_id: binding.event_id.clone(),
+                tier: binding.tier,
+                selection: binding.selection,
+                variants: self.verify_binding_variants(
+                    install_id,
+                    &parsed.descriptor,
+                    binding,
+                    true,
+                ),
+            })
+            .collect())
+    }
+
     fn resolve_inner(
         &self,
         event_id: &str,
@@ -944,11 +1292,38 @@ impl<H: Hook> Store<H> {
         all_variants: bool,
     ) -> Result<Vec<ResolvedVariant>, ResolveError> {
         let active = self.active.as_ref().ok_or(ResolveError::Unmapped)?;
+        self.resolve_inner_for_install(&active.install_id, event_id, tier, all_variants)
+    }
+
+    fn resolve_inner_for_install(
+        &self,
+        install_id: &str,
+        event_id: &str,
+        tier: Option<u32>,
+        all_variants: bool,
+    ) -> Result<Vec<ResolvedVariant>, ResolveError> {
+        let parsed = self.verified_installed_descriptor(install_id)?;
+        if parsed.inert_event_ids.iter().any(|inert| inert == event_id) {
+            return Err(ResolveError::Inert);
+        }
+        let binding = parsed
+            .descriptor
+            .bindings
+            .iter()
+            .find(|binding| binding.event_id == event_id && binding.tier == tier)
+            .ok_or(ResolveError::Unmapped)?;
+        Ok(self.verify_binding_variants(install_id, &parsed.descriptor, binding, all_variants))
+    }
+
+    fn verified_installed_descriptor(
+        &self,
+        install_id: &str,
+    ) -> Result<descriptor::ParsedDescriptor, ResolveError> {
         let installed = self
             .registry
             .records
             .iter()
-            .find(|installed| installed.record.install_id == active.install_id)
+            .find(|installed| installed.record.install_id == install_id)
             .ok_or(ResolveError::Invalid(RejectReason::UnknownInstall))?;
         let revision_dir = self
             .root
@@ -981,30 +1356,28 @@ impl<H: Hook> Store<H> {
         {
             return Err(ResolveError::Invalid(RejectReason::DigestMismatch));
         }
-        if parsed.inert_event_ids.iter().any(|inert| inert == event_id) {
-            return Err(ResolveError::Inert);
-        }
-        let Some(binding) = parsed
-            .descriptor
-            .bindings
-            .iter()
-            .find(|binding| binding.event_id == event_id && binding.tier == tier)
-        else {
-            return Err(ResolveError::Unmapped);
-        };
+        Ok(parsed)
+    }
+
+    fn verify_binding_variants(
+        &self,
+        install_id: &str,
+        descriptor: &Descriptor,
+        binding: &descriptor::Binding,
+        all_variants: bool,
+    ) -> Vec<ResolvedVariant> {
         let mut resolved = Vec::with_capacity(if all_variants {
             binding.variants.len()
         } else {
             1
         });
         let verify = |relative: &str| -> Result<PathBuf, RejectReason> {
-            let file = parsed
-                .descriptor
+            let file = descriptor
                 .files
                 .iter()
                 .find(|file| file.path == relative)
                 .ok_or(RejectReason::DanglingReference)?;
-            let path = revision_payload_path(&self.root, &installed.record.install_id, &file.path)?;
+            let path = revision_payload_path(&self.root, install_id, &file.path)?;
             verify_payload_file(&path, file.size_bytes, &file.sha256)?;
             Ok(path)
         };
@@ -1020,7 +1393,7 @@ impl<H: Hook> Store<H> {
                     .map(verify)
                     .transpose()?;
                 Ok(ResolvedMedia {
-                    install_id: installed.record.install_id.clone(),
+                    install_id: install_id.to_owned(),
                     event_id: binding.event_id.clone(),
                     tier: binding.tier,
                     variant_id: variant.variant_id.clone(),
@@ -1036,10 +1409,11 @@ impl<H: Hook> Store<H> {
             resolved.push(ResolvedVariant {
                 variant_id: variant.variant_id.clone(),
                 clip_id: variant.clip_id.clone(),
+                caption: variant.caption.clone(),
                 media,
             });
         }
-        Ok(resolved)
+        resolved
     }
 
     /// The data root this store owns.
@@ -1164,6 +1538,74 @@ struct ActivePointer {
     package_id: String,
     revision: u64,
     container_sha256: String,
+}
+
+fn rejected_package_summary(
+    size_bytes: Option<u64>,
+    container_sha256: Option<String>,
+    reason: &RejectReason,
+) -> Value {
+    json!({
+        "schema_version": "1.0.0",
+        "status": "rejected",
+        "package_id": null,
+        "display_name": null,
+        "revision": null,
+        "event_count": null,
+        "binding_count": null,
+        "variant_count": null,
+        "banner_count": null,
+        "size_bytes": size_bytes,
+        "container_sha256": container_sha256,
+        "signature_state": "not_assessed",
+        "trust_state": "not_assessed",
+        "publisher_claim": "not_assessed",
+        "rejection_reason": reason.as_str(),
+    })
+}
+
+fn package_summary_json(
+    descriptor: &Descriptor,
+    container_sha256: String,
+    size_bytes: Option<u64>,
+    rejection: Option<&RejectReason>,
+) -> Value {
+    let assessment = trust::assess(descriptor);
+    let event_count = descriptor
+        .bindings
+        .iter()
+        .map(|binding| binding.event_id.as_str())
+        .collect::<HashSet<_>>()
+        .len();
+    let binding_count = descriptor.bindings.len();
+    let variant_count = descriptor
+        .bindings
+        .iter()
+        .map(|binding| binding.variants.len())
+        .sum::<usize>();
+    let banner_count = descriptor
+        .bindings
+        .iter()
+        .flat_map(|binding| &binding.variants)
+        .filter(|variant| variant.silent_visual_path.is_some())
+        .count();
+    json!({
+        "schema_version": "1.0.0",
+        "status": if rejection.is_some() { "rejected" } else { "valid" },
+        "package_id": descriptor.package_id,
+        "display_name": descriptor.display_name,
+        "revision": descriptor.revision,
+        "event_count": event_count,
+        "binding_count": binding_count,
+        "variant_count": variant_count,
+        "banner_count": banner_count,
+        "size_bytes": size_bytes,
+        "container_sha256": container_sha256,
+        "signature_state": "unavailable",
+        "trust_state": assessment.authority_class.as_str(),
+        "publisher_claim": assessment.publisher_claim.as_str(),
+        "rejection_reason": rejection.map(RejectReason::as_str),
+    })
 }
 
 fn valid_token(value: &str, min: usize, max: usize) -> bool {
@@ -1317,6 +1759,20 @@ fn registry_value(registry: &Registry) -> Value {
                 "descriptor_sha256".to_owned(),
                 Value::String(installed.descriptor_sha256.clone()),
             );
+            object.insert(
+                "installed_at".to_owned(),
+                installed
+                    .record
+                    .installed_at
+                    .map_or(Value::Null, |value| Value::Number(Number::from(value))),
+            );
+            object.insert(
+                "size_bytes".to_owned(),
+                installed
+                    .record
+                    .size_bytes
+                    .map_or(Value::Null, |value| Value::Number(Number::from(value))),
+            );
             Value::Object(object)
         })
         .collect();
@@ -1363,7 +1819,7 @@ fn registry_value(registry: &Registry) -> Value {
     let mut object = Map::new();
     object.insert(
         "schema_version".to_owned(),
-        Value::String("1.0.0".to_owned()),
+        Value::String("1.1.0".to_owned()),
     );
     object.insert(
         "install_id_counter".to_owned(),
@@ -1445,7 +1901,8 @@ fn parse_registry(bytes: &[u8]) -> Result<Registry, StoreError> {
             "pending_activations",
         ],
     )?;
-    if required_string(object, "schema_version")? != "1.0.0" {
+    let schema_version = required_string(object, "schema_version")?;
+    if !matches!(schema_version, "1.0.0" | "1.1.0") {
         return Err(StoreError::Corrupt("registry schema_version".to_owned()));
     }
     let install_id_counter = required_u64(object, "install_id_counter")?;
@@ -1459,7 +1916,7 @@ fn parse_registry(bytes: &[u8]) -> Result<Registry, StoreError> {
     let mut identities = HashSet::new();
     let mut max_id = 0u64;
     for value in required_array(object, "records")? {
-        let stored = parse_stored_record(value)?;
+        let stored = parse_stored_record(value, schema_version)?;
         let id_number = valid_install_id(&stored.record.install_id)
             .ok_or_else(|| StoreError::Corrupt("registry install_id".to_owned()))?;
         if id_number > install_id_counter
@@ -1513,7 +1970,7 @@ fn parse_registry(bytes: &[u8]) -> Result<Registry, StoreError> {
             None | Some(Value::Null) => None,
             Some(value) => Some(parse_request_fingerprint(value, &digest)?),
         };
-        let result = parse_result(required_value(item, "result")?)?;
+        let mut result = parse_result(required_value(item, "result")?)?;
         if result.request_id != request_id
             || result.status != Status::Installed
             || result.reason.is_some()
@@ -1531,11 +1988,16 @@ fn parse_registry(bytes: &[u8]) -> Result<Registry, StoreError> {
             .ok_or_else(|| {
                 StoreError::Corrupt("registry result references unknown record".to_owned())
             })?;
-        if result_record != &installed.record || result_record.container_sha256 != digest {
+        if !same_result_record(result_record, &installed.record)
+            || result_record.container_sha256 != digest
+        {
             return Err(StoreError::Corrupt(
                 "registry result record mismatch".to_owned(),
             ));
         }
+        // The wire result omits the summary metadata. Restore it from the
+        // validated registry record so retries return the same Rust value.
+        result.record = Some(installed.record.clone());
         request_results.push(StoredRequestResult {
             request_id,
             expected_container_sha256: digest,
@@ -1613,18 +2075,34 @@ fn parse_request_fingerprint(
     })
 }
 
-fn parse_stored_record(value: &Value) -> Result<StoredRecord, StoreError> {
+fn parse_stored_record(value: &Value, schema_version: &str) -> Result<StoredRecord, StoreError> {
+    let legacy_keys = [
+        "install_id",
+        "package_id",
+        "revision",
+        "container_sha256",
+        "authority_class",
+        "publisher_claim",
+        "descriptor_sha256",
+    ];
+    let current_keys = [
+        "install_id",
+        "package_id",
+        "revision",
+        "container_sha256",
+        "authority_class",
+        "publisher_claim",
+        "descriptor_sha256",
+        "installed_at",
+        "size_bytes",
+    ];
     let object = strict_object(
         value,
-        &[
-            "install_id",
-            "package_id",
-            "revision",
-            "container_sha256",
-            "authority_class",
-            "publisher_claim",
-            "descriptor_sha256",
-        ],
+        if schema_version == "1.1.0" {
+            &current_keys
+        } else {
+            &legacy_keys
+        },
     )?;
     let record = parse_record_fields(object)?;
     let descriptor_sha256 = required_string(object, "descriptor_sha256")?.to_owned();
@@ -1658,6 +2136,7 @@ fn parse_record_fields(object: &Map<String, Value>) -> Result<Record, StoreError
     let revision = required_u64(object, "revision")?;
     let container_sha256 = required_string(object, "container_sha256")?.to_owned();
     let authority_class = match required_string(object, "authority_class")? {
+        "system" => AuthorityClass::System,
         "local_import" => AuthorityClass::LocalImport,
         _ => return Err(StoreError::Corrupt("record authority_class".to_owned())),
     };
@@ -1666,6 +2145,8 @@ fn parse_record_fields(object: &Map<String, Value>) -> Result<Record, StoreError
         "unverified" => PublisherClaim::Unverified,
         _ => return Err(StoreError::Corrupt("record publisher_claim".to_owned())),
     };
+    let installed_at = optional_u64(object, "installed_at")?;
+    let size_bytes = optional_u64(object, "size_bytes")?;
     if valid_install_id(&install_id).is_none()
         || !valid_package_id(&package_id)
         || revision == 0
@@ -1681,7 +2162,18 @@ fn parse_record_fields(object: &Map<String, Value>) -> Result<Record, StoreError
         container_sha256,
         authority_class,
         publisher_claim,
+        installed_at,
+        size_bytes,
     })
+}
+
+fn same_result_record(result: &Record, installed: &Record) -> bool {
+    result.install_id == installed.install_id
+        && result.package_id == installed.package_id
+        && result.revision == installed.revision
+        && result.container_sha256 == installed.container_sha256
+        && result.authority_class == installed.authority_class
+        && result.publisher_claim == installed.publisher_claim
 }
 
 fn parse_result(value: &Value) -> Result<InstallResult, StoreError> {
@@ -1689,7 +2181,8 @@ fn parse_result(value: &Value) -> Result<InstallResult, StoreError> {
         value,
         &["schema_version", "request_id", "status", "reason", "record"],
     )?;
-    if required_string(object, "schema_version")? != "1.0.0" {
+    let schema_version = required_string(object, "schema_version")?;
+    if !matches!(schema_version, "1.0.0" | "1.1.0") {
         return Err(StoreError::Corrupt("result schema_version".to_owned()));
     }
     let request_id = required_string(object, "request_id")?.to_owned();
@@ -1713,6 +2206,13 @@ fn parse_result(value: &Value) -> Result<InstallResult, StoreError> {
         Value::Null => None,
         value => Some(parse_record(value)?),
     };
+    if schema_version == "1.0.0"
+        && record
+            .as_ref()
+            .is_some_and(|record| record.authority_class != AuthorityClass::LocalImport)
+    {
+        return Err(StoreError::Corrupt("result authority_class".to_owned()));
+    }
     if status == Status::Rejected && (record.is_some() || reason.is_none()) {
         return Err(StoreError::Corrupt("rejected result shape".to_owned()));
     }
@@ -1793,6 +2293,24 @@ fn required_u64(object: &Map<String, Value>, key: &str) -> Result<u64, StoreErro
     required_value(object, key)?
         .as_u64()
         .ok_or_else(|| StoreError::Corrupt(format!("invalid {key}")))
+}
+
+fn optional_u64(object: &Map<String, Value>, key: &str) -> Result<Option<u64>, StoreError> {
+    match object.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(value) => value
+            .as_u64()
+            .map(Some)
+            .ok_or_else(|| StoreError::Corrupt(format!("invalid {key}"))),
+    }
+}
+
+fn system_time_unix_ms(value: std::time::SystemTime) -> u64 {
+    value
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()
+        .and_then(|elapsed| u64::try_from(elapsed.as_millis()).ok())
+        .unwrap_or_default()
 }
 
 fn required_array<'a>(

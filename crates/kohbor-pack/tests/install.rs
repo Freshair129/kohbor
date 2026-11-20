@@ -24,6 +24,8 @@ fn installs_records_and_preserves_source() {
         assert_eq!(record.revision, 1);
         assert_eq!(record.container_sha256, hash(&bytes));
         assert_eq!(record.authority_class, AuthorityClass::LocalImport);
+        assert!(record.installed_at.is_some());
+        assert_eq!(record.size_bytes, Some(bytes.len() as u64));
         assert_eq!(
             record.publisher_claim,
             if publisher {
@@ -35,6 +37,20 @@ fn installs_records_and_preserves_source() {
         assert_eq!(std::fs::read(path).unwrap(), bytes);
         assert!(store.active().is_none());
     }
+}
+
+#[test]
+fn shipped_with_app_origin_is_system_even_when_descriptor_name_is_unusual() {
+    let temp = TempDir::new();
+    let (path, bytes) = store_package(&temp.0, "ordinary-pack", 1, false);
+    let mut store = Store::open(&temp.0.join("store"), catalog(), Limits::default()).unwrap();
+    let result = store
+        .install_shipped_with_app(&request(path, &bytes, "request_1"))
+        .unwrap();
+    assert_eq!(result.status, Status::Installed);
+    assert_eq!(result.to_json()["schema_version"], "1.1.0");
+    let record = result.record.unwrap();
+    assert_eq!(record.authority_class, AuthorityClass::System);
 }
 
 #[test]
@@ -229,6 +245,8 @@ fn serialized_results_obey_result_schema() {
         container_sha256: "a".repeat(64),
         authority_class: AuthorityClass::LocalImport,
         publisher_claim: PublisherClaim::None,
+        installed_at: None,
+        size_bytes: None,
     };
     for (status, reason, has_record) in [
         (Status::Installed, None, true),
@@ -253,7 +271,11 @@ fn serialized_results_obey_result_schema() {
         }
         assert_eq!(
             doc["schema_version"],
-            schema["properties"]["schema_version"]["const"]
+            if record.authority_class == AuthorityClass::System {
+                "1.1.0"
+            } else {
+                "1.0.0"
+            }
         );
         assert!(schema["properties"]["status"]["enum"]
             .as_array()
@@ -313,8 +335,16 @@ fn serialized_results_obey_result_schema() {
             );
             assert_eq!(
                 doc["record"]["authority_class"],
-                definition["properties"]["authority_class"]["const"]
+                if record.authority_class == AuthorityClass::System {
+                    "system"
+                } else {
+                    "local_import"
+                }
             );
+            assert!(definition["properties"]["authority_class"]["enum"]
+                .as_array()
+                .unwrap()
+                .contains(&doc["record"]["authority_class"]));
             assert!(definition["properties"]["publisher_claim"]["enum"]
                 .as_array()
                 .unwrap()

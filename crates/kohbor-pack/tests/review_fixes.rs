@@ -237,7 +237,7 @@ fn registry_fingerprints_persist_and_legacy_entries_remain_digest_only() {
 
     let registry_path = root.join("registry.json");
     let mut registry: Value = serde_json::from_slice(&fs::read(&registry_path).unwrap()).unwrap();
-    assert_eq!(registry["schema_version"], "1.0.0");
+    assert_eq!(registry["schema_version"], "1.1.0");
     assert_eq!(
         registry["request_results"][0]["fingerprint"]["expected_container_sha256"],
         hash(&bytes)
@@ -246,6 +246,13 @@ fn registry_fingerprints_persist_and_legacy_entries_remain_digest_only() {
         registry["request_results"][0]["fingerprint"]["profile_id"],
         "default"
     );
+    registry["schema_version"] = Value::String("1.0.0".to_owned());
+    let record = registry["records"][0].as_object_mut().unwrap();
+    assert!(record.remove("installed_at").unwrap().is_u64());
+    assert_eq!(
+        record.remove("size_bytes").unwrap().as_u64(),
+        Some(bytes.len() as u64)
+    );
     registry["request_results"][0]
         .as_object_mut()
         .unwrap()
@@ -253,6 +260,9 @@ fn registry_fingerprints_persist_and_legacy_entries_remain_digest_only() {
     fs::write(&registry_path, serde_json::to_vec(&registry).unwrap()).unwrap();
 
     let mut legacy_store = Store::open(&root, catalog(), Limits::default()).unwrap();
+    let legacy_record = &legacy_store.records()[0];
+    assert_eq!(legacy_record.installed_at, None);
+    assert_eq!(legacy_record.size_bytes, None);
     let legacy_retry = legacy_store
         .install(&set_profile(&original, "legacy_other"))
         .unwrap();

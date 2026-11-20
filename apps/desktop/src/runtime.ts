@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createPlaybackState, parsePlaybackEvent, reducePlayback, tickPlayback, type PlaybackState } from "./playback";
+import { createPlaybackState, parsePlaybackEvent, reducePlayback, tickPlayback, type PlaybackEndedEvent, type PlaybackStartedEvent, type PlaybackState } from "./playback";
 import { activateArgs, inspectArgs, type ChosenActivationPolicy } from "./packs";
 import { probeReportArgs, type MediaProbePendingResponse, type MediaProbeReport } from "./probe";
 import type { OwnSnapshot, RuntimeStatus } from "./types";
@@ -32,12 +32,34 @@ export function subscribeOverlayDemo(onPayload: (payload: unknown) => void): Pro
   return listen<unknown>("overlay://demo", (event) => onPayload(event.payload));
 }
 
+export function subscribeOverlayContentVisibility(onVisible: (visible: boolean) => void): Promise<() => void> {
+  if (!hostAvailable()) return Promise.resolve(() => {});
+  return listen<unknown>("overlay://content-visibility", (event) => {
+    const payload = event.payload;
+    if (typeof payload !== "object" || payload === null || Array.isArray(payload)) return;
+    const visible = (payload as Record<string, unknown>).visible;
+    if (typeof visible === "boolean") onVisible(visible);
+  });
+}
+
 export function emitOverlayReady(): Promise<void> {
   return hostAvailable() ? emit("overlay://ready", {}) : Promise.resolve();
 }
 
 export function emitOverlayVisibility(visible: boolean): Promise<void> {
   return hostAvailable() ? emit("overlay://visible", { visible }) : Promise.resolve();
+}
+
+export function emitOverlayVideoDiagnostic(payload: {
+  playback_id: string;
+  event_type: string | null;
+  outcome: "started" | "failed";
+  error_code: number | null;
+  reason_code: "NONE" | "VIDEO_ERROR" | "VIDEO_URL_UNAVAILABLE" | "VIDEO_START_TIMEOUT";
+}): Promise<void> {
+  return hostAvailable()
+    ? emit("overlay://video-diagnostic", payload).catch(() => {})
+    : Promise.resolve();
 }
 
 export function reportMediaProbe(report: MediaProbeReport): Promise<{ accepted: boolean } | null> {
@@ -80,6 +102,11 @@ export function audioHistory(limit: number): Promise<unknown> {
   return invoke<unknown>("audio_history", { limit });
 }
 
+export function matchRecapCommand(command: "match_recap" | "clear_match_recap"): Promise<unknown> {
+  if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
+  return invoke<unknown>(command);
+}
+
 /** Build metadata is optional on older hosts; callers retain unknown on failure. */
 export function appVersion(): Promise<unknown> {
   if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
@@ -98,14 +125,110 @@ export function mediaList(): Promise<unknown> {
   return invoke<unknown>("media_list");
 }
 
-export function mediaCabinet(): Promise<unknown> {
+export { parseMediaPackSummaries } from "./mediaPackSummaries";
+export type { MediaPackBindingSummary, MediaPackPresentationSummary, MediaPackSummaryV1, MediaPackSummaryV1_1, MediaPackSummaries } from "./mediaPackSummaries";
+import { parseMediaPackSummaries } from "./mediaPackSummaries";
+import type { MediaPackSummaries } from "./mediaPackSummaries";
+
+export function mediaPackSummaries(): Promise<MediaPackSummaries> {
   if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
-  return invoke<unknown>("media_cabinet");
+  return invoke<unknown>("media_pack_summaries").then(value => {
+    const parsed = parseMediaPackSummaries(value);
+    if (!parsed) throw new Error("MEDIA_SUMMARY_INVALID");
+    return parsed;
+  });
 }
 
-export function mediaAudition(eventId: string, tier: number | null): Promise<void> {
+export function mediaEventMap(): Promise<unknown> {
   if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
-  return invoke<void>("media_audition", { eventId, tier });
+  return invoke<unknown>("media_event_map");
+}
+
+export function mediaInstalledEventMap(installId: string): Promise<unknown> {
+  if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
+  return invoke<unknown>("media_installed_event_map", { installId });
+}
+
+export interface MediaAuditionResult {
+  audio_started: boolean;
+  audio_ended: boolean;
+  audio_end_reason: string | null;
+  visual_status: "shown" | "failed" | "none" | "unknown";
+  visual_reason: string | null;
+  video_error_code: number | null;
+}
+
+export function mediaAudition(eventId: string, tier: number | null, overlay = false): Promise<MediaAuditionResult> {
+  if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
+  return invoke<MediaAuditionResult>("media_audition", { eventId, tier, overlay });
+}
+
+export function mediaAuditionVariant(eventId: string, tier: number | null, variantId: string, overlay = false): Promise<MediaAuditionResult> {
+  if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
+  return invoke<MediaAuditionResult>("media_audition_variant", { eventId, tier, variantId, overlay });
+}
+
+export function mediaAuditionInstalledVariant(installId: string, eventId: string, tier: number | null, variantId: string): Promise<MediaAuditionResult> {
+  if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
+  return invoke<MediaAuditionResult>("media_audition_installed_variant", { installId, eventId, tier, variantId });
+}
+
+export interface MediaVariantVisualUrl {
+  visual_url: string | null;
+}
+
+function summaryObject(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+function validMediaVisualUrl(value: unknown): value is string {
+  return typeof value === "string"
+    && /^kohbor-media:\/\/localhost\/v1\/ins_[0-9]{10}\/[a-f0-9]{64}$/u.test(value);
+}
+
+export function parseMediaVariantVisualUrl(value: unknown): MediaVariantVisualUrl | null {
+  const row = summaryObject(value);
+  if (!row || Object.keys(row).some(key => key !== "visual_url")
+    || !(row.visual_url === null || validMediaVisualUrl(row.visual_url))) return null;
+  return { visual_url: row.visual_url as string | null };
+}
+
+export function mediaVariantVisualUrl(installId: string, eventId: string, tier: number | null, variantId: string): Promise<MediaVariantVisualUrl> {
+  if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
+  return invoke<unknown>("media_variant_visual_url", { installId, eventId, tier, variantId }).then(value => {
+    const parsed = parseMediaVariantVisualUrl(value);
+    if (!parsed) throw new Error("MEDIA_VARIANT_VISUAL_URL_INVALID");
+    return parsed;
+  });
+}
+
+export type MediaAuditionPlaybackEvent =
+  | (PlaybackStartedEvent & { event_type: "audition" })
+  | PlaybackEndedEvent;
+
+export function parseMediaAuditionPlaybackEvent(value: unknown): MediaAuditionPlaybackEvent | null {
+  const event = parsePlaybackEvent(value);
+  if (!event) return null;
+  if (event.kind === "started") {
+    if (event.event_type !== "audition" || (event.visual_url !== null && !validMediaVisualUrl(event.visual_url))) return null;
+    return event as PlaybackStartedEvent & { event_type: "audition" };
+  }
+  return event;
+}
+
+export function subscribeMediaAuditionEvents(onEvent: (event: MediaAuditionPlaybackEvent) => void): Promise<() => void> {
+  const active = new Set<string>();
+  return subscribePlayback(payload => {
+    const event = parseMediaAuditionPlaybackEvent(payload);
+    if (!event) return;
+    if (event.kind === "started") {
+      active.add(event.playback_id);
+      onEvent(event);
+    } else if (active.has(event.playback_id)) {
+      active.delete(event.playback_id);
+      onEvent(event);
+    }
+  });
 }
 
 export function subscribeAuditionMatch(onActive: (active: boolean) => void): Promise<() => void> {

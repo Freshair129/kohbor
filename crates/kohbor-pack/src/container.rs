@@ -953,6 +953,15 @@ fn inspect_media(
     staging_dir: &Path,
     limits: Limits,
 ) -> Result<(), RejectReason> {
+    if let Some(cover_path) = parsed
+        .descriptor
+        .presentation
+        .as_ref()
+        .and_then(|presentation| presentation.cover.as_deref())
+    {
+        let bytes = read_staged_media(staging_dir, cover_path, 1_048_576)?;
+        media::inspect_cover(&bytes)?;
+    }
     let mut wav_cache: HashMap<String, WavInfo> = HashMap::new();
     let mut webm_cache: HashMap<String, WebmInfo> = HashMap::new();
     for binding in &parsed.descriptor.bindings {

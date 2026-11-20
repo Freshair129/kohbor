@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import ownSnapshotFixtureRaw from "../../../../fixtures/own-fresh-at-boundary.json?raw";
 import runtimeStatusFixtureRaw from "../../../../fixtures/runtime-status-live-valid.json?raw";
 import settingsFixtureRaw from "../../../../fixtures/user-settings-valid.json?raw";
+import eventCatalog from "../../../../contracts/event-catalog.json";
 import { copy, type Locale } from "../copy";
 import type { PlaybackClass, PlaybackEndReason, PlaybackEvent } from "../playback";
 import type { OwnSnapshot, RuntimeStatus, UserSettingsView } from "../types";
@@ -52,7 +53,7 @@ const channel = typeof BroadcastChannel === "undefined" ? null : new BroadcastCh
 function currentStatus(): RuntimeStatus {
   const status = structuredClone(statusFixture);
   status.status_revision = statusRevision;
-  if (liveMockRequested()) {
+  if (liveMockRequested() || mockPacksRequested) {
     if (mockDeckScenario === "standby") {
       status.session.phase = "none";
       status.intake.state = "listening";
@@ -172,6 +173,56 @@ const mockInstallResults = new Map<string, unknown>();
 let mockActiveInstall: string | null = null;
 let mockPendingInstalls: string[] = [];
 let mockInstallCounter = 0;
+const mockPackNames = new Map<string, string>();
+const mockPacksRequested = new URLSearchParams(window.location.search).get("mockPacks") === "1";
+if (mockPacksRequested) {
+  for (const name of ["ทดสอบ · เสียงสนาม", "ทดสอบ · พากย์ไทย", "ทดสอบ · เสียงจากฐาน", "ทดสอบ · เสียงทีม"]) {
+    mockInstallCounter += 1;
+    const install_id = `ins_${String(mockInstallCounter).padStart(10, "0")}`;
+    mockRecords.push({
+      install_id, package_id: `mock-pack-${mockInstallCounter}`, revision: 2,
+      container_sha256: "0".repeat(64), authority_class: "local_import", publisher_claim: "none",
+    });
+    mockPackNames.set(install_id, name);
+  }
+  mockActiveInstall = mockRecords[0]?.install_id ?? null;
+  mockDeckScenario = "standby";
+}
+
+const syntheticBinding = { event_id: "hero_kill", tier: null, selection: null, variant_count: 1, banner_count: 0 };
+
+function mockPackSummaries() {
+  return { schema_version: "1.0.0", records: mockRecords.map(record => ({
+    install_id: record.install_id, package_id: record.package_id, revision: record.revision,
+    active: record.install_id === mockActiveInstall, pending: mockPendingInstalls.includes(record.install_id),
+    display_name: mockPackNames.get(record.install_id) ?? record.package_id, problem: null,
+    cover_url: null, event_count: 1, binding_count: 1, variant_count: 1, banner_count: 0,
+    bindings: [syntheticBinding],
+  })) };
+}
+
+function mockEventMap(installId?: string) {
+  const { active: current, records } = mockListing();
+  const selected = installId === undefined ? null : records.find(record => record.install_id === installId);
+  if (installId !== undefined && !selected) throw "UNKNOWN_INSTALL";
+  const active = selected ? {
+    install_id: selected.install_id, package_id: selected.package_id, revision: selected.revision,
+  } : current;
+  return {
+    schema_version: "1.0.0", active, media_match_active: currentStatus().session.phase !== "none",
+    events: eventCatalog.events.filter(event => event.status === "active").flatMap(event => {
+      const range = event.tier_range;
+      const tiers = range ? Array.from({ length: range.max - range.min + 1 }, (_, i) => i + range.min) : [null];
+      return tiers.map(tier => {
+        const mapped = !!active && event.id === syntheticBinding.event_id;
+        const state = !event.media_mappable ? "not_voiced" : event.id === "first_blood" ? "detector_unavailable"
+          : mapped ? "ready" : active ? "unmapped" : "unknown";
+        return { event_id: event.id, tier, state, reason: "SYNTHETIC_PREVIEW", resolved_from_tier: null, selection: null,
+          variants: mapped ? [{ variant_id: "mock", duration_ms: 1000, has_visual: false }] : [] };
+      });
+    }),
+  };
+}
 
 /** Tauri 2 rejects a call whose camelCase argument is missing; the mock does the same. */
 function requireArgs(command: string, args: Record<string, unknown>, keys: readonly string[]) {
@@ -243,6 +294,7 @@ async function mockInstall(args: Record<string, unknown>) {
       publisher_claim: "none",
     };
     mockRecords.push(record);
+    mockPackNames.set(record.install_id, source.split(/[\\/]/).pop()?.replace(/\.[^.]*$/, "").slice(0, 96) || "Mock pack");
     result = mockInstallResult(requestId, "installed", null, record);
   }
   mockInstallResults.set(requestId, result);
@@ -454,6 +506,14 @@ export function installMockHarness() {
       }
       if (command === "audio_history") return mockAudioHistory(args);
       if (command === "media_list") return mockListing();
+      if (command === "media_pack_summaries") return mockPackSummaries();
+      if (command === "media_event_map") return mockEventMap();
+      if (command === "media_installed_event_map") {
+        requireArgs(command, args, ["installId"]);
+        if (typeof args.installId !== "string") throw "UNKNOWN_INSTALL";
+        return mockEventMap(args.installId);
+      }
+      if (command === "media_audition") throw "CAPABILITY_UNAVAILABLE";
       if (command === "media_inspect") return mockInspect(args);
       if (command === "media_install") return mockInstall(args);
       if (command === "media_activate") return mockActivate(args);

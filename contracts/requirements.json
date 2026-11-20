@@ -1815,7 +1815,11 @@
           "crates/kohbor-pack/tests/variant_media.rs",
           "crates/kohbor-pack/tests/hostile.rs",
           "apps/desktop/src-tauri/src/media/prewarm.rs",
-          "apps/desktop/src-tauri/src/media/protocol.rs"
+          "apps/desktop/src-tauri/src/media/protocol.rs",
+          "apps/desktop/src/mediaUrl.ts",
+          "apps/desktop/src/packs/browseApi.ts",
+          "apps/desktop/tests/browse-ui-models.test.ts",
+          "apps/desktop/src-tauri/src/media/service.rs"
         ],
         "evidence_refs": [],
         "procedure_ids": [
@@ -2512,7 +2516,14 @@
           "docs/quality/TEST-PLAN.md",
           "docs/quality/UAT-PLAN.md"
         ],
-        "implementation_refs": [],
+        "implementation_refs": [
+          "apps/desktop/src/packs/PacksPage.tsx",
+          "apps/desktop/src/packs/PackLibrary.tsx",
+          "apps/desktop/src/shell/GameSelector.tsx",
+          "apps/desktop/tests/browse-ui-components.test.ts",
+          "apps/desktop/src/packs/previewModel.ts",
+          "apps/desktop/tests/browse-ui-models.test.ts"
+        ],
         "evidence_refs": [],
         "procedure_ids": [
           "TP-05",

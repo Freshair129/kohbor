@@ -43,6 +43,17 @@ pub trait Emitter: Send + Sync {
 /// A testable boundary for the media-service command queue.
 pub trait MediaJobs: Send + Sync {
     fn inspect(&self, source_path: &str) -> Result<Value, String>;
+    fn summarize_package(&self, source_path: &str) -> Result<Value, String> {
+        let _ = source_path;
+        Err("CAPABILITY_UNAVAILABLE".to_owned())
+    }
+    fn package_bytes(
+        &self,
+        _bytes: &[u8],
+        _install: Option<(String, String)>,
+    ) -> Result<Value, String> {
+        Err("CAPABILITY_UNAVAILABLE".to_owned())
+    }
     fn install(&self, request: &[u8]) -> Result<Value, String>;
     fn activate(
         &self,
@@ -50,9 +61,37 @@ pub trait MediaJobs: Send + Sync {
         install_id: &str,
         policy: ActivationPolicy,
     ) -> Result<Value, String>;
+    fn cancel_pending_activation(&self, install_id: &str) -> Result<Value, String> {
+        let _ = install_id;
+        Err("CAPABILITY_UNAVAILABLE".to_owned())
+    }
     fn list(&self) -> Result<Value, String>;
+    fn pack_summaries(&self) -> Result<Value, String>;
+    fn audition_installed_variant(
+        &self,
+        _install_id: &str,
+        _event_id: &str,
+        _tier: Option<u8>,
+        _variant_id: &str,
+        _session_epoch: u64,
+    ) -> Result<(), String> {
+        Err("CAPABILITY_UNAVAILABLE".to_owned())
+    }
+    fn variant_visual_url(
+        &self,
+        _install_id: &str,
+        _event_id: &str,
+        _tier: Option<u8>,
+        _variant_id: &str,
+    ) -> Result<Value, String> {
+        Err("CAPABILITY_UNAVAILABLE".to_owned())
+    }
     /// Read-only active-pack bindings; implementations without a store report it unavailable.
     fn active_bindings(&self) -> Result<Value, String> {
+        Err("CAPABILITY_UNAVAILABLE".to_owned())
+    }
+    fn event_map(&self) -> Result<Value, String>;
+    fn installed_event_map(&self, _install_id: &str) -> Result<Value, String> {
         Err("CAPABILITY_UNAVAILABLE".to_owned())
     }
     fn probe_report(
@@ -71,6 +110,18 @@ impl MediaJobs for MediaHandle {
         MediaHandle::inspect(self, source_path)
     }
 
+    fn summarize_package(&self, source_path: &str) -> Result<Value, String> {
+        MediaHandle::summarize_package(self, source_path)
+    }
+
+    fn package_bytes(
+        &self,
+        bytes: &[u8],
+        install: Option<(String, String)>,
+    ) -> Result<Value, String> {
+        MediaHandle::package_bytes(self, bytes, install)
+    }
+
     fn install(&self, request: &[u8]) -> Result<Value, String> {
         MediaHandle::install(self, request)
     }
@@ -84,12 +135,56 @@ impl MediaJobs for MediaHandle {
         MediaHandle::activate(self, request_id, install_id, policy)
     }
 
+    fn cancel_pending_activation(&self, install_id: &str) -> Result<Value, String> {
+        MediaHandle::cancel_pending_activation(self, install_id)
+    }
+
     fn list(&self) -> Result<Value, String> {
         MediaHandle::list(self)
     }
 
+    fn pack_summaries(&self) -> Result<Value, String> {
+        MediaHandle::pack_summaries(self)
+    }
+
+    fn audition_installed_variant(
+        &self,
+        install_id: &str,
+        event_id: &str,
+        tier: Option<u8>,
+        variant_id: &str,
+        session_epoch: u64,
+    ) -> Result<(), String> {
+        MediaHandle::audition_installed_variant(
+            self,
+            install_id,
+            event_id,
+            tier,
+            variant_id,
+            session_epoch,
+        )
+    }
+
+    fn variant_visual_url(
+        &self,
+        install_id: &str,
+        event_id: &str,
+        tier: Option<u8>,
+        variant_id: &str,
+    ) -> Result<Value, String> {
+        MediaHandle::variant_visual_url(self, install_id, event_id, tier, variant_id)
+    }
+
     fn active_bindings(&self) -> Result<Value, String> {
         MediaHandle::active_bindings(self)
+    }
+
+    fn event_map(&self) -> Result<Value, String> {
+        MediaHandle::event_map(self)
+    }
+
+    fn installed_event_map(&self, install_id: &str) -> Result<Value, String> {
+        MediaHandle::installed_event_map(self, install_id)
     }
 
     fn probe_report(
@@ -174,6 +269,20 @@ impl CommandApi {
         self.media.inspect(source_path)
     }
 
+    pub fn media_package_summary(&self, source_path: &str) -> Result<Value, String> {
+        self.ensure_running()?;
+        self.media.summarize_package(source_path)
+    }
+
+    pub fn media_package_bytes(
+        &self,
+        bytes: &[u8],
+        install: Option<(String, String)>,
+    ) -> Result<Value, String> {
+        self.ensure_running()?;
+        self.media.package_bytes(bytes, install)
+    }
+
     pub fn media_install(&self, request: &Value) -> Result<Value, String> {
         self.ensure_running()?;
         let bytes = serde_json::to_vec(request).map_err(|_| "MEDIA_INVALID".to_owned())?;
@@ -196,9 +305,19 @@ impl CommandApi {
         self.media.activate(request_id, install_id, policy)
     }
 
+    pub fn media_cancel_pending_activation(&self, install_id: &str) -> Result<Value, String> {
+        self.ensure_running()?;
+        self.media.cancel_pending_activation(install_id)
+    }
+
     pub fn media_list(&self) -> Result<Value, String> {
         self.ensure_running()?;
         self.media.list()
+    }
+
+    pub fn media_pack_summaries(&self) -> Result<Value, String> {
+        self.ensure_running()?;
+        self.media.pack_summaries()
     }
 
     /// Read-only active-pack event/tier bindings and verification status; no paths.
@@ -225,6 +344,33 @@ impl CommandApi {
         Ok(cabinet)
     }
 
+    /// Versioned event map for the cabinet renderer; the legacy cabinet shape
+    /// remains available until the P1 page removes it.
+    pub fn media_event_map(&self) -> Result<Value, String> {
+        self.ensure_running()?;
+        self.with_audition_match(self.media.event_map()?)
+    }
+
+    pub fn media_installed_event_map(&self, install_id: &str) -> Result<Value, String> {
+        self.ensure_running()?;
+        self.with_audition_match(self.media.installed_event_map(install_id)?)
+    }
+
+    fn with_audition_match(&self, mut event_map: Value) -> Result<Value, String> {
+        let object = event_map
+            .as_object_mut()
+            .ok_or_else(|| "MEDIA_INVALID".to_owned())?;
+        let media_match_active = object
+            .remove("media_match_active")
+            .and_then(|value| value.as_bool())
+            .ok_or_else(|| "MEDIA_STATE_UNKNOWN".to_owned())?;
+        object.insert(
+            "match_active".to_owned(),
+            Value::Bool(self.engine.audition_match_active() || media_match_active),
+        );
+        Ok(event_map)
+    }
+
     /// Audition one admitted pack clip through the existing engine and audio owner.
     /// It creates no intake event and is tagged separately in audio outcome history.
     pub fn media_audition(
@@ -232,9 +378,32 @@ impl CommandApi {
         event_id: &str,
         tier: Option<u8>,
         session_epoch: u64,
+        overlay: bool,
     ) -> Result<(), String> {
         self.ensure_running()?;
-        self.request_audition(event_id, tier, session_epoch)
+        self.request_audition(event_id, tier, session_epoch, None, overlay)
+            .map_err(|reason| {
+                log_audition_outcome(reason.code());
+                reason.code().to_owned()
+            })
+    }
+
+    /// Audition one exact variant from the currently active pack.
+    pub fn media_audition_variant(
+        &self,
+        event_id: &str,
+        tier: Option<u8>,
+        variant_id: &str,
+        session_epoch: u64,
+        overlay: bool,
+    ) -> Result<(), String> {
+        self.ensure_running()?;
+        if !valid_audition_variant_id(variant_id) {
+            let reason = AuditionRefusal::VariantUnavailable;
+            log_audition_outcome(reason.code());
+            return Err(reason.code().to_owned());
+        }
+        self.request_audition(event_id, tier, session_epoch, Some(variant_id), overlay)
             .map_err(|reason| {
                 log_audition_outcome(reason.code());
                 reason.code().to_owned()
@@ -246,6 +415,8 @@ impl CommandApi {
         event_id: &str,
         tier: Option<u8>,
         session_epoch: u64,
+        variant_id: Option<&str>,
+        overlay: bool,
     ) -> Result<(), AuditionRefusal> {
         if self.engine.audition_match_active() {
             return Err(AuditionRefusal::MatchActive);
@@ -261,15 +432,15 @@ impl CommandApi {
             .map_err(|_| AuditionRefusal::MediaStateUnknown)?;
         let install_id = audition_preflight(event, &bindings)?;
 
-        static AUDITION_SEQUENCE: AtomicU64 = AtomicU64::new(0);
         let (reply, result) = mpsc::sync_channel(1);
         self.engine.offer_audition(AuditionRequest {
             event,
+            variant_id: variant_id.map(str::to_owned),
             install_id: install_id.to_owned(),
+            selected: None,
+            overlay,
             session_epoch: session_epoch.max(1),
-            sequence: AUDITION_SEQUENCE
-                .fetch_add(1, Ordering::Relaxed)
-                .saturating_add(1),
+            sequence: next_audition_sequence(),
             expires_at: Instant::now() + AUDITION_ADMISSION_TIMEOUT,
             reply,
         })?;
@@ -277,6 +448,56 @@ impl CommandApi {
         result
             .recv_timeout(AUDITION_ADMISSION_TIMEOUT)
             .map_err(|_| AuditionRefusal::Busy)?
+    }
+
+    /// Audition an exact verified variant from an installed but non-active pack.
+    pub fn media_audition_installed_variant(
+        &self,
+        install_id: &str,
+        event_id: &str,
+        tier: Option<u8>,
+        variant_id: &str,
+        session_epoch: u64,
+    ) -> Result<(), String> {
+        self.ensure_running()?;
+        if self.engine.audition_match_active() {
+            return Err(AuditionRefusal::MatchActive.code().to_owned());
+        }
+        if !valid_audition_variant_id(variant_id) {
+            return Err(AuditionRefusal::VariantUnavailable.code().to_owned());
+        }
+        let event = crate::demo::demo_event(event_id, tier)
+            .map_err(|_| AuditionRefusal::EventUnavailable.code().to_owned())?;
+        if !event.id.voiced() {
+            return Err(AuditionRefusal::EventUnavailable.code().to_owned());
+        }
+        self.media.audition_installed_variant(
+            install_id,
+            event_id,
+            tier,
+            variant_id,
+            session_epoch.max(1),
+        )
+    }
+
+    /// Obtain an exact installed variant's silent visual only after the media
+    /// service has verified it and published its route to the media protocol.
+    pub fn media_variant_visual_url(
+        &self,
+        install_id: &str,
+        event_id: &str,
+        tier: Option<u8>,
+        variant_id: &str,
+    ) -> Result<Value, String> {
+        self.ensure_running()?;
+        if self.engine.audition_match_active() {
+            return Err(AuditionRefusal::MatchActive.code().to_owned());
+        }
+        if !valid_audition_variant_id(variant_id) {
+            return Err(AuditionRefusal::VariantUnavailable.code().to_owned());
+        }
+        self.media
+            .variant_visual_url(install_id, event_id, tier, variant_id)
     }
 
     pub fn media_probe_report(
@@ -302,6 +523,17 @@ impl CommandApi {
         Ok(publisher::audio_history_command(&self.history, limit))
     }
 
+    pub fn match_recap(&self) -> Result<Value, String> {
+        self.ensure_running()?;
+        Ok(self.history.match_recap())
+    }
+
+    pub fn clear_match_recap(&self) -> Result<Value, String> {
+        self.ensure_running()?;
+        self.history.clear_match_recap()?;
+        Ok(json!({"cleared": true}))
+    }
+
     pub fn set_muted(&self, muted: bool) -> Result<Value, String> {
         self.ensure_running()?;
         let (ack_tx, ack_rx) = mpsc::sync_channel(1);
@@ -324,6 +556,20 @@ impl CommandApi {
             Err(_) => Err("CAPABILITY_UNAVAILABLE".to_owned()),
         }
     }
+}
+
+pub(crate) fn next_audition_sequence() -> u64 {
+    static SEQUENCE: AtomicU64 = AtomicU64::new(0);
+    SEQUENCE.fetch_add(1, Ordering::Relaxed).saturating_add(1)
+}
+
+fn valid_audition_variant_id(value: &str) -> bool {
+    let mut bytes = value.bytes();
+    matches!(bytes.next(), Some(b'a'..=b'z' | b'0'..=b'9'))
+        && value.len() <= 32
+        && bytes.all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'_' | b'-')
+        })
 }
 
 fn audition_preflight(event: Event, bindings: &Value) -> Result<&str, AuditionRefusal> {
@@ -518,6 +764,7 @@ fn stop_protocol(protocol: &Mutex<Option<ProtocolServer>>) {
 fn unavailable_protocol_response() -> ProtocolResponse {
     ProtocolResponse {
         status: 503,
+        reason_code: Some("MEDIA_SERVICE_UNAVAILABLE"),
         headers: vec![("Cache-Control".to_owned(), "no-store".to_owned())],
         body: b"Service Unavailable".to_vec(),
     }
@@ -562,7 +809,7 @@ impl Host {
             )?;
         set_join_priority(&engine, ThreadPriority::AboveNormal);
 
-        let history = HistoryHandle::new();
+        let history = HistoryHandle::with_match_recap(app_data_dir.join("match-recap.json"));
         let (device_sender, device_receiver) = mpsc::channel();
         let publisher_join = match publisher::spawn_publisher(
             out_rx,
@@ -729,6 +976,7 @@ impl Host {
             at_ms: self.clock.now_ms(),
             // Epoch 1 never exceeds a real session's epoch, so a demo cannot fence a real match.
             session_epoch: 1,
+            game_clock_seconds: None,
             generation: crate::demo::DEMO_GENERATION,
             sequence: DEMO_SEQUENCE.fetch_add(1, Ordering::Relaxed) + 1,
             events: vec![event],
@@ -924,9 +1172,15 @@ mod tests {
         fn list(&self) -> Result<Value, String> {
             Ok(Value::Null)
         }
+        fn pack_summaries(&self) -> Result<Value, String> {
+            Err("CAPABILITY_UNAVAILABLE".to_owned())
+        }
         fn active_bindings(&self) -> Result<Value, String> {
             self.calls.fetch_add(1, Ordering::Relaxed);
             self.bindings.clone()
+        }
+        fn event_map(&self) -> Result<Value, String> {
+            Err("CAPABILITY_UNAVAILABLE".to_owned())
         }
         fn probe_report(
             &self,
@@ -980,6 +1234,16 @@ mod tests {
             shutting_down: Arc::new(AtomicBool::new(false)),
         };
         (api, backend, engine, rx.control, rx.audition)
+    }
+
+    #[test]
+    fn recap_commands_read_and_clear_the_local_history() {
+        let (api, _, _, _) = command_api(Ok(Value::Null));
+        assert_eq!(
+            api.match_recap().unwrap(),
+            json!({"schema_version": crate::audio::recap::MATCH_RECAP_SCHEMA_VERSION, "matches": []})
+        );
+        assert_eq!(api.clear_match_recap().unwrap(), json!({"cleared": true}));
     }
 
     #[test]
@@ -1079,21 +1343,21 @@ mod tests {
         );
         engine.set_audition_match_active(true);
         assert_eq!(
-            api.media_audition("hero_kill", None, 1),
+            api.media_audition("hero_kill", None, 1, false),
             Err("AUDITION_MATCH_ACTIVE".to_owned())
         );
         assert_eq!(backend.calls.load(Ordering::Relaxed), 0);
         engine.set_audition_match_active(false);
         assert_eq!(
-            api.media_audition("hero_respawn", None, 1),
+            api.media_audition("hero_respawn", None, 1, false),
             Err("AUDITION_EVENT_UNAVAILABLE".to_owned())
         );
         assert_eq!(
-            api.media_audition("multi_kill", Some(1), 1),
+            api.media_audition("multi_kill", Some(1), 1, false),
             Err("AUDITION_EVENT_UNAVAILABLE".to_owned())
         );
         assert_eq!(
-            api.media_audition("hero_kill", None, 1),
+            api.media_audition("hero_kill", None, 1, false),
             Err("AUDITION_NO_ACTIVE_PACK".to_owned())
         );
 
@@ -1107,7 +1371,7 @@ mod tests {
             })),
         );
         assert_eq!(
-            unmapped.media_audition("hero_kill", None, 1),
+            unmapped.media_audition("hero_kill", None, 1, false),
             Err("AUDITION_UNMAPPED".to_owned())
         );
 
@@ -1121,7 +1385,7 @@ mod tests {
             })),
         );
         assert_eq!(
-            unknown.media_audition("hero_kill", None, 1),
+            unknown.media_audition("hero_kill", None, 1, false),
             Err("AUDITION_MEDIA_STATE_UNKNOWN".to_owned())
         );
 
@@ -1135,7 +1399,7 @@ mod tests {
             })),
         );
         assert_eq!(
-            media_match.media_audition("hero_kill", None, 1),
+            media_match.media_audition("hero_kill", None, 1, false),
             Err("AUDITION_MATCH_ACTIVE".to_owned())
         );
 
@@ -1148,7 +1412,7 @@ mod tests {
             })),
         );
         assert_eq!(
-            missing_match_state.media_audition("hero_kill", None, 1),
+            missing_match_state.media_audition("hero_kill", None, 1, false),
             Err("AUDITION_MEDIA_STATE_UNKNOWN".to_owned())
         );
     }
@@ -1165,7 +1429,7 @@ mod tests {
 
         thread::scope(|scope| {
             for outcome in [Ok(()), Err(AuditionRefusal::MatchActive)] {
-                let call = scope.spawn(|| api.media_audition("multi_kill", Some(2), 8));
+                let call = scope.spawn(|| api.media_audition("multi_kill", Some(2), 8, true));
                 let request = auditions.recv_timeout(Duration::from_secs(1)).unwrap();
                 assert_eq!(request.session_epoch, 8);
                 assert_eq!(request.install_id, "ins_0000000001");
@@ -1433,6 +1697,7 @@ mod tests {
             detected: Instant::now(),
             at_ms: 1,
             session_epoch: 1,
+            game_clock_seconds: None,
             generation: 1,
             sequence: 1,
             events: Vec::new(),
@@ -1487,6 +1752,7 @@ mod tests {
             detected: now,
             at_ms: shared.heartbeat_ms.load(Ordering::Acquire),
             session_epoch: 1,
+            game_clock_seconds: None,
             generation: 1,
             sequence,
             events: vec![kohbor_events::Event {

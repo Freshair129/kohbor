@@ -15,6 +15,30 @@ const admitted = {
   decided_monotonic_ms: 61_500,
 };
 const unmapped = { ...admitted, instance_id: "ev_g3_s11_0", event_type: "health_danger", audio_class: "critical", outcome: "unmapped", playback_id: null, package_revision: null };
+const admittedV11 = {
+  ...admitted, schema_version: "1.1.0", tier: 3, variant_id: "kill_03", clip_id: "clip-03",
+  selection: "shuffle", game_clock_seconds: 91, match_id: "local_match_2", playback_end: "finished",
+};
+
+test("audio history accepts both versions in the same reply and keeps 1.1.0 provenance", () => {
+  const result = history.parseAudioHistory([unmapped, admittedV11]);
+  assert.equal(result?.skipped, 0);
+  assert.deepEqual(result?.records.map(record => record.instance_id), [admitted.instance_id, unmapped.instance_id]);
+  assert.deepEqual(history.parseOutcomeRecord(admittedV11), admittedV11);
+});
+
+test("audio outcome 1.1.0 enforces the new keys and playback rules", () => {
+  const { tier: _tier, ...missingTier } = admittedV11;
+  for (const invalid of [missingTier, { ...admittedV11, extra: true },
+    { ...admittedV11, match_id: "local_match_3" }, { ...admittedV11, tier: 11 },
+    { ...admittedV11, outcome: "preempted" }, { ...admittedV11, outcome: "muted", playback_id: null },
+    { ...admittedV11, schema_version: "1.0.0" }]) {
+    assert.equal(history.parseOutcomeRecord(invalid), null);
+  }
+  const voice = { ...admittedV11, audio_class: "voice", event_type: null, package_revision: null,
+    tier: null, variant_id: null, clip_id: null, selection: null, game_clock_seconds: null, match_id: null };
+  assert.deepEqual(history.parseOutcomeRecord(voice), voice);
+});
 
 test("parses a valid outcome record", () => {
   assert.deepEqual(history.parseOutcomeRecord(admitted), {

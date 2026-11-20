@@ -1,5 +1,6 @@
 //! Bounded command bridge and single-owner package-store thread.
 
+use std::collections::{HashMap, HashSet};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -17,11 +18,14 @@ use kohbor_pack::store::{
 use kohbor_pack::{limits::MAX_CONTAINER_BYTES, Limits};
 use serde_json::{json, Value};
 
-use crate::audio::lanes::{Control, EngineShared, EngineTx};
+use crate::audio::lanes::{
+    AuditionRefusal, AuditionRequest, Control, EngineShared, EngineTx, AUDITION_ADMISSION_TIMEOUT,
+};
 use crate::audio::resolve::{BindingLookup, PrewarmTable};
 use crate::media::inventory::{facts_from_table, MediaFacts};
-use crate::media::prewarm::{build_table, VisualIndexHandle};
+use crate::media::prewarm::{build_table, VisualEntry, VisualIndexHandle};
 use crate::media::probe::{ProbeItem, ProbeRequest, ProbeState};
+use crate::media::selection::VariantSelector;
 
 pub type ProbeEmitter = Arc<dyn Fn(Value) + Send + Sync>;
 
@@ -69,6 +73,24 @@ impl MediaHandle {
         self.request(JobKind::Inspect(source_path.to_owned()))
     }
 
+    pub fn summarize_package(&self, source_path: &str) -> Result<Value, String> {
+        self.request(JobKind::SummarizePackage(source_path.to_owned()))
+    }
+
+    pub fn package_bytes(
+        &self,
+        bytes: &[u8],
+        install: Option<(String, String)>,
+    ) -> Result<Value, String> {
+        if bytes.len() as u64 > Limits::default().container_bytes {
+            return Err("PACKAGE_TOO_LARGE".to_owned());
+        }
+        self.request(JobKind::PackageBytes {
+            bytes: bytes.to_vec(),
+            install,
+        })
+    }
+
     pub fn install(&self, request_json: &[u8]) -> Result<Value, String> {
         self.request(JobKind::Install(request_json.to_vec()))
     }
@@ -86,13 +108,63 @@ impl MediaHandle {
         })
     }
 
+    pub fn cancel_pending_activation(&self, install_id: &str) -> Result<Value, String> {
+        self.request(JobKind::CancelPendingActivation(install_id.to_owned()))
+    }
+
     pub fn list(&self) -> Result<Value, String> {
         self.request(JobKind::List)
+    }
+
+    pub fn pack_summaries(&self) -> Result<Value, String> {
+        self.request(JobKind::PackSummaries)
+    }
+
+    pub fn audition_installed_variant(
+        &self,
+        install_id: &str,
+        event_id: &str,
+        tier: Option<u8>,
+        variant_id: &str,
+        session_epoch: u64,
+    ) -> Result<(), String> {
+        self.request(JobKind::PreviewAudition {
+            install_id: install_id.to_owned(),
+            event_id: event_id.to_owned(),
+            tier,
+            variant_id: variant_id.to_owned(),
+            session_epoch,
+        })?;
+        Ok(())
+    }
+
+    pub fn variant_visual_url(
+        &self,
+        install_id: &str,
+        event_id: &str,
+        tier: Option<u8>,
+        variant_id: &str,
+    ) -> Result<Value, String> {
+        self.request(JobKind::PreviewVisualUrl {
+            install_id: install_id.to_owned(),
+            event_id: event_id.to_owned(),
+            tier,
+            variant_id: variant_id.to_owned(),
+        })
     }
 
     /// Read-only: the ACTIVE revision's verified bindings (no absolute paths).
     pub fn active_bindings(&self) -> Result<Value, String> {
         self.request(JobKind::ActiveBindings)
+    }
+
+    /// Versioned host-owned event and tier map for the current active revision.
+    pub fn event_map(&self) -> Result<Value, String> {
+        self.request(JobKind::EventMap)
+    }
+
+    pub fn installed_event_map(&self, install_id: &str) -> Result<Value, String> {
+        self.request(JobKind::InstalledEventMap(install_id.to_owned()))
     }
 
     pub fn probe_report(
@@ -217,14 +289,36 @@ pub fn spawn_media_service(
 
 enum JobKind {
     Inspect(String),
+    SummarizePackage(String),
+    PackageBytes {
+        bytes: Vec<u8>,
+        install: Option<(String, String)>,
+    },
     Install(Vec<u8>),
     Activate {
         request_id: String,
         install_id: String,
         policy: ActivationPolicy,
     },
+    CancelPendingActivation(String),
     List,
+    PackSummaries,
+    PreviewAudition {
+        install_id: String,
+        event_id: String,
+        tier: Option<u8>,
+        variant_id: String,
+        session_epoch: u64,
+    },
+    PreviewVisualUrl {
+        install_id: String,
+        event_id: String,
+        tier: Option<u8>,
+        variant_id: String,
+    },
     ActiveBindings,
+    EventMap,
+    InstalledEventMap(String),
     ProbeReport {
         install_id: String,
         revision: u64,
@@ -395,10 +489,35 @@ impl ServiceState {
         if let JobKind::Inspect(source_path) = &kind {
             return inspect(source_path);
         }
+        if let JobKind::SummarizePackage(source_path) = &kind {
+            if source_path.chars().count() > MAX_INSPECT_PATH_CHARS {
+                return Err("MEDIA_INVALID".to_owned());
+            }
+            let store = self
+                .store
+                .as_mut()
+                .ok_or_else(|| "MEDIA_INVALID".to_owned())?;
+            return store
+                .summarize_package(Path::new(source_path))
+                .map_err(|_| "MEDIA_INVALID".to_owned());
+        }
         if self.store.is_none() {
             return Err("MEDIA_INVALID".to_owned());
         }
         match kind {
+            JobKind::PackageBytes { bytes, install } => {
+                let store = self
+                    .store
+                    .as_mut()
+                    .ok_or_else(|| "MEDIA_INVALID".to_owned())?;
+                match install {
+                    Some((request_id, digest)) => store
+                        .install_package_bytes(&bytes, request_id, digest)
+                        .map(|result| result.to_json()),
+                    None => store.summarize_package_bytes(&bytes),
+                }
+                .map_err(|_| "MEDIA_INVALID".to_owned())
+            }
             JobKind::Install(request_bytes) => {
                 let request = InstallRequest::from_json(&request_bytes)
                     .map_err(|_| "MEDIA_INVALID".to_owned())?;
@@ -431,12 +550,55 @@ impl ServiceState {
                 }
                 Ok(result.to_json())
             }
+            JobKind::CancelPendingActivation(install_id) => {
+                let cancelled = self
+                    .store
+                    .as_mut()
+                    .ok_or_else(|| "MEDIA_INVALID".to_owned())?
+                    .cancel_pending_activation(&install_id)
+                    .map_err(|_| "MEDIA_INVALID".to_owned())?;
+                Ok(json!({
+                    "schema_version": "1.0.0",
+                    "install_id": install_id,
+                    "cancelled": cancelled,
+                }))
+            }
             JobKind::List => {
                 let store = self
                     .store
                     .as_ref()
                     .ok_or_else(|| "MEDIA_INVALID".to_owned())?;
                 Ok(list_json(store))
+            }
+            JobKind::PackSummaries => {
+                let store = self
+                    .store
+                    .as_ref()
+                    .ok_or_else(|| "MEDIA_INVALID".to_owned())?;
+                let (reply, covers) = pack_summaries_json(store);
+                let mut index = lock_recover(&self.config.visual_index);
+                Arc::make_mut(&mut *index).covers = Arc::new(covers);
+                Ok(reply)
+            }
+            JobKind::PreviewVisualUrl {
+                install_id,
+                event_id,
+                tier,
+                variant_id,
+            } => {
+                let visual_url =
+                    self.preview_visual_url(&install_id, &event_id, tier, &variant_id)?;
+                Ok(json!({"visual_url": visual_url}))
+            }
+            JobKind::PreviewAudition {
+                install_id,
+                event_id,
+                tier,
+                variant_id,
+                session_epoch,
+            } => {
+                self.preview_audition(&install_id, &event_id, tier, &variant_id, session_epoch)?;
+                Ok(json!({"accepted": true}))
             }
             JobKind::ActiveBindings => {
                 let store = self
@@ -447,12 +609,158 @@ impl ServiceState {
                 bindings["media_match_active"] = json!((self.config.match_active)());
                 Ok(bindings)
             }
+            JobKind::EventMap => {
+                let store = self
+                    .store
+                    .as_ref()
+                    .ok_or_else(|| "MEDIA_INVALID".to_owned())?;
+                let mut event_map = active_event_map_json(store, &self.config.catalog, &self.table);
+                event_map["media_match_active"] = json!((self.config.match_active)());
+                Ok(event_map)
+            }
+            JobKind::InstalledEventMap(install_id) => {
+                let store = self
+                    .store
+                    .as_ref()
+                    .ok_or_else(|| "MEDIA_INVALID".to_owned())?;
+                let mut event_map = installed_event_map_json(
+                    store,
+                    &self.config.catalog,
+                    &self.table,
+                    &install_id,
+                )?;
+                event_map["media_match_active"] = json!((self.config.match_active)());
+                Ok(event_map)
+            }
             JobKind::Inspect(_)
+            | JobKind::SummarizePackage(_)
             | JobKind::ProbeReport { .. }
             | JobKind::ProbePending
             | JobKind::ReemitProbe => Ok(Value::Null),
             JobKind::Shutdown => Err("CANCELLED".to_owned()),
         }
+    }
+
+    fn preview_visual_url(
+        &mut self,
+        install_id: &str,
+        event_id: &str,
+        tier: Option<u8>,
+        variant_id: &str,
+    ) -> Result<Option<String>, String> {
+        let store = self
+            .store
+            .as_ref()
+            .ok_or_else(|| "MEDIA_INVALID".to_owned())?;
+        if store
+            .active()
+            .is_none_or(|active| active.install_id != install_id)
+        {
+            return self
+                .prepare_preview(install_id, event_id, tier, variant_id)
+                .map(|(_, url)| url);
+        }
+        if (self.config.match_active)() || self.config.engine.audition_match_active() {
+            return Err(AuditionRefusal::MatchActive.code().to_owned());
+        }
+        if self.table.install_id.as_deref() != Some(install_id) {
+            return Err("MEDIA_STATE_UNKNOWN".to_owned());
+        }
+        let event = crate::demo::demo_event(event_id, tier)
+            .map_err(|_| AuditionRefusal::EventUnavailable.code().to_owned())?;
+        let selected = VariantSelector::by_id(&self.table, event.id, tier, variant_id)
+            .map_err(|_| AuditionRefusal::VariantUnavailable.code().to_owned())?;
+        store
+            .resolve_installed_variant(
+                install_id,
+                event_id,
+                selected.bound_tier.map(u32::from),
+                variant_id,
+            )
+            .map_err(|_| "MEDIA_INVALID".to_owned())?;
+        if (self.config.match_active)() || self.config.engine.audition_match_active() {
+            return Err(AuditionRefusal::MatchActive.code().to_owned());
+        }
+        Ok(selected.media.visual_url.as_deref().map(str::to_owned))
+    }
+
+    fn prepare_preview(
+        &mut self,
+        install_id: &str,
+        event_id: &str,
+        tier: Option<u8>,
+        variant_id: &str,
+    ) -> Result<(crate::audio::resolve::SelectedClip, Option<String>), String> {
+        if (self.config.match_active)() || self.config.engine.audition_match_active() {
+            return Err(AuditionRefusal::MatchActive.code().to_owned());
+        }
+        let store = self
+            .store
+            .as_ref()
+            .ok_or_else(|| "MEDIA_INVALID".to_owned())?;
+        if store
+            .active()
+            .as_ref()
+            .is_some_and(|active| active.install_id == install_id)
+        {
+            return Err(AuditionRefusal::ActivePack.code().to_owned());
+        }
+        let event = crate::demo::demo_event(event_id, tier)
+            .map_err(|_| AuditionRefusal::EventUnavailable.code().to_owned())?;
+        if !event.id.voiced() {
+            return Err(AuditionRefusal::EventUnavailable.code().to_owned());
+        }
+        let preview =
+            crate::media::prewarm::build_preview_variant(store, install_id, event, variant_id)
+                .map_err(str::to_owned)?;
+        if (self.config.match_active)() || self.config.engine.audition_match_active() {
+            return Err(AuditionRefusal::MatchActive.code().to_owned());
+        }
+        let visual_url = if let Some(visual) = preview.visual {
+            let mut index = lock_recover(&self.config.visual_index);
+            let index = Arc::make_mut(&mut *index);
+            if index.preview_entries.len() >= 64 {
+                index.preview_entries.clear();
+            }
+            index.preview_entries.insert(visual.route, visual.entry);
+            Some(visual.url)
+        } else {
+            None
+        };
+        Ok((preview.selected, visual_url))
+    }
+
+    fn preview_audition(
+        &mut self,
+        install_id: &str,
+        event_id: &str,
+        tier: Option<u8>,
+        variant_id: &str,
+        session_epoch: u64,
+    ) -> Result<(), String> {
+        let (mut selected, _) = self.prepare_preview(install_id, event_id, tier, variant_id)?;
+        selected.media.visual_url = None;
+        selected.media.visual_tail_ms = 0;
+        let (reply, receiver) = mpsc::sync_channel(1);
+        self.config
+            .engine
+            .offer_audition(AuditionRequest {
+                event: crate::demo::demo_event(event_id, tier)
+                    .map_err(|_| AuditionRefusal::EventUnavailable.code().to_owned())?,
+                variant_id: Some(variant_id.to_owned()),
+                install_id: install_id.to_owned(),
+                selected: Some(selected),
+                overlay: false,
+                session_epoch: session_epoch.max(1),
+                sequence: crate::host::next_audition_sequence(),
+                expires_at: Instant::now() + AUDITION_ADMISSION_TIMEOUT,
+                reply,
+            })
+            .map_err(|reason| reason.code().to_owned())?;
+        receiver
+            .recv_timeout(AUDITION_ADMISSION_TIMEOUT)
+            .map_err(|_| AuditionRefusal::Busy.code().to_owned())?
+            .map_err(|reason| reason.code().to_owned())
     }
 
     fn now_ms(&self) -> u64 {
@@ -637,7 +945,12 @@ impl ServiceState {
         facts: MediaFacts,
     ) {
         self.table = table;
-        replace_mutex_value(&self.config.visual_index, visuals);
+        {
+            let mut index = lock_recover(&self.config.visual_index);
+            let mut next = visuals;
+            Arc::make_mut(&mut next).covers = Arc::clone(&index.covers);
+            *index = next;
+        }
         replace_mutex_value(&self.config.facts, facts);
     }
 
@@ -912,6 +1225,438 @@ fn active_bindings_json(store: &Store<NoHook>, catalog: &Catalog, table: &Prewar
     json!({"active": active, "bindings": bindings})
 }
 
+/// One host-owned row for every active catalog event and each of its declared tiers.
+/// Test-only catalog entries are excluded by `Catalog::from_json`; no renderer-side
+/// catalog comparison is needed to decide which rows exist.
+fn active_event_map_json(store: &Store<NoHook>, catalog: &Catalog, table: &PrewarmTable) -> Value {
+    let active_revision = store.active();
+    let active = active_revision.as_ref().map(|active| {
+        json!({
+            "install_id": active.install_id,
+            "package_id": active.package_id,
+            "revision": active.revision,
+        })
+    });
+    let table_matches_active = active_revision
+        .as_ref()
+        .is_some_and(|active| table.install_id.as_deref() == Some(active.install_id.as_str()));
+    event_map_json(catalog, active, |event, tier| {
+        event_map_row(event, tier, store, table, table_matches_active)
+    })
+}
+
+fn installed_event_map_json(
+    store: &Store<NoHook>,
+    catalog: &Catalog,
+    table: &PrewarmTable,
+    install_id: &str,
+) -> Result<Value, String> {
+    if store
+        .active()
+        .is_some_and(|active| active.install_id == install_id)
+    {
+        return Ok(active_event_map_json(store, catalog, table));
+    }
+    let record = store
+        .records()
+        .into_iter()
+        .find(|record| record.install_id == install_id)
+        .ok_or_else(|| "UNKNOWN_INSTALL".to_owned())?;
+    let bindings = store
+        .resolve_installed_bindings(install_id)
+        .map_err(|_| "MEDIA_INVALID".to_owned())?;
+    let selected_pack = json!({
+        "install_id": record.install_id,
+        "package_id": record.package_id,
+        "revision": record.revision,
+    });
+    Ok(event_map_json(
+        catalog,
+        Some(selected_pack),
+        |event, tier| {
+            let binding = bindings.iter().find(|binding| {
+                binding.event_id == event.id && binding.tier == tier.map(u32::from)
+            });
+            let selection = binding
+                .and_then(|binding| binding.selection)
+                .map(|selection| selection.as_str());
+            let variants: Vec<_> = binding
+                .into_iter()
+                .flat_map(|binding| &binding.variants)
+                .filter_map(|variant| {
+                    let media = variant.media.as_ref().ok()?;
+                    Some(event_map_variant(
+                        variant,
+                        media.duration_ms,
+                        media.silent_visual.is_some(),
+                    ))
+                })
+                .collect();
+            let (state, reason) = if !event.media_mappable {
+                ("not_voiced", "NOT_VOICED")
+            } else if crate::demo::demo_event(&event.id, tier).is_err() {
+                ("detector_unavailable", "DETECTOR_UNAVAILABLE")
+            } else if binding.is_none() {
+                ("unmapped", "MEDIA_UNMAPPED")
+            } else if variants.is_empty() {
+                ("invalid_media", "MEDIA_INVALID")
+            } else {
+                ("ready", "NONE")
+            };
+            event_map_binding(
+                event,
+                tier,
+                state,
+                reason,
+                None,
+                selection,
+                Value::Array(variants),
+            )
+        },
+    ))
+}
+
+fn event_map_json(
+    catalog: &Catalog,
+    selected_pack: Option<Value>,
+    row: impl Fn(&kohbor_pack::catalog::CatalogEvent, Option<u8>) -> Value,
+) -> Value {
+    let events = catalog
+        .events
+        .iter()
+        .flat_map(|event| {
+            let tiers: Vec<Option<u8>> = event
+                .tier_range
+                .map(|(minimum, maximum)| {
+                    (minimum..=maximum)
+                        .filter_map(|tier| u8::try_from(tier).ok())
+                        .map(Some)
+                        .collect()
+                })
+                .unwrap_or_else(|| vec![None]);
+            tiers
+                .into_iter()
+                .map(|tier| row(event, tier))
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    json!({
+        "schema_version": "1.1.0",
+        // This field carries the map subject in the existing 1.1.0 shape.
+        "active": selected_pack,
+        "events": events,
+    })
+}
+
+fn event_map_binding(
+    event: &kohbor_pack::catalog::CatalogEvent,
+    tier: Option<u8>,
+    state: &str,
+    reason: &str,
+    resolved_from_tier: Option<u8>,
+    selection: Option<&str>,
+    variants: Value,
+) -> Value {
+    json!({
+        "event_id": event.id.as_str(),
+        "tier": tier,
+        "state": state,
+        "reason": reason,
+        "resolved_from_tier": resolved_from_tier,
+        "selection": selection,
+        "variants": variants,
+    })
+}
+
+fn event_map_variant(
+    variant: &kohbor_pack::store::ResolvedVariant,
+    duration_ms: u32,
+    has_visual: bool,
+) -> Value {
+    let mut value = json!({
+        "variant_id": variant.variant_id,
+        "duration_ms": duration_ms,
+        "has_visual": has_visual,
+    });
+    if let Some(clip_id) = variant.clip_id.as_ref() {
+        value["clip_id"] = json!(clip_id);
+    }
+    if let Some(caption) = variant.caption.as_ref() {
+        value["caption"] = json!(caption);
+    }
+    value
+}
+
+fn event_map_row(
+    event: &kohbor_pack::catalog::CatalogEvent,
+    tier: Option<u8>,
+    store: &Store<NoHook>,
+    table: &PrewarmTable,
+    table_matches_active: bool,
+) -> Value {
+    let detector = crate::media::inventory::ALL_EVENTS
+        .iter()
+        .copied()
+        .find(|candidate| candidate.as_str() == event.id.as_str());
+    let empty_variants = || Value::Array(Vec::new());
+    let row = |state: &str,
+               reason: &str,
+               resolved_from_tier: Option<u8>,
+               selection: Option<&str>,
+               variants: Value| {
+        event_map_binding(
+            event,
+            tier,
+            state,
+            reason,
+            resolved_from_tier,
+            selection,
+            variants,
+        )
+    };
+
+    if !event.media_mappable || detector.is_some_and(|id| !id.voiced()) {
+        return row("not_voiced", "NOT_VOICED", None, None, empty_variants());
+    }
+    let Some(id) = detector else {
+        return row(
+            "detector_unavailable",
+            "DETECTOR_UNAVAILABLE",
+            None,
+            None,
+            empty_variants(),
+        );
+    };
+    let detector_unavailable = crate::intake::EVENT_UNAVAILABLE.contains(&id);
+    let unavailable_reason = if detector_unavailable {
+        "EVENT_UNAVAILABLE"
+    } else {
+        "DETECTOR_UNAVAILABLE"
+    };
+    if detector_unavailable && (store.active().is_none() || !table_matches_active) {
+        return row(
+            "detector_unavailable",
+            unavailable_reason,
+            None,
+            None,
+            empty_variants(),
+        );
+    }
+    if store.active().is_none() || !table_matches_active {
+        return row(
+            "unknown",
+            "MEDIA_STATE_UNKNOWN",
+            None,
+            None,
+            empty_variants(),
+        );
+    }
+
+    let (bound_tier, selection, variants) = match table.lookup_binding(id, tier) {
+        BindingLookup::Unmapped => {
+            return if detector_unavailable {
+                row(
+                    "detector_unavailable",
+                    unavailable_reason,
+                    None,
+                    None,
+                    empty_variants(),
+                )
+            } else {
+                row("unmapped", "MEDIA_UNMAPPED", None, None, empty_variants())
+            };
+        }
+        BindingLookup::Invalid => {
+            return if detector_unavailable {
+                row(
+                    "detector_unavailable",
+                    unavailable_reason,
+                    None,
+                    None,
+                    empty_variants(),
+                )
+            } else {
+                row(
+                    "invalid_media",
+                    "MEDIA_INVALID",
+                    None,
+                    None,
+                    empty_variants(),
+                )
+            };
+        }
+        BindingLookup::Ready { bound_tier, clip } => {
+            let resolved_v1 = store
+                .resolve_variants(event.id.as_str(), bound_tier.map(u32::from))
+                .ok()
+                .and_then(|resolved| {
+                    resolved
+                        .into_iter()
+                        .find(|variant| variant.variant_id == "v1" && variant.media.is_ok())
+                });
+            if resolved_v1.is_none() {
+                return if detector_unavailable {
+                    row(
+                        "detector_unavailable",
+                        unavailable_reason,
+                        None,
+                        None,
+                        empty_variants(),
+                    )
+                } else {
+                    row(
+                        "invalid_media",
+                        "MEDIA_INVALID",
+                        None,
+                        None,
+                        empty_variants(),
+                    )
+                };
+            }
+            let variant = resolved_v1.expect("resolved v1 checked above");
+            let value = event_map_variant(&variant, clip.audio_ms, clip.visual_url.is_some());
+            (bound_tier, None, Value::Array(vec![value]))
+        }
+        BindingLookup::Variants {
+            bound_tier,
+            binding,
+        } => {
+            let resolved = store
+                .resolve_variants(event.id.as_str(), bound_tier.map(u32::from))
+                .unwrap_or_default();
+            let variants = binding
+                .variants
+                .iter()
+                .filter_map(|candidate| {
+                    let clip = candidate.media.as_ref().ok()?;
+                    let resolved_variant = resolved.iter().find(|variant| {
+                        variant.variant_id == candidate.variant_id && variant.media.is_ok()
+                    })?;
+                    Some(event_map_variant(
+                        resolved_variant,
+                        clip.audio_ms,
+                        clip.visual_url.is_some(),
+                    ))
+                })
+                .collect::<Vec<_>>();
+            if variants.is_empty() {
+                return if detector_unavailable {
+                    row(
+                        "detector_unavailable",
+                        unavailable_reason,
+                        None,
+                        None,
+                        empty_variants(),
+                    )
+                } else {
+                    row(
+                        "invalid_media",
+                        "MEDIA_INVALID",
+                        None,
+                        None,
+                        empty_variants(),
+                    )
+                };
+            }
+            (
+                bound_tier,
+                binding.selection.map(|selection| selection.as_str()),
+                Value::Array(variants),
+            )
+        }
+    };
+
+    if detector_unavailable {
+        return row(
+            "detector_unavailable",
+            unavailable_reason,
+            None,
+            selection,
+            variants,
+        );
+    }
+    let inherited = bound_tier != tier;
+    row(
+        if inherited { "inherited" } else { "ready" },
+        if inherited { "TIER_FALLBACK" } else { "NONE" },
+        if inherited { bound_tier } else { None },
+        selection,
+        variants,
+    )
+}
+
+fn pack_summaries_json(store: &Store<NoHook>) -> (Value, HashMap<String, VisualEntry>) {
+    let active = store.active();
+    let pending: HashSet<_> = store.pending_activations().into_iter().collect();
+    let mut covers = HashMap::new();
+    let records: Vec<_> = store.records().into_iter().map(|record| {
+        let summary = store.installed_pack_summary(&record.install_id);
+        let mut row = json!({
+            "install_id": record.install_id,
+            "package_id": record.package_id,
+            "revision": record.revision,
+            "active": active.as_ref().is_some_and(|active| active.install_id == record.install_id),
+            "pending": pending.contains(&record.install_id),
+            "display_name": null,
+            "problem": "METADATA_UNAVAILABLE",
+            "cover_url": null,
+            "event_count": null,
+            "binding_count": null,
+            "variant_count": null,
+            "banner_count": null,
+            "bindings": [],
+            "authority_class": record.authority_class.as_str(),
+            "publisher_claim": null,
+            "installed_at": record.installed_at,
+            "size_bytes": record.size_bytes,
+            "game_id": "dota2",
+            "presentation": null,
+        });
+        let Ok(summary) = summary else { return row };
+        row["display_name"] = json!(summary.display_name);
+        row["publisher_claim"] = json!(summary.publisher_claim);
+        row["presentation"] = summary.presentation.as_ref().map_or(Value::Null, |presentation| json!({
+            "description": presentation.description,
+            "author": presentation.author,
+            "languages": presentation.languages,
+            "cover_url": null,
+        }));
+        row["problem"] = Value::Null;
+        row["event_count"] = json!(summary.bindings.iter().map(|binding| &binding.event_id).collect::<HashSet<_>>().len());
+        row["binding_count"] = json!(summary.bindings.len());
+        row["variant_count"] = json!(summary.bindings.iter().map(|binding| binding.variant_count).sum::<usize>());
+        row["banner_count"] = json!(summary.bindings.iter().map(|binding| binding.banner_count).sum::<usize>());
+        row["bindings"] = json!(summary.bindings.iter().map(|binding| json!({
+            "event_id": binding.event_id,
+            "tier": binding.tier,
+            "selection": binding.selection.map(|selection| selection.as_str()),
+            "variant_count": binding.variant_count,
+            "banner_count": binding.banner_count,
+        })).collect::<Vec<_>>());
+        match summary.cover {
+            Ok(Some(cover)) => {
+                let path = format!("/v1/cover/{}/{}", record.install_id, cover.sha256);
+                let url = format!("kohbor-media://localhost{path}");
+                row["cover_url"] = json!(&url);
+                row["presentation"]["cover_url"] = json!(url);
+                covers.insert(path, VisualEntry {
+                    path: cover.path,
+                    size_bytes: cover.size_bytes,
+                    modified: cover.modified,
+                    content_type: cover.content_type,
+                });
+            }
+            Ok(None) => {}
+            Err(_) => row["problem"] = json!("COVER_INVALID"),
+        }
+        row
+    }).collect();
+    (
+        json!({"schema_version": "1.1.0", "records": records}),
+        covers,
+    )
+}
+
 fn list_json(store: &Store<NoHook>) -> Value {
     let active = store.active().map(|active| {
         json!({
@@ -943,6 +1688,397 @@ fn list_json(store: &Store<NoHook>) -> Value {
 
 #[cfg(test)]
 mod tests {
+    fn png_fixture(width: u32, height: u32) -> Vec<u8> {
+        fn chunk(output: &mut Vec<u8>, kind: &[u8; 4], data: &[u8]) {
+            output.extend_from_slice(&(data.len() as u32).to_be_bytes());
+            output.extend_from_slice(kind);
+            output.extend_from_slice(data);
+            output.extend_from_slice(&[0; 4]);
+        }
+        let mut png = b"\x89PNG\r\n\x1a\n".to_vec();
+        let mut header = Vec::new();
+        header.extend_from_slice(&width.to_be_bytes());
+        header.extend_from_slice(&height.to_be_bytes());
+        header.extend_from_slice(&[8, 6, 0, 0, 0]);
+        chunk(&mut png, b"IHDR", &header);
+        chunk(&mut png, b"IDAT", &[]);
+        chunk(&mut png, b"IEND", &[]);
+        png
+    }
+
+    #[test]
+    fn installed_summary_counts_bindings_and_serves_an_inactive_verified_cover() {
+        let temp = TempDir::new("installed-summary");
+        let mut store = Store::open(
+            &temp.path().join("store"),
+            catalog(),
+            kohbor_pack::Limits::default(),
+        )
+        .unwrap();
+        let cover_bytes = png_fixture(640, 360);
+        let fixture = crate::media::prewarm::test_support::package_with_cover(
+            &temp,
+            "summary.pack",
+            &[
+                BindingSpec {
+                    event_id: "health_danger",
+                    tier: None,
+                    samples: 480,
+                    visual: true,
+                    visual_tail_ms: 900,
+                },
+                BindingSpec {
+                    event_id: "hero_kill",
+                    tier: None,
+                    samples: 480,
+                    visual: true,
+                    visual_tail_ms: 900,
+                },
+            ],
+            &cover_bytes,
+        );
+        let installed = install(&mut store, &fixture, "req-summary-install");
+        let id = installed.record.unwrap().install_id;
+        let (reply, covers) = super::pack_summaries_json(&store);
+        let row = &reply["records"][0];
+        assert_eq!(reply["schema_version"], "1.1.0");
+        assert_eq!(row["display_name"], "Synthetic media service fixture");
+        assert_eq!(row["event_count"], 2);
+        assert_eq!(row["binding_count"], 2);
+        assert_eq!(row["variant_count"], 2);
+        assert_eq!(row["banner_count"], 2);
+        assert_eq!(row["active"], false);
+        assert_eq!(row["authority_class"], "local_import");
+        assert_eq!(row["game_id"], "dota2");
+        assert!(row["installed_at"].as_u64().is_some());
+        assert!(row["size_bytes"].as_u64().is_some());
+        assert!(row["publisher_claim"].is_null());
+        assert_eq!(
+            row["presentation"]["description"],
+            "Synthetic cover fixture"
+        );
+        assert_eq!(row["presentation"]["author"], "Kohbor test");
+        assert_eq!(row["presentation"]["languages"][0], "en-US");
+        let cover = row["cover_url"].as_str().unwrap();
+        let path = cover.strip_prefix("kohbor-media://localhost").unwrap();
+        let index = crate::media::prewarm::VisualIndex {
+            covers: Arc::new(covers),
+            ..Default::default()
+        };
+        let served = crate::media::protocol::serve(
+            &crate::media::protocol::ProtocolRequest {
+                method: "GET".into(),
+                path: path.into(),
+                query: None,
+                range: None,
+            },
+            &index,
+        );
+        assert_eq!(served.status, 200);
+        assert_eq!(served.body, cover_bytes);
+        assert!(served
+            .headers
+            .iter()
+            .any(|(name, value)| name == "Content-Type" && value == "image/png"));
+        assert!(!reply.to_string().contains("hero_kill.webm"));
+        let playback_path = path.replace("/v1/cover/", "/v1/");
+        let inactive_playback = crate::media::protocol::serve(
+            &crate::media::protocol::ProtocolRequest {
+                method: "GET".into(),
+                path: playback_path,
+                query: None,
+                range: None,
+            },
+            &index,
+        );
+        assert_eq!(inactive_playback.status, 404);
+        let digest = format!("{:x}", Sha256::digest(&cover_bytes));
+        assert_eq!(path, format!("/v1/cover/{id}/{digest}"));
+        let cover = index.covers.get(path).expect("verified cover route");
+        assert_eq!(
+            cover.path,
+            store
+                .root()
+                .join("revisions")
+                .join(&id)
+                .join("cover")
+                .join(format!("{digest}.png"))
+        );
+        fs::remove_file(&cover.path).unwrap();
+        let (reply, covers) = super::pack_summaries_json(&store);
+        assert_eq!(reply["records"][0]["problem"], "COVER_INVALID");
+        assert!(reply["records"][0]["cover_url"].is_null());
+        assert!(covers.is_empty());
+    }
+
+    #[test]
+    fn installed_summary_groups_tiers_and_keeps_missing_descriptor_local_to_one_pack() {
+        let temp = TempDir::new("installed-summary-tiers");
+        let mut store = Store::open(
+            &temp.path().join("store"),
+            catalog(),
+            kohbor_pack::Limits::default(),
+        )
+        .unwrap();
+        let multi = |tier| BindingSpec {
+            event_id: "multi_kill",
+            tier: Some(tier),
+            samples: 480,
+            visual: true,
+            visual_tail_ms: 900,
+        };
+        let with_visual = package(&temp, "tiers.pack", &[multi(4), multi(2)]);
+        let id = install(&mut store, &with_visual, "req-summary-tiers")
+            .record
+            .unwrap()
+            .install_id;
+        let without_visual = wav_fixture(&temp, "audio.only", "hero_kill");
+        let audio_id = install(&mut store, &without_visual, "req-summary-audio")
+            .record
+            .unwrap()
+            .install_id;
+        activate(&mut store, "req-summary-active", &audio_id);
+        let deferred = store
+            .activate(
+                "req-summary-defer",
+                &id,
+                ActivationPolicy::AfterMatch,
+                &kohbor_pack::store::ActivationState {
+                    match_active: true,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        assert_eq!(deferred.status.as_str(), "deferred");
+        let (reply, covers) = super::pack_summaries_json(&store);
+        assert_eq!(reply["records"][0]["event_count"], 1);
+        assert_eq!(reply["records"][0]["binding_count"], 2);
+        assert_eq!(reply["records"][0]["banner_count"], 2);
+        assert_eq!(reply["records"][0]["pending"], true);
+        assert!(
+            covers.is_empty(),
+            "legacy packs without presentation covers keep a null cover URL"
+        );
+        assert!(reply["records"][0]["cover_url"].is_null());
+        assert_eq!(reply["records"][1]["active"], true);
+        assert_eq!(reply["records"][1]["pending"], false);
+        assert!(reply["records"][1]["cover_url"].is_null());
+        assert!(reply["records"][1]["problem"].is_null());
+
+        fs::write(
+            store
+                .root()
+                .join("revisions")
+                .join(id)
+                .join("descriptor.json"),
+            b"{}",
+        )
+        .unwrap();
+        let (reply, covers) = super::pack_summaries_json(&store);
+        assert_eq!(reply["records"][0]["problem"], "METADATA_UNAVAILABLE");
+        assert!(reply["records"][0]["event_count"].is_null());
+        assert_eq!(reply["records"][1]["event_count"], 1);
+        assert!(covers.is_empty());
+    }
+
+    #[test]
+    fn drawer_visual_url_requires_verified_nonactive_media_and_match_blocks_preview() {
+        let temp = TempDir::new("drawer-preview-route");
+        let match_active = Arc::new(AtomicBool::new(false));
+        let observed_match = match_active.clone();
+        let service = setup(
+            &temp.path().join("store"),
+            Arc::new(move || observed_match.load(Ordering::Acquire)),
+            passing_probe(),
+            Box::new(|_| {}),
+            DEFAULT_RESUME_INTERVAL_MS,
+            0,
+        );
+        let active_package = wav_fixture(&temp, "active-pack", "health_danger");
+        let active_id = install_via_service(&service.handle, &active_package, "req-active-0001");
+        service
+            .handle
+            .activate("req-active-0002", &active_id, ActivationPolicy::NowIfIdle)
+            .expect("activate first pack");
+        let _ = receive_swap(&service.engine_rx);
+
+        let inactive_package = package(
+            &temp,
+            "inactive-pack",
+            &[BindingSpec {
+                event_id: "hero_kill",
+                tier: None,
+                samples: 480,
+                visual: true,
+                visual_tail_ms: 900,
+            }],
+        );
+        let inactive_id =
+            install_via_service(&service.handle, &inactive_package, "req-inactive-0001");
+        assert_eq!(
+            service
+                .handle
+                .variant_visual_url(&active_id, "health_danger", None, "v1"),
+            Ok(json!({"visual_url": null})),
+            "verified active audio-only variants have no visual URL"
+        );
+        let response = service
+            .handle
+            .variant_visual_url(&inactive_id, "hero_kill", None, "v1")
+            .expect("verified installed variant returns a visual route");
+        let url = response["visual_url"].as_str().expect("visual url");
+        assert!(url.starts_with("kohbor-media://localhost/v1/ins_0000000002/"));
+        assert!(!response.to_string().contains("visual-0.webm"));
+        let route = url.strip_prefix("kohbor-media://localhost").unwrap();
+        let index = service.visuals.lock().unwrap().clone();
+        let served = crate::media::protocol::serve(
+            &crate::media::protocol::ProtocolRequest {
+                method: "GET".into(),
+                path: route.to_owned(),
+                query: None,
+                range: None,
+            },
+            &index,
+        );
+        assert_eq!(served.status, 200);
+        assert!(served
+            .headers
+            .iter()
+            .any(|(name, value)| name == "Content-Type" && value == "video/webm"));
+        let entry = index.preview_entries.get(route).unwrap();
+        fs::write(&entry.path, b"tampered").unwrap();
+        let tampered = crate::media::protocol::serve(
+            &crate::media::protocol::ProtocolRequest {
+                method: "GET".into(),
+                path: route.to_owned(),
+                query: None,
+                range: None,
+            },
+            &index,
+        );
+        assert_eq!(tampered.status, 404, "changed media is no longer served");
+
+        match_active.store(true, Ordering::Release);
+        let map = service.handle.installed_event_map(&inactive_id).unwrap();
+        assert_eq!(map["active"]["install_id"], inactive_id);
+        assert_eq!(map["media_match_active"], true);
+        assert_eq!(
+            service
+                .handle
+                .variant_visual_url(&inactive_id, "hero_kill", None, "v1"),
+            Err("AUDITION_MATCH_ACTIVE".to_owned())
+        );
+        assert_eq!(
+            service
+                .handle
+                .audition_installed_variant(&inactive_id, "hero_kill", None, "v1", 1,),
+            Err("AUDITION_MATCH_ACTIVE".to_owned())
+        );
+        assert!(matches!(
+            service.engine_rx.audition.try_recv(),
+            Err(TryRecvError::Empty)
+        ));
+        finish(service);
+    }
+
+    #[test]
+    fn installed_map_reads_verified_variants_without_changing_active_pack_or_visual_index() {
+        let temp = TempDir::new("installed-event-map");
+        let service = default_service(&temp.path().join("store"));
+        let active = package(
+            &temp,
+            "active-visual",
+            &[BindingSpec {
+                event_id: "hero_kill",
+                tier: None,
+                samples: 480,
+                visual: true,
+                visual_tail_ms: 900,
+            }],
+        );
+        let active_id = install_via_service(&service.handle, &active, "req-map-active-1");
+        service
+            .handle
+            .activate("req-map-active-2", &active_id, ActivationPolicy::NowIfIdle)
+            .unwrap();
+        let _ = receive_swap(&service.engine_rx);
+        let other = crate::media::prewarm::test_support::package_with_caption(
+            &temp,
+            "other-visual",
+            BindingSpec {
+                event_id: "hero_kill",
+                tier: None,
+                samples: 480,
+                visual: true,
+                visual_tail_ms: 900,
+            },
+            "On the move!",
+        );
+        let other_id = install_via_service(&service.handle, &other, "req-map-other-1");
+        let before = service.handle.list().unwrap();
+        let index = service.visuals.lock().unwrap().clone();
+        let map = service.handle.installed_event_map(&other_id).unwrap();
+        assert_eq!(map["schema_version"], "1.1.0");
+        assert_eq!(map["active"]["install_id"], other_id);
+        assert_eq!(map["media_match_active"], false);
+        let voice = map["events"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|row| row["event_id"] == "hero_kill")
+            .unwrap();
+        assert_eq!(voice["state"], "ready");
+        assert_eq!(
+            voice["variants"][0],
+            json!({
+                "variant_id": "v1", "clip_id": "kohbor-en-0001", "caption": "On the move!",
+                "duration_ms": 10, "has_visual": true
+            })
+        );
+        assert_eq!(service.handle.list().unwrap(), before);
+        assert!(Arc::ptr_eq(&index, &service.visuals.lock().unwrap()));
+        assert!(matches!(
+            service.engine_rx.audition.try_recv(),
+            Err(TryRecvError::Empty)
+        ));
+        assert_eq!(
+            service.handle.installed_event_map("ins_9999999999"),
+            Err("UNKNOWN_INSTALL".to_owned())
+        );
+        assert_eq!(
+            service.handle.installed_event_map(&active_id).unwrap(),
+            service.handle.event_map().unwrap()
+        );
+        let active_visual = service
+            .handle
+            .variant_visual_url(&active_id, "hero_kill", None, "v1")
+            .unwrap();
+        assert!(active_visual["visual_url"]
+            .as_str()
+            .unwrap()
+            .starts_with(&format!("kohbor-media://localhost/v1/{active_id}/")));
+        let visual_url = service
+            .handle
+            .variant_visual_url(&other_id, "hero_kill", None, "v1")
+            .unwrap();
+        let url = visual_url["visual_url"].as_str().unwrap();
+        let route = url.strip_prefix("kohbor-media://localhost").unwrap();
+        let visual_path = service.visuals.lock().unwrap().preview_entries[route]
+            .path
+            .clone();
+        fs::write(visual_path, b"tampered").unwrap();
+        let map = service.handle.installed_event_map(&other_id).unwrap();
+        let voice = map["events"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|row| row["event_id"] == "hero_kill")
+            .unwrap();
+        assert_eq!(voice["state"], "invalid_media");
+        assert_eq!(voice["variants"], json!([]));
+        finish(service);
+    }
+
     use std::fs;
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
     use std::sync::mpsc::{self, TryRecvError};
@@ -950,7 +2086,7 @@ mod tests {
     use std::thread::{self, JoinHandle};
     use std::time::Duration;
 
-    use kohbor_pack::store::ActivationPolicy;
+    use kohbor_pack::store::{ActivationPolicy, Store};
     use serde_json::{json, Value};
     use sha2::{Digest, Sha256};
 
@@ -1135,6 +2271,12 @@ mod tests {
             listing["active"].is_null(),
             "new store has no active revision"
         );
+        let event_map = service
+            .handle
+            .event_map()
+            .expect("event map waits behind successful store open");
+        assert_eq!(event_map["schema_version"], "1.1.0");
+        assert!(event_map["events"].is_array());
         let facts = snapshot_facts(&service.facts);
         assert!(facts.store_ok, "successful Store::open publishes store_ok");
         assert_eq!(
@@ -1246,6 +2388,62 @@ mod tests {
     }
 
     #[test]
+    fn event_map_has_unavailable_and_not_voiced_catalog_rows() {
+        let temp = TempDir::new("event-map-catalog-rows");
+        let catalog = catalog();
+        let store = Store::open(
+            &temp.path().join("store"),
+            catalog.clone(),
+            kohbor_pack::Limits::default(),
+        )
+        .expect("open empty media store");
+        let event_map = super::active_event_map_json(&store, &catalog, &PrewarmTable::empty());
+        let rows = event_map["events"]
+            .as_array()
+            .expect("event map exposes an array");
+        assert_eq!(event_map["schema_version"], "1.1.0");
+        let mut expected_keys = Vec::new();
+        for event in &catalog.events {
+            if let Some((first, last)) = event.tier_range {
+                expected_keys.extend((first..=last).map(|tier| (event.id.as_str(), json!(tier))));
+            } else {
+                expected_keys.push((event.id.as_str(), Value::Null));
+            }
+        }
+        let actual_keys: Vec<_> = rows
+            .iter()
+            .map(|row| {
+                let id = row["event_id"].as_str().expect("row has an event ID");
+                let tier = row.get("tier").expect("row has a nullable tier");
+                (id, tier.clone())
+            })
+            .collect();
+        assert_eq!(actual_keys, expected_keys, "one row per active catalog key");
+
+        let row = |event_id: &str, tier: Option<u64>| {
+            rows.iter().find(|row| {
+                row["event_id"] == event_id
+                    && row["tier"].as_u64() == tier
+                    && (tier.is_some() || row["tier"].is_null())
+            })
+        };
+        let first_blood = row("first_blood", None).expect("unavailable event is listed");
+        assert_eq!(first_blood["state"], "detector_unavailable");
+        assert_eq!(first_blood["reason"], "EVENT_UNAVAILABLE");
+        assert_eq!(first_blood["variants"], json!([]));
+
+        let respawn = row("hero_respawn", None).expect("not-voiced event is listed");
+        assert_eq!(respawn["state"], "not_voiced");
+        assert_eq!(respawn["reason"], "NOT_VOICED");
+        assert_eq!(respawn["variants"], json!([]));
+
+        assert!(
+            row("latency_probe", None).is_none(),
+            "test-only events stay out of the production map"
+        );
+    }
+
+    #[test]
     fn inspect_with_limit_accepts_files_at_and_under_limit_and_rejects_over() {
         let temp = TempDir::new("inspect-limit");
         let limit = 4;
@@ -1293,6 +2491,174 @@ mod tests {
             "path character limit is enforced before file access"
         );
         finish(service);
+    }
+
+    #[test]
+    fn package_summary_reports_valid_package_contents_without_install_side_effects() {
+        let temp = TempDir::new("package-summary-valid");
+        let pkg = package(
+            &temp,
+            "summary-valid-pack",
+            &[
+                BindingSpec {
+                    event_id: "health_danger",
+                    tier: None,
+                    samples: 480,
+                    visual: true,
+                    visual_tail_ms: 900,
+                },
+                BindingSpec {
+                    event_id: "hero_kill",
+                    tier: None,
+                    samples: 480,
+                    visual: false,
+                    visual_tail_ms: 0,
+                },
+            ],
+        );
+        let store_root = temp.path().join("store");
+        let service = default_service(&store_root);
+
+        let summary = service
+            .handle
+            .summarize_package(pkg.package_path.to_str().expect("test path is Unicode"))
+            .expect("valid package is summarized through staging");
+
+        assert_eq!(summary["status"], "valid");
+        assert_eq!(summary["display_name"], "Synthetic media service fixture");
+        assert_eq!(summary["package_id"], pkg.package_id);
+        assert_eq!(summary["revision"], 1);
+        assert_eq!(summary["event_count"], 2);
+        assert_eq!(summary["binding_count"], 2);
+        assert_eq!(summary["variant_count"], 2);
+        assert_eq!(summary["banner_count"], 1);
+        assert_eq!(summary["container_sha256"], pkg.digest);
+        assert_eq!(summary["signature_state"], "unavailable");
+        assert_eq!(summary["trust_state"], "local_import");
+        assert_eq!(summary["publisher_claim"], "none");
+        assert!(summary["rejection_reason"].is_null());
+        assert_eq!(
+            summary["size_bytes"],
+            fs::metadata(&pkg.package_path)
+                .expect("package metadata is readable")
+                .len()
+        );
+
+        let listing = service
+            .handle
+            .list()
+            .expect("summary leaves store listable");
+        assert_eq!(listing["records"], json!([]));
+        assert!(listing["active"].is_null());
+        assert_eq!(
+            fs::read_dir(store_root.join("staging"))
+                .expect("store staging root is readable")
+                .count(),
+            0,
+            "summary removes its temporary staging directory"
+        );
+        finish(service);
+    }
+
+    #[test]
+    fn package_summary_returns_a_specific_reason_for_a_rejected_package() {
+        let temp = TempDir::new("package-summary-rejected");
+        let source = temp.path().join("invalid.zip");
+        fs::write(&source, b"not a zip").expect("write invalid package fixture");
+        let store_root = temp.path().join("store");
+        let service = default_service(&store_root);
+
+        let summary = service
+            .handle
+            .summarize_package(source.to_str().expect("test path is Unicode"))
+            .expect("invalid package receives a read-only rejection summary");
+
+        assert_eq!(summary["status"], "rejected");
+        assert_eq!(summary["rejection_reason"], "not_a_zip");
+        assert_eq!(summary["size_bytes"], 9);
+        assert_eq!(summary["signature_state"], "not_assessed");
+        assert_eq!(summary["trust_state"], "not_assessed");
+        assert!(summary["display_name"].is_null());
+        let listing = service
+            .handle
+            .list()
+            .expect("rejected summary leaves store listable");
+        assert_eq!(listing["records"], json!([]));
+        assert_eq!(
+            fs::read_dir(store_root.join("staging"))
+                .expect("store staging root is readable")
+                .count(),
+            0,
+            "rejected summary removes partial staging files"
+        );
+        finish(service);
+    }
+
+    #[test]
+    fn picker_bytes_reuse_validation_and_install_and_clean_up_each_temporary_upload() {
+        let temp = TempDir::new("picker-bytes");
+        let pkg = wav_fixture(&temp, "picker-bytes-pack", "hero_kill");
+        let bytes = fs::read(&pkg.package_path).expect("read fixture as a picker would");
+        let root = temp.path().join("store");
+        let service = default_service(&root);
+        let check_clean = || {
+            assert!(fs::read_dir(root.join("staging"))
+                .expect("read store staging")
+                .next()
+                .is_none());
+        };
+
+        let valid = service.handle.package_bytes(&bytes, None).unwrap();
+        assert_eq!(valid["status"], "valid");
+        assert_eq!(valid["container_sha256"], pkg.digest);
+        assert_eq!(service.handle.list().unwrap()["records"], json!([]));
+        check_clean();
+
+        let invalid = service.handle.package_bytes(b"bad ZIP", None).unwrap();
+        assert_eq!(invalid["rejection_reason"], "not_a_zip");
+        check_clean();
+
+        let mismatch = service
+            .handle
+            .package_bytes(
+                &bytes,
+                Some(("req-picker-wrong-digest".into(), "0".repeat(64))),
+            )
+            .unwrap();
+        assert_eq!(mismatch["status"], "rejected");
+        assert_eq!(mismatch["reason"], "SOURCE_INVALID");
+        assert_eq!(service.handle.list().unwrap()["records"], json!([]));
+        check_clean();
+
+        let installed = service
+            .handle
+            .package_bytes(&bytes, Some(("req-picker-install".into(), pkg.digest)))
+            .unwrap();
+        assert_eq!(installed["status"], "installed");
+        assert!(service.handle.list().unwrap()["active"].is_null());
+        check_clean();
+        finish(service);
+    }
+
+    #[test]
+    fn picker_bytes_above_store_limit_never_create_an_upload() {
+        let temp = TempDir::new("picker-bytes-size-limit");
+        let root = temp.path().join("store");
+        let limits = kohbor_pack::Limits {
+            container_bytes: 4,
+            ..kohbor_pack::Limits::default()
+        };
+        let mut store = Store::open(&root, catalog(), limits).unwrap();
+        assert!(store.summarize_package_bytes(b"abcde").is_err());
+        assert!(store
+            .install_package_bytes(b"abcde", "req-picker-over-limit".into(), "0".repeat(64))
+            .is_err());
+        assert_eq!(
+            store.summarize_package_bytes(b"abcd").unwrap()["rejection_reason"],
+            "not_a_zip"
+        );
+        assert!(fs::read_dir(root.join("staging")).unwrap().next().is_none());
+        assert!(store.records().is_empty());
     }
 
     #[test]
@@ -1633,6 +2999,103 @@ mod tests {
         assert_eq!(
             listing["active"]["install_id"], install_id,
             "resume updates Store active pointer"
+        );
+        finish(service);
+    }
+
+    #[test]
+    fn pending_match_activation_can_be_cancelled_without_uninstalling_the_pack() {
+        let temp = TempDir::new("cancel-pending-activation");
+        let active_package = wav_fixture(&temp, "cancel-active-pack", "health_danger");
+        let pending_package = wav_fixture(&temp, "cancel-pending-pack", "hero_kill");
+        let store_root = temp.path().join("store");
+        let mut store = Store::open(&store_root, catalog(), kohbor_pack::Limits::default())
+            .expect("open cancellation fixture store");
+        let active_id = install(&mut store, &active_package, "req-cancel-active-inst-001")
+            .record
+            .expect("active package installs")
+            .install_id;
+        assert_eq!(
+            activate(&mut store, "req-cancel-active-act-001", &active_id)
+                .status
+                .as_str(),
+            "active"
+        );
+        drop(store);
+
+        let match_active = Arc::new(AtomicBool::new(true));
+        let match_probe = match_active.clone();
+        let service = setup(
+            &store_root,
+            Arc::new(move || match_probe.load(Ordering::Acquire)),
+            passing_probe(),
+            Box::new(|_| {}),
+            20,
+            0,
+        );
+        let _ = receive_swap(&service.engine_rx);
+        let pending_id = install_via_service(
+            &service.handle,
+            &pending_package,
+            "req-cancel-pending-inst-001",
+        );
+        let deferred = service
+            .handle
+            .activate(
+                "req-cancel-pending-act-001",
+                &pending_id,
+                ActivationPolicy::NowIfIdle,
+            )
+            .expect("in-match activation is deferred");
+        assert_eq!(deferred["status"], "deferred");
+        assert_eq!(
+            service
+                .handle
+                .list()
+                .expect("pending activation is listable")["pending"],
+            json!([pending_id.clone()])
+        );
+
+        let cancelled = service
+            .handle
+            .cancel_pending_activation(&pending_id)
+            .expect("host cancels the deferred activation");
+        assert_eq!(cancelled["cancelled"], true);
+        assert_eq!(cancelled["install_id"], pending_id);
+        assert_eq!(
+            service
+                .handle
+                .list()
+                .expect("cancelled pack remains installed")["pending"],
+            json!([])
+        );
+        assert_eq!(
+            service.handle.list().expect("active pack remains selected")["active"]["install_id"],
+            active_id
+        );
+        assert_eq!(
+            service
+                .handle
+                .cancel_pending_activation(&pending_id)
+                .expect("repeat cancellation is safe")["cancelled"],
+            false
+        );
+
+        match_active.store(false, Ordering::Release);
+        thread::sleep(Duration::from_millis(60));
+        assert_eq!(
+            service
+                .handle
+                .list()
+                .expect("cancelled activation stays cancelled")["active"]["install_id"],
+            active_id
+        );
+        assert!(
+            matches!(
+                service.engine_rx.control.try_recv(),
+                Err(TryRecvError::Empty)
+            ),
+            "cancelled activation is never resumed into an engine table swap"
         );
         finish(service);
     }
