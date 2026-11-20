@@ -192,13 +192,24 @@ struct OverlayWindowBundle {
     visibility: overlay::OverlayVisibilityMachine,
 }
 
+/// Tauri's `hwnd()` comes from its own `windows` crate version; rebuild it as this crate's `HWND`.
+#[cfg(windows)]
+fn overlay_hwnd(
+    window: &tauri::WebviewWindow<tauri::Wry>,
+) -> Option<windows::Win32::Foundation::HWND> {
+    window
+        .hwnd()
+        .ok()
+        .map(|hwnd| windows::Win32::Foundation::HWND(hwnd.0))
+}
+
 #[cfg(windows)]
 fn overlay_has_no_activate_style(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
     use windows::Win32::UI::WindowsAndMessaging::{
         GetWindowLongPtrW, GWL_EXSTYLE, WS_EX_NOACTIVATE,
     };
 
-    let Ok(hwnd) = window.hwnd() else {
+    let Some(hwnd) = overlay_hwnd(window) else {
         return false;
     };
     let ex_style = unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32 };
@@ -209,9 +220,7 @@ fn overlay_has_no_activate_style(window: &tauri::WebviewWindow<tauri::Wry>) -> b
 fn overlay_is_foreground(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
     use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
 
-    window
-        .hwnd()
-        .is_ok_and(|hwnd| unsafe { GetForegroundWindow() } == hwnd)
+    overlay_hwnd(window).is_some_and(|hwnd| unsafe { GetForegroundWindow() } == hwnd)
 }
 
 #[cfg(windows)]
@@ -220,7 +229,7 @@ fn raise_overlay_without_activation(window: &tauri::WebviewWindow<tauri::Wry>) -
         SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
     };
 
-    let Ok(hwnd) = window.hwnd() else {
+    let Some(hwnd) = overlay_hwnd(window) else {
         return false;
     };
     // Keep the mapped transparent HWND above other topmost windows without activating it.
@@ -448,7 +457,7 @@ fn log_overlay_visibility_snapshot(
         GetForegroundWindow, GetWindowLongPtrW, IsWindowVisible, GWL_EXSTYLE, WS_EX_NOACTIVATE,
     };
 
-    let Ok(hwnd) = window.hwnd() else {
+    let Some(hwnd) = overlay_hwnd(window) else {
         crate::log_info!(
             "overlay",
             "visibility_snapshot",

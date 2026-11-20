@@ -353,8 +353,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 53544,
-      "sha256": "7211ee730e4557deb4bdbff1564a3416adb2894ecc58b9b8e3f9429a49157421"
+      "bytes": 53896,
+      "sha256": "c77c9329b1d03adb2bf554df920427a7ac6bebce8571b134e00e98e85b5d6ae6"
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
