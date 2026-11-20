@@ -253,8 +253,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/outcome.rs",
-      "bytes": 16335,
-      "sha256": "0bdfa5de8a865cd2ff72a15603c9f6a4fed6a744e3c2269fb1229c7a41c116c7"
+      "bytes": 16420,
+      "sha256": "a41a75f95f682a6ab4f0c56fb456227aa4307587661d93bc03fd2af8179b1c4d"
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/publisher.rs",
@@ -263,8 +263,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/recap.rs",
-      "bytes": 15617,
-      "sha256": "d53fd263aff8463111dc4abef4621f8f983ba9ec2839aef3de188fb442f04cc2"
+      "bytes": 15643,
+      "sha256": "0a26b23027d91e297ad0561ef62a6506be102bedeebea69844b19809de28ece5"
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/resolve.rs",

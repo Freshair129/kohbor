@@ -391,6 +391,7 @@ mod tests {
             playback_id: playback.then_some(PlaybackId(sequence)),
             package_revision: Some(1),
             decided_at_ms: sequence,
+            detail: None,
         };
         let details = OutcomeDetails {
             tier: Some(3),

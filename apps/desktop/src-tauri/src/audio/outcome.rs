@@ -237,6 +237,7 @@ pub fn record(
 /// The same contract record for an outcome decided BEFORE the owner (unmapped,
 /// invalid_media, inert, not_voiced, detector_unavailable, lower_rank_same_tick,
 /// stale_session ...): `playback_id` is null; the same validity rules as `record`.
+#[allow(clippy::too_many_arguments)] // mirrors the outcome record fields one to one
 pub fn pre_owner_record(
     instance_id: &str,
     event_type: Option<&str>,
