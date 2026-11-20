@@ -3,6 +3,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { liveMockRequested } from "./mockMode";
 import { createCanvasPainter, createPreviewPipeline, unknownPreviewMetrics } from "./preview";
 import { DEFAULT_CANVAS_FRAME } from "./canvasBox";
+import { clearPreviewMetrics, publishPreviewMetrics } from "./previewMetricsStore";
 
 export function useMinimap(calibrationGeneration: number | null, enabled: boolean) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -13,6 +14,7 @@ export function useMinimap(calibrationGeneration: number | null, enabled: boolea
   const frameSizeRef = useRef(DEFAULT_CANVAS_FRAME);
 
   useLayoutEffect(() => {
+    clearPreviewMetrics();
     setHasFrame(false);
     setMetrics(unknownPreviewMetrics());
     setError(null);
@@ -48,7 +50,9 @@ export function useMinimap(calibrationGeneration: number | null, enabled: boolea
       if (!disposed) pipeline.receive(buffer);
     };
     const timer = window.setInterval(() => {
-      setMetrics(pipeline.sample());
+      const sampled = pipeline.sample();
+      setMetrics(sampled);
+      publishPreviewMetrics(sampled);
       const paintError = pipeline.getError();
       if (paintError) setError(paintError);
     }, 1_000);
@@ -69,6 +73,7 @@ export function useMinimap(calibrationGeneration: number | null, enabled: boolea
 
     return () => {
       disposed = true;
+      clearPreviewMetrics();
       stopMock?.();
       if (channel) channel.onmessage = () => {};
       window.clearInterval(timer);

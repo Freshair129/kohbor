@@ -463,8 +463,8 @@
     },
     {
       "path": "apps/desktop/src/App.tsx",
-      "bytes": 14793,
-      "sha256": "f97eaccc734efbff409e590b0d5acbb7c6f96cf82ebbe7d6f68b569d50647427"
+      "bytes": 16707,
+      "sha256": "fede2441977c7278a7ff53eaf96913fc51c05521ecb9bca5f562bfcef5ada532"
     },
     {
       "path": "apps/desktop/src/AudioHistory.tsx",
@@ -828,8 +828,8 @@
     },
     {
       "path": "apps/desktop/src/live/MinimapPanel.tsx",
-      "bytes": 18341,
-      "sha256": "7ffb91d5fd35c023ccf1e4a1271af2803ac81f5cda4b401c86ef3451d6af56ce"
+      "bytes": 18198,
+      "sha256": "e2fb9dedca10f93a066bfcb04fc3b09d83bf13c3e1e35fbdf0e07127429ced50"
     },
     {
       "path": "apps/desktop/src/live/MinimapStage.tsx",
@@ -845,11 +845,6 @@
       "path": "apps/desktop/src/live/ResourcePanel.tsx",
       "bytes": 4232,
       "sha256": "1272f659d2febbca7782dfff3237cae7e7624f621040c41e4998d49f00353c9d"
-    },
-    {
-      "path": "apps/desktop/src/live/ResourceStrip.tsx",
-      "bytes": 1109,
-      "sha256": "29d372907d40c71cefb26208dc97ab87d4800caeb2a265b12738136da38f8b24"
     },
     {
       "path": "apps/desktop/src/live/RiskStrip.tsx",
@@ -908,8 +903,8 @@
     },
     {
       "path": "apps/desktop/src/live/live.css",
-      "bytes": 10640,
-      "sha256": "05013f5c270d6685aa1e9a520e490f923a453ea929dcbd27a8435a10c90a7a64"
+      "bytes": 10102,
+      "sha256": "4e873323ab51fe6d4df648af404f866ffae06dd4853872aa270c2efda4e0591a"
     },
     {
       "path": "apps/desktop/src/live/meter.ts",
@@ -952,6 +947,11 @@
       "sha256": "673acaa360456e98b52d73c437e76bdc265d1cbd2954292e92a17fd905270c23"
     },
     {
+      "path": "apps/desktop/src/live/previewMetricsStore.ts",
+      "bytes": 798,
+      "sha256": "f207ed06497b0f7174e6ea86ac1574e844a5a0e5c549be4429378fde5791cb19"
+    },
+    {
       "path": "apps/desktop/src/live/state.ts",
       "bytes": 11290,
       "sha256": "e7487ba10fd9c19423720c83e81c6f8303e56846cf23c6f34c7d5306df3418c2"
@@ -983,8 +983,8 @@
     },
     {
       "path": "apps/desktop/src/live/useMinimap.ts",
-      "bytes": 3059,
-      "sha256": "776dd68fc5f6ef765f4d2d3e324cb3a9f4072495fcb1d44781c43af4a2a188f2"
+      "bytes": 3268,
+      "sha256": "36e40ad40f551dbb74ed49b440bb8d459e073585e9c68c07fa5a2199978eb4a1"
     },
     {
       "path": "apps/desktop/src/live/usePageVisibility.ts",
@@ -1192,6 +1192,11 @@
       "sha256": "4402a45cdedfbe3352ffcf4f2b123dfecb4e54057e556bfd44a25667fca3c59d"
     },
     {
+      "path": "apps/desktop/src/shell/StatusFooter.tsx",
+      "bytes": 3547,
+      "sha256": "23b0c4ca789056650b4332844809c5bac6ecd8761e603d15ff6aa17763ea8d83"
+    },
+    {
       "path": "apps/desktop/src/shell/StatusLine.tsx",
       "bytes": 1144,
       "sha256": "f3b9bc91c4b8c046112605681c3a45927dc4375a7fd23d0884d51a640ccafd8c"
@@ -1235,6 +1240,16 @@
       "path": "apps/desktop/src/shell/state.ts",
       "bytes": 5909,
       "sha256": "8685169de61fe8431b867649769067b0640650fa9bf08d3afa50e826cb9d2c35"
+    },
+    {
+      "path": "apps/desktop/src/shell/statusFooter.css",
+      "bytes": 2022,
+      "sha256": "da13072f174b387f1129a0835224ee92692a8e85b5d2d1e3e3e7aca1d0d89a7a"
+    },
+    {
+      "path": "apps/desktop/src/shell/statusFooterModel.ts",
+      "bytes": 1543,
+      "sha256": "9bc32a8b3dfd76746dbe6c5d97168b3d8af074045a832095cbe454b806996074"
     },
     {
       "path": "apps/desktop/src/shell/updateCopy.ts",
@@ -1525,6 +1540,11 @@
       "path": "apps/desktop/tests/shell-css.test.ts",
       "bytes": 10673,
       "sha256": "517d88b132c6a15106bf5fe2b5b89e86187b0aec134ac6728fe48467ebe0d235"
+    },
+    {
+      "path": "apps/desktop/tests/shell-footer.test.ts",
+      "bytes": 1761,
+      "sha256": "263ad04fc17ae34790b53e03b146140df25ab1b207ce1b135296b4bfe9e79ee5"
     },
     {
       "path": "apps/desktop/tests/shell-state.test.ts",

@@ -17,7 +17,6 @@ import {
   togglePause,
 } from "./captureConfig";
 import { ResourcePanel } from "./ResourcePanel";
-import { ResourceStrip } from "./ResourceStrip";
 import { previewRateText, visibilityText } from "./preview";
 import { useCaptureStatus } from "./useCaptureStatus";
 import { useCaptureConfig } from "./useCaptureConfig";
@@ -214,7 +213,6 @@ export function MinimapPanel({
         <section className="live-enemy-panel" aria-label={text.enemyCount("—")}>
           <EnemySeen risk={displayedRisk} locale={locale} />
         </section>
-        <ResourceStrip locale={locale} capture={display.capture} metrics={display.metrics} />
         {layout === "deck" && renderAlerts && <div className="live-deck-alerts">{renderAlerts({ risk: displayedRisk, captureLive: phase === "live" && !paused })}</div>}
         <div className="live-sidebar-status">
           {mock && <span className="live-experimental">{text.mockPreview}</span>}
