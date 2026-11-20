@@ -97,6 +97,7 @@ fn catalog_bytes() -> Vec<u8> {
         "events": [
             { "id": "multi_kill", "status": "active", "media_mappable": true, "critical_media_required": false, "tier_range": { "min": 2, "max": 4 } },
             { "id": "hero_kill", "status": "active", "media_mappable": true, "critical_media_required": false },
+            { "id": "health_danger", "status": "active", "media_mappable": true, "critical_media_required": true },
             { "id": "hero_respawn", "status": "active", "media_mappable": false, "critical_media_required": false }
         ]
     }))
@@ -132,6 +133,20 @@ fn binding(
 fn mapping_bytes(bindings: &[Value]) -> Vec<u8> {
     serde_json::to_vec(&json!({ "schema_version": "1.0.0", "bindings": bindings }))
         .expect("serialize mapping")
+}
+
+fn variant(audio: &str) -> Value {
+    json!({ "audio": audio })
+}
+
+fn variants_binding(event_id: &str, selection: Option<&str>, variants: Vec<Value>) -> Value {
+    let mut binding = serde_json::Map::new();
+    binding.insert("event_id".to_owned(), json!(event_id));
+    if let Some(selection) = selection {
+        binding.insert("selection".to_owned(), json!(selection));
+    }
+    binding.insert("variants".to_owned(), Value::Array(variants));
+    Value::Object(binding)
 }
 
 fn pcm_wav(sample_rate: u32, channels: u16, bits: u16, samples: &[i32]) -> Vec<u8> {
@@ -219,10 +234,14 @@ fn wav_with_chunks(
 }
 
 fn webm(audio_track: Option<bool>) -> Vec<u8> {
+    webm_with_width(audio_track, 640)
+}
+
+fn webm_with_width(audio_track: Option<bool>, width: u64) -> Vec<u8> {
     let mut ebml_header = ebml_element(&[0x42, 0x82], b"webm");
     ebml_header.extend(ebml_uint(&[0x42, 0x86], 1));
 
-    let mut video = ebml_uint(&[0xb0], 640);
+    let mut video = ebml_uint(&[0xb0], width);
     video.extend(ebml_uint(&[0xba], 360));
     let mut video_track = ebml_uint(&[0xd7], 1);
     video_track.extend(ebml_uint(&[0x73, 0xc5], 1));
@@ -501,6 +520,474 @@ fn deterministic_bytes_round_trip_and_provenance_are_verified() {
 }
 
 #[test]
+fn legacy_mapping_keeps_the_exact_v13_descriptor() {
+    let fixture = Fixture::new();
+    let report = build_package(&fixture.options()).expect("build legacy mapping");
+    let stage_dir = fixture.temp.0.join("legacy-descriptor-stage");
+    fs::create_dir(&stage_dir).expect("create stage directory");
+    let catalog_value: Value = serde_json::from_slice(&catalog_bytes()).expect("parse catalog");
+    let catalog = Catalog::from_json(&catalog_value).expect("catalog shape");
+    stage_package(
+        &report.package_path,
+        &stage_dir,
+        &catalog,
+        &Limits::default(),
+    )
+    .expect("stage legacy package");
+
+    let audio = convert_wav(&fs::read(fixture.clips.join("x.wav")).expect("read audio"))
+        .expect("convert expected audio");
+    let visual = webm(None);
+    let expected = json!({
+        "schema_version": "1.3.0",
+        "package_id": "synthetic-pack",
+        "revision": 3,
+        "taxonomy_version": "1.1",
+        "display_name": "Synthetic Pack",
+        "publisher_key_id": null,
+        "files": [
+            { "path": "audio/multi_kill-t2.wav", "size_bytes": audio.wav.len(), "sha256": sha256(&audio.wav), "role": "mixed_audio" },
+            { "path": "video/multi_kill-t2.webm", "size_bytes": visual.len(), "sha256": sha256(&visual), "role": "silent_visual" }
+        ],
+        "bindings": [{
+            "event_id": "multi_kill",
+            "tier": 2,
+            "mixed_audio_path": "audio/multi_kill-t2.wav",
+            "silent_visual_path": "video/multi_kill-t2.webm",
+            "duration_ms": 10,
+            "visual_tail_ms": 0
+        }]
+    });
+    assert_eq!(
+        fs::read(stage_dir.join("descriptor.json")).expect("read staged descriptor"),
+        serde_json::to_vec(&expected).expect("serialize expected descriptor")
+    );
+}
+
+#[test]
+fn six_variant_mapping_writes_one_shared_copy_and_passes_v14_admission() {
+    let fixture = Fixture::new();
+    let variants = (1..=6)
+        .map(|number| {
+            json!({
+                "audio": "x.wav",
+                "visual": "x.webm",
+                "clip_id": format!("vrzo-th-{number:04}"),
+            })
+        })
+        .collect();
+    fixture.set_mapping(&[
+        variants_binding("hero_kill", Some("shuffle"), variants),
+        binding("multi_kill", Some(2), None, None, None, None),
+    ]);
+
+    let report = build_package(&fixture.options()).expect("build variants and legacy binding");
+    assert_eq!(report.written.len(), 7);
+    assert!(report.skipped.is_empty());
+    assert_eq!(report.written[0].variant_id.as_deref(), Some("v1"));
+    assert_eq!(report.written[5].variant_id.as_deref(), Some("v6"));
+    assert_eq!(report.written[0].selection.as_deref(), Some("shuffle"));
+    assert_eq!(report.written[6].variant_id.as_deref(), Some("v7"));
+
+    let stage_dir = fixture.temp.0.join("variants-stage");
+    fs::create_dir(&stage_dir).expect("create stage directory");
+    let catalog_value: Value = serde_json::from_slice(&catalog_bytes()).expect("parse catalog");
+    let catalog = Catalog::from_json(&catalog_value).expect("catalog shape");
+    let staged = stage_package(
+        &report.package_path,
+        &stage_dir,
+        &catalog,
+        &Limits::default(),
+    )
+    .expect("stage and admit six-variant package");
+    let descriptor: Value = serde_json::from_slice(
+        &fs::read(stage_dir.join("descriptor.json")).expect("read staged descriptor"),
+    )
+    .expect("parse staged descriptor");
+    assert_eq!(descriptor["schema_version"], "1.4.0");
+    assert_eq!(report.descriptor_schema_version, "1.4.0");
+    assert_eq!(descriptor["bindings"].as_array().unwrap().len(), 2);
+    assert!(descriptor["bindings"][0].get("variants").is_some());
+    assert!(descriptor["bindings"][1].get("variants").is_some());
+    assert!(descriptor["bindings"][1].get("mixed_audio_path").is_none());
+    let binding = staged.parsed.descriptor.bindings.first().expect("binding");
+    assert_eq!(
+        binding.selection.map(|selection| selection.as_str()),
+        Some("shuffle")
+    );
+    assert_eq!(binding.variants.len(), 6);
+    assert_eq!(
+        staged.files.len(),
+        2,
+        "shared audio and visual are each stored once"
+    );
+    assert!(binding
+        .variants
+        .iter()
+        .enumerate()
+        .all(|(index, variant)| variant.variant_id == format!("v{}", index + 1)));
+
+    let provenance: Value =
+        serde_json::from_slice(&fs::read(&report.provenance_path).expect("read provenance"))
+            .expect("parse provenance");
+    assert_eq!(
+        provenance["build_report"]["descriptor_schema_version"],
+        "1.4.0"
+    );
+    assert_eq!(
+        provenance["build_report"]["written"]
+            .as_array()
+            .unwrap()
+            .len(),
+        7
+    );
+    assert_eq!(
+        provenance["build_report"]["written"][0]["selection"],
+        "shuffle"
+    );
+}
+
+#[test]
+fn invalid_variant_visual_is_skipped_individually_and_reported_by_variant() {
+    let fixture = Fixture::new();
+    fs::write(fixture.clips.join("bad.webm"), webm(Some(true))).expect("write invalid video");
+    fixture.set_mapping(&[variants_binding(
+        "hero_kill",
+        Some("shuffle"),
+        vec![
+            json!({ "audio": "x.wav", "visual": "bad.webm", "variant_id": "broken" }),
+            json!({ "audio": "x.wav", "variant_id": "audio_only" }),
+        ],
+    )]);
+
+    let report = build_package(&fixture.options()).expect("valid remaining variant builds");
+    assert_eq!(report.written.len(), 1);
+    assert_eq!(report.written[0].variant_id.as_deref(), Some("audio_only"));
+    assert_eq!(report.written[0].selection, None);
+    assert_eq!(report.skipped.len(), 1);
+    assert_eq!(report.skipped[0].variant_id.as_deref(), Some("broken"));
+    assert!(report.skipped[0].reason.contains("silent WebM inspection"));
+
+    let stage_dir = fixture.temp.0.join("partial-variants-stage");
+    fs::create_dir(&stage_dir).expect("create stage directory");
+    let catalog_value: Value = serde_json::from_slice(&catalog_bytes()).expect("parse catalog");
+    let catalog = Catalog::from_json(&catalog_value).expect("catalog shape");
+    let staged = stage_package(
+        &report.package_path,
+        &stage_dir,
+        &catalog,
+        &Limits::default(),
+    )
+    .expect("stage single surviving variant");
+    assert_eq!(staged.parsed.descriptor.bindings[0].variants.len(), 1);
+    assert_eq!(staged.parsed.descriptor.bindings[0].selection, None);
+}
+
+#[test]
+fn sole_surviving_random_variant_omits_weight_and_passes_v14_admission() {
+    let fixture = Fixture::new();
+    fs::write(fixture.clips.join("bad.webm"), webm(Some(true))).expect("write invalid video");
+    fixture.set_mapping(&[variants_binding(
+        "hero_kill",
+        Some("random"),
+        vec![
+            json!({ "audio": "x.wav", "variant_id": "survivor", "weight": 25 }),
+            json!({ "audio": "x.wav", "variant_id": "broken", "visual": "bad.webm" }),
+        ],
+    )]);
+
+    let report = build_package(&fixture.options()).expect("build with one surviving variant");
+    assert_eq!(report.written.len(), 1);
+    assert_eq!(report.written[0].selection, None);
+    assert_eq!(report.skipped.len(), 1);
+    assert_eq!(report.skipped[0].variant_id.as_deref(), Some("broken"));
+
+    let stage_dir = fixture.temp.0.join("single-random-stage");
+    fs::create_dir(&stage_dir).expect("create stage directory");
+    let catalog_value = serde_json::from_slice(&catalog_bytes()).expect("parse catalog");
+    let catalog = Catalog::from_json(&catalog_value).expect("catalog shape");
+    let staged = stage_package(
+        &report.package_path,
+        &stage_dir,
+        &catalog,
+        &Limits::default(),
+    )
+    .expect("stage surviving random variant");
+    let binding = &staged.parsed.descriptor.bindings[0];
+    assert_eq!(binding.selection, None);
+    assert_eq!(binding.variants.len(), 1);
+    assert_eq!(binding.variants[0].variant_id, "survivor");
+    assert_eq!(binding.variants[0].weight, None);
+}
+
+#[test]
+fn weighted_random_variants_build_and_pass_v14_admission() {
+    let fixture = Fixture::new();
+    fixture.set_mapping(&[variants_binding(
+        "hero_kill",
+        Some("random"),
+        vec![
+            json!({ "audio": "x.wav", "variant_id": "weighted", "weight": 25 }),
+            json!({ "audio": "x.wav", "variant_id": "default_weight" }),
+        ],
+    )]);
+
+    let report = build_package(&fixture.options()).expect("build weighted random variants");
+    let stage_dir = fixture.temp.0.join("weighted-random-stage");
+    fs::create_dir(&stage_dir).expect("create stage directory");
+    let catalog_value: Value = serde_json::from_slice(&catalog_bytes()).expect("parse catalog");
+    let catalog = Catalog::from_json(&catalog_value).expect("catalog shape");
+    let staged = stage_package(
+        &report.package_path,
+        &stage_dir,
+        &catalog,
+        &Limits::default(),
+    )
+    .expect("stage weighted random package");
+    let variants = &staged.parsed.descriptor.bindings[0].variants;
+    assert_eq!(variants[0].variant_id, "weighted");
+    assert_eq!(variants[0].weight, Some(25));
+    assert_eq!(variants[1].variant_id, "default_weight");
+    assert_eq!(variants[1].weight, None);
+}
+
+#[test]
+fn each_variant_carries_its_own_visual_tail_and_identity_audio() {
+    let fixture = Fixture::new();
+    for (name, sample, length) in [
+        ("identity-a.wav", 512, 480),
+        ("y.wav", 2048, 960),
+        ("identity-b.wav", 256, 960),
+    ] {
+        fs::write(
+            fixture.clips.join(name),
+            pcm_wav(48_000, 1, 16, &vec![sample; length]),
+        )
+        .expect("write variant audio");
+    }
+    fs::write(fixture.clips.join("y.webm"), webm_with_width(None, 320))
+        .expect("write second visual");
+    fixture.set_mapping(&[variants_binding(
+        "hero_kill",
+        Some("sequence"),
+        vec![
+            json!({
+                "audio": "x.wav",
+                "visual": "x.webm",
+                "visual_tail_ms": 0,
+                "identity_audio": "identity-a.wav",
+                "variant_id": "clip_a",
+            }),
+            json!({
+                "audio": "y.wav",
+                "visual": "y.webm",
+                "visual_tail_ms": 75,
+                "identity_audio": "identity-b.wav",
+                "variant_id": "clip_b",
+            }),
+        ],
+    )]);
+
+    let report = build_package(&fixture.options()).expect("build media variant");
+    let stage_dir = fixture.temp.0.join("variant-media-stage");
+    fs::create_dir(&stage_dir).expect("create stage directory");
+    let catalog_value: Value = serde_json::from_slice(&catalog_bytes()).expect("parse catalog");
+    let catalog = Catalog::from_json(&catalog_value).expect("catalog shape");
+    let staged = stage_package(
+        &report.package_path,
+        &stage_dir,
+        &catalog,
+        &Limits::default(),
+    )
+    .expect("stage variant media");
+    let variants = &staged.parsed.descriptor.bindings[0].variants;
+    assert_eq!(variants.len(), 2);
+    assert_eq!(staged.files.len(), 6);
+    for (variant, (id, duration, tail, audio, visual, identity)) in variants.iter().zip([
+        ("clip_a", 10, 0, "x.wav", "x.webm", "identity-a.wav"),
+        ("clip_b", 20, 75, "y.wav", "y.webm", "identity-b.wav"),
+    ]) {
+        assert_eq!(variant.variant_id, id);
+        assert_eq!(variant.duration_ms, duration);
+        assert_eq!(variant.visual_tail_ms, tail);
+        for (staged_path, source_path) in [
+            (variant.mixed_audio_path.as_str(), audio),
+            (
+                variant.silent_visual_path.as_deref().expect("visual"),
+                visual,
+            ),
+            (
+                variant
+                    .identity_audio_path
+                    .as_deref()
+                    .expect("identity audio"),
+                identity,
+            ),
+        ] {
+            assert_eq!(
+                fs::read(stage_dir.join(staged_path)).expect("read staged media"),
+                fs::read(fixture.clips.join(source_path)).expect("read source media"),
+                "wrong {source_path} for {id}",
+            );
+        }
+    }
+
+    fs::write(
+        fixture.clips.join("identity-b.wav"),
+        pcm_wav(48_000, 1, 16, &vec![256; 959]),
+    )
+    .expect("write mismatched identity audio for second variant");
+    let mut options = fixture.options();
+    options.out_dir = fixture.temp.0.join("mismatch-out");
+    let error = build_package(&options).expect_err("second variant identity mismatch is rejected");
+    assert!(error
+        .message
+        .contains("identity audio sample count differs for hero_kill variant clip_b"));
+    assert!(!options.out_dir.exists());
+}
+
+#[test]
+fn variant_mapping_enforces_v14_limits_and_selection_rules() {
+    let fixture = Fixture::new();
+
+    fixture.set_mapping(&[variants_binding(
+        "hero_kill",
+        None,
+        vec![variant("x.wav"), variant("x.wav")],
+    )]);
+    let missing_selection = build_package(&fixture.options()).expect_err("selection required");
+    assert!(missing_selection.message.contains("selection is required"));
+
+    fixture.set_mapping(&[variants_binding(
+        "hero_kill",
+        Some("shuffle"),
+        vec![
+            json!({ "audio": "x.wav", "weight": 2 }),
+            json!({ "audio": "x.wav" }),
+        ],
+    )]);
+    let weighted_shuffle = build_package(&fixture.options()).expect_err("weight only random");
+    assert!(weighted_shuffle
+        .message
+        .contains("weight is allowed only with random"));
+
+    fixture.set_mapping(&[variants_binding(
+        "hero_kill",
+        Some("random"),
+        vec![
+            json!({ "audio": "x.wav", "clip_id": "not-a-clip-id" }),
+            variant("x.wav"),
+        ],
+    )]);
+    let invalid_clip = build_package(&fixture.options()).expect_err("invalid clip id");
+    assert!(invalid_clip.message.contains("clip_id"));
+
+    fixture.set_mapping(&[variants_binding(
+        "hero_kill",
+        Some("random"),
+        vec![
+            json!({ "audio": "x.wav", "variant_id": "Uppercase" }),
+            variant("x.wav"),
+        ],
+    )]);
+    let invalid_variant_id = build_package(&fixture.options()).expect_err("invalid variant id");
+    assert!(invalid_variant_id.message.contains("variant_id"));
+
+    fixture.set_mapping(&[variants_binding(
+        "hero_kill",
+        Some("sequence"),
+        vec![
+            json!({ "audio": "x.wav", "variant_id": "same" }),
+            json!({ "audio": "x.wav", "variant_id": "same" }),
+        ],
+    )]);
+    let duplicate = build_package(&fixture.options()).expect_err("duplicate variant id");
+    assert!(duplicate.message.contains("variant_id"));
+
+    fixture.set_mapping(&[variants_binding(
+        "hero_kill",
+        Some("sequence"),
+        (0..17).map(|_| variant("x.wav")).collect(),
+    )]);
+    let too_many = build_package(&fixture.options()).expect_err("binding limit");
+    assert!(too_many.message.contains("1 to 16 variants"));
+
+    fixture.set_mapping(&[variants_binding(
+        "health_danger",
+        Some("shuffle"),
+        vec![variant("x.wav"), variant("x.wav")],
+    )]);
+    let critical = build_package(&fixture.options()).expect_err("critical event stays singular");
+    assert!(critical
+        .message
+        .contains("critical media event must have exactly one variant"));
+}
+
+#[test]
+fn variant_mapping_enforces_the_pack_wide_512_variant_limit() {
+    let fixture = Fixture::new();
+    let binding = || {
+        variants_binding(
+            "hero_kill",
+            Some("shuffle"),
+            (0..16).map(|_| variant("x.wav")).collect(),
+        )
+    };
+    fixture.set_mapping(&(0..33).map(|_| binding()).collect::<Vec<_>>());
+
+    let error = build_package(&fixture.options()).expect_err("pack-wide limit");
+    assert!(error.message.contains("more than 512 variants"));
+}
+
+#[test]
+fn cli_help_documents_legacy_and_variant_mapping_forms() {
+    let output = Command::new(env!("CARGO_BIN_EXE_kohbor-pack-build"))
+        .arg("--help")
+        .output()
+        .expect("run help");
+    assert_eq!(output.status.code(), Some(0));
+    let help = String::from_utf8(output.stdout).expect("help utf8");
+    assert!(help.contains("one-clip bindings"));
+    assert!(help.contains("variants"));
+    assert!(help.contains("selection"));
+}
+
+#[test]
+fn cli_report_lists_each_written_variant() {
+    let fixture = Fixture::new();
+    fixture.set_mapping(&[variants_binding(
+        "hero_kill",
+        Some("sequence"),
+        vec![variant("x.wav"), variant("x.wav")],
+    )]);
+    let output = Command::new(env!("CARGO_BIN_EXE_kohbor-pack-build"))
+        .arg("--clips")
+        .arg(&fixture.clips)
+        .arg("--map")
+        .arg(&fixture.map)
+        .arg("--out")
+        .arg(&fixture.out)
+        .arg("--package-id")
+        .arg("synthetic-pack")
+        .arg("--revision")
+        .arg("3")
+        .arg("--display-name")
+        .arg("Synthetic Pack")
+        .arg("--catalog")
+        .arg(&fixture.catalog)
+        .output()
+        .expect("run variant builder CLI");
+
+    assert_eq!(output.status.code(), Some(0));
+    let report: Value = serde_json::from_slice(&output.stdout).expect("parse CLI report JSON");
+    assert_eq!(report["descriptor_schema_version"], "1.4.0");
+    assert_eq!(report["written"].as_array().unwrap().len(), 2);
+    assert_eq!(report["written"][0]["variant_id"], "v1");
+    assert_eq!(report["written"][0]["selection"], "sequence");
+    assert_eq!(report["written"][1]["variant_id"], "v2");
+}
+
+#[test]
 fn unknown_event_tier_errors_and_duplicate_tiers_are_refused() {
     let fixture = Fixture::new();
 
@@ -767,8 +1254,12 @@ fn output_is_confined_to_out_and_staging_is_removed() {
 }
 
 #[test]
-fn binary_builds_package_through_process_command() {
+fn legacy_cli_and_provenance_keep_the_pre_v3_report_shape() {
     let fixture = Fixture::new();
+    fixture.set_mapping(&[
+        binding("multi_kill", Some(2), Some("x.webm"), None, None, None),
+        binding("hero_kill", None, None, None, Some(10), None),
+    ]);
     let result = Command::new(env!("CARGO_BIN_EXE_kohbor-pack-build"))
         .arg("--clips")
         .arg(&fixture.clips)
@@ -789,10 +1280,34 @@ fn binary_builds_package_through_process_command() {
         .output()
         .expect("run compiled package builder");
     assert_eq!(result.status.code(), Some(0));
-    let stdout = String::from_utf8(result.stdout).expect("CLI JSON output");
-    assert!(stdout.contains("synthetic-pack-r3.zip"));
-    assert!(fixture
-        .out
-        .join("synthetic-pack-r3.provenance.json")
-        .is_file());
+    let cli: Value = serde_json::from_slice(&result.stdout).expect("CLI JSON output");
+    let written = json!([{
+        "event_id": "multi_kill",
+        "tier": 2,
+        "duration_ms": 10,
+        "visual": "video/multi_kill-t2.webm",
+    }]);
+    let skipped = json!([{
+        "event_id": "hero_kill",
+        "tier": null,
+        "reason": "audio-only binding must have visual_tail_ms 0",
+    }]);
+    assert_eq!(
+        cli,
+        json!({
+            "package": "synthetic-pack-r3.zip",
+            "provenance": "synthetic-pack-r3.provenance.json",
+            "container_sha256": sha256(&output_bytes(&fixture.out.join("synthetic-pack-r3.zip"))),
+            "written": written,
+            "skipped": skipped,
+        }),
+    );
+    let provenance: Value = serde_json::from_slice(&output_bytes(
+        &fixture.out.join("synthetic-pack-r3.provenance.json"),
+    ))
+    .expect("provenance JSON output");
+    assert_eq!(
+        provenance["build_report"],
+        json!({ "written": written, "skipped": skipped }),
+    );
 }

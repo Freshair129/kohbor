@@ -16,7 +16,10 @@ use std::path::{Component, Path, PathBuf};
 const MAX_INPUT_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_DESCRIPTOR_BYTES: usize = 2 * 1024 * 1024;
 const MAX_PAYLOAD_BYTES: usize = 32 * 1024 * 1024;
+const MAX_PAYLOAD_COUNT: usize = 2_048;
 const MAX_BINDINGS: usize = 128;
+const MAX_VARIANTS_PER_BINDING: usize = 16;
+const MAX_VARIANTS_PER_PACK: usize = 512;
 const MAX_EXPANDED_BYTES: u64 = 512 * 1024 * 1024;
 
 #[derive(Debug, Clone)]
@@ -38,15 +41,22 @@ pub struct BuildOptions {
 pub struct WrittenBinding {
     pub event_id: String,
     pub tier: Option<u32>,
+    pub variant_id: Option<String>,
+    pub clip_id: Option<String>,
+    pub selection: Option<String>,
     pub duration_ms: u32,
-    /// Package-relative visual path, or `None` for an audio-only binding.
+    pub audio: String,
+    /// Package-relative visual path, or `None` for an audio-only variant.
     pub visual: Option<String>,
+    pub identity_audio: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SkippedBinding {
     pub event_id: String,
     pub tier: Option<u32>,
+    pub variant_id: Option<String>,
+    pub clip_id: Option<String>,
     pub reason: String,
 }
 
@@ -55,6 +65,7 @@ pub struct BuildReport {
     pub package_path: PathBuf,
     pub provenance_path: PathBuf,
     pub container_sha256: String,
+    pub descriptor_schema_version: String,
     pub written: Vec<WrittenBinding>,
     pub skipped: Vec<SkippedBinding>,
 }
@@ -83,15 +94,40 @@ impl BuildError {
 }
 
 #[derive(Debug, Clone)]
+struct MappingPlan {
+    bindings: Vec<MappingBinding>,
+    has_variants: bool,
+}
+
+#[derive(Debug, Clone)]
 struct MappingBinding {
     event_id: String,
     tier: Option<u32>,
+    selection: Option<String>,
+    variants: Vec<MappingVariant>,
+}
+
+#[derive(Debug, Clone)]
+struct MappingVariant {
     audio: String,
-    /// Missing means this mapping is audio-only unless the CLI requires banners.
+    /// Missing means this variant is audio-only unless the CLI requires banners.
     visual: Option<String>,
     identity_audio: Option<String>,
-    /// Must be zero for audio-only mappings.
+    /// Must be zero for audio-only variants.
     visual_tail_ms: u32,
+    variant_id: Option<String>,
+    clip_id: Option<String>,
+    weight: Option<u8>,
+}
+
+struct PreparedVariant {
+    descriptor: Map<String, Value>,
+    written: WrittenBinding,
+}
+
+enum VariantBuildResult {
+    Written(PreparedVariant),
+    Skipped(SkippedBinding),
 }
 
 #[derive(Debug, Clone)]
@@ -107,6 +143,12 @@ struct Payload {
     bytes: Vec<u8>,
     role: &'static str,
     method: u16,
+}
+
+struct VariantBuildState<'a> {
+    receipts: &'a mut BTreeMap<(String, String), InputReceipt>,
+    payloads: &'a mut Vec<Payload>,
+    expanded_payload_bytes: &'a mut u64,
 }
 
 /// Build a deterministic profile-1 package and its sidecar provenance record.
@@ -126,7 +168,10 @@ pub fn build_package(options: &BuildOptions) -> Result<BuildReport, BuildError> 
     let (mapping_bytes, mapping_receipt) = read_named_input(&options.map_path, "mapping")?;
     let mapping_value = kohbor_gsi::strict_json::parse(&mapping_bytes)
         .map_err(|error| BuildError::new(1, format!("mapping JSON is invalid: {error:?}")))?;
-    let mappings = parse_mapping(&mapping_value)?;
+    let mut mapping_plan = parse_mapping(&mapping_value)?;
+    if mapping_plan.has_variants {
+        assign_implicit_variant_ids(&mut mapping_plan.bindings)?;
+    }
 
     let (catalog_bytes, catalog_receipt) = read_named_input(&options.catalog_path, "catalog")?;
     let catalog_value = kohbor_gsi::strict_json::parse(&catalog_bytes)
@@ -138,7 +183,7 @@ pub fn build_package(options: &BuildOptions) -> Result<BuildReport, BuildError> 
     insert_receipt(&mut receipts, mapping_receipt);
     insert_receipt(&mut receipts, catalog_receipt);
     let mut seen = BTreeSet::new();
-    for mapping in &mappings {
+    for mapping in &mapping_plan.bindings {
         let event = catalog
             .event(&mapping.event_id)
             .ok_or_else(|| BuildError::new(1, format!("unknown event id: {}", mapping.event_id)))?;
@@ -146,6 +191,15 @@ pub fn build_package(options: &BuildOptions) -> Result<BuildReport, BuildError> 
             return Err(BuildError::new(
                 1,
                 format!("event is not media-mappable: {}", mapping.event_id),
+            ));
+        }
+        if event.critical_media_required && mapping.variants.len() != 1 {
+            return Err(BuildError::new(
+                1,
+                format!(
+                    "critical media event must have exactly one variant: {}",
+                    mapping.event_id
+                ),
             ));
         }
         match (mapping.tier, event.tier_range) {
@@ -176,225 +230,72 @@ pub fn build_package(options: &BuildOptions) -> Result<BuildReport, BuildError> 
     let mut written = Vec::<WrittenBinding>::new();
     let mut skipped = Vec::<SkippedBinding>::new();
     let mut expanded_payload_bytes = 0u64;
+    let mut variant_state = VariantBuildState {
+        receipts: &mut receipts,
+        payloads: &mut payloads,
+        expanded_payload_bytes: &mut expanded_payload_bytes,
+    };
 
-    for mapping in &mappings {
-        if mapping.visual.is_none() && mapping.visual_tail_ms != 0 {
-            skipped.push(skip_for(
+    for mapping in &mapping_plan.bindings {
+        let binding_key = binding_key(mapping);
+        let mut prepared = Vec::with_capacity(mapping.variants.len());
+        for variant in &mapping.variants {
+            match prepare_variant(
+                &clips_dir,
                 mapping,
-                "audio-only binding must have visual_tail_ms 0",
-            ));
-            continue;
+                variant,
+                &binding_key,
+                mapping_plan.has_variants,
+                options.require_visual,
+                &mut variant_state,
+            )? {
+                VariantBuildResult::Written(variant) => prepared.push(variant),
+                VariantBuildResult::Skipped(reason) => skipped.push(reason),
+            }
         }
-        if options.require_visual && mapping.visual.is_none() {
-            skipped.push(skip_for(
-                mapping,
-                "visual path is missing (--require-visual)",
-            ));
-            continue;
-        }
-        let visual_bytes = if let Some(visual_path) = mapping.visual.as_deref() {
-            let bytes = match read_clip(&clips_dir, visual_path) {
-                Ok(bytes) => bytes,
-                Err(ClipReadError::TooLarge) => {
-                    skipped.push(skip_for(mapping, "visual input exceeds 64 MiB"));
-                    continue;
-                }
-                Err(ClipReadError::Unavailable) => {
-                    skipped.push(skip_for(mapping, "visual input is unavailable"));
-                    continue;
-                }
-                Err(ClipReadError::UnsafePath) => {
-                    skipped.push(skip_for(mapping, "visual path is not a safe clip path"));
-                    continue;
-                }
+
+        if mapping_plan.has_variants {
+            if prepared.is_empty() {
+                continue;
+            }
+            let selection = if prepared.len() > 1 {
+                mapping.selection.clone()
+            } else {
+                prepared[0].descriptor.remove("weight");
+                None
             };
-            add_clip_receipt(&mut receipts, visual_path, &bytes)?;
-            if bytes.len() > MAX_PAYLOAD_BYTES {
-                skipped.push(skip_for(
-                    mapping,
-                    "visual exceeds the package 32 MiB payload limit",
-                ));
-                continue;
+            let mut descriptor_binding = Map::new();
+            descriptor_binding.insert("event_id".to_owned(), json!(mapping.event_id));
+            if let Some(tier) = mapping.tier {
+                descriptor_binding.insert("tier".to_owned(), json!(tier));
             }
-            if let Err(reason) = inspect_webm(&bytes) {
-                skipped.push(skip_for(
-                    mapping,
-                    format!("visual failed silent WebM inspection: {}", reason.as_str()),
-                ));
-                continue;
+            if let Some(selection) = selection.as_ref() {
+                descriptor_binding.insert("selection".to_owned(), json!(selection));
             }
-            Some(bytes)
-        } else {
-            None
-        };
-
-        let audio_bytes = match read_clip(&clips_dir, &mapping.audio) {
-            Ok(bytes) => bytes,
-            Err(ClipReadError::TooLarge) => {
-                skipped.push(skip_for(mapping, "audio input exceeds 64 MiB"));
-                continue;
-            }
-            Err(ClipReadError::Unavailable) => {
-                return Err(BuildError::new(
-                    1,
-                    format!("audio input is unavailable for {}", mapping.event_id),
-                ));
-            }
-            Err(ClipReadError::UnsafePath) => {
-                return Err(BuildError::new(
-                    1,
-                    format!(
-                        "audio path is not a safe clip path for {}",
-                        mapping.event_id
-                    ),
-                ));
-            }
-        };
-        add_clip_receipt(&mut receipts, &mapping.audio, &audio_bytes)?;
-        let mixed = audio::convert_wav(&audio_bytes).map_err(|error| {
-            BuildError::new(
-                1,
-                format!("audio conversion failed for {}: {error}", mapping.event_id),
-            )
-        })?;
-        let duration_ms = u32::try_from(
-            u64::try_from(mixed.samples)
-                .map_err(|_| BuildError::new(1, "audio sample count is too large"))?
-                .checked_mul(1_000)
-                .ok_or_else(|| BuildError::new(1, "audio duration overflow"))?
-                / 48_000,
-        )
-        .map_err(|_| BuildError::new(1, "audio duration is too large"))?;
-        if duration_ms == 0 {
-            return Err(BuildError::new(
-                1,
-                format!(
-                    "audio duration is below the manifest minimum for {}",
-                    mapping.event_id
-                ),
-            ));
-        }
-
-        let key = binding_key(mapping);
-        let identity_payload = if let Some(identity_path) = mapping.identity_audio.as_deref() {
-            let identity_bytes = match read_clip(&clips_dir, identity_path) {
-                Ok(bytes) => bytes,
-                Err(ClipReadError::TooLarge) => {
-                    skipped.push(skip_for(mapping, "identity audio input exceeds 64 MiB"));
-                    continue;
-                }
-                Err(ClipReadError::Unavailable) => {
-                    return Err(BuildError::new(
-                        1,
-                        format!("identity audio is unavailable for {}", mapping.event_id),
-                    ));
-                }
-                Err(ClipReadError::UnsafePath) => {
-                    return Err(BuildError::new(
-                        1,
-                        format!("identity audio path is unsafe for {}", mapping.event_id),
-                    ));
-                }
-            };
-            add_clip_receipt(&mut receipts, identity_path, &identity_bytes)?;
-            let identity = audio::convert_wav(&identity_bytes).map_err(|error| {
-                BuildError::new(
-                    1,
-                    format!(
-                        "identity audio conversion failed for {}: {error}",
-                        mapping.event_id
-                    ),
-                )
-            })?;
-            if identity.samples != mixed.samples {
-                return Err(BuildError::new(
-                    1,
-                    format!(
-                        "identity audio sample count differs for {}",
-                        mapping.event_id
-                    ),
-                ));
-            }
-            let identity_output_path = format!("audio/{key}-identity.wav");
-            Some((identity_output_path, identity.wav))
-        } else {
-            None
-        };
-
-        let mixed_path = format!("audio/{key}.wav");
-        let visual_output_path = visual_bytes.as_ref().map(|_| format!("video/{key}.webm"));
-        let mut binding_payload_bytes = u64::try_from(mixed.wav.len())
-            .map_err(|_| BuildError::new(1, "generated WAV size is too large"))?;
-        if let Some(bytes) = visual_bytes.as_ref() {
-            binding_payload_bytes = binding_payload_bytes
-                .checked_add(
-                    u64::try_from(bytes.len())
-                        .map_err(|_| BuildError::new(1, "visual size is too large"))?,
-                )
-                .ok_or_else(|| BuildError::new(1, "expanded package size overflow"))?;
-        }
-        if let Some((_, identity_bytes)) = identity_payload.as_ref() {
-            binding_payload_bytes = binding_payload_bytes
-                .checked_add(
-                    u64::try_from(identity_bytes.len())
-                        .map_err(|_| BuildError::new(1, "identity WAV size is too large"))?,
-                )
-                .ok_or_else(|| BuildError::new(1, "expanded package size overflow"))?;
-        }
-        expanded_payload_bytes = expanded_payload_bytes
-            .checked_add(binding_payload_bytes)
-            .ok_or_else(|| BuildError::new(1, "expanded package size overflow"))?;
-        if expanded_payload_bytes > MAX_EXPANDED_BYTES {
-            return Err(BuildError::new(
-                1,
-                "expanded payloads exceed the package 512 MiB limit",
-            ));
-        }
-        payloads.push(Payload {
-            path: mixed_path.clone(),
-            bytes: mixed.wav,
-            role: "mixed_audio",
-            method: 8,
-        });
-        if let (Some(path), Some(bytes)) = (visual_output_path.as_ref(), visual_bytes) {
-            payloads.push(Payload {
-                path: path.clone(),
-                bytes,
-                role: "silent_visual",
-                method: 0,
-            });
-        }
-        let mut descriptor_binding = Map::new();
-        descriptor_binding.insert("event_id".to_owned(), json!(mapping.event_id));
-        if let Some(tier) = mapping.tier {
-            descriptor_binding.insert("tier".to_owned(), json!(tier));
-        }
-        descriptor_binding.insert("mixed_audio_path".to_owned(), json!(mixed_path));
-        if let Some(visual_path) = visual_output_path.as_ref() {
-            descriptor_binding.insert("silent_visual_path".to_owned(), json!(visual_path));
-        }
-        descriptor_binding.insert("duration_ms".to_owned(), json!(duration_ms));
-        descriptor_binding.insert("visual_tail_ms".to_owned(), json!(mapping.visual_tail_ms));
-        if let Some((identity_output_path, identity_bytes)) = identity_payload {
             descriptor_binding.insert(
-                "identity_audio_path".to_owned(),
-                json!(identity_output_path),
+                "variants".to_owned(),
+                Value::Array(
+                    prepared
+                        .iter()
+                        .map(|variant| Value::Object(variant.descriptor.clone()))
+                        .collect(),
+                ),
             );
-            payloads.push(Payload {
-                path: identity_output_path,
-                bytes: identity_bytes,
-                role: "identity_audio",
-                method: 8,
-            });
+            manifest_bindings.push(Value::Object(descriptor_binding));
+            for variant in prepared {
+                let mut written_variant = variant.written;
+                written_variant.selection = selection.clone();
+                written.push(written_variant);
+            }
+        } else if let Some(variant) = prepared.into_iter().next() {
+            let mut descriptor_binding = variant.descriptor;
+            descriptor_binding.insert("event_id".to_owned(), json!(mapping.event_id));
+            if let Some(tier) = mapping.tier {
+                descriptor_binding.insert("tier".to_owned(), json!(tier));
+            }
+            manifest_bindings.push(Value::Object(descriptor_binding));
+            written.push(variant.written);
         }
-
-        manifest_bindings.push(Value::Object(descriptor_binding));
-        written.push(WrittenBinding {
-            event_id: mapping.event_id.clone(),
-            tier: mapping.tier,
-            duration_ms,
-            visual: visual_output_path,
-        });
     }
 
     if written.is_empty() {
@@ -427,8 +328,13 @@ pub fn build_package(options: &BuildOptions) -> Result<BuildReport, BuildError> 
         }));
     }
     let taxonomy_version = format!("{}.{}", catalog.taxonomy.major, catalog.taxonomy.minor);
+    let descriptor_schema_version = if mapping_plan.has_variants {
+        "1.4.0"
+    } else {
+        "1.3.0"
+    };
     let descriptor = json!({
-        "schema_version": "1.3.0",
+        "schema_version": descriptor_schema_version,
         "package_id": options.package_id,
         "revision": options.revision,
         "taxonomy_version": taxonomy_version,
@@ -531,22 +437,17 @@ pub fn build_package(options: &BuildOptions) -> Result<BuildReport, BuildError> 
             })
         })
         .collect::<Vec<_>>();
+    let mut build_report = json!({
+        "written": written.iter().map(written_report_json).collect::<Vec<_>>(),
+        "skipped": skipped.iter().map(skipped_report_json).collect::<Vec<_>>(),
+    });
+    if mapping_plan.has_variants {
+        build_report["descriptor_schema_version"] = json!(descriptor_schema_version);
+    }
     let provenance = json!({
         "schema_version": "1.0.0",
         "tool": { "name": "kohbor-pack-build", "version": env!("CARGO_PKG_VERSION") },
-        "build_report": {
-            "written": written.iter().map(|binding| json!({
-                "event_id": binding.event_id,
-                "tier": binding.tier,
-                "duration_ms": binding.duration_ms,
-                "visual": binding.visual,
-            })).collect::<Vec<_>>(),
-            "skipped": skipped.iter().map(|binding| json!({
-                "event_id": binding.event_id,
-                "tier": binding.tier,
-                "reason": binding.reason,
-            })).collect::<Vec<_>>(),
-        },
+        "build_report": build_report,
         "input_files": input_files,
         "output_container": {
             "sha256": container_sha256,
@@ -580,9 +481,324 @@ pub fn build_package(options: &BuildOptions) -> Result<BuildReport, BuildError> 
         package_path,
         provenance_path,
         container_sha256,
+        descriptor_schema_version: descriptor_schema_version.to_owned(),
         written,
         skipped,
     })
+}
+
+fn prepare_variant(
+    clips_dir: &Path,
+    mapping: &MappingBinding,
+    variant: &MappingVariant,
+    binding_key: &str,
+    v14_output: bool,
+    require_visual: bool,
+    state: &mut VariantBuildState<'_>,
+) -> Result<VariantBuildResult, BuildError> {
+    if variant.visual.is_none() && variant.visual_tail_ms != 0 {
+        return Ok(VariantBuildResult::Skipped(skip_for(
+            mapping,
+            variant,
+            if v14_output {
+                "audio-only variant must have visual_tail_ms 0"
+            } else {
+                "audio-only binding must have visual_tail_ms 0"
+            },
+        )));
+    }
+    if require_visual && variant.visual.is_none() {
+        return Ok(VariantBuildResult::Skipped(skip_for(
+            mapping,
+            variant,
+            "visual path is missing (--require-visual)",
+        )));
+    }
+
+    let visual_bytes = if let Some(visual_path) = variant.visual.as_deref() {
+        let bytes = match read_clip(clips_dir, visual_path) {
+            Ok(bytes) => bytes,
+            Err(ClipReadError::TooLarge) => {
+                return Ok(VariantBuildResult::Skipped(skip_for(
+                    mapping,
+                    variant,
+                    "visual input exceeds 64 MiB",
+                )))
+            }
+            Err(ClipReadError::Unavailable) => {
+                return Ok(VariantBuildResult::Skipped(skip_for(
+                    mapping,
+                    variant,
+                    "visual input is unavailable",
+                )))
+            }
+            Err(ClipReadError::UnsafePath) => {
+                return Ok(VariantBuildResult::Skipped(skip_for(
+                    mapping,
+                    variant,
+                    "visual path is not a safe clip path",
+                )))
+            }
+        };
+        add_clip_receipt(state.receipts, visual_path, &bytes)?;
+        if bytes.len() > MAX_PAYLOAD_BYTES {
+            return Ok(VariantBuildResult::Skipped(skip_for(
+                mapping,
+                variant,
+                "visual exceeds the package 32 MiB payload limit",
+            )));
+        }
+        if let Err(reason) = inspect_webm(&bytes) {
+            return Ok(VariantBuildResult::Skipped(skip_for(
+                mapping,
+                variant,
+                format!("visual failed silent WebM inspection: {}", reason.as_str()),
+            )));
+        }
+        Some(bytes)
+    } else {
+        None
+    };
+
+    let audio_bytes = match read_clip(clips_dir, &variant.audio) {
+        Ok(bytes) => bytes,
+        Err(ClipReadError::TooLarge) => {
+            return Ok(VariantBuildResult::Skipped(skip_for(
+                mapping,
+                variant,
+                "audio input exceeds 64 MiB",
+            )))
+        }
+        Err(ClipReadError::Unavailable) => {
+            return Err(BuildError::new(
+                1,
+                format!(
+                    "audio input is unavailable for {}",
+                    variant_context(mapping, variant)
+                ),
+            ))
+        }
+        Err(ClipReadError::UnsafePath) => {
+            return Err(BuildError::new(
+                1,
+                format!(
+                    "audio path is not a safe clip path for {}",
+                    variant_context(mapping, variant)
+                ),
+            ))
+        }
+    };
+    add_clip_receipt(state.receipts, &variant.audio, &audio_bytes)?;
+    let mixed = audio::convert_wav(&audio_bytes).map_err(|error| {
+        BuildError::new(
+            1,
+            format!(
+                "audio conversion failed for {}: {error}",
+                variant_context(mapping, variant)
+            ),
+        )
+    })?;
+    let duration_ms = u32::try_from(
+        u64::try_from(mixed.samples)
+            .map_err(|_| BuildError::new(1, "audio sample count is too large"))?
+            .checked_mul(1_000)
+            .ok_or_else(|| BuildError::new(1, "audio duration overflow"))?
+            / 48_000,
+    )
+    .map_err(|_| BuildError::new(1, "audio duration is too large"))?;
+    if duration_ms == 0 {
+        return Err(BuildError::new(
+            1,
+            format!(
+                "audio duration is below the manifest minimum for {}",
+                variant_context(mapping, variant)
+            ),
+        ));
+    }
+
+    let identity_payload = if let Some(identity_path) = variant.identity_audio.as_deref() {
+        let identity_bytes = match read_clip(clips_dir, identity_path) {
+            Ok(bytes) => bytes,
+            Err(ClipReadError::TooLarge) => {
+                return Ok(VariantBuildResult::Skipped(skip_for(
+                    mapping,
+                    variant,
+                    "identity audio input exceeds 64 MiB",
+                )))
+            }
+            Err(ClipReadError::Unavailable) => {
+                return Err(BuildError::new(
+                    1,
+                    format!(
+                        "identity audio is unavailable for {}",
+                        variant_context(mapping, variant)
+                    ),
+                ))
+            }
+            Err(ClipReadError::UnsafePath) => {
+                return Err(BuildError::new(
+                    1,
+                    format!(
+                        "identity audio path is unsafe for {}",
+                        variant_context(mapping, variant)
+                    ),
+                ))
+            }
+        };
+        add_clip_receipt(state.receipts, identity_path, &identity_bytes)?;
+        let identity = audio::convert_wav(&identity_bytes).map_err(|error| {
+            BuildError::new(
+                1,
+                format!(
+                    "identity audio conversion failed for {}: {error}",
+                    variant_context(mapping, variant)
+                ),
+            )
+        })?;
+        if identity.samples != mixed.samples {
+            return Err(BuildError::new(
+                1,
+                format!(
+                    "identity audio sample count differs for {}",
+                    variant_context(mapping, variant)
+                ),
+            ));
+        }
+        Some(identity.wav)
+    } else {
+        None
+    };
+
+    let mixed_path = if v14_output {
+        format!("audio/{}.wav", sha256_hex(&mixed.wav))
+    } else {
+        format!("audio/{binding_key}.wav")
+    };
+    let visual_output_path = visual_bytes.as_ref().map(|bytes| {
+        if v14_output {
+            format!("video/{}.webm", sha256_hex(bytes))
+        } else {
+            format!("video/{binding_key}.webm")
+        }
+    });
+    let identity_output_path = identity_payload.as_ref().map(|bytes| {
+        if v14_output {
+            format!("identity/{}.wav", sha256_hex(bytes))
+        } else {
+            format!("audio/{binding_key}-identity.wav")
+        }
+    });
+
+    let mut add_generated_payload =
+        |path: String, bytes: Vec<u8>, role: &'static str, method: u16| -> Result<(), BuildError> {
+            let added = append_payload(state.payloads, path, bytes, role, method, v14_output)?;
+            *state.expanded_payload_bytes = (*state.expanded_payload_bytes)
+                .checked_add(added)
+                .ok_or_else(|| BuildError::new(1, "expanded package size overflow"))?;
+            if *state.expanded_payload_bytes > MAX_EXPANDED_BYTES {
+                return Err(BuildError::new(
+                    1,
+                    "expanded payloads exceed the package 512 MiB limit",
+                ));
+            }
+            Ok(())
+        };
+    add_generated_payload(mixed_path.clone(), mixed.wav, "mixed_audio", 8)?;
+    if let (Some(path), Some(bytes)) = (visual_output_path.as_ref(), visual_bytes) {
+        add_generated_payload(path.clone(), bytes, "silent_visual", 0)?;
+    }
+    if let (Some(path), Some(bytes)) = (identity_output_path.as_ref(), identity_payload) {
+        add_generated_payload(path.clone(), bytes, "identity_audio", 8)?;
+    }
+
+    let mut descriptor = Map::new();
+    if v14_output {
+        let variant_id = variant
+            .variant_id
+            .as_ref()
+            .expect("1.4.0 output has assigned variant IDs");
+        descriptor.insert("variant_id".to_owned(), json!(variant_id));
+        if let Some(clip_id) = variant.clip_id.as_ref() {
+            descriptor.insert("clip_id".to_owned(), json!(clip_id));
+        }
+        if let Some(weight) = variant.weight {
+            descriptor.insert("weight".to_owned(), json!(weight));
+        }
+    }
+    descriptor.insert("mixed_audio_path".to_owned(), json!(mixed_path));
+    if let Some(visual_path) = visual_output_path.as_ref() {
+        descriptor.insert("silent_visual_path".to_owned(), json!(visual_path));
+    }
+    descriptor.insert("duration_ms".to_owned(), json!(duration_ms));
+    descriptor.insert("visual_tail_ms".to_owned(), json!(variant.visual_tail_ms));
+    if let Some(identity_path) = identity_output_path.as_ref() {
+        descriptor.insert("identity_audio_path".to_owned(), json!(identity_path));
+    }
+
+    Ok(VariantBuildResult::Written(PreparedVariant {
+        descriptor,
+        written: WrittenBinding {
+            event_id: mapping.event_id.clone(),
+            tier: mapping.tier,
+            variant_id: if v14_output {
+                variant.variant_id.clone()
+            } else {
+                None
+            },
+            clip_id: variant.clip_id.clone(),
+            selection: None,
+            duration_ms,
+            audio: mixed_path,
+            visual: visual_output_path,
+            identity_audio: identity_output_path,
+        },
+    }))
+}
+
+fn append_payload(
+    payloads: &mut Vec<Payload>,
+    path: String,
+    bytes: Vec<u8>,
+    role: &'static str,
+    method: u16,
+    deduplicate: bool,
+) -> Result<u64, BuildError> {
+    if bytes.is_empty() || bytes.len() > MAX_PAYLOAD_BYTES {
+        return Err(BuildError::new(
+            1,
+            "generated payload violates the manifest size limit",
+        ));
+    }
+    if let Some(existing) = payloads.iter().find(|payload| payload.path == path) {
+        if deduplicate && existing.role == role && existing.bytes == bytes {
+            return Ok(0);
+        }
+        return Err(BuildError::new(
+            1,
+            "generated payload path collides with different content",
+        ));
+    }
+    payloads.push(Payload {
+        path,
+        bytes,
+        role,
+        method,
+    });
+    if payloads.len() > MAX_PAYLOAD_COUNT {
+        return Err(BuildError::new(
+            1,
+            "package has more than 2048 payload files",
+        ));
+    }
+    u64::try_from(payloads.last().map_or(0, |payload| payload.bytes.len()))
+        .map_err(|_| BuildError::new(1, "generated payload size is too large"))
+}
+
+fn variant_context(mapping: &MappingBinding, variant: &MappingVariant) -> String {
+    match variant.variant_id.as_deref() {
+        Some(variant_id) => format!("{} variant {variant_id}", mapping.event_id),
+        None => mapping.event_id.clone(),
+    }
 }
 
 fn validate_options(options: &BuildOptions) -> Result<(), BuildError> {
@@ -624,7 +840,7 @@ fn validate_options(options: &BuildOptions) -> Result<(), BuildError> {
     Ok(())
 }
 
-fn parse_mapping(value: &Value) -> Result<Vec<MappingBinding>, BuildError> {
+fn parse_mapping(value: &Value) -> Result<MappingPlan, BuildError> {
     let root = value
         .as_object()
         .ok_or_else(|| BuildError::new(1, "mapping root must be an object"))?;
@@ -645,58 +861,277 @@ fn parse_mapping(value: &Value) -> Result<Vec<MappingBinding>, BuildError> {
         return Err(BuildError::new(1, "mapping has more than 128 bindings"));
     }
     let mut result = Vec::with_capacity(bindings.len());
+    let mut has_variants = false;
+    let mut total_variants = 0usize;
+    let mut explicit_variant_ids = BTreeSet::new();
     for value in bindings {
         let object = value
             .as_object()
             .ok_or_else(|| BuildError::new(1, "mapping binding must be an object"))?;
-        if object.keys().any(|key| {
-            !matches!(
-                key.as_str(),
-                "event_id" | "tier" | "audio" | "visual" | "identity_audio" | "visual_tail_ms"
-            )
-        }) {
-            return Err(BuildError::new(
-                1,
-                "mapping binding contains an unknown field",
-            ));
-        }
         let event_id = required_string(object, "event_id")?;
-        let audio = required_string(object, "audio")?;
-        validate_clip_path(&audio)
-            .map_err(|_| BuildError::new(1, "audio path is not a safe relative clip path"))?;
-        let visual = optional_string(object, "visual")?;
-        if let Some(path) = visual.as_deref() {
-            validate_clip_path(path)
-                .map_err(|_| BuildError::new(1, "visual path is not a safe relative clip path"))?;
-        }
-        let identity_audio = optional_string(object, "identity_audio")?;
-        if let Some(path) = identity_audio.as_deref() {
-            validate_clip_path(path).map_err(|_| {
-                BuildError::new(1, "identity audio path is not a safe relative clip path")
-            })?;
-        }
         let tier = optional_u32(object, "tier")?;
         if tier.is_some_and(|value| value == 0 || value > 100) {
             return Err(BuildError::new(1, "tier must be between 1 and 100"));
         }
-        let visual_tail_ms =
-            optional_u32(object, "visual_tail_ms")?.map_or(0, std::convert::identity);
-        if visual_tail_ms > 3_200 {
-            return Err(BuildError::new(
-                1,
-                "visual_tail_ms must be between 0 and 3200",
-            ));
+        let (selection, variants) = if object.contains_key("variants") {
+            has_variants = true;
+            reject_mapping_fields(object, &["event_id", "tier", "selection", "variants"])?;
+            let variant_values = object
+                .get("variants")
+                .and_then(Value::as_array)
+                .ok_or_else(|| BuildError::new(1, "mapping variants must be an array"))?;
+            if variant_values.is_empty() || variant_values.len() > MAX_VARIANTS_PER_BINDING {
+                return Err(BuildError::new(
+                    1,
+                    "mapping binding must have 1 to 16 variants",
+                ));
+            }
+            let selection = parse_mapping_selection(object)?;
+            if variant_values.len() > 1 && selection.is_none() {
+                return Err(BuildError::new(
+                    1,
+                    "mapping selection is required with two or more variants",
+                ));
+            }
+            if variant_values.len() == 1 && selection.is_some() {
+                return Err(BuildError::new(
+                    1,
+                    "mapping selection must be absent with one variant",
+                ));
+            }
+            let mut variants = Vec::with_capacity(variant_values.len());
+            for variant_value in variant_values {
+                let variant_object = variant_value
+                    .as_object()
+                    .ok_or_else(|| BuildError::new(1, "mapping variant must be an object"))?;
+                reject_mapping_fields(
+                    variant_object,
+                    &[
+                        "audio",
+                        "visual",
+                        "visual_tail_ms",
+                        "identity_audio",
+                        "clip_id",
+                        "variant_id",
+                        "weight",
+                    ],
+                )?;
+                let audio = required_string(variant_object, "audio")?;
+                validate_clip_path(&audio).map_err(|_| {
+                    BuildError::new(1, "audio path is not a safe relative clip path")
+                })?;
+                let visual = optional_string(variant_object, "visual")?;
+                if let Some(path) = visual.as_deref() {
+                    validate_clip_path(path).map_err(|_| {
+                        BuildError::new(1, "visual path is not a safe relative clip path")
+                    })?;
+                }
+                let identity_audio = optional_string(variant_object, "identity_audio")?;
+                if let Some(path) = identity_audio.as_deref() {
+                    validate_clip_path(path).map_err(|_| {
+                        BuildError::new(1, "identity audio path is not a safe relative clip path")
+                    })?;
+                }
+                let visual_tail_ms = optional_u32(variant_object, "visual_tail_ms")?.unwrap_or(0);
+                if visual_tail_ms > 3_200 {
+                    return Err(BuildError::new(
+                        1,
+                        "visual_tail_ms must be between 0 and 3200",
+                    ));
+                }
+                let variant_id = optional_string(variant_object, "variant_id")?;
+                if variant_id
+                    .as_deref()
+                    .is_some_and(|id| !valid_variant_id(id))
+                {
+                    return Err(BuildError::new(
+                        1,
+                        "variant_id does not match the descriptor pattern",
+                    ));
+                }
+                if let Some(variant_id) = variant_id.as_ref() {
+                    if !explicit_variant_ids.insert(variant_id.clone()) {
+                        return Err(BuildError::new(1, "variant_id must be unique in the pack"));
+                    }
+                }
+                let clip_id = optional_string(variant_object, "clip_id")?;
+                if clip_id.as_deref().is_some_and(|id| !valid_clip_id(id)) {
+                    return Err(BuildError::new(
+                        1,
+                        "clip_id does not match the descriptor pattern",
+                    ));
+                }
+                let weight = optional_u32(variant_object, "weight")?;
+                if weight.is_some_and(|value| !(1..=100).contains(&value)) {
+                    return Err(BuildError::new(1, "weight must be between 1 and 100"));
+                }
+                if weight.is_some() && selection.as_deref() != Some("random") {
+                    return Err(BuildError::new(
+                        1,
+                        "weight is allowed only with random selection",
+                    ));
+                }
+                variants.push(MappingVariant {
+                    audio,
+                    visual,
+                    identity_audio,
+                    visual_tail_ms,
+                    variant_id,
+                    clip_id,
+                    weight: weight.map(|weight| weight as u8),
+                });
+            }
+            (selection, variants)
+        } else {
+            reject_mapping_fields(
+                object,
+                &[
+                    "event_id",
+                    "tier",
+                    "audio",
+                    "visual",
+                    "identity_audio",
+                    "visual_tail_ms",
+                ],
+            )?;
+            let audio = required_string(object, "audio")?;
+            validate_clip_path(&audio)
+                .map_err(|_| BuildError::new(1, "audio path is not a safe relative clip path"))?;
+            let visual = optional_string(object, "visual")?;
+            if let Some(path) = visual.as_deref() {
+                validate_clip_path(path).map_err(|_| {
+                    BuildError::new(1, "visual path is not a safe relative clip path")
+                })?;
+            }
+            let identity_audio = optional_string(object, "identity_audio")?;
+            if let Some(path) = identity_audio.as_deref() {
+                validate_clip_path(path).map_err(|_| {
+                    BuildError::new(1, "identity audio path is not a safe relative clip path")
+                })?;
+            }
+            let visual_tail_ms = optional_u32(object, "visual_tail_ms")?.unwrap_or(0);
+            if visual_tail_ms > 3_200 {
+                return Err(BuildError::new(
+                    1,
+                    "visual_tail_ms must be between 0 and 3200",
+                ));
+            }
+            (
+                None,
+                vec![MappingVariant {
+                    audio,
+                    visual,
+                    identity_audio,
+                    visual_tail_ms,
+                    variant_id: None,
+                    clip_id: None,
+                    weight: None,
+                }],
+            )
+        };
+        total_variants = total_variants
+            .checked_add(variants.len())
+            .ok_or_else(|| BuildError::new(1, "mapping has more than 512 variants"))?;
+        if total_variants > MAX_VARIANTS_PER_PACK {
+            return Err(BuildError::new(1, "mapping has more than 512 variants"));
         }
         result.push(MappingBinding {
             event_id,
             tier,
-            audio,
-            visual,
-            identity_audio,
-            visual_tail_ms,
+            selection,
+            variants,
         });
     }
-    Ok(result)
+    Ok(MappingPlan {
+        bindings: result,
+        has_variants,
+    })
+}
+
+fn reject_mapping_fields(object: &Map<String, Value>, allowed: &[&str]) -> Result<(), BuildError> {
+    if object.keys().any(|key| !allowed.contains(&key.as_str())) {
+        return Err(BuildError::new(
+            1,
+            "mapping object contains an unknown field",
+        ));
+    }
+    Ok(())
+}
+
+fn parse_mapping_selection(object: &Map<String, Value>) -> Result<Option<String>, BuildError> {
+    match object.get("selection") {
+        None => Ok(None),
+        Some(Value::String(selection))
+            if matches!(selection.as_str(), "random" | "shuffle" | "sequence") =>
+        {
+            Ok(Some(selection.clone()))
+        }
+        Some(_) => Err(BuildError::new(
+            1,
+            "selection must be random, shuffle, or sequence",
+        )),
+    }
+}
+
+fn assign_implicit_variant_ids(bindings: &mut [MappingBinding]) -> Result<(), BuildError> {
+    let mut used = BTreeSet::new();
+    for variant in bindings.iter().flat_map(|binding| binding.variants.iter()) {
+        if let Some(variant_id) = variant.variant_id.as_ref() {
+            if !used.insert(variant_id.clone()) {
+                return Err(BuildError::new(1, "variant_id must be unique in the pack"));
+            }
+        }
+    }
+    let mut next_id = 1usize;
+    for variant in bindings
+        .iter_mut()
+        .flat_map(|binding| binding.variants.iter_mut())
+    {
+        if variant.variant_id.is_some() {
+            continue;
+        }
+        loop {
+            let candidate = format!("v{next_id}");
+            next_id = next_id.saturating_add(1);
+            if used.insert(candidate.clone()) {
+                variant.variant_id = Some(candidate);
+                break;
+            }
+            if next_id == usize::MAX {
+                return Err(BuildError::new(1, "could not derive a unique variant_id"));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn valid_variant_id(value: &str) -> bool {
+    let mut bytes = value.bytes();
+    matches!(bytes.next(), Some(b'a'..=b'z' | b'0'..=b'9'))
+        && value.len() <= 32
+        && bytes.all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'_' | b'-')
+        })
+}
+
+fn valid_clip_id(value: &str) -> bool {
+    if value.len() > 48 || !value.is_ascii() {
+        return false;
+    }
+    let Some((prefix, suffix)) = value.split_once('-') else {
+        return false;
+    };
+    let Some((language, number)) = suffix.split_once('-') else {
+        return false;
+    };
+    !prefix.is_empty()
+        && prefix
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
+        && language.len() == 2
+        && language.bytes().all(|byte| byte.is_ascii_lowercase())
+        && number.len() == 4
+        && number.bytes().all(|byte| byte.is_ascii_digit())
 }
 
 fn required_string(object: &Map<String, Value>, key: &str) -> Result<String, BuildError> {
@@ -850,12 +1285,50 @@ fn add_clip_receipt(
     Ok(())
 }
 
-fn skip_for(mapping: &MappingBinding, reason: impl Into<String>) -> SkippedBinding {
+fn skip_for(
+    mapping: &MappingBinding,
+    variant: &MappingVariant,
+    reason: impl Into<String>,
+) -> SkippedBinding {
     SkippedBinding {
         event_id: mapping.event_id.clone(),
         tier: mapping.tier,
+        variant_id: variant.variant_id.clone(),
+        clip_id: variant.clip_id.clone(),
         reason: reason.into(),
     }
+}
+
+fn written_report_json(binding: &WrittenBinding) -> Value {
+    let mut report = Map::new();
+    report.insert("event_id".to_owned(), json!(binding.event_id));
+    report.insert("tier".to_owned(), json!(binding.tier));
+    report.insert("duration_ms".to_owned(), json!(binding.duration_ms));
+    report.insert("visual".to_owned(), json!(binding.visual));
+    if binding.variant_id.is_some() {
+        report.insert("variant_id".to_owned(), json!(binding.variant_id));
+        report.insert("audio".to_owned(), json!(binding.audio));
+        report.insert("selection".to_owned(), json!(binding.selection));
+        report.insert("identity_audio".to_owned(), json!(binding.identity_audio));
+    }
+    if let Some(clip_id) = binding.clip_id.as_ref() {
+        report.insert("clip_id".to_owned(), json!(clip_id));
+    }
+    Value::Object(report)
+}
+
+fn skipped_report_json(binding: &SkippedBinding) -> Value {
+    let mut report = Map::new();
+    report.insert("event_id".to_owned(), json!(binding.event_id));
+    report.insert("tier".to_owned(), json!(binding.tier));
+    report.insert("reason".to_owned(), json!(binding.reason));
+    if let Some(variant_id) = binding.variant_id.as_ref() {
+        report.insert("variant_id".to_owned(), json!(variant_id));
+    }
+    if let Some(clip_id) = binding.clip_id.as_ref() {
+        report.insert("clip_id".to_owned(), json!(clip_id));
+    }
+    Value::Object(report)
 }
 
 fn binding_key(mapping: &MappingBinding) -> String {
@@ -1044,26 +1517,51 @@ fn cli_report_json(report: &BuildReport) -> Value {
         .file_name()
         .and_then(|name| name.to_str())
         .map_or_else(String::new, str::to_owned);
-    json!({
+    let mut output = json!({
         "package": package_name,
         "provenance": provenance_name,
         "container_sha256": report.container_sha256,
-        "written": report.written.iter().map(|binding| json!({
-            "event_id": binding.event_id,
-            "tier": binding.tier,
-            "duration_ms": binding.duration_ms,
-            "visual": binding.visual,
-        })).collect::<Vec<_>>(),
-        "skipped": report.skipped.iter().map(|binding| json!({
-            "event_id": binding.event_id,
-            "tier": binding.tier,
-            "reason": binding.reason,
-        })).collect::<Vec<_>>(),
-    })
+        "written": report.written.iter().map(written_report_json).collect::<Vec<_>>(),
+        "skipped": report.skipped.iter().map(skipped_report_json).collect::<Vec<_>>(),
+    });
+    if report.descriptor_schema_version == "1.4.0" {
+        output["descriptor_schema_version"] = json!(report.descriptor_schema_version);
+    }
+    output
 }
+
+const CLI_HELP: &str = r#"kohbor-pack-build - build a deterministic local media package
+
+Usage:
+  kohbor-pack-build --clips DIR --map FILE --out DIR --package-id ID --revision N --display-name NAME --catalog FILE [--rights-claim TEXT] [--publisher-key-id ID] [--require-visual]
+
+Mapping JSON keeps schema_version 1.0.0. Existing one-clip bindings remain valid:
+  {"event_id":"hero_kill","audio":"kill.wav","visual":"kill.webm"}
+
+To author several clips for one binding, use variants and choose random, shuffle,
+or sequence when there are two or more variants. variant_id is assigned as v1,
+v2, ... in listed pack order when omitted. clip_id is optional provenance.
+  {"event_id":"hero_kill","selection":"shuffle","variants":[
+    {"audio":"kill-01.wav","clip_id":"vrzo-th-0019"},
+    {"audio":"kill-02.wav","clip_id":"vrzo-th-0024"}
+  ]}
+
+Each variant may also contain visual, visual_tail_ms, identity_audio, variant_id,
+and weight. weight is only valid for random selection. Variant mappings produce
+descriptor 1.4.0; mappings without variants keep descriptor 1.3.0.
+
+For 1.4.0 output, the JSON report includes descriptor_schema_version and lists
+one written or skipped record per variant. Records include variant_id and any
+provided clip_id. Written records also include selection and generated media paths.
+"#;
 
 /// Run the CLI parser and builder. Returns the process exit code.
 pub fn run_cli(args: impl IntoIterator<Item = std::ffi::OsString>) -> u8 {
+    let args = args.into_iter().collect::<Vec<_>>();
+    if args.len() == 1 && matches!(args[0].to_str(), Some("--help" | "-h")) {
+        println!("{CLI_HELP}");
+        return 0;
+    }
     match parse_cli_args(args).and_then(|options| build_package(&options)) {
         Ok(report) => match serde_json::to_string(&cli_report_json(&report)) {
             Ok(output) => {
