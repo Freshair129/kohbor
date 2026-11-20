@@ -1741,7 +1741,10 @@ mod tests {
                 .len()
         );
 
-        let listing = service.handle.list().expect("summary leaves store listable");
+        let listing = service
+            .handle
+            .list()
+            .expect("summary leaves store listable");
         assert_eq!(listing["records"], json!([]));
         assert!(listing["active"].is_null());
         assert_eq!(
@@ -1773,7 +1776,10 @@ mod tests {
         assert_eq!(summary["signature_state"], "not_assessed");
         assert_eq!(summary["trust_state"], "not_assessed");
         assert!(summary["display_name"].is_null());
-        let listing = service.handle.list().expect("rejected summary leaves store listable");
+        let listing = service
+            .handle
+            .list()
+            .expect("rejected summary leaves store listable");
         assert_eq!(listing["records"], json!([]));
         assert_eq!(
             fs::read_dir(store_root.join("staging"))
@@ -1811,7 +1817,10 @@ mod tests {
 
         let mismatch = service
             .handle
-            .package_bytes(&bytes, Some(("req-picker-wrong-digest".into(), "0".repeat(64))))
+            .package_bytes(
+                &bytes,
+                Some(("req-picker-wrong-digest".into(), "0".repeat(64))),
+            )
             .unwrap();
         assert_eq!(mismatch["status"], "rejected");
         assert_eq!(mismatch["reason"], "SOURCE_INVALID");
@@ -2204,7 +2213,9 @@ mod tests {
             .expect("active package installs")
             .install_id;
         assert_eq!(
-            activate(&mut store, "req-cancel-active-act-001", &active_id).status.as_str(),
+            activate(&mut store, "req-cancel-active-act-001", &active_id)
+                .status
+                .as_str(),
             "active"
         );
         drop(store);
@@ -2235,7 +2246,10 @@ mod tests {
             .expect("in-match activation is deferred");
         assert_eq!(deferred["status"], "deferred");
         assert_eq!(
-            service.handle.list().expect("pending activation is listable")["pending"],
+            service
+                .handle
+                .list()
+                .expect("pending activation is listable")["pending"],
             json!([pending_id.clone()])
         );
 
@@ -2246,7 +2260,10 @@ mod tests {
         assert_eq!(cancelled["cancelled"], true);
         assert_eq!(cancelled["install_id"], pending_id);
         assert_eq!(
-            service.handle.list().expect("cancelled pack remains installed")["pending"],
+            service
+                .handle
+                .list()
+                .expect("cancelled pack remains installed")["pending"],
             json!([])
         );
         assert_eq!(
@@ -2264,11 +2281,17 @@ mod tests {
         match_active.store(false, Ordering::Release);
         thread::sleep(Duration::from_millis(60));
         assert_eq!(
-            service.handle.list().expect("cancelled activation stays cancelled")["active"]["install_id"],
+            service
+                .handle
+                .list()
+                .expect("cancelled activation stays cancelled")["active"]["install_id"],
             active_id
         );
         assert!(
-            matches!(service.engine_rx.control.try_recv(), Err(TryRecvError::Empty)),
+            matches!(
+                service.engine_rx.control.try_recv(),
+                Err(TryRecvError::Empty)
+            ),
             "cancelled activation is never resumed into an engine table swap"
         );
         finish(service);

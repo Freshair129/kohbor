@@ -721,7 +721,11 @@ impl<H: Hook> Store<H> {
             ) {
                 Ok(staged) => staged,
                 Err(container::StageError::Rejected(reason)) => {
-                    return Ok(rejected_package_summary(size_bytes, Some(copied_digest), &reason));
+                    return Ok(rejected_package_summary(
+                        size_bytes,
+                        Some(copied_digest),
+                        &reason,
+                    ));
                 }
                 Err(container::StageError::Io(error)) => {
                     return Err(io_error("stage package summary", error));
@@ -769,7 +773,9 @@ impl<H: Hook> Store<H> {
         expected_container_sha256: String,
     ) -> Result<InstallResult, StoreError> {
         if !valid_token(&request_id, 8, 64) || !valid_sha256(&expected_container_sha256) {
-            return Err(StoreError::Io("invalid upload install request fields".to_owned()));
+            return Err(StoreError::Io(
+                "invalid upload install request fields".to_owned(),
+            ));
         }
         self.with_package_bytes(bytes, |store, source_path| {
             store.install(&InstallRequest {

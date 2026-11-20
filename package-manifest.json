@@ -303,8 +303,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/commands.rs",
-      "bytes": 39736,
-      "sha256": "7fc99936156eaad825ee31a1cc10addde3b370cde81eea66b5476ffc6fb682cd"
+      "bytes": 39763,
+      "sha256": "c64fb3b50f57b39ee5f3c4202747f69ad4599d3d0580acba22918aeebb2a4012"
     },
     {
       "path": "apps/desktop/src-tauri/src/containment.rs",
@@ -398,8 +398,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/media/service.rs",
-      "bytes": 110617,
-      "sha256": "6f52b943cc98e1469ed5a8663c438f9240a81e88127358dd5ff35f241d2be9f1"
+      "bytes": 110975,
+      "sha256": "ab1ff2b8588c5afb7a1108741b6da822e14a01aa937bfdc9e3bc048df9a58f7c"
     },
     {
       "path": "apps/desktop/src-tauri/src/overlay.rs",
@@ -2258,8 +2258,8 @@
     },
     {
       "path": "crates/kohbor-pack/src/store.rs",
-      "bytes": 95124,
-      "sha256": "89a7391719d1bab0bd91bd0d32303b13fed6033d8952e0638abb5a80e0bf4fe2"
+      "bytes": 95250,
+      "sha256": "cceea2433b75367ffffafb8271bff4749bd56d506f66f7cc0539423d9c3e6292"
     },
     {
       "path": "crates/kohbor-pack/src/trust.rs",

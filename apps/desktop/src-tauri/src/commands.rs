@@ -322,7 +322,10 @@ pub(crate) fn media_install_bytes(
         header("x-kohbor-request-id")?,
         header("x-kohbor-container-sha256")?,
     );
-    let result = state.host.commands.media_package_bytes(bytes, Some(identity));
+    let result = state
+        .host
+        .commands
+        .media_package_bytes(bytes, Some(identity));
     log_media_result("install_bytes", &result);
     result
 }
