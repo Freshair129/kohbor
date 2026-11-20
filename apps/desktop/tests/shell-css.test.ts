@@ -149,10 +149,14 @@ test("danger and destructive actions use Signal Rose with a triangle cue", () =>
   assert.match(labCss, /button:first-of-type::before\s*\{[^}]*content:\s*"▲"/);
 });
 
-test("HUD and Lab styles use shared palette tokens instead of literal colors", () => {
-  for (const [name, source] of [["HUD", hudCss], ["Lab", labCss]]) {
-    assert.doesNotMatch(source, /#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i, `${name} CSS should use shared palette tokens`);
-  }
+test("Lab styles use shared palette tokens instead of literal colors", () => {
+  assert.doesNotMatch(labCss, /#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i, "Lab CSS should use shared palette tokens");
+});
+
+test("the in-game HUD keeps its own fixed dark glass look and never follows the app theme (owner 2026-11-20)", () => {
+  assert.match(hudCss, /--hud-glass:\s*rgb\(14 17 24 \/ 88%\)/);
+  assert.match(hudCss, /--hud-text:\s*#e7eef6/);
+  assert.doesNotMatch(hudCss, /var\(--(ground|surface|text|muted|line-strong|ally|warning|critical)\)/);
 });
 
 test("the approved character mark is decorative above the accessible wordmark", () => {
