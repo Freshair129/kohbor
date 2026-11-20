@@ -18,7 +18,7 @@ use kohbor_pack::{limits::MAX_CONTAINER_BYTES, Limits};
 use serde_json::{json, Value};
 
 use crate::audio::lanes::{Control, EngineShared, EngineTx};
-use crate::audio::resolve::{Lookup, PrewarmTable};
+use crate::audio::resolve::{BindingLookup, PrewarmTable};
 use crate::media::inventory::{facts_from_table, MediaFacts};
 use crate::media::prewarm::{build_table, VisualIndexHandle};
 use crate::media::probe::{ProbeItem, ProbeRequest, ProbeState};
@@ -839,7 +839,7 @@ fn inspect_with_limit(source_path: &str, limit: u64) -> Result<Value, String> {
 }
 
 /// Every voiced event/tier binding of the active revision, resolved and re-verified through the
-/// same prewarmed table and `Store::resolve` used by playback. No payload paths are exposed.
+/// same prewarmed table and `Store::resolve_variants` used by playback. No payload paths are exposed.
 fn active_bindings_json(store: &Store<NoHook>, catalog: &Catalog, table: &PrewarmTable) -> Value {
     let active_revision = store.active();
     let active = active_revision.as_ref().map(|active| {
@@ -872,29 +872,41 @@ fn active_bindings_json(store: &Store<NoHook>, catalog: &Catalog, table: &Prewar
             if !table_matches_active {
                 return row(false, Value::Null, false, "unknown");
             }
-            let Lookup::Ready(clip) = table.lookup(id, tier) else {
-                return match table.lookup(id, tier) {
-                    Lookup::Unmapped => row(false, Value::Null, false, "unmapped"),
-                    Lookup::Invalid => row(false, Value::Null, false, "unknown"),
-                    Lookup::Ready(_) => row(false, Value::Null, false, "unknown"),
-                };
+            let (bound_tier, binding) = match table.lookup_binding(id, tier) {
+                BindingLookup::Variants {
+                    bound_tier,
+                    binding,
+                } => (bound_tier, binding),
+                BindingLookup::Unmapped => return row(false, Value::Null, false, "unmapped"),
+                BindingLookup::Ready { .. } | BindingLookup::Invalid => {
+                    return row(false, Value::Null, false, "unknown");
+                }
             };
-            let resolved_tier = clip.bound_tier.map(u32::from);
-            match store.resolve(id.as_str(), resolved_tier) {
-                Ok(media)
-                    if active_revision
-                        .as_ref()
-                        .is_some_and(|active| media.install_id == active.install_id) =>
-                {
+            let clip = store
+                .resolve_variants(id.as_str(), bound_tier.map(u32::from))
+                .ok()
+                .and_then(|resolved| {
+                    binding.variants.iter().find_map(|candidate| {
+                        let clip = candidate.media.as_ref().ok()?;
+                        resolved
+                            .iter()
+                            .any(|variant| {
+                                variant.variant_id == candidate.variant_id && variant.media.is_ok()
+                            })
+                            .then_some(clip)
+                    })
+                });
+            clip.map_or_else(
+                || row(false, Value::Null, false, "unknown"),
+                |clip| {
                     row(
                         true,
                         json!(clip.audio_ms),
                         clip.visual_url.is_some(),
                         "ready",
                     )
-                }
-                Ok(_) | Err(_) => row(false, Value::Null, false, "unknown"),
-            }
+                },
+            )
         })
         .collect::<Vec<_>>();
     json!({"active": active, "bindings": bindings})

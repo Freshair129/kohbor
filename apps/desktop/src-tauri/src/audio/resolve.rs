@@ -43,9 +43,60 @@ pub struct Clip {
     pub visual_url: Option<Arc<str>>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VariantSelection {
+    Random,
+    Shuffle,
+    Sequence,
+}
+
+impl VariantSelection {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Random => "random",
+            Self::Shuffle => "shuffle",
+            Self::Sequence => "sequence",
+        }
+    }
+}
+
+/// One descriptor variant and the media result from the off-thread prewarm pass.
+/// Retain a failed pair's reason for diagnostics while selection uses ready siblings.
+#[derive(Debug, Clone)]
+pub struct VariantMedia {
+    pub variant_id: String,
+    pub clip_id: Option<String>,
+    pub weight: u8,
+    /// Failure carries a static diagnostic code supplied by prewarm.
+    pub media: Result<Clip, &'static str>,
+}
+
+/// Prewarm already records this budget exclusion when building the table.
+pub const PREWARM_CAP_REASON: &str = "prewarm_cap";
+
+/// The ordered variants and mode for one exact `(event, bound tier)` binding.
+#[derive(Debug, Clone)]
+pub struct VariantSet {
+    pub selection: Option<VariantSelection>,
+    pub variants: Vec<VariantMedia>,
+}
+
+/// The chosen clip and its binding provenance for playback and diagnostics.
+#[derive(Debug, Clone)]
+pub struct SelectedClip {
+    pub event_id: EventId,
+    pub bound_tier: Option<u8>,
+    pub variant_index: usize,
+    pub variant_id: String,
+    pub clip_id: Option<String>,
+    pub selection: Option<VariantSelection>,
+    pub media: Clip,
+}
+
 #[derive(Debug, Clone)]
 pub enum Entry {
     Ready(Clip),
+    Variants(VariantSet),
     /// Bound, but verification, read or decode failed.
     Invalid,
 }
@@ -53,6 +104,21 @@ pub enum Entry {
 #[derive(Debug)]
 pub enum Lookup<'a> {
     Ready(&'a Clip),
+    Unmapped,
+    Invalid,
+}
+
+/// A table lookup that preserves the exact binding key for selector history.
+#[derive(Debug)]
+pub enum BindingLookup<'a> {
+    Ready {
+        bound_tier: Option<u8>,
+        clip: &'a Clip,
+    },
+    Variants {
+        bound_tier: Option<u8>,
+        binding: &'a VariantSet,
+    },
     Unmapped,
     Invalid,
 }
@@ -124,6 +190,23 @@ impl PrewarmTable {
     /// - `tier == None`: only the tier-less entry (`Unmapped` when absent).
     /// - A tiered entry never answers a lookup below its bound tier.
     pub fn lookup(&self, id: EventId, tier: Option<u8>) -> Lookup<'_> {
+        match self.lookup_binding(id, tier) {
+            BindingLookup::Ready { clip, .. } => Lookup::Ready(clip),
+            BindingLookup::Variants { binding, .. } => binding
+                .variants
+                .iter()
+                .find_map(|variant| variant.media.as_ref().ok())
+                .map(Lookup::Ready)
+                .unwrap_or(Lookup::Invalid),
+            BindingLookup::Unmapped => Lookup::Unmapped,
+            BindingLookup::Invalid => Lookup::Invalid,
+        }
+    }
+
+    /// The same tier rule as [`Self::lookup`], retaining the binding's authored
+    /// tier and all variants for selection. A corrupt selected tier remains
+    /// invalid; it never falls through to a lower tier or another event.
+    pub fn lookup_binding(&self, id: EventId, tier: Option<u8>) -> BindingLookup<'_> {
         let mut best_tiered: Option<(u8, &Entry)> = None;
         let mut tierless: Option<&Entry> = None;
 
@@ -147,18 +230,23 @@ impl PrewarmTable {
             }
         }
 
-        match best_tiered.map(|(_, entry)| entry).or(tierless) {
-            Some(Entry::Ready(clip)) => Lookup::Ready(clip),
-            Some(Entry::Invalid) => Lookup::Invalid,
-            None => Lookup::Unmapped,
+        let selected = best_tiered
+            .map(|(bound_tier, entry)| (Some(bound_tier), entry))
+            .or_else(|| tierless.map(|entry| (None, entry)));
+        match selected {
+            Some((bound_tier, Entry::Ready(clip))) => BindingLookup::Ready { bound_tier, clip },
+            Some((bound_tier, Entry::Variants(binding))) => BindingLookup::Variants {
+                bound_tier,
+                binding,
+            },
+            Some((_, Entry::Invalid)) => BindingLookup::Invalid,
+            None => BindingLookup::Unmapped,
         }
     }
 
     /// True when the table has a `Ready` tier-less entry for `id` (readiness helper).
     pub fn has_ready_tierless(&self, id: EventId) -> bool {
-        self.entries.iter().any(|(entry_id, tier, entry)| {
-            *entry_id == id && tier.is_none() && matches!(entry, Entry::Ready(_))
-        })
+        matches!(self.lookup(id, None), Lookup::Ready(_))
     }
 
     /// Clone the table while removing visuals for the supplied event IDs.
@@ -177,6 +265,25 @@ impl PrewarmTable {
                         visual_tail_ms: clip.visual_tail_ms,
                         visual_url: None,
                     }),
+                    Entry::Variants(binding) if ids.contains(id) => {
+                        let variants = binding
+                            .variants
+                            .iter()
+                            .map(|variant| VariantMedia {
+                                variant_id: variant.variant_id.clone(),
+                                clip_id: variant.clip_id.clone(),
+                                weight: variant.weight,
+                                media: variant.media.clone().map(|mut clip| {
+                                    clip.visual_url = None;
+                                    clip
+                                }),
+                            })
+                            .collect();
+                        Entry::Variants(VariantSet {
+                            selection: binding.selection,
+                            variants,
+                        })
+                    }
                     other => other.clone(),
                 };
                 (*id, *tier, copied)

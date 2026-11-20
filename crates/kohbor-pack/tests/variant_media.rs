@@ -20,6 +20,7 @@ fn variant_package(
     let payloads = vec![
         ("audio/a.wav", "mixed_audio", first_mixed),
         ("audio/b.wav", "mixed_audio", second_mixed),
+        ("audio/c.wav", "mixed_audio", wav(48_200)),
         ("identity/a.wav", "identity_audio", first_identity),
         ("identity/b.wav", "identity_audio", second_identity),
     ];
@@ -58,6 +59,12 @@ fn variant_package(
                     "mixed_audio_path": "audio/b.wav",
                     "identity_audio_path": "identity/b.wav",
                     "duration_ms": second_duration_ms,
+                    "visual_tail_ms": 0
+                },
+                {
+                    "variant_id": "c",
+                    "mixed_audio_path": "audio/c.wav",
+                    "duration_ms": 1004,
                     "visual_tail_ms": 0
                 }
             ]
@@ -104,8 +111,7 @@ fn checks_non_first_identity_audio_against_its_own_mixed_audio() {
     );
 }
 
-#[test]
-fn resolves_all_variants_while_resolve_keeps_returning_the_first() {
+fn active_variant_store() -> (TempDir, Store, PathBuf) {
     let (temp, source, _staging) = variant_package(wav(48_100), wav(48_100), 1002);
     let archive = std::fs::read(&source).unwrap();
     let mut store = Store::open(&temp.0.join("store"), catalog(), Limits::default()).unwrap();
@@ -123,12 +129,94 @@ fn resolves_all_variants_while_resolve_keeps_returning_the_first() {
         )
         .unwrap();
 
+    let revision = store.root().join("revisions").join(record.install_id);
+    (temp, store, revision)
+}
+
+#[test]
+fn resolves_all_variants_while_resolve_keeps_returning_the_first() {
+    let (_temp, store, _) = active_variant_store();
     let variants = store.resolve_variants("first_blood", None).unwrap();
-    assert_eq!(variants.len(), 2);
+    assert_eq!(variants.len(), 3);
     assert_eq!(variants[0].variant_id, "a");
     assert_eq!(variants[1].variant_id, "b");
-    assert!(variants
-        .iter()
-        .all(|variant| variant.selection == Some(kohbor_pack::descriptor::Selection::Shuffle)));
-    assert_eq!(store.resolve("first_blood", None).unwrap(), variants[0]);
+    assert_eq!(variants[2].variant_id, "c");
+    assert!(variants.iter().all(|variant| {
+        variant.media.as_ref().unwrap().selection
+            == Some(kohbor_pack::descriptor::Selection::Shuffle)
+    }));
+    assert_eq!(
+        &store.resolve("first_blood", None).unwrap(),
+        variants[0].media.as_ref().unwrap()
+    );
+}
+
+#[test]
+fn variant_reverification_is_independent_and_keeps_descriptor_order() {
+    use kohbor_pack::store::ResolveError;
+
+    let (_temp, store, revision) = active_variant_store();
+    let first = revision.join("audio/a.wav");
+    let mut bytes = std::fs::read(&first).unwrap();
+    bytes[44] ^= 1;
+    std::fs::write(&first, bytes).unwrap();
+    let variants = store.resolve_variants("first_blood", None).unwrap();
+    assert_eq!(variants[0].variant_id, "a");
+    assert_eq!(variants[0].media, Err(RejectReason::DigestMismatch));
+    assert_eq!(
+        variants
+            .iter()
+            .filter(|v| v.media.is_ok())
+            .map(|v| v.variant_id.as_str())
+            .collect::<Vec<_>>(),
+        ["b", "c"]
+    );
+    assert_eq!(
+        store.resolve("first_blood", None),
+        Err(ResolveError::Invalid(RejectReason::DigestMismatch))
+    );
+
+    std::fs::write(revision.join("audio/b.wav"), b"short").unwrap();
+    let variants = store.resolve_variants("first_blood", None).unwrap();
+    assert_eq!(variants[1].media, Err(RejectReason::SizeMismatch));
+    assert!(variants[2].media.is_ok());
+
+    std::fs::remove_file(revision.join("audio/c.wav")).unwrap();
+    let Err(ResolveError::NoVerifiedVariants(variants)) =
+        store.resolve_variants("first_blood", None)
+    else {
+        panic!("all three variants should fail");
+    };
+    assert_eq!(
+        variants
+            .into_iter()
+            .map(|v| v.media.unwrap_err())
+            .collect::<Vec<_>>(),
+        [
+            RejectReason::DigestMismatch,
+            RejectReason::SizeMismatch,
+            RejectReason::SourceUnavailable
+        ]
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_linked_payload_rejects_the_revision_before_resolving_either_api() {
+    use kohbor_pack::store::ResolveError;
+
+    let (temp, store, revision) = active_variant_store();
+    let first = revision.join("audio/a.wav");
+    let other_location = temp.0.join("outside-revision.wav");
+    std::fs::rename(&first, &other_location).unwrap();
+    std::os::unix::fs::symlink(other_location, first).unwrap();
+
+    assert_eq!(
+        store.resolve_variants("first_blood", None),
+        Err(ResolveError::Invalid(RejectReason::UnsafePath))
+    );
+    assert_eq!(
+        store.resolve("first_blood", None),
+        Err(ResolveError::Invalid(RejectReason::UnsafePath))
+    );
 }

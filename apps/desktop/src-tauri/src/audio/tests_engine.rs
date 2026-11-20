@@ -1,6 +1,6 @@
 use super::fake_sink::{table, tick, Call, FakeSink, Harness};
 use super::lanes::{AuditionRefusal, AuditionRequest, Control, EngineOut, Offer};
-use super::resolve::{Entry, PrewarmTable};
+use super::resolve::{Clip, Entry, PrewarmTable, VariantMedia, VariantSelection, VariantSet};
 use super::slot_sink::SlotSink;
 use kohbor_audio::{PlaybackId, Sink, SinkEvent};
 use kohbor_events::{Event, EventId};
@@ -584,7 +584,7 @@ fn critical_blocks_same_tick_ordinary() {
     let o = h.drain();
     assert!(o.iter().any(|output| matches!(
         output,
-        EngineOut::ClipQueued { event_id, tier }
+        EngineOut::ClipQueued { event_id, tier, .. }
             if event_id == "hero_kill" && tier.is_none()
     )));
     assert!(!has_outcome(&o, "critical_active"));
@@ -628,7 +628,7 @@ fn ordinary_offered_during_critical_is_started_after_critical_finishes() {
     let queued = h.drain();
     assert!(queued.iter().any(|output| matches!(
         output,
-        EngineOut::ClipQueued { event_id, tier }
+        EngineOut::ClipQueued { event_id, tier, .. }
             if event_id == "multi_kill" && *tier == Some(2)
     )));
     assert!(!outcomes(&queued)
@@ -699,6 +699,138 @@ fn invalid_mapping_records_invalid_media() {
     );
     assert!(log.lock().unwrap().calls.is_empty());
 }
+#[test]
+fn shuffle_plays_both_verified_siblings_and_reports_the_bad_variant_once_per_session() {
+    let (mut h, log) = setup();
+    let table = variant_table(&[
+        ("a", Ok(480)),
+        ("broken", Err("digest_mismatch")),
+        ("c", Ok(960)),
+    ]);
+    assert!(h.tx.control(Control::SwapTable { table }).is_ok());
+    h.engine.step(0);
+    h.drain();
+
+    let mut played = Vec::new();
+    for sequence in 1..=5 {
+        let epoch = if sequence <= 4 { 1 } else { 2 };
+        assert_eq!(
+            h.tx.offer_tick(tick(
+                h.origin,
+                epoch,
+                3,
+                sequence,
+                &[(EventId::Streak, Some(3))]
+            )),
+            Offer::Sent
+        );
+        h.engine.step(sequence * 1_000);
+        let outputs = h.drain();
+        assert!(has_outcome(&outputs, "admitted"));
+        let invalid: Vec<_> = outputs
+            .iter()
+            .filter_map(|output| match output {
+                EngineOut::ClipVariantInvalid {
+                    event_id,
+                    tier,
+                    variant_id,
+                    clip_id,
+                    reason,
+                } => Some((
+                    *event_id,
+                    *tier,
+                    variant_id.as_str(),
+                    clip_id.as_deref(),
+                    *reason,
+                )),
+                _ => None,
+            })
+            .collect();
+        if sequence == 1 || sequence == 5 {
+            assert_eq!(
+                invalid,
+                [(
+                    EventId::Streak,
+                    None,
+                    "broken",
+                    Some("vrzo-th-0019"),
+                    "digest_mismatch"
+                )]
+            );
+        } else {
+            assert!(invalid.is_empty());
+        }
+        played.extend(outputs.into_iter().filter_map(|output| match output {
+            EngineOut::ClipPlayed { variant, .. } => Some(variant.variant_id),
+            _ => None,
+        }));
+    }
+    assert_eq!(played.len(), 5);
+    assert!(played.iter().all(|id| matches!(id.as_str(), "a" | "c")));
+    assert!(played[..4].windows(2).all(|pair| pair[0] != pair[1]));
+    let calls = &log.lock().unwrap().calls;
+    assert!(calls
+        .iter()
+        .any(|call| matches!(call, Call::Submit(_, 480))));
+    assert!(calls
+        .iter()
+        .any(|call| matches!(call, Call::Submit(_, 960))));
+}
+
+#[test]
+fn all_rejected_variants_record_invalid_media_and_never_submit() {
+    let (mut h, log) = setup();
+    let table = variant_table(&[
+        ("a", Err("digest_mismatch")),
+        ("broken", Err("size_mismatch")),
+        ("c", Err("source_unavailable")),
+    ]);
+    assert!(h.tx.control(Control::SwapTable { table }).is_ok());
+    h.engine.step(0);
+    h.drain();
+    offer(&h, 1, &[(EventId::Streak, Some(10))]);
+    h.engine.step(10);
+    let outputs = h.drain();
+    assert!(has_outcome(&outputs, "invalid_media"));
+    assert_eq!(
+        outputs
+            .iter()
+            .filter(|output| matches!(output, EngineOut::ClipVariantInvalid { .. }))
+            .count(),
+        3
+    );
+    assert!(log.lock().unwrap().calls.is_empty());
+}
+
+fn variant_table(variants: &[(&str, Result<usize, &'static str>)]) -> Arc<PrewarmTable> {
+    Arc::new(PrewarmTable::new(
+        7,
+        Some(Arc::from("ins_0000000007")),
+        vec![(
+            EventId::Streak,
+            None,
+            Entry::Variants(VariantSet {
+                selection: Some(VariantSelection::Shuffle),
+                variants: variants
+                    .iter()
+                    .map(|(id, media)| VariantMedia {
+                        variant_id: (*id).to_owned(),
+                        clip_id: (*id == "broken").then(|| "vrzo-th-0019".to_owned()),
+                        weight: 1,
+                        media: media.map(|samples| Clip {
+                            pcm: Arc::from(vec![0_i16; samples]),
+                            bound_tier: None,
+                            audio_ms: 20,
+                            visual_tail_ms: 0,
+                            visual_url: None,
+                        }),
+                    })
+                    .collect(),
+            }),
+        )],
+    ))
+}
+
 #[test]
 fn instance_ids_use_original_position() {
     let (mut h, _) = setup();
