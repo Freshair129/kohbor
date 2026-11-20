@@ -2,8 +2,10 @@
 
 use super::device::DeviceCmd;
 use super::lanes::{ClipVariantLog, EngineOut};
+use super::outcome::{is_valid_record, PlaybackEnd};
+use super::recap::{MatchRecapStore, MATCH_RECAP_SCHEMA_VERSION};
 use kohbor_events::EventId;
-use serde_json::{Map, Value};
+use serde_json::{json, Map, Value};
 use std::collections::VecDeque;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -16,17 +18,6 @@ pub trait Emit: Send + Sync {
 }
 
 pub const HISTORY_CAP: usize = 256;
-
-const OUTCOME_KEYS: [&str; 8] = [
-    "instance_id",
-    "event_type",
-    "session_epoch",
-    "audio_class",
-    "outcome",
-    "playback_id",
-    "package_revision",
-    "decided_monotonic_ms",
-];
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PublisherStats {
@@ -45,6 +36,7 @@ pub struct HistoryHandle {
     records: Arc<Mutex<VecDeque<Value>>>,
     invalid_dropped: Arc<AtomicU64>,
     publisher_counters: Arc<PublisherCounters>,
+    recap: Option<MatchRecapStore>,
 }
 
 impl HistoryHandle {
@@ -53,24 +45,67 @@ impl HistoryHandle {
             records: Arc::new(Mutex::new(VecDeque::with_capacity(HISTORY_CAP))),
             invalid_dropped: Arc::new(AtomicU64::new(0)),
             publisher_counters: Arc::new(PublisherCounters::default()),
+            recap: None,
         }
     }
 
+    pub fn with_match_recap(path: impl Into<std::path::PathBuf>) -> Self {
+        let mut history = Self::new();
+        history.recap = Some(MatchRecapStore::open(path));
+        history
+    }
+
     pub fn push(&self, record: Value) {
-        let valid = record.as_object().is_some_and(|object| {
-            object.get("schema_version").and_then(Value::as_str) == Some("1.0.0")
-                && OUTCOME_KEYS.iter().all(|key| object.contains_key(*key))
-        });
-        if !valid {
+        if !is_valid_record(&record) {
             increment(&self.invalid_dropped);
             return;
         }
 
+        let recap_record = record.clone();
         let mut records = lock_recover(&self.records);
         if records.len() == HISTORY_CAP {
             let _ = records.pop_front();
         }
         records.push_back(record);
+        drop(records);
+        if let Some(recap) = &self.recap {
+            recap.record(&recap_record);
+        }
+    }
+
+    pub fn finish_playback(
+        &self,
+        playback_id: kohbor_audio::PlaybackId,
+        instance_id: &str,
+        end: PlaybackEnd,
+    ) {
+        let contract_id = playback_id.to_contract_id();
+        {
+            let mut records = lock_recover(&self.records);
+            for record in records.iter_mut() {
+                if record.get("playback_id").and_then(Value::as_str) == Some(&contract_id)
+                    && record.get("instance_id").and_then(Value::as_str) == Some(instance_id)
+                {
+                    if let Some(object) = record.as_object_mut() {
+                        object.insert("playback_end".to_owned(), json!(end.as_str()));
+                    }
+                }
+            }
+        }
+        if let Some(recap) = &self.recap {
+            recap.finish_playback(&contract_id, instance_id, end);
+        }
+    }
+
+    pub fn match_recap(&self) -> Value {
+        self.recap.as_ref().map_or_else(
+            || json!({"schema_version": MATCH_RECAP_SCHEMA_VERSION, "matches": []}),
+            MatchRecapStore::snapshot,
+        )
+    }
+
+    pub fn clear_match_recap(&self) -> Result<(), String> {
+        self.recap.as_ref().map_or(Ok(()), MatchRecapStore::clear)
     }
 
     pub fn snapshot(&self, limit: Option<u32>) -> Vec<Value> {
@@ -148,6 +183,13 @@ pub fn spawn_publisher(
                         {
                             increment(&history.publisher_counters.emit_panics);
                         }
+                    }
+                    EngineOut::PlaybackEnd {
+                        playback_id,
+                        instance_id,
+                        end,
+                    } => {
+                        history.finish_playback(playback_id, &instance_id, end);
                     }
                     EngineOut::ClipPlayed { event_id, variant } => {
                         log_clip_played(&event_id, &variant);
@@ -399,7 +441,7 @@ mod tests {
 
     fn record(id: usize) -> Value {
         json!({
-            "schema_version": "1.0.0",
+            "schema_version": "1.1.0",
             "instance_id": format!("ev_g3_s{id}_0"),
             "event_type": "hero_kill",
             "session_epoch": 1,
@@ -408,6 +450,13 @@ mod tests {
             "playback_id": null,
             "package_revision": 1,
             "decided_monotonic_ms": id,
+            "tier": null,
+            "variant_id": null,
+            "clip_id": null,
+            "selection": null,
+            "game_clock_seconds": null,
+            "match_id": "local_match_1",
+            "playback_end": null,
         })
     }
 

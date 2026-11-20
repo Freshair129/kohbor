@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use super::outcome::PlaybackEnd;
 use kohbor_events::{Event, EventId};
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, SyncSender, TrySendError};
@@ -53,6 +54,7 @@ pub struct TickMsg {
     pub detected: Instant,
     pub at_ms: u64,
     pub session_epoch: u64,
+    pub game_clock_seconds: Option<u64>,
     pub generation: u64,
     pub sequence: u64,
     pub events: Vec<Event>,
@@ -135,6 +137,11 @@ impl EngineShared {
 
 pub enum EngineOut {
     Playback(serde_json::Value),
+    PlaybackEnd {
+        playback_id: kohbor_audio::PlaybackId,
+        instance_id: String,
+        end: PlaybackEnd,
+    },
     ClipVariantInvalid {
         event_id: EventId,
         tier: Option<u8>,
@@ -309,6 +316,7 @@ mod tests {
             detected: now,
             at_ms: sequence,
             session_epoch: 1,
+            game_clock_seconds: None,
             generation: 1,
             sequence,
             events,

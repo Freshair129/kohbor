@@ -686,6 +686,16 @@ pub(crate) fn audio_history(
 }
 
 #[tauri::command(async)]
+pub(crate) fn match_recap(state: tauri::State<'_, AppState>) -> Result<Value, String> {
+    state.host.commands.match_recap()
+}
+
+#[tauri::command(async)]
+pub(crate) fn clear_match_recap(state: tauri::State<'_, AppState>) -> Result<Value, String> {
+    state.host.commands.clear_match_recap()
+}
+
+#[tauri::command(async)]
 pub(crate) fn set_muted(state: tauri::State<'_, AppState>, muted: bool) -> Result<Value, String> {
     state.host.commands.set_muted(muted)
 }

@@ -51,6 +51,13 @@ fn duration_ms(duration: Duration) -> u64 {
     duration.as_millis().min(u128::from(MAX_SAFE_INTEGER_MS)) as u64
 }
 
+fn game_clock_seconds(body: &Value) -> Option<u64> {
+    body.pointer("/map/clock_time")
+        .and_then(Value::as_i64)
+        .filter(|seconds| *seconds >= 0)
+        .map(|seconds| seconds as u64)
+}
+
 /// Lock that survives a panicked holder, so status stays readable (CORE-005)
 /// instead of every later command panicking on a poisoned mutex.
 pub fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -752,6 +759,7 @@ impl Shared {
                                 detected: detected_at,
                                 at_ms,
                                 session_epoch: epoch,
+                                game_clock_seconds: game_clock_seconds(body),
                                 generation: self.generation.max(1),
                                 sequence: self.sequence.saturating_add(1),
                                 events: detected.clone(),
@@ -1132,6 +1140,23 @@ mod tests {
     use super::*;
     use std::io::{BufRead, BufReader, Write};
     use std::sync::atomic::{AtomicU32, Ordering};
+
+    #[test]
+    fn game_clock_is_kept_only_when_local_gsi_reports_a_non_negative_integer() {
+        assert_eq!(
+            game_clock_seconds(&json!({"map": {"clock_time": 75}})),
+            Some(75)
+        );
+        assert_eq!(
+            game_clock_seconds(&json!({"map": {"clock_time": -10}})),
+            None
+        );
+        assert_eq!(
+            game_clock_seconds(&json!({"map": {"clock_time": "75"}})),
+            None
+        );
+        assert_eq!(game_clock_seconds(&json!({"map": {}})), None);
+    }
 
     #[test]
     fn auth_rejection_logging_emits_first_then_one_sixty_second_summary() {

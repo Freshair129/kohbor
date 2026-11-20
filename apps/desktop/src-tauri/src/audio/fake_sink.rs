@@ -99,6 +99,7 @@ pub fn tick(
         detected: origin + Duration::from_micros(50),
         at_ms: 0,
         session_epoch: epoch,
+        game_clock_seconds: None,
         generation,
         sequence,
         events: events
