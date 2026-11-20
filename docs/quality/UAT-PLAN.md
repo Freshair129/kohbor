@@ -3,7 +3,7 @@ title: "User Acceptance Test Plan"
 doc_id: "UAT-PLAN"
 status: "draft"
 version: "0.3.6"
-updated: "2026-11-10"
+updated: "2026-11-20"
 owner_role: "UAT operator — unassigned"
 approval_status: "not_approved"
 ---
@@ -36,6 +36,8 @@ These player tasks validate [PRD needs](../product/PRD.md) against the [SRS](../
 
 **PN-005; JRN-008/JRN-011; UI-001–006, CORE-002, QUALITY-002–003.** Prepare the target display/game configuration. Navigate with keyboard, select a hero, expand details, press Escape, reposition/mute the overlay and return to play. Observe visible focus, stable map, truthful compact cards and passive click-through without focus theft. **Evidence:** native interaction recording plus linked resource/FPS receipts.
 
+When scheduled, validate PN-013/UI-009 under UAT-05 with the native focus and critical cue receipts from TP-05 and TP-13. Use the panel's quick controls, verify Dota remains foreground for all 200 clicks, then use the Settings off switch and keyboard equivalents. For PN-014/UI-010, pick and repick in hero selection, continue into strategy and showcase, and confirm display-only operation and draft UI clearance on both measured layouts. Check that v1 covers the own hero and v2 requires Draft Bar 5b. Keep other players' names out of the overlay.
+
 ### UAT-06 — Ask privately by voice
 
 **PN-006; JRN-004; VOICE-001–007, QUALITY-006–007.** Prepare an admitted local model and microphone. Verify default-off, opt in, hold/release PTT in Thai/English, remap and trigger an urgent interruption. Observe local answer or precise unavailable/preparing state, stopped obsolete speech and no resumed cancelled turn. **Evidence:** sanitized lifecycle/no-egress receipts and language/performance report; do not retain runtime transcript/audio merely for this task.
@@ -43,6 +45,8 @@ These player tasks validate [PRD needs](../product/PRD.md) against the [SRS](../
 ### UAT-07 — Control manual advice context
 
 **PN-007; JRN-005; ADVICE-001–004.** Prepare local advice and, only if scheduled, a controlled cloud endpoint. Request local advice; inspect separate field/purpose consent before enabling cloud; withdraw consent during a pending request. Expect local/preemptible behavior and no late cloud result or forbidden context. **Evidence:** request-generation log and sanitized outbound-field comparison.
+
+When scheduled, validate PN-014/STATS-001–003 separately under UAT-07. In a clean test profile, read the separate public stats disclosure, enable the route, inspect source/window/time/sample and unavailable or stale states, then revoke during a pending request. Inspect sanitized request fields and compare cache state before and after revoke. Confirm late data stays cleared and the local core remains usable.
 
 ### UAT-08 — Review and forget memory
 

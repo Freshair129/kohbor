@@ -3,7 +3,7 @@ title: "Interface Control Document (ICD)"
 doc_id: "ICD"
 status: draft
 version: "0.3.6"
-updated: "2026-11-11"
+updated: "2026-11-20"
 authority: "DEC-BASELINE; see DOCUMENT-CONTROL"
 owner_role: "Integration owner; people not assigned"
 approval_status: "not_approved"
@@ -34,6 +34,8 @@ For each interface, freeze: producer/consumer and authority; direction/transport
 | Native audio → history | Audio admission outcome | contracts/audio-outcome.schema.json |
 | Authoring tool → installer | Install request / result | contracts/media-install-request.schema.json and contracts/media-install-result.schema.json; transport per DEC-INTERFACES |
 | Native → optional cloud | Separate advice consent | contracts/cloud-context.schema.json; closed projection only |
+| Native → public hero statistics provider | Separate default-off consent under STATS-001 | Freeze a closed hero-stats request carrying only the own hero ID with an optional manual bracket under STATS-002 |
+| Native → passive overlay | Host-owned draft phase and consent state | Freeze a dedicated display-only pick-card view under UI-010 and STATS-003. Draft Bar projection 1.1.0 permits hero identities and derived numbers. Player names stay deck-only |
 | Native ↔ optional peer relay | Separate peer consent | contracts/peer-sample.schema.json within reviewed membership protocol |
 | Native ↔ optional peer relay (abilities) | Separate abilities consent scope (PEER-010) | contracts/peer-abilities.schema.json; never sent under vitals consent alone |
 | Package → installer | Untrusted bytes | contracts/media-manifest.schema.json plus strict integrity/media validation for all imports; privileged issuer claims additionally require trusted authenticity checks |
@@ -58,6 +60,8 @@ Version 2.0.0 of the own snapshot replaces the all-or-nothing `own` object with 
 | social.request / respond / invite | Server identity + relation authorization | Idempotent transaction; no guest fallback on failure |
 | recorder.start / stop / save | Explicit media consent; separately configured mic | OBS receipt and actual clip coverage; no fabricated success |
 | updates.check / install | Native trusted manifest/public keys; safe gameplay state | Verified staged update or deferred/error |
+
+The extensions require new interface records under DEC-INTERFACES. Keep the overlay and HUD listen-only. Restrict an orb capability to approved quick controls and status for UI-009. Freeze the settings and patches for orb enablement, public statistics consent and bracket choice, the statistics runtime status and error codes, and the two public statistics payloads before integrating. The dedicated provider and view schemas remain future implementation work.
 
 These names are proposed API labels. Implementations may use different idiomatic symbols after one ADR establishes a mapping; the behavior and security checks remain mandatory.
 

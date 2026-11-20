@@ -2,7 +2,7 @@
   "schema_version": "1.3.0",
   "spec_version": "0.3.6",
   "status": "draft",
-  "updated": "2026-11-11",
+  "updated": "2026-11-20",
   "all_new_build_evidence": "NOT_RUN",
   "target_milestone_rule": "Earliest docs/delivery/SDP.md milestone that must deliver an implementation of the requirement. Planning metadata only: it does not change scope, priority or acceptance, and final release acceptance remains M8.",
   "requirements": [
@@ -2680,6 +2680,316 @@
       ],
       "design_refs": [
         "docs/design/SDD.md",
+        "docs/design/UX-SPEC.md"
+      ],
+      "primary_design_component_id": "CMP-READMODEL",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "UI-009",
+      "title": "Edge quick panel",
+      "module": "ui",
+      "scope": "extension",
+      "priority": "extension",
+      "target_milestone": "M3",
+      "basis": "owner_decision",
+      "decision_basis": "DEC-EDGE-ORB",
+      "statement": "The optional edge quick panel shall use one separate left-edge orb window, fully click-through until deliberate hover reveals it. Only the revealed circle and open panel may accept mouse clicks. The outermost 8 px shall remain click-through in every state. The orb shall never take keyboard focus, cover PROTECTED_REGIONS or appear outside a match, without Dota foreground, or in exclusive fullscreen. Provide quick controls, honest status, a Settings off switch and a UI-006 keyboard-reachable twin for each panel control.",
+      "failure_behavior": "A qualified critical alert closes the panel and locks the orb in the same admission without delaying the critical cue. Unknown status is never shown as ready. Log activation, close the panel and restore click-through immediately. Hide the orb if click-through cannot be guaranteed.",
+      "acceptance": {
+        "scenario_id": "AC-UI-009",
+        "given": "a supported Windows borderless live or bot match with Dota foreground and the orb enabled",
+        "when": "the tester performs 200 orb or panel clicks, exercises hover, protected regions, focus loss and Settings, and admits a qualified critical alert while the panel is open",
+        "then": "Dota stays foreground for all 200 clicks, only guarded hit regions receive orb input and the outer 8 px pass clicks through. No orb or panel pixel intersects PROTECTED_REGIONS. The panel closes and the orb locks in the alert admission while the cue meets its acoustic deadline. Unknown stays unknown, the orb hides outside a match or in exclusive fullscreen, and induced activation is logged and fails closed. Settings can disable the orb and each panel control has a keyboard-reachable deck twin"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "acoustic"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-05",
+          "TP-13",
+          "UAT-05"
+        ]
+      },
+      "contract_refs": [
+        "contracts/runtime-status.schema.json",
+        "contracts/user-settings.schema.json"
+      ],
+      "spec_refs": [
+        "docs/design/UX-SPEC.md",
+        "docs/quality/NFR.md",
+        "docs/governance/DECISION-LOG.md"
+      ],
+      "open_decisions": [
+        "DEC-INTERFACES",
+        "DEC-NATIVE-EVIDENCE"
+      ],
+      "implementation_freedom": "Demonstrate native focus feasibility with an empty clickable no-activate window over Dota before building the panel. Choose window internals within the specified input and critical alert boundaries.",
+      "product_need_ids": [
+        "PN-013"
+      ],
+      "design_component_ids": [
+        "CMP-READMODEL",
+        "CMP-ALERT"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/UX-SPEC.md",
+        "docs/quality/NFR.md",
+        "docs/governance/DECISION-LOG.md"
+      ],
+      "primary_design_component_id": "CMP-READMODEL",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "UI-010",
+      "title": "Display-only hero pick card",
+      "module": "ui",
+      "scope": "extension",
+      "priority": "extension",
+      "target_milestone": "M6",
+      "basis": "owner_decision",
+      "decision_basis": "DEC-PICK-STATS",
+      "statement": "The pick card shall be a click-through, display-only in-game overlay after the own hero is picked during hero selection and strategy time. It shall hide from team showcase onward and clear the game draft UI. V1 shall show only the own hero. V2 shall require Draft Bar slice 5b and use the approved local hero and derived-number display projection. Other players' names shall never appear in the overlay.",
+      "failure_behavior": "Hide without an admitted own pick, a supported placement or an active draft phase. Suppress v2 comparisons when 5b is unavailable and keep eligible v1 content. Remove previous hero statistics immediately on a repick or swap.",
+      "acceptance": {
+        "scenario_id": "AC-UI-010",
+        "given": "an admitted own pick and protected draft UI boxes measured on the owner's 1920×1080 hero selection and strategy screenshots",
+        "when": "the player picks or changes hero, advances through selection, strategy and showcase, and uses builds with and without admitted 5b output",
+        "then": "the card shows statistics scoped to the current own pick during selection and strategy, receives no input, clears both measured draft layouts and hides at showcase. V1 exposes the own hero only. V2 may add other heroes and derived values only with admitted 5b output. Other players' names never enter the overlay"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-05",
+          "UAT-05"
+        ]
+      },
+      "contract_refs": [
+        "contracts/own-snapshot.schema.json"
+      ],
+      "spec_refs": [
+        "docs/design/UX-SPEC.md",
+        "docs/design/DRAFT-BAR-SPEC.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "open_decisions": [
+        "DEC-INTERFACES",
+        "DEC-NATIVE-EVIDENCE"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces within the stated behavior, permissions and evidence thresholds.",
+      "product_need_ids": [
+        "PN-014"
+      ],
+      "design_component_ids": [
+        "CMP-READMODEL",
+        "CMP-INGEST",
+        "CMP-VISION"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/UX-SPEC.md",
+        "docs/design/DRAFT-BAR-SPEC.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "primary_design_component_id": "CMP-READMODEL",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "STATS-001",
+      "title": "Separate consent for public hero statistics",
+      "module": "stats",
+      "scope": "extension",
+      "priority": "extension",
+      "target_milestone": "M6",
+      "basis": "owner_decision",
+      "decision_basis": "DEC-PICK-STATS",
+      "statement": "The native host shall admit public hero statistics requests only under their own explicit Settings consent, default off. No sign-in, other consent or action shall grant it. Revocation shall stop new sends, cancel pending work, discard late responses and delete the statistics cache. Local core shall remain usable without the extension.",
+      "failure_behavior": "Keep sends and cache access disabled after revocation, including on retry or restart. A late response shall not restore display or cache. Report a cache deletion error accurately and keep the revoked cache inaccessible.",
+      "acceptance": {
+        "scenario_id": "AC-STATS-001",
+        "given": "a fresh profile, separate account and consent states, and a controllable provider with a seeded stats cache after opt-in",
+        "when": "the player signs in, opens a draft and changes unrelated consents before explicitly opting in, then revokes while a request is pending",
+        "then": "only the dedicated switch enables the route. Revocation stops all new sends, discards the late response, clears displayed statistics and deletes the local stats cache while local core remains available"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-08",
+          "UAT-07"
+        ]
+      },
+      "contract_refs": [
+        "contracts/user-settings.schema.json",
+        "contracts/settings-patch.schema.json"
+      ],
+      "spec_refs": [
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/UX-SPEC.md"
+      ],
+      "open_decisions": [
+        "DEC-INTERFACES"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces within the stated behavior, permissions and evidence thresholds.",
+      "product_need_ids": [
+        "PN-014"
+      ],
+      "design_component_ids": [
+        "CMP-READMODEL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/UX-SPEC.md"
+      ],
+      "primary_design_component_id": "CMP-READMODEL",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "STATS-002",
+      "title": "Closed outgoing public statistics projection",
+      "module": "stats",
+      "scope": "extension",
+      "priority": "extension",
+      "target_milestone": "M6",
+      "basis": "owner_decision",
+      "decision_basis": "DEC-PICK-STATS",
+      "statement": "The native host shall send only the admitted own hero ID and an optional bracket manually chosen by the user as request data for public hero statistics. Player names, account and match identifiers, ally and enemy hero IDs, voice, memory, clocks and all other match context shall remain outside this route.",
+      "failure_behavior": "Reject requests with extra or invalid fields before transport. Do not serialize a wider game, account or draft object or substitute a missing own hero ID.",
+      "acceptance": {
+        "scenario_id": "AC-STATS-002",
+        "given": "public hero statistics consent is on and test data contains the own hero, an optional manual bracket and forbidden fields",
+        "when": "the host constructs and sends a valid request, then receives negative cases with an extra field including each forbidden data class",
+        "then": "the observed request contains only the own hero ID and an optional manual bracket, and every request with an extra field is rejected before any send"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-08",
+          "UAT-07"
+        ]
+      },
+      "contract_refs": [],
+      "spec_refs": [
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/DRAFT-BAR-SPEC.md"
+      ],
+      "open_decisions": [
+        "DEC-INTERFACES"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces within the stated behavior, permissions and evidence thresholds.",
+      "product_need_ids": [
+        "PN-014"
+      ],
+      "design_component_ids": [
+        "CMP-READMODEL",
+        "CMP-INGEST"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/DRAFT-BAR-SPEC.md"
+      ],
+      "primary_design_component_id": "CMP-READMODEL",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "STATS-003",
+      "title": "Honest public statistics values and states",
+      "module": "stats",
+      "scope": "extension",
+      "priority": "extension",
+      "target_milestone": "M6",
+      "basis": "owner_decision",
+      "decision_basis": "DEC-PICK-STATS",
+      "statement": "Each displayed hero statistics value shall show its provider, provider-stated data window, fetch time and sample size. Label a missing data window as unspecified. Distinguish loading, live, stale, offline, rate-limited, provider error, unknown hero, not enough matches and consent off. Fix metric-specific minimum samples before evaluating data. Never show a match win-chance percentage.",
+      "failure_behavior": "Withhold unsupported or undersampled values. Use eligible cached values only with explicit age and stale labelling when applicable. Never silently fall back, invent a number, reuse another hero's results or interpret missing data as zero.",
+      "acceptance": {
+        "scenario_id": "AC-STATS-003",
+        "given": "minimum samples have been fixed and fixtures cover valid and missing metadata, stale data, every unavailable state and sample sizes around the minima",
+        "when": "the host evaluates provider responses, cache expiry, a new hero and consent transitions",
+        "then": "each shown value carries source, window or unspecified label, fetch time and its sample size, every state is distinct, and insufficient or expired data produces no unsupported value. No invented value, silent fallback or win-chance percentage appears"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-08",
+          "UAT-07"
+        ]
+      },
+      "contract_refs": [],
+      "spec_refs": [
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/design/UX-SPEC.md"
+      ],
+      "open_decisions": [
+        "DEC-INTERFACES"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces within the stated behavior, permissions and evidence thresholds.",
+      "product_need_ids": [
+        "PN-014"
+      ],
+      "design_component_ids": [
+        "CMP-READMODEL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md",
         "docs/design/UX-SPEC.md"
       ],
       "primary_design_component_id": "CMP-READMODEL",

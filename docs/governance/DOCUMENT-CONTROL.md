@@ -3,7 +3,7 @@ title: "Document Control and Baseline Governance"
 doc_id: "DOCUMENT-CONTROL"
 status: draft
 version: "0.3.6"
-updated: "2026-11-11"
+updated: "2026-11-20"
 owner_role: "Product owner and engineering lead; people not assigned"
 approval_status: "not_approved"
 ---
@@ -76,7 +76,7 @@ Before approving a baseline, review product scope, requirement completeness/test
 | Optional services/commercial authority | Extension/deferred boundaries | Explicit contract, service ownership and authorization |
 | App validation and distribution | NOT_RUN, not approved | Required native/live/acoustic/resource receipts and release decision |
 
-The 87 rows are the registered inventory, not a proof that every possible source behavior has been extracted. Design annexes elaborate these rows; review any unmatched normative clause as a coverage gap before claiming completeness. Do not expand scope to resolve a documentation ambiguity.
+The 92 rows are the registered inventory, not a proof that every possible source behavior has been extracted. Design annexes elaborate these rows; review any unmatched normative clause as a coverage gap before claiming completeness. Do not expand scope to resolve a documentation ambiguity.
 
 ## 6. Reading conventions and standards
 

@@ -197,6 +197,29 @@
         "UI-007",
         "QUALITY-008"
       ]
+    },
+    {
+      "id": "PN-013",
+      "title": "Quick in-game controls and honest status",
+      "actor": "Local player",
+      "need": "Use quick audio and display controls and check actual companion status in-game while Dota keeps focus.",
+      "outcome": "A guarded mouse-only orb lets the player use quick controls while critical alerts keep priority. Each control has a keyboard-accessible equivalent in the control window.",
+      "requirement_ids": [
+        "UI-009"
+      ]
+    },
+    {
+      "id": "PN-014",
+      "title": "Source-qualified hero pick statistics",
+      "actor": "Local player",
+      "need": "See how the selected hero has performed in public data during the draft, with separate consent and clear source, sample and freshness.",
+      "outcome": "A display-only pick card shows supported public aggregates under separate consent. Missing values stay explicit and other players' draft data stays on the device.",
+      "requirement_ids": [
+        "UI-010",
+        "STATS-001",
+        "STATS-002",
+        "STATS-003"
+      ]
     }
   ]
 }

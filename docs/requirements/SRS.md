@@ -3,7 +3,7 @@ title: "Software Requirements Specification"
 doc_id: "SRS"
 status: "draft"
 version: "0.3.6"
-updated: "2026-11-10"
+updated: "2026-11-20"
 owner: "Product Owner"
 approval_status: "not_approved"
 ---
@@ -20,7 +20,7 @@ The [PRD](../product/PRD.md) defines needs, outcomes, scope and priorities; this
 
 ### 1.2 Scope and document status
 
-The full MVP covers local telemetry, admitted visible-screen observations, deterministic warnings, event media, control window and passive overlay, manual advice, local voice conversation, local history/memory, bounded summaries and explicit local highlights recording. Guest team-status sharing and private social coordination are extensions. Premium authority and advanced services remain deferred unless explicitly scheduled.
+The full MVP covers local telemetry, admitted visible-screen observations, deterministic warnings, event media, control window and passive overlay, manual advice, local voice conversation, local history/memory, bounded summaries and explicit local highlights recording. Guest team-status sharing, private social coordination, the edge quick panel (UI-009) and the hero pick card with consented public statistics (UI-010, STATS-001–003) are extensions. Premium authority and advanced services remain deferred unless explicitly scheduled.
 
 The first demonstration is a limited delivery milestone, not completion of the full MVP. Action-damage analysis remains subject to its recorded scope/data decision. Game injection, hidden enemy data, automatic gameplay actions, cloud voice/memory processing and inherited product compatibility are outside this baseline.
 
@@ -63,7 +63,7 @@ Accepted owner decisions and PRD scope constrain this SRS. The [requirements reg
 
 ### 2.1 Product perspective and context
 
-The native host owns admission, critical decisions, audio, cancellation, protected operations and resource accounting. The control window presents configuration and inspection; the transparent overlay presents passive gameplay information.
+The native host owns admission, critical decisions, audio, cancellation, protected operations and resource accounting. The control window presents configuration and inspection; the transparent overlay and HUD present passive gameplay information and remain click-through under UI-001. UI-010 uses the passive overlay during the draft. UI-009 permits one separate orb window with bounded mouse hits and no keyboard focus.
 
 Local gameplay is independent of account, cloud, premium and relay availability. Missing coverage remains unavailable. Read-only integration neither controls the game nor obtains hidden enemy state.
 
@@ -99,6 +99,7 @@ Missing prerequisites produce unavailable states, not simulated success. Depende
 |---|---|
 | Game input | Loopback telemetry and owned integration configuration; read-only screen capture |
 | Human interaction | Control window, passive overlay, keyboard, microphone and audio output |
+| Optional public hero statistics | Native request under separate consent, with own hero ID and optional manually selected bracket only |
 | Local storage/media | Settings, journals, snapshots, verified packages and clips |
 | Local recording | Explicitly started, authenticated loopback OBS control |
 | Advice services | On-device processing; separate consent and closed projection for optional cloud |
@@ -117,7 +118,7 @@ Persistence requires versioning, atomic updates, recovery and retention. Memory 
 
 ## 5. Requirement organization
 
-The register preserves **87 stable IDs**, with scope, priority, obligation, failure behavior, acceptance scenario, evidence class, contracts and dependencies. Moving documents does not change IDs.
+The register contains **92 stable IDs**, with scope, priority, obligation, failure behavior, acceptance scenario, evidence class, contracts and dependencies. Moving documents does not change IDs.
 
 | Classification | Interpretation |
 |---|---|
@@ -144,7 +145,7 @@ Baseline approval requires product scope, engineering feasibility/interfaces and
 
 ## Diagram correspondences
 
-The [diagram catalog](../diagrams/README.md) supplies controlled architectural, data and behavioral views. Its mappings appear in the RTM and detailed rows below. The figures supplement the same baseline; their arrows and short guards cannot broaden a permission or replace a complete textual requirement.
+The [diagram catalog](../diagrams/README.md) supplies controlled architectural, data and behavioral views. Its mappings appear in the RTM and detailed rows below. DGM-002, DGM-004, DGM-005 and DGM-017 predate DEC-EDGE-ORB and DEC-PICK-STATS. Use the revised text for those extensions until the four views are regenerated. The figures supplement the same baseline; their arrows and short guards cannot broaden a permission or replace a complete textual requirement.
 
 ## 8. Atomic software requirements
 
@@ -1021,6 +1022,114 @@ The session monitor shall make admitted threats noticeable in peripheral vision:
 **Contracts:** [own-snapshot.schema.json](../../contracts/own-snapshot.schema.json), [design-tokens.json](../../contracts/design-tokens.json)
 
 **Implementation freedom:** Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.
+
+#### UI-009 — Edge quick panel
+
+**Scope:** extension · **Priority:** extension · **Target milestone:** M3 · **Basis:** owner_decision / DEC-EDGE-ORB
+
+**Product needs:** PN-013 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL, CMP-ALERT
+
+The optional edge quick panel shall use one separate left-edge orb window, fully click-through until deliberate hover reveals it. Only the revealed circle and open panel may accept mouse clicks. The outermost 8 px shall remain click-through in every state. The orb shall never take keyboard focus, cover PROTECTED_REGIONS or appear outside a match, without Dota foreground, or in exclusive fullscreen. Provide quick controls, honest status, a Settings off switch and a UI-006 keyboard-reachable twin for each panel control.
+
+**Failure behavior:** A qualified critical alert closes the panel and locks the orb in the same admission without delaying the critical cue. Unknown status is never shown as ready. Log activation, close the panel and restore click-through immediately. Hide the orb if click-through cannot be guaranteed.
+
+**AC-UI-009:** Given a supported Windows borderless live or bot match with Dota foreground and the orb enabled; when the tester performs 200 orb or panel clicks, exercises hover, protected regions, focus loss and Settings, and admits a qualified critical alert while the panel is open; then Dota stays foreground for all 200 clicks, only guarded hit regions receive orb input and the outer 8 px pass clicks through. No orb or panel pixel intersects PROTECTED_REGIONS. The panel closes and the orb locks in the alert admission while the cue meets its acoustic deadline. Unknown stays unknown, the orb hides outside a match or in exclusive fullscreen, and induced activation is logged and fails closed. Settings can disable the orb and each panel control has a keyboard-reachable deck twin.
+
+**Verification:** synthetic, native, acoustic; procedures TP-05, TP-13, UAT-05; status NOT_RUN.
+
+**Open dependencies:** DEC-INTERFACES, DEC-NATIVE-EVIDENCE.
+
+**Elaboration:** [UX-SPEC.md](../design/UX-SPEC.md), [NFR.md](../quality/NFR.md), [DECISION-LOG.md](../governance/DECISION-LOG.md)
+
+**Contracts:** [runtime-status.schema.json](../../contracts/runtime-status.schema.json), [user-settings.schema.json](../../contracts/user-settings.schema.json)
+
+**Implementation freedom:** Demonstrate native focus feasibility with an empty clickable no-activate window over Dota before building the panel. Choose window internals within the specified input and critical alert boundaries.
+
+#### UI-010 — Display-only hero pick card
+
+**Scope:** extension · **Priority:** extension · **Target milestone:** M6 · **Basis:** owner_decision / DEC-PICK-STATS
+
+**Product needs:** PN-014 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL, CMP-INGEST, CMP-VISION
+
+The pick card shall be a click-through, display-only in-game overlay after the own hero is picked during hero selection and strategy time. It shall hide from team showcase onward and clear the game draft UI. V1 shall show only the own hero. V2 shall require Draft Bar slice 5b and use the approved local hero and derived-number display projection. Other players' names shall never appear in the overlay.
+
+**Failure behavior:** Hide without an admitted own pick, a supported placement or an active draft phase. Suppress v2 comparisons when 5b is unavailable and keep eligible v1 content. Remove previous hero statistics immediately on a repick or swap.
+
+**AC-UI-010:** Given an admitted own pick and protected draft UI boxes measured on the owner's 1920×1080 hero selection and strategy screenshots; when the player picks or changes hero, advances through selection, strategy and showcase, and uses builds with and without admitted 5b output; then the card shows statistics scoped to the current own pick during selection and strategy, receives no input, clears both measured draft layouts and hides at showcase. V1 exposes the own hero only. V2 may add other heroes and derived values only with admitted 5b output. Other players' names never enter the overlay.
+
+**Verification:** synthetic, native; procedures TP-05, UAT-05; status NOT_RUN.
+
+**Open dependencies:** DEC-INTERFACES, DEC-NATIVE-EVIDENCE.
+
+**Elaboration:** [UX-SPEC.md](../design/UX-SPEC.md), [DRAFT-BAR-SPEC.md](../design/DRAFT-BAR-SPEC.md), [SECURITY-PRIVACY.md](../security/SECURITY-PRIVACY.md)
+
+**Contracts:** [own-snapshot.schema.json](../../contracts/own-snapshot.schema.json)
+
+**Implementation freedom:** Choose internal implementation after freezing interfaces within the stated behavior, permissions and evidence thresholds.
+
+### STATS
+
+#### STATS-001 — Separate consent for public hero statistics
+
+**Scope:** extension · **Priority:** extension · **Target milestone:** M6 · **Basis:** owner_decision / DEC-PICK-STATS
+
+**Product needs:** PN-014 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL
+
+The native host shall admit public hero statistics requests only under their own explicit Settings consent, default off. No sign-in, other consent or action shall grant it. Revocation shall stop new sends, cancel pending work, discard late responses and delete the statistics cache. Local core shall remain usable without the extension.
+
+**Failure behavior:** Keep sends and cache access disabled after revocation, including on retry or restart. A late response shall not restore display or cache. Report a cache deletion error accurately and keep the revoked cache inaccessible.
+
+**AC-STATS-001:** Given a fresh profile, separate account and consent states, and a controllable provider with a seeded stats cache after opt-in; when the player signs in, opens a draft and changes unrelated consents before explicitly opting in, then revokes while a request is pending; then only the dedicated switch enables the route. Revocation stops all new sends, discards the late response, clears displayed statistics and deletes the local stats cache while local core remains available.
+
+**Verification:** synthetic, native; procedures TP-08, UAT-07; status NOT_RUN.
+
+**Open dependencies:** DEC-INTERFACES.
+
+**Elaboration:** [SECURITY-PRIVACY.md](../security/SECURITY-PRIVACY.md), [UX-SPEC.md](../design/UX-SPEC.md)
+
+**Contracts:** [user-settings.schema.json](../../contracts/user-settings.schema.json), [settings-patch.schema.json](../../contracts/settings-patch.schema.json)
+
+**Implementation freedom:** Choose internal implementation after freezing interfaces within the stated behavior, permissions and evidence thresholds.
+
+#### STATS-002 — Closed outgoing public statistics projection
+
+**Scope:** extension · **Priority:** extension · **Target milestone:** M6 · **Basis:** owner_decision / DEC-PICK-STATS
+
+**Product needs:** PN-014 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL, CMP-INGEST
+
+The native host shall send only the admitted own hero ID and an optional bracket manually chosen by the user as request data for public hero statistics. Player names, account and match identifiers, ally and enemy hero IDs, voice, memory, clocks and all other match context shall remain outside this route.
+
+**Failure behavior:** Reject requests with extra or invalid fields before transport. Do not serialize a wider game, account or draft object or substitute a missing own hero ID.
+
+**AC-STATS-002:** Given public hero statistics consent is on and test data contains the own hero, an optional manual bracket and forbidden fields; when the host constructs and sends a valid request, then receives negative cases with an extra field including each forbidden data class; then the observed request contains only the own hero ID and an optional manual bracket, and every request with an extra field is rejected before any send.
+
+**Verification:** synthetic, native; procedures TP-08, UAT-07; status NOT_RUN.
+
+**Open dependencies:** DEC-INTERFACES.
+
+**Elaboration:** [SECURITY-PRIVACY.md](../security/SECURITY-PRIVACY.md), [DRAFT-BAR-SPEC.md](../design/DRAFT-BAR-SPEC.md)
+
+**Implementation freedom:** Choose internal implementation after freezing interfaces within the stated behavior, permissions and evidence thresholds.
+
+#### STATS-003 — Honest public statistics values and states
+
+**Scope:** extension · **Priority:** extension · **Target milestone:** M6 · **Basis:** owner_decision / DEC-PICK-STATS
+
+**Product needs:** PN-014 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL
+
+Each displayed hero statistics value shall show its provider, provider-stated data window, fetch time and sample size. Label a missing data window as unspecified. Distinguish loading, live, stale, offline, rate-limited, provider error, unknown hero, not enough matches and consent off. Fix metric-specific minimum samples before evaluating data. Never show a match win-chance percentage.
+
+**Failure behavior:** Withhold unsupported or undersampled values. Use eligible cached values only with explicit age and stale labelling when applicable. Never silently fall back, invent a number, reuse another hero's results or interpret missing data as zero.
+
+**AC-STATS-003:** Given minimum samples have been fixed and fixtures cover valid and missing metadata, stale data, every unavailable state and sample sizes around the minima; when the host evaluates provider responses, cache expiry, a new hero and consent transitions; then each shown value carries source, window or unspecified label, fetch time and its sample size, every state is distinct, and insufficient or expired data produces no unsupported value. No invented value, silent fallback or win-chance percentage appears.
+
+**Verification:** synthetic, native; procedures TP-08, UAT-07; status NOT_RUN.
+
+**Open dependencies:** DEC-INTERFACES.
+
+**Elaboration:** [SECURITY-PRIVACY.md](../security/SECURITY-PRIVACY.md), [UX-SPEC.md](../design/UX-SPEC.md)
+
+**Implementation freedom:** Choose internal implementation after freezing interfaces within the stated behavior, permissions and evidence thresholds.
 
 ### VOICE
 

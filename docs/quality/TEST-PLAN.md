@@ -3,7 +3,7 @@ title: "Software Verification Test Plan"
 doc_id: "TEST-PLAN"
 status: "draft"
 version: "0.3.6"
-updated: "2026-11-11"
+updated: "2026-11-20"
 owner_role: "Verification lead — unassigned"
 approval_status: "not_approved"
 ---
@@ -48,11 +48,15 @@ A slice exits when its required methods pass, contradictory results are resolved
 
 **TP-05 — UI and focus.** UI-001–006. Exercise neutral startup, unknown cards, explicit selection, changing hero/session, keyboard/Escape, overlay positioning and multiple control viewports. Verify map topology, visible focus, truthful fields and discarded late inspector responses. Confirm actual Windows click-through, DPI and focus independently of browser screenshots.
 
+When scheduled, verify UI-009 and UI-010 separately under TP-05. For UI-009, demonstrate empty-window focus feasibility before panel work. Then record Dota foreground throughout 200 orb or panel clicks in a live or bot match. Exercise guarded hover, outer 8 px pass-through, protected region clearance, Settings off, keyboard twins, unsupported phase and exclusive fullscreen. Induce activation and verify logging and fail-closed behavior. Test same-admission panel closure and locking with TP-03, and measure cue deadline with TP-13. For UI-010, verify display-only behavior and phase transitions on Windows, clearance against both owner screenshots, repick/swap invalidation, the v2 5b gate and absence of player names.
+
 **TP-06 — Voice.** VOICE-001–007, QUALITY-006–007. Test microphone default-off, hotkey collision/remap, 249/250 ms hold, 15-second cap, device/open timeout, missing model and new-turn supersession. Interrupt every active voice stage. Verify bounded transient buffers, release and no stale resumption. Run NFR language/latency measurements; fixture scoring is not recognition evidence.
 
 **TP-07 — Memory.** MEM-001–005. Hand-calculate complete/partial-session aggregates; interrupt snapshot replacement; forget, restart and corrupt the cutoff. Assert no recovered pre-cutoff memory, at most three supported summary points, and byte-identical retained journals. Run NFR query/storage measurements after eligibility and byte-unit decisions close.
 
 **TP-08 — Advice and privacy.** ADVICE-001–004; cross-check VOICE-005, MEM-001 and PEER-009. Capture requests at controlled API/CLI/relay boundaries with separate consents off/on. Inject forbidden voice, memory, enemy and identifier fields; withdraw consent during pending responses/retries. Assert closed projections, no forbidden egress and no late display/cache use. Retain sanitized field evidence including errors/cancellation; exclude secrets and microphone content.
+
+When scheduled, verify STATS-001–003 under TP-08 with a controlled provider. Check default-off, unrelated sign-in/consents, actual closed request fields, extra-field rejection before transport, revocation with an in-flight response, cache deletion across restart and unaffected local core. Test cache age at 24 h and 7 d, every availability state, source/window/fetch time/sample labels, and samples immediately below and at the preset minima. Confirm the previous hero's values, silent fallback and win-chance percentages never appear.
 
 **TP-09 — Peer extension.** PEER-001–010 (PEER-010: abilities scope off sends nothing; withdrawal clears; zero cooldown never shown as ready). On two controlled devices, test unchecked consent, mismatched scope, sequence replay, frozen UI, timeout/null-probe recovery, leave-during-join, owner expiry and invitation rotation versus kick. Inspect persistence. Assert immediate withdrawal, bounded workers, conservative freshness, no token exposure and no saved peer stats.
 

@@ -3,7 +3,7 @@ title: "Visual Design Proposal — Command Deck and Overlay"
 doc_id: "VISUAL-DESIGN-PROPOSAL"
 status: draft
 version: "0.3.6"
-updated: "2026-11-11"
+updated: "2026-11-20"
 authority: "DEC-BASELINE; proposal under DEC-VISUALS; elaborates UX-SPEC for UI-001..UI-006"
 owner_role: "Product designer (builder-delegated proposal); product owner reviews"
 approval_status: "direction_approved_by_owner_2026-11-11"
@@ -130,7 +130,7 @@ The event feed shows **detection apart from audio outcome**, for example "ตร
 
 The zone boxes are **placeholders until measured natively** (UX-SPEC §8, §10).
 
-**Modules.** All modules are click-through and sit on 82%-opaque panels:
+**Modules.** All modules in this overlay artboard are click-through and sit on 82%-opaque panels. UI-009 defines a separate orb extension with bounded mouse input. See [UX §8](UX-SPEC.md#8-gameplay-overlay).
 
 1. **Own-stat row**, top-left: HP/mana bars, level and a freshness dot.
 2. **Risk indicator**, top-centre under the game bar: grey and dashed when coverage is absent.

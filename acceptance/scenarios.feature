@@ -268,6 +268,41 @@ Feature: Brand-neutral desktop companion target behavior
     Then the map frame and banner enter the critical state within the same admission, clear on revision or expiry, and the stale state dims and labels the map instead of keeping live markers
     And failure behavior is: Routine updates never flash or pulse; no motion is derived from predicted paths, decay or unobserved data; reduced motion replaces animation with static emphasis.
 
+  @UI-009 @extension
+  Scenario: AC-UI-009 Edge quick panel
+    Given a supported Windows borderless live or bot match with Dota foreground and the orb enabled
+    When the tester performs 200 orb or panel clicks, exercises hover, protected regions, focus loss and Settings, and admits a qualified critical alert while the panel is open
+    Then Dota stays foreground for all 200 clicks, only guarded hit regions receive orb input and the outer 8 px pass clicks through. No orb or panel pixel intersects PROTECTED_REGIONS. The panel closes and the orb locks in the alert admission while the cue meets its acoustic deadline. Unknown stays unknown, the orb hides outside a match or in exclusive fullscreen, and induced activation is logged and fails closed. Settings can disable the orb and each panel control has a keyboard-reachable deck twin
+    And failure behavior is: A qualified critical alert closes the panel and locks the orb in the same admission without delaying the critical cue. Unknown status is never shown as ready. Log activation, close the panel and restore click-through immediately. Hide the orb if click-through cannot be guaranteed.
+
+  @UI-010 @extension
+  Scenario: AC-UI-010 Display-only hero pick card
+    Given an admitted own pick and protected draft UI boxes measured on the owner's 1920×1080 hero selection and strategy screenshots
+    When the player picks or changes hero, advances through selection, strategy and showcase, and uses builds with and without admitted 5b output
+    Then the card shows statistics scoped to the current own pick during selection and strategy, receives no input, clears both measured draft layouts and hides at showcase. V1 exposes the own hero only. V2 may add other heroes and derived values only with admitted 5b output. Other players' names never enter the overlay
+    And failure behavior is: Hide without an admitted own pick, a supported placement or an active draft phase. Suppress v2 comparisons when 5b is unavailable and keep eligible v1 content. Remove previous hero statistics immediately on a repick or swap.
+
+  @STATS-001 @extension
+  Scenario: AC-STATS-001 Separate consent for public hero statistics
+    Given a fresh profile, separate account and consent states, and a controllable provider with a seeded stats cache after opt-in
+    When the player signs in, opens a draft and changes unrelated consents before explicitly opting in, then revokes while a request is pending
+    Then only the dedicated switch enables the route. Revocation stops all new sends, discards the late response, clears displayed statistics and deletes the local stats cache while local core remains available
+    And failure behavior is: Keep sends and cache access disabled after revocation, including on retry or restart. A late response shall not restore display or cache. Report a cache deletion error accurately and keep the revoked cache inaccessible.
+
+  @STATS-002 @extension
+  Scenario: AC-STATS-002 Closed outgoing public statistics projection
+    Given public hero statistics consent is on and test data contains the own hero, an optional manual bracket and forbidden fields
+    When the host constructs and sends a valid request, then receives negative cases with an extra field including each forbidden data class
+    Then the observed request contains only the own hero ID and an optional manual bracket, and every request with an extra field is rejected before any send
+    And failure behavior is: Reject requests with extra or invalid fields before transport. Do not serialize a wider game, account or draft object or substitute a missing own hero ID.
+
+  @STATS-003 @extension
+  Scenario: AC-STATS-003 Honest public statistics values and states
+    Given minimum samples have been fixed and fixtures cover valid and missing metadata, stale data, every unavailable state and sample sizes around the minima
+    When the host evaluates provider responses, cache expiry, a new hero and consent transitions
+    Then each shown value carries source, window or unspecified label, fetch time and its sample size, every state is distinct, and insufficient or expired data produces no unsupported value. No invented value, silent fallback or win-chance percentage appears
+    And failure behavior is: Withhold unsupported or undersampled values. Use eligible cached values only with explicit age and stale labelling when applicable. Never silently fall back, invent a number, reuse another hero's results or interpret missing data as zero.
+
   @VOICE-001 @mvp
   Scenario: AC-VOICE-001 Explicit microphone consent
     Given mic consent is false
