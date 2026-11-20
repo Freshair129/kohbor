@@ -3,10 +3,12 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { cardView, nextPacksTab, packBindingView, parsePackSummaries } from "../src/packs/model.ts";
 import { auditionSound, groupSoundRows } from "../src/packs/eventMap.ts";
+import { soundRowPresentation } from "../src/packs/sound-row-model.ts";
 
 const packsPageSource = readFileSync(new URL("../src/packs/PacksPage.tsx", import.meta.url), "utf8");
 const packLibrarySource = readFileSync(new URL("../src/packs/PackLibrary.tsx", import.meta.url), "utf8");
 const soundRowsSource = readFileSync(new URL("../src/packs/SoundRows.tsx", import.meta.url), "utf8");
+const variantRowSource = readFileSync(new URL("../src/packs/VariantRow.tsx", import.meta.url), "utf8");
 
 test("installed-packs primary action opens InstallDialog and refreshes the cards after install", () => {
   assert.match(packsPageSource, /className="primary packs-install-trigger"[^>]*aria-haspopup="dialog"[^>]*onClick=\{\(\) => setInstallDialogOpen\(true\)\}/s);
@@ -16,9 +18,43 @@ test("installed-packs primary action opens InstallDialog and refreshes the cards
 
 test("pack details and expandable event-sounds rows wire their audition buttons", () => {
   assert.match(packLibrarySource, /<ul className="packs-voice-list">[\s\S]*?onAuditionVariant\(binding, variant\.variant_id\)/);
-  assert.match(soundRowsSource, /aria-expanded=\{expanded === soundKey\(row\)\}/);
+  assert.match(soundRowsSource, /const key = soundKey\(row\);[\s\S]*?aria-expanded=\{expanded === key\}/);
   assert.match(soundRowsSource, /<EventVariants variants=\{row\.variants\} selection=\{row\.selection\}/);
   assert.match(packsPageSource, /mediaAuditionVariant\(row\.event_id, row\.tier, variantId\)/);
+});
+
+test("unavailable event rows without voices render no primary play control", () => {
+  for (const state of ["unmapped", "detector_unavailable", "not_voiced"] as const) {
+    assert.equal(soundRowPresentation(state, 0).showPrimaryPlay, false, state);
+  }
+  assert.equal(soundRowPresentation("detector_unavailable", 1).showPrimaryPlay, true,
+    "a pack voice stays auditionable even when the detector cannot fire it yet");
+  for (const state of ["ready", "inherited", "invalid_media", "unknown"] as const) {
+    assert.equal(soundRowPresentation(state, 1).disablePrimaryPlay, false, `${state}: ListenControl.block decides`);
+  }
+  assert.match(soundRowsSource, /presentation\.showPrimaryPlay && <ListenButton/);
+});
+
+test("a ready event row has one play control with its listenFor accessible name", () => {
+  assert.equal(soundRowPresentation("ready", 2).showPrimaryPlay, true);
+  assert.equal((soundRowsSource.match(/<ListenButton\b/g) ?? []).length, 1);
+  assert.match(soundRowsSource, /aria-label=\{text\.listenFor\(label\)\}/);
+});
+
+test("sound expansion retains its expanded state and controlled panel", () => {
+  assert.match(soundRowsSource, /aria-expanded=\{expanded === key\}[^>]*aria-controls=\{variantsId\}/);
+  assert.match(soundRowsSource, /id=\{variantsId\} className="packs-variants-expanded"/);
+});
+
+test("variant and clip ids stay out of visible voice text", () => {
+  assert.match(variantRowSource, /data-variant-id=\{variant\.variant_id\}/);
+  assert.match(variantRowSource, /data-clip-id=\{variant\.clip_id/);
+  assert.doesNotMatch(variantRowSource, />\s*\{variant\.variant_id\}\s*</);
+  assert.doesNotMatch(variantRowSource, />\s*\{variant\.clip_id\}\s*</);
+});
+
+test("event-sound rows do not render readiness chips", () => {
+  assert.doesNotMatch(soundRowsSource, /\bChip\b|chip-glyph/);
 });
 
 const install = "ins_0000000001";
