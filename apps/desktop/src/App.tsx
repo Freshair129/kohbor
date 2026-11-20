@@ -35,6 +35,11 @@ import { canOpenPostMatchReplay, useMatchEnded } from "./replay/admission";
 import { RailLeft } from "./shell/RailLeft";
 import { RailRight } from "./shell/RailRight";
 import { StatusLine } from "./shell/StatusLine";
+import { StatusFooter } from "./shell/StatusFooter";
+import { useResources } from "./live/useResources";
+import { usePreviewMetrics } from "./live/previewMetricsStore";
+import { footerStateLabel } from "./shell/statusFooterModel";
+import { previewRateTooltip } from "./live/previewDiagnostics";
 
 const ReplayPanel = import.meta.env.DEV || import.meta.env.VITE_KOHBOR_LAB === "1"
   ? lazy(() => import("./replay/ReplayPanel").then((module) => ({ default: module.ReplayPanel })))
@@ -50,6 +55,8 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
   const { status, snapshot, hostLost, setup } = useRuntime();
   const { settings, loading, saving, notice, changeLocale } = useSettings();
   const capture = useCaptureStatus();
+  const resources = useResources();
+  const previewMetrics = usePreviewMetrics();
   const mute = useAudioMute(status);
   const playback = usePlayback();
   const version = deriveAppVersionView(useAppVersion());
@@ -242,6 +249,17 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
 
           {activePage === "account" && <AccountPage account={account} locale={displayLocale} back={() => navigate(DEFAULT_SHELL_DESTINATION)} />}
         </section>
+        <StatusFooter statusLabel={hostLost ? (displayLocale === "th" ? "ออฟไลน์" : "Offline") : footerStateLabel(capture?.phase ?? null, displayLocale)}
+          tone={hostLost ? "stale" : headerState.capture.tone}
+          resources={hostLost ? null : resources.current} resourceSummary={resources.summary}
+          capture={hostLost ? null : capture} preview={previewMetrics}
+          labels={{ region: displayLocale === "th" ? "สถานะและทรัพยากรเครื่อง" : "App status and resource metrics",
+            cpu: "CPU", ram: "RAM", capture: "CAP", received: "RX", painted: "PAINT",
+            cpuTitle: displayLocale === "th" ? "CPU ที่โฮสต์รายงาน" : "CPU reported by the host",
+            ramTitle: displayLocale === "th" ? "หน่วยความจำกลุ่มแอปที่โฮสต์รายงาน" : "App group memory reported by the host",
+            captureTitle: displayLocale === "th" ? "FPS การจับภาพที่โฮสต์รายงาน" : "Capture FPS reported by the host",
+            receivedTitle: `${displayLocale === "th" ? "FPS ภาพที่หน้าต่างได้รับ" : "Frames received per second by the window"}. ${previewRateTooltip(displayLocale)}`,
+            paintedTitle: `${displayLocale === "th" ? "FPS ภาพที่หน้าต่างวาด" : "Frames painted per second by the window"}. ${previewRateTooltip(displayLocale)}` }} />
       </main>
       <RailRight account={account} port={accountPort} version={version} locale={displayLocale}
         steamName={steamPersonaName(steamStatus, steamName.show)} showSteamName={steamName.show}

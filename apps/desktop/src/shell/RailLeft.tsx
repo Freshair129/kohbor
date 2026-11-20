@@ -1,5 +1,5 @@
 import { useRef, type KeyboardEvent } from "react";
-import brandMark from "../assets/brand/kohbor-app.svg";
+import brandMark from "../assets/brand/kohbor-rail-mark.svg";
 import {
   navigationItemState,
   nextShellDestination,
