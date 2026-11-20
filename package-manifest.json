@@ -303,8 +303,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/commands.rs",
-      "bytes": 37741,
-      "sha256": "a10cd85b49f22fc500cb198a47585519a0bb4a8665f90b71b759508a12c780db"
+      "bytes": 39736,
+      "sha256": "7fc99936156eaad825ee31a1cc10addde3b370cde81eea66b5476ffc6fb682cd"
     },
     {
       "path": "apps/desktop/src-tauri/src/containment.rs",
@@ -318,8 +318,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/host.rs",
-      "bytes": 62077,
-      "sha256": "ef51b6b32e7cf79647941bb925a637af181dfb483d5726c640743c3668df919c"
+      "bytes": 63697,
+      "sha256": "41acddd16f69da7a9861b8decc2eb888d2542afb4c04fa0d25c1f8006b62a5d5"
     },
     {
       "path": "apps/desktop/src-tauri/src/hotkeys.rs",
@@ -353,8 +353,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 38506,
-      "sha256": "9c87144ce52271fb1aa67072148b7a6fec2e92ae661feac4b4209e206cca5df7"
+      "bytes": 38950,
+      "sha256": "9124736758daea3f5306db035571a2e20109b8801b14eaa2c20259a9f0b4b77c"
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
@@ -398,8 +398,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/media/service.rs",
-      "bytes": 98502,
-      "sha256": "a54e40367d5337e7a1b77b4b56a5e3b5d26334e5b3184d0ffcaa5cd5bd5ea2c1"
+      "bytes": 110617,
+      "sha256": "6f52b943cc98e1469ed5a8663c438f9240a81e88127358dd5ff35f241d2be9f1"
     },
     {
       "path": "apps/desktop/src-tauri/src/overlay.rs",
@@ -1092,6 +1092,26 @@
       "sha256": "eee71cb83a748db30df3a1fe9f62faebd75ef29393f958c2f41dd0c2cfd78221"
     },
     {
+      "path": "apps/desktop/src/packs/InstallDialog.copy.ts",
+      "bytes": 17151,
+      "sha256": "3acdc8e55ffcaf3ccde33394294ce65945613c049bf6acfc9e5ed8f37bbde89c"
+    },
+    {
+      "path": "apps/desktop/src/packs/InstallDialog.css",
+      "bytes": 1334,
+      "sha256": "8d7e34b51a553ff23def73dc0c39ca1db319a15183f83abde90371e10195f529"
+    },
+    {
+      "path": "apps/desktop/src/packs/InstallDialog.model.ts",
+      "bytes": 7307,
+      "sha256": "906bdce30d2e986d5365e38016effa0430e8e16ed2dbe14b2488b46d7c2c4eda"
+    },
+    {
+      "path": "apps/desktop/src/packs/InstallDialog.tsx",
+      "bytes": 11766,
+      "sha256": "ce7617715aa7ab46d110275d5fb1e53bb4f336f285c5278cc14e03f57132bf5e"
+    },
+    {
       "path": "apps/desktop/src/playback.ts",
       "bytes": 5714,
       "sha256": "e3678229f50cc6cb3320275d02cf1bb9c8dc4d40124de1844db4880b0abbb4f5"
@@ -1380,6 +1400,11 @@
       "path": "apps/desktop/tests/hudModel.test.ts",
       "bytes": 21739,
       "sha256": "a2a2d7404886db635aa691bd3bf412bb691c1004829d11a1c33e12ede4fd7c31"
+    },
+    {
+      "path": "apps/desktop/tests/installDialog.test.ts",
+      "bytes": 4447,
+      "sha256": "99cc9f051152deaecf64c99e164a6438d5d652ce8fdb51f474f1345a89ffaa3b"
     },
     {
       "path": "apps/desktop/tests/lab-hud-layout.test.ts",
@@ -2233,8 +2258,8 @@
     },
     {
       "path": "crates/kohbor-pack/src/store.rs",
-      "bytes": 87350,
-      "sha256": "f582c3baf5a211fd9f58c64fd6d5eaf6fbb30cd196281d7681d40234761efacf"
+      "bytes": 95124,
+      "sha256": "89a7391719d1bab0bd91bd0d32303b13fed6033d8952e0638abb5a80e0bf4fe2"
     },
     {
       "path": "crates/kohbor-pack/src/trust.rs",

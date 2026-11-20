@@ -43,6 +43,17 @@ pub trait Emitter: Send + Sync {
 /// A testable boundary for the media-service command queue.
 pub trait MediaJobs: Send + Sync {
     fn inspect(&self, source_path: &str) -> Result<Value, String>;
+    fn summarize_package(&self, source_path: &str) -> Result<Value, String> {
+        let _ = source_path;
+        Err("CAPABILITY_UNAVAILABLE".to_owned())
+    }
+    fn package_bytes(
+        &self,
+        _bytes: &[u8],
+        _install: Option<(String, String)>,
+    ) -> Result<Value, String> {
+        Err("CAPABILITY_UNAVAILABLE".to_owned())
+    }
     fn install(&self, request: &[u8]) -> Result<Value, String>;
     fn activate(
         &self,
@@ -50,6 +61,10 @@ pub trait MediaJobs: Send + Sync {
         install_id: &str,
         policy: ActivationPolicy,
     ) -> Result<Value, String>;
+    fn cancel_pending_activation(&self, install_id: &str) -> Result<Value, String> {
+        let _ = install_id;
+        Err("CAPABILITY_UNAVAILABLE".to_owned())
+    }
     fn list(&self) -> Result<Value, String>;
     /// Read-only active-pack bindings; implementations without a store report it unavailable.
     fn active_bindings(&self) -> Result<Value, String> {
@@ -72,6 +87,18 @@ impl MediaJobs for MediaHandle {
         MediaHandle::inspect(self, source_path)
     }
 
+    fn summarize_package(&self, source_path: &str) -> Result<Value, String> {
+        MediaHandle::summarize_package(self, source_path)
+    }
+
+    fn package_bytes(
+        &self,
+        bytes: &[u8],
+        install: Option<(String, String)>,
+    ) -> Result<Value, String> {
+        MediaHandle::package_bytes(self, bytes, install)
+    }
+
     fn install(&self, request: &[u8]) -> Result<Value, String> {
         MediaHandle::install(self, request)
     }
@@ -83,6 +110,10 @@ impl MediaJobs for MediaHandle {
         policy: ActivationPolicy,
     ) -> Result<Value, String> {
         MediaHandle::activate(self, request_id, install_id, policy)
+    }
+
+    fn cancel_pending_activation(&self, install_id: &str) -> Result<Value, String> {
+        MediaHandle::cancel_pending_activation(self, install_id)
     }
 
     fn list(&self) -> Result<Value, String> {
@@ -179,6 +210,20 @@ impl CommandApi {
         self.media.inspect(source_path)
     }
 
+    pub fn media_package_summary(&self, source_path: &str) -> Result<Value, String> {
+        self.ensure_running()?;
+        self.media.summarize_package(source_path)
+    }
+
+    pub fn media_package_bytes(
+        &self,
+        bytes: &[u8],
+        install: Option<(String, String)>,
+    ) -> Result<Value, String> {
+        self.ensure_running()?;
+        self.media.package_bytes(bytes, install)
+    }
+
     pub fn media_install(&self, request: &Value) -> Result<Value, String> {
         self.ensure_running()?;
         let bytes = serde_json::to_vec(request).map_err(|_| "MEDIA_INVALID".to_owned())?;
@@ -199,6 +244,11 @@ impl CommandApi {
             _ => return Err("MEDIA_INVALID".to_owned()),
         };
         self.media.activate(request_id, install_id, policy)
+    }
+
+    pub fn media_cancel_pending_activation(&self, install_id: &str) -> Result<Value, String> {
+        self.ensure_running()?;
+        self.media.cancel_pending_activation(install_id)
     }
 
     pub fn media_list(&self) -> Result<Value, String> {
