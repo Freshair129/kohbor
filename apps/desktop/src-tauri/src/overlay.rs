@@ -20,6 +20,83 @@ pub struct Rect {
 pub const STAGE_LOGICAL: (u32, u32) = (720, 220);
 pub const WINDOW_LOGICAL: (u32, u32) = (720, 256);
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OverlayWindowState {
+    Unmapped,
+    Mapping,
+    Mapped,
+    Failed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum OverlayVisibilityRequest {
+    MapAtStartup,
+    ContentShown,
+    ContentHidden,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum OverlayVisibilityAction {
+    MapWindow,
+    RaiseWindow,
+    ClearContent,
+    Noop,
+    FailClosed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct OverlayVisibilityMachine {
+    state: OverlayWindowState,
+}
+
+impl Default for OverlayVisibilityMachine {
+    fn default() -> Self {
+        Self {
+            state: OverlayWindowState::Unmapped,
+        }
+    }
+}
+
+impl OverlayVisibilityMachine {
+    pub(crate) fn request(&mut self, request: OverlayVisibilityRequest) -> OverlayVisibilityAction {
+        match request {
+            OverlayVisibilityRequest::MapAtStartup => match self.state {
+                OverlayWindowState::Unmapped => {
+                    self.state = OverlayWindowState::Mapping;
+                    OverlayVisibilityAction::MapWindow
+                }
+                OverlayWindowState::Mapping | OverlayWindowState::Mapped => {
+                    OverlayVisibilityAction::Noop
+                }
+                OverlayWindowState::Failed => OverlayVisibilityAction::FailClosed,
+            },
+            OverlayVisibilityRequest::ContentShown => match self.state {
+                OverlayWindowState::Mapped => OverlayVisibilityAction::RaiseWindow,
+                OverlayWindowState::Unmapped
+                | OverlayWindowState::Mapping
+                | OverlayWindowState::Failed => OverlayVisibilityAction::FailClosed,
+            },
+            OverlayVisibilityRequest::ContentHidden => OverlayVisibilityAction::ClearContent,
+        }
+    }
+
+    pub(crate) fn complete(&mut self, action: OverlayVisibilityAction, succeeded: bool) {
+        match (self.state, action) {
+            (OverlayWindowState::Mapping, OverlayVisibilityAction::MapWindow) => {
+                self.state = if succeeded {
+                    OverlayWindowState::Mapped
+                } else {
+                    OverlayWindowState::Failed
+                };
+            }
+            (OverlayWindowState::Mapped, OverlayVisibilityAction::RaiseWindow) if !succeeded => {
+                self.state = OverlayWindowState::Failed;
+            }
+            _ => {}
+        }
+    }
+}
+
 // Pinned by tests as the placement contract (docs/design/S6-OVERLAY-SLICE.md section 3); the runtime path
 // derives the same geometry through `place_overlay`, so these are not read outside tests.
 #[cfg_attr(not(test), allow(dead_code))]
@@ -613,6 +690,77 @@ mod tests {
         assert_eq!(
             status_payload("ready", None),
             json!({"media":{"state":"ready","reason":null}})
+        );
+    }
+
+    #[test]
+    fn visibility_state_maps_once_and_raises_for_content_shows() {
+        let mut machine = OverlayVisibilityMachine::default();
+        assert_eq!(
+            machine.request(OverlayVisibilityRequest::MapAtStartup),
+            OverlayVisibilityAction::MapWindow
+        );
+        assert_eq!(
+            machine.request(OverlayVisibilityRequest::MapAtStartup),
+            OverlayVisibilityAction::Noop
+        );
+        machine.complete(OverlayVisibilityAction::MapWindow, true);
+
+        assert_eq!(
+            machine.request(OverlayVisibilityRequest::MapAtStartup),
+            OverlayVisibilityAction::Noop
+        );
+        assert_eq!(
+            machine.request(OverlayVisibilityRequest::ContentShown),
+            OverlayVisibilityAction::RaiseWindow
+        );
+        machine.complete(OverlayVisibilityAction::RaiseWindow, true);
+        assert_eq!(
+            machine.request(OverlayVisibilityRequest::ContentShown),
+            OverlayVisibilityAction::RaiseWindow
+        );
+    }
+
+    #[test]
+    fn visibility_state_clears_content_without_hiding_the_mapped_window() {
+        let mut machine = OverlayVisibilityMachine::default();
+        machine.request(OverlayVisibilityRequest::MapAtStartup);
+        machine.complete(OverlayVisibilityAction::MapWindow, true);
+
+        assert_eq!(
+            machine.request(OverlayVisibilityRequest::ContentHidden),
+            OverlayVisibilityAction::ClearContent
+        );
+        assert_eq!(
+            machine.request(OverlayVisibilityRequest::ContentShown),
+            OverlayVisibilityAction::RaiseWindow
+        );
+    }
+
+    #[test]
+    fn visibility_state_fails_closed_after_map_or_raise_failure() {
+        let mut map_failed = OverlayVisibilityMachine::default();
+        assert_eq!(
+            map_failed.request(OverlayVisibilityRequest::MapAtStartup),
+            OverlayVisibilityAction::MapWindow
+        );
+        map_failed.complete(OverlayVisibilityAction::MapWindow, false);
+        assert_eq!(
+            map_failed.request(OverlayVisibilityRequest::ContentShown),
+            OverlayVisibilityAction::FailClosed
+        );
+
+        let mut raise_failed = OverlayVisibilityMachine::default();
+        raise_failed.request(OverlayVisibilityRequest::MapAtStartup);
+        raise_failed.complete(OverlayVisibilityAction::MapWindow, true);
+        assert_eq!(
+            raise_failed.request(OverlayVisibilityRequest::ContentShown),
+            OverlayVisibilityAction::RaiseWindow
+        );
+        raise_failed.complete(OverlayVisibilityAction::RaiseWindow, false);
+        assert_eq!(
+            raise_failed.request(OverlayVisibilityRequest::ContentShown),
+            OverlayVisibilityAction::FailClosed
         );
     }
 }

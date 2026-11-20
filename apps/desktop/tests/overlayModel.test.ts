@@ -1,13 +1,45 @@
 ﻿import assert from "node:assert/strict";
-import { test } from "node:test";
-import { overlayChipForDisplay, chipForStatus, createChipState, reduceChip, overlayShouldShow, CHIP_SHOW_MS, DEMO_MARKER_WINDOW_MS } from "../src/overlayModel.ts";
-import { createPlaybackState, reducePlayback, tickPlayback } from "../src/playback.ts";
+import { after, before, test } from "node:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { createServer } from "vite";
+import react from "@vitejs/plugin-react";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { overlayChipForDisplay, chipForStatus, createChipState, reduceChip, overlayShouldShow, CHIP_SHOW_MS, DEMO_MARKER_WINDOW_MS, type ChipView } from "../src/overlayModel.ts";
+import { createPlaybackState, reducePlayback, tickPlayback, type PlaybackState } from "../src/playback.ts";
+const desktopRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+let EventBanner: (props: { playback: PlaybackState; visible?: boolean }) => unknown;
+let OverlayStage: (props: { playback: PlaybackState; chip: ChipView | null; visible: boolean }) => unknown;
+let closeVite: (() => Promise<void>) | undefined;
+
+before(async () => {
+  const server = await createServer({
+    configFile: false,
+    plugins: [react()],
+    root: desktopRoot,
+    appType: "custom",
+    resolve: { preserveSymlinks: true },
+    optimizeDeps: { noDiscovery: true, include: [] },
+    server: { middlewareMode: true },
+  });
+  closeVite = () => server.close();
+  ({ EventBanner } = await server.ssrLoadModule("/src/EventBanner.tsx"));
+  ({ OverlayStage } = await server.ssrLoadModule("/src/OverlayStage.tsx"));
+});
+
+after(async () => {
+  await closeVite?.();
+});
 const ready = { state: "ready", reason: null } as const;
 const muted = { state: "unavailable", reason: "AUDIO_MUTED" } as const;
 const missing = { state: "not_ready", reason: "MEDIA_UNMAPPED" } as const;
 const empty = { view: null, shownUntilMs: null, lastStatusKey: null, demoMarkerAtMs: null };
 const status = (state: any, media: any, now_ms: number) => reduceChip(state, { type: "status", media, now_ms });
 const started = (id: string, extra: object = {}) => ({ kind: "started", playback_id: id, class: "ordinary", event_type: "multi_kill", tier: 2, visual_url: "kohbor-media://pack/video.webm", audio_duration_ms: 1200, visual_tail_ms: 200, at_ms: 1000, ...extra });
+const activeBannerPlayback = () => reducePlayback(createPlaybackState(), started("pb_00000001", {
+  visual_url: "kohbor-media://localhost/v1/ins_0000000001/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+}));
 test("chip: maps unknown, unavailable and reason honestly", () => {
   assert.equal(chipForStatus(null).kind, "unknown");
   for (const reason of [null, "OTHER"]) assert.equal(chipForStatus({ state: "unavailable", reason }).kind, "unknown");
@@ -96,4 +128,21 @@ test("overlay display: the benign ready chip is never shown, problem states and 
   assert.equal(overlayChipForDisplay(unknown), unknown);
   const demo = { kind: "demo", reason: null, text_th: "DEMO" } as const;
   assert.equal(overlayChipForDisplay(demo), demo);
+});
+
+test("renderer idle overlay renders no banner element", () => {
+  const html = renderToStaticMarkup(createElement(OverlayStage, {
+    playback: activeBannerPlayback(),
+    chip: null,
+    visible: false,
+  }));
+  assert.doesNotMatch(html, /event-overlay-banner|<video\b/);
+  assert.equal(html, "");
+});
+
+test("renderer hides banner content when the host visibility gate is closed", () => {
+  const html = renderToStaticMarkup(
+    createElement(EventBanner, { playback: activeBannerPlayback(), visible: false }),
+  );
+  assert.equal(html, "");
 });

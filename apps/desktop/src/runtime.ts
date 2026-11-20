@@ -32,6 +32,16 @@ export function subscribeOverlayDemo(onPayload: (payload: unknown) => void): Pro
   return listen<unknown>("overlay://demo", (event) => onPayload(event.payload));
 }
 
+export function subscribeOverlayContentVisibility(onVisible: (visible: boolean) => void): Promise<() => void> {
+  if (!hostAvailable()) return Promise.resolve(() => {});
+  return listen<unknown>("overlay://content-visibility", (event) => {
+    const payload = event.payload;
+    if (typeof payload !== "object" || payload === null || Array.isArray(payload)) return;
+    const visible = (payload as Record<string, unknown>).visible;
+    if (typeof visible === "boolean") onVisible(visible);
+  });
+}
+
 export function emitOverlayReady(): Promise<void> {
   return hostAvailable() ? emit("overlay://ready", {}) : Promise.resolve();
 }
