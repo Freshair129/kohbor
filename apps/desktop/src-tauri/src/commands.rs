@@ -639,15 +639,42 @@ pub(crate) fn media_audition(
     event_id: String,
     tier: Option<u8>,
 ) -> Result<MediaAuditionResult, String> {
+    run_media_audition(&state, &event_id, tier, None)
+}
+
+#[tauri::command(async)]
+pub(crate) fn media_audition_variant(
+    state: tauri::State<'_, AppState>,
+    event_id: String,
+    tier: Option<u8>,
+    variant_id: String,
+) -> Result<MediaAuditionResult, String> {
+    run_media_audition(&state, &event_id, tier, Some(&variant_id))
+}
+
+fn run_media_audition(
+    state: &AppState,
+    event_id: &str,
+    tier: Option<u8>,
+    variant_id: Option<&str>,
+) -> Result<MediaAuditionResult, String> {
     let pending = state.audition.begin()?;
     let session_epoch = crate::intake::lock(&state.runtime.shared)
         .epoch
         .unwrap_or(1);
-    if let Err(error) = state
-        .host
-        .commands
-        .media_audition(&event_id, tier, session_epoch)
-    {
+    let audition = match variant_id {
+        Some(variant_id) => {
+            state
+                .host
+                .commands
+                .media_audition_variant(event_id, tier, variant_id, session_epoch)
+        }
+        None => state
+            .host
+            .commands
+            .media_audition(event_id, tier, session_epoch),
+    };
+    if let Err(error) = audition {
         state.audition.finish(pending.ticket);
         return Err(error);
     }

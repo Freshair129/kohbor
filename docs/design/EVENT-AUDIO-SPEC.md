@@ -222,7 +222,7 @@ Detection is recorded as an event ([event.schema.json](../../contracts/event.sch
 
 ### Audition lifecycle result (H5)
 
-`media_audition` returns a caller-visible result with `audio_started`, `audio_ended`, and `audio_end_reason`, plus `visual_status`, `visual_reason`, and `video_error_code`. `visual_status` is `shown` only after the overlay video emits `playing`, `failed` on a video error, unusable visual URL, or five-second start timeout, `none` for an audio-only variant, and `unknown` when the host cannot confirm the expected lifecycle. The host logs the same bounded result as `media/audition_result`; it does not claim that audio was physically heard.
+`media_audition` returns a caller-visible result with `audio_started`, `audio_ended`, and `audio_end_reason`, plus `visual_status`, `visual_reason`, and `video_error_code`. `media_audition_variant(event_id, tier, variant_id)` uses the same lifecycle result while selecting the named variant exactly. `visual_status` is `shown` only after the overlay video emits `playing`, `failed` on a video error, unusable visual URL, or five-second start timeout, `none` for an audio-only variant, and `unknown` when the host cannot confirm the expected lifecycle. The host logs the same bounded result as `media/audition_result`; it does not claim that audio was physically heard.
 
 ## 6. Media format and decode checks (MP-03, MP-04, MEDIA-004)
 
@@ -247,7 +247,7 @@ Activation does not wait for probes of mappings that are not critical. Critical 
 
 **Package layout (format profile 1).**
 
-- **Descriptor.** The descriptor is the first ZIP entry, `descriptor.json`. It is validated by [media-manifest.schema.json](../../contracts/media-manifest.schema.json) 1.3.0 (1.3.0 makes `silent_visual_path` optional: an audio-only binding plays audio and shows no banner; DEC-PACK-AUDIO-OPTIONAL-VISUAL).
+- **Descriptor.** The descriptor is the first ZIP entry, `descriptor.json`. The established reader accepts 1.3.0 and 1.4.0; 1.3.0 makes `silent_visual_path` optional (an audio-only binding plays audio and shows no banner; DEC-PACK-AUDIO-OPTIONAL-VISUAL). Proposed 1.4.1 adds optional per-variant `caption` (trimmed plain text of 1 to 200 Unicode scalar values with no control characters or line breaks), preserves caption-free 1.3.0 and 1.4.0 packs, and requires owner approval before integration. Authors should supply NFC text. Captions are display text only and are not proof of spoken content.
 - **Inventory.** Its `files` array is the payload inventory.
 - **Event registry.** Its `bindings` array is the event registry. The MP-03 elements are therefore sections of one bounded (≤2 MiB) document, not separate files.
 - **Field naming.** `bindings[].event_id` names a catalog ID. It is the event *type*; the per-occurrence identifier in events is `instance_id`.

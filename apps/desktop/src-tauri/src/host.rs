@@ -258,7 +258,28 @@ impl CommandApi {
         session_epoch: u64,
     ) -> Result<(), String> {
         self.ensure_running()?;
-        self.request_audition(event_id, tier, session_epoch)
+        self.request_audition(event_id, tier, session_epoch, None)
+            .map_err(|reason| {
+                log_audition_outcome(reason.code());
+                reason.code().to_owned()
+            })
+    }
+
+    /// Audition one exact variant from the currently active pack.
+    pub fn media_audition_variant(
+        &self,
+        event_id: &str,
+        tier: Option<u8>,
+        variant_id: &str,
+        session_epoch: u64,
+    ) -> Result<(), String> {
+        self.ensure_running()?;
+        if !valid_audition_variant_id(variant_id) {
+            let reason = AuditionRefusal::VariantUnavailable;
+            log_audition_outcome(reason.code());
+            return Err(reason.code().to_owned());
+        }
+        self.request_audition(event_id, tier, session_epoch, Some(variant_id))
             .map_err(|reason| {
                 log_audition_outcome(reason.code());
                 reason.code().to_owned()
@@ -270,6 +291,7 @@ impl CommandApi {
         event_id: &str,
         tier: Option<u8>,
         session_epoch: u64,
+        variant_id: Option<&str>,
     ) -> Result<(), AuditionRefusal> {
         if self.engine.audition_match_active() {
             return Err(AuditionRefusal::MatchActive);
@@ -289,6 +311,7 @@ impl CommandApi {
         let (reply, result) = mpsc::sync_channel(1);
         self.engine.offer_audition(AuditionRequest {
             event,
+            variant_id: variant_id.map(str::to_owned),
             install_id: install_id.to_owned(),
             session_epoch: session_epoch.max(1),
             sequence: AUDITION_SEQUENCE
@@ -348,6 +371,15 @@ impl CommandApi {
             Err(_) => Err("CAPABILITY_UNAVAILABLE".to_owned()),
         }
     }
+}
+
+fn valid_audition_variant_id(value: &str) -> bool {
+    let mut bytes = value.bytes();
+    matches!(bytes.next(), Some(b'a'..=b'z' | b'0'..=b'9'))
+        && value.len() <= 32
+        && bytes.all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'_' | b'-')
+        })
 }
 
 fn audition_preflight(event: Event, bindings: &Value) -> Result<&str, AuditionRefusal> {

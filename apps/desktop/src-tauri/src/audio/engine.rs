@@ -528,13 +528,17 @@ impl Engine {
         }
     }
 
-    fn resolve_audition_clip(&self, event: Event) -> Result<SelectedClip, Outcome> {
-        VariantSelector::first_ready(&self.table, event.id, event.tier).map_err(|failure| {
-            match failure {
-                SelectionFailure::Unmapped => Outcome::Unmapped,
-                SelectionFailure::InvalidMedia => Outcome::InvalidMedia,
+    fn resolve_audition_clip(
+        &self,
+        event: Event,
+        variant_id: Option<&str>,
+    ) -> Result<SelectedClip, SelectionFailure> {
+        match variant_id {
+            Some(variant_id) => {
+                VariantSelector::by_id(&self.table, event.id, event.tier, variant_id)
             }
-        })
+            None => VariantSelector::first_ready(&self.table, event.id, event.tier),
+        }
     }
 
     fn request_playback(&mut self, now_ms: u64, request: Request) -> Option<Decision> {
@@ -562,10 +566,11 @@ impl Engine {
             return Err(AuditionRefusal::MediaStateUnknown);
         }
         let clip = self
-            .resolve_audition_clip(audition.event)
-            .map_err(|outcome| match outcome {
-                Outcome::Unmapped => AuditionRefusal::Unmapped,
-                _ => AuditionRefusal::MediaStateUnknown,
+            .resolve_audition_clip(audition.event, audition.variant_id.as_deref())
+            .map_err(|failure| match failure {
+                SelectionFailure::Unmapped => AuditionRefusal::Unmapped,
+                SelectionFailure::InvalidMedia => AuditionRefusal::MediaStateUnknown,
+                SelectionFailure::VariantUnavailable => AuditionRefusal::VariantUnavailable,
             })?;
         let request = Request {
             instance_id: instance_id(AUDITION_GENERATION, audition.sequence, 0),

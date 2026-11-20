@@ -97,6 +97,7 @@ impl BuildError {
 struct MappingPlan {
     bindings: Vec<MappingBinding>,
     has_variants: bool,
+    has_captions: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -117,6 +118,7 @@ struct MappingVariant {
     visual_tail_ms: u32,
     variant_id: Option<String>,
     clip_id: Option<String>,
+    caption: Option<String>,
     weight: Option<u8>,
 }
 
@@ -328,7 +330,9 @@ pub fn build_package(options: &BuildOptions) -> Result<BuildReport, BuildError> 
         }));
     }
     let taxonomy_version = format!("{}.{}", catalog.taxonomy.major, catalog.taxonomy.minor);
-    let descriptor_schema_version = if mapping_plan.has_variants {
+    let descriptor_schema_version = if mapping_plan.has_captions {
+        "1.4.1"
+    } else if mapping_plan.has_variants {
         "1.4.0"
     } else {
         "1.3.0"
@@ -716,10 +720,13 @@ fn prepare_variant(
         let variant_id = variant
             .variant_id
             .as_ref()
-            .expect("1.4.0 output has assigned variant IDs");
+            .expect("1.4.x output has assigned variant IDs");
         descriptor.insert("variant_id".to_owned(), json!(variant_id));
         if let Some(clip_id) = variant.clip_id.as_ref() {
             descriptor.insert("clip_id".to_owned(), json!(clip_id));
+        }
+        if let Some(caption) = variant.caption.as_ref() {
+            descriptor.insert("caption".to_owned(), json!(caption));
         }
         if let Some(weight) = variant.weight {
             descriptor.insert("weight".to_owned(), json!(weight));
@@ -862,6 +869,7 @@ fn parse_mapping(value: &Value) -> Result<MappingPlan, BuildError> {
     }
     let mut result = Vec::with_capacity(bindings.len());
     let mut has_variants = false;
+    let mut has_captions = false;
     let mut total_variants = 0usize;
     let mut explicit_variant_ids = BTreeSet::new();
     for value in bindings {
@@ -914,6 +922,7 @@ fn parse_mapping(value: &Value) -> Result<MappingPlan, BuildError> {
                         "clip_id",
                         "variant_id",
                         "weight",
+                        "caption",
                     ],
                 )?;
                 let audio = required_string(variant_object, "audio")?;
@@ -961,6 +970,17 @@ fn parse_mapping(value: &Value) -> Result<MappingPlan, BuildError> {
                         "clip_id does not match the descriptor pattern",
                     ));
                 }
+                let caption = optional_string(variant_object, "caption")?;
+                if caption
+                    .as_deref()
+                    .is_some_and(|text| !kohbor_pack::descriptor::caption_is_valid(text))
+                {
+                    return Err(BuildError::new(
+                        1,
+                        "caption must be trimmed single-line text with 1 to 200 Unicode scalar values and no control characters",
+                    ));
+                }
+                has_captions |= caption.is_some();
                 let weight = optional_u32(variant_object, "weight")?;
                 if weight.is_some_and(|value| !(1..=100).contains(&value)) {
                     return Err(BuildError::new(1, "weight must be between 1 and 100"));
@@ -978,6 +998,7 @@ fn parse_mapping(value: &Value) -> Result<MappingPlan, BuildError> {
                     visual_tail_ms,
                     variant_id,
                     clip_id,
+                    caption,
                     weight: weight.map(|weight| weight as u8),
                 });
             }
@@ -1025,6 +1046,7 @@ fn parse_mapping(value: &Value) -> Result<MappingPlan, BuildError> {
                     visual_tail_ms,
                     variant_id: None,
                     clip_id: None,
+                    caption: None,
                     weight: None,
                 }],
             )
@@ -1045,6 +1067,7 @@ fn parse_mapping(value: &Value) -> Result<MappingPlan, BuildError> {
     Ok(MappingPlan {
         bindings: result,
         has_variants,
+        has_captions,
     })
 }
 
@@ -1524,7 +1547,7 @@ fn cli_report_json(report: &BuildReport) -> Value {
         "written": report.written.iter().map(written_report_json).collect::<Vec<_>>(),
         "skipped": report.skipped.iter().map(skipped_report_json).collect::<Vec<_>>(),
     });
-    if report.descriptor_schema_version == "1.4.0" {
+    if matches!(report.descriptor_schema_version.as_str(), "1.4.0" | "1.4.1") {
         output["descriptor_schema_version"] = json!(report.descriptor_schema_version);
     }
     output
@@ -1547,10 +1570,14 @@ v2, ... in listed pack order when omitted. clip_id is optional provenance.
   ]}
 
 Each variant may also contain visual, visual_tail_ms, identity_audio, variant_id,
-and weight. weight is only valid for random selection. Variant mappings produce
-descriptor 1.4.0; mappings without variants keep descriptor 1.3.0.
+weight, clip_id, and an optional caption. weight is only valid for random
+selection. Captions are trimmed single-line plain text of 1 to 200 Unicode
+scalar values without control characters. Authors should supply NFC text.
+Captions produce descriptor 1.4.1; variant mappings without captions keep
+descriptor 1.4.0.
+Mappings without variants keep descriptor 1.3.0.
 
-For 1.4.0 output, the JSON report includes descriptor_schema_version and lists
+For 1.4.x output, the JSON report includes descriptor_schema_version and lists
 one written or skipped record per variant. Records include variant_id and any
 provided clip_id. Written records also include selection and generated media paths.
 "#;

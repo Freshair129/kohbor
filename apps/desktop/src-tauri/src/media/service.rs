@@ -962,7 +962,7 @@ fn active_event_map_json(store: &Store<NoHook>, catalog: &Catalog, table: &Prewa
         })
         .collect::<Vec<_>>();
     json!({
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "active": active,
         "events": events,
     })
@@ -1104,6 +1104,9 @@ fn event_map_row(
             if let Some(clip_id) = variant.clip_id.as_ref() {
                 value["clip_id"] = json!(clip_id);
             }
+            if let Some(caption) = variant.caption.as_ref() {
+                value["caption"] = json!(caption);
+            }
             (bound_tier, None, Value::Array(vec![value]))
         }
         BindingLookup::Variants {
@@ -1128,6 +1131,9 @@ fn event_map_row(
                     });
                     if let Some(clip_id) = resolved_variant.clip_id.as_ref() {
                         value["clip_id"] = json!(clip_id);
+                    }
+                    if let Some(caption) = resolved_variant.caption.as_ref() {
+                        value["caption"] = json!(caption);
                     }
                     Some(value)
                 })
@@ -1405,7 +1411,7 @@ mod tests {
             .handle
             .event_map()
             .expect("event map waits behind successful store open");
-        assert_eq!(event_map["schema_version"], "1.0.0");
+        assert_eq!(event_map["schema_version"], "1.1.0");
         assert!(event_map["events"].is_array());
         let facts = snapshot_facts(&service.facts);
         assert!(facts.store_ok, "successful Store::open publishes store_ok");
@@ -1531,7 +1537,7 @@ mod tests {
         let rows = event_map["events"]
             .as_array()
             .expect("event map exposes an array");
-        assert_eq!(event_map["schema_version"], "1.0.0");
+        assert_eq!(event_map["schema_version"], "1.1.0");
         let mut expected_keys = Vec::new();
         for event in &catalog.events {
             if let Some((first, last)) = event.tier_range {

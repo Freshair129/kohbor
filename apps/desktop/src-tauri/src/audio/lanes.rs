@@ -19,6 +19,7 @@ pub enum AuditionRefusal {
     EventUnavailable,
     NoActivePack,
     Unmapped,
+    VariantUnavailable,
     MediaStateUnknown,
     Busy,
     Muted,
@@ -31,6 +32,7 @@ impl AuditionRefusal {
             Self::EventUnavailable => "AUDITION_EVENT_UNAVAILABLE",
             Self::NoActivePack => "AUDITION_NO_ACTIVE_PACK",
             Self::Unmapped => "AUDITION_UNMAPPED",
+            Self::VariantUnavailable => "AUDITION_VARIANT_UNAVAILABLE",
             Self::MediaStateUnknown => "AUDITION_MEDIA_STATE_UNKNOWN",
             Self::Busy => "AUDITION_BUSY",
             Self::Muted => "AUDITION_MUTED",
@@ -40,6 +42,7 @@ impl AuditionRefusal {
 
 pub struct AuditionRequest {
     pub event: Event,
+    pub variant_id: Option<String>,
     pub install_id: String,
     pub session_epoch: u64,
     pub sequence: u64,

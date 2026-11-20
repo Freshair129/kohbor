@@ -1,4 +1,4 @@
-//! Package descriptor (`descriptor.json`, media-manifest 1.3.0 and 1.4.0): strict
+//! Package descriptor (`descriptor.json`, media-manifest 1.3.0, 1.4.0, and proposed 1.4.1): strict
 //! parsing plus the semantic rules of EVENT-AUDIO-SPEC section 7 and MP-03/MP-05.
 //! Pure: bytes in, a typed descriptor or one specific [`RejectReason`] out.
 
@@ -51,6 +51,8 @@ pub struct Variant {
     pub variant_id: String,
     /// Provenance for local logs only; never an authority or trust claim.
     pub clip_id: Option<String>,
+    /// Optional display-only text. Never used as identity, authority, or audio input.
+    pub caption: Option<String>,
     pub mixed_audio_path: String,
     pub silent_visual_path: Option<String>,
     pub duration_ms: u32,
@@ -93,10 +95,10 @@ pub struct ParsedDescriptor {
 /// Order of checks (the first failure is the reported reason):
 /// 1. size > `limits.descriptor_bytes` -> `EntryTooLarge`; not UTF-8 JSON ->
 ///    `DescriptorSyntax`; duplicate object key anywhere -> `DuplicateJsonKey`.
-/// 2. Shape per media-manifest 1.3.0 or 1.4.0 with
+/// 2. Shape per media-manifest 1.3.0, 1.4.0, or proposed 1.4.1 with
 ///    `additionalProperties: false`: an unknown key -> `UnknownField(key)` (this
 ///    is how a self-declared `trusted_public_key` or authority claim is rejected);
-///    a 1.4.0 variant carrying reserved `when` -> `ConditionsReserved`; invalid
+///    a 1.4.x variant carrying reserved `when` -> `ConditionsReserved`; invalid
 ///    selection, variant IDs, clip IDs, weights or variant counts have specific
 ///    reasons; any other schema violation (type, pattern, range, counts,
 ///    unsupported schema version, missing/null `taxonomy_version`, or a
@@ -146,7 +148,9 @@ pub fn parse_descriptor(
     validate_schema(&value, limits)?;
 
     let root = value.as_object().ok_or_else(|| schema_error(""))?;
-    let legacy_v13 = required_string(root, "schema_version", "/schema_version")? == "1.3.0";
+    let schema_version = required_string(root, "schema_version", "/schema_version")?;
+    let legacy_v13 = schema_version == "1.3.0";
+    let captions_supported = schema_version == "1.4.1";
     let taxonomy_text = required_string(root, "taxonomy_version", "/taxonomy_version")?;
     let taxonomy = TaxonomyVersion::parse(taxonomy_text).ok_or(RejectReason::TaxonomyMalformed)?;
     if taxonomy.major != catalog.taxonomy.major {
@@ -200,7 +204,7 @@ pub fn parse_descriptor(
         };
         let (selection, variants) = if legacy_v13 {
             let variant_id = format!("v{}", index + 1);
-            let variant = parse_variant_fields(object, &pointer, variant_id, None, None)?;
+            let variant = parse_variant_fields(object, &pointer, variant_id, None, None, None)?;
             (None, vec![variant])
         } else {
             let variant_values = object
@@ -242,6 +246,20 @@ pub fn parse_descriptor(
                             .ok_or(RejectReason::ClipIdInvalid)
                     })
                     .transpose()?;
+                let caption = if captions_supported {
+                    variant_object
+                        .get("caption")
+                        .map(|value| {
+                            value
+                                .as_str()
+                                .filter(|text| caption_is_valid(text))
+                                .map(str::to_owned)
+                                .ok_or(RejectReason::CaptionInvalid)
+                        })
+                        .transpose()?
+                } else {
+                    None
+                };
                 let weight = variant_object
                     .get("weight")
                     .map(|value| {
@@ -260,6 +278,7 @@ pub fn parse_descriptor(
                     variant_id,
                     clip_id,
                     weight,
+                    caption,
                 )?);
             }
             (selection, variants)
@@ -397,7 +416,7 @@ fn validate_schema(value: &Value, limits: Limits) -> Result<(), RejectReason> {
         .get("schema_version")
         .and_then(Value::as_str)
         .ok_or_else(|| schema_error("/schema_version"))?;
-    if !matches!(schema_version, "1.3.0" | "1.4.0") {
+    if !matches!(schema_version, "1.3.0" | "1.4.0" | "1.4.1") {
         return Err(schema_error("/schema_version"));
     }
     reject_unknown_keys(
@@ -445,8 +464,7 @@ fn validate_schema(value: &Value, limits: Limits) -> Result<(), RejectReason> {
                                 if variant_object.contains_key("when") {
                                     return Err(RejectReason::ConditionsReserved);
                                 }
-                                reject_unknown_keys(
-                                    variant_object,
+                                let allowed = if schema_version == "1.4.1" {
                                     &[
                                         "variant_id",
                                         "clip_id",
@@ -456,8 +474,21 @@ fn validate_schema(value: &Value, limits: Limits) -> Result<(), RejectReason> {
                                         "visual_tail_ms",
                                         "identity_audio_path",
                                         "weight",
-                                    ],
-                                )?;
+                                        "caption",
+                                    ][..]
+                                } else {
+                                    &[
+                                        "variant_id",
+                                        "clip_id",
+                                        "mixed_audio_path",
+                                        "silent_visual_path",
+                                        "duration_ms",
+                                        "visual_tail_ms",
+                                        "identity_audio_path",
+                                        "weight",
+                                    ][..]
+                                };
+                                reject_unknown_keys(variant_object, allowed)?;
                             }
                         }
                     }
@@ -716,6 +747,7 @@ fn parse_variant_fields(
     variant_id: String,
     clip_id: Option<String>,
     weight: Option<u8>,
+    caption: Option<String>,
 ) -> Result<Variant, RejectReason> {
     let identity_audio_path = object
         .get("identity_audio_path")
@@ -735,6 +767,7 @@ fn parse_variant_fields(
     Ok(Variant {
         variant_id,
         clip_id,
+        caption,
         mixed_audio_path: required_string(
             object,
             "mixed_audio_path",
@@ -908,6 +941,16 @@ fn valid_clip_id(text: &str) -> bool {
         && language.bytes().all(|byte| byte.is_ascii_lowercase())
         && number.len() == 4
         && number.bytes().all(|byte| byte.is_ascii_digit())
+}
+
+/// Captions are trimmed, single-line display text with 1 to 200 Unicode scalar
+/// values. Authors should supply NFC text.
+pub fn caption_is_valid(text: &str) -> bool {
+    text == text.trim()
+        && (1..=200).contains(&text.chars().count())
+        && !text
+            .chars()
+            .any(|character| character.is_control() || matches!(character, '\u{2028}' | '\u{2029}'))
 }
 
 fn check_reference(

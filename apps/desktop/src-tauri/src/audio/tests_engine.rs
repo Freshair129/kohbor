@@ -223,6 +223,14 @@ fn has_end(out: &[EngineOut], reason: &str) -> bool {
 }
 
 fn offer_audition(h: &Harness, id: EventId) -> mpsc::Receiver<Result<(), AuditionRefusal>> {
+    offer_audition_variant(h, id, None)
+}
+
+fn offer_audition_variant(
+    h: &Harness,
+    id: EventId,
+    variant_id: Option<&str>,
+) -> mpsc::Receiver<Result<(), AuditionRefusal>> {
     let (reply, result) = mpsc::sync_channel(1);
     h.tx.offer_audition(AuditionRequest {
         event: Event {
@@ -230,6 +238,7 @@ fn offer_audition(h: &Harness, id: EventId) -> mpsc::Receiver<Result<(), Auditio
             tier: None,
             at_ms: 0,
         },
+        variant_id: variant_id.map(str::to_owned),
         install_id: "ins_0000000007".to_owned(),
         session_epoch: 1,
         sequence: 1,
@@ -829,6 +838,30 @@ fn variant_table(variants: &[(&str, Result<usize, &'static str>)]) -> Arc<Prewar
             }),
         )],
     ))
+}
+
+#[test]
+fn audition_submits_the_exact_requested_variant() {
+    let (sink, log) = FakeSink::new();
+    let mut h = Harness::new(Some(Box::new(sink)), false, 256);
+    assert!(h
+        .tx
+        .control(Control::SwapTable {
+            table: variant_table(&[("first", Ok(4_800)), ("chosen", Ok(9_600))]),
+        })
+        .is_ok());
+    h.engine.step(0);
+    h.drain();
+
+    let audition = offer_audition_variant(&h, EventId::Streak, Some("chosen"));
+    h.engine.step(10);
+
+    assert_eq!(audition.try_recv().unwrap(), Ok(()));
+    assert_eq!(
+        log.lock().unwrap().calls,
+        vec![Call::Submit(PlaybackId(1), 9_600)],
+        "audition submits the samples from the named variant"
+    );
 }
 
 #[test]

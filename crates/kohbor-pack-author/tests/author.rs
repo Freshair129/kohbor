@@ -648,6 +648,62 @@ fn six_variant_mapping_writes_one_shared_copy_and_passes_v14_admission() {
 }
 
 #[test]
+fn variant_caption_round_trips_from_mapping_through_the_descriptor() {
+    let fixture = Fixture::new();
+    let caption = "สวัสดีครับพ่อแม่พี่น้อง e\u{301}";
+    fixture.set_mapping(&[variants_binding(
+        "hero_kill",
+        None,
+        vec![json!({ "audio": "x.wav", "caption": caption })],
+    )]);
+
+    let report = build_package(&fixture.options()).expect("build captioned variant");
+    assert_eq!(report.descriptor_schema_version, "1.4.1");
+    let stage_dir = fixture.temp.0.join("caption-stage");
+    fs::create_dir(&stage_dir).expect("create stage directory");
+    let catalog =
+        Catalog::from_json(&serde_json::from_slice(&catalog_bytes()).expect("parse catalog"))
+            .expect("catalog shape");
+    let staged = stage_package(
+        &report.package_path,
+        &stage_dir,
+        &catalog,
+        &Limits::default(),
+    )
+    .expect("stage captioned package");
+    assert_eq!(
+        staged.parsed.descriptor.bindings[0].variants[0]
+            .caption
+            .as_deref(),
+        Some(caption)
+    );
+    assert_eq!(
+        staged.parsed.descriptor.bindings[0].variants[0].variant_id,
+        "v1"
+    );
+}
+
+#[test]
+fn mapping_rejects_captions_outside_the_descriptor_text_rules() {
+    let fixture = Fixture::new();
+    for caption in [
+        String::new(),
+        "a".repeat(201),
+        " leading".to_owned(),
+        "a\u{7f}b".to_owned(),
+        "a\u{2028}b".to_owned(),
+    ] {
+        fixture.set_mapping(&[variants_binding(
+            "hero_kill",
+            None,
+            vec![json!({ "audio": "x.wav", "caption": caption })],
+        )]);
+        let error = build_package(&fixture.options()).expect_err("invalid caption is refused");
+        assert!(error.message.contains("caption"));
+    }
+}
+
+#[test]
 fn invalid_variant_visual_is_skipped_individually_and_reported_by_variant() {
     let fixture = Fixture::new();
     fs::write(fixture.clips.join("bad.webm"), webm(Some(true))).expect("write invalid video");
