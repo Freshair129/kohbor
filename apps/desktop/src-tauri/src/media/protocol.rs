@@ -20,6 +20,7 @@ pub struct ProtocolRequest {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProtocolResponse {
     pub status: u16,
+    pub reason_code: Option<&'static str>,
     pub headers: Vec<(String, String)>,
     pub body: Vec<u8>,
 }
@@ -87,6 +88,7 @@ pub fn serve(request: &ProtocolRequest, index: &VisualIndex) -> ProtocolResponse
     }
     ProtocolResponse {
         status,
+        reason_code: None,
         headers,
         body,
     }
@@ -253,6 +255,7 @@ fn media_headers() -> Vec<(String, String)> {
 fn not_found() -> ProtocolResponse {
     ProtocolResponse {
         status: 404,
+        reason_code: Some("MEDIA_NOT_FOUND"),
         headers: media_headers(),
         body: NOT_FOUND_BODY.to_vec(),
     }
@@ -263,6 +266,7 @@ fn range_not_satisfiable(total: u64) -> ProtocolResponse {
     headers.push(("Content-Range".to_owned(), format!("bytes */{total}")));
     ProtocolResponse {
         status: 416,
+        reason_code: Some("MEDIA_RANGE_INVALID"),
         headers,
         body: Vec::new(),
     }
@@ -564,6 +568,21 @@ mod tests {
                 expected = Some(response);
             }
         }
+    }
+
+    #[test]
+    fn non_success_protocol_responses_expose_only_a_reason_code() {
+        let fixture = fixture(b"payload");
+        let missing = serve(&request("/invalid"), &fixture.index);
+        assert_eq!(missing.status, 404);
+        assert_eq!(missing.reason_code, Some("MEDIA_NOT_FOUND"));
+
+        let invalid_range = serve(
+            &request_with_range(path_for(INSTALL_ID, TOKEN), "bytes=99-100"),
+            &fixture.index,
+        );
+        assert_eq!(invalid_range.status, 416);
+        assert_eq!(invalid_range.reason_code, Some("MEDIA_RANGE_INVALID"));
     }
 
     #[test]

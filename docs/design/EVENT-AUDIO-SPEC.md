@@ -220,6 +220,10 @@ Detection is recorded as an event ([event.schema.json](../../contracts/event.sch
 | `cooldown` | An episode or global cooldown is active |
 | `muted` | Global mute is on |
 
+### Audition lifecycle result (H5)
+
+`media_audition` returns a caller-visible result with `audio_started`, `audio_ended`, and `audio_end_reason`, plus `visual_status`, `visual_reason`, and `video_error_code`. `visual_status` is `shown` only after the overlay video emits `playing`, `failed` on a video error, unusable visual URL, or five-second start timeout, `none` for an audio-only variant, and `unknown` when the host cannot confirm the expected lifecycle. The host logs the same bounded result as `media/audition_result`; it does not claim that audio was physically heard.
+
 ## 6. Media format and decode checks (MP-03, MP-04, MEDIA-004)
 
 | Asset | Accepted profile | Verified by |

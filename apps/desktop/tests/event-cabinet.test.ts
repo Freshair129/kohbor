@@ -6,87 +6,160 @@ const cabinet = await import("../src/cabinet.ts");
 const copy = await import("../src/copy.ts");
 
 const expectedBindings = catalog.events
-  .filter((event) => event.status === "active" && event.voiced_default === true)
+  .filter((event) => event.status === "active")
   .flatMap((event) => {
     const tiers = event.tier_range
       ? Array.from({ length: event.tier_range.max - event.tier_range.min + 1 }, (_, index) => event.tier_range!.min + index)
       : [null];
-    return tiers.map((tier) => ({
-      event_id: event.id,
-      tier,
-      mapped: event.id === "multi_kill" && tier === 2,
-      duration_ms: event.id === "multi_kill" && tier === 2 ? 1200 : null,
-      has_visual: event.id === "multi_kill" && tier === 2,
-      state: event.id === "multi_kill" && tier === 2 ? "ready" : event.id === "multi_kill" && tier === 3 ? "unmapped" : "unknown",
-    }));
+    return tiers.map((tier) => {
+      const mapped = (event.id === "multi_kill" && tier === 2) || event.id === "first_blood";
+      const notVoiced = event.media_mappable === false || event.voiced_default === false;
+      const detectorUnavailable = ["first_blood", "enemy_missing", "risk_alert", "risk_revision"].includes(event.id);
+      const state = notVoiced
+          ? "not_voiced"
+          : detectorUnavailable
+            ? "detector_unavailable"
+            : mapped
+              ? "ready"
+              : event.id === "multi_kill" && tier === 3
+              ? "unmapped"
+              : "unknown";
+      return {
+        event_id: event.id,
+        tier,
+        state,
+        reason: event.id === "first_blood" ? "EVENT_UNAVAILABLE" : mapped ? "NONE" : notVoiced ? "NOT_VOICED" : detectorUnavailable ? "DETECTOR_UNAVAILABLE" : state === "unmapped" ? "MEDIA_UNMAPPED" : "MEDIA_STATE_UNKNOWN",
+        resolved_from_tier: null,
+        selection: null,
+        variants: mapped ? [{ variant_id: "v1", clip_id: "clip-a", duration_ms: 1200, has_visual: true }] : [],
+      };
+    });
   });
 const snapshot = {
+  schema_version: "1.0.0",
   active: { install_id: "ins_0000000001", package_id: "voice.pack", revision: 2 },
   match_active: false,
-  bindings: expectedBindings,
+  events: expectedBindings,
 };
 
-test("parses catalog cabinet rows without inventing entries and groups tiers by event", () => {
+test("parses the versioned host event map including unavailable and not-voiced catalog rows", () => {
   const parsed = cabinet.parseMediaCabinet(snapshot);
-  assert.deepEqual(parsed, snapshot);
+  assert.ok(parsed);
+  assert.deepEqual(
+    parsed.bindings.map(({ event_id, tier }) => [event_id, tier]),
+    expectedBindings.map(({ event_id, tier }) => [event_id, tier]),
+  );
+  assert.equal(parsed.bindings.find((row) => row.event_id === "first_blood")?.state, "detector_unavailable");
+  assert.equal(parsed.bindings.find((row) => row.event_id === "hero_respawn")?.state, "not_voiced");
+  assert.equal(parsed.bindings.some((row) => row.event_id === "latency_probe"), false);
   const groups = cabinet.groupCabinetBindings(parsed.bindings);
-  assert.deepEqual(groups.find((group) => group.eventId === "multi_kill")?.bindings.slice(0, 2), [
-    snapshot.bindings[0], snapshot.bindings[1],
-  ]);
-  assert.equal(groups.length, catalog.events.filter((event) => event.status === "active" && event.voiced_default === true).length);
-  assert.equal(cabinet.cabinetSummary(parsed), null, "unknown clip state keeps the summary unknown");
-  const known = cabinet.parseMediaCabinet({
-    ...snapshot,
-    bindings: snapshot.bindings.map((binding) => binding.state === "unknown"
-      ? { ...binding, state: "unmapped" as const }
-      : binding),
-  });
-  assert.ok(known);
-  assert.deepEqual(cabinet.cabinetSummary(known), { mapped: 1, total: expectedBindings.length });
-  assert.equal(cabinet.cabinetMatchesPack(parsed, snapshot.active), true);
-  assert.equal(cabinet.cabinetMatchesPack(parsed, null), false);
-  assert.equal(cabinet.cabinetMatchesPack(parsed, { install_id: "ins_0000000002", revision: 2 }), false);
+  assert.equal(groups.length, catalog.events.filter((event) => event.status === "active").length);
+  assert.equal(groups.find((group) => group.eventId === "multi_kill")?.bindings[0].variants[0].duration_ms, 1200);
+  assert.equal(cabinet.cabinetSummary(parsed), null, "an unknown row keeps the summary unknown");
 });
 
-test("malformed or duplicate media state is unknown instead of a partial cabinet", () => {
+test("a missing, malformed, duplicate, or unexpected row degrades only that row to unknown", () => {
+  const missingFirstBlood = cabinet.parseMediaCabinet({
+    ...snapshot,
+    events: snapshot.events.filter((row) => row.event_id !== "first_blood"),
+  });
+  assert.ok(missingFirstBlood);
+  assert.equal(missingFirstBlood.bindings.find((row) => row.event_id === "first_blood")?.state, "unknown");
+  assert.equal(missingFirstBlood.bindings.find((row) => row.event_id === "hero_respawn")?.state, "not_voiced");
+  assert.equal(missingFirstBlood.bindings.find((row) => row.event_id === "multi_kill" && row.tier === 2)?.state, "ready");
+
+  const duplicate = snapshot.events.find((row) => row.event_id === "multi_kill" && row.tier === 2)!;
+  const duplicated = cabinet.parseMediaCabinet({ ...snapshot, events: [...snapshot.events, duplicate] });
+  assert.ok(duplicated);
+  assert.equal(duplicated.bindings.find((row) => row.event_id === "multi_kill" && row.tier === 2)?.state, "unknown");
+  assert.equal(duplicated.bindings.find((row) => row.event_id === "multi_kill" && row.tier === 3)?.state, "unmapped");
+
+  const malformed = cabinet.parseMediaCabinet({
+    ...snapshot,
+    events: snapshot.events.map((row) => row.event_id === "multi_kill" && row.tier === 2
+      ? { ...row, variants: [{ variant_id: "v1", duration_ms: -1, has_visual: true }] }
+      : row),
+  });
+  assert.ok(malformed);
+  assert.equal(malformed.bindings.find((row) => row.event_id === "multi_kill" && row.tier === 2)?.state, "unknown");
+  assert.equal(malformed.bindings.find((row) => row.event_id === "hero_respawn")?.state, "not_voiced");
+
+  const unexpected = cabinet.parseMediaCabinet({
+    ...snapshot,
+    events: [...snapshot.events, {
+      event_id: "future_event",
+      tier: null,
+      state: "ready",
+      reason: "NONE",
+      resolved_from_tier: null,
+      selection: null,
+      variants: [],
+    }],
+  });
+  assert.ok(unexpected);
+  assert.equal(unexpected.bindings.find((row) => row.event_id === "future_event")?.state, "unknown");
+  assert.equal(unexpected.bindings.find((row) => row.event_id === "multi_kill" && row.tier === 2)?.state, "ready");
+});
+
+test("malformed top-level state remains unreadable without discarding row-local recovery", () => {
   assert.equal(cabinet.parseMediaCabinet(null), null);
+  assert.equal(cabinet.parseMediaCabinet({ ...snapshot, schema_version: "2.0.0" }), null);
   assert.equal(cabinet.parseMediaCabinet({ ...snapshot, extra: true }), null);
   assert.equal(cabinet.parseMediaCabinet({ ...snapshot, match_active: "yes" }), null);
-  assert.equal(cabinet.parseMediaCabinet({ ...snapshot, bindings: [snapshot.bindings[0], snapshot.bindings[0]] }), null);
-  assert.equal(cabinet.parseMediaCabinet({ ...snapshot, bindings: snapshot.bindings.slice(1) }), null);
-  assert.equal(cabinet.parseMediaCabinet({
-    ...snapshot,
-    bindings: [{ ...snapshot.bindings[0], mapped: false }],
-  }), null);
 });
 
-test("no active pack remains explicit and blocks every audition", () => {
+test("no active pack keeps detector and voice facts while blocking audition", () => {
   const parsed = cabinet.parseMediaCabinet({
+    ...snapshot,
     active: null,
-    match_active: false,
-    bindings: expectedBindings.map((binding) => ({ ...binding, mapped: false, duration_ms: null, has_visual: false, state: "unknown" })),
   });
   assert.ok(parsed);
   assert.equal(parsed.active, null);
+  assert.equal(parsed.bindings.find((row) => row.event_id === "multi_kill" && row.tier === 2)?.state, "unknown");
+  assert.equal(parsed.bindings.find((row) => row.event_id === "hero_respawn")?.state, "not_voiced");
   assert.equal(cabinet.cabinetPlayBlock(parsed, parsed.bindings[0], false, false), "AUDITION_NO_ACTIVE_PACK");
 });
 
-test("audition is disabled through postgame and becomes available in the menu", () => {
+test("audition remains disabled through postgame and allows an unavailable detector preview", () => {
   const parsed = cabinet.parseMediaCabinet(snapshot);
   assert.ok(parsed);
+  const ready = parsed.bindings.find((row) => row.event_id === "multi_kill" && row.tier === 2)!;
   for (const phase of ["draft", "pregame", "live", "post_game"] as const) {
     assert.equal(
-      cabinet.cabinetPlayBlock(parsed, parsed.bindings[0], false, false, cabinet.cabinetPhaseBlocksAudition(phase)),
+      cabinet.cabinetPlayBlock(parsed, ready, false, false, cabinet.cabinetPhaseBlocksAudition(phase)),
       "AUDITION_MATCH_ACTIVE",
       phase,
     );
   }
   for (const phase of ["none", null] as const) {
     assert.equal(
-      cabinet.cabinetPlayBlock(parsed, parsed.bindings[0], false, false, cabinet.cabinetPhaseBlocksAudition(phase)),
+      cabinet.cabinetPlayBlock(parsed, ready, false, false, cabinet.cabinetPhaseBlocksAudition(phase)),
       null,
     );
   }
+  const firstBlood = parsed.bindings.find((row) => row.event_id === "first_blood")!;
+  assert.equal(cabinet.cabinetPlayBlock(parsed, firstBlood, false, false), null, "a mapped unavailable detector may be auditioned");
+  assert.equal(
+    cabinet.cabinetPlayBlock(parsed, { ...firstBlood, variants: [] }, false, false),
+    "AUDITION_EVENT_UNAVAILABLE",
+    "without an auditionable variant the unavailable event has a specific refusal",
+  );
+});
+
+test("match, missing host, unknown, invalid, unmapped, and busy playback have distinct refusal codes", () => {
+  const parsed = cabinet.parseMediaCabinet(snapshot);
+  assert.ok(parsed);
+  const ready = parsed.bindings.find((row) => row.event_id === "multi_kill" && row.tier === 2)!;
+  const unknown = parsed.bindings.find((row) => row.event_id === "multi_kill" && row.tier === 4)!;
+  const unmapped = parsed.bindings.find((row) => row.event_id === "multi_kill" && row.tier === 3)!;
+  const invalid = { ...ready, state: "invalid_media" as const, variants: [] };
+  assert.equal(cabinet.cabinetPlayBlock({ ...parsed, match_active: true }, ready, false, false), "AUDITION_MATCH_ACTIVE");
+  assert.equal(cabinet.cabinetPlayBlock(parsed, ready, false, false, true), "AUDITION_MATCH_ACTIVE");
+  assert.equal(cabinet.cabinetPlayBlock(parsed, unknown, false, false), "AUDITION_MEDIA_STATE_UNKNOWN");
+  assert.equal(cabinet.cabinetPlayBlock(parsed, unmapped, false, false), "AUDITION_UNMAPPED");
+  assert.equal(cabinet.cabinetPlayBlock(parsed, invalid, false, false), "AUDITION_MEDIA_INVALID");
+  assert.equal(cabinet.cabinetPlayBlock(parsed, ready, true, false), "CAPABILITY_UNAVAILABLE");
+  assert.equal(cabinet.cabinetPlayBlock(parsed, ready, false, true), "AUDITION_BUSY");
 });
 
 test("obsolete cabinet refreshes cannot overwrite a newer snapshot or error", async () => {
@@ -106,19 +179,8 @@ test("obsolete cabinet refreshes cannot overwrite a newer snapshot or error", as
   oldFailure.reject(new Error("old request"));
   await Promise.allSettled([oldSuccess.promise, oldFailure.promise]);
 
-  assert.deepEqual(commits, [{ state: "ok", cabinet: snapshot }]);
+  assert.deepEqual(commits, [{ state: "ok", cabinet: cabinet.parseMediaCabinet(snapshot) }]);
   dispose();
-});
-
-test("match, missing host, stale media, unmapped clips and busy playback have distinct refusal codes", () => {
-  const parsed = cabinet.parseMediaCabinet(snapshot);
-  assert.ok(parsed);
-  assert.equal(cabinet.cabinetPlayBlock({ ...parsed, match_active: true }, parsed.bindings[0], false, false), "AUDITION_MATCH_ACTIVE");
-  assert.equal(cabinet.cabinetPlayBlock(parsed, parsed.bindings[0], false, false, true), "AUDITION_MATCH_ACTIVE");
-  assert.equal(cabinet.cabinetPlayBlock(parsed, parsed.bindings[2], false, false), "AUDITION_MEDIA_STATE_UNKNOWN");
-  assert.equal(cabinet.cabinetPlayBlock(parsed, parsed.bindings[1], false, false), "AUDITION_UNMAPPED");
-  assert.equal(cabinet.cabinetPlayBlock(parsed, parsed.bindings[0], true, false), "CAPABILITY_UNAVAILABLE");
-  assert.equal(cabinet.cabinetPlayBlock(parsed, parsed.bindings[0], false, true), "AUDITION_BUSY");
 });
 
 test("refusal reasons are presented in Thai and English", () => {

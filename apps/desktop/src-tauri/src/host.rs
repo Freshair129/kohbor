@@ -55,6 +55,7 @@ pub trait MediaJobs: Send + Sync {
     fn active_bindings(&self) -> Result<Value, String> {
         Err("CAPABILITY_UNAVAILABLE".to_owned())
     }
+    fn event_map(&self) -> Result<Value, String>;
     fn probe_report(
         &self,
         install_id: &str,
@@ -90,6 +91,10 @@ impl MediaJobs for MediaHandle {
 
     fn active_bindings(&self) -> Result<Value, String> {
         MediaHandle::active_bindings(self)
+    }
+
+    fn event_map(&self) -> Result<Value, String> {
+        MediaHandle::event_map(self)
     }
 
     fn probe_report(
@@ -223,6 +228,25 @@ impl CommandApi {
             Value::Bool(self.engine.audition_match_active() || media_match_active),
         );
         Ok(cabinet)
+    }
+
+    /// Versioned event map for the cabinet renderer; the legacy cabinet shape
+    /// remains available until the P1 page removes it.
+    pub fn media_event_map(&self) -> Result<Value, String> {
+        self.ensure_running()?;
+        let mut event_map = self.media.event_map()?;
+        let object = event_map
+            .as_object_mut()
+            .ok_or_else(|| "MEDIA_INVALID".to_owned())?;
+        let media_match_active = object
+            .remove("media_match_active")
+            .and_then(|value| value.as_bool())
+            .ok_or_else(|| "MEDIA_STATE_UNKNOWN".to_owned())?;
+        object.insert(
+            "match_active".to_owned(),
+            Value::Bool(self.engine.audition_match_active() || media_match_active),
+        );
+        Ok(event_map)
     }
 
     /// Audition one admitted pack clip through the existing engine and audio owner.
@@ -518,6 +542,7 @@ fn stop_protocol(protocol: &Mutex<Option<ProtocolServer>>) {
 fn unavailable_protocol_response() -> ProtocolResponse {
     ProtocolResponse {
         status: 503,
+        reason_code: Some("MEDIA_SERVICE_UNAVAILABLE"),
         headers: vec![("Cache-Control".to_owned(), "no-store".to_owned())],
         body: b"Service Unavailable".to_vec(),
     }
@@ -927,6 +952,9 @@ mod tests {
         fn active_bindings(&self) -> Result<Value, String> {
             self.calls.fetch_add(1, Ordering::Relaxed);
             self.bindings.clone()
+        }
+        fn event_map(&self) -> Result<Value, String> {
+            Err("CAPABILITY_UNAVAILABLE".to_owned())
         }
         fn probe_report(
             &self,

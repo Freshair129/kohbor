@@ -95,6 +95,11 @@ impl MediaHandle {
         self.request(JobKind::ActiveBindings)
     }
 
+    /// Versioned host-owned event and tier map for the current active revision.
+    pub fn event_map(&self) -> Result<Value, String> {
+        self.request(JobKind::EventMap)
+    }
+
     pub fn probe_report(
         &self,
         install_id: &str,
@@ -225,6 +230,7 @@ enum JobKind {
     },
     List,
     ActiveBindings,
+    EventMap,
     ProbeReport {
         install_id: String,
         revision: u64,
@@ -446,6 +452,15 @@ impl ServiceState {
                 let mut bindings = active_bindings_json(store, &self.config.catalog, &self.table);
                 bindings["media_match_active"] = json!((self.config.match_active)());
                 Ok(bindings)
+            }
+            JobKind::EventMap => {
+                let store = self
+                    .store
+                    .as_ref()
+                    .ok_or_else(|| "MEDIA_INVALID".to_owned())?;
+                let mut event_map = active_event_map_json(store, &self.config.catalog, &self.table);
+                event_map["media_match_active"] = json!((self.config.match_active)());
+                Ok(event_map)
             }
             JobKind::Inspect(_)
             | JobKind::ProbeReport { .. }
@@ -912,6 +927,257 @@ fn active_bindings_json(store: &Store<NoHook>, catalog: &Catalog, table: &Prewar
     json!({"active": active, "bindings": bindings})
 }
 
+/// One host-owned row for every active catalog event and each of its declared tiers.
+/// Test-only catalog entries are excluded by `Catalog::from_json`; no renderer-side
+/// catalog comparison is needed to decide which rows exist.
+fn active_event_map_json(store: &Store<NoHook>, catalog: &Catalog, table: &PrewarmTable) -> Value {
+    let active_revision = store.active();
+    let active = active_revision.as_ref().map(|active| {
+        json!({
+            "install_id": active.install_id,
+            "package_id": active.package_id,
+            "revision": active.revision,
+        })
+    });
+    let table_matches_active = active_revision
+        .as_ref()
+        .is_some_and(|active| table.install_id.as_deref() == Some(active.install_id.as_str()));
+    let events = catalog
+        .events
+        .iter()
+        .flat_map(|event| {
+            let tiers: Vec<Option<u8>> = event
+                .tier_range
+                .map(|(minimum, maximum)| {
+                    (minimum..=maximum)
+                        .filter_map(|tier| u8::try_from(tier).ok())
+                        .map(Some)
+                        .collect()
+                })
+                .unwrap_or_else(|| vec![None]);
+            tiers
+                .into_iter()
+                .map(|tier| event_map_row(event, tier, store, table, table_matches_active))
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    json!({
+        "schema_version": "1.0.0",
+        "active": active,
+        "events": events,
+    })
+}
+
+fn event_map_row(
+    event: &kohbor_pack::catalog::CatalogEvent,
+    tier: Option<u8>,
+    store: &Store<NoHook>,
+    table: &PrewarmTable,
+    table_matches_active: bool,
+) -> Value {
+    let detector = crate::media::inventory::ALL_EVENTS
+        .iter()
+        .copied()
+        .find(|candidate| candidate.as_str() == event.id.as_str());
+    let tier_json = tier.map(u32::from);
+    let empty_variants = || Value::Array(Vec::new());
+    let row = |state: &str,
+               reason: &str,
+               resolved_from_tier: Option<u8>,
+               selection: Option<&str>,
+               variants: Value| {
+        json!({
+            "event_id": event.id.as_str(),
+            "tier": tier_json,
+            "state": state,
+            "reason": reason,
+            "resolved_from_tier": resolved_from_tier,
+            "selection": selection,
+            "variants": variants,
+        })
+    };
+
+    if !event.media_mappable || detector.is_some_and(|id| !id.voiced()) {
+        return row("not_voiced", "NOT_VOICED", None, None, empty_variants());
+    }
+    let Some(id) = detector else {
+        return row(
+            "detector_unavailable",
+            "DETECTOR_UNAVAILABLE",
+            None,
+            None,
+            empty_variants(),
+        );
+    };
+    let detector_unavailable = crate::intake::EVENT_UNAVAILABLE.contains(&id);
+    let unavailable_reason = if detector_unavailable {
+        "EVENT_UNAVAILABLE"
+    } else {
+        "DETECTOR_UNAVAILABLE"
+    };
+    if detector_unavailable && (store.active().is_none() || !table_matches_active) {
+        return row(
+            "detector_unavailable",
+            unavailable_reason,
+            None,
+            None,
+            empty_variants(),
+        );
+    }
+    if store.active().is_none() || !table_matches_active {
+        return row(
+            "unknown",
+            "MEDIA_STATE_UNKNOWN",
+            None,
+            None,
+            empty_variants(),
+        );
+    }
+
+    let (bound_tier, selection, variants) = match table.lookup_binding(id, tier) {
+        BindingLookup::Unmapped => {
+            return if detector_unavailable {
+                row(
+                    "detector_unavailable",
+                    unavailable_reason,
+                    None,
+                    None,
+                    empty_variants(),
+                )
+            } else {
+                row("unmapped", "MEDIA_UNMAPPED", None, None, empty_variants())
+            };
+        }
+        BindingLookup::Invalid => {
+            return if detector_unavailable {
+                row(
+                    "detector_unavailable",
+                    unavailable_reason,
+                    None,
+                    None,
+                    empty_variants(),
+                )
+            } else {
+                row(
+                    "invalid_media",
+                    "MEDIA_INVALID",
+                    None,
+                    None,
+                    empty_variants(),
+                )
+            };
+        }
+        BindingLookup::Ready { bound_tier, clip } => {
+            let resolved_v1 = store
+                .resolve_variants(event.id.as_str(), bound_tier.map(u32::from))
+                .ok()
+                .and_then(|resolved| {
+                    resolved
+                        .into_iter()
+                        .find(|variant| variant.variant_id == "v1" && variant.media.is_ok())
+                });
+            if resolved_v1.is_none() {
+                return if detector_unavailable {
+                    row(
+                        "detector_unavailable",
+                        unavailable_reason,
+                        None,
+                        None,
+                        empty_variants(),
+                    )
+                } else {
+                    row(
+                        "invalid_media",
+                        "MEDIA_INVALID",
+                        None,
+                        None,
+                        empty_variants(),
+                    )
+                };
+            }
+            let variant = resolved_v1.expect("resolved v1 checked above");
+            let mut value = json!({
+                "variant_id": variant.variant_id.as_str(),
+                "duration_ms": clip.audio_ms,
+                "has_visual": clip.visual_url.is_some(),
+            });
+            if let Some(clip_id) = variant.clip_id.as_ref() {
+                value["clip_id"] = json!(clip_id);
+            }
+            (bound_tier, None, Value::Array(vec![value]))
+        }
+        BindingLookup::Variants {
+            bound_tier,
+            binding,
+        } => {
+            let resolved = store
+                .resolve_variants(event.id.as_str(), bound_tier.map(u32::from))
+                .unwrap_or_default();
+            let variants = binding
+                .variants
+                .iter()
+                .filter_map(|candidate| {
+                    let clip = candidate.media.as_ref().ok()?;
+                    let resolved_variant = resolved.iter().find(|variant| {
+                        variant.variant_id == candidate.variant_id && variant.media.is_ok()
+                    })?;
+                    let mut value = json!({
+                        "variant_id": candidate.variant_id.as_str(),
+                        "duration_ms": clip.audio_ms,
+                        "has_visual": clip.visual_url.is_some(),
+                    });
+                    if let Some(clip_id) = resolved_variant.clip_id.as_ref() {
+                        value["clip_id"] = json!(clip_id);
+                    }
+                    Some(value)
+                })
+                .collect::<Vec<_>>();
+            if variants.is_empty() {
+                return if detector_unavailable {
+                    row(
+                        "detector_unavailable",
+                        unavailable_reason,
+                        None,
+                        None,
+                        empty_variants(),
+                    )
+                } else {
+                    row(
+                        "invalid_media",
+                        "MEDIA_INVALID",
+                        None,
+                        None,
+                        empty_variants(),
+                    )
+                };
+            }
+            (
+                bound_tier,
+                binding.selection.map(|selection| selection.as_str()),
+                Value::Array(variants),
+            )
+        }
+    };
+
+    if detector_unavailable {
+        return row(
+            "detector_unavailable",
+            unavailable_reason,
+            None,
+            selection,
+            variants,
+        );
+    }
+    let inherited = bound_tier != tier;
+    row(
+        if inherited { "inherited" } else { "ready" },
+        if inherited { "TIER_FALLBACK" } else { "NONE" },
+        if inherited { bound_tier } else { None },
+        selection,
+        variants,
+    )
+}
+
 fn list_json(store: &Store<NoHook>) -> Value {
     let active = store.active().map(|active| {
         json!({
@@ -950,7 +1216,7 @@ mod tests {
     use std::thread::{self, JoinHandle};
     use std::time::Duration;
 
-    use kohbor_pack::store::ActivationPolicy;
+    use kohbor_pack::store::{ActivationPolicy, Store};
     use serde_json::{json, Value};
     use sha2::{Digest, Sha256};
 
@@ -1135,6 +1401,12 @@ mod tests {
             listing["active"].is_null(),
             "new store has no active revision"
         );
+        let event_map = service
+            .handle
+            .event_map()
+            .expect("event map waits behind successful store open");
+        assert_eq!(event_map["schema_version"], "1.0.0");
+        assert!(event_map["events"].is_array());
         let facts = snapshot_facts(&service.facts);
         assert!(facts.store_ok, "successful Store::open publishes store_ok");
         assert_eq!(
@@ -1243,6 +1515,62 @@ mod tests {
             "missing source cannot be inspected"
         );
         finish(service);
+    }
+
+    #[test]
+    fn event_map_has_unavailable_and_not_voiced_catalog_rows() {
+        let temp = TempDir::new("event-map-catalog-rows");
+        let catalog = catalog();
+        let store = Store::open(
+            &temp.path().join("store"),
+            catalog.clone(),
+            kohbor_pack::Limits::default(),
+        )
+        .expect("open empty media store");
+        let event_map = super::active_event_map_json(&store, &catalog, &PrewarmTable::empty());
+        let rows = event_map["events"]
+            .as_array()
+            .expect("event map exposes an array");
+        assert_eq!(event_map["schema_version"], "1.0.0");
+        let mut expected_keys = Vec::new();
+        for event in &catalog.events {
+            if let Some((first, last)) = event.tier_range {
+                expected_keys.extend((first..=last).map(|tier| (event.id.as_str(), json!(tier))));
+            } else {
+                expected_keys.push((event.id.as_str(), Value::Null));
+            }
+        }
+        let actual_keys: Vec<_> = rows
+            .iter()
+            .map(|row| {
+                let id = row["event_id"].as_str().expect("row has an event ID");
+                let tier = row.get("tier").expect("row has a nullable tier");
+                (id, tier.clone())
+            })
+            .collect();
+        assert_eq!(actual_keys, expected_keys, "one row per active catalog key");
+
+        let row = |event_id: &str, tier: Option<u64>| {
+            rows.iter().find(|row| {
+                row["event_id"] == event_id
+                    && row["tier"].as_u64() == tier
+                    && (tier.is_some() || row["tier"].is_null())
+            })
+        };
+        let first_blood = row("first_blood", None).expect("unavailable event is listed");
+        assert_eq!(first_blood["state"], "detector_unavailable");
+        assert_eq!(first_blood["reason"], "EVENT_UNAVAILABLE");
+        assert_eq!(first_blood["variants"], json!([]));
+
+        let respawn = row("hero_respawn", None).expect("not-voiced event is listed");
+        assert_eq!(respawn["state"], "not_voiced");
+        assert_eq!(respawn["reason"], "NOT_VOICED");
+        assert_eq!(respawn["variants"], json!([]));
+
+        assert!(
+            row("latency_probe", None).is_none(),
+            "test-only events stay out of the production map"
+        );
     }
 
     #[test]

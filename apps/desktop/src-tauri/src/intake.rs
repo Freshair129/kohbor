@@ -33,6 +33,7 @@ const OTHER_CONFIG_MAX_BYTES: u64 = 65_536;
 const INTAKE_READ_TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_STORED_EVENTS: usize = 64;
 const MAX_SAFE_INTEGER_MS: u64 = 9_007_199_254_740_991;
+const AUTH_REJECT_LOG_WINDOW: Duration = Duration::from_secs(60);
 
 /// EVENT-AUDIO-SPEC E-1: the positive first-blood-by-self case is not captured yet.
 /// Remove this entry when that assumption closes.
@@ -69,6 +70,7 @@ pub struct Shared {
     pub generation: u64,
     sequence: u64,
     last_admitted: Option<(Instant, Outcome)>,
+    auth_reject_log: AuthRejectLogLimiter,
     last_loadout: OwnLoadout,
     sessions: SessionTracker,
     detector: Detector,
@@ -86,6 +88,36 @@ pub struct Shared {
     engine: Option<EngineTx>,
     data_dir: PathBuf,
     window: (Instant, u32),
+}
+
+#[derive(Default)]
+struct AuthRejectLogLimiter {
+    last_emitted: Option<Instant>,
+    suppressed: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AuthRejectLogAction {
+    First,
+    Suppressed,
+    Summary { count: u64 },
+}
+
+impl AuthRejectLogLimiter {
+    fn observe(&mut self, now: Instant) -> AuthRejectLogAction {
+        let Some(last_emitted) = self.last_emitted else {
+            self.last_emitted = Some(now);
+            return AuthRejectLogAction::First;
+        };
+        self.suppressed = self.suppressed.saturating_add(1);
+        if now.saturating_duration_since(last_emitted) < AUTH_REJECT_LOG_WINDOW {
+            return AuthRejectLogAction::Suppressed;
+        }
+        let count = self.suppressed;
+        self.suppressed = 0;
+        self.last_emitted = Some(now);
+        AuthRejectLogAction::Summary { count }
+    }
 }
 
 pub type Handle = Arc<Mutex<Shared>>;
@@ -386,6 +418,7 @@ impl Shared {
             generation,
             sequence: 0,
             last_admitted: None,
+            auth_reject_log: AuthRejectLogLimiter::default(),
             last_loadout: OwnLoadout::unknown(),
             sessions,
             detector: Detector::with_config(crate::lab::current_config()),
@@ -567,12 +600,23 @@ impl Shared {
         };
         let presented = body.pointer("/auth/token").and_then(Value::as_str);
         if !presented.is_some_and(|t| token_matches(&token, t)) {
-            crate::log_warn!(
-                "gsi",
-                "request_rejected",
-                "GSI request rejected",
-                code = "GSI_AUTH_REJECTED"
-            );
+            match self.auth_reject_log.observe(arrival) {
+                AuthRejectLogAction::First => crate::log_warn!(
+                    "gsi",
+                    "request_rejected",
+                    "GSI request rejected",
+                    code = "GSI_AUTH_REJECTED"
+                ),
+                AuthRejectLogAction::Suppressed => {}
+                AuthRejectLogAction::Summary { count } => crate::log_info!(
+                    "gsi",
+                    "request_rejected_summary",
+                    "GSI auth rejections suppressed during the last 60 seconds",
+                    code = "GSI_AUTH_REJECTED",
+                    count = count,
+                    window_ms = 60_000
+                ),
+            }
             return 401;
         }
         if !self.rate_ok() {
@@ -1088,6 +1132,33 @@ mod tests {
     use super::*;
     use std::io::{BufRead, BufReader, Write};
     use std::sync::atomic::{AtomicU32, Ordering};
+
+    #[test]
+    fn auth_rejection_logging_emits_first_then_one_sixty_second_summary() {
+        let start = Instant::now();
+        let mut limiter = AuthRejectLogLimiter::default();
+        assert_eq!(limiter.observe(start), AuthRejectLogAction::First);
+        assert_eq!(
+            limiter.observe(start + Duration::from_secs(1)),
+            AuthRejectLogAction::Suppressed
+        );
+        assert_eq!(
+            limiter.observe(start + Duration::from_secs(59)),
+            AuthRejectLogAction::Suppressed
+        );
+        assert_eq!(
+            limiter.observe(start + Duration::from_secs(60)),
+            AuthRejectLogAction::Summary { count: 3 }
+        );
+        assert_eq!(
+            limiter.observe(start + Duration::from_secs(61)),
+            AuthRejectLogAction::Suppressed
+        );
+        assert_eq!(
+            limiter.observe(start + Duration::from_secs(120)),
+            AuthRejectLogAction::Summary { count: 2 }
+        );
+    }
 
     const ACCOUNT: u32 = 12_345;
 

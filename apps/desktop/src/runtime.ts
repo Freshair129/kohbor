@@ -40,6 +40,18 @@ export function emitOverlayVisibility(visible: boolean): Promise<void> {
   return hostAvailable() ? emit("overlay://visible", { visible }) : Promise.resolve();
 }
 
+export function emitOverlayVideoDiagnostic(payload: {
+  playback_id: string;
+  event_type: string | null;
+  outcome: "started" | "failed";
+  error_code: number | null;
+  reason_code: "NONE" | "VIDEO_ERROR" | "VIDEO_URL_UNAVAILABLE" | "VIDEO_START_TIMEOUT";
+}): Promise<void> {
+  return hostAvailable()
+    ? emit("overlay://video-diagnostic", payload).catch(() => {})
+    : Promise.resolve();
+}
+
 export function reportMediaProbe(report: MediaProbeReport): Promise<{ accepted: boolean } | null> {
   if (typeof window === "undefined" || !("__TAURI_INTERNALS__" in window)) return Promise.resolve(null);
   return invoke<{ accepted: boolean }>("media_probe_report", probeReportArgs(report));
@@ -103,9 +115,23 @@ export function mediaCabinet(): Promise<unknown> {
   return invoke<unknown>("media_cabinet");
 }
 
-export function mediaAudition(eventId: string, tier: number | null): Promise<void> {
+export function mediaEventMap(): Promise<unknown> {
   if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
-  return invoke<void>("media_audition", { eventId, tier });
+  return invoke<unknown>("media_event_map");
+}
+
+export interface MediaAuditionResult {
+  audio_started: boolean;
+  audio_ended: boolean;
+  audio_end_reason: string | null;
+  visual_status: "shown" | "failed" | "none" | "unknown";
+  visual_reason: string | null;
+  video_error_code: number | null;
+}
+
+export function mediaAudition(eventId: string, tier: number | null): Promise<MediaAuditionResult> {
+  if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
+  return invoke<MediaAuditionResult>("media_audition", { eventId, tier });
 }
 
 export function subscribeAuditionMatch(onActive: (active: boolean) => void): Promise<() => void> {
