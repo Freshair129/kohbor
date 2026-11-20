@@ -162,9 +162,9 @@ fn catalog_bytes() -> Vec<u8> {
     serde_json::to_vec(&json!({
         "taxonomy_version": "1.1",
         "events": [
-            {"id":"first_blood","status":"active","media_mappable":true},
-            {"id":"hero_kill","status":"active","media_mappable":true},
-            {"id":"multi_kill","status":"active","media_mappable":true,"tier_range":{"min":2,"max":5}}
+            {"id":"first_blood","status":"active","media_mappable":true,"critical_media_required":false},
+            {"id":"hero_kill","status":"active","media_mappable":true,"critical_media_required":false},
+            {"id":"multi_kill","status":"active","media_mappable":true,"critical_media_required":false,"tier_range":{"min":2,"max":5}}
         ]
     }))
     .unwrap()
@@ -218,10 +218,9 @@ fn audio_only_build_round_trips_deterministically_and_records_null_visual() {
 
     let staged = stage_reported_package(&first.package_path, &fixture.temp.0);
     assert_eq!(staged.parsed.descriptor.bindings.len(), 1);
-    assert_eq!(
-        staged.parsed.descriptor.bindings[0].silent_visual_path,
-        None
-    );
+    let staged_binding = &staged.parsed.descriptor.bindings[0];
+    assert_eq!(staged_binding.variants.len(), 1);
+    assert_eq!(staged_binding.variants[0].silent_visual_path, None);
     assert!(staged
         .files
         .iter()
@@ -268,10 +267,9 @@ fn invalid_given_visual_is_skipped_without_downgrading_and_tail_requires_visual(
         .contains("visual failed silent WebM inspection"));
     let staged = stage_reported_package(&report.package_path, &fixture.temp.0);
     assert_eq!(staged.parsed.descriptor.bindings.len(), 1);
-    assert_eq!(
-        staged.parsed.descriptor.bindings[0].silent_visual_path,
-        None
-    );
+    let staged_binding = &staged.parsed.descriptor.bindings[0];
+    assert_eq!(staged_binding.variants.len(), 1);
+    assert_eq!(staged_binding.variants[0].silent_visual_path, None);
 
     let tail_output = fixture.temp.0.join("tail-output");
     fixture.set_mapping(&[
@@ -299,10 +297,10 @@ fn binary_builds_audio_only_mapping_and_stages_output() {
     assert_eq!(report["written"][0]["visual"], Value::Null);
     let package_path = fixture.output.join("audio-only-pack-r1.zip");
     let staged = stage_reported_package(&package_path, &fixture.temp.0);
-    assert_eq!(
-        staged.parsed.descriptor.bindings[0].silent_visual_path,
-        None
-    );
+    assert_eq!(staged.parsed.descriptor.bindings.len(), 1);
+    let staged_binding = &staged.parsed.descriptor.bindings[0];
+    assert_eq!(staged_binding.variants.len(), 1);
+    assert_eq!(staged_binding.variants[0].silent_visual_path, None);
     assert!(staged
         .files
         .iter()

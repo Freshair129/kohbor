@@ -1,0 +1,59 @@
+{
+  "schema_version": "1.4.0",
+  "package_id": "synthetic-variants-pack",
+  "revision": 1,
+  "taxonomy_version": "1.1",
+  "display_name": "Synthetic multi-variant pack",
+  "publisher_key_id": null,
+  "files": [
+    {
+      "path": "audio/cue1.wav",
+      "size_bytes": 4096,
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "role": "mixed_audio"
+    },
+    {
+      "path": "video/cue1.webm",
+      "size_bytes": 8192,
+      "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "role": "silent_visual"
+    },
+    {
+      "path": "audio/cue2.wav",
+      "size_bytes": 4096,
+      "sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+      "role": "mixed_audio"
+    },
+    {
+      "path": "video/cue2.webm",
+      "size_bytes": 8192,
+      "sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+      "role": "silent_visual"
+    }
+  ],
+  "bindings": [
+    {
+      "event_id": "first_blood",
+      "selection": "random",
+      "variants": [
+        {
+          "variant_id": "fb_1",
+          "clip_id": "vrzo-th-0002",
+          "mixed_audio_path": "audio/cue1.wav",
+          "silent_visual_path": "video/cue1.webm",
+          "duration_ms": 1000,
+          "visual_tail_ms": 0
+        },
+        {
+          "variant_id": "fb_2",
+          "clip_id": "vrzo-th-0031",
+          "mixed_audio_path": "audio/cue2.wav",
+          "silent_visual_path": "video/cue2.webm",
+          "duration_ms": 1000,
+          "visual_tail_ms": 0,
+          "weight": 2
+        }
+      ]
+    }
+  ]
+}

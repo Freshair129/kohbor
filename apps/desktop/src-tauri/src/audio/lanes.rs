@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use kohbor_events::Event;
+use kohbor_events::{Event, EventId};
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, SyncSender, TrySendError};
 use std::sync::Arc;
@@ -135,14 +135,27 @@ impl EngineShared {
 
 pub enum EngineOut {
     Playback(serde_json::Value),
+    ClipVariantInvalid {
+        event_id: EventId,
+        tier: Option<u8>,
+        variant_id: String,
+        clip_id: Option<String>,
+        reason: &'static str,
+    },
+    ClipPlayed {
+        event_id: String,
+        variant: ClipVariantLog,
+    },
     ClipQueued {
         event_id: String,
         tier: Option<u8>,
+        variant: ClipVariantLog,
     },
     ClipDropped {
         event_id: String,
         tier: Option<u8>,
         outcome: kohbor_audio::Outcome,
+        variant: Option<ClipVariantLog>,
     },
     ClipFinished {
         event_id: String,
@@ -171,6 +184,14 @@ pub enum EngineOut {
         t2_us: u64,
         t3p_us: u64,
     },
+}
+
+#[derive(Clone, Debug)]
+pub struct ClipVariantLog {
+    pub variant_id: String,
+    pub clip_id: Option<String>,
+    pub selection: Option<String>,
+    pub has_visual: bool,
 }
 
 impl EngineTx {

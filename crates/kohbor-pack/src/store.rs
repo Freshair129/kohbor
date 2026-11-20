@@ -34,7 +34,7 @@ use std::path::{Component, Path, PathBuf};
 
 use crate::catalog::Catalog;
 use crate::container;
-use crate::descriptor::{self, Descriptor};
+use crate::descriptor::{self, Descriptor, Selection};
 use crate::error::RejectReason;
 use crate::fsutil::{flush_dir, is_directory_reparse_point, is_link_or_reparse_point};
 use crate::limits::{Limits, MAX_DESCRIPTOR_BYTES, MAX_PAYLOAD_BYTES};
@@ -298,16 +298,28 @@ pub struct ActiveRevision {
     pub container_sha256: String,
 }
 
-/// Verified media for one event, resolved from the ACTIVE revision only.
+/// Verified playback media for one event variant, resolved from the ACTIVE revision only.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolvedMedia {
     pub install_id: String,
     pub event_id: String,
     pub tier: Option<u32>,
+    pub variant_id: String,
+    pub clip_id: Option<String>,
+    pub selection: Option<Selection>,
+    pub weight: Option<u8>,
     pub mixed_audio: PathBuf,
     pub silent_visual: Option<PathBuf>,
     pub duration_ms: u32,
     pub visual_tail_ms: u32,
+}
+
+/// Descriptor provenance and a playback verification outcome for one variant.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResolvedVariant {
+    pub variant_id: String,
+    pub clip_id: Option<String>,
+    pub media: Result<ResolvedMedia, RejectReason>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -316,9 +328,12 @@ pub enum ResolveError {
     Unmapped,
     /// A binding exists but is inert (unknown or non-mappable event id).
     Inert,
-    /// The pair failed re-verification (missing file, size or SHA-256 mismatch):
-    /// the pair is rejected as a whole; identity audio is never substituted.
+    /// Revision or descriptor validation failed, or the first pair failed
+    /// re-verification for the compatibility resolver.
     Invalid(RejectReason),
+    /// The binding exists, but none of its variants passed re-verification.
+    /// Keep the per-variant rejection reasons for local diagnostics.
+    NoVerifiedVariants(Vec<ResolvedVariant>),
 }
 
 pub struct Store<H: Hook = NoHook> {
@@ -884,17 +899,50 @@ impl<H: Hook> Store<H> {
             .collect()
     }
 
-    /// Resolve the media pair for an event from the active revision only.
+    /// Resolve the first variant for an event from the active revision only.
     /// `tier == Some(n)` resolves only the binding with exactly that tier;
     /// `tier == None` resolves only the tier-less binding. There is no fallback
     /// to another tier or from a tier to the tier-less binding (`Unmapped`).
-    /// Bindings whose event id is inert give `Inert`. Both files are re-verified (exists, size, SHA-256) before the
-    /// pair is returned. No loose-file, default-pack or generated fallback.
+    /// Bindings whose event id is inert give `Inert`. The first variant's files
+    /// are re-verified (exists, size, SHA-256) before the playback pair is returned. No
+    /// loose-file, default-pack or generated fallback.
     pub fn resolve(
         &self,
         event_id: &str,
         tier: Option<u32>,
     ) -> Result<ResolvedMedia, ResolveError> {
+        self.resolve_inner(event_id, tier, false)?
+            .into_iter()
+            .next()
+            .ok_or(ResolveError::Unmapped)?
+            .media
+            .map_err(ResolveError::Invalid)
+    }
+
+    /// Resolve every variant of the active binding using the same exact-tier
+    /// lookup as [`Store::resolve`]. Each returned variant's mixed audio and
+    /// optional visual payload are re-verified independently in descriptor order
+    /// after checking that the active revision tree contains no links.
+    /// If none verify, the error retains the rejected variants.
+    pub fn resolve_variants(
+        &self,
+        event_id: &str,
+        tier: Option<u32>,
+    ) -> Result<Vec<ResolvedVariant>, ResolveError> {
+        let variants = self.resolve_inner(event_id, tier, true)?;
+        if variants.iter().any(|variant| variant.media.is_ok()) {
+            Ok(variants)
+        } else {
+            Err(ResolveError::NoVerifiedVariants(variants))
+        }
+    }
+
+    fn resolve_inner(
+        &self,
+        event_id: &str,
+        tier: Option<u32>,
+        all_variants: bool,
+    ) -> Result<Vec<ResolvedVariant>, ResolveError> {
         let active = self.active.as_ref().ok_or(ResolveError::Unmapped)?;
         let installed = self
             .registry
@@ -944,42 +992,54 @@ impl<H: Hook> Store<H> {
         else {
             return Err(ResolveError::Unmapped);
         };
-        let mixed = parsed
-            .descriptor
-            .files
-            .iter()
-            .find(|file| file.path == binding.mixed_audio_path)
-            .ok_or(ResolveError::Invalid(RejectReason::DanglingReference))?;
-        let mixed_path =
-            revision_payload_path(&self.root, &installed.record.install_id, &mixed.path)
-                .map_err(ResolveError::Invalid)?;
-        verify_payload_file(&mixed_path, mixed.size_bytes, &mixed.sha256)
-            .map_err(ResolveError::Invalid)?;
-        let visual_path = if let Some(path) = binding.silent_visual_path.as_deref() {
-            let visual = parsed
+        let mut resolved = Vec::with_capacity(if all_variants {
+            binding.variants.len()
+        } else {
+            1
+        });
+        let verify = |relative: &str| -> Result<PathBuf, RejectReason> {
+            let file = parsed
                 .descriptor
                 .files
                 .iter()
-                .find(|file| file.path == path)
-                .ok_or(ResolveError::Invalid(RejectReason::DanglingReference))?;
-            let visual_path =
-                revision_payload_path(&self.root, &installed.record.install_id, &visual.path)
-                    .map_err(ResolveError::Invalid)?;
-            verify_payload_file(&visual_path, visual.size_bytes, &visual.sha256)
-                .map_err(ResolveError::Invalid)?;
-            Some(visual_path)
-        } else {
-            None
+                .find(|file| file.path == relative)
+                .ok_or(RejectReason::DanglingReference)?;
+            let path = revision_payload_path(&self.root, &installed.record.install_id, &file.path)?;
+            verify_payload_file(&path, file.size_bytes, &file.sha256)?;
+            Ok(path)
         };
-        Ok(ResolvedMedia {
-            install_id: installed.record.install_id.clone(),
-            event_id: binding.event_id.clone(),
-            tier: binding.tier,
-            mixed_audio: mixed_path,
-            silent_visual: visual_path,
-            duration_ms: binding.duration_ms,
-            visual_tail_ms: binding.visual_tail_ms,
-        })
+        for variant in binding
+            .variants
+            .iter()
+            .take(if all_variants { usize::MAX } else { 1 })
+        {
+            let media = verify(&variant.mixed_audio_path).and_then(|mixed_audio| {
+                let silent_visual = variant
+                    .silent_visual_path
+                    .as_deref()
+                    .map(verify)
+                    .transpose()?;
+                Ok(ResolvedMedia {
+                    install_id: installed.record.install_id.clone(),
+                    event_id: binding.event_id.clone(),
+                    tier: binding.tier,
+                    variant_id: variant.variant_id.clone(),
+                    clip_id: variant.clip_id.clone(),
+                    selection: binding.selection,
+                    weight: variant.weight,
+                    mixed_audio,
+                    silent_visual,
+                    duration_ms: variant.duration_ms,
+                    visual_tail_ms: variant.visual_tail_ms,
+                })
+            });
+            resolved.push(ResolvedVariant {
+                variant_id: variant.variant_id.clone(),
+                clip_id: variant.clip_id.clone(),
+                media,
+            });
+        }
+        Ok(resolved)
     }
 
     /// The data root this store owns.
