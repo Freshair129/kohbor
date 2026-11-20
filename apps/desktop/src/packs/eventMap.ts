@@ -89,6 +89,8 @@ const expectedCatalogKeys = new Set(catalogRows.map(({ event_id, tier }) => `${e
 const catalogLabels = new Map(catalog.events.map(event => [event.id, event.labels]));
 const GROUPS = ["kill", "multi", "streak", "match", "warnings", "other"] as const;
 type SoundGroup = (typeof GROUPS)[number];
+export const BROWSE_EVENT_CATEGORIES = ["kill", "multi", "streak", "match", "warnings"] as const;
+export type BrowseEventCategory = (typeof BROWSE_EVENT_CATEGORIES)[number];
 const groupByEvent = new Map<string, SoundGroup>([
   ["hero_kill", "kill"], ["first_blood", "kill"], ["hero_death", "kill"], ["hero_respawn", "kill"],
   ["multi_kill", "multi"], ["streak", "streak"],
@@ -110,6 +112,10 @@ export function groupSoundRows<T extends SoundKey>(rows: readonly T[]) {
           : a.event_id.localeCompare(b.event_id));
     return items.length ? [{ id, rows: items }] : [];
   });
+}
+
+export function browseCategoryRows(category: BrowseEventCategory): SoundKey[] {
+  return catalogRows.filter(row => (groupByEvent.get(row.event_id) ?? "other") === category);
 }
 
 export function soundLabel(row: SoundKey, locale: Locale) {

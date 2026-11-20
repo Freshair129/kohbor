@@ -7,6 +7,8 @@ import {
   type ShellDestination,
 } from "./state";
 import { RailRibbon } from "./RailRibbon";
+import { GameSelector } from "./GameSelector";
+import type { DotaConnection } from "./game-selector";
 
 function DestinationIcon({ destination }: { destination: ShellDestination }) {
   const common = { width: 20, height: 20, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true as const, focusable: false as const };
@@ -26,11 +28,15 @@ export function RailLeft({
   current,
   labels,
   navigationLabel,
+  gameConnection,
+  locale,
   onNavigate,
 }: {
   current: ShellDestination | "account";
   labels: Record<ShellDestination, string>;
   navigationLabel: string;
+  gameConnection: DotaConnection;
+  locale: "th" | "en";
   onNavigate: (destination: ShellDestination) => void;
 }) {
   const buttons = useRef<Partial<Record<ShellDestination, HTMLButtonElement | null>>>({});
@@ -49,6 +55,7 @@ export function RailLeft({
         <img className="shell-rail-mark" src={brandMark} alt="" />
         <span>Kohbor</span><span lang="th">เกาะเบาะ</span>
       </div>
+      <GameSelector connection={gameConnection} locale={locale} />
       <nav className="shell-rail-nav" aria-label={navigationLabel}>
         <div className="shell-rail-group">
           {SHELL_NAV_ITEMS.filter((item) => item.group === "primary").map(({ id }) => {

@@ -468,8 +468,8 @@
     },
     {
       "path": "apps/desktop/src/App.tsx",
-      "bytes": 16195,
-      "sha256": "2c1e55b6d4752c01e0fc64dfa3465fb23adc9bf25839ca2b249858272fc0855a"
+      "bytes": 17592,
+      "sha256": "bf2eccdbc36c94aac9fd338ab6ec6dc2dfd20a10d5e27e7b3fa243b08999f782"
     },
     {
       "path": "apps/desktop/src/AudioHistory.tsx",
@@ -618,8 +618,8 @@
     },
     {
       "path": "apps/desktop/src/copy.ts",
-      "bytes": 61775,
-      "sha256": "e9cdeb6a3111030376d3b6fe21b88eb16843f870bdff8b1b5f01101a92f0df1b"
+      "bytes": 66520,
+      "sha256": "a00c6af56d89d541d6263d6d53982604a68ec3001591f0c4fbe9dcf59038c3a6"
     },
     {
       "path": "apps/desktop/src/deck/AlertStrip.tsx",
@@ -1043,8 +1043,8 @@
     },
     {
       "path": "apps/desktop/src/mediaUrl.ts",
-      "bytes": 887,
-      "sha256": "e36d5167341766c3f8a1f3f09b7aed1deb6eb3b86e94b8f105de40e12e639130"
+      "bytes": 1358,
+      "sha256": "32e74fde225da50a3762e4e236df883a29f3d76cc2eb3c930c4f0b6db7299e75"
     },
     {
       "path": "apps/desktop/src/mock/harness.tsx",
@@ -1128,13 +1128,13 @@
     },
     {
       "path": "apps/desktop/src/packs/PackLibrary.tsx",
-      "bytes": 8068,
-      "sha256": "adc4b8779c99af616d8982ccaf2166f8d540e6afbe7d21b9a0a25e0f77aee62f"
+      "bytes": 21802,
+      "sha256": "f0bd2e02524d083ffba70cbe676c3a10490af210d1479393ad2caf43ec100bd4"
     },
     {
       "path": "apps/desktop/src/packs/PacksPage.tsx",
-      "bytes": 14334,
-      "sha256": "a7eadfa4b17d392e23326ff45a5e89862df7012390032955321a0d97f6aace2c"
+      "bytes": 23746,
+      "sha256": "1b98129639bad94010bb11c0445140bba51beef571322fbf798d037d0b64a28b"
     },
     {
       "path": "apps/desktop/src/packs/SoundRows.tsx",
@@ -1145,6 +1145,16 @@
       "path": "apps/desktop/src/packs/VariantRow.tsx",
       "bytes": 1836,
       "sha256": "080e355c742c111dd921e675478b2770aed15abd93e8983f383f47c98a670a12"
+    },
+    {
+      "path": "apps/desktop/src/packs/browseApi.ts",
+      "bytes": 10315,
+      "sha256": "88cf60d6d83d4874d5da26a10e2938ff89c1d06140eb443c445407703727db2e"
+    },
+    {
+      "path": "apps/desktop/src/packs/browseModel.ts",
+      "bytes": 1678,
+      "sha256": "8eae789abc1709c1ab0c282aa4acdd218b7000ef67a5d8999b4373614640079e"
     },
     {
       "path": "apps/desktop/src/packs/event-map-variant.test.mjs",
@@ -1163,8 +1173,8 @@
     },
     {
       "path": "apps/desktop/src/packs/eventMap.ts",
-      "bytes": 13785,
-      "sha256": "708f5d062ff1265c273a481c069f29e5497a21e8abb51c4a3e03e34876e4bcf6"
+      "bytes": 14136,
+      "sha256": "82f2e1caac841004e28c0ee4c18a385173c432e95f9a004db7d9b89fc91d9158"
     },
     {
       "path": "apps/desktop/src/packs/matchRecap.copy.ts",
@@ -1173,8 +1183,13 @@
     },
     {
       "path": "apps/desktop/src/packs/model.ts",
-      "bytes": 5625,
-      "sha256": "701731f9f914566f79ef21bb43030d05e08dc4c9af26c536bb07b0350826641e"
+      "bytes": 9255,
+      "sha256": "2c675e04b8f131401dc2900ab36423a82ea3bd904f2533209f0658532b4573af"
+    },
+    {
+      "path": "apps/desktop/src/packs/previewModel.ts",
+      "bytes": 1996,
+      "sha256": "fd8715434e1757905ffe446d9c7915c00551a7ce0e2a35258c9d192aefdc3bc3"
     },
     {
       "path": "apps/desktop/src/packs/recapModel.ts",
@@ -1267,14 +1282,19 @@
       "sha256": "aa4f7a2ce8b91cdb2421f565066df6bbcff14ccb5f214214ac090aae90e3ec43"
     },
     {
+      "path": "apps/desktop/src/shell/GameSelector.tsx",
+      "bytes": 3711,
+      "sha256": "3133533c23841e19a7c102f12f5311e9a1ffc35d03fbef2a03390c915a5a05b9"
+    },
+    {
       "path": "apps/desktop/src/shell/GsiSetupCard.tsx",
       "bytes": 2713,
       "sha256": "b06e9ac9ad6b452bafee5e40df2b36d60c79e0ef62e76f0ebc599d63698b860d"
     },
     {
       "path": "apps/desktop/src/shell/RailLeft.tsx",
-      "bytes": 4093,
-      "sha256": "df9c1ad4960cdb097bc97fc5953731a6b738f4299bbf4c87e7f71f91f9deb344"
+      "bytes": 4347,
+      "sha256": "2ae6c4a12f46b8f1d4914024e64dec7fb3b66444a43040a32d10c8e843f5f2eb"
     },
     {
       "path": "apps/desktop/src/shell/RailRibbon.tsx",
@@ -1320,6 +1340,16 @@
       "path": "apps/desktop/src/shell/developerMode.ts",
       "bytes": 718,
       "sha256": "1010f1bbd6d8ee67542df8e307855773eaa8a93c015b0ff2f5e1efb970247869"
+    },
+    {
+      "path": "apps/desktop/src/shell/game-selector.ts",
+      "bytes": 1901,
+      "sha256": "6e83c5c5e5c12ad2bdc7320e5a815e4aaf515beb1117b7ee4ffb1192007812ee"
+    },
+    {
+      "path": "apps/desktop/src/shell/glassPreference.ts",
+      "bytes": 1667,
+      "sha256": "cce07d9b0dc7d333e3c95517c6e694bda28146e5a1c667c434b70dfd5b43e97a"
     },
     {
       "path": "apps/desktop/src/shell/gsiSetup.css",
@@ -1408,8 +1438,8 @@
     },
     {
       "path": "apps/desktop/src/styles.css",
-      "bytes": 37368,
-      "sha256": "50c529419f026894fe5f1bccdf910ec49ae2d6ef9be7a48d630a4cdc4b3d8920"
+      "bytes": 52572,
+      "sha256": "79e98bbd649b39a92e32b39d8830dc3a04af47a8126e8a430b937d31da7c441b"
     },
     {
       "path": "apps/desktop/src/types.ts",
@@ -1445,6 +1475,16 @@
       "path": "apps/desktop/tests/audioPrefs.test.ts",
       "bytes": 16561,
       "sha256": "3a4ebafbd1ef352a68e23a7e949b3abeac6b2eda036de88dda1fd759405487bf"
+    },
+    {
+      "path": "apps/desktop/tests/browse-ui-components.test.ts",
+      "bytes": 3739,
+      "sha256": "9321c21cb0d91e81b591a9df732cf8f26e11b4acd50ea58be05274a45ecf2830"
+    },
+    {
+      "path": "apps/desktop/tests/browse-ui-models.test.ts",
+      "bytes": 9508,
+      "sha256": "47697703a39cde065da3da897c5660436d1c8888b581545dc623b185516d355a"
     },
     {
       "path": "apps/desktop/tests/capture-idle.test.ts",
@@ -1623,8 +1663,8 @@
     },
     {
       "path": "apps/desktop/tests/packs-page.test.ts",
-      "bytes": 5681,
-      "sha256": "63c16dd9654b4a9bfca4eb5ab6f9d39b61858691a7330d1436ae8fa032a39446"
+      "bytes": 5791,
+      "sha256": "2c2e189f652dbbe1e69e380bf00e20cd725bdeb3a8ae6b1ff5af2c7e9d9282a6"
     },
     {
       "path": "apps/desktop/tests/packs.test.ts",
@@ -1788,8 +1828,8 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 191678,
-      "sha256": "1b30f6afb0f8a3eb35eb1b62fe2ae762e4b677edfa2c82b302d4268fa3580bd8"
+      "bytes": 192050,
+      "sha256": "bb07ef0cae2f2451a66509aa5d3d710956c5cd5738ff1baf0116c71c3670cb7c"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -2777,6 +2817,11 @@
       "sha256": "d285e3b140b65f34e2e1dc7c6c3201c2b8340f6d6f51f97019abca0c463b970d"
     },
     {
+      "path": "docs/design/visuals/command-deck/tokens.glass.css",
+      "bytes": 11727,
+      "sha256": "7f9b74fe0501326d6a046e80aa8fe74559b6306873437c16629b0ed766f226b4"
+    },
+    {
       "path": "docs/design/visuals/s3-audio-ui/DESIGN-NOTES.md",
       "bytes": 22008,
       "sha256": "721964bf7c438fca0ccdb2c691c62281c7efcd85e01605bfa97f19aa669cf023"
@@ -3203,8 +3248,8 @@
     },
     {
       "path": "docs/requirements/RTM.csv",
-      "bytes": 43976,
-      "sha256": "0d3b8acb0062a7c4ed232f8cfb9f90e4021f90a8a3d9504ac2291d817744b22d"
+      "bytes": 43842,
+      "sha256": "07f45913e394d17763108a22779a34d1cef579a8c5849ce5ab59794af81901b8"
     },
     {
       "path": "docs/requirements/SRS.md",
