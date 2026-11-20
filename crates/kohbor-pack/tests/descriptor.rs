@@ -8,6 +8,28 @@ fn parse(v: &Value) -> Result<kohbor_pack::descriptor::ParsedDescriptor, RejectR
         &Limits::default(),
     )
 }
+
+fn presentation_descriptor() -> Value {
+    json!({
+        "schema_version": "1.4.2",
+        "package_id": "presentation-pack",
+        "revision": 1,
+        "taxonomy_version": "1.1",
+        "display_name": "Presentation pack",
+        "publisher_key_id": null,
+        "presentation": {
+            "description": "A single paragraph.",
+            "author": "Kohbor author",
+            "languages": ["en-US", "th-TH"],
+            "cover": "images/cover.png"
+        },
+        "files": [
+            {"path": "audio/cue.wav", "size_bytes": 4096, "sha256": "1111111111111111111111111111111111111111111111111111111111111111", "role": "mixed_audio"},
+            {"path": "images/cover.png", "size_bytes": 512, "sha256": "2222222222222222222222222222222222222222222222222222222222222222", "role": "cover"}
+        ],
+        "bindings": [{"event_id": "first_blood", "variants": [{"variant_id": "v1", "mixed_audio_path": "audio/cue.wav", "duration_ms": 1000, "visual_tail_ms": 0}]}]
+    })
+}
 macro_rules! fixture_reject {
     ($name:ident, $file:literal, $reason:expr) => {
         #[test]
@@ -64,6 +86,85 @@ fn valid_fixture() {
         &Limits::default()
     )
     .is_ok());
+}
+
+#[test]
+fn presentation_fields_parse_and_legacy_descriptors_remain_valid() {
+    let parsed = parse(&presentation_descriptor()).unwrap();
+    let presentation = parsed.descriptor.presentation.unwrap();
+    assert_eq!(
+        presentation.description.as_deref(),
+        Some("A single paragraph.")
+    );
+    assert_eq!(presentation.author.as_deref(), Some("Kohbor author"));
+    assert_eq!(
+        presentation.languages,
+        vec!["en-US".to_owned(), "th-TH".to_owned()]
+    );
+    assert_eq!(presentation.cover.as_deref(), Some("images/cover.png"));
+    assert!(parse(&common::descriptor())
+        .unwrap()
+        .descriptor
+        .presentation
+        .is_none());
+}
+
+#[test]
+fn presentation_text_limits_are_unicode_character_based_and_single_paragraph() {
+    let mut value = presentation_descriptor();
+    value["presentation"]["description"] = json!("é".repeat(500));
+    value["presentation"]["author"] = json!("名".repeat(80));
+    assert!(parse(&value).is_ok());
+    value["presentation"]["description"] = json!("é".repeat(501));
+    assert!(parse(&value).is_err());
+    value = presentation_descriptor();
+    value["presentation"]["author"] = json!("a".repeat(81));
+    assert!(parse(&value).is_err());
+    value = presentation_descriptor();
+    value["presentation"]["description"] = json!("line one\nline two");
+    assert!(parse(&value).is_err());
+}
+
+#[test]
+fn presentation_languages_accept_bcp47_and_reject_invalid_or_excessive_lists() {
+    let mut value = presentation_descriptor();
+    value["presentation"]["languages"] = json!([
+        "en-US",
+        "zh-Hant-TW",
+        "sr-Latn-RS",
+        "de-1901",
+        "es-419",
+        "x-private",
+        "en-u-ca-gregory",
+        "th"
+    ]);
+    assert!(parse(&value).is_ok());
+    value["presentation"]["languages"] =
+        json!(["en", "fr", "de", "es", "it", "ja", "ko", "th", "zh"]);
+    assert!(parse(&value).is_err());
+    value["presentation"]["languages"] = json!(["en-12"]);
+    assert!(parse(&value).is_err());
+    value["presentation"]["languages"] = json!(["en-US", "EN-us"]);
+    assert!(parse(&value).is_err());
+}
+
+#[test]
+fn presentation_cover_requires_a_small_referenced_cover_role_file() {
+    let mut value = presentation_descriptor();
+    value["files"][1]["role"] = json!("source_asset");
+    assert_eq!(
+        parse(&value).unwrap_err(),
+        RejectReason::BindingRoleMismatch
+    );
+    value = presentation_descriptor();
+    value["files"][1]["size_bytes"] = json!(1_048_577);
+    assert_eq!(parse(&value).unwrap_err(), RejectReason::CoverInvalid);
+    value = presentation_descriptor();
+    value["presentation"]["cover"] = json!("images/missing.png");
+    assert_eq!(parse(&value).unwrap_err(), RejectReason::DanglingReference);
+    value = presentation_descriptor();
+    value["files"][1]["path"] = json!("images/unreferenced.png");
+    assert_eq!(parse(&value).unwrap_err(), RejectReason::DanglingReference);
 }
 #[test]
 fn unknown_id_inert() {

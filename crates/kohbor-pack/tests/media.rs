@@ -1,4 +1,5 @@
 mod common;
+use kohbor_pack::media::inspect_cover;
 use kohbor_pack::{media::inspect_wav, RejectReason};
 #[test]
 fn wav_helper_length() {
@@ -44,6 +45,88 @@ fn rejects_long_wav() {
         inspect_wav(&common::wav(720_048), RejectReason::MixedAudioInvalid).unwrap_err(),
         RejectReason::MixedAudioInvalid
     );
+}
+
+fn png_cover(width: u32, height: u32, extra: Option<(&[u8; 4], &[u8])>) -> Vec<u8> {
+    fn chunk(output: &mut Vec<u8>, kind: &[u8; 4], data: &[u8]) {
+        output.extend_from_slice(&(data.len() as u32).to_be_bytes());
+        output.extend_from_slice(kind);
+        output.extend_from_slice(data);
+        output.extend_from_slice(&[0; 4]);
+    }
+    let mut out = b"\x89PNG\r\n\x1a\n".to_vec();
+    let mut header = Vec::new();
+    header.extend_from_slice(&width.to_be_bytes());
+    header.extend_from_slice(&height.to_be_bytes());
+    header.extend_from_slice(&[8, 6, 0, 0, 0]);
+    chunk(&mut out, b"IHDR", &header);
+    if let Some((kind, data)) = extra {
+        chunk(&mut out, kind, data);
+    }
+    chunk(&mut out, b"IDAT", &[]);
+    chunk(&mut out, b"IEND", &[]);
+    out
+}
+
+fn webp_lossless_cover(width: u32, height: u32) -> Vec<u8> {
+    let width = width - 1;
+    let height = height - 1;
+    let payload = [
+        0x2f,
+        width as u8,
+        ((width >> 8) as u8 & 0x3f) | ((height as u8 & 0x03) << 6),
+        (height >> 2) as u8,
+        (height >> 10) as u8 & 0x0f,
+    ];
+    let mut out = b"RIFF".to_vec();
+    out.extend_from_slice(&0u32.to_le_bytes());
+    out.extend_from_slice(b"WEBPVP8L");
+    out.extend_from_slice(&(payload.len() as u32).to_le_bytes());
+    out.extend_from_slice(&payload);
+    out.push(0);
+    let riff_size = u32::try_from(out.len() - 8).unwrap();
+    out[4..8].copy_from_slice(&riff_size.to_le_bytes());
+    out
+}
+
+#[test]
+fn cover_images_are_bounded_still_png_or_webp_with_dimensions_and_mime() {
+    let png = inspect_cover(&png_cover(1920, 1080, None)).unwrap();
+    assert_eq!(
+        (png.width, png.height, png.content_type),
+        (1920, 1080, "image/png")
+    );
+    let webp = inspect_cover(&webp_lossless_cover(640, 360)).unwrap();
+    assert_eq!(
+        (webp.width, webp.height, webp.content_type),
+        (640, 360, "image/webp")
+    );
+    assert_eq!(
+        inspect_cover(&png_cover(1921, 1080, None)),
+        Err(RejectReason::CoverInvalid)
+    );
+    assert_eq!(
+        inspect_cover(&webp_lossless_cover(640, 1081)),
+        Err(RejectReason::CoverInvalid)
+    );
+    assert_eq!(
+        inspect_cover(&png_cover(640, 360, Some((b"acTL", &[1, 0, 0, 0])))),
+        Err(RejectReason::CoverInvalid)
+    );
+    let mut truncated = png_cover(640, 360, None);
+    truncated.pop();
+    assert_eq!(inspect_cover(&truncated), Err(RejectReason::CoverInvalid));
+    let mut animated = b"RIFF".to_vec();
+    animated.extend_from_slice(&0u32.to_le_bytes());
+    animated.extend_from_slice(b"WEBPVP8X");
+    animated.extend_from_slice(&10u32.to_le_bytes());
+    animated.extend_from_slice(&[0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    let size = u32::try_from(animated.len() - 8).unwrap();
+    animated[4..8].copy_from_slice(&size.to_le_bytes());
+    assert_eq!(inspect_cover(&animated), Err(RejectReason::CoverInvalid));
+    let mut oversized = png_cover(1, 1, None);
+    oversized.resize(1_048_577, 0);
+    assert_eq!(inspect_cover(&oversized), Err(RejectReason::CoverInvalid));
 }
 
 use kohbor_pack::media::{inspect_webm, VideoCodec};

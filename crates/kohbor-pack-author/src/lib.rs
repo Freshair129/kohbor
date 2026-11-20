@@ -3,7 +3,10 @@ pub mod audio;
 
 use archive::{write_zip, ArchiveEntry};
 use kohbor_pack::{
-    catalog::Catalog, container::stage_package, descriptor::parse_descriptor, media::inspect_webm,
+    catalog::Catalog,
+    container::stage_package,
+    descriptor::parse_descriptor,
+    media::{inspect_cover, inspect_webm},
     Limits,
 };
 use serde_json::{json, Map, Value};
@@ -35,6 +38,17 @@ pub struct BuildOptions {
     pub publisher_key_id: Option<String>,
     /// Require every written binding to include a verified silent visual.
     pub require_visual: bool,
+    /// Optional command-line presentation overrides. Mapping values remain defaults.
+    pub presentation: Option<PresentationOptions>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct PresentationOptions {
+    pub description: Option<String>,
+    pub author: Option<String>,
+    pub languages: Option<Vec<String>>,
+    /// Path relative to `clips_dir`.
+    pub cover: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -98,6 +112,7 @@ struct MappingPlan {
     bindings: Vec<MappingBinding>,
     has_variants: bool,
     has_captions: bool,
+    presentation: PresentationOptions,
 }
 
 #[derive(Debug, Clone)]
@@ -171,7 +186,27 @@ pub fn build_package(options: &BuildOptions) -> Result<BuildReport, BuildError> 
     let mapping_value = kohbor_gsi::strict_json::parse(&mapping_bytes)
         .map_err(|error| BuildError::new(1, format!("mapping JSON is invalid: {error:?}")))?;
     let mut mapping_plan = parse_mapping(&mapping_value)?;
-    if mapping_plan.has_variants {
+    if let Some(override_presentation) = options.presentation.as_ref() {
+        if override_presentation.description.is_some() {
+            mapping_plan.presentation.description = override_presentation.description.clone();
+        }
+        if override_presentation.author.is_some() {
+            mapping_plan.presentation.author = override_presentation.author.clone();
+        }
+        if override_presentation.languages.is_some() {
+            mapping_plan.presentation.languages = override_presentation.languages.clone();
+        }
+        if override_presentation.cover.is_some() {
+            mapping_plan.presentation.cover = override_presentation.cover.clone();
+        }
+    }
+    validate_presentation_options(&mapping_plan.presentation)?;
+    let has_presentation_input = mapping_plan.presentation.description.is_some()
+        || mapping_plan.presentation.author.is_some()
+        || mapping_plan.presentation.languages.is_some()
+        || mapping_plan.presentation.cover.is_some();
+    let use_v14_output = mapping_plan.has_variants || has_presentation_input;
+    if use_v14_output {
         assign_implicit_variant_ids(&mut mapping_plan.bindings)?;
     }
 
@@ -247,7 +282,7 @@ pub fn build_package(options: &BuildOptions) -> Result<BuildReport, BuildError> 
                 mapping,
                 variant,
                 &binding_key,
-                mapping_plan.has_variants,
+                use_v14_output,
                 options.require_visual,
                 &mut variant_state,
             )? {
@@ -256,7 +291,7 @@ pub fn build_package(options: &BuildOptions) -> Result<BuildReport, BuildError> 
             }
         }
 
-        if mapping_plan.has_variants {
+        if use_v14_output {
             if prepared.is_empty() {
                 continue;
             }
@@ -300,6 +335,45 @@ pub fn build_package(options: &BuildOptions) -> Result<BuildReport, BuildError> 
         }
     }
 
+    let mut presentation_descriptor = Map::new();
+    if let Some(description) = mapping_plan.presentation.description.as_deref() {
+        presentation_descriptor.insert("description".to_owned(), json!(description));
+    }
+    if let Some(author) = mapping_plan.presentation.author.as_deref() {
+        presentation_descriptor.insert("author".to_owned(), json!(author));
+    }
+    if let Some(languages) = mapping_plan.presentation.languages.as_ref() {
+        presentation_descriptor.insert("languages".to_owned(), json!(languages));
+    }
+    if let Some(cover_source) = mapping_plan.presentation.cover.as_deref() {
+        let bytes = read_cover(&clips_dir, cover_source)?;
+        let cover_info = inspect_cover(&bytes).map_err(|_| {
+            BuildError::new(
+                1,
+                "cover must be a still PNG or WebP no larger than 1 MiB and 1920x1080",
+            )
+        })?;
+        add_clip_receipt(&mut receipts, cover_source, &bytes)?;
+        let extension = if cover_info.content_type == "image/png" {
+            "png"
+        } else {
+            "webp"
+        };
+        let cover_path = format!("cover/{}.{}", sha256_hex(&bytes), extension);
+        let added = append_payload(&mut payloads, cover_path.clone(), bytes, "cover", 0, true)?;
+        expanded_payload_bytes = expanded_payload_bytes
+            .checked_add(added)
+            .ok_or_else(|| BuildError::new(1, "expanded payload size overflow"))?;
+        if expanded_payload_bytes > MAX_EXPANDED_BYTES {
+            return Err(BuildError::new(
+                1,
+                "expanded payloads exceed the package 512 MiB limit",
+            ));
+        }
+        presentation_descriptor.insert("cover".to_owned(), json!(cover_path));
+    }
+    let has_presentation = !presentation_descriptor.is_empty();
+
     if written.is_empty() {
         let reasons = skipped
             .iter()
@@ -330,14 +404,16 @@ pub fn build_package(options: &BuildOptions) -> Result<BuildReport, BuildError> 
         }));
     }
     let taxonomy_version = format!("{}.{}", catalog.taxonomy.major, catalog.taxonomy.minor);
-    let descriptor_schema_version = if mapping_plan.has_captions {
+    let descriptor_schema_version = if has_presentation {
+        "1.4.2"
+    } else if mapping_plan.has_captions {
         "1.4.1"
     } else if mapping_plan.has_variants {
         "1.4.0"
     } else {
         "1.3.0"
     };
-    let descriptor = json!({
+    let mut descriptor = json!({
         "schema_version": descriptor_schema_version,
         "package_id": options.package_id,
         "revision": options.revision,
@@ -347,6 +423,9 @@ pub fn build_package(options: &BuildOptions) -> Result<BuildReport, BuildError> 
         "files": file_inventory,
         "bindings": manifest_bindings,
     });
+    if has_presentation {
+        descriptor["presentation"] = Value::Object(presentation_descriptor);
+    }
     let descriptor_bytes = serde_json::to_vec(&descriptor)
         .map_err(|error| BuildError::new(1, format!("descriptor serialization failed: {error}")))?;
     if descriptor_bytes.len() > MAX_DESCRIPTOR_BYTES {
@@ -445,7 +524,7 @@ pub fn build_package(options: &BuildOptions) -> Result<BuildReport, BuildError> 
         "written": written.iter().map(written_report_json).collect::<Vec<_>>(),
         "skipped": skipped.iter().map(skipped_report_json).collect::<Vec<_>>(),
     });
-    if mapping_plan.has_variants {
+    if use_v14_output {
         build_report["descriptor_schema_version"] = json!(descriptor_schema_version);
     }
     let provenance = json!({
@@ -853,7 +932,7 @@ fn parse_mapping(value: &Value) -> Result<MappingPlan, BuildError> {
         .ok_or_else(|| BuildError::new(1, "mapping root must be an object"))?;
     if root
         .keys()
-        .any(|key| key != "schema_version" && key != "bindings")
+        .any(|key| key != "schema_version" && key != "bindings" && key != "presentation")
     {
         return Err(BuildError::new(1, "mapping contains an unknown root field"));
     }
@@ -864,6 +943,7 @@ fn parse_mapping(value: &Value) -> Result<MappingPlan, BuildError> {
         .get("bindings")
         .and_then(Value::as_array)
         .ok_or_else(|| BuildError::new(1, "mapping bindings must be an array"))?;
+    let presentation = parse_presentation_mapping(root.get("presentation"))?;
     if bindings.len() > MAX_BINDINGS {
         return Err(BuildError::new(1, "mapping has more than 128 bindings"));
     }
@@ -1068,7 +1148,121 @@ fn parse_mapping(value: &Value) -> Result<MappingPlan, BuildError> {
         bindings: result,
         has_variants,
         has_captions,
+        presentation,
     })
+}
+
+fn parse_presentation_mapping(value: Option<&Value>) -> Result<PresentationOptions, BuildError> {
+    let Some(value) = value else {
+        return Ok(PresentationOptions::default());
+    };
+    let object = value
+        .as_object()
+        .ok_or_else(|| BuildError::new(1, "mapping presentation must be an object"))?;
+    reject_mapping_fields(object, &["description", "author", "languages", "cover"])?;
+    let description = mapping_optional_text(object, "description")?;
+    let author = mapping_optional_text(object, "author")?;
+    let languages = match object.get("languages") {
+        None => None,
+        Some(Value::Array(values)) => Some(
+            values
+                .iter()
+                .map(|value| {
+                    value.as_str().map(str::to_owned).ok_or_else(|| {
+                        BuildError::new(1, "presentation languages must be BCP-47 strings")
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()?,
+        ),
+        Some(_) => {
+            return Err(BuildError::new(
+                1,
+                "presentation languages must be an array",
+            ))
+        }
+    };
+    let cover = optional_string(object, "cover")?;
+    if let Some(path) = cover.as_deref() {
+        validate_clip_path(path).map_err(|_| {
+            BuildError::new(
+                1,
+                "presentation cover path must be a safe relative clip path",
+            )
+        })?;
+    }
+    let presentation = PresentationOptions {
+        description,
+        author,
+        languages,
+        cover,
+    };
+    validate_presentation_options(&presentation)?;
+    Ok(presentation)
+}
+
+fn mapping_optional_text(
+    object: &Map<String, Value>,
+    key: &str,
+) -> Result<Option<String>, BuildError> {
+    match object.get(key) {
+        None => Ok(None),
+        Some(Value::String(value)) => Ok(Some(value.clone())),
+        Some(_) => Err(BuildError::new(
+            1,
+            format!("presentation {key} must be a string"),
+        )),
+    }
+}
+
+fn validate_presentation_options(value: &PresentationOptions) -> Result<(), BuildError> {
+    for (field, text, maximum) in [
+        ("description", value.description.as_deref(), 500usize),
+        ("author", value.author.as_deref(), 80usize),
+    ] {
+        if text.is_some_and(|text| {
+            text.chars().count() > maximum
+                || text.chars().any(|character| {
+                    character.is_control() || matches!(character, '\u{2028}' | '\u{2029}')
+                })
+        }) {
+            return Err(BuildError::new(
+                1,
+                format!(
+                    "presentation {field} exceeds its length limit or contains control characters"
+                ),
+            ));
+        }
+    }
+    if let Some(languages) = value.languages.as_ref() {
+        if languages.len() > 8 {
+            return Err(BuildError::new(
+                1,
+                "presentation languages must contain at most 8 tags",
+            ));
+        }
+        let mut seen = BTreeSet::new();
+        for language in languages {
+            if !kohbor_pack::descriptor::language_tag_is_valid(language)
+                || !seen.insert(language.to_ascii_lowercase())
+            {
+                return Err(BuildError::new(
+                    1,
+                    "presentation languages must be unique BCP-47 tags",
+                ));
+            }
+        }
+    }
+    if value
+        .cover
+        .as_deref()
+        .is_some_and(|path| validate_clip_path(path).is_err())
+    {
+        return Err(BuildError::new(
+            1,
+            "presentation cover path must be a safe relative clip path",
+        ));
+    }
+    Ok(())
 }
 
 fn reject_mapping_fields(object: &Map<String, Value>, allowed: &[&str]) -> Result<(), BuildError> {
@@ -1225,6 +1419,35 @@ fn read_clip(root: &Path, relative: &str) -> Result<Vec<u8>, ClipReadError> {
         .map_err(|_| ClipReadError::Unavailable)?;
     if u64::try_from(bytes.len()).map_err(|_| ClipReadError::TooLarge)? > MAX_INPUT_BYTES {
         return Err(ClipReadError::TooLarge);
+    }
+    Ok(bytes)
+}
+
+fn read_cover(root: &Path, relative: &str) -> Result<Vec<u8>, BuildError> {
+    let relative_path = validate_clip_path(relative)
+        .map_err(|_| BuildError::new(1, "presentation cover path is unsafe"))?;
+    let candidate = root.join(relative_path);
+    let canonical = fs::canonicalize(&candidate)
+        .map_err(|_| BuildError::new(1, "presentation cover is unavailable"))?;
+    if !canonical.starts_with(root) {
+        return Err(BuildError::new(1, "presentation cover path is unsafe"));
+    }
+    let metadata = fs::metadata(&canonical)
+        .map_err(|_| BuildError::new(1, "presentation cover is unavailable"))?;
+    if !metadata.is_file() || metadata.len() > 1_048_576 {
+        return Err(BuildError::new(
+            1,
+            "presentation cover exceeds 1 MiB or is not a file",
+        ));
+    }
+    let mut bytes = Vec::with_capacity(metadata.len() as usize);
+    File::open(canonical)
+        .map_err(|_| BuildError::new(1, "presentation cover is unavailable"))?
+        .take(1_048_577)
+        .read_to_end(&mut bytes)
+        .map_err(|_| BuildError::new(1, "presentation cover could not be read"))?;
+    if bytes.is_empty() || bytes.len() > 1_048_576 {
+        return Err(BuildError::new(1, "presentation cover exceeds 1 MiB"));
     }
     Ok(bytes)
 }
@@ -1469,6 +1692,9 @@ pub fn parse_cli_args(
     let mut rights_claim = None;
     let mut publisher_key_id = None;
     let mut require_visual = false;
+    let mut presentation = PresentationOptions::default();
+    let mut has_presentation_override = false;
+    let mut languages = Vec::new();
     let mut args = args.into_iter();
     while let Some(argument) = args.next() {
         let flag = argument
@@ -1503,6 +1729,28 @@ pub fn parse_cli_args(
                     return Err(BuildError::new(1, "duplicate option: --publisher-key-id"));
                 }
             }
+            "--description" => {
+                if presentation.description.replace(value).is_some() {
+                    return Err(BuildError::new(1, "duplicate option: --description"));
+                }
+                has_presentation_override = true;
+            }
+            "--author" => {
+                if presentation.author.replace(value).is_some() {
+                    return Err(BuildError::new(1, "duplicate option: --author"));
+                }
+                has_presentation_override = true;
+            }
+            "--cover" => {
+                if presentation.cover.replace(value).is_some() {
+                    return Err(BuildError::new(1, "duplicate option: --cover"));
+                }
+                has_presentation_override = true;
+            }
+            "--language" => {
+                languages.push(value);
+                has_presentation_override = true;
+            }
             _ => return Err(BuildError::new(1, format!("unknown option: {flag}"))),
         }
     }
@@ -1515,6 +1763,10 @@ pub fn parse_cli_args(
     let revision = required("--revision")?
         .parse::<u64>()
         .map_err(|_| BuildError::new(1, "revision must be an unsigned integer"))?;
+    if has_presentation_override && !languages.is_empty() {
+        presentation.languages = Some(languages);
+    }
+    validate_presentation_options(&presentation)?;
     Ok(BuildOptions {
         clips_dir: PathBuf::from(required("--clips")?),
         map_path: PathBuf::from(required("--map")?),
@@ -1526,6 +1778,7 @@ pub fn parse_cli_args(
         rights_claim,
         publisher_key_id,
         require_visual,
+        presentation: has_presentation_override.then_some(presentation),
     })
 }
 
@@ -1547,7 +1800,10 @@ fn cli_report_json(report: &BuildReport) -> Value {
         "written": report.written.iter().map(written_report_json).collect::<Vec<_>>(),
         "skipped": report.skipped.iter().map(skipped_report_json).collect::<Vec<_>>(),
     });
-    if matches!(report.descriptor_schema_version.as_str(), "1.4.0" | "1.4.1") {
+    if matches!(
+        report.descriptor_schema_version.as_str(),
+        "1.4.0" | "1.4.1" | "1.4.2"
+    ) {
         output["descriptor_schema_version"] = json!(report.descriptor_schema_version);
     }
     output
@@ -1556,7 +1812,7 @@ fn cli_report_json(report: &BuildReport) -> Value {
 const CLI_HELP: &str = r#"kohbor-pack-build - build a deterministic local media package
 
 Usage:
-  kohbor-pack-build --clips DIR --map FILE --out DIR --package-id ID --revision N --display-name NAME --catalog FILE [--rights-claim TEXT] [--publisher-key-id ID] [--require-visual]
+  kohbor-pack-build --clips DIR --map FILE --out DIR --package-id ID --revision N --display-name NAME --catalog FILE [--rights-claim TEXT] [--publisher-key-id ID] [--description TEXT] [--author TEXT] [--language BCP-47]... [--cover FILE] [--require-visual]
 
 Mapping JSON keeps schema_version 1.0.0. Existing one-clip bindings remain valid:
   {"event_id":"hero_kill","audio":"kill.wav","visual":"kill.webm"}

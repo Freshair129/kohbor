@@ -17,6 +17,7 @@ pub const AUDITION_ADMISSION_TIMEOUT: Duration = Duration::from_secs(1);
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AuditionRefusal {
     MatchActive,
+    ActivePack,
     EventUnavailable,
     NoActivePack,
     Unmapped,
@@ -24,12 +25,14 @@ pub enum AuditionRefusal {
     MediaStateUnknown,
     Busy,
     Muted,
+    RateLimited,
 }
 
 impl AuditionRefusal {
     pub const fn code(self) -> &'static str {
         match self {
             Self::MatchActive => "AUDITION_MATCH_ACTIVE",
+            Self::ActivePack => "AUDITION_ACTIVE_PACK",
             Self::EventUnavailable => "AUDITION_EVENT_UNAVAILABLE",
             Self::NoActivePack => "AUDITION_NO_ACTIVE_PACK",
             Self::Unmapped => "AUDITION_UNMAPPED",
@@ -37,6 +40,7 @@ impl AuditionRefusal {
             Self::MediaStateUnknown => "AUDITION_MEDIA_STATE_UNKNOWN",
             Self::Busy => "AUDITION_BUSY",
             Self::Muted => "AUDITION_MUTED",
+            Self::RateLimited => "AUDITION_RATE_LIMITED",
         }
     }
 }
@@ -45,6 +49,10 @@ pub struct AuditionRequest {
     pub event: Event,
     pub variant_id: Option<String>,
     pub install_id: String,
+    /// Present only when the media service verified and decoded a non-active pack.
+    pub selected: Option<crate::audio::resolve::SelectedClip>,
+    /// Active-pack overlay is opt-in. Installed-pack drawer previews are always false.
+    pub overlay: bool,
     pub session_epoch: u64,
     pub sequence: u64,
     pub expires_at: Instant,

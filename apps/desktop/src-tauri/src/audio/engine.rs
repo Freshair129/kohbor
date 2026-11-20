@@ -589,16 +589,36 @@ impl Engine {
         {
             return Err(AuditionRefusal::Busy);
         }
-        if self.table.install_id.as_deref() != Some(audition.install_id.as_str()) {
-            return Err(AuditionRefusal::MediaStateUnknown);
+        let mut clip = if let Some(selected) = audition.selected.as_ref() {
+            if audition.overlay
+                || self.table.install_id.as_deref() == Some(audition.install_id.as_str())
+            {
+                return Err(AuditionRefusal::ActivePack);
+            }
+            if selected.event_id != audition.event.id
+                || selected.bound_tier != audition.event.tier
+                || selected.variant_id != audition.variant_id.as_deref().unwrap_or("")
+            {
+                return Err(AuditionRefusal::VariantUnavailable);
+            }
+            selected.clone()
+        } else {
+            if self.table.install_id.as_deref() != Some(audition.install_id.as_str()) {
+                return Err(AuditionRefusal::MediaStateUnknown);
+            }
+            self.resolve_audition_clip(audition.event, audition.variant_id.as_deref())
+                .map_err(|failure| match failure {
+                    SelectionFailure::Unmapped => AuditionRefusal::Unmapped,
+                    SelectionFailure::InvalidMedia => AuditionRefusal::MediaStateUnknown,
+                    SelectionFailure::VariantUnavailable => AuditionRefusal::VariantUnavailable,
+                })?
+        };
+        if !audition.overlay {
+            clip.media.visual_url = None;
+            clip.media.visual_tail_ms = 0;
         }
-        let clip = self
-            .resolve_audition_clip(audition.event, audition.variant_id.as_deref())
-            .map_err(|failure| match failure {
-                SelectionFailure::Unmapped => AuditionRefusal::Unmapped,
-                SelectionFailure::InvalidMedia => AuditionRefusal::MediaStateUnknown,
-                SelectionFailure::VariantUnavailable => AuditionRefusal::VariantUnavailable,
-            })?;
+        let source_revision = Self::install_id_number(&audition.install_id)
+            .ok_or(AuditionRefusal::MediaStateUnknown)?;
         let request = Request {
             instance_id: instance_id(AUDITION_GENERATION, audition.sequence, 0),
             event_type: Some("audition".to_owned()),
@@ -606,6 +626,7 @@ impl Engine {
             class: AudioClass::Ordinary,
             ordinary_rank: 0,
             episode: None,
+            // The owner uses the active table fence to admit and cancel audio.
             package_revision: Some(self.table.fence),
             pcm: clip.media.pcm.clone(),
             visual_tail_ms: clip.media.visual_tail_ms,
@@ -631,10 +652,10 @@ impl Engine {
         self.drain_notices();
         match decision {
             Some(mut decision) if decision.outcome == Outcome::Admitted => {
-                // The owner fence is local. The outcome record uses the host's
-                // positive epoch and identifies the playback as an audition.
+                // Report the host epoch and the pack that supplied the clip.
                 decision.session_epoch = audition.session_epoch;
-                self.handle_decision(decision, Some(&clip), None, None);
+                decision.package_revision = Some(source_revision);
+                self.handle_decision(decision, Some(&clip), audition.event.tier, None);
                 Ok(())
             }
             decision => {
@@ -646,6 +667,14 @@ impl Engine {
                 }
             }
         }
+    }
+
+    fn install_id_number(install_id: &str) -> Option<u64> {
+        let digits = install_id.strip_prefix("ins_")?;
+        if digits.len() != 10 || !digits.bytes().all(|byte| byte.is_ascii_digit()) {
+            return None;
+        }
+        digits.parse().ok().filter(|value| *value > 0)
     }
 
     fn stop_audition(&mut self, now_ms: u64, preempted: bool) {

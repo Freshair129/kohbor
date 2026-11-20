@@ -96,6 +96,11 @@ pub enum Injection {
 
 pub trait Hook {
     fn before(&mut self, step: Step) -> Injection;
+
+    /// Clock used when creating a new install record. Crash fixtures can pin it.
+    fn install_time(&self) -> std::time::SystemTime {
+        std::time::SystemTime::now()
+    }
 }
 
 /// The production hook: never injects anything.
@@ -233,6 +238,10 @@ pub struct Record {
     pub container_sha256: String,
     pub authority_class: AuthorityClass,
     pub publisher_claim: PublisherClaim,
+    /// Unix milliseconds from the host clock; absent only for pre-1.1.0 registry entries.
+    pub installed_at: Option<u64>,
+    /// Original verified container size; absent only for pre-1.1.0 registry entries.
+    pub size_bytes: Option<u64>,
 }
 
 /// Catalog bindings declared by an installed, integrity-checked descriptor.
@@ -250,15 +259,18 @@ pub struct InstalledPackCover {
     pub sha256: String,
     pub size_bytes: u64,
     pub modified: std::time::SystemTime,
+    pub content_type: &'static str,
 }
 
 pub struct InstalledPackSummary {
     pub display_name: String,
+    pub publisher_claim: Option<String>,
+    pub presentation: Option<descriptor::Presentation>,
     pub bindings: Vec<InstalledPackBinding>,
     pub cover: Result<Option<InstalledPackCover>, RejectReason>,
 }
 
-/// media-install-result 1.0.0.
+/// media-install-result 1.0.0 (local import) or 1.1.0 (host-shipped system pack).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InstallResult {
     pub request_id: String,
@@ -273,13 +285,23 @@ pub struct InstallResult {
 }
 
 impl InstallResult {
-    /// The media-install-result 1.0.0 document; it must validate against
+    /// The versioned media-install-result document; it must validate against
     /// contracts/media-install-result.schema.json.
     pub fn to_json(&self) -> serde_json::Value {
         let mut object = Map::new();
         object.insert(
             "schema_version".to_owned(),
-            Value::String("1.0.0".to_owned()),
+            Value::String(
+                if self
+                    .record
+                    .as_ref()
+                    .is_some_and(|record| record.authority_class == AuthorityClass::System)
+                {
+                    "1.1.0".to_owned()
+                } else {
+                    "1.0.0".to_owned()
+                },
+            ),
         );
         object.insert(
             "request_id".to_owned(),
@@ -447,6 +469,23 @@ impl<H: Hook> Store<H> {
     ///   names a publisher key is installed as `local_import` with claim `unverified`.
     /// - A previously active revision stays active and untouched by any install.
     pub fn install(&mut self, request: &InstallRequest) -> Result<InstallResult, StoreError> {
+        self.install_with_origin(request, trust::InstallOrigin::LocalFile)
+    }
+
+    /// Install bytes supplied by host code from the application bundle. This path is
+    /// deliberately separate from file import so descriptor names cannot grant system authority.
+    pub fn install_shipped_with_app(
+        &mut self,
+        request: &InstallRequest,
+    ) -> Result<InstallResult, StoreError> {
+        self.install_with_origin(request, trust::InstallOrigin::ShippedWithApp)
+    }
+
+    fn install_with_origin(
+        &mut self,
+        request: &InstallRequest,
+        origin: trust::InstallOrigin,
+    ) -> Result<InstallResult, StoreError> {
         if !valid_install_request(request) {
             return Err(StoreError::Io("invalid install request fields".to_owned()));
         }
@@ -559,6 +598,9 @@ impl<H: Hook> Store<H> {
             }
         };
         let descriptor_sha256 = sha256(&descriptor_bytes);
+        let container_size_bytes = fs::metadata(&copied_path)
+            .map_err(|error| io_error("stat copied media package", error))?
+            .len();
         remove_path(&copied_path)?;
 
         let descriptor = &staged.parsed.descriptor;
@@ -587,7 +629,7 @@ impl<H: Hook> Store<H> {
                         return Err(StoreError::Io("install_id counter exhausted".to_owned()));
                     }
                 };
-                let assessment = trust::assess(descriptor);
+                let assessment = trust::assess_for_origin(descriptor, origin);
                 (
                     Record {
                         install_id: format!("ins_{next:010}"),
@@ -596,6 +638,8 @@ impl<H: Hook> Store<H> {
                         container_sha256: staged.container_sha256.clone(),
                         authority_class: assessment.authority_class,
                         publisher_claim: assessment.publisher_claim,
+                        installed_at: Some(system_time_unix_ms(self.hook.install_time())),
+                        size_bytes: Some(container_size_bytes),
                     },
                     true,
                     next,
@@ -1065,32 +1109,19 @@ impl<H: Hook> Store<H> {
                     .is_some_and(|event| event.media_mappable)
             })
             .collect();
-        let cover_path = bindings
-            .iter()
-            .filter_map(|binding| {
-                let visual = binding
-                    .variants
-                    .iter()
-                    .find_map(|variant| variant.silent_visual_path.as_deref())?;
-                let rank = match binding.event_id.as_str() {
-                    "hero_kill" => (0, 0),
-                    "multi_kill" => (1, binding.tier.unwrap_or(u32::MAX)),
-                    "streak" => (2, binding.tier.unwrap_or(u32::MAX)),
-                    "first_blood" => (3, 0),
-                    "match_started" => (4, 0),
-                    _ => (5, 0),
-                };
-                Some((rank, visual))
-            })
-            .min_by_key(|(rank, _)| *rank)
-            .map(|(_, path)| path);
-        let cover = cover_path
+        let cover = descriptor
+            .presentation
+            .as_ref()
+            .and_then(|presentation| presentation.cover.as_deref())
             .map(|relative| {
                 let file = descriptor
                     .files
                     .iter()
                     .find(|file| file.path == relative)
                     .ok_or(RejectReason::DanglingReference)?;
+                if file.size_bytes > 1_048_576 {
+                    return Err(RejectReason::CoverInvalid);
+                }
                 let path = revision_payload_path(&self.root, install_id, relative)?;
                 let modified = |path: &Path| {
                     fs::symlink_metadata(path)
@@ -1099,6 +1130,11 @@ impl<H: Hook> Store<H> {
                 };
                 let before = modified(&path)?;
                 verify_payload_file(&path, file.size_bytes, &file.sha256)?;
+                let bytes = fs::read(&path).map_err(|_| RejectReason::SourceUnavailable)?;
+                if sha256(&bytes) != file.sha256 {
+                    return Err(RejectReason::DigestMismatch);
+                }
+                let image = crate::media::inspect_cover(&bytes)?;
                 if modified(&path)? != before {
                     return Err(RejectReason::DigestMismatch);
                 }
@@ -1107,11 +1143,14 @@ impl<H: Hook> Store<H> {
                     sha256: file.sha256.clone(),
                     size_bytes: file.size_bytes,
                     modified: before,
+                    content_type: image.content_type,
                 })
             })
             .transpose();
         Ok(InstalledPackSummary {
             display_name: descriptor.display_name,
+            publisher_claim: descriptor.publisher_key_id,
+            presentation: descriptor.presentation,
             bindings: bindings
                 .into_iter()
                 .map(|binding| InstalledPackBinding {
@@ -1193,6 +1232,25 @@ impl<H: Hook> Store<H> {
         }
     }
 
+    /// Resolve one exact variant from an installed revision without activating it.
+    /// This is reserved for the drawer preview path; callers must still enforce the
+    /// match barrier and must not route its visual to the in-game overlay.
+    pub fn resolve_installed_variant(
+        &self,
+        install_id: &str,
+        event_id: &str,
+        tier: Option<u32>,
+        variant_id: &str,
+    ) -> Result<ResolvedMedia, ResolveError> {
+        let variants = self.resolve_inner_for_install(install_id, event_id, tier, true)?;
+        variants
+            .into_iter()
+            .find(|variant| variant.variant_id == variant_id)
+            .ok_or(ResolveError::Unmapped)?
+            .media
+            .map_err(ResolveError::Invalid)
+    }
+
     fn resolve_inner(
         &self,
         event_id: &str,
@@ -1200,11 +1258,21 @@ impl<H: Hook> Store<H> {
         all_variants: bool,
     ) -> Result<Vec<ResolvedVariant>, ResolveError> {
         let active = self.active.as_ref().ok_or(ResolveError::Unmapped)?;
+        self.resolve_inner_for_install(&active.install_id, event_id, tier, all_variants)
+    }
+
+    fn resolve_inner_for_install(
+        &self,
+        install_id: &str,
+        event_id: &str,
+        tier: Option<u32>,
+        all_variants: bool,
+    ) -> Result<Vec<ResolvedVariant>, ResolveError> {
         let installed = self
             .registry
             .records
             .iter()
-            .find(|installed| installed.record.install_id == active.install_id)
+            .find(|installed| installed.record.install_id == install_id)
             .ok_or(ResolveError::Invalid(RejectReason::UnknownInstall))?;
         let revision_dir = self
             .root
@@ -1642,6 +1710,20 @@ fn registry_value(registry: &Registry) -> Value {
                 "descriptor_sha256".to_owned(),
                 Value::String(installed.descriptor_sha256.clone()),
             );
+            object.insert(
+                "installed_at".to_owned(),
+                installed
+                    .record
+                    .installed_at
+                    .map_or(Value::Null, |value| Value::Number(Number::from(value))),
+            );
+            object.insert(
+                "size_bytes".to_owned(),
+                installed
+                    .record
+                    .size_bytes
+                    .map_or(Value::Null, |value| Value::Number(Number::from(value))),
+            );
             Value::Object(object)
         })
         .collect();
@@ -1688,7 +1770,7 @@ fn registry_value(registry: &Registry) -> Value {
     let mut object = Map::new();
     object.insert(
         "schema_version".to_owned(),
-        Value::String("1.0.0".to_owned()),
+        Value::String("1.1.0".to_owned()),
     );
     object.insert(
         "install_id_counter".to_owned(),
@@ -1770,7 +1852,8 @@ fn parse_registry(bytes: &[u8]) -> Result<Registry, StoreError> {
             "pending_activations",
         ],
     )?;
-    if required_string(object, "schema_version")? != "1.0.0" {
+    let schema_version = required_string(object, "schema_version")?;
+    if !matches!(schema_version, "1.0.0" | "1.1.0") {
         return Err(StoreError::Corrupt("registry schema_version".to_owned()));
     }
     let install_id_counter = required_u64(object, "install_id_counter")?;
@@ -1784,7 +1867,7 @@ fn parse_registry(bytes: &[u8]) -> Result<Registry, StoreError> {
     let mut identities = HashSet::new();
     let mut max_id = 0u64;
     for value in required_array(object, "records")? {
-        let stored = parse_stored_record(value)?;
+        let stored = parse_stored_record(value, schema_version)?;
         let id_number = valid_install_id(&stored.record.install_id)
             .ok_or_else(|| StoreError::Corrupt("registry install_id".to_owned()))?;
         if id_number > install_id_counter
@@ -1838,7 +1921,7 @@ fn parse_registry(bytes: &[u8]) -> Result<Registry, StoreError> {
             None | Some(Value::Null) => None,
             Some(value) => Some(parse_request_fingerprint(value, &digest)?),
         };
-        let result = parse_result(required_value(item, "result")?)?;
+        let mut result = parse_result(required_value(item, "result")?)?;
         if result.request_id != request_id
             || result.status != Status::Installed
             || result.reason.is_some()
@@ -1856,11 +1939,16 @@ fn parse_registry(bytes: &[u8]) -> Result<Registry, StoreError> {
             .ok_or_else(|| {
                 StoreError::Corrupt("registry result references unknown record".to_owned())
             })?;
-        if result_record != &installed.record || result_record.container_sha256 != digest {
+        if !same_result_record(result_record, &installed.record)
+            || result_record.container_sha256 != digest
+        {
             return Err(StoreError::Corrupt(
                 "registry result record mismatch".to_owned(),
             ));
         }
+        // The wire result omits the summary metadata. Restore it from the
+        // validated registry record so retries return the same Rust value.
+        result.record = Some(installed.record.clone());
         request_results.push(StoredRequestResult {
             request_id,
             expected_container_sha256: digest,
@@ -1938,18 +2026,34 @@ fn parse_request_fingerprint(
     })
 }
 
-fn parse_stored_record(value: &Value) -> Result<StoredRecord, StoreError> {
+fn parse_stored_record(value: &Value, schema_version: &str) -> Result<StoredRecord, StoreError> {
+    let legacy_keys = [
+        "install_id",
+        "package_id",
+        "revision",
+        "container_sha256",
+        "authority_class",
+        "publisher_claim",
+        "descriptor_sha256",
+    ];
+    let current_keys = [
+        "install_id",
+        "package_id",
+        "revision",
+        "container_sha256",
+        "authority_class",
+        "publisher_claim",
+        "descriptor_sha256",
+        "installed_at",
+        "size_bytes",
+    ];
     let object = strict_object(
         value,
-        &[
-            "install_id",
-            "package_id",
-            "revision",
-            "container_sha256",
-            "authority_class",
-            "publisher_claim",
-            "descriptor_sha256",
-        ],
+        if schema_version == "1.1.0" {
+            &current_keys
+        } else {
+            &legacy_keys
+        },
     )?;
     let record = parse_record_fields(object)?;
     let descriptor_sha256 = required_string(object, "descriptor_sha256")?.to_owned();
@@ -1983,6 +2087,7 @@ fn parse_record_fields(object: &Map<String, Value>) -> Result<Record, StoreError
     let revision = required_u64(object, "revision")?;
     let container_sha256 = required_string(object, "container_sha256")?.to_owned();
     let authority_class = match required_string(object, "authority_class")? {
+        "system" => AuthorityClass::System,
         "local_import" => AuthorityClass::LocalImport,
         _ => return Err(StoreError::Corrupt("record authority_class".to_owned())),
     };
@@ -1991,6 +2096,8 @@ fn parse_record_fields(object: &Map<String, Value>) -> Result<Record, StoreError
         "unverified" => PublisherClaim::Unverified,
         _ => return Err(StoreError::Corrupt("record publisher_claim".to_owned())),
     };
+    let installed_at = optional_u64(object, "installed_at")?;
+    let size_bytes = optional_u64(object, "size_bytes")?;
     if valid_install_id(&install_id).is_none()
         || !valid_package_id(&package_id)
         || revision == 0
@@ -2006,7 +2113,18 @@ fn parse_record_fields(object: &Map<String, Value>) -> Result<Record, StoreError
         container_sha256,
         authority_class,
         publisher_claim,
+        installed_at,
+        size_bytes,
     })
+}
+
+fn same_result_record(result: &Record, installed: &Record) -> bool {
+    result.install_id == installed.install_id
+        && result.package_id == installed.package_id
+        && result.revision == installed.revision
+        && result.container_sha256 == installed.container_sha256
+        && result.authority_class == installed.authority_class
+        && result.publisher_claim == installed.publisher_claim
 }
 
 fn parse_result(value: &Value) -> Result<InstallResult, StoreError> {
@@ -2014,7 +2132,8 @@ fn parse_result(value: &Value) -> Result<InstallResult, StoreError> {
         value,
         &["schema_version", "request_id", "status", "reason", "record"],
     )?;
-    if required_string(object, "schema_version")? != "1.0.0" {
+    let schema_version = required_string(object, "schema_version")?;
+    if !matches!(schema_version, "1.0.0" | "1.1.0") {
         return Err(StoreError::Corrupt("result schema_version".to_owned()));
     }
     let request_id = required_string(object, "request_id")?.to_owned();
@@ -2038,6 +2157,13 @@ fn parse_result(value: &Value) -> Result<InstallResult, StoreError> {
         Value::Null => None,
         value => Some(parse_record(value)?),
     };
+    if schema_version == "1.0.0"
+        && record
+            .as_ref()
+            .is_some_and(|record| record.authority_class != AuthorityClass::LocalImport)
+    {
+        return Err(StoreError::Corrupt("result authority_class".to_owned()));
+    }
     if status == Status::Rejected && (record.is_some() || reason.is_none()) {
         return Err(StoreError::Corrupt("rejected result shape".to_owned()));
     }
@@ -2118,6 +2244,24 @@ fn required_u64(object: &Map<String, Value>, key: &str) -> Result<u64, StoreErro
     required_value(object, key)?
         .as_u64()
         .ok_or_else(|| StoreError::Corrupt(format!("invalid {key}")))
+}
+
+fn optional_u64(object: &Map<String, Value>, key: &str) -> Result<Option<u64>, StoreError> {
+    match object.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(value) => value
+            .as_u64()
+            .map(Some)
+            .ok_or_else(|| StoreError::Corrupt(format!("invalid {key}"))),
+    }
+}
+
+fn system_time_unix_ms(value: std::time::SystemTime) -> u64 {
+    value
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()
+        .and_then(|elapsed| u64::try_from(elapsed.as_millis()).ok())
+        .unwrap_or_default()
 }
 
 fn required_array<'a>(

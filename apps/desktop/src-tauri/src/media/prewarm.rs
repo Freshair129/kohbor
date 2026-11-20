@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
 use kohbor_audio::pcm::{decode_wav, Pcm};
-use kohbor_events::EventId;
+use kohbor_events::{Event, EventId};
 use kohbor_pack::catalog::Catalog;
 use kohbor_pack::descriptor::Selection;
 use kohbor_pack::error::RejectReason;
@@ -16,7 +16,8 @@ use kohbor_pack::store::{Hook, ResolveError, ResolvedVariant, Store};
 use sha2::{Digest, Sha256};
 
 use crate::audio::resolve::{
-    Clip, Entry, PrewarmTable, VariantMedia, VariantSelection, VariantSet, PREWARM_CAP_REASON,
+    Clip, Entry, PrewarmTable, SelectedClip, VariantMedia, VariantSelection, VariantSet,
+    PREWARM_CAP_REASON,
 };
 
 /// Verified visual file metadata captured alongside the audio table.
@@ -25,6 +26,7 @@ pub struct VisualEntry {
     pub path: PathBuf,
     pub size_bytes: u64,
     pub modified: SystemTime,
+    pub content_type: &'static str,
 }
 
 /// Renderer-visible files from the one revision represented by the table.
@@ -32,6 +34,8 @@ pub struct VisualEntry {
 pub struct VisualIndex {
     pub install_id: Option<Arc<str>>,
     pub entries: HashMap<String, VisualEntry>,
+    /// Exact verified routes published for drawer previews of non-active packs.
+    pub preview_entries: HashMap<String, VisualEntry>,
     /// One verified card cover per installed revision, separate from playback.
     pub covers: Arc<HashMap<String, VisualEntry>>,
 }
@@ -122,6 +126,7 @@ pub fn build_table<H: Hook>(
     let mut visual_index = VisualIndex {
         install_id: Some(install_id.clone()),
         entries: HashMap::new(),
+        preview_entries: HashMap::new(),
         covers: Default::default(),
     };
     let mut keys = key_space(catalog);
@@ -148,7 +153,7 @@ pub fn build_table<H: Hook>(
                     .silent_visual
                     .as_deref()
                     .map(|path| {
-                        visual_entry(&revision_root, path)
+                        visual_entry(&revision_root, path, "video/webm")
                             .ok_or(RejectReason::VisualInvalid.as_str())
                     })
                     .transpose()?;
@@ -258,6 +263,89 @@ pub fn build_table<H: Hook>(
     )
 }
 
+pub struct PreviewVariant {
+    pub selected: SelectedClip,
+    pub visual: Option<PreviewVisual>,
+}
+
+pub struct PreviewVisual {
+    pub route: String,
+    pub url: String,
+    pub entry: VisualEntry,
+}
+
+/// Decode one store-verified installed variant for the isolated drawer audition path.
+/// The returned visual URL is logical only; callers publish its file in the exact
+/// preview allowlist before exposing it to the renderer.
+pub fn build_preview_variant<H: Hook>(
+    store: &Store<H>,
+    install_id: &str,
+    event: Event,
+    variant_id: &str,
+) -> Result<PreviewVariant, &'static str> {
+    let media = store
+        .resolve_installed_variant(
+            install_id,
+            event.id.as_str(),
+            event.tier.map(u32::from),
+            variant_id,
+        )
+        .map_err(|error| match error {
+            ResolveError::Unmapped | ResolveError::Inert => "AUDITION_VARIANT_UNAVAILABLE",
+            ResolveError::Invalid(_) | ResolveError::NoVerifiedVariants(_) => "MEDIA_INVALID",
+        })?;
+    if media.variant_id != variant_id {
+        return Err("AUDITION_VARIANT_UNAVAILABLE");
+    }
+
+    let revision_root = store.root().join("revisions").join(&media.install_id);
+    let visual_data = media
+        .silent_visual
+        .as_deref()
+        .map(|path| {
+            let (token, entry) =
+                visual_entry(&revision_root, path, "video/webm").ok_or("MEDIA_INVALID")?;
+            let route = format!("/v1/{}/{token}", media.install_id);
+            let url = format!("kohbor-media://localhost{route}");
+            Ok::<_, &'static str>(PreviewVisual { route, url, entry })
+        })
+        .transpose()?;
+    let audio_bytes = fs::read(&media.mixed_audio).map_err(|_| "MEDIA_INVALID")?;
+    let samples = inspect_wav(&audio_bytes, RejectReason::MixedAudioInvalid)
+        .map_err(|_| "MEDIA_INVALID")?
+        .samples;
+    let pcm = decode_wav(&audio_bytes)
+        .filter(|pcm| u64::try_from(pcm.len()).ok() == Some(samples))
+        .ok_or("MEDIA_INVALID")?;
+    let selection = media.selection.map(|selection| match selection {
+        Selection::Random => VariantSelection::Random,
+        Selection::Shuffle => VariantSelection::Shuffle,
+        Selection::Sequence => VariantSelection::Sequence,
+    });
+    let clip = Clip {
+        pcm,
+        bound_tier: media.tier.and_then(|tier| u8::try_from(tier).ok()),
+        audio_ms: audio_duration_ms(samples),
+        visual_tail_ms: media.visual_tail_ms,
+        visual_url: visual_data
+            .as_ref()
+            .map(|visual| Arc::<str>::from(visual.url.as_str())),
+    };
+    let selected = SelectedClip {
+        event_id: event.id,
+        bound_tier: clip.bound_tier,
+        variant_index: 0,
+        variant_id: media.variant_id,
+        clip_id: media.clip_id,
+        selection,
+        media: clip,
+    };
+    Ok(PreviewVariant {
+        selected,
+        visual: visual_data,
+    })
+}
+
 fn install_number(install_id: &str) -> u64 {
     let Some(digits) = install_id.strip_prefix("ins_") else {
         return 0;
@@ -276,7 +364,11 @@ fn audio_duration_ms(samples: u64) -> u32 {
     u32::try_from(milliseconds).unwrap_or(u32::MAX)
 }
 
-fn visual_entry(revision_root: &Path, path: &Path) -> Option<(String, VisualEntry)> {
+pub fn visual_entry(
+    revision_root: &Path,
+    path: &Path,
+    content_type: &'static str,
+) -> Option<(String, VisualEntry)> {
     let relative = path.strip_prefix(revision_root).ok()?;
     let descriptor_path = relative.to_str()?.replace('\\', "/");
     if descriptor_path.is_empty() || descriptor_path.starts_with('/') {
@@ -295,6 +387,7 @@ fn visual_entry(revision_root: &Path, path: &Path) -> Option<(String, VisualEntr
             path: path.to_path_buf(),
             size_bytes: metadata.len(),
             modified,
+            content_type,
         },
     ))
 }
@@ -373,8 +466,41 @@ pub(crate) mod test_support {
     }
 
     pub fn package(temp: &TempDir, package_id: &str, bindings: &[BindingSpec]) -> Package {
+        package_with_options(temp, package_id, bindings, None, None)
+    }
+
+    pub fn package_with_cover(
+        temp: &TempDir,
+        package_id: &str,
+        bindings: &[BindingSpec],
+        cover_bytes: &[u8],
+    ) -> Package {
+        package_with_options(
+            temp,
+            package_id,
+            bindings,
+            Some(kohbor_pack_author::PresentationOptions {
+                description: Some("Synthetic cover fixture".to_owned()),
+                author: Some("Kohbor test".to_owned()),
+                languages: Some(vec!["en-US".to_owned()]),
+                cover: Some("cover.png".to_owned()),
+            }),
+            Some(cover_bytes.to_vec()),
+        )
+    }
+
+    fn package_with_options(
+        temp: &TempDir,
+        package_id: &str,
+        bindings: &[BindingSpec],
+        presentation: Option<kohbor_pack_author::PresentationOptions>,
+        cover_bytes: Option<Vec<u8>>,
+    ) -> Package {
         let clips = temp.path().join("clips");
         fs::create_dir_all(&clips).expect("create generated input clip directory");
+        if let Some(bytes) = cover_bytes {
+            fs::write(clips.join("cover.png"), bytes).expect("write generated still cover");
+        }
         let mut mapping_bindings = Vec::with_capacity(bindings.len());
         for (index, binding) in bindings.iter().enumerate() {
             let audio_name = format!("clip-{index}.wav");
@@ -417,6 +543,7 @@ pub(crate) mod test_support {
             rights_claim: None,
             publisher_key_id: None,
             require_visual: false,
+            presentation,
         };
         let report = build_package(&options).expect("author generated fixture package");
         Package {

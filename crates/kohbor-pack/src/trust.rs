@@ -7,16 +7,26 @@ use crate::descriptor::Descriptor;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AuthorityClass {
+    System,
     LocalImport,
 }
 
 impl AuthorityClass {
-    /// `local_import`.
+    /// `system` / `local_import`.
     pub fn as_str(&self) -> &'static str {
         match self {
+            AuthorityClass::System => "system",
             AuthorityClass::LocalImport => "local_import",
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InstallOrigin {
+    /// Bytes embedded in the application package and installed by host code.
+    ShippedWithApp,
+    /// Bytes selected from a user-provided file.
+    LocalFile,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -65,8 +75,16 @@ impl TrustAssessment {
 /// in the descriptor (key ids, display name, package id such as `store`/`system`)
 /// changes `publisher_trusted()` or `purchase_entitled()`.
 pub fn assess(descriptor: &Descriptor) -> TrustAssessment {
+    assess_for_origin(descriptor, InstallOrigin::LocalFile)
+}
+
+/// Classify only from the host's installation source, never from descriptor text.
+pub fn assess_for_origin(descriptor: &Descriptor, origin: InstallOrigin) -> TrustAssessment {
     TrustAssessment {
-        authority_class: AuthorityClass::LocalImport,
+        authority_class: match origin {
+            InstallOrigin::ShippedWithApp => AuthorityClass::System,
+            InstallOrigin::LocalFile => AuthorityClass::LocalImport,
+        },
         publisher_claim: if descriptor.publisher_key_id.is_some() {
             PublisherClaim::Unverified
         } else {

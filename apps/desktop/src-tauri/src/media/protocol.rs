@@ -33,10 +33,11 @@ pub fn serve(request: &ProtocolRequest, index: &VisualIndex) -> ProtocolResponse
     }
 
     let entry = if let Some((install_id, token)) = parse_media_path(&request.path) {
-        if index.install_id.as_deref() != Some(install_id) {
-            return not_found();
+        if index.install_id.as_deref() == Some(install_id) {
+            index.entries.get(token)
+        } else {
+            index.preview_entries.get(&request.path)
         }
-        index.entries.get(token)
     } else {
         // Only exact routes published for verified silent covers are served.
         index.covers.get(&request.path)
@@ -58,7 +59,7 @@ pub fn serve(request: &ProtocolRequest, index: &VisualIndex) -> ProtocolResponse
     let range = match request.range.as_deref() {
         Some(value) => match parse_range(value, entry.size_bytes) {
             Some(range) => Some(range),
-            None => return range_not_satisfiable(entry.size_bytes),
+            None => return range_not_satisfiable(entry.size_bytes, entry.content_type),
         },
         None => None,
     };
@@ -85,7 +86,7 @@ pub fn serve(request: &ProtocolRequest, index: &VisualIndex) -> ProtocolResponse
         }
     };
 
-    let mut headers = media_headers();
+    let mut headers = media_headers(entry.content_type);
     if let Some(content_range) = content_range {
         headers.push(("Content-Range".to_owned(), content_range));
     }
@@ -246,9 +247,9 @@ fn open_verified_file(path: &std::path::Path, entry: &VisualEntry) -> Option<Fil
     Some(file)
 }
 
-fn media_headers() -> Vec<(String, String)> {
+fn media_headers(content_type: &'static str) -> Vec<(String, String)> {
     vec![
-        ("Content-Type".to_owned(), "video/webm".to_owned()),
+        ("Content-Type".to_owned(), content_type.to_owned()),
         ("Accept-Ranges".to_owned(), "bytes".to_owned()),
         ("Cache-Control".to_owned(), "no-store".to_owned()),
         ("X-Content-Type-Options".to_owned(), "nosniff".to_owned()),
@@ -259,13 +260,13 @@ fn not_found() -> ProtocolResponse {
     ProtocolResponse {
         status: 404,
         reason_code: Some("MEDIA_NOT_FOUND"),
-        headers: media_headers(),
+        headers: media_headers("application/octet-stream"),
         body: NOT_FOUND_BODY.to_vec(),
     }
 }
 
-fn range_not_satisfiable(total: u64) -> ProtocolResponse {
-    let mut headers = media_headers();
+fn range_not_satisfiable(total: u64, content_type: &'static str) -> ProtocolResponse {
+    let mut headers = media_headers(content_type);
     headers.push(("Content-Range".to_owned(), format!("bytes */{total}")));
     ProtocolResponse {
         status: 416,
@@ -341,11 +342,13 @@ mod tests {
             path: path.clone(),
             size_bytes: metadata.len(),
             modified,
+            content_type: "video/webm",
         };
         let index = VisualIndex {
             install_id: Some(Arc::from(INSTALL_ID)),
             entries: HashMap::from([(TOKEN.to_owned(), entry)]),
             covers: Default::default(),
+            preview_entries: Default::default(),
         };
         Fixture {
             _temp: temp,
