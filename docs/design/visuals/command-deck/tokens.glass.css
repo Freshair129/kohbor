@@ -9,7 +9,9 @@
  */
 
 /* ============================== TOKENS ============================== */
-:root {
+/* Declared on every themed element too: custom properties resolve var() where they are declared, so a
+   dark [data-theme] subtree under a light :root (Windows light mode) must recompute the fills itself. */
+:root, [data-theme] {
   /* --- strength knobs (medium). Only these six change between low / medium / high. --- */
   --glass-a1: 68%;                 /* level 1 fill opacity: rails, content pane, footer */
   --glass-a2: 80%;                 /* level 2: popovers, menus, toasts */
@@ -77,8 +79,8 @@
     radial-gradient(40vmax 30vmax at 74% -8%, color-mix(in srgb, var(--brand) calc(var(--glass-field-brand) * 0.4), transparent), transparent 62%),
     var(--ground);
 }
-:root[data-glass="low"]  { --glass-a1: 84%; --glass-a2: 88%; --glass-a3: 90%; --glass-field-brand: 14%; --glass-field-bone: 5%;  --glass-saturate: 120%; }
-:root[data-glass="high"] { --glass-a1: 56%; --glass-a2: 78%; --glass-a3: 74%; --glass-field-brand: 32%; --glass-field-bone: 11%; --glass-saturate: 160%; }
+:root[data-glass="low"], [data-theme][data-glass="low"]  { --glass-a1: 84%; --glass-a2: 88%; --glass-a3: 90%; --glass-field-brand: 14%; --glass-field-bone: 5%;  --glass-saturate: 120%; }
+:root[data-glass="high"], [data-theme][data-glass="high"] { --glass-a1: 56%; --glass-a2: 78%; --glass-a3: 74%; --glass-field-brand: 32%; --glass-field-bone: 11%; --glass-saturate: 160%; }
 
 /* ============================== UTILITIES ============================== */
 /* Put on the app root (the element that fills the window). Fixed, never scrolls, costs one paint. */
@@ -144,7 +146,7 @@ dialog.glass-sheet--center:not([open]) { transform: translateY(8px) scale(0.98);
 
 /* ============================== SOLID FALLBACK ============================== */
 /* One set of values, three triggers. Result = today's Command Deck surfaces. */
-:root[data-glass="off"] {
+:root[data-glass="off"], [data-theme][data-glass="off"] {
   --glass-fill-1: var(--surface); --glass-fill-2: var(--raised); --glass-fill-3: var(--surface);
   --glass-well: var(--ground); --glass-scrim: var(--scrim);
   --glass-backdrop-2: none; --glass-backdrop-3: none;
@@ -153,7 +155,7 @@ dialog.glass-sheet--center:not([open]) { transform: translateY(8px) scale(0.98);
   --glass-highlight: 0 0 #0000; --glass-highlight-strong: 0 0 #0000; --glass-lowlight: 0 0 #0000;
 }
 @media (prefers-reduced-transparency: reduce), (forced-colors: active) {
-  :root, :root[data-glass] {
+  :root, :root[data-glass], [data-theme] {
     --glass-fill-1: var(--surface); --glass-fill-2: var(--raised); --glass-fill-3: var(--surface);
     --glass-well: var(--ground); --glass-scrim: var(--scrim);
     --glass-backdrop-2: none; --glass-backdrop-3: none;
@@ -164,5 +166,5 @@ dialog.glass-sheet--center:not([open]) { transform: translateY(8px) scale(0.98);
 }
 /* No backdrop-filter at all (not expected in WebView2): floating levels go opaque rather than see-through without blur. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  :root { --glass-fill-2: var(--raised); --glass-fill-3: var(--surface); }
+  :root, [data-theme] { --glass-fill-2: var(--raised); --glass-fill-3: var(--surface); }
 }

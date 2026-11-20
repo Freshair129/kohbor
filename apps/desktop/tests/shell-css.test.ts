@@ -8,6 +8,8 @@ const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8
 const leftRailSource = readFileSync(new URL("../src/shell/RailLeft.tsx", import.meta.url), "utf8");
 const tokensCss = readFileSync(new URL("../../../docs/design/visuals/command-deck/tokens.css", import.meta.url), "utf8");
 const hudCss = readFileSync(new URL("../src/hud.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+const glassCss = readFileSync(new URL("../../../docs/design/visuals/command-deck/tokens.glass.css", import.meta.url), "utf8")
+  .replace(/\/\*[\s\S]*?\*\//g, "");
 const labCss = readFileSync(new URL("../src/lab/lab.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
 
 function parseRules(source: string): Map<string, Map<string, string>[]> {
@@ -180,5 +182,16 @@ test("history and pack lists scroll only inside bounded list regions", () => {
       const maxHeight = declarations.get("max-height");
       return maxHeight !== undefined && maxHeight !== "none" && overflowY(declarations) === "auto";
     }), `${selector} has a max-height and overflow-y: auto`);
+  }
+});
+
+test("glass fills are recomputed on the themed app root so a light Windows theme cannot turn dark rails cream", () => {
+  const blocks = [...glassCss.matchAll(/([^{}]+)\{([^{}]*--glass-fill-1:[^{}]*)\}/g)];
+  assert.ok(blocks.length >= 3, "glass fill declarations should exist");
+  for (const [, selector] of blocks) {
+    assert.match(selector, /\[data-theme\]/, `glass fill block "${selector.trim()}" must also apply to [data-theme]`);
+  }
+  for (const level of ["low", "high", "off"]) {
+    assert.ok(glassCss.includes(`[data-theme][data-glass="${level}"]`), `${level} strength must reach the themed root`);
   }
 });

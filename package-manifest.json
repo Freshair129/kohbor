@@ -1708,8 +1708,8 @@
     },
     {
       "path": "apps/desktop/tests/shell-css.test.ts",
-      "bytes": 10938,
-      "sha256": "9a4544027578a63e8f5db81348012f94e7bfc80d188a13ed40848aae6093307e"
+      "bytes": 11721,
+      "sha256": "6e96ff62c4f1bcd9b1f94a969e71cf2beeaad07e75e75b0eb1ef7ecaae7c8d71"
     },
     {
       "path": "apps/desktop/tests/shell-footer.test.ts",
@@ -2828,8 +2828,8 @@
     },
     {
       "path": "docs/design/visuals/command-deck/tokens.glass.css",
-      "bytes": 11727,
-      "sha256": "7f9b74fe0501326d6a046e80aa8fe74559b6306873437c16629b0ed766f226b4"
+      "bytes": 12075,
+      "sha256": "7609537443b779304fa46baeb449b29558cb21c40c141c7f91429926fc94822e"
     },
     {
       "path": "docs/design/visuals/s3-audio-ui/DESIGN-NOTES.md",
