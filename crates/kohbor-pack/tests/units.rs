@@ -61,6 +61,54 @@ fn real_catalog_matches_source() {
     }
 }
 #[test]
+fn accepts_legacy_catalog_event_without_critical_media_flag() {
+    let doc = json!({
+        "taxonomy_version": "1.1",
+        "events": [{"id": "hero_kill", "status": "active", "media_mappable": true}]
+    });
+    let catalog = Catalog::from_json(&doc).expect("legacy catalog is accepted");
+    assert!(!catalog.event("hero_kill").unwrap().critical_media_required);
+}
+
+#[test]
+fn explicit_critical_media_flag_overrides_category() {
+    for (category, flag) in [("critical", false), ("ordinary", true)] {
+        let doc = json!({
+            "taxonomy_version": "1.1",
+            "events": [{
+                "id": "hero_kill",
+                "status": "active",
+                "media_mappable": true,
+                "category": category,
+                "critical_media_required": flag
+            }]
+        });
+        let catalog = Catalog::from_json(&doc).expect("explicit flag is accepted");
+        assert_eq!(
+            catalog.event("hero_kill").unwrap().critical_media_required,
+            flag
+        );
+    }
+}
+
+#[test]
+fn rejects_present_non_boolean_critical_media_flag() {
+    for flag in [json!(null), json!("true"), json!(1)] {
+        let doc = json!({
+            "taxonomy_version": "1.1",
+            "events": [{
+                "id": "legacy_critical",
+                "status": "active",
+                "media_mappable": true,
+                "category": "critical",
+                "critical_media_required": flag
+            }]
+        });
+        assert!(Catalog::from_json(&doc).is_none());
+    }
+}
+
+#[test]
 fn malformed_catalogs_rejected() {
     for doc in [
         json!(null),

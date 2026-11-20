@@ -78,6 +78,8 @@ Taxonomy version `1.1`. Version 1.1 adds tiers to `multi_kill` and `streak`; it 
 - If no binding qualifies, the occurrence is unmapped and the slot stays silent. A clip of a higher tier is never played for a lower one, and another event's clip never takes its place.
 - A tier-less event (`first_blood`, `hero_kill` and the rest) accepts only untiered bindings.
 
+`Store::resolve_variants` uses the same exact event and tier lookup as `Store::resolve` (§7.1) and returns the binding's variants in descriptor order. The host applies the tier fallback above and continues to play the first variant through `Store::resolve` in phase 1 until slice V4 adds variant selection.
+
 **Alignment with the game (owner direction 2026-11-11).** The event set and the counting follow Dota 2 itself, not any package's source game.
 
 - **Multi-kill is a chain.** An own kill no more than `window_ms` (18,000 ms) after the previous own kill extends the run. The window restarts at each kill, so a run can last longer than 18 s in total. An own death does not end the run. Only kills credited to the player count; assists do not.

@@ -38,6 +38,8 @@ pub struct CatalogEvent {
     pub id: String,
     /// `media_mappable` in the catalog; a binding to a non-mappable event is inert.
     pub media_mappable: bool,
+    /// Critical cues are restricted to one admitted media variant.
+    pub critical_media_required: bool,
     /// Inclusive `tier_range`, when the event has counted tiers.
     pub tier_range: Option<(u32, u32)>,
 }
@@ -49,9 +51,10 @@ pub struct Catalog {
 }
 
 impl Catalog {
-    /// Read `taxonomy_version` and `events[]` (`id`, `media_mappable`, `tier_range`)
-    /// from the parsed catalog document. Retired or non-active events are not
-    /// listed. `None` when the document does not have the expected shape.
+    /// Read package admission fields from the parsed catalog document. An
+    /// explicit `critical_media_required` must be boolean. Legacy events
+    /// without it require critical media when their category is `critical`.
+    /// Only active events are listed. Returns `None` for a malformed catalog.
     pub fn from_json(doc: &Value) -> Option<Catalog> {
         let root = doc.as_object()?;
         let taxonomy = TaxonomyVersion::parse(root.get("taxonomy_version")?.as_str()?)?;
@@ -76,6 +79,10 @@ impl Catalog {
                 return None;
             }
             let media_mappable = object.get("media_mappable")?.as_bool()?;
+            let critical_media_required = match object.get("critical_media_required") {
+                Some(value) => value.as_bool()?,
+                None => object.get("category").and_then(Value::as_str) == Some("critical"),
+            };
             let tier_range = match object.get("tier_range") {
                 None => None,
                 Some(value) => {
@@ -98,6 +105,7 @@ impl Catalog {
                 events.push(CatalogEvent {
                     id: id.to_owned(),
                     media_mappable,
+                    critical_media_required,
                     tier_range,
                 });
             }

@@ -471,6 +471,20 @@
       "semantic_valid": true
     },
     {
+      "id": "media-variants-valid",
+      "schema": "contracts/media-manifest.schema.json",
+      "fixture": "fixtures/media-variants-valid.json",
+      "schema_valid": true,
+      "requirement_id": "MEDIA-006"
+    },
+    {
+      "id": "media-variant-audio-only-tail-invalid",
+      "schema": "contracts/media-manifest.schema.json",
+      "fixture": "fixtures/media-variant-audio-only-tail-invalid.json",
+      "schema_valid": false,
+      "requirement_id": "MEDIA-006"
+    },
+    {
       "id": "media-tier-duplicate",
       "schema": "contracts/media-manifest.schema.json",
       "fixture": "fixtures/media-tier-duplicate.json",

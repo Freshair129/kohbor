@@ -95,9 +95,9 @@ fn catalog_bytes() -> Vec<u8> {
     serde_json::to_vec(&json!({
         "taxonomy_version": "1.1",
         "events": [
-            { "id": "multi_kill", "status": "active", "media_mappable": true, "tier_range": { "min": 2, "max": 4 } },
-            { "id": "hero_kill", "status": "active", "media_mappable": true },
-            { "id": "hero_respawn", "status": "active", "media_mappable": false }
+            { "id": "multi_kill", "status": "active", "media_mappable": true, "critical_media_required": false, "tier_range": { "min": 2, "max": 4 } },
+            { "id": "hero_kill", "status": "active", "media_mappable": true, "critical_media_required": false },
+            { "id": "hero_respawn", "status": "active", "media_mappable": false, "critical_media_required": false }
         ]
     }))
     .expect("serialize catalog")
@@ -710,14 +710,13 @@ fn original_identity_audio_is_converted_and_included() {
         .bindings
         .first()
         .expect("one parsed binding");
+    assert_eq!(descriptor_binding.variants.len(), 1);
+    let variant = &descriptor_binding.variants[0];
     assert_eq!(
-        descriptor_binding.identity_audio_path.as_deref(),
+        variant.identity_audio_path.as_deref(),
         Some("audio/multi_kill-t2-identity.wav")
     );
-    assert_eq!(
-        descriptor_binding.mixed_audio_path,
-        "audio/multi_kill-t2.wav"
-    );
+    assert_eq!(variant.mixed_audio_path, "audio/multi_kill-t2.wav");
     fs::remove_dir_all(stage_dir).expect("remove identity stage");
 }
 

@@ -1,5 +1,5 @@
-//! Package descriptor (`descriptor.json`, media-manifest 1.3.0): strict parsing
-//! plus the semantic rules of EVENT-AUDIO-SPEC section 7 and MP-03/MP-05.
+//! Package descriptor (`descriptor.json`, media-manifest 1.3.0 and 1.4.0): strict
+//! parsing plus the semantic rules of EVENT-AUDIO-SPEC section 7 and MP-03/MP-05.
 //! Pure: bytes in, a typed descriptor or one specific [`RejectReason`] out.
 
 use crate::catalog::{Catalog, TaxonomyVersion};
@@ -7,9 +7,10 @@ use crate::error::RejectReason;
 use crate::fsutil::{has_unsafe_windows_segment, windows_path_key};
 use crate::limits::{
     Limits, MAX_AUDIO_MS, MAX_BINDINGS, MAX_DESCRIPTOR_BYTES, MAX_PAYLOAD_BYTES, MAX_PAYLOAD_COUNT,
-    MAX_VISUAL_TAIL_MS,
+    MAX_VARIANTS_PER_BINDING, MAX_VARIANTS_PER_PACK, MAX_VISUAL_TAIL_MS,
 };
 use serde_json::{Map, Value};
+use std::collections::HashSet;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FileRole {
@@ -28,15 +29,42 @@ pub struct FileEntry {
     pub role: FileRole,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Selection {
+    Random,
+    Shuffle,
+    Sequence,
+}
+
+impl Selection {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Selection::Random => "random",
+            Selection::Shuffle => "shuffle",
+            Selection::Sequence => "sequence",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Binding {
-    pub event_id: String,
-    pub tier: Option<u32>,
+pub struct Variant {
+    pub variant_id: String,
+    /// Provenance for local logs only; never an authority or trust claim.
+    pub clip_id: Option<String>,
     pub mixed_audio_path: String,
     pub silent_visual_path: Option<String>,
     pub duration_ms: u32,
     pub visual_tail_ms: u32,
     pub identity_audio_path: Option<String>,
+    pub weight: Option<u8>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Binding {
+    pub event_id: String,
+    pub tier: Option<u32>,
+    pub selection: Option<Selection>,
+    pub variants: Vec<Variant>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -65,21 +93,24 @@ pub struct ParsedDescriptor {
 /// Order of checks (the first failure is the reported reason):
 /// 1. size > `limits.descriptor_bytes` -> `EntryTooLarge`; not UTF-8 JSON ->
 ///    `DescriptorSyntax`; duplicate object key anywhere -> `DuplicateJsonKey`.
-/// 2. Shape per media-manifest 1.3.0 with `additionalProperties: false`: an
-///    unknown key -> `UnknownField(key)` (this is how a self-declared
-///    `trusted_public_key` or authority claim is rejected); any other schema
-///    violation (type, pattern, range, counts, `schema_version != "1.3.0"`,
-///    missing/null `taxonomy_version`, or a nonzero visual tail without a
-///    visual) -> `DescriptorSchema(json_pointer)`; a nonzero audio-only tail
-///    points to `/bindings/<index>/visual_tail_ms`;
+/// 2. Shape per media-manifest 1.3.0 or 1.4.0 with
+///    `additionalProperties: false`: an unknown key -> `UnknownField(key)` (this
+///    is how a self-declared `trusted_public_key` or authority claim is rejected);
+///    a 1.4.0 variant carrying reserved `when` -> `ConditionsReserved`; invalid
+///    selection, variant IDs, clip IDs, weights or variant counts have specific
+///    reasons; any other schema violation (type, pattern, range, counts,
+///    unsupported schema version, missing/null `taxonomy_version`, or a
+///    nonzero visual tail without a visual) -> `DescriptorSchema(json_pointer)`;
+///    a nonzero audio-only tail points to the binding's or variant's
+///    `visual_tail_ms`;
 ///    a `taxonomy_version` string outside the canonical grammar ->
 ///    `TaxonomyMalformed`.
 /// 3. Taxonomy: package major != runtime major -> `TaxonomyMajorUnsupported`.
-/// 4. Paths: every path in `files` and every present binding path must be relative,
+/// 4. Paths: every path in `files` and every present binding variant path must be relative,
 ///    ASCII, without `..`, `.`, empty, backslash, drive, `:` or leading `/`
 ///    segments -> `UnsafePath`; `files[].path` duplicates (case-insensitive)
 ///    -> `DuplicateEntry`.
-/// 5. References: a binding path missing from `files` -> `DanglingReference`;
+/// 5. References: a variant path missing from `files` -> `DanglingReference`;
 ///    the role of the referenced file must be `mixed_audio` for
 ///    `mixed_audio_path`, `silent_visual` for a present `silent_visual_path` and
 ///    `identity_audio` for `identity_audio_path` -> `BindingRoleMismatch`.
@@ -87,10 +118,11 @@ pub struct ParsedDescriptor {
 ///    outside the range -> `TierOutOfRange`; two bindings with the same
 ///    `(event_id, tier)` (a missing tier counts as one tier) -> `TierDuplicate`;
 ///    a tiered event bound without any tier is allowed (the tier-less binding).
-/// 7. Pairing: every binding names a mixed audio path and may name a silent
-///    visual path. Without a visual, `visual_tail_ms` must be zero; such a
-///    binding is audio-only. A `files` entry with role `mixed_audio` or
-///    `silent_visual` that no binding uses -> `UnpairedBinding`.
+/// 7. Pairing: every variant names a mixed audio path and may name a silent
+///    visual path. Without a visual, its `visual_tail_ms` must be zero; such a
+///    variant is audio-only. A `files` entry with role `mixed_audio` or
+///    `silent_visual` that no variant uses -> `UnpairedBinding`; one file may be
+///    referenced by several variants.
 ///
 /// Unknown (or not media-mappable) `event_id`s are not an error: they are
 /// listed in `inert_event_ids` and skipped by checks 6 and the playback index.
@@ -114,6 +146,7 @@ pub fn parse_descriptor(
     validate_schema(&value, limits)?;
 
     let root = value.as_object().ok_or_else(|| schema_error(""))?;
+    let legacy_v13 = required_string(root, "schema_version", "/schema_version")? == "1.3.0";
     let taxonomy_text = required_string(root, "taxonomy_version", "/taxonomy_version")?;
     let taxonomy = TaxonomyVersion::parse(taxonomy_text).ok_or(RejectReason::TaxonomyMalformed)?;
     if taxonomy.major != catalog.taxonomy.major {
@@ -152,6 +185,7 @@ pub fn parse_descriptor(
         .and_then(Value::as_array)
         .ok_or_else(|| schema_error("/bindings"))?;
     let mut bindings = Vec::with_capacity(binding_values.len());
+    let mut variant_ids = HashSet::new();
     for (index, item) in binding_values.iter().enumerate() {
         let pointer = format!("/bindings/{index}");
         let object = item.as_object().ok_or_else(|| schema_error(&pointer))?;
@@ -164,45 +198,78 @@ pub fn parse_descriptor(
             ),
             None => None,
         };
-        let identity_audio_path = match object.get("identity_audio_path") {
-            Some(value) => Some(
-                value
-                    .as_str()
-                    .ok_or_else(|| schema_error(&format!("{pointer}/identity_audio_path")))?
-                    .to_owned(),
-            ),
-            None => None,
+        let (selection, variants) = if legacy_v13 {
+            let variant_id = format!("v{}", index + 1);
+            let variant = parse_variant_fields(object, &pointer, variant_id, None, None)?;
+            (None, vec![variant])
+        } else {
+            let variant_values = object
+                .get("variants")
+                .and_then(Value::as_array)
+                .ok_or_else(|| schema_error(&format!("{pointer}/variants")))?;
+            let selection = match object.get("selection") {
+                None => None,
+                Some(Value::String(value)) => Some(parse_selection(value)?),
+                Some(_) => return Err(RejectReason::SelectionInvalid),
+            };
+            if variant_values.len() > 1 && selection.is_none() {
+                return Err(RejectReason::SelectionRequired);
+            }
+            if variant_values.len() == 1 && selection.is_some() {
+                return Err(RejectReason::SelectionUnexpected);
+            }
+            let mut variants = Vec::with_capacity(variant_values.len());
+            for (variant_index, variant_value) in variant_values.iter().enumerate() {
+                let variant_pointer = format!("{pointer}/variants/{variant_index}");
+                let variant_object = variant_value
+                    .as_object()
+                    .ok_or_else(|| schema_error(&variant_pointer))?;
+                let variant_id = required_string(
+                    variant_object,
+                    "variant_id",
+                    &format!("{variant_pointer}/variant_id"),
+                )?
+                .to_owned();
+                if !variant_ids.insert(variant_id.clone()) {
+                    return Err(RejectReason::DuplicateVariantId);
+                }
+                let clip_id = variant_object
+                    .get("clip_id")
+                    .map(|value| {
+                        value
+                            .as_str()
+                            .map(str::to_owned)
+                            .ok_or(RejectReason::ClipIdInvalid)
+                    })
+                    .transpose()?;
+                let weight = variant_object
+                    .get("weight")
+                    .map(|value| {
+                        value
+                            .as_u64()
+                            .and_then(|weight| u8::try_from(weight).ok())
+                            .ok_or(RejectReason::VariantWeightInvalid)
+                    })
+                    .transpose()?;
+                if weight.is_some() && selection != Some(Selection::Random) {
+                    return Err(RejectReason::WeightSelectionMismatch);
+                }
+                variants.push(parse_variant_fields(
+                    variant_object,
+                    &variant_pointer,
+                    variant_id,
+                    clip_id,
+                    weight,
+                )?);
+            }
+            (selection, variants)
         };
-        let duration_ms = required_u64(object, "duration_ms", &format!("{pointer}/duration_ms"))?;
-        let visual_tail_ms = required_u64(
-            object,
-            "visual_tail_ms",
-            &format!("{pointer}/visual_tail_ms"),
-        )?;
         bindings.push(Binding {
             event_id: required_string(object, "event_id", &format!("{pointer}/event_id"))?
                 .to_owned(),
             tier,
-            mixed_audio_path: required_string(
-                object,
-                "mixed_audio_path",
-                &format!("{pointer}/mixed_audio_path"),
-            )?
-            .to_owned(),
-            silent_visual_path: object
-                .get("silent_visual_path")
-                .map(|value| {
-                    value
-                        .as_str()
-                        .map(str::to_owned)
-                        .ok_or_else(|| schema_error(&format!("{pointer}/silent_visual_path")))
-                })
-                .transpose()?,
-            duration_ms: u32::try_from(duration_ms)
-                .map_err(|_| schema_error(&format!("{pointer}/duration_ms")))?,
-            visual_tail_ms: u32::try_from(visual_tail_ms)
-                .map_err(|_| schema_error(&format!("{pointer}/visual_tail_ms")))?,
-            identity_audio_path,
+            selection,
+            variants,
         });
     }
 
@@ -213,17 +280,19 @@ pub fn parse_descriptor(
         }
     }
     for binding in &bindings {
-        if !safe_manifest_path(&binding.mixed_audio_path)
-            || binding
-                .silent_visual_path
-                .as_deref()
-                .is_some_and(|path| !safe_manifest_path(path))
-            || binding
-                .identity_audio_path
-                .as_deref()
-                .is_some_and(|path| !safe_manifest_path(path))
-        {
-            return Err(RejectReason::UnsafePath);
+        for variant in &binding.variants {
+            if !safe_manifest_path(&variant.mixed_audio_path)
+                || variant
+                    .silent_visual_path
+                    .as_deref()
+                    .is_some_and(|path| !safe_manifest_path(path))
+                || variant
+                    .identity_audio_path
+                    .as_deref()
+                    .is_some_and(|path| !safe_manifest_path(path))
+            {
+                return Err(RejectReason::UnsafePath);
+            }
         }
     }
 
@@ -238,12 +307,14 @@ pub fn parse_descriptor(
     }
 
     for binding in &bindings {
-        check_reference(&files, &binding.mixed_audio_path, FileRole::MixedAudio)?;
-        if let Some(path) = binding.silent_visual_path.as_deref() {
-            check_reference(&files, path, FileRole::SilentVisual)?;
-        }
-        if let Some(path) = binding.identity_audio_path.as_deref() {
-            check_reference(&files, path, FileRole::IdentityAudio)?;
+        for variant in &binding.variants {
+            check_reference(&files, &variant.mixed_audio_path, FileRole::MixedAudio)?;
+            if let Some(path) = variant.silent_visual_path.as_deref() {
+                check_reference(&files, path, FileRole::SilentVisual)?;
+            }
+            if let Some(path) = variant.identity_audio_path.as_deref() {
+                check_reference(&files, path, FileRole::IdentityAudio)?;
+            }
         }
     }
 
@@ -255,6 +326,9 @@ pub fn parse_descriptor(
             }
             continue;
         };
+        if event.critical_media_required && binding.variants.len() != 1 {
+            return Err(RejectReason::CriticalMediaVariantCount);
+        }
         if !event.media_mappable {
             if !inert_event_ids.iter().any(|id| id == &binding.event_id) {
                 inert_event_ids.push(binding.event_id.clone());
@@ -284,13 +358,16 @@ pub fn parse_descriptor(
     for file in &files {
         let is_pair_role = matches!(file.role, FileRole::MixedAudio | FileRole::SilentVisual);
         if is_pair_role
-            && !bindings.iter().any(|binding| match file.role {
-                FileRole::MixedAudio => binding.mixed_audio_path == file.path,
-                FileRole::SilentVisual => {
-                    binding.silent_visual_path.as_deref() == Some(file.path.as_str())
-                }
-                _ => false,
-            })
+            && !bindings
+                .iter()
+                .flat_map(|binding| &binding.variants)
+                .any(|variant| match file.role {
+                    FileRole::MixedAudio => variant.mixed_audio_path == file.path,
+                    FileRole::SilentVisual => {
+                        variant.silent_visual_path.as_deref() == Some(file.path.as_str())
+                    }
+                    _ => false,
+                })
         {
             return Err(RejectReason::UnpairedBinding);
         }
@@ -316,6 +393,13 @@ pub fn parse_descriptor(
 
 fn validate_schema(value: &Value, limits: Limits) -> Result<(), RejectReason> {
     let root = value.as_object().ok_or_else(|| schema_error(""))?;
+    let schema_version = root
+        .get("schema_version")
+        .and_then(Value::as_str)
+        .ok_or_else(|| schema_error("/schema_version"))?;
+    if !matches!(schema_version, "1.3.0" | "1.4.0") {
+        return Err(schema_error("/schema_version"));
+    }
     reject_unknown_keys(
         root,
         &[
@@ -330,32 +414,56 @@ fn validate_schema(value: &Value, limits: Limits) -> Result<(), RejectReason> {
         ],
     )?;
 
-    for (key, allowed) in [
-        ("files", &["path", "size_bytes", "sha256", "role"][..]),
-        (
-            "bindings",
-            &[
-                "event_id",
-                "tier",
-                "mixed_audio_path",
-                "silent_visual_path",
-                "duration_ms",
-                "visual_tail_ms",
-                "identity_audio_path",
-            ][..],
-        ),
-    ] {
-        if let Some(items) = root.get(key).and_then(Value::as_array) {
-            for item in items {
-                if let Some(object) = item.as_object() {
-                    reject_unknown_keys(object, allowed)?;
-                }
+    if let Some(files) = root.get("files").and_then(Value::as_array) {
+        for item in files {
+            if let Some(object) = item.as_object() {
+                reject_unknown_keys(object, &["path", "size_bytes", "sha256", "role"])?;
             }
         }
     }
-
-    if root.get("schema_version").and_then(Value::as_str) != Some("1.3.0") {
-        return Err(schema_error("/schema_version"));
+    if let Some(bindings) = root.get("bindings").and_then(Value::as_array) {
+        for binding in bindings {
+            if let Some(object) = binding.as_object() {
+                if schema_version == "1.3.0" {
+                    reject_unknown_keys(
+                        object,
+                        &[
+                            "event_id",
+                            "tier",
+                            "mixed_audio_path",
+                            "silent_visual_path",
+                            "duration_ms",
+                            "visual_tail_ms",
+                            "identity_audio_path",
+                        ],
+                    )?;
+                } else {
+                    reject_unknown_keys(object, &["event_id", "tier", "selection", "variants"])?;
+                    if let Some(variants) = object.get("variants").and_then(Value::as_array) {
+                        for variant in variants {
+                            if let Some(variant_object) = variant.as_object() {
+                                if variant_object.contains_key("when") {
+                                    return Err(RejectReason::ConditionsReserved);
+                                }
+                                reject_unknown_keys(
+                                    variant_object,
+                                    &[
+                                        "variant_id",
+                                        "clip_id",
+                                        "mixed_audio_path",
+                                        "silent_visual_path",
+                                        "duration_ms",
+                                        "visual_tail_ms",
+                                        "identity_audio_path",
+                                        "weight",
+                                    ],
+                                )?;
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
     let package_id = required_string(root, "package_id", "/package_id")?;
     if package_id.is_empty()
@@ -430,6 +538,8 @@ fn validate_schema(value: &Value, limits: Limits) -> Result<(), RejectReason> {
     if bindings.len() > limits.bindings.min(MAX_BINDINGS) {
         return Err(schema_error("/bindings"));
     }
+    let mut total_variants = 0usize;
+    let mut seen_variant_ids = HashSet::new();
     for (index, item) in bindings.iter().enumerate() {
         let pointer = format!("/bindings/{index}");
         let object = item.as_object().ok_or_else(|| schema_error(&pointer))?;
@@ -445,40 +555,208 @@ fn validate_schema(value: &Value, limits: Limits) -> Result<(), RejectReason> {
                 return Err(schema_error(&format!("{pointer}/tier")));
             }
         }
-        for key in ["mixed_audio_path", "identity_audio_path"] {
-            if key == "identity_audio_path" && !object.contains_key(key) {
-                continue;
+        if schema_version == "1.3.0" {
+            validate_legacy_binding(object, &pointer)?;
+            total_variants = total_variants
+                .checked_add(1)
+                .ok_or(RejectReason::TooManyVariantsPerPack)?;
+        } else {
+            let variant_values = object
+                .get("variants")
+                .and_then(Value::as_array)
+                .ok_or_else(|| schema_error(&format!("{pointer}/variants")))?;
+            if variant_values.is_empty() {
+                return Err(RejectReason::VariantCountInvalid);
             }
-            let path = required_string(object, key, &format!("{pointer}/{key}"))?;
-            if !valid_path_pattern(path) {
-                return Err(schema_error(&format!("{pointer}/{key}")));
+            if variant_values.len() > MAX_VARIANTS_PER_BINDING {
+                return Err(RejectReason::TooManyVariantsPerBinding);
             }
-        }
-        if let Some(value) = object.get("silent_visual_path") {
-            let path = value
-                .as_str()
-                .ok_or_else(|| schema_error(&format!("{pointer}/silent_visual_path")))?;
-            if !valid_path_pattern(path) {
-                return Err(schema_error(&format!("{pointer}/silent_visual_path")));
+            total_variants = total_variants
+                .checked_add(variant_values.len())
+                .ok_or(RejectReason::TooManyVariantsPerPack)?;
+            if total_variants > MAX_VARIANTS_PER_PACK {
+                return Err(RejectReason::TooManyVariantsPerPack);
             }
-        }
-        let duration = required_u64(object, "duration_ms", &format!("{pointer}/duration_ms"))?;
-        if duration == 0 || duration > u64::from(MAX_AUDIO_MS) {
-            return Err(schema_error(&format!("{pointer}/duration_ms")));
-        }
-        let tail = required_u64(
-            object,
-            "visual_tail_ms",
-            &format!("{pointer}/visual_tail_ms"),
-        )?;
-        if tail > u64::from(MAX_VISUAL_TAIL_MS) {
-            return Err(schema_error(&format!("{pointer}/visual_tail_ms")));
-        }
-        if !object.contains_key("silent_visual_path") && tail != 0 {
-            return Err(schema_error(&format!("{pointer}/visual_tail_ms")));
+
+            let selection = match object.get("selection") {
+                None => None,
+                Some(Value::String(value)) => Some(parse_selection(value)?),
+                Some(_) => return Err(RejectReason::SelectionInvalid),
+            };
+            if variant_values.len() > 1 && selection.is_none() {
+                return Err(RejectReason::SelectionRequired);
+            }
+            if variant_values.len() == 1 && selection.is_some() {
+                return Err(RejectReason::SelectionUnexpected);
+            }
+
+            for (variant_index, variant_value) in variant_values.iter().enumerate() {
+                let variant_pointer = format!("{pointer}/variants/{variant_index}");
+                let variant = variant_value
+                    .as_object()
+                    .ok_or_else(|| schema_error(&variant_pointer))?;
+                let variant_id = required_string(
+                    variant,
+                    "variant_id",
+                    &format!("{variant_pointer}/variant_id"),
+                )?;
+                if !valid_variant_id(variant_id) {
+                    return Err(RejectReason::VariantIdInvalid);
+                }
+                if !seen_variant_ids.insert(variant_id.to_owned()) {
+                    return Err(RejectReason::DuplicateVariantId);
+                }
+                if let Some(value) = variant.get("clip_id") {
+                    let clip_id = value.as_str().ok_or(RejectReason::ClipIdInvalid)?;
+                    if !valid_clip_id(clip_id) {
+                        return Err(RejectReason::ClipIdInvalid);
+                    }
+                }
+                for key in ["mixed_audio_path", "identity_audio_path"] {
+                    if key == "identity_audio_path" && !variant.contains_key(key) {
+                        continue;
+                    }
+                    let path = required_string(variant, key, &format!("{variant_pointer}/{key}"))?;
+                    if !valid_path_pattern(path) {
+                        return Err(schema_error(&format!("{variant_pointer}/{key}")));
+                    }
+                }
+                if let Some(value) = variant.get("silent_visual_path") {
+                    let path = value.as_str().ok_or_else(|| {
+                        schema_error(&format!("{variant_pointer}/silent_visual_path"))
+                    })?;
+                    if !valid_path_pattern(path) {
+                        return Err(schema_error(&format!(
+                            "{variant_pointer}/silent_visual_path"
+                        )));
+                    }
+                }
+                let duration = required_u64(
+                    variant,
+                    "duration_ms",
+                    &format!("{variant_pointer}/duration_ms"),
+                )?;
+                if duration == 0 || duration > u64::from(MAX_AUDIO_MS) {
+                    return Err(schema_error(&format!("{variant_pointer}/duration_ms")));
+                }
+                let tail = required_u64(
+                    variant,
+                    "visual_tail_ms",
+                    &format!("{variant_pointer}/visual_tail_ms"),
+                )?;
+                if tail > u64::from(MAX_VISUAL_TAIL_MS) {
+                    return Err(schema_error(&format!("{variant_pointer}/visual_tail_ms")));
+                }
+                if !variant.contains_key("silent_visual_path") && tail != 0 {
+                    return Err(schema_error(&format!("{variant_pointer}/visual_tail_ms")));
+                }
+                if let Some(weight) = variant.get("weight") {
+                    let weight = weight.as_u64().ok_or(RejectReason::VariantWeightInvalid)?;
+                    if !(1..=100).contains(&weight) {
+                        return Err(RejectReason::VariantWeightInvalid);
+                    }
+                    if selection != Some(Selection::Random) {
+                        return Err(RejectReason::WeightSelectionMismatch);
+                    }
+                }
+            }
         }
     }
     Ok(())
+}
+
+fn validate_legacy_binding(object: &Map<String, Value>, pointer: &str) -> Result<(), RejectReason> {
+    for key in ["mixed_audio_path", "identity_audio_path"] {
+        if key == "identity_audio_path" && !object.contains_key(key) {
+            continue;
+        }
+        let path = required_string(object, key, &format!("{pointer}/{key}"))?;
+        if !valid_path_pattern(path) {
+            return Err(schema_error(&format!("{pointer}/{key}")));
+        }
+    }
+    if let Some(value) = object.get("silent_visual_path") {
+        let path = value
+            .as_str()
+            .ok_or_else(|| schema_error(&format!("{pointer}/silent_visual_path")))?;
+        if !valid_path_pattern(path) {
+            return Err(schema_error(&format!("{pointer}/silent_visual_path")));
+        }
+    }
+    let duration = required_u64(object, "duration_ms", &format!("{pointer}/duration_ms"))?;
+    if duration == 0 || duration > u64::from(MAX_AUDIO_MS) {
+        return Err(schema_error(&format!("{pointer}/duration_ms")));
+    }
+    let tail = required_u64(
+        object,
+        "visual_tail_ms",
+        &format!("{pointer}/visual_tail_ms"),
+    )?;
+    if tail > u64::from(MAX_VISUAL_TAIL_MS) {
+        return Err(schema_error(&format!("{pointer}/visual_tail_ms")));
+    }
+    if !object.contains_key("silent_visual_path") && tail != 0 {
+        return Err(schema_error(&format!("{pointer}/visual_tail_ms")));
+    }
+    Ok(())
+}
+
+fn parse_selection(value: &str) -> Result<Selection, RejectReason> {
+    match value {
+        "random" => Ok(Selection::Random),
+        "shuffle" => Ok(Selection::Shuffle),
+        "sequence" => Ok(Selection::Sequence),
+        _ => Err(RejectReason::SelectionInvalid),
+    }
+}
+
+fn parse_variant_fields(
+    object: &Map<String, Value>,
+    pointer: &str,
+    variant_id: String,
+    clip_id: Option<String>,
+    weight: Option<u8>,
+) -> Result<Variant, RejectReason> {
+    let identity_audio_path = object
+        .get("identity_audio_path")
+        .map(|value| {
+            value
+                .as_str()
+                .map(str::to_owned)
+                .ok_or_else(|| schema_error(&format!("{pointer}/identity_audio_path")))
+        })
+        .transpose()?;
+    let duration_ms = required_u64(object, "duration_ms", &format!("{pointer}/duration_ms"))?;
+    let visual_tail_ms = required_u64(
+        object,
+        "visual_tail_ms",
+        &format!("{pointer}/visual_tail_ms"),
+    )?;
+    Ok(Variant {
+        variant_id,
+        clip_id,
+        mixed_audio_path: required_string(
+            object,
+            "mixed_audio_path",
+            &format!("{pointer}/mixed_audio_path"),
+        )?
+        .to_owned(),
+        silent_visual_path: object
+            .get("silent_visual_path")
+            .map(|value| {
+                value
+                    .as_str()
+                    .map(str::to_owned)
+                    .ok_or_else(|| schema_error(&format!("{pointer}/silent_visual_path")))
+            })
+            .transpose()?,
+        duration_ms: u32::try_from(duration_ms)
+            .map_err(|_| schema_error(&format!("{pointer}/duration_ms")))?,
+        visual_tail_ms: u32::try_from(visual_tail_ms)
+            .map_err(|_| schema_error(&format!("{pointer}/visual_tail_ms")))?,
+        identity_audio_path,
+        weight,
+    })
 }
 
 fn reject_unknown_keys(object: &Map<String, Value>, allowed: &[&str]) -> Result<(), RejectReason> {
@@ -557,6 +835,21 @@ fn reject_unsafe_windows_paths(value: &Value) -> Result<(), RejectReason> {
                     }
                 }
             }
+            if let Some(variants) = binding.get("variants").and_then(Value::as_array) {
+                for variant in variants {
+                    for key in [
+                        "mixed_audio_path",
+                        "silent_visual_path",
+                        "identity_audio_path",
+                    ] {
+                        if let Some(path) = variant.get(key).and_then(Value::as_str) {
+                            if !path.contains(':') && has_unsafe_windows_segment(path) {
+                                return Err(RejectReason::UnsafePath);
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
     Ok(())
@@ -586,6 +879,35 @@ fn valid_event_id(text: &str) -> bool {
     matches!(bytes.next(), Some(b'a'..=b'z'))
         && text.len() <= 80
         && bytes.all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+}
+
+fn valid_variant_id(text: &str) -> bool {
+    let mut bytes = text.bytes();
+    matches!(bytes.next(), Some(b'a'..=b'z' | b'0'..=b'9'))
+        && text.len() <= 32
+        && bytes.all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'_' | b'-')
+        })
+}
+
+fn valid_clip_id(text: &str) -> bool {
+    if text.len() > 48 || !text.is_ascii() {
+        return false;
+    }
+    let Some((prefix, suffix)) = text.split_once('-') else {
+        return false;
+    };
+    let Some((language, number)) = suffix.split_once('-') else {
+        return false;
+    };
+    !prefix.is_empty()
+        && prefix
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
+        && language.len() == 2
+        && language.bytes().all(|byte| byte.is_ascii_lowercase())
+        && number.len() == 4
+        && number.bytes().all(|byte| byte.is_ascii_digit())
 }
 
 fn check_reference(

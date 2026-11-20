@@ -1812,6 +1812,7 @@
           "crates/kohbor-pack/src/store.rs",
           "crates/kohbor-pack/src/media.rs",
           "crates/kohbor-pack/tests/resolve.rs",
+          "crates/kohbor-pack/tests/variant_media.rs",
           "crates/kohbor-pack/tests/hostile.rs",
           "apps/desktop/src-tauri/src/media/prewarm.rs",
           "apps/desktop/src-tauri/src/media/protocol.rs"
@@ -1967,6 +1968,7 @@
           "crates/kohbor-pack/src/descriptor.rs",
           "crates/kohbor-pack/tests/hostile.rs",
           "crates/kohbor-pack/tests/descriptor.rs",
+          "crates/kohbor-pack/tests/variant_media.rs",
           "crates/kohbor-pack/tests/sha256_limited.rs"
         ],
         "evidence_refs": [],

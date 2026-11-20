@@ -39,11 +39,16 @@ fn descriptor_audio_only_fixture_and_tiered_pair_are_valid() {
     .unwrap();
     assert_eq!(parsed.descriptor.bindings.len(), 2);
     assert_eq!(parsed.descriptor.bindings[0].event_id, "hero_kill");
-    assert_eq!(parsed.descriptor.bindings[0].silent_visual_path, None);
-    assert_eq!(parsed.descriptor.bindings[0].visual_tail_ms, 0);
+    assert_eq!(
+        parsed.descriptor.bindings[0].variants[0].silent_visual_path,
+        None
+    );
+    assert_eq!(parsed.descriptor.bindings[0].variants[0].visual_tail_ms, 0);
     assert_eq!(parsed.descriptor.bindings[1].event_id, "multi_kill");
     assert_eq!(
-        parsed.descriptor.bindings[1].silent_visual_path.as_deref(),
+        parsed.descriptor.bindings[1].variants[0]
+            .silent_visual_path
+            .as_deref(),
         Some("video/cue2.webm")
     );
     assert_eq!(parsed.descriptor.bindings[1].tier, Some(2));
@@ -123,7 +128,7 @@ fn audio_only_package_stages_and_mixed_package_verifies_both_binding_kinds() {
     let staged = stage_entries(&audio_only).unwrap();
     assert_eq!(staged.parsed.descriptor.bindings.len(), 1);
     assert_eq!(
-        staged.parsed.descriptor.bindings[0].silent_visual_path,
+        staged.parsed.descriptor.bindings[0].variants[0].silent_visual_path,
         None
     );
 
@@ -131,10 +136,10 @@ fn audio_only_package_stages_and_mixed_package_verifies_both_binding_kinds() {
     let staged = stage_entries(&mixed).unwrap();
     assert_eq!(staged.parsed.descriptor.bindings.len(), 2);
     assert_eq!(
-        staged.parsed.descriptor.bindings[0].silent_visual_path,
+        staged.parsed.descriptor.bindings[0].variants[0].silent_visual_path,
         None
     );
-    assert!(staged.parsed.descriptor.bindings[1]
+    assert!(staged.parsed.descriptor.bindings[1].variants[0]
         .silent_visual_path
         .is_some());
 }

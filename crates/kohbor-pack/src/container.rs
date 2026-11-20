@@ -956,51 +956,57 @@ fn inspect_media(
     let mut wav_cache: HashMap<String, WavInfo> = HashMap::new();
     let mut webm_cache: HashMap<String, WebmInfo> = HashMap::new();
     for binding in &parsed.descriptor.bindings {
-        let mixed_info = if let Some(info) = wav_cache.get(&binding.mixed_audio_path) {
-            *info
-        } else {
-            let bytes =
-                read_staged_media(staging_dir, &binding.mixed_audio_path, limits.payload_bytes)?;
-            let info = media::inspect_wav(&bytes, RejectReason::MixedAudioInvalid)?;
-            wav_cache.insert(binding.mixed_audio_path.clone(), info);
-            info
-        };
-        let identity_info = if let Some(path) = binding.identity_audio_path.as_deref() {
-            Some(if let Some(info) = wav_cache.get(path) {
+        for variant in &binding.variants {
+            let mixed_info = if let Some(info) = wav_cache.get(&variant.mixed_audio_path) {
                 *info
             } else {
-                let bytes = read_staged_media(staging_dir, path, limits.payload_bytes)?;
-                let info = media::inspect_wav(&bytes, RejectReason::IdentityAudioInvalid)?;
-                wav_cache.insert(path.to_owned(), info);
-                info
-            })
-        } else {
-            None
-        };
-        if mixed_info.duration_ms != binding.duration_ms {
-            return Err(RejectReason::AudioDurationMismatch);
-        }
-        if identity_info.is_some_and(|info| info.samples != mixed_info.samples) {
-            return Err(RejectReason::IdentityAudioLengthMismatch);
-        }
-
-        if let Some(visual_path) = binding.silent_visual_path.as_deref() {
-            let visual_info = if let Some(info) = webm_cache.get(visual_path) {
-                *info
-            } else {
-                let bytes = read_staged_media(staging_dir, visual_path, limits.payload_bytes)?;
-                let info = media::inspect_webm(&bytes)?;
-                webm_cache.insert(visual_path.to_owned(), info);
+                let bytes = read_staged_media(
+                    staging_dir,
+                    &variant.mixed_audio_path,
+                    limits.payload_bytes,
+                )?;
+                let info = media::inspect_wav(&bytes, RejectReason::MixedAudioInvalid)?;
+                wav_cache.insert(variant.mixed_audio_path.clone(), info);
                 info
             };
-            if let Some(duration_ms) = visual_info.duration_ms {
-                let minimum = u64::from(binding.duration_ms).saturating_sub(34);
-                let maximum = u64::from(binding.duration_ms)
-                    .checked_add(u64::from(binding.visual_tail_ms))
-                    .and_then(|value| value.checked_add(34))
-                    .ok_or(RejectReason::VisualDurationMismatch)?;
-                if duration_ms < minimum || duration_ms > maximum {
-                    return Err(RejectReason::VisualDurationMismatch);
+
+            let identity_info = if let Some(path) = variant.identity_audio_path.as_deref() {
+                Some(if let Some(info) = wav_cache.get(path) {
+                    *info
+                } else {
+                    let bytes = read_staged_media(staging_dir, path, limits.payload_bytes)?;
+                    let info = media::inspect_wav(&bytes, RejectReason::IdentityAudioInvalid)?;
+                    wav_cache.insert(path.to_owned(), info);
+                    info
+                })
+            } else {
+                None
+            };
+            if mixed_info.duration_ms != variant.duration_ms {
+                return Err(RejectReason::AudioDurationMismatch);
+            }
+            if identity_info.is_some_and(|info| info.samples != mixed_info.samples) {
+                return Err(RejectReason::IdentityAudioLengthMismatch);
+            }
+
+            if let Some(visual_path) = variant.silent_visual_path.as_deref() {
+                let visual_info = if let Some(info) = webm_cache.get(visual_path) {
+                    *info
+                } else {
+                    let bytes = read_staged_media(staging_dir, visual_path, limits.payload_bytes)?;
+                    let info = media::inspect_webm(&bytes)?;
+                    webm_cache.insert(visual_path.to_owned(), info);
+                    info
+                };
+                if let Some(duration_ms) = visual_info.duration_ms {
+                    let minimum = u64::from(variant.duration_ms).saturating_sub(34);
+                    let maximum = u64::from(variant.duration_ms)
+                        .checked_add(u64::from(variant.visual_tail_ms))
+                        .and_then(|value| value.checked_add(34))
+                        .ok_or(RejectReason::VisualDurationMismatch)?;
+                    if duration_ms < minimum || duration_ms > maximum {
+                        return Err(RejectReason::VisualDurationMismatch);
+                    }
                 }
             }
         }
@@ -1063,12 +1069,12 @@ pub struct StagedPackage {
 ///   `size_bytes` (`SizeMismatch`) and the SHA-256 must equal `sha256`
 ///   (`DigestMismatch`). Roles `source_asset` and `font` are inventoried but not
 ///   media-inspected.
-/// - Media (EVENT-AUDIO-SPEC section 6): `inspect_wav` on every binding's mixed
+/// - Media (EVENT-AUDIO-SPEC section 6): `inspect_wav` on every variant's mixed
 ///   audio (`MixedAudioInvalid`) and identity audio (`IdentityAudioInvalid`);
 ///   mixed `duration_ms` (floor of samples * 1000 / 48,000) must equal the
-///   binding's `duration_ms` (`AudioDurationMismatch`); identity sample count
+///   variant's `duration_ms` (`AudioDurationMismatch`); identity sample count
 ///   must equal the mixed sample count (`IdentityAudioLengthMismatch`);
-///   for a binding with a visual, `inspect_webm` (`VisualInvalid`,
+///   for a variant with a visual, `inspect_webm` (`VisualInvalid`,
 ///   `VisualHasAudioTrack`); when that visual declares a duration it must lie in
 ///   `[duration_ms, duration_ms + visual_tail_ms]` plus 34 ms (one frame at
 ///   30 fps) tolerance on both sides (`VisualDurationMismatch`); a binding with
