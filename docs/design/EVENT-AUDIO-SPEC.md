@@ -3,7 +3,7 @@ title: "Event and Audio Specification (M2)"
 doc_id: "EVENT-AUDIO-SPEC"
 status: draft
 version: "0.3.6"
-updated: "2026-11-19"
+updated: "2026-11-20"
 authority: "DEC-BASELINE; elaborates MEDIA-001..008, ALERT-001, ALERT-007, VOICE-006, QUALITY-001, QUALITY-007 under DEC-EVENT-AUDIO and DEC-HEALTH-DANGER"
 owner_role: "Integration owner (catalog, arbitration, formats); product owner (health danger, mute)"
 approval_status: "not_approved"
@@ -220,6 +220,16 @@ Detection is recorded as an event ([event.schema.json](../../contracts/event.sch
 | `cooldown` | An episode or global cooldown is active |
 | `muted` | Global mute is on |
 
+### Local match recap (H12, D1; contract proposal — owner approval needed)
+
+`audio-outcome.schema.json` 1.1.0 adds `tier`, `variant_id`, `clip_id`, `selection`, `game_clock_seconds`, `match_id` and `playback_end`. These fields are present on announcer event outcomes, including dropped outcomes; unavailable provenance and game time are `null`. `game_clock_seconds` is copied only from a non-negative local GSI `map.clock_time`. The local match key is `local_match_<session_epoch>`: it is derived from the persisted local session epoch, never from the raw GSI `match_id`, and no network service is used.
+
+An admitted outcome starts with `playback_end: null`; the host updates the same outcome by `playback_id` to `finished`, `cut` or `failed` when audio actually finishes, is interrupted, or loses its device. A dropped outcome has no playback and keeps `playback_end: null`. `preempted` is a played outcome whose end is `cut`. Voice and audition records are not part of match recap.
+
+The host persists a schema-versioned `match-recap.json` in the application data directory. It retains at most five match groups, at most 128 outcomes per match and at most 1 MiB on disk. Writes use a same-directory temporary file and atomic replacement. A missing file starts empty; a corrupt or unsupported file starts empty and produces one warning at load. `match_recap` reads the local recap and `clear_match_recap` replaces it with an empty document. Neither command sends data outside this machine. These storage and schema details are a proposal pending owner approval; D1 authorizes the five-match local retention and clear action.
+
+The Packs recap shows admitted/preempted announcer events with their tier/variant provenance and playback end. Dropped outcomes remain available in the local outcome record but are not listed as played. The page uses the owner wording “เล่นแล้ว” and one footnote explaining that admission does not prove the player heard it, and that a cut or failed playback did not finish normally.
+
 ### Audition lifecycle result (H5)
 
 `media_audition` returns a caller-visible result with `audio_started`, `audio_ended`, and `audio_end_reason`, plus `visual_status`, `visual_reason`, and `video_error_code`. `media_audition_variant(event_id, tier, variant_id)` uses the same lifecycle result while selecting the named variant exactly. `visual_status` is `shown` only after the overlay video emits `playing`, `failed` on a video error, unusable visual URL, or five-second start timeout, `none` for an audio-only variant, and `unknown` when the host cannot confirm the expected lifecycle. The host logs the same bounded result as `media/audition_result`; it does not claim that audio was physically heard.
@@ -300,4 +310,5 @@ The Windows transport framing (named pipe, 16 KiB frames, handshake) stays with 
 
 ## Change history
 
+- **2026-11-20 (P5 proposal, owner approval needed for audio-outcome 1.1.0):** local last-five-match recap, local epoch-derived match keys, game-clock provenance and final playback status; D1 and D3 are owner decisions.
 - **2026-11-19 (owner decision, “Queue and log”):** C4 requests during C1/C2 use one rank-prioritized queue slot with a 3,000 ms TTL; expiry or replacement records `critical_active`. Event drop and queue logging are specified without adding an outcome reason.

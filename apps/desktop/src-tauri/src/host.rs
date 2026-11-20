@@ -409,6 +409,17 @@ impl CommandApi {
         Ok(publisher::audio_history_command(&self.history, limit))
     }
 
+    pub fn match_recap(&self) -> Result<Value, String> {
+        self.ensure_running()?;
+        Ok(self.history.match_recap())
+    }
+
+    pub fn clear_match_recap(&self) -> Result<Value, String> {
+        self.ensure_running()?;
+        self.history.clear_match_recap()?;
+        Ok(json!({"cleared": true}))
+    }
+
     pub fn set_muted(&self, muted: bool) -> Result<Value, String> {
         self.ensure_running()?;
         let (ack_tx, ack_rx) = mpsc::sync_channel(1);
@@ -679,7 +690,7 @@ impl Host {
             )?;
         set_join_priority(&engine, ThreadPriority::AboveNormal);
 
-        let history = HistoryHandle::new();
+        let history = HistoryHandle::with_match_recap(app_data_dir.join("match-recap.json"));
         let (device_sender, device_receiver) = mpsc::channel();
         let publisher_join = match publisher::spawn_publisher(
             out_rx,
@@ -846,6 +857,7 @@ impl Host {
             at_ms: self.clock.now_ms(),
             // Epoch 1 never exceeds a real session's epoch, so a demo cannot fence a real match.
             session_epoch: 1,
+            game_clock_seconds: None,
             generation: crate::demo::DEMO_GENERATION,
             sequence: DEMO_SEQUENCE.fetch_add(1, Ordering::Relaxed) + 1,
             events: vec![event],
@@ -1103,6 +1115,16 @@ mod tests {
             shutting_down: Arc::new(AtomicBool::new(false)),
         };
         (api, backend, engine, rx.control, rx.audition)
+    }
+
+    #[test]
+    fn recap_commands_read_and_clear_the_local_history() {
+        let (api, _, _, _) = command_api(Ok(Value::Null));
+        assert_eq!(
+            api.match_recap().unwrap(),
+            json!({"schema_version": crate::audio::recap::MATCH_RECAP_SCHEMA_VERSION, "matches": []})
+        );
+        assert_eq!(api.clear_match_recap().unwrap(), json!({"cleared": true}));
     }
 
     #[test]
@@ -1556,6 +1578,7 @@ mod tests {
             detected: Instant::now(),
             at_ms: 1,
             session_epoch: 1,
+            game_clock_seconds: None,
             generation: 1,
             sequence: 1,
             events: Vec::new(),
@@ -1610,6 +1633,7 @@ mod tests {
             detected: now,
             at_ms: shared.heartbeat_ms.load(Ordering::Acquire),
             session_epoch: 1,
+            game_clock_seconds: None,
             generation: 1,
             sequence,
             events: vec![kohbor_events::Event {

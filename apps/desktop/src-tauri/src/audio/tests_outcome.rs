@@ -1,12 +1,44 @@
 use super::{
     outcome::{
-        playback_ended, playback_started, pre_owner_record, preempted_record, record, EndReason,
+        is_valid_record, playback_ended, playback_started,
+        pre_owner_record as build_pre_owner_record, preempted_record as build_preempted_record,
+        record as build_record, EndReason, OutcomeDetails, PlaybackEnd,
     },
     resolve::Clip,
 };
 use kohbor_audio::{AudioClass, CancelReason, Decision, Outcome, PlaybackId};
 use serde_json::{json, Value};
 use std::{collections::BTreeSet, sync::Arc};
+
+fn record(decision: &Decision) -> Option<Value> {
+    let playback_end = (decision.outcome == Outcome::Preempted).then_some(PlaybackEnd::Cut);
+    build_record(decision, &OutcomeDetails::default(), playback_end)
+}
+
+fn pre_owner_record(
+    instance_id: &str,
+    event_type: Option<&str>,
+    session_epoch: u64,
+    class: AudioClass,
+    outcome: Outcome,
+    package_revision: Option<u64>,
+    decided_at_ms: u64,
+) -> Option<Value> {
+    build_pre_owner_record(
+        instance_id,
+        event_type,
+        session_epoch,
+        class,
+        outcome,
+        package_revision,
+        decided_at_ms,
+        &OutcomeDetails::default(),
+    )
+}
+
+fn preempted_record(decision: &Decision, at_ms: u64) -> Option<Value> {
+    build_preempted_record(decision, at_ms, &OutcomeDetails::default())
+}
 
 const CLASSES: [AudioClass; 5] = [
     AudioClass::Critical,
@@ -106,6 +138,10 @@ fn check_record(v: &Value) {
         .collect();
     assert_eq!(schema["additionalProperties"], false);
     assert_eq!(keys(v), required, "record keys");
+    assert!(
+        is_valid_record(v),
+        "invalid audio-outcome 1.1.0 record: {v}"
+    );
     assert_eq!(
         v["schema_version"],
         schema["properties"]["schema_version"]["const"]
@@ -213,7 +249,7 @@ fn exact_field_mapping() {
     check_record(&v);
     assert_eq!(
         v,
-        json!({"schema_version":"1.0.0", "instance_id":"ev_g3_s120_0", "event_type":"health_danger", "session_epoch":3, "audio_class":"critical", "outcome":"admitted", "playback_id":"pb_0000000001", "package_revision":7, "decided_monotonic_ms":1234})
+        json!({"schema_version":"1.1.0", "instance_id":"ev_g3_s120_0", "event_type":"health_danger", "session_epoch":3, "audio_class":"critical", "outcome":"admitted", "playback_id":"pb_0000000001", "package_revision":7, "decided_monotonic_ms":1234, "tier":null, "variant_id":null, "clip_id":null, "selection":null, "game_clock_seconds":null, "match_id":"local_match_3", "playback_end":null})
     );
 }
 #[test]
@@ -223,6 +259,27 @@ fn larger_playback_id_mapping() {
     let v = record(&d).unwrap();
     check_record(&v);
     assert_eq!(v["playback_id"], "pb_12345678901");
+}
+
+#[test]
+fn announcer_outcome_records_variant_clock_local_match_and_playback_end() {
+    let d = decision(AudioClass::Ordinary, Outcome::Admitted);
+    let details = OutcomeDetails {
+        tier: Some(4),
+        variant_id: Some("kill_04".into()),
+        clip_id: Some("voice_clip_4".into()),
+        selection: Some("shuffle".into()),
+        game_clock_seconds: Some(125),
+    };
+    let v = build_record(&d, &details, Some(PlaybackEnd::Finished)).unwrap();
+    check_record(&v);
+    assert_eq!(v["tier"], 4);
+    assert_eq!(v["variant_id"], "kill_04");
+    assert_eq!(v["clip_id"], "voice_clip_4");
+    assert_eq!(v["selection"], "shuffle");
+    assert_eq!(v["game_clock_seconds"], 125);
+    assert_eq!(v["match_id"], "local_match_3");
+    assert_eq!(v["playback_end"], "finished");
 }
 // The owner normalizes voice. For malformed manually constructed voice decisions the
 // stub promises null fields but does not say whether rejection is also allowed.
@@ -319,7 +376,7 @@ fn preemption_uses_old_identity_and_new_time() {
     check_record(&v);
     assert_eq!(
         v,
-        json!({"schema_version":"1.0.0", "instance_id":"ev_g3_s120_0", "event_type":"health_danger", "session_epoch":3, "audio_class":"critical", "outcome":"preempted", "playback_id":"pb_0000000001", "package_revision":7, "decided_monotonic_ms":9999})
+        json!({"schema_version":"1.1.0", "instance_id":"ev_g3_s120_0", "event_type":"health_danger", "session_epoch":3, "audio_class":"critical", "outcome":"preempted", "playback_id":"pb_0000000001", "package_revision":7, "decided_monotonic_ms":9999, "tier":null, "variant_id":null, "clip_id":null, "selection":null, "game_clock_seconds":null, "match_id":"local_match_3", "playback_end":"cut"})
     );
 }
 #[test]

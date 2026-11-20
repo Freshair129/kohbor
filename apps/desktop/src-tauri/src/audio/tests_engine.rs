@@ -1,5 +1,6 @@
 use super::fake_sink::{table, tick, Call, FakeSink, Harness};
 use super::lanes::{AuditionRefusal, AuditionRequest, Control, EngineOut, Offer};
+use super::outcome::PlaybackEnd;
 use super::resolve::{Clip, Entry, PrewarmTable, VariantMedia, VariantSelection, VariantSet};
 use super::slot_sink::SlotSink;
 use kohbor_audio::{PlaybackId, Sink, SinkEvent};
@@ -23,6 +24,10 @@ fn valid_event(s: &str) -> bool {
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
 }
 fn check_record(v: &Value) {
+    assert!(
+        super::outcome::is_valid_record(v),
+        "audio-outcome 1.1.0 shape"
+    );
     let schema: Value = serde_json::from_str(include_str!(
         "../../../../../contracts/audio-outcome.schema.json"
     ))
@@ -978,6 +983,13 @@ fn device_loss_reports_and_fences() {
     h.engine.step(20);
     let o = h.drain();
     assert!(has_end(&o, "cancelled_device_lost"));
+    assert!(o.iter().any(|x| matches!(
+        x,
+        EngineOut::PlaybackEnd {
+            end: PlaybackEnd::Failed,
+            ..
+        }
+    )));
     assert!(o.iter().any(|x| matches!(x, EngineOut::DeviceLost)));
     let lost = o
         .iter()
@@ -1308,6 +1320,13 @@ fn interrupted_clip_emits_one_finished_record_with_exact_expected_frames() {
     h.engine.step(20);
 
     let out = h.drain();
+    assert!(out.iter().any(|item| matches!(
+        item,
+        EngineOut::PlaybackEnd {
+            end: PlaybackEnd::Cut,
+            ..
+        }
+    )));
     let finished: Vec<_> = out
         .iter()
         .filter_map(|item| match item {
@@ -1338,6 +1357,13 @@ fn natural_clip_end_emits_one_finished_record() {
     h.engine.step(5_000);
 
     let out = h.drain();
+    assert!(out.iter().any(|item| matches!(
+        item,
+        EngineOut::PlaybackEnd {
+            end: PlaybackEnd::Finished,
+            ..
+        }
+    )));
     let finished: Vec<_> = out
         .iter()
         .filter_map(|item| match item {
@@ -2398,13 +2424,18 @@ fn record_checker_accepts_valid_outcomes() {
         } else {
             Value::Null
         };
-        let v = serde_json::json!({"schema_version":"1.0.0","instance_id":"ev_g3_s1_0","event_type":"hero_kill","session_epoch":1,"audio_class":"ordinary","outcome":outcome,"playback_id":id,"package_revision":7,"decided_monotonic_ms":10});
+        let playback_end = if outcome == "preempted" {
+            serde_json::json!("cut")
+        } else {
+            Value::Null
+        };
+        let v = serde_json::json!({"schema_version":"1.1.0","instance_id":"ev_g3_s1_0","event_type":"hero_kill","session_epoch":1,"audio_class":"ordinary","outcome":outcome,"playback_id":id,"package_revision":7,"decided_monotonic_ms":10,"tier":null,"variant_id":null,"clip_id":null,"selection":null,"game_clock_seconds":null,"match_id":"local_match_1","playback_end":playback_end});
         check_record(&v);
     }
 }
 #[test]
 fn record_checker_rejects_malformed_outcomes() {
-    let base = serde_json::json!({"schema_version":"1.0.0","instance_id":"ev_g3_s1_0","event_type":"hero_kill","session_epoch":1,"audio_class":"ordinary","outcome":"admitted","playback_id":"pb_0000000001","package_revision":7,"decided_monotonic_ms":10});
+    let base = serde_json::json!({"schema_version":"1.1.0","instance_id":"ev_g3_s1_0","event_type":"hero_kill","session_epoch":1,"audio_class":"ordinary","outcome":"admitted","playback_id":"pb_0000000001","package_revision":7,"decided_monotonic_ms":10,"tier":null,"variant_id":null,"clip_id":null,"selection":null,"game_clock_seconds":null,"match_id":"local_match_1","playback_end":null});
     for (field, bad) in [
         ("instance_id", serde_json::json!("bad")),
         ("session_epoch", serde_json::json!(0)),
