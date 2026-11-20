@@ -40,7 +40,7 @@ use crate::fsutil::{flush_dir, is_directory_reparse_point, is_link_or_reparse_po
 use crate::limits::{Limits, MAX_DESCRIPTOR_BYTES, MAX_PAYLOAD_BYTES};
 use crate::trust::{self, AuthorityClass, PublisherClaim};
 use kohbor_gsi::strict_json;
-use serde_json::{Map, Number, Value};
+use serde_json::{json, Map, Number, Value};
 use sha2::{Digest, Sha256};
 
 /// Transaction steps in execution order. Install runs the first six steps that
@@ -715,6 +715,132 @@ impl<H: Hook> Store<H> {
         Ok(result)
     }
 
+    /// Validate and summarize a package through the installer's normal copy,
+    /// container, descriptor, inventory and media checks. Only a temporary
+    /// staging directory is created; the registry, revisions and active pointer
+    /// are left untouched.
+    pub fn summarize_package(&mut self, source: &Path) -> Result<Value, StoreError> {
+        let source_size = fs::metadata(source)
+            .ok()
+            .filter(|metadata| metadata.is_file())
+            .map(|metadata| metadata.len());
+        let staging = self.create_staging_dir()?;
+        let summary = (|| {
+            let copied_path = staging.join("source.container");
+            let copied_digest = match copy_source(source, &copied_path, self.limits) {
+                Ok(digest) => digest,
+                Err(reason) => return Ok(rejected_package_summary(source_size, None, &reason)),
+            };
+            let size_bytes = fs::metadata(&copied_path)
+                .ok()
+                .filter(|metadata| metadata.is_file())
+                .map(|metadata| metadata.len())
+                .or(source_size);
+            let staged = match container::stage_package_for_store(
+                &copied_path,
+                &staging,
+                &self.catalog,
+                &self.limits,
+            ) {
+                Ok(staged) => staged,
+                Err(container::StageError::Rejected(reason)) => {
+                    return Ok(rejected_package_summary(
+                        size_bytes,
+                        Some(copied_digest),
+                        &reason,
+                    ));
+                }
+                Err(container::StageError::Io(error)) => {
+                    return Err(io_error("stage package summary", error));
+                }
+            };
+            if staged.container_sha256 != copied_digest {
+                let reason = RejectReason::ContainerDigestMismatch;
+                return Ok(rejected_package_summary(
+                    size_bytes,
+                    Some(copied_digest),
+                    &reason,
+                ));
+            }
+
+            let descriptor = &staged.parsed.descriptor;
+            let revision_conflict = self.registry.records.iter().any(|installed| {
+                installed.record.package_id == descriptor.package_id
+                    && installed.record.revision == descriptor.revision
+                    && installed.record.container_sha256 != staged.container_sha256
+            });
+            let rejection = revision_conflict.then_some(RejectReason::RevisionConflict);
+            Ok(package_summary_json(
+                descriptor,
+                staged.container_sha256,
+                size_bytes,
+                rejection.as_ref(),
+            ))
+        })();
+
+        remove_path(&staging)?;
+        summary
+    }
+
+    /// Import bytes supplied by the file picker using the same staging checks
+    /// as a dropped file. The upload itself is never published.
+    pub fn summarize_package_bytes(&mut self, bytes: &[u8]) -> Result<Value, StoreError> {
+        self.with_package_bytes(bytes, |store, source| store.summarize_package(&source))
+    }
+
+    /// Use the existing installer and confirm the digest from the preview.
+    pub fn install_package_bytes(
+        &mut self,
+        bytes: &[u8],
+        request_id: String,
+        expected_container_sha256: String,
+    ) -> Result<InstallResult, StoreError> {
+        if !valid_token(&request_id, 8, 64) || !valid_sha256(&expected_container_sha256) {
+            return Err(StoreError::Io(
+                "invalid upload install request fields".to_owned(),
+            ));
+        }
+        self.with_package_bytes(bytes, |store, source_path| {
+            store.install(&InstallRequest {
+                request_id,
+                profile_id: "default".to_owned(),
+                source_path,
+                expected_container_sha256,
+                project_binding: None,
+                activation_policy: ActivationPolicy::Never,
+            })
+        })
+    }
+
+    fn with_package_bytes<T>(
+        &mut self,
+        bytes: &[u8],
+        use_source: impl FnOnce(&mut Self, PathBuf) -> Result<T, StoreError>,
+    ) -> Result<T, StoreError> {
+        if bytes.len() as u64 > self.limits.container_bytes {
+            return Err(StoreError::Io(
+                "package upload exceeds container size limit".to_owned(),
+            ));
+        }
+        ensure_store_directory(&self.root, "store root")?;
+        ensure_store_directory(&self.root.join("staging"), "staging")?;
+        let staging = self.create_staging_dir()?;
+        let path = staging.join("upload.zip");
+        let result = (|| {
+            let mut file = OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&path)
+                .map_err(|error| io_error("create package upload", error))?;
+            file.write_all(bytes)
+                .map_err(|error| io_error("write package upload", error))?;
+            drop(file);
+            use_source(self, path)
+        })();
+        remove_path(&staging)?;
+        result
+    }
+
     /// Activation transaction for an installed revision. `request_id` names the
     /// request the result is reported for.
     ///
@@ -1012,6 +1138,22 @@ impl<H: Hook> Store<H> {
             .collect()
     }
 
+    /// Cancel one deferred activation without uninstalling its revision. Returns
+    /// false when the id is invalid or no activation for it is pending.
+    pub fn cancel_pending_activation(&mut self, install_id: &str) -> Result<bool, StoreError> {
+        if valid_install_id(install_id).is_none()
+            || !self
+                .registry
+                .pending_activations
+                .iter()
+                .any(|pending| pending.install_id == install_id)
+        {
+            return Ok(false);
+        }
+        self.remove_pending_for(install_id)?;
+        Ok(true)
+    }
+
     /// Resolve the first variant for an event from the active revision only.
     /// `tier == Some(n)` resolves only the binding with exactly that tier;
     /// `tier == None` resolves only the tier-less binding. There is no fallback
@@ -1277,6 +1419,74 @@ struct ActivePointer {
     package_id: String,
     revision: u64,
     container_sha256: String,
+}
+
+fn rejected_package_summary(
+    size_bytes: Option<u64>,
+    container_sha256: Option<String>,
+    reason: &RejectReason,
+) -> Value {
+    json!({
+        "schema_version": "1.0.0",
+        "status": "rejected",
+        "package_id": null,
+        "display_name": null,
+        "revision": null,
+        "event_count": null,
+        "binding_count": null,
+        "variant_count": null,
+        "banner_count": null,
+        "size_bytes": size_bytes,
+        "container_sha256": container_sha256,
+        "signature_state": "not_assessed",
+        "trust_state": "not_assessed",
+        "publisher_claim": "not_assessed",
+        "rejection_reason": reason.as_str(),
+    })
+}
+
+fn package_summary_json(
+    descriptor: &Descriptor,
+    container_sha256: String,
+    size_bytes: Option<u64>,
+    rejection: Option<&RejectReason>,
+) -> Value {
+    let assessment = trust::assess(descriptor);
+    let event_count = descriptor
+        .bindings
+        .iter()
+        .map(|binding| binding.event_id.as_str())
+        .collect::<HashSet<_>>()
+        .len();
+    let binding_count = descriptor.bindings.len();
+    let variant_count = descriptor
+        .bindings
+        .iter()
+        .map(|binding| binding.variants.len())
+        .sum::<usize>();
+    let banner_count = descriptor
+        .bindings
+        .iter()
+        .flat_map(|binding| &binding.variants)
+        .filter(|variant| variant.silent_visual_path.is_some())
+        .count();
+    json!({
+        "schema_version": "1.0.0",
+        "status": if rejection.is_some() { "rejected" } else { "valid" },
+        "package_id": descriptor.package_id,
+        "display_name": descriptor.display_name,
+        "revision": descriptor.revision,
+        "event_count": event_count,
+        "binding_count": binding_count,
+        "variant_count": variant_count,
+        "banner_count": banner_count,
+        "size_bytes": size_bytes,
+        "container_sha256": container_sha256,
+        "signature_state": "unavailable",
+        "trust_state": assessment.authority_class.as_str(),
+        "publisher_claim": assessment.publisher_claim.as_str(),
+        "rejection_reason": rejection.map(RejectReason::as_str),
+    })
 }
 
 fn valid_token(value: &str, min: usize, max: usize) -> bool {

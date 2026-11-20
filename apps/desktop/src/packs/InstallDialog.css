@@ -1,0 +1,14 @@
+.pack-install-dialog { width: min(560px, 100%); }
+.pack-install-dialog .dialog-body { display: grid; gap: 12px; }
+.pack-install-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.pack-install-button { min-height: 36px; padding: 6px 12px; border: 1px solid var(--accent); border-radius: 5px; color: var(--text); background: var(--surface); cursor: pointer; font: inherit; }
+.pack-install-button:disabled { cursor: not-allowed; opacity: .55; }
+.pack-install-drop-zone { display: grid; gap: 5px; min-height: 72px; place-content: center; padding: 12px; border: 1px dashed var(--line); border-radius: 7px; text-align: center; color: var(--text-2); }
+.pack-install-drop-zone[data-active="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); color: var(--text); }
+.pack-install-details { display: grid; gap: 8px; margin: 0; }
+.pack-install-details > div { display: grid; grid-template-columns: minmax(130px, 1fr) minmax(0, 2fr); gap: 8px; }
+.pack-install-details dt { color: var(--text-2); }
+.pack-install-details dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
+.pack-install-result { margin: 0; color: var(--text); }
+.pack-install-rejection { margin: 0; color: var(--warning, #b7791f); }
+.pack-install-error { margin: 0; color: var(--danger, #c53030); }

@@ -275,6 +275,62 @@ pub(crate) fn media_inspect(
 }
 
 #[tauri::command(async)]
+pub(crate) fn media_package_summary(
+    state: tauri::State<'_, AppState>,
+    source_path: String,
+) -> Result<Value, String> {
+    let result = state.host.commands.media_package_summary(&source_path);
+    log_media_result("package_summary", &result);
+    result
+}
+
+#[tauri::command]
+pub(crate) fn media_package_size_limit() -> u64 {
+    kohbor_pack::Limits::default().container_bytes
+}
+
+#[tauri::command(async)]
+pub(crate) fn media_package_summary_bytes(
+    state: tauri::State<'_, AppState>,
+    request: tauri::ipc::Request<'_>,
+) -> Result<Value, String> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err("SOURCE_INVALID".to_owned());
+    };
+    let result = state.host.commands.media_package_bytes(bytes, None);
+    log_media_result("package_summary_bytes", &result);
+    result
+}
+
+#[tauri::command(async)]
+pub(crate) fn media_install_bytes(
+    state: tauri::State<'_, AppState>,
+    request: tauri::ipc::Request<'_>,
+) -> Result<Value, String> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err("SOURCE_INVALID".to_owned());
+    };
+    let header = |name: &'static str| {
+        request
+            .headers()
+            .get(name)
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_owned)
+            .ok_or_else(|| "SOURCE_INVALID".to_owned())
+    };
+    let identity = (
+        header("x-kohbor-request-id")?,
+        header("x-kohbor-container-sha256")?,
+    );
+    let result = state
+        .host
+        .commands
+        .media_package_bytes(bytes, Some(identity));
+    log_media_result("install_bytes", &result);
+    result
+}
+
+#[tauri::command(async)]
 pub(crate) fn media_install(
     state: tauri::State<'_, AppState>,
     request: Value,
@@ -296,6 +352,19 @@ pub(crate) fn media_activate(
         .commands
         .media_activate(&request_id, &install_id, &policy);
     log_media_result("activate", &result);
+    result
+}
+
+#[tauri::command(async)]
+pub(crate) fn media_cancel_pending_activation(
+    state: tauri::State<'_, AppState>,
+    install_id: String,
+) -> Result<Value, String> {
+    let result = state
+        .host
+        .commands
+        .media_cancel_pending_activation(&install_id);
+    log_media_result("cancel_pending_activation", &result);
     result
 }
 

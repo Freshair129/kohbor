@@ -70,6 +70,24 @@ impl MediaHandle {
         self.request(JobKind::Inspect(source_path.to_owned()))
     }
 
+    pub fn summarize_package(&self, source_path: &str) -> Result<Value, String> {
+        self.request(JobKind::SummarizePackage(source_path.to_owned()))
+    }
+
+    pub fn package_bytes(
+        &self,
+        bytes: &[u8],
+        install: Option<(String, String)>,
+    ) -> Result<Value, String> {
+        if bytes.len() as u64 > Limits::default().container_bytes {
+            return Err("PACKAGE_TOO_LARGE".to_owned());
+        }
+        self.request(JobKind::PackageBytes {
+            bytes: bytes.to_vec(),
+            install,
+        })
+    }
+
     pub fn install(&self, request_json: &[u8]) -> Result<Value, String> {
         self.request(JobKind::Install(request_json.to_vec()))
     }
@@ -85,6 +103,10 @@ impl MediaHandle {
             install_id: install_id.to_owned(),
             policy,
         })
+    }
+
+    pub fn cancel_pending_activation(&self, install_id: &str) -> Result<Value, String> {
+        self.request(JobKind::CancelPendingActivation(install_id.to_owned()))
     }
 
     pub fn list(&self) -> Result<Value, String> {
@@ -227,12 +249,18 @@ pub fn spawn_media_service(
 
 enum JobKind {
     Inspect(String),
+    SummarizePackage(String),
+    PackageBytes {
+        bytes: Vec<u8>,
+        install: Option<(String, String)>,
+    },
     Install(Vec<u8>),
     Activate {
         request_id: String,
         install_id: String,
         policy: ActivationPolicy,
     },
+    CancelPendingActivation(String),
     List,
     PackSummaries,
     ActiveBindings,
@@ -407,10 +435,35 @@ impl ServiceState {
         if let JobKind::Inspect(source_path) = &kind {
             return inspect(source_path);
         }
+        if let JobKind::SummarizePackage(source_path) = &kind {
+            if source_path.chars().count() > MAX_INSPECT_PATH_CHARS {
+                return Err("MEDIA_INVALID".to_owned());
+            }
+            let store = self
+                .store
+                .as_mut()
+                .ok_or_else(|| "MEDIA_INVALID".to_owned())?;
+            return store
+                .summarize_package(Path::new(source_path))
+                .map_err(|_| "MEDIA_INVALID".to_owned());
+        }
         if self.store.is_none() {
             return Err("MEDIA_INVALID".to_owned());
         }
         match kind {
+            JobKind::PackageBytes { bytes, install } => {
+                let store = self
+                    .store
+                    .as_mut()
+                    .ok_or_else(|| "MEDIA_INVALID".to_owned())?;
+                match install {
+                    Some((request_id, digest)) => store
+                        .install_package_bytes(&bytes, request_id, digest)
+                        .map(|result| result.to_json()),
+                    None => store.summarize_package_bytes(&bytes),
+                }
+                .map_err(|_| "MEDIA_INVALID".to_owned())
+            }
             JobKind::Install(request_bytes) => {
                 let request = InstallRequest::from_json(&request_bytes)
                     .map_err(|_| "MEDIA_INVALID".to_owned())?;
@@ -442,6 +495,19 @@ impl ServiceState {
                     self.prewarm_and_swap()?;
                 }
                 Ok(result.to_json())
+            }
+            JobKind::CancelPendingActivation(install_id) => {
+                let cancelled = self
+                    .store
+                    .as_mut()
+                    .ok_or_else(|| "MEDIA_INVALID".to_owned())?
+                    .cancel_pending_activation(&install_id)
+                    .map_err(|_| "MEDIA_INVALID".to_owned())?;
+                Ok(json!({
+                    "schema_version": "1.0.0",
+                    "install_id": install_id,
+                    "cancelled": cancelled,
+                }))
             }
             JobKind::List => {
                 let store = self
@@ -479,6 +545,7 @@ impl ServiceState {
                 Ok(event_map)
             }
             JobKind::Inspect(_)
+            | JobKind::SummarizePackage(_)
             | JobKind::ProbeReport { .. }
             | JobKind::ProbePending
             | JobKind::ReemitProbe => Ok(Value::Null),
@@ -1857,6 +1924,174 @@ mod tests {
     }
 
     #[test]
+    fn package_summary_reports_valid_package_contents_without_install_side_effects() {
+        let temp = TempDir::new("package-summary-valid");
+        let pkg = package(
+            &temp,
+            "summary-valid-pack",
+            &[
+                BindingSpec {
+                    event_id: "health_danger",
+                    tier: None,
+                    samples: 480,
+                    visual: true,
+                    visual_tail_ms: 900,
+                },
+                BindingSpec {
+                    event_id: "hero_kill",
+                    tier: None,
+                    samples: 480,
+                    visual: false,
+                    visual_tail_ms: 0,
+                },
+            ],
+        );
+        let store_root = temp.path().join("store");
+        let service = default_service(&store_root);
+
+        let summary = service
+            .handle
+            .summarize_package(pkg.package_path.to_str().expect("test path is Unicode"))
+            .expect("valid package is summarized through staging");
+
+        assert_eq!(summary["status"], "valid");
+        assert_eq!(summary["display_name"], "Synthetic media service fixture");
+        assert_eq!(summary["package_id"], pkg.package_id);
+        assert_eq!(summary["revision"], 1);
+        assert_eq!(summary["event_count"], 2);
+        assert_eq!(summary["binding_count"], 2);
+        assert_eq!(summary["variant_count"], 2);
+        assert_eq!(summary["banner_count"], 1);
+        assert_eq!(summary["container_sha256"], pkg.digest);
+        assert_eq!(summary["signature_state"], "unavailable");
+        assert_eq!(summary["trust_state"], "local_import");
+        assert_eq!(summary["publisher_claim"], "none");
+        assert!(summary["rejection_reason"].is_null());
+        assert_eq!(
+            summary["size_bytes"],
+            fs::metadata(&pkg.package_path)
+                .expect("package metadata is readable")
+                .len()
+        );
+
+        let listing = service
+            .handle
+            .list()
+            .expect("summary leaves store listable");
+        assert_eq!(listing["records"], json!([]));
+        assert!(listing["active"].is_null());
+        assert_eq!(
+            fs::read_dir(store_root.join("staging"))
+                .expect("store staging root is readable")
+                .count(),
+            0,
+            "summary removes its temporary staging directory"
+        );
+        finish(service);
+    }
+
+    #[test]
+    fn package_summary_returns_a_specific_reason_for_a_rejected_package() {
+        let temp = TempDir::new("package-summary-rejected");
+        let source = temp.path().join("invalid.zip");
+        fs::write(&source, b"not a zip").expect("write invalid package fixture");
+        let store_root = temp.path().join("store");
+        let service = default_service(&store_root);
+
+        let summary = service
+            .handle
+            .summarize_package(source.to_str().expect("test path is Unicode"))
+            .expect("invalid package receives a read-only rejection summary");
+
+        assert_eq!(summary["status"], "rejected");
+        assert_eq!(summary["rejection_reason"], "not_a_zip");
+        assert_eq!(summary["size_bytes"], 9);
+        assert_eq!(summary["signature_state"], "not_assessed");
+        assert_eq!(summary["trust_state"], "not_assessed");
+        assert!(summary["display_name"].is_null());
+        let listing = service
+            .handle
+            .list()
+            .expect("rejected summary leaves store listable");
+        assert_eq!(listing["records"], json!([]));
+        assert_eq!(
+            fs::read_dir(store_root.join("staging"))
+                .expect("store staging root is readable")
+                .count(),
+            0,
+            "rejected summary removes partial staging files"
+        );
+        finish(service);
+    }
+
+    #[test]
+    fn picker_bytes_reuse_validation_and_install_and_clean_up_each_temporary_upload() {
+        let temp = TempDir::new("picker-bytes");
+        let pkg = wav_fixture(&temp, "picker-bytes-pack", "hero_kill");
+        let bytes = fs::read(&pkg.package_path).expect("read fixture as a picker would");
+        let root = temp.path().join("store");
+        let service = default_service(&root);
+        let check_clean = || {
+            assert!(fs::read_dir(root.join("staging"))
+                .expect("read store staging")
+                .next()
+                .is_none());
+        };
+
+        let valid = service.handle.package_bytes(&bytes, None).unwrap();
+        assert_eq!(valid["status"], "valid");
+        assert_eq!(valid["container_sha256"], pkg.digest);
+        assert_eq!(service.handle.list().unwrap()["records"], json!([]));
+        check_clean();
+
+        let invalid = service.handle.package_bytes(b"bad ZIP", None).unwrap();
+        assert_eq!(invalid["rejection_reason"], "not_a_zip");
+        check_clean();
+
+        let mismatch = service
+            .handle
+            .package_bytes(
+                &bytes,
+                Some(("req-picker-wrong-digest".into(), "0".repeat(64))),
+            )
+            .unwrap();
+        assert_eq!(mismatch["status"], "rejected");
+        assert_eq!(mismatch["reason"], "SOURCE_INVALID");
+        assert_eq!(service.handle.list().unwrap()["records"], json!([]));
+        check_clean();
+
+        let installed = service
+            .handle
+            .package_bytes(&bytes, Some(("req-picker-install".into(), pkg.digest)))
+            .unwrap();
+        assert_eq!(installed["status"], "installed");
+        assert!(service.handle.list().unwrap()["active"].is_null());
+        check_clean();
+        finish(service);
+    }
+
+    #[test]
+    fn picker_bytes_above_store_limit_never_create_an_upload() {
+        let temp = TempDir::new("picker-bytes-size-limit");
+        let root = temp.path().join("store");
+        let limits = kohbor_pack::Limits {
+            container_bytes: 4,
+            ..kohbor_pack::Limits::default()
+        };
+        let mut store = Store::open(&root, catalog(), limits).unwrap();
+        assert!(store.summarize_package_bytes(b"abcde").is_err());
+        assert!(store
+            .install_package_bytes(b"abcde", "req-picker-over-limit".into(), "0".repeat(64))
+            .is_err());
+        assert_eq!(
+            store.summarize_package_bytes(b"abcd").unwrap()["rejection_reason"],
+            "not_a_zip"
+        );
+        assert!(fs::read_dir(root.join("staging")).unwrap().next().is_none());
+        assert!(store.records().is_empty());
+    }
+
+    #[test]
     fn install_stages_package_without_swapping_engine_table() {
         let temp = TempDir::new("install-only");
         let pkg = wav_fixture(&temp, "install-only-pack", "health_danger");
@@ -2194,6 +2429,103 @@ mod tests {
         assert_eq!(
             listing["active"]["install_id"], install_id,
             "resume updates Store active pointer"
+        );
+        finish(service);
+    }
+
+    #[test]
+    fn pending_match_activation_can_be_cancelled_without_uninstalling_the_pack() {
+        let temp = TempDir::new("cancel-pending-activation");
+        let active_package = wav_fixture(&temp, "cancel-active-pack", "health_danger");
+        let pending_package = wav_fixture(&temp, "cancel-pending-pack", "hero_kill");
+        let store_root = temp.path().join("store");
+        let mut store = Store::open(&store_root, catalog(), kohbor_pack::Limits::default())
+            .expect("open cancellation fixture store");
+        let active_id = install(&mut store, &active_package, "req-cancel-active-inst-001")
+            .record
+            .expect("active package installs")
+            .install_id;
+        assert_eq!(
+            activate(&mut store, "req-cancel-active-act-001", &active_id)
+                .status
+                .as_str(),
+            "active"
+        );
+        drop(store);
+
+        let match_active = Arc::new(AtomicBool::new(true));
+        let match_probe = match_active.clone();
+        let service = setup(
+            &store_root,
+            Arc::new(move || match_probe.load(Ordering::Acquire)),
+            passing_probe(),
+            Box::new(|_| {}),
+            20,
+            0,
+        );
+        let _ = receive_swap(&service.engine_rx);
+        let pending_id = install_via_service(
+            &service.handle,
+            &pending_package,
+            "req-cancel-pending-inst-001",
+        );
+        let deferred = service
+            .handle
+            .activate(
+                "req-cancel-pending-act-001",
+                &pending_id,
+                ActivationPolicy::NowIfIdle,
+            )
+            .expect("in-match activation is deferred");
+        assert_eq!(deferred["status"], "deferred");
+        assert_eq!(
+            service
+                .handle
+                .list()
+                .expect("pending activation is listable")["pending"],
+            json!([pending_id.clone()])
+        );
+
+        let cancelled = service
+            .handle
+            .cancel_pending_activation(&pending_id)
+            .expect("host cancels the deferred activation");
+        assert_eq!(cancelled["cancelled"], true);
+        assert_eq!(cancelled["install_id"], pending_id);
+        assert_eq!(
+            service
+                .handle
+                .list()
+                .expect("cancelled pack remains installed")["pending"],
+            json!([])
+        );
+        assert_eq!(
+            service.handle.list().expect("active pack remains selected")["active"]["install_id"],
+            active_id
+        );
+        assert_eq!(
+            service
+                .handle
+                .cancel_pending_activation(&pending_id)
+                .expect("repeat cancellation is safe")["cancelled"],
+            false
+        );
+
+        match_active.store(false, Ordering::Release);
+        thread::sleep(Duration::from_millis(60));
+        assert_eq!(
+            service
+                .handle
+                .list()
+                .expect("cancelled activation stays cancelled")["active"]["install_id"],
+            active_id
+        );
+        assert!(
+            matches!(
+                service.engine_rx.control.try_recv(),
+                Err(TryRecvError::Empty)
+            ),
+            "cancelled activation is never resumed into an engine table swap"
         );
         finish(service);
     }
