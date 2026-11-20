@@ -319,19 +319,33 @@ fn build_overlay_window(app: &mut tauri::App<tauri::Wry>) -> Option<OverlayWindo
             );
             return None;
         }
-        if window.show().is_err()
-            || !window.is_visible().unwrap_or(false)
-            || !overlay_has_no_activate_style(&window)
-            || overlay_is_foreground(&window)
-        {
+        let failure = if window.show().is_err() {
+            Some("SHOW_FAILED")
+        } else if !window.is_visible().unwrap_or(false) {
+            Some("NOT_VISIBLE_AFTER_SHOW")
+        } else if !overlay_has_no_activate_style(&window) {
+            Some("WS_EX_NOACTIVATE_LOST")
+        } else {
+            None
+        };
+        if let Some(reason) = failure {
             visibility.complete(action, false);
             crate::log_warn!(
                 "overlay",
                 "window_map_failed",
                 "overlay mapping failed",
-                reason = "MAPPING_OR_FOCUS_FAILED"
+                reason = reason
             );
             return None;
+        }
+        if overlay_is_foreground(&window) {
+            // At app start Windows may hand the foreground to our newest window. That is not a
+            // reason to give up on banners; record it so the live log shows it.
+            crate::log_info!(
+                "overlay",
+                "mapped_while_foreground",
+                "overlay mapped while it was the foreground window"
+            );
         }
         visibility.complete(action, true);
         crate::log_info!(
