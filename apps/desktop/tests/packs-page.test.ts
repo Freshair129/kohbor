@@ -1,7 +1,25 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { cardView, nextPacksTab, packBindingView, parsePackSummaries, sessionAudio } from "../src/packs/model.ts";
 import { auditionSound, groupSoundRows } from "../src/packs/eventMap.ts";
+
+const packsPageSource = readFileSync(new URL("../src/packs/PacksPage.tsx", import.meta.url), "utf8");
+const packLibrarySource = readFileSync(new URL("../src/packs/PackLibrary.tsx", import.meta.url), "utf8");
+const soundRowsSource = readFileSync(new URL("../src/packs/SoundRows.tsx", import.meta.url), "utf8");
+
+test("installed-packs primary action opens InstallDialog and refreshes the cards after install", () => {
+  assert.match(packsPageSource, /className="primary packs-install-trigger"[^>]*aria-haspopup="dialog"[^>]*onClick=\{\(\) => setInstallDialogOpen\(true\)\}/s);
+  assert.match(packsPageSource, /installDialogOpen && <InstallDialog/);
+  assert.match(packsPageSource, /onInstalled=\{refresh\}/);
+});
+
+test("event variants mount in the pack detail and expandable event-sounds rows", () => {
+  assert.match(packLibrarySource, /<EventVariants variants=\{event\.variants\} selection=\{event\.selection\}/);
+  assert.match(soundRowsSource, /aria-expanded=\{expanded === soundKey\(row\)\}/);
+  assert.match(soundRowsSource, /<EventVariants variants=\{row\.variants\} selection=\{row\.selection\}/);
+  assert.match(packsPageSource, /mediaAuditionVariant\(row\.event_id, row\.tier, variantId\)/);
+});
 
 const install = "ins_0000000001";
 const row = {

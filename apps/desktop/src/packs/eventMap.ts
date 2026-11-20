@@ -2,6 +2,9 @@
 import catalog from "../../../../contracts/event-catalog.json" with { type: "json" };
 // @ts-ignore Explicit source extensions support the Node test runner.
 import { packsPageCopy, type Locale, type Phase } from "../copy.ts";
+// @ts-ignore Explicit source extensions support the Node test runner.
+import { parseEventMapVariant, type EventMapSchemaVersion } from "./event-map-variant.ts";
+import type { EventVariant } from "./variant-model.ts";
 
 export type EventSoundState =
   | "ready"
@@ -12,12 +15,7 @@ export type EventSoundState =
   | "not_voiced"
   | "unknown";
 
-export interface EventSoundVariant {
-  variant_id: string;
-  clip_id?: string;
-  duration_ms: number;
-  has_visual: boolean;
-}
+export type EventSoundVariant = EventVariant;
 
 export interface SoundKey {
   event_id: string;
@@ -41,7 +39,7 @@ export interface EventMapActivePack {
 }
 
 export interface MediaEventMap {
-  schema_version: "1.0.0";
+  schema_version: EventMapSchemaVersion;
   active: EventMapActivePack | null;
   match_active: boolean;
   bindings: EventSound[];
@@ -163,26 +161,7 @@ function parseActive(value: unknown): EventMapActivePack | null | undefined {
   };
 }
 
-function parseVariant(value: unknown): EventSoundVariant | null {
-  const variant = record(value);
-  if (!variant || !hasOnlyKeys(variant, ["variant_id", "duration_ms", "has_visual"], ["clip_id"])) return null;
-  if (!matches(/^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,79}$/, variant.variant_id)
-    || typeof variant.duration_ms !== "number"
-    || !Number.isSafeInteger(variant.duration_ms)
-    || variant.duration_ms < 0
-    || variant.duration_ms > 15_000
-    || typeof variant.has_visual !== "boolean") return null;
-  if (Object.hasOwn(variant, "clip_id")
-    && !matches(/^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}$/, variant.clip_id)) return null;
-  return {
-    variant_id: variant.variant_id,
-    ...(typeof variant.clip_id === "string" ? { clip_id: variant.clip_id } : {}),
-    duration_ms: variant.duration_ms,
-    has_visual: variant.has_visual,
-  };
-}
-
-function parseBinding(value: unknown): EventSound | null {
+function parseBinding(value: unknown, version: EventMapSchemaVersion): EventSound | null {
   const binding = record(value);
   if (!binding || !hasExactKeys(binding, [
     "event_id", "tier", "state", "reason", "resolved_from_tier", "selection", "variants",
@@ -207,7 +186,7 @@ function parseBinding(value: unknown): EventSound | null {
     && binding.state !== "not_voiced"
     && binding.state !== "unknown") return null;
   if (!Array.isArray(binding.variants) || binding.variants.length > 16) return null;
-  const variants = binding.variants.map(parseVariant);
+  const variants = binding.variants.map(variant => parseEventMapVariant(variant, version));
   if (variants.some((variant) => variant === null)) return null;
   const parsedVariants = variants as EventSoundVariant[];
   if (new Set(parsedVariants.map((variant) => variant.variant_id)).size !== parsedVariants.length) return null;
@@ -265,7 +244,8 @@ export function parseMediaEventMap(value: unknown): MediaEventMap | null {
   if (!source || !hasOnlyKeys(source, ["schema_version", "active", "events"], ["match_active", "media_match_active"])) return null;
   const flags = [source.match_active, source.media_match_active].filter(flag => flag !== undefined);
   if (flags.length === 0 || flags.some(flag => typeof flag !== "boolean")) return null;
-  if (source.schema_version !== "1.0.0") return null;
+  if (source.schema_version !== "1.0.0" && source.schema_version !== "1.1.0") return null;
+  const version = source.schema_version as EventMapSchemaVersion;
   const active = parseActive(source.active);
   if (active === undefined || !Array.isArray(source.events)) return null;
 
@@ -285,7 +265,7 @@ export function parseMediaEventMap(value: unknown): MediaEventMap | null {
       continue;
     }
     seenKeys.add(key);
-    const binding = parseBinding(value);
+    const binding = parseBinding(value, version);
     if (!binding) {
       invalidKeys.add(key);
       if (!expected) unexpectedUnknowns.set(key, unknownBinding(rawRow.event_id as string, rawRow.tier as number | null, "INVALID_ROW"));
@@ -309,7 +289,7 @@ export function parseMediaEventMap(value: unknown): MediaEventMap | null {
   bindings.push(...unexpectedUnknowns.values());
 
   return {
-    schema_version: "1.0.0",
+    schema_version: version,
     active,
     match_active: flags.includes(true),
     bindings,

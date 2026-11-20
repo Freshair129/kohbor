@@ -5,6 +5,9 @@ import { Chip } from "../Readiness";
 import { groupSoundRows, soundKey } from "./eventMap";
 import { cardView, packBindingView, type PackSummary } from "./model";
 import { ListenButton, type ListenControl } from "./SoundRows";
+import { EventVariants } from "./EventVariants";
+import type { EventSound } from "./eventMap";
+import type { VariantAuditionResult } from "./variant-model";
 
 function PackCover({ logicalUrl, initial, reportFailure }: {
   logicalUrl: string | null; initial: string; reportFailure: () => void;
@@ -74,9 +77,11 @@ export function PackCard({ pack, locale, unavailable, busy, activationError, onA
   </article>;
 }
 
-export function PackDrawer({ pack, locale, listen, onClose, returnFocus, auditionNotice, matchLocked }: {
+export function PackDrawer({ pack, locale, listen, onClose, returnFocus, auditionNotice, matchLocked, variants, onAuditionVariant }: {
   pack: PackSummary; locale: Locale; listen: ListenControl; onClose: () => void;
   returnFocus: HTMLButtonElement; auditionNotice: string | null; matchLocked: boolean;
+  variants: readonly EventSound[];
+  onAuditionVariant: (row: EventSound, variantId: string) => Promise<VariantAuditionResult>;
 }) {
   const id = useId();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -129,12 +134,18 @@ export function PackDrawer({ pack, locale, listen, onClose, returnFocus, auditio
           <ul>
             {group.rows.map(row => {
               const label = packBindingView(row, locale);
+              const event = variants.find(candidate => soundKey(candidate) === soundKey(row));
               return <li className="packs-sound-row" key={soundKey(row)}>
                 <div><strong>{label.title}</strong>
                   {(label.detail || label.tier) && <p className="muted">{[label.detail, label.tier].filter(Boolean).join(" · ")}</p>}
                 </div>
                 <p className="muted">{[label.voices, label.rotation, label.banners].filter(Boolean).join(" · ")}</p>
                 <ListenButton row={row} locale={locale} label={label.title} control={listen} inactive={!pack.active} />
+                {pack.active && event && event.variants.length > 0 && <div className="packs-variants-detail">
+                  <EventVariants variants={event.variants} selection={event.selection} locale={locale}
+                    disabled={matchLocked || listen.block(event) !== null}
+                    onAudition={variantId => onAuditionVariant(event, variantId)} />
+                </div>}
               </li>;
             })}
           </ul>

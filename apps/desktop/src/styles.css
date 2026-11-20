@@ -245,7 +245,9 @@ button[aria-busy="true"] { cursor: progress; }
 /* Packs uses the shell height and scrolls within the selected tab. */
 .packs-page { display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 10px; container-type: inline-size; }
 .packs-page button, .packs-drawer button { max-width: 100%; min-height: var(--target-min); white-space: normal; padding-block: 4px; border-color: var(--line-strong); }
-.packs-page button.primary { border: 2px solid var(--accent); }
+.packs-page button.primary { border: 0; background: var(--brand); color: var(--brand-ink); }
+.packs-page button.primary:hover:not(:disabled) { border: 0; background: var(--brand-hover); color: var(--brand-ink); }
+.packs-page button.primary:disabled { border: 0; }
 .packs-audio-bar { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; align-items: center; gap: 12px 20px; padding: 10px 14px; border: 1px solid var(--line); border-radius: var(--r-card); background: var(--ground); }
 .packs-audio-pack { min-width: 0; overflow-wrap: anywhere; }
 .packs-audio-bar .audio-mute-control { flex-wrap: wrap; gap: 6px; }
@@ -290,6 +292,7 @@ button[aria-busy="true"] { cursor: progress; }
 .packs-sound-group ul, .packs-recap-list { list-style: none; margin: 0; padding: 0; }
 .packs-sound-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto; align-items: center; gap: 6px 12px; padding: 9px 12px; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
 .packs-sound-row .chip { max-width: 100%; white-space: normal; }
+.packs-variants-expanded, .packs-variants-detail { grid-column: 1 / -1; min-width: 0; }
 .packs-sound-row p { font-size: var(--fs-detail); }
 .packs-recap-list { background: var(--raised); border-inline: 1px solid var(--line); border-bottom: 1px solid var(--line); border-radius: var(--r-card); }
 .packs-recap-list .packs-sound-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }

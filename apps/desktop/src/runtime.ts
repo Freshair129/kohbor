@@ -144,6 +144,11 @@ export function mediaAudition(eventId: string, tier: number | null): Promise<Med
   return invoke<MediaAuditionResult>("media_audition", { eventId, tier });
 }
 
+export function mediaAuditionVariant(eventId: string, tier: number | null, variantId: string): Promise<MediaAuditionResult> {
+  if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
+  return invoke<MediaAuditionResult>("media_audition_variant", { eventId, tier, variantId });
+}
+
 export function subscribeAuditionMatch(onActive: (active: boolean) => void): Promise<() => void> {
   if (!hostAvailable()) return Promise.resolve(() => {});
   return listen<unknown>("media://audition-match", ({ payload }) => {

@@ -10,5 +10,7 @@
 .pack-install-details dt { color: var(--text-2); }
 .pack-install-details dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
 .pack-install-result { margin: 0; color: var(--text); }
-.pack-install-rejection { margin: 0; color: var(--warning, #b7791f); }
-.pack-install-error { margin: 0; color: var(--danger, #c53030); }
+.pack-install-rejection { margin: 0; color: var(--warning); }
+.pack-install-error { margin: 0; color: var(--critical); }
+.pack-install-dialog .pack-install-button.primary { border: 0; background: var(--brand); color: var(--brand-ink); }
+.pack-install-dialog .pack-install-button.primary:hover:not(:disabled) { border: 0; background: var(--brand-hover); color: var(--brand-ink); }

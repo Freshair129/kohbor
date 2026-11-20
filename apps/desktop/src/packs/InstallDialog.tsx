@@ -279,7 +279,7 @@ export function InstallDialog({ locale, matchInProgress, onClose, onInstalled }:
       <div className="pack-install-actions">
         <button
           type="button"
-          className="pack-install-button"
+          className="pack-install-button primary"
           onClick={() => void install()}
           disabled={busy !== null || summary?.status !== "valid"}
         >

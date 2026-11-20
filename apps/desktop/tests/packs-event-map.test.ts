@@ -67,6 +67,29 @@ test("parses the versioned host event map including unavailable and not-voiced c
   assert.equal(groups.find(group => group.id === "multi")?.rows[0]?.variants[0]?.duration_ms, 1200);
 });
 
+test("uses one version-aware variant parser for media event map 1.0 and 1.1", () => {
+  const row = expectedBindings.find(item => item.event_id === "multi_kill" && item.tier === 2)!;
+  const v11 = eventMap.parseMediaEventMap({
+    ...snapshot,
+    schema_version: "1.1.0",
+    events: expectedBindings.map(item => item === row
+      ? { ...item, variants: [{ ...item.variants[0], caption: "First voice" }] }
+      : item),
+  });
+  assert.equal(v11?.schema_version, "1.1.0");
+  assert.equal(v11?.bindings.find(item => item.event_id === "multi_kill" && item.tier === 2)?.variants[0]?.caption, "First voice");
+
+  const legacy = eventMap.parseMediaEventMap(snapshot);
+  assert.equal(legacy?.schema_version, "1.0.0");
+  const captionOnLegacy = eventMap.parseMediaEventMap({
+    ...snapshot,
+    events: expectedBindings.map(item => item === row
+      ? { ...item, variants: [{ ...item.variants[0], caption: "not in 1.0" }] }
+      : item),
+  });
+  assert.equal(captionOnLegacy?.bindings.find(item => item.event_id === "multi_kill" && item.tier === 2)?.state, "unknown");
+});
+
 test("a missing, malformed, duplicate, or unexpected row degrades only that row to unknown", () => {
   const missingFirstBlood = eventMap.parseMediaEventMap({
     ...snapshot,

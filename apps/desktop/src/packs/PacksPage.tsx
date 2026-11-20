@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { AudioMuteControl, type AudioMuteState } from "../AudioPanel";
 import { auditionReason, packReason, packsPageCopy, type Locale, type Phase } from "../copy";
 import { errorCode, newRequestId, parseInstallResult, sortRecords } from "../packs";
-import { mediaActivate, mediaAudition, mediaEventMap, mediaPackSummaries, subscribeAuditionMatch } from "../runtime";
+import { mediaActivate, mediaAudition, mediaAuditionVariant, mediaEventMap, mediaPackSummaries, subscribeAuditionMatch } from "../runtime";
 import { useMediaListing } from "../useMediaListing";
 import { VolumeControl } from "../VolumeControl";
 import {
@@ -12,13 +12,15 @@ import {
 import { MatchRecap } from "./MatchRecap";
 import { nextPacksTab, PACKS_TABS, parsePackSummaries, type PacksTab, type PackSummary } from "./model";
 import { PackDrawer, PackCard } from "./PackLibrary";
-import { PackInstall } from "./PackInstall";
 import { SoundRows } from "./SoundRows";
+import { InstallDialog } from "./InstallDialog";
+import { installDialogCopy } from "./InstallDialog.copy";
 
 export function PacksPage({ locale, disabled, phase, epoch, mute }: {
   locale: Locale; disabled: boolean; phase: Phase | null; epoch: number | null; mute: AudioMuteState;
 }) {
   const text = packsPageCopy(locale);
+  const installText = installDialogCopy[locale];
   const id = useId();
   const tabs = useRef<Partial<Record<PacksTab, HTMLButtonElement>>>({});
   const [tab, setTab] = useState<PacksTab>(PACKS_TABS[0]);
@@ -33,6 +35,7 @@ export function PacksPage({ locale, disabled, phase, epoch, mute }: {
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [auditionNotice, setAuditionNotice] = useState<string | null>(null);
+  const [installDialogOpen, setInstallDialogOpen] = useState(false);
   const actionLock = useRef(false);
   const auditionLock = useRef(false);
   const listing = useMediaListing();
@@ -208,7 +211,8 @@ export function PacksPage({ locale, disabled, phase, epoch, mute }: {
       hidden={tab !== name} className="packs-scroll" tabIndex={0}>
       {tab === name && name === "installed" && <>
         <div className="packs-section-heading">
-          <PackInstall locale={locale} disabled={disabled || action !== null} onInstalled={refresh} />
+          <button type="button" className="primary packs-install-trigger" disabled={disabled || action !== null}
+            aria-haspopup="dialog" onClick={() => setInstallDialogOpen(true)}>{installText.title}</button>
           <button type="button" disabled={disabled || listing.busy} aria-busy={listing.busy} onClick={refresh}>{text.retry}</button>
         </div>
         <p role="status">{actionNotice}</p>
@@ -235,11 +239,17 @@ export function PacksPage({ locale, disabled, phase, epoch, mute }: {
         <p role="status" className="packs-audition-result">{auditionNotice}</p>
         {(disabled || mapError) && <p role="status">{text.eventLoadError}</p>}
         {!disabled && !mapLoad && <p role="status">{text.loading}</p>}
-        {currentMap && <SoundRows rows={currentMap.bindings} locale={locale} listen={listen} />}
+        {currentMap && <SoundRows rows={currentMap.bindings} locale={locale} listen={listen}
+          disabled={disabled || locked || mute.muted === true || action !== null || busyKey !== null}
+          onAuditionVariant={(row, variantId) => mediaAuditionVariant(row.event_id, row.tier, variantId)} />}
       </>}
       {tab === name && name === "recap" && <MatchRecap locale={locale} disabled={disabled} epoch={epoch} />}
     </div>)}
     {detail && open && <PackDrawer pack={detail} locale={locale} listen={detailListen} returnFocus={open.from}
-      onClose={() => setOpen(null)} auditionNotice={auditionNotice} matchLocked={locked} />}
+      onClose={() => setOpen(null)} auditionNotice={auditionNotice} matchLocked={locked}
+      variants={detailHasCurrentPack ? currentMap?.bindings ?? [] : []}
+      onAuditionVariant={(row, variantId) => mediaAuditionVariant(row.event_id, row.tier, variantId)} />}
+    {installDialogOpen && <InstallDialog locale={locale} matchInProgress={locked}
+      onClose={() => setInstallDialogOpen(false)} onInstalled={refresh} />}
   </section>;
 }
