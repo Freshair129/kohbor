@@ -83,6 +83,7 @@ pub(crate) struct AppState {
     pub(crate) audio_prefs: audio_prefs::AudioPrefsService,
     pub(crate) hotkeys: Mutex<hotkeys::Controller>,
     pub(crate) hud: Mutex<hud::Controller>,
+    pub(crate) audition: commands::AuditionTracker,
     /// Serializes all commands that may replace user-settings.json.
     pub(crate) settings_gate: Mutex<()>,
     pub(crate) sample: Arc<Mutex<(Sample, bool)>>,
@@ -304,6 +305,7 @@ fn register_overlay_events(
     app: tauri::AppHandle<tauri::Wry>,
     window: Option<tauri::WebviewWindow<tauri::Wry>>,
     last_status: Arc<Mutex<Value>>,
+    audition: commands::AuditionTracker,
 ) {
     let visible_window = window.clone();
     app.listen("overlay://visible", move |event| {
@@ -320,23 +322,68 @@ fn register_overlay_events(
             return;
         };
         let Some(window) = visible_window.as_ref() else {
+            if visible {
+                crate::log_info!(
+                    "overlay",
+                    "show_skipped",
+                    "overlay window show skipped",
+                    reason = "WINDOW_UNAVAILABLE"
+                );
+            } else {
+                crate::log_info!(
+                    "overlay",
+                    "hide_skipped",
+                    "overlay window hide skipped",
+                    reason = "WINDOW_UNAVAILABLE"
+                );
+            }
             return;
         };
         if !visible {
             if let Err(error) = window.hide() {
                 crate::log_warn!("overlay", "hide_failed", format!("{error}"));
+                crate::log_info!(
+                    "overlay",
+                    "window_hide_failed",
+                    "overlay window hide failed",
+                    reason = "WINDOW_OPERATION_FAILED"
+                );
+            } else {
+                crate::log_info!("overlay", "window_hidden", "overlay window hidden");
             }
             return;
         }
         // Fail closed: never show an unplaced window, and never leave a shown window that can
         // intercept game input (click-through is applied before and again after the show).
-        if !place_overlay_window(window) || window.set_ignore_cursor_events(true).is_err() {
+        if !place_overlay_window(window) {
             let _ = window.hide();
+            crate::log_info!(
+                "overlay",
+                "show_skipped",
+                "overlay window show skipped",
+                reason = "PLACEMENT_UNAVAILABLE"
+            );
+            return;
+        }
+        if window.set_ignore_cursor_events(true).is_err() {
+            let _ = window.hide();
+            crate::log_info!(
+                "overlay",
+                "show_skipped",
+                "overlay window show skipped",
+                reason = "CLICK_THROUGH_UNAVAILABLE"
+            );
             return;
         }
         if let Err(error) = window.show() {
             crate::log_warn!("overlay", "show_failed", format!("{error}"));
             let _ = window.hide();
+            crate::log_info!(
+                "overlay",
+                "window_show_failed",
+                "overlay window show failed",
+                reason = "WINDOW_OPERATION_FAILED"
+            );
             return;
         }
         if window.set_ignore_cursor_events(true).is_err() {
@@ -346,7 +393,54 @@ fn register_overlay_events(
                 "click_through_failed",
                 "window hidden after failure"
             );
+            crate::log_info!(
+                "overlay",
+                "window_show_failed",
+                "overlay window show failed",
+                reason = "CLICK_THROUGH_UNAVAILABLE"
+            );
+        } else {
+            crate::log_info!("overlay", "window_shown", "overlay window shown");
         }
+    });
+
+    let playback_audition = audition.clone();
+    app.listen("playback://event", move |event| {
+        if let Ok(payload) = serde_json::from_str::<Value>(event.payload()) {
+            playback_audition.observe_playback(&payload);
+        }
+    });
+
+    app.listen("overlay://video-diagnostic", move |event| {
+        let Ok(payload) = serde_json::from_str::<Value>(event.payload()) else {
+            return;
+        };
+        let Some(diagnostic) = overlay::parse_and_log_video_diagnostic(&payload, |diagnostic| {
+            let event_type = diagnostic.event_type.as_deref().unwrap_or("unknown");
+            match diagnostic.outcome {
+                overlay::VideoDiagnosticOutcome::Started => crate::log_info!(
+                    "overlay",
+                    diagnostic.log_event_name(),
+                    diagnostic.log_message(),
+                    playback_id = diagnostic.playback_id.as_str(),
+                    event_type = event_type,
+                    reason_code = diagnostic.reason_code
+                ),
+                overlay::VideoDiagnosticOutcome::Failed => crate::log_info!(
+                    "overlay",
+                    diagnostic.log_event_name(),
+                    diagnostic.log_message(),
+                    playback_id = diagnostic.playback_id.as_str(),
+                    event_type = event_type,
+                    reason_code = diagnostic.reason_code,
+                    error_code_known = diagnostic.error_code.is_some(),
+                    error_code = diagnostic.error_code.unwrap_or_default()
+                ),
+            }
+        }) else {
+            return;
+        };
+        audition.observe_visual(diagnostic);
     });
 
     let ready_handle = app.clone();
@@ -631,6 +725,7 @@ pub fn run() {
                 audio_prefs,
                 hotkeys: Mutex::new(hotkeys::Controller::default()),
                 hud: Mutex::new(hud::Controller::default()),
+                audition: commands::AuditionTracker::default(),
                 settings_gate: Mutex::new(()),
                 sample,
                 revision: AtomicU64::new(0),
@@ -646,6 +741,7 @@ pub fn run() {
                 app_handle.clone(),
                 overlay_window,
                 last_overlay_status.clone(),
+                app.state::<AppState>().audition.clone(),
             );
             start_overlay_status_mirror(app_handle, last_overlay_status, initial_overlay_status);
             crate::log_info!("app", "setup_complete", "application setup completed");
@@ -674,6 +770,7 @@ pub fn run() {
         commands::media_activate,
         commands::media_list,
         commands::media_cabinet,
+        commands::media_event_map,
         commands::media_audition,
         commands::media_probe_report,
         commands::media_probe_pending,
@@ -735,6 +832,7 @@ pub fn run() {
         commands::media_activate,
         commands::media_list,
         commands::media_cabinet,
+        commands::media_event_map,
         commands::media_audition,
         commands::media_probe_report,
         commands::media_probe_pending,
