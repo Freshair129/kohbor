@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { cardView, nextPacksTab, packBindingView, parsePackSummaries, sessionAudio } from "../src/packs/model.ts";
+import { cardView, nextPacksTab, packBindingView, parsePackSummaries } from "../src/packs/model.ts";
 import { auditionSound, groupSoundRows } from "../src/packs/eventMap.ts";
 
 const packsPageSource = readFileSync(new URL("../src/packs/PacksPage.tsx", import.meta.url), "utf8");
@@ -89,14 +89,10 @@ test("Listen forwards the event and tier once, and does not call a blocked audit
   assert.deepEqual(calls, [["multi_kill", 3]]);
 });
 
-test("the session recap hides auditions, demo and voice requests and combines preempted playback", () => {
-  const event = { instance_id: "ev_g1_s1_0", event_type: "hero_kill", session_epoch: 1,
-    audio_class: "ordinary", playback_id: "player0001", package_revision: 1, decided_monotonic_ms: 50, outcome: "admitted" } as const;
-  const records = sessionAudio({ skipped: 0, records: [
-    { ...event, event_type: "audition" }, { ...event, event_type: null, audio_class: "voice" },
-    { ...event, instance_id: "ev_g18446744073709551615_s1_0" },
-    { ...event, outcome: "preempted", decided_monotonic_ms: 80 }, event,
-    { ...event, instance_id: "ev_g1_s2_0", event_type: "hero_death", outcome: "unmapped" },
-  ] });
-  assert.deepEqual(records.map(item => item.outcome), ["preempted", "unmapped"]);
+test("the last-match tab uses the stored history and connects the host read and clear", () => {
+  assert.match(packsPageSource, /from "\.\/MatchHistory"/);
+  assert.match(packsPageSource, /name === "recap"[\s\S]+<MatchHistory/);
+  assert.match(packsPageSource, /loadMatchRecap\(matchRecapCommand\)/);
+  assert.match(packsPageSource, /await clearMatchRecap\(matchRecapCommand\)/);
+  assert.doesNotMatch(packsPageSource, /<MatchRecap/);
 });

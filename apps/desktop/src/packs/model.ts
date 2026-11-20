@@ -1,8 +1,6 @@
 // @ts-ignore Explicit source extensions support the Node test runner.
 import { packsPageCopy, type Locale } from "../copy.ts";
 // @ts-ignore Explicit source extensions support the Node test runner.
-import { isAuditionOutcomeRecord, isDemoOutcomeRecord, type AudioHistory } from "../history.ts";
-// @ts-ignore Explicit source extensions support the Node test runner.
 import { soundLabel, type SoundKey, type SoundSelection } from "./eventMap.ts";
 
 export const PACKS_TABS = ["installed", "events", "recap"] as const;
@@ -115,16 +113,4 @@ export function packBindingView(row: PackBinding, locale: Locale) {
     rotation: row.variantCount > 1 && row.selection ? text.rotation[row.selection] : null,
     banners: text.banners(row.bannerCount),
   };
-}
-
-export function sessionAudio(history: AudioHistory | null, epoch?: number | null) {
-  const eligible = history?.records.filter(row =>
-    row.event_type !== null && !isAuditionOutcomeRecord(row) && !isDemoOutcomeRecord(row)) ?? [];
-  const latestEpoch = epoch ?? eligible[0]?.session_epoch;
-  const seen = new Set<string>();
-  return eligible.filter(row => {
-    if (row.session_epoch !== latestEpoch || seen.has(row.instance_id)) return false;
-    seen.add(row.instance_id);
-    return true;
-  });
 }

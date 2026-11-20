@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { eventLabel } from "../eventLabels";
 import type { Locale } from "../copy";
 import { matchRecapCopy } from "./matchRecap.copy";
@@ -13,6 +13,7 @@ export interface MatchHistoryProps {
 
 export function MatchHistory({ locale, recap, onClear, clearDisabled = false }: MatchHistoryProps) {
   const copy = matchRecapCopy(locale);
+  const titleId = useId();
   const [confirming, setConfirming] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [clearFailed, setClearFailed] = useState(false);
@@ -31,9 +32,9 @@ export function MatchHistory({ locale, recap, onClear, clearDisabled = false }: 
   }
 
   return (
-    <section className="packs-match-recap" aria-labelledby="match-recap-title">
-      <header className="packs-match-recap__header">
-        <h2 id="match-recap-title">{copy.title}</h2>
+    <section className="packs-match-recap" aria-labelledby={titleId}>
+      <header className="packs-section-heading">
+        <h2 id={titleId}>{copy.title}</h2>
         <button
           type="button"
           onClick={() => {
@@ -52,7 +53,7 @@ export function MatchHistory({ locale, recap, onClear, clearDisabled = false }: 
           <button type="button" onClick={() => setConfirming(false)} disabled={clearing}>
             {copy.cancel}
           </button>
-          <button type="button" onClick={() => void clearConfirmed()} disabled={clearing || clearDisabled}>
+          <button type="button" className="danger" onClick={() => void clearConfirmed()} disabled={clearing || clearDisabled}>
             {clearing ? copy.clearing : copy.confirm}
           </button>
         </div>

@@ -1,6 +1,5 @@
 // Audio outcome history: parsing and display helpers for the `audio_history`
-// host command (contracts/audio-outcome 1.0.0, proposed). The host keeps the
-// records in memory only; the renderer never stores or sends them anywhere.
+// host command. The renderer also uses this parser for saved match history.
 
 export type HistoryClass = "critical" | "correction" | "notice" | "ordinary" | "voice";
 
@@ -32,6 +31,17 @@ export interface AudioOutcomeRecord {
   decided_monotonic_ms: number;
 }
 
+export interface AudioOutcomeRecordV11 extends AudioOutcomeRecord {
+  schema_version: "1.1.0";
+  tier: number | null;
+  variant_id: string | null;
+  clip_id: string | null;
+  selection: "random" | "shuffle" | "sequence" | null;
+  game_clock_seconds: number | null;
+  match_id: string | null;
+  playback_end: "finished" | "cut" | "failed" | null;
+}
+
 const DEMO_INSTANCE_ID = /^ev_g18446744073709551615_s\d+_\d+$/;
 
 /** Demo rows use the reserved native generation; the audio-outcome 1.0.0 shape stays closed. */
@@ -46,7 +56,7 @@ export function isAuditionOutcomeRecord(record: Pick<AudioOutcomeRecord, "event_
 
 export interface AudioHistory {
   /** Newest first. */
-  records: AudioOutcomeRecord[];
+  records: (AudioOutcomeRecord | AudioOutcomeRecordV11)[];
   /** Records the host sent that do not satisfy the contract; they are skipped, never guessed. */
   skipped: number;
 }
@@ -87,6 +97,8 @@ const KEYS = [
   "schema_version", "instance_id", "event_type", "session_epoch", "audio_class",
   "outcome", "playback_id", "package_revision", "decided_monotonic_ms",
 ] as const;
+const KEYS_V11 = [...KEYS, "tier", "variant_id", "clip_id", "selection", "game_clock_seconds", "match_id", "playback_end"] as const;
+const VARIANT_ID = /^[a-z0-9][a-z0-9_-]{0,31}$/;
 
 function matches(pattern: RegExp, value: unknown): value is string {
   if (typeof value !== "string") return false;
@@ -98,14 +110,16 @@ function safeInteger(value: unknown, minimum: number): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= minimum;
 }
 
-/** Parse one audio-outcome 1.0.0 record, including its conditional rules. */
-export function parseOutcomeRecord(value: unknown): AudioOutcomeRecord | null {
+/** Parse either closed audio-outcome shape, including its conditional rules. */
+export function parseOutcomeRecord(value: unknown): AudioOutcomeRecord | AudioOutcomeRecordV11 | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
   const record = value as Record<string, unknown>;
-  const keys = Object.keys(record);
-  if (keys.length !== KEYS.length || !KEYS.every((key) => Object.hasOwn(record, key))) return null;
+  const version = record.schema_version;
+  if (version !== "1.0.0" && version !== "1.1.0") return null;
+  const keys = version === "1.1.0" ? KEYS_V11 : KEYS;
+  if (Object.keys(record).length !== keys.length || !keys.every(key => Object.hasOwn(record, key))) return null;
 
-  if (record.schema_version !== "1.0.0" || !matches(INSTANCE_ID, record.instance_id)) return null;
+  if (!matches(INSTANCE_ID, record.instance_id)) return null;
   if (!safeInteger(record.session_epoch, 1) || !safeInteger(record.decided_monotonic_ms, 0)) return null;
   if (typeof record.audio_class !== "string" || !HISTORY_CLASSES.includes(record.audio_class as HistoryClass)) {
     return null;
@@ -126,7 +140,7 @@ export function parseOutcomeRecord(value: unknown): AudioOutcomeRecord | null {
     return null;
   }
 
-  return {
+  const common: AudioOutcomeRecord = {
     instance_id: record.instance_id,
     event_type: record.event_type,
     session_epoch: record.session_epoch,
@@ -136,6 +150,24 @@ export function parseOutcomeRecord(value: unknown): AudioOutcomeRecord | null {
     package_revision: record.package_revision,
     decided_monotonic_ms: record.decided_monotonic_ms,
   };
+  if (version === "1.0.0") return common;
+
+  const { tier, variant_id, clip_id, selection, game_clock_seconds, match_id, playback_end } = record;
+  if (tier !== null && (!safeInteger(tier, 1) || tier > 10)) return null;
+  if (variant_id !== null && !matches(VARIANT_ID, variant_id)) return null;
+  if (clip_id !== null && (typeof clip_id !== "string" || clip_id.length === 0 || new TextEncoder().encode(clip_id).length > 48)) return null;
+  if (selection !== null && selection !== "random" && selection !== "shuffle" && selection !== "sequence") return null;
+  if (game_clock_seconds !== null && !safeInteger(game_clock_seconds, 0)) return null;
+  if (playback_end !== null && playback_end !== "finished" && playback_end !== "cut" && playback_end !== "failed") return null;
+  if ((outcome === "preempted" && playback_end !== "cut") || (!playing && playback_end !== null)) return null;
+
+  if (audioClass === "voice") {
+    if ([tier, variant_id, clip_id, selection, game_clock_seconds, match_id].some(field => field !== null)) return null;
+  } else if (match_id !== `local_match_${common.session_epoch}`) {
+    return null;
+  }
+  return { ...common, schema_version: version, tier, variant_id, clip_id, selection, game_clock_seconds,
+    match_id: match_id as string | null, playback_end };
 }
 
 /**
@@ -144,7 +176,7 @@ export function parseOutcomeRecord(value: unknown): AudioOutcomeRecord | null {
  */
 export function parseAudioHistory(value: unknown): AudioHistory | null {
   if (!Array.isArray(value)) return null;
-  const records: AudioOutcomeRecord[] = [];
+  const records: AudioHistory["records"] = [];
   let skipped = 0;
   for (const raw of value) {
     const record = parseOutcomeRecord(raw);

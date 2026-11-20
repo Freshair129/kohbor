@@ -30,7 +30,7 @@ export interface MatchRecapCopy {
 
 const COPY: Record<Locale, MatchRecapCopy> = {
   th: {
-    title: "แมตช์ล่าสุด",
+    title: "ประวัติแมตช์",
     matchTitle: (index) => (index === 0 ? "แมตช์ล่าสุด" : `แมตช์ก่อนหน้า ${index}`),
     empty: "ยังไม่มีแมตช์ที่บันทึกไว้",
     noPlayed: "ไม่มีเสียงประกาศที่บันทึกว่าเล่นแล้วในแมตช์นี้",
@@ -57,7 +57,7 @@ const COPY: Record<Locale, MatchRecapCopy> = {
     footnote: "รายการที่ถูกดรอปไม่แสดงเป็นเสียงที่เล่นแล้ว; “เล่นแล้ว” หมายถึงส่งเสียงให้ระบบเล่น ไม่ได้ยืนยันว่าคุณได้ยิน และ “ถูกตัด” หมายถึงเสียงหยุดก่อนจบ",
   },
   en: {
-    title: "Recent matches",
+    title: "Match history",
     matchTitle: (index) => (index === 0 ? "Latest match" : `Previous match ${index}`),
     empty: "No matches have been recorded yet.",
     noPlayed: "No announcer events were recorded as played in this match.",

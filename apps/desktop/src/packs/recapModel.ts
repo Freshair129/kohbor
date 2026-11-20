@@ -1,34 +1,7 @@
-export type MatchRecapOutcome =
-  | "admitted"
-  | "preempted"
-  | "unmapped"
-  | "invalid_media"
-  | "inert"
-  | "not_voiced"
-  | "detector_unavailable"
-  | "stale_session"
-  | "superseded_revision"
-  | "critical_active"
-  | "channel_busy"
-  | "lower_rank_same_tick"
-  | "cooldown"
-  | "muted";
+// @ts-ignore Explicit source extensions support the Node test runner.
+import { isAuditionOutcomeRecord, isDemoOutcomeRecord, parseOutcomeRecord, type AudioOutcomeRecordV11 } from "../history.ts";
 
-export type MatchRecapPlaybackEnd = "finished" | "cut" | "failed" | null;
-export type MatchRecapSelection = "random" | "shuffle" | "sequence" | null;
-
-export interface MatchRecapEvent {
-  instance_id: string;
-  playback_id: string | null;
-  event_type: string;
-  outcome: MatchRecapOutcome;
-  tier: number | null;
-  variant_id: string | null;
-  clip_id: string | null;
-  selection: MatchRecapSelection;
-  game_clock_seconds: number | null;
-  playback_end: MatchRecapPlaybackEnd;
-}
+export type MatchRecapEvent = AudioOutcomeRecordV11 & { event_type: string };
 
 export interface MatchRecapMatch {
   /** Internal local-only key; the component does not display it. */
@@ -44,105 +17,17 @@ export interface MatchRecapSnapshot {
 }
 
 const FILE_SCHEMA = "1.0.0";
-const OUTCOME_SCHEMA = "1.1.0";
-const OUTCOMES: readonly MatchRecapOutcome[] = [
-  "admitted",
-  "preempted",
-  "unmapped",
-  "invalid_media",
-  "inert",
-  "not_voiced",
-  "detector_unavailable",
-  "stale_session",
-  "superseded_revision",
-  "critical_active",
-  "channel_busy",
-  "lower_rank_same_tick",
-  "cooldown",
-  "muted",
-];
-const RECORD_KEYS = [
-  "schema_version",
-  "instance_id",
-  "event_type",
-  "session_epoch",
-  "audio_class",
-  "outcome",
-  "playback_id",
-  "package_revision",
-  "decided_monotonic_ms",
-  "tier",
-  "variant_id",
-  "clip_id",
-  "selection",
-  "game_clock_seconds",
-  "match_id",
-  "playback_end",
-] as const;
-
-const EVENT_ID = /^[a-z][a-z0-9_]{0,79}$/;
-const IDENTIFIER = /^[A-Za-z0-9_-]{8,96}$/;
-const PLAYBACK_ID = /^[A-Za-z0-9_-]{8,64}$/;
-const VARIANT_ID = /^[a-z0-9][a-z0-9_-]{0,31}$/;
 const LOCAL_MATCH_ID = /^local_match_[1-9][0-9]{0,15}$/;
-const SELECTIONS: readonly MatchRecapSelection[] = ["random", "shuffle", "sequence", null];
-const PLAYBACK_ENDS: readonly MatchRecapPlaybackEnd[] = ["finished", "cut", "failed", null];
-const AUDIO_CLASSES = ["critical", "correction", "notice", "ordinary"] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isSafeInteger(value: unknown, minimum: number): value is number {
-  return typeof value === "number" && Number.isSafeInteger(value) && value >= minimum;
-}
-
-function isLocalMatchForEpoch(value: unknown, epoch: unknown): value is string {
-  if (typeof value !== "string" || !LOCAL_MATCH_ID.test(value) || !isSafeInteger(epoch, 1)) return false;
-  return value === `local_match_${epoch}`;
-}
-
 function parseEvent(value: unknown, matchId: string): MatchRecapEvent | null {
-  if (!isRecord(value)) return null;
-  const keys = Object.keys(value);
-  if (keys.length !== RECORD_KEYS.length || !RECORD_KEYS.every((key) => Object.hasOwn(value, key))) return null;
-  if (value.schema_version !== OUTCOME_SCHEMA || typeof value.instance_id !== "string" || !IDENTIFIER.test(value.instance_id)) return null;
-  if (typeof value.event_type !== "string" || !EVENT_ID.test(value.event_type) || value.event_type === "audition") return null;
-  if (typeof value.audio_class !== "string" || !AUDIO_CLASSES.includes(value.audio_class as (typeof AUDIO_CLASSES)[number])) return null;
-  if (typeof value.outcome !== "string" || !OUTCOMES.includes(value.outcome as MatchRecapOutcome)) return null;
-  if (!isLocalMatchForEpoch(value.match_id, value.session_epoch) || value.match_id !== matchId) return null;
-  if (!isSafeInteger(value.session_epoch, 1) || !isSafeInteger(value.decided_monotonic_ms, 0)) return null;
-
-  const playing = value.outcome === "admitted" || value.outcome === "preempted";
-  if (playing) {
-    if (typeof value.playback_id !== "string" || !PLAYBACK_ID.test(value.playback_id)) return null;
-  } else if (value.playback_id !== null) {
-    return null;
-  }
-
-  if (value.package_revision !== null && !isSafeInteger(value.package_revision, 1)) return null;
-  if (value.outcome === "admitted" && value.package_revision === null) return null;
-  if (value.tier !== null && (!isSafeInteger(value.tier, 1) || value.tier > 10)) return null;
-  if (value.variant_id !== null && (typeof value.variant_id !== "string" || !VARIANT_ID.test(value.variant_id))) return null;
-  if (value.clip_id !== null && (typeof value.clip_id !== "string" || value.clip_id.length < 1 || value.clip_id.length > 48)) return null;
-  if (!SELECTIONS.includes(value.selection as MatchRecapSelection)) return null;
-  if (value.game_clock_seconds !== null && !isSafeInteger(value.game_clock_seconds, 0)) return null;
-  if (!PLAYBACK_ENDS.includes(value.playback_end as MatchRecapPlaybackEnd)) return null;
-  if (value.outcome === "preempted" && value.playback_end !== "cut") return null;
-  if (!playing && value.playback_end !== null) return null;
-
-  return {
-    instance_id: value.instance_id,
-    playback_id: value.playback_id as string | null,
-    event_type: value.event_type,
-    outcome: value.outcome as MatchRecapOutcome,
-    tier: value.tier as number | null,
-    variant_id: value.variant_id as string | null,
-    clip_id: value.clip_id as string | null,
-    selection: value.selection as MatchRecapSelection,
-    game_clock_seconds: value.game_clock_seconds as number | null,
-    playback_end: value.playback_end as MatchRecapPlaybackEnd,
-  };
+  const event = parseOutcomeRecord(value);
+  if (!event || !("schema_version" in event) || event.match_id !== matchId || event.event_type === null
+    || isAuditionOutcomeRecord(event) || isDemoOutcomeRecord(event)) return null;
+  return { ...event, event_type: event.event_type };
 }
 
 /** Parse and group the host-owned local recap without displaying dropped events as played. */

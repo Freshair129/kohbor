@@ -64,6 +64,16 @@ test("invalid records are skipped and a wrong file schema is unreadable", () => 
   assert.equal(parseMatchRecap({ schema_version: "2.0.0", matches: [] }).readable, false);
 });
 
+test("saved matches skip demos, auditions, and outcomes attributed to another match", () => {
+  const recap = parseMatchRecap({ schema_version: "1.0.0", matches: [{
+    match_id: "local_match_1",
+    events: [outcome(1, "ev_g18446744073709551615_s1_0"), outcome(1, "event_1_2", { event_type: "audition" }),
+      outcome(2, "event_2_1"), outcome(1, "event_1_4")],
+  }] });
+  assert.equal(recap.skipped, 3);
+  assert.deepEqual(recap.matches[0]?.playedEvents.map(event => event.instance_id), ["event_1_4"]);
+});
+
 test("clock formatting preserves unknown and formats known game time", () => {
   assert.equal(formatGameClock(null), "—");
   assert.equal(formatGameClock(91), "1:31");

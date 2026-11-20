@@ -168,8 +168,7 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
             </div>
           )}
 
-          {activePage === "packs" && <PacksPage locale={displayLocale} disabled={hostLost} phase={phase}
-            epoch={status?.session.session_epoch ?? null} mute={mute} />}
+          {activePage === "packs" && <PacksPage locale={displayLocale} disabled={hostLost} phase={phase} mute={mute} />}
 
           {activePage === "insights" && (currentInsightsView === "replay" && ReplayPanel ? (
             <Suspense fallback={<p role="status">{text.loading}</p>}>

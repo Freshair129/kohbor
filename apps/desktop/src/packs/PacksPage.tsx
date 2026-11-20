@@ -1,29 +1,32 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { AudioMuteControl, type AudioMuteState } from "../AudioPanel";
-import { auditionReason, packReason, packsPageCopy, type Locale, type Phase } from "../copy";
+import { auditionReason, copy, packReason, packsPageCopy, type Locale, type Phase } from "../copy";
 import { errorCode, newRequestId, parseInstallResult, sortRecords } from "../packs";
-import { mediaActivate, mediaAudition, mediaAuditionVariant, mediaEventMap, mediaPackSummaries, subscribeAuditionMatch } from "../runtime";
+import { matchRecapCommand, mediaActivate, mediaAudition, mediaAuditionVariant, mediaEventMap, mediaPackSummaries, subscribeAuditionMatch } from "../runtime";
 import { useMediaListing } from "../useMediaListing";
 import { VolumeControl } from "../VolumeControl";
 import {
   auditionSound, beginEventMapRefresh, eventMapMatchesPack, eventMapPhaseBlocksAudition,
   eventMapPlayBlock, soundKey, type EventMapLoadResult, type SoundKey,
 } from "./eventMap";
-import { MatchRecap } from "./MatchRecap";
+import { MatchHistory } from "./MatchHistory";
+import { clearMatchRecap, loadMatchRecap, type MatchRecapSnapshot } from "./recapModel";
 import { nextPacksTab, PACKS_TABS, parsePackSummaries, type PacksTab, type PackSummary } from "./model";
 import { PackDrawer, PackCard } from "./PackLibrary";
 import { SoundRows } from "./SoundRows";
 import { InstallDialog } from "./InstallDialog";
 import { installDialogCopy } from "./InstallDialog.copy";
 
-export function PacksPage({ locale, disabled, phase, epoch, mute }: {
-  locale: Locale; disabled: boolean; phase: Phase | null; epoch: number | null; mute: AudioMuteState;
+export function PacksPage({ locale, disabled, phase, mute }: {
+  locale: Locale; disabled: boolean; phase: Phase | null; mute: AudioMuteState;
 }) {
   const text = packsPageCopy(locale);
   const installText = installDialogCopy[locale];
   const id = useId();
   const tabs = useRef<Partial<Record<PacksTab, HTMLButtonElement>>>({});
   const [tab, setTab] = useState<PacksTab>(PACKS_TABS[0]);
+  const [recap, setRecap] = useState<MatchRecapSnapshot | null>(null);
+  const [clearingRecap, setClearingRecap] = useState(false);
   const [open, setOpen] = useState<{ id: string; from: HTMLButtonElement } | null>(null);
   const [refreshId, setRefreshId] = useState(0);
   const [summaries, setSummaries] = useState<PackSummary[] | null>(null);
@@ -44,6 +47,26 @@ export function PacksPage({ locale, disabled, phase, epoch, mute }: {
   const active = listing.listing?.active;
   const activeId = active?.install_id;
   const phaseLock = eventMapPhaseBlocksAudition(phase);
+  const currentRecap = disabled ? { matches: [], skipped: 0, readable: false } : recap;
+
+  useEffect(() => {
+    if (tab !== "recap" || disabled || clearingRecap) return;
+    let current = true;
+    void loadMatchRecap(matchRecapCommand).then(snapshot => {
+      if (current) setRecap(snapshot);
+    });
+    return () => { current = false; };
+  }, [tab, disabled, clearingRecap]);
+
+  const clearRecap = async () => {
+    setClearingRecap(true);
+    try {
+      await clearMatchRecap(matchRecapCommand);
+      setRecap(null);
+    } finally {
+      setClearingRecap(false);
+    }
+  };
 
   useEffect(() => {
     if (!listingCurrent || inventoryKey === null) return;
@@ -243,7 +266,11 @@ export function PacksPage({ locale, disabled, phase, epoch, mute }: {
           disabled={disabled || locked || mute.muted === true || action !== null || busyKey !== null}
           onAuditionVariant={(row, variantId) => mediaAuditionVariant(row.event_id, row.tier, variantId)} />}
       </>}
-      {tab === name && name === "recap" && <MatchRecap locale={locale} disabled={disabled} epoch={epoch} />}
+      {tab === name && name === "recap" && (
+        currentRecap
+          ? <MatchHistory locale={locale} recap={currentRecap} onClear={clearRecap} clearDisabled={disabled || clearingRecap} />
+          : <p role="status">{copy(locale).history.loading}</p>
+      )}
     </div>)}
     {detail && open && <PackDrawer pack={detail} locale={locale} listen={detailListen} returnFocus={open.from}
       onClose={() => setOpen(null)} auditionNotice={auditionNotice} matchLocked={locked}
