@@ -4,7 +4,7 @@ import { toWebviewUrl } from "./mediaUrl";
 import { emitOverlayVideoDiagnostic } from "./runtime";
 import { createPlaybackReporter, type VideoReason } from "./playbackReporter";
 
-export function EventBanner({ playback }: { playback: PlaybackState }) {
+export function EventBanner({ playback, visible = true }: { playback: PlaybackState; visible?: boolean }) {
   const eventTypes = useRef(new Map<string, string | null>());
   const reporter = useRef(createPlaybackReporter((id, outcome, errorCode, reasonCode) => {
     void emitOverlayVideoDiagnostic({
@@ -39,7 +39,7 @@ export function EventBanner({ playback }: { playback: PlaybackState }) {
     window.setTimeout(() => report(id, "failed", null, "VIDEO_START_TIMEOUT"), 5_000);
   }, [eventType, playbackId, report, src]);
 
-  if (!visual?.visual_url || !src) return null;
+  if (!visible || !visual?.visual_url || !src) return null;
 
   return (
     <div className="event-overlay-banner" aria-hidden="true">

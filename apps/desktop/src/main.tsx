@@ -14,6 +14,7 @@ import {
   emitOverlayReady,
   emitOverlayVisibility,
   subscribeOverlayDemo,
+  subscribeOverlayContentVisibility,
   subscribeOverlayStatus,
   usePlayback,
 } from "./runtime";
@@ -51,6 +52,12 @@ function OverlayView({ MockHarness }: { MockHarness?: ComponentType }) {
   const playback = usePlayback();
   const [chip, setChip] = useState<ChipState>(createChipState);
   const [nowMs, setNowMs] = useState(() => performance.now());
+  const windowsNativeOverlay = typeof window !== "undefined"
+    && "__TAURI_INTERNALS__" in window
+    && typeof navigator !== "undefined"
+    && navigator.userAgent.includes("Windows");
+  const [hostContentVisible, setHostContentVisible] = useState(false);
+  const [hostVisibilityReady, setHostVisibilityReady] = useState(!windowsNativeOverlay);
   const previousVisualId = useRef<string | null>(null);
   const visualId = playback.visual?.playback_id ?? null;
   const currentVisualId = useRef<string | null>(visualId);
@@ -60,6 +67,7 @@ function OverlayView({ MockHarness }: { MockHarness?: ComponentType }) {
     let disposed = false;
     let stopStatus: (() => void) | undefined;
     let stopDemo: (() => void) | undefined;
+    let stopContentVisibility: (() => void) | undefined;
     const status = subscribeOverlayStatus((payload) => {
       const media = mediaFromOverlayStatus(payload);
       if (!media) return;
@@ -83,14 +91,20 @@ function OverlayView({ MockHarness }: { MockHarness?: ComponentType }) {
           : marked;
       });
     });
-    void Promise.all([status, demo]).then(([unlistenStatus, unlistenDemo]) => {
+    const contentVisibility = windowsNativeOverlay
+      ? subscribeOverlayContentVisibility(setHostContentVisible)
+      : Promise.resolve(() => {});
+    void Promise.all([status, demo, contentVisibility]).then(([unlistenStatus, unlistenDemo, unlistenContentVisibility]) => {
       if (disposed) {
         unlistenStatus();
         unlistenDemo();
+        unlistenContentVisibility();
         return;
       }
       stopStatus = unlistenStatus;
       stopDemo = unlistenDemo;
+      stopContentVisibility = unlistenContentVisibility;
+      setHostVisibilityReady(true);
       void emitOverlayReady().catch(() => {});
     }).catch(() => {
       // No renderer-side status is fabricated when host event registration fails.
@@ -99,8 +113,9 @@ function OverlayView({ MockHarness }: { MockHarness?: ComponentType }) {
       disposed = true;
       stopStatus?.();
       stopDemo?.();
+      stopContentVisibility?.();
     };
-  }, []);
+  }, [windowsNativeOverlay]);
 
   useEffect(() => {
     const at = performance.now();
@@ -123,12 +138,14 @@ function OverlayView({ MockHarness }: { MockHarness?: ComponentType }) {
 
   const visible = overlayShouldShow(playback, chip, nowMs);
   useEffect(() => {
+    if (windowsNativeOverlay && !hostVisibilityReady) return;
     void emitOverlayVisibility(visible).catch(() => {});
-  }, [visible]);
+  }, [visible, hostVisibilityReady, windowsNativeOverlay]);
+  const contentVisible = windowsNativeOverlay ? visible && hostContentVisible : visible;
 
   return (
     <>
-      <OverlayStage playback={playback} chip={chip.view} />
+      <OverlayStage playback={playback} chip={chip.view} visible={contentVisible} />
       {MockHarness ? <MockHarness /> : null}
     </>
   );

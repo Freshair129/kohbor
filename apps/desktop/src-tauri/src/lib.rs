@@ -187,9 +187,67 @@ fn place_overlay_window(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
 /// window is behind the borderless game. Must equal `additionalBrowserArgs` in tauri.conf.json.
 const WEBVIEW2_BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,CalculateNativeWinOcclusion --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows";
 
-fn build_overlay_window(
-    app: &mut tauri::App<tauri::Wry>,
-) -> Option<tauri::WebviewWindow<tauri::Wry>> {
+struct OverlayWindowBundle {
+    window: tauri::WebviewWindow<tauri::Wry>,
+    visibility: overlay::OverlayVisibilityMachine,
+}
+
+/// Tauri's `hwnd()` comes from its own `windows` crate version; rebuild it as this crate's `HWND`.
+#[cfg(windows)]
+fn overlay_hwnd(
+    window: &tauri::WebviewWindow<tauri::Wry>,
+) -> Option<windows::Win32::Foundation::HWND> {
+    window
+        .hwnd()
+        .ok()
+        .map(|hwnd| windows::Win32::Foundation::HWND(hwnd.0))
+}
+
+#[cfg(windows)]
+fn overlay_has_no_activate_style(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetWindowLongPtrW, GWL_EXSTYLE, WS_EX_NOACTIVATE,
+    };
+
+    let Some(hwnd) = overlay_hwnd(window) else {
+        return false;
+    };
+    let ex_style = unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32 };
+    ex_style & WS_EX_NOACTIVATE.0 != 0
+}
+
+#[cfg(windows)]
+fn overlay_is_foreground(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
+    use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
+
+    overlay_hwnd(window).is_some_and(|hwnd| unsafe { GetForegroundWindow() } == hwnd)
+}
+
+#[cfg(windows)]
+fn raise_overlay_without_activation(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
+    use windows::Win32::UI::WindowsAndMessaging::{
+        SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+    };
+
+    let Some(hwnd) = overlay_hwnd(window) else {
+        return false;
+    };
+    // Keep the mapped transparent HWND above other topmost windows without activating it.
+    unsafe {
+        SetWindowPos(
+            hwnd,
+            Some(HWND_TOPMOST),
+            0,
+            0,
+            0,
+            0,
+            SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE,
+        )
+        .is_ok()
+    }
+}
+
+fn build_overlay_window(app: &mut tauri::App<tauri::Wry>) -> Option<OverlayWindowBundle> {
     let spec = overlay::overlay_window_spec();
     let window = match tauri::WebviewWindowBuilder::new(
         app,
@@ -219,13 +277,254 @@ fn build_overlay_window(
         }
     };
 
-    // A failed placement leaves the window hidden for good: it is placed again before every show.
-    let _ = place_overlay_window(&window);
+    // Placement is repeated before every content show; the first Windows mapping also needs a valid target.
+    let _placement_succeeded = place_overlay_window(&window);
+    let mut visibility = overlay::OverlayVisibilityMachine::default();
+    #[cfg(windows)]
+    if !_placement_succeeded {
+        crate::log_warn!(
+            "overlay",
+            "window_mapping_skipped",
+            "overlay mapping skipped",
+            reason = "PLACEMENT_UNAVAILABLE"
+        );
+        return None;
+    }
 
     if let Err(error) = window.set_ignore_cursor_events(spec.ignore_cursor_events) {
         crate::log_warn!("overlay", "click_through_unavailable", format!("{error}"));
+        #[cfg(windows)]
+        return None;
     }
-    Some(window)
+
+    #[cfg(windows)]
+    {
+        let action = visibility.request(overlay::OverlayVisibilityRequest::MapAtStartup);
+        if action != overlay::OverlayVisibilityAction::MapWindow {
+            crate::log_warn!(
+                "overlay",
+                "window_mapping_skipped",
+                "overlay mapping skipped",
+                reason = "INVALID_WINDOW_STATE"
+            );
+            return None;
+        }
+        if !overlay_has_no_activate_style(&window) {
+            visibility.complete(action, false);
+            crate::log_warn!(
+                "overlay",
+                "no_activate_unavailable",
+                "overlay mapping skipped",
+                reason = "WS_EX_NOACTIVATE_MISSING"
+            );
+            return None;
+        }
+        if window.show().is_err()
+            || !window.is_visible().unwrap_or(false)
+            || !overlay_has_no_activate_style(&window)
+            || overlay_is_foreground(&window)
+        {
+            visibility.complete(action, false);
+            crate::log_warn!(
+                "overlay",
+                "window_map_failed",
+                "overlay mapping failed",
+                reason = "MAPPING_OR_FOCUS_FAILED"
+            );
+            return None;
+        }
+        visibility.complete(action, true);
+        crate::log_info!(
+            "overlay",
+            "window_mapped",
+            "overlay mapped once with no activation",
+            no_activate = true,
+            focused = false,
+            focusable = false
+        );
+    }
+
+    Some(OverlayWindowBundle { window, visibility })
+}
+
+#[cfg(windows)]
+fn emit_overlay_content_visibility(window: &tauri::WebviewWindow<tauri::Wry>, visible: bool) {
+    if TauriEmitter::emit(
+        window,
+        "overlay://content-visibility",
+        serde_json::json!({ "visible": visible }),
+    )
+    .is_err()
+    {
+        crate::log_warn!(
+            "overlay",
+            "content_visibility_ack_failed",
+            "renderer visibility acknowledgement failed",
+            content_visible = visible
+        );
+    }
+}
+
+#[cfg(windows)]
+static OVERLAY_VISIBILITY_DIAGNOSTIC_SHOWS: std::sync::atomic::AtomicUsize =
+    std::sync::atomic::AtomicUsize::new(0);
+
+#[cfg(windows)]
+fn reserve_overlay_visibility_diagnostic() -> Option<usize> {
+    use std::sync::atomic::Ordering;
+
+    OVERLAY_VISIBILITY_DIAGNOSTIC_SHOWS
+        .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |count| {
+            (count < 20).then_some(count + 1)
+        })
+        .ok()
+        .map(|count| count + 1)
+}
+
+#[cfg(windows)]
+fn window_is_topmost(hwnd: windows::Win32::Foundation::HWND) -> bool {
+    use windows::Win32::UI::WindowsAndMessaging::{GetWindowLongPtrW, GWL_EXSTYLE, WS_EX_TOPMOST};
+
+    unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32 & WS_EX_TOPMOST.0 != 0 }
+}
+
+#[cfg(windows)]
+fn overlay_window_above_description(hwnd: windows::Win32::Foundation::HWND) -> String {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetClassNameW, GetWindow, GetWindowThreadProcessId, GW_HWNDPREV,
+    };
+
+    let above = match unsafe { GetWindow(hwnd, GW_HWNDPREV) } {
+        Ok(above) => above,
+        Err(_) => return "unavailable".to_owned(),
+    };
+    if above == HWND::default() {
+        return "none".to_owned();
+    }
+
+    let topmost = window_is_topmost(above);
+    let mut process_id = 0u32;
+    unsafe {
+        GetWindowThreadProcessId(above, Some(&mut process_id));
+    }
+    if process_id != std::process::id() {
+        return format!("other,topmost={topmost}");
+    }
+
+    let mut class_name = [0u16; 128];
+    let length = unsafe { GetClassNameW(above, &mut class_name) }.max(0) as usize;
+    let class_name = if length == 0 {
+        "unknown".to_owned()
+    } else {
+        String::from_utf16_lossy(&class_name[..length])
+    };
+    format!("own:{class_name},topmost={topmost}")
+}
+
+#[cfg(windows)]
+fn overlay_visible_topmost_rank(target: windows::Win32::Foundation::HWND) -> Option<usize> {
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetTopWindow, GetWindow, IsWindowVisible, GW_HWNDNEXT,
+    };
+
+    let mut current = unsafe { GetTopWindow(None).ok() }?;
+    let mut rank = 0usize;
+    // A broken z-order chain must not turn diagnostics into an unbounded walk.
+    for _ in 0..4096 {
+        if unsafe { IsWindowVisible(current) }.as_bool() && window_is_topmost(current) {
+            rank += 1;
+            if current == target {
+                return Some(rank);
+            }
+        }
+        current = match unsafe { GetWindow(current, GW_HWNDNEXT) } {
+            Ok(next) if next != windows::Win32::Foundation::HWND::default() => next,
+            _ => break,
+        };
+    }
+    None
+}
+
+#[cfg(windows)]
+fn log_overlay_visibility_snapshot(
+    window: &tauri::WebviewWindow<tauri::Wry>,
+    sample: usize,
+    at: &'static str,
+) {
+    use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetForegroundWindow, GetWindowLongPtrW, IsWindowVisible, GWL_EXSTYLE, WS_EX_NOACTIVATE,
+    };
+
+    let Some(hwnd) = overlay_hwnd(window) else {
+        crate::log_info!(
+            "overlay",
+            "visibility_snapshot",
+            format!("sample={sample} at={at} visible=unknown cloaked=unknown foreground=unknown visible_topmost_rank=unknown above=unknown no_activate=unknown")
+        );
+        return;
+    };
+    let visible = unsafe { IsWindowVisible(hwnd) }.as_bool();
+    let foreground = unsafe { GetForegroundWindow() } == hwnd;
+    let ex_style = unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32 };
+    let no_activate = ex_style & WS_EX_NOACTIVATE.0 != 0;
+    let mut cloaked_value = 0u32;
+    let cloaked = if unsafe {
+        DwmGetWindowAttribute(
+            hwnd,
+            DWMWA_CLOAKED,
+            (&mut cloaked_value as *mut u32).cast(),
+            std::mem::size_of::<u32>() as u32,
+        )
+    }
+    .is_ok()
+    {
+        if cloaked_value == 0 {
+            "false"
+        } else {
+            "true"
+        }
+    } else {
+        "unknown"
+    };
+    let rank = overlay_visible_topmost_rank(hwnd)
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "not_found".to_owned());
+    let above = overlay_window_above_description(hwnd);
+
+    crate::log_info!(
+        "overlay",
+        "visibility_snapshot",
+        format!(
+            "sample={sample} at={at} visible={visible} cloaked={cloaked} foreground={foreground} visible_topmost_rank={rank} above={above} no_activate={no_activate}"
+        )
+    );
+}
+
+#[cfg(windows)]
+fn schedule_overlay_visibility_diagnostics(window: &tauri::WebviewWindow<tauri::Wry>) {
+    let Some(sample) = reserve_overlay_visibility_diagnostic() else {
+        return;
+    };
+    log_overlay_visibility_snapshot(window, sample, "content-show");
+
+    let delayed_window = window.clone();
+    if std::thread::Builder::new()
+        .name("overlay-visibility-snapshot".into())
+        .spawn(move || {
+            std::thread::sleep(Duration::from_millis(500));
+            log_overlay_visibility_snapshot(&delayed_window, sample, "content-show+500ms");
+        })
+        .is_err()
+    {
+        crate::log_warn!(
+            "overlay",
+            "visibility_snapshot_schedule_failed",
+            "delayed visibility snapshot unavailable",
+            sample = sample
+        );
+    }
 }
 
 /// Place the HUD strip at the monitor origin and size it to the monitor's physical width.
@@ -303,11 +602,21 @@ fn build_hud_window(app: &mut tauri::App<tauri::Wry>) -> Option<tauri::WebviewWi
 
 fn register_overlay_events(
     app: tauri::AppHandle<tauri::Wry>,
-    window: Option<tauri::WebviewWindow<tauri::Wry>>,
+    window: Option<OverlayWindowBundle>,
     last_status: Arc<Mutex<Value>>,
     audition: commands::AuditionTracker,
 ) {
-    let visible_window = window.clone();
+    #[cfg(windows)]
+    let (visible_window, visibility_state) = match window {
+        Some(bundle) => (Some(bundle.window), Arc::new(Mutex::new(bundle.visibility))),
+        None => (
+            None,
+            Arc::new(Mutex::new(overlay::OverlayVisibilityMachine::default())),
+        ),
+    };
+    #[cfg(not(windows))]
+    let visible_window = window.map(|bundle| bundle.window);
+
     app.listen("overlay://visible", move |event| {
         let Ok(payload) = serde_json::from_str::<Value>(event.payload()) else {
             return;
@@ -330,6 +639,14 @@ fn register_overlay_events(
                     reason = "WINDOW_UNAVAILABLE"
                 );
             } else {
+                #[cfg(windows)]
+                crate::log_info!(
+                    "overlay",
+                    "content_hidden",
+                    "overlay content hidden; window unavailable",
+                    reason = "WINDOW_UNAVAILABLE"
+                );
+                #[cfg(not(windows))]
                 crate::log_info!(
                     "overlay",
                     "hide_skipped",
@@ -340,23 +657,47 @@ fn register_overlay_events(
             return;
         };
         if !visible {
-            if let Err(error) = window.hide() {
-                crate::log_warn!("overlay", "hide_failed", format!("{error}"));
+            #[cfg(windows)]
+            {
+                let action = visibility_state
+                    .lock()
+                    .unwrap_or_else(|error| error.into_inner())
+                    .request(overlay::OverlayVisibilityRequest::ContentHidden);
+                if action == overlay::OverlayVisibilityAction::ClearContent {
+                    emit_overlay_content_visibility(window, false);
+                }
                 crate::log_info!(
                     "overlay",
-                    "window_hide_failed",
-                    "overlay window hide failed",
-                    reason = "WINDOW_OPERATION_FAILED"
+                    "content_hidden",
+                    "overlay content is empty; transparent window remains mapped"
                 );
-            } else {
-                crate::log_info!("overlay", "window_hidden", "overlay window hidden");
+            }
+            #[cfg(not(windows))]
+            {
+                if let Err(error) = window.hide() {
+                    crate::log_warn!("overlay", "hide_failed", format!("{error}"));
+                    crate::log_info!(
+                        "overlay",
+                        "window_hide_failed",
+                        "overlay window hide failed",
+                        reason = "WINDOW_OPERATION_FAILED"
+                    );
+                } else {
+                    crate::log_info!("overlay", "window_hidden", "overlay window hidden");
+                }
             }
             return;
         }
-        // Fail closed: never show an unplaced window, and never leave a shown window that can
-        // intercept game input (click-through is applied before and again after the show).
+        // Always place and verify click-through before the native raise/show operation.
         if !place_overlay_window(window) {
-            let _ = window.hide();
+            #[cfg(windows)]
+            {
+                emit_overlay_content_visibility(window, false);
+            }
+            #[cfg(not(windows))]
+            {
+                let _ = window.hide();
+            }
             crate::log_info!(
                 "overlay",
                 "show_skipped",
@@ -366,7 +707,14 @@ fn register_overlay_events(
             return;
         }
         if window.set_ignore_cursor_events(true).is_err() {
-            let _ = window.hide();
+            #[cfg(windows)]
+            {
+                emit_overlay_content_visibility(window, false);
+            }
+            #[cfg(not(windows))]
+            {
+                let _ = window.hide();
+            }
             crate::log_info!(
                 "overlay",
                 "show_skipped",
@@ -375,32 +723,138 @@ fn register_overlay_events(
             );
             return;
         }
-        if let Err(error) = window.show() {
-            crate::log_warn!("overlay", "show_failed", format!("{error}"));
-            let _ = window.hide();
-            crate::log_info!(
-                "overlay",
-                "window_show_failed",
-                "overlay window show failed",
-                reason = "WINDOW_OPERATION_FAILED"
-            );
-            return;
+
+        #[cfg(windows)]
+        {
+            let action = visibility_state
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .request(overlay::OverlayVisibilityRequest::ContentShown);
+            if action != overlay::OverlayVisibilityAction::RaiseWindow {
+                emit_overlay_content_visibility(window, false);
+                crate::log_info!(
+                    "overlay",
+                    "show_skipped",
+                    "overlay content show skipped; keeping the failure closed",
+                    reason = "WINDOW_NOT_MAPPED"
+                );
+                return;
+            }
+            if !overlay_has_no_activate_style(window) {
+                visibility_state
+                    .lock()
+                    .unwrap_or_else(|error| error.into_inner())
+                    .complete(action, false);
+                emit_overlay_content_visibility(window, false);
+                crate::log_warn!(
+                    "overlay",
+                    "no_activate_lost",
+                    "overlay no-activate style is missing"
+                );
+                crate::log_info!(
+                    "overlay",
+                    "content_show_failed",
+                    "overlay content show failed",
+                    reason = "WS_EX_NOACTIVATE_MISSING"
+                );
+                return;
+            }
+            if !window.is_visible().unwrap_or(false) {
+                visibility_state
+                    .lock()
+                    .unwrap_or_else(|error| error.into_inner())
+                    .complete(action, false);
+                emit_overlay_content_visibility(window, false);
+                crate::log_warn!(
+                    "overlay",
+                    "window_map_lost",
+                    "mapped overlay window is no longer visible"
+                );
+                crate::log_info!(
+                    "overlay",
+                    "content_show_failed",
+                    "overlay content show failed",
+                    reason = "WINDOW_NOT_MAPPED"
+                );
+                return;
+            }
+            if !raise_overlay_without_activation(window) {
+                visibility_state
+                    .lock()
+                    .unwrap_or_else(|error| error.into_inner())
+                    .complete(action, false);
+                emit_overlay_content_visibility(window, false);
+                crate::log_warn!(
+                    "overlay",
+                    "zorder_reassert_failed",
+                    "overlay raise failed",
+                    reason = "SET_WINDOW_POS_FAILED"
+                );
+                crate::log_info!(
+                    "overlay",
+                    "content_show_failed",
+                    "overlay content show failed",
+                    reason = "ZORDER_REASSERT_FAILED"
+                );
+                return;
+            }
+            if overlay_is_foreground(window) {
+                visibility_state
+                    .lock()
+                    .unwrap_or_else(|error| error.into_inner())
+                    .complete(action, false);
+                emit_overlay_content_visibility(window, false);
+                crate::log_warn!(
+                    "overlay",
+                    "activation_detected",
+                    "overlay became the foreground window"
+                );
+                crate::log_info!(
+                    "overlay",
+                    "content_show_failed",
+                    "overlay content show failed",
+                    reason = "OVERLAY_FOREGROUND"
+                );
+                return;
+            }
+            visibility_state
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .complete(action, true);
+            emit_overlay_content_visibility(window, true);
+            crate::log_info!("overlay", "content_shown", "overlay content is visible");
+            schedule_overlay_visibility_diagnostics(window);
         }
-        if window.set_ignore_cursor_events(true).is_err() {
-            let _ = window.hide();
-            crate::log_warn!(
-                "overlay",
-                "click_through_failed",
-                "window hidden after failure"
-            );
-            crate::log_info!(
-                "overlay",
-                "window_show_failed",
-                "overlay window show failed",
-                reason = "CLICK_THROUGH_UNAVAILABLE"
-            );
-        } else {
-            crate::log_info!("overlay", "window_shown", "overlay window shown");
+
+        #[cfg(not(windows))]
+        {
+            if let Err(error) = window.show() {
+                crate::log_warn!("overlay", "show_failed", format!("{error}"));
+                let _ = window.hide();
+                crate::log_info!(
+                    "overlay",
+                    "window_show_failed",
+                    "overlay window show failed",
+                    reason = "WINDOW_OPERATION_FAILED"
+                );
+                return;
+            }
+            if window.set_ignore_cursor_events(true).is_err() {
+                let _ = window.hide();
+                crate::log_warn!(
+                    "overlay",
+                    "click_through_failed",
+                    "window hidden after failure"
+                );
+                crate::log_info!(
+                    "overlay",
+                    "window_show_failed",
+                    "overlay window show failed",
+                    reason = "CLICK_THROUGH_UNAVAILABLE"
+                );
+            } else {
+                crate::log_info!("overlay", "window_shown", "overlay window shown");
+            }
         }
     });
 
