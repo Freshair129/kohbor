@@ -1162,9 +1162,34 @@
       "sha256": "8122dd7f4c2e0085459dfc28bc9ac4c6d2d7a7846690b0942d903b2112f9ac63"
     },
     {
+      "path": "apps/desktop/src/shell/AccountFlyout.tsx",
+      "bytes": 5201,
+      "sha256": "aa4f7a2ce8b91cdb2421f565066df6bbcff14ccb5f214214ac090aae90e3ec43"
+    },
+    {
       "path": "apps/desktop/src/shell/GsiSetupCard.tsx",
       "bytes": 2713,
       "sha256": "b06e9ac9ad6b452bafee5e40df2b36d60c79e0ef62e76f0ebc599d63698b860d"
+    },
+    {
+      "path": "apps/desktop/src/shell/RailLeft.tsx",
+      "bytes": 3953,
+      "sha256": "cd0511a709b635bcea29a1395f677223e8ac1d24af6e566152cab8f98f4c6cba"
+    },
+    {
+      "path": "apps/desktop/src/shell/RailRibbon.tsx",
+      "bytes": 166,
+      "sha256": "86a22ebb821e7fe64ca1a62fe138e05664d5d5d67fe5bb99bf33ddf86589fe9e"
+    },
+    {
+      "path": "apps/desktop/src/shell/RailRight.tsx",
+      "bytes": 1863,
+      "sha256": "4402a45cdedfbe3352ffcf4f2b123dfecb4e54057e556bfd44a25667fca3c59d"
+    },
+    {
+      "path": "apps/desktop/src/shell/StatusLine.tsx",
+      "bytes": 1144,
+      "sha256": "f3b9bc91c4b8c046112605681c3a45927dc4375a7fd23d0884d51a640ccafd8c"
     },
     {
       "path": "apps/desktop/src/shell/UpdateControl.tsx",
@@ -1175,6 +1200,11 @@
       "path": "apps/desktop/src/shell/VersionInfo.tsx",
       "bytes": 1257,
       "sha256": "0f4e4c9f6b49f8a32c8ac4a765b7934d1b1c39f86c82f669a976f4341a765a40"
+    },
+    {
+      "path": "apps/desktop/src/shell/accountFlyoutModel.ts",
+      "bytes": 521,
+      "sha256": "218a41c5d8c8aecb56279f067f8dd4e9d26f11aca2253d71bacdef8efb145528"
     },
     {
       "path": "apps/desktop/src/shell/appVersionModel.ts",
