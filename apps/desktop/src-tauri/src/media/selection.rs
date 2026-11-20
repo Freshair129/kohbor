@@ -14,6 +14,7 @@ use crate::audio::resolve::{
 pub enum SelectionFailure {
     Unmapped,
     InvalidMedia,
+    VariantUnavailable,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -57,8 +58,7 @@ impl VariantSelector {
         }
     }
 
-    /// Audition remains first-in-descriptor-order because its command/API does
-    /// not accept a variant id and the renderer is intentionally unchanged.
+    /// Keep the legacy P2 audition behavior for callers that do not name a variant.
     pub fn first_ready(
         table: &PrewarmTable,
         event_id: EventId,
@@ -87,6 +87,59 @@ impl VariantSelector {
                     .find(|(_, variant)| variant.media.is_ok())
                 else {
                     return Err(SelectionFailure::InvalidMedia);
+                };
+                let Ok(media) = variant.media.as_ref() else {
+                    return Err(SelectionFailure::InvalidMedia);
+                };
+                Ok(SelectedClip {
+                    event_id,
+                    bound_tier,
+                    variant_index: index,
+                    variant_id: variant.variant_id.clone(),
+                    clip_id: variant.clip_id.clone(),
+                    selection: binding.selection,
+                    media: media.clone(),
+                })
+            }
+        }
+    }
+
+    /// Resolve the exact variant requested by a Packs row without applying the
+    /// normal random, shuffle, or sequence selection policy.
+    pub fn by_id(
+        table: &PrewarmTable,
+        event_id: EventId,
+        requested_tier: Option<u8>,
+        variant_id: &str,
+    ) -> Result<SelectedClip, SelectionFailure> {
+        match table.lookup_binding(event_id, requested_tier) {
+            BindingLookup::Unmapped => Err(SelectionFailure::Unmapped),
+            BindingLookup::Invalid => Err(SelectionFailure::InvalidMedia),
+            BindingLookup::Ready { bound_tier, clip } => {
+                if variant_id != "v1" {
+                    return Err(SelectionFailure::VariantUnavailable);
+                }
+                Ok(SelectedClip {
+                    event_id,
+                    bound_tier,
+                    variant_index: 0,
+                    variant_id: "v1".to_owned(),
+                    clip_id: None,
+                    selection: None,
+                    media: clip.clone(),
+                })
+            }
+            BindingLookup::Variants {
+                bound_tier,
+                binding,
+            } => {
+                let Some((index, variant)) = binding
+                    .variants
+                    .iter()
+                    .enumerate()
+                    .find(|(_, variant)| variant.variant_id == variant_id)
+                else {
+                    return Err(SelectionFailure::VariantUnavailable);
                 };
                 let Ok(media) = variant.media.as_ref() else {
                     return Err(SelectionFailure::InvalidMedia);
@@ -301,6 +354,7 @@ impl From<SelectionFailure> for Outcome {
         match failure {
             SelectionFailure::Unmapped => Self::Unmapped,
             SelectionFailure::InvalidMedia => Self::InvalidMedia,
+            SelectionFailure::VariantUnavailable => Self::Unmapped,
         }
     }
 }
@@ -364,6 +418,29 @@ mod tests {
             .select(table, id, tier, epoch)
             .expect("a ready variant is selected")
             .variant_id
+    }
+
+    #[test]
+    fn exact_variant_lookup_ignores_shuffle_and_sequence_selection() {
+        let table = table(
+            EventId::HeroKill,
+            None,
+            set(
+                Some(VariantSelection::Shuffle),
+                vec![
+                    candidate("first", 1, Some(clip(None, 1))),
+                    candidate("chosen", 1, Some(clip(None, 2))),
+                ],
+            ),
+        );
+        let chosen = VariantSelector::by_id(&table, EventId::HeroKill, None, "chosen")
+            .expect("named variant is ready");
+        assert_eq!(chosen.variant_id, "chosen");
+        assert_eq!(chosen.media.pcm.as_ref(), &[2, -2]);
+        assert_eq!(
+            VariantSelector::by_id(&table, EventId::HeroKill, None, "missing").unwrap_err(),
+            SelectionFailure::VariantUnavailable
+        );
     }
 
     #[test]

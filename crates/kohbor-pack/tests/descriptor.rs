@@ -496,6 +496,67 @@ fn admits_valid_multi_variant_fixture() {
 }
 
 #[test]
+fn admits_proposed_v141_caption_and_keeps_v140_without_caption_valid() {
+    let mut with_caption = variants_fixture();
+    with_caption["schema_version"] = json!("1.4.1");
+    with_caption["bindings"][0]["variants"][0]["caption"] = json!("เสียงสังหารต่อไป");
+    let parsed = parse(&with_caption).expect("proposed 1.4.1 caption is accepted");
+    assert_eq!(
+        parsed.descriptor.bindings[0].variants[0].caption.as_deref(),
+        Some("เสียงสังหารต่อไป")
+    );
+    assert!(
+        parse(&variants_fixture()).is_ok(),
+        "existing 1.4.0 packs without captions remain valid"
+    );
+}
+
+#[test]
+fn rejects_caption_outside_v141() {
+    let mut old_version = variants_fixture();
+    old_version["bindings"][0]["variants"][0]["caption"] = json!("legacy must stay caption-free");
+    assert_reason(&old_version, "unknown_field");
+}
+
+#[test]
+fn v141_caption_keeps_original_text_and_counts_unicode_scalars() {
+    for caption in ["e".to_owned(), "e\u{301}".to_owned(), "🦋".repeat(200)] {
+        let mut value = variants_fixture();
+        value["schema_version"] = json!("1.4.1");
+        value["bindings"][0]["variants"][0]["caption"] = json!(&caption);
+        let parsed = parse(&value).expect("trimmed single-line caption is accepted");
+        assert_eq!(
+            parsed.descriptor.bindings[0].variants[0].caption.as_deref(),
+            Some(caption.as_str())
+        );
+    }
+}
+
+#[test]
+fn v141_rejects_empty_untrimmed_overlong_and_multiline_captions() {
+    for caption in [
+        String::new(),
+        " ".to_owned(),
+        " leading".to_owned(),
+        "trailing\u{a0}".to_owned(),
+        "🦋".repeat(201),
+        "a\0b".to_owned(),
+        "a\u{7f}b".to_owned(),
+        "a\t b".to_owned(),
+        "line\nbreak".to_owned(),
+        "line\rbreak".to_owned(),
+        "line\u{85}break".to_owned(),
+        "line\u{2028}break".to_owned(),
+        "line\u{2029}break".to_owned(),
+    ] {
+        let mut value = variants_fixture();
+        value["schema_version"] = json!("1.4.1");
+        value["bindings"][0]["variants"][0]["caption"] = json!(caption);
+        assert_reason(&value, "caption_invalid");
+    }
+}
+
+#[test]
 fn admits_one_v14_variant_without_selection() {
     let mut value = variants_fixture();
     value["bindings"][0]["variants"]

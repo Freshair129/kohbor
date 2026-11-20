@@ -342,6 +342,7 @@ pub struct ResolvedMedia {
 pub struct ResolvedVariant {
     pub variant_id: String,
     pub clip_id: Option<String>,
+    pub caption: Option<String>,
     pub media: Result<ResolvedMedia, RejectReason>,
 }
 
@@ -1291,6 +1292,7 @@ impl<H: Hook> Store<H> {
             resolved.push(ResolvedVariant {
                 variant_id: variant.variant_id.clone(),
                 clip_id: variant.clip_id.clone(),
+                caption: variant.caption.clone(),
                 media,
             });
         }
