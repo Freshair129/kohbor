@@ -1,7 +1,9 @@
 use super::fake_sink::{table, tick, Call, FakeSink, Harness};
 use super::lanes::{AuditionRefusal, AuditionRequest, Control, EngineOut, Offer};
 use super::outcome::PlaybackEnd;
-use super::resolve::{Clip, Entry, PrewarmTable, VariantMedia, VariantSelection, VariantSet};
+use super::resolve::{
+    Clip, Entry, PrewarmTable, SelectedClip, VariantMedia, VariantSelection, VariantSet,
+};
 use super::slot_sink::SlotSink;
 use kohbor_audio::{PlaybackId, Sink, SinkEvent};
 use kohbor_events::{Event, EventId};
@@ -245,8 +247,51 @@ fn offer_audition_variant(
         },
         variant_id: variant_id.map(str::to_owned),
         install_id: "ins_0000000007".to_owned(),
+        selected: None,
+        overlay: true,
         session_epoch: 1,
         sequence: 1,
+        expires_at: Instant::now() + Duration::from_secs(30),
+        reply,
+    })
+    .unwrap();
+    result
+}
+
+fn offer_drawer_preview(
+    h: &Harness,
+    install_id: &str,
+) -> mpsc::Receiver<Result<(), AuditionRefusal>> {
+    let (reply, result) = mpsc::sync_channel(1);
+    let selected = SelectedClip {
+        event_id: EventId::HeroKill,
+        bound_tier: None,
+        variant_index: 0,
+        variant_id: "v1".to_owned(),
+        clip_id: None,
+        selection: None,
+        media: Clip {
+            pcm: Arc::from(vec![0_i16; 480]),
+            bound_tier: None,
+            audio_ms: 10,
+            visual_tail_ms: 900,
+            visual_url: Some(Arc::from(
+                "kohbor-media://localhost/v1/ins_0000000008/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            )),
+        },
+    };
+    h.tx.offer_audition(AuditionRequest {
+        event: Event {
+            id: EventId::HeroKill,
+            tier: None,
+            at_ms: 0,
+        },
+        variant_id: Some("v1".to_owned()),
+        install_id: install_id.to_owned(),
+        selected: Some(selected),
+        overlay: false,
+        session_epoch: 1,
+        sequence: 2,
         expires_at: Instant::now() + Duration::from_secs(30),
         reply,
     })
@@ -536,6 +581,105 @@ fn audition_uses_engine_admission_and_keeps_the_verified_visual_banner() {
     assert_eq!(playback["event_type"], "audition");
     assert_eq!(playback["visual_url"], visual);
     assert_eq!(log.lock().unwrap().calls.len(), 1, "clip submitted once");
+}
+
+#[test]
+fn audition_without_overlay_flag_is_audio_only() {
+    let (sink, log) = FakeSink::new();
+    let mut h = Harness::new(Some(Box::new(sink)), false, 256);
+    let visual = "kohbor-media://localhost/v1/ins_0000000007/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    assert!(h
+        .tx
+        .control(Control::SwapTable {
+            table: table(7, &[(EventId::HeroKill, None, 4800, 900, Some(visual))]),
+        })
+        .is_ok());
+    h.engine.step(0);
+    h.drain();
+    let (reply, result) = mpsc::sync_channel(1);
+    h.tx.offer_audition(AuditionRequest {
+        event: Event {
+            id: EventId::HeroKill,
+            tier: None,
+            at_ms: 0,
+        },
+        variant_id: None,
+        install_id: "ins_0000000007".to_owned(),
+        selected: None,
+        overlay: false,
+        session_epoch: 1,
+        sequence: 3,
+        expires_at: Instant::now() + Duration::from_secs(30),
+        reply,
+    })
+    .unwrap();
+    h.engine.step(10);
+    assert_eq!(result.try_recv().unwrap(), Ok(()));
+    let playback = playbacks(&h.drain())
+        .into_iter()
+        .find(|item| item["kind"] == "started")
+        .unwrap();
+    assert!(playback["visual_url"].is_null());
+    assert_eq!(playback["visual_tail_ms"], 0);
+    assert_eq!(log.lock().unwrap().calls.len(), 1);
+}
+
+#[test]
+fn drawer_preview_uses_the_nonactive_clip_without_overlay_visuals() {
+    let (sink, log) = FakeSink::new();
+    let mut h = Harness::new(Some(Box::new(sink)), false, 256);
+    assert!(h
+        .tx
+        .control(Control::SwapTable {
+            table: table(7, &[(EventId::HeroKill, None, 4800, 0, None)])
+        })
+        .is_ok());
+    h.engine.step(0);
+    h.drain();
+    let preview = offer_drawer_preview(&h, "ins_0000000008");
+    h.engine.step(10);
+    assert_eq!(preview.try_recv().unwrap(), Ok(()));
+    let outputs = h.drain();
+    let outcome = outcomes(&outputs)
+        .into_iter()
+        .find(|item| item["outcome"] == "admitted")
+        .unwrap();
+    assert_eq!(outcome["package_revision"], 8);
+    let playback = playbacks(&outputs)
+        .into_iter()
+        .find(|item| item["kind"] == "started")
+        .unwrap();
+    assert_eq!(playback["event_type"], "audition");
+    assert!(
+        playback["visual_url"].is_null(),
+        "drawer clip visuals never reach the overlay"
+    );
+    assert_eq!(playback["visual_tail_ms"], 0);
+    assert_eq!(
+        log.lock().unwrap().calls,
+        vec![Call::Submit(PlaybackId(1), 480)]
+    );
+}
+
+#[test]
+fn drawer_preview_is_refused_when_a_match_is_active() {
+    let (sink, _) = FakeSink::new();
+    let mut h = Harness::new(Some(Box::new(sink)), false, 256);
+    assert!(h
+        .tx
+        .control(Control::SwapTable {
+            table: table(7, &[(EventId::HeroKill, None, 4800, 0, None)])
+        })
+        .is_ok());
+    h.engine.step(0);
+    h.drain();
+    let preview = offer_drawer_preview(&h, "ins_0000000008");
+    h.tx.set_audition_match_active(true);
+    h.engine.step(10);
+    assert_eq!(
+        preview.try_recv().unwrap(),
+        Err(AuditionRefusal::MatchActive)
+    );
 }
 
 #[test]

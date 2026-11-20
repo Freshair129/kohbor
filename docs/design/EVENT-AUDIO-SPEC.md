@@ -2,7 +2,7 @@
 title: "Event and Audio Specification (M2)"
 doc_id: "EVENT-AUDIO-SPEC"
 status: draft
-version: "0.3.6"
+version: "0.3.7"
 updated: "2026-11-20"
 authority: "DEC-BASELINE; elaborates MEDIA-001..008, ALERT-001, ALERT-007, VOICE-006, QUALITY-001, QUALITY-007 under DEC-EVENT-AUDIO and DEC-HEALTH-DANGER"
 owner_role: "Integration owner (catalog, arbitration, formats); product owner (health danger, mute)"
@@ -232,7 +232,13 @@ The Packs recap shows admitted/preempted announcer events with their tier/varian
 
 ### Audition lifecycle result (H5)
 
-`media_audition` returns a caller-visible result with `audio_started`, `audio_ended`, and `audio_end_reason`, plus `visual_status`, `visual_reason`, and `video_error_code`. `media_audition_variant(event_id, tier, variant_id)` uses the same lifecycle result while selecting the named variant exactly. `visual_status` is `shown` only after the overlay video emits `playing`, `failed` on a video error, unusable visual URL, or five-second start timeout, `none` for an audio-only variant, and `unknown` when the host cannot confirm the expected lifecycle. The host logs the same bounded result as `media/audition_result`; it does not claim that audio was physically heard.
+`media_audition` returns a caller-visible result with `audio_started`, `audio_ended`, and `audio_end_reason`, plus `visual_status`, `visual_reason`, and `video_error_code`. `media_audition_variant(event_id, tier, variant_id)` uses the same lifecycle result while selecting the named variant exactly. These active-pack commands accept `overlay: boolean`, default false; callers opt in to the existing in-game overlay behavior only for the active pack.
+
+**Drawer preview (owner decision 2026-11-20; D10 superseded for this case).** `media_audition_installed_variant(install_id, event_id, tier, variant_id)` auditions the exact variant from an installed but non-active pack. The host resolves and verifies that installed revision, fully decodes its audio, sends the audio through the app preview path, and always removes its visual URL and visual tail before submitting to the audio engine. It never routes drawer-preview media through the in-game overlay. The command returns a reason code while a match is active and the host rate-limits audition requests. `media_variant_visual_url(install_id, event_id, tier, variant_id)` separately returns `{"visual_url": null}` or the exact `kohbor-media://localhost/v1/<install_id>/<sha256>` route after the host verifies the same variant and publishes it in the existing protocol allowlist; no path is returned. A match blocks this command too.
+
+The existing `playback://event` lifecycle emits `started` and `ended` records with the playback ID. The drawer calls the visual URL command first, starts its muted panel video when it observes the matching audition `started` event, and stops it on the corresponding `ended` event. The event contains the host monotonic `at_ms`, exact `playback_id`, and audio duration. The panel's visual lifecycle is separate from overlay diagnostics: it does not report a drawer video as shown based on the in-game overlay.
+
+`visual_status` is `shown` only after the overlay video emits `playing`, `failed` on a video error, unusable visual URL, or five-second start timeout, `none` for an audio-only active-pack variant, and `unknown` when the host cannot confirm the expected overlay lifecycle. The host logs the same bounded result as `media/audition_result`; it does not claim that audio was physically heard. Owner decision 2026-11-20 reverses D10 only for drawer previews of non-active packs; it does not authorize non-active playback on the game overlay.
 
 ## 6. Media format and decode checks (MP-03, MP-04, MEDIA-004)
 

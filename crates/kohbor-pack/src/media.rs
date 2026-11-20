@@ -7,6 +7,157 @@
 use crate::error::RejectReason;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CoverInfo {
+    pub width: u32,
+    pub height: u32,
+    pub content_type: &'static str,
+}
+
+/// Verify a bounded, still PNG or WebP cover and return its safe response MIME type.
+pub fn inspect_cover(bytes: &[u8]) -> Result<CoverInfo, RejectReason> {
+    if bytes.is_empty() || bytes.len() > 1_048_576 {
+        return Err(RejectReason::CoverInvalid);
+    }
+    let info = if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+        inspect_png_cover(bytes)?
+    } else if bytes.get(..4) == Some(b"RIFF".as_slice())
+        && bytes.get(8..12) == Some(b"WEBP".as_slice())
+    {
+        inspect_webp_cover(bytes)?
+    } else {
+        return Err(RejectReason::CoverInvalid);
+    };
+    if info.width == 0 || info.height == 0 || info.width > 1920 || info.height > 1080 {
+        return Err(RejectReason::CoverInvalid);
+    }
+    Ok(info)
+}
+
+fn inspect_png_cover(bytes: &[u8]) -> Result<CoverInfo, RejectReason> {
+    let invalid = || RejectReason::CoverInvalid;
+    let mut cursor = 8usize;
+    let mut dimensions = None;
+    let mut saw_data = false;
+    let mut saw_end = false;
+    while cursor < bytes.len() {
+        let length = read_u32_be(bytes, cursor).ok_or_else(invalid)? as usize;
+        let chunk_type_start = cursor.checked_add(4).ok_or_else(invalid)?;
+        let data_start = chunk_type_start.checked_add(4).ok_or_else(invalid)?;
+        let data_end = data_start.checked_add(length).ok_or_else(invalid)?;
+        let chunk_end = data_end.checked_add(4).ok_or_else(invalid)?;
+        let chunk_type = bytes
+            .get(chunk_type_start..data_start)
+            .ok_or_else(invalid)?;
+        let data = bytes.get(data_start..data_end).ok_or_else(invalid)?;
+        if chunk_end > bytes.len() {
+            return Err(invalid());
+        }
+        match chunk_type {
+            b"IHDR" if cursor == 8 && length == 13 && dimensions.is_none() => {
+                let width = read_u32_be(data, 0).ok_or_else(invalid)?;
+                let height = read_u32_be(data, 4).ok_or_else(invalid)?;
+                dimensions = Some((width, height));
+            }
+            b"IDAT" if dimensions.is_some() && !saw_end => saw_data = true,
+            b"IEND" if length == 0 && saw_data && chunk_end == bytes.len() => {
+                saw_end = true;
+                break;
+            }
+            b"acTL" | b"fcTL" | b"fdAT" => return Err(invalid()),
+            _ => {}
+        }
+        cursor = chunk_end;
+    }
+    if !saw_end {
+        return Err(invalid());
+    }
+    let (width, height) = dimensions.ok_or_else(invalid)?;
+    Ok(CoverInfo {
+        width,
+        height,
+        content_type: "image/png",
+    })
+}
+
+fn inspect_webp_cover(bytes: &[u8]) -> Result<CoverInfo, RejectReason> {
+    let invalid = || RejectReason::CoverInvalid;
+    let riff_size = read_u32_le(bytes, 4).ok_or_else(invalid)? as usize;
+    if riff_size.checked_add(8) != Some(bytes.len()) {
+        return Err(invalid());
+    }
+    let mut cursor = 12usize;
+    let mut dimensions = None;
+    let mut has_frame = false;
+    while cursor < bytes.len() {
+        let kind_end = cursor.checked_add(4).ok_or_else(invalid)?;
+        let size_end = kind_end.checked_add(4).ok_or_else(invalid)?;
+        let kind = bytes.get(cursor..kind_end).ok_or_else(invalid)?;
+        let size = read_u32_le(bytes, kind_end).ok_or_else(invalid)? as usize;
+        let data_end = size_end.checked_add(size).ok_or_else(invalid)?;
+        let chunk_end = data_end.checked_add(size % 2).ok_or_else(invalid)?;
+        let data = bytes.get(size_end..data_end).ok_or_else(invalid)?;
+        if chunk_end > bytes.len() {
+            return Err(invalid());
+        }
+        match kind {
+            b"ANIM" | b"ANMF" => return Err(invalid()),
+            b"VP8X" => {
+                if size != 10 || data.first().is_some_and(|flags| flags & 0x02 != 0) {
+                    return Err(invalid());
+                }
+                let width = read_u24_le(data, 4).ok_or_else(invalid)? + 1;
+                let height = read_u24_le(data, 7).ok_or_else(invalid)? + 1;
+                dimensions = Some((width, height));
+            }
+            b"VP8 " => {
+                if size < 10 || data.get(3..6) != Some(b"\x9d\x01\x2a".as_slice()) {
+                    return Err(invalid());
+                }
+                let width = u32::from(read_u16_le(data, 6).ok_or_else(invalid)? & 0x3fff);
+                let height = u32::from(read_u16_le(data, 8).ok_or_else(invalid)? & 0x3fff);
+                dimensions.get_or_insert((width, height));
+                if has_frame {
+                    return Err(invalid());
+                }
+                has_frame = true;
+            }
+            b"VP8L" => {
+                if size < 5 || data.first() != Some(&0x2f) {
+                    return Err(invalid());
+                }
+                let b1 = u32::from(*data.get(1).ok_or_else(invalid)?);
+                let b2 = u32::from(*data.get(2).ok_or_else(invalid)?);
+                let b3 = u32::from(*data.get(3).ok_or_else(invalid)?);
+                let b4 = u32::from(*data.get(4).ok_or_else(invalid)?);
+                let width = 1 + b1 + ((b2 & 0x3f) << 8);
+                let height = 1 + (b2 >> 6) + (b3 << 2) + ((b4 & 0x0f) << 10);
+                dimensions.get_or_insert((width, height));
+                if has_frame {
+                    return Err(invalid());
+                }
+                has_frame = true;
+            }
+            _ => {}
+        }
+        cursor = chunk_end;
+    }
+    if cursor != bytes.len() || !has_frame {
+        return Err(invalid());
+    }
+    let (width, height) = dimensions.ok_or_else(invalid)?;
+    Ok(CoverInfo {
+        width,
+        height,
+        content_type: "image/webp",
+    })
+}
+
+fn read_u24_le(bytes: &[u8], offset: usize) -> Option<u32> {
+    let value = bytes.get(offset..offset.checked_add(3)?)?;
+    Some(u32::from(value[0]) | (u32::from(value[1]) << 8) | (u32::from(value[2]) << 16))
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct WavInfo {
     pub samples: u64,
     /// `samples * 1000 / 48_000`, floor.
@@ -668,4 +819,10 @@ fn read_u32_le(bytes: &[u8], offset: usize) -> Option<u32> {
     let end = offset.checked_add(4)?;
     let array = <[u8; 4]>::try_from(bytes.get(offset..end)?).ok()?;
     Some(u32::from_le_bytes(array))
+}
+
+fn read_u32_be(bytes: &[u8], offset: usize) -> Option<u32> {
+    let end = offset.checked_add(4)?;
+    let array = <[u8; 4]>::try_from(bytes.get(offset..end)?).ok()?;
+    Some(u32::from_be_bytes(array))
 }

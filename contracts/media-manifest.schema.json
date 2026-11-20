@@ -2,13 +2,27 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/spec/media-manifest.schema.json",
   "title": "media-manifest.schema.json",
-  "description": "Proposal requiring owner approval. Neutral package descriptor contract: 1.3.0 keeps one media pair directly on each binding; 1.4.0 keeps media in variants[]; 1.4.1 adds optional single-line plain-text caption (1-200 Unicode scalar values) per variant. Existing 1.3.0 and 1.4.0 packs without captions remain valid. Variant IDs are pack-unique; clip_id is provenance only. See docs/design/MEDIA-PACK-SPEC.md and docs/design/EVENT-AUDIO-SPEC.md section 7.",
+  "description": "Neutral package descriptor contract: 1.3.0 keeps one media pair directly on each binding; 1.4.0 keeps media in variants[]; 1.4.1 adds optional captions; 1.4.2 adds optional presentation fields and a verified still-image cover. Older descriptor versions remain valid. Variant IDs are pack-unique; clip_id is provenance only. See docs/design/MEDIA-PACK-SPEC.md and docs/design/EVENT-AUDIO-SPEC.md section 7.",
   "$defs": {
     "payload_path": {
       "type": "string",
       "minLength": 1,
       "maxLength": 240,
       "pattern": "^[A-Za-z0-9_][A-Za-z0-9_./-]*$"
+    },
+    "presentation": {
+      "type": "object",
+      "minProperties": 1,
+      "properties": {
+        "description": {"type": "string", "maxLength": 500, "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u2028\\u2029]*$"},
+        "author": {"type": "string", "maxLength": 80, "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u2028\\u2029]*$"},
+        "languages": {
+          "type": "array", "maxItems": 8, "uniqueItems": true,
+          "items": {"type": "string", "minLength": 2, "maxLength": 63, "pattern": "^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$"}
+        },
+        "cover": {"$ref": "#/$defs/payload_path"}
+      },
+      "additionalProperties": false
     },
     "file": {
       "type": "object",
@@ -31,7 +45,8 @@
             "silent_visual",
             "identity_audio",
             "source_asset",
-            "font"
+            "font",
+            "cover"
           ]
         }
       },
@@ -410,7 +425,8 @@
       "enum": [
         "1.3.0",
         "1.4.0",
-        "1.4.1"
+        "1.4.1",
+        "1.4.2"
       ]
     },
     "package_id": {
@@ -442,6 +458,9 @@
           "type": "null"
         }
       ]
+    },
+    "presentation": {
+      "$ref": "#/$defs/presentation"
     },
     "files": {
       "type": "array",
@@ -528,6 +547,34 @@
               "$ref": "#/$defs/binding_v141"
             }
           }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": "1.4.2"
+          }
+        },
+        "required": [
+          "schema_version"
+        ]
+      },
+      "then": {
+        "properties": {
+          "bindings": {
+            "items": {
+              "$ref": "#/$defs/binding_v141"
+            }
+          }
+        }
+      },
+      "else": {
+        "not": {
+          "required": [
+            "presentation"
+          ]
         }
       }
     }

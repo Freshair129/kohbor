@@ -1,5 +1,5 @@
 use kohbor_pack::{catalog::Catalog, container::stage_package, Limits};
-use kohbor_pack_author::{audio::convert_wav, build_package, BuildOptions};
+use kohbor_pack_author::{audio::convert_wav, build_package, parse_cli_args, BuildOptions};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::fs::{self, File};
@@ -83,12 +83,86 @@ impl Fixture {
             rights_claim: Some("synthetic owner claim".to_owned()),
             publisher_key_id: None,
             require_visual: false,
+            presentation: None,
         }
     }
 
     fn set_mapping(&self, bindings: &[Value]) {
         fs::write(&self.map, mapping_bytes(bindings)).expect("write mapping");
     }
+}
+
+#[test]
+fn mapping_presentation_fields_and_cover_are_written_as_manifest_142() {
+    let fixture = Fixture::new();
+    fs::write(fixture.clips.join("cover.png"), png_cover()).expect("write still cover");
+    let mapping = json!({
+        "schema_version": "1.0.0",
+        "presentation": {
+            "description": "A single paragraph.",
+            "author": "Kohbor author",
+            "languages": ["en-US", "th-TH"],
+            "cover": "cover.png"
+        },
+        "bindings": [binding("multi_kill", Some(2), Some("x.webm"), None, None, None)]
+    });
+    fs::write(&fixture.map, serde_json::to_vec(&mapping).unwrap()).expect("write mapping");
+    let report = build_package(&fixture.options()).expect("build presentation package");
+    assert_eq!(report.descriptor_schema_version, "1.4.2");
+    let staged = stage_reported_package(&report.package_path, &fixture.temp.0);
+    let descriptor = staged.parsed.descriptor;
+    let presentation = descriptor.presentation.unwrap();
+    assert_eq!(
+        presentation.description.as_deref(),
+        Some("A single paragraph.")
+    );
+    assert_eq!(presentation.author.as_deref(), Some("Kohbor author"));
+    assert_eq!(
+        presentation.languages,
+        vec!["en-US".to_owned(), "th-TH".to_owned()]
+    );
+    let cover = presentation.cover.unwrap();
+    assert!(cover.starts_with("cover/"));
+    assert!(cover.ends_with(".png"));
+    assert!(descriptor
+        .files
+        .iter()
+        .any(|file| file.path == cover && file.role == kohbor_pack::descriptor::FileRole::Cover));
+}
+
+#[test]
+fn CLI_presentation_options_build_the_same_verified_contract() {
+    let fixture = Fixture::new();
+    fs::write(fixture.clips.join("cover.png"), png_cover()).expect("write still cover");
+    let mut args = Vec::new();
+    for (flag, value) in [
+        ("--clips", fixture.clips.as_os_str().to_owned()),
+        ("--map", fixture.map.as_os_str().to_owned()),
+        ("--out", fixture.out.as_os_str().to_owned()),
+        ("--package-id", "cli-presentation".into()),
+        ("--revision", "1".into()),
+        ("--display-name", "CLI Presentation".into()),
+        ("--catalog", fixture.catalog.as_os_str().to_owned()),
+        ("--description", "CLI description".into()),
+        ("--author", "CLI author".into()),
+        ("--language", "en-US".into()),
+        ("--cover", "cover.png".into()),
+    ] {
+        args.push(std::ffi::OsString::from(flag));
+        args.push(value);
+    }
+    let options = parse_cli_args(args).expect("parse CLI presentation flags");
+    let report = build_package(&options).expect("build from CLI presentation");
+    assert_eq!(report.descriptor_schema_version, "1.4.2");
+    let staged = stage_reported_package(&report.package_path, &fixture.temp.0);
+    let presentation = staged.parsed.descriptor.presentation.unwrap();
+    assert_eq!(presentation.description.as_deref(), Some("CLI description"));
+    assert_eq!(presentation.author.as_deref(), Some("CLI author"));
+    assert_eq!(presentation.languages, vec!["en-US".to_owned()]);
+    assert!(presentation
+        .cover
+        .as_deref()
+        .is_some_and(|path| path.ends_with(".png")));
 }
 
 fn catalog_bytes() -> Vec<u8> {
@@ -133,6 +207,24 @@ fn binding(
 fn mapping_bytes(bindings: &[Value]) -> Vec<u8> {
     serde_json::to_vec(&json!({ "schema_version": "1.0.0", "bindings": bindings }))
         .expect("serialize mapping")
+}
+
+fn png_cover() -> Vec<u8> {
+    fn chunk(output: &mut Vec<u8>, kind: &[u8; 4], data: &[u8]) {
+        output.extend_from_slice(&(data.len() as u32).to_be_bytes());
+        output.extend_from_slice(kind);
+        output.extend_from_slice(data);
+        output.extend_from_slice(&[0; 4]);
+    }
+    let mut bytes = b"\x89PNG\r\n\x1a\n".to_vec();
+    let mut ihdr = Vec::new();
+    ihdr.extend_from_slice(&640u32.to_be_bytes());
+    ihdr.extend_from_slice(&360u32.to_be_bytes());
+    ihdr.extend_from_slice(&[8, 6, 0, 0, 0]);
+    chunk(&mut bytes, b"IHDR", &ihdr);
+    chunk(&mut bytes, b"IDAT", &[]);
+    chunk(&mut bytes, b"IEND", &[]);
+    bytes
 }
 
 fn variant(audio: &str) -> Value {

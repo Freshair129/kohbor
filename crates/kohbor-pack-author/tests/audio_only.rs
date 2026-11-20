@@ -74,6 +74,7 @@ impl Fixture {
             rights_claim: None,
             publisher_key_id: None,
             require_visual: false,
+            presentation: None,
         }
     }
 

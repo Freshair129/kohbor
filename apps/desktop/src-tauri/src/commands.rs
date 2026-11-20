@@ -392,6 +392,7 @@ pub(crate) fn media_event_map(state: tauri::State<'_, AppState>) -> Result<Value
 pub(crate) struct AuditionTracker {
     sequence: Arc<std::sync::atomic::AtomicU64>,
     active: Arc<std::sync::Mutex<Option<PendingAudition>>>,
+    last_request: Arc<std::sync::Mutex<Option<Instant>>>,
 }
 
 struct PendingAudition {
@@ -431,11 +432,21 @@ struct AuditionWait {
 
 impl AuditionTracker {
     fn begin(&self) -> Result<AuditionWait, String> {
+        const MIN_AUDITION_INTERVAL: Duration = Duration::from_millis(750);
         let (sender, receiver) = mpsc::channel();
         let mut active = crate::intake::lock(&self.active);
         if active.is_some() {
             return Err("AUDITION_BUSY".to_owned());
         }
+        let now = Instant::now();
+        let mut last_request = crate::intake::lock(&self.last_request);
+        if last_request
+            .is_some_and(|last| now.saturating_duration_since(last) < MIN_AUDITION_INTERVAL)
+        {
+            return Err("AUDITION_RATE_LIMITED".to_owned());
+        }
+        *last_request = Some(now);
+        drop(last_request);
         let ticket = self
             .sequence
             .fetch_add(1, Ordering::Relaxed)
@@ -712,8 +723,16 @@ pub(crate) fn media_audition(
     state: tauri::State<'_, AppState>,
     event_id: String,
     tier: Option<u8>,
+    overlay: Option<bool>,
 ) -> Result<MediaAuditionResult, String> {
-    run_media_audition(&state, &event_id, tier, None)
+    run_media_audition(
+        &state,
+        &event_id,
+        tier,
+        None,
+        overlay.unwrap_or(false),
+        None,
+    )
 }
 
 #[tauri::command(async)]
@@ -722,8 +741,34 @@ pub(crate) fn media_audition_variant(
     event_id: String,
     tier: Option<u8>,
     variant_id: String,
+    overlay: Option<bool>,
 ) -> Result<MediaAuditionResult, String> {
-    run_media_audition(&state, &event_id, tier, Some(&variant_id))
+    run_media_audition(
+        &state,
+        &event_id,
+        tier,
+        Some(&variant_id),
+        overlay.unwrap_or(false),
+        None,
+    )
+}
+
+#[tauri::command(async)]
+pub(crate) fn media_audition_installed_variant(
+    state: tauri::State<'_, AppState>,
+    install_id: String,
+    event_id: String,
+    tier: Option<u8>,
+    variant_id: String,
+) -> Result<MediaAuditionResult, String> {
+    run_media_audition(
+        &state,
+        &event_id,
+        tier,
+        Some(&variant_id),
+        false,
+        Some(&install_id),
+    )
 }
 
 fn run_media_audition(
@@ -731,22 +776,34 @@ fn run_media_audition(
     event_id: &str,
     tier: Option<u8>,
     variant_id: Option<&str>,
+    overlay: bool,
+    installed_pack: Option<&str>,
 ) -> Result<MediaAuditionResult, String> {
     let pending = state.audition.begin()?;
     let session_epoch = crate::intake::lock(&state.runtime.shared)
         .epoch
         .unwrap_or(1);
-    let audition = match variant_id {
-        Some(variant_id) => {
-            state
+    let audition = match installed_pack {
+        Some(install_id) => state.host.commands.media_audition_installed_variant(
+            install_id,
+            event_id,
+            tier,
+            variant_id.unwrap_or_default(),
+            session_epoch,
+        ),
+        None => match variant_id {
+            Some(variant_id) => state.host.commands.media_audition_variant(
+                event_id,
+                tier,
+                variant_id,
+                session_epoch,
+                overlay,
+            ),
+            None => state
                 .host
                 .commands
-                .media_audition_variant(event_id, tier, variant_id, session_epoch)
-        }
-        None => state
-            .host
-            .commands
-            .media_audition(event_id, tier, session_epoch),
+                .media_audition(event_id, tier, session_epoch, overlay),
+        },
     };
     if let Err(error) = audition {
         state.audition.finish(pending.ticket);
@@ -756,6 +813,20 @@ fn run_media_audition(
     state.audition.finish(pending.ticket);
     log_audition_result(&result);
     Ok(result)
+}
+
+#[tauri::command(async)]
+pub(crate) fn media_variant_visual_url(
+    state: tauri::State<'_, AppState>,
+    install_id: String,
+    event_id: String,
+    tier: Option<u8>,
+    variant_id: String,
+) -> Result<Value, String> {
+    state
+        .host
+        .commands
+        .media_variant_visual_url(&install_id, &event_id, tier, &variant_id)
 }
 
 #[tauri::command(async)]
