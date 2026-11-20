@@ -2168,8 +2168,8 @@
     },
     {
       "path": "crates/kohbor-pack-author/src/lib.rs",
-      "bytes": 39082,
-      "sha256": "6f338d73dcf924e4678f59d6a4f575a2edbed113a8ee537f9dac52ffd52f1045"
+      "bytes": 56963,
+      "sha256": "f4f2d0121f823d398807e36ec0046e91acb448c3c0cd1243907ee086aec1e12f"
     },
     {
       "path": "crates/kohbor-pack-author/src/main.rs",
@@ -2183,8 +2183,8 @@
     },
     {
       "path": "crates/kohbor-pack-author/tests/author.rs",
-      "bytes": 27148,
-      "sha256": "ba1029772c8e980f63344be52a70610c0978cadd39ec8c48b09801a2dc13c262"
+      "bytes": 46343,
+      "sha256": "63febbe51e2070edd80dc878b293991219f70538c651e556e3ff21238f559522"
     },
     {
       "path": "crates/kohbor-pack/Cargo.toml",
@@ -2463,8 +2463,8 @@
     },
     {
       "path": "docs/design/MEDIA-PACK-SPEC.md",
-      "bytes": 15850,
-      "sha256": "a76dce3112e8d3fb3eb765593a8bd089f4b7e221bdd8feaf5c14a625b7b4e849"
+      "bytes": 16704,
+      "sha256": "15d2f1973b96b55c97097c702cc4a6d7a8e3dc528195e2cdaee2b4fa029eb5ef"
     },
     {
       "path": "docs/design/PACKAGE-FORMAT-REVIEW.md",
