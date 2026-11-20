@@ -109,27 +109,23 @@ export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, on
   useEffect(() => {
     let disposed = false;
     let cleanup: (() => void)[] = [];
-    const started = browseApi.subscribeStarted(event => {
-      if (openIdRef.current !== event.installId) return;
-      const visualUrl = visualUrls.current.get(`${event.installId}:${event.variantId}`) ?? null;
-      commitPreview({
-        type: "started", playbackId: event.playbackId, installId: event.installId, variantId: event.variantId,
-        startedMonotonicMs: event.startedMonotonicMs, receivedAtMs: performance.now(), durationMs: event.durationMs,
-        hasVisual: event.hasVisual, visualUrl,
-      });
-      setPreviewNotice(text.listening);
-    });
-    const ended = browseApi.subscribeEnded(event => {
+    const subscription = browseApi.subscribe(event => {
+      if (event.installId !== openIdRef.current) return;
+      if ("startedMonotonicMs" in event) {
+        const visualUrl = event.visualUrl ?? visualUrls.current.get(`${event.installId}:${event.variantId}`) ?? null;
+        commitPreview({ type: "started", playbackId: event.playbackId, installId: event.installId, variantId: event.variantId,
+          startedMonotonicMs: event.startedMonotonicMs, receivedAtMs: performance.now(), durationMs: event.durationMs,
+          hasVisual: event.hasVisual, visualUrl });
+        setPreviewNotice(text.listening);
+        return;
+      }
       const previous = previewRef.current;
       const next = commitPreview({ type: "ended", playbackId: event.playbackId, reason: event.reason });
       if (previous === next || previous.installId !== event.installId) return;
       setPreviewNotice(event.reason === "finished" ? text.listenAudio.finished
         : event.reason === "cut" ? text.listenAudio.cut : auditionReason(event.reason.toUpperCase(), locale));
     });
-    void Promise.all([started, ended]).then(unsubscribers => {
-      if (disposed) unsubscribers.forEach(unsubscribe => unsubscribe());
-      else cleanup = unsubscribers;
-    }, () => {});
+    void subscription.then(unsubscribe => { if (disposed) unsubscribe(); else cleanup = [unsubscribe]; }, () => {});
     return () => { disposed = true; cleanup.forEach(unsubscribe => unsubscribe()); };
   }, [commitPreview, locale, text.listening, text.listenAudio.cut, text.listenAudio.finished]);
 
@@ -289,7 +285,7 @@ export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, on
     setPreviewNotice(text.listening);
     try {
       const visualUrl = variant.has_visual
-        ? variant.visualUrl ?? await browseApi.visualUrl(detail.installId, variantId)
+        ? variant.visualUrl ?? await browseApi.visualUrl(detail.installId, binding.event_id, binding.tier, variantId)
         : null;
       if (browseMatchLocked) throw new Error("AUDITION_MATCH_ACTIVE");
       visualUrls.current.set(`${detail.installId}:${variantId}`, visualUrl);

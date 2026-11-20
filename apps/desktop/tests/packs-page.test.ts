@@ -55,7 +55,7 @@ test("an invalid cover is reported without exposing another pack's visual", () =
   const cover = "kohbor-media://localhost/v1/cover/ins_0000000002/" + "a".repeat(64);
   const good = cover.replace("0000000002", "0000000001");
   const visual = { ...row, banner_count: 1, bindings: [{ ...row.bindings[0], banner_count: 1 }, row.bindings[1]] };
-  const [pack] = parsePackSummaries({ schema_version: "1.0.0", records: [{ ...visual, cover_url: cover }] })!;
+  const [pack] = parsePackSummaries({ schema_version: "1.0.0", records: [{ ...visual, problem: "COVER_INVALID", cover_url: null }] })!;
   assert.equal(cardView(pack!, "th").status, "problem");
   assert.equal(cardView(pack!, "th").coverUrl, null);
   const [verified] = parsePackSummaries({ schema_version: "1.0.0", records: [{ ...visual, cover_url: good }] })!;

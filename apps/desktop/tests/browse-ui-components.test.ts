@@ -53,8 +53,8 @@ test("the drawer keeps a focus trap and has a pinned preview stage, scroll list,
   assert.match(drawer, /packs-drawer-footer/);
   assert.match(drawer, /className="primary packs-equip-button"/);
   assert.match(copy, /activate: "ใช้แพ็กนี้"/);
-  assert.match(packsPage, /browseApi\.subscribeStarted/);
-  assert.match(packsPage, /browseApi\.subscribeEnded/);
+  assert.match(packsPage, /browseApi\.subscribe/);
+  assert.match(packsPage, /event\.visualUrl/);
 });
 
 test("packs layout defines the requested viewport columns and clips horizontal overflow", () => {
