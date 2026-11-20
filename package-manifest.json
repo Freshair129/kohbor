@@ -468,8 +468,8 @@
     },
     {
       "path": "apps/desktop/src/App.tsx",
-      "bytes": 17592,
-      "sha256": "bf2eccdbc36c94aac9fd338ab6ec6dc2dfd20a10d5e27e7b3fa243b08999f782"
+      "bytes": 18440,
+      "sha256": "12df7916a43d7b4db924e01252e43285fd92f597645a7972b64db71197aa8bf3"
     },
     {
       "path": "apps/desktop/src/AudioHistory.tsx",
@@ -1288,8 +1288,8 @@
     },
     {
       "path": "apps/desktop/src/shell/GameSelector.tsx",
-      "bytes": 3711,
-      "sha256": "3133533c23841e19a7c102f12f5311e9a1ffc35d03fbef2a03390c915a5a05b9"
+      "bytes": 4903,
+      "sha256": "bfda373b132e419807203ae990146b4053e178244e5e7d4b445fb381c3161a3c"
     },
     {
       "path": "apps/desktop/src/shell/GsiSetupCard.tsx",
@@ -1298,8 +1298,8 @@
     },
     {
       "path": "apps/desktop/src/shell/RailLeft.tsx",
-      "bytes": 4347,
-      "sha256": "2ae6c4a12f46b8f1d4914024e64dec7fb3b66444a43040a32d10c8e843f5f2eb"
+      "bytes": 5805,
+      "sha256": "a17b5f931f1458dd9e74c0d23bc80e43af702d4f25ee66abc4c7dfa57d06e8e6"
     },
     {
       "path": "apps/desktop/src/shell/RailRibbon.tsx",
@@ -1367,14 +1367,19 @@
       "sha256": "99aabebf72ec5a997420b14efdad25c938ac3c8297b4de84fcdc31ca8441ac29"
     },
     {
+      "path": "apps/desktop/src/shell/railPreference.ts",
+      "bytes": 2228,
+      "sha256": "c5196b776a696336585078906f87b9ebe77a389b7dad46c9a11be7be0f7a3e1e"
+    },
+    {
       "path": "apps/desktop/src/shell/state.ts",
       "bytes": 5909,
       "sha256": "8685169de61fe8431b867649769067b0640650fa9bf08d3afa50e826cb9d2c35"
     },
     {
       "path": "apps/desktop/src/shell/statusFooter.css",
-      "bytes": 2022,
-      "sha256": "da13072f174b387f1129a0835224ee92692a8e85b5d2d1e3e3e7aca1d0d89a7a"
+      "bytes": 2017,
+      "sha256": "9ef974860de442c6f413b9cd462492b17907d50629e5384ee9957d0c82532e62"
     },
     {
       "path": "apps/desktop/src/shell/statusFooterModel.ts",
@@ -1443,8 +1448,8 @@
     },
     {
       "path": "apps/desktop/src/styles.css",
-      "bytes": 53392,
-      "sha256": "ddb4ab3494af772032254830e3ffbc537c3b53f8ceda289d9889dfefc858310d"
+      "bytes": 62168,
+      "sha256": "6b77606259927a9f432f2ca7773c213a6be402b8041c5792be4b1262af2ba94b"
     },
     {
       "path": "apps/desktop/src/types.ts",
@@ -1702,14 +1707,19 @@
       "sha256": "99ef88ebf34bb16a03aebf1d60b98a67fdbe29e5b44e3f77c78f54714485ff5e"
     },
     {
+      "path": "apps/desktop/tests/rail-preference.test.ts",
+      "bytes": 4018,
+      "sha256": "bf765971b9a98a59dbf3ee68f61157462f5794101a2ed0dbe355860dc528e64c"
+    },
+    {
       "path": "apps/desktop/tests/round2.test.ts",
       "bytes": 17794,
       "sha256": "9fe1c3742eb6531183058cdd2746fad924a777710fb6eda71d08e08494119429"
     },
     {
       "path": "apps/desktop/tests/shell-css.test.ts",
-      "bytes": 11721,
-      "sha256": "6e96ff62c4f1bcd9b1f94a969e71cf2beeaad07e75e75b0eb1ef7ecaae7c8d71"
+      "bytes": 17357,
+      "sha256": "c3f399fee51ad044d901e003f3031f872bed84f887af0c946e1dfa92c3be4b2d"
     },
     {
       "path": "apps/desktop/tests/shell-footer.test.ts",
@@ -2830,6 +2840,11 @@
       "path": "docs/design/visuals/command-deck/tokens.glass.css",
       "bytes": 12075,
       "sha256": "7609537443b779304fa46baeb449b29558cb21c40c141c7f91429926fc94822e"
+    },
+    {
+      "path": "docs/design/visuals/command-deck/tokens.govibe.css",
+      "bytes": 7237,
+      "sha256": "d5490cc6ff5991f6d9c86695f8c70121af4e0a6f5075620be0ecc6a99d95e7c3"
     },
     {
       "path": "docs/design/visuals/s3-audio-ui/DESIGN-NOTES.md",

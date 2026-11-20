@@ -18,6 +18,7 @@ import { DEFAULT_SHELL_DESTINATION, deriveHeaderState, insightsViews, statusLine
 import { usePlayback, useRuntime } from "./runtime";
 import { useSettings } from "./settings";
 import { useGlassPreference, type GlassLevel } from "./shell/glassPreference";
+import { shouldToggleRailFromShortcut, useRailPreference } from "./shell/railPreference";
 import { useAppVersion } from "./shell/useAppVersion";
 import { deriveAppVersionView } from "./shell/appVersionModel";
 import { AboutPanel } from "./shell/VersionInfo";
@@ -56,6 +57,7 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
   const { status, snapshot, hostLost, setup } = useRuntime();
   const { settings, loading, saving, notice, changeLocale } = useSettings();
   const glass = useGlassPreference();
+  const rail = useRailPreference();
   const capture = useCaptureStatus();
   const resources = useResources();
   const previewMetrics = usePreviewMetrics();
@@ -132,6 +134,17 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
     document.documentElement.lang = displayLocale;
   }, [displayLocale]);
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const modalOrDrawerOpen = document.querySelector('dialog[open], [aria-modal="true"]') !== null;
+      if (!shouldToggleRailFromShortcut(event, modalOrDrawerOpen)) return;
+      event.preventDefault();
+      rail.toggle();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [rail.toggle]);
+
   const settingsNotice =
     notice === "load_failed"
       ? text.settings.loadFailed
@@ -146,14 +159,17 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
   const navigate = (destination: ShellDestination) => setActivePage(destination);
 
   return (
-    <div className="app glass-field" lang={displayLocale} data-theme="dark" data-glass={glass.level} data-page={activePage}>
+    <div className="app glass-field" lang={displayLocale} data-theme="dark" data-glass={glass.level} data-rail={rail.state} data-page={activePage}>
       {devScenarioSwitcher && <div className="shell-dev-layer">{devScenarioSwitcher}</div>}
       <RailLeft current={activePage} labels={text.shell.destinations} navigationLabel={text.shell.navigationLabel}
-        gameConnection={steamStatus?.gsi ?? "unknown"} locale={displayLocale} onNavigate={navigate} />
+        gameConnection={steamStatus?.gsi ?? "unknown"} locale={displayLocale} railState={rail.state} onToggleRail={rail.toggle} onNavigate={navigate} />
       <main className="shell-main">
         <header className="shell-page-header">
           <div className="shell-page-heading">
-            <h1 id="shell-page-heading">{activePage === "account" ? text.shell.accountProfile : text.shell.destinations[activePage]}</h1>
+            <div className="shell-page-title">
+              <p className="shell-page-eyebrow">DOTA 2</p>
+              <h1 id="shell-page-heading">{activePage === "account" ? text.shell.accountProfile : text.shell.destinations[activePage]}</h1>
+            </div>
             {activePage === "insights" && <div className="shell-subtabs" role="tablist" aria-label={text.shell.insightsViews.label}>
               {insightViewOptions.map((view) => <button key={view} type="button" role="tab" aria-selected={currentInsightsView === view}
                 aria-controls="shell-panel" onClick={() => setInsightsView(view)}>
@@ -161,9 +177,11 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
               </button>)}
             </div>}
           </div>
-          <AudioMuteControl control={mute} locale={displayLocale} compact />
+          <div className="shell-page-head-tools">
+            <StatusLine model={statusModel} label={text.shell.statusLineLabel} hostLostMessage={`${text.hostLost} — ${text.hostOutdated}`} onNavigate={navigate} />
+            <AudioMuteControl control={mute} locale={displayLocale} compact />
+          </div>
         </header>
-        <StatusLine model={statusModel} label={text.shell.statusLineLabel} hostLostMessage={`${text.hostLost} — ${text.hostOutdated}`} onNavigate={navigate} />
 
         <section id="shell-panel" className="shell-page-content" role="region" aria-labelledby="shell-page-heading" tabIndex={-1}>
           {activePage === "overview" && <EmptyPage title={text.shell.emptyPage} note={text.shell.emptyPageNote} />}

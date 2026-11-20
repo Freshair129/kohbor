@@ -30,6 +30,8 @@ export function RailLeft({
   navigationLabel,
   gameConnection,
   locale,
+  railState,
+  onToggleRail,
   onNavigate,
 }: {
   current: ShellDestination | "account";
@@ -37,9 +39,15 @@ export function RailLeft({
   navigationLabel: string;
   gameConnection: DotaConnection;
   locale: "th" | "en";
+  railState: "collapsed" | "expanded";
+  onToggleRail: () => void;
   onNavigate: (destination: ShellDestination) => void;
 }) {
   const buttons = useRef<Partial<Record<ShellDestination, HTMLButtonElement | null>>>({});
+  const expanded = railState === "expanded";
+  const toggleLabel = locale === "th"
+    ? expanded ? "ย่อแถบเมนู (Ctrl+B)" : "ขยายแถบเมนู (Ctrl+B)"
+    : expanded ? "Collapse navigation rail (Ctrl+B)" : "Expand navigation rail (Ctrl+B)";
 
   const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>, destination: ShellDestination) => {
     const next = nextShellDestination(destination, event.key);
@@ -50,34 +58,44 @@ export function RailLeft({
   };
 
   return (
-    <aside className="shell-rail shell-rail-left">
+    <aside id="rail" className="shell-rail shell-rail-left" aria-label={navigationLabel}>
       <div className="shell-rail-wordmark" role="img" aria-label="Kohbor / เกาะเบาะ">
         <img className="shell-rail-mark" src={brandMark} alt="" />
         <span>Kohbor</span><span lang="th">เกาะเบาะ</span>
       </div>
+      <div className="shell-rail-section shell-rail-game-section" aria-hidden="true">{locale === "th" ? "เกม" : "Game"}</div>
       <GameSelector connection={gameConnection} locale={locale} />
       <nav className="shell-rail-nav" aria-label={navigationLabel}>
         <div className="shell-rail-group">
+          <div className="shell-rail-section" aria-hidden="true">{locale === "th" ? "เมนูหลัก" : "Main"}</div>
           {SHELL_NAV_ITEMS.filter((item) => item.group === "primary").map(({ id }) => {
             const state = navigationItemState(id, current);
             return <button key={id} ref={(element) => { buttons.current[id] = element; }} type="button"
-              className="shell-rail-link" aria-current={state.ariaCurrent} tabIndex={state.tabIndex}
+              className="shell-rail-link" data-destination={id} aria-current={state.ariaCurrent} tabIndex={state.tabIndex}
               onClick={() => onNavigate(id)} onKeyDown={(event) => handleKeyDown(event, id)}>
               <DestinationIcon destination={id} /><span>{labels[id]}</span>
+              {id === "store" && <span className="shell-rail-store-chip">{locale === "th" ? "ยังไม่เปิด" : "Not open yet"}</span>}
             </button>;
           })}
         </div>
         <div className="shell-rail-group shell-rail-group-secondary">
+          <div className="shell-rail-section" aria-hidden="true">{locale === "th" ? "ระบบ" : "System"}</div>
           {SHELL_NAV_ITEMS.filter((item) => item.group === "secondary").map(({ id }) => {
             const state = navigationItemState(id, current);
             return <button key={id} ref={(element) => { buttons.current[id] = element; }} type="button"
-              className="shell-rail-link" aria-current={state.ariaCurrent} tabIndex={state.tabIndex}
+              className="shell-rail-link" data-destination={id} aria-current={state.ariaCurrent} tabIndex={state.tabIndex}
               onClick={() => onNavigate(id)} onKeyDown={(event) => handleKeyDown(event, id)}>
               <DestinationIcon destination={id} /><span>{labels[id]}</span>
             </button>;
           })}
         </div>
       </nav>
+      <button type="button" className="shell-rail-toggle" aria-expanded={expanded} aria-controls="rail"
+        aria-label={toggleLabel} title={toggleLabel} onClick={onToggleRail}>
+        <span className="shell-rail-toggle-chevron" aria-hidden="true">{expanded ? "«" : "»"}</span>
+        <span className="shell-rail-toggle-label">{locale === "th" ? "ย่อแถบเมนู" : "Collapse menu"}</span>
+        <kbd aria-hidden="true">Ctrl+B</kbd>
+      </button>
       <RailRibbon side="left" />
     </aside>
   );

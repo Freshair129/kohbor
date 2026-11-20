@@ -6,9 +6,12 @@ const css = readFileSync(new URL("../src/styles.css", import.meta.url), "utf8")
   .replace(/\/\*[\s\S]*?\*\//g, "");
 const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
 const leftRailSource = readFileSync(new URL("../src/shell/RailLeft.tsx", import.meta.url), "utf8");
+const statusFooterCss = readFileSync(new URL("../src/shell/statusFooter.css", import.meta.url), "utf8");
 const tokensCss = readFileSync(new URL("../../../docs/design/visuals/command-deck/tokens.css", import.meta.url), "utf8");
 const hudCss = readFileSync(new URL("../src/hud.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
 const glassCss = readFileSync(new URL("../../../docs/design/visuals/command-deck/tokens.glass.css", import.meta.url), "utf8")
+  .replace(/\/\*[\s\S]*?\*\//g, "");
+const govibeCss = readFileSync(new URL("../../../docs/design/visuals/command-deck/tokens.govibe.css", import.meta.url), "utf8")
   .replace(/\/\*[\s\S]*?\*\//g, "");
 const labCss = readFileSync(new URL("../src/lab/lab.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
 
@@ -67,12 +70,14 @@ test("the application shell occupies the viewport height", () => {
 });
 
 test("the app uses a tokenized two-rail grid and no top tab bar", () => {
-  assert.ok(declarationsFor(".app").some((rule) => rule.get("grid-template-columns") === "var(--rail-width) minmax(0, 1fr) var(--rail-width)"));
+  assert.ok(declarationsFor(".app").some((rule) => rule.get("grid-template-columns") === "var(--rail-left-width) minmax(0, 1fr) var(--rail-width)"));
   assert.ok(declarationsFor(".shell-rail").some((rule) => rule.get("min-width") === "0"));
-  assert.ok(declarationsFor(".shell-main").some((rule) => rule.get("min-width") === "0" && rule.get("background") === "var(--surface)"));
+  assert.ok(declarationsFor(".shell-main").some((rule) => rule.get("min-width") === "0" && rule.get("background") === "transparent"));
   assert.match(css, /@import\s+"\.\.\/\.\.\/\.\.\/docs\/design\/visuals\/command-deck\/tokens\.css"/);
+  assert.match(css, /tokens\.glass\.css";\s*@import\s+"\.\.\/\.\.\/\.\.\/docs\/design\/visuals\/command-deck\/tokens\.govibe\.css"/);
   assert.doesNotMatch(css, /#[0-9a-fA-F]{3,8}\b|(?:rgb|rgba|hsl|hsla)\([^)]*\)/);
   assert.doesNotMatch(appSource, /shell-tab-list|shell-tab-panel|shell-header/);
+  assert.doesNotMatch(css, /\.shell-main\s*\{[^}]*backdrop-filter:/);
 });
 
 test("rail labels wrap in Thai and the decorative ribbons cannot receive pointer input", () => {
@@ -132,7 +137,8 @@ test("brand controls keep Bone ink and the selected tab uses the lit-red edge", 
   assert.equal(active?.get("background"), "var(--brand)");
   assert.equal(active?.get("color"), "var(--brand-ink)");
   const selected = declarationsFor('.shell-subtabs button[aria-selected="true"]')[0];
-  assert.ok(selected?.get("border-bottom")?.includes("var(--brand-edge)"));
+  assert.equal(selected?.get("border-color"), "var(--gv-stroke-active)");
+  assert.equal(selected?.get("background"), "var(--gv-tint-active)");
   assert.equal(selected?.get("color"), "var(--text)");
   assert.match(tokensCss, /button\.primary, \.btn\.primary \{[^}]*background:\s*var\(--brand\);[^}]*color:\s*var\(--brand-ink\)/);
   assert.match(tokensCss, /button\.primary:hover:not\(:disabled\)[^}]*background:\s*var\(--brand-hover\)/);
@@ -193,5 +199,67 @@ test("glass fills are recomputed on the themed app root so a light Windows theme
   }
   for (const level of ["low", "high", "off"]) {
     assert.ok(glassCss.includes(`[data-theme][data-glass="${level}"]`), `${level} strength must reach the themed root`);
+    assert.ok(govibeCss.includes(`[data-theme][data-glass="${level}"]`), `${level} GoVibe tokens must reach the themed root`);
   }
+  const govibeThemeBlock = govibeCss.match(/:root,\s*\[data-theme\]\s*\{([^}]*)\}/)?.[1] ?? "";
+  for (const token of ["--glass-field", "--glass-stroke", "--glass-highlight", "--gv-well-stroke", "--gv-tint-active", "--gv-glare"]) {
+    assert.ok(govibeThemeBlock.includes(`${token}:`), `${token} recomputes on [data-theme]`);
+  }
+  assert.match(govibeCss, /\[data-theme\]\[data-glass="off"\][\s\S]*?--glass-field:\s*var\(--ground\)/);
+  assert.match(govibeCss, /prefers-reduced-transparency:\s*reduce[\s\S]*?\[data-theme\]\[data-glass\][\s\S]*?--glass-field:\s*var\(--ground\)/);
+});
+
+test("the GoVibe shell stays pane-free, the Live page stays solid, and blur belongs to floating surfaces", () => {
+  assert.match(css, /\.app\[data-glass\] \.shell-main\s*\{[^}]*background:\s*transparent[^}]*\}/);
+  assert.match(css, /\.app\[data-page="live"\]\s*\{\s*background:\s*var\(--ground\)/);
+  assert.match(css, /\.app\[data-page="live"\] \.shell-main\s*\{[^}]*background:\s*var\(--ground\)/);
+  assert.match(css, /\.app\[data-page="live"\] \.shell-live-page :is\(\.card, \.glass, \.glass--well, \.glass--raised\)\s*\{[^}]*background:\s*var\(--surface\)[^}]*backdrop-filter:\s*none/);
+  assert.match(css, /\.app\[data-glass\] :is\(\.shell-game-menu, \.shell-account-menu, \.volume-toast\)[\s\S]*?backdrop-filter:\s*var\(--glass-backdrop-2\)/);
+  assert.match(css, /\.app\[data-glass\] \.packs-drawer\s*\{[\s\S]*?backdrop-filter:\s*var\(--glass-backdrop-3\)/);
+  assert.match(css, /\.app\[data-glass\] \.dialog-panel\.pack-install-dialog\s*\{[\s\S]*?backdrop-filter:\s*var\(--glass-backdrop-3\)/);
+  assert.doesNotMatch(css, /\.shell-main\s*\{[^}]*backdrop-filter:/);
+});
+
+test("the rail states use the specified width, row heights, labels and accessible toggle", () => {
+  assert.match(govibeCss, /--gv-rail-collapsed:\s*72px/);
+  assert.match(govibeCss, /--gv-rail-expanded:\s*240px/);
+  assert.match(css, /\.shell-rail-link\s*\{[^}]*min-height:\s*54px/);
+  assert.match(css, /\.app\[data-rail="expanded"\] \.shell-rail-link\s*\{[^}]*min-height:\s*44px/);
+  assert.match(leftRailSource, /id="rail"/);
+  assert.match(leftRailSource, /aria-expanded=\{expanded\}\s+aria-controls="rail"/);
+  assert.match(leftRailSource, /aria-label=\{toggleLabel\}/);
+  assert.match(leftRailSource, /"ขยายแถบเมนู \(Ctrl\+B\)"/);
+  assert.match(leftRailSource, /"ย่อแถบเมนู \(Ctrl\+B\)"/);
+  assert.match(leftRailSource, /"»"/);
+  assert.match(leftRailSource, /"«"/);
+  assert.match(leftRailSource, /"เมนูหลัก"/);
+  assert.match(leftRailSource, /"ระบบ"/);
+  assert.match(leftRailSource, /shell-rail-store-chip/);
+  assert.doesNotMatch(leftRailSource, /onMouseEnter|onMouseLeave|is-peek|hoverPeek/i);
+});
+
+test("the target viewports leave a bounded content track and a three-column 1280 expanded grid", () => {
+  const collapsed = Number(govibeCss.match(/--gv-rail-collapsed:\s*(\d+)px/)?.[1]);
+  const expanded = Number(govibeCss.match(/--gv-rail-expanded:\s*(\d+)px/)?.[1]);
+  const right = Number(tokensCss.match(/--rail-width:\s*(\d+)px/)?.[1]);
+  assert.deepEqual([collapsed, expanded, right], [72, 240, 72]);
+  const targetViewports = [[1280, 720], [1366, 768], [1920, 1080]] as const;
+  assert.deepEqual(targetViewports, [[1280, 720], [1366, 768], [1920, 1080]]);
+  const innerWidths = new Map(targetViewports.map(([width]) => [width, width - expanded - right - 48] as const));
+  assert.deepEqual([...innerWidths.values()], [920, 1006, 1560]);
+  assert.ok(innerWidths.get(1280)! >= 900, "1280 expanded content reaches the three-column container threshold");
+  assert.ok(innerWidths.get(1366)! >= 900);
+  assert.ok(innerWidths.get(1920)! >= 1080);
+  for (const selector of [".app", ".shell-main", ".shell-page-content", ".packs-page", ".packs-grid"]) {
+    assert.ok(declarationsFor(selector).length, `${selector} has an explicit sizing rule`);
+  }
+  assert.ok(declarationsFor(".app").some(rule => rule.get("overflow") === "hidden"));
+  assert.ok(declarationsFor(".shell-rail").some(rule => rule.get("grid-row") === "1 / span 2"), "both rails span the full shell height including the footer row");
+  assert.ok(declarationsFor(".shell-rail-left").some(rule => overflowY(rule) === "hidden"), "the left rail does not scroll at the 1280x720 minimum viewport");
+  assert.ok(declarationsFor(".shell-main").some(rule => rule.get("min-width") === "0" && rule.get("overflow") === "hidden"));
+  assert.ok(declarationsFor(".shell-page-content").some(rule => rule.get("min-width") === "0" && rule.get("overflow") === "hidden"));
+  assert.match(css, /@container \(min-width: 900px\)\s*\{\s*\.packs-grid\s*\{\s*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/);
+  assert.match(css, /\.app\[data-glass\]:not\(\[data-page="live"\]\) \.card\s*\{[^}]*padding:\s*14px 16px/);
+  assert.match(statusFooterCss, /\.shell-status-footer\s*\{[^}]*min-height:\s*28px/);
+  assert.match(css, /grid-template-rows:\s*minmax\(0, 1fr\) 28px/);
 });
