@@ -1,6 +1,6 @@
 # Software Engineering Documentation Index
 
-**Baseline 0.3.6 · Draft · index revised 2026-11-14 · application evidence NOT_RUN**
+**Baseline 0.3.6 · Draft · index revised 2026-11-20 · application evidence NOT_RUN**
 
 Start with PRD and SRS. Read the design, interface and verification documents for each implementation slice. Agent workflow is defined in root AGENTS.md and PROMPT.md and in [Agent Workflow](delivery/AGENT-WORKFLOW.md). To find who owns an area, what is decided and what is open there, read the [domain registry](domains/README.md) and the card of the domain you will touch (see "Domains" below).
 
@@ -8,10 +8,10 @@ This is the only index of documents. Every Markdown file in the tree, is linked 
 
 | Document | Engineering responsibility | Main reader |
 | --- | --- | --- |
-| [PRD](product/PRD.md) | Problem, users, 12 product needs, outcomes, priorities and scope | Product, engineering, QA |
+| [PRD](product/PRD.md) | Problem, users, 14 product needs, outcomes, priorities and scope | Product, engineering, QA |
 | [Use Cases](product/USE-CASES.md) | End-to-end player actions, alternate/failure paths | Product, UX, QA |
 | [Feature Catalog](product/FEATURE-CATALOG.md) | Capability inventory and existing algorithm elaborations | Product, engineering |
-| [SRS](requirements/SRS.md) | Context, constraints and all 87 atomic software requirements | Engineering, QA |
+| [SRS](requirements/SRS.md) | Context, constraints and all 92 atomic software requirements | Engineering, QA |
 | [RTM](requirements/RTM.csv) | Need → requirement → design → test → evidence linkage | Engineering, QA, reviewers |
 | [SAD](design/SAD.md) | System context, architectural views, quality allocation | Architecture, engineering |
 | [SDD](design/SDD.md) | Component allocation, algorithms, state, concurrency and failure | Engineering |
@@ -28,7 +28,7 @@ This is the only index of documents. Every Markdown file in the tree, is linked 
 | [Post-match Replay preview](design/POST-MATCH-REPLAY-PREVIEW.md) | Lab import format, offline replay controls, and post-match admission | Engineering, UX, QA |
 | [Package Format Review](design/PACKAGE-FORMAT-REVIEW.md) | Agent review: whether a package needs its own file type, signature and encryption options | Engineering, product owner |
 | [S4 Observation Boundary](design/S4-OBSERVATION-BOUNDARY.md) | Sprint 4 no-hardware slice: capture admission, freshness, coverage and the enemy observation boundary (agent decision, not owner approved) | Engineering, QA |
-| [Draft Bar](design/DRAFT-BAR-SPEC.md) | MVP-2 slice 5: reading the top hero bar during hero selection (mirror, hero identification, player names) with the third-party data contract (agent design, not owner approved) | Engineering, QA, Privacy |
+| [Draft Bar](design/DRAFT-BAR-SPEC.md) | MVP-2 slice 5: reading the top hero bar during hero selection (mirror, hero identification, player names) with projection 1.1.0 (owner approved the display change under DEC-PICK-STATS) | Engineering, QA, Privacy |
 | [Remaining System Design](design/REMAINING-SYSTEM-DESIGN.md) | Agent design for Sprint 4 onward: capture, risk, account, store and entitlement, peer relay (proposed) | Architecture, engineering |
 | [Backend Stack](design/BACKEND-STACK.md) | Alpha/beta hosting stack (broker and relay on the owner's PC through a tunnel, Postgres-only Supabase, Pages front end), secrets, backups, home-PC risks and who creates what; base text by the codex-backend session (proposed, provider facts unverified) | Owner, engineering, operations |
 | [Store and Pack Delivery](design/STORE-PACK-DELIVERY.md) | Agent design: catalog, entitlement, signed download, offline receipts and revocation, failure modes, alpha versus production, owner questions (proposed; nothing built, hosted or priced) | Architecture, engineering, product owner |

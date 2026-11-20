@@ -3,7 +3,7 @@ title: "Security and Privacy Specification"
 doc_id: "SECURITY-PRIVACY"
 status: "draft"
 version: "0.3.6"
-updated: "2026-11-10"
+updated: "2026-11-20"
 owner: "Product Owner"
 approval_status: "not_approved"
 ---
@@ -18,25 +18,26 @@ This document specifies target behavior, not a verified implementation. Naming a
 
 ## Data route matrix
 
-| Data | Local consumers | Optional cloud advisor | Team-status relay | Optional account/social service |
-|---|---|---|---|---|
-| Coarse phase; own hero, level, kills/deaths/assists, gold, net worth, HP%, mana%; team score | Approved local modules | Explicit purpose-specific opt-in only | Only the smaller relay projection below | Not social data |
-| Exact clock, own items, burst estimate | Approved local modules | Forbidden in initial contract | Forbidden in initial protocol | Forbidden |
-| Raw game payload, raw match identifier, local platform identity | Admission and local processing | Forbidden | Forbidden; use scoped match binding | Never add to social gameplay storage |
-| Own hero, level, HP, maxHP, mana%, alive, respawn seconds | Local display | Only fields separately allowed above | Explicit sharing consent and valid membership/scope | Forbidden |
-| Screen images, crops, detections, enemy identity/position and text derived from them | Approved local observation/advice | Forbidden | Forbidden | Forbidden |
-| Local journal, replay, history, player memory and all derived summaries | Approved local modules | Forbidden, including aggregates | Forbidden | Forbidden |
-| Microphone audio, transcript, free-form voice utterance | Transient local voice processing | Forbidden | Forbidden | Forbidden |
-| Account identifiers, contacts, credentials and security data | Minimal identity operations | Forbidden in prompts | Account tokens/identifiers forbidden | Purpose-limited identity/social authorization |
-| Private friendships, blocks, presence and invitations | Account UI | Forbidden | Only separately specified proof/ticket exchange | Private bounded records |
-| Diagnostic paths, logs and performance samples | Local diagnostics | Forbidden | Forbidden | No automatic upload |
-| Static persona and fixed instructions with no player data | Local configuration | Permitted | Unnecessary | Unnecessary |
+| Data | Local consumers | Optional cloud advisor | Team-status relay | Optional account/social service | Public hero statistics provider |
+|---|---|---|---|---| --- |
+| Coarse phase; own hero, level, kills/deaths/assists, gold, net worth, HP%, mana%; team score | Approved local modules | Explicit purpose-specific opt-in only | Only the smaller relay projection below | Not social data | Forbidden |
+| Exact clock, own items, burst estimate | Approved local modules | Forbidden in initial contract | Forbidden in initial protocol | Forbidden | Forbidden |
+| Raw game payload, raw match identifier, local platform identity | Admission and local processing | Forbidden | Forbidden; use scoped match binding | Never add to social gameplay storage | Forbidden |
+| Own hero, level, HP, maxHP, mana%, alive, respawn seconds | Local display | Only fields separately allowed above | Explicit sharing consent and valid membership/scope | Forbidden | Forbidden |
+| Screen images, crops, detections, enemy identity/position and text derived from them | Approved local observation/advice | Forbidden | Forbidden | Forbidden | Forbidden |
+| Local journal, replay, history, player memory and all derived summaries | Approved local modules | Forbidden, including aggregates | Forbidden | Forbidden | Forbidden |
+| Microphone audio, transcript, free-form voice utterance | Transient local voice processing | Forbidden | Forbidden | Forbidden | Forbidden |
+| Account identifiers, contacts, credentials and security data | Minimal identity operations | Forbidden in prompts | Account tokens/identifiers forbidden | Purpose-limited identity/social authorization | Forbidden |
+| Private friendships, blocks, presence and invitations | Account UI | Forbidden | Only separately specified proof/ticket exchange | Private bounded records | Forbidden |
+| Diagnostic paths, logs and performance samples | Local diagnostics | Forbidden | Forbidden | No automatic upload | Forbidden |
+| Static persona and fixed instructions with no player data | Local configuration | Permitted | Unnecessary | Unnecessary | Forbidden |
+| Own hero ID from admitted GSI and optional manually chosen bracket for public hero statistics | Native public statistics adapter | Separate advice projection above | Separate relay projection below | Forbidden | Permitted only with separate explicit consent |
 
 Public-profile enrichment is a separate optional integration. Its request fields, caching, visibility and authorization must be specified before implementation. It cannot become a back door for uploading gameplay, memory, voice or private social data.
 
 ## Separate consent states
 
-Maintain independent settings and cancellation generations for cloud context, microphone, peer sharing, social presence and profile linking.
+Maintain independent settings and cancellation generations for cloud context, public hero statistics, microphone, peer sharing, social presence and profile linking.
 
 Cloud context defaults off. Sign-in, entering a provider key, selecting a provider and pressing Ask do not grant consent. Present the purpose and exact permitted field groups beside the opt-in. Persist this preference locally. Construct a purpose-built projection; do not serialize a complete game object and then attempt to remove sensitive fields. An explicit cloud selection with consent off returns a local alternative or unavailable. Automatic provider selection must skip cloud.
 
@@ -45,6 +46,14 @@ Revocation increments the relevant generation before new work can be admitted. C
 Microphone access defaults off and applies only during deliberate push-to-talk. It does not permit disk recording, corpus collection, account linking or cloud processing.
 
 Every deliberate team create/join requires newly checked sharing consent in the same action. Reject absent consent before any network request. No automatic join, persisted room credential or passive view-only mode is part of the initial protocol. Friendship and accepted invitations do not grant gameplay sharing; the joining user must still consent.
+
+## Public hero statistics request and cache
+
+DEC-PICK-STATS and STATS-001–003 govern this optional flow. A separate Settings switch defaults off. Explain the purpose, exact request fields, provider and cache behavior before opt-in. Sign-in, a draft, provider selection and other consent states cannot enable it. The provider sees the client's IP address, own hero ID and request time, and sees the bracket if the player chose to include it.
+
+The native host owns the HTTPS request to the selected, fixed provider origin, with OpenDota first. Validate the closed outgoing projection before transport. The only request data are the admitted own hero ID and optional manually chosen bracket. Provider and dataset selection are routing choices. Exclude player names, account and match IDs, ally and enemy heroes, images, voice, memory and game clocks. The renderer has no provider request authority. Keep provider I/O outside intake and critical warning paths. Apply the current consent and own-pick generation when sending, retrying, receiving and caching.
+
+The cache stores only public aggregate tables for the requested own hero, keyed by provider, dataset, own hero and optional bracket with the provider's data window and fetch time. Entries are fresh for less than 24 h, visibly stale from 24 h to less than 7 d, and discarded at 7 d. The local keys can reveal which heroes were queried. Exclude Draft Bar observations, session links and player data from this cache, and keep cache data out of logs, exports and crash reports. On revoke, stop sends, cancel work, clear displayed values, discard late results and delete the local statistics cache. A deletion failure keeps the cache inaccessible and reports the failure. Local gameplay continues independently.
 
 ## Team sharing admission and transport
 
@@ -107,6 +116,7 @@ Inspect actual outbound payloads and filesystem writes during success, failure, 
 
 | Version | Date | Change |
 |---|---|---|
+| 0.3.6 | 2026-11-20 | DEC-PICK-STATS adds a separate public hero statistics route, opt-in and cache erasure rules (STATS-001–003). |
 | 0.1.0 | 2026-11-10 | Initial neutral privacy and security target, with separate permissions, authority and unresolved operational decisions. |
 
 

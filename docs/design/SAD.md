@@ -3,7 +3,7 @@ title: "Software Architecture Description"
 doc_id: "SAD"
 status: "draft"
 version: "0.3.6"
-updated: "2026-11-11"
+updated: "2026-11-20"
 owner_role: "Software architect; person not assigned"
 approval_status: "not_approved"
 ---
@@ -73,7 +73,7 @@ The diagram shows responsibility boundaries; detailed data permissions in [SECUR
 | Read-model builder | Typed availability/source/age projection | Guessing missing values or granting authority |
 | Voice service | Bounded PTT lifecycle, local STT/answer, transient audio | Cloud fallback or raw audio telemetry |
 | History/memory | Local evidence, atomic aggregates, forget cutoff | Peer data accumulation |
-| Network adapters | Separate cloud/peer/account projections | Sharing a universal serialized game object |
+| Network adapters | Separate cloud advice, peer, account and public hero statistics projections | Sharing a universal serialized game object |
 | Recorder | Explicit OBS media session, off-path clip planning | Blocking urgent alerts or implicit mic |
 | Updater | Trusted endpoint/public-key check, staged safe install | Account-dependent core unlock |
 
@@ -122,7 +122,7 @@ Configuration and recovery procedures belong to the [runbook](../operations/RUNB
 | Baseline choice | Reason and implication | Tradeoff retained |
 |---|---|---|
 | Native deterministic alert decisions | The urgent path can be measured without waiting on a provider or renderer | Models may enrich noncritical advice but cannot replace this decision boundary |
-| Separate control window and passive overlay | Configuration/inspection and in-game presentation have different interaction roles | Both require native focus/DPI verification; a browser result cannot certify them |
+| Separate control window, passive overlay and optional orb | Configuration and inspection belong to the control window. UI-009 bounds mouse hits to the separate orb window. The overlay and HUD remain passive | Native focus/DPI evidence is required |
 | Separate source and session state | Capture failure need not erase valid own telemetry; temporary invalidity need not fabricate a new match | Consumers must carry source-specific availability and generations |
 | Independent consent and adapter projections | Each recipient and purpose gets only its permitted fields | Additional consent/state handling is required; a universal game DTO is unsuitable |
 | Verified media prepared off the hot path | Package validation/decode cannot consume the critical admission budget | Missing critical assets remain a readiness blocker; no implicit synthesized replacement |

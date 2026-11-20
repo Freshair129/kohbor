@@ -939,7 +939,76 @@
       "channel": "Owner message in the engineering chat session (2026-11-14), relayed by the coordinating session; recorded by an agent (MVP-2 integration lead). The owner's Thai statement is summarized by the relaying session, not quoted verbatim",
       "owner_statement_th": "(สรุปจากผู้ประสานงาน) ภาพฮีโร่ไม่ต้องกังวลลิขสิทธิ์ เพราะแอปอื่นก็ทำและเราไม่ได้หาประโยชน์จากมัน จำเป็นต้องใช้ ความเสี่ยงเป็นของเจ้าของ; GSI เป็นแหล่งเดียวไม่ได้ ช่วงเลือกฮีโร่ต้องใช้ CV ระบุฮีโร่และแสดงชื่อผู้เล่น; ไม่มีอะไรออกจากเครื่อง แสดงในเครื่องเท่านั้น",
       "decision": "GO for a local draft bar: capture the top hero bar during HERO_SELECTION, STRATEGY_TIME and TEAM_SHOWCASE, identify the ten heroes by CV and read the player names by OCR, and show them in the deck only. The owner accepts the copyright risk of using hero images for local identification and states nothing leaves the machine. Conditions set by the integration lead to keep the decision safe: (1) player names (ranks only if trivial) are read locally, held in memory for the current match only, never written to disk, logs or crash reports, never put into events, announcer text, clips, share exports or any projection, cleared at match end, with a visible setting to turn names off; (2) reference portraits are built at runtime from the user's installed game files read-only (no game memory, no injection) and no Valve art is committed or shipped; if that is infeasible the options are reported instead of bundling; (3) low confidence is shown as unknown, never guessed; (4) CPU and GPU cost is measured and reported, no limit set (DEC-RESOURCE-BUDGET); (5) 1920x1080 at 100 percent only, else unsupported with the real reason; (6) same duplicated frame, second sub-rectangle, only in the draft phases. Not decided here: any enemy or ally data from other sources, sharing, storage of names, and the contract text for third-party data, which must be written and versioned before the names path ships (SECURITY-PRIVACY: other players' data needs a separately versioned contract and permission change).",
-      "closure_evidence": "Slice 5a mirror, 5b hero identification, 5c names, each with tests and a Terra review; the third-party-data contract (docs/design/DRAFT-BAR-SPEC.md) before 5c; the owner's match for native confirmation."
+      "closure_evidence": "Slice 5a mirror, 5b hero identification, 5c names, each with tests and a Terra review; the third-party-data contract (docs/design/DRAFT-BAR-SPEC.md) before 5c; the owner's match for native confirmation.",
+      "display_projection_update": "DEC-PICK-STATS adds the projection 1.1.0 overlay display exception for identified heroes and derived numbers. Player names remain deck-only. Draft Bar output stays local and in memory."
+    },
+    {
+      "id": "DEC-EDGE-ORB",
+      "status": "decided",
+      "milestone": "M3",
+      "blocks": "The edge quick panel extension only. Native focus feasibility gates panel implementation.",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-20",
+      "channel": "Owner messages relayed by the lead. Source: coord:reports/2026-11-20-cr-ingame-orb-and-pick-card.md and coord:design/edge-orb-20261120/OWNER-QUESTIONS.md.",
+      "owner_statement_th": "รับทั้ง 6 ข้อ; อนุมัติร่าง",
+      "decision": "Approve a separate left-edge orb for quick controls and honest status, with guarded hover throughout a match and a Settings off switch. Mouse hits are confined to the revealed circle and open panel, with the outer 8 px always click-through and Dota retaining keyboard focus. Keep the overlay and HUD passive. Run the empty native no-activate window feasibility test before building the panel. Reserve voice status for when a real capability exists.",
+      "reason": "Reduce the need to switch windows for audio and overlay controls while preserving Dota input and critical cues.",
+      "alternatives_considered": [
+        "Basic controls and status only",
+        "Voice assistant entry",
+        "Reveal only when dead or paused",
+        "Hotkey-only reveal",
+        "Passive status indicator"
+      ],
+      "affected_need_ids": [
+        "PN-013"
+      ],
+      "affected_requirement_ids": [
+        "UI-009"
+      ],
+      "related": [
+        "DEC-INTERFACES",
+        "DEC-NATIVE-EVIDENCE"
+      ],
+      "safe_interim": "Keep the orb unavailable until native focus feasibility is shown. Settings can disable the extension. Focus activation closes the panel and returns the orb to click-through or hides it if that cannot be guaranteed.",
+      "closure_evidence": "Owner accepted the six design answers and approved the CR draft on 2026-11-20. Native focus and acceptance evidence remain NOT_RUN."
+    },
+    {
+      "id": "DEC-PICK-STATS",
+      "status": "decided",
+      "milestone": "M6",
+      "blocks": "The optional hero pick card and provider integration only. Card v2 requires Draft Bar 5b.",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-20",
+      "channel": "Owner messages relayed by the lead. Source: coord:reports/2026-11-20-cr-ingame-orb-and-pick-card.md and coord:design/pick-card-20261120/OWNER-DECISIONS.md and OWNER-QUESTIONS.md.",
+      "owner_statement_th": "รับทั้ง 6 ข้อ; อนุมัติร่าง",
+      "decision": "Use a live public hero statistics API with OpenDota first and source attribution, in a display-only in-game card after the own pick through hero selection and strategy. The separate consent defaults off. Outbound game context is limited to the own hero ID plus optional manually chosen bracket. V1 covers the own hero only. V2 waits for Draft Bar 5b and uses admitted other hero IDs locally. Projection 1.1.0 permits display of identified heroes and derived numbers in the overlay. Other players' names stay deck-only. Where available, team comparison uses a labelled estimated lean rather than a win-chance percentage. A starting-items card is excluded this round.",
+      "reason": "Show how the picked hero performed in public aggregates, with source and freshness visible, while limiting disclosure and preserving Dota's draft UI.",
+      "alternatives_considered": [
+        "Offline bundled snapshot or no numbers",
+        "STRATZ first",
+        "Control window only",
+        "Win-chance percentage",
+        "Starting-items card"
+      ],
+      "affected_need_ids": [
+        "PN-014"
+      ],
+      "affected_requirement_ids": [
+        "UI-010",
+        "STATS-001",
+        "STATS-002",
+        "STATS-003"
+      ],
+      "related": [
+        "DEC-DRAFT-BAR",
+        "DEC-INTERFACES",
+        "DEC-NATIVE-EVIDENCE"
+      ],
+      "safe_interim": "Default off. Withhold unsupported values and leave v2 unavailable until 5b. Revocation stops requests, discards late responses and deletes the local aggregate cache. Provider terms, exact wire contract and supported metrics still need integration review.",
+      "closure_evidence": "Owner accepted the six design answers and approved the CR draft on 2026-11-20. Placement requires two owner 1920x1080 screenshots. Runtime verification remains NOT_RUN."
     }
   ]
 }

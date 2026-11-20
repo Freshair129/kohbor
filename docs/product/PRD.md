@@ -3,7 +3,7 @@ title: "Product Requirements Document"
 doc_id: "PRD"
 status: draft
 version: "0.3.6"
-updated: "2026-11-10"
+updated: "2026-11-20"
 owner_role: "Product owner"
 baseline: "DEC-BASELINE"
 approval_status: "Not approved"
@@ -37,9 +37,9 @@ The owner selected the product name Kohbor / เกาะเบาะ. The agent
 
 ## 3. Goals and user needs
 
-Stable need IDs map to existing SRS requirements without broadening them. **contracts/requirements.json** retains the detailed requirement text.
+Stable need IDs map to SRS requirements within their approved scope. **contracts/requirements.json** retains the detailed requirement text.
 
-| Need ID | User need and intended outcome | Existing requirement mapping |
+| Need ID | User need and intended outcome | Requirement mapping |
 | --- | --- | --- |
 | PN-001 | Start and keep using available local functions while signed out or offline; configure game integration without damaging unrelated settings. | CORE-001, CORE-003, CORE-004, CORE-005 |
 | PN-002 | Know which own-player and visible-enemy facts are current, supported and attributable; distinguish unknown from a real zero. | DATA-001, DATA-002, DATA-003, DATA-004, DATA-005, DATA-006, VISION-001, VISION-002, VISION-003, QUALITY-004 |
@@ -53,6 +53,8 @@ Stable need IDs map to existing SRS requirements without broadening them. **cont
 | PN-010 | Use optional friends and invitations without turning friendship, presence or sign-in into gameplay-sharing consent. | SOCIAL-001, SOCIAL-002, SOCIAL-003 |
 | PN-011 | Explicitly record local highlights with truthful coverage and save status while recorder failure leaves local gameplay services available. | OBS-001, OBS-002, OBS-003, OBS-004, OBS-005, VISION-004 |
 | PN-012 | Receive verified updates and predictable optional capability transitions without losing local core, map context or control. | UPDATE-001, UPDATE-002, UPDATE-003, UPDATE-004, PREMIUM-001, PREMIUM-002, PREMIUM-003, UI-007, QUALITY-008 |
+| PN-013 | Use quick audio and display controls and check actual companion status in-game while Dota keeps focus. | UI-009 |
+| PN-014 | See how the selected hero has performed in public data during the draft, with separate consent and clear source, sample and freshness. | UI-010, STATS-001, STATS-002, STATS-003 |
 
 ## 4. Scope, features and priority
 
@@ -65,6 +67,8 @@ Stable need IDs map to existing SRS requirements without broadening them. **cont
 | Full MVP: companion | Required local/manual advice, Thai/English local PTT, local memory/history and at most three evidence-linked summary points per completed session | Cloud advice is optional; its consent/projection rules remain mandatory if enabled |
 | Full MVP: media and delivery | User-started OBS highlights, trusted update/recovery and supported-matrix evidence | Demo recording and automated-highlight acceptance have separate gates |
 | Explicit extensions | Guest peer rooms; optional friends/presence/invitations | Separate contracts, consent and operational acceptance |
+| Explicit extension: edge quick panel | Guarded left-edge orb for quick controls and honest status | Mouse-only, Dota retains focus, Settings off switch and critical-alert preemption |
+| Explicit extension: hero pick statistics | Display-only draft card with optional live public hero statistics | Separate consent defaults off. Send only the own hero ID and optional user-chosen bracket. V2 waits for Draft Bar 5b |
 | Deferred capabilities | Premium authority and advanced inspector/timers, deep review, recovery coaching, multi-provider routing, tone presets, broadcast co-host, soundtrack, commerce/security-recovery services | No apparently working production controls backed by invented behavior |
 | External dependencies | Media-authoring tool and optional account/catalog/payment services | Rebuilding separate products is not automatically desktop MVP scope |
 
@@ -76,12 +80,14 @@ A logical navigation destination may remain visible with an honest deferred/unav
 
 Game-memory access, injection, automated gameplay, unseen enemy feeds, cloud microphone processing, cloud personal memory, default analytics, automatic recording/joining, implicit subscriptions, inherited-format compatibility, and unapproved additional platforms or public services are outside scope.
 
+DEC-PICK-STATS approves a narrow exception for public hero statistics with separate opt-in. Of gameplay data, only the player's own hero ID may leave the device for this purpose. The player may also choose a bracket to include.
+
 ## 5. Product and business rules
 
 1. Available local core works without an account, network or premium authority. Optional-service failure does not unlock forbidden data or disable unrelated valid functions.
 2. Every displayed conclusion respects source admission, freshness and identity. Unknown, stale, invalid and estimated are meaningful states.
 3. Risk is a labelled heuristic. A high score alone is insufficient evidence for an audible gank warning; corrections require the specified confirming evidence.
-4. Cloud advice, peer sharing, microphone use and social presence have separate consent. Sign-in or friendship does not substitute.
+4. Cloud advice, public hero statistics, peer sharing, microphone use and social presence have separate consent. Sign-in or friendship does not substitute.
 5. Voice audio, transcript and interpretation stay local. Received peer information remains transient and cannot become AI or memory input.
 6. Event media comes from the active verified package. Integrity, publisher trust, purchase entitlement and activation are separate decisions.
 7. OBS recording is explicit and local. It neither enables a microphone nor replaces the critical vision source automatically.
@@ -91,7 +97,7 @@ Game-memory access, injection, automated gameplay, unseen enemy feeds, cloud mic
 
 ## 6. [UX goals](../design/UX-SPEC.md)
 
-Maintain a separate control window and passive, click-through gameplay overlay. Present the map first, missing-enemy information second. The live field has five enemy slots, own hero, four allied slots and a permanently reserved right region.
+Maintain a separate control window and passive, click-through gameplay overlay and HUD. UI-009 permits a separate mouse-only orb with bounded hit regions and no keyboard focus. UI-010 adds a display-only card bounded to the draft phases. Present the map first, missing-enemy information second. The live field has five enemy slots, own hero, four allied slots and a permanently reserved right region.
 
 Start neutrally: no fabricated roster, fake inventory or selected hero. Unknown-only skill/item rows remain hidden. The inspector opens through explicit selection and only presents admitted detail permitted by current capability authority. The local event timeline remains accessible at base.
 
