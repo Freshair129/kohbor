@@ -156,7 +156,7 @@ test("HUD and Lab styles use shared palette tokens instead of literal colors", (
 });
 
 test("the approved character mark is decorative above the accessible wordmark", () => {
-  assert.match(leftRailSource, /import brandMark from "\.\.\/assets\/brand\/kohbor-app\.svg"/);
+  assert.match(leftRailSource, /import brandMark from "\.\.\/assets\/brand\/kohbor-rail-mark\.svg"/);
   assert.match(leftRailSource, /<img className="shell-rail-mark" src=\{brandMark\} alt=""\s*\/>/);
   assert.match(leftRailSource, /role="img" aria-label="Kohbor \/ เกาะเบาะ"/);
   assert.match(leftRailSource, /<span>Kohbor<\/span><span lang="th">เกาะเบาะ<\/span>/);

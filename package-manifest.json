@@ -123,88 +123,88 @@
     },
     {
       "path": "apps/desktop/src-tauri/icons/128x128.png",
-      "bytes": 7133,
-      "sha256": "30bace795b8784b4119772f701f8442c21d033779a2feebf7c65f86476f9c1b6"
+      "bytes": 2663,
+      "sha256": "f4f4ac7d0b4cb89a5802df9bdc13f3f3baaa4d3346797a55e788ad76062919ed"
     },
     {
       "path": "apps/desktop/src-tauri/icons/128x128@2x.png",
-      "bytes": 13483,
-      "sha256": "aea64cbe52032d3b4e5ea14395c7644986d4686919d7f44b709937c987aaae2c"
+      "bytes": 4888,
+      "sha256": "08791bfa6f20bffb9381f5fd999f006c08685da98a79743c11e056d393d0ca18"
     },
     {
       "path": "apps/desktop/src-tauri/icons/32x32.png",
-      "bytes": 1650,
-      "sha256": "1822162e5fb7af6097c0cc2df00f0ecbdb6537102362f06e38deb6bcc1751f87"
+      "bytes": 835,
+      "sha256": "43bb118b96692785ded71ec9ccba90302de2c6c38ad230d2e1f2285b4b35681a"
     },
     {
       "path": "apps/desktop/src-tauri/icons/64x64.png",
-      "bytes": 3521,
-      "sha256": "a50b0e7f434a1e56b33be8b4979ee59a2bb2ff62072972c171c21d2cf9205e48"
+      "bytes": 1403,
+      "sha256": "4056d4960314babc63f79190481cbe8259943d1eb8ac39c549c7fe891fb56704"
     },
     {
       "path": "apps/desktop/src-tauri/icons/Square107x107Logo.png",
-      "bytes": 6374,
-      "sha256": "15281c6899051951c65a47683aad88a83b95cd9ec7eb574507e901f7f033a19e"
+      "bytes": 2308,
+      "sha256": "061fcefab753726bf4cef961693e936a04323b7970d4f69e09d4e6b130dd9ccb"
     },
     {
       "path": "apps/desktop/src-tauri/icons/Square142x142Logo.png",
-      "bytes": 8432,
-      "sha256": "dddc20719a1293554fb50177f391463b8493fe5aa7c136493c24fab1e1ece417"
+      "bytes": 2930,
+      "sha256": "c024da889d91ed767bf8630a25748514d05b0c9559c0f60670eaee04655c5a51"
     },
     {
       "path": "apps/desktop/src-tauri/icons/Square150x150Logo.png",
-      "bytes": 9015,
-      "sha256": "cadf8154cbada2fda2e10995b27a933eeae9869745c1814201edfb4925bb14bf"
+      "bytes": 3144,
+      "sha256": "b23ee44cb5830d7356a79fdcfeb8e9a2b296bf5c37dbc50b48b94fc343dea157"
     },
     {
       "path": "apps/desktop/src-tauri/icons/Square284x284Logo.png",
-      "bytes": 17374,
-      "sha256": "ce6b06f2bc39a50798af5b3bfe99810cfb665f650ffed9fde1604014b590797f"
+      "bytes": 5431,
+      "sha256": "0433d20b279c62aa902fc9cd056c52fa2433b7055e75a4e429e5f6d73d3a2ff2"
     },
     {
       "path": "apps/desktop/src-tauri/icons/Square30x30Logo.png",
-      "bytes": 1567,
-      "sha256": "f29496629f818ef86f88f8662e87c907dbf098d4c49accebe8387ec29a4fcd81"
+      "bytes": 844,
+      "sha256": "eaf662185853272cfb7968423bd85f348f9a39f07196e19b42395cdf96a5d498"
     },
     {
       "path": "apps/desktop/src-tauri/icons/Square310x310Logo.png",
-      "bytes": 18909,
-      "sha256": "d00f986df76ce9c1ba31fd4588986eda957f96060d5b419f0263e384f4090b4a"
+      "bytes": 5761,
+      "sha256": "12bacd484025de97ebe66ab9907de65056db8fc299d47ea248eeb1fd4d28edd5"
     },
     {
       "path": "apps/desktop/src-tauri/icons/Square44x44Logo.png",
-      "bytes": 2383,
-      "sha256": "999a99d42096612f9c47c6914af21c6ff6c01fe7ab25071fe7662afddba6ae41"
+      "bytes": 1075,
+      "sha256": "fd71788a85fc2a1d959bc2c446dd8025162355064b2372e308a61e96773f0293"
     },
     {
       "path": "apps/desktop/src-tauri/icons/Square71x71Logo.png",
-      "bytes": 4003,
-      "sha256": "b02bb95b350e20cbee97444354e34223499b640a4cb90b03990056968db46d43"
+      "bytes": 1622,
+      "sha256": "bf52fa97c5b3e986ff9fa728322b7bc39d3a507e094f942f94d8379035b2c1b0"
     },
     {
       "path": "apps/desktop/src-tauri/icons/Square89x89Logo.png",
-      "bytes": 5169,
-      "sha256": "9edc9bf3ec74db5af7d8793558ecb849070d8d39dc3a92b1d6a8d0fa7d0f5a80"
+      "bytes": 1899,
+      "sha256": "007dd43175ecd2c96541ccf5120c1090fc5bc2567386c1a4a4eb4670dfad5386"
     },
     {
       "path": "apps/desktop/src-tauri/icons/StoreLogo.png",
-      "bytes": 2653,
-      "sha256": "37559a5bc343d2daa0177b8d61cbae32c0bc5b81b4028777b6586f1d01e997cc"
+      "bytes": 1172,
+      "sha256": "25ca9118da4c5df21e883976960068f501e81cedc15747db9f1a0469325a66de"
     },
     {
       "path": "apps/desktop/src-tauri/icons/icon.icns",
-      "bytes": 117826,
-      "sha256": "92ccdbb3bdfdbc56e063b584057934208311acf04b577e460e4fcdf60d63d225"
+      "bytes": 89895,
+      "sha256": "74193685aca015d18fa8c1a9c6f91a0698e7eea1e22d6c5b1572655db979b5aa"
     },
     {
       "path": "apps/desktop/src-tauri/icons/icon.ico",
-      "bytes": 24341,
-      "sha256": "9506f66faf9e39c0469429d9a188b5d16fd0051f9cf3679693a37fa08afccc26"
+      "bytes": 115550,
+      "sha256": "8d5bb7db38a681a1b524a9766b1843a3c6921f5387bd36b2b2d8bf49e58643b1"
     },
     {
       "path": "apps/desktop/src-tauri/icons/icon.png",
-      "bytes": 3512,
-      "sha256": "a6d165718f8a88ec1e4796d66a31f9a86129397d8adc29963886599ba12ad628"
+      "bytes": 9672,
+      "sha256": "542423d4c23ebcf19c0222231b16db30d66f5992a1a3759091eac728015d63d5"
     },
     {
       "path": "apps/desktop/src-tauri/src/account_fake_native.rs",
@@ -612,9 +612,9 @@
       "sha256": "9fcbb20e6621489860a4f85a58ca03f1e48d0ba4feb15ed533477b92d8d6dff9"
     },
     {
-      "path": "apps/desktop/src/assets/brand/kohbor-app.svg",
-      "bytes": 623,
-      "sha256": "1975c36595a7d45cac262ffbf654994c82506ea404cd7c85037f842c71fad43a"
+      "path": "apps/desktop/src/assets/brand/kohbor-rail-mark.svg",
+      "bytes": 488,
+      "sha256": "16c3df38c8146e7672deefd0498c618a72129c600e25ef6584a511b61a487a3a"
     },
     {
       "path": "apps/desktop/src/audioPrefs.ts",
@@ -1178,8 +1178,8 @@
     },
     {
       "path": "apps/desktop/src/shell/RailLeft.tsx",
-      "bytes": 4087,
-      "sha256": "5cc15c3406e5e5cf802586f8fafbe667d6a09a47f654bc4f018edc6d6817ae31"
+      "bytes": 4093,
+      "sha256": "df9c1ad4960cdb097bc97fc5953731a6b738f4299bbf4c87e7f71f91f9deb344"
     },
     {
       "path": "apps/desktop/src/shell/RailRibbon.tsx",
@@ -1538,8 +1538,8 @@
     },
     {
       "path": "apps/desktop/tests/shell-css.test.ts",
-      "bytes": 10673,
-      "sha256": "517d88b132c6a15106bf5fe2b5b89e86187b0aec134ac6728fe48467ebe0d235"
+      "bytes": 10679,
+      "sha256": "fde6822617b3f1217d0fa4524a595a39c5754fbc9ffab4a14ce9e5a92c46afc6"
     },
     {
       "path": "apps/desktop/tests/shell-footer.test.ts",
