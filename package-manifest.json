@@ -612,6 +612,11 @@
       "sha256": "9fcbb20e6621489860a4f85a58ca03f1e48d0ba4feb15ed533477b92d8d6dff9"
     },
     {
+      "path": "apps/desktop/src/assets/brand/kohbor-app.svg",
+      "bytes": 623,
+      "sha256": "1975c36595a7d45cac262ffbf654994c82506ea404cd7c85037f842c71fad43a"
+    },
+    {
       "path": "apps/desktop/src/audioPrefs.ts",
       "bytes": 13710,
       "sha256": "6cc556f4d71239a1396f94787d99992c040e9668652c917bdc6716e4b8a44641"
@@ -743,8 +748,8 @@
     },
     {
       "path": "apps/desktop/src/hud.css",
-      "bytes": 3819,
-      "sha256": "ee40dc6331f92532030bbb56f392042500b4dad3b940a0b3fbac57c4c821f029"
+      "bytes": 4330,
+      "sha256": "0938d658615e0523c2cd169d91718a728ede1df5fb4f8ef40a345e248282afaf"
     },
     {
       "path": "apps/desktop/src/hudCopy.ts",
@@ -778,8 +783,8 @@
     },
     {
       "path": "apps/desktop/src/lab/lab.css",
-      "bytes": 6519,
-      "sha256": "349965e13e2bc505ab4c4d47b58f13b216b44c0fff70af845c940aa57d9b08c3"
+      "bytes": 7334,
+      "sha256": "b70635b508d76a82ffe225a61304a1fd29bd332991d07a97a9c9697fac10cdb6"
     },
     {
       "path": "apps/desktop/src/lab/labHudLayout.ts",
@@ -1173,8 +1178,8 @@
     },
     {
       "path": "apps/desktop/src/shell/RailLeft.tsx",
-      "bytes": 3953,
-      "sha256": "cd0511a709b635bcea29a1395f677223e8ac1d24af6e566152cab8f98f4c6cba"
+      "bytes": 4087,
+      "sha256": "5cc15c3406e5e5cf802586f8fafbe667d6a09a47f654bc4f018edc6d6817ae31"
     },
     {
       "path": "apps/desktop/src/shell/RailRibbon.tsx",
@@ -1293,8 +1298,8 @@
     },
     {
       "path": "apps/desktop/src/styles.css",
-      "bytes": 34234,
-      "sha256": "33fbb36f18c7b76addb81cbdba1947684b7336b54f16328d4c09cb5ec480e435"
+      "bytes": 35177,
+      "sha256": "76ef81a0730af2cf8fd24acd9b8f9c85968b275b598b9839258fc260f97f4747"
     },
     {
       "path": "apps/desktop/src/types.ts",
@@ -1518,8 +1523,8 @@
     },
     {
       "path": "apps/desktop/tests/shell-css.test.ts",
-      "bytes": 4904,
-      "sha256": "1f034cf3eeb2eadadbbf64dabf33186b2288fde098c69b2f2035d13bc5c0e9e1"
+      "bytes": 10673,
+      "sha256": "517d88b132c6a15106bf5fe2b5b89e86187b0aec134ac6728fe48467ebe0d235"
     },
     {
       "path": "apps/desktop/tests/shell-state.test.ts",
@@ -2588,8 +2593,8 @@
     },
     {
       "path": "docs/design/visuals/command-deck/DESIGN-NOTES.md",
-      "bytes": 29770,
-      "sha256": "b5684863560777fd6c66ea73e285cbc5961638bf4d71bf012878d0ef73545d2a"
+      "bytes": 31113,
+      "sha256": "ffe0dd02cb8b70ba178bfc5a2e5b1cefbdb7ca6fdce0bb5ff3e55f5551c60ef9"
     },
     {
       "path": "docs/design/visuals/command-deck/cards.html",
@@ -2628,8 +2633,8 @@
     },
     {
       "path": "docs/design/visuals/command-deck/tokens.css",
-      "bytes": 28744,
-      "sha256": "b2aef5605049ea6cae9e5ee8ae1c16895a778bb9707047ec6862f8eb311b9ee4"
+      "bytes": 30439,
+      "sha256": "d285e3b140b65f34e2e1dc7c6c3201c2b8340f6d6f51f97019abca0c463b970d"
     },
     {
       "path": "docs/design/visuals/s3-audio-ui/DESIGN-NOTES.md",

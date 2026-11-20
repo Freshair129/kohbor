@@ -1,4 +1,5 @@
 import { useRef, type KeyboardEvent } from "react";
+import brandMark from "../assets/brand/kohbor-app.svg";
 import {
   navigationItemState,
   nextShellDestination,
@@ -44,7 +45,8 @@ export function RailLeft({
 
   return (
     <aside className="shell-rail shell-rail-left">
-      <div className="shell-rail-wordmark" aria-label="Kohbor / เกาะเบาะ">
+      <div className="shell-rail-wordmark" role="img" aria-label="Kohbor / เกาะเบาะ">
+        <img className="shell-rail-mark" src={brandMark} alt="" />
         <span>Kohbor</span><span lang="th">เกาะเบาะ</span>
       </div>
       <nav className="shell-rail-nav" aria-label={navigationLabel}>

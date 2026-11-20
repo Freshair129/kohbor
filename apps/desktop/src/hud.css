@@ -24,18 +24,18 @@ body.hud-body #root {
 
 /*
  * Look of the reference overlay (owner's earlier project, copied by his authorisation; see
- * docs/governance/THIRD-PARTY-DATA.md): dark glass pills with a cyan edge, small uppercase muted
+ * docs/governance/THIRD-PARTY-DATA.md): dark glass pills with a neutral edge, small uppercase muted
  * labels, bold values, a four-segment risk meter. Sizes are in reference pixels (1920 px wide screen)
  * and scaled by --hud-overlay-scale (screen width / 1920) times the module scale.
  */
 .hud-stage {
-  --hud-ice: #8fd4ff;
-  --hud-text: #e7eef6;
-  --hud-muted: #8794a6;
-  --hud-warn: #ffcf6b;
-  --hud-bad: #ff7b85;
-  --hud-edge: rgb(143 212 255 / 22%);
-  --hud-glass: rgb(14 17 24 / 88%);
+  --hud-ice: var(--ally);
+  --hud-text: var(--text);
+  --hud-muted: var(--muted);
+  --hud-warn: var(--warning);
+  --hud-bad: var(--critical);
+  --hud-edge: color-mix(in srgb, var(--line-strong) 22%, transparent);
+  --hud-glass: color-mix(in srgb, var(--ground) 88%, transparent);
   position: fixed;
   inset: 0;
   width: 100vw;
@@ -59,7 +59,7 @@ body.hud-body #root {
   background: var(--hud-glass);
   border: 1px solid var(--hud-edge);
   border-radius: 16px;
-  box-shadow: 0 8px 40px rgb(0 0 0 / 50%), inset 0 1px 0 rgb(143 212 255 / 22%), inset 0 -1px 0 rgb(0 0 0 / 35%);
+  box-shadow: 0 8px 40px color-mix(in srgb, var(--ground) 50%, transparent), inset 0 1px 0 var(--hud-edge), inset 0 -1px 0 color-mix(in srgb, var(--ground) 35%, transparent);
   color: var(--hud-text);
   font-variant-numeric: tabular-nums;
 }
@@ -128,7 +128,7 @@ body.hud-body #root {
   width: 16px;
   height: 8px;
   border-radius: 2px;
-  background: rgb(255 255 255 / 8%);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
   transition: background 200ms ease, box-shadow 200ms ease;
 }
 
@@ -142,12 +142,12 @@ body.hud-body #root {
 /* Lit ticks and the label share the level colour; unknown (blind) keeps every tick unlit. */
 .hud-gmeter-none .hud-meter-tick.is-lit {
   background: var(--hud-muted);
-  box-shadow: 0 0 6px rgb(91 227 167 / 35%);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--hud-muted) 35%, transparent);
 }
 
 .hud-gmeter-ally .hud-meter-tick.is-lit {
   background: var(--hud-ice);
-  box-shadow: 0 0 6px rgb(143 212 255 / 35%);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--hud-ice) 35%, transparent);
 }
 
 .hud-gmeter-ally .hud-gmeter-label {
@@ -156,19 +156,29 @@ body.hud-body #root {
 
 .hud-gmeter-warn .hud-meter-tick.is-lit {
   background: var(--hud-warn);
-  box-shadow: 0 0 6px rgb(255 207 107 / 50%);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--hud-warn) 50%, transparent);
 }
 
 .hud-gmeter-warn .hud-gmeter-label {
   color: var(--hud-warn);
 }
 
+.hud-gmeter-warn .hud-gmeter-label::before {
+  content: "! ";
+  color: var(--hud-warn);
+}
+
 .hud-gmeter-critical .hud-meter-tick.is-lit {
   background: var(--hud-bad);
-  box-shadow: 0 0 6px rgb(255 123 133 / 60%);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--hud-bad) 60%, transparent);
 }
 
 .hud-gmeter-critical .hud-gmeter-label {
+  color: var(--hud-bad);
+}
+
+.hud-gmeter-critical .hud-gmeter-label::before {
+  content: "▲ ";
   color: var(--hud-bad);
 }
 
@@ -178,8 +188,8 @@ body.hud-body #root {
   top: 0;
   padding: 0 0.6vw;
   font: 700 0.9vw/1.6 system-ui, sans-serif;
-  color: #111;
-  background: #ffd23f;
+  color: var(--text);
+  background: var(--warning-surface);
   letter-spacing: 0.08em;
   pointer-events: none;
 }
