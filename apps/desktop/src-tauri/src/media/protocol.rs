@@ -348,6 +348,7 @@ mod tests {
             install_id: Some(Arc::from(INSTALL_ID)),
             entries: HashMap::from([(TOKEN.to_owned(), entry)]),
             covers: Default::default(),
+            preview_entries: Default::default(),
         };
         Fixture {
             _temp: temp,

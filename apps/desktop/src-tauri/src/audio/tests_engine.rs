@@ -615,7 +615,8 @@ fn audition_without_overlay_flag_is_audio_only() {
     .unwrap();
     h.engine.step(10);
     assert_eq!(result.try_recv().unwrap(), Ok(()));
-    let playback = playbacks(&h.drain())
+    let drained = h.drain();
+    let playback = playbacks(&drained)
         .into_iter()
         .find(|item| item["kind"] == "started")
         .unwrap();
@@ -658,6 +659,18 @@ fn drawer_preview_uses_the_nonactive_clip_without_overlay_visuals() {
     assert_eq!(
         log.lock().unwrap().calls,
         vec![Call::Submit(PlaybackId(1), 480)]
+    );
+
+    offer(&h, 1, &[(EventId::HeroKill, None)]);
+    h.engine.step(11);
+    assert!(has_end(&h.drain(), "cancelled_preempted"));
+    assert_eq!(
+        log.lock().unwrap().calls,
+        vec![
+            Call::Submit(PlaybackId(1), 480),
+            Call::Cancel(PlaybackId(1)),
+            Call::Submit(PlaybackId(2), 4800),
+        ]
     );
 }
 

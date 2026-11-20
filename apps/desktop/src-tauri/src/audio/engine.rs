@@ -617,7 +617,7 @@ impl Engine {
             clip.media.visual_url = None;
             clip.media.visual_tail_ms = 0;
         }
-        let package_revision = Self::install_id_number(&audition.install_id)
+        let source_revision = Self::install_id_number(&audition.install_id)
             .ok_or(AuditionRefusal::MediaStateUnknown)?;
         let request = Request {
             instance_id: instance_id(AUDITION_GENERATION, audition.sequence, 0),
@@ -626,7 +626,8 @@ impl Engine {
             class: AudioClass::Ordinary,
             ordinary_rank: 0,
             episode: None,
-            package_revision: Some(package_revision),
+            // The owner uses the active table fence to admit and cancel audio.
+            package_revision: Some(self.table.fence),
             pcm: clip.media.pcm.clone(),
             visual_tail_ms: clip.media.visual_tail_ms,
         };
@@ -651,9 +652,9 @@ impl Engine {
         self.drain_notices();
         match decision {
             Some(mut decision) if decision.outcome == Outcome::Admitted => {
-                // The owner fence is local. The outcome record uses the host's
-                // positive epoch and identifies the playback as an audition.
+                // Report the host epoch and the pack that supplied the clip.
                 decision.session_epoch = audition.session_epoch;
+                decision.package_revision = Some(source_revision);
                 self.handle_decision(decision, Some(&clip), audition.event.tier, None);
                 Ok(())
             }

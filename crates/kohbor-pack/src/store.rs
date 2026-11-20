@@ -96,6 +96,11 @@ pub enum Injection {
 
 pub trait Hook {
     fn before(&mut self, step: Step) -> Injection;
+
+    /// Clock used when creating a new install record. Crash fixtures can pin it.
+    fn install_time(&self) -> std::time::SystemTime {
+        std::time::SystemTime::now()
+    }
 }
 
 /// The production hook: never injects anything.
@@ -633,7 +638,7 @@ impl<H: Hook> Store<H> {
                         container_sha256: staged.container_sha256.clone(),
                         authority_class: assessment.authority_class,
                         publisher_claim: assessment.publisher_claim,
-                        installed_at: Some(system_time_unix_ms(std::time::SystemTime::now())),
+                        installed_at: Some(system_time_unix_ms(self.hook.install_time())),
                         size_bytes: Some(container_size_bytes),
                     },
                     true,
@@ -1916,7 +1921,7 @@ fn parse_registry(bytes: &[u8]) -> Result<Registry, StoreError> {
             None | Some(Value::Null) => None,
             Some(value) => Some(parse_request_fingerprint(value, &digest)?),
         };
-        let result = parse_result(required_value(item, "result")?)?;
+        let mut result = parse_result(required_value(item, "result")?)?;
         if result.request_id != request_id
             || result.status != Status::Installed
             || result.reason.is_some()
@@ -1941,6 +1946,9 @@ fn parse_registry(bytes: &[u8]) -> Result<Registry, StoreError> {
                 "registry result record mismatch".to_owned(),
             ));
         }
+        // The wire result omits the summary metadata. Restore it from the
+        // validated registry record so retries return the same Rust value.
+        result.record = Some(installed.record.clone());
         request_results.push(StoredRequestResult {
             request_id,
             expected_container_sha256: digest,

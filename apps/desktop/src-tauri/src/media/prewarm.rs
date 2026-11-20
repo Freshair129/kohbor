@@ -12,11 +12,12 @@ use kohbor_pack::catalog::Catalog;
 use kohbor_pack::descriptor::Selection;
 use kohbor_pack::error::RejectReason;
 use kohbor_pack::media::inspect_wav;
-use kohbor_pack::store::{Hook, ResolveError, ResolvedMedia, ResolvedVariant, Store};
+use kohbor_pack::store::{Hook, ResolveError, ResolvedVariant, Store};
 use sha2::{Digest, Sha256};
 
 use crate::audio::resolve::{
-    Clip, Entry, PrewarmTable, VariantMedia, VariantSelection, VariantSet, PREWARM_CAP_REASON,
+    Clip, Entry, PrewarmTable, SelectedClip, VariantMedia, VariantSelection, VariantSet,
+    PREWARM_CAP_REASON,
 };
 
 /// Verified visual file metadata captured alongside the audio table.
@@ -262,6 +263,17 @@ pub fn build_table<H: Hook>(
     )
 }
 
+pub struct PreviewVariant {
+    pub selected: SelectedClip,
+    pub visual: Option<PreviewVisual>,
+}
+
+pub struct PreviewVisual {
+    pub route: String,
+    pub url: String,
+    pub entry: VisualEntry,
+}
+
 /// Decode one store-verified installed variant for the isolated drawer audition path.
 /// The returned visual URL is logical only; callers publish its file in the exact
 /// preview allowlist before exposing it to the renderer.
@@ -270,13 +282,7 @@ pub fn build_preview_variant<H: Hook>(
     install_id: &str,
     event: Event,
     variant_id: &str,
-) -> Result<
-    (
-        crate::audio::resolve::SelectedClip,
-        Option<(String, String, VisualEntry)>,
-    ),
-    &'static str,
-> {
+) -> Result<PreviewVariant, &'static str> {
     let media = store
         .resolve_installed_variant(
             install_id,
@@ -301,7 +307,7 @@ pub fn build_preview_variant<H: Hook>(
                 visual_entry(&revision_root, path, "video/webm").ok_or("MEDIA_INVALID")?;
             let route = format!("/v1/{}/{token}", media.install_id);
             let url = format!("kohbor-media://localhost{route}");
-            Ok::<_, &'static str>((route, url, entry))
+            Ok::<_, &'static str>(PreviewVisual { route, url, entry })
         })
         .transpose()?;
     let audio_bytes = fs::read(&media.mixed_audio).map_err(|_| "MEDIA_INVALID")?;
@@ -323,9 +329,9 @@ pub fn build_preview_variant<H: Hook>(
         visual_tail_ms: media.visual_tail_ms,
         visual_url: visual_data
             .as_ref()
-            .map(|(_, url, _)| Arc::<str>::from(url.as_str())),
+            .map(|visual| Arc::<str>::from(visual.url.as_str())),
     };
-    let selected = crate::audio::resolve::SelectedClip {
+    let selected = SelectedClip {
         event_id: event.id,
         bound_tier: clip.bound_tier,
         variant_index: 0,
@@ -334,7 +340,10 @@ pub fn build_preview_variant<H: Hook>(
         selection,
         media: clip,
     };
-    Ok((selected, visual_data))
+    Ok(PreviewVariant {
+        selected,
+        visual: visual_data,
+    })
 }
 
 fn install_number(install_id: &str) -> u64 {

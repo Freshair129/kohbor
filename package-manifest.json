@@ -233,8 +233,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/engine.rs",
-      "bytes": 46662,
-      "sha256": "4a3ce417743334969d5fc415c19c080842ed68dc9d353b9712729f2f577636bc"
+      "bytes": 46728,
+      "sha256": "794764aa4e679e8a4b037ff6a518fa8ef5f3fc8aa0732f8d2395ca23d80865c7"
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/fake_sink.rs",
@@ -278,8 +278,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/tests_engine.rs",
-      "bytes": 81326,
-      "sha256": "729dd76ffff4d59a249b80b86c69be8d1ef38c9de6add249e7f30c93df0e56b6"
+      "bytes": 81698,
+      "sha256": "532f45d75322d8f14788895c19a4b6b9a34f7292a19dbc281f910f5a41bbb423"
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/tests_outcome.rs",
@@ -383,8 +383,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/media/prewarm.rs",
-      "bytes": 53290,
-      "sha256": "a97847d804a9d4765c6d709dad852fc259b42db43d239e4f81fa37b3f801ab89"
+      "bytes": 53442,
+      "sha256": "552f09eefc82d6bf52eab80f5dcbcf03b541eda2475399a2ae95ea9c084c051b"
     },
     {
       "path": "apps/desktop/src-tauri/src/media/probe.rs",
@@ -393,8 +393,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/media/protocol.rs",
-      "bytes": 27716,
-      "sha256": "c735d67157426f17c4cab89ad974e0cf9c536a6b7a3235662b49ff7f314a8883"
+      "bytes": 27765,
+      "sha256": "67df36d4b90ba9de1af872bdcca1dfcb2a46896e47a4c3d741fb24530ab1889f"
     },
     {
       "path": "apps/desktop/src-tauri/src/media/selection.rs",
@@ -403,8 +403,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/media/service.rs",
-      "bytes": 131795,
-      "sha256": "94a85c121ca1b430a50ff7b5857f6bd94f706dfca698bd3209ec8f2f94275a0b"
+      "bytes": 131992,
+      "sha256": "0d065f772440090b2bd258ccae12b7e6ac36733110b3e1cc567e4dc545edb287"
     },
     {
       "path": "apps/desktop/src-tauri/src/overlay.rs",
@@ -2363,8 +2363,8 @@
     },
     {
       "path": "crates/kohbor-pack-author/tests/author.rs",
-      "bytes": 52009,
-      "sha256": "9cc5f1e0502372b65c8a43b825fcd6f6079e8f55af5c7d6d030b6558dad7f27f"
+      "bytes": 52514,
+      "sha256": "52f199621ad0df235335327b7e89a413c1d53c848b4ea76a19c651ed286b6fa6"
     },
     {
       "path": "crates/kohbor-pack/Cargo.toml",
@@ -2413,8 +2413,8 @@
     },
     {
       "path": "crates/kohbor-pack/src/store.rs",
-      "bytes": 104931,
-      "sha256": "9769fb9ebe6011dc4fb2c03815b96f69b319ff16ff30be53ff5f9efc86b8fbfb"
+      "bytes": 105318,
+      "sha256": "f2e031a9aba595996d88411b8d293e1feac90ca9fb937b1813f448303d4eadb6"
     },
     {
       "path": "crates/kohbor-pack/src/trust.rs",
@@ -2438,8 +2438,8 @@
     },
     {
       "path": "crates/kohbor-pack/tests/crash.rs",
-      "bytes": 13100,
-      "sha256": "4c5a54a7a4a61124cc7eceeba7c2d63979be442dd12726b0a033b8fc60503a98"
+      "bytes": 14045,
+      "sha256": "271dffa93f9c73fc3a791a65795294170dbe382d0571eba6199c174b51874e8c"
     },
     {
       "path": "crates/kohbor-pack/tests/descriptor.rs",
@@ -2454,7 +2454,7 @@
     {
       "path": "crates/kohbor-pack/tests/install.rs",
       "bytes": 20500,
-      "sha256": "5cf3b5e5d55566e7fd7736c318a33221622ba5e7e303a6508ba9b349f8c039a9"
+      "sha256": "d590eac9231328e7ccb77e424e995aca11997fb837bd79899c4023861d381bc6"
     },
     {
       "path": "crates/kohbor-pack/tests/media.rs",
@@ -2468,8 +2468,8 @@
     },
     {
       "path": "crates/kohbor-pack/tests/review_fixes.rs",
-      "bytes": 13494,
-      "sha256": "159369210fea55d7251a12383ebfd5938cabd0fb0590830f68c123b41974da63"
+      "bytes": 13951,
+      "sha256": "c527206b421aaf609d8712a4678cc1d5c6654d7a1abb7c7d1cfc21274e35071d"
     },
     {
       "path": "crates/kohbor-pack/tests/sha256_limited.rs",

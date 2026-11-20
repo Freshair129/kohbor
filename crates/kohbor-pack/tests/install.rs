@@ -48,9 +48,9 @@ fn shipped_with_app_origin_is_system_even_when_descriptor_name_is_unusual() {
         .install_shipped_with_app(&request(path, &bytes, "request_1"))
         .unwrap();
     assert_eq!(result.status, Status::Installed);
+    assert_eq!(result.to_json()["schema_version"], "1.1.0");
     let record = result.record.unwrap();
     assert_eq!(record.authority_class, AuthorityClass::System);
-    assert_eq!(result.to_json()["schema_version"], "1.1.0");
 }
 
 #[test]

@@ -1,4 +1,8 @@
-use kohbor_pack::{catalog::Catalog, container::stage_package, Limits};
+use kohbor_pack::{
+    catalog::Catalog,
+    container::{stage_package, StagedPackage},
+    Limits,
+};
 use kohbor_pack_author::{audio::convert_wav, build_package, parse_cli_args, BuildOptions};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -92,6 +96,15 @@ impl Fixture {
     }
 }
 
+fn stage_reported_package(path: &Path, temp: &Path) -> StagedPackage {
+    let catalog_value: Value =
+        serde_json::from_slice(&catalog_bytes()).expect("parse test catalog");
+    let catalog = Catalog::from_json(&catalog_value).expect("test catalog shape");
+    let stage_dir = temp.join("staging");
+    fs::create_dir(&stage_dir).expect("create stage directory");
+    stage_package(path, &stage_dir, &catalog, &Limits::default()).expect("stage authored package")
+}
+
 #[test]
 fn mapping_presentation_fields_and_cover_are_written_as_manifest_142() {
     let fixture = Fixture::new();
@@ -131,7 +144,7 @@ fn mapping_presentation_fields_and_cover_are_written_as_manifest_142() {
 }
 
 #[test]
-fn CLI_presentation_options_build_the_same_verified_contract() {
+fn cli_presentation_options_build_the_same_verified_contract() {
     let fixture = Fixture::new();
     fs::write(fixture.clips.join("cover.png"), png_cover()).expect("write still cover");
     let mut args = Vec::new();

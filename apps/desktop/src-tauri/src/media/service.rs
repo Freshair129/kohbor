@@ -628,7 +628,7 @@ impl ServiceState {
         tier: Option<u8>,
         variant_id: &str,
     ) -> Result<(crate::audio::resolve::SelectedClip, Option<String>), String> {
-        if self.config.match_active() || self.config.engine.audition_match_active() {
+        if (self.config.match_active)() || self.config.engine.audition_match_active() {
             return Err(AuditionRefusal::MatchActive.code().to_owned());
         }
         let store = self
@@ -647,24 +647,24 @@ impl ServiceState {
         if !event.id.voiced() {
             return Err(AuditionRefusal::EventUnavailable.code().to_owned());
         }
-        let (selected, visual) =
+        let preview =
             crate::media::prewarm::build_preview_variant(store, install_id, event, variant_id)
                 .map_err(str::to_owned)?;
-        if self.config.match_active() || self.config.engine.audition_match_active() {
+        if (self.config.match_active)() || self.config.engine.audition_match_active() {
             return Err(AuditionRefusal::MatchActive.code().to_owned());
         }
-        let visual_url = if let Some((route, url, entry)) = visual {
+        let visual_url = if let Some(visual) = preview.visual {
             let mut index = lock_recover(&self.config.visual_index);
             let index = Arc::make_mut(&mut *index);
             if index.preview_entries.len() >= 64 {
                 index.preview_entries.clear();
             }
-            index.preview_entries.insert(route, entry);
-            Some(url)
+            index.preview_entries.insert(visual.route, visual.entry);
+            Some(visual.url)
         } else {
             None
         };
-        Ok((selected, visual_url))
+        Ok((preview.selected, visual_url))
     }
 
     fn preview_audition(
@@ -1550,6 +1550,7 @@ mod tests {
             kohbor_pack::Limits::default(),
         )
         .unwrap();
+        let cover_bytes = png_fixture(640, 360);
         let fixture = crate::media::prewarm::test_support::package_with_cover(
             &temp,
             "summary.pack",
@@ -1569,7 +1570,7 @@ mod tests {
                     visual_tail_ms: 900,
                 },
             ],
-            &png_fixture(640, 360),
+            &cover_bytes,
         );
         let installed = install(&mut store, &fixture, "req-summary-install");
         let id = installed.record.unwrap().install_id;
@@ -1609,6 +1610,7 @@ mod tests {
             &index,
         );
         assert_eq!(served.status, 200);
+        assert_eq!(served.body, cover_bytes);
         assert!(served
             .headers
             .iter()
@@ -1625,19 +1627,19 @@ mod tests {
             &index,
         );
         assert_eq!(inactive_playback.status, 404);
+        let digest = format!("{:x}", Sha256::digest(&cover_bytes));
+        assert_eq!(path, format!("/v1/cover/{id}/{digest}"));
+        let cover = index.covers.get(path).expect("verified cover route");
         assert_eq!(
-            index
-                .covers
-                .values()
-                .next()
-                .unwrap()
-                .path
-                .file_name()
-                .unwrap(),
-            "cover.png"
+            cover.path,
+            store
+                .root()
+                .join("revisions")
+                .join(&id)
+                .join("cover")
+                .join(format!("{digest}.png"))
         );
-        assert!(path.starts_with(&format!("/v1/cover/{id}/")));
-        fs::remove_file(&index.covers.values().next().unwrap().path).unwrap();
+        fs::remove_file(&cover.path).unwrap();
         let (reply, covers) = super::pack_summaries_json(&store);
         assert_eq!(reply["records"][0]["problem"], "COVER_INVALID");
         assert!(reply["records"][0]["cover_url"].is_null());
