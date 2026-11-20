@@ -398,8 +398,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/media/service.rs",
-      "bytes": 107748,
-      "sha256": "0bd87b8a72c6fab333ec2648082308e1c6a726d830461b9cd195977aff397a88"
+      "bytes": 107750,
+      "sha256": "ef83c465634631473b92dee48a4ebd8deb7b5a06518ab5055c8a2be9552b2972"
     },
     {
       "path": "apps/desktop/src-tauri/src/overlay.rs",
