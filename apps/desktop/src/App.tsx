@@ -17,6 +17,7 @@ import { Readiness } from "./Readiness";
 import { DEFAULT_SHELL_DESTINATION, deriveHeaderState, insightsViews, statusLineModel, type InsightsView, type ShellDestination } from "./shell/state";
 import { usePlayback, useRuntime } from "./runtime";
 import { useSettings } from "./settings";
+import { useGlassPreference, type GlassLevel } from "./shell/glassPreference";
 import { useAppVersion } from "./shell/useAppVersion";
 import { deriveAppVersionView } from "./shell/appVersionModel";
 import { AboutPanel } from "./shell/VersionInfo";
@@ -54,6 +55,7 @@ function EmptyPage({ title, note }: { title: string; note: string }) {
 export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { devScenarioSwitcher?: ReactNode; accountPort?: AccountPort } = {}) {
   const { status, snapshot, hostLost, setup } = useRuntime();
   const { settings, loading, saving, notice, changeLocale } = useSettings();
+  const glass = useGlassPreference();
   const capture = useCaptureStatus();
   const resources = useResources();
   const previewMetrics = usePreviewMetrics();
@@ -144,9 +146,10 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
   const navigate = (destination: ShellDestination) => setActivePage(destination);
 
   return (
-    <div className="app" lang={displayLocale} data-theme="dark">
+    <div className="app glass-field" lang={displayLocale} data-theme="dark" data-glass={glass.level} data-page={activePage}>
       {devScenarioSwitcher && <div className="shell-dev-layer">{devScenarioSwitcher}</div>}
-      <RailLeft current={activePage} labels={text.shell.destinations} navigationLabel={text.shell.navigationLabel} onNavigate={navigate} />
+      <RailLeft current={activePage} labels={text.shell.destinations} navigationLabel={text.shell.navigationLabel}
+        gameConnection={steamStatus?.gsi ?? "unknown"} locale={displayLocale} onNavigate={navigate} />
       <main className="shell-main">
         <header className="shell-page-header">
           <div className="shell-page-heading">
@@ -175,15 +178,15 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
             </div>
           )}
 
-          {activePage === "packs" && <PacksPage locale={displayLocale} disabled={hostLost} phase={phase} mute={mute} />}
+          {(activePage === "packs" || activePage === "store") && <PacksPage locale={displayLocale} disabled={hostLost}
+            phase={phase} mute={mute} storeOnly={activePage === "store"} onStoreBack={() => setActivePage("packs")}
+            onStoreOpen={() => setActivePage("store")} />}
 
           {activePage === "insights" && (currentInsightsView === "replay" && ReplayPanel ? (
             <Suspense fallback={<p role="status">{text.loading}</p>}>
               <ReplayPanel locale={displayLocale} available={canOpenPostMatchReplay(status, steamStatus, hostLost, matchEnded)} />
             </Suspense>
           ) : <EmptyPage title={text.shell.emptyPage} note={text.shell.emptyPageNote} />)}
-
-          {activePage === "store" && <EmptyPage title={text.shell.emptyPage} note={text.shell.emptyPageNote} />}
 
           {activePage === "settings" && (
             <div className="shell-screen shell-settings">
@@ -205,6 +208,17 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
                 <label className="shell-developer-toggle">
                   <input type="checkbox" checked={steamName.show} onChange={event => steamName.change(event.currentTarget.checked)} />
                   <span>{displayLocale === "th" ? "แสดงชื่อ Steam" : "Show Steam name"}</span>
+                </label>
+                <label className="shell-glass-control">
+                  <span>{displayLocale === "th" ? "รูปลักษณ์ / กระจก" : "Appearance / Glass"}</span>
+                  <select aria-label={displayLocale === "th" ? "รูปลักษณ์ / กระจก" : "Appearance / Glass"}
+                    value={glass.level} onChange={event => glass.changeLevel(event.currentTarget.value as GlassLevel)}>
+                    <option value="off">{displayLocale === "th" ? "ปิด" : "Off"}</option>
+                    <option value="low">{displayLocale === "th" ? "อ่อน" : "Low"}</option>
+                    <option value="medium">{displayLocale === "th" ? "กลาง" : "Medium"}</option>
+                    <option value="high">{displayLocale === "th" ? "เข้ม" : "High"}</option>
+                  </select>
+                  <small>{displayLocale === "th" ? "บันทึกในเครื่องสำหรับหน้าจอนี้" : "Saved locally for this renderer"}</small>
                 </label>
                 {settingsNotice && <p className="locale-notice" role="status">{settingsNotice}</p>}
               </section>

@@ -1,0 +1,168 @@
+/*
+ * Kohbor / เกาะเบาะ — Glass layer for Command Deck (design proposal 2026-11-20, not shipped).
+ * Load AFTER the Command Deck tokens (tokens.css / styles.css). Nothing here renames or redefines an
+ * existing token: every value is derived from --ground / --surface / --text / --brand with color-mix().
+ * Spec and contrast evidence: GLASS.md, contrast.py.
+ *
+ * Strength: <html data-glass="low | medium | high | off">   (no attribute = medium)
+ * Fallback to solid: data-glass="off", prefers-reduced-transparency, forced-colors, no backdrop-filter.
+ */
+
+/* ============================== TOKENS ============================== */
+:root {
+  /* --- strength knobs (medium). Only these six change between low / medium / high. --- */
+  --glass-a1: 68%;                 /* level 1 fill opacity: rails, content pane, footer */
+  --glass-a2: 80%;                 /* level 2: popovers, menus, toasts */
+  --glass-a3: 80%;                 /* level 3: drawer, dialogs (always over --glass-scrim) */
+  --glass-field-brand: 24%;        /* Barber Red wash in the ground field */
+  --glass-field-bone: 8%;          /* Bone wash in the ground field */
+  --glass-saturate: 140%;
+
+  /* --- fills. Glass DARKENS toward Charcoal; elevation is light on the edge, never a lighter fill. --- */
+  --glass-fill-1: color-mix(in srgb, var(--surface) var(--glass-a1), transparent);
+  --glass-fill-2: color-mix(in srgb, color-mix(in srgb, var(--surface), var(--ground)) var(--glass-a2), transparent);
+  --glass-fill-3: color-mix(in srgb, var(--ground) var(--glass-a3), transparent);
+  --glass-well: color-mix(in srgb, var(--ground) 40%, transparent);      /* glass nested in glass: a darker well, no second blur */
+  --glass-tint-hover: color-mix(in srgb, var(--text) 8%, transparent);   /* hover / pressed veil on glass controls */
+  --glass-scrim: color-mix(in srgb, var(--ground) 45%, transparent);     /* ::backdrop under level 3 (lighter than --scrim: the glass adds the rest) */
+
+  /* --- blur. Only levels 2 and 3 blur; level 1 sits on the smooth field where blur shows nothing. --- */
+  --glass-blur-2: 16px;
+  --glass-blur-3: 24px;
+  --glass-backdrop-2: blur(var(--glass-blur-2)) saturate(var(--glass-saturate));
+  --glass-backdrop-3: blur(var(--glass-blur-3)) saturate(var(--glass-saturate));
+
+  /* --- edge: 1 px Bone hairline + inner top highlight + inner bottom shade --- */
+  --glass-stroke: color-mix(in srgb, var(--text) 13%, transparent);
+  --glass-stroke-strong: color-mix(in srgb, var(--text) 24%, transparent);
+  --glass-highlight: inset 0 1px 0 color-mix(in srgb, var(--text) 16%, transparent);
+  --glass-highlight-strong: inset 0 1px 0 color-mix(in srgb, var(--text) 28%, transparent);
+  --glass-lowlight: inset 0 -1px 0 rgb(0 0 0 / 0.35);
+  /* edge light: brighter top-left, falls off, faint return bottom-right (the "lit rim") */
+  --glass-edge: linear-gradient(135deg,
+      color-mix(in srgb, var(--text) 42%, transparent) 0%,
+      color-mix(in srgb, var(--text) 10%, transparent) 28%,
+      color-mix(in srgb, var(--text) 6%, transparent) 68%,
+      color-mix(in srgb, var(--text) 22%, transparent) 100%);
+
+  /* --- specular: a soft top sheen, max 5% Bone, gone by 28% of the height --- */
+  --glass-specular: linear-gradient(180deg, color-mix(in srgb, var(--text) 5%, transparent), transparent 28%);
+
+  /* --- depth: three elevations --- */
+  --glass-shadow-1: 0 1px 2px rgb(0 0 0 / 0.30);
+  --glass-shadow-2: 0 2px 6px rgb(0 0 0 / 0.30), 0 10px 28px rgb(0 0 0 / 0.42);
+  --glass-shadow-3: 0 4px 12px rgb(0 0 0 / 0.35), 0 24px 64px rgb(0 0 0 / 0.55);
+
+  /* --- radius scale. Existing --r-chip 6 / --r-control 8 / --r-card 10 / --r-banner 12 are untouched. --- */
+  --glass-r-1: 12px;               /* cards, bars, wells */
+  --glass-r-2: 16px;               /* popovers, menus, dialogs */
+  --glass-r-3: 20px;               /* drawer, content pane */
+  --glass-r-pill: 999px;
+  --glass-inset: 8px;              /* gap between floating glass and the window edge */
+
+  /* --- motion: transform + opacity only; blur radius and fill are never animated --- */
+  --glass-ease: var(--ease-out, cubic-bezier(0.2, 0.8, 0.2, 1));
+  --glass-ease-exit: var(--ease-in, cubic-bezier(0.4, 0, 1, 1));
+  --glass-dur-pop: 140ms;          /* popover / menu in  (= --dur-enter) */
+  --glass-dur-pop-out: 100ms;
+  --glass-dur-sheet: 220ms;        /* drawer / dialog in (= --dur-enter-top) */
+  --glass-dur-sheet-out: 160ms;
+  --glass-shift-pop: 6px;
+  --glass-shift-sheet: 28px;
+
+  /* --- the ground field the glass refracts: Charcoal + two low-contrast brand washes. No image. --- */
+  --glass-field:
+    radial-gradient(64vmax 54vmax at 6% 12%, color-mix(in srgb, var(--brand) var(--glass-field-brand), transparent), transparent 64%),
+    radial-gradient(58vmax 46vmax at 96% 92%, color-mix(in srgb, var(--text) var(--glass-field-bone), transparent), transparent 62%),
+    radial-gradient(40vmax 30vmax at 74% -8%, color-mix(in srgb, var(--brand) calc(var(--glass-field-brand) * 0.4), transparent), transparent 62%),
+    var(--ground);
+}
+:root[data-glass="low"]  { --glass-a1: 84%; --glass-a2: 88%; --glass-a3: 90%; --glass-field-brand: 14%; --glass-field-bone: 5%;  --glass-saturate: 120%; }
+:root[data-glass="high"] { --glass-a1: 56%; --glass-a2: 78%; --glass-a3: 74%; --glass-field-brand: 32%; --glass-field-bone: 11%; --glass-saturate: 160%; }
+
+/* ============================== UTILITIES ============================== */
+/* Put on the app root (the element that fills the window). Fixed, never scrolls, costs one paint. */
+.glass-field { background: var(--glass-field); background-attachment: fixed; }
+
+/* Level 1 — in-flow glass (rails, content pane, footer, bars). No backdrop-filter. */
+.glass {
+  background: var(--glass-specular), var(--glass-fill-1);
+  border: 1px solid var(--glass-stroke);
+  border-radius: var(--glass-r-1);
+  box-shadow: var(--glass-highlight), var(--glass-lowlight), var(--glass-shadow-1);
+}
+/* Glass inside glass is a well: darker, no blur, no extra shadow. Never stack two fills. */
+.glass .glass, .glass--well {
+  background: var(--glass-specular), var(--glass-well);
+  border: 1px solid var(--glass-stroke);
+  border-radius: var(--glass-r-1);
+  box-shadow: var(--glass-highlight);
+}
+/* Level 2 — floating over live content (popover, menu, toast). Blurs what is behind. */
+.glass--raised {
+  background: var(--glass-specular) padding-box, linear-gradient(var(--glass-fill-2), var(--glass-fill-2)) padding-box, var(--glass-edge) border-box;
+  border: 1px solid transparent;
+  border-radius: var(--glass-r-2);
+  box-shadow: var(--glass-highlight-strong), var(--glass-lowlight), var(--glass-shadow-2);
+  -webkit-backdrop-filter: var(--glass-backdrop-2);
+  backdrop-filter: var(--glass-backdrop-2);
+}
+/* Level 3 — modal sheet (drawer, dialog). Always paired with ::backdrop { background: var(--glass-scrim) }. */
+.glass--overlay {
+  background: var(--glass-specular) padding-box, linear-gradient(var(--glass-fill-3), var(--glass-fill-3)) padding-box, var(--glass-edge) border-box;
+  border: 1px solid transparent;
+  border-radius: var(--glass-r-3);
+  box-shadow: var(--glass-highlight-strong), var(--glass-lowlight), var(--glass-shadow-3);
+  -webkit-backdrop-filter: var(--glass-backdrop-3);
+  backdrop-filter: var(--glass-backdrop-3);
+}
+.glass--overlay::backdrop { background: var(--glass-scrim); }
+/* Explicit opt-out for text-heavy or data surfaces that live inside glass. */
+.glass-solid, .glass .glass-solid { background: var(--surface); border: 1px solid var(--line); border-radius: var(--glass-r-1); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+/* Flush variant: glass that touches a window edge (rails, footer) drops radius, border and outer shadow. */
+.glass--flush { border-radius: 0; border-width: 0; box-shadow: none; }
+
+/* ---- open / close. Needs @starting-style + allow-discrete (Chromium 117+, i.e. evergreen WebView2). ---- */
+.glass-pop { transform-origin: var(--glass-origin, top left); transition: opacity var(--glass-dur-pop) var(--glass-ease), transform var(--glass-dur-pop) var(--glass-ease), display var(--glass-dur-pop) allow-discrete; }
+.glass-pop[hidden] { display: none; opacity: 0; transform: translateY(calc(var(--glass-shift-pop) * -1)) scale(0.98); transition-duration: var(--glass-dur-pop-out); transition-timing-function: var(--glass-ease-exit); }
+@starting-style { .glass-pop:not([hidden]) { opacity: 0; transform: translateY(calc(var(--glass-shift-pop) * -1)) scale(0.98); } }
+
+dialog.glass-sheet { opacity: 0; transform: translateX(var(--glass-shift-sheet)); transition: opacity var(--glass-dur-sheet-out) var(--glass-ease-exit), transform var(--glass-dur-sheet-out) var(--glass-ease-exit), overlay var(--glass-dur-sheet-out) allow-discrete, display var(--glass-dur-sheet-out) allow-discrete; }
+dialog.glass-sheet[open] { opacity: 1; transform: none; transition-duration: var(--glass-dur-sheet); transition-timing-function: var(--glass-ease); }
+@starting-style { dialog.glass-sheet[open] { opacity: 0; transform: translateX(var(--glass-shift-sheet)); } }
+dialog.glass-sheet::backdrop { opacity: 0; transition: opacity var(--glass-dur-sheet-out) linear, overlay var(--glass-dur-sheet-out) allow-discrete, display var(--glass-dur-sheet-out) allow-discrete; }
+dialog.glass-sheet[open]::backdrop { opacity: 1; transition-duration: var(--glass-dur-sheet); }
+@starting-style { dialog.glass-sheet[open]::backdrop { opacity: 0; } }
+/* centred dialogs rise instead of sliding */
+dialog.glass-sheet--center:not([open]) { transform: translateY(8px) scale(0.98); }
+@starting-style { dialog.glass-sheet--center[open] { transform: translateY(8px) scale(0.98); } }
+
+/* Reduced motion: no travel, a short cross-fade only. (Command Deck's global rule zeroes all transitions today; this keeps a fade if that rule is ever scoped.) */
+@media (prefers-reduced-motion: reduce) {
+  .glass-pop, .glass-pop[hidden], dialog.glass-sheet, dialog.glass-sheet[open], dialog.glass-sheet--center:not([open]) { transform: none; transition-duration: 80ms; }
+}
+
+/* ============================== SOLID FALLBACK ============================== */
+/* One set of values, three triggers. Result = today's Command Deck surfaces. */
+:root[data-glass="off"] {
+  --glass-fill-1: var(--surface); --glass-fill-2: var(--raised); --glass-fill-3: var(--surface);
+  --glass-well: var(--ground); --glass-scrim: var(--scrim);
+  --glass-backdrop-2: none; --glass-backdrop-3: none;
+  --glass-specular: linear-gradient(transparent, transparent); --glass-field: var(--ground);
+  --glass-stroke: var(--line); --glass-stroke-strong: var(--line-strong); --glass-edge: linear-gradient(var(--line-strong), var(--line-strong));
+  --glass-highlight: 0 0 #0000; --glass-highlight-strong: 0 0 #0000; --glass-lowlight: 0 0 #0000;
+}
+@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+  :root, :root[data-glass] {
+    --glass-fill-1: var(--surface); --glass-fill-2: var(--raised); --glass-fill-3: var(--surface);
+    --glass-well: var(--ground); --glass-scrim: var(--scrim);
+    --glass-backdrop-2: none; --glass-backdrop-3: none;
+    --glass-specular: linear-gradient(transparent, transparent); --glass-field: var(--ground);
+    --glass-stroke: var(--line); --glass-stroke-strong: var(--line-strong); --glass-edge: linear-gradient(var(--line-strong), var(--line-strong));
+    --glass-highlight: 0 0 #0000; --glass-highlight-strong: 0 0 #0000; --glass-lowlight: 0 0 #0000;
+  }
+}
+/* No backdrop-filter at all (not expected in WebView2): floating levels go opaque rather than see-through without blur. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root { --glass-fill-2: var(--raised); --glass-fill-3: var(--surface); }
+}
