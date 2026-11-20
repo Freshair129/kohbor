@@ -32,6 +32,8 @@ pub struct VisualEntry {
 pub struct VisualIndex {
     pub install_id: Option<Arc<str>>,
     pub entries: HashMap<String, VisualEntry>,
+    /// One verified card cover per installed revision, separate from playback.
+    pub covers: Arc<HashMap<String, VisualEntry>>,
 }
 
 pub type VisualIndexHandle = Arc<Mutex<Arc<VisualIndex>>>;
@@ -120,6 +122,7 @@ pub fn build_table<H: Hook>(
     let mut visual_index = VisualIndex {
         install_id: Some(install_id.clone()),
         entries: HashMap::new(),
+        covers: Default::default(),
     };
     let mut keys = key_space(catalog);
     keys.sort_by_key(|(id, _)| !id.is_critical());

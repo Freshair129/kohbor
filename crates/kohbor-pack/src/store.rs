@@ -235,6 +235,29 @@ pub struct Record {
     pub publisher_claim: PublisherClaim,
 }
 
+/// Catalog bindings declared by an installed, integrity-checked descriptor.
+pub struct InstalledPackBinding {
+    pub event_id: String,
+    pub tier: Option<u32>,
+    pub selection: Option<Selection>,
+    pub variant_count: usize,
+    pub banner_count: usize,
+}
+
+/// The selected silent visual, checked against its descriptor before serving.
+pub struct InstalledPackCover {
+    pub path: PathBuf,
+    pub sha256: String,
+    pub size_bytes: u64,
+    pub modified: std::time::SystemTime,
+}
+
+pub struct InstalledPackSummary {
+    pub display_name: String,
+    pub bindings: Vec<InstalledPackBinding>,
+    pub cover: Result<Option<InstalledPackCover>, RejectReason>,
+}
+
 /// media-install-result 1.0.0.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InstallResult {
@@ -888,6 +911,96 @@ impl<H: Hook> Store<H> {
             .iter()
             .map(|installed| installed.record.clone())
             .collect()
+    }
+
+    /// Read installed metadata without selecting a pack or opening any audio payload.
+    /// Counts describe the descriptor's catalog mappings, not playback readiness.
+    pub fn installed_pack_summary(
+        &self,
+        install_id: &str,
+    ) -> Result<InstalledPackSummary, StoreError> {
+        let installed = self
+            .registry
+            .records
+            .iter()
+            .find(|installed| installed.record.install_id == install_id)
+            .ok_or_else(|| StoreError::Corrupt("unknown install".to_owned()))?;
+        revision_payload_path(&self.root, install_id, "descriptor.json").map_err(|reason| {
+            StoreError::Corrupt(format!("installed descriptor path: {}", reason.as_str()))
+        })?;
+        let descriptor = verify_revision(&self.root, installed, &self.catalog, self.limits, false)?;
+        let bindings: Vec<_> = descriptor
+            .bindings
+            .iter()
+            .filter(|binding| {
+                self.catalog
+                    .event(&binding.event_id)
+                    .is_some_and(|event| event.media_mappable)
+            })
+            .collect();
+        let cover_path = bindings
+            .iter()
+            .filter_map(|binding| {
+                let visual = binding
+                    .variants
+                    .iter()
+                    .find_map(|variant| variant.silent_visual_path.as_deref())?;
+                let rank = match binding.event_id.as_str() {
+                    "hero_kill" => (0, 0),
+                    "multi_kill" => (1, binding.tier.unwrap_or(u32::MAX)),
+                    "streak" => (2, binding.tier.unwrap_or(u32::MAX)),
+                    "first_blood" => (3, 0),
+                    "match_started" => (4, 0),
+                    _ => (5, 0),
+                };
+                Some((rank, visual))
+            })
+            .min_by_key(|(rank, _)| *rank)
+            .map(|(_, path)| path);
+        let cover = cover_path
+            .map(|relative| {
+                let file = descriptor
+                    .files
+                    .iter()
+                    .find(|file| file.path == relative)
+                    .ok_or(RejectReason::DanglingReference)?;
+                let path = revision_payload_path(&self.root, install_id, relative)?;
+                let modified = |path: &Path| {
+                    fs::symlink_metadata(path)
+                        .and_then(|metadata| metadata.modified())
+                        .map_err(|_| RejectReason::SourceUnavailable)
+                };
+                let before = modified(&path)?;
+                verify_payload_file(&path, file.size_bytes, &file.sha256)?;
+                if modified(&path)? != before {
+                    return Err(RejectReason::DigestMismatch);
+                }
+                Ok(InstalledPackCover {
+                    path,
+                    sha256: file.sha256.clone(),
+                    size_bytes: file.size_bytes,
+                    modified: before,
+                })
+            })
+            .transpose();
+        Ok(InstalledPackSummary {
+            display_name: descriptor.display_name,
+            bindings: bindings
+                .into_iter()
+                .map(|binding| InstalledPackBinding {
+                    event_id: binding.event_id.clone(),
+                    tier: binding.tier,
+                    selection: binding.selection,
+                    variant_count: binding.variants.len(),
+                    banner_count: binding
+                        .variants
+                        .iter()
+                        .filter(|variant| variant.silent_visual_path.is_some())
+                        .count(),
+                })
+                .collect(),
+            cover,
+        })
     }
 
     /// Install IDs with a pending (deferred) activation, oldest first.

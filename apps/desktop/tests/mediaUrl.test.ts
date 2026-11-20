@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-const { toWebviewUrl } = await import("../src/mediaUrl.ts");
+const { packCoverWebviewUrl, toWebviewUrl } = await import("../src/mediaUrl.ts");
 const token = "a".repeat(64);
 const logical = `kohbor-media://localhost/v1/ins_0000000001/${token}`;
 
@@ -38,4 +38,13 @@ test("rejects path traversal", () => {
 
 test("rejects uppercase token hex", () => {
   assert.equal(toWebviewUrl(`kohbor-media://localhost/v1/ins_0000000001/${"A".repeat(64)}`, "windows"), null);
+});
+
+test("cover URLs have a dedicated media route and cannot become playback URLs", () => {
+  const cover = `kohbor-media://localhost/v1/cover/ins_0000000001/${token}`;
+  assert.equal(packCoverWebviewUrl(cover, "windows"), `http://kohbor-media.localhost/v1/cover/ins_0000000001/${token}`);
+  assert.equal(packCoverWebviewUrl(cover, "other"), cover);
+  assert.equal(packCoverWebviewUrl(`${cover}?x=1`, "windows"), null);
+  assert.equal(packCoverWebviewUrl(logical, "windows"), null);
+  assert.equal(toWebviewUrl(cover, "windows"), null);
 });

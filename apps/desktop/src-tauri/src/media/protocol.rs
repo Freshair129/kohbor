@@ -32,13 +32,16 @@ pub fn serve(request: &ProtocolRequest, index: &VisualIndex) -> ProtocolResponse
         return not_found();
     }
 
-    let Some((install_id, token)) = parse_media_path(&request.path) else {
-        return not_found();
+    let entry = if let Some((install_id, token)) = parse_media_path(&request.path) {
+        if index.install_id.as_deref() != Some(install_id) {
+            return not_found();
+        }
+        index.entries.get(token)
+    } else {
+        // Only exact routes published for verified silent covers are served.
+        index.covers.get(&request.path)
     };
-    if index.install_id.as_deref() != Some(install_id) {
-        return not_found();
-    }
-    let Some(entry) = index.entries.get(token) else {
+    let Some(entry) = entry else {
         return not_found();
     };
     if entry.size_bytes > MAX_FILE_BYTES {
@@ -342,6 +345,7 @@ mod tests {
         let index = VisualIndex {
             install_id: Some(Arc::from(INSTALL_ID)),
             entries: HashMap::from([(TOKEN.to_owned(), entry)]),
+            covers: Default::default(),
         };
         Fixture {
             _temp: temp,

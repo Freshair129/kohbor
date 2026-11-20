@@ -305,6 +305,11 @@ pub(crate) fn media_list(state: tauri::State<'_, AppState>) -> Result<Value, Str
 }
 
 #[tauri::command(async)]
+pub(crate) fn media_pack_summaries(state: tauri::State<'_, AppState>) -> Result<Value, String> {
+    state.host.commands.media_pack_summaries()
+}
+
+#[tauri::command(async)]
 pub(crate) fn media_cabinet(state: tauri::State<'_, AppState>) -> Result<Value, String> {
     state.host.commands.media_cabinet()
 }

@@ -303,8 +303,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/commands.rs",
-      "bytes": 37741,
-      "sha256": "a10cd85b49f22fc500cb198a47585519a0bb4a8665f90b71b759508a12c780db"
+      "bytes": 37913,
+      "sha256": "22750a46d8952cdf432597222e9fccf19d6b204dc6d640f461fe62026c6ae7d3"
     },
     {
       "path": "apps/desktop/src-tauri/src/containment.rs",
@@ -318,8 +318,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/host.rs",
-      "bytes": 62077,
-      "sha256": "ef51b6b32e7cf79647941bb925a637af181dfb483d5726c640743c3668df919c"
+      "bytes": 62501,
+      "sha256": "03bdd629d49b3e26d55c51fcfefc24006550e9ad86538073a0601b79a50ce6cf"
     },
     {
       "path": "apps/desktop/src-tauri/src/hotkeys.rs",
@@ -353,8 +353,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 38506,
-      "sha256": "9c87144ce52271fb1aa67072148b7a6fec2e92ae661feac4b4209e206cca5df7"
+      "bytes": 38586,
+      "sha256": "73ec58b0ea14d7bae3e40b7877572dee611cfdc46858c0e53f3c1895a3459d47"
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
@@ -378,8 +378,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/media/prewarm.rs",
-      "bytes": 48913,
-      "sha256": "6cf3bfda386a3e75ea0f8545e6d4086a419083ed6f7d2f59e8404a90ea2f7048"
+      "bytes": 49080,
+      "sha256": "e21c4cffe0c9a0c15490a8be8960080ccd90aefe9df3192a331d3d39b94fb646"
     },
     {
       "path": "apps/desktop/src-tauri/src/media/probe.rs",
@@ -388,8 +388,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/media/protocol.rs",
-      "bytes": 27325,
-      "sha256": "5df4f474c67442f5dde7992cc4cefead0a2a3a30d3f3f158d733f4de01e73c45"
+      "bytes": 27504,
+      "sha256": "1139f55ecbb0736cda3770ead8f2d7020c954f53a5266c8bf8d12583034250fe"
     },
     {
       "path": "apps/desktop/src-tauri/src/media/selection.rs",
@@ -398,8 +398,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/media/service.rs",
-      "bytes": 98502,
-      "sha256": "a54e40367d5337e7a1b77b4b56a5e3b5d26334e5b3184d0ffcaa5cd5bd5ea2c1"
+      "bytes": 107748,
+      "sha256": "0bd87b8a72c6fab333ec2648082308e1c6a726d830461b9cd195977aff397a88"
     },
     {
       "path": "apps/desktop/src-tauri/src/overlay.rs",
@@ -463,8 +463,8 @@
     },
     {
       "path": "apps/desktop/src/App.tsx",
-      "bytes": 14793,
-      "sha256": "f97eaccc734efbff409e590b0d5acbb7c6f96cf82ebbe7d6f68b569d50647427"
+      "bytes": 14339,
+      "sha256": "a8146954ea274b7333bee87d38ac340b89182b64385400c453cb83015a87d9d6"
     },
     {
       "path": "apps/desktop/src/AudioHistory.tsx",
@@ -485,11 +485,6 @@
       "path": "apps/desktop/src/EventBanner.tsx",
       "bytes": 2137,
       "sha256": "c530eee14c06ec0c9c39cbe4bbdf8c338f043db77de40b380914d3d7832a9fd4"
-    },
-    {
-      "path": "apps/desktop/src/EventCabinet.tsx",
-      "bytes": 11767,
-      "sha256": "58caa8e8a3d3c6a94a5fdfe0fbcf3db7a1ed351f1465a1168441cb436a3577c5"
     },
     {
       "path": "apps/desktop/src/Guide.tsx",
@@ -520,11 +515,6 @@
       "path": "apps/desktop/src/OwnHero.tsx",
       "bytes": 4343,
       "sha256": "af7aea4bdca428b6a30ec30ad45d7161891fcaff643784c2c3f454617a34f055"
-    },
-    {
-      "path": "apps/desktop/src/PackPanel.tsx",
-      "bytes": 12488,
-      "sha256": "2219948a9caa0ad1c3fbc49aa5f045c06833f461e25ef14c1c17216881770ec9"
     },
     {
       "path": "apps/desktop/src/Readiness.tsx",
@@ -617,14 +607,9 @@
       "sha256": "6cc556f4d71239a1396f94787d99992c040e9668652c917bdc6716e4b8a44641"
     },
     {
-      "path": "apps/desktop/src/cabinet.ts",
-      "bytes": 12933,
-      "sha256": "24347a8b4aa160a8e3133af39d0cde89c4c00297a171c9d70ae34f08ddfd59fd"
-    },
-    {
       "path": "apps/desktop/src/copy.ts",
-      "bytes": 61233,
-      "sha256": "a70590903838cac3b1957ff671706b03c5dca61220c6b815cc68cffc9001cafd"
+      "bytes": 62921,
+      "sha256": "9149e7692fd9138c42e7013d85bd55a127c03b4a50c4e9e8434ed0513f452cd6"
     },
     {
       "path": "apps/desktop/src/deck/AlertStrip.tsx",
@@ -998,8 +983,8 @@
     },
     {
       "path": "apps/desktop/src/logs/LogsTab.tsx",
-      "bytes": 5426,
-      "sha256": "74ed2059016776dc484d512092fc12a560d877a08d989ce9b8ca6e8a1eed461e"
+      "bytes": 6550,
+      "sha256": "739cbecd1fa241c6623c0fc1df47616169dac3c5780d9e374b18c6dcb7f0043a"
     },
     {
       "path": "apps/desktop/src/logs/copy.ts",
@@ -1048,13 +1033,13 @@
     },
     {
       "path": "apps/desktop/src/mediaUrl.ts",
-      "bytes": 501,
-      "sha256": "2a75a22f29f1b29f26eac8aaefe73a23077bcd07707c24f060419ac2bbce167e"
+      "bytes": 887,
+      "sha256": "e36d5167341766c3f8a1f3f09b7aed1deb6eb3b86e94b8f105de40e12e639130"
     },
     {
       "path": "apps/desktop/src/mock/harness.tsx",
-      "bytes": 28856,
-      "sha256": "38cd91c47df3dffde992a324e075451eb984bd51b392fd910911a1046015dd6e"
+      "bytes": 31733,
+      "sha256": "96e8261d4b9997aa57a7cd6c122a5a2aa131661b066ea0a435cd03af0e27d9cc"
     },
     {
       "path": "apps/desktop/src/mock/hudState.ts",
@@ -1138,8 +1123,8 @@
     },
     {
       "path": "apps/desktop/src/runtime.ts",
-      "bytes": 12407,
-      "sha256": "56a3901fc31ddaaa5bce072ba4fe36a198dcc41c28cced421d4bb5dcef575131"
+      "bytes": 12420,
+      "sha256": "a812ca92b17d9827b2f1f2f36179fdc1f54faf4d197675452558f5cb2f4b5fe7"
     },
     {
       "path": "apps/desktop/src/settings.ts",
@@ -1293,8 +1278,8 @@
     },
     {
       "path": "apps/desktop/src/styles.css",
-      "bytes": 34234,
-      "sha256": "33fbb36f18c7b76addb81cbdba1947684b7336b54f16328d4c09cb5ec480e435"
+      "bytes": 35276,
+      "sha256": "f21d6ead3a8bbdbedc16e35c35d5960016b14023e27148f392d8a54bddef203b"
     },
     {
       "path": "apps/desktop/src/types.ts",
@@ -1328,8 +1313,8 @@
     },
     {
       "path": "apps/desktop/tests/audioPrefs.test.ts",
-      "bytes": 16555,
-      "sha256": "16ffe9bd9a6d8b391cd931e0b62691fdcd721008a34cacae639c8d0cea001835"
+      "bytes": 16561,
+      "sha256": "3a4ebafbd1ef352a68e23a7e949b3abeac6b2eda036de88dda1fd759405487bf"
     },
     {
       "path": "apps/desktop/tests/capture-idle.test.ts",
@@ -1375,11 +1360,6 @@
       "path": "apps/desktop/tests/dialog.test.ts",
       "bytes": 2362,
       "sha256": "d878d29bbaab63a1e2b9b1e50b48c6c65818f3b0a3a173edce986fb7e5988bac"
-    },
-    {
-      "path": "apps/desktop/tests/event-cabinet.test.ts",
-      "bytes": 10034,
-      "sha256": "888affcff4f47adb6a88fc5cab4522fdebf35a634f8feaac4afc415c3dcbbe04"
     },
     {
       "path": "apps/desktop/tests/gsi-setup-model.test.ts",
@@ -1468,8 +1448,8 @@
     },
     {
       "path": "apps/desktop/tests/mediaUrl.test.ts",
-      "bytes": 1462,
-      "sha256": "a3ed51a64a5b10c589478a958a5878cb2c430517f3e626b1d1764c172ce014b5"
+      "bytes": 2021,
+      "sha256": "f294f465258d7f7591bc6220ad110f88e5b47d7722d8190119e5a57c67dc2f92"
     },
     {
       "path": "apps/desktop/tests/overlayModel.test.ts",
@@ -1518,8 +1498,8 @@
     },
     {
       "path": "apps/desktop/tests/shell-css.test.ts",
-      "bytes": 4904,
-      "sha256": "1f034cf3eeb2eadadbbf64dabf33186b2288fde098c69b2f2035d13bc5c0e9e1"
+      "bytes": 4907,
+      "sha256": "1f6d7536ce2bd6fc32ed9513a5a5427eb478db9c7b5c1800a5e4e85004ed5efd"
     },
     {
       "path": "apps/desktop/tests/shell-state.test.ts",
@@ -2263,8 +2243,8 @@
     },
     {
       "path": "crates/kohbor-pack/src/store.rs",
-      "bytes": 87350,
-      "sha256": "f582c3baf5a211fd9f58c64fd6d5eaf6fbb30cd196281d7681d40234761efacf"
+      "bytes": 91771,
+      "sha256": "de86b136d9109fae1f9e862526abaf81fb99037a5f175ceb29e6d6b24c062380"
     },
     {
       "path": "crates/kohbor-pack/src/trust.rs",
@@ -2553,8 +2533,8 @@
     },
     {
       "path": "docs/design/UX-SPEC.md",
-      "bytes": 17040,
-      "sha256": "ef53a208aa4f451e3a90e868bdc28d58a3e87996e012831a761e501921b108cf"
+      "bytes": 18691,
+      "sha256": "300c22fb92d2fa49ebff9392add394ca2e5b5ff383d1dac841f0e547b9f1e9fd"
     },
     {
       "path": "docs/design/VISUAL-DESIGN-PROPOSAL.md",

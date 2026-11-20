@@ -1,7 +1,5 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
-import { AudioHistory } from "./AudioHistory";
 import { AudioMuteControl, AudioPanel, useAudioMute } from "./AudioPanel";
-import { cabinetPhaseBlocksAudition } from "./cabinet";
 import { copy, seconds, type Locale } from "./copy";
 import { DemoPanel } from "./DemoPanel";
 
@@ -14,7 +12,7 @@ import { deckStateReasonForLocale, deriveDeckState } from "./deck/deckState";
 import { Guide } from "./Guide";
 import { startLiveCollection, useCaptureStatus } from "./live";
 import { OwnHero } from "./OwnHero";
-import { PackPanel } from "./PackPanel";
+import { PacksPage } from "./packs/PacksPage";
 import { Readiness } from "./Readiness";
 import { DEFAULT_SHELL_DESTINATION, deriveHeaderState, insightsViews, statusLineModel, type InsightsView, type ShellDestination } from "./shell/state";
 import { usePlayback, useRuntime } from "./runtime";
@@ -170,16 +168,8 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
             </div>
           )}
 
-          {activePage === "packs" && (
-            <div className="shell-screen shell-packs">
-              <div className={`shell-pack-panel${hostLost ? " is-outdated" : ""}`}>
-                <PackPanel locale={displayLocale} disabled={hostLost} matchActive={cabinetPhaseBlocksAudition(phase)} />
-              </div>
-              <div className={`shell-history-panel${hostLost ? " is-outdated" : ""}`}>
-                <AudioHistory locale={displayLocale} disabled={hostLost} />
-              </div>
-            </div>
-          )}
+          {activePage === "packs" && <PacksPage locale={displayLocale} disabled={hostLost} phase={phase}
+            epoch={status?.session.session_epoch ?? null} mute={mute} />}
 
           {activePage === "insights" && (currentInsightsView === "replay" && ReplayPanel ? (
             <Suspense fallback={<p role="status">{text.loading}</p>}>

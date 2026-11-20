@@ -1,5 +1,6 @@
 //! Bounded command bridge and single-owner package-store thread.
 
+use std::collections::{HashMap, HashSet};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -20,7 +21,7 @@ use serde_json::{json, Value};
 use crate::audio::lanes::{Control, EngineShared, EngineTx};
 use crate::audio::resolve::{BindingLookup, PrewarmTable};
 use crate::media::inventory::{facts_from_table, MediaFacts};
-use crate::media::prewarm::{build_table, VisualIndexHandle};
+use crate::media::prewarm::{build_table, VisualEntry, VisualIndexHandle};
 use crate::media::probe::{ProbeItem, ProbeRequest, ProbeState};
 
 pub type ProbeEmitter = Arc<dyn Fn(Value) + Send + Sync>;
@@ -88,6 +89,10 @@ impl MediaHandle {
 
     pub fn list(&self) -> Result<Value, String> {
         self.request(JobKind::List)
+    }
+
+    pub fn pack_summaries(&self) -> Result<Value, String> {
+        self.request(JobKind::PackSummaries)
     }
 
     /// Read-only: the ACTIVE revision's verified bindings (no absolute paths).
@@ -229,6 +234,7 @@ enum JobKind {
         policy: ActivationPolicy,
     },
     List,
+    PackSummaries,
     ActiveBindings,
     EventMap,
     ProbeReport {
@@ -444,6 +450,16 @@ impl ServiceState {
                     .ok_or_else(|| "MEDIA_INVALID".to_owned())?;
                 Ok(list_json(store))
             }
+            JobKind::PackSummaries => {
+                let store = self
+                    .store
+                    .as_ref()
+                    .ok_or_else(|| "MEDIA_INVALID".to_owned())?;
+                let (reply, covers) = pack_summaries_json(store);
+                let mut index = lock_recover(&self.config.visual_index);
+                Arc::make_mut(&mut *index).covers = Arc::new(covers);
+                Ok(reply)
+            }
             JobKind::ActiveBindings => {
                 let store = self
                     .store
@@ -652,7 +668,12 @@ impl ServiceState {
         facts: MediaFacts,
     ) {
         self.table = table;
-        replace_mutex_value(&self.config.visual_index, visuals);
+        {
+            let mut index = lock_recover(&self.config.visual_index);
+            let mut next = visuals;
+            Arc::make_mut(&mut next).covers = Arc::clone(&index.covers);
+            *index = next;
+        }
         replace_mutex_value(&self.config.facts, facts);
     }
 
@@ -1178,6 +1199,62 @@ fn event_map_row(
     )
 }
 
+fn pack_summaries_json(store: &Store<NoHook>) -> (Value, HashMap<String, VisualEntry>) {
+    let active = store.active();
+    let pending: HashSet<_> = store.pending_activations().into_iter().collect();
+    let mut covers = HashMap::new();
+    let records: Vec<_> = store.records().into_iter().map(|record| {
+        let summary = store.installed_pack_summary(&record.install_id);
+        let mut row = json!({
+            "install_id": record.install_id,
+            "package_id": record.package_id,
+            "revision": record.revision,
+            "active": active.as_ref().is_some_and(|active| active.install_id == record.install_id),
+            "pending": pending.contains(&record.install_id),
+            "display_name": null,
+            "problem": "METADATA_UNAVAILABLE",
+            "cover_url": null,
+            "event_count": null,
+            "binding_count": null,
+            "variant_count": null,
+            "banner_count": null,
+            "bindings": [],
+        });
+        let Ok(summary) = summary else { return row };
+        row["display_name"] = json!(summary.display_name);
+        row["problem"] = Value::Null;
+        row["event_count"] = json!(summary.bindings.iter().map(|binding| &binding.event_id).collect::<HashSet<_>>().len());
+        row["binding_count"] = json!(summary.bindings.len());
+        row["variant_count"] = json!(summary.bindings.iter().map(|binding| binding.variant_count).sum::<usize>());
+        row["banner_count"] = json!(summary.bindings.iter().map(|binding| binding.banner_count).sum::<usize>());
+        row["bindings"] = json!(summary.bindings.iter().map(|binding| json!({
+            "event_id": binding.event_id,
+            "tier": binding.tier,
+            "selection": binding.selection.map(|selection| selection.as_str()),
+            "variant_count": binding.variant_count,
+            "banner_count": binding.banner_count,
+        })).collect::<Vec<_>>());
+        match summary.cover {
+            Ok(Some(cover)) => {
+                let path = format!("/v1/cover/{}/{}", record.install_id, cover.sha256);
+                row["cover_url"] = json!(format!("kohbor-media://localhost{path}"));
+                covers.insert(path, VisualEntry {
+                    path: cover.path,
+                    size_bytes: cover.size_bytes,
+                    modified: cover.modified,
+                });
+            }
+            Ok(None) => {}
+            Err(_) => row["problem"] = json!("COVER_INVALID"),
+        }
+        row
+    }).collect();
+    (
+        json!({"schema_version": "1.0.0", "records": records}),
+        covers,
+    )
+}
+
 fn list_json(store: &Store<NoHook>) -> Value {
     let active = store.active().map(|active| {
         json!({
@@ -1209,6 +1286,162 @@ fn list_json(store: &Store<NoHook>) -> Value {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn installed_summary_counts_bindings_and_serves_an_inactive_verified_cover() {
+        let temp = TempDir::new("installed-summary");
+        let mut store = Store::open(
+            temp.path().join("store"),
+            catalog(),
+            kohbor_pack::Limits::default(),
+        )
+        .unwrap();
+        let fixture = package(
+            &temp,
+            "summary.pack",
+            &[
+                BindingSpec {
+                    event_id: "health_danger",
+                    tier: None,
+                    samples: 480,
+                    visual: true,
+                    visual_tail_ms: 900,
+                },
+                BindingSpec {
+                    event_id: "hero_kill",
+                    tier: None,
+                    samples: 480,
+                    visual: true,
+                    visual_tail_ms: 900,
+                },
+            ],
+        );
+        let installed = install(&mut store, &fixture, "req-summary-install");
+        let id = installed.record.unwrap().install_id;
+        let (reply, covers) = super::pack_summaries_json(&store);
+        let row = &reply["records"][0];
+        assert_eq!(reply["schema_version"], "1.0.0");
+        assert_eq!(row["display_name"], "Synthetic media service fixture");
+        assert_eq!(row["event_count"], 2);
+        assert_eq!(row["binding_count"], 2);
+        assert_eq!(row["variant_count"], 2);
+        assert_eq!(row["banner_count"], 2);
+        assert_eq!(row["active"], false);
+        let cover = row["cover_url"].as_str().unwrap();
+        let path = cover.strip_prefix("kohbor-media://localhost").unwrap();
+        let index = crate::media::prewarm::VisualIndex {
+            covers: Arc::new(covers),
+            ..Default::default()
+        };
+        let served = crate::media::protocol::serve(
+            &crate::media::protocol::ProtocolRequest {
+                method: "GET".into(),
+                path: path.into(),
+                query: None,
+                range: None,
+            },
+            &index,
+        );
+        assert_eq!(served.status, 200);
+        assert!(!reply.to_string().contains("hero_kill.webm"));
+        let playback_path = path.replace("/v1/cover/", "/v1/");
+        let inactive_playback = crate::media::protocol::serve(
+            &crate::media::protocol::ProtocolRequest {
+                method: "GET".into(),
+                path: playback_path,
+                query: None,
+                range: None,
+            },
+            &index,
+        );
+        assert_eq!(inactive_playback.status, 404);
+        assert_eq!(
+            index
+                .covers
+                .values()
+                .next()
+                .unwrap()
+                .path
+                .file_name()
+                .unwrap(),
+            "hero_kill.webm"
+        );
+        assert!(path.starts_with(&format!("/v1/cover/{id}/")));
+        fs::remove_file(&index.covers.values().next().unwrap().path).unwrap();
+        let (reply, covers) = super::pack_summaries_json(&store);
+        assert_eq!(reply["records"][0]["problem"], "COVER_INVALID");
+        assert!(reply["records"][0]["cover_url"].is_null());
+        assert!(covers.is_empty());
+    }
+
+    #[test]
+    fn installed_summary_groups_tiers_and_keeps_missing_descriptor_local_to_one_pack() {
+        let temp = TempDir::new("installed-summary-tiers");
+        let mut store = Store::open(
+            temp.path().join("store"),
+            catalog(),
+            kohbor_pack::Limits::default(),
+        )
+        .unwrap();
+        let multi = |tier| BindingSpec {
+            event_id: "multi_kill",
+            tier: Some(tier),
+            samples: 480,
+            visual: true,
+            visual_tail_ms: 900,
+        };
+        let with_visual = package(&temp, "tiers.pack", &[multi(4), multi(2)]);
+        let id = install(&mut store, &with_visual, "req-summary-tiers")
+            .record
+            .unwrap()
+            .install_id;
+        let without_visual = wav_fixture(&temp, "audio.only", "hero_kill");
+        let audio_id = install(&mut store, &without_visual, "req-summary-audio")
+            .record
+            .unwrap()
+            .install_id;
+        activate(&mut store, "req-summary-active", &audio_id);
+        let deferred = store
+            .activate(
+                "req-summary-defer",
+                &id,
+                ActivationPolicy::AfterMatch,
+                &kohbor_pack::store::ActivationState {
+                    match_active: true,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        assert_eq!(deferred.status.as_str(), "deferred");
+        let (reply, covers) = super::pack_summaries_json(&store);
+        assert_eq!(reply["records"][0]["event_count"], 1);
+        assert_eq!(reply["records"][0]["binding_count"], 2);
+        assert_eq!(reply["records"][0]["banner_count"], 2);
+        assert_eq!(reply["records"][0]["pending"], true);
+        assert_eq!(
+            covers.values().next().unwrap().path.file_name().unwrap(),
+            "multi_kill-t2.webm"
+        );
+        assert_eq!(reply["records"][1]["active"], true);
+        assert_eq!(reply["records"][1]["pending"], false);
+        assert!(reply["records"][1]["cover_url"].is_null());
+        assert!(reply["records"][1]["problem"].is_null());
+
+        fs::write(
+            store
+                .root()
+                .join("revisions")
+                .join(id)
+                .join("descriptor.json"),
+            b"{}",
+        )
+        .unwrap();
+        let (reply, covers) = super::pack_summaries_json(&store);
+        assert_eq!(reply["records"][0]["problem"], "METADATA_UNAVAILABLE");
+        assert!(reply["records"][0]["event_count"].is_null());
+        assert_eq!(reply["records"][1]["event_count"], 1);
+        assert!(covers.is_empty());
+    }
+
     use std::fs;
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
     use std::sync::mpsc::{self, TryRecvError};

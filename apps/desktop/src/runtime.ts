@@ -110,9 +110,9 @@ export function mediaList(): Promise<unknown> {
   return invoke<unknown>("media_list");
 }
 
-export function mediaCabinet(): Promise<unknown> {
+export function mediaPackSummaries(): Promise<unknown> {
   if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
-  return invoke<unknown>("media_cabinet");
+  return invoke<unknown>("media_pack_summaries");
 }
 
 export function mediaEventMap(): Promise<unknown> {

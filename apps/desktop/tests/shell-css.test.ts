@@ -86,7 +86,7 @@ test("version metadata stays compact and About leaves a shrinking Status grid ab
 });
 
 test("history and pack lists scroll only inside bounded list regions", () => {
-  for (const selector of [".history-scroll", ".pack-list"]) {
+  for (const selector of [".history-scroll", ".packs-scroll"]) {
     const entries = declarationsFor(selector);
     assert.ok(entries.some((declarations) => {
       const maxHeight = declarations.get("max-height");

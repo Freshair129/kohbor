@@ -1,8 +1,9 @@
 // @ts-ignore Vite and Node both import the canonical catalog as JSON.
-import catalog from "../../../contracts/event-catalog.json" with { type: "json" };
-import type { Phase } from "./copy.ts";
+import catalog from "../../../../contracts/event-catalog.json" with { type: "json" };
+// @ts-ignore Explicit source extensions support the Node test runner.
+import { packsPageCopy, type Locale, type Phase } from "../copy.ts";
 
-export type CabinetBindingState =
+export type EventSoundState =
   | "ready"
   | "inherited"
   | "unmapped"
@@ -11,54 +12,55 @@ export type CabinetBindingState =
   | "not_voiced"
   | "unknown";
 
-export interface CabinetVariant {
+export interface EventSoundVariant {
   variant_id: string;
   clip_id?: string;
   duration_ms: number;
   has_visual: boolean;
 }
 
-export interface CabinetBinding {
+export interface SoundKey {
   event_id: string;
   tier: number | null;
-  state: CabinetBindingState;
-  reason: string;
-  resolved_from_tier: number | null;
-  selection: "random" | "shuffle" | "sequence" | null;
-  variants: CabinetVariant[];
-  /** Derived display fields retained for the current cabinet component. */
-  mapped: boolean;
-  duration_ms: number | null;
-  has_visual: boolean;
 }
 
-export interface CabinetActivePack {
+export type SoundSelection = "random" | "shuffle" | "sequence" | null;
+
+export interface EventSound extends SoundKey {
+  state: EventSoundState;
+  reason: string;
+  resolved_from_tier: number | null;
+  selection: SoundSelection;
+  variants: EventSoundVariant[];
+}
+
+export interface EventMapActivePack {
   install_id: string;
   package_id: string;
   revision: number;
 }
 
-export interface MediaCabinet {
+export interface MediaEventMap {
   schema_version: "1.0.0";
-  active: CabinetActivePack | null;
+  active: EventMapActivePack | null;
   match_active: boolean;
-  bindings: CabinetBinding[];
+  bindings: EventSound[];
 }
 
-export type CabinetLoadResult =
-  | { state: "ok"; cabinet: MediaCabinet }
+export type EventMapLoadResult =
+  | { state: "ok"; eventMap: MediaEventMap }
   | { state: "unreadable" }
   | { state: "failed"; error: unknown };
 
-export function beginCabinetRefresh(
+export function beginEventMapRefresh(
   request: () => Promise<unknown>,
-  commit: (result: CabinetLoadResult) => void,
+  commit: (result: EventMapLoadResult) => void,
 ): () => void {
   let current = true;
   const refresh = async () => {
     try {
-      const cabinet = parseMediaCabinet(await request());
-      if (current) commit(cabinet ? { state: "ok", cabinet } : { state: "unreadable" });
+      const eventMap = parseMediaEventMap(await request());
+      if (current) commit(eventMap ? { state: "ok", eventMap } : { state: "unreadable" });
     } catch (error) {
       if (current) commit({ state: "failed", error });
     }
@@ -67,18 +69,14 @@ export function beginCabinetRefresh(
   return () => { current = false; };
 }
 
-export function cabinetPhaseBlocksAudition(phase: Phase | null): boolean {
+export function eventMapPhaseBlocksAudition(phase: Phase | null): boolean {
   return phase === "draft" || phase === "pregame" || phase === "live" || phase === "post_game";
 }
 
-export interface CabinetPackRef {
+export interface EventMapPackRef {
   install_id: string;
+  package_id: string;
   revision: number;
-}
-
-export interface CabinetGroup {
-  eventId: string;
-  bindings: CabinetBinding[];
 }
 
 const catalogRows = catalog.events
@@ -90,6 +88,43 @@ const catalogRows = catalog.events
     return tiers.map((tier) => ({ event_id: event.id, tier }));
   });
 const expectedCatalogKeys = new Set(catalogRows.map(({ event_id, tier }) => `${event_id}:${tier ?? "none"}`));
+const catalogLabels = new Map(catalog.events.map(event => [event.id, event.labels]));
+const GROUPS = ["kill", "multi", "streak", "match", "warnings", "other"] as const;
+type SoundGroup = (typeof GROUPS)[number];
+const groupByEvent = new Map<string, SoundGroup>([
+  ["hero_kill", "kill"], ["first_blood", "kill"], ["hero_death", "kill"], ["hero_respawn", "kill"],
+  ["multi_kill", "multi"], ["streak", "streak"],
+  ["match_started", "match"], ["match_ended", "match"], ["level_milestone", "match"],
+  ["health_low", "warnings"], ["mana_low", "warnings"], ["health_danger", "warnings"],
+  ["enemy_missing", "warnings"], ["risk_alert", "warnings"], ["risk_revision", "warnings"], ["risk_unavailable", "warnings"],
+]);
+
+export function soundKey(row: SoundKey) {
+  return `${row.event_id}:${row.tier ?? "none"}`;
+}
+
+export function groupSoundRows<T extends SoundKey>(rows: readonly T[]) {
+  return GROUPS.flatMap(id => {
+    const items = rows.filter(row => (groupByEvent.get(row.event_id) ?? "other") === id)
+      .sort((a, b) => a.event_id === b.event_id
+        ? (a.tier ?? 0) - (b.tier ?? 0)
+        : a.event_id === "hero_kill" ? -1 : b.event_id === "hero_kill" ? 1
+          : a.event_id.localeCompare(b.event_id));
+    return items.length ? [{ id, rows: items }] : [];
+  });
+}
+
+export function soundLabel(row: SoundKey, locale: Locale) {
+  const text = packsPageCopy(locale);
+  const localized = catalogLabels.get(row.event_id)?.[locale] ?? text.unknownEvent;
+  const tiers = text.gameTiers[row.event_id as keyof typeof text.gameTiers] as Record<number, string> | undefined;
+  const gameTitle = row.tier === null ? undefined : tiers?.[row.tier];
+  return {
+    title: gameTitle ?? localized,
+    detail: gameTitle ? localized : null,
+    tier: row.tier === null ? null : text.tier(row.tier),
+  };
+}
 
 function record(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -112,7 +147,7 @@ function matches(pattern: RegExp, value: unknown): value is string {
   return typeof value === "string" && pattern.test(value);
 }
 
-function parseActive(value: unknown): CabinetActivePack | null | undefined {
+function parseActive(value: unknown): EventMapActivePack | null | undefined {
   if (value === null) return null;
   const active = record(value);
   if (!active || !hasExactKeys(active, ["install_id", "package_id", "revision"])) return undefined;
@@ -128,7 +163,7 @@ function parseActive(value: unknown): CabinetActivePack | null | undefined {
   };
 }
 
-function parseVariant(value: unknown): CabinetVariant | null {
+function parseVariant(value: unknown): EventSoundVariant | null {
   const variant = record(value);
   if (!variant || !hasOnlyKeys(variant, ["variant_id", "duration_ms", "has_visual"], ["clip_id"])) return null;
   if (!matches(/^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,79}$/, variant.variant_id)
@@ -147,7 +182,7 @@ function parseVariant(value: unknown): CabinetVariant | null {
   };
 }
 
-function parseBinding(value: unknown): CabinetBinding | null {
+function parseBinding(value: unknown): EventSound | null {
   const binding = record(value);
   if (!binding || !hasExactKeys(binding, [
     "event_id", "tier", "state", "reason", "resolved_from_tier", "selection", "variants",
@@ -174,7 +209,7 @@ function parseBinding(value: unknown): CabinetBinding | null {
   if (!Array.isArray(binding.variants) || binding.variants.length > 16) return null;
   const variants = binding.variants.map(parseVariant);
   if (variants.some((variant) => variant === null)) return null;
-  const parsedVariants = variants as CabinetVariant[];
+  const parsedVariants = variants as EventSoundVariant[];
   if (new Set(parsedVariants.map((variant) => variant.variant_id)).size !== parsedVariants.length) return null;
   if ((binding.state === "ready" || binding.state === "inherited") && parsedVariants.length === 0) return null;
   if (["unmapped", "invalid_media", "not_voiced", "unknown"].includes(binding.state)
@@ -191,9 +226,6 @@ function parseBinding(value: unknown): CabinetBinding | null {
     resolved_from_tier: binding.resolved_from_tier,
     selection: binding.selection,
     variants: parsedVariants,
-    mapped: parsedVariants.length > 0,
-    duration_ms: parsedVariants[0]?.duration_ms ?? null,
-    has_visual: parsedVariants.some((variant) => variant.has_visual),
   };
 }
 
@@ -205,7 +237,7 @@ function rowKey(value: unknown): string | null {
   return `${row.event_id}:${row.tier ?? "none"}`;
 }
 
-function unknownBinding(eventId: string, tier: number | null, reason: string): CabinetBinding {
+function unknownBinding(eventId: string, tier: number | null, reason: string): EventSound {
   return {
     event_id: eventId,
     tier,
@@ -214,31 +246,33 @@ function unknownBinding(eventId: string, tier: number | null, reason: string): C
     resolved_from_tier: null,
     selection: null,
     variants: [],
-    mapped: false,
-    duration_ms: null,
-    has_visual: false,
   };
 }
 
-function withoutActivePack(binding: CabinetBinding): CabinetBinding {
-  if (binding.state === "not_voiced" || binding.state === "detector_unavailable" || binding.state === "unknown") {
+function withoutActivePack(binding: EventSound): EventSound {
+  if (binding.state === "not_voiced" || binding.state === "unknown") {
     return binding;
+  }
+  if (binding.state === "detector_unavailable") {
+    return { ...binding, variants: [], selection: null };
   }
   return unknownBinding(binding.event_id, binding.tier, "MEDIA_STATE_UNKNOWN");
 }
 
 /** Parse the versioned host map. A bad row only makes its own catalog row unknown. */
-export function parseMediaCabinet(value: unknown): MediaCabinet | null {
+export function parseMediaEventMap(value: unknown): MediaEventMap | null {
   const source = record(value);
-  if (!source || !hasExactKeys(source, ["schema_version", "active", "match_active", "events"])) return null;
+  if (!source || !hasOnlyKeys(source, ["schema_version", "active", "events"], ["match_active", "media_match_active"])) return null;
+  const flags = [source.match_active, source.media_match_active].filter(flag => flag !== undefined);
+  if (flags.length === 0 || flags.some(flag => typeof flag !== "boolean")) return null;
   if (source.schema_version !== "1.0.0") return null;
   const active = parseActive(source.active);
-  if (active === undefined || typeof source.match_active !== "boolean" || !Array.isArray(source.events)) return null;
+  if (active === undefined || !Array.isArray(source.events)) return null;
 
-  const rows = new Map<string, CabinetBinding>();
+  const rows = new Map<string, EventSound>();
   const invalidKeys = new Set<string>();
   const seenKeys = new Set<string>();
-  const unexpectedUnknowns = new Map<string, CabinetBinding>();
+  const unexpectedUnknowns = new Map<string, EventSound>();
   for (const value of source.events) {
     const key = rowKey(value);
     if (!key) continue;
@@ -277,40 +311,23 @@ export function parseMediaCabinet(value: unknown): MediaCabinet | null {
   return {
     schema_version: "1.0.0",
     active,
-    match_active: source.match_active,
+    match_active: flags.includes(true),
     bindings,
   };
 }
 
-export function groupCabinetBindings(bindings: readonly CabinetBinding[]): CabinetGroup[] {
-  const groups = new Map<string, CabinetBinding[]>();
-  for (const binding of bindings) {
-    const group = groups.get(binding.event_id) ?? [];
-    group.push(binding);
-    groups.set(binding.event_id, group);
-  }
-  return [...groups].map(([eventId, items]) => ({ eventId, bindings: items }));
-}
-
-export function cabinetMatchesPack(
-  cabinet: MediaCabinet,
-  activePack: CabinetPackRef | null | undefined,
+export function eventMapMatchesPack(
+  eventMap: MediaEventMap,
+  activePack: EventMapPackRef | null | undefined,
 ): boolean {
   if (activePack === undefined) return true;
-  if (activePack === null) return cabinet.active === null;
-  return cabinet.active?.install_id === activePack.install_id
-    && cabinet.active.revision === activePack.revision;
+  if (activePack === null) return eventMap.active === null;
+  return eventMap.active?.install_id === activePack.install_id
+    && eventMap.active.package_id === activePack.package_id
+    && eventMap.active.revision === activePack.revision;
 }
 
-export function cabinetSummary(cabinet: MediaCabinet): { mapped: number; total: number } | null {
-  if (cabinet.bindings.some((binding) => binding.state === "unknown")) return null;
-  return {
-    mapped: cabinet.bindings.filter((binding) => binding.state === "ready" || binding.state === "inherited").length,
-    total: cabinet.bindings.length,
-  };
-}
-
-export type CabinetBlockCode =
+export type EventMapBlockCode =
   | "CAPABILITY_UNAVAILABLE"
   | "AUDITION_MATCH_ACTIVE"
   | "AUDITION_NO_ACTIVE_PACK"
@@ -320,17 +337,17 @@ export type CabinetBlockCode =
   | "AUDITION_EVENT_UNAVAILABLE"
   | "AUDITION_BUSY";
 
-export function cabinetPlayBlock(
-  cabinet: MediaCabinet | null,
-  binding: CabinetBinding,
+export function eventMapPlayBlock(
+  eventMap: MediaEventMap | null,
+  binding: EventSound,
   hostDisabled: boolean,
   busy: boolean,
   phaseMatchActive = false,
-): CabinetBlockCode | null {
+): EventMapBlockCode | null {
   if (hostDisabled) return "CAPABILITY_UNAVAILABLE";
-  if (!cabinet) return "AUDITION_MEDIA_STATE_UNKNOWN";
-  if (phaseMatchActive || cabinet.match_active) return "AUDITION_MATCH_ACTIVE";
-  if (!cabinet.active) return "AUDITION_NO_ACTIVE_PACK";
+  if (!eventMap) return "AUDITION_MEDIA_STATE_UNKNOWN";
+  if (phaseMatchActive || eventMap.match_active) return "AUDITION_MATCH_ACTIVE";
+  if (!eventMap.active) return "AUDITION_NO_ACTIVE_PACK";
   if (binding.state === "unknown") return "AUDITION_MEDIA_STATE_UNKNOWN";
   if (binding.state === "unmapped") return "AUDITION_UNMAPPED";
   if (binding.state === "invalid_media") return "AUDITION_MEDIA_INVALID";
@@ -341,4 +358,13 @@ export function cabinetPlayBlock(
   if (binding.state === "detector_unavailable" && binding.variants.length === 0) return "AUDITION_UNMAPPED";
   if (busy) return "AUDITION_BUSY";
   return null;
+}
+
+export async function auditionSound<T>(
+  command: (eventId: string, tier: number | null) => Promise<T>,
+  row: SoundKey,
+  blocked: string | null,
+): Promise<T | null> {
+  if (blocked !== null) return null;
+  return command(row.event_id, row.tier);
 }

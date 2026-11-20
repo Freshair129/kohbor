@@ -51,6 +51,7 @@ pub trait MediaJobs: Send + Sync {
         policy: ActivationPolicy,
     ) -> Result<Value, String>;
     fn list(&self) -> Result<Value, String>;
+    fn pack_summaries(&self) -> Result<Value, String>;
     /// Read-only active-pack bindings; implementations without a store report it unavailable.
     fn active_bindings(&self) -> Result<Value, String> {
         Err("CAPABILITY_UNAVAILABLE".to_owned())
@@ -87,6 +88,10 @@ impl MediaJobs for MediaHandle {
 
     fn list(&self) -> Result<Value, String> {
         MediaHandle::list(self)
+    }
+
+    fn pack_summaries(&self) -> Result<Value, String> {
+        MediaHandle::pack_summaries(self)
     }
 
     fn active_bindings(&self) -> Result<Value, String> {
@@ -204,6 +209,11 @@ impl CommandApi {
     pub fn media_list(&self) -> Result<Value, String> {
         self.ensure_running()?;
         self.media.list()
+    }
+
+    pub fn media_pack_summaries(&self) -> Result<Value, String> {
+        self.ensure_running()?;
+        self.media.pack_summaries()
     }
 
     /// Read-only active-pack event/tier bindings and verification status; no paths.
@@ -948,6 +958,9 @@ mod tests {
         }
         fn list(&self) -> Result<Value, String> {
             Ok(Value::Null)
+        }
+        fn pack_summaries(&self) -> Result<Value, String> {
+            Err("CAPABILITY_UNAVAILABLE".to_owned())
         }
         fn active_bindings(&self) -> Result<Value, String> {
             self.calls.fetch_add(1, Ordering::Relaxed);
