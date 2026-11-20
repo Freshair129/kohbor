@@ -1290,7 +1290,7 @@ mod tests {
     fn installed_summary_counts_bindings_and_serves_an_inactive_verified_cover() {
         let temp = TempDir::new("installed-summary");
         let mut store = Store::open(
-            temp.path().join("store"),
+            &temp.path().join("store"),
             catalog(),
             kohbor_pack::Limits::default(),
         )
@@ -1377,7 +1377,7 @@ mod tests {
     fn installed_summary_groups_tiers_and_keeps_missing_descriptor_local_to_one_pack() {
         let temp = TempDir::new("installed-summary-tiers");
         let mut store = Store::open(
-            temp.path().join("store"),
+            &temp.path().join("store"),
             catalog(),
             kohbor_pack::Limits::default(),
         )
