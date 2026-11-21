@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="th" data-lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>R Account registration — Kohbor Command Deck proposal (not approved)</title>
+<!-- PLACEHOLDER: the recommended resolution is self-hosted fonts (no third-party request). This artboard cannot add font files, so it keeps the optional web font link used on the sibling artboards; the stack falls back to Leelawadee UI / system-ui when offline. No other external request, no script from outside. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="tokens.css">
+<style>
+/* Page-local layout only. Every colour, radius, type stack and target size is a Command Deck token from tokens.css. */
+.artboard-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; margin-top: 20px; padding-top: 16px; border-top: 3px double var(--line-strong); }
+.artboard-head h2 { margin: 0; font-size: 20px; }
+.artboard-head .cap { flex: 1 1 320px; }
+
+/* ---------- Artboard 1: the app's two-rail shell (mock chrome) ---------- */
+.shell { display: grid; grid-template-columns: var(--rail-width) minmax(0, 1fr) var(--rail-width); min-width: 900px; border: 1px solid var(--line); border-radius: var(--r-card); overflow: hidden; background: var(--surface); }
+.rail { display: flex; flex-direction: column; gap: 4px; padding: 8px 4px; background: var(--ground); font-size: 12px; line-height: 1.3; text-align: center; color: var(--muted); }
+.rail-l { border-right: 1px solid var(--line); } .rail-r { border-left: 1px solid var(--line); }
+.rail b { display: grid; place-items: center; min-height: 44px; font-size: 13px; color: var(--text); font-weight: 700; }
+.rail span { display: grid; place-items: center; min-height: 44px; padding: 0 2px; border: 1px solid transparent; border-radius: var(--r-control); }
+.rail span.is-here { border-color: var(--brand-edge); background: var(--brand); color: var(--brand-ink); font-weight: 600; }
+.rail span.is-slot { border: 1px dashed var(--line-strong); }
+.rail .rail-acct { width: 44px; height: 44px; min-height: 44px; margin: 0 auto; border: 2px dashed var(--stale); border-radius: 50%; color: var(--muted); font-size: 16px; }
+.rail small { font-size: 11px; }
+.shell-main { min-width: 0; padding: 16px 20px 24px; display: flex; flex-direction: column; gap: 14px; }
+.page-head { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 16px; }
+.page-head small { display: block; font-size: 12px; letter-spacing: 0.08em; color: var(--muted); }
+.page-head h3 { font-size: 22px; font-weight: 600; line-height: 1.3; }
+.page-head p { color: var(--text-2); }
+.states { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 350px), 1fr)); align-items: start; }
+.states[data-view="one"] { grid-template-columns: minmax(0, 560px); justify-content: center; }
+.group-title { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; margin-top: 6px; font-size: 13px; font-weight: 600; color: var(--text-2); }
+.group-title::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+.states[data-view="one"] .group-title { display: none; }
+
+/* A state card */
+.st { background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-card); padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.st > * { min-width: 0; }
+.st[hidden], [hidden] { display: none !important; }
+.st-id { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 12px; color: var(--muted); }
+.st-id b { font-family: var(--font-mono); color: var(--text-2); font-weight: 600; }
+.st h4 { margin: 0; font-size: 18px; font-weight: 600; line-height: 1.4; }
+.st h4 .chip { font-size: 13px; font-weight: 500; vertical-align: middle; margin-left: 6px; }
+.st h5 { margin: 4px 0 0; font-size: 14px; font-weight: 600; }
+.st p, .st li { color: var(--text); overflow-wrap: anywhere; }
+.st .quiet { color: var(--text-2); font-size: 13px; }
+.st ul.pts { display: grid; gap: 4px; padding-left: 18px; list-style: disc; }
+.st .cap { margin-top: auto; padding-top: 8px; border-top: 1px dashed var(--line); }
+.acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.beside { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.beside .promise { font-weight: 600; }
+.promise::before { content: "✓ "; color: var(--accent); font-weight: 700; }
+.box { border: 1px solid var(--line); border-radius: var(--r-control); background: var(--raised); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.box.is-wait { border: 2px solid var(--accent); background: var(--accent-surface); }
+.count { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 20px; font-weight: 600; }
+/* Problem and notice blocks: glyph + words + edge, never colour alone. */
+.msg { border-radius: var(--r-control); padding: 8px 12px; border: 1px solid var(--line-strong); border-left-width: 5px; background: var(--raised); }
+.msg b { display: block; }
+.msg-err { border-color: var(--critical); background: var(--critical-surface); }
+.msg-err b::before { content: "▲ "; color: var(--critical); }
+.msg-warn { border-color: var(--warning); background: var(--warning-surface); }
+.msg-warn b::before { content: "! "; color: var(--warning); font-weight: 700; }
+.msg-ok { border-color: var(--accent); background: var(--accent-surface); }
+.msg-ok b::before { content: "✓ "; color: var(--accent); }
+/* Fields */
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field label { font-weight: 600; }
+.field input[type="text"] { width: 100%; min-height: var(--target-min); padding: 0 12px; border-radius: var(--r-control); border: 1px solid var(--line-strong); background: var(--ground); color: var(--text); font: inherit; font-size: 16px; }
+.field input[aria-invalid="true"] { border: 2px solid var(--critical); }
+.field .hint { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; color: var(--text-2); }
+.field .hint .n { margin-left: auto; font-family: var(--font-mono); }
+.field .ferr { font-size: 13px; font-weight: 600; } .field .ferr::before { content: "▲ "; color: var(--critical); }
+/* Friend code */
+.code { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px; border: 2px solid var(--accent); border-radius: var(--r-control); background: var(--accent-surface); }
+.code output { font-family: var(--font-mono); font-size: 22px; font-weight: 600; letter-spacing: 0.06em; user-select: all; margin-right: auto; white-space: nowrap; }
+.code.is-cached { border: 2px dashed var(--stale); background: none; }
+.code.is-none { border: 2px dashed var(--stale); background: none; color: var(--muted); }
+/* Rows: sessions, data actions */
+.rows { display: flex; flex-direction: column; }
+.rows > li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 0; border-top: 1px solid var(--line-subtle); }
+.rows > li > span:first-child { flex: 1 1 170px; min-width: 0; }
+.rows small { display: block; color: var(--text-2); font-size: 13px; }
+dl.kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 14px; } dl.kv dt { color: var(--muted); }
+.steps3 { counter-reset: s; display: grid; gap: 6px; }
+.steps3 > li { counter-increment: s; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: baseline; }
+.steps3 > li::before { content: counter(s); font-family: var(--font-mono); font-weight: 600; width: 1.9em; height: 1.9em; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: 50%; }
+.steps3 > li.is-now::before { border: 2px solid var(--accent); background: var(--accent-surface); }
+.steps3 > li.is-done::before { content: "✓"; }
+
+/* ---------- Artboard 2: website entry. No rails, no sidebars, no status readouts. ---------- */
+.web-frame { container-type: inline-size; width: 100%; margin: 0 auto; border: 1px solid var(--line); border-radius: var(--r-card); overflow: hidden; }
+.web { font-size: 17px; line-height: 1.75; }
+.web section, .web header, .web footer { padding: clamp(28px, 6cqi, 72px) clamp(18px, 6cqi, 72px); background: var(--ground); color: var(--text); }
+.web header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding-block: 14px; border-bottom: 1px solid var(--line); }
+.web header strong { font-size: 18px; margin-right: auto; }
+.web .inner { max-width: 1040px; margin: 0 auto; display: grid; gap: 18px; }
+.web .eyebrow { font-size: 14px; font-weight: 600; letter-spacing: 0.04em; color: var(--text-2); }
+.web h3 { font-size: clamp(30px, 6.2cqi, 60px); line-height: 1.25; font-weight: 700; letter-spacing: -0.01em; max-width: 16em; text-wrap: balance; }
+.web h4 { margin: 0; font-size: clamp(22px, 3.6cqi, 32px); line-height: 1.35; font-weight: 600; text-wrap: balance; }
+.web p { max-width: 38em; color: var(--text-2); }
+.web p.lead { font-size: clamp(18px, 2.4cqi, 21px); color: var(--text); }
+.web .cols { display: grid; gap: 20px 32px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.web .cols > li { padding-top: 12px; border-top: 2px solid var(--line-strong); }
+.web .cols b { display: block; font-size: 19px; }
+.web .cols span { color: var(--text-2); }
+.web .nots { display: grid; gap: 10px 32px; grid-template-columns: repeat(2, minmax(0, 1fr)); font-size: 19px; font-weight: 600; }
+.web .nots > li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; }
+.web .nots > li::before { content: "×"; font-weight: 700; }
+/* Barber Red room: fill only, Bone is the only ink on it (tokens rule). */
+.web .room-red { background: var(--brand); color: var(--brand-ink); }
+.web .room-red p, .web .room-red .eyebrow { color: var(--brand-ink); }
+.web .room-red :focus-visible { outline-color: var(--brand-ink); }
+.web .how { counter-reset: h; display: grid; gap: 18px 28px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.web .how > li { counter-increment: h; display: grid; gap: 4px; align-content: start; }
+.web .how > li::before { content: "0" counter(h); font-family: var(--font-mono); font-size: 15px; color: var(--muted); }
+.web .how b { font-size: 19px; }
+.web .how span { color: var(--text-2); }
+.web .dl { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.web .dl button { min-height: 60px; padding: 0 22px; font-size: 18px; font-weight: 600; background: none; border-width: 2px; }
+.web .ph { display: inline-block; padding: 0 0.6em; border: 1.5px dashed var(--line-strong); border-radius: var(--r-chip); font-size: 13px; font-weight: 600; color: var(--text-2); white-space: nowrap; }
+.web .know { display: grid; gap: 8px; padding-left: 1.1em; border-left: 2px dashed var(--line-strong); max-width: 38em; color: var(--text-2); }
+.web footer { padding-block: 22px; border-top: 1px solid var(--line); font-size: 14px; color: var(--text-2); }
+.web footer p { max-width: none; }
+@container (max-width: 720px) {
+  .web { font-size: 16px; }
+  .web .cols, .web .nots, .web .how { grid-template-columns: minmax(0, 1fr); }
+  .web .dl button { width: 100%; }
+}
+</style>
+</head>
+<body>
+<div class="doc-page">
+  <header class="doc-head">
+    <h1>R · Account registration: first sign-in and account creation</h1>
+    <div class="seg" role="group" aria-label="Theme"><span>Theme</span><button data-set="theme=auto">Auto</button><button data-set="theme=dark">Dark</button><button data-set="theme=light">Light</button></div>
+    <div class="seg" role="group" aria-label="Language"><span>Copy</span><button data-set="lang=th">ไทย</button><button data-set="lang=en">EN</button><button data-set="lang=both">ไทย + EN</button></div>
+    <nav class="doc-nav" aria-label="Mockups"><a href="index.html">Gallery</a><a href="deck-live.html">A Deck Live</a><a href="minimap.html">B Minimap</a><a href="cards.html">C Cards</a><a href="social.html">D+G Social and flow</a><a href="inspector.html">E Events and inspector</a><a href="glance-and-idle.html">F Glance, idle, themes</a><a href="register.html" aria-current="page">R Registration</a></nav>
+  </header>
+  <p class="status-note">Design proposal. Not approved. No account service exists; hosting is not provisioned; a public website is not owner-approved. Every name, friend code, date, countdown and link on this page is an example or a placeholder, not real data. Specification: docs/design/ACCOUNT-REGISTRATION-UX.md.</p>
+
+  <!-- =================================================== ARTBOARD 1 — APP =================================================== -->
+  <div class="artboard-head"><h2>Artboard 1 · App</h2><p class="cap">The Account destination inside the app's two-rail shell. The rails are mock chrome with placeholder labels; they are not part of this design. All states are laid out at once; pick one to see it alone.</p></div>
+  <div class="seg" role="group" aria-label="State shown"><span>State</span>
+    <button data-set="state=all">All</button><button data-set="state=a1">A1 guest</button><button data-set="state=a2">A2 browser</button><button data-set="state=a4">A4 name</button><button data-set="state=a5">A5 ready</button><button data-set="state=a6">A6 offline</button><button data-set="state=a7">A7 account</button><button data-set="state=a8">A8 delete</button><button data-set="state=e1">E1 errors</button>
+  </div>
+
+  <div class="scroll-x">
+  <div class="shell">
+    <div class="rail rail-l" aria-hidden="true"><b>KB</b><span>ภาพรวม</span><span>สด</span><span>แพ็ก</span><span>สถิติ</span><span>ร้าน</span><span>สถานะ</span><span>บันทึก</span><span>ตั้งค่า</span></div>
+
+    <main class="shell-main">
+      <div class="page-head"><div><small>ACCOUNT</small><h3><span class="th">บัญชีของฉัน</span><span class="en">My account</span></h3></div>
+        <p><span class="th">บัญชีเกาะเบาะใช้จัดการตัวตน ไม่ใช่การยินยอมแชร์ข้อมูล</span><span class="en">Your Kohbor identity is separate from consent to share data.</span></p></div>
+
+      <div class="states" id="states" data-view="all">
+
+        <p class="group-title">1 · Guest</p>
+
+        <section class="st" id="a1" data-group="a1" aria-labelledby="a1-h">
+          <p class="st-id"><b>A1 · signed_out</b> service open, no match running</p>
+          <h4 id="a1-h"><span class="th">บัญชี (ไม่บังคับ)</span><span class="en">Account (optional)</span></h4>
+          <p><span class="th">ทุกอย่างในเครื่องนี้ใช้ได้โดยไม่ต้องเข้าสู่ระบบ บัญชีมีไว้สำหรับเพื่อนและรายชื่อแชร์เท่านั้น</span><span class="en">Everything on this PC works without signing in. An account is only for friends and the Share list.</span></p>
+          <div class="beside">
+            <button type="button" class="primary" aria-describedby="a1-promise a1-gets a1-alpha"><span class="th">เข้าสู่ระบบด้วย Google (เปิดเบราว์เซอร์)</span><span class="en">Sign in with Google (opens your browser)</span></button>
+            <span class="promise" id="a1-promise"><span class="th">การเข้าสู่ระบบไม่แชร์ข้อมูลอะไร</span><span class="en">Signing in shares nothing.</span></span>
+          </div>
+          <p class="quiet" id="a1-gets"><span class="th">เกาะเบาะได้รับแค่รหัสระบุบัญชี ไม่มีอีเมล ไม่มีรายชื่อติดต่อ และไม่เคยขอรหัสผ่าน</span><span class="en">Kohbor receives an account identifier only. No email, no contacts, and it never asks for a password.</span></p>
+          <p class="quiet" id="a1-alpha"><span class="pending">alpha only</span> <span class="th">ช่วงทดสอบ: เข้าสู่ระบบได้เฉพาะบัญชี Google ที่ได้รับเชิญ</span><span class="en">Test period: only invited Google accounts can sign in.</span></p>
+          <p class="quiet"><span class="th">ไม่มีบัญชี Google ก็ไม่เป็นไร ใช้ต่อแบบไม่เข้าสู่ระบบได้ครบทุกอย่างในเครื่อง</span><span class="en">No Google account? That is fine. Everything on this PC keeps working without one.</span></p>
+          <p class="cap"><b>A1 Guest.</b> One primary action. The promise sits beside the button and is its accessible description. No "continue as guest" button: being a guest needs no action on this page. The "invited accounts only" line is shown while sign-in is limited to invited testers and removed afterwards.</p>
+        </section>
+
+        <section class="st" id="a1b" data-group="a1" aria-labelledby="a1b-h">
+          <p class="st-id"><b>A1b · signed_out</b> service not open <span class="pending">what ships today</span></p>
+          <h4 id="a1b-h"><span class="th">บัญชี (ไม่บังคับ)</span><span class="en">Account (optional)</span></h4>
+          <p><span class="th">ทุกอย่างในเครื่องนี้ใช้ได้โดยไม่ต้องเข้าสู่ระบบ</span><span class="en">Everything on this PC works without signing in.</span></p>
+          <div class="beside">
+            <button type="button" class="primary" disabled aria-describedby="a1b-why"><span class="th">เข้าสู่ระบบด้วย Google (เปิดเบราว์เซอร์)</span><span class="en">Sign in with Google (opens your browser)</span></button>
+            <span class="promise"><span class="th">การเข้าสู่ระบบไม่แชร์ข้อมูลอะไร</span><span class="en">Signing in shares nothing.</span></span>
+          </div>
+          <p class="quiet" id="a1b-why"><span class="th">บริการบัญชียังไม่เปิด ยังเข้าสู่ระบบไม่ได้ในรุ่นนี้</span><span class="en">The account service is not open yet. You cannot sign in in this version.</span></p>
+          <div class="code is-none"><output>—</output><span class="quiet"><span class="th">รหัสเพื่อน: ยังไม่มี</span><span class="en">Friend code: none yet</span></span></div>
+          <p class="cap"><b>A1b Service not open.</b> Disabled, dashed, with the reason in words. The friend code is an em dash, never a sample value.</p>
+        </section>
+
+        <section class="st" id="a1c" data-group="a1" aria-labelledby="a1c-h">
+          <p class="st-id"><b>A1c · signed_out</b> a match is live</p>
+          <h4 id="a1c-h"><span class="th">บัญชี (ไม่บังคับ)</span><span class="en">Account (optional)</span></h4>
+          <div class="beside">
+            <button type="button" class="primary" disabled aria-describedby="a1c-why"><span class="th">เข้าสู่ระบบด้วย Google (เปิดเบราว์เซอร์)</span><span class="en">Sign in with Google (opens your browser)</span></button>
+            <span class="promise"><span class="th">การเข้าสู่ระบบไม่แชร์ข้อมูลอะไร</span><span class="en">Signing in shares nothing.</span></span>
+          </div>
+          <p class="quiet" id="a1c-why"><span class="th">คุณอยู่ในแมตช์ เข้าสู่ระบบได้หลังจบแมตช์ เราจะไม่เปิดเบราว์เซอร์ทับเกม</span><span class="en">You are in a match. You can sign in when it ends. We will not open a browser over your game.</span></p>
+          <p class="cap"><b>A1c In a match.</b> Sign-in is not offered during a live match (ACCOUNT-IDENTITY-REVIEW §5 item 2).</p>
+        </section>
+
+        <p class="group-title">2 · Sign-in hand-off</p>
+
+        <section class="st" id="a2" data-group="a2" aria-labelledby="a2-h">
+          <p class="st-id"><b>A2 · browser_handoff</b></p>
+          <h4 id="a2-h" tabindex="-1"><span class="th">ทำต่อในเบราว์เซอร์ให้เสร็จ</span><span class="en">Finish signing in in your browser</span></h4>
+          <ol class="steps3">
+            <li class="is-now"><span><span class="th">เลือกบัญชี Google ในเบราว์เซอร์ที่เราเพิ่งเปิดให้</span><span class="en">Choose your Google account in the browser we just opened.</span></span></li>
+            <li><span><span class="th">กลับมาที่เกาะเบาะ หน้านี้จะไปต่อเอง</span><span class="en">Come back to Kohbor. This page continues by itself.</span></span></li>
+          </ol>
+          <div class="box is-wait"><span><span class="th">กำลังรอเบราว์เซอร์ · หมดเวลาใน</span><span class="en">Waiting for your browser · times out in</span> <span class="count">4:32</span> <span class="tag tag-sample">example</span></span></div>
+          <div class="acts"><button type="button"><span class="th">ยกเลิก</span><span class="en">Cancel</span></button><button type="button"><span class="th">เปิดเบราว์เซอร์อีกครั้ง</span><span class="en">Open the browser again</span></button></div>
+          <p class="quiet"><span class="th">เกาะเบาะไม่ขอรหัสผ่าน อย่าพิมพ์รหัสผ่าน Google ในแอปนี้</span><span class="en">Kohbor never asks for a password. Do not type your Google password into this app.</span></p>
+          <p class="cap"><b>A2 Finish in your browser.</b> No spinner and no pulse: the countdown is the only thing that changes. The Kohbor window does not raise itself or take focus. Cancel is first in tab order. Timeout: 5 minutes (recommended resolution).</p>
+        </section>
+
+        <section class="st" id="a3" data-group="a2" aria-labelledby="a3-h">
+          <p class="st-id"><b>A3 · signing_in</b> the browser has answered</p>
+          <h4 id="a3-h"><span class="th">กำลังตรวจสอบกับเกาะเบาะ</span><span class="en">Checking with Kohbor</span></h4>
+          <ol class="steps3">
+            <li class="is-done"><span><span class="th">เลือกบัญชี Google แล้ว</span><span class="en">Google account chosen.</span></span></li>
+            <li class="is-now"><span><span class="th">กำลังเปิดบัญชีเกาะเบาะของคุณ ใช้เวลาไม่นาน</span><span class="en">Opening your Kohbor account. This takes a moment.</span></span></li>
+          </ol>
+          <div class="acts"><button type="button"><span class="th">ยกเลิก</span><span class="en">Cancel</span></button></div>
+          <p class="quiet"><span class="th">ปิดแท็บเบราว์เซอร์นั้นได้แล้ว</span><span class="en">You can close that browser tab now.</span></p>
+          <p class="cap"><b>A3 Checking.</b> Short state between the browser's answer and the service's answer. Leads to A4 on a first sign-in, to A7 for a returning account.</p>
+        </section>
+
+        <p class="group-title">3 · Display name</p>
+
+        <section class="st" id="a4" data-group="a4" aria-labelledby="a4-h">
+          <p class="st-id"><b>A4 · needs_display_name</b> <span class="pending">try typing</span></p>
+          <h4 id="a4-h"><span class="th">ตั้งชื่อที่เพื่อนจะเห็น</span><span class="en">Choose the name your friends see</span></h4>
+          <p class="quiet"><span class="th">เราไม่ดึงชื่อจาก Google คุณพิมพ์เองที่นี่</span><span class="en">We do not take a name from Google. You type it here.</span></p>
+          <form class="field" id="name-form" novalidate>
+            <label for="name-in"><span class="th">ชื่อที่แสดง</span><span class="en">Display name</span></label>
+            <input type="text" id="name-in" autocomplete="off" spellcheck="false" aria-describedby="name-hint name-err">
+            <p class="hint" id="name-hint"><span><span class="th">1 ถึง 32 ตัวอักษร เปลี่ยนได้ภายหลัง</span><span class="en">1 to 32 characters. You can change it later.</span></span><span class="n" id="name-n" aria-hidden="true">0 / 32</span></p>
+            <p class="ferr" id="name-err" role="alert" hidden><span class="th">ชื่อยาวเกิน 32 ตัวอักษร ลบออกบางส่วน</span><span class="en">The name is longer than 32 characters. Remove some.</span></p>
+            <div class="acts"><button type="submit" class="primary" id="name-go" disabled><span class="th">บันทึกชื่อ</span><span class="en">Save name</span></button><button type="button"><span class="th">ออกจากระบบ</span><span class="en">Sign out</span></button></div>
+          </form>
+          <p class="quiet"><span class="th">คนที่เห็นชื่อนี้: เพื่อนของคุณ และคนที่คุณส่งหรือได้รับคำขอเป็นเพื่อน เท่านั้น</span><span class="en">Who sees this name: your friends, and people you send a friend request to or get one from. Nobody else.</span></p>
+          <p class="cap"><b>A4 Display name.</b> The field starts empty: nothing is prefilled from Google or Steam. The account is not usable for friends until a name is saved; Sign out is the way to leave. The counter counts grapheme clusters (what a person sees as one character; a Thai consonant with its vowel and tone mark is 1), as recommended; the service is the authority. Names need not be unique.</p>
+        </section>
+
+        <section class="st" id="a4e" data-group="a4" aria-labelledby="a4e-h">
+          <p class="st-id"><b>A4e · needs_display_name</b> name refused by the service</p>
+          <h4 id="a4e-h"><span class="th">ตั้งชื่อที่เพื่อนจะเห็น</span><span class="en">Choose the name your friends see</span></h4>
+          <div class="field">
+            <label for="name-bad"><span class="th">ชื่อที่แสดง</span><span class="en">Display name</span></label>
+            <input type="text" id="name-bad" value="ตัวอย่าง​ชื่อ" aria-invalid="true" aria-describedby="name-bad-err" autocomplete="off">
+            <p class="ferr" id="name-bad-err"><span class="th">ใช้ชื่อนี้ไม่ได้ ชื่อมีอักขระที่มองไม่เห็นหรือใช้ไม่ได้ พิมพ์ชื่อใหม่ด้วยตัวอักษร ตัวเลข หรือเว้นวรรค</span><span class="en">This name cannot be used. It contains a hidden or unsupported character. Type it again using letters, numbers or spaces.</span></p>
+            <div class="acts"><button type="button" class="primary"><span class="th">บันทึกชื่อ</span><span class="en">Save name</span></button><button type="button"><span class="th">ออกจากระบบ</span><span class="en">Sign out</span></button></div>
+          </div>
+          <p class="cap"><b>A4e Name invalid.</b> The typed text is kept, the field is marked invalid, focus returns to it, and the message says what is wrong and what to do. Empty and too-long are caught before sending (A4). The example value is an example.</p>
+        </section>
+
+        <p class="group-title">4 · Account ready</p>
+
+        <section class="st" id="a5" data-group="a5" aria-labelledby="a5-h">
+          <p class="st-id"><b>A5 · signed_in_online</b> first time</p>
+          <h4 id="a5-h" tabindex="-1"><span class="th">บัญชีพร้อมใช้แล้ว</span><span class="en">Your account is ready</span></h4>
+          <h5 id="a5-code"><span class="th">รหัสเพื่อนของคุณ</span><span class="en">Your friend code</span></h5>
+          <div class="code" role="group" aria-labelledby="a5-code"><output>KB-DEMO-0001</output><span class="tag tag-sample">example</span>
+            <button type="button" data-copy><span class="th">คัดลอก</span><span class="en">Copy</span></button></div>
+          <p class="sr" role="status" id="copy-live"></p>
+          <p><span class="th">ส่งรหัสนี้ให้คนที่คุณอยากเป็นเพื่อนด้วย ไม่มีรายชื่อผู้เล่นให้ค้นหา คนอื่นหาคุณได้ด้วยรหัสนี้เท่านั้น</span><span class="en">Give this code to people you want as friends. There is no player directory: this code is the only way to find you.</span></p>
+          <div class="acts"><button type="button"><span class="th">ขอรหัสใหม่</span><span class="en">Get a new code</span></button><button type="button" class="primary"><span class="th">เสร็จแล้ว</span><span class="en">Done</span></button></div>
+          <p class="quiet"><span class="promise"><span class="th">ตอนนี้ยังไม่มีการแชร์อะไร</span><span class="en">Nothing is being shared.</span></span> <span class="th">การแชร์เริ่มเมื่อคุณเพิ่มเพื่อนเข้ารายชื่อแชร์เองเท่านั้น</span><span class="en">Sharing starts only when you add a friend to your Share list yourself.</span></p>
+          <p class="cap"><b>A5 Account ready.</b> Shown once after the name is saved. The code is minted by the service; the format drawn is not the real format. Copy confirms in words ("Copied") through a status region.</p>
+        </section>
+
+        <section class="st" id="a5b" data-group="a5" role="group" aria-labelledby="a5b-h">
+          <p class="st-id"><b>A5b · confirm</b> get a new code (dialog)</p>
+          <h4 id="a5b-h"><span class="th">ขอรหัสเพื่อนใหม่?</span><span class="en">Get a new friend code?</span></h4>
+          <ul class="pts">
+            <li><span class="th"><b>รหัสเดิมจะใช้ไม่ได้ทันที</b> ใครที่มีรหัสเดิมจะใช้เพิ่มคุณไม่ได้อีก</span><span class="en"><b>The old code stops working at once.</b> Anyone who has it can no longer use it to add you.</span></li>
+            <li><span class="th"><b>เพื่อนของคุณยังอยู่ครบ</b> รายชื่อแชร์ไม่เปลี่ยน คำขอเป็นเพื่อนที่รออยู่ยังอยู่เหมือนเดิม</span><span class="en"><b>Your friends stay.</b> Your Share list does not change. Friend requests that are waiting stay as they are.</span></li>
+            <li><span class="th">เปลี่ยนกลับเป็นรหัสเดิมไม่ได้ ขอรหัสใหม่ได้วันละ 3 ครั้ง</span><span class="en">You cannot go back to the old code. You can get a new code 3 times a day.</span></li>
+          </ul>
+          <div class="acts"><button type="button"><span class="th">เก็บรหัสเดิม</span><span class="en">Keep this code</span></button><button type="button" class="primary"><span class="th">ขอรหัสใหม่</span><span class="en">Get a new code</span></button></div>
+          <p class="cap"><b>A5b New code.</b> A modal dialog: focus starts on "Keep this code", Esc keeps the code. Not styled as danger, because friendships are not lost. At the daily limit the button is disabled with: "You have used today's 3 new codes. Try again tomorrow. Your current code still works."</p>
+        </section>
+
+        <p class="group-title">5 · Signed in, offline</p>
+
+        <section class="st" id="a6" data-group="a6" aria-labelledby="a6-h">
+          <p class="st-id"><b>A6 · signed_in_offline</b></p>
+          <h4 id="a6-h"><span class="th">เข้าสู่ระบบอยู่ · ออฟไลน์</span><span class="en">Signed in, offline</span></h4>
+          <div class="msg msg-warn"><b><span class="th">เพื่อนและการแชร์หยุดชั่วคราว</span><span class="en">Friends and sharing are paused</span></b><span class="th">ทุกอย่างในเครื่องนี้ยังใช้ได้ตามปกติ ไม่มีอะไรถูกส่งหรือรับ</span><span class="en">Everything on this PC keeps working. Nothing is sent or received.</span></div>
+          <dl class="kv"><dt><span class="th">ชื่อที่แสดง</span><span class="en">Display name</span></dt><dd>ตัวอย่างชื่อ <span class="tag tag-sample">example</span></dd></dl>
+          <div class="code is-cached"><output>KB-DEMO-0001</output><span class="tag tag-sample">example</span><button type="button" data-copy><span class="th">คัดลอก</span><span class="en">Copy</span></button></div>
+          <p class="quiet"><span class="th">รหัสนี้เป็นค่าที่บันทึกไว้ในเครื่อง เมื่อกลับมาออนไลน์จึงจะขอรหัสใหม่ เปลี่ยนชื่อ ส่งออก หรือลบบัญชีได้</span><span class="en">This code is the copy saved on this PC. Getting a new code, changing your name, export and delete need a connection.</span></p>
+          <div class="acts"><button type="button"><span class="th">ลองเชื่อมต่ออีกครั้ง</span><span class="en">Try to connect again</span></button><button type="button"><span class="th">ออกจากระบบ</span><span class="en">Sign out</span></button></div>
+          <p class="cap"><b>A6 Signed in, offline.</b> No dialog and no automatic retry loop on this screen; reconnecting is one manual press. The cached code is drawn dashed. Sign out still works offline (it clears this PC).</p>
+        </section>
+
+        <p class="group-title">6 · Account screen</p>
+
+        <section class="st" id="a7" data-group="a7" aria-labelledby="a7-h">
+          <p class="st-id"><b>A7 · signed_in_online</b> account screen</p>
+          <h4 id="a7-h"><span class="th">บัญชี</span><span class="en">Account</span> <span class="chip chip-fresh"><span class="th">ออนไลน์</span><span class="en">Online</span></span></h4>
+          <dl class="kv"><dt><span class="th">ชื่อที่แสดง</span><span class="en">Display name</span></dt><dd>ตัวอย่างชื่อ <span class="tag tag-sample">example</span> <button type="button"><span class="th">เปลี่ยนชื่อ</span><span class="en">Change name</span></button></dd></dl>
+          <div class="code"><output>KB-DEMO-0001</output><span class="tag tag-sample">example</span><button type="button" data-copy><span class="th">คัดลอก</span><span class="en">Copy</span></button><button type="button"><span class="th">ขอรหัสใหม่</span><span class="en">Get a new code</span></button></div>
+          <h5><span class="th">อุปกรณ์ที่เข้าสู่ระบบอยู่</span><span class="en">Devices signed in</span></h5>
+          <ul class="rows">
+            <li><span><b><span class="th">เครื่องนี้</span><span class="en">This PC</span></b><small><span class="th">เข้าสู่ระบบเมื่อ 21 พ.ย. 2569</span><span class="en">Signed in on 21 Nov 2026</span> <span class="tag tag-sample">example</span></small></span></li>
+            <li><span><b><span class="th">อุปกรณ์อื่น</span><span class="en">Another device</span></b><small><span class="th">เข้าสู่ระบบเมื่อ 3 พ.ย. 2569</span><span class="en">Signed in on 3 Nov 2026</span> <span class="tag tag-sample">example</span></small></span></li>
+          </ul>
+          <div class="acts"><button type="button"><span class="th">ออกจากระบบ</span><span class="en">Sign out</span></button><button type="button"><span class="th">ออกจากระบบทุกเครื่อง</span><span class="en">Sign out everywhere</span></button></div>
+          <h5><span class="th">ข้อมูลของคุณ</span><span class="en">Your data</span></h5>
+          <div class="acts"><button type="button"><span class="th">ส่งออกข้อมูลของฉัน</span><span class="en">Export my data</span></button><button type="button" class="danger"><span class="th">ลบบัญชี</span><span class="en">Delete account</span></button></div>
+          <p class="quiet"><span class="th">บัญชีเกาะเบาะกับ Steam เป็นคนละบัญชี ไม่มีการเชื่อมกัน</span><span class="en">Kohbor and Steam are separate accounts. They are not linked.</span></p>
+          <p class="cap"><b>A7 Account screen.</b> A device row shows only "This PC" or "Another device" and its sign-in date. No device name, IP address, location or "last active" time: the service does not keep them. One other device cannot be signed out alone; "Sign out" is for this PC and "Sign out everywhere" for all. No Steam control is drawn.</p>
+        </section>
+
+        <section class="st" id="a7b" data-group="a7" role="group" aria-labelledby="a7b-h">
+          <p class="st-id"><b>A7b · confirm</b> sign out everywhere (dialog)</p>
+          <h4 id="a7b-h"><span class="th">ออกจากระบบทุกเครื่อง?</span><span class="en">Sign out everywhere?</span></h4>
+          <ul class="pts">
+            <li><span class="th">ทุกเครื่องรวมถึงเครื่องนี้จะออกจากระบบ ต้องเข้าสู่ระบบด้วย Google ใหม่</span><span class="en">Every device, including this PC, is signed out. You sign in with Google again.</span></li>
+            <li><span class="th">ข้อมูลบัญชีที่บันทึกไว้ในเครื่องนี้จะถูกลบ: รายชื่อเพื่อนและรายชื่อแชร์</span><span class="en">Account data saved on this PC is erased: your friend list and Share list.</span></li>
+            <li><span class="th">บัญชี เพื่อน และรายชื่อแชร์บนบริการยังอยู่ครบ การตั้งค่าในเครื่องไม่เปลี่ยน</span><span class="en">Your account, friends and Share list stay on the service. Settings on this PC do not change.</span></li>
+          </ul>
+          <div class="acts"><button type="button"><span class="th">ยกเลิก</span><span class="en">Cancel</span></button><button type="button" class="primary"><span class="th">ออกจากระบบทุกเครื่อง</span><span class="en">Sign out everywhere</span></button></div>
+          <p class="cap"><b>A7b Sign out everywhere.</b> This PC is included (recommended resolution). It is the only way to sign another device out.</p>
+        </section>
+
+        <section class="st" id="a7c" data-group="a7" role="group" aria-labelledby="a7c-h">
+          <p class="st-id"><b>A7c · export</b> (dialog)</p>
+          <h4 id="a7c-h"><span class="th">ส่งออกข้อมูลของฉัน</span><span class="en">Export my data</span></h4>
+          <p><span class="th">เกาะเบาะจะบันทึกไฟล์ JSON หนึ่งไฟล์ลงในที่ที่คุณเลือก ในไฟล์มี:</span><span class="en">Kohbor saves one JSON file where you choose. It contains:</span></p>
+          <ul class="pts">
+            <li><span class="th">ชื่อที่แสดงและรหัสเพื่อนของคุณ</span><span class="en">Your display name and friend code</span></li>
+            <li><span class="th">รายชื่อเพื่อน (ชื่อและรหัสเพื่อน)</span><span class="en">Your friend list (names and friend codes)</span></li>
+            <li><span class="th">การตั้งค่ารายชื่อแชร์ และรายชื่อที่คุณบล็อก</span><span class="en">Your Share list settings and your block list</span></li>
+          </ul>
+          <p class="quiet"><span class="th">ไฟล์นี้มีชื่อและรหัสเพื่อนของคนอื่น เก็บไว้ในที่ปลอดภัย</span><span class="en">The file holds other people's names and friend codes. Keep it somewhere safe.</span></p>
+          <div class="acts"><button type="button"><span class="th">ยกเลิก</span><span class="en">Cancel</span></button><button type="button" class="primary"><span class="th">เลือกที่บันทึก</span><span class="en">Choose where to save</span></button></div>
+          <p class="cap"><b>A7c Export.</b> Contents follow ACCOUNT-IDENTITY-REVIEW rule 28. Result messages: "Saved to [path]" / "Could not save the file. Choose another folder."</p>
+        </section>
+
+        <section class="st" id="a8" data-group="a8" role="group" aria-labelledby="a8-h">
+          <p class="st-id"><b>A8 · deleting</b> step 1: consequences</p>
+          <h4 id="a8-h"><span class="th">ลบบัญชีเกาะเบาะ</span><span class="en">Delete your Kohbor account</span></h4>
+          <div class="msg msg-err"><b><span class="th">ลบแล้วกู้คืนไม่ได้</span><span class="en">This cannot be undone</span></b></div>
+          <h5><span class="th">สิ่งที่จะถูกลบ</span><span class="en">What is deleted</span></h5>
+          <ul class="pts">
+            <li><span class="th">ชื่อที่แสดง รหัสเพื่อน รายชื่อเพื่อน รายชื่อแชร์ และรายชื่อที่บล็อก</span><span class="en">Your display name, friend code, friend list, Share list and block list</span></li>
+            <li><span class="th">การเข้าสู่ระบบบนทุกเครื่อง</span><span class="en">Your sign-in on every device</span></li>
+            <li><span class="th">เพื่อนจะเห็นคุณหายไปจากรายชื่อ โดยไม่มีคำอธิบาย</span><span class="en">Friends see you disappear from their list. No reason is shown.</span></li>
+            <li><span class="th">สำเนาสำรองที่เข้ารหัสจะถูกลบภายใน 30 วัน</span><span class="en">Encrypted backups are deleted within 30 days.</span></li>
+          </ul>
+          <h5><span class="th">สิ่งที่ยังอยู่</span><span class="en">What stays</span></h5>
+          <ul class="pts">
+            <li><span class="th">การตั้งค่า แพ็กเสียง และทุกฟีเจอร์ในเครื่องนี้</span><span class="en">Settings, sound packs and every feature on this PC</span></li>
+            <li><span class="th">บัญชี Google ของคุณ เราไม่แตะต้อง</span><span class="en">Your Google account. We do not touch it.</span></li>
+          </ul>
+          <p><span class="th">เพื่อยืนยันว่าเป็นคุณ ให้เข้าสู่ระบบด้วย Google อีกครั้ง แล้วยืนยันการลบภายใน 5 นาที</span><span class="en">To confirm it is you, sign in with Google again, then confirm the deletion within 5 minutes.</span></p>
+          <div class="acts"><button type="button"><span class="th">เก็บบัญชีไว้</span><span class="en">Keep my account</span></button><button type="button"><span class="th">เข้าสู่ระบบอีกครั้งเพื่อไปต่อ (เปิดเบราว์เซอร์)</span><span class="en">Sign in again to continue (opens your browser)</span></button></div>
+          <p class="cap"><b>A8 Delete, step 1.</b> Nothing is deleted on this step. The fresh sign-in reuses A2. Focus starts on "Keep my account". Not offered during a live match or offline.</p>
+        </section>
+
+        <section class="st" id="a8b" data-group="a8" role="group" aria-labelledby="a8b-h">
+          <p class="st-id"><b>A8b · deleting</b> step 2: fresh sign-in done</p>
+          <h4 id="a8b-h"><span class="th">ยืนยันการลบบัญชี</span><span class="en">Confirm account deletion</span></h4>
+          <div class="box"><span><span class="th">ยืนยันตัวตนแล้ว · ต้องยืนยันภายใน</span><span class="en">Identity confirmed · confirm within</span> <span class="count">4:10</span> <span class="tag tag-sample">example</span></span></div>
+          <p><span class="th">เมื่อกดปุ่มด้านล่าง บัญชีจะถูกลบทันทีและกู้คืนไม่ได้</span><span class="en">When you press the button below, the account is deleted at once and cannot be restored.</span></p>
+          <div class="acts"><button type="button"><span class="th">เก็บบัญชีไว้</span><span class="en">Keep my account</span></button><button type="button" class="danger"><span class="th">ลบบัญชีถาวร</span><span class="en">Delete account permanently</span></button></div>
+          <div class="msg msg-ok"><b><span class="th">ลบบัญชีแล้ว</span><span class="en">Account deleted</span></b><span class="th">คุณใช้งานต่อแบบไม่เข้าสู่ระบบได้ ทุกอย่างในเครื่องนี้ยังอยู่</span><span class="en">You can keep using Kohbor without signing in. Everything on this PC is still here.</span></div>
+          <p class="cap"><b>A8b Delete, step 2.</b> The only danger-styled button in the flow (Signal Rose outline + ▲). The block under it is the result notice, shown on A1 afterwards; it is drawn here to keep the pair together.</p>
+        </section>
+
+        <p class="group-title">7 · Errors</p>
+
+        <section class="st" id="e1" data-group="e1" aria-labelledby="e1-h">
+          <p class="st-id"><b>E1 · signed_out</b> browser closed or timed out</p>
+          <div class="msg msg-err" role="alert"><b id="e1-h"><span class="th">การเข้าสู่ระบบหมดเวลา</span><span class="en">Sign-in timed out</span></b><span class="th">เราไม่ได้รับคำตอบจากเบราว์เซอร์ อาจเพราะหน้าต่างถูกปิดไปก่อน ยังไม่มีอะไรเปลี่ยนแปลง ลองอีกครั้งได้เลย</span><span class="en">We did not hear back from your browser. The window may have been closed. Nothing has changed. You can try again.</span></div>
+          <div class="acts"><button type="button" class="primary"><span class="th">ลองอีกครั้ง</span><span class="en">Try again</span></button><button type="button"><span class="th">ไว้ทีหลัง</span><span class="en">Not now</span></button></div>
+          <p class="cap"><b>E1 Timed out.</b> The app cannot see a closed browser tab; both cases end here when the timer runs out. Returns to A1 with this message above the sign-in button.</p>
+        </section>
+
+        <section class="st" id="e2" data-group="e1" aria-labelledby="e2-h">
+          <p class="st-id"><b>E2 · service_unavailable</b></p>
+          <div class="msg msg-warn" role="alert"><b id="e2-h"><span class="th">ติดต่อบริการบัญชีไม่ได้ตอนนี้</span><span class="en">The account service cannot be reached right now</span></b><span class="th">ทุกอย่างในเครื่องนี้ยังใช้ได้ตามปกติ ลองใหม่ภายหลัง</span><span class="en">Everything on this PC keeps working. Try again later.</span></div>
+          <div class="acts"><button type="button"><span class="th">ลองอีกครั้ง</span><span class="en">Try again</span></button></div>
+          <p class="cap"><b>E2 Service unavailable.</b> Amber, not rose: nothing of the user's is broken. No automatic retry. The same block is used signed in (friends and Share list unavailable) and signed out.</p>
+        </section>
+
+        <section class="st" id="e3" data-group="e1" aria-labelledby="e3-h">
+          <p class="st-id"><b>E3 · signed_out</b> Google declined</p>
+          <div class="msg msg-err" role="alert"><b id="e3-h"><span class="th">Google ไม่ได้ยืนยันการเข้าสู่ระบบ</span><span class="en">Google did not confirm the sign-in</span></b><span class="th">คุณอาจกดยกเลิกในเบราว์เซอร์ หรือบัญชี Google นี้ยังไม่ได้รับเชิญให้ร่วมทดสอบ ยังไม่มีอะไรเปลี่ยนแปลง ลองอีกครั้งหรือเลือกบัญชี Google อื่น</span><span class="en">You may have pressed Cancel in the browser, or this Google account has not been invited to the test. Nothing has changed. Try again or choose another Google account.</span></div>
+          <div class="acts"><button type="button" class="primary"><span class="th">ลองอีกครั้ง</span><span class="en">Try again</span></button><button type="button"><span class="th">ไว้ทีหลัง</span><span class="en">Not now</span></button></div>
+          <p class="cap"><b>E3 Google declined.</b> The "not invited" clause applies only while sign-in is limited to invited testers (alpha); drop it afterwards.</p>
+        </section>
+
+        <section class="st" id="e5" data-group="e1" aria-labelledby="e5-h">
+          <p class="st-id"><b>E5 · rate limited</b></p>
+          <div class="msg msg-warn" role="alert"><b id="e5-h"><span class="th">คุณลองบ่อยเกินไป</span><span class="en">Too many attempts</span></b><span class="th">รอสักครู่แล้วลองใหม่ ลองได้อีกครั้งใน</span><span class="en">Wait a moment, then try again. You can try again in</span> <span class="count">0:45</span> <span class="tag tag-sample">example</span></div>
+          <div class="acts"><button type="button" disabled><span class="th">ลองอีกครั้ง</span><span class="en">Try again</span></button></div>
+          <p class="cap"><b>E5 Rate limited.</b> Applies to sign-in, name save and new code. The wait is shown only when the service states one; otherwise the sentence ends at "then try again".</p>
+        </section>
+
+        <section class="st" id="e6" data-group="e1" aria-labelledby="e6-h">
+          <p class="st-id"><b>E6 · deleting</b> fresh sign-in used another Google account</p>
+          <div class="msg msg-err" role="alert"><b id="e6-h"><span class="th">บัญชี Google ไม่ตรงกัน</span><span class="en">That is a different Google account</span></b><span class="th">บัญชี Google ที่เลือกไม่ใช่บัญชีที่ใช้กับบัญชีเกาะเบาะนี้ บัญชียังไม่ถูกลบ เข้าสู่ระบบอีกครั้งด้วยบัญชี Google เดิม</span><span class="en">The Google account you chose is not the one this Kohbor account uses. Nothing was deleted. Sign in again with the same Google account.</span></div>
+          <div class="acts"><button type="button"><span class="th">เก็บบัญชีไว้</span><span class="en">Keep my account</span></button><button type="button"><span class="th">เข้าสู่ระบบอีกครั้ง</span><span class="en">Sign in again</span></button></div>
+          <p class="cap"><b>E6 Wrong account on delete.</b> Also shown when the 5 minutes run out ("The time to confirm ran out. Nothing was deleted.").</p>
+        </section>
+
+        <section class="st" id="x1" data-group="e1" aria-labelledby="x1-h">
+          <p class="st-id"><b>X1 · session_revoked</b> beyond the brief; state exists in the fixture</p>
+          <div class="msg msg-warn"><b id="x1-h"><span class="th">เครื่องนี้ออกจากระบบแล้ว</span><span class="en">This PC was signed out</span></b><span class="th">มีการออกจากระบบจากอุปกรณ์อื่น หรือการเข้าสู่ระบบหมดอายุ ข้อมูลบัญชีในเครื่องนี้ถูกลบแล้ว เข้าสู่ระบบอีกครั้งเมื่อพร้อม</span><span class="en">You were signed out from another device, or the sign-in expired. Account data on this PC was erased. Sign in again when you are ready.</span></div>
+          <div class="beside"><button type="button" class="primary"><span class="th">เข้าสู่ระบบด้วย Google (เปิดเบราว์เซอร์)</span><span class="en">Sign in with Google (opens your browser)</span></button><span class="promise"><span class="th">การเข้าสู่ระบบไม่แชร์ข้อมูลอะไร</span><span class="en">Signing in shares nothing.</span></span></div>
+          <p class="cap"><b>X1 Signed out elsewhere.</b> A quiet notice on the account page only; never a dialog and never during a match.</p>
+        </section>
+
+        <section class="st" id="x2" data-group="e1" aria-labelledby="x2-h">
+          <p class="st-id"><b>X2 · paused_new_device</b> beyond the brief; state exists in the fixture</p>
+          <div class="msg msg-warn"><b id="x2-h"><span class="th">เข้าสู่ระบบบนเครื่องใหม่: การแชร์หยุดไว้ก่อน</span><span class="en">New device: sharing is paused</span></b><span class="th">เพื่อความปลอดภัย รายชื่อแชร์ทุกรายการหยุดชั่วคราวจนกว่าคุณจะยืนยัน เพื่อนของคุณยังอยู่ครบ</span><span class="en">To keep you safe, every Share list entry is paused until you confirm. Your friends are all still here.</span></div>
+          <div class="acts"><button type="button"><span class="th">ดูรายชื่อแชร์</span><span class="en">Review the Share list</span></button></div>
+          <p class="cap"><b>X2 New device.</b> Follows rule 12 (PEER-016, proposed). The confirm step belongs to the Share list design, not to registration.</p>
+        </section>
+
+      </div>
+    </main>
+
+    <div class="rail rail-r" aria-hidden="true"><span class="rail-acct">?</span><small>ยังไม่ได้<br>เข้าสู่ระบบ</small><span class="is-here">บัญชี</span><span class="is-slot">เพื่อน</span></div>
+  </div>
+  </div>
+
+  <!-- =================================================== ARTBOARD 2 — WEBSITE ENTRY =================================================== -->
+  <div class="artboard-head"><h2>Artboard 2 · Website entry</h2><p class="cap">An explainer section for a landing page. It borrows no app chrome: no rails, no sidebars, no status readouts. It collects nothing: no form field, no cookie, no tracking, no script. Sign-in happens in the app. Download and address values are placeholders.</p></div>
+  <div class="seg" role="group" aria-label="Website frame width"><span>Width</span><button data-set="web=full">Full</button><button data-set="web=768">768</button><button data-set="web=375">375</button></div>
+
+  <div class="web-frame" id="web-frame">
+  <div class="web">
+    <header data-theme="dark"><strong>เกาะเบาะ · Kohbor</strong><span class="ph"><span class="th">หน้าตัวอย่าง ยังไม่ใช่เว็บไซต์ทางการ</span><span class="en">Sample page, not an official website</span></span></header>
+
+    <section data-theme="dark" aria-labelledby="w-h"><div class="inner">
+      <p class="eyebrow"><span class="th">บัญชี (ไม่บังคับ)</span><span class="en">Account (optional)</span></p>
+      <h3 id="w-h"><span class="th">เล่นได้เลย ไม่ต้องมีบัญชี</span><span class="en">Play first. An account is optional.</span></h3>
+      <p class="lead"><span class="th">เกาะเบาะทำงานบนเครื่องของคุณ ทุกฟีเจอร์ในเครื่องใช้ได้โดยไม่ต้องเข้าสู่ระบบ บัญชีมีไว้เพื่ออย่างเดียว: เพิ่มเพื่อน และเลือกเองว่าจะแชร์อะไรให้ใคร</span><span class="en">Kohbor runs on your PC. Every local feature works without signing in. An account does one thing: it lets you add friends and choose what you share with whom.</span></p>
+      <div class="dl"><button type="button" disabled aria-describedby="w-dl"><span class="th">ดาวน์โหลดสำหรับ Windows</span><span class="en">Download for Windows</span></button><span class="ph" id="w-dl"><span class="th">ยังไม่เปิด · ลิงก์ตัวอย่าง</span><span class="en">Not open · placeholder link</span></span></div>
+      <p><span class="th">หน้านี้ไม่มีแบบฟอร์ม ไม่ขอข้อมูล และไม่ใช้คุกกี้ การเข้าสู่ระบบทำในแอปเท่านั้น</span><span class="en">This page has no form, asks for nothing and sets no cookie. You sign in inside the app, nowhere else.</span></p>
+    </div></section>
+
+    <section data-theme="light" aria-labelledby="w-is"><div class="inner">
+      <h4 id="w-is"><span class="th">บัญชีคืออะไร</span><span class="en">What an account is</span></h4>
+      <ul class="cols">
+        <li><b><span class="th">ชื่อที่คุณตั้งเอง</span><span class="en">A name you choose</span></b><span><span class="th">พิมพ์ในเกาะเบาะ ยาว 1 ถึง 32 ตัวอักษร เราไม่ดึงชื่อจาก Google</span><span class="en">Typed in Kohbor, 1 to 32 characters. We do not take a name from Google.</span></span></li>
+        <li><b><span class="th">รหัสเพื่อนหนึ่งรหัส</span><span class="en">One friend code</span></b><span><span class="th">เกาะเบาะออกให้ ขึ้นต้นด้วย KB- เพื่อนเพิ่มคุณได้ด้วยรหัสนี้เท่านั้น และคุณขอรหัสใหม่ได้ทุกเมื่อ</span><span class="en">Kohbor issues it. It starts with KB-. It is the only way a friend can add you, and you can get a new one at any time.</span></span></li>
+        <li><b><span class="th">รายชื่อเพื่อนและรายชื่อแชร์</span><span class="en">Your friends and Share list</span></b><span><span class="th">คุณเป็นคนเพิ่มทีละคน การเป็นเพื่อนไม่ได้เริ่มแชร์อะไร</span><span class="en">You add people one by one. Becoming friends shares nothing.</span></span></li>
+      </ul>
+      <p><span class="th">เข้าสู่ระบบด้วย Google ในเบราว์เซอร์ของคุณเอง เกาะเบาะได้รับแค่รหัสระบุบัญชีจาก Google</span><span class="en">You sign in with Google in your own browser. Kohbor receives only an account identifier from Google.</span></p>
+    </div></section>
+
+    <section class="room-red" aria-labelledby="w-not"><div class="inner">
+      <h4 id="w-not"><span class="th">สิ่งที่บัญชีไม่ทำ</span><span class="en">What an account does not do</span></h4>
+      <ul class="nots">
+        <li><span><span class="th">ไม่ขออีเมล</span><span class="en">It does not ask for your email</span></span></li>
+        <li><span><span class="th">ไม่มีรหัสผ่านของเกาะเบาะ</span><span class="en">It has no Kohbor password</span></span></li>
+        <li><span><span class="th">ไม่ดึงชื่อ รูป หรือรายชื่อติดต่อจาก Google</span><span class="en">It takes no name, picture or contacts from Google</span></span></li>
+        <li><span><span class="th">ไม่เชื่อมกับ Steam</span><span class="en">It is not linked to Steam</span></span></li>
+        <li><span><span class="th">ไม่มีรายชื่อผู้เล่นให้ค้นหา</span><span class="en">It has no player directory to search</span></span></li>
+        <li><span><span class="th">การเข้าสู่ระบบไม่แชร์ข้อมูลอะไร</span><span class="en">Signing in shares nothing</span></span></li>
+      </ul>
+    </div></section>
+
+    <section data-theme="dark" aria-labelledby="w-how"><div class="inner">
+      <h4 id="w-how"><span class="th">เข้าสู่ระบบในแอป สามขั้น</span><span class="en">Sign in inside the app, in three steps</span></h4>
+      <ol class="how">
+        <li><b><span class="th">เปิดเกาะเบาะ ไปที่ "บัญชี"</span><span class="en">Open Kohbor and go to "Account"</span></b><span><span class="th">กด "เข้าสู่ระบบด้วย Google"</span><span class="en">Press "Sign in with Google".</span></span></li>
+        <li><b><span class="th">เลือกบัญชีในเบราว์เซอร์</span><span class="en">Choose your account in the browser</span></b><span><span class="th">แอปเปิดเบราว์เซอร์ของคุณให้ เกาะเบาะไม่ขอรหัสผ่าน</span><span class="en">The app opens your browser for you. Kohbor never asks for a password.</span></span></li>
+        <li><b><span class="th">กลับมาตั้งชื่อ แล้วรับรหัสเพื่อน</span><span class="en">Come back, pick a name, get your friend code</span></b><span><span class="th">ส่งรหัสให้เพื่อนเมื่อคุณพร้อม</span><span class="en">Give the code to a friend when you are ready.</span></span></li>
+      </ol>
+      <ul class="know">
+        <li><span class="th"><b>ควรรู้:</b> เกาะเบาะไม่มีขั้นตอนกู้คืนบัญชี ถ้าเข้าบัญชี Google ไม่ได้ คุณต้องเข้าสู่ระบบด้วยบัญชี Google อื่นและเพิ่มเพื่อนใหม่</span><span class="en"><b>Good to know:</b> Kohbor has no account recovery. If you lose access to your Google account, you sign in with another one and add your friends again.</span></li>
+        <li><span class="th">ส่งออกข้อมูลหรือลบบัญชีได้จากในแอป</span><span class="en">You can export your data or delete the account from inside the app.</span></li>
+        <li><span class="th">ไม่มีบัญชี Google ก็ใช้เกาะเบาะแบบไม่เข้าสู่ระบบได้เต็มที่</span><span class="en">Without a Google account you can still use all of Kohbor on your PC, signed out.</span></li>
+      </ul>
+    </div></section>
+
+    <footer data-theme="dark"><p><span class="th">ลิงก์ดาวน์โหลดและที่อยู่เว็บในหน้านี้เป็นค่าตัวอย่าง ยังไม่มีเว็บไซต์ทางการ ประกาศความเป็นส่วนตัว: ยังไม่เผยแพร่</span><span class="en">The download link and web address on this page are placeholders. There is no official website yet. Privacy notice: not published yet.</span></p></footer>
+  </div>
+  </div>
+
+  <h2>Notes</h2>
+  <ul class="notes">
+    <li>Tokens only: no colour, radius, type stack or target size is defined on this page. The red band uses <code>--brand</code> as a fill with <code>--brand-ink</code> as its only ink.</li>
+    <li>The waiting states use no looping animation (DESIGN-NOTES §5: no pulsing, no looping emphasis). Nothing on this page animates.</li>
+    <li>Interactions that work here: theme, language, state picker, website width, the name counter in A4, and the Copy label. Copy does not write to the clipboard in this mock. Every other button is inert.</li>
+    <li>Fonts: the recommended resolution for the website is self-hosted fonts. This artboard still links Google Fonts as a placeholder because it may not add font files; a real page must not ship that link.</li>
+    <li>Rail labels are placeholders written for this mock; they were not copied from the shipped shell.</li>
+  </ul>
+</div>
+
+<script>
+/* Theme, language, state picker, website width, name counter, copy label. No network, no storage. */
+(function () {
+  var H = document.documentElement, P = new URLSearchParams(location.search);
+  var Q = { theme: P.get('theme') || 'auto', lang: P.get('lang') || 'th', state: P.get('state') || 'all', web: P.get('web') || 'full' };
+  var states = document.getElementById('states'), cards = states.querySelectorAll('.st'), frame = document.getElementById('web-frame');
+  function apply() {
+    if (Q.theme === 'auto') H.removeAttribute('data-theme'); else H.dataset.theme = Q.theme;
+    H.dataset.lang = Q.lang; H.lang = Q.lang === 'en' ? 'en' : 'th';
+    states.dataset.view = Q.state === 'all' ? 'all' : 'one';
+    cards.forEach(function (c) { c.hidden = !(Q.state === 'all' || c.dataset.group === Q.state); });
+    frame.style.maxWidth = Q.web === 'full' ? '' : Q.web + 'px';
+    document.querySelectorAll('.doc-nav a').forEach(function (a) { a.href = a.getAttribute('href').split('?')[0] + '?theme=' + Q.theme + '&lang=' + Q.lang; });
+    document.querySelectorAll('[data-set]').forEach(function (b) { var kv = b.dataset.set.split('='); b.setAttribute('aria-pressed', String(Q[kv[0]] === kv[1])); });
+  }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-set]');
+    if (b) { var kv = b.dataset.set.split('='); Q[kv[0]] = kv[1]; apply(); return; }
+    var c = e.target.closest('[data-copy]');
+    if (c) { document.getElementById('copy-live').textContent = Q.lang === 'en' ? 'Copied' : 'คัดลอกแล้ว'; c.innerHTML = '<span class="th">คัดลอกแล้ว</span><span class="en">Copied</span>'; }
+  });
+  var input = document.getElementById('name-in'), n = document.getElementById('name-n'), err = document.getElementById('name-err'), go = document.getElementById('name-go');
+  function check() {
+    var v = input.value.trim(), len = window.Intl && Intl.Segmenter ? Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(v)).length : Array.from(v).length, over = len > 32;
+    n.textContent = len + ' / 32'; err.hidden = !over; go.disabled = len < 1 || over;
+    if (over) input.setAttribute('aria-invalid', 'true'); else input.removeAttribute('aria-invalid');
+  }
+  input.addEventListener('input', check);
+  document.getElementById('name-form').addEventListener('submit', function (e) { e.preventDefault(); });
+  apply(); check();
+})();
+</script>
+</body>
+</html>
