@@ -2,8 +2,8 @@
 title: "Product Requirements Document"
 doc_id: "PRD"
 status: draft
-version: "0.3.6"
-updated: "2026-11-20"
+version: "0.3.7"
+updated: "2026-11-21"
 owner_role: "Product owner"
 baseline: "DEC-BASELINE"
 approval_status: "Not approved"
@@ -53,8 +53,8 @@ Stable need IDs map to SRS requirements within their approved scope. **contracts
 | PN-010 | Use optional friends and invitations without turning friendship, presence or sign-in into gameplay-sharing consent. | SOCIAL-001, SOCIAL-002, SOCIAL-003 |
 | PN-011 | Explicitly record local highlights with truthful coverage and save status while recorder failure leaves local gameplay services available. | OBS-001, OBS-002, OBS-003, OBS-004, OBS-005, VISION-004 |
 | PN-012 | Receive verified updates and predictable optional capability transitions without losing local core, map context or control. | UPDATE-001, UPDATE-002, UPDATE-003, UPDATE-004, PREMIUM-001, PREMIUM-002, PREMIUM-003, UI-007, QUALITY-008 |
-| PN-013 | Use quick audio and display controls and check actual companion status in-game while Dota keeps focus. | UI-009 |
-| PN-014 | See how the selected hero has performed in public data during the draft, with separate consent and clear source, sample and freshness. | UI-010, STATS-001, STATS-002, STATS-003 |
+| PN-013 | Use quick audio, display, game, announcer and selected-music volume controls and check actual companion status in-game while Dota keeps focus. | UI-009, UI-011, MEDIA-009 |
+| PN-014 | See read-only public hero suggestions before picking and how the selected hero has performed after picking, with separate consent and clear source, sample and freshness. | UI-010, STATS-001, STATS-002, STATS-003 |
 
 ## 4. Scope, features and priority
 
@@ -67,8 +67,8 @@ Stable need IDs map to SRS requirements within their approved scope. **contracts
 | Full MVP: companion | Required local/manual advice, Thai/English local PTT, local memory/history and at most three evidence-linked summary points per completed session | Cloud advice is optional; its consent/projection rules remain mandatory if enabled |
 | Full MVP: media and delivery | User-started OBS highlights, trusted update/recovery and supported-matrix evidence | Demo recording and automated-highlight acceptance have separate gates |
 | Explicit extensions | Guest peer rooms; optional friends/presence/invitations | Separate contracts, consent and operational acceptance |
-| Explicit extension: edge quick panel | Guarded left-edge orb for quick controls and honest status | Mouse-only, Dota retains focus, Settings off switch and critical-alert preemption |
-| Explicit extension: hero pick statistics | Display-only draft card with optional live public hero statistics | Separate consent defaults off. Send only the own hero ID and optional user-chosen bracket. V2 waits for Draft Bar 5b |
+| Explicit extension: edge quick panel | Guarded left-edge orb with a vertical three-channel sound mixer, adjustable Focus mode and honest status | Mouse-only, Dota retains focus, built-in fail-closed activation guard, Settings off switch and critical-alert preemption |
+| Explicit extension: hero pick statistics | Read-only pre-pick suggestions list and display-only post-pick card | Fixed public table requests only (at most four/day) for v1; local filtering; separate default-off consent; v2 strike-out waits for Draft Bar 5b |
 | Deferred capabilities | Premium authority and advanced inspector/timers, deep review, recovery coaching, multi-provider routing, tone presets, broadcast co-host, soundtrack, commerce/security-recovery services | No apparently working production controls backed by invented behavior |
 | External dependencies | Media-authoring tool and optional account/catalog/payment services | Rebuilding separate products is not automatically desktop MVP scope |
 
@@ -80,7 +80,7 @@ A logical navigation destination may remain visible with an honest deferred/unav
 
 Game-memory access, injection, automated gameplay, unseen enemy feeds, cloud microphone processing, cloud personal memory, default analytics, automatic recording/joining, implicit subscriptions, inherited-format compatibility, and unapproved additional platforms or public services are outside scope.
 
-DEC-PICK-STATS approves a narrow exception for public hero statistics with separate opt-in. Of gameplay data, only the player's own hero ID may leave the device for this purpose. The player may also choose a bracket to include.
+DEC-PICK-STATS approves a narrow exception for public hero statistics with separate opt-in. V1 suggestions send no user- or match-specific data: fixed public aggregate tables are fetched at most four times per day and filtered locally. The existing pick-card route may send only the player's own hero ID and optional manually selected bracket.
 
 ## 5. Product and business rules
 
@@ -88,6 +88,7 @@ DEC-PICK-STATS approves a narrow exception for public hero statistics with separ
 2. Every displayed conclusion respects source admission, freshness and identity. Unknown, stale, invalid and estimated are meaningful states.
 3. Risk is a labelled heuristic. A high score alone is insufficient evidence for an audible gank warning; corrections require the specified confirming evidence.
 4. Cloud advice, public hero statistics, peer sharing, microphone use and social presence have separate consent. Sign-in or friendship does not substitute.
+5. Changing another application's audio-session volume is a bounded exception: only the Dota 2 process and music applications explicitly selected by the user. It is not game automation: no input injection, game memory or file access.
 5. Voice audio, transcript and interpretation stay local. Received peer information remains transient and cannot become AI or memory input.
 6. Event media comes from the active verified package. Integrity, publisher trust, purchase entitlement and activation are separate decisions.
 7. OBS recording is explicit and local. It neither enables a microphone nor replaces the critical vision source automatically.

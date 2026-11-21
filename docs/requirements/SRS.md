@@ -2,8 +2,8 @@
 title: "Software Requirements Specification"
 doc_id: "SRS"
 status: "draft"
-version: "0.3.6"
-updated: "2026-11-20"
+version: "0.3.7"
+updated: "2026-11-21"
 owner: "Product Owner"
 approval_status: "not_approved"
 ---
@@ -24,7 +24,7 @@ The full MVP covers local telemetry, admitted visible-screen observations, deter
 
 The first demonstration is a limited delivery milestone, not completion of the full MVP. Action-damage analysis remains subject to its recorded scope/data decision. Game injection, hidden enemy data, automatic gameplay actions, cloud voice/memory processing and inherited product compatibility are outside this baseline.
 
-Version 0.3.6 is a reviewable draft. The owner-selected name is recorded; the requirements baseline, implementation and native/live acceptance have not been approved. Its organization follows conventional requirements-engineering practice; no formal standards-conformance certification is asserted.
+Version 0.3.7 is a reviewable draft. The owner-selected name is recorded; the requirements baseline, implementation and native/live acceptance have not been approved. Its organization follows conventional requirements-engineering practice; no formal standards-conformance certification is asserted.
 
 ### 1.3 References and document relationships
 
@@ -99,7 +99,7 @@ Missing prerequisites produce unavailable states, not simulated success. Depende
 |---|---|
 | Game input | Loopback telemetry and owned integration configuration; read-only screen capture |
 | Human interaction | Control window, passive overlay, keyboard, microphone and audio output |
-| Optional public hero statistics | Native request under separate consent, with own hero ID and optional manually selected bracket only |
+| Optional public hero statistics | V1 suggestions fetch fixed public tables at most four times/day with no user- or match-specific data; filter locally. The separate pick-card request carries own hero ID and optional manually selected bracket only |
 | Local storage/media | Settings, journals, snapshots, verified packages and clips |
 | Local recording | Explicitly started, authenticated loopback OBS control |
 | Advice services | On-device processing; separate consent and closed projection for optional cloud |
@@ -843,6 +843,26 @@ Package integrity, publisher trust and purchase entitlement shall be verified by
 
 **Implementation freedom:** Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.
 
+#### MEDIA-009 — Per-application session volume
+
+**Scope:** extension · **Priority:** extension · **Target milestone:** M3 · **Basis:** owner_decision / DEC-EDGE-ORB
+
+**Product needs:** PN-013 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL, CMP-ALERT
+
+Kohbor shall change only Windows Core Audio shared-mode session volume and mute on the default render device for the Dota 2 process and music processes selected by the user. It shall not inject input, access other processes' memory or files, or send session data over a network. Before the first change in a session, store each touched session's original level and mute locally; restore on application exit, orb/mixer disable, user Reset, and next start after abnormal exit. Re-read sessions after a default-device change or new session and never set a session that has not been read. Logs contain channel, executable base name and level only.
+
+**Failure behavior:** Do not change an unreadable, missing or unselected process. On restore failure report it honestly and retain recovery data for the next start.
+
+**AC-MEDIA-009:** Given a fake session manager with present, missing and unreadable sessions and persisted original levels; when the host sets, restores, crashes and restarts, and the default device or session changes; then only eligible Dota and selected music sessions change, originals restore on exit/disable/reset and after crash restart, changed devices/sessions are re-read before use, logs contain only the permitted fields, and no process input, memory or files are accessed; on the owner PC lower Dota and Chrome, kill Kohbor, restart and confirm original levels restore.
+
+**Verification:** synthetic, native; procedures TP-05, UAT-05; status NOT_RUN.
+
+**Open dependencies:** DEC-INTERFACES, DEC-NATIVE-EVIDENCE.
+
+**Elaboration:** [UX-SPEC.md](../design/UX-SPEC.md), [NFR.md](../quality/NFR.md), [DECISION-LOG.md](../governance/DECISION-LOG.md)
+
+**Implementation freedom:** Implement the built-in fail-closed foreground activation guard. Choose window internals within the specified input and critical alert boundaries.
+
 ### UI
 
 #### UI-001 — Independent control and overlay
@@ -1029,11 +1049,11 @@ The session monitor shall make admitted threats noticeable in peripheral vision:
 
 **Product needs:** PN-013 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL, CMP-ALERT
 
-The optional edge quick panel shall use one separate left-edge orb window, fully click-through until deliberate hover reveals it. Only the revealed circle and open panel may accept mouse clicks. The outermost 8 px shall remain click-through in every state. The orb shall never take keyboard focus, cover PROTECTED_REGIONS or appear outside a match, without Dota foreground, or in exclusive fullscreen. Provide quick controls, honest status, a Settings off switch and a UI-006 keyboard-reachable twin for each panel control.
+The optional edge orb shall reveal only after the pointer rests in its hot zone for the reveal dwell (default 1 s, adjustable), showing a continuous 80% to 100% scale cue during the dwell, and shall accept clicks only once revealed. Only the revealed circle and open panel may accept mouse clicks. The outermost 8 px shall remain click-through in every state. The orb shall never take keyboard focus, cover PROTECTED_REGIONS or appear outside a match, without Dota foreground, or in exclusive fullscreen. Its three-channel mixer and Focus mode are specified by UI-011. Each orb or panel click shall be checked for foreground activation; on activation the panel closes and the orb fails closed for the rest of the match. Keep honest status, a Settings off switch and a UI-006 keyboard-reachable twin for each control.
 
 **Failure behavior:** A qualified critical alert closes the panel and locks the orb in the same admission without delaying the critical cue. Unknown status is never shown as ready. Log activation, close the panel and restore click-through immediately. Hide the orb if click-through cannot be guaranteed.
 
-**AC-UI-009:** Given a supported Windows borderless live or bot match with Dota foreground and the orb enabled; when the tester performs 200 orb or panel clicks, exercises hover, protected regions, focus loss and Settings, and admits a qualified critical alert while the panel is open; then Dota stays foreground for all 200 clicks, only guarded hit regions receive orb input and the outer 8 px pass clicks through. No orb or panel pixel intersects PROTECTED_REGIONS. The panel closes and the orb locks in the alert admission while the cue meets its acoustic deadline. Unknown stays unknown, the orb hides outside a match or in exclusive fullscreen, and induced activation is logged and fails closed. Settings can disable the orb and each panel control has a keyboard-reachable deck twin.
+**AC-UI-009:** Given a supported Windows borderless live or bot match with Dota foreground and the orb enabled; when across normal live or bot matches the tester uses the orb or panel and exercises hover, protected regions, focus loss and Settings, and admits a qualified critical alert while the panel is open; then at least 30 orb or panel interactions are logged with zero activation_detected; only guarded hit regions receive orb input and the outer 8 px pass clicks through. No orb or panel pixel intersects PROTECTED_REGIONS. The panel closes and the orb locks in the alert admission while the cue meets its acoustic deadline. Unknown stays unknown, the orb hides outside a match or in exclusive fullscreen, and an induced activation closes the panel, restores click-through and hides the orb until the match ends. Settings can disable the orb and each panel control has a keyboard-reachable deck twin.
 
 **Verification:** synthetic, native, acoustic; procedures TP-05, TP-13, UAT-05; status NOT_RUN.
 
@@ -1043,7 +1063,29 @@ The optional edge quick panel shall use one separate left-edge orb window, fully
 
 **Contracts:** [runtime-status.schema.json](../../contracts/runtime-status.schema.json), [user-settings.schema.json](../../contracts/user-settings.schema.json)
 
-**Implementation freedom:** Demonstrate native focus feasibility with an empty clickable no-activate window over Dota before building the panel. Choose window internals within the specified input and critical alert boundaries.
+**Implementation freedom:** Implement the built-in fail-closed foreground activation guard. Choose window internals within the specified input and critical alert boundaries.
+
+#### UI-011 — Orb sound mixer
+
+**Scope:** extension · **Priority:** extension · **Target milestone:** M3 · **Basis:** owner_decision / DEC-EDGE-ORB
+
+**Product needs:** PN-013 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL, CMP-ALERT
+
+The orb panel shall present vertical Game (Dota 2), Kohbor announcer, and user-selected Music channels. Each channel shall provide a 0 to 100% level and mute, applied within 100 ms. Focus mode shall set Music to an adjustable default of 20% and restore its prior level on a second activation; an optional user-assigned Focus hotkey is off by default. Show honest missing/unreadable session states and explain failed sets while restoring the last read level. Every control shall have a keyboard-reachable UI-006 deck twin. A fader wheel step is 5% and is active only while the panel is open.
+
+**Failure behavior:** Never show a missing or unreadable session as controllable. On set failure restore the last read value and state the reason. Preserve Dota focus and critical-alert priority.
+
+**AC-UI-011:** Given a supported match, three session states, and mixer settings including Focus level and optional hotkey; when the player adjusts, mutes, focuses, restores, uses a wheel and encounters missing or failed sessions; then each present channel exposes its actual 0 to 100% value and mute, Focus applies the selected level and restores the prior value, the hotkey is inactive unless enabled, wheel steps by 5% only with panel open, failures are honest, and every control has a deck twin.
+
+**Verification:** synthetic, native; procedures TP-05, UAT-05; status NOT_RUN.
+
+**Open dependencies:** DEC-INTERFACES, DEC-NATIVE-EVIDENCE.
+
+**Elaboration:** [UX-SPEC.md](../design/UX-SPEC.md), [NFR.md](../quality/NFR.md), [DECISION-LOG.md](../governance/DECISION-LOG.md)
+
+**Contracts:** [runtime-status.schema.json](../../contracts/runtime-status.schema.json), [user-settings.schema.json](../../contracts/user-settings.schema.json)
+
+**Implementation freedom:** Implement the built-in fail-closed foreground activation guard. Choose window internals within the specified input and critical alert boundaries.
 
 #### UI-010 — Display-only hero pick card
 
@@ -1051,11 +1093,11 @@ The optional edge quick panel shall use one separate left-edge orb window, fully
 
 **Product needs:** PN-014 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL, CMP-INGEST, CMP-VISION
 
-The pick card shall be a click-through, display-only in-game overlay after the own hero is picked during hero selection and strategy time. It shall hide from team showcase onward and clear the game draft UI. V1 shall show only the own hero. V2 shall require Draft Bar slice 5b and use the approved local hero and derived-number display projection. Other players' names shall never appear in the overlay.
+One right-edge column at x=1728–1907 at 1920×1080, scaled with height, shall show a read-only suggestions list before the own pick and the pick card after it. V1 list entries show hero, historical win rate in the selected bracket and game count; under 1,000 games show a low-data state. Show five estimated position groups labelled “ค่าประมาณ” (estimate). The list may include banned or picked heroes and shall say so. Never show win-chance %. Position and bracket are set in the deck; the in-game bar is read-only and has a separate on/off switch. The pick card remains phase-gated; v2 strike-out depends on Draft Bar 5b only. Matchup edge awaits an adequate data source and remains an open dependency.
 
 **Failure behavior:** Hide without an admitted own pick, a supported placement or an active draft phase. Suppress v2 comparisons when 5b is unavailable and keep eligible v1 content. Remove previous hero statistics immediately on a repick or swap.
 
-**AC-UI-010:** Given an admitted own pick and protected draft UI boxes measured on the owner's 1920×1080 hero selection and strategy screenshots; when the player picks or changes hero, advances through selection, strategy and showcase, and uses builds with and without admitted 5b output; then the card shows statistics scoped to the current own pick during selection and strategy, receives no input, clears both measured draft layouts and hides at showcase. V1 exposes the own hero only. V2 may add other heroes and derived values only with admitted 5b output. Other players' names never enter the overlay.
+**AC-UI-010:** Given an admitted draft, deck-selected position and bracket, and supported 1920×1080 layout; when the player picks or changes hero, advances through selection, strategy and showcase, and uses builds with and without admitted 5b output; then the single column occupies x=1728–1907 scaled with height and shows the read-only list before own pick and existing pick card after it; the list shows historical bracket win rate and game count, labels under-1,000 samples low-data and five position groups as estimates, discloses that listed heroes may be banned or already picked, never shows win-chance %, accepts no in-game input, and has its own on/off switch; v2 only strikes picked heroes when 5b is available, while matchup edge remains unavailable pending a qualified source.
 
 **Verification:** synthetic, native; procedures TP-05, UAT-05; status NOT_RUN.
 
@@ -1097,11 +1139,11 @@ The native host shall admit public hero statistics requests only under their own
 
 **Product needs:** PN-014 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL, CMP-INGEST
 
-The native host shall send only the admitted own hero ID and an optional bracket manually chosen by the user as request data for public hero statistics. Player names, account and match identifiers, ally and enemy hero IDs, voice, memory, clocks and all other match context shall remain outside this route.
+For the v1 suggestions list the native host shall send no user- or match-specific data. It shall fetch only fixed public aggregate table requests, at most four per day, and filter locally using the deck-selected position and bracket. The existing pick-card own-hero-ID flow remains separately permitted under consent. Player names, account and match identifiers, hero IDs, voice, memory and all other match context shall not be sent for the v1 list.
 
 **Failure behavior:** Reject requests with extra or invalid fields before transport. Do not serialize a wider game, account or draft object or substitute a missing own hero ID.
 
-**AC-STATS-002:** Given public hero statistics consent is on and test data contains the own hero, an optional manual bracket and forbidden fields; when the host constructs and sends a valid request, then receives negative cases with an extra field including each forbidden data class; then the observed request contains only the own hero ID and an optional manual bracket, and every request with an extra field is rejected before any send.
+**AC-STATS-002:** Given public hero statistics consent is on and test data contains the own hero, an optional manual bracket and forbidden fields; when the host constructs and sends a valid request, then receives negative cases with an extra field including each forbidden data class; then v1 list requests are fixed public table requests, no more than four per day, with no user- or match-specific fields; position and bracket filtering occurs locally. The separate pick-card flow continues to carry only the admitted own hero ID and optional manual bracket, and forbidden context is rejected before send.
 
 **Verification:** synthetic, native; procedures TP-08, UAT-07; status NOT_RUN.
 
@@ -1117,11 +1159,11 @@ The native host shall send only the admitted own hero ID and an optional bracket
 
 **Product needs:** PN-014 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL
 
-Each displayed hero statistics value shall show its provider, provider-stated data window, fetch time and sample size. Label a missing data window as unspecified. Distinguish loading, live, stale, offline, rate-limited, provider error, unknown hero, not enough matches and consent off. Fix metric-specific minimum samples before evaluating data. Never show a match win-chance percentage.
+Each displayed hero statistics value shall show its provider, provider-stated data window, fetch time and sample size. Label a missing data window as unspecified. Distinguish loading, live, stale, offline, rate-limited, provider error, unknown hero, not enough matches and consent off. Fix metric-specific minimum samples before evaluating data. Never show a match win-chance percentage. The v1 suggestions list shows historical bracket win rates and games; fewer than 1,000 games is a low-data state. Five position groups are estimates labelled “ค่าประมาณ” (estimate); listed heroes may already be picked or banned and this limitation is disclosed. No win-chance percentage is shown. Provider facts and unknowns are stated in the design: OpenDota heroStats and laneRoles have no stated data window, Immortal values were zero at review, lane data does not separate all five positions, and quota, licence and data window remain unverified.
 
 **Failure behavior:** Withhold unsupported or undersampled values. Use eligible cached values only with explicit age and stale labelling when applicable. Never silently fall back, invent a number, reuse another hero's results or interpret missing data as zero.
 
-**AC-STATS-003:** Given minimum samples have been fixed and fixtures cover valid and missing metadata, stale data, every unavailable state and sample sizes around the minima; when the host evaluates provider responses, cache expiry, a new hero and consent transitions; then each shown value carries source, window or unspecified label, fetch time and its sample size, every state is distinct, and insufficient or expired data produces no unsupported value. No invented value, silent fallback or win-chance percentage appears.
+**AC-STATS-003:** Given minimum samples have been fixed and fixtures cover valid and missing metadata, stale data, every unavailable state and sample sizes around the minima; when the host evaluates provider responses, cache expiry, a new hero and consent transitions; then each shown value carries source, window or unspecified label, fetch time and its sample size, every state is distinct, and insufficient or expired data produces no unsupported value. No invented value, silent fallback or win-chance percentage appears; the suggestions list shows source and sample, low-data below 1,000 games, labels estimated five-position groups, discloses possible banned/picked heroes, shows no win-chance percentage, and never fills unknown provider metadata.
 
 **Verification:** synthetic, native; procedures TP-08, UAT-07; status NOT_RUN.
 

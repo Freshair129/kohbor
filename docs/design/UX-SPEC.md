@@ -2,8 +2,8 @@
 title: "User Experience Specification"
 doc_id: "UX-SPEC"
 status: draft
-version: "0.3.6"
-updated: "2026-11-20"
+version: "0.3.7"
+updated: "2026-11-21"
 baseline: "DEC-BASELINE"
 owner_role: "UX owner; people not assigned"
 approval_status: "not_approved"
@@ -33,7 +33,7 @@ Logical destinations below do not prescribe URL paths, file names or IPC identif
 | Control: Account | Avatar flyout with the existing account page, settings, version and only supported sign-in/out actions | Presence stays unknown unless a real presence source exists; identity does not authorize game-data sharing |
 | Control: Settings | Existing language, Developer mode, Steam-name display and connection guide controls | Bounded categories; explain unavailable capabilities |
 | Gameplay overlay and HUD | Passive alerts, event media, selected stats, companion status and the draft pick card | Transparent, always-on-top, click-through and free of control-window chrome |
-| Edge orb (extension) | Quick controls and honest status | Separate mouse-only window. Dota keeps keyboard focus |
+| Edge orb (extension) | Vertical three-channel mixer, Focus mode and honest status | Separate mouse-only window. Dota keeps keyboard focus |
 
 The owner-selected desktop shell uses a 72u left rail with icon-plus-Thai-label navigation: Overview, Live, Voice Packs, Insights and Store in the primary group; Status, Logs and Settings in the bottom group. The right rail contains only the profile avatar and its flyout; notifications, friends, party and quick-add controls are not rendered. Replay is an Insights subview, never a main destination. The page header keeps the global mute control; a thin status line below it carries GSI intake, game phase, data age, capture and current Deck status, with a GSI setup action that opens Status. Content sits on a raised Command Deck surface. The Pulse Grid rail ribbon is decorative, has no pointer interaction and never represents status; its default `--power` is 55%. The ribbon-off setting is a TODO until Settings has a lighting preference.
 
@@ -152,9 +152,9 @@ Provide per-module enabled state, position, scale and opacity, with saved profil
 
 Warning, revision, event and advice states follow the shared priority/audio contract. A healthy observation with low estimated risk is distinct from no coverage. The overlay must never turn unknown into a green reassurance. Verified event media has no invented image or speech substitute.
 
-**Edge orb (UI-009).** Use one separate window at the left edge. The orb is fully click-through when tucked. Guard reveal with a 300 ms dwell in the small hot zone and accept mouse hits only inside the revealed circle and open panel. The outermost 8 px always pass clicks through. Keep Dota foreground and never capture its keyboard or Escape. Hide when disabled, outside a match, when Dota loses foreground, in exclusive fullscreen or when safe placement cannot be guaranteed. Keep the orb and panel outside `PROTECTED_REGIONS`. A qualified critical alert closes the panel and locks the orb in the same admission. The critical cue keeps its deadline. Log any activation and immediately close the panel and restore click-through. Hide if that cannot be guaranteed.
+**Edge orb (UI-009, UI-011).** Use one separate window at the left edge. The tucked disc is 80% scale; after pointer dwell it grows continuously to 100% over 1 s, then slides out and accepts clicks. Dwell is adjustable; reduced motion preserves the same timing. The outermost 8 px always pass clicks through. Keep Dota foreground and never capture its keyboard or Escape. Hide when disabled, outside a match, when Dota loses foreground, in exclusive fullscreen or when safe placement cannot be guaranteed. Keep the orb and panel outside `PROTECTED_REGIONS`. A qualified critical alert closes the panel and locks the orb in the same admission. The critical cue keeps its deadline. Each orb/panel click checks foreground before and after; activation closes the panel, restores click-through and hides the orb for the rest of the match.
 
-The panel provides quick audio and overlay controls plus actual companion status. Show unknown as unknown. Each control has a keyboard-accessible equivalent in the control window under UI-006. Settings has an off switch for the whole orb. The native focus test with an empty window precedes panel implementation.
+The vertical mixer has Game, Kohbor and selected Music faders, each 0–100% with mute, plus Focus mode (20% default, adjustable, second activation restores prior music level). Optional Focus hotkey is off by default. Wheel over a fader steps 5% only while panel is open. Show missing/unreadable states honestly; each control has a keyboard-reachable deck twin. Settings has an off switch for the whole orb.
 
 **Hero pick card (UI-010).** Display the card passively after the own pick during hero selection and strategy time. Hide before the pick and from team showcase onward. Use the owner's 1920×1080 selection and strategy screenshots to measure clearance from Dota's draft UI before placing the card. Show the own hero in v1. V2 waits for Draft Bar 5b and uses the local hero-only projection in [Draft Bar §4](DRAFT-BAR-SPEC.md). Other players' names stay in the deck. A repick or swap clears obsolete values immediately.
 

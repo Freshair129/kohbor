@@ -2,8 +2,8 @@
 title: "Security and Privacy Specification"
 doc_id: "SECURITY-PRIVACY"
 status: "draft"
-version: "0.3.6"
-updated: "2026-11-20"
+version: "0.3.7"
+updated: "2026-11-21"
 owner: "Product Owner"
 approval_status: "not_approved"
 ---
@@ -49,7 +49,7 @@ Every deliberate team create/join requires newly checked sharing consent in the 
 
 ## Public hero statistics request and cache
 
-DEC-PICK-STATS and STATS-001–003 govern this optional flow. A separate Settings switch defaults off. Explain the purpose, exact request fields, provider and cache behavior before opt-in. Sign-in, a draft, provider selection and other consent states cannot enable it. The provider sees the client's IP address, own hero ID and request time, and sees the bracket if the player chose to include it.
+DEC-PICK-STATS and STATS-001–003 govern this optional flow. A separate Settings switch defaults off. Explain the purpose, exact request fields, provider and cache behavior before opt-in. Sign-in, a draft, provider selection and other consent states cannot enable it. The provider sees the client's IP address, own hero ID and request time, and sees the bracket if the player chose to include it. The separate v1 suggestions list uses at most four fixed public-table requests per day and sends nothing user- or match-specific; the provider still sees the client IP address and request time. Position/bracket filtering is local.
 
 The native host owns the HTTPS request to the selected, fixed provider origin, with OpenDota first. Validate the closed outgoing projection before transport. The only request data are the admitted own hero ID and optional manually chosen bracket. Provider and dataset selection are routing choices. Exclude player names, account and match IDs, ally and enemy heroes, images, voice, memory and game clocks. The renderer has no provider request authority. Keep provider I/O outside intake and critical warning paths. Apply the current consent and own-pick generation when sending, retrying, receiving and caching.
 

@@ -2,8 +2,8 @@
 title: "Software Architecture Description"
 doc_id: "SAD"
 status: "draft"
-version: "0.3.6"
-updated: "2026-11-20"
+version: "0.3.7"
+updated: "2026-11-21"
 owner_role: "Software architect; person not assigned"
 approval_status: "not_approved"
 ---
@@ -91,6 +91,9 @@ Use append-only local JSONL event archives and an atomic versioned JSON aggregat
 
 Optional account/social persistence belongs to a distinct server boundary with row-level authorization. It is not a place to store gameplay, raw microphone data or local memory. A new service needs its own migrations, configuration, operational ownership and evidence before it becomes available.
 
+### Optional mixer and statistics boundaries
+The mixer module resolves Dota and user-selected music sessions in the native host and restores original session values on exit/recovery. A dedicated host COM thread owns Core Audio session enumeration and mutation; renderer commands are limited to `mixer_get`, `mixer_set` and `mixer_focus_toggle`, with no arbitrary process ID. Public suggestions fetch fixed aggregate tables at most four times per day and filter locally.
+
 ## 8. Resource and failure containment
 
 The application budget covers the native host, WebView processes, owned sidecars, every active inference/model process and an application relay running on the gaming computer: CPU ≤10%; aggregate full Working Set and, when the GPU is used (allowed), dedicated GPU memory are measured and reported with no limit until the owner sets one from the first baseline (DEC-RESOURCE-BUDGET). External OBS is outside that application budget and must not be represented as a member of the application's process job.
@@ -122,7 +125,7 @@ Configuration and recovery procedures belong to the [runbook](../operations/RUNB
 | Baseline choice | Reason and implication | Tradeoff retained |
 |---|---|---|
 | Native deterministic alert decisions | The urgent path can be measured without waiting on a provider or renderer | Models may enrich noncritical advice but cannot replace this decision boundary |
-| Separate control window, passive overlay and optional orb | Configuration and inspection belong to the control window. UI-009 bounds mouse hits to the separate orb window. The overlay and HUD remain passive | Native focus/DPI evidence is required |
+| Separate control window, passive overlay and optional orb | Configuration and inspection belong to the control window. UI-009 bounds mouse hits to the separate orb window; UI-011 and MEDIA-009 limit mixer actions to the approved audio sessions. The overlay and HUD remain passive | Native focus/DPI evidence is required |
 | Separate source and session state | Capture failure need not erase valid own telemetry; temporary invalidity need not fabricate a new match | Consumers must carry source-specific availability and generations |
 | Independent consent and adapter projections | Each recipient and purpose gets only its permitted fields | Additional consent/state handling is required; a universal game DTO is unsuitable |
 | Verified media prepared off the hot path | Package validation/decode cannot consume the critical admission budget | Missing critical assets remain a readiness blocker; no implicit synthesized replacement |

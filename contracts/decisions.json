@@ -946,13 +946,13 @@
       "id": "DEC-EDGE-ORB",
       "status": "decided",
       "milestone": "M3",
-      "blocks": "The edge quick panel extension only. Native focus feasibility gates panel implementation.",
+      "blocks": "The orb mixer extension only; built-in fail-closed focus guard is required before availability.",
       "owner_role": "product owner",
       "decided_by": "product_owner",
-      "decided_on": "2026-11-20",
-      "channel": "Owner messages relayed by the lead. Source: coord:reports/2026-11-20-cr-ingame-orb-and-pick-card.md and coord:design/edge-orb-20261120/OWNER-QUESTIONS.md.",
-      "owner_statement_th": "รับทั้ง 6 ข้อ; อนุมัติร่าง",
-      "decision": "Approve a separate left-edge orb for quick controls and honest status, with guarded hover throughout a match and a Settings off switch. Mouse hits are confined to the revealed circle and open panel, with the outer 8 px always click-through and Dota retaining keyboard focus. Keep the overlay and HUD passive. Run the empty native no-activate window feasibility test before building the panel. Reserve voice status for when a real capability exists.",
+      "decided_on": "2026-11-21",
+      "channel": "Owner approval in change request, coord:reports/2026-11-21-cr-orb-mixer.md and owner questions; “Approve all 11”.",
+      "owner_statement_th": "“Approve all 11”; “ใครจะมานั่งกด200ครั้งทำไปเพื่ออะไรอันเนี้ยไม่ต้องเทสอันนี้ได้ไหม”; “มันเอามาเป็นโฮเวอร์อ่ะให้มันมีดีเลย์หนึ่งวิค่อยเลื่อนออกมาแต่ตอนโฮเวอร์อ่ะให้กลมๆอ่ะค่อยๆขยายออกมาในระยะเวลาหนึ่งวิ”; “ปรับภาพสองให้เป็นแนวตั้งเพื่อไม่บังจอเยอะ”.",
+      "decision": "Approve the left-edge orb as a vertical three-channel mixer (Dota process, Kohbor announcer, user-selected music) with adjustable Focus mode, default 20%, and optional off-by-default hotkey. Reveal after an adjustable 1 s dwell by scaling 80% to 100%; accept clicks only after reveal. Every orb/panel click uses a built-in foreground activation guard. Any detected activation closes the panel, restores click-through and hides the orb until match end. Acceptance requires at least 30 interactions in normal live or bot matches with zero activation_detected; induced activation fails closed. Keep the outer 8 px click-through, Dota keyboard focus, passive overlay/HUD, critical-alert preemption and Settings off switch. Per-application volume is limited to Dota and user-selected music apps; no input injection, process memory/file access or network.",
       "reason": "Reduce the need to switch windows for audio and overlay controls while preserving Dota input and critical cues.",
       "alternatives_considered": [
         "Basic controls and status only",
@@ -965,14 +965,25 @@
         "PN-013"
       ],
       "affected_requirement_ids": [
-        "UI-009"
+        "UI-009",
+        "UI-011",
+        "MEDIA-009"
       ],
       "related": [
         "DEC-INTERFACES",
         "DEC-NATIVE-EVIDENCE"
       ],
-      "safe_interim": "Keep the orb unavailable until native focus feasibility is shown. Settings can disable the extension. Focus activation closes the panel and returns the orb to click-through or hides it if that cannot be guaranteed.",
-      "closure_evidence": "Owner accepted the six design answers and approved the CR draft on 2026-11-20. Native focus and acceptance evidence remain NOT_RUN."
+      "safe_interim": "Keep the orb unavailable until the built-in focus guard and native acceptance are implemented and verified. Any activation fails closed for the rest of that match. Settings can disable the extension.",
+      "closure_evidence": "Owner approved all 11 CR answers on 2026-11-21. Native focus, volume restore and acceptance evidence remain NOT_RUN.",
+      "revision": "2",
+      "history": [
+        {
+          "revision": "1",
+          "decided_on": "2026-11-20",
+          "decision": "Approve a separate left-edge orb for quick controls and honest status, with guarded hover throughout a match and a Settings off switch. Mouse hits are confined to the revealed circle and open panel, with the outer 8 px always click-through and Dota retaining keyboard focus. Keep the overlay and HUD passive. Run the empty native no-activate window feasibility test before building the panel. Reserve voice status for when a real capability exists.",
+          "safe_interim": "Keep the orb unavailable until native focus feasibility is shown. Settings can disable the extension. Focus activation closes the panel and returns the orb to click-through or hides it if that cannot be guaranteed."
+        }
+      ]
     },
     {
       "id": "DEC-PICK-STATS",
@@ -981,10 +992,10 @@
       "blocks": "The optional hero pick card and provider integration only. Card v2 requires Draft Bar 5b.",
       "owner_role": "product owner",
       "decided_by": "product_owner",
-      "decided_on": "2026-11-20",
-      "channel": "Owner messages relayed by the lead. Source: coord:reports/2026-11-20-cr-ingame-orb-and-pick-card.md and coord:design/pick-card-20261120/OWNER-DECISIONS.md and OWNER-QUESTIONS.md.",
-      "owner_statement_th": "รับทั้ง 6 ข้อ; อนุมัติร่าง",
-      "decision": "Use a live public hero statistics API with OpenDota first and source attribution, in a display-only in-game card after the own pick through hero selection and strategy. The separate consent defaults off. Outbound game context is limited to the own hero ID plus optional manually chosen bracket. V1 covers the own hero only. V2 waits for Draft Bar 5b and uses admitted other hero IDs locally. Projection 1.1.0 permits display of identified heroes and derived numbers in the overlay. Other players' names stay deck-only. Where available, team comparison uses a labelled estimated lean rather than a win-chance percentage. A starting-items card is excluded this round.",
+      "decided_on": "2026-11-21",
+      "channel": "Owner approval in change request, coord:reports/2026-11-21-cr-orb-mixer.md and OWNER-QUESTIONS.th.md; “Approve all 11”.",
+      "owner_statement_th": "“Approve all 11”.",
+      "decision": "Keep the consented display-only own-pick card after the own pick, and add a read-only suggestions list before the pick in one right-edge column x=1728–1907 at 1920×1080, scaled with height. V1 filters fixed public aggregate tables locally by deck-selected position and bracket; fetch at most four fixed public requests per day, sending no user- or match-specific data for the list. Show historical bracket win rate and game count, low-data below 1,000 games, five estimated position groups labelled “ค่าประมาณ” (estimate), disclose that heroes may be banned or picked, and never show win-chance %. Reuse the existing default-off consent switch with one added sentence and add a separate bar on/off switch. Position and bracket are set in the deck. V2 only strikes out picked heroes using Draft Bar 5b; matchup edge remains an open dependency on an adequate source.",
       "reason": "Show how the picked hero performed in public aggregates, with source and freshness visible, while limiting disclosure and preserving Dota's draft UI.",
       "alternatives_considered": [
         "Offline bundled snapshot or no numbers",
@@ -1007,8 +1018,17 @@
         "DEC-INTERFACES",
         "DEC-NATIVE-EVIDENCE"
       ],
-      "safe_interim": "Default off. Withhold unsupported values and leave v2 unavailable until 5b. Revocation stops requests, discards late responses and deletes the local aggregate cache. Provider terms, exact wire contract and supported metrics still need integration review.",
-      "closure_evidence": "Owner accepted the six design answers and approved the CR draft on 2026-11-20. Placement requires two owner 1920x1080 screenshots. Runtime verification remains NOT_RUN."
+      "safe_interim": "Consent remains default off. V1 list sends no user- or match-specific data; provider facts, data window, quota and licence remain unverified and must be resolved before provider integration. Withhold unsupported values. V2 strike-out remains unavailable until 5b; matchup edge is not specified pending adequate data source.",
+      "closure_evidence": "Owner approved all 11 CR answers on 2026-11-21. Two-state placement, estimate groups and readability require owner review/native evidence; provider terms and metadata remain open.",
+      "revision": "2",
+      "history": [
+        {
+          "revision": "1",
+          "decided_on": "2026-11-20",
+          "decision": "Use a live public hero statistics API with OpenDota first and source attribution, in a display-only in-game card after the own pick through hero selection and strategy. The separate consent defaults off. Outbound game context is limited to the own hero ID plus optional manually chosen bracket. V1 covers the own hero only. V2 waits for Draft Bar 5b and uses admitted other hero IDs locally. Projection 1.1.0 permits display of identified heroes and derived numbers in the overlay. Other players' names stay deck-only. Where available, team comparison uses a labelled estimated lean rather than a win-chance percentage. A starting-items card is excluded this round.",
+          "safe_interim": "Default off. Withhold unsupported values and leave v2 unavailable until 5b. Revocation stops requests, discards late responses and deletes the local aggregate cache. Provider terms, exact wire contract and supported metrics still need integration review."
+        }
+      ]
     }
   ]
 }
