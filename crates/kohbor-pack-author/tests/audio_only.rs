@@ -171,6 +171,18 @@ fn catalog_bytes() -> Vec<u8> {
     .unwrap()
 }
 
+fn critical_catalog_bytes() -> Vec<u8> {
+    serde_json::to_vec(&json!({
+        "taxonomy_version": "1.1",
+        "events": [
+            {"id":"health_danger","status":"active","media_mappable":true,"critical_media_required":true},
+            {"id":"risk_alert","status":"active","media_mappable":true,"critical_media_required":true},
+            {"id":"risk_revision","status":"active","media_mappable":true,"critical_media_required":true}
+        ]
+    }))
+    .unwrap()
+}
+
 fn mapping_bytes(bindings: &[Value]) -> Vec<u8> {
     serde_json::to_vec(&json!({ "schema_version": "1.0.0", "bindings": bindings })).unwrap()
 }
@@ -198,6 +210,19 @@ fn stage_reported_package(path: &Path, temp: &Path) -> kohbor_pack::container::S
     stage_package(path, &stage_dir, &catalog, &Limits::default()).unwrap()
 }
 
+fn stage_reported_package_with_catalog(
+    path: &Path,
+    temp: &Path,
+    catalog_path: &Path,
+) -> kohbor_pack::container::StagedPackage {
+    let catalog_value: Value = serde_json::from_slice(&fs::read(catalog_path).unwrap()).unwrap();
+    let catalog = Catalog::from_json(&catalog_value).unwrap();
+    let index = NEXT_TEMP.fetch_add(1, Ordering::Relaxed);
+    let stage_dir = temp.join(format!("critical-staging-{index}"));
+    fs::create_dir(&stage_dir).unwrap();
+    stage_package(path, &stage_dir, &catalog, &Limits::default()).unwrap()
+}
+
 #[test]
 fn audio_only_build_round_trips_deterministically_and_records_null_visual() {
     let fixture = Fixture::new();
@@ -216,6 +241,11 @@ fn audio_only_build_round_trips_deterministically_and_records_null_visual() {
     );
     assert_eq!(first.written.len(), 1);
     assert_eq!(first.written[0].visual, None);
+    assert!(!first.written[0].critical_media_required);
+    assert_eq!(first.written[0].audio_facts.onset_ms, None);
+    assert_eq!(first.written[0].audio_facts.tail_ms, None);
+    assert_eq!(first.written[0].audio_facts.peak_dbfs_tenths, None);
+    assert_eq!(first.written[0].audio_facts.active_rms_dbfs_tenths, None);
 
     let staged = stage_reported_package(&first.package_path, &fixture.temp.0);
     assert_eq!(staged.parsed.descriptor.bindings.len(), 1);
@@ -296,6 +326,17 @@ fn binary_builds_audio_only_mapping_and_stages_output() {
     assert!(output.status.success());
     let report: Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(report["written"][0]["visual"], Value::Null);
+    assert!(report.get("descriptor_schema_version").is_none());
+    assert_eq!(report["written"][0]["critical_media_required"], false);
+    assert_eq!(
+        report["written"][0]["audio_facts"],
+        json!({
+            "onset_ms": null,
+            "tail_ms": null,
+            "peak_dbfs_tenths": null,
+            "active_rms_dbfs_tenths": null,
+        })
+    );
     let package_path = fixture.output.join("audio-only-pack-r1.zip");
     let staged = stage_reported_package(&package_path, &fixture.temp.0);
     assert_eq!(staged.parsed.descriptor.bindings.len(), 1);
@@ -306,4 +347,96 @@ fn binary_builds_audio_only_mapping_and_stages_output() {
         .files
         .iter()
         .all(|file| !file.path.starts_with("video/")));
+}
+
+#[test]
+fn critical_events_build_as_audio_only_single_variants_and_reader_accepts_them() {
+    let fixture = Fixture::new();
+    fs::write(&fixture.catalog, critical_catalog_bytes()).expect("write critical catalog fixture");
+    fixture.set_mapping(&[
+        json!({"event_id":"health_danger","variants":[{"audio":"cue.wav"}]}),
+        json!({"event_id":"risk_alert","variants":[{"audio":"cue.wav"}]}),
+        json!({"event_id":"risk_revision","variants":[{"audio":"cue.wav"}]}),
+    ]);
+
+    let report = build_package(&fixture.options(&fixture.output))
+        .expect("build three critical audio-only bindings");
+    assert_eq!(report.descriptor_schema_version, "1.4.0");
+    assert_eq!(report.written.len(), 3);
+    // Implicit variant ids are unique within the pack and assigned in listed order.
+    for (written, (event_id, variant_id)) in report.written.iter().zip([
+        ("health_danger", "v1"),
+        ("risk_alert", "v2"),
+        ("risk_revision", "v3"),
+    ]) {
+        assert_eq!(written.event_id.as_str(), event_id);
+        assert!(written.critical_media_required);
+        assert_eq!(written.visual, None);
+        assert_eq!(written.variant_id.as_deref(), Some(variant_id));
+    }
+
+    let package_path = fixture.output.join("audio-only-pack-r1.zip");
+    let staged =
+        stage_reported_package_with_catalog(&package_path, &fixture.temp.0, &fixture.catalog);
+    assert_eq!(staged.parsed.descriptor.bindings.len(), 3);
+    assert_eq!(
+        staged
+            .parsed
+            .descriptor
+            .bindings
+            .iter()
+            .map(|binding| binding.event_id.as_str())
+            .collect::<Vec<_>>(),
+        ["health_danger", "risk_alert", "risk_revision"]
+    );
+    for binding in &staged.parsed.descriptor.bindings {
+        assert_eq!(binding.variants.len(), 1);
+        assert_eq!(binding.variants[0].silent_visual_path, None);
+    }
+    assert!(staged
+        .files
+        .iter()
+        .all(|file| !file.path.starts_with("video/")));
+
+    let cli_output = fixture.temp.0.join("critical-cli-output");
+    let cli_result = Command::new(env!("CARGO_BIN_EXE_kohbor-pack-build"))
+        .args(fixture.cli_args(&cli_output, false))
+        .output()
+        .expect("run builder for critical CLI report");
+    assert!(cli_result.status.success());
+    let cli_report: Value = serde_json::from_slice(&cli_result.stdout).unwrap();
+    assert_eq!(cli_report["descriptor_schema_version"], "1.4.0");
+    let cli_written = cli_report["written"].as_array().unwrap();
+    assert_eq!(cli_written.len(), 3);
+    for (written, event_id) in
+        cli_written
+            .iter()
+            .zip(["health_danger", "risk_alert", "risk_revision"])
+    {
+        assert_eq!(written["event_id"], event_id);
+        assert_eq!(written["critical_media_required"], true);
+        assert_eq!(written["visual"], Value::Null);
+        assert_eq!(written["audio_facts"]["onset_ms"], Value::Null);
+        assert_eq!(written["audio_facts"]["tail_ms"], Value::Null);
+        assert_eq!(written["audio_facts"]["peak_dbfs_tenths"], Value::Null);
+        assert_eq!(
+            written["audio_facts"]["active_rms_dbfs_tenths"],
+            Value::Null
+        );
+    }
+    assert_eq!(
+        fs::read(&package_path).unwrap(),
+        fs::read(cli_output.join("audio-only-pack-r1.zip")).unwrap()
+    );
+
+    fixture.set_mapping(&[json!({
+        "event_id":"risk_revision",
+        "selection":"sequence",
+        "variants":[{"audio":"cue.wav"},{"audio":"cue.wav"}]
+    })]);
+    let error = build_package(&fixture.options(&fixture.temp.0.join("multi-variant-output")))
+        .expect_err("risk_revision stays single-variant");
+    assert!(error
+        .message
+        .contains("critical media event must have exactly one variant: risk_revision"));
 }

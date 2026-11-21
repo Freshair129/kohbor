@@ -3,11 +3,22 @@ use std::convert::TryFrom;
 const TARGET_RATE: u32 = 48_000;
 const MAX_SAMPLES: usize = 48_000 * 15;
 const SINC_RADIUS: i64 = 24;
+const FACT_WINDOW_SAMPLES: usize = 480;
+const FACT_ACTIVITY_THRESHOLD: i32 = 328;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AudioFacts {
+    pub onset_ms: Option<u32>,
+    pub tail_ms: Option<u32>,
+    pub peak_dbfs_tenths: Option<i32>,
+    pub active_rms_dbfs_tenths: Option<i32>,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConvertedAudio {
     pub wav: Vec<u8>,
     pub samples: usize,
+    pub audio_facts: AudioFacts,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -56,11 +67,60 @@ pub fn convert_wav(bytes: &[u8]) -> Result<ConvertedAudio, AudioError> {
     } else {
         resample(&mono, input.sample_rate, out_len)
     };
+    let audio_facts = measure_audio_facts(&converted);
     let wav = encode_pcm16(&converted)?;
     Ok(ConvertedAudio {
         wav,
         samples: converted.len(),
+        audio_facts,
     })
+}
+
+fn measure_audio_facts(samples: &[i16]) -> AudioFacts {
+    let peak = samples
+        .iter()
+        .map(|sample| i32::from(*sample).abs())
+        .max()
+        .unwrap_or(0);
+    let mut first_active_window = None;
+    let mut last_active_window = None;
+    let mut active_square_sum = 0_u128;
+    let mut active_sample_count = 0_u64;
+
+    for (window_index, window) in samples.chunks(FACT_WINDOW_SAMPLES).enumerate() {
+        let is_active = window
+            .iter()
+            .any(|sample| i32::from(*sample).abs() >= FACT_ACTIVITY_THRESHOLD);
+        if is_active {
+            first_active_window.get_or_insert(window_index);
+            last_active_window = Some(window_index);
+            active_square_sum += window
+                .iter()
+                .map(|sample| {
+                    let sample = i64::from(*sample);
+                    (sample * sample) as u128
+                })
+                .sum::<u128>();
+            active_sample_count += window.len() as u64;
+        }
+    }
+
+    let total_windows = samples.len().div_ceil(FACT_WINDOW_SAMPLES);
+    let onset_ms = first_active_window.map(|window| (window * 10) as u32);
+    let tail_ms = last_active_window.map(|window| ((total_windows - window - 1) * 10) as u32);
+    let peak_dbfs_tenths =
+        (peak != 0).then(|| (200.0 * (f64::from(peak) / 32_768.0).log10()).round() as i32);
+    let active_rms_dbfs_tenths = (active_sample_count != 0).then(|| {
+        let mean_square = active_square_sum as f64 / active_sample_count as f64;
+        (100.0 * (mean_square / (32_768.0 * 32_768.0)).log10()).round() as i32
+    });
+
+    AudioFacts {
+        onset_ms,
+        tail_ms,
+        peak_dbfs_tenths,
+        active_rms_dbfs_tenths,
+    }
 }
 
 struct DecodedWav {
