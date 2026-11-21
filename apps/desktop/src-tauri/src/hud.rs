@@ -688,6 +688,7 @@ mod tests {
     fn admitted_snapshot(phase: Phase, ownership: Ownership, age_ms: u64) -> Value {
         let outcome = Outcome::Admitted(Box::new(Admitted {
             phase,
+            draft_bar_phase: false,
             ownership,
             team: Some(Team::Radiant),
             match_id: None,

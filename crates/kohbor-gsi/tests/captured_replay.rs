@@ -59,6 +59,30 @@ fn every_captured_game_state_maps_to_a_phase() {
 }
 
 #[test]
+fn only_the_three_draft_screens_authorize_draft_bar_capture() {
+    let mut body = load("hero-selection-no-pick");
+    for (state, allowed) in [
+        ("HERO_SELECTION", true),
+        ("STRATEGY_TIME", true),
+        ("TEAM_SHOWCASE", true),
+        ("WAIT_FOR_PLAYERS_TO_LOAD", false),
+        ("WAIT_FOR_MAP_TO_LOAD", false),
+        ("PRE_GAME", false),
+        ("GAME_IN_PROGRESS", false),
+        ("POST_GAME", false),
+    ] {
+        body["map"]["game_state"] = Value::String(format!("DOTA_GAMERULES_STATE_{state}"));
+        let outcome = admit(&body, TOKEN, Some(owner()), None);
+        let Outcome::Admitted(admitted) = &outcome else {
+            panic!("expected admitted state {state}");
+        };
+        assert_eq!(admitted.draft_bar_phase, allowed, "{state}");
+        let snapshot = build_snapshot(&outcome, src()).to_string();
+        assert!(!snapshot.contains("draft_bar"));
+    }
+}
+
+#[test]
 fn empty_hero_name_during_selection_is_missing_not_invalid() {
     match admit(&load("hero-selection-no-pick"), TOKEN, Some(owner()), None) {
         Outcome::Admitted(a) => {

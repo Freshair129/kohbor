@@ -11,6 +11,7 @@ mod capture_host;
 mod clock;
 mod commands;
 pub mod containment;
+mod draft_bar;
 pub mod host;
 mod hotkeys;
 mod hud;
@@ -1148,6 +1149,7 @@ pub fn run() {
                 // In match only while the intake phase is Live (pregame also exposes own data).
                 view.in_match = shared.phase == Some(kohbor_gsi::Phase::Live);
                 view.game_phase = shared.phase.map(capture_host::GamePhase::from);
+                view.draft_bar_allowed = shared.draft_bar_allowed();
                 view.recent_events = shared
                     .recent_health_events(std::time::Instant::now(), 5000)
                     .into_iter()
@@ -1260,6 +1262,7 @@ pub fn run() {
         commands::audio_set_volume,
         commands::audio_set_hotkeys,
         capture_host::minimap_subscribe,
+        capture_host::draft_bar_read,
         capture_host::capture_status,
         capture_host::capture_invalidate,
         capture_host::capture_retry,
@@ -1334,6 +1337,7 @@ pub fn run() {
         commands::audio_set_volume,
         commands::audio_set_hotkeys,
         capture_host::minimap_subscribe,
+        capture_host::draft_bar_read,
         capture_host::capture_status,
         capture_host::capture_invalidate,
         capture_host::capture_retry,
@@ -1353,6 +1357,7 @@ pub fn run() {
                 logging::flush();
             }
             if matches!(event, tauri::RunEvent::Exit) {
+                capture_host::stop();
                 crate::log_info!("app", "exit", "Kohbor is exiting");
                 let state = handle.state::<AppState>();
                 intake::lock(&state.hud).stop();

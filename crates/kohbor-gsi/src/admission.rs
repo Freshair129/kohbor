@@ -105,6 +105,8 @@ pub struct OwnCounters {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Admitted {
     pub phase: Phase,
+    /// Exact draft-screen phases. Loading states still belong to the coarse Draft phase.
+    pub draft_bar_phase: bool,
     pub ownership: Ownership,
     pub team: Option<Team>,
     /// Raw match identifier; keep in native admission state only, never persist (DDD).
@@ -247,7 +249,16 @@ pub fn admit(
             return Outcome::Unsupported(UnsupportedReason::CustomGame);
         }
     }
-    let phase = match body.pointer("/map/game_state").and_then(Value::as_str) {
+    let game_state = body.pointer("/map/game_state").and_then(Value::as_str);
+    let draft_bar_phase = matches!(
+        game_state,
+        Some(
+            "DOTA_GAMERULES_STATE_HERO_SELECTION"
+                | "DOTA_GAMERULES_STATE_STRATEGY_TIME"
+                | "DOTA_GAMERULES_STATE_TEAM_SHOWCASE"
+        )
+    );
+    let phase = match game_state {
         Some("DOTA_GAMERULES_STATE_HERO_SELECTION")
         | Some("DOTA_GAMERULES_STATE_STRATEGY_TIME")
         | Some("DOTA_GAMERULES_STATE_WAIT_FOR_PLAYERS_TO_LOAD")
@@ -287,6 +298,7 @@ pub fn admit(
     let hero = hero_fields(body.get("hero"));
     Outcome::Admitted(Box::new(Admitted {
         phase,
+        draft_bar_phase,
         ownership,
         team,
         match_id,

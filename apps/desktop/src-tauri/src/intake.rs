@@ -508,6 +508,18 @@ impl Shared {
             .map(|(at, _)| duration_ms(now.saturating_duration_since(*at)))
     }
 
+    /// Private capture eligibility from the latest admitted payload. An old epoch
+    /// carried over from an earlier match is not evidence for an unidentified draft.
+    pub(crate) fn draft_bar_allowed(&self) -> bool {
+        matches!(
+            self.last_admitted.as_ref().map(|(_, outcome)| outcome),
+            Some(Outcome::Admitted(admitted))
+                if admitted.draft_bar_phase
+                    && admitted.ownership == Ownership::Verified
+                    && admitted.match_id.is_some()
+        ) && self.epoch.is_some()
+    }
+
     fn log_freshness_transition(&self, age_ms: u64) {
         let is_fresh = age_ms <= FRESH_MAX_AGE_MS;
         let mut previous = lock(&self.freshness_state);

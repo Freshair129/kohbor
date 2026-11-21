@@ -88,6 +88,23 @@ impl MinimapGrabber {
         self.output
     }
 
+    /// The duplicated output in desktop coordinates, for crop alignment checks.
+    pub fn output_screen_rect(&self) -> Option<Rect> {
+        #[cfg(windows)]
+        {
+            self.native.screen_rect(Rect {
+                x: 0,
+                y: 0,
+                width: self.output.width,
+                height: self.output.height,
+            })
+        }
+        #[cfg(not(windows))]
+        {
+            None
+        }
+    }
+
     /// Checks an output-local crop after translating it to desktop coordinates.
     /// This reuses the game window identified by capture startup/game_window().
     pub fn crop_occluded(&self, rect: Rect) -> Option<bool> {

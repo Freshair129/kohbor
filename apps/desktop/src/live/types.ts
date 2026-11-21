@@ -53,6 +53,7 @@ export interface ResourceMetrics {
   cpuPercent: number | null;
   captureFps: number | null;
   frameAgeMs: number | null;
+  draftBarCycleMs?: number | null;
 }
 
 export type CaptureCostMetricKey = "grabMsMean" | "analysisMsMean";
