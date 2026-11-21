@@ -10,6 +10,7 @@ import {
 } from "./overlayModel";
 import { OverlayStage } from "./OverlayStage";
 import { HudStage } from "./HudStage";
+import { OrbStage } from "./orb/OrbStage";
 import {
   emitOverlayReady,
   emitOverlayVisibility,
@@ -27,11 +28,14 @@ const root = document.getElementById("root");
 const params = new URLSearchParams(window.location.search);
 const overlayView = params.get("view") === "overlay";
 const hudView = params.get("view") === "hud";
-if (!overlayView && !hudView) installFrontendLogging(window, logHostInvoke);
+const orbView = params.get("view") === "orb";
+if (!overlayView && !hudView && !orbView) installFrontendLogging(window, logHostInvoke);
 document.documentElement.classList.toggle("overlay-body", overlayView);
 document.body.classList.toggle("overlay-body", overlayView);
 document.documentElement.classList.toggle("hud-body", hudView);
 document.body.classList.toggle("hud-body", hudView);
+document.documentElement.classList.toggle("orb-body", orbView);
+document.body.classList.toggle("orb-body", orbView);
 
 function mediaFromOverlayStatus(payload: unknown): RuntimeStatus["media"] | null {
   if (typeof payload !== "object" || payload === null || Array.isArray(payload)) return null;
@@ -176,7 +180,9 @@ async function start() {
   const HudMockHarness = mockHarness?.HudMockHarness;
   createRoot(root).render(
     <StrictMode>
-      {hudView ? (
+      {orbView ? (
+        <OrbStage />
+      ) : hudView ? (
         <HudStage MockHarness={HudMockHarness} />
       ) : overlayView ? (
         <OverlayView MockHarness={OverlayMockHarness} />

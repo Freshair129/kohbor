@@ -367,7 +367,7 @@ test("HUD route sets its transparent body class and mounts the stage without the
   assert.match(source, /hudView\s*=\s*params\.get\("view"\)\s*===\s*"hud"/);
   assert.match(source, /classList\.toggle\("hud-body",\s*hudView\)/);
   assert.match(source, /hudView\s*\?\s*\(\s*<HudStage/);
-  assert.match(source, /if\s*\(!overlayView\s*&&\s*!hudView\)\s*installFrontendLogging/);
+  assert.match(source, /if\s*\(!overlayView\s*&&\s*!hudView\s*&&\s*!orbView\)\s*installFrontendLogging/);
 });
 
 test("HUD subscription wraps a fake event listener and returns its unlisten function", async () => {
