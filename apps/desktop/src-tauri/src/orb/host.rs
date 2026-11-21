@@ -46,6 +46,8 @@ pub(crate) struct Shared {
     shown: bool,
     last_payload: Option<Value>,
     last_emit: Option<Instant>,
+    /// Last logged visibility diagnosis, so a change is logged once (diagnostics for owner testing).
+    last_diag: Option<String>,
 }
 
 impl Shared {
@@ -65,6 +67,7 @@ impl Shared {
             shown: false,
             last_payload: None,
             last_emit: None,
+            last_diag: None,
         }
     }
 
@@ -1012,6 +1015,30 @@ mod native {
                     s.last_hover = Some(fg.clone());
                 }
                 s.machine.tick(now, eligible, zone);
+                // Diagnostics: log each change of phase kind with the eligibility inputs (no values, no ids).
+                let phase_kind = match s.machine.phase {
+                    crate::orb::Phase::Hidden(reason) => format!("hidden:{}", reason.as_str()),
+                    crate::orb::Phase::Tucked => "tucked".to_owned(),
+                    crate::orb::Phase::Charging { .. } => "charging".to_owned(),
+                    crate::orb::Phase::Sliding { .. } => "sliding".to_owned(),
+                    crate::orb::Phase::Out { .. } => "out".to_owned(),
+                    crate::orb::Phase::Open { .. } => "open".to_owned(),
+                };
+                if s.last_diag.as_deref() != Some(phase_kind.as_str()) {
+                    crate::log_info!(
+                        "orb",
+                        "phase_changed",
+                        "orb phase changed",
+                        phase = phase_kind.clone(),
+                        in_match = in_match,
+                        dota_foreground = fg.is_dota(),
+                        foreground_exe = fg.exe.clone().unwrap_or_default(),
+                        fullscreen = fullscreen,
+                        placed = s.geometry.is_some(),
+                        zone = format!("{zone:?}")
+                    );
+                    s.last_diag = Some(phase_kind);
+                }
                 let visibility = match (s.machine.visible(), s.shown) {
                     (true, false) => Visibility::Show,
                     (false, true) => Visibility::Hide,
