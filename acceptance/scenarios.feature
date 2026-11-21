@@ -660,3 +660,10 @@ Feature: Brand-neutral desktop companion target behavior
     Then the cell is SKIP/INDETERMINATE and the mandatory gate remains unsatisfied
     And failure behavior is: A unit test, browser screenshot or commit does not substitute for the missing evidence.
 
+  @UI-012 @extension
+  Scenario: AC-UI-012 In-memory deck draft strip
+    Given an owner-played Dota draft at 1920×1080 and 100% scale with an admitted session
+    When the Live page is shown during HERO_SELECTION, STRATEGY_TIME or TEAM_SHOWCASE, including unsupported geometry, capture/identification failure and match/session/app clear boundaries
+    Then all ten top-bar slots show the correctly identified hero name or unknown with a reason; unsupported conditions expose their actual reason; the strip remains in-memory and control-window only with no overlay/log/disk/network sink, and data clears at match end, session change and app exit. Accuracy evidence remains NOT_RUN until an owner-played draft is observed
+    And failure behavior is: At unsupported resolution or scale, failed capture, or insufficient identification confidence, show unavailable/unknown with the actual reason; never guess a hero or retain values from another match/session.
+

@@ -1,5 +1,11 @@
 # Documentation Changelog
 
+## 0.3.8 — 2026-11-21
+
+- **Owner decisions and deck draft strip:** DEC-CRITICAL-MEDIA now selects existing announcer-pack clips for critical gank, danger and risk-revision alerts; rights-team handling remains an unverified owner statement, and readiness requires owner confirmation of the prepared clip list. Visual-only and synthesized fallbacks are not selected. DEC-RISK-DETAIL remains open with the team-draft/owner-review approach and its informational-only interim behavior.
+- **Draft Bar requirement:** added PN-015 and extension requirement UI-012 for the ten-slot Live-page strip during HERO_SELECTION, STRATEGY_TIME and TEAM_SHOWCASE. Support is limited to 1920×1080 at 100%; values stay in memory and the control window, with no overlay, log, disk or network sink, and clear at match end, session change and exit. Owner-played accuracy remains NOT_RUN. Existing requirement statements were preserved.
+- **Diagram refresh:** updated DGM-002, DGM-004, DGM-005 and DGM-017 sources and regenerated SVGs and the offline atlas for the edge orb/mixer and per-app volume, draft capture and pick views, external-route boundary, and first-run GSI setup prompt. Diagrams remain descriptive, not implementation or acceptance evidence.
+
 ## 0.3.6 — 2026-11-11
 
 - **Edge orb and hero pick stats (owner approved the CR draft on 2026-11-20, same baseline version):** DEC-EDGE-ORB and DEC-PICK-STATS add PN-013/UI-009 and PN-014/UI-010/STATS-001–003 as extensions. Allocate the orb to M3 alongside the overlay and the pick card and stats to M6 alongside consented service work. Those are planning targets. The orb needs the native focus spike before panel work. The pick card needs two measured owner screenshots and v2 waits for Draft Bar 5b. Draft Bar projection 1.1.0 adds local display of admitted heroes and derived numbers in the pick card. Names stay deck-only. The public stats route defaults off and sends only the own hero ID and optional manual bracket. Revocation deletes the stats cache. No runtime migration is required for these designs. Document rollback is by reviewed inverse change. Runtime disabling is through the orb off switch and stats consent. Diagram views DGM-002/004/005/017 await source and image regeneration together.

@@ -465,7 +465,7 @@ Critical path: S3-5 → V1 → capture → dataset and V4 → tracker and detect
 | O-5 | DEC-GOOGLE-PROJECT: Kohbor-owned Google project and verification | Create a test project; one test sign-in | Real sign-in |
 | O-6 | Confirm the queued PEER/SOCIAL/ACCOUNT amendments | Confirm as proposed | S10-0 |
 | O-7 | DEC-SHARE-RECONFIRM, DEC-GUEST-PEER, DEC-PEER-ECONOMY | 90 days; no guest codes; no economy scope | Share list details |
-| O-8 | DEC-CRITICAL-MEDIA: authorized warning media | Commission original lines | Audible critical alerts; M4a |
+| O-8 | DEC-CRITICAL-MEDIA readiness: team-prepared list from existing announcer packs; rights-team handling is an unverified owner statement | Owner confirms prepared clip list after verification/mapping | Any critical media ready state or audible critical alerts |
 | O-9 | DEC-GAME-DATA: certified classes, patch catalog, rights for game-derived templates | Start with the classes the owner's dataset can certify | Identity, M3c |
 | O-10 | DEC-RISK-DETAIL: coordinated-motion parameters and traces (lead drafts in S6-3) | Approve the draft after replay on recordings | Audible gank |
 | O-11 | DEC-NATIVE-EVIDENCE: hardware, testers, time for FPS, resource, acoustic and live runs | The owner's machine as the reference cell, recorded exactly | Every acceptance claim |
@@ -484,7 +484,7 @@ Critical path: S3-5 → V1 → capture → dataset and V4 → tracker and detect
 2. **Team verification (G1).** Match and team are self-asserted. No verifiable source is known (FROM-REPO SHARING-MODEL-REVIEW §1.1). The Share list ships with a stated residual risk; team-wide sharing may never ship. A negative written answer from Valve on relaying GSI-derived state would stop even the Share list. Nothing in engineering removes this risk.
 3. **Hosted social service.** The money is small at first-release scale (2.4). The load is on one owner: operating two services, key rotation, deletion and backup duties, abuse handling, Google verification and the legal gate. Until those are staffed and decided, sharing exists only against the loopback fake. The plan therefore builds the whole client without the service and lets the first release ship with the account surface marked "service pending".
 
-Also material: DEC-CRITICAL-MEDIA (no authorized warning lines exist; FROM-REPO SPRINT-ROADMAP Sprint 3 owner input) blocks the demo's audible warning whatever the code does.
+Also material: DEC-CRITICAL-MEDIA is decided to use the owner's existing announcer packs for critical clips, but the team-prepared list still needs owner confirmation and verified mapping. Rights remain unverified; until the readiness conditions are met the demo's audible warning remains blocked.
 
 ## 8. Web sources (read 2026-11-12)
 

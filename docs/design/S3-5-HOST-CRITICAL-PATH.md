@@ -355,13 +355,13 @@ Parallel sets: {5a, 5b, 5k}; after 5d: {5e, 5g, 5h}; 5f alongside 5i and 5j.
 | P7 | New dependencies of the desktop host: the three workspace crates (and through `kohbor-audio-native`, `wasapi` 0.26.0, already in the workspace lock). No new third-party crate, no plugin, no network use | Dependency rule of AGENTS.md |
 | P8 | Four additive methods in the reviewed `kohbor-audio` owner; CSP gains a `media-src` entry | Touches reviewed code and a security setting |
 
-**Touching DEC-CRITICAL-MEDIA:** nothing here creates, selects or substitutes critical media. With no authorized clip the product reports `not_ready / MEDIA_UNMAPPED` and `health_danger` is recorded `unmapped`.
+**DEC-CRITICAL-MEDIA (decided 2026-11-21; media readiness pending):** critical gank, danger and risk-revision alerts use clips from the owner's existing announcer packs. The team prepares a clip list; the owner must confirm it before any clip counts as ready. The owner's rights-team statement is unverified and is not a rights grant. Visual-only and synthesized fallbacks are not selected. Until verified clips are mapped and the owner confirms the list, the product reports `not_ready / MEDIA_UNMAPPED` and `health_danger` is recorded `unmapped`.
 
 **Open decisions and what they block:**
 
 | Decision | Blocks | Proceeds anyway |
 | --- | --- | --- |
-| DEC-CRITICAL-MEDIA (open) | Any `ready` state on real media; QUALITY-001 acceptance; UAT-03 | All of S3-5 and S3-6 with generated test clips in temporary stores |
+| DEC-CRITICAL-MEDIA (decided; readiness evidence pending) | Any `ready` state on real media; QUALITY-001 acceptance; UAT-03 | All of S3-5 and S3-6 with generated test clips in temporary stores |
 | DEC-INTERFACES (open) | External authoring-app transport; freezing the command names of sections 4 and 5 as a contract | The Tauri commands as host-local proposals |
 | DEC-PACK-CRYPTO (open) | Publisher or store authority | `local_import` packages |
 | DEC-EVENT-AUDIO (proposed) | Freezing audio-outcome 1.0.0 and the outcome set | Implementation against the proposal |

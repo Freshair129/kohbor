@@ -222,6 +222,16 @@
         "STATS-002",
         "STATS-003"
       ]
+    },
+    {
+      "id": "PN-015",
+      "title": "Honest local draft strip",
+      "actor": "Local player",
+      "need": "See the ten draft-bar hero slots with identified names or an honest unknown reason during supported draft phases, within the control window and with match-only in-memory handling.",
+      "outcome": "The Live page shows the ten slots only at supported geometry; draft data stays in memory and local to the control window, and clears on match end, session change and app exit.",
+      "requirement_ids": [
+        "UI-012"
+      ]
     }
   ]
 }

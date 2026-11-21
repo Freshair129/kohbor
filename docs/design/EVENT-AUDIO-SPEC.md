@@ -148,7 +148,8 @@ MP-01 names "health danger" as a native safety detector but gives no definition.
 
 Approval does not make the cue audible by itself:
 
-- It still needs verified, prewarmed critical media (ALERT-007, DEC-CRITICAL-MEDIA).
+- Critical gank, danger and risk-revision alerts use clips from the announcer packs the owner already has. The team prepares the clip list; it counts as ready only after the owner confirms it and the clips are verified and mapped. The owner's statement that the rights team handles rights is unverified and is not a rights grant. Visual-only and synthesized fallbacks are not selected (DEC-CRITICAL-MEDIA, owner decision 2026-11-21).
+- It still needs verified, prewarmed critical media (ALERT-007, DEC-CRITICAL-MEDIA). Until the confirmation and media checks occur, readiness remains not-ready.
 - Its behavior is pinned by the golden traces in [health-danger-golden.json](../../fixtures/health-danger-golden.json), which `tools/validate_spec.py` replays.
 
 Trigger, re-arm and cooldown windows are inclusive (≤25%, ≥15 points, a [t−2,000 ms, t] window, ≥20,000 ms since the last cue). Percentages are `hp × 100 / max_hp`, not rounded.

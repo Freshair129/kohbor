@@ -2,7 +2,7 @@
 title: "Document Control and Baseline Governance"
 doc_id: "DOCUMENT-CONTROL"
 status: draft
-version: "0.3.7"
+version: "0.3.8"
 updated: "2026-11-21"
 owner_role: "Product owner and engineering lead; people not assigned"
 approval_status: "not_approved"

@@ -2,7 +2,7 @@
 title: "Software Requirements Specification"
 doc_id: "SRS"
 status: "draft"
-version: "0.3.7"
+version: "0.3.8"
 updated: "2026-11-21"
 owner: "Product Owner"
 approval_status: "not_approved"
@@ -20,7 +20,7 @@ The [PRD](../product/PRD.md) defines needs, outcomes, scope and priorities; this
 
 ### 1.2 Scope and document status
 
-The full MVP covers local telemetry, admitted visible-screen observations, deterministic warnings, event media, control window and passive overlay, manual advice, local voice conversation, local history/memory, bounded summaries and explicit local highlights recording. Guest team-status sharing, private social coordination, the edge quick panel (UI-009) and the hero pick card with consented public statistics (UI-010, STATS-001–003) are extensions. Premium authority and advanced services remain deferred unless explicitly scheduled.
+The full MVP covers local telemetry, admitted visible-screen observations, deterministic warnings, event media, control window and passive overlay, manual advice, local voice conversation, local history/memory, bounded summaries and explicit local highlights recording. Guest team-status sharing, private social coordination, the edge quick panel (UI-009), the hero pick card with consented public statistics (UI-010, STATS-001–003), and the deck draft strip (UI-012) are extensions. Premium authority and advanced services remain deferred unless explicitly scheduled.
 
 The first demonstration is a limited delivery milestone, not completion of the full MVP. Action-damage analysis remains subject to its recorded scope/data decision. Game injection, hidden enemy data, automatic gameplay actions, cloud voice/memory processing and inherited product compatibility are outside this baseline.
 
@@ -861,6 +861,8 @@ Kohbor shall change only Windows Core Audio shared-mode session volume and mute 
 
 **Elaboration:** [UX-SPEC.md](../design/UX-SPEC.md), [NFR.md](../quality/NFR.md), [DECISION-LOG.md](../governance/DECISION-LOG.md)
 
+**Diagram views:** [DGM-002](../diagrams/source/DGM-002-containers.mmd), [DGM-004](../diagrams/source/DGM-004-local-data-flow.mmd), [DGM-017](../diagrams/source/DGM-017-user-flow.mmd)
+
 **Implementation freedom:** Implement the built-in fail-closed foreground activation guard. Choose window internals within the specified input and critical alert boundaries.
 
 ### UI
@@ -1063,6 +1065,8 @@ The optional edge orb shall reveal only after the pointer rests in its hot zone 
 
 **Contracts:** [runtime-status.schema.json](../../contracts/runtime-status.schema.json), [user-settings.schema.json](../../contracts/user-settings.schema.json)
 
+**Diagram views:** [DGM-002](../diagrams/source/DGM-002-containers.mmd), [DGM-004](../diagrams/source/DGM-004-local-data-flow.mmd), [DGM-017](../diagrams/source/DGM-017-user-flow.mmd)
+
 **Implementation freedom:** Implement the built-in fail-closed foreground activation guard. Choose window internals within the specified input and critical alert boundaries.
 
 #### UI-011 — Orb sound mixer
@@ -1084,6 +1088,8 @@ The orb panel shall present vertical Game (Dota 2), Kohbor announcer, and user-s
 **Elaboration:** [UX-SPEC.md](../design/UX-SPEC.md), [NFR.md](../quality/NFR.md), [DECISION-LOG.md](../governance/DECISION-LOG.md)
 
 **Contracts:** [runtime-status.schema.json](../../contracts/runtime-status.schema.json), [user-settings.schema.json](../../contracts/user-settings.schema.json)
+
+**Diagram views:** [DGM-002](../diagrams/source/DGM-002-containers.mmd), [DGM-004](../diagrams/source/DGM-004-local-data-flow.mmd), [DGM-017](../diagrams/source/DGM-017-user-flow.mmd)
 
 **Implementation freedom:** Implement the built-in fail-closed foreground activation guard. Choose window internals within the specified input and critical alert boundaries.
 
@@ -1107,7 +1113,31 @@ One right-edge column at x=1728–1907 at 1920×1080, scaled with height, shall 
 
 **Contracts:** [own-snapshot.schema.json](../../contracts/own-snapshot.schema.json)
 
+**Diagram views:** [DGM-002](../diagrams/source/DGM-002-containers.mmd), [DGM-004](../diagrams/source/DGM-004-local-data-flow.mmd), [DGM-005](../diagrams/source/DGM-005-external-data-flow.mmd), [DGM-017](../diagrams/source/DGM-017-user-flow.mmd)
+
 **Implementation freedom:** Choose internal implementation after freezing interfaces within the stated behavior, permissions and evidence thresholds.
+
+#### UI-012 — In-memory deck draft strip
+
+**Scope:** extension · **Priority:** extension · **Target milestone:** M3 · **Basis:** owner_decision / DEC-DRAFT-BAR
+
+**Product needs:** PN-015 · **Primary design:** CMP-READMODEL · **Design components:** CMP-VISION, CMP-INGEST, CMP-READMODEL
+
+During HERO_SELECTION, STRATEGY_TIME and TEAM_SHOWCASE, the Live page in the control window shall show the ten top-bar hero slots with an identified hero name or an unknown state with its reason. This extension is supported only at 1920×1080 and 100% scale. Slot imagery, identification results and reasons shall remain in memory for the current match only; clear them at match end, session change and application exit. Draft Bar data shall never be shown in the overlay, written to logs or disk, or sent over the network.
+
+**Failure behavior:** At unsupported resolution or scale, failed capture, or insufficient identification confidence, show unavailable/unknown with the actual reason; never guess a hero or retain values from another match/session.
+
+**AC-UI-012:** Given an owner-played Dota draft at 1920×1080 and 100% scale with an admitted session; when the Live page is shown during HERO_SELECTION, STRATEGY_TIME or TEAM_SHOWCASE, including unsupported geometry, capture/identification failure and match/session/app clear boundaries; then all ten top-bar slots show the correctly identified hero name or unknown with a reason; unsupported conditions expose their actual reason; the strip remains in-memory and control-window only with no overlay/log/disk/network sink, and data clears at match end, session change and app exit. Accuracy evidence remains NOT_RUN until an owner-played draft is observed.
+
+**Verification:** synthetic, native, live; procedures TP-05, UAT-05; status NOT_RUN.
+
+**Open dependencies:** DEC-INTERFACES, DEC-NATIVE-EVIDENCE.
+
+**Elaboration:** [UX-SPEC.md](../design/UX-SPEC.md), [DRAFT-BAR-SPEC.md](../design/DRAFT-BAR-SPEC.md), [SECURITY-PRIVACY.md](../security/SECURITY-PRIVACY.md)
+
+**Diagram views:** [DGM-002](../diagrams/source/DGM-002-containers.mmd), [DGM-004](../diagrams/source/DGM-004-local-data-flow.mmd), [DGM-005](../diagrams/source/DGM-005-external-data-flow.mmd), [DGM-017](../diagrams/source/DGM-017-user-flow.mmd)
+
+**Implementation freedom:** Keep draft pixels, hero identities and unknown reasons in the in-memory control-window path; do not add a persistence, network or overlay sink.
 
 ### STATS
 
@@ -1131,6 +1161,8 @@ The native host shall admit public hero statistics requests only under their own
 
 **Contracts:** [user-settings.schema.json](../../contracts/user-settings.schema.json), [settings-patch.schema.json](../../contracts/settings-patch.schema.json)
 
+**Diagram views:** [DGM-005](../diagrams/source/DGM-005-external-data-flow.mmd), [DGM-017](../diagrams/source/DGM-017-user-flow.mmd)
+
 **Implementation freedom:** Choose internal implementation after freezing interfaces within the stated behavior, permissions and evidence thresholds.
 
 #### STATS-002 — Closed outgoing public statistics projection
@@ -1151,6 +1183,8 @@ For the v1 suggestions list the native host shall send no user- or match-specifi
 
 **Elaboration:** [SECURITY-PRIVACY.md](../security/SECURITY-PRIVACY.md), [DRAFT-BAR-SPEC.md](../design/DRAFT-BAR-SPEC.md)
 
+**Diagram views:** [DGM-005](../diagrams/source/DGM-005-external-data-flow.mmd), [DGM-017](../diagrams/source/DGM-017-user-flow.mmd)
+
 **Implementation freedom:** Choose internal implementation after freezing interfaces within the stated behavior, permissions and evidence thresholds.
 
 #### STATS-003 — Honest public statistics values and states
@@ -1170,6 +1204,8 @@ Each displayed hero statistics value shall show its provider, provider-stated da
 **Open dependencies:** DEC-INTERFACES.
 
 **Elaboration:** [SECURITY-PRIVACY.md](../security/SECURITY-PRIVACY.md), [UX-SPEC.md](../design/UX-SPEC.md)
+
+**Diagram views:** [DGM-005](../diagrams/source/DGM-005-external-data-flow.mmd), [DGM-017](../diagrams/source/DGM-017-user-flow.mmd)
 
 **Implementation freedom:** Choose internal implementation after freezing interfaces within the stated behavior, permissions and evidence thresholds.
 

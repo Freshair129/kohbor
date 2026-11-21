@@ -209,17 +209,27 @@
       "milestone": "M3",
       "blocks": "complete heuristic parity",
       "owner_role": "algorithm owner",
-      "safe_interim": "Reference score is informational only; no audible missing-gank until evidence admission is frozen. Never claim source parity or emit correction from time decay.",
-      "closure_evidence": "Complete coordinated movement/disappearance and continuous-reappearance gates, death-window/heading/ETA details and positive/negative golden traces; cooldown policy retained."
+      "safe_interim": "Until owner approval of the complete admission rules and frozen fixtures, the score remains informational and audible missing-gank remains unavailable.",
+      "closure_evidence": "Team draft of the complete admission rules and frozen fixtures for coordinated motion/reappearance, death window, heading, ETA and thresholds, reviewed and approved by the owner; retain positive and negative golden traces.",
+      "owner_review_approach": "The team drafts the complete admission rules and frozen fixtures covering coordinated motion/reappearance, death window, heading, ETA and thresholds; the owner reviews and approves them.",
+      "owner_statement_th": "ให้ทีมร่างแล้วคุณตรวจ (แนะนำ)",
+      "owner_decided_on": "2026-11-21"
     },
     {
       "id": "DEC-CRITICAL-MEDIA",
-      "status": "open",
+      "status": "decided",
       "milestone": "M2-M4",
       "blocks": "critical audio readiness",
       "owner_role": "media/product owner",
-      "safe_interim": "Show not-ready status; do not invent event speech.",
-      "closure_evidence": "Authorized verified critical clips, mapping, latency/acoustic evidence."
+      "safe_interim": "Critical audio remains not ready until verified clips are mapped and the owner confirms the prepared clip list. Do not use a visual-only or synthesized fallback.",
+      "closure_evidence": "Team-prepared critical clip list confirmed by the owner, verified clips and mappings, plus the required native/acoustic latency evidence.",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-21",
+      "channel": "Owner answer in chat on 2026-11-21; recorded by the assigned worker.",
+      "owner_statement_th": "คลิปจากแพ็กพากย์ที่มี (แนะนำ)",
+      "decision": "Critical gank, danger and risk-revision alerts use clips from announcer packs the owner already has. The owner states the rights team handles rights; this is an unverified owner statement and is not a rights grant. A clip list is ready only after the owner confirms the list prepared by the team. Visual-only and synthesized fallbacks are not selected.",
+      "rights_status": "Owner statement that the rights team handles rights; unverified, not a rights grant.",
+      "clip_readiness_rule": "The owner must confirm the clip list prepared by the team before any clip counts as ready."
     },
     {
       "id": "DEC-NATIVE-EVIDENCE",
