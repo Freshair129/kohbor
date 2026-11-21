@@ -224,6 +224,31 @@ fn overlay_is_foreground(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
     overlay_hwnd(window).is_some_and(|hwnd| unsafe { GetForegroundWindow() } == hwnd)
 }
 
+/// Map a transparent in-game window without making it the active window.
+///
+/// `WebviewWindow::show` uses `ShowWindow(SW_SHOW)`, which activates. Right after Kohbor starts, Windows lets the
+/// new process take the foreground, so the overlay could steal keyboard focus from Dota at launch
+/// (`activation_detected` on start-up). `SW_SHOWNOACTIVATE` shows the window and leaves the foreground alone.
+#[cfg(windows)]
+pub(crate) fn show_without_activation(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
+    use windows::Win32::UI::WindowsAndMessaging::{IsWindowVisible, ShowWindow, SW_SHOWNOACTIVATE};
+
+    let Some(hwnd) = overlay_hwnd(window) else {
+        return false;
+    };
+    unsafe {
+        // The return value is the previous visibility, not an error.
+        let _ = ShowWindow(hwnd, SW_SHOWNOACTIVATE);
+        IsWindowVisible(hwnd).as_bool()
+    }
+}
+
+/// Non-Windows builds have no foreground race to avoid; keep the plain show.
+#[cfg(not(windows))]
+pub(crate) fn show_without_activation(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
+    window.show().is_ok()
+}
+
 #[cfg(windows)]
 fn raise_overlay_without_activation(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
     use windows::Win32::UI::WindowsAndMessaging::{
@@ -320,7 +345,7 @@ fn build_overlay_window(app: &mut tauri::App<tauri::Wry>) -> Option<OverlayWindo
             );
             return None;
         }
-        let failure = if window.show().is_err() {
+        let failure = if !show_without_activation(&window) {
             Some("SHOW_FAILED")
         } else if !window.is_visible().unwrap_or(false) {
             Some("NOT_VISIBLE_AFTER_SHOW")
@@ -1502,6 +1527,29 @@ mod webview_args_tests {
         assert_eq!(
             conf["app"]["windows"][0]["additionalBrowserArgs"].as_str(),
             Some(super::WEBVIEW2_BROWSER_ARGS)
+        );
+    }
+}
+
+#[cfg(test)]
+mod no_activate_show_tests {
+    /// Regression guard for start-up `activation_detected`: the overlay and the HUD must be mapped with
+    /// `SW_SHOWNOACTIVATE`, never with `WebviewWindow::show` (which uses `SW_SHOW` and activates).
+    #[test]
+    fn in_game_windows_are_mapped_without_activation() {
+        let lib = include_str!("lib.rs");
+        let hud = include_str!("hud.rs");
+        // Each needle also appears once in this test, so the code itself must hold a second copy.
+        assert!(lib.matches("ShowWindow(hwnd, SW_SHOWNOACTIVATE)").count() >= 2);
+        assert!(
+            lib.matches("let failure = if !show_without_activation(&window) {")
+                .count()
+                >= 2
+        );
+        assert!(hud.contains("if !crate::show_without_activation(window) {"));
+        assert!(
+            !hud.contains("window.show()"),
+            "the HUD must not use the activating show"
         );
     }
 }

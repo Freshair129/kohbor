@@ -1,0 +1,7 @@
+.gsi-first-run-dialog { width: min(520px, 100%); }
+.gsi-first-run-dialog .dialog-body > p { margin: 0 0 12px; line-height: 1.55; }
+.gsi-first-run-dialog .gsi-actions { justify-content: flex-end; }
+/* One obvious call to action (lead review 2026-11-21): the connect button is filled, the others stay quiet. */
+.gsi-first-run-dialog .gsi-primary { background: var(--brand); border-color: var(--brand-edge, var(--brand)); color: var(--brand-ink, #fff); font-weight: 600; }
+.gsi-first-run-dialog .gsi-primary:hover:not(:disabled) { filter: brightness(1.1); }
+.gsi-first-run-dialog .gsi-primary:disabled { opacity: 0.6; }

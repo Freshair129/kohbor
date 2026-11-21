@@ -210,6 +210,28 @@ function AbilitySlotTile({ tile, locale, extra, cooldown, nowMs, reducedMotion, 
   </article>;
 }
 
+/** No game data yet: faint hatched outlines of the game layout. They must never read as empty slots (dark wells)
+ * or as real items, so they carry no names, no "?" and one shared "no data yet" label for assistive tech. */
+function LoadoutPlaceholder({ kind, locale }: { kind: "items" | "abilities"; locale: "th" | "en" }) {
+  const label = locale === "th" ? "ยังไม่มีข้อมูลจากเกม" : "No game data yet";
+  const cell = (key: string, className: string) => <div key={key} className={className} aria-hidden="true" />;
+  if (kind === "abilities") {
+    return <div className="deck-ability-grid deck-loadout-placeholder" role="img" aria-label={label} title={label}>
+      {[0, 1, 2, 3].map(i => <div key={i} className="deck-ability-tile">{cell("s", "deck-ability-slot is-placeholder")}</div>)}
+    </div>;
+  }
+  return <div className="deck-loadout-placeholder" role="img" aria-label={label} title={label}>
+    <div className="deck-inventory-layout">
+      <div className="deck-inventory">{[0, 1, 2, 3, 4, 5].map(i => cell(`m${i}`, "deck-item-tile is-placeholder"))}</div>
+      <div className="deck-special-items">
+        {cell("n", "deck-item-tile is-placeholder is-neutral")}
+        {cell("t", "deck-item-tile is-placeholder is-teleport")}
+      </div>
+    </div>
+    <div className="deck-backpack">{[0, 1, 2].map(i => <div key={i} className="deck-item-frame is-backpack">{cell("b", "deck-item-tile is-placeholder is-backpack")}</div>)}</div>
+  </div>;
+}
+
 export function OwnLoadout({ model, locale, gsiSetup }: {
   model: LoadoutViewModel;
   locale: "th" | "en";
@@ -259,7 +281,7 @@ export function OwnLoadout({ model, locale, gsiSetup }: {
             label={`B${index + 1}`} cooldown={tracks[cooldownTrackKey("item", contextKey, tile.slot, tile.rawId)]} nowMs={nowMs}
             reducedMotion={reducedMotion} stale={model.items.stale} />)}
         </div>
-      </> : <span className="deck-loadout-dash">—</span>}
+      </> : <LoadoutPlaceholder kind="items" locale={locale} />}
     </section>
     <section className={`deck-loadout-section${model.abilities.stale ? " is-stale" : ""}`} aria-label={th ? "สกิลและคูลดาวน์" : "Abilities and cooldowns"}>
       <header><h2>{th ? "สกิล · คูลดาวน์" : "Abilities · cooldowns"}</h2>{model.abilities.stale && <small>{old(model.abilities.ageMs)}</small>}</header>
@@ -277,7 +299,7 @@ export function OwnLoadout({ model, locale, gsiSetup }: {
               reducedMotion={reducedMotion} stale={model.abilities.stale} />)}
           </div>
         </section>}
-      </div> : <span className="deck-loadout-dash">—</span>}
+      </div> : <LoadoutPlaceholder kind="abilities" locale={locale} />}
     </section>
     {model.setupHint && <small className="deck-stats-caption deck-setup-hint">
       <span>{th ? "ต้องตั้งค่าการเชื่อมต่อ Dota 2 ใหม่หนึ่งครั้ง" : "Run Dota 2 connection setup once again"}</span>

@@ -30,6 +30,7 @@ const MOCK_PROBE_REPORT_EVENT = "kohbor-mock-media-probe-report";
 const statusFixture = JSON.parse(runtimeStatusFixtureRaw) as RuntimeStatus;
 const snapshotFixture = parseOwnSnapshot(JSON.parse(ownSnapshotFixtureRaw));
 if (!snapshotFixture) throw new Error("Invalid synthetic own snapshot fixture");
+const mockGsiNotConfigured = new URLSearchParams(window.location.search).get("mockGsi") === "not_configured";
 const settingsFixture = JSON.parse(settingsFixtureRaw) as { revision: number; locale: Locale };
 let settingsView: UserSettingsView = {
   revision: settingsFixture.revision,
@@ -66,6 +67,13 @@ function currentStatus(): RuntimeStatus {
       status.intake.state = mockDeckScenario === "stale" ? "stale" : "receiving";
       status.intake.last_admitted_age_ms = mockDeckScenario === "stale" ? 3_200 : 32;
     }
+  }
+  if (mockGsiNotConfigured) {
+    status.intake.state = "not_configured";
+    status.intake.port = null;
+    status.intake.generation = null;
+    status.intake.last_admitted_age_ms = null;
+    status.intake.reason = null;
   }
   // A scenario override wins, like the host's engine-health check which is tested before mute.
   status.media = mediaOverride

@@ -611,7 +611,8 @@ fn show_window(
         hide_window(window);
         return;
     }
-    if window.show().is_err() {
+    // Never activate: the HUD appears mid-match over Dota (see crate::show_without_activation).
+    if !crate::show_without_activation(window) {
         hide_window(window);
         crate::log_warn!("hud", "show_failed", "HUD remains hidden");
         return;
