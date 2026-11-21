@@ -48,6 +48,7 @@ pub(crate) struct Shared {
     last_emit: Option<Instant>,
     /// Last logged visibility diagnosis, so a change is logged once (diagnostics for owner testing).
     last_diag: Option<String>,
+    last_zone: Option<crate::orb::Zone>,
 }
 
 impl Shared {
@@ -68,6 +69,7 @@ impl Shared {
             last_payload: None,
             last_emit: None,
             last_diag: None,
+            last_zone: None,
         }
     }
 
@@ -629,12 +631,37 @@ pub(crate) async fn orb_click(
         "close" => "close",
         _ => return Err("ORB_TARGET_INVALID".to_owned()),
     };
-    state.orb.guard(&app, target, target == "close")?;
+    if let Err(code) = state.orb.guard(&app, target, target == "close") {
+        crate::log_info!(
+            "orb",
+            "click_refused",
+            "orb click refused by the guard",
+            target = target,
+            code = code.clone()
+        );
+        return Err(code);
+    }
     let shared = state.orb.shared().ok_or("ORB_NOT_RUNNING")?;
     let open = {
         let mut shared = lock(&shared);
         match target {
-            "disc" => shared.machine.click_disc().map_err(str::to_owned)?,
+            "disc" => match shared.machine.click_disc() {
+                Ok(open) => {
+                    crate::log_info!("orb", "click_accepted", "orb disc click", open = open);
+                    open
+                }
+                Err(code) => {
+                    crate::log_info!(
+                        "orb",
+                        "click_refused",
+                        "orb disc click refused",
+                        target = target,
+                        code = code,
+                        zone = format!("{:?}", shared.machine.zone)
+                    );
+                    return Err(code.to_owned());
+                }
+            },
             _ => {
                 shared.machine.close();
                 false
@@ -1045,6 +1072,25 @@ mod native {
                     s.last_hover = Some(fg.clone());
                 }
                 s.machine.tick(now, eligible, zone);
+                if s.last_zone != Some(zone) && s.machine.visible() {
+                    let logical = match (cursor, s.geometry.as_ref()) {
+                        (Some(c), Some(g)) => format!(
+                            "{:.0},{:.0}",
+                            f64::from(c.0 - g.monitor.0) / g.scale,
+                            f64::from(c.1 - g.monitor.1) / g.scale
+                        ),
+                        _ => "-".to_owned(),
+                    };
+                    crate::log_info!(
+                        "orb",
+                        "zone_changed",
+                        "orb pointer zone changed",
+                        zone = format!("{zone:?}"),
+                        cursor_logical = logical,
+                        click_through = s.click_through
+                    );
+                }
+                s.last_zone = Some(zone);
                 // Diagnostics: log each change of phase kind with the eligibility inputs (no values, no ids).
                 let phase_kind = match s.machine.phase {
                     crate::orb::Phase::Hidden(reason) => format!("hidden:{}", reason.as_str()),
