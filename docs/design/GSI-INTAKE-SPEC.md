@@ -176,10 +176,11 @@ Labeling every match "mode unverified" is a visible product consequence. The pro
   - payloads from an older generation
 - **Payload timestamp.** `provider.timestamp` and other payload clocks are diagnostics only. They are never used for age, ordering or session decisions.
 - **Thresholds.** `fresh` when `age_ms ≤ 2000`; `stale` when `age_ms ≥ 2001` and the last admitted payload was valid. This is the semantic boundary of AC-DATA-001, now also encoded structurally in [own-snapshot.schema.json](../../contracts/own-snapshot.schema.json).
+- **HUD visibility.** `HUD_STALE_HIDE` is a 10-second presentation limit: the HUD (including its risk meter) and any live-snapshot overlay content hide after `source.age_ms > 10000`, and the HUD fields become unknown. This does not change the 2,000 ms freshness rule for admission or critical cues. The configured pause heartbeat is 1.0 s; the captured maximum gap while paused was 1,059 ms.
 
 ## 6. Session boundaries (DATA-004)
 
-DEC-SESSION continues to own *completion* and aggregate eligibility. This section defines only *start* and *continuity*.
+DEC-SESSION continues to own *completion* and aggregate eligibility. This section defines *start*, *continuity* and the explicit end caused by game loss.
 
 | Situation | Evidence | Result |
 | --- | --- | --- |
@@ -189,6 +190,9 @@ DEC-SESSION continues to own *completion* and aggregate eligibility. This sectio
 | App restart during a match | First admitted payload whose match key and owner equal the persisted current session | Same `session_id` and same `session_epoch`. Event baselines re-initialize from the first new payload without emitting achievement or new-match cues |
 | App restart, different or no persisted session | — | Treated as the "new session" row |
 | Post-game | `map.game_state = DOTA_GAMERULES_STATE_POST_GAME` | Session stays current. Completion evidence is recorded only as a candidate for DEC-SESSION |
+| Game window/process loss | Capture host reports `phase_reason = no_game_window`, or the observed `dota2.exe` process identity changes or disappears | End the current session, clear admitted live values and phase, and reset session-scoped detector/capture state. The next fresh admitted payload starts a new `session_id` and epoch, even for the same match key |
+
+The host checks these loss signals on the 500 ms HUD poll. A qualified critical cue based on fresh data is not delayed or suppressed by the 10-second presentation limit.
 
 Persistence rules:
 

@@ -338,8 +338,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/hud.rs",
-      "bytes": 47144,
-      "sha256": "060b6df2a8ab899f8b383c2dd211db091ff60de8526e70be7dec23b0036f65f2"
+      "bytes": 52139,
+      "sha256": "a79863aee81073624e0ee3f5a04ca554c2d382aebda753cab8416ee5f9d4a21d"
     },
     {
       "path": "apps/desktop/src-tauri/src/instance.rs",
@@ -348,8 +348,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/intake.rs",
-      "bytes": 92809,
-      "sha256": "b2982041941c9330fbbc37bba13b93f14e8ea014cc4018496f6be000265c1971"
+      "bytes": 99651,
+      "sha256": "4da88b8a9f05085cdd2f7ae5a7e4f42364db1944de1b6e4a642be634ea57cdf8"
     },
     {
       "path": "apps/desktop/src-tauri/src/lab.rs",
@@ -2268,8 +2268,8 @@
     },
     {
       "path": "crates/kohbor-gsi/src/session.rs",
-      "bytes": 6297,
-      "sha256": "8b03f75ad77a0259ad514db62cd74f05f5dc850dc50fa049226d534095a115d3"
+      "bytes": 7131,
+      "sha256": "457a9fb70320bf20f664a65bf5a685f4c292fdfcef1e3b4ff864e45084195ec3"
     },
     {
       "path": "crates/kohbor-gsi/src/snapshot.rs",
@@ -2733,8 +2733,8 @@
     },
     {
       "path": "docs/design/GSI-INTAKE-SPEC.md",
-      "bytes": 23750,
-      "sha256": "ccb783a8bcf4602b898eb556c6c2f16d6a5176abf43f7820e0dcdf69d16c17a6"
+      "bytes": 24709,
+      "sha256": "1c3ad482e3fb095b55dae76956983dd5d6f4da3784bb0b3013a668d676d398e1"
     },
     {
       "path": "docs/design/ICD.md",
