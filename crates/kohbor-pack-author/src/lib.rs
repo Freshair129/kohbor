@@ -54,12 +54,14 @@ pub struct PresentationOptions {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WrittenBinding {
     pub event_id: String,
+    pub critical_media_required: bool,
     pub tier: Option<u32>,
     pub variant_id: Option<String>,
     pub clip_id: Option<String>,
     pub selection: Option<String>,
     pub duration_ms: u32,
     pub audio: String,
+    pub audio_facts: audio::AudioFacts,
     /// Package-relative visual path, or `None` for an audio-only variant.
     pub visual: Option<String>,
     pub identity_audio: Option<String>,
@@ -274,6 +276,10 @@ pub fn build_package(options: &BuildOptions) -> Result<BuildReport, BuildError> 
     };
 
     for mapping in &mapping_plan.bindings {
+        let critical_media_required = catalog
+            .event(&mapping.event_id)
+            .ok_or_else(|| BuildError::new(1, format!("unknown event id: {}", mapping.event_id)))?
+            .critical_media_required;
         let binding_key = binding_key(mapping);
         let mut prepared = Vec::with_capacity(mapping.variants.len());
         for variant in &mapping.variants {
@@ -284,6 +290,7 @@ pub fn build_package(options: &BuildOptions) -> Result<BuildReport, BuildError> 
                 &binding_key,
                 use_v14_output,
                 options.require_visual,
+                critical_media_required,
                 &mut variant_state,
             )? {
                 VariantBuildResult::Written(variant) => prepared.push(variant),
@@ -521,7 +528,10 @@ pub fn build_package(options: &BuildOptions) -> Result<BuildReport, BuildError> 
         })
         .collect::<Vec<_>>();
     let mut build_report = json!({
-        "written": written.iter().map(written_report_json).collect::<Vec<_>>(),
+        "written": written
+            .iter()
+            .map(written_provenance_json)
+            .collect::<Vec<_>>(),
         "skipped": skipped.iter().map(skipped_report_json).collect::<Vec<_>>(),
     });
     if use_v14_output {
@@ -570,6 +580,7 @@ pub fn build_package(options: &BuildOptions) -> Result<BuildReport, BuildError> 
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 fn prepare_variant(
     clips_dir: &Path,
     mapping: &MappingBinding,
@@ -577,6 +588,7 @@ fn prepare_variant(
     binding_key: &str,
     v14_output: bool,
     require_visual: bool,
+    critical_media_required: bool,
     state: &mut VariantBuildState<'_>,
 ) -> Result<VariantBuildResult, BuildError> {
     if variant.visual.is_none() && variant.visual_tail_ms != 0 {
@@ -681,6 +693,7 @@ fn prepare_variant(
             ),
         )
     })?;
+    let audio_facts = mixed.audio_facts;
     let duration_ms = u32::try_from(
         u64::try_from(mixed.samples)
             .map_err(|_| BuildError::new(1, "audio sample count is too large"))?
@@ -825,6 +838,7 @@ fn prepare_variant(
         descriptor,
         written: WrittenBinding {
             event_id: mapping.event_id.clone(),
+            critical_media_required,
             tier: mapping.tier,
             variant_id: if v14_output {
                 variant.variant_id.clone()
@@ -835,6 +849,7 @@ fn prepare_variant(
             selection: None,
             duration_ms,
             audio: mixed_path,
+            audio_facts,
             visual: visual_output_path,
             identity_audio: identity_output_path,
         },
@@ -1545,7 +1560,7 @@ fn skip_for(
     }
 }
 
-fn written_report_json(binding: &WrittenBinding) -> Value {
+fn written_provenance_json(binding: &WrittenBinding) -> Value {
     let mut report = Map::new();
     report.insert("event_id".to_owned(), json!(binding.event_id));
     report.insert("tier".to_owned(), json!(binding.tier));
@@ -1561,6 +1576,27 @@ fn written_report_json(binding: &WrittenBinding) -> Value {
         report.insert("clip_id".to_owned(), json!(clip_id));
     }
     Value::Object(report)
+}
+
+fn written_report_json(binding: &WrittenBinding) -> Value {
+    let mut report = written_provenance_json(binding);
+    let report_object = report
+        .as_object_mut()
+        .expect("written provenance record is a JSON object");
+    report_object.insert(
+        "audio_facts".to_owned(),
+        json!({
+            "onset_ms": binding.audio_facts.onset_ms,
+            "tail_ms": binding.audio_facts.tail_ms,
+            "peak_dbfs_tenths": binding.audio_facts.peak_dbfs_tenths,
+            "active_rms_dbfs_tenths": binding.audio_facts.active_rms_dbfs_tenths,
+        }),
+    );
+    report_object.insert(
+        "critical_media_required".to_owned(),
+        json!(binding.critical_media_required),
+    );
+    report
 }
 
 fn skipped_report_json(binding: &SkippedBinding) -> Value {
@@ -1836,6 +1872,9 @@ Mappings without variants keep descriptor 1.3.0.
 For 1.4.x output, the JSON report includes descriptor_schema_version and lists
 one written or skipped record per variant. Records include variant_id and any
 provided clip_id. Written records also include selection and generated media paths.
+Written records include audio_facts from packaged mono 48 kHz PCM16: onset is the first 480-sample
+window with |sample| >= 328; tail counts whole or partial windows after the last active window.
+Peak and active-window RMS are rounded dBFS tenths; no activity makes onset/tail/RMS null, and peak is null for an all-zero clip.
 "#;
 
 /// Run the CLI parser and builder. Returns the process exit code.

@@ -280,6 +280,26 @@ fn pcm_wav(sample_rate: u32, channels: u16, bits: u16, samples: &[i32]) -> Vec<u
     )
 }
 
+fn synthetic_tone_wav(
+    sample_rate: u32,
+    leading_silence_ms: u32,
+    tone_duration_ms: u32,
+    trailing_silence_ms: u32,
+) -> Vec<u8> {
+    let sample_count = (sample_rate as usize)
+        * ((leading_silence_ms + tone_duration_ms + trailing_silence_ms) as usize)
+        / 1_000;
+    let onset = (sample_rate as usize) * (leading_silence_ms as usize) / 1_000;
+    let tone_samples = (sample_rate as usize) * (tone_duration_ms as usize) / 1_000;
+    let amplitude = 10.0_f64.powf(-6.0 / 20.0) * 32_767.0;
+    let mut samples = vec![0; sample_count];
+    for (index, sample) in samples[onset..onset + tone_samples].iter_mut().enumerate() {
+        let phase = std::f64::consts::TAU * 1_000.0 * index as f64 / f64::from(sample_rate);
+        *sample = (phase.sin() * amplitude).round() as i32;
+    }
+    pcm_wav(sample_rate, 1, 16, &samples)
+}
+
 fn float_wav(sample_rate: u32, channels: u16, samples: &[f32]) -> Vec<u8> {
     let mut data = Vec::new();
     for sample in samples {
@@ -534,6 +554,81 @@ fn duration_is_floored_from_converted_sample_count() {
         report.written.first().map(|binding| binding.duration_ms),
         Some(2)
     );
+}
+
+#[test]
+fn audio_facts_measure_active_windows_peak_and_rms_from_written_pcm() {
+    let fixture = Fixture::new();
+    fs::write(
+        fixture.clips.join("x.wav"),
+        synthetic_tone_wav(48_000, 120, 500, 200),
+    )
+    .expect("write synthetic 48 kHz tone");
+    fixture.set_mapping(&[binding("hero_kill", None, None, None, None, None)]);
+
+    let report = build_package(&fixture.options()).expect("build package with synthetic tone");
+    let facts = &report.written[0].audio_facts;
+    assert_eq!(facts.onset_ms, Some(120));
+    assert_eq!(facts.tail_ms, Some(200));
+    assert!((-61..=-59).contains(&facts.peak_dbfs_tenths.unwrap()));
+    assert!((-91..=-89).contains(&facts.active_rms_dbfs_tenths.unwrap()));
+}
+
+#[test]
+fn audio_facts_for_44100_hz_input_follow_resampled_pcm() {
+    let fixture = Fixture::new();
+    fs::write(
+        fixture.clips.join("x.wav"),
+        synthetic_tone_wav(44_100, 130, 500, 200),
+    )
+    .expect("write synthetic 44.1 kHz tone");
+    fixture.set_mapping(&[binding("hero_kill", None, None, None, None, None)]);
+
+    let report = build_package(&fixture.options()).expect("build package with resampled tone");
+    let onset_ms = report.written[0]
+        .audio_facts
+        .onset_ms
+        .expect("resampled tone has an active window");
+    assert!(onset_ms.abs_diff(130) <= 10, "onset was {onset_ms} ms");
+}
+
+#[test]
+fn all_zero_audio_reports_unknown_facts_without_rejecting_the_clip() {
+    let fixture = Fixture::new();
+    fs::write(
+        fixture.clips.join("x.wav"),
+        pcm_wav(48_000, 1, 16, &vec![0; 4_800]),
+    )
+    .expect("write synthetic all-zero clip");
+    fixture.set_mapping(&[binding("hero_kill", None, None, None, None, None)]);
+
+    let report = build_package(&fixture.options()).expect("all-zero clip remains accepted");
+    let facts = &report.written[0].audio_facts;
+    assert_eq!(facts.onset_ms, None);
+    assert_eq!(facts.tail_ms, None);
+    assert_eq!(facts.peak_dbfs_tenths, None);
+    assert_eq!(facts.active_rms_dbfs_tenths, None);
+}
+
+#[test]
+fn audio_facts_handle_the_negative_pcm16_limit_as_full_scale() {
+    let fixture = Fixture::new();
+    let mut samples = vec![0; 480];
+    samples[0] = i32::from(i16::MIN);
+    fs::write(
+        fixture.clips.join("x.wav"),
+        pcm_wav(48_000, 1, 16, &samples),
+    )
+    .expect("write synthetic full-scale negative sample");
+    fixture.set_mapping(&[binding("hero_kill", None, None, None, None, None)]);
+
+    let report = build_package(&fixture.options()).expect("build package with full-scale sample");
+    let facts = &report.written[0].audio_facts;
+    assert_eq!(facts.onset_ms, Some(0));
+    assert_eq!(facts.tail_ms, Some(0));
+    assert_eq!(facts.peak_dbfs_tenths, Some(0));
+    // One full-scale sample in a 480-sample window: 100*log10(1/480) = -268.1.
+    assert_eq!(facts.active_rms_dbfs_tenths, Some(-268));
 }
 
 #[test]
@@ -1111,6 +1206,8 @@ fn cli_help_documents_legacy_and_variant_mapping_forms() {
     assert!(help.contains("one-clip bindings"));
     assert!(help.contains("variants"));
     assert!(help.contains("selection"));
+    assert!(help.contains("audio_facts"));
+    assert!(help.contains("|sample| >= 328"));
 }
 
 #[test]
@@ -1145,7 +1242,21 @@ fn cli_report_lists_each_written_variant() {
     assert_eq!(report["written"].as_array().unwrap().len(), 2);
     assert_eq!(report["written"][0]["variant_id"], "v1");
     assert_eq!(report["written"][0]["selection"], "sequence");
+    assert_eq!(report["written"][0]["critical_media_required"], false);
+    assert_eq!(
+        report["written"][0]["audio_facts"],
+        json!({
+            "onset_ms": 0,
+            "tail_ms": 0,
+            "peak_dbfs_tenths": -301,
+            "active_rms_dbfs_tenths": -301,
+        })
+    );
     assert_eq!(report["written"][1]["variant_id"], "v2");
+    assert_eq!(
+        report["written"][1]["audio_facts"],
+        report["written"][0]["audio_facts"]
+    );
 }
 
 #[test]
@@ -1415,7 +1526,7 @@ fn output_is_confined_to_out_and_staging_is_removed() {
 }
 
 #[test]
-fn legacy_cli_and_provenance_keep_the_pre_v3_report_shape() {
+fn legacy_cli_adds_audio_facts_without_changing_provenance_shape() {
     let fixture = Fixture::new();
     fixture.set_mapping(&[
         binding("multi_kill", Some(2), Some("x.webm"), None, None, None),
@@ -1448,6 +1559,14 @@ fn legacy_cli_and_provenance_keep_the_pre_v3_report_shape() {
         "duration_ms": 10,
         "visual": "video/multi_kill-t2.webm",
     }]);
+    let mut cli_written = written.clone();
+    cli_written[0]["audio_facts"] = json!({
+        "onset_ms": 0,
+        "tail_ms": 0,
+        "peak_dbfs_tenths": -301,
+        "active_rms_dbfs_tenths": -301,
+    });
+    cli_written[0]["critical_media_required"] = json!(false);
     let skipped = json!([{
         "event_id": "hero_kill",
         "tier": null,
@@ -1459,7 +1578,7 @@ fn legacy_cli_and_provenance_keep_the_pre_v3_report_shape() {
             "package": "synthetic-pack-r3.zip",
             "provenance": "synthetic-pack-r3.provenance.json",
             "container_sha256": sha256(&output_bytes(&fixture.out.join("synthetic-pack-r3.zip"))),
-            "written": written,
+            "written": cli_written,
             "skipped": skipped,
         }),
     );
