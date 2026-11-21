@@ -2743,13 +2743,13 @@
     },
     {
       "path": "crates/kohbor-pack-author/src/audio.rs",
-      "bytes": 14660,
-      "sha256": "8ae2f6cf850ba4ed18076f2f5b080e052777e489c669f267e76e7e9427fe388c"
+      "bytes": 12523,
+      "sha256": "bd8d6e4ed5402ca20f519856645f31d304027b34e9cea41907ac465cf922b36f"
     },
     {
       "path": "crates/kohbor-pack-author/src/lib.rs",
-      "bytes": 69757,
-      "sha256": "0454d3cb2d8c76ef2bae9da756eba6806b4fef962af2f4ea199e3cc01c82bcc0"
+      "bytes": 68141,
+      "sha256": "c7c7aac065cb4bf6d95b4abf1fc6a77f797cde3ea35ee18281e38110dafef4b2"
     },
     {
       "path": "crates/kohbor-pack-author/src/main.rs",
@@ -2758,13 +2758,13 @@
     },
     {
       "path": "crates/kohbor-pack-author/tests/audio_only.rs",
-      "bytes": 17262,
-      "sha256": "c0620ef9b55534585e8e7c0bbf32db472674f8d2118f6568922f2e28595603f6"
+      "bytes": 11746,
+      "sha256": "fe53c10414ded9a9c361f5e10283d7745a0e03f2a5d8721b7eba9f607830a94e"
     },
     {
       "path": "crates/kohbor-pack-author/tests/author.rs",
-      "bytes": 57024,
-      "sha256": "ac00f9642e06a65637f4635f183793a349500ad6845bd6122d905d4962d1c678"
+      "bytes": 52514,
+      "sha256": "52f199621ad0df235335327b7e89a413c1d53c848b4ea76a19c651ed286b6fa6"
     },
     {
       "path": "crates/kohbor-pack/Cargo.toml",
