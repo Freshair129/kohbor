@@ -99,6 +99,13 @@ impl SessionTracker {
         self.current.as_ref()
     }
 
+    /// End the admitted session. The next admitted payload starts a new session,
+    /// even when it carries the same match id and owner.
+    pub fn end(&mut self) -> bool {
+        self.restored = false;
+        self.current.take().is_some()
+    }
+
     /// Observe one admitted payload with verified ownership.
     /// `new_session_id` supplies an opaque 128-bit identifier when a session starts.
     pub fn observe(
@@ -205,5 +212,22 @@ mod tests {
             r2.observe(Some("8000000009"), OWNER, sid("y")),
             SessionChange::Started { epoch: 2 }
         );
+    }
+
+    #[test]
+    fn ended_session_does_not_resume_when_the_same_match_reconnects() {
+        let mut tracker = SessionTracker::new(KEY);
+        assert_eq!(
+            tracker.observe(Some("8000000001"), OWNER, sid("old")),
+            SessionChange::Started { epoch: 1 }
+        );
+
+        assert!(tracker.end());
+        assert!(tracker.current().is_none());
+        assert_eq!(
+            tracker.observe(Some("8000000001"), OWNER, sid("new")),
+            SessionChange::Started { epoch: 2 }
+        );
+        assert_eq!(tracker.current().unwrap().session_id, "new");
     }
 }

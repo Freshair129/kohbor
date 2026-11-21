@@ -210,9 +210,46 @@ pub const fn hud_capability_permissions() -> &'static [&'static str] {
 const HUD_STAT_FIELDS: [&str; 6] = ["kills", "deaths", "assists", "gold", "gpm", "xpm"];
 const HUD_POLL_INTERVAL: Duration = Duration::from_millis(500);
 const HUD_KEEPALIVE_INTERVAL: Duration = Duration::from_secs(2);
+/// Hide live HUD data after ten seconds without an admitted GSI refresh. The configured pause
+/// heartbeat is one second and the captured pause gap was 1,059 ms, leaving ample margin.
+const HUD_STALE_HIDE: Duration = Duration::from_secs(10);
 const HUD_STATE_EVENT: &str = "hud://state";
 #[cfg(any(feature = "lab", debug_assertions))]
 const HUD_LAYOUT_EVENT: &str = "hud://layout";
+
+#[derive(Default)]
+pub(crate) struct GameProcessWatch {
+    last_pid: Option<u32>,
+}
+
+impl GameProcessWatch {
+    pub(crate) fn observe(
+        &mut self,
+        process_id: Option<Option<u32>>,
+        capture_reason: Option<&str>,
+        session_active: bool,
+    ) -> Option<&'static str> {
+        let reports_no_window = capture_reason == Some("no_game_window");
+
+        let process_change = match process_id {
+            Some(Some(pid)) => self
+                .last_pid
+                .replace(pid)
+                .filter(|previous| *previous != pid)
+                .map(|_| "game_process_changed"),
+            Some(None) => {
+                (self.last_pid.take().is_some() || session_active).then_some("game_window_lost")
+            }
+            None => None,
+        };
+
+        if reports_no_window {
+            Some("game_window_lost")
+        } else {
+            process_change
+        }
+    }
+}
 
 #[cfg(any(feature = "lab", debug_assertions))]
 #[derive(Default)]
@@ -314,9 +351,13 @@ pub fn build_hud_state(snapshot: &Value) -> Value {
         snapshot.get("availability").and_then(Value::as_str),
         Some("fresh" | "stale")
     ) && snapshot
-        .pointer("/own/fields")
-        .and_then(Value::as_object)
-        .is_some();
+        .pointer("/source/age_ms")
+        .and_then(Value::as_u64)
+        .is_some_and(|age_ms| age_ms <= HUD_STALE_HIDE.as_millis() as u64)
+        && snapshot
+            .pointer("/own/fields")
+            .and_then(Value::as_object)
+            .is_some();
 
     let mut fields = Map::new();
     for name in HUD_STAT_FIELDS {
@@ -334,6 +375,16 @@ pub fn build_hud_state(snapshot: &Value) -> Value {
         "fields": fields,
         "net_worth": if visible { net_worth_field(snapshot) } else { unknown_net_worth() }
     })
+}
+
+fn stale_limit_exceeded(snapshot: &Value) -> bool {
+    matches!(
+        snapshot.get("availability").and_then(Value::as_str),
+        Some("fresh" | "stale")
+    ) && snapshot
+        .pointer("/source/age_ms")
+        .and_then(Value::as_u64)
+        .is_some_and(|age_ms| age_ms > HUD_STALE_HIDE.as_millis() as u64)
 }
 
 /// Item name -> shop cost in gold (294 entries). Third-party data, see
@@ -517,12 +568,23 @@ fn run_state_thread(
     stop: Receiver<()>,
 ) {
     let mut emission = EmissionTracker::default();
+    let mut process_watch = GameProcessWatch::default();
+    let mut stale_limit_was_hidden = false;
     #[cfg(any(feature = "lab", debug_assertions))]
     let mut layout_emission = HudLayoutEmission::default();
     #[cfg(any(feature = "lab", debug_assertions))]
     let mut last_layout: Option<(u64, Value)> = None;
     loop {
         let layouts = effective_hud_layouts();
+        let capture_status = crate::capture_host::capture_status();
+        let session_active = crate::intake::lock(&runtime.shared).phase.is_some();
+        if let Some(reason) = process_watch.observe(
+            crate::intake::game_process_id(),
+            capture_status.get("phase_reason").and_then(Value::as_str),
+            session_active,
+        ) {
+            runtime.end_live_session(reason);
+        }
         let snapshot = crate::commands::own_snapshot_value(runtime.as_ref());
         #[cfg(any(feature = "lab", debug_assertions))]
         let payload = preview_state(&snapshot, crate::lab::hud_preview_active());
@@ -530,6 +592,17 @@ fn run_state_thread(
         let payload = build_hud_state(&snapshot);
         let visible = payload["visible"].as_bool().unwrap_or(false);
         let now = Instant::now();
+
+        let stale_limit_hidden = stale_limit_exceeded(&snapshot);
+        if stale_limit_hidden && !stale_limit_was_hidden {
+            crate::log_info!(
+                "hud",
+                "live_surfaces_hidden",
+                "Live HUD and overlay content hidden",
+                reason = "gsi_stale_limit"
+            );
+        }
+        stale_limit_was_hidden = stale_limit_hidden;
 
         #[cfg(any(feature = "lab", debug_assertions))]
         {
@@ -643,9 +716,10 @@ mod tests {
     use super::{
         build_hud_state, effective_hud_layouts, hud_capability_permissions, hud_layout_payload,
         hud_window_spec, item_cost, item_prices, module_pixel_center, net_worth_field,
-        place_hud_window, preview_state, strip_height_percent, synthetic_preview_state,
-        unknown_net_worth, Controller, EmissionTracker, HudLayoutEmission, HudModule,
-        HudModuleLayout, DEFAULT_HUD_LAYOUTS,
+        place_hud_window, preview_state, stale_limit_exceeded, strip_height_percent,
+        synthetic_preview_state, unknown_net_worth, Controller, EmissionTracker, GameProcessWatch,
+        HudLayoutEmission, HudModule, HudModuleLayout, DEFAULT_HUD_LAYOUTS, HUD_POLL_INTERVAL,
+        HUD_STALE_HIDE,
     };
     use crate::overlay::{MonitorRect, Rect};
     use kohbor_gsi::admission::{
@@ -731,6 +805,8 @@ mod tests {
                 json!({"value":null,"availability":"unknown"})
             );
         }
+        assert_eq!(state["net_worth"]["value"], Value::Null);
+        assert_eq!(state["net_worth"]["availability"], "unknown");
     }
 
     #[test]
@@ -1135,10 +1211,68 @@ mod tests {
 
     #[test]
     fn stale_snapshot_keeps_observed_values_and_marks_them_stale() {
-        let state = build_hud_state(&admitted_snapshot(Phase::Live, Ownership::Verified, 2001));
+        let state = build_hud_state(&admitted_snapshot(Phase::Live, Ownership::Verified, 5000));
         assert_eq!(state["visible"], true);
         assert_eq!(state["fields"]["kills"], field(json!(7), "stale"));
         assert_eq!(state["fields"]["gold"], field(json!(1234), "stale"));
+    }
+
+    #[test]
+    fn stale_snapshot_over_ten_seconds_hides_and_scrubs_every_field() {
+        let snapshot = admitted_snapshot(Phase::Live, Ownership::Verified, 11_000);
+        assert!(stale_limit_exceeded(&snapshot));
+        assert_hidden_unknown(&build_hud_state(&snapshot));
+    }
+
+    #[test]
+    fn stale_snapshot_at_the_limit_remains_visible_and_pause_refresh_is_fresh() {
+        assert_eq!(HUD_STALE_HIDE, Duration::from_secs(10));
+        let at_limit = admitted_snapshot(
+            Phase::Live,
+            Ownership::Verified,
+            HUD_STALE_HIDE.as_millis() as u64,
+        );
+        assert_eq!(build_hud_state(&at_limit)["visible"], true);
+        assert!(!stale_limit_exceeded(&at_limit));
+
+        let refreshed = admitted_snapshot(Phase::Live, Ownership::Verified, 1000);
+        assert_eq!(build_hud_state(&refreshed)["visible"], true);
+        assert_eq!(refreshed["availability"], "fresh");
+    }
+
+    #[test]
+    fn game_window_loss_and_process_identity_reasons_are_detected() {
+        let mut watch = GameProcessWatch::default();
+        assert_eq!(watch.observe(Some(Some(41)), None, false), None);
+        assert_eq!(
+            watch.observe(Some(Some(41)), Some("no_game_window"), true),
+            Some("game_window_lost")
+        );
+        assert_eq!(
+            watch.observe(Some(Some(41)), Some("no_game_window"), true),
+            Some("game_window_lost")
+        );
+        assert_eq!(watch.observe(Some(Some(41)), Some("live"), true), None);
+        assert_eq!(watch.observe(None, Some("live"), true), None);
+        assert_eq!(
+            watch.observe(Some(Some(42)), Some("live"), true),
+            Some("game_process_changed")
+        );
+    }
+
+    #[test]
+    fn game_process_loss_is_handled_within_one_second() {
+        assert!(HUD_POLL_INTERVAL <= Duration::from_secs(1));
+        let mut watch = GameProcessWatch::default();
+        watch.observe(Some(Some(41)), None, true);
+        assert_eq!(
+            watch.observe(Some(None), None, false),
+            Some("game_window_lost")
+        );
+        assert_eq!(
+            GameProcessWatch::default().observe(Some(None), None, true),
+            Some("game_window_lost")
+        );
     }
 
     #[test]

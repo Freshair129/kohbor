@@ -303,8 +303,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/capture_host.rs",
-      "bytes": 291305,
-      "sha256": "4c436268d1648092bedb67f13c905771674f682b9c4e0e049e09977ef0644d90"
+      "bytes": 291298,
+      "sha256": "0d9295440db819cc583cacc42564b986dc2d9be166804aa832e6b79b227b294f"
     },
     {
       "path": "apps/desktop/src-tauri/src/clock.rs",
@@ -343,8 +343,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/hud.rs",
-      "bytes": 47144,
-      "sha256": "060b6df2a8ab899f8b383c2dd211db091ff60de8526e70be7dec23b0036f65f2"
+      "bytes": 52139,
+      "sha256": "a79863aee81073624e0ee3f5a04ca554c2d382aebda753cab8416ee5f9d4a21d"
     },
     {
       "path": "apps/desktop/src-tauri/src/instance.rs",
@@ -353,8 +353,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/intake.rs",
-      "bytes": 92809,
-      "sha256": "b2982041941c9330fbbc37bba13b93f14e8ea014cc4018496f6be000265c1971"
+      "bytes": 99651,
+      "sha256": "4da88b8a9f05085cdd2f7ae5a7e4f42364db1944de1b6e4a642be634ea57cdf8"
     },
     {
       "path": "apps/desktop/src-tauri/src/lab.rs",
@@ -373,8 +373,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
-      "bytes": 93738,
-      "sha256": "6061252ca06d011777ad990bfd1b696c7c98e66ec21be8cefff0ee310f4eff39"
+      "bytes": 94461,
+      "sha256": "87c1ef0fadc7d6516a4f6c4a8c58e62464a3abd26bbc69767342b93171ddef9c"
     },
     {
       "path": "apps/desktop/src-tauri/src/main.rs",
@@ -2333,8 +2333,8 @@
     },
     {
       "path": "crates/kohbor-gsi/src/session.rs",
-      "bytes": 6297,
-      "sha256": "8b03f75ad77a0259ad514db62cd74f05f5dc850dc50fa049226d534095a115d3"
+      "bytes": 7131,
+      "sha256": "457a9fb70320bf20f664a65bf5a685f4c292fdfcef1e3b4ff864e45084195ec3"
     },
     {
       "path": "crates/kohbor-gsi/src/snapshot.rs",
@@ -2798,8 +2798,8 @@
     },
     {
       "path": "docs/design/GSI-INTAKE-SPEC.md",
-      "bytes": 23750,
-      "sha256": "ccb783a8bcf4602b898eb556c6c2f16d6a5176abf43f7820e0dcdf69d16c17a6"
+      "bytes": 24709,
+      "sha256": "1c3ad482e3fb095b55dae76956983dd5d6f4da3784bb0b3013a668d676d398e1"
     },
     {
       "path": "docs/design/ICD.md",
@@ -2873,8 +2873,8 @@
     },
     {
       "path": "docs/design/UX-SPEC.md",
-      "bytes": 21034,
-      "sha256": "62aee98733b28415567f87c8eb7c2e1e55f7d9757c1acb072a6d1500e1d9cf4f"
+      "bytes": 24049,
+      "sha256": "f5f80ab27898b1feb5b8f4d21c4a42feb09541461b752d959ee5f933f66f99b2"
     },
     {
       "path": "docs/design/VISUAL-DESIGN-PROPOSAL.md",
