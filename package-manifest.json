@@ -523,8 +523,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/orb/mod.rs",
-      "bytes": 39336,
-      "sha256": "e0626548c8a6f58fbd48b8f69d05280841cfe4aad100e33d3d278dbfe94adbcb"
+      "bytes": 41283,
+      "sha256": "f091401b6c664db02bfb6aa092bc6d650dab3c644f5c5109f84f7ca0cce94bb1"
     },
     {
       "path": "apps/desktop/src-tauri/src/overlay.rs",
@@ -1258,13 +1258,13 @@
     },
     {
       "path": "apps/desktop/src/orb/OrbStage.tsx",
-      "bytes": 13951,
-      "sha256": "3f1508a4579be03e79fea0a67c823c5d1d4bc132d966172647d0cc59bd96b72c"
+      "bytes": 14248,
+      "sha256": "1191fde53231fdd9c5a4d1fb7ff1da88109c9b462cde2bf53a47e549dfd16a85"
     },
     {
       "path": "apps/desktop/src/orb/orb.css",
       "bytes": 8138,
-      "sha256": "b1d2138de98dbf041119937fd8b35c58951444af358c769c05ba3cc4bbdc3ae9"
+      "sha256": "6f5b6241373e6e9384896a18a5e1077e02c9ed5df63463c4bed92f1dcb789bb9"
     },
     {
       "path": "apps/desktop/src/orb/orbApi.ts",

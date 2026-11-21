@@ -266,7 +266,12 @@ export function OrbStage() {
     opacity: cue.opacity,
   } as CSSProperties;
   return (
-    <div className={`orb-root${reduced ? " is-reduced" : ""}`} onMouseDown={noFocus}>
+    <div className={`orb-root${reduced ? " is-reduced" : ""}`} onMouseDown={noFocus}
+      onPointerDown={(event) => {
+        // Owner decision 2026-11-22: one click on the tucked orb (the host's guarded target) opens the panel.
+        event.preventDefault();
+        if (state.phase === "tucked" || state.phase === "charging") void orbApi.click("disc").catch(() => {});
+      }}>
       <div className={`orb-disc${out ? " is-out" : ""}${open ? " is-open" : ""}${state.locked ? " is-locked" : ""}`} style={discStyle}
         onPointerDown={(event) => {
           event.preventDefault();
