@@ -263,3 +263,10 @@ test("the target viewports leave a bounded content track and a three-column 1280
   assert.match(statusFooterCss, /\.shell-status-footer\s*\{[^}]*min-height:\s*28px/);
   assert.match(css, /grid-template-rows:\s*minmax\(0, 1fr\) 28px/);
 });
+
+test("status chips draw exactly one glyph: the Chip span, never the design-token ::before as well", () => {
+  const readiness = readFileSync(new URL("../src/Readiness.tsx", import.meta.url), "utf8");
+  assert.match(readiness, /className="chip-glyph" aria-hidden="true"/, "the Chip component owns the glyph");
+  assert.match(tokensCss, /\.chip::before\s*\{/, "the token sheet still carries its own glyph for static mocks");
+  assert.match(css, /\.chip::before\s*\{[^}]*content:\s*none/, "the app must switch the token glyph off");
+});

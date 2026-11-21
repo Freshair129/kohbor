@@ -2,6 +2,7 @@ export interface EventVariantsCopy {
   title: string;
   selectionLabel: string;
   selection: Record<"random" | "shuffle" | "sequence", string>;
+  voice: (number: number) => string;
   variantId: string;
   clipId: string;
   caption: string;
@@ -27,12 +28,13 @@ export interface EventVariantsCopy {
 const copy: Record<"th" | "en", EventVariantsCopy> = {
   th: {
     title: "ตัวเลือกเสียง",
-    selectionLabel: "วิธีเล่น",
+    selectionLabel: "การเลือก",
     selection: {
       random: "สุ่ม",
-      shuffle: "สุ่มวนแบบไม่ซ้ำ",
+      shuffle: "สุ่มจนครบทุกเสียง",
       sequence: "วนตามลำดับ",
     },
+    voice: (number: number) => `เสียงที่ ${number}`,
     variantId: "ตัวเลือก",
     clipId: "รหัสคลิป",
     caption: "คำพูด",
@@ -65,12 +67,13 @@ const copy: Record<"th" | "en", EventVariantsCopy> = {
   },
   en: {
     title: "Voice variants",
-    selectionLabel: "Playback",
+    selectionLabel: "Selection",
     selection: {
       random: "Random",
       shuffle: "Shuffle without repeats",
       sequence: "In order",
     },
+    voice: (number: number) => `Voice ${number}`,
     variantId: "Variant",
     clipId: "Clip ID",
     caption: "Spoken words",

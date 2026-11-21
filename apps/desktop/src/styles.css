@@ -193,6 +193,9 @@ p { margin: 0; }
 
 /* Honest-state chips: glyph and border style carry the state together with the label. */
 .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; line-height: 1.4; padding: 3px 10px; border-radius: 6px; border: 1px solid var(--line); white-space: nowrap; }
+/* The Command Deck token sheet draws its own .chip::before glyph for static mocks; in the app the Chip component
+   renders an aria-hidden .chip-glyph span, so the token glyph is switched off here (one glyph per chip). */
+.chip::before { content: none; display: none; }
 .chip-glyph { display: inline-flex; align-items: center; justify-content: center; width: 10px; height: 10px; flex: none; font-size: 12px; font-weight: 700; line-height: 1; }
 .chip-fresh { border-color: var(--accent); background: var(--accent-surface); }
 .chip-fresh .chip-glyph { border-radius: 50%; background: var(--accent); width: 8px; height: 8px; }
@@ -301,14 +304,37 @@ button[aria-busy="true"] { cursor: progress; }
 .packs-install summary { width: fit-content; min-height: var(--target-min); padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: var(--r-control); background: var(--raised); cursor: pointer; }
 .packs-install-form { display: grid; gap: 6px; max-width: 660px; padding-block: 8px; }
 .packs-install input { flex: 1 1 220px; min-width: 0; min-height: var(--target-min); padding: 6px 12px; border: 1px solid var(--line-strong); border-radius: var(--r-control); background: var(--ground); color: var(--text); font: inherit; }
-.packs-sound-groups { display: grid; gap: 12px; padding-block: 8px; }
-.packs-sound-group { min-width: 0; border: 1px solid var(--line); border-radius: var(--r-card); background: var(--raised); }
-.packs-sound-group h3 { margin: 0; padding: 8px 12px; color: var(--text-2); font-size: var(--fs-title); }
-.packs-sound-group ul { list-style: none; margin: 0; padding: 0; }
-.packs-sound-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto; align-items: center; gap: 6px 12px; padding: 9px 12px; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
-.packs-sound-row .chip { max-width: 100%; white-space: normal; }
-.packs-variants-expanded, .packs-variants-detail { grid-column: 1 / -1; min-width: 0; }
-.packs-sound-row p { font-size: var(--fs-detail); }
+.packs-sound-heading { align-items: flex-start; justify-content: space-between; flex-wrap: nowrap; gap: 12px; min-height: 0; }
+.packs-sound-heading-copy { min-width: 0; }
+.packs-sound-heading-copy h2 { margin: 0; color: var(--text); font-size: var(--fs-title); font-weight: 600; line-height: var(--lh-thai); }
+.packs-sound-active-pack { margin: 2px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+.packs-sound-retry { display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: none; min-height: var(--target-min); padding: 0 8px; border: 0; border-radius: var(--r-control); background: transparent; color: var(--muted); font-size: 13px; }
+.packs-sound-retry:hover:not(:disabled) { background: var(--surface-hover, color-mix(in srgb, var(--raised) 92%, var(--text) 8%)); color: var(--text); }
+.packs-sound-groups { display: grid; gap: var(--g6); padding-block: 16px 8px; }
+.packs-sound-group { min-width: 0; }
+.packs-sound-group > h3 { margin: 0 0 8px; padding-inline: 16px; color: var(--muted); font-size: 13px; font-weight: 600; line-height: 1.45; }
+.packs-sound-card { min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: var(--raised); }
+.packs-sound-card > ul { list-style: none; margin: 0; padding: 0; }
+.packs-sound-row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 56px; padding: 12px 16px; overflow-wrap: anywhere; }
+.packs-sound-row + .packs-sound-row::before { position: absolute; inset: 0 0 auto 16px; height: 1px; background: var(--line-subtle); content: ""; }
+.packs-sound-main { min-width: 0; }
+.packs-sound-copy { display: grid; gap: 2px; min-width: 0; }
+.packs-sound-expand { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; width: 100%; min-width: 0; min-height: var(--target-min); padding: 0; border: 0; border-radius: var(--r-control); background: transparent; color: inherit; text-align: left; white-space: normal; }
+.packs-sound-expand:hover:not(:disabled) { background: var(--surface-hover, color-mix(in srgb, var(--raised) 92%, var(--text) 8%)); }
+.packs-sound-name { display: block; min-width: 0; overflow: hidden; color: var(--text); font-size: 15px; font-weight: 600; line-height: 1.45; text-overflow: ellipsis; white-space: nowrap; }
+.packs-sound-row[data-state="unmapped"] .packs-sound-name,
+.packs-sound-row[data-state="detector_unavailable"] .packs-sound-name,
+.packs-sound-row[data-state="not_voiced"] .packs-sound-name { color: var(--text-2); }
+.packs-sound-description { display: -webkit-box; min-width: 0; overflow: hidden; color: var(--muted); font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.packs-sound-description.is-warning { color: var(--warning); }
+.packs-sound-chevron { color: var(--muted); font-size: 24px; font-weight: 400; line-height: 1; transition: transform 140ms ease; }
+.packs-sound-expand[aria-expanded="true"] .packs-sound-chevron { transform: rotate(90deg); }
+.packs-sound-actions { display: flex; align-items: center; gap: 8px; }
+.packs-sound-play { display: grid; place-items: center; width: var(--target-min); min-width: var(--target-min); height: var(--target-min); min-height: var(--target-min); padding: 2px; border: 0; border-radius: 50%; background: transparent; color: var(--ground); }
+.packs-sound-play-icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--accent); color: var(--ground); font-size: 13px; line-height: 1; }
+.packs-sound-play:disabled { opacity: 0.45; cursor: not-allowed; }
+.packs-variants-expanded { grid-column: 1 / -1; min-width: 0; margin-left: 16px; }
+.packs-variants-expanded[hidden] { display: none; }
 .packs-match-recap { display: grid; gap: var(--g3); min-width: 0; }
 .packs-match-recap__confirm { display: flex; align-items: center; flex-wrap: wrap; gap: var(--g2); }
 .packs-match-recap__confirm p { flex: 1 1 100%; }
@@ -630,6 +656,10 @@ body.overlay-body #root { width: 100%; height: 100%; min-height: 0; }
   .vitals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
+@media (max-width: 560px) {
+  .packs-sound-description { -webkit-line-clamp: 2; }
+}
+
 /* Live tab layout lives in live/live.css (grid fills the tab panel). */
 
 @media (max-height: 700px) {
@@ -644,4 +674,5 @@ body.overlay-body #root { width: 100%; height: 100%; min-height: 0; }
 @media (prefers-reduced-motion: reduce) {
   .app { transition-duration: 0ms; }
   .app[data-rail="expanded"] :is(.shell-rail-link > span, .shell-rail-section, .shell-rail-store-chip, .shell-rail-toggle-label, .shell-rail-toggle kbd) { animation: none; }
+  .packs-sound-chevron { transition: none; }
 }
