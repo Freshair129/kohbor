@@ -2,7 +2,7 @@
 title: "User Experience Specification"
 doc_id: "UX-SPEC"
 status: draft
-version: "0.3.7"
+version: "0.3.8"
 updated: "2026-11-21"
 baseline: "DEC-BASELINE"
 owner_role: "UX owner; people not assigned"
@@ -37,6 +37,13 @@ Logical destinations below do not prescribe URL paths, file names or IPC identif
 
 The owner-selected desktop shell uses a 72u left rail with icon-plus-Thai-label navigation: Overview, Live, Voice Packs, Insights and Store in the primary group; Status, Logs and Settings in the bottom group. The right rail contains only the profile avatar and its flyout; notifications, friends, party and quick-add controls are not rendered. Replay is an Insights subview, never a main destination. The page header keeps the global mute control; a thin status line below it carries GSI intake, game phase, data age, capture and current Deck status, with a GSI setup action that opens Status. Content sits on a raised Command Deck surface. The Pulse Grid rail ribbon is decorative, has no pointer interaction and never represents status; its default `--power` is 55%. The ribbon-off setting is a TODO until Settings has a lighting preference.
 
+Shell details as built (recorded 2026-11-21 from the merged code; presentation only, no new requirement):
+- **Left rail state:** collapsed (icon only) by default, expanded with Thai labels and section headers "เกม", "เมนูหลัก", "ระบบ". The toggle button and **Ctrl+B** switch it (ignored while a modal dialog is open); the state is remembered per renderer under `kohbor.rail-left`.
+- **Game selector:** a card at the top of the rail shows Dota 2 and its connection state; its menu lists other games as visibly unsupported and not selectable. It never implies support for another game.
+- **Glass:** Settings → "รูปลักษณ์ / กระจก" offers Off, Low, Medium (default) and High, remembered per renderer under `kohbor.glass-level`. Reduced transparency, forced colors or Off use solid surfaces. The in-game HUD keeps its own dark glass and ignores this setting.
+- **Status footer:** a 28 px footer carries resource readouts; it never replaces the status line's honest states.
+- **First-run connection prompt:** when the first runtime status says the Dota 2 GSI file is not installed and the user has not answered before, the control window asks once ("เชื่อมเกาะเบาะกับ Dota 2") and runs the existing GSI setup on one click. "Later" or Escape closes it; the setup card and Settings action stay. A configuration conflict defers to the setup card. The answer is remembered per renderer.
+
 Use the normal keyboard tab order/roving rail focus and expose the active navigation entry with `aria-current="page"`. At 1920 × 1080, 1366 × 768 and 1280 × 720 the shell must not create horizontal scroll or cut Thai labels.
 
 ### Voice Packs (P1)
@@ -44,7 +51,7 @@ Use the normal keyboard tab order/roving rail focus and expose the active naviga
 - The audio bar shares the header mute state and shows the selected pack, announcer volume and existing volume shortcuts. Installed packs opens by default. Arrow keys, Home and End move between the three tabs.
 - Each card shows the pack display name, revision, status, distinct mapped events, voice variants and variants with banners. The cover rests on an early frame of a silent WebM from that pack. The cover preference is Kill, Multi-kill (lowest tier), Streak (lowest tier), First blood, Match started, then descriptor order. The first visual variant of the selected binding supplies the frame. A neutral initial appears when a cover is unavailable. The current descriptor has no pack description.
 - Cards use 4, 3 and 2 columns at 1920 × 1080, 1366 × 768 and 1280 × 720 respectively. The tab panel and the details drawer bound scrolling. Details group the pack's bindings by game event, show Thai labels, tier, voice count, rotation and banner availability. Escape closes the drawer and focus returns to its Details button.
-- Sounds by event uses the host's active event and tier map. An unreadable row alone displays unknown. Listen calls the host audition and reports the overlay banner outcome in words. Only the active pack is eligible, and audition is blocked during a match. A switch request uses the existing deferred activation policy when playback or the match holds the current pack.
+- Sounds by event is an inset grouped list (iOS-settings style): group label above each card, one name and one muted line per row, a disclosure chevron to show the voices and one round play button as the only call to action. Rows without voices show the reason and no play control; a row whose pack has voices keeps its play control even when the event detector is unavailable. Voice rows show "เสียงที่ N", duration and a play button; clip and variant ids stay out of visible text. Sounds by event uses the host's active event and tier map. An unreadable row alone displays unknown. Listen calls the host audition and reports the overlay banner outcome in words. Only the active pack is eligible, and audition is blocked during a match. A switch request uses the existing deferred activation policy when playback or the match holds the current pack.
 - Last match shows recent sound outcomes for the available in-memory session. “Played” means the player received the sound for playback. The recap provides no match totals, game clock or persistence in this slice. Developer Logs holds the raw decisions and pack identifiers.
 
 Build and History remain subviews, not extra main pages. Local clip controls require a clearly documented placement within this structure; a new main destination is a deliberate design decision. Do not inherit a prototype navigation bar as production routing.
@@ -82,6 +89,10 @@ The product owner redesigned this destination on 2026-11-11 as a **second-screen
 - Reduced motion uses static emphasis.
 
 The map is the first visual priority; missing-enemy information is second. Own hero is not repeated among the four allied slots. Cooldown zero on a shared ability is shown as a value, never as "ready".
+
+Own hero loadout (as built 2026-11-21): items use the game's arrangement — a 3 × 2 inventory, the neutral slot (round) and TP slot beside it, and a dimmed three-slot backpack — with text names (no game art), charges in the lower-right corner and an empty slot drawn as a dark well. Hero abilities are square slots with level pips; seasonal and Plus abilities sit in a smaller "สกิลเสริม" row. A running cooldown shows a clock sweep, a draining bar and whole seconds at the source's precision (GSI sends whole seconds; never hundredths); the bar runs smoothly between reports and freezes with a stale label when the section is stale. With no game data the card shows faint hatched, dashed outlines of the same layout, distinct from empty wells and real items.
+
+Draft strip (as built 2026-11-21, DRAFT-BAR-SPEC 5a/5b): during hero selection, strategy time and showcase the Live page shows the ten top-bar slots (Radiant five, gap, Dire five) with identified hero names or "?" with the reason; deck only, never the overlay.
 
 Enemy and unknown ally cards collapse to portrait or identity placeholder, admitted seen/missing and last-seen age. Hide unknown-only skill/item rows; do not fill the screen with question-mark tiles. Unknown age appears as “—”, not a fabricated timestamp.
 
