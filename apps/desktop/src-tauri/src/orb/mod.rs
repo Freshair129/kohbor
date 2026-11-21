@@ -212,9 +212,10 @@ pub(crate) struct Layout {
 /// Panel heights at 1080p before the zoom: without the session note (503 px measured in a synthetic browser
 /// preview, test-only) and the largest accepted height (540 px measured with the note).
 #[cfg(test)]
-pub(crate) const PANEL_BASE_H: f64 = 503.0;
-pub(crate) const PANEL_MAX_H: f64 = 546.0;
-const PANEL_BASE_W: f64 = 220.0;
+// Owner 2026-11-22: the panel is drawn at 80 % (CSS zoom sp * 0.8) so it covers less of the game.
+pub(crate) const PANEL_BASE_H: f64 = 403.0;
+pub(crate) const PANEL_MAX_H: f64 = 437.0;
+const PANEL_BASE_W: f64 = 176.0;
 /// Room kept between the panel and the minimap band for the panel's own shadow.
 const SHADOW_ROOM: f64 = 8.0;
 
@@ -274,7 +275,7 @@ pub(crate) fn panel_rect(layout: &Layout, height: f64) -> Option<RectF> {
     }
     let min_top = (layout.monitor_h * 0.05).ceil() + 4.0;
     let max_bottom = layout.monitor_h * 0.70 - SHADOW_ROOM;
-    let preferred = layout.cy - 39.0 * layout.sp;
+    let preferred = layout.cy - 31.0 * layout.sp;
     let top = preferred.min(max_bottom - height).max(min_top).floor();
     let rect = RectF {
         x: layout.panel_x,
@@ -702,7 +703,7 @@ mod tests {
             }
         );
         assert_eq!(layout.out_cx, 34.0);
-        assert_eq!(layout.panel_w, 220.0);
+        assert_eq!(layout.panel_w, 176.0);
         let panel = panel_rect(&layout, PANEL_BASE_H).unwrap();
         assert_eq!(panel.x, 72.0);
         // Ends above the minimap band with room for the shadow.
@@ -730,8 +731,8 @@ mod tests {
     #[test]
     fn a_panel_that_cannot_fit_stays_closed() {
         let layout = layout(1280.0, 720.0).unwrap();
-        // The tallest note panel at 720p would reach the minimap band: refused, never drawn over it.
-        assert!(panel_rect(&layout, PANEL_MAX_H * layout.sp).is_none());
+        // Taller than the room above the minimap band (or the cap): refused, never drawn over it.
+        assert!(panel_rect(&layout, PANEL_MAX_H * layout.sp + 2.0).is_none());
         assert!(panel_rect(&layout, f64::NAN).is_none());
         assert!(panel_rect(&layout, 2000.0).is_none());
     }

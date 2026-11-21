@@ -17,8 +17,8 @@ body.orb-body #root { width: 100%; height: 100%; min-width: 0; min-height: 0; ov
 
 .orb-root {
   --orb-text: #e7eef6; --orb-muted: #8794a6; --orb-ice: #8fd4ff; --orb-warn: #ffcf6b;
-  --orb-edge: rgb(143 212 255 / 22%); --orb-glass: rgb(14 17 24 / 90%); --orb-well: rgb(255 255 255 / 5%);
-  --orb-brand: #b3261e; --orb-brand-hover: #c12b22; --orb-brand-edge: #d4453a; --orb-ink: #ede6d8;
+  --orb-edge: rgb(143 212 255 / 22%); --orb-glass: rgb(14 17 24 / 58%); --orb-well: rgb(255 255 255 / 5%);
+  --orb-brand: rgb(179 38 30 / 78%); --orb-brand-hover: rgb(193 43 34 / 88%); --orb-brand-edge: #d4453a; --orb-ink: #ede6d8;
   position: fixed; inset: 0; overflow: hidden; color: var(--orb-text);
   font-family: "IBM Plex Sans Thai", "Leelawadee UI", system-ui, sans-serif; font-size: 14px; line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -41,9 +41,10 @@ body.orb-body #root { width: 100%; height: 100%; min-width: 0; min-height: 0; ov
 .orb-ring-track { stroke: rgb(231 238 246 / 22%); stroke-width: 2; }
 .orb-ring-progress { stroke: #ede6d8; stroke-width: 2.6; stroke-dasharray: 1; }
 
-/* panel: narrow vertical console, zoomed by the host's sp factor; shadow stays inside 8 px (protected regions) */
+/* panel: narrow vertical console, zoomed by the host's sp factor at 80 % (owner 2026-11-22: smaller, more see-through);
+   shadow stays inside 8 px (protected regions) */
 .orb-panel {
-  position: absolute; zoom: var(--sp, 1); width: 220px; padding: 12px 10px 10px; box-sizing: border-box; cursor: default;
+  position: absolute; zoom: calc(var(--sp, 1) * 0.8); text-shadow: 0 1px 2px rgb(0 0 0 / 70%); width: 220px; padding: 12px 10px 10px; box-sizing: border-box; cursor: default;
   background: var(--orb-glass); border: 1px solid var(--orb-edge); border-radius: 16px;
   box-shadow: 0 2px 6px rgb(0 0 0 / 55%), inset 0 1px 0 rgb(143 212 255 / 22%);
 }
