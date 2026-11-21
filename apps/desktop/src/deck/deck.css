@@ -11,6 +11,46 @@
   color: var(--text);
 }
 
+.deck-root[data-draft="true"] {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.deck-draft {
+  grid-column: 1 / -1;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--r-control);
+  background: var(--bg);
+}
+
+.deck-draft canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.deck-draft-detail {
+  padding: 8px 12px;
+  margin: 0;
+}
+
+.deck-draft-labels {
+  display: grid;
+  grid-template-columns: repeat(4, 124fr) 119fr 264fr repeat(4, 124fr) 119fr;
+  grid-template-rows: auto;
+  font-size: var(--fs-detail);
+  text-align: center;
+}
+
+.deck-draft-labels span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 3px 1px;
+}
+
 .deck-column {
   min-width: 0;
   min-height: 0;
@@ -748,6 +788,11 @@
     height: auto;
     overflow: visible;
   }
+  .app:has(.shell-live) .deck-root[data-draft="true"] {
+    grid-template-rows: repeat(4, auto);
+    grid-template-areas: "draft" "map" "own" "right";
+  }
+  .app:has(.shell-live) .deck-draft { grid-area: draft; }
 
   .app:has(.shell-live) .deck-own-column { grid-area: own; grid-template-rows: auto auto; }
   .app:has(.shell-live) .deck-ally-panel { grid-template-rows: auto auto; }

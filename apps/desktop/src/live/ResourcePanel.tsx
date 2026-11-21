@@ -15,6 +15,7 @@ const ROWS: { key: keyof ResourceMetrics; unit: UnitKind }[] = [
   { key: "cpuPercent", unit: "percent" },
   { key: "captureFps", unit: "fps" },
   { key: "frameAgeMs", unit: "age" },
+  { key: "draftBarCycleMs", unit: "time" },
 ];
 
 function formatMetric(value: number | null, unit: UnitKind, locale: LiveLocale): string {

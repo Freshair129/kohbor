@@ -35,6 +35,7 @@ const RESOURCE_KEYS: ResourceMetricKey[] = [
   "cpuPercent",
   "captureFps",
   "frameAgeMs",
+  "draftBarCycleMs",
   ...CAPTURE_COST_KEYS,
 ];
 const RESOURCE_SAMPLE_KEYS: (keyof ResourceMetrics)[] = [
@@ -45,6 +46,7 @@ const RESOURCE_SAMPLE_KEYS: (keyof ResourceMetrics)[] = [
   "cpuPercent",
   "captureFps",
   "frameAgeMs",
+  "draftBarCycleMs",
 ];
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -171,6 +173,9 @@ export function parseResourceMetrics(input: unknown): ResourceMetrics | null {
     cpuPercent,
     captureFps,
     frameAgeMs,
+    ...(input.draft_bar_cycle_ms_mean === undefined ? {} : {
+      draftBarCycleMs: nullableNumber(input.draft_bar_cycle_ms_mean) ?? null,
+    }),
   };
 }
 
@@ -219,7 +224,7 @@ export function addResourceSample(summary: ResourceSummary, sample: ResourceMetr
   for (const key of RESOURCE_SAMPLE_KEYS) {
     const value = sample[key];
     const previous: MetricSummary = summary[key];
-    if (value === null) continue;
+    if (value == null) continue;
     next[key] = {
       peak: previous.peak === null ? value : Math.max(previous.peak, value),
       mean: ((previous.mean ?? 0) * previous.count + value) / (previous.count + 1),

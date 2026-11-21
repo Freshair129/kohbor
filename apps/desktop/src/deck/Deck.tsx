@@ -13,6 +13,7 @@ import { EventFeed } from "./EventFeed";
 import { AnnouncerStatus } from "./AnnouncerStatus";
 import { HeroPortrait } from "./HeroPortrait";
 import { OwnLoadout } from "./OwnLoadout";
+import { DraftBarStrip, useDraftBar } from "./DraftBarStrip";
 import { deriveLoadoutViewModel } from "./loadoutModel";
 import type { SteamStatus } from "../steam/model";
 import "./deck.css";
@@ -49,6 +50,8 @@ export function Deck({
   // A retained payload's age is not a current age once the host stops answering.
   const displayAgeMs = hostLost ? null : own.ageMs;
   const history = useAudioHistory(hostLost);
+  const draftEpoch = !hostLost && status?.session.phase === "draft" ? status.session.session_epoch : null;
+  const draftBar = useDraftBar(draftEpoch);
   const historyState = hostLost ? "failed" : history.state;
   const hostNowMs = hostLost ? null : hostNowFromAnchor(playback.clockAnchor, performance.now());
   const statValues = [readableNumber(own.stats.gold),
@@ -61,7 +64,8 @@ export function Deck({
   const manaWidth = own.manaPercent === null ? undefined : `${Math.max(0, Math.min(100, own.manaPercent))}%`;
 
   return (
-    <main className="deck-root" lang={locale} data-state={state.state}>
+    <main className="deck-root" lang={locale} data-state={state.state} data-draft={draftBar?.active || undefined}>
+      <DraftBarStrip frame={draftBar} locale={locale} />
       <section className="deck-column deck-own-column" aria-label={text.ownHero}>
         <section className={`deck-own-card${stale ? " is-stale" : ""}`} aria-labelledby="deck-own-heading">
           <div className="deck-own-portrait"><HeroPortrait heroId={own.heroId} size="lg" alt={own.heroName?.name ?? text.ownHero} /></div>

@@ -1,5 +1,6 @@
 //! MVP-1 W3 host capture loop, frame transport, and observation/risk event bridge.
 
+use crate::draft_bar::{draft_bar_geometry, DraftBarMatcher, DraftBarMemory};
 use kohbor_capture::{
     AdmittedFrame, CalibrationMethod, CalibrationPhase, CaptureController, CapturePhase,
     CaptureSource, Coverage, CycleOutcome, Environment, FrameHeader, InvalidationReason, Rect,
@@ -48,6 +49,24 @@ static FRAME_SUBSCRIBERS: OnceLock<Mutex<Vec<Channel<InvokeResponseBody>>>> = On
 static CAPTURE_CONFIG: OnceLock<Arc<CaptureConfigStore>> = OnceLock::new();
 static FRAME_INVALIDATE_GATE: Mutex<()> = Mutex::new(());
 static HOST_STARTED: AtomicBool = AtomicBool::new(false);
+static HOST_STOP: AtomicBool = AtomicBool::new(false);
+static HOST_THREAD: Mutex<Option<thread::JoinHandle<()>>> = Mutex::new(None);
+static DRAFT_BAR: OnceLock<DraftBarAccess> = OnceLock::new();
+
+struct DraftBarAccess {
+    memory: Arc<Mutex<DraftBarMemory>>,
+    gsi: GsiView,
+    config: Arc<CaptureConfigStore>,
+}
+
+#[derive(Default)]
+struct DraftPixels(Vec<u8>);
+
+impl Drop for DraftPixels {
+    fn drop(&mut self) {
+        self.0.fill(0);
+    }
+}
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -940,6 +959,9 @@ trait FrameSource {
     fn output(&self) -> Option<OutputInfo>;
     fn profile_rect(&self, output: &OutputInfo) -> Option<(Rect, String)>;
     fn game_window(&self) -> Option<Rect>;
+    fn output_screen_rect(&self) -> Option<Rect> {
+        None
+    }
     fn crop_occluded(&self, rect: Rect) -> Option<bool>;
     fn grab(&mut self, rect: Rect, timeout_ms: u32, out: &mut Vec<u8>) -> Grab;
     fn gpu_local_bytes(&self) -> Option<u64>;
@@ -973,6 +995,10 @@ impl FrameSource for NativeFrameSource {
 
     fn game_window(&self) -> Option<Rect> {
         kohbor_capture_native::game_window()
+    }
+
+    fn output_screen_rect(&self) -> Option<Rect> {
+        self.grabber.as_ref()?.output_screen_rect()
     }
 
     fn crop_occluded(&self, rect: Rect) -> Option<bool> {
@@ -1606,6 +1632,10 @@ struct CaptureHostWorker<S, C, A, R, E, H> {
     command_generation: u64,
     session_epoch: Option<u64>,
     game_phase: Option<GamePhase>,
+    draft_mode: bool,
+    draft: Arc<Mutex<DraftBarMemory>>,
+    draft_references: fn() -> DraftBarMatcher,
+    draft_duration: DurationWindow,
     recalibration_pending: bool,
     occlusion: Option<bool>,
     occlusion_rect: Option<Rect>,
@@ -1688,6 +1718,10 @@ where
             command_generation: commands.generation,
             session_epoch: None,
             game_phase: None,
+            draft_mode: false,
+            draft: Arc::new(Mutex::new(DraftBarMemory::default())),
+            draft_references: DraftBarMatcher::empty,
+            draft_duration: DurationWindow::default(),
             recalibration_pending: false,
             occlusion: None,
             occlusion_rect: None,
@@ -1729,10 +1763,10 @@ where
         }
     }
 
-    fn run(&mut self) -> ! {
+    fn run(&mut self) {
         let mut deadline = Instant::now();
         let mut waiter = DeadlineWaiter::new();
-        loop {
+        while !HOST_STOP.load(Ordering::Acquire) {
             let now = Instant::now();
             let now_ms = self.elapsed_ms(now);
             if catch_unwind(AssertUnwindSafe(|| self.cycle_at(now, now_ms))).is_err() {
@@ -1764,6 +1798,8 @@ where
             deadline = next_deadline(deadline, Instant::now(), period);
             waiter.wait_until(deadline);
         }
+        lock(&self.draft).observe(None, true, false);
+        self.close_source("app_exit");
     }
 
     fn elapsed_ms(&self, now: Instant) -> u64 {
@@ -1782,15 +1818,34 @@ where
         let was_game_capture_allowed = game_phase_allows_capture(self.game_phase);
         self.game_phase = gsi.as_ref().and_then(|snapshot| snapshot.game_phase);
         let game_capture_allowed = game_phase_allows_capture(self.game_phase);
+        let draft_epoch = gsi.as_ref().and_then(draft_epoch);
+        let draft_mode = draft_epoch.is_some();
+        lock(&self.draft).observe(
+            gsi.as_ref().and_then(|snapshot| snapshot.session_epoch),
+            self.game_phase == Some(GamePhase::PostGame),
+            draft_mode,
+        );
+        if self.draft_mode != draft_mode {
+            if self.source_open {
+                self.close_source("capture_region_changed");
+            }
+            self.next_open_at = now;
+            self.retry.reset();
+            self.phase_detail = None;
+            self.draft_duration = DurationWindow::default();
+        }
+        self.draft_mode = draft_mode;
         if !game_capture_allowed || !was_game_capture_allowed {
             self.recalibration_pending = true;
             self.clear_frames();
         }
         if !game_capture_allowed {
-            self.phase_detail = None;
+            if !draft_mode {
+                self.phase_detail = None;
+            }
             self.set_occlusion(None);
             self.occlusion_rect = None;
-            if self.source_open {
+            if !draft_mode && self.source_open {
                 self.close_source("game_phase_blocked");
             }
             self.proposal_search_rect = None;
@@ -1800,7 +1855,31 @@ where
                 self.config.set_proposal(None, ProposalStatus::None);
             }
         }
-        if self.paused || !self.capture_enabled || self.user_invalidated || !game_capture_allowed {
+        if let Some(epoch) = draft_epoch {
+            let draft_started = Instant::now();
+            if !self.capture_enabled || self.paused || self.user_invalidated {
+                let reason = if !self.capture_enabled {
+                    "capture_disabled"
+                } else if self.paused {
+                    "paused"
+                } else {
+                    "capture_invalidated"
+                };
+                lock(&self.draft).withdraw(Some(reason.to_owned()));
+                if self.source_open {
+                    self.close_source("draft_capture_disabled");
+                }
+            } else {
+                self.capture_draft(now, epoch);
+                let finished = Instant::now();
+                self.draft_duration
+                    .record(finished, finished.saturating_duration_since(draft_started));
+            }
+        } else if self.paused
+            || !self.capture_enabled
+            || self.user_invalidated
+            || !game_capture_allowed
+        {
             self.clear_frames();
         } else {
             self.ensure_source(now);
@@ -2370,6 +2449,108 @@ where
     fn record_grab(&mut self, now: Instant) {
         self.capture_rate.record(now);
         self.grab_total = self.grab_total.saturating_add(1);
+    }
+
+    fn capture_draft(&mut self, now: Instant, epoch: u64) {
+        let draft = self.draft.clone();
+        if !self.source_open && now < self.next_open_at {
+            return;
+        }
+        self.ensure_source(now);
+        if !self.source_open {
+            let reason = self
+                .phase_detail
+                .as_deref()
+                .or(self.unsupported_reason)
+                .unwrap_or("capture_reopening");
+            lock(&draft).withdraw(Some(reason.to_owned()));
+            return;
+        }
+        let Some(output) = self.source.output() else {
+            lock(&draft).withdraw(Some("output_unavailable".to_owned()));
+            self.close_source("output_unavailable");
+            self.schedule_retry(now);
+            return;
+        };
+        let geometry = if output.dpi == 96 {
+            draft_bar_geometry(output.width, output.height, 100).map_err(|err| err.reason)
+        } else {
+            Err(format!(
+                "Draft bar requires 96 DPI (100%). Observed {} DPI at {}x{}",
+                output.dpi, output.width, output.height
+            ))
+        };
+        let geometry = match geometry {
+            Ok(geometry) => geometry,
+            Err(reason) => {
+                lock(&draft).withdraw(Some(reason));
+                self.close_source("draft_output_unsupported");
+                self.schedule_retry(now);
+                return;
+            }
+        };
+        let Some(window) = self.source.game_window() else {
+            lock(&draft).withdraw(Some("no_game_window".to_owned()));
+            return;
+        };
+        if self.source.output_screen_rect() != Some(window) {
+            lock(&draft).withdraw(Some("draft_window_not_aligned".to_owned()));
+            self.close_source("draft_window_not_aligned");
+            self.schedule_retry(now);
+            return;
+        }
+        let rect = geometry.strip_rect;
+        if self.source.crop_occluded(rect) != Some(false) {
+            lock(&draft).withdraw(Some("draft_window_visibility_unconfirmed".to_owned()));
+            return;
+        }
+        if lock(&draft).needs_references() {
+            let matcher = (self.draft_references)();
+            lock(&draft).install_references(matcher);
+            // Recheck geometry and GSI on the next cycle after reading the archive.
+            return;
+        }
+        let command_generation = self.command_generation;
+        let mut scratch = DraftPixels::default();
+        let started = Instant::now();
+        let result = self.source.grab(rect, CAPTURE_TIMEOUT_MS, &mut scratch.0);
+        let finished = Instant::now();
+        self.grab_duration
+            .record(finished, finished.saturating_duration_since(started));
+        match result {
+            Grab::Frame {
+                width,
+                height,
+                stride,
+                ..
+            } if width == rect.width
+                && height == rect.height
+                && stride == width * 4
+                && scratch.0.len() == (stride * height) as usize =>
+            {
+                if draft_epoch(&self.gsi.read()) == Some(epoch)
+                    && self.config.command_generation.load(Ordering::Acquire) == command_generation
+                    && !self.config.get().paused
+                    && !HOST_STOP.load(Ordering::Acquire)
+                    && self.source.game_window() == Some(window)
+                    && self.source.crop_occluded(rect) == Some(false)
+                {
+                    lock(&draft).accept(&scratch.0, &geometry, finished);
+                    self.record_grab(now);
+                    self.retry.reset();
+                } else {
+                    lock(&draft).withdraw(None);
+                }
+            }
+            Grab::Timeout => {
+                self.grab_timeouts.record(now);
+            }
+            Grab::AccessLost | Grab::Failed(_) | Grab::Frame { .. } => {
+                lock(&draft).withdraw(Some("draft_grab_unavailable".to_owned()));
+                self.close_source("draft_grab_unavailable");
+                self.schedule_retry(now);
+            }
+        }
     }
 
     fn capture_one(&mut self, now: Instant, now_ms: u64, _gsi: Option<&GsiSnapshot>) {
@@ -2965,12 +3146,13 @@ where
             );
         }
         self.resource_failure_active = sampler_failed;
-        let payload = resource_payload(
+        let mut payload = resource_payload(
             sample,
             gpu_local_bytes,
             self.capture_rate.rate(now),
             self.frame_age_ms(now_ms),
         );
+        payload["draft_bar_cycle_ms_mean"] = json!(self.draft_duration.mean_ms(now));
         self.events.emit_value("resource://sample", payload);
     }
 
@@ -2979,6 +3161,7 @@ where
         self.lost = true;
         self.phase_reason = Some("reopening");
         self.clear_frames();
+        lock(&self.draft).withdraw(Some("capture_reopening".to_owned()));
         let _ = catch_unwind(AssertUnwindSafe(|| self.close_source("capture_panic")));
         self.schedule_retry(now);
         let config = self.config.get();
@@ -3009,6 +3192,7 @@ fn run_capture_host(
     gsi: GsiView,
     resources: ResourceView,
     config: Arc<CaptureConfigStore>,
+    draft: Arc<Mutex<DraftBarMemory>>,
 ) {
     let capture_enabled = std::env::var("KOHBOR_CAPTURE").ok().as_deref() != Some("0");
     let now = Instant::now();
@@ -3031,6 +3215,17 @@ fn run_capture_host(
         tauri::AppHandle,
         MvpFrameHeaderCodec,
     >::new(NativeFrameSource::new(), services, now);
+    worker.draft = draft;
+    worker.draft_references = || {
+        crate::intake::locate_game()
+            .ok()
+            .and_then(|game| {
+                kohbor_game_assets::Vpk::open(game.join("game/dota/pak01_dir.vpk")).ok()
+            })
+            .map_or_else(DraftBarMatcher::empty, |vpk| {
+                DraftBarMatcher::from_vpk(&vpk)
+            })
+    };
     worker.run();
 }
 
@@ -3065,6 +3260,19 @@ fn game_phase_allows_capture(phase: Option<GamePhase>) -> bool {
     matches!(phase, Some(GamePhase::Pregame | GamePhase::Live))
 }
 
+fn draft_epoch(snapshot: &GsiSnapshot) -> Option<u64> {
+    if snapshot.game_phase == Some(GamePhase::Draft)
+        && snapshot.draft_bar_allowed
+        && snapshot
+            .age_ms
+            .is_some_and(|age| age <= kohbor_gsi::FRESH_MAX_AGE_MS)
+    {
+        snapshot.session_epoch
+    } else {
+        None
+    }
+}
+
 /// Own-hero facts read from the intake snapshot. Unknown fields remain unknown unless observed.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct GsiSnapshot {
@@ -3078,6 +3286,8 @@ pub struct GsiSnapshot {
     pub in_match: bool,
     /// Current intake phase. Unknown/no GSI must not authorize screen capture.
     pub game_phase: Option<GamePhase>,
+    /// Native-only eligibility for the three draft screens.
+    pub draft_bar_allowed: bool,
     pub age_ms: Option<u64>,
     /// Health events detected in the recent GSI window. Defaults to empty.
     pub recent_events: Vec<GsiEvent>,
@@ -3103,6 +3313,7 @@ impl GsiSnapshot {
             hp_pct,
             in_match: false,
             game_phase: None,
+            draft_bar_allowed: false,
             age_ms: snapshot["source"]["age_ms"].as_u64(),
             recent_events: Vec::new(),
         }
@@ -3151,22 +3362,75 @@ pub fn start(app: tauri::AppHandle, gsi: GsiView, resources: ResourceView, data_
         .get_or_init(|| Arc::new(CaptureConfigStore::open(data_dir)))
         .clone();
     let worker_app = app.clone();
-    if let Err(error) = thread::Builder::new()
+    let draft = Arc::new(Mutex::new(DraftBarMemory::default()));
+    let _ = DRAFT_BAR.set(DraftBarAccess {
+        memory: draft.clone(),
+        gsi: gsi.clone(),
+        config: config.clone(),
+    });
+    match thread::Builder::new()
         .name("capture-host".to_owned())
         .spawn(move || {
             crate::host::set_current_thread_priority(crate::host::ThreadPriority::BelowNormal);
-            run_capture_host(worker_app, gsi, resources, config);
-        })
-    {
-        let status = status_payload("lost", None, None, None, None);
-        *lock(capture_status_slot()) = Some(status.clone());
-        app.emit_value("capture://status", status);
-        crate::log_error!(
-            "capture_host",
-            "thread_start_failed",
-            format!("capture-host unavailable: {error}")
-        );
+            run_capture_host(worker_app, gsi, resources, config, draft);
+        }) {
+        Ok(worker) => *lock(&HOST_THREAD) = Some(worker),
+        Err(error) => {
+            let status = status_payload("lost", None, None, None, None);
+            *lock(capture_status_slot()) = Some(status.clone());
+            app.emit_value("capture://status", status);
+            crate::log_error!(
+                "capture_host",
+                "thread_start_failed",
+                format!("capture-host unavailable: {error}")
+            );
+        }
     }
+}
+
+pub(crate) fn stop() {
+    HOST_STOP.store(true, Ordering::Release);
+    let worker = lock(&HOST_THREAD).take();
+    if let Some(worker) = worker {
+        let _ = worker.join();
+    }
+    if let Some(draft) = DRAFT_BAR.get() {
+        lock(&draft.memory).observe(None, true, false);
+    }
+}
+
+fn draft_bar_window_allowed(label: &str) -> bool {
+    label == "control"
+}
+
+#[tauri::command(async)]
+pub(crate) fn draft_bar_read(
+    webview: tauri::Webview,
+    expected_epoch: u64,
+) -> Result<tauri::ipc::Response, String> {
+    if !draft_bar_window_allowed(webview.label()) {
+        return Err("draft bar is available only in the control window".to_owned());
+    }
+    let Some(draft) = DRAFT_BAR.get() else {
+        return DraftBarMemory::default()
+            .packet(None, Instant::now(), false)
+            .map(tauri::ipc::Response::new);
+    };
+    let memory = lock(&draft.memory);
+    let snapshot = draft.gsi.read();
+    let epoch = if HOST_STOP.load(Ordering::Acquire) {
+        None
+    } else {
+        draft_epoch(&snapshot).filter(|epoch| *epoch == expected_epoch)
+    };
+    let (config, _, _, commands) = draft.config.snapshot();
+    memory
+        .packet(
+            epoch,
+            Instant::now(),
+            !config.paused && !commands.invalidated,
+        )
+        .map(tauri::ipc::Response::new)
 }
 
 #[tauri::command(async)]
@@ -3407,6 +3671,15 @@ mod tests {
 
         fn game_window(&self) -> Option<Rect> {
             self.window
+        }
+
+        fn output_screen_rect(&self) -> Option<Rect> {
+            self.output.map(|output| Rect {
+                x: 0,
+                y: 0,
+                width: output.width,
+                height: output.height,
+            })
         }
 
         fn crop_occluded(&self, _rect: Rect) -> Option<bool> {
@@ -4315,6 +4588,138 @@ mod tests {
 
         assert_eq!(worker.source.grabbed_rects.len(), 1);
         assert_eq!(worker.analyzer.structural_calls, 1);
+    }
+
+    #[test]
+    fn approved_draft_crop_reaches_only_the_control_packet() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let geometry = draft_bar_geometry(1920, 1080, 100).unwrap();
+        let rect = geometry.strip_rect;
+        let mut source = phase_source();
+        source.occlusion_result = Some(false);
+        let mut pixels = crate::draft_bar::tests::synthetic_strip(&geometry);
+        let marker = b"SYNTHETIC_PRIVATE_LABEL";
+        let label_start = 80 * rect.width as usize * 4;
+        pixels[label_start..label_start + marker.len()].copy_from_slice(marker);
+        source.grabs.push_back((
+            Grab::Frame {
+                width: rect.width,
+                height: rect.height,
+                stride: rect.width * 4,
+                acquired_us: 0,
+            },
+            pixels,
+        ));
+        let events = events();
+        let published = events.0.clone();
+        let mut worker = fake_worker(source, true, start, events);
+        worker.draft_references = crate::draft_bar::tests::synthetic_matcher;
+        let feed = Arc::new(Mutex::new(GsiSnapshot {
+            game_phase: Some(GamePhase::Draft),
+            draft_bar_allowed: true,
+            session_epoch: Some(7),
+            age_ms: Some(0),
+            ..GsiSnapshot::default()
+        }));
+        let input = feed.clone();
+        worker.gsi = GsiView::new(move || lock(&input).clone());
+        let logs = crate::logging::collect_test_logs(|| {
+            worker.cycle_at(start, 0);
+            worker.cycle_at(start + Duration::from_secs(1), 1000);
+        });
+        assert_eq!(worker.source.grabbed_rects, [rect]);
+        assert_eq!(worker.analyzer.structural_calls, 0);
+        let mut minimap_sinks = vec![FakeFrameSink {
+            messages: Vec::new(),
+            fail: false,
+        }];
+        worker.publish_frame_to(start + Duration::from_secs(1), 1000, &mut minimap_sinks);
+        assert!(minimap_sinks[0].messages.is_empty());
+        let packet = lock(&worker.draft)
+            .packet(Some(7), Instant::now(), true)
+            .unwrap();
+        let hero = b"npc_dota_hero_synthetic_one";
+        assert!(packet.windows(hero.len()).any(|part| part == hero));
+        assert!(packet.windows(marker.len()).any(|part| part == marker));
+        assert!(draft_bar_window_allowed("control"));
+        for label in ["main", "overlay", "hud", ""] {
+            assert!(!draft_bar_window_allowed(label));
+        }
+        for entry in logs {
+            let serialized = serde_json::to_string(&entry).unwrap();
+            assert!(!serialized.contains("synthetic_one") && !serialized.contains("PRIVATE_LABEL"));
+        }
+        let emitted = lock(&published);
+        assert!(emitted
+            .iter()
+            .any(|(name, body)| name == "resource://sample"
+                && body["draft_bar_cycle_ms_mean"].is_number()));
+        for (name, body) in emitted.iter() {
+            assert!(!name.contains("draft"));
+            let serialized = body.to_string();
+            assert!(!serialized.contains("synthetic_one") && !serialized.contains("PRIVATE_LABEL"));
+            assert!(!serialized.contains("hero_id") && !serialized.contains("pixels"));
+        }
+        drop(emitted);
+        assert!(!worker.config.data_dir.join(CAPTURE_CONFIG_FILE).exists());
+
+        lock(&feed).game_phase = Some(GamePhase::PostGame);
+        worker.cycle_at(start + Duration::from_secs(2), 2000);
+        assert_eq!(worker.source.grabbed_rects, [rect]);
+        let ended = lock(&worker.draft)
+            .packet(None, Instant::now(), true)
+            .unwrap();
+        assert!(!ended.windows(hero.len()).any(|part| part == hero));
+        assert!(!ended.windows(marker.len()).any(|part| part == marker));
+    }
+
+    #[test]
+    fn draft_gate_requires_fresh_gsi_and_a_session_epoch() {
+        let mut snapshot = GsiSnapshot {
+            game_phase: Some(GamePhase::Draft),
+            draft_bar_allowed: true,
+            session_epoch: Some(7),
+            age_ms: Some(0),
+            ..GsiSnapshot::default()
+        };
+        assert_eq!(draft_epoch(&snapshot), Some(7));
+        assert!(!game_phase_allows_capture(snapshot.game_phase));
+        snapshot.age_ms = Some(kohbor_gsi::FRESH_MAX_AGE_MS + 1);
+        assert_eq!(draft_epoch(&snapshot), None);
+        snapshot.age_ms = Some(0);
+        snapshot.session_epoch = None;
+        assert_eq!(draft_epoch(&snapshot), None);
+    }
+
+    #[test]
+    fn draft_capture_drops_pixels_when_the_match_ends_during_the_grab() {
+        let _gate = lock(&STATUS_TEST_GATE);
+        let start = Instant::now();
+        let mut source = phase_source();
+        let rect = draft_bar_geometry(1920, 1080, 100).unwrap().strip_rect;
+        source.occlusion_result = Some(false);
+        source.queue_sized_frame(rect.width, rect.height, 1);
+        let phase = Arc::new(Mutex::new(GamePhase::Draft));
+        let change = phase.clone();
+        source.after_grab = Some(Arc::new(move || *lock(&change) = GamePhase::PostGame));
+        let mut worker = fake_worker(source, true, start, events());
+        worker.gsi = GsiView::new(move || GsiSnapshot {
+            game_phase: Some(*lock(&phase)),
+            draft_bar_allowed: true,
+            session_epoch: Some(7),
+            age_ms: Some(0),
+            ..GsiSnapshot::default()
+        });
+        worker.cycle_at(start, 0);
+        worker.cycle_at(start + Duration::from_millis(100), 100);
+        assert_eq!(worker.source.grabbed_rects, [rect]);
+        assert_eq!(worker.grab_total, 0);
+        let packet = lock(&worker.draft)
+            .packet(Some(7), Instant::now(), true)
+            .unwrap();
+        let len = u32::from_le_bytes(packet[..4].try_into().unwrap()) as usize;
+        assert_eq!(packet.len(), 4 + len);
     }
 
     #[test]
