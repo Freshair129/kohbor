@@ -186,12 +186,12 @@ fn platform_steamid64() -> Option<u64> {
     }
 }
 
-/// Whether the game process exists, from the process list only (GSI-INTAKE-SPEC
-/// §2.4). `None` means the list could not be read; callers must not treat that
-/// as "not running". No helper process is spawned.
+/// Process identity from the process list only. `Some(None)` means the list was
+/// read and Dota is absent; `None` means the list could not be read. No helper
+/// process is spawned (GSI-INTAKE-SPEC §2.4).
 #[cfg(windows)]
-pub(crate) fn game_running() -> Option<bool> {
-    use windows::Win32::Foundation::CloseHandle;
+pub(crate) fn game_process_id() -> Option<Option<u32>> {
+    use windows::Win32::Foundation::{CloseHandle, ERROR_NO_MORE_FILES};
     use windows::Win32::System::Diagnostics::ToolHelp::{
         CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
         TH32CS_SNAPPROCESS,
@@ -202,11 +202,15 @@ pub(crate) fn game_running() -> Option<bool> {
             dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32,
             ..Default::default()
         };
-        if Process32FirstW(snapshot, &mut entry).is_err() {
+        if let Err(error) = Process32FirstW(snapshot, &mut entry) {
             let _ = CloseHandle(snapshot);
-            return None;
+            return if (error.code().0 as u32 & 0xffff) == ERROR_NO_MORE_FILES.0 {
+                Some(None)
+            } else {
+                None
+            };
         }
-        let mut found = false;
+        let mut found = None;
         loop {
             let len = entry
                 .szExeFile
@@ -214,11 +218,16 @@ pub(crate) fn game_running() -> Option<bool> {
                 .position(|c| *c == 0)
                 .unwrap_or(entry.szExeFile.len());
             if String::from_utf16_lossy(&entry.szExeFile[..len]).eq_ignore_ascii_case("dota2.exe") {
-                found = true;
+                found = Some(entry.th32ProcessID);
                 break;
             }
-            if Process32NextW(snapshot, &mut entry).is_err() {
-                break;
+            match Process32NextW(snapshot, &mut entry) {
+                Ok(()) => {}
+                Err(error) if (error.code().0 as u32 & 0xffff) == ERROR_NO_MORE_FILES.0 => break,
+                Err(_) => {
+                    let _ = CloseHandle(snapshot);
+                    return None;
+                }
             }
         }
         let _ = CloseHandle(snapshot);
@@ -227,8 +236,12 @@ pub(crate) fn game_running() -> Option<bool> {
 }
 
 #[cfg(not(windows))]
-pub(crate) fn game_running() -> Option<bool> {
+pub(crate) fn game_process_id() -> Option<Option<u32>> {
     None
+}
+
+pub(crate) fn game_running() -> Option<bool> {
+    game_process_id().map(|process_id| process_id.is_some())
 }
 
 fn port_free(port: u16) -> bool {
@@ -370,6 +383,33 @@ impl Shared {
             }
         }
         self.phase = phase;
+    }
+
+    fn end_live_session(&mut self) -> bool {
+        let active = self.phase.is_some()
+            || self.ownership.is_some()
+            || self.epoch.is_some()
+            || self.sessions.current().is_some();
+        if !active {
+            return false;
+        }
+
+        // The next fresh payload uses the existing SessionChange::Started path to
+        // advance the engine epoch. Do not fence active playback at loss time:
+        // that would cut a critical cue already qualified from fresh data.
+        self.sessions.end();
+        self.set_phase(None);
+        self.epoch = None;
+        self.ownership = None;
+        self.ownership_reason = None;
+        self.last_admitted = None;
+        self.last_loadout = OwnLoadout::unknown();
+        self.session_hero_id = None;
+        self.events.clear();
+        self.reset_detector();
+        *lock(&self.freshness_state) = None;
+        self.persist_runtime();
+        true
     }
 
     pub fn new(data_dir: PathBuf) -> Self {
@@ -944,6 +984,21 @@ impl Runtime {
         })
     }
 
+    /// End the admitted GSI session after the game window or process is lost.
+    /// A later admitted payload goes through the ordinary ownership/session path.
+    pub(crate) fn end_live_session(&self, reason: &'static str) -> bool {
+        let ended = lock(&self.shared).end_live_session();
+        if ended {
+            crate::log_info!(
+                "hud",
+                "live_surfaces_hidden",
+                "Live HUD and overlay content hidden",
+                reason = reason
+            );
+        }
+        ended
+    }
+
     /// Stop the current listener, if any, and return the port it held.
     fn release(&self) -> Option<u16> {
         let old = lock(&self.server).take()?;
@@ -1267,6 +1322,108 @@ mod tests {
                      "mana_percent": 43, "alive": true, "respawn_seconds": 0},
             "auth": {"token": token}
         })
+    }
+
+    fn in_game_with_hud_stats(token: &str, kills: i64, gold: i64) -> Value {
+        let mut body = in_game(token);
+        body["player"]["kills"] = json!(kills);
+        body["player"]["deaths"] = json!(2);
+        body["player"]["assists"] = json!(3);
+        body["player"]["gold"] = json!(gold);
+        body["player"]["gpm"] = json!(456);
+        body["player"]["xpm"] = json!(512);
+        body
+    }
+
+    fn assert_hud_hidden_unknown(snapshot: &Value) {
+        let hud = crate::hud::build_hud_state(snapshot);
+        assert_eq!(hud["visible"], false);
+        for field in ["kills", "deaths", "assists", "gold", "gpm", "xpm"] {
+            assert_eq!(hud["fields"][field]["value"], Value::Null, "{field}");
+            assert_eq!(hud["fields"][field]["availability"], "unknown", "{field}");
+        }
+        assert_eq!(hud["net_worth"]["value"], Value::Null);
+        assert_eq!(hud["net_worth"]["availability"], "unknown");
+    }
+
+    #[test]
+    fn window_loss_or_process_change_ends_session_and_reconnect_uses_only_new_values() {
+        for boundary in ["no_game_window", "process_change"] {
+            let mut shared = shared_with_token();
+            let token = shared.token.clone().unwrap();
+            let old_body = in_game_with_hud_stats(&token, 4, 900);
+            let old_arrival = Instant::now() - Duration::from_millis(2001);
+            assert_eq!(shared.accept(&old_body, old_arrival, Some(owner())), 200);
+            let old_session_id = shared.sessions.current().unwrap().session_id.clone();
+
+            let stale = shared.snapshot();
+            assert_eq!(stale["availability"], "stale");
+            let old_hud = crate::hud::build_hud_state(&stale);
+            assert_eq!(old_hud["visible"], true);
+            assert_eq!(old_hud["fields"]["kills"]["value"], 4);
+
+            let mut watch = crate::hud::GameProcessWatch::default();
+            assert_eq!(watch.observe(Some(Some(41)), Some("live"), true), None);
+            let end_reason = if boundary == "no_game_window" {
+                watch.observe(Some(Some(41)), Some("no_game_window"), true)
+            } else {
+                watch.observe(Some(Some(42)), Some("live"), true)
+            };
+            assert_eq!(
+                end_reason,
+                Some(if boundary == "no_game_window" {
+                    "game_window_lost"
+                } else {
+                    "game_process_changed"
+                })
+            );
+            assert!(shared.end_live_session());
+            assert!(shared.phase.is_none());
+            assert!(shared.sessions.current().is_none());
+            assert_hud_hidden_unknown(&shared.snapshot());
+
+            // A 20-minute old snapshot is also rejected by the HUD freshness limit.
+            let mut twenty_minutes_old = stale;
+            twenty_minutes_old["source"]["age_ms"] = json!(1_200_000);
+            assert_hud_hidden_unknown(&twenty_minutes_old);
+
+            // No GSI traffic leaves the live snapshot empty; a menu heartbeat stays hidden.
+            assert_hud_hidden_unknown(&shared.snapshot());
+            assert_eq!(
+                shared.accept(&menu(&token), Instant::now(), Some(owner())),
+                200
+            );
+            assert_hud_hidden_unknown(&shared.snapshot());
+
+            let new_body = in_game_with_hud_stats(&token, 9, 1500);
+            assert_eq!(shared.accept(&new_body, Instant::now(), Some(owner())), 200);
+            let new_session = shared.sessions.current().unwrap();
+            assert_ne!(new_session.session_id, old_session_id);
+            assert_eq!(shared.epoch, Some(2));
+            let new_hud = crate::hud::build_hud_state(&shared.snapshot());
+            assert_eq!(new_hud["visible"], true);
+            assert_eq!(new_hud["fields"]["kills"]["value"], 9);
+            assert_eq!(new_hud["fields"]["gold"]["value"], 1500);
+        }
+    }
+
+    #[test]
+    fn repeated_pause_heartbeat_refreshes_the_admitted_snapshot() {
+        let mut shared = shared_with_token();
+        let token = shared.token.clone().unwrap();
+        let mut paused = in_game_with_hud_stats(&token, 4, 900);
+        paused["map"]["paused"] = json!(true);
+        let second = Instant::now();
+        let first = second - Duration::from_millis(1059);
+        assert_eq!(shared.accept(&paused, first, Some(owner())), 200);
+        let session_id = shared.sessions.current().unwrap().session_id.clone();
+        assert_eq!(shared.accept(&paused, second, Some(owner())), 200);
+        assert_eq!(shared.sessions.current().unwrap().session_id, session_id);
+
+        let snapshot = shared.snapshot();
+        assert_eq!(snapshot["availability"], "fresh");
+        assert!(snapshot["source"]["age_ms"].as_u64().unwrap() <= 2000);
+        assert_eq!(crate::hud::build_hud_state(&snapshot)["visible"], true);
     }
 
     #[test]
