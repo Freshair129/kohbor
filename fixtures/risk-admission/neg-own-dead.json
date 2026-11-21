@@ -1,0 +1,2433 @@
+{
+ "description": "The player dies just before the group vanishes, respawns later, and the death-window episode stays ineligible.",
+ "expected": {
+  "events": [],
+  "probes": [
+   {
+    "reason": "no_group",
+    "score_all": 0.0,
+    "t_ms": 0
+   },
+   {
+    "reason": "own_dead_or_grace",
+    "score_all": 0.0,
+    "t_ms": 5600
+   },
+   {
+    "reason": "no_group",
+    "score_all": 1.0,
+    "t_ms": 20000
+   }
+  ]
+ },
+ "id": "neg-own-dead",
+ "kind": "trace",
+ "spec_sections": [
+  "5.1",
+  "6.2",
+  "6.3"
+ ],
+ "ticks": [
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [
+    {
+     "hero": "enemy_1",
+     "track": "enemy_1",
+     "x": 480,
+     "y": 300
+    },
+    {
+     "hero": "enemy_2",
+     "track": "enemy_2",
+     "x": 520,
+     "y": 300
+    }
+   ],
+   "t_ms": 0
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [
+    {
+     "hero": "enemy_1",
+     "track": "enemy_1",
+     "x": 480,
+     "y": 303
+    },
+    {
+     "hero": "enemy_2",
+     "track": "enemy_2",
+     "x": 520,
+     "y": 304
+    }
+   ],
+   "t_ms": 200
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [
+    {
+     "hero": "enemy_1",
+     "track": "enemy_1",
+     "x": 480,
+     "y": 306
+    },
+    {
+     "hero": "enemy_2",
+     "track": "enemy_2",
+     "x": 520,
+     "y": 307
+    }
+   ],
+   "t_ms": 400
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [
+    {
+     "hero": "enemy_1",
+     "track": "enemy_1",
+     "x": 480,
+     "y": 309
+    },
+    {
+     "hero": "enemy_2",
+     "track": "enemy_2",
+     "x": 520,
+     "y": 311
+    }
+   ],
+   "t_ms": 600
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [
+    {
+     "hero": "enemy_1",
+     "track": "enemy_1",
+     "x": 480,
+     "y": 312
+    },
+    {
+     "hero": "enemy_2",
+     "track": "enemy_2",
+     "x": 520,
+     "y": 315
+    }
+   ],
+   "t_ms": 800
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [
+    {
+     "hero": "enemy_1",
+     "track": "enemy_1",
+     "x": 480,
+     "y": 315
+    },
+    {
+     "hero": "enemy_2",
+     "track": "enemy_2",
+     "x": 520,
+     "y": 318
+    }
+   ],
+   "t_ms": 1000
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [
+    {
+     "hero": "enemy_1",
+     "track": "enemy_1",
+     "x": 480,
+     "y": 318
+    },
+    {
+     "hero": "enemy_2",
+     "track": "enemy_2",
+     "x": 520,
+     "y": 322
+    }
+   ],
+   "t_ms": 1200
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [
+    {
+     "hero": "enemy_1",
+     "track": "enemy_1",
+     "x": 480,
+     "y": 321
+    },
+    {
+     "hero": "enemy_2",
+     "track": "enemy_2",
+     "x": 520,
+     "y": 326
+    }
+   ],
+   "t_ms": 1400
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [
+    {
+     "hero": "enemy_1",
+     "track": "enemy_1",
+     "x": 480,
+     "y": 324
+    },
+    {
+     "hero": "enemy_2",
+     "track": "enemy_2",
+     "x": 520,
+     "y": 329
+    }
+   ],
+   "t_ms": 1600
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [
+    {
+     "hero": "enemy_1",
+     "track": "enemy_1",
+     "x": 480,
+     "y": 327
+    },
+    {
+     "hero": "enemy_2",
+     "track": "enemy_2",
+     "x": 520,
+     "y": 333
+    }
+   ],
+   "t_ms": 1800
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [
+    {
+     "hero": "enemy_1",
+     "track": "enemy_1",
+     "x": 480,
+     "y": 330
+    },
+    {
+     "hero": "enemy_2",
+     "track": "enemy_2",
+     "x": 520,
+     "y": 337
+    }
+   ],
+   "t_ms": 2000
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [
+    {
+     "hero": "enemy_1",
+     "track": "enemy_1",
+     "x": 480,
+     "y": 333
+    },
+    {
+     "hero": "enemy_2",
+     "track": "enemy_2",
+     "x": 520,
+     "y": 340
+    }
+   ],
+   "t_ms": 2200
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [
+    {
+     "hero": "enemy_1",
+     "track": "enemy_1",
+     "x": 480,
+     "y": 336
+    },
+    {
+     "hero": "enemy_2",
+     "track": "enemy_2",
+     "x": 520,
+     "y": 344
+    }
+   ],
+   "t_ms": 2400
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [
+    {
+     "hero": "enemy_1",
+     "track": "enemy_1",
+     "x": 480,
+     "y": 339
+    },
+    {
+     "hero": "enemy_2",
+     "track": "enemy_2",
+     "x": 520,
+     "y": 348
+    }
+   ],
+   "t_ms": 2600
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [
+    {
+     "hero": "enemy_1",
+     "track": "enemy_1",
+     "x": 480,
+     "y": 342
+    },
+    {
+     "hero": "enemy_2",
+     "track": "enemy_2",
+     "x": 520,
+     "y": 351
+    }
+   ],
+   "t_ms": 2800
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [
+    {
+     "hero": "enemy_1",
+     "track": "enemy_1",
+     "x": 480,
+     "y": 345
+    },
+    {
+     "hero": "enemy_2",
+     "track": "enemy_2",
+     "x": 520,
+     "y": 355
+    }
+   ],
+   "t_ms": 3000
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [
+    {
+     "hero": "enemy_1",
+     "track": "enemy_1",
+     "x": 480,
+     "y": 348
+    },
+    {
+     "hero": "enemy_2",
+     "track": "enemy_2",
+     "x": 520,
+     "y": 359
+    }
+   ],
+   "t_ms": 3200
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [
+    {
+     "hero": "enemy_1",
+     "track": "enemy_1",
+     "x": 480,
+     "y": 351
+    },
+    {
+     "hero": "enemy_2",
+     "track": "enemy_2",
+     "x": 520,
+     "y": 362
+    }
+   ],
+   "t_ms": 3400
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [
+    {
+     "hero": "enemy_1",
+     "track": "enemy_1",
+     "x": 480,
+     "y": 354
+    },
+    {
+     "hero": "enemy_2",
+     "track": "enemy_2",
+     "x": 520,
+     "y": 366
+    }
+   ],
+   "t_ms": 3600
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [
+    {
+     "hero": "enemy_1",
+     "track": "enemy_1",
+     "x": 480,
+     "y": 357
+    },
+    {
+     "hero": "enemy_2",
+     "track": "enemy_2",
+     "x": 520,
+     "y": 370
+    }
+   ],
+   "t_ms": 3800
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [
+    {
+     "hero": "enemy_1",
+     "track": "enemy_1",
+     "x": 480,
+     "y": 360
+    },
+    {
+     "hero": "enemy_2",
+     "track": "enemy_2",
+     "x": 520,
+     "y": 373
+    }
+   ],
+   "t_ms": 4000
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [
+    {
+     "hero": "enemy_1",
+     "track": "enemy_1",
+     "x": 480,
+     "y": 363
+    },
+    {
+     "hero": "enemy_2",
+     "track": "enemy_2",
+     "x": 520,
+     "y": 377
+    }
+   ],
+   "t_ms": 4200
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [
+    {
+     "hero": "enemy_1",
+     "track": "enemy_1",
+     "x": 480,
+     "y": 366
+    },
+    {
+     "hero": "enemy_2",
+     "track": "enemy_2",
+     "x": 520,
+     "y": 381
+    }
+   ],
+   "t_ms": 4400
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [
+    {
+     "hero": "enemy_1",
+     "track": "enemy_1",
+     "x": 480,
+     "y": 369
+    },
+    {
+     "hero": "enemy_2",
+     "track": "enemy_2",
+     "x": 520,
+     "y": 384
+    }
+   ],
+   "t_ms": 4600
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [
+    {
+     "hero": "enemy_1",
+     "track": "enemy_1",
+     "x": 480,
+     "y": 372
+    },
+    {
+     "hero": "enemy_2",
+     "track": "enemy_2",
+     "x": 520,
+     "y": 388
+    }
+   ],
+   "t_ms": 4800
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [
+    {
+     "hero": "enemy_1",
+     "track": "enemy_1",
+     "x": 480,
+     "y": 375
+    },
+    {
+     "hero": "enemy_2",
+     "track": "enemy_2",
+     "x": 520,
+     "y": 392
+    }
+   ],
+   "t_ms": 5000
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [
+    {
+     "hero": "enemy_1",
+     "track": "enemy_1",
+     "x": 480,
+     "y": 378
+    },
+    {
+     "hero": "enemy_2",
+     "track": "enemy_2",
+     "x": 520,
+     "y": 395
+    }
+   ],
+   "t_ms": 5200
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [
+    {
+     "hero": "enemy_1",
+     "track": "enemy_1",
+     "x": 480,
+     "y": 381
+    },
+    {
+     "hero": "enemy_2",
+     "track": "enemy_2",
+     "x": 520,
+     "y": 399
+    }
+   ],
+   "t_ms": 5400
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [
+    {
+     "hero": "enemy_1",
+     "track": "enemy_1",
+     "x": 480,
+     "y": 384
+    },
+    {
+     "hero": "enemy_2",
+     "track": "enemy_2",
+     "x": 520,
+     "y": 403
+    }
+   ],
+   "t_ms": 5600
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [
+    {
+     "hero": "enemy_1",
+     "track": "enemy_1",
+     "x": 480,
+     "y": 387
+    },
+    {
+     "hero": "enemy_2",
+     "track": "enemy_2",
+     "x": 520,
+     "y": 406
+    }
+   ],
+   "t_ms": 5800
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [
+    {
+     "hero": "enemy_1",
+     "track": "enemy_1",
+     "x": 480,
+     "y": 390
+    },
+    {
+     "hero": "enemy_2",
+     "track": "enemy_2",
+     "x": 520,
+     "y": 410
+    }
+   ],
+   "t_ms": 6000
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 6200
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 6400
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 6600
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 6800
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 7000
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 7200
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 7400
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 7600
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 7800
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 8000
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 8200
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 8400
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 8600
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 8800
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 9000
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 9200
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 9400
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 9600
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 9800
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 10000
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 10200
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 10400
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 10600
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 10800
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 11000
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 11200
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 11400
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 11600
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 11800
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 12000
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 12200
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 12400
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 12600
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 12800
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 13000
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 13200
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 13400
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 13600
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 13800
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 14000
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 14200
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 14400
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 14600
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": false,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 14800
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 15000
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 15200
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 15400
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 15600
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 15800
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 16000
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 16200
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 16400
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 16600
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 16800
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 17000
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 17200
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 17400
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 17600
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 17800
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 18000
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 18200
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 18400
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 18600
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 18800
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 19000
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 19200
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 19400
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 19600
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 19800
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 20000
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 20200
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 20400
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 20600
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 20800
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 21000
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 21200
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 21400
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 21600
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 21800
+  },
+  {
+   "coverage": "valid",
+   "media_ready": true,
+   "own": {
+    "alive": true,
+    "assists": 0,
+    "fresh": true,
+    "in_match": true,
+    "kills": 0,
+    "map_pos": {
+     "x": 500,
+     "y": 600
+    },
+    "paused": false
+   },
+   "sightings": [],
+   "t_ms": 22000
+  }
+ ]
+}

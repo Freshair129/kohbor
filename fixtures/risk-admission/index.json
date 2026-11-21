@@ -1,0 +1,323 @@
+{
+ "approval": "not_approved",
+ "fixtures": [
+  {
+   "expect": "table",
+   "file": "aggregate-table.json",
+   "id": "aggregate-table",
+   "kind": "table",
+   "rule": "4.3"
+  },
+  {
+   "expect": "admit",
+   "file": "blip-no-rearm.json",
+   "id": "blip-no-rearm",
+   "kind": "trace",
+   "rule": "3.2,7"
+  },
+  {
+   "expect": "admit",
+   "file": "bnd-reappear-ok.json",
+   "id": "bnd-reappear-ok",
+   "kind": "trace",
+   "rule": "3.2,7"
+  },
+  {
+   "expect": "admit",
+   "file": "bnd-reappear-short.json",
+   "id": "bnd-reappear-short",
+   "kind": "trace",
+   "rule": "3.2,7"
+  },
+  {
+   "expect": "admit",
+   "file": "bnd-vanish-3000.json",
+   "id": "bnd-vanish-3000",
+   "kind": "trace",
+   "rule": "6.2,6.3"
+  },
+  {
+   "expect": "admit",
+   "file": "contributor-cooldown.json",
+   "id": "contributor-cooldown",
+   "kind": "trace",
+   "rule": "3.2,6.2,6.3,7"
+  },
+  {
+   "expect": "admit",
+   "file": "correction-suppressed.json",
+   "id": "correction-suppressed",
+   "kind": "trace",
+   "rule": "3.2,4.3,7"
+  },
+  {
+   "expect": "admit",
+   "file": "dedup-stays-missing.json",
+   "id": "dedup-stays-missing",
+   "kind": "trace",
+   "rule": "4.1,6.2,7"
+  },
+  {
+   "expect": "table",
+   "file": "eta-table.json",
+   "id": "eta-table",
+   "kind": "table",
+   "rule": "4.4"
+  },
+  {
+   "expect": "admit",
+   "file": "global-cooldown-defers.json",
+   "id": "global-cooldown-defers",
+   "kind": "trace",
+   "rule": "6.2,6.3,7"
+  },
+  {
+   "expect": "table",
+   "file": "heading-table.json",
+   "id": "heading-table",
+   "kind": "table",
+   "rule": "4.2"
+  },
+  {
+   "expect": "admit",
+   "file": "latch-gap.json",
+   "id": "latch-gap",
+   "kind": "trace",
+   "rule": "3.4,7"
+  },
+  {
+   "expect": "admit",
+   "file": "latch-partial-reappear.json",
+   "id": "latch-partial-reappear",
+   "kind": "trace",
+   "rule": "3.2,7"
+  },
+  {
+   "expect": "silent",
+   "file": "neg-anonymous.json",
+   "id": "neg-anonymous",
+   "kind": "trace",
+   "rule": "2,3.1,6.1,6.2,6.3"
+  },
+  {
+   "expect": "silent",
+   "file": "neg-away-from-player.json",
+   "id": "neg-away-from-player",
+   "kind": "trace",
+   "rule": "6.2,6.3,6.4"
+  },
+  {
+   "expect": "silent",
+   "file": "neg-coverage-gap.json",
+   "id": "neg-coverage-gap",
+   "kind": "trace",
+   "rule": "3.4,6.3,8"
+  },
+  {
+   "expect": "silent",
+   "file": "neg-far-apart.json",
+   "id": "neg-far-apart",
+   "kind": "trace",
+   "rule": "6.2,6.3"
+  },
+  {
+   "expect": "silent",
+   "file": "neg-gsi-stale.json",
+   "id": "neg-gsi-stale",
+   "kind": "trace",
+   "rule": "2,6.3"
+  },
+  {
+   "expect": "silent",
+   "file": "neg-kill-participation.json",
+   "id": "neg-kill-participation",
+   "kind": "trace",
+   "rule": "5.2,6.3"
+  },
+  {
+   "expect": "silent",
+   "file": "neg-kill-unknown.json",
+   "id": "neg-kill-unknown",
+   "kind": "trace",
+   "rule": "5.2,6.3,8"
+  },
+  {
+   "expect": "silent",
+   "file": "neg-kill-unknown-gap.json",
+   "id": "neg-kill-unknown-gap",
+   "kind": "trace",
+   "rule": "5.2,6.3,8"
+  },
+  {
+   "expect": "admit",
+   "file": "neg-kill-unknown-gap-clean.json",
+   "id": "neg-kill-unknown-gap-clean",
+   "kind": "trace",
+   "rule": "5.2,6.3,8"
+  },
+  {
+   "expect": "silent",
+   "file": "neg-media-late.json",
+   "id": "neg-media-late",
+   "kind": "trace",
+   "rule": "6.2,6.3,7"
+  },
+  {
+   "expect": "silent",
+   "file": "neg-media-unready.json",
+   "id": "neg-media-unready",
+   "kind": "trace",
+   "rule": "6.3,7,8"
+  },
+  {
+   "expect": "silent",
+   "file": "neg-opposite-heading.json",
+   "id": "neg-opposite-heading",
+   "kind": "trace",
+   "rule": "4.2,6.2,6.3"
+  },
+  {
+   "expect": "silent",
+   "file": "neg-own-dead.json",
+   "id": "neg-own-dead",
+   "kind": "trace",
+   "rule": "5.1,6.2,6.3"
+  },
+  {
+   "expect": "silent",
+   "file": "neg-own-pos-unknown.json",
+   "id": "neg-own-pos-unknown",
+   "kind": "trace",
+   "rule": "2,6.3,6.4,8"
+  },
+  {
+   "expect": "silent",
+   "file": "neg-paused.json",
+   "id": "neg-paused",
+   "kind": "trace",
+   "rule": "3.4,6.3,8"
+  },
+  {
+   "expect": "silent",
+   "file": "neg-paused-unknown.json",
+   "id": "neg-paused-unknown",
+   "kind": "trace",
+   "rule": "3.4,6.3,8"
+  },
+  {
+   "expect": "silent",
+   "file": "neg-pregame.json",
+   "id": "neg-pregame",
+   "kind": "trace",
+   "rule": "2,6.3"
+  },
+  {
+   "expect": "silent",
+   "file": "neg-single-hero.json",
+   "id": "neg-single-hero",
+   "kind": "trace",
+   "rule": "3.1,3.3,4.1,6.2,6.3"
+  },
+  {
+   "expect": "silent",
+   "file": "neg-stale-alive.json",
+   "id": "neg-stale-alive",
+   "kind": "trace",
+   "rule": "5.1,6.2,6.3"
+  },
+  {
+   "expect": "silent",
+   "file": "neg-stale-coverage.json",
+   "id": "neg-stale-coverage",
+   "kind": "trace",
+   "rule": "3.4,6.3,8"
+  },
+  {
+   "expect": "silent",
+   "file": "neg-stationary.json",
+   "id": "neg-stationary",
+   "kind": "trace",
+   "rule": "4.2,6.1,6.2,6.3"
+  },
+  {
+   "expect": "silent",
+   "file": "neg-time-non-advancing.json",
+   "id": "neg-time-non-advancing",
+   "kind": "trace",
+   "rule": "14"
+  },
+  {
+   "expect": "silent",
+   "file": "neg-too-far.json",
+   "id": "neg-too-far",
+   "kind": "trace",
+   "rule": "6.2,6.3,6.4"
+  },
+  {
+   "expect": "silent",
+   "file": "neg-vanish-apart.json",
+   "id": "neg-vanish-apart",
+   "kind": "trace",
+   "rule": "6.2,6.3"
+  },
+  {
+   "expect": "admit",
+   "file": "opt-b-away-from-player.json",
+   "id": "opt-b-away-from-player",
+   "kind": "trace",
+   "rule": "6.3,6.4"
+  },
+  {
+   "expect": "admit",
+   "file": "opt-b-own-pos-unknown.json",
+   "id": "opt-b-own-pos-unknown",
+   "kind": "trace",
+   "rule": "6.3,6.4"
+  },
+  {
+   "expect": "table",
+   "file": "params-reject-table.json",
+   "id": "params-reject-table",
+   "kind": "table",
+   "rule": "14"
+  },
+  {
+   "expect": "admit",
+   "file": "pos-media-recovers.json",
+   "id": "pos-media-recovers",
+   "kind": "trace",
+   "rule": "6.2,6.3,7"
+  },
+  {
+   "expect": "admit",
+   "file": "pos-three-group.json",
+   "id": "pos-three-group",
+   "kind": "trace",
+   "rule": "3.1,4.1,4.2,4.3,6.2,6.3,6.4"
+  },
+  {
+   "expect": "admit",
+   "file": "pos-two-group.json",
+   "id": "pos-two-group",
+   "kind": "trace",
+   "rule": "3.1,4.1,4.2,4.3,6.2,6.3,6.4"
+  },
+  {
+   "expect": "admit",
+   "file": "rearm-after-reappearance.json",
+   "id": "rearm-after-reappearance",
+   "kind": "trace",
+   "rule": "3.2,6.2,7"
+  },
+  {
+   "expect": "table",
+   "file": "score-table.json",
+   "id": "score-table",
+   "kind": "table",
+   "rule": "4.1"
+  }
+ ],
+ "generator": "tools/gen_risk_admission_fixtures.py",
+ "spec": "docs/design/RISK-ADMISSION-SPEC.md",
+ "status": "synthetic_frozen_draft"
+}

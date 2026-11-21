@@ -1,0 +1,50 @@
+{
+ "id": "eta-table",
+ "kind": "table",
+ "rows": [
+  {
+   "group_eta_s": 8.0,
+   "id": "per-hero-before-ramp",
+   "missing_seconds": [
+    4.0
+   ],
+   "per_hero_eta_s": [
+    8.0
+   ]
+  },
+  {
+   "group_eta_s": 1.0,
+   "id": "per-hero-near-peak",
+   "missing_seconds": [
+    11.0
+   ],
+   "per_hero_eta_s": [
+    1.0
+   ]
+  },
+  {
+   "group_eta_s": 1.0,
+   "id": "per-hero-late",
+   "missing_seconds": [
+    20.0
+   ],
+   "per_hero_eta_s": [
+    1.0
+   ]
+  },
+  {
+   "group_eta_s": 1.0,
+   "id": "group-min",
+   "missing_seconds": [
+    4.0,
+    10.5,
+    20.0
+   ],
+   "per_hero_eta_s": [
+    8.0,
+    1.5,
+    1.0
+   ]
+  }
+ ]
+}

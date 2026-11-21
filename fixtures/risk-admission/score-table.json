@@ -1,0 +1,62 @@
+{
+ "id": "score-table",
+ "kind": "table",
+ "rows": [
+  {
+   "expected_score": 0.0,
+   "missing_seconds": 0
+  },
+  {
+   "expected_score": 0.0,
+   "missing_seconds": 4
+  },
+  {
+   "expected_score": 0.0,
+   "missing_seconds": 4.999
+  },
+  {
+   "expected_score": 0.0,
+   "missing_seconds": 5.0
+  },
+  {
+   "expected_score": 0.35,
+   "missing_seconds": 8.5
+  },
+  {
+   "expected_score": 0.6999,
+   "missing_seconds": 11.999
+  },
+  {
+   "expected_score": 0.7,
+   "missing_seconds": 12
+  },
+  {
+   "expected_score": 0.46,
+   "missing_seconds": 20
+  },
+  {
+   "expected_score": 0.16,
+   "missing_seconds": 30
+  },
+  {
+   "expected_score": 0.1,
+   "missing_seconds": 32
+  },
+  {
+   "expected_score": 0.1,
+   "missing_seconds": 40
+  },
+  {
+   "expected_score": 0.1,
+   "missing_seconds": 100
+  },
+  {
+   "expected_score": null,
+   "missing_seconds": -0.001
+  },
+  {
+   "expected_score": null,
+   "missing_seconds": "NaN"
+  }
+ ]
+}
