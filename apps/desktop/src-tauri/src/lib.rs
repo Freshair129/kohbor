@@ -20,6 +20,8 @@ pub mod intake;
 pub mod latency;
 pub mod logging;
 mod media;
+mod mixer;
+mod orb;
 mod portraits;
 pub mod secrets;
 pub mod settings;
@@ -89,6 +91,10 @@ pub(crate) struct AppState {
     pub(crate) settings_gate: Mutex<()>,
     pub(crate) sample: Arc<Mutex<(Sample, bool)>>,
     pub(crate) revision: AtomicU64,
+    /// MEDIA-009 session volume on its own COM thread.
+    pub(crate) mixer: mixer::service::MixerService,
+    /// UI-009 / UI-011 edge orb (off unless enabled in Settings).
+    pub(crate) orb: orb::host::OrbHost,
 }
 
 impl host::Emitter for tauri::AppHandle<tauri::Wry> {
@@ -1106,6 +1112,18 @@ pub fn run() {
                 crate::log_error!("app", "setup_failed", "APP_DATA_DIR_UNAVAILABLE");
             })?;
             let settings_dir = dir.clone();
+            let orb_host = orb::host::OrbHost::open(&dir);
+            let orb_prefs = orb_host.prefs();
+            let mixer_dir = dir.clone();
+            // Starts the mixer thread; originals left by an abnormal exit are restored before any command.
+            let mixer_service = mixer::service::MixerService::start(move || {
+                let mut mixer = mixer::Mixer::new(
+                    mixer::platform_backend(),
+                    Box::new(mixer::JsonOriginalStore::in_data_dir(&mixer_dir)),
+                );
+                mixer.configure(orb_prefs.music_exe, orb_prefs.focus_percent);
+                mixer
+            });
             // Load volume preferences before Host::start creates the audio engine.
             let audio_prefs = audio_prefs::AudioPrefsService::open(&dir);
             // Account storage remains lazy so an unavailable account root or
@@ -1224,7 +1242,11 @@ pub fn run() {
                 settings_gate: Mutex::new(()),
                 sample,
                 revision: AtomicU64::new(0),
+                mixer: mixer_service,
+                orb: orb_host,
             });
+            orb::host::register_critical_listener(app.handle());
+            app.state::<AppState>().orb.start_if_enabled(app.handle());
             let hud_controller =
                 hud::Controller::start(app.handle().clone(), hud_runtime, hud_window);
             *intake::lock(&app.state::<AppState>().hud) = hud_controller;
@@ -1297,6 +1319,13 @@ pub fn run() {
         capture_host::capture_propose_crop,
         capture_host::capture_accept_proposal,
         capture_host::capture_confirm_crop,
+        orb::host::orb_prefs_get,
+        orb::host::orb_prefs_set,
+        orb::host::orb_click,
+        orb::host::orb_panel_height,
+        orb::host::mixer_get,
+        orb::host::mixer_set,
+        orb::host::mixer_focus_toggle,
         #[cfg(feature = "demo")]
         account_host::account_fake_native,
         commands::demo_available,
@@ -1372,6 +1401,13 @@ pub fn run() {
         capture_host::capture_propose_crop,
         capture_host::capture_accept_proposal,
         capture_host::capture_confirm_crop,
+        orb::host::orb_prefs_get,
+        orb::host::orb_prefs_set,
+        orb::host::orb_click,
+        orb::host::orb_panel_height,
+        orb::host::mixer_get,
+        orb::host::mixer_set,
+        orb::host::mixer_focus_toggle,
         commands::demo_available
     ]);
     let app = builder.build(tauri::generate_context!());
@@ -1385,6 +1421,9 @@ pub fn run() {
                 capture_host::stop();
                 crate::log_info!("app", "exit", "Kohbor is exiting");
                 let state = handle.state::<AppState>();
+                // Orb first (no new clicks), then put every touched audio session back (MEDIA-009).
+                state.orb.stop_for_exit();
+                state.mixer.shutdown();
                 intake::lock(&state.hud).stop();
                 intake::lock(&state.hotkeys).stop();
                 state.host.shutdown();

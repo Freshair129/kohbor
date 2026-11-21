@@ -88,8 +88,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/Cargo.toml",
-      "bytes": 2488,
-      "sha256": "fa7a207d25afc06714772665fe8e1371c0832c311092ddba8f1383b88370ffc0"
+      "bytes": 2599,
+      "sha256": "ffe5dce2d41056ca451b32f575ddac9b24e44e75a9e4353fe7b7ffebc5f9e363"
     },
     {
       "path": "apps/desktop/src-tauri/app-icon.png",
@@ -110,6 +110,11 @@
       "path": "apps/desktop/src-tauri/capabilities/hud.json",
       "bytes": 198,
       "sha256": "df9810d7f0f4f782638b20e7372b529bd977e128296a2b6b9c4658d3ec7d53c6"
+    },
+    {
+      "path": "apps/desktop/src-tauri/capabilities/orb.json",
+      "bytes": 244,
+      "sha256": "37b608f1542c2921632afc5322f31ecd801f2e54e1d6b18c65b3229e3675da4e"
     },
     {
       "path": "apps/desktop/src-tauri/capabilities/overlay.json",
@@ -363,8 +368,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 57740,
-      "sha256": "b03daa67783a8f5a4ebb14607e1375a7455591d9532d61eeceeb30d693bcdb81"
+      "bytes": 59480,
+      "sha256": "a8d1f3f25340f2baaab2f5cb01d03ff0ed07bdd3683c2d149a281736c8d21973"
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
@@ -410,6 +415,31 @@
       "path": "apps/desktop/src-tauri/src/media/service.rs",
       "bytes": 141149,
       "sha256": "77bb2f6c64da56896e23190e4ac535b201d0abb5003f4380545a8558afac63f5"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/mixer/mod.rs",
+      "bytes": 44637,
+      "sha256": "08ea746ed92ae59e05bac2163f1dd89a2cc7c2223678b5fd55d4ec21d1a506b9"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/mixer/native.rs",
+      "bytes": 8427,
+      "sha256": "529979c49d953be635315af0ac9eb7489babbc69d0b0025d9f908359f10cde4e"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/mixer/service.rs",
+      "bytes": 6978,
+      "sha256": "1f88f739bb4a4b8f2a90a87b607943541d2cc8c7b9ec9d25bbcabbfc18a8e115"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/orb/host.rs",
+      "bytes": 38260,
+      "sha256": "5bc89ac4fedfcadae577e57228bff8e628769ad31ca34cea4520cb49e232c3f6"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/orb/mod.rs",
+      "bytes": 37336,
+      "sha256": "b513ba9aac6e1b35089537c9fb24b422b62cd47a937d586dc56557628f880061"
     },
     {
       "path": "apps/desktop/src-tauri/src/overlay.rs",
@@ -473,8 +503,8 @@
     },
     {
       "path": "apps/desktop/src/App.tsx",
-      "bytes": 20808,
-      "sha256": "50ca6b41dd81ea7c8a446b32fced46cb69c39a476abd4d373f13088b23d6c2a1"
+      "bytes": 20910,
+      "sha256": "8c4c9f0c9cc76a2c7787e9a5bad2744a995ab2fcad1c2c358fb0a67b0636fc97"
     },
     {
       "path": "apps/desktop/src/AudioHistory.tsx",
@@ -1053,8 +1083,8 @@
     },
     {
       "path": "apps/desktop/src/main.tsx",
-      "bytes": 7386,
-      "sha256": "295e6066f985a8481fd334e73c20c568cd13ffe5d11b8d6b493d9128e9b399f6"
+      "bytes": 7647,
+      "sha256": "4c22fd988add3737ddfd4bbe848c3b4db2cb4dc6b8356ee486a39f074ea4d63c"
     },
     {
       "path": "apps/desktop/src/mediaPackSummaries.ts",
@@ -1090,6 +1120,36 @@
       "path": "apps/desktop/src/mock/updateHarness.ts",
       "bytes": 2105,
       "sha256": "fa9359c2493ca7aaf0c5b5aed9e805a3f3ede6d0cd93899f68f3325d5f27f4e0"
+    },
+    {
+      "path": "apps/desktop/src/orb/OrbSettings.tsx",
+      "bytes": 10899,
+      "sha256": "a3822a730873164f6e3e22e44ea2a975a92d152ebaa072be5834570c30ae9f81"
+    },
+    {
+      "path": "apps/desktop/src/orb/OrbStage.tsx",
+      "bytes": 13951,
+      "sha256": "3f1508a4579be03e79fea0a67c823c5d1d4bc132d966172647d0cc59bd96b72c"
+    },
+    {
+      "path": "apps/desktop/src/orb/orb.css",
+      "bytes": 8138,
+      "sha256": "b1d2138de98dbf041119937fd8b35c58951444af358c769c05ba3cc4bbdc3ae9"
+    },
+    {
+      "path": "apps/desktop/src/orb/orbApi.ts",
+      "bytes": 1998,
+      "sha256": "64f7ac45ecc418e47341264579e405668f8756b3becc26908f062519fe185ee9"
+    },
+    {
+      "path": "apps/desktop/src/orb/orbModel.ts",
+      "bytes": 16779,
+      "sha256": "ae638e852b0d5ae896431403d866212ecae79ae38151852429d690f3a203c05d"
+    },
+    {
+      "path": "apps/desktop/src/orb/orbSettings.css",
+      "bytes": 1448,
+      "sha256": "8cb75969866841a260ce57b793052f879bc68ee389a9563507d4c2a73dc7c993"
     },
     {
       "path": "apps/desktop/src/overlayModel.ts",
@@ -1623,8 +1683,8 @@
     },
     {
       "path": "apps/desktop/tests/hudModel.test.ts",
-      "bytes": 21739,
-      "sha256": "a2a2d7404886db635aa691bd3bf412bb691c1004829d11a1c33e12ede4fd7c31"
+      "bytes": 21755,
+      "sha256": "00e7efaa73385d2e4e3f70875c28fd8e7dd74a351701556c97dbe452daf1a4d7"
     },
     {
       "path": "apps/desktop/tests/installDialog.test.ts",
@@ -1678,8 +1738,8 @@
     },
     {
       "path": "apps/desktop/tests/logs.test.ts",
-      "bytes": 11507,
-      "sha256": "ffb1667d660af3abec76b02424c4b0615effb0537502e54123b7b9c9aad19711"
+      "bytes": 11523,
+      "sha256": "ebbcc5d6f8ea02c7914b7732dfd01a9dde919dccf1b6734a0fb3257b07e0a177"
     },
     {
       "path": "apps/desktop/tests/matchRecap.test.ts",
@@ -1700,6 +1760,11 @@
       "path": "apps/desktop/tests/mediaUrl.test.ts",
       "bytes": 2021,
       "sha256": "f294f465258d7f7591bc6220ad110f88e5b47d7722d8190119e5a57c67dc2f92"
+    },
+    {
+      "path": "apps/desktop/tests/orb-model.test.ts",
+      "bytes": 6243,
+      "sha256": "05a7fab4b10549f69054c87b9ed624d04b77dd1f72e0986a7fc42ae2b3c8b00a"
     },
     {
       "path": "apps/desktop/tests/overlayModel.test.ts",
@@ -1898,8 +1963,8 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 214606,
-      "sha256": "c129238d3ec2e102cd06c78cdf77f4f0e4c8b112f7fc98beffa308f5ba98f8d4"
+      "bytes": 215396,
+      "sha256": "d6962e932ff2811aa19c28b09199c3fca7f28f047c38b3da03b3bc4aea19fc33"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -3323,8 +3388,8 @@
     },
     {
       "path": "docs/requirements/RTM.csv",
-      "bytes": 46842,
-      "sha256": "5446bfc53d345b842bf105e523aa973d31bd0cf0b955a47a58f284ab9bc63d93"
+      "bytes": 47410,
+      "sha256": "043d7bb84960b882f857a2993a8f5933f6db0226ffc6db9580d3466fb220b299"
     },
     {
       "path": "docs/requirements/SRS.md",

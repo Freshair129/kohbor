@@ -2714,7 +2714,14 @@
           "docs/quality/TEST-PLAN.md",
           "docs/quality/UAT-PLAN.md"
         ],
-        "implementation_refs": [],
+        "implementation_refs": [
+          "apps/desktop/src-tauri/src/orb/mod.rs",
+          "apps/desktop/src-tauri/src/orb/host.rs",
+          "apps/desktop/src-tauri/capabilities/orb.json",
+          "apps/desktop/src/orb/OrbStage.tsx",
+          "apps/desktop/src/orb/OrbSettings.tsx",
+          "apps/desktop/tests/orb-model.test.ts"
+        ],
         "evidence_refs": [],
         "procedure_ids": [
           "TP-05",
@@ -2780,7 +2787,13 @@
           "docs/quality/TEST-PLAN.md",
           "docs/quality/UAT-PLAN.md"
         ],
-        "implementation_refs": [],
+        "implementation_refs": [
+          "apps/desktop/src-tauri/src/orb/host.rs",
+          "apps/desktop/src/orb/orbModel.ts",
+          "apps/desktop/src/orb/OrbStage.tsx",
+          "apps/desktop/src/orb/OrbSettings.tsx",
+          "apps/desktop/tests/orb-model.test.ts"
+        ],
         "evidence_refs": [],
         "procedure_ids": [
           "TP-05",
@@ -2910,7 +2923,12 @@
           "docs/quality/TEST-PLAN.md",
           "docs/quality/UAT-PLAN.md"
         ],
-        "implementation_refs": [],
+        "implementation_refs": [
+          "apps/desktop/src-tauri/src/mixer/mod.rs",
+          "apps/desktop/src-tauri/src/mixer/native.rs",
+          "apps/desktop/src-tauri/src/mixer/service.rs",
+          "apps/desktop/src-tauri/src/lib.rs"
+        ],
         "evidence_refs": [],
         "procedure_ids": [
           "TP-05",

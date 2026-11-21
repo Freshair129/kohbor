@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "orb",
+  "description": "Edge orb window: event listen access only; its app commands check the window label.",
+  "windows": ["orb"],
+  "permissions": ["core:event:default"]
+}

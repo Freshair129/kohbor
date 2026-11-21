@@ -1,0 +1,113 @@
+/* Edge orb + vertical mixer (UI-009 / UI-011). Values from the approved prototype
+   (coord design/edge-orb-20261120/proto-mixer, revision 2). Flat dark fill: a transparent window cannot blur the game. */
+html.orb-body,
+body.orb-body {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  overflow: hidden;
+  background: transparent !important;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+body.orb-body #root { width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; }
+
+.orb-root {
+  --orb-text: #e7eef6; --orb-muted: #8794a6; --orb-ice: #8fd4ff; --orb-warn: #ffcf6b;
+  --orb-edge: rgb(143 212 255 / 22%); --orb-glass: rgb(14 17 24 / 90%); --orb-well: rgb(255 255 255 / 5%);
+  --orb-brand: #b3261e; --orb-brand-hover: #c12b22; --orb-brand-edge: #d4453a; --orb-ink: #ede6d8;
+  position: fixed; inset: 0; overflow: hidden; color: var(--orb-text);
+  font-family: "IBM Plex Sans Thai", "Leelawadee UI", system-ui, sans-serif; font-size: 14px; line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+.orb-root button { font: inherit; color: inherit; }
+
+/* disc: tucked = centre on the screen edge at 80 %; charging grows to 100 %; out = slid 34 px (1080p) */
+.orb-disc {
+  position: absolute; border-radius: 50%; background: #1c1c1c; display: grid; place-items: center;
+  box-shadow: 0 0 0 1.5px rgb(135 148 166 / 60%), 0 3px 8px rgb(0 0 0 / 55%);
+  transition: transform 160ms cubic-bezier(.2, .8, .2, 1); will-change: transform, opacity; cursor: default;
+}
+.orb-disc.is-out { box-shadow: 0 0 0 1.5px rgb(143 212 255 / 75%), 0 3px 8px rgb(0 0 0 / 55%); cursor: pointer; }
+.orb-disc.is-open { box-shadow: 0 0 0 2.5px var(--orb-brand-edge), 0 3px 8px rgb(0 0 0 / 55%); }
+.orb-disc.is-locked { cursor: default; }
+.orb-root.is-reduced .orb-disc { transition: none; }
+.orb-mark { width: 65.4%; height: 65.4%; display: block; }
+.orb-ring { position: absolute; left: -11.5%; top: -11.5%; width: 123%; height: 123%; pointer-events: none; }
+.orb-ring path { fill: none; stroke-linecap: round; }
+.orb-ring-track { stroke: rgb(231 238 246 / 22%); stroke-width: 2; }
+.orb-ring-progress { stroke: #ede6d8; stroke-width: 2.6; stroke-dasharray: 1; }
+
+/* panel: narrow vertical console, zoomed by the host's sp factor; shadow stays inside 8 px (protected regions) */
+.orb-panel {
+  position: absolute; zoom: var(--sp, 1); width: 220px; padding: 12px 10px 10px; box-sizing: border-box; cursor: default;
+  background: var(--orb-glass); border: 1px solid var(--orb-edge); border-radius: 16px;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 55%), inset 0 1px 0 rgb(143 212 255 / 22%);
+}
+.orb-fringe { position: absolute; left: 16px; top: -1px; width: 72px; height: 4px; background: var(--orb-brand-edge);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 10px) 100%, 0 100%); }
+
+.orb-focus { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 54px; padding: 6px 12px;
+  border: 1px solid transparent; border-radius: 10px; background: var(--orb-brand); color: var(--orb-ink); text-align: left; cursor: pointer; }
+.orb-focus:hover { background: var(--orb-brand-hover); }
+.orb-focus:disabled { opacity: .45; cursor: default; }
+.orb-focus svg { width: 24px; height: 24px; flex: none; }
+.orb-focus-t { display: block; font-size: 15px; font-weight: 700; line-height: 1.35; white-space: nowrap; }
+.orb-focus-s { display: block; font-size: 12px; opacity: .9; line-height: 1.4; font-variant-numeric: tabular-nums; }
+.orb-focus[aria-pressed="true"] { background: rgb(212 69 58 / 14%); border-color: var(--orb-brand-edge); color: var(--orb-text); }
+
+.orb-cols { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 10px; }
+.orb-col { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.orb-col + .orb-col { border-left: 1px solid rgb(255 255 255 / 7%); }
+.orb-ico { width: 28px; height: 28px; border-radius: 8px; background: var(--orb-well); display: grid; place-items: center; margin-bottom: 4px; }
+.orb-ico svg { width: 17px; height: 17px; }
+.orb-name { font-size: 13px; font-weight: 600; line-height: 20px; white-space: nowrap; }
+.orb-sub { font-size: 12px; line-height: 18px; color: var(--orb-muted); white-space: nowrap; max-width: 64px; overflow: hidden; text-overflow: ellipsis; }
+.orb-extra { height: 22px; display: grid; place-items: center; }
+.orb-change { border: 0; background: none; padding: 0 6px; height: 22px; font-size: 12px; color: var(--orb-ice); cursor: pointer;
+  border-radius: 6px; text-decoration: underline; text-underline-offset: 3px; }
+
+.orb-fader { width: 100%; height: 184px; padding: 10px 0; box-sizing: border-box; display: flex; justify-content: center; cursor: pointer; touch-action: none; }
+.orb-track { position: relative; width: 6px; height: 100%; border-radius: 3px; background: rgb(255 255 255 / 13%); }
+.orb-fill { position: absolute; inset: 0; border-radius: 3px; background: var(--orb-text); transform-origin: 50% 100%; }
+.orb-thumb-wrap { position: absolute; inset: 0; pointer-events: none; }
+.orb-thumb { position: absolute; left: -13px; top: -9px; width: 32px; height: 18px; border-radius: 5px; background: linear-gradient(#fff, #d9dee6);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 40%), 0 2px 6px rgb(0 0 0 / 55%); }
+.orb-thumb::after { content: ""; position: absolute; left: 6px; right: 6px; top: 8px; height: 2px; border-radius: 1px; background: #1c1c1c; }
+.orb-col.is-focused .orb-fill { background: var(--orb-brand-edge); }
+.orb-col.is-muted .orb-fill { background: var(--orb-muted); opacity: .55; }
+.orb-col.is-muted .orb-val { color: var(--orb-muted); }
+.orb-val { font-size: 14px; font-weight: 600; line-height: 22px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.orb-mute { width: 44px; height: 36px; margin-top: 2px; border-radius: 8px; border: 1px solid transparent; background: none; padding: 0;
+  display: grid; place-items: center; cursor: pointer; }
+.orb-mute:hover { background: rgb(255 255 255 / 8%); border-color: var(--orb-edge); }
+.orb-mute svg { width: 20px; height: 20px; }
+.orb-mute[aria-pressed="true"] { background: rgb(255 255 255 / 10%); border-color: rgb(231 238 246 / 40%); }
+.orb-mute:disabled { opacity: .4; cursor: default; }
+
+/* honest "not found" state: hatched track, no thumb, "—" */
+.orb-col.is-disabled .orb-fader { cursor: default; }
+.orb-col.is-disabled .orb-track { background: repeating-linear-gradient(135deg, rgb(135 148 166 / 45%) 0 2px, transparent 2px 7px);
+  outline: 1px dashed rgb(135 148 166 / 60%); outline-offset: 2px; }
+.orb-col.is-disabled .orb-name, .orb-col.is-disabled .orb-val { color: var(--orb-muted); }
+.orb-why { margin-top: 6px; padding: 6px 8px; border-radius: 8px; background: rgb(255 207 107 / 9%); font-size: 12px; line-height: 1.45; color: var(--orb-warn); }
+.orb-why i { display: inline-block; width: 7px; height: 7px; background: var(--orb-warn); transform: rotate(45deg); margin: 0 7px 1px 2px; }
+.orb-why span { display: block; color: var(--orb-text); opacity: .78; }
+.orb-error { margin-top: 6px; font-size: 12px; line-height: 1.4; color: var(--orb-warn); }
+
+.orb-foot { margin-top: 6px; padding-top: 4px; border-top: 1px solid rgb(255 255 255 / 7%); text-align: center; }
+.orb-reset { border: 0; background: none; padding: 0 10px; height: 30px; font-size: 13px; cursor: pointer; border-radius: 6px;
+  text-decoration: underline; text-underline-offset: 3px; }
+.orb-reset:hover { background: rgb(255 255 255 / 8%); }
+.orb-note { font-size: 11.5px; line-height: 1.4; color: var(--orb-muted); }
+
+.orb-pick { position: absolute; z-index: 3; right: 8px; top: 150px; width: 150px; padding: 6px; background: rgb(14 17 24 / 98%);
+  border: 1px solid rgb(143 212 255 / 34%); border-radius: 10px; box-sizing: border-box; }
+.orb-pick small { display: block; padding: 2px 8px 4px; font-size: 11.5px; color: var(--orb-muted); }
+.orb-pick button { display: flex; align-items: center; width: 100%; height: 34px; padding: 0 8px; border: 0; background: none; border-radius: 6px;
+  font-size: 14px; cursor: pointer; text-align: left; }
+.orb-pick button:hover { background: rgb(255 255 255 / 9%); }
+.orb-pick button[aria-checked="true"] { color: var(--orb-ice); }
