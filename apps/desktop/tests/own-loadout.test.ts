@@ -274,3 +274,13 @@ test("loadout tiles remain compact and the root/card never gain scrolling", () =
   const deck = readFileSync(new URL("../src/deck/Deck.tsx", import.meta.url), "utf8");
   assert.match(deck, /<details className="deck-ally-disclosure"/);
 });
+
+test("no game data shows faint placeholder slots that never look like empty or real items", () => {
+  const ui = readFileSync(new URL("../src/deck/OwnLoadout.tsx", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../src/deck/loadout.css", import.meta.url), "utf8");
+  assert.match(ui, /: <LoadoutPlaceholder kind="items" locale=\{locale\} \/>\}/);
+  assert.match(ui, /: <LoadoutPlaceholder kind="abilities" locale=\{locale\} \/>\}/);
+  assert.match(ui, /ยังไม่มีข้อมูลจากเกม/);
+  assert.doesNotMatch(ui, /deck-loadout-dash">—/);
+  assert.match(css, /\.deck-item-tile\.is-placeholder, \.deck-ability-slot\.is-placeholder \{[^}]*dashed/);
+});

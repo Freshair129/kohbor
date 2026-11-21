@@ -63,3 +63,7 @@
 .deck-cooldown-sweep { opacity: 0.75; }
 .deck-cooldown-number { font-size: 10px; line-height: 13px; font-weight: 700; }
 .deck-item-tile.is-neutral .deck-cooldown-visual, .deck-item-tile.is-teleport .deck-cooldown-visual { place-items: center; padding: 0; }
+/* No game data yet (owner 2026-11-21): faint hatched outlines, dashed edge, never a dark "empty" well. */
+.deck-loadout-placeholder { opacity: 0.45; }
+.deck-item-tile.is-placeholder, .deck-ability-slot.is-placeholder { border: 1px dashed var(--stale); box-shadow: none;
+  background: repeating-linear-gradient(135deg, transparent 0 5px, var(--hatch) 5px 6px); }

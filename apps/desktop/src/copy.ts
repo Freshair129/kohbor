@@ -6,6 +6,37 @@ export const OWNED_CONFIG_FILE = "gamestate_integration_kohbor.cfg";
 export type Locale = "th" | "en";
 export type Phase = "none" | "draft" | "pregame" | "live" | "post_game" | "unsupported";
 
+export const gsiFirstRunCopy = {
+  th: {
+    title: "เชื่อมเกาะเบาะกับ Dota 2",
+    body: "เกาะเบาะต้องเชื่อมกับ Dota 2 เพื่อรับข้อมูลการแข่งขันสดบนคอมพิวเตอร์เครื่องนี้ การเชื่อมต่อจะเขียนไฟล์ตั้งค่าหนึ่งไฟล์ลงในโฟลเดอร์ Dota 2 ที่ cfg/gamestate_integration เกาะเบาะในเครื่องนี้อ่านไฟล์นี้เท่านั้น ไม่มีการส่งข้อมูลออกอินเทอร์เน็ต และไม่แตะไฟล์ของแอปอื่น",
+    connect: "เชื่อมต่อเลย",
+    later: "ไว้ทีหลัง",
+    busy: "กำลังเชื่อมต่อ…",
+    done: "เชื่อมต่อแล้ว",
+    restart: "ปิด Dota 2 แล้วเปิดใหม่หนึ่งครั้งเพื่อเริ่มส่งข้อมูล",
+    okay: "ตกลง",
+    retry: "ลองอีกครั้ง",
+    conflict: "ไฟล์ตั้งค่ามีการเปลี่ยนแปลง การ์ดตั้งค่าการเชื่อมต่อ Dota 2 ที่หน้าสดจะแสดงวิธีจัดการ",
+    close: "ปิด",
+    closeLabel: "ปิดหน้าต่างเชื่อมต่อ",
+  },
+  en: {
+    title: "Connect Kohbor to Dota 2",
+    body: "Kohbor needs Dota 2 to send live match data to this computer. One click writes one settings file into Dota 2's cfg/gamestate_integration folder. Only Kohbor on this computer reads it. Nothing is sent over the internet, and files used by other apps are left alone.",
+    connect: "Connect now",
+    later: "Later",
+    busy: "Connecting…",
+    done: "Connected",
+    restart: "Close Dota 2 and open it once more to start sending data.",
+    okay: "OK",
+    retry: "Try again",
+    conflict: "The settings file has changed. The Dota 2 connection card on the Live page will explain how to handle it.",
+    close: "Close",
+    closeLabel: "Close connection dialog",
+  },
+} as const;
+
 const MESSAGES = {
   th: {
     languageLabel: "ภาษา",
