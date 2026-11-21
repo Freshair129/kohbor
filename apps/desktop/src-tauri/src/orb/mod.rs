@@ -340,8 +340,9 @@ pub(crate) enum Zone {
     Panel,
 }
 
-/// Classify a physical cursor position. The outer 8 physical px of every monitor edge and the logical dead strip
-/// are always `Outside`; the disc counts only once revealed, the panel only while open.
+/// Classify a physical cursor position. The outer 8 physical px of the top, right and bottom edges are always
+/// `Outside`; the left edge and dead strip are `Hot` inside the orb's height band and `Outside` elsewhere; the disc
+/// counts only once revealed, the panel only while open.
 pub(crate) fn zone(
     cursor: (i32, i32),
     geometry: &Geometry,
@@ -349,7 +350,7 @@ pub(crate) fn zone(
     panel: Option<RectF>,
 ) -> Zone {
     let (mx, my, mw, mh) = geometry.monitor;
-    if cursor.0 < mx.saturating_add(EDGE_GUARD_PX)
+    if cursor.0 < mx
         || cursor.1 < my.saturating_add(EDGE_GUARD_PX)
         || cursor.0 >= mx.saturating_add(mw).saturating_sub(EDGE_GUARD_PX)
         || cursor.1 >= my.saturating_add(mh).saturating_sub(EDGE_GUARD_PX)
@@ -359,8 +360,14 @@ pub(crate) fn zone(
     let x = f64::from(cursor.0 - mx) / geometry.scale;
     let y = f64::from(cursor.1 - my) / geometry.scale;
     let layout = &geometry.layout;
-    if x < layout.dead {
-        return Zone::Outside;
+    // Owner decision 2026-11-21: a pointer pushed against the left edge (guard + dead strip) inside the orb's height
+    // band counts as Hot, so resting on the edge reveals the orb. The rest of the edge stays Outside for edge-pan.
+    if cursor.0 < mx.saturating_add(EDGE_GUARD_PX) || x < layout.dead {
+        return if layout.hot.contains(layout.hot.x, y) {
+            Zone::Hot
+        } else {
+            Zone::Outside
+        };
     }
     if let Some(panel) = panel {
         if panel.contains(x, y) {
@@ -731,12 +738,19 @@ mod tests {
     }
 
     #[test]
-    fn outer_eight_physical_pixels_never_take_the_pointer() {
+    fn edges_take_the_pointer_only_in_the_orb_band() {
         let g = geometry(1.0);
         let panel = panel_rect(&g.layout, PANEL_BASE_H);
         // Every edge, every state.
         for revealed in [false, true] {
-            assert_eq!(zone((107, 324 + 50), &g, revealed, panel), Zone::Outside);
+            // Left edge outside the orb's height band stays free for edge-pan.
+            assert_eq!(zone((107, 200 + 50), &g, revealed, panel), Zone::Outside);
+            assert_eq!(zone((100, 600 + 50), &g, revealed, panel), Zone::Outside);
+            // Left edge inside the band (owner 2026-11-21) is Hot, at the very edge too.
+            assert_eq!(zone((107, 324 + 50), &g, revealed, panel), Zone::Hot);
+            assert_eq!(zone((100, 324 + 50), &g, revealed, panel), Zone::Hot);
+            assert_eq!(zone(at(&g, 0.0, 300.0), &g, revealed, panel), Zone::Hot);
+            assert_eq!(zone((99, 324 + 50), &g, revealed, panel), Zone::Outside);
             assert_eq!(zone((150, 57), &g, revealed, panel), Zone::Outside);
             assert_eq!(
                 zone((150, 50 + 1080 - 8), &g, revealed, panel),
@@ -744,7 +758,8 @@ mod tests {
             );
         }
         assert_eq!(zone(at(&g, 8.0, 324.0), &g, false, None), Zone::Hot);
-        assert_eq!(zone(at(&g, 7.0, 324.0), &g, true, None), Zone::Outside);
+        assert_eq!(zone(at(&g, 7.0, 324.0), &g, true, None), Zone::Hot);
+        assert_eq!(zone(at(&g, 7.0, 289.0), &g, true, None), Zone::Outside);
     }
 
     #[test]
