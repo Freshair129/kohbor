@@ -1,0 +1,6 @@
+# Rendered film: about 21 MB, rebuilt from js/film.js with studio.html (owner decision 2026-11-21: keep out of git).
+assets/film/*.mp4
+assets/film/*.webm
+# Vercel link and the token file `vercel link` may write.
+.vercel/
+.env*
