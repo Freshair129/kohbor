@@ -1,32 +1,65 @@
-.deck-loadout { display: grid; gap: 2px; grid-column: 1 / -1; min-width: 0; min-height: 0; overflow: hidden; }
-.deck-loadout-section { display: grid; gap: 2px; min-width: 0; min-height: 0; overflow: hidden; }
+.deck-loadout { display: grid; gap: 4px; grid-column: 1 / -1; min-width: 0; min-height: 0; overflow: hidden; }
+.deck-loadout-section { display: grid; gap: 3px; min-width: 0; min-height: 0; overflow: hidden; }
 .deck-loadout-section > header { display: flex; align-items: center; justify-content: space-between; gap: 4px; min-width: 0; }
 .deck-loadout-section h2 { margin: 0; color: var(--muted); font-size: 10px; font-weight: 500; line-height: 13px; }
 .deck-loadout-section header small { color: var(--text-2); font-size: 9px; }
-.deck-inventory { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 2px; min-width: 0; min-height: 0; }
-.deck-extra-items { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; min-width: 0; min-height: 0; }
-.deck-item-tile { position: relative; min-width: 0; height: 26px; overflow: hidden; padding: 1px 3px; border: 1px solid var(--line); border-radius: 3px; background: var(--raised); color: var(--text-2); }
-.deck-item-tile.is-small { height: 20px; padding-left: 16px; }
-.deck-item-tile.is-empty { border-style: dashed; background: var(--ground); }
-.deck-item-tile.is-unknown { color: var(--muted); background: var(--ground); }
-.deck-item-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; line-height: 11px; }
-.deck-item-tile.is-small .deck-item-name { font-size: 9px; line-height: 10px; }
-.deck-item-slot { position: absolute; left: 2px; top: 1px; font-size: 8px; color: var(--muted); }
-.deck-item-badges { position: absolute; right: 2px; bottom: 1px; display: flex; gap: 2px; font: 9px/10px Consolas, monospace; }
-.deck-item-badges b { padding-inline: 2px; border: 1px solid var(--stale); border-radius: 2px; background: var(--ground); font-weight: 400; }
-.deck-item-tile.is-small .deck-item-badges { font-size: 8px; line-height: 8px; }
-.deck-ability-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; min-width: 0; min-height: 0; }
-.deck-ability-tile { position: relative; height: 26px; min-width: 0; overflow: hidden; padding: 1px 3px; border: 1px solid var(--line); border-radius: 3px; background: var(--raised); color: var(--text-2); }
-.deck-ability-tile.is-ready { border-style: double; }
-.deck-ability-tile > strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; font-weight: 500; line-height: 11px; }
-.deck-ability-tile.is-ultimate > strong { padding-right: 20px; }
-.deck-ultimate-tag { position: absolute; right: 2px; top: 1px; padding-inline: 1px; border: 1px solid var(--stale); font: 8px/9px Consolas, monospace; }
-.deck-ability-detail { display: flex; align-items: center; justify-content: space-between; gap: 2px; min-width: 0; font: 9px/10px Consolas, monospace; }
-.deck-level-pips { display: flex; align-items: center; gap: 1px; min-width: 0; }
-.deck-level-pips i { display: block; flex: 0 0 4px; width: 4px; height: 4px; border: 1px solid var(--text-2); border-radius: 50%; font-size: 0; font-style: normal; }
+.deck-inventory-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(30px, 0.22fr); align-items: center; gap: 4px; min-width: 0; }
+.deck-inventory { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; min-width: 0; }
+.deck-item-frame { display: grid; justify-items: stretch; align-content: start; gap: 2px; min-width: 0; }
+.deck-item-tile { position: relative; isolation: isolate; display: grid; place-items: center; width: 100%; min-width: 0; aspect-ratio: 1.375 / 1; overflow: hidden; padding: 2px; border: 1px solid var(--line); border-radius: 5px; background: var(--ground); box-shadow: inset 0 2px 4px var(--scrim); color: var(--text-2); }
+.deck-item-tile.is-empty { background: var(--ground); }
+.deck-item-tile.is-unknown { background: repeating-linear-gradient(135deg, transparent 0 4px, var(--hatch) 4px 6px), var(--ground); color: var(--muted); }
+.deck-item-tile.is-neutral { width: min(100%, 38px); justify-self: center; aspect-ratio: 1; border-radius: 50%; }
+.deck-item-tile.is-teleport { width: min(100%, 34px); justify-self: center; aspect-ratio: 1; border-radius: 4px; }
+.deck-item-name { display: -webkit-box; max-width: 100%; overflow: hidden; color: var(--text-2); font-family: var(--font-ui); font-size: var(--fs-caption); line-height: var(--lh-thai); text-align: center; text-overflow: ellipsis; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.deck-item-unknown { color: var(--muted); font-size: 13px; font-weight: 600; line-height: 1; }
+.deck-item-charges { position: absolute; right: 1px; bottom: 1px; z-index: 3; padding: 0 2px; border: 1px solid var(--line); border-radius: 3px; background: var(--ground); color: var(--text); font: 8px/10px var(--font-mono, Consolas, monospace); font-weight: 500; }
+.deck-special-items { display: grid; justify-items: center; align-content: center; gap: 4px; min-width: 0; }
+.deck-backpack { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; min-width: 0; }
+.deck-backpack .deck-item-frame { width: 72%; justify-self: center; }
+.deck-item-frame.is-backpack { opacity: 0.58; }
+.deck-backpack-label { color: var(--muted); font: 7px/8px var(--font-mono, Consolas, monospace); text-align: center; }
+.deck-item-frame.is-backpack .deck-item-name { font-size: var(--fs-caption); }
+.deck-cooldown-visual { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; overflow: hidden; border-radius: inherit; pointer-events: none; }
+.deck-cooldown-sweep { position: absolute; inset: 0; border-radius: inherit; background: conic-gradient(from 0deg, var(--scrim) 0 var(--cooldown-angle), transparent var(--cooldown-angle) 1turn); }
+.deck-cooldown-number { position: relative; z-index: 1; min-width: 16px; padding: 0 2px; border: 1px solid var(--line); border-radius: 3px; background: var(--ground); color: var(--text); font: 9px/13px var(--font-mono, Consolas, monospace); text-align: center; }
+.deck-cooldown-bar { display: block; width: 100%; height: 2px; overflow: hidden; border-radius: 2px; background: var(--line); }
+.deck-cooldown-bar > span { display: block; width: 100%; height: 100%; transform: scaleX(var(--cooldown-fraction, 0)); transform-origin: left center; background: var(--brand-edge); }
+.deck-ability-groups { display: grid; gap: 5px; min-width: 0; }
+.deck-ability-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(28px, 1fr)); align-items: start; gap: 3px; min-width: 0; }
+.deck-ability-tile { display: grid; justify-items: center; align-content: start; gap: 2px; min-width: 0; color: var(--text-2); }
+.deck-ability-slot { position: relative; isolation: isolate; display: grid; place-items: center; width: min(100%, 42px); aspect-ratio: 1; overflow: hidden; border: 1px solid var(--line); border-radius: 4px; background: var(--ground); box-shadow: inset 0 2px 4px var(--scrim); }
+.deck-ability-slot.is-ready { border-color: var(--line-strong); outline: 1px solid var(--brand-edge); outline-offset: -1px; }
+.deck-ability-slot.is-cooldown { border-color: var(--line-strong); }
+.deck-ability-slot.is-unknown { background: repeating-linear-gradient(135deg, transparent 0 4px, var(--hatch) 4px 6px), var(--ground); }
+.deck-ability-slot.is-ultimate { outline: 1px solid var(--brand-edge); outline-offset: -1px; }
+.deck-ability-unknown { position: relative; z-index: 1; color: var(--muted); font-size: 15px; font-weight: 600; line-height: 1; }
+.deck-ultimate-tag { position: absolute; top: 1px; right: 1px; z-index: 3; padding-inline: 2px; border: 1px solid var(--brand-edge); border-radius: 2px; background: var(--ground); color: var(--text); font: 6px/8px var(--font-mono, Consolas, monospace); }
+.deck-level-pips { display: flex; align-items: center; justify-content: center; gap: 2px; min-height: 5px; min-width: 0; color: var(--muted); font: 8px/9px var(--font-mono, Consolas, monospace); }
+.deck-level-pips i { display: block; width: 4px; height: 4px; border: 1px solid var(--text-2); border-radius: 50%; font-size: 0; font-style: normal; }
 .deck-level-pips i.is-learned { background: var(--text-2); }
-.deck-ability-status { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deck-ability-name { display: -webkit-box; width: 100%; overflow: hidden; color: var(--text-2); font-family: var(--font-ui); font-size: var(--fs-caption); font-weight: 500; line-height: var(--lh-thai); text-align: center; text-overflow: ellipsis; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.deck-ability-tile.is-unlearned { opacity: 0.5; }
+.deck-extra-abilities { display: grid; gap: 2px; min-width: 0; }
+.deck-extra-abilities h3 { margin: 0; color: var(--muted); font-size: 8px; font-weight: 500; line-height: 10px; }
+.deck-ability-grid.is-extras { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.deck-ability-tile.is-extra { opacity: 0.68; }
+.deck-ability-tile.is-extra .deck-ability-slot { width: min(100%, 32px); }
+.deck-ability-tile.is-extra .deck-ability-name { font-size: var(--fs-caption); }
 .deck-loadout-dash { min-height: 20px; padding: 1px 5px; border: 1px dashed var(--stale); border-radius: 3px; color: var(--muted); }
 .deck-loadout-section.is-stale { opacity: 0.68; border-inline-start: 1px dashed var(--stale); padding-left: 3px; }
+.deck-item-tile.is-stale, .deck-ability-slot.is-stale { border-style: dashed; }
 .deck-setup-hint { display: grid; gap: 1px; margin-top: 2px; }
 .deck-setup-hint span { overflow-wrap: anywhere; }
+
+@media (prefers-reduced-motion: reduce) {
+  .deck-cooldown-sweep { display: none; }
+  .deck-cooldown-bar > span { transition: none; }
+}
+/* Lead tuning 2026-11-21 (owner preview): names stay readable under a running cooldown. */
+.deck-item-name, .deck-ability-name { font-size: 11px; line-height: 1.3; }
+.deck-item-tile.is-neutral .deck-item-name, .deck-item-tile.is-teleport .deck-item-name { font-size: 10px; font-weight: 600; -webkit-line-clamp: 1; }
+.deck-cooldown-visual { place-items: start; padding: 2px; }
+.deck-cooldown-sweep { opacity: 0.75; }
+.deck-cooldown-number { font-size: 10px; line-height: 13px; font-weight: 700; }
+.deck-item-tile.is-neutral .deck-cooldown-visual, .deck-item-tile.is-teleport .deck-cooldown-visual { place-items: center; padding: 0; }

@@ -6,6 +6,7 @@ import { ITEM_SLOTS } from "../src/ownLoadout.ts";
 import { displayItemName } from "../src/deck/itemName.ts";
 import { displayAbilityName } from "../src/deck/abilityName.ts";
 import { abilityStatusText, deriveLoadoutViewModel } from "../src/deck/loadoutModel.ts";
+import * as loadoutModel from "../src/deck/loadoutModel.ts";
 import { addSampleLoadout } from "../src/mock/sampleLoadout.ts";
 
 const item = (changes = {}) => ({ slot: "inventory0", name: "item_blink", cooldown: 12, charges: null, can_cast: false, passive: false, ...changes });
@@ -116,6 +117,57 @@ test("fresh empty slots differ from omitted slots and unknown fields", () => {
   assert.equal(deriveLoadoutViewModel(parsed(snapshot)).items.slots, null);
 });
 
+test("loadout reports retain source sequence so identical GSI values can refresh their estimate clock", () => {
+  const snapshot = input(); snapshot.source.generation = 4; snapshot.source.sequence = 27;
+  const view = deriveLoadoutViewModel(parsed(snapshot));
+  assert.equal(view.source.generation, 4);
+  assert.equal(view.source.sequence, 27);
+});
+
+test("stale presentation can retain only a previously fresh loadout in the same source identity", () => {
+  const freshSnapshot = input();
+  freshSnapshot.session_epoch = 12; freshSnapshot.source.generation = 4;
+  freshSnapshot.own.identity_revision = 3;
+  const fresh = deriveLoadoutViewModel(parsed(freshSnapshot));
+  const cached = loadoutModel.retainFreshLoadout(fresh, null).cache;
+  assert.ok(cached);
+
+  const staleSnapshot = input();
+  staleSnapshot.session_epoch = 12; staleSnapshot.source.generation = 4;
+  staleSnapshot.own.identity_revision = 3; staleSnapshot.availability = "stale";
+  staleSnapshot.source.age_ms = 3200;
+  for (const field of Object.values(staleSnapshot.own.fields) as any[]) if (field.availability === "fresh") field.availability = "stale";
+  const stale = deriveLoadoutViewModel(parsed(staleSnapshot));
+  const visible = loadoutModel.retainFreshLoadout(stale, cached);
+  assert.equal(stale.items.slots, null, "the read model continues to suppress stale fields");
+  assert.equal(visible.items?.[0]?.kind, "item", "the renderer may show only its prior fresh observation as stale");
+  assert.equal(visible.abilities?.[0]?.status, "ready", "the renderer separately suppresses stale ready styling/copy");
+  assert.equal(loadoutModel.retainFreshLoadout(stale, null).items, null, "startup stale data cannot seed the cache");
+
+  const nextSession = { ...stale, source: { ...stale.source, sessionEpoch: 13 } };
+  assert.equal(loadoutModel.retainFreshLoadout(nextSession, cached).items, null, "a new session cannot resurrect the prior loadout");
+  const nextIdentity = { ...stale, source: { ...stale.source, identityRevision: 4 } };
+  assert.equal(loadoutModel.retainFreshLoadout(nextIdentity, cached).items, null, "a changed identity cannot resurrect the prior loadout");
+  const nextHero = { ...stale, source: { ...stale.source, heroId: "npc_dota_hero_shadow_shaman" } };
+  assert.equal(loadoutModel.retainFreshLoadout(nextHero, cached).items, null, "a changed hero cannot resurrect the prior loadout");
+});
+
+test("fresh inventory groups six main slots, three backpack slots, TP, and neutral", () => {
+  const view = deriveLoadoutViewModel(parsed());
+  const groups = loadoutModel.groupItemSlots(view.items.slots ?? []);
+  assert.equal(groups.main.length, 6);
+  assert.equal(groups.backpack.length, 3);
+  assert.equal(groups.teleport?.slot, "teleport");
+  assert.equal(groups.neutral?.slot, "neutral");
+});
+
+test("unknown inventory slots stay unknown instead of being rendered as empty", () => {
+  const groups = loadoutModel.groupItemSlots(deriveLoadoutViewModel(parsed()).items.slots ?? []);
+  assert.equal(groups.main[1]?.kind, "empty");
+  assert.equal(groups.main[2]?.kind, "unknown");
+  assert.notEqual(groups.main[2]?.kind, "empty");
+});
+
 test("cooldown and charge badges appear only for observed positive numbers", () => {
   const snapshot = input();
   for (const cooldown of [null, 0, 7]) for (const charges of [null, 0, 3]) {
@@ -135,6 +187,18 @@ test("abilities sort by slot, exclude passive/unknown-passive entries, and bound
   assert.equal(deriveLoadoutViewModel(parsed(snapshot)).abilities.tiles?.[0]?.pips, null, "unknown ultimate flag cannot imply a four-rank capacity");
 });
 
+test("plus and seasonal abilities split into a separate extras row", () => {
+  const snapshot = input();
+  snapshot.own.fields.abilities.value = [
+    ability({ slot: 0, name: "lion_impale" }),
+    ability({ slot: 6, name: "plus_high_five" }),
+    ability({ slot: 7, name: "seasonal_dark_carnival" }),
+  ];
+  const rows = loadoutModel.splitAbilityRows(deriveLoadoutViewModel(parsed(snapshot)).abilities.tiles ?? []);
+  assert.deepEqual(rows.hero.map(tile => tile.rawId), ["lion_impale"]);
+  assert.deepEqual(rows.extras.map(tile => tile.rawId), ["plus_high_five", "seasonal_dark_carnival"]);
+});
+
 test("ready text requires can_cast true and a positive cooldown takes precedence", () => {
   for (const can_cast of [null, false, true]) for (const cooldown of [null, 0, 7]) {
     const snapshot = input(); snapshot.own.fields.abilities.value = [ability({ can_cast, cooldown, level: null, ultimate: null })];
@@ -144,6 +208,12 @@ test("ready text requires can_cast true and a positive cooldown takes precedence
     assert.equal(tile?.pips, null);
     assert.equal(tile?.ultimate, null, "unknown ultimate metadata is not false");
   }
+});
+
+test("ability cooldown descriptions never expose hundredths", () => {
+  const tile = { slot: 0, name: "Impale", rawId: "lion_impale", level: 1, pips: [true], ultimate: false,
+    status: "cooldown" as const, cooldown: 0.25, canCast: false };
+  assert.equal(abilityStatusText(tile, "en"), "0.3s");
 });
 
 test("stale loadouts keep old age and dimmed dashes instead of ready or empty claims", () => {
@@ -175,19 +245,32 @@ test("setup hint appears only for legacy or unknown loadout with other fresh fie
 test("development sample is 2.2, parses through the real boundary and stays independent of base fixtures", () => {
   const base = input(); const sample = addSampleLoadout(parsed(base));
   assert.equal(sample.schema_version, "2.2.0"); assert.ok(parseOwnSnapshot(sample));
-  assert.ok(sample.own?.fields.items?.value?.some(entry => entry.name === null));
+  const items = sample.own?.fields.items?.value ?? [];
+  assert.equal(items.filter(entry => entry.slot.startsWith("inventory") && entry.name !== null).length, 5);
+  assert.equal(items.filter(entry => entry.slot.startsWith("inventory") && entry.name === null).length, 1);
+  assert.equal(items.filter(entry => entry.slot.startsWith("backpack") && entry.name !== null).length, 1);
+  assert.ok(items.find(entry => entry.slot === "teleport")?.charges !== null);
+  assert.ok(items.find(entry => entry.slot === "neutral")?.name !== null);
+  const abilities = sample.own?.fields.abilities?.value ?? [];
+  assert.equal(abilities.filter(entry => !entry.name.startsWith("plus_") && !entry.name.startsWith("seasonal_")).length, 4);
+  assert.equal(abilities.filter(entry => entry.name.startsWith("plus_") || entry.name.startsWith("seasonal_")).length, 2);
+  assert.ok(abilities.find(entry => entry.ultimate)?.can_cast);
+  assert.ok(abilities.some(entry => (entry.cooldown ?? 0) > 0));
   assert.notEqual(sample.own?.fields.items?.value, base.own.fields.items.value);
 });
 
 test("loadout tiles remain compact and the root/card never gain scrolling", () => {
   const css = readFileSync(new URL("../src/deck/loadout.css", import.meta.url), "utf8");
   assert.doesNotMatch(css, /overflow(?:-y)?:\s*(auto|scroll)/);
-  assert.match(css, /\.deck-inventory\s*\{[^}]*repeat\(6,\s*minmax\(0,\s*1fr\)\)/);
-  assert.match(css, /\.deck-ability-grid\s*\{[^}]*repeat\(4,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(css, /\.deck-inventory\s*\{[^}]*repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(css, /\.deck-backpack\s*\{[^}]*repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(css, /\.deck-item-tile\s*\{[^}]*aspect-ratio:\s*1\.375\s*\/\s*1/);
+  assert.match(css, /\.deck-cooldown-bar/); assert.match(css, /\.deck-cooldown-sweep/);
   assert.match(css, /text-overflow:\s*ellipsis/); assert.match(css, /\.deck-loadout-section\.is-stale\s*\{[^}]*opacity/);
   assert.doesNotMatch(css, /#[0-9a-f]{3,8}\b|rgba?\(|--ally|--accent/i);
   const component = readFileSync(new URL("../src/deck/OwnLoadout.tsx", import.meta.url), "utf8");
   assert.equal(component.match(/ต้องตั้งค่าการเชื่อมต่อ Dota 2 ใหม่หนึ่งครั้ง/g)?.length, 1);
+  assert.match(component, /สกิลเสริม/);
   const deck = readFileSync(new URL("../src/deck/Deck.tsx", import.meta.url), "utf8");
   assert.match(deck, /<details className="deck-ally-disclosure"/);
 });
