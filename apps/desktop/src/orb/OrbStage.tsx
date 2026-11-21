@@ -164,7 +164,7 @@ function Panel({ state, view, error, onReply, onError }: {
   }, []);
 
   if (!layout) return null;
-  const top = state.panel?.y ?? Math.max(8, layout.cy - 39 * layout.sp);
+  const top = state.panel?.y ?? Math.max(8, layout.cy - 31 * layout.sp);
   const style = { left: `${layout.panel_x}px`, top: `${top}px`, "--sp": layout.sp, visibility: state.panel ? "visible" : "hidden" } as CSSProperties;
   const level = (id: ChannelId, percent: number, final: boolean) => {
     const now = performance.now();
