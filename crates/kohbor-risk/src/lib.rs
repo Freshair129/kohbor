@@ -4,6 +4,7 @@ use std::collections::VecDeque;
 
 use kohbor_capture::Coverage;
 
+pub mod admission;
 pub mod rules {
     /// PROPOSED — source: contracts/event-catalog.json, enemy_missing.min_absence_ms.
     pub const MIN_ABSENCE_MS: u64 = 5_000;

@@ -2672,9 +2672,19 @@
       "sha256": "08a4aaefbe1481462d93865a2d304809eac1e366d25263d036ef29f4640f7ec8"
     },
     {
+      "path": "crates/kohbor-risk/src/admission.rs",
+      "bytes": 52391,
+      "sha256": "dd5dc38c3c80886521e6f420722b43ab771c3792bf947328b76bd0e0bdabf793"
+    },
+    {
       "path": "crates/kohbor-risk/src/lib.rs",
-      "bytes": 15118,
-      "sha256": "e4fd17ee7a982275c721b059de214b34cceb07b375cdd4a659df8de4f48c478f"
+      "bytes": 15137,
+      "sha256": "83fa2bc8f32761a68f9e35e729b2c5bed3bf09ebaf94f18318b2fca7c16687d8"
+    },
+    {
+      "path": "crates/kohbor-risk/tests/admission_fixtures.rs",
+      "bytes": 9232,
+      "sha256": "4bef1e0b9c6130900f295f542658c584f73ffec7448b5793037dd404eeebcf89"
     },
     {
       "path": "crates/kohbor-risk/tests/api_shape.rs",
@@ -2682,9 +2692,19 @@
       "sha256": "ece635039e194f075dd83ff0c5ad27024f4d801cb033f6776090583ffa9da9fc"
     },
     {
+      "path": "crates/kohbor-risk/tests/current_engine_replay.rs",
+      "bytes": 3479,
+      "sha256": "26e34464d691a7ac27db26a0acceb6b374f731ce4ae19b4ac9fc2060431201d6"
+    },
+    {
       "path": "crates/kohbor-risk/tests/rules.rs",
       "bytes": 24109,
       "sha256": "3cc7288ea8d7d7beb5ece8a2db0a894ae0d7caa9c14bc758f94b74e41007a690"
+    },
+    {
+      "path": "crates/kohbor-risk/tests/support/mod.rs",
+      "bytes": 8815,
+      "sha256": "167073d783f6c28fc47004bc082da96b017c032ba3b1a807be6cddcc3ab5fcb5"
     },
     {
       "path": "crates/kohbor-vision/Cargo.toml",
@@ -2708,8 +2728,8 @@
     },
     {
       "path": "docs/INDEX.md",
-      "bytes": 12487,
-      "sha256": "65fb694a4869a0084988455b73f0ecedcaeeb746ff42480e2de82079a1846a80"
+      "bytes": 12772,
+      "sha256": "9d10b99e6a52c5e6a788742012e77f09268ce2547dae99ebc9eecca47e525f76"
     },
     {
       "path": "docs/delivery/AGENT-WORKFLOW.md",
@@ -2835,6 +2855,11 @@
       "path": "docs/design/REMAINING-SYSTEM-DESIGN.md",
       "bytes": 60269,
       "sha256": "85ed331560c4f2cf8d484591eb00c0c84b6c93e9f10985147a73fc8d4fc1ba9a"
+    },
+    {
+      "path": "docs/design/RISK-ADMISSION-SPEC.md",
+      "bytes": 21958,
+      "sha256": "9e0d8ddecccd38911c99f6041be3107ce1f947f8f09d99894a5d52f518819d74"
     },
     {
       "path": "docs/design/S3-5-HOST-CRITICAL-PATH.md",
@@ -3702,6 +3727,241 @@
       "sha256": "234b21587645648dcc5883efd6c59a092da639c02ad69f0f9939b893d467dca8"
     },
     {
+      "path": "fixtures/risk-admission/aggregate-table.json",
+      "bytes": 546,
+      "sha256": "0738f043acff5a222d6cdf871b0965fc8dbf86e30b30728acfa9269205cc7e04"
+    },
+    {
+      "path": "fixtures/risk-admission/blip-no-rearm.json",
+      "bytes": 30054,
+      "sha256": "3e094ecd345e9d53c290d04f20c06e605ac6efddacaab9df6645731eb3a5193d"
+    },
+    {
+      "path": "fixtures/risk-admission/bnd-reappear-ok.json",
+      "bytes": 30876,
+      "sha256": "eccb074cb4a3d5678504f005bb3c905ff36bb9b0d3d75b878a23abf305daaa4d"
+    },
+    {
+      "path": "fixtures/risk-admission/bnd-reappear-short.json",
+      "bytes": 30498,
+      "sha256": "4f147da63a7a18837911764ab7df7555e6a1412738b14256a6afe0df6f30c1c6"
+    },
+    {
+      "path": "fixtures/risk-admission/bnd-vanish-3000.json",
+      "bytes": 28576,
+      "sha256": "01da9a2f68c1ae6f5df8028b650fdee3b8a2242fdbe5947ff93d2c65b91fd99f"
+    },
+    {
+      "path": "fixtures/risk-admission/contributor-cooldown.json",
+      "bytes": 121619,
+      "sha256": "2e9538454d532dfaf346f54f9db20e30c8713fbef4ef69e35758b3f17b66419f"
+    },
+    {
+      "path": "fixtures/risk-admission/correction-suppressed.json",
+      "bytes": 32815,
+      "sha256": "1d741af4442a48f8c1c8f03d3eb567fcc6f916e3d46b02c94b669166c834ea3c"
+    },
+    {
+      "path": "fixtures/risk-admission/current-engine-replay.json",
+      "bytes": 5410,
+      "sha256": "52a9ac606a7d36607ec8b9d14e7efb6582f51d2d8239702e663f10d2f9c1a643"
+    },
+    {
+      "path": "fixtures/risk-admission/dedup-stays-missing.json",
+      "bytes": 138785,
+      "sha256": "323ae460c27bbec6e8f901d8742754ac4f68b3d94ab8f7ebff6c9da8a9d8059e"
+    },
+    {
+      "path": "fixtures/risk-admission/eta-table.json",
+      "bytes": 631,
+      "sha256": "ef4cb730465ec2e8f92cccf59bcaa0db6112fb775269bc14a1ad42a8fa016bea"
+    },
+    {
+      "path": "fixtures/risk-admission/global-cooldown-defers.json",
+      "bytes": 97220,
+      "sha256": "dbeb3f56698488f4f8bbcfc22659a9006cb7d7f9c02cfdce161de85d8635bf98"
+    },
+    {
+      "path": "fixtures/risk-admission/heading-table.json",
+      "bytes": 2094,
+      "sha256": "86f2f917d8654e08368ce3a9d8ed2e5fb0ee94815220e0a5d11c8d4252b6af12"
+    },
+    {
+      "path": "fixtures/risk-admission/index.json",
+      "bytes": 6512,
+      "sha256": "f152db843a527b06709f961c68a3f9ba33eeacabfc8a060bd822e5870d602ce3"
+    },
+    {
+      "path": "fixtures/risk-admission/latch-gap.json",
+      "bytes": 26102,
+      "sha256": "53c9b9fa066e67ba84f9383aea8cb4ab9105d45ea990f0798f10ae1806a8e74f"
+    },
+    {
+      "path": "fixtures/risk-admission/latch-partial-reappear.json",
+      "bytes": 29483,
+      "sha256": "c7fd369348680a25f775c0c6996b1005338d03a3d0012d9c60dd50fc141fb5ad"
+    },
+    {
+      "path": "fixtures/risk-admission/neg-anonymous.json",
+      "bytes": 29710,
+      "sha256": "b5151fc1a045887ac72d6148602d459ad17d61d7fad61946748a82f9f54c89c2"
+    },
+    {
+      "path": "fixtures/risk-admission/neg-away-from-player.json",
+      "bytes": 29626,
+      "sha256": "426f88f5ff6ccbfa554afc522df828477268c4e7d91948a5cbea7ca2369cb96b"
+    },
+    {
+      "path": "fixtures/risk-admission/neg-coverage-gap.json",
+      "bytes": 26665,
+      "sha256": "4deb32413505624ed994474fd2a11a5f669884aff059819718d0c2109684662f"
+    },
+    {
+      "path": "fixtures/risk-admission/neg-far-apart.json",
+      "bytes": 29567,
+      "sha256": "e78ed471c5629bc97ab34660fe70693fb17e7ff90ba5b552c14ab9f06cbf7196"
+    },
+    {
+      "path": "fixtures/risk-admission/neg-gsi-stale.json",
+      "bytes": 29637,
+      "sha256": "8b3f7c4ff23662508c784a67588ac64d6f6db68c84a0e181838443c42c79d5fc"
+    },
+    {
+      "path": "fixtures/risk-admission/neg-kill-participation.json",
+      "bytes": 29726,
+      "sha256": "3b22853e8f3ea4490b6ace172dc517f0ee642afbbddc0cb0abb3559bd0cc475f"
+    },
+    {
+      "path": "fixtures/risk-admission/neg-kill-unknown-gap-clean.json",
+      "bytes": 31984,
+      "sha256": "22020606ce418094fb205439c5bc2f8ad98bbf026ad6e38626265cbc489f47b6"
+    },
+    {
+      "path": "fixtures/risk-admission/neg-kill-unknown-gap.json",
+      "bytes": 29716,
+      "sha256": "28e8f3c4273a6af7b97508974a31163adc718bbc8c0439a4da170b18a001402c"
+    },
+    {
+      "path": "fixtures/risk-admission/neg-kill-unknown.json",
+      "bytes": 29817,
+      "sha256": "6c294346803fb741f6eae5ce4a715a4b775a80716c6204b7a2f139e82d5d7d8b"
+    },
+    {
+      "path": "fixtures/risk-admission/neg-media-late.json",
+      "bytes": 34085,
+      "sha256": "e952cc539f7f971cd3187efcf4c93cdc00c75fcdb789c57ff7249a89fb9d1806"
+    },
+    {
+      "path": "fixtures/risk-admission/neg-media-unready.json",
+      "bytes": 29811,
+      "sha256": "81e89da65783d1def8d8aaa77f89ad55e385981a4f3bbda0460d749f193bf442"
+    },
+    {
+      "path": "fixtures/risk-admission/neg-opposite-heading.json",
+      "bytes": 29553,
+      "sha256": "2dec0c72990ed8ffaf917fb62f2312bea3bc3ef1c8cd31846dc3f6b3af824b86"
+    },
+    {
+      "path": "fixtures/risk-admission/neg-own-dead.json",
+      "bytes": 37220,
+      "sha256": "8ba16774fd5ab4758cf42920114644c5d1788d280130bf860912d9d893f8bb27"
+    },
+    {
+      "path": "fixtures/risk-admission/neg-own-pos-unknown.json",
+      "bytes": 26656,
+      "sha256": "7079c86656c153fe926158644c03275014dd3d4e931c67ac7f4e276d5e58374a"
+    },
+    {
+      "path": "fixtures/risk-admission/neg-paused-unknown.json",
+      "bytes": 29797,
+      "sha256": "fafa75b6800f751a826fed1a64e7753481deb3e77276a7c8efc9d4cf1da66843"
+    },
+    {
+      "path": "fixtures/risk-admission/neg-paused.json",
+      "bytes": 29803,
+      "sha256": "7f3657ecf320d2ab9afa7f65bb0662004a82834bd2ffa565cc8282ed4ed7f983"
+    },
+    {
+      "path": "fixtures/risk-admission/neg-pregame.json",
+      "bytes": 29637,
+      "sha256": "e5587a9f358a3072040aed859751850111b8f4701fd29ad9c0d7ceffe34ef68f"
+    },
+    {
+      "path": "fixtures/risk-admission/neg-single-hero.json",
+      "bytes": 30452,
+      "sha256": "181e7d3b8d922ec05fee43fad0f4e49856001d801d08b99546a410d978e7b921"
+    },
+    {
+      "path": "fixtures/risk-admission/neg-stale-alive.json",
+      "bytes": 46705,
+      "sha256": "ee2fef4980f9385638f368566a34848c9c1b24aaa5ecff0d872489cec0b181af"
+    },
+    {
+      "path": "fixtures/risk-admission/neg-stale-coverage.json",
+      "bytes": 29819,
+      "sha256": "027f1dc074671ced8724640093e71f4c769d39b4c475b7f9c51253b9bec691ef"
+    },
+    {
+      "path": "fixtures/risk-admission/neg-stationary.json",
+      "bytes": 29543,
+      "sha256": "6df21d57404fa82f717b77fdd7d46c21ee447eee8dd3d46cf5efdebe553c0a5d"
+    },
+    {
+      "path": "fixtures/risk-admission/neg-time-non-advancing.json",
+      "bytes": 27265,
+      "sha256": "0d3ae835d28cc38ac942d393025f118f8eea9d2e037cbcdcd1a21e1862dcae59"
+    },
+    {
+      "path": "fixtures/risk-admission/neg-too-far.json",
+      "bytes": 29630,
+      "sha256": "a7129e56eb728181041ed28333303082105d4c0d3323beb13aab399652c00214"
+    },
+    {
+      "path": "fixtures/risk-admission/neg-vanish-apart.json",
+      "bytes": 28086,
+      "sha256": "b909b35181e7c307e6d3ea3341ed8ecf2c4a5fb6a2f3f8cd628fa1dbb9cf8e60"
+    },
+    {
+      "path": "fixtures/risk-admission/opt-b-away-from-player.json",
+      "bytes": 27244,
+      "sha256": "861d4bd2297eb17815a512294481097921624edb5ab2f41074ff28f64f5c93c5"
+    },
+    {
+      "path": "fixtures/risk-admission/opt-b-own-pos-unknown.json",
+      "bytes": 24641,
+      "sha256": "8884ce1b6e70b040dacf70002cab0a31ab22c5ac2e638aa027c809b981e87bfe"
+    },
+    {
+      "path": "fixtures/risk-admission/params-reject-table.json",
+      "bytes": 411,
+      "sha256": "f7f0799129db146e2c1ab2bda4dc619e090b1422cd60dc526e9c629e187e4fec"
+    },
+    {
+      "path": "fixtures/risk-admission/pos-media-recovers.json",
+      "bytes": 27342,
+      "sha256": "239d0de66e60e9be1082be2a5612db3870f2a8403941fd9d377f7cacd7e889e4"
+    },
+    {
+      "path": "fixtures/risk-admission/pos-three-group.json",
+      "bytes": 29130,
+      "sha256": "66c8a27764fa31288766ae092b999ed7ae2891280fbc9fa7708430056dd49bd7"
+    },
+    {
+      "path": "fixtures/risk-admission/pos-two-group.json",
+      "bytes": 27198,
+      "sha256": "e344b64608a25f8ee7d23a1b5fe238724989e05e6a9e95d858ce9230cb92c0d8"
+    },
+    {
+      "path": "fixtures/risk-admission/rearm-after-reappearance.json",
+      "bytes": 193153,
+      "sha256": "76167043479cd8d9d77c9d767c24cdfa5952b8ed4e6ab2f6863f2db409bedf9f"
+    },
+    {
+      "path": "fixtures/risk-admission/score-table.json",
+      "bytes": 920,
+      "sha256": "7a93da68500016894648c8b8c55681a57541b56588cc73d6692e5f8ae15612cb"
+    },
+    {
       "path": "fixtures/risk-golden.json",
       "bytes": 1420,
       "sha256": "fd106bf12eeeaa6a27c06c9cb6b0100e4ae6b42bb3730e7386ab7db9f0e00b04"
@@ -3890,6 +4150,11 @@
       "path": "tools/gate.py",
       "bytes": 21741,
       "sha256": "2fa954e8e074a834baddf3d9e2bcfc939f38a68a3804e573ada20ed8ff6953bb"
+    },
+    {
+      "path": "tools/gen_risk_admission_fixtures.py",
+      "bytes": 66066,
+      "sha256": "0739c99030f0032825571a9e61516cb9a7234caff0ba47711e9c579769d99f63"
     },
     {
       "path": "tools/gsi_replay.py",

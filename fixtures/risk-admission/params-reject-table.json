@@ -1,0 +1,31 @@
+{
+ "id": "params-reject-table",
+ "kind": "table",
+ "rows": [
+  {
+   "accepted": false,
+   "name": "DANGER",
+   "value": -1
+  },
+  {
+   "accepted": false,
+   "name": "REVISION",
+   "value": 2
+  },
+  {
+   "accepted": false,
+   "name": "REVISION",
+   "value": 0.65
+  },
+  {
+   "accepted": false,
+   "name": "COORD_RADIUS",
+   "value": -1
+  },
+  {
+   "accepted": true,
+   "name": "DANGER",
+   "value": 0.7
+  }
+ ]
+}

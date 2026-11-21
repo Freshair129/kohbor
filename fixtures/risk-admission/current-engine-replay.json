@@ -1,0 +1,356 @@
+{
+ "cases": [
+  {
+   "id": "blip-no-rearm",
+   "proposed_admit_ms": [
+    12000
+   ],
+   "risk_alert_ms": [
+    9800
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "bnd-reappear-ok",
+   "proposed_admit_ms": [
+    12000
+   ],
+   "risk_alert_ms": [
+    9800
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "bnd-reappear-short",
+   "proposed_admit_ms": [
+    12000
+   ],
+   "risk_alert_ms": [
+    9800
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "bnd-vanish-3000",
+   "proposed_admit_ms": [
+    13200
+   ],
+   "risk_alert_ms": [
+    12800
+   ],
+   "verdict": "same"
+  },
+  {
+   "id": "contributor-cooldown",
+   "proposed_admit_ms": [
+    12000
+   ],
+   "risk_alert_ms": [
+    9800,
+    39800
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "correction-suppressed",
+   "proposed_admit_ms": [
+    12000
+   ],
+   "risk_alert_ms": [
+    9800
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "dedup-stays-missing",
+   "proposed_admit_ms": [
+    12000
+   ],
+   "risk_alert_ms": [
+    9800
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "global-cooldown-defers",
+   "proposed_admit_ms": [
+    12000,
+    42000
+   ],
+   "risk_alert_ms": [
+    9600,
+    39600
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "latch-gap",
+   "proposed_admit_ms": [
+    12000
+   ],
+   "risk_alert_ms": [
+    9800
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "latch-partial-reappear",
+   "proposed_admit_ms": [
+    12000
+   ],
+   "risk_alert_ms": [
+    9800
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "neg-anonymous",
+   "proposed_admit_ms": [],
+   "risk_alert_ms": [
+    9800
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "neg-away-from-player",
+   "proposed_admit_ms": [],
+   "risk_alert_ms": [
+    9800
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "neg-coverage-gap",
+   "proposed_admit_ms": [],
+   "risk_alert_ms": [
+    9800
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "neg-far-apart",
+   "proposed_admit_ms": [],
+   "risk_alert_ms": [
+    9800
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "neg-gsi-stale",
+   "proposed_admit_ms": [],
+   "risk_alert_ms": [],
+   "verdict": "same"
+  },
+  {
+   "id": "neg-kill-participation",
+   "proposed_admit_ms": [],
+   "risk_alert_ms": [
+    9800
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "neg-kill-unknown",
+   "proposed_admit_ms": [],
+   "risk_alert_ms": [
+    9800
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "neg-kill-unknown-gap",
+   "proposed_admit_ms": [],
+   "risk_alert_ms": [
+    9800
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "neg-kill-unknown-gap-clean",
+   "proposed_admit_ms": [
+    14000
+   ],
+   "risk_alert_ms": [
+    11800
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "neg-media-late",
+   "proposed_admit_ms": [],
+   "risk_alert_ms": [
+    9800
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "neg-media-unready",
+   "proposed_admit_ms": [],
+   "risk_alert_ms": [
+    9800
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "neg-opposite-heading",
+   "proposed_admit_ms": [],
+   "risk_alert_ms": [
+    9800
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "neg-own-dead",
+   "proposed_admit_ms": [],
+   "risk_alert_ms": [
+    15000
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "neg-own-pos-unknown",
+   "proposed_admit_ms": [],
+   "risk_alert_ms": [
+    9800
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "neg-paused",
+   "proposed_admit_ms": [],
+   "risk_alert_ms": [
+    9800
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "neg-paused-unknown",
+   "proposed_admit_ms": [],
+   "risk_alert_ms": [
+    9800
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "neg-pregame",
+   "proposed_admit_ms": [],
+   "risk_alert_ms": [],
+   "verdict": "same"
+  },
+  {
+   "id": "neg-single-hero",
+   "proposed_admit_ms": [],
+   "risk_alert_ms": [],
+   "verdict": "same"
+  },
+  {
+   "id": "neg-stale-alive",
+   "proposed_admit_ms": [],
+   "risk_alert_ms": [
+    15800
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "neg-stale-coverage",
+   "proposed_admit_ms": [],
+   "risk_alert_ms": [
+    9800
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "neg-stationary",
+   "proposed_admit_ms": [],
+   "risk_alert_ms": [
+    9800
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "neg-time-non-advancing",
+   "proposed_admit_ms": [],
+   "risk_alert_ms": [
+    9800
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "neg-too-far",
+   "proposed_admit_ms": [],
+   "risk_alert_ms": [
+    9800
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "neg-vanish-apart",
+   "proposed_admit_ms": [],
+   "risk_alert_ms": [],
+   "verdict": "same"
+  },
+  {
+   "id": "opt-b-away-from-player",
+   "proposed_admit_ms": [
+    12000
+   ],
+   "risk_alert_ms": [
+    9800
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "opt-b-own-pos-unknown",
+   "proposed_admit_ms": [
+    12000
+   ],
+   "risk_alert_ms": [
+    9800
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "pos-media-recovers",
+   "proposed_admit_ms": [
+    12200
+   ],
+   "risk_alert_ms": [
+    9800
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "pos-three-group",
+   "proposed_admit_ms": [
+    11000
+   ],
+   "risk_alert_ms": [
+    9800
+   ],
+   "verdict": "same"
+  },
+  {
+   "id": "pos-two-group",
+   "proposed_admit_ms": [
+    12000
+   ],
+   "risk_alert_ms": [
+    9800
+   ],
+   "verdict": "differs"
+  },
+  {
+   "id": "rearm-after-reappearance",
+   "proposed_admit_ms": [
+    12000,
+    88000
+   ],
+   "risk_alert_ms": [
+    9800,
+    85800
+   ],
+   "verdict": "differs"
+  }
+ ],
+ "status": "characterization_of_current_code"
+}
