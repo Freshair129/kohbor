@@ -32,6 +32,7 @@ import { guestAccountPort, type AccountPort } from "./account/accountView";
 import { useAccount } from "./account/useAccount";
 import { VolumeToast } from "./VolumeToast";
 import { OrbSettings } from "./orb/OrbSettings";
+import { DraftSettings } from "./draft/DraftSettings";
 import { useDotaLauncher, useShowSteamName, useSteamStatus } from "./steam/hooks";
 import { steamPersonaName } from "./steam/model";
 import { StartDotaBar } from "./steam/StartDotaBar";
@@ -281,6 +282,7 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
                 {settingsNotice && <p className="locale-notice" role="status">{settingsNotice}</p>}
               </section>
               <OrbSettings locale={displayLocale} />
+              <DraftSettings />
               <div className="shell-guide-slot">
                 {status && !hostLost ? <Guide status={status} locale={displayLocale} setup={setup} /> : (
                   <p className={hostLost ? "banner banner-warn" : "muted"} role={hostLost ? "alert" : "status"}>
