@@ -438,8 +438,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/orb/mod.rs",
-      "bytes": 38258,
-      "sha256": "0080db6125307c2a385e894736f4c957515cee58573635b789ac384a98078c49"
+      "bytes": 39336,
+      "sha256": "e0626548c8a6f58fbd48b8f69d05280841cfe4aad100e33d3d278dbfe94adbcb"
     },
     {
       "path": "apps/desktop/src-tauri/src/overlay.rs",
