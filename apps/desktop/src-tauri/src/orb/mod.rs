@@ -382,7 +382,8 @@ pub(crate) fn zone(
         }
     }
     if layout.hot.contains(x, y) {
-        return Zone::Hot;
+        // Owner decision 2026-11-22: while tucked, the hot rect is the click target that opens the panel.
+        return if revealed { Zone::Hot } else { Zone::Disc };
     }
     Zone::Outside
 }
@@ -487,14 +488,14 @@ impl Machine {
         self.locked_until = None;
         self.phase = match self.phase {
             Phase::Hidden(_) | Phase::Tucked => {
-                if zone == Zone::Hot {
+                if matches!(zone, Zone::Hot | Zone::Disc) {
                     Phase::Charging { since: now }
                 } else {
                     Phase::Tucked
                 }
             }
             Phase::Charging { since } => {
-                if zone != Zone::Hot {
+                if !matches!(zone, Zone::Hot | Zone::Disc) {
                     Phase::Tucked
                 } else if now.saturating_duration_since(since) >= self.dwell {
                     Phase::Sliding { until: now + SLIDE }
@@ -542,6 +543,9 @@ impl Machine {
     /// Whether the window must take the pointer right now (all other times it is click-through).
     pub(crate) fn wants_input(&self) -> bool {
         match self.phase {
+            Phase::Tucked | Phase::Charging { .. } => {
+                self.zone == Zone::Disc && self.locked_until.is_none()
+            }
             Phase::Out { .. } => self.zone == Zone::Disc,
             Phase::Open { .. } => matches!(self.zone, Zone::Disc | Zone::Panel),
             _ => false,
@@ -556,13 +560,15 @@ impl Machine {
         }
     }
 
-    /// A click on the disc toggles the panel; refused unless the disc is revealed and under the pointer.
+    /// A click on the disc toggles the panel; refused unless the disc is under the pointer. Owner decision
+    /// 2026-11-22: a click on the tucked disc opens the panel at once (no dwell); refused while a critical cue locks it.
     pub(crate) fn click_disc(&mut self) -> Result<bool, &'static str> {
         if self.zone != Zone::Disc {
             return Err("ORB_NOT_UNDER_POINTER");
         }
         match self.phase {
-            Phase::Out { .. } => {
+            Phase::Tucked | Phase::Charging { .. } if self.locked_until.is_some() => Err("ORB_LOCKED"),
+            Phase::Tucked | Phase::Charging { .. } | Phase::Out { .. } => {
                 self.phase = Phase::Open { leave_since: None };
                 Ok(true)
             }
@@ -757,7 +763,7 @@ mod tests {
                 Zone::Outside
             );
         }
-        assert_eq!(zone(at(&g, 8.0, 324.0), &g, false, None), Zone::Hot);
+        assert_eq!(zone(at(&g, 8.0, 324.0), &g, false, None), Zone::Disc);
         assert_eq!(zone(at(&g, 7.0, 324.0), &g, true, None), Zone::Hot);
         assert_eq!(zone(at(&g, 7.0, 289.0), &g, true, None), Zone::Outside);
     }
@@ -765,8 +771,11 @@ mod tests {
     #[test]
     fn hit_zones_follow_the_state() {
         let g = geometry(1.0);
-        // Tucked: the disc area is only the hot zone (no click target).
-        assert_eq!(zone(at(&g, 20.0, 324.0), &g, false, None), Zone::Hot);
+        // Tucked: the hot rect is the click target (owner 2026-11-22); revealed it is only the hot zone.
+        assert_eq!(zone(at(&g, 20.0, 324.0), &g, false, None), Zone::Disc);
+        assert_eq!(zone(at(&g, 35.0, 357.0), &g, false, None), Zone::Disc);
+        assert_eq!(zone(at(&g, 36.0, 324.0), &g, false, None), Zone::Outside);
+        assert_eq!(zone(at(&g, 20.0, 289.0), &g, false, None), Zone::Outside);
         assert_eq!(zone(at(&g, 50.0, 324.0), &g, false, None), Zone::Outside);
         // Revealed: the 26 px radius disc at x 34.
         assert_eq!(zone(at(&g, 50.0, 324.0), &g, true, None), Zone::Disc);
@@ -871,10 +880,32 @@ mod tests {
     }
 
     #[test]
-    fn clicks_are_refused_unless_revealed_and_under_the_pointer() {
+    fn one_click_on_the_tucked_orb_opens_the_panel() {
+        let t0 = Instant::now();
         let mut machine = Machine::new(1000);
-        machine.tick(Instant::now(), Ok(()), Zone::Disc);
-        assert!(machine.click_disc().is_err());
+        machine.tick(t0, Ok(()), Zone::Outside);
+        assert!(!machine.wants_input(), "click-through away from the target");
+        machine.tick(t0, Ok(()), Zone::Hot);
+        assert!(!machine.wants_input(), "the edge strip never takes the pointer");
+        machine.tick(t0, Ok(()), Zone::Disc);
+        assert!(machine.wants_input(), "the tucked target takes the click");
+        assert_eq!(machine.click_disc(), Ok(true));
+        assert!(machine.panel_open() && machine.revealed());
+        machine.tick(t0, Ok(()), Zone::Disc);
+        assert!(machine.panel_open(), "stays open under the pointer");
+    }
+
+    #[test]
+    fn clicks_are_refused_unless_under_the_pointer_or_while_locked() {
+        let mut machine = Machine::new(1000);
+        machine.tick(Instant::now(), Ok(()), Zone::Outside);
+        assert_eq!(machine.click_disc(), Err("ORB_NOT_UNDER_POINTER"));
+        let t0 = Instant::now();
+        let mut locked = Machine::new(1000);
+        locked.lock_for_critical(t0, Duration::from_millis(1500));
+        locked.tick(t0, Ok(()), Zone::Disc);
+        assert!(!locked.wants_input());
+        assert_eq!(locked.click_disc(), Err("ORB_LOCKED"));
         let (mut machine, now) = revealed_machine();
         machine.tick(now, Ok(()), Zone::Hot);
         assert_eq!(machine.click_disc(), Err("ORB_NOT_UNDER_POINTER"));
