@@ -333,8 +333,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/hud.rs",
-      "bytes": 46994,
-      "sha256": "476cf8f5ddba08e6db2bcab9267fc3a859d736c4fbb03e337d4b351ce6c728f9"
+      "bytes": 47108,
+      "sha256": "2248dffec445502c485076af215ea515bb467b5e2ec5117a2f4763d507206f58"
     },
     {
       "path": "apps/desktop/src-tauri/src/instance.rs",
@@ -358,8 +358,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 55489,
-      "sha256": "8ec0d20ef36d65729bea503148fcacd6c4bb9b4bac4761580c8d5b47e7fd7b2c"
+      "bytes": 57542,
+      "sha256": "96afba281c74b25206780e07853947c05fabed025bd99167f9fe7fd235e0ef4d"
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
