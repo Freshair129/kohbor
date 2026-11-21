@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { AudioMuteControl, AudioPanel, useAudioMute } from "./AudioPanel";
 import { copy, seconds, type Locale } from "./copy";
 import { DemoPanel } from "./DemoPanel";
@@ -7,7 +7,8 @@ import { DemoPanel } from "./DemoPanel";
 const LabPanel = import.meta.env.DEV || import.meta.env.VITE_KOHBOR_LAB === "1" ? lazy(() => import("./lab/Lab").then((m) => ({ default: m.Lab }))) : null;
 import { Deck } from "./deck/Deck";
 import { GsiSetupCard } from "./shell/GsiSetupCard";
-import { gsiNeedsAttention, gsiPhase } from "./shell/gsiSetupModel";
+import { GsiFirstRunDialog } from "./shell/GsiFirstRunDialog";
+import { GSI_FIRST_RUN_STORAGE_KEY, gsiNeedsAttention, gsiPhase, readGsiFirstRunAnswer, shouldShowGsiFirstRun, writeGsiFirstRunAnswer } from "./shell/gsiSetupModel";
 import { deckStateReasonForLocale, deriveDeckState } from "./deck/deckState";
 import { Guide } from "./Guide";
 import { startLiveCollection, useCaptureStatus } from "./live";
@@ -73,6 +74,14 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
   const launch = useDotaLauncher(steamStatus);
   const [activePage, setActivePage] = useState<ShellPage>(DEFAULT_SHELL_DESTINATION);
   const [insightsView, setInsightsView] = useState<InsightsView>("summary");
+  const [showGsiFirstRun, setShowGsiFirstRun] = useState(false);
+  const firstRunDecisionMade = useRef(false);
+  const firstRunEligible = useRef(false);
+  const firstRunShownThisRun = useRef(false);
+  const latestStatus = useRef(status);
+  const latestHostLost = useRef(hostLost);
+  latestStatus.current = status;
+  latestHostLost.current = hostLost;
   const displayLocale: Locale = settings?.locale ?? "th";
   const text = copy(displayLocale);
   const headerState = deriveHeaderState(
@@ -133,6 +142,36 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
   useEffect(() => {
     document.documentElement.lang = displayLocale;
   }, [displayLocale]);
+
+  useEffect(() => {
+    if (status === null || hostLost) return;
+    if (!firstRunDecisionMade.current) {
+      firstRunDecisionMade.current = true;
+      const answer = readGsiFirstRunAnswer(() => window.localStorage.getItem(GSI_FIRST_RUN_STORAGE_KEY));
+      firstRunEligible.current = shouldShowGsiFirstRun(gsiPhase(status), answer, firstRunShownThisRun.current);
+    }
+    if (!firstRunEligible.current) return;
+
+    let observer: MutationObserver | null = null;
+    const offerWhenAvailable = () => {
+      if (latestHostLost.current || gsiPhase(latestStatus.current) !== "not_installed") {
+        observer?.disconnect();
+        return;
+      }
+      const otherModalOpen = document.querySelector('dialog[open], [aria-modal="true"]') !== null;
+      if (otherModalOpen) return;
+      if (firstRunShownThisRun.current) return;
+      firstRunShownThisRun.current = true;
+      setShowGsiFirstRun(true);
+      observer?.disconnect();
+    };
+    offerWhenAvailable();
+    if (!firstRunShownThisRun.current) {
+      observer = new MutationObserver(offerWhenAvailable);
+      observer.observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ["open", "aria-modal"] });
+    }
+    return () => observer?.disconnect();
+  }, [status !== null, hostLost]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -301,6 +340,19 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
           presence: text.shell.presence }}
         currentPage={activePage} navigate={(page) => setActivePage(page)} />
       <VolumeToast locale={displayLocale} />
+      {showGsiFirstRun && status && !hostLost && (
+        <GsiFirstRunDialog
+          locale={displayLocale}
+          status={status}
+          setup={setup}
+          onDecline={() => {
+            writeGsiFirstRunAnswer(() => window.localStorage.setItem(GSI_FIRST_RUN_STORAGE_KEY, "declined"));
+            setShowGsiFirstRun(false);
+          }}
+          onClose={() => setShowGsiFirstRun(false)}
+          onAccepted={() => writeGsiFirstRunAnswer(() => window.localStorage.setItem(GSI_FIRST_RUN_STORAGE_KEY, "accepted"))}
+        />
+      )}
     </div>
   );
 }

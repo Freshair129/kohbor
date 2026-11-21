@@ -468,8 +468,8 @@
     },
     {
       "path": "apps/desktop/src/App.tsx",
-      "bytes": 18440,
-      "sha256": "12df7916a43d7b4db924e01252e43285fd92f597645a7972b64db71197aa8bf3"
+      "bytes": 20808,
+      "sha256": "50ca6b41dd81ea7c8a446b32fced46cb69c39a476abd4d373f13088b23d6c2a1"
     },
     {
       "path": "apps/desktop/src/AudioHistory.tsx",
@@ -618,8 +618,8 @@
     },
     {
       "path": "apps/desktop/src/copy.ts",
-      "bytes": 66835,
-      "sha256": "e1186c5c8ff93c45d02e9ae7df8d69298cb8e89747962fcd36ec38fb388109d0"
+      "bytes": 69205,
+      "sha256": "e5c3a055ac2fa69a2fff5583102b8fd21f5ba1634af75963a69dbcb585eeafbb"
     },
     {
       "path": "apps/desktop/src/deck/AlertStrip.tsx",
@@ -648,8 +648,8 @@
     },
     {
       "path": "apps/desktop/src/deck/OwnLoadout.tsx",
-      "bytes": 18058,
-      "sha256": "0c0bfbe087f6b3a1504e9303d12267c21b7b9ce943520fde7804d36dfe8add9e"
+      "bytes": 19568,
+      "sha256": "474759e823b83a2eabe4ca1ba9bea1e79a9913df267f8674cc94f6ded4654832"
     },
     {
       "path": "apps/desktop/src/deck/abilityName.ts",
@@ -708,8 +708,8 @@
     },
     {
       "path": "apps/desktop/src/deck/loadout.css",
-      "bytes": 7634,
-      "sha256": "e78e06e7ff75a0cddc8c9ea26d8ec85ab11255fed7db263f57d2c590fd1274cf"
+      "bytes": 7997,
+      "sha256": "5002ac2c6431386d96c4c6e8ea453490d1d7e17bfff29cc3db009801a97e85f0"
     },
     {
       "path": "apps/desktop/src/deck/loadoutModel.ts",
@@ -1058,8 +1058,8 @@
     },
     {
       "path": "apps/desktop/src/mock/harness.tsx",
-      "bytes": 32321,
-      "sha256": "9052450263b35e177530540a3d5ef2da37ca39b5934dd301ece5e2f008531947"
+      "bytes": 32657,
+      "sha256": "c8b0282da9205818330d38c1cccbce0cd16aa14acaf740ab345c214312ad45ee"
     },
     {
       "path": "apps/desktop/src/mock/hudState.ts",
@@ -1302,6 +1302,11 @@
       "sha256": "bfda373b132e419807203ae990146b4053e178244e5e7d4b445fb381c3161a3c"
     },
     {
+      "path": "apps/desktop/src/shell/GsiFirstRunDialog.tsx",
+      "bytes": 2801,
+      "sha256": "c9ee60b23d5fecb28ea1e1121666636b9862845fd0f9e757c151cc7e0bc8d5e0"
+    },
+    {
       "path": "apps/desktop/src/shell/GsiSetupCard.tsx",
       "bytes": 2713,
       "sha256": "b06e9ac9ad6b452bafee5e40df2b36d60c79e0ef62e76f0ebc599d63698b860d"
@@ -1367,14 +1372,19 @@
       "sha256": "cce07d9b0dc7d333e3c95517c6e694bda28146e5a1c667c434b70dfd5b43e97a"
     },
     {
+      "path": "apps/desktop/src/shell/gsiFirstRunDialog.css",
+      "bytes": 617,
+      "sha256": "f7f4ad52506e1e878e5c29da8940ed8ea531aacf4e802907be95fa6ddd8d6e2c"
+    },
+    {
       "path": "apps/desktop/src/shell/gsiSetup.css",
       "bytes": 2341,
       "sha256": "9ccdca467ee62e8e7cfd77bdc5dc5f2a52360667080b2fa647397401aeabe86a"
     },
     {
       "path": "apps/desktop/src/shell/gsiSetupModel.ts",
-      "bytes": 4165,
-      "sha256": "99aabebf72ec5a997420b14efdad25c938ac3c8297b4de84fcdc31ca8441ac29"
+      "bytes": 5102,
+      "sha256": "c74624ae9bb8cb18bbd6803f3030e68e7d7983663746569cb86fdbc0ccea1ebb"
     },
     {
       "path": "apps/desktop/src/shell/railPreference.ts",
@@ -1562,6 +1572,11 @@
       "sha256": "178144e52204548c9c47478e86dd514ea3fea4271e78a3cc1d01790510d1235d"
     },
     {
+      "path": "apps/desktop/tests/gsi-first-run.test.ts",
+      "bytes": 3274,
+      "sha256": "19b2fb2ecf020f6323387a2a21874e4452f479e1f1b59240fe5673cf8f1693d4"
+    },
+    {
       "path": "apps/desktop/tests/gsi-setup-model.test.ts",
       "bytes": 3876,
       "sha256": "0f3f5ef3cec9fb478163a694a6644c36f33103c5e009dd3594d33a1a8cde455d"
@@ -1673,8 +1688,8 @@
     },
     {
       "path": "apps/desktop/tests/own-loadout.test.ts",
-      "bytes": 18703,
-      "sha256": "ac09f424b7edaab81224f976f696fcab1c1aea4efff14fdc922159dd1575d398"
+      "bytes": 19401,
+      "sha256": "2271dd3f4cae8035e8336bb91c9081f9a669d809c0f421bc905dcffe8dbdfaad"
     },
     {
       "path": "apps/desktop/tests/own-snapshot.test.ts",

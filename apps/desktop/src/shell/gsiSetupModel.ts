@@ -2,6 +2,37 @@ import type { RuntimeStatus } from "../types";
 
 export type GsiPhase = "not_installed" | "waiting_restart" | "receiving" | "stale" | "problem" | "starting";
 
+export type GsiFirstRunAnswer = "accepted" | "declined";
+export const GSI_FIRST_RUN_STORAGE_KEY = "kohbor.gsi-first-run";
+
+/** The first-run prompt is only for an unconfigured connection and is claimed once per renderer run. */
+export function shouldShowGsiFirstRun(
+  phase: GsiPhase | null,
+  answer: GsiFirstRunAnswer | null,
+  alreadyShownThisRun: boolean,
+): boolean {
+  return phase === "not_installed" && answer === null && !alreadyShownThisRun;
+}
+
+/** Storage access is optional; callers may retry next launch when browser storage is unavailable. */
+export function readGsiFirstRunAnswer(read: () => string | null): GsiFirstRunAnswer | null {
+  try {
+    const value = read();
+    return value === "accepted" || value === "declined" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeGsiFirstRunAnswer(write: () => void): boolean {
+  try {
+    write();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Where the Dota 2 connection (GSI) stands, from the host intake state only; unknown stays a problem/starting, never "receiving". */
 export function gsiPhase(status: RuntimeStatus | null): GsiPhase | null {
   if (status === null) return null;
