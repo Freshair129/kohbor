@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="th" data-lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>เกาะเบาะ Kohbor</title>
+<meta name="description" content="เกาะเบาะ (Kohbor) เพื่อนคู่ใจบนเดสก์ท็อปสำหรับ Dota 2 บน Windows ช่วยดูแผนที่ เตือนเมื่อมีเหตุ และบอกตรง ๆ เมื่อไม่รู้ ต้นแบบงานออกแบบ ยังไม่เปิดให้ดาวน์โหลด">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#141414">
+<link rel="icon" href="assets/mark.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<a class="skip" href="#see"><span class="th">ข้ามไปที่เนื้อหา</span><span class="en">Skip to content</span></a>
+
+<div id="loader" role="status">
+  <img src="assets/mark.svg" alt="" width="68" height="68">
+  <p><span class="th">กำลังเตรียมฉาก</span><span class="en">Setting the stage</span></p>
+</div>
+
+<canvas id="stage" aria-hidden="true"></canvas>
+
+<!-- Labels that follow things in the 3D scene. Decorative duplicates of what the page text says. -->
+<div id="labels" aria-hidden="true">
+  <b class="lb lb-own" data-m="own"><span class="th">คุณ</span><span class="en">You</span></b>
+  <b class="lb lb-ally" data-m="A1">A1</b>
+  <b class="lb lb-ally" data-m="A2">A2</b>
+  <b class="lb lb-enemy" data-m="E1">E1</b>
+  <b class="lb lb-enemy" data-m="E2">E2</b>
+  <b class="lb lb-enemy" data-m="E3">E3<i class="mono" id="e3lb"></i></b>
+  <b class="lb lb-enemy" data-m="E4">E4</b>
+  <div id="plate"><img src="assets/mark.svg" alt="" width="34" height="34"><span id="plateText"></span></div>
+</div>
+
+<header class="top" id="top" data-room="c">
+  <a class="top-brand" href="#hero" aria-label="เกาะเบาะ Kohbor">
+    <span class="top-mark"><img src="assets/mark.svg" alt="" width="26" height="26"></span>
+    <span class="th">เกาะเบาะ</span><span class="en">Kohbor</span>
+  </a>
+  <nav class="top-nav" aria-label="บท / Chapters">
+    <a href="#see"><span class="th">เห็น</span><span class="en">See</span></a>
+    <a href="#honest"><span class="th">ไม่รู้</span><span class="en">Unknown</span></a>
+    <a href="#hear"><span class="th">ฟัง</span><span class="en">Hear</span></a>
+    <a href="#ask"><span class="th">ถาม</span><span class="en">Ask</span></a>
+    <a href="#yours"><span class="th">ของคุณ</span><span class="en">Yours</span></a>
+    <a href="#bar"><span class="th">เกณฑ์</span><span class="en">The bar</span></a>
+  </nav>
+  <div class="top-lang" role="group" aria-label="ภาษา / Language">
+    <button type="button" data-set-lang="th" aria-pressed="true">ไทย</button>
+    <button type="button" data-set-lang="en" aria-pressed="false">EN</button>
+  </div>
+  <i class="top-prog" aria-hidden="true"></i>
+</header>
+
+<main>
+
+<!-- ───────────── Start ───────────── -->
+<section id="hero" class="room-c" data-room="c">
+  <div class="flow hero-in">
+    <h1 class="hero-h">
+      <span class="ln"><span><span class="th">คุณขับ</span><span class="en">You drive.</span></span></span>
+      <span class="ln"><span><span class="th">เราเกาะเบาะ</span><span class="en">We ride along.</span></span></span>
+    </h1>
+    <div class="hero-foot">
+      <p class="hero-p">
+        <span class="th">เกาะเบาะคือเพื่อนคู่ใจบนเดสก์ท็อปสำหรับ Dota 2 บน Windows ช่วยดูแผนที่ เตือนเมื่อมีเหตุ และบอกตรง ๆ เมื่อไม่รู้</span>
+        <span class="en">Kohbor is a Windows desktop companion for Dota 2. It watches the map, speaks up when there is a reason to, and says so plainly when it does not know.</span>
+      </p>
+      <p class="chip chip-pending">
+        <span class="th">กำลังพัฒนา ยังไม่เปิดให้ดาวน์โหลด</span><span class="en">In development. Not available to download yet.</span>
+      </p>
+    </div>
+    <p class="hero-hint" aria-hidden="true">
+      <span class="th">ขยับเมาส์เหนือเกาะ ลากเพื่อหมุน</span><span class="en">Move over the island. Drag to turn it.</span>
+    </p>
+  </div>
+</section>
+
+<!-- ───────────── Why ───────────── -->
+<section id="why" class="room-c tall" data-room="c" style="--len:280">
+  <div class="pin">
+    <div class="why-in">
+      <p class="manifesto words">
+        <span class="th">สมาธิในแมตช์มีจำกัด คุณไม่ควรต้องสลับหน้าจอไปมา หรือทนฟังเสียงบรรยายที่ไม่ได้ขอ ข้อมูลเก่า คำปลอบใจผิด ๆ และการแชร์ที่ไม่ได้ยินยอม ทำให้ตัวช่วยกลายเป็นภาระ เกาะเบาะจึงตั้งใจทำสามอย่าง ให้คุณเห็นมากขึ้น กดน้อยลง และคุมข้อมูล เสียง และการอัดวิดีโอของตัวเองได้</span>
+        <span class="en">Attention in a match is limited. You should not have to keep switching panels, or sit through narration you never asked for. Stale data, false reassurance and sharing without consent turn a helper into a burden. So Kohbor sets out to do three things: help you see more, press less, and stay in control of your own data, audio and recordings.</span>
+      </p>
+      <p class="aside-note">
+        <span class="th">เรายังไม่มีหลักฐานว่าเกาะเบาะช่วยให้ชนะมากขึ้น และจะไม่อ้างแบบนั้นจนกว่าจะวัดได้จริง</span>
+        <span class="en">We have no evidence yet that Kohbor raises your win rate, and we will not claim it until it has been measured.</span>
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── See ───────────── -->
+<section id="see" class="room-c tall" data-room="c" style="--len:440">
+  <div class="pin">
+    <div class="chap chap-see">
+      <div class="chap-text">
+        <h2 class="verb"><span class="th">เห็น</span><span class="en">See</span></h2>
+        <p class="lead"><span class="th">อ่านสนามได้ในแวบเดียว</span><span class="en">Read the field at a glance.</span></p>
+        <p class="body">
+          <span class="th">แผนที่มาก่อน ศัตรูที่หายไปมาเป็นอันดับสอง เพื่อนร่วมทีมเป็นวงกลม ศัตรูเป็นข้าวหลามตัด รูปทรงเดียวกันทั้งบนการ์ดและบนแผนที่ สายตาจับคู่ได้เองโดยไม่ต้องอ่าน</span>
+          <span class="en">The map comes first, missing enemies second. Allies are rings and enemies are diamonds, the same shape on the card and on the map, so your eye pairs them without reading.</span>
+        </p>
+        <p class="body body-2">
+          <span class="th">เกาะเบาะใช้เฉพาะสิ่งที่คุณเองก็เห็นอยู่แล้ว คือข้อมูลตัวคุณจาก Game State Integration ของเกม กับมินิแมปบนจอของคุณ</span>
+          <span class="en">Kohbor uses only what you can already see: your own player data from the game's Game State Integration, and the minimap on your screen.</span>
+        </p>
+        <ul class="legend" aria-label="สัญลักษณ์บนแผนที่ / Map symbols">
+          <li><i class="g g-own"></i><span class="th">ตัวคุณ</span><span class="en">You</span></li>
+          <li><i class="g g-ally"></i><span class="th">เพื่อนร่วมทีม</span><span class="en">Ally</span></li>
+          <li><i class="g g-enemy"></i><span class="th">ศัตรูที่เห็นอยู่</span><span class="en">Enemy, seen</span></li>
+          <li><i class="g g-miss"></i><span class="th">หายจากแผนที่</span><span class="en">Missing</span></li>
+        </ul>
+      </div>
+
+      <div class="map-slot" data-slot></div>
+
+      <aside class="deck" aria-label="ตัวอย่างคอลัมน์ศัตรู / Enemy column, sample">
+        <p class="deck-head">
+          <span class="deck-count"><b class="mono" id="missCount">0</b><span class="th">จาก 5 หายจากแผนที่</span><span class="en">of 5 missing</span></span>
+          <span class="tag-sample"><span class="th">ข้อมูลตัวอย่าง</span><span class="en">Sample data</span></span>
+        </p>
+        <ol class="deck-list">
+          <li class="ec is-seen" data-e="E1"><span class="tok"><b>E1</b></span><span class="ec-state"><span class="th">◆ เห็นอยู่</span><span class="en">◆ Seen now</span></span><span class="ec-age mono">0.4<small><span class="th">วิ</span><span class="en">s</span></small></span></li>
+          <li class="ec is-seen" data-e="E2"><span class="tok"><b>E2</b></span><span class="ec-state"><span class="th">◆ เห็นอยู่</span><span class="en">◆ Seen now</span></span><span class="ec-age mono">1.1<small><span class="th">วิ</span><span class="en">s</span></small></span></li>
+          <li class="ec is-seen" data-e="E3" id="e3card"><span class="tok"><b>E3</b></span><span class="ec-state" id="e3state"><span class="th">◆ เห็นอยู่</span><span class="en">◆ Seen now</span></span><span class="ec-age mono"><span id="e3age">0.2</span><small><span class="th">วิ</span><span class="en">s</span></small></span></li>
+          <li class="ec is-seen" data-e="E4"><span class="tok"><b>E4</b></span><span class="ec-state"><span class="th">◆ เห็น ระบุตัวไม่ได้</span><span class="en">◆ Seen, unverified</span></span><span class="ec-age mono">2.6<small><span class="th">วิ</span><span class="en">s</span></small></span></li>
+          <li class="ec is-off" data-e="E5"><span class="tok"><b>E5</b></span><span class="ec-state"><span class="th">ยังไม่เคยเห็น</span><span class="en">Never seen</span></span><span class="ec-age mono">—</span></li>
+        </ol>
+        <p class="deck-note" id="seeNote">
+          <span class="th">เลื่อนต่อ แล้ว E3 จะหายจากแผนที่ ตัวเลขเดินตามการเลื่อนของคุณ</span>
+          <span class="en">Keep scrolling and E3 will go missing. The number follows your scroll.</span>
+        </p>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── Unknown ───────────── -->
+<section id="honest" class="room-b tall" data-room="b" style="--len:340">
+  <div class="pin">
+    <div class="chap chap-honest">
+      <div class="chap-text">
+        <h2 class="claim"><span class="th">ไม่รู้ ก็บอกว่าไม่รู้</span><span class="en">When it does not know, it says so.</span></h2>
+        <p class="body">
+          <span class="th">ไม่มีสีเขียวที่แปลว่าปลอดภัย ไม่มีคำว่า “พร้อม” ที่มาจากการเดา ค่าที่ไม่รู้แสดงเป็นขีด ไม่ใช่เลขศูนย์</span>
+          <span class="en">No green that means safe. No “ready” that comes from a guess. An unknown value is shown as a dash, never as zero.</span>
+        </p>
+        <div class="seg-wrap">
+          <p class="seg-label" id="segLabel"><span class="th">ลองเปลี่ยนสถานะของภาพแผนที่</span><span class="en">Change the state of the map picture</span></p>
+          <div class="seg" role="group" aria-labelledby="segLabel" id="stateSeg">
+            <button type="button" data-state="live" aria-pressed="true"><span class="th">ภาพสด</span><span class="en">Live</span></button>
+            <button type="button" data-state="stale" aria-pressed="false"><span class="th">ภาพเก่า</span><span class="en">Stale</span></button>
+            <button type="button" data-state="lost" aria-pressed="false"><span class="th">จับภาพไม่ได้</span><span class="en">Capture lost</span></button>
+            <button type="button" data-state="none" aria-pressed="false"><span class="th">รอเข้าเกม</span><span class="en">No game</span></button>
+          </div>
+        </div>
+        <div class="state-read" aria-live="polite">
+          <p class="state-line" id="stateLine"></p>
+          <p class="state-desc" id="stateDesc"></p>
+          <p class="state-warn" id="stateWarn">
+            <span class="th">ไม่มีข้อมูลการมองเห็น — ไม่ใช่ “ปลอดภัย”</span>
+            <span class="en">No visibility data — not “safe”</span>
+          </p>
+        </div>
+      </div>
+      <div class="map-slot" data-slot></div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── Hear ───────────── -->
+<section id="hear" class="room-c tall" data-room="c" style="--len:320">
+  <div class="pin">
+    <div class="chap chap-hear">
+      <div class="chap-text">
+        <h2 class="verb"><span class="th">ฟัง</span><span class="en">Hear</span></h2>
+        <p class="lead"><span class="th">เสียงมาเมื่อมีเหตุ ไม่ได้มาตลอดเวลา</span><span class="en">Sound arrives when there is a reason, not all the time.</span></p>
+        <p class="body">
+          <span class="th">เหตุการณ์ในแมตช์ถูกประกาศด้วยแพ็กเสียงที่คุณเลือกและผ่านการตรวจสอบแล้ว เสียงเตือนสำคัญแทรกเสียงอื่นได้เสมอ</span>
+          <span class="en">Match events are announced with the verified pack you chose. A critical alert always cuts through everything else.</span>
+        </p>
+        <p class="body body-2">
+          <span class="th">ประวัติเหตุการณ์มีสองบรรทัดเสมอ บรรทัดแรกคือสิ่งที่ตรวจพบ บรรทัดที่สองคือสิ่งที่คุณได้ยินจริง</span>
+          <span class="en">Every event keeps two lines. The first is what was detected. The second is what you actually heard.</span>
+        </p>
+      </div>
+
+      <div class="map-slot" data-slot></div>
+
+      <div class="hear-side">
+        <div class="mixer" role="group" aria-labelledby="mixLabel">
+          <p class="mixer-head">
+            <span id="mixLabel"><span class="th">มิกเซอร์สามช่อง</span><span class="en">Three-channel mixer</span></span>
+            <span class="tag"><span class="th">ตัวอย่างบนหน้าเว็บ ไม่ได้ปรับเสียงเครื่องคุณ</span><span class="en">A demo on this page. Your volume is not changed.</span></span>
+          </p>
+          <div class="mixer-ch">
+            <label class="ch"><input type="range" min="0" max="100" value="55" data-ch="0"><output class="mono">55</output><span class="ch-name"><span class="th">เกม</span><span class="en">Game</span></span></label>
+            <label class="ch ch-accent"><input type="range" min="0" max="100" value="80" data-ch="1"><output class="mono">80</output><span class="ch-name"><span class="th">ผู้ประกาศ</span><span class="en">Announcer</span></span></label>
+            <label class="ch"><input type="range" min="0" max="100" value="30" data-ch="2"><output class="mono">30</output><span class="ch-name"><span class="th">เพลง</span><span class="en">Music</span></span></label>
+          </div>
+        </div>
+        <ol class="events" aria-label="ตัวอย่างประวัติเหตุการณ์ / Event history, sample">
+          <li class="ev"><span class="ev-t mono">12:04</span><span class="ev-what"><span class="th">ฆ่าสองครั้งติด</span><span class="en">Double kill</span></span><span class="ev-out"><i class="oc oc-heard"></i><span class="th">ได้ยิน</span><span class="en">Heard</span></span></li>
+          <li class="ev"><span class="ev-t mono">12:31</span><span class="ev-what"><span class="th">เลือดต่ำกว่า 20%</span><span class="en">Health under 20%</span></span><span class="ev-out"><i class="oc oc-cut"></i><span class="th">เริ่มเล่นแล้วถูกตัด เพราะเสียงเตือนสำคัญดังขึ้น</span><span class="en">Started, then cut by a critical alert</span></span></li>
+          <li class="ev"><span class="ev-t mono">13:02</span><span class="ev-what"><span class="th">เลเวล 6</span><span class="en">Level 6</span></span><span class="ev-out"><i class="oc oc-none"></i><span class="th">ไม่ได้ยิน เพราะแพ็กนี้ไม่มีเสียงของเหตุการณ์นี้</span><span class="en">Not heard: this pack has no sound for it</span></span></li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── Ask ───────────── -->
+<section id="ask" class="room-c tall" data-room="c" style="--len:260">
+  <div class="pin">
+    <div class="chap chap-ask">
+      <div class="chap-text">
+        <h2 class="verb"><span class="th">ถาม</span><span class="en">Ask</span></h2>
+        <p class="lead"><span class="th">กดค้างไว้ แล้วพูดได้เลย</span><span class="en">Hold a key and speak.</span></p>
+        <p class="body">
+          <span class="th">ถามเป็นภาษาไทยหรืออังกฤษก็ได้ เสียงของคุณ ข้อความที่ถอดได้ และการตีความ อยู่ในเครื่องคุณทั้งหมด ถ้ามีเสียงเตือนสำคัญ เกาะเบาะจะหยุดพูดให้ก่อน</span>
+          <span class="en">Ask in Thai or in English. Your voice, the transcript and its interpretation all stay on your machine. If a critical alert fires, Kohbor stops talking and lets it through.</span>
+        </p>
+        <div class="hold-wrap">
+          <button type="button" class="btn btn-hold" id="holdBtn" aria-pressed="false">
+            <i class="hold-dot" aria-hidden="true"></i>
+            <span class="hold-idle"><span class="th">กดค้างเพื่อลอง</span><span class="en">Hold to try</span></span>
+            <span class="hold-on"><span class="th">กำลังฟัง</span><span class="en">Listening</span></span>
+          </button>
+          <p class="hold-note"><span class="th">เป็นตัวอย่างเท่านั้น หน้านี้ไม่เปิดไมโครโฟนของคุณ</span><span class="en">A demo only. This page never opens your microphone.</span></p>
+        </div>
+      </div>
+      <div class="map-slot" data-slot></div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── Yours ───────────── -->
+<section id="yours" class="room-r tall" data-room="r" style="--len:520">
+  <div class="pin">
+    <div class="no-in">
+      <h2 class="sr"><span class="th">สิ่งที่เกาะเบาะไม่ทำ</span><span class="en">What Kohbor does not do</span></h2>
+      <div class="no-row" id="noRow">
+        <b class="no-word" aria-hidden="true"><span class="th">ไม่</span><span class="en">No</span></b>
+        <div class="no-window">
+          <ul class="no-list" id="noList">
+            <li><span class="th">อ่านหน่วยความจำเกม</span><span class="en">reading game memory</span></li>
+            <li><span class="th">ฉีดโค้ดเข้าเกม</span><span class="en">code injection</span></li>
+            <li><span class="th">เล่นแทนคุณ</span><span class="en">playing for you</span></li>
+            <li><span class="th">ดูศัตรูที่คุณมองไม่เห็น</span><span class="en">enemies you cannot see</span></li>
+            <li><span class="th">ส่งเสียงไมค์ขึ้นคลาวด์</span><span class="en">microphone in the cloud</span></li>
+            <li><span class="th">เก็บสถิติการใช้งานเอง</span><span class="en">analytics by default</span></li>
+            <li><span class="th">อัดวิดีโอโดยคุณไม่ได้สั่ง</span><span class="en">recording on its own</span></li>
+            <li><span class="th">ถือว่าล็อกอินคือยินยอม</span><span class="en">sign-in as consent</span></li>
+          </ul>
+        </div>
+      </div>
+      <p class="no-close" id="noClose">
+        <span class="th">ใช้ได้เลยโดยไม่ต้องมีบัญชี และไม่ต้องต่อเน็ต</span>
+        <span class="en">It works without an account, and without a network.</span>
+      </p>
+      <p class="no-count mono" aria-hidden="true"><span id="noIdx">1</span> / 8</p>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── Film ───────────── -->
+<section id="film" class="room-c tall" data-room="c" style="--len:280">
+  <div class="pin">
+    <div class="film-frame" id="filmFrame">
+      <video id="filmVideo" muted loop playsinline preload="metadata" poster="assets/film/poster.jpg"
+             aria-label="ภาพเคลื่อนไหวจำลองของเกาะเบาะ ไม่มีเสียง / A simulated Kohbor sequence, silent">
+        <source src="assets/film/kohbor-film.mp4" type="video/mp4">
+        <source src="assets/film/kohbor-film.webm" type="video/webm">
+      </video>
+      <canvas id="filmLive" hidden></canvas>
+    </div>
+    <div class="film-ui">
+      <button type="button" class="btn" id="filmToggle" aria-pressed="false">
+        <span class="film-pause"><span class="th">หยุด</span><span class="en">Pause</span></span>
+        <span class="film-play"><span class="th">เล่น</span><span class="en">Play</span></span>
+      </button>
+      <span class="film-time mono" id="filmTime">00.0 / 20.0</span>
+      <p class="film-cap">
+        <span class="th">ภาพเคลื่อนไหวจำลอง 20 วินาที เรนเดอร์จากฉากสามมิติเดียวกับหน้านี้ ไม่ใช่ภาพจากเกม</span>
+        <span class="en">A simulated 20-second sequence, rendered from the same 3D scene as this page. It is not game footage.</span>
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── The bar ───────────── -->
+<section id="bar" class="room-b" data-room="b">
+  <div class="flow bar-in">
+    <h2 class="claim"><span class="th">เกณฑ์ที่ต้องผ่านก่อนปล่อย</span><span class="en">The bar it must clear before release</span></h2>
+    <ol class="gates">
+      <li class="gate">
+        <b class="gate-num mono">≤ 250<small>ms</small></b>
+        <p class="gate-what"><span class="th">เสียงเตือนสำคัญ ค่ากลางไม่เกิน 250 มิลลิวินาที และทุกครั้งที่วัดไม่เกิน 300</span><span class="en">Critical alert: median within 250 ms, and every measured sample within 300.</span></p>
+        <p class="gate-res"><span class="th">ผลวัดจริง</span><span class="en">Measured</span> <b class="mono">—</b> <span class="chip chip-pending"><span class="th">ยังไม่ได้วัด</span><span class="en">Not run yet</span></span></p>
+      </li>
+      <li class="gate">
+        <b class="gate-num mono">≤ 10<small>%</small></b>
+        <p class="gate-what"><span class="th">ซีพียูของแอปทั้งกลุ่ม ในทุกช่วงหนึ่งวินาที</span><span class="en">CPU for the whole app group, in every one-second sample.</span></p>
+        <p class="gate-res"><span class="th">ผลวัดจริง</span><span class="en">Measured</span> <b class="mono">—</b> <span class="chip chip-pending"><span class="th">ยังไม่ได้วัด</span><span class="en">Not run yet</span></span></p>
+      </li>
+      <li class="gate">
+        <b class="gate-num mono">≤ 3<small>%</small></b>
+        <p class="gate-what"><span class="th">เฟรมเรตของเกมที่ลดลง เมื่อเทียบแบบจับคู่</span><span class="en">Game frame rate lost, in matched-pair runs.</span></p>
+        <p class="gate-res"><span class="th">ผลวัดจริง</span><span class="en">Measured</span> <b class="mono">—</b> <span class="chip chip-pending"><span class="th">ยังไม่ได้วัด</span><span class="en">Not run yet</span></span></p>
+      </li>
+    </ol>
+    <div class="bar-notes">
+      <p>
+        <span class="th">ตัวเลขข้างบนคือเกณฑ์ ไม่ใช่ผลลัพธ์ และเราจะไม่ลดเกณฑ์หลังเห็นผล</span>
+        <span class="en">The numbers above are thresholds, not results. We do not lower a threshold after seeing a failure.</span>
+      </p>
+      <p>
+        <span class="th">เป้าทดสอบชุดแรกคือ Windows x64 จอ 1920×1080 อัตราส่วน 16:9 ที่ DPI 100% โหมดเต็มจอไร้ขอบ มินิแมปมุมล่างซ้ายตามค่าเริ่มต้น ในแมตช์ 5v5 All Pick ทั้งหมดนี้คือเป้าที่จะทดสอบ ยังไม่ใช่การรับรองว่ารองรับ</span>
+        <span class="en">The first test targets are Windows x64, a 1920×1080 16:9 display at 100% DPI, borderless fullscreen, the default bottom-left minimap, in 5v5 All Pick matches. These are targets to be tested, not a compatibility certification.</span>
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── End ───────────── -->
+<section id="end" class="room-c" data-room="c">
+  <div class="flow end-in">
+    <p class="end-h"><span class="th">คุณขับ<br>เราเกาะเบาะ</span><span class="en">You drive.<br>We ride along.</span></p>
+    <div class="end-cta">
+      <button type="button" class="btn btn-dl" disabled aria-describedby="dlNote">
+        <span class="th">ดาวน์โหลดสำหรับ Windows</span><span class="en">Download for Windows</span>
+        <i class="btn-state"><span class="th">ยังไม่เปิด</span><span class="en">Not open</span></i>
+      </button>
+      <p id="dlNote" class="end-note">
+        <span class="th">ยังไม่มีตัวติดตั้งให้ดาวน์โหลด ปุ่มนี้จะกดได้เมื่อมีของจริงอยู่ข้างหลัง</span>
+        <span class="en">There is no installer to download yet. This button will work when there is something real behind it.</span>
+      </p>
+    </div>
+    <footer class="foot">
+      <p class="foot-brand"><img src="assets/mark.svg" alt="" width="28" height="28"> เกาะเบาะ <span>Kohbor</span></p>
+      <p>
+        <span class="th">Dota 2 เป็นเครื่องหมายการค้าของ Valve Corporation เกาะเบาะเป็นโปรแกรมของบุคคลที่สาม ไม่ได้รับการรับรองจากและไม่มีส่วนเกี่ยวข้องกับ Valve</span>
+        <span class="en">Dota 2 is a trademark of Valve Corporation. Kohbor is a third-party program, not endorsed by or affiliated with Valve.</span>
+      </p>
+      <p>
+        <span class="th">ภาพทั้งหมดในหน้านี้เป็นภาพจำลองและข้อมูลตัวอย่าง ไม่มีภาพหรือเสียงจากเกม หน้านี้เป็นต้นแบบงานออกแบบ ยังไม่ใช่เว็บไซต์ทางการ</span>
+        <span class="en">Everything on this page is simulated and uses sample data. It contains no game imagery or audio. This page is a design prototype, not an official website.</span>
+      </p>
+      <p class="foot-tools">
+        <button type="button" id="motionToggle" class="btn btn-quiet" aria-pressed="false">
+          <span class="th">ลดการเคลื่อนไหว</span><span class="en">Reduce motion</span>
+        </button>
+      </p>
+    </footer>
+  </div>
+</section>
+
+</main>
+
+<noscript><p class="noscript">หน้านี้ใช้ JavaScript สำหรับฉากสามมิติ เนื้อหาทั้งหมดยังอ่านได้ตามปกติ</p></noscript>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kohbor film studio</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; padding: 20px; background: #141414; color: #ede6d8; font: 15px/1.6 "IBM Plex Sans Thai", system-ui, sans-serif; }
+  canvas { display: block; width: min(100%, 1280px); height: auto; border: 1px solid #3b3936; background: #141414; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 14px 0; }
+  button { min-height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid #8f897e; background: #272625; color: inherit; font: inherit; cursor: pointer; }
+  pre { margin: 0; white-space: pre-wrap; color: #cbc4b7; font: 13px/1.6 "IBM Plex Mono", Consolas, monospace; }
+</style>
+</head>
+<body>
+<!--
+  Renders the film frame by frame (not in real time) with WebCodecs and posts the files to serve.mjs,
+  which writes them to assets/film/. Open http://127.0.0.1:4173/studio.html and press Render,
+  or add ?auto=1. Preview plays the same sequence live.
+-->
+<canvas id="out" width="1600" height="900"></canvas>
+<div class="row">
+  <button id="preview">Preview</button>
+  <button id="render">Render and save</button>
+  <label>Seek <input id="seek" type="range" min="0" max="20" step="0.05" value="9.6" style="width: 320px"></label>
+</div>
+<pre id="log"></pre>
+<script type="module">
+import { createStage } from './js/stage.js';
+import { FILM, renderFilmFrame, loadFilmFonts, loadMark } from './js/film.js';
+import * as Mp4 from './vendor/mp4-muxer.mjs';
+import * as WebM from './vendor/webm-muxer.mjs';
+
+const { W, H, FPS, DUR } = FILM;
+const out = document.getElementById('out');
+const ctx = out.getContext('2d');
+const gl = document.createElement('canvas');
+const stage = createStage(gl, { density: 256 });
+stage.resize(W, H, 1);
+const logEl = document.getElementById('log');
+const status = (window.__studio = { state: 'idle', lines: [], files: [] });
+const log = (m) => { status.lines.push(m); logEl.textContent = status.lines.slice(-14).join('\n'); };
+const tick = () => new Promise((r) => { const c = new MessageChannel(); c.port1.onmessage = () => r(); c.port2.postMessage(0); });
+
+await loadFilmFonts();
+const mark = await loadMark();
+renderFilmFrame(ctx, stage, gl, 9.6, W, H, mark);
+log(`ready ${W}x${H} @${FPS} for ${DUR}s`);
+
+let live = false, lt = 0, last = 0;
+function loop(now) { if (!live) return; requestAnimationFrame(loop); lt = (lt + Math.min(0.1, (now - last) / 1000)) % DUR; last = now; renderFilmFrame(ctx, stage, gl, lt, W, H, mark); }
+document.getElementById('preview').onclick = () => { live = !live; last = performance.now(); if (live) requestAnimationFrame(loop); };
+document.getElementById('seek').oninput = (e) => { live = false; renderFilmFrame(ctx, stage, gl, Number(e.target.value), W, H, mark); };
+
+async function save(name, blob) {
+  const r = await fetch(`/__save/${name}`, { method: 'POST', body: blob });
+  if (!r.ok) throw new Error(`save ${name}: ${r.status}`);
+  const j = await r.json(); status.files.push(j); log(`saved ${j.name} ${(j.bytes / 1048576).toFixed(2)} MB`);
+}
+
+async function encode(kind) {
+  const cfg = kind === 'mp4'
+    ? { codec: 'avc1.640028', width: W, height: H, bitrate: 4_200_000, framerate: FPS, avc: { format: 'avc' } }
+    : { codec: 'vp09.00.40.08', width: W, height: H, bitrate: 3_200_000, framerate: FPS };
+  const sup = await VideoEncoder.isConfigSupported(cfg).catch(() => ({ supported: false }));
+  if (!sup.supported) { log(`${kind}: this browser cannot encode ${cfg.codec}; skipped`); return false; }
+  const lib = kind === 'mp4' ? Mp4 : WebM;
+  const muxer = new lib.Muxer(kind === 'mp4'
+    ? { target: new lib.ArrayBufferTarget(), video: { codec: 'avc', width: W, height: H }, fastStart: 'in-memory' }
+    : { target: new lib.ArrayBufferTarget(), video: { codec: 'V_VP9', width: W, height: H, frameRate: FPS } });
+  let failed = null;
+  const enc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: (e) => { failed = e; } });
+  enc.configure(cfg);
+  const total = DUR * FPS;
+  for (let i = 0; i < total; i++) {
+    if (failed) throw failed;
+    renderFilmFrame(ctx, stage, gl, i / FPS, W, H, mark);
+    const frame = new VideoFrame(out, { timestamp: Math.round((i * 1e6) / FPS), duration: Math.round(1e6 / FPS) });
+    enc.encode(frame, { keyFrame: i % FPS === 0 });
+    frame.close();
+    while (enc.encodeQueueSize > 3) await tick();
+    if (i % 15 === 0) { status.progress = `${kind} ${i}/${total}`; log(status.progress); await tick(); }
+  }
+  await enc.flush();
+  if (failed) throw failed;
+  muxer.finalize();
+  await save(`kohbor-film.${kind}`, new Blob([muxer.target.buffer], { type: kind === 'mp4' ? 'video/mp4' : 'video/webm' }));
+  return true;
+}
+
+async function renderAll() {
+  if (status.state === 'running') return;
+  status.state = 'running'; live = false;
+  try {
+    if (!('VideoEncoder' in window)) throw new Error('WebCodecs VideoEncoder is not available in this browser');
+    renderFilmFrame(ctx, stage, gl, 9.6, W, H, mark);
+    await save('poster.jpg', await new Promise((r) => out.toBlob(r, 'image/jpeg', 0.88)));
+    const a = await encode('mp4');
+    const b = await encode('webm');
+    status.state = a || b ? 'done' : 'failed';
+    log(`finished: mp4=${a} webm=${b}`);
+  } catch (e) { status.state = 'failed'; status.error = String(e); log(`FAILED ${e}`); }
+}
+document.getElementById('render').onclick = renderAll;
+if (new URLSearchParams(location.search).get('auto') === '1') renderAll();
+</script>
+</body>
+</html>

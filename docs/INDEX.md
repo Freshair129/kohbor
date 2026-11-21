@@ -21,6 +21,7 @@ This is the only index of documents. Every Markdown file in the tree, is linked 
 | [Game-State Intake Specification](design/GSI-INTAKE-SPEC.md) | M1 owned game configuration, loopback intake, admission, ownership, session and freshness clock | Engineering, integrating teams |
 | [Event and Audio Specification](design/EVENT-AUDIO-SPEC.md) | M2 canonical event catalog, health-danger proposal, audio priority/preemption, outcome reasons, media decode checks and install contracts | Engineering, media, QA |
 | [Visual Design Proposal](design/VISUAL-DESIGN-PROPOSAL.md) | DEC-VISUALS proposal: identity, tokens, Command Deck and overlay artboards | UX, engineering, product owner |
+| [Website prototype](../apps/website/README.md) | Scroll-driven marketing page prototype with a 3D stage and a rendered film; how to run and deploy it, design decisions, copy sources, what was checked, open owner decisions (agent design, not owner reviewed; a public website is not in the PRD scope) | Product owner, UX |
 | [Media Package Specification](design/MEDIA-PACK-SPEC.md) | Media formats, trust, installation and playback lifecycle | Media, engineering, QA |
 | [S3-5 Host Critical Warning Path](design/S3-5-HOST-CRITICAL-PATH.md) | Design and task breakdown of the host critical warning path (agent decision, not owner approved) | Engineering, media |
 | [S6 Overlay Slice](design/S6-OVERLAY-SLICE.md) | Plan of the in-game banner overlay window, placement, honest chip states and the no-game demo trigger (agent plan, not owner approved) | Engineering, UX, product owner |

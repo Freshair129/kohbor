@@ -1,0 +1,8 @@
+# Only the page itself is deployed. Internal notes and the local film studio stay on this machine.
+README.md
+serve.mjs
+studio.html
+vendor/mp4-muxer.mjs
+vendor/webm-muxer.mjs
+.env*
+.gitignore
