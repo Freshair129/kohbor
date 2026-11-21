@@ -1032,3 +1032,23 @@ mod tests {
         assert!(host.contains("WS_EX_NOACTIVATE"));
     }
 }
+
+#[cfg(test)]
+mod click_through_guard_tests {
+    /// Regression (owner test 2026-11-21): toggling click-through through Tauri re-adds `WS_EX_LAYERED` and the
+    /// disc stops drawing. The poll loop may only switch `WS_EX_TRANSPARENT` itself; Tauri is only ever asked to
+    /// keep the window click-through (`true`), which never removes the layered bit.
+    #[test]
+    fn the_poll_loop_never_asks_tauri_to_turn_click_through_off() {
+        let host = include_str!("host.rs");
+        let tauri_calls: Vec<&str> = host
+            .match_indices("set_ignore_cursor_events(")
+            .map(|(i, _)| &host[i..i + 32])
+            .collect();
+        assert!(!tauri_calls.is_empty());
+        for call in tauri_calls {
+            assert!(call.starts_with("set_ignore_cursor_events(true)"), "{call}");
+        }
+        assert!(host.contains("fn set_click_through(hwnd: HWND, click_through: bool) -> bool"));
+    }
+}

@@ -518,13 +518,13 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/orb/host.rs",
-      "bytes": 39785,
-      "sha256": "bea1b8db7d5e958b78dab5f74f572b258dff8625a76d2300652099ce8f828db4"
+      "bytes": 41342,
+      "sha256": "f057a238de28a9c2604fdabe5bfc375e64a83dceafd4327aa46b20970126d5ab"
     },
     {
       "path": "apps/desktop/src-tauri/src/orb/mod.rs",
-      "bytes": 37336,
-      "sha256": "b513ba9aac6e1b35089537c9fb24b422b62cd47a937d586dc56557628f880061"
+      "bytes": 38258,
+      "sha256": "0080db6125307c2a385e894736f4c957515cee58573635b789ac384a98078c49"
     },
     {
       "path": "apps/desktop/src-tauri/src/overlay.rs",
