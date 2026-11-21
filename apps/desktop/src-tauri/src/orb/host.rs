@@ -767,7 +767,8 @@ mod native {
     use windows::Win32::UI::WindowsAndMessaging::{
         GetCursorPos, GetForegroundWindow, GetWindowLongPtrW, GetWindowRect,
         GetWindowThreadProcessId, SetWindowLongPtrW, SetWindowPos, GWL_EXSTYLE, HWND_TOPMOST,
-        SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+        SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WS_EX_LAYERED,
+        WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
     };
 
     pub(super) fn create_window(
@@ -819,6 +820,35 @@ mod native {
 
     fn has_no_activate_style(hwnd: HWND) -> bool {
         unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32 & WS_EX_NOACTIVATE.0 != 0 }
+    }
+
+    /// Switch click-through by toggling only `WS_EX_TRANSPARENT`.
+    ///
+    /// `WebviewWindow::set_ignore_cursor_events` adds and removes `WS_EX_LAYERED` together with
+    /// `WS_EX_TRANSPARENT`. Re-adding `WS_EX_LAYERED` to a window that never had layered attributes set leaves it
+    /// undrawn, so after the first hover the disc vanished (owner test 2026-11-21). The layered bit stays as the
+    /// window was created (click-through) and only the transparent bit changes.
+    fn set_click_through(hwnd: HWND, click_through: bool) -> bool {
+        unsafe {
+            let style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32 | WS_EX_LAYERED.0;
+            let next = if click_through {
+                style | WS_EX_TRANSPARENT.0
+            } else {
+                style & !WS_EX_TRANSPARENT.0
+            };
+            SetWindowLongPtrW(hwnd, GWL_EXSTYLE, next as isize);
+            let applied = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32;
+            let _ = SetWindowPos(
+                hwnd,
+                None,
+                0,
+                0,
+                0,
+                0,
+                SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
+            );
+            (applied & WS_EX_TRANSPARENT.0 != 0) == click_through
+        }
     }
 
     fn raise(hwnd: HWND) -> bool {
@@ -1028,8 +1058,12 @@ mod native {
             let previous = lock(&shared).click_through;
             if wants_click_through != previous || matches!(visibility, Visibility::Hide) {
                 let target = wants_click_through || matches!(visibility, Visibility::Hide);
-                if window.set_ignore_cursor_events(target).is_err() {
-                    let _ = window.set_ignore_cursor_events(true);
+                let applied = crate::overlay_hwnd(&window)
+                    .is_some_and(|hwnd| set_click_through(hwnd, target));
+                if !applied {
+                    if let Some(hwnd) = crate::overlay_hwnd(&window) {
+                        let _ = set_click_through(hwnd, true);
+                    }
                     let _ = window.hide();
                     let mut s = lock(&shared);
                     s.shown = false;

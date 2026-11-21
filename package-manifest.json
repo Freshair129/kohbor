@@ -433,13 +433,13 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/orb/host.rs",
-      "bytes": 38260,
-      "sha256": "5bc89ac4fedfcadae577e57228bff8e628769ad31ca34cea4520cb49e232c3f6"
+      "bytes": 39817,
+      "sha256": "03b59605001a5c09bab96e13b483f62a8bfb2974c16298074a05c0071db14f77"
     },
     {
       "path": "apps/desktop/src-tauri/src/orb/mod.rs",
-      "bytes": 37336,
-      "sha256": "b513ba9aac6e1b35089537c9fb24b422b62cd47a937d586dc56557628f880061"
+      "bytes": 38258,
+      "sha256": "0080db6125307c2a385e894736f4c957515cee58573635b789ac384a98078c49"
     },
     {
       "path": "apps/desktop/src-tauri/src/overlay.rs",
@@ -1867,6 +1867,91 @@
       "sha256": "e9756e0cba0cf1523bd1c7d6ad72203fa75770c64a363dcbd93ad216d77f1dc8"
     },
     {
+      "path": "apps/website/.gitignore",
+      "bytes": 227,
+      "sha256": "2fc0d7e14d28dc19f0b87c9b8a4018237e80f22a1f7844b4e676eaa8247a2544"
+    },
+    {
+      "path": "apps/website/.vercelignore",
+      "bytes": 191,
+      "sha256": "2777e2ca84ab365198aff504d5f3b4e44efedfd94f20f5aff44ffd75f2b1bd4f"
+    },
+    {
+      "path": "apps/website/README.md",
+      "bytes": 8035,
+      "sha256": "80a652b57244b18dbd99b24d4ad3641a5022662fd6f8d573e67c107ec2eb788e"
+    },
+    {
+      "path": "apps/website/assets/film/poster.jpg",
+      "bytes": 183999,
+      "sha256": "176274bd09a748d302479f8dd9752ef6030f6327562866b44b1d096c68ec92cd"
+    },
+    {
+      "path": "apps/website/assets/mark.svg",
+      "bytes": 488,
+      "sha256": "16c3df38c8146e7672deefd0498c618a72129c600e25ef6584a511b61a487a3a"
+    },
+    {
+      "path": "apps/website/css/site.css",
+      "bytes": 29433,
+      "sha256": "aa86ba684409c664d26d773704f7d1f60368931107536ec8fbaf0cde822cc605"
+    },
+    {
+      "path": "apps/website/index.html",
+      "bytes": 31368,
+      "sha256": "befbaf14e01f5467b64b2e4592adb7c13eadcc38b302a42bbbd95a44cc00f079"
+    },
+    {
+      "path": "apps/website/js/film.js",
+      "bytes": 9627,
+      "sha256": "782dab0b7f54dc1dd15101b14447d5f9819c80577f06d42a2cd0ee06b9f46621"
+    },
+    {
+      "path": "apps/website/js/main.js",
+      "bytes": 22336,
+      "sha256": "fe65383a10f8e95dda9105c2ebfa17cc94795acb2e4a174ce17fb99236bbb7c4"
+    },
+    {
+      "path": "apps/website/js/stage.js",
+      "bytes": 22211,
+      "sha256": "f5d8b95ae24a6109f2c376999a28a0d758ed5bfc253c73eaa95a5b49a6f53ab0"
+    },
+    {
+      "path": "apps/website/serve.mjs",
+      "bytes": 3473,
+      "sha256": "8047797f51c45516e258f78e1822b802ab62626277acd98646d23ae2aaefac38"
+    },
+    {
+      "path": "apps/website/studio.html",
+      "bytes": 5919,
+      "sha256": "5b23cb45ca49efad1d7f5837de10a84be55c234070b2ab34e914c2647d78bc02"
+    },
+    {
+      "path": "apps/website/vendor/mp4-muxer.mjs",
+      "bytes": 69011,
+      "sha256": "d2c4c782f180c86ed30b1f5d9487a34a0d370bf9b4535285734ea187d38f9bb5"
+    },
+    {
+      "path": "apps/website/vendor/three.LICENSE",
+      "bytes": 1081,
+      "sha256": "4c40a1ef62450b857c3b2aaf294936304cd552d965fbcd9d32d4c5bcf4ba4454"
+    },
+    {
+      "path": "apps/website/vendor/three.module.min.js",
+      "bytes": 691648,
+      "sha256": "08fd7545d13d2c7fb65ab691530a802dafefd638596501854f267d0fb13c39e7"
+    },
+    {
+      "path": "apps/website/vendor/webm-muxer.mjs",
+      "bytes": 64944,
+      "sha256": "53710543cecc4db7b6cd23fb0d9b308aa3374697f43a6149a8497f0a8547f0cb"
+    },
+    {
+      "path": "apps/website/vercel.json",
+      "bytes": 461,
+      "sha256": "0c12ab0e5529d470d7ae65b1a05e5cc3c889e6ce37baadfb120ca2b1aee00d40"
+    },
+    {
       "path": "contracts/audio-outcome.schema.json",
       "bytes": 5551,
       "sha256": "b6ac20f7d160223dddbf59f60c94062a8550ae54cb801352b9dead3e376c8f4c"
@@ -2708,8 +2793,8 @@
     },
     {
       "path": "docs/INDEX.md",
-      "bytes": 12487,
-      "sha256": "65fb694a4869a0084988455b73f0ecedcaeeb746ff42480e2de82079a1846a80"
+      "bytes": 12810,
+      "sha256": "b807c58dc8a38882249ce8bd5321a47a695e2693315a6ce8c120892c7dddbd22"
     },
     {
       "path": "docs/delivery/AGENT-WORKFLOW.md",
@@ -2988,8 +3073,8 @@
     },
     {
       "path": "docs/diagrams/README.md",
-      "bytes": 7372,
-      "sha256": "b3547f4f1af35c786f466e2e4426c98a154fa51b41d23ab3850b98614f5d222f"
+      "bytes": 7437,
+      "sha256": "6f557a2c68b0a11e26e6518a9ec3c36ffccb56ab0c7773193d564183bb1bc460"
     },
     {
       "path": "docs/diagrams/catalog.json",
