@@ -93,7 +93,7 @@ Ids match the artboard. "Brief" is the scope item number from the task.
 | A5 | `signed_in_online`, first time | 4 | Show the user's own friend code with Copy and "Get a new code" | Done → A7 |
 | A5b | dialog | 4 | State the consequence of a new code before it happens | Keep / Get a new code |
 | A6 | `signed_in_offline` | 5 | "Signed in, offline": social paused, local unaffected, cached values shown as cached | Connection back → A7 |
-| A7 | `signed_in_online` | 6 | Account screen: name, code, devices, sign out everywhere, export, delete | — |
+| A7 | `signed_in_online` | 6 | Account screen: name (with Change name), code, devices, sign out, sign out everywhere, export, delete | — |
 | A7b | dialog | 6 | Consequence of signing out everywhere | Cancel / confirm |
 | A7c | dialog | 6 | What the export file contains and where it goes | Cancel / choose location |
 | A8 | `deleting`, step 1 | 6 | Plain consequences; ask for a fresh Google sign-in | Keep → A7; sign in again → A2 |
@@ -123,8 +123,8 @@ Ids match the artboard. "Brief" is the scope item number from the task.
 11. **Delete is two steps with the sign-in between them:** consequences → fresh Google sign-in → final confirm with the time left. No typed confirmation word; the fresh sign-in is the proof (BINDING, rule 27).
 12. **Service unavailable and rate limited are amber, not rose.** Nothing of the user's is broken. Rose is for failures of the action the user just took.
 13. **Errors return to the screen the user came from**, with the message above the action and a "Try again" button. No modal error, no toast that disappears.
-14. **The devices list shows no IP address, place or "last active" time.** Rule 26 says the service never keeps IP history or last-seen history. What a row can show is an open question (section 9, Q4).
-15. **Wording follows the shipped app: "เข้าสู่ระบบ / ออกจากระบบ"** (`AccountPages.tsx`, `accountView.ts`), not "ลงชื่อเข้าใช้" as in `social.html`. See section 11, conflict 1.
+14. **The devices list shows no IP address, place or "last active" time.** Rule 26 says the service never keeps IP history or last-seen history. A row shows only "This PC" or "Another device" and the sign-in date (section 10, R4).
+15. **Wording follows the shipped app: "เข้าสู่ระบบ / ออกจากระบบ"** (`AccountPages.tsx`, `accountView.ts`), not "ลงชื่อเข้าใช้" as in `social.html`. See section 12, conflict 1.
 16. **Website: three flat rooms** (Charcoal, Bone, Barber Red) as in the website prototype, built from Command Deck tokens only; a thin text header; one disabled download button marked as a placeholder. Red is a fill with Bone as its only ink and holds the list of things an account does not do.
 17. **The website states the no-recovery rule in plain words** ("Good to know"), because it is the one consequence a person should learn before creating an account.
 
@@ -142,6 +142,7 @@ Thai wording was written by the author and has not been read by a native-speakin
 | signin.action | เข้าสู่ระบบด้วย Google (เปิดเบราว์เซอร์) | Sign in with Google (opens your browser) |
 | signin.promise | การเข้าสู่ระบบไม่แชร์ข้อมูลอะไร | Signing in shares nothing. |
 | signin.receives | เกาะเบาะได้รับแค่รหัสระบุบัญชี ไม่มีอีเมล ไม่มีรายชื่อติดต่อ และไม่เคยขอรหัสผ่าน | Kohbor receives an account identifier only. No email, no contacts, and it never asks for a password. |
+| signin.alpha | ช่วงทดสอบ: เข้าสู่ระบบได้เฉพาะบัญชี Google ที่ได้รับเชิญ | Test period: only invited Google accounts can sign in. |
 | guest.no_google | ไม่มีบัญชี Google ก็ไม่เป็นไร ใช้ต่อแบบไม่เข้าสู่ระบบได้ครบทุกอย่างในเครื่อง | No Google account? That is fine. Everything on this PC keeps working without one. |
 | signin.not_open | บริการบัญชียังไม่เปิด ยังเข้าสู่ระบบไม่ได้ในรุ่นนี้ | The account service is not open yet. You cannot sign in in this version. |
 | signin.in_match | คุณอยู่ในแมตช์ เข้าสู่ระบบได้หลังจบแมตช์ เราจะไม่เปิดเบราว์เซอร์ทับเกม | You are in a match. You can sign in when it ends. We will not open a browser over your game. |
@@ -171,7 +172,7 @@ Thai wording was written by the author and has not been read by a native-speakin
 | name.title | ตั้งชื่อที่เพื่อนจะเห็น | Choose the name your friends see |
 | name.not_google | เราไม่ดึงชื่อจาก Google คุณพิมพ์เองที่นี่ | We do not take a name from Google. You type it here. |
 | name.label | ชื่อที่แสดง | Display name |
-| name.hint | 1 ถึง 32 ตัวอักษร | 1 to 32 characters |
+| name.hint | 1 ถึง 32 ตัวอักษร เปลี่ยนได้ภายหลัง | 1 to 32 characters. You can change it later. |
 | name.save | บันทึกชื่อ | Save name |
 | name.who_sees | คนที่เห็นชื่อนี้: เพื่อนของคุณ และคนที่คุณส่งหรือได้รับคำขอเป็นเพื่อน เท่านั้น | Who sees this name: your friends, and people you send a friend request to or get one from. Nobody else. |
 | name.err.empty | ยังไม่ได้พิมพ์ชื่อ พิมพ์ชื่ออย่างน้อย 1 ตัวอักษร | No name yet. Type at least 1 character. |
@@ -196,8 +197,9 @@ Thai wording was written by the author and has not been read by a native-speakin
 | ready.nothing_shared | ตอนนี้ยังไม่มีการแชร์อะไร การแชร์เริ่มเมื่อคุณเพิ่มเพื่อนเข้ารายชื่อแชร์เองเท่านั้น | Nothing is being shared. Sharing starts only when you add a friend to your Share list yourself. |
 | code.new.title | ขอรหัสเพื่อนใหม่? | Get a new friend code? |
 | code.new.c1 | รหัสเดิมจะใช้ไม่ได้ทันที ใครที่มีรหัสเดิมจะใช้เพิ่มคุณไม่ได้อีก | The old code stops working at once. Anyone who has it can no longer use it to add you. |
-| code.new.c2 | เพื่อนของคุณยังอยู่ครบ รายชื่อแชร์ไม่เปลี่ยน | Your friends stay. Your Share list does not change. |
-| code.new.c3 | เปลี่ยนกลับเป็นรหัสเดิมไม่ได้ | You cannot go back to the old code. |
+| code.new.c2 | เพื่อนของคุณยังอยู่ครบ รายชื่อแชร์ไม่เปลี่ยน คำขอเป็นเพื่อนที่รออยู่ยังอยู่เหมือนเดิม | Your friends stay. Your Share list does not change. Friend requests that are waiting stay as they are. |
+| code.new.c3 | เปลี่ยนกลับเป็นรหัสเดิมไม่ได้ ขอรหัสใหม่ได้วันละ 3 ครั้ง | You cannot go back to the old code. You can get a new code 3 times a day. |
+| code.new.limit | วันนี้คุณขอรหัสใหม่ครบ 3 ครั้งแล้ว ลองใหม่พรุ่งนี้ รหัสปัจจุบันยังใช้ได้ | You have used today's 3 new codes. Try again tomorrow. Your current code still works. |
 | code.new.keep | เก็บรหัสเดิม | Keep this code |
 | code.new.done | ได้รหัสใหม่แล้ว รหัสเดิมใช้ไม่ได้แล้ว | You have a new code. The old one no longer works. |
 | code.new.failed | ขอรหัสใหม่ไม่ได้ รหัสเดิมยังใช้ได้ ลองใหม่ภายหลัง | Could not get a new code. Your current code still works. Try again later. |
@@ -225,7 +227,6 @@ Friend request failure (DECIDED: one wording for every cause; drawn in `social.h
 | acct.other_device | อุปกรณ์อื่น | Another device |
 | acct.signed_in_on | เข้าสู่ระบบเมื่อ {date} | Signed in on {date} |
 | acct.signout | ออกจากระบบ | Sign out |
-| acct.signout_that | ออกจากระบบเครื่องนั้น | Sign that device out |
 | acct.signout.c | ข้อมูลบัญชีที่บันทึกไว้ในเครื่องนี้จะถูกลบ บัญชีและเพื่อนของคุณยังอยู่ การตั้งค่าในเครื่องไม่เปลี่ยน | Account data saved on this PC is erased. Your account and friends stay. Settings on this PC do not change. |
 | acct.signout_all | ออกจากระบบทุกเครื่อง | Sign out everywhere |
 | acct.signout_all.title | ออกจากระบบทุกเครื่อง? | Sign out everywhere? |
@@ -295,7 +296,7 @@ line is needed: "You can no longer download your packs again. Packs already inst
 | newdevice.head | เข้าสู่ระบบบนเครื่องใหม่: การแชร์หยุดไว้ก่อน | New device: sharing is paused |
 | newdevice.body | เพื่อความปลอดภัย รายชื่อแชร์ทุกรายการหยุดชั่วคราวจนกว่าคุณจะยืนยัน เพื่อนของคุณยังอยู่ครบ | To keep you safe, every Share list entry is paused until you confirm. Your friends are all still here. |
 
-`err.google.alpha` is appended only while sign-in is limited to invited testers (BACKEND-STACK owner checklist item 3: at most 100 testers).
+`err.google.alpha` and `signin.alpha` (shown up front on A1) are used only while sign-in is limited to invited testers (BACKEND-STACK owner checklist item 3: at most 100 testers).
 
 ### 6.9 Browser result page (served on loopback by the native host)
 
@@ -327,7 +328,7 @@ Full sentences for each item are in the artboard. The headline is a proposal, no
 
 ## 7. Accessibility
 
-Rules for the implementation. None of this was tested with assistive technology (section 10).
+Rules for the implementation. None of this was tested with assistive technology (section 11).
 
 **Keyboard**
 - Every action is a real button reachable with Tab, activated with Enter or Space. Nothing is hover-only. Targets are at least 44 px (`--target-min`).
@@ -347,7 +348,7 @@ Rules for the implementation. None of this was tested with assistive technology 
 - Errors that follow a user action use `role="alert"` (E1, E3, E5, E6, name errors). Background changes (A6 offline, E2 while idle, X1, X2) use `role="status"`, never an alert, and never interrupt a match.
 - The name field has a visible label, `aria-describedby` for the hint and the error, and `aria-invalid="true"` while refused. The character counter is visual; the limit is in the hint text.
 - Copy announces "คัดลอกแล้ว / Copied" in a status region. The friend code is exposed as text; consider reading it with a group label ("Your friend code").
-- The devices list is a list; each sign-out button names its device ("Sign that device out").
+- The devices list is a list of text rows with no controls; "Sign out" and "Sign out everywhere" follow it.
 - Thai text carries `lang="th"`, English `lang="en"`; the brand name is not translated.
 - Glyphs that carry meaning (▲, !, ✓, ×) always sit beside words that say the same thing; the glyphs themselves can be hidden from assistive technology.
 
@@ -380,8 +381,8 @@ Names only. The backend designer defines the API, transport, payloads and error 
 | `service_unreachable` | Show E2 or A6 |
 | `rate_limited` (with the action it applies to) | Show E5 |
 | `display_name_saved` / `display_name_refused` | A5, or A4e |
-| `friend_code_issued` / `friend_code_replaced` / `friend_code_replace_failed` | A5, A7 |
-| `sessions_listed` / `session_ended` / `all_sessions_ended` | A7, A7b |
+| `friend_code_issued` / `friend_code_replaced` / `friend_code_replace_failed` / `friend_code_limit_reached` | A5, A7 |
+| `sessions_listed` / `signed_out_here` / `all_sessions_ended` | A7, A7b |
 | `export_ready` / `export_failed` | A7c |
 | `reauth_confirmed` / `reauth_mismatch` / `reauth_window_expired` | A8b, E6 |
 | `account_deleted` / `account_delete_failed` | A1 with notice, or A8 with error |
@@ -394,15 +395,15 @@ Names only. The backend designer defines the API, transport, payloads and error 
 | Whether the account service is configured and open | A1 versus A1b | Today: not open |
 | Whether sign-in is limited to invited testers | `err.google.alpha` | Alpha only |
 | Whether a match is live | A1c, disabling delete | Local fact, not a backend one |
-| Hand-off deadline (or seconds left) | A2 countdown | The length is undecided (Q2) |
-| Display-name rules: minimum, maximum, **how characters are counted**, what is refused | A4 counter and messages | Thai combining marks and emoji make "32 characters" ambiguous (Q3) |
+| Hand-off deadline (or seconds left) | A2 countdown | 5 minutes recommended (R2) |
+| Display-name rules: minimum, maximum, **how characters are counted**, what is refused | A4 counter and messages | Recommended: grapheme clusters (R3); the service is the authority and the UI count is advisory |
 | Refusal reason for a name, if distinct reasons exist | A4e | Otherwise one wording |
 | Own display name | A6, A7 | Cached copy when offline |
 | Own friend code, as a display string | A5, A6, A7 | The UI never formats, parses or validates it |
 | Whether the shown code is live or cached | Solid versus dashed code box | |
-| Session list: one row per session, "is this device", a human-readable label, sign-in date | A7 | Which fields exist is open (Q4); never IP, place or last-active time |
+| Session list: one row per session, "is this device", sign-in date | A7 | Nothing else: no device name, IP, place or last-active time (R4) |
 | Retry-after for a rate limit, if the service states one | E5 | Without it the UI shows no countdown |
-| Limit on friend-code replacement, if any | A5b | Q5 |
+| Friend-code replacements left today (limit 3 per day recommended) | A5b, `code.new.limit` | R5 |
 | Fresh-sign-in window: seconds left | A8b | 5 minutes per rule 27 |
 | Backup purge period | `delete.g4` | 30 days per BACKEND-STACK |
 | Export content as a file the native host can save | A7c | The renderer should not hold the data longer than the save |
@@ -410,6 +411,8 @@ Names only. The backend designer defines the API, transport, payloads and error 
 **Things the UI must never be given** (so they cannot be shown or logged by mistake): the Google subject or its hash, the account id, any Google or Kohbor token, another person's device list, an IP address, any email.
 
 ## 9. Open questions for the owner
+
+Recommended answers are in section 10; they need the owner's confirmation.
 
 1. **Website scope.** A public website is not approved and hosting is not provisioned. Is this entry section wanted at all, and on which page (the prototype at `apps/website/` has no account chapter)?
 2. **Hand-off timeout.** I drew 5 minutes. Shorter is safer for the loopback listener; longer forgives a slow consent screen. Which value?
@@ -425,7 +428,34 @@ Names only. The backend designer defines the API, transport, payloads and error 
 12. **Copy review.** Thai and English wording, and the headline, need a native-speaker read and the owner's taste. The "no recovery" sentence and every deletion sentence also need the planned legal review (DEC-PRIVACY-LEGAL).
 13. **Gallery link.** `visuals/command-deck/index.html` does not list `register.html` yet; that file is outside my write scope.
 
-## 10. Verified and not verified
+## 10. Recommended resolutions (agent proposal, owner confirmation required)
+
+The owner said "let the agent decide for me" on the open items; the coordinator relayed these picks. **This is an agent proposal, not owner approval.**
+Nothing here is recorded as decided until the owner confirms it. Legal questions, hosting, publication and the decided baseline rules stay with the owner.
+The copy tables and the artboard already reflect these picks. R numbers match the question numbers in section 9.
+
+| # | Question | Recommended resolution | Changed in this design |
+| --- | --- | --- | --- |
+| R1 | Website entry | Keep it as an optional explainer page that collects nothing (no form, cookie, tracking or script). Whether any public website ships, and where, stays an owner decision | No change; artboard 2 |
+| R2 | Hand-off timeout | 5 minutes | A2 caption; data list |
+| R3 | Display name | At most 32 **grapheme clusters** (a Thai consonant with its vowel and tone mark counts as 1), at least 1; **no uniqueness**; renaming allowed | `name.hint` now says the name can be changed later; the A4 counter counts graphemes; "Change name" on A7 |
+| R4 | Devices list | A row shows only "This PC" or "Another device" and the sign-in date. No device name, IP, place or last-active time is stored or shown. This resolves conflict 4 with rule 26 by omitting identifying data | A7 rows carry no other data and no controls |
+| R5 | New friend code | Limit: 3 per day. The dialog says so before the press; at the limit the button is disabled with `code.new.limit` | `code.new.c3`, `code.new.limit`; A5b |
+| R6 | Sign out everywhere | Includes this PC | A7b caption (wording unchanged) |
+| R7 | Per-device sign-out | Not offered. "Sign out" acts on this PC; "Sign out everywhere" is the way to end a session on another device | Row buttons and `acct.signout_that` removed |
+| R8 | Pending requests on a code change | They survive: requests belong to the account, not to the code | `code.new.c2` |
+| R9 | Returning account on a new device (X2) | No pick was given. Stays open; X2 remains drawn as "beyond the brief" | None |
+| R10 | Alpha wording | "Invited testers only" is stated up front on A1 (`signin.alpha`) while the limit applies, and again in E3 | A1; `signin.alpha` |
+| R11 | Website fonts | Self-host the fonts; no Google Fonts request on a page that says it collects nothing | Specification only. The artboard still links Google Fonts as a **placeholder**, because it may not add font files; a real page must not ship that link |
+| R12 | Copy and legal review | No pick: stays with the owner (native-speaker read, taste, DEC-PRIVACY-LEGAL) | None |
+| R13 | Gallery link | No pick: `index.html` is outside this task's write scope | None |
+
+Points the backend designer should check, because these picks constrain the service: the grapheme rule needs one authoritative implementation
+(client and service can disagree on new emoji); "3 per day" needs a definition of "day" (the copy says "a day" either way); "requests survive" must hold
+for requests in both directions; a rename must reach friends' cached copies. With R7, a lost or stolen device can only be signed out together with every
+other device. The `social.html` wording conflicts (section 12, items 1 and 2) are reported, not edited.
+
+## 11. Verified and not verified
 
 Verified by me on 2026-11-21, in the built-in browser pane (Chromium) on this Windows machine, served from a local static server on loopback:
 
@@ -436,6 +466,7 @@ Verified by me on 2026-11-21, in the built-in browser pane (Chromium) on this Wi
 - Language switch: with `lang=en` no Thai span is visible and `<html lang>` is `en`. State picker: `state=a4` shows only A4 and A4e.
 - Name field logic in the mock: 33 characters → counter "33 / 32", error shown, Save disabled, `aria-invalid="true"`; 4 characters → error hidden, Save enabled.
 - I looked at screenshots of: the guest and hand-off cards, the account screen and its dialogs, the error cards, the website top and its red and steps sections (dark, Thai); A4 in light English; the website at 375 in both.
+- Re-check after the section 10 edits (same pane, same day): no console messages and no horizontal page scroll at 1440 × 900 and 375 × 812 (dark, Thai); 22 cards, none overflowing, no button under 44 px; A7 has no per-device button; the A1 alpha line and the A5b limit and pending-request lines are present; the counter reports the Thai word "น้ำผึ้ง" as 3 (grapheme clusters). Only the A7 row of cards was looked at again in a screenshot.
 
 Not verified:
 
@@ -450,12 +481,12 @@ Not verified:
 - Google's behaviour (what a declined sign-in returns, whether an uninvited tester is distinguishable from a cancel) is assumed, not checked; ACCOUNT-IDENTITY-REVIEW §6 lists it as unverified too.
 - I did not use the Codex worker; all text and markup are mine and unreviewed by another agent.
 
-## 11. Conflicts found between documents
+## 12. Conflicts found between documents
 
 1. **Sign-in verb.** The shipped app says "เข้าสู่ระบบ / ออกจากระบบ" (`AccountPages.tsx`, `accountView.ts`); `social.html` says "ลงชื่อเข้าใช้". This design uses the shipped wording. One should be chosen for the whole product.
 2. **`social.html` D1 and D2 are behind the review.** D2 still says "The sign-in method is not decided (DEC-SOCIAL)" and D1 offers "Join with a code" and a primary "Continue without signing in". ACCOUNT-IDENTITY-REVIEW §5 item 1 replaces the note. This artboard supersedes D1 and D2 for the Account destination; `social.html` itself was not edited (outside my scope).
 3. **Shipped account states versus fixture states.** `accountView.ts` has four states (`guest`, `online`, `offline`, `expired`); the s1c fixture has ten (`signed_out` … `deleting`). This design uses the fixture's names. "expired" and `session_revoked` are drawn as one screen (X1).
-4. **Devices list versus the persistence allow-list.** §5 item 7 asks for a "device and session list"; rule 26 lists nothing a person could recognise a device by, and forbids last-seen and IP history. Q4.
+4. **Devices list versus the persistence allow-list.** §5 item 7 asks for a "device and session list"; rule 26 lists nothing a person could recognise a device by, and forbids last-seen and IP history. Recommended resolution R4: show only "this PC / another device" and the sign-in date.
 5. **"Decided" versus "not approved".** The task baseline calls the account model decided; ACCOUNT-IDENTITY-REVIEW's front matter is `approval_status: not_approved` and its own text says sections 1, 4 and 5 are proposed. I followed the task. The decision log should record which it is.
 6. **Website: "collects nothing" versus Google Fonts.** The website prototype (and this artboard, like its sibling artboards) requests fonts from Google. Q11.
 7. **Website host.** BACKEND-STACK names Cloudflare Pages for the site; `apps/website/README.md` records a Vercel deployment of the prototype. Not a conflict for this design (no address is used), noted so no URL is inferred.

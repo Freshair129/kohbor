@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>R Account registration — Kohbor Command Deck proposal (not approved)</title>
-<!-- Optional web font, as on the sibling artboards; the stack falls back to Leelawadee UI / system-ui when offline. No other external request, no script from outside. -->
+<!-- PLACEHOLDER: the recommended resolution is self-hosted fonts (no third-party request). This artboard cannot add font files, so it keeps the optional web font link used on the sibling artboards; the stack falls back to Leelawadee UI / system-ui when offline. No other external request, no script from outside. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="tokens.css">
 <style>
@@ -163,12 +163,13 @@ dl.kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 14px
           <h4 id="a1-h"><span class="th">บัญชี (ไม่บังคับ)</span><span class="en">Account (optional)</span></h4>
           <p><span class="th">ทุกอย่างในเครื่องนี้ใช้ได้โดยไม่ต้องเข้าสู่ระบบ บัญชีมีไว้สำหรับเพื่อนและรายชื่อแชร์เท่านั้น</span><span class="en">Everything on this PC works without signing in. An account is only for friends and the Share list.</span></p>
           <div class="beside">
-            <button type="button" class="primary" aria-describedby="a1-promise a1-gets"><span class="th">เข้าสู่ระบบด้วย Google (เปิดเบราว์เซอร์)</span><span class="en">Sign in with Google (opens your browser)</span></button>
+            <button type="button" class="primary" aria-describedby="a1-promise a1-gets a1-alpha"><span class="th">เข้าสู่ระบบด้วย Google (เปิดเบราว์เซอร์)</span><span class="en">Sign in with Google (opens your browser)</span></button>
             <span class="promise" id="a1-promise"><span class="th">การเข้าสู่ระบบไม่แชร์ข้อมูลอะไร</span><span class="en">Signing in shares nothing.</span></span>
           </div>
           <p class="quiet" id="a1-gets"><span class="th">เกาะเบาะได้รับแค่รหัสระบุบัญชี ไม่มีอีเมล ไม่มีรายชื่อติดต่อ และไม่เคยขอรหัสผ่าน</span><span class="en">Kohbor receives an account identifier only. No email, no contacts, and it never asks for a password.</span></p>
+          <p class="quiet" id="a1-alpha"><span class="pending">alpha only</span> <span class="th">ช่วงทดสอบ: เข้าสู่ระบบได้เฉพาะบัญชี Google ที่ได้รับเชิญ</span><span class="en">Test period: only invited Google accounts can sign in.</span></p>
           <p class="quiet"><span class="th">ไม่มีบัญชี Google ก็ไม่เป็นไร ใช้ต่อแบบไม่เข้าสู่ระบบได้ครบทุกอย่างในเครื่อง</span><span class="en">No Google account? That is fine. Everything on this PC keeps working without one.</span></p>
-          <p class="cap"><b>A1 Guest.</b> One primary action. The promise sits beside the button and is its accessible description. No "continue as guest" button: being a guest needs no action on this page.</p>
+          <p class="cap"><b>A1 Guest.</b> One primary action. The promise sits beside the button and is its accessible description. No "continue as guest" button: being a guest needs no action on this page. The "invited accounts only" line is shown while sign-in is limited to invited testers and removed afterwards.</p>
         </section>
 
         <section class="st" id="a1b" data-group="a1" aria-labelledby="a1b-h">
@@ -207,7 +208,7 @@ dl.kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 14px
           <div class="box is-wait"><span><span class="th">กำลังรอเบราว์เซอร์ · หมดเวลาใน</span><span class="en">Waiting for your browser · times out in</span> <span class="count">4:32</span> <span class="tag tag-sample">example</span></span></div>
           <div class="acts"><button type="button"><span class="th">ยกเลิก</span><span class="en">Cancel</span></button><button type="button"><span class="th">เปิดเบราว์เซอร์อีกครั้ง</span><span class="en">Open the browser again</span></button></div>
           <p class="quiet"><span class="th">เกาะเบาะไม่ขอรหัสผ่าน อย่าพิมพ์รหัสผ่าน Google ในแอปนี้</span><span class="en">Kohbor never asks for a password. Do not type your Google password into this app.</span></p>
-          <p class="cap"><b>A2 Finish in your browser.</b> No spinner and no pulse: the countdown is the only thing that changes. The Kohbor window does not raise itself or take focus. Cancel is first in tab order. The timeout length is proposed (5 min).</p>
+          <p class="cap"><b>A2 Finish in your browser.</b> No spinner and no pulse: the countdown is the only thing that changes. The Kohbor window does not raise itself or take focus. Cancel is first in tab order. Timeout: 5 minutes (recommended resolution).</p>
         </section>
 
         <section class="st" id="a3" data-group="a2" aria-labelledby="a3-h">
@@ -231,12 +232,12 @@ dl.kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 14px
           <form class="field" id="name-form" novalidate>
             <label for="name-in"><span class="th">ชื่อที่แสดง</span><span class="en">Display name</span></label>
             <input type="text" id="name-in" autocomplete="off" spellcheck="false" aria-describedby="name-hint name-err">
-            <p class="hint" id="name-hint"><span><span class="th">1 ถึง 32 ตัวอักษร</span><span class="en">1 to 32 characters</span></span><span class="n" id="name-n" aria-hidden="true">0 / 32</span></p>
+            <p class="hint" id="name-hint"><span><span class="th">1 ถึง 32 ตัวอักษร เปลี่ยนได้ภายหลัง</span><span class="en">1 to 32 characters. You can change it later.</span></span><span class="n" id="name-n" aria-hidden="true">0 / 32</span></p>
             <p class="ferr" id="name-err" role="alert" hidden><span class="th">ชื่อยาวเกิน 32 ตัวอักษร ลบออกบางส่วน</span><span class="en">The name is longer than 32 characters. Remove some.</span></p>
             <div class="acts"><button type="submit" class="primary" id="name-go" disabled><span class="th">บันทึกชื่อ</span><span class="en">Save name</span></button><button type="button"><span class="th">ออกจากระบบ</span><span class="en">Sign out</span></button></div>
           </form>
           <p class="quiet"><span class="th">คนที่เห็นชื่อนี้: เพื่อนของคุณ และคนที่คุณส่งหรือได้รับคำขอเป็นเพื่อน เท่านั้น</span><span class="en">Who sees this name: your friends, and people you send a friend request to or get one from. Nobody else.</span></p>
-          <p class="cap"><b>A4 Display name.</b> The field starts empty: nothing is prefilled from Google or Steam. The account is not usable for friends until a name is saved; Sign out is the way to leave. The counter here counts code points as a stand-in; the real counting rule comes from the service.</p>
+          <p class="cap"><b>A4 Display name.</b> The field starts empty: nothing is prefilled from Google or Steam. The account is not usable for friends until a name is saved; Sign out is the way to leave. The counter counts grapheme clusters (what a person sees as one character; a Thai consonant with its vowel and tone mark is 1), as recommended; the service is the authority. Names need not be unique.</p>
         </section>
 
         <section class="st" id="a4e" data-group="a4" aria-labelledby="a4e-h">
@@ -271,11 +272,11 @@ dl.kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 14px
           <h4 id="a5b-h"><span class="th">ขอรหัสเพื่อนใหม่?</span><span class="en">Get a new friend code?</span></h4>
           <ul class="pts">
             <li><span class="th"><b>รหัสเดิมจะใช้ไม่ได้ทันที</b> ใครที่มีรหัสเดิมจะใช้เพิ่มคุณไม่ได้อีก</span><span class="en"><b>The old code stops working at once.</b> Anyone who has it can no longer use it to add you.</span></li>
-            <li><span class="th"><b>เพื่อนของคุณยังอยู่ครบ</b> รายชื่อแชร์ไม่เปลี่ยน</span><span class="en"><b>Your friends stay.</b> Your Share list does not change.</span></li>
-            <li><span class="th">เปลี่ยนกลับเป็นรหัสเดิมไม่ได้</span><span class="en">You cannot go back to the old code.</span></li>
+            <li><span class="th"><b>เพื่อนของคุณยังอยู่ครบ</b> รายชื่อแชร์ไม่เปลี่ยน คำขอเป็นเพื่อนที่รออยู่ยังอยู่เหมือนเดิม</span><span class="en"><b>Your friends stay.</b> Your Share list does not change. Friend requests that are waiting stay as they are.</span></li>
+            <li><span class="th">เปลี่ยนกลับเป็นรหัสเดิมไม่ได้ ขอรหัสใหม่ได้วันละ 3 ครั้ง</span><span class="en">You cannot go back to the old code. You can get a new code 3 times a day.</span></li>
           </ul>
           <div class="acts"><button type="button"><span class="th">เก็บรหัสเดิม</span><span class="en">Keep this code</span></button><button type="button" class="primary"><span class="th">ขอรหัสใหม่</span><span class="en">Get a new code</span></button></div>
-          <p class="cap"><b>A5b New code.</b> A modal dialog: focus starts on "Keep this code", Esc keeps the code. Not styled as danger, because friendships are not lost.</p>
+          <p class="cap"><b>A5b New code.</b> A modal dialog: focus starts on "Keep this code", Esc keeps the code. Not styled as danger, because friendships are not lost. At the daily limit the button is disabled with: "You have used today's 3 new codes. Try again tomorrow. Your current code still works."</p>
         </section>
 
         <p class="group-title">5 · Signed in, offline</p>
@@ -300,14 +301,14 @@ dl.kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 14px
           <div class="code"><output>KB-DEMO-0001</output><span class="tag tag-sample">example</span><button type="button" data-copy><span class="th">คัดลอก</span><span class="en">Copy</span></button><button type="button"><span class="th">ขอรหัสใหม่</span><span class="en">Get a new code</span></button></div>
           <h5><span class="th">อุปกรณ์ที่เข้าสู่ระบบอยู่</span><span class="en">Devices signed in</span></h5>
           <ul class="rows">
-            <li><span><b><span class="th">เครื่องนี้</span><span class="en">This PC</span></b><small><span class="th">เข้าสู่ระบบเมื่อ 21 พ.ย. 2569</span><span class="en">Signed in on 21 Nov 2026</span> <span class="tag tag-sample">example</span></small></span><button type="button"><span class="th">ออกจากระบบ</span><span class="en">Sign out</span></button></li>
-            <li><span><b><span class="th">อุปกรณ์อื่น</span><span class="en">Another device</span></b><small><span class="th">เข้าสู่ระบบเมื่อ 3 พ.ย. 2569</span><span class="en">Signed in on 3 Nov 2026</span> <span class="tag tag-sample">example</span></small></span><button type="button"><span class="th">ออกจากระบบเครื่องนั้น</span><span class="en">Sign that device out</span></button></li>
+            <li><span><b><span class="th">เครื่องนี้</span><span class="en">This PC</span></b><small><span class="th">เข้าสู่ระบบเมื่อ 21 พ.ย. 2569</span><span class="en">Signed in on 21 Nov 2026</span> <span class="tag tag-sample">example</span></small></span></li>
+            <li><span><b><span class="th">อุปกรณ์อื่น</span><span class="en">Another device</span></b><small><span class="th">เข้าสู่ระบบเมื่อ 3 พ.ย. 2569</span><span class="en">Signed in on 3 Nov 2026</span> <span class="tag tag-sample">example</span></small></span></li>
           </ul>
-          <div class="acts"><button type="button"><span class="th">ออกจากระบบทุกเครื่อง</span><span class="en">Sign out everywhere</span></button></div>
+          <div class="acts"><button type="button"><span class="th">ออกจากระบบ</span><span class="en">Sign out</span></button><button type="button"><span class="th">ออกจากระบบทุกเครื่อง</span><span class="en">Sign out everywhere</span></button></div>
           <h5><span class="th">ข้อมูลของคุณ</span><span class="en">Your data</span></h5>
           <div class="acts"><button type="button"><span class="th">ส่งออกข้อมูลของฉัน</span><span class="en">Export my data</span></button><button type="button" class="danger"><span class="th">ลบบัญชี</span><span class="en">Delete account</span></button></div>
           <p class="quiet"><span class="th">บัญชีเกาะเบาะกับ Steam เป็นคนละบัญชี ไม่มีการเชื่อมกัน</span><span class="en">Kohbor and Steam are separate accounts. They are not linked.</span></p>
-          <p class="cap"><b>A7 Account screen.</b> No IP address, location or "last active" time is drawn: the service does not keep them. What can tell two devices apart for a person (a device name?) is an open question to the backend. No Steam control is drawn.</p>
+          <p class="cap"><b>A7 Account screen.</b> A device row shows only "This PC" or "Another device" and its sign-in date. No device name, IP address, location or "last active" time: the service does not keep them. One other device cannot be signed out alone; "Sign out" is for this PC and "Sign out everywhere" for all. No Steam control is drawn.</p>
         </section>
 
         <section class="st" id="a7b" data-group="a7" role="group" aria-labelledby="a7b-h">
@@ -319,7 +320,7 @@ dl.kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 14px
             <li><span class="th">บัญชี เพื่อน และรายชื่อแชร์บนบริการยังอยู่ครบ การตั้งค่าในเครื่องไม่เปลี่ยน</span><span class="en">Your account, friends and Share list stay on the service. Settings on this PC do not change.</span></li>
           </ul>
           <div class="acts"><button type="button"><span class="th">ยกเลิก</span><span class="en">Cancel</span></button><button type="button" class="primary"><span class="th">ออกจากระบบทุกเครื่อง</span><span class="en">Sign out everywhere</span></button></div>
-          <p class="cap"><b>A7b Sign out everywhere.</b> Whether this PC is included is proposed here as "yes" and needs the backend's answer.</p>
+          <p class="cap"><b>A7b Sign out everywhere.</b> This PC is included (recommended resolution). It is the only way to sign another device out.</p>
         </section>
 
         <section class="st" id="a7c" data-group="a7" role="group" aria-labelledby="a7c-h">
@@ -486,6 +487,7 @@ dl.kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 14px
     <li>Tokens only: no colour, radius, type stack or target size is defined on this page. The red band uses <code>--brand</code> as a fill with <code>--brand-ink</code> as its only ink.</li>
     <li>The waiting states use no looping animation (DESIGN-NOTES §5: no pulsing, no looping emphasis). Nothing on this page animates.</li>
     <li>Interactions that work here: theme, language, state picker, website width, the name counter in A4, and the Copy label. Copy does not write to the clipboard in this mock. Every other button is inert.</li>
+    <li>Fonts: the recommended resolution for the website is self-hosted fonts. This artboard still links Google Fonts as a placeholder because it may not add font files; a real page must not ship that link.</li>
     <li>Rail labels are placeholders written for this mock; they were not copied from the shipped shell.</li>
   </ul>
 </div>
@@ -513,7 +515,7 @@ dl.kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 14px
   });
   var input = document.getElementById('name-in'), n = document.getElementById('name-n'), err = document.getElementById('name-err'), go = document.getElementById('name-go');
   function check() {
-    var len = Array.from(input.value.trim()).length, over = len > 32;
+    var v = input.value.trim(), len = window.Intl && Intl.Segmenter ? Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(v)).length : Array.from(v).length, over = len > 32;
     n.textContent = len + ' / 32'; err.hidden = !over; go.disabled = len < 1 || over;
     if (over) input.setAttribute('aria-invalid', 'true'); else input.removeAttribute('aria-invalid');
   }

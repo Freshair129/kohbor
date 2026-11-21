@@ -123,12 +123,12 @@ PASS = the code or schema meets the rule as written for the S2 local scope. GAP 
 
 | Id | Source A | Source B | Effect |
 | --- | --- | --- | --- |
-| C1 | ACCOUNT-IDENTITY-REVIEW.md:43 account id is seen by "Nobody outside the broker" | broker.mjs:187 (`sub` = account id in a token the client can decode); client lib.rs:73, 116, 128, 180-200 (client stores and sends account id); tests rely on it (broker.test.mjs:167, 197) | Proposal in 3.2 and 7: drop `sub`, keep `sid`; client uses a local-only reference. Changes the client contract: R2 and the account steward decide |
-| C2 | ACCOUNT-IDENTITY-REVIEW.md:83 "No tombstone is kept" | BACKEND-STACK.md:64 "verify that backups cannot reintroduce deleted accounts into service" | Options in section 9; owner decision |
+| C1 | ACCOUNT-IDENTITY-REVIEW.md:43 account id is seen by "Nobody outside the broker" | broker.mjs:187 (`sub` = account id in a token the client can decode); client lib.rs:73, 116, 128, 180-200 (client stores and sends account id); tests rely on it (broker.test.mjs:167, 197) | Recommended in 14.1 (agent proposal, owner confirmation required): token `sub` = opaque session id; account id server-side only; client keys by a local reference, not the friend code (defect noted there) |
+| C2 | ACCOUNT-IDENTITY-REVIEW.md:83 "No tombstone is kept" | BACKEND-STACK.md:64 "verify that backups cannot reintroduce deleted accounts into service" | Recommended in 14.2: minimal deletion ledger outside the database, 30-day purge, replayed after restore. **Amends rule 27: owner confirmation required** |
 | C3 | docs/governance/DECISION-LOG.md:125 records 30-day encrypted backup retention | contracts/decisions.json:177 says the statement "sets the schedule only; DEC-RETENTION stays open for periods" | The structured record lags the log; document control repairs it. This design uses the recorded 30 days and invents no other value |
-| C4 | ACCOUNT-IDENTITY-REVIEW.md:79 allow-list (no nonce records) | broker/src/migrate.mjs:41-52 and broker/README.md:7 (short-lived nonce hashes with device thumbprints are persisted) | Amend the allow-list through document control, or move nonces to memory (section 13) |
+| C4 | ACCOUNT-IDENTITY-REVIEW.md:79 allow-list (no nonce records) | broker/src/migrate.mjs:41-52 and broker/README.md:7 (short-lived nonce hashes with device thumbprints are persisted) | Recommended in 14.3: nonces join the allow-list with short expiry and purge. Amends rule 26 text: owner confirmation via document control |
 | C5 | REMAINING-SYSTEM-DESIGN.md:259-263 (D9: Rust `kohbor-social-core` with a fake) and :251 (option B: one Rust binary with SQLite) | Node.js broker with Postgres (broker/package.json; README.md:3); BACKEND-STACK.md:78 asks S2 to justify the language | Report only; not a registration decision |
-| C6 | Broker nonce lifetime 300 s (broker.mjs:17) | Client hand-off timeout 300 s (client lib.rs:14; REMAINING-SYSTEM-DESIGN.md:273) | A sign-in finished near the timeout fails. Proposal in 7.3 |
+| C6 | Broker nonce lifetime 300 s (broker.mjs:17) | Client hand-off timeout 300 s (client lib.rs:14; REMAINING-SYSTEM-DESIGN.md:273) | A sign-in finished near the timeout fails. Recommended in 14.5: nonce 600 s against a 300 s hand-off |
 | C7 | HTTP API: bearer tokens, ID token sent to broker (broker.mjs:502-738) | Client `Broker` trait takes account ids and a `ProviderIdentity` whose `subject_hash` is filled before the broker is called (lib.rs:103-112, 166-201); the pepper is server-only (rule 8; BACKEND-STACK.md:60) | The client contract must be re-cut to the wire API before integration; who computes `subject_hash` on the client side is UNVERIFIED |
 
 ## 3. Proposed schema delta (PROPOSED, not applied)
@@ -266,7 +266,7 @@ Notes on the SQL:
 
 ### 3.2 Access-token claims (PROPOSED, resolves C1 only if R2 and the owner agree)
 
-`{iss: <account_token_domain label>, aud: "broker", sid, dkh, iat, exp}`: no `sub`. The broker reads the account from the session row (it already queries it at broker.mjs:371-377). The client keys its local blobs by a random local reference created at sign-in, not by the account id. The tests stop decoding `sub` and read the database directly.
+`{iss: <account_token_domain label>, aud: "broker", sid, dkh, iat, exp}`: no `sub`. (Superseded in form by 14.1: the same opaque session id is carried as `sub` and `sid` is dropped; the effect is identical.) The broker reads the account from the session row (it already queries it at broker.mjs:371-377). The client keys its local blobs by a random local reference created at sign-in, not by the account id. The tests stop decoding `sub` and read the database directly.
 
 ## 4. Friend codes
 
@@ -572,24 +572,77 @@ UNVERIFIED (confirming step in brackets):
 7. One pairing id per pair versus per direction (1.4 item 9) [SHARING-MODEL-REVIEW owner].
 8. Whether any persistent database already holds migration version 1 [ask the S2 implementer].
 
-Owner decisions (named, not decided):
+Owner decisions (named, not decided). "Agent recommendation" points to section 14: an agent proposal made after the owner said "let the agent decide for me", which under AGENTS.md is **not** owner approval. Each still needs the owner's confirmation.
 
-| Decision | Home |
-| --- | --- |
-| Backup restore against "no tombstone": option (a), (b) or (c) of section 9 (C2) | DEC-RETENTION, DEC-PRIVACY-LEGAL |
-| Repair `contracts/decisions.json:177` to match the recorded 30 days (C3) | Document control |
-| Add nonce records to the rule 26 allow-list, or keep nonces in memory only (C4) | Document control; DEC-SOCIAL |
-| Account id visible to the client or not (C1) | R2; DEC-ACCOUNT-IDENTITY confirmation |
-| Access 15 min, refresh 30 days idle, an absolute session lifetime or none, nonce margin | DEC-ACCOUNT-IDENTITY ("session and limit values") |
-| Every rate-limit value in section 6, including `account_create` and rotation | DEC-ACCOUNT-IDENTITY, DEC-SOCIAL |
-| A per-source in-memory limiter that briefly handles client addresses | DEC-PRIVACY-LEGAL |
-| Display-name counting rule (graphemes vs code points) and allowed scripts | UX owner / owner |
-| Session list: show a coarse "last active" day or not | Owner |
-| Export additions: outgoing pending requests, own session summary | DEC-PRIVACY-LEGAL |
-| Retired friend codes: no history (this design) or a hash-only table | Owner |
+| Decision | Home | Agent recommendation |
+| --- | --- | --- |
+| Backup restore against "no tombstone" (C2); amends rule 27 | DEC-RETENTION, DEC-PRIVACY-LEGAL | 14.2: deletion ledger, option (a) |
+| Repair `contracts/decisions.json:177` to match the recorded 30 days (C3) | Document control | — (repair, not a choice) |
+| Nonce records on the rule 26 allow-list (C4); amends rule 26 text | Document control; DEC-SOCIAL | 14.3: yes, short expiry and purge |
+| Account id visible to the client or not (C1) | R2; DEC-ACCOUNT-IDENTITY confirmation | 14.1: not visible |
+| Refresh reuse from any device key revokes | DEC-ACCOUNT-IDENTITY | 14.4: yes |
+| Access 15 min, refresh 30 days idle, an absolute session lifetime or none | DEC-ACCOUNT-IDENTITY ("session and limit values") | none beyond the review's proposals; absolute lifetime stays open |
+| Nonce lifetime against hand-off timeout (C6) | DEC-ACCOUNT-IDENTITY | 14.5: 600 s against 300 s |
+| Rate-limit values in section 6 | DEC-ACCOUNT-IDENTITY, DEC-SOCIAL | 14.8: friend-code rotation 3 per day; every other value stays open |
+| A per-source in-memory limiter that briefly handles client addresses | DEC-PRIVACY-LEGAL | open (legal) |
+| Display-name counting rule and renaming | UX owner / owner | 14.6: 32 grapheme clusters, not unique, renaming allowed |
+| Session list contents | Owner | 14.7: "this PC" / "other device" and sign-in date only |
+| Export additions: outgoing pending requests, own session summary | DEC-PRIVACY-LEGAL | open (legal) |
+| Retired friend codes: no history or a hash-only table; pending requests on rotation | Owner | 14.8: no history; pending requests survive rotation |
 | Pepper custody, backup and rotation | Owner (secrets, BACKEND-STACK.md:130) |
 | Log retention and the monitoring provider | BACKEND-STACK.md:65, Group A |
 | Freezing `account_token_domain` and `friend_code_prefix` | Q-ACC-2, DEC-NAME delegation |
 | Implementation language and runtime of the broker (C5) | R2 / owner |
 | Legal items: personal-data status of hashes and graphs, minors, notice wording for the 30-day backup tail, deletion deadlines | DEC-PRIVACY-LEGAL |
 | Hosting, origin, any paid service | DEC-ACCOUNT-ORIGIN, DEC-STORE-HOSTING (not addressed here) |
+
+## 14. Recommended resolutions (agent proposal, owner confirmation required)
+
+Origin: the owner told the coordinator "let the agent decide for me" on the open items. Under AGENTS.md that is **not** owner approval, and it cannot be recorded as one. The picks below came from the coordinator and were checked by this design session; where a concrete defect was found the pick is adjusted and the defect stated. Legal questions, hosting, retention values other than the recorded 30 days, pepper backup and log retention are **not** resolved here and stay in section 13. Nothing in this section changes a baseline until the owner confirms it and document control records it.
+
+### 14.1 C1: account id is not disclosed
+
+- Access-token claims become `{iss, aud: "broker", sub: <session id>, dkh, iat, exp}`. `sub` is the opaque random session id (today's `sid`), so the separate `sid` claim is dropped. The broker reads the account from the session row (as it already does, broker.mjs:371-377). The account id never leaves the broker: not in tokens, responses, exports or logs.
+- **Adjusted, defect found in "client keys by friend code":** the friend code is rotatable (rule 11, 14.8). Local blobs and the `DeletePending` / `WipePending` recovery markers (client lib.rs:71-75) keyed by friend code would be orphaned or mis-matched after a rotation, and a crash between rotation and re-keying would leave a marker that names no current account. Recommended instead: the host creates a random **local account reference** at sign-in, stores it only on that PC under DPAPI, and keys every blob and marker by it. The friend code stays a displayed value. Owner or R2 may still choose friend-code keying if a re-key-on-rotation step is specified.
+- Consequences: client contract change in `crates/kohbor-account` (C7) and the S2 tests that decode `sub` (broker.test.mjs:167, 197) must read the database instead.
+
+### 14.2 C2: minimal deletion ledger (amends rule 27)
+
+**This amends rule 27 ("No tombstone is kept", ACCOUNT-IDENTITY-REVIEW.md:83) and therefore needs the owner's confirmation.** It is a time-bounded tombstone.
+
+- Content per deletion: the keyed login-identity hash (`subject_hash`, already `HMAC(pepper, iss+sub)`) and the deletion time. Nothing else: no account id, friend code, display name or device data.
+- **Adjusted, defect found in "deletion date" only:** a user may delete and then sign in again before 30 days pass, which legitimately creates a new account with the same login hash. Replaying the ledger by hash alone would delete that new account. The ledger therefore stores the deletion **timestamp**, and replay deletes an account only when its login hash matches **and** `accounts.created_at` is earlier than the recorded deletion time.
+- **Adjusted, location:** the ledger must live **outside** the database being restored (an encrypted file beside the backups, same custody), because a restore overwrites anything inside it. Where exactly and who holds it is owner custody (with the backups).
+- Purge: an entry is removed 30 days after the deletion, matching the recorded backup rotation (DECISION-LOG.md:125). It must not be purged before the last backup taken before that deletion has been rotated out; if rotation ever runs late, the purge waits for it. No new retention value is introduced.
+- Replay: after any restore, before any broker process reads the database, delete every account matching a ledger entry under the rule above (cascade per 8.1). The restore rehearsal (11 row 30) proves it.
+- The privacy notice must mention the ledger and the 30-day backup tail: DEC-PRIVACY-LEGAL.
+
+### 14.3 C4: nonces join the allow-list
+
+Recommended rule 26 amendment (document control; owner confirms): "single-use sign-in, refresh and delete challenges (nonce hash, device-key thumbprint, purpose, times), kept until consumed or expired and then purged". Lifetime per 14.5; purge as in 5.1. Unused `attempts` column dropped (section 3).
+
+### 14.4 Refresh reuse revokes from any device key
+
+As in 5.1 step 4: a rotated token presented with any device key deletes the device row, the session and its tokens. No defect found. Note the concurrency consequence in 5.2 (a client retrying with the same token signs itself out).
+
+### 14.5 C6: nonce outlives the hand-off
+
+Sign-in and delete nonces: 600 s; client hand-off timeout: 300 s (as found). The 300 s ID-token freshness check stays. The values are session values the owner confirms; the agent recommendation is only that the nonce must outlive the hand-off, and 600 against 300 meets it.
+
+### 14.6 Display name
+
+Counted in extended grapheme clusters after NFC, 1 to 32; trimmed; control, bidi-override and zero-width characters refused; **not unique**; **renaming allowed** at any time through `PUT /v1/account/display-name`, charged to `profile_write` (value open). The SQL backstop in section 3 stays a code-point and byte limit. No defect found.
+
+### 14.7 Device rows in the sessions list
+
+Each row shows only "this PC" or "other device" and the sign-in date (UTC day). No last-active time, no IP address, no place, no device name. This matches the UX draft (ACCOUNT-REGISTRATION-UX.md:126). Response shape as in 7.3 item 6 with `current` rendered as "this PC".
+
+### 14.8 Friend-code rotation
+
+- Limit: 3 new codes per account per day (`friend_code_rotate`, charged before work, also when refused). "Day" = a rolling 24-hour window, which fits the existing counter mechanism; a calendar day would need a time-zone choice.
+- Pending requests survive rotation (they are keyed by account id, as found), so do friendships, blocks and Share entries. No defect found: a recipient who rotated to escape someone can still decline or block a pending request from that person.
+- No history of old codes is kept (4.3).
+
+### 14.9 Still open after this section
+
+Legal (DEC-PRIVACY-LEGAL), hosting and origin (DEC-ACCOUNT-ORIGIN), every retention value other than the recorded 30 days, pepper backup and rotation custody, log retention and monitoring, access and refresh lifetimes and any absolute session lifetime, every rate-limit value except rotation, the per-source limiter, export additions, broker language (C5), the decisions.json repair (C3).
