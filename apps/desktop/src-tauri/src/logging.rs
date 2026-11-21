@@ -408,6 +408,19 @@ mod round3_tests {
         assert!(elapsed < Duration::from_secs(1), "caller time: {elapsed:?}");
         assert!(flush_elapsed < Duration::from_millis(300));
         assert!(dropped > 0);
+        // The writer reports drops on its 1 s period after it has drained the queue. A fixed 1.1 s
+        // sleep raced that report when the whole suite loaded the machine (seen once on 2026-11-21);
+        // wait for the report (bounded) instead. The caller and flush bounds above are unchanged.
+        let report_deadline = Instant::now() + Duration::from_secs(5);
+        while Instant::now() < report_deadline
+            && !logger
+                .entries()
+                .iter()
+                .any(|entry| entry.event == "log_entries_dropped")
+        {
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        // Give a second (wrong) report one more period to show up before counting.
         std::thread::sleep(Duration::from_millis(1100));
         let entries = logger.entries();
         let warnings: Vec<_> = entries

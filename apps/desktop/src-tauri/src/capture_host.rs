@@ -8038,7 +8038,7 @@ mod tests {
                 proposal: config.proposal,
                 crop_unchanged: config.crop == crop_before,
                 report: worker.stage_report().cloned(),
-                grab_total: worker.grab_total as u64,
+                grab_total: worker.grab_total,
             };
             let _ = std::fs::remove_dir_all(&worker.config.data_dir);
             outcome
