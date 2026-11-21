@@ -3,6 +3,11 @@ flowchart TB
     direction TB
     Own["Admitted own facts"]
     Pixels["Read-only capture pixels"]
+    DraftCrop["Draft Bar 5a: same DXGI frame top-bar crop"]
+    Mirror["Control-window ten-slot mirror"]
+    HeroMatch["Draft Bar 5b: local portrait matching"]
+    DraftSlots["In-memory hero names or unknown reasons"]
+    PickView["UI-010: suggestions before pick; pick card after pick"]
     Vision["Admitted vision facts"]
     Events["Local events with source qualification"]
     Journal["Local JSONL journal"]
@@ -11,6 +16,11 @@ flowchart TB
     Memory["Versioned memory snapshot"]
     Summary["Up to three sourced summary claims"]
     Pixels --> Vision
+    Pixels --> DraftCrop
+    DraftCrop --> Mirror
+    DraftCrop --> HeroMatch
+    HeroMatch --> DraftSlots
+    DraftSlots --> PickView
     Own -->|"Permitted event facts"| Events
     Vision -->|"Permitted event facts"| Events
     Events --> Journal
@@ -30,4 +40,10 @@ flowchart TB
     Vitals["Authorized received vitals"]
     Display["Fresh peer display"]
     Vitals -->|"Membership and age guards"| Display
+  end
+  subgraph Mixer["Separate orb mixer: per-app audio sessions"]
+    direction TB
+    Orb["Mouse-only edge orb"]
+    Sessions["Dota, Kohbor and selected music app levels"]
+    Orb <-->|"Guarded controls and actual readback"| Sessions
   end

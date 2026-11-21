@@ -71,14 +71,22 @@
         "ADVICE-003",
         "ADVICE-004",
         "PEER-009",
-        "SOCIAL-001"
+        "SOCIAL-001",
+        "UI-009",
+        "UI-011",
+        "MEDIA-009",
+        "UI-010",
+        "UI-012"
       ],
       "decision_ids": [
         "DEC-INTERFACES",
         "DEC-MODELS",
         "DEC-RISK-DETAIL",
         "DEC-CRITICAL-MEDIA",
-        "DEC-VOICE-BUFFER"
+        "DEC-VOICE-BUFFER",
+        "DEC-EDGE-ORB",
+        "DEC-PICK-STATS",
+        "DEC-DRAFT-BAR"
       ],
       "notes": [
         "Draft descriptive view of the current specification baseline; the governing requirements and accepted decisions control. An arrow does not grant data permission or prove implementation.",
@@ -89,7 +97,8 @@
         "Cloud and peer edges are separate restricted projections: cloud receives only its closed consented own-stat allowlist; peer exchange sends admitted own vitals and receives authorized transient peer vitals. Local history, memory and voice content cannot flow into either route.",
         "The account/social edge carries purpose-specific broker authority, not the cloud/peer projection or gameplay archives. Account sign-in and friendship do not grant sharing consent.",
         "Native warnings/audio never wait for the renderer, network, model, disk or optional service completion. Source and request generations fence stale delivery. Detailed critical event order is shown separately in the alert sequence.",
-        "The drawing is an application-container view, not a deployment or resource-containment proof; external OBS, conditional local relay placement and whole-process accounting are addressed by the deployment figure."
+        "The drawing is an application-container view, not a deployment or resource-containment proof; external OBS, conditional local relay placement and whole-process accounting are addressed by the deployment figure.",
+        "The extension edge orb is a separate mouse-only window backed by native session controls; per-app volume is limited to Dota, Kohbor and the user-selected music app. Pick suggestions and the pick card are display-only. Draft Bar capture and hero identification are local, in-memory control-window paths and add no external, disk or overlay sink."
       ],
       "kind": "flowchart",
       "source": "docs/diagrams/source/DGM-002-containers.mmd",
@@ -157,13 +166,21 @@
         "VOICE-001",
         "VOICE-004",
         "VOICE-005",
-        "PEER-009"
+        "PEER-009",
+        "UI-009",
+        "UI-011",
+        "MEDIA-009",
+        "UI-010",
+        "UI-012"
       ],
       "decision_ids": [
         "DEC-SESSION",
         "DEC-RETENTION",
         "DEC-MODELS",
-        "DEC-VOICE-BUFFER"
+        "DEC-VOICE-BUFFER",
+        "DEC-DRAFT-BAR",
+        "DEC-PICK-STATS",
+        "DEC-EDGE-ORB"
       ],
       "notes": [
         "Draft descriptive view of the current specification baseline; the governing requirements and accepted decisions control. An arrow does not grant data permission or prove implementation.",
@@ -173,7 +190,8 @@
         "The durable nondecreasing logical/epoch forget cutoff is comparable with archive timestamps, survives restart and conservatively excludes equal-granularity older sources. It is not a persisted process-monotonic timestamp; corruption fails closed.",
         "Clearing memory advances the cutoff and discards derived snapshots while retaining raw archives. History deletion is a separate action.",
         "A completed summary has at most three source-linked claims; incomplete sessions cannot fabricate completed outcomes. Retention quotas and complete/partial contracts remain open decisions.",
-        "The absence of external arrows is intentional. The separate external-flow view defines the narrow approved own-stat projections; it does not export journals, memory, summaries, microphone content or capture-derived data."
+        "The absence of external arrows is intentional. The separate external-flow view defines the narrow approved own-stat projections; it does not export journals, memory, summaries, microphone content or capture-derived data.",
+        "Draft Bar 5a crops the same admitted DXGI frame for the control-window mirror; 5b matches portraits locally and yields hero names or unknown reasons. The strip and pick views are in-memory display paths, cleared at match end, session change and exit; Draft Bar data has no log, disk, overlay or network sink. The separate orb mixer reads/writes only approved per-app audio-session levels."
       ],
       "kind": "flowchart",
       "source": "docs/diagrams/source/DGM-004-local-data-flow.mmd",
@@ -202,11 +220,18 @@
         "SOCIAL-001",
         "SOCIAL-002",
         "SOCIAL-003",
-        "VOICE-005"
+        "VOICE-005",
+        "UI-012",
+        "UI-010",
+        "STATS-001",
+        "STATS-002",
+        "STATS-003"
       ],
       "decision_ids": [
         "DEC-INTERFACES",
-        "DEC-SOCIAL"
+        "DEC-SOCIAL",
+        "DEC-DRAFT-BAR",
+        "DEC-PICK-STATS"
       ],
       "notes": [
         "Draft descriptive view of the current specification baseline; the governing requirements and accepted decisions control. An arrow does not grant data permission or prove implementation.",
@@ -217,7 +242,8 @@
         "Peer recipients require the same room, match and team. Conservative end-to-end age must remain at most 2,000 ms; polling does not refresh sample age. Membership and samples are transient. Remote transport is HTTPS; literal loopback HTTP is a testing exception.",
         "Account credentials belong to the native broker and private account authority. Relay member credentials stay native; account JWTs/private account IDs do not go to the relay, and relay member secrets do not go into social storage.",
         "Social invitations may use reviewed relay proofs and single-use tickets under their separate protocol. Friendship or sign-in never grants peer sharing; this overview does not depict or authorize a new cross-route payload.",
-        "Consent, owner, account, source, request and membership generations are rechecked as applicable before send and on delivery. Leave and opt-out fence late results. Optional failure does not disable valid local core behavior."
+        "Consent, owner, account, source, request and membership generations are rechecked as applicable before send and on delivery. Leave and opt-out fence late results. Optional failure does not disable valid local core behavior.",
+        "Draft Bar pixels, identities and unknown reasons stay on the device in memory and have no edge to cloud, peer, account, log or disk routes. Public statistics remain their separate consented projection; the draft strip is not a network input."
       ],
       "kind": "flowchart",
       "source": "docs/diagrams/source/DGM-005-external-data-flow.mmd",
@@ -605,14 +631,25 @@
         "ADVICE-001",
         "OBS-001",
         "SOCIAL-001",
-        "PREMIUM-003"
+        "PREMIUM-003",
+        "UI-009",
+        "UI-011",
+        "MEDIA-009",
+        "UI-010",
+        "UI-012",
+        "STATS-001",
+        "STATS-002",
+        "STATS-003"
       ],
       "decision_ids": [
         "DEC-NAME",
         "DEC-VISUALS",
         "DEC-MODELS",
         "DEC-SOCIAL",
-        "DEC-PREMIUM"
+        "DEC-PREMIUM",
+        "DEC-EDGE-ORB",
+        "DEC-PICK-STATS",
+        "DEC-DRAFT-BAR"
       ],
       "notes": [
         "Grouped route labels list existing destinations, not new screens: Overview, Live, Voice Packs, Store, Insights, Account and Settings.",
@@ -622,7 +659,8 @@
         "Deferred Store/wallet/security destinations show unavailable or not-in-build states, without simulated transactions or apparently working controls.",
         "Each explicit PTT/advice/OBS action checks its own capability, permissions and consent. Cloud advice is outside this local-action branch and retains its separate consent gate.",
         "The location of local clip controls still requires DEC-VISUALS; this diagram creates no new clips page.",
-        "Fresh/stale/unknown views use admitted data; no production fixtures or automatic hero selection. Premium never broadens data rights or gates local core."
+        "Fresh/stale/unknown views use admitted data; no production fixtures or automatic hero selection. Premium never broadens data rights or gates local core.",
+        "On first run or when GSI setup is needed, the control window offers setup and waits for an explicit player choice; setup does not happen implicitly. The Live page shows the ten-slot draft strip only in supported phases and geometry. Public suggestions appear before the own pick and the pick card after it under its separate consent; the edge orb is a separate mouse-only guarded window with per-app volume controls."
       ],
       "kind": "flowchart",
       "source": "docs/diagrams/source/DGM-017-user-flow.mmd",

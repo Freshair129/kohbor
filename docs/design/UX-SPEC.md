@@ -2,7 +2,7 @@
 title: "User Experience Specification"
 doc_id: "UX-SPEC"
 status: draft
-version: "0.3.8"
+version: "0.3.9"
 updated: "2026-11-21"
 baseline: "DEC-BASELINE"
 owner_role: "UX owner; people not assigned"
@@ -92,7 +92,7 @@ The map is the first visual priority; missing-enemy information is second. Own h
 
 Own hero loadout (as built 2026-11-21): items use the game's arrangement — a 3 × 2 inventory, the neutral slot (round) and TP slot beside it, and a dimmed three-slot backpack — with text names (no game art), charges in the lower-right corner and an empty slot drawn as a dark well. Hero abilities are square slots with level pips; seasonal and Plus abilities sit in a smaller "สกิลเสริม" row. A running cooldown shows a clock sweep, a draining bar and whole seconds at the source's precision (GSI sends whole seconds; never hundredths); the bar runs smoothly between reports and freezes with a stale label when the section is stale. With no game data the card shows faint hatched, dashed outlines of the same layout, distinct from empty wells and real items.
 
-Draft strip (as built 2026-11-21, DRAFT-BAR-SPEC 5a/5b): during hero selection, strategy time and showcase the Live page shows the ten top-bar slots (Radiant five, gap, Dire five) with identified hero names or "?" with the reason; deck only, never the overlay.
+Draft strip (as built 2026-11-21, DRAFT-BAR-SPEC 5a/5b; UI-012): during HERO_SELECTION, STRATEGY_TIME and TEAM_SHOWCASE, the Live page shows ten top-bar slots (Radiant five, gap, Dire five) with identified hero names or unknown with the reason. It supports only 1920×1080 at 100% scale, remains in memory for the match, and is shown in the control window only; it is never shown in the overlay, logged, written to disk or sent over the network, and clears at match end, session change and app exit.
 
 Enemy and unknown ally cards collapse to portrait or identity placeholder, admitted seen/missing and last-seen age. Hide unknown-only skill/item rows; do not fill the screen with question-mark tiles. Unknown age appears as “—”, not a fabricated timestamp.
 

@@ -1,6 +1,6 @@
 # Software Engineering Documentation Index
 
-**Baseline 0.3.6 · Draft · index revised 2026-11-20 · application evidence NOT_RUN**
+**Baseline 0.3.8 · Draft · index revised 2026-11-21 · application evidence NOT_RUN**
 
 Start with PRD and SRS. Read the design, interface and verification documents for each implementation slice. Agent workflow is defined in root AGENTS.md and PROMPT.md and in [Agent Workflow](delivery/AGENT-WORKFLOW.md). To find who owns an area, what is decided and what is open there, read the [domain registry](domains/README.md) and the card of the domain you will touch (see "Domains" below).
 
@@ -8,10 +8,10 @@ This is the only index of documents. Every Markdown file in the tree, is linked 
 
 | Document | Engineering responsibility | Main reader |
 | --- | --- | --- |
-| [PRD](product/PRD.md) | Problem, users, 14 product needs, outcomes, priorities and scope | Product, engineering, QA |
+| [PRD](product/PRD.md) | Problem, users, 15 product needs, outcomes, priorities and scope | Product, engineering, QA |
 | [Use Cases](product/USE-CASES.md) | End-to-end player actions, alternate/failure paths | Product, UX, QA |
 | [Feature Catalog](product/FEATURE-CATALOG.md) | Capability inventory and existing algorithm elaborations | Product, engineering |
-| [SRS](requirements/SRS.md) | Context, constraints and all 92 atomic software requirements | Engineering, QA |
+| [SRS](requirements/SRS.md) | Context, constraints and all 95 atomic software requirements | Engineering, QA |
 | [RTM](requirements/RTM.csv) | Need → requirement → design → test → evidence linkage | Engineering, QA, reviewers |
 | [SAD](design/SAD.md) | System context, architectural views, quality allocation | Architecture, engineering |
 | [SDD](design/SDD.md) | Component allocation, algorithms, state, concurrency and failure | Engineering |

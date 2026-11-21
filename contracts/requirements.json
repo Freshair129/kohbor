@@ -2757,8 +2757,16 @@
         "docs/governance/DECISION-LOG.md"
       ],
       "primary_design_component_id": "CMP-READMODEL",
-      "diagram_ids": [],
-      "diagram_refs": []
+      "diagram_ids": [
+        "DGM-002",
+        "DGM-004",
+        "DGM-017"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-002-containers.mmd",
+        "docs/diagrams/source/DGM-004-local-data-flow.mmd",
+        "docs/diagrams/source/DGM-017-user-flow.mmd"
+      ]
     },
     {
       "id": "UI-011",
@@ -2828,8 +2836,16 @@
         "docs/governance/DECISION-LOG.md"
       ],
       "primary_design_component_id": "CMP-READMODEL",
-      "diagram_ids": [],
-      "diagram_refs": []
+      "diagram_ids": [
+        "DGM-002",
+        "DGM-004",
+        "DGM-017"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-002-containers.mmd",
+        "docs/diagrams/source/DGM-004-local-data-flow.mmd",
+        "docs/diagrams/source/DGM-017-user-flow.mmd"
+      ]
     },
     {
       "id": "UI-010",
@@ -2893,8 +2909,18 @@
         "docs/security/SECURITY-PRIVACY.md"
       ],
       "primary_design_component_id": "CMP-READMODEL",
-      "diagram_ids": [],
-      "diagram_refs": []
+      "diagram_ids": [
+        "DGM-002",
+        "DGM-004",
+        "DGM-005",
+        "DGM-017"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-002-containers.mmd",
+        "docs/diagrams/source/DGM-004-local-data-flow.mmd",
+        "docs/diagrams/source/DGM-005-external-data-flow.mmd",
+        "docs/diagrams/source/DGM-017-user-flow.mmd"
+      ]
     },
     {
       "id": "MEDIA-009",
@@ -2960,8 +2986,16 @@
         "docs/governance/DECISION-LOG.md"
       ],
       "primary_design_component_id": "CMP-READMODEL",
-      "diagram_ids": [],
-      "diagram_refs": []
+      "diagram_ids": [
+        "DGM-002",
+        "DGM-004",
+        "DGM-017"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-002-containers.mmd",
+        "docs/diagrams/source/DGM-004-local-data-flow.mmd",
+        "docs/diagrams/source/DGM-017-user-flow.mmd"
+      ]
     },
     {
       "id": "STATS-001",
@@ -3021,8 +3055,14 @@
         "docs/design/UX-SPEC.md"
       ],
       "primary_design_component_id": "CMP-READMODEL",
-      "diagram_ids": [],
-      "diagram_refs": []
+      "diagram_ids": [
+        "DGM-005",
+        "DGM-017"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-005-external-data-flow.mmd",
+        "docs/diagrams/source/DGM-017-user-flow.mmd"
+      ]
     },
     {
       "id": "STATS-002",
@@ -3080,8 +3120,14 @@
         "docs/design/DRAFT-BAR-SPEC.md"
       ],
       "primary_design_component_id": "CMP-READMODEL",
-      "diagram_ids": [],
-      "diagram_refs": []
+      "diagram_ids": [
+        "DGM-005",
+        "DGM-017"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-005-external-data-flow.mmd",
+        "docs/diagrams/source/DGM-017-user-flow.mmd"
+      ]
     },
     {
       "id": "STATS-003",
@@ -3138,8 +3184,14 @@
         "docs/design/UX-SPEC.md"
       ],
       "primary_design_component_id": "CMP-READMODEL",
-      "diagram_ids": [],
-      "diagram_refs": []
+      "diagram_ids": [
+        "DGM-005",
+        "DGM-017"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-005-external-data-flow.mmd",
+        "docs/diagrams/source/DGM-017-user-flow.mmd"
+      ]
     },
     {
       "id": "VOICE-001",
@@ -6322,6 +6374,81 @@
       "primary_design_component_id": "CMP-PERFORMANCE",
       "diagram_ids": [],
       "diagram_refs": []
+    },
+    {
+      "id": "UI-012",
+      "title": "In-memory deck draft strip",
+      "module": "ui",
+      "scope": "extension",
+      "priority": "extension",
+      "target_milestone": "M3",
+      "basis": "owner_decision",
+      "decision_basis": "DEC-DRAFT-BAR",
+      "statement": "During HERO_SELECTION, STRATEGY_TIME and TEAM_SHOWCASE, the Live page in the control window shall show the ten top-bar hero slots with an identified hero name or an unknown state with its reason. This extension is supported only at 1920×1080 and 100% scale. Slot imagery, identification results and reasons shall remain in memory for the current match only; clear them at match end, session change and application exit. Draft Bar data shall never be shown in the overlay, written to logs or disk, or sent over the network.",
+      "failure_behavior": "At unsupported resolution or scale, failed capture, or insufficient identification confidence, show unavailable/unknown with the actual reason; never guess a hero or retain values from another match/session.",
+      "acceptance": {
+        "scenario_id": "AC-UI-012",
+        "given": "an owner-played Dota draft at 1920×1080 and 100% scale with an admitted session",
+        "when": "the Live page is shown during HERO_SELECTION, STRATEGY_TIME or TEAM_SHOWCASE, including unsupported geometry, capture/identification failure and match/session/app clear boundaries",
+        "then": "all ten top-bar slots show the correctly identified hero name or unknown with a reason; unsupported conditions expose their actual reason; the strip remains in-memory and control-window only with no overlay/log/disk/network sink, and data clears at match end, session change and app exit. Accuracy evidence remains NOT_RUN until an owner-played draft is observed"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native",
+          "live"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [
+          "apps/desktop/src-tauri/src/draft_bar.rs",
+          "apps/desktop/src/deck/DraftBarStrip.tsx",
+          "apps/desktop/tests/draft-bar.test.ts"
+        ],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-05",
+          "UAT-05"
+        ]
+      },
+      "contract_refs": [],
+      "spec_refs": [
+        "docs/design/UX-SPEC.md",
+        "docs/design/DRAFT-BAR-SPEC.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "open_decisions": [
+        "DEC-INTERFACES",
+        "DEC-NATIVE-EVIDENCE"
+      ],
+      "implementation_freedom": "Keep draft pixels, hero identities and unknown reasons in the in-memory control-window path; do not add a persistence, network or overlay sink.",
+      "product_need_ids": [
+        "PN-015"
+      ],
+      "design_component_ids": [
+        "CMP-VISION",
+        "CMP-INGEST",
+        "CMP-READMODEL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md"
+      ],
+      "primary_design_component_id": "CMP-READMODEL",
+      "diagram_ids": [
+        "DGM-002",
+        "DGM-004",
+        "DGM-005",
+        "DGM-017"
+      ],
+      "diagram_refs": [
+        "docs/diagrams/source/DGM-002-containers.mmd",
+        "docs/diagrams/source/DGM-004-local-data-flow.mmd",
+        "docs/diagrams/source/DGM-005-external-data-flow.mmd",
+        "docs/diagrams/source/DGM-017-user-flow.mmd"
+      ]
     }
   ]
 }

@@ -1,0 +1,126 @@
+{
+  "engine": "Mermaid with jsdom DOM and svgdom SVG metrics; no browser",
+  "versions": {
+    "jsdom": "31.0.0",
+    "svgdom": "0.1.29",
+    "mermaid": "12.3.0"
+  },
+  "node": "v24.20.0",
+  "configuration": {
+    "startOnLoad": false,
+    "securityLevel": "strict",
+    "theme": "base",
+    "layout": "dagre",
+    "deterministicIds": true,
+    "deterministicIDSeed": "spec-diagrams-v0.3",
+    "fontFamily": "DejaVu Sans, Arial, sans-serif",
+    "themeVariables": {
+      "fontFamily": "DejaVu Sans, Arial, sans-serif",
+      "fontSize": "15px",
+      "primaryColor": "#edf4ff",
+      "primaryTextColor": "#172a46",
+      "primaryBorderColor": "#6882a5",
+      "lineColor": "#52657b",
+      "secondaryColor": "#e9f5f0",
+      "tertiaryColor": "#f5f7fa",
+      "background": "#ffffff",
+      "clusterBkg": "#f8fafc",
+      "clusterBorder": "#a8b7c8",
+      "noteBkgColor": "#fff7dd",
+      "noteTextColor": "#493b12",
+      "noteBorderColor": "#c3aa62",
+      "actorTextColor": "#172a46",
+      "actorBkg": "#edf4ff",
+      "actorBorder": "#6882a5",
+      "signalColor": "#52657b",
+      "signalTextColor": "#172a46"
+    },
+    "flowchart": {
+      "htmlLabels": false,
+      "useMaxWidth": false,
+      "curve": "linear",
+      "nodeSpacing": 32,
+      "rankSpacing": 48,
+      "padding": 14
+    },
+    "sequence": {
+      "useMaxWidth": false,
+      "wrap": true,
+      "actorMargin": 45,
+      "messageMargin": 25,
+      "diagramMarginX": 22,
+      "diagramMarginY": 22,
+      "actorFontSize": 14,
+      "messageFontSize": 14,
+      "noteFontSize": 13
+    },
+    "state": {
+      "useMaxWidth": false
+    },
+    "er": {
+      "useMaxWidth": false
+    },
+    "look": "classic",
+    "htmlLabels": false
+  },
+  "config_source": "tools/diagram-renderer.json",
+  "font_directory": "tools/fonts",
+  "font_file_sha256": "57f73e11f51999432bf7ab22ce55b6f945d5eca1bf824404cfa9ec2e3718c84e",
+  "style_pipeline": "Promote SVG styles and presentation attributes into jsdom CSS cascade, then bake computed paint/font presentation attributes and remove stylesheets.",
+  "limitations": [
+    "SVG metrics are supplied by svgdom, not a browser layout engine.",
+    "Generic sans-serif and Arial measurement probes map to bundled DejaVu Sans.",
+    "Rendered layout still requires independent rasterization and visual inspection.",
+    "No runtime application behavior was tested by rendering diagrams."
+  ],
+  "results": [
+    {
+      "source": "docs/diagrams/source/DGM-002-containers.mmd",
+      "source_sha256": "af27fdc3c66cb92e26174237a8cd68376921c162755b9c6f86dbfad2896b31d6",
+      "out": "acceptance\\DD-render\\DGM-002-containers.svg",
+      "svg_sha256": "a6bd2e0e2b4087739b78448aa4f384514f72a2a662c9c89f390b0932642af5a2",
+      "bytes": 175910,
+      "parsed": true,
+      "foreignObject": false,
+      "finite": true,
+      "viewBox": "-8 -8 2299.960693359375 676.7265625",
+      "status": "RENDERED"
+    },
+    {
+      "source": "docs/diagrams/source/DGM-004-local-data-flow.mmd",
+      "source_sha256": "a79044068610e9016a6c36d30fd185122f3b4dcaaf7353f7a8c0fd6ee2eab229",
+      "out": "acceptance\\DD-render\\DGM-004-local-data-flow.svg",
+      "svg_sha256": "536a92f917e062ed09f523866c7f8bf1f8ff4b36e77efa626dbe29a4a1e7b884",
+      "bytes": 294426,
+      "parsed": true,
+      "foreignObject": false,
+      "finite": true,
+      "viewBox": "-8 -8 2091.9080810546875 1041.6875",
+      "status": "RENDERED"
+    },
+    {
+      "source": "docs/diagrams/source/DGM-005-external-data-flow.mmd",
+      "source_sha256": "4a990db41f43b3129a3cbfb96f507f92647f134a51e04e1bc274c4e67548dde3",
+      "out": "acceptance\\DD-render\\DGM-005-external-data-flow.svg",
+      "svg_sha256": "55b273c08fafbe9ec798a93e3a96199f157368996a417b8d7dae444fc1397efc",
+      "bytes": 212423,
+      "parsed": true,
+      "foreignObject": false,
+      "finite": true,
+      "viewBox": "-8 -8 1307.1685791015625 878.1875",
+      "status": "RENDERED"
+    },
+    {
+      "source": "docs/diagrams/source/DGM-017-user-flow.mmd",
+      "source_sha256": "cd462fb7224fa0e37e9bc27b4dc5a9ce585ce511c7c1c35566f3769712767116",
+      "out": "acceptance\\DD-render\\DGM-017-user-flow.svg",
+      "svg_sha256": "9156a3ec603b3916d4208351a560b7570db60b9bcadbfca7e9a12355d5f3fb1d",
+      "bytes": 361830,
+      "parsed": true,
+      "foreignObject": false,
+      "finite": true,
+      "viewBox": "-8 -8 1454.021240234375 1707.453125",
+      "status": "RENDERED"
+    }
+  ]
+}

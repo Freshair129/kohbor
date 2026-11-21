@@ -10,7 +10,7 @@
       "jsdom": "31.0.0",
       "svgdom": "0.1.29"
     },
-    "node": "v24.22.1",
+    "node": "v24.20.0",
     "config_sha256": "3ed890c055808cf4ae5215bbc8d9792435761e66efdc0979bff18a777ebf2769",
     "font_files_sha256": {
       "DejaVuSans.ttf": "57f73e11f51999432bf7ab22ce55b6f945d5eca1bf824404cfa9ec2e3718c84e",
@@ -34,11 +34,11 @@
     {
       "id": "DGM-002",
       "status": "PASS",
-      "source_sha256": "079a6e445e69963614a3d7845377e1c7ad756cdeddc11c6f02eeab04691960c2",
-      "svg_sha256": "3f1054275a4c49107cec3de2d97a47f6ac9a596cb72ee37d86e0169a857e6efd",
-      "width": 2042.3994750976562,
-      "height": 479.3046875,
-      "text_nodes": 17
+      "source_sha256": "af27fdc3c66cb92e26174237a8cd68376921c162755b9c6f86dbfad2896b31d6",
+      "svg_sha256": "a6bd2e0e2b4087739b78448aa4f384514f72a2a662c9c89f390b0932642af5a2",
+      "width": 2299.960693359375,
+      "height": 676.7265625,
+      "text_nodes": 22
     },
     {
       "id": "DGM-003",
@@ -52,20 +52,20 @@
     {
       "id": "DGM-004",
       "status": "PASS",
-      "source_sha256": "69189c30ac27372d1478415564608459aa03785d2cad6bf1d194e01c38dd799b",
-      "svg_sha256": "ecf19bde199991434f7abaae8d6453854366fd804775e7d15805be8230f846dd",
-      "width": 1330.141357421875,
-      "height": 959.1875,
-      "text_nodes": 26
+      "source_sha256": "a79044068610e9016a6c36d30fd185122f3b4dcaaf7353f7a8c0fd6ee2eab229",
+      "svg_sha256": "536a92f917e062ed09f523866c7f8bf1f8ff4b36e77efa626dbe29a4a1e7b884",
+      "width": 2091.9080810546875,
+      "height": 1041.6875,
+      "text_nodes": 40
     },
     {
       "id": "DGM-005",
       "status": "PASS",
-      "source_sha256": "626539d63685e87d271d6ccc10405f3889744c9f0fccb6cb92e3d84c74fc6ee8",
-      "svg_sha256": "7a13357b6bcdee00f30f56011009e1fed09ffba1a3a1699a36c72d00188238fd",
-      "width": 993.5101318359375,
-      "height": 705.765625,
-      "text_nodes": 24
+      "source_sha256": "4a990db41f43b3129a3cbfb96f507f92647f134a51e04e1bc274c4e67548dde3",
+      "svg_sha256": "55b273c08fafbe9ec798a93e3a96199f157368996a417b8d7dae444fc1397efc",
+      "width": 1307.1685791015625,
+      "height": 878.1875,
+      "text_nodes": 27
     },
     {
       "id": "DGM-006",
@@ -169,11 +169,11 @@
     {
       "id": "DGM-017",
       "status": "PASS",
-      "source_sha256": "f4953c1c6eac6ede2d77f1eccf1a2eedcc69942100f08fde25c25d119a2630d9",
-      "svg_sha256": "c24fdcbcc2a1eb5e12b621bef6d1d357da0c507a4be0304ba87f97a6e0a82621",
-      "width": 1014.826171875,
-      "height": 1532.9921875,
-      "text_nodes": 40
+      "source_sha256": "cd462fb7224fa0e37e9bc27b4dc5a9ce585ce511c7c1c35566f3769712767116",
+      "svg_sha256": "9156a3ec603b3916d4208351a560b7570db60b9bcadbfca7e9a12355d5f3fb1d",
+      "width": 1454.021240234375,
+      "height": 1707.453125,
+      "text_nodes": 54
     },
     {
       "id": "DGM-018",
@@ -195,48 +195,16 @@
     }
   ],
   "visual_inspection": {
-    "status": "PASS",
-    "method": "AI visual review of independent Inkscape rasterizations",
-    "scope": "Label and note containment, spacing, readable arrows and branch/transition placement for the controlled diagram views. This is documentation review, not browser interaction, accessibility or application acceptance.",
-    "diagram_ids": [
-      "DGM-001",
-      "DGM-002",
-      "DGM-003",
-      "DGM-004",
-      "DGM-005",
-      "DGM-006",
-      "DGM-007",
-      "DGM-008",
-      "DGM-009",
-      "DGM-010",
-      "DGM-011",
-      "DGM-012",
-      "DGM-013",
-      "DGM-014",
-      "DGM-015",
-      "DGM-016",
-      "DGM-017",
-      "DGM-018",
-      "DGM-019"
-    ],
-    "rechecked_after_source_layout_adjustments": [
-      "DGM-002",
-      "DGM-004",
-      "DGM-005",
-      "DGM-009",
-      "DGM-012"
-    ]
+    "status": "NOT_RUN",
+    "reason": "Updated SVG geometry and text were structurally validated; independent raster inspection remains unqualified."
   },
   "application_native_live_acoustic_resource_tests": "NOT_RUN",
   "checks": [
-    "explicit Mermaid parse",
-    "SVG generation",
-    "source and output hashes",
+    "Mermaid parse and SVG generation by pinned diagram_dom_renderer.mjs (wrapper child-process launch unavailable: EPERM)",
+    "source and output SHA-256",
     "well-formed SVG XML",
     "finite geometry and positive viewBox",
     "no foreignObject",
     "nonempty text nodes"
-  ],
-  "reused_from_spec_version": "0.3.0",
-  "reuse_note": "All 19 Mermaid source files, generated SVGs, fonts and renderer core remain byte-identical to the previously reviewed baseline. Publication changes the product identity and documentation only."
+  ]
 }

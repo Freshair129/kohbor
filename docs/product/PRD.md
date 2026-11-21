@@ -2,7 +2,7 @@
 title: "Product Requirements Document"
 doc_id: "PRD"
 status: draft
-version: "0.3.7"
+version: "0.3.8"
 updated: "2026-11-21"
 owner_role: "Product owner"
 baseline: "DEC-BASELINE"
@@ -55,6 +55,7 @@ Stable need IDs map to SRS requirements within their approved scope. **contracts
 | PN-012 | Receive verified updates and predictable optional capability transitions without losing local core, map context or control. | UPDATE-001, UPDATE-002, UPDATE-003, UPDATE-004, PREMIUM-001, PREMIUM-002, PREMIUM-003, UI-007, QUALITY-008 |
 | PN-013 | Use quick audio, display, game, announcer and selected-music volume controls and check actual companion status in-game while Dota keeps focus. | UI-009, UI-011, MEDIA-009 |
 | PN-014 | See read-only public hero suggestions before picking and how the selected hero has performed after picking, with separate consent and clear source, sample and freshness. | UI-010, STATS-001, STATS-002, STATS-003 |
+| PN-015 | See the ten draft-bar hero slots with identified names or an honest unknown reason during supported draft phases, within the control window and with match-only in-memory handling. | UI-012 |
 
 ## 4. Scope, features and priority
 
@@ -69,6 +70,7 @@ Stable need IDs map to SRS requirements within their approved scope. **contracts
 | Explicit extensions | Guest peer rooms; optional friends/presence/invitations | Separate contracts, consent and operational acceptance |
 | Explicit extension: edge quick panel | Guarded left-edge orb with a vertical three-channel sound mixer, adjustable Focus mode and honest status | Mouse-only, Dota retains focus, built-in fail-closed activation guard, Settings off switch and critical-alert preemption |
 | Explicit extension: hero pick statistics | Read-only pre-pick suggestions list and display-only post-pick card | Fixed public table requests only (at most four/day) for v1; local filtering; separate default-off consent; v2 strike-out waits for Draft Bar 5b |
+| Explicit extension: deck draft strip | Ten top-bar slots with identified hero names or unknown reasons on the Live page during supported draft phases | 1920×1080 at 100% only; in-memory, control-window only; clear at match end/session change/exit; no overlay/log/disk/network sink |
 | Deferred capabilities | Premium authority and advanced inspector/timers, deep review, recovery coaching, multi-provider routing, tone presets, broadcast co-host, soundtrack, commerce/security-recovery services | No apparently working production controls backed by invented behavior |
 | External dependencies | Media-authoring tool and optional account/catalog/payment services | Rebuilding separate products is not automatically desktop MVP scope |
 

@@ -2,7 +2,7 @@
 title: "Decision Log and Open Items"
 doc_id: "DECISION-LOG"
 status: draft
-version: "0.3.7"
+version: "0.3.8"
 updated: "2026-11-21"
 authority: "DEC-BASELINE; see DOCUMENT-CONTROL"
 owner_role: "Product and engineering owners; people not assigned"
@@ -40,6 +40,14 @@ The product owner answered “รับทั้ง 6 ข้อ” in the two de
 - **DEC-PICK-STATS** (decided by the product owner, PN-014, UI-010 and STATS-001–003). Choose a live public API with OpenDota first and credit it on the display-only in-game card. The owner chose the live API over a bundled snapshot and the overlay over deck-only presentation. Show a labelled estimated lean if supported, omit win-chance percentages and leave the starting-items card out this round. The consent defaults off. The only request data are the own hero ID and optional user-selected bracket. V2 waits for Draft Bar 5b. Projection 1.1.0 permits local display of identified heroes and derived numbers while player names stay deck-only. Revoking consent stops sends, drops late responses and deletes the public stats cache. Local core remains usable. Revision 2 (owner “Approve all 11”, 2026-11-21) adds a pre-pick suggestions list in the same right-edge column; fixed public aggregate requests (at most four/day) carry no user- or match-specific data and are filtered locally. Five positions are estimates, low-data below 1,000 games, picked/banned inclusion is disclosed, and no win-chance percentage is shown. Position/bracket live in deck, bar has separate on/off, and v2 only strikes picked heroes; matchup edge awaits an adequate source.
 
 See the [UX specification](../design/UX-SPEC.md), [Draft Bar projection](../design/DRAFT-BAR-SPEC.md) and [Security and Privacy](../security/SECURITY-PRIVACY.md) for the guard conditions. Native acceptance remains NOT_RUN.
+
+## Owner decisions recorded 2026-11-21
+
+- **DEC-CRITICAL-MEDIA** (decided by the product owner; owner answer: “คลิปจากแพ็กพากย์ที่มี (แนะนำ)”): critical gank, danger and risk-revision alerts use clips from the announcer packs the owner already has. The owner states that the rights team handles rights; that statement is unverified and is not a rights grant. A clip list is ready only after the owner confirms the list prepared by the team. Visual-only and synthesized fallbacks were not selected. Until verified clips are mapped and the owner confirms the prepared list, critical audio remains not ready.
+- **DEC-RISK-DETAIL** (still open; owner-selected approach; owner answer: “ให้ทีมร่างแล้วคุณตรวจ (แนะนำ)”): the team drafts the complete admission rules and frozen fixtures for coordinated motion/reappearance, death window, heading, ETA and thresholds, then the owner reviews and approves them. Until that approval, the score remains informational and audible missing-gank remains unavailable.
+- **DEC-DRAFT-BAR / UI-012:** add the deck draft strip as an extension. During HERO_SELECTION, STRATEGY_TIME and TEAM_SHOWCASE, the Live page shows all ten top-bar slots with identified hero names or unknown plus a reason, at 1920×1080 and 100% scale only. Keep it in memory in the control window only; never show it in the overlay, log it, write it to disk or send it over the network. Clear at match end, session change and app exit. Accuracy evidence remains NOT_RUN until an owner-played draft.
+
+See [PRD PN-015](../product/PRD.md), [SRS UI-012](../requirements/SRS.md), [Draft Bar](../design/DRAFT-BAR-SPEC.md) and the machine-readable decision records. These decisions do not imply native/live acceptance or verified media rights.
 
 ## Open decision register
 
@@ -81,8 +89,8 @@ The machine-readable source is contracts/decisions.json. Each record names an ow
 - DEC-PREMIUM: deferred authority service, subject/device model, key management, RLS, revocation and rollback need their own accepted design; base UI continues.
 - DEC-SOCIAL: optional social data model, registered-relay tickets, transaction order, retention/limits and operations need complete contracts before production deployment.
 - DEC-GAME-DATA: freeze supported hero classes, patch catalog, provenance and ability-ownership evidence; action-damage feature scope and exact formulas need an approved neutral spec. Unknown classes/data remain unknown.
-- DEC-RISK-DETAIL: base missing-time/heading formula is included, but complete coordinated-motion/reappearance, death-window, heading and ETA fixtures must be frozen. Until then, the score is informational and audible missing-gank remains unavailable; do not claim a speculative discount or a bare threshold as approved behavior.
-- DEC-CRITICAL-MEDIA: provide authorized verified gank/danger/revision assets for the first-demo gate. Missing critical media means not ready; a visual-only or synthesized fallback would need a new product decision.
+- DEC-RISK-DETAIL (open): the team must draft and freeze complete admission rules and fixtures for coordinated motion/reappearance, death window, heading, ETA and thresholds for owner review/approval. Until approved, the score is informational and audible missing-gank remains unavailable.
+- DEC-CRITICAL-MEDIA (decided; readiness still pending): use clips from the announcer packs the owner already has. The rights-team handling statement is unverified and not a rights grant. A team-prepared clip list counts as ready only after owner confirmation and clip verification/mapping; visual-only and synthesized fallbacks are not selected. No critical clip is currently claimed ready by this decision record.
 - DEC-VOICE-BUFFER: define single-owner PCM handoff, stream termination, bounded decoding lifetime, zeroization and cancellation before local STT integration. No persistent audio/transcript is allowed.
 - DEC-OBS-BUDGET: define the combined recording-profile acceptance decision after reporting app and external OBS separately; existing app/latency/FPS limits remain intact.
 - DEC-NATIVE-EVIDENCE: assign actual Windows/Dota/OBS/audio devices and testers. This is an execution dependency, not a reason to fabricate a pass.

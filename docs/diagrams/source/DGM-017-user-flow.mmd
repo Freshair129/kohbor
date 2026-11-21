@@ -2,13 +2,22 @@ flowchart TB
   Start["Launch app"] --> Ready{"Mandatory startup ready?"}
   Ready -->|No| Error["Safe startup error"]
   Ready -->|Yes| Core["Local core available"]
-  Core --> Nav["Control navigation"]
+  Core --> GsiCheck{"First run or GSI setup needed?"}
+  GsiCheck -->|Yes| SetupPrompt["Offer GSI setup; wait for player choice"]
+  SetupPrompt -->|Choose setup| GsiSetup["Status explains setup; player explicitly starts it"]
+  SetupPrompt -->|Not now| Nav
+  GsiSetup --> Nav
+  GsiCheck -->|No| Nav
+  Nav["Control navigation"]
   Core --> Overlay["Passive gameplay overlay"]
   Core --> Act["Explicit local action"]
 
   Nav --> Match["Overview / Live"]
   Nav --> Tools["Voice Packs / Insights / Settings"]
   Nav --> Optional["Account / Store"]
+  Nav --> Live["Live page: field and 10-slot draft strip in supported phases"]
+  Nav --> Pick["Draft suggestions before own pick; pick card after own pick"]
+  Core --> Orb["Separate edge orb: guarded status and per-app mixer"]
   Match --> Read["Admitted match view"]
   Tools --> Manage["Packs, history and settings"]
   Optional --> Service{"Requested service available?"}
