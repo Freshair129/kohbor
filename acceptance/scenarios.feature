@@ -271,16 +271,30 @@ Feature: Brand-neutral desktop companion target behavior
   @UI-009 @extension
   Scenario: AC-UI-009 Edge quick panel
     Given a supported Windows borderless live or bot match with Dota foreground and the orb enabled
-    When the tester performs 200 orb or panel clicks, exercises hover, protected regions, focus loss and Settings, and admits a qualified critical alert while the panel is open
-    Then Dota stays foreground for all 200 clicks, only guarded hit regions receive orb input and the outer 8 px pass clicks through. No orb or panel pixel intersects PROTECTED_REGIONS. The panel closes and the orb locks in the alert admission while the cue meets its acoustic deadline. Unknown stays unknown, the orb hides outside a match or in exclusive fullscreen, and induced activation is logged and fails closed. Settings can disable the orb and each panel control has a keyboard-reachable deck twin
+    When across normal live or bot matches the tester uses the orb or panel and exercises hover, protected regions, focus loss and Settings, and admits a qualified critical alert while the panel is open
+    Then at least 30 orb or panel interactions are logged with zero activation_detected; only guarded hit regions receive orb input and the outer 8 px pass clicks through. No orb or panel pixel intersects PROTECTED_REGIONS. The panel closes and the orb locks in the alert admission while the cue meets its acoustic deadline. Unknown stays unknown, the orb hides outside a match or in exclusive fullscreen, and an induced activation closes the panel, restores click-through and hides the orb until the match ends. Settings can disable the orb and each panel control has a keyboard-reachable deck twin
     And failure behavior is: A qualified critical alert closes the panel and locks the orb in the same admission without delaying the critical cue. Unknown status is never shown as ready. Log activation, close the panel and restore click-through immediately. Hide the orb if click-through cannot be guaranteed.
+
+  @UI-011 @extension
+  Scenario: AC-UI-011 Orb sound mixer
+    Given a supported match, three session states, and mixer settings including Focus level and optional hotkey
+    When the player adjusts, mutes, focuses, restores, uses a wheel and encounters missing or failed sessions
+    Then each present channel exposes its actual 0 to 100% value and mute, Focus applies the selected level and restores the prior value, the hotkey is inactive unless enabled, wheel steps by 5% only with panel open, failures are honest, and every control has a deck twin
+    And failure behavior is: Never show a missing or unreadable session as controllable. On set failure restore the last read value and state the reason. Preserve Dota focus and critical-alert priority.
 
   @UI-010 @extension
   Scenario: AC-UI-010 Display-only hero pick card
-    Given an admitted own pick and protected draft UI boxes measured on the owner's 1920×1080 hero selection and strategy screenshots
+    Given an admitted draft, deck-selected position and bracket, and supported 1920×1080 layout
     When the player picks or changes hero, advances through selection, strategy and showcase, and uses builds with and without admitted 5b output
-    Then the card shows statistics scoped to the current own pick during selection and strategy, receives no input, clears both measured draft layouts and hides at showcase. V1 exposes the own hero only. V2 may add other heroes and derived values only with admitted 5b output. Other players' names never enter the overlay
+    Then the single column occupies x=1728–1907 scaled with height and shows the read-only list before own pick and existing pick card after it; the list shows historical bracket win rate and game count, labels under-1,000 samples low-data and five position groups as estimates, discloses that listed heroes may be banned or already picked, never shows win-chance %, accepts no in-game input, and has its own on/off switch; v2 only strikes picked heroes when 5b is available, while matchup edge remains unavailable pending a qualified source
     And failure behavior is: Hide without an admitted own pick, a supported placement or an active draft phase. Suppress v2 comparisons when 5b is unavailable and keep eligible v1 content. Remove previous hero statistics immediately on a repick or swap.
+
+  @MEDIA-009 @extension
+  Scenario: AC-MEDIA-009 Per-application session volume
+    Given a fake session manager with present, missing and unreadable sessions and persisted original levels
+    When the host sets, restores, crashes and restarts, and the default device or session changes
+    Then only eligible Dota and selected music sessions change, originals restore on exit/disable/reset and after crash restart, changed devices/sessions are re-read before use, logs contain only the permitted fields, and no process input, memory or files are accessed; on the owner PC lower Dota and Chrome, kill Kohbor, restart and confirm original levels restore
+    And failure behavior is: Do not change an unreadable, missing or unselected process. On restore failure report it honestly and retain recovery data for the next start.
 
   @STATS-001 @extension
   Scenario: AC-STATS-001 Separate consent for public hero statistics
@@ -293,14 +307,14 @@ Feature: Brand-neutral desktop companion target behavior
   Scenario: AC-STATS-002 Closed outgoing public statistics projection
     Given public hero statistics consent is on and test data contains the own hero, an optional manual bracket and forbidden fields
     When the host constructs and sends a valid request, then receives negative cases with an extra field including each forbidden data class
-    Then the observed request contains only the own hero ID and an optional manual bracket, and every request with an extra field is rejected before any send
+    Then v1 list requests are fixed public table requests, no more than four per day, with no user- or match-specific fields; position and bracket filtering occurs locally. The separate pick-card flow continues to carry only the admitted own hero ID and optional manual bracket, and forbidden context is rejected before send
     And failure behavior is: Reject requests with extra or invalid fields before transport. Do not serialize a wider game, account or draft object or substitute a missing own hero ID.
 
   @STATS-003 @extension
   Scenario: AC-STATS-003 Honest public statistics values and states
     Given minimum samples have been fixed and fixtures cover valid and missing metadata, stale data, every unavailable state and sample sizes around the minima
     When the host evaluates provider responses, cache expiry, a new hero and consent transitions
-    Then each shown value carries source, window or unspecified label, fetch time and its sample size, every state is distinct, and insufficient or expired data produces no unsupported value. No invented value, silent fallback or win-chance percentage appears
+    Then each shown value carries source, window or unspecified label, fetch time and its sample size, every state is distinct, and insufficient or expired data produces no unsupported value. No invented value, silent fallback or win-chance percentage appears; the suggestions list shows source and sample, low-data below 1,000 games, labels estimated five-position groups, discloses possible banned/picked heroes, shows no win-chance percentage, and never fills unknown provider metadata
     And failure behavior is: Withhold unsupported or undersampled values. Use eligible cached values only with explicit age and stale labelling when applicable. Never silently fall back, invent a number, reuse another hero's results or interpret missing data as zero.
 
   @VOICE-001 @mvp

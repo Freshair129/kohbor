@@ -2,8 +2,8 @@
 title: "Decision Log and Open Items"
 doc_id: "DECISION-LOG"
 status: draft
-version: "0.3.6"
-updated: "2026-11-20"
+version: "0.3.7"
+updated: "2026-11-21"
 authority: "DEC-BASELINE; see DOCUMENT-CONTROL"
 owner_role: "Product and engineering owners; people not assigned"
 approval_status: "not_approved"
@@ -32,12 +32,12 @@ This closes the product-name choice only. DEC-NAME remains delegated for app/pac
 
 privacy expansion; replacing local inference with cloud; resource-budget relaxation; removing required MVP voice/memory; changing base/premium behavior; automatic recording or data deletion; new account/payment services; compatibility with an older format; changing supported/certified scope.
 
-## In-game extensions approved on 2026-11-20
+## In-game extensions and 2026-11-21 revisions
 
 The product owner answered “รับทั้ง 6 ข้อ” in the two design question sets and then “อนุมัติร่าง” for CR-ORB-PICK, as relayed by the lead. The source records are the CR at `coord:reports/2026-11-20-cr-ingame-orb-and-pick-card.md` and the 2026-11-20 edge-orb and pick-card owner question files.
 
 - **DEC-EDGE-ORB** (decided by the product owner, PN-013 and UI-009). Provide a quick panel for mute, audio levels and overlay visibility, with actual companion status. Use guarded hover throughout the match, a Settings off switch and a separate mouse-only window with no keyboard focus. The owner chose guarded hover over restricting use to dead or paused states and chose quick controls plus status over a voice entry point. Run the empty native no-activate window focus test before panel work. Keep the feature unavailable until feasibility is established. Disabling the orb returns the player to the control window and passive in-game presentation.
-- **DEC-PICK-STATS** (decided by the product owner, PN-014, UI-010 and STATS-001–003). Choose a live public API with OpenDota first and credit it on the display-only in-game card. The owner chose the live API over a bundled snapshot and the overlay over deck-only presentation. Show a labelled estimated lean if supported, omit win-chance percentages and leave the starting-items card out this round. The consent defaults off. The only request data are the own hero ID and optional user-selected bracket. V2 waits for Draft Bar 5b. Projection 1.1.0 permits local display of identified heroes and derived numbers while player names stay deck-only. Revoking consent stops sends, drops late responses and deletes the public stats cache. Local core remains usable. The new route and placement still require interface work and two owner draft screenshots.
+- **DEC-PICK-STATS** (decided by the product owner, PN-014, UI-010 and STATS-001–003). Choose a live public API with OpenDota first and credit it on the display-only in-game card. The owner chose the live API over a bundled snapshot and the overlay over deck-only presentation. Show a labelled estimated lean if supported, omit win-chance percentages and leave the starting-items card out this round. The consent defaults off. The only request data are the own hero ID and optional user-selected bracket. V2 waits for Draft Bar 5b. Projection 1.1.0 permits local display of identified heroes and derived numbers while player names stay deck-only. Revoking consent stops sends, drops late responses and deletes the public stats cache. Local core remains usable. Revision 2 (owner “Approve all 11”, 2026-11-21) adds a pre-pick suggestions list in the same right-edge column; fixed public aggregate requests (at most four/day) carry no user- or match-specific data and are filtered locally. Five positions are estimates, low-data below 1,000 games, picked/banned inclusion is disclosed, and no win-chance percentage is shown. Position/bracket live in deck, bar has separate on/off, and v2 only strikes picked heroes; matchup edge awaits an adequate source.
 
 See the [UX specification](../design/UX-SPEC.md), [Draft Bar projection](../design/DRAFT-BAR-SPEC.md) and [Security and Privacy](../security/SECURITY-PRIVACY.md) for the guard conditions. Native acceptance remains NOT_RUN.
 
@@ -142,3 +142,10 @@ The machine-readable source is contracts/decisions.json. Each record names an ow
 | Existing signed formats include identity strings | New protocols/trust roots; legacy compatibility explicitly out of scope |
 
 This draft is useful for M0 planning and independent local-core implementation. It is not a claim that every interface or design choice required for a full rebuild has already been frozen. The remaining work is visible and bounded so the next agent can resolve it deliberately.
+
+
+### Owner approved CR-ORB-MIXER revision (2026-11-21)
+
+The owner statement recorded by the change request and OWNER-QUESTIONS is “Approve all 11”. For DEC-EDGE-ORB, the owner also waived the 200-click probe (“ใครจะมานั่งกด200ครั้งทำไปเพื่ออะไรอันเนี้ยไม่ต้องเทสอันนี้ได้ไหม”), set the reveal (“มันเอามาเป็นโฮเวอร์อ่ะให้มันมีดีเลย์หนึ่งวิค่อยเลื่อนออกมาแต่ตอนโฮเวอร์อ่ะให้กลมๆอ่ะค่อยๆขยายออกมาในระยะเวลาหนึ่งวิ”) and requested the vertical mixer (“ปรับภาพสองให้เป็นแนวตั้งเพื่อไม่บังจอเยอะ”). Revision 2 replaces the 300 ms reveal and separate native probe, specifies 1 s 80–100% cue and built-in fail-closed guard, three-channel mixer and Focus mode. Per-application volume is restricted to Dota and user-selected music apps.
+
+DEC-PICK-STATS revision 2 and DEC-EDGE-ORB revision 2 preserve prior decision text in `contracts/decisions.json` history. C4 is folded into DEC-EDGE-ORB; no separate decision is needed because it is the mixer permission boundary. The decision log records these changes; implementation and native evidence remain NOT_RUN.

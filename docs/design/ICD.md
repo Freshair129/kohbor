@@ -2,8 +2,8 @@
 title: "Interface Control Document (ICD)"
 doc_id: "ICD"
 status: draft
-version: "0.3.6"
-updated: "2026-11-20"
+version: "0.3.7"
+updated: "2026-11-21"
 authority: "DEC-BASELINE; see DOCUMENT-CONTROL"
 owner_role: "Integration owner; people not assigned"
 approval_status: "not_approved"
@@ -61,7 +61,7 @@ Version 2.0.0 of the own snapshot replaces the all-or-nothing `own` object with 
 | recorder.start / stop / save | Explicit media consent; separately configured mic | OBS receipt and actual clip coverage; no fabricated success |
 | updates.check / install | Native trusted manifest/public keys; safe gameplay state | Verified staged update or deferred/error |
 
-The extensions require new interface records under DEC-INTERFACES. Keep the overlay and HUD listen-only. Restrict an orb capability to approved quick controls and status for UI-009. Freeze the settings and patches for orb enablement, public statistics consent and bracket choice, the statistics runtime status and error codes, and the two public statistics payloads before integrating. The dedicated provider and view schemas remain future implementation work.
+The extensions require new interface records under DEC-INTERFACES. Keep the overlay and HUD listen-only. Restrict an orb capability to `mixer_get`, `mixer_set` and `mixer_focus_toggle`; host resolves approved audio sessions, with no arbitrary renderer-supplied process ID. A host COM thread owns Core Audio. UI-011 and MEDIA-009 govern restore semantics. Freeze the settings and patches for orb enablement, public statistics consent and bracket choice, the statistics runtime status and error codes, and the two public statistics payloads before integrating. The v1 suggestions route fetches only fixed public aggregate tables at most four times/day with no user- or match-specific fields; filter position and bracket locally. The separate pick-card route retains its own-hero-ID projection. The dedicated provider and view schemas remain future implementation work.
 
 These names are proposed API labels. Implementations may use different idiomatic symbols after one ADR establishes a mapping; the behavior and security checks remain mandatory.
 

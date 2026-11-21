@@ -2,8 +2,8 @@
 title: "Document Control and Baseline Governance"
 doc_id: "DOCUMENT-CONTROL"
 status: draft
-version: "0.3.6"
-updated: "2026-11-20"
+version: "0.3.7"
+updated: "2026-11-21"
 owner_role: "Product owner and engineering lead; people not assigned"
 approval_status: "not_approved"
 ---
@@ -85,6 +85,10 @@ PRD, SRS, SAD/SDD, interface/data design, test/UAT plans and traceability are de
 Schemas provide neutral shapes and closed allowlists, not complete production protocols. Authentication, duplicate-key rejection, bounds, canonicalization, races, clocks and semantic comparisons also need design and executable tests. Read the [ICD](../design/ICD.md), [decision log](DECISION-LOG.md) and [risk register](RISK-REGISTER.md) before freezing an affected interface.
 
 Where information is incomplete, resolve the named decision into a concrete neutral specification. No original repository or hidden historical document is required to understand an obligation already stated here.
+
+## Change record in version 0.3.7
+
+The 2026-11-21 owner-approved CR-ORB-MIXER updates DEC-EDGE-ORB and DEC-PICK-STATS, adds UI-011 and MEDIA-009, revises UI-009/UI-010/STATS-002/003, and updates PN-013/014. SRS, RTM and Gherkin are regenerated from the structured requirements. Draft Bar projection advances to 1.2.0 for picked-hero strike-out via 5b. Diagram sources remain unchanged pending offline regeneration. Runtime and native evidence remain NOT_RUN.
 
 ## Diagram control in version 0.3.1
 
