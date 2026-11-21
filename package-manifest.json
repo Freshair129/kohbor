@@ -1043,8 +1043,8 @@
     },
     {
       "path": "apps/desktop/src/mediaPackSummaries.ts",
-      "bytes": 11033,
-      "sha256": "5e373686039dc4fdd08ac62396812e236119c74232bd4a62256dd69047a5bf08"
+      "bytes": 10833,
+      "sha256": "63ea7736acc891ab7f78a924762cc3ad1cdd88db559bf7702a504d8146942b34"
     },
     {
       "path": "apps/desktop/src/mediaStatus.ts",
@@ -1193,8 +1193,8 @@
     },
     {
       "path": "apps/desktop/src/packs/model.ts",
-      "bytes": 4907,
-      "sha256": "970b409dc5b22163c6812e2aaebf8711dcc1a5d3329a946d433bf29f20bdc2f5"
+      "bytes": 4828,
+      "sha256": "6b2789454d91c92e573daa2f301177cd55160de8553c9f7ecce2c90d18ca9376"
     },
     {
       "path": "apps/desktop/src/packs/previewModel.ts",
@@ -1268,8 +1268,8 @@
     },
     {
       "path": "apps/desktop/src/runtime.ts",
-      "bytes": 17365,
-      "sha256": "b0d5f109b5e818353c87461ea8bef4be86ad8620562e6ee81e3f45ec595316f4"
+      "bytes": 16944,
+      "sha256": "d1e803611fca14ecf62150365447d59d0594958912d3934879607297c966ce44"
     },
     {
       "path": "apps/desktop/src/settings.ts",
