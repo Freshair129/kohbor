@@ -8,6 +8,7 @@ import {
 
 export interface VariantRowProps {
   variant: EventVariant;
+  voiceNumber: number;
   copy: EventVariantsCopy;
   disabled: boolean;
   busy: boolean;
@@ -18,6 +19,7 @@ export interface VariantRowProps {
 
 export function VariantRow({
   variant,
+  voiceNumber,
   copy,
   disabled,
   busy,
@@ -26,30 +28,31 @@ export function VariantRow({
   onAudition,
 }: VariantRowProps) {
   const presentation = variantRowPresentation(variant, copy);
+  const identity = variant.clip_id
+    ? `${copy.variantId}: ${variant.variant_id} · ${copy.clipId}: ${variant.clip_id}`
+    : `${copy.variantId}: ${variant.variant_id}`;
 
   return (
-    <li className="kohbor-variant-row">
-      <div className="kohbor-variant-row__identity">
-        <strong>{copy.variantId} {variant.variant_id}</strong>
-        {variant.clip_id && <span>{copy.clipId}: <code>{variant.clip_id}</code></span>}
+    <li className="kohbor-variant-row" title={identity} data-banner-state={presentation.bannerText}
+      data-variant-id={variant.variant_id} data-clip-id={variant.clip_id ?? undefined}>
+      <div className="kohbor-variant-row__voice">
+        <strong>{copy.voice(voiceNumber)}</strong>
+        {variant.caption && <p className="kohbor-variant-row__caption">{presentation.captionText}</p>}
       </div>
-      <p className="kohbor-variant-row__caption">
-        <span className="kohbor-variant-row__caption-label">{copy.caption}:</span> {presentation.captionText}
-      </p>
-      <div className="kohbor-variant-row__meta">
-        <span>{copy.duration}: {presentation.durationText}</span>
-        <span>{presentation.bannerText}</span>
+      <div className="kohbor-variant-row__actions">
+        <span className="kohbor-variant-row__duration">{presentation.durationText}</span>
+        <button
+          type="button"
+          className="kohbor-variant-row__play"
+          disabled={disabled || busy}
+          aria-busy={busy}
+          aria-label={`${copy.play}: ${copy.voice(voiceNumber)}`}
+          title={identity}
+          onClick={() => onAudition(variant.variant_id)}
+        >
+          <span className="kohbor-variant-row__play-icon" aria-hidden="true">{busy ? "…" : "▶"}</span>
+        </button>
       </div>
-      <button
-        type="button"
-        className="kohbor-variant-row__play"
-        disabled={disabled || busy}
-        aria-busy={busy}
-        aria-label={`${copy.play}: ${variant.variant_id}`}
-        onClick={() => onAudition(variant.variant_id)}
-      >
-        {busy ? copy.playing : copy.play}
-      </button>
       {outcome && (
         <p className="kohbor-variant-row__result" role="status">
           {auditionOutcomeText(outcome, copy)}

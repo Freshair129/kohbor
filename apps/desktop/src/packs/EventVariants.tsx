@@ -46,17 +46,11 @@ export function EventVariants({
   };
 
   const selectionText = variantSelectionLabel(selection, copy);
+  const voiceNumbers = new Map(variants.map((variant, index) => [variant.variant_id, index + 1] as const));
 
   return (
     <section className="kohbor-event-variants" aria-label={copy.title}>
-      <div className="kohbor-event-variants__heading">
-        <h4>{copy.title}</h4>
-        {selectionText && (
-          <p className="kohbor-event-variants__selection">
-            <span>{copy.selectionLabel}:</span> {selectionText}
-          </p>
-        )}
-      </div>
+      {selectionText && <p className="kohbor-event-variants__selection">{copy.selectionLabel}: {selectionText}</p>}
       {variants.length === 0
         ? <p className="kohbor-event-variants__empty" role="status">{copy.noVariants}</p>
         : (
@@ -65,6 +59,7 @@ export function EventVariants({
               <VariantRow
                 key={variant.variant_id}
                 variant={variant}
+                voiceNumber={voiceNumbers.get(variant.variant_id)!}
                 copy={copy}
                 disabled={disabled || busyVariantId !== null}
                 busy={busyVariantId === variant.variant_id}

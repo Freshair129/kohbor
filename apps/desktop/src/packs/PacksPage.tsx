@@ -457,9 +457,15 @@ export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, on
           </div>}
         </>}
         {tab === name && name === "events" && <>
-          <div className="packs-section-heading">
-            <h2>{text.tabs.events}</h2>
-            <button type="button" disabled={disabled || listing.busy} onClick={refresh}>{text.retry}</button>
+          <div className="packs-section-heading packs-sound-heading">
+            <div className="packs-sound-heading-copy">
+              <h2>{text.tabs.events}</h2>
+              {listingCurrent && activeCard?.name && <p className="packs-sound-active-pack" dir="auto">{text.eventPack(activeCard.name)}</p>}
+            </div>
+            <button type="button" className="packs-sound-retry" aria-label={text.retry}
+              disabled={disabled || listing.busy} onClick={refresh}>
+              <span aria-hidden="true">↻</span>{text.retry}
+            </button>
           </div>
           {locked && <p className="packs-lock">{text.matchLock}</p>}
           <p role="status" className="packs-audition-result">{auditionNotice}</p>
