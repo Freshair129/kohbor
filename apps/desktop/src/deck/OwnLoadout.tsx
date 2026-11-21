@@ -148,7 +148,7 @@ function itemDescription(tile: ItemTile, locale: "th" | "en") {
 function shortItemName(name: string | null): string {
   if (!name) return "—";
   const words = name.split(/\s+/).filter(word => /^[A-Za-z0-9]/.test(word));
-  return words.length >= 2 ? words.slice(0, 2).map(word => word[0].toUpperCase()).join("") : name.slice(0, 3);
+  return words.length >= 2 ? words.slice(0, 2).map(word => word.charAt(0).toUpperCase()).join("") : name.slice(0, 3);
 }
 
 function ItemSlotTile({ tile, locale, shape, label, cooldown, nowMs, reducedMotion, stale }: {

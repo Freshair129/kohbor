@@ -648,8 +648,8 @@
     },
     {
       "path": "apps/desktop/src/deck/OwnLoadout.tsx",
-      "bytes": 18051,
-      "sha256": "9dba2202119064697acf6d523da5e8e6f5df6033529b6c9708e5c46479642f6d"
+      "bytes": 18058,
+      "sha256": "0c0bfbe087f6b3a1504e9303d12267c21b7b9ce943520fde7804d36dfe8add9e"
     },
     {
       "path": "apps/desktop/src/deck/abilityName.ts",
