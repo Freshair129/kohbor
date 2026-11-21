@@ -430,6 +430,8 @@ Recommended answers are in section 10; they need the owner's confirmation.
 
 ## 10. Recommended resolutions (agent proposal, owner confirmation required)
 
+**Owner confirmation recorded 2026-11-21 (chat, owner's words: "ยืนยันข้อ 1-5").** Of the five items put to the owner, two touch this document: the new-device pause of the Share list stays (state X2), and a lost device can only be signed out together with all others (no per-device sign-out; the daily new-code limit counts a rolling 24 hours). The other three are in ACCOUNT-DATABASE-DESIGN section 14. **Second confirmation, same day (owner's words: "ยืนยันตามคำแนะนำของagent")**: the owner confirmed the picks of this section as written (R1-R11 where a pick was given). Questions left without a pick (R9 beyond the new-device pause, R12 copy and legal review, R13 gallery link) and everything legal, hosting or publication stay open. No decision record or requirement has been changed by this confirmation.
+
 The owner said "let the agent decide for me" on the open items; the coordinator relayed these picks. **This is an agent proposal, not owner approval.**
 Nothing here is recorded as decided until the owner confirms it. Legal questions, hosting, publication and the decided baseline rules stay with the owner.
 The copy tables and the artboard already reflect these picks. R numbers match the question numbers in section 9.

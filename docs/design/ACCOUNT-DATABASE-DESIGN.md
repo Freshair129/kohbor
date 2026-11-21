@@ -598,7 +598,27 @@ Owner decisions (named, not decided). "Agent recommendation" points to section 1
 
 ## 14. Recommended resolutions (agent proposal, owner confirmation required)
 
+**Owner confirmation recorded 2026-11-21 (chat, owner's words: "ยืนยันข้อ 1-5").** The owner confirmed five items put to them in that order: (1) the deletion ledger of 14.2, kept outside the database for 30 days and replayed after a restore; (2) nonces on the persistence allow-list with an expiry of at most 10 minutes; (3) the pause of the Share list on a new device (PEER-016) stays; (4) the daily new-friend-code limit counts a rolling 24 hours; (5) a lost device can only be signed out together with all others, per-device sign-out deferred. **Second confirmation, same day (owner's words: "ยืนยันตามคำแนะนำของagent")**: the owner confirmed the remaining recommendations of this section as the agent wrote them, including C1 (opaque session id as `sub`; the random local account reference instead of friend-code keying), C4, the refresh-reuse revoke, C6 and the name, device-row and rate-limit picks. Items this section leaves open (legal, hosting, retention values other than 30 days, pepper backup, log retention, session lifetimes and the other rate limits) were not covered and stay open. Confirmation in chat does not amend rule 27 or the allow-list by itself: that still needs document control (DOCUMENT-CONTROL) and a decision record, which this PR does not do.
+
 Origin: the owner told the coordinator "let the agent decide for me" on the open items. Under AGENTS.md that is **not** owner approval, and it cannot be recorded as one. The picks below came from the coordinator and were checked by this design session; where a concrete defect was found the pick is adjusted and the defect stated. Legal questions, hosting, retention values other than the recorded 30 days, pepper backup and log retention are **not** resolved here and stay in section 13. Nothing in this section changes a baseline until the owner confirms it and document control records it.
+
+### 14.0 Values by common practice (owner: "follow the usual standard", 2026-11-21)
+
+The owner asked that the still-open numeric items take the usual industry defaults. These are common-practice values chosen by an agent. They were **not** checked against a source in this session (OAuth security guidance such as RFC 9700 recommends rotating refresh tokens for public clients; re-read it before citing), they were **not** measured, and they are tunable constants, not requirements. Legal, hosting and anything that needs a lawyer are **not** covered and stay open.
+
+| Item | Value | Note |
+| --- | --- | --- |
+| Access token lifetime | 15 minutes | as in rule 12 |
+| Refresh token | idle expiry 30 days, absolute cap 90 days, rotated on every use, reuse revokes the session | the cap is new |
+| Sign-in nonce / browser hand-off | 10 minutes / 5 minutes | per 14.5 and the UX document |
+| Fresh sign-in for delete | within 5 minutes | as in rule 27 |
+| Friend requests | 10 per minute per account, 50 pending, 100 friends, 500 blocks | the review's proposed values |
+| Display-name change | 5 per hour per account | |
+| New friend code | 3 per rolling 24 hours | confirmed above |
+| Export | 1 per hour per account | |
+| Unauthenticated endpoints | 60 per minute per source address, counted in memory only and never written to the database | keeps the "no IP history" rule |
+| Application log retention | 30 days, matching the backup rotation; logs carry no tokens, signed URLs or identity payloads | the retention number is an owner value, taken here by the owner's instruction |
+| Subject-hash pepper | versioned key id; one encrypted offline copy kept apart from the database backups; rotation needs a re-hash plan (open) | backup ownership stays with the owner |
 
 ### 14.1 C1: account id is not disclosed
 
