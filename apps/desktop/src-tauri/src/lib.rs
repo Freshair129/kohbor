@@ -12,6 +12,7 @@ mod clock;
 mod commands;
 pub mod containment;
 mod draft_bar;
+mod hero_stats;
 pub mod host;
 mod hotkeys;
 mod hud;
@@ -95,6 +96,8 @@ pub(crate) struct AppState {
     pub(crate) mixer: mixer::service::MixerService,
     /// UI-009 / UI-011 edge orb (off unless enabled in Settings).
     pub(crate) orb: orb::host::OrbHost,
+    /// Default-off public statistics and the native draft column.
+    pub(crate) hero_stats: hero_stats::host::HeroStatsHost,
 }
 
 impl host::Emitter for tauri::AppHandle<tauri::Wry> {
@@ -1209,6 +1212,19 @@ pub fn run() {
                 }
             });
             capture_host::start(app.handle().clone(), gsi, resources, settings_dir.clone());
+            // The reader exposes only the exact GSI screen and the fields needed by its gate.
+            let draft_window = hero_stats::host::create_window(app);
+            let draft_runtime = runtime.clone();
+            let hero_stats_host = hero_stats::host::HeroStatsHost::start(
+                app.handle().clone(),
+                draft_window,
+                &settings_dir,
+                Arc::new(move || {
+                    intake::lock(&draft_runtime.shared)
+                        .draft_column_observation_at(std::time::Instant::now())
+                }),
+                Arc::new(capture_host::draft_bar_snapshot),
+            );
             let steam_runtime = runtime.clone();
             // "A match is live" = draft, pregame or live (the same barrier as the pack activation).
             let update_match_active: Arc<dyn Fn() -> bool + Send + Sync> = {
@@ -1244,6 +1260,7 @@ pub fn run() {
                 revision: AtomicU64::new(0),
                 mixer: mixer_service,
                 orb: orb_host,
+                hero_stats: hero_stats_host,
             });
             orb::host::register_critical_listener(app.handle());
             app.state::<AppState>().orb.start_if_enabled(app.handle());
@@ -1267,6 +1284,10 @@ pub fn run() {
     #[cfg(any(feature = "demo", debug_assertions))]
     let builder = builder.invoke_handler(generate_handler_with_updater_commands![
         commands::app_version,
+        commands::draft_stats_prefs_get,
+        commands::draft_stats_prefs_set,
+        commands::draft_stats_retry,
+        commands::draft_column_view,
         commands::update_status,
         commands::update_open_release_page,
         portraits::hero_portrait,
@@ -1349,6 +1370,10 @@ pub fn run() {
     #[cfg(not(any(feature = "demo", debug_assertions)))]
     let builder = builder.invoke_handler(generate_handler_with_updater_commands![
         commands::app_version,
+        commands::draft_stats_prefs_get,
+        commands::draft_stats_prefs_set,
+        commands::draft_stats_retry,
+        commands::draft_column_view,
         commands::update_status,
         commands::update_open_release_page,
         portraits::hero_portrait,
@@ -1423,6 +1448,7 @@ pub fn run() {
                 let state = handle.state::<AppState>();
                 // Orb first (no new clicks), then put every touched audio session back (MEDIA-009).
                 state.orb.stop_for_exit();
+                state.hero_stats.stop_for_exit();
                 state.mixer.shutdown();
                 intake::lock(&state.hud).stop();
                 intake::lock(&state.hotkeys).stop();

@@ -11,6 +11,8 @@ import {
 import { OverlayStage } from "./OverlayStage";
 import { HudStage } from "./HudStage";
 import { OrbStage } from "./orb/OrbStage";
+import { DraftStage } from "./draft/DraftStage";
+import { installDraftMockCommands } from "./draft/draftMock";
 import {
   emitOverlayReady,
   emitOverlayVisibility,
@@ -29,13 +31,16 @@ const params = new URLSearchParams(window.location.search);
 const overlayView = params.get("view") === "overlay";
 const hudView = params.get("view") === "hud";
 const orbView = params.get("view") === "orb";
-if (!overlayView && !hudView && !orbView) installFrontendLogging(window, logHostInvoke);
+const draftView = params.get("view") === "draft";
+if (!overlayView && !hudView && !orbView && !draftView) installFrontendLogging(window, logHostInvoke);
 document.documentElement.classList.toggle("overlay-body", overlayView);
 document.body.classList.toggle("overlay-body", overlayView);
 document.documentElement.classList.toggle("hud-body", hudView);
 document.body.classList.toggle("hud-body", hudView);
 document.documentElement.classList.toggle("orb-body", orbView);
 document.body.classList.toggle("orb-body", orbView);
+document.documentElement.classList.toggle("draft-body", draftView);
+document.body.classList.toggle("draft-body", draftView);
 
 function mediaFromOverlayStatus(payload: unknown): RuntimeStatus["media"] | null {
   if (typeof payload !== "object" || payload === null || Array.isArray(payload)) return null;
@@ -173,6 +178,7 @@ async function start() {
     ? await import("./mock/harness")
     : null;
   mockHarness?.installMockHarness();
+  if (mockHarness) installDraftMockCommands();
 
   if (!root) return;
   const MockScenarioSwitcher = mockHarness?.MockScenarioSwitcher;
@@ -180,7 +186,9 @@ async function start() {
   const HudMockHarness = mockHarness?.HudMockHarness;
   createRoot(root).render(
     <StrictMode>
-      {orbView ? (
+      {draftView ? (
+        <DraftStage />
+      ) : orbView ? (
         <OrbStage />
       ) : hudView ? (
         <HudStage MockHarness={HudMockHarness} />

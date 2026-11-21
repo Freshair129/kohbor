@@ -6,7 +6,9 @@ use crate::clock::MonoClock;
 use crate::{atomic, secrets};
 use base64::Engine;
 use kohbor_events::{adapter::tick_from_admitted, Detector, Event, EventId};
-use kohbor_gsi::admission::{parse_own_loadout, token_matches, OwnLoadout, Ownership, Phase};
+use kohbor_gsi::admission::{
+    parse_own_loadout, token_matches, DraftScreen, OwnLoadout, Ownership, Phase,
+};
 use kohbor_gsi::config::{
     choose_port, claimed_ports, GsiConfig, BODY_LIMIT_BYTES, MAX_REQUESTS_PER_SECOND,
     OWN_DATA_BLOCKS, PORT_FIRST, PORT_LAST,
@@ -546,6 +548,37 @@ impl Shared {
         self.last_admitted
             .as_ref()
             .map(|(at, _)| duration_ms(now.saturating_duration_since(*at)))
+    }
+
+    /// Read only the values required by the draft-column phase gate. Match IDs, Steam IDs,
+    /// player fields, and mutable runtime state are not returned.
+    pub(crate) fn draft_column_observation_at(
+        &self,
+        now: Instant,
+    ) -> crate::hero_stats::host::DraftObservation {
+        let Some((arrival, Outcome::Admitted(admitted))) = self.last_admitted.as_ref() else {
+            return crate::hero_stats::host::DraftObservation::default();
+        };
+        let phase = admitted.draft_screen.map(|screen| match screen {
+            DraftScreen::HeroSelection => crate::hero_stats::DraftPhase::HeroSelection,
+            DraftScreen::StrategyTime => crate::hero_stats::DraftPhase::StrategyTime,
+        });
+        let ownership_verified = self.ownership == Some(Ownership::Verified)
+            && admitted.ownership == Ownership::Verified
+            && admitted.match_id.is_some()
+            && self.epoch.is_some();
+        crate::hero_stats::host::DraftObservation {
+            phase,
+            admitted_session: true,
+            ownership_verified,
+            session_epoch: if ownership_verified { self.epoch } else { None },
+            age_ms: Some(duration_ms(now.saturating_duration_since(*arrival))),
+            own_hero_key: if ownership_verified && phase.is_some() {
+                admitted.hero.hero_id.value().cloned()
+            } else {
+                None
+            },
+        }
     }
 
     /// Private capture eligibility from the latest admitted payload. An old epoch
@@ -1527,6 +1560,51 @@ mod tests {
         assert_eq!(snap["availability"], "fresh");
         assert_eq!(snap["own"]["fields"]["hp"]["value"], 850);
         assert_eq!(snap["session_epoch"], 1);
+    }
+
+    #[test]
+    fn draft_column_accessor_returns_only_exact_fresh_verified_draft_fields() {
+        let mut shared = shared_with_token();
+        let token = shared.token.clone().unwrap();
+        for (game_state, expected) in [
+            (
+                "DOTA_GAMERULES_STATE_HERO_SELECTION",
+                Some(crate::hero_stats::DraftPhase::HeroSelection),
+            ),
+            (
+                "DOTA_GAMERULES_STATE_STRATEGY_TIME",
+                Some(crate::hero_stats::DraftPhase::StrategyTime),
+            ),
+            ("DOTA_GAMERULES_STATE_TEAM_SHOWCASE", None),
+        ] {
+            let arrival = Instant::now();
+            let mut body = in_game(&token);
+            body["map"]["game_state"] = json!(game_state);
+            assert_eq!(shared.accept(&body, arrival, Some(owner())), 200);
+            let observation =
+                shared.draft_column_observation_at(arrival + Duration::from_millis(250));
+            assert_eq!(observation.phase, expected, "{game_state}");
+            assert!(observation.admitted_session);
+            assert!(observation.ownership_verified);
+            assert_eq!(observation.session_epoch, Some(1));
+            assert_eq!(observation.age_ms, Some(250));
+            assert_eq!(
+                observation.own_hero_key,
+                expected.map(|_| "npc_dota_hero_axe".to_owned())
+            );
+        }
+
+        let mut unverified = shared_with_token();
+        let token = unverified.token.clone().unwrap();
+        let mut body = in_game(&token);
+        body["map"]["game_state"] = json!("DOTA_GAMERULES_STATE_HERO_SELECTION");
+        let arrival = Instant::now();
+        assert_eq!(unverified.accept(&body, arrival, None), 200);
+        let observation = unverified.draft_column_observation_at(arrival);
+        assert!(observation.admitted_session);
+        assert!(!observation.ownership_verified);
+        assert_eq!(observation.session_epoch, None);
+        assert_eq!(observation.own_hero_key, None);
     }
 
     #[test]

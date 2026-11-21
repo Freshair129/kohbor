@@ -14,6 +14,7 @@ import { AnnouncerStatus } from "./AnnouncerStatus";
 import { HeroPortrait } from "./HeroPortrait";
 import { OwnLoadout } from "./OwnLoadout";
 import { DraftBarStrip, useDraftBar } from "./DraftBarStrip";
+import { DraftDeckPanel } from "../draft/DraftDeckPanel";
 import { deriveLoadoutViewModel } from "./loadoutModel";
 import type { SteamStatus } from "../steam/model";
 import "./deck.css";
@@ -64,8 +65,11 @@ export function Deck({
   const manaWidth = own.manaPercent === null ? undefined : `${Math.max(0, Math.min(100, own.manaPercent))}%`;
 
   return (
-    <main className="deck-root" lang={locale} data-state={state.state} data-draft={draftBar?.active || undefined}>
-      <DraftBarStrip frame={draftBar} locale={locale} />
+    <main className="deck-root" lang={locale} data-state={state.state} data-draft={draftBar?.active || undefined} data-draft-column="true">
+      <div className="deck-draft-row">
+        <DraftBarStrip frame={draftBar} locale={locale} />
+        <DraftDeckPanel visible />
+      </div>
       <section className="deck-column deck-own-column" aria-label={text.ownHero}>
         <section className={`deck-own-card${stale ? " is-stale" : ""}`} aria-labelledby="deck-own-heading">
           <div className="deck-own-portrait"><HeroPortrait heroId={own.heroId} size="lg" alt={own.heroName?.name ?? text.ownHero} /></div>

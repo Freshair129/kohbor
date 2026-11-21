@@ -3433,6 +3433,59 @@ pub(crate) fn draft_bar_read(
         .map(tauri::ipc::Response::new)
 }
 
+/// Read only the fresh, identified hero keys from the existing 5b memory packet. The packet's
+/// pixels and other metadata remain local and are not returned to the draft-column host.
+pub(crate) fn draft_bar_snapshot() -> crate::hero_stats::host::DraftBarObservation {
+    let Some(draft) = DRAFT_BAR.get() else {
+        return crate::hero_stats::host::DraftBarObservation::default();
+    };
+    let memory = lock(&draft.memory);
+    let snapshot = draft.gsi.read();
+    let epoch = if HOST_STOP.load(Ordering::Acquire) {
+        None
+    } else {
+        draft_epoch(&snapshot)
+    };
+    let Some(epoch) = epoch else {
+        return crate::hero_stats::host::DraftBarObservation::default();
+    };
+    let (config, _, _, commands) = draft.config.snapshot();
+    let display_enabled = !config.paused && !commands.invalidated;
+    let Ok(packet) = memory.packet(Some(epoch), Instant::now(), display_enabled) else {
+        return crate::hero_stats::host::DraftBarObservation::default();
+    };
+    let Some(header) = packet.get(..4) else {
+        return crate::hero_stats::host::DraftBarObservation::default();
+    };
+    let metadata_len = u32::from_le_bytes(header.try_into().unwrap_or_default()) as usize;
+    let Some(metadata) = packet.get(4..4usize.saturating_add(metadata_len)) else {
+        return crate::hero_stats::host::DraftBarObservation::default();
+    };
+    let Ok(metadata) = serde_json::from_slice::<Value>(metadata) else {
+        return crate::hero_stats::host::DraftBarObservation::default();
+    };
+    let available = metadata.get("active").and_then(Value::as_bool) == Some(true)
+        && metadata.get("has_frame").and_then(Value::as_bool) == Some(true)
+        && display_enabled;
+    if !available {
+        return crate::hero_stats::host::DraftBarObservation::default();
+    }
+    let hero_keys = metadata
+        .get("slots")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter(|slot| slot.get("reason").and_then(Value::as_str) == Some("identified"))
+        .filter_map(|slot| slot.get("hero_id").and_then(Value::as_str))
+        .filter(|key| key.starts_with("npc_dota_hero_") && key.len() <= 128)
+        .map(str::to_owned)
+        .collect();
+    crate::hero_stats::host::DraftBarObservation {
+        available,
+        hero_keys,
+    }
+}
+
 #[tauri::command(async)]
 pub(crate) async fn capture_get_config() -> CaptureConfig {
     CAPTURE_CONFIG

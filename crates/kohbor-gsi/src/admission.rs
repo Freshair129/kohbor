@@ -20,6 +20,13 @@ pub enum Phase {
     PostGame,
 }
 
+/// The two exact screens on which the draft column is allowed to render.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DraftScreen {
+    HeroSelection,
+    StrategyTime,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Team {
     Radiant,
@@ -107,6 +114,8 @@ pub struct Admitted {
     pub phase: Phase,
     /// Exact draft-screen phases. Loading states still belong to the coarse Draft phase.
     pub draft_bar_phase: bool,
+    /// Exact `map.game_state` used by UI-010; coarse Draft includes loading/showcase states.
+    pub draft_screen: Option<DraftScreen>,
     pub ownership: Ownership,
     pub team: Option<Team>,
     /// Raw match identifier; keep in native admission state only, never persist (DDD).
@@ -250,6 +259,11 @@ pub fn admit(
         }
     }
     let game_state = body.pointer("/map/game_state").and_then(Value::as_str);
+    let draft_screen = match game_state {
+        Some("DOTA_GAMERULES_STATE_HERO_SELECTION") => Some(DraftScreen::HeroSelection),
+        Some("DOTA_GAMERULES_STATE_STRATEGY_TIME") => Some(DraftScreen::StrategyTime),
+        _ => None,
+    };
     let draft_bar_phase = matches!(
         game_state,
         Some(
@@ -299,6 +313,7 @@ pub fn admit(
     Outcome::Admitted(Box::new(Admitted {
         phase,
         draft_bar_phase,
+        draft_screen,
         ownership,
         team,
         match_id,
@@ -560,4 +575,59 @@ fn valid_hero_id(s: &str) -> bool {
                 .bytes()
                 .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
     })
+}
+
+#[cfg(test)]
+mod draft_screen_tests {
+    use super::{admit, DraftScreen, Outcome, Phase};
+    use serde_json::json;
+
+    fn body(game_state: &str) -> serde_json::Value {
+        json!({
+            "auth": {"token": "secret"},
+            "provider": {"appid": 570},
+            "player": {"activity": "playing"},
+            "map": {"game_state": game_state}
+        })
+    }
+
+    #[test]
+    fn draft_screen_is_exact_while_existing_coarse_phase_and_draft_bar_phase_remain_unchanged() {
+        let cases = [
+            (
+                "DOTA_GAMERULES_STATE_HERO_SELECTION",
+                Some(DraftScreen::HeroSelection),
+                Phase::Draft,
+                true,
+            ),
+            (
+                "DOTA_GAMERULES_STATE_STRATEGY_TIME",
+                Some(DraftScreen::StrategyTime),
+                Phase::Draft,
+                true,
+            ),
+            (
+                "DOTA_GAMERULES_STATE_TEAM_SHOWCASE",
+                None,
+                Phase::Draft,
+                true,
+            ),
+            (
+                "DOTA_GAMERULES_STATE_WAIT_FOR_PLAYERS_TO_LOAD",
+                None,
+                Phase::Draft,
+                false,
+            ),
+            ("DOTA_GAMERULES_STATE_PRE_GAME", None, Phase::Pregame, false),
+        ];
+        for (state, expected_screen, expected_phase, expected_bar_phase) in cases {
+            let result = admit(&body(state), "secret", None, None);
+            let Outcome::Admitted(admitted) = result else {
+                panic!("{state} should remain admitted")
+            };
+            assert_eq!(admitted.draft_screen, expected_screen, "{state}");
+            assert_eq!(admitted.phase, expected_phase, "{state}");
+            assert_eq!(admitted.draft_bar_phase, expected_bar_phase, "{state}");
+        }
+    }
 }

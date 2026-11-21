@@ -18,6 +18,39 @@ pub(crate) fn app_version() -> Value {
 }
 
 #[tauri::command]
+pub(crate) fn draft_stats_prefs_get(
+    webview: tauri::Webview,
+    state: tauri::State<'_, AppState>,
+) -> Result<crate::hero_stats::DraftStatsPrefs, String> {
+    state.hero_stats.prefs_get(webview.label())
+}
+
+#[tauri::command]
+pub(crate) fn draft_stats_prefs_set(
+    webview: tauri::Webview,
+    state: tauri::State<'_, AppState>,
+    patch: Value,
+) -> Result<crate::hero_stats::DraftStatsPrefs, String> {
+    state.hero_stats.prefs_set(webview.label(), patch)
+}
+
+#[tauri::command]
+pub(crate) fn draft_stats_retry(
+    webview: tauri::Webview,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    state.hero_stats.retry(webview.label())
+}
+
+#[tauri::command]
+pub(crate) fn draft_column_view(
+    webview: tauri::Webview,
+    state: tauri::State<'_, AppState>,
+) -> Result<crate::hero_stats::DraftColumnView, String> {
+    state.hero_stats.view(webview.label())
+}
+
+#[tauri::command]
 pub(crate) fn update_status(state: tauri::State<'_, AppState>) -> Value {
     let match_active = (state.match_active)();
     lock(&state.updater).status(match_active)

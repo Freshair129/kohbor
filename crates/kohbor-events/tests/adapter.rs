@@ -6,6 +6,8 @@ use kohbor_gsi::admission::{
 fn admitted(phase: GsiPhase) -> Admitted {
     Admitted {
         phase,
+        draft_bar_phase: false,
+        draft_screen: None,
         ownership: Ownership::Verified,
         team: None,
         match_id: Some("synthetic-match".into()),

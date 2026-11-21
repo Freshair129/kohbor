@@ -764,6 +764,7 @@ mod tests {
         let outcome = Outcome::Admitted(Box::new(Admitted {
             phase,
             draft_bar_phase: false,
+            draft_screen: None,
             ownership,
             team: Some(Team::Radiant),
             match_id: None,
