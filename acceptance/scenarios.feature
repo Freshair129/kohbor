@@ -6,8 +6,8 @@ Feature: Brand-neutral desktop companion target behavior
   Scenario: AC-CORE-001 Account-independent local startup
     Given a cold installed application with no account and no network
     When the player starts the application
-    Then local setup, permitted intake, overlay and available local functions are usable; account services show unavailable
-    And failure behavior is: Do not lock gameplay functionality behind sign-in or an entitlement check.
+    Then local setup, permitted intake, overlay and available local functions are usable; account services show unavailable; account work runs on its own worker and intake, overlay and alert paths never await it
+    And failure behavior is: Do not lock gameplay functionality behind sign-in or an entitlement check. Account work runs on its own worker and is never awaited by intake, overlay or alert paths.
 
   @CORE-002 @mvp
   Scenario: AC-CORE-002 Resource containment before UI
@@ -20,8 +20,8 @@ Feature: Brand-neutral desktop companion target behavior
   Scenario: AC-CORE-003 Account transitions preserve local state
     Given a local match is active with an optional signed-in account
     When the account is revoked or switched
-    Then protected account operations stop and late account results are discarded; valid local core continues
-    And failure behavior is: Never allow an old account response to populate the new account.
+    Then protected account operations stop and late account results are discarded; valid local core continues; account work runs on its own worker and intake, overlay and alert paths never await it
+    And failure behavior is: Never allow an old account response to populate the new account. Account work runs on its own worker and is never awaited by intake, overlay or alert paths.
 
   @CORE-004 @mvp
   Scenario: AC-CORE-004 Owned integration configuration
@@ -111,8 +111,8 @@ Feature: Brand-neutral desktop companion target behavior
   Scenario: AC-ALERT-001 Native independent warning path
     Given network is down and a renderer/model task is stalled
     When an admitted actionable critical event occurs
-    Then the local alert path continues and meets its acoustic gate
-    And failure behavior is: No synchronous network, disk unpacking or inference in critical admission.
+    Then the local alert path continues and meets its acoustic gate; account work runs on its own worker and intake, overlay and alert paths never await it
+    And failure behavior is: No synchronous network, disk unpacking or inference in critical admission. Account work runs on its own worker and is never awaited by intake, overlay or alert paths.
 
   @ALERT-002 @mvp
   Scenario: AC-ALERT-002 Risk is a labeled heuristic
@@ -473,10 +473,10 @@ Feature: Brand-neutral desktop companion target behavior
 
   @PEER-007 @extension
   Scenario: AC-PEER-007 Native credentials and trusted origins
-    Given a renderer asks for arbitrary origin/path/redirect or member credentials
+    Given a renderer asks for an arbitrary origin/path/redirect or account, refresh or member credentials
     When transport authorization runs
-    Then untrusted request is rejected and tokens stay native
-    And failure behavior is: No URL credentials/query/fragment, redirects or token logging.
+    Then untrusted request is rejected and tokens stay native; account and refresh tokens are sent only to the pinned account-service origin and never enter the renderer
+    And failure behavior is: No URL credentials/query/fragment, redirects or token logging. An account or refresh token exposed to the renderer or sent to an origin other than the pinned account-service origin fails.
 
   @PEER-008 @extension
   Scenario: AC-PEER-008 Leave fences old work
@@ -487,10 +487,10 @@ Feature: Brand-neutral desktop companion target behavior
 
   @PEER-009 @extension
   Scenario: AC-PEER-009 No peer persistence or AI
-    Given memory/history/advice attempts to consume a peer sample
-    When data routing is checked
-    Then the route is denied and samples are not written to logs or AI
-    And failure behavior is: Friendship/premium/cloud consent cannot expand recipients.
+    Given memory/history/advice attempts to consume a peer sample or account records are persisted
+    When peer-data routing and account persistence are checked
+    Then the route is denied and samples are not written to logs or AI; only rule-26 allow-list fields persist, single-use challenges are purged after consumption or expiry within at most 10 minutes, and no deny-list value is stored
+    And failure behavior is: Friendship/premium/cloud consent cannot expand recipients. Peer samples remain transient; the account service fails this requirement if it persists any value outside the rule-26 allow-list or any deny-list value, including a challenge after consumption or expiry or beyond the 10-minute maximum.
 
   @PEER-010 @extension
   Scenario: AC-PEER-010 Separate-scope ability and cooldown sharing
@@ -571,10 +571,10 @@ Feature: Brand-neutral desktop companion target behavior
 
   @SOCIAL-001 @extension
   Scenario: AC-SOCIAL-001 Optional account boundary
-    Given a signed-out user opens core or joins a guest room
-    When account checks run
-    Then core and permitted guest flow remain available; account-only social actions are unavailable
-    And failure behavior is: No public social directory or implicit platform-friend import.
+    Given a signed-out user opens core or joins a guest room, or a signed-in user submits a friend lookup
+    When account checks and exact friend-code lookups run
+    Then core and permitted guest flow remain available; account-only social actions are unavailable to signed-out users; lookup locates an account only by an exact server-minted friend code, and unknown-code, blocked-pair and requests-off denials are indistinguishable
+    And failure behavior is: No public social directory or implicit platform-friend import. A lookup must use an exact server-minted friend code; denial reasons for unknown code, blocked pair and requests-off outcomes are indistinguishable.
 
   @SOCIAL-002 @extension
   Scenario: AC-SOCIAL-002 Friendship is not sharing consent
