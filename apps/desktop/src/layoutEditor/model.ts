@@ -173,6 +173,90 @@ export function clampObjectiveWidget(
   return closest ?? { ...OBJECTIVE_CARD_LAYOUT_DEFAULT, scale };
 }
 
+/** Reference screen for editor coordinates: the preview is a scaled 1920x1080 screen. */
+export const LAYOUT_REFERENCE_SCREEN: Readonly<LayoutViewport> = { width: 1920, height: 1080 };
+
+export type BlockingReason = "minimap" | "bottom_hud" | "top_bar" | "announcement" | "edge";
+
+/**
+ * Map a pointer position inside the preview rectangle to an unclamped layout. The preview may be any
+ * size (inline or fullscreen); positions are proportional, so the same screen point gives the same layout.
+ */
+export function pointerToLayout(
+  clientX: number,
+  clientY: number,
+  offsetX: number,
+  offsetY: number,
+  rect: { left: number; top: number; width: number; height: number },
+  scale: number,
+): WidgetLayout {
+  return {
+    x_percent: (clientX - offsetX - rect.left) / rect.width * 100,
+    y_percent: (clientY - offsetY - rect.top) / rect.height * 100,
+    scale,
+  };
+}
+
+/** Which protected regions or screen edges a requested card box would cross, under the given rules. */
+export function blockingReasons(
+  requested: WidgetLayout,
+  viewport: LayoutViewport = LAYOUT_REFERENCE_SCREEN,
+  rules: Readonly<ClampRules> = OBJECTIVE_CARD_RULES,
+): BlockingReason[] {
+  const scale = clamp(Number.isFinite(requested.scale) ? requested.scale : OBJECTIVE_CARD_LAYOUT_DEFAULT.scale, LAYOUT_SCALE_BOUNDS[0], LAYOUT_SCALE_BOUNDS[1]);
+  const bounds = boundsFor(scale, { width: Math.max(1, viewport.width), height: Math.max(1, viewport.height) });
+  const reasons: BlockingReason[] = [];
+  if (requested.x_percent < bounds.minX || requested.x_percent > bounds.maxX
+    || requested.y_percent < bounds.minY || requested.y_percent > bounds.maxY) reasons.push("edge");
+  for (const region of protectedRegions(rules)) {
+    if (intersects(requested, region, bounds.halfWidth, bounds.halfHeight)) reasons.push(region.id as BlockingReason);
+  }
+  return reasons;
+}
+
+/** Clamp like clampObjectiveWidget and say what stopped the card (empty when it moved freely). */
+export function clampObjectiveWidgetWithReasons(
+  requested: WidgetLayout,
+  viewport: LayoutViewport = LAYOUT_REFERENCE_SCREEN,
+  rules: Readonly<ClampRules> = OBJECTIVE_CARD_RULES,
+): { layout: WidgetLayout; blockedBy: BlockingReason[] } {
+  const layout = clampObjectiveWidget(requested, viewport, rules);
+  const moved = Math.abs(layout.x_percent - requested.x_percent) > 1e-9 || Math.abs(layout.y_percent - requested.y_percent) > 1e-9;
+  return { layout, blockedBy: moved ? blockingReasons(requested, viewport, rules) : [] };
+}
+
+/** Arrow-key nudge in screen pixels at the reference screen: 1 px, or 10 px with Shift. */
+export function nudgeObjectiveWidget(
+  layout: WidgetLayout,
+  key: string,
+  shift: boolean,
+  viewport: LayoutViewport = LAYOUT_REFERENCE_SCREEN,
+  rules: Readonly<ClampRules> = OBJECTIVE_CARD_RULES,
+): { layout: WidgetLayout; blockedBy: BlockingReason[] } | null {
+  const px = shift ? 10 : 1;
+  const dx = px / viewport.width * 100;
+  const dy = px / viewport.height * 100;
+  const moves: Record<string, Partial<WidgetLayout>> = {
+    ArrowLeft: { x_percent: layout.x_percent - dx },
+    ArrowRight: { x_percent: layout.x_percent + dx },
+    ArrowUp: { y_percent: layout.y_percent - dy },
+    ArrowDown: { y_percent: layout.y_percent + dy },
+  };
+  const change = moves[key];
+  if (!change) return null;
+  return clampObjectiveWidgetWithReasons({ ...layout, ...change }, viewport, rules);
+}
+
+/** The card centre in reference-screen pixels, for the numeric readout. */
+export function layoutReadoutPx(layout: WidgetLayout, viewport: LayoutViewport = LAYOUT_REFERENCE_SCREEN): { x: number; y: number } {
+  return { x: Math.round(layout.x_percent * viewport.width / 100), y: Math.round(layout.y_percent * viewport.height / 100) };
+}
+
+/** Background style for the local reference screenshot; undefined means the plain grid fallback. */
+export function referenceBackground(reference: string | null): { backgroundImage: string } | undefined {
+  return reference && reference.startsWith("data:image/jpeg;base64,") ? { backgroundImage: `url("${reference}")` } : undefined;
+}
+
 export function parseLayoutDocument(value: unknown, viewport?: LayoutViewport): LayoutDocument | null {
   if (!record(value) || Object.keys(value).length !== 2 || value.schema_version !== 1 || !record(value.widgets)) return null;
   const widgets = value.widgets;

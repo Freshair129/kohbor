@@ -19,6 +19,7 @@ import {
 } from "./labHudLayout";
 import { labHudLayoutApply, labHudLayoutGet, labHudLayoutReset, labHudPreview, labReferenceImage } from "./labRuntime";
 import type { HudModuleId } from "../hudModel";
+import { toggleElementFullscreen } from "../layoutEditor/fullscreen";
 
 const MODULE_LABELS: Record<HudModuleId, string> = {
   gmeter: "G-Meter",
@@ -216,8 +217,7 @@ export function HudLayoutEditor({ onUnsavedChange }: { onUnsavedChange?: (unsave
   const toggleFullscreen = () => {
     const target = canvasWrap.current;
     if (!target) return;
-    const task = document.fullscreenElement === target ? document.exitFullscreen() : target.requestFullscreen();
-    void task.catch((reason: unknown) => {
+    void toggleElementFullscreen(target).catch((reason: unknown) => {
       setEditor((state) => state === null ? state : failHudLayoutAction(state, String(reason)));
     });
   };
