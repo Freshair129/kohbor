@@ -58,8 +58,8 @@
     },
     {
       "path": "acceptance/scenarios.feature",
-      "bytes": 40635,
-      "sha256": "40ddd88ed654c9d2cea7b49f60f7147eae14a36df383a7fe554551e5654ea86b"
+      "bytes": 40807,
+      "sha256": "e42ab1410c44df8577f0d04784d9d8e0196afdd71d316f0036f106aa7a8d370b"
     },
     {
       "path": "acceptance/spec-validation.json",
@@ -432,6 +432,26 @@
       "sha256": "1f88f739bb4a4b8f2a90a87b607943541d2cc8c7b9ec9d25bbcabbfc18a8e115"
     },
     {
+      "path": "apps/desktop/src-tauri/src/objectives/diagnostics.rs",
+      "bytes": 5709,
+      "sha256": "4b70a76aa26967359e8b692bc100cb46a3ad09bc06b111eb07150d48dc939f96"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/objectives/mod.rs",
+      "bytes": 3795,
+      "sha256": "4d4034eec483c3867fd8dc4be9c97f542bcad69d05c82a8f3c8aedd10a65e9f1"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/objectives/prefs.rs",
+      "bytes": 11586,
+      "sha256": "3507a88c75f41b6f9c127c0770a5bca5fd7836f3c2ca3dff98ed8fecb00bf755"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/objectives/tone.rs",
+      "bytes": 1768,
+      "sha256": "3f403d372f31e00ad83a485ba3ae4cd4ea1ca6a806837a47e0b3f889c563dd11"
+    },
+    {
       "path": "apps/desktop/src-tauri/src/orb/host.rs",
       "bytes": 38260,
       "sha256": "5bc89ac4fedfcadae577e57228bff8e628769ad31ca34cea4520cb49e232c3f6"
@@ -540,6 +560,16 @@
       "path": "apps/desktop/src/MediaProbeContext.tsx",
       "bytes": 7577,
       "sha256": "ffabe95d30c60953c8b6d50442270c56ca0f8de9950a8415fb146695e3b67519"
+    },
+    {
+      "path": "apps/desktop/src/ObjectiveAlert.tsx",
+      "bytes": 331,
+      "sha256": "34323d3a950de0e12a23bfc453d9ee7da693614ee46fc01dfcf74ea94aad3394"
+    },
+    {
+      "path": "apps/desktop/src/ObjectiveSettings.tsx",
+      "bytes": 2869,
+      "sha256": "2b5595dc42826702288db6439cac538f4a535fa01768fcc34e2bcfb78baf6394"
     },
     {
       "path": "apps/desktop/src/OverlayChip.tsx",
@@ -1120,6 +1150,16 @@
       "path": "apps/desktop/src/mock/updateHarness.ts",
       "bytes": 2105,
       "sha256": "fa9359c2493ca7aaf0c5b5aed9e805a3f3ede6d0cd93899f68f3325d5f27f4e0"
+    },
+    {
+      "path": "apps/desktop/src/objectiveAlertModel.ts",
+      "bytes": 4643,
+      "sha256": "85256d98f50ebef5bde76699240e40bec941923897427fa413d7a97705720aa9"
+    },
+    {
+      "path": "apps/desktop/src/objectivePrefs.ts",
+      "bytes": 1029,
+      "sha256": "a84361d869955666c99eb0a28e5499676342bd3948763488490ce90b14f4f7ac"
     },
     {
       "path": "apps/desktop/src/orb/OrbSettings.tsx",
@@ -1762,6 +1802,11 @@
       "sha256": "f294f465258d7f7591bc6220ad110f88e5b47d7722d8190119e5a57c67dc2f92"
     },
     {
+      "path": "apps/desktop/tests/objectiveAlert.test.ts",
+      "bytes": 2631,
+      "sha256": "03ac60a6a839bd48df5ba89a239a7f03a1379ef4ff7b194945e29c5e49c8a7a1"
+    },
+    {
       "path": "apps/desktop/tests/orb-model.test.ts",
       "bytes": 6243,
       "sha256": "05a7fab4b10549f69054c87b9ed624d04b77dd1f72e0986a7fc42ae2b3c8b00a"
@@ -1963,8 +2008,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 79798,
-      "sha256": "cbf668c8c43791c914d00d86c2f2fd2c02ebe251e704b91d009112b9bfabc54b"
+      "bytes": 82017,
+      "sha256": "47af97293a231c4eedf9399e4ff9c8f13c17ec6c1a59368fc0a3e6559711a8cf"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -2048,8 +2093,8 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 220051,
-      "sha256": "46c31c57b3dbe5270bc6f9e7fff50e25c1679681f88fc90956c2103f21270b3e"
+      "bytes": 220223,
+      "sha256": "30dfa921af3f8ab8684aca3a0ee6a39491314bd9198458f3b4d5183888cd7db2"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -2287,6 +2332,11 @@
       "sha256": "99299a3a040a4aeca031b77c4d4c766233a8c667fea8db82966e0af2f100c56c"
     },
     {
+      "path": "crates/kohbor-events/data/objective-timings.json",
+      "bytes": 3416,
+      "sha256": "7684984344a27c8d81092d95d90e106a16d31bb700296b50165c8df597e5479c"
+    },
+    {
       "path": "crates/kohbor-events/src/adapter.rs",
       "bytes": 1634,
       "sha256": "8775e735c7fda44433a6b4d9aac0c570ec5c99ab2ddee7ee1111a9cb34b5bed2"
@@ -2300,6 +2350,11 @@
       "path": "crates/kohbor-events/src/lib.rs",
       "bytes": 27901,
       "sha256": "2564cc5506749bc92d368f1739f04c585892558571b04ed89ef754f0597910b0"
+    },
+    {
+      "path": "crates/kohbor-events/src/objectives.rs",
+      "bytes": 24431,
+      "sha256": "17ba0c7f94d03cbde180c601b761524208d60218c9a21d168b2c9d7ee1d9e4f4"
     },
     {
       "path": "crates/kohbor-events/src/trace.rs",
@@ -3408,8 +3463,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 49732,
-      "sha256": "36f468917b3d6ba5fd357f786875f4e812f27a24e234ea963cbc9a7d3fc49648"
+      "bytes": 50205,
+      "sha256": "9835e6b7cf96275815936eeb4e29706b17eac0d21ca32eb66d72d010970c0cdb"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
@@ -3493,8 +3548,8 @@
     },
     {
       "path": "docs/requirements/SRS.md",
-      "bytes": 143516,
-      "sha256": "7cf0031e5bdb6671069a5013faf145f5cd7bcd9a403e3a14f30343d786ac4553"
+      "bytes": 143688,
+      "sha256": "890de8dcf5bc2d1c12b828730726946365ad056e8ce9dcc8f492eda9549a456d"
     },
     {
       "path": "docs/security/SECURITY-PRIVACY.md",

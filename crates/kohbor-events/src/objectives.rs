@@ -637,11 +637,22 @@ mod tests {
     }
 
     #[test]
-    fn every_timing_row_is_patch_tagged_sourced_and_owner_unconfirmed() {
+    fn every_timing_row_is_patch_tagged_sourced_and_rune_rows_owner_confirmed() {
         let table: serde_json::Value = serde_json::from_str(TIMING_TABLE).unwrap();
         for row in table["objectives"].as_array().unwrap() {
             assert_eq!(row["patch"], "7.42");
-            assert_eq!(row["confirmed_by_owner"], false);
+            let rune = ["water_rune", "power_rune", "bounty_rune", "wisdom_rune"]
+                .iter()
+                .any(|id| row["id"] == *id);
+            // DEC-EVENT-RUNE-SPAWN revision 3: the owner confirmed the wiki rune
+            // timings for 7.42 pending a live check; other rows stay unconfirmed.
+            assert_eq!(row["confirmed_by_owner"], rune);
+            if rune {
+                assert_eq!(
+                    row["owner_note"],
+                    "owner confirmed 2026-11-22, pending live check"
+                );
+            }
             assert!(!row["source_urls"].as_array().unwrap().is_empty());
             assert!(row["source_urls"].as_array().unwrap().iter().all(|source| {
                 source
