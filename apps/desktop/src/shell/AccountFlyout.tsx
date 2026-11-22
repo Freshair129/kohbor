@@ -63,7 +63,10 @@ export function AccountFlyout({ account, port, version, steamName, showSteamName
   const activate = (action: AccountFlyoutAction) => {
     apply("select");
     if (action === "account" || action === "settings") navigate(action);
-    if (action === "signIn") void port.signIn().catch(() => {});
+    if (action === "signIn") {
+      navigate("account");
+      void port.signIn().catch(() => {});
+    }
     if (action === "signOut") void port.signOut().catch(() => {});
     trigger.current?.focus();
   };

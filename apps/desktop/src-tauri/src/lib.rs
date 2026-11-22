@@ -4,6 +4,7 @@
 #[cfg(feature = "demo")]
 #[allow(dead_code)]
 mod account_host;
+mod account_supabase;
 pub mod atomic;
 mod audio;
 mod audio_prefs;
@@ -1224,6 +1225,10 @@ pub fn run() {
                     )
                 })
             };
+            let account_auth =
+                account_supabase::SupabaseAuth::new(settings_dir.clone(), update_match_active.clone());
+            app.manage(account_auth.clone());
+            account_auth.start_refresh_loop();
             app.manage(AppState {
                 runtime,
                 host,
@@ -1308,6 +1313,10 @@ pub fn run() {
         commands::audio_prefs_get,
         commands::audio_set_volume,
         commands::audio_set_hotkeys,
+        account_supabase::account_status,
+        account_supabase::account_sign_in,
+        account_supabase::account_cancel_sign_in,
+        account_supabase::account_sign_out,
         capture_host::minimap_subscribe,
         capture_host::draft_bar_read,
         capture_host::capture_status,
@@ -1390,6 +1399,10 @@ pub fn run() {
         commands::audio_prefs_get,
         commands::audio_set_volume,
         commands::audio_set_hotkeys,
+        account_supabase::account_status,
+        account_supabase::account_sign_in,
+        account_supabase::account_cancel_sign_in,
+        account_supabase::account_sign_out,
         capture_host::minimap_subscribe,
         capture_host::draft_bar_read,
         capture_host::capture_status,
@@ -1421,6 +1434,9 @@ pub fn run() {
                 capture_host::stop();
                 crate::log_info!("app", "exit", "Kohbor is exiting");
                 let state = handle.state::<AppState>();
+                handle
+                    .state::<account_supabase::SupabaseAuth>()
+                    .shutdown();
                 // Orb first (no new clicks), then put every touched audio session back (MEDIA-009).
                 state.orb.stop_for_exit();
                 state.mixer.shutdown();
