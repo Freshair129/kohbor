@@ -40,46 +40,6 @@ export function mapEdgeFor(side: Exclude<SecondMonitorSide, "off">): "left" | "r
   return side === "right" ? "left" : "right";
 }
 
-// Below about 1100 x 700 the mode falls back to the centred deck (owner decision 2026-11-22).
-export const FALLBACK_MIN_WIDTH = 1100;
-export const FALLBACK_MIN_HEIGHT = 700;
-export const COLUMN_MIN = 360;
-export const GAP = 8;
-export const MAP_MIN = 480;
-
-export function windowAllowsPinned(width: number, height: number): boolean {
-  return Number.isFinite(width) && Number.isFinite(height) && width >= FALLBACK_MIN_WIDTH && height >= FALLBACK_MIN_HEIGHT;
-}
-
-export function bandHeightFor(height: number): number {
-  return height >= 1300 ? 156 : 132;
-}
-
-export type SecondMonitorLayout =
-  | { mode: "fallback"; reason: "off" | "too_small" }
-  | { mode: "pinned"; mapEdge: "left" | "right"; mapPx: number; bandPx: number; columns: 1 | 2 };
-
-/**
- * Layout of the Live content box (rails excluded).
- * Outer columns collapse first (2 -> 1); only when one minimum column is left does the map shrink.
- * The map size depends only on the box size, never on panel content (UI-002: the map does not move).
- */
-export function secondMonitorLayout(input: { side: SecondMonitorSide; width: number; height: number }): SecondMonitorLayout {
-  const { side, width, height } = input;
-  if (side === "off") return { mode: "fallback", reason: "off" };
-  if (!windowAllowsPinned(width, height)) return { mode: "fallback", reason: "too_small" };
-  const bandPx = bandHeightFor(height);
-  const ideal = Math.floor(height - bandPx);
-  const outer = width - ideal - GAP;
-  let mapPx = ideal;
-  let columns: 1 | 2 = 2;
-  if (outer >= 2 * COLUMN_MIN + GAP) columns = 2;
-  else if (outer >= COLUMN_MIN) columns = 1;
-  else { columns = 1; mapPx = Math.floor(width - COLUMN_MIN - GAP); }
-  if (mapPx < MAP_MIN) return { mode: "fallback", reason: "too_small" };
-  return { mode: "pinned", mapEdge: mapEdgeFor(side), mapPx, bandPx, columns };
-}
-
 /** Enemies no longer on the map compared with the recent maximum seen (risk baseline). Derived; null if either is unknown. */
 export function missingFromMap(state: RiskState | null): number | null {
   if (!state || state.visible === null || state.baseline === null) return null;
@@ -157,7 +117,13 @@ export function secondMonitorCopy(locale: "th" | "en") {
       ? { off: "ปิด", left: "ซ้ายจอหลัก", right: "ขวาจอหลัก" }
       : { off: "Off", left: "Left of main", right: "Right of main" },
     sideHint: th ? "แผนที่จะชิดขอบที่ติดกับจอหลัก" : "The map is pinned to the edge that touches the main monitor",
-    fallbackNote: th ? "หน้าต่างเล็กกว่า 1100×700 จึงใช้แบบแผนที่กลาง" : "The window is smaller than 1100×700, so the centred layout is used",
+    tooSmallTitle: th ? "หน้าต่างเล็กเกินไป" : "Window too small",
+    tooSmallBody: th ? "โหมดจอ 2 ต้องการหน้าต่างอย่างน้อย 688×680 เพื่อแสดงแผนที่และการ์ดทีมเราครบโดยไม่ต้องเลื่อน"
+      : "Second-monitor mode needs a window of at least 688×680 to show the map and all of our cards without scrolling",
+    tooSmallHint: th ? "ขยายหน้าต่าง หรือปิดโหมดจอ 2" : "Enlarge the window or turn second-monitor mode off",
+    slotLabel: th ? "ช่องอิสระ" : "Free panel",
+    slotTitle: th ? "เหตุการณ์" : "Events",
+    slotNote: th ? "ช่องอิสระ · ภายหลังรองรับเสียง AI หรือแชทกับเอเจนต์" : "Free panel · later: AI voice or agent chat",
     danger: th ? "ความเสี่ยง" : "Danger",
     missing: th ? "หายจากแผนที่" : "Missing from map",
     missingUnit: th ? "ตัว" : "",

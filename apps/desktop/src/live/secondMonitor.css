@@ -1,18 +1,17 @@
-/* Second-monitor Live mode (UI-016, UI-017). The map is pinned to the edge that touches the main monitor. */
+/* Second-monitor Live mode (UI-016..UI-019). Every region is placed from the Live box size (secondMonitorLayout.ts):
+   nothing on this page scrolls and no section is cut (owner feedback 2026-11-23). Text never goes below 12 px. */
 .sm-host { position: relative; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; color: var(--text); }
 .shell-live-page > .sm-host { flex: 1 1 0; height: auto; min-height: 0; }
-.sm-pinned { display: flex; flex-direction: row; gap: 8px; }
-.sm-pinned[data-map-edge="right"] { flex-direction: row-reverse; }
-.sm-fallback { display: flex; flex-direction: column; gap: 8px; }
-.sm-fallback > .deck-root { flex: 1 1 0; min-height: 0; }
-.sm-fallback-bar { display: flex; flex: none; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
+.sm-host * { scrollbar-width: none; }
+.sm-host *::-webkit-scrollbar { display: none; }
+.sm-inner, .sm-status, .sm-region, .sm-slot { box-sizing: border-box; overflow: hidden; min-width: 0; min-height: 0; }
 
-/* Inner column: map square + quick strip; its size comes only from the box (UI-002: never from content). */
-.sm-inner { position: relative; flex: none; width: var(--sm-map, 50%); display: flex; flex-direction: column; min-height: 0; }
+/* Map pane square + quick strip; their sizes come only from the box (UI-002: never from content). */
+.sm-inner { display: flex; flex-direction: column; }
 .live-pinned-panel { display: flex; flex-direction: column; width: 100%; min-height: 0; color: var(--text); }
 .sm-pinned .live-pinned-panel > .live-map-pane { flex: none; width: var(--sm-map); height: var(--sm-map); border-radius: 0; padding: 6px; }
 .live-pinned-panel .live-map-toolbar h1 { white-space: nowrap; }
-.live-pinned-tools {display: flex; flex: 1 1 auto; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.live-pinned-tools { display: flex; flex: 1 1 auto; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px; min-width: 0; }
 .live-pinned-tools .live-sidebar-status { flex-direction: row; flex-wrap: wrap; align-items: center; }
 .live-pinned-tools .live-sidebar-actions { margin-top: 0; }
 .sm-pinned[data-map-edge="left"] .live-pinned-panel > .live-map-pane { border-left-width: 0; }
@@ -20,81 +19,122 @@
 .sm-alerts { position: absolute; top: 44px; left: 12px; right: 12px; display: flex; justify-content: center; pointer-events: none; }
 .sm-alerts .deck-alert-strip > .muted { display: none; }
 
-.sm-band { flex: none; height: var(--sm-band, 132px); box-sizing: border-box; display: grid; grid-template-columns: minmax(118px, 0.9fr) minmax(128px, 1fr) minmax(0, 3.4fr) minmax(104px, 0.8fr); gap: 8px; padding: 8px; border: 1px solid var(--line); border-top: 0; background: var(--surface); min-width: 0; }
-.sm-cell { min-width: 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: center; gap: 3px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--ground); }
+.sm-band { flex: none; height: var(--sm-band, 132px); box-sizing: border-box; display: grid; grid-template-columns: minmax(96px, 0.9fr) minmax(96px, 1fr) minmax(0, 3.4fr) minmax(88px, 0.8fr); gap: 6px; padding: 6px; border: 1px solid var(--line); border-top: 0; background: var(--surface); min-width: 0; overflow: hidden; }
+.sm-cell { min-width: 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--ground); }
 .sm-cell.is-unknown { border-style: dashed; }
 .sm-lbl { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; color: var(--muted); font-size: 12px; line-height: 1.35; }
-.sm-big { font-size: 26px; font-weight: 700; line-height: 1.1; color: var(--text); }
+.sm-big { font-size: 24px; font-weight: 700; line-height: 1.1; color: var(--text); }
 .sm-big small { font-size: 14px; font-weight: 500; color: var(--text-2); }
 .sm-sub { color: var(--text-2); font-size: 12px; overflow-wrap: anywhere; }
+.sm-host[data-band="compact"] .sm-sub, .sm-host[data-band="compact"] .sm-lbl .sm-src { display: none; }
 .sm-src { display: inline-flex; align-items: center; padding: 0 5px; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); font-size: 12px; line-height: 1.5; white-space: nowrap; }
 .sm-src.is-pending { border-style: dashed; }
-.sm-tokens { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
-.sm-token { min-width: 0; display: flex; flex-direction: column; gap: 1px; padding: 4px 6px; border: 1px solid var(--enemy, #f0914f); border-radius: 6px; background: var(--enemy-surface, #2e1e12); }
-.sm-token b { font-size: 15px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sm-tokens { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+.sm-token { min-width: 0; display: flex; flex-direction: column; gap: 1px; padding: 2px 5px; border: 1px solid var(--enemy, #f0914f); border-radius: 6px; background: var(--enemy-surface, #2e1e12); }
+.sm-token b { font-size: 13px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sm-token span { color: var(--muted); font-size: 12px; }
+.sm-host[data-band="compact"] .sm-token span { display: none; }
 .sm-token.is-unknown { border-style: dashed; border-color: var(--stale); background: var(--ground); }
 .sm-token.is-unknown b { color: var(--text-2); }
 
-/* Outer area: columns collapse first; text never shrinks, cards scroll inside. */
-.sm-outer { flex: 1 1 0; min-width: 0; min-height: 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
-.sm-col { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 8px; overflow: auto; }
-.sm-col > .deck-event-panel { flex: 1 1 0; min-height: 200px; }
-.sm-head { display: flex; flex: none; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* Status: chips, start button and the side selector wrap inside a fixed-height box (no overlap, no growth). */
+.sm-status { display: flex; flex-wrap: wrap; align-content: flex-start; align-items: center; gap: 6px 8px; padding: 6px 0; }
+.sm-status > .steam-start-bar { flex: 1 1 auto; min-width: 0; padding: 3px 6px; }
 .sm-toggle { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px; font-size: 12px; color: var(--muted); }
 .sm-toggle-label { margin-right: 4px; }
-.sm-toggle button { min-height: 28px; padding: 2px 10px; border: 1px solid var(--line-strong); border-radius: 6px; background: transparent; color: var(--text-2); font-size: 12px; }
+.sm-toggle button { min-height: 26px; padding: 1px 9px; border: 1px solid var(--line-strong); border-radius: 6px; background: transparent; color: var(--text-2); font-size: 12px; }
 .sm-toggle button[aria-pressed="true"] { background: var(--accent-surface); color: var(--text); font-weight: 600; }
 .sm-toggle button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-
-.sm-card { flex: none; min-width: 0; display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
-.sm-card h2 { margin: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; font-size: 15px; font-weight: 600; }
-.sm-card-tags { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-left: auto; }
 .sm-note { margin: 0; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
 .sm-muted { color: var(--muted); font-size: 12px; }
 
-/* Hero cards (owner request 2026-11-23): portrait, name, HP and mana bars, four skill squares. */
-.sm-hero-list { display: flex; flex-direction: column; gap: 6px; }
-.sm-hero { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: start; padding: 8px; border: 1px solid var(--line-subtle); border-left: 3px solid var(--ally, #7fb0e6); border-radius: 6px; background: var(--ground); min-width: 0; }
-.sm-hero-own { border-left-color: var(--accent); }
-.sm-hero-enemy { border-left-color: var(--enemy, #f0914f); background: var(--enemy-surface, #2e1e12); }
-.sm-hero.is-unknown { border-style: dashed; border-left-style: solid; }
-.sm-hero-body { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.sm-hero-name { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
-.sm-hero-name b { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sm-hero.is-unknown .sm-hero-name b { color: var(--text-2); font-weight: 400; }
+/* Team groups: heading line, then five compact cards of a fixed size. */
+.sm-region { overflow: visible; }
+.sm-group { height: 100%; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.sm-group h2 { flex: none; height: 22px; margin: 0; display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 14px; font-weight: 600; white-space: nowrap; }
+.sm-group-src { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--muted); font-size: 12px; font-weight: 400; }
+.sm-group-cards { display: grid; gap: 6px; min-height: 0; }
+.sm-group-row .sm-group-cards { grid-template-columns: minmax(0, 1fr); }
+.sm-group-tile .sm-group-cards { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .sm-enemy-mark { flex: none; padding: 0 6px; border-radius: 4px; background: var(--enemy, #f0914f); color: #1a1208; font-size: 12px; font-weight: 700; line-height: 1.5; }
+.sm-ally-mark { flex: none; padding: 0 6px; border-radius: 4px; background: var(--ally, #7fb0e6); color: #0c1420; font-size: 12px; font-weight: 700; line-height: 1.5; }
+
+/* Compact hero card (owner request 2026-11-23). Sizes come from --pt/--nf/--bh/--sq set from the card size. */
+.sm-hero { box-sizing: border-box; position: relative; min-width: 0; display: grid; gap: 8px; padding: 6px; border: 1px solid var(--line-subtle); border-radius: 6px; background: var(--ground); }
+.sm-hero-row { grid-template-columns: var(--pt) minmax(0, 1fr); align-items: center; border-left: 3px solid var(--ally, #7fb0e6); }
+.sm-hero-tile { grid-template-rows: var(--pt) auto; justify-items: center; align-content: center; border-top: 3px solid var(--ally, #7fb0e6); text-align: center; }
+.sm-hero-row.sm-hero-own { border-left-color: var(--accent); }
+.sm-hero-tile.sm-hero-own { border-top-color: var(--accent); }
+.sm-hero-row.sm-hero-enemy { border-left-color: var(--enemy, #f0914f); }
+.sm-hero-tile.sm-hero-enemy { border-top-color: var(--enemy, #f0914f); }
+.sm-hero-enemy { background: var(--enemy-surface, #2e1e12); }
+.sm-hero.is-unknown { border-style: dashed; }
+.sm-hero-row.is-unknown { border-left-style: solid; }
+.sm-hero-tile.is-unknown { border-top-style: solid; }
+.sm-hero .hero-portrait { --hero-portrait-size: var(--pt); }
+.sm-hero-body { min-width: 0; width: 100%; display: flex; flex-direction: column; gap: 3px; }
+.sm-hero-name { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.sm-hero-tile .sm-hero-name { justify-content: center; }
+.sm-hero-name b { min-width: 0; font-size: var(--nf, 15px); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sm-hero.is-unknown .sm-hero-name b { color: var(--text-2); font-weight: 400; }
 .sm-hero-bars { display: flex; flex-direction: column; gap: 3px; }
-.sm-bar { position: relative; display: block; height: 16px; border-radius: 4px; background: var(--raised); overflow: hidden; }
+.sm-bar { position: relative; display: block; height: var(--bh, 14px); border-radius: 3px; background: var(--raised); overflow: hidden; text-align: left; }
 .sm-bar > span { display: block; height: 100%; }
 .sm-bar-hp > span { background: #4f8f4a; }
 .sm-bar-mana > span { background: #3d6fa8; }
-.sm-bar > em { position: absolute; inset: 0; display: flex; align-items: center; padding: 0 6px; font-style: normal; font-size: 12px; line-height: 1; color: var(--text); }
+.sm-bar > em { position: absolute; inset: 0; display: flex; align-items: center; padding: 0 5px; font-style: normal; font-size: 12px; line-height: 1; color: var(--text); white-space: nowrap; }
 .sm-bar.is-unknown { background: transparent; border: 1px dashed var(--line); }
 .sm-bar.is-unknown > em { color: var(--muted); }
-.sm-skills { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 34px); gap: 4px; }
-.sm-skill { box-sizing: border-box; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--raised); font-size: 13px; font-weight: 600; }
+.sm-skills { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, var(--sq, 30px)); gap: 3px; }
+.sm-hero-tile .sm-skills { justify-content: center; }
+.sm-skill { box-sizing: border-box; width: var(--sq, 30px); height: var(--sq, 30px); display: flex; align-items: center; justify-content: center; border: 1px solid var(--line-strong); border-radius: 4px; background: var(--raised); font-size: 12px; font-weight: 600; }
 .sm-skill.is-ult { border-width: 2px; }
 .sm-skill[data-state="unknown"] { border-style: dashed; background: transparent; color: var(--muted); font-weight: 400; }
 .sm-skill[data-state="cooldown"] { background: #1c1f26; color: var(--text); }
 .sm-skill[data-state="ready"] { border-color: #5fbf5a; background: #1f3a1e; }
 .sm-skill[data-state="ready_no_mana"] { border-color: #4d8fe0; background: #1a2a44; }
 .sm-skill[data-state="not_ready"] { border-color: #3a3d44; background: #101114; }
-.sm-hero-src { display: flex; flex-wrap: wrap; gap: 4px; }
-.sm-hero .hero-portrait { flex: none; }
-.sm-own-more > summary { cursor: pointer; color: var(--text-2); font-size: 13px; padding: 4px 0; }
+
+/* Own-hero details open as a popover over the page; the card never grows. */
+.sm-own-more { flex: none; }
+.sm-own-more > summary { list-style: none; cursor: pointer; padding: 0 6px; border: 1px solid var(--line-strong); border-radius: 4px; color: var(--text-2); font-size: 12px; line-height: 1.5; }
+.sm-own-more > summary::-webkit-details-marker { display: none; }
 .sm-own-more > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sm-hero-own { position: static; }
+/* Anchored to the team region (the positioned ancestor), so it stays inside the page at every size. */
+.sm-own-pop { position: absolute; z-index: 20; top: 28px; left: 0; width: min(100%, 360px); min-width: 300px; margin-top: 0; padding: 10px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); text-align: left; }
+.sm-group-tile.sm-group-ally .sm-own-pop { top: auto; bottom: 100%; margin: 0 0 4px; }
+.sm-host[data-map-narrow] .sm-cell-enemies { display: none; }
+.sm-host[data-map-narrow] .sm-band { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); }
 .sm-own-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin: 6px 0; }
 .sm-own-stats > div { display: flex; justify-content: space-between; gap: 6px; padding: 4px 8px; border: 1px solid var(--line-subtle); border-radius: 6px; font-size: 13px; }
 .sm-own-stats span { color: var(--muted); }
+
+/* Free slot: the event log today (newest first, as many as fit, no scrollbar); AI voice or agent chat later. */
+.sm-slot { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.sm-slot-head { flex: none; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; min-width: 0; }
+.sm-slot-head b { font-size: 14px; }
+.sm-slot-head small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 12px; }
+.sm-slot-body { flex: 1 1 0; min-height: 0; overflow: hidden; }
+.sm-slot-body > * { height: 100%; overflow: hidden; }
+.sm-slot-body :is(ol, ul, [role="log"], [role="list"]) { overflow: hidden !important; }
+
+/* Too small: one clear message instead of a broken or scrolling layout. */
+.sm-too-small { display: grid; place-items: center; padding: 16px; }
+.sm-too-small-box { max-width: 460px; padding: 20px 24px; border: 1px dashed var(--line-strong); border-radius: 12px; background: var(--surface); text-align: center; }
+.sm-too-small-box h2 { margin: 0 0 8px; font-size: 18px; }
+.sm-too-small-box p { margin: 0 0 8px; color: var(--text-2); }
+
+/* GSI setup needs attention: it floats over the outer area instead of pushing the layout. */
+.sm-setup:empty { display: none; }
+.sm-setup { position: absolute; z-index: 30; top: 8px; max-width: min(560px, 90%); }
+.sm-pinned[data-map-edge="left"] .sm-setup { right: 8px; }
+.sm-pinned[data-map-edge="right"] .sm-setup { left: 8px; }
 
 /* Shell in second-monitor mode: rails move to the outer edge; friends rail folds during a match (owner 2026-11-22). */
 .app[data-live-monitor] .shell-page-header { display: none; }
 .app[data-live-monitor] .shell-main { padding: 0; grid-template-rows: minmax(0, 1fr) 28px; }
 .app[data-live-monitor] .shell-page-content { padding-top: 0; }
-.sm-pinned .sm-outer { padding: 8px 0; }
-.sm-pinned[data-map-edge="left"] .sm-outer { padding-right: 8px; }
-.sm-pinned[data-map-edge="right"] .sm-outer { padding-left: 8px; }
 .app[data-live-monitor="right"] { grid-template-columns: minmax(0, 1fr) var(--rail-left-width) var(--rail-width); }
 .app[data-live-monitor="right"] .shell-main { grid-column: 1; }
 .app[data-live-monitor="right"] .shell-rail-left { grid-column: 2; border-right: 0; border-left: 1px solid var(--line); }
@@ -123,7 +163,7 @@
 
 /* Broadcast-style draft board in the map square (UI-019). */
 .live-map-override { display: flex; align-items: stretch; justify-content: stretch; place-items: stretch; background: var(--ground); }
-.sm-board { flex: 1 1 auto; min-width: 0; min-height: 0; display: grid; grid-template-rows: 1fr 1fr auto; gap: 10px; padding: 12px; overflow: auto; }
+.sm-board { flex: 1 1 auto; min-width: 0; min-height: 0; display: grid; grid-template-rows: 1fr 1fr auto; gap: 8px; padding: 8px; overflow: hidden; }
 .sm-board-row { min-height: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--line); border-top: 3px solid var(--line-strong); border-radius: 8px; background: var(--surface); }
 .sm-board-row.is-ours { border-top-color: var(--ally, #7fb0e6); }
 .sm-board-row.is-theirs { border-top-color: var(--enemy, #f0914f); background: var(--enemy-surface, #2e1e12); }

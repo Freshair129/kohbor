@@ -106,8 +106,12 @@ A per-device setting says where monitor 2 sits: off (default), left of the main 
 
 - The minimap is a square pinned flush to the edge that touches the main monitor: the left edge when monitor 2 is to the right, the right edge when it is to the left.
 - A quick strip of the same width sits directly under the map: danger level, enemies missing from the map (derived), five enemy rows, and the next map objective.
-- Outer columns grow away from the map: our team's hero cards (own hero first) and the announcer status, then the enemy team's hero cards and the event feed. When the box narrows, the two columns merge into one before the map shrinks. Text never shrinks; columns scroll inside.
-- Below about 1100×700 the page falls back to the centred deck with a note.
+- Responsive, no scrolling (owner feedback 2026-11-23; geometry in `apps/desktop/src/live/secondMonitorLayout.ts`):
+  - Wide (width/height ≥ 1.25): status line, then our five cards, the five enemy cards and the free slot in columns beside the map; the slot appears only when it does not shrink the map.
+  - Stacked (portrait or half width): enemy row of five above, the map with the free slot on its outer side, our row of five below.
+  - Priority when space runs out: our five cards, the map (360 px floor), enemy cards, free slot. Below 688×680 a window-too-small message replaces the layout.
+  - Compact cards (portrait, name, HP, mana, four skill squares) ordered by slot ID; floors 232×88 (columns) and 132×150 (rows); team-level source labels sit in each team heading; the own hero's details open in a popover.
+  - The free slot shows the event log (and announcer status) today and is reserved for a later AI voice ring or agent chat. When the box narrows, the two columns merge into one before the map shrinks. Text never shrinks; columns scroll inside.
 - The navigation rail moves to the outer edge; the friends rail collapses while a match runs. This exception to the two-rail shell applies to this mode only.
 - The side selector (plain buttons with `aria-pressed`) and the own-hero expander (`details`/`summary`) are keyboard-reachable.
 

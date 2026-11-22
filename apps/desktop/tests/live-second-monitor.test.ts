@@ -2,8 +2,6 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
-  COLUMN_MIN,
-  GAP,
   SECOND_MONITOR_STORAGE_KEY,
   createDraftRosterMemory,
   enemyRows,
@@ -14,16 +12,11 @@ import {
   readSecondMonitorSide,
   rememberDraftFrame,
   secondMonitorCopy,
-  secondMonitorLayout,
-  windowAllowsPinned,
   // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
 } from "../src/live/secondMonitorModel.ts";
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
 import type { DraftBarFrame } from "../src/deck/draftBarModel.ts";
 
-// Live content boxes (rails, padding and the 28 px footer excluded) for full-screen windows.
-const BOX_1080 = { width: 1832, height: 1052 };
-const BOX_1440 = { width: 2472, height: 1412 };
 
 function storage(initial: Record<string, string> = {}) {
   const data = new Map(Object.entries(initial));
@@ -58,55 +51,6 @@ test("the side setting defaults to off and survives a broken or unknown stored v
 test("monitor 2 on the right pins the map to the left edge, and the reverse", () => {
   assert.equal(mapEdgeFor("right"), "left");
   assert.equal(mapEdgeFor("left"), "right");
-  for (const side of ["left", "right"] as const) {
-    const layout = secondMonitorLayout({ side, ...BOX_1080 });
-    assert.equal(layout.mode, "pinned");
-    if (layout.mode === "pinned") assert.equal(layout.mapEdge, side === "right" ? "left" : "right");
-  }
-});
-
-test("1920x1080: map 920 px square, 132 px quick strip, two outer columns, for both sides", () => {
-  for (const side of ["left", "right"] as const) {
-    assert.deepEqual(secondMonitorLayout({ side, ...BOX_1080 }),
-      { mode: "pinned", mapEdge: side === "right" ? "left" : "right", mapPx: 920, bandPx: 132, columns: 2 });
-  }
-});
-
-test("2560x1440: map 1256 px square, 156 px quick strip, two outer columns, for both sides", () => {
-  for (const side of ["left", "right"] as const) {
-    assert.deepEqual(secondMonitorLayout({ side, ...BOX_1440 }),
-      { mode: "pinned", mapEdge: side === "right" ? "left" : "right", mapPx: 1256, bandPx: 156, columns: 2 });
-  }
-});
-
-test("narrowing collapses the outer columns before the map shrinks; the map is the largest region", () => {
-  const wide = secondMonitorLayout({ side: "right", width: 1800, height: 1000 });
-  const oneColumn = secondMonitorLayout({ side: "right", width: 1500, height: 1000 });
-  const squeezed = secondMonitorLayout({ side: "right", width: 1200, height: 1000 });
-  assert.equal(wide.mode === "pinned" && wide.columns, 2);
-  assert.ok(oneColumn.mode === "pinned");
-  assert.equal(oneColumn.columns, 1);
-  assert.equal(oneColumn.mapPx, wide.mode === "pinned" ? wide.mapPx : -1, "dropping a column does not move or resize the map");
-  assert.ok(squeezed.mode === "pinned");
-  assert.equal(squeezed.columns, 1);
-  assert.equal(squeezed.mapPx, 1200 - COLUMN_MIN - GAP);
-  assert.ok(squeezed.mapPx > COLUMN_MIN, "the map stays wider than the remaining column");
-});
-
-test("the map size depends only on the box, never on panel content", () => {
-  const first = secondMonitorLayout({ side: "left", ...BOX_1080 });
-  const again = secondMonitorLayout({ side: "left", ...BOX_1080 });
-  assert.deepEqual(first, again);
-});
-
-test("below about 1100x700 the mode falls back to the centred layout", () => {
-  assert.equal(windowAllowsPinned(1099, 900), false);
-  assert.equal(windowAllowsPinned(1400, 699), false);
-  assert.equal(windowAllowsPinned(1100, 700), true);
-  assert.deepEqual(secondMonitorLayout({ side: "right", width: 1099, height: 900 }), { mode: "fallback", reason: "too_small" });
-  assert.deepEqual(secondMonitorLayout({ side: "left", width: 1400, height: 699 }), { mode: "fallback", reason: "too_small" });
-  assert.deepEqual(secondMonitorLayout({ side: "off", ...BOX_1440 }), { mode: "fallback", reason: "off" });
-  assert.deepEqual(secondMonitorLayout({ side: "right", width: Number.NaN, height: 900 }), { mode: "fallback", reason: "too_small" });
 });
 
 test("missing-from-map is derived only when both counts are known; unknown is never zero", () => {
@@ -175,14 +119,11 @@ test("component sources render no invented values", () => {
   assert.doesNotMatch(deck, /Math\.random|placeholder hero|npc_dota_hero_/);
 });
 
-test("pinned CSS: the map width and height come from the layout variable; panels scroll, text does not shrink", () => {
+test("pinned CSS: the map size comes from the layout variable; nothing scrolls; text does not shrink", () => {
   const css = readFileSync(new URL("../src/live/secondMonitor.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
-  const inner = css.match(/\.sm-inner\s*\{([^}]+)\}/)?.[1] ?? "";
-  assert.match(inner, /flex:\s*none/);
-  assert.match(inner, /width:\s*var\(--sm-map/);
   assert.match(css, /\.live-map-pane\s*\{[^}]*width:\s*var\(--sm-map\);\s*height:\s*var\(--sm-map\)/);
-  assert.match(css, /\.sm-pinned\[data-map-edge="right"\]\s*\{\s*flex-direction:\s*row-reverse/);
-  assert.match(css, /\.sm-col\s*\{[^}]*overflow:\s*auto/);
+  assert.match(css, /\.sm-host\s*\{[^}]*overflow:\s*hidden/);
+  assert.doesNotMatch(css, /overflow(?:-[xy])?:\s*(?:auto|scroll)/, "no scrolling region in second-monitor mode");
   assert.doesNotMatch(css, /font-size:\s*(?:[0-9]|1[01])px/, "no text below 12 px");
   assert.match(css, /\.app\[data-live-monitor\]\[data-match="true"\] \.shell-rail-right\s*\{\s*display:\s*none/);
 });
