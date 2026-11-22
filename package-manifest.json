@@ -458,8 +458,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 63343,
-      "sha256": "56136b33b006ca39b50f5d53abd71ad04f1d8014ca0719a422bcbdf78b70c848"
+      "bytes": 61702,
+      "sha256": "3342bd1d9aa6b7de9a21d51a8859f5fdf808458a774bb667a3f6eea2bf9a9a7e"
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
@@ -618,8 +618,8 @@
     },
     {
       "path": "apps/desktop/src/App.tsx",
-      "bytes": 21602,
-      "sha256": "1e5cebd6c3bbd6db319fded8f7a6f8757fc901140ce79182946f1a998604c039"
+      "bytes": 21236,
+      "sha256": "73222e0a33fbaf4eacb3c32dd423e92a9768781d3e5e2556ede051e43759d193"
     },
     {
       "path": "apps/desktop/src/AudioHistory.tsx",
@@ -1528,8 +1528,8 @@
     },
     {
       "path": "apps/desktop/src/runtime.ts",
-      "bytes": 18500,
-      "sha256": "76bce526b81d75fc052da5a234813375e66486d7c460531851606dfc8f2325be"
+      "bytes": 18053,
+      "sha256": "feb19ba1efc08315ac708cbc59378b2737a8bdf51ca8b7b8ff6ee4bbbdb1d076"
     },
     {
       "path": "apps/desktop/src/settings.ts",
@@ -1698,8 +1698,8 @@
     },
     {
       "path": "apps/desktop/src/showHotkey.ts",
-      "bytes": 6897,
-      "sha256": "3f32aa2a55860762a5aa5373ff5685e6318fce02652d348f8d6e1d04820bbaf0"
+      "bytes": 6764,
+      "sha256": "fe3464c29cc08ed65af397c83c377d8490e6b00896eeec83eee3b37ccf7f2be1"
     },
     {
       "path": "apps/desktop/src/steam/StartDotaBar.tsx",
@@ -1733,8 +1733,8 @@
     },
     {
       "path": "apps/desktop/src/styles.css",
-      "bytes": 67725,
-      "sha256": "1393707bff6603605adfd17e875c93577cdd9c177d84452e914bf3221d3c84e4"
+      "bytes": 67036,
+      "sha256": "1069804656964662f8b5de16bd75702608366730b4a4f04236d4c212630ea170"
     },
     {
       "path": "apps/desktop/src/types.ts",
