@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Locale } from "../copy";
+import { CoachPanel } from "./CoachPanel";
 import { MAX_REPORT_BYTES, readPostMatchReplay, type PostMatchReplay } from "./report";
 import { mountReplay } from "./viewer.mjs";
 import markup from "./viewer.html?raw";
@@ -68,6 +69,7 @@ function LocalReplay({ locale }: { locale: Locale }) {
         {invalid && <p role="alert">{th ? "เปิดไม่ได้ กรุณาเลือกไฟล์รายงาน DEM สำหรับ Kohbor ขนาดไม่เกิน 16 MB"
           : "Choose a Kohbor DEM report of up to 16 MB."}</p>}
       </section>
+      {report && <CoachPanel report={report} locale={locale} />}
       <div ref={target} />
     </div>
   );

@@ -23,3 +23,37 @@ The preview accepts a UTF-8 JSON file up to 16 MiB. The top-level keys are `form
 - Existing v1 files open on their original 1000 × 959 layout and display an unknown patch. To assign a patch, re-export with verified metadata in v2.
 
 The desktop preview consumes the normalized report. DEM decoding stays in the offline export process. For a future patch, corroborate the replay's server build and match date against the gameplay release, capture the matching map and projection, then append a layout in the versioned report. A matching replay server build is stronger evidence than a third-party calendar that groups or has yet to index letter patches. Preserve the old patch layout for historical matches. Map art and replay data stay in the local import file.
+
+## Death review v3 (DEC-COACH-REVIEW)
+
+The owner approved coach analytics for the Lab preview on 2026-11-23 (DEC-COACH-REVIEW). Slice 1 adds a `kohbor.post-match-replay.v3` report and a Death review panel above the map. v2 and v1 files still open without the panel.
+
+**Report.** v3 keeps every v2 field and adds a top-level `rules` block and a `coach` block per match. `rules` names the version and values of every threshold and must say `provisional: true` and `enemyPositions: "full-map"`. `coach` holds the following, all derived by the exporter:
+
+- one analysis per own death, with the same ticks as `deaths`:
+  - type: `solo`, `gank`, `teamfight` or `other`
+  - enemies involved and allies nearby
+  - position sample age
+  - seconds the enemy team could see the hero in the last 10 seconds
+  - allied and enemy observer-ward cover
+  - seconds since an enemy Smoke
+- the lane outcome at 10:00 per own lane: summed net-worth difference against the lane opponents, deaths before 10:00 and a provisional ahead/even/behind label, with roaming heroes listed apart
+- at most 3 template notes, each citing the death ticks it rests on
+
+`report.ts` validates the closed v3 shape, including that note evidence points at real deaths and that lane heroes are own roster slots.
+
+**Panel.** `CoachPanel.tsx` labels every value `DERIVED` or `OBSERVED`. It marks death types as built from full-map enemy positions, which the player could not see during play. Below 10 matches it shows k/n and no rates. Teammates appear only as hero and roster slot.
+
+**Exporter.** `tools/replay_export/` is a Lab/dev tool:
+
+- `pin.py` refuses to run unless the installed gem-dota matches `PIN.json`: version 0.14.0, the RECORD SHA-256 and every file hash. The copy is the one already on the owner's machine; nothing is downloaded.
+- `extract.py` builds an allow-listed neutral model from a parsed DEM and never reads player names, Steam IDs, account IDs or chat.
+- `analyze.py` applies the provisional rules and is standard-library only.
+- `privacy.py` scans every output against the parsed DEM's names and IDs. `export.py` refuses to write a file that fails the scan.
+- The user supplies the DEM files and the map image through a local layout file. The exporter has no network path.
+
+```powershell
+<gem-dota venv>\Scripts\python.exe tools\replay_export\export.py --hero earthshaker --patch 7.41f --layout layout-7.41f.json --dem C:\path\match.dem --out report.json
+```
+
+**Tests.** `tools/tests/test_replay_export.py` covers the rules, the privacy scan and the exporter on a DEM-derived neutral fixture. The fixture is trimmed and has its real match ID replaced. `apps/desktop/tests/post-match-replay-v3.test.ts` covers the v3 reader and the summary. The committed viewer fixture is rebuilt and compared by the Python test. These are synthetic and recorded-offline evidence. They are not native WebView2 or live evidence. The owner confirms the provisional thresholds after 3–5 matches.

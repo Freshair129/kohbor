@@ -1,0 +1,15 @@
+{
+  "distribution": "gem-dota",
+  "version": "0.14.0",
+  "license": "MIT",
+  "record_sha256": "c16baea0d5ca6055531992f7e9fb4d9d6b821c5209a177cfc120e65047eb8ca9",
+  "metadata_sha256": "46a8f5b39837d94218557cdcb498beb69dd3eda8ca33f4d35e347ead3f8bfc2a",
+  "observed_runtime": {
+    "python": "3.14.7",
+    "numpy": "2.5.4",
+    "pandas": "3.1.0",
+    "protobuf": "7.36.2"
+  },
+  "source": "Existing local install on the owner's machine (F:/gsi-log/_checks/dem-analysis-env). Not downloaded for this tool. Owner decision DEC-COACH-REVIEW, 2026-11-23.",
+  "note": "record_sha256 covers the installed wheel's RECORD file, which lists the SHA-256 of every package file; pin.py re-checks each of them."
+}

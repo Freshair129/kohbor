@@ -2,8 +2,8 @@
 title: "Decision Log and Open Items"
 doc_id: "DECISION-LOG"
 status: draft
-version: "0.3.9"
-updated: "2026-11-22"
+version: "0.3.10"
+updated: "2026-11-23"
 authority: "DEC-BASELINE; see DOCUMENT-CONTROL"
 owner_role: "Product and engineering owners; people not assigned"
 approval_status: "not_approved"
@@ -194,3 +194,17 @@ Product owner, relayed by the lead session after it explained the risk (Valve ga
 ### Alpha launch owner statements (2026-11-22)
 
 Recorded in chat with the lead agent; details and the conflicts they create are in [ALPHA-LAUNCH](../design/ALPHA-LAUNCH.md). The owner chose "Supabase Auth" for alpha accounts after being told it stores the Google email and departs from ACCOUNT-IDENTITY-REVIEW; then: sign-up and sign-in only in the app, the website is a landing page with a download that needs an invite code ("คนที่ดาวน์โหลดได้จะต้องมี invite code เท่านั้น"); installers in a private release repository; one invite code per person; the download gate is the only gate. These statements apply to the alpha. They do not amend ACCOUNT-IDENTITY-REVIEW, BACKEND-STACK, DEC-PRIVACY-LEGAL or `contracts/decisions.json`; those still need document control.
+
+### Post-match coach analytics owner statement (2026-11-23)
+
+**DEC-COACH-REVIEW** (decided by the product owner, PN-008; relayed by the coordinating session and recorded by an agent). The owner replied “As recommended” to the seven recommendations in coord:reports/2026-11-23-coach-analytics-design.md section 7:
+
+1. Analyse the owner's own hero only. Teammates appear as hero + roster slot; per-person analysis of a friend needs that friend's consent later.
+2. Bring gem-dota 0.14.0 into `tools/` as a pinned Lab/dev tool, pinning the version and file hashes, from the copy already installed on the owner's machine. Nothing is downloaded. The product parser is decided after a feasibility spike.
+3. Comparisons use the owner's own local history only; no OpenDota or STRATZ.
+4. Thresholds such as ganked and lane lost start as provisional drafts. The owner confirms them after 3–5 matches; they are not changed after seeing a result.
+5. Coach text comes from evidence-citing templates, at most 3 per match. No language model.
+6. Slice 1 stores no multi-match trends; reports stay import-only.
+7. The user picks replay files; the app never downloads replays.
+
+The decision covers the Lab slice (DEC-LAB-GATE). It adds no requirement: post-match replay has no requirement module yet, and MEM-001 and MEM-004 continue to bound summaries. Promotion beyond Lab still needs the reviewed post-match data contract and native evidence. Text in `contracts/decisions.json`.
