@@ -1632,7 +1632,9 @@
           "apps/desktop/tests/shell-css.test.ts",
           "apps/desktop/src/runtime.ts"
         ],
-        "evidence_refs": [],
+        "evidence_refs": [
+          "docs/delivery/evidence/objective-timers-live/owner-live-9c96013.receipt.json"
+        ],
         "procedure_ids": [
           "TP-03",
           "TP-05",
@@ -3022,7 +3024,9 @@
           "apps/desktop/src/hudModel.ts",
           "apps/desktop/tests/hud-layout.test.ts"
         ],
-        "evidence_refs": [],
+        "evidence_refs": [
+          "docs/delivery/evidence/objective-timers-live/owner-live-9c96013.receipt.json"
+        ],
         "procedure_ids": [
           "TP-05",
           "UAT-05"

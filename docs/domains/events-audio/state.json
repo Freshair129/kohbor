@@ -151,6 +151,12 @@
       "path": "apps/desktop/src-tauri/src/status.rs",
       "type": "code",
       "role": "neighbour:host-core"
+    },
+    {
+      "path": "docs/delivery/evidence/objective-timers-live/README.md",
+      "type": "review",
+      "role": "reference",
+      "reviewed_sha256": "e14ef9fe9a730a1ad223d3c4b5a176945d30721415fee11ee70b582c1648bf2a"
     }
   ],
   "open_questions": [

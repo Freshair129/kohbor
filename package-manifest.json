@@ -2118,8 +2118,8 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 227150,
-      "sha256": "4db172872e57ed5d9f8345a8cc1ccb565ae4c4335d7d3a08fa0cbc044c608d0d"
+      "bytes": 227346,
+      "sha256": "55c3a5d1aae1f06a53a84628336f01d70c46790130b0fd8e04abdf0d6624c8b2"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -2917,6 +2917,16 @@
       "sha256": "472d4055218fd25b9425046a86814517fc07e6aec08136d49407391510e6cb2a"
     },
     {
+      "path": "docs/delivery/evidence/objective-timers-live/README.md",
+      "bytes": 1828,
+      "sha256": "e14ef9fe9a730a1ad223d3c4b5a176945d30721415fee11ee70b582c1648bf2a"
+    },
+    {
+      "path": "docs/delivery/evidence/objective-timers-live/owner-live-9c96013.receipt.json",
+      "bytes": 3127,
+      "sha256": "9a24167405e9734cd004727becc5a4ce3ca4ac45d62e590f209772755f762eb4"
+    },
+    {
       "path": "docs/delivery/evidence/s3-6a/latency-stage-a.receipt.json",
       "bytes": 1682,
       "sha256": "226ee0c3ae162227536b17e7cc0245aa754e8caa91190c36dab15c4b354655d3"
@@ -3403,13 +3413,13 @@
     },
     {
       "path": "docs/domains/events-audio/CARD.md",
-      "bytes": 9221,
-      "sha256": "30ca5ea06e74d991503deab28e7f9b11032bef05cb59b8d6e009f45f975b4e4e"
+      "bytes": 9704,
+      "sha256": "2fcbaea1f995911b6fc89b11fba3bd083b59d28a45159e2e8c3cb20ba209a23f"
     },
     {
       "path": "docs/domains/events-audio/state.json",
-      "bytes": 4591,
-      "sha256": "54f9ca2c283411f6233cb31bf9b405abdd5833dbd3cf280b3e641c705074d5fe"
+      "bytes": 4819,
+      "sha256": "d01595e6b48bd2bbc7e5a671c826b7993d5cdc17de8aad6033d698e5a67cf87f"
     },
     {
       "path": "docs/domains/governance/CARD.md",
@@ -3568,8 +3578,8 @@
     },
     {
       "path": "docs/requirements/RTM.csv",
-      "bytes": 49334,
-      "sha256": "a4c2295bce59c5d50bebf654172ada1ad99b5f5bad69c5ce5da785d943de53f9"
+      "bytes": 49486,
+      "sha256": "5c0b87ef303597a1997f284404976a6421be289d3b95f62b647eebe66fafcbfd"
     },
     {
       "path": "docs/requirements/SRS.md",

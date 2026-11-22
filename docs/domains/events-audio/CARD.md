@@ -37,7 +37,7 @@ Now
 - Thread priorities, three lexical source guards and panic containment are present in the host code: `apps/desktop/src-tauri/src/host.rs`
 - No audible critical warning on real media today: readiness is designed to report not_ready (reason MEDIA_UNMAPPED) until authorized critical media exists; the rule itself is decided; behaviour in the running app is UNVERIFIED: DEC-HEALTH-DANGER, DEC-CRITICAL-MEDIA, ALERT-007
 
-- ALERT-008 map-objective timers: pure scheduler and patch-versioned timing table in `crates/kohbor-events/src/objectives.rs` and `crates/kohbor-events/data/objective-timings.json`; host wiring in `apps/desktop/src-tauri/src/objectives/`. Each objective has its own synthesized tone (`objectives/tone.rs`); one tone per batch by fixed priority. The tone uses the single-slot sink only when it is idle: it waits at most 5 s after the due time for a playing clip to end, then is dropped and logged as suppressed (`audio/engine.rs`); a game clip still preempts it, and mixing under a playing clip is not implemented. Lead times come from prefs schema_version 2 (`objectives/prefs.rs`). Native and live evidence for revision 4: NOT_RUN: ALERT-008
+- ALERT-008 map-objective timers: pure scheduler and patch-versioned timing table in `crates/kohbor-events/src/objectives.rs` and `crates/kohbor-events/data/objective-timings.json`; host wiring in `apps/desktop/src-tauri/src/objectives/`. Each objective has its own synthesized tone (`objectives/tone.rs`); one tone per batch by fixed priority. The tone uses the single-slot sink only when it is idle: it waits at most 5 s after the due time for a playing clip to end, then is dropped and logged as suppressed (`audio/engine.rs`); a game clip still preempts it, and mixing under a playing clip is not implemented. Lead times come from prefs schema_version 2 (`objectives/prefs.rs`). Owner-observed live run on integ 9c96013 (2026-11-22): card colour, position under RISK, Thai copy, power/wisdom timings and tone outcomes OK; receipt `docs/delivery/evidence/objective-timers-live/owner-live-9c96013.receipt.json` is INDETERMINATE (no artifact hash; Tormentor, banner overlap and the native layout editor not covered); a batched alert logs only one kind: ALERT-008
 
 Next
 - S3-6a and S3-6b latency receipts are INDETERMINATE (distributions on one machine under uncontrolled load); QUALITY-001 stays NOT_RUN and needs a controlled owner measurement: `docs/delivery/evidence/s3-6a/`
@@ -59,6 +59,7 @@ Blocked
 - Spike: `docs/delivery/S3-1-AUDIO-SPIKE.md` (WASAPI choice; silence-only observations). Standalone workspace `spikes/audio/`.
 - Backlog: S1-* and S3-* rows in `docs/delivery/SPRINT-ROADMAP.md`.
 - Contracts and fixtures: `contracts/event-catalog.json`, `contracts/audio-outcome.schema.json`, `fixtures/health-danger-golden.json` (replayed by `tools/validate_spec.py`).
+- Evidence: `docs/delivery/evidence/objective-timers-live/README.md` (owner-observed live run of the map-objective card on integ 9c96013; receipt INDETERMINATE).
 - Code: `crates/kohbor-events`, `crates/kohbor-audio`, `crates/kohbor-audio-native`, `apps/desktop/src-tauri/src/{audio,media}`.
 
 ## 6. Traps and lessons
