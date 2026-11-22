@@ -4,6 +4,8 @@ import { test } from "node:test";
 
 const css = readFileSync(new URL("../src/styles.css", import.meta.url), "utf8")
   .replace(/\/\*[\s\S]*?\*\//g, "");
+const criticalStackCss = readFileSync(new URL("../src/critical-stack.css", import.meta.url), "utf8")
+  .replace(/\/\*[\s\S]*?\*\//g, "");
 const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
 const leftRailSource = readFileSync(new URL("../src/shell/RailLeft.tsx", import.meta.url), "utf8");
 const statusFooterCss = readFileSync(new URL("../src/shell/statusFooter.css", import.meta.url), "utf8");
@@ -163,6 +165,24 @@ test("Lab styles use shared palette tokens instead of literal colors", () => {
 
 test("app styles use design tokens instead of literal colors", () => {
   assert.doesNotMatch(css, /#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i, "App CSS should use shared palette tokens");
+});
+
+test("critical stack keeps a fixed dark palette and yields the banner with reduced-motion support", () => {
+  assert.match(criticalStackCss, /--critical-stack-mat:\s*rgb\(14 17 24 \/ 92%\)/);
+  assert.match(criticalStackCss, /--critical-stack-ink:\s*#e7eef6/);
+  assert.match(criticalStackCss, /--critical-stack-edge:\s*#ff5c93/);
+  assert.doesNotMatch(
+    criticalStackCss,
+    /var\(--(ground|surface|raised|text|text-2|muted|line|accent|critical|critical-surface)\)/,
+    "in-game critical colours must not change with the Windows theme",
+  );
+  assert.match(css, /\.event-overlay-banner\s*\{[^}]*transition:\s*transform 180ms cubic-bezier\(\.2,\.7,\.2,1\)/);
+  assert.match(css, /\.event-overlay-banner\.is-yielding\s*\{\s*transform:\s*translateY\(-8%\) scale\(\.88\)/);
+  assert.match(css, /prefers-reduced-motion:\s*reduce\)\s*\{\s*\.event-overlay-banner\s*\{[^}]*transition:\s*none/);
+  assert.match(css, /\.overlay-shell\s*\{[^}]*grid-template-rows:\s*220fr 36fr 39fr/);
+  assert.match(css, /\.overlay-stage\s*\{[^}]*z-index:\s*2[^}]*overflow:\s*visible/);
+  assert.match(css, /\.overlay-chip-strip\s*\{[^}]*z-index:\s*1/);
+  assert.match(criticalStackCss, /\.critical-strip\s*\{[^}]*z-index:\s*3/);
 });
 
 test("the in-game HUD keeps its own fixed dark glass look and never follows the app theme (owner 2026-11-20)", () => {

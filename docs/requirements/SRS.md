@@ -505,11 +505,11 @@ OBS recording shall not replace the accepted critical DXGI source without a dist
 
 **Product needs:** PN-003 · **Primary design:** CMP-ALERT · **Design components:** CMP-ALERT, CMP-RISK
 
-Critical warnings shall be decided and admitted in native deterministic code without waiting for cloud, model, renderer or relay.
+Critical warnings shall be decided and admitted in native deterministic code without waiting for cloud, model, renderer or relay. In the overlay a critical warning is never hidden or delayed: when an event banner is showing, the banner keeps playing but yields (moves up 8 % of its height and shrinks to 88 % over 180 ms) and a compact critical strip, 40 px at 1080p and scaled like the banner, shows 4 px below it; with no banner showing the full critical warning shows as before (owner decision 2026-11-23, option ข, subject to the owner's mock review).
 
 **Failure behavior:** No synchronous network, disk unpacking or inference in critical admission.
 
-**AC-ALERT-001:** Given network is down and a renderer/model task is stalled; when an admitted actionable critical event occurs; then the local alert path continues and meets its acoustic gate.
+**AC-ALERT-001:** Given network is down and a renderer/model task is stalled; a critical warning arriving while an event banner plays, in either order of the banner's preempted end and the critical start, and a critical warning with no banner; when an admitted actionable critical event occurs; then the local alert path continues and meets its acoustic gate; the critical strip shows at once below the yielding banner and stays for the critical cue's normal lifetime even after the banner fades out, the strip bottom stays within 32 px (scaled) below the banner stage's normal bottom, and with no banner the full critical warning shows as before.
 
 **Verification:** synthetic, native, live; procedures TP-03, UAT-03; status NOT_RUN.
 
@@ -777,11 +777,11 @@ Event audio/visual playback shall originate from the active verified package rev
 
 **Product needs:** PN-004 · **Primary design:** CMP-MEDIA · **Design components:** CMP-MEDIA, CMP-ALERT, CMP-VOICE
 
-Native audio shall own paired visual lifecycle and cancel both on stop/preemption/session fence.
+Native audio shall own paired visual lifecycle and cancel both on stop/preemption/session fence. One exception (owner decision 2026-11-23): when a critical cue preempts an ordinary clip whose banner is showing, the audio is preempted but the banner's visual keeps playing, yielding to the critical strip, until it ends or its fail-safe time; it is still fenced by session changes and stop.
 
 **Failure behavior:** The renderer cannot independently select or replay event media.
 
-**AC-MEDIA-005:** Given a clip has a declared visual tail; when a critical interruption or session change occurs; then obsolete audio and visual tails terminate under the same generation.
+**AC-MEDIA-005:** Given a clip has a declared visual tail; when a critical interruption or session change occurs; then obsolete audio and visual tails terminate under the same generation; a banner whose audio was preempted by a critical cue keeps its visual until its own end while the critical strip shows.
 
 **Verification:** synthetic, native; procedures TP-04, UAT-04; status NOT_RUN.
 

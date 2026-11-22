@@ -1,0 +1,48 @@
+/* Fixed game-overlay colours: this window has no dark theme root under light Windows settings. */
+html.overlay-body {
+  --critical-stack-mat: rgb(14 17 24 / 92%);
+  --critical-stack-ink: #e7eef6;
+  --critical-stack-edge: #ff5c93;
+  --critical-stack-glow: rgb(255 92 147 / 45%);
+  --critical-stack-halo: rgb(14 17 24 / 88%);
+}
+
+.critical-strip {
+  position: absolute;
+  z-index: 3;
+  left: 6%;
+  top: 90.2727%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2.97%;
+  width: 88%;
+  height: 42.7727%;
+  min-width: 0;
+  border: 1px solid var(--critical-stack-edge);
+  border-radius: 2.6vw;
+  background: var(--critical-stack-mat);
+  box-shadow: 0 0 4.6vw var(--critical-stack-glow), 0 0 0 1px var(--critical-stack-halo);
+  color: var(--critical-stack-ink);
+  font-size: 4.9vw;
+  font-weight: 750;
+  line-height: 1.15;
+  pointer-events: none;
+  text-align: center;
+}
+
+.critical-strip-glyph {
+  width: 7.5%;
+  height: auto;
+  flex: none;
+  fill: none;
+  stroke: var(--critical-stack-edge);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.critical-strip > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

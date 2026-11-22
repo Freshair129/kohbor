@@ -6,7 +6,18 @@ import { createServer } from "vite";
 import react from "@vitejs/plugin-react";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { overlayChipForDisplay, chipForStatus, createChipState, reduceChip, overlayShouldShow, CHIP_SHOW_MS, DEMO_MARKER_WINDOW_MS, type ChipView } from "../src/overlayModel.ts";
+import {
+  overlayChipForDisplay,
+  chipForStatus,
+  createChipState,
+  reduceChip,
+  overlayShouldShow,
+  criticalStackGeometry,
+  criticalStripText,
+  CHIP_SHOW_MS,
+  DEMO_MARKER_WINDOW_MS,
+  type ChipView,
+} from "../src/overlayModel.ts";
 import { createPlaybackState, reducePlayback, tickPlayback, type PlaybackState } from "../src/playback.ts";
 const desktopRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 let EventBanner: (props: { playback: PlaybackState; visible?: boolean }) => unknown;
@@ -117,6 +128,79 @@ test("scheduling: health danger then multi kill renders in arrival order", () =>
   let p = reducePlayback(createPlaybackState(), started("pb_00000001", { class: "critical", event_type: "health_danger", tier: null })); assert.equal(p.visual?.event_type, "health_danger");
   p = reducePlayback(p, started("pb_00000002", { event_type: "multi_kill", at_ms: 1001 })); assert.equal(p.visual?.event_type, "multi_kill");
   assert.equal(overlayShouldShow(p, empty, 1001), true);
+});
+
+test("critical stack geometry scales the gap, strip and 32 px limit with the banner", () => {
+  for (const monitor of [
+    { x: 0, y: 0, width: 1920, height: 1080 },
+    { x: 0, y: 0, width: 2560, height: 1440 },
+  ]) {
+    const geometry = criticalStackGeometry(monitor);
+    assert.ok(geometry);
+    const expectedScale = monitor.height / 1080;
+    const bannerBottom = geometry.banner.y + geometry.banner.height;
+    const stripBottom = geometry.strip.y + geometry.strip.height;
+
+    assert.deepEqual([geometry.stage.width, geometry.stage.height], monitor.width === 1920 ? [306, 94] : [408, 125]);
+    assert.equal(geometry.strip.x, geometry.banner.x);
+    assert.equal(geometry.strip.width, geometry.banner.width);
+    assert.ok(Math.abs(geometry.strip.y - bannerBottom - 4 * expectedScale) < 0.1);
+    assert.ok(Math.abs(geometry.strip.height - 40 * expectedScale) < 0.1);
+    assert.ok(stripBottom <= geometry.stripLimitBottom);
+    assert.ok(geometry.window.y + geometry.window.height <= geometry.stripLimitBottom);
+  }
+});
+
+test("critical strip copy stays Thai and event-specific", () => {
+  assert.equal(criticalStripText("health_danger"), "เลือดน้อย! ถอยก่อน");
+  assert.equal(criticalStripText("risk_alert"), "อันตราย! ระวังตัว");
+});
+
+test("renderer keeps the yielding banner video and renders the critical strip above it", () => {
+  const banner = reducePlayback(createPlaybackState(), started("pb_00000001", {
+    event_type: "hero_kill",
+    visual_url: "kohbor-media://localhost/v1/ins_0000000001/" + "a".repeat(64),
+    at_ms: 1000,
+  }));
+  const stacked = reducePlayback(banner, started("pb_00000002", {
+    class: "critical",
+    event_type: "health_danger",
+    visual_url: "kohbor-media://localhost/v1/ins_0000000002/" + "b".repeat(64),
+    at_ms: 1100,
+  }));
+  const html = renderToStaticMarkup(createElement(OverlayStage, {
+    playback: stacked,
+    chip: null,
+    visible: true,
+  }));
+
+  assert.match(html, /event-overlay-banner is-yielding/);
+  assert.match(html, /critical-strip/);
+  assert.match(html, /เลือดน้อย! ถอยก่อน/);
+  assert.match(html, /a{64}/);
+  assert.doesNotMatch(html, /b{64}/);
+});
+
+test("the critical strip keeps overlay visibility after the yielded video leaves", () => {
+  let playback = reducePlayback(createPlaybackState(), started("pb_00000001", {
+    event_type: "hero_kill",
+    audio_duration_ms: 1000,
+    visual_tail_ms: 0,
+    at_ms: 1000,
+  }));
+  playback = reducePlayback(playback, started("pb_00000002", {
+    class: "critical",
+    event_type: "risk_alert",
+    audio_duration_ms: 5000,
+    visual_tail_ms: 100,
+    at_ms: 1100,
+  }));
+  playback = tickPlayback(playback, 2500);
+  playback = tickPlayback(playback, 2680);
+
+  assert.equal(playback.visual, null);
+  assert.notEqual(playback.criticalStrip, null);
+  assert.equal(overlayShouldShow(playback, empty, 2680), true);
 });
 
 test("overlay display: the benign ready chip is never shown, problem states and DEMO still are", () => {

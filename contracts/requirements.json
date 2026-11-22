@@ -1076,13 +1076,13 @@
       "target_milestone": "M2",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
-      "statement": "Critical warnings shall be decided and admitted in native deterministic code without waiting for cloud, model, renderer or relay.",
+      "statement": "Critical warnings shall be decided and admitted in native deterministic code without waiting for cloud, model, renderer or relay. In the overlay a critical warning is never hidden or delayed: when an event banner is showing, the banner keeps playing but yields (moves up 8 % of its height and shrinks to 88 % over 180 ms) and a compact critical strip, 40 px at 1080p and scaled like the banner, shows 4 px below it; with no banner showing the full critical warning shows as before (owner decision 2026-11-23, option ข, subject to the owner's mock review).",
       "failure_behavior": "No synchronous network, disk unpacking or inference in critical admission.",
       "acceptance": {
         "scenario_id": "AC-ALERT-001",
-        "given": "network is down and a renderer/model task is stalled",
+        "given": "network is down and a renderer/model task is stalled; a critical warning arriving while an event banner plays, in either order of the banner's preempted end and the critical start, and a critical warning with no banner",
         "when": "an admitted actionable critical event occurs",
-        "then": "the local alert path continues and meets its acoustic gate"
+        "then": "the local alert path continues and meets its acoustic gate; the critical strip shows at once below the yielding banner and stays for the critical cue's normal lifetime even after the banner fades out, the strip bottom stays within 32 px (scaled) below the banner stage's normal bottom, and with no banner the full critical warning shows as before"
       },
       "verification": {
         "required_evidence": [
@@ -1107,7 +1107,12 @@
           "apps/desktop/src-tauri/src/audio/outcome.rs",
           "apps/desktop/src-tauri/src/audio/publisher.rs",
           "apps/desktop/src-tauri/src/audio/device.rs",
-          "crates/kohbor-audio-native/src/wasapi_backend.rs"
+          "crates/kohbor-audio-native/src/wasapi_backend.rs",
+          "apps/desktop/src/playback.ts",
+          "apps/desktop/src/OverlayStage.tsx",
+          "apps/desktop/src/overlayModel.ts",
+          "apps/desktop/src/critical-stack.css",
+          "apps/desktop/src-tauri/src/overlay.rs"
         ],
         "evidence_refs": [],
         "procedure_ids": [
@@ -1963,13 +1968,13 @@
       "target_milestone": "M2",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
-      "statement": "Native audio shall own paired visual lifecycle and cancel both on stop/preemption/session fence.",
+      "statement": "Native audio shall own paired visual lifecycle and cancel both on stop/preemption/session fence. One exception (owner decision 2026-11-23): when a critical cue preempts an ordinary clip whose banner is showing, the audio is preempted but the banner's visual keeps playing, yielding to the critical strip, until it ends or its fail-safe time; it is still fenced by session changes and stop.",
       "failure_behavior": "The renderer cannot independently select or replay event media.",
       "acceptance": {
         "scenario_id": "AC-MEDIA-005",
         "given": "a clip has a declared visual tail",
         "when": "a critical interruption or session change occurs",
-        "then": "obsolete audio and visual tails terminate under the same generation"
+        "then": "obsolete audio and visual tails terminate under the same generation; a banner whose audio was preempted by a critical cue keeps its visual until its own end while the critical strip shows"
       },
       "verification": {
         "required_evidence": [
@@ -1990,7 +1995,8 @@
           "apps/desktop/src-tauri/src/audio/engine.rs",
           "apps/desktop/src-tauri/src/media/protocol.rs",
           "apps/desktop/src-tauri/src/media/probe.rs",
-          "apps/desktop/src/probe.ts"
+          "apps/desktop/src/probe.ts",
+          "apps/desktop/src/EventBanner.tsx"
         ],
         "evidence_refs": [],
         "procedure_ids": [
