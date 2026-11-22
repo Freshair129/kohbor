@@ -25,6 +25,7 @@ A map, not evidence. Authority: decisions, PRD/SRS, contracts, code and tests, t
 ## 3. Now / Next / Blocked
 
 - NOW: the account client and desktop host have a local fake-provider and fake-broker demo. The [S1-C demo guide](../../../apps/desktop/src/account/s1c/README.md) describes the fixture. Hosted service work and the queued requirement rows are still open.
+- NOW: the [S2 local broker guide](../../../services/kohbor-broker/README.md) describes the isolated Postgres fixture and verified account endpoints.
 - NOW: Google-only sign-in in the system browser, openid scope, keyed hash of the subject, rotatable friend code, no Steam link, no recovery flow (DEC-ACCOUNT-IDENTITY).
 - NOW: guests keep every local feature and have no network sharing in the first release (DEC-SIGNIN-OPTIONAL).
 - NEXT (no owner needed): apply the queued ACCOUNT-001..010 text and the SOCIAL-001, PEER-007, PEER-009 amendments through document control (docs/design/ACCOUNT-IDENTITY-REVIEW.md section 4.1).

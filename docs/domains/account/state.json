@@ -87,6 +87,11 @@
       "path": "apps/desktop/src/account/s1c/README.md",
       "type": "guide",
       "role": "reference"
+    },
+    {
+      "path": "services/kohbor-broker/README.md",
+      "type": "guide",
+      "role": "reference"
     }
   ],
   "open_questions": [
