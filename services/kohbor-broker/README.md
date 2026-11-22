@@ -2,9 +2,13 @@
 
 This is a local synthetic S2 broker slice. It uses Node.js 24, PostgreSQL, Node's built-in `http` and `crypto` modules, and the pinned `pg` driver. It does not call Google, load a JWKS, or contact a hosted service. Startup requires `BROKER_MODE=local-synthetic`, an injected RSA identity verification key, an Ed25519 broker signing key, a subject pepper, and a disposable local database.
 
-The HTTP surface is `/health`, `POST /v1/auth/nonces`, `POST /v1/auth/sessions`, `POST /v1/auth/refresh`, `GET /v1/account/export`, and `DELETE /v1/account`. The service binds to loopback. Startup rejects a non-loopback listener and database URLs outside the local S2 database host/path allowlist. Do not publish or tunnel this service.
+The HTTP surface is `/health`; nonce, sign-in and refresh under `/v1/auth`; profile read and display-name update under `/v1/account`; friend-code rotation at `/v1/account/friend-code`; session list and sign-out under `/v1/sessions`; export at `/v1/account/export`; and deletion at `/v1/account`. The service binds to loopback. Startup rejects a non-loopback listener and database URLs outside the local S2 database host/path allowlist. Do not publish or tunnel this service.
 
-The broker persists only the account identity hash, account/profile data, public device keys, sessions with refresh-token hashes, short-lived nonce hashes, account relationships, share settings, and rate counters. It never stores provider subjects or tokens, emails, IP history, match data, peer samples, or private device keys. Refresh replay revokes the live session; deleted accounts cascade through their rows and both directions of account relationships.
+The broker persists only the account identity hash, account/profile data, public device keys, sessions, separately indexed refresh-token hashes, short-lived nonce hashes, account relationships, share settings, and account rate counters. Unauthenticated source-address limits are held in process memory only. The deletion ledger is an encrypted sidecar file at `BROKER_DELETION_LEDGER_PATH`, outside the database restore target; its encryption key is domain-separated from the configured subject pepper. Startup replays the ledger before migration or serving requests and removes only matching accounts created before each deletion time. An empty ledger file is created only for a fresh database; an initialized database with no ledger stops startup with a non-sensitive error. Keep the ledger with the backup set and retain it until backups that predate a deletion have rotated out.
+
+The broker never stores provider subjects or tokens, emails, IP history, match data, peer samples, or private device keys. Reuse of any rotated refresh token deletes its device key, session and token history. Sign-out deletes the device key and cascades its session and refresh tokens; account deletion cascades through its rows and both directions of account relationships.
+
+Expired nonces, sessions, pending requests and old rate-limit rows are purged only after bearer authentication succeeds, at most once per minute. Anonymous requests do not run cleanup deletes.
 
 ## Local run
 
@@ -29,7 +33,7 @@ Generate one fixed synthetic OIDC fixture key and one broker signing key outside
 node scripts/create-local-fixture.mjs "$env:TEMP\kohbor-s2.local.env"
 ```
 
-The generated file is local test configuration containing synthetic private key material. Keep it outside the checkout and remove it when the local run is finished. If the dedicated Postgres role uses a password, edit only `DATABASE_URL` in that file to include its synthetic local password; the server still rejects non-local hosts, query parameters, and databases other than `kohbor_s2`.
+The generated file is local test configuration containing synthetic private key material. Its `BROKER_DELETION_LEDGER_PATH` points at an encrypted sidecar beside the environment file. Keep both outside the checkout and remove them when the local run is finished. If the dedicated Postgres role uses a password, edit only `DATABASE_URL` in that file to include its synthetic local password; the server still rejects non-local hosts, query parameters, and databases other than `kohbor_s2`.
 
 Start the broker with Node's built-in environment-file support:
 
@@ -49,7 +53,9 @@ For Docker acceptance, run the image with disposable PostgreSQL in the same isol
 
 ## Protocol and phase boundary
 
-Nonce challenges bind to a device public-key thumbprint and a single purpose. OIDC identity tokens are verified only against the injected fixed RSA key, issuer, and audience. The broker issues Ed25519 access tokens with the single audience `broker`; refresh tokens are opaque, rotated, and stored only as SHA-256 hashes. Delete requires a fresh identity token whose subject maps to the authenticated account and whose device proof verifies against the public key enrolled in that live session.
+Nonce challenges bind to a device public-key thumbprint and a single purpose. Sign-in and deletion nonces expire after 10 minutes; refresh nonces after 5 minutes. OIDC identity tokens are verified only against the injected fixed RSA key, issuer, and audience. The broker issues 15-minute Ed25519 access tokens with the single audience `broker`; `sub` is the opaque session UUID, and account UUIDs stay inside the broker. Refresh tokens are opaque, rotated and stored only as SHA-256 hashes, with a 30-day idle expiry and 90-day absolute cap. Delete requires a fresh identity token (at most 5 minutes old) whose subject maps to the authenticated account and whose device proof verifies against the public key enrolled in that live session.
+
+Display names are normalized to NFC and limited to 32 grapheme clusters. The account-specific limits with confirmed values are five profile writes per hour, three friend-code rotations per rolling 24 hours and one export per hour; 429 responses include `Retry-After` in whole seconds. Unauthenticated routes allow 60 requests per minute per source address in process memory. Session-administration, deletion and account-creation quotas have no value in the design input and are not enforced until decided.
 
 The account tables include the reviewed future relationship shapes so S2 export and account deletion can be qualified against PostgreSQL. This slice has no social mutation API and no relay-ticket endpoint. It issues no relay tickets or scopes, and there is no fake grant path.
 

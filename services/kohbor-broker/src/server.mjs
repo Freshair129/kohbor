@@ -1,6 +1,7 @@
 import { createPrivateKey, createPublicKey } from 'node:crypto';
 import pg from 'pg';
 import { createBroker } from './broker.mjs';
+import { createEncryptedDeletionLedger } from './deletion-ledger.mjs';
 import { migrate } from './migrate.mjs';
 
 const { Pool } = pg;
@@ -52,13 +53,10 @@ async function main() {
   const identityPublicKey = createPublicKey(required('BROKER_IDENTITY_PUBLIC_KEY'));
   const signingPrivateKey = createPrivateKey(required('BROKER_SIGNING_PRIVATE_KEY'));
   const pepper = required('BROKER_SUBJECT_PEPPER');
+  const deletionLedgerPath = required('BROKER_DELETION_LEDGER_PATH');
   const host = process.env.HOST || '127.0.0.1';
   if (!['127.0.0.1', '::1'].includes(host)) throw new Error('host must be loopback');
   const port = boundedInteger('PORT', process.env.PORT, 1, 65535, 8080);
-  const limits = {
-    attempts: boundedInteger('BROKER_RATE_ATTEMPTS', process.env.BROKER_RATE_ATTEMPTS, 1, 10_000, 10),
-    windowMs: boundedInteger('BROKER_RATE_WINDOW_MS', process.env.BROKER_RATE_WINDOW_MS, 1000, 3_600_000, 60_000),
-  };
   if (Buffer.byteLength(pepper) < 16 || identityPublicKey.asymmetricKeyType !== 'rsa' ||
       Number(identityPublicKey.asymmetricKeyDetails?.modulusLength ?? 0) < 2048 ||
       signingPrivateKey.asymmetricKeyType !== 'ed25519') {
@@ -73,8 +71,9 @@ async function main() {
     query_timeout: 5000,
     application_name: 'kohbor-s2-local-broker',
   });
-
   try {
+    const deletionLedger = createEncryptedDeletionLedger({ filePath: deletionLedgerPath, pepper });
+    await deletionLedger.replay(pool);
     await migrate(pool);
     await pool.query('SELECT 1');
     const server = createBroker({
@@ -82,7 +81,7 @@ async function main() {
       identity: { issuer, audience, publicKey: identityPublicKey },
       signingPrivateKey,
       pepper,
-      limits,
+      deletionLedger,
     });
     await new Promise((resolve, reject) => {
       server.once('error', reject);
@@ -100,7 +99,14 @@ async function main() {
   }
 }
 
-main().catch(() => {
-  process.stderr.write('kohbor broker failed to start; check local synthetic configuration and database readiness\n');
+main().catch(error => {
+  const safeMessages = new Set([
+    'deletion ledger is missing for an initialized account database',
+    'deletion ledger could not be provisioned',
+  ]);
+  const message = safeMessages.has(error?.message)
+    ? error.message
+    : 'kohbor broker failed to start; check local synthetic configuration and database readiness';
+  process.stderr.write(`${message}\n`);
   process.exitCode = 1;
 });

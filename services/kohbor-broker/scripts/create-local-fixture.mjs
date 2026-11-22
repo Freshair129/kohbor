@@ -37,6 +37,7 @@ const env = [
   `BROKER_IDENTITY_PUBLIC_KEY='${identity.publicKey.trimEnd()}'`,
   `BROKER_SIGNING_PRIVATE_KEY='${broker.privateKey.trimEnd()}'`,
   `BROKER_SUBJECT_PEPPER=${randomBytes(32).toString('base64url')}`,
+  `BROKER_DELETION_LEDGER_PATH='${resolve(dirname(resolvedOutput), 'kohbor-s2-deletions.enc')}'`,
   'HOST=127.0.0.1',
   'PORT=8080',
   '',

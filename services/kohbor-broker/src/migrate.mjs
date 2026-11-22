@@ -1,4 +1,15 @@
+import { readFile } from 'node:fs/promises';
+
 const MIGRATION_LOCK = '6467885033235427409';
+
+const REGISTRATION_HARDENING = await readFile(
+  new URL('./migrations/002_registration_hardening.sql', import.meta.url),
+  'utf8',
+);
+const EXPIRED_ROW_PURGE_INDEXES = await readFile(
+  new URL('./migrations/003_expired_row_purge_indexes.sql', import.meta.url),
+  'utf8',
+);
 
 const INITIAL_SCHEMA = [
   `CREATE TABLE accounts (
@@ -113,15 +124,36 @@ export async function migrate(pool) {
       applied_at timestamptz NOT NULL
     )`);
 
-    const existing = await client.query(
-      'SELECT version FROM schema_migrations WHERE version = $1',
-      [1],
-    );
-    if (existing.rowCount === 0) {
+    const existing = await client.query('SELECT version, name FROM schema_migrations');
+    const versions = new Map(existing.rows.map(row => [row.version, row.name]));
+    if (versions.has(1) && versions.get(1) !== 's2_local_account_broker') {
+      throw new Error('unexpected migration 1 name');
+    }
+    if (versions.has(2) && versions.get(2) !== 'registration_hardening') {
+      throw new Error('unexpected migration 2 name');
+    }
+    if (versions.has(3) && versions.get(3) !== 'expired_row_purge_indexes') {
+      throw new Error('unexpected migration 3 name');
+    }
+    if (!versions.has(1)) {
       for (const statement of INITIAL_SCHEMA) await client.query(statement);
       await client.query(
         'INSERT INTO schema_migrations (version, name, applied_at) VALUES ($1, $2, $3)',
         [1, 's2_local_account_broker', new Date()],
+      );
+    }
+    if (!versions.has(2)) {
+      await client.query(REGISTRATION_HARDENING);
+      await client.query(
+        'INSERT INTO schema_migrations (version, name, applied_at) VALUES ($1, $2, $3)',
+        [2, 'registration_hardening', new Date()],
+      );
+    }
+    if (!versions.has(3)) {
+      await client.query(EXPIRED_ROW_PURGE_INDEXES);
+      await client.query(
+        'INSERT INTO schema_migrations (version, name, applied_at) VALUES ($1, $2, $3)',
+        [3, 'expired_row_purge_indexes', new Date()],
       );
     }
 
