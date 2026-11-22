@@ -14,6 +14,7 @@ use crate::media::inventory::media_status;
 use crate::media::prewarm::{new_visual_index_handle, VisualIndexHandle};
 use crate::media::protocol::{self, ProtocolRequest, ProtocolResponse};
 use crate::media::service::{self, FactsHandle, MediaHandle, ServiceConfig};
+use kohbor_audio::pcm::Pcm;
 use kohbor_events::Event;
 use kohbor_pack::catalog::Catalog;
 use kohbor_pack::store::ActivationPolicy;
@@ -1003,6 +1004,17 @@ impl Host {
 
     pub fn shutdown_started(&self) -> bool {
         shutdown_flag_started(&self.shutting_down)
+    }
+
+    /// Best-effort objective cue. The audio engine checks for an idle single-slot
+    /// sink before submitting it, so this can never replace game audio.
+    pub(crate) fn try_play_objective_tone(&self, pcm: Pcm) -> bool {
+        !self.shutdown_started()
+            && self
+                .commands
+                .engine
+                .control(Control::ObjectiveTone { pcm })
+                .is_ok()
     }
 
     pub fn shutdown(&self) {

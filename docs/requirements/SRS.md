@@ -679,8 +679,6 @@ The host shall raise non-critical map-objective alerts derived only from the GSI
 
 **Contracts:** [decisions.json](../../contracts/decisions.json)
 
-**Diagram views:** [DGM-008](../diagrams/source/DGM-008-alert-sequence.mmd)
-
 **Implementation freedom:** Choose the scheduler home, tone synthesis and overlay transport inside existing crates; do not add crates or change Cargo.lock; do not alter the stated behavior or evidence thresholds.
 
 ### MEDIA

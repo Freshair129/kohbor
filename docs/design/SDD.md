@@ -93,7 +93,7 @@ Each SRS requirement has one primary allocation below for traceability. Collabor
 |---|---|---|---|
 | Evaluate evidence, episode/cooldown, threshold, correction and media-readiness guards in the native critical path. | Admitted risk/observations, current session/game state, episode history, sensitivity and verified critical-media readiness. | Admitted warning/correction/missing-notice decisions, cancellation generation and truthful availability. | No waiting on cloud/model/renderer/relay. Gaps or missing evidence suspend affected claims, not an all-clear. Critical preemption does not acquire Voice locks. |
 
-**Primary SRS allocation:** `ALERT-001`, `ALERT-003`, `ALERT-004`, `ALERT-005`, `ALERT-006`, `ALERT-007`.
+**Primary SRS allocation:** `ALERT-001`, `ALERT-003`, `ALERT-004`, `ALERT-005`, `ALERT-006`, `ALERT-007`, `ALERT-008`.
 
 **Collaborating components:** CMP-RISK, CMP-VISION, CMP-MEDIA, CMP-VOICE, CMP-PERFORMANCE.
 

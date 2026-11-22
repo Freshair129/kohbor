@@ -391,6 +391,15 @@ body.overlay-body #root { width: 100%; height: 100%; min-height: 0; }
 .overlay-stage { position: relative; width: 100%; min-width: 0; min-height: 0; aspect-ratio: 720 / 220; overflow: hidden; background: transparent; }
 .event-overlay-banner { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; pointer-events: none; animation: event-banner-enter 140ms ease-out both; }
 .event-overlay-banner video { display: block; width: 100%; height: 100%; object-fit: contain; background: transparent; }
+.objective-overlay-alert { position: absolute; z-index: 2; left: 50%; bottom: 6px; transform: translateX(-50%); display: flex; align-items: center; justify-content: center; max-width: calc(100% - 24px); max-height: 40%; overflow: hidden; padding: 7px 14px; border: 1px solid var(--overlay-chip-line); border-radius: 999px; color: var(--overlay-chip-text); background: var(--overlay-chip-background); font-size: clamp(12px, 2.5vw, 18px); font-weight: 700; line-height: 1.2; text-align: center; text-wrap: balance; pointer-events: none; }
+.objective-settings { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+.objective-settings h2 { margin: 0; font-size: 13px; font-weight: 650; }
+.objective-settings-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; }
+.objective-setting-toggle { display: flex; align-items: flex-start; gap: 8px; min-width: 0; font-size: 12px; line-height: 1.35; }
+.objective-setting-toggle input { margin: 2px 0 0; accent-color: var(--accent); }
+.objective-setting-toggle small { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
+.objective-settings-message { margin: 0; color: var(--muted); font-size: 12px; }
+.objective-settings-message[role="alert"] { color: var(--critical); }
 .overlay-chip-strip { display: flex; align-items: center; justify-content: flex-end; min-width: 0; min-height: 0; padding: 0 2.5%; background: transparent; }
 .overlay-chip { display: inline-flex; align-items: center; max-width: 100%; min-height: 24px; padding: 2px 10px; border: 1px solid var(--overlay-chip-line); border-radius: 999px; background: var(--overlay-chip-background); color: var(--overlay-chip-text); font-size: clamp(11px, 1.7vh, 14px); line-height: 1.25; overflow-wrap: anywhere; }
 .overlay-chip-ready { border-color: var(--overlay-chip-ready-line); }

@@ -264,6 +264,22 @@ pub(crate) fn settings_patch(
     settings::patch(&state.settings_dir, &request)
 }
 
+#[tauri::command]
+pub(crate) fn objective_prefs_get(state: tauri::State<'_, AppState>) -> Value {
+    state.objectives.prefs.current().to_value()
+}
+
+#[tauri::command]
+pub(crate) fn objective_prefs_patch(
+    state: tauri::State<'_, AppState>,
+    request: Value,
+) -> Result<Value, String> {
+    if state.host.shutdown_started() {
+        return Err("CANCELLED".to_owned());
+    }
+    state.objectives.prefs.patch(&request)
+}
+
 #[tauri::command(async)]
 pub(crate) fn media_inspect(
     state: tauri::State<'_, AppState>,

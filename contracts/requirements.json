@@ -1609,7 +1609,20 @@
           "docs/quality/TEST-PLAN.md",
           "docs/quality/UAT-PLAN.md"
         ],
-        "implementation_refs": [],
+        "implementation_refs": [
+          "crates/kohbor-events/src/objectives.rs",
+          "crates/kohbor-events/data/objective-timings.json",
+          "apps/desktop/src-tauri/src/objectives/mod.rs",
+          "apps/desktop/src-tauri/src/objectives/prefs.rs",
+          "apps/desktop/src-tauri/src/objectives/diagnostics.rs",
+          "apps/desktop/src-tauri/src/objectives/tone.rs",
+          "apps/desktop/src-tauri/src/intake.rs",
+          "apps/desktop/src-tauri/src/audio/engine.rs",
+          "apps/desktop/src/objectiveAlertModel.ts",
+          "apps/desktop/src/ObjectiveAlert.tsx",
+          "apps/desktop/src/ObjectiveSettings.tsx",
+          "apps/desktop/tests/objectiveAlert.test.ts"
+        ],
         "evidence_refs": [],
         "procedure_ids": [
           "TP-03",
@@ -1643,12 +1656,8 @@
         "docs/design/SDD.md"
       ],
       "primary_design_component_id": "CMP-ALERT",
-      "diagram_ids": [
-        "DGM-008"
-      ],
-      "diagram_refs": [
-        "docs/diagrams/source/DGM-008-alert-sequence.mmd"
-      ]
+      "diagram_ids": [],
+      "diagram_refs": []
     },
     {
       "id": "MEDIA-001",

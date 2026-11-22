@@ -32,6 +32,7 @@ import { guestAccountPort, type AccountPort } from "./account/accountView";
 import { useAccount } from "./account/useAccount";
 import { VolumeToast } from "./VolumeToast";
 import { OrbSettings } from "./orb/OrbSettings";
+import { ObjectiveSettings } from "./ObjectiveSettings";
 import { useDotaLauncher, useShowSteamName, useSteamStatus } from "./steam/hooks";
 import { steamPersonaName } from "./steam/model";
 import { StartDotaBar } from "./steam/StartDotaBar";
@@ -279,6 +280,7 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
                   <small>{displayLocale === "th" ? "บันทึกในเครื่องสำหรับหน้าจอนี้" : "Saved locally for this renderer"}</small>
                 </label>
                 {settingsNotice && <p className="locale-notice" role="status">{settingsNotice}</p>}
+                <ObjectiveSettings locale={displayLocale} />
               </section>
               <OrbSettings locale={displayLocale} />
               <div className="shell-guide-slot">

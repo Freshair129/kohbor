@@ -22,6 +22,21 @@ export function subscribePlayback(onEvent: (event: unknown) => void): Promise<()
   return listen<unknown>("playback://event", (event) => onEvent(event.payload));
 }
 
+export function subscribeObjectiveAlerts(onPayload: (payload: unknown) => void): Promise<() => void> {
+  if (!hostAvailable()) return Promise.resolve(() => {});
+  return listen<unknown>("objectives://alert", (event) => onPayload(event.payload));
+}
+
+export function objectivePrefsGet(): Promise<unknown> {
+  if (!hostAvailable()) return Promise.reject(new Error("CAPABILITY_UNAVAILABLE"));
+  return invoke<unknown>("objective_prefs_get");
+}
+
+export function objectivePrefsPatch(request: Record<string, boolean>): Promise<unknown> {
+  if (!hostAvailable()) return Promise.reject(new Error("CAPABILITY_UNAVAILABLE"));
+  return invoke<unknown>("objective_prefs_patch", { request });
+}
+
 export function subscribeOverlayStatus(onPayload: (payload: unknown) => void): Promise<() => void> {
   if (!hostAvailable()) return Promise.resolve(() => {});
   return listen<unknown>("overlay://status", (event) => onPayload(event.payload));

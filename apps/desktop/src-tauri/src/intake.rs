@@ -3,9 +3,12 @@
 
 use crate::audio::lanes::{Control, EngineTx, TickMsg};
 use crate::clock::MonoClock;
+use crate::objectives::{MapDiagnostic, ObjectiveIntakeWiring, ObjectiveRuntimeFlags};
 use crate::{atomic, secrets};
 use base64::Engine;
-use kohbor_events::{adapter::tick_from_admitted, Detector, Event, EventId};
+use kohbor_events::{
+    adapter::tick_from_admitted, Detector, Event, EventId, ObjectiveAlertBatch, ObjectiveScheduler,
+};
 use kohbor_gsi::admission::{parse_own_loadout, token_matches, OwnLoadout, Ownership, Phase};
 use kohbor_gsi::config::{
     choose_port, claimed_ports, GsiConfig, BODY_LIMIT_BYTES, MAX_REQUESTS_PER_SECOND,
@@ -24,6 +27,7 @@ use std::fs;
 use std::io::{self, Read};
 use std::net::{TcpListener, ToSocketAddrs};
 use std::path::{Component, Path, PathBuf};
+use std::sync::mpsc::{Receiver, SyncSender, TrySendError};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 
@@ -93,6 +97,11 @@ pub struct Shared {
     session_hero_id: Option<String>,
     token: Option<String>,
     engine: Option<EngineTx>,
+    objective_scheduler: ObjectiveScheduler,
+    objective_flags: Arc<ObjectiveRuntimeFlags>,
+    objective_alerts: Option<SyncSender<ObjectiveAlertBatch>>,
+    objective_diagnostics: Option<SyncSender<MapDiagnostic>>,
+    last_objective_diagnostic: Option<MapDiagnostic>,
     data_dir: PathBuf,
     window: (Instant, u32),
 }
@@ -405,6 +414,8 @@ impl Shared {
         self.last_admitted = None;
         self.last_loadout = OwnLoadout::unknown();
         self.session_hero_id = None;
+        self.objective_scheduler.resync_clock();
+        self.last_objective_diagnostic = None;
         self.events.clear();
         self.reset_detector();
         *lock(&self.freshness_state) = None;
@@ -487,8 +498,84 @@ impl Shared {
             session_hero_id: None,
             token,
             engine: None,
+            objective_scheduler: ObjectiveScheduler::default(),
+            objective_flags: Arc::new(ObjectiveRuntimeFlags::default()),
+            objective_alerts: None,
+            objective_diagnostics: None,
+            last_objective_diagnostic: None,
             data_dir,
             window: (started_at, 0),
+        }
+    }
+
+    fn with_objectives(
+        data_dir: PathBuf,
+        wiring: ObjectiveIntakeWiring,
+        alerts: SyncSender<ObjectiveAlertBatch>,
+    ) -> Self {
+        let mut shared = Self::new(data_dir);
+        shared.objective_flags = wiring.flags;
+        shared.objective_alerts = Some(alerts);
+        shared.objective_diagnostics = Some(wiring.diagnostics);
+        shared
+    }
+
+    fn observe_objectives(&mut self, body: &Value, stale_gap: bool, new_match: bool) {
+        let Some(map) = body.get("map").and_then(Value::as_object) else {
+            self.objective_scheduler.observe(
+                None,
+                false,
+                None,
+                stale_gap,
+                new_match,
+                self.objective_flags.objective_settings(),
+            );
+            self.last_objective_diagnostic = None;
+            return;
+        };
+
+        let clock = map.get("clock_time").and_then(Value::as_i64);
+        let in_progress = map.get("game_state").and_then(Value::as_str)
+            == Some("DOTA_GAMERULES_STATE_GAME_IN_PROGRESS");
+        let paused = map.get("paused").and_then(Value::as_bool);
+        if let Some(batch) = self.objective_scheduler.observe(
+            clock,
+            in_progress,
+            paused,
+            stale_gap,
+            new_match,
+            self.objective_flags.objective_settings(),
+        ) {
+            if let Some(sender) = &self.objective_alerts {
+                match sender.try_send(batch) {
+                    Ok(()) => {}
+                    Err(TrySendError::Full(_)) | Err(TrySendError::Disconnected(_)) => {
+                        // Intake is a trust boundary: no wait or retry queue here.
+                    }
+                }
+            }
+        }
+
+        if !self
+            .objective_flags
+            .diagnostic_enabled()
+            .load(std::sync::atomic::Ordering::Acquire)
+        {
+            self.last_objective_diagnostic = None;
+            return;
+        }
+        let Some(diagnostic) = MapDiagnostic::from_map(map) else {
+            self.last_objective_diagnostic = None;
+            return;
+        };
+        if self.last_objective_diagnostic.as_ref() == Some(&diagnostic) {
+            return;
+        }
+        let Some(sender) = &self.objective_diagnostics else {
+            return;
+        };
+        if sender.try_send(diagnostic.clone()).is_ok() {
+            self.last_objective_diagnostic = Some(diagnostic);
         }
     }
 
@@ -503,6 +590,8 @@ impl Shared {
         self.sequence = 0;
         self.last_admitted = None;
         self.last_loadout = OwnLoadout::unknown();
+        self.objective_scheduler.resync_clock();
+        self.last_objective_diagnostic = None;
         self.reset_detector();
         self.persist_runtime();
     }
@@ -722,6 +811,7 @@ impl Shared {
         let stale_source_gap = self.last_admitted.as_ref().is_some_and(|(previous, _)| {
             arrival.saturating_duration_since(*previous) > Duration::from_millis(FRESH_MAX_AGE_MS)
         });
+        let mut new_match = false;
         let previous_phase = self.phase;
         let previous_ownership = self.ownership;
         let mut reset_detector = stale_source_gap;
@@ -735,6 +825,7 @@ impl Shared {
                             .map(|b| base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(b))
                             .unwrap_or_default()
                     });
+                    new_match = matches!(&change, SessionChange::Started { .. });
                     if matches!(
                         &change,
                         SessionChange::Started { .. }
@@ -835,6 +926,12 @@ impl Shared {
                 self.reset_detector();
             }
             Outcome::Rejected(_) => {}
+        }
+        if matches!(&outcome, Outcome::Admitted(_)) {
+            self.observe_objectives(body, stale_source_gap, new_match);
+        } else {
+            self.objective_scheduler.resync_clock();
+            self.last_objective_diagnostic = None;
         }
         self.sequence += 1;
         self.last_admitted = Some((arrival, outcome));
@@ -982,6 +1079,23 @@ impl Runtime {
             server: Mutex::new(None),
             setup_gate: Mutex::new(()),
         })
+    }
+
+    pub(crate) fn with_objectives(
+        data_dir: PathBuf,
+        wiring: ObjectiveIntakeWiring,
+    ) -> (Arc<Self>, Receiver<ObjectiveAlertBatch>) {
+        let (alert_sender, alert_receiver) = crate::objectives::ObjectiveHost::new_alert_channel();
+        let runtime = Arc::new(Self {
+            shared: Arc::new(Mutex::new(Shared::with_objectives(
+                data_dir,
+                wiring,
+                alert_sender,
+            ))),
+            server: Mutex::new(None),
+            setup_gate: Mutex::new(()),
+        });
+        (runtime, alert_receiver)
     }
 
     /// End the admitted GSI session after the game window or process is lost.
@@ -1322,6 +1436,70 @@ mod tests {
                      "mana_percent": 43, "alive": true, "respawn_seconds": 0},
             "auth": {"token": token}
         })
+    }
+
+    #[test]
+    fn admitted_map_frames_drive_alerts_and_opt_in_sanitized_diagnostics() {
+        let mut shared = shared_with_token();
+        let token = shared.token.clone().unwrap();
+        let (alert_sender, alert_receiver) = std::sync::mpsc::sync_channel(8);
+        let (diagnostic_sender, diagnostic_receiver) = std::sync::mpsc::sync_channel(8);
+        shared.objective_alerts = Some(alert_sender);
+        shared.objective_diagnostics = Some(diagnostic_sender);
+        shared.objective_flags = Arc::new(ObjectiveRuntimeFlags::default());
+        shared
+            .objective_flags
+            .diagnostic_enabled()
+            .store(true, std::sync::atomic::Ordering::Release);
+
+        let mut first = in_game(&token);
+        first["map"]["clock_time"] = json!(89);
+        first["map"]["paused"] = json!(false);
+        assert_eq!(shared.accept(&first, Instant::now(), Some(owner())), 200);
+        let initial_diagnostic = diagnostic_receiver.try_recv().unwrap();
+        assert!(initial_diagnostic
+            .map_keys
+            .contains(&"clock_time".to_owned()));
+        assert!(initial_diagnostic.roshan_values.is_empty());
+        assert!(alert_receiver.try_recv().is_err());
+
+        let mut second = first.clone();
+        second["map"]["clock_time"] = json!(90);
+        assert_eq!(
+            shared.accept(
+                &second,
+                Instant::now() + Duration::from_millis(10),
+                Some(owner())
+            ),
+            200
+        );
+        let batch = alert_receiver.try_recv().unwrap();
+        assert!(batch.alerts.iter().any(|alert| {
+            alert.objective == kohbor_events::ObjectiveId::WaterRune
+                && alert.phase == kohbor_events::ObjectivePhase::PreWarn30
+                && alert.due_seconds == 90
+        }));
+        assert!(
+            diagnostic_receiver.try_recv().is_err(),
+            "unchanged map diagnostics are not repeated"
+        );
+
+        let mut third = second.clone();
+        third["map"]["clock_time"] = json!(91);
+        third["map"]["roshan_state"] = json!("alive");
+        assert_eq!(
+            shared.accept(
+                &third,
+                Instant::now() + Duration::from_millis(20),
+                Some(owner())
+            ),
+            200
+        );
+        let changed_diagnostic = diagnostic_receiver.try_recv().unwrap();
+        assert!(changed_diagnostic
+            .roshan_values
+            .contains(&("roshan_state".to_owned(), json!("alive"))));
+        assert!(alert_receiver.try_recv().is_err());
     }
 
     fn in_game_with_hud_stats(token: &str, kills: i64, gold: i64) -> Value {

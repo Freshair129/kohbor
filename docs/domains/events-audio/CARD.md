@@ -23,9 +23,9 @@ A map, not evidence. Decisions, requirements, contracts, code and tests outrank 
 
 ## 2. Owner decisions (ids only; text in contracts/decisions.json)
 
-- **Decided:** DEC-HEALTH-DANGER, DEC-PACK-AUDIO-OPTIONAL-VISUAL, DEC-BANNER-LAB-STYLE (consumer side only).
+- **Decided:** DEC-HEALTH-DANGER, DEC-PACK-AUDIO-OPTIONAL-VISUAL, DEC-BANNER-LAB-STYLE (consumer side only), DEC-EVENT-RUNE-SPAWN (revision 2, 2026-11-22: map-objective timers, ALERT-008).
 - **Proposed, not decided:** DEC-EVENT-AUDIO (owner acknowledgements are recorded inside it; the decision as a whole is not approved).
-- **Open:** DEC-CRITICAL-MEDIA, DEC-INTERFACES, DEC-PACK-CRYPTO, DEC-NATIVE-EVIDENCE, DEC-EVENT-RUNE-SPAWN.
+- **Open:** DEC-CRITICAL-MEDIA, DEC-INTERFACES, DEC-PACK-CRYPTO, DEC-NATIVE-EVIDENCE.
 - **Deferred:** DEC-PACK-BANNER-ADDON.
 - Agent decisions in the S3-5 design (P1..P8) have no DEC id: see section 4.
 
@@ -36,6 +36,8 @@ Now
 - S3-5a..5l, S3-6a, S3-6b and S3-7 are committed on main (PR #10), including the wiring into `run()`; test results at this revision are UNVERIFIED here: `apps/desktop/src-tauri/src/lib.rs`
 - Thread priorities, three lexical source guards and panic containment are present in the host code: `apps/desktop/src-tauri/src/host.rs`
 - No audible critical warning on real media today: readiness is designed to report not_ready (reason MEDIA_UNMAPPED) until authorized critical media exists; the rule itself is decided; behaviour in the running app is UNVERIFIED: DEC-HEALTH-DANGER, DEC-CRITICAL-MEDIA, ALERT-007
+
+- ALERT-008 map-objective timers: pure scheduler and patch-versioned timing table in `crates/kohbor-events/src/objectives.rs` and `crates/kohbor-events/data/objective-timings.json`; host wiring in `apps/desktop/src-tauri/src/objectives/`. The beep-beep tone uses the single-slot sink only when it is idle (a game clip preempts it); mixing under a playing clip is not implemented: ALERT-008
 
 Next
 - S3-6a and S3-6b latency receipts are INDETERMINATE (distributions on one machine under uncontrolled load); QUALITY-001 stays NOT_RUN and needs a controlled owner measurement: `docs/delivery/evidence/s3-6a/`
@@ -77,4 +79,4 @@ Blocked
 - **Write:** one session holds the claim for a write area; one writer per crate; workers never edit this card, they report what it needs (docs/domains/README.md section 4; AGENTS.md "Work policy"). No charter exists for this domain, so no delegated approval.
 - **Claim:** open a claim in the coordination ledger before the first write and close it at task end (docs/domains/README.md section 4).
 - **Ask:** card, then a read-only consultant, then the active claim holder, then the owner (docs/domains/README.md section 3).
-- **Owner only:** authorization and rights of any critical clip (DEC-CRITICAL-MEDIA), hardware sessions for device loss and acoustic latency, mute semantics, ranks, and any new event (DEC-EVENT-RUNE-SPAWN).
+- **Owner only:** authorization and rights of any critical clip (DEC-CRITICAL-MEDIA), hardware sessions for device loss and acoustic latency, mute semantics, ranks, any new event, and each objective timing row (`confirmed_by_owner` in the timing table) (DEC-EVENT-RUNE-SPAWN).

@@ -6,6 +6,49 @@ export const OWNED_CONFIG_FILE = "gamestate_integration_kohbor.cfg";
 export type Locale = "th" | "en";
 export type Phase = "none" | "draft" | "pregame" | "live" | "post_game" | "unsupported";
 
+export const OBJECTIVE_COPY = {
+  th: {
+    title: "การแจ้งเตือนวัตถุประสงค์",
+    water_rune: "รูนน้ำ",
+    power_rune: "รูนพลัง",
+    bounty_rune: "รูนค่าหัว",
+    wisdom_rune: "รูนปัญญา",
+    tormentor: "Tormentor",
+    diagnosticMapKeys: "บันทึกคีย์แผนที่เพื่อวินิจฉัย",
+    diagnosticHelp: "บันทึกเฉพาะชื่อคีย์ map และค่าของคีย์ roshan_* ลงไฟล์ในเครื่องที่มีขนาดจำกัด",
+    loading: "กำลังโหลดการตั้งค่า…",
+    loadFailed: "โหลดการตั้งค่าการแจ้งเตือนไม่สำเร็จ",
+    saveFailed: "บันทึกการตั้งค่าการแจ้งเตือนไม่สำเร็จ",
+    alerts: {
+      water_rune: { pre_warn_30: "รูนน้ำเกิดใน 30 วิ", pre_warn_15: "รูนน้ำเกิดใน 15 วิ", spawn: "รูนน้ำเกิดแล้ว" },
+      power_rune: { pre_warn_30: "รูนพลังเกิดใน 30 วิ", pre_warn_15: "รูนพลังเกิดใน 15 วิ", spawn: "รูนพลังเกิดแล้ว" },
+      bounty_rune: { spawn: "รูนค่าหัวเกิดแล้ว" },
+      wisdom_rune: { spawn: "รูนปัญญาเกิดแล้ว" },
+      tormentor: { spawn: "Tormentor เกิดแล้ว" },
+    },
+  },
+  en: {
+    title: "Map objective alerts",
+    water_rune: "Water rune",
+    power_rune: "Power rune",
+    bounty_rune: "Bounty rune",
+    wisdom_rune: "Wisdom rune",
+    tormentor: "Tormentor",
+    diagnosticMapKeys: "Log map keys for diagnostics",
+    diagnosticHelp: "Writes only map key names and roshan_* values to a size-capped local file.",
+    loading: "Loading settings…",
+    loadFailed: "Could not load objective alert settings",
+    saveFailed: "Could not save objective alert settings",
+    alerts: {
+      water_rune: { pre_warn_30: "Water rune in 30s", pre_warn_15: "Water rune in 15s", spawn: "Water rune spawned" },
+      power_rune: { pre_warn_30: "Power rune in 30s", pre_warn_15: "Power rune in 15s", spawn: "Power rune spawned" },
+      bounty_rune: { spawn: "Bounty rune spawned" },
+      wisdom_rune: { spawn: "Wisdom rune spawned" },
+      tormentor: { spawn: "Tormentor spawned" },
+    },
+  },
+} as const;
+
 export const gsiFirstRunCopy = {
   th: {
     title: "เชื่อมเกาะเบาะกับ Dota 2",

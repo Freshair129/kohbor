@@ -5,7 +5,13 @@
 //! file or touches the network.
 
 pub mod adapter;
+pub mod objectives;
 pub mod trace;
+
+pub use objectives::{
+    ObjectiveAlert, ObjectiveAlertBatch, ObjectiveId, ObjectivePhase, ObjectiveScheduler,
+    ObjectiveSettings,
+};
 
 use trace::{Danger, LevelEvidence, Scratch, Status, Threshold};
 
