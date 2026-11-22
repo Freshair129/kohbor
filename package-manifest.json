@@ -442,16 +442,6 @@
       "sha256": "d3fb009d11af05e4cf14e6e2eeca08c54e447d617ef625f2d2d7d2163dcf699a"
     },
     {
-      "path": "apps/desktop/src-tauri/src/intake.rs",
-      "bytes": 110004,
-      "sha256": "d3fb009d11af05e4cf14e6e2eeca08c54e447d617ef625f2d2d7d2163dcf699a"
-    },
-    {
-      "path": "apps/desktop/src-tauri/src/intake.rs",
-      "bytes": 110004,
-      "sha256": "d3fb009d11af05e4cf14e6e2eeca08c54e447d617ef625f2d2d7d2163dcf699a"
-    },
-    {
       "path": "apps/desktop/src-tauri/src/lab.rs",
       "bytes": 41347,
       "sha256": "bbcc17ca5a1c82aa7cc94c7a3cf84bdb368f4276e4dd392013a38d5c24cbc85e"
@@ -460,16 +450,6 @@
       "path": "apps/desktop/src-tauri/src/latency.rs",
       "bytes": 32064,
       "sha256": "91654849e2fb95dbcedc57752ce75aafe4b432b8f9618257514c98a4ca69b7f0"
-    },
-    {
-      "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 61280,
-      "sha256": "ce3689b5ee529bcc4cd3de57dfade921e62de6510954076f62c2791060e60660"
-    },
-    {
-      "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 61280,
-      "sha256": "ce3689b5ee529bcc4cd3de57dfade921e62de6510954076f62c2791060e60660"
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
@@ -625,16 +605,6 @@
       "path": "apps/desktop/src-tauri/tests/latency_harness_native.rs",
       "bytes": 4941,
       "sha256": "3d478ebebae7483b3ca32db220eb898efd7dab07d32b2716c8ca5451e7ef25a7"
-    },
-    {
-      "path": "apps/desktop/src/App.tsx",
-      "bytes": 21115,
-      "sha256": "0443a794f64442bb5310a9ede304b163646c812f46234a3ad4d7f24a6ed4015c"
-    },
-    {
-      "path": "apps/desktop/src/App.tsx",
-      "bytes": 21115,
-      "sha256": "0443a794f64442bb5310a9ede304b163646c812f46234a3ad4d7f24a6ed4015c"
     },
     {
       "path": "apps/desktop/src/App.tsx",
@@ -3720,16 +3690,6 @@
       "path": "docs/product/FEATURE-CATALOG.md",
       "bytes": 7378,
       "sha256": "e9a280450a3ea3c9cf9ab0e48878db0c9a23dc9a9486872bd35c465b8d99bd5f"
-    },
-    {
-      "path": "docs/product/PRD.md",
-      "bytes": 16334,
-      "sha256": "4387c0edad12c4311b40ab4998173a3849f7f41fa5a4fa78f56485c3e135e937"
-    },
-    {
-      "path": "docs/product/PRD.md",
-      "bytes": 16334,
-      "sha256": "4387c0edad12c4311b40ab4998173a3849f7f41fa5a4fa78f56485c3e135e937"
     },
     {
       "path": "docs/product/PRD.md",
