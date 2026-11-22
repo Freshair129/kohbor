@@ -148,6 +148,44 @@ struct Core {
     monitor: MonitorState,
     consent_chip_until: Option<Instant>,
     view: DraftColumnView,
+    /// Last logged column state, so the info log fires on change only.
+    column_log: Option<ColumnLog>,
+}
+
+/// Log-safe column state: enum codes and counts only, never hero names or match data.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ColumnLog {
+    shown: bool,
+    reason: &'static str,
+    mode: String,
+    data_state: String,
+    consent: bool,
+    draft_bar_available: bool,
+    identified: usize,
+}
+
+fn snake_code<T: serde::Serialize>(value: &T) -> String {
+    match serde_json::to_value(value) {
+        Ok(Value::String(code)) => code,
+        _ => "unknown".to_owned(),
+    }
+}
+
+/// The first reason the overlay column is hidden, or "shown".
+fn column_reason(view: &DraftColumnView, consent: bool) -> &'static str {
+    use super::view::{HiddenReason, Mode};
+    if view.overlay.visible {
+        return "shown";
+    }
+    match view.overlay.hidden_reason {
+        Some(HiddenReason::UnsupportedOutput) => "unsupported_output",
+        Some(HiddenReason::BarOff) => "bar_off",
+        Some(HiddenReason::ListBuildDisabled) => "list_build_disabled",
+        Some(HiddenReason::NoDraft) => "no_draft",
+        None if view.phase.is_none() => "no_draft",
+        None if view.mode == Mode::Hidden && !consent => "consent_off",
+        None => "hidden",
+    }
 }
 
 impl Core {
@@ -234,6 +272,7 @@ impl Core {
             monitor: MonitorState::default(),
             consent_chip_until: None,
             view: empty_view(),
+            column_log: None,
         };
         core.rebuild_view(now_ms, Instant::now());
         core
@@ -764,6 +803,41 @@ impl Core {
             own_side: observation.own_side,
             counter_slots: &self.draft_bar.slots,
         });
+        self.log_column_change();
+    }
+
+    /// Info log on change: column shown or hidden with the reason, consent and data state,
+    /// and the 5b input the column saw. Quiet outside the draft once "no_draft" is logged.
+    fn log_column_change(&mut self) {
+        let consent = self.prefs.hero_stats_consent;
+        let state = ColumnLog {
+            shown: self.view.overlay.visible,
+            reason: column_reason(&self.view, consent),
+            mode: snake_code(&self.view.mode),
+            data_state: snake_code(&self.view.data_state),
+            consent,
+            draft_bar_available: self.draft_bar.available,
+            identified: self.draft_bar.hero_keys.len(),
+        };
+        if self.column_log.as_ref() == Some(&state) {
+            return;
+        }
+        crate::log_info!(
+            "draft",
+            if state.shown {
+                "column_shown"
+            } else {
+                "column_hidden"
+            },
+            "draft column state changed",
+            reason = state.reason,
+            mode = state.mode.clone(),
+            data_state = state.data_state.clone(),
+            consent = if state.consent { "on" } else { "off" },
+            draft_bar_available = state.draft_bar_available,
+            identified = state.identified
+        );
+        self.column_log = Some(state);
     }
 }
 
@@ -1014,6 +1088,7 @@ fn run_loop(
         mpsc::channel::<(RequestTicket, Result<HttpResponse, TransportError>)>();
     let mut last_payload: Option<Value> = None;
     let mut last_emit = Instant::now() - KEEPALIVE;
+    let mut last_window_log: Option<WindowLog> = None;
     while !stop.load(Ordering::Acquire) {
         let now = Instant::now();
         let monitor = window
@@ -1046,7 +1121,11 @@ fn run_loop(
             state.view.clone()
         };
         if let Some(window) = &window {
-            let _ = apply_window_state(window, &view);
+            let placed = apply_window_state(window, &view);
+            log_window_change(
+                &mut last_window_log,
+                placed.then(|| window_log(window)).flatten(),
+            );
         }
         if let Ok(payload) = serde_json::to_value(&view) {
             if last_payload.as_ref() != Some(&payload)
@@ -1076,6 +1155,57 @@ fn monitor_state(window: &tauri::WebviewWindow<tauri::Wry>) -> MonitorState {
         }),
         scale_factor: monitor.scale_factor(),
     }
+}
+
+/// Actual native placement of the shown column, read back from the window after placement.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct WindowLog {
+    x: i32,
+    y: i32,
+    outer_width: u32,
+    outer_height: u32,
+    inner_width: u32,
+    inner_height: u32,
+    scale_factor: f64,
+}
+
+fn window_log(window: &tauri::WebviewWindow<tauri::Wry>) -> Option<WindowLog> {
+    let position = window.outer_position().ok()?;
+    let outer = window.outer_size().ok()?;
+    let inner = window.inner_size().ok()?;
+    Some(WindowLog {
+        x: position.x,
+        y: position.y,
+        outer_width: outer.width,
+        outer_height: outer.height,
+        inner_width: inner.width,
+        inner_height: inner.height,
+        scale_factor: window.scale_factor().ok()?,
+    })
+}
+
+/// Info log when the shown column's window rect or scale changes; quiet while it is unchanged.
+fn log_window_change(last: &mut Option<WindowLog>, current: Option<WindowLog>) {
+    let Some(current) = current else {
+        *last = None;
+        return;
+    };
+    if *last == Some(current) {
+        return;
+    }
+    crate::log_info!(
+        "draft",
+        "column_window_placed",
+        "draft column window placed",
+        x = current.x,
+        y = current.y,
+        outer_width = current.outer_width,
+        outer_height = current.outer_height,
+        inner_width = current.inner_width,
+        inner_height = current.inner_height,
+        scale_factor = current.scale_factor
+    );
+    *last = Some(current);
 }
 
 fn apply_window_state(window: &tauri::WebviewWindow<tauri::Wry>, view: &DraftColumnView) -> bool {
@@ -1649,6 +1779,57 @@ mod tests {
         assert_eq!(card.games, None);
         assert_eq!(card.win_rate_tenths, None);
         assert!(card.durations.cells.iter().all(|cell| cell.games.is_none()));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn column_logs_consent_off_as_the_hidden_reason_after_the_chip_expires() {
+        let dir =
+            std::env::temp_dir().join(format!("kohbor-draft-column-log-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let now = 60_000_000;
+        let mut core = core(&dir, now);
+        assert!(!core.prefs.hero_stats_consent);
+        let monitor = MonitorState {
+            monitor: Some(super::super::Monitor {
+                x: 0,
+                y: 0,
+                width: 1920,
+                height: 1080,
+            }),
+            scale_factor: 1.0,
+        };
+        let draft = DraftObservation {
+            phase: Some(crate::hero_stats::DraftPhase::HeroSelection),
+            admitted_session: true,
+            ownership_verified: true,
+            session_epoch: Some(2),
+            age_ms: Some(0),
+            own_hero_key: None,
+            own_side: None,
+        };
+        let start = std::time::Instant::now();
+        let logs = crate::logging::collect_test_logs(|| {
+            core.observe(draft.clone(), Default::default(), monitor, now, start);
+            core.observe(draft.clone(), Default::default(), monitor, now, start);
+            core.observe(
+                draft,
+                Default::default(),
+                monitor,
+                now + 9_000,
+                start + super::CONSENT_CHIP_DURATION + std::time::Duration::from_secs(1),
+            );
+        });
+        let column: Vec<_> = logs.iter().filter(|e| e.module == "draft").collect();
+        assert_eq!(column.len(), 2, "logged on change only: {column:?}");
+        assert_eq!(column[0].event, "column_shown");
+        assert_eq!(column[0].fields["mode"], "consent_chip");
+        assert_eq!(column[0].fields["consent"], "off");
+        assert_eq!(column[1].event, "column_hidden");
+        assert_eq!(column[1].fields["reason"], "consent_off");
+        assert_eq!(column[1].fields["data_state"], "consent_off");
+        assert_eq!(column[1].fields["identified"], 0);
         let _ = std::fs::remove_dir_all(dir);
     }
 

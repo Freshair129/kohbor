@@ -1667,6 +1667,10 @@ struct CaptureHostWorker<S, C, A, R, E, H> {
     seen_gsi_event_keys: HashSet<(&'static str, u64)>,
     seen_gsi_epoch: Option<u64>,
     gsi_event_order: VecDeque<(&'static str, u64)>,
+    /// Last logged Draft Bar capture state ("started"/"skipped", reason) while in the draft.
+    draft_log_state: Option<(&'static str, String)>,
+    /// Last logged Draft Bar 5b identified-slot count.
+    draft_log_identified: Option<usize>,
 }
 
 impl<S, C, A, R, E, H> CaptureHostWorker<S, C, A, R, E, H>
@@ -1760,6 +1764,67 @@ where
             seen_gsi_event_keys: HashSet::new(),
             gsi_event_order: VecDeque::new(),
             seen_gsi_epoch: None,
+            draft_log_state: None,
+            draft_log_identified: None,
+        }
+    }
+
+    /// Info logs for the live draft, on change only: capture started or skipped with the
+    /// first blocking reason, and the Draft Bar 5b identified-slot count. Reasons are codes or
+    /// geometry text; hero names, pixels and identifiers never reach the log.
+    fn log_draft_capture(&mut self, gsi: Option<&GsiSnapshot>) {
+        let in_draft = gsi.is_some_and(|snapshot| snapshot.game_phase == Some(GamePhase::Draft));
+        if !in_draft {
+            if self.draft_log_state.take().is_some() {
+                crate::log_info!(
+                    "capture_host",
+                    "draft_capture_ended",
+                    "draft bar capture ended with the draft phase"
+                );
+            }
+            self.draft_log_identified = None;
+            return;
+        }
+        let (frame, detail, identified) = {
+            let memory = lock(&self.draft);
+            let (frame, detail, identified) = memory.log_summary();
+            (frame, detail.map(str::to_owned), identified)
+        };
+        let state = match gsi.map(draft_gate) {
+            Some(Err(reason)) => ("skipped", reason.to_owned()),
+            None => ("skipped", "no_gsi".to_owned()),
+            Some(Ok(_)) => match detail {
+                Some(reason) => ("skipped", reason),
+                None if frame => ("started", String::new()),
+                None => ("skipped", "awaiting_frame".to_owned()),
+            },
+        };
+        if self.draft_log_state.as_ref() != Some(&state) {
+            if state.0 == "started" {
+                crate::log_info!(
+                    "capture_host",
+                    "draft_capture_started",
+                    "draft bar capture started"
+                );
+            } else {
+                crate::log_info!(
+                    "capture_host",
+                    "draft_capture_skipped",
+                    "draft bar capture skipped",
+                    reason = state.1.clone()
+                );
+            }
+            self.draft_log_state = Some(state);
+        }
+        if frame && self.draft_log_identified != Some(identified) {
+            crate::log_info!(
+                "capture_host",
+                "draft_bar_identified",
+                "draft bar 5b identified slots changed",
+                identified = identified,
+                slots = 10
+            );
+            self.draft_log_identified = Some(identified);
         }
     }
 
@@ -1903,6 +1968,7 @@ where
                 }
             }
         }
+        self.log_draft_capture(gsi.as_ref());
 
         if now >= self.next_analysis {
             self.analysis_tick(now_ms, gsi.as_ref());
@@ -3260,17 +3326,25 @@ fn game_phase_allows_capture(phase: Option<GamePhase>) -> bool {
     matches!(phase, Some(GamePhase::Pregame | GamePhase::Live))
 }
 
-fn draft_epoch(snapshot: &GsiSnapshot) -> Option<u64> {
-    if snapshot.game_phase == Some(GamePhase::Draft)
-        && snapshot.draft_bar_allowed
-        && snapshot
-            .age_ms
-            .is_some_and(|age| age <= kohbor_gsi::FRESH_MAX_AGE_MS)
-    {
-        snapshot.session_epoch
-    } else {
-        None
+pub(crate) fn draft_epoch(snapshot: &GsiSnapshot) -> Option<u64> {
+    draft_gate(snapshot).ok()
+}
+
+/// Draft Bar capture gate with the first failed condition as a log-safe reason code.
+fn draft_gate(snapshot: &GsiSnapshot) -> Result<u64, &'static str> {
+    if snapshot.game_phase != Some(GamePhase::Draft) {
+        return Err("not_draft_phase");
     }
+    if !snapshot.draft_bar_allowed {
+        return Err("draft_bar_not_allowed");
+    }
+    if snapshot
+        .draft_age_ms
+        .is_none_or(|age| age > kohbor_gsi::FRESH_MAX_AGE_MS)
+    {
+        return Err("gsi_not_fresh");
+    }
+    snapshot.session_epoch.ok_or("no_session_epoch")
 }
 
 /// Own-hero facts read from the intake snapshot. Unknown fields remain unknown unless observed.
@@ -3289,6 +3363,10 @@ pub struct GsiSnapshot {
     /// Native-only eligibility for the three draft screens.
     pub draft_bar_allowed: bool,
     pub age_ms: Option<u64>,
+    /// Age of the latest admitted payload, read from intake for the draft gate only. The own
+    /// snapshot withholds `source.age_ms` outside Pregame/Live, so `age_ms` is always unknown
+    /// during the draft and cannot gate Draft Bar capture.
+    pub draft_age_ms: Option<u64>,
     /// Health events detected in the recent GSI window. Defaults to empty.
     pub recent_events: Vec<GsiEvent>,
 }
@@ -3315,6 +3393,7 @@ impl GsiSnapshot {
             game_phase: None,
             draft_bar_allowed: false,
             age_ms: snapshot["source"]["age_ms"].as_u64(),
+            draft_age_ms: None,
             recent_events: Vec::new(),
         }
     }
@@ -4682,7 +4761,7 @@ mod tests {
             game_phase: Some(GamePhase::Draft),
             draft_bar_allowed: true,
             session_epoch: Some(7),
-            age_ms: Some(0),
+            draft_age_ms: Some(0),
             ..GsiSnapshot::default()
         }));
         let input = feed.clone();
@@ -4709,6 +4788,14 @@ mod tests {
         for label in ["main", "overlay", "hud", ""] {
             assert!(!draft_bar_window_allowed(label));
         }
+        let events: Vec<&str> = logs.iter().map(|entry| entry.event.as_str()).collect();
+        assert!(events.contains(&"draft_capture_started"), "{events:?}");
+        let identified = logs
+            .iter()
+            .find(|entry| entry.event == "draft_bar_identified")
+            .expect("5b count is logged");
+        assert!(identified.fields["identified"].as_u64().unwrap() >= 1);
+        assert_eq!(identified.fields["slots"], 10);
         for entry in logs {
             let serialized = serde_json::to_string(&entry).unwrap();
             assert!(!serialized.contains("synthetic_one") && !serialized.contains("PRIVATE_LABEL"));
@@ -4743,16 +4830,26 @@ mod tests {
             game_phase: Some(GamePhase::Draft),
             draft_bar_allowed: true,
             session_epoch: Some(7),
-            age_ms: Some(0),
+            draft_age_ms: Some(0),
             ..GsiSnapshot::default()
         };
         assert_eq!(draft_epoch(&snapshot), Some(7));
         assert!(!game_phase_allows_capture(snapshot.game_phase));
-        snapshot.age_ms = Some(kohbor_gsi::FRESH_MAX_AGE_MS + 1);
-        assert_eq!(draft_epoch(&snapshot), None);
-        snapshot.age_ms = Some(0);
+        // The own snapshot has no age during the draft; only the intake draft age counts.
+        snapshot.age_ms = None;
+        assert_eq!(draft_epoch(&snapshot), Some(7));
+        snapshot.draft_age_ms = Some(kohbor_gsi::FRESH_MAX_AGE_MS + 1);
+        assert_eq!(draft_gate(&snapshot), Err("gsi_not_fresh"));
+        snapshot.draft_age_ms = None;
+        assert_eq!(draft_gate(&snapshot), Err("gsi_not_fresh"));
+        snapshot.draft_age_ms = Some(0);
         snapshot.session_epoch = None;
-        assert_eq!(draft_epoch(&snapshot), None);
+        assert_eq!(draft_gate(&snapshot), Err("no_session_epoch"));
+        snapshot.session_epoch = Some(7);
+        snapshot.draft_bar_allowed = false;
+        assert_eq!(draft_gate(&snapshot), Err("draft_bar_not_allowed"));
+        snapshot.game_phase = Some(GamePhase::Pregame);
+        assert_eq!(draft_gate(&snapshot), Err("not_draft_phase"));
     }
 
     #[test]
@@ -4771,7 +4868,7 @@ mod tests {
             game_phase: Some(*lock(&phase)),
             draft_bar_allowed: true,
             session_epoch: Some(7),
-            age_ms: Some(0),
+            draft_age_ms: Some(0),
             ..GsiSnapshot::default()
         });
         worker.cycle_at(start, 0);

@@ -46,6 +46,20 @@ Exact draft screen from GSI `map.game_state`: `HeroSelection` = `DOTA_GAMERULES_
 
 A repick or swap removes the previous hero's values in the same update (UI-010 failure behaviour).
 
+With consent off, the overlay shows only the 8 s chip. After that the deck says `ยังไม่ได้เปิดการยินยอมสถิติ` and names the switch (`ดึงสถิติฮีโร่จากอินเทอร์เน็ต`).
+
+**Draft Bar capture freshness (fix 2026-11-22, live test on a050ae8).** The own snapshot has `source.age_ms = null` outside Pregame/Live. The capture host's draft gate read that age, so 5b never opened a grabber during a live draft: `grab_fps` was 0 and the phase stayed `idle` until pregame. The gate now reads `draft_age_ms`, which is the intake age of the latest admitted payload, set only while `draft_bar_allowed`. The own-snapshot contract is unchanged. Regression test: `intake::tests::captured_hero_selection_payload_opens_the_draft_bar_gate`. It replays the redacted M0 hero-selection capture, so it is synthetic-replay evidence, not a live check.
+
+**Overlay column scale (fix 2026-11-22, owner frame on a050ae8: "มันเล็กมากมองไม่เห็น").** The host sizes the native window to the column rect itself, 180×488 at 1728,132. The overlay stage then applied the full-screen formula `draftColumnPlacement(innerWidth, innerHeight)` to that 180×488 viewport. That gave scale 488/1080 ≈ 0.452 at x 93, y 60, so the column drew about 81 px wide at screen x 1821, y 192. The stage now uses `draftStagePlacement`: a viewport narrower than it is tall is the column window, so the column fills it at scale height/488 (1 at 1920×1080). A screen-shaped viewport, such as the browser mock, keeps the screen formula. That mock is why the earlier 1920×1080 measurement looked right. Measured after the fix in a 180×488 in-app browser viewport: rect 0,0 180×488, scale 1. Native rendering is not yet checked.
+
+**Info logs for the next live test.** All are emitted on change only and carry codes and counts, never hero names or pixels.
+- `capture_host/draft_capture_started`
+- `capture_host/draft_capture_skipped` with `reason`. The reason is either a gate code (`not_draft_phase`, `draft_bar_not_allowed`, `gsi_not_fresh`, `no_session_epoch`) or the capture withdraw reason (for example `no_game_window`, `draft_window_visibility_unconfirmed` or a DPI message).
+- `capture_host/draft_capture_ended`
+- `capture_host/draft_bar_identified` with `identified` and `slots`
+- `draft/column_shown` and `draft/column_hidden`, each with `reason`, `mode`, `data_state`, `consent`, `draft_bar_available` and `identified`
+- `draft/column_window_placed`, logged when the shown window changes, with the actual native `x`, `y`, outer and inner size, and `scale_factor`
+
 ## 4. Settings and consent (DECIDED)
 
 Stored in the data directory as `draft-stats-prefs.json` (schema 1, deny unknown fields; a missing or corrupt file reads as the defaults and never as consent):

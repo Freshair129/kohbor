@@ -2,15 +2,15 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { draftColumnApi, draftHostAvailable, subscribeDraftView } from "./draftColumnApi";
 import { DraftColumnView } from "./DraftColumnView";
 import {
-  draftColumnPlacement,
+  draftStagePlacement,
   HIDDEN_DRAFT_COLUMN,
   type DraftColumnView as DraftColumnViewModel,
 } from "./draftColumnModel";
 
 function useColumnPlacement() {
-  const [placement, setPlacement] = useState(() => draftColumnPlacement(window.innerWidth, window.innerHeight));
+  const [placement, setPlacement] = useState(() => draftStagePlacement(window.innerWidth, window.innerHeight));
   useEffect(() => {
-    const resize = () => setPlacement(draftColumnPlacement(window.innerWidth, window.innerHeight));
+    const resize = () => setPlacement(draftStagePlacement(window.innerWidth, window.innerHeight));
     window.addEventListener("resize", resize);
     return () => window.removeEventListener("resize", resize);
   }, []);

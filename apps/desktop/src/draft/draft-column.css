@@ -401,6 +401,7 @@ body.draft-body #root {
   line-height: 1.25;
 }
 .draft-consent-chip.is-overlay { min-height: 40px; align-content: center; }
+.draft-column-deck-hidden .draft-consent-off { color: #ffcf6b; font-size: 9px; line-height: 1.25; }
 .draft-column-surface-deck { width: 180px; max-height: 488px; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; }
 .draft-column-surface-deck .draft-column-card { max-height: none; }
 .draft-hidden-reason,

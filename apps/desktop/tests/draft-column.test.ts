@@ -381,6 +381,18 @@ test("column placement follows the measured 180 by 488 reference rectangle", asy
   assert.deepEqual(model.draftColumnPlacement(3840, 2160), { x: 3456, y: 264, width: 360, height: 976, scale: 2 });
 });
 
+test("inside the host's 180 by 488 column window the stage fills the window at scale 1", async () => {
+  const model = await loadModel();
+  // Regression, live test on a050ae8 (2026-11-22): the screen formula inside the column window
+  // gave scale 0.452 at x 93, y 60, so the column drew at about 81 px wide.
+  assert.deepEqual(model.draftStagePlacement(180, 488), { x: 0, y: 0, width: 180, height: 488, scale: 1 });
+  const wrong = model.draftColumnPlacement(180, 488);
+  assert.ok(wrong.scale < 0.46, "the screen formula is what shrank the column");
+  // A screen-shaped viewport (the browser mock) keeps the measured screen placement.
+  assert.deepEqual(model.draftStagePlacement(1920, 1080), { x: 1728, y: 132, width: 180, height: 488, scale: 1 });
+  assert.equal(model.draftStagePlacement(0, 488), null);
+});
+
 test("draft source contains no prediction language", async () => {
   const root = new URL("../src/draft/", import.meta.url);
   let entries = [] as ReturnType<typeof readdirSync>;
@@ -417,7 +429,7 @@ test("overlay stage has no controls or pointer interaction", () => {
   }
   assert.match(css, /\.draft-stage[\s\S]*?pointer-events:\s*none/);
   assert.doesNotMatch(css, /:hover/);
-  assert.match(stage, /draftColumnPlacement\(window\.innerWidth,\s*window\.innerHeight\)/);
+  assert.match(stage, /draftStagePlacement\(window\.innerWidth,\s*window\.innerHeight\)/);
   assert.match(css, /left:\s*var\(--draft-overlay-x(?:,\s*[^)]+)?\)/);
   assert.match(css, /top:\s*var\(--draft-overlay-y(?:,\s*[^)]+)?\)/);
   assert.match(sharedView, /card\.durations\.state === "stale"/);

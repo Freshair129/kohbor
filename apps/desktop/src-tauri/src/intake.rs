@@ -589,6 +589,27 @@ impl Shared {
         }
     }
 
+    /// Read model for the capture host. The draft age comes from intake itself because the own
+    /// snapshot deliberately withholds `source.age_ms` outside Pregame/Live.
+    pub(crate) fn capture_gsi_snapshot_at(&self, now: Instant) -> crate::capture_host::GsiSnapshot {
+        let mut view = crate::capture_host::GsiSnapshot::from_snapshot(&self.snapshot());
+        // In match only while the intake phase is Live (pregame also exposes own data).
+        view.in_match = self.phase == Some(kohbor_gsi::Phase::Live);
+        view.game_phase = self.phase.map(crate::capture_host::GamePhase::from);
+        view.draft_bar_allowed = self.draft_bar_allowed();
+        view.draft_age_ms = if view.draft_bar_allowed {
+            self.last_age_ms_at(now)
+        } else {
+            None
+        };
+        view.recent_events = self
+            .recent_health_events(now, 5000)
+            .into_iter()
+            .map(|(id, at_ms)| crate::capture_host::GsiEvent { id, at_ms })
+            .collect();
+        view
+    }
+
     /// Private capture eligibility from the latest admitted payload. An old epoch
     /// carried over from an earlier match is not evidence for an unidentified draft.
     pub(crate) fn draft_bar_allowed(&self) -> bool {
@@ -1622,6 +1643,46 @@ mod tests {
             observation.own_side, None,
             "no own side without verified ownership"
         );
+    }
+
+    /// Regression for the 2026-11-22 live test on a050ae8: the own snapshot carries no
+    /// `source.age_ms` during the draft, so a gate on that age never opened Draft Bar capture.
+    /// Uses the redacted M0 hero-selection capture; evidence class is synthetic replay.
+    #[test]
+    fn captured_hero_selection_payload_opens_the_draft_bar_gate() {
+        let mut shared = shared_with_token();
+        let token = shared.token.clone().unwrap();
+        let text = include_str!(
+            "../../../../crates/kohbor-gsi/tests/captured/hero-selection-no-pick.json"
+        )
+        .replace("<TOKEN>", &token)
+        .replace("<STEAMID>", &owner().to_string())
+        .replace("<MATCHID>", "8000000001");
+        let body: Value = serde_json::from_str(&text).unwrap();
+        let arrival = Instant::now();
+        assert_eq!(shared.accept(&body, arrival, Some(owner())), 200);
+        let now = arrival + Duration::from_millis(250);
+
+        // The own snapshot hides the age in draft; this is the shape the capture host saw.
+        assert!(shared.snapshot()["source"]["age_ms"].is_null());
+        let view = shared.capture_gsi_snapshot_at(now);
+        assert_eq!(view.age_ms, None);
+        assert_eq!(view.game_phase, Some(crate::capture_host::GamePhase::Draft));
+        assert!(view.draft_bar_allowed);
+        assert_eq!(view.draft_age_ms, Some(250));
+        assert_eq!(crate::capture_host::draft_epoch(&view), Some(1));
+
+        // Stale intake still closes the gate.
+        let stale = shared.capture_gsi_snapshot_at(now + Duration::from_millis(FRESH_MAX_AGE_MS));
+        assert_eq!(crate::capture_host::draft_epoch(&stale), None);
+
+        // Pre-game is not a Draft Bar screen: no draft age, no draft epoch.
+        let mut pregame = body.clone();
+        pregame["map"]["game_state"] = json!("DOTA_GAMERULES_STATE_PRE_GAME");
+        assert_eq!(shared.accept(&pregame, arrival, Some(owner())), 200);
+        let view = shared.capture_gsi_snapshot_at(now);
+        assert_eq!(view.draft_age_ms, None);
+        assert_eq!(crate::capture_host::draft_epoch(&view), None);
     }
 
     #[test]
