@@ -1590,13 +1590,13 @@
       "target_milestone": "M3",
       "basis": "owner_decision",
       "decision_basis": "DEC-EVENT-RUNE-SPAWN",
-      "statement": "The host shall raise non-critical map-objective alerts derived only from the GSI game clock (map.clock_time) while map.game_state is in progress and the game is not paused, using one patch-versioned timing table that names a source for every row. Water and power runes get a pre-warning at 30 s and 15 s before spawn and an alert at spawn; bounty and wisdom runes get a spawn alert only; the Tormentor gets a first-spawn alert. Roshan respawn and Tormentor respawn are reported unavailable. Each alert shows as compact text in the event-banner slot of the overlay, in the app language (Thai or English), and plays one original locally synthesized short soft beep-beep tone at the announcer channel volume. Each objective has a Settings switch, on by default. An opt-in local diagnostic may log only the GSI map key names and roshan_* values.",
-      "failure_behavior": "When the clock is missing, stale, paused or not in progress, no alert fires and nothing is derived from wall or browser time. A backward or forward clock jump fires no backlog of passed alerts. When an announcer clip or critical warning is playing, the text alert still shows at its due time and the tone is not played (owner decision 2026-11-22, DEC-EVENT-RUNE-SPAWN revision 3); any game clip that starts during the tone preempts it, so the tone never stops, ducks or delays a clip or the critical cue. A timing without a sourced row in the table, or a respawn without a death signal, stays unavailable and is never shown as a time; rows not yet confirmed against official patch notes are marked so in the table. No memory reading, game input or hidden enemy information.",
+      "statement": "The host shall raise non-critical map-objective alerts derived only from the GSI game clock (map.clock_time) while map.game_state is in progress and the game is not paused, using one patch-versioned timing table that names a source for every row. Each objective (water, power, bounty and wisdom rune, Tormentor first spawn) has a Settings switch, on by default, and zero to two pre-warning lead times of 5 to 60 s each; the defaults are 30 s and 15 s for water and power runes and none for the others; a spawn alert always follows while the objective is on. Roshan respawn and Tormentor respawn are reported unavailable. Each alert shows as a compact rounded card with an original objective glyph and a colour accent from the design-system tokens, in the HUD strip beside the danger meter by default; the objective name stays in English and the sentence follows the app language (Thai examples: “Power rune จะเกิดใน 30 วินาที”, “Water rune เกิดแล้ว”; the English UI stays fully English). An event video banner may cover the card. The tone plays on the single-slot sink as soon as it is idle, within 5 s of the due time; a clip that is playing is never cut, ducked or delayed for it, and a tone not started within 5 s is dropped and logged as suppressed. Each objective plays its own original locally synthesized short soft tone (distinct pitch or pattern) at the announcer channel volume. The card's size and position follow the UI-015 layout. An opt-in local diagnostic may log only the GSI map key names and roshan_* values; the info log lines objective_alert_shown (kind, lead_s, clock, and whether the tone played, the card was covered or the tone was suppressed), objective_prefs_changed and layout_changed carry no user identity.",
+      "failure_behavior": "When the clock is missing, stale, paused or not in progress, no alert fires and nothing is derived from wall or browser time. A backward or forward clock jump fires no backlog of passed alerts. When an announcer clip or critical warning is playing, the text alert still shows at its due time and the tone is not played (owner decision 2026-11-22, DEC-EVENT-RUNE-SPAWN revision 3); any game clip that starts during the tone preempts it, so the tone never stops, ducks or delays a clip or the critical cue. A timing without a sourced row in the table, or a respawn without a death signal, stays unavailable and is never shown as a time; rows not yet confirmed against official patch notes are marked so in the table. No memory reading, game input or hidden enemy information. Invalid lead times or a corrupt prefs file keep the last valid prefs (defaults if none) and are reported; they never change the honesty rules of the scheduler.",
       "acceptance": {
         "scenario_id": "AC-ALERT-008",
-        "given": "a GSI clock stream in progress with all objectives enabled, including pauses, stale gaps, a backward jump, a forward jump and an announcer clip or critical warning playing at a due time",
+        "given": "a GSI clock stream in progress with all objectives enabled, including pauses, stale gaps, a backward jump, a forward jump and an announcer clip or critical warning playing at a due time; per-objective lead times set to valid and invalid values; a kill banner shown over the card",
         "when": "the clock passes 1:30, 1:45 and 2:00, then later spawn times, pauses and jumps",
-        "then": "the 2:00 water rune gets exactly one 30 s and one 15 s pre-warning and one spawn alert; bounty and wisdom runes get spawn alerts only; no alert fires while paused, stale or not in progress, and no backlog fires after a jump; Roshan and Tormentor respawn show unavailable; during a playing clip the text shows on time, the tone is not played, and the clip is not stopped, ducked or delayed; a game clip that starts during the tone preempts it; a disabled objective raises nothing"
+        "then": "the 2:00 water rune gets exactly one 30 s and one 15 s pre-warning and one spawn alert; bounty and wisdom runes get spawn alerts only; no alert fires while paused, stale or not in progress, and no backlog fires after a jump; Roshan and Tormentor respawn show unavailable; during a playing clip the text shows on time, the tone is not played, and the clip is not stopped, ducked or delayed; a game clip that starts during the tone preempts it; a disabled objective raises nothing; each enabled lead time gives exactly one pre-warning at that offset and invalid lead times (outside 5 to 60 s, duplicates, more than two) are rejected without changing the stored prefs; the card shows the English objective name with the app-language sentence and may be covered by a video banner; its tone plays once the sink is idle within 5 s of the due time, otherwise it is suppressed and logged, and an announcer or critical clip is never cut, ducked or delayed; each objective's tone differs from the others; each shown alert writes one objective_alert_shown info line"
       },
       "verification": {
         "required_evidence": [
@@ -1621,7 +1621,13 @@
           "apps/desktop/src/objectiveAlertModel.ts",
           "apps/desktop/src/ObjectiveAlert.tsx",
           "apps/desktop/src/ObjectiveSettings.tsx",
-          "apps/desktop/tests/objectiveAlert.test.ts"
+          "apps/desktop/tests/objectiveAlert.test.ts",
+          "apps/desktop/src-tauri/src/audio/lanes.rs",
+          "apps/desktop/src-tauri/src/audio/tests_engine.rs",
+          "apps/desktop/src-tauri/src/hud.rs",
+          "apps/desktop/src/HudStage.tsx",
+          "apps/desktop/src/objectivePrefs.ts",
+          "apps/desktop/src/copy.ts"
         ],
         "evidence_refs": [],
         "procedure_ids": [
@@ -3002,6 +3008,73 @@
         "docs/diagrams/source/DGM-005-external-data-flow.mmd",
         "docs/diagrams/source/DGM-017-user-flow.mmd"
       ]
+    },
+    {
+      "id": "UI-015",
+      "title": "Overlay layout editor",
+      "module": "ui",
+      "scope": "extension",
+      "priority": "extension",
+      "target_milestone": "M3",
+      "basis": "owner_decision",
+      "decision_basis": "DEC-EVENT-RUNE-SPAWN",
+      "statement": "Settings shall offer a layout edit mode that shows a 16:9 preview of the screen with each registered overlay widget as a box the user can drag and resize (scale presets or a slider). Boxes snap and clamp to the safe area: they never cover the protected regions (minimap, bottom HUD, top bar, announcement) nor the 8 px screen edges. Each widget has reset to default. Layouts persist per widget id in a local prefs file with a schema_version; the editor is reusable for other widgets, and only the map-objective card (ALERT-008) is registered now. The edit mode is a Settings surface; the in-game overlay stays click-through.",
+      "failure_behavior": "An unreadable or invalid layout file or entry falls back to that widget's default and is reported; an out-of-bounds value is clamped into the safe area, never applied raw. Changing a layout never steals Dota focus or makes an overlay window interactive.",
+      "acceptance": {
+        "scenario_id": "AC-UI-015",
+        "given": "the layout editor with the objective card at its default, 1920x1080 and 2560x1440 previews, and a corrupt layout file",
+        "when": "the user drags and resizes the card into protected regions and edges, resets it, and restarts",
+        "then": "the box always stays inside the safe area and off the protected regions, reset restores the default, the saved layout persists with its schema_version and is applied to the card in the overlay, a corrupt file falls back to the default, and each change writes one layout_changed info line"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [
+          "apps/desktop/src-tauri/src/layout/mod.rs",
+          "apps/desktop/src-tauri/src/hud.rs",
+          "apps/desktop/src-tauri/src/commands.rs",
+          "apps/desktop/src/layoutEditor/model.ts",
+          "apps/desktop/src/layoutEditor/LayoutEditor.tsx",
+          "apps/desktop/src/HudStage.tsx",
+          "apps/desktop/tests/layoutEditor.test.ts",
+          "apps/desktop/tests/fixtures/layout-clamp-cases.json"
+        ],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-05",
+          "UAT-05"
+        ]
+      },
+      "contract_refs": [],
+      "spec_refs": [
+        "docs/design/UX-SPEC.md",
+        "docs/governance/DECISION-LOG.md"
+      ],
+      "open_decisions": [
+        "DEC-NATIVE-EVIDENCE"
+      ],
+      "implementation_freedom": "Choose the editor's internals, preset values and the prefs file layout within the safe-area, persistence and click-through boundaries. Reference products may inform the interaction; copy no assets.",
+      "product_need_ids": [
+        "PN-005"
+      ],
+      "design_component_ids": [
+        "CMP-READMODEL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/UX-SPEC.md",
+        "docs/governance/DECISION-LOG.md"
+      ],
+      "primary_design_component_id": "CMP-READMODEL",
+      "diagram_ids": [],
+      "diagram_refs": []
     },
     {
       "id": "MEDIA-009",

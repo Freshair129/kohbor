@@ -16,6 +16,7 @@ const validEvent = () => ({
   schema: 1,
   strip_height_percent: 9,
   modules: structuredClone(HUD_DEFAULT_LAYOUT),
+  objective_card: { x_percent: 62.5, y_percent: 6.5, scale: 1 },
 });
 
 function mutateModule(index: number, key: string, value: unknown) {
@@ -29,6 +30,7 @@ test("layout event accepts six unique bounded modules and the minimum strip", ()
     schema: 1,
     strip_height_percent: 9,
     modules: HUD_DEFAULT_LAYOUT,
+    objective_card: { x_percent: 62.5, y_percent: 6.5, scale: 1 },
   });
 });
 
@@ -97,6 +99,12 @@ test("layout event rejects non-number coordinates and a non-boolean enabled fiel
   }
 });
 
+test("layout event rejects a malformed objective card row or bounds", () => {
+  assert.equal(parseHudLayoutEvent({ ...validEvent(), objective_card: { x_percent: 1, y_percent: 2 } }), null);
+  assert.equal(parseHudLayoutEvent({ ...validEvent(), objective_card: { x_percent: 1, y_percent: 2, scale: 2.1 } }), null);
+  assert.equal(parseHudLayoutEvent({ ...validEvent(), objective_card: { x_percent: "1", y_percent: 2, scale: 1 } }), null);
+});
+
 test("layout event rejects strip height below nine, above one hundred, or non-finite", () => {
   for (const value of [8.99, 100.01, NaN, Infinity, "9"]) {
     assert.equal(parseHudLayoutEvent({ ...validEvent(), strip_height_percent: value }), null);
@@ -106,6 +114,7 @@ test("layout event rejects strip height below nine, above one hundred, or non-fi
 test("HUD layout starts with the existing defaults and nine-percent strip", () => {
   assert.equal(HUD_DEFAULT_LAYOUT_EVENT.strip_height_percent, HUD_DEFAULT_STRIP_HEIGHT_PERCENT);
   assert.deepEqual(HUD_DEFAULT_LAYOUT_EVENT.modules, HUD_DEFAULT_LAYOUT);
+  assert.deepEqual(HUD_DEFAULT_LAYOUT_EVENT.objective_card, { x_percent: 62.5, y_percent: 6.5, scale: 1 });
 });
 
 test("HUD applies a valid event as one whole layout", () => {

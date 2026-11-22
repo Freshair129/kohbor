@@ -161,10 +161,17 @@ test("Lab styles use shared palette tokens instead of literal colors", () => {
   assert.doesNotMatch(labCss, /#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i, "Lab CSS should use shared palette tokens");
 });
 
-test("the in-game HUD keeps its own fixed dark glass look and never follows the app theme (owner 2026-11-20)", () => {
-  assert.match(hudCss, /--hud-glass:\s*rgb\(14 17 24 \/ 88%\)/);
-  assert.match(hudCss, /--hud-text:\s*#e7eef6/);
-  assert.doesNotMatch(hudCss, /var\(--(ground|surface|text|muted|line-strong|ally|warning|critical)\)/);
+test("app styles use design tokens instead of literal colors", () => {
+  assert.doesNotMatch(css, /#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i, "App CSS should use shared palette tokens");
+});
+
+test("the in-game HUD surfaces and objective accents use shared design tokens", () => {
+  assert.match(hudCss, /--hud-glass:\s*var\(--ground\)/);
+  assert.match(hudCss, /--hud-text:\s*var\(--text\)/);
+  assert.match(hudCss, /\.objective-card-water_rune\s*\{\s*--objective-accent:\s*var\(--ally\)/);
+  assert.match(hudCss, /\.objective-card-power_rune\s*\{\s*--objective-accent:\s*var\(--warning\)/);
+  assert.match(hudCss, /\.objective-card-tormentor\s*\{\s*--objective-accent:\s*var\(--critical\)/);
+  assert.doesNotMatch(hudCss, /#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i, "HUD CSS should use shared palette tokens");
 });
 
 test("the approved character mark is decorative above the accessible wordmark", () => {

@@ -10,7 +10,8 @@ import { overlayChipForDisplay, chipForStatus, createChipState, reduceChip, over
 import { createPlaybackState, reducePlayback, tickPlayback, type PlaybackState } from "../src/playback.ts";
 const desktopRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 let EventBanner: (props: { playback: PlaybackState; visible?: boolean }) => unknown;
-let OverlayStage: (props: { playback: PlaybackState; chip: ChipView | null; visible: boolean; objectiveAlertText?: string | null; objectiveAlertVisible?: boolean; locale?: "th" | "en" }) => unknown;
+let OverlayStage: (props: { playback: PlaybackState; chip: ChipView | null; visible: boolean }) => unknown;
+let ObjectiveAlert: (props: { batch: unknown; locale: "th" | "en"; visible: boolean }) => unknown;
 let closeVite: (() => Promise<void>) | undefined;
 
 before(async () => {
@@ -26,6 +27,7 @@ before(async () => {
   closeVite = () => server.close();
   ({ EventBanner } = await server.ssrLoadModule("/src/EventBanner.tsx"));
   ({ OverlayStage } = await server.ssrLoadModule("/src/OverlayStage.tsx"));
+  ({ ObjectiveAlert } = await server.ssrLoadModule("/src/ObjectiveAlert.tsx"));
 });
 
 after(async () => {
@@ -147,17 +149,60 @@ test("renderer hides banner content when the host visibility gate is closed", ()
   assert.equal(html, "");
 });
 
-test("renderer keeps a playing video banner while the objective text alert is visible", () => {
+test("objective alert text is rendered in the HUD card, outside the video banner", () => {
   const html = renderToStaticMarkup(createElement(OverlayStage, {
     playback: activeBannerPlayback(),
     chip: null,
     visible: true,
-    objectiveAlertText: "Water rune in 30s",
-    objectiveAlertVisible: true,
-    locale: "en",
   }));
   assert.match(html, /event-overlay-banner/);
   assert.match(html, /<video\b/);
-  assert.match(html, /objective-overlay-alert/);
-  assert.match(html, /Water rune in 30s/);
+  assert.doesNotMatch(html, /objective-card|Water rune/);
+  const objectives = [
+    ["water_rune", "Water rune"],
+    ["power_rune", "Power rune"],
+    ["bounty_rune", "Bounty rune"],
+    ["wisdom_rune", "Wisdom rune"],
+    ["tormentor", "Tormentor"],
+  ] as const;
+  for (const [objective, name] of objectives) {
+    const prewarn = {
+      schema_version: 1,
+      observed_clock_seconds: 120,
+      alerts: [{ objective, phase: "pre_warn", lead_s: 30, occurrence_seconds: 150, due_seconds: 120 }],
+    };
+    const thaiCard = renderToStaticMarkup(createElement(ObjectiveAlert, { batch: prewarn, locale: "th", visible: true }));
+    const englishCard = renderToStaticMarkup(createElement(ObjectiveAlert, { batch: prewarn, locale: "en", visible: true }));
+    assert.match(thaiCard, new RegExp(`objective-card-${objective}`));
+    assert.match(thaiCard, /<svg/);
+    assert.match(thaiCard, new RegExp(`${name} จะเกิดใน 30 วินาที`));
+    assert.match(englishCard, new RegExp(`${name} spawns in 30 s`));
+    assert.doesNotMatch(englishCard, /[\u0e00-\u0e7f]/u);
+
+    const spawn = {
+      schema_version: 1,
+      observed_clock_seconds: 120,
+      alerts: [{ objective, phase: "spawn", lead_s: null, occurrence_seconds: 120, due_seconds: 120 }],
+    };
+    const thaiSpawn = renderToStaticMarkup(createElement(ObjectiveAlert, { batch: spawn, locale: "th", visible: true }));
+    const englishSpawn = renderToStaticMarkup(createElement(ObjectiveAlert, { batch: spawn, locale: "en", visible: true }));
+    assert.match(thaiSpawn, new RegExp(`${name} เกิดแล้ว`));
+    assert.match(englishSpawn, new RegExp(`${name} spawned`));
+    assert.doesNotMatch(englishSpawn, /[\u0e00-\u0e7f]/u);
+  }
+
+  const merged = renderToStaticMarkup(createElement(ObjectiveAlert, {
+    batch: {
+      schema_version: 1,
+      observed_clock_seconds: 120,
+      alerts: [
+        { objective: "water_rune", phase: "pre_warn", lead_s: 30, occurrence_seconds: 150, due_seconds: 120 },
+        { objective: "power_rune", phase: "spawn", lead_s: null, occurrence_seconds: 120, due_seconds: 120 },
+      ],
+    },
+    locale: "th",
+    visible: true,
+  }));
+  assert.match(merged, /Water rune จะเกิดใน 30 วินาที/);
+  assert.match(merged, /\+1/);
 });

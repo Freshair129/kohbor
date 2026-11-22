@@ -1,18 +1,30 @@
 use kohbor_audio::pcm::Pcm;
+use kohbor_events::ObjectiveId;
 use std::f64::consts::TAU;
 use std::sync::Arc;
 
 const SAMPLE_RATE: usize = 48_000;
-const BLIP_MS: usize = 90;
-const GAP_MS: usize = 70;
-const FADE_MS: usize = 10;
+const BLIP_MS: usize = 62;
+const GAP_MS: usize = 34;
+const FADE_MS: usize = 8;
 const AMPLITUDE: f64 = 0.055;
 
-/// Synthesize a quiet 260 ms two-note cue with a short fade at each edge.
-pub(crate) fn synthesize_soft_beep_beep() -> Pcm {
-    let mut samples = blip(880.0);
-    samples.extend(std::iter::repeat(0).take(GAP_MS * SAMPLE_RATE / 1_000));
-    samples.extend(blip(1_046.5));
+/// Generate a short, quiet cue locally. Each objective has its own pitch pattern.
+pub(crate) fn synthesize(objective: ObjectiveId) -> Pcm {
+    let (frequencies, count) = match objective {
+        ObjectiveId::WaterRune => ([440.0, 554.37, 0.0], 2),
+        ObjectiveId::PowerRune => ([587.33, 783.99, 0.0], 2),
+        ObjectiveId::BountyRune => ([880.0, 880.0, 0.0], 2),
+        ObjectiveId::WisdomRune => ([659.25, 783.99, 987.77], 3),
+        ObjectiveId::Tormentor => ([329.63, 392.0, 493.88], 3),
+    };
+    let mut samples = Vec::with_capacity(count * BLIP_MS * SAMPLE_RATE / 1_000);
+    for (index, frequency) in frequencies.into_iter().take(count).enumerate() {
+        if index > 0 {
+            samples.extend(std::iter::repeat(0).take(GAP_MS * SAMPLE_RATE / 1_000));
+        }
+        samples.extend(blip(frequency));
+    }
     Arc::from(samples.into_boxed_slice())
 }
 
@@ -31,23 +43,35 @@ fn blip(frequency_hz: f64) -> Vec<i16> {
 
 #[cfg(test)]
 mod tests {
-    use super::{synthesize_soft_beep_beep, AMPLITUDE, SAMPLE_RATE};
+    use super::{synthesize, AMPLITUDE};
     use kohbor_audio::pcm::duration_ms;
+    use kohbor_events::ObjectiveId;
 
     #[test]
-    fn cue_is_short_soft_and_fades_in_and_out() {
-        let pcm = synthesize_soft_beep_beep();
-        assert_eq!(duration_ms(&pcm), 250);
-        assert_eq!(pcm.first(), Some(&0));
-        assert_eq!(pcm.last(), Some(&0));
-        let peak = pcm
-            .iter()
-            .map(|sample| sample.unsigned_abs())
-            .max()
-            .unwrap();
-        assert!(peak <= (AMPLITUDE * i16::MAX as f64) as u16 + 1);
-        assert!(pcm[SAMPLE_RATE * 90 / 1_000..SAMPLE_RATE * 160 / 1_000]
-            .iter()
-            .all(|sample| *sample == 0));
+    fn every_objective_has_a_distinct_soft_short_synthesized_cue() {
+        let objectives = [
+            ObjectiveId::WaterRune,
+            ObjectiveId::PowerRune,
+            ObjectiveId::BountyRune,
+            ObjectiveId::WisdomRune,
+            ObjectiveId::Tormentor,
+        ];
+        let cues: Vec<_> = objectives.into_iter().map(synthesize).collect();
+        for cue in &cues {
+            assert!(duration_ms(cue) < 400);
+            let peak = cue
+                .iter()
+                .map(|sample| sample.unsigned_abs())
+                .max()
+                .unwrap();
+            assert!(peak <= (AMPLITUDE * i16::MAX as f64) as u16 + 1);
+            assert_eq!(cue.first(), Some(&0));
+            assert_eq!(cue.last(), Some(&0));
+        }
+        for left in 0..cues.len() {
+            for right in left + 1..cues.len() {
+                assert_ne!(cues[left].as_ref(), cues[right].as_ref());
+            }
+        }
     }
 }

@@ -48,6 +48,7 @@ export interface HudLayoutEvent {
   schema: 1;
   strip_height_percent: number;
   modules: readonly HudLayoutItem[];
+  objective_card: { x_percent: number; y_percent: number; scale: number };
 }
 
 export interface HudLayoutBounds {
@@ -78,6 +79,7 @@ export const HUD_DEFAULT_LAYOUT_EVENT: HudLayoutEvent = {
   schema: 1,
   strip_height_percent: HUD_DEFAULT_STRIP_HEIGHT_PERCENT,
   modules: HUD_DEFAULT_LAYOUT,
+  objective_card: { x_percent: 62.5, y_percent: 6.5, scale: 1 },
 };
 
 function isFiniteInRange(value: unknown, range: readonly [number, number]): value is number {
@@ -106,11 +108,25 @@ export function parseHudLayoutModules(input: unknown): HudLayoutItem[] | null {
 
 /** Strict all-or-nothing parser for the dev-only live layout event payload. */
 export function parseHudLayoutEvent(input: unknown): HudLayoutEvent | null {
-  if (!record(input) || !exactKeys(input, ["schema", "strip_height_percent", "modules"]) || input.schema !== 1) return null;
+  if (!record(input) || !exactKeys(input, ["schema", "strip_height_percent", "modules", "objective_card"]) || input.schema !== 1) return null;
   if (!isFiniteInRange(input.strip_height_percent, [HUD_DEFAULT_STRIP_HEIGHT_PERCENT, 100])) return null;
   const modules = parseHudLayoutModules(input.modules);
   if (modules === null) return null;
-  return { schema: 1, strip_height_percent: input.strip_height_percent, modules };
+  const objectiveCard = input.objective_card;
+  if (!record(objectiveCard) || !exactKeys(objectiveCard, ["x_percent", "y_percent", "scale"])
+    || !isFiniteInRange(objectiveCard.x_percent, [0, 100])
+    || !isFiniteInRange(objectiveCard.y_percent, [0, 100])
+    || !isFiniteInRange(objectiveCard.scale, [0.75, 2])) return null;
+  return {
+    schema: 1,
+    strip_height_percent: input.strip_height_percent,
+    modules,
+    objective_card: {
+      x_percent: objectiveCard.x_percent,
+      y_percent: objectiveCard.y_percent,
+      scale: objectiveCard.scale,
+    },
+  };
 }
 
 /** Preserve the current layout unless an entire valid event arrives. */

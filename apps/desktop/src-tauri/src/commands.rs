@@ -313,6 +313,43 @@ pub(crate) fn objective_prefs_patch(
     state.objectives.prefs.patch(&request)
 }
 
+fn layout_viewport(app: &tauri::AppHandle<tauri::Wry>) -> crate::layout::LayoutViewport {
+    app.get_webview_window("hud")
+        .map(|window| crate::layout::LayoutViewport::from_window(&window))
+        .unwrap_or_default()
+}
+
+#[tauri::command]
+pub(crate) fn layout_get(
+    app: tauri::AppHandle<tauri::Wry>,
+    state: tauri::State<'_, AppState>,
+) -> Value {
+    state.layout.get(layout_viewport(&app))
+}
+
+#[tauri::command]
+pub(crate) fn layout_patch(
+    app: tauri::AppHandle<tauri::Wry>,
+    state: tauri::State<'_, AppState>,
+    request: Value,
+) -> Result<Value, String> {
+    if state.host.shutdown_started() {
+        return Err("CANCELLED".to_owned());
+    }
+    state.layout.patch(&request, layout_viewport(&app))
+}
+
+#[tauri::command]
+pub(crate) fn layout_reset(
+    app: tauri::AppHandle<tauri::Wry>,
+    state: tauri::State<'_, AppState>,
+) -> Result<Value, String> {
+    if state.host.shutdown_started() {
+        return Err("CANCELLED".to_owned());
+    }
+    state.layout.reset(layout_viewport(&app))
+}
+
 #[tauri::command(async)]
 pub(crate) fn media_inspect(
     state: tauri::State<'_, AppState>,

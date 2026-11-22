@@ -20,7 +20,7 @@ use kohbor_events::{arbitrate, Event, EventId};
 
 use super::lanes::{
     AuditionRefusal, AuditionRequest, ClipVariantLog, Control, EngineOut, EngineRx, EngineShared,
-    EngineTx, TickMsg,
+    EngineTx, ObjectiveToneOutcome, TickMsg,
 };
 use super::outcome::{
     playback_ended, playback_started, pre_owner_record, preempted_record, record, EndReason,
@@ -82,6 +82,13 @@ struct PendingClip {
     game_clock_seconds: Option<u64>,
 }
 
+struct PendingObjectiveTone {
+    pcm: Pcm,
+    expires_at_ms: u64,
+    deferred: bool,
+    reply: SyncSender<ObjectiveToneOutcome>,
+}
+
 pub struct Engine {
     clock: MonoClock,
     shared: Arc<EngineShared>,
@@ -107,7 +114,7 @@ pub struct Engine {
     need_sink_requested: bool,
     replacement_pending: bool,
     pending_sink: Option<Box<dyn Sink + Send>>,
-    pending_objective_tone: Option<Pcm>,
+    pending_objective_tone: Option<PendingObjectiveTone>,
     shutdown: bool,
 }
 
@@ -272,9 +279,7 @@ impl Engine {
             }
 
             if !self.shutdown {
-                if let Some(pcm) = self.pending_objective_tone.take() {
-                    self.try_objective_tone(now_ms, pcm);
-                }
+                self.service_pending_objective_tone(now_ms);
             }
         }
 
@@ -326,11 +331,20 @@ impl Engine {
                     }
                 }
             }
-            Control::ObjectiveTone { pcm } => {
-                // One scheduler batch produces one cue. Collapse simultaneous control
-                // messages without queuing a beep behind game audio.
-                if self.pending_objective_tone.is_none() {
-                    self.pending_objective_tone = Some(pcm);
+            Control::ObjectiveTone { pcm, reply } => {
+                if self.is_degraded() || !self.owner.device_available() {
+                    let _ = reply.try_send(ObjectiveToneOutcome::Off);
+                } else if self.muted {
+                    let _ = reply.try_send(ObjectiveToneOutcome::Muted);
+                } else if self.pending_objective_tone.is_some() {
+                    let _ = reply.try_send(ObjectiveToneOutcome::Suppressed);
+                } else {
+                    self.pending_objective_tone = Some(PendingObjectiveTone {
+                        pcm,
+                        expires_at_ms: now_ms.saturating_add(5_000),
+                        deferred: false,
+                        reply,
+                    });
                 }
             }
             Control::Shutdown => {
@@ -341,17 +355,44 @@ impl Engine {
         false
     }
 
-    fn try_objective_tone(&mut self, now_ms: u64, pcm: Pcm) {
-        // Sink::submit replaces its single current slot. The safe fallback is to
-        // omit this cue while any audio or paired visual still owns that slot.
-        if self.is_degraded()
-            || self.muted
-            || !self.owner.device_available()
-            || self.owner.active(now_ms).is_some()
-            || self.owner.visual(now_ms).is_some()
-        {
+    fn service_pending_objective_tone(&mut self, now_ms: u64) {
+        let Some(expires_at_ms) = self
+            .pending_objective_tone
+            .as_ref()
+            .map(|pending| pending.expires_at_ms)
+        else {
+            return;
+        };
+        if self.is_degraded() || !self.owner.device_available() {
+            let Some(pending) = self.pending_objective_tone.take() else {
+                return;
+            };
+            let _ = pending.reply.try_send(ObjectiveToneOutcome::Off);
             return;
         }
+        if self.muted {
+            let Some(pending) = self.pending_objective_tone.take() else {
+                return;
+            };
+            let _ = pending.reply.try_send(ObjectiveToneOutcome::Muted);
+            return;
+        }
+        if now_ms > expires_at_ms {
+            let Some(pending) = self.pending_objective_tone.take() else {
+                return;
+            };
+            let _ = pending.reply.try_send(ObjectiveToneOutcome::Suppressed);
+            return;
+        }
+        if self.owner.active(now_ms).is_some() {
+            if let Some(pending) = self.pending_objective_tone.as_mut() {
+                pending.deferred = true;
+            }
+            return;
+        }
+        let Some(pending) = self.pending_objective_tone.take() else {
+            return;
+        };
         let next = self.last_issued_id.saturating_add(1);
         let decision = self.owner.request(
             now_ms,
@@ -363,15 +404,24 @@ impl Engine {
                 ordinary_rank: 0,
                 episode: None,
                 package_revision: None,
-                pcm,
+                pcm: pending.pcm,
                 visual_tail_ms: 0,
             },
         );
-        if let Some(decision) = decision.filter(|decision| decision.outcome == Outcome::Admitted) {
-            if let Some(id) = decision.playback_id {
-                self.last_issued_id = self.last_issued_id.max(id.0);
+        let outcome = match decision {
+            Some(decision) if decision.outcome == Outcome::Admitted => {
+                if let Some(id) = decision.playback_id {
+                    self.last_issued_id = self.last_issued_id.max(id.0);
+                }
+                if pending.deferred {
+                    ObjectiveToneOutcome::DeferredPlayed
+                } else {
+                    ObjectiveToneOutcome::Played
+                }
             }
-        }
+            _ => ObjectiveToneOutcome::Suppressed,
+        };
+        let _ = pending.reply.try_send(outcome);
     }
 
     fn handle_tick(&mut self, message: TickMsg, now_ms: u64) {
@@ -1080,6 +1130,9 @@ impl Engine {
     }
 
     fn finish_shutdown(&mut self, now_ms: u64) {
+        if let Some(pending) = self.pending_objective_tone.take() {
+            let _ = pending.reply.try_send(ObjectiveToneOutcome::Off);
+        }
         self.owner.stop(now_ms);
         self.drain_notices();
         let replacement = AudioOwner::with_first_playback_id(
@@ -1101,7 +1154,9 @@ impl Engine {
     }
 
     fn rebuild_after_panic(&mut self, now_ms: u64) {
-        self.pending_objective_tone = None;
+        if let Some(pending) = self.pending_objective_tone.take() {
+            let _ = pending.reply.try_send(ObjectiveToneOutcome::Off);
+        }
         self.owner.stop(now_ms);
         self.drain_panic_decisions();
         self.audition_session = false;

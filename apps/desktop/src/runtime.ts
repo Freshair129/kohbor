@@ -24,7 +24,23 @@ export function subscribePlayback(onEvent: (event: unknown) => void): Promise<()
 
 export function subscribeObjectiveAlerts(onPayload: (payload: unknown) => void): Promise<() => void> {
   if (!hostAvailable()) return Promise.resolve(() => {});
-  return listen<unknown>("objectives://alert", (event) => onPayload(event.payload));
+  return listen<unknown>("hud://objective-alert", (event) => onPayload(event.payload));
+}
+
+export function subscribeHudLocale(onLocale: (locale: "th" | "en") => void): Promise<() => void> {
+  if (!hostAvailable()) return Promise.resolve(() => {});
+  return listen<unknown>("hud://locale", (event) => {
+    if (event.payload === "th" || event.payload === "en") onLocale(event.payload);
+  });
+}
+
+export function publishHudLocale(locale: "th" | "en"): Promise<void> {
+  return hostAvailable() ? emit("hud://locale", locale).catch(() => {}) : Promise.resolve();
+}
+
+export function subscribeHudLayout(onPayload: (payload: unknown) => void): Promise<() => void> {
+  if (!hostAvailable()) return Promise.resolve(() => {});
+  return listen<unknown>("hud://layout", (event) => onPayload(event.payload));
 }
 
 export function objectivePrefsGet(): Promise<unknown> {
@@ -32,7 +48,7 @@ export function objectivePrefsGet(): Promise<unknown> {
   return invoke<unknown>("objective_prefs_get");
 }
 
-export function objectivePrefsPatch(request: Record<string, boolean>): Promise<unknown> {
+export function objectivePrefsPatch(request: Record<string, unknown>): Promise<unknown> {
   if (!hostAvailable()) return Promise.reject(new Error("CAPABILITY_UNAVAILABLE"));
   return invoke<unknown>("objective_prefs_patch", { request });
 }
@@ -45,6 +61,21 @@ export function shellHotkeyGet(): Promise<unknown> {
 export function shellHotkeySet(enabled: boolean, binding: string): Promise<unknown> {
   if (!hostAvailable()) return Promise.reject(new Error("CAPABILITY_UNAVAILABLE"));
   return invoke<unknown>("shell_hotkey_set", { enabled, binding });
+}
+
+export function layoutGet(): Promise<unknown> {
+  if (!hostAvailable()) return Promise.reject(new Error("CAPABILITY_UNAVAILABLE"));
+  return invoke<unknown>("layout_get");
+}
+
+export function layoutPatch(request: Record<string, unknown>): Promise<unknown> {
+  if (!hostAvailable()) return Promise.reject(new Error("CAPABILITY_UNAVAILABLE"));
+  return invoke<unknown>("layout_patch", { request });
+}
+
+export function layoutReset(): Promise<unknown> {
+  if (!hostAvailable()) return Promise.reject(new Error("CAPABILITY_UNAVAILABLE"));
+  return invoke<unknown>("layout_reset");
 }
 
 export function subscribeOverlayStatus(onPayload: (payload: unknown) => void): Promise<() => void> {

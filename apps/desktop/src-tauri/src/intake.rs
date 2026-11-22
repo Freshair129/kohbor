@@ -1538,7 +1538,7 @@ mod tests {
         let batch = alert_receiver.try_recv().unwrap();
         assert!(batch.alerts.iter().any(|alert| {
             alert.objective == kohbor_events::ObjectiveId::WaterRune
-                && alert.phase == kohbor_events::ObjectivePhase::PreWarn30
+                && alert.phase == (kohbor_events::ObjectivePhase::PreWarn { lead_s: 30 })
                 && alert.due_seconds == 90
         }));
         assert!(

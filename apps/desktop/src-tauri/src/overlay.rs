@@ -100,7 +100,7 @@ impl OverlayVisibilityMachine {
 // Pinned by tests as the placement contract (docs/design/S6-OVERLAY-SLICE.md section 3); the runtime path
 // derives the same geometry through `place_overlay`, so these are not read outside tests.
 #[cfg_attr(not(test), allow(dead_code))]
-pub const PROTECTED_REGIONS: [(&str, f64, f64, f64, f64); 4] = [
+pub(crate) const PROTECTED_REGIONS: [(&str, f64, f64, f64, f64); 4] = [
     ("minimap", 0.0, 0.70, 0.20, 1.0),
     ("bottom_hud", 0.0, 0.78, 1.0, 1.0),
     ("top_bar", 0.0, 0.0, 1.0, 0.05),

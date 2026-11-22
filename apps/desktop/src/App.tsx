@@ -16,7 +16,7 @@ import { OwnHero } from "./OwnHero";
 import { PacksPage } from "./packs/PacksPage";
 import { Readiness } from "./Readiness";
 import { DEFAULT_SHELL_DESTINATION, deriveHeaderState, insightsViews, statusLineModel, type InsightsView, type ShellDestination } from "./shell/state";
-import { usePlayback, useRuntime } from "./runtime";
+import { publishHudLocale, usePlayback, useRuntime } from "./runtime";
 import { useSettings } from "./settings";
 import { useGlassPreference, type GlassLevel } from "./shell/glassPreference";
 import { shouldToggleRailFromShortcut, useRailPreference } from "./shell/railPreference";
@@ -35,6 +35,7 @@ import { OrbSettings } from "./orb/OrbSettings";
 import { DraftSettings } from "./draft/DraftSettings";
 import { ObjectiveSettings } from "./ObjectiveSettings";
 import { ShowHotkeySettings } from "./ShowHotkeySettings";
+import { LayoutEditor } from "./layoutEditor/LayoutEditor";
 import { useDotaLauncher, useShowSteamName, useSteamStatus } from "./steam/hooks";
 import { steamPersonaName } from "./steam/model";
 import { StartDotaBar } from "./steam/StartDotaBar";
@@ -145,6 +146,7 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
 
   useEffect(() => {
     document.documentElement.lang = displayLocale;
+    void publishHudLocale(displayLocale);
   }, [displayLocale]);
 
   useEffect(() => {
@@ -284,6 +286,7 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
                 {settingsNotice && <p className="locale-notice" role="status">{settingsNotice}</p>}
                 <ObjectiveSettings locale={displayLocale} />
                 <ShowHotkeySettings locale={displayLocale} />
+                <LayoutEditor locale={displayLocale} />
               </section>
               <OrbSettings locale={displayLocale} />
               <DraftSettings />

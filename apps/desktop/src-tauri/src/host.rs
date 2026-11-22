@@ -22,7 +22,7 @@ use serde_json::{json, Value};
 use std::io;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::mpsc::{self, SyncSender, TrySendError};
+use std::sync::mpsc::{self, Receiver, SyncSender, TrySendError};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
@@ -1008,13 +1008,19 @@ impl Host {
 
     /// Best-effort objective cue. The audio engine checks for an idle single-slot
     /// sink before submitting it, so this can never replace game audio.
-    pub(crate) fn try_play_objective_tone(&self, pcm: Pcm) -> bool {
-        !self.shutdown_started()
-            && self
-                .commands
-                .engine
-                .control(Control::ObjectiveTone { pcm })
-                .is_ok()
+    pub(crate) fn try_play_objective_tone(
+        &self,
+        pcm: Pcm,
+    ) -> Option<Receiver<crate::audio::lanes::ObjectiveToneOutcome>> {
+        if self.shutdown_started() {
+            return None;
+        }
+        let (reply, receiver) = mpsc::sync_channel(1);
+        self.commands
+            .engine
+            .control(Control::ObjectiveTone { pcm, reply })
+            .ok()
+            .map(|()| receiver)
     }
 
     pub fn shutdown(&self) {

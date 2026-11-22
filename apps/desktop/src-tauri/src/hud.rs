@@ -4,7 +4,7 @@ use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, OnceLock};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 
 use crate::intake::Runtime;
 
@@ -143,15 +143,52 @@ pub fn strip_height_percent(layouts: &[(HudModule, HudModuleLayout); 6]) -> f64 
         .min(100.0)
 }
 
+pub fn strip_height_percent_with_card(
+    layouts: &[(HudModule, HudModuleLayout); 6],
+    card: crate::layout::WidgetLayout,
+    viewport: crate::layout::LayoutViewport,
+) -> f64 {
+    let scale = f64::from(viewport.width.max(1)) / 1920.0;
+    let half_height_percent = 16.0 * scale * card.scale / f64::from(viewport.height.max(1)) * 100.0;
+    strip_height_percent(layouts)
+        .max(card.y_percent + half_height_percent)
+        .min(100.0)
+}
+
 pub fn place_hud_window(
     monitor: &crate::overlay::MonitorRect,
     layouts: &[(HudModule, HudModuleLayout); 6],
+) -> crate::overlay::Rect {
+    place_hud_window_with_card(
+        monitor,
+        layouts,
+        crate::layout::WidgetLayout {
+            x_percent: 62.5,
+            y_percent: 6.5,
+            scale: 1.0,
+        },
+    )
+}
+
+pub fn place_hud_window_with_card(
+    monitor: &crate::overlay::MonitorRect,
+    layouts: &[(HudModule, HudModuleLayout); 6],
+    card: crate::layout::WidgetLayout,
 ) -> crate::overlay::Rect {
     crate::overlay::Rect {
         x: monitor.x,
         y: monitor.y,
         w: monitor.w,
-        h: (f64::from(monitor.h) * strip_height_percent(layouts) / 100.0)
+        h: (f64::from(monitor.h)
+            * strip_height_percent_with_card(
+                layouts,
+                card,
+                crate::layout::LayoutViewport {
+                    width: monitor.w,
+                    height: monitor.h,
+                },
+            )
+            / 100.0)
             .round()
             .max(1.0) as u32,
     }
@@ -214,7 +251,6 @@ const HUD_KEEPALIVE_INTERVAL: Duration = Duration::from_secs(2);
 /// heartbeat is one second and the captured pause gap was 1,059 ms, leaving ample margin.
 const HUD_STALE_HIDE: Duration = Duration::from_secs(10);
 const HUD_STATE_EVENT: &str = "hud://state";
-#[cfg(any(feature = "lab", debug_assertions))]
 const HUD_LAYOUT_EVENT: &str = "hud://layout";
 
 #[derive(Default)]
@@ -251,7 +287,6 @@ impl GameProcessWatch {
     }
 }
 
-#[cfg(any(feature = "lab", debug_assertions))]
 #[derive(Default)]
 struct HudLayoutEmission {
     last_payload: Option<Value>,
@@ -259,7 +294,6 @@ struct HudLayoutEmission {
     last_emitted_at: Option<Instant>,
 }
 
-#[cfg(any(feature = "lab", debug_assertions))]
 impl HudLayoutEmission {
     fn should_emit(&self, payload: &Value, revision: u64, now: Instant) -> bool {
         self.last_payload.as_ref() != Some(payload)
@@ -276,8 +310,11 @@ impl HudLayoutEmission {
     }
 }
 
-#[cfg(any(feature = "lab", debug_assertions))]
-fn hud_layout_payload(layouts: &[(HudModule, HudModuleLayout); 6]) -> Value {
+fn hud_layout_payload(
+    layouts: &[(HudModule, HudModuleLayout); 6],
+    card: crate::layout::WidgetLayout,
+    viewport: crate::layout::LayoutViewport,
+) -> Value {
     let modules: Vec<Value> = layouts
         .iter()
         .map(|(module, layout)| {
@@ -292,8 +329,13 @@ fn hud_layout_payload(layouts: &[(HudModule, HudModuleLayout); 6]) -> Value {
         .collect();
     serde_json::json!({
         "schema": 1,
-        "strip_height_percent": strip_height_percent(layouts),
+        "strip_height_percent": strip_height_percent_with_card(layouts, card, viewport),
         "modules": modules,
+        "objective_card": {
+            "x_percent": card.x_percent,
+            "y_percent": card.y_percent,
+            "scale": card.scale,
+        },
     })
 }
 
@@ -570,12 +612,16 @@ fn run_state_thread(
     let mut emission = EmissionTracker::default();
     let mut process_watch = GameProcessWatch::default();
     let mut stale_limit_was_hidden = false;
-    #[cfg(any(feature = "lab", debug_assertions))]
     let mut layout_emission = HudLayoutEmission::default();
-    #[cfg(any(feature = "lab", debug_assertions))]
-    let mut last_layout: Option<(u64, Value)> = None;
+    let mut last_layout: Option<Value> = None;
     loop {
         let layouts = effective_hud_layouts();
+        let state = app.state::<crate::AppState>();
+        let viewport = crate::layout::LayoutViewport::from_window(&window);
+        let card_layout = state.layout.widget(viewport);
+        let layout_revision = state.layout.revision();
+        #[cfg(any(feature = "lab", debug_assertions))]
+        let layout_revision = layout_revision.wrapping_add(crate::lab::hud_layout_revision());
         let capture_status = crate::capture_host::capture_status();
         let session_active = crate::intake::lock(&runtime.shared).phase.is_some();
         if let Some(reason) = process_watch.observe(
@@ -604,31 +650,28 @@ fn run_state_thread(
         }
         stale_limit_was_hidden = stale_limit_hidden;
 
-        #[cfg(any(feature = "lab", debug_assertions))]
-        {
-            let revision = crate::lab::hud_layout_revision();
-            let layout_payload = hud_layout_payload(&layouts);
-            if layout_emission.should_emit(&layout_payload, revision, now) {
-                match app.emit_to("hud", HUD_LAYOUT_EVENT, layout_payload.clone()) {
-                    Ok(()) => layout_emission.record_emitted(layout_payload.clone(), revision, now),
-                    Err(_) => crate::log_warn!(
-                        "hud",
-                        "layout_emit_failed",
-                        "HUD layout event unavailable"
-                    ),
+        let layout_payload = hud_layout_payload(&layouts, card_layout, viewport);
+        if layout_emission.should_emit(&layout_payload, layout_revision, now) {
+            match app.emit_to("hud", HUD_LAYOUT_EVENT, layout_payload.clone()) {
+                Ok(()) => {
+                    layout_emission.record_emitted(layout_payload.clone(), layout_revision, now)
+                }
+                Err(_) => {
+                    crate::log_warn!("hud", "layout_emit_failed", "HUD layout event unavailable")
                 }
             }
-
-            let layout_changed = last_layout
-                .as_ref()
-                .is_some_and(|(last_revision, previous)| {
-                    *last_revision != revision || previous != &layout_payload
-                });
-            if visible && layout_changed && !crate::place_hud_window(&window, &layouts) {
-                hide_window(&window);
-            }
-            last_layout = Some((revision, layout_payload));
         }
+
+        let layout_changed = last_layout
+            .as_ref()
+            .is_some_and(|previous| previous != &layout_payload);
+        if visible
+            && layout_changed
+            && !crate::place_hud_window_with_card(&window, &layouts, card_layout)
+        {
+            hide_window(&window);
+        }
+        last_layout = Some(layout_payload);
 
         if !visible {
             hide_window(&window);
@@ -647,7 +690,7 @@ fn run_state_thread(
         }
 
         if visible && state_delivered {
-            show_window(&window, &layouts);
+            show_window(&window, &layouts, card_layout);
         }
 
         match stop.recv_timeout(HUD_POLL_INTERVAL) {
@@ -660,6 +703,7 @@ fn run_state_thread(
 fn show_window(
     window: &tauri::WebviewWindow<tauri::Wry>,
     layouts: &[(HudModule, HudModuleLayout); 6],
+    card_layout: crate::layout::WidgetLayout,
 ) {
     match window.is_visible() {
         Ok(true) => return,
@@ -680,7 +724,7 @@ fn show_window(
         crate::log_warn!("hud", "click_through_failed", "HUD remains hidden");
         return;
     }
-    if !crate::place_hud_window(window, layouts) {
+    if !crate::place_hud_window_with_card(window, layouts, card_layout) {
         hide_window(window);
         return;
     }
@@ -926,7 +970,19 @@ mod tests {
 
     #[test]
     fn hud_layout_event_has_the_exact_schema_and_module_order() {
-        let payload = hud_layout_payload(&DEFAULT_HUD_LAYOUTS);
+        let card = crate::layout::WidgetLayout {
+            x_percent: 62.5,
+            y_percent: 6.5,
+            scale: 1.0,
+        };
+        let payload = hud_layout_payload(
+            &DEFAULT_HUD_LAYOUTS,
+            card,
+            crate::layout::LayoutViewport {
+                width: 1920,
+                height: 1080,
+            },
+        );
         assert_eq!(
             payload,
             json!({
@@ -939,7 +995,8 @@ mod tests {
                     {"id":"gpm","x_percent":17.23,"y_percent":2.2,"scale":0.78,"enabled":true},
                     {"id":"nw","x_percent":21.02,"y_percent":2.2,"scale":0.78,"enabled":true},
                     {"id":"xpm","x_percent":24.82,"y_percent":2.2,"scale":0.78,"enabled":true}
-                ]
+                ],
+                "objective_card": {"x_percent":62.5,"y_percent":6.5,"scale":1.0}
             })
         );
     }
