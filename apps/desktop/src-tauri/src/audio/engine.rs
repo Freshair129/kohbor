@@ -13,8 +13,8 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use kohbor_audio::{
-    AudioClass, AudioOwner, CancelReason, Config, Decision, Notice, Outcome, PlaybackId, Request,
-    Sink,
+    pcm::Pcm, AudioClass, AudioOwner, CancelReason, Config, Decision, Notice, Outcome, PlaybackId,
+    Request, Sink,
 };
 use kohbor_events::{arbitrate, Event, EventId};
 
@@ -107,6 +107,7 @@ pub struct Engine {
     need_sink_requested: bool,
     replacement_pending: bool,
     pending_sink: Option<Box<dyn Sink + Send>>,
+    pending_objective_tone: Option<Pcm>,
     shutdown: bool,
 }
 
@@ -159,6 +160,7 @@ impl Engine {
             need_sink_requested: false,
             replacement_pending: false,
             pending_sink: None,
+            pending_objective_tone: None,
             shutdown: false,
         }
     }
@@ -268,6 +270,12 @@ impl Engine {
                     let _ = request.reply.try_send(result);
                 }
             }
+
+            if !self.shutdown {
+                if let Some(pcm) = self.pending_objective_tone.take() {
+                    self.try_objective_tone(now_ms, pcm);
+                }
+            }
         }
 
         if self.shutdown {
@@ -318,12 +326,52 @@ impl Engine {
                     }
                 }
             }
+            Control::ObjectiveTone { pcm } => {
+                // One scheduler batch produces one cue. Collapse simultaneous control
+                // messages without queuing a beep behind game audio.
+                if self.pending_objective_tone.is_none() {
+                    self.pending_objective_tone = Some(pcm);
+                }
+            }
             Control::Shutdown => {
                 self.shutdown = true;
                 return true;
             }
         }
         false
+    }
+
+    fn try_objective_tone(&mut self, now_ms: u64, pcm: Pcm) {
+        // Sink::submit replaces its single current slot. The safe fallback is to
+        // omit this cue while any audio or paired visual still owns that slot.
+        if self.is_degraded()
+            || self.muted
+            || !self.owner.device_available()
+            || self.owner.active(now_ms).is_some()
+            || self.owner.visual(now_ms).is_some()
+        {
+            return;
+        }
+        let next = self.last_issued_id.saturating_add(1);
+        let decision = self.owner.request(
+            now_ms,
+            Request {
+                instance_id: format!("ev_g{}_s{}_0", AUDITION_GENERATION - 1, next),
+                event_type: None,
+                session_epoch: self.session_epoch,
+                class: AudioClass::Voice,
+                ordinary_rank: 0,
+                episode: None,
+                package_revision: None,
+                pcm,
+                visual_tail_ms: 0,
+            },
+        );
+        if let Some(decision) = decision.filter(|decision| decision.outcome == Outcome::Admitted) {
+            if let Some(id) = decision.playback_id {
+                self.last_issued_id = self.last_issued_id.max(id.0);
+            }
+        }
     }
 
     fn handle_tick(&mut self, message: TickMsg, now_ms: u64) {
@@ -1053,6 +1101,7 @@ impl Engine {
     }
 
     fn rebuild_after_panic(&mut self, now_ms: u64) {
+        self.pending_objective_tone = None;
         self.owner.stop(now_ms);
         self.drain_panic_decisions();
         self.audition_session = false;

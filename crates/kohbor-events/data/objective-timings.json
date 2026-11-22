@@ -1,0 +1,108 @@
+{
+  "schema_version": "1.0.0",
+  "patch": "7.42",
+  "objectives": [
+    {
+      "id": "water_rune",
+      "patch": "7.42",
+      "status": "available",
+      "spawn_times_seconds": [120, 240],
+      "repeat_every_seconds": null,
+      "pre_warning_seconds": [30, 15],
+      "source_urls": [
+        "https://dota2.fandom.com/wiki/Runes",
+        "https://liquipedia.net/dota2/Runes"
+      ],
+      "confirmed_by_owner": true,
+      "owner_note": "owner confirmed 2026-11-22, pending live check",
+      "verified_in_official_notes": false
+    },
+    {
+      "id": "power_rune",
+      "patch": "7.42",
+      "status": "available",
+      "spawn_times_seconds": [360],
+      "repeat_every_seconds": 120,
+      "pre_warning_seconds": [30, 15],
+      "source_urls": [
+        "https://dota2.fandom.com/wiki/Runes",
+        "https://liquipedia.net/dota2/Runes"
+      ],
+      "confirmed_by_owner": true,
+      "owner_note": "owner confirmed 2026-11-22, pending live check",
+      "verified_in_official_notes": false
+    },
+    {
+      "id": "bounty_rune",
+      "patch": "7.42",
+      "status": "available",
+      "spawn_times_seconds": [0],
+      "repeat_every_seconds": 240,
+      "pre_warning_seconds": [],
+      "source_urls": [
+        "https://dota2.fandom.com/wiki/Runes",
+        "https://liquipedia.net/dota2/Runes"
+      ],
+      "confirmed_by_owner": true,
+      "owner_note": "owner confirmed 2026-11-22, pending live check",
+      "verified_in_official_notes": false
+    },
+    {
+      "id": "wisdom_rune",
+      "patch": "7.42",
+      "status": "available",
+      "spawn_times_seconds": [420],
+      "repeat_every_seconds": 420,
+      "pre_warning_seconds": [],
+      "source_urls": [
+        "https://dota2.fandom.com/wiki/Runes",
+        "https://liquipedia.net/dota2/Runes"
+      ],
+      "confirmed_by_owner": true,
+      "owner_note": "owner confirmed 2026-11-22, pending live check",
+      "verified_in_official_notes": false
+    },
+    {
+      "id": "tormentor",
+      "patch": "7.42",
+      "status": "available",
+      "spawn_times_seconds": [900],
+      "repeat_every_seconds": null,
+      "pre_warning_seconds": [],
+      "source_urls": [
+        "https://www.dota2.com/datafeed/patchnotes?version=7.42&language=english"
+      ],
+      "source_note": "Initial spawn time decreased from 20:00 to 15:00",
+      "confirmed_by_owner": false,
+      "verified_in_official_notes": true
+    },
+    {
+      "id": "roshan_respawn",
+      "patch": "7.42",
+      "status": "unavailable",
+      "spawn_times_seconds": null,
+      "repeat_every_seconds": null,
+      "pre_warning_seconds": [],
+      "source_urls": [
+        "https://www.dota2.com/datafeed/patchnotes?version=7.42&language=english"
+      ],
+      "confirmed_by_owner": false,
+      "verified_in_official_notes": false,
+      "unavailable_reason": "Respawn timer varies by defeat count; no admitted Roshan death signal is available."
+    },
+    {
+      "id": "tormentor_respawn",
+      "patch": "7.42",
+      "status": "unavailable",
+      "spawn_times_seconds": null,
+      "repeat_every_seconds": null,
+      "pre_warning_seconds": [],
+      "source_urls": [
+        "https://www.dota2.com/datafeed/patchnotes?version=7.42&language=english"
+      ],
+      "confirmed_by_owner": false,
+      "verified_in_official_notes": false,
+      "unavailable_reason": "No admitted Tormentor death signal or verified respawn time is available."
+    }
+  ]
+}

@@ -22,6 +22,7 @@ pub mod latency;
 pub mod logging;
 mod media;
 mod mixer;
+mod objectives;
 mod orb;
 mod portraits;
 pub mod secrets;
@@ -98,6 +99,7 @@ pub(crate) struct AppState {
     pub(crate) orb: orb::host::OrbHost,
     /// Default-off public statistics and the native draft column.
     pub(crate) hero_stats: hero_stats::host::HeroStatsHost,
+    pub(crate) objectives: objectives::ObjectiveHost,
 }
 
 impl host::Emitter for tauri::AppHandle<tauri::Wry> {
@@ -1129,11 +1131,14 @@ pub fn run() {
             });
             // Load volume preferences before Host::start creates the audio engine.
             let audio_prefs = audio_prefs::AudioPrefsService::open(&dir);
+            let objective_host = objectives::ObjectiveHost::open(&dir, &dir.join("logs"));
+            let objective_wiring = objective_host.intake_wiring();
             // Account storage remains lazy so an unavailable account root or
             // provider cannot delay the independent local core startup.
             #[cfg(feature = "demo")]
             app.manage(account_host::DesktopAccountHost::new(settings_dir.clone()));
-            let runtime = intake::Runtime::new(dir.clone());
+            let (runtime, objective_alert_receiver) =
+                intake::Runtime::with_objectives(dir.clone(), objective_wiring);
             let sample = Arc::new(Mutex::new((
                 Sample {
                     cpu_percent: None,
@@ -1261,6 +1266,7 @@ pub fn run() {
                 mixer: mixer_service,
                 orb: orb_host,
                 hero_stats: hero_stats_host,
+                objectives: objective_host,
             });
             orb::host::register_critical_listener(app.handle());
             app.state::<AppState>().orb.start_if_enabled(app.handle());
@@ -1278,6 +1284,7 @@ pub fn run() {
                 app.state::<AppState>().audition.clone(),
             );
             start_overlay_status_mirror(app_handle, last_overlay_status, initial_overlay_status);
+            objectives::start_alert_worker(app.handle().clone(), objective_alert_receiver);
             crate::log_info!("app", "setup_complete", "application setup completed");
             Ok(())
         });
@@ -1303,6 +1310,8 @@ pub fn run() {
         commands::gsi_setup,
         commands::settings_get,
         commands::settings_patch,
+        commands::objective_prefs_get,
+        commands::objective_prefs_patch,
         commands::media_inspect,
         commands::media_package_summary,
         commands::media_package_size_limit,
@@ -1389,6 +1398,8 @@ pub fn run() {
         commands::gsi_setup,
         commands::settings_get,
         commands::settings_patch,
+        commands::objective_prefs_get,
+        commands::objective_prefs_patch,
         commands::media_inspect,
         commands::media_package_summary,
         commands::media_package_size_limit,

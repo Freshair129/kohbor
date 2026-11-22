@@ -689,17 +689,54 @@
     },
     {
       "id": "DEC-EVENT-RUNE-SPAWN",
-      "status": "open",
+      "status": "decided",
       "milestone": "M3",
-      "blocks": "A rune_spawn event (a banner and sound exist as design assets only)",
+      "blocks": "ALERT-008 map-objective timer alerts only.",
       "owner_role": "product owner",
-      "safe_interim": "Not in the event catalog; no detector; the banner asset is not bound to anything.",
-      "closure_evidence": "Owner decision to add the event (a new catalog entry and taxonomy minor version), the rule that produces it (for example the game clock from the intake), its rank, cooldown and availability, and a detector with tests.",
-      "proposed_on": "2026-11-13",
-      "proposal_ref": "F:/kohbor-banner-lab/fable/README.md (outside the repository)",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-22",
+      "channel": "Owner answers to the lead session's eight recommendations, relayed to the ALERT-008 session, then the owner's direct reply in that session.",
+      "owner_statement_th": "“ตามที่แนะนำ”; “คือเสียงแจ้งเตือนรูนจะเป็นเสียงสัญญาณด้วยไม่ใช่เสียงพูดเสียทีเดียวถ้ากรณีที่มันชนให้แสดงแค่เสียงสัญญาณเช่นติ๊ดๆ”; “อนุญาตทั้งสองข้อ ทำต่อได้เลย”. Revision 3 (2026-11-22): “ตามที่แนะนำ”.",
+      "decision": "Add map-objective timer alerts as an explicit extension (ALERT-008) instead of a catalog event. Water and power runes: pre-warnings at 30 s and 15 s and a spawn alert; bounty and wisdom runes: spawn alert only; Tormentor: first-spawn alert. Roshan and Tormentor respawn stay unavailable with no manual control; an opt-in local log of GSI map key names and roshan_* values checks whether roshan_state reaches a player client. The cue is an original locally synthesized short soft beep-beep tone, not speech, at the announcer channel volume. On collision with an announcer or critical event, show only the text; the tone is not played, and any game clip preempts a playing tone (revision 3, 2026-11-22: the single-slot native sink stays unchanged; revisit after the owner's in-game test). Text follows the app language. Timings come only from the official patch notes and a patch-versioned table with a source per row; the owner confirmed the wiki rune values for 7.42 on 2026-11-22, pending the owner's live check. On by default with a per-objective Settings switch.",
+      "reason": "Help the player time runes and the Tormentor from the game clock without voice spam or hidden information.",
+      "alternatives_considered": [
+        "Rune-spawn catalog event with a voiced banner",
+        "Manual Roshan death button",
+        "Delay then drop on collision"
+      ],
+      "affected_need_ids": [
+        "PN-005"
+      ],
+      "affected_requirement_ids": [
+        "ALERT-008"
+      ],
       "related": [
         "DEC-BANNER-LAB-STYLE",
-        "DEC-EVENT-AUDIO"
+        "DEC-EVENT-AUDIO",
+        "DEC-NATIVE-EVIDENCE"
+      ],
+      "safe_interim": "Unverified timings and respawns without a death signal stay unavailable. The banner-lab rune_spawn asset stays unbound.",
+      "closure_evidence": "Owner decision 2026-11-22 (revisions 2 and 3). Official 7.42 patch notes confirm the Tormentor initial spawn 15:00; rune timings are not in those notes and are owner-confirmed from wiki sources pending a live check. Native and live evidence remain NOT_RUN.",
+      "revision": "3",
+      "history": [
+        {
+          "revision": "2",
+          "status": "decided",
+          "decided_on": "2026-11-22",
+          "decision": "Add map-objective timer alerts as an explicit extension (ALERT-008) instead of a catalog event. Water and power runes: pre-warnings at 30 s and 15 s and a spawn alert; bounty and wisdom runes: spawn alert only; Tormentor: first-spawn alert. Roshan and Tormentor respawn stay unavailable with no manual control; an opt-in local log of GSI map key names and roshan_* values checks whether roshan_state reaches a player client. The cue is an original locally synthesized short soft beep-beep tone, not speech, at the announcer channel volume. On collision with an announcer or critical event, show the text and play only the quiet tone without stopping, ducking or delaying the clip. Text follows the app language. Timings come only from the official patch notes and a patch-versioned table with a source per row, which the owner confirms later. On by default with a per-objective Settings switch.",
+          "owner_statement_th": "“ตามที่แนะนำ”; “คือเสียงแจ้งเตือนรูนจะเป็นเสียงสัญญาณด้วยไม่ใช่เสียงพูดเสียทีเดียวถ้ากรณีที่มันชนให้แสดงแค่เสียงสัญญาณเช่นติ๊ดๆ”; “อนุญาตทั้งสองข้อ ทำต่อได้เลย”.",
+          "safe_interim": "Unverified timings and respawns without a death signal stay unavailable. The banner-lab rune_spawn asset stays unbound.",
+          "closure_evidence": "Owner decision 2026-11-22. Official 7.42 patch notes confirm the Tormentor initial spawn 15:00; rune timings are not in those notes. Native and live evidence remain NOT_RUN."
+        },
+        {
+          "revision": "1",
+          "status": "open",
+          "proposed_on": "2026-11-13",
+          "blocks": "A rune_spawn event (a banner and sound exist as design assets only)",
+          "safe_interim": "Not in the event catalog; no detector; the banner asset is not bound to anything.",
+          "closure_evidence": "Owner decision to add the event (a new catalog entry and taxonomy minor version), the rule that produces it (for example the game clock from the intake), its rank, cooldown and availability, and a detector with tests.",
+          "proposal_ref": "F:/kohbor-banner-lab/fable/README.md (outside the repository)"
+        }
       ]
     },
     {

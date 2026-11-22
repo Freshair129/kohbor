@@ -229,6 +229,33 @@ fn has_end(out: &[EngineOut], reason: &str) -> bool {
         .any(|v| v["kind"] == "ended" && v["reason"] == reason)
 }
 
+#[test]
+fn objective_tone_uses_the_engine_sink_when_idle() {
+    let (mut h, log) = setup();
+    let pcm = Arc::from(vec![0_i16; 12_000].into_boxed_slice());
+    assert!(h.tx.control(Control::ObjectiveTone { pcm }).is_ok());
+    h.engine.step(1);
+    h.drain();
+    assert_eq!(
+        log.lock().unwrap().calls,
+        vec![Call::Submit(PlaybackId(1), 12_000)]
+    );
+}
+
+#[test]
+fn objective_tone_is_skipped_while_an_announcer_clip_owns_the_sink() {
+    let (mut h, log) = setup();
+    offer(&h, 1, &[(EventId::HeroKill, None)]);
+    h.engine.step(1);
+    assert_eq!(log.lock().unwrap().calls.len(), 1);
+
+    let pcm = Arc::from(vec![0_i16; 12_000].into_boxed_slice());
+    assert!(h.tx.control(Control::ObjectiveTone { pcm }).is_ok());
+    h.engine.step(2);
+    h.drain();
+    assert_eq!(log.lock().unwrap().calls.len(), 1);
+}
+
 fn offer_audition(h: &Harness, id: EventId) -> mpsc::Receiver<Result<(), AuditionRefusal>> {
     offer_audition_variant(h, id, None)
 }

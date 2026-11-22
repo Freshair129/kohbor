@@ -118,9 +118,9 @@ export function reduceChip(state: ChipState, input: ChipInput): ChipState {
   return state;
 }
 
-export function overlayShouldShow(playback: PlaybackState, chip: ChipState, now_ms: number): boolean {
+export function overlayShouldShow(playback: PlaybackState, chip: ChipState, now_ms: number, objectiveAlert = false): boolean {
   if (playback.visual !== null) return true;
-  return chip.view !== null && chip.shownUntilMs !== null && now_ms < chip.shownUntilMs;
+  return objectiveAlert || (chip.view !== null && chip.shownUntilMs !== null && now_ms < chip.shownUntilMs);
 }
 
 /** The benign "ready" status is noise during a match: only problem states, unknown and DEMO show. */

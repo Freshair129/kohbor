@@ -83,6 +83,10 @@ pub enum Control {
         table: Arc<super::resolve::PrewarmTable>,
     },
     SinkReady(Box<dyn kohbor_audio::Sink + Send>),
+    /// A generated objective cue is best-effort and may only use an idle sink.
+    ObjectiveTone {
+        pcm: kohbor_audio::pcm::Pcm,
+    },
     Shutdown,
 }
 

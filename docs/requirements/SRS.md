@@ -659,6 +659,28 @@ Critical audio readiness shall require valid mapped critical media before the de
 
 **Implementation freedom:** Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.
 
+#### ALERT-008 — Map-objective timer alerts
+
+**Scope:** extension · **Priority:** extension · **Target milestone:** M3 · **Basis:** owner_decision / DEC-EVENT-RUNE-SPAWN
+
+**Product needs:** PN-005 · **Primary design:** CMP-ALERT · **Design components:** CMP-ALERT, CMP-MEDIA, CMP-READMODEL
+
+The host shall raise non-critical map-objective alerts derived only from the GSI game clock (map.clock_time) while map.game_state is in progress and the game is not paused, using one patch-versioned timing table that names a source for every row. Water and power runes get a pre-warning at 30 s and 15 s before spawn and an alert at spawn; bounty and wisdom runes get a spawn alert only; the Tormentor gets a first-spawn alert. Roshan respawn and Tormentor respawn are reported unavailable. Each alert shows as compact text in the event-banner slot of the overlay, in the app language (Thai or English), and plays one original locally synthesized short soft beep-beep tone at the announcer channel volume. Each objective has a Settings switch, on by default. An opt-in local diagnostic may log only the GSI map key names and roshan_* values.
+
+**Failure behavior:** When the clock is missing, stale, paused or not in progress, no alert fires and nothing is derived from wall or browser time. A backward or forward clock jump fires no backlog of passed alerts. When an announcer clip or critical warning is playing, the text alert still shows at its due time and the tone is not played (owner decision 2026-11-22, DEC-EVENT-RUNE-SPAWN revision 3); any game clip that starts during the tone preempts it, so the tone never stops, ducks or delays a clip or the critical cue. A timing without a sourced row in the table, or a respawn without a death signal, stays unavailable and is never shown as a time; rows not yet confirmed against official patch notes are marked so in the table. No memory reading, game input or hidden enemy information.
+
+**AC-ALERT-008:** Given a GSI clock stream in progress with all objectives enabled, including pauses, stale gaps, a backward jump, a forward jump and an announcer clip or critical warning playing at a due time; when the clock passes 1:30, 1:45 and 2:00, then later spawn times, pauses and jumps; then the 2:00 water rune gets exactly one 30 s and one 15 s pre-warning and one spawn alert; bounty and wisdom runes get spawn alerts only; no alert fires while paused, stale or not in progress, and no backlog fires after a jump; Roshan and Tormentor respawn show unavailable; during a playing clip the text shows on time, the tone is not played, and the clip is not stopped, ducked or delayed; a game clip that starts during the tone preempts it; a disabled objective raises nothing.
+
+**Verification:** synthetic, native, live; procedures TP-03, TP-05, UAT-05; status NOT_RUN.
+
+**Open dependencies:** DEC-NATIVE-EVIDENCE.
+
+**Elaboration:** [PRD.md](../product/PRD.md), [EVENT-AUDIO-SPEC.md](../design/EVENT-AUDIO-SPEC.md), [DECISION-LOG.md](../governance/DECISION-LOG.md)
+
+**Contracts:** [decisions.json](../../contracts/decisions.json)
+
+**Implementation freedom:** Choose the scheduler home, tone synthesis and overlay transport inside existing crates; do not add crates or change Cargo.lock; do not alter the stated behavior or evidence thresholds.
+
 ### MEDIA
 
 #### MEDIA-001 — Single event taxonomy

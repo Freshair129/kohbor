@@ -10,7 +10,7 @@ import { overlayChipForDisplay, chipForStatus, createChipState, reduceChip, over
 import { createPlaybackState, reducePlayback, tickPlayback, type PlaybackState } from "../src/playback.ts";
 const desktopRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 let EventBanner: (props: { playback: PlaybackState; visible?: boolean }) => unknown;
-let OverlayStage: (props: { playback: PlaybackState; chip: ChipView | null; visible: boolean }) => unknown;
+let OverlayStage: (props: { playback: PlaybackState; chip: ChipView | null; visible: boolean; objectiveAlertText?: string | null; objectiveAlertVisible?: boolean; locale?: "th" | "en" }) => unknown;
 let closeVite: (() => Promise<void>) | undefined;
 
 before(async () => {
@@ -145,4 +145,19 @@ test("renderer hides banner content when the host visibility gate is closed", ()
     createElement(EventBanner, { playback: activeBannerPlayback(), visible: false }),
   );
   assert.equal(html, "");
+});
+
+test("renderer keeps a playing video banner while the objective text alert is visible", () => {
+  const html = renderToStaticMarkup(createElement(OverlayStage, {
+    playback: activeBannerPlayback(),
+    chip: null,
+    visible: true,
+    objectiveAlertText: "Water rune in 30s",
+    objectiveAlertVisible: true,
+    locale: "en",
+  }));
+  assert.match(html, /event-overlay-banner/);
+  assert.match(html, /<video\b/);
+  assert.match(html, /objective-overlay-alert/);
+  assert.match(html, /Water rune in 30s/);
 });

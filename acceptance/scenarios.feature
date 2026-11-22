@@ -156,6 +156,13 @@ Feature: Brand-neutral desktop companion target behavior
     Then the product exposes not-ready and the acoustic gate cannot pass
     And failure behavior is: Do not substitute TTS, an unrelated clip or silently declare visual-only readiness.
 
+  @ALERT-008 @extension
+  Scenario: AC-ALERT-008 Map-objective timer alerts
+    Given a GSI clock stream in progress with all objectives enabled, including pauses, stale gaps, a backward jump, a forward jump and an announcer clip or critical warning playing at a due time
+    When the clock passes 1:30, 1:45 and 2:00, then later spawn times, pauses and jumps
+    Then the 2:00 water rune gets exactly one 30 s and one 15 s pre-warning and one spawn alert; bounty and wisdom runes get spawn alerts only; no alert fires while paused, stale or not in progress, and no backlog fires after a jump; Roshan and Tormentor respawn show unavailable; during a playing clip the text shows on time, the tone is not played, and the clip is not stopped, ducked or delayed; a game clip that starts during the tone preempts it; a disabled objective raises nothing
+    And failure behavior is: When the clock is missing, stale, paused or not in progress, no alert fires and nothing is derived from wall or browser time. A backward or forward clock jump fires no backlog of passed alerts. When an announcer clip or critical warning is playing, the text alert still shows at its due time and the tone is not played (owner decision 2026-11-22, DEC-EVENT-RUNE-SPAWN revision 3); any game clip that starts during the tone preempts it, so the tone never stops, ducks or delays a clip or the critical cue. A timing without a sourced row in the table, or a respawn without a death signal, stays unavailable and is never shown as a time; rows not yet confirmed against official patch notes are marked so in the table. No memory reading, game input or hidden enemy information.
+
   @MEDIA-001 @mvp
   Scenario: AC-MEDIA-001 Single event taxonomy
     Given duplicate IDs, duplicate nonzero ranks or invalid tunables exist
