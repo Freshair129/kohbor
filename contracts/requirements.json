@@ -5345,13 +5345,13 @@
       "target_milestone": "M6",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
-      "statement": "The user can export and delete the account from the app; deletion removes every server record and local cache and keeps no tombstone",
-      "failure_behavior": "Export or deletion unavailable in the app, or any server record, local cache or tombstone remaining after deletion, fails.",
+      "statement": "The user can export and delete the account from the app; deletion removes every server record and local cache. The only record kept is one deletion-ledger entry outside the database, holding the keyed login-identity hash and the deletion time, used only to repeat the deletion after a backup restore and purged 30 days after the deletion, never before every backup taken before the deletion has been rotated out",
+      "failure_behavior": "Export or deletion unavailable in the app, any server record or local cache remaining after deletion, a ledger entry holding anything beyond the keyed login-identity hash and deletion time, a ledger stored inside the restored database, a replay that deletes an account created after the recorded deletion, or an entry kept past 30 days once no earlier backup remains, or purged while one does, fails.",
       "acceptance": {
         "scenario_id": "AC-ACCOUNT-008",
         "given": "a user has an account and can access its controls in the app",
         "when": "the user exports and then deletes the account",
-        "then": "the account can be exported and deletion removes every server record and local cache without keeping a tombstone"
+        "then": "the account can be exported; deletion removes every server record and local cache and writes one ledger entry with only the keyed login-identity hash and deletion time; after a backup restore, replay removes the restored account but not a newer account with the same login hash; the entry is purged after 30 days once no earlier backup remains"
       },
       "verification": {
         "required_evidence": [
@@ -5363,7 +5363,13 @@
           "docs/quality/TEST-PLAN.md",
           "docs/quality/UAT-PLAN.md"
         ],
-        "implementation_refs": [],
+        "implementation_refs": [
+          "services/kohbor-broker/src/broker.mjs",
+          "services/kohbor-broker/src/deletion-ledger.mjs",
+          "services/kohbor-broker/test/broker.test.mjs",
+          "services/kohbor-broker/test/deletion-ledger.test.mjs",
+          "crates/kohbor-account/src/lib.rs"
+        ],
         "evidence_refs": [],
         "procedure_ids": [
           "TP-10",
@@ -5374,11 +5380,13 @@
         "contracts/decisions.json"
       ],
       "spec_refs": [
+        "docs/design/ACCOUNT-DATABASE-DESIGN.md",
         "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
         "docs/governance/DECISION-LOG.md",
         "docs/security/SECURITY-PRIVACY.md"
       ],
       "open_decisions": [
+        "DEC-DELETION-LEDGER",
         "DEC-ACCOUNT-ORIGIN",
         "DEC-PRIVACY-LEGAL",
         "DEC-RETENTION"

@@ -21,6 +21,7 @@ A map, not evidence. Authority: decisions, PRD/SRS, contracts, code and tests, t
 
 - Decided by the owner by delegation to an agent review (not a human, security or legal review; the owner still confirms the items in section 3): DEC-ACCOUNT-IDENTITY, DEC-GID-REUSE, DEC-SIGNIN-OPTIONAL, DEC-SHARE-LIST.
 - Recorded owner decision, limited to the alpha and not a legal or security review: DEC-ALPHA-AUTH-DEVIATION. It ends when sign-in moves to the Kohbor broker; delete alpha testers' Supabase Auth user records after the switch. DEC-PRIVACY-LEGAL remains open.
+- Recorded owner decision, not a legal or security review: DEC-DELETION-LEDGER (one bounded deletion-ledger entry per deleted account; amends rule 27 and ACCOUNT-008).
 - Open: DEC-ACCOUNT-ORIGIN, DEC-GOOGLE-PROJECT, DEC-ACCOUNT-LINK, DEC-SIGNIN-FALLBACK, DEC-STEAM-BINDING, DEC-PRIVACY-LEGAL, DEC-SOCIAL, DEC-RETENTION.
 
 ## 3. Now / Next / Blocked

@@ -552,8 +552,8 @@ Feature: Brand-neutral desktop companion target behavior
   Scenario: AC-ACCOUNT-008 In-app account export and deletion
     Given a user has an account and can access its controls in the app
     When the user exports and then deletes the account
-    Then the account can be exported and deletion removes every server record and local cache without keeping a tombstone
-    And failure behavior is: Export or deletion unavailable in the app, or any server record, local cache or tombstone remaining after deletion, fails.
+    Then the account can be exported; deletion removes every server record and local cache and writes one ledger entry with only the keyed login-identity hash and deletion time; after a backup restore, replay removes the restored account but not a newer account with the same login hash; the entry is purged after 30 days once no earlier backup remains
+    And failure behavior is: Export or deletion unavailable in the app, any server record or local cache remaining after deletion, a ledger entry holding anything beyond the keyed login-identity hash and deletion time, a ledger stored inside the restored database, a replay that deletes an account created after the recorded deletion, or an entry kept past 30 days once no earlier backup remains, or purged while one does, fails.
 
   @ACCOUNT-009 @extension
   Scenario: AC-ACCOUNT-009 No unapproved platform identity binding

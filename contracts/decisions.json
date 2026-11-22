@@ -174,7 +174,7 @@
       "owner_role": "product owner",
       "safe_interim": "Bound new writes; stop recording on disk pressure; no destructive auto-cleanup.",
       "closure_evidence": "Documented quotas/lifetimes and explicit user deletion behavior with recovery tests.",
-      "owner_statement_note": "2026-11-14, owner (quoted in docs/governance/DECISION-LOG.md section 'Backend workstream owner statements'): run an encrypted pg_dump of the alpha database every night; backup retention is decided together with the account-deletion policy. This sets the schedule only; DEC-RETENTION stays open for periods."
+      "owner_statement_note": "2026-11-14, owner (quoted in docs/governance/DECISION-LOG.md section 'Backend workstream owner statements'): run an encrypted pg_dump of the alpha database every night; backup retention is decided together with the account-deletion policy. This sets the schedule only; DEC-RETENTION stays open for periods. 2026-11-21/22: the 30-day deletion-ledger tail for account deletions is decided separately as DEC-DELETION-LEDGER; other periods stay open here."
     },
     {
       "id": "DEC-PREMIUM",
@@ -439,6 +439,76 @@
         "DEC-ACCOUNT-ORIGIN",
         "DEC-ACCOUNT-IDENTITY",
         "DEC-PRIVACY-LEGAL"
+      ]
+    },
+    {
+      "id": "DEC-DELETION-LEDGER",
+      "status": "decided",
+      "milestone": "M6",
+      "blocks": "Covers only the bounded deletion ledger that amends rule 27 and ACCOUNT-008; other retention periods stay under DEC-RETENTION and the legal questions under DEC-PRIVACY-LEGAL.",
+      "owner_role": "product owner",
+      "date": "2026-11-22",
+      "decision_maker": "Product owner. Confirmed in chat on 2026-11-21 (ACCOUNT-DATABASE-DESIGN 14.2, item 1 of 'ยืนยันข้อ 1-5'); asked on 2026-11-22 for ACCOUNT-008 to be brought in line ('แก้ ACCOUNT-008 กับ deletion ledger').",
+      "owner_statements": [
+        "ยืนยันข้อ 1-5",
+        "แก้ ACCOUNT-008 กับ deletion ledger"
+      ],
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-21",
+      "channel": "Owner statements in chat; recorded here through document control by an agent, without legal or security review.",
+      "reason": "Without any record of a deletion, restoring a backup up to 30 days old would bring deleted accounts back into service (CONFLICT C2: rule 27 'no tombstone' against BACKEND-STACK 'backups cannot reintroduce deleted accounts').",
+      "alternatives": [
+        "No ledger and never restore into service (option b of C2): no tombstone, but backups then protect almost nothing; not chosen.",
+        "Keep 'no tombstone' and accept that a restore resurrects deleted accounts; contradicts BACKEND-STACK; not chosen."
+      ],
+      "affected_ids": [
+        "ACCOUNT-008",
+        "PN-010",
+        "DEC-RETENTION",
+        "DEC-PRIVACY-LEGAL"
+      ],
+      "decision": "Deletion keeps exactly one ledger entry per deleted account outside the database being restored: the keyed login-identity hash and the deletion time, nothing else. After a restore and before any broker process reads the database, replay deletes accounts whose login hash matches and whose creation time is earlier than the recorded deletion. An entry is purged 30 days after the deletion, and never while a backup taken before that deletion still exists.",
+      "end_condition": "Stands until a later decision changes the backup rotation or the deletion policy.",
+      "migration_impact": "None for existing data: the broker already implements the ledger (services/kohbor-broker/src/deletion-ledger.mjs). The privacy notice must describe the ledger and the 30-day backup tail (DEC-PRIVACY-LEGAL).",
+      "rollback_cleanup": "Reverting to 'no tombstone' requires a new decision and removing the ledger and its replay step.",
+      "actual_approval_status": "Owner statements in chat on 2026-11-21 and 2026-11-22; no legal or security review.",
+      "approval_status": "Owner statements in chat on 2026-11-21 and 2026-11-22; no legal or security review.",
+      "change_control": {
+        "product_need_ids": [
+          "PN-010"
+        ],
+        "srs_requirement_ids": [
+          "ACCOUNT-008"
+        ],
+        "design_affected": [
+          "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+          "docs/design/ACCOUNT-DATABASE-DESIGN.md"
+        ],
+        "contracts_affected": [
+          "contracts/requirements.json",
+          "contracts/decisions.json"
+        ],
+        "verification_procedures_affected": [
+          "TP-10",
+          "UAT-10"
+        ],
+        "migration_rollback_impact": "No data migration; a revert needs a new decision and removal of the ledger and replay."
+      },
+      "affected": [
+        "contracts/requirements.json",
+        "contracts/decisions.json",
+        "docs/requirements/SRS.md",
+        "docs/requirements/RTM.csv",
+        "acceptance/scenarios.feature",
+        "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+        "docs/design/ACCOUNT-DATABASE-DESIGN.md"
+      ],
+      "safe_interim": "The broker keeps the ledger as specified; DEC-PRIVACY-LEGAL stays open for the notice.",
+      "closure_evidence": "Recorded owner statements; the broker's deletion-ledger tests; a restore rehearsal remains to be run.",
+      "related": [
+        "DEC-RETENTION",
+        "DEC-PRIVACY-LEGAL",
+        "DEC-ACCOUNT-IDENTITY"
       ]
     },
     {
