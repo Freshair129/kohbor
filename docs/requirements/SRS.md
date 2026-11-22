@@ -1919,17 +1919,17 @@ Tokens and tickets carry a Kohbor issuer and a single audience; a token from any
 
 **Product needs:** PN-010 · **Primary design:** CMP-SOCIAL · **Design components:** CMP-SOCIAL
 
-The user can export and delete the account from the app; deletion removes every server record and local cache and keeps no tombstone
+The user can export and delete the account from the app; deletion removes every server record and local cache. The only record kept is one deletion-ledger entry outside the database, holding the keyed login-identity hash and the deletion time, used only to repeat the deletion after a backup restore and purged 30 days after the deletion, never before every backup taken before the deletion has been rotated out
 
-**Failure behavior:** Export or deletion unavailable in the app, or any server record, local cache or tombstone remaining after deletion, fails.
+**Failure behavior:** Export or deletion unavailable in the app, any server record or local cache remaining after deletion, a ledger entry holding anything beyond the keyed login-identity hash and deletion time, a ledger stored inside the restored database, a replay that deletes an account created after the recorded deletion, or an entry kept past 30 days once no earlier backup remains, or purged while one does, fails.
 
-**AC-ACCOUNT-008:** Given a user has an account and can access its controls in the app; when the user exports and then deletes the account; then the account can be exported and deletion removes every server record and local cache without keeping a tombstone.
+**AC-ACCOUNT-008:** Given a user has an account and can access its controls in the app; when the user exports and then deletes the account; then the account can be exported; deletion removes every server record and local cache and writes one ledger entry with only the keyed login-identity hash and deletion time; after a backup restore, replay removes the restored account but not a newer account with the same login hash; the entry is purged after 30 days once no earlier backup remains.
 
 **Verification:** synthetic, native; procedures TP-10, UAT-10; status NOT_RUN.
 
-**Open dependencies:** DEC-ACCOUNT-ORIGIN, DEC-PRIVACY-LEGAL, DEC-RETENTION.
+**Open dependencies:** DEC-DELETION-LEDGER, DEC-ACCOUNT-ORIGIN, DEC-PRIVACY-LEGAL, DEC-RETENTION.
 
-**Elaboration:** [ACCOUNT-IDENTITY-REVIEW.md](../design/ACCOUNT-IDENTITY-REVIEW.md), [DECISION-LOG.md](../governance/DECISION-LOG.md), [SECURITY-PRIVACY.md](../security/SECURITY-PRIVACY.md)
+**Elaboration:** [ACCOUNT-DATABASE-DESIGN.md](../design/ACCOUNT-DATABASE-DESIGN.md), [ACCOUNT-IDENTITY-REVIEW.md](../design/ACCOUNT-IDENTITY-REVIEW.md), [DECISION-LOG.md](../governance/DECISION-LOG.md), [SECURITY-PRIVACY.md](../security/SECURITY-PRIVACY.md)
 
 **Contracts:** [decisions.json](../../contracts/decisions.json)
 

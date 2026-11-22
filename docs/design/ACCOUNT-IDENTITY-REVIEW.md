@@ -80,7 +80,7 @@ Adopt **A+: a new Kohbor account system that copies the G-Maiden pattern, stores
 
 ### 1.7 Deletion and export
 
-27. **Delete account** is in the app, needs a fresh Google sign-in (within 5 minutes), and removes every row in rule 26 for that account, including both directions of friendships and Share list entries and all sessions. No tombstone is kept; a person blocked before deletion is protected by friend-code rotation, not by retained data. Backups are purged within a stated period (value for DEC-RETENTION). Local cache is wiped. Friends see the entry disappear with no reason given.
+27. **Delete account** is in the app, needs a fresh Google sign-in (within 5 minutes), and removes every row in rule 26 for that account, including both directions of friendships and Share list entries and all sessions. No tombstone is kept (amended 2026-11-22 by DEC-DELETION-LEDGER: one bounded deletion-ledger entry outside the database, see ACCOUNT-DATABASE-DESIGN 14.2); a person blocked before deletion is protected by friend-code rotation, not by retained data. Backups are purged within a stated period (value for DEC-RETENTION). Local cache is wiped. Friends see the entry disappear with no reason given.
 28. **Export** returns the user's own profile, friend list, Share list settings and block list as JSON. No other person's private data beyond name and friend code.
 
 ## 2. Option verdicts
