@@ -92,6 +92,11 @@
       "path": "services/kohbor-broker/README.md",
       "type": "guide",
       "role": "reference"
+    },
+    {
+      "path": "supabase/README.md",
+      "type": "guide",
+      "role": "reference"
     }
   ],
   "open_questions": [

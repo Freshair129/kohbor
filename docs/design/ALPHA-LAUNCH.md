@@ -38,10 +38,10 @@ Status: describes what is deployed or being built on 2026-11-22 for the closed a
 | Part | What it is | Where it is defined |
 | --- | --- | --- |
 | Auth | Google provider (Web application OAuth client in the Kohbor Google Cloud project), Email provider disabled. Redirect allow-list: the production site, the project's own Vercel preview pattern, and `http://127.0.0.1:*/callback` for the app. | Supabase dashboard (owner) |
-| `public.alpha_invites` | Invite-code hashes, use count (max 3), revoked flag, optional expiry, last use. RLS on, no grants to `anon` or `authenticated`. | Applied by migration `alpha_invites` through the Supabase MCP; not in the repository |
-| `redeem_alpha_invite`, `refund_alpha_invite` | Atomic use and refund of a code; executable only by `service_role`. | Migration `alpha_invite_functions`; not in the repository |
-| Edge Function `alpha-download` | Checks the code, redeems it, asks the GitHub API for the latest release asset using secret `GITHUB_RELEASES_TOKEN` (fine-grained, Contents read-only, `kohbor-releases` only) and `GITHUB_RELEASES_REPO`, and returns the short-lived link; refunds the use if no asset is available. CORS only for the site and its previews. Never logs the code, token or link. | Deployed through the Supabase MCP; source not yet in the repository |
-| Broker tables (migrations 1-3) and the RLS hardening step | Applied but unused by the alpha. The broker still refuses hosted databases. | `services/kohbor-broker` and Supabase |
+| `public.alpha_invites` | Invite-code hashes, use count (max 3), revoked flag, optional expiry, last use. RLS on, no grants to `anon` or `authenticated`. | Migration `alpha_invites`, applied through the Supabase MCP; source in `supabase/sql/20261122050920_alpha_invites.sql` |
+| `redeem_alpha_invite`, `refund_alpha_invite` | Atomic use and refund of a code; executable only by `service_role`. | Migration `alpha_invite_functions`; source in `supabase/sql/20261122050945_alpha_invite_functions.sql` |
+| Edge Function `alpha-download` | Checks the code, redeems it, asks the GitHub API for the latest release asset using secret `GITHUB_RELEASES_TOKEN` (fine-grained, Contents read-only, `kohbor-releases` only) and `GITHUB_RELEASES_REPO`, and returns the short-lived link; refunds the use if no asset is available. CORS only for the site and its previews. Never logs the code, token or link. | Deployed through the Supabase MCP; source in `supabase/functions/alpha-download/index.ts` |
+| Broker tables (migrations 1-3) and the RLS hardening step | Applied but unused by the alpha. The broker still refuses hosted databases. | `services/kohbor-broker`; the hardening step is `supabase/sql/20261122040048_supabase_close_data_api.sql` |
 
 Secrets live only in Supabase (Edge Function secrets, Google client secret) and GitHub. None is in the repository or in chat.
 
@@ -51,4 +51,4 @@ Secrets live only in Supabase (Edge Function secrets, Google client secret) and 
 2. BACKEND-STACK ("Supabase as Postgres only", broker on the owner's PC) does not describe the alpha: Supabase Auth and an Edge Function are used; no broker runs.
 3. DEC-PRIVACY-LEGAL is open, but personal data of testers is now collected. The privacy wording in the app is marked pending legal review.
 4. **Recorded by DEC-ALPHA-AUTH-DEVIATION:** ACCOUNT-001..010 are now in `contracts/requirements.json`; the alpha deviation from ACCOUNT-002/005/007 is in `contracts/decisions.json`.
-5. The Supabase-only migrations, the Edge Function source and the invite-code tooling are not in the repository.
+5. The Supabase-only migrations and the Edge Function source are now in `supabase/` (copied from live state on 2026-11-22; see its README). The invite-code generator is still not in the repository.
