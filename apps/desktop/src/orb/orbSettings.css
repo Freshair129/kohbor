@@ -15,3 +15,10 @@
 /* The settings screen is a two-row grid; this section sits between the locale card and the guide. */
 .shell-screen.shell-settings:has(> .orb-settings) { grid-template-rows: auto auto minmax(0, 1fr); }
 .orb-settings { max-height: 48vh; overflow: auto; }
+/* Mixer rows: Game fixed first, then up to three chosen rows (owner 2026-11-22: at most four). */
+.orb-settings-slots ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.orb-settings-slots li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; }
+.orb-settings-slots select { min-width: 200px; }
+.orb-settings-slots button { min-width: 32px; }
+.orb-settings-slot-n { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; font-size: 12px;
+  font-variant-numeric: tabular-nums; background: rgb(255 255 255 / 6%); }

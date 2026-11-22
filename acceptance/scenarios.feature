@@ -284,10 +284,10 @@ Feature: Brand-neutral desktop companion target behavior
 
   @UI-011 @extension
   Scenario: AC-UI-011 Orb sound mixer
-    Given a supported match, three session states, and mixer settings including Focus level and optional hotkey
-    When the player adjusts, mutes, focuses, restores, uses a wheel and encounters missing or failed sessions
-    Then each present channel exposes its actual 0 to 100% value and mute, Focus applies the selected level and restores the prior value, the hotkey is inactive unless enabled, wheel steps by 5% only with panel open, failures are honest, and every control has a deck twin
-    And failure behavior is: Never show a missing or unreadable session as controllable. On set failure restore the last read value and state the reason. Preserve Dota focus and critical-alert priority.
+    Given a supported match, present, mixed, missing and unreadable sessions, and mixer settings with zero to three slots (Kohbor, Music and an added multi-session application), Focus level and optional hotkey
+    When the player configures and reorders slots, adjusts, mutes, focuses, restores, uses a wheel and encounters missing or failed sessions
+    Then the panel shows Game first and at most four channels in the configured order and fits at 720p and 1080p without covering a protected region, each present channel exposes its actual 0 to 100% value and mute, a mixed application shows its range and moves all sessions together, a configured application without a session shows the missing state, Focus lowers every non-game application channel to the selected level, never lowers the Kohbor announcer, and restores each prior value, the hotkey is inactive unless enabled, wheel steps by 5% only with panel open, failures are honest, invalid slot settings are refused, and every control has a deck twin
+    And failure behavior is: Never show a missing or unreadable session as controllable, and never show one invented value for an application whose sessions differ. Refuse more than three slots, a duplicate application, Dota as a slot, or a second Kohbor or Music slot; an invalid stored setting falls back to the defaults. On set failure restore the last read value and state the reason. Preserve Dota focus and critical-alert priority.
 
   @UI-010 @extension
   Scenario: AC-UI-010 Display-only hero pick card
@@ -298,10 +298,10 @@ Feature: Brand-neutral desktop companion target behavior
 
   @MEDIA-009 @extension
   Scenario: AC-MEDIA-009 Per-application session volume
-    Given a fake session manager with present, missing and unreadable sessions and persisted original levels
+    Given a fake session manager with present, missing and unreadable sessions, applications with several sessions at equal and differing levels, and persisted original levels
     When the host sets, restores, crashes and restarts, and the default device or session changes
-    Then only eligible Dota and selected music sessions change, originals restore on exit/disable/reset and after crash restart, changed devices/sessions are re-read before use, logs contain only the permitted fields, and no process input, memory or files are accessed; on the owner PC lower Dota and Chrome, kill Kohbor, restart and confirm original levels restore
-    And failure behavior is: Do not change an unreadable, missing or unselected process. On restore failure report it honestly and retain recovery data for the next start.
+    Then only eligible Dota and slot-configured application sessions change, all sessions of an application move together, differing session values are recorded and restored per session, originals restore on exit/disable/reset and after crash restart, changed devices/sessions are re-read before use, logs contain only the permitted fields, and no process input, memory or files are accessed; on the owner PC lower Dota, Chrome and an added application, kill Kohbor, restart and confirm original levels restore
+    And failure behavior is: Do not change an unreadable, missing or unconfigured process, or an application with differing sessions whose originals cannot be recorded per session. On restore failure report it honestly and retain recovery data for the next start.
 
   @STATS-001 @extension
   Scenario: AC-STATS-001 Separate consent for public hero statistics

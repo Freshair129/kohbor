@@ -12,6 +12,7 @@
 
 pub(crate) mod host;
 
+use crate::mixer::{valid_exe, valid_slots, Slot};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
@@ -20,7 +21,7 @@ use std::time::{Duration, Instant};
 pub(crate) const ORB_LABEL: &str = "orb";
 pub(crate) const ORB_URL: &str = "index.html?view=orb";
 pub(crate) const PREFS_FILE: &str = "orb-prefs.json";
-const PREFS_SCHEMA_VERSION: u8 = 1;
+const PREFS_SCHEMA_VERSION: u8 = 2;
 pub(crate) const DWELL_CHOICES_MS: [u16; 3] = [300, 600, 1000];
 pub(crate) const DEFAULT_DWELL_MS: u16 = 1000;
 
@@ -40,13 +41,14 @@ pub(crate) const EDGE_GUARD_PX: i32 = 8;
 // ---------------------------------------------------------------------------------------------------------------
 // Preferences
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct OrbPrefs {
     /// Off by default: DEC-EDGE-ORB keeps the orb unavailable until native acceptance; the owner turns it on.
     pub(crate) enabled: bool,
     pub(crate) dwell_ms: u16,
     pub(crate) focus_percent: u8,
-    pub(crate) music_exe: Option<String>,
+    /// Mixer slots after the fixed Game channel (at most three; owner request 2026-11-22).
+    pub(crate) slots: Vec<Slot>,
     /// UI-011 optional Focus hotkey: off by default. No key assignment exists in this build (see the report).
     pub(crate) focus_hotkey: Option<String>,
 }
@@ -57,10 +59,22 @@ impl Default for OrbPrefs {
             enabled: false,
             dwell_ms: DEFAULT_DWELL_MS,
             focus_percent: crate::mixer::DEFAULT_FOCUS_PERCENT,
-            music_exe: None,
+            slots: crate::mixer::default_slots(),
             focus_hotkey: None,
         }
     }
+}
+
+/// Schema 1 (before slots): the Music app choice only.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct StoredPrefsV1 {
+    #[allow(dead_code)]
+    schema_version: u8,
+    enabled: bool,
+    dwell_ms: u16,
+    focus_percent: u8,
+    music_exe: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -70,7 +84,7 @@ struct StoredPrefs {
     enabled: bool,
     dwell_ms: u16,
     focus_percent: u8,
-    music_exe: Option<String>,
+    slots: Vec<Value>,
 }
 
 pub(crate) struct PrefsStore {
@@ -84,11 +98,34 @@ impl PrefsStore {
         }
     }
 
+    /// Load the prefs. Schema 1 is migrated (its Music choice becomes the Music slot) and written back as schema 2;
+    /// an unreadable or invalid file falls back to the defaults (orb off), as before.
     pub(crate) fn load(&self) -> OrbPrefs {
-        std::fs::read(&self.path)
-            .ok()
-            .and_then(|bytes| parse_prefs(&bytes))
-            .unwrap_or_default()
+        let Ok(bytes) = std::fs::read(&self.path) else {
+            return OrbPrefs::default();
+        };
+        match parse_prefs(&bytes) {
+            Some((prefs, migrated)) => {
+                if migrated {
+                    let saved = self.save(&prefs);
+                    crate::log_info!(
+                        "orb",
+                        "prefs_migrated",
+                        "orb preferences moved to mixer slots",
+                        saved = saved.is_ok()
+                    );
+                }
+                prefs
+            }
+            None => {
+                crate::log_warn!(
+                    "orb",
+                    "prefs_invalid",
+                    "orb preferences invalid; defaults used"
+                );
+                OrbPrefs::default()
+            }
+        }
     }
 
     pub(crate) fn save(&self, prefs: &OrbPrefs) -> Result<(), String> {
@@ -97,43 +134,77 @@ impl PrefsStore {
             enabled: prefs.enabled,
             dwell_ms: prefs.dwell_ms,
             focus_percent: prefs.focus_percent,
-            music_exe: prefs.music_exe.clone(),
+            slots: prefs.slots.iter().map(Slot::to_json).collect(),
         })
         .map_err(|_| "ORB_PREFS_WRITE_FAILED".to_owned())?;
         crate::atomic::write(&self.path, &bytes).map_err(|_| "ORB_PREFS_WRITE_FAILED".to_owned())
     }
 }
 
-fn valid_exe(exe: &str) -> bool {
-    (5..=64).contains(&exe.len())
-        && exe.ends_with(".exe")
-        && exe
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-' | b' '))
+fn valid_common(dwell_ms: u16, focus_percent: u8) -> bool {
+    DWELL_CHOICES_MS.contains(&dwell_ms) && focus_percent <= 100
 }
 
-fn parse_prefs(bytes: &[u8]) -> Option<OrbPrefs> {
-    let stored: StoredPrefs = serde_json::from_slice(bytes).ok()?;
-    if stored.schema_version != PREFS_SCHEMA_VERSION
-        || !DWELL_CHOICES_MS.contains(&stored.dwell_ms)
-        || stored.focus_percent > 100
-        || stored
-            .music_exe
-            .as_deref()
-            .is_some_and(|exe| !valid_exe(exe))
-    {
-        return None;
+/// Parse stored prefs: `(prefs, migrated_from_schema_1)`, or `None` when invalid.
+fn parse_prefs(bytes: &[u8]) -> Option<(OrbPrefs, bool)> {
+    let version = serde_json::from_slice::<Value>(bytes)
+        .ok()?
+        .get("schema_version")?
+        .as_u64()?;
+    match version {
+        1 => {
+            let stored: StoredPrefsV1 = serde_json::from_slice(bytes).ok()?;
+            let music = match stored.music_exe {
+                None => None,
+                Some(exe) => {
+                    let exe = exe.to_ascii_lowercase();
+                    if !valid_exe(&exe) || exe == crate::mixer::GAME_EXE {
+                        return None;
+                    }
+                    Some(exe)
+                }
+            };
+            if !valid_common(stored.dwell_ms, stored.focus_percent) {
+                return None;
+            }
+            let prefs = OrbPrefs {
+                enabled: stored.enabled,
+                dwell_ms: stored.dwell_ms,
+                focus_percent: stored.focus_percent,
+                slots: vec![Slot::Kohbor, Slot::Music(music)],
+                focus_hotkey: None,
+            };
+            Some((prefs, true))
+        }
+        2 => {
+            let stored: StoredPrefs = serde_json::from_slice(bytes).ok()?;
+            let slots = parse_slots(&stored.slots)?;
+            if !valid_common(stored.dwell_ms, stored.focus_percent) {
+                return None;
+            }
+            let prefs = OrbPrefs {
+                enabled: stored.enabled,
+                dwell_ms: stored.dwell_ms,
+                focus_percent: stored.focus_percent,
+                slots,
+                focus_hotkey: None,
+            };
+            Some((prefs, false))
+        }
+        _ => None,
     }
-    Some(OrbPrefs {
-        enabled: stored.enabled,
-        dwell_ms: stored.dwell_ms,
-        focus_percent: stored.focus_percent,
-        music_exe: stored.music_exe.map(|exe| exe.to_ascii_lowercase()),
-        focus_hotkey: None,
-    })
 }
 
-/// Apply a Settings patch: only `enabled`, `dwell_ms` and `focus_percent` (music choice goes through `mixer_set`).
+fn parse_slots(values: &[Value]) -> Option<Vec<Slot>> {
+    let slots = values
+        .iter()
+        .map(Slot::from_json)
+        .collect::<Option<Vec<Slot>>>()?;
+    valid_slots(&slots).then_some(slots)
+}
+
+/// Apply a Settings patch: `enabled`, `dwell_ms`, `focus_percent` and `slots`. The Music app choice goes through
+/// `mixer_set`; a `slots` patch carries the Music slot's saved choice along when it only reorders.
 pub(crate) fn patch_prefs(current: &OrbPrefs, patch: &Value) -> Result<OrbPrefs, String> {
     let object = patch.as_object().ok_or("ORB_PATCH_INVALID")?;
     if object.is_empty() {
@@ -157,6 +228,10 @@ pub(crate) fn patch_prefs(current: &OrbPrefs, patch: &Value) -> Result<OrbPrefs,
                     .filter(|percent| (5..=100).contains(percent))
                     .map(|percent| percent as u8)
                     .ok_or("ORB_PATCH_INVALID")?;
+            }
+            "slots" => {
+                let values = value.as_array().ok_or("ORB_SLOTS_INVALID")?;
+                next.slots = parse_slots(values).ok_or("ORB_SLOTS_INVALID")?;
             }
             _ => return Err("ORB_PATCH_INVALID".to_owned()),
         }
@@ -215,7 +290,15 @@ pub(crate) struct Layout {
 // Owner 2026-11-22: the panel is drawn at 80 % (CSS zoom sp * 0.8) so it covers less of the game.
 pub(crate) const PANEL_BASE_H: f64 = 403.0;
 pub(crate) const PANEL_MAX_H: f64 = 437.0;
-const PANEL_BASE_W: f64 = 176.0;
+/// Tallest panel measured in a synthetic browser preview (four channels with a session note), 1080p, 80 % zoom.
+#[cfg(test)]
+const PANEL_NOTE_H: f64 = 415.0;
+/// Panel widths at 1080p after the 80 % zoom, by channel count (CSS 154 / 154 / 220 / 288 px): one or two channels,
+/// three channels (the approved layout), four channels (owner request 2026-11-22: at most four rows). Columns keep
+/// the three-channel width (about 67 CSS px), so labels stay readable; the panel widens instead.
+#[cfg(test)]
+pub(crate) const PANEL_WIDTHS: [f64; 4] = [123.2, 123.2, 176.0, 230.4];
+const PANEL_MAX_W: f64 = 230.4;
 /// Room kept between the panel and the minimap band for the panel's own shadow.
 const SHADOW_ROOM: f64 = 8.0;
 
@@ -232,7 +315,7 @@ pub(crate) fn layout(monitor_w: f64, monitor_h: f64) -> Option<Layout> {
     let hot_x1 = (r + 10.0 * s).round();
     let half_h = (r + 8.0 * s).round();
     let panel_x = dead + disc + 12.0;
-    let panel_w = (PANEL_BASE_W * sp).round();
+    let panel_w = (PANEL_MAX_W * sp).ceil();
     Some(Layout {
         monitor_w,
         monitor_h,
@@ -267,10 +350,14 @@ fn protected(layout: &Layout) -> Vec<RectF> {
         .collect()
 }
 
-/// Place a panel of `height` (renderer-measured, logical px). Lines the focus button up with the orb when there is
-/// room; never touches a protected region (shadow included). `None` = it does not fit: the panel stays closed.
-pub(crate) fn panel_rect(layout: &Layout, height: f64) -> Option<RectF> {
+/// Place a panel of `width` x `height` (renderer-measured, logical px). Lines the focus button up with the orb when
+/// there is room; never touches a protected region (shadow included). `None` = it does not fit (or is wider than the
+/// four-channel panel): the panel stays closed.
+pub(crate) fn panel_rect(layout: &Layout, width: f64, height: f64) -> Option<RectF> {
     if !height.is_finite() || height <= 0.0 || height > PANEL_MAX_H * layout.sp + 1.0 {
+        return None;
+    }
+    if !width.is_finite() || width <= 0.0 || width > layout.panel_w + 1.0 {
         return None;
     }
     let min_top = (layout.monitor_h * 0.05).ceil() + 4.0;
@@ -280,7 +367,7 @@ pub(crate) fn panel_rect(layout: &Layout, height: f64) -> Option<RectF> {
     let rect = RectF {
         x: layout.panel_x,
         y: top,
-        w: layout.panel_w,
+        w: width,
         h: height,
     };
     let with_shadow = RectF {
@@ -568,7 +655,9 @@ impl Machine {
             return Err("ORB_NOT_UNDER_POINTER");
         }
         match self.phase {
-            Phase::Tucked | Phase::Charging { .. } if self.locked_until.is_some() => Err("ORB_LOCKED"),
+            Phase::Tucked | Phase::Charging { .. } if self.locked_until.is_some() => {
+                Err("ORB_LOCKED")
+            }
             Phase::Tucked | Phase::Charging { .. } | Phase::Out { .. } => {
                 self.phase = Phase::Open { leave_since: None };
                 Ok(true)
@@ -703,9 +792,13 @@ mod tests {
             }
         );
         assert_eq!(layout.out_cx, 34.0);
-        assert_eq!(layout.panel_w, 176.0);
-        let panel = panel_rect(&layout, PANEL_BASE_H).unwrap();
+        assert_eq!(
+            layout.panel_w, 231.0,
+            "the window fits the four-channel panel"
+        );
+        let panel = panel_rect(&layout, PANEL_WIDTHS[2], PANEL_BASE_H).unwrap();
         assert_eq!(panel.x, 72.0);
+        assert_eq!(panel.w, 176.0);
         // Ends above the minimap band with room for the shadow.
         assert!(panel.y + panel.h <= 1080.0 * 0.70 - 8.0);
         assert!(panel.y >= 1080.0 * 0.05);
@@ -721,9 +814,29 @@ mod tests {
             (3840.0, 2160.0),
         ] {
             let layout = layout(w, h).unwrap();
-            let panel = panel_rect(&layout, PANEL_BASE_H * layout.sp).expect("base panel fits");
-            for region in protected(&layout) {
-                assert!(!region.intersects(panel), "{w}x{h}");
+            // Base height, and the tallest measured panel (four channels with a "not found" note, 415 px at 1080p).
+            for (channels, base_h) in (1..=4).flat_map(|n| [(n, PANEL_BASE_H), (n, PANEL_NOTE_H)]) {
+                let width = PANEL_WIDTHS[channels - 1] * layout.sp;
+                let panel = panel_rect(&layout, width, base_h * layout.sp)
+                    .unwrap_or_else(|| panic!("{channels}-channel panel fits at {w}x{h}"));
+                // Shadow room included, and the window (whose right edge is click-through) covers the panel.
+                let with_shadow = RectF {
+                    w: panel.w + SHADOW_ROOM,
+                    h: panel.h + SHADOW_ROOM,
+                    ..panel
+                };
+                for region in protected(&layout) {
+                    assert!(
+                        !region.intersects(with_shadow),
+                        "{channels} channels at {w}x{h}"
+                    );
+                }
+                assert!(
+                    panel.x + panel.w + SHADOW_ROOM <= layout.window_w,
+                    "{w}x{h}"
+                );
+                // The panel never reaches into the outer 8 px of the monitor.
+                assert!(panel.x >= 8.0 && panel.x + panel.w <= w - 8.0);
             }
         }
     }
@@ -732,9 +845,13 @@ mod tests {
     fn a_panel_that_cannot_fit_stays_closed() {
         let layout = layout(1280.0, 720.0).unwrap();
         // Taller than the room above the minimap band (or the cap): refused, never drawn over it.
-        assert!(panel_rect(&layout, PANEL_MAX_H * layout.sp + 2.0).is_none());
-        assert!(panel_rect(&layout, f64::NAN).is_none());
-        assert!(panel_rect(&layout, 2000.0).is_none());
+        let width = PANEL_WIDTHS[3] * layout.sp;
+        assert!(panel_rect(&layout, width, PANEL_MAX_H * layout.sp + 2.0).is_none());
+        assert!(panel_rect(&layout, width, f64::NAN).is_none());
+        assert!(panel_rect(&layout, width, 2000.0).is_none());
+        // Wider than the four-channel panel (a fifth column) is refused.
+        assert!(panel_rect(&layout, layout.panel_w + 30.0, PANEL_BASE_H).is_none());
+        assert!(panel_rect(&layout, f64::NAN, PANEL_BASE_H).is_none());
     }
 
     #[test]
@@ -747,7 +864,7 @@ mod tests {
     #[test]
     fn edges_take_the_pointer_only_in_the_orb_band() {
         let g = geometry(1.0);
-        let panel = panel_rect(&g.layout, PANEL_BASE_H);
+        let panel = panel_rect(&g.layout, PANEL_WIDTHS[2], PANEL_BASE_H);
         // Every edge, every state.
         for revealed in [false, true] {
             // Left edge outside the orb's height band stays free for edge-pan.
@@ -783,7 +900,7 @@ mod tests {
         assert_eq!(zone(at(&g, 61.0, 324.0), &g, true, None), Zone::Outside);
         assert_eq!(zone(at(&g, 34.0, 289.0), &g, true, None), Zone::Outside);
         // The panel counts only while a rect is open.
-        let panel = panel_rect(&g.layout, PANEL_BASE_H).unwrap();
+        let panel = panel_rect(&g.layout, PANEL_WIDTHS[2], PANEL_BASE_H).unwrap();
         let inside = at(&g, panel.x + 10.0, panel.y + 10.0);
         assert_eq!(zone(inside, &g, true, Some(panel)), Zone::Panel);
         assert_eq!(zone(inside, &g, true, None), Zone::Outside);
@@ -869,7 +986,11 @@ mod tests {
         let (mut machine, now) = revealed_machine();
         assert_eq!(machine.click_disc(), Ok(true));
         assert!(machine.panel_open());
-        machine.panel = panel_rect(&layout(1920.0, 1080.0).unwrap(), PANEL_BASE_H);
+        machine.panel = panel_rect(
+            &layout(1920.0, 1080.0).unwrap(),
+            PANEL_WIDTHS[2],
+            PANEL_BASE_H,
+        );
         machine.tick(now, Ok(()), Zone::Panel);
         assert!(machine.wants_input());
         let now = run(&mut machine, now, 1400, Zone::Outside);
@@ -887,7 +1008,10 @@ mod tests {
         machine.tick(t0, Ok(()), Zone::Outside);
         assert!(!machine.wants_input(), "click-through away from the target");
         machine.tick(t0, Ok(()), Zone::Hot);
-        assert!(!machine.wants_input(), "the edge strip never takes the pointer");
+        assert!(
+            !machine.wants_input(),
+            "the edge strip never takes the pointer"
+        );
         machine.tick(t0, Ok(()), Zone::Disc);
         assert!(machine.wants_input(), "the tucked target takes the click");
         assert_eq!(machine.click_disc(), Ok(true));
@@ -1012,12 +1136,83 @@ mod tests {
         assert_eq!(OrbPrefs::default().dwell_ms, 1000);
         assert_eq!(OrbPrefs::default().focus_percent, 20);
         assert!(OrbPrefs::default().focus_hotkey.is_none());
-        let good = br#"{"schema_version":1,"enabled":true,"dwell_ms":600,"focus_percent":25,"music_exe":"Spotify.exe"}"#;
-        let parsed = parse_prefs(good).unwrap();
-        assert_eq!(parsed.music_exe.as_deref(), Some("spotify.exe"));
+        assert_eq!(
+            OrbPrefs::default().slots,
+            vec![Slot::Kohbor, Slot::Music(None)]
+        );
+        let good = br#"{"schema_version":2,"enabled":true,"dwell_ms":600,"focus_percent":25,"slots":[{"kind":"app","exe":"Discord.exe"},{"kind":"kohbor"},{"kind":"music","exe":null}]}"#;
+        let (parsed, migrated) = parse_prefs(good).unwrap();
+        assert!(!migrated);
+        assert_eq!(
+            parsed.slots,
+            vec![
+                Slot::App("discord.exe".into()),
+                Slot::Kohbor,
+                Slot::Music(None)
+            ]
+        );
+        let v2 = |slots: &str| {
+            format!(
+                r#"{{"schema_version":2,"enabled":true,"dwell_ms":600,"focus_percent":25,"slots":{slots}}}"#
+            )
+        };
+        assert!(
+            parse_prefs(v2("[]").as_bytes()).is_some(),
+            "Game alone is allowed"
+        );
+        for bad in [
+            r#"[{"kind":"kohbor"},{"kind":"kohbor"}]"#,
+            r#"[{"kind":"app","exe":"a.exe"},{"kind":"app","exe":"b.exe"},{"kind":"app","exe":"c.exe"},{"kind":"kohbor"}]"#,
+            r#"[{"kind":"app","exe":"dota2.exe"}]"#,
+            r#"[{"kind":"app","exe":"a.exe"},{"kind":"music","exe":"a.exe"}]"#,
+            r#"[{"kind":"game"}]"#,
+            r#"[{"kind":"app"}]"#,
+            r#"{"kind":"kohbor"}"#,
+        ] {
+            assert!(parse_prefs(v2(bad).as_bytes()).is_none(), "{bad}");
+        }
+        assert!(parse_prefs(br#"{"schema_version":2,"enabled":true,"dwell_ms":600,"focus_percent":25,"slots":[],"music_exe":null}"#).is_none());
+        assert!(parse_prefs(
+            br#"{"schema_version":3,"enabled":true,"dwell_ms":600,"focus_percent":25,"slots":[]}"#
+        )
+        .is_none());
+        assert!(parse_prefs(b"not json").is_none());
+    }
+
+    #[test]
+    fn schema_1_prefs_migrate_to_slots_and_invalid_ones_are_refused() {
+        let v1 = br#"{"schema_version":1,"enabled":true,"dwell_ms":600,"focus_percent":25,"music_exe":"Spotify.exe"}"#;
+        let (parsed, migrated) = parse_prefs(v1).unwrap();
+        assert!(migrated);
+        assert!(parsed.enabled && parsed.dwell_ms == 600 && parsed.focus_percent == 25);
+        assert_eq!(
+            parsed.slots,
+            vec![Slot::Kohbor, Slot::Music(Some("spotify.exe".into()))]
+        );
+        let (auto, _) = parse_prefs(br#"{"schema_version":1,"enabled":false,"dwell_ms":1000,"focus_percent":20,"music_exe":null}"#).unwrap();
+        assert_eq!(auto.slots, OrbPrefs::default().slots);
         assert!(parse_prefs(br#"{"schema_version":1,"enabled":true,"dwell_ms":700,"focus_percent":25,"music_exe":null}"#).is_none());
         assert!(parse_prefs(br#"{"schema_version":1,"enabled":true,"dwell_ms":600,"focus_percent":25,"music_exe":"..\\x.exe"}"#).is_none());
+        assert!(parse_prefs(br#"{"schema_version":1,"enabled":true,"dwell_ms":600,"focus_percent":25,"music_exe":"dota2.exe"}"#).is_none());
         assert!(parse_prefs(br#"{"schema_version":1,"enabled":true,"dwell_ms":600,"focus_percent":25,"music_exe":null,"x":1}"#).is_none());
+        // The store writes the migrated file back as schema 2.
+        let dir = std::env::temp_dir().join(format!("kohbor-orb-migrate-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join(PREFS_FILE), v1).unwrap();
+        let store = PrefsStore::in_data_dir(&dir);
+        assert_eq!(store.load(), parsed);
+        let written: Value =
+            serde_json::from_slice(&std::fs::read(dir.join(PREFS_FILE)).unwrap()).unwrap();
+        assert_eq!(written["schema_version"], 2);
+        assert_eq!(
+            written["slots"],
+            json!([{"kind": "kohbor"}, {"kind": "music", "exe": "spotify.exe"}])
+        );
+        assert!(written.get("music_exe").is_none());
+        // An invalid file falls back to the defaults (orb off).
+        std::fs::write(dir.join(PREFS_FILE), br#"{"schema_version":2,"slots":"x"}"#).unwrap();
+        assert_eq!(store.load(), OrbPrefs::default());
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]
@@ -1033,6 +1228,22 @@ mod tests {
         assert!(patch_prefs(&base, &json!({"focus_percent": 0})).is_err());
         assert!(patch_prefs(&base, &json!({"music_exe": "x.exe"})).is_err());
         assert!(patch_prefs(&base, &json!({})).is_err());
+        let slots = patch_prefs(
+            &base,
+            &json!({"slots": [{"kind": "music", "exe": "spotify.exe"}, {"kind": "app", "exe": "discord.exe"}, {"kind": "kohbor"}]}),
+        )
+        .unwrap();
+        assert_eq!(slots.slots.len(), 3);
+        assert_eq!(slots.slots[1], Slot::App("discord.exe".into()));
+        assert_eq!(
+            patch_prefs(
+                &base,
+                &json!({"slots": [{"kind": "kohbor"}, {"kind": "kohbor"}]})
+            )
+            .unwrap_err(),
+            "ORB_SLOTS_INVALID"
+        );
+        assert!(patch_prefs(&base, &json!({"slots": [{"kind": "app", "exe": "a.exe"}, {"kind": "app", "exe": "b.exe"}, {"kind": "app", "exe": "c.exe"}, {"kind": "app", "exe": "d.exe"}]})).is_err());
     }
 
     #[test]
@@ -1045,7 +1256,10 @@ mod tests {
             enabled: true,
             dwell_ms: 600,
             focus_percent: 15,
-            music_exe: Some("spotify.exe".into()),
+            slots: vec![
+                Slot::App("discord.exe".into()),
+                Slot::Music(Some("spotify.exe".into())),
+            ],
             focus_hotkey: None,
         };
         store.save(&prefs).unwrap();
