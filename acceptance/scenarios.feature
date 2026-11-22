@@ -305,10 +305,10 @@ Feature: Brand-neutral desktop companion target behavior
 
   @UI-016 @mvp
   Scenario: AC-UI-016 Second-monitor Live layout
-    Given Live boxes for 1920×1080 and 2560×1440 monitors with monitor 2 on each side, a narrowing window and a window below 1100×700
-    When the player sets the side, resizes the window, opens the own-hero expander and enters or leaves a match
-    Then the map is pinned to the inner edge at the size the box allows, the quick strip matches its width, outer columns collapse before the map shrinks, the page falls back below the threshold with a note, rails move outward and the friends rail folds only during a match, and every control is keyboard-reachable, and no status chip or control text overlaps another at the tested widths
-    And failure behavior is: Without a stored or valid side, or when the window is too small, show the centred deck. Never move or resize the map because of panel content, feed changes or the expander. Status chips and controls in the outer columns wrap to a new line instead of shrinking under their text; no label may paint over another (owner report on build 8d9f8c3, 2026-11-23).
+    Given windows of 1920×1080 and 2560×1440 on each side, 960×1080 half width, 1080×1920 portrait, 1280×720, 1366×768, 1100×700, the 688×680 minimum and a smaller window
+    When the player sets the side, resizes the window, opens the own-hero details and enters or leaves a match
+    Then the map is pinned to the inner edge with the quick strip under it; every region lies inside the box without overlap; our five cards are complete at or above their floor; nothing scrolls and nothing is cut; the own-hero popover does not move any region; below the minimum a window-too-small state appears; rails move outward and the friends rail folds only during a match; and every control is keyboard-reachable
+    And failure behavior is: Without a stored or valid side, or when the window is too small, show the centred deck. Never move or resize the map because of panel content, feed changes or the expander. Status chips and controls in the outer columns wrap to a new line instead of shrinking under their text; no label may paint over another (owner report on build 8d9f8c3, 2026-11-23). A stale or unavailable capture keeps its stale or waiting presentation; an old frame is never shown as live.
 
   @UI-017 @mvp
   Scenario: AC-UI-017 Second-monitor content from admitted sources

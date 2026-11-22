@@ -106,8 +106,12 @@ A per-device setting says where monitor 2 sits: off (default), left of the main 
 
 - The minimap is a square pinned flush to the edge that touches the main monitor: the left edge when monitor 2 is to the right, the right edge when it is to the left.
 - A quick strip of the same width sits directly under the map: danger level, enemies missing from the map (derived), five enemy rows, and the next map objective.
-- Outer columns grow away from the map: our team's hero cards (own hero first) and the announcer status, then the enemy team's hero cards and the event feed. When the box narrows, the two columns merge into one before the map shrinks. Text never shrinks; columns scroll inside.
-- Below about 1100×700 the page falls back to the centred deck with a note.
+- Responsive, no scrolling (owner feedback 2026-11-23; geometry in `apps/desktop/src/live/secondMonitorLayout.ts`):
+  - Wide (width/height ≥ 1.25): status line, then our five cards, the five enemy cards and the free slot in columns beside the map; the slot appears only when it does not shrink the map.
+  - Stacked (portrait or half width): enemy row of five above, the map with the free slot on its outer side, our row of five below.
+  - Priority when space runs out: our five cards, the map (360 px floor), enemy cards, free slot. Below 688×680 a window-too-small message replaces the layout.
+  - Compact cards (portrait, name, HP, mana, four skill squares) ordered by slot ID; floors 232×88 (columns) and 132×150 (rows); team-level source labels sit in each team heading; the own hero's details open in a popover.
+  - The free slot shows the event log (and announcer status) today and is reserved for a later AI voice ring or agent chat. When the box narrows, the two columns merge into one before the map shrinks. Text never shrinks; columns scroll inside.
 - The navigation rail moves to the outer edge; the friends rail collapses while a match runs. This exception to the two-rail shell applies to this mode only.
 - The side selector (plain buttons with `aria-pressed`) and the own-hero expander (`details`/`summary`) are keyboard-reachable.
 
@@ -125,6 +129,7 @@ Content rules:
 - Rune countdowns (UI-018): each rune spot on the pinned minimap carries an original marker and a label, minutes while far (“3m”, “2m”, “1m”), then seconds from the largest lead time set in the objective Settings (last minute when none is set). Timing comes only from the ALERT-008 scheduler through a host schedule read-model; no label for Roshan or Tormentor respawn; labels never take clicks; spot positions are approximate.
 - Draft board (UI-019): during the draft the map square shows one row per team, five slots each: portrait and hero name (Draft Bar 5b), player name (Draft 5c, only with the visible setting on, memory-only), and the hero's historical win rate. Our side adds the estimated position (“ค่าประมาณ”); the enemy side adds a guessed lane (“เดา”). Never a win chance. After the draft the minimap returns.
 - Status chips (Steam, Dota 2, GSI) and the start button wrap to a new line instead of overlapping.
+- Map image (owner decision 2026-11-23): the map square shows the real captured minimap frame, smoothly scaled, so the game's own hero icons appear as they are. Kohbor never identifies heroes on the map and draws no motion arrows; its overlays (rune countdowns) sit on top. Stale capture stays dimmed with its age; no frame shows the waiting state.
 
 ## 5. Selection and inspector behavior
 
