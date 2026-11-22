@@ -58,8 +58,8 @@
     },
     {
       "path": "acceptance/scenarios.feature",
-      "bytes": 40807,
-      "sha256": "e42ab1410c44df8577f0d04784d9d8e0196afdd71d316f0036f106aa7a8d370b"
+      "bytes": 42369,
+      "sha256": "00e32551a6ecab76ec64e1a97d6c133571e1bf1f949c8a49d9473176eea4cea7"
     },
     {
       "path": "acceptance/spec-validation.json",
@@ -2008,8 +2008,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 82017,
-      "sha256": "47af97293a231c4eedf9399e4ff9c8f13c17ec6c1a59368fc0a3e6559711a8cf"
+      "bytes": 86242,
+      "sha256": "4684d9940c79a1572f046982ccfc81e15a6b10197da2e01327686fb7d91ddabe"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -2088,13 +2088,13 @@
     },
     {
       "path": "contracts/product-needs.json",
-      "bytes": 8534,
-      "sha256": "daae01306bb2835a9f5ce9269ec3216d2676781bb9e6259b30a0931de001da3c"
+      "bytes": 8552,
+      "sha256": "9d7d0dea1efbeffef3aa484f82fa1dd22b534b2a03cb20caa102940a356f1dda"
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 220223,
-      "sha256": "30dfa921af3f8ab8684aca3a0ee6a39491314bd9198458f3b4d5183888cd7db2"
+      "bytes": 224655,
+      "sha256": "a9858636a0a848455770236d71f5b4782cd7846191ab21bb8acdfe770e9fd4b4"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -3008,8 +3008,8 @@
     },
     {
       "path": "docs/design/SDD.md",
-      "bytes": 32492,
-      "sha256": "df2afcf87714e725902ce55746faf7a45cd65ac7020847ed90cc9f128cf1b59d"
+      "bytes": 32502,
+      "sha256": "77738f62ea8cf4683c2042f8f4f10aff12eb1f111f76d1e4f95a9edda8b1f921"
     },
     {
       "path": "docs/design/SHARING-MODEL-REVIEW.md",
@@ -3463,8 +3463,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 50205,
-      "sha256": "9835e6b7cf96275815936eeb4e29706b17eac0d21ca32eb66d72d010970c0cdb"
+      "bytes": 51915,
+      "sha256": "7e81eeba5dc8f25724f495714efb2b1fe6da41bd58188296bbcf0423521f0f39"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
@@ -3518,8 +3518,8 @@
     },
     {
       "path": "docs/product/PRD.md",
-      "bytes": 15846,
-      "sha256": "831920785834ddb3be73de43b3ca15578015962a38a027b8be23b8fc455eb4d4"
+      "bytes": 15968,
+      "sha256": "16add064dbaa9c06b7705f8a69d421e473ba8b2b093df32fc13d1c99a96ae7f9"
     },
     {
       "path": "docs/product/USE-CASES.md",
@@ -3543,13 +3543,13 @@
     },
     {
       "path": "docs/requirements/RTM.csv",
-      "bytes": 48319,
-      "sha256": "81cb8c191db4a8aef984cc405d0a9a68c000c784b08c76be785622a1ddce889a"
+      "bytes": 48641,
+      "sha256": "a07a62c31a021e7a99719c206f861ac68b937d500f5aeaa63c2bd4886620cf1c"
     },
     {
       "path": "docs/requirements/SRS.md",
-      "bytes": 143688,
-      "sha256": "890de8dcf5bc2d1c12b828730726946365ad056e8ce9dcc8f492eda9549a456d"
+      "bytes": 147260,
+      "sha256": "fb34b1194cda08b8348c13d5170ff53d974a39826e1626b6b586103d6cfc605f"
     },
     {
       "path": "docs/security/SECURITY-PRIVACY.md",
