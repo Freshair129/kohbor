@@ -120,6 +120,9 @@ struct RequestTicket {
     consent_generation: u64,
     request: OutgoingRequest,
     purpose: RequestPurpose,
+    /// Ledger timestamp written at dispatch for a table request. Removed again if the request
+    /// never reached the network (STATS-002, owner decision 2026-11-22).
+    ledger_at_ms: Option<u64>,
 }
 
 /// Fixed, public request kind for logs. The own hero ID and the URL query never reach the log.
@@ -140,7 +143,8 @@ fn log_fetch_failed(request: OutgoingRequest, class: &'static str, status: Optio
         "draft statistics request failed",
         kind = request_kind(request),
         class = class,
-        http_status = status
+        http_status = status,
+        counted = !matches!(class, "setup" | "cancelled_before_send")
     );
 }
 
@@ -512,7 +516,7 @@ impl Core {
         } else {
             None
         };
-        let (request, purpose) = if let Some(request) = pending_table {
+        let (request, purpose, ledger_at_ms) = if let Some(request) = pending_table {
             if let Err(wait) = self.ledger.can_send_table(now_ms) {
                 crate::log_info!(
                     "draft",
@@ -542,7 +546,7 @@ impl Core {
                 self.refresh_pending = false;
                 return None;
             }
-            (request, RequestPurpose::PublicTable)
+            (request, RequestPurpose::PublicTable, Some(now_ms))
         } else {
             if self.refresh_pending && self.cache.public_tables_fresh(now_ms) {
                 self.refresh_pending = false;
@@ -584,6 +588,7 @@ impl Core {
                     hero_id,
                     pick_generation: self.pick_generation,
                 },
+                None,
             )
         };
         self.ticket_sequence = self.ticket_sequence.saturating_add(1);
@@ -592,6 +597,7 @@ impl Core {
             consent_generation: self.consent_generation,
             request,
             purpose,
+            ledger_at_ms,
         };
         crate::log_info!(
             "draft",
@@ -616,6 +622,21 @@ impl Core {
         if self.active.is_some_and(|active| active.id == ticket.id) {
             self.active = None;
             self.active_cancel = None;
+        }
+        // A request that failed before any connect or send does not count (STATS-002, owner
+        // decision 2026-11-22): remove the entry written at dispatch. The cap is unchanged.
+        if let (Err(error), Some(at_ms)) = (&result, ticket.ledger_at_ms) {
+            if !error.reached_network() && self.ledger.unrecord_table(at_ms) {
+                let saved = self.store.save_ledger(&self.ledger).is_ok();
+                crate::log_info!(
+                    "draft",
+                    "fetch_not_counted",
+                    "draft statistics request did not reach the network and was not counted",
+                    kind = request_kind(ticket.request),
+                    ledger_saved = saved,
+                    table_requests_24h = self.ledger.table_count_24h(now_ms)
+                );
+            }
         }
         // Consent and pick generations fence late network results. They do not reach memory,
         // disk or the view after revocation or a new own-hero selection.
@@ -651,6 +672,16 @@ impl Core {
                 log_fetch_failed(ticket.request, "timeout", None);
                 self.latch_failed_ticket(ticket);
                 self.set_failure(Failure::Timeout, now_ms, None, None)
+            }
+            Err(TransportError::NotSent) => {
+                log_fetch_failed(ticket.request, "setup", None);
+                self.latch_failed_ticket(ticket);
+                self.set_failure(Failure::Network, now_ms, None, None);
+            }
+            Err(TransportError::CancelledBeforeSend) => {
+                log_fetch_failed(ticket.request, "cancelled_before_send", None);
+                self.latch_failed_ticket(ticket);
+                self.set_failure(Failure::Network, now_ms, None, None);
             }
             Err(TransportError::Network) => {
                 // The transport logs the WinHTTP stage and code as `fetch_transport_error`.
@@ -1647,6 +1678,7 @@ mod tests {
             consent_generation: core.consent_generation,
             request: OutgoingRequest::HeroStats,
             purpose: RequestPurpose::PublicTable,
+            ledger_at_ms: None,
         };
         core.active = Some(ticket);
         core.active_cancel = Some(Cancellation::default());
@@ -1975,6 +2007,7 @@ mod tests {
             consent_generation: core.consent_generation,
             request,
             purpose: RequestPurpose::PublicTable,
+            ledger_at_ms: None,
         };
         core.active = Some(ticket);
         core.finish(
@@ -2005,6 +2038,7 @@ mod tests {
             consent_generation: core.consent_generation,
             request: OutgoingRequest::HeroStats,
             purpose: RequestPurpose::PublicTable,
+            ledger_at_ms: None,
         };
         let status = super::RequestTicket {
             id: 2,
@@ -2062,6 +2096,72 @@ mod tests {
         let (retried, _) = core.next_request(10_030_001).unwrap();
         assert_eq!(retried.request, OutgoingRequest::HeroStats);
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// STATS-002 (owner decision 2026-11-22): a table request counts once a connect or send was
+    /// attempted, success or failure; a failure before any network I/O does not count.
+    #[test]
+    fn only_requests_that_reached_the_network_count_toward_the_table_budget() {
+        let cases: [(&str, Result<HttpResponse, TransportError>, usize); 6] = [
+            ("setup failure before I/O", Err(TransportError::NotSent), 0),
+            (
+                "cancelled before send",
+                Err(TransportError::CancelledBeforeSend),
+                0,
+            ),
+            ("connect failure", Err(TransportError::Network), 1),
+            ("timeout", Err(TransportError::Timeout), 1),
+            (
+                "HTTP error",
+                Ok(HttpResponse {
+                    status: 503,
+                    retry_after: None,
+                    body: Vec::new(),
+                }),
+                1,
+            ),
+            ("oversize body", Err(TransportError::TooLarge), 1),
+        ];
+        for (index, (name, result, expected)) in cases.into_iter().enumerate() {
+            let dir = std::env::temp_dir().join(format!(
+                "kohbor-draft-budget-{}-{index}",
+                std::process::id()
+            ));
+            let _ = std::fs::remove_dir_all(&dir);
+            std::fs::create_dir_all(&dir).unwrap();
+            let now = 30_000_000;
+            let mut core = core(&dir, now);
+            core.prefs.hero_stats_consent = true;
+            core.refresh_pending = true;
+            let (ticket, _) = core.next_request(now).unwrap();
+            assert_eq!(ticket.request, OutgoingRequest::HeroStats);
+            assert_eq!(ticket.ledger_at_ms, Some(now));
+            assert_eq!(
+                core.ledger.table_count_24h(now),
+                1,
+                "{name}: counted at dispatch"
+            );
+            let logs = crate::logging::collect_test_logs(|| core.finish(ticket, result, now + 1));
+            assert_eq!(core.ledger.table_count_24h(now + 1), expected, "{name}");
+            // The saved ledger agrees, so a restart keeps the same count.
+            let reloaded = crate::hero_stats::budget::LedgerStore::in_data_dir(&dir).load(now + 2);
+            assert_eq!(
+                reloaded.table_count_24h(now + 2),
+                expected,
+                "{name}: persisted"
+            );
+            let failed = logs
+                .iter()
+                .find(|entry| entry.event == "fetch_failed")
+                .unwrap_or_else(|| panic!("{name}: fetch_failed logged"));
+            assert_eq!(failed.fields["counted"], expected == 1, "{name}");
+            assert_eq!(
+                logs.iter().any(|entry| entry.event == "fetch_not_counted"),
+                expected == 0,
+                "{name}"
+            );
+            let _ = std::fs::remove_dir_all(dir);
+        }
     }
 
     #[test]
