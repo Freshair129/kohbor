@@ -370,6 +370,78 @@
       ]
     },
     {
+      "id": "DEC-ALPHA-AUTH-DEVIATION",
+      "status": "decided",
+      "milestone": "M6",
+      "blocks": "This record covers only the alpha deviation; it does not close DEC-PRIVACY-LEGAL or decide production hosting.",
+      "owner_role": "product owner",
+      "date": "2026-11-22",
+      "decision_maker": "Product owner; owner statement in the lead session on 2026-11-22.",
+      "owner_statements": [
+        "Add ACCOUNT-001..010",
+        "Keep text, log deviation"
+      ],
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-22",
+      "channel": "Owner statement in the lead session; recorded here without legal or security review.",
+      "reason": "The owner directed that ACCOUNT-001..010 be added using the review text and that the live alpha be recorded as a time-limited exception. The alpha uses Supabase Auth, which stores email, name and picture and issues sessions and tokens, so its behavior differs from ACCOUNT-002, ACCOUNT-005 and ACCOUNT-007.",
+      "alternatives": [
+        "Reword ACCOUNT-002, ACCOUNT-005 and ACCOUNT-007 to match the alpha behavior; rejected by the owner."
+      ],
+      "affected_ids": [
+        "ACCOUNT-002",
+        "ACCOUNT-005",
+        "ACCOUNT-007",
+        "PN-010",
+        "DEC-PRIVACY-LEGAL"
+      ],
+      "decision": "Keep the ACCOUNT-002, ACCOUNT-005 and ACCOUNT-007 text as written. For the live alpha, Supabase Auth stores email, name and picture and issues sessions and tokens.",
+      "end_condition": "The deviation ends when sign-in moves to the Kohbor broker.",
+      "migration_impact": "At the switch, the Supabase Auth user records for alpha testers must be deleted. This record does not specify other migration steps.",
+      "rollback_cleanup": "Delete the alpha testers' Supabase Auth user records after sign-in moves to the Kohbor broker.",
+      "actual_approval_status": "Owner statement in session on 2026-11-22; no legal or security review.",
+      "approval_status": "Owner statement in session on 2026-11-22; no legal or security review.",
+      "change_control": {
+        "product_need_ids": [
+          "PN-010"
+        ],
+        "srs_requirement_ids": [
+          "ACCOUNT-002",
+          "ACCOUNT-005",
+          "ACCOUNT-007"
+        ],
+        "design_affected": [
+          "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+          "docs/design/ALPHA-LAUNCH.md"
+        ],
+        "contracts_affected": [
+          "contracts/requirements.json",
+          "contracts/decisions.json"
+        ],
+        "verification_procedures_affected": [
+          "TP-10",
+          "UAT-10"
+        ],
+        "migration_rollback_impact": "The alpha identity provider changes when sign-in moves to the Kohbor broker; delete the alpha testers' Supabase Auth user records after the switch."
+      },
+      "affected": [
+        "contracts/requirements.json",
+        "contracts/decisions.json",
+        "docs/requirements/SRS.md",
+        "docs/requirements/RTM.csv",
+        "acceptance/scenarios.feature",
+        "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+        "docs/design/ALPHA-LAUNCH.md"
+      ],
+      "safe_interim": "The live alpha uses Supabase Auth as described in this deviation. No legal or security review is implied; DEC-PRIVACY-LEGAL remains open.",
+      "closure_evidence": "Sign-in has moved to the Kohbor broker and the Supabase Auth user records for alpha testers have been deleted.",
+      "related": [
+        "DEC-ACCOUNT-ORIGIN",
+        "DEC-ACCOUNT-IDENTITY",
+        "DEC-PRIVACY-LEGAL"
+      ]
+    },
+    {
       "id": "DEC-PRIVACY-LEGAL",
       "status": "open",
       "milestone": "M6",

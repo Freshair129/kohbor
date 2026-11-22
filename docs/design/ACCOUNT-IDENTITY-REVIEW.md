@@ -155,6 +155,8 @@ No requirement id beginning ACCOUNT exists today (FROM-REPO SRS; only CORE-001's
 | **ACCOUNT-009** | No platform identity is bound to an account unless DEC-STEAM-BINDING is decided; when bound it is proven by provider verification plus a local match and is never a login, recovery credential, search key or displayed value |
 | **ACCOUNT-010** | No account, identifier, key, secret or endpoint is shared with or imported from another product; a cross-product link requires its own decision and consent |
 
+**Applied 2026-11-22:** ACCOUNT-001..010 were added to the requirements baseline. The other section 4.1 changes remain queued: the CORE-001/CORE-003/ALERT-001 note, SOCIAL-001, PEER-007, PEER-009, the product-identity.json labels and the SECURITY-PRIVACY items. The alpha deviation for ACCOUNT-002/005/007 is recorded as DEC-ALPHA-AUTH-DEVIATION; this is not a legal or security review.
+
 Also: add `account_token_domain`, `relay_ticket_domain` and `friend_code_prefix` to contracts/product-identity.json (new frozen labels under DEC-NAME's delegation); close the "secure local credential storage" and "account-cache expiry" items in SECURITY-PRIVACY with rules 12 to 14.
 
 ### 4.2 Decision entries

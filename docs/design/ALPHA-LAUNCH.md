@@ -47,8 +47,8 @@ Secrets live only in Supabase (Edge Function secrets, Google client secret) and 
 
 ## 6. Conflicts to resolve through document control
 
-1. ACCOUNT-IDENTITY-REVIEW rules 2, 8 and 10 (openid only, no email, keyed hash of the subject) do not hold for the alpha: Supabase Auth stores the email, name and picture.
+1. **Recorded by DEC-ALPHA-AUTH-DEVIATION (2026-11-22):** the alpha uses Supabase Auth, which stores the email, name and picture and issues its sessions and tokens. This is a time-limited deviation from ACCOUNT-002/005/007 and does not close DEC-PRIVACY-LEGAL or constitute legal or security review.
 2. BACKEND-STACK ("Supabase as Postgres only", broker on the owner's PC) does not describe the alpha: Supabase Auth and an Edge Function are used; no broker runs.
 3. DEC-PRIVACY-LEGAL is open, but personal data of testers is now collected. The privacy wording in the app is marked pending legal review.
-4. `contracts/decisions.json` and `contracts/requirements.json` do not yet record these decisions.
+4. **Recorded by DEC-ALPHA-AUTH-DEVIATION:** ACCOUNT-001..010 are now in `contracts/requirements.json`; the alpha deviation from ACCOUNT-002/005/007 is in `contracts/decisions.json`.
 5. The Supabase-only migrations, the Edge Function source and the invite-code tooling are not in the repository.

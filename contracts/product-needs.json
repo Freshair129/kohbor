@@ -13,7 +13,9 @@
         "CORE-001",
         "CORE-003",
         "CORE-004",
-        "CORE-005"
+        "CORE-005",
+        "ACCOUNT-005",
+        "ACCOUNT-006"
       ]
     },
     {
@@ -162,7 +164,17 @@
       "requirement_ids": [
         "SOCIAL-001",
         "SOCIAL-002",
-        "SOCIAL-003"
+        "SOCIAL-003",
+        "ACCOUNT-001",
+        "ACCOUNT-002",
+        "ACCOUNT-003",
+        "ACCOUNT-004",
+        "ACCOUNT-005",
+        "ACCOUNT-006",
+        "ACCOUNT-007",
+        "ACCOUNT-008",
+        "ACCOUNT-009",
+        "ACCOUNT-010"
       ]
     },
     {

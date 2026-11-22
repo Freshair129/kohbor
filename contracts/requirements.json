@@ -4880,6 +4880,648 @@
       "diagram_refs": []
     },
     {
+      "id": "ACCOUNT-001",
+      "title": "External-provider sign-in",
+      "module": "account",
+      "scope": "extension",
+      "priority": "extension",
+      "target_milestone": "M6",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Sign-in uses one external identity provider through the system browser with loopback redirect and PKCE; no embedded webview; no credentials are entered in Kohbor",
+      "failure_behavior": "A flow using multiple providers, an embedded webview, or Kohbor-entered credentials fails.",
+      "acceptance": {
+        "scenario_id": "AC-ACCOUNT-001",
+        "given": "a user starts sign-in with the configured external identity provider",
+        "when": "the provider hand-off returns through the loopback redirect",
+        "then": "the flow uses the system browser and PKCE, uses one provider, opens no embedded webview, and collects no credentials in Kohbor"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [
+          "crates/kohbor-account/src/lib.rs",
+          "crates/kohbor-account/tests/loopback_sign_in/mod.rs",
+          "apps/desktop/src-tauri/src/account_host.rs"
+        ],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-10",
+          "UAT-10"
+        ]
+      },
+      "contract_refs": [
+        "contracts/decisions.json"
+      ],
+      "spec_refs": [
+        "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+        "docs/governance/DECISION-LOG.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "open_decisions": [
+        "DEC-ACCOUNT-ORIGIN"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-010"
+      ],
+      "design_component_ids": [
+        "CMP-SOCIAL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "primary_design_component_id": "CMP-SOCIAL",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "ACCOUNT-002",
+      "title": "Minimal provider identity storage",
+      "module": "account",
+      "scope": "extension",
+      "priority": "extension",
+      "target_milestone": "M6",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "The service stores a keyed hash of the provider subject and no email, profile or provider token",
+      "failure_behavior": "The requirement fails if service storage contains the raw provider subject, email, profile data or a provider token.",
+      "acceptance": {
+        "scenario_id": "AC-ACCOUNT-002",
+        "given": "an external identity provider has authenticated a user",
+        "when": "the account service stores the login identity",
+        "then": "it stores a keyed hash of the provider subject and stores no email, profile or provider token"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [
+          "services/kohbor-broker/src/broker.mjs",
+          "services/kohbor-broker/test/broker.test.mjs"
+        ],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-10",
+          "UAT-10"
+        ]
+      },
+      "contract_refs": [
+        "contracts/decisions.json"
+      ],
+      "spec_refs": [
+        "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+        "docs/governance/DECISION-LOG.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "open_decisions": [
+        "DEC-ALPHA-AUTH-DEVIATION",
+        "DEC-ACCOUNT-ORIGIN",
+        "DEC-PRIVACY-LEGAL"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-010"
+      ],
+      "design_component_ids": [
+        "CMP-SOCIAL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "primary_design_component_id": "CMP-SOCIAL",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "ACCOUNT-003",
+      "title": "Separate account identity layers",
+      "module": "account",
+      "scope": "extension",
+      "priority": "extension",
+      "target_milestone": "M6",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Account id, login identity and friend code are separate; only friend code and display name are ever disclosed, and only to the owner's chosen counterparts",
+      "failure_behavior": "The requirement fails if the account id, login identity or any other identity value is disclosed, or disclosure reaches anyone beyond the owner's chosen counterparts.",
+      "acceptance": {
+        "scenario_id": "AC-ACCOUNT-003",
+        "given": "an account has a login identity, account id, friend code and display name",
+        "when": "identity is disclosed during an account or social operation",
+        "then": "the three identity layers remain separate and only the friend code and display name reach the owner's chosen counterparts"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-10",
+          "UAT-10"
+        ]
+      },
+      "contract_refs": [
+        "contracts/decisions.json"
+      ],
+      "spec_refs": [
+        "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+        "docs/governance/DECISION-LOG.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "open_decisions": [
+        "DEC-ACCOUNT-ORIGIN",
+        "DEC-PRIVACY-LEGAL",
+        "DEC-SOCIAL"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-010"
+      ],
+      "design_component_ids": [
+        "CMP-SOCIAL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "primary_design_component_id": "CMP-SOCIAL",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "ACCOUNT-004",
+      "title": "Private rotatable friend codes",
+      "module": "account",
+      "scope": "extension",
+      "priority": "extension",
+      "target_milestone": "M6",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Friend codes are random, non-sequential, checksummed, rotatable, and use a Kohbor-only format",
+      "failure_behavior": "A sequential, unchecked, non-rotatable or non-Kohbor friend code fails validation.",
+      "acceptance": {
+        "scenario_id": "AC-ACCOUNT-004",
+        "given": "an account is issued a friend code",
+        "when": "the code is inspected and then rotated",
+        "then": "the code is random, non-sequential, checksummed, rotatable and uses a Kohbor-only format"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [
+          "services/kohbor-broker/src/broker.mjs",
+          "services/kohbor-broker/test/broker.test.mjs"
+        ],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-10",
+          "UAT-10"
+        ]
+      },
+      "contract_refs": [
+        "contracts/decisions.json"
+      ],
+      "spec_refs": [
+        "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+        "docs/governance/DECISION-LOG.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "open_decisions": [
+        "DEC-ACCOUNT-ORIGIN",
+        "DEC-NAME",
+        "DEC-SOCIAL"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-010"
+      ],
+      "design_component_ids": [
+        "CMP-SOCIAL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "primary_design_component_id": "CMP-SOCIAL",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "ACCOUNT-005",
+      "title": "Protected Kohbor sessions and cache clearing",
+      "module": "account",
+      "scope": "extension",
+      "priority": "extension",
+      "target_milestone": "M6",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Sessions are Kohbor-issued, short-lived, rotating, device-bound and stored under OS user-scoped protection; sign-out and switch erase all cached account data",
+      "failure_behavior": "A session that is not Kohbor-issued, short-lived, rotating, device-bound and OS user-protected fails; cached account data remaining after sign-out or switch also fails.",
+      "acceptance": {
+        "scenario_id": "AC-ACCOUNT-005",
+        "given": "a user has a Kohbor account session and cached account data",
+        "when": "the session is renewed, then the user signs out or switches accounts",
+        "then": "the session is short-lived, rotating, device-bound and stored under OS user-scoped protection, and all cached account data is erased"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [
+          "services/kohbor-broker/src/broker.mjs",
+          "services/kohbor-broker/test/broker.test.mjs",
+          "crates/kohbor-account/src/lib.rs",
+          "crates/kohbor-account/tests/loopback_sign_in/mod.rs",
+          "crates/kohbor-account/tests/wipe_failure/mod.rs",
+          "apps/desktop/src-tauri/src/account_host.rs"
+        ],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-01",
+          "TP-10",
+          "UAT-10"
+        ]
+      },
+      "contract_refs": [
+        "contracts/decisions.json"
+      ],
+      "spec_refs": [
+        "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+        "docs/governance/DECISION-LOG.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "open_decisions": [
+        "DEC-ACCOUNT-IDENTITY",
+        "DEC-ALPHA-AUTH-DEVIATION",
+        "DEC-ACCOUNT-ORIGIN",
+        "DEC-PRIVACY-LEGAL"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-001",
+        "PN-010"
+      ],
+      "design_component_ids": [
+        "CMP-SOCIAL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "primary_design_component_id": "CMP-SOCIAL",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "ACCOUNT-006",
+      "title": "Offline account independence",
+      "module": "account",
+      "scope": "extension",
+      "priority": "extension",
+      "target_milestone": "M6",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "With no network or no account service, startup and every local function are unaffected; the account surface reports offline or unavailable without prompting",
+      "failure_behavior": "Network or account-service unavailability must not interrupt startup or any local function, or prompt the user.",
+      "acceptance": {
+        "scenario_id": "AC-ACCOUNT-006",
+        "given": "the device has no network or the account service is unavailable",
+        "when": "the application starts and the user uses local functions",
+        "then": "startup and every local function are unaffected and the account surface reports offline or unavailable without prompting"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [
+          "crates/kohbor-account/src/lib.rs",
+          "crates/kohbor-account/tests/s1t_contract.rs",
+          "crates/kohbor-account/tests/support/contract.rs",
+          "crates/kohbor-account/tests/support/driver.rs"
+        ],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-01",
+          "UAT-01"
+        ]
+      },
+      "contract_refs": [
+        "contracts/decisions.json"
+      ],
+      "spec_refs": [
+        "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+        "docs/governance/DECISION-LOG.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-001",
+        "PN-010"
+      ],
+      "design_component_ids": [
+        "CMP-SOCIAL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "primary_design_component_id": "CMP-SOCIAL",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "ACCOUNT-007",
+      "title": "Product-scoped token authority",
+      "module": "account",
+      "scope": "extension",
+      "priority": "extension",
+      "target_milestone": "M6",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Tokens and tickets carry a Kohbor issuer and a single audience; a token from any other product or audience is rejected",
+      "failure_behavior": "A token or ticket with an issuer other than Kohbor, or with an audience other than its single authorized audience, is rejected.",
+      "acceptance": {
+        "scenario_id": "AC-ACCOUNT-007",
+        "given": "a token or ticket is presented for account or relay authority",
+        "when": "its issuer and audience are checked",
+        "then": "only a Kohbor issuer with one audience is accepted and tokens from another product or audience are rejected"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [
+          "services/kohbor-broker/src/broker.mjs",
+          "services/kohbor-broker/test/broker.test.mjs"
+        ],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-10",
+          "UAT-10"
+        ]
+      },
+      "contract_refs": [
+        "contracts/decisions.json"
+      ],
+      "spec_refs": [
+        "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+        "docs/governance/DECISION-LOG.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "open_decisions": [
+        "DEC-ALPHA-AUTH-DEVIATION",
+        "DEC-ACCOUNT-ORIGIN",
+        "DEC-NAME"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-010"
+      ],
+      "design_component_ids": [
+        "CMP-SOCIAL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "primary_design_component_id": "CMP-SOCIAL",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "ACCOUNT-008",
+      "title": "In-app account export and deletion",
+      "module": "account",
+      "scope": "extension",
+      "priority": "extension",
+      "target_milestone": "M6",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "The user can export and delete the account from the app; deletion removes every server record and local cache and keeps no tombstone",
+      "failure_behavior": "Export or deletion unavailable in the app, or any server record, local cache or tombstone remaining after deletion, fails.",
+      "acceptance": {
+        "scenario_id": "AC-ACCOUNT-008",
+        "given": "a user has an account and can access its controls in the app",
+        "when": "the user exports and then deletes the account",
+        "then": "the account can be exported and deletion removes every server record and local cache without keeping a tombstone"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-10",
+          "UAT-10"
+        ]
+      },
+      "contract_refs": [
+        "contracts/decisions.json"
+      ],
+      "spec_refs": [
+        "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+        "docs/governance/DECISION-LOG.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "open_decisions": [
+        "DEC-ACCOUNT-ORIGIN",
+        "DEC-PRIVACY-LEGAL",
+        "DEC-RETENTION"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-010"
+      ],
+      "design_component_ids": [
+        "CMP-SOCIAL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "primary_design_component_id": "CMP-SOCIAL",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "ACCOUNT-009",
+      "title": "No unapproved platform identity binding",
+      "module": "account",
+      "scope": "extension",
+      "priority": "extension",
+      "target_milestone": "M6",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "No platform identity is bound to an account unless DEC-STEAM-BINDING is decided; when bound it is proven by provider verification plus a local match and is never a login, recovery credential, search key or displayed value",
+      "failure_behavior": "A platform identity bound before DEC-STEAM-BINDING is decided, without both proofs, or used as a login, recovery credential, search key or displayed value fails.",
+      "acceptance": {
+        "scenario_id": "AC-ACCOUNT-009",
+        "given": "DEC-STEAM-BINDING is undecided or a binding is enabled under a decided record",
+        "when": "a platform identity is considered for an account",
+        "then": "none is bound while undecided; any bound identity has provider verification and a local match and is not a login, recovery credential, search key or displayed value"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-10",
+          "UAT-10"
+        ]
+      },
+      "contract_refs": [
+        "contracts/decisions.json"
+      ],
+      "spec_refs": [
+        "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+        "docs/governance/DECISION-LOG.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "open_decisions": [
+        "DEC-ACCOUNT-ORIGIN",
+        "DEC-PRIVACY-LEGAL",
+        "DEC-STEAM-BINDING"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-010"
+      ],
+      "design_component_ids": [
+        "CMP-SOCIAL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "primary_design_component_id": "CMP-SOCIAL",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "ACCOUNT-010",
+      "title": "No cross-product account sharing",
+      "module": "account",
+      "scope": "extension",
+      "priority": "extension",
+      "target_milestone": "M6",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "No account, identifier, key, secret or endpoint is shared with or imported from another product; a cross-product link requires its own decision and consent",
+      "failure_behavior": "Any account, identifier, key, secret or endpoint shared with or imported from another product, or any cross-product link without its own decision and consent, fails.",
+      "acceptance": {
+        "scenario_id": "AC-ACCOUNT-010",
+        "given": "a Kohbor account and another product account exist or a link is proposed",
+        "when": "account data and trust material are handled or the cross-product link is attempted",
+        "then": "nothing is shared with or imported from the other product and a link proceeds only after its own decision and consent"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-10",
+          "UAT-10"
+        ]
+      },
+      "contract_refs": [
+        "contracts/decisions.json"
+      ],
+      "spec_refs": [
+        "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+        "docs/governance/DECISION-LOG.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "open_decisions": [
+        "DEC-ACCOUNT-LINK",
+        "DEC-PRIVACY-LEGAL"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-010"
+      ],
+      "design_component_ids": [
+        "CMP-SOCIAL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "primary_design_component_id": "CMP-SOCIAL",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
       "id": "SOCIAL-001",
       "title": "Optional account boundary",
       "module": "social",
