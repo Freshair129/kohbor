@@ -131,6 +131,20 @@ impl DraftBarMemory {
         }
     }
 
+    /// Log-safe summary: whether a frame is held, the withdraw reason, and how many slots are
+    /// identified. Never returns hero names, pixels or confidences.
+    pub(crate) fn log_summary(&self) -> (bool, Option<&str>, usize) {
+        let identified = self.matcher.as_ref().map_or(0, |matcher| {
+            matcher
+                .deck_view(true)
+                .slots
+                .iter()
+                .filter(|slot| slot.reason == MatchReason::Identified)
+                .count()
+        });
+        (self.frame_at.is_some(), self.detail.as_deref(), identified)
+    }
+
     pub fn needs_references(&self) -> bool {
         self.active && self.matcher.is_none()
     }

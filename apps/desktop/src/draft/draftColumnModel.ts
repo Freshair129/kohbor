@@ -591,6 +591,29 @@ export function draftHiddenReasonText(reason: DraftHiddenReason | null): string 
   }
 }
 
+/** Deck-only reason when statistics consent is off: the column stays empty until it is on. */
+export function draftConsentOffText(dataState: DraftDataState | null): string | null {
+  return dataState === "consent_off"
+    ? "ยังไม่ได้เปิดการยินยอมสถิติ · เปิดสวิตช์ “ดึงสถิติฮีโร่จากอินเทอร์เน็ต” เพื่อให้แถบฮีโร่เมต้าและตัวแก้ทางแสดงในดราฟต์"
+    : null;
+}
+
+/**
+ * Placement inside the overlay webview. In the app the host sizes the native window to the
+ * column rect itself (180×488 at 1728,132 on 1920×1080), so the column fills that window at
+ * scale height/488. Only a screen-shaped viewport (the browser mock) uses the full-screen
+ * formula. Applying the screen formula inside the 180×488 window shrank the column to
+ * 0.452× at its right edge (live test on a050ae8, 2026-11-22).
+ */
+export function draftStagePlacement(width: number, height: number): DraftColumnPlacement | null {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null;
+  if (width < height) {
+    const scale = height / 488;
+    return { x: 0, y: 0, width: 180 * scale, height, scale };
+  }
+  return draftColumnPlacement(width, height);
+}
+
 export function draftColumnPlacement(width: number, height: number): DraftColumnPlacement | null {
   if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null;
   const scale = height / 1080;

@@ -220,6 +220,31 @@ test("the shared deck and overlay view render each host mode", async () => {
   }
 });
 
+test("deck says why the column is empty when statistics consent is off", async () => {
+  const DraftColumnView = await loadDraftColumnView();
+  const base = suggestionPayload();
+  const consentText = "ยังไม่ได้เปิดการยินยอมสถิติ";
+  for (const overlay of [
+    { visible: false, hidden_reason: null },
+    { visible: false, hidden_reason: "no_draft" },
+  ]) {
+    const view = parseDraftColumnView({
+      ...base, mode: "hidden", data_state: "consent_off", overlay, suggestions: null, pick_card: null,
+    });
+    assert.equal(view.valid, true);
+    const deck = renderToStaticMarkup(React.createElement(DraftColumnView, { view, surface: "deck" }));
+    assert.ok(deck.includes(consentText), `deck names consent for ${overlay.hidden_reason}`);
+    assert.ok(deck.includes("ดึงสถิติฮีโร่จากอินเทอร์เน็ต"), "deck names the switch");
+    assert.equal(renderToStaticMarkup(React.createElement(DraftColumnView, { view, surface: "overlay" })), "");
+  }
+  const consentOn = parseDraftColumnView({
+    ...base, mode: "hidden", data_state: "loading", overlay: { visible: false, hidden_reason: null },
+    suggestions: null, pick_card: null,
+  });
+  const deck = renderToStaticMarkup(React.createElement(DraftColumnView, { view: consentOn, surface: "deck" }));
+  assert.ok(!deck.includes(consentText), "no consent text once consent is on");
+});
+
 test("overlay suggestion rows fit the 180 by 488 budget without clipping", async () => {
   const css = readFileSync(new URL("../src/draft/draft-column.css", import.meta.url), "utf8");
   const dimensions = [

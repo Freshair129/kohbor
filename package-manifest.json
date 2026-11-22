@@ -333,8 +333,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/capture_host.rs",
-      "bytes": 294089,
-      "sha256": "a506cff7330600eaa42c00e85d46ee0c316095b1a1dba945579d3a9dab488e72"
+      "bytes": 298582,
+      "sha256": "b884feada637f60125210cbb621c09084dcebd8378fe6f667519cf2eb98126ed"
     },
     {
       "path": "apps/desktop/src-tauri/src/clock.rs",
@@ -358,8 +358,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/draft_bar.rs",
-      "bytes": 40618,
-      "sha256": "423d513d01177e8db35d7cb29130df7c12e970213863b56c12ae79124585c34f"
+      "bytes": 41206,
+      "sha256": "37de653797ab5fdaff7153007156db946f05d978d6ded40357c5270c52b890d3"
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/budget.rs",
@@ -388,8 +388,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/host.rs",
-      "bytes": 70108,
-      "sha256": "b21213d6e0d43b961c075ef0ba3c35235481a7589dda95303fd0e3c3e364ed82"
+      "bytes": 76605,
+      "sha256": "9c85bad93d85342f142d44511115a25ce9b99d03fc606f5af49fb7b153a1c458"
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/mod.rs",
@@ -453,8 +453,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/intake.rs",
-      "bytes": 110693,
-      "sha256": "1edcbb752d1731bd830804a4a17ca62d53092fbce820e7beae99a17ea2b74743"
+      "bytes": 113817,
+      "sha256": "7f9a6314543004f04514424e6797815a0a65fc57fa50aa75399ff57885e2e906"
     },
     {
       "path": "apps/desktop/src-tauri/src/lab.rs",
@@ -468,8 +468,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 61706,
-      "sha256": "c5056e1c3f048df306e43c5d89df50b626fde0bfb8e3ab44cdac713d646dc181"
+      "bytes": 61040,
+      "sha256": "1b7b521639979d808dd6318da04503c4ee99f4d4ec7822ab1c6dcd297c26669e"
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
@@ -918,8 +918,8 @@
     },
     {
       "path": "apps/desktop/src/draft/DraftColumnView.tsx",
-      "bytes": 17941,
-      "sha256": "03811f404a72767690c4aec38a1e0b331df0102829a3dc65f733ab8df7804c17"
+      "bytes": 18129,
+      "sha256": "cc6cfce6350967f9c88c1b02773761586ad83b6f8ba70545660fcedca042c073"
     },
     {
       "path": "apps/desktop/src/draft/DraftDeckPanel.tsx",
@@ -933,13 +933,13 @@
     },
     {
       "path": "apps/desktop/src/draft/DraftStage.tsx",
-      "bytes": 2073,
-      "sha256": "7acf27cf287d9bc0ad0474cf46ac34cba954e0fb18faed16963ac35c1079fc28"
+      "bytes": 2070,
+      "sha256": "2c52218c078d031d9be52d4c093d25ae658881618554f09a520baae510a6ff3d"
     },
     {
       "path": "apps/desktop/src/draft/draft-column.css",
-      "bytes": 18322,
-      "sha256": "ac8b9e2bac1267ec8d08cab70e35f93a8f01209a66b429492604d650f85cefff"
+      "bytes": 18422,
+      "sha256": "00ff10524569f9c1045377da799cae724994583c85c6326bc03efbf004185aa7"
     },
     {
       "path": "apps/desktop/src/draft/draftColumnApi.ts",
@@ -948,8 +948,8 @@
     },
     {
       "path": "apps/desktop/src/draft/draftColumnModel.ts",
-      "bytes": 26735,
-      "sha256": "caf80bb1a69997b690e19e0482c439ebbe93757c77d2953457d23c4cca72c7a6"
+      "bytes": 28129,
+      "sha256": "c458020633c43906e648f19556eebe5781ce360489605714ecc049af4aed745f"
     },
     {
       "path": "apps/desktop/src/draft/draftMock.ts",
@@ -1853,8 +1853,8 @@
     },
     {
       "path": "apps/desktop/tests/draft-column-render.test.ts",
-      "bytes": 26790,
-      "sha256": "f17a5f65c6b7c305bf589f6eb7446d36ea5cae34cc89152f126609d905c98bb5"
+      "bytes": 28237,
+      "sha256": "a8b86c4a05c6f413f25607a9ba67af8cb28f0aa4065bcaa33af1f754ceac8574"
     },
     {
       "path": "apps/desktop/tests/draft-column-settings.test.ts",
@@ -1863,8 +1863,8 @@
     },
     {
       "path": "apps/desktop/tests/draft-column.test.ts",
-      "bytes": 25054,
-      "sha256": "002d29f5e7612aa9b56f2a755e2a750ece784dc3f2e679d878c458f415abbbb2"
+      "bytes": 25870,
+      "sha256": "ef08580d7c37cb93ed3ded630a695fea5ef678a9e6a9799d9c0e846fb845973a"
     },
     {
       "path": "apps/desktop/tests/eventBannerReporter.test.ts",
@@ -3153,8 +3153,8 @@
     },
     {
       "path": "docs/design/DRAFT-COLUMN.md",
-      "bytes": 16881,
-      "sha256": "8edb3048ab424f71850fea949169b7151de459e43720c23c41110914ac35d9af"
+      "bytes": 19547,
+      "sha256": "61b31b7eb12aee0d7a30b7fe8511a62adef0e5f1419bc616bc1e48d99bd6d934"
     },
     {
       "path": "docs/design/EVENT-AUDIO-SPEC.md",

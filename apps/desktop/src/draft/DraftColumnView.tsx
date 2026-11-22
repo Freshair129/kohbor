@@ -4,6 +4,7 @@ import {
   counterStateText,
   dataStateDetailText,
   dataStateText,
+  draftConsentOffText,
   draftHiddenReasonText,
   failureText,
   formatDraftTime,
@@ -276,10 +277,12 @@ export function DraftColumnView({ view, surface, synthetic = false }: {
   if (view.mode === "hidden") {
     if (surface === "overlay") return null;
     const reason = draftHiddenReasonText(view.overlay.hidden_reason);
+    const consentOff = draftConsentOffText(view.data_state);
     return (
       <section className="draft-column-deck-hidden" aria-label="สถิติฮีโร่สาธารณะ">
         {synthetic && <div className="draft-synthetic-flag">ตัวอย่างสังเคราะห์</div>}
-        <strong>{reason ?? "ยังไม่มีข้อมูลสถิติฮีโร่ในหน้าดราฟ"}</strong>
+        <strong>{reason ?? consentOff ?? "ยังไม่มีข้อมูลสถิติฮีโร่ในหน้าดราฟ"}</strong>
+        {reason && consentOff && <span className="draft-consent-off">{consentOff}</span>}
         {!view.placement_verified && <span className="draft-placement-warning">ตำแหน่งการ์ดช่วงวางแผนยังไม่ได้วัด</span>}
       </section>
     );
