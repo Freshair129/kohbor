@@ -1,7 +1,7 @@
 // @ts-ignore Node's built-in TypeScript loader requires the source extension.
 import { displayHeroName } from "./heroName.ts";
 
-export const DRAFT_WIDTH = 1494;
+export const DRAFT_WIDTH = 1504;
 export const DRAFT_HEIGHT = 119;
 const FRAME_BYTES = DRAFT_WIDTH * DRAFT_HEIGHT * 4;
 const SLOT_COUNT = 10;

@@ -1,6 +1,6 @@
 //! MVP-1 W3 host capture loop, frame transport, and observation/risk event bridge.
 
-use crate::draft_bar::{draft_bar_geometry, DraftBarMatcher, DraftBarMemory};
+use crate::draft_bar::{draft_bar_geometry, DraftBarMatcher, DraftBarMemory, MatchReason};
 use kohbor_capture::{
     AdmittedFrame, CalibrationMethod, CalibrationPhase, CaptureController, CapturePhase,
     CaptureSource, Coverage, CycleOutcome, Environment, FrameHeader, InvalidationReason, Rect,
@@ -1753,6 +1753,8 @@ struct CaptureHostWorker<S, C, A, R, E, H> {
     draft_log_state: Option<(&'static str, String)>,
     /// Last logged Draft Bar 5b identified-slot count.
     draft_log_identified: Option<usize>,
+    /// Last logged per-slot best scores and when, for the rate-limited score line.
+    draft_log_scores: Option<(Vec<u8>, Instant)>,
 }
 
 impl<S, C, A, R, E, H> CaptureHostWorker<S, C, A, R, E, H>
@@ -1849,7 +1851,53 @@ where
             seen_gsi_epoch: None,
             draft_log_state: None,
             draft_log_identified: None,
+            draft_log_scores: None,
         }
+    }
+
+    /// Per-slot best match score (hundredths) and reason, on change and at most every 5 s, so a
+    /// live test shows how close 5b matching gets. No hero names.
+    fn log_draft_scores(&mut self, frame: bool) {
+        const SCORE_LOG_INTERVAL: Duration = Duration::from_secs(5);
+        if !frame {
+            return;
+        }
+        let Some(slots) = lock(&self.draft).slot_scores() else {
+            return;
+        };
+        let scores: Vec<u8> = slots.iter().map(|(score, _)| *score).collect();
+        let now = Instant::now();
+        if self.draft_log_scores.as_ref().is_some_and(|(last, at)| {
+            *last == scores || now.saturating_duration_since(*at) < SCORE_LOG_INTERVAL
+        }) {
+            return;
+        }
+        // The logger keeps scalar fields only, so the ten values are space-separated strings.
+        let reasons = slots
+            .iter()
+            .map(|(_, reason)| match reason {
+                MatchReason::Identified => "identified",
+                MatchReason::EmptySlot => "empty",
+                MatchReason::LowContrast => "low_contrast",
+                MatchReason::LowConfidence => "low_confidence",
+                MatchReason::ReferencesUnavailable => "no_references",
+                MatchReason::AwaitingFrame => "awaiting_frame",
+            })
+            .collect::<Vec<_>>()
+            .join(" ");
+        crate::log_info!(
+            "capture_host",
+            "draft_bar_scores",
+            "draft bar 5b best score per slot",
+            scores = scores
+                .iter()
+                .map(u8::to_string)
+                .collect::<Vec<_>>()
+                .join(" "),
+            reasons = reasons,
+            threshold = 82
+        );
+        self.draft_log_scores = Some((scores, now));
     }
 
     /// Info logs for the live draft, on change only: capture started or skipped with the
@@ -1866,6 +1914,7 @@ where
                 );
             }
             self.draft_log_identified = None;
+            self.draft_log_scores = None;
             return;
         }
         let (frame, detail, identified) = {
@@ -1909,6 +1958,7 @@ where
             );
             self.draft_log_identified = Some(identified);
         }
+        self.log_draft_scores(frame);
     }
 
     fn run(&mut self) {
@@ -3406,17 +3456,47 @@ fn run_capture_host(
         MvpFrameHeaderCodec,
     >::new(NativeFrameSource::new(), services, now);
     worker.draft = draft;
-    worker.draft_references = || {
-        crate::intake::locate_game()
-            .ok()
-            .and_then(|game| {
-                kohbor_game_assets::Vpk::open(game.join("game/dota/pak01_dir.vpk")).ok()
-            })
-            .map_or_else(DraftBarMatcher::empty, |vpk| {
-                DraftBarMatcher::from_vpk(&vpk)
-            })
-    };
+    worker.draft_references = load_draft_references;
     worker.run();
+}
+
+/// Build 5b references from the installed game and log the outcome: counts and a failure code
+/// only, never a path (paths contain the Windows user name) or a hero name.
+fn load_draft_references() -> DraftBarMatcher {
+    let Ok(game) = crate::intake::locate_game() else {
+        crate::log_info!(
+            "capture_host",
+            "draft_references_built",
+            "draft bar references not built",
+            built = 0,
+            failure = "game_not_found"
+        );
+        return DraftBarMatcher::empty();
+    };
+    let Ok(vpk) = kohbor_game_assets::Vpk::open(game.join("game/dota/pak01_dir.vpk")) else {
+        crate::log_info!(
+            "capture_host",
+            "draft_references_built",
+            "draft bar references not built",
+            built = 0,
+            failure = "vpk_unreadable"
+        );
+        return DraftBarMatcher::empty();
+    };
+    let (matcher, report) = DraftBarMatcher::from_vpk_with_report(&vpk);
+    crate::log_info!(
+        "capture_host",
+        "draft_references_built",
+        "draft bar references built",
+        roster = report.roster,
+        built = report.built,
+        ycocg = report.ycocg,
+        missing = report.missing,
+        unreadable = report.unreadable,
+        decode_failed = report.decode_failed,
+        failure = report.failure
+    );
+    matcher
 }
 
 /// An intake health event with its original observation timestamp.
@@ -4920,6 +5000,28 @@ mod tests {
             .expect("5b count is logged");
         assert!(identified.fields["identified"].as_u64().unwrap() >= 1);
         assert_eq!(identified.fields["slots"], 10);
+        let scores = logs
+            .iter()
+            .find(|entry| entry.event == "draft_bar_scores")
+            .expect("per-slot best scores are logged");
+        let values: Vec<u64> = scores.fields["scores"]
+            .as_str()
+            .unwrap()
+            .split(' ')
+            .map(|value| value.parse().unwrap())
+            .collect();
+        assert_eq!(values.len(), 10);
+        assert!(values.iter().all(|value| *value <= 100));
+        assert_eq!(
+            scores.fields["reasons"]
+                .as_str()
+                .unwrap()
+                .split(' ')
+                .count(),
+            10
+        );
+        assert!(!scores.fields.to_string().contains("synthetic_one"));
+        assert_eq!(scores.fields["threshold"], 82);
         for entry in logs {
             let serialized = serde_json::to_string(&entry).unwrap();
             assert!(!serialized.contains("synthetic_one") && !serialized.contains("PRIVATE_LABEL"));
