@@ -5,13 +5,33 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, MutexGuard};
 
 const FILE_NAME: &str = "overlay-layout.json";
-const DEFAULT_LAYOUT: WidgetLayout = WidgetLayout {
+const CARD_BASE_WIDTH_PX: f64 = 232.0;
+const CARD_BASE_HEIGHT_PX: f64 = 32.0;
+const CARD_DEFAULT_SCALE: f64 = 0.75;
+/// Measured base height of the RISK (danger meter) pill before its module scale, in px at 1920 wide.
+const GMETER_BASE_HEIGHT_PX: f64 = 30.4;
+const CARD_GAP_PX: f64 = 4.0;
+/// Owner decision 2026-11-22 (DEC-EVENT-RUNE-SPAWN revision 5): only the objective card may enter
+/// the top of the protected announcement region, by at most this many px at 1080 (scaled with height).
+pub(crate) const OBJECTIVE_CARD_ANNOUNCEMENT_OVERLAP_PX_AT_1080: f64 = 24.0;
+const GMETER_DEFAULT: crate::hud::HudModuleLayout = crate::hud::DEFAULT_HUD_LAYOUTS[0].1;
+/// Default: centred under the RISK pill with a 4 px gap (reference 1920x1080).
+pub(crate) const DEFAULT_LAYOUT: WidgetLayout = WidgetLayout {
+    x_percent: GMETER_DEFAULT.x_percent,
+    y_percent: GMETER_DEFAULT.y_percent
+        + (GMETER_BASE_HEIGHT_PX * GMETER_DEFAULT.scale / 2.0
+            + CARD_GAP_PX
+            + CARD_BASE_HEIGHT_PX * CARD_DEFAULT_SCALE / 2.0)
+            / 1080.0
+            * 100.0,
+    scale: CARD_DEFAULT_SCALE,
+};
+/// The revision 4 default; a saved copy of it is read as the current default.
+const LEGACY_DEFAULT_LAYOUT: WidgetLayout = WidgetLayout {
     x_percent: 62.5,
     y_percent: 6.5,
     scale: 1.0,
 };
-const CARD_BASE_WIDTH_PX: f64 = 272.0;
-const CARD_BASE_HEIGHT_PX: f64 = 32.0;
 const SAFE_EDGE_PX: f64 = 8.0;
 const SCALE_BOUNDS: (f64, f64) = (0.75, 2.0);
 const DEFAULT_VIEWPORT: (u32, u32) = (1920, 1080);
@@ -54,6 +74,22 @@ impl LayoutViewport {
             .unwrap_or_default()
     }
 }
+
+/// Per-widget clamp rules. Every widget is fully blocked from the protected regions unless its
+/// rules carry an owner-approved allowance.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct ClampRules {
+    pub(crate) announcement_overlap_px_at_1080: f64,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) const FULLY_BLOCKED: ClampRules = ClampRules {
+    announcement_overlap_px_at_1080: 0.0,
+};
+
+pub(crate) const OBJECTIVE_CARD_RULES: ClampRules = ClampRules {
+    announcement_overlap_px_at_1080: OBJECTIVE_CARD_ANNOUNCEMENT_OVERLAP_PX_AT_1080,
+};
 
 #[derive(Clone, Copy)]
 struct ClampBounds {
@@ -176,6 +212,7 @@ fn parse_layout(bytes: &[u8]) -> (WidgetLayout, bool) {
         return (DEFAULT_LAYOUT, true);
     };
     match parse_widget_entry(entry) {
+        Some(layout) if layout == LEGACY_DEFAULT_LAYOUT => (DEFAULT_LAYOUT, false),
         Some(layout) => (clamp_widget(layout, LayoutViewport::default()), false),
         None => (DEFAULT_LAYOUT, true),
     }
@@ -214,6 +251,27 @@ fn finite_number(value: &Value) -> Option<f64> {
 }
 
 fn clamp_widget(layout: WidgetLayout, viewport: LayoutViewport) -> WidgetLayout {
+    clamp_widget_with(layout, viewport, OBJECTIVE_CARD_RULES)
+}
+
+/// The protected regions as percentages, with the rule's announcement allowance applied to the
+/// announcement region's top edge (a fraction of the screen height, so it scales with height).
+fn protected_regions(rules: ClampRules) -> [(f64, f64, f64, f64); 4] {
+    crate::overlay::PROTECTED_REGIONS.map(|(name, left, top, right, bottom)| {
+        let top = if name == "announcement" {
+            top + rules.announcement_overlap_px_at_1080.max(0.0) / 1080.0
+        } else {
+            top
+        };
+        (left * 100.0, top * 100.0, right * 100.0, bottom * 100.0)
+    })
+}
+
+fn clamp_widget_with(
+    layout: WidgetLayout,
+    viewport: LayoutViewport,
+    rules: ClampRules,
+) -> WidgetLayout {
     let width = f64::from(viewport.width.max(1));
     let height = f64::from(viewport.height.max(1));
     let scale = clamp_value(
@@ -241,27 +299,27 @@ fn clamp_widget(layout: WidgetLayout, viewport: LayoutViewport) -> WidgetLayout 
 
     let mut x_candidates = vec![bounds.min_x, bounds.max_x, start.x_percent];
     let mut y_candidates = vec![bounds.min_y, bounds.max_y, start.y_percent];
-    for (_, left, top, right, bottom) in crate::overlay::PROTECTED_REGIONS {
+    for (left, top, right, bottom) in protected_regions(rules) {
         x_candidates.push(clamp_value(
-            left * 100.0 - bounds.half_width,
+            left - bounds.half_width,
             bounds.min_x,
             bounds.max_x,
             start.x_percent,
         ));
         x_candidates.push(clamp_value(
-            right * 100.0 + bounds.half_width,
+            right + bounds.half_width,
             bounds.min_x,
             bounds.max_x,
             start.x_percent,
         ));
         y_candidates.push(clamp_value(
-            top * 100.0 - bounds.half_height,
+            top - bounds.half_height,
             bounds.min_y,
             bounds.max_y,
             start.y_percent,
         ));
         y_candidates.push(clamp_value(
-            bottom * 100.0 + bounds.half_height,
+            bottom + bounds.half_height,
             bounds.min_y,
             bounds.max_y,
             start.y_percent,
@@ -277,7 +335,7 @@ fn clamp_widget(layout: WidgetLayout, viewport: LayoutViewport) -> WidgetLayout 
                 y_percent: *y,
                 scale,
             };
-            if collides(candidate, bounds) {
+            if collides(candidate, bounds, rules) {
                 continue;
             }
             let dx = (x - start.x_percent) * width / 100.0;
@@ -311,14 +369,14 @@ fn clamp_bounds(scale: f64, width: f64, height: f64) -> ClampBounds {
     }
 }
 
-fn collides(layout: WidgetLayout, bounds: ClampBounds) -> bool {
-    crate::overlay::PROTECTED_REGIONS
+fn collides(layout: WidgetLayout, bounds: ClampBounds, rules: ClampRules) -> bool {
+    protected_regions(rules)
         .iter()
-        .any(|(_, left, top, right, bottom)| {
-            layout.x_percent - bounds.half_width < right * 100.0
-                && layout.x_percent + bounds.half_width > left * 100.0
-                && layout.y_percent - bounds.half_height < bottom * 100.0
-                && layout.y_percent + bounds.half_height > top * 100.0
+        .any(|(left, top, right, bottom)| {
+            layout.x_percent - bounds.half_width < *right
+                && layout.x_percent + bounds.half_width > *left
+                && layout.y_percent - bounds.half_height < *bottom
+                && layout.y_percent + bounds.half_height > *top
         })
 }
 
@@ -339,8 +397,9 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 #[cfg(test)]
 mod tests {
     use super::{
-        clamp_widget, parse_layout, parse_patch, LayoutViewport, WidgetLayout, DEFAULT_LAYOUT,
-        SAFE_EDGE_PX, SCALE_BOUNDS,
+        clamp_widget, clamp_widget_with, parse_layout, parse_patch, LayoutViewport, WidgetLayout,
+        DEFAULT_LAYOUT, FULLY_BLOCKED, GMETER_BASE_HEIGHT_PX, GMETER_DEFAULT,
+        LEGACY_DEFAULT_LAYOUT, OBJECTIVE_CARD_RULES, SCALE_BOUNDS,
     };
     use serde::Deserialize;
     use serde_json::{json, Value};
@@ -414,7 +473,7 @@ mod tests {
     }
 
     #[test]
-    fn default_card_is_safe_and_fits_the_hud_band_on_both_reference_screens() {
+    fn default_card_sits_centred_under_the_risk_pill_within_the_owner_allowance() {
         for viewport in [
             LayoutViewport {
                 width: 1920,
@@ -426,20 +485,82 @@ mod tests {
             },
         ] {
             let actual = clamp_widget(DEFAULT_LAYOUT, viewport);
+            assert_eq!(actual, DEFAULT_LAYOUT, "the default needs no clamping");
             let width = f64::from(viewport.width);
             let height = f64::from(viewport.height);
-            let scale = width / 1920.0;
-            let card_width = 272.0 * scale;
-            let card_height = 32.0 * scale;
-            assert!(actual.x_percent * width / 100.0 - card_width / 2.0 >= SAFE_EDGE_PX);
-            assert!(actual.x_percent * width / 100.0 + card_width / 2.0 <= width - SAFE_EDGE_PX);
-            assert!(actual.y_percent * height / 100.0 - card_height / 2.0 >= height * 0.05);
-            assert!(actual.y_percent * height / 100.0 + card_height / 2.0 <= height * 0.08);
-            assert!(!super::collides(
-                actual,
-                super::clamp_bounds(actual.scale, width, height)
-            ));
+            let px = width / 1920.0;
+            let pill_bottom = GMETER_DEFAULT.y_percent * height / 100.0
+                + GMETER_BASE_HEIGHT_PX * GMETER_DEFAULT.scale * px / 2.0;
+            let card_top = actual.y_percent * height / 100.0 - 16.0 * actual.scale * px;
+            let card_bottom = actual.y_percent * height / 100.0 + 16.0 * actual.scale * px;
+            assert!(
+                (card_top - pill_bottom - 4.0 * px).abs() < 1.0e-6,
+                "4 px gap under RISK"
+            );
+            assert_eq!(
+                actual.x_percent, GMETER_DEFAULT.x_percent,
+                "centred on RISK"
+            );
+            let card_width = 232.0 * actual.scale * px;
+            let pill_width = 170.0 * GMETER_DEFAULT.scale * px;
+            assert!(
+                card_width <= pill_width * 1.6 + 1.0e-9,
+                "compact: at most 1.6x RISK"
+            );
+            assert!(card_bottom <= height * 0.08 + 24.0 * height / 1080.0);
+            assert!(card_top >= height * 0.05);
         }
+    }
+
+    #[test]
+    fn dragging_the_card_deeper_into_the_announcement_region_stops_at_the_allowance() {
+        let deep = WidgetLayout {
+            x_percent: 50.0,
+            y_percent: 12.0,
+            scale: 1.0,
+        };
+        let actual = clamp_widget(deep, LayoutViewport::default());
+        let bottom_px = actual.y_percent * 1080.0 / 100.0 + 16.0;
+        assert!(
+            (bottom_px - (1080.0 * 0.08 + 24.0)).abs() < 1.0e-6,
+            "bottom {bottom_px}"
+        );
+        let at_1440 = clamp_widget(
+            deep,
+            LayoutViewport {
+                width: 2560,
+                height: 1440,
+            },
+        );
+        let bottom_1440 = at_1440.y_percent * 1440.0 / 100.0 + 16.0 * 2560.0 / 1920.0;
+        assert!(
+            (bottom_1440 - (1440.0 * 0.08 + 32.0)).abs() < 1.0e-6,
+            "scaled with height"
+        );
+    }
+
+    #[test]
+    fn widgets_without_the_owner_allowance_stay_fully_blocked_from_the_announcement_region() {
+        let actual = clamp_widget_with(DEFAULT_LAYOUT, LayoutViewport::default(), FULLY_BLOCKED);
+        let bottom_px = actual.y_percent * 1080.0 / 100.0 + 16.0 * actual.scale;
+        assert!(bottom_px <= 1080.0 * 0.08 + 1.0e-9, "bottom {bottom_px}");
+        assert_ne!(FULLY_BLOCKED, OBJECTIVE_CARD_RULES);
+    }
+
+    #[test]
+    fn a_saved_revision_4_default_reads_as_the_new_default_and_a_user_layout_still_wins() {
+        let raw = serde_json::to_vec(&json!({
+            "schema_version": 1,
+            "widgets": {"objective_card": {
+                "x_percent": LEGACY_DEFAULT_LAYOUT.x_percent,
+                "y_percent": LEGACY_DEFAULT_LAYOUT.y_percent,
+                "scale": LEGACY_DEFAULT_LAYOUT.scale,
+            }}
+        }))
+        .unwrap();
+        assert_eq!(parse_layout(&raw), (DEFAULT_LAYOUT, false));
+        let moved = br#"{"schema_version":1,"widgets":{"objective_card":{"x_percent":20,"y_percent":40,"scale":1}}}"#;
+        assert_eq!(parse_layout(moved).0.x_percent, 20.0);
     }
 
     #[test]

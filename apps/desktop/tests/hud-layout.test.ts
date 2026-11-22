@@ -10,6 +10,7 @@ import {
   parseHudLayoutEvent,
   visibleHudModules,
 } from "../src/hudModel.ts";
+import { OBJECTIVE_CARD_LAYOUT_DEFAULT } from "../src/layoutEditor/model.ts";
 import { createHudLayoutSubscriber } from "../src/hudRuntime.ts";
 
 const validEvent = () => ({
@@ -114,7 +115,7 @@ test("layout event rejects strip height below nine, above one hundred, or non-fi
 test("HUD layout starts with the existing defaults and nine-percent strip", () => {
   assert.equal(HUD_DEFAULT_LAYOUT_EVENT.strip_height_percent, HUD_DEFAULT_STRIP_HEIGHT_PERCENT);
   assert.deepEqual(HUD_DEFAULT_LAYOUT_EVENT.modules, HUD_DEFAULT_LAYOUT);
-  assert.deepEqual(HUD_DEFAULT_LAYOUT_EVENT.objective_card, { x_percent: 62.5, y_percent: 6.5, scale: 1 });
+  assert.deepEqual(HUD_DEFAULT_LAYOUT_EVENT.objective_card, OBJECTIVE_CARD_LAYOUT_DEFAULT, "card defaults under RISK");
 });
 
 test("HUD applies a valid event as one whole layout", () => {

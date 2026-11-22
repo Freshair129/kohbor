@@ -1,4 +1,6 @@
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
+import { OBJECTIVE_CARD_LAYOUT_DEFAULT } from "./layoutEditor/model.ts";
+// @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
 import { dangerTone } from "./live/meter.ts";
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
 import type { RiskView } from "./live/types.ts";
@@ -79,7 +81,7 @@ export const HUD_DEFAULT_LAYOUT_EVENT: HudLayoutEvent = {
   schema: 1,
   strip_height_percent: HUD_DEFAULT_STRIP_HEIGHT_PERCENT,
   modules: HUD_DEFAULT_LAYOUT,
-  objective_card: { x_percent: 62.5, y_percent: 6.5, scale: 1 },
+  objective_card: { ...OBJECTIVE_CARD_LAYOUT_DEFAULT },
 };
 
 function isFiniteInRange(value: unknown, range: readonly [number, number]): value is number {

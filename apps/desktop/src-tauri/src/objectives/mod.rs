@@ -67,7 +67,8 @@ pub(crate) fn start_alert_worker(
                 if state.host.shutdown_started() {
                     break;
                 }
-                let payload = alert_payload(&batch);
+                let locale = app_locale(&state);
+                let payload = alert_payload(&batch, locale);
                 let _ = app.emit_to("hud", "hud://objective-alert", payload);
                 let objective = tone_priority(&batch);
                 let result = state
@@ -92,7 +93,25 @@ pub(crate) fn start_alert_worker(
     }
 }
 
-fn alert_payload(batch: &ObjectiveAlertBatch) -> Value {
+/// The HUD window is listen-only and may start after the control window published its
+/// language, so every alert carries the saved app locale; unreadable settings send none.
+fn app_locale(state: &crate::AppState) -> Option<&'static str> {
+    let settings = {
+        let _guard = crate::intake::lock(&state.settings_gate);
+        crate::settings::get(&state.settings_dir).ok()?
+    };
+    locale_from_settings(&settings)
+}
+
+fn locale_from_settings(settings: &Value) -> Option<&'static str> {
+    match settings.get("locale").and_then(Value::as_str) {
+        Some("th") => Some("th"),
+        Some("en") => Some("en"),
+        _ => None,
+    }
+}
+
+fn alert_payload(batch: &ObjectiveAlertBatch, locale: Option<&'static str>) -> Value {
     let alerts: Vec<Value> = batch
         .alerts
         .iter()
@@ -106,11 +125,15 @@ fn alert_payload(batch: &ObjectiveAlertBatch) -> Value {
             })
         })
         .collect();
-    json!({
+    let mut payload = json!({
         "schema_version": 1,
         "observed_clock_seconds": batch.observed_clock_seconds,
         "alerts": alerts,
-    })
+    });
+    if let Some(locale) = locale {
+        payload["locale"] = json!(locale);
+    }
+    payload
 }
 
 fn tone_priority(batch: &ObjectiveAlertBatch) -> ObjectiveId {
@@ -172,25 +195,51 @@ fn log_alert_shown(batch: &ObjectiveAlertBatch, tone: &str) {
 
 #[cfg(test)]
 mod tests {
-    use super::{alert_payload, log_fields, tone_priority, ObjectiveAlertBatch};
+    use super::{
+        alert_payload, locale_from_settings, log_fields, tone_priority, ObjectiveAlertBatch,
+    };
     use kohbor_events::{ObjectiveAlert, ObjectiveId, ObjectivePhase};
+    use serde_json::json;
 
     #[test]
     fn alert_payload_is_a_small_closed_host_event() {
-        let payload = alert_payload(&ObjectiveAlertBatch {
-            observed_clock_seconds: 120,
-            alerts: vec![ObjectiveAlert {
-                objective: ObjectiveId::WaterRune,
-                phase: ObjectivePhase::Spawn,
-                occurrence_seconds: 120,
-                due_seconds: 120,
-            }],
-        });
+        let payload = alert_payload(
+            &ObjectiveAlertBatch {
+                observed_clock_seconds: 120,
+                alerts: vec![ObjectiveAlert {
+                    objective: ObjectiveId::WaterRune,
+                    phase: ObjectivePhase::Spawn,
+                    occurrence_seconds: 120,
+                    due_seconds: 120,
+                }],
+            },
+            Some("th"),
+        );
         assert_eq!(payload["schema_version"], 1);
+        assert_eq!(payload["locale"], "th");
         assert_eq!(payload["alerts"][0]["objective"], "water_rune");
         assert_eq!(payload["alerts"][0]["phase"], "spawn");
         assert!(payload["alerts"][0]["lead_s"].is_null());
         assert!(payload.get("player").is_none());
+    }
+
+    #[test]
+    fn alert_payload_carries_only_a_known_app_locale() {
+        assert_eq!(locale_from_settings(&json!({"locale": "th"})), Some("th"));
+        assert_eq!(locale_from_settings(&json!({"locale": "en"})), Some("en"));
+        assert_eq!(locale_from_settings(&json!({"locale": "fr"})), None);
+        assert_eq!(locale_from_settings(&json!({})), None);
+        let batch = ObjectiveAlertBatch {
+            observed_clock_seconds: 120,
+            alerts: vec![ObjectiveAlert {
+                objective: ObjectiveId::PowerRune,
+                phase: ObjectivePhase::Spawn,
+                occurrence_seconds: 120,
+                due_seconds: 120,
+            }],
+        };
+        assert!(alert_payload(&batch, None).get("locale").is_none());
+        assert_eq!(alert_payload(&batch, Some("en"))["locale"], "en");
     }
 
     #[test]
@@ -228,7 +277,7 @@ mod tests {
         };
         let fields = log_fields(&batch, "deferred_played");
         let encoded = fields.to_string().to_ascii_lowercase();
-        for private_marker in ["c:\\users", "suanr", "token", "secret", "\\appdata\\"] {
+        for private_marker in ["c:\\users", "username", "token", "secret", "\\appdata\\"] {
             assert!(!encoded.contains(private_marker));
         }
         assert_eq!(fields["kind"], "water_rune");
