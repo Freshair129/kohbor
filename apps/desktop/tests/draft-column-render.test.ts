@@ -385,3 +385,78 @@ test("rendering an unknown game count says so and withholds rank and rate", asyn
   assert.doesNotMatch(row, /ข้อมูลน้อย · ต่ำกว่า 1,000 เกม/);
   assert.doesNotMatch(row, /draft-row-rank|draft-row-rate/);
 });
+
+function counterPayload(state: string, rows: Array<{ hero_id: number; name: string; against: string[]; reason: string }>) {
+  const base = suggestionPayload();
+  const metaRows = Array.from({ length: 8 }, (_, index) => ({
+    hero_id: 100 + index, name: `Meta ${index + 1}`, rank: index + 1, games: 90000 - index * 1000,
+    win_rate_tenths: 500, low_data: false, taken: false,
+  }));
+  return {
+    ...base,
+    suggestions: {
+      ...base.suggestions,
+      rows: metaRows,
+      ranked_count: 8,
+      draft_bar: { available: true, identified: 1, slots: 10 },
+      counters: {
+        state, source: "kohbor_reviewed_table", enemies: state === "ready" ? ["Phantom Lancer"] : [],
+        enemies_identified: state === "ready" ? 1 : 0, position_filtered: true, rows,
+      },
+    },
+  };
+}
+
+const PL_COUNTERS = [
+  { hero_id: 7, name: "Earthshaker", against: ["Phantom Lancer"], reason: "Echo Slam" },
+  { hero_id: 18, name: "Sven", against: ["Phantom Lancer"], reason: "Great Cleave" },
+  { hero_id: 106, name: "Ember Spirit", against: ["Phantom Lancer"], reason: "Sleight of Fist" },
+  { hero_id: 94, name: "Medusa", against: ["Phantom Lancer"], reason: "Split Shot" },
+];
+
+test("overlay draws at most three counter rows on top and gives up the same meta rows", async () => {
+  const DraftColumnView = await loadDraftColumnView();
+  const view = parseDraftColumnView(counterPayload("ready", PL_COUNTERS));
+  const overlay = renderToStaticMarkup(React.createElement(DraftColumnView, { view, surface: "overlay" }));
+  assert.match(overlay, /แก้ทาง Phantom Lancer/);
+  assert.equal((overlay.match(/class="draft-counter-row"/g) ?? []).length, 3);
+  assert.doesNotMatch(overlay, /Medusa/);
+  assert.equal((overlay.match(/class="draft-row /g) ?? []).length, 5, "8 rows minus 3 counter rows");
+  assert.ok(overlay.indexOf("draft-counter-block") < overlay.indexOf("draft-row-list"), "counters sit above the meta list");
+  assert.match(overlay, /ไม่ใช่สถิติ/);
+  const counterText = overlay.slice(overlay.indexOf("draft-counter-block"), overlay.indexOf("draft-column-subtitle"));
+  assert.doesNotMatch(counterText, /%/, "counters never show a percentage");
+  assert.doesNotMatch(overlay, /<(?:button|input|select|a)(?:\s|>)/i);
+
+  const deck = renderToStaticMarkup(React.createElement(DraftColumnView, { view, surface: "deck" }));
+  assert.equal((deck.match(/class="draft-counter-row"/g) ?? []).length, 4, "the deck keeps every host counter row");
+  assert.match(deck, /Echo Slam/);
+});
+
+test("without a ready counter block the overlay shows no counter section and keeps eight meta rows", async () => {
+  const DraftColumnView = await loadDraftColumnView();
+  for (const state of ["build_disabled", "draft_bar_unavailable", "sides_unknown", "no_enemy"]) {
+    const view = parseDraftColumnView(counterPayload(state, []));
+    assert.equal(view.suggestions?.counters?.state, state);
+    const overlay = renderToStaticMarkup(React.createElement(DraftColumnView, { view, surface: "overlay" }));
+    assert.doesNotMatch(overlay, /draft-counter-block/, state);
+    assert.equal((overlay.match(/class="draft-row /g) ?? []).length, 8, state);
+    const deck = renderToStaticMarkup(React.createElement(DraftColumnView, { view, surface: "deck" }));
+    assert.match(deck, /draft-counter-status/, state);
+  }
+  const sides = renderToStaticMarkup(React.createElement(DraftColumnView, {
+    view: parseDraftColumnView(counterPayload("sides_unknown", [])), surface: "deck",
+  }));
+  assert.match(sides, /ยังไม่รู้ว่าฮีโร่ไหนอยู่ฝั่งตรงข้าม/);
+});
+
+test("the overlay counter block fits inside the three meta rows it replaces", () => {
+  const css = readFileSync(new URL("../src/draft/draft-column.css", import.meta.url), "utf8");
+  const rowHeight = Number(css.match(/--draft-overlay-row-height:\s*(\d+)px/)![1]);
+  const block = css.match(/\.draft-column-surface-overlay\s+\.draft-counter-block\s*\{([^}]*)\}/s)![1]!;
+  const maxHeight = Number(block.match(/max-height:\s*(\d+)px/)![1]);
+  assert.ok(maxHeight <= 3 * rowHeight, `counter block ${maxHeight}px vs ${3 * rowHeight}px`);
+  const part = (selector: string) => Number(css.match(new RegExp(String.raw`\.draft-column-surface-overlay\s+\.${selector}\s*\{[^}]*height:\s*(\d+)px`, "s"))![1]);
+  const content = part("draft-counter-heading") + 3 * part("draft-counter-row") + part("draft-counter-source");
+  assert.ok(content <= maxHeight, `counter content ${content}px within ${maxHeight}px`);
+});

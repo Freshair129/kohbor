@@ -293,7 +293,7 @@ Feature: Brand-neutral desktop companion target behavior
   Scenario: AC-UI-010 Display-only hero pick card
     Given an admitted draft, deck-selected position and bracket, and supported 1920×1080 layout
     When the player picks or changes hero, advances through selection, strategy and showcase, and uses builds with and without admitted 5b output
-    Then the single column occupies x=1728–1907 scaled with height and shows the read-only list before own pick and existing pick card after it; the list shows historical bracket win rate and game count, labels under-1,000 samples low-data and five position groups as estimates, discloses that listed heroes may be banned or already picked, never shows win-chance %, accepts no in-game input, and has its own on/off switch; v2 only strikes picked heroes when 5b is available, while matchup edge remains unavailable pending a qualified source
+    Then the single column occupies x=1728–1907 scaled with height and shows the read-only list before own pick and existing pick card after it; the list shows historical bracket win rate and game count, labels under-1,000 samples low-data and five position groups as estimates, discloses that listed heroes may be banned or already picked, never shows win-chance %, accepts no in-game input, and has its own on/off switch; v2 only strikes picked heroes when 5b is available; counter suggestions appear only from the shipped reviewed table, only with at least one identified enemy and known slot and own sides, at most three in game, never as a statistic, and none while either side is unknown; a statistical matchup edge remains unavailable pending a qualified source
     And failure behavior is: Hide without an admitted own pick, a supported placement or an active draft phase. Suppress v2 comparisons when 5b is unavailable and keep eligible v1 content. Remove previous hero statistics immediately on a repick or swap.
 
   @MEDIA-009 @extension
@@ -314,7 +314,7 @@ Feature: Brand-neutral desktop companion target behavior
   Scenario: AC-STATS-002 Closed outgoing public statistics projection
     Given public hero statistics consent is on and test data contains the own hero, an optional manual bracket and forbidden fields
     When the host constructs and sends a valid request, then receives negative cases with an extra field including each forbidden data class
-    Then v1 list requests are fixed public table requests, no more than four per day, with no user- or match-specific fields; position and bracket filtering occurs locally. The separate pick-card flow continues to carry only the admitted own hero ID and optional manual bracket, and forbidden context is rejected before send
+    Then v1 list requests are fixed public table requests, no more than four per day, with no user- or match-specific fields; position and bracket filtering occurs locally, and counter suggestions cause no request and send no identified hero. The separate pick-card flow continues to carry only the admitted own hero ID and optional manual bracket, and forbidden context is rejected before send
     And failure behavior is: Reject requests with extra or invalid fields before transport. Do not serialize a wider game, account or draft object or substitute a missing own hero ID.
 
   @STATS-003 @extension

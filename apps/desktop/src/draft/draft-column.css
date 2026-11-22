@@ -527,3 +527,21 @@ body.draft-body #root {
 .draft-column-surface-overlay .draft-synthetic-flag { font-size: 8.5px; }
 .draft-column-surface-overlay .draft-pick-card { gap: 4px; padding: 8px 10px; }
 .draft-column-surface-overlay .draft-consent-chip.is-overlay { box-sizing: border-box; width: 180px; padding: 8px; }
+
+/* Counter picks (reviewed Kohbor table, DEC-PICK-STATS revision 3). */
+.draft-counter-block { display: flex; flex-direction: column; gap: 2px; margin: 4px 0; padding: 4px 6px; border-left: 2px solid #f2b84b; background: rgba(242, 184, 75, 0.08); }
+.draft-counter-heading { margin: 0; color: #f6cf7d; font-size: 10px; font-weight: 700; overflow-wrap: anywhere; }
+.draft-counter-status { margin: 0; color: #a8bdd4; font-size: 8.5px; }
+.draft-counter-list { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.draft-counter-row { display: flex; flex-direction: column; min-width: 0; }
+.draft-counter-row strong { color: #f3f6fb; font-size: 11px; line-height: 1.1; overflow-wrap: anywhere; }
+.draft-counter-row small { color: #c9d6e6; font-size: 8.5px; line-height: 1.15; overflow-wrap: anywhere; }
+.draft-counter-source { margin: 0; color: #8fa5bd; font-size: 8.5px; }
+/* Overlay: three counter rows plus heading and source fit inside the three meta rows they replace (3 x 32 px). */
+.draft-column-surface-overlay .draft-counter-block { flex: none; gap: 0; margin: 0; padding: 0 0 0 5px; max-height: 96px; overflow: hidden; box-sizing: border-box; }
+.draft-column-surface-overlay .draft-counter-heading { height: 12px; font-size: 10px; line-height: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.draft-column-surface-overlay .draft-counter-list { gap: 0; }
+.draft-column-surface-overlay .draft-counter-row { height: 24px; box-sizing: border-box; justify-content: center; }
+.draft-column-surface-overlay .draft-counter-row strong { font-size: 11px; line-height: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.draft-column-surface-overlay .draft-counter-row small { font-size: 8.5px; line-height: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.draft-column-surface-overlay .draft-counter-source { height: 10px; font-size: 8.5px; line-height: 10px; }

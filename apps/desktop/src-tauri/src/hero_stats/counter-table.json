@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "note": "Kohbor-reviewed static counter table (DEC-PICK-STATS revision 3, option c). Drafted from game knowledge for owner review; not a statistic. A row applies only when its internal names match; ids are checked against the provider heroStats row when that table is cached. The owner reviews this table every patch.",
+  "entries": [
+    { "enemy_id": 12, "enemy_name": "npc_dota_hero_phantom_lancer", "enemy_label": "Phantom Lancer", "patch": "7.42", "date": "2026-11-22", "counters": [
+      { "hero_id": 7, "hero_name": "npc_dota_hero_earthshaker", "label": "Earthshaker", "reason": "Echo Slam และ Aftershock โดนภาพลวงทั้งกองพร้อมกัน" },
+      { "hero_id": 18, "hero_name": "npc_dota_hero_sven", "label": "Sven", "reason": "Great Cleave ตีโดนภาพลวงที่ยืนรวมกันทั้งหมด" },
+      { "hero_id": 106, "hero_name": "npc_dota_hero_ember_spirit", "label": "Ember Spirit", "reason": "Sleight of Fist และ Flame Guard ล้างภาพลวงได้เร็ว" }
+    ] },
+    { "enemy_id": 89, "enemy_name": "npc_dota_hero_naga_siren", "enemy_label": "Naga Siren", "patch": "7.42", "date": "2026-11-22", "counters": [
+      { "hero_id": 7, "hero_name": "npc_dota_hero_earthshaker", "label": "Earthshaker", "reason": "Echo Slam แรงขึ้นตามจำนวนภาพลวงรอบตัว" },
+      { "hero_id": 106, "hero_name": "npc_dota_hero_ember_spirit", "label": "Ember Spirit", "reason": "Sleight of Fist ตีภาพลวงหลายตัวในครั้งเดียว" },
+      { "hero_id": 94, "hero_name": "npc_dota_hero_medusa", "label": "Medusa", "reason": "Split Shot ยิงภาพลวงหลายตัวพร้อมกัน" }
+    ] },
+    { "enemy_id": 81, "enemy_name": "npc_dota_hero_chaos_knight", "enemy_label": "Chaos Knight", "patch": "7.42", "date": "2026-11-22", "counters": [
+      { "hero_id": 7, "hero_name": "npc_dota_hero_earthshaker", "label": "Earthshaker", "reason": "Echo Slam โดนภาพลวงจาก Phantasm ทั้งหมด" },
+      { "hero_id": 18, "hero_name": "npc_dota_hero_sven", "label": "Sven", "reason": "Great Cleave ล้างภาพลวงที่ยืนรวมกัน" }
+    ] },
+    { "enemy_id": 82, "enemy_name": "npc_dota_hero_meepo", "enemy_label": "Meepo", "patch": "7.42", "date": "2026-11-22", "counters": [
+      { "hero_id": 7, "hero_name": "npc_dota_hero_earthshaker", "label": "Earthshaker", "reason": "สตันหมู่โดน Meepo ทุกร่างพร้อมกัน" },
+      { "hero_id": 18, "hero_name": "npc_dota_hero_sven", "label": "Sven", "reason": "Great Cleave ตีโดน Meepo หลายร่างที่ยืนติดกัน" }
+    ] },
+    { "enemy_id": 59, "enemy_name": "npc_dota_hero_huskar", "enemy_label": "Huskar", "patch": "7.42", "date": "2026-11-22", "counters": [
+      { "hero_id": 68, "hero_name": "npc_dota_hero_ancient_apparition", "label": "Ancient Apparition", "reason": "Ice Blast หยุดการฟื้นเลือดทั้งหมด" },
+      { "hero_id": 47, "hero_name": "npc_dota_hero_viper", "label": "Viper", "reason": "Nethertoxin ทำให้ passive ใช้ไม่ได้ (break)" }
+    ] },
+    { "enemy_id": 73, "enemy_name": "npc_dota_hero_alchemist", "enemy_label": "Alchemist", "patch": "7.42", "date": "2026-11-22", "counters": [
+      { "hero_id": 68, "hero_name": "npc_dota_hero_ancient_apparition", "label": "Ancient Apparition", "reason": "Ice Blast หยุดการฟื้นเลือดจาก Chemical Rage" }
+    ] },
+    { "enemy_id": 99, "enemy_name": "npc_dota_hero_bristleback", "enemy_label": "Bristleback", "patch": "7.42", "date": "2026-11-22", "counters": [
+      { "hero_id": 47, "hero_name": "npc_dota_hero_viper", "label": "Viper", "reason": "Nethertoxin ปิด passive Bristleback (break)" },
+      { "hero_id": 68, "hero_name": "npc_dota_hero_ancient_apparition", "label": "Ancient Apparition", "reason": "Ice Blast หยุดฮีลของตัวที่ยืนนาน" }
+    ] },
+    { "enemy_id": 67, "enemy_name": "npc_dota_hero_spectre", "enemy_label": "Spectre", "patch": "7.42", "date": "2026-11-22", "counters": [
+      { "hero_id": 47, "hero_name": "npc_dota_hero_viper", "label": "Viper", "reason": "Nethertoxin ปิด Dispersion (break)" }
+    ] },
+    { "enemy_id": 44, "enemy_name": "npc_dota_hero_phantom_assassin", "enemy_label": "Phantom Assassin", "patch": "7.42", "date": "2026-11-22", "counters": [
+      { "hero_id": 2, "hero_name": "npc_dota_hero_axe", "label": "Axe", "reason": "Berserker's Call และ Counter Helix ลงโทษตัวที่กระโดดเข้ามา" },
+      { "hero_id": 47, "hero_name": "npc_dota_hero_viper", "label": "Viper", "reason": "Nethertoxin ปิด passive ของ PA (break)" }
+    ] },
+    { "enemy_id": 1, "enemy_name": "npc_dota_hero_antimage", "enemy_label": "Anti-Mage", "patch": "7.42", "date": "2026-11-22", "counters": [
+      { "hero_id": 2, "hero_name": "npc_dota_hero_axe", "label": "Axe", "reason": "Berserker's Call จับไว้ก่อนจะ Blink หนี" },
+      { "hero_id": 104, "hero_name": "npc_dota_hero_legion_commander", "label": "Legion Commander", "reason": "Duel จับไว้ หนีไม่ได้" }
+    ] },
+    { "enemy_id": 17, "enemy_name": "npc_dota_hero_storm_spirit", "enemy_label": "Storm Spirit", "patch": "7.42", "date": "2026-11-22", "counters": [
+      { "hero_id": 1, "hero_name": "npc_dota_hero_antimage", "label": "Anti-Mage", "reason": "Mana Break เผามานาที่ใช้กระโดด" },
+      { "hero_id": 88, "hero_name": "npc_dota_hero_nyx_assassin", "label": "Nyx Assassin", "reason": "Mana Burn ตัดมานา และสตันก่อนหนีได้" }
+    ] },
+    { "enemy_id": 94, "enemy_name": "npc_dota_hero_medusa", "enemy_label": "Medusa", "patch": "7.42", "date": "2026-11-22", "counters": [
+      { "hero_id": 1, "hero_name": "npc_dota_hero_antimage", "label": "Anti-Mage", "reason": "Mana Break ทำลาย Mana Shield" },
+      { "hero_id": 88, "hero_name": "npc_dota_hero_nyx_assassin", "label": "Nyx Assassin", "reason": "Mana Burn เผามานาที่เป็นเลือดของ Medusa" }
+    ] },
+    { "enemy_id": 32, "enemy_name": "npc_dota_hero_riki", "enemy_label": "Riki", "patch": "7.42", "date": "2026-11-22", "counters": [
+      { "hero_id": 28, "hero_name": "npc_dota_hero_slardar", "label": "Slardar", "reason": "Corrosive Haze ทำให้มองเห็นแม้ล่องหน" },
+      { "hero_id": 62, "hero_name": "npc_dota_hero_bounty_hunter", "label": "Bounty Hunter", "reason": "Track มองเห็นเป้าหมายแม้ล่องหน" }
+    ] },
+    { "enemy_id": 35, "enemy_name": "npc_dota_hero_sniper", "enemy_label": "Sniper", "patch": "7.42", "date": "2026-11-22", "counters": [
+      { "hero_id": 71, "hero_name": "npc_dota_hero_spirit_breaker", "label": "Spirit Breaker", "reason": "Charge เข้าถึงตัวที่ยืนยิงจากไกล" },
+      { "hero_id": 17, "hero_name": "npc_dota_hero_storm_spirit", "label": "Storm Spirit", "reason": "Ball Lightning พุ่งเข้าถึงตัวหลังแนวได้เร็ว" }
+    ] },
+    { "enemy_id": 34, "enemy_name": "npc_dota_hero_tinker", "enemy_label": "Tinker", "patch": "7.42", "date": "2026-11-22", "counters": [
+      { "hero_id": 88, "hero_name": "npc_dota_hero_nyx_assassin", "label": "Nyx Assassin", "reason": "ซุ่มจับตัวที่เลือดน้อยและเผามานา" },
+      { "hero_id": 71, "hero_name": "npc_dota_hero_spirit_breaker", "label": "Spirit Breaker", "reason": "Charge จับได้ทุกที่บนแผนที่" }
+    ] },
+    { "enemy_id": 61, "enemy_name": "npc_dota_hero_broodmother", "enemy_label": "Broodmother", "patch": "7.42", "date": "2026-11-22", "counters": [
+      { "hero_id": 2, "hero_name": "npc_dota_hero_axe", "label": "Axe", "reason": "Counter Helix ล้างแมงมุมรอบตัว" },
+      { "hero_id": 7, "hero_name": "npc_dota_hero_earthshaker", "label": "Earthshaker", "reason": "Echo Slam แรงขึ้นตามจำนวนแมงมุมรอบตัว" }
+    ] }
+  ]
+}
