@@ -17,6 +17,7 @@ use std::time::{Duration, Instant};
 pub enum Call {
     Submit(PlaybackId, usize),
     Cancel(PlaybackId),
+    CancelWithFade(PlaybackId, usize),
 }
 #[derive(Default)]
 pub struct Script {
@@ -51,6 +52,13 @@ impl Sink for FakeSink {
     }
     fn cancel(&mut self, id: PlaybackId) {
         self.0.lock().unwrap().calls.push(Call::Cancel(id));
+    }
+    fn cancel_with_fade(&mut self, id: PlaybackId, fade_samples: usize) {
+        self.0
+            .lock()
+            .unwrap()
+            .calls
+            .push(Call::CancelWithFade(id, fade_samples));
     }
     fn poll_event(&mut self) -> Option<SinkEvent> {
         let mut script = self.0.lock().unwrap();

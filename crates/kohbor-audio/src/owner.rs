@@ -3,6 +3,11 @@
 use crate::pcm::Pcm;
 use std::cell::Cell;
 
+/// Duration of a preemption fade at 48 kHz.
+pub const PREEMPT_FADE_MS: u64 = 100;
+/// Mono samples in [`PREEMPT_FADE_MS`] at the audio sink's 48 kHz sample rate.
+pub const PREEMPT_FADE_SAMPLES: usize = (PREEMPT_FADE_MS as usize * 48_000) / 1_000;
+
 /// Audio classes, highest priority first (EVENT-AUDIO-SPEC section 4).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AudioClass {
@@ -108,10 +113,11 @@ pub enum SinkEvent {
 /// non-blocking: neither method may wait for a lock held by another thread,
 /// allocate on the audio thread, or panic.
 ///
-/// A sink has one playback slot. `submit` atomically replaces whatever is
-/// currently playing; sinks never mix two playbacks. `cancel` stops `id` only
-/// when it is still current, and is a no-op for a stale or unknown id. The real
-/// device layer keeps one stream open and swaps its source.
+/// A sink has one primary playback and at most one fading tail. `submit` starts
+/// the new primary immediately; the only mix is a preempted clip's <=100 ms
+/// fade-out tail under the new playback. `cancel` hard-cuts both the primary and
+/// any tail when `id` is current, and is a no-op for stale or unknown ids. The
+/// real device layer keeps one stream open and swaps its source.
 ///
 /// A device can still output the last buffer of the old playback for up to one
 /// device period after its deadline. The owner does not model that delay, so its
@@ -122,6 +128,11 @@ pub trait Sink {
     fn submit(&mut self, id: PlaybackId, pcm: Pcm) -> Result<(), SinkError>;
     /// Stop `id` if it is current; stale or unknown ids are a no-op.
     fn cancel(&mut self, id: PlaybackId);
+    /// Fade `id` underneath the next submitted playback. Sinks that do not
+    /// support a fade retain their existing hard-cancel behavior.
+    fn cancel_with_fade(&mut self, id: PlaybackId, _fade_samples: usize) {
+        self.cancel(id);
+    }
     /// Return the next sink event, if one is pending. Existing sinks need not
     /// produce events.
     fn poll_event(&mut self) -> Option<SinkEvent> {
@@ -261,6 +272,7 @@ impl Default for Config {
 struct Playback {
     id: PlaybackId,
     class: AudioClass,
+    ordinary_rank: u32,
     episode: Option<String>,
     session_epoch: u64,
     package_revision: Option<u64>,
@@ -366,9 +378,8 @@ impl<S: Sink> AudioOwner<S> {
     /// 4. device marked unavailable -> `ChannelBusy` with `Detail::DeviceUnavailable`;
     /// 5. the priority matrix of EVENT-AUDIO-SPEC section 4 against the class that
     ///    holds the audio channel at `at_ms` (a playback holds it from admission
-    ///    until `admission + ceil(samples * 1000 / 48_000)` when that checked
-    ///    deadline is representable; a visual tail does not hold the audio
-    ///    channel):
+    ///    until `admission + ceil(samples * 1000 / 48_000)`; the short preemption
+    ///    tail does not extend the new playback's channel hold):
     ///    - C1: idle -> play; C1 active with the same `episode` (both `Some` and
     ///      equal) -> `Cooldown`; C1 active with a different episode -> preempt;
     ///      C2..C5 active -> preempt.
@@ -379,12 +390,16 @@ impl<S: Sink> AudioOwner<S> {
     ///    - C3: within `notice_cooldown_ms` of the last admitted C3 -> `Cooldown`
     ///      (checked before the channel); C1 or C2 active -> `CriticalActive`;
     ///      C3 active -> `ChannelBusy`; C4 or C5 active -> preempt; idle -> play.
-    ///    - C4: C1 or C2 active -> queue by rank (latest wins ties); C3 or C4 active
-    ///      -> `ChannelBusy`; C5 active -> preempt; idle -> play.
+    ///    - C4: C1 or C2 active -> queue by rank (latest wins ties); C3 active
+    ///      -> `ChannelBusy`; higher-ranked C4 active -> preempt with a 100 ms
+    ///      fade; equal/lower-ranked C4 active -> `ChannelBusy`; C5 active ->
+    ///      preempt; idle -> play. C1, C2, and C3 preempting C4 also use that
+    ///      fade; their other preemptions remain hard cuts.
     ///    - C5: any of C1..C4 active -> `ChannelBusy` (the host waits and
     ///      re-submits; the owner never queues voice); C5 active -> preempt
     ///      (supersede); idle -> play.
-    /// 6. On play or preempt: when preempting, `sink.cancel(old)` first and queue
+    /// 6. On play or preempt: when preempting, cancel the old playback first
+    ///    (using a fade only when C1/C2/C3 or higher-ranked C4 preempts C4) and queue
     ///    `Notice::Cancelled{Preempted}`; then `sink.submit`. A `SinkError` gives
     ///    `ChannelBusy` with `Detail::SinkFailed` and nothing becomes active.
     ///
@@ -472,12 +487,18 @@ impl<S: Sink> AudioOwner<S> {
                 }
                 Some(self.start(request, at_ms, true))
             }
+            (AudioClass::Critical, Some(AudioClass::Ordinary)) => {
+                Some(self.start_with_fade(request, at_ms))
+            }
             (AudioClass::Critical, Some(_)) => Some(self.start(request, at_ms, true)),
             (AudioClass::Critical, None) => Some(self.start(request, at_ms, false)),
 
             (AudioClass::Correction, Some(AudioClass::Critical)) => {
                 self.queue_correction(at_ms, request);
                 None
+            }
+            (AudioClass::Correction, Some(AudioClass::Ordinary)) => {
+                Some(self.start_with_fade(request, at_ms))
             }
             (AudioClass::Correction, Some(_)) => Some(self.start(request, at_ms, true)),
             (AudioClass::Correction, None) => Some(self.start(request, at_ms, false)),
@@ -492,17 +513,38 @@ impl<S: Sink> AudioOwner<S> {
                 None,
                 None,
             )),
-            (AudioClass::Notice, Some(AudioClass::Ordinary | AudioClass::Voice)) => {
-                Some(self.start(request, at_ms, true))
+            (AudioClass::Notice, Some(AudioClass::Ordinary)) => {
+                Some(self.start_with_fade(request, at_ms))
             }
+            (AudioClass::Notice, Some(AudioClass::Voice)) => Some(self.start(request, at_ms, true)),
             (AudioClass::Notice, None) => Some(self.start(request, at_ms, false)),
 
             (AudioClass::Ordinary, Some(AudioClass::Critical | AudioClass::Correction)) => {
                 self.queue_ordinary(at_ms, request)
             }
-            (AudioClass::Ordinary, Some(AudioClass::Notice | AudioClass::Ordinary)) => Some(
-                Self::decision(request, at_ms, Outcome::ChannelBusy, None, None),
-            ),
+            (AudioClass::Ordinary, Some(AudioClass::Notice)) => Some(Self::decision(
+                request,
+                at_ms,
+                Outcome::ChannelBusy,
+                None,
+                None,
+            )),
+            (AudioClass::Ordinary, Some(AudioClass::Ordinary)) => {
+                if self
+                    .active_at(at_ms)
+                    .is_some_and(|playback| request.ordinary_rank > playback.ordinary_rank)
+                {
+                    Some(self.start_with_fade(request, at_ms))
+                } else {
+                    Some(Self::decision(
+                        request,
+                        at_ms,
+                        Outcome::ChannelBusy,
+                        None,
+                        None,
+                    ))
+                }
+            }
             (AudioClass::Ordinary, Some(AudioClass::Voice)) => {
                 Some(self.start(request, at_ms, true))
             }
@@ -787,6 +829,20 @@ impl<S: Sink> AudioOwner<S> {
     }
 
     fn start(&mut self, request: Request, at_ms: u64, preempt: bool) -> Decision {
+        self.start_internal(request, at_ms, preempt, false)
+    }
+
+    fn start_with_fade(&mut self, request: Request, at_ms: u64) -> Decision {
+        self.start_internal(request, at_ms, true, true)
+    }
+
+    fn start_internal(
+        &mut self,
+        request: Request,
+        at_ms: u64,
+        preempt: bool,
+        fade_preempt: bool,
+    ) -> Decision {
         if self.playback_ids_exhausted {
             return Self::decision(
                 request,
@@ -807,7 +863,15 @@ impl<S: Sink> AudioOwner<S> {
         }
 
         if preempt {
-            self.cancel_active(CancelReason::Preempted, at_ms);
+            if fade_preempt {
+                self.cancel_active_with_fade(
+                    CancelReason::Preempted,
+                    at_ms,
+                    Some(PREEMPT_FADE_SAMPLES),
+                );
+            } else {
+                self.cancel_active(CancelReason::Preempted, at_ms);
+            }
         }
 
         let Request {
@@ -815,6 +879,7 @@ impl<S: Sink> AudioOwner<S> {
             event_type,
             session_epoch,
             class,
+            ordinary_rank,
             episode,
             package_revision,
             pcm,
@@ -852,6 +917,7 @@ impl<S: Sink> AudioOwner<S> {
         self.active = Some(Playback {
             id,
             class,
+            ordinary_rank,
             episode,
             session_epoch,
             package_revision,
@@ -1082,8 +1148,21 @@ impl<S: Sink> AudioOwner<S> {
     }
 
     fn cancel_active(&mut self, reason: CancelReason, at_ms: u64) {
+        self.cancel_active_with_fade(reason, at_ms, None);
+    }
+
+    fn cancel_active_with_fade(
+        &mut self,
+        reason: CancelReason,
+        at_ms: u64,
+        fade_samples: Option<usize>,
+    ) {
         if let Some(playback) = self.active.take() {
-            self.sink.cancel(playback.id);
+            if let Some(fade_samples) = fade_samples {
+                self.sink.cancel_with_fade(playback.id, fade_samples);
+            } else {
+                self.sink.cancel(playback.id);
+            }
             self.push_notice(Notice::Cancelled {
                 id: playback.id,
                 reason,
@@ -1191,4 +1270,292 @@ fn playback_deadline(admitted_at_ms: u64, samples: usize) -> Option<u64> {
     let rounded_numerator = duration_numerator.checked_add(47_999)?;
     let duration_ms = rounded_numerator.checked_div(48_000)?;
     admitted_at_ms.checked_add(duration_ms)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        AudioClass, AudioOwner, CancelReason, Config, Notice, Outcome, PlaybackId, Request, Sink,
+        SinkError, PREEMPT_FADE_MS, PREEMPT_FADE_SAMPLES,
+    };
+    use crate::pcm::Pcm;
+
+    #[derive(Debug, PartialEq, Eq)]
+    enum Call {
+        Submit(PlaybackId),
+        Cancel(PlaybackId),
+        CancelWithFade(PlaybackId, usize),
+    }
+
+    #[derive(Default)]
+    struct TestSink {
+        calls: Vec<Call>,
+    }
+
+    impl Sink for TestSink {
+        fn submit(&mut self, id: PlaybackId, _pcm: Pcm) -> Result<(), SinkError> {
+            self.calls.push(Call::Submit(id));
+            Ok(())
+        }
+
+        fn cancel(&mut self, id: PlaybackId) {
+            self.calls.push(Call::Cancel(id));
+        }
+
+        fn cancel_with_fade(&mut self, id: PlaybackId, fade_samples: usize) {
+            self.calls.push(Call::CancelWithFade(id, fade_samples));
+        }
+    }
+
+    fn request(class: AudioClass, rank: u32, samples: usize) -> Request {
+        Request {
+            instance_id: format!("test_{rank}"),
+            event_type: Some("hero_kill".to_owned()),
+            session_epoch: 0,
+            class,
+            ordinary_rank: rank,
+            episode: (class == AudioClass::Critical).then(|| "episode".to_owned()),
+            package_revision: (class != AudioClass::Voice).then_some(0),
+            pcm: Pcm::from(vec![1_000; samples].into_boxed_slice()),
+            visual_tail_ms: 0,
+        }
+    }
+
+    fn owner() -> AudioOwner<TestSink> {
+        AudioOwner::new(TestSink::default(), Config::default())
+    }
+
+    #[test]
+    fn higher_rank_ordinary_preempts_with_fade_and_holds_for_the_new_clip_only() {
+        let mut owner = owner();
+        assert_eq!(
+            owner
+                .request(0, request(AudioClass::Ordinary, 60, 48_000))
+                .unwrap()
+                .outcome,
+            Outcome::Admitted
+        );
+
+        let admitted = owner
+            .request(400, request(AudioClass::Ordinary, 90, 480))
+            .unwrap();
+        assert_eq!(admitted.outcome, Outcome::Admitted);
+        assert_eq!(admitted.playback_id, Some(PlaybackId(2)));
+        assert_eq!(PREEMPT_FADE_MS, 100);
+        assert_eq!(PREEMPT_FADE_SAMPLES, 4_800);
+        assert_eq!(
+            owner.sink().calls,
+            [
+                Call::Submit(PlaybackId(1)),
+                Call::CancelWithFade(PlaybackId(1), 4_800),
+                Call::Submit(PlaybackId(2)),
+            ]
+        );
+        assert_eq!(
+            owner.drain_notices(),
+            [Notice::Cancelled {
+                id: PlaybackId(1),
+                reason: CancelReason::Preempted,
+                at_ms: 400,
+            }]
+        );
+        assert_eq!(owner.active(409), Some(PlaybackId(2)));
+        assert_eq!(owner.active(410), None);
+    }
+
+    #[test]
+    fn equal_or_lower_rank_ordinary_requests_remain_channel_busy() {
+        for incoming_rank in [60, 20] {
+            let mut owner = owner();
+            owner.request(0, request(AudioClass::Ordinary, 60, 48_000));
+
+            let decision = owner
+                .request(1, request(AudioClass::Ordinary, incoming_rank, 480))
+                .unwrap();
+            assert_eq!(decision.outcome, Outcome::ChannelBusy);
+            assert_eq!(owner.sink().calls, [Call::Submit(PlaybackId(1))]);
+            assert!(owner.drain_notices().is_empty());
+        }
+    }
+
+    #[test]
+    fn ordinary_requests_keep_their_c1_c2_queue_and_c3_busy_rules() {
+        for active_class in [
+            AudioClass::Critical,
+            AudioClass::Correction,
+            AudioClass::Notice,
+        ] {
+            let mut owner = owner();
+            assert_eq!(
+                owner
+                    .request(0, request(active_class, 0, 48_000))
+                    .unwrap()
+                    .outcome,
+                Outcome::Admitted
+            );
+
+            let incoming = owner.request(1, request(AudioClass::Ordinary, 90, 480));
+            if matches!(active_class, AudioClass::Critical | AudioClass::Correction) {
+                assert!(
+                    incoming.is_none(),
+                    "C4 stays queued behind {active_class:?}"
+                );
+            } else {
+                assert_eq!(incoming.unwrap().outcome, Outcome::ChannelBusy);
+            }
+            assert_eq!(owner.sink().calls, [Call::Submit(PlaybackId(1))]);
+        }
+    }
+
+    #[test]
+    fn critical_request_fades_an_active_ordinary_and_starts_immediately() {
+        let mut owner = owner();
+        owner.request(0, request(AudioClass::Ordinary, 60, 48_000));
+        assert_eq!(
+            owner
+                .request(1, request(AudioClass::Ordinary, 90, 48_000))
+                .unwrap()
+                .outcome,
+            Outcome::Admitted
+        );
+        owner.drain_notices();
+
+        let critical = owner
+            .request(2, request(AudioClass::Critical, 0, 480))
+            .unwrap();
+        assert_eq!(critical.outcome, Outcome::Admitted);
+        assert_eq!(critical.playback_id, Some(PlaybackId(3)));
+        assert_eq!(owner.active(2), Some(PlaybackId(3)));
+        assert_eq!(
+            owner.sink().calls,
+            [
+                Call::Submit(PlaybackId(1)),
+                Call::CancelWithFade(PlaybackId(1), PREEMPT_FADE_SAMPLES),
+                Call::Submit(PlaybackId(2)),
+                Call::CancelWithFade(PlaybackId(2), PREEMPT_FADE_SAMPLES),
+                Call::Submit(PlaybackId(3)),
+            ]
+        );
+        assert_eq!(
+            owner.drain_notices(),
+            [Notice::Cancelled {
+                id: PlaybackId(2),
+                reason: CancelReason::Preempted,
+                at_ms: 2,
+            }]
+        );
+    }
+
+    #[test]
+    fn critical_correction_and_notice_preempt_ordinary_with_the_same_immediate_fade() {
+        for incoming_class in [
+            AudioClass::Critical,
+            AudioClass::Correction,
+            AudioClass::Notice,
+        ] {
+            let mut owner = owner();
+            owner.request(0, request(AudioClass::Ordinary, 60, 48_000));
+
+            let admitted = owner.request(2, request(incoming_class, 0, 480)).unwrap();
+            assert_eq!(admitted.outcome, Outcome::Admitted);
+            assert_eq!(admitted.playback_id, Some(PlaybackId(2)));
+            assert_eq!(owner.active(2), Some(PlaybackId(2)));
+            assert_eq!(owner.active(11), Some(PlaybackId(2)));
+            assert_eq!(owner.active(12), None);
+            assert_eq!(
+                owner.sink().calls,
+                [
+                    Call::Submit(PlaybackId(1)),
+                    Call::CancelWithFade(PlaybackId(1), PREEMPT_FADE_SAMPLES),
+                    Call::Submit(PlaybackId(2)),
+                ],
+                "{incoming_class:?} over C4 uses one immediate-start fade"
+            );
+        }
+    }
+
+    #[test]
+    fn critical_over_a_different_critical_episode_keeps_the_hard_cut() {
+        let mut owner = owner();
+        owner.request(0, request(AudioClass::Critical, 0, 48_000));
+        let mut incoming = request(AudioClass::Critical, 0, 480);
+        incoming.episode = Some("another-episode".to_owned());
+
+        assert_eq!(
+            owner.request(2, incoming).unwrap().outcome,
+            Outcome::Admitted
+        );
+        assert_eq!(
+            owner.sink().calls,
+            [
+                Call::Submit(PlaybackId(1)),
+                Call::Cancel(PlaybackId(1)),
+                Call::Submit(PlaybackId(2)),
+            ]
+        );
+    }
+
+    #[test]
+    fn preemptions_of_voice_remain_hard_cuts() {
+        for incoming_class in [
+            AudioClass::Critical,
+            AudioClass::Correction,
+            AudioClass::Notice,
+            AudioClass::Ordinary,
+            AudioClass::Voice,
+        ] {
+            let mut owner = owner();
+            owner.request(0, request(AudioClass::Voice, 0, 48_000));
+
+            assert_eq!(
+                owner
+                    .request(1, request(incoming_class, 90, 480))
+                    .unwrap()
+                    .outcome,
+                Outcome::Admitted,
+                "{incoming_class:?} preempts C5"
+            );
+            assert_eq!(
+                owner.sink().calls,
+                [
+                    Call::Submit(PlaybackId(1)),
+                    Call::Cancel(PlaybackId(1)),
+                    Call::Submit(PlaybackId(2)),
+                ],
+                "{incoming_class:?} over C5 remains a hard cut"
+            );
+        }
+    }
+
+    #[test]
+    fn voice_priority_keeps_its_existing_hard_cancel_rules() {
+        let mut ordinary_active = owner();
+        ordinary_active.request(0, request(AudioClass::Ordinary, 60, 48_000));
+        assert_eq!(
+            ordinary_active
+                .request(1, request(AudioClass::Voice, 0, 480))
+                .unwrap()
+                .outcome,
+            Outcome::ChannelBusy
+        );
+        assert_eq!(ordinary_active.sink().calls, [Call::Submit(PlaybackId(1))]);
+
+        let mut voice_active = owner();
+        voice_active.request(0, request(AudioClass::Voice, 0, 48_000));
+        assert_eq!(
+            voice_active
+                .request(1, request(AudioClass::Ordinary, 60, 480))
+                .unwrap()
+                .outcome,
+            Outcome::Admitted
+        );
+        assert_eq!(
+            voice_active.sink().calls,
+            [
+                Call::Submit(PlaybackId(1)),
+                Call::Cancel(PlaybackId(1)),
+                Call::Submit(PlaybackId(2))
+            ]
+        );
+    }
 }

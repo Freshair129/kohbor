@@ -172,9 +172,9 @@ Feature: Brand-neutral desktop companion target behavior
 
   @MEDIA-002 @mvp
   Scenario: AC-MEDIA-002 Ordinary event arbitration
-    Given one tick produces several admitted ordinary events
+    Given one tick produces several admitted ordinary events; a multi_kill admitted while a hero_kill clip plays, an equal-rank event during a clip, and a critical cue during an ordinary clip
     When the announcer chooses media
-    Then the highest emitted ordinary rank is chosen; if its mapping is missing/invalid the slot stays silent without a lower-rank media fallback
+    Then the highest emitted ordinary rank is chosen; if its mapping is missing/invalid the slot stays silent without a lower-rank media fallback; the multi_kill starts at once while the hero_kill fades out over 100 ms and one clip_preempted {from_event, to_event, fade_ms} info line is written; the equal-rank event is dropped channel_busy; the critical cue starts without delay over the fading ordinary clip; a faded clip reports preempted, never finished
     And failure behavior is: No mapping-driven fallback. Baseline/reconnect must not invent first blood, kills, level or match-start events.
 
   @MEDIA-003 @mvp

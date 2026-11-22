@@ -58,8 +58,8 @@
     },
     {
       "path": "acceptance/scenarios.feature",
-      "bytes": 43051,
-      "sha256": "bf4e7bc3ab8c3b1d4cb7b3658f8fb44a97995fe884df96a5f78d58f6ee65a251"
+      "bytes": 43494,
+      "sha256": "024b5950cea0c38231e0a9ddf9f8e77d6cc4574445b1e8df48be65f47fbfecd7"
     },
     {
       "path": "acceptance/spec-validation.json",
@@ -238,18 +238,18 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/engine.rs",
-      "bytes": 50664,
-      "sha256": "26b78b7f252658efde94c31df94f1a66f1a3267379eeb90174eabbc4a854bafd"
+      "bytes": 53103,
+      "sha256": "3f8d170a05805c513ec4c3885b7b48fa0a108f35623b2abf020f80cb2f29ac10"
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/fake_sink.rs",
-      "bytes": 4387,
-      "sha256": "e0f37beb7d40eb0322036fc147ed3328f4d8b91c718539bedda27f35b8fd95c4"
+      "bytes": 4641,
+      "sha256": "a518d9cef4b3753f9c53c9a20678544dd0302b9007a98c43f27b4defd8c04983"
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/lanes.rs",
-      "bytes": 18664,
-      "sha256": "cf216e84a04e98d9704450474d94cf6283146534fb0e9a8bfac76cee91c380ca"
+      "bytes": 18767,
+      "sha256": "9795462cc88921545f09fb18bdef28083cccdf6fd20beefd4085bea0af150a28"
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/mod.rs",
@@ -263,8 +263,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/publisher.rs",
-      "bytes": 29280,
-      "sha256": "b025d8f369eb3537defb64afc98bb0b314777d75e0ded12e617b590f66eb069e"
+      "bytes": 30790,
+      "sha256": "04ace51745297c65c5b11d06f730cd284ce66c464305db19cf3c6c3e7803281c"
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/recap.rs",
@@ -278,13 +278,13 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/slot_sink.rs",
-      "bytes": 2172,
-      "sha256": "7a9a679586683c45e1de7b706c9169b33e9662e12c875c6587c9e4ffb1aacd34"
+      "bytes": 2368,
+      "sha256": "fbef2d818df8d0d82db5f8bf371c71746e668578b64d41f0b2d9fbafcbd737a3"
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/tests_engine.rs",
-      "bytes": 84510,
-      "sha256": "119d3235d834c2f79e34f8e12bb801b30d517d14d0fe039d24b942df5e9ba197"
+      "bytes": 89060,
+      "sha256": "7269d81b88b46955852dd900b8fed5a44edca53b43a9b6e20b467ae14b333420"
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/tests_outcome.rs",
@@ -1883,8 +1883,8 @@
     },
     {
       "path": "apps/desktop/tests/playback.test.ts",
-      "bytes": 10294,
-      "sha256": "40d9aaa5c5c89f7231ce8382e7bd7bbcd4b4a2f74e9f8b131d2c49e68014d564"
+      "bytes": 11336,
+      "sha256": "38a32ebf1d6164f19ce7d671a94ee7b5c7c1b4fdfdffe73a29dbe78043acf18e"
     },
     {
       "path": "apps/desktop/tests/post-match-replay.test.ts",
@@ -2128,8 +2128,8 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 227515,
-      "sha256": "c8dd1fcdbcf0d5b6a0fe8e8a42b7415289d9731ee8d8a92aceeab5250982f8bf"
+      "bytes": 228602,
+      "sha256": "17c4aef46d5e38638b3e2a2a0afd95237c31e9d8fa3e6b75b7572e0c26a4c368"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -2213,8 +2213,8 @@
     },
     {
       "path": "crates/kohbor-audio-native/src/engine.rs",
-      "bytes": 59181,
-      "sha256": "460564b2079d858972e1da12b9df6ee4c19550d81b82fdd5a7e99b1f28148aa4"
+      "bytes": 72765,
+      "sha256": "929c139e074703682b47709a342d56b3dadd46e60e07fb12a768baaaa601cad8"
     },
     {
       "path": "crates/kohbor-audio-native/src/lib.rs",
@@ -2223,8 +2223,8 @@
     },
     {
       "path": "crates/kohbor-audio-native/src/wasapi_backend.rs",
-      "bytes": 42421,
-      "sha256": "56f796ff900c4027451e905da8ad49f6c9bfa448f6566c1e5c371aa373ed7832"
+      "bytes": 42563,
+      "sha256": "16701df70c976619dd4be873bcf73b39458e5a40b8752e0bc40a0f869c849809"
     },
     {
       "path": "crates/kohbor-audio/Cargo.toml",
@@ -2233,13 +2233,13 @@
     },
     {
       "path": "crates/kohbor-audio/src/lib.rs",
-      "bytes": 981,
-      "sha256": "0d5afc95d097fb17906b14f42af89f91043bfa6f7c641741626bfec0512d544b"
+      "bytes": 1024,
+      "sha256": "e9d6be89637465a856e0eea0221fef080fb0db1c30b59af37f12396d9fa81df4"
     },
     {
       "path": "crates/kohbor-audio/src/owner.rs",
-      "bytes": 43717,
-      "sha256": "cfa4bbe4ab65e0d6d1e712b007e889b4eea20026193ddd4da390e99a9b36cf44"
+      "bytes": 56235,
+      "sha256": "e6c55c4955ea5807a05868b837d3cdd9a5be9e3bcce15ed94828b8f3905132c0"
     },
     {
       "path": "crates/kohbor-audio/src/pcm.rs",
@@ -2988,8 +2988,8 @@
     },
     {
       "path": "docs/design/EVENT-AUDIO-SPEC.md",
-      "bytes": 35767,
-      "sha256": "c5d96ebe695612919012bf58e20e3963957c0ff52c12ef3fbd5fb484918bb84a"
+      "bytes": 36538,
+      "sha256": "5fbdd81931df29dbf3515ef693e3438ad92c2f0b5bf6d800fb1964a17e96a2db"
     },
     {
       "path": "docs/design/GSI-INTAKE-SPEC.md",
@@ -3423,8 +3423,8 @@
     },
     {
       "path": "docs/domains/events-audio/CARD.md",
-      "bytes": 9741,
-      "sha256": "a19fadefe1f311172b189539c456ca9273d645bf9c6cce402cd2e9210a73e753"
+      "bytes": 10267,
+      "sha256": "48602604ee1633cbef62ba4d6f585d1014efddc87c953f6e8e63a3f95fd52857"
     },
     {
       "path": "docs/domains/events-audio/state.json",
@@ -3508,8 +3508,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 54018,
-      "sha256": "23b79fc0697d2091bf52232116ca18227edcee0a8589fa964973b636e604b6e4"
+      "bytes": 55302,
+      "sha256": "03ab9e029cbd8f9bafcfa18a21e2112ce8d7906267b18c0d481ccea24a4ea498"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
@@ -3588,13 +3588,13 @@
     },
     {
       "path": "docs/requirements/RTM.csv",
-      "bytes": 49616,
-      "sha256": "f2f6fa2625e634d6a0a3772a98521c3dcf1239a75861feb05e1a6d544abdf9ec"
+      "bytes": 49828,
+      "sha256": "1a0cb0a8565570106b072e3042b1e30022e6c5ae3a86a79b9ec546ee6a68336c"
     },
     {
       "path": "docs/requirements/SRS.md",
-      "bytes": 148806,
-      "sha256": "5a7aa6408149ae9febd17c58348783cef85e3b557415131cedc786013f11d8e1"
+      "bytes": 149616,
+      "sha256": "3211766687cd74ae94dcfc1dfd0d3b92192929cbc85dd875fd915899464196e5"
     },
     {
       "path": "docs/security/SECURITY-PRIVACY.md",

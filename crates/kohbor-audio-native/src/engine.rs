@@ -2,7 +2,7 @@ use crate::master_volume_percent;
 use kohbor_audio::{PlaybackId, SinkError, SinkEvent};
 #[cfg(feature = "latency-probe")]
 use std::sync::atomic::fence;
-use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError, TrySendError};
 use std::sync::Arc;
 #[cfg(feature = "latency-probe")]
@@ -530,8 +530,46 @@ struct Playback {
     samples: Arc<[i16]>,
     cursor: usize,
     finished_notified: bool,
+    cancelled_by_fade: bool,
+    fade_out: Option<FadeOutRamp>,
     submitted_at: Instant,
     stats: RenderStats,
+}
+
+#[derive(Clone, Copy)]
+struct FadeOutRamp {
+    total_samples: usize,
+    rendered_samples: usize,
+}
+
+impl FadeOutRamp {
+    fn gain(&self) -> f32 {
+        if self.total_samples <= 1 {
+            0.0
+        } else {
+            1.0 - self.rendered_samples as f32 / (self.total_samples - 1) as f32
+        }
+    }
+
+    fn remaining_samples(&self) -> usize {
+        self.total_samples.saturating_sub(self.rendered_samples)
+    }
+}
+
+fn begin_fade(playback: &mut Playback, requested_samples: usize) {
+    if playback.fade_out.is_some() {
+        return;
+    }
+    let remaining = playback.samples.len().saturating_sub(playback.cursor);
+    let total_samples = requested_samples.min(remaining);
+    if total_samples == 0 {
+        playback.cancelled_by_fade = true;
+    } else {
+        playback.fade_out = Some(FadeOutRamp {
+            total_samples,
+            rendered_samples: 0,
+        });
+    }
 }
 
 /// Device-independent render state. `fill` is called only on the audio-owner
@@ -542,7 +580,10 @@ pub(crate) struct Engine {
     retired: SyncSender<Arc<[i16]>>,
     events: SyncSender<SinkEvent>,
     current_generation: Arc<AtomicU64>,
+    fade_generation: Arc<AtomicU64>,
+    fade_samples: Arc<AtomicUsize>,
     active: Option<Playback>,
+    fade_tail: Option<Playback>,
     pending_command: Option<Command>,
     diagnostics: Arc<SharedDiagnostics>,
     gain_ramp: GainRamp,
@@ -558,6 +599,8 @@ pub(crate) struct EngineHandle {
     event_sender: SyncSender<SinkEvent>,
     events: Receiver<SinkEvent>,
     current_generation: Arc<AtomicU64>,
+    fade_generation: Arc<AtomicU64>,
+    fade_samples: Arc<AtomicUsize>,
     device_lost_pending: Arc<AtomicBool>,
     device_stop_requested: Arc<AtomicBool>,
     next_generation: u64,
@@ -603,6 +646,8 @@ impl Engine {
         let (retired_sender, retired) = mpsc::sync_channel(RETIREMENT_QUEUE_CAPACITY);
         let (event_sender, events) = mpsc::sync_channel(EVENT_QUEUE_CAPACITY);
         let current_generation = Arc::new(AtomicU64::new(INACTIVE_GENERATION));
+        let fade_generation = Arc::new(AtomicU64::new(INACTIVE_GENERATION));
+        let fade_samples = Arc::new(AtomicUsize::new(0));
         let device_lost_pending = Arc::new(AtomicBool::new(false));
         let device_stop_requested = Arc::new(AtomicBool::new(false));
         let diagnostics = Arc::new(SharedDiagnostics::new());
@@ -612,6 +657,8 @@ impl Engine {
             event_sender: Clone::clone(&event_sender),
             events,
             current_generation: Arc::clone(&current_generation),
+            fade_generation: Arc::clone(&fade_generation),
+            fade_samples: Arc::clone(&fade_samples),
             device_lost_pending: Arc::clone(&device_lost_pending),
             device_stop_requested: Arc::clone(&device_stop_requested),
             next_generation: INACTIVE_GENERATION,
@@ -624,7 +671,10 @@ impl Engine {
                 retired: retired_sender,
                 events: event_sender,
                 current_generation,
+                fade_generation,
+                fade_samples,
                 active: None,
+                fade_tail: None,
                 pending_command: None,
                 diagnostics,
                 gain_ramp: GainRamp::new(master_volume_percent()),
@@ -659,10 +709,11 @@ impl Engine {
             }
             return None;
         }
-        let rendered = self.render_active(out, observation);
+        let rendered_active = self.render_active(out, observation);
+        let rendered_tail = self.render_fade_tail(out, observation);
         apply_master_gain(out, &mut self.gain_ramp, master_volume_percent());
-        self.retire_terminal_active();
-        rendered
+        self.retire_terminal_playbacks();
+        rendered_active.or(rendered_tail)
     }
 
     pub(crate) fn record_no_space_callback(&mut self, observation: RenderObservation) {
@@ -700,7 +751,7 @@ impl Engine {
     }
 
     fn process_commands(&mut self) -> bool {
-        if !self.retire_terminal_active() {
+        if !self.retire_terminal_playbacks() {
             return false;
         }
 
@@ -715,6 +766,9 @@ impl Engine {
 
             if !self.process_command(command) {
                 return false;
+            }
+            if self.pending_command.is_some() {
+                break;
             }
         }
         true
@@ -742,7 +796,25 @@ impl Engine {
             };
         }
 
-        if self.active.is_some() && !self.retire_active() {
+        if self
+            .active
+            .as_ref()
+            .is_some_and(|active| self.is_fading(active.generation))
+        {
+            if self.fade_tail.is_some() && !self.retire_fade_tail() {
+                self.pending_command = Some(Command::Submit {
+                    id,
+                    generation,
+                    samples,
+                    submitted_at,
+                });
+                return false;
+            }
+            if let Some(mut previous) = self.active.take() {
+                begin_fade(&mut previous, self.fade_samples.load(Ordering::Relaxed));
+                self.fade_tail = Some(previous);
+            }
+        } else if self.active.is_some() && !self.retire_active() {
             self.pending_command = Some(Command::Submit {
                 id,
                 generation,
@@ -758,6 +830,8 @@ impl Engine {
             samples,
             cursor: 0,
             finished_notified: false,
+            cancelled_by_fade: false,
+            fade_out: None,
             submitted_at,
             stats: RenderStats::default(),
         });
@@ -770,23 +844,43 @@ impl Engine {
         observation: Option<RenderObservation>,
     ) -> Option<RenderedBlock> {
         let generation = self.current_generation.load(Ordering::Acquire);
+        let fade_generation = self.fade_generation.load(Ordering::Acquire);
+        let requested_fade = self.fade_samples.load(Ordering::Relaxed);
         let diagnostics = &self.diagnostics;
         let active = self.active.as_mut()?;
-        if generation != active.generation {
+        let fade_authorized = fade_generation == active.generation && requested_fade > 0;
+        if generation != active.generation && !fade_authorized {
             return None;
         }
 
+        if fade_authorized && active.fade_out.is_none() {
+            begin_fade(active, requested_fade);
+        }
+
         let remaining = active.samples.len().saturating_sub(active.cursor);
-        let count = remaining.min(out.len());
+        let fade_remaining = active
+            .fade_out
+            .as_ref()
+            .map_or(usize::MAX, FadeOutRamp::remaining_samples);
+        let count = remaining.min(out.len()).min(fade_remaining);
         let end = active.cursor.checked_add(count)?;
         if count > 0 {
             diagnostics.mark_render_write_pending(active.id.0);
         }
         out[..count].copy_from_slice(&active.samples[active.cursor..end]);
+        if let Some(fade) = active.fade_out.as_mut() {
+            for sample in &mut out[..count] {
+                *sample = scale_sample(*sample, fade.gain());
+                fade.rendered_samples += 1;
+            }
+        }
         if let Some(observation) = observation {
             active.stats.record_callback(observation);
         }
-        if self.current_generation.load(Ordering::Acquire) != generation {
+        let latest_generation = self.current_generation.load(Ordering::Acquire);
+        let fade_still_authorized =
+            self.fade_generation.load(Ordering::Acquire) == active.generation;
+        if latest_generation != active.generation && !fade_still_authorized {
             out.fill(0);
             if count > 0 {
                 diagnostics.complete_render_write_without_samples(active.id.0);
@@ -815,7 +909,24 @@ impl Engine {
         });
         active.cursor = end;
         diagnostics.record_cursor_frames(active.id.0, active.cursor);
-        if active.cursor == active.samples.len() && !active.finished_notified {
+
+        let fade_completed = active
+            .fade_out
+            .as_ref()
+            .is_some_and(|fade| fade.remaining_samples() == 0);
+        if fade_completed {
+            active.cancelled_by_fade = true;
+            let _ = self.fade_generation.compare_exchange(
+                active.generation,
+                INACTIVE_GENERATION,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            );
+        }
+        if active.cursor == active.samples.len()
+            && !active.finished_notified
+            && !active.cancelled_by_fade
+        {
             active.finished_notified = true;
             let id = active.id;
             let _ = self.events.try_send(SinkEvent::Finished { id });
@@ -829,40 +940,146 @@ impl Engine {
         rendered
     }
 
-    fn retire_terminal_active(&mut self) -> bool {
-        let should_retire = self.active.as_ref().is_some_and(|active| {
-            active.finished_notified
-                || active.generation != self.current_generation.load(Ordering::Acquire)
+    fn render_fade_tail(
+        &mut self,
+        out: &mut [i16],
+        observation: Option<RenderObservation>,
+    ) -> Option<RenderedBlock> {
+        let fade_generation = self.fade_generation.load(Ordering::Acquire);
+        let requested_fade = self.fade_samples.load(Ordering::Relaxed);
+        let diagnostics = &self.diagnostics;
+        let tail = self.fade_tail.as_mut()?;
+        if fade_generation != tail.generation || requested_fade == 0 {
+            return None;
+        }
+        if tail.fade_out.is_none() {
+            begin_fade(tail, requested_fade);
+        }
+        if tail.cancelled_by_fade {
+            return None;
+        }
+
+        let remaining = tail.samples.len().saturating_sub(tail.cursor);
+        let fade_remaining = tail
+            .fade_out
+            .as_ref()
+            .map_or(0, FadeOutRamp::remaining_samples);
+        let count = remaining.min(out.len()).min(fade_remaining);
+        let end = tail.cursor.checked_add(count)?;
+        if count > 0 {
+            diagnostics.mark_render_write_pending(tail.id.0);
+        }
+        if let Some(observation) = observation {
+            tail.stats.record_callback(observation);
+        }
+
+        if let Some(fade) = tail.fade_out.as_mut() {
+            for (offset, source) in tail.samples[tail.cursor..end].iter().copied().enumerate() {
+                let faded = scale_sample(source, fade.gain());
+                out[offset] = out[offset].saturating_add(faded);
+                fade.rendered_samples += 1;
+            }
+        }
+
+        diagnostics.publish_stats(tail.id.0, tail.stats.snapshot());
+        let rendered = (count > 0).then_some(RenderedBlock {
+            playback_id: tail.id,
+            frames: count,
         });
-        !should_retire || self.retire_active()
+        tail.cursor = end;
+        diagnostics.record_cursor_frames(tail.id.0, tail.cursor);
+
+        let fade_completed = tail
+            .fade_out
+            .as_ref()
+            .is_some_and(|fade| fade.remaining_samples() == 0);
+        if fade_completed {
+            tail.cancelled_by_fade = true;
+            let _ = self.fade_generation.compare_exchange(
+                tail.generation,
+                INACTIVE_GENERATION,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            );
+        }
+        rendered
+    }
+
+    fn is_fading(&self, generation: u64) -> bool {
+        self.fade_generation.load(Ordering::Acquire) == generation
+            && self.fade_samples.load(Ordering::Relaxed) > 0
+    }
+
+    fn retire_terminal_playbacks(&mut self) -> bool {
+        let tail_should_retire = self
+            .fade_tail
+            .as_ref()
+            .is_some_and(|tail| tail.cancelled_by_fade || !self.is_fading(tail.generation));
+        if tail_should_retire && !self.retire_fade_tail() {
+            return false;
+        }
+
+        let active_should_retire = self.active.as_ref().is_some_and(|active| {
+            active.finished_notified
+                || active.cancelled_by_fade
+                || (active.generation != self.current_generation.load(Ordering::Acquire)
+                    && !self.is_fading(active.generation))
+        });
+        !active_should_retire || self.retire_active()
     }
 
     fn retire_active(&mut self) -> bool {
         let Some(active) = self.active.take() else {
             return true;
         };
+        match Self::try_retire(&self.retired, active) {
+            Ok(()) => true,
+            Err(active) => {
+                self.active = Some(active);
+                false
+            }
+        }
+    }
+
+    fn retire_fade_tail(&mut self) -> bool {
+        let Some(tail) = self.fade_tail.take() else {
+            return true;
+        };
+        match Self::try_retire(&self.retired, tail) {
+            Ok(()) => true,
+            Err(tail) => {
+                self.fade_tail = Some(tail);
+                false
+            }
+        }
+    }
+
+    fn try_retire(retired: &SyncSender<Arc<[i16]>>, playback: Playback) -> Result<(), Playback> {
         let Playback {
             id,
             generation,
             samples,
             cursor,
             finished_notified,
+            cancelled_by_fade,
+            fade_out,
             submitted_at,
             stats,
-        } = active;
-        match self.retired.try_send(samples) {
-            Ok(()) => true,
+        } = playback;
+        match retired.try_send(samples) {
+            Ok(()) => Ok(()),
             Err(TrySendError::Full(samples) | TrySendError::Disconnected(samples)) => {
-                self.active = Some(Playback {
+                Err(Playback {
                     id,
                     generation,
                     samples,
                     cursor,
                     finished_notified,
+                    cancelled_by_fade,
+                    fade_out,
                     submitted_at,
                     stats,
-                });
-                false
+                })
             }
         }
     }
@@ -916,7 +1133,27 @@ impl EngineHandle {
             self.current_generation
                 .store(INACTIVE_GENERATION, Ordering::Release);
             self.current_id = None;
+            self.fade_generation
+                .store(INACTIVE_GENERATION, Ordering::Release);
         }
+    }
+
+    pub(crate) fn cancel_with_fade(&mut self, id: PlaybackId, fade_samples: usize) {
+        if self.current_id != Some(id) {
+            return;
+        }
+        if fade_samples == 0 {
+            self.cancel(id);
+            return;
+        }
+
+        let current_generation = self.current_generation.load(Ordering::Acquire);
+        if current_generation != INACTIVE_GENERATION {
+            self.fade_samples.store(fade_samples, Ordering::Relaxed);
+            self.fade_generation
+                .store(current_generation, Ordering::Release);
+        }
+        self.current_id = None;
     }
 
     pub(crate) fn poll_event(&mut self) -> Option<SinkEvent> {
@@ -1306,6 +1543,152 @@ mod tests {
         assert_eq!(output, [0; 5]);
         assert_eq!(coordinator.poll_retired().as_deref(), Some(&[9, 8, 7][..]));
         assert_eq!(coordinator.poll_event(), None);
+    }
+
+    #[test]
+    fn fade_cancel_overlaps_the_new_clip_with_a_sample_exact_tail() {
+        crate::set_master_volume_percent(100);
+        let (mut render, mut coordinator) = pair();
+        let old = vec![16_000; 6_000];
+        submit(&mut coordinator, 1, &old);
+
+        let prefix_len = 17;
+        let mut prefix = vec![0; prefix_len];
+        render.fill(&mut prefix);
+        assert_eq!(prefix, old[..prefix_len]);
+
+        coordinator.cancel_with_fade(PlaybackId(1), kohbor_audio::PREEMPT_FADE_SAMPLES);
+        let replacement = vec![1_234; kohbor_audio::PREEMPT_FADE_SAMPLES + 2];
+        submit(&mut coordinator, 2, &replacement);
+
+        let fade_samples = kohbor_audio::PREEMPT_FADE_SAMPLES;
+        let mut mixed = vec![0; fade_samples + 1];
+        render.fill(&mut mixed);
+        let mut tail_samples = Vec::with_capacity(fade_samples);
+        let mut prior_gain = 1.0_f32;
+        for (index, actual) in mixed[..fade_samples].iter().copied().enumerate() {
+            let gain = 1.0 - index as f32 / (fade_samples - 1) as f32;
+            assert!(gain <= prior_gain, "fade gain is monotonic non-increasing");
+            prior_gain = gain;
+            let faded_tail = scale_sample(old[prefix_len + index], gain);
+            tail_samples.push(faded_tail);
+            assert_eq!(
+                actual,
+                replacement[index].saturating_add(faded_tail),
+                "sample {index} is the saturating sum of the immediate new clip and linear tail"
+            );
+        }
+        assert_eq!(mixed[0], replacement[0].saturating_add(old[prefix_len]));
+        assert_eq!(
+            tail_samples[fade_samples - 1],
+            0,
+            "last tail sample is silent"
+        );
+        assert_eq!(mixed[fade_samples], replacement[fade_samples]);
+        assert_eq!(coordinator.poll_retired().as_deref(), Some(&old[..]));
+        assert_eq!(
+            coordinator.poll_event(),
+            None,
+            "faded playback is not Finished"
+        );
+
+        let max_adjacent_tail_step = tail_samples
+            .windows(2)
+            .map(|pair| (pair[0] - pair[1]).abs())
+            .max()
+            .unwrap();
+        assert_eq!(max_adjacent_tail_step, 4);
+        assert!(tail_samples.windows(2).all(|pair| pair[1] <= pair[0]));
+
+        crate::set_master_volume_percent(100);
+    }
+
+    #[test]
+    fn fade_shortens_to_the_old_clip_samples_that_remain_and_overlaps() {
+        let (mut render, mut coordinator) = pair();
+        submit(&mut coordinator, 1, &[10, 20, 30, 40, 50]);
+        let mut prefix = [0; 3];
+        render.fill(&mut prefix);
+        assert_eq!(prefix, [10, 20, 30]);
+
+        coordinator.cancel_with_fade(PlaybackId(1), kohbor_audio::PREEMPT_FADE_SAMPLES);
+        submit(&mut coordinator, 2, &[99, 100, 101]);
+        let mut mixed = [0; 3];
+        render.fill(&mut mixed);
+
+        assert_eq!(
+            mixed,
+            [139, 100, 101],
+            "remaining source fades over two samples"
+        );
+        assert_eq!(
+            coordinator.poll_event(),
+            Some(SinkEvent::Finished { id: PlaybackId(2) }),
+            "only the replacement emits Finished"
+        );
+    }
+
+    #[test]
+    fn a_second_fade_drops_the_older_tail_before_fading_the_active_clip() {
+        let (mut render, mut coordinator) = pair();
+        submit(&mut coordinator, 1, &[12_000; 8]);
+        render.fill(&mut [0; 1]);
+        coordinator.cancel_with_fade(PlaybackId(1), 4);
+        submit(&mut coordinator, 2, &[2_000; 8]);
+
+        let mut first_mix = [0; 1];
+        render.fill(&mut first_mix);
+        assert_eq!(first_mix, [14_000]);
+        assert_eq!(coordinator.poll_event(), None);
+
+        coordinator.cancel_with_fade(PlaybackId(2), 4);
+        submit(&mut coordinator, 3, &[500; 8]);
+        let mut second_mix = [0; 1];
+        render.fill(&mut second_mix);
+
+        assert_eq!(second_mix, [2_500], "the first tail was hard-dropped");
+        assert_eq!(
+            coordinator.poll_retired().as_deref(),
+            Some(&[12_000; 8][..])
+        );
+        assert_eq!(coordinator.poll_event(), None);
+    }
+
+    #[test]
+    fn plain_cancel_silences_the_active_clip_and_its_fading_tail() {
+        let (mut render, mut coordinator) = pair();
+        submit(&mut coordinator, 1, &[12_000; 8]);
+        render.fill(&mut [0; 1]);
+        coordinator.cancel_with_fade(PlaybackId(1), 4);
+        submit(&mut coordinator, 2, &[2_000; 8]);
+        render.fill(&mut [0; 1]);
+
+        coordinator.cancel(PlaybackId(2));
+        let mut output = [7; 3];
+        render.fill(&mut output);
+
+        assert_eq!(output, [0; 3]);
+        assert_eq!(coordinator.poll_event(), None);
+    }
+
+    #[test]
+    fn overlapping_sources_saturate_instead_of_wrapping() {
+        for sample in [i16::MAX, i16::MIN] {
+            let (mut render, mut coordinator) = pair();
+            submit(&mut coordinator, 1, &[sample; 3]);
+            render.fill(&mut [0; 1]);
+            coordinator.cancel_with_fade(PlaybackId(1), 4_800);
+            submit(&mut coordinator, 2, &[sample; 2]);
+
+            let mut output = [0; 2];
+            render.fill(&mut output);
+
+            assert_eq!(output, [sample, sample], "saturation holds for {sample}");
+            assert_eq!(
+                coordinator.poll_event(),
+                Some(SinkEvent::Finished { id: PlaybackId(2) })
+            );
+        }
     }
 
     #[test]

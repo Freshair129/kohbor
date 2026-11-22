@@ -163,3 +163,11 @@ Product owner, relayed by the lead session after it explained the risk (Valve ga
 - Redaction: the one player-identifying chat-feed line was pixelated; the image was re-checked for player names and account ids and carries no metadata. Provenance, hashes and what is not established are recorded in [THIRD-PARTY-DATA](THIRD-PARTY-DATA.md).
 - Not approved by this decision: any other screenshot or game art, showing the image in game, or any rights clearance.
 
+### Owner decision: announcer preemption with a fade (2026-11-23)
+
+Product owner, relayed by the lead session after the log of build 8d9f8c3 showed two `multi_kill` events dropped `channel_busy` while a `hero_kill` clip played. Owner words: “ตัดเข้าเลยแต่ทำให้สมูทใส่เฟดนิดนึงก็ได้ให้มันไม่รู้สึกว่ากระตุกอ่ะ”
+
+- A newly admitted ordinary announcer event of strictly higher catalog rank preempts a playing ordinary clip; equal or lower rank keeps today's `channel_busy` drop. All other cells of the priority matrix (EVENT-AUDIO-SPEC section 4) are unchanged.
+- The cut is smoothed by a fade chosen by the implementing session: the new clip starts at once and the old clip fades out under it, linear, 100 ms (4,800 samples at 48 kHz). The same fade applies when a critical, correction or notice cue preempts an ordinary clip, so the critical cue is never delayed. The fade value is a taste call for the owner to confirm by ear.
+- Logging: `audio/clip_preempted {from_event, to_event, fade_ms}`; `audio/clip_dropped` stays for the cases that still drop. MEDIA-002 statement and AC updated. Evidence: synthetic tests only; acoustic and live NOT_RUN.
+

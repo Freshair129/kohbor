@@ -14,7 +14,7 @@ use std::time::{Duration, Instant};
 
 use kohbor_audio::{
     pcm::Pcm, AudioClass, AudioOwner, CancelReason, Config, Decision, Notice, Outcome, PlaybackId,
-    Request, Sink,
+    Request, Sink, PREEMPT_FADE_MS,
 };
 use kohbor_events::{arbitrate, Event, EventId};
 
@@ -70,6 +70,7 @@ const AUDITION_EPOCH: u64 = u64::MAX;
 struct LivePlayback {
     id: PlaybackId,
     decision: Decision,
+    ordinary_rank: u32,
     audio_ends_at_ms: Option<u64>,
     expected_frames: Option<u64>,
     details: OutcomeDetails,
@@ -563,6 +564,34 @@ impl Engine {
     fn request_voiced_event(&mut self, message: &TickMsg, event: Event, key: String, now_ms: u64) {
         let event_type = event.id.as_str();
         let class = class_of(event.id);
+        let fade_preemption_candidate = if class != AudioClass::Voice {
+            self.owner.active(now_ms).and_then(|active_id| {
+                self.live
+                    .iter()
+                    .find(|live| live.id == active_id)
+                    .filter(|live| {
+                        if live.decision.class != AudioClass::Ordinary {
+                            return false;
+                        }
+                        match class {
+                            AudioClass::Critical | AudioClass::Correction | AudioClass::Notice => {
+                                true
+                            }
+                            AudioClass::Ordinary => {
+                                event.id.rank().unwrap_or_default() > live.ordinary_rank
+                            }
+                            AudioClass::Voice => false,
+                        }
+                    })
+                    .and_then(|live| {
+                        live.decision.event_type.as_ref().map(|from_event| {
+                            (active_id, from_event.clone(), event_type.to_owned())
+                        })
+                    })
+            })
+        } else {
+            None
+        };
         let selected =
             match self
                 .selector
@@ -610,10 +639,30 @@ impl Engine {
         let t3p_us = Self::offset_us(message.arrival, t3);
 
         if let Some(decision) = decision {
-            self.drain_notices();
+            let notices = self.owner.drain_notices();
+            let fade_preemption = fade_preemption_candidate.filter(|(active_id, _, _)| {
+                notices.iter().any(|notice| {
+                    matches!(
+                        notice,
+                        Notice::Cancelled {
+                            id,
+                            reason: CancelReason::Preempted,
+                            ..
+                        } if id == active_id
+                    )
+                })
+            });
+            self.publish_notices_batch(notices, false);
             let admitted = decision.outcome == Outcome::Admitted;
             let id = decision.playback_id;
             let decision_instance_id = decision.instance_id.clone();
+            if let Some((_, from_event, to_event)) = fade_preemption {
+                let _ = self.try_output(EngineOut::ClipPreempted {
+                    from_event,
+                    to_event,
+                    fade_ms: PREEMPT_FADE_MS,
+                });
+            }
             self.handle_decision(
                 decision,
                 Some(&selected),
@@ -839,6 +888,7 @@ impl Engine {
                 self.remember_live(
                     id,
                     decision.clone(),
+                    clip.map_or(0, |clip| clip.event_id.rank().unwrap_or_default()),
                     audio_ends_at_ms,
                     clip.map(|clip| clip.media.pcm.len() as u64),
                     details.clone(),
@@ -930,6 +980,7 @@ impl Engine {
         &mut self,
         id: PlaybackId,
         decision: Decision,
+        ordinary_rank: u32,
         audio_ends_at_ms: Option<u64>,
         expected_frames: Option<u64>,
         details: OutcomeDetails,
@@ -939,6 +990,7 @@ impl Engine {
             self.live.push(LivePlayback {
                 id,
                 decision,
+                ordinary_rank,
                 audio_ends_at_ms,
                 expected_frames,
                 details,
@@ -953,6 +1005,7 @@ impl Engine {
                 removed = Some(LivePlayback {
                     id: live.id,
                     decision: live.decision.clone(),
+                    ordinary_rank: live.ordinary_rank,
                     audio_ends_at_ms: live.audio_ends_at_ms,
                     expected_frames: live.expected_frames,
                     details: live.details.clone(),
@@ -987,6 +1040,10 @@ impl Engine {
 
     fn publish_notices(&mut self, preempting_audition: bool) {
         let notices = self.owner.drain_notices();
+        self.publish_notices_batch(notices, preempting_audition);
+    }
+
+    fn publish_notices_batch(&mut self, notices: Vec<Notice>, preempting_audition: bool) {
         for notice in notices {
             match notice {
                 Notice::Decided(decision) => {

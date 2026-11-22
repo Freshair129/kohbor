@@ -711,11 +711,11 @@ One versioned catalog shall own event IDs, labels, detectors, bounded tunables a
 
 **Product needs:** PN-004 · **Primary design:** CMP-MEDIA · **Design components:** CMP-MEDIA
 
-Ordinary same-tick arbitration shall select the highest emitted ordinary rank before media lookup, separately from critical admission.
+Ordinary same-tick arbitration shall select the highest emitted ordinary rank before media lookup, separately from critical admission. While an ordinary clip plays, a newly admitted ordinary event of strictly higher rank preempts it: the new clip starts at once and the old clip fades out under it over 100 ms (owner decision 2026-11-23); an equal or lower rank is dropped channel_busy. A critical, correction or notice cue that preempts an ordinary clip uses the same fade and is never delayed by it.
 
 **Failure behavior:** No mapping-driven fallback. Baseline/reconnect must not invent first blood, kills, level or match-start events.
 
-**AC-MEDIA-002:** Given one tick produces several admitted ordinary events; when the announcer chooses media; then the highest emitted ordinary rank is chosen; if its mapping is missing/invalid the slot stays silent without a lower-rank media fallback.
+**AC-MEDIA-002:** Given one tick produces several admitted ordinary events; a multi_kill admitted while a hero_kill clip plays, an equal-rank event during a clip, and a critical cue during an ordinary clip; when the announcer chooses media; then the highest emitted ordinary rank is chosen; if its mapping is missing/invalid the slot stays silent without a lower-rank media fallback; the multi_kill starts at once while the hero_kill fades out over 100 ms and one clip_preempted {from_event, to_event, fade_ms} info line is written; the equal-rank event is dropped channel_busy; the critical cue starts without delay over the fading ordinary clip; a faded clip reports preempted, never finished.
 
 **Verification:** synthetic, native; procedures TP-04, UAT-04; status NOT_RUN.
 

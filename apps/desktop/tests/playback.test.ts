@@ -100,6 +100,36 @@ if (!playback) {
     assert.equal(second.visual?.visual_url, "kohbor-media://ins_00000002/video/kill.webm");
   });
 
+  test("cancelled_preempted followed by started replaces the old announcer banner", () => {
+    const first = reducePlayback(
+      createPlaybackState(),
+      started({
+        class: "ordinary",
+        event_type: "hero_kill",
+        visual_url: "kohbor-media://ins_00000001/video/hero_kill.webm",
+      }),
+    );
+    const endedFirst = reducePlayback(
+      first,
+      ended("pb_00000001", { reason: "cancelled_preempted", at_ms: 1400 }),
+    );
+    const replacement = reducePlayback(
+      endedFirst,
+      started({
+        playback_id: "pb_00000002",
+        class: "ordinary",
+        event_type: "multi_kill",
+        visual_url: "kohbor-media://ins_00000002/video/multi_kill.webm",
+        at_ms: 1400,
+      }),
+    );
+
+    assert.equal(replacement.currentPlaybackId, "pb_00000002");
+    assert.equal(replacement.visual?.playback_id, "pb_00000002");
+    assert.equal(replacement.visual?.event_type, "multi_kill");
+    assert.equal(replacement.visual?.visual_url, "kohbor-media://ins_00000002/video/multi_kill.webm");
+  });
+
   test("ended for the current playback hides its visual immediately", () => {
     const state = reducePlayback(createPlaybackState(), started());
     const endedState = reducePlayback(state, ended());
