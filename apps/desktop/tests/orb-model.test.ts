@@ -5,7 +5,7 @@ import { test } from "node:test";
 const model = await import("../src/orb/orbModel.ts");
 const {
   appLabel, chargeCue, channelNote, controllable, faderPercent, HIDDEN_ORB, parseMixer, parseMixerReply, parseOrbPrefs,
-  parseOrbState, reasonText, valueText, wheelStep,
+  isOrbPrimaryButton, parseOrbState, reasonText, valueText, wheelStep,
 } = model;
 
 const layout = { disc: 52, dead: 8, cy: 324, out_cx: 34, hot: { x: 8, y: 290, w: 28, h: 68 }, panel_x: 72, panel_w: 220, sp: 1, monitor_h: 1080 };
@@ -112,4 +112,9 @@ test("orb window controls never take keyboard focus", () => {
   assert.ok(buttons > 0 && unfocusable >= buttons + 1, `${unfocusable} tabIndex -1 for ${buttons} buttons and the fader`);
   assert.ok(!/autoFocus|current\??\.focus\(/.test(stage));
   assert.ok(!/addEventListener\("key/.test(stage), "the orb never listens to the keyboard");
+});
+
+test("only the primary mouse button interacts with the orb (owner 2026-11-23)", () => {
+  assert.equal(isOrbPrimaryButton(0), true);
+  for (const button of [1, 2, 3, 4, -1]) assert.equal(isOrbPrimaryButton(button), false);
 });

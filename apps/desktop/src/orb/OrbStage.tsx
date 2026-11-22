@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode, type WheelEvent } from "react";
 import { mixerApi, orbApi, subscribeMixer, subscribeOrbState } from "./orbApi";
 import {
-  appLabel, chargeCue, channelNote, controllable, faderPercent, HIDDEN_ORB, orbCopy, reasonText, valueText, wheelStep,
+  appLabel, chargeCue, channelNote, controllable, faderPercent, HIDDEN_ORB, isOrbPrimaryButton, orbCopy, reasonText, valueText, wheelStep,
   type ChannelId, type ChannelReading, type MixerReply, type MixerView, type OrbState,
 } from "./orbModel";
 import "./orb.css";
@@ -14,6 +14,7 @@ const REFRESH_MS = 1000;
 const DRAG_SEND_MS = 60;
 
 const noFocus = (event: { preventDefault: () => void }) => event.preventDefault();
+const isPrimaryPress = (event: { button: number }) => isOrbPrimaryButton(event.button);
 
 function useReducedMotion(): boolean {
   const [reduced, setReduced] = useState(() => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true);
@@ -97,7 +98,7 @@ function Fader({ id, name, sub, reading, focused, extra, onLevel, onMute }: Fade
         aria-valuenow={enabled ? shown : undefined} aria-disabled={!enabled} tabIndex={-1}
         onMouseDown={noFocus}
         onPointerDown={(event) => {
-          if (!enabled) return;
+          if (!enabled || !isPrimaryPress(event)) return;
           event.currentTarget.setPointerCapture(event.pointerId);
           const value = fromPointer(event);
           setDrag(value);
@@ -267,14 +268,18 @@ export function OrbStage() {
   } as CSSProperties;
   return (
     <div className={`orb-root${reduced ? " is-reduced" : ""}`} onMouseDown={noFocus}
+      onContextMenu={(event) => event.preventDefault()}
       onPointerDown={(event) => {
         // Owner decision 2026-11-22: one click on the tucked orb (the host's guarded target) opens the panel.
         event.preventDefault();
+        // Owner decision 2026-11-23: only the primary (left) button interacts; right-click moves the hero in Dota.
+        if (!isPrimaryPress(event)) return;
         if (state.phase === "tucked" || state.phase === "charging") void orbApi.click("disc").catch(() => {});
       }}>
       <div className={`orb-disc${out ? " is-out" : ""}${open ? " is-open" : ""}${state.locked ? " is-locked" : ""}`} style={discStyle}
         onPointerDown={(event) => {
           event.preventDefault();
+          if (!isPrimaryPress(event)) return;
           if (state.phase === "out" || state.phase === "open") void orbApi.click("disc").catch(() => {});
         }}>
         <Mark />
