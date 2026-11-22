@@ -12,6 +12,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/site.css">
+<link rel="stylesheet" href="css/download.css">
 </head>
 <body>
 <a class="skip" href="#see"><span class="th">ข้ามไปที่เนื้อหา</span><span class="en">Skip to content</span></a>
@@ -46,8 +47,7 @@
     <a href="#hear"><span class="th">ฟัง</span><span class="en">Hear</span></a>
     <a href="#ask"><span class="th">ถาม</span><span class="en">Ask</span></a>
     <a href="#yours"><span class="th">ของคุณ</span><span class="en">Yours</span></a>
-    <a href="#bar"><span class="th">เกณฑ์</span><span class="en">The bar</span></a>
-  </nav>
+    <a href="#bar"><span class="th">เกณฑ์</span><span class="en">The bar</span></a>  </nav>
   <div class="top-lang" role="group" aria-label="ภาษา / Language">
     <button type="button" data-set-lang="th" aria-pressed="true">ไทย</button>
     <button type="button" data-set-lang="en" aria-pressed="false">EN</button>
@@ -333,14 +333,26 @@
   <div class="flow end-in">
     <p class="end-h"><span class="th">คุณขับ<br>เราเกาะเบาะ</span><span class="en">You drive.<br>We ride along.</span></p>
     <div class="end-cta">
-      <button type="button" class="btn btn-dl" disabled aria-describedby="dlNote">
+      <button type="button" class="btn btn-dl" id="dlOpen" aria-describedby="dlNote" aria-haspopup="dialog">
         <span class="th">ดาวน์โหลดสำหรับ Windows</span><span class="en">Download for Windows</span>
-        <i class="btn-state"><span class="th">ยังไม่เปิด</span><span class="en">Not open</span></i>
+        <i class="btn-state"><span class="th">alpha · ต้องมี invite code</span><span class="en">alpha · invite code needed</span></i>
       </button>
       <p id="dlNote" class="end-note">
-        <span class="th">ยังไม่มีตัวติดตั้งให้ดาวน์โหลด ปุ่มนี้จะกดได้เมื่อมีของจริงอยู่ข้างหลัง</span>
-        <span class="en">There is no installer to download yet. This button will work when there is something real behind it.</span>
+        <span class="th">ช่วง alpha ดาวน์โหลดได้เฉพาะคนที่มี invite code สมัครและล็อกอินด้วย Google ทำในแอป</span>
+        <span class="en">During the alpha, only people with an invite code can download. You sign up and sign in with Google inside the app.</span>
       </p>
+      <dialog id="dlDialog" class="dl-dialog" aria-labelledby="dlTitle">
+        <form id="dlForm" method="dialog" novalidate>
+          <h2 id="dlTitle"><span class="th">ใส่ invite code</span><span class="en">Enter your invite code</span></h2>
+          <label for="dlCode"><span class="th">รหัสเชิญ</span><span class="en">Invite code</span></label>
+          <input id="dlCode" name="code" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text" maxlength="20" placeholder="KB-XXXX-XXXX-XXXX" required aria-describedby="dlMsg">
+          <p id="dlMsg" class="dl-msg" role="status" aria-live="polite"></p>
+          <div class="dl-actions">
+            <button type="submit" class="btn btn-dl" id="dlGo"><span class="th">ดาวน์โหลด</span><span class="en">Download</span></button>
+            <button type="button" class="btn btn-quiet" id="dlCancel"><span class="th">ยกเลิก</span><span class="en">Cancel</span></button>
+          </div>
+        </form>
+      </dialog>
     </div>
     <footer class="foot">
       <p class="foot-brand"><img src="assets/mark.svg" alt="" width="28" height="28"> เกาะเบาะ <span>Kohbor</span></p>
@@ -365,5 +377,6 @@
 
 <noscript><p class="noscript">หน้านี้ใช้ JavaScript สำหรับฉากสามมิติ เนื้อหาทั้งหมดยังอ่านได้ตามปกติ</p></noscript>
 <script type="module" src="js/main.js"></script>
+<script src="js/download.js" defer></script>
 </body>
 </html>
