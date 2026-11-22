@@ -41,12 +41,18 @@ export function MinimapPanel({
   layout = "standalone",
   renderAlerts,
   steamStatus = null,
+  mapOverlay,
+  stageOverride,
 }: {
   locale?: LiveLocale;
   /** "pinned" is the second-monitor mode (UI-016): map pane only, tools in its toolbar, the quick strip below it. */
   layout?: "standalone" | "deck" | "pinned";
   renderAlerts?: (input: { risk: RiskView | null; captureLive: boolean }) => ReactNode;
   steamStatus?: SteamStatus | null;
+  /** Pinned layout only: drawn over the minimap canvas at the same size (UI-018 rune countdowns). */
+  mapOverlay?: ReactNode;
+  /** Pinned layout only: replaces the minimap stage inside the same square (UI-019 draft board). */
+  stageOverride?: ReactNode;
 }) {
   const text = liveCopy(locale);
   const capture = useCaptureStatus();
@@ -319,7 +325,7 @@ export function MinimapPanel({
           <span className="live-preview-rates mono" title={`${rateBadge} — ${previewRateTooltip(locale)}`}>{rateBadge}</span>
           {pinned && <div className="live-pinned-tools">{statusBlock}{actions}</div>}
         </header>
-        <MinimapStage source={mapSource} hasFrame={minimap.hasFrame} covered={presentation.coveredBadge !== null && !paused && !userInvalidated}
+        {pinned && stageOverride ? <div className="live-map-stage live-map-override">{stageOverride}</div> : <MinimapStage source={mapSource} hasFrame={minimap.hasFrame} covered={presentation.coveredBadge !== null && !paused && !userInvalidated}
           waitingReason={steamStatus === null && phase === "idle" ? reasonText : null}
           stageRef={canvasBox.stageRef} locale={locale} plate={plate && (
             <div className={`live-map-plate${plateTone}`}>
@@ -333,7 +339,8 @@ export function MinimapPanel({
             className={`live-map-canvas${presentation.dimmed ? " is-stale" : ""}`}
             aria-hidden="true"
           />
-        </MinimapStage>
+          {pinned && mapOverlay && <div className="sm-map-overlay" style={{ width: canvasBox.canvasStyle.minWidth, height: canvasBox.canvasStyle.minHeight }}>{mapOverlay}</div>}
+        </MinimapStage>}
       </section>
   );
 

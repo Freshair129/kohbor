@@ -106,7 +106,7 @@ A per-device setting says where monitor 2 sits: off (default), left of the main 
 
 - The minimap is a square pinned flush to the edge that touches the main monitor: the left edge when monitor 2 is to the right, the right edge when it is to the left.
 - A quick strip of the same width sits directly under the map: danger level, enemies missing from the map (derived), five enemy rows, and the next map objective.
-- Outer columns grow away from the map: the team card, the own-hero strip and the announcer status, then the event feed. When the box narrows, the two columns merge into one before the map shrinks. Text never shrinks; columns scroll inside.
+- Outer columns grow away from the map: our team's hero cards (own hero first) and the announcer status, then the enemy team's hero cards and the event feed. When the box narrows, the two columns merge into one before the map shrinks. Text never shrinks; columns scroll inside.
 - Below about 1100×700 the page falls back to the centred deck with a note.
 - The navigation rail moves to the outer edge; the friends rail collapses while a match runs. This exception to the two-rail shell applies to this mode only.
 - The side selector (plain buttons with `aria-pressed`) and the own-hero expander (`details`/`summary`) are keyboard-reachable.
@@ -117,8 +117,14 @@ Content rules:
 - Alive/dead for enemies and allies is “—” until the in-game top-bar read (proposed DEC-TOPBAR-CV) is admitted.
 - Ally HP and cooldowns appear only from consented peer sharing (PEER-003, PEER-010). Until then the team card says so. Ally HP is never read from the game's top bar.
 - Abnormal states (stuns, targeting) are not shown.
-- Items, skills, gold and KDA of the own hero sit behind an expander because the game HUD already shows them.
+- Hero cards (owner request 2026-11-23): each card shows the portrait, the full name, an HP bar, a mana bar and four skill squares (three skills, then the ultimate). Enemy cards carry an enemy mark and side colour.
+  - Own card: name, HP, mana and cooldowns from GSI; level, alive/respawn, items, gold and KDA sit behind an expander because the game HUD already shows them.
+  - Ally card: HP, mana and cooldown numbers only from peer sharing. Without it HP, mana and the three skills are “—” and the ultimate square shows only the top-bar ultimate-dot state as a colour (green ready, blue ready without mana, dark not ready, dashed unknown) with no number. The input is `topbar.ally_ult_state`, unknown until the proposed DEC-TOPBAR-CV read is admitted.
+  - Enemy card: identity from the draft only; HP, mana and skills are “—”.
 - Every value carries its source label (draft, GSI, derived from the map, game clock); unknown is “—”.
+- Rune countdowns (UI-018): each rune spot on the pinned minimap carries an original marker and a label, minutes while far (“3m”, “2m”, “1m”), then seconds from the largest lead time set in the objective Settings (last minute when none is set). Timing comes only from the ALERT-008 scheduler through a host schedule read-model; no label for Roshan or Tormentor respawn; labels never take clicks; spot positions are approximate.
+- Draft board (UI-019): during the draft the map square shows one row per team, five slots each: portrait and hero name (Draft Bar 5b), player name (Draft 5c, only with the visible setting on, memory-only), and the hero's historical win rate. Our side adds the estimated position (“ค่าประมาณ”); the enemy side adds a guessed lane (“เดา”). Never a win chance. After the draft the minimap returns.
+- Status chips (Steam, Dota 2, GSI) and the start button wrap to a new line instead of overlapping.
 
 ## 5. Selection and inspector behavior
 
