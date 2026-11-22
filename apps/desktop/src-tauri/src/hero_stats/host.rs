@@ -88,6 +88,8 @@ pub(crate) struct DraftObservation {
     pub(crate) session_epoch: Option<u64>,
     pub(crate) age_ms: Option<u64>,
     pub(crate) own_hero_key: Option<String>,
+    /// The own team from admitted GSI; `None` when unknown or ownership is not verified.
+    pub(crate) own_side: Option<super::counters::Side>,
 }
 
 /// Session-local 5b data. Hero keys are consumed to build the in-memory view and never persisted,
@@ -96,6 +98,8 @@ pub(crate) struct DraftObservation {
 pub(crate) struct DraftBarObservation {
     pub(crate) available: bool,
     pub(crate) hero_keys: Vec<String>,
+    /// The same identified slots with the slot side reported by 5b (memory only).
+    pub(crate) slots: Vec<super::counters::IdentifiedSlot>,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -757,6 +761,8 @@ impl Core {
                 identified: self.draft_bar.hero_keys.len().min(u8::MAX as usize) as u8,
             },
             taken_hero_ids: &self.taken_hero_ids(),
+            own_side: observation.own_side,
+            counter_slots: &self.draft_bar.slots,
         });
     }
 }
@@ -1396,6 +1402,7 @@ mod tests {
             session_epoch: Some(1),
             age_ms: Some(0),
             own_hero_key: None,
+            own_side: None,
         };
         core.observe(
             valid.clone(),
@@ -1618,6 +1625,7 @@ mod tests {
             session_epoch: Some(1),
             age_ms: Some(0),
             own_hero_key: Some("npc_dota_hero_test".to_owned()),
+            own_side: None,
         };
         core.current_pick = Some((Some(1), "npc_dota_hero_test".to_owned()));
         core.monitor = MonitorState {
@@ -1671,6 +1679,7 @@ mod tests {
             session_epoch: Some(2),
             age_ms: Some(0),
             own_hero_key: Some("npc_dota_hero_test".to_owned()),
+            own_side: None,
         };
         let now_instant = std::time::Instant::now();
         core.observe(first, Default::default(), monitor, now, now_instant);
@@ -1686,6 +1695,7 @@ mod tests {
             session_epoch: Some(2),
             age_ms: Some(1),
             own_hero_key: None,
+            own_side: None,
         };
         core.observe(mismatch, Default::default(), monitor, now + 1, now_instant);
         assert_eq!(core.current_pick, None);
@@ -1836,6 +1846,7 @@ mod tests {
                 session_epoch: Some(1),
                 age_ms: Some(0),
                 own_hero_key: Some("npc_dota_hero_test_two".to_owned()),
+                own_side: None,
             },
             Default::default(),
             MonitorState::default(),

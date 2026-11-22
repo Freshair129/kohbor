@@ -1,5 +1,7 @@
 import {
   bracketLabel,
+  counterHeading,
+  counterStateText,
   dataStateDetailText,
   dataStateText,
   draftHiddenReasonText,
@@ -14,7 +16,9 @@ import {
   staleTimesText,
   suggestionRowView,
   unsetContextLabel,
+  visibleCounterRows,
   type DraftColumnRow,
+  type DraftCounters,
   type DraftColumnView as DraftColumnViewModel,
   type DraftDurationCell,
   type PickCardState,
@@ -51,6 +55,36 @@ function SuggestionRow({ row, stale }: { row: DraftColumnRow; stale: boolean }) 
       </span>
       {showRate && <span className={`draft-row-rate draft-rate-${item.band}${stale ? " is-stale-value" : ""}`}>{item.winRateText}</span>}
     </li>
+  );
+}
+
+function CounterBlock({ counters, surface }: { counters: DraftCounters | null; surface: Surface }) {
+  const rows = visibleCounterRows(counters, surface);
+  const status = counterStateText(counters);
+  if (surface === "overlay" && rows.length === 0) return null;
+  if (!counters) return null;
+  return (
+    <div className="draft-counter-block" aria-label="แนะนำตัวแก้ทาง">
+      {rows.length > 0 && <p className="draft-counter-heading">{counterHeading(counters)}</p>}
+      {surface === "deck" && status && <p className="draft-counter-status">{status}</p>}
+      {rows.length > 0 && (
+        <ul className="draft-counter-list">
+          {rows.map((row) => (
+            <li key={row.hero_id} className="draft-counter-row">
+              <strong>{row.name}</strong>
+              <small>{surface === "overlay" ? `แก้ ${row.against.join(" · ")}` : `แก้ ${row.against.join(" · ")} — ${row.reason}`}</small>
+            </li>
+          ))}
+        </ul>
+      )}
+      {rows.length > 0 && (
+        <p className="draft-counter-source">
+          {surface === "overlay"
+            ? "ตาราง Kohbor · ไม่ใช่สถิติ"
+            : `ตารางที่ Kohbor ตรวจเอง ไม่ใช่สถิติ · เห็นฝั่งตรงข้าม ${counters.enemies_identified}/5${counters.position_filtered ? "" : " · ยังไม่ได้กรองตามตำแหน่ง"}`}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -92,7 +126,9 @@ function SuggestionsCard({ view, synthetic, surface }: { view: DraftColumnViewMo
   const stale = state === "stale";
   const showRows = publicValuesAvailable(view) && state !== "bracket_empty";
   const hostRows = showRows ? view.suggestions?.rows ?? [] : [];
-  const rows = surface === "overlay" ? overlaySuggestionRows(hostRows) : hostRows;
+  const counters = view.suggestions?.counters ?? null;
+  const counterRows = visibleCounterRows(counters, surface);
+  const rows = surface === "overlay" ? overlaySuggestionRows(hostRows, 8 - counterRows.length) : hostRows;
   const statusText = dataStateText(view);
   const staleText = surface === "overlay"
     ? `ข้อมูล ${formatDraftTime(view.source?.fetched_at_ms ?? null)} · ล้มเหลว ${formatDraftTime(view.source?.failed_at_ms ?? null)}`
@@ -108,6 +144,7 @@ function SuggestionsCard({ view, synthetic, surface }: { view: DraftColumnViewMo
       {surface === "overlay" && statusText && (
         <div className="draft-overlay-state"><span className={`draft-state-flag draft-state-${state ?? "unknown"}`}>{statusText}</span></div>
       )}
+      <CounterBlock counters={counters} surface={surface} />
       <p className="draft-column-subtitle">ช่วงนี้ · สถิติย้อนหลัง ไม่ใช่คำทำนาย</p>
       <DraftContext view={view} surface={surface} />
       <div className="draft-row-heading"><span>ฮีโร่ · จำนวนเกม</span><span>อัตราชนะ</span></div>

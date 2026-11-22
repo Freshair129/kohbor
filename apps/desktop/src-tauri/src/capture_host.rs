@@ -3470,19 +3470,29 @@ pub(crate) fn draft_bar_snapshot() -> crate::hero_stats::host::DraftBarObservati
     if !available {
         return crate::hero_stats::host::DraftBarObservation::default();
     }
-    let hero_keys = metadata
+    let slots: Vec<crate::hero_stats::counters::IdentifiedSlot> = metadata
         .get("slots")
         .and_then(Value::as_array)
         .into_iter()
         .flatten()
         .filter(|slot| slot.get("reason").and_then(Value::as_str) == Some("identified"))
-        .filter_map(|slot| slot.get("hero_id").and_then(Value::as_str))
-        .filter(|key| key.starts_with("npc_dota_hero_") && key.len() <= 128)
-        .map(str::to_owned)
+        .filter_map(|slot| {
+            let key = slot.get("hero_id").and_then(Value::as_str)?;
+            (key.starts_with("npc_dota_hero_") && key.len() <= 128).then(|| {
+                crate::hero_stats::counters::IdentifiedSlot {
+                    hero_key: key.to_owned(),
+                    side: slot
+                        .get("team")
+                        .and_then(Value::as_str)
+                        .and_then(crate::hero_stats::counters::Side::from_slot_team),
+                }
+            })
+        })
         .collect();
     crate::hero_stats::host::DraftBarObservation {
         available,
-        hero_keys,
+        hero_keys: slots.iter().map(|slot| slot.hero_key.clone()).collect(),
+        slots,
     }
 }
 

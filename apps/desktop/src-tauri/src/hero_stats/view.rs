@@ -1,4 +1,8 @@
 use super::cache::{freshness, Freshness, StatsCache};
+use super::counters::{
+    counter_suggestions, counter_table, CounterInput, CounterRow, CounterState, Counters,
+    IdentifiedSlot, Side,
+};
 use super::groups::PositionGroups;
 use super::parse::{Counts, DurationTable, HeroStatsRow};
 use super::prefs::DraftStatsPrefs;
@@ -120,6 +124,72 @@ pub(crate) struct SuggestionsView {
     pub(crate) rows: Vec<SuggestionRowView>,
     pub(crate) ranked_count: u32,
     pub(crate) draft_bar: DraftBarView,
+    pub(crate) counters: CountersView,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum CounterStateView {
+    BuildDisabled,
+    DraftBarUnavailable,
+    SidesUnknown,
+    NoEnemy,
+    Ready,
+}
+
+impl From<CounterState> for CounterStateView {
+    fn from(state: CounterState) -> Self {
+        match state {
+            CounterState::BuildDisabled => Self::BuildDisabled,
+            CounterState::DraftBarUnavailable => Self::DraftBarUnavailable,
+            CounterState::SidesUnknown => Self::SidesUnknown,
+            CounterState::NoEnemy => Self::NoEnemy,
+            CounterState::Ready => Self::Ready,
+        }
+    }
+}
+
+/// Counter-pick suggestions from the reviewed static table: a reason, never a statistic.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub(crate) struct CountersView {
+    pub(crate) state: CounterStateView,
+    pub(crate) source: &'static str,
+    pub(crate) enemies: Vec<String>,
+    pub(crate) enemies_identified: u8,
+    pub(crate) position_filtered: bool,
+    pub(crate) rows: Vec<CounterRowView>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub(crate) struct CounterRowView {
+    pub(crate) hero_id: u32,
+    pub(crate) name: String,
+    pub(crate) against: Vec<String>,
+    pub(crate) reason: String,
+}
+
+impl From<CounterRow> for CounterRowView {
+    fn from(row: CounterRow) -> Self {
+        Self {
+            hero_id: row.hero_id,
+            name: row.name,
+            against: row.against,
+            reason: row.reason,
+        }
+    }
+}
+
+impl From<Counters> for CountersView {
+    fn from(counters: Counters) -> Self {
+        Self {
+            state: counters.state.into(),
+            source: "kohbor_reviewed_table",
+            enemies: counters.enemies,
+            enemies_identified: counters.enemies_identified,
+            position_filtered: counters.position_filtered,
+            rows: counters.rows.into_iter().map(Into::into).collect(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -205,6 +275,9 @@ pub(crate) struct ViewInput<'a> {
     pub(crate) groups: Option<&'a PositionGroups>,
     pub(crate) draft_bar: DraftBarInput,
     pub(crate) taken_hero_ids: &'a HashSet<u32>,
+    pub(crate) own_side: Option<Side>,
+    /// Identified 5b slots with their sides; memory only.
+    pub(crate) counter_slots: &'a [IdentifiedSlot],
 }
 
 fn hidden_view(
@@ -587,9 +660,28 @@ pub(crate) fn build_view(input: ViewInput<'_>) -> DraftColumnView {
         } else {
             Default::default()
         };
+        let group_ids = match (input.prefs.position, input.groups) {
+            (Some(position @ 1..=5), Some(groups)) => groups
+                .groups
+                .get(usize::from(position - 1))
+                .map(Vec::as_slice),
+            _ => None,
+        };
+        let counters = counter_suggestions(
+            &CounterInput {
+                build_enabled: super::COUNTERS_BUILD_ENABLED,
+                draft_bar_available: input.draft_bar.available,
+                own_side: input.own_side,
+                slots: input.counter_slots,
+                group_ids,
+                heroes: hero_table,
+            },
+            counter_table(),
+        );
         SuggestionsView {
             rows: ranking.rows.into_iter().map(Into::into).collect(),
             ranked_count: ranking.ranked_count,
+            counters: counters.into(),
             draft_bar: DraftBarView {
                 available: input.draft_bar.available,
                 identified: input.draft_bar.identified.min(10),
@@ -726,6 +818,8 @@ mod tests {
                 identified: 0,
             },
             taken_hero_ids: TAKEN.get_or_init(HashSet::new),
+            own_side: None,
+            counter_slots: &[],
         }
     }
 
@@ -903,6 +997,33 @@ mod tests {
         assert_eq!(view.overlay.hidden_reason, None);
         assert!(view.overlay.visible, "consented suggestions show in game");
         assert!(view.suggestions.is_some());
+    }
+
+    #[test]
+    fn counters_stay_off_in_this_build_and_serialize_with_a_state() {
+        const { assert!(!crate::hero_stats::COUNTERS_BUILD_ENABLED) };
+        let prefs = DraftStatsPrefs {
+            hero_stats_consent: true,
+            ..Default::default()
+        };
+        let cache = StatsCache::default();
+        let slots = [crate::hero_stats::counters::IdentifiedSlot {
+            hero_key: "npc_dota_hero_phantom_lancer".to_owned(),
+            side: Some(crate::hero_stats::counters::Side::Dire),
+        }];
+        let mut view_input = input(&prefs, &cache, None);
+        view_input.own_side = Some(crate::hero_stats::counters::Side::Radiant);
+        view_input.counter_slots = &slots;
+        let view = build_view(view_input);
+        let counters = &view.suggestions.as_ref().unwrap().counters;
+        assert_eq!(counters.state, super::CounterStateView::BuildDisabled);
+        assert!(counters.rows.is_empty() && counters.enemies.is_empty());
+        let json = serde_json::to_value(&view).unwrap();
+        assert_eq!(json["suggestions"]["counters"]["state"], "build_disabled");
+        assert_eq!(
+            json["suggestions"]["counters"]["source"],
+            "kohbor_reviewed_table"
+        );
     }
 
     #[test]

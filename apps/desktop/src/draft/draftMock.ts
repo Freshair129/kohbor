@@ -14,20 +14,39 @@ type MockDraftView = {
     failure: string | null; http_status: number | null; retry_after_ms: number | null;
     table_requests_24h: number; table_request_budget: number;
   };
-  suggestions: { rows: MockRow[]; ranked_count: number; draft_bar: { available: boolean; identified: number; slots: number } } | null;
+  suggestions: { rows: MockRow[]; ranked_count: number; draft_bar: { available: boolean; identified: number; slots: number }; counters: unknown } | null;
   pick_card: unknown;
 };
 
+/** Synthetic rows in the meta-first order (bracket picks desc). */
 const MOCK_ROWS = [
-  { hero_id: 1, name: "Spectre", rank: 1, games: 44465, win_rate_tenths: 531, low_data: false, taken: false },
-  { hero_id: 2, name: "Phantom Assassin", rank: 2, games: 82337, win_rate_tenths: 528, low_data: false, taken: false },
-  { hero_id: 3, name: "Phantom Lancer", rank: 3, games: 67246, win_rate_tenths: 515, low_data: false, taken: false },
-  { hero_id: 4, name: "Juggernaut", rank: 4, games: 80501, win_rate_tenths: 512, low_data: false, taken: false },
-  { hero_id: 5, name: "Sven", rank: 5, games: 43720, win_rate_tenths: 512, low_data: false, taken: false },
-  { hero_id: 6, name: "Bloodseeker", rank: 6, games: 21583, win_rate_tenths: 510, low_data: false, taken: false },
-  { hero_id: 7, name: "Anti-Mage", rank: 7, games: 67807, win_rate_tenths: 507, low_data: false, taken: false },
-  { hero_id: 8, name: "Luna", rank: 8, games: 52239, win_rate_tenths: 506, low_data: false, taken: false },
+  { hero_id: 2, name: "Phantom Assassin", rank: 1, games: 82337, win_rate_tenths: 528, low_data: false, taken: false },
+  { hero_id: 4, name: "Juggernaut", rank: 2, games: 80501, win_rate_tenths: 512, low_data: false, taken: false },
+  { hero_id: 7, name: "Anti-Mage", rank: 3, games: 67807, win_rate_tenths: 507, low_data: false, taken: false },
+  { hero_id: 3, name: "Phantom Lancer", rank: 4, games: 67246, win_rate_tenths: 515, low_data: false, taken: false },
+  { hero_id: 8, name: "Luna", rank: 5, games: 52239, win_rate_tenths: 506, low_data: false, taken: false },
+  { hero_id: 1, name: "Spectre", rank: 6, games: 44465, win_rate_tenths: 531, low_data: false, taken: false },
+  { hero_id: 5, name: "Sven", rank: 7, games: 43720, win_rate_tenths: 512, low_data: false, taken: false },
+  { hero_id: 6, name: "Bloodseeker", rank: 8, games: 21583, win_rate_tenths: 510, low_data: false, taken: false },
 ];
+
+const MOCK_COUNTERS_OFF = {
+  state: "build_disabled", source: "kohbor_reviewed_table", enemies: [], enemies_identified: 0, position_filtered: false, rows: [],
+};
+
+/** Synthetic counter block: the enemy has Phantom Lancer (owner example). */
+const MOCK_COUNTERS_READY = {
+  state: "ready",
+  source: "kohbor_reviewed_table",
+  enemies: ["Phantom Lancer"],
+  enemies_identified: 1,
+  position_filtered: true,
+  rows: [
+    { hero_id: 7, name: "Earthshaker", against: ["Phantom Lancer"], reason: "Echo Slam และ Aftershock โดนภาพลวงทั้งกองพร้อมกัน" },
+    { hero_id: 18, name: "Sven", against: ["Phantom Lancer"], reason: "Great Cleave ตีโดนภาพลวงที่ยืนรวมกันทั้งหมด" },
+    { hero_id: 106, name: "Ember Spirit", against: ["Phantom Lancer"], reason: "Sleight of Fist และ Flame Guard ล้างภาพลวงได้เร็ว" },
+  ],
+};
 
 const mockPrefs = {
   hero_stats_consent: false,
@@ -55,6 +74,7 @@ function baseView(): MockDraftView {
       rows: MOCK_ROWS.map((row) => ({ ...row })),
       ranked_count: 8,
       draft_bar: { available: true, identified: 2, slots: 10 },
+      counters: { ...MOCK_COUNTERS_OFF },
     },
     pick_card: null,
   };
@@ -101,6 +121,18 @@ function fixtureView(scenario: string) {
       view.data_state = "bracket_empty";
       view.context.bracket = 8;
       view.suggestions!.rows = [];
+      break;
+    case "counters": {
+      view.suggestions!.counters = JSON.parse(JSON.stringify(MOCK_COUNTERS_READY));
+      // The enemy picked Phantom Lancer, so its meta row is struck out (taken).
+      view.suggestions!.rows = view.suggestions!.rows.map((row) => row.name === "Phantom Lancer" ? { ...row, rank: null, taken: true } : row);
+      view.suggestions!.rows.forEach((row, index, rows) => {
+        if (!row.taken) row.rank = rows.slice(0, index + 1).filter((item) => !item.taken).length;
+      });
+      break;
+    }
+    case "counters_sides_unknown":
+      view.suggestions!.counters = { ...MOCK_COUNTERS_OFF, state: "sides_unknown" };
       break;
     case "low_data":
       view.suggestions!.rows = [

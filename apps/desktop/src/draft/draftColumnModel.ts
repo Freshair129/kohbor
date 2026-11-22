@@ -16,6 +16,24 @@ export interface DraftColumnRow {
   taken: boolean;
 }
 
+export type DraftCounterState = "build_disabled" | "draft_bar_unavailable" | "sides_unknown" | "no_enemy" | "ready";
+
+export interface DraftCounterRow {
+  hero_id: number;
+  name: string;
+  against: string[];
+  reason: string;
+}
+
+export interface DraftCounters {
+  state: DraftCounterState;
+  source: "kohbor_reviewed_table";
+  enemies: string[];
+  enemies_identified: number;
+  position_filtered: boolean;
+  rows: DraftCounterRow[];
+}
+
 export interface DraftDurationCell {
   bin: "short" | "mid" | "long";
   games: number | null;
@@ -59,6 +77,8 @@ export interface DraftColumnView {
     rows: DraftColumnRow[];
     ranked_count: number;
     draft_bar: { available: boolean; identified: number; slots: 10 };
+    /** Null when the host sent no counter block (an older host) or the block was invalid. */
+    counters: DraftCounters | null;
   } | null;
   pick_card: DraftPickCard | null;
 }
@@ -91,6 +111,10 @@ const DATA_STATES: readonly DraftDataState[] = ["consent_off", "loading", "live"
 const PHASES: readonly DraftPhase[] = ["hero_selection", "strategy_time"];
 const FAILURES: readonly DraftFailure[] = ["network", "timeout", "http_status", "invalid_body", "too_large", "rate_limited", "cache_delete_failed"];
 const PICK_CARD_STATES: readonly PickCardState[] = ["live", "stale", "loading", "unknown_hero", "not_enough_matches", "fetch_failed", "rate_limited", "provider_error", "bracket_empty"];
+const COUNTER_STATES: readonly DraftCounterState[] = ["build_disabled", "draft_bar_unavailable", "sides_unknown", "no_enemy", "ready"];
+/** The overlay draws at most this many counter rows on top of the meta list. */
+export const OVERLAY_COUNTER_ROWS = 3;
+const MAX_COUNTER_ROWS = 6;
 const BRACKETS = ["Herald", "Guardian", "Crusader", "Archon", "Legend", "Ancient", "Divine", "Immortal"] as const;
 const BINS = ["short", "mid", "long"] as const;
 const MAX_STAT_COUNT = 1_000_000_000;
@@ -219,6 +243,68 @@ function parseDraftBar(value: unknown): NonNullable<DraftColumnView["suggestions
   return { available: draftBar.available, identified, slots: 10 };
 }
 
+function parseNameList(value: unknown, max: number): string[] | null {
+  if (!Array.isArray(value) || value.length > max) return null;
+  const names: string[] = [];
+  for (const item of value) {
+    const name = boundedText(item, 96);
+    if (name === null) return null;
+    names.push(name);
+  }
+  return names;
+}
+
+/** A counter block that violates any type, enum or bound is dropped whole (no counters shown). */
+export function parseCounters(value: unknown): DraftCounters | null {
+  const counters = record(value);
+  if (!counters || !isOneOf(counters.state, COUNTER_STATES) || counters.source !== "kohbor_reviewed_table") return null;
+  if (typeof counters.position_filtered !== "boolean" || !Array.isArray(counters.rows) || counters.rows.length > MAX_COUNTER_ROWS) return null;
+  const enemies = parseNameList(counters.enemies, 5);
+  const identified = integer(counters.enemies_identified, 0, 5);
+  if (enemies === null || identified === null) return null;
+  const rows: DraftCounterRow[] = [];
+  for (const item of counters.rows) {
+    const row = record(item);
+    if (!row) return null;
+    const heroId = integer(row.hero_id, 0, 1_000_000);
+    const name = boundedText(row.name, 96);
+    const against = parseNameList(row.against, 5);
+    const reason = boundedText(row.reason, 240);
+    if (heroId === null || name === null || against === null || against.length === 0 || reason === null) return null;
+    rows.push({ hero_id: heroId, name, against, reason });
+  }
+  if (counters.state !== "ready" && (rows.length > 0 || enemies.length > 0)) return null;
+  return {
+    state: counters.state,
+    source: "kohbor_reviewed_table",
+    enemies,
+    enemies_identified: identified,
+    position_filtered: counters.position_filtered,
+    rows,
+  };
+}
+
+/** Counter rows to draw: only in the ready state, at most three in game. */
+export function visibleCounterRows(counters: DraftCounters | null, surface: "overlay" | "deck"): DraftCounterRow[] {
+  if (!counters || counters.state !== "ready") return [];
+  return surface === "overlay" ? counters.rows.slice(0, OVERLAY_COUNTER_ROWS) : counters.rows;
+}
+
+export function counterHeading(counters: DraftCounters): string {
+  return `แก้ทาง ${counters.enemies.join(" · ")}`;
+}
+
+export function counterStateText(counters: DraftCounters | null): string | null {
+  if (!counters) return null;
+  switch (counters.state) {
+    case "build_disabled": return "แนะนำตัวแก้ทางยังปิดอยู่ · รอเจ้าของตรวจตาราง";
+    case "draft_bar_unavailable": return "แก้ทาง: Kohbor ยังไม่เห็นฮีโร่ในแถบดราฟต์";
+    case "sides_unknown": return "แก้ทาง: ยังไม่รู้ว่าฮีโร่ไหนอยู่ฝั่งตรงข้าม";
+    case "no_enemy": return "แก้ทาง: ยังไม่เห็นฮีโร่ฝั่งตรงข้าม";
+    case "ready": return counters.rows.length === 0 ? "แก้ทาง: ตารางยังไม่มีคำแนะนำสำหรับฮีโร่ที่เห็น" : null;
+  }
+}
+
 function parseSuggestions(value: unknown): DraftColumnView["suggestions"] {
   if (value === null) return null;
   const suggestions = record(value);
@@ -236,6 +322,7 @@ function parseSuggestions(value: unknown): DraftColumnView["suggestions"] {
     rows,
     ranked_count: rankedCount,
     draft_bar: draftBar,
+    counters: parseCounters(suggestions.counters),
   };
 }
 
@@ -369,9 +456,10 @@ export function suggestionRowView(row: DraftColumnRow) {
 }
 
 /** Prioritize pickable rows; a taken row may fill a spare slot only when it outranks a drawn pickable row. */
-export function overlaySuggestionRows(rows: readonly DraftColumnRow[]): DraftColumnRow[] {
-  const retainedUntaken = rows.filter((row) => !row.taken).slice(0, 8);
-  const remainingSlots = 8 - retainedUntaken.length;
+export function overlaySuggestionRows(rows: readonly DraftColumnRow[], limit = 8): DraftColumnRow[] {
+  const slots = Math.max(0, Math.min(8, limit));
+  const retainedUntaken = rows.filter((row) => !row.taken).slice(0, slots);
+  const remainingSlots = slots - retainedUntaken.length;
   const retainedTaken = remainingSlots > 0
     ? rows.filter((row) => row.taken && row.rank !== null && retainedUntaken.some((pickable) => (
       pickable.rank !== null && row.rank! < pickable.rank

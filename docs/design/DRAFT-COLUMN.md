@@ -115,7 +115,27 @@ With the list in place, `SUGGESTIONS_LIST_BUILD_ENABLED` is `true`.
 
 ## 9. v2 strike-out (DRAFT-BAR-SPEC 1.2.0)
 
-Only heroes that Draft Bar 5b admits as identified in the ten slots are struck out. The view carries `draft_bar.available` and `identified/10`. 5b unavailable → v1 rows and the note "Kohbor ยังไม่เห็นว่าตัวไหนถูกแบนหรือถูกเลือกแล้ว". Bans are never known. 5b identities go only into the in-memory view model; never to disk, logs or the network. Player names never enter this view. No matchup edge.
+Only heroes that Draft Bar 5b admits as identified in the ten slots are struck out. The view carries `draft_bar.available` and `identified/10`. 5b unavailable → v1 rows and the note "Kohbor ยังไม่เห็นว่าตัวไหนถูกแบนหรือถูกเลือกแล้ว". Bans are never known. 5b identities go only into the in-memory view model; never to disk, logs or the network. Player names never enter this view. No statistical matchup edge.
+
+## 9a. Counter picks (DEC-PICK-STATS revision 3, option c; behind `COUNTERS_BUILD_ENABLED`)
+
+- **Source.** Only the reviewed static table `apps/desktop/src-tauri/src/hero_stats/counter-table.json` ships with the app.
+  - Each enemy entry has a patch and a date. Each counter row has a reason.
+  - The table is validated whole: any defect means no counters at all.
+  - A row whose id disagrees with the cached provider heroStats row (same id, different internal name) is dropped.
+  - No request is made for counters. Identified heroes are never sent, logged or stored.
+- **Inputs.**
+  - Enemies come only from identified 5b slots, via `draft_bar_snapshot`. Each slot carries its `team` (`radiant` for slots 0–4, `dire` for slots 5–9, from 5b).
+  - The own side comes from admitted GSI `player.team_name`, and only with verified ownership during a draft phase.
+  - With the own side unknown, or any identified slot's side unknown, the state is `sides_unknown` and no counter is shown.
+- **States.** `build_disabled`, `draft_bar_unavailable`, `sides_unknown`, `no_enemy`, `ready`. Rows exist only in `ready`, and `ready` may still have zero rows.
+- **Rows.**
+  - Excluded: any hero identified in any slot, and, when a position is set and the groups are known, any hero outside that group (`position_filtered`).
+  - Sort: the number of identified enemies answered (desc), then first appearance (enemy slot order, then table order), then hero ID.
+  - The host keeps at most 6 rows. The deck draws all of them, with the reason. The overlay draws at most 3, on top, under `แก้ทาง {enemies}`, and gives up the same number of meta rows (8 − k).
+  - No number is shown, and the source line says `ไม่ใช่สถิติ`.
+- **Layout.** The overlay block is at most 96 px (= 3 meta rows): heading 12 px, 3 × 24 px rows, source 10 px. Measured in the mock at 1920×1080: content 486/488 px, minimum text 8.5 px, no clipping.
+- **Consent.** Counters appear inside the suggestions mode, which still requires the stats consent. The table itself needs no network.
 
 ## 10. View contract `draft-column-view` 1 (host → windows)
 
@@ -141,7 +161,13 @@ Event `draft://view` to the `draft` window; command `draft_column_view` for the 
     rows: [ { hero_id: int, name: string, rank: null | int, games: int,
               win_rate_tenths: null | int, low_data: bool, taken: bool } ],
     ranked_count: int,
-    draft_bar: { available: bool, identified: int, slots: 10 }
+    draft_bar: { available: bool, identified: int, slots: 10 },
+    counters: {            // added 2026-11-22; a renderer treats a missing or invalid block as null (no counters)
+      state: "build_disabled" | "draft_bar_unavailable" | "sides_unknown" | "no_enemy" | "ready",
+      source: "kohbor_reviewed_table",
+      enemies: [ string ] (<= 5), enemies_identified: int (0-5), position_filtered: bool,
+      rows: [ { hero_id: int, name: string, against: [ string ] (1-5), reason: string } ] (<= 6; empty unless "ready")
+    }
   },
   pick_card: null | {
     hero_id: null | int, name: null | string,
@@ -155,7 +181,7 @@ Event `draft://view` to the `draft` window; command `draft_column_view` for the 
 
 ## 11. Never shown
 
-Win-chance %, predicted outcome, ban suggestions, matchup edge, item/lane/skill advice, player names, ranks, hero or item art (names are text from the provider's hero table).
+Win-chance %, predicted outcome, ban suggestions, a statistical matchup edge (counters are table reasons, never numbers), item/lane/skill advice, player names, ranks, hero or item art (names are text from the provider's hero table).
 
 ## 12. Evidence and open points
 

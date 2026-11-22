@@ -423,3 +423,30 @@ test("overlay stage has no controls or pointer interaction", () => {
   assert.match(sharedView, /card\.durations\.state === "stale"/);
   assert.match(css, /\.draft-duration-cell\.is-stale[\s\S]*?opacity:\s*0\.6/);
 });
+
+test("counter blocks are parsed strictly and dropped whole when invalid", async () => {
+  const { parseCounters, visibleCounterRows, counterHeading, OVERLAY_COUNTER_ROWS } = await import("../src/draft/draftColumnModel.ts");
+  const valid = {
+    state: "ready", source: "kohbor_reviewed_table", enemies: ["Phantom Lancer"], enemies_identified: 1,
+    position_filtered: false,
+    rows: [{ hero_id: 7, name: "Earthshaker", against: ["Phantom Lancer"], reason: "Echo Slam" }],
+  };
+  const parsed = parseCounters(valid);
+  assert.ok(parsed);
+  assert.equal(counterHeading(parsed), "แก้ทาง Phantom Lancer");
+  assert.equal(OVERLAY_COUNTER_ROWS, 3);
+  for (const [label, value] of [
+    ["unknown state", { ...valid, state: "maybe" }],
+    ["other source", { ...valid, source: "opendota" }],
+    ["rows while not ready", { ...valid, state: "sides_unknown" }],
+    ["too many rows", { ...valid, rows: Array.from({ length: 7 }, () => valid.rows[0]) }],
+    ["empty against", { ...valid, rows: [{ ...valid.rows[0], against: [] }] }],
+    ["blank reason", { ...valid, rows: [{ ...valid.rows[0], reason: " " }] }],
+    ["too many enemies", { ...valid, enemies_identified: 6 }],
+  ] as const) {
+    assert.equal(parseCounters(value), null, label);
+  }
+  assert.equal(parseCounters(undefined), null, "an older host without counters gives null");
+  assert.deepEqual(visibleCounterRows(null, "overlay"), []);
+  assert.deepEqual(visibleCounterRows({ ...parsed, state: "no_enemy", rows: [], enemies: [] }, "deck"), []);
+});

@@ -7,7 +7,7 @@ use crate::{atomic, secrets};
 use base64::Engine;
 use kohbor_events::{adapter::tick_from_admitted, Detector, Event, EventId};
 use kohbor_gsi::admission::{
-    parse_own_loadout, token_matches, DraftScreen, OwnLoadout, Ownership, Phase,
+    parse_own_loadout, token_matches, DraftScreen, OwnLoadout, Ownership, Phase, Team,
 };
 use kohbor_gsi::config::{
     choose_port, claimed_ports, GsiConfig, BODY_LIMIT_BYTES, MAX_REQUESTS_PER_SECOND,
@@ -575,6 +575,14 @@ impl Shared {
             age_ms: Some(duration_ms(now.saturating_duration_since(*arrival))),
             own_hero_key: if ownership_verified && phase.is_some() {
                 admitted.hero.hero_id.value().cloned()
+            } else {
+                None
+            },
+            own_side: if ownership_verified && phase.is_some() {
+                admitted.team.map(|team| match team {
+                    Team::Radiant => crate::hero_stats::counters::Side::Radiant,
+                    Team::Dire => crate::hero_stats::counters::Side::Dire,
+                })
             } else {
                 None
             },
@@ -1580,6 +1588,7 @@ mod tests {
             let arrival = Instant::now();
             let mut body = in_game(&token);
             body["map"]["game_state"] = json!(game_state);
+            body["player"]["team_name"] = json!("dire");
             assert_eq!(shared.accept(&body, arrival, Some(owner())), 200);
             let observation =
                 shared.draft_column_observation_at(arrival + Duration::from_millis(250));
@@ -1591,6 +1600,10 @@ mod tests {
             assert_eq!(
                 observation.own_hero_key,
                 expected.map(|_| "npc_dota_hero_axe".to_owned())
+            );
+            assert_eq!(
+                observation.own_side,
+                expected.map(|_| crate::hero_stats::counters::Side::Dire)
             );
         }
 
@@ -1605,6 +1618,10 @@ mod tests {
         assert!(!observation.ownership_verified);
         assert_eq!(observation.session_epoch, None);
         assert_eq!(observation.own_hero_key, None);
+        assert_eq!(
+            observation.own_side, None,
+            "no own side without verified ownership"
+        );
     }
 
     #[test]
