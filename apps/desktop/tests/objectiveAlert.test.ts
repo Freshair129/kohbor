@@ -26,6 +26,18 @@ test("objective alert parser accepts only closed host payloads with phase lead m
   assert.equal(parseObjectiveAlertBatch({ ...waterSpawn, alerts: [{ ...waterSpawn.alerts[0], phase: "pre_warn_30" }] }), null);
 });
 
+test("the host alert carries the app locale and the HUD card follows it (owner build b0b0745 showed English under th)", () => {
+  const thai = parseObjectiveAlertBatch({ ...waterSpawn, locale: "th" })!;
+  assert.equal(thai.locale, "th");
+  assert.equal(parseObjectiveAlertBatch({ ...waterSpawn, locale: "en" })!.locale, "en");
+  assert.equal(parseObjectiveAlertBatch(waterSpawn)!.locale, undefined);
+  assert.equal(parseObjectiveAlertBatch({ ...waterSpawn, locale: "fr" }), null);
+  assert.equal(parseObjectiveAlertBatch({ ...waterSpawn, locale: 1 }), null);
+  assert.equal(objectiveCardContent(thai, thai.locale ?? "en").sentence, "Water rune เกิดแล้ว");
+  const hudStage = readFileSync(new URL("../src/HudStage.tsx", import.meta.url), "utf8");
+  assert.match(hudStage, /<ObjectiveAlert batch=\{objectiveAlert\.batch\} locale=\{objectiveAlert\.batch\?\.locale \?\? locale\}/);
+});
+
 test("objective card keeps English names with Thai sentences and fully English wording", () => {
   const spawned = parseObjectiveAlertBatch(waterSpawn)!.alerts[0]!;
   const prewarn = {

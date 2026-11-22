@@ -191,7 +191,7 @@ body.hud-body #root {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 272px;
+  width: 232px;
   height: 32px;
   overflow: hidden;
   padding: 0 10px;

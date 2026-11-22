@@ -23,7 +23,7 @@ A map, not evidence. Decisions, requirements, contracts, code and tests outrank 
 
 ## 2. Owner decisions (ids only; text in contracts/decisions.json)
 
-- **Decided:** DEC-HEALTH-DANGER, DEC-PACK-AUDIO-OPTIONAL-VISUAL, DEC-BANNER-LAB-STYLE (consumer side only), DEC-EVENT-RUNE-SPAWN (revision 4, 2026-11-22: map-objective timers as a HUD card with per-objective tones and lead times, ALERT-008, UI-015).
+- **Decided:** DEC-HEALTH-DANGER, DEC-PACK-AUDIO-OPTIONAL-VISUAL, DEC-BANNER-LAB-STYLE (consumer side only), DEC-EVENT-RUNE-SPAWN (revision 5, 2026-11-22: map-objective timers as a HUD card under the danger meter with per-objective tones and lead times, ALERT-008, UI-015).
 - **Proposed, not decided:** DEC-EVENT-AUDIO (owner acknowledgements are recorded inside it; the decision as a whole is not approved).
 - **Open:** DEC-CRITICAL-MEDIA, DEC-INTERFACES, DEC-PACK-CRYPTO, DEC-NATIVE-EVIDENCE.
 - **Deferred:** DEC-PACK-BANNER-ADDON.

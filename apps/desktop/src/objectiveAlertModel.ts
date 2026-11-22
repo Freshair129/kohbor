@@ -15,6 +15,8 @@ export interface ObjectiveAlertBatch {
   schema_version: 1;
   observed_clock_seconds: number;
   alerts: ObjectiveAlertItem[];
+  /** App language from the host's saved settings; absent when the host could not read it. */
+  locale?: "th" | "en";
 }
 
 export interface ObjectiveAlertState {
@@ -59,7 +61,8 @@ function hasOnlyKeys(value: Record<string, unknown>, allowed: readonly string[])
 
 export function parseObjectiveAlertBatch(value: unknown): ObjectiveAlertBatch | null {
   const batch = record(value);
-  if (!batch || !hasOnlyKeys(batch, ["schema_version", "observed_clock_seconds", "alerts"])
+  if (!batch || !hasOnlyKeys(batch, ["schema_version", "observed_clock_seconds", "alerts", "locale"])
+    || (batch.locale !== undefined && batch.locale !== "th" && batch.locale !== "en")
     || batch.schema_version !== 1 || !safeInteger(batch.observed_clock_seconds)
     || batch.observed_clock_seconds < -600
     || !Array.isArray(batch.alerts) || batch.alerts.length === 0 || batch.alerts.length > MAX_ALERT_ITEMS) return null;
@@ -102,6 +105,7 @@ export function parseObjectiveAlertBatch(value: unknown): ObjectiveAlertBatch | 
     schema_version: 1,
     observed_clock_seconds: batch.observed_clock_seconds,
     alerts,
+    ...(batch.locale === "th" || batch.locale === "en" ? { locale: batch.locale } : {}),
   };
 }
 

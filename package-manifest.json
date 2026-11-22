@@ -58,8 +58,8 @@
     },
     {
       "path": "acceptance/scenarios.feature",
-      "bytes": 42513,
-      "sha256": "69aa98a453f45acb4e0b1901ddbae8a934e26861cfc7c89ba881efdb7208f283"
+      "bytes": 43051,
+      "sha256": "bf4e7bc3ab8c3b1d4cb7b3658f8fb44a97995fe884df96a5f78d58f6ee65a251"
     },
     {
       "path": "acceptance/spec-validation.json",
@@ -343,8 +343,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/hud.rs",
-      "bytes": 53843,
-      "sha256": "5c70cee8c4c60d46913aeed5c2df6c72708228d850e9eac3ae3c9925258380a7"
+      "bytes": 53721,
+      "sha256": "9d92cae33f86c89dfb2221634cf908b247d1a2b97b3a7fb1d96aa8658ce90785"
     },
     {
       "path": "apps/desktop/src-tauri/src/instance.rs",
@@ -368,8 +368,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/layout/mod.rs",
-      "bytes": 15487,
-      "sha256": "baac82e2d2b395c4cb4083027e8c245de744c8bfb82ef565f3b8734a4df4410c"
+      "bytes": 20545,
+      "sha256": "747ee7802dd430a054b703f8a10039a76b9b3adddd8e4daeb43769a855dabd8a"
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
@@ -443,8 +443,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/objectives/mod.rs",
-      "bytes": 7852,
-      "sha256": "80f3ba2bc7f31b1990ac67632bb4aea800cf5789a71a341bb131a5503e05dc85"
+      "bytes": 9731,
+      "sha256": "a40fed863d3fa1edec0bfbe690615684f409bd1f53e6e15bb9dd930217f6ee64"
     },
     {
       "path": "apps/desktop/src-tauri/src/objectives/prefs.rs",
@@ -558,8 +558,8 @@
     },
     {
       "path": "apps/desktop/src/HudStage.tsx",
-      "bytes": 7733,
-      "sha256": "e62bb7a5977cb0c3bb4d264ad48653bf2edfcb6b4f1792355218893d75664d1e"
+      "bytes": 7765,
+      "sha256": "5c519513edf9e50cee7f9a69be3592aa229aa21f7069bb9b8198c33f0e5f4907"
     },
     {
       "path": "apps/desktop/src/MediaProbeContext.tsx",
@@ -824,7 +824,7 @@
     {
       "path": "apps/desktop/src/hud.css",
       "bytes": 5345,
-      "sha256": "69c6cea86660e26529d0f1b82f7205dfa897fddf97bc72a1ce25202e7b738aaa"
+      "sha256": "bb20821b4a03acf6ab419b07381d2f381a5fcc4f410796b9d6518bf30d788cb1"
     },
     {
       "path": "apps/desktop/src/hudCopy.ts",
@@ -833,8 +833,8 @@
     },
     {
       "path": "apps/desktop/src/hudModel.ts",
-      "bytes": 12942,
-      "sha256": "04f775b1123c57956a1b8e6cdb95b3daac0aafb28c84bca1c73af92c24fa1de9"
+      "bytes": 13094,
+      "sha256": "68b6090e309539e5675fb5a87f682bc0d0dfb8d7d9dea938747e596457436aad"
     },
     {
       "path": "apps/desktop/src/hudRuntime.ts",
@@ -893,8 +893,8 @@
     },
     {
       "path": "apps/desktop/src/layoutEditor/model.ts",
-      "bytes": 6047,
-      "sha256": "e1dbc21c22c9a097bd63959e0a4d650f2b1f46ffcc892019d52ddad7627ce99a"
+      "bytes": 8252,
+      "sha256": "99e96cf1cba1f471070e5c9667cb81cae6a85d9127959da0aa5f96dc67fbb37f"
     },
     {
       "path": "apps/desktop/src/live/DangerMeter.tsx",
@@ -1148,8 +1148,8 @@
     },
     {
       "path": "apps/desktop/src/mock/harness.tsx",
-      "bytes": 38188,
-      "sha256": "b690e3c63da7ba8e350c9bf43bf029909ac0fd36487ee7c5d0fb0f2da3036fd6"
+      "bytes": 38324,
+      "sha256": "aa99edd49c935198b120ec9185a605f73c11c2fd30e32d78b54c84a342f799b9"
     },
     {
       "path": "apps/desktop/src/mock/hudState.ts",
@@ -1168,8 +1168,8 @@
     },
     {
       "path": "apps/desktop/src/objectiveAlertModel.ts",
-      "bytes": 5329,
-      "sha256": "f61b610c6693754ad630d87f2fdf8ed8a0306261aaa729fa2bb25adf1257e8be"
+      "bytes": 5632,
+      "sha256": "ab1aad577f0d68a7bfe63f118033a3bd26344b2c09d2063e69b920a755450590"
     },
     {
       "path": "apps/desktop/src/objectivePrefs.ts",
@@ -1708,8 +1708,8 @@
     },
     {
       "path": "apps/desktop/tests/fixtures/layout-clamp-cases.json",
-      "bytes": 1652,
-      "sha256": "1b66396ee49d7720db04da577eee3c901493ceaf1d3b4435bbbbfe5bc685ea5c"
+      "bytes": 2721,
+      "sha256": "03bceceb10df4099c66f317b359ae875db2e956a03d679f98c04338cd49fde7b"
     },
     {
       "path": "apps/desktop/tests/gsi-first-run.test.ts",
@@ -1738,8 +1738,8 @@
     },
     {
       "path": "apps/desktop/tests/hud-layout.test.ts",
-      "bytes": 8315,
-      "sha256": "98ad9587dc81b147ae3c80a6df6464fc58a138374dc81aa0f2655696bf96ee04"
+      "bytes": 8405,
+      "sha256": "eb0d382e75fef509844ba68cc4a796ca9fdf3d9601e91a173be357eb5afe3890"
     },
     {
       "path": "apps/desktop/tests/hudModel.test.ts",
@@ -1773,8 +1773,8 @@
     },
     {
       "path": "apps/desktop/tests/layoutEditor.test.ts",
-      "bytes": 2820,
-      "sha256": "a6dbfa75884f81aadbb13720776ac44020b3238272a975aeeb44069a411a98c7"
+      "bytes": 4737,
+      "sha256": "042884b4f6ad8e3d0bdbc235eacbcba799b65ffa44b653f115b47ce83d3d9281"
     },
     {
       "path": "apps/desktop/tests/live-capture-config.test.ts",
@@ -1828,8 +1828,8 @@
     },
     {
       "path": "apps/desktop/tests/objectiveAlert.test.ts",
-      "bytes": 4604,
-      "sha256": "0db04eca53d71d9533ee8214c1c9585dbe754e79f253476cc89bf9b06a5de08f"
+      "bytes": 5503,
+      "sha256": "ce1fc1fd21539fe84b274d96fd7a790426254f1dd676dd9fe2e29237a3b2b5de"
     },
     {
       "path": "apps/desktop/tests/orb-model.test.ts",
@@ -2033,8 +2033,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 86242,
-      "sha256": "4684d9940c79a1572f046982ccfc81e15a6b10197da2e01327686fb7d91ddabe"
+      "bytes": 91397,
+      "sha256": "043fe29938e3193eed30eedfb27315d60aff3e143f7b8b0e7facd41fde81212c"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -2118,8 +2118,8 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 225750,
-      "sha256": "ada29204b94ef2eb23b75469f22ebeb73a20db0b0892309057614e8bd1000319"
+      "bytes": 227150,
+      "sha256": "4db172872e57ed5d9f8345a8cc1ccb565ae4c4335d7d3a08fa0cbc044c608d0d"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -3403,8 +3403,8 @@
     },
     {
       "path": "docs/domains/events-audio/CARD.md",
-      "bytes": 9198,
-      "sha256": "77ddd2e35a4ad5d17986fcadd8b7e6f9f8e836fe01c400128dd2caa472f5fdfb"
+      "bytes": 9221,
+      "sha256": "30ca5ea06e74d991503deab28e7f9b11032bef05cb59b8d6e009f45f975b4e4e"
     },
     {
       "path": "docs/domains/events-audio/state.json",
@@ -3448,8 +3448,8 @@
     },
     {
       "path": "docs/domains/ui-overlay/CARD.md",
-      "bytes": 6831,
-      "sha256": "1e1b0faea0fde63127ce9a31a81331c6e8705980bbd460abb48ef0a5d8c5b5cd"
+      "bytes": 7081,
+      "sha256": "604290a4b7ecc6933a71bd9eb050e60ef96cff6712911c4484854e1c101b6946"
     },
     {
       "path": "docs/domains/ui-overlay/state.json",
@@ -3488,8 +3488,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 51915,
-      "sha256": "7e81eeba5dc8f25724f495714efb2b1fe6da41bd58188296bbcf0423521f0f39"
+      "bytes": 52599,
+      "sha256": "a48374ef9b7df269cb7bf84f43faf64cecb8a38799ca63d048cd8aa184171c9c"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
@@ -3568,13 +3568,13 @@
     },
     {
       "path": "docs/requirements/RTM.csv",
-      "bytes": 49177,
-      "sha256": "625a83a946e0ddbdb533af3c5d60d2a54a988aae1cde06193fa459a4eda2d283"
+      "bytes": 49334,
+      "sha256": "a4c2295bce59c5d50bebf654172ada1ad99b5f5bad69c5ce5da785d943de53f9"
     },
     {
       "path": "docs/requirements/SRS.md",
-      "bytes": 147628,
-      "sha256": "681ab557656f3290fa50449aa678d585c244006a642c2ef73f81f0ec4cbfd530"
+      "bytes": 148806,
+      "sha256": "5a7aa6408149ae9febd17c58348783cef85e3b557415131cedc786013f11d8e1"
     },
     {
       "path": "docs/security/SECURITY-PRIVACY.md",

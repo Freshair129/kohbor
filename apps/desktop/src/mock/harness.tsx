@@ -710,7 +710,9 @@ export function HudMockHarness() {
     const objectiveAlert = {
       schema_version: 1,
       observed_clock_seconds: 240,
-      alerts: [{ objective: "power_rune", phase: "pre_warn", lead_s: 30, occurrence_seconds: 270, due_seconds: 240 }],
+      alerts: [{ objective: "power_rune", phase: "pre_warn", lead_s: 15, occurrence_seconds: 270, due_seconds: 255 }],
+      // Like the host, carry the saved app language so the HUD never depends on the control window.
+      locale: settingsView.locale,
     };
     const sendObjectiveAlert = () => deliver(HUD_OBJECTIVE_ALERT_EVENT, objectiveAlert);
     const layoutInitial = window.setTimeout(publishMockHudLayout, 120);

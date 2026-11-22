@@ -159,15 +159,7 @@ pub fn place_hud_window(
     monitor: &crate::overlay::MonitorRect,
     layouts: &[(HudModule, HudModuleLayout); 6],
 ) -> crate::overlay::Rect {
-    place_hud_window_with_card(
-        monitor,
-        layouts,
-        crate::layout::WidgetLayout {
-            x_percent: 62.5,
-            y_percent: 6.5,
-            scale: 1.0,
-        },
-    )
+    place_hud_window_with_card(monitor, layouts, crate::layout::DEFAULT_LAYOUT)
 }
 
 pub fn place_hud_window_with_card(

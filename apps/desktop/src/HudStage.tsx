@@ -212,7 +212,7 @@ export function HudStage({
           top: `${(hudLayout.objective_card.y_percent / hudLayout.strip_height_percent) * 100}vh`,
           "--hud-scale": hudLayout.objective_card.scale,
         } as CSSProperties}>
-          <ObjectiveAlert batch={objectiveAlert.batch} locale={locale} visible />
+          <ObjectiveAlert batch={objectiveAlert.batch} locale={objectiveAlert.batch?.locale ?? locale} visible />
         </div>
       ) : null}
     </div>
