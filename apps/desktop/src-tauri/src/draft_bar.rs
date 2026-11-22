@@ -16,18 +16,19 @@ pub const OUTPUT_HEIGHT: u32 = 1080;
 pub const SCALE_PERCENT: u32 = 100;
 pub const SLOT_COUNT: usize = 10;
 
-// The supplied WebP is 1919x1072. Its measured origin is one pixel right and
-// eight pixels down from the duplicated 1920x1080 output; geometry below applies
-// that (1, 8) correction to the measured WebP coordinates.
+// Remeasured 2026-11-23 against two owner STRATEGY_TIME frames at 1920x1080 (a050ae8, 6195c3c)
+// by searching the box that best matches the installed reference portraits. The first
+// measurement (one 1919x1072 hero-selection frame with a manual (1, 8) correction) put the Dire
+// slots 10 px left and the card art 2 px low, so the Dire boxes cut into the next card.
 const STRIP_X: i32 = 209;
-const STRIP_Y: i32 = 8;
-const STRIP_WIDTH: u32 = 1494;
+const STRIP_Y: i32 = 6;
+const STRIP_WIDTH: u32 = 1504;
 const STRIP_HEIGHT: u32 = 119;
 const SLOT_WIDTH: u32 = 119;
-const SLOT_HEIGHT: u32 = 65;
+const SLOT_HEIGHT: u32 = 68;
 const SLOT_STEP: i32 = 124;
 const RADIANT_X0: i32 = 209;
-const DIRE_X0: i32 = 1088;
+const DIRE_X0: i32 = 1098;
 const FEATURE_WIDTH: usize = 32;
 const FEATURE_HEIGHT: usize = 18;
 const TILE_COLUMNS: usize = 4;
@@ -145,6 +146,25 @@ impl DraftBarMemory {
         (self.frame_at.is_some(), self.detail.as_deref(), identified)
     }
 
+    /// Log-safe per-slot best match score in hundredths (0–100) and reason code, slot order
+    /// Radiant 0–4 then Dire 5–9. No hero names. `None` before references are installed.
+    pub(crate) fn slot_scores(&self) -> Option<Vec<(u8, MatchReason)>> {
+        let matcher = self.matcher.as_ref()?;
+        Some(
+            matcher
+                .deck_view(true)
+                .slots
+                .iter()
+                .map(|slot| {
+                    (
+                        (slot.confidence.clamp(0.0, 1.0) * 100.0).round() as u8,
+                        slot.reason,
+                    )
+                })
+                .collect(),
+        )
+    }
+
     pub fn needs_references(&self) -> bool {
         self.active && self.matcher.is_none()
     }
@@ -171,7 +191,7 @@ impl DraftBarMemory {
     }
 
     /// Binary control-window IPC only. Four little-endian bytes give the JSON
-    /// metadata length, followed by metadata and optionally tight 1494x119 BGRA.
+    /// metadata length, followed by metadata and optionally tight 1504x119 BGRA.
     pub fn packet(
         &self,
         admitted_epoch: Option<u64>,
@@ -227,6 +247,18 @@ pub struct DraftBarDiagnostics {
     pub cycle_ms: f32,
 }
 
+/// Reference build outcome for the info log: counts and a failure code only.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ReferenceReport {
+    pub roster: usize,
+    pub built: usize,
+    pub ycocg: usize,
+    pub missing: usize,
+    pub unreadable: usize,
+    pub decode_failed: usize,
+    pub failure: Option<&'static str>,
+}
+
 struct ReferenceTemplate {
     hero_id: Vec<u8>,
     features: Vec<u8>,
@@ -265,35 +297,51 @@ impl DraftBarMatcher {
     }
 
     /// Read the hero roster and root hero images from the user's VPK into memory once.
-    /// The root `heroes/` images are the landscape reference family for the top bar.
-    pub fn from_vpk(vpk: &Vpk) -> Self {
+    /// The root `heroes/` images are the landscape reference family for the top bar. The report
+    /// carries log-safe counts only (no paths, no hero names).
+    pub fn from_vpk_with_report(vpk: &Vpk) -> (Self, ReferenceReport) {
         let mut matcher = Self::empty();
+        let mut report = ReferenceReport::default();
         let Some(roster_entry) = vpk.find(ROSTER_PATH) else {
-            return matcher;
+            report.failure = Some("roster_missing");
+            return (matcher, report);
         };
         if roster_entry.encoded_len() > MAX_ROSTER_BYTES as u64 {
-            return matcher;
+            report.failure = Some("roster_too_large");
+            return (matcher, report);
         }
         let Ok(roster) = vpk.read(&roster_entry) else {
-            return matcher;
+            report.failure = Some("roster_unreadable");
+            return (matcher, report);
         };
         if roster.len() > MAX_ROSTER_BYTES {
-            return matcher;
+            report.failure = Some("roster_too_large");
+            return (matcher, report);
         }
-        for hero_id in parse_hero_ids(&roster) {
-            let Some(path) = hero_portrait_path(&hero_id).into_iter().next() else {
-                continue;
-            };
-            let Some(entry) = vpk.find(&path) else {
+        let heroes = parse_hero_ids(&roster);
+        report.roster = heroes.len();
+        for hero_id in heroes {
+            let Some(entry) = hero_portrait_path(&hero_id)
+                .into_iter()
+                .next()
+                .and_then(|path| vpk.find(&path))
+            else {
+                report.missing += 1;
                 continue;
             };
             let Ok(bytes) = vpk.read(&entry) else {
+                report.unreadable += 1;
                 continue;
             };
-            let Ok(image) = decode_vtex_c(&bytes) else {
+            if stored_as_ycocg(&bytes) {
+                report.ycocg += 1;
+            }
+            let Some(image) = decode_reference(&bytes) else {
+                report.decode_failed += 1;
                 continue;
             };
             let Some(features) = rgba_features(&image) else {
+                report.decode_failed += 1;
                 continue;
             };
             matcher.references.push(ReferenceTemplate {
@@ -301,10 +349,14 @@ impl DraftBarMatcher {
                 features,
             });
         }
+        report.built = matcher.references.len();
+        if report.built == 0 {
+            report.failure = Some("no_reference_built");
+        }
         matcher
             .references
             .sort_by(|left, right| left.hero_id.cmp(&right.hero_id));
-        matcher
+        (matcher, report)
     }
 
     #[cfg(test)]
@@ -524,6 +576,58 @@ fn parse_hero_ids(roster: &[u8]) -> Vec<String> {
     heroes
 }
 
+const YCOCG_MARKER: &[u8] = b"YCoCg Conv";
+const PNG_SIGNATURE: &[u8] = &[0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a];
+
+/// Whether a compiled texture was stored as scaled YCoCg in DXT5 (Source 2 "Image YCoCg
+/// Conversion"). The landscape hero portraits are; their embedded-PNG siblings are not converted.
+fn stored_as_ycocg(resource: &[u8]) -> bool {
+    let Some(header) = resource.get(..4) else {
+        return false;
+    };
+    let metadata_len = u32::from_le_bytes([header[0], header[1], header[2], header[3]]) as usize;
+    let Some(metadata) = resource.get(..metadata_len) else {
+        return false;
+    };
+    let payload = &resource[metadata_len..];
+    !payload.starts_with(PNG_SIGNATURE)
+        && metadata
+            .windows(YCOCG_MARKER.len())
+            .any(|window| window == YCOCG_MARKER)
+}
+
+/// Scaled YCoCg (Y in alpha, Co and Cg in red and green, scale in blue) to RGB.
+fn ycocg_to_rgb(rgba: &mut [u8]) {
+    for pixel in rgba.chunks_exact_mut(4) {
+        let scale = f32::from(pixel[2] >> 3) + 1.0;
+        let co = (f32::from(pixel[0]) - 128.0) / scale;
+        let cg = (f32::from(pixel[1]) - 128.0) / scale;
+        let y = f32::from(pixel[3]);
+        pixel[0] = (y + co - cg).round().clamp(0.0, 255.0) as u8;
+        pixel[1] = (y + cg).round().clamp(0.0, 255.0) as u8;
+        pixel[2] = (y - co - cg).round().clamp(0.0, 255.0) as u8;
+        pixel[3] = 255;
+    }
+}
+
+/// Decode a reference portrait to straight RGBA. `decode_vtex_c` returns YCoCg-encoded DXT5
+/// as raw channels, which made every reference unrecognisable (live test on 8d9f8c3: 0/10).
+fn decode_reference(resource: &[u8]) -> Option<Image> {
+    let mut image = decode_vtex_c(resource).ok()?;
+    if stored_as_ycocg(resource) {
+        ycocg_to_rgb(&mut image.rgba);
+    }
+    Some(image)
+}
+
+/// Percent of the card height compared, from the top. The live top bar overlays the rank banner,
+/// medal and info icon on the lower part of every card; the reference art has none of them.
+const CARD_TOP_PERCENT: usize = 58;
+
+fn card_rows(height: usize) -> usize {
+    (height * CARD_TOP_PERCENT / 100).max(1)
+}
+
 fn rgba_features(image: &Image) -> Option<Vec<u8>> {
     let expected = usize::try_from(image.width)
         .ok()?
@@ -534,7 +638,7 @@ fn rgba_features(image: &Image) -> Option<Vec<u8>> {
     }
     let mut output = vec![0; FEATURE_WIDTH * FEATURE_HEIGHT];
     for y in 0..FEATURE_HEIGHT {
-        let source_y = resample_coordinate(y, FEATURE_HEIGHT, image.height as usize)?;
+        let source_y = resample_coordinate(y, FEATURE_HEIGHT, card_rows(image.height as usize))?;
         for x in 0..FEATURE_WIDTH {
             let source_x = resample_coordinate(x, FEATURE_WIDTH, image.width as usize)?;
             let source = (source_y * image.width as usize + source_x) * 4;
@@ -553,7 +657,7 @@ impl BgraFrame<'_> {
         let mut output = vec![0; FEATURE_WIDTH * FEATURE_HEIGHT];
         for target_y in 0..FEATURE_HEIGHT {
             let source_y = rect.y as usize
-                + resample_coordinate(target_y, FEATURE_HEIGHT, rect.height as usize)?;
+                + resample_coordinate(target_y, FEATURE_HEIGHT, card_rows(rect.height as usize))?;
             for target_x in 0..FEATURE_WIDTH {
                 let source_x = rect.x as usize
                     + resample_coordinate(target_x, FEATURE_WIDTH, rect.width as usize)?;
@@ -820,13 +924,19 @@ pub(crate) mod tests {
         let width = rect.width as usize;
         let height = rect.height as usize;
         let stride = geometry.strip_rect.width as usize * 4;
+        // Like the live top bar: portrait art in the card top, a flat rank banner below it.
+        let card = card_rows(height);
         for target_y in 0..height {
-            let feature_y = resample_coordinate(target_y, height, FEATURE_HEIGHT).unwrap();
             for target_x in 0..width {
-                let feature_x = resample_coordinate(target_x, width, FEATURE_WIDTH).unwrap();
-                let value = (f32::from(features[feature_y * FEATURE_WIDTH + feature_x]) * dim)
-                    .round()
-                    .clamp(0.0, 255.0) as u8;
+                let value = if target_y < card {
+                    let feature_y = resample_coordinate(target_y, card, FEATURE_HEIGHT).unwrap();
+                    let feature_x = resample_coordinate(target_x, width, FEATURE_WIDTH).unwrap();
+                    (f32::from(features[feature_y * FEATURE_WIDTH + feature_x]) * dim)
+                        .round()
+                        .clamp(0.0, 255.0) as u8
+                } else {
+                    96
+                };
                 let offset = (y + target_y) * stride + (x + target_x) * 4;
                 strip[offset] = value;
                 strip[offset + 1] = value;
@@ -843,14 +953,14 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn owner_frame_geometry_corrects_the_saved_one_by_eight_crop() {
+    fn owner_frame_geometry_matches_the_remeasured_strategy_time_boxes() {
         let geometry = draft_bar_geometry(1920, 1080, 100).unwrap();
         assert_eq!(
             geometry.strip_rect,
             Rect {
                 x: 209,
-                y: 8,
-                width: 1494,
+                y: 6,
+                width: 1504,
                 height: 119
             }
         );
@@ -858,14 +968,20 @@ pub(crate) mod tests {
             geometry.slot_rects[0],
             Rect {
                 x: 209,
-                y: 8,
+                y: 6,
                 width: 119,
-                height: 65
+                height: 68
             }
         );
         assert_eq!(geometry.slot_rects[4].x, 705);
-        assert_eq!(geometry.slot_rects[5].x, 1088);
-        assert_eq!(geometry.slot_rects[9].x, 1584);
+        // Regression, live test on 8d9f8c3: Dire started at 1088, 10 px left of the cards.
+        assert_eq!(geometry.slot_rects[5].x, 1098);
+        assert_eq!(geometry.slot_rects[9].x, 1594);
+        let strip_right = geometry.strip_rect.x + geometry.strip_rect.width as i32;
+        assert!(geometry
+            .slot_rects
+            .iter()
+            .all(|slot| slot.x + slot.width as i32 <= strip_right));
     }
 
     #[test]
@@ -1175,5 +1291,128 @@ pub(crate) mod tests {
             ]
         );
         assert!(parse_hero_ids(&vec![b'a'; MAX_ROSTER_BYTES + 1]).is_empty());
+    }
+
+    #[test]
+    fn scaled_ycocg_converts_back_to_rgb() {
+        // RGB (200, 100, 50): Y 112.5, Co 75, Cg -12.5, stored at scale 1 (blue < 8).
+        let mut pixel = [203_u8, 116, 0, 113];
+        ycocg_to_rgb(&mut pixel);
+        for (got, want) in pixel[..3].iter().zip([200_u8, 100, 50]) {
+            assert!(got.abs_diff(want) <= 2, "{pixel:?}");
+        }
+        assert_eq!(pixel[3], 255);
+        // Scale 2 (blue 8..15) stores chroma doubled: RGB (140, 120, 100) is Y 120, Co 20, Cg 0.
+        let mut scaled = [128 + 40, 128, 8, 120];
+        ycocg_to_rgb(&mut scaled);
+        assert_eq!(&scaled[..3], &[140, 120, 100]);
+    }
+
+    /// Regression, live test on 8d9f8c3 (0/10 identified): the landscape portraits are DXT5
+    /// with "Image YCoCg Conversion" and were matched as raw YCoCg channels.
+    #[test]
+    fn ycocg_marker_is_read_from_metadata_and_skips_embedded_png() {
+        fn resource(marker: bool, png: bool) -> Vec<u8> {
+            let mut bytes = vec![0_u8; 64];
+            bytes[..4].copy_from_slice(&64_u32.to_le_bytes());
+            if marker {
+                bytes[20..30].copy_from_slice(b"YCoCg Conv");
+            }
+            if png {
+                bytes.extend_from_slice(PNG_SIGNATURE);
+            }
+            bytes.extend_from_slice(&[0x0f, 0x18, 0x82, 0x94]);
+            bytes
+        }
+        assert!(stored_as_ycocg(&resource(true, false)));
+        assert!(
+            !stored_as_ycocg(&resource(true, true)),
+            "embedded PNG is already RGB"
+        );
+        assert!(!stored_as_ycocg(&resource(false, false)));
+        let mut payload_only = resource(false, false);
+        payload_only.extend_from_slice(b"YCoCg Conv");
+        assert!(
+            !stored_as_ycocg(&payload_only),
+            "marker in pixel data does not count"
+        );
+        assert!(!stored_as_ycocg(&[1, 2]));
+    }
+
+    /// The rank banner, medal and info icon cover the lower part of each live card and are not
+    /// in the reference art, so they must not change the features.
+    #[test]
+    fn features_ignore_the_rank_banner_below_the_card_top() {
+        let geometry = draft_bar_geometry(1920, 1080, 100).unwrap();
+        let strip = synthetic_strip(&geometry);
+        let mut bannered = strip.clone();
+        let slot = geometry.slot_rects[0];
+        let stride = geometry.strip_rect.width as usize * 4;
+        let local_y = (slot.y - geometry.strip_rect.y) as usize;
+        let banner_from = local_y + card_rows(slot.height as usize);
+        for y in banner_from..local_y + slot.height as usize {
+            for x in 0..slot.width as usize {
+                let at = y * stride + (slot.x - geometry.strip_rect.x) as usize * 4 + x * 4;
+                bannered[at..at + 3].copy_from_slice(&[180, 140, 120]);
+            }
+        }
+        let local = Rect {
+            x: slot.x - geometry.strip_rect.x,
+            y: slot.y - geometry.strip_rect.y,
+            ..slot
+        };
+        let frame = |pixels: &[u8]| {
+            BgraFrame {
+                pixels,
+                width: geometry.strip_rect.width,
+                height: geometry.strip_rect.height,
+                stride: geometry.strip_rect.width * 4,
+            }
+            .features(local)
+            .unwrap()
+        };
+        assert_eq!(frame(&strip), frame(&bannered));
+        assert_eq!(card_rows(68), 39);
+    }
+
+    /// Local-only (not run by default): score the owner's STRATEGY_TIME frames with the shipped
+    /// geometry against references built from the installed game. `KOHBOR_5B_TOPS` lists raw
+    /// 1920x130 BGRA top bands separated by `;`. They show player names and stay outside the repo.
+    #[test]
+    #[ignore]
+    fn owner_frames_score_per_slot() {
+        let Ok(paths) = std::env::var("KOHBOR_5B_TOPS") else {
+            return;
+        };
+        let game = crate::intake::locate_game().expect("game located");
+        let vpk = kohbor_game_assets::Vpk::open(game.join("game/dota/pak01_dir.vpk")).expect("vpk");
+        let (mut matcher, report) = DraftBarMatcher::from_vpk_with_report(&vpk);
+        eprintln!("PROBE report={report:?}");
+        let geometry = draft_bar_geometry(1920, 1080, 100).unwrap();
+        for (index, path) in paths.split(';').enumerate() {
+            let band = std::fs::read(path).unwrap();
+            let strip_rect = geometry.strip_rect;
+            let mut strip =
+                Vec::with_capacity(strip_rect.width as usize * strip_rect.height as usize * 4);
+            for y in strip_rect.y as usize..(strip_rect.y as u32 + strip_rect.height) as usize {
+                let start = (y * 1920 + strip_rect.x as usize) * 4;
+                strip.extend_from_slice(&band[start..start + strip_rect.width as usize * 4]);
+            }
+            matcher.identify_strip(
+                &strip,
+                strip_rect.width,
+                strip_rect.height,
+                strip_rect.width * 4,
+                &geometry,
+            );
+            let view = matcher.deck_view(true);
+            for slot in &view.slots {
+                eprintln!(
+                    "PROBE frame={index} slot={} score={:.3} reason={:?} hero={:?}",
+                    slot.slot, slot.confidence, slot.reason, slot.hero_id
+                );
+            }
+            matcher.clear_slots();
+        }
     }
 }

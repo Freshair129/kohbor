@@ -308,8 +308,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/capture_host.rs",
-      "bytes": 298582,
-      "sha256": "b884feada637f60125210cbb621c09084dcebd8378fe6f667519cf2eb98126ed"
+      "bytes": 302443,
+      "sha256": "3f2cd1c3eacdb6d25cc17bd452f81478158bfcefc6af519ae3f6a654ce4a42e0"
     },
     {
       "path": "apps/desktop/src-tauri/src/clock.rs",
@@ -333,8 +333,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/draft_bar.rs",
-      "bytes": 41206,
-      "sha256": "37de653797ab5fdaff7153007156db946f05d978d6ded40357c5270c52b890d3"
+      "bytes": 51314,
+      "sha256": "c1e6e9048f0a9648e54b25b4069f6b2b23b0afd4d426d9c88baf5c18c675f68b"
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/budget.rs",
@@ -804,7 +804,7 @@
     {
       "path": "apps/desktop/src/deck/draftBarModel.ts",
       "bytes": 3745,
-      "sha256": "9bb78de095d3eefe7f81a00eb396d6381caa4225fcfd259403458ef255e0be98"
+      "sha256": "cff2442abdd7eb178f195cfeda7e5a21fe729cf9ee26220d7a705b7242bf074f"
     },
     {
       "path": "apps/desktop/src/deck/eventFeedModel.ts",
@@ -2938,8 +2938,8 @@
     },
     {
       "path": "docs/design/DRAFT-BAR-SPEC.md",
-      "bytes": 6803,
-      "sha256": "29b0409772e4f56b7a0da8110fc3cc47056f9b5888a1a9ba65b40013ab16a24f"
+      "bytes": 8298,
+      "sha256": "501747cce264ba03bcfe405b15a3e58ebed223ddd1ab71fab1459811e3a1a505"
     },
     {
       "path": "docs/design/DRAFT-COLUMN.md",
