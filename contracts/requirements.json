@@ -1632,7 +1632,9 @@
           "apps/desktop/tests/shell-css.test.ts",
           "apps/desktop/src/runtime.ts"
         ],
-        "evidence_refs": [],
+        "evidence_refs": [
+          "docs/delivery/evidence/objective-timers-live/owner-live-9c96013.receipt.json"
+        ],
         "procedure_ids": [
           "TP-03",
           "TP-05",
@@ -3049,9 +3051,14 @@
           "apps/desktop/tests/layoutEditor.test.ts",
           "apps/desktop/tests/fixtures/layout-clamp-cases.json",
           "apps/desktop/src/hudModel.ts",
-          "apps/desktop/tests/hud-layout.test.ts"
+          "apps/desktop/tests/hud-layout.test.ts",
+          "apps/desktop/src/layoutEditor/fullscreen.ts",
+          "apps/desktop/src/runtime.ts",
+          "apps/desktop/src/assets/editor/editor-reference-1080p.jpg"
         ],
-        "evidence_refs": [],
+        "evidence_refs": [
+          "docs/delivery/evidence/objective-timers-live/owner-live-9c96013.receipt.json"
+        ],
         "procedure_ids": [
           "TP-05",
           "UAT-05"

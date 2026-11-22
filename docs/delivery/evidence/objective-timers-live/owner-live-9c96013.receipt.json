@@ -1,0 +1,41 @@
+{
+  "artifact_sha256": "968475e1ed1120e0c58fc6c0a5ea7d3ef3a43776e3756c7a719e1238191f10c6",
+  "commands": [
+    "Owner ran the integ release build during a live Dota 2 match and reported by eye; the executable was still the running process when hashed.",
+    "sha256 of the executable recomputed by this session; the executable contains the string 9c96013 and every log line carries commit 9c96013.",
+    "Lead session and this session (agents) parsed the app log snapshot for objective_alert_shown (fields kinds, lead_s, clock, tone) and log levels."
+  ],
+  "environment": {
+    "game_patch": null,
+    "hardware": null,
+    "os_build": null,
+    "profile": "release, 0.3.0-dev.18, owner's Windows machine"
+  },
+  "evidence_class": "live",
+  "executed_at_utc": "2026-11-22T15:17:22Z",
+  "limitations": [
+    "Scope is the scenario named in scenario_id only. This PASS does not verify ALERT-008 or UI-015 as a whole; both stay NOT_RUN at requirement level.",
+    "Owner-observed: the owner's words were relayed by the lead session; this is not an agent approval and not a signed acceptance.",
+    "Not covered: the Tormentor first spawn (15:00) and the 2:00 water runes (the app started at clock 17:45); a kill or event video banner overlapping the card; the layout editor drag, reset and a saved non-default layout in the native app; lead-time changes; the English UI.",
+    "Tones: only the logged outcome (played, deferred_played) is evidence; whether each objective's tone sounds distinct was not measured.",
+    "No acoustic, FPS or resource measurement."
+  ],
+  "observed_result": "Owner-observed on build 9c96013: “สีกับตำแหน่งโอเคแล้ว” (colour and position OK now): the objective card is dark and sits under the RISK meter with Thai copy. App log (snapshot sha256 e695d192e8269407ebb067b4469fd292ff94c73f348a0f4daf2294d8dce6963e, 278 lines, all info level, every line commit 9c96013): 31 objective_alert_shown lines from clock 1065 to 2160 s; power rune pre-warnings at 30 s and 15 s and a spawn every 2 minutes; bounty rune spawns batched with power at 20:00, 24:00, 28:00, 32:00 and 36:00 (fields.kinds power_rune,bounty_rune); wisdom rune spawns at 21:00 and 35:00 and in the 28:00 batch (power_rune,bounty_rune,wisdom_rune); tone outcome played 29, deferred_played 2, suppressed 0; no warn or error lines.",
+  "operator": "product owner (live play); log and hash checks by the lead session and this session (agents)",
+  "raw_evidence_paths": [
+    "F:\\kohbor-coord\\runs\\evt-obj-001\\live-9c96013\\kohbor-20261122-151722.snapshot.log",
+    "%APPDATA%\\io.github.freshair129.kohbor\\logs\\kohbor-20261122-151722.log",
+    "F:\\cargo-lanes\\post36-live-status-wrap-final-20261117\\integ-9c96013\\release\\kohbor-desktop.exe",
+    "F:\\kohbor-coord\\runs\\draft-live-20261122\\"
+  ],
+  "receipt_id": "alert-008-live-owner-9c96013-20261122",
+  "requirement_ids": [
+    "ALERT-008",
+    "UI-015"
+  ],
+  "scenario_id": "LIVE-9c96013-card-colour-position-thai-copy-rune-timings-tone-outcomes (subset of AC-ALERT-008 and of AC-UI-015 default placement)",
+  "schema_version": "1.0.0",
+  "source_revision": "9c960135c60f4622fcbb3583912bddb9bedbc795",
+  "spec_version": "0.3.6",
+  "status": "PASS"
+}

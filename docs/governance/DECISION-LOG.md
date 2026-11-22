@@ -176,3 +176,13 @@ The owner asked, as relayed by the lead, for apps such as Discord to be addable 
 - The panel widens for a fourth channel (288 CSS px before the 80 % zoom, about 230 logical px at 1080p) and stays at the approved widths with fewer channels; placement still refuses any protected region and keeps the 8 px click-through edge.
 
 UI-011, AC-UI-011, MEDIA-009 and AC-MEDIA-009 are amended in `contracts/requirements.json` and regenerated into the SRS. DEC-EDGE-ORB in `contracts/decisions.json` is not revised in this change. Implementation evidence is synthetic only; native evidence remains NOT_RUN.
+
+### Owner decision: bundled layout-editor reference screenshot (2026-11-22)
+
+Product owner, relayed by the lead session after it explained the risk (Valve game art distributed with the app; low practical risk; the owner's own rights call). Owner words: “ยืนยันฝังเลยแล้วตรวจสอบภาพดีๆนะว่ามีชื่อของเพลเยอร์ทั้งของผมหรือของคนอื่นไหมถ้ามีก็เซ็นเซอร์เบลอให้หน่อย”
+
+- Scope: exactly one redacted screenshot, `apps/desktop/src/assets/editor/editor-reference-1080p.jpg`, used only as the default background of the Settings overlay layout editor (UI-015). Resolution order: a local Lab reference file, then this bundled image, then the plain grid.
+- This is a narrow exception to the "no official game logos or Valve art" rule. The rule still applies to every other asset, and a rights-team review is required before any public release.
+- Redaction: the one player-identifying chat-feed line was pixelated; the image was re-checked for player names and account ids and carries no metadata. Provenance, hashes and what is not established are recorded in [THIRD-PARTY-DATA](THIRD-PARTY-DATA.md).
+- Not approved by this decision: any other screenshot or game art, showing the image in game, or any rights clearance.
+

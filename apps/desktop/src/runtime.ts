@@ -63,6 +63,21 @@ export function shellHotkeySet(enabled: boolean, binding: string): Promise<unkno
   return invoke<unknown>("shell_hotkey_set", { enabled, binding });
 }
 
+/**
+ * The local game reference screenshot used as the layout editor background, read through the same
+ * dev-gated host path as the Lab (fixed file name, JPEG only, 8 MiB max, never bundled). Builds without
+ * Lab, a missing file and any refusal all give null, which means the grid fallback.
+ */
+export async function layoutReferenceImage(): Promise<string | null> {
+  if (!hostAvailable()) return null;
+  try {
+    const value = await invoke<unknown>("lab_reference_image");
+    return typeof value === "string" && value.startsWith("data:image/jpeg;base64,") ? value : null;
+  } catch {
+    return null;
+  }
+}
+
 export function layoutGet(): Promise<unknown> {
   if (!hostAvailable()) return Promise.reject(new Error("CAPABILITY_UNAVAILABLE"));
   return invoke<unknown>("layout_get");
