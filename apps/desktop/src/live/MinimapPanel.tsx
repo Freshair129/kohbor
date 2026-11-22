@@ -43,7 +43,8 @@ export function MinimapPanel({
   steamStatus = null,
 }: {
   locale?: LiveLocale;
-  layout?: "standalone" | "deck";
+  /** "pinned" is the second-monitor mode (UI-016): map pane only, tools in its toolbar, the quick strip below it. */
+  layout?: "standalone" | "deck" | "pinned";
   renderAlerts?: (input: { risk: RiskView | null; captureLive: boolean }) => ReactNode;
   steamStatus?: SteamStatus | null;
 }) {
@@ -181,46 +182,17 @@ export function MinimapPanel({
     if (patch.crop) void clearInvalidationAfter(captureConfig.setCrop(patch.crop));
   };
 
-  const panelContents = (
-    <>
-      <section className="live-map-pane" aria-labelledby="live-map-heading">
-        <header className="live-map-toolbar">
-          <h1 id="live-map-heading">{text.mapLabel}</h1>
-          <span className="live-map-badge mono" role="status" title={statusBadge}>{statusBadge}</span>
-          <span className="live-preview-rates mono" title={`${rateBadge} — ${previewRateTooltip(locale)}`}>{rateBadge}</span>
-        </header>
-        <MinimapStage source={mapSource} hasFrame={minimap.hasFrame} covered={presentation.coveredBadge !== null && !paused && !userInvalidated}
-          waitingReason={steamStatus === null && phase === "idle" ? reasonText : null}
-          stageRef={canvasBox.stageRef} locale={locale} plate={plate && (
-            <div className={`live-map-plate${plateTone}`}>
-              <span>{plate}</span>
-              {userInvalidated && <button type="button" disabled={controlsBusy} onClick={() => void retry()}>{text.retryCapture}</button>}
-            </div>
-          )}>
-          <canvas
-            ref={minimap.canvasRef}
-            style={canvasBox.canvasStyle}
-            className={`live-map-canvas${presentation.dimmed ? " is-stale" : ""}`}
-            aria-hidden="true"
-          />
-        </MinimapStage>
-      </section>
-      <aside className={`live-sidebar${layout === "deck" ? " live-sidebar-deck" : ""}`} aria-label={text.title}>
-        <section className="live-danger-panel" aria-labelledby="live-danger-heading">
-          <h2 id="live-danger-heading">{text.danger}</h2>
-          <DangerMeter state={displayedRisk?.state ?? null} locale={locale} />
-        </section>
-        <section className="live-enemy-panel" aria-label={text.enemyCount("—")}>
-          <EnemySeen risk={displayedRisk} locale={locale} />
-        </section>
-        {layout === "deck" && renderAlerts && <div className="live-deck-alerts">{renderAlerts({ risk: displayedRisk, captureLive: phase === "live" && !paused })}</div>}
-        <div className="live-sidebar-status">
-          {mock && <span className="live-experimental">{text.mockPreview}</span>}
-          {showAutoLayoutUnconfirmed(capture) && <span className="live-auto-layout-tag">{text.autoLayoutUnconfirmed}</span>}
-          {visibilityNotice && <span className="live-visibility-notice" role="status">{visibilityNotice}</span>}
-          {minimap.error && <span className="live-error" role="alert">{minimap.error}</span>}
-          {captureConfig.error && <span className="live-error" role="alert">{captureConfig.error}</span>}
-        </div>
+  const pinned = layout === "pinned";
+  const statusBlock = (
+    <div className="live-sidebar-status">
+      {mock && <span className="live-experimental">{text.mockPreview}</span>}
+      {showAutoLayoutUnconfirmed(capture) && <span className="live-auto-layout-tag">{text.autoLayoutUnconfirmed}</span>}
+      {visibilityNotice && <span className="live-visibility-notice" role="status">{visibilityNotice}</span>}
+      {minimap.error && <span className="live-error" role="alert">{minimap.error}</span>}
+      {captureConfig.error && <span className="live-error" role="alert">{captureConfig.error}</span>}
+    </div>
+  );
+  const actions = (
         <div className="live-sidebar-actions">
           <DialogButton label={text.cropSettings} closeLabel={text.closeDialog} className="live-dialog">
             <div className="live-controls-popover">
@@ -337,11 +309,58 @@ export function MinimapPanel({
             </div>
           </DialogButton>
         </div>
+  );
+
+  const mapPane = (
+      <section className="live-map-pane" aria-labelledby="live-map-heading">
+        <header className="live-map-toolbar">
+          <h1 id="live-map-heading">{text.mapLabel}</h1>
+          <span className="live-map-badge mono" role="status" title={statusBadge}>{statusBadge}</span>
+          <span className="live-preview-rates mono" title={`${rateBadge} — ${previewRateTooltip(locale)}`}>{rateBadge}</span>
+          {pinned && <div className="live-pinned-tools">{statusBlock}{actions}</div>}
+        </header>
+        <MinimapStage source={mapSource} hasFrame={minimap.hasFrame} covered={presentation.coveredBadge !== null && !paused && !userInvalidated}
+          waitingReason={steamStatus === null && phase === "idle" ? reasonText : null}
+          stageRef={canvasBox.stageRef} locale={locale} plate={plate && (
+            <div className={`live-map-plate${plateTone}`}>
+              <span>{plate}</span>
+              {userInvalidated && <button type="button" disabled={controlsBusy} onClick={() => void retry()}>{text.retryCapture}</button>}
+            </div>
+          )}>
+          <canvas
+            ref={minimap.canvasRef}
+            style={canvasBox.canvasStyle}
+            className={`live-map-canvas${presentation.dimmed ? " is-stale" : ""}`}
+            aria-hidden="true"
+          />
+        </MinimapStage>
+      </section>
+  );
+
+  const panelContents = (
+    <>
+      {mapPane}
+      <aside className={`live-sidebar${layout === "deck" ? " live-sidebar-deck" : ""}`} aria-label={text.title}>
+        <section className="live-danger-panel" aria-labelledby="live-danger-heading">
+          <h2 id="live-danger-heading">{text.danger}</h2>
+          <DangerMeter state={displayedRisk?.state ?? null} locale={locale} />
+        </section>
+        <section className="live-enemy-panel" aria-label={text.enemyCount("—")}>
+          <EnemySeen risk={displayedRisk} locale={locale} />
+        </section>
+        {layout === "deck" && renderAlerts && <div className="live-deck-alerts">{renderAlerts({ risk: displayedRisk, captureLive: phase === "live" && !paused })}</div>}
+        {statusBlock}
+        {actions}
       </aside>
     </>
   );
 
-  return layout === "deck" ? (
+  return pinned ? (
+    <section className="live-pinned-panel" lang={locale}>
+      {mapPane}
+      {renderAlerts?.({ risk: displayedRisk, captureLive: phase === "live" && !paused })}
+    </section>
+  ) : layout === "deck" ? (
     <section className="live-tab live-dashboard live-deck-panel" lang={locale}>
       {panelContents}
     </section>

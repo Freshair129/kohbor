@@ -289,6 +289,20 @@ Feature: Brand-neutral desktop companion target behavior
     Then the single column occupies x=1728–1907 scaled with height and shows the read-only list before own pick and existing pick card after it; the list shows historical bracket win rate and game count, labels under-1,000 samples low-data and five position groups as estimates, discloses that listed heroes may be banned or already picked, never shows win-chance %, accepts no in-game input, and has its own on/off switch; v2 only strikes picked heroes when 5b is available, while matchup edge remains unavailable pending a qualified source
     And failure behavior is: Hide without an admitted own pick, a supported placement or an active draft phase. Suppress v2 comparisons when 5b is unavailable and keep eligible v1 content. Remove previous hero statistics immediately on a repick or swap.
 
+  @UI-016 @mvp
+  Scenario: AC-UI-016 Second-monitor Live layout
+    Given Live boxes for 1920×1080 and 2560×1440 monitors with monitor 2 on each side, a narrowing window and a window below 1100×700
+    When the player sets the side, resizes the window, opens the own-hero expander and enters or leaves a match
+    Then the map is pinned to the inner edge at the size the box allows, the quick strip matches its width, outer columns collapse before the map shrinks, the page falls back below the threshold with a note, rails move outward and the friends rail folds only during a match, and every control is keyboard-reachable
+    And failure behavior is: Without a stored or valid side, or when the window is too small, show the centred deck. Never move or resize the map because of panel content, feed changes or the expander.
+
+  @UI-017 @mvp
+  Scenario: AC-UI-017 Second-monitor content from admitted sources
+    Given a session with and without admitted draft identities, a known and unknown own team, risk counts present and absent, and no objective source
+    When the second-monitor Live page renders
+    Then enemy and ally names come only from same-session draft memory, the own hero is not repeated, missing-from-map is shown only when both counts are known, life state and the objective countdown are em dashes without a source, each value carries its source label, and no ally vitals, cooldowns or abnormal states appear
+    And failure behavior is: Unknown is an em dash, never zero and never a guessed side. If the own team or own hero cannot be matched, the corresponding rows stay unknown instead of risking a wrong or repeated hero.
+
   @MEDIA-009 @extension
   Scenario: AC-MEDIA-009 Per-application session volume
     Given a fake session manager with present, missing and unreadable sessions and persisted original levels

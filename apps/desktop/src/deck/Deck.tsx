@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { copy, seconds, type Locale } from "../copy";
 import { MinimapPanel } from "../live/MinimapPanel";
 import { useAudioHistory } from "../useAudioHistory";
@@ -16,6 +17,8 @@ import { OwnLoadout } from "./OwnLoadout";
 import { DraftBarStrip, useDraftBar } from "./DraftBarStrip";
 import { deriveLoadoutViewModel } from "./loadoutModel";
 import type { SteamStatus } from "../steam/model";
+import { SecondMonitorDeck } from "../live/SecondMonitorDeck";
+import type { SecondMonitorSide } from "../live/secondMonitorModel";
 import "./deck.css";
 
 function readableNumber(value: number | null): string {
@@ -32,6 +35,7 @@ export function Deck({
   hostLost,
   steamStatus,
   gsiSetup,
+  secondMonitor,
 }: {
   locale: Locale;
   status: RuntimeStatus | null;
@@ -43,6 +47,8 @@ export function Deck({
   steamStatus: SteamStatus | null;
   /** Runs the same gsi_setup flow as the connection card; shown as a button on the items/abilities hint. */
   gsiSetup?: (replace: boolean) => Promise<string | null>;
+  /** Second-monitor mode (UI-016). Present only when the side is set and the window is large enough. */
+  secondMonitor?: { side: Exclude<SecondMonitorSide, "off">; onChange: (side: SecondMonitorSide) => void; topSlot?: ReactNode };
 }) {
   const text = deckCopy(locale);
   const own = deriveOwnHeroViewModel(snapshot);
@@ -63,7 +69,7 @@ export function Deck({
   const hpWidth = own.hpPercent === null ? undefined : `${Math.max(0, Math.min(100, own.hpPercent))}%`;
   const manaWidth = own.manaPercent === null ? undefined : `${Math.max(0, Math.min(100, own.manaPercent))}%`;
 
-  return (
+  const legacy = (
     <main className="deck-root" lang={locale} data-state={state.state} data-draft={draftBar?.active || undefined}>
       <DraftBarStrip frame={draftBar} locale={locale} />
       <section className="deck-column deck-own-column" aria-label={text.ownHero}>
@@ -168,5 +174,19 @@ export function Deck({
           historyState={historyState} hostNowMs={hostNowMs} playback={playback} hostLost={hostLost} />
       </section>
     </main>
+  );
+
+  if (!secondMonitor) return legacy;
+  return (
+    <SecondMonitorDeck locale={locale} side={secondMonitor.side} onSideChange={secondMonitor.onChange}
+      snapshot={snapshot} hostLost={hostLost} sessionEpoch={hostLost ? null : status?.session.session_epoch ?? null}
+      draftBar={draftBar} steamStatus={steamStatus} gsiSetup={gsiSetup} topSlot={secondMonitor.topSlot}
+      renderAlerts={({ risk, captureLive }) => (
+        <AlertStrip own={{ ...own, ageMs: displayAgeMs }} state={state.state} risk={risk} captureLive={captureLive} locale={locale} />
+      )}
+      events={<EventFeed locale={locale} history={history.history} state={historyState} hostNowMs={hostNowMs} />}
+      announcer={<AnnouncerStatus locale={locale} status={status} mute={mute} history={history.history}
+        historyState={historyState} hostNowMs={hostNowMs} playback={playback} hostLost={hostLost} />}
+      legacy={legacy} />
   );
 }

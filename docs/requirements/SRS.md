@@ -1109,6 +1109,50 @@ One right-edge column at x=1728–1907 at 1920×1080, scaled with height, shall 
 
 **Implementation freedom:** Choose internal implementation after freezing interfaces within the stated behavior, permissions and evidence thresholds.
 
+#### UI-016 — Second-monitor Live layout
+
+**Scope:** mvp · **Priority:** P1 · **Target milestone:** M3 · **Basis:** owner_decision / DEC-LIVE-SECOND-MONITOR
+
+**Product needs:** PN-005 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL
+
+The Live page shall offer a second-monitor mode with a per-device setting: off (default, the centred deck), monitor 2 left of the main monitor, or monitor 2 right of it. When set, the minimap shall be a square pinned flush to the edge that touches the main monitor (left edge when monitor 2 is to the right, right edge when it is to the left), with a quick strip of the same width directly under it and outer columns growing away from it. The map size shall depend only on the Live box: outer columns collapse from two to one before the map shrinks, text never shrinks and panels scroll inside. Below about 1100×700 the page shall fall back to the centred deck with a note. In this mode only, the navigation rail moves to the outer edge and the friends rail collapses while a match runs. The side selector and the own-hero expander shall be keyboard-reachable UI-006 twins.
+
+**Failure behavior:** Without a stored or valid side, or when the window is too small, show the centred deck. Never move or resize the map because of panel content, feed changes or the expander.
+
+**AC-UI-016:** Given Live boxes for 1920×1080 and 2560×1440 monitors with monitor 2 on each side, a narrowing window and a window below 1100×700; when the player sets the side, resizes the window, opens the own-hero expander and enters or leaves a match; then the map is pinned to the inner edge at the size the box allows, the quick strip matches its width, outer columns collapse before the map shrinks, the page falls back below the threshold with a note, rails move outward and the friends rail folds only during a match, and every control is keyboard-reachable.
+
+**Verification:** synthetic, native; procedures TP-05, UAT-05; status NOT_RUN.
+
+**Open dependencies:** DEC-NATIVE-EVIDENCE.
+
+**Elaboration:** [UX-SPEC.md](../design/UX-SPEC.md), [DECISION-LOG.md](../governance/DECISION-LOG.md)
+
+**Contracts:** [design-tokens.json](../../contracts/design-tokens.json)
+
+**Implementation freedom:** Choose the measurement, storage and CSS mechanism. Keep the map geometry independent of content (UI-002) and the setting local to the device.
+
+#### UI-017 — Second-monitor content from admitted sources
+
+**Scope:** mvp · **Priority:** P1 · **Target milestone:** M3 · **Basis:** owner_decision / DEC-LIVE-SECOND-MONITOR
+
+**Product needs:** PN-005 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL
+
+In second-monitor mode the quick strip shall show the danger level, the enemies missing from the map (recent maximum seen minus currently visible, labelled derived), five enemy rows named only from the in-memory Draft Bar identities of the same session with alive/dead shown as an em dash until an admitted top-bar read exists, and the next map objective countdown from an admitted source or an em dash. The team card shall show four ally rows named from the draft, own hero excluded, with alive/dead as an em dash and a note that HP and skills need teammate sharing. The own hero shall be one strip (name, level, alive/respawn, HP, mana) with items, skills, gold and KDA behind an expander. Every value carries its source label. Ally HP and ally cooldowns shall come only from consented peer sharing (PEER-003, PEER-010); ally HP shall not be read from the in-game top bar; abnormal states (stuns, targeting) shall not be shown.
+
+**Failure behavior:** Unknown is an em dash, never zero and never a guessed side. If the own team or own hero cannot be matched, the corresponding rows stay unknown instead of risking a wrong or repeated hero.
+
+**AC-UI-017:** Given a session with and without admitted draft identities, a known and unknown own team, risk counts present and absent, and no objective source; when the second-monitor Live page renders; then enemy and ally names come only from same-session draft memory, the own hero is not repeated, missing-from-map is shown only when both counts are known, life state and the objective countdown are em dashes without a source, each value carries its source label, and no ally vitals, cooldowns or abnormal states appear.
+
+**Verification:** synthetic, native; procedures TP-05, UAT-05; status NOT_RUN.
+
+**Open dependencies:** DEC-NATIVE-EVIDENCE.
+
+**Elaboration:** [UX-SPEC.md](../design/UX-SPEC.md), [DECISION-LOG.md](../governance/DECISION-LOG.md)
+
+**Contracts:** [own-snapshot.schema.json](../../contracts/own-snapshot.schema.json)
+
+**Implementation freedom:** Choose presentation within the Command Deck tokens. Add a new source only through its own requirement and decision.
+
 ### STATS
 
 #### STATS-001 — Separate consent for public hero statistics

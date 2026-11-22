@@ -100,6 +100,26 @@ Live markers require matching frame, session, source generation, healthy capture
 
 With input frozen, map x/y/width/height change by **no more than 1 CSS px** when opening, changing or closing detail, switching event-feed tabs or changing tier.
 
+### 4.1 Second-monitor mode (UI-016, UI-017; DEC-LIVE-SECOND-MONITOR)
+
+A per-device setting says where monitor 2 sits: off (default), left of the main monitor, or right of it. When set:
+
+- The minimap is a square pinned flush to the edge that touches the main monitor: the left edge when monitor 2 is to the right, the right edge when it is to the left.
+- A quick strip of the same width sits directly under the map: danger level, enemies missing from the map (derived), five enemy rows, and the next map objective.
+- Outer columns grow away from the map: the team card, the own-hero strip and the announcer status, then the event feed. When the box narrows, the two columns merge into one before the map shrinks. Text never shrinks; columns scroll inside.
+- Below about 1100×700 the page falls back to the centred deck with a note.
+- The navigation rail moves to the outer edge; the friends rail collapses while a match runs. This exception to the two-rail shell applies to this mode only.
+- The side selector (plain buttons with `aria-pressed`) and the own-hero expander (`details`/`summary`) are keyboard-reachable.
+
+Content rules:
+
+- Enemy and ally names come only from the in-memory Draft Bar identities of the same session. The own hero is excluded from the ally rows; if it cannot be matched to a draft slot, the four ally rows stay unknown.
+- Alive/dead for enemies and allies is “—” until the in-game top-bar read (proposed DEC-TOPBAR-CV) is admitted.
+- Ally HP and cooldowns appear only from consented peer sharing (PEER-003, PEER-010). Until then the team card says so. Ally HP is never read from the game's top bar.
+- Abnormal states (stuns, targeting) are not shown.
+- Items, skills, gold and KDA of the own hero sit behind an expander because the game HUD already shows them.
+- Every value carries its source label (draft, GSI, derived from the map, game clock); unknown is “—”.
+
 ## 5. Selection and inspector behavior
 
 Begin with no hero selected. Live refresh cannot open an inspector or move focus. Clicking a hero card or a known marker selects the same stable entity key. An unknown marker cannot guess an identity.
