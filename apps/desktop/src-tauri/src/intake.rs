@@ -691,6 +691,11 @@ impl Shared {
         } else {
             None
         };
+        if view.draft_bar_allowed {
+            let draft = self.draft_column_observation_at(now);
+            view.own_side = draft.own_side;
+            view.own_hero_key = draft.own_hero_key;
+        }
         view.recent_events = self
             .recent_health_events(now, 5000)
             .into_iter()

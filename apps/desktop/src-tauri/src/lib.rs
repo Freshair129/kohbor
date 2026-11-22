@@ -12,6 +12,7 @@ mod clock;
 mod commands;
 pub mod containment;
 mod draft_bar;
+mod draft_roster;
 mod hero_stats;
 pub mod host;
 mod hotkeys;

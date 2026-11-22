@@ -1755,6 +1755,8 @@ struct CaptureHostWorker<S, C, A, R, E, H> {
     draft_log_identified: Option<usize>,
     /// Last logged per-slot best scores and when, for the rate-limited score line.
     draft_log_scores: Option<(Vec<u8>, Instant)>,
+    /// Last logged roster counts (heroes, colours, lanes, own slot); no names or values.
+    draft_log_roster: Option<crate::draft_roster::RosterCounts>,
 }
 
 impl<S, C, A, R, E, H> CaptureHostWorker<S, C, A, R, E, H>
@@ -1852,6 +1854,7 @@ where
             draft_log_state: None,
             draft_log_identified: None,
             draft_log_scores: None,
+            draft_log_roster: None,
         }
     }
 
@@ -1915,6 +1918,7 @@ where
             }
             self.draft_log_identified = None;
             self.draft_log_scores = None;
+            self.draft_log_roster = None;
             return;
         }
         let (frame, detail, identified) = {
@@ -1959,6 +1963,19 @@ where
             self.draft_log_identified = Some(identified);
         }
         self.log_draft_scores(frame);
+        let counts = lock(&self.draft).roster().counts();
+        if frame && self.draft_log_roster != Some(counts) {
+            crate::log_info!(
+                "capture_host",
+                "draft_roster_changed",
+                "draft slot roster changed",
+                heroes = counts.heroes,
+                colours = counts.colours,
+                lanes = counts.lanes,
+                own_slot_known = counts.own_slot_known
+            );
+            self.draft_log_roster = Some(counts);
+        }
     }
 
     fn run(&mut self) {
@@ -2018,11 +2035,19 @@ where
         let game_capture_allowed = game_phase_allows_capture(self.game_phase);
         let draft_epoch = gsi.as_ref().and_then(draft_epoch);
         let draft_mode = draft_epoch.is_some();
-        lock(&self.draft).observe(
-            gsi.as_ref().and_then(|snapshot| snapshot.session_epoch),
-            self.game_phase == Some(GamePhase::PostGame),
-            draft_mode,
-        );
+        {
+            let mut draft = lock(&self.draft);
+            draft.observe(
+                gsi.as_ref().and_then(|snapshot| snapshot.session_epoch),
+                self.game_phase == Some(GamePhase::PostGame),
+                draft_mode,
+            );
+            draft.set_own(
+                gsi.as_ref().and_then(|snapshot| snapshot.own_side),
+                gsi.as_ref()
+                    .and_then(|snapshot| snapshot.own_hero_key.clone()),
+            );
+        }
         if self.draft_mode != draft_mode {
             if self.source_open {
                 self.close_source("capture_region_changed");
@@ -3571,6 +3596,10 @@ pub struct GsiSnapshot {
     /// snapshot withholds `source.age_ms` outside Pregame/Live, so `age_ms` is always unknown
     /// during the draft and cannot gate Draft Bar capture.
     pub draft_age_ms: Option<u64>,
+    /// Own team and own hero key (`npc_dota_hero_*`) from verified GSI in a draft screen, for
+    /// the roster's own slot. Unknown otherwise.
+    pub own_side: Option<crate::hero_stats::counters::Side>,
+    pub own_hero_key: Option<String>,
     /// Health events detected in the recent GSI window. Defaults to empty.
     pub recent_events: Vec<GsiEvent>,
 }
@@ -3598,6 +3627,8 @@ impl GsiSnapshot {
             draft_bar_allowed: false,
             age_ms: snapshot["source"]["age_ms"].as_u64(),
             draft_age_ms: None,
+            own_side: None,
+            own_hero_key: None,
             recent_events: Vec::new(),
         }
     }
@@ -5021,6 +5052,13 @@ mod tests {
             10
         );
         assert!(!scores.fields.to_string().contains("synthetic_one"));
+        let roster = logs
+            .iter()
+            .find(|entry| entry.event == "draft_roster_changed")
+            .expect("roster counts are logged");
+        assert!(roster.fields["heroes"].as_u64().unwrap() >= 1);
+        assert!(roster.fields["colours"].is_u64() && roster.fields["lanes"].is_u64());
+        assert!(!roster.fields.to_string().contains("synthetic_one"));
         assert_eq!(scores.fields["threshold"], 82);
         for entry in logs {
             let serialized = serde_json::to_string(&entry).unwrap();
