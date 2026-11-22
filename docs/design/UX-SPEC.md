@@ -125,6 +125,7 @@ Content rules:
 - Rune countdowns (UI-018): each rune spot on the pinned minimap carries an original marker and a label, minutes while far (“3m”, “2m”, “1m”), then seconds from the largest lead time set in the objective Settings (last minute when none is set). Timing comes only from the ALERT-008 scheduler through a host schedule read-model; no label for Roshan or Tormentor respawn; labels never take clicks; spot positions are approximate.
 - Draft board (UI-019): during the draft the map square shows one row per team, five slots each: portrait and hero name (Draft Bar 5b), player name (Draft 5c, only with the visible setting on, memory-only), and the hero's historical win rate. Our side adds the estimated position (“ค่าประมาณ”); the enemy side adds a guessed lane (“เดา”). Never a win chance. After the draft the minimap returns.
 - Status chips (Steam, Dota 2, GSI) and the start button wrap to a new line instead of overlapping.
+- Map image (owner decision 2026-11-23): the map square shows the real captured minimap frame, smoothly scaled, so the game's own hero icons appear as they are. Kohbor never identifies heroes on the map and draws no motion arrows; its overlays (rune countdowns) sit on top. Stale capture stays dimmed with its age; no frame shows the waiting state.
 
 ## 5. Selection and inspector behavior
 

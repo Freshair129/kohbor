@@ -139,3 +139,7 @@
 .sm-board-stat, .sm-board-pos { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px; font-size: 13px; }
 .sm-board-rate { font-size: 16px; font-weight: 700; }
 .sm-board-sources { margin: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+
+/* Owner decision 2026-11-23 ("3 ก"): monitor 2 shows the real captured minimap frame (about 280 px in game), scaled up
+   smoothly; in-game hero icons appear as they are. No identification, no motion arrows. Stale frames stay dimmed with their age. */
+.sm-pinned .live-map-canvas { image-rendering: auto; }

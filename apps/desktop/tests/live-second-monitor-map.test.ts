@@ -145,3 +145,28 @@ test("status chip row wraps instead of letting the start button paint over the c
   assert.match(chips, /flex-wrap:\s*wrap/);
   assert.doesNotMatch(css, /\.steam-[a-z-]+\s*\{[^}]*position:\s*absolute/);
 });
+
+// ---- Captured minimap on monitor 2 (owner decision 2026-11-23, "3 ก") ----
+test("the pinned map shows the captured minimap frame through the existing canvas path, smoothly scaled", () => {
+  const panel = read("../src/live/MinimapPanel.tsx");
+  assert.match(panel, /ref=\{minimap\.canvasRef\}[\s\S]*className=\{`live-map-canvas/, "one canvas fed by useMinimap for every layout");
+  assert.match(read("../src/live/useMinimap.ts"), /minimap_subscribe/);
+  const css = (read("../src/live/live.css") + read("../src/live/secondMonitor.css")).replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(css, /live-map-canvas[^}]*image-rendering:\s*(?:pixelated|crisp-edges)/);
+  assert.match(css, /\.sm-pinned \.live-map-canvas\s*\{\s*image-rendering:\s*auto/);
+});
+
+test("a stale or missing frame is never shown as live", async () => {
+  // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
+  const { deriveMinimapPresentation } = await import("../src/live/minimapPresentation.ts");
+  const stale = deriveMinimapPresentation("stale", null, true, "th");
+  assert.equal(stale.dimmed, true);
+  assert.equal(stale.staleOverlay, "age");
+  assert.equal(deriveMinimapPresentation("stale", null, false, "th").staleOverlay, "age");
+  assert.equal(deriveMinimapPresentation("live", null, true, "th").dimmed, false);
+});
+
+test("no hero identification or motion arrows on the second-monitor map", () => {
+  const sources = ["../src/live/SecondMonitorDeck.tsx", "../src/live/MapCountdowns.tsx", "../src/live/objectiveCountdownModel.ts", "../src/live/secondMonitorCards.ts"].map(read).join("\n");
+  assert.doesNotMatch(sources, /templateMatch|matchTemplate|motion[-_ ]?arrow|heading|facing/i);
+});
