@@ -231,9 +231,10 @@ export function AccountPage({ account, locale, back, port: suppliedPort, liveMat
         : model.screenId === "E3" ? "err.google.body" : model.screenId === "E5" ? "err.rate.body" : "revoked.body";
 
   return <section className="account-page" lang={locale} aria-labelledby="page-account-heading">
-    <header className="account-page-heading"><div><small lang="en">ACCOUNT</small><h1 id="page-account-heading" ref={heading} tabIndex={-1}>{model.title}</h1></div>
+    <div className="account-page-scroll">
+      <header className="account-page-heading"><div><small lang="en">ACCOUNT</small><h1 id="page-account-heading" ref={heading} tabIndex={-1}>{model.title}</h1></div>
       <button type="button" className="account-back" onClick={back}>{locale === "th" ? "← กลับหน้าสด" : "← Back to Live"}</button></header>
-    <section className={`account-screen tone-${model.tone}`} aria-labelledby="page-account-heading" data-screen={model.screenId}>
+      <section className={`account-screen tone-${model.tone}`} aria-labelledby="page-account-heading" data-screen={model.screenId}>
       {(model.screenId === "A2" || model.screenId === "A3") && <p className="sr-only" role="status" aria-live="polite">{model.title}</p>}
       {model.screenId === "A1" || model.screenId === "A1b" || model.screenId === "A1c" ? <div className="account-card account-guest">
         <p>{t("guest.body")}</p>
@@ -398,21 +399,24 @@ export function AccountPage({ account, locale, back, port: suppliedPort, liveMat
       {model.screenId === "A7" && model.friendCode.presentation === "cached" && <p className="account-inline-status">{t("offline.cached")}</p>}
       {model.screenId === "A7" && snapshot.liveMatch && <p className="account-disabled-reason">{t("action.in_match")}</p>}
       {model.screenId === "E1" || model.screenId === "E3" || model.screenId === "E5" || model.screenId === "E6" ? <p className="account-error-caption">{t("err.later")}</p> : null}
-    </section>
+      </section>
+    </div>
   </section>;
 }
 
 export function FriendsPage({ locale, back }: { locale: "th" | "en"; back: () => void }) {
   const th = locale === "th";
   return <section className="friends-page" lang={locale} aria-labelledby="page-friends-heading">
-    <header className="account-page-heading"><div><small>FRIENDS</small><h1 id="page-friends-heading">{th ? "เพื่อน" : "Friends"}</h1>
+    <div className="friends-page-scroll">
+      <header className="account-page-heading"><div><small>FRIENDS</small><h1 id="page-friends-heading">{th ? "เพื่อน" : "Friends"}</h1>
       <p>{th ? "ยังไม่มีข้อมูลจำนวนเพื่อน จึงไม่แสดงเป็นศูนย์" : "Friend count is unknown."}</p></div><button type="button" onClick={back}>{th ? "← กลับหน้าสด" : "← Back to Live"}</button></header>
-    <div className="friends-page-grid"><aside className="account-card"><h2>{th ? "คนที่คุณเลือก" : "People you choose"}</h2>
+      <div className="friends-page-grid"><aside className="account-card"><h2>{th ? "คนที่คุณเลือก" : "People you choose"}</h2>
       <p>{th ? "เพื่อนจะอยู่ตรงนี้เมื่อบริการพร้อม" : "Your friends will appear here when the service is available."}</p><hr />
       <button type="button" disabled>{th ? "เพิ่มเพื่อน" : "Add friend"}</button><p>{th ? "เร็วๆ นี้ — ยังไม่เปิดบริการ" : "Coming soon — service unavailable"}</p>
       <small>{accountCopy(locale, "signin.receives")}</small></aside>
       <section className="account-card friends-empty"><span className="friends-empty-mark" aria-hidden="true">—</span><small>{th ? "เร็วๆ นี้" : "Coming soon"}</small>
         <h2>{th ? "พื้นที่สำหรับเพื่อนของคุณ" : "A place for your friends"}</h2><p>{th ? "ยังไม่เปิดระบบเพื่อน ไม่มีรายชื่อหรือสถานะที่ต้องเดา" : "Friends are not available yet. No names or presence are inferred."}</p></section>
+      </div>
     </div>
   </section>;
 }
