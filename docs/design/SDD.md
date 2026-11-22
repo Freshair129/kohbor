@@ -181,7 +181,7 @@ For UI-011 and MEDIA-009, allocate a native mixer module. One host COM thread ow
 |---|---|---|---|
 | Coordinate server-authorized private account/social operations while preserving guest/core independence. | Authenticated account/broker authority, relation/block settings, explicit presence/invitation actions and reviewed relay proof/ticket. | Authorized minimal social projection, transaction result and account generation changes. | Sign-out/revoke/switch invalidate account credentials/work only. Friendship is not sharing consent; failed social admission cannot silently become guest admission or expand gameplay recipients. |
 
-**Primary SRS allocation:** `CORE-003`, `SOCIAL-001`, `SOCIAL-002`, `SOCIAL-003`.
+**Primary SRS allocation:** `ACCOUNT-001`, `ACCOUNT-002`, `ACCOUNT-003`, `ACCOUNT-004`, `ACCOUNT-005`, `ACCOUNT-006`, `ACCOUNT-007`, `ACCOUNT-008`, `ACCOUNT-009`, `ACCOUNT-010`, `CORE-003`, `SOCIAL-001`, `SOCIAL-002`, `SOCIAL-003`.
 
 **Collaborating components:** CMP-PEER, CMP-READMODEL, CMP-ENTITLEMENT.
 
