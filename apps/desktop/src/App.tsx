@@ -34,6 +34,7 @@ import { VolumeToast } from "./VolumeToast";
 import { OrbSettings } from "./orb/OrbSettings";
 import { DraftSettings } from "./draft/DraftSettings";
 import { ObjectiveSettings } from "./ObjectiveSettings";
+import { ShowHotkeySettings } from "./ShowHotkeySettings";
 import { useDotaLauncher, useShowSteamName, useSteamStatus } from "./steam/hooks";
 import { steamPersonaName } from "./steam/model";
 import { StartDotaBar } from "./steam/StartDotaBar";
@@ -282,6 +283,7 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
                 </label>
                 {settingsNotice && <p className="locale-notice" role="status">{settingsNotice}</p>}
                 <ObjectiveSettings locale={displayLocale} />
+                <ShowHotkeySettings locale={displayLocale} />
               </section>
               <OrbSettings locale={displayLocale} />
               <DraftSettings />

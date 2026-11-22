@@ -674,3 +674,10 @@ Feature: Brand-neutral desktop companion target behavior
     Then all ten top-bar slots show the correctly identified hero name or unknown with a reason; unsupported conditions expose their actual reason; the strip remains in-memory and control-window only with no overlay/log/disk/network sink, and data clears at match end, session change and app exit. Accuracy evidence remains NOT_RUN until an owner-played draft is observed
     And failure behavior is: At unsupported resolution or scale, failed capture, or insufficient identification confidence, show unavailable/unknown with the actual reason; never guess a hero or retain values from another match/session.
 
+  @UI-013 @extension
+  Scenario: AC-UI-013 Show-app hotkey
+    Given the hotkey enabled, Dota in borderless fullscreen or windowed mode, and the control window hidden to the tray, minimized or behind Dota
+    When the player presses the hotkey, presses it again, remaps it to a free key, remaps it to a key another program holds or to a reserved key, and disables it
+    Then the first press brings the control window to the foreground and the second hides it with Dota foreground again; no synthesized input is sent and overlay or orb activation_detected stays zero; a free key replaces the old one, a held or reserved key leaves the prior binding working with a visible error, and disabling releases the key; Settings discloses the exclusive-fullscreen limit
+    And failure behavior is: If registration fails, keep the prior working binding (or none), show the error with its reason, and never silently choose another key. Reject baseline and Windows-reserved keys. Warn when an Alt-only key may take a Dota binding. Do not show the overlay, HUD or orb as a side effect; they keep their own visibility and focus rules.
+

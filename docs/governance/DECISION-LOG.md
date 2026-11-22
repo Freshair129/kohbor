@@ -3,7 +3,7 @@ title: "Decision Log and Open Items"
 doc_id: "DECISION-LOG"
 status: draft
 version: "0.3.8"
-updated: "2026-11-21"
+updated: "2026-11-22"
 authority: "DEC-BASELINE; see DOCUMENT-CONTROL"
 owner_role: "Product and engineering owners; people not assigned"
 approval_status: "not_approved"
@@ -48,6 +48,10 @@ See the [UX specification](../design/UX-SPEC.md), [Draft Bar projection](../desi
 - **DEC-DRAFT-BAR / UI-012:** add the deck draft strip as an extension. During HERO_SELECTION, STRATEGY_TIME and TEAM_SHOWCASE, the Live page shows all ten top-bar slots with identified hero names or unknown plus a reason, at 1920×1080 and 100% scale only. Keep it in memory in the control window only; never show it in the overlay, log it, write it to disk or send it over the network. Clear at match end, session change and app exit. Accuracy evidence remains NOT_RUN until an owner-played draft.
 
 See [PRD PN-015](../product/PRD.md), [SRS UI-012](../requirements/SRS.md), [Draft Bar](../design/DRAFT-BAR-SPEC.md) and the machine-readable decision records. These decisions do not imply native/live acceptance or verified media rights.
+
+## Owner decisions recorded 2026-11-22
+
+- **DEC-SHOW-APP-HOTKEY / UI-013** (decided by the product owner on 2026-11-22; owner answer “ตามที่แนะนำ”, as relayed by the lead; source: `coord:reports/2026-11-22-cr-show-app-hotkey.md`). Add a global show-app hotkey so a player without a second monitor can look at the control window during a game. The default is Ctrl+Alt+X, not the requested Alt+X, because Alt is Dota's default self-cast modifier and X its default second item key. The key toggles: show, restore and focus the control window; a second press hides it and returns the foreground to the prior window. Support covers borderless and windowed Dota only; Settings discloses that exclusive fullscreen may minimize the game. The key is on by default, has a Settings switch, and is remappable with conflict detection and transactional replacement. Registration uses RegisterHotKey only, with no hook, synthesized input or game automation. The machine-readable record in `contracts/decisions.json` is not yet written: that file was outside this approval. Native and live acceptance remain NOT_RUN.
 
 ## Open decision register
 

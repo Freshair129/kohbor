@@ -181,6 +181,7 @@ Animation should support state change, respect reduced motion, and stay within r
 | Ctrl+Alt+V | Hold for local push-to-talk; remappable |
 | Alt+Up / Alt+Down | Adjust volume by ten percentage points |
 | Alt+M | Toggle mute |
+| Ctrl+Alt+X | Show or hide the control window (UI-013); on by default, remappable, borderless or windowed only |
 | Ctrl+K | Open control command palette |
 | Ctrl+/ or ? | Open control shortcut help |
 | Enter / Space | Activate the focused card, marker or action |

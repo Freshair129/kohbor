@@ -27,6 +27,7 @@ mod orb;
 mod portraits;
 pub mod secrets;
 pub mod settings;
+mod show_hotkey;
 pub mod status;
 mod steam;
 mod tray;
@@ -87,6 +88,8 @@ pub(crate) struct AppState {
     pub(crate) settings_dir: PathBuf,
     pub(crate) audio_prefs: audio_prefs::AudioPrefsService,
     pub(crate) hotkeys: Mutex<hotkeys::Controller>,
+    /// UI-013 show-app hotkey (on by default, remappable).
+    pub(crate) show_hotkey: show_hotkey::Service,
     pub(crate) hud: Mutex<hud::Controller>,
     pub(crate) audition: commands::AuditionTracker,
     /// Serializes all commands that may replace user-settings.json.
@@ -1131,6 +1134,7 @@ pub fn run() {
             });
             // Load volume preferences before Host::start creates the audio engine.
             let audio_prefs = audio_prefs::AudioPrefsService::open(&dir);
+            let show_hotkey = show_hotkey::Service::open(&dir);
             let objective_host = objectives::ObjectiveHost::open(&dir, &dir.join("logs"));
             let objective_wiring = objective_host.intake_wiring();
             // Account storage remains lazy so an unavailable account root or
@@ -1258,6 +1262,7 @@ pub fn run() {
                 settings_dir,
                 audio_prefs,
                 hotkeys: Mutex::new(hotkeys::Controller::default()),
+                show_hotkey,
                 hud: Mutex::new(hud::Controller::default()),
                 audition: commands::AuditionTracker::default(),
                 settings_gate: Mutex::new(()),
@@ -1274,6 +1279,7 @@ pub fn run() {
                 hud::Controller::start(app.handle().clone(), hud_runtime, hud_window);
             *intake::lock(&app.state::<AppState>().hud) = hud_controller;
             commands::start_hotkeys(app.handle(), &app.state::<AppState>());
+            show_hotkey::start(app.handle());
             steam::start_status_probe(app.handle().clone(), steam_runtime);
             let app_handle = app.handle().clone();
             let last_overlay_status = Arc::new(Mutex::new(initial_overlay_status.clone()));
@@ -1338,6 +1344,8 @@ pub fn run() {
         commands::audio_prefs_get,
         commands::audio_set_volume,
         commands::audio_set_hotkeys,
+        show_hotkey::shell_hotkey_get,
+        show_hotkey::shell_hotkey_set,
         capture_host::minimap_subscribe,
         capture_host::draft_bar_read,
         capture_host::capture_status,
@@ -1426,6 +1434,8 @@ pub fn run() {
         commands::audio_prefs_get,
         commands::audio_set_volume,
         commands::audio_set_hotkeys,
+        show_hotkey::shell_hotkey_get,
+        show_hotkey::shell_hotkey_set,
         capture_host::minimap_subscribe,
         capture_host::draft_bar_read,
         capture_host::capture_status,

@@ -1161,6 +1161,26 @@ During HERO_SELECTION, STRATEGY_TIME and TEAM_SHOWCASE, the Live page in the con
 
 **Implementation freedom:** Keep draft pixels, hero identities and unknown reasons in the in-memory control-window path; do not add a persistence, network or overlay sink.
 
+#### UI-013 — Show-app hotkey
+
+**Scope:** extension · **Priority:** extension · **Target milestone:** M3 · **Basis:** owner_decision / DEC-SHOW-APP-HOTKEY
+
+**Product needs:** PN-016 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL
+
+A global show-app hotkey, default Ctrl+Alt+X, shall toggle the control window. When the control window is hidden, minimized or not focused, a press shows, restores and focuses it; when it is visible and focused, a press hides it (to the tray when the tray icon exists) and returns the foreground to the window that was foreground before the show, if that window still exists. The hotkey shall be registered with the operating system hotkey registration only: no keyboard hook, no synthesized input to any process and no read of another process. It is on by default, has a Settings switch, and is remappable with registration-conflict detection and transactional replacement. Support is promised over borderless fullscreen and windowed Dota; Settings discloses that in exclusive fullscreen the game may minimize when the window comes up.
+
+**Failure behavior:** If registration fails, keep the prior working binding (or none), show the error with its reason, and never silently choose another key. Reject baseline and Windows-reserved keys. Warn when an Alt-only key may take a Dota binding. Do not show the overlay, HUD or orb as a side effect; they keep their own visibility and focus rules.
+
+**AC-UI-013:** Given the hotkey enabled, Dota in borderless fullscreen or windowed mode, and the control window hidden to the tray, minimized or behind Dota; when the player presses the hotkey, presses it again, remaps it to a free key, remaps it to a key another program holds or to a reserved key, and disables it; then the first press brings the control window to the foreground and the second hides it with Dota foreground again; no synthesized input is sent and overlay or orb activation_detected stays zero; a free key replaces the old one, a held or reserved key leaves the prior binding working with a visible error, and disabling releases the key; Settings discloses the exclusive-fullscreen limit.
+
+**Verification:** synthetic, native, live; procedures TP-05, UAT-05; status NOT_RUN.
+
+**Open dependencies:** DEC-NATIVE-EVIDENCE.
+
+**Elaboration:** [UX-SPEC.md](../design/UX-SPEC.md), [DECISION-LOG.md](../governance/DECISION-LOG.md)
+
+**Implementation freedom:** Choose the registration thread, preference file and capture UI. Keep RegisterHotKey-only input, the toggle and focus-return behaviour, and transactional replacement.
+
 ### STATS
 
 #### STATS-001 — Separate consent for public hero statistics

@@ -83,8 +83,8 @@
     },
     {
       "path": "acceptance/scenarios.feature",
-      "bytes": 41767,
-      "sha256": "dd4caf393f158428b7d1c4e744a6fb3fdec913f68d7e352b2b65318a22b90935"
+      "bytes": 42890,
+      "sha256": "8085a8b92b0bf102a70fe978019ca67cf5273eb7d0ac8f81a541f8ab3818268c"
     },
     {
       "path": "acceptance/spec-validation.json",
@@ -458,8 +458,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 61280,
-      "sha256": "ce3689b5ee529bcc4cd3de57dfade921e62de6510954076f62c2791060e60660"
+      "bytes": 63343,
+      "sha256": "56136b33b006ca39b50f5d53abd71ad04f1d8014ca0719a422bcbdf78b70c848"
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
@@ -572,6 +572,11 @@
       "sha256": "0d40b1002ad57adbf49eba06a399893c32a660e9b32e8daa0a8c17d1226dd9d6"
     },
     {
+      "path": "apps/desktop/src-tauri/src/show_hotkey.rs",
+      "bytes": 36782,
+      "sha256": "9d75522d54a1bed4ae6cc3d2c9d9891c2ac41edf298ba314d9fc7a564f5c38ae"
+    },
+    {
       "path": "apps/desktop/src-tauri/src/status.rs",
       "bytes": 10116,
       "sha256": "38f89256e182980157d5bcc686c26a7e5b6d0b9b931867244483ac840304c030"
@@ -613,8 +618,8 @@
     },
     {
       "path": "apps/desktop/src/App.tsx",
-      "bytes": 21115,
-      "sha256": "0443a794f64442bb5310a9ede304b163646c812f46234a3ad4d7f24a6ed4015c"
+      "bytes": 21602,
+      "sha256": "1e5cebd6c3bbd6db319fded8f7a6f8757fc901140ce79182946f1a998604c039"
     },
     {
       "path": "apps/desktop/src/AudioHistory.tsx",
@@ -680,6 +685,11 @@
       "path": "apps/desktop/src/Readiness.tsx",
       "bytes": 6164,
       "sha256": "31beca0a4b08c10f4392bb677fe6ac1e6b124a3569f7e9edaca9bea61fcc7221"
+    },
+    {
+      "path": "apps/desktop/src/ShowHotkeySettings.tsx",
+      "bytes": 4396,
+      "sha256": "5e15ba4b7388fb3ef0ef763339535172e5215b6157a1b569da41cbcd3ef66501"
     },
     {
       "path": "apps/desktop/src/VolumeControl.tsx",
@@ -1518,8 +1528,8 @@
     },
     {
       "path": "apps/desktop/src/runtime.ts",
-      "bytes": 17626,
-      "sha256": "ce663575b640af9eb6bd742bcf820c7ba625087cb7df33634c21f6a7bb68d886"
+      "bytes": 18500,
+      "sha256": "76bce526b81d75fc052da5a234813375e66486d7c460531851606dfc8f2325be"
     },
     {
       "path": "apps/desktop/src/settings.ts",
@@ -1687,6 +1697,11 @@
       "sha256": "53ead94932288fdb10705a203145d5f976f167cf8bb8897c1a377ffef66ba8ad"
     },
     {
+      "path": "apps/desktop/src/showHotkey.ts",
+      "bytes": 6897,
+      "sha256": "3f32aa2a55860762a5aa5373ff5685e6318fce02652d348f8d6e1d04820bbaf0"
+    },
+    {
       "path": "apps/desktop/src/steam/StartDotaBar.tsx",
       "bytes": 1575,
       "sha256": "917ba3d18cdcf53f03ec8a624d5b7f7a14ffa41d4c230dd21ee26e8dc006e6f3"
@@ -1718,8 +1733,8 @@
     },
     {
       "path": "apps/desktop/src/styles.css",
-      "bytes": 66906,
-      "sha256": "0adc58996dbbf7563d661797a55ee00c4dcd0d26a5816d5cff34fed32bf90bb1"
+      "bytes": 67725,
+      "sha256": "1393707bff6603605adfd17e875c93577cdd9c177d84452e914bf3221d3c84e4"
     },
     {
       "path": "apps/desktop/src/types.ts",
@@ -2042,6 +2057,11 @@
       "sha256": "c5b5edcb025d11ff105eb5f3635a4b8a12f58fe69ce23382ec95af2a5ef0818a"
     },
     {
+      "path": "apps/desktop/tests/show-hotkey.test.ts",
+      "bytes": 3665,
+      "sha256": "03a2283b6c9d547d1ef30dc94e3ed7c64828742ef2917f94fb45ebce7ad38112"
+    },
+    {
       "path": "apps/desktop/tests/update-release-page.test.ts",
       "bytes": 4969,
       "sha256": "841871e756b8499c58c65b4b2012d8dc7416c61ed8b99ad63e1be3de2eabfefe"
@@ -2238,13 +2258,13 @@
     },
     {
       "path": "contracts/product-needs.json",
-      "bytes": 9088,
-      "sha256": "b6c0f7269c4f62ffbba13fd0e94101903fc914375c4838a4d8bbde031a917155"
+      "bytes": 9624,
+      "sha256": "6ef3f70803331bcd38b32a4085c020243fb9175863b04acbe53363261c8b5352"
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 225242,
-      "sha256": "23649d257b79ea0b1ed8337a53d03b583c916caa93ed6d41c7749d6b88d1d5ff"
+      "bytes": 228922,
+      "sha256": "1db1651963c30514de31c1b4a96afd45737b9e6577d7b7d35ea5fa8238f80eaf"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -3188,8 +3208,8 @@
     },
     {
       "path": "docs/design/SDD.md",
-      "bytes": 32693,
-      "sha256": "dc727a385a69da2a1ed472b31aba0b3cf689746f47d1db2734f6f672b9856c55"
+      "bytes": 32976,
+      "sha256": "89a05ca18ffdb6411bb0778edbe356275b15aadeab2981b154d273f21c523d2d"
     },
     {
       "path": "docs/design/SHARING-MODEL-REVIEW.md",
@@ -3203,8 +3223,8 @@
     },
     {
       "path": "docs/design/UX-SPEC.md",
-      "bytes": 24288,
-      "sha256": "98290bd2d816aab31b2025d1bbe23255aa06019d54f3aebd34a0fb523a406861"
+      "bytes": 24402,
+      "sha256": "a334294661934666e421011027011b27266aab58525b7d6e3b9ccffbca86a41d"
     },
     {
       "path": "docs/design/VISUAL-DESIGN-PROPOSAL.md",
@@ -3643,8 +3663,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 52216,
-      "sha256": "1f079047a9b9d8401a5e3992eea818ab2723d4abd32788ab7ab1f1e11e04bb58"
+      "bytes": 53344,
+      "sha256": "7dd8541bf165187fba615b3a9519ca563899fd5970044a0bf7d38fc0f7431d8c"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
@@ -3698,8 +3718,8 @@
     },
     {
       "path": "docs/product/PRD.md",
-      "bytes": 16334,
-      "sha256": "4387c0edad12c4311b40ab4998173a3849f7f41fa5a4fa78f56485c3e135e937"
+      "bytes": 16532,
+      "sha256": "3802846de8ef3d8452a29f17fc2140b9e7323fc67c728cbfc92b660f72817c9a"
     },
     {
       "path": "docs/product/USE-CASES.md",
@@ -3723,13 +3743,13 @@
     },
     {
       "path": "docs/requirements/RTM.csv",
-      "bytes": 50013,
-      "sha256": "423104d6374bf09e86c6b162681eaded4e00271c1a8bfb37a20addbc2ef59249"
+      "bytes": 50491,
+      "sha256": "3ee55acbb9a7e67ee5278d464fb5356ebb8c9c020c703ed019850c81f1bb4b77"
     },
     {
       "path": "docs/requirements/SRS.md",
-      "bytes": 147359,
-      "sha256": "cd62f327d9a6a0857ea69722c2cfa7b3e09da22a801753a363e4197f6270867c"
+      "bytes": 149955,
+      "sha256": "2eadaea955b97aec5482c9fb29fe720f7e7073f03493b6e1518c5d8a4db5972c"
     },
     {
       "path": "docs/security/SECURITY-PRIVACY.md",
