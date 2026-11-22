@@ -30,6 +30,7 @@
     "DEC-ACCOUNT-IDENTITY",
     "DEC-ACCOUNT-LINK",
     "DEC-ACCOUNT-ORIGIN",
+    "DEC-ACCOUNT-REVIEW-APPLIED",
     "DEC-ALPHA-AUTH-DEVIATION",
     "DEC-DELETION-LEDGER",
     "DEC-FRONTEND-HOSTING",
@@ -49,7 +50,7 @@
       "path": "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
       "type": "review",
       "role": "governing",
-      "reviewed_sha256": "30837fce8b73cb8dbbcfb4a4634867d34f311b33e50dbc85e5caf58e4fb7b841"
+      "reviewed_sha256": "243e8502dd22b99422f3013a0ad09d8a2156c8c25180cbf16b7de9035dc855d6"
     },
     {
       "path": "docs/design/REMAINING-SYSTEM-DESIGN.md",
@@ -102,16 +103,10 @@
   ],
   "open_questions": [
     {
-      "id": "Q-ACC-1",
-      "owner": "governance lead",
-      "raised": "2026-11-12",
-      "text": "ACCOUNT-001..010 were applied on 2026-11-22. The SOCIAL-001, PEER-007 and PEER-009 amendments remain queued; who applies them and when?"
-    },
-    {
       "id": "Q-ACC-2",
       "owner": "governance lead",
       "raised": "2026-11-12",
-      "text": "Add account_token_domain, relay_ticket_domain and friend_code_prefix to contracts/product-identity.json (review section 4.1)?"
+      "text": "Shipped code has no relay-ticket issuer value or endpoint at this base; should the proposed value be frozen when ticket issuance is specified? The field is omitted from contracts/product-identity.json pending that value (services/kohbor-broker/README.md; DEC-ACCOUNT-REVIEW-APPLIED)."
     }
   ],
   "last_handoff": {

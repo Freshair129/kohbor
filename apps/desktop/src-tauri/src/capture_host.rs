@@ -885,9 +885,14 @@ fn resource_payload(
     })
 }
 
+/// The `risk://state` payload. Its shape is the one `parseRiskState` in
+/// `apps/desktop/src/live/state.ts` admits: `meter` is an integer or null (unknown),
+/// `gsi_source` and `vision_source` are booleans. A payload the webview rejects is
+/// read as "no data" for the whole match (fix/risk-hud-unavailable, 2026-11-23).
+/// `sources` is kept for existing readers of the event.
 fn risk_payload(output: &RiskOutput) -> Value {
     let meter = match output.meter {
-        Meter::Unknown => json!("unknown"),
+        Meter::Unknown => Value::Null,
         Meter::Level(level) => json!(level),
     };
     let mut sources = Vec::with_capacity(2);
@@ -909,6 +914,8 @@ fn risk_payload(output: &RiskOutput) -> Value {
         .collect::<Vec<_>>();
     json!({
         "meter": meter,
+        "gsi_source": output.gsi_source,
+        "vision_source": output.vision_source,
         "sources": sources,
         "visible": output.visible,
         "baseline": output.baseline,
@@ -942,6 +949,80 @@ fn visible_count(
         return None;
     }
     u8::try_from(report.enemy_blobs.len()).ok()
+}
+
+/// What the risk sources were on one analysis tick, with the reason a source or the
+/// meter is unknown. Logged on change only (`risk_sources`), never every tick.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RiskSourceState {
+    gsi_source: bool,
+    vision_source: bool,
+    coverage: &'static str,
+    meter: Option<u8>,
+    gsi_reason: Option<&'static str>,
+    vision_reason: Option<&'static str>,
+    meter_reason: Option<&'static str>,
+}
+
+fn coverage_name(coverage: Coverage) -> &'static str {
+    match coverage {
+        Coverage::Valid => "valid",
+        Coverage::Stale => "stale",
+        Coverage::Unavailable => "unavailable",
+    }
+}
+
+/// Why `RiskEngine` will not take own state from this snapshot (mirrors `own_gsi`
+/// and the engine's in-match and freshness filter), or None when it will.
+fn gsi_unknown_reason(snapshot: Option<&GsiSnapshot>) -> Option<&'static str> {
+    let Some(snapshot) = snapshot else {
+        return Some("gsi_absent");
+    };
+    if snapshot.alive.is_none() {
+        return Some("alive_unknown");
+    }
+    let Some(age_ms) = snapshot.age_ms else {
+        return Some("age_unknown");
+    };
+    if !snapshot.in_match {
+        return Some("not_in_match");
+    }
+    if age_ms > kohbor_risk::rules::GSI_STALE_MS {
+        return Some("gsi_stale");
+    }
+    None
+}
+
+fn risk_source_state(
+    output: &RiskOutput,
+    coverage: Coverage,
+    gsi: Option<&GsiSnapshot>,
+    vision_reason: Option<&'static str>,
+) -> RiskSourceState {
+    let gsi_reason = if output.gsi_source {
+        None
+    } else {
+        gsi_unknown_reason(gsi).or(Some("gsi_rejected"))
+    };
+    let vision_reason = if output.vision_source {
+        None
+    } else {
+        vision_reason.or(Some("count_unavailable"))
+    };
+    let (meter, meter_reason) = match output.meter {
+        Meter::Level(level) => (Some(level), None),
+        Meter::Unknown if !output.gsi_source => (None, Some("gsi_source_false")),
+        Meter::Unknown => (None, Some("no_hp_and_no_signal")),
+    };
+    RiskSourceState {
+        gsi_source: output.gsi_source,
+        vision_source: output.vision_source,
+        coverage: coverage_name(coverage),
+        meter,
+        gsi_reason,
+        vision_reason,
+        meter_reason,
+    }
 }
 
 fn own_gsi(snapshot: Option<&GsiSnapshot>) -> Option<OwnGsi> {
@@ -1664,6 +1745,7 @@ struct CaptureHostWorker<S, C, A, R, E, H> {
     consecutive_passes: u32,
     last_risk_payload: Option<Value>,
     last_risk_emit_ms: Option<u64>,
+    last_risk_sources: Option<RiskSourceState>,
     seen_gsi_event_keys: HashSet<(&'static str, u64)>,
     seen_gsi_epoch: Option<u64>,
     gsi_event_order: VecDeque<(&'static str, u64)>,
@@ -1761,6 +1843,7 @@ where
             consecutive_passes: 0,
             last_risk_payload: None,
             last_risk_emit_ms: None,
+            last_risk_sources: None,
             seen_gsi_event_keys: HashSet::new(),
             gsi_event_order: VecDeque::new(),
             seen_gsi_epoch: None,
@@ -2895,6 +2978,24 @@ where
         if self.config.command_generation.load(Ordering::Acquire) != commands.generation {
             coverage = Coverage::Unavailable;
         }
+        let vision_reason = if visible.is_some() {
+            None
+        } else if coverage != Coverage::Valid {
+            Some(match coverage {
+                Coverage::Stale => "coverage_stale",
+                _ => "coverage_unavailable",
+            })
+        } else {
+            Some(match latest_admitted.as_ref() {
+                None => "no_admitted_frame",
+                Some(frame) if !frame.candidate.structural_ok => "structural_not_ok",
+                Some(frame) if frame.candidate.command_generation != commands.generation => {
+                    "command_generation_changed"
+                }
+                Some(_) if enemy.is_none() => "enemy_team_unknown",
+                Some(_) => "count_unavailable",
+            })
+        };
         let gsi_events = self.new_gsi_events(gsi);
         let input = TickInput {
             now_ms,
@@ -2904,6 +3005,7 @@ where
             gsi_events,
         };
         let output = self.risk.tick(&input);
+        self.log_risk_sources(risk_source_state(&output, coverage, gsi, vision_reason));
         let payload = risk_payload(&output);
         let changed = self.last_risk_payload.as_ref() != Some(&payload);
         let heartbeat_due = self
@@ -2915,6 +3017,28 @@ where
             self.last_risk_payload = Some(payload);
             self.last_risk_emit_ms = Some(now_ms);
         }
+    }
+
+    /// Logs the risk sources when they change (not every tick), so a live log shows
+    /// which source kept the meter unknown. Returns true when a line was written.
+    fn log_risk_sources(&mut self, state: RiskSourceState) -> bool {
+        if self.last_risk_sources.as_ref() == Some(&state) {
+            return false;
+        }
+        crate::log_info!(
+            "capture_host",
+            "risk_sources",
+            "risk sources changed",
+            gsi_source = state.gsi_source,
+            vision_source = state.vision_source,
+            coverage = state.coverage,
+            meter = state.meter,
+            gsi_reason = state.gsi_reason,
+            vision_reason = state.vision_reason,
+            meter_reason = state.meter_reason,
+        );
+        self.last_risk_sources = Some(state);
+        true
     }
 
     fn new_gsi_events(&mut self, gsi: Option<&GsiSnapshot>) -> Vec<&'static str> {
@@ -5765,6 +5889,155 @@ mod tests {
         assert_eq!(risk_records.len(), 3);
         assert_eq!(risk_records[1].1["meter"], 1);
         assert_eq!(risk_records[1].1["sources"], json!(["gsi"]));
+        assert_eq!(risk_records[1].1["gsi_source"], true);
+        assert_eq!(risk_records[1].1["vision_source"], false);
+    }
+
+    fn golden_risk_output(case: &Value) -> RiskOutput {
+        let output = &case["output"];
+        let event = |name: &str| match name {
+            "enemy_missing" => RiskEvent::EnemyMissing,
+            "risk_alert" => RiskEvent::RiskAlert,
+            "risk_revision" => RiskEvent::RiskRevision,
+            "risk_unavailable" => RiskEvent::RiskUnavailable,
+            other => panic!("unknown golden event {other}"),
+        };
+        RiskOutput {
+            meter: output["meter"]
+                .as_u64()
+                .map_or(Meter::Unknown, |level| Meter::Level(level as u8)),
+            gsi_source: output["gsi_source"].as_bool().unwrap(),
+            vision_source: output["vision_source"].as_bool().unwrap(),
+            visible: output["visible"].as_u64().map(|v| v as u8),
+            baseline: output["baseline"].as_u64().map(|v| v as u8),
+            events: output["events"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|name| event(name.as_str().unwrap()))
+                .collect(),
+        }
+    }
+
+    /// Regression (fix/risk-hud-unavailable): the host emitted `meter: "unknown"` and
+    /// only a `sources` array, which the webview's parseRiskState rejects, so the HUD
+    /// pill read "Data not ready" for whole matches. The same golden file is parsed
+    /// by apps/desktop/tests/live.test.ts.
+    #[test]
+    fn risk_payload_matches_the_golden_shape_the_webview_parses() {
+        let golden: Value = serde_json::from_str(include_str!(
+            "../../tests/fixtures/risk-state-payloads.json"
+        ))
+        .unwrap();
+        let cases = golden["cases"].as_array().unwrap();
+        assert!(cases.len() >= 5);
+        for case in cases {
+            assert_eq!(
+                risk_payload(&golden_risk_output(case)),
+                case["payload"],
+                "{}",
+                case["name"]
+            );
+        }
+    }
+
+    #[test]
+    fn risk_source_state_names_the_reason_a_source_is_unknown() {
+        let unknown = RiskOutput {
+            meter: Meter::Unknown,
+            gsi_source: false,
+            vision_source: false,
+            visible: None,
+            baseline: None,
+            events: Vec::new(),
+        };
+        let fresh = GsiSnapshot {
+            alive: Some(true),
+            age_ms: Some(0),
+            in_match: true,
+            ..GsiSnapshot::default()
+        };
+        let state = |gsi: Option<&GsiSnapshot>| {
+            risk_source_state(
+                &unknown,
+                Coverage::Unavailable,
+                gsi,
+                Some("coverage_unavailable"),
+            )
+        };
+        assert_eq!(state(None).gsi_reason, Some("gsi_absent"));
+        let mut s = fresh.clone();
+        s.alive = None;
+        assert_eq!(state(Some(&s)).gsi_reason, Some("alive_unknown"));
+        let mut s = fresh.clone();
+        s.age_ms = None;
+        assert_eq!(state(Some(&s)).gsi_reason, Some("age_unknown"));
+        let mut s = fresh.clone();
+        s.in_match = false;
+        assert_eq!(state(Some(&s)).gsi_reason, Some("not_in_match"));
+        let mut s = fresh.clone();
+        s.age_ms = Some(kohbor_risk::rules::GSI_STALE_MS + 1);
+        assert_eq!(state(Some(&s)).gsi_reason, Some("gsi_stale"));
+        let blind = state(Some(&fresh));
+        assert_eq!(blind.coverage, "unavailable");
+        assert_eq!(blind.vision_reason, Some("coverage_unavailable"));
+        assert_eq!(blind.meter_reason, Some("gsi_source_false"));
+
+        let gsi_no_hp = RiskOutput {
+            gsi_source: true,
+            ..unknown.clone()
+        };
+        let state = risk_source_state(&gsi_no_hp, Coverage::Valid, Some(&fresh), None);
+        assert_eq!(state.gsi_reason, None);
+        assert_eq!(state.vision_reason, Some("count_unavailable"));
+        assert_eq!(state.meter_reason, Some("no_hp_and_no_signal"));
+
+        let known = RiskOutput {
+            meter: Meter::Level(0),
+            gsi_source: true,
+            vision_source: true,
+            visible: Some(4),
+            baseline: Some(4),
+            events: Vec::new(),
+        };
+        let state = risk_source_state(&known, Coverage::Valid, Some(&fresh), None);
+        assert_eq!(
+            (
+                state.gsi_reason,
+                state.vision_reason,
+                state.meter_reason,
+                state.meter
+            ),
+            (None, None, None, Some(0))
+        );
+    }
+
+    #[test]
+    fn risk_sources_are_logged_on_change_only() {
+        let start = Instant::now();
+        let mut worker = fake_worker(FakeFrameSource::supported(), false, start, events());
+        let known = RiskOutput {
+            meter: Meter::Level(0),
+            gsi_source: true,
+            vision_source: true,
+            visible: Some(4),
+            baseline: Some(4),
+            events: Vec::new(),
+        };
+        let state = risk_source_state(&known, Coverage::Valid, None, None);
+        assert!(worker.log_risk_sources(state.clone()));
+        assert!(!worker.log_risk_sources(state.clone()));
+        assert!(!worker.log_risk_sources(state));
+        let blind = RiskOutput {
+            meter: Meter::Unknown,
+            vision_source: false,
+            visible: None,
+            baseline: None,
+            ..known
+        };
+        let state = risk_source_state(&blind, Coverage::Stale, None, Some("coverage_stale"));
+        assert!(worker.log_risk_sources(state.clone()));
+        assert!(!worker.log_risk_sources(state));
     }
 
     #[test]

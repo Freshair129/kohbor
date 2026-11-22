@@ -16,12 +16,12 @@
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "The local core shall start without account, network or premium authority.",
-      "failure_behavior": "Do not lock gameplay functionality behind sign-in or an entitlement check.",
+      "failure_behavior": "Do not lock gameplay functionality behind sign-in or an entitlement check. Account work runs on its own worker and is never awaited by intake, overlay or alert paths.",
       "acceptance": {
         "scenario_id": "AC-CORE-001",
         "given": "a cold installed application with no account and no network",
         "when": "the player starts the application",
-        "then": "local setup, permitted intake, overlay and available local functions are usable; account services show unavailable"
+        "then": "local setup, permitted intake, overlay and available local functions are usable; account services show unavailable; account work runs on its own worker and intake, overlay and alert paths never await it"
       },
       "verification": {
         "required_evidence": [
@@ -156,12 +156,12 @@
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Account signout, revoke or switch shall invalidate account requests and credentials while preserving local gameplay/history.",
-      "failure_behavior": "Never allow an old account response to populate the new account.",
+      "failure_behavior": "Never allow an old account response to populate the new account. Account work runs on its own worker and is never awaited by intake, overlay or alert paths.",
       "acceptance": {
         "scenario_id": "AC-CORE-003",
         "given": "a local match is active with an optional signed-in account",
         "when": "the account is revoked or switched",
-        "then": "protected account operations stop and late account results are discarded; valid local core continues"
+        "then": "protected account operations stop and late account results are discarded; valid local core continues; account work runs on its own worker and intake, overlay and alert paths never await it"
       },
       "verification": {
         "required_evidence": [
@@ -1077,12 +1077,12 @@
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
       "statement": "Critical warnings shall be decided and admitted in native deterministic code without waiting for cloud, model, renderer or relay.",
-      "failure_behavior": "No synchronous network, disk unpacking or inference in critical admission.",
+      "failure_behavior": "No synchronous network, disk unpacking or inference in critical admission. Account work runs on its own worker and is never awaited by intake, overlay or alert paths.",
       "acceptance": {
         "scenario_id": "AC-ALERT-001",
         "given": "network is down and a renderer/model task is stalled",
         "when": "an admitted actionable critical event occurs",
-        "then": "the local alert path continues and meets its acoustic gate"
+        "then": "the local alert path continues and meets its acoustic gate; account work runs on its own worker and intake, overlay and alert paths never await it"
       },
       "verification": {
         "required_evidence": [
@@ -4973,13 +4973,13 @@
       "target_milestone": "M6",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
-      "statement": "Peer networking shall be native-owned HTTPS with literal loopback HTTP only for local testing.",
-      "failure_behavior": "No URL credentials/query/fragment, redirects or token logging.",
+      "statement": "Peer networking shall be native-owned HTTPS with literal loopback HTTP only for local testing. Account and refresh tokens shall be native-owned, sent only to the pinned account-service origin, and never be present in the renderer.",
+      "failure_behavior": "No URL credentials/query/fragment, redirects or token logging. An account or refresh token exposed to the renderer or sent to an origin other than the pinned account-service origin fails.",
       "acceptance": {
         "scenario_id": "AC-PEER-007",
-        "given": "a renderer asks for arbitrary origin/path/redirect or member credentials",
+        "given": "a renderer asks for an arbitrary origin/path/redirect or account, refresh or member credentials",
         "when": "transport authorization runs",
-        "then": "untrusted request is rejected and tokens stay native"
+        "then": "untrusted request is rejected and tokens stay native; account and refresh tokens are sent only to the pinned account-service origin and never enter the renderer"
       },
       "verification": {
         "required_evidence": [
@@ -5111,13 +5111,13 @@
       "target_milestone": "M6",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
-      "statement": "Peer stats shall remain transient within authorized same-room/match/team viewing.",
-      "failure_behavior": "Friendship/premium/cloud consent cannot expand recipients.",
+      "statement": "Peer stats shall remain transient within authorized same-room/match/team viewing. The account service persists only: login-identity hash, account id, friend code, display name, settings, device public keys, session records, friendships, pending requests (30-day expiry), blocks, Share list entries (scopes, pause state, last-confirmed date), pairing ids, rate-limit counters, and single-use sign-in, refresh and delete challenges (nonce hash, device-key thumbprint, purpose, times), kept until consumed or expired and then purged (expiry at most 10 minutes). It never persists: email, raw Google subject, Google tokens, Steam ID, IP address history, presence or last-seen history, match ids, match bindings, pairing activity times, or any sample (ACCOUNT-IDENTITY-REVIEW rule 26, as amended by ACCOUNT-DATABASE-DESIGN section 14.3).",
+      "failure_behavior": "Friendship/premium/cloud consent cannot expand recipients. Peer samples remain transient; the account service fails this requirement if it persists any value outside the rule-26 allow-list or any deny-list value, including a challenge after consumption or expiry or beyond the 10-minute maximum.",
       "acceptance": {
         "scenario_id": "AC-PEER-009",
-        "given": "memory/history/advice attempts to consume a peer sample",
-        "when": "data routing is checked",
-        "then": "the route is denied and samples are not written to logs or AI"
+        "given": "memory/history/advice attempts to consume a peer sample or account records are persisted",
+        "when": "peer-data routing and account persistence are checked",
+        "then": "the route is denied and samples are not written to logs or AI; only rule-26 allow-list fields persist, single-use challenges are purged after consumption or expiry within at most 10 minutes, and no deny-list value is stored"
       },
       "verification": {
         "required_evidence": [
@@ -5897,13 +5897,13 @@
       "target_milestone": "M6",
       "basis": "inherited_target",
       "decision_basis": "DEC-BASELINE",
-      "statement": "Friends/presence/targeted invitations shall require private server-authorized account actions without gating guest rooms.",
-      "failure_behavior": "No public social directory or implicit platform-friend import.",
+      "statement": "Friends/presence/targeted invitations shall require private server-authorized account actions without gating guest rooms. The account is located only by an exact server-minted friend code; denial reasons are indistinguishable.",
+      "failure_behavior": "No public social directory or implicit platform-friend import. A lookup must use an exact server-minted friend code; denial reasons for unknown code, blocked pair and requests-off outcomes are indistinguishable.",
       "acceptance": {
         "scenario_id": "AC-SOCIAL-001",
-        "given": "a signed-out user opens core or joins a guest room",
-        "when": "account checks run",
-        "then": "core and permitted guest flow remain available; account-only social actions are unavailable"
+        "given": "a signed-out user opens core or joins a guest room, or a signed-in user submits a friend lookup",
+        "when": "account checks and exact friend-code lookups run",
+        "then": "core and permitted guest flow remain available; account-only social actions are unavailable to signed-out users; lookup locates an account only by an exact server-minted friend code, and unknown-code, blocked-pair and requests-off denials are indistinguishable"
       },
       "verification": {
         "required_evidence": [

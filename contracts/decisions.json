@@ -522,6 +522,111 @@
       ]
     },
     {
+      "id": "DEC-ACCOUNT-REVIEW-APPLIED",
+      "status": "decided",
+      "milestone": "M6",
+      "blocks": "Covers only the remaining ACCOUNT-IDENTITY-REVIEW section 4.1 changes; DEC-ACCOUNT-ORIGIN and DEC-PRIVACY-LEGAL remain open.",
+      "owner_role": "product owner",
+      "date": "2026-11-22",
+      "decision_maker": "Product owner. Owner statement on 2026-11-22: '\u0e17\u0e33\u0e04\u0e34\u0e27 \u00a74.1 \u0e17\u0e35\u0e48\u0e40\u0e2b\u0e25\u0e37\u0e2d\u0e15\u0e48\u0e2d'.",
+      "owner_statements": [
+        "ทำคิว §4.1 ที่เหลือต่อ"
+      ],
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-22",
+      "channel": "Owner statement in the task context; recorded here by a worker without legal or security review. The owner reviews the wording before commit.",
+      "reason": "The owner directed that the remaining section 4.1 queue be applied while preserving the existing requirement behavior and review scope.",
+      "alternatives": [
+        "Leave the remaining section 4.1 changes queued; not chosen under the owner's direction."
+      ],
+      "affected_ids": [
+        "CORE-001",
+        "CORE-003",
+        "ALERT-001",
+        "SOCIAL-001",
+        "PEER-007",
+        "PEER-009",
+        "PN-001",
+        "PN-003",
+        "PN-009",
+        "PN-010",
+        "DEC-NAME",
+        "DEC-ACCOUNT-ORIGIN",
+        "DEC-PRIVACY-LEGAL",
+        "Q-ACC-1",
+        "Q-ACC-2"
+      ],
+      "decision": "Apply the remaining section 4.1 requirement notes and amendments, add the code-backed account-token issuer label and friend-code prefix to the product identity manifest, and close the secure credential-storage and account-cache lifecycle items using review rules 12–14. The relay-ticket issuer has no value in shipped code at this base; its proposed value is reported separately and omitted from the manifest as instructed. This does not decide a relay-ticket implementation, an origin, legal review or the proposed token lifetimes.",
+      "end_condition": "Stands until a later owner decision changes these requirement or credential/cache rules.",
+      "migration_impact": "No runtime migration or implementation change; build and runtime acceptance remain NOT_RUN.",
+      "rollback_cleanup": "Reverting the requirement, privacy and manifest wording requires a later owner decision; no data migration or cleanup is required.",
+      "actual_approval_status": "Owner statement on 2026-11-22: 'ทำคิว §4.1 ที่เหลือต่อ'; owner wording review is pending before commit. No legal or security review.",
+      "approval_status": "Owner statement on 2026-11-22: 'ทำคิว §4.1 ที่เหลือต่อ'; owner wording review is pending before commit. No legal or security review.",
+      "change_control": {
+        "product_need_ids": [
+          "PN-001",
+          "PN-003",
+          "PN-009",
+          "PN-010"
+        ],
+        "srs_requirement_ids": [
+          "CORE-001",
+          "CORE-003",
+          "ALERT-001",
+          "SOCIAL-001",
+          "PEER-007",
+          "PEER-009"
+        ],
+        "design_affected": [
+          "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+          "docs/security/SECURITY-PRIVACY.md",
+          "docs/domains/account/CARD.md"
+        ],
+        "contracts_affected": [
+          "contracts/requirements.json",
+          "contracts/product-identity.json",
+          "contracts/decisions.json"
+        ],
+        "verification_procedures_affected": [
+          "TP-01",
+          "UAT-01",
+          "TP-03",
+          "UAT-03",
+          "TP-09",
+          "UAT-09",
+          "TP-10",
+          "UAT-10"
+        ],
+        "migration_rollback_impact": "No runtime migration; requirement and privacy wording can be reverted only by a later owner decision."
+      },
+      "affected": [
+        "contracts/requirements.json",
+        "contracts/product-identity.json",
+        "contracts/decisions.json",
+        "docs/requirements/SRS.md",
+        "docs/requirements/RTM.csv",
+        "acceptance/scenarios.feature",
+        "docs/security/SECURITY-PRIVACY.md",
+        "docs/governance/DECISION-LOG.md",
+        "docs/governance/CHANGELOG.md",
+        "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+        "docs/domains/account/CARD.md",
+        "docs/domains/account/state.json"
+      ],
+      "safe_interim": "Account and relay runtime acceptance remain NOT_RUN. Only code-backed account-token and friend-code labels are added; no relay origin or ticket issuer is frozen. DEC-ACCOUNT-ORIGIN and DEC-PRIVACY-LEGAL remain open.",
+      "closure_evidence": "Owner statement and the recorded document changes; source-validator results are reported in the worker report. No application build, runtime, legal or security acceptance is claimed.",
+      "related": [
+        "DEC-NAME",
+        "DEC-ACCOUNT-IDENTITY",
+        "DEC-ALPHA-AUTH-DEVIATION",
+        "DEC-DELETION-LEDGER",
+        "DEC-ACCOUNT-ORIGIN",
+        "DEC-PRIVACY-LEGAL",
+        "DEC-SOCIAL",
+        "DEC-INTERFACES"
+      ]
+    },
+    {
       "id": "DEC-PRIVACY-LEGAL",
       "status": "open",
       "milestone": "M6",

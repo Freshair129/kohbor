@@ -1,0 +1,125 @@
+{
+ "description": "Golden risk://state payloads shared by the host (capture_host.rs risk_payload) and the webview (live/state.ts parseRiskState). Both sides test against this file so the event shape cannot drift apart again (fix/risk-hud-unavailable).",
+ "cases": [
+  {
+   "name": "unknown_meter_no_sources",
+   "output": {
+    "meter": null,
+    "gsi_source": false,
+    "vision_source": false,
+    "visible": null,
+    "baseline": null,
+    "events": []
+   },
+   "payload": {
+    "meter": null,
+    "gsi_source": false,
+    "vision_source": false,
+    "sources": [],
+    "visible": null,
+    "baseline": null,
+    "events": []
+   }
+  },
+  {
+   "name": "gsi_only_level_one",
+   "output": {
+    "meter": 1,
+    "gsi_source": true,
+    "vision_source": false,
+    "visible": null,
+    "baseline": null,
+    "events": []
+   },
+   "payload": {
+    "meter": 1,
+    "gsi_source": true,
+    "vision_source": false,
+    "sources": [
+     "gsi"
+    ],
+    "visible": null,
+    "baseline": null,
+    "events": []
+   }
+  },
+  {
+   "name": "both_sources_level_zero",
+   "output": {
+    "meter": 0,
+    "gsi_source": true,
+    "vision_source": true,
+    "visible": 4,
+    "baseline": 4,
+    "events": []
+   },
+   "payload": {
+    "meter": 0,
+    "gsi_source": true,
+    "vision_source": true,
+    "sources": [
+     "gsi",
+     "vision"
+    ],
+    "visible": 4,
+    "baseline": 4,
+    "events": []
+   }
+  },
+  {
+   "name": "both_sources_alert",
+   "output": {
+    "meter": 3,
+    "gsi_source": true,
+    "vision_source": true,
+    "visible": 2,
+    "baseline": 4,
+    "events": [
+     "enemy_missing",
+     "risk_alert"
+    ]
+   },
+   "payload": {
+    "meter": 3,
+    "gsi_source": true,
+    "vision_source": true,
+    "sources": [
+     "gsi",
+     "vision"
+    ],
+    "visible": 2,
+    "baseline": 4,
+    "events": [
+     "enemy_missing",
+     "risk_alert"
+    ]
+   }
+  },
+  {
+   "name": "unavailable_event_meter_unknown",
+   "output": {
+    "meter": null,
+    "gsi_source": true,
+    "vision_source": false,
+    "visible": null,
+    "baseline": null,
+    "events": [
+     "risk_unavailable"
+    ]
+   },
+   "payload": {
+    "meter": null,
+    "gsi_source": true,
+    "vision_source": false,
+    "sources": [
+     "gsi"
+    ],
+    "visible": null,
+    "baseline": null,
+    "events": [
+     "risk_unavailable"
+    ]
+   }
+  }
+ ]
+}

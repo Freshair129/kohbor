@@ -163,9 +163,9 @@ This controlled section and the structured registry represent the same requireme
 
 The local core shall start without account, network or premium authority.
 
-**Failure behavior:** Do not lock gameplay functionality behind sign-in or an entitlement check.
+**Failure behavior:** Do not lock gameplay functionality behind sign-in or an entitlement check. Account work runs on its own worker and is never awaited by intake, overlay or alert paths.
 
-**AC-CORE-001:** Given a cold installed application with no account and no network; when the player starts the application; then local setup, permitted intake, overlay and available local functions are usable; account services show unavailable.
+**AC-CORE-001:** Given a cold installed application with no account and no network; when the player starts the application; then local setup, permitted intake, overlay and available local functions are usable; account services show unavailable; account work runs on its own worker and intake, overlay and alert paths never await it.
 
 **Verification:** synthetic, native, live; procedures TP-01, UAT-01; status NOT_RUN.
 
@@ -205,9 +205,9 @@ The application shall establish the 10% Windows CPU Job Object cap before creati
 
 Account signout, revoke or switch shall invalidate account requests and credentials while preserving local gameplay/history.
 
-**Failure behavior:** Never allow an old account response to populate the new account.
+**Failure behavior:** Never allow an old account response to populate the new account. Account work runs on its own worker and is never awaited by intake, overlay or alert paths.
 
-**AC-CORE-003:** Given a local match is active with an optional signed-in account; when the account is revoked or switched; then protected account operations stop and late account results are discarded; valid local core continues.
+**AC-CORE-003:** Given a local match is active with an optional signed-in account; when the account is revoked or switched; then protected account operations stop and late account results are discarded; valid local core continues; account work runs on its own worker and intake, overlay and alert paths never await it.
 
 **Verification:** synthetic, native, live; procedures TP-01, UAT-01; status NOT_RUN.
 
@@ -507,9 +507,9 @@ OBS recording shall not replace the accepted critical DXGI source without a dist
 
 Critical warnings shall be decided and admitted in native deterministic code without waiting for cloud, model, renderer or relay.
 
-**Failure behavior:** No synchronous network, disk unpacking or inference in critical admission.
+**Failure behavior:** No synchronous network, disk unpacking or inference in critical admission. Account work runs on its own worker and is never awaited by intake, overlay or alert paths.
 
-**AC-ALERT-001:** Given network is down and a renderer/model task is stalled; when an admitted actionable critical event occurs; then the local alert path continues and meets its acoustic gate.
+**AC-ALERT-001:** Given network is down and a renderer/model task is stalled; when an admitted actionable critical event occurs; then the local alert path continues and meets its acoustic gate; account work runs on its own worker and intake, overlay and alert paths never await it.
 
 **Verification:** synthetic, native, live; procedures TP-03, UAT-03; status NOT_RUN.
 
@@ -1817,11 +1817,11 @@ Peer transport shall use one sequential in-flight sync worker outside the alert 
 
 **Product needs:** PN-009 · **Primary design:** CMP-PEER · **Design components:** CMP-PEER
 
-Peer networking shall be native-owned HTTPS with literal loopback HTTP only for local testing.
+Peer networking shall be native-owned HTTPS with literal loopback HTTP only for local testing. Account and refresh tokens shall be native-owned, sent only to the pinned account-service origin, and never be present in the renderer.
 
-**Failure behavior:** No URL credentials/query/fragment, redirects or token logging.
+**Failure behavior:** No URL credentials/query/fragment, redirects or token logging. An account or refresh token exposed to the renderer or sent to an origin other than the pinned account-service origin fails.
 
-**AC-PEER-007:** Given a renderer asks for arbitrary origin/path/redirect or member credentials; when transport authorization runs; then untrusted request is rejected and tokens stay native.
+**AC-PEER-007:** Given a renderer asks for an arbitrary origin/path/redirect or account, refresh or member credentials; when transport authorization runs; then untrusted request is rejected and tokens stay native; account and refresh tokens are sent only to the pinned account-service origin and never enter the renderer.
 
 **Verification:** synthetic, native; procedures TP-09, UAT-09; status NOT_RUN.
 
@@ -1863,11 +1863,11 @@ Leave shall clear local credentials and peer samples immediately and fence pendi
 
 **Product needs:** PN-009 · **Primary design:** CMP-PEER · **Design components:** CMP-PEER
 
-Peer stats shall remain transient within authorized same-room/match/team viewing.
+Peer stats shall remain transient within authorized same-room/match/team viewing. The account service persists only: login-identity hash, account id, friend code, display name, settings, device public keys, session records, friendships, pending requests (30-day expiry), blocks, Share list entries (scopes, pause state, last-confirmed date), pairing ids, rate-limit counters, and single-use sign-in, refresh and delete challenges (nonce hash, device-key thumbprint, purpose, times), kept until consumed or expired and then purged (expiry at most 10 minutes). It never persists: email, raw Google subject, Google tokens, Steam ID, IP address history, presence or last-seen history, match ids, match bindings, pairing activity times, or any sample (ACCOUNT-IDENTITY-REVIEW rule 26, as amended by ACCOUNT-DATABASE-DESIGN section 14.3).
 
-**Failure behavior:** Friendship/premium/cloud consent cannot expand recipients.
+**Failure behavior:** Friendship/premium/cloud consent cannot expand recipients. Peer samples remain transient; the account service fails this requirement if it persists any value outside the rule-26 allow-list or any deny-list value, including a challenge after consumption or expiry or beyond the 10-minute maximum.
 
-**AC-PEER-009:** Given memory/history/advice attempts to consume a peer sample; when data routing is checked; then the route is denied and samples are not written to logs or AI.
+**AC-PEER-009:** Given memory/history/advice attempts to consume a peer sample or account records are persisted; when peer-data routing and account persistence are checked; then the route is denied and samples are not written to logs or AI; only rule-26 allow-list fields persist, single-use challenges are purged after consumption or expiry within at most 10 minutes, and no deny-list value is stored.
 
 **Verification:** synthetic, native; procedures TP-09, UAT-09; status NOT_RUN.
 
@@ -2129,11 +2129,11 @@ No account, identifier, key, secret or endpoint is shared with or imported from 
 
 **Product needs:** PN-010 · **Primary design:** CMP-SOCIAL · **Design components:** CMP-SOCIAL
 
-Friends/presence/targeted invitations shall require private server-authorized account actions without gating guest rooms.
+Friends/presence/targeted invitations shall require private server-authorized account actions without gating guest rooms. The account is located only by an exact server-minted friend code; denial reasons are indistinguishable.
 
-**Failure behavior:** No public social directory or implicit platform-friend import.
+**Failure behavior:** No public social directory or implicit platform-friend import. A lookup must use an exact server-minted friend code; denial reasons for unknown code, blocked pair and requests-off outcomes are indistinguishable.
 
-**AC-SOCIAL-001:** Given a signed-out user opens core or joins a guest room; when account checks run; then core and permitted guest flow remain available; account-only social actions are unavailable.
+**AC-SOCIAL-001:** Given a signed-out user opens core or joins a guest room, or a signed-in user submits a friend lookup; when account checks and exact friend-code lookups run; then core and permitted guest flow remain available; account-only social actions are unavailable to signed-out users; lookup locates an account only by an exact server-minted friend code, and unknown-code, blocked-pair and requests-off denials are indistinguishable.
 
 **Verification:** synthetic, native; procedures TP-10, UAT-10; status NOT_RUN.
 

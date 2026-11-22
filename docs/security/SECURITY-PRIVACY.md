@@ -102,13 +102,23 @@ Microphone buffers never enter files, journal events, analytics or crash reports
 
 Player memory is derived locally. Clearing it writes a durable nondecreasing logical/epoch cutoff comparable with archive timestamps (not a persisted process-monotonic clock value) before removing the derived snapshot. Sources at or before that cutoff stay excluded after restart; same-second timestamps are excluded conservatively. An unreadable/corrupt marker fails closed instead of rebuilding forgotten data. Clearing derived memory preserves separately managed journal archives; the interface must explain this distinction. Unknown outcomes, death locations, ratings or style inputs remain unknown.
 
-Secret/private keys and authentication tokens never enter prompts, ordinary logs, URLs or source control. Public verification keys may be version controlled and shipped. Provider keys belong only in the authentication channel for the selected provider. Signing private keys belong to the release service, separate from verification keys shipped to clients. Production secret storage, rotation and account-session recovery need explicit platform decisions before those services ship.
+Secret/private keys and authentication tokens never enter prompts, ordinary logs, URLs or source control. Public verification keys may be version controlled and shipped. Provider keys belong only in the authentication channel for the selected provider. Signing private keys belong to the release service, separate from verification keys shipped to clients. Production storage for signing and provider keys, and key rotation/revocation, still need explicit platform decisions before those services ship.
 
 No automatic gameplay analytics, crash uploads or diagnostic exports. Local audits contain sanitized reason codes/metadata, never forbidden payloads or credentials.
 
+### Account sessions, credentials and offline cache
+
+The account-session, credential-storage and cache rules below are adopted from ACCOUNT-IDENTITY-REVIEW rules 12–14:
+
+- **Rule 12:** Kohbor issues its own session. A short access token (proposed 15 minutes) and an opaque rotating refresh token (proposed 30 days idle expiry), bound to the device key, stored server-side as a hash. Reuse of a rotated refresh token revokes the session. One active session per account for sharing purposes; a new-device sign-in pauses every Share list entry until the user confirms.
+- **Rule 13:** Tokens live in the native host only, never in the renderer, a URL or a log. At rest: Windows DPAPI current-user blobs. DPAPI does not stop malware running as the same Windows user.
+- **Rule 14:** The app starts and runs every local feature with no network, signed in or not (CORE-001). A signed-in user with no network sees "signed in, offline": the cached friend list is shown read-only, nothing is sent or received, no dialog appears, and no retry runs on the telemetry or critical-alert path (ALERT-001; PEER-006 retry bounds). Local cache: own friend code and display name, friend list (names and codes), Share list entries and scopes, tokens, device key, pair secrets. All of it is deleted on sign-out and account switch (CORE-003).
+
+Rule 14 defines cache removal on sign-out or account switch and does not set an elapsed-time cache TTL; this specification adds none. The proposed access-token and refresh-token lifetimes in rule 12 remain proposals, not frozen numeric values.
+
 ## Decisions that must be closed before the affected feature ships
 
-Record concrete values and owners for journal retention/size/deletion, private social-record retention and cleanup, secure local credential storage, account-cache expiry, service audit retention, and key rotation/revocation. A feature with undefined persistence behavior cannot ship persistent records. These decisions must not weaken the route matrix implicitly.
+Record concrete values and owners for journal retention/size/deletion, private social-record retention and cleanup, service audit retention, and key rotation/revocation. Account credential storage and cache lifecycle follow ACCOUNT-IDENTITY-REVIEW rules 12–14 above. A feature with undefined persistence behavior cannot ship persistent records. These decisions must not weaken the route matrix implicitly.
 
 Inspect actual outbound payloads and filesystem writes during success, failure, retry, cancellation, sign-out and revocation. Static review/unit tests alone cannot prove runtime no-egress.
 
