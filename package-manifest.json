@@ -1128,8 +1128,8 @@
     },
     {
       "path": "apps/desktop/src/orb/OrbStage.tsx",
-      "bytes": 14248,
-      "sha256": "2f964b133c5ccec57e457d9e6a442ff805c2a4db70721c0df00ed7e44cccb07d"
+      "bytes": 14644,
+      "sha256": "87edf286f96e5ebfa34511d224ca4f47ae977832515f95393d3e98408de21bda"
     },
     {
       "path": "apps/desktop/src/orb/orb.css",
@@ -1143,8 +1143,8 @@
     },
     {
       "path": "apps/desktop/src/orb/orbModel.ts",
-      "bytes": 16779,
-      "sha256": "ae638e852b0d5ae896431403d866212ecae79ae38151852429d690f3a203c05d"
+      "bytes": 16990,
+      "sha256": "637f8ef8eaa6ed92b906d873067199d7720649b9be281bc700ee4e4319755af2"
     },
     {
       "path": "apps/desktop/src/orb/orbSettings.css",
@@ -1763,8 +1763,8 @@
     },
     {
       "path": "apps/desktop/tests/orb-model.test.ts",
-      "bytes": 6243,
-      "sha256": "05a7fab4b10549f69054c87b9ed624d04b77dd1f72e0986a7fc42ae2b3c8b00a"
+      "bytes": 6491,
+      "sha256": "f37a12f0050b71ec05dc2e882a92c168922049c08cbdffae30fecb3cbd11f56e"
     },
     {
       "path": "apps/desktop/tests/overlayModel.test.ts",
