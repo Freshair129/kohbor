@@ -363,8 +363,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/host.rs",
-      "bytes": 76605,
-      "sha256": "9c85bad93d85342f142d44511115a25ce9b99d03fc606f5af49fb7b153a1c458"
+      "bytes": 81663,
+      "sha256": "1fa2f07cd1becadac0f0dad3987af20c675d7415deaa2fa033bc0fff5ce83db8"
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/mod.rs",
@@ -398,8 +398,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/transport.rs",
-      "bytes": 12735,
-      "sha256": "b95ebc1259f914e10b888a5daf229c9c19e22f2299ab770289590fd1951c255d"
+      "bytes": 16575,
+      "sha256": "2e6e2bb072e8ac7a42ea77d0a743456b54f4e828ac0a7e5a02dbe90e648218a2"
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/view.rs",
@@ -1778,8 +1778,8 @@
     },
     {
       "path": "apps/desktop/tests/draft-column.test.ts",
-      "bytes": 26334,
-      "sha256": "3279d2cb192151483dcbe7dd625276570ad56ccaf9f6964f097c012a143b6b4c"
+      "bytes": 25870,
+      "sha256": "ef08580d7c37cb93ed3ded630a695fea5ef678a9e6a9799d9c0e846fb845973a"
     },
     {
       "path": "apps/desktop/tests/eventBannerReporter.test.ts",
@@ -2928,8 +2928,8 @@
     },
     {
       "path": "docs/design/DRAFT-COLUMN.md",
-      "bytes": 19547,
-      "sha256": "61b31b7eb12aee0d7a30b7fe8511a62adef0e5f1419bc616bc1e48d99bd6d934"
+      "bytes": 20965,
+      "sha256": "fbb4ec2a5930d3bff718258435e3b487c3d4921a04ec7d21e73710e5bcb040e0"
     },
     {
       "path": "docs/design/EVENT-AUDIO-SPEC.md",
