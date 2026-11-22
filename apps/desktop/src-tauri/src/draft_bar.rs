@@ -1398,6 +1398,44 @@ pub(crate) mod tests {
                 let start = (y * 1920 + strip_rect.x as usize) * 4;
                 strip.extend_from_slice(&band[start..start + strip_rect.width as usize * 4]);
             }
+            let frame = BgraFrame {
+                pixels: &strip,
+                width: strip_rect.width,
+                height: strip_rect.height,
+                stride: strip_rect.width * 4,
+            };
+            for (slot, rect) in geometry.slot_rects.iter().enumerate() {
+                let local = Rect {
+                    x: rect.x - strip_rect.x,
+                    y: rect.y - strip_rect.y,
+                    ..*rect
+                };
+                let features = frame.features(local).unwrap();
+                let mut scored: Vec<(f32, String)> = matcher
+                    .references
+                    .iter()
+                    .filter_map(|r| {
+                        tile_similarity(&r.features, &features).map(|s| {
+                            (
+                                s,
+                                String::from_utf8_lossy(&r.hero_id)
+                                    .trim_start_matches("npc_dota_hero_")
+                                    .to_owned(),
+                            )
+                        })
+                    })
+                    .collect();
+                scored.sort_by(|a, b| b.0.total_cmp(&a.0));
+                eprintln!(
+                    "PROBE top frame={index} slot={slot} contrast={:.1} best={:.3}:{} second={:.3}:{} margin={:.3}",
+                    grayscale_contrast(&features),
+                    scored[0].0,
+                    scored[0].1,
+                    scored[1].0,
+                    scored[1].1,
+                    scored[0].0 - scored[1].0
+                );
+            }
             matcher.identify_strip(
                 &strip,
                 strip_rect.width,

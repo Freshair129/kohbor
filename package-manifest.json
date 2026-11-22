@@ -333,8 +333,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/draft_bar.rs",
-      "bytes": 51314,
-      "sha256": "c1e6e9048f0a9648e54b25b4069f6b2b23b0afd4d426d9c88baf5c18c675f68b"
+      "bytes": 52904,
+      "sha256": "4e5b8999c74eeac0b95563ad5837a2fe5794a002783475012bcb2ba211457340"
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/budget.rs",
