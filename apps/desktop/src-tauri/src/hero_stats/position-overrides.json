@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "note": "Kohbor-owned corrections applied after rule B, never instead of it. Positions are 1-5. A row applies only when both hero_id and hero_name match the provider's heroStats row; otherwise it is skipped and rule B stays. The owner reviews this list every patch.",
+  "overrides": [
+    { "hero_id": 73, "hero_name": "npc_dota_hero_alchemist", "label": "Alchemist", "remove": [4, 5], "add": [1], "reason": "Valve tags Alchemist as Support, but it is mostly played as a safe-lane core.", "patch": "7.42", "date": "2026-11-22" },
+    { "hero_id": 42, "hero_name": "npc_dota_hero_skeleton_king", "label": "Wraith King", "remove": [4, 5], "add": [1, 3], "reason": "Valve tags Wraith King as Support, but it is mostly played as a core (safe lane or offlane).", "patch": "7.42", "date": "2026-11-22" },
+    { "hero_id": 14, "hero_name": "npc_dota_hero_pudge", "label": "Pudge", "remove": [1], "add": [4, 5], "reason": "Seen in the safe lane as a support next to the carry, not as the carry.", "patch": "7.42", "date": "2026-11-22" },
+    { "hero_id": 45, "hero_name": "npc_dota_hero_pugna", "label": "Pugna", "remove": [1], "add": [4, 5], "reason": "Seen in the safe lane as a support next to the carry, not as the carry.", "patch": "7.42", "date": "2026-11-22" },
+    { "hero_id": 105, "hero_name": "npc_dota_hero_techies", "label": "Techies", "remove": [1, 3], "add": [4, 5], "reason": "Played as a roaming or lane support, not as a core.", "patch": "7.42", "date": "2026-11-22" },
+    { "hero_id": 51, "hero_name": "npc_dota_hero_rattletrap", "label": "Clockwerk", "remove": [1], "add": [4], "reason": "Played as an offlane core or a roaming support, not as the safe-lane carry.", "patch": "7.42", "date": "2026-11-22" },
+    { "hero_id": 100, "hero_name": "npc_dota_hero_tusk", "label": "Tusk", "remove": [1], "add": [4], "reason": "Played as a roaming support or offlaner, not as the safe-lane carry.", "patch": "7.42", "date": "2026-11-22" },
+    { "hero_id": 36, "hero_name": "npc_dota_hero_necrolyte", "label": "Necrophos", "remove": [1], "add": [], "reason": "Played as a mid or offlane core; rule B already places it in 2 and 3.", "patch": "7.42", "date": "2026-11-22" },
+    { "hero_id": 32, "hero_name": "npc_dota_hero_riki", "label": "Riki", "remove": [1], "add": [4], "reason": "Mostly played as a roaming support, not as the safe-lane carry.", "patch": "7.42", "date": "2026-11-22" },
+    { "hero_id": 83, "hero_name": "npc_dota_hero_treant", "label": "Treant Protector", "remove": [], "add": [4, 5], "reason": "A common support that has too few lane games in the provider table to pass rule B.", "patch": "7.42", "date": "2026-11-22" },
+    { "hero_id": 66, "hero_name": "npc_dota_hero_chen", "label": "Chen", "remove": [], "add": [4, 5], "reason": "A common support that has too few lane games in the provider table to pass rule B.", "patch": "7.42", "date": "2026-11-22" }
+  ]
+}

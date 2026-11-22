@@ -97,9 +97,18 @@ Per hero, sum `games` over the `time` rows of each lane table (1 safe, 2 mid, 3 
 
 A hero may be in several groups. Every group is labelled `ค่าประมาณ`. The win rate shown is the hero's rate in the bracket across all positions, and the card says so. The lists produced by this rule are written for the owner in `design/draft-suggest-20261121/POSITION-GROUPS.th.md` before the list is enabled in a build (`SUGGESTIONS_LIST_BUILD_ENABLED`).
 
+**Override list (owner option B, 2026-11-22).** After rule B, the host applies the reviewed Kohbor-owned list in `apps/desktop/src-tauri/src/hero_stats/position-overrides.json`. The list adds to rule B and never replaces it.
+
+- Each row holds the hero id and the internal name, the positions to remove and to add, a reason, the patch (`7.42`) and the date.
+- A row applies only when both the id and the internal name match the provider's heroStats row. Otherwise the row is skipped and rule B stays for that hero.
+- If the list fails validation it is not applied at all. Validation fails on: a schema other than 1, a position outside 1–5, the same position in remove and add, a row that changes nothing, an empty text field, or a duplicate hero.
+- The owner reviews the list each patch. The Thai table is in `POSITION-GROUPS.th.md`.
+
+With the list in place, `SUGGESTIONS_LIST_BUILD_ENABLED` is `true`.
+
 ## 8. Ranking (DECIDED before data)
 
-- Rate = wins / picks in the bracket column (`pub_*` for ทุกแรงก์). Ranked only with picks ≥ 1,000; sort rate desc, then picks desc, then hero ID asc. Shown as tenths of a percent (half up), computed from integers.
+- Rate = wins / picks in the bracket column (`pub_*` for ทุกแรงก์). Ranked only with picks ≥ 1,000. The sort is meta first (owner, 2026-11-22): picks in the bracket desc, then rate desc, then hero ID asc. The list title is `ฮีโร่เมต้า`; until 2026-11-22 the sort was rate first and the title was `ฮีโร่ชนะบ่อย`. Picks are counted across all positions, because the lane table is not split by bracket. No matchup or counter logic. Shown as tenths of a percent (half up), computed from integers.
 - Rows: walk the sorted group; emit until 8 untaken ranked rows; v2 taken heroes met on the way are emitted struck out, without a rank. If fewer than 8 heroes are ranked, append low-data heroes (picks desc) until 8 rows; their rate is withheld.
 - Bracket column summing to 0 → `bracket_empty` (MEASURED: Immortal was 0 for every hero on 2026-11-21).
 - Pick card: rate with ≥ 1,000 picks else `not_enough_matches`; form = rate − 50.0; duration cells < 30 min, 30–45, > 45 (bins merged by `duration_bin` seconds), each shown only with ≥ 300 games; the length sentence only when no cell is withheld and max − min ≥ 3.0.

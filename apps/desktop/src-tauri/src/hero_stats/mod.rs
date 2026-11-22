@@ -20,8 +20,9 @@ pub(crate) use prefs::DraftStatsPrefs;
 pub(crate) use view::Failure;
 pub(crate) use view::{DraftColumnView, DraftPhase};
 
-/// Suggestions remain deck-only until the lead enables them after the owner design review.
-pub(crate) const SUGGESTIONS_LIST_BUILD_ENABLED: bool = false;
+/// On 2026-11-22 the owner reviewed the rule-B groups and chose option B: rule B plus the reviewed
+/// Kohbor override list in `position-overrides.json`. That enables the in-game list.
+pub(crate) const SUGGESTIONS_LIST_BUILD_ENABLED: bool = true;
 
 /// Strategy-time placement has not been measured; this is the initial shared-column position.
 pub(crate) const PICK_CARD_STRATEGY_TIME_RECT: Rect = Rect {

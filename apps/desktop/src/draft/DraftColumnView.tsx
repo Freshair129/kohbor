@@ -102,7 +102,7 @@ function SuggestionsCard({ view, synthetic, surface }: { view: DraftColumnViewMo
       {synthetic && <div className="draft-synthetic-flag">ตัวอย่างสังเคราะห์</div>}
       <header className="draft-column-header">
         <div className="draft-column-mark" aria-hidden="true">K</div>
-        <strong>ฮีโร่ชนะบ่อย</strong>
+        <strong>ฮีโร่เมต้า</strong>
         {surface === "deck" && statusText && <span className={`draft-state-flag draft-state-${state ?? "unknown"}`}>{statusText}</span>}
       </header>
       {surface === "overlay" && statusText && (
