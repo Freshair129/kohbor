@@ -1,6 +1,6 @@
 // In-memory backend for the browser-only Lab preview. It is imported only by the lazy Lab runtime.
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
-import { HUD_DEFAULT_LAYOUT, HUD_LAYOUT_BOUNDS, type HudLayoutEvent } from "../hudModel.ts";
+import { HUD_DEFAULT_LAYOUT, HUD_DEFAULT_LAYOUT_EVENT, HUD_LAYOUT_BOUNDS, type HudLayoutEvent } from "../hudModel.ts";
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
 import { computeHudStripHeightPercent, parseLabHudLayoutReply, type LabHudLayoutReply, type LabHudModule } from "./labHudLayout.ts";
 
@@ -58,6 +58,7 @@ export function createLabHudLayoutMock({
       schema: 1,
       strip_height_percent: state.strip_height_percent,
       modules: state.modules,
+      objective_card: { ...HUD_DEFAULT_LAYOUT_EVENT.objective_card },
     };
     emit("hud://layout", payload);
   };

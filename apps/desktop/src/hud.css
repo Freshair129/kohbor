@@ -29,13 +29,13 @@ body.hud-body #root {
  * and scaled by --hud-overlay-scale (screen width / 1920) times the module scale.
  */
 .hud-stage {
-  --hud-ice: #8fd4ff;
-  --hud-text: #e7eef6;
-  --hud-muted: #8794a6;
-  --hud-warn: #ffcf6b;
-  --hud-bad: #ff7b85;
-  --hud-edge: rgb(143 212 255 / 22%);
-  --hud-glass: rgb(14 17 24 / 88%);
+  --hud-ice: var(--ally);
+  --hud-text: var(--text);
+  --hud-muted: var(--muted);
+  --hud-warn: var(--warning);
+  --hud-bad: var(--critical);
+  --hud-edge: var(--line-strong);
+  --hud-glass: var(--ground);
   position: fixed;
   inset: 0;
   width: 100vw;
@@ -59,7 +59,7 @@ body.hud-body #root {
   background: var(--hud-glass);
   border: 1px solid var(--hud-edge);
   border-radius: 16px;
-  box-shadow: 0 8px 40px rgb(0 0 0 / 50%), inset 0 1px 0 rgb(143 212 255 / 22%), inset 0 -1px 0 rgb(0 0 0 / 35%);
+  box-shadow: 0 8px 40px var(--ground), inset 0 1px 0 var(--line), inset 0 -1px 0 var(--ground);
   color: var(--hud-text);
   font-variant-numeric: tabular-nums;
 }
@@ -128,7 +128,7 @@ body.hud-body #root {
   width: 16px;
   height: 8px;
   border-radius: 2px;
-  background: rgb(255 255 255 / 8%);
+  background: var(--line-subtle);
   transition: background 200ms ease, box-shadow 200ms ease;
 }
 
@@ -142,12 +142,12 @@ body.hud-body #root {
 /* Lit ticks and the label share the level colour; unknown (blind) keeps every tick unlit. */
 .hud-gmeter-none .hud-meter-tick.is-lit {
   background: var(--hud-muted);
-  box-shadow: 0 0 6px rgb(91 227 167 / 35%);
+  box-shadow: 0 0 6px var(--accent-surface);
 }
 
 .hud-gmeter-ally .hud-meter-tick.is-lit {
   background: var(--hud-ice);
-  box-shadow: 0 0 6px rgb(143 212 255 / 35%);
+  box-shadow: 0 0 6px var(--ally-surface);
 }
 
 .hud-gmeter-ally .hud-gmeter-label {
@@ -156,7 +156,7 @@ body.hud-body #root {
 
 .hud-gmeter-warn .hud-meter-tick.is-lit {
   background: var(--hud-warn);
-  box-shadow: 0 0 6px rgb(255 207 107 / 50%);
+  box-shadow: 0 0 6px var(--warning-surface);
 }
 
 .hud-gmeter-warn .hud-gmeter-label {
@@ -165,7 +165,7 @@ body.hud-body #root {
 
 .hud-gmeter-critical .hud-meter-tick.is-lit {
   background: var(--hud-bad);
-  box-shadow: 0 0 6px rgb(255 123 133 / 60%);
+  box-shadow: 0 0 6px var(--critical-surface);
 }
 
 .hud-gmeter-critical .hud-gmeter-label {
@@ -178,8 +178,39 @@ body.hud-body #root {
   top: 0;
   padding: 0 0.6vw;
   font: 700 0.9vw/1.6 system-ui, sans-serif;
-  color: #111;
-  background: #ffd23f;
+  color: var(--ground);
+  background: var(--warning);
   letter-spacing: 0.08em;
   pointer-events: none;
 }
+
+.hud-objective-module { z-index: 2; }
+.objective-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 272px;
+  height: 32px;
+  overflow: hidden;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-control);
+  background: var(--ground);
+  color: var(--text);
+  box-shadow: 0 5px 18px var(--ground);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.objective-card-water_rune { --objective-accent: var(--ally); }
+.objective-card-power_rune { --objective-accent: var(--warning); }
+.objective-card-bounty_rune { --objective-accent: var(--brand-edge); }
+.objective-card-wisdom_rune { --objective-accent: var(--accent); }
+.objective-card-tormentor { --objective-accent: var(--critical); }
+.objective-card-glyph { display: grid; place-items: center; width: 20px; height: 20px; flex: none; color: var(--objective-accent); }
+.objective-card-glyph svg { display: block; width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.objective-card-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.objective-card-count { flex: none; margin-left: auto; padding: 1px 5px; border: 1px solid var(--line); border-radius: 999px; color: var(--objective-accent); font-size: 10px; font-weight: 700; }

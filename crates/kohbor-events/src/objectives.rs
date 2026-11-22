@@ -39,6 +39,16 @@ impl ObjectiveId {
         }
     }
 
+    pub const fn index(self) -> usize {
+        match self {
+            Self::WaterRune => 0,
+            Self::PowerRune => 1,
+            Self::BountyRune => 2,
+            Self::WisdomRune => 3,
+            Self::Tormentor => 4,
+        }
+    }
+
     fn enabled(self, settings: ObjectiveSettings) -> bool {
         match self {
             Self::WaterRune => settings.water_rune,
@@ -52,17 +62,22 @@ impl ObjectiveId {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub enum ObjectivePhase {
-    PreWarn30,
-    PreWarn15,
+    PreWarn { lead_s: u8 },
     Spawn,
 }
 
 impl ObjectivePhase {
     pub fn as_str(self) -> &'static str {
         match self {
-            Self::PreWarn30 => "pre_warn_30",
-            Self::PreWarn15 => "pre_warn_15",
+            Self::PreWarn { .. } => "pre_warn",
             Self::Spawn => "spawn",
+        }
+    }
+
+    pub const fn lead_s(self) -> Option<u8> {
+        match self {
+            Self::PreWarn { lead_s } => Some(lead_s),
+            Self::Spawn => None,
         }
     }
 }
@@ -74,6 +89,8 @@ pub struct ObjectiveSettings {
     pub bounty_rune: bool,
     pub wisdom_rune: bool,
     pub tormentor: bool,
+    /// Two optional lead times per objective, indexed by `ObjectiveId::index`.
+    pub lead_times: [[Option<u8>; 2]; 5],
 }
 
 impl Default for ObjectiveSettings {
@@ -84,6 +101,13 @@ impl Default for ObjectiveSettings {
             bounty_rune: true,
             wisdom_rune: true,
             tormentor: true,
+            lead_times: [
+                [Some(30), Some(15)],
+                [Some(30), Some(15)],
+                [None, None],
+                [None, None],
+                [None, None],
+            ],
         }
     }
 }
@@ -109,7 +133,6 @@ struct TimingRule {
     objective: ObjectiveId,
     spawn_times_seconds: Vec<i64>,
     repeat_every_seconds: Option<i64>,
-    pre_warning_seconds: Vec<i64>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -202,16 +225,21 @@ impl ObjectiveScheduler {
                 ),
                 None => return Err("TABLE_INVALID"),
             };
-            let pre_warning_seconds = row
+            let documented_default_lead_s = row
                 .get("pre_warning_seconds")
                 .and_then(|value| value.as_array())
                 .ok_or("TABLE_INVALID")?
                 .iter()
                 .map(|value| value.as_i64().ok_or("TABLE_INVALID"))
                 .collect::<Result<Vec<_>, _>>()?;
-            if pre_warning_seconds
-                .iter()
-                .any(|seconds| ![15, 30].contains(seconds))
+            if documented_default_lead_s.len() > 2
+                || documented_default_lead_s
+                    .iter()
+                    .any(|seconds| !(5..=60).contains(seconds))
+                || documented_default_lead_s
+                    .iter()
+                    .enumerate()
+                    .any(|(index, seconds)| documented_default_lead_s[..index].contains(seconds))
             {
                 return Err("TABLE_INVALID");
             }
@@ -219,7 +247,6 @@ impl ObjectiveScheduler {
                 objective,
                 spawn_times_seconds,
                 repeat_every_seconds,
-                pre_warning_seconds,
             });
         }
         Ok(Self {
@@ -278,11 +305,17 @@ impl ObjectiveScheduler {
             if !rule.objective.enabled(settings) {
                 continue;
             }
-            let max_warning = rule.pre_warning_seconds.iter().copied().max().unwrap_or(0);
+            let lead_times = settings.lead_times[rule.objective.index()];
+            let max_warning = lead_times
+                .into_iter()
+                .flatten()
+                .map(i64::from)
+                .max()
+                .unwrap_or(0);
             let candidate_end = current.saturating_add(max_warning);
             for occurrence in rule.occurrences_between(previous, candidate_end) {
-                for offset in &rule.pre_warning_seconds {
-                    let due_seconds = occurrence.saturating_sub(*offset);
+                for lead_s in lead_times.into_iter().flatten() {
+                    let due_seconds = occurrence.saturating_sub(i64::from(lead_s));
                     if previous < due_seconds && due_seconds <= current {
                         Self::push_if_new(
                             fired,
@@ -290,11 +323,7 @@ impl ObjectiveScheduler {
                             rule.objective,
                             occurrence,
                             due_seconds,
-                            if *offset == 30 {
-                                ObjectivePhase::PreWarn30
-                            } else {
-                                ObjectivePhase::PreWarn15
-                            },
+                            ObjectivePhase::PreWarn { lead_s },
                         );
                     }
                 }
@@ -398,6 +427,22 @@ mod tests {
         in_progress: bool,
         paused: bool,
     ) -> Vec<(ObjectiveId, ObjectivePhase, i64)> {
+        observe_with_settings(
+            scheduler,
+            clock,
+            in_progress,
+            paused,
+            ObjectiveSettings::default(),
+        )
+    }
+
+    fn observe_with_settings(
+        scheduler: &mut ObjectiveScheduler,
+        clock: i64,
+        in_progress: bool,
+        paused: bool,
+        settings: ObjectiveSettings,
+    ) -> Vec<(ObjectiveId, ObjectivePhase, i64)> {
         scheduler
             .observe(
                 Some(clock),
@@ -405,7 +450,7 @@ mod tests {
                 Some(paused),
                 false,
                 false,
-                ObjectiveSettings::default(),
+                settings,
             )
             .map(|batch| {
                 batch
@@ -421,8 +466,8 @@ mod tests {
     fn water_and_power_have_one_thirty_second_fifteen_second_and_spawn_alert() {
         let mut s = scheduler();
         for (before, due, phase) in [
-            (89, 90, ObjectivePhase::PreWarn30),
-            (104, 105, ObjectivePhase::PreWarn15),
+            (89, 90, ObjectivePhase::PreWarn { lead_s: 30 }),
+            (104, 105, ObjectivePhase::PreWarn { lead_s: 15 }),
             (119, 120, ObjectivePhase::Spawn),
         ] {
             let _ = observe(&mut s, before, true, false);
@@ -435,8 +480,8 @@ mod tests {
 
         let mut power = scheduler();
         for (before, due, phase) in [
-            (329, 330, ObjectivePhase::PreWarn30),
-            (344, 345, ObjectivePhase::PreWarn15),
+            (329, 330, ObjectivePhase::PreWarn { lead_s: 30 }),
+            (344, 345, ObjectivePhase::PreWarn { lead_s: 15 }),
             (359, 360, ObjectivePhase::Spawn),
         ] {
             let _ = observe(&mut power, before, true, false);
@@ -449,12 +494,20 @@ mod tests {
         let _ = observe(&mut power, 449, true, false);
         assert_eq!(
             observe(&mut power, 450, true, false),
-            vec![(ObjectiveId::PowerRune, ObjectivePhase::PreWarn30, 450)]
+            vec![(
+                ObjectiveId::PowerRune,
+                ObjectivePhase::PreWarn { lead_s: 30 },
+                450
+            )]
         );
         let _ = observe(&mut power, 464, true, false);
         assert_eq!(
             observe(&mut power, 465, true, false),
-            vec![(ObjectiveId::PowerRune, ObjectivePhase::PreWarn15, 465)]
+            vec![(
+                ObjectiveId::PowerRune,
+                ObjectivePhase::PreWarn { lead_s: 15 },
+                465
+            )]
         );
         let _ = observe(&mut power, 479, true, false);
         assert_eq!(
@@ -618,6 +671,38 @@ mod tests {
         assert!(s
             .observe(Some(90), true, Some(false), false, false, settings)
             .is_none());
+    }
+
+    #[test]
+    fn scheduler_uses_custom_leads_and_does_not_fire_a_passed_alert_after_a_change() {
+        let mut scheduled = scheduler();
+        let mut settings = ObjectiveSettings::default();
+        settings.lead_times[ObjectiveId::WaterRune.index()] = [Some(20), Some(7)];
+
+        let _ = observe_with_settings(&mut scheduled, 99, true, false, settings);
+        assert_eq!(
+            observe_with_settings(&mut scheduled, 100, true, false, settings),
+            vec![(
+                ObjectiveId::WaterRune,
+                ObjectivePhase::PreWarn { lead_s: 20 },
+                100,
+            )]
+        );
+        let _ = observe_with_settings(&mut scheduled, 112, true, false, settings);
+        assert_eq!(
+            observe_with_settings(&mut scheduled, 113, true, false, settings),
+            vec![(
+                ObjectiveId::WaterRune,
+                ObjectivePhase::PreWarn { lead_s: 7 },
+                113,
+            )]
+        );
+
+        let mut changed = scheduler();
+        let _ = observe(&mut changed, 90, true, false);
+        let mut late = ObjectiveSettings::default();
+        late.lead_times[ObjectiveId::WaterRune.index()] = [Some(30), None];
+        assert!(observe_with_settings(&mut changed, 91, true, false, late).is_empty());
     }
 
     #[test]

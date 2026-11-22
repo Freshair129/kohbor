@@ -12,6 +12,9 @@ import { addSampleLoadout } from "./sampleLoadout";
 import { MockAudioPrefs } from "../audioPrefs";
 import { HUD_MOCK_INTERVAL_MS, mockHudStatePayload } from "./hudState";
 import { createMockUpdater, parseMockUpdateScenario } from "./updateHarness";
+import { HUD_DEFAULT_LAYOUT_EVENT } from "../hudModel";
+import { clampObjectiveWidget, defaultLayoutDocument, parseLayoutDocument, type LayoutDocument } from "../layoutEditor/model";
+import { OBJECTIVE_PREF_KEYS, parseObjectivePrefs, type ObjectiveId, type ObjectivePrefs } from "../objectivePrefs";
 
 type MockCallback = (event: unknown) => void;
 type MockEventBinding = { event: string; callbackId: number };
@@ -24,6 +27,8 @@ const EVENT_NAME = "playback://event";
 const OVERLAY_STATUS_EVENT = "overlay://status";
 const OVERLAY_DEMO_EVENT = "overlay://demo";
 const HUD_STATE_EVENT = "hud://state";
+const HUD_LAYOUT_EVENT = "hud://layout";
+const HUD_OBJECTIVE_ALERT_EVENT = "hud://objective-alert";
 const PROBE_EVENT_NAME = "media://probe-request";
 const MOCK_CHANNEL = "kohbor-mock-playback";
 const MOCK_PROBE_REPORT_EVENT = "kohbor-mock-media-probe-report";
@@ -36,6 +41,18 @@ let settingsView: UserSettingsView = {
   revision: settingsFixture.revision,
   locale: settingsFixture.locale as Locale,
 };
+let mockObjectivePrefs: ObjectivePrefs = {
+  schema_version: 2,
+  objectives: {
+    water_rune: { enabled: true, lead_s: [30, 15] },
+    power_rune: { enabled: true, lead_s: [30, 15] },
+    bounty_rune: { enabled: true, lead_s: [] },
+    wisdom_rune: { enabled: true, lead_s: [] },
+    tormentor: { enabled: true, lead_s: [] },
+  },
+  diagnostic_map_keys: false,
+};
+let mockLayoutDocument: LayoutDocument = defaultLayoutDocument();
 let muted = false;
 // Synthetic media readiness for the dev switcher only; never derived from a real pack.
 let mediaOverride: RuntimeStatus["media"] | null = null;
@@ -140,6 +157,62 @@ function dispatchScenarioEvent(event: unknown) {
 
 function emitProbeRequest(payload: unknown) {
   deliver(PROBE_EVENT_NAME, payload);
+}
+
+function mockRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function patchMockObjectivePrefs(value: unknown): ObjectivePrefs {
+  if (!mockRecord(value) || Object.keys(value).some((key) => !["objectives", "diagnostic_map_keys"].includes(key))) throw "OBJECTIVE_PREFS_INVALID";
+  const next = structuredClone(mockObjectivePrefs);
+  let changed = false;
+  if (Object.hasOwn(value, "diagnostic_map_keys")) {
+    if (typeof value.diagnostic_map_keys !== "boolean") throw "OBJECTIVE_PREFS_INVALID";
+    next.diagnostic_map_keys = value.diagnostic_map_keys;
+    changed = true;
+  }
+  if (Object.hasOwn(value, "objectives")) {
+    if (!mockRecord(value.objectives) || Object.keys(value.objectives).length === 0) throw "OBJECTIVE_PREFS_INVALID";
+    for (const [rawId, rawChange] of Object.entries(value.objectives)) {
+      if (!OBJECTIVE_PREF_KEYS.includes(rawId as ObjectiveId) || !mockRecord(rawChange)
+        || Object.keys(rawChange).length === 0 || Object.keys(rawChange).some((key) => !["enabled", "lead_s"].includes(key))) throw "OBJECTIVE_PREFS_INVALID";
+      const id = rawId as ObjectiveId;
+      const target = next.objectives[id];
+      if (Object.hasOwn(rawChange, "enabled")) {
+        if (typeof rawChange.enabled !== "boolean") throw "OBJECTIVE_PREFS_INVALID";
+        target.enabled = rawChange.enabled;
+      }
+      if (Object.hasOwn(rawChange, "lead_s")) {
+        const leads = rawChange.lead_s;
+        if (!Array.isArray(leads) || leads.length > 2
+          || leads.some((seconds) => typeof seconds !== "number" || !Number.isInteger(seconds) || seconds < 5 || seconds > 60)
+          || new Set(leads).size !== leads.length) throw "OBJECTIVE_PREFS_INVALID";
+        target.lead_s = [...leads] as number[];
+      }
+      changed = true;
+    }
+  }
+  const parsed = changed ? parseObjectivePrefs(next) : null;
+  if (!parsed) throw "OBJECTIVE_PREFS_INVALID";
+  mockObjectivePrefs = parsed;
+  return structuredClone(parsed);
+}
+
+function publishMockHudLayout() {
+  const card = mockLayoutDocument.widgets.objective_card;
+  const stripHeight = Math.max(9, card.y_percent + (32 * card.scale / 1080 * 100) / 2);
+  const payload = {
+    ...HUD_DEFAULT_LAYOUT_EVENT,
+    strip_height_percent: Math.min(100, stripHeight),
+    objective_card: card,
+  };
+  deliver(HUD_LAYOUT_EVENT, payload);
+  if (typeof BroadcastChannel !== "undefined") {
+    const channel = new BroadcastChannel("kohbor-mock-hud-layout");
+    channel.postMessage(payload);
+    channel.close();
+  }
 }
 
 function nextPlaybackId(): string {
@@ -491,6 +564,36 @@ export function installMockHarness() {
         settingsView = { revision: settingsView.revision + 1, locale };
         return { ...settingsView };
       }
+      if (command === "objective_prefs_get") return structuredClone(mockObjectivePrefs);
+      if (command === "objective_prefs_patch") {
+        requireArgs(command, args, ["request"]);
+        return patchMockObjectivePrefs(args.request);
+      }
+      if (command === "layout_get") return structuredClone(mockLayoutDocument);
+      if (command === "layout_patch") {
+        requireArgs(command, args, ["request"]);
+        const request = args.request;
+        if (!mockRecord(request) || Object.keys(request).length !== 4
+          || request.widget !== "objective_card"
+          || typeof request.x_percent !== "number" || !Number.isFinite(request.x_percent)
+          || typeof request.y_percent !== "number" || !Number.isFinite(request.y_percent)
+          || typeof request.scale !== "number" || !Number.isFinite(request.scale)) throw "LAYOUT_INVALID";
+        const widget = clampObjectiveWidget({
+          x_percent: request.x_percent,
+          y_percent: request.y_percent,
+          scale: request.scale,
+        });
+        const parsed = parseLayoutDocument({ schema_version: 1, widgets: { objective_card: widget } });
+        if (!parsed) throw "LAYOUT_INVALID";
+        mockLayoutDocument = parsed;
+        publishMockHudLayout();
+        return structuredClone(parsed);
+      }
+      if (command === "layout_reset") {
+        mockLayoutDocument = defaultLayoutDocument();
+        publishMockHudLayout();
+        return structuredClone(mockLayoutDocument);
+      }
       if (command === "gsi_setup") return null;
       if (command === "set_muted") {
         if (typeof args.muted !== "boolean") throw new Error("set_muted requires a boolean");
@@ -604,9 +707,21 @@ export function HudMockHarness() {
   useEffect(() => {
     const initial = window.setTimeout(() => deliver(HUD_STATE_EVENT, mockHudStatePayload), 100);
     const interval = window.setInterval(() => deliver(HUD_STATE_EVENT, mockHudStatePayload), HUD_MOCK_INTERVAL_MS);
+    const objectiveAlert = {
+      schema_version: 1,
+      observed_clock_seconds: 240,
+      alerts: [{ objective: "power_rune", phase: "pre_warn", lead_s: 30, occurrence_seconds: 270, due_seconds: 240 }],
+    };
+    const sendObjectiveAlert = () => deliver(HUD_OBJECTIVE_ALERT_EVENT, objectiveAlert);
+    const layoutInitial = window.setTimeout(publishMockHudLayout, 120);
+    const alertInitial = window.setTimeout(sendObjectiveAlert, 180);
+    const alertInterval = window.setInterval(sendObjectiveAlert, 5_000);
     return () => {
       window.clearTimeout(initial);
       window.clearInterval(interval);
+      window.clearTimeout(layoutInitial);
+      window.clearTimeout(alertInitial);
+      window.clearInterval(alertInterval);
     };
   }, []);
 

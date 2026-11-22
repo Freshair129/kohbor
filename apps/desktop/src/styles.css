@@ -391,15 +391,46 @@ body.overlay-body #root { width: 100%; height: 100%; min-height: 0; }
 .overlay-stage { position: relative; width: 100%; min-width: 0; min-height: 0; aspect-ratio: 720 / 220; overflow: hidden; background: transparent; }
 .event-overlay-banner { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; pointer-events: none; animation: event-banner-enter 140ms ease-out both; }
 .event-overlay-banner video { display: block; width: 100%; height: 100%; object-fit: contain; background: transparent; }
-.objective-overlay-alert { position: absolute; z-index: 2; left: 50%; bottom: 6px; transform: translateX(-50%); display: flex; align-items: center; justify-content: center; max-width: calc(100% - 24px); max-height: 40%; overflow: hidden; padding: 7px 14px; border: 1px solid var(--overlay-chip-line); border-radius: 999px; color: var(--overlay-chip-text); background: var(--overlay-chip-background); font-size: clamp(12px, 2.5vw, 18px); font-weight: 700; line-height: 1.2; text-align: center; text-wrap: balance; pointer-events: none; }
 .objective-settings { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
 .objective-settings h2 { margin: 0; font-size: 13px; font-weight: 650; }
 .objective-settings-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; }
+.objective-setting-card { min-width: 0; margin: 0; padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--r-control); background: var(--surface); }
+.objective-setting-card legend { max-width: 100%; padding-inline: 3px; }
+.objective-setting-leads { display: grid; gap: 5px; padding-top: 4px; }
+.objective-setting-leads > p { margin: 0; color: var(--text-2); font-size: 11px; }
+.objective-setting-lead-inputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.objective-setting-lead-inputs label { display: grid; gap: 2px; min-width: 0; color: var(--muted); font-size: 10px; }
+.objective-setting-lead-inputs input { width: 100%; min-width: 0; min-height: 30px; padding: 2px 6px; border: 1px solid var(--line-strong); border-radius: var(--r-control); background: var(--ground); color: var(--text); font: inherit; font-variant-numeric: tabular-nums; }
+.objective-setting-save { justify-self: start; min-height: 30px; padding-inline: 8px; font-size: 11px; }
 .objective-setting-toggle { display: flex; align-items: flex-start; gap: 8px; min-width: 0; font-size: 12px; line-height: 1.35; }
 .objective-setting-toggle input { margin: 2px 0 0; accent-color: var(--accent); }
 .objective-setting-toggle small { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
+.objective-diagnostic-toggle { padding-top: 5px; }
 .objective-settings-message { margin: 0; color: var(--muted); font-size: 12px; }
 .objective-settings-message[role="alert"] { color: var(--critical); }
+.layout-editor { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+.layout-editor-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.layout-editor-heading h2 { margin: 0; font-size: 13px; font-weight: 650; }
+.layout-editor-heading p { margin: 2px 0 0; color: var(--muted); font-size: 11px; }
+.layout-editor-heading button { flex: none; min-height: 32px; padding-inline: 8px; font-size: 11px; }
+.layout-editor-preview { position: relative; width: min(100%, 720px); aspect-ratio: 16 / 9; overflow: hidden; border: 1px solid var(--line-strong); border-radius: var(--r-control); background: var(--ground); touch-action: none; }
+.layout-protected { position: absolute; z-index: 0; border: 1px dashed var(--line-strong); background: var(--surface); opacity: .45; pointer-events: none; }
+.layout-protected-top { inset: 0 0 95% 0; }
+.layout-protected-announcement { left: 30%; top: 8%; width: 40%; height: 11%; border-color: var(--warning); background: var(--warning-surface); }
+.layout-protected-minimap { left: 0; top: 70%; width: 20%; height: 30%; }
+.layout-protected-bottom { left: 0; top: 78%; width: 100%; height: 22%; }
+.layout-editor-card { position: absolute; z-index: 1; transform: translate(-50%, -50%) scale(var(--preview-scale)); transform-origin: center; cursor: grab; touch-action: none; }
+.layout-editor-card:active { cursor: grabbing; }
+.layout-editor-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.layout-editor-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px; }
+.layout-editor-scale { display: grid; gap: 3px; color: var(--text-2); font-size: 11px; }
+.layout-editor-scale > span { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.layout-editor-scale output { color: var(--text); font-variant-numeric: tabular-nums; }
+.layout-editor-scale input { width: 100%; min-width: 0; margin: 0; accent-color: var(--accent); }
+.layout-editor-presets { display: flex; gap: 3px; }
+.layout-editor-presets button { min-height: 32px; padding: 2px 6px; font-size: 10px; }
+.layout-editor-presets button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-surface); }
+.layout-editor-position { margin: 0; color: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
 .overlay-chip-strip { display: flex; align-items: center; justify-content: flex-end; min-width: 0; min-height: 0; padding: 0 2.5%; background: transparent; }
 .overlay-chip { display: inline-flex; align-items: center; max-width: 100%; min-height: 24px; padding: 2px 10px; border: 1px solid var(--overlay-chip-line); border-radius: 999px; background: var(--overlay-chip-background); color: var(--overlay-chip-text); font-size: clamp(11px, 1.7vh, 14px); line-height: 1.25; overflow-wrap: anywhere; }
 .overlay-chip-ready { border-color: var(--overlay-chip-ready-line); }

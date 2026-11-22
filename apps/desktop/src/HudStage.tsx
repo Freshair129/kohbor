@@ -20,7 +20,17 @@ import {
   type HudState,
 } from "./hudModel";
 import { subscribeHudLayout, subscribeHudState } from "./hudRuntime";
+import { subscribeHudLocale, subscribeObjectiveAlerts } from "./runtime";
+import {
+  createObjectiveAlertState,
+  objectiveAlertVisible,
+  receiveObjectiveAlert,
+  OBJECTIVE_ALERT_AUTO_HIDE_MS,
+  type ObjectiveAlertState,
+} from "./objectiveAlertModel";
+import { ObjectiveAlert } from "./ObjectiveAlert";
 import { HUD_LANGUAGE } from "./hudCopy";
+import type { Locale } from "./copy";
 import "./hud.css";
 
 const CHIP_KINDS: readonly ChipKind[] = ["kda", "gold", "gpm", "nw", "xpm"];
@@ -101,12 +111,53 @@ export function HudStage({
 }) {
   const [state, setState] = useState<HudState>(() => unknownHudState(false));
   const [hudLayout, setHudLayout] = useState<HudLayoutEvent>(() => ({ ...HUD_DEFAULT_LAYOUT_EVENT, modules: layout }));
+  const [objectiveAlert, setObjectiveAlert] = useState<ObjectiveAlertState>(createObjectiveAlertState);
+  const [locale, setLocale] = useState<Locale>(() => {
+    const requested = new URLSearchParams(window.location.search).get("lang");
+    return requested === "th" || requested === "en" ? requested : HUD_LANGUAGE;
+  });
+  const [nowMs, setNowMs] = useState(() => performance.now());
   const risk = useRisk();
   const overlayScale = useOverlayScale();
 
   useEffect(() => {
     void startLiveCollection().catch(() => {});
   }, []);
+
+  useEffect(() => {
+    let disposed = false;
+    let stopAlert: (() => void) | undefined;
+    let stopLocale: (() => void) | undefined;
+    void Promise.all([
+      subscribeObjectiveAlerts((payload) => {
+        const at = performance.now();
+        setNowMs(at);
+        setObjectiveAlert((current) => receiveObjectiveAlert(current, payload, at));
+      }),
+      subscribeHudLocale(setLocale),
+    ]).then(([unlistenAlert, unlistenLocale]) => {
+      if (disposed) {
+        unlistenAlert();
+        unlistenLocale();
+      } else {
+        stopAlert = unlistenAlert;
+        stopLocale = unlistenLocale;
+      }
+    }).catch(() => {});
+    return () => {
+      disposed = true;
+      stopAlert?.();
+      stopLocale?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (objectiveAlert.shownUntilMs === null) return;
+    const remaining = objectiveAlert.shownUntilMs - nowMs;
+    if (remaining <= 0) return;
+    const timer = window.setTimeout(() => setNowMs(performance.now()), Math.min(remaining, OBJECTIVE_ALERT_AUTO_HIDE_MS));
+    return () => window.clearTimeout(timer);
+  }, [objectiveAlert.shownUntilMs, nowMs]);
 
   useEffect(() => {
     let disposed = false;
@@ -146,7 +197,7 @@ export function HudStage({
   }, []);
 
   const content = renderWhenHudVisible(state.visible, () => (
-    <div className="hud-stage" role="status" aria-live="off" aria-label={hudCopy.stripLabel} lang={HUD_LANGUAGE} style={{ "--hud-overlay-scale": overlayScale } as CSSProperties}>
+    <div className="hud-stage" role="status" aria-live="off" aria-label={hudCopy.stripLabel} lang={locale} style={{ "--hud-overlay-scale": overlayScale } as CSSProperties}>
       {state.synthetic === true && <div className="hud-synthetic-badge" data-synthetic="true">{hudCopy.syntheticBadge}</div>}
       {visibleHudModules(hudLayout).map((item) => (
         <div className={`hud-module hud-module-${item.id}`} key={item.id} style={modulePosition(item, hudLayout.strip_height_percent)}>
@@ -155,6 +206,15 @@ export function HudStage({
             : <StatChip state={state} kind={item.id === "kda" ? "kda" : item.id} />}
         </div>
       ))}
+      {objectiveAlertVisible(objectiveAlert, nowMs) ? (
+        <div className="hud-module hud-objective-module" style={{
+          left: `${hudLayout.objective_card.x_percent}vw`,
+          top: `${(hudLayout.objective_card.y_percent / hudLayout.strip_height_percent) * 100}vh`,
+          "--hud-scale": hudLayout.objective_card.scale,
+        } as CSSProperties}>
+          <ObjectiveAlert batch={objectiveAlert.batch} locale={locale} visible />
+        </div>
+      ) : null}
     </div>
   ));
 

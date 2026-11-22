@@ -9,26 +9,16 @@ import {
   type ChipState,
 } from "./overlayModel";
 import { OverlayStage } from "./OverlayStage";
-import {
-  createObjectiveAlertState,
-  objectiveAlertText,
-  objectiveAlertVisible,
-  receiveObjectiveAlert,
-  type ObjectiveAlertState,
-} from "./objectiveAlertModel";
 import { HudStage } from "./HudStage";
 import { OrbStage } from "./orb/OrbStage";
 import {
   emitOverlayReady,
   emitOverlayVisibility,
-  subscribeObjectiveAlerts,
   subscribeOverlayDemo,
   subscribeOverlayContentVisibility,
   subscribeOverlayStatus,
   usePlayback,
 } from "./runtime";
-import { useSettings } from "./settings";
-import { OBJECTIVE_COPY } from "./copy";
 import type { RuntimeStatus } from "./types";
 import "./styles.css";
 import { installFrontendLogging } from "./logs/frontend";
@@ -64,10 +54,7 @@ function isDemoMarker(payload: unknown): boolean {
 
 function OverlayView({ MockHarness }: { MockHarness?: ComponentType }) {
   const playback = usePlayback();
-  const { settings } = useSettings();
-  const locale = settings?.locale ?? "th";
   const [chip, setChip] = useState<ChipState>(createChipState);
-  const [objectiveAlert, setObjectiveAlert] = useState<ObjectiveAlertState>(createObjectiveAlertState);
   const [nowMs, setNowMs] = useState(() => performance.now());
   const windowsNativeOverlay = typeof window !== "undefined"
     && "__TAURI_INTERNALS__" in window
@@ -85,7 +72,6 @@ function OverlayView({ MockHarness }: { MockHarness?: ComponentType }) {
     let stopStatus: (() => void) | undefined;
     let stopDemo: (() => void) | undefined;
     let stopContentVisibility: (() => void) | undefined;
-    let stopObjectiveAlerts: (() => void) | undefined;
     const status = subscribeOverlayStatus((payload) => {
       const media = mediaFromOverlayStatus(payload);
       if (!media) return;
@@ -112,23 +98,16 @@ function OverlayView({ MockHarness }: { MockHarness?: ComponentType }) {
     const contentVisibility = windowsNativeOverlay
       ? subscribeOverlayContentVisibility(setHostContentVisible)
       : Promise.resolve(() => {});
-    const objectiveAlerts = subscribeObjectiveAlerts((payload) => {
-      const at = performance.now();
-      setNowMs(at);
-      setObjectiveAlert((state) => receiveObjectiveAlert(state, payload, at));
-    });
-    void Promise.all([status, demo, contentVisibility, objectiveAlerts]).then(([unlistenStatus, unlistenDemo, unlistenContentVisibility, unlistenObjectiveAlerts]) => {
+    void Promise.all([status, demo, contentVisibility]).then(([unlistenStatus, unlistenDemo, unlistenContentVisibility]) => {
       if (disposed) {
         unlistenStatus();
         unlistenDemo();
         unlistenContentVisibility();
-        unlistenObjectiveAlerts();
         return;
       }
       stopStatus = unlistenStatus;
       stopDemo = unlistenDemo;
       stopContentVisibility = unlistenContentVisibility;
-      stopObjectiveAlerts = unlistenObjectiveAlerts;
       setHostVisibilityReady(true);
       void emitOverlayReady().catch(() => {});
     }).catch(() => {
@@ -139,16 +118,8 @@ function OverlayView({ MockHarness }: { MockHarness?: ComponentType }) {
       stopStatus?.();
       stopDemo?.();
       stopContentVisibility?.();
-      stopObjectiveAlerts?.();
     };
   }, [windowsNativeOverlay]);
-
-  useEffect(() => {
-    const deadline = objectiveAlert.shownUntilMs;
-    if (deadline === null || deadline <= nowMs) return;
-    const timer = window.setTimeout(() => setNowMs(performance.now()), deadline - nowMs);
-    return () => window.clearTimeout(timer);
-  }, [objectiveAlert.shownUntilMs, nowMs]);
 
   useEffect(() => {
     const at = performance.now();
@@ -169,8 +140,7 @@ function OverlayView({ MockHarness }: { MockHarness?: ComponentType }) {
     return () => window.clearTimeout(timer);
   }, [chip.shownUntilMs, nowMs]);
 
-  const objectiveVisible = objectiveAlertVisible(objectiveAlert, nowMs);
-  const visible = overlayShouldShow(playback, chip, nowMs, objectiveVisible);
+  const visible = overlayShouldShow(playback, chip, nowMs);
   useEffect(() => {
     if (windowsNativeOverlay && !hostVisibilityReady) return;
     void emitOverlayVisibility(visible).catch(() => {});
@@ -179,9 +149,7 @@ function OverlayView({ MockHarness }: { MockHarness?: ComponentType }) {
 
   return (
     <>
-      <OverlayStage playback={playback} chip={chip.view} visible={contentVisible}
-        objectiveAlertText={objectiveAlertText(objectiveAlert, OBJECTIVE_COPY[locale].alerts)}
-        objectiveAlertVisible={objectiveVisible} locale={locale} />
+      <OverlayStage playback={playback} chip={chip.view} visible={contentVisible} />
       {MockHarness ? <MockHarness /> : null}
     </>
   );

@@ -1,5 +1,7 @@
 use super::fake_sink::{table, tick, Call, FakeSink, Harness};
-use super::lanes::{AuditionRefusal, AuditionRequest, Control, EngineOut, Offer};
+use super::lanes::{
+    AuditionRefusal, AuditionRequest, Control, EngineOut, ObjectiveToneOutcome, Offer,
+};
 use super::outcome::PlaybackEnd;
 use super::resolve::{
     Clip, Entry, PrewarmTable, SelectedClip, VariantMedia, VariantSelection, VariantSet,
@@ -233,9 +235,11 @@ fn has_end(out: &[EngineOut], reason: &str) -> bool {
 fn objective_tone_uses_the_engine_sink_when_idle() {
     let (mut h, log) = setup();
     let pcm = Arc::from(vec![0_i16; 12_000].into_boxed_slice());
-    assert!(h.tx.control(Control::ObjectiveTone { pcm }).is_ok());
+    let (reply, result) = mpsc::sync_channel(1);
+    assert!(h.tx.control(Control::ObjectiveTone { pcm, reply }).is_ok());
     h.engine.step(1);
     h.drain();
+    assert_eq!(result.try_recv(), Ok(ObjectiveToneOutcome::Played));
     assert_eq!(
         log.lock().unwrap().calls,
         vec![Call::Submit(PlaybackId(1), 12_000)]
@@ -243,17 +247,73 @@ fn objective_tone_uses_the_engine_sink_when_idle() {
 }
 
 #[test]
-fn objective_tone_is_skipped_while_an_announcer_clip_owns_the_sink() {
+fn objective_tone_defers_until_the_announcer_releases_the_single_slot() {
     let (mut h, log) = setup();
     offer(&h, 1, &[(EventId::HeroKill, None)]);
     h.engine.step(1);
     assert_eq!(log.lock().unwrap().calls.len(), 1);
 
     let pcm = Arc::from(vec![0_i16; 12_000].into_boxed_slice());
-    assert!(h.tx.control(Control::ObjectiveTone { pcm }).is_ok());
+    let (reply, result) = mpsc::sync_channel(1);
+    assert!(h.tx.control(Control::ObjectiveTone { pcm, reply }).is_ok());
+    h.engine.step(2);
+    assert_eq!(result.try_recv(), Err(mpsc::TryRecvError::Empty));
+    h.engine.step(1_002);
+    h.drain();
+    assert_eq!(result.try_recv(), Ok(ObjectiveToneOutcome::DeferredPlayed));
+    assert_eq!(
+        log.lock().unwrap().calls,
+        vec![
+            Call::Submit(PlaybackId(1), 4_800),
+            Call::Submit(PlaybackId(2), 12_000)
+        ]
+    );
+}
+
+#[test]
+fn objective_tone_expires_after_five_seconds_if_the_sink_stays_busy() {
+    let (mut h, log) = setup();
+    assert!(h
+        .tx
+        .control(Control::SwapTable {
+            table: table(8, &[(EventId::HeroKill, None, 480_000, 0, None)]),
+        })
+        .is_ok());
+    h.engine.step(0);
+    h.drain();
+    offer(&h, 1, &[(EventId::HeroKill, None)]);
+    h.engine.step(1);
+
+    let pcm = Arc::from(vec![0_i16; 12_000].into_boxed_slice());
+    let (reply, result) = mpsc::sync_channel(1);
+    assert!(h.tx.control(Control::ObjectiveTone { pcm, reply }).is_ok());
+    h.engine.step(2);
+    h.engine.step(5_003);
+    h.drain();
+    assert_eq!(result.try_recv(), Ok(ObjectiveToneOutcome::Suppressed));
+    assert_eq!(log.lock().unwrap().calls.len(), 1);
+}
+
+#[test]
+fn incoming_game_clip_preempts_an_objective_tone_using_voice_priority() {
+    let (mut h, log) = setup();
+    let pcm = Arc::from(vec![0_i16; 12_000].into_boxed_slice());
+    let (reply, result) = mpsc::sync_channel(1);
+    assert!(h.tx.control(Control::ObjectiveTone { pcm, reply }).is_ok());
+    h.engine.step(1);
+    assert_eq!(result.try_recv(), Ok(ObjectiveToneOutcome::Played));
+
+    offer(&h, 2, &[(EventId::HeroKill, None)]);
     h.engine.step(2);
     h.drain();
-    assert_eq!(log.lock().unwrap().calls.len(), 1);
+    assert_eq!(
+        log.lock().unwrap().calls,
+        vec![
+            Call::Submit(PlaybackId(1), 12_000),
+            Call::Cancel(PlaybackId(1)),
+            Call::Submit(PlaybackId(2), 4_800),
+        ]
+    );
 }
 
 fn offer_audition(h: &Harness, id: EventId) -> mpsc::Receiver<Result<(), AuditionRefusal>> {

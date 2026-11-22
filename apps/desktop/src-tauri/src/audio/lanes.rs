@@ -15,6 +15,27 @@ pub const OUT_LANE: usize = 256;
 pub const AUDITION_ADMISSION_TIMEOUT: Duration = Duration::from_secs(1);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ObjectiveToneOutcome {
+    Played,
+    DeferredPlayed,
+    Suppressed,
+    Muted,
+    Off,
+}
+
+impl ObjectiveToneOutcome {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Played => "played",
+            Self::DeferredPlayed => "deferred_played",
+            Self::Suppressed => "suppressed",
+            Self::Muted => "muted",
+            Self::Off => "off",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AuditionRefusal {
     MatchActive,
     ActivePack,
@@ -86,6 +107,7 @@ pub enum Control {
     /// A generated objective cue is best-effort and may only use an idle sink.
     ObjectiveTone {
         pcm: kohbor_audio::pcm::Pcm,
+        reply: SyncSender<ObjectiveToneOutcome>,
     },
     Shutdown,
 }

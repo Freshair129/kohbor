@@ -1,0 +1,44 @@
+[
+  {
+    "name": "minimap-and-bottom-hud",
+    "viewport": { "width": 1920, "height": 1080 },
+    "request": { "x_percent": 10, "y_percent": 90, "scale": 1 },
+    "expected": { "x_percent": 10, "y_percent": 68.51851851851852, "scale": 1 }
+  },
+  {
+    "name": "top-bar",
+    "viewport": { "width": 1920, "height": 1080 },
+    "request": { "x_percent": 50, "y_percent": 2, "scale": 1 },
+    "expected": { "x_percent": 50, "y_percent": 6.481481481481481, "scale": 1 }
+  },
+  {
+    "name": "announcement",
+    "viewport": { "width": 1920, "height": 1080 },
+    "request": { "x_percent": 50, "y_percent": 10, "scale": 1 },
+    "expected": { "x_percent": 50, "y_percent": 6.518518518518519, "scale": 1 }
+  },
+  {
+    "name": "bottom-hud",
+    "viewport": { "width": 1920, "height": 1080 },
+    "request": { "x_percent": 50, "y_percent": 90, "scale": 1 },
+    "expected": { "x_percent": 50, "y_percent": 76.51851851851852, "scale": 1 }
+  },
+  {
+    "name": "screen-corner",
+    "viewport": { "width": 1920, "height": 1080 },
+    "request": { "x_percent": 0, "y_percent": 0, "scale": 1 },
+    "expected": { "x_percent": 7.5, "y_percent": 6.481481481481481, "scale": 1 }
+  },
+  {
+    "name": "max-scale-at-2560",
+    "viewport": { "width": 2560, "height": 1440 },
+    "request": { "x_percent": 99, "y_percent": 50, "scale": 3 },
+    "expected": { "x_percent": 85.52083333333333, "y_percent": 50, "scale": 2 }
+  },
+  {
+    "name": "max-scale-announcement",
+    "viewport": { "width": 1920, "height": 1080 },
+    "request": { "x_percent": 50, "y_percent": 12, "scale": 2 },
+    "expected": { "x_percent": 50, "y_percent": 21.962962962962962, "scale": 2 }
+  }
+]

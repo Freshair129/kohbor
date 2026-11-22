@@ -18,6 +18,7 @@ mod hud;
 pub mod instance;
 pub mod intake;
 pub mod latency;
+mod layout;
 pub mod logging;
 mod media;
 mod mixer;
@@ -87,6 +88,7 @@ pub(crate) struct AppState {
     pub(crate) audio_prefs: audio_prefs::AudioPrefsService,
     pub(crate) hotkeys: Mutex<hotkeys::Controller>,
     pub(crate) hud: Mutex<hud::Controller>,
+    pub(crate) layout: layout::LayoutService,
     pub(crate) audition: commands::AuditionTracker,
     /// Serializes all commands that may replace user-settings.json.
     pub(crate) settings_gate: Mutex<()>,
@@ -580,6 +582,22 @@ pub(crate) fn place_hud_window(
     window: &tauri::WebviewWindow<tauri::Wry>,
     layouts: &[(hud::HudModule, hud::HudModuleLayout); 6],
 ) -> bool {
+    place_hud_window_with_card(
+        window,
+        layouts,
+        layout::WidgetLayout {
+            x_percent: 62.5,
+            y_percent: 6.5,
+            scale: 1.0,
+        },
+    )
+}
+
+pub(crate) fn place_hud_window_with_card(
+    window: &tauri::WebviewWindow<tauri::Wry>,
+    layouts: &[(hud::HudModule, hud::HudModuleLayout); 6],
+    card: layout::WidgetLayout,
+) -> bool {
     let monitor = match window.primary_monitor() {
         Ok(Some(monitor)) => monitor,
         Ok(None) | Err(_) => {
@@ -589,7 +607,7 @@ pub(crate) fn place_hud_window(
     };
     let position = monitor.position();
     let size = monitor.size();
-    let rect = hud::place_hud_window(
+    let rect = hud::place_hud_window_with_card(
         &overlay::MonitorRect {
             x: position.x,
             y: position.y,
@@ -597,6 +615,7 @@ pub(crate) fn place_hud_window(
             h: size.height,
         },
         layouts,
+        card,
     );
     let moved = window.set_position(tauri::PhysicalPosition::new(rect.x, rect.y));
     let sized = window.set_size(tauri::PhysicalSize::new(rect.w, rect.h));
@@ -1114,6 +1133,7 @@ pub fn run() {
                 crate::log_error!("app", "setup_failed", "APP_DATA_DIR_UNAVAILABLE");
             })?;
             let settings_dir = dir.clone();
+            let layout = layout::LayoutService::open(&dir);
             let orb_host = orb::host::OrbHost::open(&dir);
             let orb_prefs = orb_host.prefs();
             let mixer_dir = dir.clone();
@@ -1243,6 +1263,7 @@ pub fn run() {
                 audio_prefs,
                 hotkeys: Mutex::new(hotkeys::Controller::default()),
                 hud: Mutex::new(hud::Controller::default()),
+                layout,
                 audition: commands::AuditionTracker::default(),
                 settings_gate: Mutex::new(()),
                 sample,
@@ -1291,6 +1312,9 @@ pub fn run() {
         commands::settings_patch,
         commands::objective_prefs_get,
         commands::objective_prefs_patch,
+        commands::layout_get,
+        commands::layout_patch,
+        commands::layout_reset,
         commands::media_inspect,
         commands::media_package_summary,
         commands::media_package_size_limit,
@@ -1375,6 +1399,9 @@ pub fn run() {
         commands::settings_patch,
         commands::objective_prefs_get,
         commands::objective_prefs_patch,
+        commands::layout_get,
+        commands::layout_patch,
+        commands::layout_reset,
         commands::media_inspect,
         commands::media_package_summary,
         commands::media_package_size_limit,
