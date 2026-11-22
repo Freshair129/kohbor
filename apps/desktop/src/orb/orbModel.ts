@@ -28,36 +28,53 @@ export interface OrbState {
   layout: OrbLayout | null;
 }
 
-export type ChannelId = "game" | "kohbor" | "music";
-export type SessionState = "present" | "missing" | "unreadable";
+export type ChannelKind = "game" | "kohbor" | "music" | "app";
+/** `game`, `kohbor`, `music` or `app:<exe>`. */
+export type ChannelId = string;
+export type SessionState = "present" | "mixed" | "missing" | "unreadable";
 
 export interface ChannelReading {
-  channel: ChannelId;
+  id: ChannelId;
+  kind: ChannelKind;
   state: SessionState;
   exe: string | null;
   percent: number | null;
   muted: boolean | null;
+  /** Lowest and highest session level when an app's sessions differ (`mixed`). */
+  range: readonly [number, number] | null;
 }
+
+export type SlotSpec = { kind: "kohbor" } | { kind: "music"; exe: string | null } | { kind: "app"; exe: string };
 
 export interface MixerView {
   available: boolean;
   reason: string | null;
-  game: ChannelReading;
-  kohbor: ChannelReading;
-  music: ChannelReading;
-  music_choices: string[];
+  /** Game first, then the slots in order: one to four channels. */
+  channels: ChannelReading[];
+  slots: SlotSpec[];
+  app_choices: string[];
   music_selected: string | null;
-  focus: { active: boolean; percent: number; prior_percent: number | null };
+  focus: { active: boolean; percent: number; channels: { id: ChannelId; prior_percent: number | null }[] };
   restore_pending: number;
 }
 
 export interface MixerReply { ok: boolean; code: string | null; mixer: MixerView }
 
 const PHASES: readonly OrbPhase[] = ["hidden", "tucked", "charging", "sliding", "out", "open"];
-const CHANNELS: readonly ChannelId[] = ["game", "kohbor", "music"];
+const KINDS: readonly ChannelKind[] = ["game", "kohbor", "music", "app"];
 export const WHEEL_STEP = 5;
 export const FOCUS_CHOICES = [10, 15, 20, 25, 30, 40, 50] as const;
 export const DWELL_CHOICES_MS = [300, 600, 1000] as const;
+/** The panel shows at most four channels: Game plus three slots (owner request 2026-11-22). */
+export const MAX_CHANNELS = 4;
+export const MAX_SLOTS = MAX_CHANNELS - 1;
+/** Panel CSS width before the host zoom, by channel count; columns keep the approved three-channel width. */
+export const PANEL_CSS_WIDTHS = [154, 154, 220, 288] as const;
+
+export function panelCssWidth(channels: number): number {
+  const index = Math.min(MAX_CHANNELS, Math.max(1, Math.round(channels))) - 1;
+  return PANEL_CSS_WIDTHS[index] ?? PANEL_CSS_WIDTHS[2];
+}
 
 function record(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null;
@@ -65,6 +82,10 @@ function record(value: unknown): Record<string, unknown> | null {
 
 function finite(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+function percentValue(value: unknown): number | null {
+  return finite(value) && value >= 0 && value <= 100 ? Math.round(value) : null;
 }
 
 function rect(value: unknown): OrbRect | null {
@@ -135,41 +156,81 @@ export function faderPercent(clientY: number, trackTop: number, trackHeight: num
   return Math.round(Math.min(100, Math.max(0, ((trackTop + trackHeight - clientY) / trackHeight) * 100)));
 }
 
-function channel(value: unknown, id: ChannelId): ChannelReading | null {
+function validChannelId(id: string, kind: ChannelKind): boolean {
+  if (kind === "app") return /^app:[a-z0-9._ -]{1,60}\.exe$/.test(id);
+  return id === kind;
+}
+
+function channel(value: unknown): ChannelReading | null {
   const c = record(value);
-  if (!c || c.channel !== id) return null;
+  if (!c || typeof c.id !== "string" || !KINDS.includes(c.kind as ChannelKind)) return null;
+  const kind = c.kind as ChannelKind;
+  if (!validChannelId(c.id, kind)) return null;
   const state = c.state;
-  if (state !== "present" && state !== "missing" && state !== "unreadable") return null;
-  const percent = finite(c.percent) && c.percent >= 0 && c.percent <= 100 ? Math.round(c.percent) : null;
-  // A present channel must carry a real level; otherwise it is not controllable.
+  if (state !== "present" && state !== "mixed" && state !== "missing" && state !== "unreadable") return null;
+  const percent = percentValue(c.percent);
+  // A present channel must carry a real level, a mixed one a real range; otherwise it is not controllable.
   if (state === "present" && percent === null) return null;
+  let range: readonly [number, number] | null = null;
+  if (state === "mixed") {
+    const low = Array.isArray(c.range) ? percentValue(c.range[0]) : null;
+    const high = Array.isArray(c.range) ? percentValue(c.range[1]) : null;
+    if (low === null || high === null || low > high) return null;
+    range = [low, high];
+  }
+  const live = state === "present" || state === "mixed";
   return {
-    channel: id,
+    id: c.id,
+    kind,
     state,
     exe: typeof c.exe === "string" ? c.exe : null,
     percent: state === "present" ? percent : null,
-    muted: state === "present" && typeof c.muted === "boolean" ? c.muted : null,
+    muted: live && typeof c.muted === "boolean" ? c.muted : null,
+    range,
   };
+}
+
+export function parseSlot(value: unknown): SlotSpec | null {
+  const s = record(value);
+  if (!s) return null;
+  if (s.kind === "kohbor") return { kind: "kohbor" };
+  if (s.kind === "music") return { kind: "music", exe: typeof s.exe === "string" ? s.exe : null };
+  if (s.kind === "app" && typeof s.exe === "string") return { kind: "app", exe: s.exe };
+  return null;
+}
+
+function slots(value: unknown): SlotSpec[] {
+  if (!Array.isArray(value)) return [];
+  const parsed = value.map(parseSlot);
+  return parsed.every((slot): slot is SlotSpec => slot !== null) ? parsed.slice(0, MAX_SLOTS) : [];
 }
 
 export function parseMixer(value: unknown): MixerView | null {
   const m = record(value);
-  if (!m || typeof m.available !== "boolean") return null;
-  const parsed = CHANNELS.map((id) => channel(m[id], id));
-  const [game, kohbor, music] = parsed;
-  if (!game || !kohbor || !music) return null;
+  if (!m || typeof m.available !== "boolean" || !Array.isArray(m.channels)) return null;
+  const channels = m.channels.map(channel);
+  if (channels.length < 1 || channels.length > MAX_CHANNELS || channels.some((c) => c === null)) return null;
+  const parsed = channels as ChannelReading[];
+  // Game is always first and every channel appears once.
+  if (parsed[0]?.kind !== "game" || new Set(parsed.map((c) => c.id)).size !== parsed.length) return null;
+  if (parsed.slice(1).some((c) => c.kind === "game")) return null;
   const focus = record(m.focus);
-  const choices = Array.isArray(m.music_choices) ? m.music_choices.filter((exe): exe is string => typeof exe === "string") : [];
+  const focusChannels = Array.isArray(focus?.channels)
+    ? focus.channels.map(record).filter((entry): entry is Record<string, unknown> => entry !== null && typeof entry.id === "string")
+      .map((entry) => ({ id: entry.id as string, prior_percent: percentValue(entry.prior_percent) }))
+    : [];
+  const choices = Array.isArray(m.app_choices) ? m.app_choices.filter((exe): exe is string => typeof exe === "string") : [];
   return {
     available: m.available,
     reason: typeof m.reason === "string" ? m.reason : null,
-    game, kohbor, music,
-    music_choices: choices,
+    channels: parsed,
+    slots: slots(m.slots),
+    app_choices: choices,
     music_selected: typeof m.music_selected === "string" ? m.music_selected : null,
     focus: {
       active: focus?.active === true,
       percent: finite(focus?.percent) ? focus.percent as number : 20,
-      prior_percent: finite(focus?.prior_percent) ? focus.prior_percent as number : null,
+      channels: focusChannels,
     },
     restore_pending: finite(m.restore_pending) ? m.restore_pending : 0,
   };
@@ -183,8 +244,18 @@ export function parseMixerReply(value: unknown): MixerReply | null {
   return { ok: r.ok, code: typeof r.code === "string" ? r.code : null, mixer };
 }
 
+export function channelById(view: MixerView | null | undefined, id: ChannelId): ChannelReading | null {
+  return view?.channels.find((reading) => reading.id === id) ?? null;
+}
+
 export function controllable(reading: ChannelReading | null | undefined): boolean {
-  return reading?.state === "present" && reading.percent !== null;
+  if (reading?.state === "present") return reading.percent !== null;
+  return reading?.state === "mixed" && reading.range !== null;
+}
+
+/** Focus mode lowers every non-game app channel (Music and added apps); the Kohbor announcer keeps critical alerts. */
+export function focusTargets(view: MixerView | null | undefined): ChannelReading[] {
+  return view?.channels.filter((reading) => (reading.kind === "music" || reading.kind === "app") && controllable(reading)) ?? [];
 }
 
 const APP_NAMES: Record<string, string> = {
@@ -204,32 +275,47 @@ export type OrbLocale = "th" | "en";
 
 export const orbCopy = {
   th: {
-    game: "เกม", gameSub: "Dota 2", kohbor: "เกาะเบาะ", kohborSub: "เสียงพากย์", music: "เพลง",
-    change: "เปลี่ยน", focus: "โหมดโฟกัส", focusOff: (percent: number) => `ลดเพลงเหลือ ${percent}%`,
-    focusOn: (prior: number | null) => prior === null ? "เปิดอยู่" : `เปิดอยู่ · กดกลับไป ${prior}%`,
-    reset: "คืนค่าเดิม", resetNote: "คืนระดับเสียงเกมและเพลงก่อนที่เกาะเบาะปรับ",
+    game: "เกม", gameSub: "Dota 2", kohbor: "เกาะเบาะ", kohborSub: "เสียงพากย์", music: "เพลง", appSub: "แอป",
+    change: "เปลี่ยน", focus: "โหมดโฟกัส", focusOff: (percent: number) => `ลดเสียงอื่นเหลือ ${percent}%`,
+    focusOn: (prior: number | null) => prior === null ? "เปิดอยู่ · กดอีกครั้งเพื่อคืนค่า" : `เปิดอยู่ · กดกลับไป ${prior}%`,
+    reset: "คืนค่าเดิม", resetNote: "คืนระดับเสียงแอปก่อนที่เกาะเบาะปรับ",
     muteLabel: (name: string) => `ปิดเสียง ${name}`, mutedValue: "ปิด", close: "ปิดแผง",
     pickTitle: "แอปเพลง", noChoices: "ยังไม่พบแอปที่เล่นเสียง",
     gameMissing: ["ยังไม่พบเสียงของ Dota", "เกมยังไม่ได้เล่นเสียง จึงยังปรับไม่ได้"],
     musicMissing: ["ไม่พบแอปเพลง", "เปิดเพลงในเบราว์เซอร์หรือ Spotify ก่อน"],
+    appMissing: (name: string) => [`ยังไม่พบเสียงของ ${name}`, "เปิดแอปให้เล่นเสียงก่อน จึงจะปรับได้"] as const,
     unreadable: ["อ่านระดับเสียงไม่ได้", "Windows ไม่ให้อ่านเสียงของแอปนี้"],
     unavailable: ["ระบบเสียงของ Windows ไม่พร้อม", "ลองใหม่อีกครั้งภายหลัง"],
+    mixedLabel: (name: string, low: number, high: number) => `${name} มีหลายเสียงที่ระดับต่างกัน ${low}–${high}%`,
     kohborMuteUnknown: "ไม่ทราบสถานะปิดเสียง",
   },
   en: {
-    game: "Game", gameSub: "Dota 2", kohbor: "Kohbor", kohborSub: "Announcer", music: "Music",
-    change: "Change", focus: "Focus mode", focusOff: (percent: number) => `Lower music to ${percent}%`,
-    focusOn: (prior: number | null) => prior === null ? "On" : `On · back to ${prior}%`,
-    reset: "Reset", resetNote: "Restores game and music levels from before Kohbor changed them",
+    game: "Game", gameSub: "Dota 2", kohbor: "Kohbor", kohborSub: "Announcer", music: "Music", appSub: "App",
+    change: "Change", focus: "Focus mode", focusOff: (percent: number) => `Lower other sound to ${percent}%`,
+    focusOn: (prior: number | null) => prior === null ? "On · press again to restore" : `On · back to ${prior}%`,
+    reset: "Reset", resetNote: "Restores app levels from before Kohbor changed them",
     muteLabel: (name: string) => `Mute ${name}`, mutedValue: "Off", close: "Close panel",
     pickTitle: "Music app", noChoices: "No app is playing sound",
     gameMissing: ["Dota sound not found", "The game has not played sound yet, so it cannot be set"],
     musicMissing: ["No music app found", "Start music in a browser or Spotify first"],
+    appMissing: (name: string) => [`${name} sound not found`, "Let the app play sound first, then it can be set"] as const,
     unreadable: ["Volume cannot be read", "Windows did not let Kohbor read this app"],
     unavailable: ["Windows audio is not ready", "Try again later"],
+    mixedLabel: (name: string, low: number, high: number) => `${name} has several sounds at different levels, ${low}–${high}%`,
     kohborMuteUnknown: "Mute state unknown",
   },
 } as const;
+
+/** Column title and subtitle for a channel. */
+export function channelLabel(reading: ChannelReading, locale: OrbLocale): { name: string; sub: string } {
+  const text = orbCopy[locale];
+  switch (reading.kind) {
+    case "game": return { name: text.game, sub: text.gameSub };
+    case "kohbor": return { name: text.kohbor, sub: text.kohborSub };
+    case "music": return { name: text.music, sub: appLabel(reading.exe) };
+    case "app": return { name: appLabel(reading.exe), sub: text.appSub };
+  }
+}
 
 const REASONS: Record<string, { th: string; en: string }> = {
   MIXER_SESSION_MISSING: { th: "ไม่พบเสียงของแอปนี้แล้ว", en: "The app's sound session is gone" },
@@ -239,11 +325,13 @@ const REASONS: Record<string, { th: string; en: string }> = {
   MIXER_AUDIO_UNAVAILABLE: { th: "ระบบเสียงของ Windows ไม่พร้อม", en: "Windows audio is not available" },
   MIXER_RECOVERY_WRITE_FAILED: { th: "บันทึกระดับเดิมไม่ได้ จึงไม่ได้เปลี่ยนเสียง", en: "Could not save the original level, so nothing changed" },
   MIXER_RESTORE_PENDING: { th: "บางแอปยังไม่เปิด จะคืนค่าให้เมื่อแอปเล่นเสียงอีกครั้ง", en: "Some apps are closed; they are restored when they play sound again" },
-  MIXER_APP_NOT_AVAILABLE: { th: "แอปนี้ไม่ได้เล่นเสียงอยู่", en: "That app is not playing sound" },
+  MIXER_APP_NOT_AVAILABLE: { th: "แอปนี้ไม่ได้เล่นเสียงอยู่ หรือมีแถวของตัวเองแล้ว", en: "That app is not playing sound, or already has its own row" },
+  MIXER_CHANNEL_UNKNOWN: { th: "แถวนี้ไม่ได้ตั้งไว้แล้ว", en: "That row is no longer set up" },
   MIXER_TIMEOUT: { th: "ระบบเสียงตอบช้าเกินไป", en: "Windows audio did not answer in time" },
   MIXER_UNAVAILABLE: { th: "มิกเซอร์ไม่พร้อม", en: "The mixer is not available" },
   AUDIO_PREFS_WRITE_FAILED: { th: "บันทึกระดับเสียงพากย์ไม่ได้", en: "Could not save the announcer volume" },
   ORB_PANEL_UNPLACEABLE: { th: "จอเล็กเกินไป แผงจะบังส่วนสำคัญของเกม", en: "The screen is too small; the panel would cover the game HUD" },
+  ORB_SLOTS_INVALID: { th: "ตั้งแถวเสียงไม่ได้ (ซ้ำหรือเกิน 4 แถว)", en: "Those sound rows are not allowed (duplicate or more than 4)" },
 };
 
 export function reasonText(code: string | null, locale: OrbLocale): string | null {
@@ -254,18 +342,79 @@ export function reasonText(code: string | null, locale: OrbLocale): string | nul
 /** The honest note under the faders: missing/unreadable states are explained, never shown as controllable. */
 export function channelNote(view: MixerView | null, locale: OrbLocale): readonly [string, string] | null {
   const text = orbCopy[locale];
-  if (!view) return text.unavailable;
-  if (!view.available) return text.unavailable;
-  if (view.game.state === "missing") return text.gameMissing;
-  if (view.game.state === "unreadable" || view.music.state === "unreadable") return text.unreadable;
-  if (view.music.state === "missing") return text.musicMissing;
+  if (!view || !view.available) return text.unavailable;
+  const game = view.channels[0];
+  if (game?.state === "missing") return text.gameMissing;
+  if (view.channels.some((reading) => reading.state === "unreadable")) return text.unreadable;
+  const missing = view.channels.find((reading) => reading.state === "missing");
+  if (missing?.kind === "music") return text.musicMissing;
+  if (missing?.kind === "app") return text.appMissing(appLabel(missing.exe));
   return null;
 }
 
 export function valueText(reading: ChannelReading | null, locale: OrbLocale): string {
-  if (!controllable(reading)) return "—";
-  if (reading?.muted === true) return orbCopy[locale].mutedValue;
-  return `${reading?.percent ?? 0}%`;
+  if (!reading || !controllable(reading)) return "—";
+  if (reading.muted === true) return orbCopy[locale].mutedValue;
+  if (reading.state === "mixed" && reading.range) return `${reading.range[0]}–${reading.range[1]}%`;
+  return `${reading.percent ?? 0}%`;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Slot editing (Settings)
+
+/** Stable key of a slot choice: `kohbor`, `music` or `app:<exe>`; `""` is an empty row. */
+export function slotKey(slot: SlotSpec | null | undefined): string {
+  if (!slot) return "";
+  return slot.kind === "app" ? `app:${slot.exe}` : slot.kind;
+}
+
+/** Choices for row `index`: empty, Kohbor, Music, and every app with a session (or already chosen), minus the
+ *  choices other rows hold and the Music app. */
+export function slotChoices(slots: readonly SlotSpec[], index: number, appChoices: readonly string[]): string[] {
+  const taken = new Set(slots.filter((_, i) => i !== index).map(slotKey));
+  const musicExe = slots.find((slot): slot is { kind: "music"; exe: string | null } => slot.kind === "music")?.exe ?? null;
+  const apps = [...new Set([...appChoices, ...slots.flatMap((slot) => slot.kind === "app" ? [slot.exe] : [])])]
+    .filter((exe) => exe !== "dota2.exe" && exe !== musicExe)
+    .sort()
+    .map((exe) => `app:${exe}`);
+  return ["", "kohbor", "music", ...apps].filter((key) => key === "" || !taken.has(key));
+}
+
+/** Put `key` in row `index` (an empty key removes the row). Keeps the Music app choice when Music moves. */
+export function setSlot(slots: readonly SlotSpec[], index: number, key: string): SlotSpec[] {
+  const next = [...slots];
+  const previousMusic = slots.find((slot): slot is { kind: "music"; exe: string | null } => slot.kind === "music");
+  let slot: SlotSpec | null = null;
+  if (key === "kohbor") slot = { kind: "kohbor" };
+  else if (key === "music") slot = { kind: "music", exe: previousMusic?.exe ?? null };
+  else if (key.startsWith("app:")) slot = { kind: "app", exe: key.slice(4) };
+  if (index >= next.length) {
+    if (slot && next.length < MAX_SLOTS) next.push(slot);
+    return next;
+  }
+  if (slot) next[index] = slot;
+  else next.splice(index, 1);
+  return next;
+}
+
+export function moveSlot(slots: readonly SlotSpec[], index: number, delta: -1 | 1): SlotSpec[] {
+  const target = index + delta;
+  if (index < 0 || index >= slots.length || target < 0 || target >= slots.length) return [...slots];
+  const next = [...slots];
+  const a = next[index];
+  const b = next[target];
+  if (!a || !b) return next;
+  next[index] = b;
+  next[target] = a;
+  return next;
+}
+
+export function slotText(key: string, locale: OrbLocale): string {
+  const text = orbCopy[locale];
+  if (key === "") return locale === "th" ? "— ว่าง —" : "— empty —";
+  if (key === "kohbor") return `${text.kohbor} (${text.kohborSub})`;
+  if (key === "music") return locale === "th" ? `${text.music} (แอปเพลงที่เลือก)` : `${text.music} (chosen music app)`;
+  return appLabel(key.slice(4));
 }
 
 const HIDE_REASONS: Record<string, { th: string; en: string }> = {
@@ -286,7 +435,8 @@ export interface OrbPrefsView {
   enabled: boolean;
   dwell_ms: number;
   focus_percent: number;
-  music_exe: string | null;
+  slots: SlotSpec[];
+  max_slots: number;
   focus_hotkey_available: boolean;
   status: {
     running: boolean;
@@ -305,11 +455,15 @@ export function parseOrbPrefs(value: unknown): OrbPrefsView | null {
   const v = value as Record<string, unknown>;
   const s = (typeof v.status === "object" && v.status !== null ? v.status : {}) as Record<string, unknown>;
   if (typeof v.enabled !== "boolean" || typeof v.dwell_ms !== "number" || typeof v.focus_percent !== "number") return null;
+  if (!Array.isArray(v.slots)) return null;
+  const parsedSlots = v.slots.map(parseSlot);
+  if (parsedSlots.some((slot) => slot === null) || parsedSlots.length > MAX_SLOTS) return null;
   return {
     enabled: v.enabled,
     dwell_ms: v.dwell_ms,
     focus_percent: v.focus_percent,
-    music_exe: typeof v.music_exe === "string" ? v.music_exe : null,
+    slots: parsedSlots as SlotSpec[],
+    max_slots: typeof v.max_slots === "number" ? Math.min(MAX_SLOTS, v.max_slots) : MAX_SLOTS,
     focus_hotkey_available: v.focus_hotkey_available === true,
     status: {
       running: s.running === true,

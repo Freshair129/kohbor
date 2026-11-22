@@ -24,7 +24,7 @@ export const mixerApi = {
 
 export const orbApi = {
   click: (target: "disc" | "close") => invoke<{ open: boolean }>("orb_click", { target }),
-  panelHeight: (height: number) => invoke<unknown>("orb_panel_height", { height }),
+  panelSize: (width: number, height: number) => invoke<unknown>("orb_panel_height", { height, width }),
   prefs: () => invoke<unknown>("orb_prefs_get"),
   setPrefs: (patch: Record<string, unknown>) => invoke<unknown>("orb_prefs_set", { patch }),
 };

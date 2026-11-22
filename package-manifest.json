@@ -58,8 +58,8 @@
     },
     {
       "path": "acceptance/scenarios.feature",
-      "bytes": 39155,
-      "sha256": "bce019cb23f257a853a050feae33e1f290218c85408ba5d37a793ed4cf05f44e"
+      "bytes": 40174,
+      "sha256": "9b57560b565ed41cd7f041c7b93a063bf075441bfc032a812480f8c8abd335e3"
     },
     {
       "path": "acceptance/spec-validation.json",
@@ -368,8 +368,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 59480,
-      "sha256": "a8d1f3f25340f2baaab2f5cb01d03ff0ed07bdd3683c2d149a281736c8d21973"
+      "bytes": 59484,
+      "sha256": "461e06db49a6deef453cd72867997e86e807693ada491961d8fbd6735bc524d6"
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
@@ -418,28 +418,33 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/mixer/mod.rs",
-      "bytes": 44637,
-      "sha256": "08ea746ed92ae59e05bac2163f1dd89a2cc7c2223678b5fd55d4ec21d1a506b9"
+      "bytes": 43847,
+      "sha256": "6d91efb21b642aa49e6d336d4a156e6b1fa510ea663a249b60f406f1487e2af6"
     },
     {
       "path": "apps/desktop/src-tauri/src/mixer/native.rs",
-      "bytes": 8427,
-      "sha256": "529979c49d953be635315af0ac9eb7489babbc69d0b0025d9f908359f10cde4e"
+      "bytes": 9216,
+      "sha256": "8f3cae22aed7df8cf8f2b363fe8fd36a3f8ab477fd00e40f9a29deb65151f8f7"
     },
     {
       "path": "apps/desktop/src-tauri/src/mixer/service.rs",
-      "bytes": 6978,
-      "sha256": "1f88f739bb4a4b8f2a90a87b607943541d2cc8c7b9ec9d25bbcabbfc18a8e115"
+      "bytes": 7036,
+      "sha256": "da1a7c107b3acdb1bf1b9e1eb7d2e248d866ce6eb2764720e37821e3369f3715"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/mixer/tests.rs",
+      "bytes": 26591,
+      "sha256": "3ef6f80fb33506fa19f3c4f5f36d2ddf301878ddf43ff845c7b6befcf5e43485"
     },
     {
       "path": "apps/desktop/src-tauri/src/orb/host.rs",
-      "bytes": 39817,
-      "sha256": "03b59605001a5c09bab96e13b483f62a8bfb2974c16298074a05c0071db14f77"
+      "bytes": 40986,
+      "sha256": "883d812c15973b6baaa3a1089eb86a0cf51647b97c9b78b65a41f7a2962541e4"
     },
     {
       "path": "apps/desktop/src-tauri/src/orb/mod.rs",
-      "bytes": 41385,
-      "sha256": "b72867a6b2f7250e02f1b2f00a913115646e9d04ffc863cfa601da64cb25564f"
+      "bytes": 50847,
+      "sha256": "c03a3d1672edca4fd0cf1f37ee757a3382a69b95f658c86a501b1e27a2f9d435"
     },
     {
       "path": "apps/desktop/src-tauri/src/overlay.rs",
@@ -1123,33 +1128,33 @@
     },
     {
       "path": "apps/desktop/src/orb/OrbSettings.tsx",
-      "bytes": 10899,
-      "sha256": "a3822a730873164f6e3e22e44ea2a975a92d152ebaa072be5834570c30ae9f81"
+      "bytes": 14555,
+      "sha256": "7f553033b5bd762d28179c1706b64584cf5d1a14c6750d3d032f394553b20082"
     },
     {
       "path": "apps/desktop/src/orb/OrbStage.tsx",
-      "bytes": 14248,
-      "sha256": "2f964b133c5ccec57e457d9e6a442ff805c2a4db70721c0df00ed7e44cccb07d"
+      "bytes": 15756,
+      "sha256": "74cd4b042b46e7b9851478e4cbd95dee63292801ad78c52495d6f2e83d741968"
     },
     {
       "path": "apps/desktop/src/orb/orb.css",
-      "bytes": 8274,
-      "sha256": "4ede86a684061ede1d9ca360c91cf9a12492859437e8068ed8a9fc2533c74420"
+      "bytes": 8672,
+      "sha256": "38435b0837d777a053bba21b389985ce55ffeb02a5b17bb91172fd7acedd21eb"
     },
     {
       "path": "apps/desktop/src/orb/orbApi.ts",
-      "bytes": 1998,
-      "sha256": "64f7ac45ecc418e47341264579e405668f8756b3becc26908f062519fe185ee9"
+      "bytes": 2018,
+      "sha256": "7bafb4c72d941c3e46d7fc50e4c0a99b8c98e6732468d0af4a28050b08a35f55"
     },
     {
       "path": "apps/desktop/src/orb/orbModel.ts",
-      "bytes": 16779,
-      "sha256": "ae638e852b0d5ae896431403d866212ecae79ae38151852429d690f3a203c05d"
+      "bytes": 25320,
+      "sha256": "bc773980dff6924d52690d94bd1cf48a77d9e25f62621e6e0d8f988f66b434ff"
     },
     {
       "path": "apps/desktop/src/orb/orbSettings.css",
-      "bytes": 1448,
-      "sha256": "8cb75969866841a260ce57b793052f879bc68ee389a9563507d4c2a73dc7c993"
+      "bytes": 2049,
+      "sha256": "4428d0828fc2a5282840d6b764bec59339dbf3527a547f0a85a9a3aff8790001"
     },
     {
       "path": "apps/desktop/src/overlayModel.ts",
@@ -1763,8 +1768,13 @@
     },
     {
       "path": "apps/desktop/tests/orb-model.test.ts",
-      "bytes": 6243,
-      "sha256": "05a7fab4b10549f69054c87b9ed624d04b77dd1f72e0986a7fc42ae2b3c8b00a"
+      "bytes": 11488,
+      "sha256": "92b9a1d509fb53fbce34860711d1f178fcfb9964c28167736febb954c6238a16"
+    },
+    {
+      "path": "apps/desktop/tests/orb-panel.test.ts",
+      "bytes": 5225,
+      "sha256": "f9172d0c59baddc1847266ff1adc5d4e25434806f6f48b78c1bc679eb2e901fd"
     },
     {
       "path": "apps/desktop/tests/overlayModel.test.ts",
@@ -2048,8 +2058,8 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 215396,
-      "sha256": "d6962e932ff2811aa19c28b09199c3fca7f28f047c38b3da03b3bc4aea19fc33"
+      "bytes": 217793,
+      "sha256": "3662ca27b4e7f0e963722ef4f5d29dd93ab620e5e44e03d5ea947d3d74c2842a"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -3073,8 +3083,8 @@
     },
     {
       "path": "docs/diagrams/README.md",
-      "bytes": 7437,
-      "sha256": "6f557a2c68b0a11e26e6518a9ec3c36ffccb56ab0c7773193d564183bb1bc460"
+      "bytes": 7372,
+      "sha256": "b3547f4f1af35c786f466e2e4426c98a154fa51b41d23ab3850b98614f5d222f"
     },
     {
       "path": "docs/diagrams/catalog.json",
@@ -3393,8 +3403,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 48217,
-      "sha256": "71f032f9d437fa052c340ee038c0c1558406528437d7db6ebdbd929d3736fa88"
+      "bytes": 50574,
+      "sha256": "48021b157c8b6e037e1137d9cde05bcc742cff868bb39bd3d7eac1cdd0ec2005"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
@@ -3473,13 +3483,13 @@
     },
     {
       "path": "docs/requirements/RTM.csv",
-      "bytes": 47410,
-      "sha256": "043d7bb84960b882f857a2993a8f5933f6db0226ffc6db9580d3466fb220b299"
+      "bytes": 47567,
+      "sha256": "8b8e66ce12c546506186aff592a103e60edbd4a40110db354ce8c182c4cbc5b2"
     },
     {
       "path": "docs/requirements/SRS.md",
-      "bytes": 140401,
-      "sha256": "169745e2c63e3943232af0f9d96ab8c521fd6b0dec61fa0569b0f3513334e35b"
+      "bytes": 142589,
+      "sha256": "42dd8c44645d9ff3893d806f03c22b0a221ef095cc21b9a79088ad024e7ab1ad"
     },
     {
       "path": "docs/security/SECURITY-PRIVACY.md",

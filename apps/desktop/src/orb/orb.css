@@ -60,7 +60,8 @@ body.orb-body #root { width: 100%; height: 100%; min-width: 0; min-height: 0; ov
 .orb-focus-s { display: block; font-size: 12px; opacity: .9; line-height: 1.4; font-variant-numeric: tabular-nums; }
 .orb-focus[aria-pressed="true"] { background: rgb(212 69 58 / 14%); border-color: var(--orb-brand-edge); color: var(--orb-text); }
 
-.orb-cols { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 10px; }
+/* one to four channels (owner 2026-11-22: at most four rows); the host sets --cols and the panel width */
+.orb-cols { display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); margin-top: 10px; }
 .orb-col { display: flex; flex-direction: column; align-items: center; min-width: 0; }
 .orb-col + .orb-col { border-left: 1px solid rgb(255 255 255 / 7%); }
 .orb-ico { width: 28px; height: 28px; border-radius: 8px; background: var(--orb-well); display: grid; place-items: center; margin-bottom: 4px; }
@@ -74,6 +75,9 @@ body.orb-body #root { width: 100%; height: 100%; min-width: 0; min-height: 0; ov
 .orb-fader { width: 100%; height: 184px; padding: 10px 0; box-sizing: border-box; display: flex; justify-content: center; cursor: pointer; touch-action: none; }
 .orb-track { position: relative; width: 6px; height: 100%; border-radius: 3px; background: rgb(255 255 255 / 13%); }
 .orb-fill { position: absolute; inset: 0; border-radius: 3px; background: var(--orb-text); transform-origin: 50% 100%; }
+/* mixed app: sessions at different levels, drawn as a band with no single thumb */
+.orb-range { position: absolute; left: -2px; right: -2px; border-radius: 4px; background: rgb(231 238 246 / 45%);
+  outline: 1px dashed rgb(231 238 246 / 70%); outline-offset: 1px; }
 .orb-thumb-wrap { position: absolute; inset: 0; pointer-events: none; }
 .orb-thumb { position: absolute; left: -13px; top: -9px; width: 32px; height: 18px; border-radius: 5px; background: linear-gradient(#fff, #d9dee6);
   box-shadow: 0 0 0 1px rgb(0 0 0 / 40%), 0 2px 6px rgb(0 0 0 / 55%); }

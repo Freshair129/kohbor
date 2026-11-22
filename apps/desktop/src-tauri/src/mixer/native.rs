@@ -56,6 +56,7 @@ pub(crate) struct CoreAudioBackend {
 
 struct Session {
     exe: Option<String>,
+    id: Option<String>,
     volume: Option<ISimpleAudioVolume>,
 }
 
@@ -99,6 +100,7 @@ impl CoreAudioBackend {
             let Ok(control) = (unsafe { list.GetSession(index) }) else {
                 sessions.push(Session {
                     exe: None,
+                    id: None,
                     volume: None,
                 });
                 continue;
@@ -120,6 +122,7 @@ impl CoreAudioBackend {
             Err(_) => {
                 return Some(Session {
                     exe: None,
+                    id: None,
                     volume: None,
                 })
             }
@@ -130,8 +133,9 @@ impl CoreAudioBackend {
             return None;
         }
         let exe = process_base_name(process_id);
+        let id = session_instance_id(&control2);
         let volume = control.cast::<ISimpleAudioVolume>().ok();
-        Some(Session { exe, volume })
+        Some(Session { exe, id, volume })
     }
 }
 
@@ -150,6 +154,7 @@ impl SessionBackend for CoreAudioBackend {
                 match (level, muted) {
                     (Ok(level), Ok(muted)) if level.is_finite() => SessionRead::Readable {
                         exe,
+                        id: session.id.clone(),
                         level,
                         muted: muted.as_bool(),
                     },
@@ -167,6 +172,7 @@ impl SessionBackend for CoreAudioBackend {
         &mut self,
         device_id: &str,
         exe: &str,
+        session_id: Option<&str>,
         level: Option<f32>,
         muted: Option<bool>,
     ) -> Result<usize, BackendError> {
@@ -176,7 +182,9 @@ impl SessionBackend for CoreAudioBackend {
         }
         let mut changed = 0usize;
         for session in Self::sessions(&device)? {
-            if session.exe.as_deref() != Some(exe) {
+            if session.exe.as_deref() != Some(exe)
+                || session_id.is_some_and(|wanted| session.id.as_deref() != Some(wanted))
+            {
                 continue;
             }
             let Some(volume) = session.volume else {
@@ -201,6 +209,17 @@ impl SessionBackend for CoreAudioBackend {
         }
         Ok(changed)
     }
+}
+
+/// The session instance identifier (stable while the session lives), or `None` when Windows does not give one.
+fn session_instance_id(control: &IAudioSessionControl2) -> Option<String> {
+    let id = unsafe { control.GetSessionInstanceIdentifier() }.ok()?;
+    if id.is_null() {
+        return None;
+    }
+    let text = unsafe { id.to_string() };
+    unsafe { CoTaskMemFree(Some(id.0 as *const core::ffi::c_void)) };
+    text.ok().filter(|text| !text.is_empty())
 }
 
 /// Lower-case executable base name of a process (no path), or `None` when it cannot be queried.

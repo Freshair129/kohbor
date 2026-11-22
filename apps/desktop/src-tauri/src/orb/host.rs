@@ -8,7 +8,7 @@ use super::{
     CLICK_SETTLE, ORB_LABEL,
 };
 use crate::intake::lock;
-use crate::mixer::AppChannel;
+use crate::mixer::Slot;
 use serde_json::{json, Value};
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -265,7 +265,8 @@ impl OrbHost {
             "dwell_ms": prefs.dwell_ms,
             "dwell_choices_ms": super::DWELL_CHOICES_MS,
             "focus_percent": prefs.focus_percent,
-            "music_exe": prefs.music_exe,
+            "slots": crate::mixer::slots_json(&prefs.slots),
+            "max_slots": crate::mixer::MAX_SLOTS,
             "focus_hotkey": prefs.focus_hotkey,
             "focus_hotkey_available": false,
             "status": self.status(),
@@ -410,16 +411,26 @@ fn kohbor_channel(state: &crate::AppState) -> Value {
         Some(_) => Value::Null,
     };
     json!({
-        "channel": "kohbor",
+        "id": "kohbor",
+        "kind": "kohbor",
         "state": "present",
         "exe": null,
         "percent": state.audio_prefs.current().master_volume_percent,
         "muted": muted,
+        "range": null,
     })
 }
 
+/// Fill the Kohbor slot placeholder the mixer leaves in its channel list.
 fn compose(state: &crate::AppState, mut mixer: Value) -> Value {
-    mixer["kohbor"] = kohbor_channel(state);
+    if let Some(channels) = mixer["channels"].as_array_mut() {
+        for channel in channels
+            .iter_mut()
+            .filter(|channel| channel["id"] == "kohbor")
+        {
+            *channel = kohbor_channel(state);
+        }
+    }
     mixer
 }
 
@@ -474,13 +485,13 @@ fn set_kohbor(
     }
 }
 
-fn persist_music(state: &crate::AppState, exe: Option<String>) {
+fn persist_slots(state: &crate::AppState, slots: Vec<Slot>) {
     let mut prefs = lock(&state.orb.prefs);
-    if prefs.music_exe == exe {
+    if prefs.slots == slots {
         return;
     }
     let mut next = prefs.clone();
-    next.music_exe = exe;
+    next.slots = slots;
     match state.orb.store.save(&next) {
         Ok(()) => *prefs = next,
         Err(code) => crate::log_warn!(
@@ -507,10 +518,15 @@ fn mixer_set_inner(
             Some(code) => reply(state, Err((code, snapshot))),
         });
     }
+    // `game`, `music` or `app:<exe>`; the mixer accepts only channels of the saved slots.
     let channel = |request: &Value| match request["channel"].as_str() {
-        Some("game") => Ok(AppChannel::Game),
-        Some("music") => Ok(AppChannel::Music),
-        _ => Err("MIXER_REQUEST_INVALID".to_owned()),
+        Some(id @ ("game" | "music")) => Ok(id.to_owned()),
+        Some(id) => id
+            .strip_prefix("app:")
+            .filter(|exe| crate::mixer::valid_exe(exe) && *exe == exe.to_ascii_lowercase())
+            .map(|_| id.to_owned())
+            .ok_or_else(|| "MIXER_REQUEST_INVALID".to_owned()),
+        None => Err("MIXER_REQUEST_INVALID".to_owned()),
     };
     let result = match op {
         "level" => {
@@ -521,14 +537,14 @@ fn mixer_set_inner(
                 .ok_or("MIXER_REQUEST_INVALID")? as u8;
             state
                 .mixer
-                .call(move |mixer| mixer.set_level(channel, percent))?
+                .call(move |mixer| mixer.set_level(&channel, percent))?
         }
         "mute" => {
             let channel = channel(request)?;
             let muted = request["muted"].as_bool().ok_or("MIXER_REQUEST_INVALID")?;
             state
                 .mixer
-                .call(move |mixer| mixer.set_muted(channel, muted))?
+                .call(move |mixer| mixer.set_muted(&channel, muted))?
         }
         "app" => {
             let exe = request["exe"]
@@ -536,12 +552,14 @@ fn mixer_set_inner(
                 .map(str::to_ascii_lowercase)
                 .filter(|exe| super::valid_exe(exe))
                 .ok_or("MIXER_REQUEST_INVALID")?;
-            let chosen = exe.clone();
-            let result = state.mixer.call(move |mixer| mixer.select_music(&chosen))?;
-            if result.is_ok() {
-                persist_music(state, Some(exe));
+            let result = state.mixer.call(move |mixer| mixer.select_music(&exe))?;
+            match result {
+                Ok((snapshot, slots)) => {
+                    persist_slots(state, slots);
+                    Ok(snapshot)
+                }
+                Err(failure) => Err(failure),
             }
-            result
         }
         "reset" => {
             let summary = state.mixer.call(|mixer| {
@@ -570,7 +588,8 @@ pub(crate) async fn orb_prefs_get(
     Ok(state.orb.prefs_json())
 }
 
-/// Settings (control window only): `enabled`, `dwell_ms`, `focus_percent`. Disabling restores original levels.
+/// Settings (control window only): `enabled`, `dwell_ms`, `focus_percent`, `slots`. Disabling restores original
+/// levels.
 #[tauri::command]
 pub(crate) async fn orb_prefs_set(
     app: tauri::AppHandle<tauri::Wry>,
@@ -586,9 +605,20 @@ pub(crate) async fn orb_prefs_set(
         let previous = std::mem::replace(&mut *prefs, next.clone());
         (previous, next)
     };
-    let music = next.music_exe.clone();
+    let slots = next.slots.clone();
     let focus = next.focus_percent;
-    let _ = state.mixer.call(move |mixer| mixer.configure(music, focus));
+    let _ = state.mixer.call(move |mixer| mixer.configure(slots, focus));
+    if previous.slots != next.slots {
+        crate::log_info!(
+            "orb",
+            "slots_changed",
+            "mixer slots changed",
+            slots = next.slots.len()
+        );
+        if let Ok(snapshot) = mixer_snapshot(&state) {
+            broadcast(&app, &reply(&state, Ok(snapshot)));
+        }
+    }
     if previous.dwell_ms != next.dwell_ms {
         if let Some(shared) = state.orb.shared() {
             lock(&shared).machine.dwell = Duration::from_millis(u64::from(next.dwell_ms));
@@ -642,14 +672,15 @@ pub(crate) async fn orb_click(
     Ok(json!({"open": open}))
 }
 
-/// Orb window only: the measured panel height. The host places the panel outside the protected regions or keeps
-/// it closed.
+/// Orb window only: the measured panel size. The host places the panel outside the protected regions or keeps it
+/// closed.
 #[tauri::command]
 pub(crate) async fn orb_panel_height(
     app: tauri::AppHandle<tauri::Wry>,
     window: tauri::WebviewWindow<tauri::Wry>,
     state: tauri::State<'_, crate::AppState>,
     height: f64,
+    width: f64,
 ) -> Result<Value, String> {
     require_window(&window, &[ORB_LABEL])?;
     let shared = state.orb.shared().ok_or("ORB_NOT_RUNNING")?;
@@ -661,7 +692,7 @@ pub(crate) async fn orb_panel_height(
         let rect = shared
             .geometry
             .as_ref()
-            .and_then(|geometry| panel_rect(&geometry.layout, height));
+            .and_then(|geometry| panel_rect(&geometry.layout, width, height));
         match rect {
             Some(rect) => {
                 shared.machine.panel = Some(rect);
@@ -693,7 +724,8 @@ pub(crate) async fn mixer_get(
 }
 
 /// `{op: "level", channel, percent}`, `{op: "mute", channel, muted}`, `{op: "app", exe}` or `{op: "reset"}`.
-/// Channels are `game`, `kohbor` and `music`; `exe` must be a music application with a session right now.
+/// Channels are `game`, `kohbor`, `music` and `app:<exe>` of the saved slots; `exe` must be an application with a
+/// session right now (the Music choice).
 #[tauri::command]
 pub(crate) async fn mixer_set(
     app: tauri::AppHandle<tauri::Wry>,

@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode, type WheelEvent } from "react";
 import { mixerApi, orbApi, subscribeMixer, subscribeOrbState } from "./orbApi";
 import {
-  appLabel, chargeCue, channelNote, controllable, faderPercent, HIDDEN_ORB, orbCopy, reasonText, valueText, wheelStep,
-  type ChannelId, type ChannelReading, type MixerReply, type MixerView, type OrbState,
+  appLabel, channelById, channelLabel, chargeCue, channelNote, controllable, faderPercent, focusTargets, HIDDEN_ORB, orbCopy,
+  panelCssWidth, reasonText, valueText, wheelStep,
+  type ChannelId, type ChannelKind, type ChannelReading, type MixerReply, type MixerView, type OrbState,
 } from "./orbModel";
 import "./orb.css";
 
@@ -45,9 +46,16 @@ function MuteIcon({ muted }: { muted: boolean }) {
   );
 }
 
-function ChannelIcon({ id }: { id: ChannelId }) {
-  if (id === "kohbor") return <Mark />;
-  if (id === "game") {
+function ChannelIcon({ kind }: { kind: ChannelKind }) {
+  if (kind === "kohbor") return <Mark />;
+  if (kind === "app") {
+    return (
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2.5" y="3.5" width="15" height="11" rx="2.5" /><path d="M7 17.5h6M6.5 9h1.5l2-2v4l-2-2M12.5 7.6a2 2 0 0 1 0 2.8" />
+      </svg>
+    );
+  }
+  if (kind === "game") {
     return (
       <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
         <path d="M6 5.5h8a4.5 4.5 0 0 1 4.4 5.4l-.5 2.4a2 2 0 0 1-3.5.9L13 12.5H7l-1.4 1.7a2 2 0 0 1-3.5-.9l-.5-2.4A4.5 4.5 0 0 1 6 5.5z" />
@@ -63,38 +71,40 @@ function ChannelIcon({ id }: { id: ChannelId }) {
 }
 
 interface FaderProps {
-  id: ChannelId;
-  name: string;
-  sub: string;
-  reading: ChannelReading | null;
+  reading: ChannelReading;
   focused?: boolean;
   extra?: ReactNode;
   onLevel: (id: ChannelId, percent: number, final: boolean) => void;
   onMute: (id: ChannelId) => void;
 }
 
-function Fader({ id, name, sub, reading, focused, extra, onLevel, onMute }: FaderProps) {
+function Fader({ reading, focused, extra, onLevel, onMute }: FaderProps) {
+  const { id, kind } = reading;
+  const { name, sub } = channelLabel(reading, LOCALE);
   const track = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<number | null>(null);
   const enabled = controllable(reading);
-  const shown = drag ?? reading?.percent ?? 0;
-  const muted = enabled && reading?.muted === true && drag === null;
+  // A mixed app has no single level: its range is drawn until the player moves it (which sets every session).
+  const range = drag === null && reading.state === "mixed" ? reading.range : null;
+  const shown = drag ?? reading.percent ?? reading.range?.[1] ?? 0;
+  const muted = enabled && reading.muted === true && drag === null;
   const fromPointer = (event: PointerEvent<HTMLDivElement>) => {
     const box = track.current?.getBoundingClientRect();
     return box ? faderPercent(event.clientY, box.top, box.height) : shown;
   };
   const wheel = (event: WheelEvent<HTMLDivElement>) => {
     if (!enabled) return;
-    onLevel(id, wheelStep(reading?.percent ?? 0, event.deltaY), true);
+    onLevel(id, wheelStep(shown, event.deltaY), true);
   };
   return (
     <div className={`orb-col${enabled ? "" : " is-disabled"}${muted ? " is-muted" : ""}${focused ? " is-focused" : ""}`}>
-      <div className="orb-ico" data-channel={id} aria-hidden="true"><ChannelIcon id={id} /></div>
+      <div className="orb-ico" data-channel={kind} aria-hidden="true"><ChannelIcon kind={kind} /></div>
       <div className="orb-name">{name}</div>
       <div className="orb-sub">{sub}</div>
       <div className="orb-extra">{extra}</div>
       <div className="orb-fader" role="slider" aria-orientation="vertical" aria-label={name} aria-valuemin={0} aria-valuemax={100}
-        aria-valuenow={enabled ? shown : undefined} aria-disabled={!enabled} tabIndex={-1}
+        aria-valuenow={enabled && !range ? shown : undefined} aria-valuetext={valueText(reading, LOCALE)}
+        aria-disabled={!enabled} tabIndex={-1} title={range ? text.mixedLabel(name, range[0], range[1]) : undefined}
         onMouseDown={noFocus}
         onPointerDown={(event) => {
           if (!enabled) return;
@@ -118,20 +128,21 @@ function Fader({ id, name, sub, reading, focused, extra, onLevel, onMute }: Fade
         onPointerCancel={() => setDrag(null)}
         onWheel={wheel}>
         <div className="orb-track" ref={track}>
-          {enabled && <div className="orb-fill" style={{ transform: `scaleY(${shown / 100})` }} />}
-          {enabled && <div className="orb-thumb-wrap" style={{ transform: `translateY(${100 - shown}%)` }}><div className="orb-thumb" /></div>}
+          {enabled && range && <div className="orb-range" style={{ bottom: `${range[0]}%`, height: `${Math.max(2, range[1] - range[0])}%` }} />}
+          {enabled && !range && <div className="orb-fill" style={{ transform: `scaleY(${shown / 100})` }} />}
+          {enabled && !range && <div className="orb-thumb-wrap" style={{ transform: `translateY(${100 - shown}%)` }}><div className="orb-thumb" /></div>}
         </div>
       </div>
       <div className="orb-val">{drag !== null ? `${drag}%` : valueText(reading, LOCALE)}</div>
       <button type="button" className="orb-mute" tabIndex={-1} aria-pressed={muted} aria-label={text.muteLabel(name)}
-        disabled={!enabled || (id === "kohbor" && reading?.muted === null)} onMouseDown={noFocus} onClick={() => onMute(id)}>
+        disabled={!enabled || (kind === "kohbor" && reading.muted === null)} onMouseDown={noFocus} onClick={() => onMute(id)}>
         <MuteIcon muted={muted} />
       </button>
     </div>
   );
 }
 
-function Panel({ state, view, error, onReply, onError }: {
+export function Panel({ state, view, error, onReply, onError }: {
   state: OrbState;
   view: MixerView | null;
   error: string | null;
@@ -150,11 +161,15 @@ function Panel({ state, view, error, onReply, onError }: {
     const element = box.current;
     if (!element) return;
     let sent = 0;
+    let sentWidth = 0;
     const report = () => {
-      const height = Math.round(element.getBoundingClientRect().height);
-      if (height > 0 && height !== sent) {
+      const box = element.getBoundingClientRect();
+      const height = Math.round(box.height);
+      const width = Math.ceil(box.width);
+      if (height > 0 && width > 0 && (height !== sent || width !== sentWidth)) {
         sent = height;
-        void orbApi.panelHeight(height).catch(() => {});
+        sentWidth = width;
+        void orbApi.panelSize(width, height).catch(() => {});
       }
     };
     report();
@@ -165,7 +180,11 @@ function Panel({ state, view, error, onReply, onError }: {
 
   if (!layout) return null;
   const top = state.panel?.y ?? Math.max(8, layout.cy - 31 * layout.sp);
-  const style = { left: `${layout.panel_x}px`, top: `${top}px`, "--sp": layout.sp, visibility: state.panel ? "visible" : "hidden" } as CSSProperties;
+  const count = view?.channels.length ?? 3;
+  const style = {
+    left: `${layout.panel_x}px`, top: `${top}px`, "--sp": layout.sp, "--cols": count, width: `${panelCssWidth(count)}px`,
+    visibility: state.panel ? "visible" : "hidden",
+  } as CSSProperties;
   const level = (id: ChannelId, percent: number, final: boolean) => {
     const now = performance.now();
     if (!final && now - lastSend.current < DRAG_SEND_MS) return;
@@ -173,28 +192,35 @@ function Panel({ state, view, error, onReply, onError }: {
     run(mixerApi.level(id, percent));
   };
   const mute = (id: ChannelId) => {
-    const reading = view?.[id];
-    if (!reading || reading.muted === null) return;
-    run(mixerApi.mute(id, !reading.muted));
+    const reading = channelById(view, id);
+    if (!reading || !controllable(reading)) return;
+    // A mixed mute (some sessions muted) mutes them all first.
+    run(mixerApi.mute(id, reading.muted !== true));
   };
   const note = channelNote(view, LOCALE);
   const focus = view?.focus;
-  const musicReady = controllable(view?.music);
+  const focusReady = focusTargets(view).length > 0;
+  const focused = new Set(focus?.active ? focus.channels.map((entry) => entry.id) : []);
+  const singlePrior = focus?.channels.length === 1 ? focus.channels[0]?.prior_percent ?? null : null;
+  const music = channelById(view, "music");
+  const appSlots = new Set(view?.channels.filter((reading) => reading.kind === "app").map((reading) => reading.exe));
+  const musicChoices = view?.app_choices.filter((exe) => !appSlots.has(exe)) ?? [];
   return (
     <div className="orb-panel" ref={box} style={style} role="group" aria-label={text.focus} onMouseDown={noFocus}>
       <div className="orb-fringe" />
-      <button type="button" className="orb-focus" tabIndex={-1} aria-pressed={focus?.active === true} disabled={!musicReady && !focus?.active}
+      <button type="button" className="orb-focus" tabIndex={-1} aria-pressed={focus?.active === true} disabled={!focusReady && !focus?.active}
         onMouseDown={noFocus} onClick={() => run(mixerApi.focus())}>
         <svg viewBox="0 0 26 26" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="13" cy="13" r="9.5" /><circle cx="13" cy="13" r="3.2" fill="currentColor" stroke="none" /><path d="M13 1.5v4M13 20.5v4M1.5 13h4M20.5 13h4" /></svg>
         <span><span className="orb-focus-t">{text.focus}</span>
-          <span className="orb-focus-s">{focus?.active ? text.focusOn(focus.prior_percent) : text.focusOff(focus?.percent ?? 20)}</span></span>
+          <span className="orb-focus-s">{focus?.active ? text.focusOn(singlePrior) : text.focusOff(focus?.percent ?? 20)}</span></span>
       </button>
       <div className="orb-cols">
-        <Fader id="game" name={text.game} sub={text.gameSub} reading={view?.game ?? null} onLevel={level} onMute={mute} />
-        <Fader id="kohbor" name={text.kohbor} sub={text.kohborSub} reading={view?.kohbor ?? null} onLevel={level} onMute={mute} />
-        <Fader id="music" name={text.music} sub={appLabel(view?.music.exe ?? null)} reading={view?.music ?? null} focused={focus?.active}
-          extra={<button type="button" className="orb-change" tabIndex={-1} onMouseDown={noFocus} onClick={() => setPicking(!picking)}>{text.change}</button>}
-          onLevel={level} onMute={mute} />
+        {(view?.channels ?? []).map((reading) => (
+          <Fader key={reading.id} reading={reading} focused={focused.has(reading.id)} onLevel={level} onMute={mute}
+            extra={reading.kind === "music"
+              ? <button type="button" className="orb-change" tabIndex={-1} onMouseDown={noFocus} onClick={() => setPicking(!picking)}>{text.change}</button>
+              : undefined} />
+        ))}
       </div>
       {note && <div className="orb-why"><i />{note[0]}<span>{note[1]}</span></div>}
       {error && <div className="orb-error" role="status">{reasonText(error, LOCALE)}</div>}
@@ -205,9 +231,9 @@ function Panel({ state, view, error, onReply, onError }: {
       {picking && (
         <div className="orb-pick" role="menu">
           <small>{text.pickTitle}</small>
-          {(view?.music_choices.length ?? 0) === 0 && <small>{text.noChoices}</small>}
-          {view?.music_choices.map((exe) => (
-            <button type="button" key={exe} role="menuitemradio" tabIndex={-1} aria-checked={exe === view.music.exe} onMouseDown={noFocus}
+          {musicChoices.length === 0 && <small>{text.noChoices}</small>}
+          {musicChoices.map((exe) => (
+            <button type="button" key={exe} role="menuitemradio" tabIndex={-1} aria-checked={exe === music?.exe} onMouseDown={noFocus}
               onClick={() => { setPicking(false); run(mixerApi.app(exe)); }}>{appLabel(exe)}</button>
           ))}
         </div>

@@ -1,12 +1,18 @@
 //! Per-application session volume (MEDIA-009) behind the orb sound mixer (UI-011).
 //!
 //! Kohbor changes only the Windows Core Audio shared-mode session volume and mute of the Dota 2 process and the
-//! music application the user selected, on the default render device. It never targets a renderer-supplied process
-//! id: the host resolves sessions itself from their executable base name. Before the first change of a session the
-//! original level and mute are persisted locally; they are restored on exit, on disable, on Reset and on the next
+//! applications the user placed in a mixer slot, on the default render device. It never targets a renderer-supplied
+//! process id: the host resolves sessions itself from their executable base name. Before the first change of an
+//! application the original level and mute are persisted locally (one entry for the application when all its sessions
+//! agree, one entry per session when they differ); they are restored on exit, on disable, on Reset and on the next
 //! start after an abnormal exit. Every change re-reads the sessions first, so a session that has not been read is
 //! never set and a changed default device is noticed before use. Logs carry channel, executable base name and level
 //! only.
+//!
+//! Mixer slots (owner request 2026-11-22): the panel shows at most four channels. Game (Dota 2) is fixed first; up
+//! to three slots follow, each the Kohbor announcer, the Music channel (a chosen app, or the first running default)
+//! or an application chosen by executable name. An application with several sessions moves them all together and
+//! shows their common value, or a mixed state when they differ.
 //!
 //! This file is platform independent: the Core Audio backend lives in `native.rs`, the COM thread in `service.rs`,
 //! and the tests below drive the same logic through a fake session manager.
@@ -24,14 +30,136 @@ pub(crate) const GAME_EXE: &str = "dota2.exe";
 pub(crate) const MUSIC_DEFAULTS: [&str; 4] =
     ["chrome.exe", "msedge.exe", "firefox.exe", "spotify.exe"];
 pub(crate) const DEFAULT_FOCUS_PERCENT: u8 = 20;
+/// Slots after the fixed Game channel: the panel shows at most four channels.
+pub(crate) const MAX_SLOTS: usize = 3;
 const STORE_SCHEMA_VERSION: u8 = 1;
 pub(crate) const ORIGINALS_FILE: &str = "mixer-originals.json";
+
+// ---------------------------------------------------------------------------------------------------------------
+// Slots
+
+/// One configurable mixer slot after the fixed Game channel.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum Slot {
+    /// The Kohbor announcer volume (the existing announcer path, not a Windows session).
+    Kohbor,
+    /// The Music channel: the chosen application, or `None` for the first running default.
+    Music(Option<String>),
+    /// An application chosen by executable base name (lower case), for example `discord.exe`.
+    App(String),
+}
+
+impl Slot {
+    /// The channel id used by the renderer and the commands: `kohbor`, `music` or `app:<exe>`.
+    pub(crate) fn id(&self) -> String {
+        match self {
+            Self::Kohbor => "kohbor".to_owned(),
+            Self::Music(_) => "music".to_owned(),
+            Self::App(exe) => format!("app:{exe}"),
+        }
+    }
+
+    fn kind(&self) -> &'static str {
+        match self {
+            Self::Kohbor => "kohbor",
+            Self::Music(_) => "music",
+            Self::App(_) => "app",
+        }
+    }
+
+    pub(crate) fn to_json(&self) -> Value {
+        match self {
+            Self::Kohbor => json!({"kind": "kohbor"}),
+            Self::Music(exe) => json!({"kind": "music", "exe": exe}),
+            Self::App(exe) => json!({"kind": "app", "exe": exe}),
+        }
+    }
+
+    /// Parse one slot; executables are lower-cased. Unknown kinds or fields are refused.
+    pub(crate) fn from_json(value: &Value) -> Option<Self> {
+        let object = value.as_object()?;
+        let exe = |required: bool| -> Option<Option<String>> {
+            match object.get("exe") {
+                None | Some(Value::Null) if !required => Some(None),
+                Some(Value::String(exe)) => {
+                    let exe = exe.to_ascii_lowercase();
+                    valid_exe(&exe).then_some(Some(exe))
+                }
+                _ => None,
+            }
+        };
+        let allowed = |keys: &[&str]| object.keys().all(|key| keys.contains(&key.as_str()));
+        match object.get("kind")?.as_str()? {
+            "kohbor" if allowed(&["kind"]) => Some(Self::Kohbor),
+            "music" if allowed(&["kind", "exe"]) => Some(Self::Music(exe(false)?)),
+            "app" if allowed(&["kind", "exe"]) => Some(Self::App(exe(true)??)),
+            _ => None,
+        }
+    }
+
+    fn fixed_exe(&self) -> Option<&str> {
+        match self {
+            Self::Kohbor | Self::Music(None) => None,
+            Self::Music(Some(exe)) | Self::App(exe) => Some(exe),
+        }
+    }
+}
+
+/// Default slots: Kohbor and Music (the behaviour before slots existed), the fourth row left empty.
+pub(crate) fn default_slots() -> Vec<Slot> {
+    vec![Slot::Kohbor, Slot::Music(None)]
+}
+
+/// Executable base names accepted from settings and requests: no path, `.exe`, a conservative character set.
+pub(crate) fn valid_exe(exe: &str) -> bool {
+    (5..=64).contains(&exe.len())
+        && exe.ends_with(".exe")
+        && exe
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-' | b' '))
+}
+
+/// At most three slots, at most one Kohbor and one Music slot, no Dota, no executable twice.
+pub(crate) fn valid_slots(slots: &[Slot]) -> bool {
+    if slots.len() > MAX_SLOTS
+        || slots.iter().filter(|slot| **slot == Slot::Kohbor).count() > 1
+        || slots
+            .iter()
+            .filter(|slot| matches!(slot, Slot::Music(_)))
+            .count()
+            > 1
+    {
+        return false;
+    }
+    let mut seen: Vec<&str> = Vec::new();
+    for exe in slots.iter().filter_map(Slot::fixed_exe) {
+        if exe == GAME_EXE
+            || !valid_exe(exe)
+            || exe != exe.to_ascii_lowercase()
+            || seen.contains(&exe)
+        {
+            return false;
+        }
+        seen.push(exe);
+    }
+    true
+}
+
+pub(crate) fn slots_json(slots: &[Slot]) -> Value {
+    Value::Array(slots.iter().map(Slot::to_json).collect())
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Backend
 
 /// One audio session as read from the default render device.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum SessionRead {
     Readable {
         exe: String,
+        /// Session instance identifier (stable while the session lives), when Windows provides one. Stored locally
+        /// with per-session originals, never logged.
+        id: Option<String>,
         level: f32,
         muted: bool,
     },
@@ -46,13 +174,37 @@ pub(crate) struct DeviceRead {
     pub(crate) sessions: Vec<SessionRead>,
 }
 
+impl DeviceRead {
+    /// Readable sessions of `exe`: (session id, exact level, mute).
+    fn readable(&self, exe: &str) -> Vec<(Option<&str>, f32, bool)> {
+        self.sessions
+            .iter()
+            .filter_map(|session| match session {
+                SessionRead::Readable {
+                    exe: session_exe,
+                    id,
+                    level,
+                    muted,
+                } if session_exe == exe => Some((id.as_deref(), *level, *muted)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn has_session(&self, exe: &str, id: &str) -> bool {
+        self.readable(exe)
+            .iter()
+            .any(|(session, ..)| *session == Some(id))
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum BackendError {
     /// Core Audio (or the default device) is not available.
     Unavailable,
     /// The default device is not the one that was read before the set.
     DeviceChanged,
-    /// No readable session of the executable exists any more.
+    /// No readable session of the executable (or the named session) exists any more.
     Missing,
     /// A session refused the new level or mute.
     SetFailed,
@@ -73,22 +225,30 @@ impl BackendError {
 pub(crate) trait SessionBackend {
     /// Enumerate the sessions of the current default render device.
     fn read(&mut self) -> Result<DeviceRead, BackendError>;
-    /// Set level and/or mute on every session of `exe` that the backend reads again during this call on `device`.
-    /// Must fail with `DeviceChanged` when the default device is no longer `device`. Returns the sessions changed.
+    /// Set level and/or mute on every session of `exe` (or only the session `session` of `exe`) that the backend
+    /// reads again during this call on `device`. Must fail with `DeviceChanged` when the default device is no longer
+    /// `device`. Returns the sessions changed.
     fn apply(
         &mut self,
         device: &str,
         exe: &str,
+        session: Option<&str>,
         level: Option<f32>,
         muted: Option<bool>,
     ) -> Result<usize, BackendError>;
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Recovery data
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Original {
     pub(crate) device: String,
     pub(crate) exe: String,
+    /// `None`: every session of `exe` had this value. `Some`: the value of that one session (mixed sessions).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) session: Option<String>,
     pub(crate) level: f32,
     pub(crate) muted: bool,
 }
@@ -151,7 +311,10 @@ fn parse_originals(bytes: &[u8]) -> Result<Vec<Original>, String> {
         serde_json::from_slice(bytes).map_err(|_| "MIXER_RECOVERY_INVALID".to_owned())?;
     if stored.schema_version != STORE_SCHEMA_VERSION
         || stored.entries.iter().any(|entry| {
-            !entry.level.is_finite() || !(0.0..=1.0).contains(&entry.level) || entry.exe.is_empty()
+            !entry.level.is_finite()
+                || !(0.0..=1.0).contains(&entry.level)
+                || entry.exe.is_empty()
+                || entry.session.as_deref().is_some_and(str::is_empty)
         })
     {
         return Err("MIXER_RECOVERY_INVALID".to_owned());
@@ -159,31 +322,27 @@ fn parse_originals(bytes: &[u8]) -> Result<Vec<Original>, String> {
     Ok(stored.entries)
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub(crate) enum AppChannel {
-    Game,
-    Music,
-}
-
-impl AppChannel {
-    pub(crate) fn as_str(self) -> &'static str {
-        match self {
-            Self::Game => "game",
-            Self::Music => "music",
-        }
-    }
-}
+// ---------------------------------------------------------------------------------------------------------------
+// Channel state
 
 /// What a channel looks like after a fresh read.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum ChannelState {
+    /// Every readable session of the application has this level and mute.
     Present {
         exe: String,
         percent: u8,
         muted: bool,
     },
-    /// No session for the executable (Dota not playing sound yet, music app not running, or no app chosen).
+    /// Several sessions with different levels or mutes: their range is shown, never one invented value.
+    Mixed {
+        exe: String,
+        low: u8,
+        high: u8,
+        /// `Some` when the mute agrees across sessions.
+        muted: Option<bool>,
+    },
+    /// No session for the executable (Dota not playing sound yet, app not running, or no music app found).
     Missing {
         exe: Option<String>,
     },
@@ -193,22 +352,32 @@ pub(crate) enum ChannelState {
 }
 
 impl ChannelState {
-    pub(crate) fn to_json(&self, channel: &str) -> Value {
+    fn to_json(&self, id: &str, kind: &str) -> Value {
         match self {
             Self::Present {
                 exe,
                 percent,
                 muted,
-            } => {
-                json!({"channel": channel, "state": "present", "exe": exe, "percent": percent, "muted": muted})
-            }
-            Self::Missing { exe } => {
-                json!({"channel": channel, "state": "missing", "exe": exe, "percent": null, "muted": null})
-            }
+            } => json!({"id": id, "kind": kind, "state": "present", "exe": exe, "percent": percent,
+                "muted": muted, "range": null}),
+            Self::Mixed {
+                exe,
+                low,
+                high,
+                muted,
+            } => json!({"id": id, "kind": kind, "state": "mixed", "exe": exe, "percent": null,
+                "muted": muted, "range": [low, high]}),
+            Self::Missing { exe } => json!({"id": id, "kind": kind, "state": "missing", "exe": exe,
+                "percent": null, "muted": null, "range": null}),
             Self::Unreadable { exe } => {
-                json!({"channel": channel, "state": "unreadable", "exe": exe, "percent": null, "muted": null})
+                json!({"id": id, "kind": kind, "state": "unreadable", "exe": exe,
+                "percent": null, "muted": null, "range": null})
             }
         }
+    }
+
+    fn controllable(&self) -> bool {
+        matches!(self, Self::Present { .. } | Self::Mixed { .. })
     }
 }
 
@@ -243,6 +412,7 @@ impl SessionBackend for UnavailableBackend {
         &mut self,
         _: &str,
         _: &str,
+        _: Option<&str>,
         _: Option<f32>,
         _: Option<bool>,
     ) -> Result<usize, BackendError> {
@@ -261,6 +431,22 @@ fn level_of(percent: u8) -> f32 {
     f32::from(percent.min(100)) / 100.0
 }
 
+/// A channel lowered by Focus mode and the exact values to put back.
+#[derive(Clone, Debug, PartialEq)]
+struct FocusEntry {
+    channel: String,
+    exe: String,
+    /// `(None, level)` for the whole application, `(Some(session), level)` per session when they differed.
+    prior: Vec<(Option<String>, f32)>,
+}
+
+/// A resolved application channel: its id, kind (for logs: `game`, `music` or `app`) and executable.
+struct Target {
+    id: String,
+    kind: &'static str,
+    exe: Option<String>,
+}
+
 pub(crate) struct Mixer {
     backend: Box<dyn SessionBackend>,
     store: Box<dyn OriginalStore>,
@@ -268,11 +454,10 @@ pub(crate) struct Mixer {
     /// Set when a restore was requested (disable, Reset, recovery) but some session was not present: every later
     /// read retries until all originals are back.
     restore_owed: bool,
-    /// Executable chosen by the user for the music channel; `None` picks the first running default.
-    music_exe: Option<String>,
+    slots: Vec<Slot>,
     focus_percent: u8,
-    /// Music level before Focus mode, while Focus mode is on.
-    focus_prior: Option<u8>,
+    /// Channels lowered by Focus mode, while Focus mode is on.
+    focus: Option<Vec<FocusEntry>>,
     last_device: Option<String>,
     own_exe: Option<String>,
 }
@@ -311,25 +496,38 @@ impl Mixer {
             store,
             originals,
             restore_owed,
-            music_exe: None,
+            slots: default_slots(),
             focus_percent: DEFAULT_FOCUS_PERCENT,
-            focus_prior: None,
+            focus: None,
             last_device: None,
             own_exe,
         }
     }
 
-    pub(crate) fn configure(&mut self, music_exe: Option<String>, focus_percent: u8) {
-        let music_exe = music_exe.map(|exe| exe.to_ascii_lowercase());
-        if music_exe != self.music_exe {
-            self.focus_prior = None;
-        }
-        self.music_exe = music_exe;
+    /// Apply the saved slots and Focus level. Invalid slots are refused (the previous slots stay). Focus entries of
+    /// channels that are gone or now point to another application are dropped.
+    pub(crate) fn configure(&mut self, slots: Vec<Slot>, focus_percent: u8) -> bool {
         self.focus_percent = focus_percent.min(100);
+        if !valid_slots(&slots) {
+            return false;
+        }
+        if let Some(entries) = &mut self.focus {
+            entries.retain(|entry| {
+                slots.iter().any(|slot| {
+                    slot.id() == entry.channel
+                        && slot.fixed_exe().is_none_or(|exe| exe == entry.exe)
+                })
+            });
+            if entries.is_empty() {
+                self.focus = None;
+            }
+        }
+        self.slots = slots;
+        true
     }
 
     pub(crate) fn focus_active(&self) -> bool {
-        self.focus_prior.is_some()
+        self.focus.is_some()
     }
 
     pub(crate) fn recovery_pending(&self) -> usize {
@@ -343,71 +541,110 @@ impl Mixer {
             .as_ref()
             .is_some_and(|previous| previous != &read.device)
         {
-            // Never log the endpoint id. Focus mode refers to a session on the old device.
+            // Never log the endpoint id. Focus mode refers to sessions on the old device.
             crate::log_info!(
                 "mixer",
                 "device_changed",
                 "default render device changed; sessions re-read"
             );
-            self.focus_prior = None;
+            self.focus = None;
         }
         self.last_device = Some(read.device.clone());
         Ok(read)
     }
 
-    fn music_exe_in(&self, read: &DeviceRead) -> Option<String> {
-        if let Some(exe) = &self.music_exe {
+    /// The executable of a Music slot: the chosen one, or the first running default not used by another slot.
+    fn music_exe_in(&self, chosen: Option<&String>, read: &DeviceRead) -> Option<String> {
+        if let Some(exe) = chosen {
             return Some(exe.clone());
         }
         MUSIC_DEFAULTS
             .iter()
             .find(|candidate| {
-                read.sessions
+                !self
+                    .slots
                     .iter()
-                    .any(|session| matches!(session, SessionRead::Readable { exe, .. } if exe == *candidate))
+                    .any(|slot| slot.fixed_exe() == Some(**candidate))
+                    && !read.readable(candidate).is_empty()
             })
             .map(|exe| (*exe).to_owned())
     }
 
-    fn exe_for(&self, channel: AppChannel, read: &DeviceRead) -> Option<String> {
-        match channel {
-            AppChannel::Game => Some(GAME_EXE.to_owned()),
-            AppChannel::Music => self.music_exe_in(read),
+    /// Application channels in panel order (Kohbor excluded; the host composes it).
+    fn targets(&self, read: Option<&DeviceRead>) -> Vec<Target> {
+        let mut targets = vec![Target {
+            id: "game".to_owned(),
+            kind: "game",
+            exe: Some(GAME_EXE.to_owned()),
+        }];
+        for slot in &self.slots {
+            let exe = match slot {
+                Slot::Kohbor => continue,
+                Slot::Music(chosen) => match read {
+                    Some(read) => self.music_exe_in(chosen.as_ref(), read),
+                    None => chosen.clone(),
+                },
+                Slot::App(exe) => Some(exe.clone()),
+            };
+            targets.push(Target {
+                id: slot.id(),
+                kind: slot.kind(),
+                exe,
+            });
         }
+        targets
     }
 
-    fn state_in(read: &DeviceRead, exe: Option<String>) -> ChannelState {
+    fn target(&self, channel: &str, read: &DeviceRead) -> Option<Target> {
+        self.targets(Some(read))
+            .into_iter()
+            .find(|target| target.id == channel)
+    }
+
+    fn state_in(read: &DeviceRead, exe: Option<&str>) -> ChannelState {
         let Some(exe) = exe else {
             return ChannelState::Missing { exe: None };
         };
-        let mut unreadable = false;
-        for session in &read.sessions {
-            match session {
-                SessionRead::Readable {
-                    exe: session_exe,
-                    level,
-                    muted,
-                } if session_exe == &exe => {
-                    return ChannelState::Present {
-                        exe,
-                        percent: percent_of(*level),
-                        muted: *muted,
-                    };
+        let sessions = read.readable(exe);
+        let Some((_, first_level, first_muted)) = sessions.first().copied() else {
+            let unreadable = read.sessions.iter().any(
+                |session| matches!(session, SessionRead::Unreadable { exe: Some(other) } if other == exe),
+            );
+            return if unreadable {
+                ChannelState::Unreadable {
+                    exe: Some(exe.to_owned()),
                 }
-                SessionRead::Unreadable {
-                    exe: Some(session_exe),
-                } if session_exe == &exe => unreadable = true,
-                _ => {}
+            } else {
+                ChannelState::Missing {
+                    exe: Some(exe.to_owned()),
+                }
+            };
+        };
+        let percents: Vec<u8> = sessions
+            .iter()
+            .map(|(_, level, _)| percent_of(*level))
+            .collect();
+        let low = percents.iter().copied().min().unwrap_or(0);
+        let high = percents.iter().copied().max().unwrap_or(0);
+        let same_mute = sessions.iter().all(|(_, _, muted)| *muted == first_muted);
+        if low == high && same_mute {
+            ChannelState::Present {
+                exe: exe.to_owned(),
+                percent: percent_of(first_level),
+                muted: first_muted,
             }
-        }
-        if unreadable {
-            ChannelState::Unreadable { exe: Some(exe) }
         } else {
-            ChannelState::Missing { exe: Some(exe) }
+            ChannelState::Mixed {
+                exe: exe.to_owned(),
+                low,
+                high,
+                muted: same_mute.then_some(first_muted),
+            }
         }
     }
 
-    /// Music applications the user may choose from: readable sessions other than Dota and Kohbor itself.
+    /// Applications the user may put in a slot or choose for Music: readable sessions other than Dota and Kohbor
+    /// itself, plus the applications already configured.
     fn choices_in(&self, read: &DeviceRead) -> Vec<String> {
         let mut choices: Vec<String> = Vec::new();
         for session in &read.sessions {
@@ -420,114 +657,212 @@ impl Mixer {
                 }
             }
         }
-        if let Some(chosen) = &self.music_exe {
-            if !choices.contains(chosen) {
-                choices.push(chosen.clone());
+        for exe in self.slots.iter().filter_map(Slot::fixed_exe) {
+            if !choices.iter().any(|choice| choice == exe) {
+                choices.push(exe.to_owned());
             }
         }
         choices.sort();
         choices
     }
 
-    /// Fresh read of both application channels. Retries an owed restore first.
+    fn focus_json(&self) -> Value {
+        let channels: Vec<Value> = self
+            .focus
+            .iter()
+            .flatten()
+            .map(|entry| {
+                let prior = match entry.prior.as_slice() {
+                    [(None, level)] => json!(percent_of(*level)),
+                    _ => Value::Null,
+                };
+                json!({"id": entry.channel, "prior_percent": prior})
+            })
+            .collect();
+        json!({"active": self.focus_active(), "percent": self.focus_percent, "channels": channels})
+    }
+
+    fn music_selected(&self) -> Value {
+        match self
+            .slots
+            .iter()
+            .find(|slot| matches!(slot, Slot::Music(_)))
+        {
+            Some(Slot::Music(exe)) => json!(exe),
+            _ => Value::Null,
+        }
+    }
+
+    /// Fresh read of every application channel. Retries an owed restore first.
     pub(crate) fn snapshot(&mut self) -> Value {
         if self.restore_owed {
             let _ = self.restore_all("retry");
         }
         match self.read() {
             Ok(read) => self.snapshot_from(&read, None),
-            Err(error) => json!({
-                "available": false,
-                "reason": error.code(),
-                "game": ChannelState::Unreadable { exe: Some(GAME_EXE.to_owned()) }.to_json("game"),
-                "music": ChannelState::Unreadable { exe: self.music_exe.clone() }.to_json("music"),
-                "music_choices": [],
-                "music_selected": self.music_exe,
-                "focus": {"active": self.focus_active(), "percent": self.focus_percent, "prior_percent": self.focus_prior},
-                "restore_pending": if self.restore_owed { self.originals.len() } else { 0 },
-                "touched": self.originals.len(),
-            }),
+            Err(error) => self.unavailable_snapshot(error),
         }
     }
 
+    /// Channels in panel order; the Kohbor slot is a placeholder `{"id": "kohbor", "kind": "kohbor"}` that the
+    /// host fills from the announcer path.
+    fn channels_json(&self, read: Option<&DeviceRead>) -> Vec<Value> {
+        let mut targets = self.targets(read).into_iter();
+        let mut channels = Vec::new();
+        if let Some(game) = targets.next() {
+            channels.push(self.channel_json(&game, read));
+        }
+        for slot in &self.slots {
+            if *slot == Slot::Kohbor {
+                channels.push(json!({"id": "kohbor", "kind": "kohbor"}));
+            } else if let Some(target) = targets.next() {
+                channels.push(self.channel_json(&target, read));
+            }
+        }
+        channels
+    }
+
+    fn channel_json(&self, target: &Target, read: Option<&DeviceRead>) -> Value {
+        let state = match read {
+            Some(read) => Self::state_in(read, target.exe.as_deref()),
+            None => ChannelState::Unreadable {
+                exe: target.exe.clone(),
+            },
+        };
+        state.to_json(&target.id, target.kind)
+    }
+
     fn snapshot_from(&self, read: &DeviceRead, reason: Option<&str>) -> Value {
-        let game = Self::state_in(read, self.exe_for(AppChannel::Game, read));
-        let music = Self::state_in(read, self.exe_for(AppChannel::Music, read));
         json!({
             "available": true,
             "reason": reason,
-            "game": game.to_json("game"),
-            "music": music.to_json("music"),
-            "music_choices": self.choices_in(read),
-            "music_selected": self.music_exe,
-            "focus": {"active": self.focus_active(), "percent": self.focus_percent, "prior_percent": self.focus_prior},
+            "channels": self.channels_json(Some(read)),
+            "slots": slots_json(&self.slots),
+            "app_choices": self.choices_in(read),
+            "music_selected": self.music_selected(),
+            "focus": self.focus_json(),
             "restore_pending": if self.restore_owed { self.originals.len() } else { 0 },
-                "touched": self.originals.len(),
+            "touched": self.originals.len(),
         })
+    }
+
+    fn unavailable_snapshot(&self, error: BackendError) -> Value {
+        json!({
+            "available": false,
+            "reason": error.code(),
+            "channels": self.channels_json(None),
+            "slots": slots_json(&self.slots),
+            "app_choices": [],
+            "music_selected": self.music_selected(),
+            "focus": self.focus_json(),
+            "restore_pending": if self.restore_owed { self.originals.len() } else { 0 },
+            "touched": self.originals.len(),
+        })
+    }
+
+    fn snapshot_after_change(&mut self, reason: Option<&str>) -> Value {
+        match self.read() {
+            Ok(read) => self.snapshot_from(&read, reason),
+            Err(error) => self.unavailable_snapshot(error),
+        }
+    }
+
+    /// Persist the originals of `exe` before its first change: one entry when its sessions agree, one per session
+    /// when they differ (a differing session without an id cannot be recorded, so nothing changes).
+    fn ensure_originals(&mut self, read: &DeviceRead, exe: &str, kind: &str) -> Result<(), String> {
+        let sessions = read.readable(exe);
+        let existing: Vec<&Original> = self
+            .originals
+            .iter()
+            .filter(|entry| entry.device == read.device && entry.exe == exe)
+            .collect();
+        if existing.iter().any(|entry| entry.session.is_none()) {
+            return Ok(());
+        }
+        let uniform = matches!(
+            Self::state_in(read, Some(exe)),
+            ChannelState::Present { .. }
+        );
+        let mut additions = Vec::new();
+        if existing.is_empty() && uniform {
+            if let Some((_, level, muted)) = sessions.first() {
+                additions.push(Original {
+                    device: read.device.clone(),
+                    exe: exe.to_owned(),
+                    session: None,
+                    level: *level,
+                    muted: *muted,
+                });
+            }
+        } else {
+            for (id, level, muted) in &sessions {
+                let Some(id) = id else {
+                    if uniform {
+                        continue;
+                    }
+                    return Err("MIXER_SESSION_UNREADABLE".to_owned());
+                };
+                if existing
+                    .iter()
+                    .any(|entry| entry.session.as_deref() == Some(*id))
+                {
+                    continue;
+                }
+                additions.push(Original {
+                    device: read.device.clone(),
+                    exe: exe.to_owned(),
+                    session: Some((*id).to_owned()),
+                    level: *level,
+                    muted: *muted,
+                });
+            }
+        }
+        if additions.is_empty() {
+            return Ok(());
+        }
+        let mut next = self.originals.clone();
+        next.extend(additions);
+        if let Err(code) = self.store.save(&next) {
+            crate::log_warn!(
+                "mixer",
+                "set_refused",
+                "original level could not be stored; nothing changed",
+                channel = kind,
+                exe = exe
+            );
+            return Err(code);
+        }
+        self.originals = next;
+        Ok(())
     }
 
     fn change(
         &mut self,
-        channel: AppChannel,
+        channel: &str,
         percent: Option<u8>,
         muted: Option<bool>,
     ) -> Result<Value, (String, Value)> {
         let read = self
             .read()
             .map_err(|error| (error.code().to_owned(), self.unavailable_snapshot(error)))?;
-        let exe = self.exe_for(channel, &read);
-        let state = Self::state_in(&read, exe.clone());
-        let ChannelState::Present { exe, .. } = &state else {
+        let Some(target) = self.target(channel, &read) else {
+            let code = "MIXER_CHANNEL_UNKNOWN";
+            return Err((code.to_owned(), self.snapshot_from(&read, Some(code))));
+        };
+        let state = Self::state_in(&read, target.exe.as_deref());
+        let (true, Some(exe)) = (state.controllable(), target.exe.clone()) else {
             let code = match state {
                 ChannelState::Unreadable { .. } => "MIXER_SESSION_UNREADABLE",
                 _ => BackendError::Missing.code(),
             };
             return Err((code.to_owned(), self.snapshot_from(&read, Some(code))));
         };
-        let exe = exe.clone();
-        let exact_level = read.sessions.iter().find_map(|session| match session {
-            SessionRead::Readable {
-                exe: session_exe,
-                level,
-                ..
-            } if *session_exe == exe => Some(*level),
-            _ => None,
-        });
-        if !self
-            .originals
-            .iter()
-            .any(|entry| entry.device == read.device && entry.exe == exe)
-        {
-            let ChannelState::Present {
-                muted: was_muted,
-                percent: was,
-                ..
-            } = &state
-            else {
-                unreachable!("checked above");
-            };
-            let mut next = self.originals.clone();
-            next.push(Original {
-                device: read.device.clone(),
-                exe: exe.clone(),
-                level: exact_level.unwrap_or(level_of(*was)),
-                muted: *was_muted,
-            });
-            if let Err(code) = self.store.save(&next) {
-                crate::log_warn!(
-                    "mixer",
-                    "set_refused",
-                    "original level could not be stored; nothing changed",
-                    channel = channel.as_str(),
-                    exe = exe.as_str()
-                );
-                return Err((code.clone(), self.snapshot_from(&read, Some(&code))));
-            }
-            self.originals = next;
+        if let Err(code) = self.ensure_originals(&read, &exe, target.kind) {
+            return Err((code.clone(), self.snapshot_from(&read, Some(&code))));
         }
         match self
             .backend
-            .apply(&read.device, &exe, percent.map(level_of), muted)
+            .apply(&read.device, &exe, None, percent.map(level_of), muted)
         {
             Ok(_) => {
                 if let Some(percent) = percent {
@@ -535,7 +870,7 @@ impl Mixer {
                         "mixer",
                         "level_set",
                         "session level set",
-                        channel = channel.as_str(),
+                        channel = target.kind,
                         exe = exe.as_str(),
                         level = percent
                     );
@@ -545,133 +880,217 @@ impl Mixer {
                         "mixer",
                         "mute_set",
                         "session mute set",
-                        channel = channel.as_str(),
+                        channel = target.kind,
                         exe = exe.as_str(),
                         muted = muted
                     );
                 }
-                Ok(self.snapshot_after_change())
+                Ok(self.snapshot_after_change(None))
             }
             Err(error) => {
                 crate::log_warn!(
                     "mixer",
                     "set_failed",
                     "session change failed; showing the last read value",
-                    channel = channel.as_str(),
+                    channel = target.kind,
                     exe = exe.as_str(),
                     code = error.code()
                 );
                 // Re-read so the reply shows the real level, never the requested one.
-                let snapshot = match self.read() {
-                    Ok(read) => self.snapshot_from(&read, Some(error.code())),
-                    Err(read_error) => self.unavailable_snapshot(read_error),
-                };
-                Err((error.code().to_owned(), snapshot))
+                Err((
+                    error.code().to_owned(),
+                    self.snapshot_after_change(Some(error.code())),
+                ))
             }
         }
     }
 
-    fn snapshot_after_change(&mut self) -> Value {
-        match self.read() {
-            Ok(read) => self.snapshot_from(&read, None),
-            Err(error) => self.unavailable_snapshot(error),
-        }
-    }
-
-    fn unavailable_snapshot(&self, error: BackendError) -> Value {
-        json!({
-            "available": false,
-            "reason": error.code(),
-            "game": ChannelState::Unreadable { exe: Some(GAME_EXE.to_owned()) }.to_json("game"),
-            "music": ChannelState::Unreadable { exe: self.music_exe.clone() }.to_json("music"),
-            "music_choices": [],
-            "music_selected": self.music_exe,
-            "focus": {"active": self.focus_active(), "percent": self.focus_percent, "prior_percent": self.focus_prior},
-            "restore_pending": if self.restore_owed { self.originals.len() } else { 0 },
-                "touched": self.originals.len(),
-        })
-    }
-
+    /// Set a channel level (`game`, `music` or `app:<exe>`). Moving a fader un-mutes it and ends Focus mode for it.
     pub(crate) fn set_level(
         &mut self,
-        channel: AppChannel,
+        channel: &str,
         percent: u8,
     ) -> Result<Value, (String, Value)> {
         let percent = percent.min(100);
-        // Moving the music level by hand ends Focus mode and keeps the new level.
-        if channel == AppChannel::Music {
-            self.focus_prior = None;
+        if let Some(entries) = &mut self.focus {
+            entries.retain(|entry| entry.channel != channel);
+            if entries.is_empty() {
+                self.focus = None;
+            }
         }
-        // Moving a fader un-mutes the channel (prototype rule 8).
         self.change(channel, Some(percent), Some(false))
     }
 
     pub(crate) fn set_muted(
         &mut self,
-        channel: AppChannel,
+        channel: &str,
         muted: bool,
     ) -> Result<Value, (String, Value)> {
         self.change(channel, None, Some(muted))
     }
 
-    /// Focus on: music to the focus level (never raised). Focus off: back to the level before Focus mode.
+    /// Focus on: every non-game application channel goes to the Focus level (never raised; each session on its
+    /// own when they differ). Focus off: every lowered channel back to its exact earlier value.
     pub(crate) fn focus_toggle(&mut self) -> Result<Value, (String, Value)> {
-        if let Some(prior) = self.focus_prior {
-            let result = self.change(AppChannel::Music, Some(prior), None);
-            if result.is_ok() {
-                self.focus_prior = None;
-                crate::log_info!(
-                    "mixer",
-                    "focus_off",
-                    "focus mode off",
-                    channel = "music",
-                    level = prior
-                );
-                return Ok(self.snapshot_after_change());
-            }
-            return result;
+        if self.focus.is_some() {
+            return self.focus_off();
         }
         let read = self
             .read()
             .map_err(|error| (error.code().to_owned(), self.unavailable_snapshot(error)))?;
-        let state = Self::state_in(&read, self.exe_for(AppChannel::Music, &read));
-        let ChannelState::Present { percent, .. } = state else {
-            let code = if matches!(state, ChannelState::Unreadable { .. }) {
-                "MIXER_SESSION_UNREADABLE"
-            } else {
-                BackendError::Missing.code()
+        let focus = self.focus_percent;
+        let mut entries = Vec::new();
+        let mut failure: Option<String> = None;
+        for target in self.targets(Some(&read)).into_iter().skip(1) {
+            let Some(exe) = target.exe.clone() else {
+                continue;
             };
-            return Err((code.to_owned(), self.snapshot_from(&read, Some(code))));
-        };
-        let target = percent.min(self.focus_percent);
-        self.change(AppChannel::Music, Some(target), None)?;
-        self.focus_prior = Some(percent);
-        crate::log_info!(
-            "mixer",
-            "focus_on",
-            "focus mode on",
-            channel = "music",
-            level = target
-        );
-        Ok(self.snapshot_after_change())
+            let state = Self::state_in(&read, Some(&exe));
+            if !state.controllable() {
+                if matches!(state, ChannelState::Unreadable { .. }) {
+                    failure = Some("MIXER_SESSION_UNREADABLE".to_owned());
+                }
+                continue;
+            }
+            if let Err(code) = self.ensure_originals(&read, &exe, target.kind) {
+                failure = Some(code);
+                continue;
+            }
+            let mut prior = Vec::new();
+            if let ChannelState::Present { .. } = state {
+                let level = read.readable(&exe)[0].1;
+                let next = level.min(level_of(focus));
+                match self
+                    .backend
+                    .apply(&read.device, &exe, None, Some(next), None)
+                {
+                    Ok(_) => prior.push((None, level)),
+                    Err(error) => failure = Some(error.code().to_owned()),
+                }
+            } else {
+                for (id, level, _) in read.readable(&exe) {
+                    let Some(id) = id else {
+                        failure = Some("MIXER_SESSION_UNREADABLE".to_owned());
+                        continue;
+                    };
+                    let next = level.min(level_of(focus));
+                    match self
+                        .backend
+                        .apply(&read.device, &exe, Some(id), Some(next), None)
+                    {
+                        Ok(_) => prior.push((Some(id.to_owned()), level)),
+                        Err(error) => failure = Some(error.code().to_owned()),
+                    }
+                }
+            }
+            if !prior.is_empty() {
+                crate::log_info!(
+                    "mixer",
+                    "focus_on",
+                    "focus mode lowered a channel",
+                    channel = target.kind,
+                    exe = exe.as_str(),
+                    level = focus
+                );
+                entries.push(FocusEntry {
+                    channel: target.id.clone(),
+                    exe,
+                    prior,
+                });
+            }
+        }
+        if entries.is_empty() {
+            let code = failure.unwrap_or_else(|| BackendError::Missing.code().to_owned());
+            return Err((code.clone(), self.snapshot_from(&read, Some(&code))));
+        }
+        self.focus = Some(entries);
+        Ok(self.snapshot_after_change(failure.as_deref()))
     }
 
-    /// Choose the music application. Only an executable with a readable session right now is accepted.
-    pub(crate) fn select_music(&mut self, exe: &str) -> Result<Value, (String, Value)> {
+    fn focus_off(&mut self) -> Result<Value, (String, Value)> {
+        let entries = self.focus.take().unwrap_or_default();
+        let read = match self.read() {
+            Ok(read) => read,
+            Err(error) => {
+                self.focus = Some(entries);
+                return Err((error.code().to_owned(), self.unavailable_snapshot(error)));
+            }
+        };
+        let mut remaining = Vec::new();
+        let mut failure: Option<String> = None;
+        for mut entry in entries {
+            entry.prior.retain(|(session, level)| {
+                // A session that ended has nothing left to restore; the next start-up restore covers originals.
+                if let Some(id) = session {
+                    if !read.has_session(&entry.exe, id) {
+                        return false;
+                    }
+                }
+                match self.backend.apply(
+                    &read.device,
+                    &entry.exe,
+                    session.as_deref(),
+                    Some(*level),
+                    None,
+                ) {
+                    Ok(_) => false,
+                    Err(BackendError::Missing) => false,
+                    Err(error) => {
+                        failure = Some(error.code().to_owned());
+                        true
+                    }
+                }
+            });
+            if entry.prior.is_empty() {
+                crate::log_info!(
+                    "mixer",
+                    "focus_off",
+                    "focus mode restored a channel",
+                    exe = entry.exe.as_str()
+                );
+            } else {
+                remaining.push(entry);
+            }
+        }
+        self.focus = (!remaining.is_empty()).then_some(remaining);
+        match failure {
+            None => Ok(self.snapshot_after_change(None)),
+            Some(code) => Err((code.clone(), self.snapshot_after_change(Some(&code)))),
+        }
+    }
+
+    /// Choose the Music application. Only an executable with a readable session right now is accepted, never Dota
+    /// or an application that already has its own slot. Returns the new slots for the host to persist.
+    pub(crate) fn select_music(
+        &mut self,
+        exe: &str,
+    ) -> Result<(Value, Vec<Slot>), (String, Value)> {
         let exe = exe.to_ascii_lowercase();
         let read = self
             .read()
             .map_err(|error| (error.code().to_owned(), self.unavailable_snapshot(error)))?;
-        if !self.choices_in(&read).contains(&exe) || exe == GAME_EXE {
-            return Err((
-                "MIXER_APP_NOT_AVAILABLE".to_owned(),
-                self.snapshot_from(&read, Some("MIXER_APP_NOT_AVAILABLE")),
-            ));
+        let Some(index) = self
+            .slots
+            .iter()
+            .position(|slot| matches!(slot, Slot::Music(_)))
+        else {
+            let code = "MIXER_CHANNEL_UNKNOWN";
+            return Err((code.to_owned(), self.snapshot_from(&read, Some(code))));
+        };
+        let taken = self
+            .slots
+            .iter()
+            .any(|slot| matches!(slot, Slot::App(other) if *other == exe));
+        if exe == GAME_EXE || taken || read.readable(&exe).is_empty() || !valid_exe(&exe) {
+            let code = "MIXER_APP_NOT_AVAILABLE";
+            return Err((code.to_owned(), self.snapshot_from(&read, Some(code))));
         }
-        if self.focus_prior.is_some() {
-            let _ = self.focus_toggle();
+        if let Some(entries) = &self.focus {
+            if entries.iter().any(|entry| entry.channel == "music") {
+                let _ = self.focus_off();
+            }
         }
-        self.music_exe = Some(exe.clone());
+        self.slots[index] = Slot::Music(Some(exe.clone()));
         crate::log_info!(
             "mixer",
             "music_selected",
@@ -679,13 +1098,14 @@ impl Mixer {
             channel = "music",
             exe = exe.as_str()
         );
-        Ok(self.snapshot_after_change())
+        Ok((self.snapshot_after_change(None), self.slots.clone()))
     }
 
-    /// Put every touched session back to its original value. Entries that cannot be restored now (session not
-    /// present, other device, set failure) stay persisted for the next attempt and the next start.
+    /// Put every touched session back to its original value. Entries that cannot be restored now (application not
+    /// present, other device, set failure) stay persisted for the next attempt and the next start. A per-session
+    /// entry whose session ended while its application still runs has nothing left to restore and is dropped.
     pub(crate) fn restore_all(&mut self, reason: &'static str) -> RestoreSummary {
-        self.focus_prior = None;
+        self.focus = None;
         if self.originals.is_empty() {
             self.restore_owed = false;
             return RestoreSummary::default();
@@ -711,16 +1131,27 @@ impl Mixer {
         let mut remaining = Vec::new();
         let mut restored = 0usize;
         for entry in std::mem::take(&mut self.originals) {
-            let present = read.sessions.iter().any(
-                |session| matches!(session, SessionRead::Readable { exe, .. } if *exe == entry.exe),
-            );
+            let present = !read.readable(&entry.exe).is_empty();
             if entry.device != read.device || !present {
                 remaining.push(entry);
                 continue;
             }
+            if let Some(id) = &entry.session {
+                if !read.has_session(&entry.exe, id) {
+                    crate::log_info!(
+                        "mixer",
+                        "restore_session_ended",
+                        "a session ended before its original level could be restored",
+                        exe = entry.exe.as_str(),
+                        reason = reason
+                    );
+                    continue;
+                }
+            }
             match self.backend.apply(
                 &read.device,
                 &entry.exe,
+                entry.session.as_deref(),
                 Some(entry.level),
                 Some(entry.muted),
             ) {
@@ -773,478 +1204,4 @@ impl Mixer {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use std::cell::RefCell;
-    use std::rc::Rc;
-
-    #[derive(Default)]
-    struct World {
-        device: String,
-        sessions: Vec<(String, f32, bool, bool)>, // exe, level, muted, readable
-        unavailable: bool,
-        fail_set: bool,
-        /// Device switch that happens between `read` and `apply`.
-        switch_before_apply: Option<String>,
-        applied: Vec<(String, Option<f32>, Option<bool>)>,
-        reads: usize,
-    }
-
-    #[derive(Clone)]
-    struct FakeBackend(Rc<RefCell<World>>);
-
-    impl SessionBackend for FakeBackend {
-        fn read(&mut self) -> Result<DeviceRead, BackendError> {
-            let mut world = self.0.borrow_mut();
-            world.reads += 1;
-            if world.unavailable {
-                return Err(BackendError::Unavailable);
-            }
-            Ok(DeviceRead {
-                device: world.device.clone(),
-                sessions: world
-                    .sessions
-                    .iter()
-                    .map(|(exe, level, muted, readable)| {
-                        if *readable {
-                            SessionRead::Readable {
-                                exe: exe.clone(),
-                                level: *level,
-                                muted: *muted,
-                            }
-                        } else {
-                            SessionRead::Unreadable {
-                                exe: Some(exe.clone()),
-                            }
-                        }
-                    })
-                    .collect(),
-            })
-        }
-
-        fn apply(
-            &mut self,
-            device: &str,
-            exe: &str,
-            level: Option<f32>,
-            muted: Option<bool>,
-        ) -> Result<usize, BackendError> {
-            let mut world = self.0.borrow_mut();
-            if let Some(next) = world.switch_before_apply.take() {
-                world.device = next;
-            }
-            if world.device != device {
-                return Err(BackendError::DeviceChanged);
-            }
-            if world.fail_set {
-                return Err(BackendError::SetFailed);
-            }
-            let mut changed = 0;
-            for session in world
-                .sessions
-                .iter_mut()
-                .filter(|session| session.0 == exe && session.3)
-            {
-                if let Some(level) = level {
-                    session.1 = level;
-                }
-                if let Some(muted) = muted {
-                    session.2 = muted;
-                }
-                changed += 1;
-            }
-            if changed == 0 {
-                return Err(BackendError::Missing);
-            }
-            world.applied.push((exe.to_owned(), level, muted));
-            Ok(changed)
-        }
-    }
-
-    #[derive(Clone, Default)]
-    struct MemStore {
-        entries: Rc<RefCell<Option<Vec<Original>>>>,
-        fail: Rc<RefCell<bool>>,
-    }
-
-    impl OriginalStore for MemStore {
-        fn load(&self) -> Result<Vec<Original>, String> {
-            Ok(self.entries.borrow().clone().unwrap_or_default())
-        }
-        fn save(&self, entries: &[Original]) -> Result<(), String> {
-            if *self.fail.borrow() {
-                return Err("MIXER_RECOVERY_WRITE_FAILED".to_owned());
-            }
-            *self.entries.borrow_mut() = (!entries.is_empty()).then(|| entries.to_vec());
-            Ok(())
-        }
-    }
-
-    fn world() -> Rc<RefCell<World>> {
-        Rc::new(RefCell::new(World {
-            device: "dev-a".into(),
-            sessions: vec![
-                ("dota2.exe".into(), 0.8, false, true),
-                ("chrome.exe".into(), 0.65, false, true),
-                ("chrome.exe".into(), 0.65, false, true),
-                ("discord.exe".into(), 1.0, false, true),
-            ],
-            ..World::default()
-        }))
-    }
-
-    fn mixer(world: &Rc<RefCell<World>>, store: &MemStore) -> Mixer {
-        Mixer::new(
-            Box::new(FakeBackend(world.clone())),
-            Box::new(store.clone()),
-        )
-    }
-
-    fn level(world: &Rc<RefCell<World>>, exe: &str) -> Vec<f32> {
-        world
-            .borrow()
-            .sessions
-            .iter()
-            .filter(|session| session.0 == exe)
-            .map(|session| session.1)
-            .collect()
-    }
-
-    #[test]
-    fn snapshot_reports_present_channels_and_default_music_app() {
-        let world = world();
-        let store = MemStore::default();
-        let snapshot = mixer(&world, &store).snapshot();
-        assert_eq!(snapshot["game"]["state"], "present");
-        assert_eq!(snapshot["game"]["percent"], 80);
-        assert_eq!(snapshot["music"]["exe"], "chrome.exe");
-        assert_eq!(snapshot["music"]["percent"], 65);
-        assert_eq!(
-            snapshot["music_choices"],
-            json!(["chrome.exe", "discord.exe"])
-        );
-    }
-
-    #[test]
-    fn default_music_follows_the_approved_order() {
-        let world = world();
-        world
-            .borrow_mut()
-            .sessions
-            .push(("spotify.exe".into(), 0.5, false, true));
-        world
-            .borrow_mut()
-            .sessions
-            .retain(|session| session.0 != "chrome.exe");
-        world
-            .borrow_mut()
-            .sessions
-            .push(("firefox.exe".into(), 0.4, false, true));
-        let store = MemStore::default();
-        assert_eq!(
-            mixer(&world, &store).snapshot()["music"]["exe"],
-            "firefox.exe"
-        );
-    }
-
-    #[test]
-    fn missing_and_unreadable_sessions_are_never_controllable() {
-        let world = world();
-        world.borrow_mut().sessions = vec![("dota2.exe".into(), 0.8, false, false)];
-        let store = MemStore::default();
-        let mut mixer = mixer(&world, &store);
-        let snapshot = mixer.snapshot();
-        assert_eq!(snapshot["game"]["state"], "unreadable");
-        assert_eq!(snapshot["game"]["percent"], Value::Null);
-        assert_eq!(snapshot["music"]["state"], "missing");
-        let (code, _) = mixer.set_level(AppChannel::Game, 20).unwrap_err();
-        assert_eq!(code, "MIXER_SESSION_UNREADABLE");
-        let (code, _) = mixer.set_level(AppChannel::Music, 20).unwrap_err();
-        assert_eq!(code, "MIXER_SESSION_MISSING");
-        assert!(world.borrow().applied.is_empty());
-        assert!(
-            store.entries.borrow().is_none(),
-            "nothing stored for an unchanged session"
-        );
-    }
-
-    #[test]
-    fn first_change_persists_the_original_before_applying() {
-        let world = world();
-        let store = MemStore::default();
-        let mut mixer = mixer(&world, &store);
-        mixer.set_level(AppChannel::Game, 30).unwrap();
-        let stored = store.entries.borrow().clone().unwrap();
-        assert_eq!(stored.len(), 1);
-        assert_eq!(stored[0].exe, "dota2.exe");
-        assert!((stored[0].level - 0.8).abs() < 1e-6);
-        assert_eq!(level(&world, "dota2.exe"), vec![0.3]);
-        // A second change keeps the first original.
-        mixer.set_level(AppChannel::Game, 10).unwrap();
-        assert!((store.entries.borrow().clone().unwrap()[0].level - 0.8).abs() < 1e-6);
-    }
-
-    #[test]
-    fn a_failed_recovery_write_changes_nothing() {
-        let world = world();
-        let store = MemStore::default();
-        *store.fail.borrow_mut() = true;
-        let mut mixer = mixer(&world, &store);
-        let (code, snapshot) = mixer.set_level(AppChannel::Game, 30).unwrap_err();
-        assert_eq!(code, "MIXER_RECOVERY_WRITE_FAILED");
-        assert_eq!(snapshot["game"]["percent"], 80);
-        assert!(world.borrow().applied.is_empty());
-    }
-
-    #[test]
-    fn music_change_touches_every_session_of_the_selected_app_only() {
-        let world = world();
-        let store = MemStore::default();
-        let mut mixer = mixer(&world, &store);
-        mixer.set_level(AppChannel::Music, 40).unwrap();
-        assert_eq!(level(&world, "chrome.exe"), vec![0.4, 0.4]);
-        assert_eq!(level(&world, "discord.exe"), vec![1.0]);
-        assert_eq!(level(&world, "dota2.exe"), vec![0.8]);
-    }
-
-    #[test]
-    fn set_failure_reports_the_reread_value() {
-        let world = world();
-        world.borrow_mut().fail_set = true;
-        let store = MemStore::default();
-        let (code, snapshot) = mixer(&world, &store)
-            .set_level(AppChannel::Game, 5)
-            .unwrap_err();
-        assert_eq!(code, "MIXER_SET_FAILED");
-        assert_eq!(snapshot["game"]["percent"], 80);
-        assert_eq!(snapshot["reason"], "MIXER_SET_FAILED");
-    }
-
-    #[test]
-    fn device_switch_between_read_and_set_is_refused() {
-        let world = world();
-        world.borrow_mut().switch_before_apply = Some("dev-b".into());
-        let store = MemStore::default();
-        let mut mixer = mixer(&world, &store);
-        let (code, _) = mixer.set_level(AppChannel::Game, 5).unwrap_err();
-        assert_eq!(code, "MIXER_DEVICE_CHANGED");
-        assert_eq!(level(&world, "dota2.exe"), vec![0.8]);
-        // The next change reads the new device first and stores a separate original for it.
-        mixer.set_level(AppChannel::Game, 50).unwrap();
-        let stored = store.entries.borrow().clone().unwrap();
-        assert!(stored.iter().any(|entry| entry.device == "dev-b"));
-    }
-
-    #[test]
-    fn every_change_rereads_sessions_first() {
-        let world = world();
-        let store = MemStore::default();
-        let mut mixer = mixer(&world, &store);
-        let before = world.borrow().reads;
-        mixer.set_muted(AppChannel::Game, true).unwrap();
-        assert!(world.borrow().reads > before);
-        // A session that appeared after the last read is found on the next change.
-        world
-            .borrow_mut()
-            .sessions
-            .push(("spotify.exe".into(), 0.9, false, true));
-        mixer.select_music("spotify.exe").unwrap();
-        mixer.set_level(AppChannel::Music, 10).unwrap();
-        assert_eq!(level(&world, "spotify.exe"), vec![0.1]);
-    }
-
-    #[test]
-    fn focus_lowers_music_and_restores_the_prior_level() {
-        let world = world();
-        let store = MemStore::default();
-        let mut mixer = mixer(&world, &store);
-        let on = mixer.focus_toggle().unwrap();
-        assert_eq!(on["focus"]["active"], true);
-        assert_eq!(on["music"]["percent"], 20);
-        let off = mixer.focus_toggle().unwrap();
-        assert_eq!(off["focus"]["active"], false);
-        assert_eq!(off["music"]["percent"], 65);
-    }
-
-    #[test]
-    fn focus_never_raises_a_level_already_below_the_focus_level() {
-        let world = world();
-        world.borrow_mut().sessions[1].1 = 0.1;
-        world.borrow_mut().sessions[2].1 = 0.1;
-        let store = MemStore::default();
-        let mut mixer = mixer(&world, &store);
-        mixer.configure(None, 20);
-        assert_eq!(mixer.focus_toggle().unwrap()["music"]["percent"], 10);
-    }
-
-    #[test]
-    fn focus_uses_the_configured_level_and_a_manual_move_ends_it() {
-        let world = world();
-        let store = MemStore::default();
-        let mut mixer = mixer(&world, &store);
-        mixer.configure(None, 35);
-        assert_eq!(mixer.focus_toggle().unwrap()["music"]["percent"], 35);
-        mixer.set_level(AppChannel::Music, 50).unwrap();
-        assert!(!mixer.focus_active());
-    }
-
-    #[test]
-    fn focus_without_a_music_session_is_honest() {
-        let world = world();
-        world
-            .borrow_mut()
-            .sessions
-            .retain(|session| session.0 == "dota2.exe");
-        let store = MemStore::default();
-        let (code, snapshot) = mixer(&world, &store).focus_toggle().unwrap_err();
-        assert_eq!(code, "MIXER_SESSION_MISSING");
-        assert_eq!(snapshot["music"]["state"], "missing");
-    }
-
-    #[test]
-    fn music_choice_must_be_a_running_session_and_never_dota() {
-        let world = world();
-        let store = MemStore::default();
-        let mut mixer = mixer(&world, &store);
-        assert!(mixer.select_music("dota2.exe").is_err());
-        assert!(mixer.select_music("notepad.exe").is_err());
-        assert_eq!(
-            mixer.select_music("Discord.exe").unwrap()["music"]["exe"],
-            "discord.exe"
-        );
-    }
-
-    #[test]
-    fn restore_puts_originals_back_and_clears_recovery_data() {
-        let world = world();
-        let store = MemStore::default();
-        let mut mixer = mixer(&world, &store);
-        mixer.set_level(AppChannel::Game, 10).unwrap();
-        mixer.set_muted(AppChannel::Music, true).unwrap();
-        let summary = mixer.restore_all("reset");
-        assert_eq!(
-            summary,
-            RestoreSummary {
-                restored: 2,
-                pending: 0
-            }
-        );
-        assert_eq!(level(&world, "dota2.exe"), vec![0.8]);
-        assert!(world.borrow().sessions.iter().all(|session| !session.2));
-        assert!(store.entries.borrow().is_none());
-    }
-
-    #[test]
-    fn crash_restart_restores_persisted_originals() {
-        let world = world();
-        let store = MemStore::default();
-        {
-            let mut first_run = mixer(&world, &store);
-            first_run.set_level(AppChannel::Game, 20).unwrap();
-            first_run.set_level(AppChannel::Music, 5).unwrap();
-            // Simulated crash: the mixer is dropped without restore_all.
-        }
-        assert_eq!(level(&world, "dota2.exe"), vec![0.2]);
-        let mut second_run = mixer(&world, &store);
-        assert_eq!(second_run.recovery_pending(), 2);
-        assert_eq!(
-            second_run.restore_all("startup"),
-            RestoreSummary {
-                restored: 2,
-                pending: 0
-            }
-        );
-        assert_eq!(level(&world, "dota2.exe"), vec![0.8]);
-        assert_eq!(level(&world, "chrome.exe"), vec![0.65, 0.65]);
-        assert!(store.entries.borrow().is_none());
-    }
-
-    #[test]
-    fn restore_waits_for_an_absent_session_and_retries_on_the_next_read() {
-        let world = world();
-        let store = MemStore::default();
-        let mut mixer = mixer(&world, &store);
-        mixer.set_level(AppChannel::Game, 20).unwrap();
-        let dota = world.borrow().sessions[0].clone();
-        world.borrow_mut().sessions.remove(0);
-        assert_eq!(
-            mixer.restore_all("disable"),
-            RestoreSummary {
-                restored: 0,
-                pending: 1
-            }
-        );
-        assert!(store.entries.borrow().is_some(), "recovery data kept");
-        world.borrow_mut().sessions.insert(0, dota);
-        let snapshot = mixer.snapshot();
-        assert_eq!(snapshot["restore_pending"], 0);
-        assert_eq!(level(&world, "dota2.exe"), vec![0.8]);
-    }
-
-    #[test]
-    fn restore_on_another_device_waits_instead_of_touching_it() {
-        let world = world();
-        let store = MemStore::default();
-        let mut mixer = mixer(&world, &store);
-        mixer.set_level(AppChannel::Game, 20).unwrap();
-        world.borrow_mut().device = "dev-b".into();
-        world.borrow_mut().sessions[0].1 = 0.55;
-        assert_eq!(
-            mixer.restore_all("exit"),
-            RestoreSummary {
-                restored: 0,
-                pending: 1
-            }
-        );
-        assert_eq!(level(&world, "dota2.exe"), vec![0.55]);
-    }
-
-    #[test]
-    fn restore_failure_keeps_recovery_data() {
-        let world = world();
-        let store = MemStore::default();
-        let mut mixer = mixer(&world, &store);
-        mixer.set_level(AppChannel::Game, 20).unwrap();
-        world.borrow_mut().fail_set = true;
-        assert_eq!(
-            mixer.restore_all("exit"),
-            RestoreSummary {
-                restored: 0,
-                pending: 1
-            }
-        );
-        assert_eq!(store.entries.borrow().clone().unwrap().len(), 1);
-    }
-
-    #[test]
-    fn unavailable_audio_is_reported_not_guessed() {
-        let world = world();
-        world.borrow_mut().unavailable = true;
-        let store = MemStore::default();
-        let snapshot = mixer(&world, &store).snapshot();
-        assert_eq!(snapshot["available"], false);
-        assert_eq!(snapshot["game"]["state"], "unreadable");
-        assert_eq!(snapshot["game"]["percent"], Value::Null);
-    }
-
-    #[test]
-    fn json_store_round_trips_and_rejects_invalid_data() {
-        let dir = std::env::temp_dir().join(format!("kohbor-mixer-store-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
-        let store = JsonOriginalStore::in_data_dir(&dir);
-        assert_eq!(store.load().unwrap(), Vec::new());
-        let entry = Original {
-            device: "d".into(),
-            exe: "dota2.exe".into(),
-            level: 0.5,
-            muted: true,
-        };
-        store.save(std::slice::from_ref(&entry)).unwrap();
-        assert_eq!(store.load().unwrap(), vec![entry]);
-        store.save(&[]).unwrap();
-        assert!(!dir.join(ORIGINALS_FILE).exists());
-        assert!(parse_originals(br#"{"schema_version":1,"entries":[{"device":"d","exe":"x","level":2.0,"muted":false}]}"#).is_err());
-        assert!(parse_originals(br#"{"schema_version":2,"entries":[]}"#).is_err());
-        let _ = std::fs::remove_dir_all(dir);
-    }
-}
+mod tests;

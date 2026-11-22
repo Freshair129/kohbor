@@ -1121,7 +1121,7 @@ pub fn run() {
                     mixer::platform_backend(),
                     Box::new(mixer::JsonOriginalStore::in_data_dir(&mixer_dir)),
                 );
-                mixer.configure(orb_prefs.music_exe, orb_prefs.focus_percent);
+                let _ = mixer.configure(orb_prefs.slots, orb_prefs.focus_percent);
                 mixer
             });
             // Load volume preferences before Host::start creates the audio engine.

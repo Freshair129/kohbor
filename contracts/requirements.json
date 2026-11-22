@@ -2769,13 +2769,13 @@
       "target_milestone": "M3",
       "basis": "owner_decision",
       "decision_basis": "DEC-EDGE-ORB",
-      "statement": "The orb panel shall present vertical Game (Dota 2), Kohbor announcer, and user-selected Music channels. Each channel shall provide a 0 to 100% level and mute, applied within 100 ms. Focus mode shall set Music to an adjustable default of 20% and restore its prior level on a second activation; an optional user-assigned Focus hotkey is off by default. Show honest missing/unreadable session states and explain failed sets while restoring the last read level. Every control shall have a keyboard-reachable UI-006 deck twin. A fader wheel step is 5% and is active only while the panel is open.",
-      "failure_behavior": "Never show a missing or unreadable session as controllable. On set failure restore the last read value and state the reason. Preserve Dota focus and critical-alert priority.",
+      "statement": "The orb panel shall present vertical channels in a fixed order: Game (Dota 2) first, then up to three slots the user configures in Settings, so the panel never shows more than four channels. A slot is the Kohbor announcer, the Music channel (a user-selected application, or the first running default), or another application that has a Windows audio session, chosen by executable name (for example Discord). Slot order is editable; the defaults are Kohbor and Music. Each channel shall provide a 0 to 100% level and mute, applied within 100 ms. An application with several sessions shall show their common value, or a mixed state with the range when they differ, and a change moves all of its sessions together. A configured application with no live session shall show the missing state. Focus mode shall lower every non-game application channel (Music and added applications) to an adjustable default of 20%, never raising a lower level, and restore each prior value on a second activation; the Kohbor announcer is not lowered because it carries critical alerts. An optional user-assigned Focus hotkey is off by default. Show honest missing/unreadable session states and explain failed sets while restoring the last read level. Every control, including the slot editor, shall have a keyboard-reachable UI-006 deck twin. A fader wheel step is 5% and is active only while the panel is open. The panel shall fit one to four channels at 720p and 1080p without overflow, never cover a protected region and keep the 8 px click-through edge.",
+      "failure_behavior": "Never show a missing or unreadable session as controllable, and never show one invented value for an application whose sessions differ. Refuse more than three slots, a duplicate application, Dota as a slot, or a second Kohbor or Music slot; an invalid stored setting falls back to the defaults. On set failure restore the last read value and state the reason. Preserve Dota focus and critical-alert priority.",
       "acceptance": {
         "scenario_id": "AC-UI-011",
-        "given": "a supported match, three session states, and mixer settings including Focus level and optional hotkey",
-        "when": "the player adjusts, mutes, focuses, restores, uses a wheel and encounters missing or failed sessions",
-        "then": "each present channel exposes its actual 0 to 100% value and mute, Focus applies the selected level and restores the prior value, the hotkey is inactive unless enabled, wheel steps by 5% only with panel open, failures are honest, and every control has a deck twin"
+        "given": "a supported match, present, mixed, missing and unreadable sessions, and mixer settings with zero to three slots (Kohbor, Music and an added multi-session application), Focus level and optional hotkey",
+        "when": "the player configures and reorders slots, adjusts, mutes, focuses, restores, uses a wheel and encounters missing or failed sessions",
+        "then": "the panel shows Game first and at most four channels in the configured order and fits at 720p and 1080p without covering a protected region, each present channel exposes its actual 0 to 100% value and mute, a mixed application shows its range and moves all sessions together, a configured application without a session shows the missing state, Focus lowers every non-game application channel to the selected level and restores each prior value, the hotkey is inactive unless enabled, wheel steps by 5% only with panel open, failures are honest, invalid slot settings are refused, and every control has a deck twin"
       },
       "verification": {
         "required_evidence": [
@@ -2792,7 +2792,10 @@
           "apps/desktop/src/orb/orbModel.ts",
           "apps/desktop/src/orb/OrbStage.tsx",
           "apps/desktop/src/orb/OrbSettings.tsx",
-          "apps/desktop/tests/orb-model.test.ts"
+          "apps/desktop/tests/orb-model.test.ts",
+          "apps/desktop/src-tauri/src/mixer/mod.rs",
+          "apps/desktop/src-tauri/src/orb/mod.rs",
+          "apps/desktop/tests/orb-panel.test.ts"
         ],
         "evidence_refs": [],
         "procedure_ids": [
@@ -2905,13 +2908,13 @@
       "target_milestone": "M3",
       "basis": "owner_decision",
       "decision_basis": "DEC-EDGE-ORB",
-      "statement": "Kohbor shall change only Windows Core Audio shared-mode session volume and mute on the default render device for the Dota 2 process and music processes selected by the user. It shall not inject input, access other processes' memory or files, or send session data over a network. Before the first change in a session, store each touched session's original level and mute locally; restore on application exit, orb/mixer disable, user Reset, and next start after abnormal exit. Re-read sessions after a default-device change or new session and never set a session that has not been read. Logs contain channel, executable base name and level only.",
-      "failure_behavior": "Do not change an unreadable, missing or unselected process. On restore failure report it honestly and retain recovery data for the next start.",
+      "statement": "Kohbor shall change only Windows Core Audio shared-mode session volume and mute on the default render device for the Dota 2 process and the applications the user placed in a mixer slot (UI-011). It shall not inject input, access other processes' memory or files, or send session data over a network. Before the first change of an application, store its original level and mute locally, one entry for the application when its sessions agree and one per session when they differ; restore on application exit, orb/mixer disable, user Reset, and next start after abnormal exit. A per-session original whose session ended while the application still runs is dropped and logged, not reported as restored. Re-read sessions after a default-device change or new session and never set a session that has not been read. Logs contain channel, executable base name and level only.",
+      "failure_behavior": "Do not change an unreadable, missing or unconfigured process, or an application with differing sessions whose originals cannot be recorded per session. On restore failure report it honestly and retain recovery data for the next start.",
       "acceptance": {
         "scenario_id": "AC-MEDIA-009",
-        "given": "a fake session manager with present, missing and unreadable sessions and persisted original levels",
+        "given": "a fake session manager with present, missing and unreadable sessions, applications with several sessions at equal and differing levels, and persisted original levels",
         "when": "the host sets, restores, crashes and restarts, and the default device or session changes",
-        "then": "only eligible Dota and selected music sessions change, originals restore on exit/disable/reset and after crash restart, changed devices/sessions are re-read before use, logs contain only the permitted fields, and no process input, memory or files are accessed; on the owner PC lower Dota and Chrome, kill Kohbor, restart and confirm original levels restore"
+        "then": "only eligible Dota and slot-configured application sessions change, all sessions of an application move together, differing session values are recorded and restored per session, originals restore on exit/disable/reset and after crash restart, changed devices/sessions are re-read before use, logs contain only the permitted fields, and no process input, memory or files are accessed; on the owner PC lower Dota, Chrome and an added application, kill Kohbor, restart and confirm original levels restore"
       },
       "verification": {
         "required_evidence": [
@@ -2927,7 +2930,8 @@
           "apps/desktop/src-tauri/src/mixer/mod.rs",
           "apps/desktop/src-tauri/src/mixer/native.rs",
           "apps/desktop/src-tauri/src/mixer/service.rs",
-          "apps/desktop/src-tauri/src/lib.rs"
+          "apps/desktop/src-tauri/src/lib.rs",
+          "apps/desktop/src-tauri/src/mixer/tests.rs"
         ],
         "evidence_refs": [],
         "procedure_ids": [

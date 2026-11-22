@@ -119,8 +119,7 @@ fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
 #[cfg(test)]
 mod tests {
     use super::super::{
-        AppChannel, BackendError, DeviceRead, Mixer, Original, OriginalStore, SessionBackend,
-        SessionRead,
+        BackendError, DeviceRead, Mixer, Original, OriginalStore, SessionBackend, SessionRead,
     };
     use super::MixerService;
     use std::sync::{Arc, Mutex};
@@ -139,6 +138,7 @@ mod tests {
                 device: "dev".into(),
                 sessions: vec![SessionRead::Readable {
                     exe: "dota2.exe".into(),
+                    id: Some("d1".into()),
                     level: *self.0.level.lock().unwrap(),
                     muted: false,
                 }],
@@ -148,6 +148,7 @@ mod tests {
             &mut self,
             _: &str,
             _: &str,
+            _: Option<&str>,
             level: Option<f32>,
             _: Option<bool>,
         ) -> Result<usize, BackendError> {
@@ -183,14 +184,11 @@ mod tests {
         *shared.level.lock().unwrap() = 0.9;
         let service = service(&shared);
         let reply = service
-            .call(|mixer| {
-                mixer
-                    .set_level(AppChannel::Game, 30)
-                    .map_err(|(code, _)| code)
-            })
+            .call(|mixer| mixer.set_level("game", 30).map_err(|(code, _)| code))
             .unwrap()
             .unwrap();
-        assert_eq!(reply["game"]["percent"], 30);
+        assert_eq!(reply["channels"][0]["id"], "game");
+        assert_eq!(reply["channels"][0]["percent"], 30);
         service.shutdown();
         assert!((*shared.level.lock().unwrap() - 0.9).abs() < 1e-6);
         assert!(shared.stored.lock().unwrap().is_empty());
@@ -204,6 +202,7 @@ mod tests {
         shared.stored.lock().unwrap().push(Original {
             device: "dev".into(),
             exe: "dota2.exe".into(),
+            session: None,
             level: 0.75,
             muted: false,
         });

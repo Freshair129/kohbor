@@ -3,7 +3,7 @@ title: "Decision Log and Open Items"
 doc_id: "DECISION-LOG"
 status: draft
 version: "0.3.7"
-updated: "2026-11-21"
+updated: "2026-11-22"
 authority: "DEC-BASELINE; see DOCUMENT-CONTROL"
 owner_role: "Product and engineering owners; people not assigned"
 approval_status: "not_approved"
@@ -149,3 +149,14 @@ This draft is useful for M0 planning and independent local-core implementation. 
 The owner statement recorded by the change request and OWNER-QUESTIONS is “Approve all 11”. For DEC-EDGE-ORB, the owner also waived the 200-click probe (“ใครจะมานั่งกด200ครั้งทำไปเพื่ออะไรอันเนี้ยไม่ต้องเทสอันนี้ได้ไหม”), set the reveal (“มันเอามาเป็นโฮเวอร์อ่ะให้มันมีดีเลย์หนึ่งวิค่อยเลื่อนออกมาแต่ตอนโฮเวอร์อ่ะให้กลมๆอ่ะค่อยๆขยายออกมาในระยะเวลาหนึ่งวิ”) and requested the vertical mixer (“ปรับภาพสองให้เป็นแนวตั้งเพื่อไม่บังจอเยอะ”). Revision 2 replaces the 300 ms reveal and separate native probe, specifies 1 s 80–100% cue and built-in fail-closed guard, three-channel mixer and Focus mode. Per-application volume is restricted to Dota and user-selected music apps.
 
 DEC-PICK-STATS revision 2 and DEC-EDGE-ORB revision 2 preserve prior decision text in `contracts/decisions.json` history. C4 is folded into DEC-EDGE-ORB; no separate decision is needed because it is the mixer permission boundary. The decision log records these changes; implementation and native evidence remain NOT_RUN.
+
+### Owner request: configurable orb mixer slots (2026-11-22)
+
+The owner asked, as relayed by the lead, for apps such as Discord to be addable in Settings so they can be adjusted in the orb, with the number of rows capped at four (“อยากให้มันสามารถเพิ่มในตั้งค่าได้เช่นเพิ่ม Discord เข้าไป…เราล็อกจำนวนเสียงที่จะปรับให้ใน overlay ได้สูงสุดแค่4แถว”), and delegated the design (“ถ้าคิดว่าโอเคหรือว่าต้องปรับอะไรปรับเลยแล้วจัดการ”). Under that delegation the lead set the design and an agent implemented it; this entry records an agent implementation under delegated authority, not an owner review of the result.
+
+- Game (Dota 2) is fixed first; up to three slots follow, chosen and ordered in Settings: Kohbor, Music (the former Music app choice) or any application with a Windows audio session, by executable name. Defaults are Kohbor and Music. Stored orb preferences move to schema 2; schema 1 migrates its Music choice into the Music slot, and an invalid file falls back to the defaults.
+- An application with several sessions moves all of them together and shows their common value, or a mixed range when they differ; originals are stored per session in that case. A chosen application without a session shows the existing missing state.
+- Focus mode lowers every non-game application channel (Music and added apps) and restores each prior value. Agent choice for lead and owner confirmation: the Kohbor announcer is not lowered, because it carries critical alerts and has no volume floor; the lead's design said “every non-game channel”.
+- The panel widens for a fourth channel (288 CSS px before the 80 % zoom, about 230 logical px at 1080p) and stays at the approved widths with fewer channels; placement still refuses any protected region and keeps the 8 px click-through edge.
+
+UI-011, AC-UI-011, MEDIA-009 and AC-MEDIA-009 are amended in `contracts/requirements.json` and regenerated into the SRS. DEC-EDGE-ORB in `contracts/decisions.json` is not revised in this change. Implementation evidence is synthetic only; native evidence remains NOT_RUN.
