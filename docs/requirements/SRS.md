@@ -1117,9 +1117,9 @@ One right-edge column at x=1728–1907 at 1920×1080, scaled with height, shall 
 
 The Live page shall offer a second-monitor mode with a per-device setting: off (default, the centred deck), monitor 2 left of the main monitor, or monitor 2 right of it. When set, the minimap shall be a square pinned flush to the edge that touches the main monitor (left edge when monitor 2 is to the right, right edge when it is to the left), with a quick strip of the same width directly under it and outer columns growing away from it. The map size shall depend only on the Live box: outer columns collapse from two to one before the map shrinks, text never shrinks and panels scroll inside. Below about 1100×700 the page shall fall back to the centred deck with a note. In this mode only, the navigation rail moves to the outer edge and the friends rail collapses while a match runs. The side selector and the own-hero expander shall be keyboard-reachable UI-006 twins.
 
-**Failure behavior:** Without a stored or valid side, or when the window is too small, show the centred deck. Never move or resize the map because of panel content, feed changes or the expander.
+**Failure behavior:** Without a stored or valid side, or when the window is too small, show the centred deck. Never move or resize the map because of panel content, feed changes or the expander. Status chips and controls in the outer columns wrap to a new line instead of shrinking under their text; no label may paint over another (owner report on build 8d9f8c3, 2026-11-23).
 
-**AC-UI-016:** Given Live boxes for 1920×1080 and 2560×1440 monitors with monitor 2 on each side, a narrowing window and a window below 1100×700; when the player sets the side, resizes the window, opens the own-hero expander and enters or leaves a match; then the map is pinned to the inner edge at the size the box allows, the quick strip matches its width, outer columns collapse before the map shrinks, the page falls back below the threshold with a note, rails move outward and the friends rail folds only during a match, and every control is keyboard-reachable.
+**AC-UI-016:** Given Live boxes for 1920×1080 and 2560×1440 monitors with monitor 2 on each side, a narrowing window and a window below 1100×700; when the player sets the side, resizes the window, opens the own-hero expander and enters or leaves a match; then the map is pinned to the inner edge at the size the box allows, the quick strip matches its width, outer columns collapse before the map shrinks, the page falls back below the threshold with a note, rails move outward and the friends rail folds only during a match, and every control is keyboard-reachable, and no status chip or control text overlaps another at the tested widths.
 
 **Verification:** synthetic, native; procedures TP-05, UAT-05; status NOT_RUN.
 
@@ -1152,6 +1152,46 @@ In second-monitor mode the quick strip shall show the danger level, the enemies 
 **Contracts:** [own-snapshot.schema.json](../../contracts/own-snapshot.schema.json)
 
 **Implementation freedom:** Choose presentation within the Command Deck tokens. Add a new source only through its own requirement and decision.
+
+#### UI-018 — Second-monitor rune countdowns on the minimap
+
+**Scope:** mvp · **Priority:** P1 · **Target milestone:** M3 · **Basis:** owner_decision / DEC-LIVE-SECOND-MONITOR
+
+**Product needs:** PN-005 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL
+
+In second-monitor mode the pinned minimap shall draw a countdown label with an original marker at each rune spot for water, power, bounty and wisdom runes. While the next occurrence is further away than the objective's lead time it shows coarse minutes (for example 3m, 2m, 1m); from the largest lead time configured in the objective Settings it counts seconds to 0. When no lead time is set, seconds start in the last minute. Timing comes only from the ALERT-008 scheduler on the GSI game clock, read through a host schedule read-model (next occurrence and lead times per objective); the frontend holds no spawn table and never uses the wall clock as game time. Objectives whose next occurrence is unknown (Roshan, Tormentor respawn) get no label. The quick strip's next-objective cell uses the soonest label. Labels never take pointer input.
+
+**Failure behavior:** No schedule, a malformed schedule or one older than five seconds shows no labels and an em dash in the quick strip. Spot positions are approximate placement for patch 7.42 and are not measurements; a wrong spot never changes a time.
+
+**AC-UI-018:** Given a host schedule with water, power, bounty and wisdom occurrences, lead times set and unset, a stale schedule and a malformed one; when the pinned minimap renders across the game clock; then each rune spot shows minutes until the largest lead time, then seconds to 0; shared spots show the sooner objective; stale, malformed or missing schedules show nothing; Tormentor and Roshan are never labelled; markers are original.
+
+**Verification:** synthetic, native; procedures TP-05, UAT-05; status NOT_RUN.
+
+**Open dependencies:** DEC-NATIVE-EVIDENCE.
+
+**Elaboration:** [UX-SPEC.md](../design/UX-SPEC.md), [DECISION-LOG.md](../governance/DECISION-LOG.md)
+
+**Implementation freedom:** Choose marker shapes, colours and the label style within the Command Deck tokens. Do not duplicate the ALERT-008 timing table.
+
+#### UI-019 — Second-monitor broadcast-style draft board
+
+**Scope:** mvp · **Priority:** P1 · **Target milestone:** M3 · **Basis:** owner_decision / DEC-LIVE-SECOND-MONITOR
+
+**Product needs:** PN-005 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL
+
+In second-monitor mode, while the draft runs, the pinned map square shall show a broadcast-style draft board instead of the minimap, in the same layout: one row per team (Radiant, then Dire), five slots each, with our side marked when the own team is known. Each slot shows the hero portrait and name once identified by Draft Bar 5b in the same session, and the player name from Draft 5c only while the visible show-player-names setting is on; names stay in memory for the current match only and are never written to disk, logs, events or the network (DEC-DRAFT-BAR). Our side shows the picked hero's historical win rate in its estimated position group, labelled as an estimate; the enemy side shows the win rate and an estimated lane from the position groups, labelled as a guess. Statistics come only from the hero statistics projection under DEC-PICK-STATS and its consent. No win-chance percentage is shown. When the draft ends the square returns to the minimap.
+
+**Failure behavior:** An unidentified hero, a missing name, a name while the setting is off, or a missing or out-of-range statistic shows an em dash. Statistics are shown only for identified heroes. Low-data statistics carry a low-data label.
+
+**AC-UI-019:** Given a draft with some heroes identified, the own team known and unknown, names present with the setting on and off, and statistics present, absent and out of range; when the second-monitor Live page renders during the draft and after it; then the map square shows two team rows of five slots; identities come only from same-session draft memory; names appear only with the setting on; our side shows an estimated win rate and position, the enemy side a win rate and a guessed lane; no win chance appears; unknown values are em dashes; and the minimap returns after the draft.
+
+**Verification:** synthetic, native; procedures TP-05, UAT-05; status NOT_RUN.
+
+**Open dependencies:** DEC-NATIVE-EVIDENCE.
+
+**Elaboration:** [UX-SPEC.md](../design/UX-SPEC.md), [DECISION-LOG.md](../governance/DECISION-LOG.md)
+
+**Implementation freedom:** Choose the board styling within the Command Deck tokens. Add a statistics or names source only through its own requirement and decision.
 
 ### STATS
 

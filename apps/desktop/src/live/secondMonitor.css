@@ -107,3 +107,35 @@
 .app[data-live-monitor="right"][data-match="true"] { grid-template-columns: minmax(0, 1fr) var(--rail-left-width) 0; }
 .app[data-live-monitor="left"][data-match="true"] { grid-template-columns: 0 var(--rail-left-width) minmax(0, 1fr); }
 .app[data-live-monitor] .pulse-grid-ribbon { display: none; }
+
+/* Rune countdowns over the pinned minimap (UI-018). The overlay matches the canvas box; labels never take clicks. */
+.sm-pinned .minimap-stage > .live-map-canvas, .sm-pinned .minimap-stage > .sm-map-overlay { grid-area: 1 / 1; }
+.sm-map-overlay { position: relative; pointer-events: none; z-index: 2; }
+.sm-countdowns { list-style: none; margin: 0; padding: 0; position: absolute; inset: 0; }
+.sm-countdown { position: absolute; transform: translate(-50%, -50%); display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px 2px 2px; border: 1px solid rgba(255, 255, 255, 0.35); border-radius: 999px; background: rgba(10, 12, 16, 0.82); color: #f2f4f7; font-size: 14px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
+.sm-countdown-mark { display: inline-grid; place-items: center; width: 20px; height: 20px; border: 2px solid currentColor; border-radius: 50%; font-size: 12px; line-height: 1; }
+.sm-countdown[data-objective="power_rune"] .sm-countdown-mark { color: #e6b84d; }
+.sm-countdown[data-objective="water_rune"] .sm-countdown-mark { color: #5fb0e8; }
+.sm-countdown[data-objective="bounty_rune"] .sm-countdown-mark { color: #d9a441; }
+.sm-countdown[data-objective="wisdom_rune"] .sm-countdown-mark { color: #b48ae6; }
+.sm-countdown[data-mode="minutes"] { color: #c9ced6; font-weight: 600; }
+.sm-countdown[data-mode="seconds"], .sm-countdown[data-mode="now"] { border-color: #f2c14e; color: #ffe08a; }
+
+/* Broadcast-style draft board in the map square (UI-019). */
+.live-map-override { display: flex; align-items: stretch; justify-content: stretch; place-items: stretch; background: var(--ground); }
+.sm-board { flex: 1 1 auto; min-width: 0; min-height: 0; display: grid; grid-template-rows: 1fr 1fr auto; gap: 10px; padding: 12px; overflow: auto; }
+.sm-board-row { min-height: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--line); border-top: 3px solid var(--line-strong); border-radius: 8px; background: var(--surface); }
+.sm-board-row.is-ours { border-top-color: var(--ally, #7fb0e6); }
+.sm-board-row.is-theirs { border-top-color: var(--enemy, #f0914f); background: var(--enemy-surface, #2e1e12); }
+.sm-board-row h2 { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; }
+.sm-board-ours { padding: 0 6px; border-radius: 4px; background: var(--ally, #7fb0e6); color: #0c1420; font-size: 12px; font-weight: 700; line-height: 1.5; }
+.sm-board-row ol { list-style: none; margin: 0; padding: 0; flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.sm-board-slot { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 6px; border: 1px solid var(--line-subtle); border-radius: 6px; background: var(--ground); text-align: center; }
+.sm-board-slot.is-unknown { border-style: dashed; }
+.sm-board-slot .hero-portrait { --hero-portrait-size: clamp(48px, 5.2vw, 96px); }
+.sm-board-hero { max-width: 100%; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sm-board-slot.is-unknown .sm-board-hero { color: var(--text-2); font-weight: 400; }
+.sm-board-player { max-width: 100%; color: var(--text-2); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sm-board-stat, .sm-board-pos { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px; font-size: 13px; }
+.sm-board-rate { font-size: 16px; font-weight: 700; }
+.sm-board-sources { margin: 0; display: flex; flex-wrap: wrap; gap: 4px; }

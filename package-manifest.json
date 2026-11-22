@@ -58,8 +58,8 @@
     },
     {
       "path": "acceptance/scenarios.feature",
-      "bytes": 46776,
-      "sha256": "015397f3d396e54bcf5fdc724b620e2c5c0050819b556c66ba483df936522ae9"
+      "bytes": 48733,
+      "sha256": "56cbadac2f90c6f72cdfdeed0963d19ed50a7fd25c6c4dce592cf9d82d20dfca"
     },
     {
       "path": "acceptance/spec-validation.json",
@@ -857,6 +857,11 @@
       "sha256": "5bfe5f0c59f0e00932128b2414c68284d7173d532d45756c424dda91aca5dc53"
     },
     {
+      "path": "apps/desktop/src/live/DraftBoard.tsx",
+      "bytes": 2594,
+      "sha256": "c123f6260889d6cbc2cde6216f5ef764acf7e8273308fac5bd30b1f046b421a4"
+    },
+    {
       "path": "apps/desktop/src/live/EnemySeen.tsx",
       "bytes": 749,
       "sha256": "71b3f3c3b90ed8c98ceb998b2f74e789e4ac39ba7b08255d5a40b71c74a6174b"
@@ -867,9 +872,14 @@
       "sha256": "78d9508c19408a878436bb526434e895c6480c529b9ee3d51df536a5903e813a"
     },
     {
+      "path": "apps/desktop/src/live/MapCountdowns.tsx",
+      "bytes": 1895,
+      "sha256": "c2ceea361262fa4dd1838280db18372f68595eb83bac4167c3319d4111056cea"
+    },
+    {
       "path": "apps/desktop/src/live/MinimapPanel.tsx",
-      "bytes": 18756,
-      "sha256": "11546ba535d3c82cf3bac1e8a8e1a740e299380dd24d09e7d550e4dfdd17410b"
+      "bytes": 19325,
+      "sha256": "8888123ddda11a7892553e083fa221fab487dca49df431a0b75b95937d7c9407"
     },
     {
       "path": "apps/desktop/src/live/MinimapStage.tsx",
@@ -893,8 +903,8 @@
     },
     {
       "path": "apps/desktop/src/live/SecondMonitorDeck.tsx",
-      "bytes": 14900,
-      "sha256": "fbb9b8f85849006fd7d8dea90bf9c7ae1c5b7cb8dfe81eef403832d06dd86eac"
+      "bytes": 16837,
+      "sha256": "76d9b978c593c7c0e994d19ff0ba7c85b2df9199622edb670eb88aa236a7dbbb"
     },
     {
       "path": "apps/desktop/src/live/SecondMonitorToggle.tsx",
@@ -930,6 +940,11 @@
       "path": "apps/desktop/src/live/copy.ts",
       "bytes": 10883,
       "sha256": "22ed98d3ab79991e745ad8789f2531a68f33ce7e7ffa18daf84f0a528a1412a8"
+    },
+    {
+      "path": "apps/desktop/src/live/draftBoardModel.ts",
+      "bytes": 5610,
+      "sha256": "4aaaa6f83e65f05de20020cbbfb3bcfaf6e2819290947197599ceca486486fb6"
     },
     {
       "path": "apps/desktop/src/live/events.ts",
@@ -987,6 +1002,11 @@
       "sha256": "57ee7f8602b0b2ed7cd33bea224efaba0a5e61dc0434846131d604ae4def90ec"
     },
     {
+      "path": "apps/desktop/src/live/objectiveCountdownModel.ts",
+      "bytes": 6817,
+      "sha256": "d6dcd0a27d54f32633bb8bff9773dc31ca15ce92078925375120b3f3e9ce8222"
+    },
+    {
       "path": "apps/desktop/src/live/preview.ts",
       "bytes": 4989,
       "sha256": "2b4f6eaa4d4583a069736987f48b71af932cb878a08a5cf27024975e11d30dd4"
@@ -1003,8 +1023,8 @@
     },
     {
       "path": "apps/desktop/src/live/secondMonitor.css",
-      "bytes": 10240,
-      "sha256": "c4ed218ab13531265227d1ce0639358a08982853b41df49b31037098bb6ed6b2"
+      "bytes": 13842,
+      "sha256": "3d2507e7054a8de8685677e72c4b99114f168659b8596afa77fe21b6f381ee6e"
     },
     {
       "path": "apps/desktop/src/live/secondMonitorCards.ts",
@@ -1563,8 +1583,8 @@
     },
     {
       "path": "apps/desktop/src/steam/steam.css",
-      "bytes": 1160,
-      "sha256": "30b01b2304b25ca1daa26b3021c631d024119ca1d9e79c2623a00040b113b4e1"
+      "bytes": 1367,
+      "sha256": "6e67c9b1eafaf9d5739a1b165acfb5afdebfa0da3668952d5aa6499d9ee1217b"
     },
     {
       "path": "apps/desktop/src/steam/steamName.ts",
@@ -1765,6 +1785,11 @@
       "path": "apps/desktop/tests/live-second-monitor-cards.test.ts",
       "bytes": 8915,
       "sha256": "7a6713ac6ee4c8edae3f86fe995a47c63a2baf9a0a1851f132a5aa7f011ce836"
+    },
+    {
+      "path": "apps/desktop/tests/live-second-monitor-map.test.ts",
+      "bytes": 9483,
+      "sha256": "726bfd930754bc389abd1275bd58bfedc7a1e2fd0b84095f555252b720dd21da"
     },
     {
       "path": "apps/desktop/tests/live-second-monitor.test.ts",
@@ -2013,8 +2038,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 90051,
-      "sha256": "b9b1d6aad90a3435c8a724c8c73ebca768aeed91f6bc9cd250157755436448eb"
+      "bytes": 93167,
+      "sha256": "2fa5f2cd797ca82418d536c8b52f5f7197d22442a78ee42f1c2f888f885110d6"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -2093,13 +2118,13 @@
     },
     {
       "path": "contracts/product-needs.json",
-      "bytes": 8825,
-      "sha256": "03e6040c5b1a992c1019d46f8316b9fc55040081d2820453b6f02a760c2fcba1"
+      "bytes": 8861,
+      "sha256": "281070ffea0478ea552b738c67a0d3fc5f3fad7cafc11f0a6e9124670cd02410"
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 248385,
-      "sha256": "8a6c4df68815e3aa82b7056d7f8991cbb60b8203d3467d9da24c414592c8c011"
+      "bytes": 255856,
+      "sha256": "07e803b51d0ba273e55d60d345b3765895439f2de4c1881b5df0d1e6e3172c0a"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -3008,8 +3033,8 @@
     },
     {
       "path": "docs/design/SDD.md",
-      "bytes": 32649,
-      "sha256": "0dceb129003ef6728660cc8560d578e0b4f443db02d30d63caee362b90455be0"
+      "bytes": 32669,
+      "sha256": "c7c7ccd3a0caae0f6f11e900d779a0ae536f7ff06b0772385bb38ce94db720e2"
     },
     {
       "path": "docs/design/SHARING-MODEL-REVIEW.md",
@@ -3023,8 +3048,8 @@
     },
     {
       "path": "docs/design/UX-SPEC.md",
-      "bytes": 26724,
-      "sha256": "98c42cad084ac20bb43aab040b42154927d11ceee295aabffbaba2736252fedd"
+      "bytes": 27692,
+      "sha256": "57ecf2b913acd9da70acc496dea8819e9d664dc149c099414c93429117fd3061"
     },
     {
       "path": "docs/design/VISUAL-DESIGN-PROPOSAL.md",
@@ -3463,8 +3488,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 52073,
-      "sha256": "4101c115be2e106b4053c29ad3a14fb161220cd6e1589ddac9d017ccfee77643"
+      "bytes": 52644,
+      "sha256": "029bdc7246e91a3ab38e86d3a969088cb8e892034de980b807eaac7b369b03e6"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
@@ -3518,8 +3543,8 @@
     },
     {
       "path": "docs/product/PRD.md",
-      "bytes": 15664,
-      "sha256": "ec1f481fbd5e251cffe8fe109cb7c697ebda1e1bb19ca437ca7b266ac2ac7df2"
+      "bytes": 15680,
+      "sha256": "cce25188315e8d1f31a6e8ac455ed04d86c85e6f5205cc521f106952ff4668b1"
     },
     {
       "path": "docs/product/USE-CASES.md",
@@ -3543,13 +3568,13 @@
     },
     {
       "path": "docs/requirements/RTM.csv",
-      "bytes": 54085,
-      "sha256": "9a5343cdde9cbf5022866c44505c1513a639963e487281bd42c54713f34a471b"
+      "bytes": 55300,
+      "sha256": "3a29ec6111c2e2ea9006af990d59cad65a6838015aacce3a5522899c7c340ade"
     },
     {
       "path": "docs/requirements/SRS.md",
-      "bytes": 161238,
-      "sha256": "bd33434440601126de86cffdedb04e3ef87fe083c1e12a113d63ba321d280a1a"
+      "bytes": 166192,
+      "sha256": "7ce477ba79033d7fe0effab362b432ed49cfa10011990d65123ee1d3c76bc26f"
     },
     {
       "path": "docs/security/SECURITY-PRIVACY.md",

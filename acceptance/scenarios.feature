@@ -293,8 +293,8 @@ Feature: Brand-neutral desktop companion target behavior
   Scenario: AC-UI-016 Second-monitor Live layout
     Given Live boxes for 1920×1080 and 2560×1440 monitors with monitor 2 on each side, a narrowing window and a window below 1100×700
     When the player sets the side, resizes the window, opens the own-hero expander and enters or leaves a match
-    Then the map is pinned to the inner edge at the size the box allows, the quick strip matches its width, outer columns collapse before the map shrinks, the page falls back below the threshold with a note, rails move outward and the friends rail folds only during a match, and every control is keyboard-reachable
-    And failure behavior is: Without a stored or valid side, or when the window is too small, show the centred deck. Never move or resize the map because of panel content, feed changes or the expander.
+    Then the map is pinned to the inner edge at the size the box allows, the quick strip matches its width, outer columns collapse before the map shrinks, the page falls back below the threshold with a note, rails move outward and the friends rail folds only during a match, and every control is keyboard-reachable, and no status chip or control text overlaps another at the tested widths
+    And failure behavior is: Without a stored or valid side, or when the window is too small, show the centred deck. Never move or resize the map because of panel content, feed changes or the expander. Status chips and controls in the outer columns wrap to a new line instead of shrinking under their text; no label may paint over another (owner report on build 8d9f8c3, 2026-11-23).
 
   @UI-017 @mvp
   Scenario: AC-UI-017 Second-monitor content from admitted sources
@@ -302,6 +302,20 @@ Feature: Brand-neutral desktop companion target behavior
     When the second-monitor Live page renders
     Then both teams show hero cards with portrait, name, HP, mana and four skill squares; names come only from same-session draft memory and the own hero is not repeated; own values come from GSI; ally HP, mana and cooldowns appear only with peer data; without it the ally ultimate square shows only the dot state with no number; enemy vitals and skills are em dashes; missing-from-map is shown only when both counts are known; each value carries its source label; and no abnormal states appear
     And failure behavior is: Unknown is an em dash, never zero, never a guessed side and never a guessed cooldown. If the own team or own hero cannot be matched, the ally cards stay unknown and no ultimate-dot state is bound to a guessed ally. An unrecognised dot value is unknown.
+
+  @UI-018 @mvp
+  Scenario: AC-UI-018 Second-monitor rune countdowns on the minimap
+    Given a host schedule with water, power, bounty and wisdom occurrences, lead times set and unset, a stale schedule and a malformed one
+    When the pinned minimap renders across the game clock
+    Then each rune spot shows minutes until the largest lead time, then seconds to 0; shared spots show the sooner objective; stale, malformed or missing schedules show nothing; Tormentor and Roshan are never labelled; markers are original
+    And failure behavior is: No schedule, a malformed schedule or one older than five seconds shows no labels and an em dash in the quick strip. Spot positions are approximate placement for patch 7.42 and are not measurements; a wrong spot never changes a time.
+
+  @UI-019 @mvp
+  Scenario: AC-UI-019 Second-monitor broadcast-style draft board
+    Given a draft with some heroes identified, the own team known and unknown, names present with the setting on and off, and statistics present, absent and out of range
+    When the second-monitor Live page renders during the draft and after it
+    Then the map square shows two team rows of five slots; identities come only from same-session draft memory; names appear only with the setting on; our side shows an estimated win rate and position, the enemy side a win rate and a guessed lane; no win chance appears; unknown values are em dashes; and the minimap returns after the draft
+    And failure behavior is: An unidentified hero, a missing name, a name while the setting is off, or a missing or out-of-range statistic shows an em dash. Statistics are shown only for identified heroes. Low-data statistics carry a low-data label.
 
   @MEDIA-009 @extension
   Scenario: AC-MEDIA-009 Per-application session volume

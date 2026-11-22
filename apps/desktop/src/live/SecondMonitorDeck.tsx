@@ -39,6 +39,10 @@ import {
   type SecondMonitorSide,
   type Team,
 } from "./secondMonitorModel";
+import { MapCountdowns } from "./MapCountdowns";
+import { DraftBoard } from "./DraftBoard";
+import { countdownLabels, objectiveShortName, type ObjectiveSchedule } from "./objectiveCountdownModel";
+import { draftBoardRows, type DraftStatsInput, type PlayerNamesInput } from "./draftBoardModel";
 import "./secondMonitor.css";
 
 // Draft identities live in memory for the match only (UI-012); a new session epoch clears them.
@@ -221,7 +225,8 @@ function TeamSection({ title, side, cards, note, locale, children }: {
 
 export function SecondMonitorDeck({
   locale, side, onSideChange, snapshot, hostLost, sessionEpoch, draftBar, steamStatus, gsiSetup,
-  nextObjective = null, topbar = null, peer = null, renderAlerts, topSlot, events, announcer, legacy,
+  nextObjective = null, topbar = null, peer = null, objectiveSchedule = null, draftStats = null, playerNames = null,
+  showPlayerNames = false, renderAlerts, topSlot, events, announcer, legacy,
 }: {
   locale: Locale;
   side: Exclude<SecondMonitorSide, "off">;
@@ -238,6 +243,14 @@ export function SecondMonitorDeck({
   topbar?: TopbarInput | null;
   /** Consented teammate sharing (PEER-003, PEER-010; M6). Not on this branch: unknown. */
   peer?: PeerInput | null;
+  /** Host read-model `objective://schedule` from the ALERT-008 scheduler, with its arrival time. Not produced on this branch. */
+  objectiveSchedule?: { schedule: ObjectiveSchedule; receivedAtMs: number } | null;
+  /** Hero statistics projection per draft slot (DEC-PICK-STATS). Not produced on this branch. */
+  draftStats?: DraftStatsInput | null;
+  /** Draft 5c player names (memory-only, deck-only). Not implemented in the product yet. */
+  playerNames?: PlayerNamesInput | null;
+  /** The visible "show player names" setting; names are dropped when it is off. */
+  showPlayerNames?: boolean;
   renderAlerts: (input: { risk: RiskView | null; captureLive: boolean }) => ReactNode;
   topSlot?: ReactNode;
   events: ReactNode;
@@ -260,6 +273,13 @@ export function SecondMonitorDeck({
     tiles: ownLoadout.abilities.stale ? null : ownLoadout.abilities.tiles, slot: ownDraftSlot(roster, sessionEpoch, ownTeam, own.heroId) });
   const enemyCards = enemyHeroCards(roster, sessionEpoch, ownTeam);
   const cardText = cardCopy(lang);
+  const draftPhase = !hostLost && draftBar?.active === true;
+  const boardRows = draftBoardRows({ memory: roster, epoch: sessionEpoch, ownTeam, stats: draftStats, names: playerNames, showNames: showPlayerNames });
+  const soonest = nextObjective ? null
+    : countdownLabels(objectiveSchedule?.schedule ?? null, objectiveSchedule?.receivedAtMs ?? null, Date.now())
+      .sort((a, b) => a.remaining - b.remaining)[0] ?? null;
+  const next: NextObjective | null = nextObjective
+    ?? (soonest ? { label: objectiveShortName(soonest.objective, lang), secondsUntil: soonest.remaining } : null);
 
   if (layout && layout.mode === "fallback") {
     return (
@@ -295,9 +315,13 @@ export function SecondMonitorDeck({
     <div ref={ref} className="sm-host sm-pinned" data-layout={pinned ? "pinned" : "measuring"} data-map-edge={pinned?.mapEdge ?? (side === "right" ? "left" : "right")}
       data-columns={pinned?.columns ?? 2} style={style} lang={locale}>
       <div className="sm-inner">
-        <MinimapPanel locale={locale} layout="pinned" steamStatus={steamStatus} renderAlerts={({ risk, captureLive }) => (
+        <MinimapPanel locale={locale} layout="pinned" steamStatus={steamStatus}
+          mapOverlay={<MapCountdowns schedule={objectiveSchedule?.schedule ?? null} receivedAtMs={objectiveSchedule?.receivedAtMs ?? null} locale={lang} />}
+          stageOverride={draftPhase ? <DraftBoard rows={boardRows} locale={lang}
+            namesAvailable={showPlayerNames && playerNames !== null} statsAvailable={draftStats !== null} /> : undefined}
+          renderAlerts={({ risk, captureLive }) => (
           <>
-            <QuickStrip risk={risk} rows={enemies} ownTeam={ownTeam} next={nextObjective} locale={lang} />
+            <QuickStrip risk={risk} rows={enemies} ownTeam={ownTeam} next={next} locale={lang} />
             <div className="sm-alerts">{renderAlerts({ risk, captureLive })}</div>
           </>
         )} />

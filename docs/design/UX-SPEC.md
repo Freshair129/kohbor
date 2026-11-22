@@ -122,6 +122,9 @@ Content rules:
   - Ally card: HP, mana and cooldown numbers only from peer sharing. Without it HP, mana and the three skills are “—” and the ultimate square shows only the top-bar ultimate-dot state as a colour (green ready, blue ready without mana, dark not ready, dashed unknown) with no number. The input is `topbar.ally_ult_state`, unknown until the proposed DEC-TOPBAR-CV read is admitted.
   - Enemy card: identity from the draft only; HP, mana and skills are “—”.
 - Every value carries its source label (draft, GSI, derived from the map, game clock); unknown is “—”.
+- Rune countdowns (UI-018): each rune spot on the pinned minimap carries an original marker and a label, minutes while far (“3m”, “2m”, “1m”), then seconds from the largest lead time set in the objective Settings (last minute when none is set). Timing comes only from the ALERT-008 scheduler through a host schedule read-model; no label for Roshan or Tormentor respawn; labels never take clicks; spot positions are approximate.
+- Draft board (UI-019): during the draft the map square shows one row per team, five slots each: portrait and hero name (Draft Bar 5b), player name (Draft 5c, only with the visible setting on, memory-only), and the hero's historical win rate. Our side adds the estimated position (“ค่าประมาณ”); the enemy side adds a guessed lane (“เดา”). Never a win chance. After the draft the minimap returns.
+- Status chips (Steam, Dota 2, GSI) and the start button wrap to a new line instead of overlapping.
 
 ## 5. Selection and inspector behavior
 
