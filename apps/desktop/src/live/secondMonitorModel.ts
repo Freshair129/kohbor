@@ -140,25 +140,6 @@ export function enemyRows(memory: DraftRosterMemory, epoch: number | null, ownTe
   }));
 }
 
-/**
- * Four stable ally rows, own hero excluded. If the own hero cannot be matched to a draft slot,
- * the four rows stay unknown rather than risking a repeat of the own hero.
- */
-export function allyRows(memory: DraftRosterMemory, epoch: number | null, ownTeam: Team | null, ownHeroId: string | null): RosterRow[] {
-  const current = memory.epoch !== null && memory.epoch === epoch;
-  const names: (string | null)[] = [null, null, null, null];
-  if (current && ownTeam && ownHeroId) {
-    const team = teamSlots(ownTeam).map(slot => memory.slots[slot] ?? null);
-    const ownIndex = team.indexOf(ownHeroId);
-    if (ownIndex >= 0) {
-      team.filter((_, index) => index !== ownIndex).forEach((heroId, index) => {
-        names[index] = displayHeroName(heroId)?.name ?? null;
-      });
-    }
-  }
-  return names.map((heroName, index) => ({ key: `A${index + 1}`, heroName, life: null }));
-}
-
 /** The next map objective. No source exists on this branch; ALERT-008 supplies it when merged. */
 export interface NextObjective { label: string; secondsUntil: number }
 

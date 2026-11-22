@@ -298,10 +298,10 @@ Feature: Brand-neutral desktop companion target behavior
 
   @UI-017 @mvp
   Scenario: AC-UI-017 Second-monitor content from admitted sources
-    Given a session with and without admitted draft identities, a known and unknown own team, risk counts present and absent, and no objective source
+    Given a session with and without admitted draft identities, a known and unknown own team, risk counts present and absent, no objective source, own GSI abilities, ally ultimate-dot inputs present and absent, and peer data present and absent
     When the second-monitor Live page renders
-    Then enemy and ally names come only from same-session draft memory, the own hero is not repeated, missing-from-map is shown only when both counts are known, life state and the objective countdown are em dashes without a source, each value carries its source label, and no ally vitals, cooldowns or abnormal states appear
-    And failure behavior is: Unknown is an em dash, never zero and never a guessed side. If the own team or own hero cannot be matched, the corresponding rows stay unknown instead of risking a wrong or repeated hero.
+    Then both teams show hero cards with portrait, name, HP, mana and four skill squares; names come only from same-session draft memory and the own hero is not repeated; own values come from GSI; ally HP, mana and cooldowns appear only with peer data; without it the ally ultimate square shows only the dot state with no number; enemy vitals and skills are em dashes; missing-from-map is shown only when both counts are known; each value carries its source label; and no abnormal states appear
+    And failure behavior is: Unknown is an em dash, never zero, never a guessed side and never a guessed cooldown. If the own team or own hero cannot be matched, the ally cards stay unknown and no ultimate-dot state is bound to a guessed ally. An unrecognised dot value is unknown.
 
   @MEDIA-009 @extension
   Scenario: AC-MEDIA-009 Per-application session volume

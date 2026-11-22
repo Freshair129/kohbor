@@ -2975,13 +2975,13 @@
       "target_milestone": "M3",
       "basis": "owner_decision",
       "decision_basis": "DEC-LIVE-SECOND-MONITOR",
-      "statement": "In second-monitor mode the quick strip shall show the danger level, the enemies missing from the map (recent maximum seen minus currently visible, labelled derived), five enemy rows named only from the in-memory Draft Bar identities of the same session with alive/dead shown as an em dash until an admitted top-bar read exists, and the next map objective countdown from an admitted source or an em dash. The team card shall show four ally rows named from the draft, own hero excluded, with alive/dead as an em dash and a note that HP and skills need teammate sharing. The own hero shall be one strip (name, level, alive/respawn, HP, mana) with items, skills, gold and KDA behind an expander. Every value carries its source label. Ally HP and ally cooldowns shall come only from consented peer sharing (PEER-003, PEER-010); ally HP shall not be read from the in-game top bar; abnormal states (stuns, targeting) shall not be shown.",
-      "failure_behavior": "Unknown is an em dash, never zero and never a guessed side. If the own team or own hero cannot be matched, the corresponding rows stay unknown instead of risking a wrong or repeated hero.",
+      "statement": "In second-monitor mode the quick strip shall show the danger level, the enemies missing from the map (recent maximum seen minus currently visible, labelled derived), five enemy rows named only from the in-memory Draft Bar identities of the same session with alive/dead shown as an em dash until an admitted top-bar read exists, and the next map objective countdown from an admitted source or an em dash. The outer columns shall show hero cards for both teams: our team (the own hero first, then four allies named from the draft, own hero excluded) and five enemy cards clearly marked as the enemy side. Each card shall show the hero portrait, the full hero name, an HP bar, a mana bar and four skill squares (three skills, then the ultimate). The own card takes name, HP, mana and skill cooldowns from GSI and keeps level, alive/respawn, items, gold and KDA behind an expander. An ally card takes HP, mana and cooldowns only from consented peer sharing (PEER-003, PEER-010); without it HP, mana and the three skills are em dashes and the ultimate square shows only the ally's top-bar ultimate-dot state (ready, ready without mana, not ready, or unknown) as a colour with no number, from the input topbar.ally_ult_state, which stays unknown until an admitted top-bar read exists (proposed DEC-TOPBAR-CV). An enemy card takes only its identity from the draft; HP, mana and skills are em dashes unless an admitted source exists. Every value carries its source label. Ally HP shall not be read from the in-game top bar; abnormal states (stuns, targeting) shall not be shown.",
+      "failure_behavior": "Unknown is an em dash, never zero, never a guessed side and never a guessed cooldown. If the own team or own hero cannot be matched, the ally cards stay unknown and no ultimate-dot state is bound to a guessed ally. An unrecognised dot value is unknown.",
       "acceptance": {
         "scenario_id": "AC-UI-017",
-        "given": "a session with and without admitted draft identities, a known and unknown own team, risk counts present and absent, and no objective source",
+        "given": "a session with and without admitted draft identities, a known and unknown own team, risk counts present and absent, no objective source, own GSI abilities, ally ultimate-dot inputs present and absent, and peer data present and absent",
         "when": "the second-monitor Live page renders",
-        "then": "enemy and ally names come only from same-session draft memory, the own hero is not repeated, missing-from-map is shown only when both counts are known, life state and the objective countdown are em dashes without a source, each value carries its source label, and no ally vitals, cooldowns or abnormal states appear"
+        "then": "both teams show hero cards with portrait, name, HP, mana and four skill squares; names come only from same-session draft memory and the own hero is not repeated; own values come from GSI; ally HP, mana and cooldowns appear only with peer data; without it the ally ultimate square shows only the dot state with no number; enemy vitals and skills are em dashes; missing-from-map is shown only when both counts are known; each value carries its source label; and no abnormal states appear"
       },
       "verification": {
         "required_evidence": [
@@ -3002,7 +3002,9 @@
           "apps/desktop/src/live/MinimapPanel.tsx",
           "apps/desktop/src/deck/Deck.tsx",
           "apps/desktop/src/App.tsx",
-          "apps/desktop/tests/live-second-monitor.test.ts"
+          "apps/desktop/tests/live-second-monitor.test.ts",
+          "apps/desktop/src/live/secondMonitorCards.ts",
+          "apps/desktop/tests/live-second-monitor-cards.test.ts"
         ],
         "evidence_refs": [],
         "procedure_ids": [

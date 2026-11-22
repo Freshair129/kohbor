@@ -1179,10 +1179,10 @@
       "blocks": "UI-016 and UI-017 only; the DEC-SESSION-MONITOR topology (UI-002) is unchanged.",
       "owner_role": "product owner",
       "decided_by": "product_owner",
-      "decided_on": "2026-11-22",
-      "channel": "Owner answer to the second-monitor design questions (coord:design/live-second-monitor-20261122/README.th.md), relayed by the coordinating session local_e6af3702 and recorded by an agent.",
-      "owner_statement_th": "“ตามที่แนะนำ”",
-      "decision": "Adopt option B: the minimap pinned to the edge touching the main monitor with a quick strip under it. The mode is off by default and the user picks the side once; no auto-detection. In this mode only, the navigation rail moves to the outer edge and the friends rail collapses during a match, an exception to the Command Deck two-rail rule. Ally HP and cooldowns come only from peer sharing (PEER-003, PEER-010, extension M6); until then a compact placeholder; ally HP is not read from the in-game top bar. Abnormal states are dropped. The own hero collapses to one strip with items, skills, gold and KDA behind an expander. The proposed DEC-TOPBAR-CV is extended so the top-bar read may also give ally alive/dead from data it already reads; implementation waits for the owner frames.",
+      "decided_on": "2026-11-23",
+      "channel": "Owner answer to the second-monitor design questions (coord:design/live-second-monitor-20261122/README.th.md), relayed by the coordinating session local_e6af3702 and recorded by an agent. Revision 2: owner feedback on integration build 8d9f8c3, relayed by the coordinating session local_e6af3702 on 2026-11-23 and recorded by an agent.",
+      "owner_statement_th": "“ตามที่แนะนำ”; 2026-11-23: “ฮีโร่การ์ดของเรากับของฝั่งตรงข้าม … ทำเป็นการ์ดอย่างนี้แหละแล้วก็ไม่ต้องใส่รายละเอียดเยอะ … รูปฮีโร่แล้วก็มีชื่อยาวแล้วข้างใต้ชื่อก็มีหลอดเลือดหลอดมานา … 4ช่องสี่เหลี่ยมที่เป็นสกิลโดยที่มีตัวเลขนับคูลดาวน์กรณีที่ได้รับ GSI จากคนอื่นถ้าไม่มีก็นับแค่อันติ … จุดเขียว … สีน้ำเงิน … สีดำ … อันนี้เราสามารถดีเทคได้ตรงๆ”",
+      "decision": "Adopt option B: the minimap pinned to the edge touching the main monitor with a quick strip under it. The mode is off by default and the user picks the side once; no auto-detection. In this mode only, the navigation rail moves to the outer edge and the friends rail collapses during a match, an exception to the Command Deck two-rail rule. Ally HP and cooldowns come only from peer sharing (PEER-003, PEER-010, extension M6); until then a compact placeholder; ally HP is not read from the in-game top bar. Abnormal states are dropped. The own hero collapses to one strip with items, skills, gold and KDA behind an expander. The proposed DEC-TOPBAR-CV is extended so the top-bar read may also give ally alive/dead from data it already reads; implementation waits for the owner frames. Revision 2 (owner request 2026-11-23): both teams get simple hero cards (portrait, full name, HP bar, mana bar, four skill squares). Own values come from GSI. Ally HP, mana and cooldowns come only from peer sharing; without it the ally ultimate square shows the top-bar ultimate-dot state (green ready, blue ready without mana, dark not ready) with no number. Enemy cards take only their identity from the draft. The dot read belongs to the proposed DEC-TOPBAR-CV scope; the cards accept the input topbar.ally_ult_state, which stays unknown until that read is admitted.",
       "reason": "Shorten eye travel from the main monitor and avoid repeating the game HUD, while showing only admitted values.",
       "alternatives_considered": [
         "Option A: full-height map with columns",
@@ -1204,10 +1204,17 @@
         "DEC-DRAFT-BAR",
         "DEC-NATIVE-EVIDENCE"
       ],
-      "safe_interim": "Mode off by default; below about 1100×700 the centred deck is used; every unknown is an em dash.",
-      "closure_evidence": "Owner answer relayed 2026-11-22. Synthetic layout and model tests only; native and live evidence NOT_RUN.",
-      "revision": "1",
-      "history": []
+      "safe_interim": "Mode off by default; below about 1100×700 the centred deck is used; every unknown is an em dash. Without an admitted top-bar read or peer sharing, ally and enemy card values stay em dashes.",
+      "closure_evidence": "Owner answers relayed 2026-11-22 and 2026-11-23. Synthetic layout and model tests only; native and live evidence NOT_RUN.",
+      "revision": "2",
+      "history": [
+        {
+          "revision": "1",
+          "decided_on": "2026-11-22",
+          "decision": "Adopt option B: the minimap pinned to the edge touching the main monitor with a quick strip under it. The mode is off by default and the user picks the side once; no auto-detection. In this mode only, the navigation rail moves to the outer edge and the friends rail collapses during a match, an exception to the Command Deck two-rail rule. Ally HP and cooldowns come only from peer sharing (PEER-003, PEER-010, extension M6); until then a compact placeholder; ally HP is not read from the in-game top bar. Abnormal states are dropped. The own hero collapses to one strip with items, skills, gold and KDA behind an expander. The proposed DEC-TOPBAR-CV is extended so the top-bar read may also give ally alive/dead from data it already reads; implementation waits for the owner frames.",
+          "safe_interim": "Mode off by default; below about 1100×700 the centred deck is used; every unknown is an em dash."
+        }
+      ]
     }
   ]
 }

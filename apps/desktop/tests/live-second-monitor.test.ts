@@ -5,7 +5,6 @@ import {
   COLUMN_MIN,
   GAP,
   SECOND_MONITOR_STORAGE_KEY,
-  allyRows,
   createDraftRosterMemory,
   enemyRows,
   formatCountdown,
@@ -147,17 +146,6 @@ test("draft memory clears on a session change and keeps earlier identifications 
   assert.deepEqual(memory.slots, Array(10).fill(null), "an unknown session admits nothing");
 });
 
-test("ally rows exclude the own hero and stay unknown when the own hero is not matched", () => {
-  const memory = rememberDraftFrame(createDraftRosterMemory(), 7, draftFrame(ROSTER));
-  assert.deepEqual(allyRows(memory, 7, "radiant", "npc_dota_hero_lion").map(row => row.heroName),
-    ["Silencer", "Axe", "Juggernaut", "Earthshaker"]);
-  assert.deepEqual(allyRows(memory, 7, "radiant", "npc_dota_hero_tiny").map(row => row.heroName), [null, null, null, null]);
-  assert.deepEqual(allyRows(memory, 7, "radiant", null).map(row => row.heroName), [null, null, null, null]);
-  assert.deepEqual(allyRows(memory, 7, null, "npc_dota_hero_lion").map(row => row.heroName), [null, null, null, null]);
-  assert.deepEqual(allyRows(memory, 7, "radiant", "npc_dota_hero_lion").map(row => row.key), ["A1", "A2", "A3", "A4"]);
-  assert.ok(allyRows(memory, 7, "radiant", "npc_dota_hero_lion").every(row => row.life === null), "no ally HP or life without a source");
-});
-
 test("the next-objective countdown renders an em dash without a source", () => {
   assert.equal(formatCountdown(null), "—");
   assert.equal(formatCountdown(Number.NaN), "—");
@@ -181,6 +169,7 @@ test("copy labels every pending source and never claims ally vitals or abnormal 
 test("component sources render no invented values", () => {
   const deck = readFileSync(new URL("../src/live/SecondMonitorDeck.tsx", import.meta.url), "utf8");
   assert.match(deck, /row\.heroName \?\? "—"/);
+  assert.match(deck, /card\.heroName \?\? "—"/);
   assert.match(deck, /missing === null \? "—"/);
   assert.match(deck, /formatCountdown\(next\?\.secondsUntil \?\? null\)/);
   assert.doesNotMatch(deck, /Math\.random|placeholder hero|npc_dota_hero_/);

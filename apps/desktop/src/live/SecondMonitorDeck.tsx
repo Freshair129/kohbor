@@ -6,6 +6,8 @@ import { DraftBarStrip } from "../deck/DraftBarStrip";
 import { deriveOwnHeroViewModel, ownHeroLifeLabel } from "../deck/ownHeroModel";
 import { deriveLoadoutViewModel } from "../deck/loadoutModel";
 import { OwnLoadout } from "../deck/OwnLoadout";
+import { HeroPortrait } from "../deck/HeroPortrait";
+import { formatCooldownValue } from "../deck/cooldownModel";
 import { deckCopy } from "../deck/copy";
 import { MinimapPanel } from "./MinimapPanel";
 import { DangerMeter } from "./DangerMeter";
@@ -14,7 +16,16 @@ import type { RiskView } from "./types";
 import type { SteamStatus } from "../steam/model";
 import { SecondMonitorToggle } from "./SecondMonitorToggle";
 import {
-  allyRows,
+  allyHeroCards,
+  cardCopy,
+  enemyHeroCards,
+  ownDraftSlot,
+  ownHeroCard,
+  type HeroCard,
+  type PeerInput,
+  type TopbarInput,
+} from "./secondMonitorCards";
+import {
   createDraftRosterMemory,
   enemyRows,
   formatCountdown,
@@ -102,36 +113,77 @@ function QuickStrip({ risk, rows, ownTeam, next, locale }: {
   );
 }
 
-function TeamCard({ rows, matched, locale }: { rows: RosterRow[]; matched: boolean; locale: "th" | "en" }) {
-  const text = secondMonitorCopy(locale);
+function Bar({ value, kind, label }: { value: number | null; kind: "hp" | "mana"; label: string }) {
+  const shown = value === null ? "—" : `${Math.round(value)}%`;
   return (
-    <section className="sm-card sm-team" aria-labelledby="sm-team-heading">
-      <h2 id="sm-team-heading">{text.allies}
-        <span className="sm-card-tags"><SourceTag>{text.source.draft}</SourceTag> <SourceTag pending>{text.source.lifePending}</SourceTag></span></h2>
-      <ul className="sm-rows">
-        {rows.map(row => (
-          <li key={row.key} data-testid={`sm-ally-${row.key}`}>
-            <span className="sm-slot">{row.key}</span>
-            <b className={row.heroName ? "" : "is-unknown"}>{row.heroName ?? "—"}</b>
-            <span className="sm-life">{text.lifeUnknown}</span>
-          </li>
-        ))}
-      </ul>
-      <p className="sm-note">{matched ? text.source.peerPending : text.unmatchedOwn}</p>
-    </section>
+    <span className={`sm-bar sm-bar-${kind}${value === null ? " is-unknown" : ""}`} role="img" aria-label={`${label} ${shown}`}>
+      {value !== null && <span style={{ width: `${value}%` }} />}
+      <em className="mono">{label} {shown}</em>
+    </span>
   );
 }
 
-function OwnStrip({ snapshot, hostLost, locale, gsiSetup }: {
-  snapshot: OwnSnapshot | null; hostLost: boolean; locale: "th" | "en"; gsiSetup?: (replace: boolean) => Promise<string | null>;
+function SkillSquares({ skills, locale }: { skills: HeroCard["skills"]; locale: "th" | "en" }) {
+  const text = cardCopy(locale);
+  return (
+    <ol className="sm-skills">
+      {skills.map((skill, index) => {
+        const label = skill.ultimate ? text.ult : text.skill(index + 1);
+        const value = skill.seconds !== null ? formatCooldownValue(skill.seconds) : skill.state === "unknown" ? "—" : "";
+        const spoken = `${label}: ${text.state[skill.state]}${skill.seconds !== null ? ` ${value}s` : ""}`;
+        return (
+          <li key={index} className={`sm-skill${skill.ultimate ? " is-ult" : ""}`} data-state={skill.state}
+            data-source={skill.source ?? "none"} aria-label={spoken} title={spoken}>
+            <span className="mono">{value}</span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function HeroCardView({ card, locale, children }: { card: HeroCard; locale: "th" | "en"; children?: ReactNode }) {
+  const text = cardCopy(locale);
+  const ultSource = card.skills[3].source;
+  const who = card.side === "enemy" ? text.enemyMark : card.side === "own" ? text.you : text.ourTeam;
+  return (
+    <article className={`sm-hero sm-hero-${card.side}${card.heroName ? "" : " is-unknown"}`} data-testid={`sm-card-${card.key}`}
+      aria-label={`${who}: ${card.heroName ?? "—"}`}>
+      <HeroPortrait heroId={card.heroId} size="md" alt={card.heroName ?? "—"} />
+      <div className="sm-hero-body">
+        <div className="sm-hero-name">
+          <b title={card.heroName ?? undefined}>{card.heroName ?? "—"}</b>
+          {card.side === "enemy" && <span className="sm-enemy-mark">{text.enemyMark}</span>}
+          {card.side === "own" && <span className="sm-muted">{text.you}</span>}
+        </div>
+        <div className="sm-hero-bars">
+          <Bar value={card.hpPercent} kind="hp" label={text.hp} />
+          <Bar value={card.manaPercent} kind="mana" label={text.mana} />
+        </div>
+        <SkillSquares skills={card.skills} locale={locale} />
+        <div className="sm-hero-src">
+          {card.nameSource === "draft" && <SourceTag>{text.source.draft}</SourceTag>}
+          {(card.nameSource === "gsi" || card.vitalsSource === "gsi") && <SourceTag>{text.source.gsi}</SourceTag>}
+          {card.vitalsSource === "peer" && <SourceTag>{text.source.peer}</SourceTag>}
+          {card.side === "ally" && card.vitalsSource === null && <SourceTag pending>{text.source.peerPending}</SourceTag>}
+          {card.side === "ally" && ultSource === "topbar" && <SourceTag>{text.source.topbar}</SourceTag>}
+          {card.side === "ally" && ultSource === null && <SourceTag pending>{text.source.topbarPending}</SourceTag>}
+          {card.side === "enemy" && <SourceTag pending>{text.source.enemyNone}</SourceTag>}
+        </div>
+        {children}
+      </div>
+    </article>
+  );
+}
+
+function OwnCard({ card, snapshot, hostLost, locale, gsiSetup }: {
+  card: HeroCard; snapshot: OwnSnapshot | null; hostLost: boolean; locale: "th" | "en"; gsiSetup?: (replace: boolean) => Promise<string | null>;
 }) {
   const text = secondMonitorCopy(locale);
   const deckText = deckCopy(locale);
   const own = deriveOwnHeroViewModel(snapshot);
   const loadout = deriveLoadoutViewModel(snapshot, hostLost);
   const n = (value: number | null) => value === null ? "—" : String(value);
-  const hpWidth = own.hpPercent === null ? undefined : `${Math.max(0, Math.min(100, own.hpPercent))}%`;
-  const manaWidth = own.manaPercent === null ? undefined : `${Math.max(0, Math.min(100, own.manaPercent))}%`;
   const stats = [
     [deckText.statLabels[0], n(own.stats.gold)],
     [deckText.statLabels[1], [own.stats.kills, own.stats.deaths, own.stats.assists].map(n).join(" / ")],
@@ -139,18 +191,8 @@ function OwnStrip({ snapshot, hostLost, locale, gsiSetup }: {
     [deckText.statLabels[3], [own.stats.gpm, own.stats.xpm].map(n).join(" / ")],
   ];
   return (
-    <section className="sm-card sm-own" aria-label={deckText.ownHero}>
-      <div className="sm-own-line">
-        <b data-testid="sm-own-name">{own.heroName?.name ?? "—"}</b>
-        <span className="sm-muted">{text.own} · {text.level} {n(own.level)}</span>
-        <span className="sm-life" data-testid="sm-own-life">{ownHeroLifeLabel(own, locale)}</span>
-        <SourceTag>{text.source.gsi}</SourceTag>
-      </div>
-      <div className="sm-own-bars">
-        <span className="sm-bar sm-bar-hp" role="img" aria-label={`HP ${n(own.hp)} / ${n(own.maxHp)}`}>{hpWidth && <span style={{ width: hpWidth }} />}</span>
-        <span className="sm-bar sm-bar-mana" role="img" aria-label={`${deckText.mana} ${n(own.manaPercent)}`}>{manaWidth && <span style={{ width: manaWidth }} />}</span>
-      </div>
-      <p className="sm-note mono" data-testid="sm-own-vitals">HP {n(own.hp)} / {n(own.maxHp)} · {deckText.mana} {own.manaPercent === null ? "—" : `${own.manaPercent}%`}</p>
+    <HeroCardView card={card} locale={locale}>
+      <p className="sm-note" data-testid="sm-own-life">{text.level} {n(own.level)} · {ownHeroLifeLabel(own, locale)}</p>
       <details className="sm-own-more">
         <summary>{text.more}</summary>
         <div className="sm-own-stats">
@@ -158,13 +200,28 @@ function OwnStrip({ snapshot, hostLost, locale, gsiSetup }: {
         </div>
         <OwnLoadout model={loadout} locale={locale} gsiSetup={gsiSetup} />
       </details>
+    </HeroCardView>
+  );
+}
+
+function TeamSection({ title, side, cards, note, locale, children }: {
+  title: string; side: "ally" | "enemy"; cards: HeroCard[]; note?: string | null; locale: "th" | "en"; children?: ReactNode;
+}) {
+  return (
+    <section className={`sm-card sm-team sm-team-${side}`} aria-label={title}>
+      <h2>{title}</h2>
+      <div className="sm-hero-list">
+        {children}
+        {cards.map(card => <HeroCardView key={card.key} card={card} locale={locale} />)}
+      </div>
+      {note && <p className="sm-note">{note}</p>}
     </section>
   );
 }
 
 export function SecondMonitorDeck({
   locale, side, onSideChange, snapshot, hostLost, sessionEpoch, draftBar, steamStatus, gsiSetup,
-  nextObjective = null, renderAlerts, topSlot, events, announcer, legacy,
+  nextObjective = null, topbar = null, peer = null, renderAlerts, topSlot, events, announcer, legacy,
 }: {
   locale: Locale;
   side: Exclude<SecondMonitorSide, "off">;
@@ -177,6 +234,10 @@ export function SecondMonitorDeck({
   gsiSetup?: (replace: boolean) => Promise<string | null>;
   /** No source on this branch (ALERT-008 supplies it when merged); null renders "—". */
   nextObjective?: NextObjective | null;
+  /** `topbar.ally_ult_state` from the top-bar read (proposed DEC-TOPBAR-CV). No consumer on this branch: unknown. */
+  topbar?: TopbarInput | null;
+  /** Consented teammate sharing (PEER-003, PEER-010; M6). Not on this branch: unknown. */
+  peer?: PeerInput | null;
   renderAlerts: (input: { risk: RiskView | null; captureLive: boolean }) => ReactNode;
   topSlot?: ReactNode;
   events: ReactNode;
@@ -192,8 +253,13 @@ export function SecondMonitorDeck({
   const ownTeam = hostLost ? null : snapshot?.own?.team ?? null;
   const own = deriveOwnHeroViewModel(snapshot);
   const enemies = enemyRows(roster, sessionEpoch, ownTeam);
-  const allies = allyRows(roster, sessionEpoch, ownTeam, own.heroId);
-  const matched = allies.some(row => row.heroName !== null);
+  const allies = allyHeroCards({ memory: roster, epoch: sessionEpoch, ownTeam, ownHeroId: own.heroId, peer, topbar });
+  const matched = allies.some(card => card.slot !== null);
+  const ownLoadout = deriveLoadoutViewModel(hostLost ? null : snapshot, hostLost);
+  const ownCard = ownHeroCard({ heroId: own.heroId, hpPercent: own.hpPercent, manaPercent: own.manaPercent,
+    tiles: ownLoadout.abilities.stale ? null : ownLoadout.abilities.tiles, slot: ownDraftSlot(roster, sessionEpoch, ownTeam, own.heroId) });
+  const enemyCards = enemyHeroCards(roster, sessionEpoch, ownTeam);
+  const cardText = cardCopy(lang);
 
   if (layout && layout.mode === "fallback") {
     return (
@@ -216,10 +282,14 @@ export function SecondMonitorDeck({
         <SecondMonitorToggle side={side} onChange={onSideChange} locale={lang} />
       </div>
       {draftBar?.active && <DraftBarStrip frame={draftBar} locale={locale} />}
-      <TeamCard rows={allies} matched={matched} locale={lang} />
-      <OwnStrip snapshot={hostLost ? null : snapshot} hostLost={hostLost} locale={lang} gsiSetup={gsiSetup} />
+      <TeamSection title={cardText.ourTeam} side="ally" cards={allies} locale={lang} note={matched ? null : text.unmatchedOwn}>
+        <OwnCard card={ownCard} snapshot={hostLost ? null : snapshot} hostLost={hostLost} locale={lang} gsiSetup={gsiSetup} />
+      </TeamSection>
       {announcer}
     </>
+  );
+  const enemySection = (
+    <TeamSection title={cardText.enemyTeam} side="enemy" cards={enemyCards} locale={lang} note={ownTeam === null ? text.noTeam : null} />
   );
   return (
     <div ref={ref} className="sm-host sm-pinned" data-layout={pinned ? "pinned" : "measuring"} data-map-edge={pinned?.mapEdge ?? (side === "right" ? "left" : "right")}
@@ -234,11 +304,11 @@ export function SecondMonitorDeck({
       </div>
       <div className="sm-outer">
         {pinned?.columns === 1 ? (
-          <div className="sm-col">{columnA}{events}</div>
+          <div className="sm-col">{columnA}{enemySection}{events}</div>
         ) : (
           <>
             <div className="sm-col">{columnA}</div>
-            <div className="sm-col">{events}</div>
+            <div className="sm-col">{enemySection}{events}</div>
           </>
         )}
       </div>
