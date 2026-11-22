@@ -50,12 +50,15 @@ fn rate_tenths(candidate: Candidate) -> i32 {
     i32::try_from(rounded).unwrap_or(i32::MAX)
 }
 
-fn compare_rate(left: &Candidate, right: &Candidate) -> std::cmp::Ordering {
+/// Meta first (owner, 2026-11-22): the most-picked heroes in the bracket lead, then a higher win
+/// rate, then the lower hero ID.
+fn compare_meta(left: &Candidate, right: &Candidate) -> std::cmp::Ordering {
     let left_scaled = u128::from(left.wins) * u128::from(right.games);
     let right_scaled = u128::from(right.wins) * u128::from(left.games);
-    right_scaled
-        .cmp(&left_scaled)
-        .then_with(|| right.games.cmp(&left.games))
+    right
+        .games
+        .cmp(&left.games)
+        .then_with(|| right_scaled.cmp(&left_scaled))
         .then_with(|| left.hero_id.cmp(&right.hero_id))
 }
 
@@ -114,7 +117,7 @@ pub(crate) fn rank_suggestions(
             low_data.push(candidate);
         }
     }
-    ranked.sort_by(compare_rate);
+    ranked.sort_by(compare_meta);
     low_data.sort_by(|left, right| {
         right
             .games
@@ -209,9 +212,36 @@ mod tests {
     }
 
     #[test]
-    fn ranking_breaks_rate_ties_by_games_then_hero_id() {
+    fn ranking_is_meta_first_by_picks_then_win_rate_then_hero_id() {
+        // 5 has the highest rate but the fewest picks; 4 is the most picked.
         let heroes = BTreeMap::from([
-            (3, hero(3, 2000, 1000)),
+            (5, hero(5, 1500, 900)),
+            (4, hero(4, 9000, 4300)),
+            (3, hero(3, 3000, 1400)),
+            (2, hero(2, 3000, 1500)),
+            (1, hero(1, 3000, 1500)),
+        ]);
+        let suggestions = rank_suggestions(
+            &heroes,
+            &all_group(&heroes),
+            None,
+            Bracket::Public,
+            &HashSet::new(),
+        );
+        assert_eq!(
+            suggestions
+                .rows
+                .iter()
+                .map(|row| row.hero_id)
+                .collect::<Vec<_>>(),
+            [4, 1, 2, 3, 5]
+        );
+    }
+
+    #[test]
+    fn ranking_breaks_pick_ties_by_rate_then_hero_id() {
+        let heroes = BTreeMap::from([
+            (3, hero(3, 3000, 1400)),
             (2, hero(2, 3000, 1500)),
             (1, hero(1, 3000, 1500)),
         ]);

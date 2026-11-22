@@ -618,7 +618,7 @@ pub(crate) fn build_view(input: ViewInput<'_>) -> DraftColumnView {
     } else if !input.prefs.draft_bar_enabled {
         hidden_reason = Some(HiddenReason::BarOff);
         overlay_visible = false;
-    } else if mode == Mode::Suggestions && !super::SUGGESTIONS_LIST_BUILD_ENABLED {
+    } else if list_build_blocks(mode, super::SUGGESTIONS_LIST_BUILD_ENABLED) {
         hidden_reason = Some(HiddenReason::ListBuildDisabled);
         overlay_visible = false;
     }
@@ -642,11 +642,17 @@ pub(crate) fn build_view(input: ViewInput<'_>) -> DraftColumnView {
     }
 }
 
+/// The build-time list switch hides only the overlay's suggestions list; the deck keeps its rows
+/// and the pick card is never gated.
+fn list_build_blocks(mode: Mode, list_build_enabled: bool) -> bool {
+    mode == Mode::Suggestions && !list_build_enabled
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        build_view, cache_state, duration_cells, DataState, DraftBarInput, DraftPhase, Failure,
-        Mode, ViewInput,
+        build_view, cache_state, duration_cells, list_build_blocks, DataState, DraftBarInput,
+        DraftPhase, Failure, Mode, ViewInput,
     };
     use crate::hero_stats::cache::{CacheEntry, DurationEntry, StatsCache};
     use crate::hero_stats::groups::PositionGroups;
@@ -865,6 +871,16 @@ mod tests {
 
     #[test]
     fn list_disable_hides_only_the_overlay_and_preserves_deck_rows() {
+        assert!(list_build_blocks(Mode::Suggestions, false));
+        assert!(!list_build_blocks(Mode::Suggestions, true));
+        assert!(!list_build_blocks(Mode::PickCard, false));
+        assert!(!list_build_blocks(Mode::ConsentChip, false));
+        assert!(!list_build_blocks(Mode::Hidden, false));
+    }
+
+    #[test]
+    fn list_is_enabled_in_this_build_after_owner_option_b() {
+        const { assert!(crate::hero_stats::SUGGESTIONS_LIST_BUILD_ENABLED) };
         let prefs = DraftStatsPrefs {
             hero_stats_consent: true,
             ..Default::default()
@@ -884,14 +900,9 @@ mod tests {
         };
         let view = build_view(input(&prefs, &cache, None));
         assert_eq!(view.mode, Mode::Suggestions);
-        assert_eq!(
-            view.overlay.hidden_reason,
-            Some(super::HiddenReason::ListBuildDisabled)
-        );
-        assert!(
-            view.suggestions.is_some(),
-            "the deck keeps the computed list"
-        );
+        assert_eq!(view.overlay.hidden_reason, None);
+        assert!(view.overlay.visible, "consented suggestions show in game");
+        assert!(view.suggestions.is_some());
     }
 
     #[test]

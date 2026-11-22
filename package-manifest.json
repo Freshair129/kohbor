@@ -373,8 +373,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/groups.rs",
-      "bytes": 5994,
-      "sha256": "b7523ea3f6553eff2e1fbe2355c513c90258f7a257bedd003c1054f9177f3bb1"
+      "bytes": 13956,
+      "sha256": "935fcda38f9bd5655363d6c7d992170900766447522d6efab13b04005a4f6a7a"
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/host.rs",
@@ -383,13 +383,18 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/mod.rs",
-      "bytes": 5812,
-      "sha256": "c24befebfa55af283d56010925fc3a3e45a2460eccce0daea715c0d01b4290ff"
+      "bytes": 5905,
+      "sha256": "f98602c16cbd66ef840369dbfd04d21cb1fe205830c8689cbec32b0d9de78007"
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/parse.rs",
       "bytes": 13774,
       "sha256": "fb0bd5d1e04cfb85c07d4ccabe12a2787351e438a57e549c6bd126fcc1233472"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/hero_stats/position-overrides.json",
+      "bytes": 2912,
+      "sha256": "2a3a02ad746afe4392a15e0b512362621c9785a805230a18884961929e746149"
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/prefs.rs",
@@ -398,8 +403,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/rank.rs",
-      "bytes": 10762,
-      "sha256": "9f1aed9011eb92386cafce20d3fb90b28cee3cb5743a324ac6f379d4671c0f25"
+      "bytes": 11699,
+      "sha256": "8572562ec66a6e67da242b6aa74d64663e91bd48ecda8ade36a91666ab9ea8d2"
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/request.rs",
@@ -413,8 +418,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/view.rs",
-      "bytes": 33611,
-      "sha256": "039df7c968ddc178c803aa5c29130d4a37ab07f901b934035c6f366d81544ff5"
+      "bytes": 34283,
+      "sha256": "45cf9f3eb700ee18512ca46fbeaaaaa64631b4491abe93ab87e4b0a2f9262318"
     },
     {
       "path": "apps/desktop/src-tauri/src/host.rs",
@@ -888,8 +893,8 @@
     },
     {
       "path": "apps/desktop/src/draft/DraftColumnView.tsx",
-      "bytes": 16136,
-      "sha256": "ab2b604707096a179dc01fd582e127aecbfa753e70a6a360d11277983a2406a7"
+      "bytes": 16130,
+      "sha256": "cd2f26a9c0c2823b28cdeeff75d49cfd164e4fc5e3bebacf5d0d6790f52ebdea"
     },
     {
       "path": "apps/desktop/src/draft/DraftDeckPanel.tsx",
@@ -1818,8 +1823,8 @@
     },
     {
       "path": "apps/desktop/tests/draft-column-render.test.ts",
-      "bytes": 22256,
-      "sha256": "db1ef5f3d2f959d52e50057f431c6c14a0f02b08a108b288047c0e3bc0afb3b9"
+      "bytes": 22250,
+      "sha256": "91e5027f27bda8595fb18995d571aece5521354bb3cc6e0868c49259abfc1e34"
     },
     {
       "path": "apps/desktop/tests/draft-column-settings.test.ts",
@@ -3108,8 +3113,8 @@
     },
     {
       "path": "docs/design/DRAFT-COLUMN.md",
-      "bytes": 12971,
-      "sha256": "9dbc316b216c9273c6aa85079a8c5f109a43a81c44c3f1d581b712e943c1d9a1"
+      "bytes": 14198,
+      "sha256": "f9a61cf2a3c0d192a43fb453cd2ca2d2c70dad96470a0589cb5329f93f7c17b8"
     },
     {
       "path": "docs/design/EVENT-AUDIO-SPEC.md",

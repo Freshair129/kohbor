@@ -203,7 +203,7 @@ test("the shared deck and overlay view render each host mode", async () => {
   const cases = [
     { mode: "hidden", overlay: { visible: false, hidden_reason: "unsupported_output" }, expected: "แถบในเกมรองรับ 1920×1080 ที่ 100% เท่านั้นในตอนนี้" },
     { mode: "consent_chip", data_state: "consent_off", expected: "คำแนะนำฮีโร่ปิดอยู่ · เปิดได้ที่หน้าต่าง Kohbor" },
-    { mode: "suggestions", expected: "ฮีโร่ชนะบ่อย" },
+    { mode: "suggestions", expected: "ฮีโร่เมต้า" },
     { mode: "pick_card", ...pickPayload("live"), expected: "ตัวเลือกของคุณ" },
   ] as const;
   for (const item of cases) {
