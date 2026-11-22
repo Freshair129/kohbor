@@ -1276,6 +1276,41 @@
           "safe_interim": "Default off. Withhold unsupported values and leave v2 unavailable until 5b. Revocation stops requests, discards late responses and deletes the local aggregate cache. Provider terms, exact wire contract and supported metrics still need integration review."
         }
       ]
+    },
+    {
+      "id": "DEC-COACH-REVIEW",
+      "status": "decided",
+      "milestone": "M5",
+      "blocks": "Kohbor Lab post-match coach analytics (Death review v3) and its offline DEM exporter only. Promotion beyond Lab still needs the reviewed post-match data contract and native evidence.",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-23",
+      "channel": "Owner reply \"As recommended\" to the seven recommendations in coord:reports/2026-11-23-coach-analytics-design.md section 7, relayed by the coordinating session on 2026-11-23 and recorded by an agent.",
+      "owner_statement_th": "“As recommended”.",
+      "decision": "1. Analyse the owner's own hero only; teammates appear only as hero + roster slot, and per-person analysis of a friend needs that friend's consent later. 2. Bring gem-dota 0.14.0 into tools/ as a pinned Lab/dev tool (version and file hashes pinned), using the copy already installed on the owner's machine and downloading nothing; the parser for the product is decided after a feasibility spike. 3. Comparisons use the owner's own local history only; no OpenDota or STRATZ. 4. Thresholds such as ganked and lane lost use draft values labelled provisional; the owner confirms them after 3-5 matches and they are not changed after seeing a result. 5. Coach text comes from evidence-citing templates, at most 3 per match; no language model. 6. Slice 1 stores no multi-match trends; reports stay import-only. 7. The user picks replay files; the app never downloads replays.",
+      "reason": "Give the owner coach-style post-match analysis from local DEM replays while keeping other players' identities, network use and model narrative out of scope.",
+      "alternatives_considered": [
+        "Analyse all five teammates",
+        "Native Rust parser first",
+        "Public aggregate baselines (OpenDota/STRATZ)",
+        "Owner-defined thresholds before any data",
+        "Language-model narrative",
+        "Persistent multi-match trends in slice 1",
+        "Automatic scan of the Dota replays folder"
+      ],
+      "affected_need_ids": [
+        "PN-008"
+      ],
+      "affected_requirement_ids": [
+        "MEM-001",
+        "MEM-004"
+      ],
+      "related": [
+        "DEC-NATIVE-EVIDENCE"
+      ],
+      "proposal_ref": "F:/kohbor-coord/reports/2026-11-23-coach-analytics-design.md (sections 5-7)",
+      "safe_interim": "Lab/dev build only (DEC-LAB-GATE). The exporter refuses to run unless the installed gem-dota matches tools/replay_export/PIN.json and refuses to write output that fails the privacy scan. Every derived value is labelled derived; death types use full-map enemy positions, labelled not visible in play. No persistence, network or download.",
+      "closure_evidence": "Slice 1 on branch feat/coach-death-review: exporter, pin check, privacy scan and viewer tests (synthetic and DEM-derived fixture). Native WebView2 Lab check and the owner's threshold confirmation after 3-5 matches remain NOT_RUN."
     }
   ]
 }
