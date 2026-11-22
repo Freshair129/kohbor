@@ -80,7 +80,7 @@ Adopt **A+: a new Kohbor account system that copies the G-Maiden pattern, stores
 
 ### 1.7 Deletion and export
 
-27. **Delete account** is in the app, needs a fresh Google sign-in (within 5 minutes), and removes every row in rule 26 for that account, including both directions of friendships and Share list entries and all sessions. No tombstone is kept; a person blocked before deletion is protected by friend-code rotation, not by retained data. Backups are purged within a stated period (value for DEC-RETENTION). Local cache is wiped. Friends see the entry disappear with no reason given.
+27. **Delete account** is in the app, needs a fresh Google sign-in (within 5 minutes), and removes every row in rule 26 for that account, including both directions of friendships and Share list entries and all sessions. No tombstone is kept (amended 2026-11-22 by DEC-DELETION-LEDGER: one bounded deletion-ledger entry outside the database, see ACCOUNT-DATABASE-DESIGN 14.2); a person blocked before deletion is protected by friend-code rotation, not by retained data. Backups are purged within a stated period (value for DEC-RETENTION). Local cache is wiped. Friends see the entry disappear with no reason given.
 28. **Export** returns the user's own profile, friend list, Share list settings and block list as JSON. No other person's private data beyond name and friend code.
 
 ## 2. Option verdicts
@@ -154,6 +154,8 @@ No requirement id beginning ACCOUNT exists today (FROM-REPO SRS; only CORE-001's
 | **ACCOUNT-008** | The user can export and delete the account from the app; deletion removes every server record and local cache and keeps no tombstone |
 | **ACCOUNT-009** | No platform identity is bound to an account unless DEC-STEAM-BINDING is decided; when bound it is proven by provider verification plus a local match and is never a login, recovery credential, search key or displayed value |
 | **ACCOUNT-010** | No account, identifier, key, secret or endpoint is shared with or imported from another product; a cross-product link requires its own decision and consent |
+
+**Applied 2026-11-22:** ACCOUNT-001..010 were added to the requirements baseline. The other section 4.1 changes remain queued: the CORE-001/CORE-003/ALERT-001 note, SOCIAL-001, PEER-007, PEER-009, the product-identity.json labels and the SECURITY-PRIVACY items. The alpha deviation for ACCOUNT-002/005/007 is recorded as DEC-ALPHA-AUTH-DEVIATION; this is not a legal or security review.
 
 Also: add `account_token_domain`, `relay_ticket_domain` and `friend_code_prefix` to contracts/product-identity.json (new frozen labels under DEC-NAME's delegation); close the "secure local credential storage" and "account-cache expiry" items in SECURITY-PRIVACY with rules 12 to 14.
 

@@ -83,8 +83,8 @@
     },
     {
       "path": "acceptance/scenarios.feature",
-      "bytes": 46682,
-      "sha256": "160cc3335e1825404dc79be0bc9b5108b3a08bbd0f096629fa8654d64d7209ce"
+      "bytes": 53974,
+      "sha256": "f0121fab6478e45de7f8bd3254ed089436cfb5895b74bd6c806ae6228182f55c"
     },
     {
       "path": "acceptance/spec-validation.json",
@@ -643,8 +643,8 @@
     },
     {
       "path": "apps/desktop/src/App.tsx",
-      "bytes": 21412,
-      "sha256": "f62e65dc5f07a6fdfc5ee3ade15ee1b48d253846365d624fcdccb58c6f794749"
+      "bytes": 23136,
+      "sha256": "3add083704df3eb07b601bf6c2edb30b5359623c37ab177a387ccc9165df6c05"
     },
     {
       "path": "apps/desktop/src/AudioHistory.tsx",
@@ -828,8 +828,8 @@
     },
     {
       "path": "apps/desktop/src/deck/Deck.tsx",
-      "bytes": 8948,
-      "sha256": "f03a1fb6a07768db037ba3a74159e69be8e45cc1f4a3536ba15d618ad66ec6a7"
+      "bytes": 10295,
+      "sha256": "3ac3dfd3dc10575c0871e50ea2c4bf0c9c9ca5fcb31c16c5f9ef7d81540a5557"
     },
     {
       "path": "apps/desktop/src/deck/DraftBarStrip.tsx",
@@ -1098,8 +1098,8 @@
     },
     {
       "path": "apps/desktop/src/live/MinimapPanel.tsx",
-      "bytes": 18198,
-      "sha256": "e2fb9dedca10f93a066bfcb04fc3b09d83bf13c3e1e35fbdf0e07127429ced50"
+      "bytes": 18756,
+      "sha256": "11546ba535d3c82cf3bac1e8a8e1a740e299380dd24d09e7d550e4dfdd17410b"
     },
     {
       "path": "apps/desktop/src/live/MinimapStage.tsx",
@@ -1120,6 +1120,16 @@
       "path": "apps/desktop/src/live/RiskStrip.tsx",
       "bytes": 634,
       "sha256": "b702405bcd40d7dc8dbbb5abdfd90c3fa2d3db7981fac1182e2bef0053368dc9"
+    },
+    {
+      "path": "apps/desktop/src/live/SecondMonitorDeck.tsx",
+      "bytes": 11645,
+      "sha256": "3be158493c907e888d188a3101632267de5e657c4019dd6325cc275f5a9e047d"
+    },
+    {
+      "path": "apps/desktop/src/live/SecondMonitorToggle.tsx",
+      "bytes": 808,
+      "sha256": "a254850d989a58ffd8d3f49fe703f6607513f7a4fc2c5ca169430b9cc9de2711"
     },
     {
       "path": "apps/desktop/src/live/canvasBox.ts",
@@ -1222,6 +1232,16 @@
       "sha256": "f207ed06497b0f7174e6ea86ac1574e844a5a0e5c549be4429378fde5791cb19"
     },
     {
+      "path": "apps/desktop/src/live/secondMonitor.css",
+      "bytes": 8633,
+      "sha256": "7222c8596d2ba4c0cb7c87076276b75cf14140a5ea6f51776ad15b94b4284fe8"
+    },
+    {
+      "path": "apps/desktop/src/live/secondMonitorModel.ts",
+      "bytes": 10810,
+      "sha256": "6a721a32b652377727f644d573fac9faf8a6018362794197a4042794607ed1b9"
+    },
+    {
       "path": "apps/desktop/src/live/state.ts",
       "bytes": 11478,
       "sha256": "3eaced860f04b3cf6ac1cac79b2a95440ccecb18a174123bf949df39161c7da3"
@@ -1270,6 +1290,11 @@
       "path": "apps/desktop/src/live/useRisk.ts",
       "bytes": 742,
       "sha256": "dc6ddc534e500f63266deb2986a348fbd3eb10d7ca92558dc4cd373190da1e5d"
+    },
+    {
+      "path": "apps/desktop/src/live/useSecondMonitorSide.ts",
+      "bytes": 1518,
+      "sha256": "9c9a5a9211e1320c55c6e6dc8bd371d8518112d3f3aac3d82639b776018e59a2"
     },
     {
       "path": "apps/desktop/src/logs/LogsTab.tsx",
@@ -2002,6 +2027,11 @@
       "sha256": "c83f803860193369222141d95e02f32d18b2dacf5a51345431e2e3521660b4fa"
     },
     {
+      "path": "apps/desktop/tests/live-second-monitor.test.ts",
+      "bytes": 10942,
+      "sha256": "1bce766699fa2e4c21eb9169afea1206e5ec2f2f6cf03b002b7e75018841ccd6"
+    },
+    {
       "path": "apps/desktop/tests/live.test.ts",
       "bytes": 16098,
       "sha256": "70be7c822f75fda78588f61e3e7264f22e9b9e4febfc708366f8c9d5d2d4ae66"
@@ -2177,14 +2207,24 @@
       "sha256": "16c3df38c8146e7672deefd0498c618a72129c600e25ef6584a511b61a487a3a"
     },
     {
+      "path": "apps/website/css/download.css",
+      "bytes": 1197,
+      "sha256": "70a03ba8882abac298927eb180326d5803061f175391d7a10ea9822a0861f683"
+    },
+    {
       "path": "apps/website/css/site.css",
       "bytes": 29433,
       "sha256": "aa86ba684409c664d26d773704f7d1f60368931107536ec8fbaf0cde822cc605"
     },
     {
       "path": "apps/website/index.html",
-      "bytes": 31368,
-      "sha256": "befbaf14e01f5467b64b2e4592adb7c13eadcc38b302a42bbbd95a44cc00f079"
+      "bytes": 32556,
+      "sha256": "5eeebd36c49bc1b03e6b57b7a94f37d0cb2224603e660c9f9711fb97a405d18f"
+    },
+    {
+      "path": "apps/website/js/download.js",
+      "bytes": 2912,
+      "sha256": "6c7e3a6dd75be2494f5c1bdbfcc473c198ad5c7e5ab04e880cc7a47db251556c"
     },
     {
       "path": "apps/website/js/film.js",
@@ -2248,8 +2288,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 92871,
-      "sha256": "3faa7b3d3b48959e4430e563a428682cd2fc085530a336be4f56293f2009689a"
+      "bytes": 103014,
+      "sha256": "aee9a7a321b6d7ed6a026a3b01945d5fff0cd3fe3d58c8252e51f4bf04013db1"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -2328,13 +2368,13 @@
     },
     {
       "path": "contracts/product-needs.json",
-      "bytes": 9642,
-      "sha256": "d2603546b832d22943e7a08527bd32b454f20c474544a426374bbc0c31f8fe17"
+      "bytes": 9954,
+      "sha256": "03ddf5cc340d2fa048055238afba59f6b0a0a17d62e29e7ec247e9a02f16082d"
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 240446,
-      "sha256": "6b0876ad0007e7fd4dbe486f0334e2eb515b9a8c613974634a91edb3e1dddd69"
+      "bytes": 272342,
+      "sha256": "d20a98f8ae0fdb3e318bee26f764920bc1f57e4e9f56e8ae81a349ecee6fb8ea"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -3108,8 +3148,8 @@
     },
     {
       "path": "docs/INDEX.md",
-      "bytes": 13919,
-      "sha256": "bfbbc901af488f20dc97094fd0a70af54d8e17a371aaa8916f74ccd61bd04a95"
+      "bytes": 13920,
+      "sha256": "c2e47a4e0aed30e3b6c3f2e231303f8a6a3f7f631a26f6490356b19b3842c082"
     },
     {
       "path": "docs/delivery/AGENT-WORKFLOW.md",
@@ -3183,18 +3223,23 @@
     },
     {
       "path": "docs/design/ACCOUNT-DATABASE-DESIGN.md",
-      "bytes": 75485,
-      "sha256": "05cc448eae5d0f816690bfdeb735b56f875beb357e838cdc52f626e082da80c4"
+      "bytes": 75717,
+      "sha256": "ea64c452279bcab6dab18f47baca1677d75ed712b155664e540ef2163c0d1e0d"
     },
     {
       "path": "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
-      "bytes": 32071,
-      "sha256": "30837fce8b73cb8dbbcfb4a4634867d34f311b33e50dbc85e5caf58e4fb7b841"
+      "bytes": 32593,
+      "sha256": "a73b94a4f77dd593139fc61de5471acba66f303af08392d7649753bf5a56f623"
     },
     {
       "path": "docs/design/ACCOUNT-REGISTRATION-UX.md",
       "bytes": 59301,
       "sha256": "49103b9bae2ce6157ece6892fc100d79569d5157dfcd64e202d5531aaec31443"
+    },
+    {
+      "path": "docs/design/ALPHA-LAUNCH.md",
+      "bytes": 7160,
+      "sha256": "09369507f8c9cec05d48f5ed95a57dab399e56f56abf4d959f2ab7a92dd23e2e"
     },
     {
       "path": "docs/design/BACKEND-STACK.md",
@@ -3288,8 +3333,8 @@
     },
     {
       "path": "docs/design/SDD.md",
-      "bytes": 32986,
-      "sha256": "5190db307f86a75675ae6818293445e8f0aeac1a624eb252a41f7093c04fd78a"
+      "bytes": 33156,
+      "sha256": "dd094486ea49854e866eb49f1cfcdd798e3bc5c98615ebe57f5e713df5bb4336"
     },
     {
       "path": "docs/design/SHARING-MODEL-REVIEW.md",
@@ -3303,8 +3348,8 @@
     },
     {
       "path": "docs/design/UX-SPEC.md",
-      "bytes": 24402,
-      "sha256": "a334294661934666e421011027011b27266aab58525b7d6e3b9ccffbca86a41d"
+      "bytes": 26309,
+      "sha256": "7c1f401c6119a5e9883c5630b237104143864a08e1ffed23fe9ae790661a9113"
     },
     {
       "path": "docs/design/VISUAL-DESIGN-PROPOSAL.md",
@@ -3628,13 +3673,13 @@
     },
     {
       "path": "docs/domains/account/CARD.md",
-      "bytes": 4557,
-      "sha256": "f02e348163da200ff09a6db1eca2fb47a4f9bcf16d1ce07b5ea0b04c19dc3680"
+      "bytes": 5490,
+      "sha256": "406e4a86c28827d31fdb98d389d24406c37b009dcaa23ddd71026ee282262b4a"
     },
     {
       "path": "docs/domains/account/state.json",
-      "bytes": 3220,
-      "sha256": "1f6c1537b587d413a358e33eb6157884f70dfe513d11da770ee97288d4c2d5b9"
+      "bytes": 3479,
+      "sha256": "2451b0f0e98852d810e3156d632ca37c988ebe686105853cf259f60876a92ff5"
     },
     {
       "path": "docs/domains/banner-lab/CARD.md",
@@ -3738,13 +3783,13 @@
     },
     {
       "path": "docs/governance/CHANGELOG.md",
-      "bytes": 36346,
-      "sha256": "7e908b5883cd9fc9e81c17a8a57d9f8f5016f264d1048adbdcd3c5e0199f8b02"
+      "bytes": 37775,
+      "sha256": "7269da3765a032987d3ea329c0be8ab10621d74dbb40ea16093b5e61494acd6f"
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 61494,
-      "sha256": "c19fae2fc8f08a4563d4e04f1cf42fb325f736a1a07f75d75aa6b5f3ca48a56a"
+      "bytes": 64820,
+      "sha256": "7dd37053fa2564206893b79650267006c4dbdea0aa609e1b039facd2d2ccafb6"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
@@ -3798,8 +3843,8 @@
     },
     {
       "path": "docs/product/PRD.md",
-      "bytes": 16654,
-      "sha256": "529d925f3dca9fb86b9a4effa6f7b03d97a620848700545eb81e0ebfe3e34ca1"
+      "bytes": 16826,
+      "sha256": "bce4ed91509c22c7a22559b9a7070b599d573219932b96afeda1ad21352e5acc"
     },
     {
       "path": "docs/product/USE-CASES.md",
@@ -3823,13 +3868,13 @@
     },
     {
       "path": "docs/requirements/RTM.csv",
-      "bytes": 51945,
-      "sha256": "d594f77aaae517371f2cae966d055ce47dcbd675a67ecb51bd1cbbc8e9030996"
+      "bytes": 58523,
+      "sha256": "7d9053f941009df61c38ee8007d0c7b606ca204998021d0a944c7abdfc2a5b32"
     },
     {
       "path": "docs/requirements/SRS.md",
-      "bytes": 159096,
-      "sha256": "203ca172a5901de541f588adf22efcfd646d5d8f2ccf5ef2d8fa3f707879ced2"
+      "bytes": 178963,
+      "sha256": "3b1544e1c6321320a1fa60681d24633b98e7bf044a9c61a2d7ced4cb50b3a55f"
     },
     {
       "path": "docs/security/SECURITY-PRIVACY.md",
@@ -4432,6 +4477,96 @@
       "sha256": "eea0255021c544995f8a1c2f925630a16fbf082acdb6346c569a9c24b71c10f6"
     },
     {
+      "path": "services/kohbor-broker/Dockerfile",
+      "bytes": 474,
+      "sha256": "b534f061a9ad33c9633bf53d0a49adbc0699c4a8a384bc29a99e61e529cd8f7f"
+    },
+    {
+      "path": "services/kohbor-broker/README.md",
+      "bytes": 9339,
+      "sha256": "29a42a7a83d061d3856092659ec68481a6df2259a111746884b46ee53d4e52ec"
+    },
+    {
+      "path": "services/kohbor-broker/package-lock.json",
+      "bytes": 5636,
+      "sha256": "69e42fd30095b536fea6ed7343cabec395beec22307b17a98d1178fc091bd5ed"
+    },
+    {
+      "path": "services/kohbor-broker/package.json",
+      "bytes": 233,
+      "sha256": "dcd91c083afe4048f75fe86c14281e074ba6f5f317e2f7af4da79f9b44f37201"
+    },
+    {
+      "path": "services/kohbor-broker/scripts/check-supabase.mjs",
+      "bytes": 17147,
+      "sha256": "58866cee1a4391b3d1983fdb8afb51f6e101e142bac2f3f7ea9d4810ab17a257"
+    },
+    {
+      "path": "services/kohbor-broker/scripts/create-local-fixture.mjs",
+      "bytes": 1969,
+      "sha256": "96e439a6ad57a2807e2e8b4eb706c94f76a634a44c4d2bcfabc768070b884a6f"
+    },
+    {
+      "path": "services/kohbor-broker/src/broker.mjs",
+      "bytes": 43074,
+      "sha256": "3bdc90cfe03837824099fb09ff56909941f8b2a87ba417c2dccb9ce6a52a80ee"
+    },
+    {
+      "path": "services/kohbor-broker/src/database-target.mjs",
+      "bytes": 1391,
+      "sha256": "1655979e1f7d86b17528759b27ee24ad48bba6b69cbc05193bcb866f62cb998a"
+    },
+    {
+      "path": "services/kohbor-broker/src/deletion-ledger.mjs",
+      "bytes": 7996,
+      "sha256": "d18afb46c4d2d483855ac7060299af4399542bc1f306865ef398ef261eb87b0f"
+    },
+    {
+      "path": "services/kohbor-broker/src/migrate.mjs",
+      "bytes": 6893,
+      "sha256": "028a1704186da494bed658eeab87db7af598538ff94c0f2109d1606d1d4d8674"
+    },
+    {
+      "path": "services/kohbor-broker/src/migrations/002_registration_hardening.sql",
+      "bytes": 5436,
+      "sha256": "0d0b2cd97bb8088b50f3e71d4e4eef19e74343d758a7302f35cdafcb54e45334"
+    },
+    {
+      "path": "services/kohbor-broker/src/migrations/003_expired_row_purge_indexes.sql",
+      "bytes": 226,
+      "sha256": "509d938f128a5462f289e5195bf7249c3b6064571c13af49666fcf3f447d7689"
+    },
+    {
+      "path": "services/kohbor-broker/src/server.mjs",
+      "bytes": 4332,
+      "sha256": "9f3501d07fbcc6aa8b3e994bfdd75ff86a65b73e03b817d9914d326fc9822364"
+    },
+    {
+      "path": "services/kohbor-broker/test/broker.test.mjs",
+      "bytes": 37069,
+      "sha256": "19614178bf9d8f467a0195fa1aa55db3dfee2ec5ca619d59c824bdd9b2d6779d"
+    },
+    {
+      "path": "services/kohbor-broker/test/check-supabase.test.mjs",
+      "bytes": 19918,
+      "sha256": "127cd340fe8b03cf6fe64a10f62edf60b16e08c9b10e1d4a1a21550826d10b75"
+    },
+    {
+      "path": "services/kohbor-broker/test/database-target.test.mjs",
+      "bytes": 7467,
+      "sha256": "821b697c7ff568fe65e75a48ce2ce5cf92cc14dd1f7cdccf0cdea6c8f91856c9"
+    },
+    {
+      "path": "services/kohbor-broker/test/deletion-ledger.test.mjs",
+      "bytes": 4923,
+      "sha256": "58945dd6b3fd5d52aaff106e4b540834d5c51e04bb346acd6c84e53de8cd73b2"
+    },
+    {
+      "path": "services/kohbor-broker/test/review-regressions.test.mjs",
+      "bytes": 10457,
+      "sha256": "641f91f85bf57885cbaca0b48be2c0ce634ca79888e9843d5d4fc2aef168525f"
+    },
+    {
       "path": "spikes/audio/Cargo.lock",
       "bytes": 33829,
       "sha256": "48864c8cf0d306a34992a3889650469a435a06d20333c4745af308e497b66221"
@@ -4490,6 +4625,41 @@
       "path": "spikes/audio/windows-output/src/main.rs",
       "bytes": 11821,
       "sha256": "cc6da606b9cfc62dfa2171b2f8ebe05de3037e3ae69e5b469d6c871a93582938"
+    },
+    {
+      "path": "supabase/README.md",
+      "bytes": 4066,
+      "sha256": "d047166416ee04231dba7d650798ab1e5d3e468038ebe014539b4c62ad5dd8a6"
+    },
+    {
+      "path": "supabase/functions/alpha-download/index.ts",
+      "bytes": 4018,
+      "sha256": "91bbb388e23a8654ee1249dbeb64e41527a439be491e0e1966c4ac6be200ecc1"
+    },
+    {
+      "path": "supabase/sql/20261122040048_supabase_close_data_api.sql",
+      "bytes": 1120,
+      "sha256": "a6d7932ba6fed99f0001b5ec3bc5d7d90e92221d2ba1f5b53a4d390eccbd42f5"
+    },
+    {
+      "path": "supabase/sql/20261122050920_alpha_invites.sql",
+      "bytes": 789,
+      "sha256": "dcd62de61fedc21063e6aaf1caeada76a6be5024cf66f01b626269797e2f8776"
+    },
+    {
+      "path": "supabase/sql/20261122050945_alpha_invite_functions.sql",
+      "bytes": 957,
+      "sha256": "561ee0432702e6a9cb7cca50e5d04437d6be728f17097a2a05f3523572cdb49a"
+    },
+    {
+      "path": "supabase/tools/make-invite-codes.mjs",
+      "bytes": 6031,
+      "sha256": "6a5736ab9556cf613abf40ae4ef2073f2c02bbb4719c81b5a615c52f3321df1a"
+    },
+    {
+      "path": "supabase/tools/make-invite-codes.test.mjs",
+      "bytes": 7234,
+      "sha256": "d8a639d602ee8400b2c87fffd84c2ac634c6993c67493b35be4232440d7f42c4"
     },
     {
       "path": "templates/adr.md",

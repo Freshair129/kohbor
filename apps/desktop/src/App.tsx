@@ -42,6 +42,9 @@ import { StartDotaBar } from "./steam/StartDotaBar";
 import { canOpenPostMatchReplay, useMatchEnded } from "./replay/admission";
 import { RailLeft } from "./shell/RailLeft";
 import { RailRight } from "./shell/RailRight";
+import { useSecondMonitorSide, useWindowAllowsPinned } from "./live/useSecondMonitorSide";
+import { SecondMonitorToggle } from "./live/SecondMonitorToggle";
+import { secondMonitorCopy } from "./live/secondMonitorModel";
 import { StatusLine } from "./shell/StatusLine";
 import { StatusFooter } from "./shell/StatusFooter";
 import { useResources } from "./live/useResources";
@@ -64,6 +67,8 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
   const { settings, loading, saving, notice, changeLocale } = useSettings();
   const glass = useGlassPreference();
   const rail = useRailPreference();
+  const secondMonitor = useSecondMonitorSide();
+  const windowAllowsPinned = useWindowAllowsPinned();
   const capture = useCaptureStatus();
   const resources = useResources();
   const previewMetrics = usePreviewMetrics();
@@ -202,9 +207,13 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
             : null;
 
   const navigate = (destination: ShellDestination) => setActivePage(destination);
+  // Second-monitor mode (UI-016): only on the Live page, only when a side is set and the window is large enough.
+  const pinnedSide = activePage === "live" && secondMonitor.side !== "off" && windowAllowsPinned ? secondMonitor.side : null;
+  const inMatch = !hostLost && (status?.session.phase === "draft" || status?.session.phase === "pregame" || status?.session.phase === "live");
 
   return (
-    <div className="app glass-field" lang={displayLocale} data-theme="dark" data-glass={glass.level} data-rail={rail.state} data-page={activePage}>
+    <div className="app glass-field" lang={displayLocale} data-theme="dark" data-glass={glass.level} data-rail={rail.state} data-page={activePage}
+      data-live-monitor={pinnedSide ?? undefined} data-match={pinnedSide && inMatch ? "true" : undefined}>
       {devScenarioSwitcher && <div className="shell-dev-layer">{devScenarioSwitcher}</div>}
       <RailLeft current={activePage} labels={text.shell.destinations} navigationLabel={text.shell.navigationLabel}
         gameConnection={steamStatus?.gsi ?? "unknown"} locale={displayLocale} railState={rail.state} onToggleRail={rail.toggle} onNavigate={navigate} />
@@ -233,11 +242,22 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
 
           {activePage === "live" && (
             <div className="shell-screen shell-live-page">
-              <div className="shell-live-page-top">
+              {!pinnedSide && <div className="shell-live-page-top">
                 <GsiSetupCard status={hostLost ? null : status} locale={displayLocale} setup={setup} />
                 <StartDotaBar status={steamStatus} control={launch} showSteamName={steamName.show} locale={displayLocale} />
-              </div>
-              <Deck locale={displayLocale} status={status} snapshot={snapshot} state={deckState} mute={mute} playback={playback} hostLost={hostLost} steamStatus={steamStatus} gsiSetup={setup} />
+              </div>}
+              {!pinnedSide && <div className="shell-live-page-top">
+                <SecondMonitorToggle side={secondMonitor.side} onChange={secondMonitor.change} locale={displayLocale === "en" ? "en" : "th"} />
+                {secondMonitor.side !== "off" && !windowAllowsPinned && <span className="sm-note" role="status">
+                  {secondMonitorCopy(displayLocale === "en" ? "en" : "th").fallbackNote}</span>}
+              </div>}
+              <Deck locale={displayLocale} status={status} snapshot={snapshot} state={deckState} mute={mute} playback={playback} hostLost={hostLost} steamStatus={steamStatus} gsiSetup={setup}
+                secondMonitor={pinnedSide ? { side: pinnedSide, onChange: secondMonitor.change, topSlot: (
+                  <div className="shell-live-page-top">
+                  <GsiSetupCard status={hostLost ? null : status} locale={displayLocale} setup={setup} />
+                  <StartDotaBar status={steamStatus} control={launch} showSteamName={steamName.show} locale={displayLocale} />
+                </div>
+                ) } : undefined} />
             </div>
           )}
 

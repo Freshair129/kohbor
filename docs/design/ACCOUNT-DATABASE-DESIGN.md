@@ -115,7 +115,7 @@ PASS = the code or schema meets the rule as written for the S2 local scope. GAP 
 | ACCOUNT-005 Kohbor-issued, short, rotating, device-bound sessions; erased on sign-out | PASS server-side for issue; GAP for server-side sign-out | OS storage is client-side, UNVERIFIED here |
 | ACCOUNT-006 offline and unavailable never block local use | UNVERIFIED (client duty); broker reports `503 unavailable` for any failure (broker.mjs:741-744) | |
 | ACCOUNT-007 one issuer, one audience; others rejected | PASS for access tokens (test 104-108 refuses other `iss`, `aud: relay`, array audience) | The issuer string `kohbor-account-token-v1` is not yet a frozen label (Q-ACC-2 in the account card) |
-| ACCOUNT-008 export and delete; delete removes every record; no tombstone | PASS server-side; CONFLICT C2 for backups | |
+| ACCOUNT-008 export and delete; delete removes every record; one bounded ledger entry (amended by DEC-DELETION-LEDGER) | PASS server-side; C2 resolved by DEC-DELETION-LEDGER (2026-11-22) | |
 | ACCOUNT-009 no platform identity bound | PASS: no Steam column | |
 | ACCOUNT-010 nothing shared or imported | PASS by source: synthetic keys only, no G-Maiden reference | Hosted configuration UNVERIFIED |
 
@@ -124,7 +124,7 @@ PASS = the code or schema meets the rule as written for the S2 local scope. GAP 
 | Id | Source A | Source B | Effect |
 | --- | --- | --- | --- |
 | C1 | ACCOUNT-IDENTITY-REVIEW.md:43 account id is seen by "Nobody outside the broker" | broker.mjs:187 (`sub` = account id in a token the client can decode); client lib.rs:73, 116, 128, 180-200 (client stores and sends account id); tests rely on it (broker.test.mjs:167, 197) | Recommended in 14.1 (agent proposal, owner confirmation required): token `sub` = opaque session id; account id server-side only; client keys by a local reference, not the friend code (defect noted there) |
-| C2 | ACCOUNT-IDENTITY-REVIEW.md:83 "No tombstone is kept" | BACKEND-STACK.md:64 "verify that backups cannot reintroduce deleted accounts into service" | Recommended in 14.2: minimal deletion ledger outside the database, 30-day purge, replayed after restore. **Amends rule 27: owner confirmation required** |
+| C2 | ACCOUNT-IDENTITY-REVIEW.md:83 "No tombstone is kept" | BACKEND-STACK.md:64 "verify that backups cannot reintroduce deleted accounts into service" | Recommended in 14.2: minimal deletion ledger outside the database, 30-day purge, replayed after restore. **Amends rule 27:** owner confirmed 2026-11-21; recorded as DEC-DELETION-LEDGER 2026-11-22 |
 | C3 | docs/governance/DECISION-LOG.md:125 records 30-day encrypted backup retention | contracts/decisions.json:177 says the statement "sets the schedule only; DEC-RETENTION stays open for periods" | The structured record lags the log; document control repairs it. This design uses the recorded 30 days and invents no other value |
 | C4 | ACCOUNT-IDENTITY-REVIEW.md:79 allow-list (no nonce records) | broker/src/migrate.mjs:41-52 and broker/README.md:7 (short-lived nonce hashes with device thumbprints are persisted) | Recommended in 14.3: nonces join the allow-list with short expiry and purge. Amends rule 26 text: owner confirmation via document control |
 | C5 | REMAINING-SYSTEM-DESIGN.md:259-263 (D9: Rust `kohbor-social-core` with a fake) and :251 (option B: one Rust binary with SQLite) | Node.js broker with Postgres (broker/package.json; README.md:3); BACKEND-STACK.md:78 asks S2 to justify the language | Report only; not a registration decision |
@@ -627,6 +627,7 @@ The owner asked that the still-open numeric items take the usual industry defaul
 - Consequences: client contract change in `crates/kohbor-account` (C7) and the S2 tests that decode `sub` (broker.test.mjs:167, 197) must read the database instead.
 
 ### 14.2 C2: minimal deletion ledger (amends rule 27)
+**Recorded 2026-11-22:** document control applied this section as DEC-DELETION-LEDGER and amended ACCOUNT-008 to match.
 
 **This amends rule 27 ("No tombstone is kept", ACCOUNT-IDENTITY-REVIEW.md:83) and therefore needs the owner's confirmation.** It is a time-bounded tombstone.
 

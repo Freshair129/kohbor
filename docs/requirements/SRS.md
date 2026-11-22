@@ -1159,6 +1159,50 @@ Settings shall offer a layout edit mode that shows a 16:9 preview of the screen 
 
 **Implementation freedom:** Choose the editor's internals, preset values and the prefs file layout within the safe-area, persistence and click-through boundaries. Reference products may inform the interaction; copy no assets.
 
+#### UI-016 — Second-monitor Live layout
+
+**Scope:** mvp · **Priority:** P1 · **Target milestone:** M3 · **Basis:** owner_decision / DEC-LIVE-SECOND-MONITOR
+
+**Product needs:** PN-005 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL
+
+The Live page shall offer a second-monitor mode with a per-device setting: off (default, the centred deck), monitor 2 left of the main monitor, or monitor 2 right of it. When set, the minimap shall be a square pinned flush to the edge that touches the main monitor (left edge when monitor 2 is to the right, right edge when it is to the left), with a quick strip of the same width directly under it and outer columns growing away from it. The map size shall depend only on the Live box: outer columns collapse from two to one before the map shrinks, text never shrinks and panels scroll inside. Below about 1100×700 the page shall fall back to the centred deck with a note. In this mode only, the navigation rail moves to the outer edge and the friends rail collapses while a match runs. The side selector and the own-hero expander shall be keyboard-reachable UI-006 twins.
+
+**Failure behavior:** Without a stored or valid side, or when the window is too small, show the centred deck. Never move or resize the map because of panel content, feed changes or the expander.
+
+**AC-UI-016:** Given Live boxes for 1920×1080 and 2560×1440 monitors with monitor 2 on each side, a narrowing window and a window below 1100×700; when the player sets the side, resizes the window, opens the own-hero expander and enters or leaves a match; then the map is pinned to the inner edge at the size the box allows, the quick strip matches its width, outer columns collapse before the map shrinks, the page falls back below the threshold with a note, rails move outward and the friends rail folds only during a match, and every control is keyboard-reachable.
+
+**Verification:** synthetic, native; procedures TP-05, UAT-05; status NOT_RUN.
+
+**Open dependencies:** DEC-NATIVE-EVIDENCE.
+
+**Elaboration:** [UX-SPEC.md](../design/UX-SPEC.md), [DECISION-LOG.md](../governance/DECISION-LOG.md)
+
+**Contracts:** [design-tokens.json](../../contracts/design-tokens.json)
+
+**Implementation freedom:** Choose the measurement, storage and CSS mechanism. Keep the map geometry independent of content (UI-002) and the setting local to the device.
+
+#### UI-017 — Second-monitor content from admitted sources
+
+**Scope:** mvp · **Priority:** P1 · **Target milestone:** M3 · **Basis:** owner_decision / DEC-LIVE-SECOND-MONITOR
+
+**Product needs:** PN-005 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL
+
+In second-monitor mode the quick strip shall show the danger level, the enemies missing from the map (recent maximum seen minus currently visible, labelled derived), five enemy rows named only from the in-memory Draft Bar identities of the same session with alive/dead shown as an em dash until an admitted top-bar read exists, and the next map objective countdown from an admitted source or an em dash. The team card shall show four ally rows named from the draft, own hero excluded, with alive/dead as an em dash and a note that HP and skills need teammate sharing. The own hero shall be one strip (name, level, alive/respawn, HP, mana) with items, skills, gold and KDA behind an expander. Every value carries its source label. Ally HP and ally cooldowns shall come only from consented peer sharing (PEER-003, PEER-010); ally HP shall not be read from the in-game top bar; abnormal states (stuns, targeting) shall not be shown.
+
+**Failure behavior:** Unknown is an em dash, never zero and never a guessed side. If the own team or own hero cannot be matched, the corresponding rows stay unknown instead of risking a wrong or repeated hero.
+
+**AC-UI-017:** Given a session with and without admitted draft identities, a known and unknown own team, risk counts present and absent, and no objective source; when the second-monitor Live page renders; then enemy and ally names come only from same-session draft memory, the own hero is not repeated, missing-from-map is shown only when both counts are known, life state and the objective countdown are em dashes without a source, each value carries its source label, and no ally vitals, cooldowns or abnormal states appear.
+
+**Verification:** synthetic, native; procedures TP-05, UAT-05; status NOT_RUN.
+
+**Open dependencies:** DEC-NATIVE-EVIDENCE.
+
+**Elaboration:** [UX-SPEC.md](../design/UX-SPEC.md), [DECISION-LOG.md](../governance/DECISION-LOG.md)
+
+**Contracts:** [own-snapshot.schema.json](../../contracts/own-snapshot.schema.json)
+
+**Implementation freedom:** Choose presentation within the Command Deck tokens. Add a new source only through its own requirement and decision.
+
 #### UI-012 — In-memory deck draft strip
 
 **Scope:** extension · **Priority:** extension · **Target milestone:** M3 · **Basis:** owner_decision / DEC-DRAFT-BAR
@@ -1854,6 +1898,226 @@ Peer ability and cooldown sharing shall require a separate opt-in abilities scop
 **Elaboration:** [SECURITY-PRIVACY.md](../security/SECURITY-PRIVACY.md), [ICD.md](../design/ICD.md), [UX-SPEC.md](../design/UX-SPEC.md)
 
 **Contracts:** [peer-abilities.schema.json](../../contracts/peer-abilities.schema.json), [peer-sync.schema.json](../../contracts/peer-sync.schema.json)
+
+**Implementation freedom:** Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.
+
+### ACCOUNT
+
+#### ACCOUNT-001 — External-provider sign-in
+
+**Scope:** extension · **Priority:** extension · **Target milestone:** M6 · **Basis:** inherited_target / DEC-BASELINE
+
+**Product needs:** PN-010 · **Primary design:** CMP-SOCIAL · **Design components:** CMP-SOCIAL
+
+Sign-in uses one external identity provider through the system browser with loopback redirect and PKCE; no embedded webview; no credentials are entered in Kohbor
+
+**Failure behavior:** A flow using multiple providers, an embedded webview, or Kohbor-entered credentials fails.
+
+**AC-ACCOUNT-001:** Given a user starts sign-in with the configured external identity provider; when the provider hand-off returns through the loopback redirect; then the flow uses the system browser and PKCE, uses one provider, opens no embedded webview, and collects no credentials in Kohbor.
+
+**Verification:** synthetic, native; procedures TP-10, UAT-10; status NOT_RUN.
+
+**Open dependencies:** DEC-ACCOUNT-ORIGIN.
+
+**Elaboration:** [ACCOUNT-IDENTITY-REVIEW.md](../design/ACCOUNT-IDENTITY-REVIEW.md), [DECISION-LOG.md](../governance/DECISION-LOG.md), [SECURITY-PRIVACY.md](../security/SECURITY-PRIVACY.md)
+
+**Contracts:** [decisions.json](../../contracts/decisions.json)
+
+**Implementation freedom:** Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.
+
+#### ACCOUNT-002 — Minimal provider identity storage
+
+**Scope:** extension · **Priority:** extension · **Target milestone:** M6 · **Basis:** inherited_target / DEC-BASELINE
+
+**Product needs:** PN-010 · **Primary design:** CMP-SOCIAL · **Design components:** CMP-SOCIAL
+
+The service stores a keyed hash of the provider subject and no email, profile or provider token
+
+**Failure behavior:** The requirement fails if service storage contains the raw provider subject, email, profile data or a provider token.
+
+**AC-ACCOUNT-002:** Given an external identity provider has authenticated a user; when the account service stores the login identity; then it stores a keyed hash of the provider subject and stores no email, profile or provider token.
+
+**Verification:** synthetic, native; procedures TP-10, UAT-10; status NOT_RUN.
+
+**Open dependencies:** DEC-ALPHA-AUTH-DEVIATION, DEC-ACCOUNT-ORIGIN, DEC-PRIVACY-LEGAL.
+
+**Elaboration:** [ACCOUNT-IDENTITY-REVIEW.md](../design/ACCOUNT-IDENTITY-REVIEW.md), [DECISION-LOG.md](../governance/DECISION-LOG.md), [SECURITY-PRIVACY.md](../security/SECURITY-PRIVACY.md)
+
+**Contracts:** [decisions.json](../../contracts/decisions.json)
+
+**Implementation freedom:** Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.
+
+#### ACCOUNT-003 — Separate account identity layers
+
+**Scope:** extension · **Priority:** extension · **Target milestone:** M6 · **Basis:** inherited_target / DEC-BASELINE
+
+**Product needs:** PN-010 · **Primary design:** CMP-SOCIAL · **Design components:** CMP-SOCIAL
+
+Account id, login identity and friend code are separate; only friend code and display name are ever disclosed, and only to the owner's chosen counterparts
+
+**Failure behavior:** The requirement fails if the account id, login identity or any other identity value is disclosed, or disclosure reaches anyone beyond the owner's chosen counterparts.
+
+**AC-ACCOUNT-003:** Given an account has a login identity, account id, friend code and display name; when identity is disclosed during an account or social operation; then the three identity layers remain separate and only the friend code and display name reach the owner's chosen counterparts.
+
+**Verification:** synthetic, native; procedures TP-10, UAT-10; status NOT_RUN.
+
+**Open dependencies:** DEC-ACCOUNT-ORIGIN, DEC-PRIVACY-LEGAL, DEC-SOCIAL.
+
+**Elaboration:** [ACCOUNT-IDENTITY-REVIEW.md](../design/ACCOUNT-IDENTITY-REVIEW.md), [DECISION-LOG.md](../governance/DECISION-LOG.md), [SECURITY-PRIVACY.md](../security/SECURITY-PRIVACY.md)
+
+**Contracts:** [decisions.json](../../contracts/decisions.json)
+
+**Implementation freedom:** Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.
+
+#### ACCOUNT-004 — Private rotatable friend codes
+
+**Scope:** extension · **Priority:** extension · **Target milestone:** M6 · **Basis:** inherited_target / DEC-BASELINE
+
+**Product needs:** PN-010 · **Primary design:** CMP-SOCIAL · **Design components:** CMP-SOCIAL
+
+Friend codes are random, non-sequential, checksummed, rotatable, and use a Kohbor-only format
+
+**Failure behavior:** A sequential, unchecked, non-rotatable or non-Kohbor friend code fails validation.
+
+**AC-ACCOUNT-004:** Given an account is issued a friend code; when the code is inspected and then rotated; then the code is random, non-sequential, checksummed, rotatable and uses a Kohbor-only format.
+
+**Verification:** synthetic, native; procedures TP-10, UAT-10; status NOT_RUN.
+
+**Open dependencies:** DEC-ACCOUNT-ORIGIN, DEC-NAME, DEC-SOCIAL.
+
+**Elaboration:** [ACCOUNT-IDENTITY-REVIEW.md](../design/ACCOUNT-IDENTITY-REVIEW.md), [DECISION-LOG.md](../governance/DECISION-LOG.md), [SECURITY-PRIVACY.md](../security/SECURITY-PRIVACY.md)
+
+**Contracts:** [decisions.json](../../contracts/decisions.json)
+
+**Implementation freedom:** Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.
+
+#### ACCOUNT-005 — Protected Kohbor sessions and cache clearing
+
+**Scope:** extension · **Priority:** extension · **Target milestone:** M6 · **Basis:** inherited_target / DEC-BASELINE
+
+**Product needs:** PN-001, PN-010 · **Primary design:** CMP-SOCIAL · **Design components:** CMP-SOCIAL
+
+Sessions are Kohbor-issued, short-lived, rotating, device-bound and stored under OS user-scoped protection; sign-out and switch erase all cached account data
+
+**Failure behavior:** A session that is not Kohbor-issued, short-lived, rotating, device-bound and OS user-protected fails; cached account data remaining after sign-out or switch also fails.
+
+**AC-ACCOUNT-005:** Given a user has a Kohbor account session and cached account data; when the session is renewed, then the user signs out or switches accounts; then the session is short-lived, rotating, device-bound and stored under OS user-scoped protection, and all cached account data is erased.
+
+**Verification:** synthetic, native; procedures TP-01, TP-10, UAT-10; status NOT_RUN.
+
+**Open dependencies:** DEC-ACCOUNT-IDENTITY, DEC-ALPHA-AUTH-DEVIATION, DEC-ACCOUNT-ORIGIN, DEC-PRIVACY-LEGAL.
+
+**Elaboration:** [ACCOUNT-IDENTITY-REVIEW.md](../design/ACCOUNT-IDENTITY-REVIEW.md), [DECISION-LOG.md](../governance/DECISION-LOG.md), [SECURITY-PRIVACY.md](../security/SECURITY-PRIVACY.md)
+
+**Contracts:** [decisions.json](../../contracts/decisions.json)
+
+**Implementation freedom:** Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.
+
+#### ACCOUNT-006 — Offline account independence
+
+**Scope:** extension · **Priority:** extension · **Target milestone:** M6 · **Basis:** inherited_target / DEC-BASELINE
+
+**Product needs:** PN-001, PN-010 · **Primary design:** CMP-SOCIAL · **Design components:** CMP-SOCIAL
+
+With no network or no account service, startup and every local function are unaffected; the account surface reports offline or unavailable without prompting
+
+**Failure behavior:** Network or account-service unavailability must not interrupt startup or any local function, or prompt the user.
+
+**AC-ACCOUNT-006:** Given the device has no network or the account service is unavailable; when the application starts and the user uses local functions; then startup and every local function are unaffected and the account surface reports offline or unavailable without prompting.
+
+**Verification:** synthetic, native; procedures TP-01, UAT-01; status NOT_RUN.
+
+**Elaboration:** [ACCOUNT-IDENTITY-REVIEW.md](../design/ACCOUNT-IDENTITY-REVIEW.md), [DECISION-LOG.md](../governance/DECISION-LOG.md), [SECURITY-PRIVACY.md](../security/SECURITY-PRIVACY.md)
+
+**Contracts:** [decisions.json](../../contracts/decisions.json)
+
+**Implementation freedom:** Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.
+
+#### ACCOUNT-007 — Product-scoped token authority
+
+**Scope:** extension · **Priority:** extension · **Target milestone:** M6 · **Basis:** inherited_target / DEC-BASELINE
+
+**Product needs:** PN-010 · **Primary design:** CMP-SOCIAL · **Design components:** CMP-SOCIAL
+
+Tokens and tickets carry a Kohbor issuer and a single audience; a token from any other product or audience is rejected
+
+**Failure behavior:** A token or ticket with an issuer other than Kohbor, or with an audience other than its single authorized audience, is rejected.
+
+**AC-ACCOUNT-007:** Given a token or ticket is presented for account or relay authority; when its issuer and audience are checked; then only a Kohbor issuer with one audience is accepted and tokens from another product or audience are rejected.
+
+**Verification:** synthetic, native; procedures TP-10, UAT-10; status NOT_RUN.
+
+**Open dependencies:** DEC-ALPHA-AUTH-DEVIATION, DEC-ACCOUNT-ORIGIN, DEC-NAME.
+
+**Elaboration:** [ACCOUNT-IDENTITY-REVIEW.md](../design/ACCOUNT-IDENTITY-REVIEW.md), [DECISION-LOG.md](../governance/DECISION-LOG.md), [SECURITY-PRIVACY.md](../security/SECURITY-PRIVACY.md)
+
+**Contracts:** [decisions.json](../../contracts/decisions.json)
+
+**Implementation freedom:** Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.
+
+#### ACCOUNT-008 — In-app account export and deletion
+
+**Scope:** extension · **Priority:** extension · **Target milestone:** M6 · **Basis:** inherited_target / DEC-BASELINE
+
+**Product needs:** PN-010 · **Primary design:** CMP-SOCIAL · **Design components:** CMP-SOCIAL
+
+The user can export and delete the account from the app; deletion removes every server record and local cache. The only record kept is one deletion-ledger entry outside the database, holding the keyed login-identity hash and the deletion time, used only to repeat the deletion after a backup restore and purged 30 days after the deletion, never before every backup taken before the deletion has been rotated out
+
+**Failure behavior:** Export or deletion unavailable in the app, any server record or local cache remaining after deletion, a ledger entry holding anything beyond the keyed login-identity hash and deletion time, a ledger stored inside the restored database, a replay that deletes an account created after the recorded deletion, or an entry kept past 30 days once no earlier backup remains, or purged while one does, fails.
+
+**AC-ACCOUNT-008:** Given a user has an account and can access its controls in the app; when the user exports and then deletes the account; then the account can be exported; deletion removes every server record and local cache and writes one ledger entry with only the keyed login-identity hash and deletion time; after a backup restore, replay removes the restored account but not a newer account with the same login hash; the entry is purged after 30 days once no earlier backup remains.
+
+**Verification:** synthetic, native; procedures TP-10, UAT-10; status NOT_RUN.
+
+**Open dependencies:** DEC-DELETION-LEDGER, DEC-ACCOUNT-ORIGIN, DEC-PRIVACY-LEGAL, DEC-RETENTION.
+
+**Elaboration:** [ACCOUNT-DATABASE-DESIGN.md](../design/ACCOUNT-DATABASE-DESIGN.md), [ACCOUNT-IDENTITY-REVIEW.md](../design/ACCOUNT-IDENTITY-REVIEW.md), [DECISION-LOG.md](../governance/DECISION-LOG.md), [SECURITY-PRIVACY.md](../security/SECURITY-PRIVACY.md)
+
+**Contracts:** [decisions.json](../../contracts/decisions.json)
+
+**Implementation freedom:** Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.
+
+#### ACCOUNT-009 — No unapproved platform identity binding
+
+**Scope:** extension · **Priority:** extension · **Target milestone:** M6 · **Basis:** inherited_target / DEC-BASELINE
+
+**Product needs:** PN-010 · **Primary design:** CMP-SOCIAL · **Design components:** CMP-SOCIAL
+
+No platform identity is bound to an account unless DEC-STEAM-BINDING is decided; when bound it is proven by provider verification plus a local match and is never a login, recovery credential, search key or displayed value
+
+**Failure behavior:** A platform identity bound before DEC-STEAM-BINDING is decided, without both proofs, or used as a login, recovery credential, search key or displayed value fails.
+
+**AC-ACCOUNT-009:** Given DEC-STEAM-BINDING is undecided or a binding is enabled under a decided record; when a platform identity is considered for an account; then none is bound while undecided; any bound identity has provider verification and a local match and is not a login, recovery credential, search key or displayed value.
+
+**Verification:** synthetic, native; procedures TP-10, UAT-10; status NOT_RUN.
+
+**Open dependencies:** DEC-ACCOUNT-ORIGIN, DEC-PRIVACY-LEGAL, DEC-STEAM-BINDING.
+
+**Elaboration:** [ACCOUNT-IDENTITY-REVIEW.md](../design/ACCOUNT-IDENTITY-REVIEW.md), [DECISION-LOG.md](../governance/DECISION-LOG.md), [SECURITY-PRIVACY.md](../security/SECURITY-PRIVACY.md)
+
+**Contracts:** [decisions.json](../../contracts/decisions.json)
+
+**Implementation freedom:** Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.
+
+#### ACCOUNT-010 — No cross-product account sharing
+
+**Scope:** extension · **Priority:** extension · **Target milestone:** M6 · **Basis:** inherited_target / DEC-BASELINE
+
+**Product needs:** PN-010 · **Primary design:** CMP-SOCIAL · **Design components:** CMP-SOCIAL
+
+No account, identifier, key, secret or endpoint is shared with or imported from another product; a cross-product link requires its own decision and consent
+
+**Failure behavior:** Any account, identifier, key, secret or endpoint shared with or imported from another product, or any cross-product link without its own decision and consent, fails.
+
+**AC-ACCOUNT-010:** Given a Kohbor account and another product account exist or a link is proposed; when account data and trust material are handled or the cross-product link is attempted; then nothing is shared with or imported from the other product and a link proceeds only after its own decision and consent.
+
+**Verification:** synthetic, native; procedures TP-10, UAT-10; status NOT_RUN.
+
+**Open dependencies:** DEC-ACCOUNT-LINK, DEC-PRIVACY-LEGAL.
+
+**Elaboration:** [ACCOUNT-IDENTITY-REVIEW.md](../design/ACCOUNT-IDENTITY-REVIEW.md), [DECISION-LOG.md](../governance/DECISION-LOG.md), [SECURITY-PRIVACY.md](../security/SECURITY-PRIVACY.md)
+
+**Contracts:** [decisions.json](../../contracts/decisions.json)
 
 **Implementation freedom:** Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.
 

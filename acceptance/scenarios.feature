@@ -303,6 +303,20 @@ Feature: Brand-neutral desktop companion target behavior
     Then the box always stays inside the safe area and off the protected regions except that the objective card may enter at most the top 24 px (at 1080, scaled with height) of the announcement region and is clamped there when dragged deeper, a widget without that allowance stays fully blocked, the default card sits centred under the danger meter with a 4 px gap, reset restores the default, the saved layout persists with its schema_version and is applied to the card in the overlay, a corrupt file falls back to the default, and each change writes one layout_changed info line
     And failure behavior is: An unreadable or invalid layout file or entry falls back to that widget's default and is reported; an out-of-bounds value is clamped into the safe area, never applied raw. Changing a layout never steals Dota focus or makes an overlay window interactive.
 
+  @UI-016 @mvp
+  Scenario: AC-UI-016 Second-monitor Live layout
+    Given Live boxes for 1920×1080 and 2560×1440 monitors with monitor 2 on each side, a narrowing window and a window below 1100×700
+    When the player sets the side, resizes the window, opens the own-hero expander and enters or leaves a match
+    Then the map is pinned to the inner edge at the size the box allows, the quick strip matches its width, outer columns collapse before the map shrinks, the page falls back below the threshold with a note, rails move outward and the friends rail folds only during a match, and every control is keyboard-reachable
+    And failure behavior is: Without a stored or valid side, or when the window is too small, show the centred deck. Never move or resize the map because of panel content, feed changes or the expander.
+
+  @UI-017 @mvp
+  Scenario: AC-UI-017 Second-monitor content from admitted sources
+    Given a session with and without admitted draft identities, a known and unknown own team, risk counts present and absent, and no objective source
+    When the second-monitor Live page renders
+    Then enemy and ally names come only from same-session draft memory, the own hero is not repeated, missing-from-map is shown only when both counts are known, life state and the objective countdown are em dashes without a source, each value carries its source label, and no ally vitals, cooldowns or abnormal states appear
+    And failure behavior is: Unknown is an em dash, never zero and never a guessed side. If the own team or own hero cannot be matched, the corresponding rows stay unknown instead of risking a wrong or repeated hero.
+
   @MEDIA-009 @extension
   Scenario: AC-MEDIA-009 Per-application session volume
     Given a fake session manager with present, missing and unreadable sessions, applications with several sessions at equal and differing levels, and persisted original levels
@@ -512,6 +526,76 @@ Feature: Brand-neutral desktop companion target behavior
     When the receiver renders both allied cards
     Then the first shows vitals with a not-shared skill row and no ability payload was transmitted; the second shows only admitted ability levels and cooldowns with their age, and withdrawing the scope clears them
     And failure behavior is: Without the abilities scope nothing is sent or shown; unknown cooldown stays unknown; cooldown zero is not shown as ready; no item, position, enemy or selected-unit data.
+
+  @ACCOUNT-001 @extension
+  Scenario: AC-ACCOUNT-001 External-provider sign-in
+    Given a user starts sign-in with the configured external identity provider
+    When the provider hand-off returns through the loopback redirect
+    Then the flow uses the system browser and PKCE, uses one provider, opens no embedded webview, and collects no credentials in Kohbor
+    And failure behavior is: A flow using multiple providers, an embedded webview, or Kohbor-entered credentials fails.
+
+  @ACCOUNT-002 @extension
+  Scenario: AC-ACCOUNT-002 Minimal provider identity storage
+    Given an external identity provider has authenticated a user
+    When the account service stores the login identity
+    Then it stores a keyed hash of the provider subject and stores no email, profile or provider token
+    And failure behavior is: The requirement fails if service storage contains the raw provider subject, email, profile data or a provider token.
+
+  @ACCOUNT-003 @extension
+  Scenario: AC-ACCOUNT-003 Separate account identity layers
+    Given an account has a login identity, account id, friend code and display name
+    When identity is disclosed during an account or social operation
+    Then the three identity layers remain separate and only the friend code and display name reach the owner's chosen counterparts
+    And failure behavior is: The requirement fails if the account id, login identity or any other identity value is disclosed, or disclosure reaches anyone beyond the owner's chosen counterparts.
+
+  @ACCOUNT-004 @extension
+  Scenario: AC-ACCOUNT-004 Private rotatable friend codes
+    Given an account is issued a friend code
+    When the code is inspected and then rotated
+    Then the code is random, non-sequential, checksummed, rotatable and uses a Kohbor-only format
+    And failure behavior is: A sequential, unchecked, non-rotatable or non-Kohbor friend code fails validation.
+
+  @ACCOUNT-005 @extension
+  Scenario: AC-ACCOUNT-005 Protected Kohbor sessions and cache clearing
+    Given a user has a Kohbor account session and cached account data
+    When the session is renewed, then the user signs out or switches accounts
+    Then the session is short-lived, rotating, device-bound and stored under OS user-scoped protection, and all cached account data is erased
+    And failure behavior is: A session that is not Kohbor-issued, short-lived, rotating, device-bound and OS user-protected fails; cached account data remaining after sign-out or switch also fails.
+
+  @ACCOUNT-006 @extension
+  Scenario: AC-ACCOUNT-006 Offline account independence
+    Given the device has no network or the account service is unavailable
+    When the application starts and the user uses local functions
+    Then startup and every local function are unaffected and the account surface reports offline or unavailable without prompting
+    And failure behavior is: Network or account-service unavailability must not interrupt startup or any local function, or prompt the user.
+
+  @ACCOUNT-007 @extension
+  Scenario: AC-ACCOUNT-007 Product-scoped token authority
+    Given a token or ticket is presented for account or relay authority
+    When its issuer and audience are checked
+    Then only a Kohbor issuer with one audience is accepted and tokens from another product or audience are rejected
+    And failure behavior is: A token or ticket with an issuer other than Kohbor, or with an audience other than its single authorized audience, is rejected.
+
+  @ACCOUNT-008 @extension
+  Scenario: AC-ACCOUNT-008 In-app account export and deletion
+    Given a user has an account and can access its controls in the app
+    When the user exports and then deletes the account
+    Then the account can be exported; deletion removes every server record and local cache and writes one ledger entry with only the keyed login-identity hash and deletion time; after a backup restore, replay removes the restored account but not a newer account with the same login hash; the entry is purged after 30 days once no earlier backup remains
+    And failure behavior is: Export or deletion unavailable in the app, any server record or local cache remaining after deletion, a ledger entry holding anything beyond the keyed login-identity hash and deletion time, a ledger stored inside the restored database, a replay that deletes an account created after the recorded deletion, or an entry kept past 30 days once no earlier backup remains, or purged while one does, fails.
+
+  @ACCOUNT-009 @extension
+  Scenario: AC-ACCOUNT-009 No unapproved platform identity binding
+    Given DEC-STEAM-BINDING is undecided or a binding is enabled under a decided record
+    When a platform identity is considered for an account
+    Then none is bound while undecided; any bound identity has provider verification and a local match and is not a login, recovery credential, search key or displayed value
+    And failure behavior is: A platform identity bound before DEC-STEAM-BINDING is decided, without both proofs, or used as a login, recovery credential, search key or displayed value fails.
+
+  @ACCOUNT-010 @extension
+  Scenario: AC-ACCOUNT-010 No cross-product account sharing
+    Given a Kohbor account and another product account exist or a link is proposed
+    When account data and trust material are handled or the cross-product link is attempted
+    Then nothing is shared with or imported from the other product and a link proceeds only after its own decision and consent
+    And failure behavior is: Any account, identifier, key, secret or endpoint shared with or imported from another product, or any cross-product link without its own decision and consent, fails.
 
   @SOCIAL-001 @extension
   Scenario: AC-SOCIAL-001 Optional account boundary

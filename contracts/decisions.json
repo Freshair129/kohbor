@@ -174,7 +174,7 @@
       "owner_role": "product owner",
       "safe_interim": "Bound new writes; stop recording on disk pressure; no destructive auto-cleanup.",
       "closure_evidence": "Documented quotas/lifetimes and explicit user deletion behavior with recovery tests.",
-      "owner_statement_note": "2026-11-14, owner (quoted in docs/governance/DECISION-LOG.md section 'Backend workstream owner statements'): run an encrypted pg_dump of the alpha database every night; backup retention is decided together with the account-deletion policy. This sets the schedule only; DEC-RETENTION stays open for periods."
+      "owner_statement_note": "2026-11-14, owner (quoted in docs/governance/DECISION-LOG.md section 'Backend workstream owner statements'): run an encrypted pg_dump of the alpha database every night; backup retention is decided together with the account-deletion policy. This sets the schedule only; DEC-RETENTION stays open for periods. 2026-11-21/22: the 30-day deletion-ledger tail for account deletions is decided separately as DEC-DELETION-LEDGER; other periods stay open here."
     },
     {
       "id": "DEC-PREMIUM",
@@ -377,6 +377,148 @@
       "proposal_ref": "docs/design/SHARING-MODEL-REVIEW.md",
       "related": [
         "DEC-SHARE-LIST"
+      ]
+    },
+    {
+      "id": "DEC-ALPHA-AUTH-DEVIATION",
+      "status": "decided",
+      "milestone": "M6",
+      "blocks": "This record covers only the alpha deviation; it does not close DEC-PRIVACY-LEGAL or decide production hosting.",
+      "owner_role": "product owner",
+      "date": "2026-11-22",
+      "decision_maker": "Product owner; owner statement in the lead session on 2026-11-22.",
+      "owner_statements": [
+        "Add ACCOUNT-001..010",
+        "Keep text, log deviation"
+      ],
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-22",
+      "channel": "Owner statement in the lead session; recorded here without legal or security review.",
+      "reason": "The owner directed that ACCOUNT-001..010 be added using the review text and that the live alpha be recorded as a time-limited exception. The alpha uses Supabase Auth, which stores email, name and picture and issues sessions and tokens, so its behavior differs from ACCOUNT-002, ACCOUNT-005 and ACCOUNT-007.",
+      "alternatives": [
+        "Reword ACCOUNT-002, ACCOUNT-005 and ACCOUNT-007 to match the alpha behavior; rejected by the owner."
+      ],
+      "affected_ids": [
+        "ACCOUNT-002",
+        "ACCOUNT-005",
+        "ACCOUNT-007",
+        "PN-010",
+        "DEC-PRIVACY-LEGAL"
+      ],
+      "decision": "Keep the ACCOUNT-002, ACCOUNT-005 and ACCOUNT-007 text as written. For the live alpha, Supabase Auth stores email, name and picture and issues sessions and tokens.",
+      "end_condition": "The deviation ends when sign-in moves to the Kohbor broker.",
+      "migration_impact": "At the switch, the Supabase Auth user records for alpha testers must be deleted. This record does not specify other migration steps.",
+      "rollback_cleanup": "Delete the alpha testers' Supabase Auth user records after sign-in moves to the Kohbor broker.",
+      "actual_approval_status": "Owner statement in session on 2026-11-22; no legal or security review.",
+      "approval_status": "Owner statement in session on 2026-11-22; no legal or security review.",
+      "change_control": {
+        "product_need_ids": [
+          "PN-010"
+        ],
+        "srs_requirement_ids": [
+          "ACCOUNT-002",
+          "ACCOUNT-005",
+          "ACCOUNT-007"
+        ],
+        "design_affected": [
+          "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+          "docs/design/ALPHA-LAUNCH.md"
+        ],
+        "contracts_affected": [
+          "contracts/requirements.json",
+          "contracts/decisions.json"
+        ],
+        "verification_procedures_affected": [
+          "TP-10",
+          "UAT-10"
+        ],
+        "migration_rollback_impact": "The alpha identity provider changes when sign-in moves to the Kohbor broker; delete the alpha testers' Supabase Auth user records after the switch."
+      },
+      "affected": [
+        "contracts/requirements.json",
+        "contracts/decisions.json",
+        "docs/requirements/SRS.md",
+        "docs/requirements/RTM.csv",
+        "acceptance/scenarios.feature",
+        "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+        "docs/design/ALPHA-LAUNCH.md"
+      ],
+      "safe_interim": "The live alpha uses Supabase Auth as described in this deviation. No legal or security review is implied; DEC-PRIVACY-LEGAL remains open.",
+      "closure_evidence": "Sign-in has moved to the Kohbor broker and the Supabase Auth user records for alpha testers have been deleted.",
+      "related": [
+        "DEC-ACCOUNT-ORIGIN",
+        "DEC-ACCOUNT-IDENTITY",
+        "DEC-PRIVACY-LEGAL"
+      ]
+    },
+    {
+      "id": "DEC-DELETION-LEDGER",
+      "status": "decided",
+      "milestone": "M6",
+      "blocks": "Covers only the bounded deletion ledger that amends rule 27 and ACCOUNT-008; other retention periods stay under DEC-RETENTION and the legal questions under DEC-PRIVACY-LEGAL.",
+      "owner_role": "product owner",
+      "date": "2026-11-22",
+      "decision_maker": "Product owner. Confirmed in chat on 2026-11-21 (ACCOUNT-DATABASE-DESIGN 14.2, item 1 of 'ยืนยันข้อ 1-5'); asked on 2026-11-22 for ACCOUNT-008 to be brought in line ('แก้ ACCOUNT-008 กับ deletion ledger').",
+      "owner_statements": [
+        "ยืนยันข้อ 1-5",
+        "แก้ ACCOUNT-008 กับ deletion ledger"
+      ],
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-21",
+      "channel": "Owner statements in chat; recorded here through document control by an agent, without legal or security review.",
+      "reason": "Without any record of a deletion, restoring a backup up to 30 days old would bring deleted accounts back into service (CONFLICT C2: rule 27 'no tombstone' against BACKEND-STACK 'backups cannot reintroduce deleted accounts').",
+      "alternatives": [
+        "No ledger and never restore into service (option b of C2): no tombstone, but backups then protect almost nothing; not chosen.",
+        "Keep 'no tombstone' and accept that a restore resurrects deleted accounts; contradicts BACKEND-STACK; not chosen."
+      ],
+      "affected_ids": [
+        "ACCOUNT-008",
+        "PN-010",
+        "DEC-RETENTION",
+        "DEC-PRIVACY-LEGAL"
+      ],
+      "decision": "Deletion keeps exactly one ledger entry per deleted account outside the database being restored: the keyed login-identity hash and the deletion time, nothing else. After a restore and before any broker process reads the database, replay deletes accounts whose login hash matches and whose creation time is earlier than the recorded deletion. An entry is purged 30 days after the deletion, and never while a backup taken before that deletion still exists.",
+      "end_condition": "Stands until a later decision changes the backup rotation or the deletion policy.",
+      "migration_impact": "None for existing data: the broker already implements the ledger (services/kohbor-broker/src/deletion-ledger.mjs). The privacy notice must describe the ledger and the 30-day backup tail (DEC-PRIVACY-LEGAL).",
+      "rollback_cleanup": "Reverting to 'no tombstone' requires a new decision and removing the ledger and its replay step.",
+      "actual_approval_status": "Owner statements in chat on 2026-11-21 and 2026-11-22; no legal or security review.",
+      "approval_status": "Owner statements in chat on 2026-11-21 and 2026-11-22; no legal or security review.",
+      "change_control": {
+        "product_need_ids": [
+          "PN-010"
+        ],
+        "srs_requirement_ids": [
+          "ACCOUNT-008"
+        ],
+        "design_affected": [
+          "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+          "docs/design/ACCOUNT-DATABASE-DESIGN.md"
+        ],
+        "contracts_affected": [
+          "contracts/requirements.json",
+          "contracts/decisions.json"
+        ],
+        "verification_procedures_affected": [
+          "TP-10",
+          "UAT-10"
+        ],
+        "migration_rollback_impact": "No data migration; a revert needs a new decision and removal of the ledger and replay."
+      },
+      "affected": [
+        "contracts/requirements.json",
+        "contracts/decisions.json",
+        "docs/requirements/SRS.md",
+        "docs/requirements/RTM.csv",
+        "acceptance/scenarios.feature",
+        "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+        "docs/design/ACCOUNT-DATABASE-DESIGN.md"
+      ],
+      "safe_interim": "The broker keeps the ledger as specified; DEC-PRIVACY-LEGAL stays open for the notice.",
+      "closure_evidence": "Recorded owner statements; the broker's deletion-ledger tests; a restore rehearsal remains to be run.",
+      "related": [
+        "DEC-RETENTION",
+        "DEC-PRIVACY-LEGAL",
+        "DEC-ACCOUNT-IDENTITY"
       ]
     },
     {
@@ -1093,6 +1235,43 @@
           "safe_interim": "Default off. Withhold unsupported values and leave v2 unavailable until 5b. Revocation stops requests, discards late responses and deletes the local aggregate cache. Provider terms, exact wire contract and supported metrics still need integration review."
         }
       ]
+    },
+    {
+      "id": "DEC-LIVE-SECOND-MONITOR",
+      "status": "decided",
+      "milestone": "M3",
+      "blocks": "UI-016 and UI-017 only; the DEC-SESSION-MONITOR topology (UI-002) is unchanged.",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-22",
+      "channel": "Owner answer to the second-monitor design questions (coord:design/live-second-monitor-20261122/README.th.md), relayed by the coordinating session local_e6af3702 and recorded by an agent.",
+      "owner_statement_th": "“ตามที่แนะนำ”",
+      "decision": "Adopt option B: the minimap pinned to the edge touching the main monitor with a quick strip under it. The mode is off by default and the user picks the side once; no auto-detection. In this mode only, the navigation rail moves to the outer edge and the friends rail collapses during a match, an exception to the Command Deck two-rail rule. Ally HP and cooldowns come only from peer sharing (PEER-003, PEER-010, extension M6); until then a compact placeholder; ally HP is not read from the in-game top bar. Abnormal states are dropped. The own hero collapses to one strip with items, skills, gold and KDA behind an expander. The proposed DEC-TOPBAR-CV is extended so the top-bar read may also give ally alive/dead from data it already reads; implementation waits for the owner frames.",
+      "reason": "Shorten eye travel from the main monitor and avoid repeating the game HUD, while showing only admitted values.",
+      "alternatives_considered": [
+        "Option A: full-height map with columns",
+        "Centred map (current layout)",
+        "Auto-detecting the monitor side",
+        "Reading ally HP from the in-game top bar"
+      ],
+      "affected_need_ids": [
+        "PN-005"
+      ],
+      "affected_requirement_ids": [
+        "UI-002",
+        "UI-016",
+        "UI-017"
+      ],
+      "related": [
+        "DEC-SESSION-MONITOR",
+        "DEC-PEER-ABILITIES",
+        "DEC-DRAFT-BAR",
+        "DEC-NATIVE-EVIDENCE"
+      ],
+      "safe_interim": "Mode off by default; below about 1100×700 the centred deck is used; every unknown is an em dash.",
+      "closure_evidence": "Owner answer relayed 2026-11-22. Synthetic layout and model tests only; native and live evidence NOT_RUN.",
+      "revision": "1",
+      "history": []
     }
   ]
 }

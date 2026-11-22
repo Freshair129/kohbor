@@ -3089,6 +3089,146 @@
       "diagram_refs": []
     },
     {
+      "id": "UI-016",
+      "title": "Second-monitor Live layout",
+      "module": "ui",
+      "scope": "mvp",
+      "priority": "P1",
+      "target_milestone": "M3",
+      "basis": "owner_decision",
+      "decision_basis": "DEC-LIVE-SECOND-MONITOR",
+      "statement": "The Live page shall offer a second-monitor mode with a per-device setting: off (default, the centred deck), monitor 2 left of the main monitor, or monitor 2 right of it. When set, the minimap shall be a square pinned flush to the edge that touches the main monitor (left edge when monitor 2 is to the right, right edge when it is to the left), with a quick strip of the same width directly under it and outer columns growing away from it. The map size shall depend only on the Live box: outer columns collapse from two to one before the map shrinks, text never shrinks and panels scroll inside. Below about 1100×700 the page shall fall back to the centred deck with a note. In this mode only, the navigation rail moves to the outer edge and the friends rail collapses while a match runs. The side selector and the own-hero expander shall be keyboard-reachable UI-006 twins.",
+      "failure_behavior": "Without a stored or valid side, or when the window is too small, show the centred deck. Never move or resize the map because of panel content, feed changes or the expander.",
+      "acceptance": {
+        "scenario_id": "AC-UI-016",
+        "given": "Live boxes for 1920×1080 and 2560×1440 monitors with monitor 2 on each side, a narrowing window and a window below 1100×700",
+        "when": "the player sets the side, resizes the window, opens the own-hero expander and enters or leaves a match",
+        "then": "the map is pinned to the inner edge at the size the box allows, the quick strip matches its width, outer columns collapse before the map shrinks, the page falls back below the threshold with a note, rails move outward and the friends rail folds only during a match, and every control is keyboard-reachable"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [
+          "apps/desktop/src/live/secondMonitorModel.ts",
+          "apps/desktop/src/live/SecondMonitorDeck.tsx",
+          "apps/desktop/src/live/SecondMonitorToggle.tsx",
+          "apps/desktop/src/live/useSecondMonitorSide.ts",
+          "apps/desktop/src/live/secondMonitor.css",
+          "apps/desktop/src/live/MinimapPanel.tsx",
+          "apps/desktop/src/deck/Deck.tsx",
+          "apps/desktop/src/App.tsx",
+          "apps/desktop/tests/live-second-monitor.test.ts"
+        ],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-05",
+          "UAT-05"
+        ]
+      },
+      "contract_refs": [
+        "contracts/design-tokens.json"
+      ],
+      "spec_refs": [
+        "docs/design/UX-SPEC.md",
+        "docs/governance/DECISION-LOG.md"
+      ],
+      "open_decisions": [
+        "DEC-NATIVE-EVIDENCE"
+      ],
+      "implementation_freedom": "Choose the measurement, storage and CSS mechanism. Keep the map geometry independent of content (UI-002) and the setting local to the device.",
+      "product_need_ids": [
+        "PN-005"
+      ],
+      "design_component_ids": [
+        "CMP-READMODEL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/UX-SPEC.md",
+        "docs/governance/DECISION-LOG.md"
+      ],
+      "primary_design_component_id": "CMP-READMODEL",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "UI-017",
+      "title": "Second-monitor content from admitted sources",
+      "module": "ui",
+      "scope": "mvp",
+      "priority": "P1",
+      "target_milestone": "M3",
+      "basis": "owner_decision",
+      "decision_basis": "DEC-LIVE-SECOND-MONITOR",
+      "statement": "In second-monitor mode the quick strip shall show the danger level, the enemies missing from the map (recent maximum seen minus currently visible, labelled derived), five enemy rows named only from the in-memory Draft Bar identities of the same session with alive/dead shown as an em dash until an admitted top-bar read exists, and the next map objective countdown from an admitted source or an em dash. The team card shall show four ally rows named from the draft, own hero excluded, with alive/dead as an em dash and a note that HP and skills need teammate sharing. The own hero shall be one strip (name, level, alive/respawn, HP, mana) with items, skills, gold and KDA behind an expander. Every value carries its source label. Ally HP and ally cooldowns shall come only from consented peer sharing (PEER-003, PEER-010); ally HP shall not be read from the in-game top bar; abnormal states (stuns, targeting) shall not be shown.",
+      "failure_behavior": "Unknown is an em dash, never zero and never a guessed side. If the own team or own hero cannot be matched, the corresponding rows stay unknown instead of risking a wrong or repeated hero.",
+      "acceptance": {
+        "scenario_id": "AC-UI-017",
+        "given": "a session with and without admitted draft identities, a known and unknown own team, risk counts present and absent, and no objective source",
+        "when": "the second-monitor Live page renders",
+        "then": "enemy and ally names come only from same-session draft memory, the own hero is not repeated, missing-from-map is shown only when both counts are known, life state and the objective countdown are em dashes without a source, each value carries its source label, and no ally vitals, cooldowns or abnormal states appear"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [
+          "apps/desktop/src/live/secondMonitorModel.ts",
+          "apps/desktop/src/live/SecondMonitorDeck.tsx",
+          "apps/desktop/src/live/SecondMonitorToggle.tsx",
+          "apps/desktop/src/live/useSecondMonitorSide.ts",
+          "apps/desktop/src/live/secondMonitor.css",
+          "apps/desktop/src/live/MinimapPanel.tsx",
+          "apps/desktop/src/deck/Deck.tsx",
+          "apps/desktop/src/App.tsx",
+          "apps/desktop/tests/live-second-monitor.test.ts"
+        ],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-05",
+          "UAT-05"
+        ]
+      },
+      "contract_refs": [
+        "contracts/own-snapshot.schema.json"
+      ],
+      "spec_refs": [
+        "docs/design/UX-SPEC.md",
+        "docs/governance/DECISION-LOG.md"
+      ],
+      "open_decisions": [
+        "DEC-NATIVE-EVIDENCE"
+      ],
+      "implementation_freedom": "Choose presentation within the Command Deck tokens. Add a new source only through its own requirement and decision.",
+      "product_need_ids": [
+        "PN-005"
+      ],
+      "design_component_ids": [
+        "CMP-READMODEL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/design/UX-SPEC.md",
+        "docs/governance/DECISION-LOG.md"
+      ],
+      "primary_design_component_id": "CMP-READMODEL",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
       "id": "MEDIA-009",
       "title": "Per-application session volume",
       "module": "media",
@@ -5095,6 +5235,656 @@
         "docs/design/ICD.md"
       ],
       "primary_design_component_id": "CMP-PEER",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "ACCOUNT-001",
+      "title": "External-provider sign-in",
+      "module": "account",
+      "scope": "extension",
+      "priority": "extension",
+      "target_milestone": "M6",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Sign-in uses one external identity provider through the system browser with loopback redirect and PKCE; no embedded webview; no credentials are entered in Kohbor",
+      "failure_behavior": "A flow using multiple providers, an embedded webview, or Kohbor-entered credentials fails.",
+      "acceptance": {
+        "scenario_id": "AC-ACCOUNT-001",
+        "given": "a user starts sign-in with the configured external identity provider",
+        "when": "the provider hand-off returns through the loopback redirect",
+        "then": "the flow uses the system browser and PKCE, uses one provider, opens no embedded webview, and collects no credentials in Kohbor"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [
+          "crates/kohbor-account/src/lib.rs",
+          "crates/kohbor-account/tests/loopback_sign_in/mod.rs",
+          "apps/desktop/src-tauri/src/account_host.rs"
+        ],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-10",
+          "UAT-10"
+        ]
+      },
+      "contract_refs": [
+        "contracts/decisions.json"
+      ],
+      "spec_refs": [
+        "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+        "docs/governance/DECISION-LOG.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "open_decisions": [
+        "DEC-ACCOUNT-ORIGIN"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-010"
+      ],
+      "design_component_ids": [
+        "CMP-SOCIAL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "primary_design_component_id": "CMP-SOCIAL",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "ACCOUNT-002",
+      "title": "Minimal provider identity storage",
+      "module": "account",
+      "scope": "extension",
+      "priority": "extension",
+      "target_milestone": "M6",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "The service stores a keyed hash of the provider subject and no email, profile or provider token",
+      "failure_behavior": "The requirement fails if service storage contains the raw provider subject, email, profile data or a provider token.",
+      "acceptance": {
+        "scenario_id": "AC-ACCOUNT-002",
+        "given": "an external identity provider has authenticated a user",
+        "when": "the account service stores the login identity",
+        "then": "it stores a keyed hash of the provider subject and stores no email, profile or provider token"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [
+          "services/kohbor-broker/src/broker.mjs",
+          "services/kohbor-broker/test/broker.test.mjs"
+        ],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-10",
+          "UAT-10"
+        ]
+      },
+      "contract_refs": [
+        "contracts/decisions.json"
+      ],
+      "spec_refs": [
+        "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+        "docs/governance/DECISION-LOG.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "open_decisions": [
+        "DEC-ALPHA-AUTH-DEVIATION",
+        "DEC-ACCOUNT-ORIGIN",
+        "DEC-PRIVACY-LEGAL"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-010"
+      ],
+      "design_component_ids": [
+        "CMP-SOCIAL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "primary_design_component_id": "CMP-SOCIAL",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "ACCOUNT-003",
+      "title": "Separate account identity layers",
+      "module": "account",
+      "scope": "extension",
+      "priority": "extension",
+      "target_milestone": "M6",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Account id, login identity and friend code are separate; only friend code and display name are ever disclosed, and only to the owner's chosen counterparts",
+      "failure_behavior": "The requirement fails if the account id, login identity or any other identity value is disclosed, or disclosure reaches anyone beyond the owner's chosen counterparts.",
+      "acceptance": {
+        "scenario_id": "AC-ACCOUNT-003",
+        "given": "an account has a login identity, account id, friend code and display name",
+        "when": "identity is disclosed during an account or social operation",
+        "then": "the three identity layers remain separate and only the friend code and display name reach the owner's chosen counterparts"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-10",
+          "UAT-10"
+        ]
+      },
+      "contract_refs": [
+        "contracts/decisions.json"
+      ],
+      "spec_refs": [
+        "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+        "docs/governance/DECISION-LOG.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "open_decisions": [
+        "DEC-ACCOUNT-ORIGIN",
+        "DEC-PRIVACY-LEGAL",
+        "DEC-SOCIAL"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-010"
+      ],
+      "design_component_ids": [
+        "CMP-SOCIAL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "primary_design_component_id": "CMP-SOCIAL",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "ACCOUNT-004",
+      "title": "Private rotatable friend codes",
+      "module": "account",
+      "scope": "extension",
+      "priority": "extension",
+      "target_milestone": "M6",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Friend codes are random, non-sequential, checksummed, rotatable, and use a Kohbor-only format",
+      "failure_behavior": "A sequential, unchecked, non-rotatable or non-Kohbor friend code fails validation.",
+      "acceptance": {
+        "scenario_id": "AC-ACCOUNT-004",
+        "given": "an account is issued a friend code",
+        "when": "the code is inspected and then rotated",
+        "then": "the code is random, non-sequential, checksummed, rotatable and uses a Kohbor-only format"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [
+          "services/kohbor-broker/src/broker.mjs",
+          "services/kohbor-broker/test/broker.test.mjs"
+        ],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-10",
+          "UAT-10"
+        ]
+      },
+      "contract_refs": [
+        "contracts/decisions.json"
+      ],
+      "spec_refs": [
+        "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+        "docs/governance/DECISION-LOG.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "open_decisions": [
+        "DEC-ACCOUNT-ORIGIN",
+        "DEC-NAME",
+        "DEC-SOCIAL"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-010"
+      ],
+      "design_component_ids": [
+        "CMP-SOCIAL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "primary_design_component_id": "CMP-SOCIAL",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "ACCOUNT-005",
+      "title": "Protected Kohbor sessions and cache clearing",
+      "module": "account",
+      "scope": "extension",
+      "priority": "extension",
+      "target_milestone": "M6",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Sessions are Kohbor-issued, short-lived, rotating, device-bound and stored under OS user-scoped protection; sign-out and switch erase all cached account data",
+      "failure_behavior": "A session that is not Kohbor-issued, short-lived, rotating, device-bound and OS user-protected fails; cached account data remaining after sign-out or switch also fails.",
+      "acceptance": {
+        "scenario_id": "AC-ACCOUNT-005",
+        "given": "a user has a Kohbor account session and cached account data",
+        "when": "the session is renewed, then the user signs out or switches accounts",
+        "then": "the session is short-lived, rotating, device-bound and stored under OS user-scoped protection, and all cached account data is erased"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [
+          "services/kohbor-broker/src/broker.mjs",
+          "services/kohbor-broker/test/broker.test.mjs",
+          "crates/kohbor-account/src/lib.rs",
+          "crates/kohbor-account/tests/loopback_sign_in/mod.rs",
+          "crates/kohbor-account/tests/wipe_failure/mod.rs",
+          "apps/desktop/src-tauri/src/account_host.rs"
+        ],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-01",
+          "TP-10",
+          "UAT-10"
+        ]
+      },
+      "contract_refs": [
+        "contracts/decisions.json"
+      ],
+      "spec_refs": [
+        "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+        "docs/governance/DECISION-LOG.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "open_decisions": [
+        "DEC-ACCOUNT-IDENTITY",
+        "DEC-ALPHA-AUTH-DEVIATION",
+        "DEC-ACCOUNT-ORIGIN",
+        "DEC-PRIVACY-LEGAL"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-001",
+        "PN-010"
+      ],
+      "design_component_ids": [
+        "CMP-SOCIAL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "primary_design_component_id": "CMP-SOCIAL",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "ACCOUNT-006",
+      "title": "Offline account independence",
+      "module": "account",
+      "scope": "extension",
+      "priority": "extension",
+      "target_milestone": "M6",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "With no network or no account service, startup and every local function are unaffected; the account surface reports offline or unavailable without prompting",
+      "failure_behavior": "Network or account-service unavailability must not interrupt startup or any local function, or prompt the user.",
+      "acceptance": {
+        "scenario_id": "AC-ACCOUNT-006",
+        "given": "the device has no network or the account service is unavailable",
+        "when": "the application starts and the user uses local functions",
+        "then": "startup and every local function are unaffected and the account surface reports offline or unavailable without prompting"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [
+          "crates/kohbor-account/src/lib.rs",
+          "crates/kohbor-account/tests/s1t_contract.rs",
+          "crates/kohbor-account/tests/support/contract.rs",
+          "crates/kohbor-account/tests/support/driver.rs"
+        ],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-01",
+          "UAT-01"
+        ]
+      },
+      "contract_refs": [
+        "contracts/decisions.json"
+      ],
+      "spec_refs": [
+        "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+        "docs/governance/DECISION-LOG.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "open_decisions": [],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-001",
+        "PN-010"
+      ],
+      "design_component_ids": [
+        "CMP-SOCIAL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "primary_design_component_id": "CMP-SOCIAL",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "ACCOUNT-007",
+      "title": "Product-scoped token authority",
+      "module": "account",
+      "scope": "extension",
+      "priority": "extension",
+      "target_milestone": "M6",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "Tokens and tickets carry a Kohbor issuer and a single audience; a token from any other product or audience is rejected",
+      "failure_behavior": "A token or ticket with an issuer other than Kohbor, or with an audience other than its single authorized audience, is rejected.",
+      "acceptance": {
+        "scenario_id": "AC-ACCOUNT-007",
+        "given": "a token or ticket is presented for account or relay authority",
+        "when": "its issuer and audience are checked",
+        "then": "only a Kohbor issuer with one audience is accepted and tokens from another product or audience are rejected"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [
+          "services/kohbor-broker/src/broker.mjs",
+          "services/kohbor-broker/test/broker.test.mjs"
+        ],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-10",
+          "UAT-10"
+        ]
+      },
+      "contract_refs": [
+        "contracts/decisions.json"
+      ],
+      "spec_refs": [
+        "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+        "docs/governance/DECISION-LOG.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "open_decisions": [
+        "DEC-ALPHA-AUTH-DEVIATION",
+        "DEC-ACCOUNT-ORIGIN",
+        "DEC-NAME"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-010"
+      ],
+      "design_component_ids": [
+        "CMP-SOCIAL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "primary_design_component_id": "CMP-SOCIAL",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "ACCOUNT-008",
+      "title": "In-app account export and deletion",
+      "module": "account",
+      "scope": "extension",
+      "priority": "extension",
+      "target_milestone": "M6",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "The user can export and delete the account from the app; deletion removes every server record and local cache. The only record kept is one deletion-ledger entry outside the database, holding the keyed login-identity hash and the deletion time, used only to repeat the deletion after a backup restore and purged 30 days after the deletion, never before every backup taken before the deletion has been rotated out",
+      "failure_behavior": "Export or deletion unavailable in the app, any server record or local cache remaining after deletion, a ledger entry holding anything beyond the keyed login-identity hash and deletion time, a ledger stored inside the restored database, a replay that deletes an account created after the recorded deletion, or an entry kept past 30 days once no earlier backup remains, or purged while one does, fails.",
+      "acceptance": {
+        "scenario_id": "AC-ACCOUNT-008",
+        "given": "a user has an account and can access its controls in the app",
+        "when": "the user exports and then deletes the account",
+        "then": "the account can be exported; deletion removes every server record and local cache and writes one ledger entry with only the keyed login-identity hash and deletion time; after a backup restore, replay removes the restored account but not a newer account with the same login hash; the entry is purged after 30 days once no earlier backup remains"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [
+          "services/kohbor-broker/src/broker.mjs",
+          "services/kohbor-broker/src/deletion-ledger.mjs",
+          "services/kohbor-broker/test/broker.test.mjs",
+          "services/kohbor-broker/test/deletion-ledger.test.mjs",
+          "crates/kohbor-account/src/lib.rs"
+        ],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-10",
+          "UAT-10"
+        ]
+      },
+      "contract_refs": [
+        "contracts/decisions.json"
+      ],
+      "spec_refs": [
+        "docs/design/ACCOUNT-DATABASE-DESIGN.md",
+        "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+        "docs/governance/DECISION-LOG.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "open_decisions": [
+        "DEC-DELETION-LEDGER",
+        "DEC-ACCOUNT-ORIGIN",
+        "DEC-PRIVACY-LEGAL",
+        "DEC-RETENTION"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-010"
+      ],
+      "design_component_ids": [
+        "CMP-SOCIAL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "primary_design_component_id": "CMP-SOCIAL",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "ACCOUNT-009",
+      "title": "No unapproved platform identity binding",
+      "module": "account",
+      "scope": "extension",
+      "priority": "extension",
+      "target_milestone": "M6",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "No platform identity is bound to an account unless DEC-STEAM-BINDING is decided; when bound it is proven by provider verification plus a local match and is never a login, recovery credential, search key or displayed value",
+      "failure_behavior": "A platform identity bound before DEC-STEAM-BINDING is decided, without both proofs, or used as a login, recovery credential, search key or displayed value fails.",
+      "acceptance": {
+        "scenario_id": "AC-ACCOUNT-009",
+        "given": "DEC-STEAM-BINDING is undecided or a binding is enabled under a decided record",
+        "when": "a platform identity is considered for an account",
+        "then": "none is bound while undecided; any bound identity has provider verification and a local match and is not a login, recovery credential, search key or displayed value"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-10",
+          "UAT-10"
+        ]
+      },
+      "contract_refs": [
+        "contracts/decisions.json"
+      ],
+      "spec_refs": [
+        "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+        "docs/governance/DECISION-LOG.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "open_decisions": [
+        "DEC-ACCOUNT-ORIGIN",
+        "DEC-PRIVACY-LEGAL",
+        "DEC-STEAM-BINDING"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-010"
+      ],
+      "design_component_ids": [
+        "CMP-SOCIAL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "primary_design_component_id": "CMP-SOCIAL",
+      "diagram_ids": [],
+      "diagram_refs": []
+    },
+    {
+      "id": "ACCOUNT-010",
+      "title": "No cross-product account sharing",
+      "module": "account",
+      "scope": "extension",
+      "priority": "extension",
+      "target_milestone": "M6",
+      "basis": "inherited_target",
+      "decision_basis": "DEC-BASELINE",
+      "statement": "No account, identifier, key, secret or endpoint is shared with or imported from another product; a cross-product link requires its own decision and consent",
+      "failure_behavior": "Any account, identifier, key, secret or endpoint shared with or imported from another product, or any cross-product link without its own decision and consent, fails.",
+      "acceptance": {
+        "scenario_id": "AC-ACCOUNT-010",
+        "given": "a Kohbor account and another product account exist or a link is proposed",
+        "when": "account data and trust material are handled or the cross-product link is attempted",
+        "then": "nothing is shared with or imported from the other product and a link proceeds only after its own decision and consent"
+      },
+      "verification": {
+        "required_evidence": [
+          "synthetic",
+          "native"
+        ],
+        "new_build_status": "NOT_RUN",
+        "procedure_refs": [
+          "docs/quality/TEST-PLAN.md",
+          "docs/quality/UAT-PLAN.md"
+        ],
+        "implementation_refs": [],
+        "evidence_refs": [],
+        "procedure_ids": [
+          "TP-10",
+          "UAT-10"
+        ]
+      },
+      "contract_refs": [
+        "contracts/decisions.json"
+      ],
+      "spec_refs": [
+        "docs/design/ACCOUNT-IDENTITY-REVIEW.md",
+        "docs/governance/DECISION-LOG.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "open_decisions": [
+        "DEC-ACCOUNT-LINK",
+        "DEC-PRIVACY-LEGAL"
+      ],
+      "implementation_freedom": "Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.",
+      "product_need_ids": [
+        "PN-010"
+      ],
+      "design_component_ids": [
+        "CMP-SOCIAL"
+      ],
+      "design_refs": [
+        "docs/design/SDD.md",
+        "docs/security/SECURITY-PRIVACY.md"
+      ],
+      "primary_design_component_id": "CMP-SOCIAL",
       "diagram_ids": [],
       "diagram_refs": []
     },

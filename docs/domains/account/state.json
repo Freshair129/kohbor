@@ -10,12 +10,6 @@
     "docs/design/ACCOUNT-IDENTITY-REVIEW.md"
   ],
   "requirement_ids": [
-    "CORE-003",
-    "SOCIAL-001",
-    "SOCIAL-002",
-    "SOCIAL-003"
-  ],
-  "proposed_requirement_ids": [
     "ACCOUNT-001",
     "ACCOUNT-002",
     "ACCOUNT-003",
@@ -25,12 +19,19 @@
     "ACCOUNT-007",
     "ACCOUNT-008",
     "ACCOUNT-009",
-    "ACCOUNT-010"
+    "ACCOUNT-010",
+    "CORE-003",
+    "SOCIAL-001",
+    "SOCIAL-002",
+    "SOCIAL-003"
   ],
+  "proposed_requirement_ids": [],
   "decision_ids": [
     "DEC-ACCOUNT-IDENTITY",
     "DEC-ACCOUNT-LINK",
     "DEC-ACCOUNT-ORIGIN",
+    "DEC-ALPHA-AUTH-DEVIATION",
+    "DEC-DELETION-LEDGER",
     "DEC-FRONTEND-HOSTING",
     "DEC-GID-REUSE",
     "DEC-GOOGLE-PROJECT",
@@ -87,6 +88,16 @@
       "path": "apps/desktop/src/account/s1c/README.md",
       "type": "guide",
       "role": "reference"
+    },
+    {
+      "path": "services/kohbor-broker/README.md",
+      "type": "guide",
+      "role": "reference"
+    },
+    {
+      "path": "supabase/README.md",
+      "type": "guide",
+      "role": "reference"
     }
   ],
   "open_questions": [
@@ -94,7 +105,7 @@
       "id": "Q-ACC-1",
       "owner": "governance lead",
       "raised": "2026-11-12",
-      "text": "ACCOUNT-001..010 and the SOCIAL-001, PEER-007, PEER-009 amendments are queued in the review and not applied to the SRS. Who applies them, when?"
+      "text": "ACCOUNT-001..010 were applied on 2026-11-22. The SOCIAL-001, PEER-007 and PEER-009 amendments remain queued; who applies them and when?"
     },
     {
       "id": "Q-ACC-2",
