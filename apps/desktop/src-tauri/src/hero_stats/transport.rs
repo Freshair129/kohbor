@@ -29,7 +29,23 @@ fn error_win32(error: &windows::core::Error) -> u32 {
     (error.code().0 as u32) & 0xFFFF
 }
 
+/// Local WinHTTP setup failed before any connect or send: logged, and the request does not count
+/// toward the table budget (STATS-002, owner decision 2026-11-22).
+#[cfg(windows)]
+fn setup_failure(stage: &'static str, code: u32) -> TransportError {
+    crate::log_info!(
+        "draft",
+        "fetch_transport_error",
+        "draft statistics request failed before any network I/O",
+        stage = stage,
+        win32 = code,
+        class = "setup"
+    );
+    TransportError::NotSent
+}
+
 /// Logs the failing WinHTTP stage with its Win32 code and class, then maps to `Network`.
+/// Used only once a connect or send has been attempted, so the request counts.
 #[cfg(windows)]
 fn network_failure(stage: &'static str, code: u32) -> TransportError {
     crate::log_info!(
@@ -65,10 +81,23 @@ pub(crate) struct HttpResponse {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum TransportError {
+    /// Failed after a connect or send was attempted.
     Network,
     Timeout,
     TooLarge,
+    /// Cancelled after a connect or send was attempted.
     Cancelled,
+    /// Failed during local setup before any network I/O. Does not count toward the budget.
+    NotSent,
+    /// Cancelled before any connect or send. Does not count toward the budget.
+    CancelledBeforeSend,
+}
+
+impl TransportError {
+    /// Whether the host attempted network I/O (connect or send) for this request.
+    pub(crate) fn reached_network(self) -> bool {
+        !matches!(self, Self::NotSent | Self::CancelledBeforeSend)
+    }
 }
 
 pub(crate) trait Transport: Send + Sync {
@@ -174,7 +203,7 @@ impl Transport for WinHttpTransport {
         };
 
         if cancellation.is_cancelled() {
-            return Err(TransportError::Cancelled);
+            return Err(TransportError::CancelledBeforeSend);
         }
         if self
             .active
@@ -182,7 +211,7 @@ impl Transport for WinHttpTransport {
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .is_some()
         {
-            return Err(TransportError::Network);
+            return Err(TransportError::NotSent);
         }
 
         let session = unsafe {
@@ -195,7 +224,7 @@ impl Transport for WinHttpTransport {
             )
         };
         if session.is_null() {
-            return Err(network_failure("open", last_win32()));
+            return Err(setup_failure("open", last_win32()));
         }
         let _session = InternetHandle(session);
         configure_session(session)?;
@@ -205,7 +234,7 @@ impl Transport for WinHttpTransport {
         // disabled on the request handle below.
         let connection = unsafe { WinHttpConnect(session, w!("api.opendota.com"), 443, 0) };
         if connection.is_null() {
-            return Err(network_failure("connect_handle", last_win32()));
+            return Err(setup_failure("connect_handle", last_win32()));
         }
         let _connection = InternetHandle(connection);
         let path = request.path();
@@ -223,7 +252,7 @@ impl Transport for WinHttpTransport {
             )
         };
         if request_raw.is_null() {
-            return Err(network_failure("open_request", last_win32()));
+            return Err(setup_failure("open_request", last_win32()));
         }
         let handle = Arc::new(RequestHandle {
             raw: request_raw as isize,
@@ -262,12 +291,12 @@ impl Transport for WinHttpTransport {
             })
             .map_err(|_| {
                 clear(self, &handle);
-                TransportError::Network
+                TransportError::NotSent
             })?;
 
         let response = (|| {
             if cancellation.is_cancelled() {
-                return Err(TransportError::Cancelled);
+                return Err(TransportError::CancelledBeforeSend);
             }
             unsafe { WinHttpSendRequest(request_raw, None, None, 0, 0, 0) }
                 .map_err(|error| network_failure("send", error_win32(&error)))?;
@@ -331,6 +360,12 @@ impl Transport for WinHttpTransport {
         let _ = finished_tx.send(());
         let _ = watchdog.join();
         clear(self, &handle);
+        // A request that never reached the network keeps its pre-I/O error (not counted).
+        if let Err(error) = &response {
+            if !error.reached_network() {
+                return Err(*error);
+            }
+        }
         if cancellation.is_cancelled() {
             return Err(TransportError::Cancelled);
         }
@@ -365,7 +400,7 @@ fn configure_session(session: *mut std::ffi::c_void) -> Result<(), TransportErro
             i32::try_from(TOTAL_TIMEOUT_MS).unwrap_or(i32::MAX),
         )
     }
-    .map_err(|error| network_failure("timeouts", error_win32(&error)))
+    .map_err(|error| setup_failure("timeouts", error_win32(&error)))
 }
 
 /// Request options: no redirects, no cookies. `WINHTTP_OPTION_DISABLE_FEATURE` belongs here, on
@@ -392,7 +427,7 @@ fn configure_request(request: *mut std::ffi::c_void) -> Result<(), TransportErro
             Some(&no_cookies),
         )
     })
-    .map_err(|error| network_failure("request_options", error_win32(&error)))
+    .map_err(|error| setup_failure("request_options", error_win32(&error)))
 }
 
 #[cfg(windows)]
@@ -451,10 +486,11 @@ impl Transport for WinHttpTransport {
         _request: OutgoingRequest,
         cancellation: &Cancellation,
     ) -> Result<HttpResponse, TransportError> {
+        // No transport on this platform: nothing reaches the network.
         if cancellation.is_cancelled() {
-            Err(TransportError::Cancelled)
+            Err(TransportError::CancelledBeforeSend)
         } else {
-            Err(TransportError::Network)
+            Err(TransportError::NotSent)
         }
     }
 }
@@ -502,6 +538,30 @@ mod setup_tests {
         assert!(!request.is_null());
         let _request = InternetHandle(request);
         assert_eq!(configure_request(request), Ok(()));
+    }
+
+    /// A request cancelled before send returns a pre-I/O error and so is not counted.
+    /// Nothing is sent: the cancellation is checked before any handle is opened.
+    #[test]
+    fn pre_send_cancellation_never_reaches_the_network() {
+        use super::{Cancellation, Transport, TransportError, WinHttpTransport};
+        let cancellation = Cancellation::default();
+        cancellation.cancel();
+        let result = WinHttpTransport::default().get(
+            crate::hero_stats::request::OutgoingRequest::HeroStats,
+            &cancellation,
+        );
+        assert_eq!(result, Err(TransportError::CancelledBeforeSend));
+        assert!(!TransportError::CancelledBeforeSend.reached_network());
+        assert!(!TransportError::NotSent.reached_network());
+        for counted in [
+            TransportError::Network,
+            TransportError::Timeout,
+            TransportError::TooLarge,
+            TransportError::Cancelled,
+        ] {
+            assert!(counted.reached_network(), "{counted:?}");
+        }
     }
 
     #[test]

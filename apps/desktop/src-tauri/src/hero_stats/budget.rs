@@ -126,6 +126,18 @@ impl RequestLedger {
         self.table_requests_ms.push(now_ms);
     }
 
+    /// Remove one table entry written at `at_ms` for a request that never reached the network.
+    /// Returns whether an entry was removed.
+    pub(crate) fn unrecord_table(&mut self, at_ms: u64) -> bool {
+        match self.table_requests_ms.iter().rposition(|&at| at == at_ms) {
+            Some(index) => {
+                self.table_requests_ms.remove(index);
+                true
+            }
+            None => false,
+        }
+    }
+
     pub(crate) fn record_own_duration(&mut self, now_ms: u64) {
         self.prune(now_ms);
         self.own_duration_requests_ms.push(now_ms);

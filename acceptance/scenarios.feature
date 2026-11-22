@@ -307,7 +307,7 @@ Feature: Brand-neutral desktop companion target behavior
   Scenario: AC-STATS-002 Closed outgoing public statistics projection
     Given public hero statistics consent is on and test data contains the own hero, an optional manual bracket and forbidden fields
     When the host constructs and sends a valid request, then receives negative cases with an extra field including each forbidden data class
-    Then v1 list requests are fixed public table requests, no more than four per day, with no user- or match-specific fields; position and bracket filtering occurs locally, and counter suggestions cause no request and send no identified hero. The separate pick-card flow continues to carry only the admitted own hero ID and optional manual bracket, and forbidden context is rejected before send
+    Then v1 list requests are fixed public table requests, no more than four per rolling 24 h counting every request that attempted to connect or send and none that failed or was cancelled before any network I/O, with no user- or match-specific fields; position and bracket filtering occurs locally, and counter suggestions cause no request and send no identified hero. The separate pick-card flow continues to carry only the admitted own hero ID and optional manual bracket, and forbidden context is rejected before send
     And failure behavior is: Reject requests with extra or invalid fields before transport. Do not serialize a wider game, account or draft object or substitute a missing own hero ID.
 
   @STATS-003 @extension
