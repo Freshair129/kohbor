@@ -2918,13 +2918,13 @@
     },
     {
       "path": "docs/delivery/evidence/objective-timers-live/README.md",
-      "bytes": 1828,
-      "sha256": "e14ef9fe9a730a1ad223d3c4b5a176945d30721415fee11ee70b582c1648bf2a"
+      "bytes": 1926,
+      "sha256": "2f3e26cfbc2b25c473f2ef1c89f4ef46169cc618d259dd0f4ffef4267b5f0067"
     },
     {
       "path": "docs/delivery/evidence/objective-timers-live/owner-live-9c96013.receipt.json",
-      "bytes": 3127,
-      "sha256": "9a24167405e9734cd004727becc5a4ce3ca4ac45d62e590f209772755f762eb4"
+      "bytes": 3246,
+      "sha256": "1a3437d228446bd4e587d60205d539db00933268c2554d4f9102efff131ef235"
     },
     {
       "path": "docs/delivery/evidence/s3-6a/latency-stage-a.receipt.json",
@@ -3413,13 +3413,13 @@
     },
     {
       "path": "docs/domains/events-audio/CARD.md",
-      "bytes": 9704,
-      "sha256": "2fcbaea1f995911b6fc89b11fba3bd083b59d28a45159e2e8c3cb20ba209a23f"
+      "bytes": 9741,
+      "sha256": "a19fadefe1f311172b189539c456ca9273d645bf9c6cce402cd2e9210a73e753"
     },
     {
       "path": "docs/domains/events-audio/state.json",
       "bytes": 4819,
-      "sha256": "d01595e6b48bd2bbc7e5a671c826b7993d5cdc17de8aad6033d698e5a67cf87f"
+      "sha256": "c15e180bd496b9218f9c0096b0910586f61aca8c5ea297446f426075a38e7751"
     },
     {
       "path": "docs/domains/governance/CARD.md",
