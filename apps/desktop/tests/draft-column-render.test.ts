@@ -20,13 +20,12 @@ function evaluateCommonJs(source: string, filename: string, moduleRequire: NodeR
   return commonJsModule.exports;
 }
 
-async function loadDraftColumnView() {
-  const viewPath = fileURLToPath(new URL("../src/draft/DraftColumnView.tsx", import.meta.url));
-  const viewSource = readFileSync(viewPath, "utf8").replace(/^import "\.\/draft-column\.css";\s*$/m, "");
-  const transformed = await transformWithOxc(viewSource, viewPath, {
+async function loadTsxModule(file: string, exportName: string, resolve: (specifier: string) => unknown) {
+  const path = fileURLToPath(new URL(`../src/draft/${file}`, import.meta.url));
+  const source = readFileSync(path, "utf8").replace(/^import "\.\/[\w-]+\.css";\s*$/gm, "");
+  const transformed = await transformWithOxc(source, path, {
     lang: "tsx", sourceType: "module", jsx: { runtime: "automatic", development: false },
   });
-  const model = await import("../src/draft/draftColumnModel.ts");
   const commonJsSource = transformed.code
     .replace(/^import\s+\{([\s\S]*?)\}\s+from\s+["']([^"']+)["'];?\s*/gm, (_match, bindings: string, specifier: string) => {
       const properties = bindings.split(",").map((binding) => {
@@ -35,13 +34,20 @@ async function loadDraftColumnView() {
       }).join(", ");
       return `const { ${properties} } = require(${JSON.stringify(specifier)});\n`;
     })
-    .replace(/\bexport\s+function\s+DraftColumnView\b/, "function DraftColumnView")
-    + "\nmodule.exports = { DraftColumnView };";
-  const view = evaluateCommonJs(commonJsSource, viewPath, (specifier: string) => {
+    .replace(new RegExp(String.raw`\bexport\s+function\s+${exportName}\b`), `function ${exportName}`)
+    + `\nmodule.exports = { ${exportName} };`;
+  return evaluateCommonJs(commonJsSource, path, resolve)[exportName];
+}
+
+async function loadDraftColumnView() {
+  const model = await import("../src/draft/draftColumnModel.ts");
+  const resolve = (overlay: unknown) => (specifier: string) => {
     if (specifier === "./draftColumnModel") return model;
+    if (specifier === "./OverlayColumn") return { OverlayColumn: overlay };
     return requireFromApp(specifier);
-  });
-  return view.DraftColumnView as React.ComponentType<Record<string, unknown>>;
+  };
+  const overlay = await loadTsxModule("OverlayColumn.tsx", "OverlayColumn", resolve(null));
+  return await loadTsxModule("DraftColumnView.tsx", "DraftColumnView", resolve(overlay)) as React.ComponentType<Record<string, unknown>>;
 }
 
 function suggestionPayload() {
@@ -161,10 +167,10 @@ test("rendered data-state and pick-card labels match every approved state exactl
         failure: data_state === "stale" ? "timeout" : null,
       },
     });
-    for (const surface of ["overlay", "deck"] as const) {
-      const markup = renderToStaticMarkup(React.createElement(DraftColumnView, { view, surface }));
-      assert.equal(stateLabel(markup), expected, `rendered ${surface} data_state=${data_state}`);
-    }
+    const deck = renderToStaticMarkup(React.createElement(DraftColumnView, { view, surface: "deck" }));
+    assert.equal(stateLabel(deck), expected, `rendered deck data_state=${data_state}`);
+    const overlay = renderToStaticMarkup(React.createElement(DraftColumnView, { view, surface: "overlay" }));
+    assert.ok(overlay.includes(expected), `rendered overlay data_state=${data_state}`);
   }
 
   const pickStates: Array<["live" | "stale" | "loading" | "unknown_hero" | "not_enough_matches" | "fetch_failed" | "rate_limited" | "provider_error" | "bracket_empty", string]> = [
@@ -186,10 +192,10 @@ test("rendered data-state and pick-card labels match every approved state exactl
       games: state === "not_enough_matches" ? 999 : base.pick_card!.games,
     };
     const view = parseDraftColumnView({ ...base, pick_card });
-    for (const surface of ["overlay", "deck"] as const) {
-      const markup = renderToStaticMarkup(React.createElement(DraftColumnView, { view, surface }));
-      assert.equal(stateLabel(markup), expected, `rendered ${surface} pick_card.state=${state}`);
-    }
+    const deck = renderToStaticMarkup(React.createElement(DraftColumnView, { view, surface: "deck" }));
+    assert.equal(stateLabel(deck), expected, `rendered deck pick_card.state=${state}`);
+    const overlay = renderToStaticMarkup(React.createElement(DraftColumnView, { view, surface: "overlay" }));
+    assert.ok(overlay.includes(expected), `rendered overlay pick_card.state=${state}`);
   }
 });
 
@@ -204,7 +210,7 @@ test("the shared deck and overlay view render each host mode", async () => {
     { mode: "hidden", overlay: { visible: false, hidden_reason: "unsupported_output" }, expected: "แถบในเกมรองรับ 1920×1080 ที่ 100% เท่านั้นในตอนนี้" },
     { mode: "consent_chip", data_state: "consent_off", expected: "คำแนะนำฮีโร่ปิดอยู่ · เปิดได้ที่หน้าต่าง Kohbor" },
     { mode: "suggestions", expected: "ฮีโร่เมต้า" },
-    { mode: "pick_card", ...pickPayload("live"), expected: "ตัวเลือกของคุณ" },
+    { mode: "pick_card", ...pickPayload("live"), expected: "ตัวเลือกของคุณ", overlayExpected: "การ์ดฮีโร่" },
   ] as const;
   for (const item of cases) {
     let fixture: Record<string, unknown>;
@@ -216,7 +222,7 @@ test("the shared deck and overlay view render each host mode", async () => {
     const overlay = renderToStaticMarkup(React.createElement(DraftColumnView, { view, surface: "overlay" }));
     assert.ok(deck.includes(item.expected), `deck renders ${item.mode}`);
     if (item.mode === "hidden") assert.equal(overlay, "", "hidden overlay draws nothing");
-    else assert.ok(overlay.includes(item.expected), `overlay renders ${item.mode}`);
+    else assert.ok(overlay.includes("overlayExpected" in item ? item.overlayExpected : item.expected), `overlay renders ${item.mode}`);
   }
 });
 
@@ -245,82 +251,77 @@ test("deck says why the column is empty when statistics consent is off", async (
   assert.ok(!deck.includes(consentText), "no consent text once consent is on");
 });
 
-test("overlay suggestion rows fit the 180 by 488 budget without clipping", async () => {
-  const css = readFileSync(new URL("../src/draft/draft-column.css", import.meta.url), "utf8");
-  const dimensions = [
-    "header-height", "state-height", "subtitle-height", "context-height", "row-heading-height", "row-height",
-    "notes-height", "footer-height", "stale-height", "synthetic-height", "gap", "padding-block", "border",
-  ];
-  const declared: Record<string, number> = {};
-  for (const dimension of dimensions) {
-    const match = css.match(new RegExp(`--draft-overlay-${dimension}:\\s*(\\d+)px`));
-    assert.ok(match, `CSS declares --draft-overlay-${dimension}`);
-    declared[dimension] = Number(match[1]);
-  }
-  const appliedHeightRules: Array<[string, RegExp]> = [
-    ["header-height", /\.draft-column-surface-overlay\s+\.draft-suggestions-card\s+\.draft-column-header\s*\{[^}]*height:\s*var\(--draft-overlay-header-height\)/s],
-    ["state-height", /\.draft-column-surface-overlay\s+\.draft-overlay-state\s*\{[^}]*min-height:\s*var\(--draft-overlay-state-height\)/s],
-    ["subtitle-height", /\.draft-column-surface-overlay\s+\.draft-column-subtitle\s*\{[^}]*height:\s*var\(--draft-overlay-subtitle-height\)/s],
-    ["context-height", /\.draft-column-surface-overlay\s+\.draft-context-block\s*\{[^}]*height:\s*var\(--draft-overlay-context-height\)/s],
-    ["row-heading-height", /\.draft-column-surface-overlay\s+\.draft-row-heading\s*\{[^}]*height:\s*var\(--draft-overlay-row-heading-height\)/s],
-    ["row-height", /\.draft-column-surface-overlay\s+\.draft-row\s*\{[^}]*height:\s*var\(--draft-overlay-row-height\)/s],
-    ["notes-height", /\.draft-column-surface-overlay\s+\.draft-column-notes\s*\{[^}]*height:\s*var\(--draft-overlay-notes-height\)/s],
-    ["footer-height", /\.draft-column-surface-overlay\s+\.draft-column-footer\s*\{[^}]*height:\s*var\(--draft-overlay-footer-height\)/s],
-    ["stale-height", /\.draft-column-surface-overlay\s+\.draft-stale-times\s*\{[^}]*height:\s*var\(--draft-overlay-stale-height\)/s],
-    ["synthetic-height", /\.draft-column-surface-overlay\s+\.draft-synthetic-flag\s*\{[^}]*height:\s*var\(--draft-overlay-synthetic-height\)/s],
-  ];
-  for (const [name, rule] of appliedHeightRules) assert.match(css, rule, `${name} is applied to the rendered part`);
-  const worstCase = declared["header-height"]! + declared["subtitle-height"]! + declared["context-height"]! +
-    declared["state-height"]! + declared["row-heading-height"]! + 8 * declared["row-height"]! + declared["notes-height"]! +
-    declared["footer-height"]! + declared["stale-height"]! + declared["synthetic-height"]! +
-    9 * declared.gap! + 2 * declared["padding-block"]! + 2 * declared.border!;
-  assert.ok(worstCase <= 488, `8-row overlay worst case is ${worstCase}px, within 488px`);
-  assert.match(css, /\.draft-column-card\s*\{[^}]*width:\s*180px/s);
-  assert.match(css, /\.draft-column-surface-overlay\s+\.draft-suggestions-card\s*\{[^}]*height:\s*488px/s);
-  assert.match(css, /\.draft-column-surface-overlay\s+\.draft-suggestions-card\s*\{[^}]*gap:\s*var\(--draft-overlay-gap\)/s);
-  assert.match(css, /\.draft-column-surface-overlay\s+\.draft-suggestions-card\s*\{[^}]*padding:\s*var\(--draft-overlay-padding-block\)/s);
-  assert.match(css, /\.draft-column-surface-overlay\s+\.draft-row\s*\{[^}]*height:\s*var\(--draft-overlay-row-height\)/s);
-  assert.doesNotMatch(css, /\.draft-(?:column-card|column-header|state-flag|row|column-notes|column-footer)[^{]*\{[^}]*overflow:\s*(?:hidden|clip)/s);
-
-  const overlayRules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter((match) => match[1]!.includes(".draft-column-surface-overlay"));
-  const overlayFontSizes = overlayRules.flatMap((match) => [...match[2]!.matchAll(/font-size:\s*([\d.]+)px/g)].map((font) => Number(font[1])));
-  assert.ok(overlayFontSizes.length > 0);
-  assert.ok(overlayFontSizes.every((size) => size >= 8.5), `overlay font sizes are ${overlayFontSizes.join(", ")}`);
-  assert.match(css, /\.draft-column-surface-overlay,\s*\.draft-column-surface-overlay \*\s*\{[^}]*font-size:\s*8\.5px/s);
-  assert.match(css, /\.draft-column-surface-overlay\s+\.draft-column-header > strong\s*\{[^}]*font-size:\s*12px/s);
-  assert.match(css, /\.draft-column-surface-overlay\s+\.draft-row-name strong\s*\{[^}]*font-size:\s*11px/s);
-  assert.match(css, /\.draft-column-surface-overlay\s+\.draft-row-rank\s*\{[^}]*font-size:\s*10px/s);
-  assert.match(css, /\.draft-column-surface-overlay\s+\.draft-row-games\s*\{[^}]*font-size:\s*8\.5px/s);
-  assert.match(css, /\.draft-column-surface-overlay\s+\.draft-row-rate\s*\{[^}]*font-size:\s*11px/s);
+test("Option A blocks have the fixed heights the host sizes the window from", async () => {
+  const css = readFileSync(new URL("../src/draft/draft-overlay.css", import.meta.url), "utf8");
+  const { OVERLAY_LAYOUT: L } = await import("../src/draft/draftColumnModel.ts");
+  const height = (selector: string) => {
+    const match = css.match(new RegExp(String.raw`(?:^|\n)${selector}\s*\{[^}]*?\bheight:\s*(\d+)px`, "s"));
+    assert.ok(match, `CSS gives ${selector} a fixed height`);
+    return Number(match[1]);
+  };
+  assert.equal(height(String.raw`\.draft-ov \.draft-ov-brand`), L.brand);
+  assert.equal(height(String.raw`\.draft-ov \.draft-ov-head`), L.head);
+  assert.equal(height(String.raw`\.draft-ov \.draft-ov-head\.is-enemy`), L.counterHead);
+  assert.equal(height(String.raw`\.draft-ov \.draft-row`), L.metaRow);
+  assert.equal(height(String.raw`\.draft-ov \.draft-counter-row`), L.counterRow);
+  assert.equal(height(String.raw`\.draft-ov \.draft-ov-message`), L.message);
+  assert.equal(height(String.raw`\.draft-ov \.draft-ov-pick`), L.pickBody);
+  assert.equal(height(String.raw`\.draft-ov \.draft-ov-durations`), L.durationBody);
+  assert.equal(height(String.raw`\.draft-ov \.draft-ov-footer`), L.footer);
+  assert.equal(height(String.raw`\.draft-ov \.draft-consent-chip\.is-overlay`), L.chip);
+  assert.match(css, /\.draft-ov\s*\{[^}]*gap:\s*6px/s);
+  assert.match(css, /\.draft-ov \.draft-ov-card\s*\{[^}]*border:\s*1px solid/s);
+  assert.match(css, /\.draft-ov\s*\{[^}]*width:\s*180px/s);
+  // Inner parts add up to their fixed block.
+  assert.equal(30 + 3 * 34 + 34 + 8 + 4, L.pickBody, "hero line, three stats, two-line detail, padding");
+  assert.equal(3 * 44 + 8, L.durationBody);
+  assert.equal(4 * 17 + 14 + 2, L.footer, "four 17 px lines, padding and border");
 });
 
-test("rendered 1920x1080 scale-1 overlay applies no text style below 8.5px", async () => {
+test("Option A overlay text is never smaller than 12 px", () => {
+  const css = readFileSync(new URL("../src/draft/draft-overlay.css", import.meta.url), "utf8");
+  const sizes = [...css.matchAll(/font-size:\s*([\d.]+)px/g)].map((match) => Number(match[1]));
+  assert.ok(sizes.length > 10);
+  assert.ok(sizes.every((size) => size >= 12), `overlay font sizes: ${sizes.join(", ")}`);
+  assert.match(css, /\.draft-ov \.draft-ov-head h2\s*\{[^}]*font-size:\s*15px/s, "section headings are larger than body text");
+  assert.match(css, /\.draft-ov \.draft-row-name strong\s*\{[^}]*font-size:\s*15px/s);
+  assert.match(css, /\.draft-ov \.draft-ov-footer span\s*\{[^}]*font-size:\s*12px/s, "the source footer stays readable");
+});
+
+test("each Option A state renders its sections at 180 px and fits above y 860", async () => {
   const DraftColumnView = await loadDraftColumnView();
-  const css = readFileSync(new URL("../src/draft/draft-column.css", import.meta.url), "utf8");
-  const placement = draftColumnPlacement(1920, 1080);
-  assert.deepEqual(placement, { x: 1728, y: 132, width: 180, height: 488, scale: 1 });
-  const rendered = renderToStaticMarkup(React.createElement("main", {
-    className: "draft-stage",
-    lang: "th",
-    "aria-live": "off",
-    style: {
-      "--draft-overlay-scale": placement.scale,
-      "--draft-overlay-x": `${placement.x}px`,
-      "--draft-overlay-y": `${placement.y}px`,
-    } as React.CSSProperties,
-  }, React.createElement(DraftColumnView, {
-    view: parseDraftColumnView(suggestionPayload()),
-    surface: "overlay",
-  })));
-  assert.match(rendered, /class="draft-column-surface draft-column-surface-overlay"/);
-  assert.match(rendered, /--draft-overlay-scale:1/);
-  const overlayRules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
-    .filter((match) => match[1]!.includes(".draft-column-surface-overlay"));
-  const appliedTextSizes = overlayRules.flatMap((match) => [...match[2]!.matchAll(/font-size:\s*([\d.]+)px/g)]
-    .map((font) => Number(font[1])));
-  assert.ok(appliedTextSizes.length > 0);
-  assert.ok(appliedTextSizes.every((size) => size >= 8.5), `rendered overlay text sizes: ${appliedTextSizes.join(", ")}`);
-  assert.match(css, /\.draft-column-surface-overlay,\s*\.draft-column-surface-overlay \*\s*\{[^}]*font-size:\s*8\.5px/s);
+  const model = await import("../src/draft/draftColumnModel.ts");
+  const L = model.OVERLAY_LAYOUT;
+  const base = suggestionPayload();
+  const metaRows = Array.from({ length: 10 }, (_, index) => ({
+    hero_id: 200 + index, name: `Meta ${index + 1}`, rank: index + 1, games: 90000 - index * 1000,
+    win_rate_tenths: 505, low_data: false, taken: false,
+  }));
+  const lowRows = metaRows.map((row, index) => ({ ...row, games: index < 3 ? 1500 : 700, rank: index < 3 ? index + 1 : null, low_data: index >= 3 }));
+  const failed = { ...base.source, fetched_at_ms: null, failed_at_ms: DURATION_FETCH_MS, failure: "network" };
+  const states: Array<[string, Record<string, unknown>, number, string[]]> = [
+    ["meta", { ...base, suggestions: { ...base.suggestions, rows: metaRows, ranked_count: 10 } }, 578, ["ฮีโร่เมต้า"]],
+    ["counters", counterPayload("ready", PL_COUNTERS), 692, ["แก้ทาง Phantom Lancer", "ฮีโร่เมต้า"]],
+    ["pick", pickPayload("live"), 554, ["การ์ดฮีโร่", "ตามความยาวเกม"]],
+    ["low-data", { ...base, suggestions: { ...base.suggestions, rows: lowRows, ranked_count: 3 } }, 578, ["ฮีโร่เมต้า", "ข้อมูลน้อย"]],
+    ["error", { ...base, data_state: "fetch_failed", source: failed }, 266, ["ฮีโร่เมต้า", "ดึงข้อมูลไม่ได้"]],
+    ["error with counters", { ...counterPayload("ready", PL_COUNTERS), data_state: "fetch_failed", source: failed }, 530, ["แก้ทาง Phantom Lancer", "ดึงข้อมูลไม่ได้"]],
+    ["consent chip", { ...base, mode: "consent_chip", data_state: "consent_off", suggestions: null }, 56, ["คำแนะนำฮีโร่ปิดอยู่"]],
+  ];
+  for (const [name, payload, expectedHeight, texts] of states) {
+    const view = model.parseDraftColumnView(payload);
+    assert.equal(view.valid, true, `${name} is a valid host view`);
+    const height = model.overlayColumnHeight(view);
+    assert.equal(height, expectedHeight, `${name} height`);
+    assert.ok(L.top + height <= L.maxBottom, `${name} ends at y ${L.top + height}`);
+    assert.deepEqual(model.draftStagePlacement(180, height), { x: 0, y: 0, width: 180, height, scale: 1 }, `${name} placement`);
+    const markup = renderToStaticMarkup(React.createElement(DraftColumnView, { view, surface: "overlay" }));
+    assert.match(markup, /class="draft-column-surface draft-column-surface-overlay draft-ov"/);
+    for (const text of texts) assert.ok(markup.includes(text), `${name} shows ${text}`);
+    assert.doesNotMatch(markup, /style="[^"]*font-size/, `${name} has no inline font size`);
+    assert.doesNotMatch(markup, /<(?:button|input|select|a)(?:\s|>)/i, `${name} has no controls`);
+    assert.doesNotMatch(markup.replace(/\d+(?:\.\d)?%/g, ""), /%/, `${name} shows no percentage except historical win rates`);
+  }
 });
 
 test("overlay follows the untaken-first row rule while deck retains every host row", async () => {
@@ -446,10 +447,10 @@ test("overlay draws at most three counter rows on top and gives up the same meta
   assert.match(overlay, /แก้ทาง Phantom Lancer/);
   assert.equal((overlay.match(/class="draft-counter-row"/g) ?? []).length, 3);
   assert.doesNotMatch(overlay, /Medusa/);
-  assert.equal((overlay.match(/class="draft-row /g) ?? []).length, 5, "8 rows minus 3 counter rows");
+  assert.equal((overlay.match(/class="draft-row[" ]/g) ?? []).length, 5, "8 rows minus 3 counter rows");
   assert.ok(overlay.indexOf("draft-counter-block") < overlay.indexOf("draft-row-list"), "counters sit above the meta list");
   assert.match(overlay, /ไม่ใช่สถิติ/);
-  const counterText = overlay.slice(overlay.indexOf("draft-counter-block"), overlay.indexOf("draft-column-subtitle"));
+  const counterText = overlay.slice(overlay.indexOf("draft-counter-block"), overlay.indexOf("draft-row-list"));
   assert.doesNotMatch(counterText, /%/, "counters never show a percentage");
   assert.doesNotMatch(overlay, /<(?:button|input|select|a)(?:\s|>)/i);
 
@@ -465,7 +466,7 @@ test("without a ready counter block the overlay shows no counter section and kee
     assert.equal(view.suggestions?.counters?.state, state);
     const overlay = renderToStaticMarkup(React.createElement(DraftColumnView, { view, surface: "overlay" }));
     assert.doesNotMatch(overlay, /draft-counter-block/, state);
-    assert.equal((overlay.match(/class="draft-row /g) ?? []).length, 8, state);
+    assert.equal((overlay.match(/class="draft-row[" ]/g) ?? []).length, 8, state);
     const deck = renderToStaticMarkup(React.createElement(DraftColumnView, { view, surface: "deck" }));
     assert.match(deck, /draft-counter-status/, state);
   }
@@ -473,15 +474,4 @@ test("without a ready counter block the overlay shows no counter section and kee
     view: parseDraftColumnView(counterPayload("sides_unknown", [])), surface: "deck",
   }));
   assert.match(sides, /ยังไม่รู้ว่าฮีโร่ไหนอยู่ฝั่งตรงข้าม/);
-});
-
-test("the overlay counter block fits inside the three meta rows it replaces", () => {
-  const css = readFileSync(new URL("../src/draft/draft-column.css", import.meta.url), "utf8");
-  const rowHeight = Number(css.match(/--draft-overlay-row-height:\s*(\d+)px/)![1]);
-  const block = css.match(/\.draft-column-surface-overlay\s+\.draft-counter-block\s*\{([^}]*)\}/s)![1]!;
-  const maxHeight = Number(block.match(/max-height:\s*(\d+)px/)![1]);
-  assert.ok(maxHeight <= 3 * rowHeight, `counter block ${maxHeight}px vs ${3 * rowHeight}px`);
-  const part = (selector: string) => Number(css.match(new RegExp(String.raw`\.draft-column-surface-overlay\s+\.${selector}\s*\{[^}]*height:\s*(\d+)px`, "s"))![1]);
-  const content = part("draft-counter-heading") + 3 * part("draft-counter-row") + part("draft-counter-source");
-  assert.ok(content <= maxHeight, `counter content ${content}px within ${maxHeight}px`);
 });

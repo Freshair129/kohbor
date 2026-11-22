@@ -121,9 +121,9 @@ const MAX_STAT_COUNT = 1_000_000_000;
 const MAX_TIMESTAMP_MS = 8_640_000_000_000_000;
 const MAX_RETRY_MS = 7 * 24 * 60 * 60 * 1000;
 
-/** The initial strategy-time rectangle matches hero selection; strategy-time clearance is UNVERIFIED. */
+/** Largest column rect (Option A, ends at y 860); strategy-time clearance checked only on two owner frames. */
 export const PICK_CARD_STRATEGY_TIME_RECT: DraftColumnPlacement = {
-  x: 1728, y: 132, width: 180, height: 488, scale: 1,
+  x: 1728, y: 132, width: 180, height: 728, scale: 1,
 };
 export const PICK_CARD_STRATEGY_TIME_RECT_VERIFIED = false;
 
@@ -455,6 +455,75 @@ export function suggestionRowView(row: DraftColumnRow) {
   };
 }
 
+/**
+ * Overlay Option A (owner choice 2026-11-22): sectioned cards with fixed block heights, so the host
+ * sizes the native window from the view alone. Mirrored in Rust by `hero_stats::layout`; change both.
+ * Top-left is x 1728, y 132 at 1920×1080; the column ends no lower than y 860.
+ */
+export const OVERLAY_LAYOUT = {
+  top: 132,
+  maxBottom: 860,
+  width: 180,
+  gap: 6,
+  brand: 30,
+  cardBorder: 2,
+  head: 50,
+  counterHead: 70,
+  metaRow: 50,
+  counterRow: 62,
+  message: 88,
+  pickBody: 178,
+  durationBody: 140,
+  footer: 84,
+  chip: 56,
+  minTextPx: 12,
+} as const;
+
+export function overlayValuesAvailable(view: DraftColumnView): boolean {
+  return (view.data_state === "live" || view.data_state === "stale") && view.source?.fetched_at_ms !== null
+    && view.source?.fetched_at_ms !== undefined;
+}
+
+/** Counter rows and meta rows the overlay draws for a suggestions view. */
+export function overlaySections(view: DraftColumnView): { counters: DraftCounterRow[]; rows: DraftColumnRow[] } {
+  const counters = visibleCounterRows(view.suggestions?.counters ?? null, "overlay");
+  const hostRows = overlayValuesAvailable(view) ? view.suggestions?.rows ?? [] : [];
+  return { counters, rows: overlaySuggestionRows(hostRows, 8 - counters.length) };
+}
+
+/** Exact overlay content height in CSS px at scale 1; 0 when the overlay draws nothing. */
+export function overlayColumnHeight(view: DraftColumnView): number {
+  const L = OVERLAY_LAYOUT;
+  if (!view.valid || !view.overlay.visible || view.mode === "hidden") return 0;
+  if (view.mode === "consent_chip") return L.chip;
+  if (view.mode === "pick_card") {
+    return L.brand + L.gap + (L.cardBorder + L.head + L.pickBody) + L.gap
+      + (L.cardBorder + L.head + L.durationBody) + L.gap + L.footer;
+  }
+  const { counters, rows } = overlaySections(view);
+  const counterCard = counters.length > 0 ? L.cardBorder + L.counterHead + counters.length * L.counterRow + L.gap : 0;
+  const metaBody = rows.length > 0 ? rows.length * L.metaRow : L.message;
+  return L.brand + L.gap + counterCard + (L.cardBorder + L.head + metaBody) + L.gap + L.footer;
+}
+
+/** Short status pill for the overlay brand bar; the full state text sits in the section. */
+export function overlayPill(state: DraftDataState | PickCardState | null, lowData = false): { text: string; tone: "ok" | "warn" | "err" } {
+  if (lowData) return { text: "ข้อมูลน้อย", tone: "warn" };
+  switch (state) {
+    case "live": return { text: "สด", tone: "ok" };
+    case "stale": return { text: "ข้อมูลเก่า", tone: "warn" };
+    case "loading": return { text: "กำลังโหลด", tone: "ok" };
+    case "not_enough_matches": return { text: "ข้อมูลน้อย", tone: "warn" };
+    case "unknown_hero": return { text: "ไม่มีสถิติ", tone: "warn" };
+    case "rate_limited": return { text: "ถึงโควตา", tone: "warn" };
+    case "bracket_empty": return { text: "ไม่มีข้อมูล", tone: "warn" };
+    case "fetch_failed": return { text: "ดึงไม่ได้", tone: "err" };
+    case "provider_error": return { text: "ผิดปกติ", tone: "err" };
+    case "consent_off": return { text: "ปิดอยู่", tone: "warn" };
+    default: return { text: "—", tone: "warn" };
+  }
+}
+
 /** Prioritize pickable rows; a taken row may fill a spare slot only when it outranks a drawn pickable row. */
 export function overlaySuggestionRows(rows: readonly DraftColumnRow[], limit = 8): DraftColumnRow[] {
   const slots = Math.max(0, Math.min(8, limit));
@@ -601,15 +670,17 @@ export function draftConsentOffText(dataState: DraftDataState | null): string | 
 /**
  * Placement inside the overlay webview. In the app the host sizes the native window to the
  * column rect itself (180×488 at 1728,132 on 1920×1080), so the column fills that window at
- * scale height/488. Only a screen-shaped viewport (the browser mock) uses the full-screen
+ * scale width/180. Only a screen-wide viewport (the browser mock) uses the full-screen
  * formula. Applying the screen formula inside the 180×488 window shrank the column to
  * 0.452× at its right edge (live test on a050ae8, 2026-11-22).
  */
 export function draftStagePlacement(width: number, height: number): DraftColumnPlacement | null {
   if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null;
-  if (width < height) {
-    const scale = height / 488;
-    return { x: 0, y: 0, width: 180 * scale, height, scale };
+  // The host sizes the window to the column itself: 180 px wide at 1080p, as tall as its content
+  // (56–728 px, Option A). A screen-wide viewport is the browser mock.
+  if (width < 600) {
+    const scale = width / 180;
+    return { x: 0, y: 0, width, height, scale };
   }
   return draftColumnPlacement(width, height);
 }

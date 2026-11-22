@@ -58,8 +58,8 @@
     },
     {
       "path": "acceptance/scenarios.feature",
-      "bytes": 39452,
-      "sha256": "9646707b2599e2a998459297b3c63fe8c6b4d83db3205d7fab52aa3d30c5c5b4"
+      "bytes": 39521,
+      "sha256": "7ab0bb6006dba6844b5d94323c589e7f2d577b3c16ae20ce0ac632b1cca86345"
     },
     {
       "path": "acceptance/spec-validation.json",
@@ -363,13 +363,18 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/host.rs",
-      "bytes": 81663,
-      "sha256": "1fa2f07cd1becadac0f0dad3987af20c675d7415deaa2fa033bc0fff5ce83db8"
+      "bytes": 81416,
+      "sha256": "3b7cc7f76bca4b3ca33a7ed32a500db73ad4a6df47bffd2e3a09f74c35713242"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/hero_stats/layout.rs",
+      "bytes": 6984,
+      "sha256": "a7da254210904b74ea25cd18f0d48443367655c663c2c58e40ee7aaeab8ae65e"
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/mod.rs",
-      "bytes": 6291,
-      "sha256": "deb679258886106ce776da83268cff0f4f24244ab07eb61bb5104ffb133518a4"
+      "bytes": 6881,
+      "sha256": "225253f9f586ec14f50572cd5d49225b0289cf3c5de7fcbc0bb84edbaa88bf54"
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/parse.rs",
@@ -848,8 +853,8 @@
     },
     {
       "path": "apps/desktop/src/draft/DraftColumnView.tsx",
-      "bytes": 18129,
-      "sha256": "cc6cfce6350967f9c88c1b02773761586ad83b6f8ba70545660fcedca042c073"
+      "bytes": 18119,
+      "sha256": "8b962ea1dab8467eed805d14815cb481756f5dc20fb622f0901d2e14d596441f"
     },
     {
       "path": "apps/desktop/src/draft/DraftDeckPanel.tsx",
@@ -867,9 +872,19 @@
       "sha256": "2c52218c078d031d9be52d4c093d25ae658881618554f09a520baae510a6ff3d"
     },
     {
+      "path": "apps/desktop/src/draft/OverlayColumn.tsx",
+      "bytes": 11848,
+      "sha256": "a49f6e8b82b374fd837f29fe8ba2e23fa791e0a9a8849bea49dcc1b5ac5781cb"
+    },
+    {
       "path": "apps/desktop/src/draft/draft-column.css",
-      "bytes": 18422,
-      "sha256": "00ff10524569f9c1045377da799cae724994583c85c6326bc03efbf004185aa7"
+      "bytes": 12010,
+      "sha256": "99368afeeb027964f9a4ce4f41ac9e07f4542b105eb7d3c5ab22967de49c69f4"
+    },
+    {
+      "path": "apps/desktop/src/draft/draft-overlay.css",
+      "bytes": 9020,
+      "sha256": "e35a91e1d21e7477e2e872f59c0f3f646d539f7def313091349d2d3860cc92da"
     },
     {
       "path": "apps/desktop/src/draft/draftColumnApi.ts",
@@ -878,8 +893,8 @@
     },
     {
       "path": "apps/desktop/src/draft/draftColumnModel.ts",
-      "bytes": 28129,
-      "sha256": "c458020633c43906e648f19556eebe5781ce360489605714ecc049af4aed745f"
+      "bytes": 31616,
+      "sha256": "d4d6b8f9396d88c1ad7ab3ef0976a7b5cee794f284c0075f486b75d4914651a3"
     },
     {
       "path": "apps/desktop/src/draft/draftMock.ts",
@@ -1768,8 +1783,8 @@
     },
     {
       "path": "apps/desktop/tests/draft-column-render.test.ts",
-      "bytes": 28237,
-      "sha256": "a8b86c4a05c6f413f25607a9ba67af8cb28f0aa4065bcaa33af1f754ceac8574"
+      "bytes": 27490,
+      "sha256": "56df0ce1edd00ee1b294fabe29accf8d30039863a281a44eecbef7fe99981bed"
     },
     {
       "path": "apps/desktop/tests/draft-column-settings.test.ts",
@@ -1778,8 +1793,8 @@
     },
     {
       "path": "apps/desktop/tests/draft-column.test.ts",
-      "bytes": 25870,
-      "sha256": "ef08580d7c37cb93ed3ded630a695fea5ef678a9e6a9799d9c0e846fb845973a"
+      "bytes": 26131,
+      "sha256": "e7fad7f8d76dff068214673a7a199a8605c692ddba5f6f87631b12b78fd6db9d"
     },
     {
       "path": "apps/desktop/tests/eventBannerReporter.test.ts",
@@ -2098,8 +2113,8 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 216459,
-      "sha256": "793842ad5cafa6c6863df66988a4a8d6f1ccd60d3bd08184be3612e606e95425"
+      "bytes": 216685,
+      "sha256": "c738bbd048c491e6aac5450d0675cc7c41540786a2208030f81db051d3158c4b"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -2928,8 +2943,8 @@
     },
     {
       "path": "docs/design/DRAFT-COLUMN.md",
-      "bytes": 20965,
-      "sha256": "fbb4ec2a5930d3bff718258435e3b487c3d4921a04ec7d21e73710e5bcb040e0"
+      "bytes": 22731,
+      "sha256": "d4d699e221e6077876429837f3761baea07d76ec3ebd8328f4c075f668e07662"
     },
     {
       "path": "docs/design/EVENT-AUDIO-SPEC.md",
@@ -3533,8 +3548,8 @@
     },
     {
       "path": "docs/requirements/SRS.md",
-      "bytes": 141464,
-      "sha256": "48c432c04d9bc7c09deb1800d06aadd341fc563d63d3c7459f211878f38df975"
+      "bytes": 141690,
+      "sha256": "8e86c5294949408bd637e9caa9f49c53bac63f645d4f437a6718379dfd84cf7b"
     },
     {
       "path": "docs/security/SECURITY-PRIVACY.md",

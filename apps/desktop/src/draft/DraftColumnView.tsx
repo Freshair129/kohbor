@@ -24,6 +24,7 @@ import {
   type DraftDurationCell,
   type PickCardState,
 } from "./draftColumnModel";
+import { OverlayColumn } from "./OverlayColumn";
 import "./draft-column.css";
 
 type Surface = "overlay" | "deck";
@@ -265,9 +266,9 @@ export function DraftColumnView({ view, surface, synthetic = false }: {
   surface: Surface;
   synthetic?: boolean;
 }) {
-  if (surface === "overlay" && (!view.valid || !view.overlay.visible || view.mode === "hidden")) return null;
+  // In game: Option A sectioned cards (owner choice 2026-11-22). The deck keeps its own layout.
+  if (surface === "overlay") return <OverlayColumn view={view} synthetic={synthetic} />;
   if (!view.valid) {
-    if (surface === "overlay") return null;
     return (
       <section className="draft-column-deck-hidden" aria-label="สถิติฮีโร่สาธารณะ">
         <strong>ข้อมูลจากโฮสต์ไม่ถูกต้อง</strong>
@@ -275,7 +276,6 @@ export function DraftColumnView({ view, surface, synthetic = false }: {
     );
   }
   if (view.mode === "hidden") {
-    if (surface === "overlay") return null;
     const reason = draftHiddenReasonText(view.overlay.hidden_reason);
     const consentOff = draftConsentOffText(view.data_state);
     return (
@@ -296,7 +296,7 @@ export function DraftColumnView({ view, surface, synthetic = false }: {
       <div className={`draft-column-surface draft-column-surface-${surface}`}>
         {reason && <p className="draft-hidden-reason">{reason}</p>}
         {placementWarning && <p className="draft-placement-warning">{placementWarning}</p>}
-        <div className={`draft-consent-chip${surface === "overlay" ? " is-overlay" : ""}`}>
+        <div className="draft-consent-chip">
           {synthetic && <span className="draft-synthetic-flag">ตัวอย่างสังเคราะห์</span>}
           <strong>คำแนะนำฮีโร่ปิดอยู่ · เปิดได้ที่หน้าต่าง Kohbor</strong>
         </div>
