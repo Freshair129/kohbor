@@ -368,8 +368,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/mod.rs",
-      "bytes": 6224,
-      "sha256": "5e07779b5b0e7ec03a51bb8c395ca81a84a2ed0b7ce49d61c2bcf0642830f529"
+      "bytes": 6291,
+      "sha256": "deb679258886106ce776da83268cff0f4f24244ab07eb61bb5104ffb133518a4"
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/parse.rs",
@@ -403,8 +403,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/view.rs",
-      "bytes": 38572,
-      "sha256": "76565112bacffa9dcf0096a989e9145b23090f9a7ba73c1d91e214510ed2d48d"
+      "bytes": 38851,
+      "sha256": "fd60c325d66408386111385acf220dcc09cad7abeb7034b254e8baac4865d363"
     },
     {
       "path": "apps/desktop/src-tauri/src/host.rs",
@@ -2928,8 +2928,8 @@
     },
     {
       "path": "docs/design/DRAFT-COLUMN.md",
-      "bytes": 16814,
-      "sha256": "ee5a816b2ad18dd54d4d3f8aa0e7351ce800f8a7ddcfbf5de924e999e8cd8e6c"
+      "bytes": 16881,
+      "sha256": "8edb3048ab424f71850fea949169b7151de459e43720c23c41110914ac35d9af"
     },
     {
       "path": "docs/design/EVENT-AUDIO-SPEC.md",
@@ -3448,8 +3448,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 49224,
-      "sha256": "7cbe9cd1ec99b747547c21ddde69046a4164d6c3203ed91176c1ff92da7b05ea"
+      "bytes": 49512,
+      "sha256": "f2c2d7fd14f77a06485dc9ea39d941a8e13f670200ebc48ddc5b22d22de00c6a"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",

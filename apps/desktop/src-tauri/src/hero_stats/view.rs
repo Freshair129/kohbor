@@ -1000,8 +1000,8 @@ mod tests {
     }
 
     #[test]
-    fn counters_stay_off_in_this_build_and_serialize_with_a_state() {
-        const { assert!(!crate::hero_stats::COUNTERS_BUILD_ENABLED) };
+    fn counters_are_on_in_this_build_and_serialize_with_a_state() {
+        const { assert!(crate::hero_stats::COUNTERS_BUILD_ENABLED) };
         let prefs = DraftStatsPrefs {
             hero_stats_consent: true,
             ..Default::default()
@@ -1014,12 +1014,19 @@ mod tests {
         let mut view_input = input(&prefs, &cache, None);
         view_input.own_side = Some(crate::hero_stats::counters::Side::Radiant);
         view_input.counter_slots = &slots;
+        view_input.draft_bar.available = true;
+        view_input.draft_bar.identified = 1;
         let view = build_view(view_input);
         let counters = &view.suggestions.as_ref().unwrap().counters;
-        assert_eq!(counters.state, super::CounterStateView::BuildDisabled);
-        assert!(counters.rows.is_empty() && counters.enemies.is_empty());
+        assert_eq!(counters.state, super::CounterStateView::Ready);
+        assert_eq!(counters.enemies, vec!["Phantom Lancer"]);
+        assert!(counters.rows.iter().any(|row| row.name == "Earthshaker"));
         let json = serde_json::to_value(&view).unwrap();
-        assert_eq!(json["suggestions"]["counters"]["state"], "build_disabled");
+        assert_eq!(json["suggestions"]["counters"]["state"], "ready");
+        assert!(
+            !json["suggestions"]["counters"].to_string().contains('%'),
+            "counters carry no percentage"
+        );
         assert_eq!(
             json["suggestions"]["counters"]["source"],
             "kohbor_reviewed_table"

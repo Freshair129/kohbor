@@ -25,10 +25,10 @@ pub(crate) use view::{DraftColumnView, DraftPhase};
 /// Kohbor override list in `position-overrides.json`. That enables the in-game list.
 pub(crate) const SUGGESTIONS_LIST_BUILD_ENABLED: bool = true;
 
-/// Counter-pick suggestions (DEC-PICK-STATS revision 3) stay off until the owner has reviewed the
-/// first 7.42 counter table and the in-game mock. With the switch off, the view reports
-/// `build_disabled` and carries no counter rows.
-pub(crate) const COUNTERS_BUILD_ENABLED: bool = false;
+/// Counter-pick suggestions (DEC-PICK-STATS revision 3). The owner approved the first 7.42 counter
+/// table and the in-game mock on 2026-11-22 ("ตามที่แนะนำทั้งหมด"), so the switch is on. Turning it
+/// off makes the view report `build_disabled` with no counter rows.
+pub(crate) const COUNTERS_BUILD_ENABLED: bool = true;
 
 /// Strategy-time placement has not been measured; this is the initial shared-column position.
 pub(crate) const PICK_CARD_STRATEGY_TIME_RECT: Rect = Rect {

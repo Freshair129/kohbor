@@ -117,7 +117,7 @@ With the list in place, `SUGGESTIONS_LIST_BUILD_ENABLED` is `true`.
 
 Only heroes that Draft Bar 5b admits as identified in the ten slots are struck out. The view carries `draft_bar.available` and `identified/10`. 5b unavailable → v1 rows and the note "Kohbor ยังไม่เห็นว่าตัวไหนถูกแบนหรือถูกเลือกแล้ว". Bans are never known. 5b identities go only into the in-memory view model; never to disk, logs or the network. Player names never enter this view. No statistical matchup edge.
 
-## 9a. Counter picks (DEC-PICK-STATS revision 3, option c; behind `COUNTERS_BUILD_ENABLED`)
+## 9a. Counter picks (DEC-PICK-STATS revision 3, option c; `COUNTERS_BUILD_ENABLED` = true since the owner approved the 7.42 table and the mock on 2026-11-22)
 
 - **Source.** Only the reviewed static table `apps/desktop/src-tauri/src/hero_stats/counter-table.json` ships with the app.
   - Each enemy entry has a patch and a date. Each counter row has a reason.
