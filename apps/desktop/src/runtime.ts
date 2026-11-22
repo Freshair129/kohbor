@@ -37,6 +37,16 @@ export function objectivePrefsPatch(request: Record<string, boolean>): Promise<u
   return invoke<unknown>("objective_prefs_patch", { request });
 }
 
+export function shellHotkeyGet(): Promise<unknown> {
+  if (!hostAvailable()) return Promise.reject(new Error("CAPABILITY_UNAVAILABLE"));
+  return invoke<unknown>("shell_hotkey_get");
+}
+
+export function shellHotkeySet(enabled: boolean, binding: string): Promise<unknown> {
+  if (!hostAvailable()) return Promise.reject(new Error("CAPABILITY_UNAVAILABLE"));
+  return invoke<unknown>("shell_hotkey_set", { enabled, binding });
+}
+
 export function subscribeOverlayStatus(onPayload: (payload: unknown) => void): Promise<() => void> {
   if (!hostAvailable()) return Promise.resolve(() => {});
   return listen<unknown>("overlay://status", (event) => onPayload(event.payload));

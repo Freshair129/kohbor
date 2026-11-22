@@ -233,6 +233,16 @@
       "requirement_ids": [
         "UI-012"
       ]
+    },
+    {
+      "id": "PN-016",
+      "title": "Show the app during a game",
+      "actor": "Local player",
+      "need": "Bring the Kohbor window up over a borderless or windowed Dota game with one key and send it away again, without a second monitor and without the app sending input to the game.",
+      "outcome": "One hotkey toggles the control window and returns focus to the game; the key is on by default, can be turned off or remapped safely, and its limits are stated.",
+      "requirement_ids": [
+        "UI-013"
+      ]
     }
   ]
 }

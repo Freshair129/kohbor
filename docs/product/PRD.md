@@ -56,6 +56,7 @@ Stable need IDs map to SRS requirements within their approved scope. **contracts
 | PN-013 | Use quick audio, display, game, announcer and selected-music volume controls and check actual companion status in-game while Dota keeps focus. | UI-009, UI-011, MEDIA-009 |
 | PN-014 | See read-only public hero suggestions before picking and how the selected hero has performed after picking, with separate consent and clear source, sample and freshness. | UI-010, STATS-001, STATS-002, STATS-003 |
 | PN-015 | See the ten draft-bar hero slots with identified names or an honest unknown reason during supported draft phases, within the control window and with match-only in-memory handling. | UI-012 |
+| PN-016 | Bring the Kohbor window up over a borderless or windowed Dota game with one key and send it away again, without a second monitor and without the app sending input to the game. | UI-013 |
 
 ## 4. Scope, features and priority
 

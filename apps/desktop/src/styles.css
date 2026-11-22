@@ -400,6 +400,8 @@ body.overlay-body #root { width: 100%; height: 100%; min-height: 0; }
 .objective-setting-toggle small { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
 .objective-settings-message { margin: 0; color: var(--muted); font-size: 12px; }
 .objective-settings-message[role="alert"] { color: var(--critical); }
+.show-hotkey-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.show-hotkey-settings kbd { font: inherit; font-weight: 650; }
 .overlay-chip-strip { display: flex; align-items: center; justify-content: flex-end; min-width: 0; min-height: 0; padding: 0 2.5%; background: transparent; }
 .overlay-chip { display: inline-flex; align-items: center; max-width: 100%; min-height: 24px; padding: 2px 10px; border: 1px solid var(--overlay-chip-line); border-radius: 999px; background: var(--overlay-chip-background); color: var(--overlay-chip-text); font-size: clamp(11px, 1.7vh, 14px); line-height: 1.25; overflow-wrap: anywhere; }
 .overlay-chip-ready { border-color: var(--overlay-chip-ready-line); }
