@@ -7,6 +7,7 @@ mod cache;
 pub(crate) mod counters;
 mod groups;
 pub(crate) mod host;
+pub(crate) mod layout;
 mod parse;
 mod prefs;
 mod rank;
@@ -30,14 +31,6 @@ pub(crate) const SUGGESTIONS_LIST_BUILD_ENABLED: bool = true;
 /// off makes the view report `build_disabled` with no counter rows.
 pub(crate) const COUNTERS_BUILD_ENABLED: bool = true;
 
-/// Strategy-time placement has not been measured; this is the initial shared-column position.
-pub(crate) const PICK_CARD_STRATEGY_TIME_RECT: Rect = Rect {
-    x: 1728,
-    y: 132,
-    width: 180,
-    height: 488,
-}; // UNVERIFIED for strategy time
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Rect {
     pub(crate) x: i32,
@@ -54,17 +47,18 @@ pub(crate) struct Monitor {
     pub(crate) height: u32,
 }
 
-/// Return the right-edge draft column in physical monitor pixels, scaled by height.
-/// The host still refuses to draw unless the output is exactly 1920x1080 at 100 percent.
-pub(crate) fn draft_column_rect(monitor: Monitor) -> Option<Rect> {
-    if monitor.width == 0 || monitor.height == 0 {
+/// Return the right-edge draft column in physical monitor pixels, scaled by height, for a content
+/// height in 1080p pixels (capped at `layout::MAX_HEIGHT`). The host still refuses to draw unless
+/// the output is exactly 1920x1080 at 100 percent.
+pub(crate) fn draft_column_rect(monitor: Monitor, content_height: u32) -> Option<Rect> {
+    if monitor.width == 0 || monitor.height == 0 || content_height == 0 {
         return None;
     }
     let scale = f64::from(monitor.height) / 1080.0;
     let x = f64::from(monitor.width) - 192.0 * scale;
-    let y = 132.0 * scale;
+    let y = f64::from(layout::TOP) * scale;
     let width = 180.0 * scale;
-    let height = 488.0 * scale;
+    let height = f64::from(content_height.min(layout::MAX_HEIGHT)) * scale;
     let (Ok(x), Ok(y), Ok(width), Ok(height)) = (
         i32::try_from(x.round() as i64),
         i32::try_from(y.round() as i64),
@@ -90,7 +84,7 @@ pub(crate) fn supported_output(monitor: Monitor, scale_factor: f64) -> bool {
 
 #[cfg(test)]
 mod geometry_tests {
-    use super::{draft_column_rect, supported_output, Monitor, Rect, PICK_CARD_STRATEGY_TIME_RECT};
+    use super::{draft_column_rect, layout, supported_output, Monitor, Rect};
 
     const PROTECTED: [Rect; 6] = [
         Rect {
@@ -140,22 +134,35 @@ mod geometry_tests {
 
     #[test]
     fn placement_matches_reference_and_clears_protected_rectangles() {
-        let rect = draft_column_rect(Monitor {
+        let monitor = Monitor {
             x: 0,
             y: 0,
             width: 1920,
             height: 1080,
-        })
-        .unwrap();
+        };
+        // Every Option A state height, including the cap, stays clear of the protected areas.
+        for content in [56, 530, 554, 578, 692, super::layout::MAX_HEIGHT, 5_000] {
+            let rect = draft_column_rect(monitor, content).unwrap();
+            assert!(PROTECTED
+                .iter()
+                .all(|protected| !overlaps(rect, *protected)));
+            assert!(
+                rect.y + rect.height as i32 <= 860,
+                "{content}px ends at {}",
+                rect.y + rect.height as i32
+            );
+        }
+        let rect = draft_column_rect(monitor, 692).unwrap();
         assert_eq!(
             rect,
             Rect {
                 x: 1728,
                 y: 132,
                 width: 180,
-                height: 488
+                height: 692
             }
         );
+        assert_eq!(draft_column_rect(monitor, 0), None);
         assert!(PROTECTED
             .iter()
             .all(|protected| !overlaps(rect, *protected)));
@@ -176,7 +183,7 @@ mod geometry_tests {
             height: 1440,
         };
         assert_eq!(
-            draft_column_rect(monitor),
+            draft_column_rect(monitor, 488),
             Some(Rect {
                 x: 2404,
                 y: 226,
@@ -212,22 +219,18 @@ mod geometry_tests {
             1.0
         ));
         assert_eq!(
-            draft_column_rect(Monitor {
-                x: 0,
-                y: 0,
-                width: 0,
-                height: 1080
-            }),
+            draft_column_rect(
+                Monitor {
+                    x: 0,
+                    y: 0,
+                    width: 0,
+                    height: 1080
+                },
+                488
+            ),
             None
         );
-        assert_eq!(
-            PICK_CARD_STRATEGY_TIME_RECT,
-            Rect {
-                x: 1728,
-                y: 132,
-                width: 180,
-                height: 488
-            }
-        );
+        // Strategy time and hero selection share the column; its largest rect ends at y 860.
+        assert_eq!(layout::TOP + layout::MAX_HEIGHT as i32, 860);
     }
 }

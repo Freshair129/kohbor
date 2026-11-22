@@ -27,11 +27,20 @@ The renderer never makes a provider request. Only the native host does.
 
 ## 2. Placement (DECIDED from MEASURED)
 
-`s = H / 1080`. Column: `x = W − 192·s`, `y = 132·s`, `w = 180·s`, `h = 488·s`. At 1920×1080: x 1728–1907, y 132–619.
+`s = H / 1080`. Column: `x = W − 192·s`, `y = 132·s`, `w = 180·s`, `h = content·s`. At 1920×1080: x 1728–1907, from y 132 down to no lower than y 860.
+
+**Owner choice 2026-11-22: Option A, sectioned cards** (owner's reply "Option A", relayed by the lead after the owner reviewed both mocks in `F:\kohbor-coord\design\draft-column-v2-20261122\`). The owner had said the 8.5 px column was too small to read and asked for it to grow downward in sections. The design:
+- Separate cards, from the top: brand bar (position, bracket, status pill) → `แก้ทาง {enemy}` (when ready) → `ฮีโร่เมต้า` or `การ์ดฮีโร่` + `ตามความยาวเกม` → source footer.
+- Text is at least 12 px: names and rates 15 px, headings 15 px.
+- Colors are Command Deck tokens.
+- Every block has a fixed height: brand 30, head 50 (counters 70), meta row 50, counter row 62, message 88, pick body 178, durations 140, footer 84, chip 56, gap 6, card border 2. Text is clamped or ellipsized inside its block.
+- The host computes the window height from the view (`hero_stats::layout::overlay_column_height`, mirrored by `overlayColumnHeight` in `draftColumnModel.ts`, with a test that keeps the two in step) and sizes the native window to it. `column_window_placed` logs the result.
+- State heights: meta 578, counters + meta 692, pick card 554, fetch failed 266 (530 with counters), consent chip 56. The cap is 728, which ends at y 860.
+- The deck keeps its own layout.
 
 - The overlay draws only at 1920×1080, 100 % scale (same rule as Draft Bar 5b: `draft_bar::OUTPUT_WIDTH/HEIGHT/SCALE_PERCENT`). Otherwise the state is `unsupported_output`: the overlay draws nothing and the deck shows the list with the reason.
 - Protected rectangles at 1920×1080 (MEASURED, one frame 1919×1072, up to 8 px uncertainty): top bar 215–1708 × 0–117, hero grid 133–1292 × 181–698, hero detail panel 1344–1719 × 181–786, LOCK IN 1345–1614 × 794–851, RANDOM 1627–1719 × 794–851, chat 838–1323 × 869–1062. A test asserts the column touches none of them and keeps ≥ 8 px to the detail panel and ≥ 12 px to the right screen edge.
-- The after-pick card uses the same column in hero selection. Its strategy-time position is one named constant `PICK_CARD_STRATEGY_TIME_RECT` (initially the same column) marked **UNVERIFIED for strategy time** in code and in the deck: the strategy-time screen has not been measured.
+- The after-pick card uses the same column in hero selection and strategy time. `PICK_CARD_STRATEGY_TIME_RECT` is now the largest column rectangle (180×728 at 1728,132). The strategy-time check covers only two owner frames (Pudge on a050ae8, Lion on 6195c3c), where the right edge is clear from about y 130 down to the bottom. Hero selection below y 698 has not been checked against an owner frame; the protected rectangles from the measured frame all end at x ≤ 1719.
 
 ## 3. Phase gate (DECIDED)
 
@@ -50,7 +59,7 @@ With consent off, the overlay shows only the 8 s chip. After that the deck says 
 
 **Draft Bar capture freshness (fix 2026-11-22, live test on a050ae8).** The own snapshot has `source.age_ms = null` outside Pregame/Live. The capture host's draft gate read that age, so 5b never opened a grabber during a live draft: `grab_fps` was 0 and the phase stayed `idle` until pregame. The gate now reads `draft_age_ms`, which is the intake age of the latest admitted payload, set only while `draft_bar_allowed`. The own-snapshot contract is unchanged. Regression test: `intake::tests::captured_hero_selection_payload_opens_the_draft_bar_gate`. It replays the redacted M0 hero-selection capture, so it is synthetic-replay evidence, not a live check.
 
-**Overlay column scale (fix 2026-11-22, owner frame on a050ae8: "มันเล็กมากมองไม่เห็น").** The host sizes the native window to the column rect itself, 180×488 at 1728,132. The overlay stage then applied the full-screen formula `draftColumnPlacement(innerWidth, innerHeight)` to that 180×488 viewport. That gave scale 488/1080 ≈ 0.452 at x 93, y 60, so the column drew about 81 px wide at screen x 1821, y 192. The stage now uses `draftStagePlacement`: a viewport narrower than it is tall is the column window, so the column fills it at scale height/488 (1 at 1920×1080). A screen-shaped viewport, such as the browser mock, keeps the screen formula. That mock is why the earlier 1920×1080 measurement looked right. Measured after the fix in a 180×488 in-app browser viewport: rect 0,0 180×488, scale 1. Native rendering is not yet checked.
+**Overlay column scale (fix 2026-11-22, owner frame on a050ae8: "มันเล็กมากมองไม่เห็น").** The host sizes the native window to the column rect itself, 180×488 at 1728,132. The overlay stage then applied the full-screen formula `draftColumnPlacement(innerWidth, innerHeight)` to that 180×488 viewport. That gave scale 488/1080 ≈ 0.452 at x 93, y 60, so the column drew about 81 px wide at screen x 1821, y 192. The stage now uses `draftStagePlacement`: a viewport narrower than it is tall is the column window, so the column fills it (since Option A: a viewport under 600 px wide is the column window, at scale width/180, 1 at 1920×1080). A screen-shaped viewport, such as the browser mock, keeps the screen formula. That mock is why the earlier 1920×1080 measurement looked right. Measured after the fix in a 180×488 in-app browser viewport: rect 0,0 180×488, scale 1. Native rendering is not yet checked.
 
 **Info logs for the next live test.** All are emitted on change only and carry codes and counts, never hero names or pixels.
 - `capture_host/draft_capture_started`
@@ -156,7 +165,7 @@ Only heroes that Draft Bar 5b admits as identified in the ten slots are struck o
   - Sort: the number of identified enemies answered (desc), then first appearance (enemy slot order, then table order), then hero ID.
   - The host keeps at most 6 rows. The deck draws all of them, with the reason. The overlay draws at most 3, on top, under `แก้ทาง {enemies}`, and gives up the same number of meta rows (8 − k).
   - No number is shown, and the source line says `ไม่ใช่สถิติ`.
-- **Layout.** The overlay block is at most 96 px (= 3 meta rows): heading 12 px, 3 × 24 px rows, source 10 px. Measured in the mock at 1920×1080: content 486/488 px, minimum text 8.5 px, no clipping.
+- **Layout.** Since Option A (2026-11-22) the counters are their own card at the top: a two-line heading of 70 px and up to 3 rows of 62 px, each with the name at 15 px and the reason at 12 px. The meta list gives up the same number of rows (8 − k). Until 2026-11-22 the block was 96 px at 8.5 px inside a 488 px column.
 - **Consent.** Counters appear inside the suggestions mode, which still requires the stats consent. The table itself needs no network.
 
 ## 10. View contract `draft-column-view` 1 (host → windows)

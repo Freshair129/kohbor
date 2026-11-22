@@ -8,7 +8,7 @@ use super::transport::{Cancellation, HttpResponse, Transport, TransportError, Wi
 use super::view::{
     build_view, DataState, DraftBarInput, DraftColumnView, DraftPhase, Failure, ViewInput,
 };
-use super::{draft_column_rect, supported_output, Monitor, Rect, PICK_CARD_STRATEGY_TIME_RECT};
+use super::{draft_column_rect, supported_output, Monitor};
 use serde_json::Value;
 use std::collections::HashSet;
 use std::path::Path;
@@ -1303,21 +1303,12 @@ fn apply_window_state(window: &tauri::WebviewWindow<tauri::Wry>, view: &DraftCol
         width: size.width,
         height: size.height,
     };
-    let rect = if view.mode == super::view::Mode::PickCard
-        && view.phase == Some(DraftPhase::StrategyTime)
-    {
-        Rect {
-            x: position.x + PICK_CARD_STRATEGY_TIME_RECT.x,
-            y: position.y + PICK_CARD_STRATEGY_TIME_RECT.y,
-            width: PICK_CARD_STRATEGY_TIME_RECT.width,
-            height: PICK_CARD_STRATEGY_TIME_RECT.height,
-        }
-    } else {
-        let Some(rect) = draft_column_rect(monitor_rect) else {
-            let _ = window.hide();
-            return false;
-        };
-        rect
+    // Option A: the window is exactly as tall as the column content of this state (both phases
+    // share x 1728, y 132; the content height never ends below y 860).
+    let Some(rect) = draft_column_rect(monitor_rect, super::layout::overlay_column_height(view))
+    else {
+        let _ = window.hide();
+        return false;
     };
     if !supported_output(monitor_rect, monitor.scale_factor()) {
         let _ = window.hide();

@@ -63,60 +63,6 @@ body.draft-body #root {
   line-height: 1.2;
 }
 
-.draft-column-surface-overlay .draft-suggestions-card {
-  --draft-overlay-header-height: 20px;
-  --draft-overlay-state-height: 12px;
-  --draft-overlay-subtitle-height: 18px;
-  --draft-overlay-context-height: 34px;
-  --draft-overlay-row-heading-height: 12px;
-  --draft-overlay-row-height: 32px;
-  --draft-overlay-notes-height: 34px;
-  --draft-overlay-footer-height: 36px;
-  --draft-overlay-stale-height: 24px;
-  --draft-overlay-synthetic-height: 16px;
-  --draft-overlay-gap: 1px;
-  --draft-overlay-padding-block: 4px;
-  --draft-overlay-border: 1px;
-  gap: var(--draft-overlay-gap);
-  height: 488px;
-  padding: var(--draft-overlay-padding-block) 10px;
-  border-width: var(--draft-overlay-border);
-}
-
-.draft-column-surface-overlay .draft-suggestions-card .draft-column-header { height: var(--draft-overlay-header-height); min-height: 0; flex: none; }
-.draft-column-surface-overlay .draft-column-header > strong {
-  overflow-wrap: anywhere;
-  font-size: 12px;
-  line-height: 1.05;
-  white-space: normal;
-}
-.draft-column-surface-overlay .draft-state-flag {
-  max-width: 100%;
-  font-size: 8.5px;
-  line-height: 1;
-  padding: 0 4px;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-.draft-column-surface-overlay .draft-overlay-state { min-height: var(--draft-overlay-state-height); flex: none; line-height: 1; }
-.draft-column-surface-overlay .draft-overlay-state .draft-state-flag { display: inline-block; }
-.draft-column-surface-overlay .draft-synthetic-flag { height: var(--draft-overlay-synthetic-height); box-sizing: border-box; flex: none; font-size: 8.5px; }
-.draft-column-surface-overlay .draft-column-subtitle { height: var(--draft-overlay-subtitle-height); box-sizing: border-box; flex: none; font-size: 8.5px; }
-.draft-column-surface-overlay .draft-context-block { height: var(--draft-overlay-context-height); display: grid; grid-template-rows: 12px 11px 11px; flex: none; }
-.draft-column-surface-overlay .draft-context { min-height: 0; height: 12px; box-sizing: border-box; padding: 0 3px; font-size: 8.5px; line-height: 1; }
-.draft-column-surface-overlay .draft-context-hint,
-.draft-column-surface-overlay .draft-context-unset { height: 11px; font-size: 8.5px; line-height: 11px; }
-.draft-column-surface-overlay .draft-row-heading { height: var(--draft-overlay-row-heading-height); box-sizing: border-box; flex: none; padding-top: 1px; font-size: 8.5px; line-height: 1; }
-.draft-column-surface-overlay .draft-row-list { display: flex; flex-direction: column; flex: none; }
-.draft-column-surface-overlay .draft-row { height: var(--draft-overlay-row-height); min-height: 0; box-sizing: border-box; flex: none; padding: 1px 0; }
-.draft-column-surface-overlay .draft-row-rank { font-size: 10px; }
-.draft-column-surface-overlay .draft-row-name strong { font-size: 11px; line-height: 1; white-space: normal; overflow-wrap: anywhere; }
-.draft-column-surface-overlay .draft-row-games { font-size: 8.5px; line-height: 1; }
-.draft-column-surface-overlay .draft-row-rate { font-size: 11px; }
-.draft-column-surface-overlay .draft-column-notes { height: var(--draft-overlay-notes-height); box-sizing: border-box; flex: none; gap: 1px; padding-top: 1px; font-size: 8.5px; line-height: 1.05; }
-.draft-column-surface-overlay .draft-stale-times { height: var(--draft-overlay-stale-height); box-sizing: border-box; flex: none; font-size: 8.5px; line-height: 1.05; }
-.draft-column-surface-overlay .draft-column-footer { height: var(--draft-overlay-footer-height); box-sizing: border-box; flex: none; gap: 1px; margin-top: 0; padding-top: 2px; font-size: 8.5px; line-height: 1.05; }
-
 .draft-synthetic-flag {
   align-self: flex-start;
   padding: 2px 5px;
@@ -497,38 +443,6 @@ body.draft-body #root {
   .draft-column-surface-deck { max-height: 45vh; }
 }
 
-.draft-column-surface-overlay,
-.draft-column-surface-overlay * { font-size: 8.5px; }
-.draft-column-surface-overlay .draft-column-header > strong { font-size: 12px; }
-.draft-column-surface-overlay .draft-column-mark,
-.draft-column-surface-overlay .draft-row-name strong,
-.draft-column-surface-overlay .draft-row-rate,
-.draft-column-surface-overlay .draft-pick-hero > strong,
-.draft-column-surface-overlay .draft-pick-rate,
-.draft-column-surface-overlay .draft-pick-form strong,
-.draft-column-surface-overlay .draft-duration-cell > strong { font-size: 11px; }
-.draft-column-surface-overlay .draft-row-rank { font-size: 10px; }
-.draft-column-surface-overlay .draft-row-games,
-.draft-column-surface-overlay .draft-column-subtitle,
-.draft-column-surface-overlay .draft-context,
-.draft-column-surface-overlay .draft-context-hint,
-.draft-column-surface-overlay .draft-context-unset,
-.draft-column-surface-overlay .draft-row-heading,
-.draft-column-surface-overlay .draft-column-notes,
-.draft-column-surface-overlay .draft-column-footer,
-.draft-column-surface-overlay .draft-stale-times,
-.draft-column-surface-overlay .draft-pick-metric-caption,
-.draft-column-surface-overlay .draft-pick-form,
-.draft-column-surface-overlay .draft-duration-heading,
-.draft-column-surface-overlay .draft-duration-meta,
-.draft-column-surface-overlay .draft-duration-cell > span,
-.draft-column-surface-overlay .draft-duration-cell > small,
-.draft-column-surface-overlay .draft-consent-chip,
-.draft-column-surface-overlay .draft-state-flag,
-.draft-column-surface-overlay .draft-synthetic-flag { font-size: 8.5px; }
-.draft-column-surface-overlay .draft-pick-card { gap: 4px; padding: 8px 10px; }
-.draft-column-surface-overlay .draft-consent-chip.is-overlay { box-sizing: border-box; width: 180px; padding: 8px; }
-
 /* Counter picks (reviewed Kohbor table, DEC-PICK-STATS revision 3). */
 .draft-counter-block { display: flex; flex-direction: column; gap: 2px; margin: 4px 0; padding: 4px 6px; border-left: 2px solid #f2b84b; background: rgba(242, 184, 75, 0.08); }
 .draft-counter-heading { margin: 0; color: #f6cf7d; font-size: 10px; font-weight: 700; overflow-wrap: anywhere; }
@@ -538,11 +452,4 @@ body.draft-body #root {
 .draft-counter-row strong { color: #f3f6fb; font-size: 11px; line-height: 1.1; overflow-wrap: anywhere; }
 .draft-counter-row small { color: #c9d6e6; font-size: 8.5px; line-height: 1.15; overflow-wrap: anywhere; }
 .draft-counter-source { margin: 0; color: #8fa5bd; font-size: 8.5px; }
-/* Overlay: three counter rows plus heading and source fit inside the three meta rows they replace (3 x 32 px). */
-.draft-column-surface-overlay .draft-counter-block { flex: none; gap: 0; margin: 0; padding: 0 0 0 5px; max-height: 96px; overflow: hidden; box-sizing: border-box; }
-.draft-column-surface-overlay .draft-counter-heading { height: 12px; font-size: 10px; line-height: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.draft-column-surface-overlay .draft-counter-list { gap: 0; }
-.draft-column-surface-overlay .draft-counter-row { height: 24px; box-sizing: border-box; justify-content: center; }
-.draft-column-surface-overlay .draft-counter-row strong { font-size: 11px; line-height: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.draft-column-surface-overlay .draft-counter-row small { font-size: 8.5px; line-height: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.draft-column-surface-overlay .draft-counter-source { height: 10px; font-size: 8.5px; line-height: 10px; }
+

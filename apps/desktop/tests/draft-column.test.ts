@@ -386,6 +386,10 @@ test("inside the host's 180 by 488 column window the stage fills the window at s
   // Regression, live test on a050ae8 (2026-11-22): the screen formula inside the column window
   // gave scale 0.452 at x 93, y 60, so the column drew at about 81 px wide.
   assert.deepEqual(model.draftStagePlacement(180, 488), { x: 0, y: 0, width: 180, height: 488, scale: 1 });
+  // Option A: the window is as tall as each state's content, from the 56 px chip to 728 px.
+  for (const height of [56, 530, 554, 578, 692, 728]) {
+    assert.deepEqual(model.draftStagePlacement(180, height), { x: 0, y: 0, width: 180, height, scale: 1 });
+  }
   const wrong = model.draftColumnPlacement(180, 488);
   assert.ok(wrong.scale < 0.46, "the screen formula is what shrank the column");
   // A screen-shaped viewport (the browser mock) keeps the measured screen placement.
