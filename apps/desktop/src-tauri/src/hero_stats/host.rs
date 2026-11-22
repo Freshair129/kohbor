@@ -122,6 +122,28 @@ struct RequestTicket {
     purpose: RequestPurpose,
 }
 
+/// Fixed, public request kind for logs. The own hero ID and the URL query never reach the log.
+fn request_kind(request: OutgoingRequest) -> &'static str {
+    match request {
+        OutgoingRequest::HeroStats => "hero_stats",
+        OutgoingRequest::LaneRoles(LaneRole::Safe) => "lane_roles_1",
+        OutgoingRequest::LaneRoles(LaneRole::Mid) => "lane_roles_2",
+        OutgoingRequest::LaneRoles(LaneRole::Off) => "lane_roles_3",
+        OutgoingRequest::OwnHeroDurations(_) => "own_durations",
+    }
+}
+
+fn log_fetch_failed(request: OutgoingRequest, class: &'static str, status: Option<u16>) {
+    crate::log_info!(
+        "draft",
+        "fetch_failed",
+        "draft statistics request failed",
+        kind = request_kind(request),
+        class = class,
+        http_status = status
+    );
+}
+
 struct Core {
     prefs: DraftStatsPrefs,
     store: Arc<dyn StatsStore>,
@@ -492,12 +514,28 @@ impl Core {
         };
         let (request, purpose) = if let Some(request) = pending_table {
             if let Err(wait) = self.ledger.can_send_table(now_ms) {
+                crate::log_info!(
+                    "draft",
+                    "fetch_skipped",
+                    "draft statistics request skipped",
+                    kind = request_kind(request),
+                    reason = "budget",
+                    table_requests_24h = self.ledger.table_count_24h(now_ms),
+                    wait_ms = wait
+                );
                 self.set_rate_limited(now_ms, wait, None);
                 self.refresh_pending = false;
                 return None;
             }
             self.ledger.record_table(now_ms);
             if self.store.save_ledger(&self.ledger).is_err() {
+                crate::log_info!(
+                    "draft",
+                    "fetch_skipped",
+                    "draft statistics request skipped",
+                    kind = request_kind(request),
+                    reason = "ledger_write_failed"
+                );
                 self.table_failure_latched = true;
                 self.failure = Some(Failure::Network);
                 self.failed_at_ms = Some(now_ms);
@@ -522,6 +560,14 @@ impl Core {
                 return None;
             }
             if let Err(wait) = self.ledger.can_send_own_duration(now_ms) {
+                crate::log_info!(
+                    "draft",
+                    "fetch_skipped",
+                    "draft statistics request skipped",
+                    kind = "own_durations",
+                    reason = "budget",
+                    wait_ms = wait
+                );
                 self.set_rate_limited(now_ms, wait, None);
                 return None;
             }
@@ -547,6 +593,13 @@ impl Core {
             request,
             purpose,
         };
+        crate::log_info!(
+            "draft",
+            "fetch_started",
+            "draft statistics request started",
+            kind = request_kind(request),
+            table_requests_24h = self.ledger.table_count_24h(now_ms)
+        );
         let cancellation = Cancellation::default();
         self.active = Some(ticket);
         self.active_cancel = Some(cancellation.clone());
@@ -585,18 +638,23 @@ impl Core {
         self.clear_error();
         match result {
             Err(TransportError::Cancelled) => {
+                log_fetch_failed(ticket.request, "cancelled", None);
                 self.latch_failed_ticket(ticket);
                 self.set_failure(Failure::Network, now_ms, None, None);
             }
             Err(TransportError::TooLarge) => {
+                log_fetch_failed(ticket.request, "oversize", None);
                 self.latch_failed_ticket(ticket);
                 self.set_failure(Failure::TooLarge, now_ms, None, None)
             }
             Err(TransportError::Timeout) => {
+                log_fetch_failed(ticket.request, "timeout", None);
                 self.latch_failed_ticket(ticket);
                 self.set_failure(Failure::Timeout, now_ms, None, None)
             }
             Err(TransportError::Network) => {
+                // The transport logs the WinHTTP stage and code as `fetch_transport_error`.
+                log_fetch_failed(ticket.request, "network", None);
                 self.latch_failed_ticket(ticket);
                 self.set_failure(Failure::Network, now_ms, None, None)
             }
@@ -607,6 +665,7 @@ impl Core {
 
     fn consume_response(&mut self, ticket: RequestTicket, response: HttpResponse, now_ms: u64) {
         if response.status == 429 {
+            log_fetch_failed(ticket.request, "rate_limited", Some(response.status));
             self.latch_failed_ticket(ticket);
             let wait = response
                 .retry_after
@@ -619,6 +678,7 @@ impl Core {
             return;
         }
         if !(200..300).contains(&response.status) {
+            log_fetch_failed(ticket.request, "http_status", Some(response.status));
             self.latch_failed_ticket(ticket);
             self.set_failure(Failure::HttpStatus, now_ms, Some(response.status), None);
             self.refresh_pending = false;
@@ -651,6 +711,14 @@ impl Core {
             }
         };
         if let Err(error) = cache_result {
+            log_fetch_failed(
+                ticket.request,
+                match error {
+                    ParseError::InvalidBody => "parse",
+                    ParseError::TooLarge => "oversize",
+                },
+                Some(response.status),
+            );
             self.latch_failed_ticket(ticket);
             let failure = match error {
                 ParseError::InvalidBody => Failure::InvalidBody,
@@ -661,11 +729,20 @@ impl Core {
             return;
         }
         if self.store.save_cache(&self.cache).is_err() {
+            log_fetch_failed(ticket.request, "cache_write", Some(response.status));
             self.latch_failed_ticket(ticket);
             self.set_failure(Failure::Network, now_ms, Some(response.status), None);
             self.refresh_pending = false;
             return;
         }
+        crate::log_info!(
+            "draft",
+            "fetch_ok",
+            "draft statistics request stored",
+            kind = request_kind(ticket.request),
+            http_status = response.status,
+            bytes = response.body.len()
+        );
         self.http_status = Some(response.status);
         if ticket.purpose == RequestPurpose::PublicTable {
             self.refresh_pending = true;
@@ -1921,6 +1998,52 @@ mod tests {
         assert_eq!(core.failure, Some(crate::hero_stats::Failure::RateLimited));
         assert_eq!(core.retry_after_ms, Some(60_000));
         assert_eq!(core.retry_not_before_ms, Some(5_060_000));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn fetch_outcomes_are_logged_with_a_class_and_no_url_or_body() {
+        let dir =
+            std::env::temp_dir().join(format!("kohbor-draft-fetch-log-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut core = core(&dir, 5_000_000);
+        core.prefs.hero_stats_consent = true;
+        let network = super::RequestTicket {
+            id: 1,
+            consent_generation: core.consent_generation,
+            request: OutgoingRequest::HeroStats,
+            purpose: RequestPurpose::PublicTable,
+        };
+        let status = super::RequestTicket {
+            id: 2,
+            request: OutgoingRequest::LaneRoles(LaneRole::Mid),
+            ..network
+        };
+        let logs = crate::logging::collect_test_logs(|| {
+            core.finish(network, Err(TransportError::Network), 5_000_000);
+            core.finish(
+                status,
+                Ok(HttpResponse {
+                    status: 503,
+                    retry_after: None,
+                    body: b"secret body".to_vec(),
+                }),
+                5_000_001,
+            );
+        });
+        let failed: Vec<_> = logs.iter().filter(|e| e.event == "fetch_failed").collect();
+        assert_eq!(failed.len(), 2);
+        assert_eq!(failed[0].fields["kind"], "hero_stats");
+        assert_eq!(failed[0].fields["class"], "network");
+        assert_eq!(failed[1].fields["kind"], "lane_roles_2");
+        assert_eq!(failed[1].fields["class"], "http_status");
+        assert_eq!(failed[1].fields["http_status"], 503);
+        for entry in &logs {
+            let text = serde_json::to_string(entry).unwrap();
+            assert!(!text.contains("secret body") && !text.contains("opendota.com"));
+            assert!(!text.contains("lane_role="));
+        }
         let _ = std::fs::remove_dir_all(dir);
     }
 
