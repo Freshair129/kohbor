@@ -1,10 +1,13 @@
 import { createPrivateKey, createPublicKey } from 'node:crypto';
-import pg from 'pg';
 import { createBroker } from './broker.mjs';
+import {
+  classifyDatabaseTarget,
+  HOSTED_DATABASE_NOT_SUPPORTED,
+} from './database-target.mjs';
 import { createEncryptedDeletionLedger } from './deletion-ledger.mjs';
 import { migrate } from './migrate.mjs';
 
-const { Pool } = pg;
+const BROKER_DATABASE_FAILURE_MESSAGE = 'kohbor broker database connection failed';
 
 function required(name) {
   const value = process.env[name];
@@ -22,21 +25,18 @@ function boundedInteger(name, value, minimum, maximum, fallback) {
   return parsed;
 }
 
-function localDatabaseUrl(value) {
-  let url;
-  try {
-    url = new URL(value);
-  } catch {
-    throw new Error('invalid local database configuration');
-  }
-  const host = url.hostname.toLowerCase();
-  const allowedHosts = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
-  if (!['postgres:', 'postgresql:'].includes(url.protocol) || !allowedHosts.has(host) ||
-      url.username !== 'kohbor_s2' || (url.port && url.port !== '5432') || url.search || url.hash ||
-      url.pathname !== '/kohbor_s2') {
-    throw new Error('database must be the local synthetic S2 database');
+export function brokerDatabaseUrl(value) {
+  if (classifyDatabaseTarget(value) === 'supabase') {
+    throw new Error(HOSTED_DATABASE_NOT_SUPPORTED);
   }
   return value;
+}
+
+export function attachBrokerPoolErrorListener(
+  pool,
+  writeMessage = message => process.stderr.write(message),
+) {
+  pool.on('error', () => writeMessage(`${BROKER_DATABASE_FAILURE_MESSAGE}\n`));
 }
 
 async function main() {
@@ -44,7 +44,7 @@ async function main() {
     throw new Error('broker mode must be local-synthetic');
   }
 
-  const databaseUrl = localDatabaseUrl(required('DATABASE_URL'));
+  const databaseUrl = brokerDatabaseUrl(required('DATABASE_URL'));
   const issuer = required('BROKER_IDENTITY_ISSUER');
   const audience = required('BROKER_IDENTITY_AUDIENCE');
   if (issuer !== 'synthetic-issuer' || audience !== 'synthetic-client') {
@@ -63,6 +63,7 @@ async function main() {
     throw new Error('invalid local synthetic key configuration');
   }
 
+  const { Pool } = await import('pg');
   const pool = new Pool({
     connectionString: databaseUrl,
     max: boundedInteger('PG_POOL_MAX', process.env.PG_POOL_MAX, 1, 10, 5),
@@ -71,6 +72,7 @@ async function main() {
     query_timeout: 5000,
     application_name: 'kohbor-s2-local-broker',
   });
+  attachBrokerPoolErrorListener(pool);
   try {
     const deletionLedger = createEncryptedDeletionLedger({ filePath: deletionLedgerPath, pepper });
     await deletionLedger.replay(pool);
@@ -99,14 +101,21 @@ async function main() {
   }
 }
 
-main().catch(error => {
-  const safeMessages = new Set([
-    'deletion ledger is missing for an initialized account database',
-    'deletion ledger could not be provisioned',
-  ]);
-  const message = safeMessages.has(error?.message)
-    ? error.message
-    : 'kohbor broker failed to start; check local synthetic configuration and database readiness';
-  process.stderr.write(`${message}\n`);
-  process.exitCode = 1;
-});
+async function run() {
+  return main().catch(error => {
+    const safeMessages = new Set([
+      HOSTED_DATABASE_NOT_SUPPORTED,
+      'deletion ledger is missing for an initialized account database',
+      'deletion ledger could not be provisioned',
+    ]);
+    const message = safeMessages.has(error?.message)
+      ? error.message
+      : 'kohbor broker failed to start; check local synthetic configuration and database readiness';
+    process.stderr.write(`${message}\n`);
+    process.exitCode = 1;
+  });
+}
+
+if (import.meta.main) {
+  void run();
+}

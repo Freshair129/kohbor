@@ -2,6 +2,31 @@ import { readFile } from 'node:fs/promises';
 
 const MIGRATION_LOCK = '6467885033235427409';
 
+export const EXPECTED_MIGRATIONS = Object.freeze([
+  Object.freeze({ version: 1, name: 's2_local_account_broker' }),
+  Object.freeze({ version: 2, name: 'registration_hardening' }),
+  Object.freeze({ version: 3, name: 'expired_row_purge_indexes' }),
+]);
+
+export const EXPECTED_PUBLIC_TABLES = Object.freeze([
+  'accounts',
+  'auth_nonces',
+  'blocks',
+  'device_keys',
+  'friendships',
+  'global_rate_counters',
+  'login_identities',
+  'pending_requests',
+  'rate_counters',
+  'rate_limit_events',
+  'refresh_tokens',
+  'schema_migrations',
+  'sessions',
+  'share_entries',
+]);
+
+const [INITIAL_MIGRATION, HARDENING_MIGRATION, PURGE_INDEX_MIGRATION] = EXPECTED_MIGRATIONS;
+
 const REGISTRATION_HARDENING = await readFile(
   new URL('./migrations/002_registration_hardening.sql', import.meta.url),
   'utf8',
@@ -126,34 +151,30 @@ export async function migrate(pool) {
 
     const existing = await client.query('SELECT version, name FROM schema_migrations');
     const versions = new Map(existing.rows.map(row => [row.version, row.name]));
-    if (versions.has(1) && versions.get(1) !== 's2_local_account_broker') {
-      throw new Error('unexpected migration 1 name');
-    }
-    if (versions.has(2) && versions.get(2) !== 'registration_hardening') {
-      throw new Error('unexpected migration 2 name');
-    }
-    if (versions.has(3) && versions.get(3) !== 'expired_row_purge_indexes') {
-      throw new Error('unexpected migration 3 name');
+    for (const { version, name } of EXPECTED_MIGRATIONS) {
+      if (versions.has(version) && versions.get(version) !== name) {
+        throw new Error(`unexpected migration ${version} name`);
+      }
     }
     if (!versions.has(1)) {
       for (const statement of INITIAL_SCHEMA) await client.query(statement);
       await client.query(
         'INSERT INTO schema_migrations (version, name, applied_at) VALUES ($1, $2, $3)',
-        [1, 's2_local_account_broker', new Date()],
+        [INITIAL_MIGRATION.version, INITIAL_MIGRATION.name, new Date()],
       );
     }
     if (!versions.has(2)) {
       await client.query(REGISTRATION_HARDENING);
       await client.query(
         'INSERT INTO schema_migrations (version, name, applied_at) VALUES ($1, $2, $3)',
-        [2, 'registration_hardening', new Date()],
+        [HARDENING_MIGRATION.version, HARDENING_MIGRATION.name, new Date()],
       );
     }
     if (!versions.has(3)) {
       await client.query(EXPIRED_ROW_PURGE_INDEXES);
       await client.query(
         'INSERT INTO schema_migrations (version, name, applied_at) VALUES ($1, $2, $3)',
-        [3, 'expired_row_purge_indexes', new Date()],
+        [PURGE_INDEX_MIGRATION.version, PURGE_INDEX_MIGRATION.name, new Date()],
       );
     }
 
