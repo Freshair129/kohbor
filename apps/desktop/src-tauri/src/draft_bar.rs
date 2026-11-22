@@ -21,11 +21,12 @@ pub const SLOT_COUNT: usize = 10;
 // measurement (one 1919x1072 hero-selection frame with a manual (1, 8) correction) put the Dire
 // slots 10 px left and the card art 2 px low, so the Dire boxes cut into the next card.
 const STRIP_X: i32 = 209;
-const STRIP_Y: i32 = 6;
+const STRIP_Y: i32 = 0;
 const STRIP_WIDTH: u32 = 1504;
-const STRIP_HEIGHT: u32 = 119;
+const STRIP_HEIGHT: u32 = 125;
 const SLOT_WIDTH: u32 = 119;
 const SLOT_HEIGHT: u32 = 68;
+const SLOT_Y: i32 = 6;
 const SLOT_STEP: i32 = 124;
 const RADIANT_X0: i32 = 209;
 const DIRE_X0: i32 = 1098;
@@ -96,6 +97,27 @@ struct DeckPacket<'a> {
     view: DraftBarDeckView,
     detail: Option<&'a str>,
     has_frame: bool,
+    /// Per-slot profiles for this match while the draft bar is active; `null` otherwise.
+    roster: Option<&'a crate::draft_roster::SlotRoster>,
+}
+
+fn reason_code(reason: MatchReason) -> &'static str {
+    match reason {
+        MatchReason::Identified => "identified",
+        MatchReason::EmptySlot => "empty_slot",
+        MatchReason::LowContrast => "low_contrast",
+        MatchReason::LowConfidence => "low_confidence",
+        MatchReason::ReferencesUnavailable => "references_unavailable",
+        MatchReason::AwaitingFrame => "awaiting_frame",
+    }
+}
+
+fn unix_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |elapsed| {
+            elapsed.as_millis().min(u128::from(u64::MAX)) as u64
+        })
 }
 
 #[derive(Default)]
@@ -106,6 +128,9 @@ pub(crate) struct DraftBarMemory {
     matcher: Option<DraftBarMatcher>,
     pixels: Vec<u8>,
     frame_at: Option<Instant>,
+    /// Per-slot profiles for the current match; kept across short withdrawals, cleared with the
+    /// session (DEC-DRAFT-BAR revision 2).
+    roster: crate::draft_roster::SlotRoster,
 }
 
 impl DraftBarMemory {
@@ -114,6 +139,7 @@ impl DraftBarMemory {
         if should_clear_session(self.epoch, epoch, match_ended) {
             self.withdraw(None);
             self.matcher = None;
+            self.roster.clear();
         }
         self.epoch = epoch;
         self.active = active && epoch.is_some();
@@ -173,6 +199,19 @@ impl DraftBarMemory {
         self.matcher = Some(matcher);
     }
 
+    /// GSI own team and own hero key for `own_slot`; `None` when not admitted.
+    pub(crate) fn set_own(
+        &mut self,
+        side: Option<crate::hero_stats::counters::Side>,
+        hero: Option<String>,
+    ) {
+        self.roster.set_own(side, hero, unix_ms());
+    }
+
+    pub(crate) fn roster(&self) -> &crate::draft_roster::SlotRoster {
+        &self.roster
+    }
+
     pub fn accept(&mut self, pixels: &[u8], geometry: &DraftBarGeometry, at: Instant) {
         if let Some(matcher) = &mut self.matcher {
             let width = geometry.strip_rect.width;
@@ -183,6 +222,27 @@ impl DraftBarMemory {
                 width * 4,
                 geometry,
             );
+            let view = matcher.deck_view(true);
+            let readings: Vec<crate::draft_roster::HeroReading<'_>> = view
+                .slots
+                .iter()
+                .map(|slot| crate::draft_roster::HeroReading {
+                    hero_id: slot.hero_id.as_deref(),
+                    confidence: slot.confidence,
+                    reason: reason_code(slot.reason),
+                })
+                .collect();
+            self.roster.observe_strip(
+                &crate::draft_roster::StripPixels {
+                    pixels,
+                    width,
+                    height: geometry.strip_rect.height,
+                },
+                geometry,
+                &readings,
+                &matcher.lane_icons,
+                unix_ms(),
+            );
         }
         self.pixels.resize(pixels.len(), 0);
         self.pixels.copy_from_slice(pixels);
@@ -191,7 +251,7 @@ impl DraftBarMemory {
     }
 
     /// Binary control-window IPC only. Four little-endian bytes give the JSON
-    /// metadata length, followed by metadata and optionally tight 1504x119 BGRA.
+    /// metadata length, followed by metadata and optionally tight 1504x125 BGRA.
     pub fn packet(
         &self,
         admitted_epoch: Option<u64>,
@@ -216,6 +276,7 @@ impl DraftBarMemory {
             view,
             detail: self.detail.as_deref().filter(|_| active),
             has_frame,
+            roster: active.then_some(&self.roster),
         })
         .map_err(|_| "draft bar response unavailable".to_owned())?;
         let pixels = if has_frame {
@@ -253,6 +314,7 @@ pub struct ReferenceReport {
     pub roster: usize,
     pub built: usize,
     pub ycocg: usize,
+    pub lane_icons: usize,
     pub missing: usize,
     pub unreadable: usize,
     pub decode_failed: usize,
@@ -286,6 +348,8 @@ struct BgraFrame<'a> {
 pub struct DraftBarMatcher {
     references: Vec<ReferenceTemplate>,
     slots: [Option<CachedSlot>; SLOT_COUNT],
+    /// Lane role icons for the own-team labels (5e), built from the same installed files.
+    lane_icons: crate::draft_roster::LaneIcons,
 }
 
 impl DraftBarMatcher {
@@ -293,6 +357,7 @@ impl DraftBarMatcher {
         Self {
             references: Vec::new(),
             slots: std::array::from_fn(|_| None),
+            lane_icons: crate::draft_roster::LaneIcons::default(),
         }
     }
 
@@ -350,6 +415,8 @@ impl DraftBarMatcher {
             });
         }
         report.built = matcher.references.len();
+        matcher.lane_icons = crate::draft_roster::LaneIcons::from_vpk(vpk);
+        report.lane_icons = matcher.lane_icons.len();
         if report.built == 0 {
             report.failure = Some("no_reference_built");
         }
@@ -612,7 +679,7 @@ fn ycocg_to_rgb(rgba: &mut [u8]) {
 
 /// Decode a reference portrait to straight RGBA. `decode_vtex_c` returns YCoCg-encoded DXT5
 /// as raw channels, which made every reference unrecognisable (live test on 8d9f8c3: 0/10).
-fn decode_reference(resource: &[u8]) -> Option<Image> {
+pub(crate) fn decode_reference(resource: &[u8]) -> Option<Image> {
     let mut image = decode_vtex_c(resource).ok()?;
     if stored_as_ycocg(resource) {
         ycocg_to_rgb(&mut image.rgba);
@@ -805,7 +872,7 @@ pub fn draft_bar_geometry(
     let team_slots = |x0| -> [Rect; 5] {
         std::array::from_fn(|index| Rect {
             x: x0 + SLOT_STEP * index as i32,
-            y: STRIP_Y,
+            y: SLOT_Y,
             width: SLOT_WIDTH,
             height: SLOT_HEIGHT,
         })
@@ -904,6 +971,7 @@ pub(crate) mod tests {
                 },
             ],
             slots: std::array::from_fn(|_| None),
+            lane_icons: crate::draft_roster::LaneIcons::default(),
         }
     }
 
@@ -959,10 +1027,16 @@ pub(crate) mod tests {
             geometry.strip_rect,
             Rect {
                 x: 209,
-                y: 6,
+                y: 0,
                 width: 1504,
-                height: 119
+                height: 125
             }
+        );
+        // The strip carries the colour bar (y 0-5, 5d) and our lane labels (y 104-123, 5e).
+        assert!(geometry.strip_rect.y <= crate::draft_roster::COLOUR_Y);
+        assert!(
+            crate::draft_roster::LABEL_Y + crate::draft_roster::LABEL_HEIGHT as i32
+                <= geometry.strip_rect.y + geometry.strip_rect.height as i32
         );
         assert_eq!(
             geometry.slot_rects[0],
@@ -1223,6 +1297,59 @@ pub(crate) mod tests {
         );
     }
 
+    /// DEC-DRAFT-BAR revision 2: the roster rides in the control-window packet while active, stays
+    /// within the deck's 16 KiB metadata cap, carries no player name, and is cleared with the
+    /// session.
+    #[test]
+    fn packet_carries_the_match_roster_and_clears_it_with_the_session() {
+        let start = Instant::now();
+        let geometry = draft_bar_geometry(1920, 1080, 100).unwrap();
+        let strip = synthetic_strip(&geometry);
+        let mut memory = DraftBarMemory::default();
+        memory.observe(Some(4), false, true);
+        memory.install_references(synthetic_matcher());
+        memory.set_own(
+            Some(crate::hero_stats::counters::Side::Radiant),
+            Some("npc_dota_hero_synthetic_one".to_owned()),
+        );
+        memory.accept(&strip, &geometry, start);
+        assert_eq!(memory.roster().own_slot.value, Some(0));
+        let packet = memory.packet(Some(4), start, true).unwrap();
+        let json_len = u32::from_le_bytes(packet[..4].try_into().unwrap()) as usize;
+        assert!(json_len <= 16 * 1024, "metadata {json_len} bytes");
+        let view: serde_json::Value = serde_json::from_slice(&packet[4..4 + json_len]).unwrap();
+        let roster = &view["roster"];
+        assert_eq!(roster["slots"].as_array().unwrap().len(), SLOT_COUNT);
+        assert_eq!(roster["own_slot"]["value"], 0);
+        assert_eq!(
+            roster["slots"][0]["hero"]["value"],
+            "npc_dota_hero_synthetic_one"
+        );
+        assert_eq!(
+            roster["slots"][0]["player_name"]["value"],
+            serde_json::Value::Null
+        );
+        assert_eq!(roster["slots"][0]["player_name"]["reason"], "not_built");
+        // A short withdrawal keeps the roster; a new session clears it.
+        memory.withdraw(Some("no_game_window".to_owned()));
+        assert_eq!(memory.roster().counts().heroes, 1);
+        let inactive = memory.packet(Some(5), start, true).unwrap();
+        let inactive_len = u32::from_le_bytes(inactive[..4].try_into().unwrap()) as usize;
+        let inactive_view: serde_json::Value =
+            serde_json::from_slice(&inactive[4..4 + inactive_len]).unwrap();
+        assert!(
+            inactive_view["roster"].is_null(),
+            "no roster outside the admitted session"
+        );
+        memory.observe(Some(5), false, true);
+        assert_eq!(
+            memory.roster().counts(),
+            crate::draft_roster::RosterCounts::default()
+        );
+        memory.observe(None, true, false);
+        assert_eq!(memory.roster().counts().heroes, 0);
+    }
+
     #[test]
     fn private_packet_withholds_pixels_and_ids_on_stale_fence_and_clears_at_lifecycle_edges() {
         let start = Instant::now();
@@ -1450,7 +1577,85 @@ pub(crate) mod tests {
                     slot.slot, slot.confidence, slot.reason, slot.hero_id
                 );
             }
+            if let Ok(owns) = std::env::var("KOHBOR_5B_OWN") {
+                let own = owns
+                    .split(',')
+                    .nth(index)
+                    .map(|hero| format!("npc_dota_hero_{hero}"));
+                let mut roster = crate::draft_roster::SlotRoster::default();
+                roster.set_own(Some(crate::hero_stats::counters::Side::Dire), own, 1);
+                let view = matcher.deck_view(true);
+                let readings: Vec<crate::draft_roster::HeroReading<'_>> = view
+                    .slots
+                    .iter()
+                    .map(|slot| crate::draft_roster::HeroReading {
+                        hero_id: slot.hero_id.as_deref(),
+                        confidence: slot.confidence,
+                        reason: reason_code(slot.reason),
+                    })
+                    .collect();
+                roster.observe_strip(
+                    &crate::draft_roster::StripPixels {
+                        pixels: &strip,
+                        width: strip_rect.width,
+                        height: strip_rect.height,
+                    },
+                    &geometry,
+                    &readings,
+                    &matcher.lane_icons,
+                    1,
+                );
+                for profile in &roster.slots {
+                    eprintln!(
+                        "PROBE roster frame={index} slot={} colour={:?} ({:.2}, {:?}) lane={:?} ({:.2}, {:?})",
+                        profile.slot,
+                        profile.player_colour.value.map(|c| c.name),
+                        profile.player_colour.confidence,
+                        profile.player_colour.reason,
+                        profile.lane_role.value,
+                        profile.lane_role.confidence,
+                        profile.lane_role.reason
+                    );
+                }
+                eprintln!(
+                    "PROBE roster frame={index} own_slot={:?} reason={:?} counts={:?}",
+                    roster.own_slot.value,
+                    roster.own_slot.reason,
+                    roster.counts()
+                );
+            }
             matcher.clear_slots();
+        }
+    }
+
+    /// Local-only: dump decoded VPK images listed in `KOHBOR_VPK_DUMP_PATHS` (`;`-separated)
+    /// into `KOHBOR_5B_DUMP` as raw RGBA named with their size.
+    #[test]
+    #[ignore]
+    fn dump_vpk_images() {
+        let (Ok(paths), Ok(dir)) = (
+            std::env::var("KOHBOR_VPK_DUMP_PATHS"),
+            std::env::var("KOHBOR_5B_DUMP"),
+        ) else {
+            return;
+        };
+        let game = crate::intake::locate_game().expect("game located");
+        let vpk = kohbor_game_assets::Vpk::open(game.join("game/dota/pak01_dir.vpk")).expect("vpk");
+        for path in paths.split(';') {
+            let raw = vpk.read(&vpk.find(path).expect(path)).unwrap();
+            let image = decode_reference(&raw).unwrap();
+            let name = path.rsplit('/').next().unwrap().replace(".vtex_c", "");
+            std::fs::write(
+                format!("{dir}/{name}-{}x{}.rgba", image.width, image.height),
+                &image.rgba,
+            )
+            .unwrap();
+            eprintln!(
+                "PROBE dumped {name} {}x{} ycocg={}",
+                image.width,
+                image.height,
+                stored_as_ycocg(&raw)
+            );
         }
     }
 }

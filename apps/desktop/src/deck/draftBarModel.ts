@@ -2,7 +2,7 @@
 import { displayHeroName } from "./heroName.ts";
 
 export const DRAFT_WIDTH = 1504;
-export const DRAFT_HEIGHT = 119;
+export const DRAFT_HEIGHT = 125;
 const FRAME_BYTES = DRAFT_WIDTH * DRAFT_HEIGHT * 4;
 const SLOT_COUNT = 10;
 const REASONS = {
@@ -17,11 +17,77 @@ type Reason = keyof typeof REASONS;
 type Team = "radiant" | "dire";
 type Slot = { slot: number; team: Team; hero_id: string | null; confidence: number; reason: Reason };
 
+/** One profile field: value or null, how sure, when (unix ms), which reader, why unknown. */
+export interface RosterField<T> {
+  value: T | null;
+  confidence: number;
+  observed_at_ms: number | null;
+  source: string;
+  reason: string | null;
+}
+export type LaneRole = "safe_lane" | "mid_lane" | "off_lane" | "support" | "hard_support";
+export interface PlayerColour { name: string; rgb: [number, number, number] }
+export interface SlotProfile {
+  slot: number;
+  side: Team;
+  index: number;
+  hero: RosterField<string>;
+  player_colour: RosterField<PlayerColour>;
+  lane_role: RosterField<LaneRole>;
+  player_name: RosterField<string>;
+}
+/** Per-slot profiles for the current match (DEC-DRAFT-BAR revision 2). Memory only. */
+export interface SlotRoster { slots: SlotProfile[]; own_slot: RosterField<number> }
+
 export interface DraftBarFrame {
   active: boolean;
   detail: string | null;
   slots: Slot[];
   bgra: Uint8Array | null;
+  roster: SlotRoster | null;
+}
+
+const LANE_ROLES: readonly LaneRole[] = ["safe_lane", "mid_lane", "off_lane", "support", "hard_support"];
+
+function rosterField<T>(input: unknown, valid: (value: unknown) => value is T): RosterField<T> | null {
+  if (!record(input) || typeof input.source !== "string" ||
+      typeof input.confidence !== "number" || !Number.isFinite(input.confidence) ||
+      input.confidence < 0 || input.confidence > 1 ||
+      (input.reason !== null && typeof input.reason !== "string") ||
+      (input.observed_at_ms !== null && (typeof input.observed_at_ms !== "number" || !Number.isFinite(input.observed_at_ms))) ||
+      (input.value !== null && !valid(input.value))) return null;
+  return {
+    value: (input.value ?? null) as T | null, confidence: input.confidence,
+    observed_at_ms: input.observed_at_ms as number | null, source: input.source, reason: input.reason as string | null,
+  };
+}
+
+const isHero = (value: unknown): value is string => typeof value === "string" && /^npc_dota_hero_[a-z0-9_]{1,64}$/.test(value);
+const isName = (value: unknown): value is string => typeof value === "string";
+const isLane = (value: unknown): value is LaneRole => typeof value === "string" && (LANE_ROLES as readonly string[]).includes(value);
+const isSlotIndex = (value: unknown): value is number => Number.isInteger(value) && (value as number) >= 0 && (value as number) < SLOT_COUNT;
+function isColour(value: unknown): value is PlayerColour {
+  return record(value) && typeof value.name === "string" && Array.isArray(value.rgb) && value.rgb.length === 3 &&
+    value.rgb.every((channel) => Number.isInteger(channel) && channel >= 0 && channel <= 255);
+}
+
+/** A malformed roster is dropped on its own; the strip and 5b slots still render. */
+export function parseSlotRoster(input: unknown): SlotRoster | null {
+  if (!record(input) || !Array.isArray(input.slots) || input.slots.length !== SLOT_COUNT) return null;
+  const ownSlot = rosterField(input.own_slot, isSlotIndex);
+  if (!ownSlot) return null;
+  const slots: SlotProfile[] = [];
+  for (const [index, slot] of input.slots.entries()) {
+    const side = index < 5 ? "radiant" : "dire";
+    if (!record(slot) || slot.slot !== index || slot.side !== side || slot.index !== index % 5) return null;
+    const hero = rosterField(slot.hero, isHero);
+    const colour = rosterField(slot.player_colour, isColour);
+    const lane = rosterField(slot.lane_role, isLane);
+    const name = rosterField(slot.player_name, isName);
+    if (!hero || !colour || !lane || !name) return null;
+    slots.push({ slot: index, side, index: index % 5, hero, player_colour: colour, lane_role: lane, player_name: name });
+  }
+  return { slots, own_slot: ownSlot };
 }
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -31,7 +97,8 @@ function record(value: unknown): value is Record<string, unknown> {
 export function parseDraftBarPacket(input: ArrayBuffer): DraftBarFrame | null {
   if (!(input instanceof ArrayBuffer) || input.byteLength < 4) return null;
   const metadataLength = new DataView(input).getUint32(0, true);
-  if (metadataLength > 4096 || metadataLength + 4 > input.byteLength) return null;
+  // The roster (DEC-DRAFT-BAR revision 2) makes the metadata about 5 KB.
+  if (metadataLength > 16384 || metadataLength + 4 > input.byteLength) return null;
   const pixelsAt = 4 + metadataLength;
   let meta: unknown;
   try {
@@ -66,6 +133,7 @@ export function parseDraftBarPacket(input: ArrayBuffer): DraftBarFrame | null {
     detail: meta.detail,
     slots,
     bgra: meta.has_frame ? new Uint8Array(input, pixelsAt) : null,
+    roster: meta.active ? parseSlotRoster(meta.roster) : null,
   };
 }
 
