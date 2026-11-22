@@ -51,4 +51,4 @@ Secrets live only in Supabase (Edge Function secrets, Google client secret) and 
 2. BACKEND-STACK ("Supabase as Postgres only", broker on the owner's PC) does not describe the alpha: Supabase Auth and an Edge Function are used; no broker runs.
 3. DEC-PRIVACY-LEGAL is open, but personal data of testers is now collected. The privacy wording in the app is marked pending legal review.
 4. **Recorded by DEC-ALPHA-AUTH-DEVIATION:** ACCOUNT-001..010 are now in `contracts/requirements.json`; the alpha deviation from ACCOUNT-002/005/007 is in `contracts/decisions.json`.
-5. The Supabase-only migrations and the Edge Function source are now in `supabase/` (copied from live state on 2026-11-22; see its README). The invite-code generator is still not in the repository.
+5. The Supabase-only migrations and the Edge Function source are now in `supabase/` (copied from live state on 2026-11-22; see its README). The invite-code generator is `supabase/tools/make-invite-codes.mjs` (offline; plain codes to a private file, hashes-only SQL).
