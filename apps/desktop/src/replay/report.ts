@@ -1,4 +1,5 @@
 export const REPORT_FORMAT = "kohbor.post-match-replay.v2";
+export const REPORT_FORMAT_V3 = "kohbor.post-match-replay.v3";
 const LEGACY_FORMAT = "kohbor.post-match-replay.v1";
 export const MAX_REPORT_BYTES = 16 * 1024 * 1024;
 const MAX_DURATION = 7200;
@@ -31,7 +32,47 @@ interface MapLayout {
   calibration: { sx: number; sy: number; ox: number; oy: number };
   map: string | null;
 }
+export type DeathType = "solo" | "gank" | "teamfight" | "other";
+export interface CoachDeath {
+  tick: number;
+  t: number;
+  type: DeathType;
+  enemiesInvolved: number;
+  alliesNear: number;
+  nearbyDeaths: number;
+  sampleAge: number;
+  enemyVisibleSeconds: number | null;
+  ownWard: boolean;
+  enemyWard: boolean;
+  enemySmoke: number | null;
+}
+export type LaneName = "top" | "mid" | "bot";
+export interface LaneRow {
+  lane: LaneName;
+  heroes: string[];
+  opponents: number;
+  nwDiff: number | null;
+  deathsBefore: number;
+  outcome: "ahead" | "even" | "behind" | null;
+}
+export interface CoachNote { kind: string; evidence: number[]; th: string; en: string }
+export interface MatchCoach {
+  deaths: CoachDeath[];
+  lane10: { lanes: LaneRow[]; roaming: string[] } | null;
+  notes: CoachNote[];
+}
+export interface CoachRules {
+  version: string;
+  provisional: true;
+  enemyPositions: "full-map";
+  deathType: { radius: number; windowSeconds: number; allyRadius: number; teamfightDeaths: number; teamfightSeconds: number; teamfightRadius: number };
+  vision: { observerRadius: number; visibleWindowSeconds: number };
+  smoke: { windowSeconds: number };
+  lane: { minute: number; threshold: number };
+  notes: { max: number; seenSeconds: number };
+}
 interface ReplayMatch {
+  coach?: MatchCoach;
   patch: string | null;
   id: string;
   team: Team;
@@ -43,8 +84,9 @@ interface ReplayMatch {
   roster: Actor[];
 }
 export interface PostMatchReplay {
-  format: typeof REPORT_FORMAT;
+  format: typeof REPORT_FORMAT | typeof REPORT_FORMAT_V3;
   source: "DEM";
+  rules?: CoachRules;
   maps: MapLayout[];
   matches: ReplayMatch[];
 }
@@ -114,9 +156,10 @@ function events(value: unknown, start: number, duration: number, deaths: boolean
   return true;
 }
 
-function match(value: unknown, legacy: boolean): boolean {
+function match(value: unknown, legacy: boolean, v3 = false): boolean {
   const keysForMatch = ["id", "hero", "team", "duration", "points", "deaths", "roster"];
   if (!legacy) keysForMatch.push("patch", "start");
+  if (v3) keysForMatch.push("coach");
   if (!fields(value, keysForMatch)
     || typeof value.id !== "string" || !/^[1-9][0-9]{0,19}$/.test(value.id)
     || !team(value.team) || !name(value.hero) || !number(value.duration, 1, MAX_DURATION)
@@ -134,7 +177,57 @@ function match(value: unknown, legacy: boolean): boolean {
     if (actor.key === "self" ? actor.hero !== value.hero : !points(actor.points, start, value.duration)) return false;
     keys.add(actor.key);
   }
-  return true;
+  return !v3 || coach(value.coach, value.deaths as { tick: number }[], value.duration);
+}
+
+const integer = (x: unknown, min: number, max: number): x is number => number(x, min, max) && Number.isInteger(x);
+const deathTypes = ["solo", "gank", "teamfight", "other"];
+const laneNames = ["top", "mid", "bot"];
+const outcomes = [null, "ahead", "even", "behind"];
+const coachDeathKeys = ["tick", "t", "type", "enemiesInvolved", "alliesNear", "nearbyDeaths", "sampleAge",
+  "enemyVisibleSeconds", "ownWard", "enemyWard", "enemySmoke"];
+
+function coach(value: unknown, deaths: { tick: number }[], duration: number): boolean {
+  if (!fields(value, ["deaths", "lane10", "notes"]) || !Array.isArray(value.deaths)
+    || value.deaths.length !== deaths.length || !Array.isArray(value.notes) || value.notes.length > 3) return false;
+  const ticks = new Set(deaths.map(d => d.tick));
+  for (const [i, d] of value.deaths.entries()) {
+    if (!fields(d, coachDeathKeys) || d.tick !== deaths[i]!.tick || !number(d.t, MIN_START, duration)
+      || !deathTypes.includes(d.type as string) || !integer(d.enemiesInvolved, 0, 5) || !integer(d.alliesNear, 0, 4)
+      || !integer(d.nearbyDeaths, 0, 10) || !number(d.sampleAge, 0, 60)
+      || !(d.enemyVisibleSeconds === null || integer(d.enemyVisibleSeconds, 0, 60))
+      || typeof d.ownWard !== "boolean" || typeof d.enemyWard !== "boolean"
+      || !(d.enemySmoke === null || number(d.enemySmoke, 0, 120))) return false;
+  }
+  if (value.lane10 !== null) {
+    const lane10 = value.lane10;
+    if (!fields(lane10, ["lanes", "roaming"]) || !Array.isArray(lane10.lanes) || lane10.lanes.length > 3
+      || !Array.isArray(lane10.roaming) || !lane10.roaming.every(key => own.includes(key as string))) return false;
+    for (const row of lane10.lanes) {
+      if (!fields(row, ["lane", "heroes", "opponents", "nwDiff", "deathsBefore", "outcome"])
+        || !laneNames.includes(row.lane as string) || !Array.isArray(row.heroes) || row.heroes.length === 0
+        || !row.heroes.every(key => own.includes(key as string)) || !integer(row.opponents, 0, 5)
+        || !(row.nwDiff === null || integer(row.nwDiff, -200000, 200000)) || !integer(row.deathsBefore, 0, 100)
+        || !outcomes.includes(row.outcome as string | null)) return false;
+    }
+  }
+  return value.notes.every(note => fields(note, ["kind", "evidence", "th", "en"])
+    && typeof note.kind === "string" && /^[a-z][a-z0-9-]{0,39}$/.test(note.kind)
+    && sentence(note.th) && sentence(note.en) && Array.isArray(note.evidence) && note.evidence.length <= 100
+    && note.evidence.every(tick => ticks.has(tick as number)));
+}
+
+const positive = (x: unknown) => number(x, 0, 100000);
+function rules(value: unknown): value is CoachRules {
+  return fields(value, ["version", "provisional", "enemyPositions", "deathType", "vision", "smoke", "lane", "notes"])
+    && typeof value.version === "string" && /^[a-z0-9.-]{1,40}$/.test(value.version)
+    && value.provisional === true && value.enemyPositions === "full-map"
+    && fields(value.deathType, ["radius", "windowSeconds", "allyRadius", "teamfightDeaths", "teamfightSeconds", "teamfightRadius"])
+    && Object.values(value.deathType).every(positive)
+    && fields(value.vision, ["observerRadius", "visibleWindowSeconds"]) && Object.values(value.vision).every(positive)
+    && fields(value.smoke, ["windowSeconds"]) && positive(value.smoke.windowSeconds)
+    && fields(value.lane, ["minute", "threshold"]) && Object.values(value.lane).every(positive)
+    && fields(value.notes, ["max", "seenSeconds"]) && integer(value.notes.max, 0, 3) && positive(value.notes.seenSeconds);
 }
 
 const patchName = (value: unknown): value is string => typeof value === "string" && /^\d{1,2}\.\d{2}[a-z]?$/.test(value);
@@ -158,9 +251,11 @@ function mapLayout(value: unknown): value is MapLayout {
 export function readPostMatchReplay(value: unknown): PostMatchReplay | null {
   const legacy = fields(value, ["format", "source", "calibration", "map", "matches"])
     && value.format === LEGACY_FORMAT;
-  if (!legacy && (!fields(value, ["format", "source", "maps", "matches"]) || value.format !== REPORT_FORMAT)) return null;
+  const v3 = !legacy && fields(value, ["format", "source", "rules", "maps", "matches"]) && value.format === REPORT_FORMAT_V3;
+  if (!legacy && !v3 && (!fields(value, ["format", "source", "maps", "matches"]) || value.format !== REPORT_FORMAT)) return null;
+  if (v3 && !rules(value.rules)) return null;
   if (value.source !== "DEM" || !Array.isArray(value.matches) || value.matches.length === 0
-    || value.matches.length > 12 || !value.matches.every(game => match(game, legacy))) return null;
+    || value.matches.length > 12 || !value.matches.every(game => match(game, legacy, v3))) return null;
   if (new Set(value.matches.map(m => m.id)).size !== value.matches.length) return null;
   if (legacy) {
     if (!calibration(value.calibration, 1000, 959) || !(value.map === null || image(value.map))) return null;
