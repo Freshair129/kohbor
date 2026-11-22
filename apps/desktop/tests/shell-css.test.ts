@@ -165,13 +165,29 @@ test("app styles use design tokens instead of literal colors", () => {
   assert.doesNotMatch(css, /#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i, "App CSS should use shared palette tokens");
 });
 
-test("the in-game HUD surfaces and objective accents use shared design tokens", () => {
-  assert.match(hudCss, /--hud-glass:\s*var\(--ground\)/);
-  assert.match(hudCss, /--hud-text:\s*var\(--text\)/);
-  assert.match(hudCss, /\.objective-card-water_rune\s*\{\s*--objective-accent:\s*var\(--ally\)/);
-  assert.match(hudCss, /\.objective-card-power_rune\s*\{\s*--objective-accent:\s*var\(--warning\)/);
-  assert.match(hudCss, /\.objective-card-tormentor\s*\{\s*--objective-accent:\s*var\(--critical\)/);
-  assert.doesNotMatch(hudCss, /#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i, "HUD CSS should use shared palette tokens");
+test("the in-game HUD keeps its own fixed dark glass look and never follows the app theme (owner 2026-11-20)", () => {
+  assert.match(hudCss, /--hud-glass:\s*rgb\(14 17 24 \/ 88%\)/);
+  assert.match(hudCss, /--hud-text:\s*#e7eef6/);
+  assert.doesNotMatch(
+    hudCss,
+    /var\(--(ground|surface|raised|text|text-2|muted|line|line-subtle|line-strong|accent|accent-surface|ally|ally-surface|warning|warning-surface|critical|critical-surface|brand-edge)\)/,
+    "HUD CSS must not use theme tokens: the HUD window has no dark theme scope and would follow a light Windows theme",
+  );
+});
+
+test("HUD chips and the objective card stay on the fixed dark glass (regression in build b0b0745)", () => {
+  const glass = /--hud-glass:\s*rgb\((\d+) (\d+) (\d+) \/ (\d+)%\)/.exec(hudCss);
+  assert.ok(glass, "--hud-glass must be a fixed rgb value");
+  const [r, g, b, alpha] = glass.slice(1).map(Number);
+  const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  assert.ok(luminance < 0.15 && alpha >= 80, `HUD glass must stay dark and mostly opaque, got ${luminance.toFixed(3)} at ${alpha}%`);
+  const card = /\.objective-card\s*\{([^}]*)\}/.exec(hudCss)?.[1] ?? "";
+  assert.match(card, /background:\s*var\(--hud-glass\)/);
+  assert.match(card, /color:\s*var\(--hud-text\)/);
+  assert.match(hudCss, /background:\s*var\(--hud-glass\);\s*border:\s*1px solid var\(--hud-edge\)/, "HUD chips use the fixed glass");
+  for (const kind of ["water_rune", "power_rune", "bounty_rune", "wisdom_rune", "tormentor"]) {
+    assert.match(hudCss, new RegExp(`\\.objective-card-${kind}\\s*\\{\\s*--objective-accent:\\s*var\\(--hud-`), `${kind} accent comes from the fixed HUD palette`);
+  }
 });
 
 test("the approved character mark is decorative above the accessible wordmark", () => {

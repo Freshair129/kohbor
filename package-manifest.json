@@ -823,8 +823,8 @@
     },
     {
       "path": "apps/desktop/src/hud.css",
-      "bytes": 5271,
-      "sha256": "cbc40c0f9670db7f6660f265defd510471f762d3160d0d927d2045fb932bc545"
+      "bytes": 5345,
+      "sha256": "69c6cea86660e26529d0f1b82f7205dfa897fddf97bc72a1ce25202e7b738aaa"
     },
     {
       "path": "apps/desktop/src/hudCopy.ts",
@@ -1903,8 +1903,8 @@
     },
     {
       "path": "apps/desktop/tests/shell-css.test.ts",
-      "bytes": 18352,
-      "sha256": "b38668e607ca0dc3f3544fafe6bb3462640776be0412cda703298d52bb112bfc"
+      "bytes": 19412,
+      "sha256": "67f73305db2f07824f6b5d95980b6db7de6a7442b9a6078e6b51f5f6cf2f34a2"
     },
     {
       "path": "apps/desktop/tests/shell-footer.test.ts",
