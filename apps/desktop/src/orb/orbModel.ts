@@ -141,6 +141,11 @@ export function chargeCue(state: OrbState, elapsedSinceStateMs: number, reducedM
 }
 
 /** Wheel over a fader: one notch is 5 %, snapped to the 5 % grid; wheel up is louder. */
+/** Owner decision 2026-11-23: only the primary (left) mouse button interacts with the orb; right-click is Dota's move. */
+export function isOrbPrimaryButton(button: number): boolean {
+  return button === 0;
+}
+
 export function wheelStep(current: number, deltaY: number): number {
   const value = Math.round(Math.min(100, Math.max(0, current)));
   if (deltaY === 0 || !Number.isFinite(deltaY)) return value;
