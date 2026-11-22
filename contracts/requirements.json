@@ -3024,7 +3024,8 @@
           "apps/desktop/src/hudModel.ts",
           "apps/desktop/tests/hud-layout.test.ts",
           "apps/desktop/src/layoutEditor/fullscreen.ts",
-          "apps/desktop/src/runtime.ts"
+          "apps/desktop/src/runtime.ts",
+          "apps/desktop/src/assets/editor/editor-reference-1080p.jpg"
         ],
         "evidence_refs": [
           "docs/delivery/evidence/objective-timers-live/owner-live-9c96013.receipt.json"

@@ -153,3 +153,13 @@ This draft is useful for M0 planning and independent local-core implementation. 
 The owner statement recorded by the change request and OWNER-QUESTIONS is “Approve all 11”. For DEC-EDGE-ORB, the owner also waived the 200-click probe (“ใครจะมานั่งกด200ครั้งทำไปเพื่ออะไรอันเนี้ยไม่ต้องเทสอันนี้ได้ไหม”), set the reveal (“มันเอามาเป็นโฮเวอร์อ่ะให้มันมีดีเลย์หนึ่งวิค่อยเลื่อนออกมาแต่ตอนโฮเวอร์อ่ะให้กลมๆอ่ะค่อยๆขยายออกมาในระยะเวลาหนึ่งวิ”) and requested the vertical mixer (“ปรับภาพสองให้เป็นแนวตั้งเพื่อไม่บังจอเยอะ”). Revision 2 replaces the 300 ms reveal and separate native probe, specifies 1 s 80–100% cue and built-in fail-closed guard, three-channel mixer and Focus mode. Per-application volume is restricted to Dota and user-selected music apps.
 
 DEC-PICK-STATS revision 2 and DEC-EDGE-ORB revision 2 preserve prior decision text in `contracts/decisions.json` history. C4 is folded into DEC-EDGE-ORB; no separate decision is needed because it is the mixer permission boundary. The decision log records these changes; implementation and native evidence remain NOT_RUN.
+
+### Owner decision: bundled layout-editor reference screenshot (2026-11-22)
+
+Product owner, relayed by the lead session after it explained the risk (Valve game art distributed with the app; low practical risk; the owner's own rights call). Owner words: “ยืนยันฝังเลยแล้วตรวจสอบภาพดีๆนะว่ามีชื่อของเพลเยอร์ทั้งของผมหรือของคนอื่นไหมถ้ามีก็เซ็นเซอร์เบลอให้หน่อย”
+
+- Scope: exactly one redacted screenshot, `apps/desktop/src/assets/editor/editor-reference-1080p.jpg`, used only as the default background of the Settings overlay layout editor (UI-015). Resolution order: a local Lab reference file, then this bundled image, then the plain grid.
+- This is a narrow exception to the "no official game logos or Valve art" rule. The rule still applies to every other asset, and a rights-team review is required before any public release.
+- Redaction: the one player-identifying chat-feed line was pixelated; the image was re-checked for player names and account ids and carries no metadata. Provenance, hashes and what is not established are recorded in [THIRD-PARTY-DATA](THIRD-PARTY-DATA.md).
+- Not approved by this decision: any other screenshot or game art, showing the image in game, or any rights clearance.
+

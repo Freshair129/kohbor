@@ -2,10 +2,12 @@ import { useEffect, useRef, useState, type CSSProperties, type PointerEvent, typ
 import { OBJECTIVE_COPY, type Locale } from "../copy";
 import { ObjectiveAlert } from "../ObjectiveAlert";
 import { layoutGet, layoutPatch, layoutReferenceImage, layoutReset } from "../runtime";
+import bundledReference from "../assets/editor/editor-reference-1080p.jpg";
 import { exitAnyFullscreen } from "./fullscreen";
 import {
   clampObjectiveWidget,
   clampObjectiveWidgetWithReasons,
+  editorBackground,
   LAYOUT_PRESETS,
   LAYOUT_REFERENCE_SCREEN,
   layoutReadoutPx,
@@ -16,7 +18,6 @@ import {
   OBJECTIVE_CARD_LAYOUT_DEFAULT,
   parseLayoutDocument,
   pointerToLayout,
-  referenceBackground,
   type BlockingReason,
   type WidgetLayout,
 } from "./model";
@@ -228,6 +229,7 @@ export function LayoutEditor({ locale }: { locale: Locale }) {
   const allowanceStyle = {
     "--allowance-height-percent": `${OBJECTIVE_CARD_ANNOUNCEMENT_OVERLAP_PX_AT_1080 / 1080 * 100}%`,
   } as CSSProperties;
+  const background = editorBackground(reference, bundledReference);
   const readout = layoutReadoutPx(layout, EDITOR_VIEWPORT);
   const readoutText = `${copy.layoutReadout}: x ${readout.x} px · y ${readout.y} px (${layout.x_percent.toFixed(2)}%, ${layout.y_percent.toFixed(2)}%) · ${layout.scale.toFixed(2)}×`;
   const blockedText = blockedBy.length > 0
@@ -264,9 +266,10 @@ export function LayoutEditor({ locale }: { locale: Locale }) {
       </header>
       <div className={`layout-editor-stage${fullscreen ? " is-fullscreen" : ""}`} ref={stage}>
         <div
-          className={`layout-editor-preview${reference ? " has-reference" : ""}`}
+          className={`layout-editor-preview${background.source === "none" ? "" : " has-reference"}`}
           ref={preview}
-          style={referenceBackground(reference)}
+          style={background.style}
+          data-background={background.source}
           aria-label={copy.layoutPreview}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
@@ -303,7 +306,8 @@ export function LayoutEditor({ locale }: { locale: Locale }) {
           </div>
         )}
       </div>
-      {!reference && <p className="layout-editor-hint" role="note">{copy.layoutNoReference}</p>}
+      {background.source === "none" && <p className="layout-editor-hint" role="note">{copy.layoutNoReference}</p>}
+      {background.source !== "none" && <p className="layout-editor-hint">{background.source === "local" ? copy.layoutBackgroundLocal : copy.layoutBackgroundBundled}</p>}
       {scaleControls}
       <p className="layout-editor-position">{readoutText}</p>
       {blockedText && !fullscreen && <p className="layout-editor-blocked" role="status">{blockedText}</p>}

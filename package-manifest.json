@@ -682,14 +682,19 @@
       "sha256": "16c3df38c8146e7672deefd0498c618a72129c600e25ef6584a511b61a487a3a"
     },
     {
+      "path": "apps/desktop/src/assets/editor/editor-reference-1080p.jpg",
+      "bytes": 333443,
+      "sha256": "e989e489bd4a4519c9b2b8b346ecee290e6c1495248b4bf3729d4345f1f223ce"
+    },
+    {
       "path": "apps/desktop/src/audioPrefs.ts",
       "bytes": 13710,
       "sha256": "6cc556f4d71239a1396f94787d99992c040e9668652c917bdc6716e4b8a44641"
     },
     {
       "path": "apps/desktop/src/copy.ts",
-      "bytes": 74596,
-      "sha256": "c1c8b80aec22e8949172e6e673e43e46c6916e1444014300aec7db0600db5a41"
+      "bytes": 75179,
+      "sha256": "dc390a405e7ad39488557e2400e056c3b00da2279e2f075de92c605d74b9cb42"
     },
     {
       "path": "apps/desktop/src/deck/AlertStrip.tsx",
@@ -888,8 +893,8 @@
     },
     {
       "path": "apps/desktop/src/layoutEditor/LayoutEditor.tsx",
-      "bytes": 12468,
-      "sha256": "a46616e88d989351704a54d5a9c0cd53217b75134a3946d2204d4f0e51a5efe5"
+      "bytes": 12848,
+      "sha256": "41265d1a1f7a15fb5e85f4054b4a9035e03ce84e34954259c29cbdbd99c38462"
     },
     {
       "path": "apps/desktop/src/layoutEditor/fullscreen.ts",
@@ -898,8 +903,8 @@
     },
     {
       "path": "apps/desktop/src/layoutEditor/model.ts",
-      "bytes": 12308,
-      "sha256": "c05821f255a58f4d85499d83446d27e283865d53ae96340a4c87d6f352c50ae5"
+      "bytes": 12944,
+      "sha256": "ce7707365ba246e919d4178cbbdfd7b37e35f2c67bf01e73b236ddc0994ff5a4"
     },
     {
       "path": "apps/desktop/src/live/DangerMeter.tsx",
@@ -1778,8 +1783,8 @@
     },
     {
       "path": "apps/desktop/tests/layoutEditor.test.ts",
-      "bytes": 9953,
-      "sha256": "fb9f2f1f6458ea75a6302597c172d93756d9f2bac1249887b17b8aced9c2dc2d"
+      "bytes": 12750,
+      "sha256": "9a7c7eb6eef74617ff040315d71477c01137a81251d69975ed308ce81bd697aa"
     },
     {
       "path": "apps/desktop/tests/live-capture-config.test.ts",
@@ -2123,8 +2128,8 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 227444,
-      "sha256": "bcfe8a24f9e1c5107629dd699f2852e5ef277359600a58353934fa56787c5917"
+      "bytes": 227515,
+      "sha256": "c8dd1fcdbcf0d5b6a0fe8e8a42b7415289d9731ee8d8a92aceeab5250982f8bf"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -2998,8 +3003,8 @@
     },
     {
       "path": "docs/design/KOHBOR-LAB.md",
-      "bytes": 39325,
-      "sha256": "8c330c0289a579b6e5280db57e2771b033fe4362186752d1de5da0d923f2166a"
+      "bytes": 39978,
+      "sha256": "171ee61c83d227fd923829b2a450b7022865085ad4a1a8cb84a50c18de2962f6"
     },
     {
       "path": "docs/design/MEDIA-PACK-SPEC.md",
@@ -3463,8 +3468,8 @@
     },
     {
       "path": "docs/domains/ui-overlay/CARD.md",
-      "bytes": 7576,
-      "sha256": "dcaa03e7c157e8ac51080d18635556176846911e71e1079019c3d7bc19d5a26b"
+      "bytes": 7990,
+      "sha256": "e2e3df399bbe2fa347c323b1da74d2e1a72707125977210a0358212cc3eb209d"
     },
     {
       "path": "docs/domains/ui-overlay/state.json",
@@ -3503,8 +3508,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 52599,
-      "sha256": "a48374ef9b7df269cb7bf84f43faf64cecb8a38799ca63d048cd8aa184171c9c"
+      "bytes": 54018,
+      "sha256": "23b79fc0697d2091bf52232116ca18227edcee0a8589fa964973b636e604b6e4"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
@@ -3533,8 +3538,8 @@
     },
     {
       "path": "docs/governance/THIRD-PARTY-DATA.md",
-      "bytes": 2987,
-      "sha256": "02e909534a21782af9afaf1593082d4d3249f555335caa6885dfb73d95c838ed"
+      "bytes": 5545,
+      "sha256": "735ef09e604808b8b73e7ce22ff97d7ecea41ec086cc7144ecc0f60371808d00"
     },
     {
       "path": "docs/operations/GSI-REPLAY.md",
@@ -3583,8 +3588,8 @@
     },
     {
       "path": "docs/requirements/RTM.csv",
-      "bytes": 49558,
-      "sha256": "2ada60de577fc8fbc16fd498289c66132cfa075792afa81157d11f3351595a1a"
+      "bytes": 49616,
+      "sha256": "f2f6fa2625e634d6a0a3772a98521c3dcf1239a75861feb05e1a6d544abdf9ec"
     },
     {
       "path": "docs/requirements/SRS.md",

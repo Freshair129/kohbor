@@ -9,10 +9,11 @@ export type Phase = "none" | "draft" | "pregame" | "live" | "post_game" | "unsup
 export const OBJECTIVE_COPY = {
   th: {
     title: "การแจ้งเตือนวัตถุประสงค์",
-    water_rune: "รูนน้ำ",
-    power_rune: "รูนพลัง",
-    bounty_rune: "รูนค่าหัว",
-    wisdom_rune: "รูนปัญญา",
+    // Objective names stay in English in every locale, like the in-game card (owner 2026-11-22).
+    water_rune: "Water rune",
+    power_rune: "Power rune",
+    bounty_rune: "Bounty rune",
+    wisdom_rune: "Wisdom rune",
     tormentor: "Tormentor",
     diagnosticMapKeys: "บันทึกคีย์แผนที่เพื่อวินิจฉัย",
     diagnosticHelp: "บันทึกเฉพาะชื่อคีย์ map และค่าของคีย์ roshan_* ลงไฟล์ในเครื่องที่มีขนาดจำกัด",
@@ -36,6 +37,8 @@ export const OBJECTIVE_COPY = {
     layoutNoReference: "ยังไม่มีภาพเกมอ้างอิง จึงแสดงกริดแทน วางภาพหน้าจอเกม 1920x1080 ชื่อ dota-overlay-reference.jpg ไว้ในโฟลเดอร์ lab/assets ของข้อมูลแอป (ใช้ในเครื่องเท่านั้น ไม่ถูกส่งออก)",
     layoutBlocked: "การ์ดหยุดที่ขอบพื้นที่ห้ามวาง",
     layoutReadout: "ตำแหน่ง",
+    layoutBackgroundBundled: "พื้นหลัง: ภาพตัวอย่างหน้าจอเกมที่มากับแอป (ชื่อผู้เล่นถูกเบลอแล้ว)",
+    layoutBackgroundLocal: "พื้นหลัง: ภาพอ้างอิงของคุณในเครื่อง",
     layoutRegions: { minimap: "มินิแมป", bottom_hud: "HUD ด้านล่าง", top_bar: "แถบบน", announcement: "พื้นที่ประกาศ (การ์ดเข้าได้ 24 px)", edge: "ขอบจอ 8 px" },
     loading: "กำลังโหลดการตั้งค่า…",
     loadFailed: "โหลดการตั้งค่าการแจ้งเตือนไม่สำเร็จ",
@@ -70,6 +73,8 @@ export const OBJECTIVE_COPY = {
     layoutNoReference: "No game reference image yet, so a grid is shown. Put a 1920x1080 game screenshot named dota-overlay-reference.jpg in the app data lab/assets folder (stays on this computer).",
     layoutBlocked: "The card stopped at a protected area",
     layoutReadout: "Position",
+    layoutBackgroundBundled: "Background: sample game screenshot bundled with the app (player names blurred)",
+    layoutBackgroundLocal: "Background: your local reference image",
     layoutRegions: { minimap: "Minimap", bottom_hud: "Bottom HUD", top_bar: "Top bar", announcement: "Announcement area (card may enter 24 px)", edge: "8 px screen edge" },
     loading: "Loading settings…",
     loadFailed: "Could not load objective alert settings",

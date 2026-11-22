@@ -252,6 +252,22 @@ export function layoutReadoutPx(layout: WidgetLayout, viewport: LayoutViewport =
   return { x: Math.round(layout.x_percent * viewport.width / 100), y: Math.round(layout.y_percent * viewport.height / 100) };
 }
 
+export type EditorBackgroundSource = "local" | "bundled" | "none";
+
+/**
+ * Background resolution order (owner 2026-11-22): a local Lab reference file wins, then the bundled
+ * redacted sample screenshot, then the plain grid.
+ */
+export function editorBackground(local: string | null, bundled: string | null): {
+  source: EditorBackgroundSource;
+  style: { backgroundImage: string } | undefined;
+} {
+  const own = referenceBackground(local);
+  if (own) return { source: "local", style: own };
+  if (bundled) return { source: "bundled", style: { backgroundImage: `url("${bundled}")` } };
+  return { source: "none", style: undefined };
+}
+
 /** Background style for the local reference screenshot; undefined means the plain grid fallback. */
 export function referenceBackground(reference: string | null): { backgroundImage: string } | undefined {
   return reference && reference.startsWith("data:image/jpeg;base64,") ? { backgroundImage: `url("${reference}")` } : undefined;
