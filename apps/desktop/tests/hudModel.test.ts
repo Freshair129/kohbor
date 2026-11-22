@@ -464,3 +464,17 @@ test("F3: parseHudState accepts only the optional synthetic marker true", () => 
   }
 });
 
+
+// Regression (fix/risk-hud-unavailable): a golden host payload with both sources and a
+// known meter must not show the "Data not ready" pill.
+test("meter pill is not blind for a golden host payload with both sources", async () => {
+  const meterModel = api(model, "meterModel");
+  const live = await import("../src/live/state.ts");
+  const golden = JSON.parse(readFileSync(new URL("./fixtures/risk-state-payloads.json", import.meta.url), "utf8"));
+  const byName = Object.fromEntries(golden.cases.map((item: any) => [item.name, item.payload]));
+  const known = meterModel({ state: live.parseRiskState(byName.both_sources_level_zero), lastVisionEvent: null });
+  assert.equal(known.blind, false);
+  assert.equal(known.level, 0);
+  const gsiOnly = meterModel({ state: live.parseRiskState(byName.gsi_only_level_one), lastVisionEvent: null });
+  assert.equal(gsiOnly.blind, true);
+});

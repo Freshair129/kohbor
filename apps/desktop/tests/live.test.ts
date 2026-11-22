@@ -357,3 +357,21 @@ test("resource samples become unknown after 3000 ms and require every field", ()
   assert.equal(state.parseResourceMetrics({ working_set_bytes: 1_000_000, cpu_percent: 2.5 }), null);
   assert.equal(state.parseResourceMetrics(resourcePayload({ gpu_util: "unknown" })), null);
 });
+
+// Regression (fix/risk-hud-unavailable): every payload the host emits must parse.
+// The host test risk_payload_matches_the_golden_shape_the_webview_parses
+// (capture_host.rs) checks the same file from the Rust side.
+test("parseRiskState admits every golden host risk payload", () => {
+  const golden = JSON.parse(readFileSync(new URL("./fixtures/risk-state-payloads.json", import.meta.url), "utf8"));
+  assert.ok(golden.cases.length >= 5);
+  for (const item of golden.cases) {
+    const parsed = state.parseRiskState(item.payload);
+    assert.ok(parsed, `${item.name} parses`);
+    assert.equal(parsed.meter, item.output.meter, `${item.name} meter`);
+    assert.equal(parsed.gsi_source, item.output.gsi_source, `${item.name} gsi_source`);
+    assert.equal(parsed.vision_source, item.output.vision_source, `${item.name} vision_source`);
+    assert.deepEqual(parsed.events, item.output.events, `${item.name} events`);
+  }
+  // The pre-fix host shape (string meter, no boolean sources) is what the HUD rejected.
+  assert.equal(state.parseRiskState({ meter: "unknown", sources: ["gsi"], visible: null, baseline: null, events: [] }), null);
+});
