@@ -1,0 +1,3512 @@
+{
+  "schema_version": 1,
+  "patch": "7.41f",
+  "source": "odota/dotaconstants @7fa7d26dc9 (7.41f)",
+  "map": {
+    "size": 1024,
+    "image": "map.png",
+    "calibration": {
+      "px": [
+        0.049583,
+        506.7
+      ],
+      "py": [
+        -0.049108,
+        506.3
+      ],
+      "formula": "px = a*x + b ; py = a*y + b (x,y in world coordinates)"
+    }
+  },
+  "base_attack_speed": {
+    "default": 100,
+    "npc_dota_hero_slark": 120,
+    "npc_dota_hero_sven": 110,
+    "npc_dota_hero_keeper_of_the_light": 90,
+    "npc_dota_hero_windrunner": 90
+  },
+  "hero_names": {
+    "abaddon": "Abaddon",
+    "abyssal_underlord": "Underlord",
+    "alchemist": "Alchemist",
+    "ancient_apparition": "Ancient Apparition",
+    "antimage": "Anti-Mage",
+    "arc_warden": "Arc Warden",
+    "axe": "Axe",
+    "bane": "Bane",
+    "batrider": "Batrider",
+    "beastmaster": "Beastmaster",
+    "bloodseeker": "Bloodseeker",
+    "bounty_hunter": "Bounty Hunter",
+    "brewmaster": "Brewmaster",
+    "bristleback": "Bristleback",
+    "broodmother": "Broodmother",
+    "centaur": "Centaur Warrunner",
+    "chaos_knight": "Chaos Knight",
+    "chen": "Chen",
+    "clinkz": "Clinkz",
+    "crystal_maiden": "Crystal Maiden",
+    "dark_seer": "Dark Seer",
+    "dark_willow": "Dark Willow",
+    "dawnbreaker": "Dawnbreaker",
+    "dazzle": "Dazzle",
+    "death_prophet": "Death Prophet",
+    "disruptor": "Disruptor",
+    "doom_bringer": "Doom",
+    "dragon_knight": "Dragon Knight",
+    "drow_ranger": "Drow Ranger",
+    "earth_spirit": "Earth Spirit",
+    "earthshaker": "Earthshaker",
+    "elder_titan": "Elder Titan",
+    "ember_spirit": "Ember Spirit",
+    "enchantress": "Enchantress",
+    "enigma": "Enigma",
+    "faceless_void": "Faceless Void",
+    "furion": "Nature's Prophet",
+    "grimstroke": "Grimstroke",
+    "gyrocopter": "Gyrocopter",
+    "hoodwink": "Hoodwink",
+    "huskar": "Huskar",
+    "invoker": "Invoker",
+    "jakiro": "Jakiro",
+    "juggernaut": "Juggernaut",
+    "keeper_of_the_light": "Keeper of the Light",
+    "kez": "Kez",
+    "kunkka": "Kunkka",
+    "largo": "Largo",
+    "legion_commander": "Legion Commander",
+    "leshrac": "Leshrac",
+    "lich": "Lich",
+    "life_stealer": "Lifestealer",
+    "lina": "Lina",
+    "lion": "Lion",
+    "lone_druid": "Lone Druid",
+    "luna": "Luna",
+    "lycan": "Lycan",
+    "magnataur": "Magnus",
+    "marci": "Marci",
+    "mars": "Mars",
+    "medusa": "Medusa",
+    "meepo": "Meepo",
+    "mirana": "Mirana",
+    "monkey_king": "Monkey King",
+    "morphling": "Morphling",
+    "muerta": "Muerta",
+    "naga_siren": "Naga Siren",
+    "necrolyte": "Necrophos",
+    "nevermore": "Shadow Fiend",
+    "night_stalker": "Night Stalker",
+    "nyx_assassin": "Nyx Assassin",
+    "obsidian_destroyer": "Outworld Devourer",
+    "ogre_magi": "Ogre Magi",
+    "omniknight": "Omniknight",
+    "oracle": "Oracle",
+    "pangolier": "Pangolier",
+    "phantom_assassin": "Phantom Assassin",
+    "phantom_lancer": "Phantom Lancer",
+    "phoenix": "Phoenix",
+    "primal_beast": "Primal Beast",
+    "puck": "Puck",
+    "pudge": "Pudge",
+    "pugna": "Pugna",
+    "queenofpain": "Queen of Pain",
+    "rattletrap": "Clockwerk",
+    "razor": "Razor",
+    "riki": "Riki",
+    "ringmaster": "Ring Master",
+    "rubick": "Rubick",
+    "sand_king": "Sand King",
+    "shadow_demon": "Shadow Demon",
+    "shadow_shaman": "Shadow Shaman",
+    "shredder": "Timbersaw",
+    "silencer": "Silencer",
+    "skeleton_king": "Wraith King",
+    "skywrath_mage": "Skywrath Mage",
+    "slardar": "Slardar",
+    "slark": "Slark",
+    "snapfire": "Snapfire",
+    "sniper": "Sniper",
+    "spectre": "Spectre",
+    "spirit_breaker": "Spirit Breaker",
+    "storm_spirit": "Storm Spirit",
+    "sven": "Sven",
+    "techies": "Techies",
+    "templar_assassin": "Templar Assassin",
+    "terrorblade": "Terrorblade",
+    "tidehunter": "Tidehunter",
+    "tinker": "Tinker",
+    "tiny": "Tiny",
+    "treant": "Treant Protector",
+    "troll_warlord": "Troll Warlord",
+    "tusk": "Tusk",
+    "undying": "Undying",
+    "ursa": "Ursa",
+    "vengefulspirit": "Vengeful Spirit",
+    "venomancer": "Venomancer",
+    "viper": "Viper",
+    "visage": "Visage",
+    "void_spirit": "Void Spirit",
+    "warlock": "Warlock",
+    "weaver": "Weaver",
+    "windrunner": "Windranger",
+    "winter_wyvern": "Winter Wyvern",
+    "wisp": "Io",
+    "witch_doctor": "Witch Doctor",
+    "zuus": "Zeus"
+  },
+  "rules": {
+    "note": "Values the viewer needs per patch. bkb_mr_vs_pierce: whether debuff immunity's magic resistance also applies to abilities that pierce debuff immunity (7.42 notes, Spell Mechanics: piercing abilities no longer ignore it).",
+    "patch": "7.41f",
+    "hp_per_str": 22,
+    "hp_regen_per_str": 0.1,
+    "mr_per_int_pct": 0.1,
+    "armor_per_agi": 0.166667,
+    "bkb_duration": 9,
+    "bkb_mr_pct": 60,
+    "bkb_mr_vs_pierce": false,
+    "map": {
+      "image": "map.png",
+      "a": 0.049583,
+      "b": 506.7,
+      "c": -0.049108,
+      "d": 506.3
+    }
+  },
+  "formulas": {},
+  "buffs": {
+    "modifier_black_king_bar_immune": {
+      "mr": [
+        60
+      ],
+      "label": "BKB"
+    },
+    "modifier_item_aeon_disk_buff": {
+      "sres": [
+        75
+      ],
+      "label": "Aeon Disk"
+    },
+    "modifier_sven_warcry": {
+      "armor": [
+        5,
+        8,
+        11,
+        14
+      ],
+      "mspct": [
+        6,
+        9,
+        12,
+        15
+      ],
+      "abil": "sven_warcry",
+      "label": "Warcry"
+    },
+    "modifier_windrunner_windrun": {
+      "ev": [
+        100
+      ],
+      "mspct": [
+        50
+      ],
+      "label": "Windrun"
+    },
+    "modifier_windrunner_focusfire": {
+      "as": [
+        350,
+        425,
+        500
+      ],
+      "abil": "windrunner_focusfire",
+      "label": "Focus Fire"
+    },
+    "modifier_slark_shadow_dance": {
+      "mspct": [
+        20,
+        30,
+        40
+      ],
+      "abil": "slark_shadow_dance",
+      "label": "Shadow Dance"
+    },
+    "modifier_keeper_of_the_light_spirit_form": {
+      "mspct": [
+        50
+      ],
+      "label": "Spirit Form"
+    },
+    "modifier_keeper_of_the_light_radiant_bind": {
+      "mr": [
+        -20,
+        -30,
+        -40
+      ],
+      "abil": "keeper_of_the_light_radiant_bind",
+      "label": "Radiant Bind"
+    },
+    "modifier_item_phase_boots_active": {
+      "mspct": [
+        20
+      ],
+      "mspct_r": [
+        10
+      ],
+      "label": "Phase"
+    },
+    "modifier_smoke_of_deceit": {
+      "mspct": [
+        15
+      ],
+      "label": "Smoke"
+    },
+    "modifier_item_glimmer_cape_fade": {
+      "mspct": [
+        20
+      ],
+      "label": "Glimmer"
+    },
+    "modifier_largo_song_speed_burst": {
+      "mspct": [
+        16,
+        20,
+        24
+      ],
+      "abil": "largo_amphibian_rhapsody",
+      "label": "Double Time"
+    },
+    "modifier_dark_seer_surge": {
+      "haste": [
+        1
+      ],
+      "label": "Surge"
+    },
+    "modifier_rune_haste": {
+      "haste": [
+        1
+      ],
+      "label": "Haste rune"
+    },
+    "modifier_item_shivas_guard_blast": {
+      "mspct": [
+        -40
+      ],
+      "label": "Shiva blast"
+    }
+  },
+  "ability_names_by_hero": {
+    "abaddon": [
+      "abaddon_aphotic_shield",
+      "abaddon_borrowed_time",
+      "abaddon_death_coil",
+      "abaddon_frostmourne",
+      "abaddon_withering_mist"
+    ],
+    "abyssal_underlord": [
+      "abyssal_underlord_abyssal_horde",
+      "abyssal_underlord_atrophy_aura",
+      "abyssal_underlord_cancel_dark_rift",
+      "abyssal_underlord_dark_portal",
+      "abyssal_underlord_dark_rift",
+      "abyssal_underlord_firestorm",
+      "abyssal_underlord_pit_of_malice",
+      "abyssal_underlord_portal_warp",
+      "abyssal_underlord_raid_boss"
+    ],
+    "alchemist": [
+      "alchemist_acid_spray",
+      "alchemist_berserk_potion",
+      "alchemist_chemical_rage",
+      "alchemist_corrosive_weaponry",
+      "alchemist_goblins_greed",
+      "alchemist_unstable_concoction",
+      "alchemist_unstable_concoction_throw"
+    ],
+    "ancient_apparition": [
+      "ancient_apparition_bone_chill",
+      "ancient_apparition_chilling_touch",
+      "ancient_apparition_cold_feet",
+      "ancient_apparition_death_rime",
+      "ancient_apparition_ice_age",
+      "ancient_apparition_ice_blast",
+      "ancient_apparition_ice_blast_release",
+      "ancient_apparition_ice_vortex"
+    ],
+    "antimage": [
+      "antimage_blink",
+      "antimage_counterspell",
+      "antimage_counterspell_ally",
+      "antimage_mana_break",
+      "antimage_mana_overload",
+      "antimage_mana_thirst",
+      "antimage_mana_void",
+      "antimage_persectur",
+      "antimage_spell_shield"
+    ],
+    "arc_warden": [
+      "arc_warden_flux",
+      "arc_warden_magnetic_field",
+      "arc_warden_runic_infusion",
+      "arc_warden_scepter",
+      "arc_warden_spark_wraith",
+      "arc_warden_tempest_double",
+      "arc_warden_tempest_recall"
+    ],
+    "axe": [
+      "axe_battle_hunger",
+      "axe_berserkers_call",
+      "axe_counter_helix",
+      "axe_culling_blade",
+      "axe_one_man_army"
+    ],
+    "bane": [
+      "bane_brain_sap",
+      "bane_enfeeble",
+      "bane_fiends_grip",
+      "bane_ichor_of_nyctasha",
+      "bane_nightmare",
+      "bane_nightmare_end"
+    ],
+    "batrider": [
+      "batrider_firefly",
+      "batrider_flamebreak",
+      "batrider_flaming_lasso",
+      "batrider_smoldering_resin",
+      "batrider_sticky_napalm",
+      "batrider_sticky_napalm_application_damage",
+      "batrider_stoked"
+    ],
+    "beastmaster": [
+      "beastmaster_boar_poison",
+      "beastmaster_call_of_the_wild",
+      "beastmaster_drums_of_slom",
+      "beastmaster_greater_boar_poison",
+      "beastmaster_hawk_dive",
+      "beastmaster_hawk_invisibility",
+      "beastmaster_hawk_perch",
+      "beastmaster_inner_beast",
+      "beastmaster_mark_of_the_beast",
+      "beastmaster_primal_roar",
+      "beastmaster_rugged",
+      "beastmaster_summon_raptor",
+      "beastmaster_summon_raptor_attack",
+      "beastmaster_summon_razorback",
+      "beastmaster_wild_axes"
+    ],
+    "bloodseeker": [
+      "bloodseeker_blood_bath",
+      "bloodseeker_blood_mist",
+      "bloodseeker_bloodrage",
+      "bloodseeker_rupture",
+      "bloodseeker_sanguivore",
+      "bloodseeker_thirst"
+    ],
+    "bounty_hunter": [
+      "bounty_hunter_big_game_hunter",
+      "bounty_hunter_cutpurse",
+      "bounty_hunter_jinada",
+      "bounty_hunter_lookout",
+      "bounty_hunter_shuriken_toss",
+      "bounty_hunter_track",
+      "bounty_hunter_wind_walk",
+      "bounty_hunter_wind_walk_ally"
+    ],
+    "brewmaster": [
+      "brewmaster_cinder_brew",
+      "brewmaster_drunken_brawler",
+      "brewmaster_drunken_brawler_brew_up",
+      "brewmaster_drunken_haze",
+      "brewmaster_earth_hurl_boulder",
+      "brewmaster_earth_pulverize",
+      "brewmaster_earth_spell_immunity",
+      "brewmaster_fire_permanent_immolation",
+      "brewmaster_fire_phase",
+      "brewmaster_fire_pull",
+      "brewmaster_liquid_courage",
+      "brewmaster_primal_companion",
+      "brewmaster_primal_split",
+      "brewmaster_primal_split_cancel",
+      "brewmaster_storm_cyclone",
+      "brewmaster_storm_dispel_magic",
+      "brewmaster_storm_wind_walk",
+      "brewmaster_thunder_clap",
+      "brewmaster_void_astral_pulse"
+    ],
+    "bristleback": [
+      "bristleback_brawlers_grit",
+      "bristleback_bristleback",
+      "bristleback_hairball",
+      "bristleback_prickly",
+      "bristleback_quill_spray",
+      "bristleback_viscous_nasal_goo",
+      "bristleback_warpath"
+    ],
+    "broodmother": [
+      "broodmother_incapacitating_bite",
+      "broodmother_insatiable_hunger",
+      "broodmother_poison_sting",
+      "broodmother_silken_bola",
+      "broodmother_spawn_spiderite",
+      "broodmother_spawn_spiderlings",
+      "broodmother_spiders_milk",
+      "broodmother_spin_web",
+      "broodmother_spin_web_destroy",
+      "broodmother_sticky_snare"
+    ],
+    "centaur": [
+      "centaur_double_edge",
+      "centaur_hoof_stomp",
+      "centaur_horsepower",
+      "centaur_khan_endurance_aura",
+      "centaur_khan_war_stomp",
+      "centaur_mount",
+      "centaur_overrun",
+      "centaur_rawhide",
+      "centaur_return",
+      "centaur_stampede",
+      "centaur_work_horse"
+    ],
+    "chaos_knight": [
+      "chaos_knight_chaos_bolt",
+      "chaos_knight_chaos_strike",
+      "chaos_knight_fundamental_forging",
+      "chaos_knight_phantasm",
+      "chaos_knight_phantasmagoria",
+      "chaos_knight_reality_rift",
+      "chaos_knight_reins_of_chaos"
+    ],
+    "chen": [
+      "chen_divine_favor",
+      "chen_hand_of_god",
+      "chen_holy_persuasion",
+      "chen_innate_check_for_team_change",
+      "chen_martyrdom",
+      "chen_penitence",
+      "chen_test_of_faith",
+      "chen_test_of_faith_teleport",
+      "chen_zealot"
+    ],
+    "clinkz": [
+      "clinkz_bone_and_arrow",
+      "clinkz_burning_army",
+      "clinkz_burning_barrage",
+      "clinkz_death_pact",
+      "clinkz_empty1",
+      "clinkz_infernal_shred",
+      "clinkz_scepter",
+      "clinkz_searing_arrows",
+      "clinkz_strafe",
+      "clinkz_tar_bomb",
+      "clinkz_wind_walk"
+    ],
+    "crystal_maiden": [
+      "crystal_maiden_brilliance_aura",
+      "crystal_maiden_crystal_clone",
+      "crystal_maiden_crystal_nova",
+      "crystal_maiden_freezing_field",
+      "crystal_maiden_freezing_field_stop",
+      "crystal_maiden_frostbite",
+      "crystal_maiden_glacial_guard",
+      "crystal_maiden_let_it_go"
+    ],
+    "dark_seer": [
+      "dark_seer_aggrandize",
+      "dark_seer_heart_of_battle",
+      "dark_seer_ion_shell",
+      "dark_seer_mental_fortitude",
+      "dark_seer_normal_punch",
+      "dark_seer_quick_wit",
+      "dark_seer_surge",
+      "dark_seer_vacuum",
+      "dark_seer_wall_of_replica"
+    ],
+    "dark_willow": [
+      "dark_willow_bedlam",
+      "dark_willow_bramble_maze",
+      "dark_willow_cursed_crown",
+      "dark_willow_pixie_dust",
+      "dark_willow_shadow_realm",
+      "dark_willow_terrorize"
+    ],
+    "dawnbreaker": [
+      "dawnbreaker_break_of_dawn",
+      "dawnbreaker_celestial_hammer",
+      "dawnbreaker_converge",
+      "dawnbreaker_fire_wreath",
+      "dawnbreaker_land",
+      "dawnbreaker_luminosity",
+      "dawnbreaker_solar_guardian",
+      "dawnbreaker_unbreakable"
+    ],
+    "dazzle": [
+      "dazzle_bad_juju",
+      "dazzle_good_juju",
+      "dazzle_innate_weave",
+      "dazzle_nothl_boon",
+      "dazzle_nothl_projection",
+      "dazzle_nothl_projection_end",
+      "dazzle_poison_touch",
+      "dazzle_rain_of_vermin",
+      "dazzle_shadow_wave",
+      "dazzle_shallow_grave",
+      "dazzle_weave"
+    ],
+    "death_prophet": [
+      "death_prophet_carrion_swarm",
+      "death_prophet_exorcism",
+      "death_prophet_innate_healing_mastery",
+      "death_prophet_mourning_ritual",
+      "death_prophet_silence",
+      "death_prophet_spirit_collector",
+      "death_prophet_spirit_siphon",
+      "death_prophet_witchcraft"
+    ],
+    "disruptor": [
+      "disruptor_electromagnetic_repulsion",
+      "disruptor_glimpse",
+      "disruptor_innate_kinetic_circle",
+      "disruptor_kinetic_fence",
+      "disruptor_kinetic_field",
+      "disruptor_static_storm",
+      "disruptor_thunder_strike"
+    ],
+    "doom_bringer": [
+      "doom_bringer_devils_bargain",
+      "doom_bringer_devour",
+      "doom_bringer_doom",
+      "doom_bringer_empty1",
+      "doom_bringer_empty2",
+      "doom_bringer_infernal_blade",
+      "doom_bringer_lvl_pain",
+      "doom_bringer_scorched_earth"
+    ],
+    "dragon_knight": [
+      "dragon_knight_breathe_fire",
+      "dragon_knight_dragon_blood",
+      "dragon_knight_dragon_tail",
+      "dragon_knight_elder_dragon_form",
+      "dragon_knight_fireball",
+      "dragon_knight_wyrms_wrath"
+    ],
+    "drow_ranger": [
+      "drow_ranger_creep_rally",
+      "drow_ranger_frost_arrows",
+      "drow_ranger_glacier",
+      "drow_ranger_marksmanship",
+      "drow_ranger_multishot",
+      "drow_ranger_silence",
+      "drow_ranger_trueshot",
+      "drow_ranger_wave_of_silence"
+    ],
+    "earth_spirit": [
+      "earth_spirit_boulder_smash",
+      "earth_spirit_geomagnetic_grip",
+      "earth_spirit_magnetize",
+      "earth_spirit_petrify",
+      "earth_spirit_rolling_boulder",
+      "earth_spirit_stone_caller"
+    ],
+    "earthshaker": [
+      "earthshaker_aftershock",
+      "earthshaker_echo_slam",
+      "earthshaker_enchant_totem",
+      "earthshaker_fissure",
+      "earthshaker_slugger",
+      "earthshaker_spirit_cairn"
+    ],
+    "elder_titan": [
+      "elder_titan_ancestral_spirit",
+      "elder_titan_earth_splitter",
+      "elder_titan_echo_stomp",
+      "elder_titan_echo_stomp_spirit",
+      "elder_titan_fundamental_fury",
+      "elder_titan_fundamental_fury_spirit",
+      "elder_titan_momentum",
+      "elder_titan_move_spirit",
+      "elder_titan_natural_order",
+      "elder_titan_natural_order_spirit",
+      "elder_titan_return_spirit",
+      "elder_titan_tip_the_scales"
+    ],
+    "ember_spirit": [
+      "ember_spirit_activate_fire_remnant",
+      "ember_spirit_fire_remnant",
+      "ember_spirit_flame_guard",
+      "ember_spirit_immolation",
+      "ember_spirit_searing_chains",
+      "ember_spirit_sleight_of_fist"
+    ],
+    "enchantress": [
+      "enchantress_bunny_hop",
+      "enchantress_enchant",
+      "enchantress_impetus",
+      "enchantress_little_friends",
+      "enchantress_natures_attendants",
+      "enchantress_rabblerouser",
+      "enchantress_untouchable"
+    ],
+    "enigma": [
+      "enigma_black_hole",
+      "enigma_demonic_conversion",
+      "enigma_event_horizon",
+      "enigma_gravity_well",
+      "enigma_malefice",
+      "enigma_midnight_pulse",
+      "enigma_splitting_image"
+    ],
+    "faceless_void": [
+      "faceless_void_backtrack",
+      "faceless_void_chronosphere",
+      "faceless_void_distortion_field",
+      "faceless_void_time_dilation",
+      "faceless_void_time_lock",
+      "faceless_void_time_walk",
+      "faceless_void_time_walk_reverse",
+      "faceless_void_time_zone"
+    ],
+    "furion": [
+      "furion_arboreal_might",
+      "furion_curse_of_the_forest",
+      "furion_fecundity",
+      "furion_force_of_nature",
+      "furion_greater_sprout",
+      "furion_hedgerow",
+      "furion_natures_profit",
+      "furion_spirit_of_the_forest",
+      "furion_sprout",
+      "furion_summon_fey",
+      "furion_teleportation",
+      "furion_wrath_of_nature"
+    ],
+    "grimstroke": [
+      "grimstroke_dark_artistry",
+      "grimstroke_dark_portrait",
+      "grimstroke_ink_creature",
+      "grimstroke_ink_over",
+      "grimstroke_ink_trail",
+      "grimstroke_return",
+      "grimstroke_soul_chain",
+      "grimstroke_spirit_walk"
+    ],
+    "gyrocopter": [
+      "gyrocopter_afterburner",
+      "gyrocopter_call_down",
+      "gyrocopter_chop_shop",
+      "gyrocopter_flak_cannon",
+      "gyrocopter_homing_missile",
+      "gyrocopter_lock_on",
+      "gyrocopter_rocket_barrage",
+      "gyrocopter_side_gunner",
+      "gyrocopter_side_gunner_spawn_ability"
+    ],
+    "hoodwink": [
+      "hoodwink_acorn_shot",
+      "hoodwink_bushwhack",
+      "hoodwink_decoy",
+      "hoodwink_forager",
+      "hoodwink_hunters_boomerang",
+      "hoodwink_mistwoods_wayfarer",
+      "hoodwink_scurry",
+      "hoodwink_sharpshooter",
+      "hoodwink_sharpshooter_release",
+      "hoodwink_tomokan_tracker"
+    ],
+    "huskar": [
+      "huskar_berserkers_blood",
+      "huskar_blood_magic",
+      "huskar_burning_spear",
+      "huskar_inner_fire",
+      "huskar_inner_vitality",
+      "huskar_life_break"
+    ],
+    "invoker": [
+      "invoker_alacrity",
+      "invoker_alacrity_ad",
+      "invoker_attribute_bonus",
+      "invoker_chaos_meteor",
+      "invoker_chaos_meteor_ad",
+      "invoker_cold_snap",
+      "invoker_cold_snap_ad",
+      "invoker_deafening_blast",
+      "invoker_deafening_blast_ad",
+      "invoker_emp",
+      "invoker_emp_ad",
+      "invoker_empty1",
+      "invoker_empty2",
+      "invoker_exort",
+      "invoker_forge_spirit",
+      "invoker_forge_spirit_ad",
+      "invoker_ghost_walk",
+      "invoker_ghost_walk_ad",
+      "invoker_ice_wall",
+      "invoker_ice_wall_ad",
+      "invoker_invoke",
+      "invoker_mastermind",
+      "invoker_quas",
+      "invoker_sun_strike",
+      "invoker_sun_strike_ad",
+      "invoker_tornado",
+      "invoker_tornado_ad",
+      "invoker_wex"
+    ],
+    "jakiro": [
+      "jakiro_double_trouble",
+      "jakiro_dual_breath",
+      "jakiro_ice_path",
+      "jakiro_ice_path_detonate",
+      "jakiro_liquid_fire",
+      "jakiro_liquid_ice",
+      "jakiro_macropyre"
+    ],
+    "juggernaut": [
+      "juggernaut_blade_dance",
+      "juggernaut_blade_fury",
+      "juggernaut_bladeform",
+      "juggernaut_duelist",
+      "juggernaut_healing_ward",
+      "juggernaut_innate_mask_crit_lifesteal",
+      "juggernaut_innate_mask_spin_crit",
+      "juggernaut_omni_slash",
+      "juggernaut_swift_slash",
+      "juggernaut_trinity",
+      "juggernaut_vaulted_strike"
+    ],
+    "keeper_of_the_light": [
+      "keeper_of_the_light_blinding_light",
+      "keeper_of_the_light_bright_speed",
+      "keeper_of_the_light_chakra_magic",
+      "keeper_of_the_light_empty1",
+      "keeper_of_the_light_empty2",
+      "keeper_of_the_light_illuminate",
+      "keeper_of_the_light_illuminate_end",
+      "keeper_of_the_light_mana_leak",
+      "keeper_of_the_light_mana_magnifier",
+      "keeper_of_the_light_radiant_bind",
+      "keeper_of_the_light_recall",
+      "keeper_of_the_light_special_reserve",
+      "keeper_of_the_light_spirit_form",
+      "keeper_of_the_light_will_o_wisp"
+    ],
+    "kez": [
+      "kez_echo_slash",
+      "kez_falcon_rush",
+      "kez_falcon_rush_ad",
+      "kez_grappling_claw",
+      "kez_kazurai_katana",
+      "kez_raptor_dance",
+      "kez_ravens_veil",
+      "kez_ravens_veil_ad",
+      "kez_shadowhawk_passive",
+      "kez_shodo_sai",
+      "kez_shodo_sai_ad",
+      "kez_shodo_sai_parry_cancel",
+      "kez_switch_weapons",
+      "kez_talon_toss",
+      "kez_talon_toss_ad"
+    ],
+    "kunkka": [
+      "kunkka_admirals_rum",
+      "kunkka_ghostship",
+      "kunkka_return",
+      "kunkka_tidal_wave",
+      "kunkka_tidebringer",
+      "kunkka_torrent",
+      "kunkka_torrent_storm",
+      "kunkka_x_marks_the_spot"
+    ],
+    "largo": [
+      "largo_amphibian_rhapsody",
+      "largo_catchy_lick",
+      "largo_croak_of_genius",
+      "largo_encore",
+      "largo_frogstomp",
+      "largo_song_double_time",
+      "largo_song_fight_song",
+      "largo_song_good_vibrations"
+    ],
+    "legion_commander": [
+      "legion_commander_duel",
+      "legion_commander_intimidate",
+      "legion_commander_moment_of_courage",
+      "legion_commander_outfight_them",
+      "legion_commander_overwhelming_odds",
+      "legion_commander_press_the_attack"
+    ],
+    "leshrac": [
+      "leshrac_chronoptic_nourishment",
+      "leshrac_defilement",
+      "leshrac_diabolic_edict",
+      "leshrac_greater_lightning_storm",
+      "leshrac_lightning_storm",
+      "leshrac_pulse_nova",
+      "leshrac_split_earth"
+    ],
+    "lich": [
+      "lich_chain_frost",
+      "lich_dark_sorcery",
+      "lich_death_charge",
+      "lich_frost_armor",
+      "lich_frost_aura",
+      "lich_frost_nova",
+      "lich_frost_shield",
+      "lich_ice_spire",
+      "lich_sinister_gaze"
+    ],
+    "life_stealer": [
+      "life_stealer_assimilate",
+      "life_stealer_assimilate_eject",
+      "life_stealer_consume",
+      "life_stealer_control",
+      "life_stealer_corpse_eater",
+      "life_stealer_empty_1",
+      "life_stealer_empty_2",
+      "life_stealer_empty_3",
+      "life_stealer_empty_4",
+      "life_stealer_feast",
+      "life_stealer_ghoul_frenzy",
+      "life_stealer_infest",
+      "life_stealer_open_wounds",
+      "life_stealer_rage",
+      "life_stealer_unfettered"
+    ],
+    "lina": [
+      "lina_combustion",
+      "lina_dragon_slave",
+      "lina_fiery_soul",
+      "lina_flame_cloak",
+      "lina_laguna_blade",
+      "lina_light_strike_array",
+      "lina_slow_burn"
+    ],
+    "lion": [
+      "lion_finger_of_death",
+      "lion_impale",
+      "lion_mana_drain",
+      "lion_to_hell_and_back",
+      "lion_voodoo"
+    ],
+    "lone_druid": [
+      "lone_druid_bear_necessities",
+      "lone_druid_entangle",
+      "lone_druid_gift_bearer",
+      "lone_druid_rabid",
+      "lone_druid_savage_roar",
+      "lone_druid_savage_roar_bear",
+      "lone_druid_spirit_bear",
+      "lone_druid_spirit_bear_defender",
+      "lone_druid_spirit_bear_demolish",
+      "lone_druid_spirit_bear_entangle",
+      "lone_druid_spirit_bear_fetch",
+      "lone_druid_spirit_bear_return",
+      "lone_druid_spirit_bear_spirit_link",
+      "lone_druid_spirit_link",
+      "lone_druid_true_form",
+      "lone_druid_true_form_battle_cry",
+      "lone_druid_true_form_druid"
+    ],
+    "luna": [
+      "luna_eclipse",
+      "luna_lucent_beam",
+      "luna_lunar_blessing",
+      "luna_lunar_grace",
+      "luna_lunar_orbit",
+      "luna_moon_glaive"
+    ],
+    "lycan": [
+      "lycan_apex_predator",
+      "lycan_feral_impulse",
+      "lycan_howl",
+      "lycan_shapeshift",
+      "lycan_summon_wolves",
+      "lycan_summon_wolves_bash",
+      "lycan_summon_wolves_critical_strike",
+      "lycan_summon_wolves_hamstring",
+      "lycan_summon_wolves_hightail",
+      "lycan_summon_wolves_invisibility",
+      "lycan_wolf_bite"
+    ],
+    "magnataur": [
+      "magnataur_empower",
+      "magnataur_greater_shockwave",
+      "magnataur_horn_toss",
+      "magnataur_reverse_polarity",
+      "magnataur_shockwave",
+      "magnataur_skewer",
+      "magnataur_solid_core"
+    ],
+    "marci": [
+      "marci_bodyguard",
+      "marci_companion_run",
+      "marci_grapple",
+      "marci_guardian",
+      "marci_special_delivery",
+      "marci_unleash"
+    ],
+    "mars": [
+      "mars_arena_of_blood",
+      "mars_bulwark",
+      "mars_dauntless",
+      "mars_gods_rebuke",
+      "mars_immovable",
+      "mars_spear"
+    ],
+    "medusa": [
+      "medusa_cold_blooded",
+      "medusa_gorgon_grasp",
+      "medusa_mana_shield",
+      "medusa_mystic_snake",
+      "medusa_split_shot",
+      "medusa_stone_gaze",
+      "medusa_undulation"
+    ],
+    "meepo": [
+      "meepo_divided_we_stand",
+      "meepo_earthbind",
+      "meepo_fling",
+      "meepo_fling_release",
+      "meepo_geomancy",
+      "meepo_megameepo",
+      "meepo_megameepo_fling",
+      "meepo_pack_rat",
+      "meepo_petrify",
+      "meepo_poof",
+      "meepo_ransack",
+      "meepo_sticky_fingers"
+    ],
+    "mirana": [
+      "mirana_arrow",
+      "mirana_celestial_quiver",
+      "mirana_invis",
+      "mirana_leap",
+      "mirana_nightveil",
+      "mirana_selemenes_faithful",
+      "mirana_solar_flare",
+      "mirana_starfall"
+    ],
+    "monkey_king": [
+      "monkey_king_boundless_strike",
+      "monkey_king_jingu_mastery",
+      "monkey_king_mischief",
+      "monkey_king_primal_spring",
+      "monkey_king_primal_spring_early",
+      "monkey_king_transfiguration",
+      "monkey_king_tree_dance",
+      "monkey_king_untransform",
+      "monkey_king_wukongs_command"
+    ],
+    "morphling": [
+      "morphling_accumulation",
+      "morphling_adaptive_strike_agi",
+      "morphling_ebb",
+      "morphling_ebb_and_flow",
+      "morphling_flow",
+      "morphling_hybrid",
+      "morphling_morph_agi",
+      "morphling_morph_replicate",
+      "morphling_morph_str",
+      "morphling_replicate",
+      "morphling_syntropy",
+      "morphling_waveform"
+    ],
+    "muerta": [
+      "muerta_dead_shot",
+      "muerta_grave_tracker",
+      "muerta_grave_visitation",
+      "muerta_gunslinger",
+      "muerta_ofrenda",
+      "muerta_ofrenda_destroy",
+      "muerta_parting_shot",
+      "muerta_pierce_the_veil",
+      "muerta_spectral_slug",
+      "muerta_supernatural",
+      "muerta_the_calling"
+    ],
+    "naga_siren": [
+      "naga_siren_crit",
+      "naga_siren_deluge",
+      "naga_siren_eelskin",
+      "naga_siren_ensnare",
+      "naga_siren_mirror_image",
+      "naga_siren_reel_in",
+      "naga_siren_reel_in_ad",
+      "naga_siren_rip_tide",
+      "naga_siren_slithereen_cutlass",
+      "naga_siren_song_of_the_siren",
+      "naga_siren_song_of_the_siren_cancel"
+    ],
+    "necrolyte": [
+      "necrolyte_death_pulse",
+      "necrolyte_death_seeker",
+      "necrolyte_ghost_shroud",
+      "necrolyte_heartstopper_aura",
+      "necrolyte_reapers_scythe",
+      "necrolyte_sadist",
+      "necrolyte_sadist_stop"
+    ],
+    "nevermore": [
+      "nevermore_dark_lord",
+      "nevermore_frenzy",
+      "nevermore_necromastery",
+      "nevermore_requiem",
+      "nevermore_shadowraze1",
+      "nevermore_shadowraze2",
+      "nevermore_shadowraze3"
+    ],
+    "night_stalker": [
+      "night_stalker_crippling_fear",
+      "night_stalker_darkness",
+      "night_stalker_heart_of_darkness",
+      "night_stalker_hunter_in_the_night",
+      "night_stalker_midnight_feast",
+      "night_stalker_night_reign",
+      "night_stalker_void"
+    ],
+    "nyx_assassin": [
+      "nyx_assassin_burrow",
+      "nyx_assassin_impale",
+      "nyx_assassin_innate_mana_burn",
+      "nyx_assassin_jolt",
+      "nyx_assassin_mana_burn",
+      "nyx_assassin_neuro_sting",
+      "nyx_assassin_nyxth_sense",
+      "nyx_assassin_spiked_carapace",
+      "nyx_assassin_unburrow",
+      "nyx_assassin_vendetta"
+    ],
+    "obsidian_destroyer": [
+      "obsidian_destroyer_arcane_orb",
+      "obsidian_destroyer_astral_imprisonment",
+      "obsidian_destroyer_equilibrium",
+      "obsidian_destroyer_essence_aura",
+      "obsidian_destroyer_objurgation",
+      "obsidian_destroyer_ominous_discernment",
+      "obsidian_destroyer_sanity_eclipse"
+    ],
+    "ogre_magi": [
+      "ogre_magi_bloodlust",
+      "ogre_magi_dumb_luck",
+      "ogre_magi_fireblast",
+      "ogre_magi_frost_armor",
+      "ogre_magi_ignite",
+      "ogre_magi_multicast",
+      "ogre_magi_school",
+      "ogre_magi_smash",
+      "ogre_magi_unrefined_fireblast"
+    ],
+    "omniknight": [
+      "omniknight_angelic_flight",
+      "omniknight_degen_aura",
+      "omniknight_guardian_angel",
+      "omniknight_hammer_of_purity",
+      "omniknight_healing_hammer",
+      "omniknight_martyr",
+      "omniknight_pacify",
+      "omniknight_purification",
+      "omniknight_repel"
+    ],
+    "oracle": [
+      "oracle_clairvoyant_cure",
+      "oracle_clairvoyant_curse",
+      "oracle_diviners_deck",
+      "oracle_false_promise",
+      "oracle_fates_edict",
+      "oracle_fortunes_end",
+      "oracle_prognosticate",
+      "oracle_purifying_flames",
+      "oracle_rain_of_destiny"
+    ],
+    "pangolier": [
+      "pangolier_fortune_favors_the_bold",
+      "pangolier_gyroshell",
+      "pangolier_gyroshell_stop",
+      "pangolier_heartpiercer",
+      "pangolier_lucky_shot",
+      "pangolier_rollup",
+      "pangolier_rollup_stop",
+      "pangolier_shield_crash",
+      "pangolier_swashbuckle"
+    ],
+    "phantom_assassin": [
+      "phantom_assassin_blur",
+      "phantom_assassin_coup_de_grace",
+      "phantom_assassin_fan_of_knives",
+      "phantom_assassin_immaterial",
+      "phantom_assassin_phantom_strike",
+      "phantom_assassin_stifling_dagger"
+    ],
+    "phantom_lancer": [
+      "phantom_lancer_doppelwalk",
+      "phantom_lancer_illusory_armaments",
+      "phantom_lancer_juxtapose",
+      "phantom_lancer_phantom_edge",
+      "phantom_lancer_spirit_lance"
+    ],
+    "phoenix": [
+      "phoenix_blinding_sun",
+      "phoenix_dying_light",
+      "phoenix_fire_spirits",
+      "phoenix_icarus_dive",
+      "phoenix_icarus_dive_stop",
+      "phoenix_launch_fire_spirit",
+      "phoenix_sun_ray",
+      "phoenix_sun_ray_stop",
+      "phoenix_sun_ray_toggle_move",
+      "phoenix_supernova"
+    ],
+    "primal_beast": [
+      "primal_beast_colossal",
+      "primal_beast_innate_slow_resistance_per_time",
+      "primal_beast_innate_status_resistance_per_time",
+      "primal_beast_onslaught",
+      "primal_beast_onslaught_release",
+      "primal_beast_pulverize",
+      "primal_beast_rock_throw",
+      "primal_beast_trample",
+      "primal_beast_uproar"
+    ],
+    "puck": [
+      "puck_dream_coil",
+      "puck_ethereal_jaunt",
+      "puck_illusory_orb",
+      "puck_phase_shift",
+      "puck_puckish",
+      "puck_waning_rift"
+    ],
+    "pudge": [
+      "pudge_dismember",
+      "pudge_eject",
+      "pudge_flesh_heap",
+      "pudge_innate_graft_flesh",
+      "pudge_meat_hook",
+      "pudge_rot"
+    ],
+    "pugna": [
+      "pugna_decrepify",
+      "pugna_life_drain",
+      "pugna_nether_blast",
+      "pugna_nether_ward",
+      "pugna_oblivion_savant"
+    ],
+    "queenofpain": [
+      "queenofpain_blink",
+      "queenofpain_bondage",
+      "queenofpain_masochist",
+      "queenofpain_scream_of_pain",
+      "queenofpain_shadow_strike",
+      "queenofpain_sonic_wave",
+      "queenofpain_succubus"
+    ],
+    "rattletrap": [
+      "rattletrap_armor_power",
+      "rattletrap_battery_assault",
+      "rattletrap_hookshot",
+      "rattletrap_jetpack",
+      "rattletrap_jetpack_toggle",
+      "rattletrap_overclocking",
+      "rattletrap_power_cogs",
+      "rattletrap_rocket_flare"
+    ],
+    "razor": [
+      "razor_dynamo",
+      "razor_eye_of_the_storm",
+      "razor_plasma_field",
+      "razor_static_link",
+      "razor_storm_surge",
+      "razor_unstable_current"
+    ],
+    "riki": [
+      "riki_backstab",
+      "riki_blink_strike",
+      "riki_innate_backstab",
+      "riki_permanent_invisibility",
+      "riki_poison_dart",
+      "riki_smoke_screen",
+      "riki_tricks_of_the_trade"
+    ],
+    "ringmaster": [
+      "ringmaster_crystal_ball",
+      "ringmaster_dark_carnival_souvenirs",
+      "ringmaster_empty_souvenir",
+      "ringmaster_funhouse_mirror",
+      "ringmaster_impalement",
+      "ringmaster_spotlight",
+      "ringmaster_strongman_tonic",
+      "ringmaster_summon_unicycle",
+      "ringmaster_tame_the_beasts",
+      "ringmaster_tame_the_beasts_crack",
+      "ringmaster_the_box",
+      "ringmaster_weighted_pie",
+      "ringmaster_wheel",
+      "ringmaster_whoopee_cushion"
+    ],
+    "rubick": [
+      "rubick_arcane_supremacy",
+      "rubick_curiosity",
+      "rubick_empty1",
+      "rubick_empty2",
+      "rubick_fade_bolt",
+      "rubick_hidden1",
+      "rubick_hidden2",
+      "rubick_hidden3",
+      "rubick_hidden4",
+      "rubick_hidden5",
+      "rubick_might_and_magus",
+      "rubick_null_field",
+      "rubick_spell_steal",
+      "rubick_telekinesis",
+      "rubick_telekinesis_land",
+      "rubick_telekinesis_land_self"
+    ],
+    "sand_king": [],
+    "shadow_demon": [
+      "shadow_demon_demonic_cleanse",
+      "shadow_demon_demonic_purge",
+      "shadow_demon_disruption",
+      "shadow_demon_disseminate",
+      "shadow_demon_menace",
+      "shadow_demon_shadow_poison",
+      "shadow_demon_shadow_poison_release",
+      "shadow_demon_shadow_servant",
+      "shadow_demon_soul_catcher"
+    ],
+    "shadow_shaman": [
+      "shadow_shaman_ether_shock",
+      "shadow_shaman_fowl_play",
+      "shadow_shaman_innate_piglet_pole",
+      "shadow_shaman_mass_serpent_ward",
+      "shadow_shaman_serpentine",
+      "shadow_shaman_shackles",
+      "shadow_shaman_urnaconda",
+      "shadow_shaman_voodoo",
+      "shadow_shaman_voodoo_hands"
+    ],
+    "shredder": [
+      "shredder_chakram",
+      "shredder_chakram_2",
+      "shredder_exposure_therapy",
+      "shredder_flamethrower",
+      "shredder_reactive_armor",
+      "shredder_return_chakram",
+      "shredder_return_chakram_2",
+      "shredder_timber_chain",
+      "shredder_twisted_chakram",
+      "shredder_whirling_death"
+    ],
+    "silencer": [
+      "silencer_brain_drain",
+      "silencer_curse_of_the_silent",
+      "silencer_glaives_of_wisdom",
+      "silencer_global_silence",
+      "silencer_irrepressible",
+      "silencer_last_word",
+      "silencer_oppressive_silence"
+    ],
+    "skeleton_king": [
+      "skeleton_king_bone_guard",
+      "skeleton_king_bone_guard_damage_tracker",
+      "skeleton_king_hellfire_blast",
+      "skeleton_king_mortal_strike",
+      "skeleton_king_reincarnation",
+      "skeleton_king_spectral_blade",
+      "skeleton_king_vampiric_spirit"
+    ],
+    "skywrath_mage": [
+      "skywrath_mage_ancient_seal",
+      "skywrath_mage_arcane_bolt",
+      "skywrath_mage_concussive_shot",
+      "skywrath_mage_mystic_flare",
+      "skywrath_mage_ruin_and_restoration",
+      "skywrath_mage_shield_of_the_scion",
+      "skywrath_mage_staff_of_the_scion"
+    ],
+    "slardar": [
+      "slardar_amplify_damage",
+      "slardar_bash",
+      "slardar_scepter",
+      "slardar_seaborn_sentinel",
+      "slardar_slithereen_crush",
+      "slardar_sprint"
+    ],
+    "slark": [
+      "slark_dark_pact",
+      "slark_depth_shroud",
+      "slark_essence_shift",
+      "slark_fish_bait",
+      "slark_pounce",
+      "slark_saltwater_shiv",
+      "slark_shadow_dance"
+    ],
+    "snapfire": [
+      "snapfire_boomstick",
+      "snapfire_buckshot",
+      "snapfire_firesnap_cookie",
+      "snapfire_gobble_up",
+      "snapfire_lil_shredder",
+      "snapfire_mortimer_kisses",
+      "snapfire_scatterblast",
+      "snapfire_spit_creep"
+    ],
+    "sniper": [
+      "sniper_assassinate",
+      "sniper_concussive_grenade",
+      "sniper_headshot",
+      "sniper_keen_scope",
+      "sniper_shrapnel",
+      "sniper_take_aim",
+      "sniper_take_aim_stop"
+    ],
+    "spectre": [
+      "spectre_desolate",
+      "spectre_dispersion",
+      "spectre_haunt",
+      "spectre_reality",
+      "spectre_shadow_step",
+      "spectre_spectral",
+      "spectre_spectral_dagger"
+    ],
+    "spirit_breaker": [
+      "spirit_breaker_bull_rush",
+      "spirit_breaker_bulldoze",
+      "spirit_breaker_charge_of_darkness",
+      "spirit_breaker_empowering_haste",
+      "spirit_breaker_greater_bash",
+      "spirit_breaker_herd_mentality",
+      "spirit_breaker_knockback_amp",
+      "spirit_breaker_nether_strike",
+      "spirit_breaker_planar_pocket"
+    ],
+    "storm_spirit": [
+      "storm_spirit_ball_lightning",
+      "storm_spirit_electric_rave",
+      "storm_spirit_electric_vortex",
+      "storm_spirit_galvanized",
+      "storm_spirit_overload",
+      "storm_spirit_static_remnant"
+    ],
+    "sven": [
+      "sven_gods_strength",
+      "sven_great_cleave",
+      "sven_storm_bolt",
+      "sven_vanquisher",
+      "sven_warcry",
+      "sven_wrath_of_god"
+    ],
+    "techies": [
+      "techies_focused_detonate",
+      "techies_land_mines",
+      "techies_minefield_sign",
+      "techies_mutually_assured_destruction",
+      "techies_reactive_tazer",
+      "techies_reactive_tazer_stop",
+      "techies_remote_mines",
+      "techies_remote_mines_self_detonate",
+      "techies_snare_trap",
+      "techies_spoons_stash",
+      "techies_squees_scope",
+      "techies_stasis_trap",
+      "techies_sticky_bomb",
+      "techies_suicide"
+    ],
+    "templar_assassin": [
+      "templar_assassin_hidden_gates",
+      "templar_assassin_inner_peace",
+      "templar_assassin_meditation_end",
+      "templar_assassin_meld",
+      "templar_assassin_psi_blades",
+      "templar_assassin_psionic_trap",
+      "templar_assassin_refraction",
+      "templar_assassin_self_trap",
+      "templar_assassin_third_eye",
+      "templar_assassin_trap",
+      "templar_assassin_trap_teleport"
+    ],
+    "terrorblade": [
+      "terrorblade_conjure_image",
+      "terrorblade_dark_unity",
+      "terrorblade_demon_zeal",
+      "terrorblade_metamorphosis",
+      "terrorblade_reflection",
+      "terrorblade_sunder",
+      "terrorblade_terror_wave"
+    ],
+    "tidehunter": [
+      "tidehunter_anchor_smash",
+      "tidehunter_arm_of_the_deep",
+      "tidehunter_blubber",
+      "tidehunter_dead_in_the_water",
+      "tidehunter_gush",
+      "tidehunter_kraken_shell",
+      "tidehunter_leviathans_catch",
+      "tidehunter_ravage"
+    ],
+    "tinker": [
+      "tinker_defense_matrix",
+      "tinker_deploy_turrets",
+      "tinker_eureka",
+      "tinker_heat_seeking_missile",
+      "tinker_innate_keen_teleport_gold_on_death",
+      "tinker_innate_keen_teleport_xp_on_death",
+      "tinker_keen_teleport",
+      "tinker_laser",
+      "tinker_march_of_the_machines",
+      "tinker_rearm",
+      "tinker_shrink_ray",
+      "tinker_warp_grenade"
+    ],
+    "tiny": [
+      "tiny_avalanche",
+      "tiny_craggy_exterior",
+      "tiny_grow",
+      "tiny_insurmountable",
+      "tiny_rocksteady",
+      "tiny_toss",
+      "tiny_toss_tree",
+      "tiny_tree_channel",
+      "tiny_tree_grab"
+    ],
+    "treant": [
+      "treant_eyes_in_the_forest",
+      "treant_innate_attack_damage",
+      "treant_leech_seed",
+      "treant_lifebomb_explode",
+      "treant_living_armor",
+      "treant_natures_grasp",
+      "treant_natures_guise",
+      "treant_overgrowth",
+      "treant_super_bloom"
+    ],
+    "troll_warlord": [
+      "troll_warlord_battle_trance",
+      "troll_warlord_berserkers_rage",
+      "troll_warlord_fervor",
+      "troll_warlord_innate_masterful",
+      "troll_warlord_rampage",
+      "troll_warlord_scepter",
+      "troll_warlord_switch_stance",
+      "troll_warlord_whirling_axes_melee",
+      "troll_warlord_whirling_axes_ranged"
+    ],
+    "tusk": [
+      "tusk_bitter_chill",
+      "tusk_drinking_buddies",
+      "tusk_frozen_sigil",
+      "tusk_ice_shards",
+      "tusk_ice_shards_stop",
+      "tusk_launch_snowball",
+      "tusk_snowball",
+      "tusk_tag_team",
+      "tusk_walrus_kick",
+      "tusk_walrus_punch"
+    ],
+    "undying": [
+      "undying_ceaseless_dirge",
+      "undying_decay",
+      "undying_flesh_golem",
+      "undying_soul_rip",
+      "undying_tombstone",
+      "undying_tombstone_grab",
+      "undying_tombstone_unit_grab",
+      "undying_tombstone_zombie_aura",
+      "undying_tombstone_zombie_deathstrike"
+    ],
+    "ursa": [
+      "ursa_bear_down",
+      "ursa_earthshock",
+      "ursa_enrage",
+      "ursa_fury_swipes",
+      "ursa_maul",
+      "ursa_overpower"
+    ],
+    "vengefulspirit": [
+      "vengefulspirit_command_aura",
+      "vengefulspirit_magic_missile",
+      "vengefulspirit_nether_swap",
+      "vengefulspirit_retribution",
+      "vengefulspirit_soul_strike",
+      "vengefulspirit_wave_of_terror"
+    ],
+    "venomancer": [
+      "venomancer_area_poison",
+      "venomancer_latent_poison",
+      "venomancer_noxious_plague",
+      "venomancer_plague_ward",
+      "venomancer_poison_nova",
+      "venomancer_poison_sting",
+      "venomancer_sepsis",
+      "venomancer_snakebite",
+      "venomancer_venomous_gale"
+    ],
+    "viper": [
+      "viper_corrosive_skin",
+      "viper_nethertoxin",
+      "viper_nose_dive",
+      "viper_poison_attack",
+      "viper_predator",
+      "viper_viper_strike"
+    ],
+    "visage": [
+      "visage_grave_chill",
+      "visage_gravekeepers_cloak",
+      "visage_lurker",
+      "visage_silent_as_the_grave",
+      "visage_soul_assumption",
+      "visage_stone_form_self_cast",
+      "visage_summon_familiars",
+      "visage_summon_familiars_recall",
+      "visage_summon_familiars_stone_form"
+    ],
+    "void_spirit": [
+      "void_spirit_aether_remnant",
+      "void_spirit_astral_step",
+      "void_spirit_dissimilate",
+      "void_spirit_intrinsic_edge",
+      "void_spirit_resonant_pulse",
+      "void_spirit_symmetry"
+    ],
+    "warlock": [
+      "warlock_black_grimoire",
+      "warlock_eldritch_summoning",
+      "warlock_fatal_bonds",
+      "warlock_golem_flaming_fists",
+      "warlock_golem_permanent_immolation",
+      "warlock_imp_explode",
+      "warlock_imp_explode_major",
+      "warlock_rain_of_chaos",
+      "warlock_shadow_word",
+      "warlock_upheaval"
+    ],
+    "weaver": [
+      "weaver_geminate_attack",
+      "weaver_rewoven",
+      "weaver_shukuchi",
+      "weaver_the_swarm",
+      "weaver_threads_of_fate",
+      "weaver_time_lapse"
+    ],
+    "windrunner": [
+      "windrunner_easy_breezy",
+      "windrunner_focusfire",
+      "windrunner_focusfire_cancel",
+      "windrunner_gale_force",
+      "windrunner_powershot",
+      "windrunner_shackleshot",
+      "windrunner_tailwind",
+      "windrunner_windrun"
+    ],
+    "winter_wyvern": [
+      "winter_wyvern_accelerated_learning",
+      "winter_wyvern_arctic_burn",
+      "winter_wyvern_cold_embrace",
+      "winter_wyvern_dragon_sight",
+      "winter_wyvern_eldwurm_scholar",
+      "winter_wyvern_eldwurms_edda",
+      "winter_wyvern_essence_of_the_blueheart",
+      "winter_wyvern_splinter_blast",
+      "winter_wyvern_winters_curse"
+    ],
+    "wisp": [
+      "wisp_equilibrium",
+      "wisp_essence_conduction",
+      "wisp_overcharge",
+      "wisp_relocate",
+      "wisp_spirits",
+      "wisp_spirits_in",
+      "wisp_spirits_out",
+      "wisp_tether",
+      "wisp_tether_break"
+    ],
+    "witch_doctor": [
+      "witch_doctor_death_ward",
+      "witch_doctor_gris_gris",
+      "witch_doctor_innate_maledict_heal_reduction",
+      "witch_doctor_maledict",
+      "witch_doctor_paralyzing_cask",
+      "witch_doctor_voodoo_restoration",
+      "witch_doctor_voodoo_switcheroo"
+    ],
+    "zuus": [
+      "zuus_arc_lightning",
+      "zuus_cloud",
+      "zuus_heavenly_jump",
+      "zuus_lightning_bolt",
+      "zuus_lightning_hands",
+      "zuus_static_field",
+      "zuus_thundergods_wrath"
+    ]
+  },
+  "control_abilities_by_hero": {
+    "abaddon": [],
+    "abyssal_underlord": [
+      "abyssal_underlord_pit_of_malice"
+    ],
+    "alchemist": [
+      "alchemist_unstable_concoction",
+      "alchemist_unstable_concoction_throw"
+    ],
+    "ancient_apparition": [
+      "ancient_apparition_cold_feet",
+      "ancient_apparition_ice_blast",
+      "ancient_apparition_ice_blast_release",
+      "ancient_apparition_ice_vortex"
+    ],
+    "antimage": [
+      "antimage_mana_void"
+    ],
+    "arc_warden": [
+      "arc_warden_flux",
+      "arc_warden_magnetic_field"
+    ],
+    "axe": [
+      "axe_berserkers_call"
+    ],
+    "bane": [
+      "bane_brain_sap",
+      "bane_enfeeble",
+      "bane_nightmare"
+    ],
+    "batrider": [
+      "batrider_flamebreak",
+      "batrider_flaming_lasso"
+    ],
+    "beastmaster": [
+      "beastmaster_primal_roar",
+      "beastmaster_summon_raptor"
+    ],
+    "bloodseeker": [
+      "bloodseeker_blood_bath",
+      "bloodseeker_rupture"
+    ],
+    "bounty_hunter": [
+      "bounty_hunter_wind_walk"
+    ],
+    "brewmaster": [
+      "brewmaster_earth_hurl_boulder",
+      "brewmaster_storm_cyclone"
+    ],
+    "bristleback": [
+      "bristleback_brawlers_grit"
+    ],
+    "broodmother": [
+      "broodmother_sticky_snare"
+    ],
+    "centaur": [
+      "centaur_hoof_stomp",
+      "centaur_khan_war_stomp",
+      "centaur_mount"
+    ],
+    "chaos_knight": [
+      "chaos_knight_chaos_bolt"
+    ],
+    "chen": [],
+    "clinkz": [],
+    "crystal_maiden": [],
+    "dark_seer": [
+      "dark_seer_normal_punch"
+    ],
+    "dark_willow": [
+      "dark_willow_bramble_maze",
+      "dark_willow_cursed_crown",
+      "dark_willow_terrorize"
+    ],
+    "dawnbreaker": [
+      "dawnbreaker_fire_wreath",
+      "dawnbreaker_solar_guardian"
+    ],
+    "dazzle": [
+      "dazzle_nothl_projection",
+      "dazzle_rain_of_vermin"
+    ],
+    "death_prophet": [
+      "death_prophet_silence"
+    ],
+    "disruptor": [
+      "disruptor_electromagnetic_repulsion",
+      "disruptor_glimpse"
+    ],
+    "doom_bringer": [
+      "doom_bringer_infernal_blade"
+    ],
+    "dragon_knight": [
+      "dragon_knight_dragon_tail"
+    ],
+    "drow_ranger": [
+      "drow_ranger_frost_arrows",
+      "drow_ranger_glacier",
+      "drow_ranger_silence",
+      "drow_ranger_wave_of_silence"
+    ],
+    "earth_spirit": [
+      "earth_spirit_boulder_smash",
+      "earth_spirit_geomagnetic_grip",
+      "earth_spirit_magnetize",
+      "earth_spirit_rolling_boulder"
+    ],
+    "earthshaker": [
+      "earthshaker_fissure",
+      "earthshaker_spirit_cairn"
+    ],
+    "elder_titan": [
+      "elder_titan_ancestral_spirit",
+      "elder_titan_echo_stomp",
+      "elder_titan_echo_stomp_spirit"
+    ],
+    "ember_spirit": [
+      "ember_spirit_searing_chains"
+    ],
+    "enchantress": [
+      "enchantress_little_friends"
+    ],
+    "enigma": [
+      "enigma_black_hole",
+      "enigma_malefice"
+    ],
+    "faceless_void": [
+      "faceless_void_time_zone"
+    ],
+    "furion": [],
+    "grimstroke": [
+      "grimstroke_soul_chain",
+      "grimstroke_spirit_walk"
+    ],
+    "gyrocopter": [
+      "gyrocopter_homing_missile"
+    ],
+    "hoodwink": [
+      "hoodwink_bushwhack",
+      "hoodwink_decoy"
+    ],
+    "huskar": [
+      "huskar_inner_fire",
+      "huskar_life_break"
+    ],
+    "invoker": [
+      "invoker_chaos_meteor",
+      "invoker_cold_snap",
+      "invoker_cold_snap_ad",
+      "invoker_deafening_blast",
+      "invoker_deafening_blast_ad",
+      "invoker_ice_wall",
+      "invoker_ice_wall_ad"
+    ],
+    "jakiro": [
+      "jakiro_ice_path"
+    ],
+    "juggernaut": [
+      "juggernaut_healing_ward"
+    ],
+    "keeper_of_the_light": [
+      "keeper_of_the_light_blinding_light",
+      "keeper_of_the_light_mana_leak",
+      "keeper_of_the_light_radiant_bind"
+    ],
+    "kez": [
+      "kez_kazurai_katana",
+      "kez_shodo_sai",
+      "kez_talon_toss"
+    ],
+    "kunkka": [
+      "kunkka_ghostship",
+      "kunkka_tidal_wave",
+      "kunkka_torrent"
+    ],
+    "largo": [
+      "largo_amphibian_rhapsody",
+      "largo_frogstomp"
+    ],
+    "legion_commander": [],
+    "leshrac": [
+      "leshrac_split_earth"
+    ],
+    "lich": [
+      "lich_chain_frost"
+    ],
+    "life_stealer": [],
+    "lina": [
+      "lina_light_strike_array"
+    ],
+    "lion": [
+      "lion_impale",
+      "lion_voodoo"
+    ],
+    "lone_druid": [
+      "lone_druid_entangle",
+      "lone_druid_spirit_bear",
+      "lone_druid_spirit_bear_entangle"
+    ],
+    "luna": [
+      "luna_eclipse",
+      "luna_lucent_beam"
+    ],
+    "lycan": [
+      "lycan_howl",
+      "lycan_summon_wolves",
+      "lycan_summon_wolves_bash",
+      "lycan_summon_wolves_hamstring"
+    ],
+    "magnataur": [
+      "magnataur_horn_toss",
+      "magnataur_reverse_polarity",
+      "magnataur_solid_core"
+    ],
+    "marci": [
+      "marci_companion_run"
+    ],
+    "mars": [
+      "mars_arena_of_blood",
+      "mars_gods_rebuke",
+      "mars_spear"
+    ],
+    "medusa": [
+      "medusa_stone_gaze"
+    ],
+    "meepo": [
+      "meepo_megameepo"
+    ],
+    "mirana": [
+      "mirana_arrow"
+    ],
+    "monkey_king": [
+      "monkey_king_boundless_strike",
+      "monkey_king_transfiguration",
+      "monkey_king_tree_dance"
+    ],
+    "morphling": [
+      "morphling_adaptive_strike_agi",
+      "morphling_morph_agi",
+      "morphling_morph_str"
+    ],
+    "muerta": [
+      "muerta_dead_shot",
+      "muerta_parting_shot",
+      "muerta_spectral_slug",
+      "muerta_the_calling"
+    ],
+    "naga_siren": [
+      "naga_siren_ensnare",
+      "naga_siren_reel_in"
+    ],
+    "necrolyte": [
+      "necrolyte_reapers_scythe"
+    ],
+    "nevermore": [
+      "nevermore_requiem"
+    ],
+    "night_stalker": [
+      "night_stalker_crippling_fear"
+    ],
+    "nyx_assassin": [
+      "nyx_assassin_burrow",
+      "nyx_assassin_impale",
+      "nyx_assassin_spiked_carapace"
+    ],
+    "obsidian_destroyer": [],
+    "ogre_magi": [
+      "ogre_magi_fireblast",
+      "ogre_magi_unrefined_fireblast"
+    ],
+    "omniknight": [],
+    "oracle": [
+      "oracle_fortunes_end"
+    ],
+    "pangolier": [
+      "pangolier_gyroshell",
+      "pangolier_rollup"
+    ],
+    "phantom_assassin": [],
+    "phantom_lancer": [],
+    "phoenix": [
+      "phoenix_supernova"
+    ],
+    "primal_beast": [
+      "primal_beast_onslaught",
+      "primal_beast_pulverize",
+      "primal_beast_rock_throw",
+      "primal_beast_trample"
+    ],
+    "puck": [
+      "puck_dream_coil",
+      "puck_waning_rift"
+    ],
+    "pudge": [
+      "pudge_meat_hook"
+    ],
+    "pugna": [],
+    "queenofpain": [
+      "queenofpain_sonic_wave"
+    ],
+    "rattletrap": [
+      "rattletrap_hookshot",
+      "rattletrap_jetpack",
+      "rattletrap_overclocking"
+    ],
+    "razor": [],
+    "riki": [],
+    "ringmaster": [
+      "ringmaster_summon_unicycle",
+      "ringmaster_tame_the_beasts",
+      "ringmaster_the_box",
+      "ringmaster_wheel"
+    ],
+    "rubick": [
+      "rubick_telekinesis"
+    ],
+    "sand_king": [],
+    "shadow_demon": [
+      "shadow_demon_disruption"
+    ],
+    "shadow_shaman": [
+      "shadow_shaman_fowl_play",
+      "shadow_shaman_innate_piglet_pole",
+      "shadow_shaman_shackles",
+      "shadow_shaman_voodoo",
+      "shadow_shaman_voodoo_hands"
+    ],
+    "shredder": [],
+    "silencer": [
+      "silencer_brain_drain",
+      "silencer_curse_of_the_silent",
+      "silencer_glaives_of_wisdom",
+      "silencer_global_silence",
+      "silencer_last_word",
+      "silencer_oppressive_silence"
+    ],
+    "skeleton_king": [
+      "skeleton_king_hellfire_blast"
+    ],
+    "skywrath_mage": [
+      "skywrath_mage_ancient_seal"
+    ],
+    "slardar": [
+      "slardar_bash",
+      "slardar_slithereen_crush"
+    ],
+    "slark": [
+      "slark_pounce"
+    ],
+    "snapfire": [
+      "snapfire_firesnap_cookie",
+      "snapfire_spit_creep"
+    ],
+    "sniper": [
+      "sniper_concussive_grenade",
+      "sniper_headshot",
+      "sniper_take_aim"
+    ],
+    "spectre": [
+      "spectre_haunt"
+    ],
+    "spirit_breaker": [
+      "spirit_breaker_charge_of_darkness",
+      "spirit_breaker_greater_bash",
+      "spirit_breaker_knockback_amp",
+      "spirit_breaker_nether_strike"
+    ],
+    "storm_spirit": [],
+    "sven": [
+      "sven_storm_bolt",
+      "sven_vanquisher"
+    ],
+    "techies": [
+      "techies_reactive_tazer",
+      "techies_stasis_trap",
+      "techies_suicide"
+    ],
+    "templar_assassin": [
+      "templar_assassin_meld"
+    ],
+    "terrorblade": [
+      "terrorblade_demon_zeal",
+      "terrorblade_terror_wave"
+    ],
+    "tidehunter": [],
+    "tinker": [
+      "tinker_deploy_turrets"
+    ],
+    "tiny": [
+      "tiny_avalanche"
+    ],
+    "treant": [
+      "treant_leech_seed",
+      "treant_natures_guise"
+    ],
+    "troll_warlord": [
+      "troll_warlord_berserkers_rage"
+    ],
+    "tusk": [
+      "tusk_ice_shards",
+      "tusk_snowball"
+    ],
+    "undying": [
+      "undying_tombstone"
+    ],
+    "ursa": [
+      "ursa_fury_swipes"
+    ],
+    "vengefulspirit": [
+      "vengefulspirit_magic_missile"
+    ],
+    "venomancer": [
+      "venomancer_latent_poison",
+      "venomancer_venomous_gale"
+    ],
+    "viper": [],
+    "visage": [
+      "visage_stone_form_self_cast",
+      "visage_summon_familiars",
+      "visage_summon_familiars_recall",
+      "visage_summon_familiars_stone_form"
+    ],
+    "void_spirit": [],
+    "warlock": [
+      "warlock_fatal_bonds",
+      "warlock_rain_of_chaos"
+    ],
+    "weaver": [],
+    "windrunner": [
+      "windrunner_shackleshot"
+    ],
+    "winter_wyvern": [
+      "winter_wyvern_arctic_burn",
+      "winter_wyvern_splinter_blast",
+      "winter_wyvern_winters_curse"
+    ],
+    "wisp": [],
+    "witch_doctor": [
+      "witch_doctor_maledict",
+      "witch_doctor_paralyzing_cask",
+      "witch_doctor_voodoo_restoration",
+      "witch_doctor_voodoo_switcheroo"
+    ],
+    "zuus": [
+      "zuus_lightning_bolt"
+    ]
+  },
+  "control_ability_source": {
+    "abyssal_underlord_pit_of_malice": {
+      "dname": "Pit of Malice",
+      "desc": "A deadly pit is conjured at the target location; any unit that enters will be damaged and rooted. Each enemy unit within the pit are affected by the root only every 3.6 seconds."
+    },
+    "alchemist_unstable_concoction": {
+      "dname": "Unstable Concoction",
+      "desc": "Alchemist brews up an unstable concoction that he can throw at an enemy hero, to stun and deal damage in an area around the explosion. The longer the concoction brews, the more damage it deals and the longer the stun. Alchemist is faster while charging the concoction. After 5 seconds, the brew reaches its maximum damage and stun time. However, after 5.5 seconds, the concoction will explode on Alchemist himself if not thrown."
+    },
+    "alchemist_unstable_concoction_throw": {
+      "dname": "Unstable Concoction Throw",
+      "desc": "Throw it before it blows up!"
+    },
+    "ancient_apparition_cold_feet": {
+      "dname": "Cold Feet",
+      "desc": "Places a curse on an enemy, dealing damage over time. If the enemy unit doesn't move outside of the given range from the initial location, it will be stunned and frozen in place after 4 seconds."
+    },
+    "ancient_apparition_ice_blast": {
+      "dname": "Ice Blast",
+      "desc": "Launches a tracer toward any location on the battlefield, which must be triggered again to mark the area to be blasted by a damaging explosion of hail. The further the tracer travels, the larger the explosion will be. Enemies caught in the explosion, or who touch the icy ball of hail as it travels, are Frostbitten, taking damage over time and prevented from regenerating or healing. If a Frostbitten unit's health drops below a certain percentage, they will instantly shatter."
+    },
+    "ancient_apparition_ice_blast_release": {
+      "dname": "Release",
+      "desc": "Releases the ice blast to explode at the tracer's current location. Can be cast while silenced."
+    },
+    "ancient_apparition_ice_vortex": {
+      "dname": "Ice Vortex",
+      "desc": "Creates a vortex of icy energy that slows, deals damage, and increases magic damage done to enemies in its range."
+    },
+    "antimage_mana_void": {
+      "dname": "Mana Void",
+      "desc": "For each point of mana missing by the target unit, damage is dealt to it and surrounding enemies. The main target is also mini-stunned."
+    },
+    "arc_warden_flux": {
+      "dname": "Flux",
+      "desc": "Infuses a lone enemy unit with swirling, volatile energy, dealing damage over time and slowing the target. The damage is not applied if another enemy unit is near the target."
+    },
+    "arc_warden_magnetic_field": {
+      "dname": "Magnetic Field",
+      "desc": "Arc Warden generates a circular distortion field of magnetic energy. The Magnetic Field grants bonus attack speed and protects allied units within it by evading attacks coming from outside the field. The Magnetic Field pulls runes, and runes inside Magnetic Field automatically activate."
+    },
+    "axe_berserkers_call": {
+      "dname": "Berserker's Call",
+      "desc": "Axe taunts nearby enemy units, forcing them to attack him while he gains bonus armor during the duration."
+    },
+    "bane_brain_sap": {
+      "dname": "Brain Sap",
+      "desc": "Feasts on the vital energies of an enemy unit, healing Bane and dealing damage."
+    },
+    "bane_enfeeble": {
+      "dname": "Enfeeble",
+      "desc": "Deals damage every second and lowers the enemy's total attack damage and cast range."
+    },
+    "bane_nightmare": {
+      "dname": "Nightmare",
+      "desc": "Puts the target enemy or friendly Hero to sleep. Sleeping units walk in Bane's chosen direction and are awakened when damaged. If the target was directly attacked, the Nightmare passes to the attacking unit. Bane can attack and damage Nightmared targets freely.\n\n Can be put on alt-cast to have the target stand still."
+    },
+    "batrider_flamebreak": {
+      "dname": "Flamebreak",
+      "desc": "Hurls an explosive cocktail that explodes when it reaches the target location, knocking back, slowing and dealing damage over time to enemies in the area."
+    },
+    "batrider_flaming_lasso": {
+      "dname": "Flaming Lasso",
+      "desc": "Lassoes an enemy and drags them in Batrider's wake. Dragged units cannot move, attack, or use abilities. Teleporting or blinking will break the lasso."
+    },
+    "beastmaster_primal_roar": {
+      "dname": "Primal Roar",
+      "desc": "Beastmaster lets loose a deafening roar that stuns, and shoves open a path to its target. All units in the path of the roar are damaged, while units shoved aside by the roar have their movement and attack speed slowed. Additionally, Beastmaster and his units gain 40% movement speed for 2 seconds."
+    },
+    "beastmaster_summon_raptor": {
+      "dname": "Summon Raptors",
+      "desc": "Beastmaster summons 2 hawks that circle around Beastmaster and dive-bombs at enemies with a base attack rate of every 4s, damaging and rooting them. Attack rate increases with the Hawk's attack speed. Prioritizes heroes. "
+    },
+    "bloodseeker_blood_bath": {
+      "dname": "Blood Rite",
+      "desc": "Bloodseeker baptizes an area in sacred blood. After 2.9 seconds the ritual completes, causing any enemies caught in the area to take damage and become silenced."
+    },
+    "bloodseeker_rupture": {
+      "dname": "Rupture",
+      "desc": "Causes an enemy unit's skin to rupture, dealing initial damage based on its current health. If the unit moves, it takes damage based on the distance moved."
+    },
+    "bounty_hunter_wind_walk": {
+      "dname": "Shadow Walk",
+      "desc": "Bounty Hunter becomes invisible and gains bonus movement speed and the ability to move through other units until he attacks or casts a spell. If he breaks the invisibility with an attack, that attack will stun the target for a short duration."
+    },
+    "brewmaster_earth_hurl_boulder": {
+      "dname": "Hurl Boulder",
+      "desc": "Throws a boulder at a unit, doing damage and stunning it."
+    },
+    "brewmaster_storm_cyclone": {
+      "dname": "Cyclone",
+      "desc": "Encloses a unit in a tornado, removing it from the battlefield and deals 75 damage when after they land."
+    },
+    "bristleback_brawlers_grit": {
+      "dname": "Brawler's Grit",
+      "desc": "Every time Bristleback is Stunned, Hexed, Feared, Taunted, or Rooted he gains a stacking buff for 8s that provides status resistance and debuff amplificiation, up to a maximum of 4 stacks."
+    },
+    "broodmother_sticky_snare": {
+      "dname": "Spinner's Snare",
+      "desc": ""
+    },
+    "centaur_hoof_stomp": {
+      "dname": "Hoof Stomp",
+      "desc": "After a brief windup, Centaur Warrunner slams the ground, stunning and damaging nearby enemy units. During the delay, he is disarmed but can move."
+    },
+    "centaur_khan_war_stomp": {
+      "dname": "War Stomp",
+      "desc": "The Centaur Conqueror's powerful hooves stomp the ground, stunning and damaging nearby enemies. Heroes recover more quickly."
+    },
+    "centaur_mount": {
+      "dname": "Hitch A Ride",
+      "desc": "Centaur tosses an ally into a cart hitched behind him. While in the cart, the ally is invulnerable and can still cast and attack normally, but cannot move independently or be targeted by opponents. Increases the attack range of melee heroes by 200."
+    },
+    "chaos_knight_chaos_bolt": {
+      "dname": "Chaos Bolt",
+      "desc": "Throws a mysterious bolt of energy at the target unit. It stuns for a random duration and deals random damage."
+    },
+    "dark_seer_normal_punch": {
+      "dname": "Normal Punch",
+      "desc": "Passive ability. Causes Dark Seer's next attack on a hero to have True Strike, knock a replica out of the victim, damaging and stunning them based on how far Dark Seer has moved in the past 3 seconds. Max power is reached after 1100 distance moved."
+    },
+    "dark_willow_bramble_maze": {
+      "dname": "Bramble Maze",
+      "desc": "Dark Willow creates a 500 AoE maze of 8 brambles that grow in the target area after 0.3 seconds. Enemies that walk into a bramble are rooted and take damage over time. Lasts 12 seconds."
+    },
+    "dark_willow_cursed_crown": {
+      "dname": "Cursed Crown",
+      "desc": "Dark Willow casts an ancient fae curse on the target. After a delay, the target and nearby enemies are stunned."
+    },
+    "dark_willow_terrorize": {
+      "dname": "Terrorize",
+      "desc": "Dark Willow releases her pet wisp to terrorize her enemies. After a short delay, all enemies in the target area become fearful and run toward their home fountain. Terrorize cannot be used while Bedlam is active."
+    },
+    "dawnbreaker_fire_wreath": {
+      "dname": "Starbreaker",
+      "desc": "Dawnbreaker whirls her hammer around 3 times, damaging enemies with her attack plus bonus damage. On the final strike, she smashes her hammer down, stunning and damaging enemies in front of her."
+    },
+    "dawnbreaker_solar_guardian": {
+      "dname": "Solar Guardian",
+      "desc": "CHANNELED - Dawnbreaker creates a pulsing effect at a location within 350 units of an allied hero anywhere on the map and creates daylight for 6s. Each pulse damages enemies and heals allies.\n\nAfter a short duration, she flies to the target location and deals additional damage and stuns enemies upon landing.\n\nOnce channeled, Dawnbreaker cannot stop the ability."
+    },
+    "dazzle_nothl_projection": {
+      "dname": "Nothl Projection",
+      "desc": "Dazzle departs his body, traveling through the Nothl Realm as an invulnerable spirit that can cast spells, attack, and use items, leaving his body behind in the world with a visible tether. While active, Dazzle's basic abilities are empowered: Poison Touch hexes enemies, Shallow Grave heals upon expiration, and Shadow Wave has a shorter cooldown. The effect can be ended early, and Dazzle returns to the body at the end."
+    },
+    "dazzle_rain_of_vermin": {
+      "dname": null,
+      "desc": ""
+    },
+    "death_prophet_silence": {
+      "dname": "Silence",
+      "desc": "Fires a projectile that prevents enemy units in a target area from casting spells."
+    },
+    "disruptor_electromagnetic_repulsion": {
+      "dname": "Electromagnetic Repulsion",
+      "desc": "Whenever Disruptor takes more than 250 damage from any source within 400 radius, all nearby enemies within take damage equal to 1.5x of Disruptor's Intelligence, and are pushed back up to a 400 distance away."
+    },
+    "disruptor_glimpse": {
+      "dname": "Glimpse",
+      "desc": "Teleports the target hero back to where it was 4 seconds ago. Instantly kills illusions. Deals damage equal to a percentage of the distance glimpsed, that cannot go over a damage maximum."
+    },
+    "doom_bringer_infernal_blade": {
+      "dname": "Infernal Blade",
+      "desc": "Doom swings his burning sword, igniting the enemy. Stuns for 0.66 seconds and applies a 4 second burn that deals a base damage plus a percentage of the target's Max HP as damage per second."
+    },
+    "dragon_knight_dragon_tail": {
+      "dname": "Dragon Tail",
+      "desc": "Dragon Knight smites an enemy unit with his shield, stunning and damaging it and units close to it."
+    },
+    "drow_ranger_frost_arrows": {
+      "dname": "Frost Arrows",
+      "desc": "Adds a freezing effect to Drow's attacks, slowing enemy movement and dealing bonus damage. Slow lasts 1.5 seconds."
+    },
+    "drow_ranger_glacier": {
+      "dname": "Glacier",
+      "desc": "Drow creates a hill of ice beneath her, knocking away nearby enemies. Units on the hill gain flying vision and Drow and her ranged allies gain bonus attack range. Drow gains additional damage while on the Glacier and attacking targets below her.\n\nThe front of the hill obscures vision and cannot be moved through except by Drow. Does not interrupt Multishot when cast."
+    },
+    "drow_ranger_silence": {
+      "dname": null,
+      "desc": ""
+    },
+    "drow_ranger_wave_of_silence": {
+      "dname": "Gust",
+      "desc": "Releases a wave that silences and knocks back and reveals invisible enemy units. Knockback distance is relative to how close they are to Drow."
+    },
+    "earth_spirit_boulder_smash": {
+      "dname": "Boulder Smash",
+      "desc": "Earth Spirit smashes the target enemy or ally, sending them in the direction he is facing. If Earth Spirit targets an area, he will smash the nearest unit in a 200 radius, prioritizing Stone Remnants. The travelling unit or Remnant damages all enemy units it hits. If an enemy is hit by a Stone Remnant, they are also slowed. Stone Remnants travel further than other units."
+    },
+    "earth_spirit_geomagnetic_grip": {
+      "dname": "Geomagnetic Grip",
+      "desc": "Earth Spirit pulls the target Stone Remnant or Allied Unit. Enemies struck by the gripped target will be silenced.\n\nPulled Remnants also deal damage to struck enemies.\n\nCast range is reduced when targeting an ally."
+    },
+    "earth_spirit_magnetize": {
+      "dname": "Magnetize",
+      "desc": "Magnetizes units in a small nearby area, causing them to take damage for a short duration. Magnetized heroes cause nearby Stone Remnants to explode, destroying the remnant and refreshing Magnetize's duration on all nearby enemies. This process can repeat multiple times. If an enemy hero is affected by Geomagnetic Grip or Boulder Smash, all magnetized heroes share the effects."
+    },
+    "earth_spirit_rolling_boulder": {
+      "dname": "Rolling Boulder",
+      "desc": "Earth Spirit gathers himself into a boulder and, after a 0.6s delay, rolls toward the target location, dealing 60 + 100% STR damage and stunning enemy units. He will stop if he collides with an enemy hero or is stunned. If he rolls over a Stone Remnant, he will travel further and faster, and stun enemies for longer."
+    },
+    "earthshaker_fissure": {
+      "dname": "Fissure",
+      "desc": "Slams the ground with a mighty totem, creating an impassable ridge of stone while stunning and damaging enemy units along its line."
+    },
+    "earthshaker_spirit_cairn": {
+      "dname": "Spirit Cairn",
+      "desc": "When Earthshaker dies, a 75 radius fissure is created where he died. This fissure blocks movement and allows Earthshaker to continue to gain experience around it. It remains until Earthshaker respawns."
+    },
+    "elder_titan_ancestral_spirit": {
+      "dname": "Astral Spirit",
+      "desc": "Elder Titan sends forth his Astral Spirit, damaging any units it passes through. When the spirit rejoins the Titan, it grants bonus damage and movement speed for each unit it passed through.\n\nThe Astral Spirit possesses the Echo Stomp, Return Spirit, and Natural Order abilities."
+    },
+    "elder_titan_echo_stomp": {
+      "dname": "Echo Stomp",
+      "desc": "CHANNELED - Elder Titan and his Astral Spirit both stomp the ground, damaging and knocking nearby enemy units unconscious around their locations. The Elder Titan stomp deals physical damage, while the Spirit stomp deals magical damage."
+    },
+    "elder_titan_echo_stomp_spirit": {
+      "dname": "Echo Stomp",
+      "desc": "Elder Titan and his Astral Spirit both stomp the ground, damaging and knocking nearby enemy units unconscious around their locations. The Elder Titan stomp deals physical damage, while the Spirit stomp deals magical damage. Unconscious enemies will wake if they take damage."
+    },
+    "ember_spirit_searing_chains": {
+      "dname": "Searing Chains",
+      "desc": "Ember Spirit unleashes fiery bolas that wrap around nearby enemies, anchoring them in place and dealing damage each second."
+    },
+    "enchantress_little_friends": {
+      "dname": "Little Friends",
+      "desc": "Enchantress roots an enemy unit. All creeps, ally, enemy and neutral within a radius will gain bonus movement and attack speed and attack the chosen target for 6 seconds."
+    },
+    "enigma_black_hole": {
+      "dname": "Black Hole",
+      "desc": "CHANNELED - Summons a vortex that sucks in nearby enemy units. Enemies affected by Black Hole cannot move, attack, or cast spells."
+    },
+    "enigma_malefice": {
+      "dname": "Malefice",
+      "desc": "Focuses Enigma's power on a target, causing it to take damage and become repeatedly stunned for multiple instances. An instance strikes every 2 seconds."
+    },
+    "faceless_void_time_zone": {
+      "dname": "Time Zone",
+      "desc": "Creates a blister in spacetime, altering the movement, cast, projectile, cooldown, and turn rate speed of all units inside. Allies have increased speed and cooldown acceleration. Enemies have decreased speed, and have frozen ability and item cooldowns. Does not affect Ultimate abilities. Time Dilation does not tick down while inside."
+    },
+    "grimstroke_soul_chain": {
+      "dname": "Soulbind",
+      "desc": "Binds a targeted enemy hero to its nearest allied hero within the bind radius, preventing both from moving away from each other. Any unit-targeted ability that either bound hero receives also gets cast on the other hero. If the bind is broken before the duration expires, the initial target will be bound to its nearest allied hero in the radius."
+    },
+    "grimstroke_spirit_walk": {
+      "dname": "Ink Swell",
+      "desc": "Grimstroke shrouds an allied unit in ink, increasing its movement speed. Enemies in range of the allied unit are damaged with inky tendrils over time. After 3 seconds it applies damage and stun in an area around the unit in proportion to how long ink tendril was near any hero."
+    },
+    "gyrocopter_homing_missile": {
+      "dname": "Homing Missile",
+      "desc": "Fires a homing missile to seek the targeted enemy unit. The missile gains speed over time, dealing damage and stunning when it impacts the target. Enemy units can destroy the missile before it reaches its target."
+    },
+    "hoodwink_bushwhack": {
+      "dname": "Bushwhack",
+      "desc": "Tosses a net trap that stuns enemies if they are near a tree in the area. Affected enemies take damage over time and are pulled towards the tree nearest to them within the target area, and have their vision reduced to 0 for the duration of the stun."
+    },
+    "hoodwink_decoy": {
+      "dname": "Decoy",
+      "desc": "Hoodwink turns invisible, increasing her movement speed, and creates a decoy illusion that starts aiming a decreased damage Sharpshooter at the nearest enemy hero. If the illusion is attacked or hit by a targeted ability, it is destroyed and it throws a lesser bushwhack towards the enemy."
+    },
+    "huskar_inner_fire": {
+      "dname": "Inner Fire",
+      "desc": "In a fiery rage, knocks all nearby enemies away from you to a fixed distance, dealing damage and silencing them."
+    },
+    "huskar_life_break": {
+      "dname": "Life Break",
+      "desc": "Huskar draws upon his health to break an enemy's life, leaping at a target to shatter a percentage of that hero's current health and slow both their movement and attack speed. While leaping, Huskar is Debuff Immune with 60% magic resistance.\n\nDISPEL TYPE: Basic Dispel"
+    },
+    "invoker_chaos_meteor": {
+      "dname": "Chaos Meteor",
+      "desc": "Invoker pulls a flaming meteor from space onto the targeted location. Upon landing, the meteor rolls forward, constantly dealing damage based on the level of Exort, and rolling further based on the level of Wex. Units hit by the meteor will also be set on fire for a short time, receiving additional damage based on the level of Exort."
+    },
+    "invoker_cold_snap": {
+      "dname": "Cold Snap",
+      "desc": "Invoker draws the heat from an enemy, chilling them to their very core for a duration based on the level of Quas. The enemy will take damage and be briefly frozen. Further damage taken in this state will freeze the enemy again, dealing bonus damage. The enemy can only be frozen so often, but the freeze cooldown decreases based on the level of Quas."
+    },
+    "invoker_cold_snap_ad": {
+      "dname": "Cold Snap (AD)",
+      "desc": "Invoker draws the heat from an enemy, chilling them to their very core for a duration. The enemy will take damage and be briefly frozen. Further damage taken in this state will freeze the enemy again, dealing bonus damage. The enemy can only be frozen so often, but the freeze cooldown decreases as the level goes up."
+    },
+    "invoker_deafening_blast": {
+      "dname": "Deafening Blast",
+      "desc": "Invoker unleashes a mighty sonic wave in front of him, dealing damage to any enemy unit it collides with based on the level of Exort. The sheer impact from the blast is enough to knock those enemy units back for a duration based on the level of Quas, then disarm their attacks for a duration based on the level of Wex."
+    },
+    "invoker_deafening_blast_ad": {
+      "dname": "Deafening Blast",
+      "desc": "Invoker unleashes a mighty sonic wave in front of him, dealing damage to any enemy unit it collides with. The sheer impact from the blast is enough to knock those enemy units back for a duration then disarm their attacks for a duration."
+    },
+    "invoker_ice_wall": {
+      "dname": "Ice Wall",
+      "desc": "Generates a wall of solid ice directly in front of Invoker for a duration based on the level of Quas. The bitter cold emanating from it greatly slows nearby enemies based on the level of Quas and deals damage each second based on the level of Exort."
+    },
+    "invoker_ice_wall_ad": {
+      "dname": "Ice Wall (AD)",
+      "desc": "Generates a wall of solid ice directly in front of Invoker for a duration. The bitter cold emanating from it greatly slows nearby enemies and deals damage each second."
+    },
+    "jakiro_ice_path": {
+      "dname": "Ice Path",
+      "desc": "Creates a path of ice that stuns and damages enemies that touch it."
+    },
+    "juggernaut_healing_ward": {
+      "dname": "Healing Ward",
+      "desc": "Summons a Healing Ward which heals all nearby allied units, based on their max health. The Healing Ward moves at 325 movement speed after being summoned. Lasts 18 seconds."
+    },
+    "keeper_of_the_light_blinding_light": {
+      "dname": "Blinding Light",
+      "desc": "A blinding light flashes over the targeted area, knocking back units to the edge of the area and blinding them, causing them to miss some attacks. Minimum knockback distance is 175 range over 0.6 seconds."
+    },
+    "keeper_of_the_light_mana_leak": {
+      "dname": null,
+      "desc": ""
+    },
+    "keeper_of_the_light_radiant_bind": {
+      "dname": "Solar Bind",
+      "desc": "Weakens an enemy's magical resistance, and applies a slow that increases in strength the more the target moves."
+    },
+    "kez_kazurai_katana": {
+      "dname": "Kazurai Katana",
+      "desc": "Katana attacks and abilities apply a stacking damage over time to enemies that deals a percentage of the original attack's damage as additional damage over time. \n\nKez may activate the ability to impale the target with his attack, preventing them from moving or turning. The target's Katana debuff bursts, causing some of the stacks to deal damage instantly."
+    },
+    "kez_shodo_sai": {
+      "dname": "Shodo Sai",
+      "desc": "Kez has a chance to critically strike the target when attacking with Sais.\n\nKez may activate the ability to disarm himself, lock his facing, and parry attacks and attack effects from the targeted direction for 1.5 seconds. If an attack is parried from an enemy Hero in this way, that Hero is stunned for 0.4s and gains a Mark. When a Marked target is attacked by Kez, it will guarantee a critical strike and stun the target.\n\nThe sub-ability may be used to cancel the blocking early."
+    },
+    "kez_talon_toss": {
+      "dname": "Talon Toss",
+      "desc": "Kez throws a Sai at the target unit, applying a fixed damage attack and silence."
+    },
+    "kunkka_ghostship": {
+      "dname": "Ghostship",
+      "desc": "Summons a ghostly ship that sails through the battle before smashing apart, damaging and stunning all enemies caught near the wreckage.\n\nAllied heroes touched by the Ghostship are given a 2x strong swig of The Admiral's Rum."
+    },
+    "kunkka_tidal_wave": {
+      "dname": "Tidal Wave",
+      "desc": "Releases a Tidal Wave that spawns behind Kunkka. Deals damage and drags enemies along it. Enemies cannot attack while being dragged."
+    },
+    "kunkka_torrent": {
+      "dname": "Torrent",
+      "desc": "Summons a rising torrent that, after a short delay, hurls enemy units into the sky, stunning, dealing damage and slowing movement speed."
+    },
+    "largo_amphibian_rhapsody": {
+      "dname": "Amphibian Rhapsody",
+      "desc": "Largo gets ready to groove. He is disarmed and his ability bar switches to 3 song abilities, each with different effects. Songs are only effective if strummed on the beat.\n\nEvery time he strums successfully, he gains a stack of Groovin'. Each stack gives him bonus armor and reduces the mana cost of every song, but he loses a stack if he misses a beat. Stacks linger for a short duration when Largo's song ends."
+    },
+    "largo_frogstomp": {
+      "dname": "Frogstomp",
+      "desc": "Largo tosses froglings to an area. They stomp the ground every 1 second, dealing damage and ministuns, and enemies in the area have reduced movement speed."
+    },
+    "leshrac_split_earth": {
+      "dname": "Split Earth",
+      "desc": "Splits the earth under enemies. Deals damage and stuns for a short duration."
+    },
+    "lich_chain_frost": {
+      "dname": "Chain Frost",
+      "desc": "Releases an orb of frost that bounces between nearby enemy units up to 10 times, slowing and damaging each time it hits. Each bounce increases the damage for the subsequent bounces. Chain Frost lingers on its last target if it fails to bounce and can bounce again if new targets become available."
+    },
+    "lina_light_strike_array": {
+      "dname": "Light Strike Array",
+      "desc": "Summons a column of flames that damages and stuns enemies."
+    },
+    "lion_impale": {
+      "dname": "Earth Spike",
+      "desc": "Rock spikes burst from the earth along a straight path. Enemy units are hurled into the air, then are stunned and take damage when they fall."
+    },
+    "lion_voodoo": {
+      "dname": "Hex",
+      "desc": "Transforms an enemy unit into a harmless beast, with all special abilities disabled."
+    },
+    "lone_druid_entangle": {
+      "dname": "Entangle",
+      "desc": "Allows Lone Druid to Entangle enemies once they gain 5 stacks. Entangled enemies are rooted and take damage over time.\n\nWhen cast, applies 2 stacks to each enemy hero in the area and 5 stacks to enemy creeps. Also empowers Lone Druid for 10s, making him apply 1 stack with each attack on enemy heroes. Enemies cannot gain stacks while Entangled.\n\nLeveling this ability also levels Spirit Bear's Entangling Claws ability."
+    },
+    "lone_druid_spirit_bear": {
+      "dname": "Summon Spirit Bear",
+      "desc": "Summons a powerful Spirit Bear companion that can equip items.\n\nIf the bear moves 1100 distance away from the Lone Druid, it cannot attack. Lone Druid suffers 20% of his max health as backlash damage if the Spirit Bear dies.\nSpirit Bear has Demolish, Return, Entangling Claws, Savage Roar, and Spirit Link abilities."
+    },
+    "lone_druid_spirit_bear_entangle": {
+      "dname": "Entangling Claws",
+      "desc": "Allows Spirit Bear to Entangle enemy heroes once they gain 5 stacks. Entangled enemies are rooted and take damage over time.\n\nSpirit Bear's attacks are permanently empowered, making them apply 1 stack with each attack on enemy heroes. Enemies cannot gain stacks while Entangled."
+    },
+    "luna_eclipse": {
+      "dname": "Eclipse",
+      "desc": "Showers random nearby enemies with strikes from Luna's current level of Lucent Beam. These beams do not stun their targets, and there is a maximum number of times that a single target can be struck. Also turns day into night for a short time."
+    },
+    "luna_lucent_beam": {
+      "dname": "Lucent Beam",
+      "desc": "Calls a beam of lunar energy down upon an enemy, damaging and briefly stunning them."
+    },
+    "lycan_howl": {
+      "dname": "Howl",
+      "desc": "Strikes fear into enemies, reducing armor and attack damage of all enemies within 2000 range of Lycan and his wolves. At night, Howl's armor and attack damage reductions are global."
+    },
+    "lycan_summon_wolves": {
+      "dname": "Summon Wolves",
+      "desc": "Summons 2 wolves to aid Lycan in battle. At level 3, wolves gain Permanent Invisibility, and at level 4 wolves gain Cripple that gives 20% chance to cripple the target, causing 8 damage per second and lose 60 attack speed for 4 seconds."
+    },
+    "lycan_summon_wolves_bash": {
+      "dname": null,
+      "desc": ""
+    },
+    "lycan_summon_wolves_hamstring": {
+      "dname": "Hamstring",
+      "desc": "The wolf bites down on an enemy's hamstring, rooting them for a short duration. After the bite, the next 4 attacks from units controlled by Lycan deal bonus damage."
+    },
+    "magnataur_horn_toss": {
+      "dname": "Horn Toss",
+      "desc": "Magnus tosses any enemies in front of him, launching them to his rear. Enemies take damage, spend 0.6 seconds in the air, and are stunned while in the air and an additional amount of time after landing."
+    },
+    "magnataur_reverse_polarity": {
+      "dname": "Reverse Polarity",
+      "desc": ""
+    },
+    "magnataur_solid_core": {
+      "dname": "Solid Core",
+      "desc": "Magnus has increased slow resistance and suffers less knockback from enemy's abilities and items."
+    },
+    "marci_companion_run": {
+      "dname": "Rebound",
+      "desc": "Marci bounds to the targeted allied unit, choosing a direction and distance she will spring away from it. Upon reaching the unit, Marci lunges to her final destination, damaging and stunning enemies where she lands.\n\nWhen Rebound is set to alt-cast, Marci brings the target ally with her to her final destination.\n\n The ally receives 25% bonus movement speed for 4s."
+    },
+    "mars_arena_of_blood": {
+      "dname": "Arena Of Blood",
+      "desc": "After a short formation time, Mars summons an arena lined with the undead warriors of the Ash Legion, who block enemy attacks and movement. Enemy heroes near the inside edge of the arena will be attacked by spears, dealing damage and knocking them back."
+    },
+    "mars_gods_rebuke": {
+      "dname": "God's Rebuke",
+      "desc": "Mars smashes enemies in front of him with his shield, knocking them back and damaging them with a critical hit based on his attack. Bonus damage is added when hitting heroes. Has True Strike."
+    },
+    "mars_spear": {
+      "dname": "Spear of Mars",
+      "desc": "Mars throws his legendary Spear with deadly precision, damaging each enemy unit it strikes. The first enemy hero it hits is skewered on the spear, pushing it back. If a skewered hero hits a tree, building, or cliff, they will be impaled to it and stunned."
+    },
+    "medusa_stone_gaze": {
+      "dname": "Stone Gaze",
+      "desc": "Any enemy units looking at Medusa will have their movement and attack speed slowed. If 2 seconds of total time is accumulated looking at Medusa while Stone Gaze is active, that unit will turn to stone. Petrified units are stunned, and take bonus physical attack damage."
+    },
+    "meepo_megameepo": {
+      "dname": "MegaMeepo",
+      "desc": "Primary Meepo mounts all other Meepos in a 600 radius around him on top of his shoulders. While in this form, he gains 40% of the other Meepo stats and can Fling them at enemies, dealing damage and slowing them.\n\n When cast, Earthbind generates additional nets and Poof deals 50% more damage for each Meepo on top."
+    },
+    "mirana_arrow": {
+      "dname": "Sacred Arrow",
+      "desc": "Fires a long-range arrow with deadly precision, which stuns and damages the first enemy unit it strikes. The stun duration ranges from 0.01 to 2.3 seconds, with bonus damage up to 180 added, based on the distance the arrow travels to its target. Instantly kills the first non-ancient creep it hits."
+    },
+    "monkey_king_boundless_strike": {
+      "dname": "Boundless Strike",
+      "desc": "Monkey King enlarges his staff and slams it against the ground, stunning enemies in a line and damaging them with bonus damage and a critical hit based on his attack. Has True Strike."
+    },
+    "monkey_king_transfiguration": {
+      "dname": "Changing of the Guard",
+      "desc": "Monkey King can transform into any one of his soldiers during Wukong's command, taking its place for a 1.5s, becoming indistinguishable from other soldiers, and leaving another soldier in his stead. While transformed, Monkey King is invulnerable, but cannot attack or cast spells"
+    },
+    "monkey_king_tree_dance": {
+      "dname": "Tree Dance",
+      "desc": "Monkey King jumps to a tree and perches atop it. While perched, he gains the Primal Spring ability-a channeled leap attack. If Monkey King's tree is destroyed, he falls and is stunned for 3s. Taking damage while on the ground puts Tree Dance on cooldown."
+    },
+    "morphling_adaptive_strike_agi": {
+      "dname": "Adaptive Strike",
+      "desc": "Launches a surge of water toward an enemy unit, stunning them, knocking them back, and dealing base damage plus additional damage based on Morphling's agility times a multiplier. If Morphling's agility is 50% higher than strength, the maximum agility multiplier is used.\n\nKnockback distance and stun duration are based on Morphling's strength. If his strength is 50% higher than his agility, the maximum knockback distance and stun duration is used."
+    },
+    "morphling_morph_agi": {
+      "dname": "Attribute Shift (Agility Gain)",
+      "desc": "Morphling shifts its form, pulling points from Strength and pouring them into Agility at a rate of 4. The process is reversible."
+    },
+    "morphling_morph_str": {
+      "dname": "Attribute Shift (Strength Gain)",
+      "desc": "Morphling shifts its form, pulling points from Agility and pouring them into Strength at a rate of 4. The process is reversible."
+    },
+    "muerta_dead_shot": {
+      "dname": "Dead Shot",
+      "desc": ""
+    },
+    "muerta_parting_shot": {
+      "dname": null,
+      "desc": ""
+    },
+    "muerta_spectral_slug": {
+      "dname": "Spectral Slug",
+      "desc": ""
+    },
+    "muerta_the_calling": {
+      "dname": "The Calling",
+      "desc": ""
+    },
+    "naga_siren_ensnare": {
+      "dname": "Ensnare",
+      "desc": "Interrupts the target and traps them in place, preventing movement or blinking. Can target units affected by Song of the Siren."
+    },
+    "naga_siren_reel_in": {
+      "dname": "Reel In",
+      "desc": "CHANNELED - Naga Siren channels for up to 5 seconds, pulling all units affected by Naga's Ensnare in a 1600 range towards her at a speed of 200. Channeling ends when the Ensnared unit is 100 distance away."
+    },
+    "necrolyte_reapers_scythe": {
+      "dname": "Reaper's Scythe",
+      "desc": "Stuns the target enemy hero, then deals damage based on how much life it is missing. If Necrophos kills an enemy this way, he'll permanently gain Health and Mana Regen. Any kill under this effect is credited to Necrophos."
+    },
+    "nevermore_requiem": {
+      "dname": "Requiem of Souls",
+      "desc": "Shadow Fiend gathers up to 20 of his captured souls to release them as lines of demonic energy. Units near Shadow Fiend when the souls are released can be damaged by several lines of energy. Any unit damaged by Requiem of Souls will be feared and have its movement speed and magic resistance reduced for 0.6 seconds for each line hit up to a maximum of 2.15. Lines of energy are created for every soul captured through Necromastery. \n\n Requiem of Souls is automatically cast whenever Shadow Fiend dies, regardless of its cooldown."
+    },
+    "night_stalker_crippling_fear": {
+      "dname": "Crippling Fear",
+      "desc": "Night Stalker horrifies all nearby enemies, causing them to become silenced and take damage over time while near him. The effect lasts longer at night."
+    },
+    "nyx_assassin_burrow": {
+      "dname": "Burrow",
+      "desc": "Nyx Assassin buries himself beneath the battlefield over a short duration. Once burrowed, Spiked Carapace instantly stuns nearby enemies when cast, the range of Mind Flare and Impale is increased, and Impale's cooldown is decreased. While burrowed, Nyx Assassin is stationary, unable to attack, and invisible. Nyx Assassin gains damage reduction from all damage sources."
+    },
+    "nyx_assassin_impale": {
+      "dname": "Impale",
+      "desc": "Rock spikes burst from the earth along a straight path. Enemy units take damage, then are hurled into the air and stunned."
+    },
+    "nyx_assassin_spiked_carapace": {
+      "dname": "Spiked Carapace",
+      "desc": "When activated while above ground, Spiked Carapace reflects and negates damage dealt to Nyx Assassin (max once from each source), as well as stunning the source of the damage. Activating Spiked Carapace will not break Vendetta invisibility.\n\nWhile Burrowed, Spiked Carapace instantly stuns nearby enemies when cast."
+    },
+    "ogre_magi_fireblast": {
+      "dname": "Fireblast",
+      "desc": "Blasts an enemy unit with a wave of fire, dealing damage and stunning the target."
+    },
+    "ogre_magi_unrefined_fireblast": {
+      "dname": "Unrefined Fireblast",
+      "desc": "Blasts an enemy unit with a wave of fire, dealing 150 + 1.5x Ogre's Strength in damage and stunning the target. Its mana cost is 35% of Ogre Magi's current mana."
+    },
+    "oracle_fortunes_end": {
+      "dname": "Fortune's End",
+      "desc": "CHANNELED - Gathers Oracle's power into a bolt of scouring energy that, when released, damages, roots, and dispels enemies of buffs in an area around the target. If target is an ally it will only dispel debuffs. The root duration increases with channeling time.\n\nDISPEL TYPE: Basic Dispel"
+    },
+    "pangolier_gyroshell": {
+      "dname": "Rolling Thunder",
+      "desc": "Pangolier curls into a debuff immune ball with 80% magic resistance and rolls out. When rolling, he moves at an increased speed and can move through trees, but has a decreased ability to turn. Striking enemies knocks them back, inflicting damage proportional to his attack damage and stunning them when they land. \n\nColliding with walls or cliffs will cause a temporary pause while Pangolier reverses in direction.\n\nDISPEL TYPE: Basic Dispel"
+    },
+    "pangolier_rollup": {
+      "dname": "Roll Up",
+      "desc": "Pangolier curls into an immobile protective ball, gaining debuff immunity, 80% magic resistance, and allowing him to turn. Can be cast during Rolling Thunder to temporarily hit the brakes. Can cast Rolling Thunder and Shield Crash during Roll Up. If enemies attack Pangolier during this, he will roll away from the attacker, applying Rolling Thunder damage/stun if there are enemies in the way."
+    },
+    "phoenix_supernova": {
+      "dname": "Supernova",
+      "desc": "The Phoenix willingly ends its current life for the chance to be reborn. Transforms into a burning sun that scorches enemies in a huge area. The sun can be destroyed by attacks from enemy Heroes. After 6 seconds the sun explodes, stunning all nearby enemies while restoring Phoenix to full health and mana with refreshed abilities.\n\nDISPEL TYPE: Strong Dispel"
+    },
+    "primal_beast_onslaught": {
+      "dname": "Onslaught",
+      "desc": "Primal Beast charges up and then runs in the chosen direction, knocking back enemies and allies alike. Enemy units are damaged and stunned on impact. The longer the charge duration, the farther Primal Beast's momentum will carry him. \n\n Can be cancelled at any time with the Stop command."
+    },
+    "primal_beast_pulverize": {
+      "dname": "Pulverize",
+      "desc": "CHANNELED - Primal Beast channels his rage, grabbing the target enemy and slamming them into the ground repeatedly, damaging and mini-stunning any enemies caught in the AoE. Each consecutive hit deals bonus damage. Lasts 2.3 seconds."
+    },
+    "primal_beast_rock_throw": {
+      "dname": "Rock Throw",
+      "desc": "Primal Beast throws a rock at the target location that stuns and damages enemies. The rock cannot be thrown within a minimum range of Primal Beast. After landing, the rock splits into 3 additional fragments that land behind the initial target location.\n\n Rock Throw increases stacks of Uproar for each hero hit."
+    },
+    "primal_beast_trample": {
+      "dname": "Trample",
+      "desc": "Primal Beast stomps over everything. For every 140 units traveled, all enemies around the Beast receive damage. Deals base damage plus a multiplier of Primal Beast's attack damage. Primal Beast is disarmed for the duration of the ability."
+    },
+    "puck_dream_coil": {
+      "dname": "Dream Coil",
+      "desc": "Creates a coil of volatile magic that latches onto enemy Heroes, damaging and leashing them. If the enemy hero stretches the coil by moving too far away, it snaps, stunning and dealing additional damage."
+    },
+    "puck_waning_rift": {
+      "dname": "Waning Rift",
+      "desc": "Puck teleports to the target location and releases a burst of faerie dust that deals damage and silences enemy units nearby."
+    },
+    "pudge_meat_hook": {
+      "dname": "Meat Hook",
+      "desc": "Launches a bloody hook toward a unit or location. The hook will snag the first unit it encounters, dragging the unit back to Pudge, killing it if it's a non-ancient creep and dealing damage if it is an enemy otherwise."
+    },
+    "queenofpain_sonic_wave": {
+      "dname": "Sonic Wave",
+      "desc": "Creates a gigantic wave of sound in front of Queen of Pain, dealing heavy damage to all enemy units in its wake and pushing them back."
+    },
+    "rattletrap_hookshot": {
+      "dname": "Hookshot",
+      "desc": "Fires a grappling device rapidly at the target location. If the hook hits a unit, Clockwerk launches himself into the target, stunning and dealing damage to everyone in a 175 radius around the hit target. Any enemies Clockwerk collides with along the way are damaged and stunned."
+    },
+    "rattletrap_jetpack": {
+      "dname": "Jetpack",
+      "desc": "Clockwerk activates a jetpack, gaining flying movement, flying vision, and bonus movement speed. Clockwerk has a severely-limited turn rate during this time and cannot attack. Jetpack can be toggled on and off for the duration of the buff."
+    },
+    "rattletrap_overclocking": {
+      "dname": "Overclocking",
+      "desc": "Supercharges Clockwerks abilities:\n\nBattery Assault: Increased radius and affects all enemies in its range.\nPower Cogs: Radius increased, and Clockwerk's armor while near Power Cogs is increased.\nRocket Flares: Increased damage, vision and slow duration, and fire additional rockets to either side of the target.\nHookshot: Stun radius and duration increased.\nJetpack: Moves faster.\n\nClockwerk's movement and attack speed becomes slowed to a crawl after the duration runs out."
+    },
+    "ringmaster_summon_unicycle": {
+      "dname": "Unicycle",
+      "desc": "Use: Saddle Up Summons a speedy unicycle to ride around on for 10 seconds. 1.5s after mounting the unicycle, taking damage from enemy hero sources greater than 20 dismounts the rider. Crashing into trees destroys them and slows the unicycle. Attacking, using channeled abilities, or crashing into units and other obstacles also dismounts the rider."
+    },
+    "ringmaster_tame_the_beasts": {
+      "dname": "Tame the Beasts",
+      "desc": "CHANNELED - Ringmaster twirls his whip for up to 1 second then cracks it. Whipped enemies are damaged and flee in fear from Ringmaster. Channel time exponentially increases damage and extends the fear duration, but reduces the radius."
+    },
+    "ringmaster_the_box": {
+      "dname": "Escape Act",
+      "desc": "Ringmaster packs himself or an allied hero into a mobile, extradimensional box. Boxed units gain phased movement, slow resistance, bonus magic resistance, and bonus movement speed. They are also untargetable, muted, silenced, and disarmed. The box will pop open after the effect expires or it moves out of the initial area."
+    },
+    "ringmaster_wheel": {
+      "dname": "Wheel of Wonder",
+      "desc": "Ringmaster rolls the Wheel of Wonder to the targeted location, knocking aside enemies along the way. After it reaches its target, enemies in range of the wheel take damage over time and are slowed by -50%.\n\nEnemy heroes who face the wheel for more than 0.5 seconds are mesmerized and drawn towards it. The first enemy to be mesmerized triggers a timer for the wheel to explode. If the timer is not triggered, it will automatically explode after 4 seconds."
+    },
+    "rubick_telekinesis": {
+      "dname": "Telekinesis",
+      "desc": "Rubick uses his telekinetic powers to lift the enemy into the air briefly and then hurls them back at the ground. The unit lands on the ground with such force that it stuns nearby enemies."
+    },
+    "shadow_demon_disruption": {
+      "dname": "Disruption",
+      "desc": "Banishes the targeted unit from the battlefield for a short duration. Upon returning, two illusions of the banished unit with bonus base damage are created under Shadow Demon's control."
+    },
+    "shadow_shaman_fowl_play": {
+      "dname": "Fowl Play",
+      "desc": "When taking lethal damage, Shadow Shaman receives a strong dispel and survives as a 1 HP chicken with increased movement speed. Incoming damage is reduced to zero for a short duration and additional chickens are created to confuse the enemy. Cooldown resets when Shadow Shaman respawns.\n\nDISPEL TYPE: Strong Dispel"
+    },
+    "shadow_shaman_innate_piglet_pole": {
+      "dname": null,
+      "desc": ""
+    },
+    "shadow_shaman_shackles": {
+      "dname": "Shackles",
+      "desc": "CHANNELED - Magically binds an enemy unit so that it cannot move or attack, absorbing their life energy over time."
+    },
+    "shadow_shaman_voodoo": {
+      "dname": "Hex",
+      "desc": "Transforms an enemy unit into a harmless creature, disabling their attacks and abilities."
+    },
+    "shadow_shaman_voodoo_hands": {
+      "dname": "Chicken Fingers",
+      "desc": "Your next attack on an enemy hero transforms them into a chicken for 1s."
+    },
+    "silencer_brain_drain": {
+      "dname": "Suffer In Silence",
+      "desc": "Silencer takes less damage from and deals more damage to silenced targets.\n\nIf an enemy Hero dies within 925 range of Silencer or was debuffed by Silencer at the time of death, Silencer permanently steals 1 Intelligence from them. If the victim was silenced, steal an extra 1 Intelligence."
+    },
+    "silencer_curse_of_the_silent": {
+      "dname": "Arcane Curse",
+      "desc": "Curses the target area, dealing damage and causing enemies to take damage over time and slowing their movement speed.\n\nAnytime affected enemies cast a spell, the duration is increased. The duration is paused as long as the target is silenced."
+    },
+    "silencer_glaives_of_wisdom": {
+      "dname": "Glaives of Wisdom",
+      "desc": "Silencer enchants his glaives with his wisdom, stealing his target's Intelligence with each hit and dealing additional damage based on his Intelligence."
+    },
+    "silencer_global_silence": {
+      "dname": "Global Silence",
+      "desc": "Silencer stops all sound, preventing enemy heroes and units on the map from casting spells."
+    },
+    "silencer_last_word": {
+      "dname": "Last Word",
+      "desc": "Enchants a target, providing vision of them and causing them to be damaged and silenced if they cast a spell or if the enchantment timer expires. Deals extra damage based on the difference in intelligence between Silencer and the target."
+    },
+    "silencer_oppressive_silence": {
+      "dname": "Suffer In Silence",
+      "desc": "Silencer takes less damage from and deals more damage to silenced targets."
+    },
+    "skeleton_king_hellfire_blast": {
+      "dname": "Wraithfire Blast",
+      "desc": "Wraith King sears an enemy unit with spectral fire, dealing damage and stunning, then dealing damage over time and slowing the target."
+    },
+    "skywrath_mage_ancient_seal": {
+      "dname": "Ancient Seal",
+      "desc": "Skywrath Mage seals the targeted unit with an ancient rune, silencing it and causing it to take additional damage from spells."
+    },
+    "slardar_bash": {
+      "dname": "Bash of the Deep",
+      "desc": "After 3 attacks, your next attack will bash the target."
+    },
+    "slardar_slithereen_crush": {
+      "dname": "Slithereen Crush",
+      "desc": "Slams the ground, leaving a puddle of water, and stunning and damaging nearby enemy units. After the stun, the affected units are slowed."
+    },
+    "slark_pounce": {
+      "dname": "Pounce",
+      "desc": "Slark leaps forward, leashing and applying Essence Shift stacks to the first hero he connects. That unit can only move a limited distance away from Slark's landing position."
+    },
+    "snapfire_firesnap_cookie": {
+      "dname": "Firesnap Cookie",
+      "desc": "Snapfire feeds a potent cookie to Mortimer or an ally, causing them to hop a short distance. The hopping unit stuns and damages enemies in the landing zone."
+    },
+    "snapfire_spit_creep": {
+      "dname": "Spit Out",
+      "desc": "Mortimer spits out the unit that's in his mouth, causing impact damage and stun in a large area. The glob leaves a pool of firespit based on the current level of Mortimer Kisses, that slows and applies damage over time. Spit Out has a no minimum launch range."
+    },
+    "sniper_concussive_grenade": {
+      "dname": "Concussive Grenade",
+      "desc": "Launches a grenade at the target area, dealing damage to enemies and knocking them and Sniper back. Enemies affected are disarmed and have their movement slowed after the knockback."
+    },
+    "sniper_headshot": {
+      "dname": "Headshot",
+      "desc": "Sniper increases his accuracy, giving him a chance to deal 20 extra damage and knock back his enemies. Knockback distance increases based on how close the enemy is to Sniper. Headshots briefly slow enemy movement and attack speed by -100%."
+    },
+    "sniper_take_aim": {
+      "dname": "Take Aim",
+      "desc": "Passively increases Sniper's attack range by 160.\n\nOn cast, Sniper gains increased vision, Headshot chance, and attack range. Slows you by 65% for the duration and restricts your vision to a frontal cone."
+    },
+    "spectre_haunt": {
+      "dname": "Haunt",
+      "desc": "Creates a spectral nemesis to haunt all enemy Heroes.\n\nHaunt illusions are uncontrollable, take extra damage, and deal less damage than Spectre herself. They ignore terrain.\n\nThe Reality sub-ability may be used to teleport to the illusion, destroying it."
+    },
+    "spirit_breaker_charge_of_darkness": {
+      "dname": "Charge of Darkness",
+      "desc": "Spirit Breaker fixes his sight on an enemy unit and starts charging through all objects, starting at 25% of the bonus speed and reaching his max speed after 1.5s.\n\nAll enemy units passed through and the targeted unit will be hit by a Greater Bash. If the targeted unit dies, Spirit Breaker will change his target to the nearest enemy unit to that location."
+    },
+    "spirit_breaker_greater_bash": {
+      "dname": "Greater Bash",
+      "desc": "Gives a chance to stun and knockback an enemy unit on an attack. Deals a percentage of movement speed as damage."
+    },
+    "spirit_breaker_knockback_amp": {
+      "dname": null,
+      "desc": ""
+    },
+    "spirit_breaker_nether_strike": {
+      "dname": "Nether Strike",
+      "desc": "Spirit Breaker slips into the nether realm, reappearing next to his hapless victim. Upon reappearing, a Greater Bash of the current level occurs and deals bonus damage. Knocks back for double the normal distance."
+    },
+    "sven_storm_bolt": {
+      "dname": "Storm Hammer",
+      "desc": "Sven unleashes his magical gauntlet that deals damage and stuns enemy units in a small area around the target."
+    },
+    "sven_vanquisher": {
+      "dname": "Vanquisher",
+      "desc": "Sven's attacks deal 20% bonus damage to stunned enemies."
+    },
+    "techies_reactive_tazer": {
+      "dname": "Reactive Tazer",
+      "desc": "Techies trigger an electric charge on the target ally, giving them bonus movement speed for a short period of time. Enemies attacking the target take damage and are temporarily disarmed and get a Basic Dispel.\n\nAt the end of the effect or if detonated early with the sub-ability, the charge explodes, disarming all enemies within the radius and dealing damage."
+    },
+    "techies_stasis_trap": {
+      "dname": "Stasis Trap",
+      "desc": "Plant an invisible trap that roots nearby enemy units instantly when triggered."
+    },
+    "techies_suicide": {
+      "dname": "Blast Off!",
+      "desc": "Techies hurtle themselves into the enemy's midst, detonating charges upon impact which deal massive area of effect damage and stun enemies. Upon landing, the assault deals Techies non-lethal damage equal to a percentage of their current health."
+    },
+    "templar_assassin_meld": {
+      "dname": "Meld",
+      "desc": "Templar Assassin conceals herself, becoming invisible as long as she remains still. If Meld's invisibility is broken by attacking an enemy, Lanaya's attack will deal bonus damage to the enemy and reduce their armor for 6 seconds. Bonus damage and debuffs from Meld are applied to all enemies in the Psi Blades split range."
+    },
+    "terrorblade_demon_zeal": {
+      "dname": "Demon Zeal",
+      "desc": "Costs part of Terrorblade's current HP to cast, providing Terrorblade and nearby illusions bonus movement, HP Regen and attack speed. Does not affect Reflection illusions. Can't be cast while in Metamorphosis and Metamorphosis will remove Demon Zeal."
+    },
+    "terrorblade_terror_wave": {
+      "dname": "Terror Wave",
+      "desc": "Causes a wave to travel outwards in all directions forcing enemy heroes to become Feared upon impact and dealing damage, and grants Terrorblade Metamorphosis for a short time."
+    },
+    "tinker_deploy_turrets": {
+      "dname": "Deploy Turrets",
+      "desc": ""
+    },
+    "tiny_avalanche": {
+      "dname": "Avalanche",
+      "desc": "Bombards an area with rocks, continously doing small intervals of damage and stun to enemy units."
+    },
+    "treant_leech_seed": {
+      "dname": "Leech Seed",
+      "desc": "Treant's attack plants a life-sapping seed in an enemy unit. That unit takes additional magic damage, is rooted and disarmed for a short duration, and emits 2 healing pulses to up to 5 nearby allies of Treant Protector based on the damage dealt by the attack."
+    },
+    "treant_natures_guise": {
+      "dname": "Nature's Guise",
+      "desc": "Grants bonus movement speed when near trees. Treant Protector additionally has Tree Walking if he has not taken damage for 2.75 seconds. While Tree Walking, Nature's Guise can be activated to grant Treant invisibility until he attacks or is no longer near a tree."
+    },
+    "troll_warlord_berserkers_rage": {
+      "dname": "Berserker's Rage",
+      "desc": "While in melee form, Troll Warlord's attacks have a chance to ensnare, preventing the target from moving or using mobility spells and has additional movement speed.\n\nWhen in ranged form, Troll Warlord's attacks have a chance to Maim the target, dealing bonus damage, and slowing the target's movement and attack speed."
+    },
+    "tusk_ice_shards": {
+      "dname": "Ice Shards",
+      "desc": "Tusk compresses shards of ice into a ball of frozen energy that damages all enemies it comes in contact with. When the ball reaches its target destination the shards are released, creating a barrier that lasts for 4 seconds."
+    },
+    "tusk_snowball": {
+      "dname": "Snowball",
+      "desc": "Tusk begins rolling into a snowball. Allies within a 325 radius can also be added to the snowball by right-clicking on them, even while the snowball is moving. Once launched, any enemies caught in the snowball's path will be stunned and take damage. Each allied Hero in the snowball will add to its damage and stun duration."
+    },
+    "undying_tombstone": {
+      "dname": "Tombstone",
+      "desc": "Summons a tombstone at the target point. Zombies will frequently spawn next to every enemy unit in the area around the Tombstone, and attack them. Zombies have the Deathlust ability, which causes their attacks to slow the target, and if the target reaches below a certain amount of health, increases the attack and movement speed of the zombie."
+    },
+    "ursa_fury_swipes": {
+      "dname": "Fury Swipes",
+      "desc": "Ursa's claws dig deeper wounds in the enemy, causing consecutive attacks to the same enemy to deal more damage. If the same target is not attacked after 8 seconds, the bonus damage is lost."
+    },
+    "vengefulspirit_magic_missile": {
+      "dname": "Magic Missile",
+      "desc": "Fires a magic missile at an enemy unit, stunning and dealing damage."
+    },
+    "venomancer_latent_poison": {
+      "dname": null,
+      "desc": ""
+    },
+    "venomancer_venomous_gale": {
+      "dname": "Venomous Gale",
+      "desc": "Launches a ball of venom in a line, poisoning enemy units so that they take both initial damage and damage over time, as well as suffering slowed movement. Venomous Gale deals damage every 3 seconds over its duration."
+    },
+    "visage_stone_form_self_cast": {
+      "dname": "Stone Form",
+      "desc": "Orders the Familiar closest to Visage to cast Stone Form in its current location, turning into stone and smashing into the ground, stunning and damaging all targets in the area. The Familiar becomes invulnerable, and will regain its health very rapidly. After 6 seconds, the Familiar will automatically leave Stone Form.\n\n Can be alt-cast to order the closest Familiar to the target location to move there and cast Stone Form."
+    },
+    "visage_summon_familiars": {
+      "dname": "Summon Familiars",
+      "desc": "Conjures 2 blind Familiars to fight for Visage. Familiars possess the Stone Form ability, that allows them to turn into stone, stunning enemies upon landing. While in Stone Form, Familiars are invulnerable, and rapidly regenerate their health. Familiars grant high bounty when killed.\n\nThe ability can be cast in the alt-cast state to recall Visages familiars after 4s, during which they cannot attack or act."
+    },
+    "visage_summon_familiars_recall": {
+      "dname": "Recall Familiar",
+      "desc": "Recall this familiar to Visage after 4s, during which they cannot attack or act."
+    },
+    "visage_summon_familiars_stone_form": {
+      "dname": "Stone Form",
+      "desc": "After a short delay, the Familiar turns into stone and smashes into the ground, stunning and damaging all targets in the area. The Familiar becomes invulnerable, and will regain its health very rapidly. After 6 seconds, the Familiar will automatically leave Stone Form. \n\n Can be alt-cast to order the Familiar to move to the target location and cast Stone Form."
+    },
+    "warlock_fatal_bonds": {
+      "dname": "Fatal Bonds",
+      "desc": "Binds several visible enemy units together, causing a percentage of the damage dealt to one of them to be felt by the others."
+    },
+    "warlock_rain_of_chaos": {
+      "dname": "Chaotic Offering",
+      "desc": "Summons a Golem from the depths, stunning enemies for 0.8 seconds. The Golem lives 60 seconds, takes reduced damage from spells, has increased Slow Resistance, has Permanent Immolation and Flaming Fists on attack."
+    },
+    "windrunner_shackleshot": {
+      "dname": "Shackleshot",
+      "desc": "Shackles the target to an enemy unit or tree in a line directly behind it. If no unit or tree is present, the stun duration is reduced to 0.6."
+    },
+    "winter_wyvern_arctic_burn": {
+      "dname": "Arctic Burn",
+      "desc": "Winter Wyvern soars upon an arctic wind, granting her unobstructed movement and allowing her to exhale a blistering chill into each attack. While soaring, her attacks travel further and faster, and slow enemies with a magical freeze that strips them of 4% of their current health each second."
+    },
+    "winter_wyvern_splinter_blast": {
+      "dname": "Splinter Blast",
+      "desc": "Launches a ball of brittle ice toward a unit. The ice shatters on impact, leaving the primary target completely unaffected, while hurling damaging splinters into nearby enemies in a 500 base radius. Enemies struck by these splinters are slowed by 27%."
+    },
+    "winter_wyvern_winters_curse": {
+      "dname": "Winter's Curse",
+      "desc": "Winter Wyvern dispells then freezes an enemy in place while striking those nearby with a maddening curse which causes them to attack their frozen ally with increased attack speed. The frozen ally and those cursed to attack their ally are immune to all damage from their enemies with the exception of damage from Winter Wyvern or her controlled units. Enemy heroes which enter the cursed area after the cast add to the duration of the curse."
+    },
+    "witch_doctor_maledict": {
+      "dname": "Maledict",
+      "desc": "Curses all enemy Heroes and player-controlled targets in a small area, causing them to take a set amount of damage each second, as well as bursts of damage every 4 seconds based on how much health they have lost since the curse began."
+    },
+    "witch_doctor_paralyzing_cask": {
+      "dname": "Paralyzing Cask",
+      "desc": "Launches a cask of paralyzing powder that ricochets between enemy units, stunning and damaging those it hits. Damage increases each bounce."
+    },
+    "witch_doctor_voodoo_restoration": {
+      "dname": "Voodoo Restoration",
+      "desc": "Witch Doctor focuses his magic to heal nearby allied units, costing Witch Doctor mana every second Voodoo Restoration is active."
+    },
+    "witch_doctor_voodoo_switcheroo": {
+      "dname": "Voodoo Switcheroo",
+      "desc": "Turns Witch Doctor into a Death Ward briefly with reduced attack speed. He is hidden during this time."
+    },
+    "zuus_lightning_bolt": {
+      "dname": "Lightning Bolt",
+      "desc": "Calls down a bolt of lightning to strike an enemy unit, causing damage and a mini-stun. When cast, Lightning Bolt briefly provides unobstructed vision and True Sight around the target in a 600 radius. Can be cast on the ground, affecting the closest enemy hero in 325 range."
+    }
+  },
+  "control_terms": [
+    "banish",
+    "bash",
+    "binding",
+    "binds",
+    "bushwhack",
+    "cannot attack",
+    "cannot move",
+    "cyclone",
+    "disarm",
+    "disarmed",
+    "ensnare",
+    "entangle",
+    "fear",
+    "fissure",
+    "freeze",
+    "frogstomp",
+    "frozen",
+    "hex",
+    "impale",
+    "knockback",
+    "leash",
+    "root",
+    "searing chains",
+    "shackle",
+    "shackles",
+    "silence",
+    "silenced",
+    "sleep",
+    "stomp",
+    "stun",
+    "stunned",
+    "taunt",
+    "taunts",
+    "voodoo"
+  ],
+  "mobility_abilities_by_hero": {
+    "abaddon": [],
+    "abyssal_underlord": [
+      "abyssal_underlord_abyssal_horde",
+      "abyssal_underlord_dark_portal",
+      "abyssal_underlord_dark_rift",
+      "abyssal_underlord_raid_boss"
+    ],
+    "alchemist": [
+      "alchemist_berserk_potion",
+      "alchemist_chemical_rage"
+    ],
+    "ancient_apparition": [],
+    "antimage": [
+      "antimage_blink"
+    ],
+    "arc_warden": [
+      "arc_warden_flux"
+    ],
+    "axe": [
+      "axe_culling_blade"
+    ],
+    "bane": [],
+    "batrider": [
+      "batrider_firefly",
+      "batrider_flaming_lasso",
+      "batrider_sticky_napalm",
+      "batrider_stoked"
+    ],
+    "beastmaster": [
+      "beastmaster_primal_roar"
+    ],
+    "bloodseeker": [
+      "bloodseeker_thirst"
+    ],
+    "bounty_hunter": [
+      "bounty_hunter_shuriken_toss",
+      "bounty_hunter_wind_walk"
+    ],
+    "brewmaster": [
+      "brewmaster_drunken_brawler",
+      "brewmaster_liquid_courage",
+      "brewmaster_storm_wind_walk",
+      "brewmaster_thunder_clap"
+    ],
+    "bristleback": [
+      "bristleback_bristleback",
+      "bristleback_viscous_nasal_goo",
+      "bristleback_warpath"
+    ],
+    "broodmother": [
+      "broodmother_silken_bola",
+      "broodmother_spin_web"
+    ],
+    "centaur": [
+      "centaur_horsepower",
+      "centaur_stampede"
+    ],
+    "chaos_knight": [],
+    "chen": [
+      "chen_holy_persuasion",
+      "chen_test_of_faith_teleport",
+      "chen_zealot"
+    ],
+    "clinkz": [
+      "clinkz_bone_and_arrow",
+      "clinkz_death_pact",
+      "clinkz_wind_walk"
+    ],
+    "crystal_maiden": [],
+    "dark_seer": [
+      "dark_seer_heart_of_battle",
+      "dark_seer_surge"
+    ],
+    "dark_willow": [
+      "dark_willow_bedlam",
+      "dark_willow_terrorize"
+    ],
+    "dawnbreaker": [
+      "dawnbreaker_celestial_hammer",
+      "dawnbreaker_fire_wreath",
+      "dawnbreaker_solar_guardian"
+    ],
+    "dazzle": [
+      "dazzle_nothl_projection"
+    ],
+    "death_prophet": [
+      "death_prophet_spirit_siphon",
+      "death_prophet_witchcraft"
+    ],
+    "disruptor": [],
+    "doom_bringer": [
+      "doom_bringer_devour",
+      "doom_bringer_scorched_earth"
+    ],
+    "dragon_knight": [
+      "dragon_knight_elder_dragon_form"
+    ],
+    "drow_ranger": [
+      "drow_ranger_multishot"
+    ],
+    "earth_spirit": [
+      "earth_spirit_boulder_smash",
+      "earth_spirit_rolling_boulder",
+      "earth_spirit_stone_caller"
+    ],
+    "earthshaker": [
+      "earthshaker_echo_slam",
+      "earthshaker_enchant_totem"
+    ],
+    "elder_titan": [
+      "elder_titan_ancestral_spirit",
+      "elder_titan_momentum"
+    ],
+    "ember_spirit": [
+      "ember_spirit_activate_fire_remnant",
+      "ember_spirit_fire_remnant",
+      "ember_spirit_sleight_of_fist"
+    ],
+    "enchantress": [
+      "enchantress_bunny_hop"
+    ],
+    "enigma": [],
+    "faceless_void": [
+      "faceless_void_time_zone"
+    ],
+    "furion": [
+      "furion_wrath_of_nature"
+    ],
+    "grimstroke": [
+      "grimstroke_dark_artistry",
+      "grimstroke_spirit_walk"
+    ],
+    "gyrocopter": [
+      "gyrocopter_afterburner"
+    ],
+    "hoodwink": [
+      "hoodwink_decoy",
+      "hoodwink_scurry",
+      "hoodwink_sharpshooter"
+    ],
+    "huskar": [
+      "huskar_life_break"
+    ],
+    "invoker": [
+      "invoker_chaos_meteor",
+      "invoker_chaos_meteor_ad",
+      "invoker_deafening_blast",
+      "invoker_emp",
+      "invoker_emp_ad",
+      "invoker_tornado",
+      "invoker_tornado_ad"
+    ],
+    "jakiro": [],
+    "juggernaut": [
+      "juggernaut_bladeform",
+      "juggernaut_healing_ward",
+      "juggernaut_omni_slash",
+      "juggernaut_trinity",
+      "juggernaut_vaulted_strike"
+    ],
+    "keeper_of_the_light": [
+      "keeper_of_the_light_bright_speed",
+      "keeper_of_the_light_radiant_bind",
+      "keeper_of_the_light_recall",
+      "keeper_of_the_light_will_o_wisp"
+    ],
+    "kez": [
+      "kez_echo_slash",
+      "kez_grappling_claw",
+      "kez_ravens_veil",
+      "kez_switch_weapons"
+    ],
+    "kunkka": [
+      "kunkka_tidebringer",
+      "kunkka_torrent"
+    ],
+    "largo": [
+      "largo_frogstomp",
+      "largo_song_double_time"
+    ],
+    "legion_commander": [
+      "legion_commander_press_the_attack"
+    ],
+    "leshrac": [
+      "leshrac_lightning_storm"
+    ],
+    "lich": [
+      "lich_chain_frost",
+      "lich_death_charge",
+      "lich_frost_armor",
+      "lich_frost_shield"
+    ],
+    "life_stealer": [
+      "life_stealer_ghoul_frenzy",
+      "life_stealer_infest",
+      "life_stealer_open_wounds",
+      "life_stealer_rage"
+    ],
+    "lina": [
+      "lina_fiery_soul"
+    ],
+    "lion": [
+      "lion_finger_of_death",
+      "lion_mana_drain"
+    ],
+    "lone_druid": [
+      "lone_druid_savage_roar",
+      "lone_druid_savage_roar_bear",
+      "lone_druid_spirit_bear_spirit_link",
+      "lone_druid_spirit_link"
+    ],
+    "luna": [
+      "luna_lunar_orbit"
+    ],
+    "lycan": [
+      "lycan_summon_wolves_critical_strike",
+      "lycan_summon_wolves_hightail"
+    ],
+    "magnataur": [
+      "magnataur_skewer"
+    ],
+    "marci": [
+      "marci_companion_run",
+      "marci_unleash"
+    ],
+    "mars": [
+      "mars_bulwark"
+    ],
+    "medusa": [
+      "medusa_mystic_snake",
+      "medusa_undulation"
+    ],
+    "meepo": [
+      "meepo_divided_we_stand",
+      "meepo_geomancy",
+      "meepo_poof"
+    ],
+    "mirana": [
+      "mirana_celestial_quiver",
+      "mirana_invis",
+      "mirana_leap"
+    ],
+    "monkey_king": [
+      "monkey_king_tree_dance"
+    ],
+    "morphling": [
+      "morphling_ebb_and_flow",
+      "morphling_syntropy"
+    ],
+    "muerta": [],
+    "naga_siren": [
+      "naga_siren_deluge"
+    ],
+    "necrolyte": [],
+    "nevermore": [
+      "nevermore_requiem",
+      "nevermore_shadowraze1",
+      "nevermore_shadowraze2",
+      "nevermore_shadowraze3"
+    ],
+    "night_stalker": [],
+    "nyx_assassin": [
+      "nyx_assassin_vendetta"
+    ],
+    "obsidian_destroyer": [
+      "obsidian_destroyer_astral_imprisonment"
+    ],
+    "ogre_magi": [
+      "ogre_magi_bloodlust"
+    ],
+    "omniknight": [
+      "omniknight_angelic_flight",
+      "omniknight_degen_aura"
+    ],
+    "oracle": [],
+    "pangolier": [
+      "pangolier_gyroshell",
+      "pangolier_rollup",
+      "pangolier_shield_crash",
+      "pangolier_swashbuckle"
+    ],
+    "phantom_assassin": [
+      "phantom_assassin_blur",
+      "phantom_assassin_phantom_strike",
+      "phantom_assassin_stifling_dagger"
+    ],
+    "phantom_lancer": [
+      "phantom_lancer_phantom_edge"
+    ],
+    "phoenix": [
+      "phoenix_icarus_dive"
+    ],
+    "primal_beast": [
+      "primal_beast_onslaught",
+      "primal_beast_rock_throw"
+    ],
+    "puck": [
+      "puck_illusory_orb"
+    ],
+    "pudge": [],
+    "pugna": [
+      "pugna_decrepify"
+    ],
+    "queenofpain": [
+      "queenofpain_blink",
+      "queenofpain_shadow_strike"
+    ],
+    "rattletrap": [
+      "rattletrap_jetpack",
+      "rattletrap_overclocking",
+      "rattletrap_rocket_flare"
+    ],
+    "razor": [
+      "razor_storm_surge"
+    ],
+    "riki": [
+      "riki_blink_strike",
+      "riki_permanent_invisibility"
+    ],
+    "ringmaster": [
+      "ringmaster_crystal_ball",
+      "ringmaster_funhouse_mirror",
+      "ringmaster_impalement",
+      "ringmaster_strongman_tonic",
+      "ringmaster_summon_unicycle",
+      "ringmaster_the_box",
+      "ringmaster_weighted_pie",
+      "ringmaster_whoopee_cushion"
+    ],
+    "rubick": [
+      "rubick_curiosity",
+      "rubick_fade_bolt"
+    ],
+    "sand_king": [],
+    "shadow_demon": [
+      "shadow_demon_disruption"
+    ],
+    "shadow_shaman": [
+      "shadow_shaman_fowl_play"
+    ],
+    "shredder": [
+      "shredder_flamethrower"
+    ],
+    "silencer": [
+      "silencer_curse_of_the_silent"
+    ],
+    "skeleton_king": [
+      "skeleton_king_bone_guard",
+      "skeleton_king_vampiric_spirit"
+    ],
+    "skywrath_mage": [],
+    "slardar": [
+      "slardar_seaborn_sentinel"
+    ],
+    "slark": [
+      "slark_fish_bait",
+      "slark_saltwater_shiv",
+      "slark_shadow_dance"
+    ],
+    "snapfire": [
+      "snapfire_firesnap_cookie",
+      "snapfire_mortimer_kisses",
+      "snapfire_spit_creep"
+    ],
+    "sniper": [
+      "sniper_shrapnel"
+    ],
+    "spectre": [
+      "spectre_haunt",
+      "spectre_reality",
+      "spectre_shadow_step",
+      "spectre_spectral",
+      "spectre_spectral_dagger"
+    ],
+    "spirit_breaker": [
+      "spirit_breaker_bull_rush",
+      "spirit_breaker_bulldoze",
+      "spirit_breaker_charge_of_darkness",
+      "spirit_breaker_greater_bash"
+    ],
+    "storm_spirit": [
+      "storm_spirit_ball_lightning",
+      "storm_spirit_galvanized",
+      "storm_spirit_overload",
+      "storm_spirit_static_remnant"
+    ],
+    "sven": [
+      "sven_warcry"
+    ],
+    "techies": [
+      "techies_land_mines",
+      "techies_reactive_tazer",
+      "techies_sticky_bomb"
+    ],
+    "templar_assassin": [
+      "templar_assassin_psionic_trap",
+      "templar_assassin_trap_teleport"
+    ],
+    "terrorblade": [
+      "terrorblade_demon_zeal",
+      "terrorblade_terror_wave"
+    ],
+    "tidehunter": [
+      "tidehunter_gush",
+      "tidehunter_kraken_shell"
+    ],
+    "tinker": [
+      "tinker_defense_matrix",
+      "tinker_keen_teleport"
+    ],
+    "tiny": [
+      "tiny_grow"
+    ],
+    "treant": [
+      "treant_eyes_in_the_forest",
+      "treant_natures_guise",
+      "treant_super_bloom"
+    ],
+    "troll_warlord": [
+      "troll_warlord_battle_trance",
+      "troll_warlord_berserkers_rage",
+      "troll_warlord_whirling_axes_melee"
+    ],
+    "tusk": [
+      "tusk_drinking_buddies",
+      "tusk_tag_team"
+    ],
+    "undying": [
+      "undying_flesh_golem",
+      "undying_tombstone"
+    ],
+    "ursa": [
+      "ursa_earthshock"
+    ],
+    "vengefulspirit": [],
+    "venomancer": [],
+    "viper": [
+      "viper_poison_attack",
+      "viper_viper_strike"
+    ],
+    "visage": [
+      "visage_silent_as_the_grave",
+      "visage_soul_assumption",
+      "visage_summon_familiars"
+    ],
+    "void_spirit": [
+      "void_spirit_astral_step"
+    ],
+    "warlock": [
+      "warlock_rain_of_chaos"
+    ],
+    "weaver": [
+      "weaver_shukuchi"
+    ],
+    "windrunner": [
+      "windrunner_easy_breezy",
+      "windrunner_powershot",
+      "windrunner_tailwind",
+      "windrunner_windrun"
+    ],
+    "winter_wyvern": [
+      "winter_wyvern_arctic_burn"
+    ],
+    "wisp": [
+      "wisp_relocate",
+      "wisp_tether"
+    ],
+    "witch_doctor": [],
+    "zuus": [
+      "zuus_arc_lightning",
+      "zuus_heavenly_jump"
+    ]
+  },
+  "mobility_items": [
+    "item_arcane_blink",
+    "item_black_grimoire",
+    "item_blink",
+    "item_dragon_lance",
+    "item_essence_distiller",
+    "item_fallen_sky",
+    "item_holy_locket",
+    "item_magic_stick",
+    "item_magic_wand",
+    "item_ogre_seal_totem",
+    "item_overwhelming_blink",
+    "item_phase_boots",
+    "item_pogo_stick",
+    "item_recipe_arcane_blink",
+    "item_recipe_overwhelming_blink",
+    "item_recipe_swift_blink",
+    "item_recipe_travel_boots",
+    "item_royale_with_cheese",
+    "item_spirit_vessel",
+    "item_super_blink",
+    "item_swift_blink",
+    "item_travel_boots",
+    "item_travel_boots_2",
+    "item_urn_of_shadows"
+  ],
+  "consumable_items": [
+    "item_blood_grenade",
+    "item_branches",
+    "item_cheese",
+    "item_clarity",
+    "item_courier",
+    "item_dust",
+    "item_enchanted_mango",
+    "item_faerie_fire",
+    "item_famango",
+    "item_flask",
+    "item_flying_courier",
+    "item_great_famango",
+    "item_greater_faerie_fire",
+    "item_greater_famango",
+    "item_madstone_bundle",
+    "item_mango_tree",
+    "item_moon_shard",
+    "item_mutation_tombstone",
+    "item_refresher_shard",
+    "item_repair_kit",
+    "item_roshans_banner",
+    "item_royal_jelly",
+    "item_royale_with_cheese",
+    "item_smoke_of_deceit",
+    "item_tango",
+    "item_tango_single",
+    "item_tome_of_knowledge",
+    "item_tpscroll",
+    "item_ward_observer",
+    "item_ward_sentry"
+  ],
+  "notable_items": [
+    "item_black_king_bar"
+  ],
+  "ultimate_classification": {
+    "available": false,
+    "reason": "The supplied dotaconstants pack has no hero-to-ability slot or ultimate marker.",
+    "abilities_by_hero": null
+  }
+}

@@ -1,13 +1,13 @@
 # Replay Pipeline
 
-Status: RP1 host and contract implementation. The renderer view is a later slice (RP2); release packaging and a source-matched engine pin are RP3.
+Status: RP1 host/contract and RP2 Lab viewer integration. Release packaging and a source-matched engine pin remain RP3.
 
 ## Flow
 
 ```text
 Dota `game/dota/replays` --read-only poll every 30 s--┐
                                                      ├─> validate path/size -> available
-Renderer file picker (RP2) -> typed client -> .dem --┘
+Renderer .dem path (RP2) -> typed client -> library intake --┘
                                                         |
                                                         v
                                          queued -> wait for match_active=false
@@ -28,7 +28,7 @@ Renderer file picker (RP2) -> typed client -> .dem --┘
                                 ready
 ```
 
-The Dota replay folder is located from the existing game-install discovery and read without modifying it. Watching discovers numeric `<match_id>.dem` files; it never moves, copies, writes or deletes a Dota file. Manual intake accepts a user-selected `.dem` path through `replay_library_parse`. The RP1 renderer client is an API only; the picker UI and viewer integration belong to RP2.
+The Dota replay folder is located from the existing game-install discovery and read without modifying it. Watching discovers numeric `<match_id>.dem` files; it never moves, copies, writes or deletes a Dota file. Manual intake accepts a user-selected `.dem` path through `replay_library_parse`. RP2 adds the Lab library list and opens ready bundles through the typed client. The host does not yet expose the watched-folder path or a native file-dialog command, and a webview file input may not expose its source path; see the RP2 integration notes below.
 
 ## States and commands
 
@@ -66,3 +66,15 @@ An unknown patch maps to `needs_pack`; RP1 does not fetch a pack or send replay 
 ## Evidence boundary
 
 The schemas describe engine version 0.2.0 and Match Bundle schema 3.0 based on inspected source and local example bundles. Rust host unit tests and the typed client test are synthetic/source checks. One saved `.dem` parsed with the pinned dev executable and its output passed structural/hash validation in 8.481 seconds. This is native integration evidence for that exact dev binary and replay only; it is not release, live-match, viewer or product acceptance.
+
+## Viewer integration (RP2)
+
+The Lab Match view calls `replay_library_list`, listens for state changes, opens ready entries with `replay_library_open`, and sends parse/remove/clear actions through `replayLibraryClient`. The Match view no longer accepts the three bundle files directly. `clear` asks for confirmation. The renderer does not print match IDs or source paths. List entries show the host status chip, source and added date; match date, hero names and duration remain unknown until a bundle is opened because RP1 does not return lightweight metadata in its list response. The watched-folder line explicitly reports an unknown path because that command is not part of the RP1 host response.
+
+The manual `.dem` control validates the filename and the renderer's reported size before calling `replay_library_parse`. A Tauri drop event supplies filesystem paths. A browser-style file input is not guaranteed to expose a path, so the panel explains when the picker cannot submit the file. A native picker/path-return command or byte-stream intake and watched-path summary require an RP1 host change outside RP2's write scope.
+
+Map calibration comes from `manifest.map.calibration` when valid; the matching patch pack is the fallback. Unsupported patches show `needs_pack`, and the viewer does not use another patch's values. Bundled data under `apps/desktop/src/assets/replay-packs/` covers 7.41f and 7.42 and totals 273,416 bytes including provenance. It was generated from the read-only engine pack at source commit `a609ecc9d5221dcf62acd9c0312ce7cb8d8f79f9`; `provenance.json` records dotaconstants source versions and per-input/per-output SHA-256 values. The upstream MIT note is recorded for review, not an independent rights determination.
+
+Hero/ability names, attack-speed tables, formulas, curated buffs and ability-text lookup subsets are patch-scoped. The CC and mobility subsets are keyword-derived from dotaconstants ability text and are heuristic. The inspected source pack has no hero-to-ability slot map or ultimate marker, so no verified ultimate list can be generated from these inputs. The viewer reports this limitation, suppresses ultimate classification, and still recognizes the BKB item event. The 7.42 pack's map calibration is marked by its source as unvalidated against a 7.42 replay. Thai and English viewer copy is supplied through `matchViewerCopy` for static markup, runtime DOM text and canvas labels.
+
+The existing RP1 validation remains the authority for on-disk bundle hashes and structural checks. RP2 performs a renderer-side structural admission before mounting the view. Synthetic node tests cover library list state/actions, patch lookup, calibration choice, the generated CC subset against dotaconstants description fixtures, and pack provenance. They do not establish native WebView2 behavior or owner acceptance.

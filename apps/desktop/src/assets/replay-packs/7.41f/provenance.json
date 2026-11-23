@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "patch": "7.41f",
+  "generated_from": "replay-engine-rs/pack/<patch>/",
+  "engine_source_commit": "a609ecc9d5221dcf62acd9c0312ce7cb8d8f79f9",
+  "dotaconstants_version": "odota/dotaconstants @7fa7d26dc9 (7.41f)",
+  "license_note": "The upstream dotaconstants data is identified as MIT-licensed. This provenance record is not an independent rights review; public-release rights review remains required.",
+  "third_party_data_entry": {
+    "kind": "dotaconstants-derived-replay-viewer-data",
+    "use": "Lab replay view: patch map calibration, hero attack speed, curated buffs, control and movement ability lookup.",
+    "upstream_license": "MIT (upstream notice; not independently reviewed)",
+    "network_fetch": false
+  },
+  "source_files": [
+    {
+      "patch": "7.41f",
+      "file": "pack.json",
+      "bytes": 1470,
+      "sha256": "e504198cf91df496c2a40e43ab5cdc9f1bcfea98b1ea41ab250fd50f8065bcf4"
+    },
+    {
+      "patch": "7.41f",
+      "file": "heroes.json",
+      "bytes": 92571,
+      "sha256": "f2e9538bbe6b37529bc69de55a5752056cde8c9b8deb0cf2e2137a7bd1dfcfd3"
+    },
+    {
+      "patch": "7.41f",
+      "file": "abilities.json",
+      "bytes": 1327841,
+      "sha256": "63944bd8cc6d4c0a917e06d958e30c1d74c636e4f381c840ab7fc9158e61be55"
+    },
+    {
+      "patch": "7.41f",
+      "file": "curated.json",
+      "bytes": 1377,
+      "sha256": "32845790d453514fd0763067f97ed3b2f762d20929ec9d60f4a3df6ea4f25c85"
+    },
+    {
+      "patch": "7.41f",
+      "file": "items.json",
+      "bytes": 338280,
+      "sha256": "b7bf3afcb72b7c77e2118fdccf84e787c8fd6b0cea73a46d569c3f1b1ea1f36d"
+    }
+  ],
+  "generated_files": [
+    {
+      "patch": "7.41f",
+      "file": "replay-data.json",
+      "bytes": 129858,
+      "sha256": "e39752d20bab1a6c330c1d2bb3ab8d0e4eddbf77d4ead12664176b5d1b42ba1c"
+    }
+  ]
+}

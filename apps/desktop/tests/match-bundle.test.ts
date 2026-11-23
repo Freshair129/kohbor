@@ -137,14 +137,13 @@ test("the Match view has no icon folder picker and loads the bundled set", () =>
   assert.match(glob, /import\.meta\.glob/);
 });
 
-test("the Match view sources make no network request and keep the prototype tables in one module", () => {
+test("the Match view sources make no network request and use patch-scoped data", () => {
   const dir = new URL("../src/replay/", import.meta.url);
-  for (const name of ["matchViewer.mjs", "matchViewer.html", "matchViewer.css", "matchTables.mjs", "MatchViewPanel.tsx", "bundledIcons.ts"]) {
+  for (const name of ["matchViewer.mjs", "matchViewer.html", "matchViewer.css", "MatchViewPanel.tsx", "bundledIcons.ts", "replayPack.mjs"]) {
     const source = readFileSync(new URL(name, dir), "utf8");
     assert.doesNotMatch(source, /https?:\/\/|fetch\(|XMLHttpRequest|@import|fonts\.googleapis/, name);
   }
-  const tables = readFileSync(new URL("matchTables.mjs", dir), "utf8");
-  assert.match(tables, /R1: prototype tables, single match 9093797968; replaced in R4/);
   const viewer = readFileSync(new URL("matchViewer.mjs", dir), "utf8");
   assert.doesNotMatch(viewer, /const (MAP|ULTS|ULT_ABIL|CC|MOBILITY) =/);
+  assert.match(viewer, /matchViewerCopy\[locale\]\.viewerStrings/);
 });
