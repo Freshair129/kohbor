@@ -39,6 +39,7 @@ macro_rules! generate_handler_with_updater_commands {
             tauri::generate_handler![
                 $($(#[$meta])* $command,)*
                 commands::update_check,
+                commands::update_download,
                 commands::update_install
             ]
         }
@@ -81,7 +82,10 @@ use tauri::{Emitter as TauriEmitter, Listener, Manager};
 pub(crate) struct AppState {
     pub(crate) runtime: Arc<intake::Runtime>,
     pub(crate) host: host::Host,
-    pub(crate) updater: Mutex<update::UpdateController<update::NullBackend>>,
+    #[cfg(feature = "updater")]
+    pub(crate) updater: update::UpdateController<update::plugin::PluginBackend>,
+    #[cfg(not(feature = "updater"))]
+    pub(crate) updater: update::UpdateController<update::NullBackend>,
     pub(crate) match_active: Arc<dyn Fn() -> bool + Send + Sync>,
     pub(crate) settings_dir: PathBuf,
     pub(crate) audio_prefs: audio_prefs::AudioPrefsService,
@@ -1232,12 +1236,20 @@ pub fn run() {
             app.manage(AppState {
                 runtime,
                 host,
-                updater: Mutex::new(update::UpdateController::new(
+                #[cfg(feature = "updater")]
+                updater: update::UpdateController::new(
+                    update::UPDATE_ENDPOINT,
+                    update::UPDATE_PUBKEY,
+                    update::plugin::PluginBackend::new(app.handle().clone()),
+                    version::AppVersion::current().version,
+                ),
+                #[cfg(not(feature = "updater"))]
+                updater: update::UpdateController::new(
                     update::UPDATE_ENDPOINT,
                     update::UPDATE_PUBKEY,
                     update::NullBackend,
                     version::AppVersion::current().version,
-                )),
+                ),
                 match_active: update_match_active,
                 settings_dir,
                 audio_prefs,
@@ -1269,6 +1281,8 @@ pub fn run() {
             crate::log_info!("app", "setup_complete", "application setup completed");
             Ok(())
         });
+    #[cfg(feature = "updater")]
+    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     #[cfg(any(feature = "demo", debug_assertions))]
     let builder = builder.invoke_handler(generate_handler_with_updater_commands![
         commands::app_version,

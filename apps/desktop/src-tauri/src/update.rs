@@ -1,10 +1,14 @@
-//! Pure updater policy scaffold. No network, filesystem, timer, or restart behavior lives here.
-// Scaffold: the full updater backend (option 2) is not wired yet, so much of this is unused in a normal
-// build; it stays tested. Only the release-page action is live.
-#![allow(dead_code)]
+//! Trusted updater policy and state machine.
+//!
+//! The plugin backend is compiled only for `--features updater`. Renderer input never supplies
+//! an endpoint, signing key, download URL, or install path.
+#![cfg_attr(not(feature = "updater"), allow(dead_code))]
 
-use serde_json::{json, Value};
+use serde_json::{Map, Value, json};
 use std::cmp::Ordering;
+use std::future::Future;
+use std::pin::Pin;
+use std::sync::{Arc, Mutex, MutexGuard};
 
 pub const BUILD_WITHOUT_UPDATER: &str = "BUILD_WITHOUT_UPDATER";
 pub const NO_ENDPOINT: &str = "NO_ENDPOINT";
@@ -15,17 +19,17 @@ pub const SIGNATURE: &str = "SIGNATURE";
 pub const BACKEND_UNAVAILABLE: &str = "BACKEND_UNAVAILABLE";
 pub const BAD_RESPONSE: &str = "BAD_RESPONSE";
 
-// The owner provides these only after the update service and trust configuration are approved.
-pub const UPDATE_ENDPOINT: Option<&str> = None;
-pub const UPDATE_PUBKEY: Option<&str> = None;
+// Trusted updater origin and key supplied by the product owner. The renderer cannot override either.
+pub const UPDATE_ENDPOINT: Option<&str> =
+    Some("https://github.com/Freshair129/kohbor-updates/releases/latest/download/latest.json");
+pub const UPDATE_PUBKEY: Option<&str> = Some(
+    "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDQ2RjBDRDgzQjI5RDQ2NzcKUldSM1JwMnlnODN3UmxvTlNiRnplNDlsV3hCVE5iN0ZqUWoyZWdscXVHQVZZRGEyNkU5NTUvSGUK",
+);
 
-/// Owner decision (option 1): the manual "check for updates" button only opens this page in the
-/// default browser. Hard-coded: no user-supplied input ever reaches the opener. No download, no
-/// install, no request from the app itself.
+/// Owner decision: the fallback only opens the fixed release page. The renderer cannot select a URL.
 pub const RELEASE_PAGE_URL: &str = "https://github.com/Freshair129/kohbor/releases/latest";
 
-/// Reply of the open-release-page action. `opener` receives only `RELEASE_PAGE_URL`. Refused (and
-/// the opener never called) while a match is pregame/live.
+/// Reply of the open-release-page action. Refused (and the opener is not called) during a match.
 pub fn open_release_page_reply(match_active: bool, opener: impl FnOnce(&str) -> bool) -> Value {
     if match_active {
         return json!({"opened": false, "reason": MATCH_ACTIVE, "url": null});
@@ -42,6 +46,7 @@ const MAX_NOTES_CHARS: usize = 2_000;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UpdateInfo {
     pub version: String,
+    /// Kept as a string and rendered as text by React; it is never interpreted as HTML.
     pub notes: String,
     pub pub_date: Option<String>,
 }
@@ -68,6 +73,44 @@ impl UpdateInfo {
     }
 }
 
+pub type BackendResult<T> = Result<T, &'static str>;
+pub type BackendFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
+pub type UpdateProgress<'a> = Arc<dyn Fn(u8) + Send + Sync + 'a>;
+
+/// Three distinct backend operations preserve the user's separate check, download, and install actions.
+pub trait UpdateBackend: Send + Sync {
+    fn check(&self) -> BackendFuture<'_, BackendResult<Option<UpdateInfo>>>;
+    fn download<'a>(
+        &'a self,
+        info: &'a UpdateInfo,
+        progress: UpdateProgress<'a>,
+    ) -> BackendFuture<'a, BackendResult<()>>;
+    fn install(&self, info: &UpdateInfo) -> BackendResult<()>;
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+#[cfg(any(not(feature = "updater"), test))]
+pub struct NullBackend;
+
+#[cfg(any(not(feature = "updater"), test))]
+impl UpdateBackend for NullBackend {
+    fn check(&self) -> BackendFuture<'_, BackendResult<Option<UpdateInfo>>> {
+        Box::pin(async { Err(BACKEND_UNAVAILABLE) })
+    }
+
+    fn download<'a>(
+        &'a self,
+        _info: &'a UpdateInfo,
+        _progress: UpdateProgress<'a>,
+    ) -> BackendFuture<'a, BackendResult<()>> {
+        Box::pin(async { Err(BACKEND_UNAVAILABLE) })
+    }
+
+    fn install(&self, _info: &UpdateInfo) -> BackendResult<()> {
+        Err(BACKEND_UNAVAILABLE)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum UpdateState {
     NotConfigured(&'static str),
@@ -75,36 +118,25 @@ pub enum UpdateState {
     Checking,
     UpToDate,
     Available(UpdateInfo),
-    Downloading,
-    ReadyToInstall,
+    Downloading { info: UpdateInfo, progress: u8 },
+    Ready(UpdateInfo),
+    Installing,
     Failed(&'static str),
 }
 
-pub trait UpdateBackend: Send + Sync {
-    fn check(&self) -> Result<Option<UpdateInfo>, &'static str>;
-    fn download_and_install(&self, info: &UpdateInfo) -> Result<(), &'static str>;
+struct UpdateData {
+    state: UpdateState,
 }
 
-#[derive(Clone, Copy, Debug, Default)]
-pub struct NullBackend;
-
-impl UpdateBackend for NullBackend {
-    fn check(&self) -> Result<Option<UpdateInfo>, &'static str> {
-        Err(BACKEND_UNAVAILABLE)
-    }
-
-    fn download_and_install(&self, _info: &UpdateInfo) -> Result<(), &'static str> {
-        Err(BACKEND_UNAVAILABLE)
-    }
-}
-
+/// Thread-safe controller. Backend operations never hold the state lock across an await, so the UI
+/// can read `checking` and download progress while the plugin is waiting on the network.
 pub struct UpdateController<B: UpdateBackend> {
     endpoint: Option<&'static str>,
     pubkey: Option<&'static str>,
     backend: B,
-    state: UpdateState,
     current_version: &'static str,
     updater_enabled: bool,
+    data: Mutex<UpdateData>,
 }
 
 impl<B: UpdateBackend> UpdateController<B> {
@@ -138,9 +170,9 @@ impl<B: UpdateBackend> UpdateController<B> {
             endpoint,
             pubkey,
             backend,
-            state,
             current_version,
             updater_enabled,
+            data: Mutex::new(UpdateData { state }),
         }
     }
 
@@ -148,60 +180,165 @@ impl<B: UpdateBackend> UpdateController<B> {
         self.reply(match_active, None)
     }
 
-    pub fn check(&mut self, match_active: bool) -> Value {
+    /// A check never downloads. The result is only offered when its SemVer is strictly newer.
+    pub async fn check(&self, match_active: bool) -> Value {
         if match_active {
             return self.reply(true, Some(MATCH_ACTIVE));
         }
-
         if let Some(reason) = self.configuration_reason() {
-            self.state = UpdateState::NotConfigured(reason);
+            self.transition(UpdateState::NotConfigured(reason));
+            return self.status(false);
+        }
+        if !self.begin_check() {
             return self.status(false);
         }
 
-        if !matches!(
-            self.state,
-            UpdateState::Idle
-                | UpdateState::UpToDate
-                | UpdateState::Failed(_)
-                | UpdateState::Available(_)
-        ) {
-            return self.status(false);
-        }
-
-        self.state = UpdateState::Checking;
-        match self.backend.check() {
+        let result = self.backend.check().await;
+        let next = match result {
             Ok(Some(mut info)) => {
                 info.truncate_notes();
-                self.state = if is_newer(&info.version, self.current_version) {
+                if is_newer(&info.version, self.current_version) {
                     UpdateState::Available(info)
                 } else {
                     UpdateState::UpToDate
-                };
+                }
             }
-            Ok(None) => self.state = UpdateState::UpToDate,
-            Err(reason) => self.state = UpdateState::Failed(known_reason(reason)),
+            Ok(None) => UpdateState::UpToDate,
+            Err(reason) => UpdateState::Failed(known_reason(reason)),
+        };
+        self.transition(next);
+        self.status(false)
+    }
+
+    /// Downloads and verifies the offered artifact but never installs it.
+    pub async fn download(&self, match_active: bool) -> Value {
+        if match_active {
+            return self.reply(true, Some(MATCH_ACTIVE));
+        }
+        let info = match self.begin_download() {
+            Some(info) => info,
+            None => return self.status(false),
+        };
+
+        let state = &self.data;
+        let progress = Arc::new(move |percent: u8| {
+            let mut data = lock_state(state);
+            if let UpdateState::Downloading { info, progress } = &data.state {
+                let next = percent.min(100);
+                if next != *progress {
+                    data.state = UpdateState::Downloading {
+                        info: info.clone(),
+                        progress: next,
+                    };
+                }
+            }
+        }) as UpdateProgress<'_>;
+
+        let result = self.backend.download(&info, progress).await;
+        match result {
+            Ok(()) => self.transition(UpdateState::Ready(info)),
+            Err(reason) => self.transition(UpdateState::Failed(known_reason(reason))),
         }
         self.status(false)
     }
 
-    pub fn install(&mut self, confirm: bool, match_active: bool) -> Value {
+    /// Installs a verified download only after an explicit command and a second match-state check.
+    pub fn install(
+        &self,
+        confirm: bool,
+        match_active: bool,
+        before_install: impl FnOnce() -> BackendResult<()>,
+    ) -> Value {
         if match_active {
             return self.reply(true, Some(MATCH_ACTIVE));
         }
         if !confirm {
             return self.status(false);
         }
-
-        let UpdateState::Available(info) = self.state.clone() else {
-            return self.status(false);
+        let info = match self.begin_install() {
+            Some(info) => info,
+            None => return self.status(false),
         };
 
-        self.state = UpdateState::Downloading;
-        match self.backend.download_and_install(&info) {
-            Ok(()) => self.state = UpdateState::ReadyToInstall,
-            Err(reason) => self.state = UpdateState::Failed(known_reason(reason)),
+        if let Err(reason) = before_install() {
+            if reason == MATCH_ACTIVE {
+                self.transition(UpdateState::Ready(info));
+                return self.reply(true, Some(MATCH_ACTIVE));
+            }
+            self.transition(UpdateState::Failed(known_reason(reason)));
+            return self.status(false);
         }
-        self.status(false)
+
+        match self.backend.install(&info) {
+            Ok(()) => self.status(false), // Windows NSIS exits after launching the installer.
+            Err(reason) => {
+                self.transition(UpdateState::Failed(known_reason(reason)));
+                self.status(false)
+            }
+        }
+    }
+
+    fn begin_check(&self) -> bool {
+        let mut data = lock_state(&self.data);
+        if !matches!(
+            data.state,
+            UpdateState::Idle
+                | UpdateState::UpToDate
+                | UpdateState::Failed(_)
+                | UpdateState::Available(_)
+        ) {
+            return false;
+        }
+        let previous = data.state.clone();
+        data.state = UpdateState::Checking;
+        drop(data);
+        log_state_change(&previous, &UpdateState::Checking);
+        true
+    }
+
+    fn begin_download(&self) -> Option<UpdateInfo> {
+        let mut data = lock_state(&self.data);
+        let UpdateState::Available(info) = &data.state else {
+            return None;
+        };
+        let info = info.clone();
+        let previous = data.state.clone();
+        data.state = UpdateState::Downloading {
+            info: info.clone(),
+            progress: 0,
+        };
+        drop(data);
+        log_state_change(
+            &previous,
+            &UpdateState::Downloading {
+                info: info.clone(),
+                progress: 0,
+            },
+        );
+        Some(info)
+    }
+
+    fn begin_install(&self) -> Option<UpdateInfo> {
+        let mut data = lock_state(&self.data);
+        let UpdateState::Ready(info) = &data.state else {
+            return None;
+        };
+        let info = info.clone();
+        let previous = data.state.clone();
+        data.state = UpdateState::Installing;
+        drop(data);
+        log_state_change(&previous, &UpdateState::Installing);
+        Some(info)
+    }
+
+    fn transition(&self, next: UpdateState) {
+        let mut data = lock_state(&self.data);
+        if data.state == next {
+            return;
+        }
+        let previous = std::mem::replace(&mut data.state, next.clone());
+        drop(data);
+        log_state_change(&previous, &next);
     }
 
     fn configuration_reason(&self) -> Option<&'static str> {
@@ -209,27 +346,28 @@ impl<B: UpdateBackend> UpdateController<B> {
     }
 
     fn reply(&self, match_active: bool, reason_override: Option<&'static str>) -> Value {
-        let state_name = match &self.state {
-            UpdateState::NotConfigured(_) => "not_configured",
-            UpdateState::Idle => "idle",
-            UpdateState::Checking => "checking",
-            UpdateState::UpToDate => "up_to_date",
-            UpdateState::Available(_) => "available",
-            UpdateState::Downloading => "downloading",
-            UpdateState::ReadyToInstall => "ready_to_install",
-            UpdateState::Failed(_) => "failed",
-        };
-        let reason = reason_override.or(match &self.state {
+        let data = lock_state(&self.data);
+        let state_name = state_name(&data.state);
+        let reason = reason_override.or_else(|| match &data.state {
             UpdateState::NotConfigured(reason) | UpdateState::Failed(reason) => Some(*reason),
             _ => None,
         });
-        let available = match &self.state {
-            UpdateState::Available(info) => json!({
+        let info = match &data.state {
+            UpdateState::Available(info)
+            | UpdateState::Ready(info)
+            | UpdateState::Downloading { info, .. } => Some(info),
+            _ => None,
+        };
+        let available = info.map_or(Value::Null, |info| {
+            json!({
                 "version": &info.version,
                 "notes": &info.notes,
                 "pub_date": &info.pub_date,
-            }),
-            _ => Value::Null,
+            })
+        });
+        let download_progress = match &data.state {
+            UpdateState::Downloading { progress, .. } => Some(*progress),
+            _ => None,
         };
 
         json!({
@@ -237,8 +375,59 @@ impl<B: UpdateBackend> UpdateController<B> {
             "current_version": self.current_version,
             "reason": reason,
             "available": available,
+            "download_progress": download_progress,
             "match_active": match_active,
         })
+    }
+}
+
+fn lock_state(mutex: &Mutex<UpdateData>) -> MutexGuard<'_, UpdateData> {
+    mutex
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+fn state_name(state: &UpdateState) -> &'static str {
+    match state {
+        UpdateState::NotConfigured(_) => "not_configured",
+        UpdateState::Idle => "idle",
+        UpdateState::Checking => "checking",
+        UpdateState::UpToDate => "up_to_date",
+        UpdateState::Available(_) => "available",
+        UpdateState::Downloading { .. } => "downloading",
+        UpdateState::Ready(_) => "ready",
+        UpdateState::Installing => "installing",
+        UpdateState::Failed(_) => "failed",
+    }
+}
+
+fn log_state_change(previous: &UpdateState, next: &UpdateState) {
+    let previous_reason = state_reason(previous);
+    let next_reason = state_reason(next);
+    if state_name(previous) == state_name(next) && previous_reason == next_reason {
+        return;
+    }
+    let mut fields = Map::new();
+    fields.insert(
+        "state".to_owned(),
+        Value::String(state_name(next).to_owned()),
+    );
+    if let Some(reason) = next_reason {
+        fields.insert("reason".to_owned(), Value::String(reason.to_owned()));
+    }
+    crate::logging::emit(
+        crate::logging::Level::Info,
+        "update",
+        "state_changed",
+        "updater state changed",
+        fields,
+    );
+}
+
+fn state_reason(state: &UpdateState) -> Option<&'static str> {
+    match state {
+        UpdateState::NotConfigured(reason) | UpdateState::Failed(reason) => Some(*reason),
+        _ => None,
     }
 }
 
@@ -271,6 +460,9 @@ fn known_reason(reason: &'static str) -> &'static str {
         _ => BAD_RESPONSE,
     }
 }
+
+#[cfg(feature = "updater")]
+pub(crate) mod plugin;
 
 #[derive(Debug)]
 struct ParsedVersion<'a> {
@@ -382,8 +574,8 @@ fn compare_parsed(a: &ParsedVersion<'_>, b: &ParsedVersion<'_>) -> Ordering {
         })
 }
 
-/// Compares valid SemVer 2.0 versions. Malformed input is treated as unordered/equal;
-/// callers that need to distinguish malformed input can use `is_newer`, which returns false.
+/// Compares valid SemVer 2.0 versions. Malformed input is treated as unordered/equal.
+#[cfg(test)]
 pub fn compare_versions(a: &str, b: &str) -> Ordering {
     match (parse_version(a), parse_version(b)) {
         (Some(a), Some(b)) => compare_parsed(&a, &b),
@@ -402,100 +594,215 @@ pub fn is_newer(candidate: &str, current: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    #[test]
-    fn release_page_url_is_the_fixed_github_latest_release() {
-        assert_eq!(
-            super::RELEASE_PAGE_URL,
-            "https://github.com/Freshair129/kohbor/releases/latest"
-        );
-    }
-
-    #[test]
-    fn open_release_page_calls_the_opener_with_only_the_fixed_url() {
-        let mut seen = Vec::new();
-        let reply = super::open_release_page_reply(false, |url| {
-            seen.push(url.to_owned());
-            true
-        });
-        assert_eq!(seen, vec![super::RELEASE_PAGE_URL.to_owned()]);
-        assert_eq!(
-            reply,
-            serde_json::json!({"opened": true, "reason": null, "url": super::RELEASE_PAGE_URL})
-        );
-    }
-
-    #[test]
-    fn open_release_page_is_refused_during_a_match_without_calling_the_opener() {
-        let reply = super::open_release_page_reply(true, |_| panic!("opener must not run"));
-        assert_eq!(
-            reply,
-            serde_json::json!({"opened": false, "reason": "MATCH_ACTIVE", "url": null})
-        );
-    }
-
-    #[test]
-    fn open_release_page_reports_an_opener_failure() {
-        let reply = super::open_release_page_reply(false, |_| false);
-        assert_eq!(reply["opened"], false);
-        assert_eq!(reply["reason"], "OPEN_FAILED");
-    }
-
     use super::{
-        compare_versions, configuration_reason, is_newer, parse_version, NullBackend,
-        UpdateBackend, UpdateController, UpdateInfo, UpdateState, BACKEND_UNAVAILABLE,
-        BAD_RESPONSE, BUILD_WITHOUT_UPDATER, MATCH_ACTIVE, NETWORK, NO_ENDPOINT, NO_PUBKEY,
-        SIGNATURE,
+        BACKEND_UNAVAILABLE, BAD_RESPONSE, BUILD_WITHOUT_UPDATER, BackendFuture, BackendResult,
+        MATCH_ACTIVE, NETWORK, NO_ENDPOINT, NO_PUBKEY, NullBackend, SIGNATURE, UpdateBackend,
+        UpdateController, UpdateInfo, UpdateProgress, compare_versions, configuration_reason,
+        is_newer, open_release_page_reply, parse_version,
     };
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
     use std::cmp::Ordering;
     use std::collections::BTreeSet;
+    use std::future::Future;
     use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
-    use std::sync::Arc;
+    use std::sync::mpsc::{self, Receiver, Sender};
+    use std::sync::{Arc, Condvar, Mutex, MutexGuard};
+    use std::task::{Context, Poll, Wake, Waker};
+
+    struct NoopWake;
+
+    impl Wake for NoopWake {
+        fn wake(self: Arc<Self>) {}
+    }
+
+    struct Gate {
+        entered_sender: Sender<()>,
+        entered_receiver: Mutex<Receiver<()>>,
+        released: Mutex<bool>,
+        released_signal: Condvar,
+        waker: Mutex<Option<Waker>>,
+    }
+
+    impl Gate {
+        fn new() -> Arc<Self> {
+            let (entered_sender, entered_receiver) = mpsc::channel();
+            Arc::new(Self {
+                entered_sender,
+                entered_receiver: Mutex::new(entered_receiver),
+                released: Mutex::new(false),
+                released_signal: Condvar::new(),
+                waker: Mutex::new(None),
+            })
+        }
+
+        fn entered(&self) {
+            let _ = self.entered_sender.send(());
+        }
+
+        fn wait_entered(&self) {
+            lock(&self.entered_receiver)
+                .recv()
+                .expect("backend reached its gate");
+        }
+
+        fn release(&self) {
+            *lock(&self.released) = true;
+            self.released_signal.notify_all();
+            if let Some(waker) = lock(&self.waker).take() {
+                waker.wake();
+            }
+        }
+
+        async fn wait_async(self: &Arc<Self>) {
+            GateWait { gate: self.clone() }.await;
+        }
+
+        fn wait_blocking(&self) {
+            let mut released = lock(&self.released);
+            while !*released {
+                released = self
+                    .released_signal
+                    .wait(released)
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+            }
+        }
+    }
+
+    struct GateWait {
+        gate: Arc<Gate>,
+    }
+
+    impl Future for GateWait {
+        type Output = ();
+
+        fn poll(self: std::pin::Pin<&mut Self>, context: &mut Context<'_>) -> Poll<Self::Output> {
+            if *lock(&self.gate.released) {
+                return Poll::Ready(());
+            }
+            *lock(&self.gate.waker) = Some(context.waker().clone());
+            if *lock(&self.gate.released) {
+                Poll::Ready(())
+            } else {
+                Poll::Pending
+            }
+        }
+    }
+
+    fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+        mutex
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    fn block_on<F: Future>(future: F) -> F::Output {
+        let waker = Waker::from(Arc::new(NoopWake));
+        let mut context = Context::from_waker(&waker);
+        let mut future = std::pin::pin!(future);
+        loop {
+            match future.as_mut().poll(&mut context) {
+                Poll::Ready(value) => return value,
+                Poll::Pending => std::thread::yield_now(),
+            }
+        }
+    }
+
+    #[derive(Clone, Default)]
+    struct Calls {
+        checks: Arc<AtomicUsize>,
+        downloads: Arc<AtomicUsize>,
+        installs: Arc<AtomicUsize>,
+        progress: Arc<AtomicUsize>,
+    }
 
     #[derive(Clone)]
     struct FakeBackend {
         check_result: Result<Option<UpdateInfo>, &'static str>,
+        download_result: Result<(), &'static str>,
         install_result: Result<(), &'static str>,
-        checks: Arc<AtomicUsize>,
-        installs: Arc<AtomicUsize>,
+        calls: Calls,
+        check_gate: Option<Arc<Gate>>,
+        download_gate: Option<Arc<Gate>>,
+        install_gate: Option<Arc<Gate>>,
     }
 
     impl FakeBackend {
         fn new(
             check_result: Result<Option<UpdateInfo>, &'static str>,
+            download_result: Result<(), &'static str>,
             install_result: Result<(), &'static str>,
         ) -> Self {
             Self {
                 check_result,
+                download_result,
                 install_result,
-                checks: Arc::new(AtomicUsize::new(0)),
-                installs: Arc::new(AtomicUsize::new(0)),
+                calls: Calls::default(),
+                check_gate: None,
+                download_gate: None,
+                install_gate: None,
             }
         }
     }
 
     impl UpdateBackend for FakeBackend {
-        fn check(&self) -> Result<Option<UpdateInfo>, &'static str> {
-            self.checks.fetch_add(1, AtomicOrdering::SeqCst);
-            self.check_result.clone()
+        fn check(&self) -> BackendFuture<'_, BackendResult<Option<UpdateInfo>>> {
+            self.calls.checks.fetch_add(1, AtomicOrdering::SeqCst);
+            let result = self.check_result.clone();
+            let gate = self.check_gate.clone();
+            Box::pin(async move {
+                if let Some(gate) = gate {
+                    gate.entered();
+                    gate.wait_async().await;
+                }
+                result
+            })
         }
 
-        fn download_and_install(&self, _info: &UpdateInfo) -> Result<(), &'static str> {
-            self.installs.fetch_add(1, AtomicOrdering::SeqCst);
+        fn download<'a>(
+            &'a self,
+            _info: &'a UpdateInfo,
+            progress: UpdateProgress<'a>,
+        ) -> BackendFuture<'a, BackendResult<()>> {
+            self.calls.downloads.fetch_add(1, AtomicOrdering::SeqCst);
+            let result = self.download_result;
+            let gate = self.download_gate.clone();
+            let calls = self.calls.clone();
+            Box::pin(async move {
+                progress(63);
+                calls.progress.store(63, AtomicOrdering::SeqCst);
+                if let Some(gate) = gate {
+                    gate.entered();
+                    gate.wait_async().await;
+                }
+                result
+            })
+        }
+
+        fn install(&self, _info: &UpdateInfo) -> BackendResult<()> {
+            self.calls.installs.fetch_add(1, AtomicOrdering::SeqCst);
+            if let Some(gate) = &self.install_gate {
+                gate.entered();
+                gate.wait_blocking();
+            }
             self.install_result
         }
     }
 
     fn controller(
-        check_result: Result<Option<UpdateInfo>, &'static str>,
-        install_result: Result<(), &'static str>,
-    ) -> UpdateController<FakeBackend> {
-        UpdateController::new_with_feature(
-            Some("test-endpoint"),
-            Some("test-public-key"),
-            FakeBackend::new(check_result, install_result),
-            "0.3.0",
-            true,
+        check: Result<Option<UpdateInfo>, &'static str>,
+        download: Result<(), &'static str>,
+        install: Result<(), &'static str>,
+    ) -> (UpdateController<FakeBackend>, Calls) {
+        let backend = FakeBackend::new(check, download, install);
+        let calls = backend.calls.clone();
+        (
+            UpdateController::new_with_feature(
+                Some("test-endpoint"),
+                Some("test-public-key"),
+                backend,
+                "0.3.0",
+                true,
+            ),
+            calls,
         )
     }
 
@@ -521,145 +828,56 @@ mod tests {
     }
 
     #[test]
-    fn owner_reserved_endpoint_and_key_are_unconfigured() {
-        assert_eq!(super::UPDATE_ENDPOINT, None);
-        assert_eq!(super::UPDATE_PUBKEY, None);
+    fn release_page_uses_fixed_url_and_refuses_matches() {
+        assert_eq!(
+            super::RELEASE_PAGE_URL,
+            "https://github.com/Freshair129/kohbor/releases/latest"
+        );
+        let mut seen = Vec::new();
+        let opened = open_release_page_reply(false, |url| {
+            seen.push(url.to_owned());
+            true
+        });
+        assert_eq!(seen, vec![super::RELEASE_PAGE_URL]);
+        assert_eq!(opened["opened"], true);
+        let blocked = open_release_page_reply(true, |_| panic!("must not open in a match"));
+        assert_eq!(blocked["reason"], MATCH_ACTIVE);
     }
 
     #[test]
-    fn feature_missing_precedes_missing_endpoint_and_key() {
+    fn tauri_plugin_config_matches_embedded_update_trust_constants() {
+        let config: Value = serde_json::from_str(include_str!("../tauri.conf.json"))
+            .expect("tauri.conf.json is valid JSON");
+        let updater = &config["plugins"]["updater"];
+        assert_eq!(updater["endpoints"][0].as_str(), super::UPDATE_ENDPOINT);
+        assert_eq!(updater["pubkey"].as_str(), super::UPDATE_PUBKEY);
+        assert_eq!(updater["requireSignedVersion"], true);
+        assert_eq!(updater["windows"]["installMode"], "passive");
+    }
+
+    #[test]
+    fn configuration_fails_closed_in_order() {
         assert_eq!(
             configuration_reason(false, None, None),
             Some(BUILD_WITHOUT_UPDATER)
         );
-        assert_eq!(
-            configuration_reason(false, Some("endpoint"), Some("key")),
-            Some(BUILD_WITHOUT_UPDATER)
-        );
-    }
-
-    #[test]
-    fn missing_endpoint_precedes_missing_key() {
         assert_eq!(configuration_reason(true, None, None), Some(NO_ENDPOINT));
         assert_eq!(
             configuration_reason(true, None, Some("key")),
             Some(NO_ENDPOINT)
         );
-    }
-
-    #[test]
-    fn endpoint_without_key_reports_no_pubkey() {
         assert_eq!(
-            configuration_reason(true, Some("endpoint"), None),
+            configuration_reason(true, Some("url"), None),
             Some(NO_PUBKEY)
         );
+        assert_eq!(configuration_reason(true, Some("url"), Some("key")), None);
     }
 
     #[test]
-    fn complete_configuration_has_no_configuration_reason() {
-        assert_eq!(
-            configuration_reason(true, Some("endpoint"), Some("key")),
-            None
-        );
-    }
-
-    #[test]
-    fn normal_build_constructor_reports_its_configuration_state() {
+    fn default_controller_reports_build_configuration() {
         let controller = UpdateController::new(None, None, NullBackend, "0.3.0");
         let reply = controller.status(false);
-        let expected = if cfg!(feature = "updater") {
-            NO_ENDPOINT
-        } else {
-            BUILD_WITHOUT_UPDATER
-        };
         assert_eq!(state(&reply), "not_configured");
-        assert_eq!(reason(&reply), Some(expected));
-    }
-
-    #[test]
-    fn replies_have_exact_top_level_keys() {
-        let controller = controller(Ok(None), Ok(()));
-        let reply = controller.status(false);
-        assert_eq!(
-            json_keys(&reply),
-            BTreeSet::from([
-                "state".to_owned(),
-                "current_version".to_owned(),
-                "reason".to_owned(),
-                "available".to_owned(),
-                "match_active".to_owned(),
-            ])
-        );
-    }
-
-    #[test]
-    fn status_check_and_install_share_the_same_reply_shape() {
-        let expected = BTreeSet::from([
-            "state".to_owned(),
-            "current_version".to_owned(),
-            "reason".to_owned(),
-            "available".to_owned(),
-            "match_active".to_owned(),
-        ]);
-        let mut controller = controller(Ok(None), Ok(()));
-        assert_eq!(json_keys(&controller.status(false)), expected);
-        assert_eq!(json_keys(&controller.check(false)), expected);
-        assert_eq!(json_keys(&controller.install(false, false)), expected);
-    }
-
-    #[test]
-    fn status_includes_current_version_and_match_flag() {
-        let controller = controller(Ok(None), Ok(()));
-        let reply = controller.status(true);
-        assert_eq!(reply["current_version"], "0.3.0");
-        assert_eq!(reply["match_active"], true);
-        assert!(reply["available"].is_null());
-    }
-
-    #[test]
-    fn all_states_serialize_with_the_required_names_and_shape() {
-        let states = [
-            (UpdateState::NotConfigured(NO_ENDPOINT), "not_configured"),
-            (UpdateState::Idle, "idle"),
-            (UpdateState::Checking, "checking"),
-            (UpdateState::UpToDate, "up_to_date"),
-            (UpdateState::Available(available_info("0.4.0")), "available"),
-            (UpdateState::Downloading, "downloading"),
-            (UpdateState::ReadyToInstall, "ready_to_install"),
-            (UpdateState::Failed(NETWORK), "failed"),
-        ];
-        let expected_keys = BTreeSet::from([
-            "state".to_owned(),
-            "current_version".to_owned(),
-            "reason".to_owned(),
-            "available".to_owned(),
-            "match_active".to_owned(),
-        ]);
-        for (controller_state, expected_name) in states {
-            let mut controller = controller(Ok(None), Ok(()));
-            controller.state = controller_state;
-            let reply = controller.status(false);
-            assert_eq!(state(&reply), expected_name);
-            assert_eq!(json_keys(&reply), expected_keys);
-            if expected_name == "available" {
-                assert_eq!(
-                    json_keys(&reply["available"]),
-                    BTreeSet::from([
-                        "version".to_owned(),
-                        "notes".to_owned(),
-                        "pub_date".to_owned(),
-                    ])
-                );
-            } else {
-                assert!(reply["available"].is_null());
-            }
-        }
-    }
-
-    #[test]
-    fn not_configured_serializes_reason_code() {
-        let controller = UpdateController::new(None, None, NullBackend, "0.3.0");
-        let reply = controller.status(false);
         assert_eq!(
             reason(&reply),
             Some(if cfg!(feature = "updater") {
@@ -671,211 +889,251 @@ mod tests {
     }
 
     #[test]
-    fn failed_state_serializes_reason_code() {
-        let mut controller = controller(Err(SIGNATURE), Ok(()));
-        let reply = controller.check(false);
-        assert_eq!(state(&reply), "failed");
-        assert_eq!(reason(&reply), Some(SIGNATURE));
+    fn status_includes_progress_and_has_stable_keys() {
+        let (controller, _) = controller(Ok(None), Ok(()), Ok(()));
+        let reply = controller.status(true);
+        assert_eq!(reply["current_version"], "0.3.0");
+        assert_eq!(reply["match_active"], true);
+        assert!(reply["available"].is_null());
+        assert!(reply["download_progress"].is_null());
+        assert_eq!(
+            json_keys(&reply),
+            BTreeSet::from([
+                "state".to_owned(),
+                "current_version".to_owned(),
+                "reason".to_owned(),
+                "available".to_owned(),
+                "download_progress".to_owned(),
+                "match_active".to_owned(),
+            ])
+        );
     }
 
     #[test]
-    fn match_active_reply_overrides_reason_without_storing_failure() {
-        let mut controller = controller(Ok(None), Ok(()));
-        let reply = controller.check(true);
-        assert_eq!(state(&reply), "idle");
-        assert_eq!(reason(&reply), Some(MATCH_ACTIVE));
-        assert_eq!(state(&controller.status(false)), "idle");
-        assert_eq!(reason(&controller.status(false)), None);
-    }
-
-    #[test]
-    fn check_while_match_active_preserves_available_state_and_skips_backend() {
-        let info = available_info("0.4.0");
-        let mut controller = controller(Ok(None), Ok(()));
-        controller.state = UpdateState::Available(info.clone());
-        let checks = controller.backend.checks.clone();
-        let reply = controller.check(true);
-        assert_eq!(state(&reply), "available");
-        assert_eq!(reason(&reply), Some(MATCH_ACTIVE));
-        assert_eq!(controller.state, UpdateState::Available(info));
-        assert_eq!(checks.load(AtomicOrdering::SeqCst), 0);
-    }
-
-    #[test]
-    fn check_is_allowed_from_idle() {
-        let mut controller = controller(Ok(None), Ok(()));
-        assert_eq!(state(&controller.status(false)), "idle");
-        assert_eq!(state(&controller.check(false)), "up_to_date");
-    }
-
-    #[test]
-    fn check_is_allowed_from_up_to_date() {
-        let mut controller = controller(Ok(None), Ok(()));
-        controller.state = UpdateState::UpToDate;
-        assert_eq!(state(&controller.check(false)), "up_to_date");
-        assert_eq!(controller.backend.checks.load(AtomicOrdering::SeqCst), 1);
-    }
-
-    #[test]
-    fn check_is_allowed_from_failed() {
-        let mut controller = controller(Ok(None), Ok(()));
-        controller.state = UpdateState::Failed(NETWORK);
-        assert_eq!(state(&controller.check(false)), "up_to_date");
-    }
-
-    #[test]
-    fn check_is_allowed_from_available() {
-        let mut controller = controller(Ok(None), Ok(()));
-        controller.state = UpdateState::Available(available_info("0.4.0"));
-        assert_eq!(state(&controller.check(false)), "up_to_date");
-    }
-
-    #[test]
-    fn check_from_transitional_or_ready_states_does_not_call_backend() {
-        for state in [
-            UpdateState::Checking,
-            UpdateState::Downloading,
-            UpdateState::ReadyToInstall,
-        ] {
-            let mut controller = controller(Ok(None), Ok(()));
-            controller.state = state.clone();
-            let checks = controller.backend.checks.clone();
-            let reply = controller.check(false);
-            assert_eq!(controller.state, state);
-            assert_eq!(checks.load(AtomicOrdering::SeqCst), 0);
-            assert_eq!(reply["reason"], Value::Null);
+    fn check_offers_only_strictly_newer_semver() {
+        for version in ["0.2.9", "0.3.0", "0.3.0+build.1", "bad"] {
+            let (controller, calls) = controller(Ok(Some(available_info(version))), Ok(()), Ok(()));
+            let reply = block_on(controller.check(false));
+            assert_eq!(state(&reply), "up_to_date", "candidate {version}");
+            assert_eq!(calls.downloads.load(AtomicOrdering::SeqCst), 0);
         }
-    }
 
-    #[test]
-    fn no_update_response_marks_up_to_date() {
-        let mut controller = controller(Ok(None), Ok(()));
-        let reply = controller.check(false);
-        assert_eq!(state(&reply), "up_to_date");
-    }
-
-    #[test]
-    fn older_backend_version_marks_up_to_date() {
-        let mut controller = controller(Ok(Some(available_info("0.2.9"))), Ok(()));
-        assert_eq!(state(&controller.check(false)), "up_to_date");
-    }
-
-    #[test]
-    fn equal_backend_version_marks_up_to_date() {
-        let mut controller = controller(Ok(Some(available_info("0.3.0+build.2"))), Ok(()));
-        assert_eq!(state(&controller.check(false)), "up_to_date");
-    }
-
-    #[test]
-    fn newer_backend_version_marks_available() {
-        let mut controller = controller(Ok(Some(available_info("0.3.1-rc.1"))), Ok(()));
-        let reply = controller.check(false);
+        let (controller, calls) = controller(Ok(Some(available_info("0.3.1"))), Ok(()), Ok(()));
+        let reply = block_on(controller.check(false));
         assert_eq!(state(&reply), "available");
-        assert_eq!(reply["available"]["version"], "0.3.1-rc.1");
-        assert_eq!(reply["available"]["pub_date"], "2026-11-15");
+        assert_eq!(reply["available"]["version"], "0.3.1");
+        assert_eq!(calls.checks.load(AtomicOrdering::SeqCst), 1);
+        assert_eq!(calls.downloads.load(AtomicOrdering::SeqCst), 0);
     }
 
     #[test]
-    fn backend_check_error_becomes_failed() {
-        let mut controller = controller(Err(NETWORK), Ok(()));
-        let reply = controller.check(false);
+    fn check_none_and_errors_reach_up_to_date_and_failed() {
+        let (none_controller, _) = controller(Ok(None), Ok(()), Ok(()));
+        assert_eq!(state(&block_on(none_controller.check(false))), "up_to_date");
+
+        let (controller, _) = controller(Err(NETWORK), Ok(()), Ok(()));
+        let reply = block_on(controller.check(false));
         assert_eq!(state(&reply), "failed");
         assert_eq!(reason(&reply), Some(NETWORK));
     }
 
     #[test]
-    fn unknown_backend_reason_becomes_bad_response() {
-        let mut controller = controller(Err("UNLISTED_CODE"), Ok(()));
-        let reply = controller.check(false);
-        assert_eq!(state(&reply), "failed");
-        assert_eq!(reason(&reply), Some(BAD_RESPONSE));
+    fn download_progress_reaches_ready_without_installing() {
+        let (controller, calls) = controller(Ok(Some(available_info("0.3.1"))), Ok(()), Ok(()));
+        assert_eq!(state(&block_on(controller.check(false))), "available");
+        let reply = block_on(controller.download(false));
+        assert_eq!(state(&reply), "ready");
+        assert_eq!(reply["available"]["version"], "0.3.1");
+        assert_eq!(reply["download_progress"], Value::Null);
+        assert_eq!(calls.progress.load(AtomicOrdering::SeqCst), 63);
+        assert_eq!(calls.downloads.load(AtomicOrdering::SeqCst), 1);
+        assert_eq!(calls.installs.load(AtomicOrdering::SeqCst), 0);
     }
 
     #[test]
-    fn install_without_confirmation_preserves_available_and_skips_backend() {
-        let info = available_info("0.4.0");
-        let mut controller = controller(Ok(None), Ok(()));
-        controller.state = UpdateState::Available(info.clone());
-        let installs = controller.backend.installs.clone();
-        let reply = controller.install(false, false);
-        assert_eq!(state(&reply), "available");
-        assert_eq!(reason(&reply), None);
-        assert_eq!(controller.state, UpdateState::Available(info));
-        assert_eq!(installs.load(AtomicOrdering::SeqCst), 0);
+    fn checking_download_progress_and_installing_are_visible_while_backend_waits() {
+        let check_gate = Gate::new();
+        let mut backend = FakeBackend::new(Ok(Some(available_info("0.3.1"))), Ok(()), Ok(()));
+        backend.check_gate = Some(check_gate.clone());
+        let controller = Arc::new(UpdateController::new_with_feature(
+            Some("test-endpoint"),
+            Some("test-public-key"),
+            backend,
+            "0.3.0",
+            true,
+        ));
+        let worker = controller.clone();
+        let check = std::thread::spawn(move || block_on(worker.check(false)));
+        check_gate.wait_entered();
+        assert_eq!(state(&controller.status(false)), "checking");
+        check_gate.release();
+        assert_eq!(state(&check.join().unwrap()), "available");
+
+        let download_gate = Gate::new();
+        let mut backend = FakeBackend::new(Ok(Some(available_info("0.3.1"))), Ok(()), Ok(()));
+        backend.download_gate = Some(download_gate.clone());
+        let controller = Arc::new(UpdateController::new_with_feature(
+            Some("test-endpoint"),
+            Some("test-public-key"),
+            backend,
+            "0.3.0",
+            true,
+        ));
+        block_on(controller.check(false));
+        let worker = controller.clone();
+        let download = std::thread::spawn(move || block_on(worker.download(false)));
+        download_gate.wait_entered();
+        let downloading = controller.status(false);
+        assert_eq!(state(&downloading), "downloading");
+        assert_eq!(downloading["download_progress"], 63);
+        download_gate.release();
+        assert_eq!(state(&download.join().unwrap()), "ready");
+
+        let install_gate = Gate::new();
+        let mut backend = FakeBackend::new(Ok(Some(available_info("0.3.1"))), Ok(()), Ok(()));
+        backend.install_gate = Some(install_gate.clone());
+        let controller = Arc::new(UpdateController::new_with_feature(
+            Some("test-endpoint"),
+            Some("test-public-key"),
+            backend,
+            "0.3.0",
+            true,
+        ));
+        block_on(controller.check(false));
+        block_on(controller.download(false));
+        let worker = controller.clone();
+        let install = std::thread::spawn(move || worker.install(true, false, || Ok(())));
+        install_gate.wait_entered();
+        assert_eq!(state(&controller.status(false)), "installing");
+        install_gate.release();
+        assert_eq!(state(&install.join().unwrap()), "installing");
     }
 
     #[test]
-    fn install_during_match_preserves_available_and_skips_backend() {
-        let info = available_info("0.4.0");
-        let mut controller = controller(Ok(None), Ok(()));
-        controller.state = UpdateState::Available(info.clone());
-        let installs = controller.backend.installs.clone();
-        let reply = controller.install(true, true);
-        assert_eq!(state(&reply), "available");
-        assert_eq!(reason(&reply), Some(MATCH_ACTIVE));
-        assert_eq!(controller.state, UpdateState::Available(info));
-        assert_eq!(installs.load(AtomicOrdering::SeqCst), 0);
-    }
-
-    #[test]
-    fn install_from_non_available_state_is_refused() {
-        let mut controller = controller(Ok(None), Ok(()));
-        let installs = controller.backend.installs.clone();
-        let reply = controller.install(true, false);
-        assert_eq!(state(&reply), "idle");
-        assert_eq!(controller.state, UpdateState::Idle);
-        assert_eq!(installs.load(AtomicOrdering::SeqCst), 0);
-    }
-
-    #[test]
-    fn install_success_reaches_ready_to_install_only_after_backend_returns() {
-        let mut controller = controller(Ok(None), Ok(()));
-        controller.state = UpdateState::Available(available_info("0.4.0"));
-        let reply = controller.install(true, false);
-        assert_eq!(state(&reply), "ready_to_install");
-        assert_eq!(controller.state, UpdateState::ReadyToInstall);
-        assert_eq!(controller.backend.installs.load(AtomicOrdering::SeqCst), 1);
-    }
-
-    #[test]
-    fn install_backend_error_leaves_running_version_unchanged() {
-        let mut controller = controller(Ok(None), Err(SIGNATURE));
-        controller.state = UpdateState::Available(available_info("0.4.0"));
-        let original_version = controller.current_version;
-        let reply = controller.install(true, false);
+    fn download_failure_does_not_install() {
+        let (controller, calls) =
+            controller(Ok(Some(available_info("0.3.1"))), Err(SIGNATURE), Ok(()));
+        block_on(controller.check(false));
+        let reply = block_on(controller.download(false));
         assert_eq!(state(&reply), "failed");
         assert_eq!(reason(&reply), Some(SIGNATURE));
-        assert_eq!(controller.current_version, original_version);
+        assert_eq!(calls.installs.load(AtomicOrdering::SeqCst), 0);
     }
 
     #[test]
-    fn installation_cannot_begin_before_a_user_confirmed_available_state() {
-        let mut controller = controller(Ok(None), Ok(()));
-        let checks = controller.backend.checks.clone();
-        let installs = controller.backend.installs.clone();
-        let reply = controller.install(true, false);
+    fn install_needs_confirmation_and_ready_state() {
+        let (controller, calls) = controller(Ok(Some(available_info("0.3.1"))), Ok(()), Ok(()));
+        let before = Arc::new(AtomicUsize::new(0));
+        let before_install = before.clone();
+        let reply = controller.install(true, false, move || {
+            before_install.fetch_add(1, AtomicOrdering::SeqCst);
+            Ok(())
+        });
         assert_eq!(state(&reply), "idle");
-        assert_eq!(checks.load(AtomicOrdering::SeqCst), 0);
-        assert_eq!(installs.load(AtomicOrdering::SeqCst), 0);
+        assert_eq!(calls.installs.load(AtomicOrdering::SeqCst), 0);
+        assert_eq!(before.load(AtomicOrdering::SeqCst), 0);
+
+        block_on(controller.check(false));
+        let no_confirm = controller.install(false, false, || panic!("confirmation required"));
+        assert_eq!(state(&no_confirm), "available");
+        assert_eq!(calls.installs.load(AtomicOrdering::SeqCst), 0);
+
+        block_on(controller.download(false));
+        let before_install = before.clone();
+        let installed = controller.install(true, false, move || {
+            before_install.fetch_add(1, AtomicOrdering::SeqCst);
+            Ok(())
+        });
+        assert_eq!(state(&installed), "installing");
+        assert_eq!(calls.installs.load(AtomicOrdering::SeqCst), 1);
+        assert_eq!(before.load(AtomicOrdering::SeqCst), 1);
     }
 
     #[test]
-    fn notes_are_truncated_at_two_thousand_unicode_characters() {
-        let notes = "ก🙂".repeat(1_001);
-        let info = UpdateInfo::new("0.4.0", notes, None);
+    fn install_failure_maps_reason_and_preserves_running_version() {
+        let (controller, _) = controller(
+            Ok(Some(available_info("0.3.1"))),
+            Ok(()),
+            Err(BACKEND_UNAVAILABLE),
+        );
+        block_on(controller.check(false));
+        block_on(controller.download(false));
+        let reply = controller.install(true, false, || Ok(()));
+        assert_eq!(state(&reply), "failed");
+        assert_eq!(reason(&reply), Some(BACKEND_UNAVAILABLE));
+        assert_eq!(reply["current_version"], "0.3.0");
+    }
+
+    #[test]
+    fn match_active_refuses_check_download_and_install_without_backend_calls() {
+        let (controller, calls) = controller(Ok(Some(available_info("0.3.1"))), Ok(()), Ok(()));
+        let check = block_on(controller.check(true));
+        assert_eq!(reason(&check), Some(MATCH_ACTIVE));
+        assert_eq!(calls.checks.load(AtomicOrdering::SeqCst), 0);
+
+        block_on(controller.check(false));
+        let download = block_on(controller.download(true));
+        assert_eq!(state(&download), "available");
+        assert_eq!(reason(&download), Some(MATCH_ACTIVE));
+        assert_eq!(calls.downloads.load(AtomicOrdering::SeqCst), 0);
+
+        block_on(controller.download(false));
+        let install = controller.install(true, true, || panic!("shutdown must not run in a match"));
+        assert_eq!(state(&install), "ready");
+        assert_eq!(reason(&install), Some(MATCH_ACTIVE));
+        assert_eq!(calls.installs.load(AtomicOrdering::SeqCst), 0);
+    }
+
+    #[test]
+    fn match_that_starts_before_install_restores_ready_state() {
+        let (controller, calls) = controller(Ok(Some(available_info("0.3.1"))), Ok(()), Ok(()));
+        block_on(controller.check(false));
+        block_on(controller.download(false));
+        let reply = controller.install(true, false, || Err(MATCH_ACTIVE));
+        assert_eq!(state(&reply), "ready");
+        assert_eq!(reason(&reply), Some(MATCH_ACTIVE));
+        assert_eq!(calls.installs.load(AtomicOrdering::SeqCst), 0);
+    }
+
+    #[test]
+    fn no_endpoint_or_pubkey_short_circuits_the_backend() {
+        let backend = FakeBackend::new(Ok(None), Ok(()), Ok(()));
+        let calls = backend.calls.clone();
+        let controller = UpdateController::new_with_feature(None, None, backend, "0.3.0", true);
+        assert_eq!(
+            reason(&block_on(controller.check(false))),
+            Some(NO_ENDPOINT)
+        );
+        assert_eq!(calls.checks.load(AtomicOrdering::SeqCst), 0);
+
+        let backend = FakeBackend::new(Ok(None), Ok(()), Ok(()));
+        let calls = backend.calls.clone();
+        let controller =
+            UpdateController::new_with_feature(Some("test-endpoint"), None, backend, "0.3.0", true);
+        assert_eq!(reason(&block_on(controller.check(false))), Some(NO_PUBKEY));
+        assert_eq!(calls.checks.load(AtomicOrdering::SeqCst), 0);
+    }
+
+    #[test]
+    fn automatic_check_path_only_checks_and_never_downloads() {
+        // The UI's automatic-check consent calls only update_check. The controller's check path
+        // is independently safe: even when invoked for that consent, it only offers a candidate.
+        let (controller, calls) = controller(Ok(Some(available_info("0.3.1"))), Ok(()), Ok(()));
+        let result = block_on(controller.check(false));
+        assert_eq!(state(&result), "available");
+        assert_eq!(calls.checks.load(AtomicOrdering::SeqCst), 1);
+        assert_eq!(calls.downloads.load(AtomicOrdering::SeqCst), 0);
+        assert_eq!(calls.installs.load(AtomicOrdering::SeqCst), 0);
+    }
+
+    #[test]
+    fn notes_are_truncated_by_unicode_characters_before_serialization() {
+        let notes = "อัปเดต".repeat(500);
+        let info = UpdateInfo::new("0.3.1", notes, None);
         assert_eq!(info.notes.chars().count(), 2_000);
-        assert!(info.notes.is_char_boundary(info.notes.len()));
-    }
 
-    #[test]
-    fn backend_notes_are_truncated_before_reply_serialization() {
-        let info = UpdateInfo {
-            version: "0.4.0".to_owned(),
-            notes: "x".repeat(2_001),
-            pub_date: None,
-        };
-        let mut controller = controller(Ok(Some(info)), Ok(()));
-        let reply = controller.check(false);
+        let (controller, _) = controller(Ok(Some(info)), Ok(()), Ok(()));
+        let reply = block_on(controller.check(false));
         assert_eq!(
             reply["available"]["notes"]
                 .as_str()
@@ -887,187 +1145,80 @@ mod tests {
     }
 
     #[test]
-    fn null_backend_reports_backend_unavailable() {
-        let mut controller = UpdateController::new_with_feature(
+    fn plugin_reasons_are_allowlisted_and_unknown_reasons_are_bad_response() {
+        for expected in [NETWORK, SIGNATURE, BACKEND_UNAVAILABLE, BAD_RESPONSE] {
+            assert_eq!(super::known_reason(expected), expected);
+        }
+        assert_eq!(super::known_reason("raw-plugin-error"), BAD_RESPONSE);
+    }
+
+    #[test]
+    fn null_backend_is_backend_unavailable_when_configured() {
+        let controller = UpdateController::new_with_feature(
             Some("test-endpoint"),
-            Some("test-key"),
+            Some("test-public-key"),
             NullBackend,
             "0.3.0",
             true,
         );
-        let reply = controller.check(false);
+        let reply = block_on(controller.check(false));
         assert_eq!(state(&reply), "failed");
         assert_eq!(reason(&reply), Some(BACKEND_UNAVAILABLE));
     }
 
     #[test]
-    fn prerelease_sequence_orders_numeric_identifiers_numerically() {
-        let versions = [
-            "0.3.0-dev.9",
-            "0.3.0-dev.10",
-            "0.3.0-dev.14",
-            "0.3.0",
-            "0.3.1-rc.1",
-        ];
-        for pair in versions.windows(2) {
-            assert_eq!(compare_versions(pair[0], pair[1]), Ordering::Less);
-        }
-    }
-
-    #[test]
-    fn mvp_prerelease_precedes_release() {
-        assert_eq!(compare_versions("0.2.0-mvp2.1", "0.2.0"), Ordering::Less);
-    }
-
-    #[test]
-    fn equal_precedence_ignores_build_metadata() {
+    fn semver_prerelease_and_build_metadata_rules_are_applied() {
         assert_eq!(
-            compare_versions("1.2.3+build.1", "1.2.3+other"),
-            Ordering::Equal
-        );
-        assert!(!is_newer("1.2.3+build.1", "1.2.3+other"));
-    }
-
-    #[test]
-    fn prerelease_is_lower_than_release() {
-        assert_eq!(compare_versions("1.0.0-rc.1", "1.0.0"), Ordering::Less);
-    }
-
-    #[test]
-    fn numeric_prerelease_identifier_is_lower_than_alphanumeric() {
-        assert_eq!(compare_versions("1.0.0-1", "1.0.0-alpha"), Ordering::Less);
-    }
-
-    #[test]
-    fn alphanumeric_prerelease_identifiers_compare_lexically() {
-        assert_eq!(
-            compare_versions("1.0.0-alpha2", "1.0.0-alpha10"),
+            compare_versions("0.3.0-dev.10", "0.3.0-dev.2"),
             Ordering::Greater
         );
-    }
-
-    #[test]
-    fn shorter_equal_prerelease_sequence_has_lower_precedence() {
+        assert!(is_newer("0.3.0", "0.3.0-rc.1"));
+        assert!(!is_newer("1.2.3+build.1", "1.2.3+other"));
+        assert!(!is_newer("1.2.3-rc.1", "1.2.3"));
+        assert_eq!(compare_versions("1.0.0-1", "1.0.0-alpha"), Ordering::Less);
         assert_eq!(
-            compare_versions("1.0.0-alpha", "1.0.0-alpha.1"),
+            compare_versions("1.0.0-alpha", "1.0.0-beta"),
             Ordering::Less
         );
-    }
-
-    #[test]
-    fn large_core_numbers_compare_without_integer_overflow() {
-        assert!(is_newer(
-            "999999999999999999999.0.0",
-            "999999999999999999998.9.9"
-        ));
-    }
-
-    #[test]
-    fn malformed_versions_parse_as_none_and_are_not_newer() {
-        for malformed in [
-            "1.2",
-            "01.2.3",
-            "1.02.3",
-            "1.2.03",
-            "1.2.3-",
-            "1.2.3+",
-            "1.2.3-alpha..1",
-            "1.2.3-01",
-            " 1.2.3",
-            "v1.2.3",
-        ] {
-            assert!(parse_version(malformed).is_none(), "accepted {malformed}");
-            assert!(
-                !is_newer(malformed, "0.0.0"),
-                "considered {malformed} newer"
-            );
-        }
-        assert_eq!(compare_versions("bad", "1.0.0"), Ordering::Equal);
-    }
-
-    #[test]
-    fn check_with_malformed_candidate_is_not_newer() {
-        let mut controller = controller(Ok(Some(available_info("not-semver"))), Ok(()));
-        assert_eq!(state(&controller.check(false)), "up_to_date");
-    }
-
-    #[test]
-    fn check_without_an_endpoint_does_not_call_backend() {
-        let backend = FakeBackend::new(Ok(None), Ok(()));
-        let checks = backend.checks.clone();
-        let mut controller = UpdateController::new_with_feature(None, None, backend, "0.3.0", true);
-        let reply = controller.check(false);
-        assert_eq!(state(&reply), "not_configured");
-        assert_eq!(reason(&reply), Some(NO_ENDPOINT));
-        assert_eq!(checks.load(AtomicOrdering::SeqCst), 0);
-    }
-
-    #[test]
-    fn explicit_install_is_the_only_available_to_downloading_path() {
-        let mut controller = controller(Ok(Some(available_info("0.4.0"))), Ok(()));
-        assert_eq!(state(&controller.check(false)), "available");
-        assert_eq!(state(&controller.status(false)), "available");
-        assert_eq!(state(&controller.install(false, false)), "available");
-        assert_eq!(controller.backend.installs.load(AtomicOrdering::SeqCst), 0);
-        assert_eq!(state(&controller.install(true, false)), "ready_to_install");
-        assert_eq!(controller.backend.installs.load(AtomicOrdering::SeqCst), 1);
-    }
-
-    #[test]
-    fn state_reply_does_not_leak_config_values_or_release_notes() {
-        let mut controller = UpdateController::new_with_feature(
-            Some("private-test-endpoint"),
-            Some("private-test-key"),
-            FakeBackend::new(Ok(Some(available_info("0.4.0"))), Ok(())),
-            "0.3.0",
-            true,
+        assert_eq!(
+            compare_versions("1.0.0-alpha.1", "1.0.0-alpha"),
+            Ordering::Greater
         );
-        let reply = controller.check(false);
-        let text = reply.to_string();
-        assert!(!text.contains("private-test-endpoint"));
-        assert!(!text.contains("private-test-key"));
-        assert!(text.contains("release notes"));
-    }
-
-    #[test]
-    fn every_declared_reason_is_a_serializable_code() {
-        for code in [
-            BUILD_WITHOUT_UPDATER,
-            NO_ENDPOINT,
-            NO_PUBKEY,
-            MATCH_ACTIVE,
-            NETWORK,
-            SIGNATURE,
-            BACKEND_UNAVAILABLE,
-            BAD_RESPONSE,
-        ] {
-            assert!(code
-                .bytes()
-                .all(|byte| byte.is_ascii_uppercase() || byte == b'_'));
-        }
-    }
-
-    #[test]
-    fn null_backend_install_error_preserves_version() {
-        let mut controller = UpdateController::new_with_feature(
-            Some("test-endpoint"),
-            Some("test-key"),
-            NullBackend,
-            "0.3.0",
-            true,
+        assert_eq!(
+            compare_versions("99999999999999999999.0.0", "2.0.0"),
+            Ordering::Greater
         );
-        controller.state = UpdateState::Available(available_info("0.4.0"));
-        let reply = controller.install(true, false);
-        assert_eq!(state(&reply), "failed");
-        assert_eq!(reason(&reply), Some(BACKEND_UNAVAILABLE));
-        assert_eq!(controller.current_version, "0.3.0");
+        assert!(parse_version("01.0.0").is_none());
+        assert!(parse_version("1.0.0-01").is_none());
+        assert!(!is_newer("not-semver", "0.3.0"));
     }
 
     #[test]
-    fn available_reply_has_nullable_publication_date() {
-        let mut controller = controller(Ok(Some(UpdateInfo::new("0.4.0", "", None))), Ok(()));
-        let reply = controller.check(false);
-        assert_eq!(reply["available"]["pub_date"], Value::Null);
-        assert_eq!(reply["available"]["notes"], json!(""));
+    fn replies_never_contain_endpoint_or_public_key() {
+        let (controller, _) = controller(Ok(None), Ok(()), Ok(()));
+        let reply = controller.status(false);
+        assert_eq!(
+            reply,
+            json!({
+                "state": "idle",
+                "current_version": "0.3.0",
+                "reason": null,
+                "available": null,
+                "download_progress": null,
+                "match_active": false
+            })
+        );
+        assert!(
+            serde_json::to_string(&reply)
+                .unwrap()
+                .find("test-public-key")
+                .is_none()
+        );
+        assert!(
+            serde_json::to_string(&reply)
+                .unwrap()
+                .find("test-endpoint")
+                .is_none()
+        );
     }
 }
