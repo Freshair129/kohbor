@@ -65,11 +65,12 @@ export function mapPackSummaries(source: MediaPackSummaries): PackSummary[] {
     const events = new Set(bindings.map(binding => binding.event_id)).size;
     const voices = bindings.reduce((total, binding) => total + binding.variantCount, 0);
     const banners = bindings.reduce((total, binding) => total + binding.bannerCount, 0);
-    const coverUrl = row.problem === null && banners > 0 ? row.cover_url : null;
+    // The cover is the optional still image from presentation.cover (MEDIA-PACK-SPEC 1.4.2); banners do not imply one.
+    const coverUrl = row.problem === null ? row.cover_url : null;
     return {
       installId: row.install_id, packageId: row.package_id, revision: row.revision, active: row.active, pending: row.pending,
       name: row.problem === "METADATA_UNAVAILABLE" ? null : row.display_name,
-      problem: row.problem === "METADATA_UNAVAILABLE" ? "metadata" : row.problem === "COVER_INVALID" || (banners > 0 && !coverUrl) ? "cover" : null,
+      problem: row.problem === "METADATA_UNAVAILABLE" ? "metadata" : row.problem === "COVER_INVALID" ? "cover" : null,
       coverUrl, counts: row.problem === "METADATA_UNAVAILABLE" ? null : { events, voices, banners },
       bindings: row.problem === "METADATA_UNAVAILABLE" ? [] : bindings,
       authorityClass: modern?.authority_class ?? "unknown", publisherClaim: modern?.publisher_claim ?? null,

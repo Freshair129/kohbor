@@ -97,6 +97,47 @@ test("an invalid cover is reported without exposing another pack's visual", () =
   assert.equal(cardView(verified!, "th").coverUrl, good);
 });
 
+test("a pack with banners but no presentation cover shows its initial and no cover problem", () => {
+  const visual = { ...row, banner_count: 2, bindings: [{ ...row.bindings[0], banner_count: 2 }, row.bindings[1]] };
+  const modern = { authority_class: "local_import", publisher_claim: null, installed_at: 1795176000000, size_bytes: 4096, game_id: "dota2", presentation: null };
+  for (const schema_version of ["1.0.0", "1.1.0"] as const) {
+    const record = { ...visual, problem: null, cover_url: null, ...(schema_version === "1.1.0" ? modern : {}) };
+    const [pack] = parsePackSummaries({ schema_version, records: [record] })!;
+    assert.equal(pack!.problem, null, schema_version);
+    assert.equal(pack!.coverUrl, null, schema_version);
+    const card = cardView(pack!, "th");
+    assert.equal(card.status, "active", schema_version);
+    assert.equal(card.reason, null, schema_version);
+    assert.equal(card.initial, "เ", schema_version);
+  }
+});
+
+test("a pack without banners keeps its valid presentation cover", () => {
+  const cover = "kohbor-media://localhost/v1/cover/ins_0000000001/" + "b".repeat(64);
+  const [pack] = parsePackSummaries({ schema_version: "1.0.0", records: [{ ...row, cover_url: cover }] })!;
+  assert.equal(pack!.counts?.banners, 0);
+  assert.equal(pack!.problem, null);
+  assert.equal(cardView(pack!, "th").coverUrl, cover);
+});
+
+test("the card cover is a still image, not a video", () => {
+  const cover = packLibrarySource.slice(packLibrarySource.indexOf("function PackCover"), packLibrarySource.indexOf("function categoryCoverage"));
+  assert.match(cover, /<img className=\{ready \? "is-ready" : undefined\} src=\{src\}/);
+  assert.match(cover, /onError=\{\(\) => \{ setFailed\(true\); reportFailure\(\); \}\}/);
+  assert.doesNotMatch(cover, /<video|currentTime|onSeeked|onLoadedMetadata/);
+  assert.match(packLibrarySource, /<img className="packs-preview-poster" src=\{packCoverWebviewUrl\(pack\.coverUrl, PLATFORM\)/);
+});
+
+test("the CSP img-src admits the media host for pack covers and nothing else changes scope", () => {
+  const conf = JSON.parse(readFileSync(new URL("../src-tauri/tauri.conf.json", import.meta.url), "utf8"));
+  const csp: string = conf.app.security.csp;
+  const directives = new Map(csp.split(";").map(part => part.trim().split(/\s+/)).map(([name, ...values]) => [name!, values]));
+  assert.deepEqual(directives.get("img-src"), ["'self'", "data:", "http://kohbor-media.localhost", "kohbor-media:"]);
+  assert.deepEqual(directives.get("media-src"), ["http://kohbor-media.localhost", "kohbor-media:"]);
+  assert.deepEqual(directives.get("default-src"), ["'self'"]);
+  assert.deepEqual(directives.get("connect-src"), ["ipc:", "http://ipc.localhost"]);
+});
+
 test("tabs open on installed packs and navigation wraps or jumps to the ends", () => {
   assert.equal(nextPacksTab(undefined, "Home"), "installed");
   assert.equal(nextPacksTab("installed", "ArrowRight"), "events");
