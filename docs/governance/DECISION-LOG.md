@@ -2,7 +2,7 @@
 title: "Decision Log and Open Items"
 doc_id: "DECISION-LOG"
 status: draft
-version: "0.3.10"
+version: "0.3.11"
 updated: "2026-11-23"
 authority: "DEC-BASELINE; see DOCUMENT-CONTROL"
 owner_role: "Product and engineering owners; people not assigned"
@@ -226,3 +226,23 @@ Product owner, relayed by the lead session. Owner proposal: “ไม่งั�
 - Limit: the only extra overlap of the announcement region is the strip; its bottom may sit at most 32 px (at 1080p, scaled like the banner) below the normal bottom of the banner stage, i.e. y 190 at the default layout. The overlay window grows from 256 to 295 logical units for this; everything else stays clamped as before. The critical warning is never hidden or delayed.
 - Subject to the owner's review of the mock (`F:\kohbor-coord\design\banner-critical-stack-20261123\`). The strip text is Thai only ("เลือดน้อย! ถอยก่อน", "อันตราย! ระวังตัว"), like the overlay's other labels; an English overlay is a localisation gap. ALERT-001 and MEDIA-005 updated. Evidence: synthetic and browser mock only.
 
+
+### Owner decision: replay engine integration (2026-11-23)
+
+**DEC-REPLAY-INTEGRATION** (decided by the product owner; answer "As recommended", relayed by the lead session and recorded by an agent) on the 13 recommendations in coord:reports/2026-11-23-replay-integration-design.md section 12. The design was written by an agent from the replay work under `F:\gsi-log\` (`replay-engine`, `replay-engine-rs`, `replay-viewer-proto`), read only.
+
+1. **Engine packaging.** The replay engine stays in its own repository and is consumed as a pinned Rust sidecar executable behind a versioned JSON contract in `contracts/`. The Python engine (gem-dota) stays Lab/dev only. Kohbor depends on the Rust engine only after it is committed, tagged and passes the Python golden tests.
+2. **Ten hero cards.** Post-match views may show the observed state of all ten heroes. Coaching and per-person analysis stay on the own hero. This amends DEC-COACH-REVIEW item 1 (revision 2).
+3. **Bundled game images.** Reverses the earlier rule against bundling Valve art: hero, ability and item images may be bundled as Kohbor assets, built from the owner's installed game with no download; the installed-game reader stays as fallback. A rights review is required before any public release.
+4. **Raw match ID on disk.** Allowed only inside the local replay library. The GSI/session side keeps its keyed hash. Never in logs.
+5. **First acquisition path.** Read-only watch of Dota's replay folder plus a manual file pick. Kohbor does not write Dota configuration.
+6. **OpenDota auto-download.** Later, opt-in, off by default, fetched on demand rather than after every match, and only after limits, retention and size are measured (V1–V4). Amends DEC-COACH-REVIEW items 3 and 7 for this path only once built.
+7. **Player history.** A local pseudonymous encounter table: keyed-hash player IDs with counters only, no names and no raw account IDs. Off by default until the privacy text is reviewed. DEC-DRAFT-BAR is unchanged: names stay memory-only.
+8. **Real-time OpenDota lookup of other players.** Not now; decided after item 7 has run and after legal review. STATS-002 is unchanged.
+9. **Storage.** A JSON index plus per-match folders, with no new dependency. SQLite is revisited only when item 7 or a large library needs it, with the owner's approval of the dependency.
+10. **Live page.** Reuse the card layout only: own hero full, nine compact cards, no path traces and no enemy stats that are not observed.
+11. **Phasing.** R1 (viewer in the Lab Replay tab) now; R2–R4 after the Rust engine is tagged; R5 after M3 close and the M4a demo; R3 and R6 with M5; R7 and R8 with M6.
+12. **Verification permission.** The team may send one of the owner's own match IDs to OpenDota once to measure limits, retention and replay size, and the owner plays one match so `server_log.txt` can be checked.
+13. **Reading Dota files.** Read-only observation of Dota's replay folder and `server_log.txt` is not game automation.
+
+The decision adds no requirement yet. Contracts (`replay-engine`, bundle schema), requirement amendments for Live (UI-002/UI-016 family) and retention text follow their own reviews; `contracts/decisions.json` is updated when the first contract lands.
