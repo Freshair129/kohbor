@@ -2508,6 +2508,10 @@ mod s0_6_tests {
             "sha2",
             "tiny_http",
             "socket2",
+            // In-app updater (docs/design/UPDATER.md, PR #80): optional, behind the `updater`
+            // feature; reaches only the compile-time GitHub endpoint and verifies the owner's
+            // minisign signature before installing; never runs during a match.
+            "tauri-plugin-updater",
             "winreg",
             "windows",
         ];
