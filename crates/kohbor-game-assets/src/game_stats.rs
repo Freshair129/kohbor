@@ -22,7 +22,19 @@ pub struct HeroStats {
     pub primary_attribute: Option<String>,
     pub attack_type: Option<String>,
     pub values: BTreeMap<String, Option<f64>>,
+    /// Ability names in their explicit in-game slot order. Missing ability
+    /// definitions remain represented with unknown classification fields.
+    pub abilities: Vec<HeroAbility>,
     pub sources: Vec<String>,
+}
+
+#[derive(Debug, Default)]
+pub struct HeroAbility {
+    pub slot: u8,
+    pub name: String,
+    pub is_ultimate: Option<bool>,
+    pub behavior: Vec<String>,
+    pub modifiers: Vec<String>,
 }
 
 #[derive(Debug, Default)]
@@ -96,11 +108,17 @@ pub fn extract(vpk: &Vpk) -> ExtractResult<StatsData> {
     let base_path = "scripts/npc/heroes/npc_dota_hero_base.txt";
     let base = read_script(vpk, base_path)?;
     let items = read_script(vpk, "scripts/npc/items.txt")?;
+    let ability_script = read_script(vpk, "scripts/npc/npc_abilities.txt")?;
     data.source_blobs.extend([
         source_blob("scripts/npc/npc_heroes.txt", &hero_index),
         source_blob(base_path, &base),
         source_blob("scripts/npc/items.txt", &items),
+        source_blob("scripts/npc/npc_abilities.txt", &ability_script),
     ]);
+    let ability_root = ability_script
+        .object
+        .object("DOTAAbilities")
+        .unwrap_or(&ability_script.object);
 
     let mut hero_files = vpk.list_dir("scripts/npc/heroes", "txt")?;
     hero_files.retain(|entry| {
@@ -152,6 +170,12 @@ pub fn extract(vpk: &Vpk) -> ExtractResult<StatsData> {
         hero.attack_type = scalar(hero_unit, "AttackCapabilities")
             .or_else(|| base_unit.and_then(|unit| scalar(unit, "AttackCapabilities")))
             .and_then(normalize_attack_type);
+        hero.abilities = ability_slots(
+            hero_index_unit,
+            Some(hero_unit),
+            ability_root,
+            &hero_file.object,
+        );
         hero.sources.push(path);
         hero.sources.push(base_path.to_owned());
         hero.sources.push("scripts/npc/npc_heroes.txt".to_owned());
@@ -206,6 +230,87 @@ pub fn extract(vpk: &Vpk) -> ExtractResult<StatsData> {
 
     data.source_blobs.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(data)
+}
+
+fn ability_slots(
+    primary: Option<&KvObject>,
+    fallback: Option<&KvObject>,
+    ability_root: &KvObject,
+    hero_script_root: &KvObject,
+) -> Vec<HeroAbility> {
+    let mut slots = BTreeMap::<u8, String>::new();
+    for hero in [primary, fallback].into_iter().flatten() {
+        for (key, value) in hero.entries() {
+            let Some(slot) = key
+                .strip_prefix("Ability")
+                .and_then(|slot| slot.parse::<u8>().ok())
+            else {
+                continue;
+            };
+            if slot == 0 || slot > 16 || slots.contains_key(&slot) {
+                continue;
+            }
+            let KvValue::Scalar(name) = value else {
+                continue;
+            };
+            let name = name.trim();
+            if !name.is_empty() && name != "generic_hidden" && valid_game_id(name) {
+                slots.insert(slot, name.to_owned());
+            }
+        }
+    }
+    slots
+        .into_iter()
+        .map(|(slot, name)| {
+            let definition = find_named_object(ability_root, &name)
+                .or_else(|| find_named_object(hero_script_root, &name));
+            let is_ultimate = definition
+                .and_then(|ability| scalar(ability, "AbilityType"))
+                .map(|kind| kind.trim() == "ABILITY_TYPE_ULTIMATE");
+            let behavior = definition
+                .and_then(|ability| scalar(ability, "AbilityBehavior"))
+                .map(split_flags)
+                .unwrap_or_default();
+            let modifiers = definition
+                .and_then(|ability| ability.object("Modifiers"))
+                .map(|modifiers| {
+                    modifiers
+                        .entries()
+                        .iter()
+                        .filter_map(|(name, value)| {
+                            matches!(value, KvValue::Object(_)).then_some(name.clone())
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            HeroAbility {
+                slot,
+                name,
+                is_ultimate,
+                behavior,
+                modifiers,
+            }
+        })
+        .collect()
+}
+
+fn split_flags(value: &str) -> Vec<String> {
+    value
+        .split('|')
+        .map(str::trim)
+        .filter(|flag| !flag.is_empty())
+        .map(str::to_owned)
+        .collect()
+}
+
+fn find_named_object<'a>(root: &'a KvObject, name: &str) -> Option<&'a KvObject> {
+    if let Some(object) = root.object(name) {
+        return Some(object);
+    }
+    root.entries().iter().find_map(|(_, value)| match value {
+        KvValue::Object(object) => find_named_object(object, name),
+        KvValue::Scalar(_) => None,
+    })
 }
 
 fn source_blob(path: &str, script: &Script) -> SourceBlob {
@@ -468,10 +573,38 @@ fn item_field_for_key(key: &str) -> Option<&'static str> {
 mod tests {
     use super::ItemStats;
     use super::{
-        flatten_attrib, item_field_for_key, normalize_attrib_label, normalize_item_values,
+        ability_slots, flatten_attrib, item_field_for_key, normalize_attrib_label,
+        normalize_item_values,
     };
     use crate::keyvalues;
     use std::collections::BTreeMap;
+
+    #[test]
+    fn exports_hero_abilities_in_slot_order_with_ultimate_behavior_and_modifiers() {
+        let hero = keyvalues::parse(
+            r#""npc_dota_hero_test" { "Ability3" "test_ultimate" "Ability1" "test_stun" "Ability2" "generic_hidden" }"#,
+        )
+        .expect("hero fixture parses");
+        let abilities = keyvalues::parse(
+            r#""DOTAAbilities" {
+                "test_ultimate" { "AbilityType" "ABILITY_TYPE_ULTIMATE" "AbilityBehavior" "DOTA_ABILITY_BEHAVIOR_NO_TARGET | DOTA_ABILITY_BEHAVIOR_AOE" }
+                "test_stun" { "AbilityType" "ABILITY_TYPE_BASIC" "AbilityBehavior" "DOTA_ABILITY_BEHAVIOR_UNIT_TARGET" "Modifiers" { "modifier_test_stunned" { "Duration" "2" } } }
+            }"#,
+        )
+        .expect("ability fixture parses");
+        let hero_unit = hero.object("npc_dota_hero_test").unwrap();
+        let ability_root = abilities.object("DOTAAbilities").unwrap();
+
+        let rows = ability_slots(Some(hero_unit), None, ability_root, ability_root);
+        assert_eq!(rows.len(), 2);
+        assert_eq!((rows[0].slot, rows[0].name.as_str()), (1, "test_stun"));
+        assert_eq!(rows[0].is_ultimate, Some(false));
+        assert_eq!(rows[0].behavior, ["DOTA_ABILITY_BEHAVIOR_UNIT_TARGET"]);
+        assert_eq!(rows[0].modifiers, ["modifier_test_stunned"]);
+        assert_eq!((rows[1].slot, rows[1].name.as_str()), (3, "test_ultimate"));
+        assert_eq!(rows[1].is_ultimate, Some(true));
+        assert_eq!(rows[1].behavior.len(), 2);
+    }
 
     #[test]
     fn maps_supported_ability_value_names_to_formula_inputs() {

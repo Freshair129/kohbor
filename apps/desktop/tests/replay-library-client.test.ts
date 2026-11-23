@@ -16,6 +16,7 @@ test("replay library client invokes each host command with typed arguments", asy
   const client = createReplayLibraryClient(transport);
 
   await client.list();
+  await client.pickDemFile();
   await client.open("123456");
   await client.parse("C:\\replays\\picked.dem");
   await client.remove("123456");
@@ -23,6 +24,7 @@ test("replay library client invokes each host command with typed arguments", asy
 
   assert.deepEqual(calls, [
     { command: "replay_library_list", args: undefined },
+    { command: "replay_library_pick_file", args: undefined },
     { command: "replay_library_open", args: { matchId: "123456" } },
     {
       command: "replay_library_parse",

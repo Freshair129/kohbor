@@ -22,13 +22,102 @@ pub(crate) fn replay_library_list(
 
 #[cfg(any(feature = "lab", feature = "demo"))]
 #[tauri::command]
+pub(crate) fn replay_library_pick_file() -> Result<Option<String>, String> {
+    #[cfg(windows)]
+    {
+        return replay_file_dialog::pick_dem_file();
+    }
+    #[cfg(not(windows))]
+    {
+        Ok(None)
+    }
+}
+
+#[cfg(all(windows, any(feature = "lab", feature = "demo")))]
+mod replay_file_dialog {
+    use std::ffi::c_void;
+    use windows::core::w;
+    use windows::Win32::System::Com::{
+        CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_INPROC_SERVER,
+        COINIT_APARTMENTTHREADED,
+    };
+    use windows::Win32::UI::Shell::Common::COMDLG_FILTERSPEC;
+    use windows::Win32::UI::Shell::{
+        FileOpenDialog, IFileOpenDialog, FOS_FILEMUSTEXIST, FOS_FORCEFILESYSTEM, FOS_PATHMUSTEXIST,
+        SIGDN_FILESYSPATH,
+    };
+
+    struct ComApartment;
+
+    impl Drop for ComApartment {
+        fn drop(&mut self) {
+            unsafe { CoUninitialize() };
+        }
+    }
+
+    pub(super) fn pick_dem_file() -> Result<Option<String>, String> {
+        std::thread::Builder::new()
+            .name("replay-file-dialog".to_owned())
+            .spawn(pick_dem_file_sta)
+            .map_err(|_| "file_dialog_thread_unavailable".to_owned())?
+            .join()
+            .map_err(|_| "file_dialog_thread_failed".to_owned())?
+    }
+
+    fn pick_dem_file_sta() -> Result<Option<String>, String> {
+        let initialized = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) };
+        if initialized.is_err() {
+            return Err("file_dialog_com_unavailable".to_owned());
+        }
+        let _apartment = ComApartment;
+        let dialog: IFileOpenDialog =
+            unsafe { CoCreateInstance(&FileOpenDialog, None, CLSCTX_INPROC_SERVER) }
+                .map_err(|_| "file_dialog_unavailable".to_owned())?;
+        let filters = [COMDLG_FILTERSPEC {
+            pszName: w!("Dota replay files"),
+            pszSpec: w!("*.dem"),
+        }];
+        unsafe {
+            dialog
+                .SetFileTypes(&filters)
+                .map_err(|_| "file_dialog_filter_failed".to_owned())?;
+            dialog
+                .SetFileTypeIndex(1)
+                .map_err(|_| "file_dialog_filter_failed".to_owned())?;
+            dialog
+                .SetDefaultExtension(w!("dem"))
+                .map_err(|_| "file_dialog_filter_failed".to_owned())?;
+            dialog
+                .SetOptions(FOS_FILEMUSTEXIST | FOS_FORCEFILESYSTEM | FOS_PATHMUSTEXIST)
+                .map_err(|_| "file_dialog_options_failed".to_owned())?;
+        }
+        if let Err(error) = unsafe { dialog.Show(None) } {
+            if error.code().0 as u32 == 0x8007_04c7 {
+                return Ok(None);
+            }
+            return Err("file_dialog_failed".to_owned());
+        }
+        let item = unsafe { dialog.GetResult() }
+            .map_err(|_| "file_dialog_result_unavailable".to_owned())?;
+        let display_name = unsafe { item.GetDisplayName(SIGDN_FILESYSPATH) }
+            .map_err(|_| "file_dialog_path_unavailable".to_owned())?;
+        let path = unsafe { display_name.to_string() }
+            .map_err(|_| "file_dialog_path_unavailable".to_owned())?;
+        unsafe { CoTaskMemFree(Some(display_name.0 as *const c_void)) };
+        if !path.to_ascii_lowercase().ends_with(".dem") {
+            return Err("invalid_dem_extension".to_owned());
+        }
+        Ok(Some(path))
+    }
+}
+
+#[cfg(any(feature = "lab", feature = "demo"))]
+#[tauri::command]
 pub(crate) fn replay_library_open(
     library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
     match_id: String,
 ) -> Result<crate::replay_library::ReplayBundle, String> {
-    library
-        .open_bundle(&match_id)
-        .map_err(str::to_owned)
+    library.open_bundle(&match_id).map_err(str::to_owned)
 }
 
 #[cfg(any(feature = "lab", feature = "demo"))]

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { chooseMapCalibration, isControlEffect, isUltimateAbility, replayPackForPatch } from "../src/replay/replayPack.mjs";
+import { chooseMapCalibration, installedAbilityData, isControlEffect, isUltimateAbility, replayPackForPatch } from "../src/replay/replayPack.mjs";
 import type { ReplayPatchData } from "../src/replay/replayPack.mjs";
 
 const readPack = (patch: string) => JSON.parse(readFileSync(new URL(`../src/assets/replay-packs/${patch}/replay-data.json`, import.meta.url), "utf8")) as ReplayPatchData;
@@ -66,4 +66,29 @@ test("source pack has no verified hero-to-ultimate slots, so the viewer does not
   assert.equal(pack.ultimate_classification.available, false);
   assert.equal(pack.ultimate_classification.abilities_by_hero, null);
   assert.equal(isUltimateAbility(pack, "npc_dota_hero_lion", "lion_finger_of_death"), false);
+});
+
+test("installed build 6989 ability slots generate the runtime ultimate and control lists", () => {
+  const stats = JSON.parse(readFileSync(new URL("../src/assets/dota/6989/stats.json", import.meta.url), "utf8"));
+  const sourcePack = readPack("7.42");
+  const generated = installedAbilityData(stats, sourcePack);
+  assert.equal(generated.ability_data_source?.build, 6989);
+  assert.equal(generated.ultimate_classification.available, true);
+  const lionUltimates = generated.ultimate_classification.abilities_by_hero?.lion ?? [];
+  assert.ok(lionUltimates.includes("lion_finger_of_death"));
+  assert.equal(isUltimateAbility({ ...readPack("7.42"), ...generated }, "npc_dota_hero_lion", "lion_finger_of_death"), true);
+
+  const runtime = replayPackForPatch("7.42");
+  assert.equal(runtime.state, "ready");
+  if (runtime.state !== "ready") return;
+  for (const [hero, ability] of [
+    ["axe", "axe_berserkers_call"],
+    ["lion", "lion_impale"],
+    ["shadow_shaman", "shadow_shaman_shackles"],
+  ] as const) {
+    assert.ok(runtime.pack.ability_names_by_hero[hero]?.includes(ability), `${hero}:${ability} should come from installed build 6989 slots`);
+    assert.ok(sourcePack.control_abilities_by_hero[hero]?.includes(ability), `${hero}:${ability} source semantics should match dotaconstants`);
+    assert.ok(runtime.pack.control_abilities_by_hero[hero]?.includes(ability), `${hero}:${ability} should survive installed-slot filtering`);
+  }
+  assert.equal(runtime.pack.ability_data_source?.kind, "installed_game_build");
 });

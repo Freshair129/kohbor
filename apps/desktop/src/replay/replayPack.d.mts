@@ -20,7 +20,7 @@ export interface ReplayPatchData {
   buffs: Record<string, Record<string, unknown>>;
   ability_names_by_hero: Record<string, string[]>;
   control_abilities_by_hero: Record<string, string[]>;
-  control_ability_source: Record<string, { dname: string | null; desc: string }>;
+  control_ability_source: Record<string, { dname: string | null; desc: string; modifiers?: string[]; behavior?: string[] }>;
   control_terms: string[];
   mobility_abilities_by_hero: Record<string, string[]>;
   mobility_items: string[];
@@ -31,6 +31,7 @@ export interface ReplayPatchData {
     reason: string;
     abilities_by_hero: Record<string, string[]> | null;
   };
+  ability_data_source?: { kind: "installed_game_build"; build: number | null; patch: string; control_semantics: string };
 }
 
 export type ReplayPackLookup =
@@ -38,6 +39,7 @@ export type ReplayPackLookup =
   | { state: "needs_pack"; patch: string | null };
 export type MapCalibration = { size: number; a: number; b: number; c: number; d: number };
 export function replayPackForPatch(patch: string | null | undefined): ReplayPackLookup;
+export function installedAbilityData(stats: unknown, semanticPack?: Partial<ReplayPatchData>): Pick<ReplayPatchData, "ability_names_by_hero" | "control_abilities_by_hero" | "control_ability_source" | "ultimate_classification" | "ability_data_source">;
 export function chooseMapCalibration(
   manifestCalibration: unknown,
   manifestSize: number | null | undefined,

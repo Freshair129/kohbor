@@ -19,7 +19,6 @@ export interface MatchViewerCopy {
   addDem: string;
   addDemHelp: string;
   dropHelp: string;
-  pickerPathUnavailable: string;
   invalidDem: string;
   watchFolder: string;
   watchFolderUnknown: string;
@@ -56,6 +55,7 @@ export interface MatchViewerCopy {
   calibrationError: string;
   calibrationManifest: string;
   calibrationPack: string;
+  abilityDataSource: (build: number | null) => string;
   ultimateUnavailable: string;
   ultimateLabel: string;
   bkbOnlyLabel: string;

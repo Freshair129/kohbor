@@ -23,8 +23,6 @@ import markup from "./matchViewer.html?raw";
 import style from "./matchViewer.css?raw";
 import libraryStyle from "./matchLibrary.css?raw";
 
-const REPLAY_MAX_BYTES = 400 * 1024 * 1024;
-
 const replayLibrary = createReplayLibraryClient({
   invoke: <T,>(command: string, args?: Record<string, unknown>) => invoke<T>(command, args),
   listen: async <T,>(event: string, handler: (payload: T) => void) =>
@@ -53,7 +51,6 @@ export function MatchViewPanel({ locale }: { locale: Locale }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const listRequest = useRef(0);
-  const filePicker = useRef<HTMLInputElement>(null);
   const dropTarget = useRef<HTMLElement>(null);
   const viewerTarget = useRef<HTMLDivElement>(null);
 
@@ -100,6 +97,7 @@ export function MatchViewPanel({ locale }: { locale: Locale }) {
     const length = loaded.bundle.durationS === null ? text.unknownLength : clock(loaded.bundle.durationS);
     const notes = [
       loaded.calibrationSource === "manifest" ? text.calibrationManifest : text.calibrationPack,
+      text.abilityDataSource(loaded.pack.ability_data_source?.build ?? null),
       ...(loaded.pack.ultimate_classification.available ? [] : [text.ultimateUnavailable]),
     ];
     return mountMatchView(root, loaded.bundle, {
@@ -211,18 +209,17 @@ export function MatchViewPanel({ locale }: { locale: Locale }) {
     }
   }
 
-  function onPickedFile(file: File | undefined) {
-    if (!file) return;
-    if (!file.name.toLowerCase().endsWith(".dem") || file.size > REPLAY_MAX_BYTES) {
-      setError(text.invalidDem);
-      return;
+  async function chooseDemFile() {
+    setBusy("pick");
+    setError(null);
+    try {
+      const selectedPath = await replayLibrary.pickDemFile();
+      if (selectedPath) await parsePath(selectedPath);
+    } catch {
+      setError(text.parseError);
+    } finally {
+      setBusy(null);
     }
-    const selectedPath = (file as File & { path?: string }).path;
-    if (!selectedPath) {
-      setError(text.pickerPathUnavailable);
-      return;
-    }
-    void parsePath(selectedPath);
   }
 
   async function removeEntry(matchId: string) {
@@ -289,22 +286,11 @@ export function MatchViewPanel({ locale }: { locale: Locale }) {
       <header className="replay-library__header">
         <div>
           <h2>{text.libraryTitle}</h2>
-          <p className="replay-library__watch"><strong>{text.watchFolder}:</strong> {text.watchFolderUnknown}</p>
+          <p className="replay-library__watch"><strong>{text.watchFolder}:</strong> {library?.watched_replay_folder_path ?? text.watchFolderUnknown}</p>
         </div>
         <div className="replay-library__actions">
-          <button type="button" onClick={() => filePicker.current?.click()} disabled={busy !== null}>{text.addDem}</button>
+          <button type="button" onClick={() => void chooseDemFile()} disabled={busy !== null}>{text.addDem}</button>
           <button type="button" onClick={() => void clearLibrary()} disabled={busy !== null || !library?.matches.length}>{text.clear}</button>
-          <input
-            ref={filePicker}
-            className="replay-library__hidden-picker"
-            type="file"
-            accept=".dem,application/octet-stream"
-            aria-label={text.addDem}
-            onChange={event => {
-              onPickedFile(event.currentTarget.files?.[0]);
-              event.currentTarget.value = "";
-            }}
-          />
         </div>
       </header>
       <p>{text.addDemHelp} {text.dropHelp}</p>

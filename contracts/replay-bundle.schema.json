@@ -3,7 +3,7 @@
   "$id": "https://kohbor.invalid/contracts/replay-bundle.schema.json",
   "title": "Kohbor Replay Match Bundle",
   "description": "Three-file Match Bundle emitted by replay-engine-rs 0.2.0; schema 3.0.",
-  "x-kohbor-contract-version": "1.0.0",
+  "x-kohbor-contract-version": "1.0.1",
   "type": "object",
   "required": ["manifest", "match", "world"],
   "properties": {
@@ -242,7 +242,7 @@
     },
     "worldTrack": {
       "type": "object",
-      "required": ["k", "team", "t0", "vis", "hp", "n", "t1", "p"],
+      "required": ["k", "team", "t0", "vis", "t1", "p"],
       "properties": {
         "k": { "type": "string" },
         "team": { "type": "integer" },
@@ -251,7 +251,17 @@
         "hp": { "type": "array" },
         "n": { "type": "string" },
         "t1": { "type": "number" },
-        "p": { "type": "array", "items": { "type": "number" } }
+        "p": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "prefixItems": [
+            { "type": "array", "items": { "type": "number" } },
+            { "type": "array", "items": { "type": "number" } },
+            { "type": "array", "items": { "type": "number" } }
+          ],
+          "items": false
+        }
       },
       "additionalProperties": true
     },
@@ -265,7 +275,7 @@
         "x": { "type": "number" },
         "y": { "type": "number" },
         "out": { "type": "string" },
-        "by": { "type": "string" }
+        "by": { "type": ["string", "null"] }
       },
       "additionalProperties": true
     },

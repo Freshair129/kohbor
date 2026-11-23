@@ -20,6 +20,10 @@ export interface ReplayLibraryEntry {
   bundle_bytes: number;
   storage_bytes: number;
   created_at_unix_ms: number;
+  match_date_utc: string | null;
+  own_hero: string | null;
+  duration_s: number | null;
+  patch: string | null;
 }
 
 export interface ReplayJob {
@@ -30,6 +34,7 @@ export interface ReplayJob {
 export interface ReplayLibraryList {
   matches: ReplayLibraryEntry[];
   jobs: ReplayJob[];
+  watched_replay_folder_path: string | null;
 }
 
 export interface ReplayBundle {
@@ -56,6 +61,10 @@ export function createReplayLibraryClient(transport: ReplayLibraryTransport) {
   return {
     list(): Promise<ReplayLibraryList> {
       return transport.invoke("replay_library_list");
+    },
+
+    pickDemFile(): Promise<string | null> {
+      return transport.invoke("replay_library_pick_file");
     },
 
     open(matchId: string): Promise<ReplayBundle> {

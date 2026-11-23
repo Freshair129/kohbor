@@ -10,15 +10,14 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 pub const ENGINE_VERSION: &str = "0.2.0";
-pub const ENGINE_SHA256: &str =
-    "5955ddc1b2c8bc5881876ca29e6fb73d1be7c449a6715fe76ede849f5828b46a";
+pub const ENGINE_SHA256: &str = "a05f91761a8bacd84ceec24522568e526e6a35a27525c3dfbfaf5e7f3192dcb6";
+pub const ENGINE_SOURCE_COMMIT: &str = "a609ecc9d5221dcf62acd9c0312ce7cb8d8f79f9";
 pub const BUNDLE_SCHEMA: &str = "3.0";
 pub const MAX_DEM_BYTES: u64 = 400 * 1024 * 1024;
 pub const MAX_MANIFEST_BYTES: u64 = 1 * 1024 * 1024;
 pub const MAX_MATCH_BYTES: u64 = 48 * 1024 * 1024;
 pub const MAX_WORLD_BYTES: u64 = 24 * 1024 * 1024;
-pub const MAX_BUNDLE_BYTES: u64 =
-    MAX_MANIFEST_BYTES + MAX_MATCH_BYTES + MAX_WORLD_BYTES;
+pub const MAX_BUNDLE_BYTES: u64 = MAX_MANIFEST_BYTES + MAX_MATCH_BYTES + MAX_WORLD_BYTES;
 pub const ENGINE_TIMEOUT: Duration = Duration::from_secs(120);
 const MAX_CAPTURE_BYTES: usize = 1024 * 1024;
 const PROCESS_POLL: Duration = Duration::from_millis(25);
@@ -124,13 +123,7 @@ fn resolve_engine_path(
     development_path: Option<&Path>,
     allow_development_path: bool,
 ) -> Result<EnginePin, EngineFailure> {
-    let candidate = match bundled_path.filter(|path| path.is_file()) {
-        Some(path) => path,
-        None if allow_development_path => development_path
-            .filter(|path| path.is_file())
-            .ok_or(EngineFailure::Unavailable)?,
-        None => return Err(EngineFailure::Unavailable),
-    };
+    let candidate = preferred_engine_path(bundled_path, development_path, allow_development_path)?;
 
     let canonical = candidate
         .canonicalize()
@@ -144,6 +137,22 @@ fn resolve_engine_path(
         version: ENGINE_VERSION,
         sha256: digest,
     })
+}
+
+fn preferred_engine_path<'a>(
+    bundled_path: Option<&'a Path>,
+    development_path: Option<&'a Path>,
+    allow_development_path: bool,
+) -> Result<&'a Path, EngineFailure> {
+    bundled_path
+        .filter(|path| path.is_file())
+        .or_else(|| {
+            allow_development_path
+                .then_some(development_path)
+                .flatten()
+                .filter(|path| path.is_file())
+        })
+        .ok_or(EngineFailure::Unavailable)
 }
 
 pub fn validate_input_path(path: &Path) -> Result<u64, EngineFailure> {
@@ -185,11 +194,7 @@ pub fn run_pinned_engine(
     match_active: &dyn Fn() -> bool,
 ) -> Result<EngineRun, EngineFailure> {
     let _dem_size = validate_input_path(dem_path)?;
-    let pin = resolve_engine_path(
-        bundled_path,
-        development_path,
-        allow_development_path,
-    )?;
+    let pin = resolve_engine_path(bundled_path, development_path, allow_development_path)?;
     ensure_idle(match_active)?;
 
     let mut command = Command::new(&pin.path);
@@ -450,6 +455,17 @@ fn number_array(value: &Value, name: &str) -> bool {
         .is_some_and(|values| values.iter().all(Value::is_number))
 }
 
+fn three_number_arrays(value: &Value) -> bool {
+    value.as_array().is_some_and(|arrays| {
+        arrays.len() == 3
+            && arrays.iter().all(|array| {
+                array
+                    .as_array()
+                    .is_some_and(|values| values.iter().all(Value::is_number))
+            })
+    })
+}
+
 fn string_array(value: &Value, name: &str) -> bool {
     value
         .get(name)
@@ -514,7 +530,10 @@ fn validate_manifest(value: &Value) -> Result<String, EngineFailure> {
         return Err(EngineFailure::InvalidBundle);
     }
 
-    let files = value.get("files").and_then(Value::as_object).ok_or(EngineFailure::InvalidBundle)?;
+    let files = value
+        .get("files")
+        .and_then(Value::as_object)
+        .ok_or(EngineFailure::InvalidBundle)?;
     if files.len() != 2 || !files.contains_key("match.json") || !files.contains_key("world.json") {
         return Err(EngineFailure::InvalidBundle);
     }
@@ -584,8 +603,8 @@ fn validate_match(value: &Value) -> Result<(String, String), EngineFailure> {
             || !integer_field(hero, "pid")
             || string_field(hero, "color").is_none()
             || ![
-                "pos", "hp", "mhp", "mp", "mmp", "lvl", "alive", "eco", "abil", "inv",
-                "mods", "casts", "buys", "finds", "din", "hin",
+                "pos", "hp", "mhp", "mp", "mmp", "lvl", "alive", "eco", "abil", "inv", "mods",
+                "casts", "buys", "finds", "din", "hin",
             ]
             .iter()
             .all(|name| has_array(hero, name))
@@ -663,10 +682,10 @@ fn validate_world(value: &Value) -> Result<(), EngineFailure> {
             || !integer_field(track, "team")
             || !number_field(track, "t0")
             || !has_array(track, "vis")
-            || !has_array(track, "hp")
-            || string_field(track, "n").is_none()
             || !number_field(track, "t1")
-            || !number_array(track, "p")
+            || !track.get("p").is_some_and(three_number_arrays)
+            || track.get("hp").is_some_and(|hp| !hp.is_array())
+            || track.get("n").is_some_and(|name| !name.is_string())
     }) {
         return Err(EngineFailure::InvalidBundle);
     }
@@ -679,7 +698,9 @@ fn validate_world(value: &Value) -> Result<(), EngineFailure> {
             || !number_field(rune, "x")
             || !number_field(rune, "y")
             || string_field(rune, "out").is_none()
-            || string_field(rune, "by").is_none()
+            || !rune
+                .get("by")
+                .is_some_and(|hero| hero.is_null() || hero.is_string())
     }) {
         return Err(EngineFailure::InvalidBundle);
     }
@@ -691,10 +712,7 @@ pub fn validate_bundle_dir(
     expected_dem_sha256: &str,
 ) -> Result<ValidatedBundle, EngineFailure> {
     ensure_output_sizes(directory)?;
-    let manifest_bytes = read_limited(
-        &directory.join("manifest.json"),
-        MAX_MANIFEST_BYTES,
-    )?;
+    let manifest_bytes = read_limited(&directory.join("manifest.json"), MAX_MANIFEST_BYTES)?;
     let match_bytes = read_limited(&directory.join("match.json"), MAX_MATCH_BYTES)?;
     let world_bytes = read_limited(&directory.join("world.json"), MAX_WORLD_BYTES)?;
 
@@ -743,9 +761,7 @@ pub fn validate_bundle_dir(
         ("match.json", match_bytes.as_slice()),
         ("world.json", world_bytes.as_slice()),
     ] {
-        let record = file_records
-            .get(name)
-            .ok_or(EngineFailure::InvalidBundle)?;
+        let record = file_records.get(name).ok_or(EngineFailure::InvalidBundle)?;
         if uint_field(record, "bytes") != Some(bytes.len() as u64)
             || string_field(record, "sha256") != Some(sha256_bytes(bytes).as_str())
         {
@@ -753,10 +769,9 @@ pub fn validate_bundle_dir(
         }
     }
 
-    let engine_version =
-        string_field(&manifest, "engine_version")
-            .ok_or(EngineFailure::InvalidBundle)?
-            .to_owned();
+    let engine_version = string_field(&manifest, "engine_version")
+        .ok_or(EngineFailure::InvalidBundle)?
+        .to_owned();
     let bundle_bytes = (manifest_bytes.len() + match_bytes.len() + world_bytes.len()) as u64;
     Ok(ValidatedBundle {
         match_id,
@@ -803,14 +818,36 @@ mod tests {
     }
 
     #[test]
-    fn bundled_engine_takes_precedence_and_bad_pin_does_not_fall_back() {
+    fn bundled_engine_path_takes_precedence_over_development_path() {
         let directory = temp_dir("precedence");
         let bundled = directory.join("bundled.exe");
         let development = directory.join("dev.exe");
         fs::write(&bundled, b"bad").unwrap();
         fs::write(&development, b"also bad").unwrap();
+        assert_eq!(
+            preferred_engine_path(Some(&bundled), Some(&development), true),
+            Ok(bundled.as_path())
+        );
         let result = resolve_engine_path(Some(&bundled), Some(&development), true);
+        // A present but unpinned bundled executable fails closed; it never
+        // falls through to a development override.
         assert_eq!(result, Err(EngineFailure::HashMismatch));
+        let _ = fs::remove_dir_all(directory);
+    }
+
+    #[test]
+    fn development_path_is_used_only_when_allowed_and_no_bundle_exists() {
+        let directory = temp_dir("dev-path");
+        let development = directory.join("dev.exe");
+        fs::write(&development, b"dev").unwrap();
+        assert_eq!(
+            preferred_engine_path(None, Some(&development), true),
+            Ok(development.as_path())
+        );
+        assert_eq!(
+            preferred_engine_path(None, Some(&development), false),
+            Err(EngineFailure::Unavailable)
+        );
         let _ = fs::remove_dir_all(directory);
     }
 
@@ -821,11 +858,7 @@ mod tests {
             .arg("timeout_helper_child_process")
             .arg("--nocapture")
             .env("KOHBOR_REPLAY_TEST_TIMEOUT_CHILD", "1");
-        let result = run_child_test_adapter(
-            command,
-            Duration::from_millis(150),
-            || false,
-        );
+        let result = run_child_test_adapter(command, Duration::from_millis(150), || false);
         assert_eq!(result, Err(EngineFailure::Timeout));
     }
 
@@ -924,8 +957,14 @@ mod tests {
             "heroes": {
                 "npc_dota_hero_axe": { "t": [], "x": [], "y": [], "brk": [], "dead": [], "vis": [] }
             },
-            "tracks": [{ "k": "ward", "team": 2, "t0": 10, "vis": [], "hp": [], "n": "ward", "t1": 20, "p": [] }],
-            "runes": [{ "t0": 10, "t1": 11, "type": "bounty", "x": 1, "y": 2, "out": "collected", "by": "Axe" }]
+            "tracks": [
+                { "k": "ward", "team": 2, "t0": 10, "vis": [], "t1": 20, "p": [[], [], []] },
+                { "k": "rosh", "team": 3, "t0": 11, "vis": [], "hp": [[11, 100]], "n": "roshan", "t1": 21, "p": [[], [], []] }
+            ],
+            "runes": [
+                { "t0": 10, "t1": 11, "type": "bounty", "x": 1, "y": 2, "out": "collected", "by": "Axe" },
+                { "t0": 20, "t1": 21, "type": "wisdom", "x": 3, "y": 4, "out": "expired", "by": null }
+            ]
         });
         let match_bytes = serde_json::to_vec(&match_doc).unwrap();
         let world_bytes = serde_json::to_vec(&world_doc).unwrap();
@@ -950,7 +989,11 @@ mod tests {
             },
             "run": { "parser_passes": 1, "timing_s": {} }
         });
-        fs::write(directory.join("manifest.json"), serde_json::to_vec(&manifest).unwrap()).unwrap();
+        fs::write(
+            directory.join("manifest.json"),
+            serde_json::to_vec(&manifest).unwrap(),
+        )
+        .unwrap();
         fs::write(directory.join("match.json"), match_bytes).unwrap();
         fs::write(directory.join("world.json"), world_bytes).unwrap();
 
@@ -961,9 +1004,37 @@ mod tests {
     }
 
     #[test]
+    fn world_tracks_allow_absent_optional_health_and_name_but_reject_wrong_types() {
+        let mut world = json!({
+            "v": 1, "qh": 8, "qu": 30, "t0": 0,
+            "heroes": {},
+            "tracks": [{ "k": "lane", "team": 2, "t0": 1, "vis": [], "t1": 2, "p": [[], [], []] }],
+            "runes": []
+        });
+        assert!(validate_world(&world).is_ok());
+
+        world["tracks"][0]["hp"] = json!("unknown");
+        assert_eq!(validate_world(&world), Err(EngineFailure::InvalidBundle));
+        world["tracks"][0].as_object_mut().unwrap().remove("hp");
+        world["tracks"][0]["n"] = json!(false);
+        assert_eq!(validate_world(&world), Err(EngineFailure::InvalidBundle));
+    }
+
+    #[test]
     fn non_pinned_hash_is_not_in_the_allowlist() {
+        assert_eq!(
+            ENGINE_SHA256,
+            "a05f91761a8bacd84ceec24522568e526e6a35a27525c3dfbfaf5e7f3192dcb6"
+        );
+        assert_eq!(
+            ENGINE_SOURCE_COMMIT,
+            "a609ecc9d5221dcf62acd9c0312ce7cb8d8f79f9"
+        );
         assert!(!pinned_hash(&sha256_bytes(b"wrong engine")));
         assert!(pinned_hash(ENGINE_SHA256));
+        assert!(!pinned_hash(
+            "5955ddc1b2c8bc5881876ca29e6fb73d1be7c449a6715fe76ede849f5828b46a"
+        ));
     }
 
     #[test]
@@ -974,7 +1045,7 @@ mod tests {
     }
 
     #[test]
-    fn opt_in_dev_engine_parses_one_saved_demo() {
+    fn opt_in_bundled_engine_parses_one_saved_demo() {
         if std::env::var_os("KOHBOR_REPLAY_ENGINE").is_none() {
             return;
         }
@@ -994,21 +1065,16 @@ mod tests {
             .expect("one saved demo is required for opt-in integration");
         let directory = temp_dir("dev-integration");
         let started = Instant::now();
-        let run = run_pinned_engine(
-            None,
-            Some(&engine_path),
-            true,
-            &demo,
-            &directory,
-            &|| false,
-        )
-        .expect("the pinned dev replay engine should parse the selected demo");
+        let run = run_pinned_engine(Some(&engine_path), None, false, &demo, &directory, &|| {
+            false
+        })
+        .expect("the pinned bundled replay engine should parse the selected demo");
         let dem_sha = sha256_file(&demo).expect("the saved demo should be readable");
         let bundle = validate_bundle_dir(&directory, &dem_sha)
-            .expect("the dev engine output should satisfy Match Bundle 3.0");
+            .expect("the bundled engine output should satisfy Match Bundle 3.0");
         assert_eq!(bundle.engine_version, run.engine_version);
         eprintln!(
-            "replay_integration elapsed_ms={} result=ready",
+            "replay_integration engine=bundled elapsed_ms={} result=ready",
             started.elapsed().as_millis()
         );
         let _ = fs::remove_dir_all(directory);

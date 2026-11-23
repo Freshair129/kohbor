@@ -1,9 +1,10 @@
 import type { ReplayLibraryEntry, ReplayStatus } from "./replayLibraryClient";
 import type { MatchBundle } from "./matchBundle";
-import type { ReplayPatchData } from "./replayPack.mjs";
+import { replayPackForPatch, type ReplayPatchData } from "./replayPack.mjs";
 
 export interface ReplayMetadata {
   matchDate: number | null;
+  ownHero: string | null;
   heroNames: string[];
   durationS: number | null;
 }
@@ -61,14 +62,25 @@ export function replayListViewModel(
   const formatter = new Intl.DateTimeFormat(dateLocale(locale), { year: "numeric", month: "short", day: "numeric" });
   return entries.map(entry => {
     const detail = metadata[entry.match_id];
-    const status = statusOverrides[entry.match_id] ?? entry.status;
+    let status = statusOverrides[entry.match_id] ?? entry.status;
+    const packLookup = replayPackForPatch(entry.patch);
+    if (status.state === "ready" && packLookup.state === "needs_pack") status = { state: "needs_pack" };
     const added = new Date(entry.created_at_unix_ms);
     const addedLabel = Number.isFinite(added.getTime()) ? formatter.format(added) : copy.unknown;
-    const matchDate = detail?.matchDate === null || detail?.matchDate === undefined
-      ? copy.unknown : formatter.format(new Date(detail.matchDate));
-    const duration = detail?.durationS === null || detail?.durationS === undefined
-      ? copy.unknown : copy.duration(formatDuration(detail.durationS));
-    const heroNames = detail?.heroNames ?? [];
+    const entryDate = entry.match_date_utc ? Date.parse(entry.match_date_utc) : NaN;
+    const matchDateMs = Number.isFinite(entryDate) ? entryDate : detail?.matchDate;
+    const matchDate = matchDateMs === null || matchDateMs === undefined || !Number.isFinite(matchDateMs)
+      ? copy.unknown : formatter.format(new Date(matchDateMs));
+    const durationS = entry.duration_s ?? detail?.durationS;
+    const duration = durationS === null || durationS === undefined
+      ? copy.unknown : copy.duration(formatDuration(durationS));
+    const ownHero = entry.own_hero ?? detail?.ownHero ?? null;
+    const ownHeroSlug = ownHero?.replace(/^npc_dota_hero_/, "") ?? null;
+    const ownHeroName = ownHeroSlug
+      ? (packLookup.state === "ready" ? packLookup.pack.hero_names[ownHeroSlug] : undefined)
+        ?? ownHeroSlug.replaceAll("_", " ")
+      : null;
+    const heroNames = ownHeroName ? [ownHeroName] : [];
     return {
       matchId: entry.match_id,
       status,
@@ -88,6 +100,12 @@ export function replayMetadataFromBundle(bundle: MatchBundle, pack: ReplayPatchD
   const meta = bundle.match.meta;
   const endTime = isRecord(meta) && typeof meta.end_time_utc === "string" ? Date.parse(meta.end_time_utc) : NaN;
   const heroes = Array.isArray(bundle.match.heroes) ? bundle.match.heroes : [];
+  const markedOwn = heroes.find(value => isRecord(value) && (value.own === true || value.is_own === true));
+  const ownHeroValue = isRecord(meta) && typeof meta.own_hero === "string"
+    ? meta.own_hero
+    : isRecord(markedOwn) && typeof markedOwn.id === "string" ? markedOwn.id : null;
+  const ownHero = typeof ownHeroValue === "string" && ownHeroValue.startsWith("npc_dota_hero_")
+    ? ownHeroValue : null;
   const heroNames = [...new Set(heroes.flatMap(value => {
     if (!isRecord(value) || typeof value.id !== "string") return [];
     const slug = value.id.replace(/^npc_dota_hero_/, "");
@@ -95,6 +113,7 @@ export function replayMetadataFromBundle(bundle: MatchBundle, pack: ReplayPatchD
   }))];
   return {
     matchDate: Number.isFinite(endTime) ? endTime : null,
+    ownHero,
     heroNames,
     durationS: bundle.durationS,
   };

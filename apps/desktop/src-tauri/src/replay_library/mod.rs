@@ -69,6 +69,14 @@ pub struct ReplayLibraryEntry {
     pub bundle_bytes: u64,
     pub storage_bytes: u64,
     pub created_at_unix_ms: u64,
+    #[serde(default)]
+    pub match_date_utc: Option<String>,
+    #[serde(default)]
+    pub own_hero: Option<String>,
+    #[serde(default)]
+    pub duration_s: Option<u64>,
+    #[serde(default)]
+    pub patch: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -81,6 +89,7 @@ pub struct ReplayJob {
 pub struct ReplayLibraryList {
     pub matches: Vec<ReplayLibraryEntry>,
     pub jobs: Vec<ReplayJob>,
+    pub watched_replay_folder_path: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -115,6 +124,10 @@ struct ReplayMeta<'a> {
     engine_sha256: &'a Option<String>,
     parse_time_unix_ms: Option<u64>,
     status: &'a ReplayStatus,
+    match_date_utc: &'a Option<String>,
+    own_hero: &'a Option<String>,
+    duration_s: Option<u64>,
+    patch: &'a Option<String>,
 }
 
 impl ReplayLibraryEntry {
@@ -128,6 +141,10 @@ impl ReplayLibraryEntry {
             engine_sha256: &self.engine_sha256,
             parse_time_unix_ms: self.parse_time_unix_ms,
             status: &self.status,
+            match_date_utc: &self.match_date_utc,
+            own_hero: &self.own_hero,
+            duration_s: self.duration_s,
+            patch: &self.patch,
         }
     }
 }
@@ -291,12 +308,26 @@ impl ReplayLibrary {
             return Err(reason);
         }
         let mut matches = state.index.entries.clone();
+        for entry in &mut matches {
+            enrich_list_entry(&self.inner.root, entry);
+        }
         matches.sort_by(|left, right| right.created_at_unix_ms.cmp(&left.created_at_unix_ms));
         let jobs = lock(&self.inner.jobs)
             .iter()
             .map(|record| record.public.clone())
             .collect();
-        Ok(ReplayLibraryList { matches, jobs })
+        let watched_replay_folder_path = crate::intake::locate_game().ok().map(|game| {
+            game.join("game")
+                .join("dota")
+                .join("replays")
+                .to_string_lossy()
+                .into_owned()
+        });
+        Ok(ReplayLibraryList {
+            matches,
+            jobs,
+            watched_replay_folder_path,
+        })
     }
 
     pub fn open_bundle(&self, match_id: &str) -> Result<ReplayBundle, &'static str> {
@@ -321,7 +352,8 @@ impl ReplayLibrary {
         engine::validate_bundle_dir(&self.inner.root.join(match_id), expected_hash)
             .map_err(|_| "bundle_invalid")?;
         let folder = self.inner.root.join(match_id);
-        let manifest = read_json_limited(&folder.join("manifest.json"), engine::MAX_MANIFEST_BYTES)?;
+        let manifest =
+            read_json_limited(&folder.join("manifest.json"), engine::MAX_MANIFEST_BYTES)?;
         let match_data = read_json_limited(&folder.join("match.json"), engine::MAX_MATCH_BYTES)?;
         let world = read_json_limited(&folder.join("world.json"), engine::MAX_WORLD_BYTES)?;
         Ok(ReplayBundle {
@@ -465,7 +497,8 @@ impl ReplayLibrary {
                 fs::rename(&path, &tombstone).map_err(|_| "storage_unavailable")?;
             }
             let mut next = state.index.clone();
-            next.entries.retain(|candidate| candidate.match_id != match_id);
+            next.entries
+                .retain(|candidate| candidate.match_id != match_id);
             if write_index(&self.inner.root, &next).is_err() {
                 if tombstone.exists() {
                     let _ = fs::rename(&tombstone, &path);
@@ -614,6 +647,10 @@ impl ReplayLibrary {
             bundle_bytes: 0,
             storage_bytes: 0,
             created_at_unix_ms: now_unix_ms(),
+            match_date_utc: None,
+            own_hero: None,
+            duration_s: None,
+            patch: None,
         };
         let target = self.inner.root.join(&match_id);
         if target.exists() {
@@ -724,10 +761,7 @@ impl ReplayLibrary {
         self.emit_state_changed();
     }
 
-    fn parse_and_store(
-        &self,
-        request: &ParseRequest,
-    ) -> Result<String, engine::EngineFailure> {
+    fn parse_and_store(&self, request: &ParseRequest) -> Result<String, engine::EngineFailure> {
         engine::validate_input_path(&request.source_path)?;
         let dem_sha256 = engine::sha256_file(&request.source_path)
             .map_err(|_| engine::EngineFailure::InvalidInput)?;
@@ -774,6 +808,9 @@ impl ReplayLibrary {
             let _ = fs::remove_dir_all(stage);
             return Err(engine::EngineFailure::InvalidBundle);
         }
+        let match_data = read_json_limited(&stage.join("match.json"), engine::MAX_MATCH_BYTES)
+            .map_err(|_| engine::EngineFailure::InvalidBundle)?;
+        let (match_date_utc, own_hero, duration_s, patch) = library_match_metadata(&match_data);
 
         let existing = lock(&self.inner.state)
             .index
@@ -797,10 +834,15 @@ impl ReplayLibrary {
             bundle_bytes: validated.bundle_bytes,
             storage_bytes: 0,
             created_at_unix_ms: created_at,
+            match_date_utc,
+            own_hero,
+            duration_s,
+            patch,
         };
         entry.storage_bytes = entry.bundle_bytes
-            + entry_meta_bytes(&entry).map_err(|_| engine::EngineFailure::StorageConflict)?.len()
-                as u64;
+            + entry_meta_bytes(&entry)
+                .map_err(|_| engine::EngineFailure::StorageConflict)?
+                .len() as u64;
         if write_meta(&stage, &entry).is_err() {
             let _ = fs::remove_dir_all(stage);
             return Err(engine::EngineFailure::StorageConflict);
@@ -856,9 +898,7 @@ impl ReplayLibrary {
             }
         }
         for old_id in evicted {
-            if let Some(tombstone) =
-                move_to_tombstone(&self.inner.root, &old_id)
-            {
+            if let Some(tombstone) = move_to_tombstone(&self.inner.root, &old_id) {
                 tombstones.push(tombstone);
             }
         }
@@ -926,11 +966,7 @@ impl ReplayLibrary {
         Ok(path)
     }
 
-    fn set_entry_status(
-        &self,
-        match_id: &str,
-        status: ReplayStatus,
-    ) -> Result<(), &'static str> {
+    fn set_entry_status(&self, match_id: &str, status: ReplayStatus) -> Result<(), &'static str> {
         let _operation = lock(&self.inner.operation);
         self.set_entry_status_locked(match_id, status)
     }
@@ -951,8 +987,7 @@ impl ReplayLibrary {
             .find(|entry| entry.match_id == match_id)
             .ok_or("match_not_found")?;
         entry.status = status;
-        entry.storage_bytes =
-            entry.bundle_bytes + entry_meta_bytes(entry)?.len() as u64;
+        entry.storage_bytes = entry.bundle_bytes + entry_meta_bytes(entry)?.len() as u64;
         write_meta(&self.inner.root.join(match_id), entry)?;
         write_index(&self.inner.root, &next)?;
         state.index = next;
@@ -994,13 +1029,10 @@ impl ReplayLibrary {
                 .index
                 .entries
                 .iter()
-                .any(|entry| {
-                    entry.match_id == *match_id && entry.status == ReplayStatus::Queued
-                });
+                .any(|entry| entry.match_id == *match_id && entry.status == ReplayStatus::Queued);
         }
         lock(&self.inner.jobs).iter().any(|record| {
-            record.public.job_id == request.job_id
-                && record.public.status == ReplayStatus::Queued
+            record.public.job_id == request.job_id && record.public.status == ReplayStatus::Queued
         })
     }
 
@@ -1057,18 +1089,14 @@ fn load_index(root: &Path) -> (ReplayIndex, Option<&'static str>) {
     (index, None)
 }
 
-fn recover_interrupted_entries(
-    root: &Path,
-    index: &mut ReplayIndex,
-) -> Result<(), &'static str> {
+fn recover_interrupted_entries(root: &Path, index: &mut ReplayIndex) -> Result<(), &'static str> {
     let mut changed = false;
     for entry in &mut index.entries {
         if matches!(entry.status, ReplayStatus::Queued | ReplayStatus::Parsing) {
             entry.status = ReplayStatus::Failed {
                 reason: "interrupted".to_owned(),
             };
-            entry.storage_bytes =
-                entry.bundle_bytes + entry_meta_bytes(entry)?.len() as u64;
+            entry.storage_bytes = entry.bundle_bytes + entry_meta_bytes(entry)?.len() as u64;
             write_meta(&root.join(&entry.match_id), entry)?;
             changed = true;
         }
@@ -1100,6 +1128,96 @@ fn read_json_limited(path: &Path, limit: u64) -> Result<Value, &'static str> {
     serde_json::from_slice(&bytes).map_err(|_| "bundle_invalid")
 }
 
+fn library_match_metadata(
+    match_data: &Value,
+) -> (Option<String>, Option<String>, Option<u64>, Option<String>) {
+    let meta = match_data.get("meta");
+    let match_date_utc = meta
+        .and_then(|meta| meta.get("end_time_utc"))
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty() && value.len() <= 64)
+        .map(str::to_owned);
+    let own_hero = meta
+        .and_then(|meta| meta.get("own_hero"))
+        .and_then(Value::as_str)
+        .or_else(|| {
+            match_data
+                .get("heroes")
+                .and_then(Value::as_array)
+                .and_then(|heroes| {
+                    heroes.iter().find_map(|hero| {
+                        (hero.get("own").and_then(Value::as_bool) == Some(true)
+                            || hero.get("is_own").and_then(Value::as_bool) == Some(true))
+                        .then(|| hero.get("id").and_then(Value::as_str))
+                        .flatten()
+                    })
+                })
+        })
+        .filter(|value| {
+            value.starts_with("npc_dota_hero_")
+                && value.len() <= 96
+                && value
+                    .bytes()
+                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+        })
+        .map(str::to_owned);
+    let duration_s = meta
+        .and_then(|meta| meta.get("duration_s"))
+        .and_then(Value::as_u64);
+    let patch = meta
+        .and_then(|meta| meta.get("patch"))
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty() && value.len() <= 32)
+        .map(str::to_owned);
+    (match_date_utc, own_hero, duration_s, patch)
+}
+
+fn enrich_list_entry(root: &Path, entry: &mut ReplayLibraryEntry) {
+    if !matches!(entry.status, ReplayStatus::Ready)
+        || (entry.match_date_utc.is_some()
+            && entry.own_hero.is_some()
+            && entry.duration_s.is_some()
+            && entry.patch.is_some())
+    {
+        return;
+    }
+    let directory = root.join(&entry.match_id);
+    if let Ok(meta) = read_json_limited(&directory.join("meta.json"), MAX_INDEX_BYTES) {
+        if entry.match_date_utc.is_none() {
+            entry.match_date_utc = meta
+                .get("match_date_utc")
+                .and_then(Value::as_str)
+                .map(str::to_owned);
+        }
+        if entry.own_hero.is_none() {
+            entry.own_hero = meta
+                .get("own_hero")
+                .and_then(Value::as_str)
+                .map(str::to_owned);
+        }
+        if entry.duration_s.is_none() {
+            entry.duration_s = meta.get("duration_s").and_then(Value::as_u64);
+        }
+        if entry.patch.is_none() {
+            entry.patch = meta.get("patch").and_then(Value::as_str).map(str::to_owned);
+        }
+    }
+    if entry.match_date_utc.is_some()
+        && entry.own_hero.is_some()
+        && entry.duration_s.is_some()
+        && entry.patch.is_some()
+    {
+        return;
+    }
+    if let Ok(bundle) = read_json_limited(&directory.join("match.json"), engine::MAX_MATCH_BYTES) {
+        let (date, hero, duration, patch) = library_match_metadata(&bundle);
+        entry.match_date_utc = entry.match_date_utc.take().or(date);
+        entry.own_hero = entry.own_hero.take().or(hero);
+        entry.duration_s = entry.duration_s.or(duration);
+        entry.patch = entry.patch.take().or(patch);
+    }
+}
+
 fn entry_meta_bytes(entry: &ReplayLibraryEntry) -> Result<Vec<u8>, &'static str> {
     serde_json::to_vec_pretty(&entry.meta()).map_err(|_| "storage_unavailable")
 }
@@ -1107,8 +1225,7 @@ fn entry_meta_bytes(entry: &ReplayLibraryEntry) -> Result<Vec<u8>, &'static str>
 fn write_meta(directory: &Path, entry: &ReplayLibraryEntry) -> Result<(), &'static str> {
     fs::create_dir_all(directory).map_err(|_| "storage_unavailable")?;
     let bytes = entry_meta_bytes(entry)?;
-    crate::atomic::write(&directory.join("meta.json"), &bytes)
-        .map_err(|_| "storage_unavailable")
+    crate::atomic::write(&directory.join("meta.json"), &bytes).map_err(|_| "storage_unavailable")
 }
 
 fn index_usage(index: &ReplayIndex) -> u64 {
@@ -1139,8 +1256,7 @@ fn canonical_match_id(value: &str) -> Option<String> {
 }
 
 fn is_match_id(value: &str) -> bool {
-    canonical_match_id(value)
-        .is_some_and(|canonical| canonical == value)
+    canonical_match_id(value).is_some_and(|canonical| canonical == value)
 }
 
 fn next_job_id() -> String {
@@ -1186,8 +1302,7 @@ fn restore_tombstones(tombstones: &[(PathBuf, PathBuf)]) {
 
 fn cancel_jobs_for_match(jobs: &Mutex<VecDeque<JobRecord>>, match_id: &str) {
     for job in lock(jobs).iter_mut().filter(|job| {
-        job.match_id.as_deref() == Some(match_id)
-            && job.public.status == ReplayStatus::Queued
+        job.match_id.as_deref() == Some(match_id) && job.public.status == ReplayStatus::Queued
     }) {
         job.public.status = ReplayStatus::Failed {
             reason: "cancelled".to_owned(),
@@ -1216,6 +1331,32 @@ mod tests {
         ));
         fs::create_dir_all(&path).unwrap();
         path
+    }
+
+    #[test]
+    fn library_list_metadata_uses_only_explicit_local_bundle_fields() {
+        let bundle = serde_json::json!({
+            "meta": {"end_time_utc": "2026-11-23T21:40:00Z", "duration_s": 1800},
+            "heroes": [{"id": "npc_dota_hero_axe", "pid": 0}]
+        });
+        assert_eq!(
+            library_match_metadata(&bundle),
+            (
+                Some("2026-11-23T21:40:00Z".to_owned()),
+                None,
+                Some(1800),
+                None
+            )
+        );
+
+        let explicit_own = serde_json::json!({
+            "meta": {"own_hero": "npc_dota_hero_lion"},
+            "heroes": [{"id": "npc_dota_hero_axe", "is_own": true}]
+        });
+        assert_eq!(
+            library_match_metadata(&explicit_own),
+            (None, Some("npc_dota_hero_lion".to_owned()), None, None)
+        );
     }
 
     #[test]
@@ -1267,8 +1408,7 @@ mod tests {
             }
         );
         let meta: serde_json::Value =
-            serde_json::from_slice(&fs::read(root.join("204").join("meta.json")).unwrap())
-                .unwrap();
+            serde_json::from_slice(&fs::read(root.join("204").join("meta.json")).unwrap()).unwrap();
         assert_eq!(meta["status"]["state"], "failed");
         assert_eq!(meta["status"]["reason"], "interrupted");
         let _ = fs::remove_dir_all(root);

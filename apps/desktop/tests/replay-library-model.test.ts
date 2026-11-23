@@ -23,6 +23,7 @@ function entry(match_id: string, status: ReplayStatus): ReplayLibraryEntry {
     match_id, source: "dota_replays_folder", source_path: "private-source-path", dem_sha256: null,
     engine_version: null, engine_sha256: null, parse_time_unix_ms: null, status,
     bundle_bytes: 0, storage_bytes: 0, created_at_unix_ms: Date.UTC(2026, 0, 3),
+    match_date_utc: null, own_hero: null, duration_s: null, patch: "7.42",
   };
 }
 
@@ -70,6 +71,22 @@ test("bundle metadata can be displayed without pretending an unsupported patch h
   } as unknown as MatchBundle;
   const detail = replayMetadataFromBundle(bundle, null);
   assert.equal(detail.matchDate, Date.parse("2026-01-02T03:04:05Z"));
+  assert.equal(detail.ownHero, null);
   assert.deepEqual(detail.heroNames, ["lion"]);
   assert.equal(detail.durationS, 2460);
+});
+
+test("list view reads host metadata and marks a ready replay needs_pack for an unknown patch", () => {
+  const row = replayListViewModel([{
+    ...entry("77", { state: "ready" }),
+    match_date_utc: "2026-11-23T21:40:00Z",
+    own_hero: "npc_dota_hero_lion",
+    duration_s: 1800,
+    patch: "7.43",
+  }], {}, copy, "en")[0]!;
+  assert.equal(row.matchDateLabel, "Nov 24, 2026");
+  assert.equal(row.heroesLabel, "lion");
+  assert.equal(row.durationLabel, "Duration 30:00");
+  assert.equal(row.status.state, "needs_pack");
+  assert.equal(row.canOpen, false);
 });
