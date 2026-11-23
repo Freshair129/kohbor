@@ -12172,6 +12172,11 @@
       "sha256": "82f07e6c4d6e4585af3e8c4c66aa45249ecea5451832d2284750d030e213da89"
     },
     {
+      "path": "apps/desktop/src/assets/dota/6989/stats.json",
+      "bytes": 390263,
+      "sha256": "71909be1f463baa00299326b5aee0abfd7b294813cbf3ad1de065235169dc73b"
+    },
+    {
       "path": "apps/desktop/src/assets/editor/editor-reference-1080p.jpg",
       "bytes": 333443,
       "sha256": "e989e489bd4a4519c9b2b8b346ecee290e6c1495248b4bf3729d4345f1f223ce"
@@ -13317,6 +13322,11 @@
       "sha256": "fe3464c29cc08ed65af397c83c377d8490e6b00896eeec83eee3b37ccf7f2be1"
     },
     {
+      "path": "apps/desktop/src/stats/derivedStats.ts",
+      "bytes": 21594,
+      "sha256": "32101815fb23a70b36fb7f48a86a2c19ffcdaf9aaeb77af7e6de33dee8ff0c60"
+    },
+    {
       "path": "apps/desktop/src/steam/StartDotaBar.tsx",
       "bytes": 1575,
       "sha256": "917ba3d18cdcf53f03ec8a624d5b7f7a14ffa41d4c230dd21ee26e8dc006e6f3"
@@ -13450,6 +13460,11 @@
       "path": "apps/desktop/tests/deck-state.test.ts",
       "bytes": 5727,
       "sha256": "ab3260163c46fe066008fc15e8862dd43f1b06a60b44e3dc31eca9c1869e037b"
+    },
+    {
+      "path": "apps/desktop/tests/derived-stats.test.ts",
+      "bytes": 13760,
+      "sha256": "c59b7fea4ea09e11a2d9b63ad6a4ec8d82ea7a87d13fbdd24abd4beded1bd2ce"
     },
     {
       "path": "apps/desktop/tests/dialog.test.ts",
@@ -14298,8 +14313,8 @@
     },
     {
       "path": "crates/kohbor-game-assets/src/bin/kohbor-asset-export.rs",
-      "bytes": 28097,
-      "sha256": "eede4f1740a9930a49fd0387e44490c018eff9785c6e246e68c346e4a0cdfab8"
+      "bytes": 36055,
+      "sha256": "fab9ff50992865aa017fe5e50027ab6735608f172cd00b78f17239bca358fa08"
     },
     {
       "path": "crates/kohbor-game-assets/src/bin/kohbor-asset-probe.rs",
@@ -14307,9 +14322,19 @@
       "sha256": "2a7cecef27301350d78766b287f632112b00cd0e7554c3eeaec890575238c2f6"
     },
     {
+      "path": "crates/kohbor-game-assets/src/game_stats.rs",
+      "bytes": 21533,
+      "sha256": "c40f210a7a77d79c330c6395ddacce1eb95b67d1799c46d879531b690eb589e0"
+    },
+    {
+      "path": "crates/kohbor-game-assets/src/keyvalues.rs",
+      "bytes": 8907,
+      "sha256": "09b02a5a1fd9dec8599918ef5c023f27196bf26b5808e2d395434548bc38e625"
+    },
+    {
       "path": "crates/kohbor-game-assets/src/lib.rs",
-      "bytes": 5315,
-      "sha256": "d62758644906cac8e19269bf56078f0ccccd682b3e3a482b1ba3a6e3fc15a46a"
+      "bytes": 5354,
+      "sha256": "17f90822d6948261952edc615fab5fc9161e73f547a38e6e4afb6d7a2a995d12"
     },
     {
       "path": "crates/kohbor-game-assets/src/texture.rs",
@@ -14318,8 +14343,8 @@
     },
     {
       "path": "crates/kohbor-game-assets/src/vpk.rs",
-      "bytes": 36242,
-      "sha256": "d4bf96f987d23e4cfea9a0c865dcbf2938c7f87ed6224cb23e192a043a637981"
+      "bytes": 37296,
+      "sha256": "41562a034df1965467073cbdd5c76a7e30ebae1884f64296cf04be13570eb58a"
     },
     {
       "path": "crates/kohbor-gsi-capture/Cargo.toml",
@@ -14850,6 +14875,11 @@
       "path": "docs/design/DDD.md",
       "bytes": 8155,
       "sha256": "718bdba89410fa73f3258a5c4fe46b9e8e10d889743af2459ddaad7e1eaee5ab"
+    },
+    {
+      "path": "docs/design/DERIVED-STATS.md",
+      "bytes": 9465,
+      "sha256": "83621aa5deaa1d7cbbef11ff1dd4fc621aa9855c3081a8d37269805b46c50566"
     },
     {
       "path": "docs/design/DRAFT-BAR-SPEC.md",
@@ -15428,8 +15458,8 @@
     },
     {
       "path": "docs/governance/THIRD-PARTY-DATA.md",
-      "bytes": 8071,
-      "sha256": "ca6c3d6c38e9896010d6bb439c1da4f37c99e8898056cab4d8d2fe9e3b01ed32"
+      "bytes": 9610,
+      "sha256": "cf885d0891f04f1a0e92defbbfdf51ee9f41162a4fc052b6b98fae0d68c9b1f1"
     },
     {
       "path": "docs/operations/GSI-REPLAY.md",

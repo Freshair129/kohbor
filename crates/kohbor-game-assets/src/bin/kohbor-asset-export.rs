@@ -14,12 +14,13 @@
 
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
-use kohbor_game_assets::{decode_vtex_c, icon_name, IconKind, Image, Vpk};
+use kohbor_game_assets::{decode_vtex_c, game_stats, icon_name, IconKind, Image, Vpk};
 use std::fmt::Write as _;
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::{collections::BTreeSet, error::Error};
 
 /// Minimap overview. The Match view's prototype calibration (matchTables.mjs
 /// `MAP`) was fitted on a 1024 px 7.41 minimap whose frame and art match this
@@ -41,6 +42,7 @@ struct Args {
     game: Option<PathBuf>,
     map_entry: Option<String>,
     preview: Option<(String, PathBuf)>,
+    stats_only: bool,
 }
 
 struct Written {
@@ -80,6 +82,17 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let out_root = fs::canonicalize(&out_root)?;
     refuse_inside(&out_root, &game)?;
     let out = out_root.join(&build);
+    if args.stats_only {
+        fs::create_dir_all(&out)?;
+        let out = fs::canonicalize(&out)?;
+        refuse_inside(&out, &game)?;
+        let stats_path = out.join("stats.json");
+        let json = stats_json(&vpk, &game, &build)?;
+        write_new(&stats_path, json.as_bytes())?;
+        println!("stats.json: {} bytes", json.len());
+        println!("sha256: {}", hex(&sha256(json.as_bytes())));
+        return Ok(());
+    }
     if out.exists() {
         return Err(format!("{} already exists; remove it first", out.display()).into());
     }
@@ -162,6 +175,7 @@ fn parse_args(mut args: impl Iterator<Item = String>) -> Result<Args, String> {
         game: None,
         map_entry: None,
         preview: None,
+        stats_only: false,
     };
     while let Some(arg) = args.next() {
         let mut value = |name: &str| args.next().ok_or(format!("{name} needs a value"));
@@ -169,6 +183,7 @@ fn parse_args(mut args: impl Iterator<Item = String>) -> Result<Args, String> {
             "--out" => parsed.out = Some(PathBuf::from(value("--out")?)),
             "--game" => parsed.game = Some(PathBuf::from(value("--game")?)),
             "--map-entry" => parsed.map_entry = Some(value("--map-entry")?),
+            "--stats-only" => parsed.stats_only = true,
             "--preview" => {
                 let entry = value("--preview")?;
                 let out = PathBuf::from(value("--preview")?);
@@ -301,6 +316,15 @@ fn git_head() -> String {
         .unwrap_or_else(|| "unknown".to_owned())
 }
 
+fn git_dirty() -> bool {
+    Command::new("git")
+        .args(["status", "--porcelain"])
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .is_some_and(|output| !output.stdout.is_empty())
+}
+
 /* ---------------- provenance ---------------- */
 
 fn provenance_json(
@@ -410,6 +434,189 @@ fn json_str(value: &str) -> String {
     }
     out.push('"');
     out
+}
+
+fn stats_json(vpk: &Vpk, game: &Path, build: &str) -> Result<String, Box<dyn Error>> {
+    let data = game_stats::extract(vpk)?;
+    let mut physical_vpks = BTreeSet::new();
+    physical_vpks.insert(game.join("game/dota/pak01_dir.vpk"));
+    for source in &data.source_blobs {
+        physical_vpks.insert(source.archive.clone());
+    }
+
+    let mut s = String::new();
+    let _ = writeln!(s, "{{");
+    let _ = writeln!(s, "  \"schema\": \"kohbor.dota-derived-stats/1\",");
+    let build_number = build.parse::<u32>()?;
+    let _ = writeln!(s, "  \"build\": {build_number},");
+    let _ = writeln!(s, "  \"patch\": \"unverified\",");
+    let _ = writeln!(s, "  \"provenance\": {{");
+    let _ = writeln!(
+        s,
+        "    \"install\": \"installed Dota 2; read only; no download\","
+    );
+    let _ = writeln!(
+        s,
+        "    \"patchEvidence\": \"no explicit 7.41f or 7.42 string found in inspected game files\","
+    );
+    let _ = writeln!(s, "    \"exportedOn\": {},", json_str(&utc_date()));
+    let _ = writeln!(
+        s,
+        "    \"authority\": \"DEC-REPLAY-INTEGRATION item 3; owner decision for local extraction\","
+    );
+    let _ = writeln!(
+        s,
+        "    \"rights\": \"public redistribution rights are not established; rights review required before public release\","
+    );
+    let _ = writeln!(s, "    \"vpk\": [");
+    let mut vpk_records = Vec::new();
+    for path in physical_vpks {
+        let bytes = fs::read(&path)?;
+        let relative = relative_game_path(game, &path)?;
+        vpk_records.push(format!(
+            "      {{ \"path\": {}, \"bytes\": {}, \"sha256\": \"{}\" }}",
+            json_str(&relative),
+            bytes.len(),
+            hex(&sha256(&bytes))
+        ));
+    }
+    let _ = writeln!(s, "{}", vpk_records.join(",\n"));
+    let _ = writeln!(s, "    ],");
+    let _ = writeln!(s, "    \"scripts\": [");
+    let mut script_records = Vec::new();
+    for source in &data.source_blobs {
+        let relative_vpk = relative_game_path(game, &source.archive)?;
+        script_records.push(format!(
+            "      {{ \"path\": {}, \"vpk\": {}, \"bytes\": {}, \"sha256\": \"{}\" }}",
+            json_str(&source.path),
+            json_str(&relative_vpk),
+            source.bytes.len(),
+            hex(&sha256(&source.bytes))
+        ));
+    }
+    let _ = writeln!(s, "{}", script_records.join(",\n"));
+    let _ = writeln!(s, "    ],");
+    let _ = writeln!(
+        s,
+        "    \"tool\": {{ \"name\": \"kohbor-asset-export\", \"commit\": {}, \"workingTree\": {} }}",
+        json_str(&git_head()),
+        json_str(if git_dirty() { "dirty" } else { "clean" })
+    );
+    let _ = writeln!(s, "  }},");
+    let _ = writeln!(s, "  \"heroes\": {{");
+    let hero_records: Vec<String> = data
+        .heroes
+        .iter()
+        .map(|(id, hero)| {
+            let v = &hero.values;
+            let source_list = hero
+                .sources
+                .iter()
+                .map(|source| json_str(source))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!(
+                concat!(
+                    "    {}: {{ ",
+                    "\"primaryAttribute\": {}, ",
+                    "\"attributes\": {{ ",
+                    "\"strength\": {{ \"base\": {}, \"gain\": {} }}, ",
+                    "\"agility\": {{ \"base\": {}, \"gain\": {} }}, ",
+                    "\"intelligence\": {{ \"base\": {}, \"gain\": {} }} }}, ",
+                    "\"armor\": {}, ",
+                    "\"attack\": {{ \"type\": {}, \"baseAttackSpeed\": {}, \"baseAttackTime\": {}, ",
+                    "\"damageMin\": {}, \"damageMax\": {}, \"range\": {} }}, ",
+                    "\"moveSpeed\": {}, ",
+                    "\"health\": {{ \"base\": {}, \"regen\": {} }}, ",
+                    "\"mana\": {{ \"base\": {}, \"regen\": {} }}, ",
+                    "\"magicResistance\": {}, \"sources\": [{}] }}"
+                ),
+                json_str(id),
+                hero.primary_attribute
+                    .as_deref()
+                    .map_or_else(|| "null".to_owned(), json_str),
+                number_value(v, "baseStrength"),
+                number_value(v, "strengthGain"),
+                number_value(v, "baseAgility"),
+                number_value(v, "agilityGain"),
+                number_value(v, "baseIntelligence"),
+                number_value(v, "intelligenceGain"),
+                number_value(v, "baseArmor"),
+                hero.attack_type
+                    .as_deref()
+                    .map_or_else(|| "null".to_owned(), json_str),
+                number_value(v, "baseAttackSpeed"),
+                number_value(v, "baseAttackTime"),
+                number_value(v, "baseDamageMin"),
+                number_value(v, "baseDamageMax"),
+                number_value(v, "attackRange"),
+                number_value(v, "baseMoveSpeed"),
+                number_value(v, "baseHealth"),
+                number_value(v, "baseHealthRegen"),
+                number_value(v, "baseMana"),
+                number_value(v, "baseManaRegen"),
+                number_value(v, "baseMagicResistance"),
+                source_list
+            )
+        })
+        .collect();
+    let _ = writeln!(s, "{}", hero_records.join(",\n"));
+    let _ = writeln!(s, "  }},");
+    let _ = writeln!(s, "  \"items\": {{");
+    let item_records: Vec<String> = data
+        .items
+        .iter()
+        .map(|(id, item)| {
+            let attributes = json_number_map(&item.attributes);
+            let effects = json_number_map(&item.effects);
+            let unknown = item
+                .unknown
+                .iter()
+                .map(|(key, value)| format!("{}: {}", json_str(key), json_str(value)))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!(
+                concat!(
+                    "    {}: {{ \"attributes\": {{ {} }}, \"effects\": {{ {} }}, ",
+                    "\"unknown\": {{ {} }} }}"
+                ),
+                json_str(id),
+                attributes,
+                effects,
+                unknown
+            )
+        })
+        .collect();
+    let _ = writeln!(s, "{}", item_records.join(",\n"));
+    let _ = writeln!(s, "  }}");
+    let _ = writeln!(s, "}}");
+    Ok(s)
+}
+
+fn number_value(values: &std::collections::BTreeMap<String, Option<f64>>, key: &str) -> String {
+    number_json(values.get(key).copied().flatten())
+}
+
+fn number_json(value: Option<f64>) -> String {
+    value
+        .filter(|value| value.is_finite())
+        .map_or_else(|| "null".to_owned(), |value| value.to_string())
+}
+
+fn json_number_map(values: &std::collections::BTreeMap<String, Option<f64>>) -> String {
+    values
+        .iter()
+        .map(|(key, value)| format!("{}: {}", json_str(key), number_json(*value)))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn relative_game_path(game: &Path, file: &Path) -> io::Result<String> {
+    Ok(file
+        .strip_prefix(game)
+        .map_err(|_| io::Error::other("source file is outside the game directory"))?
+        .to_string_lossy()
+        .replace('\\', "/"))
 }
 
 fn utc_date() -> String {
