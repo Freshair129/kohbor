@@ -39,16 +39,21 @@ export function MinimapPanel({
   locale = "th",
   layout = "standalone",
   renderAlerts,
+  toolbarExtra,
   steamStatus = null,
+  mapEdge = "right",
   mapOverlay,
   stageOverride,
   stageAlerts,
 }: {
   locale?: LiveLocale;
-  /** "pinned" is the second-monitor mode (UI-016): map pane only, tools in its toolbar, the quick strip below it. */
-  layout?: "standalone" | "deck" | "pinned";
+  /** "pinned" is second-monitor mode; "field" is the centred in-match map without a side panel. */
+  layout?: "standalone" | "deck" | "pinned" | "field";
   renderAlerts?: (input: { risk: RiskView | null; captureLive: boolean }) => ReactNode;
+  toolbarExtra?: ReactNode;
   steamStatus?: SteamStatus | null;
+  /** Inner edge used by the left/right second-monitor map stage. */
+  mapEdge?: "left" | "right";
   /** Pinned layout only: drawn over the minimap canvas at the same size (UI-018 rune countdowns). */
   mapOverlay?: ReactNode;
   /** Pinned layout only: replaces the minimap stage inside the same square (UI-019 draft board). */
@@ -194,7 +199,9 @@ export function MinimapPanel({
     if (patch.crop) void clearInvalidationAfter(captureConfig.setCrop(patch.crop));
   };
 
-  const pinned = layout === "pinned";
+  const pinned = layout === "pinned" || layout === "field";
+  const field = layout === "field";
+  const stackedPinned = layout === "pinned";
   const statusBlock = (
     <div className="live-sidebar-status">
       {mock && <span className="live-experimental">{text.mockPreview}</span>}
@@ -325,31 +332,46 @@ export function MinimapPanel({
 
   const pinnedAlerts = pinned && stageAlerts
     ? <div className="sm-alerts">{stageAlerts({ risk: displayedRisk, captureLive: phase === "live" && !paused })}</div> : null;
+  const toolbar = (
+    <header className={`live-map-toolbar${field ? " is-field" : ""}${stackedPinned ? " is-pinned" : ""}`}>
+      <h1 id="live-map-heading">{text.mapLabel}</h1>
+      <span className="live-map-badge mono" role="status" title={statusBadge}>{statusBadge}</span>
+      {pinned && <div className="live-map-tools">{!field && statusBlock}{actions}{toolbarExtra}</div>}
+    </header>
+  );
+  const stage = pinned && stageOverride ? <div className="live-map-stage live-map-override">{stageOverride}{pinnedAlerts}</div> : <MinimapStage source={mapSource} hasFrame={minimap.hasFrame} covered={presentation.coveredBadge !== null && !paused && !userInvalidated}
+    waitingReason={steamStatus === null && phase === "idle" ? reasonText : null}
+    stageRef={canvasBox.stageRef} locale={locale} plate={plate && (
+      <div className={`live-map-plate${plateTone}`}>
+        <span>{plate}</span>
+        {userInvalidated && <button type="button" disabled={controlsBusy} onClick={() => void retry()}>{text.retryCapture}</button>}
+      </div>
+    )}>
+    <canvas
+      ref={minimap.canvasRef}
+      style={canvasBox.canvasStyle}
+      className={`live-map-canvas${presentation.dimmed ? " is-stale" : ""}`}
+      aria-hidden="true"
+    />
+    {pinned && mapOverlay && <div className="sm-map-overlay" style={{ width: canvasBox.canvasStyle.minWidth, height: canvasBox.canvasStyle.minHeight }}>{mapOverlay}</div>}
+    {pinnedAlerts}
+  </MinimapStage>;
   const mapPane = (
-      <section className="live-map-pane" aria-labelledby="live-map-heading">
-        <header className="live-map-toolbar">
-          <h1 id="live-map-heading">{text.mapLabel}</h1>
-          <span className="live-map-badge mono" role="status" title={statusBadge}>{statusBadge}</span>
-          {pinned && <div className="live-pinned-tools">{statusBlock}{actions}</div>}
-        </header>
-        {pinned && stageOverride ? <div className="live-map-stage live-map-override">{stageOverride}{pinnedAlerts}</div> : <MinimapStage source={mapSource} hasFrame={minimap.hasFrame} covered={presentation.coveredBadge !== null && !paused && !userInvalidated}
-          waitingReason={steamStatus === null && phase === "idle" ? reasonText : null}
-          stageRef={canvasBox.stageRef} locale={locale} plate={plate && (
-            <div className={`live-map-plate${plateTone}`}>
-              <span>{plate}</span>
-              {userInvalidated && <button type="button" disabled={controlsBusy} onClick={() => void retry()}>{text.retryCapture}</button>}
-            </div>
-          )}>
-          <canvas
-            ref={minimap.canvasRef}
-            style={canvasBox.canvasStyle}
-            className={`live-map-canvas${presentation.dimmed ? " is-stale" : ""}`}
-            aria-hidden="true"
-          />
-          {pinned && mapOverlay && <div className="sm-map-overlay" style={{ width: canvasBox.canvasStyle.minWidth, height: canvasBox.canvasStyle.minHeight }}>{mapOverlay}</div>}
-          {pinnedAlerts}
-        </MinimapStage>}
-      </section>
+    <section className="live-map-pane" aria-labelledby="live-map-heading">
+      {stackedPinned ? (
+        <div className="live-map-body is-pinned" data-map-edge={mapEdge}>
+          {toolbar}
+          <div className="live-map-square-slot">{stage}</div>
+        </div>
+      ) : field ? (
+        <>
+          {toolbar}
+          <div className="live-map-body is-field"><div className="live-map-square-slot">{stage}</div></div>
+        </>
+      ) : (
+        <>{toolbar}{stage}</>
+      )}
+    </section>
   );
 
   const panelContents = (
@@ -370,11 +392,13 @@ export function MinimapPanel({
     </>
   );
 
-  return pinned ? (
+  return layout === "pinned" ? (
     <section className="live-pinned-panel" lang={locale}>
       {mapPane}
       {renderAlerts?.({ risk: displayedRisk, captureLive: phase === "live" && !paused })}
     </section>
+  ) : field ? (
+    mapPane
   ) : layout === "deck" ? (
     <section className="live-tab live-dashboard live-deck-panel" lang={locale}>
       {panelContents}

@@ -150,8 +150,10 @@ export function allyHeroCards(input: {
 
 /** The own hero's draft slot, when it can be matched in same-session draft memory. */
 export function ownDraftSlot(memory: DraftRosterMemory, epoch: number | null, ownTeam: Team | null, ownHeroId: string | null): number | null {
-  if (memory.epoch === null || memory.epoch !== epoch || !ownTeam || !ownHeroId) return null;
-  return teamSlots(ownTeam).find(slot => memory.slots[slot] === ownHeroId) ?? null;
+  if (memory.epoch === null || memory.epoch !== epoch || !ownHeroId) return null;
+  const candidates = ownTeam ? teamSlots(ownTeam) : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+  const matches = candidates.filter(slot => memory.slots[slot] === ownHeroId);
+  return matches.length === 1 ? matches[0]! : null;
 }
 
 /**
@@ -177,6 +179,8 @@ export function cardCopy(locale: "th" | "en") {
   return {
     ourTeam: th ? "ทีมเรา" : "Our team",
     enemyTeam: th ? "ฝั่งตรงข้าม" : "Enemy team",
+    radiant: th ? "เรเดียนท์" : "Radiant",
+    dire: th ? "ไดร์" : "Dire",
     enemyMark: th ? "ศัตรู" : "Enemy",
     you: th ? "คุณ" : "You",
     hp: "HP",

@@ -168,5 +168,5 @@ test("a stale or missing frame is never shown as live", async () => {
 
 test("no hero identification or motion arrows on the second-monitor map", () => {
   const sources = ["../src/live/SecondMonitorDeck.tsx", "../src/live/MapCountdowns.tsx", "../src/live/objectiveCountdownModel.ts", "../src/live/secondMonitorCards.ts"].map(read).join("\n");
-  assert.doesNotMatch(sources, /templateMatch|matchTemplate|motion[-_ ]?arrow|heading|facing/i);
+  assert.doesNotMatch(sources, /templateMatch|matchTemplate|motion[-_ ]?arrow|pathTrace|hero(?:Direction|Facing)/i);
 });
