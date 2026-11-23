@@ -66,7 +66,7 @@ only: it is not an approval of the design or copy, and it does not set a domain 
 5. **A landing page, not the app.** A thin top header (brand, chapter links, language) that takes the ink of the room under it,
    and a 2 px scroll line. The first draft framed the page with the app's two side rails and a frame-rate badge; the owner
    rejected that on 2026-11-21 ("a landing page is not an application"), so the app shell is not borrowed anywhere on the page.
-6. Headline "คุณขับ เราเกาะเบาะ / You drive. We ride along." is a proposal, not an approved tagline.
+6. Headline: "ไม่ได้จับเมาส์ แต่ขอลุ้นด้วย" (owner's V05 mood board, 2026-11-23; replaced the earlier proposal "คุณขับ เราเกาะเบาะ"). The English line "Not on the mouse. Still in every fight." is my translation. The board sets mood and tone only (the friend hanging on the back of your chair at a game shop: warm, community); its logo and palette are not used.
 7. Type and colour are the Command Deck tokens only (IBM Plex Sans Thai, IBM Plex Mono for numerals). No new token was added.
 
 ## Where the copy comes from
