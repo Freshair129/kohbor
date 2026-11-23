@@ -249,6 +249,8 @@ Product owner, relayed by the lead session. Owner proposal: “ไม่งั�
 12. **Verification permission.** The team may send one of the owner's own match IDs to OpenDota once to measure limits, retention and replay size, and the owner plays one match so `server_log.txt` can be checked.
 13. **Reading Dota files.** Read-only observation of Dota's replay folder and `server_log.txt` is not game automation.
 
+**Amendment to item 10 (2026-11-24).** The product owner, on build 4467634 (relayed by the lead session local_e6af3702 and recorded by an agent; owner words translated: "the hero card isn't like the replay one ... why isn't it complete?"), asked for every Live hero card, the own hero and the nine others, to have the replay card's full structure: portrait with level, name, K/D/A, LH/DN, gold, HP and mana bars, abilities, buff chips, six items with backpack, TP and neutral, and the attribute and derived stat rows. "Nine compact cards" no longer applies; the nine may be a denser variant of the same structure. The honesty rule is unchanged: a value without an admitted source shows "—" or an empty dashed slot, never 0 or an invented value; enemy values stay unknown, ally values stay unknown until teammate sharing exists, and the stat rows stay "—" until a source exists (GSI sends no attributes). UI-002 is amended to match.
+
 The decision adds no requirement yet. Contracts (`replay-engine`, bundle schema), requirement amendments for Live (UI-002/UI-016 family) and retention text follow their own reviews; `contracts/decisions.json` is updated when the first contract lands.
 
 ### Owner decision: Overview player dashboard and news (2026-11-23)

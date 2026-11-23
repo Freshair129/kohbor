@@ -1,5 +1,7 @@
 // Slice R5 (DEC-REPLAY-INTEGRATION item 10): replay-style hero cards on the centred Live deck.
-// Pure-logic tests only: card view model from a GSI snapshot, unknown handling for allies/enemies, icon resolver fallback.
+// Owner amendment 2026-11-24: every card (own hero and the nine others) has the replay card's full structure; values
+// without a source are "—" or unknown slots. Pure-logic tests only: card view model from a GSI snapshot, unknown
+// handling for allies/enemies, icon resolver fallback.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
@@ -18,7 +20,7 @@ import { createDraftRosterMemory, rememberDraftFrame } from "../src/live/secondM
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
 import { createIconResolver, iconFileName, noIcons } from "../src/live/dotaIcons.ts";
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
-import { compactCard, formatGold, joinKnown, ownFullCard, slotColor, tileText, UNKNOWN } from "../src/live/heroCardModel.ts";
+import { compactCard, formatGold, joinKnown, ownFullCard, slotColor, statCells, teamFullCard, tileText, UNKNOWN } from "../src/live/heroCardModel.ts";
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
 import type { DraftBarFrame } from "../src/deck/draftBarModel.ts";
 
@@ -113,7 +115,9 @@ test("own hero: six main items, backpack, neutral and TP with charges and cooldo
   assert.equal(view.items.neutral.rawId, "item_arcane_ring");
 });
 
-test("own hero: fields GSI did not send stay unknown and no attribute or derived stat is invented", () => {
+const STAT_LABELS = ["STR", "AGI", "INT", "DMG", "REG", "ARM", "MR", "AMP", "AS", "MS", "EV", "SR", "LS", "GPM", "XPM"];
+
+test("own hero: fields GSI did not send stay unknown; every section is present with unknown slots, never zeros", () => {
   const raw = parseOwnSnapshot(fixture());
   assert.ok(raw);
   const view = card(raw);
@@ -122,16 +126,34 @@ test("own hero: fields GSI did not send stay unknown and no attribute or derived
   assert.equal(view.goldText, UNKNOWN);
   assert.equal(view.gold, null);
   assert.equal(view.ratesText, UNKNOWN);
-  assert.equal(view.abilities, null, "no abilities block: placeholder, not empty slots");
-  assert.equal(view.items, null);
-  const keys = Object.keys(view).join(" ").toLowerCase();
-  for (const banned of ["str", "agi", "int", "armor", "armour", "damage", "path", "trace", "networth"]) {
-    assert.ok(!keys.split(" ").some(key => key === banned || key.startsWith(banned + "_")), banned);
+  // No abilities or items from GSI: the full rows still render, as unknown slots (not empty items, not zeros).
+  assert.equal(view.abilities.known, false);
+  assert.deepEqual(view.abilities.hero.map(slot => [slot.state, slot.ultimate]), [["unknown", false], ["unknown", false], ["unknown", false], ["unknown", true]]);
+  assert.equal(view.items.known, false);
+  assert.equal(view.items.main.length, 6);
+  assert.equal(view.items.backpack.length, 3);
+  for (const slot of [...view.items.main, ...view.items.backpack, view.items.teleport, view.items.neutral]) {
+    assert.equal(slot.state, "unknown"); assert.equal(slot.rawId, null); assert.equal(slot.charges, null); assert.equal(slot.cooldown, null);
   }
+  assert.deepEqual(view.buffs, [], "no buff source on Live: the chip row stays empty");
+  // Stat rows are present in the replay order; GSI sends no attributes, so every one is a dash, never a computed value.
+  assert.deepEqual(view.stats.map(cell => cell.label), STAT_LABELS);
+  assert.ok(view.stats.every(cell => cell.value === UNKNOWN && cell.gain === null));
   // Partly known values keep the unknown part visible instead of a zero.
   assert.equal(joinKnown([3, null, 1]), "3/—/1");
   assert.equal(formatGold(9850), "9,850");
   assert.equal(formatGold(null), UNKNOWN);
+});
+
+test("own hero in a match: stat cells stay dashes except the GSI rates", () => {
+  const view = card();
+  assert.equal(view.items.known, true);
+  assert.equal(view.abilities.known, true);
+  const values = Object.fromEntries(view.stats.map(cell => [cell.label, cell.value]));
+  assert.equal(values.GPM, "412");
+  assert.equal(values.XPM, "520");
+  for (const label of STAT_LABELS.filter(label => label !== "GPM" && label !== "XPM")) assert.equal(values[label], UNKNOWN, label);
+  assert.deepEqual(statCells().map(cell => cell.value), STAT_LABELS.map(() => UNKNOWN));
 });
 
 test("own hero: dead shows the respawn time; stale abilities never show a cooldown as current", () => {
@@ -201,6 +223,41 @@ test("ally compact cards show peer vitals and the ultimate dot only when that so
   assert.equal(allies[0]?.vitalsSource, "peer");
   assert.deepEqual(allies[2]?.ult, { state: "ready_no_mana", source: "topbar", seconds: null });
   assert.equal(allies[3]?.ult, null, "unrecognised dot value is unknown");
+});
+
+test("team cards have the full replay structure with every value unknown; enemies never show a value", () => {
+  const enemies = enemyHeroCards(memory, 5, "radiant").map(c => teamFullCard(c, noIcons));
+  const allies = allyHeroCards({ memory, epoch: 5, ownTeam: "radiant", ownHeroId: "npc_dota_hero_lion" }).map(c => teamFullCard(c, noIcons));
+  assert.deepEqual(enemies.map(c => c.heroName), ["Sniper", "Pudge", null, "Crystal Maiden", "Zeus"]);
+  assert.deepEqual(allies.map(c => c.heroName), ["Axe", null, "Juggernaut", "Earthshaker"]);
+  for (const c of [...enemies, ...allies]) {
+    assert.equal(c.variant, "full");
+    for (const text of [c.levelText, c.kdaText, c.lhdnText, c.goldText, c.ratesText, c.hpText, c.manaText]) assert.equal(text, UNKNOWN);
+    assert.equal(c.gold, null); assert.equal(c.hpPercent, null); assert.equal(c.manaPercent, null);
+    assert.equal(c.abilities.hero.length, 4);
+    assert.ok(c.abilities.hero.every(slot => slot.state === "unknown" && slot.cast === "unknown" && slot.cooldownText === null));
+    assert.equal(c.items.main.length, 6); assert.equal(c.items.backpack.length, 3);
+    assert.ok([...c.items.main, ...c.items.backpack, c.items.teleport, c.items.neutral].every(slot => slot.state === "unknown"));
+    assert.deepEqual(c.stats.map(cell => cell.label), STAT_LABELS);
+    assert.ok(c.stats.every(cell => cell.value === UNKNOWN));
+    assert.deepEqual(c.buffs, []);
+  }
+  assert.equal(enemies[0]?.color, slotColor(5));
+  assert.equal(enemies[2]?.heroId, null);
+  // A forged enemy card with values still shows none of them; an ally keeps only admitted peer values.
+  const forged: HeroCard = { key: "E1", side: "enemy", slot: 5, heroId: "npc_dota_hero_sniper", heroName: "Sniper", nameSource: "draft",
+    hpPercent: 50, manaPercent: 50, vitalsSource: "peer",
+    skills: [{ ultimate: false, state: "cooldown", seconds: 5, source: "peer" }, { ultimate: false, state: "ready", seconds: null, source: "peer" },
+      { ultimate: false, state: "ready", seconds: null, source: "peer" }, { ultimate: true, state: "ready", seconds: null, source: "peer" }] };
+  const shown = teamFullCard(forged, noIcons);
+  assert.equal(shown.hpPercent, null); assert.equal(shown.hpText, UNKNOWN); assert.equal(shown.ult, null);
+  assert.ok(shown.abilities.hero.every(slot => slot.cast === "unknown" && slot.cooldownText === null));
+  const shared = teamFullCard({ ...forged, key: "A1", side: "ally", slot: 1 }, noIcons);
+  assert.equal(shared.hpText, "50%");
+  assert.equal(shared.abilities.hero[0]?.cast, "cooldown");
+  assert.equal(shared.abilities.hero[0]?.cooldownText, formatCooldownValue(5));
+  assert.equal(shared.abilities.hero[1]?.cast, "ready");
+  assert.equal(shared.levelText, UNKNOWN, "no level source even with peer vitals");
 });
 
 // ---- icon resolver ----

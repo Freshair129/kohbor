@@ -1,6 +1,8 @@
-// Replay-style hero cards for the centred Live deck (DEC-REPLAY-INTEGRATION item 10, slice R5).
-// Full variant: the own hero from GSI. Compact variant: allies and enemies from the second-monitor card model.
-// Unknown renders "—"; no attribute/derived stat rows, no path traces, no enemy value without an admitted source.
+// Replay-style hero cards for the centred Live deck (DEC-REPLAY-INTEGRATION item 10, slice R5; owner amendment
+// 2026-11-24: every card has the replay card's full structure).
+// Own hero: the full card filled from GSI. Allies and enemies: the same structure in a denser variant, built from the
+// second-monitor card model. Unknown renders "—" or an empty dashed slot; no stat is computed on Live, no path traces,
+// no enemy value without an admitted source.
 import { useEffect, useState, type CSSProperties } from "react";
 import { seconds, type Locale } from "../copy";
 import { HeroPortrait } from "../deck/HeroPortrait";
@@ -9,7 +11,7 @@ import { retainFreshLoadout, type FreshLoadoutCache, type LoadoutViewModel } fro
 import { ownHeroLifeLabel, type OwnHeroViewModel } from "../deck/ownHeroModel";
 import { cardCopy, type HeroCard as CardModel } from "./secondMonitorCards";
 import { dotaIcon } from "./dotaIconSet";
-import { compactCard, ownFullCard, UNKNOWN, type CompactHeroCardView, type IconSlotView } from "./heroCardModel";
+import { ownFullCard, teamFullCard, UNKNOWN, type FullHeroCardView, type IconSlotView, type StatCellView } from "./heroCardModel";
 import "./heroCard.css";
 
 type Lang = "th" | "en";
@@ -26,10 +28,14 @@ export function heroCardCopy(locale: Lang) {
     mana: th ? "มานา" : "Mana",
     abilities: th ? "สกิล" : "Abilities",
     extras: th ? "สกิลเสริม" : "Extras",
+    buffs: th ? "บัฟ" : "Buffs",
+    buffsNone: th ? "บัฟ: ยังไม่มีแหล่งข้อมูล" : "Buffs: no source yet",
     items: th ? "ไอเท็ม" : "Items",
     backpack: th ? "ช่องเป้" : "Backpack",
     teleport: th ? "ช่องวาร์ป" : "Teleport slot",
     neutral: th ? "ช่องไอเท็มกลาง" : "Neutral item slot",
+    stats: th ? "ค่าสถานะ" : "Stats",
+    statNoSource: th ? "ยังไม่มีแหล่งข้อมูล" : "no source yet",
     noData: th ? "ยังไม่มีข้อมูลจากเกม" : "No game data yet",
     oldData: th ? "ข้อมูลเก่า" : "Old data",
     age: th ? "อายุข้อมูล" : "Age",
@@ -46,6 +52,7 @@ export function heroCardCopy(locale: Lang) {
     unnamedNote: th ? "ยังไม่ทราบฮีโร่" : "Hero not identified yet",
   };
 }
+type Text = ReturnType<typeof heroCardCopy>;
 
 /** Bundled icon when one exists, else the runtime portrait from the installed game, else the neutral initials tile. */
 function CardPortrait({ heroId, src, alt }: { heroId: string | null; src: string | null; alt: string }) {
@@ -56,7 +63,7 @@ function CardPortrait({ heroId, src, alt }: { heroId: string | null; src: string
   return <span className="lhc-portrait"><HeroPortrait heroId={heroId} size="md" alt={alt} /></span>;
 }
 
-function iconTitle(slot: IconSlotView, place: string, text: ReturnType<typeof heroCardCopy>, stale: boolean): string {
+function iconTitle(slot: IconSlotView, place: string, text: Text, stale: boolean): string {
   const parts = [place];
   if (slot.state === "unknown") parts.push(text.unknown);
   else if (slot.state === "empty") parts.push(text.empty);
@@ -64,16 +71,16 @@ function iconTitle(slot: IconSlotView, place: string, text: ReturnType<typeof he
     parts.push(`${slot.name ?? UNKNOWN}${slot.rawId ? ` (${slot.rawId})` : ""}`);
     if (slot.level !== null) parts.push(`${text.level} ${slot.level}`);
     if (slot.cast === "not_learned") parts.push(text.notLearned);
-    else if (slot.cast === "cooldown" && slot.cooldownText) parts.push(`${text.cooldown} ${slot.cooldownText}s`);
-    else if (slot.cast === "ready") parts.push(text.ready);
-    if (slot.charges !== null) parts.push(`${text.charges} ${slot.charges}`);
   }
+  if (slot.cast === "cooldown" && slot.cooldownText) parts.push(`${text.cooldown} ${slot.cooldownText}s`);
+  else if (slot.cast === "ready") parts.push(text.ready);
+  if (slot.charges !== null) parts.push(`${text.charges} ${slot.charges}`);
   if (stale) parts.push(text.oldData);
   return parts.join(" · ");
 }
 
 function Icon({ slot, shape, place, text, stale }: {
-  slot: IconSlotView; shape: "ab" | "it" | "bk" | "tp" | "nt"; place: string; text: ReturnType<typeof heroCardCopy>; stale: boolean;
+  slot: IconSlotView; shape: "ab" | "it" | "bk" | "tp" | "nt"; place: string; text: Text; stale: boolean;
 }) {
   const [failed, setFailed] = useState<string | null>(null);
   const image = slot.src && failed !== slot.src ? slot.src : null;
@@ -83,20 +90,12 @@ function Icon({ slot, shape, place, text, stale }: {
   return (
     <span className={classes} title={title} aria-label={title} role="img">
       {image && <img src={image} alt="" draggable={false} onError={() => setFailed(image)} />}
-      {!image && slot.state !== "empty" && <b aria-hidden="true">{slot.state === "unknown" ? "?" : slot.text}</b>}
+      {!image && slot.state === "filled" && <b aria-hidden="true">{slot.text}</b>}
       {slot.cooldownText && <s aria-hidden="true">{slot.cooldownText}</s>}
       {slot.charges !== null && <em aria-hidden="true">{slot.charges}</em>}
       {slot.maxLevel !== null && slot.level !== null && slot.level > 0 && (
         <i className="lhc-pips" aria-hidden="true">{Array.from({ length: Math.min(slot.level, slot.maxLevel) }, (_, i) => <span key={i} />)}</i>
       )}
-    </span>
-  );
-}
-
-function Placeholder({ count, shape, label }: { count: number; shape: "ab" | "it"; label: string }) {
-  return (
-    <span className="lhc-placeholder" role="img" aria-label={label} title={label}>
-      {Array.from({ length: count }, (_, i) => <span key={i} className={`lhc-ic is-${shape} is-placeholder`} aria-hidden="true" />)}
     </span>
   );
 }
@@ -107,6 +106,61 @@ function Bar({ kind, percent, label, value, low = false }: { kind: "hp" | "mp"; 
       {percent !== null && <i style={{ width: `${percent}%` }} />}
       <span className="lhc-bar-num"><small>{label}</small> {value}</span>
     </span>
+  );
+}
+
+function statTitle(cell: StatCellView, text: Text): string {
+  return cell.value === UNKNOWN && cell.group !== "rate" ? `${cell.label}: ${UNKNOWN} (${text.statNoSource})` : `${cell.label}: ${cell.value}`;
+}
+
+/** The sections every card shares, in the replay card's order. */
+function CardSections({ view, text, locale, abilitiesAge, itemsAge }: {
+  view: FullHeroCardView; text: Text; locale: Locale; abilitiesAge: number | null; itemsAge: number | null;
+}) {
+  const { abilities, items } = view;
+  return (
+    <>
+      <div className="lhc-top">
+        <span className="lhc-kd" title={`${text.kda}: ${view.kdaText}`}>{view.kdaText}</span>
+        <span title={`${text.lhdn}: ${view.lhdnText}`}>{view.lhdnText}</span>
+        <span className="lhc-gold" title={`${text.gold}: ${view.goldText}`}>{view.goldText}</span>
+      </div>
+      <div className="lhc-bars">
+        <Bar kind="hp" percent={view.hpPercent} label={text.hp} value={view.hpText} low={view.hpLow} />
+        <Bar kind="mp" percent={view.manaPercent} label={text.mana} value={view.manaText} />
+      </div>
+      <div className={`lhc-row lhc-ab${abilities.stale ? " is-stale" : ""}`} aria-label={text.abilities}
+        title={abilities.stale ? `${text.oldData} · ${seconds(abilitiesAge, locale)}` : abilities.known ? undefined : `${text.abilities}: ${text.unknown}`}>
+        {abilities.hero.map((slot, index) => <Icon key={slot.key} slot={slot} shape="ab" place={`${text.abilities} ${index + 1}`} text={text} stale={abilities.stale} />)}
+        {abilities.extras.length > 0 && <span className="lhc-extras" aria-label={text.extras}>
+          {abilities.extras.map(slot => <Icon key={slot.key} slot={slot} shape="ab" place={text.extras} text={text} stale={abilities.stale} />)}
+        </span>}
+        <span className="lhc-mods" aria-label={text.buffs} title={view.buffs.length === 0 ? text.buffsNone : undefined}>
+          {view.buffs.map(buff => <span key={buff} className="lhc-mod">{buff}</span>)}
+        </span>
+      </div>
+      <div className={`lhc-row lhc-it${items.stale ? " is-stale" : ""}`} aria-label={text.items}
+        title={items.stale ? `${text.oldData} · ${seconds(itemsAge, locale)}` : items.known ? undefined : `${text.items}: ${text.unknown}`}>
+        <span className="lhc-main">
+          {items.main.map((slot, index) => <Icon key={slot.key} slot={slot} shape="it" place={text.slot(index + 1)} text={text} stale={items.stale} />)}
+        </span>
+        <span className="lhc-side">
+          <span className="lhc-bp" aria-label={text.backpack}>
+            {items.backpack.map((slot, index) => <Icon key={slot.key} slot={slot} shape="bk" place={`${text.backpack} B${index + 1}`} text={text} stale={items.stale} />)}
+          </span>
+          <Icon slot={items.teleport} shape="tp" place={text.teleport} text={text} stale={items.stale} />
+          <Icon slot={items.neutral} shape="nt" place={text.neutral} text={text} stale={items.stale} />
+        </span>
+      </div>
+      <dl className="lhc-stats" aria-label={text.stats}>
+        {view.stats.map(cell => (
+          <div key={cell.key} className={`lhc-stat is-${cell.group}${cell.value === UNKNOWN ? " is-unknown" : ""}`} title={statTitle(cell, text)}>
+            <dt>{cell.label}</dt>
+            <dd>{cell.value}{cell.gain !== null && <em>{cell.gain}</em>}</dd>
+          </div>
+        ))}
+      </dl>
+    </>
   );
 }
 
@@ -146,80 +200,42 @@ export function OwnHeroCard({ locale, own, loadout, slot, stale, ageMs, hasLates
         <strong title={view.heroCaption ?? view.heroName ?? undefined}>{view.heroName ?? UNKNOWN}</strong>
         <span className="lhc-life" title={life}>{life}</span>
       </div>
-      <div className="lhc-top">
-        <span className="lhc-kd" title={`${text.kda}: ${view.kdaText}`}>{view.kdaText}</span>
-        <span title={`${text.lhdn}: ${view.lhdnText}`}>{view.lhdnText}</span>
-        <span className="lhc-gold" title={`${text.gold}: ${view.goldText}`}>{view.goldText}</span>
-      </div>
-      <div className="lhc-bars">
-        <Bar kind="hp" percent={view.hpPercent} label={text.hp} value={view.hpText} low={view.hpLow} />
-        <Bar kind="mp" percent={view.manaPercent} label={text.mana} value={view.manaText} />
-      </div>
-      <div className={`lhc-row lhc-ab${view.abilities?.stale ? " is-stale" : ""}`} aria-label={text.abilities}
-        title={view.abilities?.stale ? `${text.oldData} · ${seconds(loadout.abilities.ageMs, locale)}` : undefined}>
-        {view.abilities ? <>
-          {view.abilities.hero.map(slotView => <Icon key={slotView.key} slot={slotView} shape="ab" place={text.abilities} text={text} stale={view.abilities!.stale} />)}
-          {view.abilities.extras.length > 0 && <span className="lhc-extras" aria-label={text.extras}>
-            {view.abilities.extras.map(slotView => <Icon key={slotView.key} slot={slotView} shape="ab" place={text.extras} text={text} stale={view.abilities!.stale} />)}
-          </span>}
-        </> : <Placeholder count={4} shape="ab" label={text.noData} />}
-      </div>
-      <div className={`lhc-row lhc-it${view.items?.stale ? " is-stale" : ""}`} aria-label={text.items}
-        title={view.items?.stale ? `${text.oldData} · ${seconds(loadout.items.ageMs, locale)}` : undefined}>
-        {view.items ? <>
-          <span className="lhc-main">
-            {view.items.main.map((slotView, index) => <Icon key={slotView.key} slot={slotView} shape="it" place={text.slot(index + 1)} text={text} stale={view.items!.stale} />)}
-          </span>
-          <Icon slot={view.items.neutral} shape="nt" place={text.neutral} text={text} stale={view.items.stale} />
-          <Icon slot={view.items.teleport} shape="tp" place={text.teleport} text={text} stale={view.items.stale} />
-        </> : <Placeholder count={6} shape="it" label={text.noData} />}
-      </div>
-      <div className="lhc-row lhc-st">
-        {view.items && <span className="lhc-bp" aria-label={text.backpack}>
-          {view.items.backpack.map((slotView, index) => <Icon key={slotView.key} slot={slotView} shape="bk" place={`${text.backpack} B${index + 1}`} text={text} stale={view.items!.stale} />)}
-        </span>}
-        <span className="lhc-rates" title={`${text.rates}: ${view.ratesText}`}><small>{text.rates}</small> {view.ratesText}</span>
-      </div>
+      <CardSections view={view} text={text} locale={locale} abilitiesAge={loadout.abilities.ageMs} itemsAge={loadout.items.ageMs} />
       {loadout.setupHint && <div className="lhc-hint"><GsiSetupHint locale={lang} gsiSetup={gsiSetup} /></div>}
     </section>
   );
 }
 
-function CompactCard({ view, locale }: { view: CompactHeroCardView; locale: Lang }) {
-  const text = heroCardCopy(locale);
-  const cards = cardCopy(locale);
+/** Ally or enemy: the same sections in a denser variant; values without an admitted source are "—" or empty slots. */
+function TeamCard({ view, locale }: { view: FullHeroCardView; locale: Locale }) {
+  const lang: Lang = locale === "en" ? "en" : "th";
+  const text = heroCardCopy(lang);
+  const cards = cardCopy(lang);
   const style = (view.color ? { "--c": view.color } : {}) as CSSProperties;
   const who = view.side === "enemy" ? cards.enemyMark : cards.ourTeam;
   const note = view.heroName === null ? text.unnamedNote : view.side === "enemy" ? text.enemyNote : text.allyNote;
-  const vitals = view.vitalsSource !== null;
   return (
-    <li className={`lhc lhc-compact is-${view.side}${view.heroName ? "" : " is-unknown"}`} style={style}
-      data-testid={`live-hero-card-${view.key}`} data-slot={view.slot ?? undefined} aria-label={`${who}: ${view.heroName ?? UNKNOWN}`}>
+    <li className={`lhc lhc-compact is-${view.side}${view.heroName ? "" : " is-unknown"}`} style={style} title={note}
+      data-testid={`live-hero-card-${view.key}`} data-slot={view.slot ?? undefined} aria-label={`${who}: ${view.heroName ?? UNKNOWN} · ${note}`}>
       <div className="lhc-pt">
         <CardPortrait heroId={view.heroId} src={view.portraitSrc} alt={view.heroName ?? UNKNOWN} />
-        <span className="lhc-lv" aria-label={`${text.level} ${UNKNOWN}`}>{UNKNOWN}</span>
+        <span className="lhc-lv" aria-label={`${text.level} ${view.levelText}`}>{view.levelText}</span>
       </div>
-      <div className="lhc-cbody">
-        <div className="lhc-ctop">
-          <strong title={view.heroName ?? undefined}>{view.heroName ?? UNKNOWN}</strong>
-          {view.ult && <span className={`lhc-ult is-${view.ult.state}`} title={`${cards.ult}: ${cards.state[view.ult.state]}`}
-            aria-label={`${cards.ult}: ${cards.state[view.ult.state]}`} />}
-        </div>
-        {vitals ? <div className="lhc-cbars">
-          <Bar kind="hp" percent={view.hpPercent} label={text.hp} value={view.hpPercent === null ? UNKNOWN : `${Math.round(view.hpPercent)}%`} />
-          <Bar kind="mp" percent={view.manaPercent} label={text.mana} value={view.manaPercent === null ? UNKNOWN : `${Math.round(view.manaPercent)}%`} />
-        </div> : <small className="lhc-cnote" title={note}>{note}</small>}
+      <div className="lhc-nm">
+        <strong title={view.heroName ?? undefined}>{view.heroName ?? UNKNOWN}</strong>
+        {view.ult && <span className={`lhc-ult is-${view.ult.state}`} title={`${cards.ult}: ${cards.state[view.ult.state]}`}
+          aria-label={`${cards.ult}: ${cards.state[view.ult.state]}`} />}
       </div>
+      <CardSections view={view} text={text} locale={locale} abilitiesAge={null} itemsAge={null} />
     </li>
   );
 }
 
-/** A team column of compact cards (four allies, or five enemies), each from the second-monitor card model. */
+/** A team column of cards (four allies, or five enemies), each from the second-monitor card model. */
 export function CompactHeroCards({ cards, locale, label }: { cards: CardModel[]; locale: Locale; label: string }) {
-  const lang: Lang = locale === "en" ? "en" : "th";
   return (
     <ul className="lhc-list" aria-label={label}>
-      {cards.map(card => <CompactCard key={card.key} view={compactCard(card, dotaIcon)} locale={lang} />)}
+      {cards.map(card => <TeamCard key={card.key} view={teamFullCard(card, dotaIcon)} locale={locale} />)}
     </ul>
   );
 }

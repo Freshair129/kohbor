@@ -60,8 +60,9 @@ export function Deck({
   const hostNowMs = hostLost ? null : hostNowFromAnchor(playback.clockAnchor, performance.now());
   const stale = state.state === "stale" || own.snapshotAvailability === "stale";
   const hasLatestResult = state.state === "debrief" && own.hasOwnSnapshot;
-  // Replay-style cards (DEC-REPLAY-INTEGRATION item 10): identities only from same-session draft memory (UI-012),
-  // shared with the second-monitor deck; allies and enemies have no other admitted source here, so they stay unknown.
+  // Replay-style cards (DEC-REPLAY-INTEGRATION item 10; full structure on every card, owner 2026-11-24): identities only
+  // from same-session draft memory (UI-012), shared with the second-monitor deck; allies and enemies have no other
+  // admitted source here, so their other values stay unknown.
   const sessionEpoch = hostLost ? null : status?.session.session_epoch ?? null;
   const roster = useRosterMemory(sessionEpoch, draftBar);
   const ownTeam = hostLost ? null : snapshot?.own?.team ?? null;
@@ -70,6 +71,7 @@ export function Deck({
   const enemyCards = orderBySlot(enemyHeroCards(roster, sessionEpoch, ownTeam));
   const cardText = cardCopy(locale === "en" ? "en" : "th");
   const enemyCaption = [cardText.source.draft, cardText.source.enemyNone].join(" · ");
+  const allyCaption = [cardText.source.draft, cardText.source.peerPending].join(" · ");
 
   const legacy = (
     <main className="deck-root" lang={locale} data-state={state.state} data-draft={draftBar?.active || undefined} data-draft-column="true">
@@ -86,6 +88,7 @@ export function Deck({
           <header className="deck-card-heading">
             <h2 id="deck-allies-heading">{text.allies}</h2>
           </header>
+          <p className="deck-enemy-caption deck-ally-caption" title={allyCaption}>{allyCaption}</p>
           <CompactHeroCards cards={allyCards} locale={locale} label={text.allies} />
         </section>
       </section>

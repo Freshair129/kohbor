@@ -7,8 +7,8 @@ main.live-tab.live-dashboard { display: grid; grid-template-columns: minmax(0, 1
 .live-map-pane > * { min-width: 0; min-height: 0; }
 .live-map-toolbar { display: flex; flex: 0 0 auto; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-width: 0; min-height: 0; }
 .live-map-toolbar h1 { flex: 0 0 auto; margin: 0; font-size: 15px; font-weight: 600; }
-.live-map-badge { flex: 0 1 auto; min-width: 0; max-width: 34%; overflow-wrap: anywhere; white-space: normal; color: var(--text-2); font-size: 12px; font-variant-numeric: tabular-nums; }
-.live-preview-rates { flex: 1 1 0; min-width: 0; overflow-wrap: anywhere; white-space: normal; color: var(--text); font-size: 13px; font-weight: 600; text-align: right; }
+/* Capture state and frame age only; the CAP/RX/PAINT rates are shown once, in the status footer. */
+.live-map-badge { flex: 0 1 auto; min-width: 0; overflow-wrap: anywhere; white-space: normal; color: var(--text-2); font-size: 12px; font-variant-numeric: tabular-nums; }
 .live-map-stage { position: relative; flex: 1 1 0; width: 100%; min-width: 0; min-height: 0; display: grid; place-items: center; overflow: hidden; box-sizing: border-box; background: #10151b; border: 1px solid var(--line); }
 .live-map-canvas { display: block; width: auto; height: auto; max-width: 100%; max-height: 100%; min-width: 0; min-height: 0; aspect-ratio: 280 / 280; object-fit: contain; image-rendering: auto; }
 .live-map-canvas.is-stale { opacity: 0.42; filter: grayscale(0.45); }

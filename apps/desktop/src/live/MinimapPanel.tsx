@@ -17,7 +17,7 @@ import {
   togglePause,
 } from "./captureConfig";
 import { ResourcePanel } from "./ResourcePanel";
-import { previewRateText, visibilityText } from "./preview";
+import { visibilityText } from "./preview";
 import { useCaptureStatus } from "./useCaptureStatus";
 import { useCaptureConfig } from "./useCaptureConfig";
 import { useMinimap } from "./useMinimap";
@@ -27,7 +27,6 @@ import { useCanvasBox } from "./useCanvasBox";
 import { advanceInvalidation, phaseReasonText, UNSUPPORTED_CAPTURE_REASONS } from "./captureRecovery";
 import { deriveCaptureDisplay } from "./captureDisplay";
 import { useCaptureCounterRates } from "./useCaptureCounterRates";
-import { previewRateTooltip } from "./previewDiagnostics";
 import { PreviewDiagnosticsPanel } from "./PreviewDiagnosticsPanel";
 import { deriveMinimapPresentation } from "./minimapPresentation";
 import { MinimapStage } from "./MinimapStage";
@@ -140,8 +139,9 @@ export function MinimapPanel({
   const phaseText = reasonText
     ? `${phaseLabel(phase, locale)} · ${reasonText}`
     : phaseLabel(phase, locale);
+  // Capture state and frame age only: the sent/received/painted rates live in the status footer (CAP/RX/PAINT) and are
+  // not repeated here (owner report on build 4467634, 2026-11-24).
   const statusBadge = `${phaseText} · ${age} ms`;
-  const rateBadge = previewRateText(display.capture?.fps_measured ?? null, display.metrics, locale);
   const presentation = deriveMinimapPresentation(phase, reason, minimap.hasFrame, locale);
   const mapSource = deriveMinimapState(steamStatus, capture, paused || userInvalidated);
 
@@ -330,7 +330,6 @@ export function MinimapPanel({
         <header className="live-map-toolbar">
           <h1 id="live-map-heading">{text.mapLabel}</h1>
           <span className="live-map-badge mono" role="status" title={statusBadge}>{statusBadge}</span>
-          <span className="live-preview-rates mono" title={`${rateBadge} — ${previewRateTooltip(locale)}`}>{rateBadge}</span>
           {pinned && <div className="live-pinned-tools">{statusBlock}{actions}</div>}
         </header>
         {pinned && stageOverride ? <div className="live-map-stage live-map-override">{stageOverride}{pinnedAlerts}</div> : <MinimapStage source={mapSource} hasFrame={minimap.hasFrame} covered={presentation.coveredBadge !== null && !paused && !userInvalidated}
