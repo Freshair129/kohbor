@@ -6,6 +6,8 @@ use kohbor_gsi::admission::{
 fn admitted(phase: GsiPhase) -> Admitted {
     Admitted {
         phase,
+        // The adapter does not read this flag; false matches the coarse phases used here.
+        draft_bar_phase: false,
         ownership: Ownership::Verified,
         team: None,
         match_id: Some("synthetic-match".into()),

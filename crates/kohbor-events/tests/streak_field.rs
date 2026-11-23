@@ -146,6 +146,8 @@ fn missing_observed_streak_uses_computed_path_and_keeps_unknown_baselines() {
 fn adapter_maps_deaths_and_streak_with_checked_narrowing() {
     let admitted = |deaths: Field<i64>, kill_streak: Field<i64>| Admitted {
         phase: GsiPhase::Live,
+        // Live is never a draft-bar phase.
+        draft_bar_phase: false,
         ownership: Ownership::Verified,
         team: None,
         match_id: None,
