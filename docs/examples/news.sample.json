@@ -1,0 +1,70 @@
+{
+  "schema_version": "1.0.0",
+  "updated_at": "2026-11-23T00:00:00Z",
+  "posts": [
+    {
+      "id": "sample-2026-11-23-overview",
+      "type": "announcement",
+      "published_at": "2026-11-23T00:00:00Z",
+      "pinned": true,
+      "expires_at": null,
+      "title": { "th": "[ตัวอย่าง] หน้าภาพรวมใหม่", "en": "[Sample] A new Overview page" },
+      "summary": {
+        "th": "ตัวอย่างประกาศ: หน้าภาพรวมรวมสถิติแมตช์ที่ Kohbor บันทึกในเครื่องของคุณ และข่าวจากทีม Kohbor ไว้ในที่เดียว",
+        "en": "Sample announcement: the Overview page brings the match stats Kohbor records on your PC and news from the Kohbor team together."
+      },
+      "body": {
+        "th": "นี่คือโพสต์ตัวอย่างสำหรับทดสอบรูปแบบไฟล์ news.json\nแก้ข้อความ วันที่ และ id ก่อนเผยแพร่จริง",
+        "en": "This is a sample post for checking the news.json format.\nReplace the text, dates and id before publishing."
+      },
+      "image": null,
+      "links": [],
+      "app_version": null,
+      "game_patch": null
+    },
+    {
+      "id": "sample-2026-11-22-app-update",
+      "type": "app_update",
+      "published_at": "2026-11-22T00:00:00Z",
+      "pinned": false,
+      "expires_at": null,
+      "title": { "th": "[ตัวอย่าง] Kohbor 0.3.0-dev.18", "en": "[Sample] Kohbor 0.3.0-dev.18" },
+      "summary": {
+        "th": "ตัวอย่างอัปเดตแอป: สรุปสิ่งที่เปลี่ยนในรุ่นนี้เป็นภาษาง่าย ๆ",
+        "en": "Sample app update: a plain-language summary of what changed in this version."
+      },
+      "body": null,
+      "image": null,
+      "links": [
+        {
+          "label": { "th": "หน้ารุ่นบน GitHub", "en": "Release page on GitHub" },
+          "url": "https://github.com/Freshair129/kohbor/releases/latest"
+        }
+      ],
+      "app_version": "0.3.0-dev.18",
+      "game_patch": null
+    },
+    {
+      "id": "sample-2026-11-21-patch-notes",
+      "type": "patch_notes",
+      "published_at": "2026-11-21T00:00:00Z",
+      "pinned": false,
+      "expires_at": null,
+      "title": { "th": "[ตัวอย่าง] แพตช์ 7.xx: อะไรเปลี่ยนสำหรับคุณ", "en": "[Sample] Patch 7.xx: what changes for you" },
+      "summary": {
+        "th": "ตัวอย่างบันทึกแพตช์ที่ Kohbor เขียนเอง สรุปสั้น ๆ ว่ากระทบการเล่นอย่างไร ไม่คัดลอกข้อความของ Valve",
+        "en": "Sample Kohbor-written patch summary of how play is affected. No Valve text is copied."
+      },
+      "body": null,
+      "image": null,
+      "links": [
+        {
+          "label": { "th": "บันทึกแพตช์ของ Valve", "en": "Valve patch notes" },
+          "url": "https://www.dota2.com/patches"
+        }
+      ],
+      "app_version": null,
+      "game_patch": "7.xx"
+    }
+  ]
+}
