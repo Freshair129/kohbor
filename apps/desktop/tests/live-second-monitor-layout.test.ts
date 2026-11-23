@@ -2,97 +2,170 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
-  MAP_MIN,
-  ROW_CARD_MIN,
-  TILE_CARD_MIN,
+  CARD_MIN_W,
+  CARD_GAP,
+  CARD_ROW_MIN_H,
+  CENTER_CARD_GAP,
+  CENTER_CARD_MIN,
+  CENTER_CARD_NARROW_STATS_MIN_H,
+  CENTER_GAP,
+  CENTER_MAP_MIN_W,
+  CENTER_WIDE_STATS_MIN_W,
+  GAP,
+  MAP_PANEL_MIN_H,
+  centeredLiveLayout,
   placedRegions,
   secondMonitorLayout,
   type PlacedLayout,
   type Rect,
-  // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
 } from "../src/live/secondMonitorLayout.ts";
 
-// Live box = window minus the 88 px nav rail and the 28 px footer (friends rail folded during a match).
-const box = (w: number, h: number) => ({ width: w - 88, height: h - 28 });
+// At the minimum viewport the pinned Live box retains the global header/footer and one navigation rail.
+const liveBox = (w: number, h: number) => ({ width: w - 136, height: h - 132 });
 const WINDOWS: [string, number, number][] = [
-  ["1920x1080", 1920, 1080], ["960x1080 half", 960, 1080], ["1080x1920 portrait", 1080, 1920], ["1280x720", 1280, 720],
-  ["2560x1440", 2560, 1440], ["1366x768", 1366, 768], ["1100x700", 1100, 700], ["1080x960", 1080, 960],
-  ["1600x900", 1600, 900], ["800x700", 800, 700], ["688x680 minimum", 688, 680],
+  ["1920x1080", 1920, 1080], ["1920x1000", 1920, 1000], ["1600x900", 1600, 900],
+  ["1366x768", 1366, 768], ["1280x720", 1280, 720],
 ];
 
 function placed(side: "left" | "right", w: number, h: number): PlacedLayout {
-  const layout = secondMonitorLayout({ side, ...box(w, h) });
-  assert.ok(layout.mode === "wide" || layout.mode === "stacked", `${w}x${h}: expected a placed layout, got ${layout.mode}`);
+  const layout = secondMonitorLayout({ side, ...liveBox(w, h) });
+  assert.equal(layout.mode, "stacked", `${w}x${h} ${side}: expected the pinned three-row layout`);
   return layout as PlacedLayout;
 }
 const inside = (r: Rect, w: number, h: number) => r.x >= 0 && r.y >= 0 && r.x + r.w <= w && r.y + r.h <= h && r.w > 0 && r.h > 0;
 const overlap = (a: Rect, b: Rect) => Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) > 0 && Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) > 0;
 
-test("every supported window: all regions inside the box, none overlapping, our five cards complete at or above the floor", () => {
-  for (const [name, w, h] of WINDOWS) {
-    for (const side of ["left", "right"] as const) {
-      const layout = placed(side, w, h);
-      const { width, height } = box(w, h);
-      const regions = placedRegions(layout);
-      for (const [region, rect] of regions) assert.ok(inside(rect, width, height), `${name} ${side}: ${region} outside the box ${JSON.stringify(rect)}`);
-      for (let i = 0; i < regions.length; i++) for (let j = i + 1; j < regions.length; j++) {
-        assert.ok(!overlap(regions[i][1], regions[j][1]), `${name}: ${regions[i][0]} overlaps ${regions[j][0]}`);
-      }
-      const floor = layout.cardKind === "row" ? ROW_CARD_MIN : TILE_CARD_MIN;
-      assert.ok(layout.card.w >= floor.w && layout.card.h >= floor.h, `${name}: card ${JSON.stringify(layout.card)} below the floor`);
-      assert.ok(layout.map.w >= MAP_MIN && layout.map.w === layout.map.h, `${name}: map ${layout.map.w}`);
-      // Five cards and the heading fit inside the team region (row: stacked vertically; tile: one row).
-      const need = layout.cardKind === "row" ? 22 + 6 + 5 * layout.card.h + 4 * 6 : 22 + 6 + layout.card.h;
-      assert.ok(need <= layout.ours.h, `${name}: our cards need ${need} > ${layout.ours.h}`);
-      if (layout.cardKind === "row") assert.ok(layout.card.w <= layout.ours.w, `${name}: card wider than its column`);
-      else assert.ok(5 * layout.card.w + 4 * 6 <= layout.ours.w, `${name}: five tiles do not fit the row`);
-      assert.equal(layout.map.x, 0, "the map touches the inner edge");
-      assert.equal(layout.band.y, layout.map.y + layout.map.h, "the quick strip sits directly under the map");
-      assert.equal(layout.band.w, layout.map.w);
+test("pinned full replay-structure floors fit five cards per row at 12 px text", () => {
+  assert.equal(CARD_MIN_W, 216);
+  assert.equal(CARD_ROW_MIN_H, 132);
+  assert.equal(MAP_PANEL_MIN_H, 260);
+});
+
+test("both pinned sides fit ten complete card slots and the minimap at every requested viewport", () => {
+  for (const [name, w, h] of WINDOWS) for (const side of ["left", "right"] as const) {
+    const layout = placed(side, w, h);
+    const { width, height } = liveBox(w, h);
+    const regions = placedRegions(layout);
+    for (const [region, rect] of regions) assert.ok(inside(rect, width, height), `${name} ${side}: ${region} outside ${JSON.stringify(rect)}`);
+    for (let i = 0; i < regions.length; i++) for (let j = i + 1; j < regions.length; j++) {
+      assert.ok(!overlap(regions[i][1], regions[j][1]), `${name} ${side}: ${regions[i][0]} overlaps ${regions[j][0]}`);
     }
+    assert.equal(layout.map.x, 0, `${name}: full-width map panel reaches the inner edge`);
+    assert.equal(layout.map.w, width, `${name}: each card row and the map panel share width`);
+    assert.ok(layout.map.h >= MAP_PANEL_MIN_H, `${name}: map panel floor`);
+    assert.ok(layout.card.w >= CARD_MIN_W, `${name}: each of five cards has at least ${CARD_MIN_W}px`);
+    assert.ok(layout.card.h >= CARD_ROW_MIN_H, `${name}: each card row has at least ${CARD_ROW_MIN_H}px`);
+    assert.equal(layout.enemy.y, 0, `${name}: enemy row starts at the top`);
+    assert.equal(layout.enemy.h, layout.card.h);
+    assert.equal(layout.map.y, layout.enemy.y + layout.enemy.h + GAP, `${name}: map follows the enemy row`);
+    assert.equal(layout.ours.y, layout.map.y + layout.map.h + GAP, `${name}: our row follows the map`);
+    assert.equal(layout.ours.h, layout.enemy.h);
+    assert.equal(layout.card.w, Math.floor((width - 4 * CARD_GAP) / 5), `${name}: five equal card columns after their gaps`);
+    const cardRects = [layout.enemy, layout.ours].flatMap(row => Array.from({ length: 5 }, (_, index) => ({
+      x: row.x + index * (layout.card.w + CARD_GAP), y: row.y, w: layout.card.w, h: layout.card.h,
+    })));
+    assert.equal(cardRects.length, 10);
+    cardRects.forEach((rect, index) => assert.ok(inside(rect, width, height), `${name} ${side}: card ${index} outside ${JSON.stringify(rect)}`));
+    assert.equal(layout.mapEdge, side === "right" ? "left" : "right");
+    assert.deepEqual(regions.map(([region]) => region), ["enemy", "map", "ours"]);
   }
 });
 
-test("the four reviewed windows choose the proposed modes", () => {
-  const full = placed("right", 1920, 1080);
-  assert.deepEqual([full.mode, full.plan, full.enemy !== null, full.slot !== null], ["wide", "both+slot", true, true]);
-  const half = placed("right", 960, 1080);
-  assert.deepEqual([half.mode, half.enemy !== null, half.slot !== null], ["stacked", true, true]);
-  assert.ok(half.enemy!.y < half.map.y && half.ours.y > half.band.y, "half: enemy row above the map, our row below");
-  const portrait = placed("left", 1080, 1920);
-  assert.deepEqual([portrait.mode, portrait.mapEdge, portrait.slot !== null], ["stacked", "right", true]);
-  assert.ok(portrait.slot!.x > portrait.map.x + portrait.map.w, "the free slot is beside the map on the outer side");
-  const small = placed("right", 1280, 720);
-  assert.deepEqual([small.mode, small.plan, small.enemy !== null], ["wide", "both", true]);
-});
-
-test("the free slot never shrinks the map; when space runs out our team stays complete", () => {
-  const withSlot = placed("right", 1920, 1080);
-  const sameHeightNoSlot = secondMonitorLayout({ side: "right", width: withSlot.map.w + 8 + 2 * ROW_CARD_MIN.w + 8, height: box(1920, 1080).height });
-  assert.ok(sameHeightNoSlot.mode === "wide");
-  assert.equal((sameHeightNoSlot as PlacedLayout).map.w, withSlot.map.w);
-  const minimum = placed("right", 688, 680);
-  assert.equal(minimum.plan, "ours");
-  assert.equal(minimum.enemy, null);
-});
-
-test("below the smallest supported size the page says the window is too small; off stays off", () => {
-  for (const [w, h] of [[680, 680], [688, 676], [500, 900], [400, 400]] as const) {
-    assert.equal(secondMonitorLayout({ side: "right", ...box(w, h) }).mode, "too_small", `${w}x${h}`);
-  }
-  assert.equal(secondMonitorLayout({ side: "right", width: Number.NaN, height: 900 }).mode, "too_small");
-  assert.equal(secondMonitorLayout({ side: "off", width: 1832, height: 1052 }).mode, "off");
-});
-
-test("the layout depends only on the box size, never on content", () => {
-  assert.deepEqual(secondMonitorLayout({ side: "left", width: 1832, height: 1052 }), secondMonitorLayout({ side: "left", width: 1832, height: 1052 }));
-});
-
-test("the view places every region from the layout and renders the too-small state", () => {
+test("pinned view mounts both five-card rows and has no free-slot or internal-scroll region", () => {
   const deck = readFileSync(new URL("../src/live/SecondMonitorDeck.tsx", import.meta.url), "utf8");
-  for (const region of ["map", "status", "ours", "enemy", "slot"]) assert.match(deck, new RegExp(`data-region="${region}"`));
-  assert.match(deck, /layout\.mode === "too_small"/);
-  assert.match(deck, /orderBySlot\(\[ownCard, \.\.\.allies\]\)/, "our cards ordered by slot id");
-  assert.match(deck, /<details className="sm-own-more">/, "own details open in a popover, not by growing the card");
-  assert.doesNotMatch(deck, /legacy/, "no fallback to the scrolling centred deck");
+  const css = readFileSync(new URL("../src/live/secondMonitor.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.match(deck, /<TeamRow cards=\{enemies\} side="enemy"/);
+  assert.match(deck, /<TeamRow cards=\{ours\} side="ally"/);
+  assert.match(deck, /orderBySlot\(\[ownCard, \.\.\.allies\]\)/);
+  assert.match(deck, /CompactHeroCards cards=\{cards\}[^>]*fieldCard/);
+  assert.match(deck, /fieldCard fieldDirection="row"/);
+  assert.match(deck, /<OwnHeroCard[^>]*fieldCard/);
+  assert.doesNotMatch(deck, /data-region="slot"|sm-slot|EventFeed|AnnouncerStatus|GsiSetupHint/);
+  assert.doesNotMatch(css, /overflow(?:-[xy])?:\s*(?:auto|scroll)/, "pinned Live has no scroll containers");
+  assert.match(css, /\.sm-host\s*\{[^}]*overflow:\s*hidden/);
+  assert.match(css, /\.sm-card-row > \.lhc-list-field\s*\{[^}]*height:\s*100%/);
+  assert.match(css, /\.sm-map-region > \.live-pinned-panel\s*\{[^}]*height:\s*100%/);
+});
+
+test("below the box needed for cards and map, use the existing too-small state", () => {
+  assert.equal(secondMonitorLayout({ side: "right", width: 5 * CARD_MIN_W + 4 * CARD_GAP - 1, height: 900 }).mode, "too_small");
+  assert.equal(secondMonitorLayout({ side: "right", width: 1200, height: 2 * CARD_ROW_MIN_H + MAP_PANEL_MIN_H + 2 * GAP - 1 }).mode, "too_small");
+  assert.equal(secondMonitorLayout({ side: "off", width: 1200, height: 900 }).mode, "off");
+});
+
+test("layout is determined by the box and side only, never by card content", () => {
+  const { width, height } = liveBox(1280, 720);
+  assert.deepEqual(secondMonitorLayout({ side: "left", width, height }), secondMonitorLayout({ side: "left", width, height }));
+  assert.deepEqual(secondMonitorLayout({ side: "left", width, height }).mode, "stacked");
+});
+
+const CENTER_WINDOWS: [string, number, number][] = [
+  ["1920x1080", 1920, 1080], ["1920x1000", 1920, 1000], ["1600x900", 1600, 900],
+  ["1366x768", 1366, 768], ["1280x720", 1280, 720],
+];
+const centerLiveBox = (w: number, h: number) => ({ width: w - 208, height: h - 132 });
+const centerInside = (r: Rect, w: number, h: number) => r.x >= 0 && r.y >= 0 && r.x + r.w <= w && r.y + r.h <= h && r.w > 0 && r.h > 0;
+const centerOverlap = (a: Rect, b: Rect) => Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) > 0 && Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) > 0;
+
+test("centred mode places Radiant, minimap, and Dire without overflow at each supported viewport", () => {
+  for (const [name, w, h] of CENTER_WINDOWS) {
+    const { width, height } = centerLiveBox(w, h);
+    const layout = centeredLiveLayout({ width, height });
+    assert.equal(layout.mode, "field", `${name}: all three regions fit`);
+    if (layout.mode !== "field") continue;
+    for (const [region, rect] of [["Radiant", layout.radiant], ["map", layout.map], ["Dire", layout.dire]] as const) {
+      assert.ok(centerInside(rect, width, height), `${name}: ${region} outside the Live box`);
+    }
+    assert.equal(layout.radiant.h, layout.map.h, `${name}: Radiant column matches map height`);
+    assert.equal(layout.dire.h, layout.map.h, `${name}: Dire column matches map height`);
+    assert.equal(layout.radiant.y, 0);
+    assert.equal(layout.map.y, 0);
+    assert.equal(layout.dire.y, 0);
+    assert.ok(!centerOverlap(layout.radiant, layout.map));
+    assert.ok(!centerOverlap(layout.map, layout.dire));
+    assert.equal(layout.map.x, layout.radiant.w + CENTER_GAP);
+    assert.equal(layout.dire.x, layout.map.x + layout.map.w + CENTER_GAP);
+    assert.ok(layout.map.w >= CENTER_MAP_MIN_W);
+    assert.ok(layout.card.w >= CENTER_CARD_MIN.w);
+    assert.ok(layout.card.h >= (layout.card.w >= CENTER_WIDE_STATS_MIN_W ? CENTER_CARD_MIN.h : CENTER_CARD_NARROW_STATS_MIN_H));
+    assert.ok(layout.card.h * 5 + CENTER_CARD_GAP * 4 <= height, `${name}: five equal rows fit in each column`);
+    const cards = [layout.radiant, layout.dire].flatMap(column => Array.from({ length: 5 }, (_, slot) => ({
+      x: column.x, y: column.y + slot * (layout.card.h + CENTER_CARD_GAP), w: layout.card.w, h: layout.card.h,
+    })));
+    assert.equal(cards.length, 10, `${name}: both teams have five cards`);
+    cards.forEach((card, index) => assert.ok(centerInside(card, width, height), `${name}: card ${index} outside the Live box`));
+  }
+});
+
+test("centred field renders ten slot-ordered replay cards, same-height team columns, and the GSI phase strip", () => {
+  const deck = readFileSync(new URL("../src/deck/Deck.tsx", import.meta.url), "utf8");
+  const cardCss = readFileSync(new URL("../src/live/heroCard.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const liveCss = readFileSync(new URL("../src/live/secondMonitor.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.match(deck, /orderBySlot\(\[ownModel, \.\.\.allyCards\]\)/);
+  assert.match(deck, /<section className="deck-field-region deck-field-team"[^>]*data-region="radiant"/);
+  assert.match(deck, /<section className="deck-field-region deck-field-team"[^>]*data-region="dire"/);
+  assert.match(deck, /<section className="deck-field-region deck-field-map"[^>]*data-region="map"/);
+  assert.match(deck, /data-testid="gsi-phase-strip"/);
+  assert.match(deck, /draft \? <div className="deck-field-draft-row"/);
+  assert.match(deck, /<DraftBarStrip frame=\{draftBar\}/);
+  assert.match(deck, /<DraftDeckPanel visible \/>/);
+  assert.match(deck, /<OwnHeroCard[^>]*fieldCard/);
+  assert.match(deck, /ownTeam === "radiant" \? ourCards : enemyCards/);
+  assert.match(deck, /ownTeam === "dire" \? ourCards : enemyCards/);
+  assert.match(deck, /label=\{cardsText\.radiant\}/);
+  assert.match(deck, /label=\{cardsText\.dire\}/);
+  const cardSource = readFileSync(new URL("../src/live/HeroCard.tsx", import.meta.url), "utf8");
+  assert.match(cardSource, /lhc-list-field-\$\{fieldDirection\}/);
+  assert.match(cardCss, /\.lhc-list-field-row\s*\{[^}]*grid-template-columns:\s*repeat\(5,/);
+  assert.match(cardCss, /\.lhc-list-field\s*\{[^}]*grid-template-rows:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(liveCss, /\.deck-field-map\s*\{[^}]*display:\s*flex/);
+  assert.match(liveCss, /\.deck-field-region\s*\{[^}]*overflow:\s*hidden/);
+  assert.match(liveCss, /\.app\[data-live-match="true"\] \.deck-field-draft-row \.draft-column-surface-deck\s*\{[^}]*overflow:\s*hidden/);
+  assert.doesNotMatch(liveCss, /overflow(?:-[xy])?:\s*(?:auto|scroll)/);
+});
+
+test("undersized centred boxes use a clear state rather than scrolling or clipping cards", () => {
+  assert.deepEqual(centeredLiveLayout({ width: 700, height: 500 }), { mode: "too_small" });
+  assert.equal(centeredLiveLayout({ width: 950, height: 700 }).mode, "field", "narrow stat rows retain their taller 12 px text floor");
+  assert.deepEqual(centeredLiveLayout({ width: 950, height: 600 }), { mode: "too_small" }, "never compress five stat rows below the narrow-card floor");
 });

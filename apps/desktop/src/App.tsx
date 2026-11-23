@@ -231,7 +231,8 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
 
   return (
     <div className="app glass-field" lang={displayLocale} data-theme="dark" data-glass={glass.level} data-rail={rail.state} data-page={activePage}
-      data-live-monitor={pinnedSide ?? undefined} data-match={pinnedSide && inMatch ? "true" : undefined}>
+      data-live-monitor={pinnedSide ?? undefined} data-match={pinnedSide && inMatch ? "true" : undefined}
+      data-live-match={activePage === "live" && inMatch ? "true" : undefined}>
       {devScenarioSwitcher && <div className="shell-dev-layer">{devScenarioSwitcher}</div>}
       <RailLeft current={activePage} labels={text.shell.destinations} navigationLabel={text.shell.navigationLabel}
         gameConnection={steamStatus?.gsi ?? "unknown"} locale={displayLocale} railState={rail.state} onToggleRail={rail.toggle} onNavigate={navigate} />
@@ -252,6 +253,7 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
           <div className="shell-page-head-tools">
             {/* Owner decision 2026-11-23 item 5: no GSI/game status chips on the Overview; every other page keeps them. */}
             {activePage !== "overview" && <StatusLine model={statusModel} label={text.shell.statusLineLabel} hostLostMessage={`${text.hostLost} — ${text.hostOutdated}`} onNavigate={navigate} />}
+            {activePage === "live" && inMatch && <SecondMonitorToggle side={secondMonitor.side} onChange={secondMonitor.change} locale={displayLocale === "en" ? "en" : "th"} />}
             <AudioMuteControl control={mute} locale={displayLocale} compact />
           </div>
         </header>
@@ -261,19 +263,15 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
 
           {activePage === "live" && (
             <div className="shell-screen shell-live-page">
-              {!pinnedSide && <div className="shell-live-page-top">
+              {!inMatch && <div className="shell-live-page-top">
                 <GsiSetupCard status={hostLost ? null : status} locale={displayLocale} setup={setup} />
                 <StartDotaBar status={steamStatus} control={launch} showSteamName={steamName.show} locale={displayLocale} />
               </div>}
-              {!pinnedSide && <div className="shell-live-page-top">
+              {!inMatch && <div className="shell-live-page-top">
                 <SecondMonitorToggle side={secondMonitor.side} onChange={secondMonitor.change} locale={displayLocale === "en" ? "en" : "th"} />
               </div>}
               <Deck locale={displayLocale} status={status} snapshot={snapshot} state={deckState} mute={mute} playback={playback} hostLost={hostLost} steamStatus={steamStatus} gsiSetup={setup}
-                secondMonitor={pinnedSide ? { side: pinnedSide, onChange: secondMonitor.change,
-                  status: <StartDotaBar status={steamStatus} control={launch} showSteamName={steamName.show} locale={displayLocale} />,
-                  // Only when GSI needs attention; the normal "receiving" line is already in the status chips.
-                  setupNotice: setupNeeded ? <GsiSetupCard status={hostLost ? null : status} locale={displayLocale} setup={setup} /> : null,
-                } : undefined} />
+                inMatch={inMatch} secondMonitor={pinnedSide ? { side: pinnedSide, onChange: secondMonitor.change } : undefined} />
             </div>
           )}
 

@@ -3,7 +3,7 @@
 // Own hero: the full card filled from GSI. Allies and enemies: the same structure in a denser variant, built from the
 // second-monitor card model. Unknown renders "—" or an empty dashed slot; no stat is computed on Live, no path traces,
 // no enemy value without an admitted source.
-import { useEffect, useState, type CSSProperties } from "react";
+import { Fragment, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { seconds, type Locale } from "../copy";
 import { HeroPortrait } from "../deck/HeroPortrait";
 import { GsiSetupHint } from "../deck/OwnLoadout";
@@ -165,10 +165,19 @@ function CardSections({ view, text, locale, abilitiesAge, itemsAge }: {
 }
 
 /** Own hero, full replay-style card. Keeps the last fresh loadout of the same context while the source is stale. */
-export function OwnHeroCard({ locale, own, loadout, slot, stale, ageMs, hasLatestResult, headingId, headingLabel, gsiSetup }: {
+export function OwnHeroCard({ locale, own, loadout, slot, stale, ageMs, hasLatestResult, headingId, headingLabel, gsiSetup, tile = false, listItem = false, fieldCard = false, wideStats = false, youLabel = "You" }: {
   locale: Locale; own: OwnHeroViewModel; loadout: LoadoutViewModel; slot: number | null; stale: boolean; ageMs: number | null;
   hasLatestResult: boolean; headingId: string; headingLabel: { title: string; latestResult: string };
   gsiSetup?: (replace: boolean) => Promise<string | null>;
+  /** Tile layout is used only by the stacked second-monitor mode; the card keeps all replay sections and wraps them. */
+  tile?: boolean;
+  /** Wrap the card in a list item when it shares the second-monitor team list with the dense cards. */
+  listItem?: boolean;
+  /** Use the shared replay-card layout as one of the five team slots during a match. */
+  fieldCard?: boolean;
+  /** Use the wider two-row stat grid when the team column has room. */
+  wideStats?: boolean;
+  youLabel?: string;
 }) {
   const lang: Lang = locale === "en" ? "en" : "th";
   const text = heroCardCopy(lang);
@@ -182,10 +191,28 @@ export function OwnHeroCard({ locale, own, loadout, slot, stale, ageMs, hasLates
   const style = (view.color ? { "--c": view.color } : {}) as CSSProperties;
   const ageText = `${stale ? text.oldData : text.age} · ${seconds(ageMs, locale)}`;
   const life = ownHeroLifeLabel(own, lang);
-
-  return (
-    <section className={`lhc lhc-full${stale ? " is-stale" : ""}${view.alive === false ? " is-dead" : ""}`} style={style}
-      aria-labelledby={headingId} data-testid="live-hero-card-own">
+  if (fieldCard) {
+    const field = (
+      <li className={`lhc lhc-compact lhc-field-card lhc-field-own${wideStats ? " has-wide-stats" : ""}${stale ? " is-stale" : ""}${view.alive === false ? " is-dead" : ""}`}
+        style={style} data-testid="live-hero-card-own" data-slot={slot ?? undefined} aria-label={`${youLabel}: ${view.heroName ?? UNKNOWN}`}>
+        <div className="lhc-pt">
+          <CardPortrait heroId={view.heroId} src={view.portraitSrc} alt={view.heroName ?? text.unknown} />
+          <span className="lhc-lv" title={`${text.level} ${view.levelText}`} aria-label={`${text.level} ${view.levelText}`}>{view.levelText}</span>
+          {view.respawnText !== null && <span className="lhc-rsp" aria-hidden="true">{view.respawnText}</span>}
+        </div>
+        <div className="lhc-nm">
+          <strong title={view.heroCaption ?? view.heroName ?? undefined}>{view.heroName ?? UNKNOWN}</strong>
+          <span className="lhc-you-chip">{youLabel}</span>
+          <span className="lhc-life" title={life}>{life}</span>
+        </div>
+        <CardSections view={view} text={text} locale={locale} abilitiesAge={loadout.abilities.ageMs} itemsAge={loadout.items.ageMs} />
+      </li>
+    );
+    return field;
+  }
+  const card = (
+    <section className={`lhc lhc-full${tile ? " lhc-tile" : ""}${stale ? " is-stale" : ""}${view.alive === false ? " is-dead" : ""}`} style={style}
+      aria-labelledby={headingId} data-testid="live-hero-card-own" data-slot={slot ?? undefined}>
       <header className="lhc-head">
         <h1 id={headingId}>{headingLabel.title}</h1>
         {hasLatestResult && <span className="lhc-result">{headingLabel.latestResult}</span>}
@@ -204,10 +231,12 @@ export function OwnHeroCard({ locale, own, loadout, slot, stale, ageMs, hasLates
       {loadout.setupHint && <div className="lhc-hint"><GsiSetupHint locale={lang} gsiSetup={gsiSetup} /></div>}
     </section>
   );
+
+  return listItem ? <li className="lhc-list-item">{card}</li> : card;
 }
 
 /** Ally or enemy: the same sections in a denser variant; values without an admitted source are "—" or empty slots. */
-function TeamCard({ view, locale }: { view: FullHeroCardView; locale: Locale }) {
+function TeamCard({ view, locale, tile = false, fieldCard = false, wideStats = false }: { view: FullHeroCardView; locale: Locale; tile?: boolean; fieldCard?: boolean; wideStats?: boolean }) {
   const lang: Lang = locale === "en" ? "en" : "th";
   const text = heroCardCopy(lang);
   const cards = cardCopy(lang);
@@ -215,7 +244,7 @@ function TeamCard({ view, locale }: { view: FullHeroCardView; locale: Locale }) 
   const who = view.side === "enemy" ? cards.enemyMark : cards.ourTeam;
   const note = view.heroName === null ? text.unnamedNote : view.side === "enemy" ? text.enemyNote : text.allyNote;
   return (
-    <li className={`lhc lhc-compact is-${view.side}${view.heroName ? "" : " is-unknown"}`} style={style} title={note}
+    <li className={`lhc lhc-compact${tile ? " lhc-tile" : ""}${fieldCard ? ` lhc-field-card${wideStats ? " has-wide-stats" : ""}` : ""} is-${view.side}${view.heroName ? "" : " is-unknown"}`} style={style} title={note}
       data-testid={`live-hero-card-${view.key}`} data-slot={view.slot ?? undefined} aria-label={`${who}: ${view.heroName ?? UNKNOWN} · ${note}`}>
       <div className="lhc-pt">
         <CardPortrait heroId={view.heroId} src={view.portraitSrc} alt={view.heroName ?? UNKNOWN} />
@@ -231,11 +260,22 @@ function TeamCard({ view, locale }: { view: FullHeroCardView; locale: Locale }) 
   );
 }
 
+/** One dense replay-structure card for a mixed second-monitor team list. */
+export function CompactHeroCardItem({ card, locale, tile = false, fieldCard = false, wideStats = false }: { card: CardModel; locale: Locale; tile?: boolean; fieldCard?: boolean; wideStats?: boolean }) {
+  return <TeamCard view={teamFullCard(card, dotaIcon)} locale={locale} tile={tile} fieldCard={fieldCard} wideStats={wideStats} />;
+}
+
 /** A team column of cards (four allies, or five enemies), each from the second-monitor card model. */
-export function CompactHeroCards({ cards, locale, label }: { cards: CardModel[]; locale: Locale; label: string }) {
+export function CompactHeroCards({ cards, locale, label, tile = false, fieldCard = false, fieldDirection = "column", wideStats = false, renderOwn }: {
+  cards: CardModel[]; locale: Locale; label: string; tile?: boolean; fieldCard?: boolean; wideStats?: boolean;
+  fieldDirection?: "column" | "row";
+  renderOwn?: (card: CardModel) => ReactNode;
+}) {
   return (
-    <ul className="lhc-list" aria-label={label}>
-      {cards.map(card => <TeamCard key={card.key} view={teamFullCard(card, dotaIcon)} locale={locale} />)}
+    <ul className={`lhc-list${tile ? " lhc-list-tile" : ""}${fieldCard ? ` lhc-list-field lhc-list-field-${fieldDirection}` : ""}`} aria-label={label}>
+      {cards.map(card => card.side === "own" && renderOwn
+        ? <Fragment key={card.key}>{renderOwn(card)}</Fragment>
+        : <CompactHeroCardItem key={card.key} card={card} locale={locale} tile={tile} fieldCard={fieldCard} wideStats={wideStats} />)}
     </ul>
   );
 }
