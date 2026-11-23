@@ -1,47 +1,50 @@
 // Kohbor website — the stage.
 // One continuous 3D shot shared by the page (scroll-driven) and the film (time-driven).
 // Deterministic: every frame is a pure function of the params handed to render().
-// The field is an original, procedural MOBA-style battlefield (two corner bases on high ground,
-// three lanes, a diagonal river, jungle between the lanes), drawn from code only: no game image,
-// map file or asset is used, and positions are not measured from any game.
+// The field is traced from the Dota 2 map overview (see assets/map/README.md): a 256 x 256 RGBA
+// texture baked from it. R = brightness, G = water, B = local texture (trees and cliff edges).
+// The original map image is not shipped. Owner decision 2026-11-23.
 import * as THREE from '../vendor/three.module.min.js';
 
 export const R = 5;          // half-size of the map square in world units
 export const SEA = 0.15;     // height threshold: above = land
+const FIELD_N = 256;
 
-// Battlefield layout in grid space (-1..1); x to the right, z toward the viewer.
-// Home base bottom-left, enemy base top-right, river from top-left to bottom-right.
-// The same field is evaluated in GLSL (points) and in JS (marker heights); keep them in step.
-export const BASES = [[-0.80, 0.80], [0.80, -0.80]];
-export const LANES = [
-  [[-0.80, 0.60], [-0.80, -0.80]], [[-0.80, -0.80], [0.60, -0.80]],   // top lane
-  [[-0.60, 0.80], [0.80, 0.80]], [[0.80, 0.80], [0.80, -0.60]],       // bottom lane
-  [[-0.64, 0.64], [0.64, -0.64]],                                     // middle lane
-];
-
+// Grid space (-1..1): x to the right, z toward the viewer. Image row 0 is the far (top) edge.
+const fieldImage = await new Promise((resolve, reject) => {
+  const img = new Image();
+  img.onload = () => resolve(img);
+  img.onerror = () => reject(new Error('map field failed to load'));
+  img.src = new URL('../assets/map/field.png', import.meta.url).href;
+});
+const FIELD = (() => {
+  const c = document.createElement('canvas');
+  c.width = c.height = FIELD_N;
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(fieldImage, 0, 0);
+  return ctx.getImageData(0, 0, FIELD_N, FIELD_N).data;
+})();
 const sat = (x) => Math.min(1, Math.max(0, x));
-const smooth = (a, b, x) => { const t = sat((x - a) / (b - a)); return t * t * (3 - 2 * t); };
-function segDist(px, pz, [ax, az], [bx, bz]) {
-  const vx = bx - ax, vz = bz - az, wx = px - ax, wz = pz - az;
-  const t = sat((wx * vx + wz * vz) / (vx * vx + vz * vz));
-  return Math.hypot(wx - vx * t, wz - vz * t);
+function fieldAt(gx, gz) {
+  const i = Math.min(FIELD_N - 1, Math.max(0, Math.floor((gx * 0.5 + 0.5) * FIELD_N)));
+  const j = Math.min(FIELD_N - 1, Math.max(0, Math.floor((gz * 0.5 + 0.5) * FIELD_N)));
+  const k = (j * FIELD_N + i) * 4;
+  return [FIELD[k] / 255, FIELD[k + 1] / 255, FIELD[k + 2] / 255];
 }
-export function laneDist(gx, gz) {
-  return Math.min(...LANES.map(([a, b]) => segDist(gx, gz, a, b)));
-}
-export function riverDist(gx, gz) {
-  return Math.abs(gz - gx - 0.10 * Math.sin((gx + gz) * 2.4)) / Math.SQRT2;
-}
-// Height without the jungle canopy (markers stand on lanes and bases, where there is none).
+// Must match mapHeight() in POINT_VERT.
 export function heightAt(gx, gz) {
-  let h = 0.30;
-  for (const [bx, bz] of BASES) {
-    const d = Math.hypot(gx - bx, gz - bz);
-    h += 0.30 * smooth(0.56, 0.36, d) + 0.55 * Math.exp(-(d * d) / 0.004);
-  }
-  h -= 0.24 * Math.exp(-((riverDist(gx, gz) / 0.075) ** 2));
-  return h * smooth(1.0, 0.94, Math.max(Math.abs(gx), Math.abs(gz)));
+  const [lum, wet, tex] = fieldAt(gx, gz);
+  const water = wet * (1 - sat((tex - 0.25) / 0.3));
+  const trees = sat((tex - 0.28) / 0.4) * (1 - water);
+  return 0.26 + lum * 0.10 + trees * 0.26 - water * 0.20;
 }
+
+// Lanes in grid space, traced from the same overview, home (bottom-left) side first.
+export const LANES = {
+  top: [[-0.80, 0.55], [-0.80, -0.78], [0.55, -0.80]],
+  mid: [[-0.58, 0.58], [0.58, -0.58]],
+  bot: [[-0.55, 0.82], [0.80, 0.80], [0.82, -0.55]],
+};
 
 // Sample markers, placed on lanes. Shapes follow the Command Deck rule: ally = ring, enemy = diamond, own = double ring.
 export const MARKERS = [
@@ -50,9 +53,55 @@ export const MARKERS = [
   { id: 'A2', kind: 'ally', g: [0.20, 0.80] },
   { id: 'E1', kind: 'enemy', g: [0.14, -0.14] },
   { id: 'E2', kind: 'enemy', g: [-0.30, -0.80] },
-  { id: 'E3', kind: 'enemy', g: [0.80, 0.18] },
-  { id: 'E4', kind: 'enemy', g: [0.50, -0.80] },
+  { id: 'E3', kind: 'enemy', g: [0.81, 0.18] },
+  { id: 'E4', kind: 'enemy', g: [0.40, -0.80] },
 ];
+
+// Hero holograms: one pair per lane walks toward the other and fights, on a loop.
+// Portraits come from the owner's Dota 2 install export (assets/heroes/README.md).
+export const HEROES = [
+  { id: 'juggernaut', team: 'ally', lane: 'mid', phase: 0.00 },
+  { id: 'nevermore', team: 'enemy', lane: 'mid', phase: 0.00 },
+  { id: 'crystal_maiden', team: 'ally', lane: 'top', phase: 0.37 },
+  { id: 'lina', team: 'enemy', lane: 'top', phase: 0.37 },
+  { id: 'sven', team: 'ally', lane: 'bot', phase: 0.68 },
+  { id: 'pudge', team: 'enemy', lane: 'bot', phase: 0.68 },
+];
+const heroImages = await Promise.all(HEROES.map((hr) => new Promise((resolve) => {
+  const img = new Image();
+  img.onload = () => resolve(img);
+  img.onerror = () => resolve(null);           // a missing portrait just leaves that card out
+  img.src = new URL(`../assets/heroes/${hr.id}.png`, import.meta.url).href;
+})));
+export const HERO_CYCLE = 9.0;                 // seconds per walk, fight, fade loop
+/** Point at fraction t (0..1) along a polyline of [x, z] grid points. */
+function along(poly, t) {
+  const seg = [];
+  let total = 0;
+  for (let i = 1; i < poly.length; i++) { const l = Math.hypot(poly[i][0] - poly[i - 1][0], poly[i][1] - poly[i - 1][1]); seg.push(l); total += l; }
+  let d = sat(t) * total;
+  for (let i = 0; i < seg.length; i++) {
+    if (d <= seg[i] || i === seg.length - 1) {
+      const k = seg[i] ? Math.min(d / seg[i], 1) : 0;
+      return [poly[i][0] + (poly[i + 1][0] - poly[i][0]) * k, poly[i][1] + (poly[i + 1][1] - poly[i][1]) * k];
+    }
+    d -= seg[i];
+  }
+  return poly[poly.length - 1];
+}
+const easeIO = (x) => (x < 0.5 ? 2 * x * x : 1 - (-2 * x + 2) ** 2 / 2);
+/** Deterministic choreography for one hero at time t: grid position, alpha, fight amount. */
+export function heroPose(hr, t) {
+  const u = (((t / HERO_CYCLE) + hr.phase) % 1 + 1) % 1;
+  const walk = easeIO(sat(u / 0.5));
+  const fight = u > 0.5 && u < 0.86 ? Math.sin(((u - 0.5) / 0.36) * Math.PI) : 0;
+  const alpha = sat(u / 0.06) * (1 - sat((u - 0.86) / 0.1));
+  const home = hr.team === 'ally';
+  const s = home ? 0.12 + walk * 0.345 : 0.88 - walk * 0.345;
+  const lunge = fight * 0.018 * Math.sin(u * 140) * (home ? 1 : -1);
+  const g = along(LANES[hr.lane], s + lunge);
+  return { g, alpha, fight, u };
+}
 
 const hex = (h) => new THREE.Color(h);
 // Colours a room gives to what is drawn on it. c = Charcoal, b = Bone, r = Barber Red.
@@ -85,51 +134,28 @@ const POINT_VERT = /* glsl */`
     f = f * f * (3.0 - 2.0 * f);
     return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
   }
-  // Same battlefield as BASES / LANES / heightAt() in JS.
-  float segDist(vec2 p, vec2 a, vec2 b) {
-    vec2 pa = p - a, ba = b - a;
-    return length(pa - ba * clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0));
-  }
-  float laneDist(vec2 g) {
-    float d = segDist(g, vec2(-0.80, 0.60), vec2(-0.80, -0.80));
-    d = min(d, segDist(g, vec2(-0.80, -0.80), vec2(0.60, -0.80)));
-    d = min(d, segDist(g, vec2(-0.60, 0.80), vec2(0.80, 0.80)));
-    d = min(d, segDist(g, vec2(0.80, 0.80), vec2(0.80, -0.60)));
-    return min(d, segDist(g, vec2(-0.64, 0.64), vec2(0.64, -0.64)));
-  }
-  float riverDist(vec2 g) { return abs(g.y - g.x - 0.10 * sin((g.x + g.y) * 2.4)) * 0.70710678; }
-  float baseField(vec2 g) {
-    float h = 0.0;
-    vec2 b0 = vec2(-0.80, 0.80), b1 = vec2(0.80, -0.80);
-    float d0 = length(g - b0), d1 = length(g - b1);
-    h += 0.30 * smoothstep(0.56, 0.36, d0) + 0.55 * exp(-d0 * d0 / 0.004);
-    h += 0.30 * smoothstep(0.56, 0.36, d1) + 0.55 * exp(-d1 * d1 / 0.004);
-    return h;
-  }
-
+  // Same traced field as heightAt() in JS. R = brightness, G = water, B = local texture.
+  uniform sampler2D uField;
   void main() {
     vec2 g = aGrid;
-    float lane = laneDist(g), river = riverDist(g);
-    float bases = baseField(g);
-    float edge = smoothstep(1.0, 0.94, max(abs(g.x), abs(g.y)));
-    // jungle canopy: clumps of trees away from lanes, river and bases
-    float clear = smoothstep(0.05, 0.11, lane) * smoothstep(0.09, 0.16, river) * (1.0 - smoothstep(0.02, 0.12, bases));
-    float trees = smoothstep(0.48, 0.78, vnoise(g * 13.0)) * clear;
-    float h = (0.30 + bases + trees * 0.20 - 0.24 * exp(-pow(river / 0.075, 2.0))) * edge
-            + (vnoise(g * 9.0) - 0.5) * 0.02;
+    vec3 f = texture2D(uField, clamp(g * 0.5 + 0.5, 0.0, 1.0)).rgb;
+    float lum = f.r;
+    float water = f.g * (1.0 - clamp((f.b - 0.25) / 0.3, 0.0, 1.0));
+    float trees = clamp((f.b - 0.28) / 0.4, 0.0, 1.0) * (1.0 - water);
+    float h = 0.26 + lum * 0.10 + trees * 0.26 - water * 0.20 + (vnoise(g * 40.0) - 0.5) * 0.015;
     float land = smoothstep(${(SEA - 0.02).toFixed(2)}, ${(SEA + 0.02).toFixed(2)}, h);
     float elev = max(h - ${SEA.toFixed(2)}, 0.0);
-    float cl = abs(fract(h * 9.0 + 0.5) - 0.5);
-    float contour = (1.0 - smoothstep(0.03, 0.09, cl)) * land;
-    float laneLine = (1.0 - smoothstep(0.016, 0.04, lane)) * land;
     float seaKeep = step(0.55, aRand.w);
+    // paths and lanes read as the brightest flat ground; trees as raised, busier ground
+    float path = smoothstep(0.62, 0.86, lum) * (1.0 - trees);
 
     // 0 battlefield relief
     vec3 p0 = vec3(g.x * R, elev * uH * 1.7 + (1.0 - land) * sin(g.x * 9.0 + g.y * 7.0 + uTime * 0.6) * 0.025, g.y * R);
-    float a0 = mix(0.16 * seaKeep, 0.40, land) + contour * 0.35 + laneLine * 0.6 + trees * 0.12;
+    float a0 = mix(0.22 * seaKeep, 0.08 + lum * lum * 0.95, land) + path * 0.35 + trees * 0.12;
     // 1 flat map
     vec3 p1 = vec3(g.x * R, elev * 0.08, g.y * R);
-    float a1 = mix(0.13 * seaKeep, 0.30, land) + contour * 0.45 + laneLine * 0.75;
+    float a1 = mix(0.10 * seaKeep, 0.02 + lum * lum * 1.05, land) * (1.0 - water * 0.75) + path * 0.45;
+    float contour = 0.0;
     // 2 rings: three bands, one per mixer channel
     float ringT = g.y * 0.5 + 0.5;
     float ringI = floor(ringT * 30.0);
@@ -306,6 +332,50 @@ const HALO_FRAG = /* glsl */`
   }
 `;
 
+// A hero card as a hologram: the portrait in one ink colour, scanlines, flicker, a thin frame,
+// and a rare horizontal glitch. The colour is the team colour of the room it is drawn on.
+const HOLO_FRAG = /* glsl */`
+  precision highp float;
+  uniform sampler2D uTex;
+  uniform vec3 uColTop, uColBot;
+  uniform float uAlpha, uTime, uSeed;
+  varying vec2 vUv;
+  ${SPLIT}
+  float h1(float n) { return fract(sin(n * 12.9898) * 43758.5453); }
+  void main() {
+    vec2 uv = vUv;
+    float band = floor(uv.y * 18.0);
+    float glitch = step(0.94, h1(band + floor(uTime * 7.0 + uSeed * 13.0)));
+    uv.x += glitch * 0.035 * sin(uTime * 37.0 + band);
+    vec3 tex = texture2D(uTex, clamp(uv, 0.0, 1.0)).rgb;
+    float l = pow(dot(tex, vec3(0.299, 0.587, 0.114)), 0.85);
+    float scan = 0.72 + 0.28 * sin(vUv.y * 190.0 - uTime * 10.0);
+    float m = min(min(vUv.x, 1.0 - vUv.x), min(vUv.y, 1.0 - vUv.y));
+    float frame = 1.0 - smoothstep(0.012, 0.03, m);
+    float body = smoothstep(0.0, 0.05, m);
+    float flick = 0.88 + 0.12 * sin(uTime * 21.0 + uSeed * 9.0);
+    float a = (mix(0.18, 1.0, l) * scan * body + frame * 0.9 + glitch * 0.08) * uAlpha * flick;
+    if (a < 0.004) discard;
+    // keep some of the portrait's own colour so the hero stays recognisable
+    vec3 col = mix(room(uColTop, uColBot), tex * 1.15, 0.5 * body);
+    gl_FragColor = vec4(col * a, a);
+  }
+`;
+// A light column under a hero card, fading upward.
+const BEAM_FRAG = /* glsl */`
+  precision highp float;
+  uniform vec3 uColTop, uColBot;
+  uniform float uAlpha;
+  varying vec2 vUv;
+  ${SPLIT}
+  void main() {
+    float x = abs(vUv.x - 0.5) * 2.0;
+    float a = (1.0 - x) * (1.0 - x) * (1.0 - vUv.y) * 0.45 * uAlpha;
+    if (a < 0.004) discard;
+    gl_FragColor = vec4(room(uColTop, uColBot) * a, a);
+  }
+`;
+
 const premult = { transparent: true, depthTest: false, depthWrite: false, blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor, blendSrcAlpha: THREE.OneFactor, blendDstAlpha: THREE.OneMinusSrcAlphaFactor };
 
 export function createStage(canvas, { density = 256, antialias = true } = {}) {
@@ -334,7 +404,15 @@ export function createStage(canvas, { density = 256, antialias = true } = {}) {
   pg.setAttribute('aGrid', new THREE.BufferAttribute(grid, 2));
   pg.setAttribute('aRand', new THREE.BufferAttribute(rand, 4));
   const split = { value: -1e6 };
+  const fieldTex = new THREE.Texture(fieldImage);
+  fieldTex.flipY = false;
+  fieldTex.minFilter = THREE.LinearFilter;
+  fieldTex.magFilter = THREE.LinearFilter;
+  fieldTex.generateMipmaps = false;
+  fieldTex.colorSpace = THREE.NoColorSpace;
+  fieldTex.needsUpdate = true;
   const pu = {
+    uField: { value: fieldTex },
     uTime: { value: 0 }, uShape: { value: 0 }, uH: { value: 1 }, uPx: { value: 1 }, uSize: { value: 1 }, uIntro: { value: 1 },
     uStale: { value: 0 }, uLost: { value: 0 }, uDim: { value: 1 }, uVoice: { value: 0 }, uOrbY: { value: 1.7 }, uGridN: { value: N },
     uAmp: { value: new THREE.Vector3(0.5, 0.5, 0.5) }, uPointer: { value: new THREE.Vector3(0, 0, 0) },
@@ -368,6 +446,40 @@ export function createStage(canvas, { density = 256, antialias = true } = {}) {
     mesh.renderOrder = 2 + i;
     world.add(mesh);
     return { ...m, u, mesh, elev: Math.max(heightAt(m.g[0], m.g[1]) - SEA, 0) };
+  });
+
+  // ---- hero holograms ------------------------------------------------------
+  const heroes = HEROES.map((hr, i) => {
+    const img = heroImages[i];
+    if (!img) return null;
+    const tex = new THREE.Texture(img);
+    tex.colorSpace = THREE.SRGBColorSpace; tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false; tex.needsUpdate = true;
+    const cu = { uTex: { value: tex }, uColTop: { value: new THREE.Color() }, uColBot: { value: new THREE.Color() }, uAlpha: { value: 0 }, uTime: { value: 0 }, uSeed: { value: i * 1.7 }, uSplit: split };
+    const card = new THREE.Mesh(quad, new THREE.ShaderMaterial({ uniforms: cu, vertexShader: QUAD_VERT, fragmentShader: HOLO_FRAG, ...premult }));
+    card.scale.set(1.5, 0.84, 1);
+    card.renderOrder = 30 + i;
+    const bu = { uColTop: { value: new THREE.Color() }, uColBot: { value: new THREE.Color() }, uAlpha: { value: 0 }, uSplit: split };
+    const beam = new THREE.Mesh(quad, new THREE.ShaderMaterial({ uniforms: bu, vertexShader: QUAD_VERT, fragmentShader: BEAM_FRAG, ...premult }));
+    beam.renderOrder = 29;
+    const ru = {
+      uColTop: { value: new THREE.Color() }, uColBot: { value: new THREE.Color() },
+      uKind: { value: hr.team === 'enemy' ? 1 : 0 }, uDash: { value: 0 }, uDouble: { value: 0 },
+      uDot: { value: 0 }, uPing: { value: 0 }, uAlpha: { value: 0 }, uSplit: split,
+    };
+    const ring = new THREE.Mesh(quad, new THREE.ShaderMaterial({ uniforms: ru, vertexShader: QUAD_VERT, fragmentShader: MARK_FRAG, ...premult }));
+    ring.rotation.x = -Math.PI / 2;
+    ring.scale.setScalar(0.62);
+    ring.renderOrder = 28;
+    world.add(beam, ring, card);
+    return { ...hr, cu, card, bu, beam, ru, ring };
+  }).filter(Boolean);
+  // a burst where each lane's pair meets
+  const sparks = ['mid', 'top', 'bot'].map((lane, i) => {
+    const su = { uColTop: { value: new THREE.Color() }, uColBot: { value: new THREE.Color() }, uAlpha: { value: 0 }, uHaloTop: { value: 1 }, uHaloBot: { value: 1 }, uSplit: split };
+    const mesh = new THREE.Mesh(quad, new THREE.ShaderMaterial({ uniforms: su, vertexShader: QUAD_VERT, fragmentShader: HALO_FRAG, ...premult }));
+    mesh.renderOrder = 40 + i;
+    world.add(mesh);
+    return { lane, su, mesh };
   });
 
   // ---- the companion: a small orb with a lit-red ribbon -------------------
@@ -464,6 +576,48 @@ export function createStage(canvas, { density = 256, antialias = true } = {}) {
       const y = m.elev * ((P.height ?? 1) * 1.7 * (1 - flat) + 0.08 * flat) + 0.07;
       m.mesh.position.set(m.g[0] * R, y, m.g[1] * R);
       m.mesh.visible = m.u.uAlpha.value > 0.004;
+    });
+
+    // hero holograms
+    const hA = P.heroes ?? 0;
+    const lift = (gx, gz) => Math.max(heightAt(gx, gz) - SEA, 0) * ((P.height ?? 1) * 1.7 * (1 - flat) + 0.08 * flat);
+    const worldQ = new THREE.Quaternion().copy(world.quaternion).invert().multiply(camera.quaternion);
+    const fightAt = {};
+    heroes.forEach((hr) => {
+      const pose = heroPose(hr, P.time);
+      const a = hA * pose.alpha;
+      const vis = a > 0.004;
+      hr.card.visible = hr.beam.visible = hr.ring.visible = vis;
+      if (!vis) return;
+      const [gx, gz] = pose.g;
+      const y = lift(gx, gz);
+      const bob = Math.sin(P.time * 2.4 + hr.cu.uSeed.value) * 0.04 + pose.fight * 0.06;
+      hr.card.position.set(gx * R, y + 0.9 + bob, gz * R);
+      hr.card.quaternion.copy(worldQ);
+      hr.beam.position.set(gx * R, y + 0.4, gz * R);
+      hr.beam.quaternion.copy(worldQ);
+      hr.beam.scale.set(0.7, 0.8, 1);
+      hr.ring.position.set(gx * R, y + 0.03, gz * R);
+      setPair(hr.cu.uColTop, hr.cu.uColBot, hr.team, top, bot);
+      setPair(hr.bu.uColTop, hr.bu.uColBot, hr.team, top, bot);
+      setPair(hr.ru.uColTop, hr.ru.uColBot, hr.team, top, bot);
+      hr.cu.uAlpha.value = a; hr.cu.uTime.value = P.time;
+      hr.bu.uAlpha.value = a; hr.ru.uAlpha.value = a * 0.9;
+      const f = fightAt[hr.lane] ?? (fightAt[hr.lane] = { x: 0, z: 0, y: 0, n: 0, fight: 0, a: 0 });
+      f.x += gx; f.z += gz; f.y += y; f.n += 1; f.fight = Math.max(f.fight, pose.fight); f.a = Math.max(f.a, a);
+    });
+    sparks.forEach((s) => {
+      const f = fightAt[s.lane];
+      const k = f ? f.fight * f.a : 0;
+      s.mesh.visible = k > 0.01;
+      if (!s.mesh.visible) return;
+      const pulse = 0.55 + 0.45 * Math.abs(Math.sin(P.time * 11.0 + s.lane.length));
+      s.mesh.position.set((f.x / f.n) * R, f.y / f.n + 0.45, (f.z / f.n) * R);
+      s.mesh.quaternion.copy(worldQ);
+      s.mesh.scale.setScalar(0.9 + pulse * 0.9);
+      setPair(s.su.uColTop, s.su.uColBot, 'tint', top, bot);
+      s.su.uAlpha.value = k * pulse * 2.2;
+      s.su.uHaloTop.value = 1; s.su.uHaloBot.value = 1;
     });
 
     // orb

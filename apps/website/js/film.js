@@ -41,7 +41,7 @@ export function filmParams(t) {
   const rot = t < 7.4 ? lerp(-0.55, 0.3, seg(t, 0, 5.4)) * (1 - seg(t, 5.4, 7.2)) : 0.5 * seg(t, 14.6, 20);
   const speak = t > 17.4 ? seg(t, 17.4, 17.9) * (0.45 + 0.55 * Math.abs(Math.sin(t * 6.1) * Math.sin(t * 2.3 + 1))) : 0;
   return {
-    time: t, cam, look, fov: 35, fit: 0, shift: track(SHIFT, t), shape: track(SHAPE, t), height: 1.15,
+    time: t, cam, look, heroes: seg(t, 0.8, 2.0) * (1 - seg(t, 5.6, 6.6)), fov: 35, fit: 0, shift: track(SHIFT, t), shape: track(SHAPE, t), height: 1.15,
     psize: (2.3 * dist) / 9, intro: seg(t, 0, 2.6), dim: seg(t, 0, 0.5), rot,
     stale: seg(t, 12.0, 12.25) * (1 - seg(t, 14.3, 14.55)), lost: 0,
     amp: [0.55 + 0.25 * Math.sin(t * 1.7), 0.85, 0.35 + 0.15 * Math.sin(t * 0.9 + 2)], voice: speak, sphereY: 1.7,
@@ -53,7 +53,7 @@ export function filmParams(t) {
 }
 
 const CAPTIONS = [
-  { a: 1.1, b: 4.9, main: ['คุณขับ', 'เราเกาะเบาะ'], sub: 'You drive. We ride along.', size: 112 },
+  { a: 1.1, b: 4.9, main: ['ไม่ได้จับเมาส์', 'แต่ขอลุ้นด้วย'], sub: 'Not on the mouse. Still in every fight.', size: 112 },
   { a: 7.9, b: 11.7, main: ['เห็น'], sub: 'อ่านสนามได้ในแวบเดียว', en: 'Read the field at a glance.', size: 176 },
   { a: 12.1, b: 14.35, main: ['ไม่รู้', 'ก็บอกว่าไม่รู้'], sub: 'ไม่มีข้อมูลการมองเห็น', en: 'No visibility data — not “safe”', size: 70 },
   { a: 15.0, b: 16.7, main: ['ฟัง'], sub: 'เสียงมาเมื่อมีเหตุ', en: 'Sound arrives when there is a reason.', size: 176 },
@@ -65,7 +65,7 @@ const MONO = '"IBM Plex Mono", Consolas, monospace';
 
 export async function loadFilmFonts() {
   if (!document.fonts) return;
-  const sample = 'คุณขับเราเกาะเบาะเห็นไม่รู้ก็บอกว่าฟังถาม Kohbor 0123';
+  const sample = 'ไม่ได้จับเมาส์แต่ขอลุ้นด้วยเกาะเบาะเห็นไม่รู้ก็บอกว่าฟังถาม Kohbor 0123';
   await Promise.all([`700 100px ${FONT}`, `500 30px ${FONT}`, `600 22px ${FONT}`, `500 22px ${MONO}`].map((f) => document.fonts.load(f, sample).catch(() => {})));
 }
 
