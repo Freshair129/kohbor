@@ -96,7 +96,7 @@ export function AccountFlyout({ account, port, version, steamName, showSteamName
           <div className="shell-account-summary-text">
             <strong>{account.displayName ?? stateText}</strong>
             <span role="status">{stateText}</span>
-            {showSteamName && <small>Steam: {steamName ?? "—"}</small>}
+            {showSteamName && account.state !== "guest" && <small>Steam: {steamName ?? "—"}</small>}
           </div>
         </div>
         {items.map((action, index) => <button key={action} ref={(element) => { itemRefs.current[action] = element; }} type="button"
