@@ -39,12 +39,8 @@ function PackCover({ logicalUrl, initial, reportFailure }: {
   }, [src]);
   return <div ref={region} className="packs-cover" aria-hidden="true">
     <span>{initial}</span>
-    {src && visible && !failed && <video className={ready ? "is-ready" : undefined} src={src}
-      muted playsInline preload="auto" tabIndex={-1}
-      onLoadedMetadata={({ currentTarget: video }) => {
-        if (Number.isFinite(video.duration) && video.duration > 0) video.currentTime = Math.min(0.35, video.duration / 4);
-      }}
-      onLoadedData={({ currentTarget: video }) => { if (!video.seeking) setReady(true); }} onSeeked={() => setReady(true)}
+    {src && visible && !failed && <img className={ready ? "is-ready" : undefined} src={src} alt=""
+      decoding="async" draggable={false} onLoad={() => setReady(true)}
       onError={() => { setFailed(true); reportFailure(); }} />}
   </div>;
 }

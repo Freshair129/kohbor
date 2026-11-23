@@ -643,8 +643,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/tauri.conf.json",
-      "bytes": 1647,
-      "sha256": "6badea7425d44b40bfdd123f0680fb612ea2db9f522ebc676578891ddeec0897"
+      "bytes": 1691,
+      "sha256": "8aab55a755514334d49c21e12a82f2bce7ce06188d92c9165b96314f9dfc810a"
     },
     {
       "path": "apps/desktop/src-tauri/tests/latency_harness.rs",
@@ -12908,8 +12908,8 @@
     },
     {
       "path": "apps/desktop/src/packs/PackLibrary.tsx",
-      "bytes": 21727,
-      "sha256": "e7a6746d00901bceb5345a65afa681ef2755112704fb877df287ee5ca8641370"
+      "bytes": 21439,
+      "sha256": "89bed736020d99ed79bb879326dc9030b8f0ef4a70b7e426bc9172cbbe22dada"
     },
     {
       "path": "apps/desktop/src/packs/PacksPage.tsx",
@@ -12963,8 +12963,8 @@
     },
     {
       "path": "apps/desktop/src/packs/model.ts",
-      "bytes": 4828,
-      "sha256": "6b2789454d91c92e573daa2f301177cd55160de8553c9f7ecce2c90d18ca9376"
+      "bytes": 4903,
+      "sha256": "7c26561c64e67dd0f40fe2af167189dff8a2f96d11216e97d13dbe323e466269"
     },
     {
       "path": "apps/desktop/src/packs/previewModel.ts",
@@ -13308,8 +13308,8 @@
     },
     {
       "path": "apps/desktop/src/styles.css",
-      "bytes": 73615,
-      "sha256": "4d2c20ccc87cb77824f41810d4fee8011e8330064dec6afc99c4a3f24efa5f21"
+      "bytes": 73611,
+      "sha256": "95364a26706fc37c5e7078a5a788c98acefff09b4117a3ef83fabc72a4a47e56"
     },
     {
       "path": "apps/desktop/src/types.ts",
@@ -13643,8 +13643,8 @@
     },
     {
       "path": "apps/desktop/tests/packs-page.test.ts",
-      "bytes": 7737,
-      "sha256": "6b021426f240f01d42fb064b928c4bcad0131b923f8c3dc5459da7fea58f7855"
+      "bytes": 10454,
+      "sha256": "e44e9483eabd157de0428c08fdbb8091e855458279a29df1d0ca16455d8badb2"
     },
     {
       "path": "apps/desktop/tests/packs.test.ts",
@@ -14903,8 +14903,8 @@
     },
     {
       "path": "docs/design/UX-SPEC.md",
-      "bytes": 31644,
-      "sha256": "2a6f59f737c299012a9e93a88f7f0b0a141dea0f20833ddf8dd55365a05afc07"
+      "bytes": 31780,
+      "sha256": "ad58839b0bb4011a0db008d974d39a5d4c21e9f0cfc4f8459241648d6c3f81ec"
     },
     {
       "path": "docs/design/VISUAL-DESIGN-PROPOSAL.md",
