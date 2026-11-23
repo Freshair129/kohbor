@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import type { Locale } from "../copy";
+import { BUNDLED } from "./bundledIcons";
 import {
-  admitMatchBundle, gameModeName, iconResolver, imageType, MAX_BUNDLE_BYTES, neededIconKeys, readIcons,
+  admitMatchBundle, countFound, gameModeName, iconResolver, MAX_BUNDLE_BYTES, neededIconKeys,
   type BundleError, type MatchBundle, type PickedFile,
 } from "./matchBundle";
 import { calibrationMatches } from "./matchTables.mjs";
@@ -14,10 +15,9 @@ const MiB = (bytes: number) => Math.round(bytes / (1024 * 1024));
 const COPY = {
   th: {
     bundle: "เปิด Match Bundle: เลือก manifest.json, match.json และ world.json พร้อมกัน",
-    icons: "โฟลเดอร์ไอคอนและมินิแมป (ไม่บังคับ เช่นโฟลเดอร์แพตช์ที่มี map.png และ icons)",
     reading: "กำลังอ่านไฟล์…",
-    iconCount: (found: number, needed: number) => `ไอคอนที่พบ ${found} จาก ${needed} ที่เหลือแสดงเป็นกรอบชื่อ`,
-    noIcons: "ยังไม่ได้เลือกโฟลเดอร์ไอคอน ไอคอนทั้งหมดแสดงเป็นกรอบชื่อ",
+    iconCount: (found: number, needed: number, build: string | null) =>
+      `ไอคอนที่พบ ${found} จาก ${needed}${build ? ` (ชุดที่มากับ Kohbor จากเกมบิลด์ ${build})` : ""} ที่เหลือแสดงเป็นกรอบชื่อ`,
     memory: "ไฟล์ทั้งหมดอยู่ในหน่วยความจำเท่านั้น ไม่บันทึกและไม่ส่งออกนอกเครื่อง ปิดแท็บนี้แล้วข้อมูลจะหายไป",
     proto: "ต้นแบบ: ใช้ตารางของแมตช์ตัวอย่างแมตช์เดียว (การแจ้งเตือน ult และ CC, ปุ่มคู่ Mid, พิกัดมินิแมป) แมตช์อื่นอาจแจ้งเตือนไม่ครบหรือพิกัดคลาดเคลื่อน",
     calibration: "พิกัดมินิแมปของ bundle นี้ต่างจากตารางต้นแบบ ตำแหน่งบนแผนที่อาจคลาดเคลื่อน",
@@ -39,10 +39,9 @@ const COPY = {
   },
   en: {
     bundle: "Open a Match Bundle: select manifest.json, match.json and world.json together",
-    icons: "Icon and minimap folder (optional, e.g. the patch pack folder with map.png and icons)",
     reading: "Reading files…",
-    iconCount: (found: number, needed: number) => `Found ${found} of ${needed} icons; the rest show as name tiles.`,
-    noIcons: "No icon folder picked; every icon shows as a name tile.",
+    iconCount: (found: number, needed: number, build: string | null) =>
+      `Found ${found} of ${needed} icons${build ? ` (bundled with Kohbor from game build ${build})` : ""}; the rest show as name tiles.`,
     memory: "Files stay in memory only. Nothing is saved or sent anywhere. Leaving this tab discards them.",
     proto: "Prototype: one-match tables drive ult and CC alerts, the Mid pair button and the minimap projection. Other matches can miss alerts or be offset on the map. Labels written by the prototype script are still Thai.",
     calibration: "This bundle's minimap calibration differs from the prototype table; map positions can be offset.",
@@ -68,9 +67,8 @@ const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60))
 
 interface Loaded {
   bundle: MatchBundle;
-  icons: ReadonlyMap<string, string>;
+  found: number;
   needed: number;
-  iconsPicked: boolean;
 }
 
 export function MatchViewPanel({ locale }: { locale: Locale }) {
@@ -79,7 +77,6 @@ export function MatchViewPanel({ locale }: { locale: Locale }) {
   const [error, setError] = useState<BundleError | null>(null);
   const [reading, setReading] = useState(false);
   const bundleFiles = useRef<PickedFile[]>([]);
-  const iconFiles = useRef<PickedFile[]>([]);
   const target = useRef<HTMLDivElement>(null);
   const request = useRef(0);
 
@@ -87,7 +84,8 @@ export function MatchViewPanel({ locale }: { locale: Locale }) {
   useEffect(() => {
     const frame = target.current;
     if (!loaded || !frame) return;
-    const { bundle, icons } = loaded;
+    const { bundle } = loaded;
+    const icons = BUNDLED.icons;
     const root = frame.shadowRoot ?? frame.attachShadow({ mode: "open" });
     const mode = gameModeName(bundle.gameMode) ?? text.unknownMode;
     const patch = bundle.patch ?? text.unknownPatch;
@@ -119,17 +117,12 @@ export function MatchViewPanel({ locale }: { locale: Locale }) {
     }
     const bundle = admission.bundle;
     const keys = neededIconKeys(bundle);
-    const mapNames = [...new Set([bundle.mapImage ?? "map.png", "map.png", "map741.png"])];
-    // Images picked together with the bundle count as icons too.
-    const pool = [...iconFiles.current, ...bundleFiles.current.filter(file => imageType(file.name))];
-    const { icons } = await readIcons(pool, keys, mapNames);
-    if (ticket !== request.current) return;
     setReading(false);
-    setLoaded({ bundle, icons, needed: keys.size, iconsPicked: pool.length > 0 });
+    setLoaded({ bundle, found: countFound(BUNDLED.icons, keys), needed: keys.size });
   }
 
-  const pick = (into: { current: PickedFile[] }) => (event: ChangeEvent<HTMLInputElement>) => {
-    into.current = Array.from(event.currentTarget.files ?? []);
+  const pick = (event: ChangeEvent<HTMLInputElement>) => {
+    bundleFiles.current = Array.from(event.currentTarget.files ?? []);
     event.currentTarget.value = "";
     if (bundleFiles.current.length) void load();
   };
@@ -139,17 +132,13 @@ export function MatchViewPanel({ locale }: { locale: Locale }) {
       <section className="card">
         <label>
           {text.bundle}
-          <input type="file" multiple accept=".json,application/json,image/png,image/webp,image/jpeg" onChange={pick(bundleFiles)} />
-        </label>
-        <label>
-          {text.icons}
-          <input type="file" multiple ref={el => el?.setAttribute("webkitdirectory", "")} onChange={pick(iconFiles)} />
+          <input type="file" multiple accept=".json,application/json" onChange={pick} />
         </label>
         <p>{text.memory} {locale === "th" ? "ขนาดสูงสุด" : "Size limits"}: match.json {MiB(MAX_BUNDLE_BYTES["match.json"])} MB, world.json {MiB(MAX_BUNDLE_BYTES["world.json"])} MB.</p>
         {reading && <p role="status">{text.reading}</p>}
         {error && <p role="alert">{text.error(error)}</p>}
         {loaded && !reading && (
-          <p role="status">{loaded.iconsPicked ? text.iconCount(loaded.icons.size, loaded.needed) : text.noIcons}</p>
+          <p role="status">{text.iconCount(loaded.found, loaded.needed, BUNDLED.build)}</p>
         )}
       </section>
       <div ref={target} />

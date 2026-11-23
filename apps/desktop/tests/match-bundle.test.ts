@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
-  admitMatchBundle, iconKey, iconResolver, MAX_BUNDLE_BYTES, neededIconKeys, readIcons, type PickedFile,
+  admitMatchBundle, bundledIcons, countFound, iconKey, iconResolver, MAX_BUNDLE_BYTES, neededIconKeys, type PickedFile,
 } from "../src/replay/matchBundle.ts";
 
 // Synthetic Match Bundle (schema 3.0 shape, two heroes, five seconds). No recorded match data.
@@ -97,33 +97,49 @@ test("unsafe or inconsistent fields are shape errors, not defaults", async () =>
   assert.deepEqual(!r3.ok && r3.error, { code: "shape", file: "match.json", path: "deaths[0]" });
 });
 
-test("icons resolve by exact name from a picked folder, else to a named placeholder", async () => {
-  assert.equal(iconKey("7.41f/icons/heroes/alpha.png"), "hero:alpha");
-  assert.equal(iconKey("replay-viewer-proto/items/blink.png"), "item:blink");
-  assert.equal(iconKey("7.41f/map.png"), "map:");
-  assert.equal(iconKey("7.41f/dotaconstants/heroes.json"), null);
+test("bundled icons resolve by exact name from the newest build, else to a named placeholder", async () => {
+  assert.equal(iconKey("../assets/dota/6989/heroes/alpha.png"), "hero:alpha");
+  assert.equal(iconKey("../assets/dota/6989/items/blink.png"), "item:blink");
+  assert.equal(iconKey("../assets/dota/6989/abilities/alpha_one.png"), "ability:alpha_one");
+  assert.equal(iconKey("../assets/dota/6989/map.png"), "map:");
+  assert.equal(iconKey("../assets/dota/6989/provenance.json"), null);
+  const { icons, build } = bundledIcons({
+    "../assets/dota/6988/heroes/alpha.png": "/assets/old-alpha.png",
+    "../assets/dota/6988/heroes/zeta.png": "/assets/old-zeta.png",
+    "../assets/dota/6989/heroes/alpha.png": "/assets/alpha.png",
+    "../assets/dota/6989/map.png": "/assets/map.png",
+    "../assets/other/heroes/beta.png": "/assets/beta.png",
+    "../assets/dota/6989/heroes/Bad-Name.png": "/assets/bad.png",
+  });
+  assert.equal(build, "6989");
+  assert.deepEqual([...icons.entries()].sort(), [["hero:alpha", "/assets/alpha.png"], ["map:", "/assets/map.png"]]);
+  assert.deepEqual(bundledIcons({}), { icons: new Map(), build: null });
   const admitted = await admitMatchBundle(bundle());
   assert.ok(admitted.ok);
   if (!admitted.ok) return;
-  const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
-  const pick = (path: string) => ({ ...file(path.split("/").pop()!, png), webkitRelativePath: path });
-  const { icons, skipped } = await readIcons(
-    [pick("pack/icons/heroes/alpha.png"), pick("pack/icons/heroes/zeta.png"), pick("pack/map.png")],
-    neededIconKeys(admitted.bundle), ["map.png"],
-  );
-  assert.deepEqual([...icons.keys()].sort(), ["hero:alpha", "map:"]);
-  assert.equal(skipped, 1);
+  const keys = neededIconKeys(admitted.bundle);
+  assert.ok(keys.has("hero:alpha") && keys.has("hero:beta") && keys.has("map:"));
+  assert.equal(countFound(icons, keys), 2);
   const icon = iconResolver(icons);
-  assert.match(icon("hero", "alpha"), /^data:image\/png;base64,/);
+  assert.equal(icon("hero", "alpha"), "/assets/alpha.png");
+  assert.equal(icon("map", "map"), "/assets/map.png");
   const missing = decodeURIComponent(icon("hero", "beta"));
   assert.match(missing, /^data:image\/svg\+xml/);
   assert.match(missing, />beta</);
-  assert.equal(icon("hero", "beta").includes("base64"), false, "never another hero's icon");
+  assert.equal(icon("hero", "beta").startsWith("/assets/"), false, "never another hero's icon");
+});
+
+test("the Match view has no icon folder picker and loads the bundled set", () => {
+  const panel = readFileSync(new URL("../src/replay/MatchViewPanel.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(panel, /webkitdirectory|readIcons/);
+  assert.match(panel, /BUNDLED\.icons/);
+  const glob = readFileSync(new URL("../src/replay/bundledIcons.ts", import.meta.url), "utf8");
+  assert.match(glob, /import\.meta\.glob/);
 });
 
 test("the Match view sources make no network request and keep the prototype tables in one module", () => {
   const dir = new URL("../src/replay/", import.meta.url);
-  for (const name of ["matchViewer.mjs", "matchViewer.html", "matchViewer.css", "matchTables.mjs", "MatchViewPanel.tsx"]) {
+  for (const name of ["matchViewer.mjs", "matchViewer.html", "matchViewer.css", "matchTables.mjs", "MatchViewPanel.tsx", "bundledIcons.ts"]) {
     const source = readFileSync(new URL(name, dir), "utf8");
     assert.doesNotMatch(source, /https?:\/\/|fetch\(|XMLHttpRequest|@import|fonts\.googleapis/, name);
   }

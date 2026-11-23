@@ -55,7 +55,7 @@ This is the only index of documents. Every Markdown file in the tree, is linked 
 | [Recorded GSI Replay](operations/GSI-REPLAY.md) | Local replay of a recorded GSI session into a temporary-data demo, with evidence limits | Developers, QA |
 | [Document Control](governance/DOCUMENT-CONTROL.md) | Authority, baseline versions, review and change control | All contributors |
 | [Decision Log](governance/DECISION-LOG.md) | Delegated choices and unresolved dependencies | Product, engineering |
-| [Third-party Data](governance/THIRD-PARTY-DATA.md) | Data files copied into the repository: origin, hash, use, authorisation and what is not established (item price table for the HUD net worth) | Engineering, owner, rights |
+| [Third-party Data](governance/THIRD-PARTY-DATA.md) | Data files copied into the repository: origin, hash, use, authorisation and what is not established (item price table for the HUD net worth, bundled Match view game images) | Engineering, owner, rights |
 | [Risk Register](governance/RISK-REGISTER.md) | Delivery/technical uncertainty, mitigation and closure evidence | Product, engineering, QA |
 | [Implementation Readiness](governance/IMPLEMENTATION-READINESS.md) | Concrete remaining design work, safe starting points and evidence limits | Implementing agents, engineering, reviewers |
 | [Agent Registry, Router and Enforcement](governance/AGENT-REGISTRY.md) | Profiles, roles, task routes with the owner-evidence level of each, domain policies, who is working now, and what is enforced and what is only reported (agent proposal; source: `AGENT-REGISTRY.json`) | Engineering lead, owner, every agent |
