@@ -1,43 +1,105 @@
 // Kohbor website — the stage.
 // One continuous 3D shot shared by the page (scroll-driven) and the film (time-driven).
 // Deterministic: every frame is a pure function of the params handed to render().
-// Sample geometry only. Nothing here is game data, a game map or a game asset.
+// The field is traced from the Dota 2 map overview (see assets/map/README.md): a 256 x 256 RGBA
+// texture baked from it. R = brightness, G = water, B = local texture (trees and cliff edges).
+// The original map image is not shipped. Owner decision 2026-11-23.
 import * as THREE from '../vendor/three.module.min.js';
 
 export const R = 5;          // half-size of the map square in world units
 export const SEA = 0.15;     // height threshold: above = land
+const FIELD_N = 256;
 
-// The island is a sum of Gaussian hills so the same height is cheap in GLSL and in JS.
-// [centre x, centre z, amplitude, sigma] in grid space (-1..1).
-export const HILLS = [
-  [-0.18, -0.10, 1.00, 0.34],
-  [0.30, 0.12, 0.78, 0.26],
-  [-0.42, 0.30, 0.52, 0.22],
-  [0.10, -0.46, 0.46, 0.20],
-  [0.52, -0.30, 0.34, 0.16],
-  [-0.05, 0.50, 0.40, 0.24],
-  [-0.60, -0.28, 0.30, 0.18],
-];
-
+// Grid space (-1..1): x to the right, z toward the viewer. Image row 0 is the far (top) edge.
+const fieldImage = await new Promise((resolve, reject) => {
+  const img = new Image();
+  img.onload = () => resolve(img);
+  img.onerror = () => reject(new Error('map field failed to load'));
+  img.src = new URL('../assets/map/field.png', import.meta.url).href;
+});
+const FIELD = (() => {
+  const c = document.createElement('canvas');
+  c.width = c.height = FIELD_N;
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(fieldImage, 0, 0);
+  return ctx.getImageData(0, 0, FIELD_N, FIELD_N).data;
+})();
+const sat = (x) => Math.min(1, Math.max(0, x));
+function fieldAt(gx, gz) {
+  const i = Math.min(FIELD_N - 1, Math.max(0, Math.floor((gx * 0.5 + 0.5) * FIELD_N)));
+  const j = Math.min(FIELD_N - 1, Math.max(0, Math.floor((gz * 0.5 + 0.5) * FIELD_N)));
+  const k = (j * FIELD_N + i) * 4;
+  return [FIELD[k] / 255, FIELD[k + 1] / 255, FIELD[k + 2] / 255];
+}
+// Must match mapHeight() in POINT_VERT.
 export function heightAt(gx, gz) {
-  let h = 0;
-  for (const [cx, cz, a, s] of HILLS) {
-    const dx = gx - cx, dz = gz - cz;
-    h += a * Math.exp(-(dx * dx + dz * dz) / (s * s));
-  }
-  return h;
+  const [lum, wet, tex] = fieldAt(gx, gz);
+  const water = wet * (1 - sat((tex - 0.25) / 0.3));
+  const trees = sat((tex - 0.28) / 0.4) * (1 - water);
+  return 0.26 + lum * 0.10 + trees * 0.26 - water * 0.20;
 }
 
-// Sample markers. Shapes follow the Command Deck rule: ally = ring, enemy = diamond, own = double ring.
+// Lanes in grid space, traced from the same overview, home (bottom-left) side first.
+export const LANES = {
+  top: [[-0.80, 0.55], [-0.80, -0.78], [0.55, -0.80]],
+  mid: [[-0.58, 0.58], [0.58, -0.58]],
+  bot: [[-0.55, 0.82], [0.80, 0.80], [0.82, -0.55]],
+};
+
+// Sample markers, placed on lanes. Shapes follow the Command Deck rule: ally = ring, enemy = diamond, own = double ring.
 export const MARKERS = [
-  { id: 'own', kind: 'own', g: [-0.20, 0.26] },
-  { id: 'A1', kind: 'ally', g: [-0.38, 0.06] },
-  { id: 'A2', kind: 'ally', g: [-0.04, 0.46] },
-  { id: 'E1', kind: 'enemy', g: [0.33, -0.18] },
-  { id: 'E2', kind: 'enemy', g: [0.09, -0.44] },
-  { id: 'E3', kind: 'enemy', g: [0.47, 0.16] },
-  { id: 'E4', kind: 'enemy', g: [-0.46, -0.34] },
+  { id: 'own', kind: 'own', g: [-0.24, 0.24] },
+  { id: 'A1', kind: 'ally', g: [-0.80, -0.10] },
+  { id: 'A2', kind: 'ally', g: [0.20, 0.80] },
+  { id: 'E1', kind: 'enemy', g: [0.14, -0.14] },
+  { id: 'E2', kind: 'enemy', g: [-0.30, -0.80] },
+  { id: 'E3', kind: 'enemy', g: [0.81, 0.18] },
+  { id: 'E4', kind: 'enemy', g: [0.40, -0.80] },
 ];
+
+// Hero holograms: one pair per lane walks toward the other and fights, on a loop.
+// Portraits come from the owner's Dota 2 install export (assets/heroes/README.md).
+export const HEROES = [
+  { id: 'juggernaut', team: 'ally', lane: 'mid', phase: 0.00 },
+  { id: 'nevermore', team: 'enemy', lane: 'mid', phase: 0.00 },
+  { id: 'crystal_maiden', team: 'ally', lane: 'top', phase: 0.37 },
+  { id: 'lina', team: 'enemy', lane: 'top', phase: 0.37 },
+  { id: 'sven', team: 'ally', lane: 'bot', phase: 0.68 },
+  { id: 'pudge', team: 'enemy', lane: 'bot', phase: 0.68 },
+];
+const heroImages = await Promise.all(HEROES.map((hr) => new Promise((resolve) => {
+  const img = new Image();
+  img.onload = () => resolve(img);
+  img.onerror = () => resolve(null);           // a missing portrait just leaves that card out
+  img.src = new URL(`../assets/heroes/${hr.id}.png`, import.meta.url).href;
+})));
+export const HERO_CYCLE = 9.0;                 // seconds per walk, fight, fade loop
+/** Point at fraction t (0..1) along a polyline of [x, z] grid points. */
+function along(poly, t) {
+  const seg = [];
+  let total = 0;
+  for (let i = 1; i < poly.length; i++) { const l = Math.hypot(poly[i][0] - poly[i - 1][0], poly[i][1] - poly[i - 1][1]); seg.push(l); total += l; }
+  let d = sat(t) * total;
+  for (let i = 0; i < seg.length; i++) {
+    if (d <= seg[i] || i === seg.length - 1) {
+      const k = seg[i] ? Math.min(d / seg[i], 1) : 0;
+      return [poly[i][0] + (poly[i + 1][0] - poly[i][0]) * k, poly[i][1] + (poly[i + 1][1] - poly[i][1]) * k];
+    }
+    d -= seg[i];
+  }
+  return poly[poly.length - 1];
+}
+const easeIO = (x) => (x < 0.5 ? 2 * x * x : 1 - (-2 * x + 2) ** 2 / 2);
+/** Deterministic choreography for one hero at time t, replay style: walk the lane, hold, fade. */
+export function heroPose(hr, t) {
+  const u = (((t / HERO_CYCLE) + hr.phase) % 1 + 1) % 1;
+  const walk = easeIO(sat(u / 0.62));
+  const alpha = sat(u / 0.06) * (1 - sat((u - 0.86) / 0.1));
+  const home = hr.team === 'ally';
+  const s0 = home ? 0.12 : 0.88;
+  const s = home ? s0 + walk * 0.345 : s0 - walk * 0.345;
+  return { g: along(LANES[hr.lane], s), s0, s, alpha, u };
+}
 
 const hex = (h) => new THREE.Color(h);
 // Colours a room gives to what is drawn on it. c = Charcoal, b = Bone, r = Barber Red.
@@ -57,7 +119,6 @@ const POINT_VERT = /* glsl */`
   uniform float uTime, uShape, uH, uPx, uSize, uIntro, uStale, uLost, uDim, uVoice, uOrbY, uGridN;
   uniform vec3 uAmp;
   uniform vec3 uPointer;            // local x, local z, strength
-  uniform vec4 uHills[7];
   attribute vec2 aGrid;
   attribute vec4 aRand;
   varying float vAlpha;
@@ -71,30 +132,28 @@ const POINT_VERT = /* glsl */`
     f = f * f * (3.0 - 2.0 * f);
     return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
   }
-  float heightAt(vec2 g) {
-    float h = 0.0;
-    for (int i = 0; i < 7; i++) {
-      vec2 d = g - uHills[i].xy;
-      h += uHills[i].z * exp(-dot(d, d) / (uHills[i].w * uHills[i].w));
-    }
-    return h;
-  }
-
+  // Same traced field as heightAt() in JS. R = brightness, G = water, B = local texture.
+  uniform sampler2D uField;
   void main() {
     vec2 g = aGrid;
-    float h = heightAt(g) + (vnoise(g * 9.0) - 0.5) * 0.05;
+    vec3 f = texture2D(uField, clamp(g * 0.5 + 0.5, 0.0, 1.0)).rgb;
+    float lum = f.r;
+    float water = f.g * (1.0 - clamp((f.b - 0.25) / 0.3, 0.0, 1.0));
+    float trees = clamp((f.b - 0.28) / 0.4, 0.0, 1.0) * (1.0 - water);
+    float h = 0.26 + lum * 0.10 + trees * 0.26 - water * 0.20 + (vnoise(g * 40.0) - 0.5) * 0.015;
     float land = smoothstep(${(SEA - 0.02).toFixed(2)}, ${(SEA + 0.02).toFixed(2)}, h);
     float elev = max(h - ${SEA.toFixed(2)}, 0.0);
-    float cl = abs(fract(h * 9.0 + 0.5) - 0.5);
-    float contour = (1.0 - smoothstep(0.03, 0.09, cl)) * land;
     float seaKeep = step(0.55, aRand.w);
+    // paths and lanes read as the brightest flat ground; trees as raised, busier ground
+    float path = smoothstep(0.62, 0.86, lum) * (1.0 - trees);
 
-    // 0 island
+    // 0 battlefield relief
     vec3 p0 = vec3(g.x * R, elev * uH * 1.7 + (1.0 - land) * sin(g.x * 9.0 + g.y * 7.0 + uTime * 0.6) * 0.025, g.y * R);
-    float a0 = mix(0.16 * seaKeep, 0.46, land) + contour * 0.5;
+    float a0 = mix(0.22 * seaKeep, 0.08 + lum * lum * 0.95, land) + path * 0.35 + trees * 0.12;
     // 1 flat map
     vec3 p1 = vec3(g.x * R, elev * 0.08, g.y * R);
-    float a1 = mix(0.13 * seaKeep, 0.34, land) + contour * 0.62;
+    float a1 = mix(0.10 * seaKeep, 0.02 + lum * lum * 1.05, land) * (1.0 - water * 0.75) + path * 0.45;
+    float contour = 0.0;
     // 2 rings: three bands, one per mixer channel
     float ringT = g.y * 0.5 + 0.5;
     float ringI = floor(ringT * 30.0);
@@ -271,6 +330,49 @@ const HALO_FRAG = /* glsl */`
   }
 `;
 
+// A hero as on a replay: the portrait cropped to a circle with a team-coloured ring.
+const ICON_FRAG = /* glsl */`
+  precision highp float;
+  uniform sampler2D uTex;
+  uniform vec3 uColTop, uColBot;
+  uniform float uAlpha;
+  varying vec2 vUv;
+  ${SPLIT}
+  void main() {
+    vec2 p = (vUv - 0.5) * 2.0;
+    float d = length(p);
+    float aa = fwidth(d) * 1.2;
+    float inside = smoothstep(0.80 + aa, 0.80, d);
+    float ring = smoothstep(0.80 - aa, 0.80, d) * smoothstep(1.0, 1.0 - aa, d);
+    // the portrait is 16:9; crop its centre square
+    vec2 uv = vec2(0.5 + p.x * 0.5 * 0.5625 * 0.86, 0.5 - p.y * 0.5 * 0.86);
+    vec3 tex = texture2D(uTex, uv).rgb;
+    vec3 col = room(uColTop, uColBot);
+    vec3 c = tex * inside + col * ring;
+    float a = max(inside, ring) * uAlpha;
+    if (a < 0.004) discard;
+    gl_FragColor = vec4(c * uAlpha, a);
+  }
+`;
+// The path a hero has walked: a line that fades toward where it started.
+const TRAIL_VERT = /* glsl */`
+  attribute float aT;
+  varying float vT;
+  void main() { vT = aT; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+`;
+const TRAIL_FRAG = /* glsl */`
+  precision highp float;
+  uniform vec3 uColTop, uColBot;
+  uniform float uAlpha;
+  varying float vT;
+  ${SPLIT}
+  void main() {
+    float a = vT * vT * 0.9 * uAlpha;
+    if (a < 0.004) discard;
+    gl_FragColor = vec4(room(uColTop, uColBot) * a, a);
+  }
+`;
+
 const premult = { transparent: true, depthTest: false, depthWrite: false, blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor, blendSrcAlpha: THREE.OneFactor, blendDstAlpha: THREE.OneMinusSrcAlphaFactor };
 
 export function createStage(canvas, { density = 256, antialias = true } = {}) {
@@ -299,11 +401,18 @@ export function createStage(canvas, { density = 256, antialias = true } = {}) {
   pg.setAttribute('aGrid', new THREE.BufferAttribute(grid, 2));
   pg.setAttribute('aRand', new THREE.BufferAttribute(rand, 4));
   const split = { value: -1e6 };
+  const fieldTex = new THREE.Texture(fieldImage);
+  fieldTex.flipY = false;
+  fieldTex.minFilter = THREE.LinearFilter;
+  fieldTex.magFilter = THREE.LinearFilter;
+  fieldTex.generateMipmaps = false;
+  fieldTex.colorSpace = THREE.NoColorSpace;
+  fieldTex.needsUpdate = true;
   const pu = {
+    uField: { value: fieldTex },
     uTime: { value: 0 }, uShape: { value: 0 }, uH: { value: 1 }, uPx: { value: 1 }, uSize: { value: 1 }, uIntro: { value: 1 },
     uStale: { value: 0 }, uLost: { value: 0 }, uDim: { value: 1 }, uVoice: { value: 0 }, uOrbY: { value: 1.7 }, uGridN: { value: N },
     uAmp: { value: new THREE.Vector3(0.5, 0.5, 0.5) }, uPointer: { value: new THREE.Vector3(0, 0, 0) },
-    uHills: { value: HILLS.map((h) => new THREE.Vector4(...h)) },
     uInkTop: { value: new THREE.Color() }, uInkBot: { value: new THREE.Color() },
     uTintTop: { value: new THREE.Color() }, uTintBot: { value: new THREE.Color() },
     uGainTop: { value: 1 }, uGainBot: { value: 1 }, uSplit: split,
@@ -335,6 +444,28 @@ export function createStage(canvas, { density = 256, antialias = true } = {}) {
     world.add(mesh);
     return { ...m, u, mesh, elev: Math.max(heightAt(m.g[0], m.g[1]) - SEA, 0) };
   });
+
+  // ---- heroes, replay style: round icon plus the path walked ------------------
+  const TRAIL_N = 40;
+  const heroes = HEROES.map((hr, i) => {
+    const img = heroImages[i];
+    if (!img) return null;
+    const tex = new THREE.Texture(img);
+    tex.colorSpace = THREE.SRGBColorSpace; tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false; tex.needsUpdate = true;
+    const iu = { uTex: { value: tex }, uColTop: { value: new THREE.Color() }, uColBot: { value: new THREE.Color() }, uAlpha: { value: 0 }, uSplit: split };
+    const icon = new THREE.Mesh(quad, new THREE.ShaderMaterial({ uniforms: iu, vertexShader: QUAD_VERT, fragmentShader: ICON_FRAG, ...premult }));
+    icon.scale.setScalar(0.62);
+    icon.renderOrder = 31 + i;
+    const tg = new THREE.BufferGeometry();
+    tg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(TRAIL_N * 3), 3));
+    tg.setAttribute('aT', new THREE.BufferAttribute(Float32Array.from({ length: TRAIL_N }, (_, k) => k / (TRAIL_N - 1)), 1));
+    const tu = { uColTop: { value: new THREE.Color() }, uColBot: { value: new THREE.Color() }, uAlpha: { value: 0 }, uSplit: split };
+    const trail = new THREE.Line(tg, new THREE.ShaderMaterial({ uniforms: tu, vertexShader: TRAIL_VERT, fragmentShader: TRAIL_FRAG, ...premult }));
+    trail.frustumCulled = false;
+    trail.renderOrder = 30;
+    world.add(trail, icon);
+    return { ...hr, iu, icon, tu, trail, tg };
+  }).filter(Boolean);
 
   // ---- the companion: a small orb with a lit-red ribbon -------------------
   const orb = new THREE.Group();
@@ -430,6 +561,31 @@ export function createStage(canvas, { density = 256, antialias = true } = {}) {
       const y = m.elev * ((P.height ?? 1) * 1.7 * (1 - flat) + 0.08 * flat) + 0.07;
       m.mesh.position.set(m.g[0] * R, y, m.g[1] * R);
       m.mesh.visible = m.u.uAlpha.value > 0.004;
+    });
+
+    // heroes: icons glide at one fixed height above the relief, so they never bob with the ground
+    const hA = P.heroes ?? 0;
+    const hy = 0.55 * ((P.height ?? 1) * 1.7 * (1 - flat) + 0.08 * flat) + 0.12;
+    const worldQ = new THREE.Quaternion().copy(world.quaternion).invert().multiply(camera.quaternion);
+    heroes.forEach((hr) => {
+      const pose = heroPose(hr, P.time);
+      const a = hA * pose.alpha;
+      const vis = a > 0.004;
+      hr.icon.visible = hr.trail.visible = vis;
+      if (!vis) return;
+      const [gx, gz] = pose.g;
+      hr.icon.position.set(gx * R, hy + 0.02, gz * R);
+      hr.icon.quaternion.copy(worldQ);
+      const pos = hr.tg.attributes.position;
+      for (let k = 0; k < TRAIL_N; k++) {
+        const [tx, tz] = along(LANES[hr.lane], pose.s0 + (pose.s - pose.s0) * (k / (TRAIL_N - 1)));
+        pos.setXYZ(k, tx * R, hy, tz * R);
+      }
+      pos.needsUpdate = true;
+      setPair(hr.iu.uColTop, hr.iu.uColBot, hr.team, top, bot);
+      setPair(hr.tu.uColTop, hr.tu.uColBot, hr.team, top, bot);
+      hr.iu.uAlpha.value = a;
+      hr.tu.uAlpha.value = a;
     });
 
     // orb

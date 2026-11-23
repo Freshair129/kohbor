@@ -13793,13 +13793,58 @@
     },
     {
       "path": "apps/website/README.md",
-      "bytes": 8035,
-      "sha256": "80a652b57244b18dbd99b24d4ad3641a5022662fd6f8d573e67c107ec2eb788e"
+      "bytes": 8592,
+      "sha256": "4600363890c48205a869bb47e6034bbd2ced1f6d46d5ac5b8054951e974f3083"
     },
     {
       "path": "apps/website/assets/film/poster.jpg",
-      "bytes": 183999,
-      "sha256": "176274bd09a748d302479f8dd9752ef6030f6327562866b44b1d096c68ec92cd"
+      "bytes": 216466,
+      "sha256": "4e6c62e1686e89315f641c2ec71e71dc12bfb6bd5d41ccd63fd0eaed0513f538"
+    },
+    {
+      "path": "apps/website/assets/heroes/README.md",
+      "bytes": 585,
+      "sha256": "8f0ca956dcb748a190954060e642e1d3af1c54cd74c1b6ce107d9562e555e5fd"
+    },
+    {
+      "path": "apps/website/assets/heroes/crystal_maiden.png",
+      "bytes": 15991,
+      "sha256": "1ef52b40c526f78a8eb0baeda78646747aa7c245070d81f23e582c11edf4888f"
+    },
+    {
+      "path": "apps/website/assets/heroes/juggernaut.png",
+      "bytes": 16992,
+      "sha256": "cfa5175427e88348254c5ee59349b030ae756e91f22f5ca5630e429179c79785"
+    },
+    {
+      "path": "apps/website/assets/heroes/lina.png",
+      "bytes": 18117,
+      "sha256": "9c462606cf0869b40791cdf7755868e424c23ca6e84f9dd58eacc3bf2e716680"
+    },
+    {
+      "path": "apps/website/assets/heroes/nevermore.png",
+      "bytes": 17195,
+      "sha256": "cf11510dde62eaf2d0030a7405e2af15c027938e155dce776f9a6672fcbfd0a1"
+    },
+    {
+      "path": "apps/website/assets/heroes/pudge.png",
+      "bytes": 16470,
+      "sha256": "b4838f32f4993e752e4e50d7ced53ea0e8263a36b95f80119b5a6ceb144f00fc"
+    },
+    {
+      "path": "apps/website/assets/heroes/sven.png",
+      "bytes": 13617,
+      "sha256": "0203c7b72660c97b0b791cee4e495edd49fe6ef67e1bb9dbe8250f684249b968"
+    },
+    {
+      "path": "apps/website/assets/map/README.md",
+      "bytes": 1020,
+      "sha256": "9a73278a60103a1ee7db7346ea9b49d15ec613e106165e0d83eadfd9016cbdf5"
+    },
+    {
+      "path": "apps/website/assets/map/field.png",
+      "bytes": 164499,
+      "sha256": "29dcc8815265656da2d31e75afc16bead7850e223256e24c305489eb9b45496f"
     },
     {
       "path": "apps/website/assets/mark.svg",
@@ -13813,13 +13858,13 @@
     },
     {
       "path": "apps/website/css/site.css",
-      "bytes": 29433,
-      "sha256": "aa86ba684409c664d26d773704f7d1f60368931107536ec8fbaf0cde822cc605"
+      "bytes": 30715,
+      "sha256": "27efa65c249d288a713626092437e41f230b069bc38c9b196df78bcee841a481"
     },
     {
       "path": "apps/website/index.html",
-      "bytes": 32556,
-      "sha256": "5eeebd36c49bc1b03e6b57b7a94f37d0cb2224603e660c9f9711fb97a405d18f"
+      "bytes": 39305,
+      "sha256": "86a654f89023df1e383204107fc578b8079982af5586919f8ba85ce458d7682e"
     },
     {
       "path": "apps/website/js/download.js",
@@ -13828,18 +13873,18 @@
     },
     {
       "path": "apps/website/js/film.js",
-      "bytes": 9627,
-      "sha256": "782dab0b7f54dc1dd15101b14447d5f9819c80577f06d42a2cd0ee06b9f46621"
+      "bytes": 9776,
+      "sha256": "e1288a604c8a4137b164e1d0b74895b283cb7653b1d9cdfb6f39ce63d9393751"
     },
     {
       "path": "apps/website/js/main.js",
-      "bytes": 22336,
-      "sha256": "fe65383a10f8e95dda9105c2ebfa17cc94795acb2e4a174ce17fb99236bbb7c4"
+      "bytes": 22591,
+      "sha256": "48f80891ab04e64fae99da51cf7f28962484b0652a117102698ccee995f648d0"
     },
     {
       "path": "apps/website/js/stage.js",
-      "bytes": 22211,
-      "sha256": "f5d8b95ae24a6109f2c376999a28a0d758ed5bfc253c73eaa95a5b49a6f53ab0"
+      "bytes": 30005,
+      "sha256": "7f443e9390db03a2796e51ae0ef9fa942b5ee32bfe7a0ce5c50176dfdbb5ef1a"
     },
     {
       "path": "apps/website/serve.mjs",

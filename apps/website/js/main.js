@@ -36,7 +36,7 @@ const labels = $$('.lb').map((el) => ({ el, id: el.dataset.m, o: -1 }));
 const plate = $('#plate'), plateText = $('#plateText');
 const navLinks = $$('.top-nav a');
 const topEl = $('#top');
-const NAV_FOR = { see: '#see', honest: '#honest', hear: '#hear', ask: '#ask', yours: '#yours', bar: '#bar' };
+const NAV_FOR = { see: '#see', honest: '#honest', hear: '#hear', ask: '#ask', features: '#features', yours: '#yours', bar: '#bar' };
 let topRoom = 'c';
 
 let vw = 1, vh = 1, cw = 1, ch = 1, cl = 0, ct = 0, mobile = false;
@@ -92,7 +92,7 @@ function measure() {
   buildKeys();
 }
 
-const BASE = { cam: [0, 4.6, 12], look: [0, 0.5, 0], shift: [0, 0], shape: 0, height: 1, dim: 1, px: 2, fit: 1.3, rotAmt: 1, markers: 0, frame: 0, orb: [1.7, 2.5, 1.4], orbA: 0, orbS: 1, ripple: 0, follow: 0 };
+const BASE = { cam: [0, 4.6, 12], look: [0, 0.5, 0], shift: [0, 0], shape: 0, height: 1, dim: 1, px: 2, fit: 1.3, rotAmt: 1, markers: 0, frame: 0, orb: [1.7, 2.5, 1.4], orbA: 0, orbS: 1, ripple: 0, follow: 0, heroes: 0 };
 const own = MARKERS.find((m) => m.id === 'own');
 function slotShift(id, ky = 1) { const b = byIdNow(id).box; return b ? [(b.cx - cw / 2) / cw, ((b.cy - ch / 2) / ch) * ky] : [0, 0]; }
 function byIdNow(id) { return sections.find((s) => s.id === id); }
@@ -104,16 +104,17 @@ function topDown(id, tilt) {
 }
 function buildKeys() {
   const m = mobile;
-  K.hero = { ...BASE, height: 1.2, shift: m ? [0, -0.2] : [0.25, 0.05], orbA: 1, ripple: 1, follow: 1 };
+  K.hero = { ...BASE, cam: [0, 9.0, 9.6], look: [0, 0, 0.2], height: 1.2, shift: m ? [0, -0.2] : [0.25, 0.05], orbA: 1, ripple: 1, follow: 1, heroes: 1 };
   K.why = { ...BASE, cam: [-8.5, 2.1, 9], look: [0, 0.9, 0], shift: m ? [0, -0.12] : [0.31, 0.2], height: 1.2, dim: 0.34, ripple: 0.5, orb: [0.4, 2.2, 0.6], orbA: 0 };
   K.see = { ...BASE, ...topDown('see', 0), shift: slotShift('see'), shape: 1, px: m ? 1.5 : 1.9, rotAmt: 0, markers: 1, frame: 1, orb: [own.g[0] * R + 0.62, 0.5, own.g[1] * R + 0.5], orbA: 1, orbS: 0.75, ripple: 0.55 };
   K.honest = { ...BASE, ...topDown('honest', 0.2), shift: slotShift('honest'), shape: 1, px: m ? 1.5 : 1.9, rotAmt: 0, markers: 1, frame: 1, orb: [own.g[0] * R + 0.62, 0.5, own.g[1] * R + 0.5], orbA: 0, orbS: 0.75, ripple: 0.2 };
   K.hear = { ...BASE, cam: [0, 6.8, 14], look: [0, 0, 0], shift: slotShift('hear', m ? 1 : 0.4), shape: 2, px: 2.1, rotAmt: 0.5, orb: [0, 0.5, 0], orbA: 1, orbS: 1.1 };
   K.ask = { ...BASE, cam: [0, 2.3, m ? 6.4 : 7.4], look: [0, 1.7, 0], shift: slotShift('ask'), shape: 3, px: 2.1, orb: [0, 1.7, 0], orbA: 1, orbS: 1.3 };
-  K.yours = { ...BASE, cam: [0, 2.6, 9.5], look: [0, 0.1, -3], shape: 4, dim: 0.9, px: 2.3, rotAmt: 0.3, ripple: 0.6, orb: [0, 1.7, 0] };
+  K.features = { ...BASE, cam: [0, 3.4, 11], look: [0, -0.2, -2], shape: 4, dim: 0.3, px: 2.3, rotAmt: 0.3, ripple: 0.4, orb: [0, 1.7, 0] };
+  K.yours ={ ...BASE, cam: [0, 2.6, 9.5], look: [0, 0.1, -3], shape: 4, dim: 0.9, px: 2.3, rotAmt: 0.3, ripple: 0.6, orb: [0, 1.7, 0] };
   K.film = { ...K.yours, dim: 0, ripple: 0 };
   K.bar = { ...BASE, cam: [0, 3.4, 11], look: [0, -0.2, -2], shape: 4, dim: 0.34, px: 2.3, rotAmt: 0.3, ripple: 0.4, orb: [0, 1.7, 0] };
-  K.end = { ...BASE, cam: [0, 5.2, 14.5], look: [0, 0.9, 0], height: 1.2, shift: m ? [0, 0.16] : [0.26, 0.0], shape: 5, orbA: 1, ripple: 1, follow: 1 };
+  K.end = { ...BASE, cam: [0, 9.0, 11.5], look: [0, 0.9, 0], height: 1.2, shift: m ? [0, 0.16] : [0.26, 0.0], shape: 5, orbA: 1, ripple: 1, follow: 1, heroes: 1 };
 }
 function mix(a, b, t) {
   const o = {};
@@ -277,7 +278,7 @@ function frame(now) {
       stale: ext.stale, lost: ext.lost, amp: ext.amp, voice: ext.voice, sphereY: 1.7,
       orb: ext.orb, orbA: cur.orbA * ease(clamp(intro * 1.6 - 0.6)), orbS: cur.orbS * (1 + ext.voice * 0.25),
       markers: cur.markers * ext.mk, pop: ext.pop, e3: ext.e3, frame: cur.frame * ext.fr, frameDash: ext.dash,
-      pointer: { x: ptr.x, z: ptr.z, s: ext.ps }, rooms,
+      pointer: { x: ptr.x, z: ptr.z, s: ext.ps }, rooms, heroes: cur.heroes,
     });
   } else stage.renderer.clear();
 
