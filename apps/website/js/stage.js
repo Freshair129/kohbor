@@ -90,17 +90,15 @@ function along(poly, t) {
   return poly[poly.length - 1];
 }
 const easeIO = (x) => (x < 0.5 ? 2 * x * x : 1 - (-2 * x + 2) ** 2 / 2);
-/** Deterministic choreography for one hero at time t: grid position, alpha, fight amount. */
+/** Deterministic choreography for one hero at time t, replay style: walk the lane, hold, fade. */
 export function heroPose(hr, t) {
   const u = (((t / HERO_CYCLE) + hr.phase) % 1 + 1) % 1;
-  const walk = easeIO(sat(u / 0.5));
-  const fight = u > 0.5 && u < 0.86 ? Math.sin(((u - 0.5) / 0.36) * Math.PI) : 0;
+  const walk = easeIO(sat(u / 0.62));
   const alpha = sat(u / 0.06) * (1 - sat((u - 0.86) / 0.1));
   const home = hr.team === 'ally';
-  const s = home ? 0.12 + walk * 0.345 : 0.88 - walk * 0.345;
-  const lunge = fight * 0.018 * Math.sin(u * 140) * (home ? 1 : -1);
-  const g = along(LANES[hr.lane], s + lunge);
-  return { g, alpha, fight, u };
+  const s0 = home ? 0.12 : 0.88;
+  const s = home ? s0 + walk * 0.345 : s0 - walk * 0.345;
+  return { g: along(LANES[hr.lane], s), s0, s, alpha, u };
 }
 
 const hex = (h) => new THREE.Color(h);
@@ -332,45 +330,44 @@ const HALO_FRAG = /* glsl */`
   }
 `;
 
-// A hero card as a hologram: the portrait in one ink colour, scanlines, flicker, a thin frame,
-// and a rare horizontal glitch. The colour is the team colour of the room it is drawn on.
-const HOLO_FRAG = /* glsl */`
+// A hero as on a replay: the portrait cropped to a circle with a team-coloured ring.
+const ICON_FRAG = /* glsl */`
   precision highp float;
   uniform sampler2D uTex;
-  uniform vec3 uColTop, uColBot;
-  uniform float uAlpha, uTime, uSeed;
-  varying vec2 vUv;
-  ${SPLIT}
-  float h1(float n) { return fract(sin(n * 12.9898) * 43758.5453); }
-  void main() {
-    vec2 uv = vUv;
-    float band = floor(uv.y * 18.0);
-    float glitch = step(0.94, h1(band + floor(uTime * 7.0 + uSeed * 13.0)));
-    uv.x += glitch * 0.035 * sin(uTime * 37.0 + band);
-    vec3 tex = texture2D(uTex, clamp(uv, 0.0, 1.0)).rgb;
-    float l = pow(dot(tex, vec3(0.299, 0.587, 0.114)), 0.85);
-    float scan = 0.72 + 0.28 * sin(vUv.y * 190.0 - uTime * 10.0);
-    float m = min(min(vUv.x, 1.0 - vUv.x), min(vUv.y, 1.0 - vUv.y));
-    float frame = 1.0 - smoothstep(0.012, 0.03, m);
-    float body = smoothstep(0.0, 0.05, m);
-    float flick = 0.88 + 0.12 * sin(uTime * 21.0 + uSeed * 9.0);
-    float a = (mix(0.18, 1.0, l) * scan * body + frame * 0.9 + glitch * 0.08) * uAlpha * flick;
-    if (a < 0.004) discard;
-    // keep some of the portrait's own colour so the hero stays recognisable
-    vec3 col = mix(room(uColTop, uColBot), tex * 1.15, 0.5 * body);
-    gl_FragColor = vec4(col * a, a);
-  }
-`;
-// A light column under a hero card, fading upward.
-const BEAM_FRAG = /* glsl */`
-  precision highp float;
   uniform vec3 uColTop, uColBot;
   uniform float uAlpha;
   varying vec2 vUv;
   ${SPLIT}
   void main() {
-    float x = abs(vUv.x - 0.5) * 2.0;
-    float a = (1.0 - x) * (1.0 - x) * (1.0 - vUv.y) * 0.45 * uAlpha;
+    vec2 p = (vUv - 0.5) * 2.0;
+    float d = length(p);
+    float aa = fwidth(d) * 1.2;
+    float inside = smoothstep(0.80 + aa, 0.80, d);
+    float ring = smoothstep(0.80 - aa, 0.80, d) * smoothstep(1.0, 1.0 - aa, d);
+    // the portrait is 16:9; crop its centre square
+    vec2 uv = vec2(0.5 + p.x * 0.5 * 0.5625 * 0.86, 0.5 - p.y * 0.5 * 0.86);
+    vec3 tex = texture2D(uTex, uv).rgb;
+    vec3 col = room(uColTop, uColBot);
+    vec3 c = tex * inside + col * ring;
+    float a = max(inside, ring) * uAlpha;
+    if (a < 0.004) discard;
+    gl_FragColor = vec4(c * uAlpha, a);
+  }
+`;
+// The path a hero has walked: a line that fades toward where it started.
+const TRAIL_VERT = /* glsl */`
+  attribute float aT;
+  varying float vT;
+  void main() { vT = aT; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+`;
+const TRAIL_FRAG = /* glsl */`
+  precision highp float;
+  uniform vec3 uColTop, uColBot;
+  uniform float uAlpha;
+  varying float vT;
+  ${SPLIT}
+  void main() {
+    float a = vT * vT * 0.9 * uAlpha;
     if (a < 0.004) discard;
     gl_FragColor = vec4(room(uColTop, uColBot) * a, a);
   }
@@ -448,39 +445,27 @@ export function createStage(canvas, { density = 256, antialias = true } = {}) {
     return { ...m, u, mesh, elev: Math.max(heightAt(m.g[0], m.g[1]) - SEA, 0) };
   });
 
-  // ---- hero holograms ------------------------------------------------------
+  // ---- heroes, replay style: round icon plus the path walked ------------------
+  const TRAIL_N = 40;
   const heroes = HEROES.map((hr, i) => {
     const img = heroImages[i];
     if (!img) return null;
     const tex = new THREE.Texture(img);
     tex.colorSpace = THREE.SRGBColorSpace; tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false; tex.needsUpdate = true;
-    const cu = { uTex: { value: tex }, uColTop: { value: new THREE.Color() }, uColBot: { value: new THREE.Color() }, uAlpha: { value: 0 }, uTime: { value: 0 }, uSeed: { value: i * 1.7 }, uSplit: split };
-    const card = new THREE.Mesh(quad, new THREE.ShaderMaterial({ uniforms: cu, vertexShader: QUAD_VERT, fragmentShader: HOLO_FRAG, ...premult }));
-    card.scale.set(1.5, 0.84, 1);
-    card.renderOrder = 30 + i;
-    const bu = { uColTop: { value: new THREE.Color() }, uColBot: { value: new THREE.Color() }, uAlpha: { value: 0 }, uSplit: split };
-    const beam = new THREE.Mesh(quad, new THREE.ShaderMaterial({ uniforms: bu, vertexShader: QUAD_VERT, fragmentShader: BEAM_FRAG, ...premult }));
-    beam.renderOrder = 29;
-    const ru = {
-      uColTop: { value: new THREE.Color() }, uColBot: { value: new THREE.Color() },
-      uKind: { value: hr.team === 'enemy' ? 1 : 0 }, uDash: { value: 0 }, uDouble: { value: 0 },
-      uDot: { value: 0 }, uPing: { value: 0 }, uAlpha: { value: 0 }, uSplit: split,
-    };
-    const ring = new THREE.Mesh(quad, new THREE.ShaderMaterial({ uniforms: ru, vertexShader: QUAD_VERT, fragmentShader: MARK_FRAG, ...premult }));
-    ring.rotation.x = -Math.PI / 2;
-    ring.scale.setScalar(0.62);
-    ring.renderOrder = 28;
-    world.add(beam, ring, card);
-    return { ...hr, cu, card, bu, beam, ru, ring };
+    const iu = { uTex: { value: tex }, uColTop: { value: new THREE.Color() }, uColBot: { value: new THREE.Color() }, uAlpha: { value: 0 }, uSplit: split };
+    const icon = new THREE.Mesh(quad, new THREE.ShaderMaterial({ uniforms: iu, vertexShader: QUAD_VERT, fragmentShader: ICON_FRAG, ...premult }));
+    icon.scale.setScalar(0.62);
+    icon.renderOrder = 31 + i;
+    const tg = new THREE.BufferGeometry();
+    tg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(TRAIL_N * 3), 3));
+    tg.setAttribute('aT', new THREE.BufferAttribute(Float32Array.from({ length: TRAIL_N }, (_, k) => k / (TRAIL_N - 1)), 1));
+    const tu = { uColTop: { value: new THREE.Color() }, uColBot: { value: new THREE.Color() }, uAlpha: { value: 0 }, uSplit: split };
+    const trail = new THREE.Line(tg, new THREE.ShaderMaterial({ uniforms: tu, vertexShader: TRAIL_VERT, fragmentShader: TRAIL_FRAG, ...premult }));
+    trail.frustumCulled = false;
+    trail.renderOrder = 30;
+    world.add(trail, icon);
+    return { ...hr, iu, icon, tu, trail, tg };
   }).filter(Boolean);
-  // a burst where each lane's pair meets
-  const sparks = ['mid', 'top', 'bot'].map((lane, i) => {
-    const su = { uColTop: { value: new THREE.Color() }, uColBot: { value: new THREE.Color() }, uAlpha: { value: 0 }, uHaloTop: { value: 1 }, uHaloBot: { value: 1 }, uSplit: split };
-    const mesh = new THREE.Mesh(quad, new THREE.ShaderMaterial({ uniforms: su, vertexShader: QUAD_VERT, fragmentShader: HALO_FRAG, ...premult }));
-    mesh.renderOrder = 40 + i;
-    world.add(mesh);
-    return { lane, su, mesh };
-  });
 
   // ---- the companion: a small orb with a lit-red ribbon -------------------
   const orb = new THREE.Group();
@@ -578,46 +563,29 @@ export function createStage(canvas, { density = 256, antialias = true } = {}) {
       m.mesh.visible = m.u.uAlpha.value > 0.004;
     });
 
-    // hero holograms
+    // heroes: icons glide at one fixed height above the relief, so they never bob with the ground
     const hA = P.heroes ?? 0;
-    const lift = (gx, gz) => Math.max(heightAt(gx, gz) - SEA, 0) * ((P.height ?? 1) * 1.7 * (1 - flat) + 0.08 * flat);
+    const hy = 0.55 * ((P.height ?? 1) * 1.7 * (1 - flat) + 0.08 * flat) + 0.12;
     const worldQ = new THREE.Quaternion().copy(world.quaternion).invert().multiply(camera.quaternion);
-    const fightAt = {};
     heroes.forEach((hr) => {
       const pose = heroPose(hr, P.time);
       const a = hA * pose.alpha;
       const vis = a > 0.004;
-      hr.card.visible = hr.beam.visible = hr.ring.visible = vis;
+      hr.icon.visible = hr.trail.visible = vis;
       if (!vis) return;
       const [gx, gz] = pose.g;
-      const y = lift(gx, gz);
-      const bob = Math.sin(P.time * 2.4 + hr.cu.uSeed.value) * 0.04 + pose.fight * 0.06;
-      hr.card.position.set(gx * R, y + 0.9 + bob, gz * R);
-      hr.card.quaternion.copy(worldQ);
-      hr.beam.position.set(gx * R, y + 0.4, gz * R);
-      hr.beam.quaternion.copy(worldQ);
-      hr.beam.scale.set(0.7, 0.8, 1);
-      hr.ring.position.set(gx * R, y + 0.03, gz * R);
-      setPair(hr.cu.uColTop, hr.cu.uColBot, hr.team, top, bot);
-      setPair(hr.bu.uColTop, hr.bu.uColBot, hr.team, top, bot);
-      setPair(hr.ru.uColTop, hr.ru.uColBot, hr.team, top, bot);
-      hr.cu.uAlpha.value = a; hr.cu.uTime.value = P.time;
-      hr.bu.uAlpha.value = a; hr.ru.uAlpha.value = a * 0.9;
-      const f = fightAt[hr.lane] ?? (fightAt[hr.lane] = { x: 0, z: 0, y: 0, n: 0, fight: 0, a: 0 });
-      f.x += gx; f.z += gz; f.y += y; f.n += 1; f.fight = Math.max(f.fight, pose.fight); f.a = Math.max(f.a, a);
-    });
-    sparks.forEach((s) => {
-      const f = fightAt[s.lane];
-      const k = f ? f.fight * f.a : 0;
-      s.mesh.visible = k > 0.01;
-      if (!s.mesh.visible) return;
-      const pulse = 0.55 + 0.45 * Math.abs(Math.sin(P.time * 11.0 + s.lane.length));
-      s.mesh.position.set((f.x / f.n) * R, f.y / f.n + 0.45, (f.z / f.n) * R);
-      s.mesh.quaternion.copy(worldQ);
-      s.mesh.scale.setScalar(0.9 + pulse * 0.9);
-      setPair(s.su.uColTop, s.su.uColBot, 'tint', top, bot);
-      s.su.uAlpha.value = k * pulse * 2.2;
-      s.su.uHaloTop.value = 1; s.su.uHaloBot.value = 1;
+      hr.icon.position.set(gx * R, hy + 0.02, gz * R);
+      hr.icon.quaternion.copy(worldQ);
+      const pos = hr.tg.attributes.position;
+      for (let k = 0; k < TRAIL_N; k++) {
+        const [tx, tz] = along(LANES[hr.lane], pose.s0 + (pose.s - pose.s0) * (k / (TRAIL_N - 1)));
+        pos.setXYZ(k, tx * R, hy, tz * R);
+      }
+      pos.needsUpdate = true;
+      setPair(hr.iu.uColTop, hr.iu.uColBot, hr.team, top, bot);
+      setPair(hr.tu.uColTop, hr.tu.uColBot, hr.team, top, bot);
+      hr.iu.uAlpha.value = a;
+      hr.tu.uAlpha.value = a;
     });
 
     // orb
