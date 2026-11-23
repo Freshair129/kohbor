@@ -33,11 +33,15 @@ test("dialog component has a visible close button, restores focus and is used by
   assert.match(source, /opener\?\.isConnected\) opener\.focus\(\)/);
 });
 
-test("allies disclosure is static: no absolute/fixed positioning or z-index", () => {
+test("allies panel is static: no absolute/fixed positioning or z-index", () => {
+  // R5: the allies disclosure became an always-visible compact card list; it must stay in flow.
   const css = readFileSync(new URL("../src/deck/deck.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
-  const rule = css.match(/\.deck-ally-disclosure > \.deck-ally-panel\s*\{([^}]+)\}/)?.[1] ?? "";
-  assert.match(rule, /position:\s*static/);
-  assert.doesNotMatch(rule, /z-index|absolute|fixed|bottom:/);
+  assert.doesNotMatch(css, /\.deck-ally-disclosure/);
+  const cards = readFileSync(new URL("../src/live/heroCard.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  for (const selector of [/\.deck-ally-panel[^{,]*\{([^}]+)\}/g, /\.lhc-list[^{,]*\{([^}]+)\}/g, /\.lhc-compact[^{,]*\{([^}]+)\}/g]) {
+    const rules = [...(css + cards).matchAll(selector)].map(m => m[1]).join("\n");
+    assert.doesNotMatch(rules, /z-index|position:\s*(?:absolute|fixed)/);
+  }
 });
 
 test("no floating popover rules remain outside dialogs and menus", () => {

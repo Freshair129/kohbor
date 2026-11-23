@@ -271,8 +271,9 @@ test("loadout tiles remain compact and the root/card never gain scrolling", () =
   const component = readFileSync(new URL("../src/deck/OwnLoadout.tsx", import.meta.url), "utf8");
   assert.equal(component.match(/ต้องตั้งค่าการเชื่อมต่อ Dota 2 ใหม่หนึ่งครั้ง/g)?.length, 1);
   assert.match(component, /สกิลเสริม/);
+  // R5: allies are visible compact cards on the centred deck (no disclosure); see live-hero-card.test.ts.
   const deck = readFileSync(new URL("../src/deck/Deck.tsx", import.meta.url), "utf8");
-  assert.match(deck, /<details className="deck-ally-disclosure"/);
+  assert.match(deck, /<CompactHeroCards cards=\{allyCards\}/);
 });
 
 test("no game data shows faint placeholder slots that never look like empty or real items", () => {

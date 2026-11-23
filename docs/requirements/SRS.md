@@ -919,7 +919,7 @@ The product shall separate control-window chrome from the transparent always-on-
 
 **Product needs:** PN-005 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL
 
-The live field shall be a second-screen session monitor: an enlarged minimap as the dominant region, an own-team column (own hero first, then four stable allied slots), a column of five stable enemy slots and a bounded event/inspector region that never moves the map.
+The live field shall be a second-screen session monitor: an enlarged minimap as the dominant region, an own-team column (own hero first, then four stable allied slots), a column of five stable enemy slots and a bounded event/inspector region that never moves the map. The team slots use the replay viewer's hero-card layout (DEC-REPLAY-INTEGRATION item 10; owner 2026-11-23): the own hero is a full card from GSI (portrait with level, name, K/D/A, LH/DN, gold, HP and mana bars with numbers, abilities with levels and cooldowns, six items with backpack, neutral and TP, and GPM/XPM) with no attribute or derived stat rows; the four allies and five enemies are compact cards (portrait, name from same-session draft identification, slot colour) whose other values are em dashes unless an admitted source exists. No path traces and no unobserved enemy value are shown.
 
 **Failure behavior:** Use bounded subregion scrolling; do not shrink text to hide overflow.
 
