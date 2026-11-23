@@ -238,7 +238,6 @@ export function OwnLoadout({ model, locale, gsiSetup }: {
   gsiSetup?: (replace: boolean) => Promise<string | null>;
 }) {
   const th = locale === "th";
-  const [setupState, setSetupState] = useState<"idle" | "busy" | "done" | string>("idle");
   const { tracks, nowMs, reducedMotion, contextKey } = useCooldownClock(model);
   const [freshCache, setFreshCache] = useState<FreshLoadoutCache | null>(null);
   const presentationKey = JSON.stringify([contextKey, model.source.sequence, model.items.stale, model.items.slots,
@@ -246,13 +245,7 @@ export function OwnLoadout({ model, locale, gsiSetup }: {
   useEffect(() => {
     setFreshCache(previous => retainFreshLoadout(model, previous).cache);
   }, [presentationKey]);
-  const runSetup = async () => {
-    if (!gsiSetup) return;
-    setSetupState("busy");
-    const error = await gsiSetup(false);
-    setSetupState(error === null ? "done" : `error:${error}`);
-  };
-  const old = (age: number | null) => `${th ? "ข้อมูลเก่า" : "Old data"} · ${seconds(age, locale)}`;
+  const old =(age: number | null) => `${th ? "ข้อมูลเก่า" : "Old data"} · ${seconds(age, locale)}`;
   const presentation = retainFreshLoadout(model, freshCache);
   const itemGroups = presentation.items ? groupItemSlots(presentation.items) : null;
   const abilityRows = presentation.abilities?.length ? splitAbilityRows(presentation.abilities) : null;
@@ -301,14 +294,27 @@ export function OwnLoadout({ model, locale, gsiSetup }: {
         </section>}
       </div> : <LoadoutPlaceholder kind="abilities" locale={locale} />}
     </section>
-    {model.setupHint && <small className="deck-stats-caption deck-setup-hint">
-      <span>{th ? "ต้องตั้งค่าการเชื่อมต่อ Dota 2 ใหม่หนึ่งครั้ง" : "Run Dota 2 connection setup once again"}</span>
-      <span>{th ? "เกมที่เปิดก่อนเพิ่มบล็อก items/abilities ใน cfg จะยังไม่ส่งข้อมูลส่วนนี้" : "A game started before the cfg gained items/abilities blocks will not send them yet."}</span>
-      {gsiSetup && <button type="button" className="deck-setup-button" disabled={setupState === "busy"} onClick={() => void runSetup()}>
-        {setupState === "busy" ? (th ? "กำลังติดตั้ง…" : "Installing…") : (th ? "ตั้งค่า GSI / ติดตั้งไฟล์เชื่อมต่อ Dota 2" : "Set up GSI / install the Dota 2 connection file")}
-      </button>}
-      {setupState === "done" && <span role="status">{th ? "ติดตั้งแล้ว — ปิดแล้วเปิด Dota 2 ใหม่หนึ่งครั้ง" : "Installed — restart Dota 2 once."}</span>}
-      {setupState.startsWith("error:") && <span role="alert">{reason(setupState.slice(6), locale)}</span>}
-    </small>}
+    {model.setupHint && <GsiSetupHint locale={locale} gsiSetup={gsiSetup} />}
   </section>;
+}
+
+/** The items/abilities setup hint with its GSI setup button; shared by this loadout and the Live hero card. */
+export function GsiSetupHint({ locale, gsiSetup }: { locale: "th" | "en"; gsiSetup?: (replace: boolean) => Promise<string | null> }) {
+  const th = locale === "th";
+  const [setupState, setSetupState] = useState<"idle" | "busy" | "done" | string>("idle");
+  const runSetup = async () => {
+    if (!gsiSetup) return;
+    setSetupState("busy");
+    const error = await gsiSetup(false);
+    setSetupState(error === null ? "done" : `error:${error}`);
+  };
+  return <small className="deck-stats-caption deck-setup-hint">
+    <span>{th ? "ต้องตั้งค่าการเชื่อมต่อ Dota 2 ใหม่หนึ่งครั้ง" : "Run Dota 2 connection setup once again"}</span>
+    <span>{th ? "เกมที่เปิดก่อนเพิ่มบล็อก items/abilities ใน cfg จะยังไม่ส่งข้อมูลส่วนนี้" : "A game started before the cfg gained items/abilities blocks will not send them yet."}</span>
+    {gsiSetup && <button type="button" className="deck-setup-button" disabled={setupState === "busy"} onClick={() => void runSetup()}>
+      {setupState === "busy" ? (th ? "กำลังติดตั้ง…" : "Installing…") : (th ? "ตั้งค่า GSI / ติดตั้งไฟล์เชื่อมต่อ Dota 2" : "Set up GSI / install the Dota 2 connection file")}
+    </button>}
+    {setupState === "done" && <span role="status">{th ? "ติดตั้งแล้ว — ปิดแล้วเปิด Dota 2 ใหม่หนึ่งครั้ง" : "Installed — restart Dota 2 once."}</span>}
+    {setupState.startsWith("error:") && <span role="alert">{reason(setupState.slice(6), locale)}</span>}
+  </small>;
 }

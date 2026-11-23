@@ -25,13 +25,10 @@ import {
   type TopbarInput,
 } from "./secondMonitorCards";
 import {
-  createDraftRosterMemory,
   enemyRows,
   formatCountdown,
   missingFromMap,
-  rememberDraftFrame,
   secondMonitorCopy,
-  type DraftRosterMemory,
   type NextObjective,
   type RosterRow,
   type SecondMonitorSide,
@@ -42,15 +39,8 @@ import { DraftBoard } from "./DraftBoard";
 import { countdownLabels, objectiveShortName, type ObjectiveSchedule } from "./objectiveCountdownModel";
 import { draftBoardRows, type DraftStatsInput, type PlayerNamesInput } from "./draftBoardModel";
 import { cardMetrics, secondMonitorLayout, type CardKind, type Rect } from "./secondMonitorLayout";
+import { useRosterMemory } from "./rosterMemory";
 import "./secondMonitor.css";
-
-// Draft identities live in memory for the match only (UI-012); a new session epoch clears them.
-let rosterMemory: DraftRosterMemory = createDraftRosterMemory();
-
-function useRosterMemory(epoch: number | null, frame: DraftBarFrame | null): DraftRosterMemory {
-  rosterMemory = rememberDraftFrame(rosterMemory, epoch, frame);
-  return rosterMemory;
-}
 
 function useBox<T extends HTMLElement>() {
   const ref = useRef<T>(null);

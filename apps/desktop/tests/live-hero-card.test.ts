@@ -1,0 +1,259 @@
+// Slice R5 (DEC-REPLAY-INTEGRATION item 10): replay-style hero cards on the centred Live deck.
+// Pure-logic tests only: card view model from a GSI snapshot, unknown handling for allies/enemies, icon resolver fallback.
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { test } from "node:test";
+// @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
+import { parseOwnSnapshot } from "../src/ownSnapshot.ts";
+// @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
+import { deriveOwnHeroViewModel } from "../src/deck/ownHeroModel.ts";
+// @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
+import { deriveLoadoutViewModel } from "../src/deck/loadoutModel.ts";
+// @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
+import { formatCooldownValue } from "../src/deck/cooldownModel.ts";
+// @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
+import { allyHeroCards, enemyHeroCards, type HeroCard } from "../src/live/secondMonitorCards.ts";
+// @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
+import { createDraftRosterMemory, rememberDraftFrame } from "../src/live/secondMonitorModel.ts";
+// @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
+import { createIconResolver, iconFileName, noIcons } from "../src/live/dotaIcons.ts";
+// @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
+import { compactCard, formatGold, joinKnown, ownFullCard, slotColor, tileText, UNKNOWN } from "../src/live/heroCardModel.ts";
+// @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
+import type { DraftBarFrame } from "../src/deck/draftBarModel.ts";
+
+const fixture = () => JSON.parse(readFileSync(new URL("../../../fixtures/own-fresh-at-boundary.json", import.meta.url), "utf8"));
+const field = (value: unknown) => ({ value, availability: "fresh" });
+const item = (slot: string, name: string | null, changes = {}) => ({ slot, name, cooldown: null, charges: null, can_cast: true, passive: false, ...changes });
+const ability = (slot: number, name: string, changes = {}) =>
+  ({ slot, name, level: 1, cooldown: 0, ultimate: false, can_cast: true, passive: false, active: true, ...changes });
+
+/** The boundary fixture plus stats and a loadout, as a mid-game GSI snapshot. */
+function liveSnapshot() {
+  const s = fixture();
+  Object.assign(s.own.fields, {
+    hero_id: field("npc_dota_hero_lion"),
+    gold: field(12345), kills: field(4), deaths: field(2), assists: field(9), last_hits: field(87), denies: field(6),
+    gpm: field(412), xpm: field(520),
+    items: field([
+      item("inventory0", "item_blink", { cooldown: 12 }), item("inventory1", null), item("inventory2", "item_magic_wand", { charges: 7 }),
+      item("inventory3", "item_boots"), item("inventory4", null), item("inventory5", null),
+      item("backpack0", "item_ward_observer", { charges: 2 }), item("backpack1", null), item("backpack2", null),
+      item("teleport", "item_tpscroll", { cooldown: 70 }), item("neutral", "item_arcane_ring"),
+    ]),
+    abilities: field([
+      ability(0, "lion_impale", { level: 3 }), ability(1, "lion_voodoo", { level: 2, cooldown: 9, can_cast: false }),
+      ability(2, "lion_mana_drain", { level: 0, can_cast: false }), ability(3, "lion_finger_of_death", { level: 2, cooldown: 45, ultimate: true, can_cast: false }),
+      ability(4, "plus_high_five", { level: 1, cooldown: 0 }), ability(5, "lion_passive_thing", { passive: true }),
+    ]),
+  });
+  const parsed = parseOwnSnapshot(s);
+  assert.ok(parsed, "fixture must stay admissible");
+  return parsed;
+}
+
+function card(snapshot = liveSnapshot(), icons = noIcons, slot: number | null = null) {
+  const loadout = deriveLoadoutViewModel(snapshot, false);
+  return ownFullCard({ own: deriveOwnHeroViewModel(snapshot), items: loadout.items.slots, itemsStale: loadout.items.stale,
+    abilities: loadout.abilities.tiles, abilitiesStale: loadout.abilities.stale, slot, icons });
+}
+
+test("own hero: identity, level, K/D/A, LH/DN, gold, HP and mana map from GSI", () => {
+  const view = card();
+  assert.equal(view.variant, "full");
+  assert.equal(view.heroId, "npc_dota_hero_lion");
+  assert.equal(view.heroName, "Lion");
+  assert.equal(view.levelText, "12");
+  assert.equal(view.kdaText, "4/2/9");
+  assert.equal(view.lhdnText, "87/6");
+  assert.equal(view.gold, 12345);
+  assert.equal(view.goldText, "12.3k");
+  assert.equal(view.ratesText, "412 / 520");
+  assert.equal(view.hpText, "850 / 1200");
+  assert.ok(Math.abs((view.hpPercent ?? 0) - 70.83) < 0.01);
+  assert.equal(view.hpLow, false);
+  assert.equal(view.manaPercent, 43);
+  assert.equal(view.manaText, "43%");
+  assert.equal(view.alive, true);
+  assert.equal(view.respawnText, null);
+  assert.equal(view.portraitSrc, null, "no bundled icon set yet: runtime portrait fallback");
+  assert.equal(view.color, null, "no draft slot: team colour, not a guessed slot colour");
+  assert.equal(card(liveSnapshot(), noIcons, 7).color, slotColor(7));
+});
+
+test("own hero: abilities keep level, cooldown and castability; passives are dropped; talents go to extras", () => {
+  const view = card();
+  assert.ok(view.abilities);
+  assert.deepEqual(view.abilities.hero.map(slot => slot.rawId), ["lion_impale", "lion_voodoo", "lion_mana_drain", "lion_finger_of_death"]);
+  const [impale, voodoo, drain, finger] = view.abilities.hero;
+  assert.equal(impale?.cast, "ready");
+  assert.equal(impale?.level, 3);
+  assert.equal(impale?.maxLevel, 4);
+  assert.equal(voodoo?.cast, "cooldown");
+  assert.equal(voodoo?.cooldownText, formatCooldownValue(9));
+  assert.equal(drain?.cast, "not_learned");
+  assert.equal(drain?.cooldownText, null);
+  assert.equal(finger?.ultimate, true);
+  assert.equal(finger?.maxLevel, 6);
+  assert.equal(finger?.cooldownText, "45");
+  assert.deepEqual(view.abilities.extras.map(slot => slot.rawId), ["plus_high_five"]);
+});
+
+test("own hero: six main items, backpack, neutral and TP with charges and cooldowns", () => {
+  const view = card();
+  assert.ok(view.items);
+  assert.deepEqual(view.items.main.map(slot => slot.state), ["filled", "empty", "filled", "filled", "empty", "empty"]);
+  assert.equal(view.items.main[0]?.rawId, "item_blink");
+  assert.equal(view.items.main[0]?.cooldownText, "12");
+  assert.equal(view.items.main[2]?.charges, 7);
+  assert.equal(view.items.backpack.length, 3);
+  assert.equal(view.items.backpack[0]?.charges, 2);
+  assert.equal(view.items.teleport.rawId, "item_tpscroll");
+  assert.equal(view.items.teleport.cooldownText, "70");
+  assert.equal(view.items.neutral.rawId, "item_arcane_ring");
+});
+
+test("own hero: fields GSI did not send stay unknown and no attribute or derived stat is invented", () => {
+  const raw = parseOwnSnapshot(fixture());
+  assert.ok(raw);
+  const view = card(raw);
+  assert.equal(view.kdaText, UNKNOWN);
+  assert.equal(view.lhdnText, UNKNOWN);
+  assert.equal(view.goldText, UNKNOWN);
+  assert.equal(view.gold, null);
+  assert.equal(view.ratesText, UNKNOWN);
+  assert.equal(view.abilities, null, "no abilities block: placeholder, not empty slots");
+  assert.equal(view.items, null);
+  const keys = Object.keys(view).join(" ").toLowerCase();
+  for (const banned of ["str", "agi", "int", "armor", "armour", "damage", "path", "trace", "networth"]) {
+    assert.ok(!keys.split(" ").some(key => key === banned || key.startsWith(banned + "_")), banned);
+  }
+  // Partly known values keep the unknown part visible instead of a zero.
+  assert.equal(joinKnown([3, null, 1]), "3/—/1");
+  assert.equal(formatGold(9850), "9,850");
+  assert.equal(formatGold(null), UNKNOWN);
+});
+
+test("own hero: dead shows the respawn time; stale abilities never show a cooldown as current", () => {
+  const s = fixture();
+  s.own.fields.alive = field(false); s.own.fields.respawn_seconds = field(23);
+  const dead = parseOwnSnapshot(s);
+  assert.ok(dead);
+  assert.equal(card(dead).respawnText, "23");
+  const snapshot = liveSnapshot();
+  const loadout = deriveLoadoutViewModel(snapshot, false);
+  const stale = ownFullCard({ own: deriveOwnHeroViewModel(snapshot), items: loadout.items.slots, itemsStale: true,
+    abilities: loadout.abilities.tiles, abilitiesStale: true, stale: true, icons: noIcons });
+  assert.equal(stale.stale, true);
+  assert.ok(stale.abilities?.hero.every(slot => slot.cooldownText === null && (slot.cast === "unknown" || slot.cast === "not_learned")));
+});
+
+// ---- allies and enemies: identity only from same-session draft memory, everything else unknown ----
+const ROSTER = ["npc_dota_hero_lion", "npc_dota_hero_axe", null, "npc_dota_hero_juggernaut", "npc_dota_hero_earthshaker",
+  "npc_dota_hero_sniper", "npc_dota_hero_pudge", null, "npc_dota_hero_crystal_maiden", "npc_dota_hero_zuus"];
+function draftFrame(ids: (string | null)[]): DraftBarFrame {
+  return {
+    active: true, detail: null, bgra: null,
+    slots: ids.map((heroId, slot) => ({ slot, team: slot < 5 ? "radiant" : "dire", hero_id: heroId,
+      confidence: heroId ? 0.9 : 0, reason: heroId ? "identified" : "low_confidence", title: "", text: "" })),
+  } as unknown as DraftBarFrame;
+}
+const memory = rememberDraftFrame(createDraftRosterMemory(), 5, draftFrame(ROSTER));
+
+test("enemy compact cards: draft names only, never vitals, skills or another hero's icon", () => {
+  const cards = enemyHeroCards(memory, 5, "radiant").map(c => compactCard(c, noIcons));
+  assert.deepEqual(cards.map(c => c.heroName), ["Sniper", "Pudge", null, "Crystal Maiden", "Zeus"]);
+  assert.deepEqual(cards.map(c => c.slot), [5, 6, 7, 8, 9]);
+  for (const c of cards) {
+    assert.equal(c.variant, "compact");
+    assert.equal(c.side, "enemy");
+    assert.equal(c.hpPercent, null); assert.equal(c.manaPercent, null); assert.equal(c.vitalsSource, null); assert.equal(c.ult, null);
+    assert.equal(c.portraitSrc, null);
+  }
+  assert.equal(cards[2]?.heroId, null, "unidentified slot stays unknown");
+  assert.equal(cards[0]?.color, slotColor(5));
+  // Even if a card arrived with values, an enemy compact card shows none of them.
+  const forged: HeroCard = { key: "E1", side: "enemy", slot: 5, heroId: "npc_dota_hero_sniper", heroName: "Sniper", nameSource: "draft",
+    hpPercent: 50, manaPercent: 50, vitalsSource: "peer",
+    skills: [{ ultimate: false, state: "ready", seconds: null, source: "peer" }, { ultimate: false, state: "ready", seconds: null, source: "peer" },
+      { ultimate: false, state: "ready", seconds: null, source: "peer" }, { ultimate: true, state: "ready", seconds: null, source: "peer" }] };
+  const shown = compactCard(forged, noIcons);
+  assert.equal(shown.hpPercent, null); assert.equal(shown.vitalsSource, null); assert.equal(shown.ult, null);
+});
+
+test("ally compact cards: own hero excluded, unknown without a draft match, no guessed side or slot colour", () => {
+  const allies = allyHeroCards({ memory, epoch: 5, ownTeam: "radiant", ownHeroId: "npc_dota_hero_lion" }).map(c => compactCard(c, noIcons));
+  assert.deepEqual(allies.map(c => c.heroName), ["Axe", null, "Juggernaut", "Earthshaker"]);
+  assert.ok(allies.every(c => c.side === "ally" && c.hpPercent === null && c.vitalsSource === null && c.ult === null));
+  const unmatched = allyHeroCards({ memory, epoch: 5, ownTeam: "radiant", ownHeroId: "npc_dota_hero_tiny" }).map(c => compactCard(c, noIcons));
+  assert.ok(unmatched.every(c => c.heroName === null && c.slot === null && c.color === null));
+  const otherSession = enemyHeroCards(memory, 6, "radiant").map(c => compactCard(c, noIcons));
+  assert.ok(otherSession.every(c => c.heroName === null), "another session's identities never show");
+  const noTeam = enemyHeroCards(memory, 5, null).map(c => compactCard(c, noIcons));
+  assert.ok(noTeam.every(c => c.heroName === null && c.color === null));
+});
+
+test("ally compact cards show peer vitals and the ultimate dot only when that source exists", () => {
+  const allies = allyHeroCards({ memory, epoch: 5, ownTeam: "radiant", ownHeroId: "npc_dota_hero_lion",
+    peer: { 1: { hpPercent: 64, manaPercent: 30, skills: [null, null, null], ultimate: null } },
+    topbar: { ally_ult_state: { 3: "ready_no_mana", 4: "bogus" as never } } }).map(c => compactCard(c, noIcons));
+  assert.equal(allies[0]?.hpPercent, 64);
+  assert.equal(allies[0]?.vitalsSource, "peer");
+  assert.deepEqual(allies[2]?.ult, { state: "ready_no_mana", source: "topbar", seconds: null });
+  assert.equal(allies[3]?.ult, null, "unrecognised dot value is unknown");
+});
+
+// ---- icon resolver ----
+test("icon resolver maps internal names to the newest bundled build and never substitutes another icon", () => {
+  assert.equal(iconFileName("hero", "npc_dota_hero_antimage"), "antimage");
+  assert.equal(iconFileName("item", "item_blink"), "blink");
+  assert.equal(iconFileName("item", "item_recipe_black_king_bar"), "recipe");
+  assert.equal(iconFileName("ability", "antimage_mana_break"), "antimage_mana_break");
+  assert.equal(iconFileName("hero", "../secret"), null);
+  assert.equal(iconFileName("item", null), null);
+
+  const resolve = createIconResolver({
+    "../assets/dota/7.40/heroes/lion.png": "/old/lion.png",
+    "../assets/dota/7.41/heroes/lion.png": "/new/lion.png",
+    "../assets/dota/7.41/heroes/lion.webp": "/new/lion.webp",
+    "../assets/dota/7.41/items/blink.png": "/new/blink.png",
+    "../assets/dota/7.41/items/recipe.png": "/new/recipe.png",
+    "../assets/dota/7.41/abilities/lion_impale.png": "/new/lion_impale.png",
+    "../assets/dota/7.41/other/thing.png": "/ignored.png",
+    "../assets/elsewhere/lion.png": "/ignored2.png",
+  });
+  assert.equal(resolve("hero", "npc_dota_hero_lion"), "/new/lion.webp");
+  assert.equal(resolve("item", "item_blink"), "/new/blink.png");
+  assert.equal(resolve("item", "item_recipe_blink"), "/new/recipe.png");
+  assert.equal(resolve("ability", "lion_impale"), "/new/lion_impale.png");
+  assert.equal(resolve("hero", "npc_dota_hero_axe"), null, "missing icon: null, never another hero");
+  assert.equal(resolve("ability", "lion"), null, "kinds never cross");
+  assert.equal(resolve("hero", null), null);
+  assert.equal(createIconResolver({})("hero", "npc_dota_hero_lion"), null);
+  assert.equal(createIconResolver(undefined)("item", "item_blink"), null);
+  assert.equal(noIcons("hero", "npc_dota_hero_lion"), null);
+
+  const view = card(liveSnapshot(), resolve);
+  assert.equal(view.portraitSrc, "/new/lion.webp");
+  assert.equal(view.items?.main[0]?.src, "/new/blink.png");
+  assert.equal(view.items?.main[2]?.src, null, "no icon: name tile text instead");
+  assert.equal(view.items?.main[2]?.text, tileText(view.items?.main[2]?.name ?? null));
+  assert.equal(view.abilities?.hero[0]?.src, "/new/lion_impale.png");
+  const enemy = compactCard(enemyHeroCards(memory, 5, "radiant")[0]!, createIconResolver({ "../assets/dota/1/heroes/sniper.png": "/s.png" }));
+  assert.equal(enemy.portraitSrc, "/s.png");
+  const unknownEnemy = compactCard(enemyHeroCards(memory, 5, "radiant")[2]!, resolve);
+  assert.equal(unknownEnemy.portraitSrc, null);
+});
+
+test("the icon set is bound once through import.meta.glob and the card source holds no remote URL or web font", () => {
+  const set = readFileSync(new URL("../src/live/dotaIconSet.ts", import.meta.url), "utf8");
+  assert.match(set, /import\.meta\.glob\("\.\.\/assets\/dota\/\*\*\/\*\.\{png,webp\}", \{ eager: true, query: "\?url", import: "default" \}\)/);
+  const sources = ["../src/live/HeroCard.tsx", "../src/live/heroCard.css", "../src/live/heroCardModel.ts", "../src/live/dotaIcons.ts"]
+    .map(path => readFileSync(new URL(path, import.meta.url), "utf8")).join("\n");
+  assert.doesNotMatch(sources, /https?:\/\/|@import|@font-face|fonts\.googleapis/);
+  assert.doesNotMatch(sources, /Math\.random|invoke\(/);
+  const css = readFileSync(new URL("../src/live/heroCard.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(css, /font-size:\s*(?:[0-9]|1[01])px/, "no text below 12 px on the cards");
+  assert.doesNotMatch(css, /font:\s*(?:\d+\s+)?(?:[0-9]|1[01])px/, "no text below 12 px on the cards (shorthand)");
+  assert.doesNotMatch(css, /overflow-x:\s*(?:auto|scroll)/, "no horizontal scrolling");
+});

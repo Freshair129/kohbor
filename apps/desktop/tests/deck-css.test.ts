@@ -70,27 +70,30 @@ test("the centre column cannot put the live map in an indefinite auto row", () =
   for (const property of ["max-width", "max-height"]) assert.match(canvas, new RegExp(`${property}:\\s*100%`));
 });
 
-test("own hero tiles stay compact while their card can shrink at 768px viewport height", () => {
+test("own hero card and ally list share the own column without fixed-pixel rows (replay-style cards, R5)", () => {
   const column = css.match(/\.deck-own-column\s*\{([^}]+)\}/)?.[1] ?? "";
   assert.match(column, /grid-template-rows:\s*minmax\(0,\s*max-content\)\s+minmax\(0,\s*1fr\)/);
   assert.doesNotMatch(css, /\.deck-own-column\s*\{[^}]*grid-template-rows:[^;]*\d+px/);
-  const tiles = css.match(/\.deck-stats\s*\{([^}]+)\}/)?.[1] ?? "";
-  assert.match(tiles, /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
-  // Four real counters shrink to two rows; the former placeholder budget holds the loadout.
-  assert.match(tiles, /grid-template-rows:\s*repeat\(2,\s*minmax\(0,\s*28px\)\)/);
   const component = readFileSync(new URL("../src/deck/Deck.tsx", import.meta.url), "utf8");
-  assert.match(component, /<OwnLoadout/);
+  assert.match(component, /<OwnHeroCard /);
+  assert.match(component, /<CompactHeroCards cards=\{allyCards\}/);
+  assert.match(component, /<CompactHeroCards cards=\{enemyCards\}/);
+  assert.doesNotMatch(component, /<OwnLoadout|deck-stat-tile|deck-ally-disclosure/);
   const loadout = readFileSync(new URL("../src/deck/OwnLoadout.tsx", import.meta.url), "utf8");
   assert.equal(loadout.match(/ต้องตั้งค่าการเชื่อมต่อ Dota 2 ใหม่หนึ่งครั้ง/g)?.length, 1);
   assert.match(loadout, /model\.setupHint &&/);
+  const card = readFileSync(new URL("../src/live/HeroCard.tsx", import.meta.url), "utf8");
+  assert.match(card, /loadout\.setupHint && <div className="lhc-hint"><GsiSetupHint/);
 });
 
-test("64px portrait reuses the heading and identity rows instead of adding a card row", () => {
-  const card = css.match(/\.deck-own-card\s*\{([^}]+)\}/)?.[1] ?? "";
-  assert.match(card, /grid-template-columns:\s*64px\s+minmax\(0,\s*1fr\)/);
-  assert.match(card, /grid-template-rows:\s*repeat\(5,\s*auto\)/);
-  const portrait = css.match(/\.deck-own-portrait\s*\{([^}]+)\}/)?.[1] ?? "";
-  assert.match(portrait, /grid-row:\s*1\s*\/\s*3/);
-  const tileCss = readFileSync(new URL("../src/deck/heroPortrait.css", import.meta.url), "utf8");
-  assert.match(tileCss, /\.hero-portrait-lg\s*\{[^}]*--hero-portrait-size:\s*64px/);
+test("the replay-style own card puts a 46px portrait beside name and stats, and team lists scroll only vertically", () => {
+  const cardCss = readFileSync(new URL("../src/live/heroCard.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const full = cardCss.match(/\.lhc-full\s*\{([^}]+)\}/)?.[1] ?? "";
+  assert.match(full, /grid-template-columns:\s*46px\s+minmax\(0,\s*1fr\)/);
+  assert.match(full, /"pt nm" "pt top"/);
+  assert.match(full, /overflow:\s*hidden/);
+  const list = cardCss.match(/\.lhc-list\s*\{([^}]+)\}/)?.[1] ?? "";
+  assert.match(list, /overflow-x:\s*hidden/);
+  assert.match(list, /overflow-y:\s*auto/);
+  assert.match(list, /min-height:\s*0/);
 });
