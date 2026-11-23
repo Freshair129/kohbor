@@ -2,8 +2,8 @@
 title: "Software Design Description"
 doc_id: "SDD"
 status: "draft"
-version: "0.3.7"
-updated: "2026-11-21"
+version: "0.3.8"
+updated: "2026-11-23"
 owner_role: "Software design lead; person not assigned"
 approval_status: "not_approved"
 ---
@@ -119,7 +119,7 @@ Catalog, arbitration, priority matrix, decode checks and install contracts are p
 |---|---|---|---|
 | Build truthful source-qualified views and adapt them to the control window, passive overlay, selections and accessible interaction. | Admitted observations, independent health states, session/identity revisions and native presentation authority. | Typed availability/age values, stable map/cards, selected inspector state and explicit capability/readiness messages. | Unknown is not zero; no production fixtures or automatic selection. Discard stale inspector results and preserve focus/map during capability loss. Deferred timer presentation cannot own or invent the native game clock/store. |
 
-**Primary SRS allocation:** `CORE-005`, `DATA-002`, `UI-001`, `UI-002`, `UI-003`, `UI-004`, `UI-005`, `UI-006`, `UI-007`, `UI-008`, `UI-009`, `UI-010`, `UI-011`, `UI-012`, `UI-013`, `UI-015`, `UI-016`, `UI-017`, `UI-018`, `UI-019`, `MEDIA-009`, `STATS-001`, `STATS-002`, `STATS-003`.
+**Primary SRS allocation:** `CORE-005`, `DATA-002`, `UI-001`, `UI-002`, `UI-003`, `UI-004`, `UI-005`, `UI-006`, `UI-007`, `UI-008`, `UI-009`, `UI-010`, `UI-011`, `UI-012`, `UI-013`, `UI-015`, `UI-016`, `UI-017`, `UI-018`, `UI-019`, `UI-020`, `MEDIA-009`, `STATS-001`, `STATS-002`, `STATS-003`.
 
 For UI-011 and MEDIA-009, allocate a native mixer module. One host COM thread owns Core Audio session enumeration and writes. Expose only `mixer_get`, `mixer_set` and `mixer_focus_toggle`; host resolves approved processes. Persist original levels for restoration. Public draft suggestions use fixed aggregate-table fetches, at most four per day, filtered locally. For UI-009, allocate the separate orb presentation and its guarded mouse input here. CMP-ALERT owns critical admission and its deadline. The orb reflects the admission in the same transition and yields to the cue. For UI-010 and STATS-001–003, this component owns the native public statistics lifecycle and the typed card view. Isolate provider I/O from critical paths. Admit a closed request from the own hero and optional manual bracket under separate consent. Validate results, fence them by the current consent and hero, and manage only the public aggregate cache. Renderers consume a projection. Draft Bar 5b is a local input to the v2 view and stays outside provider requests and the cache. For UI-012, the control-window read model presents all ten local Draft Bar slots with admitted hero names or unknown reasons; its lifetime and forbidden sinks remain those in DRAFT-BAR-SPEC. For UI-013, the host registers one show-app hotkey with RegisterHotKey on its own message thread (no hook, no synthesized input), toggles the control window, remembers the prior foreground window for return on hide, and replaces a binding only after the new one registers. See [UX](UX-SPEC.md) and [Security and Privacy](../security/SECURITY-PRIVACY.md).
 
@@ -145,7 +145,7 @@ For UI-011 and MEDIA-009, allocate a native mixer module. One host COM thread ow
 |---|---|---|---|
 | Maintain approved local evidence and bounded derived snapshots/summaries with durable forget behavior. | Permitted local events/archive metadata, explicit completion/outcome evidence and user read/forget/delete actions. | Versioned source-supported aggregates, at most three complete-session summary points and durable forget acknowledgement. | Corrupt cutoff fails closed. No inferred outcomes, peer history or cloud export. Snapshot replacement is atomic; memory clear preserves separately governed journals. |
 
-**Primary SRS allocation:** `MEM-001`, `MEM-002`, `MEM-003`, `MEM-004`, `MEM-005`.
+**Primary SRS allocation:** `MEM-001`, `MEM-002`, `MEM-003`, `MEM-004`, `MEM-005`, `MEM-006`.
 
 **Collaborating components:** CMP-INGEST, CMP-READMODEL, CMP-VOICE, CMP-ADVICE.
 
@@ -205,7 +205,7 @@ For UI-011 and MEDIA-009, allocate a native mixer module. One host COM thread ow
 |---|---|---|---|
 | Validate trusted update inputs, stage/defer safe installation and preserve exact-artifact release/recovery correspondence. | Trusted manifests/verification keys, candidate artifact identity, safe gameplay/media state and declared migration compatibility. | Verified staged/install result, explicit deferred/error state and artifact-bound promotion/recovery evidence. | No renderer-selected URL, account gate or unsigned fallback. Promotion is performed by the controlled release workflow using the same signed bytes; repair/rollback obey migration/version rules. |
 
-**Primary SRS allocation:** `UPDATE-001`, `UPDATE-002`, `UPDATE-003`, `UPDATE-004`.
+**Primary SRS allocation:** `UPDATE-001`, `UPDATE-002`, `UPDATE-003`, `UPDATE-004`, `UPDATE-005`.
 
 **Collaborating components:** CMP-STARTUP, CMP-MEDIA, CMP-READMODEL, CMP-MEMORY.
 

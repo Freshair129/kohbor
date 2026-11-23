@@ -510,6 +510,13 @@
       "requirement_id": "MEDIA-002",
       "semantic": "manifest_paths",
       "semantic_valid": false
+    },
+    {
+      "id": "news-feed-sample-valid",
+      "schema": "contracts/news-feed.schema.json",
+      "fixture": "docs/examples/news.sample.json",
+      "schema_valid": true,
+      "requirement_id": "UPDATE-005"
     }
   ],
   "notes": [

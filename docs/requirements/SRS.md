@@ -1285,6 +1285,26 @@ A global show-app hotkey, default Ctrl+Alt+X, shall toggle the control window. W
 
 **Implementation freedom:** Choose the registration thread, preference file and capture UI. Keep RegisterHotKey-only input, the toggle and focus-return behaviour, and transactional replacement.
 
+#### UI-020 — Overview player dashboard and news
+
+**Scope:** mvp · **Priority:** P1 · **Target milestone:** M3 · **Basis:** owner_decision / DEC-OVERVIEW
+
+**Product needs:** PN-008 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL, CMP-MEMORY
+
+The Overview page shall show only the player's own data and Kohbor news, in two columns. The main column shows statistics from the local match history (MEM-006): the overall win rate with its base count, the latest counted results (at most 20) as win/loss squares titled with the true count, a 10-match rolling win-rate trend drawn only from 10 counted matches, the five most played heroes with bundled hero icons showing wins–losses below 5 counted games and a win rate from 5, and a recent-matches table with hero, W/L or an em dash, K/D/A, duration, date and source badge. The side column shows the news feed (UPDATE-005): the pinned post first, a type filter (all, announcements, app updates, patches) and an "all news" control that expands the list in place. The page shows no readiness or GSI content, and the shell's GSI and game status chips are hidden on the Overview page only. The OpenDota history import appears only as a disabled card labelled as coming soon until its own slice.
+
+**Failure behavior:** A missing, unreadable or uncounted value shows an em dash, never a default number or a loss. With no counted matches every rate is an em dash and the page states why (the match type is not reported by GSI, or the match has no result). The news column shows loading, offline with the cached fetch time, unavailable, empty or switched-off states; a news failure never blanks the statistics column.
+
+**AC-UI-020:** Given a local match history with counted, unknown-type and no-result matches, fewer and more than 20 counted matches, heroes with fewer and more than 5 counted games, and news views that are loading, current, offline with cache, unavailable, empty and switched off; when the Overview page renders in Thai and English and the user changes the news filter and expands the news list; then rates use counted matches only with their base count; the last-N title states the real count; the trend appears only from 10 counted matches; hero cards show wins–losses below 5 counted games; uncounted and abandoned matches show em dashes with the reason; the news column shows the pinned post first and the filtered, expandable list or the matching state; the OpenDota card is disabled and labelled coming soon; and no GSI or readiness chip appears on the Overview while other pages keep them.
+
+**Verification:** synthetic, native; procedures TP-05, UAT-05; status NOT_RUN.
+
+**Open dependencies:** DEC-NATIVE-EVIDENCE.
+
+**Elaboration:** [UX-SPEC.md](../design/UX-SPEC.md), [DECISION-LOG.md](../governance/DECISION-LOG.md)
+
+**Implementation freedom:** Choose the layout details within the Command Deck tokens and the variant D design. Add a statistics source only through its own requirement and decision.
+
 ### STATS
 
 #### STATS-001 — Separate consent for public hero statistics
@@ -1624,6 +1644,26 @@ Clearing memory shall preserve separately governed raw history unless the user e
 **Diagram views:** [DGM-004](../diagrams/source/DGM-004-local-data-flow.mmd), [DGM-006](../diagrams/source/DGM-006-logical-erd.mmd), [DGM-015](../diagrams/source/DGM-015-memory-forget.mmd)
 
 **Implementation freedom:** Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.
+
+#### MEM-006 — Local own-match history
+
+**Scope:** mvp · **Priority:** P1 · **Target milestone:** M3 · **Basis:** owner_decision / DEC-OVERVIEW
+
+**Product needs:** PN-008 · **Primary design:** CMP-MEMORY · **Design components:** CMP-MEMORY, CMP-INGEST
+
+From admitted game data with verified ownership, the host shall record one entry per own match: the session's keyed match hash (never the raw match ID or SteamID64), own hero, result (win when map.win_team equals the own team, loss when it is the other team, otherwise null), kills, deaths, assists, duration from the game clock, end time, match type and source "kohbor", and no other player's name or identifier. A match left before a winner is reported (menu, game window or process loss, or a new match) is recorded with a null result, never as a loss. Match type is taken only from an explicit, documented GSI field; GSI provides none (GSI-INTAKE-SPEC 4.2, A-9), so it is recorded as unknown. Win rates count only ranked and unranked matches with a known result; bot, custom, lobby and unknown-type matches are recorded but not counted. The history is an atomic JSON file in the app data directory, bounded to the newest 500 entries, and the user can clear it from the Overview.
+
+**Failure behavior:** Unverified or mismatched ownership, custom games and spectating record nothing. A corrupt or oversized file starts empty with one warning code, and a failed write keeps the previous file. An abandoned entry never replaces a completed entry for the same match. A hero win rate is computed only from 5 counted games.
+
+**AC-MEM-006:** Given admitted payload sequences for a completed match won and lost, a match left before the winner is known, a draft-only lobby, a custom game, an unverified owner, a captured bot match and a corrupt history file; when the host processes the payloads, restarts, clears the history and computes the summary; then exactly one entry per played match is stored with the keyed hash and no raw match ID or SteamID64; the result follows win_team against the own team; a left match has a null result; the lobby, custom game and unverified owner store nothing; every match type is unknown and uncounted; the summary counts only ranked and unranked matches with a result; the file never exceeds 500 entries; a corrupt file starts empty; and clearing empties the store.
+
+**Verification:** synthetic, native; procedures TP-07, UAT-08; status NOT_RUN.
+
+**Open dependencies:** DEC-RETENTION.
+
+**Elaboration:** [GSI-INTAKE-SPEC.md](../design/GSI-INTAKE-SPEC.md), [SECURITY-PRIVACY.md](../security/SECURITY-PRIVACY.md), [DECISION-LOG.md](../governance/DECISION-LOG.md)
+
+**Implementation freedom:** Choose the storage layout and summary computation within the stated fields, bounds and counting rule. A match-type source needs an explicit GSI field or its own decision.
 
 ### ADVICE
 
@@ -2438,6 +2478,26 @@ Release rollback/repair shall respect version and data-migration compatibility.
 **Diagram views:** [DGM-018](../diagrams/source/DGM-018-release-update.mmd)
 
 **Implementation freedom:** Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.
+
+#### UPDATE-005 — Kohbor news from one fixed public file
+
+**Scope:** mvp · **Priority:** P1 · **Target milestone:** M3 · **Basis:** owner_decision / DEC-OVERVIEW
+
+**Product needs:** PN-012 · **Primary design:** CMP-UPDATER · **Design components:** CMP-UPDATER, CMP-READMODEL
+
+The native host shall fetch only https://raw.githubusercontent.com/Freshair129/kohbor-updates/main/news.json, once at app start with one retry and otherwise only when the user presses retry, over HTTPS with no redirects, no cookies, a 10 s deadline and a 256 KiB cap, sending no account, Steam, match or other user data. News is on by default; the first view of the news column and the Settings page disclose that GitHub sees the IP address and the time, and Settings provides a persisted off switch that stops every news request. The file is validated against contracts/news-feed.schema.json and accepted or rejected whole, skipping posts of an unknown type, and the last valid file is cached with its fetch time. Images come only from images/ paths of the same repository, at most 512 KiB, SHA-256 checked, and reach the renderer as data: URLs. A link opens in the system browser only from the validated feed by post and link index, and not during a match. Posts are Kohbor-written; patch notes link to Valve and copy no Valve text. Logs carry outcome codes only.
+
+**Failure behavior:** A network error, HTTP error, oversized or invalid file keeps the cached feed, shown as offline with its fetch time, or shows unavailable when nothing is cached. A missing or tampered image is left out. With news off nothing is fetched and no post is shown.
+
+**AC-UPDATE-005:** Given a scripted transport returning a valid feed, a network failure then success, HTTP errors, an invalid and an oversized body, an image with a wrong hash, and news switched off; when the host starts, retries and the renderer reads the news view; then only the fixed feed path and same-repository image paths are requested, at most two attempts per start; a valid feed is cached and shown; failures keep the cache as offline with its fetch time or show unavailable; an invalid file never replaces the cache; the tampered image is not served; with news off nothing is requested or shown; links resolve only by post id and index; and no test touches the network.
+
+**Verification:** synthetic, native; procedures TP-12, UAT-12; status NOT_RUN.
+
+**Elaboration:** [SECURITY-PRIVACY.md](../security/SECURITY-PRIVACY.md), [UX-SPEC.md](../design/UX-SPEC.md), [DECISION-LOG.md](../governance/DECISION-LOG.md)
+
+**Contracts:** [news-feed.schema.json](../../contracts/news-feed.schema.json)
+
+**Implementation freedom:** Choose the cache layout and polling within the fixed origin, limits and disclosure. Any other origin needs its own decision.
 
 ### PREMIUM
 

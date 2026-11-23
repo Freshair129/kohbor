@@ -2,8 +2,8 @@
 title: "Security and Privacy Specification"
 doc_id: "SECURITY-PRIVACY"
 status: "draft"
-version: "0.3.7"
-updated: "2026-11-21"
+version: "0.3.8"
+updated: "2026-11-23"
 owner: "Product Owner"
 approval_status: "not_approved"
 ---
@@ -54,6 +54,22 @@ DEC-PICK-STATS and STATS-001–003 govern this optional flow. A separate Setting
 The native host owns the HTTPS request to the selected, fixed provider origin, with OpenDota first. Validate the closed outgoing projection before transport. The only request data are the admitted own hero ID and optional manually chosen bracket. Provider and dataset selection are routing choices. Exclude player names, account and match IDs, ally and enemy heroes, images, voice, memory and game clocks. The renderer has no provider request authority. Keep provider I/O outside intake and critical warning paths. Apply the current consent and own-pick generation when sending, retrying, receiving and caching.
 
 The cache stores only public aggregate tables for the requested own hero, keyed by provider, dataset, own hero and optional bracket with the provider's data window and fetch time. Entries are fresh for less than 24 h, visibly stale from 24 h to less than 7 d, and discarded at 7 d. The local keys can reveal which heroes were queried. Exclude Draft Bar observations, session links and player data from this cache, and keep cache data out of logs, exports and crash reports. On revoke, stop sends, cancel work, clear displayed values, discard late results and delete the local statistics cache. A deletion failure keeps the cache inaccessible and reports the failure. Local gameplay continues independently.
+
+## Kohbor news feed (Overview)
+
+DEC-OVERVIEW item 4 and UPDATE-005 govern this route. It is on by default; the first view of the news column and the Settings page disclose it, and a persisted Settings switch turns it off, after which nothing is requested.
+
+- **Origin.** The native host fetches only `https://raw.githubusercontent.com/Freshair129/kohbor-updates/main/news.json` and images under `images/` of the same repository path. The host and paths are compile-time constants; the renderer and the feed cannot supply a host, path or query.
+- **What leaves the PC.** A plain GET with a generic `Kohbor` user agent. GitHub sees the client IP address and the time. No account, Steam, match, history or other user data is sent.
+- **When.** Once at app start with one retry, and again only when the user presses retry. Not on a timer.
+- **Transport.** The existing WinHTTP transport (no new dependency): no proxy, no redirects, no cookies, 4 s connect and 10 s total, 256 KiB cap for the feed and 512 KiB per image.
+- **Validation and cache.** The file is validated against [news-feed.schema.json](../../contracts/news-feed.schema.json) and accepted or rejected whole. The last valid file is cached in `news-cache/` in the app data directory with its fetch time and SHA-256; images are kept only when their bytes match the declared SHA-256 and format, and unreferenced images are removed. Images reach the renderer as `data:` URLs, so no content-security-policy host is added.
+- **Links.** A link opens in the system browser only from the validated feed, by post id and link index, and never during a match.
+- **Logs.** Outcome codes, attempt numbers and HTTP status only; never a URL, query or feed content.
+
+## Local own-match history (Overview)
+
+MEM-006 stores one entry per own match in `match-history.json` in the app data directory: the keyed match hash already used by the session tracker (GSI-INTAKE-SPEC §6), own hero, result, K/D/A, duration, end time, match type and source. The raw match ID, the SteamID64 and other players' names or identifiers are never stored. It is bounded to 500 entries, written atomically, never sent anywhere, and the user can clear it from the Overview. It falls under the "local journal, replay, history" row of the route matrix. Retention beyond the 500-entry bound stays with DEC-RETENTION.
 
 ## Team sharing admission and transport
 
@@ -126,6 +142,7 @@ Inspect actual outbound payloads and filesystem writes during success, failure, 
 
 | Version | Date | Change |
 |---|---|---|
+| 0.3.8 | 2026-11-23 | DEC-OVERVIEW adds the Kohbor news route (UPDATE-005) and the local own-match history (MEM-006). |
 | 0.3.6 | 2026-11-20 | DEC-PICK-STATS adds a separate public hero statistics route, opt-in and cache erasure rules (STATS-001–003). |
 | 0.1.0 | 2026-11-10 | Initial neutral privacy and security target, with separate permissions, authority and unresolved operational decisions. |
 

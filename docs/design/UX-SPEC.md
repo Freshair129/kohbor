@@ -2,8 +2,8 @@
 title: "User Experience Specification"
 doc_id: "UX-SPEC"
 status: draft
-version: "0.3.9"
-updated: "2026-11-21"
+version: "0.3.10"
+updated: "2026-11-23"
 baseline: "DEC-BASELINE"
 owner_role: "UX owner; people not assigned"
 approval_status: "not_approved"
@@ -23,7 +23,7 @@ Logical destinations below do not prescribe URL paths, file names or IPC identif
 
 | Surface / destination | Content and actions | Boundaries |
 |---|---|---|
-| Control: Overview | Reserved destination; currently shows “ยังไม่มีหน้านี้” | Overview content is pending design |
+| Control: Overview | Player data dashboard and Kohbor news (UI-020, DEC-OVERVIEW, variant D): own statistics from the local match history in the main column (win-rate tiles, most played heroes, recent matches) and the news column with a type filter and an in-page "all news" list. The OpenDota import card is disabled and labelled coming soon (slice 2) | No readiness or GSI content and no GSI/game status chips on this page; uncounted values are em dashes with the reason; news can be switched off in Settings |
 | Control: Live | Default destination with the existing GSI setup, Dota launch status and Deck | Never fill live areas with demo statistics |
 | Control: Voice Packs | Audio bar and three views: Installed packs, Sounds by event, and Last match | Listen uses the verified active pack and its overlay playback outside a match |
 | Control: Store | Reserved destination; currently shows “ยังไม่มีหน้านี้” | No catalog, wallet or transaction service is available |
@@ -31,11 +31,11 @@ Logical destinations below do not prescribe URL paths, file names or IPC identif
 | Control: Status | Current readiness, own-hero, audio and build/version status panels | Unknown values remain unknown; GSI setup action opens this destination |
 | Control: Logs | Local logs, raw audio decisions and technical pack information; requires Developer mode | When disabled, explain the setting needed to open it |
 | Control: Account | Avatar flyout with the existing account page, settings, version and only supported sign-in/out actions | Presence stays unknown unless a real presence source exists; identity does not authorize game-data sharing |
-| Control: Settings | Existing language, Developer mode, Steam-name display and connection guide controls | Bounded categories; explain unavailable capabilities |
+| Control: Settings | Existing language, Developer mode, Steam-name display and connection guide controls, plus the news switch with its GitHub disclosure (UPDATE-005) | Bounded categories; explain unavailable capabilities |
 | Gameplay overlay and HUD | Passive alerts, event media, selected stats, companion status and the draft pick card | Transparent, always-on-top, click-through and free of control-window chrome |
 | Edge orb (extension) | Vertical three-channel mixer, Focus mode and honest status | Separate mouse-only window. Dota keeps keyboard focus |
 
-The owner-selected desktop shell uses a 72u left rail with icon-plus-Thai-label navigation: Overview, Live, Voice Packs, Insights and Store in the primary group; Status, Logs and Settings in the bottom group. The right rail contains only the profile avatar and its flyout; notifications, friends, party and quick-add controls are not rendered. Replay is an Insights subview, never a main destination. The page header keeps the global mute control; a thin status line below it carries GSI intake, game phase, data age, capture and current Deck status, with a GSI setup action that opens Status. Content sits on a raised Command Deck surface. The Pulse Grid rail ribbon is decorative, has no pointer interaction and never represents status; its default `--power` is 55%. The ribbon-off setting is a TODO until Settings has a lighting preference.
+The owner-selected desktop shell uses a 72u left rail with icon-plus-Thai-label navigation: Overview, Live, Voice Packs, Insights and Store in the primary group; Status, Logs and Settings in the bottom group. The right rail contains only the profile avatar and its flyout; notifications, friends, party and quick-add controls are not rendered. Replay is an Insights subview, never a main destination. The page header keeps the global mute control; a thin status line below it carries GSI intake, game phase, data age, capture and current Deck status, with a GSI setup action that opens Status. The status line is hidden on the Overview page only (DEC-OVERVIEW item 5); every other page keeps it. Content sits on a raised Command Deck surface. The Pulse Grid rail ribbon is decorative, has no pointer interaction and never represents status; its default `--power` is 55%. The ribbon-off setting is a TODO until Settings has a lighting preference.
 
 Shell details as built (recorded 2026-11-21 from the merged code; presentation only, no new requirement):
 - **Left rail state:** collapsed (icon only) by default, expanded with Thai labels and section headers "เกม", "เมนูหลัก", "ระบบ". The toggle button and **Ctrl+B** switch it (ignored while a modal dialog is open); the state is remembered per renderer under `kohbor.rail-left`.
