@@ -253,6 +253,8 @@ Product owner, relayed by the lead session. Owner proposal: “ไม่งั�
 
 The decision adds no requirement yet. Contracts (`replay-engine`, bundle schema), requirement amendments for Live (UI-002/UI-016 family) and retention text follow their own reviews; `contracts/decisions.json` is updated when the first contract lands.
 
+**RP1 implementation note (2026-11-24).** Added versioned bundle and CLI contracts, a Lab/demo-only replay library host, a read-only replay-folder watcher, the typed renderer client, and design documentation. The host stores raw match IDs only in its local replay library and never logs them; it uses a source-inspected 0.2.0 development executable pin and rejects unpinned binaries. One saved `.dem` passed the dev-engine run and bundle structural/hash checks in 8.481 seconds; this does not qualify a release engine or viewer. No new baseline requirement was added under the decision above. The required `contracts/decisions.json` entry and requirement-to-PRD/product-needs/SDD/RTM traceability still need an owner-approved scope update.
+
 ### Owner decision: Overview player dashboard and news (2026-11-23)
 
 **DEC-OVERVIEW** (decided by the product owner; relayed by the lead session local_e6af3702 and recorded by an agent; not an owner-authored text). The owner chose variant D from the Overview designs in `F:\kohbor-coord\design\overview-20261123\` (`mock-de.html`, `README.th.md`) and answered its open questions:

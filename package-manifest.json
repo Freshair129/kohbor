@@ -348,8 +348,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/commands.rs",
-      "bytes": 50729,
-      "sha256": "02aaa3cafdf86c27d86cf54f4cfd68c47554549f7d225a085c1b721c832a3d7c"
+      "bytes": 52160,
+      "sha256": "b789bada71f1b723d65bc131b275359d9a0f1219cc480c3d1e52e9239ab39489"
     },
     {
       "path": "apps/desktop/src-tauri/src/containment.rs",
@@ -488,8 +488,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 65047,
-      "sha256": "8d5770ba610efc4935450e16fe44d68edca6fee9b854832d47b9a68af1f86434"
+      "bytes": 66649,
+      "sha256": "eecb5cf22bd1912f7e0b88272f97f8a0bb0ff520f5c91e55aa34c8e27a0bb0ce"
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
@@ -610,6 +610,16 @@
       "path": "apps/desktop/src-tauri/src/portraits.rs",
       "bytes": 26674,
       "sha256": "bb31609c62d11b2d7843d998c8f38cf6df14a2dcba7a72b22929278befc194b3"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/replay_library/engine.rs",
+      "bytes": 36111,
+      "sha256": "1a2fef2bae73a36b96640a2fc7054c701365cec67011b34841b0e8605e5aeb70"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/replay_library/mod.rs",
+      "bytes": 47193,
+      "sha256": "6013f556d5b00042a9e0459bcc1a06fff71115ee1e246518f52c44507f54f550"
     },
     {
       "path": "apps/desktop/src-tauri/src/secrets.rs",
@@ -13127,6 +13137,11 @@
       "sha256": "5ee4b438e04008436ddd3f3610bdb20db7d45995c199442fb423b3e7745fc794"
     },
     {
+      "path": "apps/desktop/src/replay/replayLibraryClient.ts",
+      "bytes": 2239,
+      "sha256": "9bcf0af032f5a41141c7ef6915af95e030e48c0202d3e41cb319e37523328bf9"
+    },
+    {
       "path": "apps/desktop/src/replay/report.ts",
       "bytes": 13817,
       "sha256": "f6a4142d472af2347049b6330bdd00e524d907bef0258b83874a35aa2dad6b0d"
@@ -13737,6 +13752,11 @@
       "sha256": "bf765971b9a98a59dbf3ee68f61157462f5794101a2ed0dbe355860dc528e64c"
     },
     {
+      "path": "apps/desktop/tests/replay-library-client.test.ts",
+      "bytes": 1923,
+      "sha256": "d946777aa1a8b896e9e7cc38934f6a57461c250321ae83e825583f3cf5d66e7f"
+    },
+    {
       "path": "apps/desktop/tests/round2.test.ts",
       "bytes": 18025,
       "sha256": "c358c43bd778e22aecae10dbb5eaf918d2f40f66459fcd35c3eab3ab9eb22c3e"
@@ -13975,6 +13995,16 @@
       "path": "contracts/product-needs.json",
       "bytes": 10049,
       "sha256": "d2000b1258696ea8c062fe55b86f23a69fc150208832c23e234e703f8588276d"
+    },
+    {
+      "path": "contracts/replay-bundle.schema.json",
+      "bytes": 9848,
+      "sha256": "b45ac7ff045ae4796fefefe407dc53a49c239d214981d9049923426c0c79e16c"
+    },
+    {
+      "path": "contracts/replay-engine.schema.json",
+      "bytes": 8030,
+      "sha256": "622bb3f42d620b878939308a99c525e2178012ef48037a20254d56d525c67bf5"
     },
     {
       "path": "contracts/requirements.json",
@@ -14758,8 +14788,8 @@
     },
     {
       "path": "docs/INDEX.md",
-      "bytes": 13952,
-      "sha256": "38d15959ffc3ff0ccd7620bdf3dbcb4ad1d4ab4fd800365dc4f3593db43a61f6"
+      "bytes": 14137,
+      "sha256": "efa72ea74fb86fcfa53aa2f97b507b7dbd6bbe071c79b5ce011665213b9660ef"
     },
     {
       "path": "docs/delivery/AGENT-WORKFLOW.md",
@@ -14915,6 +14945,11 @@
       "path": "docs/design/REMAINING-SYSTEM-DESIGN.md",
       "bytes": 60545,
       "sha256": "54f9a24fbd97926de812f5b565e68bc34e987795667c9906d373da4dc81d6887"
+    },
+    {
+      "path": "docs/design/REPLAY-PIPELINE.md",
+      "bytes": 6465,
+      "sha256": "3495baf8ec77bca5f8166f14be7f7ee76efd339a8081761a87c9e247fc1ab26c"
     },
     {
       "path": "docs/design/RISK-ADMISSION-SPEC.md",
@@ -15408,8 +15443,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 86595,
-      "sha256": "898bf69b62d6483b368bce88cc4bf64df6a92a5d68a6eab4b7b19e017c42c26d"
+      "bytes": 87336,
+      "sha256": "7630cbb607b2f19fa0b39304940f7ffcce58893a0e6d57ebe3a2bcd5e3f25ba4"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",

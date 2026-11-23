@@ -12,6 +12,51 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::{Emitter as TauriEmitter, Manager};
 
+#[cfg(any(feature = "lab", feature = "demo"))]
+#[tauri::command]
+pub(crate) fn replay_library_list(
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+) -> Result<crate::replay_library::ReplayLibraryList, String> {
+    library.list().map_err(str::to_owned)
+}
+
+#[cfg(any(feature = "lab", feature = "demo"))]
+#[tauri::command]
+pub(crate) fn replay_library_open(
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+    match_id: String,
+) -> Result<crate::replay_library::ReplayBundle, String> {
+    library
+        .open_bundle(&match_id)
+        .map_err(str::to_owned)
+}
+
+#[cfg(any(feature = "lab", feature = "demo"))]
+#[tauri::command]
+pub(crate) fn replay_library_parse(
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+    id_or_path: String,
+) -> Result<crate::replay_library::ReplayJob, String> {
+    library.parse(&id_or_path).map_err(str::to_owned)
+}
+
+#[cfg(any(feature = "lab", feature = "demo"))]
+#[tauri::command]
+pub(crate) fn replay_library_remove(
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+    match_id: String,
+) -> Result<(), String> {
+    library.remove(&match_id).map_err(str::to_owned)
+}
+
+#[cfg(any(feature = "lab", feature = "demo"))]
+#[tauri::command]
+pub(crate) fn replay_library_clear(
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+) -> Result<(), String> {
+    library.clear().map_err(str::to_owned)
+}
+
 #[tauri::command]
 pub(crate) fn app_version() -> Value {
     crate::version::AppVersion::current().to_json()
