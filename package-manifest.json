@@ -23,13 +23,13 @@
     },
     {
       "path": "Cargo.lock",
-      "bytes": 135805,
-      "sha256": "1645e3565ad81332b862fb1b0485945f8d06d74422d3b217b8698bf92c76e73d"
+      "bytes": 135820,
+      "sha256": "3803c42710de19a7606f3860fc270dca883d8f9782b3cb76aacfd1736c02921b"
     },
     {
       "path": "Cargo.toml",
-      "bytes": 879,
-      "sha256": "33d667ca4c3e602cc66adefe409e7b71b5ca7f62d6925fdcd5b9a869388e3097"
+      "bytes": 880,
+      "sha256": "d925bcf3f618dbc8e0ea51da32b52cc7f56b15363c1ceb3d8b9ffeb2c1e86e76"
     },
     {
       "path": "GUIDE-TH.md",
@@ -98,8 +98,8 @@
     },
     {
       "path": "apps/desktop/package.json",
-      "bytes": 683,
-      "sha256": "be2482b30cdf973fb0cbefb1ebf087edb8e9ac4cad3f5eaac6baa832e9e9c6ff"
+      "bytes": 684,
+      "sha256": "bd1249d0b5b763aa5ddfbebc9c46bb521bee81a28271f22481fb20660f111bec"
     },
     {
       "path": "apps/desktop/pnpm-lock.yaml",
@@ -15408,8 +15408,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 85297,
-      "sha256": "9300e7b455366cd8563eb615334458da99107a5daf3b4913ab15092b771fdfac"
+      "bytes": 86595,
+      "sha256": "898bf69b62d6483b368bce88cc4bf64df6a92a5d68a6eab4b7b19e017c42c26d"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
