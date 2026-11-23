@@ -112,6 +112,18 @@ fn reason_code(reason: MatchReason) -> &'static str {
     }
 }
 
+/// Reason vocabulary of the `draft_bar_scores` info log.
+fn log_reason(reason: MatchReason) -> &'static str {
+    match reason {
+        MatchReason::Identified => "identified",
+        MatchReason::EmptySlot => "empty",
+        MatchReason::LowContrast => "low_contrast",
+        MatchReason::LowConfidence => "low_confidence",
+        MatchReason::ReferencesUnavailable => "no_references",
+        MatchReason::AwaitingFrame => "awaiting_frame",
+    }
+}
+
 fn unix_ms() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -145,6 +157,10 @@ impl DraftBarMemory {
         self.active = active && epoch.is_some();
         if !self.active {
             self.withdraw(None);
+            // The draft phase is over (or the bar is off): held heroes end with it (F3).
+            if let Some(matcher) = &mut self.matcher {
+                matcher.clear_held();
+            }
         }
     }
 
@@ -172,23 +188,10 @@ impl DraftBarMemory {
         (self.frame_at.is_some(), self.detail.as_deref(), identified)
     }
 
-    /// Log-safe per-slot best match score in hundredths (0–100) and reason code, slot order
-    /// Radiant 0–4 then Dire 5–9. No hero names. `None` before references are installed.
-    pub(crate) fn slot_scores(&self) -> Option<Vec<(u8, MatchReason)>> {
-        let matcher = self.matcher.as_ref()?;
-        Some(
-            matcher
-                .deck_view(true)
-                .slots
-                .iter()
-                .map(|slot| {
-                    (
-                        (slot.confidence.clamp(0.0, 1.0) * 100.0).round() as u8,
-                        slot.reason,
-                    )
-                })
-                .collect(),
-        )
+    /// Log-safe per-slot best score and top-1 margin in hundredths (0–100) with a reason code,
+    /// slot order Radiant 0–4 then Dire 5–9. No hero names. `None` before references exist.
+    pub(crate) fn slot_scores(&self) -> Option<Vec<(u8, u8, &'static str)>> {
+        Some(self.matcher.as_ref()?.slot_diagnostics())
     }
 
     pub fn needs_references(&self) -> bool {
@@ -331,9 +334,12 @@ struct CachedSlot {
     result: SlotResult,
 }
 
+#[derive(Clone)]
 struct SlotResult {
     hero_id: Option<Vec<u8>>,
     confidence: f32,
+    /// Best score minus the runner-up (0 when no reference was scored). Log-only diagnostic.
+    margin: f32,
     reason: MatchReason,
 }
 
@@ -348,6 +354,10 @@ struct BgraFrame<'a> {
 pub struct DraftBarMatcher {
     references: Vec<ReferenceTemplate>,
     slots: [Option<CachedSlot>; SLOT_COUNT],
+    /// F3 (owner, 2026-11-23): the last hero accepted for each slot in the current draft. It
+    /// stands while later readings are unknown, is replaced only when another hero is accepted
+    /// for that slot, and is cleared when the draft phase ends (`DraftBarMemory::observe`).
+    held: [Option<SlotResult>; SLOT_COUNT],
     /// Lane role icons for the own-team labels (5e), built from the same installed files.
     lane_icons: crate::draft_roster::LaneIcons,
 }
@@ -357,6 +367,7 @@ impl DraftBarMatcher {
         Self {
             references: Vec::new(),
             slots: std::array::from_fn(|_| None),
+            held: std::array::from_fn(|_| None),
             lane_icons: crate::draft_roster::LaneIcons::default(),
         }
     }
@@ -493,6 +504,13 @@ impl DraftBarMatcher {
             let features = frame.features(rect)?;
             self.classify(&features)
         };
+        if result.hero_id.is_some() {
+            if let Some(mut previous) = self.held[slot].replace(result.clone()) {
+                if let Some(hero_id) = &mut previous.hero_id {
+                    hero_id.fill(0);
+                }
+            }
+        }
         self.slots[slot] = Some(CachedSlot {
             fingerprint,
             result,
@@ -523,12 +541,17 @@ impl DraftBarMatcher {
             return SlotResult::unknown(0.0, MatchReason::LowConfidence);
         };
         let runner_up = scored.get(1).map_or(0.0, |score| score.0);
+        let margin = (confidence - runner_up).clamp(0.0, 1.0);
         if confidence < MIN_MATCH_CONFIDENCE || confidence - runner_up < MIN_MATCH_MARGIN {
-            return SlotResult::unknown(confidence.clamp(0.0, 1.0), MatchReason::LowConfidence);
+            return SlotResult {
+                margin,
+                ..SlotResult::unknown(confidence, MatchReason::LowConfidence)
+            };
         }
         SlotResult {
             hero_id: Some(hero_id.to_vec()),
             confidence: confidence.clamp(0.0, 1.0),
+            margin,
             reason: MatchReason::Identified,
         }
     }
@@ -537,8 +560,7 @@ impl DraftBarMatcher {
     pub fn deck_view(&self, active: bool) -> DraftBarDeckView {
         let slots = (0..SLOT_COUNT)
             .map(|index| {
-                let cached = self.slots[index].as_ref();
-                let result = cached.map(|cached| &cached.result);
+                let result = self.effective(index);
                 DraftBarSlotView {
                     slot: index,
                     team: if index < 5 { "radiant" } else { "dire" },
@@ -554,6 +576,47 @@ impl DraftBarMatcher {
         DraftBarDeckView { active, slots }
     }
 
+    /// The slot result downstream consumers see: the live reading when it identifies a hero,
+    /// otherwise the hero held for this draft, otherwise the live (unknown) reading.
+    fn effective(&self, slot: usize) -> Option<&SlotResult> {
+        let live = self.slots[slot].as_ref().map(|cached| &cached.result);
+        if live.is_some_and(|result| result.hero_id.is_some()) {
+            return live;
+        }
+        self.held[slot].as_ref().or(live)
+    }
+
+    /// Log-safe per-slot diagnostics from the latest reading: best score and top-1 margin in
+    /// hundredths, and a reason code (`held` when an earlier identification stands). No hero ID.
+    pub(crate) fn slot_diagnostics(&self) -> Vec<(u8, u8, &'static str)> {
+        let hundredths = |value: f32| (value.clamp(0.0, 1.0) * 100.0).round() as u8;
+        (0..SLOT_COUNT)
+            .map(|slot| {
+                let live = self.slots[slot].as_ref().map(|cached| &cached.result);
+                let score = live.map_or(0, |result| hundredths(result.confidence));
+                let margin = live.map_or(0, |result| hundredths(result.margin));
+                let live_identified = live.is_some_and(|result| result.hero_id.is_some());
+                let reason = if !live_identified && self.held[slot].is_some() {
+                    "held"
+                } else {
+                    live.map_or("awaiting_frame", |result| log_reason(result.reason))
+                };
+                (score, margin, reason)
+            })
+            .collect()
+    }
+
+    /// End of the draft phase: forget the heroes held for this draft.
+    pub(crate) fn clear_held(&mut self) {
+        for held in &mut self.held {
+            if let Some(mut result) = held.take() {
+                if let Some(hero_id) = &mut result.hero_id {
+                    hero_id.fill(0);
+                }
+            }
+        }
+    }
+
     /// Best-effort zeroing before a session transition or app exit.
     pub fn clear(&mut self) {
         for reference in &mut self.references {
@@ -562,6 +625,7 @@ impl DraftBarMatcher {
         }
         self.references.clear();
         self.clear_slots();
+        self.clear_held();
     }
 
     fn clear_slots(&mut self) {
@@ -596,6 +660,7 @@ impl SlotResult {
         Self {
             hero_id: None,
             confidence: confidence.clamp(0.0, 1.0),
+            margin: 0.0,
             reason,
         }
     }
@@ -703,17 +768,44 @@ fn rgba_features(image: &Image) -> Option<Vec<u8>> {
     if image.width == 0 || image.height == 0 || image.rgba.len() != expected {
         return None;
     }
+    let width = image.width as usize;
+    box_features(width, card_rows(image.height as usize), |x, y| {
+        let source = (y * width + x) * 4;
+        luminance(
+            image.rgba[source],
+            image.rgba[source + 1],
+            image.rgba[source + 2],
+        )
+    })
+}
+
+/// Source span `[start, end)` that feeds target cell `target` of `target_len`; never empty.
+fn box_span(target: usize, target_len: usize, source_len: usize) -> (usize, usize) {
+    let start = (target * source_len / target_len).min(source_len - 1);
+    let end = ((target + 1) * source_len / target_len).clamp(start + 1, source_len);
+    (start, end)
+}
+
+/// Area-average (box filter) downsampling of the top `rows` of a `width`-wide luminance source
+/// to the 32x18 feature grid. References and live slots use the same filter, so neither side
+/// aliases differently from the other (owner decision F1, 2026-11-23).
+fn box_features(width: usize, rows: usize, sample: impl Fn(usize, usize) -> u8) -> Option<Vec<u8>> {
+    if width == 0 || rows == 0 {
+        return None;
+    }
     let mut output = vec![0; FEATURE_WIDTH * FEATURE_HEIGHT];
-    for y in 0..FEATURE_HEIGHT {
-        let source_y = resample_coordinate(y, FEATURE_HEIGHT, card_rows(image.height as usize))?;
-        for x in 0..FEATURE_WIDTH {
-            let source_x = resample_coordinate(x, FEATURE_WIDTH, image.width as usize)?;
-            let source = (source_y * image.width as usize + source_x) * 4;
-            output[y * FEATURE_WIDTH + x] = luminance(
-                image.rgba[source],
-                image.rgba[source + 1],
-                image.rgba[source + 2],
-            );
+    for target_y in 0..FEATURE_HEIGHT {
+        let (y0, y1) = box_span(target_y, FEATURE_HEIGHT, rows);
+        for target_x in 0..FEATURE_WIDTH {
+            let (x0, x1) = box_span(target_x, FEATURE_WIDTH, width);
+            let mut sum = 0_u32;
+            for y in y0..y1 {
+                for x in x0..x1 {
+                    sum += u32::from(sample(x, y));
+                }
+            }
+            let count = ((y1 - y0) * (x1 - x0)) as u32;
+            output[target_y * FEATURE_WIDTH + target_x] = ((sum + count / 2) / count) as u8;
         }
     }
     Some(output)
@@ -721,22 +813,19 @@ fn rgba_features(image: &Image) -> Option<Vec<u8>> {
 
 impl BgraFrame<'_> {
     fn features(&self, rect: Rect) -> Option<Vec<u8>> {
-        let mut output = vec![0; FEATURE_WIDTH * FEATURE_HEIGHT];
-        for target_y in 0..FEATURE_HEIGHT {
-            let source_y = rect.y as usize
-                + resample_coordinate(target_y, FEATURE_HEIGHT, card_rows(rect.height as usize))?;
-            for target_x in 0..FEATURE_WIDTH {
-                let source_x = rect.x as usize
-                    + resample_coordinate(target_x, FEATURE_WIDTH, rect.width as usize)?;
-                let source = source_y * self.stride as usize + source_x * 4;
-                output[target_y * FEATURE_WIDTH + target_x] = luminance(
+        let (left, top, stride) = (rect.x as usize, rect.y as usize, self.stride as usize);
+        box_features(
+            rect.width as usize,
+            card_rows(rect.height as usize),
+            |x, y| {
+                let source = (top + y) * stride + (left + x) * 4;
+                luminance(
                     self.pixels[source + 2],
                     self.pixels[source + 1],
                     self.pixels[source],
-                );
-            }
-        }
-        Some(output)
+                )
+            },
+        )
     }
 
     fn fingerprint(&self, rect: Rect) -> Option<[u8; 32]> {
@@ -837,6 +926,7 @@ fn grayscale_contrast(features: &[u8]) -> f32 {
         .sqrt()
 }
 
+#[cfg(test)]
 fn resample_coordinate(target: usize, target_len: usize, source_len: usize) -> Option<usize> {
     if target_len == 0 || source_len == 0 {
         return None;
@@ -971,6 +1061,7 @@ pub(crate) mod tests {
                 },
             ],
             slots: std::array::from_fn(|_| None),
+            held: std::array::from_fn(|_| None),
             lane_icons: crate::draft_roster::LaneIcons::default(),
         }
     }
@@ -1089,6 +1180,238 @@ pub(crate) mod tests {
             Some(b"npc_dota_hero_synthetic_one".as_slice())
         );
         assert!(result.confidence >= MIN_MATCH_CONFIDENCE);
+    }
+
+    #[test]
+    fn low_margin_and_low_score_stay_unknown_whatever_the_other_threshold_says() {
+        // Two near-identical references: a perfect score with almost no margin stays unknown.
+        let art = feature_art(1);
+        let mut twin = art.clone();
+        twin[0] = twin[0].wrapping_add(3);
+        let mut matcher = DraftBarMatcher::empty();
+        matcher.references = vec![
+            ReferenceTemplate {
+                hero_id: b"npc_dota_hero_synthetic_one".to_vec(),
+                features: art.clone(),
+            },
+            ReferenceTemplate {
+                hero_id: b"npc_dota_hero_synthetic_twin".to_vec(),
+                features: twin,
+            },
+        ];
+        let result = matcher.classify(&art);
+        assert!(result.confidence >= MIN_MATCH_CONFIDENCE);
+        assert!(result.margin < MIN_MATCH_MARGIN);
+        assert_eq!(result.hero_id, None);
+        assert_eq!(result.reason, MatchReason::LowConfidence);
+
+        // A wide margin never rescues a score under the floor (F2 was not approved).
+        let matcher = synthetic_matcher();
+        let other = feature_art(3);
+        let mut rescued_below_floor = false;
+        let mut saw_wide_margin_below_floor = false;
+        for step in 0..=20_u32 {
+            let blended: Vec<u8> = art
+                .iter()
+                .zip(&other)
+                .map(|(a, b)| ((u32::from(*a) * (20 - step) + u32::from(*b) * step) / 20) as u8)
+                .collect();
+            let result = matcher.classify(&blended);
+            if result.hero_id.is_some() {
+                assert!(result.confidence >= MIN_MATCH_CONFIDENCE);
+                assert!(result.margin >= MIN_MATCH_MARGIN);
+            }
+            if result.confidence < MIN_MATCH_CONFIDENCE && result.margin >= MIN_MATCH_MARGIN {
+                saw_wide_margin_below_floor = true;
+                rescued_below_floor |= result.hero_id.is_some();
+            }
+        }
+        assert!(saw_wide_margin_below_floor, "the sweep covers the case");
+        assert!(!rescued_below_floor);
+    }
+
+    #[test]
+    fn box_filter_matches_the_same_art_across_source_sizes_better_than_point_sampling() {
+        // Fine detail aliases differently under point sampling at two source sizes; area averages
+        // agree. References are large landscape art, live slots are 119x68.
+        let art = |u: f32, v: f32| -> u8 {
+            let tau = std::f32::consts::TAU;
+            let value = 128.0
+                + 45.0 * (tau * 2.0 * u).sin()
+                + 35.0 * (tau * 1.5 * v).cos()
+                + 30.0 * (tau * 41.0 * u).sin() * (tau * 23.0 * v).cos();
+            value.clamp(0.0, 255.0) as u8
+        };
+        let sample_at = |width: usize, height: usize| {
+            move |x: usize, y: usize| {
+                art(
+                    (x as f32 + 0.5) / width as f32,
+                    (y as f32 + 0.5) / height as f32,
+                )
+            }
+        };
+        let point = |width: usize, height: usize| {
+            let rows = card_rows(height);
+            let sample = sample_at(width, height);
+            let mut output = vec![0; FEATURE_WIDTH * FEATURE_HEIGHT];
+            for y in 0..FEATURE_HEIGHT {
+                for x in 0..FEATURE_WIDTH {
+                    output[y * FEATURE_WIDTH + x] = sample(
+                        resample_coordinate(x, FEATURE_WIDTH, width).unwrap(),
+                        resample_coordinate(y, FEATURE_HEIGHT, rows).unwrap(),
+                    );
+                }
+            }
+            output
+        };
+        let boxed = |width: usize, height: usize| {
+            box_features(width, card_rows(height), sample_at(width, height)).unwrap()
+        };
+        let box_score = tile_similarity(&boxed(256, 144), &boxed(119, 68)).unwrap();
+        let point_score = tile_similarity(&point(256, 144), &point(119, 68)).unwrap();
+        assert!(
+            box_score > point_score,
+            "box {box_score} vs point {point_score}"
+        );
+        assert!(box_score >= MIN_MATCH_CONFIDENCE, "box {box_score}");
+
+        // A uniform source stays uniform and every cell reads at least one source pixel.
+        assert!(box_features(119, 39, |_, _| 77)
+            .unwrap()
+            .iter()
+            .all(|value| *value == 77));
+        assert!(box_features(5, 3, |x, y| (x * 40 + y * 10) as u8).is_some());
+        assert_eq!(box_features(0, 3, |_, _| 0), None);
+    }
+
+    fn strip_with(geometry: &DraftBarGeometry, slot0: Option<&[u8]>) -> Vec<u8> {
+        let mut strip = blank_strip(geometry, 0);
+        if let Some(features) = slot0 {
+            paint_features(&mut strip, geometry, 0, features, 1.0);
+        }
+        strip
+    }
+
+    fn identify(matcher: &mut DraftBarMatcher, geometry: &DraftBarGeometry, strip: &[u8]) {
+        matcher.identify_strip(
+            strip,
+            geometry.strip_rect.width,
+            geometry.strip_rect.height,
+            geometry.strip_rect.width * 4,
+            geometry,
+        );
+    }
+
+    #[test]
+    fn a_slot_holds_its_hero_until_another_hero_is_accepted() {
+        let geometry = draft_bar_geometry(1920, 1080, 100).unwrap();
+        let mut matcher = synthetic_matcher();
+        let slot0 = |matcher: &DraftBarMatcher| matcher.deck_view(true).slots[0].clone();
+
+        identify(
+            &mut matcher,
+            &geometry,
+            &strip_with(&geometry, Some(&feature_art(1))),
+        );
+        assert_eq!(
+            slot0(&matcher).hero_id.as_deref(),
+            Some("npc_dota_hero_synthetic_one")
+        );
+
+        // The portrait re-renders into something unreadable: the hero stands, logged as held.
+        let mut unreadable = feature_art(1);
+        for (index, value) in unreadable.iter_mut().enumerate() {
+            *value = if index % 3 == 0 { 230 } else { 20 };
+        }
+        identify(
+            &mut matcher,
+            &geometry,
+            &strip_with(&geometry, Some(&unreadable)),
+        );
+        assert_eq!(
+            slot0(&matcher).hero_id.as_deref(),
+            Some("npc_dota_hero_synthetic_one")
+        );
+        assert_eq!(slot0(&matcher).reason, MatchReason::Identified);
+        assert_eq!(matcher.slot_diagnostics()[0].2, "held");
+        identify(&mut matcher, &geometry, &strip_with(&geometry, None));
+        assert_eq!(
+            slot0(&matcher).hero_id.as_deref(),
+            Some("npc_dota_hero_synthetic_one")
+        );
+
+        // Another hero accepted for the slot replaces it (a swap), and is then held in turn.
+        identify(
+            &mut matcher,
+            &geometry,
+            &strip_with(&geometry, Some(&feature_art(2))),
+        );
+        assert_eq!(
+            slot0(&matcher).hero_id.as_deref(),
+            Some("npc_dota_hero_synthetic_two")
+        );
+        assert_eq!(matcher.slot_diagnostics()[0].2, "identified");
+        identify(&mut matcher, &geometry, &strip_with(&geometry, None));
+        assert_eq!(
+            slot0(&matcher).hero_id.as_deref(),
+            Some("npc_dota_hero_synthetic_two")
+        );
+
+        // Slots never identified stay unknown; nothing is guessed for them.
+        assert!(matcher.deck_view(true).slots[1..]
+            .iter()
+            .all(|slot| slot.hero_id.is_none()));
+        assert_eq!(matcher.slot_diagnostics()[1].2, "empty");
+    }
+
+    #[test]
+    fn held_heroes_survive_withdrawals_in_the_draft_and_clear_when_the_draft_ends() {
+        let start = Instant::now();
+        let geometry = draft_bar_geometry(1920, 1080, 100).unwrap();
+        let hero = |memory: &DraftBarMemory| {
+            memory.matcher.as_ref().unwrap().deck_view(true).slots[0]
+                .hero_id
+                .clone()
+        };
+        let mut memory = DraftBarMemory::default();
+        memory.observe(Some(4), false, true);
+        memory.install_references(synthetic_matcher());
+        memory.accept(
+            &strip_with(&geometry, Some(&feature_art(1))),
+            &geometry,
+            start,
+        );
+        assert_eq!(
+            hero(&memory).as_deref(),
+            Some("npc_dota_hero_synthetic_one")
+        );
+
+        // A short withdrawal inside the draft (visibility unconfirmed) keeps the hero.
+        memory.withdraw(Some("draft_window_visibility_unconfirmed".to_owned()));
+        memory.observe(Some(4), false, true);
+        memory.accept(&strip_with(&geometry, None), &geometry, start);
+        assert_eq!(
+            hero(&memory).as_deref(),
+            Some("npc_dota_hero_synthetic_one")
+        );
+        assert_eq!(memory.log_summary().2, 1);
+
+        // The draft phase ends: the held hero goes, as the live reading did before.
+        memory.observe(Some(4), false, false);
+        assert_eq!(hero(&memory), None);
+        assert_eq!(memory.log_summary().2, 0);
+        memory.observe(Some(4), false, true);
+        memory.accept(&strip_with(&geometry, None), &geometry, start);
+        assert_eq!(hero(&memory), None);
+
+        // A new session drops everything, as before.
+        memory.accept(
+            &strip_with(&geometry, Some(&feature_art(1))),
+            &geometry,
+            start,
+        );
+        memory.observe(Some(5), false, true);
+        assert!(memory.matcher.is_none());
     }
 
     #[test]
@@ -1625,6 +1948,7 @@ pub(crate) mod tests {
                 );
             }
             matcher.clear_slots();
+            matcher.clear_held();
         }
     }
 

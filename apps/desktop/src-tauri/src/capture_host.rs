@@ -1,6 +1,6 @@
 //! MVP-1 W3 host capture loop, frame transport, and observation/risk event bridge.
 
-use crate::draft_bar::{draft_bar_geometry, DraftBarMatcher, DraftBarMemory, MatchReason};
+use crate::draft_bar::{draft_bar_geometry, DraftBarMatcher, DraftBarMemory};
 use kohbor_capture::{
     AdmittedFrame, CalibrationMethod, CalibrationPhase, CaptureController, CapturePhase,
     CaptureSource, Coverage, CycleOutcome, Environment, FrameHeader, InvalidationReason, Rect,
@@ -1785,7 +1785,7 @@ where
         let Some(slots) = lock(&self.draft).slot_scores() else {
             return;
         };
-        let scores: Vec<u8> = slots.iter().map(|(score, _)| *score).collect();
+        let scores: Vec<u8> = slots.iter().map(|(score, _, _)| *score).collect();
         let now = Instant::now();
         if self.draft_log_scores.as_ref().is_some_and(|(last, at)| {
             *last == scores || now.saturating_duration_since(*at) < SCORE_LOG_INTERVAL
@@ -1793,29 +1793,26 @@ where
             return;
         }
         // The logger keeps scalar fields only, so the ten values are space-separated strings.
-        let reasons = slots
-            .iter()
-            .map(|(_, reason)| match reason {
-                MatchReason::Identified => "identified",
-                MatchReason::EmptySlot => "empty",
-                MatchReason::LowContrast => "low_contrast",
-                MatchReason::LowConfidence => "low_confidence",
-                MatchReason::ReferencesUnavailable => "no_references",
-                MatchReason::AwaitingFrame => "awaiting_frame",
-            })
-            .collect::<Vec<_>>()
-            .join(" ");
+        let join = |values: Vec<String>| values.join(" ");
         crate::log_info!(
             "capture_host",
             "draft_bar_scores",
             "draft bar 5b best score per slot",
-            scores = scores
-                .iter()
-                .map(u8::to_string)
-                .collect::<Vec<_>>()
-                .join(" "),
-            reasons = reasons,
-            threshold = 82
+            scores = join(scores.iter().map(u8::to_string).collect()),
+            margins = join(
+                slots
+                    .iter()
+                    .map(|(_, margin, _)| margin.to_string())
+                    .collect()
+            ),
+            reasons = join(
+                slots
+                    .iter()
+                    .map(|(_, _, reason)| (*reason).to_owned())
+                    .collect()
+            ),
+            threshold = 82,
+            margin_threshold = 8
         );
         self.draft_log_scores = Some((scores, now));
     }
@@ -4927,6 +4924,15 @@ mod tests {
                 .count(),
             10
         );
+        let margins: Vec<u64> = scores.fields["margins"]
+            .as_str()
+            .unwrap()
+            .split(' ')
+            .map(|value| value.parse().unwrap())
+            .collect();
+        assert_eq!(margins.len(), 10, "top-1 margin per slot, numbers only");
+        assert!(margins.iter().all(|value| *value <= 100));
+        assert_eq!(scores.fields["margin_threshold"], 8);
         assert!(!scores.fields.to_string().contains("synthetic_one"));
         let roster = logs
             .iter()
