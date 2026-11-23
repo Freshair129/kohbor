@@ -43,6 +43,7 @@ export function MinimapPanel({
   steamStatus = null,
   mapOverlay,
   stageOverride,
+  stageAlerts,
 }: {
   locale?: LiveLocale;
   /** "pinned" is the second-monitor mode (UI-016): map pane only, tools in its toolbar, the quick strip below it. */
@@ -53,6 +54,11 @@ export function MinimapPanel({
   mapOverlay?: ReactNode;
   /** Pinned layout only: replaces the minimap stage inside the same square (UI-019 draft board). */
   stageOverride?: ReactNode;
+  /**
+   * Pinned layout only: the alert strip, anchored inside the map stage. The toolbar above the stage wraps to more lines
+   * when its notices do not fit, so an offset measured from the pane top would paint over the toolbar text.
+   */
+  stageAlerts?: (input: { risk: RiskView | null; captureLive: boolean }) => ReactNode;
 }) {
   const text = liveCopy(locale);
   const capture = useCaptureStatus();
@@ -317,6 +323,8 @@ export function MinimapPanel({
         </div>
   );
 
+  const pinnedAlerts = pinned && stageAlerts
+    ? <div className="sm-alerts">{stageAlerts({ risk: displayedRisk, captureLive: phase === "live" && !paused })}</div> : null;
   const mapPane = (
       <section className="live-map-pane" aria-labelledby="live-map-heading">
         <header className="live-map-toolbar">
@@ -325,7 +333,7 @@ export function MinimapPanel({
           <span className="live-preview-rates mono" title={`${rateBadge} — ${previewRateTooltip(locale)}`}>{rateBadge}</span>
           {pinned && <div className="live-pinned-tools">{statusBlock}{actions}</div>}
         </header>
-        {pinned && stageOverride ? <div className="live-map-stage live-map-override">{stageOverride}</div> : <MinimapStage source={mapSource} hasFrame={minimap.hasFrame} covered={presentation.coveredBadge !== null && !paused && !userInvalidated}
+        {pinned && stageOverride ? <div className="live-map-stage live-map-override">{stageOverride}{pinnedAlerts}</div> : <MinimapStage source={mapSource} hasFrame={minimap.hasFrame} covered={presentation.coveredBadge !== null && !paused && !userInvalidated}
           waitingReason={steamStatus === null && phase === "idle" ? reasonText : null}
           stageRef={canvasBox.stageRef} locale={locale} plate={plate && (
             <div className={`live-map-plate${plateTone}`}>
@@ -340,6 +348,7 @@ export function MinimapPanel({
             aria-hidden="true"
           />
           {pinned && mapOverlay && <div className="sm-map-overlay" style={{ width: canvasBox.canvasStyle.minWidth, height: canvasBox.canvasStyle.minHeight }}>{mapOverlay}</div>}
+          {pinnedAlerts}
         </MinimapStage>}
       </section>
   );

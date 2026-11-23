@@ -40,6 +40,7 @@ import { RailLeft } from "./shell/RailLeft";
 import { RailRight } from "./shell/RailRight";
 import { useSecondMonitorSide } from "./live/useSecondMonitorSide";
 import { SecondMonitorToggle } from "./live/SecondMonitorToggle";
+import { isMatchRunning, pinnedSecondMonitorSide } from "./live/secondMonitorModel";
 import { StatusLine } from "./shell/StatusLine";
 import { StatusFooter } from "./shell/StatusFooter";
 import { useResources } from "./live/useResources";
@@ -200,10 +201,11 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
             : null;
 
   const navigate = (destination: ShellDestination) => setActivePage(destination);
-  // Second-monitor mode (UI-016): on the Live page whenever a side is set. The deck itself shows "window too small"
-  // below the smallest supported size instead of a broken or scrolling layout (owner feedback 2026-11-23).
-  const pinnedSide = activePage === "live" && secondMonitor.side !== "off" ? secondMonitor.side : null;
-  const inMatch = !hostLost && (status?.session.phase === "draft" || status?.session.phase === "pregame" || status?.session.phase === "live");
+  // Second-monitor mode (UI-016): on the Live page only while a match runs (hero selection through the game) and a side
+  // is set; otherwise the centred deck, as with "off" (owner report on build 3815c73, 2026-11-23). The deck itself shows
+  // "window too small" below the smallest supported size instead of a broken or scrolling layout.
+  const inMatch = isMatchRunning(status?.session.phase ?? null, hostLost);
+  const pinnedSide = pinnedSecondMonitorSide({ side: secondMonitor.side, onLivePage: activePage === "live", phase: status?.session.phase ?? null, hostLost });
 
   return (
     <div className="app glass-field" lang={displayLocale} data-theme="dark" data-glass={glass.level} data-rail={rail.state} data-page={activePage}

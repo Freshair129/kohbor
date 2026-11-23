@@ -32,6 +32,30 @@ export function persistSecondMonitorSide(storage: Pick<Storage, "setItem">, side
   return side;
 }
 
+/** Match phases in which the second-monitor deck replaces the centred deck: hero selection through the game. */
+export const SECOND_MONITOR_MATCH_PHASES = ["draft", "pregame", "live"] as const;
+
+/**
+ * True while a match runs (draft, pregame or live) and the host still answers. Unknown is not a match: a null phase
+ * (no status read yet) or a lost host keeps the centred deck. A single failed poll does not reach here as null, because
+ * the runtime keeps the last status until the host counts as lost.
+ */
+export function isMatchRunning(phase: string | null | undefined, hostLost: boolean): boolean {
+  return !hostLost && typeof phase === "string" && (SECOND_MONITOR_MATCH_PHASES as readonly string[]).includes(phase);
+}
+
+/**
+ * The side to pin on the Live page, or null for the centred deck (UI-016, owner report on build 3815c73, 2026-11-23).
+ * The stored side is only a preference: outside a match (none, post_game, unsupported, unknown or host lost) the Live
+ * page shows the centred deck exactly as with "off", and the side selector stays reachable there.
+ */
+export function pinnedSecondMonitorSide(input: {
+  side: SecondMonitorSide; onLivePage: boolean; phase: string | null | undefined; hostLost: boolean;
+}): Exclude<SecondMonitorSide, "off"> | null {
+  if (!input.onLivePage || input.side === "off") return null;
+  return isMatchRunning(input.phase, input.hostLost) ? input.side : null;
+}
+
 /**
  * Monitor 2 to the RIGHT of the main monitor means its LEFT edge touches the main monitor, so the map is pinned left.
  * The rails go to the opposite (outer) edge.

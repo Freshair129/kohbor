@@ -102,7 +102,7 @@ With input frozen, map x/y/width/height change by **no more than 1 CSS px** when
 
 ### 4.1 Second-monitor mode (UI-016, UI-017; DEC-LIVE-SECOND-MONITOR)
 
-A per-device setting says where monitor 2 sits: off (default), left of the main monitor, or right of it. When set:
+A per-device setting says where monitor 2 sits: off (default), left of the main monitor, or right of it. The mode applies only while a match runs, from hero selection through the game (phase draft, pregame or live, host answering). Before and after a match, and while the phase is unknown or the host is lost, the Live page shows the centred deck as with off; the stored side is kept and the side selector stays on the page (owner report on build 3815c73, 2026-11-23). While it applies:
 
 - The minimap is a square pinned flush to the edge that touches the main monitor: the left edge when monitor 2 is to the right, the right edge when it is to the left.
 - A quick strip of the same width sits directly under the map: danger level, enemies missing from the map (derived), five enemy rows, and the next map objective.

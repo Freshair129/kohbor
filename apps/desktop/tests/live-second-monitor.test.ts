@@ -6,9 +6,11 @@ import {
   createDraftRosterMemory,
   enemyRows,
   formatCountdown,
+  isMatchRunning,
   mapEdgeFor,
   missingFromMap,
   persistSecondMonitorSide,
+  pinnedSecondMonitorSide,
   readSecondMonitorSide,
   rememberDraftFrame,
   secondMonitorCopy,
@@ -126,4 +128,41 @@ test("pinned CSS: the map size comes from the layout variable; nothing scrolls; 
   assert.doesNotMatch(css, /overflow(?:-[xy])?:\s*(?:auto|scroll)/, "no scrolling region in second-monitor mode");
   assert.doesNotMatch(css, /font-size:\s*(?:[0-9]|1[01])px/, "no text below 12 px");
   assert.match(css, /\.app\[data-live-monitor\]\[data-match="true"\] \.shell-rail-right\s*\{\s*display:\s*none/);
+});
+
+// ---- Second-monitor layout only during a match (owner report on build 3815c73, 2026-11-23) ----
+test("the second-monitor deck is pinned only while a match runs; otherwise the centred deck shows", () => {
+  const cases: [string | null, boolean, boolean][] = [
+    ["none", false, false], ["draft", false, true], ["pregame", false, true], ["live", false, true],
+    ["post_game", false, false], ["unsupported", false, false], [null, false, false],
+    ["draft", true, false], ["pregame", true, false], ["live", true, false], [null, true, false],
+  ];
+  for (const [phase, hostLost, running] of cases) {
+    assert.equal(isMatchRunning(phase, hostLost), running, `isMatchRunning(${phase}, ${hostLost})`);
+    for (const side of ["left", "right"] as const) {
+      assert.equal(pinnedSecondMonitorSide({ side, onLivePage: true, phase, hostLost }), running ? side : null,
+        `pinned(${side}, ${phase}, hostLost ${hostLost})`);
+    }
+    assert.equal(pinnedSecondMonitorSide({ side: "off", onLivePage: true, phase, hostLost }), null, "off never pins");
+  }
+  assert.equal(isMatchRunning(undefined, false), false, "no status read yet is not a match");
+  assert.equal(pinnedSecondMonitorSide({ side: "left", onLivePage: false, phase: "live", hostLost: false }), null, "other pages never pin");
+});
+
+test("App gates the pinned deck on the match helper and keeps the side selector reachable outside a match", () => {
+  const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  assert.match(app, /const pinnedSide = pinnedSecondMonitorSide\(\{ side: secondMonitor\.side, onLivePage: activePage === "live", phase: status\?\.session\.phase \?\? null, hostLost \}\)/);
+  assert.match(app, /\{!pinnedSide && <div className="shell-live-page-top">\s*<SecondMonitorToggle side=\{secondMonitor\.side\}/);
+  assert.doesNotMatch(app, /secondMonitor\.side !== "off" \? secondMonitor\.side/, "the stored side alone never pins the deck");
+});
+
+test("the alert strip is anchored inside the map stage, not at a fixed offset over the wrapping toolbar", () => {
+  const panel = readFileSync(new URL("../src/live/MinimapPanel.tsx", import.meta.url), "utf8");
+  assert.match(panel, /<div className="sm-alerts">\{stageAlerts\(/);
+  assert.match(panel, /\{stageOverride\}\{pinnedAlerts\}/, "also over the draft board");
+  assert.match(panel, /\{pinnedAlerts\}\s*<\/MinimapStage>/);
+  const css = readFileSync(new URL("../src/live/secondMonitor.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const rule = css.match(/\.sm-alerts\s*\{([^}]+)\}/)?.[1] ?? "";
+  assert.match(rule, /bottom:\s*8px/);
+  assert.doesNotMatch(rule, /top:/);
 });

@@ -58,8 +58,8 @@
     },
     {
       "path": "acceptance/scenarios.feature",
-      "bytes": 48915,
-      "sha256": "66b912e796b576346645038ca1e87655a8d2765d52ee9db2335655b2058fb1f5"
+      "bytes": 49152,
+      "sha256": "807616f8ddfe156d178eb291f31dd58b76876f8f96f4d7a74137234d6c1b8233"
     },
     {
       "path": "acceptance/spec-validation.json",
@@ -503,8 +503,8 @@
     },
     {
       "path": "apps/desktop/src/App.tsx",
-      "bytes": 22437,
-      "sha256": "3a37eb8e4326c19c9c3f337b68688d13bf298661140ca7c0b3b37fd87128865a"
+      "bytes": 22626,
+      "sha256": "700e658d487342d71397854611725c3a1cb82a886ebc8be6476733ab9f085c9b"
     },
     {
       "path": "apps/desktop/src/AudioHistory.tsx",
@@ -878,8 +878,8 @@
     },
     {
       "path": "apps/desktop/src/live/MinimapPanel.tsx",
-      "bytes": 19325,
-      "sha256": "8888123ddda11a7892553e083fa221fab487dca49df431a0b75b95937d7c9407"
+      "bytes": 19881,
+      "sha256": "1faf0469ec0cef2971aae1bd61c369ed9eaad96b0496d04464edd7117dc61368"
     },
     {
       "path": "apps/desktop/src/live/MinimapStage.tsx",
@@ -903,8 +903,8 @@
     },
     {
       "path": "apps/desktop/src/live/SecondMonitorDeck.tsx",
-      "bytes": 19227,
-      "sha256": "43f8f77495aa9b5d2c0a09c684a8301a2343d51b9875f4dafefc22bcf366bbd8"
+      "bytes": 19117,
+      "sha256": "c436c57d6dec2a5fbba12fb02c0691e847d16b9f08eee3ee678947dd6ce5735d"
     },
     {
       "path": "apps/desktop/src/live/SecondMonitorToggle.tsx",
@@ -1023,8 +1023,8 @@
     },
     {
       "path": "apps/desktop/src/live/secondMonitor.css",
-      "bytes": 17511,
-      "sha256": "62f8eb4974f38fecd8974b03fa28ef117017c3a01bb1dc62682f5842b227c2de"
+      "bytes": 17707,
+      "sha256": "be014ff0dee083f4cee458f647e03db5e3a18a1831764066cfc9baeefd8a3525"
     },
     {
       "path": "apps/desktop/src/live/secondMonitorCards.ts",
@@ -1038,8 +1038,8 @@
     },
     {
       "path": "apps/desktop/src/live/secondMonitorModel.ts",
-      "bytes": 8880,
-      "sha256": "ec45203b563e412ce83101f84ab89783e94160849f3eba0f9255fa8409f4f1e8"
+      "bytes": 10288,
+      "sha256": "5d227bd472bfafd27b3b0cf8abe7e032d93d8bb8868eabff7fab2f6a0ac21683"
     },
     {
       "path": "apps/desktop/src/live/state.ts",
@@ -1803,8 +1803,8 @@
     },
     {
       "path": "apps/desktop/tests/live-second-monitor.test.ts",
-      "bytes": 6838,
-      "sha256": "18aac6f2ee6387708beea84ee7891cde65c9fc0cf3f6d68577006971fdb0a70e"
+      "bytes": 9538,
+      "sha256": "7136591776f986ab1df3b88aa834d002bb7404ecfedc06ea4391d25c41e0d975"
     },
     {
       "path": "apps/desktop/tests/live.test.ts",
@@ -2133,8 +2133,8 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 257399,
-      "sha256": "46e562ba7b7ac5a637b961ceeb95626d239e95d71b5542200333b68b50898939"
+      "bytes": 258020,
+      "sha256": "82d8f3d80eaa8368f427b5d7533b6211d651a5a9cabfd3b262ce475a7b3ebd1b"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -3058,8 +3058,8 @@
     },
     {
       "path": "docs/design/UX-SPEC.md",
-      "bytes": 28752,
-      "sha256": "ed3964e9f9b7625794204e929bdc1b0e357d24fd20b1753a55545e7a5f601231"
+      "bytes": 29124,
+      "sha256": "02d4e399b31c67c373b771fa86c24672c633741e5b60c5efed88166f5a762696"
     },
     {
       "path": "docs/design/VISUAL-DESIGN-PROPOSAL.md",
@@ -3498,8 +3498,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 53279,
-      "sha256": "bb611bc7e933012f66dbcfcdc99d954c1c7d617e18cabea16f743148be307241"
+      "bytes": 53645,
+      "sha256": "2ac9ddc02d40e33cd350cfeb95be79cb6000ef784762d344fc427f076ce0b57a"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
@@ -3583,8 +3583,8 @@
     },
     {
       "path": "docs/requirements/SRS.md",
-      "bytes": 167503,
-      "sha256": "f57beea80f2f9f86b3517aa2cd60394a6d9b10fdf15cfd9b330dc9808ee068f6"
+      "bytes": 168124,
+      "sha256": "608ef0de33a89c68153e72722636a8ad70beedd37f2afb09d0b47a369d3eeefa"
     },
     {
       "path": "docs/security/SECURITY-PRIVACY.md",
