@@ -333,8 +333,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/capture_host.rs",
-      "bytes": 314278,
-      "sha256": "ba6ce4fa3649fec3b7b0924535d330d2435fc0aa4874bbfb88c414c8e4db9b03"
+      "bytes": 314483,
+      "sha256": "658c02a299d77bd4ff7201f4dcb9fd1ea25cc4b41ede25c788e8b672f11a236a"
     },
     {
       "path": "apps/desktop/src-tauri/src/clock.rs",
@@ -358,8 +358,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/draft_bar.rs",
-      "bytes": 61825,
-      "sha256": "937d1e60f13048b9b6b04c0ef7c5798905649adf313125945601ca92fcadbbe0"
+      "bytes": 75009,
+      "sha256": "6b2143827b61aa800f046bada78095a9c70cec558425530c1ebb1514051c51b4"
     },
     {
       "path": "apps/desktop/src-tauri/src/draft_roster.rs",
@@ -2458,8 +2458,8 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 287755,
-      "sha256": "88af2cf99f532ecd4694d83208805a67eb57206affec65201eb9d250a2934bf5"
+      "bytes": 287958,
+      "sha256": "1b7bfa5665c11d58d1947d82f050e894fa2d9306cf8fc55c959d7da0877b167f"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -3338,8 +3338,8 @@
     },
     {
       "path": "docs/design/DRAFT-BAR-SPEC.md",
-      "bytes": 12730,
-      "sha256": "df2fbb2502f3b3cd2c46780379580872bb6e01536a65a76a2702da427e2b8feb"
+      "bytes": 14557,
+      "sha256": "8b964b5f74098e8933df9b834bd8bab71b87e94e288f7445a12fc590faf40bba"
     },
     {
       "path": "docs/design/DRAFT-COLUMN.md",
@@ -3958,8 +3958,8 @@
     },
     {
       "path": "docs/requirements/SRS.md",
-      "bytes": 190946,
-      "sha256": "e1d7a66b2d1ce58dfa3066750649264b4725861d8e8aa79e26f9b6bfb7a6eefe"
+      "bytes": 191149,
+      "sha256": "5f1c4091fbe21675154c74b0f4bb499a5a88a2708c63b2ee11e2d2924dbc54e6"
     },
     {
       "path": "docs/security/SECURITY-PRIVACY.md",
