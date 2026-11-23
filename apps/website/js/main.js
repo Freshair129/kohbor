@@ -36,7 +36,7 @@ const labels = $$('.lb').map((el) => ({ el, id: el.dataset.m, o: -1 }));
 const plate = $('#plate'), plateText = $('#plateText');
 const navLinks = $$('.top-nav a');
 const topEl = $('#top');
-const NAV_FOR = { see: '#see', honest: '#honest', hear: '#hear', ask: '#ask', yours: '#yours', bar: '#bar' };
+const NAV_FOR = { see: '#see', honest: '#honest', hear: '#hear', ask: '#ask', features: '#features', yours: '#yours', bar: '#bar' };
 let topRoom = 'c';
 
 let vw = 1, vh = 1, cw = 1, ch = 1, cl = 0, ct = 0, mobile = false;
@@ -104,16 +104,17 @@ function topDown(id, tilt) {
 }
 function buildKeys() {
   const m = mobile;
-  K.hero = { ...BASE, height: 1.2, shift: m ? [0, -0.2] : [0.25, 0.05], orbA: 1, ripple: 1, follow: 1 };
+  K.hero = { ...BASE, cam: [0, 12.5, 12.5], look: [0, 0, 0.4], height: 1.2, shift: m ? [0, -0.2] : [0.25, 0.05], orbA: 1, ripple: 1, follow: 1 };
   K.why = { ...BASE, cam: [-8.5, 2.1, 9], look: [0, 0.9, 0], shift: m ? [0, -0.12] : [0.31, 0.2], height: 1.2, dim: 0.34, ripple: 0.5, orb: [0.4, 2.2, 0.6], orbA: 0 };
   K.see = { ...BASE, ...topDown('see', 0), shift: slotShift('see'), shape: 1, px: m ? 1.5 : 1.9, rotAmt: 0, markers: 1, frame: 1, orb: [own.g[0] * R + 0.62, 0.5, own.g[1] * R + 0.5], orbA: 1, orbS: 0.75, ripple: 0.55 };
   K.honest = { ...BASE, ...topDown('honest', 0.2), shift: slotShift('honest'), shape: 1, px: m ? 1.5 : 1.9, rotAmt: 0, markers: 1, frame: 1, orb: [own.g[0] * R + 0.62, 0.5, own.g[1] * R + 0.5], orbA: 0, orbS: 0.75, ripple: 0.2 };
   K.hear = { ...BASE, cam: [0, 6.8, 14], look: [0, 0, 0], shift: slotShift('hear', m ? 1 : 0.4), shape: 2, px: 2.1, rotAmt: 0.5, orb: [0, 0.5, 0], orbA: 1, orbS: 1.1 };
   K.ask = { ...BASE, cam: [0, 2.3, m ? 6.4 : 7.4], look: [0, 1.7, 0], shift: slotShift('ask'), shape: 3, px: 2.1, orb: [0, 1.7, 0], orbA: 1, orbS: 1.3 };
-  K.yours = { ...BASE, cam: [0, 2.6, 9.5], look: [0, 0.1, -3], shape: 4, dim: 0.9, px: 2.3, rotAmt: 0.3, ripple: 0.6, orb: [0, 1.7, 0] };
+  K.features = { ...BASE, cam: [0, 3.4, 11], look: [0, -0.2, -2], shape: 4, dim: 0.3, px: 2.3, rotAmt: 0.3, ripple: 0.4, orb: [0, 1.7, 0] };
+  K.yours ={ ...BASE, cam: [0, 2.6, 9.5], look: [0, 0.1, -3], shape: 4, dim: 0.9, px: 2.3, rotAmt: 0.3, ripple: 0.6, orb: [0, 1.7, 0] };
   K.film = { ...K.yours, dim: 0, ripple: 0 };
   K.bar = { ...BASE, cam: [0, 3.4, 11], look: [0, -0.2, -2], shape: 4, dim: 0.34, px: 2.3, rotAmt: 0.3, ripple: 0.4, orb: [0, 1.7, 0] };
-  K.end = { ...BASE, cam: [0, 5.2, 14.5], look: [0, 0.9, 0], height: 1.2, shift: m ? [0, 0.16] : [0.26, 0.0], shape: 5, orbA: 1, ripple: 1, follow: 1 };
+  K.end = { ...BASE, cam: [0, 9.0, 11.5], look: [0, 0.9, 0], height: 1.2, shift: m ? [0, 0.16] : [0.26, 0.0], shape: 5, orbA: 1, ripple: 1, follow: 1 };
 }
 function mix(a, b, t) {
   const o = {};
