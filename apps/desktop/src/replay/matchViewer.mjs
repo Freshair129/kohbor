@@ -1234,7 +1234,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
     S.D = D; S.vis = new Set(D.heroes.map(h => h.id)); scrub.min = D.t0; scrub.max = D.t1; status.textContent = "";
     S.range = [D.t0, D.t1]; TL.v0 = D.t0; TL.v1 = D.t1;
     if (hasMap){ const im = new Image(); im.onload = () => { S.img = im; draw(); renderMulti(); }; im.onerror = () => { status.textContent = "โหลดภาพมินิแมปไม่สำเร็จ เส้นทางยังแสดงได้บนพื้นสีเข้ม"; }; im.src = icon("map", "map"); }
-    else status.textContent = "ไม่ได้เลือกภาพมินิแมป เส้นทางแสดงบนพื้นสีเข้ม · No map image picked";
+    else status.textContent = "ไม่มีภาพมินิแมป เส้นทางแสดงบนพื้นสีเข้ม · No minimap image";
     buildAlerts(); legend(); renderRoster(); renderLists(); renderTicks(); resize(); setT(S.t); tlInit();
     S.W = decodeWorld(bundle.world); $("rv-world-note").textContent = "ตำแหน่งฮีโร่จากข้อมูล 30 ครั้ง/วินาที เก็บเฉพาะจุดที่เปลี่ยนทิศ · ยูนิตอื่น 2 ครั้ง/วินาที"; draw();
     for (const box of [$("rv-cards-r"), $("rv-cards-d")]){

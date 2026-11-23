@@ -12,10 +12,6 @@ export const MAX_BUNDLE_BYTES: Record<BundleFileName, number> = {
   "match.json": 48 * 1024 * 1024,
   "world.json": 24 * 1024 * 1024,
 };
-export const MAX_ICON_BYTES = 2 * 1024 * 1024;
-export const MAX_MAP_BYTES = 8 * 1024 * 1024;
-export const MAX_ICON_TOTAL_BYTES = 64 * 1024 * 1024;
-export const MAX_ICON_FILES = 4096;
 
 /** The part of a browser File this module needs; tests pass plain objects. */
 export interface PickedFile {
@@ -249,33 +245,30 @@ export async function admitMatchBundle(files: readonly PickedFile[]): Promise<Ad
   }
 }
 
-/* ---------- icons: local only, picked by the user (R1) ---------- */
+/* ---------- icons: bundled with Kohbor, built from the installed game ---------- */
+// DEC-REPLAY-INTEGRATION item 3: hero, ability and item images and the minimap ship as app assets
+// under src/assets/dota/<game build>/, exported from the owner's installed game by the dev tool
+// kohbor-asset-export (crates/kohbor-game-assets). Rights review is required before public release.
 
 export type IconKind = "hero" | "ability" | "item" | "map";
 
 const ICON_DIR: Record<string, IconKind> = { heroes: "hero", abilities: "ability", items: "item" };
-const IMAGE_TYPE: Record<string, string> = { png: "image/png", webp: "image/webp", jpg: "image/jpeg", jpeg: "image/jpeg" };
+const IMAGE_EXT = new Set(["png", "webp", "jpg", "jpeg"]);
 
 /**
- * Maps a picked path to its icon key. Hero, ability and item icons are `<dir>/<name>.<ext>` with
- * dir heroes, abilities or items (the pack layout `icons/heroes/...` and the prototype layout
- * `heroes/...` both qualify). A map image is any image whose base name is in `mapNames`.
+ * Maps an asset path to its icon key. Hero, ability and item icons are `<dir>/<name>.<ext>` with
+ * dir heroes, abilities or items. A map image is any image whose base name is in `mapNames`.
  */
 export function iconKey(path: string, mapNames: readonly string[] = ["map.png"]): string | null {
   const parts = path.toLowerCase().split(/[\\/]/).filter(Boolean);
   const file = parts.pop();
   if (!file) return null;
   const dot = file.lastIndexOf(".");
-  const ext = file.slice(dot + 1);
-  if (dot <= 0 || !IMAGE_TYPE[ext]) return null;
+  if (dot <= 0 || !IMAGE_EXT.has(file.slice(dot + 1))) return null;
   if (mapNames.includes(file)) return "map:";
   const kind = ICON_DIR[parts[parts.length - 1] ?? ""];
   const name = file.slice(0, dot);
   return kind && /^[a-z0-9_]+$/.test(name) ? `${kind}:${name}` : null;
-}
-
-export function imageType(path: string): string | null {
-  return IMAGE_TYPE[path.toLowerCase().split(".").pop() ?? ""] ?? null;
 }
 
 /** Neutral placeholder: a grey tile with the name. Never another hero's icon. */
@@ -303,47 +296,41 @@ export function neededIconKeys(bundle: MatchBundle): Set<string> {
   return keys;
 }
 
-function base64(bytes: Uint8Array): string {
-  let out = "";
-  for (let i = 0; i < bytes.length; i += 0x8000) out += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  return btoa(out);
-}
-
-export interface IconRead {
-  /** icon key ("hero:slark", "item:blink", "map:") to data URL */
+export interface BundledIcons {
+  /** icon key ("hero:slark", "item:blink", "map:") to the app asset URL */
   icons: Map<string, string>;
-  /** picked image files that were not needed, too large or over the total budget */
-  skipped: number;
+  /** game build the icons were exported from (the newest when several are bundled), or null */
+  build: string | null;
 }
 
 /**
- * Reads only the icons the bundle needs from a folder pick, as data URLs (the app CSP allows
- * `img-src 'self' data:`, not blob URLs). Unknown paths are ignored; exact names only.
+ * Builds the icon table from bundled asset URLs keyed by path, as `import.meta.glob` returns them
+ * (`.../assets/dota/<build>/heroes/<name>.png`). Only the newest game build is used, so a lookup
+ * never mixes two builds; paths outside `dota/<digits>/` are ignored.
  */
-export async function readIcons(files: readonly PickedFile[], keys: ReadonlySet<string>, mapNames: readonly string[]): Promise<IconRead> {
-  const icons = new Map<string, string>();
-  let skipped = 0, total = 0, seen = 0;
-  for (const file of files) {
-    const path = file.webkitRelativePath || file.name;
-    const key = iconKey(path, mapNames);
-    if (!key) continue;
-    if (++seen > MAX_ICON_FILES || !keys.has(key) || icons.has(key)) { skipped++; continue; }
-    const limit = key === "map:" ? MAX_MAP_BYTES : MAX_ICON_BYTES;
-    if (file.size > limit || total + file.size > MAX_ICON_TOTAL_BYTES) { skipped++; continue; }
-    let bytes: Uint8Array;
-    try {
-      bytes = new Uint8Array(await file.arrayBuffer());
-    } catch {
-      skipped++;
-      continue;
-    }
-    total += bytes.byteLength;
-    icons.set(key, `data:${imageType(path)};base64,${base64(bytes)}`);
+export function bundledIcons(urls: Readonly<Record<string, unknown>>): BundledIcons {
+  const byBuild = new Map<number, Map<string, string>>();
+  for (const [path, url] of Object.entries(urls)) {
+    const build = /(?:^|\/)dota\/(\d{1,12})\//.exec(path.replace(/\\/g, "/"));
+    const key = iconKey(path);
+    if (!build || !key || typeof url !== "string" || !url) continue;
+    const n = Number(build[1]);
+    if (!byBuild.has(n)) byBuild.set(n, new Map());
+    byBuild.get(n)!.set(key, url);
   }
-  return { icons, skipped };
+  if (byBuild.size === 0) return { icons: new Map(), build: null };
+  const newest = Math.max(...byBuild.keys());
+  return { icons: byBuild.get(newest)!, build: String(newest) };
 }
 
-/** The one icon function the viewer uses: picked icon, else a neutral named placeholder. */
+/** How many of the needed keys the bundled set has. */
+export function countFound(icons: ReadonlyMap<string, string>, keys: ReadonlySet<string>): number {
+  let found = 0;
+  for (const key of keys) if (icons.has(key)) found++;
+  return found;
+}
+
+/** The one icon function the viewer uses: bundled icon, else a neutral named placeholder. */
 export function iconResolver(icons: ReadonlyMap<string, string>): (kind: IconKind, name: string) => string {
   const cache = new Map<string, string>();
   return (kind, name) => {
