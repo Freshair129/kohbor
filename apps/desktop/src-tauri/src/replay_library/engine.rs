@@ -580,7 +580,11 @@ fn validate_match(value: &Value) -> Result<(String, String), EngineFailure> {
             .get("end_time_utc")
             .is_some_and(|time| time.is_null() || time.is_string())
         || !integer_field(meta, "game_mode")
-        || !number_field(meta, "duration_s")
+        // Contract replay-bundle 1.0.1: duration_s is a number with minimum 0.
+        || !meta
+            .get("duration_s")
+            .and_then(|duration| duration.as_f64())
+            .is_some_and(|seconds| seconds.is_finite() && seconds >= 0.0)
         || !string_field(meta, "dem_sha256").is_some_and(valid_sha256)
         || !meta
             .get("dem_file")
@@ -1000,6 +1004,24 @@ mod tests {
         let result = validate_bundle_dir(&directory, &dem_sha).unwrap();
         assert_eq!(result.match_id, "55");
         assert_eq!(result.engine_version, ENGINE_VERSION);
+
+        // Contract replay-bundle 1.0.1 sets duration_s minimum 0: a negative duration is rejected.
+        let mut negative = match_doc.clone();
+        negative["meta"]["duration_s"] = json!(-1);
+        let negative_bytes = serde_json::to_vec(&negative).unwrap();
+        let mut negative_manifest = manifest.clone();
+        negative_manifest["files"]["match.json"] =
+            json!({ "bytes": negative_bytes.len(), "sha256": sha256_bytes(&negative_bytes) });
+        fs::write(
+            directory.join("manifest.json"),
+            serde_json::to_vec(&negative_manifest).unwrap(),
+        )
+        .unwrap();
+        fs::write(directory.join("match.json"), negative_bytes).unwrap();
+        assert!(matches!(
+            validate_bundle_dir(&directory, &dem_sha),
+            Err(EngineFailure::InvalidBundle)
+        ));
         let _ = fs::remove_dir_all(directory);
     }
 
