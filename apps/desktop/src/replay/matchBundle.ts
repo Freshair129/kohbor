@@ -1,0 +1,367 @@
+// Admission of a local Match Bundle (replay engine schema 3.0) for the Lab "Match view".
+// The user picks manifest.json, match.json and world.json produced on their own machine.
+// Everything stays in memory; nothing here reads the network or writes a file.
+
+export const BUNDLE_SCHEMA = "3.0";
+export const BUNDLE_FILES = ["manifest.json", "match.json", "world.json"] as const;
+export type BundleFileName = (typeof BUNDLE_FILES)[number];
+
+/** Per-file read limits. A 37-minute match is about 5.2 MB (match) and 1.5 MB (world). */
+export const MAX_BUNDLE_BYTES: Record<BundleFileName, number> = {
+  "manifest.json": 1024 * 1024,
+  "match.json": 48 * 1024 * 1024,
+  "world.json": 24 * 1024 * 1024,
+};
+export const MAX_ICON_BYTES = 2 * 1024 * 1024;
+export const MAX_MAP_BYTES = 8 * 1024 * 1024;
+export const MAX_ICON_TOTAL_BYTES = 64 * 1024 * 1024;
+export const MAX_ICON_FILES = 4096;
+
+/** The part of a browser File this module needs; tests pass plain objects. */
+export interface PickedFile {
+  name: string;
+  size: number;
+  webkitRelativePath?: string;
+  arrayBuffer(): Promise<ArrayBuffer>;
+}
+
+export type BundleError =
+  | { code: "missing"; files: string[] }
+  | { code: "duplicate"; file: string }
+  | { code: "too-large"; file: string; limit: number }
+  | { code: "unreadable"; file: string }
+  | { code: "schema"; file: string; found: string }
+  | { code: "integrity"; file: string }
+  | { code: "shape"; file: string; path: string };
+
+type Json = unknown;
+type Obj = Record<string, Json>;
+
+export interface MatchBundle {
+  manifest: Obj;
+  match: Obj;
+  world: Obj;
+  patch: string | null;
+  gameMode: number | null;
+  durationS: number | null;
+  calibration: Obj | null;
+  mapImage: string | null;
+}
+
+export type Admission = { ok: true; bundle: MatchBundle } | { ok: false; error: BundleError };
+
+class ShapeError extends Error {
+  file: string;
+  path: string;
+  constructor(file: string, path: string) {
+    super(`${file}: ${path}`);
+    this.file = file;
+    this.path = path;
+  }
+}
+
+const isObj = (v: Json): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
+const isNum = (v: Json): v is number => typeof v === "number" && Number.isFinite(v);
+const HERO_ID = /^npc_dota_hero_[a-z0-9_]+$/;
+const COLOR = /^#[0-9a-fA-F]{6}$/;
+const SAFE_TEXT = /^[^<>]*$/;
+
+function baseName(file: PickedFile): string {
+  const path = file.webkitRelativePath || file.name;
+  return path.split(/[\\/]/).pop()!.toLowerCase();
+}
+
+async function sha256Hex(bytes: ArrayBuffer): Promise<string> {
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function parse(file: BundleFileName, bytes: ArrayBuffer): Json {
+  try {
+    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+  } catch {
+    throw { code: "unreadable", file } satisfies BundleError;
+  }
+}
+
+function need(cond: boolean, file: string, path: string): void {
+  if (!cond) throw new ShapeError(file, path);
+}
+
+function checkSeries(file: string, path: string, v: Json, length: number, item: (x: Json) => boolean): void {
+  need(Array.isArray(v) && v.length === length, file, path);
+  const list = v as Json[];
+  for (let i = 0; i < list.length; i++) if (!item(list[i])) throw new ShapeError(file, `${path}[${i}]`);
+}
+
+const num = (x: Json) => isNum(x);
+const flag = (x: Json) => x === 0 || x === 1 || x === true || x === false;
+const pair = (x: Json) => Array.isArray(x) && x.length >= 2 && isNum(x[0]) && isNum(x[1]);
+const eco = (x: Json) => Array.isArray(x) && x.length === 4 && x.every(isNum);
+const text = (x: Json) => typeof x === "string" && SAFE_TEXT.test(x);
+
+/** Checks the fields the viewer reads. Fields it guards itself (st, din, hin, finds, sampleT) stay optional. */
+export function checkMatch(match: Json): void {
+  const F = "match.json";
+  need(isObj(match), F, "$");
+  const m = match as Obj;
+  need(isObj(m.meta), F, "meta");
+  need(isNum(m.t0) && isNum(m.t1) && Number.isInteger(m.t0) && Number.isInteger(m.t1) && (m.t1 as number) > (m.t0 as number), F, "t0/t1");
+  const length = (m.t1 as number) - (m.t0 as number) + 1;
+  need(Array.isArray(m.heroes) && m.heroes.length >= 1 && m.heroes.length <= 10, F, "heroes");
+  const ids = new Set<string>(), pids = new Set<number>();
+  (m.heroes as Json[]).forEach((raw, k) => {
+    const p = `heroes[${k}]`;
+    need(isObj(raw), F, p);
+    const h = raw as Obj;
+    need(typeof h.id === "string" && HERO_ID.test(h.id) && !ids.has(h.id), F, `${p}.id`);
+    ids.add(h.id as string);
+    need(text(h.name), F, `${p}.name`);
+    need(h.team === 2 || h.team === 3, F, `${p}.team`);
+    need(Number.isInteger(h.pid) && (h.pid as number) >= 0 && (h.pid as number) < 64 && !pids.has(h.pid as number), F, `${p}.pid`);
+    pids.add(h.pid as number);
+    need(typeof h.color === "string" && COLOR.test(h.color), F, `${p}.color`);
+    checkSeries(F, `${p}.pos`, h.pos, length, pair);
+    for (const key of ["hp", "mhp", "mp", "mmp", "lvl"]) checkSeries(F, `${p}.${key}`, h[key], length, num);
+    checkSeries(F, `${p}.alive`, h.alive, length, flag);
+    checkSeries(F, `${p}.eco`, h.eco, length, eco);
+    need(Array.isArray(h.abil), F, `${p}.abil`);
+    (h.abil as Json[]).forEach((a, j) => {
+      need(isObj(a) && typeof (a as Obj).n === "string", F, `${p}.abil[${j}]`);
+      for (const key of ["lv", "cd", "cl", "mc"]) checkSeries(F, `${p}.abil[${j}].${key}`, (a as Obj)[key], length, num);
+    });
+    for (const key of ["inv", "mods", "casts", "buys"]) need(Array.isArray(h[key]), F, `${p}.${key}`);
+    need(isObj(h.icd), F, `${p}.icd`);
+    if (h.finds !== undefined) need(Array.isArray(h.finds), F, `${p}.finds`);
+    if (h.st !== undefined && h.st !== null) need(isObj(h.st), F, `${p}.st`);
+  });
+  need(Array.isArray(m.deaths), F, "deaths");
+  (m.deaths as Json[]).forEach((d, k) => {
+    const r = d as Obj;
+    need(isObj(d) && isNum(r.t) && ids.has(r.hero as string) && typeof r.killer === "string"
+      && ["last", "by", "win", "hits", "heals"].every(key => Array.isArray(r[key])) && isObj(r.seen), F, `deaths[${k}]`);
+  });
+  need(isObj(m.names) && Object.values(m.names as Obj).every(text), F, "names");
+  need(isObj(m.statdb), F, "statdb");
+  for (const key of ["heroes", "sim", "pierce", "abpierce"]) need(isObj((m.statdb as Obj)[key]), F, `statdb.${key}`);
+  if (m.sampleT !== undefined) checkSeries(F, "sampleT", m.sampleT, length, num);
+  if (m.dtick !== undefined) need(isNum(m.dtick) && (m.dtick as number) > 0, F, "dtick");
+}
+
+export function checkWorld(world: Json): void {
+  const F = "world.json";
+  need(isObj(world), F, "$");
+  const w = world as Obj;
+  for (const key of ["t0", "qh", "qu"]) need(isNum(w[key]), F, key);
+  need(isObj(w.heroes), F, "heroes");
+  for (const [id, h] of Object.entries(w.heroes as Obj)) {
+    need(isObj(h) && ["t", "x", "y", "brk"].every(k => Array.isArray((h as Obj)[k])), F, `heroes.${id}`);
+  }
+  need(Array.isArray(w.tracks), F, "tracks");
+  (w.tracks as Json[]).forEach((tr, k) => {
+    const t = tr as Obj;
+    need(isObj(tr) && typeof t.k === "string" && isNum(t.t0) && isNum(t.t1) && (t.t1 as number) >= (t.t0 as number)
+      && (t.t1 as number) - (t.t0 as number) < 100_000
+      && Array.isArray(t.p) && t.p.length === 3 && t.p.every(Array.isArray), F, `tracks[${k}]`);
+  });
+  need(Array.isArray(w.runes), F, "runes");
+}
+
+function checkManifest(manifest: Json): Obj {
+  const F = "manifest.json";
+  need(isObj(manifest), F, "$");
+  const m = manifest as Obj;
+  if (m.schema !== BUNDLE_SCHEMA) throw { code: "schema", file: F, found: String(m.schema ?? "missing") } satisfies BundleError;
+  need(isObj(m.files), F, "files");
+  for (const name of ["match.json", "world.json"]) {
+    const entry = (m.files as Obj)[name];
+    need(isObj(entry) && isNum((entry as Obj).bytes) && typeof (entry as Obj).sha256 === "string", F, `files.${name}`);
+  }
+  return m;
+}
+
+/** Validates a multi-file pick holding one Match Bundle. Other picked files are ignored. */
+export async function admitMatchBundle(files: readonly PickedFile[]): Promise<Admission> {
+  try {
+    const found = new Map<BundleFileName, PickedFile>();
+    for (const file of files) {
+      const name = baseName(file) as BundleFileName;
+      if (!BUNDLE_FILES.includes(name)) continue;
+      if (found.has(name)) return { ok: false, error: { code: "duplicate", file: name } };
+      found.set(name, file);
+    }
+    const missing = BUNDLE_FILES.filter(name => !found.has(name));
+    if (missing.length) return { ok: false, error: { code: "missing", files: missing } };
+    for (const name of BUNDLE_FILES) {
+      if (found.get(name)!.size > MAX_BUNDLE_BYTES[name]) {
+        return { ok: false, error: { code: "too-large", file: name, limit: MAX_BUNDLE_BYTES[name] } };
+      }
+    }
+    const bytes = {} as Record<BundleFileName, ArrayBuffer>;
+    for (const name of BUNDLE_FILES) {
+      try {
+        bytes[name] = await found.get(name)!.arrayBuffer();
+      } catch {
+        return { ok: false, error: { code: "unreadable", file: name } };
+      }
+      // The reported size can differ from what was read; the read bytes govern.
+      if (bytes[name].byteLength > MAX_BUNDLE_BYTES[name]) {
+        return { ok: false, error: { code: "too-large", file: name, limit: MAX_BUNDLE_BYTES[name] } };
+      }
+    }
+    const manifest = checkManifest(parse("manifest.json", bytes["manifest.json"]));
+    for (const name of ["match.json", "world.json"] as const) {
+      const entry = (manifest.files as Obj)[name] as Obj;
+      if (entry.bytes !== bytes[name].byteLength || (entry.sha256 as string).toLowerCase() !== await sha256Hex(bytes[name])) {
+        return { ok: false, error: { code: "integrity", file: name } };
+      }
+    }
+    const match = parse("match.json", bytes["match.json"]) as Obj;
+    const meta = isObj(match) && isObj(match.meta) ? match.meta : null;
+    if (meta && meta.schema !== BUNDLE_SCHEMA) {
+      return { ok: false, error: { code: "schema", file: "match.json", found: String(meta.schema ?? "missing") } };
+    }
+    checkMatch(match);
+    const md = match.meta as Obj;
+    need(md.match_id === manifest.match_id, "match.json", "meta.match_id");
+    const world = parse("world.json", bytes["world.json"]) as Obj;
+    checkWorld(world);
+    const map = isObj(manifest.map) ? manifest.map : null;
+    const patch = md.patch, mode = md.game_mode, duration = md.duration_s;
+    const calibration = map ? map.calibration : null, image = map ? map.image : null;
+    return {
+      ok: true,
+      bundle: {
+        manifest,
+        match,
+        world,
+        patch: typeof patch === "string" && SAFE_TEXT.test(patch) ? patch : null,
+        gameMode: typeof mode === "number" && Number.isInteger(mode) ? mode : null,
+        durationS: isNum(duration) ? duration : null,
+        calibration: isObj(calibration) ? calibration : null,
+        mapImage: typeof image === "string" ? image.toLowerCase() : null,
+      },
+    };
+  } catch (error) {
+    if (error instanceof ShapeError) return { ok: false, error: { code: "shape", file: error.file, path: error.path } };
+    if (isObj(error) && typeof error.code === "string") return { ok: false, error: error as BundleError };
+    throw error;
+  }
+}
+
+/* ---------- icons: local only, picked by the user (R1) ---------- */
+
+export type IconKind = "hero" | "ability" | "item" | "map";
+
+const ICON_DIR: Record<string, IconKind> = { heroes: "hero", abilities: "ability", items: "item" };
+const IMAGE_TYPE: Record<string, string> = { png: "image/png", webp: "image/webp", jpg: "image/jpeg", jpeg: "image/jpeg" };
+
+/**
+ * Maps a picked path to its icon key. Hero, ability and item icons are `<dir>/<name>.<ext>` with
+ * dir heroes, abilities or items (the pack layout `icons/heroes/...` and the prototype layout
+ * `heroes/...` both qualify). A map image is any image whose base name is in `mapNames`.
+ */
+export function iconKey(path: string, mapNames: readonly string[] = ["map.png"]): string | null {
+  const parts = path.toLowerCase().split(/[\\/]/).filter(Boolean);
+  const file = parts.pop();
+  if (!file) return null;
+  const dot = file.lastIndexOf(".");
+  const ext = file.slice(dot + 1);
+  if (dot <= 0 || !IMAGE_TYPE[ext]) return null;
+  if (mapNames.includes(file)) return "map:";
+  const kind = ICON_DIR[parts[parts.length - 1] ?? ""];
+  const name = file.slice(0, dot);
+  return kind && /^[a-z0-9_]+$/.test(name) ? `${kind}:${name}` : null;
+}
+
+export function imageType(path: string): string | null {
+  return IMAGE_TYPE[path.toLowerCase().split(".").pop() ?? ""] ?? null;
+}
+
+/** Neutral placeholder: a grey tile with the name. Never another hero's icon. */
+export function placeholderIcon(kind: IconKind, name: string): string {
+  const label = name.replace(/^npc_dota_hero_|^item_/, "").replace(/_/g, " ").slice(0, kind === "hero" ? 12 : 18);
+  const safe = label.replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
+  // Hero tiles keep the 256 x 144 portrait shape: the map view crops its centre 144 x 144 square.
+  const [w, h] = kind === "hero" ? [256, 144] : kind === "item" ? [88, 64] : kind === "map" ? [256, 256] : [64, 64];
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`
+    + `<rect width="${w}" height="${h}" fill="#3b3936"/><rect x="1" y="1" width="${w - 2}" height="${h - 2}" fill="none" stroke="#8f897e" stroke-dasharray="4 3"/>`
+    + `<text x="50%" y="50%" fill="#ede6d8" font-family="sans-serif" font-size="${kind === "hero" ? 22 : Math.max(9, Math.round(h / 6))}" text-anchor="middle" dominant-baseline="middle">${safe}</text></svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+/** Icon names a bundle needs: the manifest's `icons.needed` list plus every hero. */
+export function neededIconKeys(bundle: MatchBundle): Set<string> {
+  const keys = new Set<string>(["map:"]);
+  const needed = isObj(bundle.manifest.icons) && isObj(bundle.manifest.icons.needed) ? bundle.manifest.icons.needed : {};
+  const kinds: Record<string, IconKind> = { heroes: "hero", abilities: "ability", items: "item" };
+  for (const [dir, kind] of Object.entries(kinds)) {
+    const list = needed[dir];
+    if (Array.isArray(list)) for (const name of list) if (typeof name === "string") keys.add(`${kind}:${name.toLowerCase()}`);
+  }
+  for (const h of bundle.match.heroes as Obj[]) keys.add(`hero:${(h.id as string).replace("npc_dota_hero_", "")}`);
+  return keys;
+}
+
+function base64(bytes: Uint8Array): string {
+  let out = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) out += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(out);
+}
+
+export interface IconRead {
+  /** icon key ("hero:slark", "item:blink", "map:") to data URL */
+  icons: Map<string, string>;
+  /** picked image files that were not needed, too large or over the total budget */
+  skipped: number;
+}
+
+/**
+ * Reads only the icons the bundle needs from a folder pick, as data URLs (the app CSP allows
+ * `img-src 'self' data:`, not blob URLs). Unknown paths are ignored; exact names only.
+ */
+export async function readIcons(files: readonly PickedFile[], keys: ReadonlySet<string>, mapNames: readonly string[]): Promise<IconRead> {
+  const icons = new Map<string, string>();
+  let skipped = 0, total = 0, seen = 0;
+  for (const file of files) {
+    const path = file.webkitRelativePath || file.name;
+    const key = iconKey(path, mapNames);
+    if (!key) continue;
+    if (++seen > MAX_ICON_FILES || !keys.has(key) || icons.has(key)) { skipped++; continue; }
+    const limit = key === "map:" ? MAX_MAP_BYTES : MAX_ICON_BYTES;
+    if (file.size > limit || total + file.size > MAX_ICON_TOTAL_BYTES) { skipped++; continue; }
+    let bytes: Uint8Array;
+    try {
+      bytes = new Uint8Array(await file.arrayBuffer());
+    } catch {
+      skipped++;
+      continue;
+    }
+    total += bytes.byteLength;
+    icons.set(key, `data:${imageType(path)};base64,${base64(bytes)}`);
+  }
+  return { icons, skipped };
+}
+
+/** The one icon function the viewer uses: picked icon, else a neutral named placeholder. */
+export function iconResolver(icons: ReadonlyMap<string, string>): (kind: IconKind, name: string) => string {
+  const cache = new Map<string, string>();
+  return (kind, name) => {
+    const key = `${kind}:${kind === "map" ? "" : name.toLowerCase()}`;
+    const hit = icons.get(key) ?? cache.get(key);
+    if (hit) return hit;
+    const url = placeholderIcon(kind, name);
+    cache.set(key, url);
+    return url;
+  };
+}
+
+const GAME_MODES: Record<number, string> = {
+  1: "All Pick", 2: "Captains Mode", 3: "Random Draft", 4: "Single Draft", 5: "All Random",
+  16: "Captains Draft", 18: "Ability Draft", 22: "All Pick", 23: "Turbo",
+};
+
+/** Display name of a recorded game mode; null when the bundle does not name a known one. */
+export function gameModeName(mode: number | null): string | null {
+  return mode === null ? null : GAME_MODES[mode] ?? null;
+}

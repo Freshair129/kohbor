@@ -1,0 +1,10 @@
+export const MAP: { size: number; a: number; b: number; c: number; d: number };
+export const ULTS: RegExp;
+export const ULT_ABIL: RegExp;
+export const CC: string[];
+export const MOBILITY: RegExp;
+export const CONSUMABLE: RegExp;
+export const MID_PAIR: RegExp;
+export const START_T: number;
+export const DEFAULT_DEATH: { heroSuffix: string; from: number; to: number };
+export function calibrationMatches(calibration: unknown): boolean;

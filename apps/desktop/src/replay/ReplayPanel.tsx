@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Locale } from "../copy";
 import { CoachPanel } from "./CoachPanel";
+import { MatchViewPanel } from "./MatchViewPanel";
 import { MAX_REPORT_BYTES, readPostMatchReplay, type PostMatchReplay } from "./report";
 import { mountReplay } from "./viewer.mjs";
 import markup from "./viewer.html?raw";
@@ -19,7 +20,34 @@ export function ReplayPanel({ locale, available }: { locale: Locale; available: 
   );
 }
 
+type ReplayView = "report" | "match";
+
 function LocalReplay({ locale }: { locale: Locale }) {
+  const th = locale === "th";
+  const [view, setView] = useState<ReplayView>("report");
+  const views: [ReplayView, string][] = [
+    ["report", th ? "รายงาน DEM" : "DEM report"],
+    ["match", th ? "มุมมองแมตช์ (ต้นแบบ)" : "Match view (prototype)"],
+  ];
+  const switcher = (
+    <div role="group" aria-label={th ? "รูปแบบรีเพลย์" : "Replay view"} style={{ display: "flex", gap: 8 }}>
+      {views.map(([id, label]) => (
+        <button key={id} type="button" aria-pressed={view === id} onClick={() => setView(id)}>{label}</button>
+      ))}
+    </div>
+  );
+  return view === "match" ? (
+    <div className="shell-screen" style={{ overflow: "auto" }}>
+      <section className="card">
+        <h1>{th ? "รีเพลย์หลังเกม" : "Post-match replay"}</h1>
+        {switcher}
+      </section>
+      <MatchViewPanel locale={locale} />
+    </div>
+  ) : <ReportReplay locale={locale} switcher={switcher} />;
+}
+
+function ReportReplay({ locale, switcher }: { locale: Locale; switcher: ReactNode }) {
   const th = locale === "th";
   const [report, setReport] = useState<PostMatchReplay | null>(null);
   const [invalid, setInvalid] = useState(false);
@@ -57,6 +85,7 @@ function LocalReplay({ locale }: { locale: Locale }) {
     <div className="shell-screen" style={{ overflow: "auto" }}>
       <section className="card">
         <h1>{th ? "รีเพลย์หลังเกม" : "Post-match replay"}</h1>
+        {switcher}
         <label>
           {th ? "เปิดรายงาน DEM (.json)" : "Open DEM report (.json)"}
           <input type="file" accept=".json,application/json" onChange={event => {
