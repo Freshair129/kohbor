@@ -18,6 +18,11 @@ export const overviewClient = {
     host<{ enabled: boolean; disclosure_seen: boolean }>("news_prefs_set", { patch }),
   openNewsLink: (postId: string, index: number) =>
     host<{ opened: boolean; reason: string | null }>("news_open_link", { postId, index }),
+  openDotaPrefs: () => host<{ enabled: boolean }>("opendota_prefs_get"),
+  setOpenDotaEnabled: (enabled: boolean) =>
+    host<{ enabled: boolean }>("opendota_prefs_set", { enabled }),
+  openDotaView: () => host<unknown>("opendota_view_get"),
+  refreshOpenDota: (retry = false) => host<unknown>("opendota_refresh", { retry }),
 };
 
 export type OverviewClient = typeof overviewClient;

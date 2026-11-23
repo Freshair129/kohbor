@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   bestHeroPanel, countingNotes, EMPTY_HISTORY, formatDuration, heroCards, localMonthStart, matchRows, newsColumn,
-  parseMatchHistory, parseNewsView, percent, placeholderRowCount, PLACEHOLDER_HEROES, statTiles, trendPolyline,
+  parseMatchHistory, parseNewsView, parseOpenDotaView, percent, placeholderRowCount, PLACEHOLDER_HEROES, statTiles, trendPolyline,
   type NewsPost,
 } from "../src/overview/overviewModel.ts";
 import { overviewCopy } from "../src/overview/overviewCopy.ts";
@@ -185,10 +185,46 @@ test("news states and disclosure copy are present in both languages", () => {
   }
 });
 
-test("the page keeps OpenDota disabled and opens links only by post id and index", () => {
+test("OpenDota states stay explicit and the consent copy names the data, recipient and revoke effect", () => {
+  const states = ["disabled", "idle", "loading", "merged", "empty", "private_profile", "not_found", "rate_limited", "budget_exhausted", "offline", "unavailable"];
+  for (const state of states) {
+    assert.equal(parseOpenDotaView({ state, enabled: state !== "disabled", cached_entries: 0,
+      fetched_at: null, last_attempt_at: null, retry_available: state !== "disabled" })?.state, state);
+  }
+  assert.equal(parseOpenDotaView({ state: "invented", enabled: true, cached_entries: 0,
+    fetched_at: null, last_attempt_at: null, retry_available: true }), null);
+  for (const locale of ["th", "en"] as const) {
+    const text = overviewCopy(locale).stats;
+    assert.match(text.openDotaDisclosure, /OpenDota|OpenDota/);
+    assert.match(text.openDotaDisclosure, /Steam|Steam/);
+    assert.match(text.openDotaDisclosure, /32/);
+    assert.match(text.openDotaDisclosure, /IP/);
+    assert.match(text.openDotaDisclosure, /api\.opendota\.com/);
+    assert.match(text.openDotaDisclosure, /delete|ลบ/i);
+    assert.match(text.openDotaPrivateHint, /Expose Public Match Data/);
+  }
+});
+
+test("recent rows retain a source badge for each local and imported entry", () => {
+  const imported = entry(2, {
+    match_key: "a".repeat(64), hero: "opendota_hero_id_2", hero_id: 2, started_at: 1_795_390_000,
+    source: "opendota", match_type: "ranked",
+  });
+  const history = parseMatchHistory(reply({
+    recorded: 2, counted: 2, counted_unknown_type: 1, overall: { wins: 2, losses: 0, win_rate: 100 },
+    last: { results: ["win", "win"], wins: 2, losses: 0, win_rate: 100 },
+  }, [entry(1), imported]))!;
+  const rows = matchRows(history, "en", null);
+  assert.deepEqual(rows.map((row) => row.source), ["Kohbor", "OpenDota"]);
+  assert.equal(rows[1]!.heroName, "Hero #2", "numeric provider IDs stay explicit without a name mapping");
+});
+
+test("the page offers disclosed opt-in and opens news links only by post id and index", () => {
   const page = readFileSync(new URL("../src/overview/OverviewPage.tsx", import.meta.url), "utf8");
-  assert.match(page, /openDotaButton\}<\/button>/);
-  assert.match(page, /disabled aria-disabled="true">\{t\.openDotaButton\}/);
+  assert.match(page, /<OpenDotaCard locale=\{locale\}/);
+  assert.match(page, /client\.setOpenDotaEnabled\(next\)/);
+  assert.match(page, /t\.openDotaDisclosure/);
+  assert.match(page, /row\.source/);
   assert.match(page, /client\.openNewsLink\(post\.id, index\)/);
   assert.doesNotMatch(page, /href=/, "no renderer-side links");
   const client = readFileSync(new URL("../src/overview/overviewClient.ts", import.meta.url), "utf8");

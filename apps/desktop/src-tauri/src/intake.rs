@@ -12,6 +12,7 @@ use kohbor_events::{
 };
 use kohbor_gsi::admission::{
     parse_own_loadout, token_matches, DraftScreen, OwnLoadout, Ownership, Phase, Team,
+    STEAMID64_BASE,
 };
 use kohbor_gsi::config::{
     choose_port, claimed_ports, GsiConfig, BODY_LIMIT_BYTES, MAX_REQUESTS_PER_SECOND,
@@ -694,6 +695,22 @@ impl Shared {
             .map(|(at, _)| duration_ms(now.saturating_duration_since(*at)))
     }
 
+    fn current_own_account_id_at(&self, now: Instant) -> Option<u32> {
+        if self.last_age_ms_at(now)? > FRESH_MAX_AGE_MS
+            || self.ownership != Some(Ownership::Verified)
+        {
+            return None;
+        }
+        let Some((_, Outcome::Admitted(admitted))) = self.last_admitted.as_ref() else {
+            return None;
+        };
+        if admitted.ownership != Ownership::Verified {
+            return None;
+        }
+        let account_id = admitted.steamid64?.checked_sub(STEAMID64_BASE)?;
+        u32::try_from(account_id).ok().filter(|id| *id > 0)
+    }
+
     /// Read only the values required by the draft-column phase gate. Match IDs, Steam IDs,
     /// player fields, and mutable runtime state are not returned.
     pub(crate) fn draft_column_observation_at(
@@ -1208,6 +1225,11 @@ impl Runtime {
             server: Mutex::new(None),
             setup_gate: Mutex::new(()),
         })
+    }
+
+    /// Return only the fresh verified own 32-bit account ID; never expose SteamID64 over IPC.
+    pub(crate) fn current_own_account_id(&self) -> Option<u32> {
+        lock(&self.shared).current_own_account_id_at(Instant::now())
     }
 
     pub(crate) fn with_objectives(
@@ -1961,6 +1983,40 @@ mod tests {
         assert_eq!(snap["availability"], "fresh");
         assert_eq!(snap["own"]["fields"]["hp"]["value"], 850);
         assert_eq!(snap["session_epoch"], 1);
+    }
+
+    #[test]
+    fn current_own_account_id_returns_only_fresh_verified_32_bit_identity() {
+        let runtime = Runtime::new(temp_dir("own-account-id"));
+        let arrival = Instant::now();
+        {
+            let mut shared = lock(&runtime.shared);
+            let token = shared.token.clone().unwrap();
+            assert_eq!(shared.accept(&in_game(&token), arrival, Some(owner())), 200);
+            assert_eq!(shared.current_own_account_id_at(arrival), Some(ACCOUNT));
+        }
+        let account_id = runtime.current_own_account_id().unwrap();
+        assert_eq!(account_id, ACCOUNT);
+        assert_ne!(u64::from(account_id), owner());
+        assert_eq!(
+            lock(&runtime.shared)
+                .current_own_account_id_at(arrival + Duration::from_millis(FRESH_MAX_AGE_MS + 1)),
+            None,
+            "stale admitted data cannot supply an account ID"
+        );
+
+        let mut unverified = shared_with_token();
+        let token = unverified.token.clone().unwrap();
+        assert_eq!(unverified.accept(&in_game(&token), arrival, None), 200);
+        assert_eq!(unverified.current_own_account_id_at(arrival), None);
+
+        let mut mismatched = shared_with_token();
+        let token = mismatched.token.clone().unwrap();
+        assert_eq!(
+            mismatched.accept(&in_game(&token), arrival, Some(owner() + 1)),
+            200
+        );
+        assert_eq!(mismatched.current_own_account_id_at(arrival), None);
     }
 
     #[test]
@@ -2753,7 +2809,8 @@ mod s0_6_tests {
         // OVERVIEW-003 (owner decision 2026-11-23 item 4): the Overview news feed fetches one
         // fixed public file at startup through the existing WinHTTP transport, so no crate was
         // added. Every origin the host can open is a compile-time constant: the opt-in
-        // public-statistics API and the news repository on GitHub. Review any new one here.
+        // public-statistics API, opt-in own-history API, and the news repository on GitHub. Review
+        // every origin, path builder and field projection for the own-history request here.
         let transport = include_str!("hero_stats/transport.rs")
             .split("#[cfg(all(test, windows))]")
             .next()
@@ -2761,6 +2818,16 @@ mod s0_6_tests {
         assert_eq!(transport.matches("WinHttpConnect(").count(), 1);
         assert!(transport.contains("PCWSTR(host_wide.as_ptr())"));
         assert!(transport.contains(r#"host: "api.opendota.com","#));
+        let opendota = include_str!("opendota.rs")
+            .split("#[cfg(test)]")
+            .next()
+            .unwrap();
+        assert!(opendota.contains(r#"host: "api.opendota.com","#));
+        assert!(opendota
+            .contains("/api/players/{account_id}/matches?limit={HISTORY_LIMIT}&project={project}"));
+        assert!(opendota.contains("match_id,hero_id,player_slot,radiant_win,kills,deaths,assists,duration,start_time,lobby_type,game_mode"));
+        assert!(opendota.contains("body_limit: BODY_LIMIT_BYTES"));
+        assert_eq!(opendota.matches("WinHttpConnect(").count(), 0);
         let news = include_str!("news.rs")
             .split("#[cfg(test)]")
             .next()

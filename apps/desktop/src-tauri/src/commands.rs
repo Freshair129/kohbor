@@ -100,9 +100,7 @@ pub(crate) async fn update_check(state: tauri::State<'_, AppState>) -> Result<Va
 
 #[cfg(feature = "updater")]
 #[tauri::command]
-pub(crate) async fn update_download(
-    state: tauri::State<'_, AppState>,
-) -> Result<Value, String> {
+pub(crate) async fn update_download(state: tauri::State<'_, AppState>) -> Result<Value, String> {
     let match_active = (state.match_active)();
     let mut reply = state.updater.download(match_active).await;
     if !match_active && (state.match_active)() {
@@ -1008,19 +1006,66 @@ pub(crate) fn match_history_get(
     state: tauri::State<'_, AppState>,
     month_start: Option<u64>,
 ) -> Value {
-    state.match_history.view(month_start)
+    state
+        .match_history
+        .view_with_opendota(&state.opendota.entries(), month_start)
 }
 
-/// Deletes the local match history file contents (user action on the Overview).
+/// Deletes both local and OpenDota match history (user action on the Overview).
 #[tauri::command(async)]
 pub(crate) fn match_history_clear(state: tauri::State<'_, AppState>) -> Result<Value, String> {
-    state.match_history.clear()?;
+    let local = state.match_history.clear();
+    let remote = state.opendota.clear_cache();
+    if let Err(error) = local {
+        return Err(error);
+    }
+    remote?;
     crate::log_info!(
         "history",
         "match_history_cleared",
-        "local match history cleared"
+        "local and OpenDota match histories cleared"
     );
     Ok(json!({"cleared": true}))
+}
+
+#[tauri::command]
+pub(crate) fn opendota_prefs_get(state: tauri::State<'_, AppState>) -> Value {
+    state.opendota.prefs()
+}
+
+/// The renderer supplies consent only. The account ID comes from the current verified GSI owner.
+#[tauri::command]
+pub(crate) fn opendota_prefs_set(
+    state: tauri::State<'_, AppState>,
+    enabled: bool,
+) -> Result<Value, String> {
+    let account_id = if enabled {
+        state.runtime.current_own_account_id()
+    } else {
+        None
+    };
+    state.opendota.set_enabled(enabled, account_id)
+}
+
+#[tauri::command]
+pub(crate) fn opendota_view_get(state: tauri::State<'_, AppState>) -> Value {
+    state.opendota.view()
+}
+
+/// The Overview performs one automatic fetch per app start; a user retry is explicitly marked.
+#[tauri::command(async)]
+pub(crate) fn opendota_refresh(state: tauri::State<'_, AppState>, retry: bool) -> Value {
+    if state.opendota.prefs()["enabled"] == true {
+        if let Some(account_id) = state.runtime.current_own_account_id() {
+            if state.opendota.set_enabled(true, Some(account_id)).is_err() {
+                return json!({
+                    "state": "unavailable", "enabled": true, "cached_entries": 0,
+                    "fetched_at": null, "last_attempt_at": null, "retry_available": false
+                });
+            }
+        }
+    }
+    state.opendota.refresh(retry)
 }
 
 /// OVERVIEW-003: the cached or freshly fetched news view (images as data: URLs).
