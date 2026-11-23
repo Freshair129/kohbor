@@ -25,6 +25,9 @@ export class TauriAccountPort extends GuestAccountPort implements AccountPort {
   readonly authOnly = true;
   private snapshot: AccountSnapshot = initialSnapshot;
   private avatarUrl: string | null = null;
+  private cachedView: AccountView | null = null;
+  private cachedViewSnapshot: AccountSnapshot | null = null;
+  private cachedViewAvatarUrl: string | null = null;
   private readonly listeners = new Set<() => void>();
   private operationRevision = 0;
   private liveMatchOverride: boolean | null = null;
@@ -36,19 +39,29 @@ export class TauriAccountPort extends GuestAccountPort implements AccountPort {
   }
 
   override get = (): AccountView => {
-    const state = this.snapshot.state;
+    const snapshot = this.snapshot;
+    const avatarUrl = this.avatarUrl;
+    if (this.cachedView && this.cachedViewSnapshot === snapshot && this.cachedViewAvatarUrl === avatarUrl) {
+      return this.cachedView;
+    }
+
+    const state = snapshot.state;
     const signedIn = state === "signed_in_online";
     const canSignIn = (state === "signed_out" || state === "service_unavailable")
-      && this.snapshot.serviceOpen && !this.snapshot.liveMatch;
-    return {
+      && snapshot.serviceOpen && !snapshot.liveMatch;
+    const view: AccountView = {
       state: signedIn ? "online" : state === "signed_in_offline" ? "offline"
         : state === "session_revoked" ? "expired" : "guest",
-      displayName: this.snapshot.displayName,
-      avatar: this.avatarUrl,
+      displayName: snapshot.displayName,
+      avatar: avatarUrl,
       canSignIn,
       canSignOut: signedIn,
       friendsAvailable: false,
     };
+    this.cachedView = view;
+    this.cachedViewSnapshot = snapshot;
+    this.cachedViewAvatarUrl = avatarUrl;
+    return view;
   };
 
   override getState = (): AccountSnapshot => this.snapshot;
@@ -70,6 +83,7 @@ export class TauriAccountPort extends GuestAccountPort implements AccountPort {
 
   setLiveMatch(liveMatch: boolean): void {
     this.liveMatchOverride = liveMatch;
+    if (this.snapshot.liveMatch === liveMatch) return;
     this.update({ ...this.snapshot, liveMatch });
   }
 
