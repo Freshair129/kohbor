@@ -1,42 +1,57 @@
 // Kohbor website — the stage.
 // One continuous 3D shot shared by the page (scroll-driven) and the film (time-driven).
 // Deterministic: every frame is a pure function of the params handed to render().
-// Sample geometry only. Nothing here is game data, a game map or a game asset.
+// The field is an original, procedural MOBA-style battlefield (two corner bases on high ground,
+// three lanes, a diagonal river, jungle between the lanes), drawn from code only: no game image,
+// map file or asset is used, and positions are not measured from any game.
 import * as THREE from '../vendor/three.module.min.js';
 
 export const R = 5;          // half-size of the map square in world units
 export const SEA = 0.15;     // height threshold: above = land
 
-// The island is a sum of Gaussian hills so the same height is cheap in GLSL and in JS.
-// [centre x, centre z, amplitude, sigma] in grid space (-1..1).
-export const HILLS = [
-  [-0.18, -0.10, 1.00, 0.34],
-  [0.30, 0.12, 0.78, 0.26],
-  [-0.42, 0.30, 0.52, 0.22],
-  [0.10, -0.46, 0.46, 0.20],
-  [0.52, -0.30, 0.34, 0.16],
-  [-0.05, 0.50, 0.40, 0.24],
-  [-0.60, -0.28, 0.30, 0.18],
+// Battlefield layout in grid space (-1..1); x to the right, z toward the viewer.
+// Home base bottom-left, enemy base top-right, river from top-left to bottom-right.
+// The same field is evaluated in GLSL (points) and in JS (marker heights); keep them in step.
+export const BASES = [[-0.80, 0.80], [0.80, -0.80]];
+export const LANES = [
+  [[-0.80, 0.60], [-0.80, -0.80]], [[-0.80, -0.80], [0.60, -0.80]],   // top lane
+  [[-0.60, 0.80], [0.80, 0.80]], [[0.80, 0.80], [0.80, -0.60]],       // bottom lane
+  [[-0.64, 0.64], [0.64, -0.64]],                                     // middle lane
 ];
 
+const sat = (x) => Math.min(1, Math.max(0, x));
+const smooth = (a, b, x) => { const t = sat((x - a) / (b - a)); return t * t * (3 - 2 * t); };
+function segDist(px, pz, [ax, az], [bx, bz]) {
+  const vx = bx - ax, vz = bz - az, wx = px - ax, wz = pz - az;
+  const t = sat((wx * vx + wz * vz) / (vx * vx + vz * vz));
+  return Math.hypot(wx - vx * t, wz - vz * t);
+}
+export function laneDist(gx, gz) {
+  return Math.min(...LANES.map(([a, b]) => segDist(gx, gz, a, b)));
+}
+export function riverDist(gx, gz) {
+  return Math.abs(gz - gx - 0.10 * Math.sin((gx + gz) * 2.4)) / Math.SQRT2;
+}
+// Height without the jungle canopy (markers stand on lanes and bases, where there is none).
 export function heightAt(gx, gz) {
-  let h = 0;
-  for (const [cx, cz, a, s] of HILLS) {
-    const dx = gx - cx, dz = gz - cz;
-    h += a * Math.exp(-(dx * dx + dz * dz) / (s * s));
+  let h = 0.30;
+  for (const [bx, bz] of BASES) {
+    const d = Math.hypot(gx - bx, gz - bz);
+    h += 0.30 * smooth(0.56, 0.36, d) + 0.55 * Math.exp(-(d * d) / 0.004);
   }
-  return h;
+  h -= 0.24 * Math.exp(-((riverDist(gx, gz) / 0.075) ** 2));
+  return h * smooth(1.0, 0.94, Math.max(Math.abs(gx), Math.abs(gz)));
 }
 
-// Sample markers. Shapes follow the Command Deck rule: ally = ring, enemy = diamond, own = double ring.
+// Sample markers, placed on lanes. Shapes follow the Command Deck rule: ally = ring, enemy = diamond, own = double ring.
 export const MARKERS = [
-  { id: 'own', kind: 'own', g: [-0.20, 0.26] },
-  { id: 'A1', kind: 'ally', g: [-0.38, 0.06] },
-  { id: 'A2', kind: 'ally', g: [-0.04, 0.46] },
-  { id: 'E1', kind: 'enemy', g: [0.33, -0.18] },
-  { id: 'E2', kind: 'enemy', g: [0.09, -0.44] },
-  { id: 'E3', kind: 'enemy', g: [0.47, 0.16] },
-  { id: 'E4', kind: 'enemy', g: [-0.46, -0.34] },
+  { id: 'own', kind: 'own', g: [-0.24, 0.24] },
+  { id: 'A1', kind: 'ally', g: [-0.80, -0.10] },
+  { id: 'A2', kind: 'ally', g: [0.20, 0.80] },
+  { id: 'E1', kind: 'enemy', g: [0.14, -0.14] },
+  { id: 'E2', kind: 'enemy', g: [-0.30, -0.80] },
+  { id: 'E3', kind: 'enemy', g: [0.80, 0.18] },
+  { id: 'E4', kind: 'enemy', g: [0.50, -0.80] },
 ];
 
 const hex = (h) => new THREE.Color(h);
@@ -57,7 +72,6 @@ const POINT_VERT = /* glsl */`
   uniform float uTime, uShape, uH, uPx, uSize, uIntro, uStale, uLost, uDim, uVoice, uOrbY, uGridN;
   uniform vec3 uAmp;
   uniform vec3 uPointer;            // local x, local z, strength
-  uniform vec4 uHills[7];
   attribute vec2 aGrid;
   attribute vec4 aRand;
   varying float vAlpha;
@@ -71,30 +85,51 @@ const POINT_VERT = /* glsl */`
     f = f * f * (3.0 - 2.0 * f);
     return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
   }
-  float heightAt(vec2 g) {
+  // Same battlefield as BASES / LANES / heightAt() in JS.
+  float segDist(vec2 p, vec2 a, vec2 b) {
+    vec2 pa = p - a, ba = b - a;
+    return length(pa - ba * clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0));
+  }
+  float laneDist(vec2 g) {
+    float d = segDist(g, vec2(-0.80, 0.60), vec2(-0.80, -0.80));
+    d = min(d, segDist(g, vec2(-0.80, -0.80), vec2(0.60, -0.80)));
+    d = min(d, segDist(g, vec2(-0.60, 0.80), vec2(0.80, 0.80)));
+    d = min(d, segDist(g, vec2(0.80, 0.80), vec2(0.80, -0.60)));
+    return min(d, segDist(g, vec2(-0.64, 0.64), vec2(0.64, -0.64)));
+  }
+  float riverDist(vec2 g) { return abs(g.y - g.x - 0.10 * sin((g.x + g.y) * 2.4)) * 0.70710678; }
+  float baseField(vec2 g) {
     float h = 0.0;
-    for (int i = 0; i < 7; i++) {
-      vec2 d = g - uHills[i].xy;
-      h += uHills[i].z * exp(-dot(d, d) / (uHills[i].w * uHills[i].w));
-    }
+    vec2 b0 = vec2(-0.80, 0.80), b1 = vec2(0.80, -0.80);
+    float d0 = length(g - b0), d1 = length(g - b1);
+    h += 0.30 * smoothstep(0.56, 0.36, d0) + 0.55 * exp(-d0 * d0 / 0.004);
+    h += 0.30 * smoothstep(0.56, 0.36, d1) + 0.55 * exp(-d1 * d1 / 0.004);
     return h;
   }
 
   void main() {
     vec2 g = aGrid;
-    float h = heightAt(g) + (vnoise(g * 9.0) - 0.5) * 0.05;
+    float lane = laneDist(g), river = riverDist(g);
+    float bases = baseField(g);
+    float edge = smoothstep(1.0, 0.94, max(abs(g.x), abs(g.y)));
+    // jungle canopy: clumps of trees away from lanes, river and bases
+    float clear = smoothstep(0.05, 0.11, lane) * smoothstep(0.09, 0.16, river) * (1.0 - smoothstep(0.02, 0.12, bases));
+    float trees = smoothstep(0.48, 0.78, vnoise(g * 13.0)) * clear;
+    float h = (0.30 + bases + trees * 0.20 - 0.24 * exp(-pow(river / 0.075, 2.0))) * edge
+            + (vnoise(g * 9.0) - 0.5) * 0.02;
     float land = smoothstep(${(SEA - 0.02).toFixed(2)}, ${(SEA + 0.02).toFixed(2)}, h);
     float elev = max(h - ${SEA.toFixed(2)}, 0.0);
     float cl = abs(fract(h * 9.0 + 0.5) - 0.5);
     float contour = (1.0 - smoothstep(0.03, 0.09, cl)) * land;
+    float laneLine = (1.0 - smoothstep(0.016, 0.04, lane)) * land;
     float seaKeep = step(0.55, aRand.w);
 
-    // 0 island
+    // 0 battlefield relief
     vec3 p0 = vec3(g.x * R, elev * uH * 1.7 + (1.0 - land) * sin(g.x * 9.0 + g.y * 7.0 + uTime * 0.6) * 0.025, g.y * R);
-    float a0 = mix(0.16 * seaKeep, 0.46, land) + contour * 0.5;
+    float a0 = mix(0.16 * seaKeep, 0.40, land) + contour * 0.35 + laneLine * 0.6 + trees * 0.12;
     // 1 flat map
     vec3 p1 = vec3(g.x * R, elev * 0.08, g.y * R);
-    float a1 = mix(0.13 * seaKeep, 0.34, land) + contour * 0.62;
+    float a1 = mix(0.13 * seaKeep, 0.30, land) + contour * 0.45 + laneLine * 0.75;
     // 2 rings: three bands, one per mixer channel
     float ringT = g.y * 0.5 + 0.5;
     float ringI = floor(ringT * 30.0);
@@ -303,7 +338,6 @@ export function createStage(canvas, { density = 256, antialias = true } = {}) {
     uTime: { value: 0 }, uShape: { value: 0 }, uH: { value: 1 }, uPx: { value: 1 }, uSize: { value: 1 }, uIntro: { value: 1 },
     uStale: { value: 0 }, uLost: { value: 0 }, uDim: { value: 1 }, uVoice: { value: 0 }, uOrbY: { value: 1.7 }, uGridN: { value: N },
     uAmp: { value: new THREE.Vector3(0.5, 0.5, 0.5) }, uPointer: { value: new THREE.Vector3(0, 0, 0) },
-    uHills: { value: HILLS.map((h) => new THREE.Vector4(...h)) },
     uInkTop: { value: new THREE.Color() }, uInkBot: { value: new THREE.Color() },
     uTintTop: { value: new THREE.Color() }, uTintBot: { value: new THREE.Color() },
     uGainTop: { value: 1 }, uGainBot: { value: 1 }, uSplit: split,

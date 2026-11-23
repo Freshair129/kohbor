@@ -347,6 +347,21 @@ html[data-lang="en"] .no-word { line-height: 1; letter-spacing: -0.05em; margin:
 #filmToggle .film-play, #filmToggle[aria-pressed="true"] .film-pause { display: none; }
 #filmToggle[aria-pressed="true"] .film-play { display: inline; }
 
+/* In the app: phases of a match, left to right */
+.feat-in { padding: clamp(80px, 16vh, 200px) var(--pad) clamp(64px, 12vh, 150px); display: grid; gap: clamp(36px, 7vh, 80px); }
+.feat-head { display: grid; gap: 14px; }
+.feat-head .lead { color: var(--ink2); max-width: 32em; }
+.phases { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.6fr) minmax(0, 1.2fr); gap: var(--pad); }
+.phase { display: grid; gap: 22px; align-content: start; padding-top: 18px; border-top: 2px solid var(--ink); }
+.phase-tag { display: flex; align-items: baseline; gap: 12px; font-weight: 600; font-size: 1.125rem; }
+.phase-tag b { font-size: 0.875rem; font-weight: 500; color: var(--red); }
+.feats { display: grid; gap: 22px; }
+.phases > .phase:nth-child(2) .feats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.feat { display: grid; gap: 6px; align-content: start; padding-top: 12px; border-top: 1px dashed var(--line-strong); }
+.feat h3 { font-size: 1.25rem; font-weight: 600; line-height: 1.3; }
+.feat p { color: var(--ink2); max-width: 26em; }
+.feat-note { color: var(--muted); font-size: 0.9375rem; }
+
 /* The bar */
 .bar-in { padding: clamp(80px, 16vh, 200px) var(--pad) clamp(64px, 12vh, 150px); display: grid; gap: clamp(36px, 7vh, 88px); }
 .gates { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--pad); }
@@ -402,6 +417,8 @@ html[data-lang="en"] .end-h { line-height: 1; letter-spacing: -0.04em; }
   .chap-see { grid-template-columns: minmax(0, 5fr) minmax(0, 5fr) minmax(230px, 3fr); }
   .chap-hear { grid-template-columns: minmax(0, 1fr) minmax(280px, 380px); }
   .chap-hear .hear-side { grid-column: 2; }
+  .phases { grid-template-columns: minmax(0, 1fr); }
+  .feats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 860px) {
@@ -450,7 +467,7 @@ html[data-lang="en"] .end-h { line-height: 1; letter-spacing: -0.04em; }
   .no-list li { font-size: clamp(1.35rem, 6.4vw, 2.4rem); }
 
   .film-frame { clip-path: inset(calc((1 - var(--f, 0)) * 26%) calc((1 - var(--f, 0)) * 6%) round calc((1 - var(--f, 0)) * 12px)); }
-  .gates, .bar-notes, .foot { grid-template-columns: minmax(0, 1fr); }
+  .gates, .bar-notes, .foot, .phases, .feats, .phases > .phase:nth-child(2) .feats { grid-template-columns: minmax(0, 1fr); }
   .end-in { padding-top: calc(var(--bar) + 24px); }
 }
 

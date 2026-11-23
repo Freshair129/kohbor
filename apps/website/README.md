@@ -62,7 +62,7 @@ only: it is not an approval of the design or copy, and it does not set a domain 
    scene flips exactly on the line where two rooms meet.
 3. **Line style is meaning**, as in the app: solid = seen/real, dashed = missing/not yet real, hatched = stale, double ring = you.
 4. **One continuous shot.** One point field becomes an island, a flat map, three mixer bands, a voice sphere and a calm sea.
-   "Koh" also reads as island; the island is original geometry (a sum of Gaussian hills), not a game map.
+   Owner change 2026-11-23: the island became a MOBA-style battlefield (two corner bases on high ground, three lanes, a diagonal river, jungle between the lanes). It is drawn procedurally in `js/stage.js`; no game image, map file or asset is used. The rendered film in `assets/film/` predates this change and must be re-rendered with `studio.html`.
 5. **A landing page, not the app.** A thin top header (brand, chapter links, language) that takes the ink of the room under it,
    and a 2 px scroll line. The first draft framed the page with the app's two side rails and a frame-rate badge; the owner
    rejected that on 2026-11-21 ("a landing page is not an application"), so the app shell is not borrowed anywhere on the page.
