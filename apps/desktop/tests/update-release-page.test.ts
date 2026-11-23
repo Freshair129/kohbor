@@ -23,6 +23,7 @@ const NOT_CONFIGURED = {
   current_version: "0.3.0-dev.15",
   reason: "BUILD_WITHOUT_UPDATER",
   available: null,
+  download_progress: null,
   match_active: false,
 };
 

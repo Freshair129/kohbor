@@ -29,6 +29,7 @@ export function UpdateControl({
   const disabledReason = snapshot.pending ? text.requestPending : (view.detail || view.headline);
   const buttonDisabled = snapshot.pending !== null;
   const canCheck = view.canCheck && !buttonDisabled;
+  const canDownload = view.canDownload && !buttonDisabled && snapshot.download !== undefined;
   const canInstall = view.canInstall && !buttonDisabled;
   const matchBlocked = snapshot.reply?.match_active === true || snapshot.reply?.reason === "MATCH_ACTIVE";
   const canOpenPage = !buttonDisabled && !matchBlocked;
@@ -67,6 +68,9 @@ export function UpdateControl({
         <div className="shell-update-state" id="shell-update-state" role="status">
           <strong>{view.headline}</strong>
           {view.detail && <span className="shell-update-detail">{view.detail}</span>}
+          {snapshot.reply?.state === "downloading" && snapshot.reply.download_progress !== null && (
+            <progress max={100} value={snapshot.reply.download_progress} aria-label={view.headline} />
+          )}
           {snapshot.pending && <span className="shell-update-detail">{text.requestPending}</span>}
         </div>
       )}
@@ -74,6 +78,17 @@ export function UpdateControl({
       {pageMessage && <span className="shell-update-detail" role="status">{pageMessage}</span>}
       <span className="shell-update-a11y" id="shell-update-disabled-reason">{matchBlocked ? text.matchActive : disabledReason}</span>
       <div className="shell-update-actions">
+        {showUpdaterStates && (
+          <label className="shell-update-auto-check" title={text.autoCheckHint}>
+            <input
+              type="checkbox"
+              checked={snapshot.automaticChecksEnabled ?? false}
+              disabled={buttonDisabled || matchBlocked}
+              onChange={(event) => { void snapshot.setAutomaticChecksEnabled?.(event.currentTarget.checked); }}
+            />
+            {text.autoCheck}
+          </label>
+        )}
         <button
           type="button"
           disabled={!canOpenPage}
@@ -91,6 +106,16 @@ export function UpdateControl({
         >
           {text.check}
         </button>}
+        {view.canDownload && (
+          <button
+            type="button"
+            disabled={!canDownload}
+            aria-describedby={!canDownload ? "shell-update-disabled-reason" : undefined}
+            onClick={() => { void snapshot.download?.(); }}
+          >
+            {text.download}
+          </button>
+        )}
         {view.canInstall && !confirming && (
           <button
             type="button"
@@ -98,7 +123,7 @@ export function UpdateControl({
             aria-describedby={!canInstall ? "shell-update-disabled-reason" : undefined}
             onClick={beginConfirmation}
           >
-            {text.downloadAndInstall}
+            {text.install}
           </button>
         )}
         {view.canInstall && confirming && (

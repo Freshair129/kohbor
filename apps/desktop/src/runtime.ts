@@ -114,8 +114,11 @@ export function appVersion(): Promise<unknown> {
 }
 
 /** Manual updater IPC. The renderer never supplies an endpoint or installation source. */
-export function updateCommand(command: "update_status" | "update_check" | "update_install" | "update_open_release_page"): Promise<unknown> {
+export function updateCommand(
+  command: "update_status" | "update_check" | "update_download" | "update_install" | "update_open_release_page",
+): Promise<unknown> {
   if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
+  if (command === "update_download") return invoke<unknown>(command);
   if (command === "update_install") return invoke<unknown>(command, { confirm: true });
   return invoke<unknown>(command);
 }

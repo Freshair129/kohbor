@@ -8,7 +8,8 @@ export const UPDATE_STATES = [
   "up_to_date",
   "available",
   "downloading",
-  "ready_to_install",
+  "ready",
+  "installing",
   "failed",
 ] as const;
 
@@ -19,6 +20,7 @@ export interface UpdateReply {
   current_version: string;
   reason: string | null;
   available: { version: string; notes: string; pub_date: string | null } | null;
+  download_progress: number | null;
   match_active: boolean;
 }
 
@@ -26,6 +28,7 @@ export interface UpdateView {
   headline: string;
   detail: string;
   canCheck: boolean;
+  canDownload: boolean;
   canInstall: boolean;
   tone: "unknown" | "neutral" | "positive" | "warning" | "critical";
 }
@@ -43,10 +46,13 @@ function exactKeys(value: Record<string, unknown>, expected: readonly string[]):
 /** Parse the host reply without defaults; malformed payloads stay unknown. */
 export function parseUpdateReply(input: unknown): UpdateReply | null {
   const value = object(input);
-  if (!value || !exactKeys(value, ["state", "current_version", "reason", "available", "match_active"])) return null;
+  if (!value || !exactKeys(value, ["state", "current_version", "reason", "available", "download_progress", "match_active"])) return null;
   if (typeof value.state !== "string" || !(UPDATE_STATES as readonly string[]).includes(value.state)) return null;
   if (typeof value.current_version !== "string") return null;
   if (value.reason !== null && typeof value.reason !== "string") return null;
+  if (value.download_progress !== null
+    && (typeof value.download_progress !== "number" || !Number.isInteger(value.download_progress)
+      || value.download_progress < 0 || value.download_progress > 100)) return null;
   if (typeof value.match_active !== "boolean") return null;
 
   let available: UpdateReply["available"] = null;
@@ -64,6 +70,7 @@ export function parseUpdateReply(input: unknown): UpdateReply | null {
     current_version: value.current_version,
     reason: value.reason,
     available,
+    download_progress: value.download_progress,
     match_active: value.match_active,
   };
 }
@@ -85,44 +92,56 @@ export function updateView(reply: UpdateReply | null, locale: Locale = "th"): Up
   const text = updateCopy(locale);
   let view: UpdateView;
   if (!reply) {
-    view = { headline: text.unknown, detail: text.unknownDetail, canCheck: true, canInstall: false, tone: "unknown" };
+    view = { headline: text.unknown, detail: text.unknownDetail, canCheck: true, canDownload: false, canInstall: false, tone: "unknown" };
   } else {
     switch (reply.state) {
       case "not_configured":
-        view = { headline: text.notConfigured, detail: reasonText(reply.reason, locale), canCheck: false, canInstall: false, tone: "warning" };
+        view = { headline: text.notConfigured, detail: reasonText(reply.reason, locale), canCheck: false, canDownload: false, canInstall: false, tone: "warning" };
         break;
       case "idle":
-        view = { headline: text.idle, detail: "", canCheck: true, canInstall: false, tone: "neutral" };
+        view = { headline: text.idle, detail: "", canCheck: true, canDownload: false, canInstall: false, tone: "neutral" };
         break;
       case "checking":
-        view = { headline: text.checking, detail: text.checkingDetail, canCheck: false, canInstall: false, tone: "neutral" };
+        view = { headline: text.checking, detail: text.checkingDetail, canCheck: false, canDownload: false, canInstall: false, tone: "neutral" };
         break;
       case "up_to_date":
-        view = { headline: text.upToDate, detail: text.upToDateDetail, canCheck: true, canInstall: false, tone: "positive" };
+        view = { headline: text.upToDate, detail: text.upToDateDetail, canCheck: true, canDownload: false, canInstall: false, tone: "positive" };
         break;
       case "available":
         view = {
           headline: text.available(reply.available?.version ?? ""),
           detail: reply.available?.notes ?? "",
           canCheck: true,
-          canInstall: reply.available !== null,
+          canDownload: reply.available !== null,
+          canInstall: false,
           tone: "warning",
         };
         break;
       case "downloading":
-        view = { headline: text.downloading, detail: text.downloadingDetail, canCheck: false, canInstall: false, tone: "neutral" };
+        view = { headline: text.downloading(reply.download_progress), detail: text.downloadingDetail, canCheck: false, canDownload: false, canInstall: false, tone: "neutral" };
         break;
-      case "ready_to_install":
-        view = { headline: text.readyToInstall, detail: "", canCheck: false, canInstall: false, tone: "positive" };
+      case "ready":
+        view = { headline: text.ready, detail: "", canCheck: false, canDownload: false, canInstall: true, tone: "positive" };
+        break;
+      case "installing":
+        view = { headline: text.installing, detail: "", canCheck: false, canDownload: false, canInstall: false, tone: "neutral" };
         break;
       case "failed":
-        view = { headline: text.failed, detail: reasonText(reply.reason, locale), canCheck: true, canInstall: false, tone: "critical" };
+        view = { headline: text.failed, detail: reasonText(reply.reason, locale), canCheck: true, canDownload: false, canInstall: false, tone: "critical" };
         break;
     }
   }
 
   if (reply?.match_active || reply?.reason === "MATCH_ACTIVE") {
-    return { ...view, detail: text.matchActive, canCheck: false, canInstall: false };
+    return {
+      ...view,
+      headline: text.matchBlocked,
+      detail: text.matchActive,
+      canCheck: false,
+      canDownload: false,
+      canInstall: false,
+      tone: "warning",
+    };
   }
   return view;
 }
