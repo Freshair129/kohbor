@@ -29,14 +29,35 @@ fn error_win32(error: &windows::core::Error) -> u32 {
     (error.code().0 as u32) & 0xFFFF
 }
 
+/// One fixed HTTPS origin the WinHTTP transport may reach, with its own body limit and log module.
+/// The host is a compile-time constant; no caller can supply a host or URL at run time.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct Endpoint {
+    pub(crate) host: &'static str,
+    pub(crate) body_limit: usize,
+    /// Log module for transport failures (`draft` or `news`); messages never carry the path.
+    pub(crate) log_module: &'static str,
+}
+
+/// Public draft statistics (STATS-002).
+pub(crate) const OPENDOTA: Endpoint = Endpoint {
+    host: "api.opendota.com",
+    body_limit: BODY_LIMIT_BYTES,
+    log_module: "draft",
+};
+
 /// Local WinHTTP setup failed before any connect or send: logged, and the request does not count
 /// toward the table budget (STATS-002, owner decision 2026-11-22).
 #[cfg(windows)]
-fn setup_failure(stage: &'static str, code: u32) -> TransportError {
+fn setup_failure(module: &'static str, stage: &'static str, code: u32) -> TransportError {
     crate::log_info!(
-        "draft",
+        module,
         "fetch_transport_error",
-        "draft statistics request failed before any network I/O",
+        if module == "draft" {
+            "draft statistics request failed before any network I/O"
+        } else {
+            "request failed before any network I/O"
+        },
         stage = stage,
         win32 = code,
         class = "setup"
@@ -47,11 +68,15 @@ fn setup_failure(stage: &'static str, code: u32) -> TransportError {
 /// Logs the failing WinHTTP stage with its Win32 code and class, then maps to `Network`.
 /// Used only once a connect or send has been attempted, so the request counts.
 #[cfg(windows)]
-fn network_failure(stage: &'static str, code: u32) -> TransportError {
+fn network_failure(module: &'static str, stage: &'static str, code: u32) -> TransportError {
     crate::log_info!(
-        "draft",
+        module,
         "fetch_transport_error",
-        "draft statistics request failed in transport",
+        if module == "draft" {
+            "draft statistics request failed in transport"
+        } else {
+            "request failed in transport"
+        },
         stage = stage,
         win32 = code,
         class = failure_class(code)
@@ -192,6 +217,31 @@ impl Transport for WinHttpTransport {
         request: OutgoingRequest,
         cancellation: &Cancellation,
     ) -> Result<HttpResponse, TransportError> {
+        self.get_from(OPENDOTA, &request.path(), cancellation)
+    }
+
+    fn cancel_current(&self) {
+        if let Some(handle) = self
+            .active
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
+        {
+            handle.close();
+        }
+    }
+}
+
+#[cfg(windows)]
+impl WinHttpTransport {
+    /// GET `path` from the fixed `endpoint` over HTTPS: no proxy, no redirects, no cookies, a
+    /// ten-second overall deadline and the endpoint's body limit.
+    pub(crate) fn get_from(
+        &self,
+        endpoint: Endpoint,
+        path: &str,
+        cancellation: &Cancellation,
+    ) -> Result<HttpResponse, TransportError> {
         use std::ffi::c_void;
         use std::sync::mpsc;
         use windows::core::{w, PCWSTR};
@@ -201,6 +251,7 @@ impl Transport for WinHttpTransport {
             WINHTTP_ACCESS_TYPE_NO_PROXY, WINHTTP_FLAG_SECURE, WINHTTP_QUERY_FLAG_NUMBER,
             WINHTTP_QUERY_STATUS_CODE,
         };
+        let module = endpoint.log_module;
 
         if cancellation.is_cancelled() {
             return Err(TransportError::CancelledBeforeSend);
@@ -224,20 +275,21 @@ impl Transport for WinHttpTransport {
             )
         };
         if session.is_null() {
-            return Err(setup_failure("open", last_win32()));
+            return Err(setup_failure(module, "open", last_win32()));
         }
         let _session = InternetHandle(session);
-        configure_session(session)?;
+        configure_session(module, session)?;
         // WINHTTP_OPTION_DISABLE_FEATURE is valid on request handles only. Setting it on the
         // session failed with ERROR_WINHTTP_INCORRECT_HANDLE_TYPE (12018) before any I/O, so every
         // live request reported a network failure (owner build 6195c3c, 2026-11-22). Cookies are
         // disabled on the request handle below.
-        let connection = unsafe { WinHttpConnect(session, w!("api.opendota.com"), 443, 0) };
+        let mut host_wide: Vec<u16> = endpoint.host.encode_utf16().collect();
+        host_wide.push(0);
+        let connection = unsafe { WinHttpConnect(session, PCWSTR(host_wide.as_ptr()), 443, 0) };
         if connection.is_null() {
-            return Err(setup_failure("connect_handle", last_win32()));
+            return Err(setup_failure(module, "connect_handle", last_win32()));
         }
         let _connection = InternetHandle(connection);
-        let path = request.path();
         let mut path_wide: Vec<u16> = path.encode_utf16().collect();
         path_wide.push(0);
         let request_raw = unsafe {
@@ -252,7 +304,7 @@ impl Transport for WinHttpTransport {
             )
         };
         if request_raw.is_null() {
-            return Err(setup_failure("open_request", last_win32()));
+            return Err(setup_failure(module, "open_request", last_win32()));
         }
         let handle = Arc::new(RequestHandle {
             raw: request_raw as isize,
@@ -267,7 +319,7 @@ impl Transport for WinHttpTransport {
             handle.close();
         };
 
-        if let Err(error) = configure_request(request_raw) {
+        if let Err(error) = configure_request(module, request_raw) {
             clear(self, &handle);
             return Err(error);
         }
@@ -279,7 +331,7 @@ impl Transport for WinHttpTransport {
         let watchdog_handle = handle.clone();
         let watchdog_timed_out = timed_out.clone();
         let watchdog = std::thread::Builder::new()
-            .name("draft-stats-timeout".to_owned())
+            .name(format!("{module}-http-timeout"))
             .spawn(move || {
                 if finished_rx
                     .recv_timeout(std::time::Duration::from_millis(TOTAL_TIMEOUT_MS))
@@ -299,12 +351,12 @@ impl Transport for WinHttpTransport {
                 return Err(TransportError::CancelledBeforeSend);
             }
             unsafe { WinHttpSendRequest(request_raw, None, None, 0, 0, 0) }
-                .map_err(|error| network_failure("send", error_win32(&error)))?;
+                .map_err(|error| network_failure(module, "send", error_win32(&error)))?;
             if cancellation.is_cancelled() {
                 return Err(TransportError::Cancelled);
             }
             unsafe { WinHttpReceiveResponse(request_raw, std::ptr::null_mut()) }
-                .map_err(|error| network_failure("receive", error_win32(&error)))?;
+                .map_err(|error| network_failure(module, "receive", error_win32(&error)))?;
             let mut status = 0_u32;
             let mut status_bytes = std::mem::size_of::<u32>() as u32;
             let mut status_index = 0_u32;
@@ -318,7 +370,7 @@ impl Transport for WinHttpTransport {
                     &mut status_index,
                 )
             }
-            .map_err(|error| network_failure("status", error_win32(&error)))?;
+            .map_err(|error| network_failure(module, "status", error_win32(&error)))?;
             let retry_after = query_retry_after(request_raw);
             let mut body = Vec::new();
             loop {
@@ -327,11 +379,11 @@ impl Transport for WinHttpTransport {
                 }
                 let mut available = 0_u32;
                 unsafe { WinHttpQueryDataAvailable(request_raw, &mut available) }
-                    .map_err(|error| network_failure("read", error_win32(&error)))?;
+                    .map_err(|error| network_failure(module, "read", error_win32(&error)))?;
                 if available == 0 {
                     break;
                 }
-                if body.len().saturating_add(available as usize) > BODY_LIMIT_BYTES {
+                if body.len().saturating_add(available as usize) > endpoint.body_limit {
                     return Err(TransportError::TooLarge);
                 }
                 let start = body.len();
@@ -345,7 +397,7 @@ impl Transport for WinHttpTransport {
                         &mut read,
                     )
                 }
-                .map_err(|error| network_failure("read", error_win32(&error)))?;
+                .map_err(|error| network_failure(module, "read", error_win32(&error)))?;
                 body.truncate(start + read as usize);
                 if read == 0 {
                     break;
@@ -374,22 +426,14 @@ impl Transport for WinHttpTransport {
         }
         response
     }
-
-    fn cancel_current(&self) {
-        if let Some(handle) = self
-            .active
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .clone()
-        {
-            handle.close();
-        }
-    }
 }
 
 /// Session options. Local only: no DNS, connect or I/O happens here.
 #[cfg(windows)]
-fn configure_session(session: *mut std::ffi::c_void) -> Result<(), TransportError> {
+fn configure_session(
+    module: &'static str,
+    session: *mut std::ffi::c_void,
+) -> Result<(), TransportError> {
     use windows::Win32::Networking::WinHttp::WinHttpSetTimeouts;
     unsafe {
         WinHttpSetTimeouts(
@@ -400,13 +444,16 @@ fn configure_session(session: *mut std::ffi::c_void) -> Result<(), TransportErro
             i32::try_from(TOTAL_TIMEOUT_MS).unwrap_or(i32::MAX),
         )
     }
-    .map_err(|error| setup_failure("timeouts", error_win32(&error)))
+    .map_err(|error| setup_failure(module, "timeouts", error_win32(&error)))
 }
 
 /// Request options: no redirects, no cookies. `WINHTTP_OPTION_DISABLE_FEATURE` belongs here, on
 /// the request handle, never on the session. Local only: no I/O happens here.
 #[cfg(windows)]
-fn configure_request(request: *mut std::ffi::c_void) -> Result<(), TransportError> {
+fn configure_request(
+    module: &'static str,
+    request: *mut std::ffi::c_void,
+) -> Result<(), TransportError> {
     use windows::Win32::Networking::WinHttp::{
         WinHttpSetOption, WINHTTP_DISABLE_COOKIES, WINHTTP_OPTION_DISABLE_FEATURE,
         WINHTTP_OPTION_REDIRECT_POLICY, WINHTTP_OPTION_REDIRECT_POLICY_NEVER,
@@ -427,7 +474,7 @@ fn configure_request(request: *mut std::ffi::c_void) -> Result<(), TransportErro
             Some(&no_cookies),
         )
     })
-    .map_err(|error| setup_failure("request_options", error_win32(&error)))
+    .map_err(|error| setup_failure(module, "request_options", error_win32(&error)))
 }
 
 #[cfg(windows)]
@@ -480,6 +527,22 @@ fn query_retry_after(request: *mut std::ffi::c_void) -> Option<String> {
 pub(crate) struct WinHttpTransport;
 
 #[cfg(not(windows))]
+impl WinHttpTransport {
+    pub(crate) fn get_from(
+        &self,
+        _endpoint: Endpoint,
+        _path: &str,
+        cancellation: &Cancellation,
+    ) -> Result<HttpResponse, TransportError> {
+        if cancellation.is_cancelled() {
+            Err(TransportError::CancelledBeforeSend)
+        } else {
+            Err(TransportError::NotSent)
+        }
+    }
+}
+
+#[cfg(not(windows))]
 impl Transport for WinHttpTransport {
     fn get(
         &self,
@@ -520,7 +583,7 @@ mod setup_tests {
         };
         assert!(!session.is_null());
         let _session = InternetHandle(session);
-        assert_eq!(configure_session(session), Ok(()));
+        assert_eq!(configure_session("draft", session), Ok(()));
         let connection = unsafe { WinHttpConnect(session, w!("api.opendota.com"), 443, 0) };
         assert!(!connection.is_null());
         let _connection = InternetHandle(connection);
@@ -537,7 +600,7 @@ mod setup_tests {
         };
         assert!(!request.is_null());
         let _request = InternetHandle(request);
-        assert_eq!(configure_request(request), Ok(()));
+        assert_eq!(configure_request("draft", request), Ok(()));
     }
 
     /// A request cancelled before send returns a pre-I/O error and so is not counted.

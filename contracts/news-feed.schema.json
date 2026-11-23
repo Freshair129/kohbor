@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/spec/news-feed.schema.json",
+  "title": "Kohbor news feed (news.json) 1.x",
+  "description": "news.json in the public repository Freshair129/kohbor-updates, fetched by the native host for the Overview news column (UPDATE-005, owner decision 2026-11-23). The host accepts or rejects a file whole; a post with an unknown type is skipped, so later 1.x files may add types; unknown fields are ignored. Text is plain text, never HTML. Kohbor-written content only: patch notes link to Valve and copy no Valve text. The host also enforces what JSON Schema cannot: unique post ids, real calendar dates, the image SHA-256 against the fetched bytes, and the 256 KiB file cap.",
+  "type": "object",
+  "required": ["schema_version", "updated_at", "posts"],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^1\\.[0-9]+\\.[0-9]+$" },
+    "updated_at": { "$ref": "#/$defs/utc" },
+    "posts": { "type": "array", "maxItems": 50, "items": { "$ref": "#/$defs/post" } }
+  },
+  "$defs": {
+    "utc": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$" },
+    "text80": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "localized80": {
+      "type": "object", "required": ["th", "en"],
+      "properties": { "th": { "$ref": "#/$defs/text80" }, "en": { "$ref": "#/$defs/text80" } }
+    },
+    "localized280": {
+      "type": "object", "required": ["th", "en"],
+      "properties": { "th": { "type": "string", "minLength": 1, "maxLength": 280 }, "en": { "type": "string", "minLength": 1, "maxLength": 280 } }
+    },
+    "localized4000": {
+      "type": "object", "required": ["th", "en"],
+      "properties": { "th": { "type": "string", "minLength": 1, "maxLength": 4000 }, "en": { "type": "string", "minLength": 1, "maxLength": 4000 } }
+    },
+    "post": {
+      "type": "object",
+      "required": ["id", "type", "published_at", "title", "summary"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9-]{3,64}$" },
+        "type": {
+          "type": "string",
+          "description": "announcement, app_update or patch_notes; the app skips a post of any other type."
+        },
+        "published_at": { "$ref": "#/$defs/utc" },
+        "expires_at": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/utc" }] },
+        "pinned": { "type": ["boolean", "null"], "description": "At most one post is shown pinned: the newest pinned one." },
+        "title": { "$ref": "#/$defs/localized80" },
+        "summary": { "$ref": "#/$defs/localized280" },
+        "body": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/localized4000" }] },
+        "image": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "required": ["path", "sha256", "width", "height", "alt"],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "pattern": "^images/[A-Za-z0-9][A-Za-z0-9._-]{0,99}\\.(webp|png|jpg|jpeg)$",
+                  "description": "A file in the images/ folder of the same repository; no other origin. At most 512 KiB."
+                },
+                "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+                "width": { "type": "integer", "minimum": 1, "maximum": 1600 },
+                "height": { "type": "integer", "minimum": 1, "maximum": 900 },
+                "alt": { "$ref": "#/$defs/localized280" }
+              }
+            }
+          ]
+        },
+        "links": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "array", "maxItems": 3,
+              "items": {
+                "type": "object", "required": ["label", "url"],
+                "properties": {
+                  "label": { "$ref": "#/$defs/localized80" },
+                  "url": { "type": "string", "maxLength": 2048, "pattern": "^https://[!-~]+$", "description": "Opened in the system browser, never inside the app." }
+                }
+              }
+            }
+          ]
+        },
+        "app_version": { "oneOf": [{ "type": "null" }, { "type": "string", "pattern": "^[A-Za-z0-9.+_-]{1,32}$" }] },
+        "game_patch": { "oneOf": [{ "type": "null" }, { "type": "string", "pattern": "^[A-Za-z0-9.+_-]{1,16}$" }] }
+      }
+    }
+  }
+}

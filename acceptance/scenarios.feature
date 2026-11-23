@@ -443,6 +443,13 @@ Feature: Brand-neutral desktop companion target behavior
     Then derived memory is forgotten and unrelated archives remain
     And failure behavior is: Automatic archival retention/deletion needs an explicit rule.
 
+  @MEM-006 @mvp
+  Scenario: AC-MEM-006 Local own-match history
+    Given admitted payload sequences for a completed match won and lost, a match left before the winner is known, a draft-only lobby, a custom game, an unverified owner, a captured bot match and a corrupt history file
+    When the host processes the payloads, restarts, clears the history and computes the summary
+    Then exactly one entry per played match is stored with the keyed hash and no raw match ID or SteamID64; the result follows win_team against the own team; a left match has a null result; the lobby, custom game and unverified owner store nothing; every match type is unknown and counted when it has a result; the summary counts ranked, unranked and unknown-type matches with a result and excludes bot, custom, lobby and null-result matches; the file never exceeds 500 entries; a corrupt file starts empty; and clearing empties the store
+    And failure behavior is: Unverified or mismatched ownership, custom games and spectating record nothing. A corrupt or oversized file starts empty with one warning code, and a failed write keeps the previous file. An abandoned entry never replaces a completed entry for the same match. A hero win rate is computed only from 5 counted games.
+
   @ADVICE-001 @mvp
   Scenario: AC-ADVICE-001 Required local/manual advice
     Given cloud consent is off and local inference is ready
@@ -695,6 +702,13 @@ Feature: Brand-neutral desktop companion target behavior
     Then a known approved compatible artifact or new higher emergency version restores operation
     And failure behavior is: Do not assume a manifest downgrade will be accepted.
 
+  @UPDATE-005 @mvp
+  Scenario: AC-UPDATE-005 Kohbor news from one fixed public file
+    Given a scripted transport returning a valid feed, a network failure then success, HTTP errors, an invalid and an oversized body, an image with a wrong hash, and news switched off
+    When the host starts, retries and the renderer reads the news view
+    Then only the fixed feed path and same-repository image paths are requested, at most two attempts per start; a valid feed is cached and shown; failures keep the cache as offline with its fetch time or show unavailable; an invalid file never replaces the cache; the tampered image is not served; with news off nothing is requested or shown; links resolve only by post id and index; and no test touches the network
+    And failure behavior is: A network error, HTTP error, oversized or invalid file keeps the cached feed, shown as offline with its fetch time, or shows unavailable when nothing is cached. A missing or tampered image is left out. With news off nothing is fetched and no post is shown.
+
   @PREMIUM-001 @deferred
   Scenario: AC-PREMIUM-001 Native trusted capability lease
     Given a renderer/local fixture claims premium without a valid grant
@@ -785,4 +799,11 @@ Feature: Brand-neutral desktop companion target behavior
     When the player presses the hotkey, presses it again, remaps it to a free key, remaps it to a key another program holds or to a reserved key, and disables it
     Then the first press brings the control window to the foreground and the second hides it with Dota foreground again; no synthesized input is sent and overlay or orb activation_detected stays zero; a free key replaces the old one, a held or reserved key leaves the prior binding working with a visible error, and disabling releases the key; Settings discloses the exclusive-fullscreen limit
     And failure behavior is: If registration fails, keep the prior working binding (or none), show the error with its reason, and never silently choose another key. Reject baseline and Windows-reserved keys. Warn when an Alt-only key may take a Dota binding. Do not show the overlay, HUD or orb as a side effect; they keep their own visibility and focus rules.
+
+  @UI-020 @mvp
+  Scenario: AC-UI-020 Overview player dashboard and news
+    Given a local match history with counted, unknown-type and no-result matches, fewer and more than 20 counted matches, heroes with fewer and more than 5 counted games, and news views that are loading, current, offline with cache, unavailable, empty and switched off
+    When the Overview page renders in Thai and English and the user changes the news filter and expands the news list
+    Then rates use counted matches only with their base count and carry the all-modes label while unknown-type matches are counted; the last-N title states the real count; the trend appears only from 10 counted matches; hero cards show wins–losses below 5 counted games; uncounted and abandoned matches show em dashes with the reason; the news column shows the pinned post first and the filtered, expandable list or the matching state; the OpenDota card is disabled and labelled coming soon; and no GSI or readiness chip appears on the Overview while other pages keep them
+    And failure behavior is: A missing, unreadable or uncounted value shows an em dash, never a default number or a loss. With no counted matches every rate is an em dash. The page states the counting rule: matches with a known result count across all modes because GSI does not report the match type, and matches with no result show an em dash and are not counted. The news column shows loading, offline with the cached fetch time, unavailable, empty or switched-off states; a news failure never blanks the statistics column.
 

@@ -23,8 +23,10 @@ pub mod intake;
 pub mod latency;
 mod layout;
 pub mod logging;
+mod match_history;
 mod media;
 mod mixer;
+mod news;
 mod objectives;
 mod orb;
 mod portraits;
@@ -111,6 +113,10 @@ pub(crate) struct AppState {
     /// Default-off public statistics and the native draft column.
     pub(crate) hero_stats: hero_stats::host::HeroStatsHost,
     pub(crate) objectives: objectives::ObjectiveHost,
+    /// OVERVIEW-002 local own-match history (written by intake, read by the Overview).
+    pub(crate) match_history: match_history::MatchHistoryStore,
+    /// OVERVIEW-003 community news (one fixed GitHub file, on by default, off switch).
+    pub(crate) news: news::NewsService,
 }
 
 impl host::Emitter for tauri::AppHandle<tauri::Wry> {
@@ -1268,6 +1274,9 @@ pub fn run() {
                 account_supabase::SupabaseAuth::new(settings_dir.clone(), update_match_active.clone());
             app.manage(account_auth.clone());
             account_auth.start_refresh_loop();
+            let match_history = intake::lock(&runtime.shared).match_history();
+            let news = news::NewsService::open(&settings_dir);
+            news.start();
             app.manage(AppState {
                 runtime,
                 host,
@@ -1300,6 +1309,8 @@ pub fn run() {
                 orb: orb_host,
                 hero_stats: hero_stats_host,
                 objectives: objective_host,
+                match_history,
+                news,
             });
             orb::host::register_critical_listener(app.handle());
             app.state::<AppState>().orb.start_if_enabled(app.handle());
@@ -1373,6 +1384,13 @@ pub fn run() {
         commands::audio_history,
         commands::match_recap,
         commands::clear_match_recap,
+        commands::match_history_get,
+        commands::match_history_clear,
+        commands::news_feed_get,
+        commands::news_refresh,
+        commands::news_prefs_get,
+        commands::news_prefs_set,
+        commands::news_open_link,
         commands::set_muted,
         commands::audio_prefs_get,
         commands::audio_set_volume,
@@ -1470,6 +1488,13 @@ pub fn run() {
         commands::audio_history,
         commands::match_recap,
         commands::clear_match_recap,
+        commands::match_history_get,
+        commands::match_history_clear,
+        commands::news_feed_get,
+        commands::news_refresh,
+        commands::news_prefs_get,
+        commands::news_prefs_set,
+        commands::news_open_link,
         commands::set_muted,
         commands::audio_prefs_get,
         commands::audio_set_volume,

@@ -194,7 +194,10 @@ test("the right rail reserves a friends slot that says no friends system exists 
 test("the shell starts on Live, keeps the original Live content, and returns there from Account", () => {
   const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
   assert.match(app, /useState<ShellPage>\(DEFAULT_SHELL_DESTINATION\)/);
-  assert.match(app, /activePage === "overview" && <EmptyPage title=\{text\.shell\.emptyPage\}/);
+  // Overview variant D (owner decision 2026-11-23): the page replaces the empty state, and the
+  // shell's GSI/game status chips are hidden on the Overview only.
+  assert.match(app, /activePage === "overview" && <OverviewPage locale=\{displayLocale\} \/>/);
+  assert.match(app, /\{activePage !== "overview" && <StatusLine /);
   const livePage = app.match(/activePage === "live" && \(([\s\S]*?)\n\s*\)\}/)?.[1] ?? "";
   for (const component of ["GsiSetupCard", "StartDotaBar", "Deck"]) {
     assert.ok(livePage.includes("<" + component + " "), component);

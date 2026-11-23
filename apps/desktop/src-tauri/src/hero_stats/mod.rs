@@ -12,7 +12,7 @@ mod parse;
 mod prefs;
 mod rank;
 mod request;
-mod transport;
+pub(crate) mod transport;
 mod view;
 
 #[cfg(test)]

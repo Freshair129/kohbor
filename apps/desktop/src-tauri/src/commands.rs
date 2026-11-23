@@ -5,7 +5,7 @@ use crate::audio_prefs::{AudioPrefs, AudioPrefsService};
 use crate::hotkeys::{StartFailure, VolumeStep};
 use crate::intake::lock;
 use crate::{settings, status, AppState};
-use serde_json::{Map, Value};
+use serde_json::{json, Map, Value};
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Arc;
@@ -1000,6 +1000,82 @@ pub(crate) fn match_recap(state: tauri::State<'_, AppState>) -> Result<Value, St
 #[tauri::command(async)]
 pub(crate) fn clear_match_recap(state: tauri::State<'_, AppState>) -> Result<Value, String> {
     state.host.commands.clear_match_recap()
+}
+
+/// OVERVIEW-002: own local match history with its computed summary.
+#[tauri::command(async)]
+pub(crate) fn match_history_get(state: tauri::State<'_, AppState>) -> Value {
+    state.match_history.view()
+}
+
+/// Deletes the local match history file contents (user action on the Overview).
+#[tauri::command(async)]
+pub(crate) fn match_history_clear(state: tauri::State<'_, AppState>) -> Result<Value, String> {
+    state.match_history.clear()?;
+    crate::log_info!(
+        "history",
+        "match_history_cleared",
+        "local match history cleared"
+    );
+    Ok(json!({"cleared": true}))
+}
+
+/// OVERVIEW-003: the cached or freshly fetched news view (images as data: URLs).
+#[tauri::command(async)]
+pub(crate) fn news_feed_get(state: tauri::State<'_, AppState>) -> Value {
+    state.news.view()
+}
+
+/// The user's "retry" on the news column. Fetches only the fixed feed file.
+#[tauri::command]
+pub(crate) fn news_refresh(state: tauri::State<'_, AppState>) -> Value {
+    state.news.refresh()
+}
+
+#[tauri::command]
+pub(crate) fn news_prefs_get(state: tauri::State<'_, AppState>) -> crate::news::NewsPrefs {
+    state.news.prefs()
+}
+
+#[tauri::command]
+pub(crate) fn news_prefs_set(
+    state: tauri::State<'_, AppState>,
+    patch: Value,
+) -> Result<crate::news::NewsPrefs, String> {
+    state.news.set_prefs(&patch)
+}
+
+/// Opens a news link in the system browser. The renderer names a shown post and link index;
+/// the URL comes only from the validated feed. Refused while a match is running.
+#[tauri::command]
+pub(crate) fn news_open_link(
+    state: tauri::State<'_, AppState>,
+    post_id: String,
+    index: usize,
+) -> Value {
+    if (state.match_active)() {
+        return json!({"opened": false, "reason": "MATCH_ACTIVE"});
+    }
+    let Some(url) = state.news.link_url(&post_id, index) else {
+        return json!({"opened": false, "reason": "LINK_UNKNOWN"});
+    };
+    #[cfg(windows)]
+    let opened = std::process::Command::new("explorer.exe")
+        .arg(&url)
+        .spawn()
+        .is_ok();
+    #[cfg(not(windows))]
+    let opened = {
+        let _ = url;
+        false
+    };
+    crate::log_info!(
+        "news",
+        "link_opened",
+        "news link open requested",
+        opened = opened
+    );
+    json!({"opened": opened, "reason": if opened { Value::Null } else { json!("OPEN_FAILED") }})
 }
 
 #[tauri::command(async)]

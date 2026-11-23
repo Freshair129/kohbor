@@ -2,8 +2,8 @@
 title: "Product Requirements Document"
 doc_id: "PRD"
 status: draft
-version: "0.3.8"
-updated: "2026-11-21"
+version: "0.3.9"
+updated: "2026-11-23"
 owner_role: "Product owner"
 baseline: "DEC-BASELINE"
 approval_status: "Not approved"
@@ -48,11 +48,11 @@ Stable need IDs map to SRS requirements within their approved scope. **contracts
 | PN-005 | Read the match field and passive overlay at a glance (including from peripheral vision on a second-screen session monitor), inspect by choice and navigate accessibly without disrupting gameplay or performance. | UI-001, UI-002, UI-003, UI-004, UI-005, UI-006, UI-008, CORE-002, QUALITY-002, QUALITY-003, ALERT-008, UI-015, UI-016, UI-017, UI-018, UI-019 |
 | PN-006 | Hold a remappable key to ask a private local voice question; understand preparation/failure and yield to urgent audio. | VOICE-001, VOICE-002, VOICE-003, VOICE-004, VOICE-005, VOICE-006, VOICE-007, QUALITY-006, QUALITY-007 |
 | PN-007 | Request useful manual advice while separately controlling whether a narrowly defined context may reach a cloud provider. | ADVICE-001, ADVICE-002, ADVICE-003, ADVICE-004 |
-| PN-008 | Review supported local evidence and concise summaries, then clear derived memory without silently deleting separate history. | MEM-001, MEM-002, MEM-003, MEM-004, MEM-005 |
+| PN-008 | Review supported local evidence and concise summaries, then clear derived memory without silently deleting separate history. | MEM-001, MEM-002, MEM-003, MEM-004, MEM-005, MEM-006, UI-020 |
 | PN-009 | Deliberately share narrow own-player vitals, and under a separate scope own ability cooldowns, with consenting peers, see freshness and leave without stale information reappearing. | PEER-001, PEER-002, PEER-003, PEER-004, PEER-005, PEER-006, PEER-007, PEER-008, PEER-009, PEER-010 |
 | PN-010 | Use optional friends and invitations without turning friendship, presence or sign-in into gameplay-sharing consent. | SOCIAL-001, SOCIAL-002, SOCIAL-003, ACCOUNT-001, ACCOUNT-002, ACCOUNT-003, ACCOUNT-004, ACCOUNT-005, ACCOUNT-006, ACCOUNT-007, ACCOUNT-008, ACCOUNT-009, ACCOUNT-010 |
 | PN-011 | Explicitly record local highlights with truthful coverage and save status while recorder failure leaves local gameplay services available. | OBS-001, OBS-002, OBS-003, OBS-004, OBS-005, VISION-004 |
-| PN-012 | Receive verified updates and predictable optional capability transitions without losing local core, map context or control. | UPDATE-001, UPDATE-002, UPDATE-003, UPDATE-004, PREMIUM-001, PREMIUM-002, PREMIUM-003, UI-007, QUALITY-008 |
+| PN-012 | Receive verified updates and predictable optional capability transitions without losing local core, map context or control. | UPDATE-001, UPDATE-002, UPDATE-003, UPDATE-004, UPDATE-005, PREMIUM-001, PREMIUM-002, PREMIUM-003, UI-007, QUALITY-008 |
 | PN-013 | Use quick audio, display, game, announcer and selected-music volume controls and check actual companion status in-game while Dota keeps focus. | UI-009, UI-011, MEDIA-009 |
 | PN-014 | See read-only public hero suggestions before picking and how the selected hero has performed after picking, with separate consent and clear source, sample and freshness. | UI-010, STATS-001, STATS-002, STATS-003 |
 | PN-015 | See the ten draft-bar hero slots with identified names or an honest unknown reason during supported draft phases, within the control window and with match-only in-memory handling. | UI-012 |

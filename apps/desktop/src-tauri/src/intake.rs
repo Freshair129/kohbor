@@ -3,6 +3,7 @@
 
 use crate::audio::lanes::{Control, EngineTx, TickMsg};
 use crate::clock::MonoClock;
+use crate::match_history::{match_type_from_gsi, MatchEntry, MatchHistoryStore, MatchTracker};
 use crate::objectives::{MapDiagnostic, ObjectiveIntakeWiring, ObjectiveRuntimeFlags};
 use crate::{atomic, secrets};
 use base64::Engine;
@@ -106,6 +107,9 @@ pub struct Shared {
     last_objective_diagnostic: Option<MapDiagnostic>,
     data_dir: PathBuf,
     window: (Instant, u32),
+    /// Local own-match history (OVERVIEW-002). Shared with the `match_history_get` command.
+    match_history: MatchHistoryStore,
+    match_tracker: MatchTracker,
 }
 
 #[derive(Default)]
@@ -420,9 +424,57 @@ impl Shared {
         self.last_objective_diagnostic = None;
         self.events.clear();
         self.reset_detector();
+        self.leave_history();
         *lock(&self.freshness_state) = None;
         self.persist_runtime();
         true
+    }
+
+    /// The store behind the `match_history_get` command.
+    pub(crate) fn match_history(&self) -> MatchHistoryStore {
+        self.match_history.clone()
+    }
+
+    fn record_history(&mut self, admitted: &kohbor_gsi::admission::Admitted, body: &Value) {
+        let Some(match_key) = self.sessions.current().map(|s| s.match_key.clone()) else {
+            return;
+        };
+        let observation = crate::match_history::Observation {
+            match_key: &match_key,
+            phase: admitted.phase,
+            team: admitted.team,
+            hero: admitted.hero.hero_id.value().map(String::as_str),
+            kills: admitted.counters.kills.value().copied(),
+            deaths: admitted.counters.deaths.value().copied(),
+            assists: admitted.counters.assists.value().copied(),
+            clock_s: game_clock_seconds(body),
+            win_team: body.pointer("/map/win_team").and_then(Value::as_str),
+            match_type: match_type_from_gsi(body),
+        };
+        for entry in self.match_tracker.observe(&observation, unix_seconds()) {
+            self.store_history(entry);
+        }
+    }
+
+    fn leave_history(&mut self) {
+        if let Some(entry) = self.match_tracker.leave(unix_seconds()) {
+            self.store_history(entry);
+        }
+    }
+
+    fn store_history(&self, entry: MatchEntry) {
+        let end = match entry.end {
+            crate::match_history::MatchEnd::Completed => "completed",
+            crate::match_history::MatchEnd::Abandoned => "abandoned",
+        };
+        if self.match_history.upsert(entry).is_ok() {
+            crate::log_info!(
+                "history",
+                "match_recorded",
+                "local match history entry recorded",
+                end = end
+            );
+        }
     }
 
     pub fn new(data_dir: PathBuf) -> Self {
@@ -479,6 +531,7 @@ impl Shared {
             IntakeState::NotConfigured("SOURCE_UNAVAILABLE")
         };
         let started_at = Instant::now();
+        let match_history = MatchHistoryStore::open_in(&data_dir);
         Self {
             state,
             port: None,
@@ -507,6 +560,8 @@ impl Shared {
             last_objective_diagnostic: None,
             data_dir,
             window: (started_at, 0),
+            match_history,
+            match_tracker: MatchTracker::default(),
         }
     }
 
@@ -993,6 +1048,13 @@ impl Shared {
                 self.reset_detector();
             }
             Outcome::Rejected(_) => {}
+        }
+        match &outcome {
+            Outcome::Admitted(admitted) if admitted.ownership == Ownership::Verified => {
+                self.record_history(admitted, body);
+            }
+            Outcome::NotPlaying | Outcome::Unsupported(_) => self.leave_history(),
+            Outcome::Admitted(_) | Outcome::Rejected(_) => {}
         }
         if matches!(&outcome, Outcome::Admitted(_)) {
             self.observe_objectives(body, stale_source_gap, new_match);
@@ -1650,6 +1712,133 @@ mod tests {
             assert_eq!(new_hud["fields"]["kills"]["value"], 9);
             assert_eq!(new_hud["fields"]["gold"]["value"], 1500);
         }
+    }
+
+    /// Captured post-game fixture (redacted bot match, 2026-11-11) with this test's token,
+    /// owner and a synthetic match id substituted for the placeholders.
+    fn captured_post_game(token: &str, match_id: &str) -> Value {
+        let mut body: Value = serde_json::from_str(include_str!(
+            "../../../../crates/kohbor-gsi/tests/captured/post-game.json"
+        ))
+        .unwrap();
+        body["auth"]["token"] = json!(token);
+        body["player"]["steamid"] = json!(owner().to_string());
+        body["map"]["matchid"] = json!(match_id);
+        body
+    }
+
+    #[test]
+    fn verified_match_reaching_post_game_records_one_own_history_entry() {
+        let mut shared = shared_with_token();
+        let token = shared.token.clone().unwrap();
+        let mut live = in_game_with_hud_stats(&token, 4, 900);
+        live["hero"]["name"] = json!("npc_dota_hero_silencer");
+        live["map"]["clock_time"] = json!(2101);
+        let start = Instant::now();
+        assert_eq!(shared.accept(&live, start, Some(owner())), 200);
+        let post = captured_post_game(&token, "8000000001");
+        assert_eq!(
+            shared.accept(&post, start + Duration::from_millis(500), Some(owner())),
+            200
+        );
+        assert_eq!(
+            shared.accept(&post, start + Duration::from_millis(900), Some(owner())),
+            200
+        );
+        assert_eq!(
+            shared.accept(
+                &menu(&token),
+                start + Duration::from_millis(1200),
+                Some(owner())
+            ),
+            200
+        );
+
+        let entries = shared.match_history().entries();
+        assert_eq!(entries.len(), 1);
+        let e = &entries[0];
+        // The fixture's own team is radiant and dire won: a loss, with the post-game kills.
+        assert_eq!(e.result, Some(crate::match_history::MatchResult::Loss));
+        assert_eq!(e.hero.as_deref(), Some("npc_dota_hero_silencer"));
+        assert_eq!((e.kills, e.deaths, e.assists), (Some(6), Some(2), Some(3)));
+        assert_eq!(e.duration_s, Some(2101));
+        // A bot match: GSI cannot tell the type, so it is unknown; until types are known it
+        // counts in the all-modes win rate (owner, 2026-11-23 "Count all, labelled").
+        assert_eq!(e.match_type, crate::match_history::MatchType::Unknown);
+        assert_eq!(e.match_key, shared.sessions.current().unwrap().match_key);
+        let stored =
+            fs::read_to_string(shared.data_dir.join(crate::match_history::FILE_NAME)).unwrap();
+        assert!(
+            !stored.contains("8000000001"),
+            "raw match id is never stored"
+        );
+        assert!(
+            !stored.contains(&owner().to_string()),
+            "SteamID64 is never stored"
+        );
+        assert_eq!(shared.match_history().view()["summary"]["counted"], 1);
+    }
+
+    #[test]
+    fn leaving_a_live_match_records_an_abandoned_entry_without_a_result() {
+        for leave in ["menu", "window_loss"] {
+            let mut shared = shared_with_token();
+            let token = shared.token.clone().unwrap();
+            let start = Instant::now();
+            assert_eq!(
+                shared.accept(
+                    &in_game_with_hud_stats(&token, 1, 300),
+                    start,
+                    Some(owner())
+                ),
+                200
+            );
+            if leave == "menu" {
+                assert_eq!(
+                    shared.accept(
+                        &menu(&token),
+                        start + Duration::from_millis(400),
+                        Some(owner())
+                    ),
+                    200
+                );
+            } else {
+                assert!(shared.end_live_session());
+            }
+            let entries = shared.match_history().entries();
+            assert_eq!(entries.len(), 1, "{leave}");
+            assert_eq!(entries[0].result, None, "{leave}");
+            assert_eq!(
+                entries[0].end,
+                crate::match_history::MatchEnd::Abandoned,
+                "{leave}"
+            );
+            assert_eq!(entries[0].duration_s, None, "{leave}");
+        }
+    }
+
+    #[test]
+    fn custom_games_and_unverified_owners_are_never_recorded() {
+        let mut shared = shared_with_token();
+        let token = shared.token.clone().unwrap();
+        let start = Instant::now();
+        let mut custom = captured_post_game(&token, "8000000002");
+        custom["map"]["customgamename"] = json!("some_custom_game");
+        assert_eq!(shared.accept(&custom, start, Some(owner())), 200);
+        let post = captured_post_game(&token, "8000000003");
+        assert_eq!(
+            shared.accept(&post, start + Duration::from_millis(100), None),
+            200
+        );
+        assert_eq!(
+            shared.accept(&post, start + Duration::from_millis(200), Some(owner() + 1)),
+            200
+        );
+        assert!(shared.match_history().entries().is_empty());
+        assert!(!shared
+            .data_dir
+            .join(crate::match_history::FILE_NAME)
+            .exists());
     }
 
     #[test]
@@ -2560,6 +2749,37 @@ mod s0_6_tests {
                     "review startup network operation: {forbidden}"
                 );
             }
+        }
+        // OVERVIEW-003 (owner decision 2026-11-23 item 4): the Overview news feed fetches one
+        // fixed public file at startup through the existing WinHTTP transport, so no crate was
+        // added. Every origin the host can open is a compile-time constant: the opt-in
+        // public-statistics API and the news repository on GitHub. Review any new one here.
+        let transport = include_str!("hero_stats/transport.rs")
+            .split("#[cfg(all(test, windows))]")
+            .next()
+            .unwrap();
+        assert_eq!(transport.matches("WinHttpConnect(").count(), 1);
+        assert!(transport.contains("PCWSTR(host_wide.as_ptr())"));
+        assert!(transport.contains(r#"host: "api.opendota.com","#));
+        let news = include_str!("news.rs")
+            .split("#[cfg(test)]")
+            .next()
+            .unwrap();
+        assert!(news.contains(r#"pub const HOST: &str = "raw.githubusercontent.com";"#));
+        assert!(news.contains(
+            r#"pub const FEED_PATH: &str = "/Freshair129/kohbor-updates/main/news.json";"#
+        ));
+        assert_eq!(news.matches("host: HOST,").count(), 2);
+        assert_eq!(
+            news.matches("host:").count(),
+            2,
+            "news uses only its fixed host"
+        );
+        for forbidden in ["TcpStream", "UdpSocket", "reqwest::", "ureq::", "hyper::"] {
+            assert!(
+                !news.contains(forbidden),
+                "review news network operation: {forbidden}"
+            );
         }
     }
 }
