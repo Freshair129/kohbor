@@ -1,6 +1,6 @@
 # Software Engineering Documentation Index
 
-**Baseline 0.3.8 · Draft · index revised 2026-11-21 · application evidence NOT_RUN**
+**Baseline 0.3.8 · Draft · index revised 2026-11-24 · application evidence NOT_RUN**
 
 Start with PRD and SRS. Read the design, interface and verification documents for each implementation slice. Agent workflow is defined in root AGENTS.md and PROMPT.md and in [Agent Workflow](delivery/AGENT-WORKFLOW.md). To find who owns an area, what is decided and what is open there, read the [domain registry](domains/README.md) and the card of the domain you will touch (see "Domains" below).
 
@@ -32,6 +32,8 @@ This is the only index of documents. Every Markdown file in the tree, is linked 
 | [Alpha launch](design/ALPHA-LAUNCH.md) | Invite-gated alpha download, Supabase sign-in and Edge Function, release repository rules, conflicts to resolve (agent record of owner statements) | Product owner, engineering |
 | [In-app updater](design/UPDATER.md) | Signed GitHub-release updater design: channel, key handling, states, privacy and release slices | Engineering, release |
 | [Derived stats](design/DERIVED-STATS.md) | Own-hero attributes and derived values from installed-game data: inputs, formulas, labels and limits | Engineering, UX |
+| [Replay Pipeline](design/REPLAY-PIPELINE.md) | Read-only replay intake, local library, pinned sidecar, Match Bundle validation and failure/privacy boundaries | Engineering, Lab, QA |
+| [Replay Engine Provenance](design/REPLAY-ENGINE-PROVENANCE.md) | Pinned sidecar source, build, hash, dependency license inventory and rebuild procedure | Engineering, release review |
 | [Package Format Review](design/PACKAGE-FORMAT-REVIEW.md) | Agent review: whether a package needs its own file type, signature and encryption options | Engineering, product owner |
 | [S4 Observation Boundary](design/S4-OBSERVATION-BOUNDARY.md) | Sprint 4 no-hardware slice: capture admission, freshness, coverage and the enemy observation boundary (agent decision, not owner approved) | Engineering, QA |
 | [Draft Bar](design/DRAFT-BAR-SPEC.md) | MVP-2 slice 5: reading the top hero bar during hero selection (mirror, hero identification, player names) with projection 1.1.0 (owner approved the display change under DEC-PICK-STATS) | Engineering, QA, Privacy |

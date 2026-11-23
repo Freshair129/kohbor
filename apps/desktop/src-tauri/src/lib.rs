@@ -31,6 +31,8 @@ mod objectives;
 mod opendota;
 mod orb;
 mod portraits;
+#[cfg(any(feature = "lab", feature = "demo"))]
+mod replay_library;
 pub mod secrets;
 pub mod settings;
 mod show_hotkey;
@@ -1277,6 +1279,38 @@ pub fn run() {
                 settings_dir.clone(),
                 update_match_active.clone(),
             );
+            #[cfg(any(feature = "lab", feature = "demo"))]
+            {
+                let bundled_engine = {
+                    let mut candidates = Vec::new();
+                    if let Ok(resources) = app.path().resource_dir() {
+                        candidates.push(resources.join("binaries").join("replay-engine-rs.exe"));
+                        candidates.push(resources.join("replay-engine-rs.exe"));
+                    }
+                    if let Ok(executable) = std::env::current_exe() {
+                        if let Some(directory) = executable.parent() {
+                            candidates
+                                .push(directory.join("binaries").join("replay-engine-rs.exe"));
+                            candidates.push(directory.join("replay-engine-rs.exe"));
+                        }
+                    }
+                    candidates.into_iter().find(|path| path.is_file())
+                };
+                let event_app = app.handle().clone();
+                let library = replay_library::ReplayLibrary::open(
+                    settings_dir.join("replays"),
+                    bundled_engine,
+                    update_match_active.clone(),
+                    Arc::new(move || {
+                        let _ = event_app.emit(
+                            replay_library::EVENT_NAME,
+                            serde_json::json!({ "changed": true }),
+                        );
+                    }),
+                    replay_library::ReplayLibraryLimits::default(),
+                );
+                app.manage(library);
+            }
             app.manage(account_auth.clone());
             account_auth.start_refresh_loop();
             let match_history = intake::lock(&runtime.shared).match_history();
@@ -1406,6 +1440,18 @@ pub fn run() {
         commands::news_refresh,
         commands::news_prefs_get,
         commands::news_prefs_set,
+        #[cfg(any(feature = "lab", feature = "demo"))]
+        commands::replay_library_list,
+        #[cfg(any(feature = "lab", feature = "demo"))]
+        commands::replay_library_pick_file,
+        #[cfg(any(feature = "lab", feature = "demo"))]
+        commands::replay_library_open,
+        #[cfg(any(feature = "lab", feature = "demo"))]
+        commands::replay_library_parse,
+        #[cfg(any(feature = "lab", feature = "demo"))]
+        commands::replay_library_remove,
+        #[cfg(any(feature = "lab", feature = "demo"))]
+        commands::replay_library_clear,
         commands::news_open_link,
         commands::set_muted,
         commands::audio_prefs_get,

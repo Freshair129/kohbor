@@ -58,33 +58,14 @@ The owner approved coach analytics for the Lab preview on 2026-11-23 (DEC-COACH-
 
 **Tests.** `tools/tests/test_replay_export.py` covers the rules, the privacy scan and the exporter on a DEM-derived neutral fixture. The fixture is trimmed and has its real match ID replaced. `apps/desktop/tests/post-match-replay-v3.test.ts` covers the v3 reader and the summary. The committed viewer fixture is rebuilt and compared by the Python test. These are synthetic and recorded-offline evidence. They are not native WebView2 or live evidence. The owner confirms the provisional thresholds after 3–5 matches.
 
-## Match view R1 (DEC-REPLAY-INTEGRATION)
+## Match view RP2 (DEC-REPLAY-INTEGRATION)
 
-Slice R1 hosts the owner's replay-viewer prototype in the same Lab tab. A switch at the top of the tab selects "DEM report" (the viewer above) or "Match view (prototype)". Switching unmounts the other view and discards its data. The Lab gate, the post-match admission and the memory-only rule above apply unchanged. There is no native command, network path or persistence.
+RP2 supersedes the R1 single-bundle preview. The Lab tab now lists entries from the local replay library and uses `replayLibraryClient` for open, parse, remove, clear and state-change refresh. Opening a ready entry loads the bundle from `replay_library_open`; there is no three-file picker in the Match view. Clear asks for confirmation. The viewer keeps the existing shadow-root lifecycle and local-only behavior.
 
-**Input.** The user multi-selects `manifest.json`, `match.json` and `world.json` of one Match Bundle (replay engine schema 3.0) produced on their machine. `matchBundle.ts` admits it:
+Each row shows its host state (`available`, `queued`, `parsing`, `ready`, `failed(reason)` or `needs_pack`), source and library-added date. Match date, hero names and duration appear as unknown until the bundle is opened because RP1's list command does not return those fields. The watched folder is shown as unknown because RP1 does not expose its path. The UI does not print raw match IDs or replay source paths.
 
-- all three files are required, with one copy of each
-- size limits: manifest 1 MiB, match 48 MiB and world 24 MiB, checked before the files are read
-- `schema` must be `3.0` in both the manifest and `match.meta`
-- byte counts and SHA-256 must match the manifest
-- the fields the viewer reads must have the expected shape: per-second series of `t1 - t0 + 1` samples, hero ids and `#rrggbb` colours, and deaths that point at known heroes
+The “Add .dem file” control validates the extension and reported size before calling `replay_library_parse`. Dropped paths are accepted through the Tauri webview event. The file input may not expose a filesystem path; when it does not, the view reports that limitation. A native file dialog/path-return command or byte intake requires a host scope update. The RP1 host remains responsible for validating the real file size and matching state.
 
-The panel names the file and the failing field. Patch, game mode and length come from `match.meta`; when absent the panel shows them as unknown.
+**Patch data and map.** A valid `manifest.map.calibration` is preferred; otherwise calibration falls back to the matching patch pack. Unsupported patches show `needs_pack` and do not use another patch's values. Patch data for 7.41f and 7.42 totals 273,416 bytes with provenance. It was derived from `F:\gsi-log\replay-engine-rs\pack\<patch>` at engine source commit `a609ecc9d5221dcf62acd9c0312ce7cb8d8f79f9`; each provenance file records dotaconstants versions, source and generated SHA-256 values, and an upstream MIT license note. That note is not an independent rights review. Control and mobility lookups are keyword heuristics over ability text, not parser-verified status. The supplied source has no hero-to-ability slot mapping or ultimate marker, so no verified ultimate lists are available; the view disables ultimate classification and continues to recognize BKB item events. The 7.42 map calibration is not validated against a 7.42 replay.
 
-**Icons.** No game image is committed. An optional second pick of a folder, such as the patch pack folder with `map.png` and `icons/{heroes,abilities,items}`, supplies the minimap and icons. Images picked with the bundle are accepted as well. Only the names the bundle needs are read, as data URLs, because the app CSP allows `data:` but not `blob:` images. Each file is limited to 2 MiB (8 MiB for the map) and the total to 64 MiB. The viewer resolves every image through one `icon(kind, name)` function. It looks up the exact name and otherwise returns a neutral tile with that name, so a hero never gets another hero's icon. Without a map image the map draws on a dark ground.
-
-**Viewer.** `matchViewer.mjs` is generated from `F:\gsi-log\replay-viewer-proto\viewer.js` with mechanical changes only:
-
-- data comes from the admitted bundle
-- images go through `icon()`
-- lookups resolve inside the shadow root
-- the window and document listeners, animation frames, timers and resize observers stop on unmount
-- inline `onerror` handlers are removed (the CSP blocks them)
-- a hero missing from `statdb.heroes` shows no derived stats
-
-`matchViewer.css` maps the prototype variables to Command Deck tokens on `:host` and loads no web fonts. The layout is the prototype's: five cards left, score, clock, momentum graph and map in the centre, and five cards right. The static markup has English text in `matchViewerCopy.mjs`. Labels that the prototype script writes at run time remain Thai in R1.
-
-**Prototype tables.** `matchTables.mjs` holds the single-match tables: the map projection, the ultimate, CC and mobility patterns, the "Mid pair" button and the opening death. They are labelled "R1: prototype tables, single match 9093797968; replaced in R4". The view always shows a prototype note. It adds a warning when the bundle's own map calibration differs from the table.
-
-**Evidence.** `apps/desktop/tests/match-bundle.test.ts` covers admission, icon resolution and a source check for network calls. It uses a synthetic bundle (`node --test`). A local browser harness opened the real bundles under the app CSP. This is not native WebView2 evidence and not an owner check.
+Thai and English labels, runtime messages and help text are localized through `matchViewerCopy`, including canvas labels. Match view tests run with `node --test --test-isolation=none` when Node's worker process cannot spawn. These source and synthetic checks do not establish native WebView2 rendering or owner acceptance.

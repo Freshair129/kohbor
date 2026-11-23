@@ -1,14 +1,16 @@
-// Lab "Match view" (DEC-REPLAY-INTEGRATION R1): the owner's replay-viewer prototype, hosted in a
-// shadow root like viewer.mjs. Lifted from F:\gsi-log\replay-viewer-proto\viewer.js with these
-// changes only: data from an admitted Match Bundle instead of page-relative loads, icons through one icon()
-// resolver over a user-picked folder (neutral placeholder when absent), prototype tables imported
-// from matchTables.mjs, listeners and loops removed on unmount, inline handlers dropped (CSP).
-// Prototype labels stay in Thai; the static markup is translated for the English locale.
-import { MAP, ULTS, ULT_ABIL, CC, MOBILITY, CONSUMABLE, MID_PAIR, START_T, DEFAULT_DEATH } from "./matchTables.mjs";
-import { english } from "./matchViewerCopy.mjs";
+// Lab Match view over validated replay-library bundles, with patch-scoped tables and calibration.
+import { matchViewerCopy } from "./matchViewerCopy.mjs";
+import { baseAttackSpeed, isConsumableItem, isControlEffect, isMobilityAbility, isMobilityItem, isNotableItem, isUltimateAbility } from "./replayPack.mjs";
 
-export function mountMatchView(root, bundle, { locale, markup, style, icon, hasMap, header }) {
-  const translate = text => locale === "en" ? english[text] ?? text : text;
+export function mountMatchView(root, bundle, { locale, markup, style, icon, hasMap, header, patchData, mapCalibration }) {
+  const viewerStrings = matchViewerCopy[locale].viewerStrings;
+  const translationEntries = Object.entries(viewerStrings).sort(([left], [right]) => right.length - left.length);
+  const translate = value => {
+    const text = String(value ?? "");
+    if (locale !== "en") return text;
+    if (viewerStrings[text]) return viewerStrings[text];
+    return translationEntries.reduce((result, [thai, englishText]) => result.includes(thai) ? result.replaceAll(thai, englishText) : result, text);
+  };
   const template = window.document.createElement("template");
   template.innerHTML = markup;
   for (const element of template.content.querySelectorAll("[aria-label],[title]")) {
@@ -26,6 +28,30 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
 
   let alive = true;
   const cleanups = [];
+  const translateNode = node => {
+    if (node.nodeType === window.Node.TEXT_NODE) {
+      const next = translate(node.nodeValue);
+      if (next !== node.nodeValue) node.nodeValue = next;
+      return;
+    }
+    if (node.nodeType !== window.Node.ELEMENT_NODE) return;
+    for (const name of ["title", "aria-label"]) {
+      if (node.hasAttribute(name)) {
+        const next = translate(node.getAttribute(name));
+        if (next !== node.getAttribute(name)) node.setAttribute(name, next);
+      }
+    }
+    for (const child of node.childNodes) translateNode(child);
+  };
+  const copyObserver = new window.MutationObserver(mutations => {
+    for (const mutation of mutations) {
+      if (mutation.type === "characterData") translateNode(mutation.target);
+      else if (mutation.type === "attributes") translateNode(mutation.target);
+      else for (const node of mutation.addedNodes) translateNode(node);
+    }
+  });
+  copyObserver.observe(root, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["title", "aria-label"] });
+  cleanups.push(() => copyObserver.disconnect());
   const on = (target, type, fn, options) => { target.addEventListener(type, fn, options); cleanups.push(() => target.removeEventListener(type, fn, options)); };
   const editing = ev => { const el = ev.composedPath()[0]; return el instanceof Element && !!el.closest("input, select, textarea"); };
   const requestAnimationFrame = cb => alive ? window.requestAnimationFrame(cb) : 0;
@@ -41,9 +67,14 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
 
   const $ = id => document.getElementById(id);
   const cv = $("rv-canvas"), ctx = cv.getContext("2d"), wrap = $("rv-mapwrap"), tip = $("rv-tip"), status = $("rv-status");
-  const S = {D: null, t: START_T, playing: false, speed: 10, mode: "route", heatStyle: "hero", trail: 45, range: [-90, 2222],
+  const S = {D: null, t: bundle.match.t0, playing: false, speed: 10, mode: "route", heatStyle: "hero", trail: 45, range: [bundle.match.t0, bundle.match.t1],
     vis: new Set(), focus: null, follow: false, names: false, autoPause: false, stopAt: null, review: null, lastCardKey: "",
-    view: {k: 1, ox: 0, oy: 0}, img: null, port: {}, alerts: [], hits: [], W: null, dmgFloat: true, fog: "all", layers: {lane: true, neut: true, rune: true, ward: true, bld: true, rosh: true}};
+    view: {k: 1, ox: 0, oy: 0}, img: null, port: {}, alerts: [], hits: [], W: null, dmgFloat: true, fog: "all", patchData, mapCalibration,
+    layers: {lane: true, neut: true, rune: true, ward: true, bld: true, rosh: true}};
+  if (!patchData.ultimate_classification.available) {
+    const ultimateCopy = $("al-ult-copy");
+    if (ultimateCopy) ultimateCopy.textContent = header["al-ult-copy"] ?? "";
+  }
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
   const clk = t => { const s = Math.round(t), a = Math.abs(s); return (s < 0 ? "−" : "") + String(Math.floor(a / 60)).padStart(2, "0") + ":" + String(a % 60).padStart(2, "0"); };
   const fmt = v => Math.round(v).toLocaleString("en-US");
@@ -70,7 +101,8 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
     return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
   }
   // world (GSI units) -> base canvas px -> screen px with zoom
-  const base = p => [(MAP.a * p[0] + MAP.b) / MAP.size * W, (MAP.c * p[1] + MAP.d) / MAP.size * H];
+  const base = p => [(mapCalibration.a * p[0] + mapCalibration.b) / mapCalibration.size * W,
+    (mapCalibration.c * p[1] + mapCalibration.d) / mapCalibration.size * H];
   const scr = p => { const [x, y] = base(p), v = S.view; return [(x - v.ox) * v.k, (y - v.oy) * v.k]; };
   function clampView(){ const v = S.view; v.k = Math.max(1, Math.min(6, v.k)); v.ox = Math.max(0, Math.min(W - W / v.k, v.ox)); v.oy = Math.max(0, Math.min(H - H / v.k, v.oy)); $("z-lvl").textContent = v.k.toFixed(1) + "×"; }
   function zoomAt(sx, sy, k){ const v = S.view, bx = sx / v.k + v.ox, by = sy / v.k + v.oy; v.k = Math.max(1, Math.min(6, k)); v.ox = bx - sx / v.k; v.oy = by - sy / v.k; clampView(); draw(); }
@@ -112,14 +144,14 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
       if (cfg.cc){
         for (const [a, b, n, src] of h.mods){
           const sh = D.byId[src];
-          if (!sh || sh.team === h.team || b - a < cfg.ccS || !CC.some(k => n.includes(k))) continue;
+          if (!sh || sh.team === h.team || b - a < cfg.ccS || !isControlEffect(patchData, n)) continue;
           out.push({hero: h.id, type: "cc", t0: a, t1: b, text: `โดน ${prettyMod(n, src)} ${(b - a).toFixed(1)} วินาที จาก ${sh.name}`});
         }
       }
       if (cfg.ult){
         const lastU = {};  // a repeated cast of the same ultimate within 20 s (e.g. Largo's song notes) stays one event
         for (const [t, n] of h.casts){
-          if (!ULTS.test(n)) continue;
+          if (!isUltimateAbility(patchData, h.id, n) && !isNotableItem(patchData, n)) continue;
           const prev = lastU[n]; lastU[n] = t;
           if (prev != null && t - prev < 20) continue;
           out.push({hero: h.id, type: "ult", t0: t, t1: t + 1.5, text: `ใช้ ${nameOf(n)}`});
@@ -157,7 +189,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
   }
   function label(x, y, text, color, align){
     ctx.font = `600 ${Math.max(10, Math.min(13, W * .017))}px ${css("--f-mono")}`; ctx.textAlign = align || "left"; ctx.lineJoin = "round";
-    ctx.lineWidth = 3; ctx.strokeStyle = "rgba(0,0,0,.85)"; ctx.strokeText(text, x, y); ctx.fillStyle = color || "#fff"; ctx.fillText(text, x, y);
+    ctx.lineWidth = 3; ctx.strokeStyle = "rgba(0,0,0,.85)"; ctx.strokeText(translate(text), x, y); ctx.fillStyle = color || "#fff"; ctx.fillText(translate(text), x, y);
   }
   function drawIcon(h, x, y, r, alive, alert){
     const im = S.port[h.id], now = performance.now() / 1000;
@@ -254,7 +286,8 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
       const g = grids[k];
       for (let i = 0; i < h.pos.length; i++){
         const t = i + D.t0; if (!h.alive[i] || t < S.range[0] || t >= S.range[1]) continue;
-        const p = h.pos[i], gx = Math.floor((MAP.a * p[0] + MAP.b) / MAP.size * N), gy = Math.floor((MAP.c * p[1] + MAP.d) / MAP.size * N);
+        const p = h.pos[i], gx = Math.floor((mapCalibration.a * p[0] + mapCalibration.b) / mapCalibration.size * N),
+          gy = Math.floor((mapCalibration.c * p[1] + mapCalibration.d) / mapCalibration.size * N);
         if (gx >= 0 && gy >= 0 && gx < N && gy < N) g[gy * N + gx] += 1;
       }
       // two box-blur passes ≈ gaussian
@@ -334,7 +367,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
     const out = [];
     for (const [a, b, n, src] of h.mods){
       if (a > t) break; if (b < t) continue;
-      const sh = S.D.byId[src], enemy = sh && sh.team !== h.team, cc = enemy && CC.some(k => n.includes(k));
+      const sh = S.D.byId[src], enemy = sh && sh.team !== h.team, cc = enemy && isControlEffect(patchData, n);
       out.push({n: prettyMod(n, src), rem: b - t, cls: cc ? "cc" : enemy ? "deb" : ""});
     }
     out.sort((x, y) => (y.cls === "cc") - (x.cls === "cc") || (y.cls === "deb") - (x.cls === "deb"));
@@ -371,18 +404,24 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
       ${statsHTML(h, i)}
       ${derivedHTML(h, i, t)}`;
   }
-  /* derived stats from 7.41f tables (dotaconstants) + replay attributes, items, buffs */
+  /* Patch-scoped dotaconstants tables plus observed replay attributes, items and modifiers. */
   function abilLv(h, name, i){ const a = h && h.abil.find(x => x.n === name); return a ? Math.max(1, a.lv[i]) : 1; }
   function derived(h, t){
     const db = S.D.statdb; if (!db || !h.st) return null;
     const hb = db.heroes[h.id]; if (!hb) return null;
     const i = idx(t), s = h.st, melee = hb.melee, src = {};
+    const mrPerIntPct = patchData.rules?.mr_per_int_pct
+      ?? patchData.formulas?.magic_resistance_per_intelligence_pct?.value;
+    const armorPerAgi = patchData.rules?.armor_per_agi
+      ?? patchData.formulas?.armor_per_agility?.value;
+    if (!Number.isFinite(mrPerIntPct) || !Number.isFinite(armorPerAgi)) return null;
     const add = (k, label, v) => { if (!v) return; (src[k] = src[k] || []).push([label, v]); };
     const agi = s.agiT[i], int = s.intT[i];
-    // armor: base + AGI/6 + items + enchantment + buffs
-    add("armor", "พื้นฐาน", hb.armor); add("armor", `AGI ${Math.round(agi)} ÷ 6`, agi / 6);
-    add("mr", "พื้นฐาน", hb.mr); add("mrint", `INT ${Math.round(int)} × 0.1%`, int * .1);
-    add("as", `พื้นฐานของฮีโร่ (${hb.bas})`, hb.bas); add("as", `AGI ${Math.round(agi)}`, agi);
+    // Armor, resistance and attack-speed formulas come from this patch's local replay pack.
+    add("armor", "พื้นฐาน", hb.armor); add("armor", `AGI ${Math.round(agi)} × ${armorPerAgi}`, agi * armorPerAgi);
+    add("mr", "พื้นฐาน", hb.mr); add("mrint", `INT ${Math.round(int)} × ${mrPerIntPct}%`, int * mrPerIntPct);
+    const bas = baseAttackSpeed(patchData, h.id) ?? hb.bas;
+    add("as", `พื้นฐานของฮีโร่ (${bas})`, bas); add("as", `AGI ${Math.round(agi)}`, agi);
     add("ms", "พื้นฐาน", hb.ms);
     let boots = 0, bootsName = "";
     for (const [slot, n] of invAt(h, t)){
@@ -413,7 +452,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
     // base + INT magic resistance add together, then every other source multiplies
     const mrBase = (hb.mr + sum("mrint")) / 100, mr = 1 - (1 - mrBase) * (1 - mult("mrm"));
     // Liquipedia Attack Speed: min = 20 shifted by (base AS − 100), max 700
-    const as = Math.max(20 + hb.bas - 100, Math.min(700, sum("as"))), aps = as / 100 / (s.bat[i] || 1.7);
+    const as = Math.max(20 + bas - 100, Math.min(700, sum("as"))), aps = as / 100 / (s.bat[i] || 1.7);
     let ms = sum("ms") * (1 + sum("mspct") / 100); ms = haste ? 550 : Math.max(100, Math.min(550, ms));
     return {src, armor, pr, mr, amp: sum("amp"), ls: sum("ls"), sls: sum("sls"), ev: mult("evm"), sres: mult("srm"), as, aps, ms, haste};
   }
@@ -424,9 +463,9 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
     const cell = (lab, val, title, cls) => `<span class="dv${cls ? " " + cls : ""}" title="${title}">${lab} <b>${val}</b></span>`;
     return `<div class="row dvs">
       ${cell("ARM", d.armor.toFixed(1), tip(`เกราะ ≈ ${d.armor.toFixed(1)} (ลดดาเมจกายภาพ ${pct(d.pr)})`, ["armor"], "สูตร: 0.06×เกราะ ÷ (1 + 0.06×|เกราะ|)"))}
-      ${cell("MR", pct(d.mr), tip(`Magic resistance ≈ ${pct(d.mr)}`, ["mr", "mrint", "mrm"], "สูตร (Liquipedia): 1 − [1 − (0.25 + 0.001×INT)] × Π(1 − แหล่งอื่น) · 7.41f ใช้ 0.1% ต่อ INT (7.42 เพิ่มเป็น 0.125%)"))}
+      ${cell("MR", pct(d.mr), tip(`Magic resistance ≈ ${pct(d.mr)}`, ["mr", "mrint", "mrm"], `Patch ${patchData.patch}: base resistance plus ${patchData.rules?.mr_per_int_pct ?? patchData.formulas?.magic_resistance_per_intelligence_pct?.value}% per INT, then other sources multiply.`))}
       ${cell("AMP", d.amp + "%", tip(`Spell amp ≈ ${d.amp}%`, ["amp"], "แหล่งต่าง ๆ บวกกัน"), d.amp ? "" : "z")}
-      ${cell("AS", Math.round(d.as), tip(`Attack speed ≈ ${Math.round(d.as)} (${d.aps.toFixed(2)} ครั้ง/วินาที, BAT ${h.st.bat[i]})`, ["as"], `สูตร (Liquipedia): AS = พื้นฐานฮีโร่ + AGI + โบนัส จำกัด ${20 + S.D.statdb.heroes[h.id].bas - 100}–700 · ครั้ง/วินาที = AS ÷ (100 × BAT)`))}
+      ${cell("AS", Math.round(d.as), tip(`Attack speed ≈ ${Math.round(d.as)} (${d.aps.toFixed(2)} ครั้ง/วินาที, BAT ${h.st.bat[i]})`, ["as"], `Patch ${patchData.patch}: hero base attack speed + AGI + bonuses, bounded by ${20 + (baseAttackSpeed(patchData, h.id) ?? S.D.statdb.heroes[h.id].bas) - 100}–700.`))}
       ${cell("MS", Math.round(d.ms), tip(`ความเร็ววิ่ง ≈ ${Math.round(d.ms)}${d.haste ? " (haste = ความเร็วสูงสุด)" : ""}`, ["ms", "mspct"], "สูตร: (พื้นฐาน + รองเท้าคู่ที่ดีที่สุด + ค่าคงที่อื่น) × (1 + % รวม) จำกัด 100–550"))}
       ${cell("EV", pct(d.ev), tip(`Evasion ≈ ${pct(d.ev)}`, ["evm"], "สูตร: 1 − Π(1 − แหล่ง)"), d.ev ? "" : "z")}
       ${cell("SR", pct(d.sres), tip(`Status resistance ≈ ${pct(d.sres)}`, ["srm"], "สูตร (Liquipedia): 1 − Π(1 − แหล่ง) · Sange หลายชิ้นเอาค่าสูงสุดค่าเดียว"), d.sres ? "" : "z")}
@@ -648,7 +687,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
     $(id).addEventListener("change", () => { buildAlerts(); renderLists(); renderTicks(); renderCards(true); draw(); });
   document.querySelectorAll("[data-g]").forEach(b => b.addEventListener("click", () => {
     const g = b.dataset.g;
-    S.vis = new Set(S.D.heroes.filter(h => g === "all" || (g === "mid" && MID_PAIR.test(h.id)) || String(h.team) === g).map(h => h.id));
+    S.vis = new Set(S.D.heroes.filter(h => g === "all" || String(h.team) === g).map(h => h.id));
     changedVis();
   }));
   function hit(sx, sy){
@@ -751,7 +790,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
       c.textAlign = "left"; c.fillStyle = ink; c.font = `600 12.5px ${css("--f-body")}`; c.fillText(h.name, 40, y0 + 19);
       const e = h.eco[i0]; c.font = `11px ${css("--f-mono")}`; c.fillStyle = css("--ink-2") || "#555";
       c.fillText(`LH ${e[2]}/${e[3]} · NW ${fmt(e[1])}`, 40, y0 + 35);
-      c.fillText(`Lv ${h.lvl[i0]} · ทอง ${fmt(e[0])}`, 40, y0 + 50);
+      c.fillText(translate(`Lv ${h.lvl[i0]} · ทอง ${fmt(e[0])}`), 40, y0 + 50);
       // metric area
       const a = Math.max(0, Math.floor(TL.v0) - S.D.t0), b = Math.min(h.eco.length - 1, Math.ceil(TL.v1) - S.D.t0);
       const stride = Math.max(1, Math.floor((b - a) / (TW - LABEL)));
@@ -776,7 +815,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
         cl = {x, hero: h, row: r, y: y0 + BUB + 3, items: [bb]}; TL.clusters.push(cl);
       }
       for (const k of TL.clusters.filter(k => k.row === r)){
-        const main = [...k.items].reverse().find(b => b[2] === "find") || [...k.items].reverse().find(b => !CONSUMABLE.test(b[1]) && !b[1].startsWith("item_recipe_")) || k.items[k.items.length - 1];
+        const main = [...k.items].reverse().find(b => b[2] === "find") || [...k.items].reverse().find(b => !isConsumableItem(patchData, b[1]) && !b[1].startsWith("item_recipe_")) || k.items[k.items.length - 1];
         k.main = main;
         c.strokeStyle = h.color; c.globalAlpha = .45; c.lineWidth = 1; c.beginPath(); c.moveTo(k.x, k.y + BUB); c.lineTo(k.x, base); c.stroke(); c.globalAlpha = 1;
         const ic = tlIcon(main[1]);
@@ -784,7 +823,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
         if (ic && ic.complete && ic.naturalWidth) c.drawImage(ic, 12, 0, 64, 64, k.x - BUB, k.y - BUB, BUB * 2, BUB * 2);
         else { c.fillStyle = ink; c.font = `600 8px ${css("--f-mono")}`; c.textAlign = "center"; c.fillText(nameOf(main[1]).slice(0, 3), k.x, k.y + 3); }
         c.restore();
-        c.strokeStyle = main[2] === "find" ? "#3bb36b" : CONSUMABLE.test(main[1]) ? muted : h.color; c.lineWidth = main[2] === "find" ? 3 : 2; c.beginPath(); c.arc(k.x, k.y, BUB, 0, 7); c.stroke();
+        c.strokeStyle = main[2] === "find" ? "#3bb36b" : isConsumableItem(patchData, main[1]) ? muted : h.color; c.lineWidth = main[2] === "find" ? 3 : 2; c.beginPath(); c.arc(k.x, k.y, BUB, 0, 7); c.stroke();
         if (k.items.length > 1){
           const t = "+" + (k.items.length - 1); c.font = `600 9px ${css("--f-mono")}`; const w = c.measureText(t).width + 6;
           c.fillStyle = ink; c.beginPath(); c.roundRect ? c.roundRect(k.x + BUB - 5, k.y - BUB - 3, w, 12, 6) : c.rect(k.x + BUB - 5, k.y - BUB - 3, w, 12); c.fill();
@@ -792,7 +831,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
         }
       }
     });
-    if (!TL.rows.length){ c.fillStyle = muted; c.textAlign = "left"; c.font = `13px ${css("--f-body")}`; c.fillText("เลือกฮีโร่จากรายชื่อด้านบนเพื่อแสดงไทม์ไลน์", 16, TOP + 30); }
+    if (!TL.rows.length){ c.fillStyle = muted; c.textAlign = "left"; c.font = `13px ${css("--f-body")}`; c.fillText(translate("เลือกฮีโร่จากรายชื่อด้านบนเพื่อแสดงไทม์ไลน์"), 16, TOP + 30); }
     // replay cursor
     if (S.t >= TL.v0 && S.t <= TL.v1){
       const x = tx(S.t); c.fillStyle = css("--rad") || "#2a78d6"; c.fillRect(x - 1, TOP - 6, 2, TH - TOP + 6);
@@ -842,7 +881,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
       const k = tlHit(x, y); let html = null, px = x, py = y;
       if (k){
         html = `<b>${esc(k.hero.name)}</b> · ${k.items.length} ชิ้น<div class="tl-tip-items">` +
-          k.items.map(b => `<div><img src="${iconSrc(b[1])}" alt=""><span class="num">${clk(b[0])}</span>${esc(nameOf(b[1]))}${b[2] === "find" ? ` <span style="color:var(--good)">(ไอเทมป่า · ${esc(b[3])} ${b[4]})</span>` : CONSUMABLE.test(b[1]) ? ' <span style="color:var(--muted)">(ของใช้)</span>' : ""}</div>`).join("") + "</div>";
+          k.items.map(b => `<div><img src="${iconSrc(b[1])}" alt=""><span class="num">${clk(b[0])}</span>${esc(nameOf(b[1]))}${b[2] === "find" ? ` <span style="color:var(--good)">(ไอเทมป่า · ${esc(b[3])} ${b[4]})</span>` : isConsumableItem(patchData, b[1]) ? ' <span style="color:var(--muted)">(ของใช้)</span>' : ""}</div>`).join("") + "</div>";
         px = k.x; py = k.y - BUB;
       } else if (x > LABEL){
         const row = Math.floor((y - TOP) / ROW), h = TL.rows[row];
@@ -994,7 +1033,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
     if (!bkb) return {list: [], freed: 0};
     const h = R.h, s0 = R.t0, s1 = R.t0 + bkb.bkb, list = [];
     for (const [a, b, n, src] of h.mods){
-      const sh = S.D.byId[src]; if (!sh || sh.team === h.team || a < s0 - .05 || a > s1 || !CC.some(k => n.includes(k))) continue;
+      const sh = S.D.byId[src]; if (!sh || sh.team === h.team || a < s0 - .05 || a > s1 || !isControlEffect(patchData, n)) continue;
       const ab = ccSourceAbility(n, src, a), pierce = ab ? (S.D.statdb.abpierce[ab] || S.D.statdb.pierce[ab] || 0) : 0;
       if (b - a >= .1) list.push({mod: n, src, ab, a, b, dur: b - a, pierce, known: !!ab});
     }
@@ -1033,7 +1072,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
     if (tStar != null) ev.push({k: "time", txt: `จุดถอยสุดท้ายประมาณ ${clk(tStar)} (${(tStar - R.T).toFixed(1)}s) ตอนนั้น HP ${pct(hpAt(R, tStar))}` });
     ev.push({k: "time", txt: retreatStart != null ? `เริ่มถอยจริง ${clk(retreatStart)} (${(retreatStart - R.T).toFixed(1)}s) HP ${pct(hpAt(R, retreatStart))}` : "ไม่พบช่วงที่วิ่งออกจากศัตรูต่อเนื่อง 2 วินาทีก่อนตาย"});
     const lo = Math.min(at, retreatStart != null ? retreatStart : R.T) - .5, hi = retreatStart != null ? Math.max(retreatStart, at) : R.T;
-    const ccs = h.mods.filter(([a, b, n, src]) => { const sh = S.D.byId[src]; return sh && sh.team !== h.team && CC.some(k => n.includes(k)) && b > lo && a < hi; });
+    const ccs = h.mods.filter(([a, b, n, src]) => { const sh = S.D.byId[src]; return sh && sh.team !== h.team && isControlEffect(patchData, n) && b > lo && a < hi; });
     const ccTime = ccs.reduce((s, [a, b]) => s + Math.min(b, hi) - Math.max(a, lo), 0);
     if (ccs.length) ev.push({k: "cc", w: ccTime >= 1 ? 3 : 1, txt: `ติด CC รวม ${ccTime.toFixed(1)} วินาทีในช่วงที่ควรถอย: ${[...new Set(ccs.map(c => prettyMod(c[2], c[3])))].join(", ")}`});
     for (const [k, [first, seen]] of Object.entries(d.seen || {})){
@@ -1050,8 +1089,8 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
     if (used.length) ev.push({k: "cast", w: 0, txt: `ใช้ระหว่างไฟต์: ${[...new Set(used)].join(", ")}`});
     // escape tools at the decision point
     const tools = [];
-    for (const a of h.abil) if (MOBILITY.test(a.n) && a.lv[i] > 0) tools.push([nameOf(a.n), a.cd[i], a.mc[i] > h.mp[i]]);
-    for (const [s, n] of invAt(h, at)) if ((s <= 5 || s === 15) && MOBILITY.test(n)){ const v = h.icd[s] && h.icd[s][Math.floor(at)]; tools.push([nameOf(n), v ? v[0] : 0, false]); }
+    for (const a of h.abil) if (isMobilityAbility(patchData, h.id, a.n) && a.lv[i] > 0) tools.push([nameOf(a.n), a.cd[i], a.mc[i] > h.mp[i]]);
+    for (const [s, n] of invAt(h, at)) if ((s <= 5 || s === 15) && isMobilityItem(patchData, n)){ const v = h.icd[s] && h.icd[s][Math.floor(at)]; tools.push([nameOf(n), v ? v[0] : 0, false]); }
     if (tools.length){
       const TP = /Town Portal|Boots of Travel/, ready = tools.filter(x => !x[1] && !x[2] && !TP.test(x[0])), usedNames = new Set(used);
       ev.push({k: "tool", w: ready.some(x => !usedNames.has(x[0])) ? 2 : 0, txt: "ตัวช่วยหนีตอนนั้น: " + tools.map(([n, cd, nm]) => `${n} ${cd ? `ติด cd ${Math.ceil(cd)}s` : nm ? "มานาไม่พอ" : (usedNames.has(n) ? "พร้อม (ใช้แล้ว)" : TP.test(n) ? "พร้อม (ต้องร่าย 3 วินาที ใช้หนีกลางไฟต์ยาก)" : "พร้อมแต่ไม่ได้ใช้")}`).join(" · ")});
@@ -1098,7 +1137,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
     // CC bands on the victim
     const h = R.h;
     for (const [a, b, n, src] of h.mods){
-      const sh = S.D.byId[src]; if (!sh || sh.team === h.team || b < t0 || a > t1 || !CC.some(k => n.includes(k))) continue;
+      const sh = S.D.byId[src]; if (!sh || sh.team === h.team || b < t0 || a > t1 || !isControlEffect(patchData, n)) continue;
       c.fillStyle = "rgba(225,75,75,.14)"; c.fillRect(x(Math.max(a, t0)), Tm, x(Math.min(b, t1)) - x(Math.max(a, t0)), hgt - Tm - B);
       c.fillStyle = "#c63c3b"; c.textAlign = "left"; c.fillText(prettyMod(n, src), x(Math.max(a, t0)) + 3, Tm + 11);
     }
@@ -1111,11 +1150,11 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
     if (A){
       c.beginPath(); A.buf.forEach((p, j) => { const xx = x(p[0]), yy = y(Math.min(ymax, p[1])); j ? c.lineTo(xx, yy) : c.moveTo(xx, yy); });
       c.strokeStyle = "#e0a030"; c.setLineDash([2, 3]); c.lineWidth = 1.6; c.stroke(); c.setLineDash([]);
-      const mark = (t, col, lab) => { if (t == null || t < t0 || t > t1) return; c.fillStyle = col; c.fillRect(x(t) - 1, Tm, 2, hgt - Tm - B); c.textAlign = "left"; c.fillText(lab, x(t) + 4, Tm + 24); };
+      const mark = (t, col, lab) => { if (t == null || t < t0 || t > t1) return; c.fillStyle = col; c.fillRect(x(t) - 1, Tm, 2, hgt - Tm - B); c.textAlign = "left"; c.fillText(translate(lab), x(t) + 4, Tm + 24); };
       mark(A.tStar, "#e0a030", "ควรถอย"); mark(A.retreatStart, "#4a7fe0", "ถอยจริง");
     }
     c.strokeStyle = ink; c.setLineDash([3, 3]); c.beginPath(); c.moveTo(x(R.T), Tm); c.lineTo(x(R.T), hgt - B); c.stroke(); c.setLineDash([]);
-    c.fillStyle = ink; c.textAlign = "right"; c.fillText("ตาย " + clk(R.T), x(R.T) - 4, hgt - B - 4);
+    c.fillStyle = ink; c.textAlign = "right"; c.fillText(translate("ตาย " + clk(R.T)), x(R.T) - 4, hgt - B - 4);
     $("dl-legend").innerHTML = `<span><i style="background:var(--bad)"></i>HP จริง (คำนวณจาก combat log)</span>${R.any ? `<span><i class="dash" style="background:var(--good)"></i>HP ในสถานการณ์จำลอง</span>` : ""}<span><i style="background:rgba(225,75,75,.3)"></i>ช่วงที่โดน CC</span>${A ? `<span><i style="background:#e0a030;height:2px"></i>HP ที่ต้องเหลือไว้เพื่อหนีทัน (เส้นประ)</span><span><i style="background:#e0a030"></i>จุดถอยสุดท้าย</span><span><i style="background:#4a7fe0"></i>เริ่มถอยจริง</span>` : ""}`;
   }
 
@@ -1168,7 +1207,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
     const fc = S.fogCv; fc.width = cv.width; fc.height = cv.height; const f = fc.getContext("2d");
     f.setTransform(dpr, 0, 0, dpr, 0, 0); f.fillStyle = "rgba(4,8,12,.62)"; f.fillRect(0, 0, W, H);
     f.globalCompositeOperation = "destination-out";
-    const pxPerUnit = MAP.a / MAP.size * W * S.view.k;
+    const pxPerUnit = mapCalibration.a / mapCalibration.size * W * S.view.k;
     const hole = (p, r) => { const [x, y] = scr(p), R = r * pxPerUnit; const g = f.createRadialGradient(x, y, R * .82, x, y, R); g.addColorStop(0, "rgba(0,0,0,1)"); g.addColorStop(1, "rgba(0,0,0,0)"); f.fillStyle = g; f.beginPath(); f.arc(x, y, R, 0, 7); f.fill(); };
     for (const h of S.D.heroes) if (h.team === team && h.alive[idx(t)]) hole(posAt(h, t), night ? 800 : 1800);
     for (const tr of S.W.tracks){
@@ -1226,7 +1265,13 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
 
   {
     const D = bundle.match;
+    D.statdb = D.statdb || {};
+    D.statdb.buffs = patchData.buffs;
+    D.statdb.heroes = D.statdb.heroes || {};
+    D.statdb.rules = { ...(D.statdb.rules || {}), ...patchData.rules };
     D.byId = {}; for (const h of D.heroes){ D.byId[h.id] = h; h.short = shortOf(h.name);
+      const speed = baseAttackSpeed(patchData, h.id);
+      if (D.statdb.heroes[h.id] && speed !== null) D.statdb.heroes[h.id].bas = speed;
       const dec = a => { const o = new Float64Array(a.length); let s = 0; for (let k = 0; k < a.length; k++){ s += a[k]; o[k] = s / (D.dtick || 10); } return o; };
       if (h.din){ h.DT = dec(h.din[0]); h.DV = h.din[1]; h.DY = h.din[2]; }
       if (h.hin){ h.HT = dec(h.hin[0]); h.HV = h.hin[1]; } const im = new Image(); im.onload = () => draw(); im.src = portSrc(h.id); S.port[h.id] = im; }
@@ -1250,7 +1295,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
     $("dl-ownbkb").addEventListener("change", e => { DL.ownBkb = e.target.checked; renderDeathLab(DL.d); });
     $("dl-x").addEventListener("input", e => { DL.X = +e.target.value; renderDeathLab(DL.d); });
     new ResizeObserver(() => DL.d && renderDeathLab(DL.d)).observe($("dl"));
-    renderDeathLab(D.deaths.find(d => d.hero.endsWith(DEFAULT_DEATH.heroSuffix) && d.t > DEFAULT_DEATH.from && d.t < DEFAULT_DEATH.to) || D.deaths[0]);
+    if (D.deaths[0]) renderDeathLab(D.deaths[0]);
   }
 
   return () => {

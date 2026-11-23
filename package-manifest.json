@@ -113,13 +113,18 @@
     },
     {
       "path": "apps/desktop/src-tauri/Cargo.toml",
-      "bytes": 2836,
-      "sha256": "6057678737f1095084f291c56498de1d8e250b3eeb457d1570d2085e126fb8dc"
+      "bytes": 2863,
+      "sha256": "98dee1bd8ed1a496a1dd4ca921eb6aa7ebe6f7665d4d11b311361ba8b09393c2"
     },
     {
       "path": "apps/desktop/src-tauri/app-icon.png",
       "bytes": 3920,
       "sha256": "358ae14077ccaf5689ac7a9619d44d51e18772ea10ac8979145a82699d337741"
+    },
+    {
+      "path": "apps/desktop/src-tauri/binaries/replay-engine-rs-x86_64-pc-windows-msvc.exe",
+      "bytes": 3229184,
+      "sha256": "a05f91761a8bacd84ceec24522568e526e6a35a27525c3dfbfaf5e7f3192dcb6"
     },
     {
       "path": "apps/desktop/src-tauri/build.rs",
@@ -348,8 +353,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/commands.rs",
-      "bytes": 50729,
-      "sha256": "02aaa3cafdf86c27d86cf54f4cfd68c47554549f7d225a085c1b721c832a3d7c"
+      "bytes": 55556,
+      "sha256": "8ebbbe8c9a6ad3ebd9025a4332ed4414b362fc380c9931af13a35d50723c0b77"
     },
     {
       "path": "apps/desktop/src-tauri/src/containment.rs",
@@ -488,8 +493,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 65047,
-      "sha256": "8d5770ba610efc4935450e16fe44d68edca6fee9b854832d47b9a68af1f86434"
+      "bytes": 67279,
+      "sha256": "d10e582815351ef469ffd4838be60de17be162f8ed2a634f5171f8962654a1b5"
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
@@ -612,6 +617,16 @@
       "sha256": "bb31609c62d11b2d7843d998c8f38cf6df14a2dcba7a72b22929278befc194b3"
     },
     {
+      "path": "apps/desktop/src-tauri/src/replay_library/engine.rs",
+      "bytes": 39006,
+      "sha256": "92b4494aa51e32b479c3a9fddcc2227d13507649390255748ca496d3432988e7"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/replay_library/mod.rs",
+      "bytes": 52727,
+      "sha256": "0bcccc37927e9f612396f79516c601c404af8252d33e01d20e8718a4cf5a9d0c"
+    },
+    {
       "path": "apps/desktop/src-tauri/src/secrets.rs",
       "bytes": 3515,
       "sha256": "397f098dc5e5b99c2dfe7831f396b348b9bb8c122b71dee92c5c885fcb9454f8"
@@ -658,8 +673,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/tauri.conf.json",
-      "bytes": 1691,
-      "sha256": "8aab55a755514334d49c21e12a82f2bce7ce06188d92c9165b96314f9dfc810a"
+      "bytes": 1741,
+      "sha256": "149190e0c27cd53a308634007c8cbac23269f2a47fc1660c426d2181866b5d59"
     },
     {
       "path": "apps/desktop/src-tauri/tests/latency_harness.rs",
@@ -12178,13 +12193,33 @@
     },
     {
       "path": "apps/desktop/src/assets/dota/6989/stats.json",
-      "bytes": 390263,
-      "sha256": "71909be1f463baa00299326b5aee0abfd7b294813cbf3ad1de065235169dc73b"
+      "bytes": 646977,
+      "sha256": "dbb6f5de709f96de04e60b5a186df18be81a49545235a2d9fa095cfe0ec2cc04"
     },
     {
       "path": "apps/desktop/src/assets/editor/editor-reference-1080p.jpg",
       "bytes": 333443,
       "sha256": "e989e489bd4a4519c9b2b8b346ecee290e6c1495248b4bf3729d4345f1f223ce"
+    },
+    {
+      "path": "apps/desktop/src/assets/replay-packs/7.41f/provenance.json",
+      "bytes": 1836,
+      "sha256": "604d82eeba17ce3e61fe2bbbd852ba89054c6425194be0f4fe64eeebb26e5830"
+    },
+    {
+      "path": "apps/desktop/src/assets/replay-packs/7.41f/replay-data.json",
+      "bytes": 129858,
+      "sha256": "e39752d20bab1a6c330c1d2bb3ab8d0e4eddbf77d4ead12664176b5d1b42ba1c"
+    },
+    {
+      "path": "apps/desktop/src/assets/replay-packs/7.42/provenance.json",
+      "bytes": 1828,
+      "sha256": "9d96cd1e3dff4f1427cd2044efa369655dd1f508bf83011b16300e3529be7f3e"
+    },
+    {
+      "path": "apps/desktop/src/assets/replay-packs/7.42/replay-data.json",
+      "bytes": 139894,
+      "sha256": "55bfcb4c6fd063e95d490ad6686dfb0139dd0c67f4306fea6df3cacbbdbf68cb"
     },
     {
       "path": "apps/desktop/src/audioPrefs.ts",
@@ -13063,13 +13098,13 @@
     },
     {
       "path": "apps/desktop/src/replay/MatchViewPanel.tsx",
-      "bytes": 7941,
-      "sha256": "d32c4a7bc1d45dcc464e72743311d78f34dc79e04caa0b635dd769ad191ee748"
+      "bytes": 12017,
+      "sha256": "518565ce08395d7db2eecb83de1d579a113b8306b6da635ae76a2f42bc2d7dd3"
     },
     {
       "path": "apps/desktop/src/replay/ReplayPanel.tsx",
-      "bytes": 4478,
-      "sha256": "5963403cfc83fddbe0a1b70fce8c69b526cf4ddff3b494a7d3ec843debefd7c0"
+      "bytes": 3697,
+      "sha256": "f059d2ed0564cab9a03acb61ba59225012fd295ac107ae7aff7c8c03de54ae4c"
     },
     {
       "path": "apps/desktop/src/replay/admission.ts",
@@ -13087,19 +13122,19 @@
       "sha256": "53b9449ce28520310609c9c5dadaf4f315634746b2e4f45a0933d75bf781b293"
     },
     {
+      "path": "apps/desktop/src/replay/generateReplayPacks.mjs",
+      "bytes": 7931,
+      "sha256": "a4d3f36ac7603a68de49e8e85de462d962ef6728ca11ee17605188b001787b47"
+    },
+    {
       "path": "apps/desktop/src/replay/matchBundle.ts",
-      "bytes": 16667,
-      "sha256": "c2ec50ec472be1faa0925117a4c368a2722d8ce2d125e35f3bd05ba35f5e6945"
+      "bytes": 17873,
+      "sha256": "9a3d7c6e053a797d8fef51779a3107b7373e13f96a27609420baf8ec0a5a1b05"
     },
     {
-      "path": "apps/desktop/src/replay/matchTables.d.mts",
-      "bytes": 435,
-      "sha256": "9b8d53b7f21bd9c59c2743f2422b200bf56826da5724cc3c3d9f1095fe707539"
-    },
-    {
-      "path": "apps/desktop/src/replay/matchTables.mjs",
-      "bytes": 2564,
-      "sha256": "07bb1810b5feff1b5dde3e7f11f117488ca08f18b46f5c9c48af9731ab766f18"
+      "path": "apps/desktop/src/replay/matchLibrary.css",
+      "bytes": 1569,
+      "sha256": "e97c4f83ba331059cb4a816383be2e63ed01f37e182b9fe301cc98b34559191e"
     },
     {
       "path": "apps/desktop/src/replay/matchViewer.css",
@@ -13108,28 +13143,48 @@
     },
     {
       "path": "apps/desktop/src/replay/matchViewer.d.mts",
-      "bytes": 421,
-      "sha256": "e909915d1ed65537f10eb2c91dd8d4cc234d8bd41d92e857aec2b5a0b24b9aea"
+      "bytes": 562,
+      "sha256": "93292a113f5f22cf4ac1d788d120e46cd3d06c547cce342bd5741baaeb5a667e"
     },
     {
       "path": "apps/desktop/src/replay/matchViewer.html",
-      "bytes": 17244,
-      "sha256": "f7a3819345586281b628d6c2b35a6b6c90adce9db257ed5030618258a5405a31"
+      "bytes": 17207,
+      "sha256": "2c38c6eadbaa2aee7e87022ebbcd9260b99202d4b0812ab84c1e04415d6e4e19"
     },
     {
       "path": "apps/desktop/src/replay/matchViewer.mjs",
-      "bytes": 105001,
-      "sha256": "593f3b8ca9121340445bdb7777b75af0dbe401e65389236dc75ba9892a87da3c"
+      "bytes": 107331,
+      "sha256": "bb09d2d7947748a1c1c11b8039cf72eb709133323ed03866ebd373590ddc5119"
     },
     {
       "path": "apps/desktop/src/replay/matchViewerCopy.d.mts",
-      "bytes": 46,
-      "sha256": "90cd6e40ddf5500587c488cdbdee574fd99eb29d9b60aeb0f50956d2685f3d7d"
+      "bytes": 1863,
+      "sha256": "729f5fa8defb8e24a212925ec70ea2ff71e9775b4a5fa99d05430c9697acaed2"
     },
     {
       "path": "apps/desktop/src/replay/matchViewerCopy.mjs",
-      "bytes": 7911,
-      "sha256": "5ee4b438e04008436ddd3f3610bdb20db7d45995c199442fb423b3e7745fc794"
+      "bytes": 35694,
+      "sha256": "1b69d9d5bc920fa4b4b4727c781c2791f0f54e7e9d6bdb0fb1c5d3710f440994"
+    },
+    {
+      "path": "apps/desktop/src/replay/replayLibraryClient.ts",
+      "bytes": 2508,
+      "sha256": "3b1b19a1f42d7df04ea2e60aa3561b7c6a31856eb2bf8959a4798eca2bc0df06"
+    },
+    {
+      "path": "apps/desktop/src/replay/replayLibraryModel.ts",
+      "bytes": 5531,
+      "sha256": "93fd78f11219091b2b2dde9153161fa96348957035e92ab28ee56d7b72795279"
+    },
+    {
+      "path": "apps/desktop/src/replay/replayPack.d.mts",
+      "bytes": 2760,
+      "sha256": "f87d127f38935b5c6cd24b5b2f32d3f21ef049c44940cb7d79cef77681b433c9"
+    },
+    {
+      "path": "apps/desktop/src/replay/replayPack.mjs",
+      "bytes": 6105,
+      "sha256": "84cf7d4fa89810e120e7e948f4541ad7de7d7e65aa91c7d72514262015c1a342"
     },
     {
       "path": "apps/desktop/src/replay/report.ts",
@@ -13643,8 +13698,13 @@
     },
     {
       "path": "apps/desktop/tests/match-bundle.test.ts",
-      "bytes": 8233,
-      "sha256": "6b71267e491cfd7a3f4f96ea247a45c880440dc34ef6e3691990e0c241bd1493"
+      "bytes": 8121,
+      "sha256": "067cd0bfd928b105fc68262a037999973c6ab4bb816db8f76d02d98a4085f0b8"
+    },
+    {
+      "path": "apps/desktop/tests/match-copy.test.ts",
+      "bytes": 1021,
+      "sha256": "bba4faecbad409e5450e86370828ba65a90631d2f3def15a080c6451a03861f8"
     },
     {
       "path": "apps/desktop/tests/matchRecap.test.ts",
@@ -13750,6 +13810,21 @@
       "path": "apps/desktop/tests/rail-preference.test.ts",
       "bytes": 4018,
       "sha256": "bf765971b9a98a59dbf3ee68f61157462f5794101a2ed0dbe355860dc528e64c"
+    },
+    {
+      "path": "apps/desktop/tests/replay-library-client.test.ts",
+      "bytes": 2015,
+      "sha256": "ee0c5537c3bffd13ceb7b8715ad963aa2f81db311d75787ee32344f65bbd7d65"
+    },
+    {
+      "path": "apps/desktop/tests/replay-library-model.test.ts",
+      "bytes": 3861,
+      "sha256": "6d94ee85ccb2438b249c075a400c5aa2e43db6918e2cd6afebab87523a7523a6"
+    },
+    {
+      "path": "apps/desktop/tests/replay-packs.test.ts",
+      "bytes": 6291,
+      "sha256": "4e07fbdd588e631337c13cb79d23c419401a060553353468b7dab2717516e893"
     },
     {
       "path": "apps/desktop/tests/round2.test.ts",
@@ -14035,6 +14110,16 @@
       "path": "contracts/product-needs.json",
       "bytes": 10049,
       "sha256": "d2000b1258696ea8c062fe55b86f23a69fc150208832c23e234e703f8588276d"
+    },
+    {
+      "path": "contracts/replay-bundle.schema.json",
+      "bytes": 10141,
+      "sha256": "6dbb7c0f21c4b5620aede44f7fd71512bb46f668da9c4cc348a3c77aa0ae2fb6"
+    },
+    {
+      "path": "contracts/replay-engine.schema.json",
+      "bytes": 8030,
+      "sha256": "622bb3f42d620b878939308a99c525e2178012ef48037a20254d56d525c67bf5"
     },
     {
       "path": "contracts/requirements.json",
@@ -14368,8 +14453,8 @@
     },
     {
       "path": "crates/kohbor-game-assets/src/bin/kohbor-asset-export.rs",
-      "bytes": 36055,
-      "sha256": "fab9ff50992865aa017fe5e50027ab6735608f172cd00b78f17239bca358fa08"
+      "bytes": 36996,
+      "sha256": "a05d27ba5f675df7594c7351a038742437ef384ffbc4141f5372cde332a6c372"
     },
     {
       "path": "crates/kohbor-game-assets/src/bin/kohbor-asset-probe.rs",
@@ -14378,8 +14463,8 @@
     },
     {
       "path": "crates/kohbor-game-assets/src/game_stats.rs",
-      "bytes": 21533,
-      "sha256": "c40f210a7a77d79c330c6395ddacce1eb95b67d1799c46d879531b690eb589e0"
+      "bytes": 26599,
+      "sha256": "6cc22b3ee3cdcb942378fa34dc3bde0f7a466925bfcb48c3af7ad57b6af46664"
     },
     {
       "path": "crates/kohbor-game-assets/src/keyvalues.rs",
@@ -14828,8 +14913,8 @@
     },
     {
       "path": "docs/INDEX.md",
-      "bytes": 14873,
-      "sha256": "2b7814d7cba9a9c4d7abc640c28644b59c94263ce411424c9fc73de898fe1821"
+      "bytes": 15244,
+      "sha256": "355e03ba8cabae0746196bb51b0cd4683a10072037af5df765b51be6164bc650"
     },
     {
       "path": "docs/delivery/AGENT-WORKFLOW.md",
@@ -14978,8 +15063,8 @@
     },
     {
       "path": "docs/design/POST-MATCH-REPLAY-PREVIEW.md",
-      "bytes": 11280,
-      "sha256": "437158231bd45680fb95414e79278e9ef61a3b5786477e13ed935cc67d4c23be"
+      "bytes": 10521,
+      "sha256": "c56db7b437c2b884425bd4cf92e865a5c4cae93f897cbb6ad9ef1a73e2e30460"
     },
     {
       "path": "docs/design/PROGRESS-CHASE-STAGE1-PROPOSAL.md",
@@ -14990,6 +15075,16 @@
       "path": "docs/design/REMAINING-SYSTEM-DESIGN.md",
       "bytes": 60545,
       "sha256": "54f9a24fbd97926de812f5b565e68bc34e987795667c9906d373da4dc81d6887"
+    },
+    {
+      "path": "docs/design/REPLAY-ENGINE-PROVENANCE.md",
+      "bytes": 3040,
+      "sha256": "042ed8585602341fa2e2421ec5ea26e49340bcd3038147a8f7b3e1c379ea537a"
+    },
+    {
+      "path": "docs/design/REPLAY-PIPELINE.md",
+      "bytes": 11126,
+      "sha256": "fc49f4339076cfecbdd7b240775600f971bfe75f31ddc1538ef1e2beccf72df8"
     },
     {
       "path": "docs/design/RISK-ADMISSION-SPEC.md",
@@ -15483,8 +15578,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 88864,
-      "sha256": "d5cfafa46dd9ac879fa11349a807a964e6e5ca03dc329933c083acba485f663a"
+      "bytes": 89605,
+      "sha256": "d3e56af406978392c9dd4b5cd6865275332b672044237d1bdb35e162d86e1b80"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
@@ -15513,8 +15608,8 @@
     },
     {
       "path": "docs/governance/THIRD-PARTY-DATA.md",
-      "bytes": 9610,
-      "sha256": "cf885d0891f04f1a0e92defbbfdf51ee9f41162a4fc052b6b98fae0d68c9b1f1"
+      "bytes": 11632,
+      "sha256": "e5e16ad894cdef832ad4bffa9fdc86ea49e56b69ff23cfa3e7d57f701787aee0"
     },
     {
       "path": "docs/operations/GSI-REPLAY.md",
