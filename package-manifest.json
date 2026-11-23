@@ -13968,8 +13968,8 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 311671,
-      "sha256": "efcd442f314853fcea8bbdd211b5c4c864f8c1c3a855d06b760f90554024d520"
+      "bytes": 303844,
+      "sha256": "90badb13d9fc44cddbc9d48a6ceb5beb2fa4fadd8b5a48fc5c5e3eb0235566ea"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -14953,8 +14953,8 @@
     },
     {
       "path": "docs/design/UX-SPEC.md",
-      "bytes": 29583,
-      "sha256": "f9db91d14a096426790b64d47c29b68d3998f8e5fbbe016e5c5068749b8123ea"
+      "bytes": 29360,
+      "sha256": "aad015f744eeef425a934af3f3b5f4efaebe7e52c342a04ae0c4794eafebfe80"
     },
     {
       "path": "docs/design/VISUAL-DESIGN-PROPOSAL.md",
@@ -15398,8 +15398,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 86732,
-      "sha256": "b40a56bd3b26989e7e9ac0691a62d1d321a6f274caa90b8808e8d98b1017d430"
+      "bytes": 86461,
+      "sha256": "8d1695bfc4ce8e1611701a030f2b75dede0ffdf56db8e7d33bfcc6b8e6b2c034"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
