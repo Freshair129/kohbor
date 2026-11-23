@@ -79,6 +79,7 @@ function StatsColumn({ locale, client }: { locale: OverviewLocale; client: Overv
       <div className="ov-tiles">
         <section className="card ov-tile" aria-label={t.overall}>
           <div className="ov-lbl">{t.overall}</div>
+          {tiles.overall.scope && <div className="ov-scope">{tiles.overall.scope}</div>}
           <div className={`ov-val${tiles.overall.known ? "" : " na"}`}>{tiles.overall.value}</div>
           <div className="ov-sub">{tiles.overall.sub}</div>
         </section>

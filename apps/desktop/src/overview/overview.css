@@ -28,6 +28,7 @@
 .ov-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .ov-page .card.ov-tile { padding: 12px 14px; min-width: 0; }
 .ov-lbl { color: var(--muted); font-size: var(--fs-caption); }
+.ov-scope { color: var(--warning); font-size: var(--fs-caption); line-height: var(--lh-thai); }
 .ov-val { font: 700 32px/1.15 var(--font-mono); font-variant-numeric: tabular-nums; }
 .ov-val.na { color: var(--muted); }
 .ov-sub { color: var(--text-2); font-size: var(--fs-caption); line-height: var(--lh-thai); }

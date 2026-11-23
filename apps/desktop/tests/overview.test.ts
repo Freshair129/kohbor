@@ -38,30 +38,36 @@ function reply(summary: Record<string, unknown>, entries: unknown[]) {
   };
 }
 
-test("unknown-type matches only: every rate is '—' and the note says why", () => {
+test("unknown-type matches with a result count, labelled all modes; abandoned stays '—'", () => {
+  // Host summary under "Count all, labelled" (owner 2026-11-23): two unknown-type wins count, the
+  // abandoned match does not.
   const history = parseMatchHistory(reply({
-    recorded: 3, excluded_match_type: 2, excluded_no_result: 1,
-    top_heroes: [{ hero: "npc_dota_hero_axe", games: 3, counted_games: 0, wins: 0, losses: 0, win_rate: null }],
+    recorded: 3, counted: 2, counted_unknown_type: 2, excluded_no_result: 1,
+    overall: { wins: 2, losses: 0, win_rate: 100 },
+    last: { results: ["win", "win"], wins: 2, losses: 0, win_rate: 100 },
+    top_heroes: [{ hero: "npc_dota_hero_axe", games: 3, counted_games: 2, wins: 2, losses: 0, win_rate: null }],
   }, [entry(1), entry(2), entry(3, { result: null, end: "abandoned", duration_s: null })]))!;
   assert.ok(history);
   const tiles = statTiles(history, "th");
-  assert.equal(tiles.overall.value, "—");
-  assert.equal(tiles.overall.known, false);
-  assert.equal(tiles.last.value, "—");
-  assert.deepEqual(tiles.last.squares, []);
-  assert.equal(tiles.last.title, "20 แมตช์ล่าสุด");
+  assert.equal(tiles.overall.value, "100.0%");
+  assert.equal(tiles.overall.known, true);
+  assert.equal(tiles.overall.scope, "รวมทุกโหมด (ยังแยก ranked/unranked ไม่ได้)");
+  assert.equal(statTiles(history, "en").overall.scope, "All modes (ranked/unranked not yet separated)");
+  assert.equal(tiles.last.title, "2 แมตช์ล่าสุด");
+  assert.deepEqual(tiles.last.squares, ["win", "win"]);
   assert.equal(tiles.trend.points, null);
   assert.match(tiles.trend.need!, /10 แมตช์/);
   const notes = countingNotes(history, "en");
-  assert.equal(notes.length, 3);
-  assert.match(notes[1]!, /2 matches not counted: the game does not report the match type through GSI/);
-  assert.match(notes[2]!, /not a loss/);
-  assert.equal(heroCards(history, "en")[0]!.record, "—", "no counted game, no record");
+  assert.equal(notes.length, 2);
+  assert.match(notes[0]!, /does not report the match type through GSI/);
+  assert.match(notes[1]!, /not a loss/);
+  assert.equal(heroCards(history, "en")[0]!.record, "2–0");
 
   const rows = matchRows(history, "en", null);
   assert.equal(rows[0]!.result, "W");
-  assert.equal(rows[0]!.counted, false);
+  assert.equal(rows[0]!.counted, true);
   assert.match(rows[0]!.typeTitle!, /unknown/);
+  assert.equal(rows[2]!.counted, false, "no result is never counted");
   assert.equal(rows[2]!.result, "—", "abandoned is never a loss");
   assert.equal(rows[2]!.resultTone, "unknown");
   assert.equal(rows[2]!.duration, "—");
@@ -82,6 +88,7 @@ test("counted matches: honest last-N title, squares oldest to newest, hero W-L b
   }, [entry(1, { match_type: "ranked" })]))!;
   const tiles = statTiles(history, "en");
   assert.equal(tiles.overall.value, "66.7%");
+  assert.equal(tiles.overall.scope, null, "known types only: no all-modes label");
   assert.match(tiles.overall.sub, /^4–2 · from 6 counted matches/);
   assert.equal(tiles.last.title, "Last 6 matches");
   assert.deepEqual(tiles.last.squares, ["win", "loss", "win", "win", "loss", "win"].reverse());
@@ -91,6 +98,16 @@ test("counted matches: honest last-N title, squares oldest to newest, hero W-L b
   assert.equal(cards[1]!.record, "33.3%");
   assert.equal(cards[1]!.tone, "down");
   assert.equal(matchRows(history, "en", null)[0]!.counted, true);
+});
+
+test("once types are known, bot, custom and lobby are excluded and noted", () => {
+  const history = parseMatchHistory(reply({ recorded: 3, counted: 1, excluded_match_type: 2,
+    overall: { wins: 1, losses: 0, win_rate: 100 } },
+  [entry(1, { match_type: "ranked" }), entry(2, { match_type: "bot" }), entry(3, { match_type: "lobby" })]))!;
+  const rows = matchRows(history, "en", null);
+  assert.deepEqual(rows.map((r) => r.counted), [true, false, false]);
+  assert.match(countingNotes(history, "en")[1]!, /2 bot, custom or lobby matches not counted/);
+  assert.equal(statTiles(history, "en").overall.scope, null);
 });
 
 test("trend draws only with points; one point is a flat line", () => {

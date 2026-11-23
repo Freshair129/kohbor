@@ -35,6 +35,8 @@ export interface HeroSummary {
 export interface MatchHistory {
   recorded: number;
   counted: number;
+  /** Counted matches whose type is unknown; non-zero means the rate covers all modes. */
+  countedUnknownType: number;
   excludedMatchType: number;
   excludedNoResult: number;
   overall: { wins: number; losses: number; winRate: number | null };
@@ -80,6 +82,7 @@ export function parseMatchHistory(raw: unknown): MatchHistory | null {
   return {
     recorded: count(s.recorded) ?? entries.length,
     counted: count(s.counted) ?? 0,
+    countedUnknownType: count(s.counted_unknown_type) ?? 0,
     excludedMatchType: count(s.excluded_match_type) ?? 0,
     excludedNoResult: count(s.excluded_no_result) ?? 0,
     overall: { wins: count(s.overall.wins) ?? 0, losses: count(s.overall.losses) ?? 0, winRate: rate(s.overall.win_rate) },
@@ -144,7 +147,7 @@ export function heroName(hero: string | null, locale: OverviewLocale): string {
 }
 
 export interface TileView {
-  overall: { value: string; sub: string; known: boolean };
+  overall: { value: string; sub: string; known: boolean; scope: string | null };
   last: { title: string; value: string; sub: string | null; squares: MatchResult[] };
   trend: { points: string | null; label: string | null; need: string | null };
 }
@@ -159,6 +162,8 @@ export function statTiles(history: MatchHistory, locale: OverviewLocale): TileVi
       value: percent(history.overall.winRate),
       sub: history.counted > 0 ? t.overallSub(history.overall.wins, history.overall.losses, history.counted) : t.overallNone,
       known: history.overall.winRate !== null,
+      // Owner 2026-11-23 "Count all, labelled": unknown-type matches count, so say it covers all modes.
+      scope: history.counted === 0 || history.countedUnknownType > 0 ? t.allModes : null,
     },
     last: {
       title: t.lastTitle(squares.length),
@@ -227,7 +232,8 @@ export function matchRows(history: MatchHistory, locale: OverviewLocale, limit: 
   const entries = limit === null ? history.entries : history.entries.slice(0, limit);
   const n = (v: number | null) => (v === null ? "—" : String(v));
   return entries.map((e) => {
-    const counted = (e.matchType === "ranked" || e.matchType === "unranked") && e.result !== null;
+    // Same rule as the host: ranked, unranked and unknown type count; bot, custom and lobby do not.
+    const counted = (e.matchType === "ranked" || e.matchType === "unranked" || e.matchType === "unknown") && e.result !== null;
     return {
       key: e.matchKey,
       hero: e.hero,

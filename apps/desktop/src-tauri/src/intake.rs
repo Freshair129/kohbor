@@ -1762,7 +1762,8 @@ mod tests {
         assert_eq!(e.hero.as_deref(), Some("npc_dota_hero_silencer"));
         assert_eq!((e.kills, e.deaths, e.assists), (Some(6), Some(2), Some(3)));
         assert_eq!(e.duration_s, Some(2101));
-        // A bot match: GSI cannot tell the type, so it is unknown and outside the win rate.
+        // A bot match: GSI cannot tell the type, so it is unknown; until types are known it
+        // counts in the all-modes win rate (owner, 2026-11-23 "Count all, labelled").
         assert_eq!(e.match_type, crate::match_history::MatchType::Unknown);
         assert_eq!(e.match_key, shared.sessions.current().unwrap().match_key);
         let stored =
@@ -1775,7 +1776,7 @@ mod tests {
             !stored.contains(&owner().to_string()),
             "SteamID64 is never stored"
         );
-        assert_eq!(shared.match_history().view()["summary"]["counted"], 0);
+        assert_eq!(shared.match_history().view()["summary"]["counted"], 1);
     }
 
     #[test]

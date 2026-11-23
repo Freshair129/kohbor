@@ -5,10 +5,12 @@
 //! (GSI-INTAKE-SPEC §6): the raw match ID and the SteamID64 are never stored. No other player's
 //! name or identifier is read or kept.
 //!
-//! Win rate counts real matches only (decision item 3): ranked and unranked public matches with a
-//! known result. GSI exposes no game-mode or lobby-type field (GSI-INTAKE-SPEC §4.2, A-9), and the
-//! app must not infer one, so every entry recorded today has `match_type = "unknown"` and is
-//! excluded from the win rate. A quit or abandoned match keeps `result = null` ("—"), never a loss.
+//! Counting (owner decisions 2026-11-23, item 3 and "Count all, labelled"): win rate counts
+//! ranked, unranked and unknown-type matches with a known result; bot, custom and lobby matches are
+//! recorded but excluded once their type is known. GSI exposes no game-mode or lobby-type field
+//! (GSI-INTAKE-SPEC §4.2, A-9) and the app must not infer one, so every entry recorded today has
+//! `match_type = "unknown"`; it counts, and the UI labels the rate as covering all modes. A quit or
+//! abandoned match keeps `result = null` ("—"): never a loss and never counted.
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -61,9 +63,10 @@ pub enum MatchType {
 }
 
 impl MatchType {
-    /// Only real public matches count toward win rate (owner decision item 3).
+    /// Ranked and unranked count; bot, custom and lobby do not (owner decision item 3). An
+    /// unknown type counts too until types are known ("Count all, labelled", 2026-11-23).
     pub fn counts_for_win_rate(self) -> bool {
-        matches!(self, Self::Ranked | Self::Unranked)
+        matches!(self, Self::Ranked | Self::Unranked | Self::Unknown)
     }
 }
 
@@ -338,15 +341,21 @@ pub fn summarize(entries: &[MatchEntry]) -> Value {
         })
         .collect();
 
-    let unknown_type = entries
+    let excluded_type = entries
         .iter()
         .filter(|e| e.result.is_some() && !e.match_type.counts_for_win_rate())
         .count();
     let unknown_result = entries.iter().filter(|e| e.result.is_none()).count();
+    // Counted matches whose type is unknown: the UI labels the rate "all modes" when non-zero.
+    let counted_unknown_type = counted
+        .iter()
+        .filter(|e| e.match_type == MatchType::Unknown)
+        .count();
     json!({
         "recorded": entries.len(),
         "counted": counted.len(),
-        "excluded_match_type": unknown_type,
+        "counted_unknown_type": counted_unknown_type,
+        "excluded_match_type": excluded_type,
         "excluded_no_result": unknown_result,
         "overall": {"wins": wins, "losses": counted.len() - wins, "win_rate": rate(wins, counted.len())},
         "last": {
@@ -735,14 +744,16 @@ mod tests {
             entry(key(5), None, MatchType::Ranked, "npc_dota_hero_lion"),
         ];
         let s = summarize(&entries);
+        // Ranked, unranked and unknown-type count; bot is excluded; no result is never counted.
         assert_eq!(s["recorded"], 5);
-        assert_eq!(s["counted"], 2);
-        assert_eq!(s["excluded_match_type"], 2);
+        assert_eq!(s["counted"], 3);
+        assert_eq!(s["counted_unknown_type"], 1);
+        assert_eq!(s["excluded_match_type"], 1);
         assert_eq!(s["excluded_no_result"], 1);
-        assert_eq!(s["overall"]["wins"], 1);
+        assert_eq!(s["overall"]["wins"], 2);
         assert_eq!(s["overall"]["losses"], 1);
-        assert_eq!(s["overall"]["win_rate"], 50.0);
-        assert_eq!(s["last"]["results"], json!(["win", "loss"]));
+        assert!((s["overall"]["win_rate"].as_f64().unwrap() - 200.0 / 3.0).abs() < 1e-9);
+        assert_eq!(s["last"]["results"], json!(["win", "loss", "win"]));
         assert_eq!(s["trend"]["points"], json!([]));
         let axe = &s["top_heroes"][0];
         assert_eq!(axe["hero"], "npc_dota_hero_axe");
@@ -767,24 +778,37 @@ mod tests {
     }
 
     #[test]
-    fn summary_only_unknown_type_matches_have_no_win_rate() {
-        // What GSI produces today: every match type is unknown (A-9).
-        let entries: Vec<MatchEntry> = (0..12)
-            .map(|n| {
-                entry(
-                    key(n),
-                    Some(MatchResult::Win),
-                    MatchType::Unknown,
-                    "npc_dota_hero_axe",
-                )
-            })
+    fn summary_counts_unknown_type_matches_with_a_result_and_never_abandoned_ones() {
+        // What GSI produces today: every match type is unknown (A-9). Newest first: two abandoned,
+        // then 12 with results (the newest of those a loss).
+        let mut entries: Vec<MatchEntry> = (0..2)
+            .map(|n| entry(key(n), None, MatchType::Unknown, "npc_dota_hero_axe"))
             .collect();
+        entries.extend((2..14).map(|n| {
+            let result = if n == 2 {
+                MatchResult::Loss
+            } else {
+                MatchResult::Win
+            };
+            entry(
+                key(n),
+                Some(result),
+                MatchType::Unknown,
+                "npc_dota_hero_axe",
+            )
+        }));
         let s = summarize(&entries);
-        assert_eq!(s["counted"], 0);
-        assert_eq!(s["overall"]["win_rate"], Value::Null);
-        assert_eq!(s["trend"]["points"], json!([]));
-        assert_eq!(s["top_heroes"][0]["games"], 12);
-        assert_eq!(s["top_heroes"][0]["win_rate"], Value::Null);
+        assert_eq!(s["counted"], 12);
+        assert_eq!(s["counted_unknown_type"], 12);
+        assert_eq!(s["excluded_match_type"], 0);
+        assert_eq!(s["excluded_no_result"], 2);
+        assert_eq!(s["overall"]["wins"], 11);
+        assert_eq!(s["overall"]["losses"], 1);
+        assert_eq!(s["last"]["results"].as_array().unwrap().len(), 12);
+        assert_eq!(s["trend"]["points"], json!([100.0, 100.0, 90.0]));
+        assert_eq!(s["top_heroes"][0]["games"], 14);
+        assert_eq!(s["top_heroes"][0]["counted_games"], 12);
+        assert!(s["top_heroes"][0]["win_rate"].as_f64().is_some());
     }
 
     #[test]
@@ -816,7 +840,12 @@ mod tests {
         ))
         .unwrap();
         assert_eq!(match_type_from_gsi(&body), MatchType::Unknown);
-        assert!(!MatchType::Unknown.counts_for_win_rate());
+        assert!(
+            MatchType::Unknown.counts_for_win_rate(),
+            "count all, labelled"
+        );
+        assert!(MatchType::Ranked.counts_for_win_rate());
+        assert!(MatchType::Unranked.counts_for_win_rate());
         assert!(!MatchType::Bot.counts_for_win_rate());
         assert!(!MatchType::Custom.counts_for_win_rate());
         assert!(!MatchType::Lobby.counts_for_win_rate());
