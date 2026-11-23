@@ -122,7 +122,8 @@ pub fn decode_vtex_c(bytes: &[u8]) -> Result<Image> {
         1 => decode_dxt(payload, width, height, DxtKind::Dxt1)?,
         2 => decode_dxt(payload, width, height, DxtKind::Dxt5)?,
         16 | 18 if payload.starts_with(PNG_SIGNATURE) => decode_png_rgba(payload, width, height)?,
-        28 => decode_raw_rgba(payload, output_len)?,
+        // 4 is RGBA8888 (the minimap overviews); 28 is the format seen on portraits.
+        4 | 28 => decode_raw_rgba(payload, output_len)?,
         other => return Err(Error::UnsupportedTextureFormat(other)),
     };
 
@@ -824,6 +825,8 @@ mod tests {
         let resource = make_vtex(2, 1, 28, &pixels);
         let image = decode_vtex_c(&resource).expect("synthetic RGBA should decode");
         assert!(image.rgba[..] == pixels[..], "RGBA8888 pixels differ");
+        let overview = decode_vtex_c(&make_vtex(2, 1, 4, &pixels)).expect("format 4 decodes");
+        assert!(overview.rgba[..] == pixels[..], "format 4 pixels differ");
     }
 
     #[test]

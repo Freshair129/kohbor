@@ -167,17 +167,24 @@ impl Vpk {
         let dir_path = Arc::new(canonical);
         let mut hero_entries = HashMap::new();
         let mut bounded = BoundedReader::new(file, u64::from(tree_size));
-        parse_tree(&mut bounded, &dir_path, data_size, true, None, |entry| {
-            hero_entries
-                .try_reserve(1)
-                .map_err(|_| Error::AllocationFailed)?;
-            let mut key = String::new();
-            key.try_reserve_exact(entry.path.len())
-                .map_err(|_| Error::AllocationFailed)?;
-            key.push_str(&entry.path);
-            hero_entries.insert(key, entry);
-            Ok(())
-        })?;
+        parse_tree(
+            &mut bounded,
+            &dir_path,
+            data_size,
+            true,
+            Target::None,
+            |entry| {
+                hero_entries
+                    .try_reserve(1)
+                    .map_err(|_| Error::AllocationFailed)?;
+                let mut key = String::new();
+                key.try_reserve_exact(entry.path.len())
+                    .map_err(|_| Error::AllocationFailed)?;
+                key.push_str(&entry.path);
+                hero_entries.insert(key, entry);
+                Ok(())
+            },
+        )?;
 
         Ok(Self {
             dir_path,
@@ -208,7 +215,7 @@ impl Vpk {
             &self.dir_path,
             self.data_size,
             false,
-            Some(&query),
+            Target::Path(&query),
             |entry| {
                 found = Some(entry);
                 Ok(())
@@ -216,6 +223,43 @@ impl Vpk {
         )
         .ok()?;
         found
+    }
+
+    /// List every entry directly inside one directory with one extension, for
+    /// example `panorama/images/items` and `vtex_c`. Subdirectories are not
+    /// included. Results are sorted by path. The scan streams the bounded tree
+    /// again and retains at most the usual entry and path-byte limits.
+    pub fn list_dir(&self, directory: &str, extension: &str) -> Result<Vec<Entry>> {
+        let directory = normalize_path(directory).trim_end_matches('/').to_owned();
+        if directory.len() > MAX_TREE_STRING_BYTES
+            || extension.is_empty()
+            || extension.len() > MAX_PATH_COMPONENT_BYTES
+        {
+            return Ok(Vec::new());
+        }
+        let mut file = File::open(self.dir_path.as_path())?;
+        file.seek(SeekFrom::Start(VPK_HEADER_BYTES))?;
+        let bounded = BoundedReader::new(file, u64::from(self.tree_size));
+        let mut entries = Vec::new();
+        parse_tree(
+            bounded,
+            &self.dir_path,
+            self.data_size,
+            false,
+            Target::Dir {
+                directory: &directory,
+                extension,
+            },
+            |entry| {
+                entries
+                    .try_reserve(1)
+                    .map_err(|_| Error::AllocationFailed)?;
+                entries.push(entry);
+                Ok(())
+            },
+        )?;
+        entries.sort_by(|a, b| a.path.cmp(&b.path));
+        Ok(entries)
     }
 
     /// Read exactly one entry's preload and payload bytes, then verify its CRC.
@@ -344,6 +388,29 @@ fn path_parts_match(target: &str, extension: &str, directory: &str, name: &str) 
         && extension.eq_ignore_ascii_case(target_extension)
 }
 
+#[derive(Clone, Copy)]
+enum Target<'a> {
+    None,
+    Path(&'a str),
+    Dir {
+        directory: &'a str,
+        extension: &'a str,
+    },
+}
+
+impl Target<'_> {
+    fn matches(self, extension: &str, directory: &str, name: &str) -> bool {
+        match self {
+            Self::None => false,
+            Self::Path(target) => path_parts_match(target, extension, directory, name),
+            Self::Dir {
+                directory: target_directory,
+                extension: target_extension,
+            } => directory == target_directory && extension.eq_ignore_ascii_case(target_extension),
+        }
+    }
+}
+
 struct BoundedReader<R> {
     inner: R,
     remaining: u64,
@@ -394,7 +461,7 @@ fn parse_tree<R, F>(
     source_dir: &Arc<PathBuf>,
     data_size: u32,
     capture_hero_paths: bool,
-    target_path: Option<&str>,
+    target: Target<'_>,
     mut visit: F,
 ) -> Result<()>
 where
@@ -455,9 +522,7 @@ where
                 // Filter by the already bounded components before allocating a full path.
                 let capture = (capture_hero_paths
                     && is_hero_portrait_parts(&extension, &directory, &name))
-                    || target_path.is_some_and(|target| {
-                        path_parts_match(target, &extension, &directory, &name)
-                    });
+                    || target.matches(&extension, &directory, &name);
                 let consumed = reader
                     .get_ref()
                     .bytes_read
@@ -810,6 +875,49 @@ mod tests {
         assert!(vpk
             .find(&format!("{prefix}/npc_dota_hero_0.vtex_c"))
             .is_some());
+    }
+
+    #[test]
+    fn list_dir_returns_only_direct_children_with_the_extension() {
+        let temp = TempDir::new();
+        let (directory, external) = synthetic_vpk();
+        fs::write(temp.path().join("pak01_dir.vpk"), &directory).expect("directory archive");
+        fs::write(temp.path().join("pak01_000.vpk"), &external).expect("numbered archive");
+        let vpk = Vpk::open(temp.path().join("pak01_dir.vpk")).expect("open synthetic VPK");
+        let heroes = vpk
+            .list_dir("PANORAMA/Images/Heroes/", "VTEX_C")
+            .expect("list heroes");
+        assert_eq!(heroes.len(), 1);
+        assert_eq!(
+            heroes[0].path(),
+            "panorama/images/heroes/npc_dota_hero_lion_png.vtex_c"
+        );
+        assert_eq!(vpk.read(&heroes[0]).expect("read listed entry"), b"preraw");
+        assert!(vpk
+            .list_dir("panorama/images", "vtex_c")
+            .expect("parent")
+            .is_empty());
+        assert!(vpk
+            .list_dir("panorama/images/heroes", "txt")
+            .expect("ext")
+            .is_empty());
+        assert!(vpk
+            .list_dir("panorama/images/heroes", "")
+            .expect("empty")
+            .is_empty());
+
+        let path = temp.path().join("pak02_dir.vpk");
+        fs::write(
+            &path,
+            synthetic_index_vpk("panorama/images/items", "vtex_c", 3, None),
+        )
+        .expect("synthetic items");
+        let items = Vpk::open(&path)
+            .expect("open items")
+            .list_dir("panorama/images/items", "vtex_c")
+            .expect("list items");
+        assert_eq!(items.len(), 3);
+        assert!(items.windows(2).all(|pair| pair[0].path() < pair[1].path()));
     }
 
     fn synthetic_index_vpk(

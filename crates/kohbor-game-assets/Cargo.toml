@@ -14,5 +14,10 @@ path = "src/lib.rs"
 name = "kohbor-asset-probe"
 path = "src/bin/kohbor-asset-probe.rs"
 
+# Developer tool: exports the Match view card images from the installed game.
+[[bin]]
+name = "kohbor-asset-export"
+path = "src/bin/kohbor-asset-export.rs"
+
 [dependencies]
 flate2 = { workspace = true }
