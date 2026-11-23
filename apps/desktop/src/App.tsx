@@ -14,6 +14,8 @@ import { deckStateReasonForLocale, deriveDeckState } from "./deck/deckState";
 import { Guide } from "./Guide";
 import { startLiveCollection, useCaptureStatus } from "./live";
 import { OwnHero } from "./OwnHero";
+import { OverviewPage } from "./overview/OverviewPage";
+import { NewsSettings } from "./overview/NewsSettings";
 import { PacksPage } from "./packs/PacksPage";
 import { Readiness } from "./Readiness";
 import { DEFAULT_SHELL_DESTINATION, deriveHeaderState, insightsViews, statusLineModel, type InsightsView, type ShellDestination } from "./shell/state";
@@ -248,13 +250,14 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
             </div>}
           </div>
           <div className="shell-page-head-tools">
-            <StatusLine model={statusModel} label={text.shell.statusLineLabel} hostLostMessage={`${text.hostLost} — ${text.hostOutdated}`} onNavigate={navigate} />
+            {/* Owner decision 2026-11-23 item 5: no GSI/game status chips on the Overview; every other page keeps them. */}
+            {activePage !== "overview" && <StatusLine model={statusModel} label={text.shell.statusLineLabel} hostLostMessage={`${text.hostLost} — ${text.hostOutdated}`} onNavigate={navigate} />}
             <AudioMuteControl control={mute} locale={displayLocale} compact />
           </div>
         </header>
 
         <section id="shell-panel" className="shell-page-content" role="region" aria-labelledby="shell-page-heading" tabIndex={-1}>
-          {activePage === "overview" && <EmptyPage title={text.shell.emptyPage} note={text.shell.emptyPageNote} />}
+          {activePage === "overview" && <OverviewPage locale={displayLocale} />}
 
           {activePage === "live" && (
             <div className="shell-screen shell-live-page">
@@ -323,6 +326,7 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
               </section>
               <OrbSettings locale={displayLocale} />
               <DraftSettings />
+              <NewsSettings locale={displayLocale} />
               <div className="shell-guide-slot">
                 {status && !hostLost ? <Guide status={status} locale={displayLocale} setup={setup} /> : (
                   <p className={hostLost ? "banner banner-warn" : "muted"} role={hostLost ? "alert" : "status"}>
