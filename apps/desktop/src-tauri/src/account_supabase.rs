@@ -5,6 +5,7 @@
 
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
 use std::fmt;
 use std::fs;
@@ -139,6 +140,7 @@ enum AuthFailure {
 struct CallbackGate {
     expected_state: SecretString,
     consumed: bool,
+    last_failure: Option<CallbackFailure>,
 }
 
 enum CallbackDecision {
@@ -193,6 +195,42 @@ struct PkceGrant<'a> {
 #[derive(Serialize)]
 struct RefreshGrant<'a> {
     refresh_token: &'a str,
+}
+
+fn account_log(
+    level: crate::logging::Level,
+    event: &'static str,
+    message: &'static str,
+    fields: Map<String, Value>,
+) {
+    crate::logging::emit(level, "account", event, message, fields);
+}
+
+fn one_log_field(key: &'static str, value: Value) -> Map<String, Value> {
+    Map::from_iter([(key.to_owned(), value)])
+}
+
+fn auth_failure_category(failure: AuthFailure) -> &'static str {
+    match failure {
+        AuthFailure::Callback => "callback",
+        AuthFailure::Cancelled => "cancelled",
+        AuthFailure::InvalidResponse => "invalid_response",
+        AuthFailure::RefreshRejected => "refresh_rejected",
+        AuthFailure::Storage => "storage",
+        AuthFailure::Transport => "transport",
+    }
+}
+
+fn callback_failure_category(
+    auth_failure: AuthFailure,
+    callback_failure: Option<CallbackFailure>,
+) -> &'static str {
+    match (auth_failure, callback_failure) {
+        (AuthFailure::Cancelled, _) => "cancelled",
+        (_, Some(CallbackFailure::StateMismatch)) => "state_mismatch",
+        (AuthFailure::Callback, _) => "timeout",
+        _ => "other",
+    }
 }
 
 impl SupabaseAuth {
@@ -278,6 +316,12 @@ impl SupabaseAuth {
     }
 
     pub(crate) fn sign_in(&self) -> AccountUiStatus {
+        account_log(
+            crate::logging::Level::Info,
+            "sign_in_started",
+            "Google sign-in started",
+            Map::new(),
+        );
         let cancel_epoch = self.inner.cancel_epoch.load(Ordering::Acquire);
         if self
             .inner
@@ -298,6 +342,12 @@ impl SupabaseAuth {
         match self.ensure_session_current() {
             Ok(()) => {
                 if self.has_usable_access_token() {
+                    account_log(
+                        crate::logging::Level::Info,
+                        "sign_in_already_signed_in",
+                        "Account session is ready; browser sign-in is not needed",
+                        one_log_field("browser_needed", Value::Bool(false)),
+                    );
                     return self.snapshot(Some("signed_in"));
                 }
             }
@@ -305,30 +355,92 @@ impl SupabaseAuth {
             Err(_) => return self.snapshot(Some("service_unavailable")),
         }
 
-        if (self.inner.match_active)() || self.cancelled_since(cancel_epoch) {
+        if (self.inner.match_active)() {
+            account_log(
+                crate::logging::Level::Warn,
+                "sign_in_blocked_live_match",
+                "Google sign-in blocked because a match is live",
+                one_log_field("check", Value::String("before_auth_setup".to_owned())),
+            );
+            return self.snapshot(Some("signed_out"));
+        }
+        if self.cancelled_since(cancel_epoch) {
             return self.snapshot(Some("signed_out"));
         }
 
-        let Some(verifier) = new_pkce_verifier() else {
-            return self.snapshot(Some("service_unavailable"));
+        let verifier = match new_pkce_verifier() {
+            Some(verifier) => verifier,
+            None => {
+                account_log(
+                    crate::logging::Level::Warn,
+                    "sign_in_rng_failed",
+                    "Google sign-in random generation failed",
+                    one_log_field("reason", Value::String("system_rng_unavailable".to_owned())),
+                );
+                return self.snapshot(Some("service_unavailable"));
+            }
         };
-        let Some(state) = new_state() else {
-            return self.snapshot(Some("service_unavailable"));
+        let state = match new_state() {
+            Some(state) => state,
+            None => {
+                account_log(
+                    crate::logging::Level::Warn,
+                    "sign_in_rng_failed",
+                    "Google sign-in random generation failed",
+                    one_log_field("reason", Value::String("system_rng_unavailable".to_owned())),
+                );
+                return self.snapshot(Some("service_unavailable"));
+            }
         };
         let challenge = pkce_challenge(verifier.expose());
         let server = match bind_loopback() {
             Ok(server) => server,
-            Err(_) => return self.snapshot(Some("service_unavailable")),
+            Err(_) => {
+                account_log(
+                    crate::logging::Level::Warn,
+                    "sign_in_loopback_bind_failed",
+                    "Google sign-in loopback bind failed",
+                    one_log_field("reason", Value::String("bind_failed".to_owned())),
+                );
+                return self.snapshot(Some("service_unavailable"));
+            }
         };
         let Some(address) = server.server_addr().to_ip() else {
+            account_log(
+                crate::logging::Level::Warn,
+                "sign_in_loopback_bind_failed",
+                "Google sign-in loopback address is unavailable",
+                one_log_field("reason", Value::String("address_unavailable".to_owned())),
+            );
             return self.snapshot(Some("service_unavailable"));
         };
         let handoff_deadline = Instant::now() + HANDOFF_TIMEOUT;
         let url = authorization_url(address.port(), &challenge, state.expose());
-        if (self.inner.match_active)() || self.cancelled_since(cancel_epoch) {
+        if (self.inner.match_active)() {
+            account_log(
+                crate::logging::Level::Warn,
+                "sign_in_blocked_live_match",
+                "Google sign-in blocked because a match is live",
+                one_log_field("check", Value::String("before_browser_open".to_owned())),
+            );
             return self.snapshot(Some("signed_out"));
         }
-        if !open_system_browser(&url) {
+        if self.cancelled_since(cancel_epoch) {
+            return self.snapshot(Some("signed_out"));
+        }
+        let mut shell_execute_code = None;
+        let browser_opened = open_system_browser(&url, &mut shell_execute_code);
+        account_log(
+            if browser_opened {
+                crate::logging::Level::Info
+            } else {
+                crate::logging::Level::Warn
+            },
+            "browser_open_result",
+            "System browser open result",
+            browser_open_fields(browser_opened, shell_execute_code),
+        );
+        if !browser_opened {
             return self.snapshot(Some("service_unavailable"));
         }
 
@@ -339,7 +451,15 @@ impl SupabaseAuth {
             cancel_epoch,
             &self.inner.cancel_epoch,
         ) {
-            Ok(code) => code,
+            Ok(code) => {
+                account_log(
+                    crate::logging::Level::Info,
+                    "callback_received_ok",
+                    "Google sign-in callback received",
+                    Map::new(),
+                );
+                code
+            }
             Err(AuthFailure::Cancelled) => return self.snapshot(Some("signed_out")),
             Err(_) => return self.snapshot(Some("service_unavailable")),
         };
@@ -356,12 +476,43 @@ impl SupabaseAuth {
         };
         let response = match post_json("/auth/v1/token?grant_type=pkce", &body, None) {
             Ok(response) if (200..300).contains(&response.status) => response,
-            _ => return self.snapshot(Some("service_unavailable")),
+            Ok(response) => {
+                account_log(
+                    crate::logging::Level::Warn,
+                    "token_exchange_failed",
+                    "Google sign-in token exchange failed",
+                    token_exchange_fields(Some(response.status)),
+                );
+                return self.snapshot(Some("service_unavailable"));
+            }
+            Err(_) => {
+                account_log(
+                    crate::logging::Level::Warn,
+                    "token_exchange_failed",
+                    "Google sign-in token exchange failed",
+                    token_exchange_fields(None),
+                );
+                return self.snapshot(Some("service_unavailable"));
+            }
         };
         let tokens = match parse_token_response(&response.body) {
             Ok(tokens) => tokens,
-            Err(_) => return self.snapshot(Some("service_unavailable")),
+            Err(_) => {
+                account_log(
+                    crate::logging::Level::Warn,
+                    "token_exchange_failed",
+                    "Google sign-in token exchange failed",
+                    token_exchange_fields(Some(response.status)),
+                );
+                return self.snapshot(Some("service_unavailable"));
+            }
         };
+        account_log(
+            crate::logging::Level::Info,
+            "token_exchange_ok",
+            "Google sign-in token exchange succeeded",
+            token_exchange_fields(Some(response.status)),
+        );
         if self.cancelled_since(cancel_epoch) {
             revoke_local_session(&tokens.access_token);
             return self.snapshot(Some("signed_out"));
@@ -417,6 +568,12 @@ impl SupabaseAuth {
     }
 
     pub(crate) fn sign_out(&self) -> Result<(), &'static str> {
+        account_log(
+            crate::logging::Level::Info,
+            "sign_out",
+            "Account sign-out started",
+            Map::new(),
+        );
         self.cancel_sign_in();
         let Ok(_operation) = self.inner.operation.try_lock() else {
             return Err("ACCOUNT_SIGN_OUT_FAILED");
@@ -465,6 +622,22 @@ impl SupabaseAuth {
     /// Load the protected refresh token once, and refresh when the access token is absent or
     /// within the two-minute expiry window. The caller holds `operation` across this method.
     fn ensure_session_current(&self) -> Result<(), AuthFailure> {
+        let result = self.ensure_session_current_inner();
+        if let Err(failure) = &result {
+            account_log(
+                crate::logging::Level::Warn,
+                "refresh_failed",
+                "Account session refresh failed",
+                one_log_field(
+                    "category",
+                    Value::String(auth_failure_category(*failure).to_owned()),
+                ),
+            );
+        }
+        result
+    }
+
+    fn ensure_session_current_inner(&self) -> Result<(), AuthFailure> {
         let refresh_token = {
             let mut session = self
                 .inner
@@ -697,7 +870,8 @@ fn pkce_challenge(verifier: &str) -> String {
 fn authorization_url(port: u16, challenge: &str, state: &str) -> String {
     let redirect_to = format!("http://127.0.0.1:{port}/callback?s={state}");
     format!(
-        "{SUPABASE_AUTH_ROOT}/authorize?provider=google&redirect_to={}&code_challenge={challenge}&code_challenge_method=s256",
+        // `prompt=select_account` is forwarded to Google so the account chooser always appears.
+        "{SUPABASE_AUTH_ROOT}/authorize?provider=google&prompt=select_account&redirect_to={}&code_challenge={challenge}&code_challenge_method=s256",
         percent_encode(redirect_to.as_bytes())
     )
 }
@@ -737,15 +911,21 @@ fn wait_for_callback(
     let mut gate = CallbackGate::new(state);
     loop {
         if cancel_signal.load(Ordering::Acquire) != cancel_epoch {
+            log_callback_failure(AuthFailure::Cancelled, gate.last_failure);
             return Err(AuthFailure::Cancelled);
         }
         let remaining = deadline.saturating_duration_since(Instant::now());
         if remaining.is_zero() {
+            log_callback_failure(AuthFailure::Callback, gate.last_failure);
             return Err(AuthFailure::Callback);
         }
-        let request = server
-            .recv_timeout(remaining.min(CALLBACK_POLL))
-            .map_err(|_| AuthFailure::Callback)?;
+        let request = match server.recv_timeout(remaining.min(CALLBACK_POLL)) {
+            Ok(request) => request,
+            Err(_) => {
+                log_callback_failure(AuthFailure::Transport, gate.last_failure);
+                return Err(AuthFailure::Transport);
+            }
+        };
         let Some(request) = request else {
             continue;
         };
@@ -777,6 +957,18 @@ fn wait_for_callback(
     }
 }
 
+fn log_callback_failure(auth_failure: AuthFailure, callback_failure: Option<CallbackFailure>) {
+    account_log(
+        crate::logging::Level::Warn,
+        "callback_failed",
+        "Google sign-in callback failed",
+        one_log_field(
+            "reason",
+            Value::String(callback_failure_category(auth_failure, callback_failure).to_owned()),
+        ),
+    );
+}
+
 fn response(status: u16, body: &'static str) -> tiny_http::Response<std::io::Cursor<Vec<u8>>> {
     let content_type = tiny_http::Header::from_bytes(
         b"Content-Type" as &[u8],
@@ -799,6 +991,7 @@ impl CallbackGate {
         Self {
             expected_state,
             consumed: false,
+            last_failure: None,
         }
     }
 
@@ -806,7 +999,15 @@ impl CallbackGate {
         if self.consumed {
             return Err(CallbackFailure::AlreadyConsumed);
         }
-        let code = parse_callback(url, self.expected_state.expose())?;
+        let code = match parse_callback(url, self.expected_state.expose()) {
+            Ok(code) => code,
+            Err(failure) => {
+                if self.last_failure.is_none() {
+                    self.last_failure = Some(failure);
+                }
+                return Err(failure);
+            }
+        };
         self.consumed = true;
         Ok(code)
     }
@@ -906,17 +1107,58 @@ fn constant_time_eq(left: &[u8], right: &[u8]) -> bool {
     difference == 0
 }
 
+#[cfg(any(windows, test))]
+fn utf16_nul_terminated(value: &str) -> Vec<u16> {
+    value.encode_utf16().chain(std::iter::once(0)).collect()
+}
+
+fn browser_open_fields(opened: bool, shell_execute_code: Option<i32>) -> Map<String, Value> {
+    let mut fields = one_log_field(
+        "result",
+        Value::String(if opened { "ok" } else { "failed" }.to_owned()),
+    );
+    if !opened {
+        if let Some(code) = shell_execute_code {
+            fields.insert("shell_execute_return_code".to_owned(), Value::from(code));
+        }
+    }
+    fields
+}
+
+fn token_exchange_fields(http_status: Option<u16>) -> Map<String, Value> {
+    http_status.map_or_else(Map::new, |status| {
+        one_log_field("http_status", Value::from(status))
+    })
+}
+
 #[cfg(windows)]
-fn open_system_browser(url: &str) -> bool {
-    // Match the existing default-browser route used by the updater (`explorer.exe`, no shell text).
-    std::process::Command::new("explorer.exe")
-        .arg(url)
-        .spawn()
-        .is_ok()
+fn open_system_browser(url: &str, shell_execute_code: &mut Option<i32>) -> bool {
+    use windows::Win32::UI::Shell::ShellExecuteW;
+    use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+    use windows::core::{PCWSTR, w};
+
+    let wide_url = utf16_nul_terminated(url);
+    let result = unsafe {
+        ShellExecuteW(
+            None,
+            w!("open"),
+            PCWSTR(wide_url.as_ptr()),
+            None,
+            None,
+            SW_SHOWNORMAL,
+        )
+    }
+    .0 as isize;
+    if result > 32 {
+        true
+    } else {
+        *shell_execute_code = Some(result as i32);
+        false
+    }
 }
 
 #[cfg(not(windows))]
-fn open_system_browser(_url: &str) -> bool {
+fn open_system_browser(_url: &str, _shell_execute_code: &mut Option<i32>) -> bool {
     false
 }
 
@@ -1132,8 +1374,10 @@ pub(crate) async fn account_sign_out(auth: tauri::State<'_, SupabaseAuth>) -> Re
 #[cfg(test)]
 mod tests {
     use super::{
-        AuthSession, CallbackDecision, CallbackFailure, CallbackGate, SecretString, SupabaseAuth,
-        bind_loopback, callback_decision, new_pkce_verifier, parse_callback, pkce_challenge,
+        AuthFailure, AuthSession, CallbackDecision, CallbackFailure, CallbackGate, SecretString,
+        SupabaseAuth, bind_loopback, browser_open_fields, callback_decision,
+        callback_failure_category, new_pkce_verifier, parse_callback, pkce_challenge,
+        utf16_nul_terminated,
     };
 
     #[test]
@@ -1263,6 +1507,57 @@ mod tests {
         let server = bind_loopback().expect("loopback listener");
         let address = server.server_addr().to_ip().expect("TCP address");
         assert_eq!(address.ip(), std::net::Ipv4Addr::LOCALHOST);
+    }
+
+    #[test]
+    fn system_browser_argument_is_nul_terminated_utf16_and_round_trips() {
+        let url = "https://example.test/authorize?provider=google&redirect_to=http%3A%2F%2F127.0.0.1%3A43210%2Fcallback%3Fs%3Dsample&code_challenge=abc%2Bdef";
+        let wide = utf16_nul_terminated(url);
+
+        assert_eq!(wide.last(), Some(&0));
+        assert!(!wide[..wide.len() - 1].contains(&0));
+        assert_eq!(String::from_utf16(&wide[..wide.len() - 1]).unwrap(), url);
+    }
+
+    #[test]
+    fn browser_open_log_fields_contain_only_result_and_numeric_shell_code() {
+        let url = "https://example.test/authorize?provider=google&redirect_to=http%3A%2F%2F127.0.0.1%2Fcallback%3Fs%3Dprivate";
+        let fields = browser_open_fields(false, Some(31));
+        let serialized = serde_json::to_string(&fields).unwrap();
+
+        assert_eq!(fields.len(), 2);
+        assert_eq!(
+            fields.get("result").and_then(serde_json::Value::as_str),
+            Some("failed")
+        );
+        assert_eq!(
+            fields
+                .get("shell_execute_return_code")
+                .and_then(serde_json::Value::as_i64),
+            Some(31)
+        );
+        assert!(!serialized.contains(url));
+        assert!(!fields.contains_key("url"));
+    }
+
+    #[test]
+    fn callback_failure_categories_use_only_auth_and_callback_variants() {
+        assert_eq!(
+            callback_failure_category(AuthFailure::Callback, None),
+            "timeout"
+        );
+        assert_eq!(
+            callback_failure_category(AuthFailure::Cancelled, None),
+            "cancelled"
+        );
+        assert_eq!(
+            callback_failure_category(AuthFailure::Callback, Some(CallbackFailure::StateMismatch)),
+            "state_mismatch"
+        );
+        assert_eq!(
+            callback_failure_category(AuthFailure::Transport, Some(CallbackFailure::Malformed)),
+            "other"
+        );
     }
 
     #[test]
