@@ -43,7 +43,22 @@ export interface MatchHistory {
   last: { results: (MatchResult | null)[]; wins: number; losses: number; winRate: number | null };
   trend: number[];
   topHeroes: HeroSummary[];
+  best: { minGames: number; allTime: BestHero[]; thisMonth: BestHero[] };
   entries: HistoryEntry[];
+}
+
+/** One host best-hero row (win-rate ranked from `minGames` counted games, else most played). */
+export interface BestHero {
+  hero: string;
+  basis: "win_rate" | "most_played";
+  games: number;
+  countedGames: number;
+  wins: number;
+  losses: number;
+  winRate: number | null;
+  avgKills: number | null;
+  avgDeaths: number | null;
+  avgAssists: number | null;
 }
 
 type Obj = Record<string, unknown>;
@@ -52,6 +67,26 @@ const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !
 const count = (v: unknown): number | null => (typeof v === "number" && Number.isInteger(v) && v >= 0 ? v : null);
 const rate = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 100 ? v : null);
 const result = (v: unknown): MatchResult | null => (v === "win" || v === "loss" ? v : null);
+const average = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : null);
+
+function parseBest(raw: unknown): BestHero[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((h): BestHero[] => {
+    if (!isObj(h) || typeof h.hero !== "string") return [];
+    return [{
+      hero: h.hero,
+      basis: h.basis === "win_rate" ? "win_rate" : "most_played",
+      games: count(h.games) ?? 0,
+      countedGames: count(h.counted_games) ?? 0,
+      wins: count(h.wins) ?? 0,
+      losses: count(h.losses) ?? 0,
+      winRate: rate(h.win_rate),
+      avgKills: average(h.avg_kills),
+      avgDeaths: average(h.avg_deaths),
+      avgAssists: average(h.avg_assists),
+    }];
+  }).slice(0, 3);
+}
 const MATCH_TYPES: readonly MatchType[] = ["ranked", "unranked", "bot", "custom", "lobby", "unknown"];
 
 function parseEntry(raw: unknown): HistoryEntry | null {
@@ -104,8 +139,26 @@ export function parseMatchHistory(raw: unknown): MatchHistory | null {
         winRate: rate(h.win_rate),
       }];
     }),
+    best: {
+      minGames: isObj(s.best_heroes) ? count(s.best_heroes.min_games) ?? 3 : 3,
+      allTime: isObj(s.best_heroes) ? parseBest(s.best_heroes.all_time) : [],
+      thisMonth: isObj(s.best_heroes) ? parseBest(s.best_heroes.this_month) : [],
+    },
     entries,
   };
+}
+
+/** What the page lays out before the host answers or when it cannot: every count is zero. */
+export const EMPTY_HISTORY: MatchHistory = {
+  recorded: 0, counted: 0, countedUnknownType: 0, excludedMatchType: 0, excludedNoResult: 0,
+  overall: { wins: 0, losses: 0, winRate: null },
+  last: { results: [], wins: 0, losses: 0, winRate: null },
+  trend: [], topHeroes: [], best: { minGames: 3, allTime: [], thisMonth: [] }, entries: [],
+};
+
+/** Unix seconds of the start of the local calendar month containing `now` (sent to the host). */
+export function localMonthStart(now: Date): number {
+  return Math.floor(new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0).getTime() / 1000);
 }
 
 export function percent(value: number | null): string {
@@ -146,37 +199,109 @@ export function heroName(hero: string | null, locale: OverviewLocale): string {
   return displayHeroName(hero)?.name ?? overviewCopy(locale).stats.unknownHero;
 }
 
+export const LAST_SLOTS = 20;
+
+export interface DonutSegment { kind: "win" | "loss" | "none"; value: number; length: number; offset: number }
+
 export interface TileView {
   overall: { value: string; sub: string; known: boolean; scope: string | null };
-  last: { title: string; value: string; sub: string | null; squares: MatchResult[] };
+  /** Always 20 slots, oldest to newest from the left; null slots are drawn as empty outlines. */
+  last: { title: string; value: string; sub: string; slots: (MatchResult | null)[] };
+  /** Wins, losses and no-result over recorded matches; segment lengths are on a 100-unit ring. */
+  donut: { total: number; wins: number; losses: number; noResult: number; segments: DonutSegment[] };
   trend: { points: string | null; label: string | null; need: string | null };
 }
 
+/** Owner 2026-11-23 (DEC-OVERVIEW rev 3): the whole layout always renders; with no counted match
+ * the rate reads "0.0%" over a base of 0 matches, still labelled all modes. */
 export function statTiles(history: MatchHistory, locale: OverviewLocale): TileView {
   const t = overviewCopy(locale).stats;
-  const squares = history.last.results.filter((r): r is MatchResult => r !== null).slice().reverse();
-  const points = trendPolyline(history.trend);
+  const filled = history.last.results.filter((r): r is MatchResult => r !== null).slice(0, LAST_SLOTS).reverse();
+  const slots: (MatchResult | null)[] = [...filled, ...Array<null>(LAST_SLOTS - filled.length).fill(null)];
+  const points = history.trend.length > 0 && history.counted >= 10 ? trendPolyline(history.trend) : null;
   const latest = history.trend.at(-1);
+  const zero = (v: number | null) => (v === null ? "0.0%" : percent(v));
+  const noResult = history.excludedNoResult;
+  const total = history.overall.wins + history.overall.losses + noResult;
+  const segments: DonutSegment[] = [];
+  let offset = 0;
+  for (const [kind, value] of [["win", history.overall.wins], ["loss", history.overall.losses], ["none", noResult]] as const) {
+    if (value <= 0 || total === 0) continue;
+    const length = (value / total) * 100;
+    segments.push({ kind, value, length, offset });
+    offset += length;
+  }
   return {
     overall: {
-      value: percent(history.overall.winRate),
-      sub: history.counted > 0 ? t.overallSub(history.overall.wins, history.overall.losses, history.counted) : t.overallNone,
+      value: zero(history.overall.winRate),
+      sub: t.overallSub(history.overall.wins, history.overall.losses, history.counted),
       known: history.overall.winRate !== null,
       // Owner 2026-11-23 "Count all, labelled": unknown-type matches count, so say it covers all modes.
       scope: history.counted === 0 || history.countedUnknownType > 0 ? t.allModes : null,
     },
     last: {
-      title: t.lastTitle(squares.length),
-      value: percent(history.last.winRate),
-      sub: squares.length > 0 ? t.lastSub(history.last.wins, history.last.losses) : null,
-      squares,
+      title: t.lastTitle(filled.length),
+      value: zero(history.last.winRate),
+      sub: t.lastSub(history.last.wins, history.last.losses),
+      slots,
     },
+    donut: { total, wins: history.overall.wins, losses: history.overall.losses, noResult, segments },
     trend: {
       points,
-      label: latest === undefined ? null : t.trendLabel(percent(latest)),
+      label: points === null || latest === undefined ? null : t.trendLabel(percent(latest)),
       need: points === null ? t.trendNeed(history.counted) : null,
     },
   };
+}
+
+/** Deterministic placeholder heroes for empty best-hero slots (never counted, always labelled). */
+export const PLACEHOLDER_HEROES: readonly string[] = ["npc_dota_hero_pudge", "npc_dota_hero_juggernaut", "npc_dota_hero_crystal_maiden"];
+
+export interface BestHeroCard {
+  hero: string;
+  name: string;
+  placeholder: boolean;
+  /** Short label on the card; the full ranking rule is in `basisTitle`. */
+  basis: string | null;
+  basisTitle: string | null;
+  games: string;
+  record: string;
+  rate: string;
+  kda: string;
+  title: string | null;
+}
+
+/** Always three cards: the host's ranked heroes, then labelled placeholders with every stat at zero. */
+export function bestHeroPanel(heroes: readonly BestHero[], minGames: number, locale: OverviewLocale): BestHeroCard[] {
+  const t = overviewCopy(locale).stats;
+  const one = (v: number | null) => (v === null ? "—" : v.toFixed(1));
+  const cards: BestHeroCard[] = heroes.slice(0, 3).map((h) => ({
+    hero: h.hero,
+    name: heroName(h.hero, locale),
+    placeholder: false,
+    basis: h.basis === "win_rate" ? t.basisRateShort : t.basisMostPlayedShort,
+    basisTitle: h.basis === "win_rate" ? t.basisRate(minGames) : t.basisMostPlayed(minGames),
+    games: t.games(h.games),
+    record: `${h.wins}–${h.losses}`,
+    rate: percent(h.winRate),
+    kda: `${one(h.avgKills)} / ${one(h.avgDeaths)} / ${one(h.avgAssists)}`,
+    title: null,
+  }));
+  for (const hero of PLACEHOLDER_HEROES) {
+    if (cards.length >= 3) break;
+    if (cards.some((c) => c.hero === hero)) continue;
+    cards.push({
+      hero, name: heroName(hero, locale), placeholder: true, basis: null, basisTitle: null,
+      games: t.games(0), record: "0–0", rate: "0.0%", kda: "0.0 / 0.0 / 0.0", title: t.placeholderTip,
+    });
+  }
+  return cards;
+}
+
+/** Rows to draw so the table keeps its shape: real rows, then faint empty rows up to five. */
+export const MIN_TABLE_ROWS = 5;
+export function placeholderRowCount(realRows: number): number {
+  return Math.max(0, MIN_TABLE_ROWS - realRows);
 }
 
 /** The honest counting note under the tiles: the rule and what was left out. */

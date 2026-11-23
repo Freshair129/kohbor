@@ -25,7 +25,7 @@
 .ov-empty { display: grid; place-items: center; gap: 8px; padding: 26px 16px; border: 1px dashed var(--line-strong); border-radius: 12px; text-align: center; }
 .ov-empty strong { font-size: 15px; }
 
-.ov-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.ov-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .ov-page .card.ov-tile { padding: 12px 14px; min-width: 0; }
 .ov-lbl { color: var(--muted); font-size: var(--fs-caption); }
 .ov-scope { color: var(--warning); font-size: var(--fs-caption); line-height: var(--lh-thai); }
@@ -36,10 +36,35 @@
 .ov-wl i { width: 12px; height: 12px; border-radius: 3px; background: var(--line); }
 .ov-wl i.w { background: var(--ally); }
 .ov-wl i.l { background: var(--critical); }
-.ov-spark { display: block; width: 100%; height: 64px; margin-top: 4px; }
+.ov-wl i.empty { background: transparent; box-shadow: inset 0 0 0 1px var(--line-strong); opacity: 0.6; }
+.ov-state-note { margin-top: -4px; }
+
+/* W/L donut: an empty grey ring with 0 in the centre when there is no data. */
+.ov-donut-wrap { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
+.ov-donut { width: 84px; height: 84px; flex: none; }
+.ov-donut circle { fill: none; stroke-width: 5; }
+.ov-donut-track { stroke: var(--line); }
+.ov-donut-seg { transform: none; }
+.ov-donut-seg.win { stroke: var(--ally); }
+.ov-donut-seg.loss { stroke: var(--critical); }
+.ov-donut-seg.none { stroke: var(--stale); }
+.ov-donut-num { fill: var(--text); font: 700 9px var(--font-mono); text-anchor: middle; dominant-baseline: middle; }
+.ov-donut-cap { fill: var(--muted); font: 3.4px var(--font-ui); text-anchor: middle; }
+.ov-legend { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; font-size: var(--fs-caption); color: var(--text-2); }
+.ov-legend li { display: flex; align-items: center; gap: 6px; }
+.ov-legend i { width: 10px; height: 10px; border-radius: 3px; background: var(--line); }
+.ov-legend i.win { background: var(--ally); } .ov-legend i.loss { background: var(--critical); } .ov-legend i.none { background: var(--stale); }
+.ov-legend span { margin-left: auto; padding-left: 8px; font-family: var(--font-mono); }
+.ov-trend { position: relative; margin-top: 4px; padding-left: 30px; }
+.ov-spark { display: block; width: 100%; height: 64px; }
+.ov-spark-frame { fill: none; stroke: var(--line); stroke-width: 1; }
+.ov-spark-grid { stroke: var(--line-subtle); stroke-width: 1; }
+.ov-spark-axis { position: absolute; top: 0; bottom: 0; left: 0; display: flex; flex-direction: column; justify-content: space-between;
+  color: var(--muted); font: 10px/1 var(--font-mono); }
 .ov-spark-mid { stroke: var(--line-strong); stroke-dasharray: 3 4; stroke-width: 1; }
 .ov-spark-line { fill: none; stroke: var(--text); stroke-width: 2; }
-.ov-spark-need { display: grid; place-items: center; height: 64px; margin-top: 4px; padding: 0 8px; border: 1px dashed var(--line); border-radius: 10px; text-align: center; }
+.ov-spark-need { position: absolute; inset: 0 0 0 30px; display: grid; place-items: center; padding: 0 8px; color: var(--muted);
+  font-size: var(--fs-caption); text-align: center; opacity: 0.75; pointer-events: none; }
 .ov-count-notes { display: grid; gap: 2px; margin: -4px 0 0; padding-left: 18px; }
 
 .ov-sec-title { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
@@ -54,6 +79,24 @@
 .ov-hcard-m .up { color: var(--ally); }
 .ov-hcard-m .down { color: var(--critical); }
 .ov-hero-ph { display: inline-block; background: var(--raised); }
+
+/* Best heroes (Dota Plus style): two panels, three cards each. */
+.ov-best-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.ov-best-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.ov-hcard-n { display: flex; align-items: center; gap: 6px; }
+.ov-hcard-n > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ov-hcard-stats { display: grid; gap: 1px; margin: 4px 0; }
+.ov-hcard-stats div { display: flex; flex-wrap: wrap; justify-content: space-between; column-gap: 6px; }
+.ov-hcard-stats dt { color: var(--muted); font-size: var(--fs-caption); white-space: nowrap; }
+.ov-hcard-stats dd { margin: 0; color: var(--text); font: var(--fs-caption) var(--font-mono); white-space: nowrap; }
+.ov-hcard-m > span:first-child { white-space: nowrap; }
+.ov-basis { overflow: hidden; color: var(--muted); font-family: var(--font-ui); text-overflow: ellipsis; white-space: nowrap; }
+/* Placeholders are never data: desaturated, dashed and chipped. */
+.ov-hcard.placeholder { border-style: dashed; }
+.ov-hcard.placeholder .ov-hcard-img { filter: grayscale(1); opacity: 0.45; }
+.ov-hcard.placeholder .ov-hcard-stats dd, .ov-hcard.placeholder .ov-hcard-n > span:first-child { color: var(--muted); }
+.ov-ph-chip { flex: none; padding: 0 6px; border: 1px dashed var(--warning); border-radius: 6px; color: var(--warning); font-size: var(--fs-caption); line-height: 18px; }
+.ov-row-empty td { color: var(--muted); opacity: 0.45; }
 
 .ov-table-wrap { overflow-x: auto; }
 .ov-mt { width: 100%; border-collapse: collapse; font-size: var(--fs-detail); }
@@ -95,6 +138,8 @@
 @media (max-width: 1500px) {
   .ov-page { grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr); }
   .ov-heroes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ov-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ov-best-row { grid-template-columns: minmax(0, 1fr); }
   .ov-heroes .ov-hcard:nth-child(n + 4) { display: none; }
   .ov-val { font-size: 26px; }
   .ov-mt .opt { display: none; }

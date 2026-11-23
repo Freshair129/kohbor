@@ -1004,8 +1004,11 @@ pub(crate) fn clear_match_recap(state: tauri::State<'_, AppState>) -> Result<Val
 
 /// OVERVIEW-002: own local match history with its computed summary.
 #[tauri::command(async)]
-pub(crate) fn match_history_get(state: tauri::State<'_, AppState>) -> Value {
-    state.match_history.view()
+pub(crate) fn match_history_get(
+    state: tauri::State<'_, AppState>,
+    month_start: Option<u64>,
+) -> Value {
+    state.match_history.view(month_start)
 }
 
 /// Deletes the local match history file contents (user action on the Overview).

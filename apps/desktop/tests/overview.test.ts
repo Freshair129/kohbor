@@ -2,8 +2,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
-  countingNotes, formatDuration, heroCards, matchRows, newsColumn, parseMatchHistory, parseNewsView, percent,
-  statTiles, trendPolyline, type NewsPost,
+  bestHeroPanel, countingNotes, EMPTY_HISTORY, formatDuration, heroCards, localMonthStart, matchRows, newsColumn,
+  parseMatchHistory, parseNewsView, percent, placeholderRowCount, PLACEHOLDER_HEROES, statTiles, trendPolyline,
+  type NewsPost,
 } from "../src/overview/overviewModel.ts";
 import { overviewCopy } from "../src/overview/overviewCopy.ts";
 
@@ -54,7 +55,10 @@ test("unknown-type matches with a result count, labelled all modes; abandoned st
   assert.equal(tiles.overall.scope, "รวมทุกโหมด (ยังแยก ranked/unranked ไม่ได้)");
   assert.equal(statTiles(history, "en").overall.scope, "All modes (ranked/unranked not yet separated)");
   assert.equal(tiles.last.title, "2 แมตช์ล่าสุด");
-  assert.deepEqual(tiles.last.squares, ["win", "win"]);
+  assert.deepEqual(tiles.last.slots.slice(0, 3), ["win", "win", null]);
+  assert.equal(tiles.last.slots.length, 20);
+  assert.equal(tiles.donut.total, 3);
+  assert.deepEqual(tiles.donut.segments.map((x) => [x.kind, Math.round(x.length)]), [["win", 67], ["none", 33]]);
   assert.equal(tiles.trend.points, null);
   assert.match(tiles.trend.need!, /10 แมตช์/);
   const notes = countingNotes(history, "en");
@@ -89,9 +93,10 @@ test("counted matches: honest last-N title, squares oldest to newest, hero W-L b
   const tiles = statTiles(history, "en");
   assert.equal(tiles.overall.value, "66.7%");
   assert.equal(tiles.overall.scope, null, "known types only: no all-modes label");
-  assert.match(tiles.overall.sub, /^4–2 · from 6 counted matches/);
+  assert.equal(tiles.overall.sub, "4–2 · 6 matches");
   assert.equal(tiles.last.title, "Last 6 matches");
-  assert.deepEqual(tiles.last.squares, ["win", "loss", "win", "win", "loss", "win"].reverse());
+  assert.deepEqual(tiles.last.slots.slice(0, 6), ["win", "loss", "win", "win", "loss", "win"].reverse());
+  assert.deepEqual(tiles.last.slots.slice(6), Array(14).fill(null));
   const cards = heroCards(history, "en");
   assert.equal(cards[0]!.record, "3–1");
   assert.equal(cards[0]!.usesRate, false);
@@ -188,4 +193,81 @@ test("the page keeps OpenDota disabled and opens links only by post id and index
   assert.doesNotMatch(page, /href=/, "no renderer-side links");
   const client = readFileSync(new URL("../src/overview/overviewClient.ts", import.meta.url), "utf8");
   assert.doesNotMatch(client, /https?:\/\//, "the renderer never names a URL to fetch");
+});
+
+test("no data still lays out every box: 0.0%, 0 matches, empty ring, 20 empty slots, empty trend frame, 5 empty rows", () => {
+  for (const locale of ["th", "en"] as const) {
+    const tiles = statTiles(EMPTY_HISTORY, locale);
+    assert.equal(tiles.overall.value, "0.0%");
+    assert.equal(tiles.overall.known, false);
+    assert.ok(tiles.overall.scope, "all-modes label kept");
+    assert.equal(tiles.last.value, "0.0%");
+    assert.equal(tiles.last.slots.length, 20);
+    assert.ok(tiles.last.slots.every((x) => x === null));
+    assert.equal(tiles.donut.total, 0);
+    assert.deepEqual(tiles.donut.segments, []);
+    assert.equal(tiles.trend.points, null);
+    assert.ok(tiles.trend.need);
+  }
+  assert.equal(statTiles(EMPTY_HISTORY, "th").overall.sub, "0–0 · 0 แมตช์");
+  assert.match(statTiles(EMPTY_HISTORY, "th").trend.need!, /ต้องมีอย่างน้อย 10 แมตช์/);
+  assert.equal(placeholderRowCount(0), 5);
+  assert.equal(placeholderRowCount(3), 2);
+  assert.equal(placeholderRowCount(8), 0);
+  // Fewer than 10 counted matches never draw a line even if a point were present.
+  assert.equal(statTiles({ ...EMPTY_HISTORY, counted: 9, trend: [50] }, "en").trend.points, null);
+});
+
+test("best-hero panels: host heroes first, then labelled zero placeholders that never repeat a real hero", () => {
+  const empty = bestHeroPanel([], 3, "th");
+  assert.deepEqual(empty.map((c) => c.hero), [...PLACEHOLDER_HEROES]);
+  for (const card of empty) {
+    assert.equal(card.placeholder, true);
+    assert.equal(card.rate, "0.0%");
+    assert.equal(card.record, "0–0");
+    assert.equal(card.kda, "0.0 / 0.0 / 0.0");
+    assert.equal(card.games, "0 เกม");
+    assert.equal(card.title, "ยังไม่มีข้อมูล — แสดงตัวอย่างช่อง");
+  }
+  assert.equal(bestHeroPanel([], 3, "en")[0]!.title, "No data yet — showing a placeholder slot");
+  const real = bestHeroPanel([{
+    hero: "npc_dota_hero_pudge", basis: "win_rate", games: 4, countedGames: 4, wins: 3, losses: 1, winRate: 75,
+    avgKills: 7.25, avgDeaths: 3, avgAssists: 10.5,
+  }], 3, "en");
+  assert.deepEqual(real.map((c) => [c.hero, c.placeholder]), [
+    ["npc_dota_hero_pudge", false], ["npc_dota_hero_juggernaut", true], ["npc_dota_hero_crystal_maiden", true],
+  ]);
+  assert.equal(real[0]!.rate, "75.0%");
+  assert.equal(real[0]!.kda, "7.3 / 3.0 / 10.5");
+  assert.equal(real[0]!.basis, "By win rate");
+  assert.equal(real[0]!.basisTitle, "Ranked by win rate (at least 3 games)");
+  const parsed = parseMatchHistory({
+    schema_version: "1.0.0",
+    summary: { overall: {}, last: {}, trend: {}, top_heroes: [], best_heroes: { min_games: 3, all_time: [
+      { hero: "npc_dota_hero_axe", basis: "most_played", games: 1, counted_games: 0, wins: 0, losses: 0, win_rate: null,
+        avg_kills: null, avg_deaths: null, avg_assists: null }], this_month: null } },
+    entries: [],
+  })!;
+  assert.equal(parsed.best.allTime[0]!.basis, "most_played");
+  assert.deepEqual(parsed.best.thisMonth, []);
+  assert.equal(bestHeroPanel(parsed.best.allTime, 3, "en")[0]!.rate, "—", "a real unknown rate stays a dash");
+});
+
+test("the month start sent to the host is local midnight on the 1st", () => {
+  const start = localMonthStart(new Date(2026, 10, 23, 15, 30));
+  const d = new Date(start * 1000);
+  assert.deepEqual([d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes()], [2026, 10, 1, 0, 0]);
+  assert.equal(localMonthStart(new Date(2026, 10, 1, 0, 0, 0)), start);
+  assert.ok(localMonthStart(new Date(2026, 9, 31, 23, 59, 59)) < start);
+});
+
+test("the page always renders the full layout and marks placeholders", () => {
+  const page = readFileSync(new URL("../src/overview/OverviewPage.tsx", import.meta.url), "utf8");
+  assert.match(page, /EMPTY_HISTORY/);
+  const stats = page.slice(page.indexOf("function StatsColumn("), page.indexOf("function Post("));
+  assert.doesNotMatch(stats, /t\.emptyTitle|ov-empty/, "no collapsed empty state in the stats column");
+  assert.match(page, /ov-ph-chip/);
+  assert.match(page, /ov-row-empty/);
+  const css = readFileSync(new URL("../src/overview/overview.css", import.meta.url), "utf8");
+  assert.match(css, /\.ov-hcard\.placeholder \.ov-hcard-img \{ filter: grayscale\(1\)/);
 });

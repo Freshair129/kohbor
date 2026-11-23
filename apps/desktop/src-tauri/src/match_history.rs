@@ -33,6 +33,10 @@ pub const TREND_MAX_POINTS: usize = 50;
 /// A hero's win rate is shown only from this many counted games; below it, W–L counts.
 pub const HERO_RATE_MIN_GAMES: u32 = 5;
 pub const TOP_HEROES: usize = 5;
+/// Best-hero panels (owner 2026-11-23, "like Dota Plus"): top 3, ranked by win rate among heroes
+/// with at least this many counted games; below that the panel falls back to most played.
+pub const BEST_HEROES: usize = 3;
+pub const BEST_MIN_GAMES: u32 = 3;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -231,11 +235,13 @@ impl MatchHistoryStore {
     }
 
     /// The `match_history_get` reply: entries (newest first) and the computed summary.
-    pub fn view(&self) -> Value {
+    /// `month_start` is the start of the renderer's local calendar month in Unix seconds; the
+    /// host does not know the user's time zone, so the renderer supplies it.
+    pub fn view(&self, month_start: Option<u64>) -> Value {
         let entries = self.entries();
         json!({
             "schema_version": SCHEMA_VERSION,
-            "summary": summarize(&entries),
+            "summary": summarize_at(&entries, month_start),
             "entries": entries,
         })
     }
@@ -275,8 +281,103 @@ fn commit(state: &mut StoreState, next: HistoryFile) -> Result<(), String> {
     Ok(())
 }
 
+#[derive(Default)]
+struct HeroTally {
+    games: u32,
+    wins: u32,
+    losses: u32,
+    kda_games: u32,
+    kills: u64,
+    deaths: u64,
+    assists: u64,
+}
+
+/// Top heroes for one period. Win-rate ranked among heroes with `BEST_MIN_GAMES` counted games
+/// (ties: more counted games, then name); remaining slots fall back to most played. Placeholders
+/// are the renderer's job and never appear here.
+pub fn best_heroes(entries: &[MatchEntry]) -> Vec<Value> {
+    let mut tally: BTreeMap<&str, HeroTally> = BTreeMap::new();
+    for entry in entries {
+        let Some(hero) = entry.hero.as_deref() else {
+            continue;
+        };
+        let t = tally.entry(hero).or_default();
+        t.games += 1;
+        if entry.counted() {
+            if entry.result == Some(MatchResult::Win) {
+                t.wins += 1;
+            } else {
+                t.losses += 1;
+            }
+        }
+        if let (Some(k), Some(d), Some(a)) = (entry.kills, entry.deaths, entry.assists) {
+            t.kda_games += 1;
+            t.kills += u64::from(k);
+            t.deaths += u64::from(d);
+            t.assists += u64::from(a);
+        }
+    }
+    let rate = |t: &HeroTally| {
+        let n = t.wins + t.losses;
+        (n > 0).then(|| f64::from(t.wins) * 100.0 / f64::from(n))
+    };
+    let mut ranked: Vec<(&str, &HeroTally)> = tally
+        .iter()
+        .filter(|(_, t)| t.wins + t.losses >= BEST_MIN_GAMES)
+        .map(|(h, t)| (*h, t))
+        .collect();
+    ranked.sort_by(|a, b| {
+        rate(b.1)
+            .unwrap_or(0.0)
+            .total_cmp(&rate(a.1).unwrap_or(0.0))
+            .then((b.1.wins + b.1.losses).cmp(&(a.1.wins + a.1.losses)))
+            .then(a.0.cmp(b.0))
+    });
+    ranked.truncate(BEST_HEROES);
+    let mut out: Vec<(&str, &HeroTally, &str)> = ranked
+        .into_iter()
+        .map(|(h, t)| (h, t, "win_rate"))
+        .collect();
+    if out.len() < BEST_HEROES {
+        let mut rest: Vec<(&str, &HeroTally)> = tally
+            .iter()
+            .filter(|(h, _)| !out.iter().any(|(o, _, _)| o == *h))
+            .map(|(h, t)| (*h, t))
+            .collect();
+        rest.sort_by(|a, b| b.1.games.cmp(&a.1.games).then(a.0.cmp(b.0)));
+        let room = BEST_HEROES - out.len();
+        out.extend(
+            rest.into_iter()
+                .take(room)
+                .map(|(h, t)| (h, t, "most_played")),
+        );
+    }
+    let avg = |sum: u64, n: u32| (n > 0).then(|| sum as f64 / f64::from(n));
+    out.into_iter()
+        .map(|(hero, t, basis)| {
+            json!({
+                "hero": hero,
+                "basis": basis,
+                "games": t.games,
+                "counted_games": t.wins + t.losses,
+                "wins": t.wins,
+                "losses": t.losses,
+                "win_rate": rate(t),
+                "avg_kills": avg(t.kills, t.kda_games),
+                "avg_deaths": avg(t.deaths, t.kda_games),
+                "avg_assists": avg(t.assists, t.kda_games),
+            })
+        })
+        .collect()
+}
+
 /// Summary over the stored entries. Every rate is over counted matches only.
 pub fn summarize(entries: &[MatchEntry]) -> Value {
+    summarize_at(entries, None)
+}
+
+/// [`summarize`] plus the best-hero panels; `this_month` is null without a month start.
+pub fn summarize_at(entries: &[MatchEntry], month_start: Option<u64>) -> Value {
     let counted: Vec<&MatchEntry> = entries.iter().filter(|e| e.counted()).collect();
     let wins = counted
         .iter()
@@ -366,6 +467,18 @@ pub fn summarize(entries: &[MatchEntry]) -> Value {
         },
         "trend": {"window": TREND_WINDOW, "points": trend},
         "top_heroes": top_heroes,
+        "best_heroes": {
+            "min_games": BEST_MIN_GAMES,
+            "all_time": best_heroes(entries),
+            "this_month": month_start.map(|start| {
+                let month: Vec<MatchEntry> = entries
+                    .iter()
+                    .filter(|e| e.ended_at >= start)
+                    .cloned()
+                    .collect();
+                best_heroes(&month)
+            }),
+        },
     })
 }
 
@@ -830,6 +943,95 @@ mod tests {
         assert_eq!(
             s["top_heroes"][0]["win_rate"].as_f64().unwrap().round(),
             83.0
+        );
+    }
+
+    fn hero_entry(n: usize, hero: &str, result: MatchResult, ended_at: u64) -> MatchEntry {
+        let mut e = entry(key(n), Some(result), MatchType::Unknown, hero);
+        e.ended_at = ended_at;
+        e.kills = Some(n as u32);
+        e
+    }
+
+    #[test]
+    fn best_heroes_rank_by_win_rate_from_three_games_then_fall_back_to_most_played() {
+        use MatchResult::{Loss, Win};
+        let t = 1_000;
+        let entries = vec![
+            // Lion 3 games 2-1 (66.7%), Axe 4 games 2-2 (50%), Pudge 3 games 3-0 (100%),
+            // Zeus 2 games 2-0 (not enough games), Sniper 1 game.
+            hero_entry(1, "npc_dota_hero_lion", Win, t),
+            hero_entry(2, "npc_dota_hero_lion", Win, t),
+            hero_entry(3, "npc_dota_hero_lion", Loss, t),
+            hero_entry(4, "npc_dota_hero_axe", Win, t),
+            hero_entry(5, "npc_dota_hero_axe", Win, t),
+            hero_entry(6, "npc_dota_hero_axe", Loss, t),
+            hero_entry(7, "npc_dota_hero_axe", Loss, t),
+            hero_entry(8, "npc_dota_hero_pudge", Win, t),
+            hero_entry(9, "npc_dota_hero_pudge", Win, t),
+            hero_entry(10, "npc_dota_hero_pudge", Win, t),
+            hero_entry(11, "npc_dota_hero_zuus", Win, t),
+            hero_entry(12, "npc_dota_hero_zuus", Win, t),
+            hero_entry(13, "npc_dota_hero_sniper", Win, t),
+        ];
+        let best = best_heroes(&entries);
+        let names: Vec<&str> = best.iter().map(|h| h["hero"].as_str().unwrap()).collect();
+        assert_eq!(
+            names,
+            [
+                "npc_dota_hero_pudge",
+                "npc_dota_hero_lion",
+                "npc_dota_hero_axe"
+            ]
+        );
+        assert!(best.iter().all(|h| h["basis"] == "win_rate"));
+        assert_eq!(best[0]["avg_kills"], 9.0);
+        assert_eq!(best[0]["avg_deaths"], 1.0);
+
+        // Too few qualified: the rest falls back to most played, and nothing is invented.
+        let few = best_heroes(&entries[10..]);
+        let names: Vec<&str> = few.iter().map(|h| h["hero"].as_str().unwrap()).collect();
+        assert_eq!(names, ["npc_dota_hero_zuus", "npc_dota_hero_sniper"]);
+        assert!(few.iter().all(|h| h["basis"] == "most_played"));
+        assert!(best_heroes(&[]).is_empty());
+
+        // An abandoned match counts as a game but never toward the win rate.
+        let mut abandoned = entry(key(99), None, MatchType::Unknown, "npc_dota_hero_axe");
+        abandoned.kills = None;
+        let one = best_heroes(&[abandoned]);
+        assert_eq!(one[0]["games"], 1);
+        assert_eq!(one[0]["counted_games"], 0);
+        assert_eq!(one[0]["win_rate"], Value::Null);
+        assert_eq!(one[0]["avg_kills"], Value::Null);
+    }
+
+    #[test]
+    fn this_month_panel_uses_only_matches_from_the_supplied_month_start() {
+        use MatchResult::Win;
+        // 2026-11-01T00:00:00+07:00 as the renderer would send it for a UTC+7 user.
+        let month_start = 1_793_466_000;
+        let entries = vec![
+            hero_entry(1, "npc_dota_hero_lion", Win, month_start),
+            hero_entry(2, "npc_dota_hero_axe", Win, month_start - 1),
+            hero_entry(3, "npc_dota_hero_axe", Win, month_start - 86_400),
+        ];
+        let s = summarize_at(&entries, Some(month_start));
+        let month = s["best_heroes"]["this_month"].as_array().unwrap();
+        assert_eq!(
+            month.len(),
+            1,
+            "one second before the month start is last month"
+        );
+        assert_eq!(month[0]["hero"], "npc_dota_hero_lion");
+        let all = s["best_heroes"]["all_time"].as_array().unwrap();
+        assert_eq!(
+            all[0]["hero"], "npc_dota_hero_axe",
+            "most played without 3 games"
+        );
+        assert_eq!(s["best_heroes"]["min_games"], BEST_MIN_GAMES);
+        assert_eq!(
+            summarize(&entries)["best_heroes"]["this_month"],
+            Value::Null
         );
     }
 

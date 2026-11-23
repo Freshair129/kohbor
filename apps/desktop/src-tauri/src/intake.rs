@@ -1776,7 +1776,7 @@ mod tests {
             !stored.contains(&owner().to_string()),
             "SteamID64 is never stored"
         );
-        assert_eq!(shared.match_history().view()["summary"]["counted"], 1);
+        assert_eq!(shared.match_history().view(None)["summary"]["counted"], 1);
     }
 
     #[test]
