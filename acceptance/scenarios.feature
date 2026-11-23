@@ -230,8 +230,8 @@ Feature: Brand-neutral desktop companion target behavior
   Scenario: AC-UI-002 Session monitor field topology
     Given the Live page in draft, pregame or live phase at 1920×1080, 1920×1000, 1600×900, 1366×768 or the 1280×720 minimum, with only values admitted from GSI and same-session draft memory
     When the player resizes the centred Live field or admitted session and roster values change
-    Then Radiant's five cards, the centre minimap panel and Dire's five cards stay inside the Live box; both card columns equal the minimap panel height and split evenly in slot order; all ten full replay-structure cards are visible with text at least 12 px; no page or region scrolls and no card or map is clipped; the own hero is one highlighted team slot filled from GSI, unknown values stay dashed or em dashes, only available GSI clock/phase are shown, score/net worth and in-match side panels are absent, and a too-small state appears below the legible minimum
-    And failure behavior is: If the measured box cannot show every full replay-structure card legibly with text at least 12 px, show the existing window-too-small state; never scroll or clip a card or map. Unknown is an em dash or dashed slot, never zero. Do not show score, net worth, fabricated game-clock values, computed stats, path traces or unobserved enemy values.
+    Then Radiant's five cards, the centre minimap panel and Dire's five cards stay inside the Live box; both card columns equal the minimap panel height and split evenly in slot order; all ten full replay-structure cards are visible with text at least 12 px; no page or region scrolls and no card or map is clipped; the own hero is one highlighted team slot filled from GSI, and its stat rows show labelled derived values wherever the module returns them with source tooltips and the caveat 'ไม่รวมผลชั่วคราว / without temporary effects'; null results and unknown values stay em dashes or dashed slots, allies and enemies remain unknown, only available GSI clock/phase are shown, unknown game build and stats-pack build are labelled with the newest supported ruleset marked as fallback, score/net worth and in-match side panels are absent, and a too-small state appears below the legible minimum
+    And failure behavior is: If the measured box cannot show every full replay-structure card legibly with text at least 12 px, show the existing window-too-small state; never scroll or clip a card or map. Unknown is an em dash or dashed slot, never zero. Derived values require a non-null module result and the admitted own GSI hero ID, level and observed item IDs; allies and enemies stay unknown. Do not show score, net worth, fabricated game-clock values, path traces or unobserved enemy values.
 
   @UI-003 @mvp
   Scenario: AC-UI-003 Neutral production start
@@ -322,7 +322,7 @@ Feature: Brand-neutral desktop companion target behavior
     Given a host schedule with water, power, bounty and wisdom occurrences, lead times set and unset, a stale schedule and a malformed one
     When the pinned minimap renders across the game clock
     Then each rune spot shows minutes until the largest lead time, then seconds to 0; shared spots show the sooner objective; stale, malformed or missing schedules show nothing; Tormentor and Roshan are never labelled; markers are original
-    And failure behavior is: No schedule, a malformed schedule or one older than five seconds shows no labels and an em dash in the quick strip. Spot positions are approximate placement for patch 7.42 and are not measurements; a wrong spot never changes a time.
+    And failure behavior is: No schedule, a malformed schedule or one older than five seconds shows no labels. Spot positions are approximate placement for patch 7.42 and are not measurements; a wrong spot never changes a time.
 
   @UI-019 @mvp
   Scenario: AC-UI-019 Second-monitor broadcast-style draft board

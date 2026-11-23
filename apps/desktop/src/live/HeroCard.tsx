@@ -1,8 +1,8 @@
 // Replay-style hero cards for the centred Live deck (DEC-REPLAY-INTEGRATION item 10, slice R5; owner amendment
 // 2026-11-24: every card has the replay card's full structure).
-// Own hero: the full card filled from GSI. Allies and enemies: the same structure in a denser variant, built from the
-// second-monitor card model. Unknown renders "—" or an empty dashed slot; no stat is computed on Live, no path traces,
-// no enemy value without an admitted source.
+// Own hero: the full card filled from GSI with labelled, source-tooltipped derived stats. Allies and enemies: the same
+// structure in a denser variant, built from the second-monitor card model. Unknown renders "—" or a dashed slot; no
+// path traces or enemy value without an admitted source.
 import { Fragment, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { seconds, type Locale } from "../copy";
 import { HeroPortrait } from "../deck/HeroPortrait";
@@ -12,7 +12,11 @@ import { ownHeroLifeLabel, type OwnHeroViewModel } from "../deck/ownHeroModel";
 import { cardCopy, type HeroCard as CardModel } from "./secondMonitorCards";
 import { dotaIcon } from "./dotaIconSet";
 import { ownFullCard, teamFullCard, UNKNOWN, type FullHeroCardView, type IconSlotView, type StatCellView } from "./heroCardModel";
+import liveStatsPack from "../assets/dota/6989/stats.json";
+import type { StatsData } from "../stats/derivedStats";
 import "./heroCard.css";
+
+const LIVE_STATS_DATA = liveStatsPack as unknown as StatsData;
 
 type Lang = "th" | "en";
 
@@ -110,12 +114,16 @@ function Bar({ kind, percent, label, value, low = false }: { kind: "hp" | "mp"; 
 }
 
 function statTitle(cell: StatCellView, text: Text): string {
+  if (cell.derived) {
+    const sources = cell.sources.length > 0 ? cell.sources.join("; ") : "unknown";
+    return `${cell.label}: ${cell.value}\nSources: ${sources}\nไม่รวมผลชั่วคราว / without temporary effects.${cell.basis ? `\n${cell.basis}` : ""}`;
+  }
   return cell.value === UNKNOWN && cell.group !== "rate" ? `${cell.label}: ${UNKNOWN} (${text.statNoSource})` : `${cell.label}: ${cell.value}`;
 }
 
 /** The sections every card shares, in the replay card's order. */
-function CardSections({ view, text, locale, abilitiesAge, itemsAge }: {
-  view: FullHeroCardView; text: Text; locale: Locale; abilitiesAge: number | null; itemsAge: number | null;
+function CardSections({ view, text, locale, abilitiesAge, itemsAge, basisInHeader = false }: {
+  view: FullHeroCardView; text: Text; locale: Locale; abilitiesAge: number | null; itemsAge: number | null; basisInHeader?: boolean;
 }) {
   const { abilities, items } = view;
   return (
@@ -152,14 +160,17 @@ function CardSections({ view, text, locale, abilitiesAge, itemsAge }: {
           <Icon slot={items.neutral} shape="nt" place={text.neutral} text={text} stale={items.stale} />
         </span>
       </div>
-      <dl className="lhc-stats" aria-label={text.stats}>
-        {view.stats.map(cell => (
-          <div key={cell.key} className={`lhc-stat is-${cell.group}${cell.value === UNKNOWN ? " is-unknown" : ""}`} title={statTitle(cell, text)}>
-            <dt>{cell.label}</dt>
-            <dd>{cell.value}{cell.gain !== null && <em>{cell.gain}</em>}</dd>
-          </div>
-        ))}
-      </dl>
+      <div className="lhc-stat-stack">
+        {view.derivedBasis && !basisInHeader && <div className="lhc-derived-basis" title={view.derivedBasis.title}>{view.derivedBasis.label}</div>}
+        <dl className="lhc-stats" aria-label={text.stats}>
+          {view.stats.map(cell => (
+            <div key={cell.key} className={`lhc-stat is-${cell.group}${cell.derived ? " is-derived" : ""}${cell.key === "dmg" ? " is-dmg" : ""}${cell.value === UNKNOWN ? " is-unknown" : ""}`} title={statTitle(cell, text)}>
+              <dt>{cell.label}</dt>
+              <dd>{cell.value}{cell.gain !== null && <em>{cell.gain}</em>}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
     </>
   );
 }
@@ -187,14 +198,14 @@ export function OwnHeroCard({ locale, own, loadout, slot, stale, ageMs, hasLates
   useEffect(() => { setFreshCache(previous => retainFreshLoadout(loadout, previous).cache); }, [presentationKey]);
   const presentation = retainFreshLoadout(loadout, freshCache);
   const view = ownFullCard({ own, items: presentation.items, itemsStale: loadout.items.stale, abilities: presentation.abilities,
-    abilitiesStale: loadout.abilities.stale, slot, stale, icons: dotaIcon });
+    abilitiesStale: loadout.abilities.stale, slot, stale, icons: dotaIcon, statsData: LIVE_STATS_DATA, gameBuild: null });
   const style = (view.color ? { "--c": view.color } : {}) as CSSProperties;
   const ageText = `${stale ? text.oldData : text.age} · ${seconds(ageMs, locale)}`;
   const life = ownHeroLifeLabel(own, lang);
   if (fieldCard) {
     const field = (
       <li className={`lhc lhc-compact lhc-field-card lhc-field-own${wideStats ? " has-wide-stats" : ""}${stale ? " is-stale" : ""}${view.alive === false ? " is-dead" : ""}`}
-        style={style} data-testid="live-hero-card-own" data-slot={slot ?? undefined} aria-label={`${youLabel}: ${view.heroName ?? UNKNOWN}`}>
+        style={style} data-testid="live-hero-card-own" data-slot={slot ?? undefined} aria-label={`${youLabel}: ${view.heroName ?? UNKNOWN} · ${life}`}>
         <div className="lhc-pt">
           <CardPortrait heroId={view.heroId} src={view.portraitSrc} alt={view.heroName ?? text.unknown} />
           <span className="lhc-lv" title={`${text.level} ${view.levelText}`} aria-label={`${text.level} ${view.levelText}`}>{view.levelText}</span>
@@ -203,9 +214,10 @@ export function OwnHeroCard({ locale, own, loadout, slot, stale, ageMs, hasLates
         <div className="lhc-nm">
           <strong title={view.heroCaption ?? view.heroName ?? undefined}>{view.heroName ?? UNKNOWN}</strong>
           <span className="lhc-you-chip">{youLabel}</span>
-          <span className="lhc-life" title={life}>{life}</span>
+          {wideStats && view.derivedBasis && <span className="lhc-derived-basis is-inline" title={view.derivedBasis.title}>{view.derivedBasis.label}</span>}
+          {!wideStats && <span className="lhc-life" title={life}>{life}</span>}
         </div>
-        <CardSections view={view} text={text} locale={locale} abilitiesAge={loadout.abilities.ageMs} itemsAge={loadout.items.ageMs} />
+        <CardSections view={view} text={text} locale={locale} abilitiesAge={loadout.abilities.ageMs} itemsAge={loadout.items.ageMs} basisInHeader={wideStats} />
       </li>
     );
     return field;

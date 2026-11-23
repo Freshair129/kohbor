@@ -120,7 +120,7 @@ export function SecondMonitorDeck({
     <div ref={ref} className="sm-host sm-pinned" data-layout={placed.mode} data-map-edge={placed.mapEdge} lang={locale}>
       <TeamRow cards={enemies} side="enemy" locale={locale} wideStats={wideStats} rect={placed.enemy} edge={placed.mapEdge} />
       <div className="sm-map-region" style={placeStyle(placed.map, placed.mapEdge)} data-region="map" data-testid="sm-map-region">
-        <MinimapPanel locale={locale} layout="pinned"
+        <MinimapPanel locale={locale} layout="pinned" mapEdge={placed.mapEdge}
           steamStatus={steamStatus}
           mapOverlay={<MapCountdowns schedule={objectiveSchedule?.schedule ?? null} receivedAtMs={objectiveSchedule?.receivedAtMs ?? null} locale={lang} />}
           stageOverride={draftPhase ? <DraftBoard rows={boardRows} locale={lang}

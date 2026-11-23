@@ -82,12 +82,16 @@
 .lhc-hint { grid-area: hint; min-width: 0; }
 
 /* stat cells in three rows of five, like the replay card: STR AGI INT DMG REG · ARM MR AMP AS MS · EV SR LS GPM XPM */
-.lhc-stats { grid-area: st; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1px 6px; min-width: 0; margin: 0; color: var(--muted); font: 12px/1.3 "IBM Plex Mono", Consolas, monospace; font-variant-numeric: tabular-nums; }
+.lhc-stat-stack { grid-area: st; display: flex; flex-direction: column; gap: 2px; min-width: 0; min-height: 0; }
+.lhc-derived-basis { flex: 0 0 12px; min-width: 0; overflow: hidden; color: var(--text-2); font: 12px/12px Arial, sans-serif; text-overflow: ellipsis; white-space: nowrap; }
+.lhc-derived-basis.is-inline { flex: none; max-width: 100%; }
+.lhc-stats { display: grid; flex: 1 1 0; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1px 6px; min-width: 0; min-height: 0; margin: 0; color: var(--muted); font: 12px/1.3 "IBM Plex Mono", Consolas, monospace; font-variant-numeric: tabular-nums; }
 .lhc-stat { display: flex; align-items: baseline; gap: 3px; min-width: 0; overflow: hidden; white-space: nowrap; }
 .lhc-stat dt { flex: none; margin: 0; }
 .lhc-stat dd { min-width: 0; margin: 0; overflow: hidden; color: var(--text); font-weight: 600; text-overflow: ellipsis; }
 .lhc-stat dd em { margin-left: 1px; color: var(--accent); font-style: normal; }
 .lhc-stat.is-unknown dd { color: var(--muted); font-weight: 400; }
+.lhc-stat.is-derived:not(.is-unknown) dd { text-decoration: underline dotted; text-decoration-color: var(--accent); text-underline-offset: 2px; }
 
 /* icon tiles */
 .lhc-ic { position: relative; display: block; flex: none; width: var(--ab); height: var(--ab); overflow: hidden; border: 1px solid var(--line); border-radius: 4px; background: var(--ground); }
@@ -164,7 +168,22 @@
   border-left-width: 3px;
   border-radius: 6px;
 }
+.lhc-field-card.lhc-field-own {
+  box-sizing: border-box;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  grid-template-areas: "pt nm top" "bars bars bars" "ab ab ab" "it it it" "st st st";
+  grid-template-rows: 18px 14px 14px 14px minmax(86px, 1fr);
+  gap: 1px 4px;
+  padding: 2px 4px;
+}
+.lhc-field-card.lhc-field-own.has-wide-stats {
+  grid-template-rows: 16px 14px 14px 14px minmax(48px, 1fr);
+  padding-block: 1px;
+}
 .lhc-field-card.lhc-field-own { border-color: color-mix(in srgb, var(--ally) 72%, var(--line)); border-left-color: var(--ally); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ally) 18%, transparent); }
+.lhc-field-card.lhc-field-own .lhc-pt { width: 18px; height: 18px; }
+.lhc-field-card.lhc-field-own.has-wide-stats .lhc-pt { width: 16px; height: 16px; }
+.lhc-field-card.lhc-field-own .lhc-life { display: none; }
 .lhc-field-card .lhc-pt { width: 22px; height: 22px; align-self: center; }
 .lhc-field-card .lhc-lv { right: -4px; bottom: -3px; min-width: 14px; height: 14px; padding-inline: 2px; font-size: 12px; line-height: 14px; }
 .lhc-field-card .lhc-nm { min-width: 0; align-self: center; gap: 3px; }
@@ -174,6 +193,10 @@
 .lhc-field-card .lhc-bar, .lhc-field-card .lhc-bar.is-mp { height: 14px; }
 .lhc-field-card .lhc-bar-num { gap: 2px; font-size: 12px; }
 .lhc-field-card .lhc-bar-num small { font-size: 12px; }
+.lhc-field-card.lhc-field-own .lhc-bars { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; }
+.lhc-field-card.lhc-field-own .lhc-bar, .lhc-field-card.lhc-field-own .lhc-bar.is-mp { height: 14px; }
+.lhc-field-card.lhc-field-own .lhc-bar-num { justify-content: center; gap: 2px; color: #fff; text-shadow: 0 1px 2px #000, 0 0 3px #000; }
+.lhc-field-card.lhc-field-own .lhc-bar-num small { color: #fff; }
 .lhc-field-card .lhc-row { flex-wrap: nowrap; gap: 2px; overflow: hidden; }
 .lhc-field-card .lhc-ab { align-items: center; }
 .lhc-field-card .lhc-it { align-items: center; }
@@ -183,6 +206,11 @@
 .lhc-field-card .lhc-ic.is-bk { width: 13px; height: 10px; }
 .lhc-field-card .lhc-ic.is-tp { width: 13px; height: 13px; }
 .lhc-field-card .lhc-ic.is-nt { width: 14px; height: 14px; }
+.lhc-field-card.lhc-field-own .lhc-ic.is-ab { width: 14px; height: 14px; }
+.lhc-field-card.lhc-field-own .lhc-ic.is-it { width: 14px; height: 10px; }
+.lhc-field-card.lhc-field-own .lhc-ic.is-bk { width: 10px; height: 8px; }
+.lhc-field-card.lhc-field-own .lhc-ic.is-tp { width: 11px; height: 11px; }
+.lhc-field-card.lhc-field-own .lhc-ic.is-nt { width: 12px; height: 12px; }
 .lhc-field-card .lhc-side { gap: 2px; }
 .lhc-field-card .lhc-bp { gap: 1px; margin-right: 1px; }
 .lhc-field-card .lhc-stats { grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); align-content: stretch; gap: 0 3px; font-size: 12px; line-height: 1; }
@@ -191,6 +219,14 @@
 .lhc-field-card .lhc-stat dd { flex: 1 1 auto; }
 .lhc-field-card.has-wide-stats .lhc-stats { grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); }
 .lhc-field-card.has-wide-stats .lhc-stat { gap: 1px; }
+.lhc-field-card.lhc-field-own .lhc-stat-stack { gap: 2px; }
+.lhc-field-card.lhc-field-own .lhc-stats { grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(24px, 1fr)); align-content: stretch; gap: 0 3px; font-size: 12px; line-height: 1; }
+.lhc-field-card.lhc-field-own.has-wide-stats .lhc-stat-stack { gap: 0; }
+.lhc-field-card.lhc-field-own.has-wide-stats .lhc-stats { grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(24px, 1fr)); }
+.lhc-field-card.lhc-field-own .lhc-stat { display: grid; grid-template-rows: 12px minmax(12px, 1fr); align-content: center; align-items: center; gap: 0; min-width: 0; line-height: 12px; }
+.lhc-field-card.lhc-field-own .lhc-stat dt, .lhc-field-card.lhc-field-own .lhc-stat dd { min-width: 0; overflow: hidden; font-size: 12px; line-height: 12px; text-overflow: ellipsis; }
+.lhc-field-card.lhc-field-own .lhc-stat dd { font-family: Arial, sans-serif; }
+.lhc-field-card.lhc-field-own .lhc-stat.is-dmg dd { font-family: Arial, sans-serif; }
 .lhc-you-chip { flex: none; padding: 0 4px; border: 1px solid color-mix(in srgb, var(--ally) 55%, var(--line)); border-radius: 4px; color: var(--text-2); font-size: 12px; line-height: 1.3; }
 .lhc-field-card .lhc-life { flex: 0 1 auto; max-width: none; font-size: 12px; }
 .lhc-ult { flex: none; width: 10px; height: 10px; border: 1px solid var(--line); border-radius: 50%; background: transparent; }

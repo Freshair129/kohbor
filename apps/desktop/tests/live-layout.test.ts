@@ -39,9 +39,25 @@ test("Live has one definite grid row, two bounded columns and a shrinking map st
   const panel = readFileSync(new URL("../src/live/MinimapPanel.tsx", import.meta.url), "utf8");
   assert.doesNotMatch(panel, /live-preview-rates|previewRateText/);
   assert.match(panel, /className="live-map-badge mono"/);
+  assert.match(panel, /className="live-map-body is-field"/);
+  assert.match(panel, /<div className="live-map-square-slot">\{stage\}<\/div>/);
   assert.doesNotMatch(css, /\.live-preview-rates/);
   const autoRules = [...css.matchAll(/([^{}]+)\{[^{}]*overflow(?:-y)?:\s*auto[^{}]*\}/g)];
   for (const rule of autoRules) assert.doesNotMatch(rule[1]!, /\.live-tab/, "live panels do not scroll themselves; the dialog does");
+});
+
+test("centred map controls stay in one compact header above the largest square stage", () => {
+  const liveCss = readFileSync(new URL("../src/live/live.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const deckCss = readFileSync(new URL("../src/live/secondMonitor.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const toolbar = deckCss.match(/\.deck-field-map \.live-map-toolbar\s*\{([^}]+)\}/)?.[1] ?? "";
+  const body = liveCss.match(/\.live-map-body\.is-field\s*\{([^}]+)\}/)?.[1] ?? "";
+  const square = liveCss.match(/\.live-map-body\.is-field > \.live-map-square-slot > \.live-map-stage\s*\{([^}]+)\}/)?.[1] ?? "";
+  assert.match(toolbar, /flex-wrap:\s*nowrap/);
+  assert.match(body, /flex-direction:\s*column/);
+  assert.match(square, /width:\s*auto/);
+  assert.match(square, /height:\s*100%/);
+  assert.match(square, /aspect-ratio:\s*1/);
+  assert.match(square, /max-width:\s*100%/);
 });
 
 test("canvas box scales up or down to fit while preserving the frame header aspect", () => {

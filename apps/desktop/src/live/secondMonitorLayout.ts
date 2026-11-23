@@ -19,13 +19,13 @@ export type SecondMonitorLayout = { mode: "off" } | { mode: "too_small" } | Plac
 export const GAP = 8;
 /** Gap between the five card tracks in each pinned row, matching `.lhc-list-field`. */
 export const CARD_GAP = 4;
-/** Minimum row height for the full replay structure with 12 px text, icons and all three stat rows. */
-export const CARD_ROW_MIN_H = 132;
+/** Minimum row height includes 12 px basis + 3 × 24 px stat rows, card tracks, padding and borders. */
+export const CARD_ROW_MIN_H = 156;
 /** Minimum track width for six item icons, backpack, TP and neutral slots at their field-card sizes. */
 export const CARD_MIN_W = 216;
 /** Map panel minimum: a 220 px captured map stage plus its fixed toolbar and padding. */
 export const MAP_PANEL_MIN_H = 260;
-export const CARD_ROW_MAX_H = 148;
+export const CARD_ROW_MAX_H = 160;
 
 function innerEdge(side: Exclude<SecondMonitorSide, "off">): "left" | "right" {
   return side === "right" ? "left" : "right";
@@ -77,9 +77,9 @@ export type CenteredLiveLayoutResult = CenteredLiveLayout | { mode: "too_small" 
 export const CENTER_GAP = 8;
 export const CENTER_CARD_GAP = 4;
 export const CENTER_WIDE_STATS_MIN_W = 260;
-export const CENTER_CARD_NARROW_STATS_MIN_H = 120;
+export const CENTER_CARD_NARROW_STATS_MIN_H = 156;
 /** Minimum compact field-card dimensions preserve all replay sections and 12 px text. */
-export const CENTER_CARD_MIN = { w: 220, h: 108 } as const;
+export const CENTER_CARD_MIN = { w: 220, h: 114 } as const;
 export const CENTER_MAP_MIN_W = 280;
 
 /** The map panel and both team columns are placed only from the measured Live box. */

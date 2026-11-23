@@ -37,8 +37,11 @@ const overlap = (a: Rect, b: Rect) => Math.min(a.x + a.w, b.x + b.w) - Math.max(
 
 test("pinned full replay-structure floors fit five cards per row at 12 px text", () => {
   assert.equal(CARD_MIN_W, 216);
-  assert.equal(CARD_ROW_MIN_H, 132);
+  assert.equal(CARD_ROW_MIN_H, 156);
   assert.equal(MAP_PANEL_MIN_H, 260);
+  const css = readFileSync(new URL("../src/live/heroCard.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.match(css, /\.lhc-field-card\.lhc-field-own\s*\{[^}]*minmax\(86px,\s*1fr\)/, "the narrow own card reserves its basis line and all three 24 px stat rows");
+  assert.match(css, /\.lhc-field-card\.lhc-field-own\.has-wide-stats\s*\{[^}]*minmax\(48px,\s*1fr\)/, "wide own cards retain two complete 24 px stat rows");
 });
 
 test("both pinned sides fit ten complete card slots and the minimap at every requested viewport", () => {
@@ -73,6 +76,7 @@ test("both pinned sides fit ten complete card slots and the minimap at every req
 
 test("pinned view mounts both five-card rows and has no free-slot or internal-scroll region", () => {
   const deck = readFileSync(new URL("../src/live/SecondMonitorDeck.tsx", import.meta.url), "utf8");
+  const panel = readFileSync(new URL("../src/live/MinimapPanel.tsx", import.meta.url), "utf8");
   const css = readFileSync(new URL("../src/live/secondMonitor.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
   assert.match(deck, /<TeamRow cards=\{enemies\} side="enemy"/);
   assert.match(deck, /<TeamRow cards=\{ours\} side="ally"/);
@@ -80,11 +84,17 @@ test("pinned view mounts both five-card rows and has no free-slot or internal-sc
   assert.match(deck, /CompactHeroCards cards=\{cards\}[^>]*fieldCard/);
   assert.match(deck, /fieldCard fieldDirection="row"/);
   assert.match(deck, /<OwnHeroCard[^>]*fieldCard/);
+  assert.match(deck, /layout="pinned" mapEdge=\{placed\.mapEdge\}/);
+  assert.match(panel, /className="live-map-body is-pinned" data-map-edge=\{mapEdge\}/);
+  assert.match(panel, /<div className="live-map-square-slot">\{stage\}<\/div>/);
   assert.doesNotMatch(deck, /data-region="slot"|sm-slot|EventFeed|AnnouncerStatus|GsiSetupHint/);
   assert.doesNotMatch(css, /overflow(?:-[xy])?:\s*(?:auto|scroll)/, "pinned Live has no scroll containers");
   assert.match(css, /\.sm-host\s*\{[^}]*overflow:\s*hidden/);
   assert.match(css, /\.sm-card-row > \.lhc-list-field\s*\{[^}]*height:\s*100%/);
   assert.match(css, /\.sm-map-region > \.live-pinned-panel\s*\{[^}]*height:\s*100%/);
+  assert.match(css, /\.live-map-body\.is-pinned\[data-map-edge="right"\] \.live-map-toolbar\s*\{[^}]*grid-column:\s*1/);
+  assert.match(css, /\.live-map-body\.is-pinned\[data-map-edge="left"\] \.live-map-toolbar\s*\{[^}]*grid-column:\s*2/);
+  assert.match(css, /width:\s*min\(100cqw,\s*100cqh\)/, "the minimap uses the largest square in its region");
 });
 
 test("below the box needed for cards and map, use the existing too-small state", () => {
@@ -166,6 +176,7 @@ test("centred field renders ten slot-ordered replay cards, same-height team colu
 
 test("undersized centred boxes use a clear state rather than scrolling or clipping cards", () => {
   assert.deepEqual(centeredLiveLayout({ width: 700, height: 500 }), { mode: "too_small" });
-  assert.equal(centeredLiveLayout({ width: 950, height: 700 }).mode, "field", "narrow stat rows retain their taller 12 px text floor");
-  assert.deepEqual(centeredLiveLayout({ width: 950, height: 600 }), { mode: "too_small" }, "never compress five stat rows below the narrow-card floor");
+  assert.deepEqual(centeredLiveLayout({ width: 950, height: 700 }), { mode: "too_small" }, "narrow cards need enough room for every 12 px stat row");
+  assert.equal(centeredLiveLayout({ width: 950, height: 796 }).mode, "field", "narrow stat rows fit at their measured floor");
+  assert.deepEqual(centeredLiveLayout({ width: 950, height: 795 }), { mode: "too_small" }, "never compress five stat rows below the narrow-card floor");
 });
