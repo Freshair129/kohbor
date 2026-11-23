@@ -433,8 +433,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/orb/host.rs",
-      "bytes": 39817,
-      "sha256": "03b59605001a5c09bab96e13b483f62a8bfb2974c16298074a05c0071db14f77"
+      "bytes": 40605,
+      "sha256": "02436af41e9adf98577a42b83ac45786884f8c0897b72150cb87820d1d164559"
     },
     {
       "path": "apps/desktop/src-tauri/src/orb/mod.rs",

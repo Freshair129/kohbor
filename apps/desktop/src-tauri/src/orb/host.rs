@@ -220,7 +220,19 @@ impl OrbHost {
     }
 
     fn log_stopped(running: &Running) {
-        let shared = lock(&running.shared);
+        // Never wait for `shared` here: at exit the poll thread may still hold it inside a window call.
+        let shared = match running.shared.try_lock() {
+            Ok(shared) => shared,
+            Err(std::sync::TryLockError::Poisoned(poisoned)) => poisoned.into_inner(),
+            Err(std::sync::TryLockError::WouldBlock) => {
+                crate::log_info!(
+                    "orb",
+                    "stopped",
+                    "edge orb stopped; counts unavailable (state busy)"
+                );
+                return;
+            }
+        };
         crate::log_info!(
             "orb",
             "stopped",
@@ -1080,9 +1092,12 @@ mod native {
             }
             match visibility {
                 Visibility::Show => {
+                    // Read the flag first: a guard held across a window call can deadlock exit, because the
+                    // call waits for the main thread while the exit handler waits for `shared`.
+                    let click_through = lock(&shared).click_through;
                     let shown = crate::overlay_hwnd(&window).is_some_and(|hwnd| {
                         has_no_activate_style(hwnd)
-                            && lock(&shared).click_through
+                            && click_through
                             && crate::show_without_activation(&window)
                             && raise(hwnd)
                     });
