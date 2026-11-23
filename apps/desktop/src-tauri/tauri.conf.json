@@ -13,6 +13,7 @@
       {
         "label": "control",
         "title": "Kohbor — Command Deck",
+        "theme": "Dark",
         "width": 1420,
         "height": 760,
         "minWidth": 1280,
