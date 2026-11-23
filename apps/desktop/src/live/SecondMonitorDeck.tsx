@@ -332,12 +332,8 @@ export function SecondMonitorDeck({
           mapOverlay={<MapCountdowns schedule={objectiveSchedule?.schedule ?? null} receivedAtMs={objectiveSchedule?.receivedAtMs ?? null} locale={lang} />}
           stageOverride={draftPhase ? <DraftBoard rows={boardRows} locale={lang}
             namesAvailable={showPlayerNames && playerNames !== null} statsAvailable={draftStats !== null} /> : undefined}
-          renderAlerts={({ risk, captureLive }) => (
-          <>
-            <QuickStrip risk={risk} rows={enemies} ownTeam={ownTeam} next={next} locale={lang} />
-            <div className="sm-alerts">{renderAlerts({ risk, captureLive })}</div>
-          </>
-        )} />
+          stageAlerts={renderAlerts}
+          renderAlerts={({ risk }) => <QuickStrip risk={risk} rows={enemies} ownTeam={ownTeam} next={next} locale={lang} />} />
       </div>
       <div className="sm-status" style={placeStyle(layout.status, edge)} data-region="status">
         {status}
