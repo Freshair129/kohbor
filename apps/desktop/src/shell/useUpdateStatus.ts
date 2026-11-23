@@ -9,8 +9,9 @@ export function useUpdateStatus() {
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
 
   useEffect(() => {
-    // Only read current host status on mount. Checks and installation are user actions.
+    // Mount only reads status. Automatic checks require an explicit session-only opt-in.
     void store.mount();
+    return () => store.unmount();
   }, [store]);
 
   return { ...snapshot, check: store.check, install: store.install, openReleasePage: store.openReleasePage };

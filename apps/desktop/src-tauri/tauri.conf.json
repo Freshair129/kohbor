@@ -13,6 +13,7 @@
       {
         "label": "control",
         "title": "Kohbor — Command Deck",
+        "theme": "Dark",
         "width": 1420,
         "height": 760,
         "minWidth": 1280,
@@ -22,6 +23,18 @@
     ],
     "security": {
       "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; media-src http://kohbor-media.localhost kohbor-media:"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDQ2RjBDRDgzQjI5RDQ2NzcKUldSM1JwMnlnODN3UmxvTlNiRnplNDlsV3hCVE5iN0ZqUWoyZWdscXVHQVZZRGEyNkU5NTUvSGUK",
+      "endpoints": [
+        "https://github.com/Freshair129/kohbor-updates/releases/latest/download/latest.json"
+      ],
+      "requireSignedVersion": true,
+      "windows": {
+        "installMode": "passive"
+      }
     }
   },
   "bundle": {

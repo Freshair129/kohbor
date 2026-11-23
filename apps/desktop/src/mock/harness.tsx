@@ -549,6 +549,7 @@ export function installMockHarness() {
       if (command === "update_open_release_page") return { opened: true, reason: null, url: "https://github.com/Freshair129/kohbor/releases/latest" };
       if (command === "update_status") return mockUpdate.updateStatus();
       if (command === "update_check") return mockUpdate.updateCheck();
+      if (command === "update_download") return mockUpdate.updateDownload();
       if (command === "update_install") {
         requireArgs(command, args, ["confirm"]);
         return mockUpdate.updateInstall(args);

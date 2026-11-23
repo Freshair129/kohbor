@@ -4,6 +4,7 @@
 #[cfg(feature = "demo")]
 #[allow(dead_code)]
 mod account_host;
+mod account_supabase;
 pub mod atomic;
 mod audio;
 mod audio_prefs;
@@ -43,6 +44,7 @@ macro_rules! generate_handler_with_updater_commands {
             tauri::generate_handler![
                 $($(#[$meta])* $command,)*
                 commands::update_check,
+                commands::update_download,
                 commands::update_install
             ]
         }
@@ -85,7 +87,10 @@ use tauri::{Emitter as TauriEmitter, Listener, Manager};
 pub(crate) struct AppState {
     pub(crate) runtime: Arc<intake::Runtime>,
     pub(crate) host: host::Host,
-    pub(crate) updater: Mutex<update::UpdateController<update::NullBackend>>,
+    #[cfg(feature = "updater")]
+    pub(crate) updater: update::UpdateController<update::plugin::PluginBackend>,
+    #[cfg(not(feature = "updater"))]
+    pub(crate) updater: update::UpdateController<update::NullBackend>,
     pub(crate) match_active: Arc<dyn Fn() -> bool + Send + Sync>,
     pub(crate) settings_dir: PathBuf,
     pub(crate) audio_prefs: audio_prefs::AudioPrefsService,
@@ -1259,15 +1264,27 @@ pub fn run() {
                     )
                 })
             };
+            let account_auth =
+                account_supabase::SupabaseAuth::new(settings_dir.clone(), update_match_active.clone());
+            app.manage(account_auth.clone());
+            account_auth.start_refresh_loop();
             app.manage(AppState {
                 runtime,
                 host,
-                updater: Mutex::new(update::UpdateController::new(
+                #[cfg(feature = "updater")]
+                updater: update::UpdateController::new(
+                    update::UPDATE_ENDPOINT,
+                    update::UPDATE_PUBKEY,
+                    update::plugin::PluginBackend::new(app.handle().clone()),
+                    version::AppVersion::current().version,
+                ),
+                #[cfg(not(feature = "updater"))]
+                updater: update::UpdateController::new(
                     update::UPDATE_ENDPOINT,
                     update::UPDATE_PUBKEY,
                     update::NullBackend,
                     version::AppVersion::current().version,
-                )),
+                ),
                 match_active: update_match_active,
                 settings_dir,
                 audio_prefs,
@@ -1305,6 +1322,8 @@ pub fn run() {
             crate::log_info!("app", "setup_complete", "application setup completed");
             Ok(())
         });
+    #[cfg(feature = "updater")]
+    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     #[cfg(any(feature = "demo", debug_assertions))]
     let builder = builder.invoke_handler(generate_handler_with_updater_commands![
         commands::app_version,
@@ -1360,6 +1379,10 @@ pub fn run() {
         commands::audio_set_hotkeys,
         show_hotkey::shell_hotkey_get,
         show_hotkey::shell_hotkey_set,
+        account_supabase::account_status,
+        account_supabase::account_sign_in,
+        account_supabase::account_cancel_sign_in,
+        account_supabase::account_sign_out,
         capture_host::minimap_subscribe,
         capture_host::draft_bar_read,
         capture_host::capture_status,
@@ -1453,6 +1476,10 @@ pub fn run() {
         commands::audio_set_hotkeys,
         show_hotkey::shell_hotkey_get,
         show_hotkey::shell_hotkey_set,
+        account_supabase::account_status,
+        account_supabase::account_sign_in,
+        account_supabase::account_cancel_sign_in,
+        account_supabase::account_sign_out,
         capture_host::minimap_subscribe,
         capture_host::draft_bar_read,
         capture_host::capture_status,
@@ -1484,6 +1511,9 @@ pub fn run() {
                 capture_host::stop();
                 crate::log_info!("app", "exit", "Kohbor is exiting");
                 let state = handle.state::<AppState>();
+                handle
+                    .state::<account_supabase::SupabaseAuth>()
+                    .shutdown();
                 // Orb first (no new clicks), then put every touched audio session back (MEDIA-009).
                 state.orb.stop_for_exit();
                 state.hero_stats.stop_for_exit();

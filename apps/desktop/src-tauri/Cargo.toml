@@ -9,7 +9,8 @@ publish.workspace = true
 
 [features]
 demo = ["dep:kohbor-account"]
-updater = []
+# In-app update check, download and install (UPDATE-001..004, docs/design/UPDATER.md).
+updater = ["dep:tauri-plugin-updater"]
 # Dev-only Kohbor Lab override reader (docs/design/KOHBOR-LAB.md). Not a default feature.
 # `lab` implies `demo`: Lab's commands live in the demo/debug handler list, and its Test banner needs demo_trigger.
 lab = ["demo", "kohbor-lab/lab"]
@@ -43,12 +44,14 @@ base64 = { workspace = true }
 sha2 = { workspace = true }
 tiny_http = { workspace = true }
 socket2 = { version = "=0.6.5", default-features = false }
+tauri-plugin-updater = { version = "=2.14.1", optional = true }
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.56.0"
 windows = { version = "=0.61.3", features = [
   "Win32_Foundation",
   "Win32_Graphics_Dwm",
+  "Win32_Networking_WinHttp",
   "Win32_Media_Audio",
   "Win32_Networking_WinHttp",
   "Win32_Security",

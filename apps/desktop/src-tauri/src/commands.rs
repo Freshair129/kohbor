@@ -53,7 +53,7 @@ pub(crate) fn draft_column_view(
 #[tauri::command]
 pub(crate) fn update_status(state: tauri::State<'_, AppState>) -> Value {
     let match_active = (state.match_active)();
-    lock(&state.updater).status(match_active)
+    state.updater.status(match_active)
 }
 
 /// Manual "check for updates": opens the GitHub latest-release page in the default browser. No
@@ -61,15 +61,7 @@ pub(crate) fn update_status(state: tauri::State<'_, AppState>) -> Value {
 #[tauri::command]
 pub(crate) fn update_open_release_page(state: tauri::State<'_, AppState>) -> Value {
     let match_active = (state.match_active)();
-    let reply = crate::update::open_release_page_reply(match_active, open_in_default_browser);
-    crate::log_info!(
-        "updater",
-        "release_page",
-        "release page request completed",
-        opened = reply["opened"].as_bool().unwrap_or(false),
-        reason = reply["reason"].as_str().unwrap_or("NONE")
-    );
-    reply
+    crate::update::open_release_page_reply(match_active, open_in_default_browser)
 }
 
 /// Opens ONLY the fixed release page URL (the argument is checked against the constant), with
@@ -93,20 +85,52 @@ fn open_in_default_browser(url: &str) -> bool {
 
 #[cfg(feature = "updater")]
 #[tauri::command]
-pub(crate) fn update_check(state: tauri::State<'_, AppState>) -> Value {
+pub(crate) async fn update_check(state: tauri::State<'_, AppState>) -> Result<Value, String> {
     let match_active = (state.match_active)();
-    let reply = lock(&state.updater).check(match_active);
+    let mut reply = state.updater.check(match_active).await;
+    if !match_active {
+        let now_active = (state.match_active)();
+        if now_active {
+            reply = state.updater.status(true);
+        }
+    }
     log_update_action("update_check", &reply);
-    reply
+    Ok(reply)
 }
 
 #[cfg(feature = "updater")]
 #[tauri::command]
-pub(crate) fn update_install(state: tauri::State<'_, AppState>, confirm: bool) -> Value {
+pub(crate) async fn update_download(
+    state: tauri::State<'_, AppState>,
+) -> Result<Value, String> {
     let match_active = (state.match_active)();
-    let reply = lock(&state.updater).install(confirm, match_active);
+    let mut reply = state.updater.download(match_active).await;
+    if !match_active && (state.match_active)() {
+        reply = state.updater.status(true);
+    }
+    log_update_action("update_download", &reply);
+    Ok(reply)
+}
+
+#[cfg(feature = "updater")]
+#[tauri::command]
+pub(crate) fn update_install(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    confirm: bool,
+) -> Result<Value, String> {
+    let match_active = (state.match_active)();
+    let reply = state.updater.install(confirm, match_active, || {
+        // Recheck immediately before stopping services in case the match began after the IPC
+        // call was admitted.
+        if (state.match_active)() {
+            return Err(crate::update::MATCH_ACTIVE);
+        }
+        stop_update_services(&app, &state);
+        Ok(())
+    });
     log_update_action("update_install", &reply);
-    reply
+    Ok(reply)
 }
 
 #[cfg(feature = "updater")]
@@ -119,13 +143,30 @@ fn log_update_action(action: &'static str, reply: &Value) {
         .get("reason")
         .and_then(Value::as_str)
         .unwrap_or("NONE");
-    crate::log_info!(
-        "updater",
+    let fields = Map::from_iter([
+        ("state".to_owned(), Value::String(state_after.to_owned())),
+        ("reason".to_owned(), Value::String(reason.to_owned())),
+    ]);
+    crate::logging::emit(
+        crate::logging::Level::Info,
+        "update",
         action,
         "updater action completed",
-        state_after = state_after,
-        reason = reason
+        fields,
     );
+}
+
+#[cfg(feature = "updater")]
+fn stop_update_services(app: &tauri::AppHandle, state: &AppState) {
+    crate::capture_host::stop();
+    app.state::<crate::account_supabase::SupabaseAuth>()
+        .shutdown();
+    // Keep the Exit handler's shutdown order so every touched audio session is restored.
+    state.orb.stop_for_exit();
+    state.mixer.shutdown();
+    lock(&state.hud).stop();
+    lock(&state.hotkeys).stop();
+    state.host.shutdown();
 }
 
 fn is_reason_code(value: &str) -> bool {
