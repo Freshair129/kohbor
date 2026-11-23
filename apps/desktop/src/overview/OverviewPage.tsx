@@ -5,8 +5,9 @@ import { dotaIcon } from "../live/dotaIconSet";
 import { overviewCopy, type OverviewLocale } from "./overviewCopy";
 import { overviewClient, type OverviewClient } from "./overviewClient";
 import {
-  countingNotes, formatDate, formatDateTime, heroCards, matchRows, NEWS_FILTERS, newsColumn, parseMatchHistory,
-  parseNewsView, pick, statTiles, type MatchHistory, type NewsFilter, type NewsPost, type NewsView,
+  bestHeroPanel, countingNotes, EMPTY_HISTORY, formatDate, formatDateTime, localMonthStart, matchRows, NEWS_FILTERS,
+  newsColumn, parseMatchHistory, parseNewsView, pick, placeholderRowCount, statTiles,
+  type BestHero, type MatchHistory, type NewsFilter, type NewsPost, type NewsView, type TileView,
 } from "./overviewModel";
 import "./overview.css";
 
@@ -21,6 +22,78 @@ function HeroIcon({ hero, className }: { hero: string | null; className: string 
   return url ? <img className={className} src={url} alt="" /> : <span className={`${className} ov-hero-ph`} aria-hidden="true" />;
 }
 
+function Donut({ donut, label, centerLabel, locale }: { donut: TileView["donut"]; label: string; centerLabel: string; locale: OverviewLocale }) {
+  const t = overviewCopy(locale).stats;
+  const legend = [
+    { kind: "win", text: t.win, value: donut.wins },
+    { kind: "loss", text: t.loss, value: donut.losses },
+    { kind: "none", text: t.donutNone, value: donut.noResult },
+  ];
+  return (
+    <div className="ov-donut-wrap">
+      <svg className="ov-donut" viewBox="0 0 42 42" role="img" aria-label={`${label}: ${legend.map((l) => `${l.text} ${l.value}`).join(", ")}`}>
+        <circle className="ov-donut-track" cx="21" cy="21" r="15.915" pathLength={100} />
+        {donut.segments.map((s) => (
+          <circle key={s.kind} className={`ov-donut-seg ${s.kind}`} cx="21" cy="21" r="15.915" pathLength={100}
+            strokeDasharray={`${s.length} ${100 - s.length}`} strokeDashoffset={25 - s.offset} />
+        ))}
+        <text x="21" y="21" className="ov-donut-num">{donut.total}</text>
+        <text x="21" y="27" className="ov-donut-cap">{centerLabel}</text>
+      </svg>
+      <ul className="ov-legend">
+        {legend.map((l) => <li key={l.kind}><i className={l.kind} />{l.text}<span>{l.value}</span></li>)}
+      </ul>
+    </div>
+  );
+}
+
+function TrendFrame({ tiles, label }: { tiles: TileView; label: string }) {
+  // Always the frame, axes and 0/50/100 gridlines; the line only from 10 counted matches.
+  const y = (v: number) => 64 - 4 - (v / 100) * 56;
+  return (
+    <div className="ov-trend">
+      <svg className="ov-spark" viewBox="0 0 300 64" preserveAspectRatio="none" role="img" aria-label={tiles.trend.label ?? tiles.trend.need ?? label}>
+        <rect x="0" y="0" width="300" height="64" className="ov-spark-frame" vectorEffect="non-scaling-stroke" />
+        {[0, 50, 100].map((v) => (
+          <line key={v} x1="0" x2="300" y1={y(v)} y2={y(v)} className={v === 50 ? "ov-spark-mid" : "ov-spark-grid"} vectorEffect="non-scaling-stroke" />
+        ))}
+        {tiles.trend.points && <polyline points={tiles.trend.points} className="ov-spark-line" vectorEffect="non-scaling-stroke" />}
+      </svg>
+      <div className="ov-spark-axis" aria-hidden="true"><span>100%</span><span>50%</span><span>0%</span></div>
+      {tiles.trend.need && <div className="ov-spark-need">{tiles.trend.need}</div>}
+    </div>
+  );
+}
+
+function BestHeroes({ title, heroes, minGames, locale }: { title: string; heroes: readonly BestHero[]; minGames: number; locale: OverviewLocale }) {
+  const t = overviewCopy(locale).stats;
+  const cards = bestHeroPanel(heroes, minGames, locale);
+  return (
+    <section className="card ov-best" aria-label={title}>
+      <div className="ov-sec-title"><h3>{title}</h3></div>
+      <div className="ov-best-grid">
+        {cards.map((card) => (
+          <div className={`ov-hcard${card.placeholder ? " placeholder" : ""}`} key={card.hero} title={card.title ?? undefined}>
+            <HeroIcon hero={card.hero} className="ov-hcard-img" />
+            <div className="ov-hcard-b">
+              <div className="ov-hcard-n">
+                <span title={card.name}>{card.name}</span>
+                {card.placeholder && <span className="ov-ph-chip" title={card.title ?? undefined}>{t.placeholderChip}</span>}
+              </div>
+              <dl className="ov-hcard-stats">
+                <div><dt>{t.winRateShort}</dt><dd>{card.rate}</dd></div>
+                <div><dt>{t.columns.result}</dt><dd>{card.record}</dd></div>
+                <div><dt>{t.avgKda}</dt><dd>{card.kda}</dd></div>
+              </dl>
+              <div className="ov-hcard-m"><span>{card.games}</span>{card.basis && <span className="ov-basis" title={card.basisTitle ?? undefined}>{card.basis}</span>}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function StatsColumn({ locale, client }: { locale: OverviewLocale; client: OverviewClient }) {
   const t = overviewCopy(locale).stats;
   const [history, setHistory] = useState<Loaded<MatchHistory>>({ status: "loading" });
@@ -29,7 +102,7 @@ function StatsColumn({ locale, client }: { locale: OverviewLocale; client: Overv
   const [clearFailed, setClearFailed] = useState(false);
 
   const load = useCallback(() => {
-    client.matchHistory()
+    client.matchHistory(localMonthStart(new Date()))
       .then((raw) => {
         const parsed = parseMatchHistory(raw);
         setHistory(parsed ? { status: "ready", value: parsed } : { status: "unavailable" });
@@ -50,32 +123,23 @@ function StatsColumn({ locale, client }: { locale: OverviewLocale; client: Overv
       .catch(() => setClearFailed(true));
   };
 
-  const openDota = (
-    <div className="ov-notice" role="note">
-      <div><strong>{t.openDotaTitle}</strong><span>{t.openDotaBody}</span></div>
-      <button type="button" className="quiet" disabled aria-disabled="true">{t.openDotaButton}</button>
-    </div>
-  );
-
-  if (history.status !== "ready") {
-    return (
-      <div className="ov-main">
-        <h2 className="ov-col-title">{t.title}</h2>
-        {openDota}
-        <section className="card ov-empty" role="status"><p className="ov-note">{history.status === "loading" ? t.loading : t.unavailable}</p></section>
-      </div>
-    );
-  }
-
-  const h = history.value;
+  // Owner 2026-11-23 (DEC-OVERVIEW rev 3): the full layout always renders; loading, unavailable
+  // and empty histories show zeros plus a one-line note instead of collapsing sections.
+  const h = history.status === "ready" ? history.value : EMPTY_HISTORY;
+  const note = history.status === "loading" ? t.loading : history.status === "unavailable" ? t.unavailable
+    : h.entries.length === 0 ? t.noMatches : null;
   const tiles = statTiles(h, locale);
-  const heroes = heroCards(h, locale);
   const rows = matchRows(h, locale, showAll ? null : RECENT_ROWS);
+  const fillers = placeholderRowCount(rows.length);
 
   return (
     <div className="ov-main">
       <h2 className="ov-col-title">{t.title}</h2>
-      {openDota}
+      <div className="ov-notice" role="note">
+        <div><strong>{t.openDotaTitle}</strong><span>{t.openDotaBody}</span></div>
+        <button type="button" className="quiet" disabled aria-disabled="true">{t.openDotaButton}</button>
+      </div>
+      {note && <p className="ov-note ov-state-note" role="status">{note}</p>}
       <div className="ov-tiles">
         <section className="card ov-tile" aria-label={t.overall}>
           <div className="ov-lbl">{t.overall}</div>
@@ -83,98 +147,81 @@ function StatsColumn({ locale, client }: { locale: OverviewLocale; client: Overv
           <div className={`ov-val${tiles.overall.known ? "" : " na"}`}>{tiles.overall.value}</div>
           <div className="ov-sub">{tiles.overall.sub}</div>
         </section>
+        <section className="card ov-tile" aria-label={t.donut}>
+          <div className="ov-lbl">{t.donut}</div>
+          <Donut donut={tiles.donut} label={t.donut} centerLabel={t.donutCenter} locale={locale} />
+        </section>
         <section className="card ov-tile" aria-label={tiles.last.title}>
           <div className="ov-lbl">{tiles.last.title}</div>
           <div className={`ov-val${h.last.winRate === null ? " na" : ""}`}>{tiles.last.value}</div>
-          {tiles.last.sub && <div className="ov-sub">{tiles.last.sub}</div>}
-          <div className="ov-wl" role="img" aria-label={tiles.last.sub ?? tiles.last.title}>
-            {tiles.last.squares.length > 0
-              ? tiles.last.squares.map((r, i) => <i key={i} className={r === "win" ? "w" : "l"} title={r === "win" ? t.win : t.loss} />)
-              : Array.from({ length: 20 }, (_, i) => <i key={i} />)}
+          <div className="ov-sub">{tiles.last.sub}</div>
+          <div className="ov-wl" role="img" aria-label={tiles.last.sub}>
+            {tiles.last.slots.map((r, i) => <i key={i} className={r === "win" ? "w" : r === "loss" ? "l" : "empty"} title={r === "win" ? t.win : r === "loss" ? t.loss : undefined} />)}
           </div>
         </section>
         <section className="card ov-tile" aria-label={t.trend}>
           <div className="ov-lbl">{t.trend}</div>
-          {tiles.trend.points ? (
-            <svg className="ov-spark" viewBox="0 0 300 64" preserveAspectRatio="none" role="img" aria-label={tiles.trend.label ?? t.trend}>
-              <line x1="0" x2="300" y1="32" y2="32" className="ov-spark-mid" vectorEffect="non-scaling-stroke" />
-              <polyline points={tiles.trend.points} className="ov-spark-line" vectorEffect="non-scaling-stroke" />
-            </svg>
-          ) : <div className="ov-spark-need ov-note">{tiles.trend.need}</div>}
+          <TrendFrame tiles={tiles} label={t.trend} />
         </section>
       </div>
       <ul className="ov-count-notes ov-note">
-        {countingNotes(h, locale).map((note) => <li key={note}>{note}</li>)}
+        {countingNotes(h, locale).map((line) => <li key={line}>{line}</li>)}
       </ul>
 
-      {h.entries.length === 0 ? (
-        <section className="card ov-empty">
-          <strong>{t.emptyTitle}</strong>
-          <p className="ov-note">{t.emptyBody}</p>
-        </section>
-      ) : (
-        <>
-          {heroes.length > 0 && (
-            <section className="card">
-              <div className="ov-sec-title"><h3>{t.heroes}</h3></div>
-              <div className="ov-heroes">
-                {heroes.map((hero) => (
-                  <div className="ov-hcard" key={hero.hero}>
-                    <HeroIcon hero={hero.hero} className="ov-hcard-img" />
-                    <div className="ov-hcard-b">
-                      <div className="ov-hcard-n" title={hero.name}>{hero.name}</div>
-                      <div className="ov-hcard-m">
-                        <span>{hero.games}</span>
-                        <span className={hero.tone} title={t.heroRecordTitle}>{hero.record}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
+      <div className="ov-best-row">
+        <BestHeroes title={t.bestAllTime} heroes={h.best.allTime} minGames={h.best.minGames} locale={locale} />
+        <BestHeroes title={t.bestMonth} heroes={h.best.thisMonth} minGames={h.best.minGames} locale={locale} />
+      </div>
+
+      <section className="card">
+        <div className="ov-sec-title">
+          <h3>{t.recent}</h3>
+          {h.entries.length > RECENT_ROWS && (
+            <button type="button" className="quiet" onClick={() => setShowAll((v) => !v)} aria-expanded={showAll}>
+              {showAll ? t.showLess : t.showAll(h.entries.length)}
+            </button>
           )}
-          <section className="card">
-            <div className="ov-sec-title">
-              <h3>{t.recent}</h3>
-              {h.entries.length > RECENT_ROWS && (
-                <button type="button" className="quiet" onClick={() => setShowAll((v) => !v)} aria-expanded={showAll}>
-                  {showAll ? t.showLess : t.showAll(h.entries.length)}
-                </button>
-              )}
-            </div>
-            <div className="ov-table-wrap">
-              <table className="ov-mt">
-                <thead><tr>
-                  <th scope="col">{t.columns.hero}</th><th scope="col">{t.columns.result}</th><th scope="col">{t.columns.kda}</th>
-                  <th scope="col">{t.columns.duration}</th><th scope="col" className="opt">{t.columns.date}</th><th scope="col">{t.columns.source}</th>
-                </tr></thead>
-                <tbody>
-                  {rows.map((row) => (
-                    <tr key={row.key} title={row.typeTitle ?? undefined}>
-                      <td className="h"><HeroIcon hero={row.hero} className="ov-mt-img" /><span>{row.heroName}</span></td>
-                      <td><span className={`ov-res ${row.resultTone}`} title={row.resultTitle}>{row.result}</span></td>
-                      <td className="num">{row.kda}</td>
-                      <td className="num">{row.duration}</td>
-                      <td className="opt muted">{row.date}</td>
-                      <td><span className="ov-src" title={t.sourceTitle}>Kohbor</span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="ov-clear">
-              {confirmClear ? (
-                <>
-                  <span className="ov-note">{t.clearConfirm}</span>
-                  <button type="button" className="danger" onClick={clear}>{t.clearYes}</button>
-                  <button type="button" className="quiet" onClick={() => setConfirmClear(false)}>{t.clearNo}</button>
-                </>
-              ) : <button type="button" className="quiet" onClick={() => setConfirmClear(true)}>{t.clear}</button>}
-              {clearFailed && <span className="ov-note" role="alert">{t.clearFailed}</span>}
-            </div>
-          </section>
-        </>
-      )}
+        </div>
+        <div className="ov-table-wrap">
+          <table className="ov-mt">
+            <thead><tr>
+              <th scope="col">{t.columns.hero}</th><th scope="col">{t.columns.result}</th><th scope="col">{t.columns.kda}</th>
+              <th scope="col">{t.columns.duration}</th><th scope="col" className="opt">{t.columns.date}</th><th scope="col">{t.columns.source}</th>
+            </tr></thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.key} title={row.typeTitle ?? undefined}>
+                  <td className="h"><HeroIcon hero={row.hero} className="ov-mt-img" /><span>{row.heroName}</span></td>
+                  <td><span className={`ov-res ${row.resultTone}`} title={row.resultTitle}>{row.result}</span></td>
+                  <td className="num">{row.kda}</td>
+                  <td className="num">{row.duration}</td>
+                  <td className="opt muted">{row.date}</td>
+                  <td><span className="ov-src" title={t.sourceTitle}>Kohbor</span></td>
+                </tr>
+              ))}
+              {Array.from({ length: fillers }, (_, i) => (
+                <tr key={`empty-${i}`} className="ov-row-empty" aria-hidden="true">
+                  <td className="h"><span className="ov-mt-img ov-hero-ph" /><span>—</span></td>
+                  <td><span className="ov-res unknown">—</span></td>
+                  <td className="num">— / — / —</td><td className="num">—</td><td className="opt muted">—</td><td>—</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {h.entries.length > 0 && (
+          <div className="ov-clear">
+            {confirmClear ? (
+              <>
+                <span className="ov-note">{t.clearConfirm}</span>
+                <button type="button" className="danger" onClick={clear}>{t.clearYes}</button>
+                <button type="button" className="quiet" onClick={() => setConfirmClear(false)}>{t.clearNo}</button>
+              </>
+            ) : <button type="button" className="quiet" onClick={() => setConfirmClear(true)}>{t.clear}</button>}
+            {clearFailed && <span className="ov-note" role="alert">{t.clearFailed}</span>}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
