@@ -98,6 +98,12 @@ pub struct MatchEntry {
     pub duration_s: Option<u32>,
     /// Wall-clock time of recording, Unix seconds.
     pub ended_at: u64,
+    /// Provider match start time; local GSI entries have no stable start timestamp.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub started_at: Option<u64>,
+    /// OpenDota's numeric hero identifier; local entries use the GSI internal hero name instead.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hero_id: Option<u32>,
     pub match_type: MatchType,
     pub source: String,
 }
@@ -133,17 +139,36 @@ fn valid_key(key: &str) -> bool {
 }
 
 fn valid_hero(hero: &str) -> bool {
-    hero.len() <= 64
+    let valid_name = hero.len() <= 64
         && hero.starts_with("npc_dota_hero_")
         && hero
             .bytes()
-            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_');
+    let valid_numeric = hero
+        .strip_prefix("opendota_hero_id_")
+        .is_some_and(|id| !id.is_empty() && id.bytes().all(|b| b.is_ascii_digit()) && id != "0");
+    valid_name || valid_numeric
 }
 
 fn valid_entry(entry: &MatchEntry) -> bool {
-    valid_key(&entry.match_key)
+    let identity_valid = match entry.source.as_str() {
+        "kohbor" => {
+            valid_key(&entry.match_key) && entry.started_at.is_none() && entry.hero_id.is_none()
+        }
+        "opendota" => {
+            valid_key(&entry.match_key)
+                && entry.started_at.is_some()
+                && entry.hero_id.is_some_and(|id| id > 0)
+                && entry.hero.as_deref().is_some_and(|hero| {
+                    entry
+                        .hero_id
+                        .is_some_and(|id| hero == format!("opendota_hero_id_{id}"))
+                })
+        }
+        _ => false,
+    };
+    identity_valid
         && entry.hero.as_deref().is_none_or(valid_hero)
-        && entry.source == "kohbor"
         && !(entry.end == MatchEnd::Abandoned && entry.result.is_some())
 }
 
@@ -152,9 +177,9 @@ fn valid_file(file: &HistoryFile) -> bool {
         return false;
     }
     let mut seen = std::collections::BTreeSet::new();
-    file.entries
-        .iter()
-        .all(|entry| valid_entry(entry) && seen.insert(entry.match_key.as_str()))
+    file.entries.iter().all(|entry| {
+        entry.source == "kohbor" && valid_entry(entry) && seen.insert(entry.match_key.as_str())
+    })
 }
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -238,13 +263,50 @@ impl MatchHistoryStore {
     /// `month_start` is the start of the renderer's local calendar month in Unix seconds; the
     /// host does not know the user's time zone, so the renderer supplies it.
     pub fn view(&self, month_start: Option<u64>) -> Value {
-        let entries = self.entries();
+        self.view_with_opendota(&[], month_start)
+    }
+
+    /// Merge the local journal with the consented OpenDota cache. The local HMAC entry wins when
+    /// both sources carry the same keyed match hash. The cache is never written into the local file.
+    pub fn view_with_opendota(
+        &self,
+        opendota_entries: &[MatchEntry],
+        month_start: Option<u64>,
+    ) -> Value {
+        let entries = merge_entries(&self.entries(), opendota_entries);
         json!({
             "schema_version": SCHEMA_VERSION,
             "summary": summarize_at(&entries, month_start),
             "entries": entries,
         })
     }
+}
+
+/// Keep local evidence authoritative, fill only before the oldest local match, and de-duplicate by
+/// the install-keyed HMAC match hash. The same installation key is available for both sources.
+pub fn merge_entries(local: &[MatchEntry], remote: &[MatchEntry]) -> Vec<MatchEntry> {
+    let mut entries = local.to_vec();
+    let oldest_local = local.iter().map(|entry| entry.ended_at).min();
+    let mut seen_keys: std::collections::BTreeSet<String> =
+        local.iter().map(|entry| entry.match_key.clone()).collect();
+    let mut remote_sorted: Vec<MatchEntry> = remote
+        .iter()
+        .filter(|entry| {
+            entry.source == "opendota"
+                && valid_entry(entry)
+                && oldest_local.is_none_or(|oldest| entry.ended_at < oldest)
+        })
+        .cloned()
+        .collect();
+    remote_sorted.sort_by(|left, right| right.ended_at.cmp(&left.ended_at));
+    for entry in remote_sorted {
+        if seen_keys.insert(entry.match_key.clone()) {
+            entries.push(entry);
+        }
+    }
+    entries.sort_by(|left, right| right.ended_at.cmp(&left.ended_at));
+    entries.truncate(MAX_ENTRIES);
+    entries
 }
 
 fn load(path: &Path) -> Result<HistoryFile, &'static str> {
@@ -454,6 +516,10 @@ pub fn summarize_at(entries: &[MatchEntry], month_start: Option<u64>) -> Value {
         .count();
     json!({
         "recorded": entries.len(),
+        "source_counts": {
+            "kohbor": entries.iter().filter(|entry| entry.source == "kohbor").count(),
+            "opendota": entries.iter().filter(|entry| entry.source == "opendota").count(),
+        },
         "counted": counted.len(),
         "counted_unknown_type": counted_unknown_type,
         "excluded_match_type": excluded_type,
@@ -529,6 +595,8 @@ impl Pending {
             ended_at: now,
             match_type: self.match_type,
             source: "kohbor".to_owned(),
+            started_at: None,
+            hero_id: None,
         }
     }
 }
@@ -661,6 +729,8 @@ mod tests {
             assists: Some(1),
             duration_s: result.map(|_| 1500),
             ended_at: 1_700_000_000,
+            started_at: None,
+            hero_id: None,
             match_type,
             source: "kohbor".to_owned(),
         }
@@ -951,6 +1021,83 @@ mod tests {
         e.ended_at = ended_at;
         e.kills = Some(n as u32);
         e
+    }
+
+    fn imported_entry(
+        key: String,
+        match_type: MatchType,
+        started_at: u64,
+        hero_id: u32,
+    ) -> MatchEntry {
+        let mut entry = entry(
+            key,
+            Some(MatchResult::Win),
+            match_type,
+            "opendota_hero_id_2",
+        );
+        entry.source = "opendota".to_owned();
+        entry.hero = Some(format!("opendota_hero_id_{hero_id}"));
+        entry.hero_id = Some(hero_id);
+        entry.started_at = Some(started_at);
+        entry.ended_at = started_at + 1_500;
+        entry.duration_s = Some(1_500);
+        entry
+    }
+
+    #[test]
+    fn merge_deduplicates_with_keyed_match_hash_and_keeps_distinct_nearby_matches() {
+        let mut local = entry(
+            KEY_A.to_owned(),
+            Some(MatchResult::Loss),
+            MatchType::Unknown,
+            "npc_dota_hero_axe",
+        );
+        local.ended_at = 1_700_001_000;
+        let same_match = imported_entry(KEY_A.to_owned(), MatchType::Ranked, 1_699_998_000, 2);
+        let close_but_distinct =
+            imported_entry(KEY_B.to_owned(), MatchType::Ranked, 1_699_998_100, 2);
+        let merged = merge_entries(&[local], &[same_match, close_but_distinct]);
+        assert_eq!(
+            merged.len(),
+            2,
+            "the keyed match hash removes only the same match"
+        );
+        assert_eq!(
+            merged
+                .iter()
+                .filter(|entry| entry.source == "opendota")
+                .count(),
+            1
+        );
+        assert!(merged.iter().any(|entry| entry.match_key == KEY_B));
+    }
+
+    #[test]
+    fn merge_uses_only_older_provider_matches_when_local_history_exists() {
+        let local = hero_entry(1, "npc_dota_hero_axe", MatchResult::Win, 1_700_000_000);
+        let older = imported_entry(key(2), MatchType::Ranked, 1_699_998_000, 2);
+        let newer = imported_entry(key(3), MatchType::Ranked, 1_700_000_100, 2);
+        let merged = merge_entries(&[local], &[older, newer]);
+        assert_eq!(merged.len(), 2);
+        assert!(merged.iter().all(|entry| entry.ended_at <= 1_700_000_000));
+    }
+
+    #[test]
+    fn open_dota_types_count_ranked_unranked_and_unknown_but_exclude_bot_custom_and_lobby() {
+        let entries = [
+            imported_entry(key(1), MatchType::Ranked, 1_700_000_010, 2),
+            imported_entry(key(2), MatchType::Unranked, 1_700_000_020, 2),
+            imported_entry(key(3), MatchType::Unknown, 1_700_000_030, 2),
+            imported_entry(key(4), MatchType::Bot, 1_700_000_040, 2),
+            imported_entry(key(5), MatchType::Custom, 1_700_000_050, 2),
+            imported_entry(key(6), MatchType::Lobby, 1_700_000_060, 2),
+        ];
+        assert!(entries.iter().all(valid_entry));
+        let summary = summarize(&entries);
+        assert_eq!(summary["counted"], 3);
+        assert_eq!(summary["counted_unknown_type"], 1);
+        assert_eq!(summary["excluded_match_type"], 3);
+        assert_eq!(summary["source_counts"]["opendota"], 6);
     }
 
     #[test]

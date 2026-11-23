@@ -83,8 +83,8 @@
     },
     {
       "path": "acceptance/scenarios.feature",
-      "bytes": 64104,
-      "sha256": "3936784cbb3f10e42f8708ec04a6779c3fc3c6f16ace11aa02d3e30d0c5b70e7"
+      "bytes": 66280,
+      "sha256": "f09e0e7ea83f0846fba35a3e2e05f8711895ff5d699801b092cf6e23aae9f4b8"
     },
     {
       "path": "acceptance/spec-validation.json",
@@ -348,8 +348,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/commands.rs",
-      "bytes": 49164,
-      "sha256": "02cf0706d427435a36199f9d503df8d75cf479750031455b2332c5076c4252c8"
+      "bytes": 50729,
+      "sha256": "02aaa3cafdf86c27d86cf54f4cfd68c47554549f7d225a085c1b721c832a3d7c"
     },
     {
       "path": "apps/desktop/src-tauri/src/containment.rs",
@@ -468,8 +468,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/intake.rs",
-      "bytes": 123472,
-      "sha256": "fdd144f624cf7673113506cede04ac13b6fe9ccd7c298c9dbe67916b8e11ba5a"
+      "bytes": 126474,
+      "sha256": "0f2ec6e60b881fca93951859708872039413a1fceab90e3a053d9dcd30ec69ee"
     },
     {
       "path": "apps/desktop/src-tauri/src/lab.rs",
@@ -488,8 +488,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 64224,
-      "sha256": "d6d846d59c21fb33a13efc11082039e639ece2e31f4f918a56b06a27868543db"
+      "bytes": 65047,
+      "sha256": "8d5770ba610efc4935450e16fe44d68edca6fee9b854832d47b9a68af1f86434"
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
@@ -503,8 +503,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/match_history.rs",
-      "bytes": 37894,
-      "sha256": "7a152839ba4c1bbf99da2aadc177dcaffe03f4afd27319f1a4491ff5d89d29ec"
+      "bytes": 43994,
+      "sha256": "079530ae35c3585c23105d385e5b4fcf2cdc59e8e79d11e7a9f37c064734cbd4"
     },
     {
       "path": "apps/desktop/src-tauri/src/media/inventory.rs",
@@ -585,6 +585,11 @@
       "path": "apps/desktop/src-tauri/src/objectives/tone.rs",
       "bytes": 2754,
       "sha256": "e82daa8105ee5ef007bc0b28bcc63138db61627a86f216c571d8d46b136bd4d1"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/opendota.rs",
+      "bytes": 33897,
+      "sha256": "5429386b2361b6a1192cfb7facd345c11af5e69b22f54326b6a5e1df6c418277"
     },
     {
       "path": "apps/desktop/src-tauri/src/orb/host.rs",
@@ -668,8 +673,8 @@
     },
     {
       "path": "apps/desktop/src/App.tsx",
-      "bytes": 24181,
-      "sha256": "688db8c9c4280cd05cc2721f6cb4d4c9ee1a0c5bd49728d36740598df42c8969"
+      "bytes": 24303,
+      "sha256": "b6c4337cfbaaf539b86a07ae5dabdba9ce624bf5830a1105c6d2e33bbdbc069a"
     },
     {
       "path": "apps/desktop/src/AudioHistory.tsx",
@@ -12867,29 +12872,34 @@
       "sha256": "2dc0095f22d4a0d94e576df718550c74a40f33d88886ac7fa01f299f8152931f"
     },
     {
+      "path": "apps/desktop/src/overview/OpenDotaSettings.tsx",
+      "bytes": 1692,
+      "sha256": "61d97b80114c81b617d4a318c76112e9a1b3cda010d1be9f5e4cb8c8668db99f"
+    },
+    {
       "path": "apps/desktop/src/overview/OverviewPage.tsx",
-      "bytes": 18918,
-      "sha256": "3cac100ad17ba622df6ec4563fe24879c550a0e36f66b56cb534946fb4328a7a"
+      "bytes": 23774,
+      "sha256": "e6da450c1c2ac0d86a8fba0312e3a0a7cdf4478c06aa47e4010eba2efe80695e"
     },
     {
       "path": "apps/desktop/src/overview/overview.css",
-      "bytes": 11878,
-      "sha256": "a9453346a61a34963eb2ef67e394324ac48f0e4e00187d65cdc8a6330e6c0d14"
+      "bytes": 12044,
+      "sha256": "0bb61a8cc98bdefb16492983d0990889171eb35645a5008b8babd66a6205f432"
     },
     {
       "path": "apps/desktop/src/overview/overviewClient.ts",
-      "bytes": 1264,
-      "sha256": "4d203adff079be62e7017a236f8e67734910fdffd087136648ab2d35c4bef258"
+      "bytes": 1590,
+      "sha256": "f0e0e9bdd487b880fd48f6771ec513e82f1a8ef56b9eaaec8fe3a40abcc4c8f4"
     },
     {
       "path": "apps/desktop/src/overview/overviewCopy.ts",
-      "bytes": 13239,
-      "sha256": "1d4c1d6553f9d9c343add76fec3e0521e7ba091f895f159c4799bd1c8b28b503"
+      "bytes": 17041,
+      "sha256": "b00512e6557f4215159ac564269ef345073835972ef9b63ce1800844f600b004"
     },
     {
       "path": "apps/desktop/src/overview/overviewModel.ts",
-      "bytes": 20446,
-      "sha256": "4cbf84057145a249aa7f334a97d70990da82c42d20df593ac9ed7a8f7d6bbec8"
+      "bytes": 22440,
+      "sha256": "a18eb3feae5b2e05562bd72d5622887358541c77ba1f679d0f93d7d4a0e20e27"
     },
     {
       "path": "apps/desktop/src/ownLoadout.ts",
@@ -13663,8 +13673,8 @@
     },
     {
       "path": "apps/desktop/tests/overview.test.ts",
-      "bytes": 14061,
-      "sha256": "f48ba7176a0b25531277f10655ac5ce7881aa395f697f61b2b1f478937a920e4"
+      "bytes": 16099,
+      "sha256": "0952bbf7b4f0058238674f02851bab335da556cebc71dd9412a451cf8fa460cb"
     },
     {
       "path": "apps/desktop/tests/own-loadout.test.ts",
@@ -13878,8 +13888,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 135852,
-      "sha256": "d7844b3d786b7b30136c2348527bd56362d867c4c5534d9367f96516218b3920"
+      "bytes": 139639,
+      "sha256": "4637c4917074e62cc2bf035873e4121b365de8e2588dc490746860eedf4f4962"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -13968,8 +13978,8 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 303964,
-      "sha256": "116eb273af59a2e8254842c8d1c3b845996892e2b61478905bde507c8e85606a"
+      "bytes": 308549,
+      "sha256": "299a9bb3925647fe6650fa7e3e8851f577e845f9467963031dc812790bd77bca"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -14953,8 +14963,8 @@
     },
     {
       "path": "docs/design/UX-SPEC.md",
-      "bytes": 33741,
-      "sha256": "6a3663c74708bc4bdfc063afbf3d7a80d5955c5b60f7289927bef16158bbcc79"
+      "bytes": 34009,
+      "sha256": "8e822a8f638adddcb51adea6a1848ac501eff6facaafb8ca66ba9177dc0e88c6"
     },
     {
       "path": "docs/design/VISUAL-DESIGN-PROPOSAL.md",
@@ -15398,8 +15408,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 84695,
-      "sha256": "8ccc1e436d3b82bad22b54407b80b3e8aca3f4ad513550f0a3365a5ffbe5578c"
+      "bytes": 85297,
+      "sha256": "9300e7b455366cd8563eb615334458da99107a5daf3b4913ab15092b771fdfac"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
@@ -15478,18 +15488,18 @@
     },
     {
       "path": "docs/requirements/RTM.csv",
-      "bytes": 62309,
-      "sha256": "96035e0c2fd7d45b562c3102c652e8c6151e00c9a8de784403fb86ff8f0f9f17"
+      "bytes": 62391,
+      "sha256": "444114629ce4557172b1edba533eb2bdd46a68eb88a77b1cbf8ceb9dfebf20f6"
     },
     {
       "path": "docs/requirements/SRS.md",
-      "bytes": 203445,
-      "sha256": "46bd70f6635bddd3745d01d7296de24235d104497a730428ff5af9b8db5fd333"
+      "bytes": 207565,
+      "sha256": "f75031b19e6af76295b70e67e8835c674549ed5f7cee4df7f20684e1162c84b1"
     },
     {
       "path": "docs/security/SECURITY-PRIVACY.md",
-      "bytes": 19554,
-      "sha256": "933af1b97698bbc6de21be57bbe85aff20cf4c9799ab635edcd26136b1edcd92"
+      "bytes": 22238,
+      "sha256": "d76cd992c2425f2cf600e937cffcab9549760c1389785982c29bf90bfcd2f7c0"
     },
     {
       "path": "fixtures/audio-outcome-admitted-valid.json",

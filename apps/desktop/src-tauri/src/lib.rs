@@ -28,6 +28,7 @@ mod media;
 mod mixer;
 mod news;
 mod objectives;
+mod opendota;
 mod orb;
 mod portraits;
 pub mod secrets;
@@ -115,6 +116,8 @@ pub(crate) struct AppState {
     pub(crate) objectives: objectives::ObjectiveHost,
     /// OVERVIEW-002 local own-match history (written by intake, read by the Overview).
     pub(crate) match_history: match_history::MatchHistoryStore,
+    /// Opt-in, own-account OpenDota cache; never populated while consent is off.
+    pub(crate) opendota: opendota::OpenDotaService,
     /// OVERVIEW-003 community news (one fixed GitHub file, on by default, off switch).
     pub(crate) news: news::NewsService,
 }
@@ -1270,11 +1273,19 @@ pub fn run() {
                     )
                 })
             };
-            let account_auth =
-                account_supabase::SupabaseAuth::new(settings_dir.clone(), update_match_active.clone());
+            let account_auth = account_supabase::SupabaseAuth::new(
+                settings_dir.clone(),
+                update_match_active.clone(),
+            );
             app.manage(account_auth.clone());
             account_auth.start_refresh_loop();
             let match_history = intake::lock(&runtime.shared).match_history();
+            let install_key = secrets::load_or_create(
+                &settings_dir.join("install-key.bin"),
+                || -> Option<Vec<u8>> { None },
+            )
+            .and_then(|bytes| bytes.try_into().ok());
+            let opendota = opendota::OpenDotaService::open(&settings_dir, install_key);
             let news = news::NewsService::open(&settings_dir);
             news.start();
             app.manage(AppState {
@@ -1310,6 +1321,7 @@ pub fn run() {
                 hero_stats: hero_stats_host,
                 objectives: objective_host,
                 match_history,
+                opendota,
                 news,
             });
             orb::host::register_critical_listener(app.handle());
@@ -1386,6 +1398,10 @@ pub fn run() {
         commands::clear_match_recap,
         commands::match_history_get,
         commands::match_history_clear,
+        commands::opendota_prefs_get,
+        commands::opendota_prefs_set,
+        commands::opendota_view_get,
+        commands::opendota_refresh,
         commands::news_feed_get,
         commands::news_refresh,
         commands::news_prefs_get,
@@ -1490,6 +1506,10 @@ pub fn run() {
         commands::clear_match_recap,
         commands::match_history_get,
         commands::match_history_clear,
+        commands::opendota_prefs_get,
+        commands::opendota_prefs_set,
+        commands::opendota_view_get,
+        commands::opendota_refresh,
         commands::news_feed_get,
         commands::news_refresh,
         commands::news_prefs_get,
@@ -1536,12 +1556,11 @@ pub fn run() {
                 capture_host::stop();
                 crate::log_info!("app", "exit", "Kohbor is exiting");
                 let state = handle.state::<AppState>();
-                handle
-                    .state::<account_supabase::SupabaseAuth>()
-                    .shutdown();
+                handle.state::<account_supabase::SupabaseAuth>().shutdown();
                 // Orb first (no new clicks), then put every touched audio session back (MEDIA-009).
                 state.orb.stop_for_exit();
                 state.hero_stats.stop_for_exit();
+                state.opendota.stop_for_exit();
                 state.mixer.shutdown();
                 intake::lock(&state.hud).stop();
                 intake::lock(&state.hotkeys).stop();

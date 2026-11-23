@@ -71,6 +71,21 @@ DEC-OVERVIEW item 4 and UPDATE-005 govern this route. It is on by default; the f
 
 MEM-006 stores one entry per own match in `match-history.json` in the app data directory: the keyed match hash already used by the session tracker (GSI-INTAKE-SPEC §6), own hero, result, K/D/A, duration, end time, match type and source. The raw match ID, the SteamID64 and other players' names or identifiers are never stored. It is bounded to 500 entries, written atomically, never sent anywhere, and the user can clear it from the Overview. It falls under the "local journal, replay, history" row of the route matrix. Retention beyond the 500-entry bound stays with DEC-RETENTION.
 
+## OpenDota own-match history (Overview)
+
+DEC-OVERVIEW revision 4 and MEM-006 govern this separate optional route. Consent defaults off. Local history remains available without consent; OpenDota supplies only older own matches after the user opts in. The profile must expose public match data.
+
+- **Endpoint and request.** The native host sends a GET to the fixed HTTPS endpoint `https://api.opendota.com/api/players/{account_id}/matches?limit=150&project=match_id%2Chero_id%2Cplayer_slot%2Cradiant_win%2Ckills%2Cdeaths%2Cassists%2Cduration%2Cstart_time%2Clobby_type%2Cgame_mode`. It uses the existing WinHTTP transport, which does not follow redirects or send cookies, and applies a deadline and body-size cap. The renderer cannot choose the host, path, account ID or fields.
+- **What leaves the PC.** The path contains only the user's own positive 32-bit Steam account ID, derived from a fresh GSI admission whose ownership is verified. No SteamID64 or match ID is sent. OpenDota sees the account ID, client IP address and request time; the `project` query names only the fields above.
+- **When.** The user must opt in before any request. The Overview may make one automatic on-demand request per app start; an explicit retry is allowed within a budget of at most four network-reaching requests per rolling 24 hours. A private profile, empty result, 404, rate limit and offline outcome remain distinct.
+- **Storage.** The files below are in the app data directory:
+  - `opendota-settings.json` stores a schema version and consent flag, plus the 32-bit `account_id` only while consent is enabled; revocation removes the ID.
+  - `opendota-history-cache.json` stores a schema version, fetch time and at most 500 projected own-match entries. Match IDs are replaced by the same installation-keyed HMAC used by local history; the raw match ID and SteamID64 are not stored.
+  - `opendota-request-ledger.json` stores a schema version and request-attempt timestamps only. It contains no account or match identifier and remains after revocation so revoking and re-enabling cannot reset the request budget.
+- **Revocation and clear.** Revocation stops future requests, cancels in-flight transport, discards late responses, removes the saved account ID and deletes the OpenDota history cache. The Overview's Clear history action deletes both `match-history.json` and `opendota-history-cache.json`, but preserves consent and the request-budget ledger. Deletion failures are reported.
+
+The request-field projection, response conventions and `lobby_type`/`game_mode` classifications include offline assumptions documented in the implementation; they are not claims of live provider verification.
+
 ## Team sharing admission and transport
 
 Admit an outgoing sample only when all of the following are known and valid: game application identifier 570, explicit playing activity, verified active local player ownership, canonical positive match identifier, exact Radiant/Dire team, pregame or in-progress state, and every required stat. Spectator, selected-unit ambiguity, missing identity, malformed JSON/schema or incomplete stats invalidate the previous publication immediately.

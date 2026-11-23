@@ -21,6 +21,8 @@
 .ov-notice span { display: block; color: var(--muted); font-size: var(--fs-caption); line-height: var(--lh-thai); }
 .ov-notice.warn span { color: var(--text-2); }
 .ov-row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.ov-optin { display: inline-flex; align-items: center; gap: 7px; color: var(--text-2); font-size: var(--fs-caption); }
+.ov-optin input { accent-color: var(--ally); }
 
 .ov-empty { display: grid; place-items: center; gap: 8px; padding: 26px 16px; border: 1px dashed var(--line-strong); border-radius: 12px; text-align: center; }
 .ov-empty strong { font-size: 15px; }
