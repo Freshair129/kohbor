@@ -47,6 +47,8 @@ While the endpoint or the public key is `None`, the updater reports `NO_ENDPOINT
 2. **Release slice.** NSIS bundle settings, signing and `latest.json` scripts, the promotion check, and the runbook. It needs the owner's key and the public repository.
 3. **Native evidence.** Install an old signed test build, update to a newer signed test build, and confirm deferral during a match (UAT-12).
 
+Release steps and tooling: [RELEASE-UPDATES.md](../operations/RELEASE-UPDATES.md) and `tools/release/`.
+
 ## Non-goals
 
 No silent install, no delta updates, no rollback by downgrade, no updates through the account service, no telemetry, no Authenticode.
