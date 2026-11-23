@@ -44,6 +44,11 @@ async function loadDraftColumnView() {
   const resolve = (overlay: unknown) => (specifier: string) => {
     if (specifier === "./draftColumnModel") return model;
     if (specifier === "./OverlayColumn") return { OverlayColumn: overlay };
+    // The portrait calls the host; static renders show the neutral placeholder.
+    if (specifier === "./OverlayPortrait") return {
+      OverlayPortrait: ({ heroKey }: { heroKey: string | null }) =>
+        React.createElement("span", { className: "draft-ov-pt is-missing", "data-hero-key": heroKey ?? "" }, "?"),
+    };
     return requireFromApp(specifier);
   };
   const overlay = await loadTsxModule("OverlayColumn.tsx", "OverlayColumn", resolve(null));
@@ -255,7 +260,7 @@ test("Option A blocks have the fixed heights the host sizes the window from", as
   const css = readFileSync(new URL("../src/draft/draft-overlay.css", import.meta.url), "utf8");
   const { OVERLAY_LAYOUT: L } = await import("../src/draft/draftColumnModel.ts");
   const height = (selector: string) => {
-    const match = css.match(new RegExp(String.raw`(?:^|\n)${selector}\s*\{[^}]*?\bheight:\s*(\d+)px`, "s"));
+    const match = css.match(new RegExp(String.raw`(?:^|\n)(?:[^{}\n]*,\s*)?${selector}\s*(?:,[^{]*)?\{[^}]*?\bheight:\s*(\d+)px`, "s"));
     assert.ok(match, `CSS gives ${selector} a fixed height`);
     return Number(match[1]);
   };
@@ -275,7 +280,9 @@ test("Option A blocks have the fixed heights the host sizes the window from", as
   // Inner parts add up to their fixed block.
   assert.equal(30 + 3 * 34 + 34 + 8 + 4, L.pickBody, "hero line, three stats, two-line detail, padding");
   assert.equal(3 * 44 + 8, L.durationBody);
-  assert.equal(4 * 17 + 14 + 2, L.footer, "four 17 px lines, padding and border");
+  assert.equal(5 * 17 + 14 + 2, L.footer, "five 17 px lines, padding and border");
+  assert.equal(L.metaRow, 70, "card v3 (Variant B) rows are 70 px");
+  assert.equal(L.counterRow, L.metaRow, "counter cards share the meta card layout");
 });
 
 test("Option A overlay text is never smaller than 12 px", () => {
@@ -300,12 +307,12 @@ test("each Option A state renders its sections at 180 px and fits above y 860", 
   const lowRows = metaRows.map((row, index) => ({ ...row, games: index < 3 ? 1500 : 700, rank: index < 3 ? index + 1 : null, low_data: index >= 3 }));
   const failed = { ...base.source, fetched_at_ms: null, failed_at_ms: DURATION_FETCH_MS, failure: "network" };
   const states: Array<[string, Record<string, unknown>, number, string[]]> = [
-    ["meta", { ...base, suggestions: { ...base.suggestions, rows: metaRows, ranked_count: 10 } }, 578, ["ฮีโร่เมต้า"]],
-    ["counters", counterPayload("ready", PL_COUNTERS), 692, ["แก้ทาง Phantom Lancer", "ฮีโร่เมต้า"]],
-    ["pick", pickPayload("live"), 554, ["การ์ดฮีโร่", "ตามความยาวเกม"]],
-    ["low-data", { ...base, suggestions: { ...base.suggestions, rows: lowRows, ranked_count: 3 } }, 578, ["ฮีโร่เมต้า", "ข้อมูลน้อย"]],
-    ["error", { ...base, data_state: "fetch_failed", source: failed }, 266, ["ฮีโร่เมต้า", "ดึงข้อมูลไม่ได้"]],
-    ["error with counters", { ...counterPayload("ready", PL_COUNTERS), data_state: "fetch_failed", source: failed }, 530, ["แก้ทาง Phantom Lancer", "ดึงข้อมูลไม่ได้"]],
+    ["meta", { ...base, suggestions: { ...base.suggestions, rows: metaRows, ranked_count: 10 } }, 685, ["ฮีโร่เมต้า"]],
+    ["counters", counterPayload("ready", PL_COUNTERS), 693, ["แก้ทาง Phantom Lancer", "ฮีโร่เมต้า"]],
+    ["pick", pickPayload("live"), 571, ["การ์ดฮีโร่", "ตามความยาวเกม"]],
+    ["low-data", { ...base, suggestions: { ...base.suggestions, rows: lowRows, ranked_count: 3 } }, 685, ["ฮีโร่เมต้า", "ข้อมูลน้อย"]],
+    ["error", { ...base, data_state: "fetch_failed", source: failed }, 283, ["ฮีโร่เมต้า", "ดึงข้อมูลไม่ได้"]],
+    ["error with counters", { ...counterPayload("ready", PL_COUNTERS), data_state: "fetch_failed", source: failed }, 571, ["แก้ทาง Phantom Lancer", "ดึงข้อมูลไม่ได้"]],
     ["consent chip", { ...base, mode: "consent_chip", data_state: "consent_off", suggestions: null }, 56, ["คำแนะนำฮีโร่ปิดอยู่"]],
   ];
   for (const [name, payload, expectedHeight, texts] of states) {
@@ -336,7 +343,7 @@ test("overlay follows the untaken-first row rule while deck retains every host r
         rank: index + 1, taken: index < 3,
       })),
       ranked_count: 8,
-      expected: ["Untaken 1", "Untaken 2", "Untaken 3", "Untaken 4", "Untaken 5", "Untaken 6", "Untaken 7", "Untaken 8"],
+      expected: ["Untaken 1", "Untaken 2", "Untaken 3", "Untaken 4", "Untaken 5", "Untaken 6", "Untaken 7"],
       expectedTaken: 0,
     },
     {
@@ -358,7 +365,7 @@ test("overlay follows the untaken-first row rule while deck retains every host r
         ...baseRow, hero_id: index + 1, name: `Pickable ${index + 1}`, rank: index + 1, taken: false,
       })),
       ranked_count: 12,
-      expected: ["Pickable 1", "Pickable 2", "Pickable 3", "Pickable 4", "Pickable 5", "Pickable 6", "Pickable 7", "Pickable 8"],
+      expected: ["Pickable 1", "Pickable 2", "Pickable 3", "Pickable 4", "Pickable 5", "Pickable 6", "Pickable 7"],
       expectedTaken: 0,
     },
   ];
@@ -445,9 +452,9 @@ test("overlay draws at most three counter rows on top and gives up the same meta
   const view = parseDraftColumnView(counterPayload("ready", PL_COUNTERS));
   const overlay = renderToStaticMarkup(React.createElement(DraftColumnView, { view, surface: "overlay" }));
   assert.match(overlay, /แก้ทาง Phantom Lancer/);
-  assert.equal((overlay.match(/class="draft-counter-row"/g) ?? []).length, 3);
+  assert.equal((overlay.match(/class="draft-counter-row[" ]/g) ?? []).length, 3);
   assert.doesNotMatch(overlay, /Medusa/);
-  assert.equal((overlay.match(/class="draft-row[" ]/g) ?? []).length, 5, "8 rows minus 3 counter rows");
+  assert.equal((overlay.match(/class="draft-row[" ]/g) ?? []).length, 3, "three counter cards leave three meta cards (6 - k)");
   assert.ok(overlay.indexOf("draft-counter-block") < overlay.indexOf("draft-row-list"), "counters sit above the meta list");
   assert.match(overlay, /ไม่ใช่สถิติ/);
   const counterText = overlay.slice(overlay.indexOf("draft-counter-block"), overlay.indexOf("draft-row-list"));
@@ -455,7 +462,7 @@ test("overlay draws at most three counter rows on top and gives up the same meta
   assert.doesNotMatch(overlay, /<(?:button|input|select|a)(?:\s|>)/i);
 
   const deck = renderToStaticMarkup(React.createElement(DraftColumnView, { view, surface: "deck" }));
-  assert.equal((deck.match(/class="draft-counter-row"/g) ?? []).length, 4, "the deck keeps every host counter row");
+  assert.equal((deck.match(/class="draft-counter-row[" ]/g) ?? []).length, 4, "the deck keeps every host counter row");
   assert.match(deck, /Echo Slam/);
 });
 
@@ -466,7 +473,7 @@ test("without a ready counter block the overlay shows no counter section and kee
     assert.equal(view.suggestions?.counters?.state, state);
     const overlay = renderToStaticMarkup(React.createElement(DraftColumnView, { view, surface: "overlay" }));
     assert.doesNotMatch(overlay, /draft-counter-block/, state);
-    assert.equal((overlay.match(/class="draft-row[" ]/g) ?? []).length, 8, state);
+    assert.equal((overlay.match(/class="draft-row[" ]/g) ?? []).length, 7, state);
     const deck = renderToStaticMarkup(React.createElement(DraftColumnView, { view, surface: "deck" }));
     assert.match(deck, /draft-counter-status/, state);
   }
@@ -474,4 +481,39 @@ test("without a ready counter block the overlay shows no counter section and kee
     view: parseDraftColumnView(counterPayload("sides_unknown", [])), surface: "deck",
   }));
   assert.match(sides, /ยังไม่รู้ว่าฮีโร่ไหนอยู่ฝั่งตรงข้าม/);
+});
+
+test("card v3 shows the portrait slot, win-rate tone, delta and the selected lane with its caveat", async () => {
+  const DraftColumnView = await loadDraftColumnView();
+  const model = await import("../src/draft/draftColumnModel.ts");
+  const base = suggestionPayload();
+  const lane = (share: number, rate: number | null) => ({ position: 3, lane: "off", shared_with: 4, games: 4200, share_tenths: share, win_rate_tenths: rate });
+  const rows = [
+    { hero_id: 33, name: "Enigma", rank: 1, games: 38511, win_rate_tenths: 527, low_data: false, taken: false, hero_key: "npc_dota_hero_enigma", lane: lane(712, 519) },
+    { hero_id: 29, name: "Tidehunter", rank: 2, games: 31066, win_rate_tenths: 488, low_data: false, taken: false, hero_key: "npc_dota_hero_tidehunter", lane: lane(820, null) },
+    { hero_id: 77, name: "Lycan", rank: 3, games: 22904, win_rate_tenths: 505, low_data: false, taken: false, hero_key: "bad key", lane: { lane: "jungle" } },
+  ];
+  const view = model.parseDraftColumnView({ ...base, context: { position: 3, bracket: 3 }, suggestions: { ...base.suggestions, rows, ranked_count: 3 } });
+  assert.equal(view.valid, true);
+  assert.equal(view.suggestions!.rows[0]!.lane!.share_tenths, 712);
+  assert.equal(view.suggestions!.rows[2]!.hero_key, null, "an invalid key becomes null, the row stays");
+  assert.equal(view.suggestions!.rows[2]!.lane, null, "an invalid lane becomes null, the row stays");
+  const overlay = renderToStaticMarkup(React.createElement(DraftColumnView, { view, surface: "overlay" }));
+  assert.match(overlay, /data-hero-key="npc_dota_hero_enigma"/);
+  assert.match(overlay, /draft-ov-edge is-up/);
+  assert.match(overlay, /draft-ov-edge is-down/);
+  assert.match(overlay, /draft-ov-edge is-flat/);
+  assert.match(overlay, /\+2\.7/);
+  assert.match(overlay, /\u22121\.2/);
+  assert.match(overlay, /Off 71% · ชนะ <span class="is-up">51\.9%<\/span>/);
+  assert.match(overlay, /Off 82% · ชนะ <span class="is-flat">—<\/span>/, "lane win rate withheld below 100 games");
+  assert.match(overlay, /Pos 3\+4 = เลน Off ทุกแรงก์/);
+  assert.match(overlay, /Pos 3 · Offlane/);
+  const css = readFileSync(new URL("../src/draft/draft-overlay.css", import.meta.url), "utf8");
+  assert.match(css, /--ov-ground:\s*#141414/, "card backgrounds are solid");
+  assert.match(css, /\.draft-ov-edge\.is-up\s*\{[^}]*var\(--ov-ally\)/s);
+  assert.match(css, /\.draft-ov-edge\.is-down\s*\{[^}]*var\(--ov-critical\)/s);
+  const source = readFileSync(new URL("../src/draft/OverlayPortrait.tsx", import.meta.url), "utf8");
+  assert.match(source, /useHeroPortrait\(heroKey\)/, "portraits come from the existing hero_portrait path");
+  assert.doesNotMatch(source, /https?:|\.png"|\.webp"/, "no bundled or remote art");
 });

@@ -13,15 +13,25 @@ const BRAND: u32 = 30;
 const CARD_BORDER: u32 = 2;
 const HEAD: u32 = 50;
 const COUNTER_HEAD: u32 = 70;
-const META_ROW: u32 = 50;
-const COUNTER_ROW: u32 = 62;
+const META_ROW: u32 = 70;
+const COUNTER_ROW: u32 = 70;
 const MESSAGE: u32 = 88;
 const PICK_BODY: u32 = 178;
 const DURATION_BODY: u32 = 140;
-const FOOTER: u32 = 84;
+const FOOTER: u32 = 101;
 const CHIP: u32 = 56;
 const OVERLAY_COUNTER_ROWS: usize = 3;
-const MAX_META_ROWS: usize = 8;
+/// Draft card v3 (Variant B, 70 px cards): seven meta cards alone; with k counter cards the
+/// counter section header costs one card, so the meta list keeps 6 - k.
+const MAX_META_ROWS: usize = 7;
+
+pub(crate) fn meta_row_limit(counters: usize) -> usize {
+    if counters == 0 {
+        MAX_META_ROWS
+    } else {
+        (MAX_META_ROWS - 1).saturating_sub(counters)
+    }
+}
 
 /// `overlaySuggestionRows`: pickable rows first; a taken row fills a spare slot only when it
 /// outranks a drawn pickable row.
@@ -74,7 +84,7 @@ pub(crate) fn overlay_column_height(view: &DraftColumnView) -> u32 {
             let values = matches!(view.data_state, DataState::Live | DataState::Stale)
                 && view.source.fetched_at_ms.is_some();
             let rows = if values {
-                overlay_meta_rows(&suggestions.rows, MAX_META_ROWS - counters)
+                overlay_meta_rows(&suggestions.rows, meta_row_limit(counters))
             } else {
                 0
             };
@@ -107,13 +117,23 @@ mod tests {
             win_rate_tenths: Some(500),
             low_data: false,
             taken,
+            hero_key: None,
+            lane: None,
         }
     }
 
     #[test]
     fn meta_row_selection_matches_the_overlay_rule() {
         let untaken: Vec<_> = (1..=12).map(|rank| row(Some(rank), false)).collect();
-        assert_eq!(overlay_meta_rows(&untaken, 8), 8);
+        assert_eq!(
+            overlay_meta_rows(&untaken, 8),
+            7,
+            "never more than seven cards"
+        );
+        assert_eq!(overlay_meta_rows(&untaken, meta_row_limit(0)), 7);
+        assert_eq!(meta_row_limit(1), 5);
+        assert_eq!(meta_row_limit(2), 4);
+        assert_eq!(meta_row_limit(3), 3);
         assert_eq!(overlay_meta_rows(&untaken, 5), 5);
         let mut mixed = vec![row(Some(1), true), row(Some(2), true)];
         mixed.extend((3..=7).map(|rank| row(Some(rank), false)));
@@ -132,10 +152,17 @@ mod tests {
         let worst_suggestions = BRAND
             + GAP
             + (CARD_BORDER + COUNTER_HEAD + 3 * COUNTER_ROW + GAP)
-            + (CARD_BORDER + HEAD + 5 * META_ROW)
+            + (CARD_BORDER + HEAD + meta_row_limit(3) as u32 * META_ROW)
             + GAP
             + FOOTER;
-        let full_meta = BRAND + GAP + (CARD_BORDER + HEAD + 8 * META_ROW) + GAP + FOOTER;
+        let full_meta =
+            BRAND + GAP + (CARD_BORDER + HEAD + meta_row_limit(0) as u32 * META_ROW) + GAP + FOOTER;
+        let one_counter = BRAND
+            + GAP
+            + (CARD_BORDER + COUNTER_HEAD + COUNTER_ROW + GAP)
+            + (CARD_BORDER + HEAD + meta_row_limit(1) as u32 * META_ROW)
+            + GAP
+            + FOOTER;
         let pick = BRAND
             + GAP
             + (CARD_BORDER + HEAD + PICK_BODY)
@@ -149,11 +176,19 @@ mod tests {
             + (CARD_BORDER + HEAD + MESSAGE)
             + GAP
             + FOOTER;
-        assert_eq!(worst_suggestions, 692);
-        assert_eq!(full_meta, 578);
-        assert_eq!(pick, 554);
-        assert_eq!(message, 530);
-        for height in [worst_suggestions, full_meta, pick, message, CHIP] {
+        assert_eq!(worst_suggestions, 693);
+        assert_eq!(one_counter, 693);
+        assert_eq!(full_meta, 685);
+        assert_eq!(pick, 571);
+        assert_eq!(message, 571);
+        for height in [
+            worst_suggestions,
+            one_counter,
+            full_meta,
+            pick,
+            message,
+            CHIP,
+        ] {
             assert!(TOP + height as i32 <= MAX_BOTTOM, "{height}px from y {TOP}");
         }
         assert_eq!(MAX_HEIGHT, 728);

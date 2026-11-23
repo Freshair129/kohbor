@@ -6,6 +6,16 @@ export type DraftFailure = "network" | "timeout" | "http_status" | "invalid_body
 export type PickCardState = "live" | "stale" | "loading" | "unknown_hero" | "not_enough_matches" | "fetch_failed" | "rate_limited" | "provider_error" | "bracket_empty";
 export type WinRateBand = "green" | "neutral" | "rose";
 
+/** The hero's numbers in the selected position's lane (all brackets; Pos 1+5 and 3+4 share a lane). */
+export interface DraftLane {
+  position: number;
+  lane: "safe" | "mid" | "off";
+  shared_with: number | null;
+  games: number;
+  share_tenths: number | null;
+  win_rate_tenths: number | null;
+}
+
 export interface DraftColumnRow {
   hero_id: number;
   name: string;
@@ -14,6 +24,9 @@ export interface DraftColumnRow {
   win_rate_tenths: number | null;
   low_data: boolean;
   taken: boolean;
+  /** Internal key for the local game portrait; null when unknown (placeholder shown). */
+  hero_key?: string | null;
+  lane?: DraftLane | null;
 }
 
 export type DraftCounterState = "build_disabled" | "draft_bar_unavailable" | "sides_unknown" | "no_enemy" | "ready";
@@ -23,6 +36,10 @@ export interface DraftCounterRow {
   name: string;
   against: string[];
   reason: string;
+  hero_key?: string | null;
+  games?: number | null;
+  win_rate_tenths?: number | null;
+  lane?: DraftLane | null;
 }
 
 export interface DraftCounters {
@@ -215,6 +232,26 @@ function parseSource(value: unknown): DraftColumnView["source"] {
   };
 }
 
+const HERO_KEY = /^npc_dota_hero_[a-z0-9_]{1,64}$/;
+const LANES = ["safe", "mid", "off"] as const;
+
+/** Optional v3 fields: an absent or malformed value becomes null; it never drops the row. */
+function parseHeroKey(value: unknown): string | null {
+  return typeof value === "string" && HERO_KEY.test(value) ? value : null;
+}
+
+export function parseLane(value: unknown): DraftLane | null {
+  const lane = record(value);
+  if (!lane || !isOneOf(lane.lane, LANES)) return null;
+  const position = integer(lane.position, 1, 5);
+  const games = integer(lane.games, 0, MAX_STAT_COUNT);
+  const shared = strictNullableInteger(lane.shared_with, 1, 5);
+  const share = strictNullableInteger(lane.share_tenths, 0, 1000);
+  const rate = strictNullableInteger(lane.win_rate_tenths, 0, 1000);
+  if (position === null || games === null || shared === undefined || share === undefined || rate === undefined) return null;
+  return { position, lane: lane.lane, shared_with: shared, games, share_tenths: share, win_rate_tenths: rate };
+}
+
 function parseRow(value: unknown): DraftColumnRow | null {
   const row = record(value);
   if (!row || typeof row.low_data !== "boolean" || typeof row.taken !== "boolean") return null;
@@ -232,6 +269,8 @@ function parseRow(value: unknown): DraftColumnRow | null {
     win_rate_tenths: rate,
     low_data: row.low_data,
     taken: row.taken,
+    hero_key: parseHeroKey(row.hero_key),
+    lane: parseLane(row.lane),
   };
 }
 
@@ -271,7 +310,15 @@ export function parseCounters(value: unknown): DraftCounters | null {
     const against = parseNameList(row.against, 5);
     const reason = boundedText(row.reason, 240);
     if (heroId === null || name === null || against === null || against.length === 0 || reason === null) return null;
-    rows.push({ hero_id: heroId, name, against, reason });
+    const games = strictNullableInteger(row.games, 0, MAX_STAT_COUNT);
+    const rate = strictNullableInteger(row.win_rate_tenths, 0, 1000);
+    rows.push({
+      hero_id: heroId, name, against, reason,
+      hero_key: parseHeroKey(row.hero_key),
+      games: games ?? null,
+      win_rate_tenths: rate ?? null,
+      lane: parseLane(row.lane),
+    });
   }
   if (counters.state !== "ready" && (rows.length > 0 || enemies.length > 0)) return null;
   return {
@@ -469,12 +516,12 @@ export const OVERLAY_LAYOUT = {
   cardBorder: 2,
   head: 50,
   counterHead: 70,
-  metaRow: 50,
-  counterRow: 62,
+  metaRow: 70,
+  counterRow: 70,
   message: 88,
   pickBody: 178,
   durationBody: 140,
-  footer: 84,
+  footer: 101,
   chip: 56,
   minTextPx: 12,
 } as const;
@@ -484,11 +531,16 @@ export function overlayValuesAvailable(view: DraftColumnView): boolean {
     && view.source?.fetched_at_ms !== undefined;
 }
 
+/** Card v3 (Variant B, 70 px cards): seven meta cards alone; with k counter cards, 6 - k. */
+export function overlayMetaRowLimit(counters: number): number {
+  return counters === 0 ? 7 : Math.max(0, 6 - counters);
+}
+
 /** Counter rows and meta rows the overlay draws for a suggestions view. */
 export function overlaySections(view: DraftColumnView): { counters: DraftCounterRow[]; rows: DraftColumnRow[] } {
   const counters = visibleCounterRows(view.suggestions?.counters ?? null, "overlay");
   const hostRows = overlayValuesAvailable(view) ? view.suggestions?.rows ?? [] : [];
-  return { counters, rows: overlaySuggestionRows(hostRows, 8 - counters.length) };
+  return { counters, rows: overlaySuggestionRows(hostRows, overlayMetaRowLimit(counters.length)) };
 }
 
 /** Exact overlay content height in CSS px at scale 1; 0 when the overlay draws nothing. */

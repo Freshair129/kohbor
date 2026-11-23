@@ -33,10 +33,18 @@ The renderer never makes a provider request. Only the native host does.
 - Separate cards, from the top: brand bar (position, bracket, status pill) → `แก้ทาง {enemy}` (when ready) → `ฮีโร่เมต้า` or `การ์ดฮีโร่` + `ตามความยาวเกม` → source footer.
 - Text is at least 12 px: names and rates 15 px, headings 15 px.
 - Colors are Command Deck tokens.
-- Every block has a fixed height: brand 30, head 50 (counters 70), meta row 50, counter row 62, message 88, pick body 178, durations 140, footer 84, chip 56, gap 6, card border 2. Text is clamped or ellipsized inside its block.
+- Every block has a fixed height: brand 30, head 50 (counters 70), meta card 70, counter card 70, message 88, pick body 178, durations 140, footer 101, chip 56, gap 6, card border 2. Text is clamped or ellipsized inside its block.
 - The host computes the window height from the view (`hero_stats::layout::overlay_column_height`, mirrored by `overlayColumnHeight` in `draftColumnModel.ts`, with a test that keeps the two in step) and sizes the native window to it. `column_window_placed` logs the result.
-- State heights: meta 578, counters + meta 692, pick card 554, fetch failed 266 (530 with counters), consent chip 56. The cap is 728, which ends at y 860.
+- State heights: meta 685, counters + meta 693, pick card 571, fetch failed 283 (571 with counters), consent chip 56. The cap is 728, which ends at y 860. Until card v3 (2026-11-23) they were 578, 692, 554, 266 and 530.
 - The deck keeps its own layout.
+
+**Card v3, owner choice 2026-11-23: Variant B** (owner's reply "Variant B", relayed by the lead after the owner reviewed three mocks in `F:\kohbor-coord\design\draft-card-v3-20261123\`; the real component is shot in `final\` there). Meta and counter rows are now cards of 70 px:
+- Portrait: the upright selection image from the installed game, through the existing `hero_portrait` command (`portraits.rs`, read-only, memory only, no bundled or remote art). It is 70×70 and fades into the card. A missing image shows a neutral "?".
+- Card backgrounds are opaque (`#141414`), so the game's text behind cannot show through.
+- Win-rate tone, Command Deck tokens: the right edge (4 px) and the rate are `--ally` at ≥ 50.0 + 1.0, `--critical` at ≤ 50.0 − 1.0, otherwise neutral. A chip shows the difference from 50.0, computed from the rate already shown. No rate → no tone.
+- Lane line, for example `Off 71% · ชนะ 51.9%`: the hero's share of its games in the lane of the selected position (over the 3 lanes), then its win rate in that lane, shown only with ≥ 100 lane games (`LANE_MIN_GAMES`). Both come from the cached laneRoles table; no new request. The lane table has 3 lanes and no bracket, so Pos 1 and 5 share Safe, Pos 3 and 4 share Off, and the footer says so (`Pos 3+4 = เลน Off ทุกแรงก์`). With no position set there is no lane line.
+- Rows drawn in the overlay: 7 meta cards with no counters; with k counter cards (k ≤ 3), 6 − k meta cards. Before card v3: 8 and 8 − k.
+- The footer has five lines; the lane caveat is the new one.
 
 - The overlay draws only at 1920×1080, 100 % scale (same rule as Draft Bar 5b: `draft_bar::OUTPUT_WIDTH/HEIGHT/SCALE_PERCENT`). Otherwise the state is `unsupported_output`: the overlay draws nothing and the deck shows the list with the reason.
 - Protected rectangles at 1920×1080 (MEASURED, one frame 1919×1072, up to 8 px uncertainty): top bar 215–1708 × 0–117, hero grid 133–1292 × 181–698, hero detail panel 1344–1719 × 181–786, LOCK IN 1345–1614 × 794–851, RANDOM 1627–1719 × 794–851, chat 838–1323 × 869–1062. A test asserts the column touches none of them and keeps ≥ 8 px to the detail panel and ≥ 12 px to the right screen edge.
@@ -164,14 +172,14 @@ Only heroes that Draft Bar 5b admits as identified in the ten slots are struck o
 - **Rows.**
   - Excluded: any hero identified in any slot, and, when a position is set and the groups are known, any hero outside that group (`position_filtered`).
   - Sort: the number of identified enemies answered (desc), then first appearance (enemy slot order, then table order), then hero ID.
-  - The host keeps at most 6 rows. The deck draws all of them, with the reason. The overlay draws at most 3, on top, under `แก้ทาง {enemies}`, and gives up the same number of meta rows (8 − k).
-  - No number is shown, and the source line says `ไม่ใช่สถิติ`.
-- **Layout.** Since Option A (2026-11-22) the counters are their own card at the top: a two-line heading of 70 px and up to 3 rows of 62 px, each with the name at 15 px and the reason at 12 px. The meta list gives up the same number of rows (8 − k). Until 2026-11-22 the block was 96 px at 8.5 px inside a 488 px column.
+  - The host keeps at most 6 rows. The deck draws all of them, with the reason. The overlay draws at most 3, on top, under `แก้ทาง {enemies}`; the meta list then shows 6 − k cards (card v3).
+  - The counter relation has no number, and the source line says `ไม่ใช่สถิติ`. Since card v3 a counter card also shows the hero's own bracket win rate (≥ 1,000 games) and its lane line, as the meta cards do; neither is a matchup number.
+- **Layout.** Since Option A (2026-11-22) the counters are their own card at the top: a two-line heading of 70 px and up to 3 rows. Since card v3 (2026-11-23) each row is a 70 px card with portrait, name, rate and the reason at 12 px, and the meta list shows 6 − k cards. Until 2026-11-22 the block was 96 px at 8.5 px inside a 488 px column.
 - **Consent.** Counters appear inside the suggestions mode, which still requires the stats consent. The table itself needs no network.
 
 ## 10. View contract `draft-column-view` 1 (host → windows)
 
-Event `draft://view` to the `draft` window; command `draft_column_view` for the control window. A field typed `int` is a required non-negative integer; a field typed `null | int` is nullable, and `null` means unknown, never zero. `suggestions.rows` holds at most 16 rows; a payload that violates any type, enum or bound is invalid as a whole. The overlay draws at most 8 rows (the deck draws all rows). Lead decision 2026-11-21: the 8 overlay rows go first to the top still-pickable (untaken) rows in host order; a struck-out (taken) row is drawn only if it ranks above a drawn untaken row and there is room left (that is, fewer than 8 untaken rows exist); otherwise struck-out rows are left out of the overlay. Host order is kept for the rows that are drawn. Text floor in the overlay: no text below 8.5 px at scale 1 (hero names 11 px, rates 11 px, games 8.5 px), from the design's measured minimum; readability in play is still unmeasured.
+Event `draft://view` to the `draft` window; command `draft_column_view` for the control window. A field typed `int` is a required non-negative integer; a field typed `null | int` is nullable, and `null` means unknown, never zero. `suggestions.rows` holds at most 16 rows; a payload that violates any type, enum or bound is invalid as a whole. The overlay draws at most 7 rows since card v3 (8 before; the deck draws all rows). Lead decision 2026-11-21: the overlay rows go first to the top still-pickable (untaken) rows in host order; a struck-out (taken) row is drawn only if it ranks above a drawn untaken row and there is room left (that is, fewer untaken rows exist than the overlay can draw); otherwise struck-out rows are left out of the overlay. Host order is kept for the rows that are drawn. Text floor in the overlay: no text below 8.5 px at scale 1 (hero names 11 px, rates 11 px, games 8.5 px), from the design's measured minimum; readability in play is still unmeasured.
 
 ```text
 {
@@ -191,15 +199,22 @@ Event `draft://view` to the `draft` window; command `draft_column_view` for the 
   },
   suggestions: null | {
     rows: [ { hero_id: int, name: string, rank: null | int, games: int,
-              win_rate_tenths: null | int, low_data: bool, taken: bool } ],
+              win_rate_tenths: null | int, low_data: bool, taken: bool,
+              hero_key?: null | string,   // card v3: npc_dota_hero_*, for hero_portrait; invalid -> null
+              lane?: null | Lane } ],      // card v3; invalid -> null, the row stays
     ranked_count: int,
     draft_bar: { available: bool, identified: int, slots: 10 },
     counters: {            // added 2026-11-22; a renderer treats a missing or invalid block as null (no counters)
       state: "build_disabled" | "draft_bar_unavailable" | "sides_unknown" | "no_enemy" | "ready",
       source: "kohbor_reviewed_table",
       enemies: [ string ] (<= 5), enemies_identified: int (0-5), position_filtered: bool,
-      rows: [ { hero_id: int, name: string, against: [ string ] (1-5), reason: string } ] (<= 6; empty unless "ready")
+      rows: [ { hero_id: int, name: string, against: [ string ] (1-5), reason: string,
+                hero_key?: null | string, games?: null | int,
+                win_rate_tenths?: null | int,   // the hero's own bracket rate, >= 1,000 games
+                lane?: null | Lane } ] (<= 6; empty unless "ready")
     }
+    // Lane = { position: 1..5, lane: "safe" | "mid" | "off", shared_with: null | 1..5, games: int,
+    //          share_tenths: null | int, win_rate_tenths: null | int (>= 100 lane games) }
   },
   pick_card: null | {
     hero_id: null | int, name: null | string,
@@ -213,8 +228,8 @@ Event `draft://view` to the `draft` window; command `draft_column_view` for the 
 
 ## 11. Never shown
 
-Win-chance %, predicted outcome, ban suggestions, a statistical matchup edge (counters are table reasons, never numbers), item/lane/skill advice, player names, ranks, hero or item art (names are text from the provider's hero table).
+Win-chance %, predicted outcome, ban suggestions, a statistical matchup edge (counters are table reasons, never numbers), item/lane/skill advice, player names, ranks, item art. Since card v3 (owner, 2026-11-23) hero portraits from the installed game and the lane share and lane win rate are shown; they are statistics, not advice.
 
 ## 12. Evidence and open points
 
-Synthetic only from this build. UNVERIFIED: overlay behaviour over Dota 2 (click-through, never activated, placement, readability of 8.5–12.5 px text), the strategy-time card position, the durations response shape, the provider's data window, per-IP quota and licence, Turbo/Captains Mode screens.
+Synthetic only from this build. UNVERIFIED: card v3 portraits in the native overlay window (the `hero_portrait` call from the `draft` window is untested there; the browser mock shows "?"), lane numbers from a real laneRoles cache, overlay behaviour over Dota 2 (click-through, never activated, placement, readability of 8.5–12.5 px text), the strategy-time card position, the durations response shape, the provider's data window, per-IP quota and licence, Turbo/Captains Mode screens.

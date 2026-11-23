@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "draft",
-  "description": "Draft column: event listening only.",
+  "description": "Draft column: event listening, plus the app hero_portrait command (read-only local game portraits) for card v3.",
   "windows": ["draft"],
   "permissions": ["core:event:default"]
 }
