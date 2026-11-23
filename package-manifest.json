@@ -1622,9 +1622,14 @@
       "sha256": "74a29147a395228aff0affaa246bbd3579aacbdee50e2206e33afd81dea088f0"
     },
     {
+      "path": "apps/desktop/src/replay/MatchViewPanel.tsx",
+      "bytes": 8948,
+      "sha256": "fe12ae14356f2faa4991743b7c44018ba5d0b679d0c8990939ac9139a74bada7"
+    },
+    {
       "path": "apps/desktop/src/replay/ReplayPanel.tsx",
-      "bytes": 3266,
-      "sha256": "357550fa5cb31f396e82a780548fa6bff41df50396107475fd3c1c153355e9b2"
+      "bytes": 4478,
+      "sha256": "5963403cfc83fddbe0a1b70fce8c69b526cf4ddff3b494a7d3ec843debefd7c0"
     },
     {
       "path": "apps/desktop/src/replay/admission.ts",
@@ -1635,6 +1640,51 @@
       "path": "apps/desktop/src/replay/coach.ts",
       "bytes": 4147,
       "sha256": "53b9449ce28520310609c9c5dadaf4f315634746b2e4f45a0933d75bf781b293"
+    },
+    {
+      "path": "apps/desktop/src/replay/matchBundle.ts",
+      "bytes": 16907,
+      "sha256": "aa1c3a6597f0f9db58fedd7ee21611e672d16c11a82f413afd5e8468c8874054"
+    },
+    {
+      "path": "apps/desktop/src/replay/matchTables.d.mts",
+      "bytes": 435,
+      "sha256": "9b8d53b7f21bd9c59c2743f2422b200bf56826da5724cc3c3d9f1095fe707539"
+    },
+    {
+      "path": "apps/desktop/src/replay/matchTables.mjs",
+      "bytes": 2564,
+      "sha256": "07bb1810b5feff1b5dde3e7f11f117488ca08f18b46f5c9c48af9731ab766f18"
+    },
+    {
+      "path": "apps/desktop/src/replay/matchViewer.css",
+      "bytes": 30494,
+      "sha256": "176bb570ed462683f3bfc10aacd98c5536742e2ed9ed87a78017dcd718bddd2d"
+    },
+    {
+      "path": "apps/desktop/src/replay/matchViewer.d.mts",
+      "bytes": 421,
+      "sha256": "e909915d1ed65537f10eb2c91dd8d4cc234d8bd41d92e857aec2b5a0b24b9aea"
+    },
+    {
+      "path": "apps/desktop/src/replay/matchViewer.html",
+      "bytes": 17244,
+      "sha256": "f7a3819345586281b628d6c2b35a6b6c90adce9db257ed5030618258a5405a31"
+    },
+    {
+      "path": "apps/desktop/src/replay/matchViewer.mjs",
+      "bytes": 105022,
+      "sha256": "a6bebcd248c15437681345af4b611202fe2bee1837e96d86a89c0b14542d1209"
+    },
+    {
+      "path": "apps/desktop/src/replay/matchViewerCopy.d.mts",
+      "bytes": 46,
+      "sha256": "90cd6e40ddf5500587c488cdbdee574fd99eb29d9b60aeb0f50956d2685f3d7d"
+    },
+    {
+      "path": "apps/desktop/src/replay/matchViewerCopy.mjs",
+      "bytes": 7911,
+      "sha256": "5ee4b438e04008436ddd3f3610bdb20db7d45995c199442fb423b3e7745fc794"
     },
     {
       "path": "apps/desktop/src/replay/report.ts",
@@ -2120,6 +2170,11 @@
       "path": "apps/desktop/tests/logs.test.ts",
       "bytes": 11554,
       "sha256": "455ba2a5c69139cf12d5b30a795822d439697f730dc21c7e782d8f091a6b0796"
+    },
+    {
+      "path": "apps/desktop/tests/match-bundle.test.ts",
+      "bytes": 7227,
+      "sha256": "652237f83233444dd3935d48762c6a5edca00478ea94d383355e4c20858b5d0e"
     },
     {
       "path": "apps/desktop/tests/matchRecap.test.ts",
@@ -3378,8 +3433,8 @@
     },
     {
       "path": "docs/design/POST-MATCH-REPLAY-PREVIEW.md",
-      "bytes": 7920,
-      "sha256": "89235215d0f7dd1bb95863693b42316e8c850c549c6050b48d71ebd3c390572e"
+      "bytes": 11280,
+      "sha256": "437158231bd45680fb95414e79278e9ef61a3b5786477e13ed935cc67d4c23be"
     },
     {
       "path": "docs/design/PROGRESS-CHASE-STAGE1-PROPOSAL.md",

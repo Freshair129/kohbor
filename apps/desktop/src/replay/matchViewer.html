@@ -1,0 +1,189 @@
+  <section id="replay" class="wide">
+    <div style="display:grid;gap:6px">
+      <h2>Replay เส้นทางเดินและสถานะฮีโร่</h2>
+      <p class="lede" id="mv-lede"></p>
+      <p class="note mv-proto" id="mv-proto"></p>
+    </div>
+
+    <div class="rv-bar card" id="rv-bar">
+      <div class="rv-row">
+        <button id="rv-play" class="rv-btn primary" aria-label="เล่น (Space)">เล่น</button>
+        <div class="tabs" role="group" aria-label="ความเร็ว">
+          <button id="sp1" data-sp="1" aria-pressed="false">1×</button>
+          <button id="sp2" data-sp="2" aria-pressed="false">2×</button>
+          <button id="sp5" data-sp="5" aria-pressed="false">5×</button>
+          <button id="sp10" data-sp="10" aria-pressed="true">10×</button>
+          <button id="sp30" data-sp="30" aria-pressed="false">30×</button>
+        </div>
+        <div class="rv-time">
+          <div class="rv-ticks" id="rv-ticks" aria-hidden="true"></div>
+          <input type="range" id="rv-scrub" min="-90" max="2222" step="1" value="340" aria-label="เวลาในเกม">
+        </div>
+        <span class="num rv-clock" id="rv-clock">05:40</span>
+      </div>
+      <div class="rv-row small">
+        <div class="tabs" role="group" aria-label="โหมดแผนที่">
+          <button id="rv-m-route" data-mode="route" aria-pressed="true">Replay เส้นทาง</button>
+          <button id="rv-m-heat" data-mode="heat" aria-pressed="false">Heatmap</button>
+        </div>
+        <span class="rv-group" id="rv-route-opts">
+          <label class="rv-field">หางเส้นทาง
+            <select id="rv-trail"><option value="15">15 วินาที</option><option value="45" selected>45 วินาที</option><option value="120">2 นาที</option></select>
+          </label>
+          <label class="rv-check"><input type="checkbox" id="rv-names"> ชื่อใต้ไอคอน</label>
+          <label class="rv-check"><input type="checkbox" id="rv-dmgf" checked> ตัวเลขดาเมจ</label>
+          <label class="rv-check"><input type="checkbox" id="rv-autopause"> หยุดเมื่อเกิดเหตุสำคัญ</label>
+        </span>
+      </div>
+      <div class="rv-row small" id="rv-layers">
+        <label class="rv-field">มุมมอง fog
+          <select id="rv-fog"><option value="all">เห็นทั้งหมด (ไม่มี fog)</option><option value="r">มุมมองทีม Radiant</option><option value="d">มุมมองทีม Dire</option></select>
+        </label>
+        <span class="rv-group">
+          <label class="rv-check"><input type="checkbox" data-layer="lane" checked> ครีปเลน</label>
+          <label class="rv-check"><input type="checkbox" data-layer="neut" checked> ครีปป่า</label>
+          <label class="rv-check"><input type="checkbox" data-layer="rune" checked> รูน</label>
+          <label class="rv-check"><input type="checkbox" data-layer="ward" checked> Ward</label>
+          <label class="rv-check"><input type="checkbox" data-layer="bld" checked> ป้อม/ตึก</label>
+          <label class="rv-check"><input type="checkbox" data-layer="rosh" checked> Roshan/Tormentor</label>
+        </span>
+        <span class="note" id="rv-world-note">กำลังโหลดครีปและวัตถุบนแผนที่…</span>
+        <span class="rv-group" id="rv-heat-opts" hidden>
+          <div class="tabs" role="group" aria-label="สีของ heatmap">
+            <button id="hs-hero" data-hs="hero" aria-pressed="true">สีตามฮีโร่</button>
+            <button id="hs-sum" data-hs="sum" aria-pressed="false">รวมทุกตัว</button>
+          </div>
+          <label class="rv-field">ช่วงเวลา
+            <select id="rv-range"><option value="start,end">ทั้งเกม</option><option value="start,600">0–10 นาที</option><option value="600,1200">10–20 นาที</option><option value="1200,1800">20–30 นาที</option><option value="1800,end">30 นาทีขึ้นไป</option></select>
+          </label>
+        </span>
+        <span class="rv-group rv-zoom">
+          <button class="rv-btn sm" id="z-out" aria-label="ซูมออก">−</button>
+          <span class="num" id="z-lvl">1.0×</span>
+          <button class="rv-btn sm" id="z-in" aria-label="ซูมเข้า">+</button>
+          <button class="rv-btn sm" id="z-reset">เต็มแผนที่</button>
+          <label class="rv-check"><input type="checkbox" id="rv-follow"> กล้องตามฮีโร่ที่เลือก</label>
+        </span>
+      </div>
+    </div>
+
+    <div class="rv-stage">
+      <div class="rv-col" id="rv-cards-r" aria-label="Radiant"></div>
+      <div class="rv-center">
+        <div class="rv-score card">
+          <div class="sc-row">
+            <span class="sc-team rad">Radiant<b class="num" id="sc-r">0</b></span>
+            <span class="sc-mid"><span class="num" id="sc-clock">00:00</span><span class="sc-sub" id="mv-sub"></span></span>
+            <span class="sc-team dire"><b class="num" id="sc-d">0</b>Dire</span>
+          </div>
+          <div class="mo-bar" aria-label="โมเมนตัมของเกม (Net worth ฮีโร่)"><span id="mo-fill"></span><i></i><span class="mo-txt" id="mo-txt">สูสี</span></div>
+          <canvas id="mo-graph" title="Net worth ที่นำของแต่ละฝั่งตลอดเกม คลิกเพื่อไปยังเวลานั้น" aria-label="กราฟโมเมนตัม"></canvas>
+        </div>
+        <div class="rv-mapcard card">
+        <div class="rv-mapwrap" id="rv-mapwrap">
+          <canvas id="rv-canvas" aria-label="มินิแมป replay"></canvas>
+          <div class="tip" id="rv-tip" hidden></div>
+          <div class="map-status" id="rv-status">กำลังโหลดข้อมูล replay…</div>
+        </div>
+        <div class="rv-legend" id="rv-legend"></div>
+        <div class="rv-multi" id="rv-multi" hidden></div>
+        <p class="note rv-keys">คีย์ลัด: <kbd>Space</kbd> เล่น/หยุด · <kbd>←</kbd> <kbd>→</kbd> ถอย/ไป 1 วินาที (กด Shift = 10 วินาที) · <kbd>[</kbd> <kbd>]</kbd> ลด/เพิ่มความเร็ว · <kbd>F</kbd> กล้องตามฮีโร่ · <kbd>N</kbd> ไปเหตุสำคัญถัดไป · เลื่อนลูกกลิ้งบนแผนที่เพื่อซูม ลากเพื่อเลื่อน · คลิกไอคอนเพื่อเลือกฮีโร่</p>
+      </div>
+      </div>
+      <div class="rv-col" id="rv-cards-d" aria-label="Dire"></div>
+    </div>
+    <div class="rv-lower">
+        <div class="card rv-roster">
+          <div class="tabs" role="group" aria-label="เลือกกลุ่มฮีโร่">
+            <button id="g-all" data-g="all">ทั้งหมด</button>
+            <button id="g-mid" data-g="mid">คู่ Mid</button>
+            <button id="g-r" data-g="2">Radiant</button>
+            <button id="g-d" data-g="3">Dire</button>
+            <button id="g-none" data-g="none">ล้าง</button>
+          </div>
+          <div class="rv-teams">
+            <div><div class="eyebrow">Radiant</div><div class="rv-chips" id="rv-r"></div></div>
+            <div><div class="eyebrow">Dire</div><div class="rv-chips" id="rv-d"></div></div>
+          </div>
+        </div>
+        <div class="card rv-panel">
+          <div class="tabs" role="tablist" aria-label="แผงข้อมูล">
+            <button id="tab-alert" data-tab="alert" aria-pressed="true">เหตุการณ์สำคัญ</button>
+            <button id="tab-death" data-tab="death" aria-pressed="false">จังหวะตาย</button>
+          </div>
+          <div id="pane-alert" class="rv-pane">
+            <div class="rv-rules">
+              <label class="rv-check"><input type="checkbox" id="al-hp" checked> HP ลดเร็ว ≥ <input type="number" id="al-hp-pct" min="15" max="90" step="5" value="40" aria-label="เปอร์เซ็นต์ HP ที่ลด">% ใน <input type="number" id="al-hp-win" min="1" max="6" step="1" value="3" aria-label="ภายในกี่วินาที"> วินาที</label>
+              <label class="rv-check"><input type="checkbox" id="al-low"> HP ต่ำกว่า <input type="number" id="al-low-pct" min="5" max="50" step="5" value="20" aria-label="เปอร์เซ็นต์ HP ต่ำ">%</label>
+              <label class="rv-check"><input type="checkbox" id="al-cc" checked> โดน stun / hex / silence / root จากศัตรู ≥ <input type="number" id="al-cc-s" min="0.5" max="5" step="0.5" value="1" aria-label="ระยะเวลาขั้นต่ำ"> วินาที</label>
+              <label class="rv-check"><input type="checkbox" id="al-ult" checked> ใช้ ultimate หรือ BKB</label>
+              <label class="rv-check"><input type="checkbox" id="al-death" checked> ตาย</label>
+            </div>
+            <div class="note" id="al-count"></div>
+            <ul class="evlist" id="rv-alist"></ul>
+          </div>
+          <div id="pane-death" class="rv-pane" hidden>
+            <div class="rv-review" id="rv-review"><p class="note">เลือกการตายจากรายการ หรือคลิกหมุดในโหมด Heatmap เพื่อเล่น 15 วินาทีก่อนตายที่ 1×</p></div>
+            <ul class="evlist" id="rv-dlist"></ul>
+          </div>
+        </div>
+    </div>
+
+    <div class="card dl" id="dl">
+      <div class="dl-top"><div class="dl-head" id="dl-head"></div><span class="note">เลือกการตายจากแท็บ "จังหวะตาย" หรือคลิกหมุดบนแผนที่</span></div>
+      <div class="dl-chartwrap"><canvas id="dl-chart" aria-label="กราฟ HP ก่อนตาย"></canvas><div class="dl-legend" id="dl-legend"></div></div>
+      <div class="dl-grid">
+        <div class="dl-src" id="dl-src"></div>
+        <div class="dl-list" id="dl-list"></div>
+      </div>
+      <div class="dl-sim">
+        <div class="dl-simhead"><h3>โหมดจำลอง: ถ้าตอนนั้นถือไอเทมต่างออกไป</h3>
+          <span class="note">คำนวณดาเมจชุดเดิมใหม่ ด้วย HP, เกราะ และ magic resistance ที่เปลี่ยนไป ใช้ตัวเลขจากตาราง statdb ในไฟล์ bundle</span></div>
+        <div class="dl-pick">
+          <label class="rv-field">ถอด <select id="dl-rem"></select></label>
+          <label class="rv-field">ใส่แทน <select id="dl-add"></select></label>
+          <label class="rv-check" id="dl-ownbkb-wrap" hidden><input type="checkbox" id="dl-ownbkb"> กด BKB ที่ถืออยู่ตั้งแต่เริ่มไฟต์</label>
+        </div>
+        <div id="dl-res"></div>
+        <p class="note">ขอบเขตของการจำลอง: ใช้ดาเมจชุดเดิมทุกครั้ง แล้วปรับตามเกราะ (กายภาพ) และ magic resistance (เวท) ใหม่ ส่วน pure ไม่เปลี่ยน ไม่ได้จำลองว่าศัตรูหรือเพื่อนจะเล่นต่างไป, ผลของเวลาที่ไม่ติดสตันเมื่อมี BKB (แสดงเป็นรายการให้ดูแทน), damage block ของ Vanguard/Crimson, barrier, active ของไอเทม และการเลือกเป้าใหม่ จึงตอบได้ว่า "ดาเมจชุดนี้จะฆ่าได้ไหม" แต่บอกไม่ได้ว่าไฟต์จะชนะหรือไม่</p>
+      </div>
+      <div class="dl-sim dl-ret">
+        <div class="dl-simhead"><h3>วิเคราะห์การถอย: ถ้าถอยเร็วกว่านี้จะรอดไหม</h3>
+          <span class="note">หาจุดสุดท้ายที่ HP ยังพอให้หนีทัน เทียบกับจังหวะที่ถอยจริง แล้วรวบรวมข้อมูลว่าตอนนั้นมีอะไรที่ทำให้ถอยช้า</span></div>
+        <label class="rv-field">เวลาที่ต้องใช้หนีออกจากระยะศัตรู <input type="range" id="dl-x" min="1" max="6" step="0.5" value="3" aria-label="เวลาที่ต้องใช้หนี"> <span class="num" id="dl-xv">3 วินาที</span></label>
+        <div id="dl-retres"></div>
+      </div>
+    </div>
+    <div class="card rv-tl" id="rv-tl">
+      <div class="tl-head">
+        <div style="display:grid;gap:2px"><h3>ไทม์ไลน์ฮีโร่</h3><span class="note">กราฟของฮีโร่ที่เปิดอยู่ วงกลมด้านบนแต่ละแถวคือไอเทมที่ซื้อ ชี้เพื่อดูรายละเอียด คลิกหรือลากบนกราฟเพื่อเลื่อนเวลา replay</span></div>
+        <div class="rv-group">
+          <div class="tabs" role="group" aria-label="ค่าที่แสดงในกราฟ">
+            <button id="tm-nw" data-tm="nw" aria-pressed="true">Net worth</button>
+            <button id="tm-lh" data-tm="lh" aria-pressed="false">Last hit</button>
+            <button id="tm-gold" data-tm="gold" aria-pressed="false">ทองในมือ</button>
+            <button id="tm-lvl" data-tm="lvl" aria-pressed="false">Level</button>
+          </div>
+          <label class="rv-check"><input type="checkbox" id="tl-follow" checked> เลื่อนตามเวลา replay</label>
+          <span class="rv-group rv-zoom">
+            <button class="rv-btn sm" id="tz-out" aria-label="ซูมไทม์ไลน์ออก">−</button>
+            <span class="num" id="tz-lvl">37 นาที</span>
+            <button class="rv-btn sm" id="tz-in" aria-label="ซูมไทม์ไลน์เข้า">+</button>
+            <button class="rv-btn sm" id="tz-all">ทั้งเกม</button>
+          </span>
+        </div>
+      </div>
+      <div class="tl-wrap" id="tl-wrap"><canvas id="tl-canvas" aria-label="ไทม์ไลน์ Last hit, Net worth และการซื้อไอเทม"></canvas><div class="tip" id="tl-tip" hidden></div></div>
+      <div class="tl-brush" id="tl-brush">
+        <canvas id="tl-ov" aria-hidden="true"></canvas>
+        <div class="tl-shade l" id="tl-shade-l"></div><div class="tl-shade r" id="tl-shade-r"></div>
+        <div class="tl-win" id="tl-win" title="ลากเพื่อเลื่อนช่วงเวลา">
+          <span class="tl-h l" id="tl-hl" role="slider" tabindex="0" aria-label="จุดเริ่มช่วงที่ซูม"></span>
+          <span class="tl-h r" id="tl-hr" role="slider" tabindex="0" aria-label="จุดจบช่วงที่ซูม"></span>
+        </div>
+      </div>
+      <p class="note">แถบล่าง: ลากวงกลมสองข้างเพื่อซูมเข้าหรือออก ลากตรงกลางเพื่อรูดซ้ายขวา ดับเบิลคลิกเพื่อดูทั้งเกม หรือเลื่อนลูกกลิ้งบนไทม์ไลน์เพื่อซูม ไอเทมที่ซื้อในจังหวะใกล้กันรวมเป็นวงเดียวพร้อมตัวเลข +N ซูมเข้าเพื่อแยกดูทีละชิ้น</p>
+    </div>
+
+    <p class="note">Cooldown, HP, มานา, เลเวล และไอเทมอ่านจาก entity ของฮีโร่ใน replay ทุก 1 วินาที บัฟและดีบัฟมาจาก combat log K/D นับจาก combat log จนถึงเวลาที่เลือก ส่วนแอสซิสต์ไม่มีในข้อมูลชุดนี้ ภาพมินิแมปและไอคอนโหลดจากโฟลเดอร์ที่เลือกในเครื่องนี้เท่านั้น ไม่ได้รวมมากับ Kohbor ภาพเกม © Valve Corporation</p>
+  </section>
