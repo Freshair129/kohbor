@@ -11,9 +11,12 @@
 .live-pinned-panel { display: flex; flex-direction: column; width: 100%; min-height: 0; color: var(--text); }
 .sm-pinned .live-pinned-panel > .live-map-pane { flex: none; width: var(--sm-map); height: var(--sm-map); border-radius: 0; padding: 6px; }
 .live-pinned-panel .live-map-toolbar h1 { white-space: nowrap; }
-.live-pinned-tools { display: flex; flex: 1 1 auto; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px; min-width: 0; }
-.live-pinned-tools .live-sidebar-status { flex-direction: row; flex-wrap: wrap; align-items: center; }
-.live-pinned-tools .live-sidebar-actions { margin-top: 0; }
+/* The tools group wraps under the heading as a whole when it does not fit beside it; inside it, chips wrap before the
+   buttons, which never shrink, so nothing in the toolbar is drawn over its neighbour at a narrow map width. */
+.live-pinned-tools { display: flex; flex: 1 1 auto; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 4px 6px; min-width: 0; max-width: 100%; }
+.live-pinned-tools .live-sidebar-status { flex: 0 1 auto; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: flex-end; max-width: 100%; }
+.live-pinned-tools .live-sidebar-status > * { max-width: 100%; overflow-wrap: anywhere; white-space: normal; }
+.live-pinned-tools .live-sidebar-actions { flex: none; flex-wrap: wrap; justify-content: flex-end; max-width: 100%; margin-top: 0; }
 .sm-pinned[data-map-edge="left"] .live-pinned-panel > .live-map-pane { border-left-width: 0; }
 .sm-pinned[data-map-edge="right"] .live-pinned-panel > .live-map-pane { border-right-width: 0; }
 /* The alert strip sits inside the map stage, at its foot: never over the toolbar (which wraps when its notices do not

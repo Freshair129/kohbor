@@ -31,12 +31,15 @@ test("Live has one definite grid row, two bounded columns and a shrinking map st
   const deckToolbar = deckCss.match(/\.live-deck-panel\s+\.live-map-toolbar\s*\{([^}]+)\}/)?.[1] ?? "";
   assert.doesNotMatch(deckToolbar, /flex(?:-basis)?\s*:\s*[^;]*(?:\d+(?:px|rem|em|%))/,
     "deck layout does not fix the height of a wrapping toolbar");
-  for (const selector of ["live-map-badge", "live-preview-rates"]) {
-    const textRule = css.match(new RegExp(`\\.${selector}\\s*\\{([^}]+)\\}`))?.[1] ?? "";
-    assert.match(textRule, /overflow-wrap:\s*anywhere/);
-    assert.match(textRule, /white-space:\s*normal/);
-    assert.doesNotMatch(textRule, /overflow:\s*hidden|text-overflow:\s*ellipsis|white-space:\s*nowrap/);
-  }
+  const textRule = css.match(/\.live-map-badge\s*\{([^}]+)\}/)?.[1] ?? "";
+  assert.match(textRule, /overflow-wrap:\s*anywhere/);
+  assert.match(textRule, /white-space:\s*normal/);
+  assert.doesNotMatch(textRule, /overflow:\s*hidden|text-overflow:\s*ellipsis|white-space:\s*nowrap|max-width:\s*\d/);
+  // Owner report on build 4467634 (2026-11-24): sent/received/painted rates are shown once, in the footer (CAP/RX/PAINT).
+  const panel = readFileSync(new URL("../src/live/MinimapPanel.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(panel, /live-preview-rates|previewRateText/);
+  assert.match(panel, /className="live-map-badge mono"/);
+  assert.doesNotMatch(css, /\.live-preview-rates/);
   const autoRules = [...css.matchAll(/([^{}]+)\{[^{}]*overflow(?:-y)?:\s*auto[^{}]*\}/g)];
   for (const rule of autoRules) assert.doesNotMatch(rule[1]!, /\.live-tab/, "live panels do not scroll themselves; the dialog does");
 });

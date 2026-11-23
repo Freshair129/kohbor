@@ -12203,8 +12203,8 @@
     },
     {
       "path": "apps/desktop/src/deck/Deck.tsx",
-      "bytes": 7072,
-      "sha256": "472f444841c6f1af8d48ade4a12a71e6256d75a921555d500210c53e28c92d95"
+      "bytes": 7328,
+      "sha256": "4bc4b73b565d4ea81d49c188af501d35a3f289b15ff4db4a68d437c4fc7d9df4"
     },
     {
       "path": "apps/desktop/src/deck/DraftBarStrip.tsx",
@@ -12248,8 +12248,8 @@
     },
     {
       "path": "apps/desktop/src/deck/deck.css",
-      "bytes": 12570,
-      "sha256": "577ffa46249cd2cb7d5819085ea80a34b5b74c00f1367d4d33a8699539973bdc"
+      "bytes": 12730,
+      "sha256": "075209783ed171bfcf529e79d7a30ca87d14f1d18db2315727ee6c05010b324a"
     },
     {
       "path": "apps/desktop/src/deck/deckState.ts",
@@ -12478,8 +12478,8 @@
     },
     {
       "path": "apps/desktop/src/live/HeroCard.tsx",
-      "bytes": 13985,
-      "sha256": "74c5b6c9f880e91c5edfd304be677b7073cb8910151a896aee72c975671b3393"
+      "bytes": 14664,
+      "sha256": "8db82cd6ec77fea629faf44ff56dc2694a26125e239d45d11ba7de56f5d86aa5"
     },
     {
       "path": "apps/desktop/src/live/LiveTab.tsx",
@@ -12493,8 +12493,8 @@
     },
     {
       "path": "apps/desktop/src/live/MinimapPanel.tsx",
-      "bytes": 19881,
-      "sha256": "1faf0469ec0cef2971aae1bd61c369ed9eaad96b0496d04464edd7117dc61368"
+      "bytes": 19764,
+      "sha256": "6e5d0fc1613b907059865eb53d789dbabf024e0c0b6a79b8a8a332afb873b2dc"
     },
     {
       "path": "apps/desktop/src/live/MinimapStage.tsx",
@@ -12588,13 +12588,13 @@
     },
     {
       "path": "apps/desktop/src/live/heroCard.css",
-      "bytes": 9492,
-      "sha256": "a0743343aa16cecad3b862d26b30836801650ff157d0d7ed0056298cd4fb8489"
+      "bytes": 11114,
+      "sha256": "108bf770c6d5a7d7cb709863218a3d6bb19bfb59673358d82ba82d38ec7faad7"
     },
     {
       "path": "apps/desktop/src/live/heroCardModel.ts",
-      "bytes": 9993,
-      "sha256": "56950979cadd0d9290a0a2829bfcf138634f749ee192f36c431822e6915ff274"
+      "bytes": 15362,
+      "sha256": "c7a69b920494740445f95e69c676bb5ca8f796f973435dcfe9347d159369c6bb"
     },
     {
       "path": "apps/desktop/src/live/index.ts",
@@ -12603,8 +12603,8 @@
     },
     {
       "path": "apps/desktop/src/live/live.css",
-      "bytes": 10102,
-      "sha256": "4e873323ab51fe6d4df648af404f866ffae06dd4853872aa270c2efda4e0591a"
+      "bytes": 10016,
+      "sha256": "4ccbee0778e91379b19175a7369921adc593925e51e8cbf7213139c644e6ecf1"
     },
     {
       "path": "apps/desktop/src/live/meter.ts",
@@ -12663,8 +12663,8 @@
     },
     {
       "path": "apps/desktop/src/live/secondMonitor.css",
-      "bytes": 17707,
-      "sha256": "be014ff0dee083f4cee458f647e03db5e3a18a1831764066cfc9baeefd8a3525"
+      "bytes": 18203,
+      "sha256": "d9d67d98c300c9075d69edffd119ac16a1720d4b599ee66dc65442df83a215bc"
     },
     {
       "path": "apps/desktop/src/live/secondMonitorCards.ts",
@@ -13568,13 +13568,13 @@
     },
     {
       "path": "apps/desktop/tests/live-hero-card.test.ts",
-      "bytes": 16252,
-      "sha256": "1e41237509578818261272588bfc677f1550f8f2c238bf4cfd579d15bfad0ea6"
+      "bytes": 20598,
+      "sha256": "a0485fb1e9c2ccf0981cb70891353c403d8739737c4f5e8a0221c78ef90704b9"
     },
     {
       "path": "apps/desktop/tests/live-layout.test.ts",
-      "bytes": 4280,
-      "sha256": "f4bd3eadc93f485ba96897611dac5acf039ac7845b93edbe9adaa0e314c908b3"
+      "bytes": 4599,
+      "sha256": "c35aa0eeb2ed45b8f77c02038ee877e1ce2ea2978d4124f569bf1ea065ec4278"
     },
     {
       "path": "apps/desktop/tests/live-preview.test.ts",
@@ -13968,8 +13968,8 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 303579,
-      "sha256": "71520e30eb3b0ff16d10cd1dcf29628b702f172c4c53f5e69ec1cf4d51954704"
+      "bytes": 303964,
+      "sha256": "116eb273af59a2e8254842c8d1c3b845996892e2b61478905bde507c8e85606a"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -14953,8 +14953,8 @@
     },
     {
       "path": "docs/design/UX-SPEC.md",
-      "bytes": 32493,
-      "sha256": "54fdabbd83e85cde198ee34fd5b6f4d07f6b47e1c594120fd61e41ddb0791fed"
+      "bytes": 33741,
+      "sha256": "6a3663c74708bc4bdfc063afbf3d7a80d5955c5b60f7289927bef16158bbcc79"
     },
     {
       "path": "docs/design/VISUAL-DESIGN-PROPOSAL.md",
@@ -15398,8 +15398,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 83758,
-      "sha256": "d012db64a285523f44aab9a5928c324175b6993f6fe4247f61e1008c0e5673f7"
+      "bytes": 84695,
+      "sha256": "8ccc1e436d3b82bad22b54407b80b3e8aca3f4ad513550f0a3365a5ffbe5578c"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
@@ -15483,8 +15483,8 @@
     },
     {
       "path": "docs/requirements/SRS.md",
-      "bytes": 203060,
-      "sha256": "47fb365d8b5cf2de450a2ddeee015d1ab37aa1116a957c3ba2225b7a80c34dfa"
+      "bytes": 203445,
+      "sha256": "46bd70f6635bddd3745d01d7296de24235d104497a730428ff5af9b8db5fd333"
     },
     {
       "path": "docs/security/SECURITY-PRIVACY.md",
