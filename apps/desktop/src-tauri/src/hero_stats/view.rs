@@ -7,7 +7,7 @@ use super::groups::PositionGroups;
 use super::parse::{Counts, DurationTable, HeroStatsRow};
 use super::prefs::DraftStatsPrefs;
 use super::rank::{bracket_is_empty, rank_suggestions, SuggestionRow};
-use super::request::Bracket;
+use super::request::{Bracket, LaneRole};
 use serde::Serialize;
 use std::collections::HashSet;
 
@@ -166,6 +166,12 @@ pub(crate) struct CounterRowView {
     pub(crate) name: String,
     pub(crate) against: Vec<String>,
     pub(crate) reason: String,
+    /// Internal hero key for the local game portrait (`npc_dota_hero_*`).
+    pub(crate) hero_key: Option<String>,
+    /// Bracket games and win rate, as in the meta list; `None` below 1,000 games.
+    pub(crate) games: Option<u64>,
+    pub(crate) win_rate_tenths: Option<i32>,
+    pub(crate) lane: Option<LaneView>,
 }
 
 impl From<CounterRow> for CounterRowView {
@@ -175,9 +181,31 @@ impl From<CounterRow> for CounterRowView {
             name: row.name,
             against: row.against,
             reason: row.reason,
+            hero_key: None,
+            games: None,
+            win_rate_tenths: None,
+            lane: None,
         }
     }
 }
+
+/// The hero's numbers in the lane the selected position plays (draft card v3, owner Variant B,
+/// 2026-11-23). From the cached OpenDota lane-role tables: all brackets, three lanes only, so
+/// positions 1+5 share the safe lane and 3+4 the off lane (`shared_with`).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub(crate) struct LaneView {
+    pub(crate) position: u8,
+    pub(crate) lane: &'static str,
+    pub(crate) shared_with: Option<u8>,
+    pub(crate) games: u64,
+    /// This hero's games in the lane / its games in all three lanes, in tenths of a percent.
+    pub(crate) share_tenths: Option<i32>,
+    /// Win rate in the lane, in tenths; `None` below `LANE_MIN_GAMES` lane games.
+    pub(crate) win_rate_tenths: Option<i32>,
+}
+
+/// Lane games below this show no lane win rate (same floor as position groups, rule B).
+pub(crate) const LANE_MIN_GAMES: u64 = 100;
 
 impl From<Counters> for CountersView {
     fn from(counters: Counters) -> Self {
@@ -201,6 +229,9 @@ pub(crate) struct SuggestionRowView {
     pub(crate) win_rate_tenths: Option<i32>,
     pub(crate) low_data: bool,
     pub(crate) taken: bool,
+    /// Internal hero key for the local game portrait (`npc_dota_hero_*`).
+    pub(crate) hero_key: Option<String>,
+    pub(crate) lane: Option<LaneView>,
 }
 
 impl From<SuggestionRow> for SuggestionRowView {
@@ -213,6 +244,8 @@ impl From<SuggestionRow> for SuggestionRowView {
             win_rate_tenths: row.win_rate_tenths,
             low_data: row.low_data,
             taken: row.taken,
+            hero_key: None,
+            lane: None,
         }
     }
 }
@@ -326,6 +359,49 @@ fn source_view(
         table_requests_24h,
         table_request_budget: 4,
     }
+}
+
+/// Lane played by a position and the other position sharing it (three lane tables only).
+fn lane_for_position(position: u8) -> Option<(LaneRole, &'static str, Option<u8>)> {
+    match position {
+        1 => Some((LaneRole::Safe, "safe", Some(5))),
+        2 => Some((LaneRole::Mid, "mid", None)),
+        3 => Some((LaneRole::Off, "off", Some(4))),
+        4 => Some((LaneRole::Off, "off", Some(3))),
+        5 => Some((LaneRole::Safe, "safe", Some(1))),
+        _ => None,
+    }
+}
+
+/// The hero's numbers in the selected position's lane, or `None` without a position or tables.
+pub(crate) fn lane_view(
+    cache: &StatsCache,
+    position: Option<u8>,
+    hero_id: u32,
+) -> Option<LaneView> {
+    let (role, lane, shared_with) = lane_for_position(position?)?;
+    let counts = |role: LaneRole| -> Option<Counts> {
+        cache.lane_roles[role.index()]
+            .as_ref()
+            .map(|entry| entry.value.get(&hero_id).cloned().unwrap_or_default())
+    };
+    let here = counts(role)?;
+    let all = LaneRole::ALL
+        .iter()
+        .map(|role| counts(*role).map(|c| c.games))
+        .sum::<Option<u64>>()?;
+    let share_tenths = (all > 0).then(|| {
+        i32::try_from((u128::from(here.games) * 1000 + u128::from(all / 2)) / u128::from(all))
+            .unwrap_or(1000)
+    });
+    Some(LaneView {
+        position: position?,
+        lane,
+        shared_with,
+        games: here.games,
+        share_tenths,
+        win_rate_tenths: (here.games >= LANE_MIN_GAMES).then(|| rate_tenths(&here)),
+    })
 }
 
 fn count_for(hero: &HeroStatsRow, bracket: Bracket) -> Option<Counts> {
@@ -678,10 +754,45 @@ pub(crate) fn build_view(input: ViewInput<'_>) -> DraftColumnView {
             },
             counter_table(),
         );
+        let position = input.prefs.position;
+        let lanes_usable = tables;
+        let hero_key = |id: u32| {
+            hero_table
+                .and_then(|table| table.get(&id))
+                .map(|hero| hero.name.clone())
+        };
+        let rows = ranking
+            .rows
+            .into_iter()
+            .map(|row| {
+                let mut view = SuggestionRowView::from(row);
+                view.hero_key = hero_key(view.hero_id);
+                view.lane = lanes_usable
+                    .then(|| lane_view(input.cache, position, view.hero_id))
+                    .flatten();
+                view
+            })
+            .collect();
+        let mut counters: CountersView = counters.into();
+        for row in &mut counters.rows {
+            row.hero_key = hero_key(row.hero_id);
+            let bracket_counts = hero_table
+                .and_then(|table| table.get(&row.hero_id))
+                .filter(|_| tables && !bracket_empty)
+                .and_then(|hero| count_for(hero, bracket));
+            row.games = bracket_counts.as_ref().map(|c| c.games);
+            row.win_rate_tenths = bracket_counts
+                .as_ref()
+                .filter(|c| c.games >= 1000)
+                .map(rate_tenths);
+            row.lane = lanes_usable
+                .then(|| lane_view(input.cache, position, row.hero_id))
+                .flatten();
+        }
         SuggestionsView {
-            rows: ranking.rows.into_iter().map(Into::into).collect(),
+            rows,
             ranked_count: ranking.ranked_count,
-            counters: counters.into(),
+            counters,
             draft_bar: DraftBarView {
                 available: input.draft_bar.available,
                 identified: input.draft_bar.identified.min(10),
@@ -1031,6 +1142,56 @@ mod tests {
             json["suggestions"]["counters"]["source"],
             "kohbor_reviewed_table"
         );
+    }
+
+    /// Card v3 (owner Variant B, 2026-11-23): lane numbers come only from the cached lane tables.
+    #[test]
+    fn lane_view_reports_share_and_lane_win_rate_with_the_shared_position() {
+        let lane = |games: u64, wins: u64| {
+            Some(CacheEntry {
+                fetched_at_ms: 1_000_000,
+                value: BTreeMap::from([(7_u32, Counts { games, wins })]),
+            })
+        };
+        let cache = StatsCache {
+            lane_roles: [lane(300, 160), lane(50, 30), lane(650, 330)],
+            ..Default::default()
+        };
+        let off = super::lane_view(&cache, Some(3), 7).unwrap();
+        assert_eq!(
+            (
+                off.lane,
+                off.shared_with,
+                off.games,
+                off.share_tenths,
+                off.win_rate_tenths
+            ),
+            ("off", Some(4), 650, Some(650), Some(508))
+        );
+        assert_eq!(
+            super::lane_view(&cache, Some(4), 7).unwrap().shared_with,
+            Some(3)
+        );
+        let safe = super::lane_view(&cache, Some(5), 7).unwrap();
+        assert_eq!(
+            (safe.lane, safe.shared_with, safe.share_tenths),
+            ("safe", Some(1), Some(300))
+        );
+        let mid = super::lane_view(&cache, Some(2), 7).unwrap();
+        assert_eq!(mid.shared_with, None);
+        assert_eq!(
+            mid.win_rate_tenths, None,
+            "below 100 lane games the win rate is withheld"
+        );
+        assert_eq!(mid.share_tenths, Some(50));
+        assert_eq!(
+            super::lane_view(&cache, None, 7),
+            None,
+            "no position, no lane numbers"
+        );
+        let unknown = super::lane_view(&cache, Some(3), 999).unwrap();
+        assert_eq!((unknown.games, unknown.share_tenths), (0, None));
+        assert_eq!(super::lane_view(&StatsCache::default(), Some(3), 7), None);
     }
 
     #[test]

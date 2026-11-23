@@ -141,7 +141,7 @@ mod geometry_tests {
             height: 1080,
         };
         // Every Option A state height, including the cap, stays clear of the protected areas.
-        for content in [56, 530, 554, 578, 692, super::layout::MAX_HEIGHT, 5_000] {
+        for content in [56, 571, 685, 693, super::layout::MAX_HEIGHT, 5_000] {
             let rect = draft_column_rect(monitor, content).unwrap();
             assert!(PROTECTED
                 .iter()

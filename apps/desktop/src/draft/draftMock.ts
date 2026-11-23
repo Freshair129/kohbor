@@ -20,14 +20,14 @@ type MockDraftView = {
 
 /** Synthetic rows in the meta-first order (bracket picks desc). */
 const MOCK_ROWS = [
-  { hero_id: 2, name: "Phantom Assassin", rank: 1, games: 82337, win_rate_tenths: 528, low_data: false, taken: false },
-  { hero_id: 4, name: "Juggernaut", rank: 2, games: 80501, win_rate_tenths: 512, low_data: false, taken: false },
-  { hero_id: 7, name: "Anti-Mage", rank: 3, games: 67807, win_rate_tenths: 507, low_data: false, taken: false },
-  { hero_id: 3, name: "Phantom Lancer", rank: 4, games: 67246, win_rate_tenths: 515, low_data: false, taken: false },
-  { hero_id: 8, name: "Luna", rank: 5, games: 52239, win_rate_tenths: 506, low_data: false, taken: false },
-  { hero_id: 1, name: "Spectre", rank: 6, games: 44465, win_rate_tenths: 531, low_data: false, taken: false },
-  { hero_id: 5, name: "Sven", rank: 7, games: 43720, win_rate_tenths: 512, low_data: false, taken: false },
-  { hero_id: 6, name: "Bloodseeker", rank: 8, games: 21583, win_rate_tenths: 510, low_data: false, taken: false },
+  { hero_id: 2, name: "Phantom Assassin", rank: 1, games: 82337, win_rate_tenths: 528, low_data: false, taken: false, hero_key: "npc_dota_hero_phantom_assassin", lane: { position: 1, lane: "safe", shared_with: 5, games: 4100, share_tenths: 884, win_rate_tenths: 523 } },
+  { hero_id: 4, name: "Juggernaut", rank: 2, games: 80501, win_rate_tenths: 512, low_data: false, taken: false, hero_key: "npc_dota_hero_juggernaut", lane: { position: 1, lane: "safe", shared_with: 5, games: 4100, share_tenths: 902, win_rate_tenths: 509 } },
+  { hero_id: 7, name: "Anti-Mage", rank: 3, games: 67807, win_rate_tenths: 507, low_data: false, taken: false, hero_key: "npc_dota_hero_antimage", lane: { position: 1, lane: "safe", shared_with: 5, games: 4100, share_tenths: 941, win_rate_tenths: 501 } },
+  { hero_id: 3, name: "Phantom Lancer", rank: 4, games: 67246, win_rate_tenths: 515, low_data: false, taken: false, hero_key: "npc_dota_hero_phantom_lancer", lane: { position: 1, lane: "safe", shared_with: 5, games: 4100, share_tenths: 873, win_rate_tenths: 514 } },
+  { hero_id: 8, name: "Luna", rank: 5, games: 52239, win_rate_tenths: 506, low_data: false, taken: false, hero_key: "npc_dota_hero_luna", lane: { position: 1, lane: "safe", shared_with: 5, games: 4100, share_tenths: 912, win_rate_tenths: 503 } },
+  { hero_id: 1, name: "Spectre", rank: 6, games: 44465, win_rate_tenths: 531, low_data: false, taken: false, hero_key: "npc_dota_hero_spectre", lane: { position: 1, lane: "safe", shared_with: 5, games: 4100, share_tenths: 726, win_rate_tenths: 529 } },
+  { hero_id: 5, name: "Sven", rank: 7, games: 43720, win_rate_tenths: 512, low_data: false, taken: false, hero_key: "npc_dota_hero_sven", lane: { position: 1, lane: "safe", shared_with: 5, games: 4100, share_tenths: 781, win_rate_tenths: 510 } },
+  { hero_id: 6, name: "Bloodseeker", rank: 8, games: 21583, win_rate_tenths: 510, low_data: false, taken: false, hero_key: "npc_dota_hero_bloodseeker", lane: { position: 1, lane: "safe", shared_with: 5, games: 4100, share_tenths: 514, win_rate_tenths: 498 } },
 ];
 
 const MOCK_COUNTERS_OFF = {
@@ -42,9 +42,9 @@ const MOCK_COUNTERS_READY = {
   enemies_identified: 1,
   position_filtered: true,
   rows: [
-    { hero_id: 7, name: "Earthshaker", against: ["Phantom Lancer"], reason: "Echo Slam และ Aftershock โดนภาพลวงทั้งกองพร้อมกัน" },
-    { hero_id: 18, name: "Sven", against: ["Phantom Lancer"], reason: "Great Cleave ตีโดนภาพลวงที่ยืนรวมกันทั้งหมด" },
-    { hero_id: 106, name: "Ember Spirit", against: ["Phantom Lancer"], reason: "Sleight of Fist และ Flame Guard ล้างภาพลวงได้เร็ว" },
+    { hero_id: 7, name: "Earthshaker", against: ["Phantom Lancer"], reason: "Echo Slam และ Aftershock โดนภาพลวงทั้งกองพร้อมกัน", hero_key: "npc_dota_hero_earthshaker", games: 61200, win_rate_tenths: 507, lane: { position: 1, lane: "safe", shared_with: 5, games: 300, share_tenths: 88, win_rate_tenths: 489 } },
+    { hero_id: 18, name: "Sven", against: ["Phantom Lancer"], reason: "Great Cleave ตีโดนภาพลวงที่ยืนรวมกันทั้งหมด", hero_key: "npc_dota_hero_sven", games: 43720, win_rate_tenths: 512, lane: { position: 1, lane: "safe", shared_with: 5, games: 300, share_tenths: 781, win_rate_tenths: 510 } },
+    { hero_id: 106, name: "Ember Spirit", against: ["Phantom Lancer"], reason: "Sleight of Fist และ Flame Guard ล้างภาพลวงได้เร็ว", hero_key: "npc_dota_hero_ember_spirit", games: 30115, win_rate_tenths: 496, lane: { position: 1, lane: "safe", shared_with: 5, games: 300, share_tenths: 61, win_rate_tenths: null } },
   ],
 };
 

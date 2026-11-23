@@ -18,7 +18,9 @@ import {
   type DraftColumnRow,
   type DraftColumnView as DraftColumnViewModel,
   type DraftCounterRow,
+  type DraftLane,
 } from "./draftColumnModel";
+import { OverlayPortrait } from "./OverlayPortrait";
 import type { ReactNode } from "react";
 import "./draft-overlay.css";
 
@@ -58,46 +60,121 @@ function Footer({ lines }: { lines: string[] }) {
   );
 }
 
-function MetaRow({ row, stale }: { row: DraftColumnRow; stale: boolean }) {
-  const item = suggestionRowView(row);
-  const showRank = item.rank !== null;
-  const showRate = item.lowDataLabel === null && item.unknownGamesLabel === null;
-  const games = item.unknownGamesLabel ?? `${item.lowDataLabel ? "ข้อมูลน้อย · " : ""}${item.gamesText} เกม`;
+/*
+ * Card v3 (owner Variant B, 2026-11-23): a 70 px card with the hero's game portrait fading into a
+ * solid card, a win-rate edge (Command Deck ally above 50 %, critical below, bone near 50 %), the
+ * bracket win rate with its distance from 50 %, and the hero's numbers in the selected lane.
+ */
+type Tone = "up" | "flat" | "down";
+
+function winTone(rateTenths: number | null): Tone {
+  if (rateTenths === null) return "flat";
+  if (rateTenths - 500 >= 10) return "up";
+  if (rateTenths - 500 <= -10) return "down";
+  return "flat";
+}
+
+function deltaText(rateTenths: number): string {
+  const delta = rateTenths - 500;
+  return `${delta >= 0 ? "+" : "−"}${(Math.abs(delta) / 10).toFixed(1)}`;
+}
+
+const LANE_LABEL = { safe: "Safe", mid: "Mid", off: "Off" } as const;
+
+function CardShell({ heroKey, tone, className, children }: { heroKey: string | null; tone: Tone; className: string; children: ReactNode }) {
   return (
-    <li className={`draft-row${item.taken ? " is-taken" : ""}${item.lowDataLabel ? " is-low-data" : ""}`}>
-      <span className="draft-ov-rank">{showRank && <span className="draft-row-rank">{item.rank}</span>}</span>
-      <span className="draft-ov-rowbody">
-        <span className="draft-row-name"><strong>{row.name}</strong></span>
-        <span className="draft-ov-line2">
-          <small className="draft-row-games">{games}</small>
-          {showRate && <span className={`draft-row-rate${stale ? " is-stale-value" : ""}`}>{item.winRateText}</span>}
-        </span>
-      </span>
+    <li className={`${className} draft-ov-hero-card`}>
+      <OverlayPortrait heroKey={heroKey} />
+      <span className="draft-ov-fade" aria-hidden="true" />
+      <span className={`draft-ov-edge is-${tone}`} aria-hidden="true" />
+      <span className="draft-ov-rowbody">{children}</span>
     </li>
   );
 }
 
-function CounterCard({ rows, heading }: { rows: DraftCounterRow[]; heading: string }) {
+function RateLine({ rateTenths, stale }: { rateTenths: number; stale: boolean }) {
+  const tone = winTone(rateTenths);
+  return (
+    <span className="draft-ov-line2">
+      <span className={`draft-row-rate is-${tone}${stale ? " is-stale-value" : ""}`}>{formatWinRateTenths(rateTenths)}</span>
+      <span className={`draft-ov-chip is-${tone}`}>{deltaText(rateTenths)}</span>
+    </span>
+  );
+}
+
+/** "Off 71% · ชนะ 51.9%": share of this hero's lane games and its win rate in that lane. */
+function LaneLine({ lane }: { lane: DraftLane }) {
+  const share = lane.share_tenths === null ? "—" : `${Math.round(lane.share_tenths / 10)}%`;
+  return (
+    <small className="draft-ov-pos">
+      {`${LANE_LABEL[lane.lane]} ${share} · ชนะ `}
+      <span className={`is-${winTone(lane.win_rate_tenths)}`}>{lane.win_rate_tenths === null ? "—" : formatWinRateTenths(lane.win_rate_tenths)}</span>
+    </small>
+  );
+}
+
+function MetaRow({ row, stale }: { row: DraftColumnRow; stale: boolean }) {
+  const item = suggestionRowView(row);
+  const showRate = item.lowDataLabel === null && item.unknownGamesLabel === null && row.win_rate_tenths !== null;
+  const games = item.unknownGamesLabel ?? `${item.lowDataLabel ? "ข้อมูลน้อย · " : ""}${item.gamesText} เกม`;
+  const tone = showRate ? winTone(row.win_rate_tenths) : "flat";
+  return (
+    <CardShell heroKey={row.hero_key ?? null} tone={tone}
+      className={`draft-row${item.taken ? " is-taken" : ""}${item.lowDataLabel ? " is-low-data" : ""}`}>
+      <span className="draft-row-name"><strong>{row.name}</strong></span>
+      {showRate
+        ? <RateLine rateTenths={row.win_rate_tenths!} stale={stale} />
+        : <span className="draft-ov-line2"><small className="draft-row-games">{games}</small></span>}
+      {row.lane
+        ? <LaneLine lane={row.lane} />
+        : <small className="draft-ov-pos">{showRate ? `${item.gamesText} เกม` : "ยังไม่ได้ตั้งตำแหน่ง"}</small>}
+    </CardShell>
+  );
+}
+
+function CounterCard({ rows, heading, stale }: { rows: DraftCounterRow[]; heading: string; stale: boolean }) {
   return (
     <section className="draft-ov-card is-enemy draft-counter-block" aria-label="แนะนำตัวแก้ทาง">
       <Head tone="enemy" title={heading} sub="ตาราง Kohbor · ไม่ใช่สถิติ" />
       <ul className="draft-ov-list">
-        {rows.map((row) => (
-          <li key={row.hero_id} className="draft-counter-row">
-            <strong>{row.name}</strong>
-            <small>{row.against.length > 1 ? `แก้ ${row.against.join(" · ")} · ${row.reason}` : row.reason}</small>
-          </li>
-        ))}
+        {rows.map((row) => {
+          const rate = row.win_rate_tenths ?? null;
+          return (
+            <CardShell key={row.hero_id} heroKey={row.hero_key ?? null} tone={winTone(rate)} className="draft-counter-row">
+              <span className="draft-row-name"><strong>{row.name}</strong></span>
+              {rate !== null
+                ? <RateLine rateTenths={rate} stale={stale} />
+                : <span className="draft-ov-line2"><small className="draft-row-games">ไม่มีสถิติแรงก์นี้</small></span>}
+              <small className="draft-ov-pos draft-ov-why">{row.against.length > 1 ? `แก้ ${row.against.join(" · ")} · ${row.reason}` : row.reason}</small>
+            </CardShell>
+          );
+        })}
       </ul>
     </section>
   );
 }
 
+const POSITION_ROLE = ["Safe Lane", "Mid", "Offlane", "Soft Support", "Hard Support"] as const;
+const POSITION_LANE: Record<number, { lane: string; shared: number | null }> = {
+  1: { lane: "Safe", shared: 5 }, 2: { lane: "Mid", shared: null }, 3: { lane: "Off", shared: 4 },
+  4: { lane: "Off", shared: 3 }, 5: { lane: "Safe", shared: 1 },
+};
+
+/** Footer caveat for the lane numbers: all brackets, and a lane two positions share. */
+function laneCaveat(position: number | null): string {
+  const entry = position === null ? undefined : POSITION_LANE[position];
+  if (position === null || !entry) return "ยังไม่ได้ตั้งตำแหน่ง · ไม่มีเลข Pos";
+  const positions = entry.shared === null ? `${position}` : `${Math.min(position, entry.shared)}+${Math.max(position, entry.shared)}`;
+  return `Pos ${positions} = เลน ${entry.lane} ทุกแรงก์`;
+}
+
 function metaSub(view: DraftColumnViewModel): string {
   if (view.data_state === "stale") return `ข้อมูลเก่า · ล้มเหลว ${formatDraftTime(view.source?.failed_at_ms ?? null)}`;
+  const position = view.context.position;
+  const pos = position !== null && position >= 1 && position <= 5 ? `Pos ${position} · ${POSITION_ROLE[position - 1]}` : "ทุกตำแหน่ง";
   const bar = view.suggestions?.draft_bar;
-  if (!bar || !bar.available) return "ตามจำนวนเกม · ยังไม่เห็นดราฟต์";
-  return `ตามจำนวนเกม · เห็น ${bar.identified ?? "—"}/${bar.slots ?? "—"}`;
+  if (!bar || !bar.available) return `${pos} · ยังไม่เห็นดราฟต์`;
+  return `${pos} · เห็น ${bar.identified ?? "—"}/${bar.slots ?? "—"}`;
 }
 
 function SuggestionsColumn({ view, synthetic }: { view: DraftColumnViewModel; synthetic: boolean }) {
@@ -111,7 +188,7 @@ function SuggestionsColumn({ view, synthetic }: { view: DraftColumnViewModel; sy
   return (
     <>
       <Brand view={view} pill={overlayPill(view.data_state)} synthetic={synthetic} />
-      {counters.length > 0 && counterBlock && <CounterCard rows={counters} heading={counterHeading(counterBlock)} />}
+      {counters.length > 0 && counterBlock && <CounterCard rows={counters} heading={counterHeading(counterBlock)} stale={stale} />}
       <section className={`draft-ov-card draft-suggestions-card${stale ? " is-stale" : ""}`} aria-label="ฮีโร่เมต้า">
         <Head title="ฮีโร่เมต้า" sub={metaSub(view)} />
         {rows.length > 0
@@ -128,6 +205,7 @@ function SuggestionsColumn({ view, synthetic }: { view: DraftColumnViewModel; sy
         `ดึงเมื่อ ${formatDraftTime(view.source?.fetched_at_ms ?? null)}`,
         "อัตราชนะรวม · ไม่ใช่คำทำนาย",
         "กลุ่มตำแหน่งเป็นค่าประมาณ",
+        laneCaveat(view.context.position),
       ]} />
     </>
   );
@@ -196,6 +274,7 @@ function PickColumn({ view, synthetic }: { view: DraftColumnViewModel; synthetic
         `ดึงเมื่อ ${formatDraftTime(view.source?.fetched_at_ms ?? null)}`,
         `${formatGames(card.games)} เกม · ${bracketLabel(view.context.bracket)}`,
         "สถิติย้อนหลัง · ไม่ใช่คำทำนาย",
+        "ความยาวเกม: ทุกแรงก์",
       ]} />
     </>
   );
