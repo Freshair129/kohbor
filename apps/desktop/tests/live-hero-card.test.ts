@@ -20,9 +20,11 @@ import { createDraftRosterMemory, rememberDraftFrame } from "../src/live/secondM
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
 import { createIconResolver, iconFileName, noIcons } from "../src/live/dotaIcons.ts";
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
-import { compactCard, formatGold, joinKnown, ownFullCard, slotColor, statCells, teamFullCard, tileText, UNKNOWN } from "../src/live/heroCardModel.ts";
+import { compactCard, formatGold, joinKnown, ownFullCard, selectLiveDerivedRules, slotColor, statCells, teamFullCard, tileText, UNKNOWN } from "../src/live/heroCardModel.ts";
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
 import type { DraftBarFrame } from "../src/deck/draftBarModel.ts";
+// @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
+import type { StatsData } from "../src/stats/derivedStats.ts";
 
 const fixture = () => JSON.parse(readFileSync(new URL("../../../fixtures/own-fresh-at-boundary.json", import.meta.url), "utf8"));
 const field = (value: unknown) => ({ value, availability: "fresh" });
@@ -31,14 +33,14 @@ const ability = (slot: number, name: string, changes = {}) =>
   ({ slot, name, level: 1, cooldown: 0, ultimate: false, can_cast: true, passive: false, active: true, ...changes });
 
 /** The boundary fixture plus stats and a loadout, as a mid-game GSI snapshot. */
-function liveSnapshot() {
+function liveSnapshot(firstItem = "item_blink") {
   const s = fixture();
   Object.assign(s.own.fields, {
     hero_id: field("npc_dota_hero_lion"),
     gold: field(12345), kills: field(4), deaths: field(2), assists: field(9), last_hits: field(87), denies: field(6),
     gpm: field(412), xpm: field(520),
     items: field([
-      item("inventory0", "item_blink", { cooldown: 12 }), item("inventory1", null), item("inventory2", "item_magic_wand", { charges: 7 }),
+      item("inventory0", firstItem, { cooldown: 12 }), item("inventory1", null), item("inventory2", "item_magic_wand", { charges: 7 }),
       item("inventory3", "item_boots"), item("inventory4", null), item("inventory5", null),
       item("backpack0", "item_ward_observer", { charges: 2 }), item("backpack1", null), item("backpack2", null),
       item("teleport", "item_tpscroll", { cooldown: 70 }), item("neutral", "item_arcane_ring"),
@@ -59,6 +61,54 @@ function card(snapshot = liveSnapshot(), icons = noIcons, slot: number | null = 
   return ownFullCard({ own: deriveOwnHeroViewModel(snapshot), items: loadout.items.slots, itemsStale: loadout.items.stale,
     abilities: loadout.abilities.tiles, abilitiesStale: loadout.abilities.stale, slot, icons });
 }
+
+const liveStatsPack = JSON.parse(readFileSync(new URL("../src/assets/dota/6989/stats.json", import.meta.url), "utf8")) as StatsData;
+function derivedCard(firstItem = "item_blink") {
+  const snapshot = liveSnapshot(firstItem);
+  const loadout = deriveLoadoutViewModel(snapshot, false);
+  return ownFullCard({ own: deriveOwnHeroViewModel(snapshot), items: loadout.items.slots, itemsStale: false,
+    abilities: loadout.abilities.tiles, abilitiesStale: false, slot: 0, icons: noIcons, statsData: liveStatsPack, gameBuild: null });
+}
+
+test("Lion level-12 GSI hero and item IDs populate labelled estimates with a truthful newest-rules fallback", () => {
+  const view = derivedCard();
+  assert.equal(view.heroId, "npc_dota_hero_lion");
+  assert.equal(view.levelText, "12");
+  assert.equal(view.derivedBasis?.label, "B? · P6989 · R7.42*");
+  assert.match(view.derivedBasis?.title ?? "", /Game build unknown; stats pack build 6989; rules 7\.42 selected as the newest supported fallback/);
+  const cells = new Map(view.stats.map(cell => [cell.key, cell]));
+  for (const key of ["str", "agi", "int", "dmg", "reg", "arm", "mr", "amp", "as", "ms", "ev", "sr", "ls"] as const) {
+    const cell = cells.get(key);
+    assert.ok(cell?.derived, `${key} is labelled as a derived value`);
+    assert.notEqual(cell.value, UNKNOWN, `${key} has an output from the Lion fixture`);
+    assert.ok(cell.sources.length > 0, `${key} keeps derivation sources`);
+  }
+  assert.equal(cells.get("gpm")?.value, "412", "observed GPM stays the GSI value");
+  assert.equal(cells.get("xpm")?.value, "520", "observed XPM stays the GSI value");
+  const title = cells.get("arm")?.basis ?? "";
+  assert.match(title, /Game build unknown; stats pack build 6989/);
+  assert.equal(selectLiveDerivedRules(null, liveStatsPack).rules.patch, "7.42");
+});
+
+test("an item unknown to the installed stats pack keeps dependent derived values as em dashes", () => {
+  const view = derivedCard("item_unobserved_test_item");
+  const cells = new Map(view.stats.map(cell => [cell.key, cell]));
+  for (const key of ["str", "agi", "int", "dmg", "reg", "arm", "mr", "amp", "as", "ms", "ev", "sr", "ls"] as const) {
+    assert.equal(cells.get(key)?.value, UNKNOWN, `${key} remains unknown when an item ID cannot be resolved`);
+  }
+  assert.equal(cells.get("gpm")?.value, "412");
+  assert.equal(cells.get("xpm")?.value, "520");
+});
+
+test("derived stat markers expose their source list and the temporary-effects caveat at 12 px", () => {
+  const component = readFileSync(new URL("../src/live/HeroCard.tsx", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../src/live/heroCard.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.match(component, /Sources: \$\{sources\}/);
+  assert.match(component, /ไม่รวมผลชั่วคราว \/ without temporary effects/);
+  assert.match(css, /\.lhc-stat\.is-derived:not\(\.is-unknown\) dd\s*\{[^}]*text-decoration:\s*underline dotted/);
+  assert.match(css, /\.lhc-field-card\.lhc-field-own \.lhc-stat dt, \.lhc-field-card\.lhc-field-own \.lhc-stat dd\s*\{[^}]*font-size:\s*12px/);
+  assert.match(component, /statsData: LIVE_STATS_DATA, gameBuild: null/);
+});
 
 test("own hero: identity, level, K/D/A, LH/DN, gold, HP and mana map from GSI", () => {
   const view = card();

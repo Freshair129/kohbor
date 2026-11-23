@@ -1,3 +1,5 @@
+pub mod game_stats;
+pub mod keyvalues;
 mod texture;
 mod vpk;
 

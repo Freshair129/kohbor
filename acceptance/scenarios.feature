@@ -228,10 +228,10 @@ Feature: Brand-neutral desktop companion target behavior
 
   @UI-002 @mvp
   Scenario: AC-UI-002 Session monitor field topology
-    Given frozen data and viewport while inspector/feed/tier changes
-    When layout transitions run
-    Then map x/y/width/height remain within 1 CSS px, the map stays the largest region, and no page-level scroll is introduced
-    And failure behavior is: Use bounded subregion scrolling; do not shrink text to hide overflow.
+    Given the Live page in draft, pregame or live phase at 1920×1080, 1920×1000, 1600×900, 1366×768 or the 1280×720 minimum, with only values admitted from GSI and same-session draft memory
+    When the player resizes the centred Live field or admitted session and roster values change
+    Then Radiant's five cards, the centre minimap panel and Dire's five cards stay inside the Live box; both card columns equal the minimap panel height and split evenly in slot order; all ten full replay-structure cards are visible with text at least 12 px; no page or region scrolls and no card or map is clipped; the own hero is one highlighted team slot filled from GSI, and its stat rows show labelled derived values wherever the module returns them with source tooltips and the caveat 'ไม่รวมผลชั่วคราว / without temporary effects'; null results and unknown values stay em dashes or dashed slots, allies and enemies remain unknown, only available GSI clock/phase are shown, unknown game build and stats-pack build are labelled with the newest supported ruleset marked as fallback, score/net worth and in-match side panels are absent, and a too-small state appears below the legible minimum
+    And failure behavior is: If the measured box cannot show every full replay-structure card legibly with text at least 12 px, show the existing window-too-small state; never scroll or clip a card or map. Unknown is an em dash or dashed slot, never zero. Derived values require a non-null module result and the admitted own GSI hero ID, level and observed item IDs; allies and enemies stay unknown. Do not show score, net worth, fabricated game-clock values, path traces or unobserved enemy values.
 
   @UI-003 @mvp
   Scenario: AC-UI-003 Neutral production start
@@ -305,16 +305,16 @@ Feature: Brand-neutral desktop companion target behavior
 
   @UI-016 @mvp
   Scenario: AC-UI-016 Second-monitor Live layout
-    Given windows of 1920×1080 and 2560×1440 on each side, 960×1080 half width, 1080×1920 portrait, 1280×720, 1366×768, 1100×700, the 688×680 minimum and a smaller window
-    When the player sets the side, resizes the window, opens the own-hero details and enters or leaves a match
-    Then the map is pinned to the inner edge with the quick strip under it; every region lies inside the box without overlap; our five cards are complete at or above their floor; nothing scrolls and nothing is cut; the own-hero popover does not move any region; below the minimum a window-too-small state appears; the pinned layout, outward rails and folded friends rail appear only from hero selection through the game, and the centred deck with the side selector shows before and after it; and every control is keyboard-reachable
-    And failure behavior is: Without a stored or valid side, outside a match (phase none, post_game, unsupported or unknown) or when the host is lost, show the centred deck; below the smallest supported window show the window-too-small state. Never move or resize the map because of panel content, feed changes or the expander. Status chips and controls in the outer columns wrap to a new line instead of shrinking under their text; no label may paint over another (owner report on build 8d9f8c3, 2026-11-23). A stale or unavailable capture keeps its stale or waiting presentation; an old frame is never shown as live.
+    Given left and right second-monitor settings at 1920×1080, 1920×1000, 1600×900, 1366×768 and 1280×720, plus an undersized window, before/during/after a match and with a stale capture
+    When the player selects a side, resizes the window or enters/leaves draft, pregame and live phases
+    Then while the setting applies the enemy five-card row is directly above the map panel and our five-card row directly below it, all three regions share the map panel width and remain inside the box with no overlap, scroll or clipping, every card remains complete at 12 px text or larger, and map geometry does not depend on card content; below the legible minimum the window-too-small state appears; outside a match, at an unknown phase or after host loss the centred layout returns and the stored side remains reachable on the Live page; the shell header/footer stay visible and only the pinned-mode navigation rails change
+    And failure behavior is: Without a stored side, outside a match, during an unknown phase or after host loss, show the centred layout and keep the side selector available. If the measured box cannot show the two five-card rows and map panel legibly with card text at least 12 px, show the existing window-too-small state; never scroll, clip cards or move/resize the map because of card content. Unknown values remain dashed slots or em dashes, never zero or guessed values. A stale or unavailable capture keeps its stale or waiting presentation; an old frame is never shown as live.
 
   @UI-017 @mvp
   Scenario: AC-UI-017 Second-monitor content from admitted sources
     Given a session with and without admitted draft identities, a known and unknown own team, risk counts present and absent, no objective source, own GSI abilities, ally ultimate-dot inputs present and absent, and peer data present and absent
     When the second-monitor Live page renders
-    Then both teams show hero cards with portrait, name, HP, mana and four skill squares; names come only from same-session draft memory and the own hero is not repeated; own values come from GSI; ally HP, mana and cooldowns appear only with peer data; without it the ally ultimate square shows only the dot state with no number; enemy vitals and skills are em dashes; missing-from-map is shown only when both counts are known; each value carries its source label; and no abnormal states appear
+    Then both layouts show exactly five own-team slots and five enemy slots in slot order using the shared replay-card structure; the own hero appears once in its team row and its admitted values come from GSI; ally vitals/cooldowns appear only with admitted peer sharing; enemy values remain unknown without an admitted source; unknowns render as em dashes or dashed slots, no enemy value is inferred, and abnormal states are absent
     And failure behavior is: Unknown is an em dash, never zero, never a guessed side and never a guessed cooldown. If the own team or own hero cannot be matched, the ally cards stay unknown and no ultimate-dot state is bound to a guessed ally. An unrecognised dot value is unknown.
 
   @UI-018 @mvp
@@ -322,7 +322,7 @@ Feature: Brand-neutral desktop companion target behavior
     Given a host schedule with water, power, bounty and wisdom occurrences, lead times set and unset, a stale schedule and a malformed one
     When the pinned minimap renders across the game clock
     Then each rune spot shows minutes until the largest lead time, then seconds to 0; shared spots show the sooner objective; stale, malformed or missing schedules show nothing; Tormentor and Roshan are never labelled; markers are original
-    And failure behavior is: No schedule, a malformed schedule or one older than five seconds shows no labels and an em dash in the quick strip. Spot positions are approximate placement for patch 7.42 and are not measurements; a wrong spot never changes a time.
+    And failure behavior is: No schedule, a malformed schedule or one older than five seconds shows no labels. Spot positions are approximate placement for patch 7.42 and are not measurements; a wrong spot never changes a time.
 
   @UI-019 @mvp
   Scenario: AC-UI-019 Second-monitor broadcast-style draft board

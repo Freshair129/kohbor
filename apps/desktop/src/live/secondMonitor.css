@@ -1,146 +1,36 @@
-/* Second-monitor Live mode (UI-016..UI-019). Every region is placed from the Live box size (secondMonitorLayout.ts):
-   nothing on this page scrolls and no section is cut (owner feedback 2026-11-23). Text never goes below 12 px. */
-.sm-host { position: relative; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; color: var(--text); }
-.shell-live-page > .sm-host { flex: 1 1 0; height: auto; min-height: 0; }
-.sm-host * { scrollbar-width: none; }
-.sm-host *::-webkit-scrollbar { display: none; }
-.sm-inner, .sm-status, .sm-region, .sm-slot { box-sizing: border-box; overflow: hidden; min-width: 0; min-height: 0; }
-
-/* Map pane square + quick strip; their sizes come only from the box (UI-002: never from content). */
-.sm-inner { display: flex; flex-direction: column; }
-.live-pinned-panel { display: flex; flex-direction: column; width: 100%; min-height: 0; color: var(--text); }
-.sm-pinned .live-pinned-panel > .live-map-pane { flex: none; width: var(--sm-map); height: var(--sm-map); border-radius: 0; padding: 6px; }
-.live-pinned-panel .live-map-toolbar h1 { white-space: nowrap; }
-/* The tools group wraps under the heading as a whole when it does not fit beside it; inside it, chips wrap before the
-   buttons, which never shrink, so nothing in the toolbar is drawn over its neighbour at a narrow map width. */
-.live-pinned-tools { display: flex; flex: 1 1 auto; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 4px 6px; min-width: 0; max-width: 100%; }
-.live-pinned-tools .live-sidebar-status { flex: 0 1 auto; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: flex-end; max-width: 100%; }
-.live-pinned-tools .live-sidebar-status > * { max-width: 100%; overflow-wrap: anywhere; white-space: normal; }
-.live-pinned-tools .live-sidebar-actions { flex: none; flex-wrap: wrap; justify-content: flex-end; max-width: 100%; margin-top: 0; }
-.sm-pinned[data-map-edge="left"] .live-pinned-panel > .live-map-pane { border-left-width: 0; }
-.sm-pinned[data-map-edge="right"] .live-pinned-panel > .live-map-pane { border-right-width: 0; }
-/* The alert strip sits inside the map stage, at its foot: never over the toolbar (which wraps when its notices do not
-   fit) and never under the "covered" badge at the stage top. */
-.sm-alerts { position: absolute; z-index: 4; bottom: 8px; left: 8px; right: 8px; display: flex; justify-content: center; pointer-events: none; }
-.sm-alerts .deck-alert-strip > .muted { display: none; }
-
-.sm-band { flex: none; height: var(--sm-band, 132px); box-sizing: border-box; display: grid; grid-template-columns: minmax(96px, 0.9fr) minmax(96px, 1fr) minmax(0, 3.4fr) minmax(88px, 0.8fr); gap: 6px; padding: 6px; border: 1px solid var(--line); border-top: 0; background: var(--surface); min-width: 0; overflow: hidden; }
-.sm-cell { min-width: 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--ground); }
-.sm-cell.is-unknown { border-style: dashed; }
-.sm-lbl { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; color: var(--muted); font-size: 12px; line-height: 1.35; }
-.sm-big { font-size: 24px; font-weight: 700; line-height: 1.1; color: var(--text); }
-.sm-big small { font-size: 14px; font-weight: 500; color: var(--text-2); }
-.sm-sub { color: var(--text-2); font-size: 12px; overflow-wrap: anywhere; }
-.sm-host[data-band="compact"] .sm-sub, .sm-host[data-band="compact"] .sm-lbl .sm-src { display: none; }
-.sm-src { display: inline-flex; align-items: center; padding: 0 5px; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); font-size: 12px; line-height: 1.5; white-space: nowrap; }
-.sm-src.is-pending { border-style: dashed; }
-.sm-tokens { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
-.sm-token { min-width: 0; display: flex; flex-direction: column; gap: 1px; padding: 2px 5px; border: 1px solid var(--enemy, #f0914f); border-radius: 6px; background: var(--enemy-surface, #2e1e12); }
-.sm-token b { font-size: 13px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sm-token span { color: var(--muted); font-size: 12px; }
-.sm-host[data-band="compact"] .sm-token span { display: none; }
-.sm-token.is-unknown { border-style: dashed; border-color: var(--stale); background: var(--ground); }
-.sm-token.is-unknown b { color: var(--text-2); }
-
-/* Status: chips, start button and the side selector wrap inside a fixed-height box (no overlap, no growth). */
-.sm-status { display: flex; flex-wrap: wrap; align-content: flex-start; align-items: center; gap: 6px 8px; padding: 6px 0; }
-.sm-status > .steam-start-bar { flex: 1 1 auto; min-width: 0; padding: 3px 6px; }
-.sm-toggle { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px; font-size: 12px; color: var(--muted); }
-.sm-toggle-label { margin-right: 4px; }
-.sm-toggle button { min-height: 26px; padding: 1px 9px; border: 1px solid var(--line-strong); border-radius: 6px; background: transparent; color: var(--text-2); font-size: 12px; }
-.sm-toggle button[aria-pressed="true"] { background: var(--accent-surface); color: var(--text); font-weight: 600; }
-.sm-toggle button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.sm-note { margin: 0; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
-.sm-muted { color: var(--muted); font-size: 12px; }
-
-/* Team groups: heading line, then five compact cards of a fixed size. */
-.sm-region { overflow: visible; }
-.sm-group { height: 100%; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.sm-group h2 { flex: none; height: 22px; margin: 0; display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 14px; font-weight: 600; white-space: nowrap; }
-.sm-group-src { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--muted); font-size: 12px; font-weight: 400; }
-.sm-group-cards { display: grid; gap: 6px; min-height: 0; }
-.sm-group-row .sm-group-cards { grid-template-columns: minmax(0, 1fr); }
-.sm-group-tile .sm-group-cards { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-.sm-enemy-mark { flex: none; padding: 0 6px; border-radius: 4px; background: var(--enemy, #f0914f); color: #1a1208; font-size: 12px; font-weight: 700; line-height: 1.5; }
-.sm-ally-mark { flex: none; padding: 0 6px; border-radius: 4px; background: var(--ally, #7fb0e6); color: #0c1420; font-size: 12px; font-weight: 700; line-height: 1.5; }
-
-/* Compact hero card (owner request 2026-11-23). Sizes come from --pt/--nf/--bh/--sq set from the card size. */
-.sm-hero { box-sizing: border-box; position: relative; min-width: 0; display: grid; gap: 8px; padding: 6px; border: 1px solid var(--line-subtle); border-radius: 6px; background: var(--ground); }
-.sm-hero-row { grid-template-columns: var(--pt) minmax(0, 1fr); align-items: center; border-left: 3px solid var(--ally, #7fb0e6); }
-.sm-hero-tile { grid-template-rows: var(--pt) auto; justify-items: center; align-content: center; border-top: 3px solid var(--ally, #7fb0e6); text-align: center; }
-.sm-hero-row.sm-hero-own { border-left-color: var(--accent); }
-.sm-hero-tile.sm-hero-own { border-top-color: var(--accent); }
-.sm-hero-row.sm-hero-enemy { border-left-color: var(--enemy, #f0914f); }
-.sm-hero-tile.sm-hero-enemy { border-top-color: var(--enemy, #f0914f); }
-.sm-hero-enemy { background: var(--enemy-surface, #2e1e12); }
-.sm-hero.is-unknown { border-style: dashed; }
-.sm-hero-row.is-unknown { border-left-style: solid; }
-.sm-hero-tile.is-unknown { border-top-style: solid; }
-.sm-hero .hero-portrait { --hero-portrait-size: var(--pt); }
-.sm-hero-body { min-width: 0; width: 100%; display: flex; flex-direction: column; gap: 3px; }
-.sm-hero-name { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.sm-hero-tile .sm-hero-name { justify-content: center; }
-.sm-hero-name b { min-width: 0; font-size: var(--nf, 15px); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sm-hero.is-unknown .sm-hero-name b { color: var(--text-2); font-weight: 400; }
-.sm-hero-bars { display: flex; flex-direction: column; gap: 3px; }
-.sm-bar { position: relative; display: block; height: var(--bh, 14px); border-radius: 3px; background: var(--raised); overflow: hidden; text-align: left; }
-.sm-bar > span { display: block; height: 100%; }
-.sm-bar-hp > span { background: #4f8f4a; }
-.sm-bar-mana > span { background: #3d6fa8; }
-.sm-bar > em { position: absolute; inset: 0; display: flex; align-items: center; padding: 0 5px; font-style: normal; font-size: 12px; line-height: 1; color: var(--text); white-space: nowrap; }
-.sm-bar.is-unknown { background: transparent; border: 1px dashed var(--line); }
-.sm-bar.is-unknown > em { color: var(--muted); }
-.sm-skills { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, var(--sq, 30px)); gap: 3px; }
-.sm-hero-tile .sm-skills { justify-content: center; }
-.sm-skill { box-sizing: border-box; width: var(--sq, 30px); height: var(--sq, 30px); display: flex; align-items: center; justify-content: center; border: 1px solid var(--line-strong); border-radius: 4px; background: var(--raised); font-size: 12px; font-weight: 600; }
-.sm-skill.is-ult { border-width: 2px; }
-.sm-skill[data-state="unknown"] { border-style: dashed; background: transparent; color: var(--muted); font-weight: 400; }
-.sm-skill[data-state="cooldown"] { background: #1c1f26; color: var(--text); }
-.sm-skill[data-state="ready"] { border-color: #5fbf5a; background: #1f3a1e; }
-.sm-skill[data-state="ready_no_mana"] { border-color: #4d8fe0; background: #1a2a44; }
-.sm-skill[data-state="not_ready"] { border-color: #3a3d44; background: #101114; }
-
-/* Own-hero details open as a popover over the page; the card never grows. */
-.sm-own-more { flex: none; }
-.sm-own-more > summary { list-style: none; cursor: pointer; padding: 0 6px; border: 1px solid var(--line-strong); border-radius: 4px; color: var(--text-2); font-size: 12px; line-height: 1.5; }
-.sm-own-more > summary::-webkit-details-marker { display: none; }
-.sm-own-more > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.sm-hero-own { position: static; }
-/* Anchored to the team region (the positioned ancestor), so it stays inside the page at every size. */
-.sm-own-pop { position: absolute; z-index: 20; top: 28px; left: 0; width: min(100%, 360px); min-width: 300px; margin-top: 0; padding: 10px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); text-align: left; }
-.sm-group-tile.sm-group-ally .sm-own-pop { top: auto; bottom: 100%; margin: 0 0 4px; }
-.sm-host[data-map-narrow] .sm-cell-enemies { display: none; }
-.sm-host[data-map-narrow] .sm-band { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); }
-.sm-own-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin: 6px 0; }
-.sm-own-stats > div { display: flex; justify-content: space-between; gap: 6px; padding: 4px 8px; border: 1px solid var(--line-subtle); border-radius: 6px; font-size: 13px; }
-.sm-own-stats span { color: var(--muted); }
-
-/* Free slot: the event log today (newest first, as many as fit, no scrollbar); AI voice or agent chat later. */
-.sm-slot { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
-.sm-slot-head { flex: none; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; min-width: 0; }
-.sm-slot-head b { font-size: 14px; }
-.sm-slot-head small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 12px; }
-.sm-slot-body { flex: 1 1 0; min-height: 0; overflow: hidden; }
-.sm-slot-body > * { height: 100%; overflow: hidden; }
-.sm-slot-body :is(ol, ul, [role="log"], [role="list"]) { overflow: hidden !important; }
-
-/* Too small: one clear message instead of a broken or scrolling layout. */
+/* Second-monitor Live mode (UI-016; owner redesign, 2026-11-24). The map panel sits between two five-card rows; no
+   Live region scrolls. The captured map stays pinned to the inner edge and receives only box-derived dimensions. */
+.sm-host { position: relative; display: block; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; color: var(--text); }
+.shell-live-page > .sm-host { flex: 1 1 0; height: 100%; min-height: 0; }
+.sm-host *, .sm-host *::before, .sm-host *::after { box-sizing: border-box; }
+.sm-host .sm-region, .sm-map-region { position: absolute; min-width: 0; min-height: 0; overflow: hidden; }
+.sm-card-row { display: block; padding: 0; }
+.sm-card-row > .lhc-list-field { width: 100%; height: 100%; }
+.sm-map-region > .live-pinned-panel { display: flex; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; }
+.sm-map-region .live-pinned-panel > .live-map-pane { display: flex; flex: 1 1 0; flex-direction: column; width: 100%; height: 100%; min-width: 0; min-height: 0; padding: 6px; border-radius: 0; }
+.sm-map-region .live-map-body.is-pinned { position: relative; display: grid; flex: 1 1 0; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr); min-width: 0; min-height: 0; container-type: size; }
+.sm-map-region .live-map-body.is-pinned[data-map-edge="right"] { grid-template-columns: minmax(0, 1fr) auto; }
+.sm-map-region .live-map-body.is-pinned[data-map-edge="left"] { grid-template-columns: auto minmax(0, 1fr); }
+.sm-map-region .live-map-body.is-pinned .live-map-toolbar { display: flex; flex: none; flex-wrap: nowrap; align-content: center; align-items: center; gap: 8px; min-width: 0; min-height: 0; padding: 8px; }
+.sm-map-region .live-map-body.is-pinned[data-map-edge="right"] .live-map-toolbar { grid-column: 1; grid-row: 1; }
+.sm-map-region .live-map-body.is-pinned[data-map-edge="left"] .live-map-toolbar { grid-column: 2; grid-row: 1; }
+.sm-map-region .live-map-body.is-pinned .live-map-toolbar h1 { white-space: nowrap; }
+.sm-map-region .live-map-body.is-pinned .live-map-badge { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sm-map-region .live-map-tools { flex: 0 0 auto; flex-wrap: nowrap; }
+.sm-map-region .live-map-body.is-pinned > .live-map-square-slot { display: grid; width: min(100cqw, 100cqh); height: min(100cqw, 100cqh); min-width: 0; min-height: 0; place-items: stretch; align-self: center; aspect-ratio: 1; overflow: hidden; }
+.sm-map-region .live-map-body.is-pinned[data-map-edge="right"] > .live-map-square-slot { grid-column: 2; grid-row: 1; justify-self: end; }
+.sm-map-region .live-map-body.is-pinned[data-map-edge="left"] > .live-map-square-slot { grid-column: 1; grid-row: 1; justify-self: start; }
+.sm-map-region .live-map-square-slot > .live-map-stage { width: 100%; height: 100%; }
+.sm-map-region .live-sidebar-actions { flex: none; flex-wrap: nowrap; margin-top: 0; }
+.sm-pinned[data-map-edge="left"] .minimap-stage { justify-items: start; }
+.sm-pinned[data-map-edge="right"] .minimap-stage { justify-items: end; }
 .sm-too-small { display: grid; place-items: center; padding: 16px; }
 .sm-too-small-box { max-width: 460px; padding: 20px 24px; border: 1px dashed var(--line-strong); border-radius: 12px; background: var(--surface); text-align: center; }
 .sm-too-small-box h2 { margin: 0 0 8px; font-size: 18px; }
-.sm-too-small-box p { margin: 0 0 8px; color: var(--text-2); }
+.sm-too-small-box p { margin: 0; color: var(--text-2); }
 
-/* GSI setup needs attention: it floats over the outer area instead of pushing the layout. */
-.sm-setup:empty { display: none; }
-.sm-setup { position: absolute; z-index: 30; top: 8px; max-width: min(560px, 90%); }
-.sm-pinned[data-map-edge="left"] .sm-setup { right: 8px; }
-.sm-pinned[data-map-edge="right"] .sm-setup { left: 8px; }
-
-/* Shell in second-monitor mode: rails move to the outer edge; friends rail folds during a match (owner 2026-11-22). */
-.app[data-live-monitor] .shell-page-header { display: none; }
-.app[data-live-monitor] .shell-main { padding: 0; grid-template-rows: minmax(0, 1fr) 28px; }
-.app[data-live-monitor] .shell-page-content { padding-top: 0; }
-.app[data-live-monitor="right"] { grid-template-columns: minmax(0, 1fr) var(--rail-left-width) var(--rail-width); }
+/* The shell keeps its global page header and footer. During a match the Live canvas alone fills the page content. */
+.app[data-live-monitor] { grid-template-columns: minmax(0, 1fr) var(--rail-left-width) var(--rail-width); }
 .app[data-live-monitor="right"] .shell-main { grid-column: 1; }
 .app[data-live-monitor="right"] .shell-rail-left { grid-column: 2; border-right: 0; border-left: 1px solid var(--line); }
 .app[data-live-monitor="right"] .shell-rail-right { grid-column: 3; }
@@ -152,12 +42,33 @@
 .app[data-live-monitor="right"][data-match="true"] { grid-template-columns: minmax(0, 1fr) var(--rail-left-width) 0; }
 .app[data-live-monitor="left"][data-match="true"] { grid-template-columns: 0 var(--rail-left-width) minmax(0, 1fr); }
 .app[data-live-monitor] .pulse-grid-ribbon { display: none; }
+.app[data-live-match="true"] .shell-page-content { overflow: hidden; }
+.app[data-live-match="true"] .shell-live-page { width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; }
+.app[data-live-match="true"] .shell-live-page-top { display: none; }
+.app[data-live-match="true"] .deck-field-root { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; }
+.app[data-live-match="true"] .deck-centered-host { position: relative; grid-column: 1; grid-row: 1; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; }
+.deck-field-region { position: absolute; min-width: 0; min-height: 0; overflow: hidden; }
+.deck-field-team > .lhc-list-field { width: 100%; height: 100%; }
+.deck-field-map { display: flex; flex-direction: column; gap: 2px; }
+.deck-field-phase { display: flex; flex: 0 0 24px; align-items: center; min-width: 0; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--text-2); font-size: 12px; font-weight: 600; }
+.deck-field-map > .live-map-pane { flex: 1 1 0; width: 100%; height: 0; min-width: 0; min-height: 0; padding: 6px; }
+.deck-field-map .live-map-toolbar { flex: 0 0 auto; flex-wrap: nowrap; }
+.deck-field-map .live-map-toolbar .live-map-badge { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deck-field-map .live-map-tools { flex: 0 0 auto; flex-wrap: nowrap; }
+.deck-field-map .live-sidebar-actions { margin-top: 0; }
+.app[data-live-match="true"] .deck-field-draft-row { display: flex; flex: 1 1 0; align-items: flex-start; gap: 8px; min-width: 0; min-height: 0; overflow: hidden; }
+.app[data-live-match="true"] .deck-field-draft-row > .deck-draft { flex: 1 1 auto; min-width: 0; }
+.app[data-live-match="true"] .deck-field-draft-row > .deck-draft-column-panel { flex: 0 0 180px; width: 180px; height: 100%; max-height: none; min-height: 0; overflow: hidden; }
+.app[data-live-match="true"] .deck-field-draft-row .draft-column-surface-deck { height: 100%; max-height: none; overflow: hidden; }
+.deck-field-too-small { display: grid; place-content: center; gap: 8px; width: 100%; height: 100%; padding: 20px; text-align: center; }
+.deck-field-too-small h2 { margin: 0; font-size: 18px; }
+.deck-field-too-small p { margin: 0; color: var(--text-2); }
 
-/* Rune countdowns over the pinned minimap (UI-018). The overlay matches the canvas box; labels never take clicks. */
+/* Rune countdowns over the pinned minimap (UI-018). */
 .sm-pinned .minimap-stage > .live-map-canvas, .sm-pinned .minimap-stage > .sm-map-overlay { grid-area: 1 / 1; }
-.sm-map-overlay { position: relative; pointer-events: none; z-index: 2; }
-.sm-countdowns { list-style: none; margin: 0; padding: 0; position: absolute; inset: 0; }
-.sm-countdown { position: absolute; transform: translate(-50%, -50%); display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px 2px 2px; border: 1px solid rgba(255, 255, 255, 0.35); border-radius: 999px; background: rgba(10, 12, 16, 0.82); color: #f2f4f7; font-size: 14px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
+.sm-map-overlay { position: relative; z-index: 2; pointer-events: none; }
+.sm-countdowns { position: absolute; inset: 0; margin: 0; padding: 0; list-style: none; }
+.sm-countdown { position: absolute; display: inline-flex; align-items: center; gap: 4px; transform: translate(-50%, -50%); padding: 2px 7px 2px 2px; border: 1px solid rgba(255, 255, 255, .35); border-radius: 999px; background: rgba(10, 12, 16, .82); color: #f2f4f7; font-size: 14px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
 .sm-countdown-mark { display: inline-grid; place-items: center; width: 20px; height: 20px; border: 2px solid currentColor; border-radius: 50%; font-size: 12px; line-height: 1; }
 .sm-countdown[data-objective="power_rune"] .sm-countdown-mark { color: #e6b84d; }
 .sm-countdown[data-objective="water_rune"] .sm-countdown-mark { color: #5fb0e8; }
@@ -166,25 +77,22 @@
 .sm-countdown[data-mode="minutes"] { color: #c9ced6; font-weight: 600; }
 .sm-countdown[data-mode="seconds"], .sm-countdown[data-mode="now"] { border-color: #f2c14e; color: #ffe08a; }
 
-/* Broadcast-style draft board in the map square (UI-019). */
+/* Broadcast-style draft board remains in the centre map panel while the draft phase runs (UI-019). */
 .live-map-override { display: flex; align-items: stretch; justify-content: stretch; place-items: stretch; background: var(--ground); }
-.sm-board { flex: 1 1 auto; min-width: 0; min-height: 0; display: grid; grid-template-rows: 1fr 1fr auto; gap: 8px; padding: 8px; overflow: hidden; }
-.sm-board-row { min-height: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--line); border-top: 3px solid var(--line-strong); border-radius: 8px; background: var(--surface); }
+.sm-board { display: grid; flex: 1 1 auto; grid-template-rows: 1fr 1fr auto; gap: 8px; min-width: 0; min-height: 0; padding: 8px; overflow: hidden; }
+.sm-board-row { display: flex; flex-direction: column; gap: 8px; min-height: 0; padding: 10px; border: 1px solid var(--line); border-top: 3px solid var(--line-strong); border-radius: 8px; background: var(--surface); }
 .sm-board-row.is-ours { border-top-color: var(--ally, #7fb0e6); }
 .sm-board-row.is-theirs { border-top-color: var(--enemy, #f0914f); background: var(--enemy-surface, #2e1e12); }
-.sm-board-row h2 { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; }
+.sm-board-row h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 15px; font-weight: 600; }
 .sm-board-ours { padding: 0 6px; border-radius: 4px; background: var(--ally, #7fb0e6); color: #0c1420; font-size: 12px; font-weight: 700; line-height: 1.5; }
-.sm-board-row ol { list-style: none; margin: 0; padding: 0; flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
-.sm-board-slot { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 6px; border: 1px solid var(--line-subtle); border-radius: 6px; background: var(--ground); text-align: center; }
+.sm-board-row ol { display: grid; flex: 1 1 auto; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; min-height: 0; margin: 0; padding: 0; list-style: none; }
+.sm-board-slot { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; padding: 8px 6px; border: 1px solid var(--line-subtle); border-radius: 6px; background: var(--ground); text-align: center; }
 .sm-board-slot.is-unknown { border-style: dashed; }
 .sm-board-slot .hero-portrait { --hero-portrait-size: clamp(48px, 5.2vw, 96px); }
-.sm-board-hero { max-width: 100%; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sm-board-hero { max-width: 100%; overflow: hidden; font-size: 15px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .sm-board-slot.is-unknown .sm-board-hero { color: var(--text-2); font-weight: 400; }
-.sm-board-player { max-width: 100%; color: var(--text-2); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sm-board-player { max-width: 100%; overflow: hidden; color: var(--text-2); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .sm-board-stat, .sm-board-pos { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px; font-size: 13px; }
 .sm-board-rate { font-size: 16px; font-weight: 700; }
-.sm-board-sources { margin: 0; display: flex; flex-wrap: wrap; gap: 4px; }
-
-/* Owner decision 2026-11-23 ("3 ก"): monitor 2 shows the real captured minimap frame (about 280 px in game), scaled up
-   smoothly; in-game hero icons appear as they are. No identification, no motion arrows. Stale frames stay dimmed with their age. */
+.sm-board-sources { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; }
 .sm-pinned .live-map-canvas { image-rendering: auto; }

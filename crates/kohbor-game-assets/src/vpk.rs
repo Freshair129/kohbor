@@ -127,6 +127,21 @@ impl Vpk {
         self.hero_entries.len()
     }
 
+    /// Return the physical VPK file that stores an entry's payload.
+    ///
+    /// Split archive paths are resolved relative to the opened `*_dir.vpk`;
+    /// inline entries point back to the directory VPK itself.
+    pub fn source_path(&self, entry: &Entry) -> Result<PathBuf> {
+        if !Arc::ptr_eq(&self.dir_path, &entry.source_dir) {
+            return Err(Error::EntryFromDifferentVpk);
+        }
+        if entry.archive_index == DIR_ARCHIVE_INDEX {
+            Ok(self.dir_path.as_path().to_path_buf())
+        } else {
+            self.archive_path(entry.archive_index)
+        }
+    }
+
     /// Open and stream-validate a VPK v2 directory file.
     ///
     /// Only hero-image entries are retained in memory. Other paths are searched
@@ -732,9 +747,23 @@ mod tests {
             "panorama/images/heroes/npc_dota_hero_lion_png.vtex_c"
         );
         assert_eq!(vpk.read(&hero).expect("read external entry"), b"preraw");
+        assert_eq!(
+            vpk.source_path(&hero)
+                .expect("external entry source")
+                .file_name()
+                .and_then(|name| name.to_str()),
+            Some("pak01_000.vpk")
+        );
 
         let local = vpk.find("readme.txt").expect("find directory-file entry");
         assert_eq!(vpk.read(&local).expect("read directory entry"), b"local");
+        assert_eq!(
+            vpk.source_path(&local)
+                .expect("inline entry source")
+                .file_name()
+                .and_then(|name| name.to_str()),
+            Some("pak01_dir.vpk")
+        );
     }
 
     #[test]

@@ -30,6 +30,14 @@ Data files copied into the repository from outside sources. Each entry records o
 - NOT established: any right to redistribute Valve game art or the G-Maiden panel in a shipped product. A rights-team review is required before any public release; the rest of the "no Valve art" rule still applies to every other asset.
 - Update rule: replace only with another reviewed and redacted owner screenshot, recording origin, date, redaction and hash here; the test `the bundled editor screenshot is the reviewed redacted 1920x1080 JPEG without metadata` checks this hash.
 
+## apps/desktop/src/assets/dota/6989/stats.json
+
+- Content: compact hero base attributes and growth, primary attributes, armor, attack, movement, base health/mana and regeneration, magic resistance, plus normalized item attributes and derived-stat effects. Build 6989; patch is unverified because the inspected game files had no explicit 7.41f or 7.42 version string. The file records its byte size and SHA-256 in the change report and its source hashes in provenance.
+- Use: local input for own-hero stat estimates; values are labeled DERIVED and without temporary effects. The JSON does not contain match telemetry or live state.
+- Origin: extracted on 2026-11-24 from the owner's installed Dota 2 at G:/steam/steamapps/common/dota 2 beta, read only and without download, by crates/kohbor-game-assets kohbor-asset-export. Provenance lists source script paths, the physical VPK archive path for each script, script hashes, VPK hashes, build number and exporter source commit.
+- Authority: DEC-REPLAY-INTEGRATION item 3 permits local game-data extraction for this application; this records the owner decision, not a licence review.
+- NOT established: any right to redistribute Valve-derived game data in a shipped product. Rights review is required before public release. Patch compatibility is unverified and rules must be selected explicitly by the caller.
+- Update rule: extract from the installed game into a new build-number directory with the scoped stats-only exporter mode; do not overwrite a prior build's evidence or provenance.
 
 ## apps/desktop/src/assets/dota/6989/ (Match view card images and minimap)
 

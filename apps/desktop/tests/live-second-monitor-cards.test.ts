@@ -126,7 +126,11 @@ test("unmatched own hero: four unknown ally cards and no dot bound to a guessed 
     assert.ok(cards.every(card => card.skills.every(skill => skill.state === "unknown")));
   }
   assert.equal(ownDraftSlot(memory, 7, "radiant", "npc_dota_hero_lion"), 2);
+  assert.equal(ownDraftSlot(memory, 7, null, "npc_dota_hero_lion"), 2, "a unique observed slot can locate the GSI hero without guessing the team");
   assert.equal(ownDraftSlot(memory, 8, "radiant", "npc_dota_hero_lion"), null);
+  const duplicate = { ...memory, slots: [...memory.slots] };
+  duplicate.slots[4] = "npc_dota_hero_lion";
+  assert.equal(ownDraftSlot(duplicate, 7, null, "npc_dota_hero_lion"), null, "ambiguous slot identity is not assigned");
 });
 
 test("enemy cards: identity from same-session draft only; HP, mana and skills unknown", () => {
@@ -143,10 +147,19 @@ test("enemy cards: identity from same-session draft only; HP, mana and skills un
 test("card sources: unknown renders an em dash, enemies are marked, no screen reading on this branch", () => {
   const deck = readFileSync(new URL("../src/live/SecondMonitorDeck.tsx", import.meta.url), "utf8");
   const model = readFileSync(new URL("../src/live/secondMonitorCards.ts", import.meta.url), "utf8");
-  assert.match(deck, /card\.heroName \?\? "—"/);
-  assert.match(deck, /value === null \? "—"/);
-  assert.match(deck, /skill\.state === "unknown" \? "—"/);
-  assert.match(deck, /sm-enemy-mark/);
+  const cardView = readFileSync(new URL("../src/live/heroCardModel.ts", import.meta.url), "utf8");
+  const cardComponent = readFileSync(new URL("../src/live/HeroCard.tsx", import.meta.url), "utf8");
+  assert.match(deck, /CompactHeroCards cards=\{cards\}[^>]*fieldCard/);
+  assert.match(deck, /orderBySlot\(\[ownCard, \.\.\.allies\]\)/);
+  assert.match(cardView, /export const UNKNOWN = "—"/);
+  assert.match(cardView, /value === null \? UNKNOWN/);
+  assert.match(cardComponent, /view\.heroName \?\? UNKNOWN/);
+  assert.match(cardView, /hpText: percentText\(view\.hpPercent\)/);
+  assert.match(cardView, /manaText: percentText\(view\.manaPercent\)/);
+  assert.match(cardComponent, /value=\{view\.hpText\}/);
+  assert.match(cardComponent, /value=\{view\.manaText\}/);
+  assert.match(deck, /data-testid=\{`sm-row-\$\{side\}`\}/);
+  assert.match(deck, /side === "ally" \? labels\.ourTeam : labels\.enemyTeam/);
   assert.match(deck, /topbar = null, peer = null/);
   assert.doesNotMatch(model + deck, /invoke\(|getDisplayMedia|captureScreen|Math\.random/);
   const css = readFileSync(new URL("../src/live/secondMonitor.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");

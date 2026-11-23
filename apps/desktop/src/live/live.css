@@ -7,9 +7,14 @@ main.live-tab.live-dashboard { display: grid; grid-template-columns: minmax(0, 1
 .live-map-pane > * { min-width: 0; min-height: 0; }
 .live-map-toolbar { display: flex; flex: 0 0 auto; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-width: 0; min-height: 0; }
 .live-map-toolbar h1 { flex: 0 0 auto; margin: 0; font-size: 15px; font-weight: 600; }
+.live-map-tools { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; min-width: 0; min-height: 0; }
 /* Capture state and frame age only; the CAP/RX/PAINT rates are shown once, in the status footer. */
 .live-map-badge { flex: 0 1 auto; min-width: 0; overflow-wrap: anywhere; white-space: normal; color: var(--text-2); font-size: 12px; font-variant-numeric: tabular-nums; }
 .live-map-stage { position: relative; flex: 1 1 0; width: 100%; min-width: 0; min-height: 0; display: grid; place-items: center; overflow: hidden; box-sizing: border-box; background: #10151b; border: 1px solid var(--line); }
+.live-map-body { min-width: 0; min-height: 0; }
+.live-map-body.is-field { display: flex; flex: 1 1 0; flex-direction: column; min-width: 0; min-height: 0; }
+.live-map-body.is-field > .live-map-square-slot { display: grid; flex: 1 1 0; place-items: center; min-width: 0; min-height: 0; overflow: hidden; }
+.live-map-body.is-field > .live-map-square-slot > .live-map-stage { flex: none; width: auto; height: 100%; max-width: 100%; max-height: 100%; aspect-ratio: 1; }
 .live-map-canvas { display: block; width: auto; height: auto; max-width: 100%; max-height: 100%; min-width: 0; min-height: 0; aspect-ratio: 280 / 280; object-fit: contain; image-rendering: auto; }
 .live-map-canvas.is-stale { opacity: 0.42; filter: grayscale(0.45); }
 .live-map-covered { position: absolute; z-index: 1; top: 12px; left: 12px; right: 12px; display: grid; gap: 4px; padding: 10px 14px; border: 3px double var(--stale); background: var(--surface); color: var(--text); text-align: center; overflow-wrap: anywhere; pointer-events: none; }
