@@ -41,8 +41,14 @@ export function EventBanner({ playback, visible = true }: { playback: PlaybackSt
 
   if (!visible || !visual?.visual_url || !src) return null;
 
+  const classes = [
+    "event-overlay-banner",
+    playback.visualYielding ? "is-yielding" : "",
+    playback.visualFadeOutAtMs !== null ? "is-fading-out" : "",
+  ].filter(Boolean).join(" ");
+
   return (
-    <div className="event-overlay-banner" aria-hidden="true">
+    <div className={classes} aria-hidden="true">
       <video
         key={visual.playback_id}
         src={src}

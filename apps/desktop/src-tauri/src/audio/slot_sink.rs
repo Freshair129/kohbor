@@ -61,6 +61,12 @@ impl Sink for SlotSink {
         }
     }
 
+    fn cancel_with_fade(&mut self, id: PlaybackId, fade_samples: usize) {
+        if let Some(inner) = self.inner.as_mut() {
+            inner.cancel_with_fade(id, fade_samples);
+        }
+    }
+
     fn poll_event(&mut self) -> Option<SinkEvent> {
         let event = self.inner.as_mut().and_then(|inner| inner.poll_event());
         if event == Some(SinkEvent::DeviceChanged) {

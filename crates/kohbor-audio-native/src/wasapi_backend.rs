@@ -554,6 +554,10 @@ impl Sink for WasapiSink {
         self.coordinator.cancel(id);
     }
 
+    fn cancel_with_fade(&mut self, id: PlaybackId, fade_samples: usize) {
+        self.coordinator.cancel_with_fade(id, fade_samples);
+    }
+
     fn poll_event(&mut self) -> Option<SinkEvent> {
         self.coordinator.poll_event()
     }

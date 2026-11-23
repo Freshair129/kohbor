@@ -109,9 +109,9 @@ Feature: Brand-neutral desktop companion target behavior
 
   @ALERT-001 @mvp
   Scenario: AC-ALERT-001 Native independent warning path
-    Given network is down and a renderer/model task is stalled
+    Given network is down and a renderer/model task is stalled; a critical warning arriving while an event banner plays, in either order of the banner's preempted end and the critical start, and a critical warning with no banner
     When an admitted actionable critical event occurs
-    Then the local alert path continues and meets its acoustic gate; account work runs on its own worker and intake, overlay and alert paths never await it
+    Then the local alert path continues and meets its acoustic gate; the critical strip shows at once below the yielding banner and stays for the critical cue's normal lifetime even after the banner fades out, the strip bottom stays within 32 px (scaled) below the banner stage's normal bottom, and with no banner the full critical warning shows as before; account work runs on its own worker and intake, overlay and alert paths never await it
     And failure behavior is: No synchronous network, disk unpacking or inference in critical admission. Account work runs on its own worker and is never awaited by intake, overlay or alert paths.
 
   @ALERT-002 @mvp
@@ -172,9 +172,9 @@ Feature: Brand-neutral desktop companion target behavior
 
   @MEDIA-002 @mvp
   Scenario: AC-MEDIA-002 Ordinary event arbitration
-    Given one tick produces several admitted ordinary events
+    Given one tick produces several admitted ordinary events; a multi_kill admitted while a hero_kill clip plays, an equal-rank event during a clip, and a critical cue during an ordinary clip
     When the announcer chooses media
-    Then the highest emitted ordinary rank is chosen; if its mapping is missing/invalid the slot stays silent without a lower-rank media fallback
+    Then the highest emitted ordinary rank is chosen; if its mapping is missing/invalid the slot stays silent without a lower-rank media fallback; the multi_kill starts at once while the hero_kill fades out over 100 ms and one clip_preempted {from_event, to_event, fade_ms} info line is written; the equal-rank event is dropped channel_busy; the critical cue starts without delay over the fading ordinary clip; a faded clip reports preempted, never finished
     And failure behavior is: No mapping-driven fallback. Baseline/reconnect must not invent first blood, kills, level or match-start events.
 
   @MEDIA-003 @mvp
@@ -195,7 +195,7 @@ Feature: Brand-neutral desktop companion target behavior
   Scenario: AC-MEDIA-005 One audio owner
     Given a clip has a declared visual tail
     When a critical interruption or session change occurs
-    Then obsolete audio and visual tails terminate under the same generation
+    Then obsolete audio and visual tails terminate under the same generation; a banner whose audio was preempted by a critical cue keeps its visual until its own end while the critical strip shows
     And failure behavior is: The renderer cannot independently select or replay event media.
 
   @MEDIA-006 @mvp

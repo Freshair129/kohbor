@@ -100,6 +100,254 @@ if (!playback) {
     assert.equal(second.visual?.visual_url, "kohbor-media://ins_00000002/video/kill.webm");
   });
 
+  test("cancelled_preempted followed by started replaces the old announcer banner", () => {
+    const first = reducePlayback(
+      createPlaybackState(),
+      started({
+        class: "ordinary",
+        event_type: "hero_kill",
+        visual_url: "kohbor-media://ins_00000001/video/hero_kill.webm",
+      }),
+    );
+    const endedFirst = reducePlayback(
+      first,
+      ended("pb_00000001", { reason: "cancelled_preempted", at_ms: 1400 }),
+    );
+    const replacement = reducePlayback(
+      endedFirst,
+      started({
+        playback_id: "pb_00000002",
+        class: "ordinary",
+        event_type: "multi_kill",
+        visual_url: "kohbor-media://ins_00000002/video/multi_kill.webm",
+        at_ms: 1400,
+      }),
+    );
+
+    assert.equal(replacement.currentPlaybackId, "pb_00000002");
+    assert.equal(replacement.visual?.playback_id, "pb_00000002");
+    assert.equal(replacement.visual?.event_type, "multi_kill");
+    assert.equal(replacement.visual?.visual_url, "kohbor-media://ins_00000002/video/multi_kill.webm");
+  });
+
+  test("a C1 start over a banner yields its video and shows the strip at once", () => {
+    const banner = reducePlayback(createPlaybackState(), started({
+      class: "ordinary",
+      event_type: "hero_kill",
+      audio_duration_ms: 3000,
+      visual_tail_ms: 300,
+      at_ms: 1000,
+    }));
+    const stacked = reducePlayback(banner, started({
+      playback_id: "pb_00000002",
+      class: "critical",
+      event_type: "health_danger",
+      audio_duration_ms: 500,
+      visual_tail_ms: 100,
+      at_ms: 1200,
+    }));
+
+    assert.equal(stacked.visual?.playback_id, "pb_00000001");
+    assert.equal(stacked.visualYielding, true);
+    assert.equal(stacked.criticalStrip?.playback_id, "pb_00000002");
+    assert.equal(stacked.criticalStrip?.event_type, "health_danger");
+    assert.equal(stacked.criticalStrip?.until_ms, 2300);
+    assert.equal(stacked.audioEndAtMs, 1700);
+  });
+
+  test("a C1 start without a banner keeps the existing full critical visual", () => {
+    const state = reducePlayback(createPlaybackState(), started({
+      class: "critical",
+      event_type: "risk_alert",
+      at_ms: 1000,
+    }));
+
+    assert.equal(state.visual?.playback_id, "pb_00000001");
+    assert.equal(state.visual?.event_type, "risk_alert");
+    assert.equal(state.visualYielding, false);
+    assert.equal(state.criticalStrip, null);
+  });
+
+  test("ended-before-started critical preemption preserves the banner inside the grace window", () => {
+    let state = reducePlayback(createPlaybackState(), started({
+      class: "ordinary",
+      event_type: "hero_kill",
+      audio_duration_ms: 3000,
+      at_ms: 1000,
+    }));
+    state = reducePlayback(state, ended("pb_00000001", {
+      reason: "cancelled_preempted",
+      at_ms: 1200,
+    }));
+
+    assert.equal(state.visual?.playback_id, "pb_00000001");
+    assert.equal(state.preemptedBannerGraceUntilMs, 1450);
+    state = reducePlayback(state, started({
+      playback_id: "pb_00000002",
+      class: "critical",
+      event_type: "risk_alert",
+      at_ms: 1450,
+    }));
+
+    assert.equal(state.visual?.playback_id, "pb_00000001");
+    assert.equal(state.visualYielding, true);
+    assert.equal(state.preemptedBannerGraceUntilMs, null);
+    assert.equal(state.criticalStrip?.playback_id, "pb_00000002");
+  });
+
+  test("ended-before-started ordinary replacement replaces the banner inside the grace window", () => {
+    let state = reducePlayback(createPlaybackState(), started({
+      class: "ordinary",
+      event_type: "hero_kill",
+      at_ms: 1000,
+    }));
+    state = reducePlayback(state, ended("pb_00000001", {
+      reason: "cancelled_preempted",
+      at_ms: 1200,
+    }));
+    state = reducePlayback(state, started({
+      playback_id: "pb_00000002",
+      class: "ordinary",
+      event_type: "multi_kill",
+      at_ms: 1250,
+    }));
+
+    assert.equal(state.visual?.playback_id, "pb_00000002");
+    assert.equal(state.visualYielding, false);
+    assert.equal(state.preemptedBannerGraceUntilMs, null);
+  });
+
+  test("started-before-ended critical preemption keeps the yielded banner on the late old end", () => {
+    let state = reducePlayback(createPlaybackState(), started({
+      class: "ordinary",
+      event_type: "hero_kill",
+      audio_duration_ms: 3000,
+      at_ms: 1000,
+    }));
+    state = reducePlayback(state, started({
+      playback_id: "pb_00000002",
+      class: "critical",
+      event_type: "health_danger",
+      at_ms: 1200,
+    }));
+    const afterCriticalStart = state;
+    state = reducePlayback(state, ended("pb_00000001", {
+      reason: "cancelled_preempted",
+      at_ms: 1201,
+    }));
+
+    assert.strictEqual(state, afterCriticalStart);
+    assert.equal(state.visual?.playback_id, "pb_00000001");
+    assert.equal(state.visualYielding, true);
+    assert.equal(state.criticalStrip?.playback_id, "pb_00000002");
+  });
+
+  test("an ordinary start replaces the banner, while the critical strip keeps its own lifetime", () => {
+    let state = reducePlayback(createPlaybackState(), started({
+      class: "ordinary",
+      event_type: "hero_kill",
+      at_ms: 1000,
+    }));
+    state = reducePlayback(state, started({
+      playback_id: "pb_00000002",
+      class: "critical",
+      event_type: "health_danger",
+      at_ms: 1100,
+    }));
+    state = reducePlayback(state, started({
+      playback_id: "pb_00000003",
+      class: "ordinary",
+      event_type: "multi_kill",
+      at_ms: 1200,
+    }));
+
+    assert.equal(state.visual?.playback_id, "pb_00000003");
+    assert.equal(state.visualYielding, false);
+    assert.equal(state.criticalStrip?.playback_id, "pb_00000002");
+  });
+
+  test("a preempted banner is removed after the 250 ms start grace when no replacement arrives", () => {
+    let state = reducePlayback(createPlaybackState(), started({
+      class: "ordinary",
+      event_type: "hero_kill",
+      at_ms: 1000,
+    }));
+    state = reducePlayback(state, ended("pb_00000001", {
+      reason: "cancelled_preempted",
+      at_ms: 1200,
+    }));
+    state = tickPlayback(state, 1451);
+
+    assert.equal(state.visual, null);
+    assert.equal(state.preemptedBannerGraceUntilMs, null);
+    assert.equal(state.criticalStrip, null);
+  });
+
+  test("the yielded banner fades at its own deadline and cannot remove or move the critical strip", () => {
+    let state = reducePlayback(createPlaybackState(), started({
+      class: "ordinary",
+      event_type: "hero_kill",
+      audio_duration_ms: 1000,
+      at_ms: 1000,
+    }));
+    state = reducePlayback(state, started({
+      playback_id: "pb_00000002",
+      class: "critical",
+      event_type: "health_danger",
+      audio_duration_ms: 2000,
+      visual_tail_ms: 100,
+      at_ms: 1100,
+    }));
+    const strip = state.criticalStrip;
+    state = reducePlayback(state, ended("pb_00000001", {
+      reason: "cancelled_preempted",
+      at_ms: 1101,
+    }));
+
+    state = tickPlayback(state, 2499);
+    assert.equal(state.visual?.playback_id, "pb_00000001");
+    assert.equal(state.criticalStrip?.until_ms, 3700);
+    assert.deepEqual(state.criticalStrip, strip);
+
+    state = tickPlayback(state, 2500);
+    assert.equal(state.visual?.playback_id, "pb_00000001");
+    assert.notEqual(state.visualFadeOutAtMs, null);
+    assert.equal(state.criticalStrip?.playback_id, "pb_00000002");
+
+    state = tickPlayback(state, 2680);
+    assert.equal(state.visual, null);
+    assert.equal(state.criticalStrip?.playback_id, "pb_00000002");
+
+    state = reducePlayback(state, ended("pb_00000002", { at_ms: 3100 }));
+    assert.equal(state.criticalStrip?.until_ms, 3700);
+    state = tickPlayback(state, 3699);
+    assert.equal(state.criticalStrip?.playback_id, "pb_00000002");
+    state = tickPlayback(state, 3700);
+    assert.equal(state.criticalStrip, null);
+  });
+
+  test("malformed input increments diagnostics without disturbing the active stack", () => {
+    let state = reducePlayback(createPlaybackState(), started({
+      class: "ordinary",
+      event_type: "hero_kill",
+      at_ms: 1000,
+    }));
+    state = reducePlayback(state, started({
+      playback_id: "pb_00000002",
+      class: "critical",
+      event_type: "risk_alert",
+      at_ms: 1100,
+    }));
+    const stacked = state;
+
+    state = reducePlayback(state, null);
+
+    assert.equal(state.malformedEventCount, stacked.malformedEventCount + 1);
+    assert.equal(state.visual?.playback_id, stacked.visual?.playback_id);
+    assert.equal(state.visualYielding, true);
+    assert.deepEqual(state.criticalStrip, stacked.criticalStrip);
+  });
+
   test("ended for the current playback hides its visual immediately", () => {
     const state = reducePlayback(createPlaybackState(), started());
     const endedState = reducePlayback(state, ended());
@@ -229,6 +477,7 @@ if (!playback) {
 
     assert.equal(state.malformedEventCount, 5);
     assert.equal(state.visual, null);
+    assert.equal(state.criticalStrip, null);
   });
 
   test("processes backwards at_ms values in arrival order", () => {

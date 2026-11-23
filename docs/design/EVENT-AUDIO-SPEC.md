@@ -185,8 +185,10 @@ Each row is the class of a new request (incoming); each column is the class alre
 | C1 | play | preempt if a different episode; otherwise drop `cooldown` | preempt | preempt | preempt | preempt |
 | C2 | play | queue (latest only, TTL 3,000 ms) then play; drop `critical_active` on expiry | preempt (newer revision) | preempt | preempt | preempt |
 | C3 | play | drop `critical_active` | drop `critical_active` | drop `channel_busy` | preempt | preempt |
-| C4 | play | queue (one slot, higher rank wins, TTL 3,000 ms) then play; drop `critical_active` on expiry or replacement | queue (one slot, higher rank wins, TTL 3,000 ms) then play; drop `critical_active` on expiry or replacement | drop `channel_busy` | drop `channel_busy` | preempt |
+| C4 | play | queue (one slot, higher rank wins, TTL 3,000 ms) then play; drop `critical_active` on expiry or replacement | queue (one slot, higher rank wins, TTL 3,000 ms) then play; drop `critical_active` on expiry or replacement | drop `channel_busy` | strictly higher rank: preempt with fade†; equal or lower rank: drop `channel_busy` | preempt |
 | C5 | play | wait* | wait* | wait* | wait* | supersede (VOICE-003) |
+
+† **Fade (owner decision 2026-11-23).** When the active output is an ordinary (C4) clip and a request preempts it (a strictly higher-rank C4, or C1, C2 or C3), the new clip starts at once and the old clip fades out under it: a linear gain ramp from 1 to 0 over 100 ms (4,800 mono samples at 48 kHz, or what remains of the clip), summed with i16 saturation. This is the only mix the sink performs; it never delays the new clip, so a critical cue keeps its deadline. The faded clip ends `preempted` (never `finished`). Each fade preemption writes one `audio/clip_preempted {from_event, to_event, fade_ms}` info line; drops still write `audio/clip_dropped`. Every other preemption is a hard cut as before.
 
 \* **Wait** means the voice answer starts after the active output ends. The voice turn's own deadline and cancellation still apply. A voice answer never preempts event audio.
 

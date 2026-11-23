@@ -216,6 +216,11 @@ pub fn spawn_publisher(
                         outcome,
                         variant,
                     } => log_clip_dropped(&event_id, tier, outcome.as_str(), variant.as_ref()),
+                    EngineOut::ClipPreempted {
+                        from_event,
+                        to_event,
+                        fade_ms,
+                    } => log_clip_preempted(&from_event, &to_event, fade_ms),
                     EngineOut::ClipFinished {
                         event_id,
                         reason,
@@ -416,6 +421,27 @@ fn log_clip_dropped(
     );
 }
 
+fn log_clip_preempted(from_event: &str, to_event: &str, fade_ms: u64) {
+    if from_event == "audition" || to_event == "audition" {
+        return;
+    }
+    let fields = Map::from_iter([
+        (
+            "from_event".to_owned(),
+            Value::String(from_event.to_owned()),
+        ),
+        ("to_event".to_owned(), Value::String(to_event.to_owned())),
+        ("fade_ms".to_owned(), json!(fade_ms)),
+    ]);
+    crate::logging::emit(
+        crate::logging::Level::Info,
+        "audio",
+        "clip_preempted",
+        "announcer clip preempted",
+        fields,
+    );
+}
+
 #[allow(dead_code)] // Wired to the Tauri command in the following host integration slice.
 pub fn audio_history_command(history: &HistoryHandle, limit: Option<u32>) -> Vec<Value> {
     if history.is_empty() {
@@ -458,6 +484,23 @@ mod tests {
             "match_id": "local_match_1",
             "playback_end": null,
         })
+    }
+
+    #[test]
+    fn clip_preempted_log_has_only_event_ids_and_fade_duration() {
+        let entries = crate::logging::collect_test_logs(|| {
+            super::log_clip_preempted("hero_kill", "multi_kill", 100);
+        });
+
+        assert_eq!(entries.len(), 1);
+        let entry = &entries[0];
+        assert_eq!(entry.level, crate::logging::Level::Info);
+        assert_eq!(entry.module, "audio");
+        assert_eq!(entry.event, "clip_preempted");
+        assert_eq!(entry.fields["from_event"], "hero_kill");
+        assert_eq!(entry.fields["to_event"], "multi_kill");
+        assert_eq!(entry.fields["fade_ms"], 100);
+        assert_eq!(entry.fields.as_object().unwrap().len(), 3);
     }
 
     #[test]

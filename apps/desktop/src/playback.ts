@@ -32,20 +32,42 @@ export type PlaybackEvent = PlaybackStartedEvent | PlaybackEndedEvent;
 export interface PlaybackState {
   /** The most recently admitted playback id, retained to fence duplicate starts. */
   currentPlaybackId: string | null;
-  /** At most one verified native-provided visual can be visible. */
+  /** At most one verified native-provided video can be visible. */
   visual: (PlaybackStartedEvent & { visual_url: string }) | null;
+  /** A C1 cue can yield a non-critical banner without replacing its video. */
+  visualYielding: boolean;
+  /** Original video deadline; yielding banners retain it through critical preemption. */
+  visualEndAtMs: number | null;
+  /** The time a yielded banner's 180 ms opacity transition finishes. */
+  visualFadeOutAtMs: number | null;
+  /** Preemption may publish the old end before the replacement start. */
+  preemptedBannerGraceUntilMs: number | null;
+  /** Compact C1 warning shown immediately over a yielded banner. */
+  criticalStrip: CriticalStripState | null;
   /** Audio lifecycle is independent of whether this clip has a visual. */
   audio: PlaybackStartedEvent | null;
   audioEndAtMs: number | null;
-  /** Deadline in the event clock domain, including the 500 ms fail-safe margin. */
+  /** Earliest presentation deadline in the event clock domain. */
   failSafeAtMs: number | null;
   malformedEventCount: number;
+}
+
+export type CriticalStripEventType = "health_danger" | "risk_alert";
+
+export interface CriticalStripState {
+  playback_id: string;
+  event_type: CriticalStripEventType;
+  visual_tail_ms: number;
+  until_ms: number;
 }
 
 const PLAYBACK_ID = /^[A-Za-z0-9_-]{8,64}$/;
 const EVENT_TYPE = /^[a-z][a-z0-9_]{0,79}$/;
 const MEDIA_SCHEME = "kohbor-media://";
 const PLAYBACK_CLASSES: readonly PlaybackClass[] = ["critical", "correction", "notice", "ordinary", "voice"];
+export const PREEMPTED_BANNER_GRACE_MS = 250;
+export const YIELDED_BANNER_FADE_MS = 180;
+const VISUAL_FAILSAFE_GRACE_MS = 500;
 const END_REASONS: readonly PlaybackEndReason[] = [
   "finished",
   "cancelled_preempted",
@@ -114,11 +136,88 @@ export function createPlaybackState(): PlaybackState {
   return {
     currentPlaybackId: null,
     visual: null,
+    visualYielding: false,
+    visualEndAtMs: null,
+    visualFadeOutAtMs: null,
+    preemptedBannerGraceUntilMs: null,
+    criticalStrip: null,
     audio: null,
     audioEndAtMs: null,
     failSafeAtMs: null,
     malformedEventCount: 0,
   };
+}
+
+function nextPresentationDeadline(state: PlaybackState): number | null {
+  const deadlines: number[] = [];
+  if (state.visual) {
+    const visualDeadline = state.visualFadeOutAtMs ?? state.visualEndAtMs;
+    if (visualDeadline !== null) deadlines.push(visualDeadline);
+  }
+  if (state.preemptedBannerGraceUntilMs !== null) deadlines.push(state.preemptedBannerGraceUntilMs + 1);
+  if (state.criticalStrip) deadlines.push(state.criticalStrip.until_ms);
+  return deadlines.length === 0 ? null : Math.min(...deadlines);
+}
+
+function withPresentationDeadline(state: PlaybackState): PlaybackState {
+  const failSafeAtMs = nextPresentationDeadline(state);
+  return failSafeAtMs === state.failSafeAtMs ? state : { ...state, failSafeAtMs };
+}
+
+function clearVisual(state: PlaybackState): PlaybackState {
+  return {
+    ...state,
+    visual: null,
+    visualYielding: false,
+    visualEndAtMs: null,
+    visualFadeOutAtMs: null,
+    preemptedBannerGraceUntilMs: null,
+  };
+}
+
+/** Apply event-clock deadlines before handling a new event or timer callback. */
+function advancePlayback(state: PlaybackState, now_ms: number): PlaybackState {
+  let next = state;
+
+  if (next.audio !== null && next.audioEndAtMs !== null && now_ms >= next.audioEndAtMs) {
+    next = { ...next, audio: null, audioEndAtMs: null };
+  }
+
+  if (next.criticalStrip !== null && now_ms >= next.criticalStrip.until_ms) {
+    next = { ...next, criticalStrip: null };
+  }
+
+  if (next.preemptedBannerGraceUntilMs !== null && now_ms > next.preemptedBannerGraceUntilMs) {
+    next = clearVisual(next);
+  } else if (next.visual !== null) {
+    if (next.visualFadeOutAtMs !== null && now_ms >= next.visualFadeOutAtMs) {
+      next = clearVisual(next);
+    } else if (next.visualFadeOutAtMs === null && next.visualEndAtMs !== null && now_ms >= next.visualEndAtMs) {
+      if (next.visualYielding) {
+        next = { ...next, visualFadeOutAtMs: now_ms + YIELDED_BANNER_FADE_MS };
+      } else {
+        next = clearVisual(next);
+      }
+    }
+  }
+
+  return withPresentationDeadline(next);
+}
+
+function criticalStackEventType(event: PlaybackStartedEvent): CriticalStripEventType | null {
+  if (event.class !== "critical") return null;
+  return event.event_type === "health_danger" || event.event_type === "risk_alert"
+    ? event.event_type
+    : null;
+}
+
+function canYieldBanner(state: PlaybackState, at_ms: number): state is PlaybackState & {
+  visual: PlaybackStartedEvent & { visual_url: string };
+} {
+  return state.visual !== null
+    && state.visual.class !== "critical"
+    && state.visualFadeOutAtMs === null
+    && (state.visualEndAtMs === null || at_ms < state.visualEndAtMs);
 }
 
 /** Reduce lifecycle events in arrival order. The renderer never queues or selects media. */
@@ -127,30 +226,79 @@ export function reducePlayback(state: PlaybackState, input: unknown): PlaybackSt
   if (!event) return { ...state, malformedEventCount: state.malformedEventCount + 1 };
 
   if (event.kind === "ended") {
-    if (event.playback_id !== state.currentPlaybackId || (!state.visual && !state.audio)) return state;
-    return { ...state, visual: null, failSafeAtMs: null, audio: null, audioEndAtMs: null };
+    const isCurrent = event.playback_id === state.currentPlaybackId;
+    const matchingStrip = state.criticalStrip?.playback_id === event.playback_id;
+    if (!isCurrent && !matchingStrip) return state;
+
+    let next = state;
+    if (matchingStrip && next.criticalStrip) {
+      next = {
+        ...next,
+        criticalStrip: {
+          ...next.criticalStrip,
+          until_ms: event.at_ms + next.criticalStrip.visual_tail_ms + VISUAL_FAILSAFE_GRACE_MS,
+        },
+      };
+    }
+    if (!isCurrent) return withPresentationDeadline(next);
+
+    next = advancePlayback(next, event.at_ms);
+    if (next.visual?.playback_id === event.playback_id) {
+      if (event.reason === "cancelled_preempted" && next.visual.class !== "critical") {
+        const graceUntilMs = event.at_ms + PREEMPTED_BANNER_GRACE_MS;
+        next = {
+          ...next,
+          preemptedBannerGraceUntilMs: next.visualEndAtMs === null
+            ? graceUntilMs
+            : Math.min(graceUntilMs, next.visualEndAtMs),
+        };
+      } else {
+        next = clearVisual(next);
+      }
+    }
+    next = { ...next, audio: null, audioEndAtMs: null };
+    return withPresentationDeadline(next);
   }
 
   if (event.playback_id === state.currentPlaybackId) return state;
 
-  const visual = event.visual_url !== null && event.class !== "voice" ? event as PlaybackStartedEvent & { visual_url: string } : null;
-  return {
-    ...state,
+  const advanced = advancePlayback(state, event.at_ms);
+  const stripEventType = criticalStackEventType(event);
+  const yieldBanner = stripEventType !== null && canYieldBanner(advanced, event.at_ms);
+  const visual = yieldBanner
+    ? advanced.visual
+    : event.visual_url !== null && event.class !== "voice"
+      ? event as PlaybackStartedEvent & { visual_url: string }
+      : null;
+  const visualEndAtMs = yieldBanner
+    ? advanced.visualEndAtMs
+    : visual
+      ? event.at_ms + event.audio_duration_ms + event.visual_tail_ms + VISUAL_FAILSAFE_GRACE_MS
+      : null;
+  const criticalStrip = yieldBanner && stripEventType !== null
+    ? {
+        playback_id: event.playback_id,
+        event_type: stripEventType,
+        visual_tail_ms: event.visual_tail_ms,
+        until_ms: event.at_ms + event.audio_duration_ms + event.visual_tail_ms + VISUAL_FAILSAFE_GRACE_MS,
+      }
+    : advanced.criticalStrip;
+
+  return withPresentationDeadline({
+    ...advanced,
     currentPlaybackId: event.playback_id,
     visual,
+    visualYielding: yieldBanner,
+    visualEndAtMs,
+    visualFadeOutAtMs: null,
+    preemptedBannerGraceUntilMs: null,
+    criticalStrip,
     audio: event.audio_duration_ms > 0 ? event : null,
     audioEndAtMs: event.audio_duration_ms > 0 ? event.at_ms + event.audio_duration_ms : null,
-    failSafeAtMs: visual ? event.at_ms + event.audio_duration_ms + event.visual_tail_ms + 500 : null,
-  };
+  });
 }
 
-/** Hide a stuck visual at the native event timestamp plus audio, tail and grace period. */
+/** Advance audio, video, preemption-grace and critical-strip lifetimes in the host event clock. */
 export function tickPlayback(state: PlaybackState, now_ms: number): PlaybackState {
-  const audioExpired = state.audio !== null && state.audioEndAtMs !== null && now_ms >= state.audioEndAtMs;
-  const visualExpired = state.visual !== null && state.failSafeAtMs !== null && now_ms >= state.failSafeAtMs;
-  if (!audioExpired && !visualExpired) return state;
-  return { ...state,
-    ...(audioExpired ? { audio: null, audioEndAtMs: null } : {}),
-    ...(visualExpired ? { visual: null, failSafeAtMs: null } : {}),
-  };
+  return advancePlayback(state, now_ms);
 }

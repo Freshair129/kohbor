@@ -201,6 +201,11 @@ pub enum EngineOut {
         outcome: kohbor_audio::Outcome,
         variant: Option<ClipVariantLog>,
     },
+    ClipPreempted {
+        from_event: String,
+        to_event: String,
+        fade_ms: u64,
+    },
     ClipFinished {
         event_id: String,
         reason: String,

@@ -208,3 +208,21 @@ Recorded in chat with the lead agent; details and the conflicts they create are 
 7. The user picks replay files; the app never downloads replays.
 
 The decision covers the Lab slice (DEC-LAB-GATE). It adds no requirement: post-match replay has no requirement module yet, and MEM-001 and MEM-004 continue to bound summaries. Promotion beyond Lab still needs the reviewed post-match data contract and native evidence. Text in `contracts/decisions.json`.
+
+### Owner decision: announcer preemption with a fade (2026-11-23)
+
+Product owner, relayed by the lead session after the log of build 8d9f8c3 showed two `multi_kill` events dropped `channel_busy` while a `hero_kill` clip played. Owner words: “ตัดเข้าเลยแต่ทำให้สมูทใส่เฟดนิดนึงก็ได้ให้มันไม่รู้สึกว่ากระตุกอ่ะ”
+
+- A newly admitted ordinary announcer event of strictly higher catalog rank preempts a playing ordinary clip; equal or lower rank keeps today's `channel_busy` drop. All other cells of the priority matrix (EVENT-AUDIO-SPEC section 4) are unchanged.
+- The cut is smoothed by a fade chosen by the implementing session: the new clip starts at once and the old clip fades out under it, linear, 100 ms (4,800 samples at 48 kHz). The same fade applies when a critical, correction or notice cue preempts an ordinary clip, so the critical cue is never delayed. The fade value is a taste call for the owner to confirm by ear.
+- Logging: `audio/clip_preempted {from_event, to_event, fade_ms}`; `audio/clip_dropped` stays for the cases that still drop. MEDIA-002 statement and AC updated. Evidence: synthetic tests only; acoustic and live NOT_RUN.
+
+### Owner decision: critical warning under an active banner (2026-11-23)
+
+Product owner, relayed by the lead session. Owner proposal: “ไม่งั้นก็ให้คำเตือนวิกฤตแสดงใต้แบนเนอร์ที่กำลังทำงานอยู่เช่น Q banner ขึ้นคำเตือนวิกฤตเตือนเลือดน้อยขึ้นอยู่ด้านล่างของ Q banner Q banner อาจจะขยับขึ้นไปนิดนึงให้ดูเหมือนกับว่าโอเคมีสิ่งสำคัญดันมันขึ้นไปแต่ไม่ได้ดันเยอะแล้วก็อาจจะลดขนาดให้มันเล็กลงนิดนึงเดี๋ยวมันบังจอแบบนี้ดีไหม” After the geometry was explained (the banner already sits inside the protected announcement region, y 86-205 at 1080p, and a full-size critical warning below it would reach about y 257), the owner chose option ข: “2 ข”
+
+- Audio first and unchanged: the critical cue plays at once and preempts any announcer clip with the 100 ms fade (see the announcer preemption decision above).
+- With an event banner showing: the banner keeps playing, moves up 8 % of its height and shrinks to 88 % over 180 ms (eased; no motion with reduced motion), and a compact critical strip, 40 px at 1080p and scaled like the banner, shows 4 px below it. The strip keeps the critical cue's normal lifetime; when the banner ends it fades out and the strip does not move. With no banner showing, the full critical warning shows as before.
+- Limit: the only extra overlap of the announcement region is the strip; its bottom may sit at most 32 px (at 1080p, scaled like the banner) below the normal bottom of the banner stage, i.e. y 190 at the default layout. The overlay window grows from 256 to 295 logical units for this; everything else stays clamped as before. The critical warning is never hidden or delayed.
+- Subject to the owner's review of the mock (`F:\kohbor-coord\design\banner-critical-stack-20261123\`). The strip text is Thai only ("เลือดน้อย! ถอยก่อน", "อันตราย! ระวังตัว"), like the overlay's other labels; an English overlay is a localisation gap. ALERT-001 and MEDIA-005 updated. Evidence: synthetic and browser mock only.
+

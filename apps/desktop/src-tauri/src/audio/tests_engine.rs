@@ -247,6 +247,158 @@ fn objective_tone_uses_the_engine_sink_when_idle() {
 }
 
 #[test]
+fn higher_rank_multi_kill_preempts_hero_kill_with_a_fade_and_no_drop() {
+    let (mut h, log) = setup();
+    assert!(h
+        .tx
+        .control(Control::SwapTable {
+            table: table(
+                7,
+                &[
+                    (EventId::HeroKill, None, 216_000, 0, None),
+                    (EventId::MultiKill, Some(2), 48_000, 0, None),
+                ],
+            ),
+        })
+        .is_ok());
+    h.engine.step(0);
+    h.drain();
+
+    offer(&h, 1, &[(EventId::HeroKill, None)]);
+    h.engine.step(1);
+    h.drain();
+    offer(&h, 2, &[(EventId::MultiKill, Some(2))]);
+    h.engine.step(401);
+    let outputs = h.drain();
+
+    let preemptions: Vec<_> = outputs
+        .iter()
+        .filter_map(|output| match output {
+            EngineOut::ClipPreempted {
+                from_event,
+                to_event,
+                fade_ms,
+            } => Some((from_event.as_str(), to_event.as_str(), *fade_ms)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(preemptions, [("hero_kill", "multi_kill", 100)]);
+    assert!(
+        !outputs
+            .iter()
+            .any(|output| matches!(output, EngineOut::ClipDropped { .. })),
+        "an admitted higher-rank request is not logged as dropped"
+    );
+    let lifecycle = playbacks(&outputs);
+    assert_eq!(
+        lifecycle.len(),
+        2,
+        "old end and new start are both published"
+    );
+    assert_eq!(lifecycle[0]["kind"], "ended");
+    assert_eq!(lifecycle[0]["reason"], "cancelled_preempted");
+    assert_eq!(lifecycle[1]["kind"], "started");
+    assert_eq!(lifecycle[1]["event_type"], "multi_kill");
+    assert_eq!(
+        log.lock().unwrap().calls,
+        vec![
+            Call::Submit(PlaybackId(1), 216_000),
+            Call::CancelWithFade(PlaybackId(1), 4_800),
+            Call::Submit(PlaybackId(2), 48_000),
+        ]
+    );
+}
+
+#[test]
+fn health_danger_preempts_hero_kill_with_a_fade_and_starts_immediately() {
+    let (mut h, log) = setup();
+    assert!(h
+        .tx
+        .control(Control::SwapTable {
+            table: table(
+                7,
+                &[
+                    (EventId::HeroKill, None, 216_000, 0, None),
+                    (EventId::HealthDanger, None, 48_000, 0, None),
+                ],
+            ),
+        })
+        .is_ok());
+    h.engine.step(0);
+    h.drain();
+
+    offer(&h, 1, &[(EventId::HeroKill, None)]);
+    h.engine.step(1);
+    h.drain();
+    offer(&h, 2, &[(EventId::HealthDanger, None)]);
+    h.engine.step(2);
+    let outputs = h.drain();
+
+    let preemptions: Vec<_> = outputs
+        .iter()
+        .filter_map(|output| match output {
+            EngineOut::ClipPreempted {
+                from_event,
+                to_event,
+                fade_ms,
+            } => Some((from_event.as_str(), to_event.as_str(), *fade_ms)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(preemptions, [("hero_kill", "health_danger", 100)]);
+    assert!(!outputs
+        .iter()
+        .any(|output| matches!(output, EngineOut::ClipDropped { .. })));
+    let lifecycle = playbacks(&outputs);
+    assert_eq!(lifecycle.len(), 2);
+    assert_eq!(lifecycle[0]["kind"], "ended");
+    assert_eq!(lifecycle[0]["reason"], "cancelled_preempted");
+    assert_eq!(lifecycle[1]["kind"], "started");
+    assert_eq!(lifecycle[1]["event_type"], "health_danger");
+    assert_eq!(
+        lifecycle[1]["at_ms"], 2,
+        "critical start is not fade-delayed"
+    );
+    assert_eq!(
+        log.lock().unwrap().calls,
+        vec![
+            Call::Submit(PlaybackId(1), 216_000),
+            Call::CancelWithFade(PlaybackId(1), 4_800),
+            Call::Submit(PlaybackId(2), 48_000),
+        ],
+        "critical playback is submitted in the same engine step"
+    );
+}
+
+#[test]
+fn equal_rank_hero_kill_still_emits_channel_busy_drop() {
+    let (mut h, log) = setup();
+    offer(&h, 1, &[(EventId::HeroKill, None)]);
+    h.engine.step(1);
+    h.drain();
+
+    offer(&h, 2, &[(EventId::HeroKill, None)]);
+    h.engine.step(2);
+    let outputs = h.drain();
+
+    assert!(outputs.iter().any(|output| matches!(
+        output,
+        EngineOut::ClipDropped {
+            event_id,
+            outcome: kohbor_audio::Outcome::ChannelBusy,
+            ..
+        } if event_id == "hero_kill"
+    )));
+    assert!(!outputs
+        .iter()
+        .any(|output| matches!(output, EngineOut::ClipPreempted { .. })));
+    assert_eq!(
+        log.lock().unwrap().calls,
+        [Call::Submit(PlaybackId(1), 4_800)]
+    );
+}
+
+#[test]
 fn objective_tone_defers_until_the_announcer_releases_the_single_slot() {
     let (mut h, log) = setup();
     offer(&h, 1, &[(EventId::HeroKill, None)]);
@@ -2198,7 +2350,7 @@ fn repeated_rebuilds_preserve_playback_id_continuity() {
         .flat_map(|entry| entry.lock().unwrap().calls.clone())
         .filter_map(|call| match call {
             Call::Submit(id, _) => Some(id.0),
-            Call::Cancel(_) => None,
+            Call::Cancel(_) | Call::CancelWithFade(_, _) => None,
         })
         .max()
         .expect("submitted ids observed");

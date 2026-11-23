@@ -1,6 +1,7 @@
 @import "../../../docs/design/visuals/command-deck/tokens.css";
 @import "../../../docs/design/visuals/command-deck/tokens.glass.css";
 @import "../../../docs/design/visuals/command-deck/tokens.govibe.css";
+@import "./critical-stack.css";
 
 * { box-sizing: border-box; }
 html, body {
@@ -387,9 +388,11 @@ button[aria-busy="true"] { cursor: progress; }
 html.overlay-body, body.overlay-body { width: 100%; height: 100%; background: transparent !important; }
 body.overlay-body { min-width: 0; min-height: 0; margin: 0; overflow: hidden; }
 body.overlay-body #root { width: 100%; height: 100%; min-height: 0; }
-.overlay-shell { position: relative; display: grid; grid-template-rows: 220fr 36fr; width: 100vw; height: 100vh; overflow: hidden; background: transparent; }
-.overlay-stage { position: relative; width: 100%; min-width: 0; min-height: 0; aspect-ratio: 720 / 220; overflow: hidden; background: transparent; }
-.event-overlay-banner { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; pointer-events: none; animation: event-banner-enter 140ms ease-out both; }
+.overlay-shell { position: relative; display: grid; grid-template-rows: 220fr 36fr 39fr; width: 100vw; height: 100vh; overflow: hidden; background: transparent; }
+.overlay-stage { position: relative; z-index: 2; width: 100%; min-width: 0; min-height: 0; aspect-ratio: 720 / 220; overflow: visible; background: transparent; }
+.event-overlay-banner { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; pointer-events: none; animation: event-banner-enter 140ms ease-out both; transition: transform 180ms cubic-bezier(.2,.7,.2,1), opacity 180ms ease; transform-origin: center; }
+.event-overlay-banner.is-yielding { transform: translateY(-8%) scale(.88); }
+.event-overlay-banner.is-fading-out { animation: none; opacity: 0; }
 .event-overlay-banner video { display: block; width: 100%; height: 100%; object-fit: contain; background: transparent; }
 .objective-settings { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
 .objective-settings h2 { margin: 0; font-size: 13px; font-weight: 650; }
@@ -454,7 +457,7 @@ body.overlay-body #root { width: 100%; height: 100%; min-height: 0; }
 .layout-editor-fullbar { position: absolute; z-index: 4; left: 50%; bottom: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; width: min(960px, calc(100vw - 24px)); padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: var(--r-control); background: var(--surface); color: var(--text); font-size: 12px; transform: translateX(-50%); }
 .layout-editor-fullbar .layout-editor-controls { flex: 1 1 320px; }
 .layout-editor-readout { font-variant-numeric: tabular-nums; }
-.overlay-chip-strip { display: flex; align-items: center; justify-content: flex-end; min-width: 0; min-height: 0; padding: 0 2.5%; background: transparent; }
+.overlay-chip-strip { position: relative; z-index: 1; display: flex; align-items: center; justify-content: flex-end; min-width: 0; min-height: 0; padding: 0 2.5%; background: transparent; }
 .overlay-chip { display: inline-flex; align-items: center; max-width: 100%; min-height: 24px; padding: 2px 10px; border: 1px solid var(--overlay-chip-line); border-radius: 999px; background: var(--overlay-chip-background); color: var(--overlay-chip-text); font-size: clamp(11px, 1.7vh, 14px); line-height: 1.25; overflow-wrap: anywhere; }
 .overlay-chip-ready { border-color: var(--overlay-chip-ready-line); }
 .overlay-chip-not_ready, .overlay-chip-muted, .overlay-chip-no_device { border-color: var(--overlay-chip-warning-line); }
@@ -706,7 +709,7 @@ body.overlay-body #root { width: 100%; height: 100%; min-height: 0; }
   .packs-preview-progress.is-playing > span { animation: none; transform: scaleX(1); }
 }
 @keyframes event-banner-enter { from { opacity: 0; } to { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .event-overlay-banner { animation: none; } .pulse-grid-ribbon { animation: none; transition: none; } }
+@media (prefers-reduced-motion: reduce) { .event-overlay-banner { animation: none; transition: none; } .pulse-grid-ribbon { animation: none; transition: none; } }
 
 @media (max-width: 640px) {
   .audio-readiness { grid-template-columns: minmax(0, 1fr); gap: 6px; }

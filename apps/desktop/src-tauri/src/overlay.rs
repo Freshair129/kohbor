@@ -18,7 +18,8 @@ pub struct Rect {
 
 // Reference stage size; the runtime scales it through `scale_for` (see the banner layout constants).
 pub const STAGE_LOGICAL: (u32, u32) = (720, 220);
-pub const WINDOW_LOGICAL: (u32, u32) = (720, 256);
+// 220 stage + 36 status-strip + 39 slack to contain the 32 px-at-1080 critical overhang.
+pub const WINDOW_LOGICAL: (u32, u32) = (720, 295);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum OverlayWindowState {
@@ -181,9 +182,9 @@ pub fn place_overlay(monitor: &MonitorRect) -> Rect {
 }
 
 /// Place the window for `layout`; `None` when the layout is disabled. The art stage CENTRE is at
-/// the layout percentages (clamped to 0..=100); the 36-reference-pixel status strip hangs below
-/// the stage and scales with it. The window is clamped inside the monitor, so near an edge the
-/// banner is pushed inwards rather than cut off.
+/// the layout percentages (clamped to 0..=100); the 36-reference-pixel status strip and critical
+/// banner overhang are contained below the stage and scale with it. The window is clamped inside
+/// the monitor, so near an edge the banner is pushed inwards rather than cut off.
 pub fn place_overlay_with(monitor: &MonitorRect, layout: &BannerLayout) -> Option<Rect> {
     if !layout.enabled {
         return None;
@@ -207,7 +208,7 @@ pub fn place_overlay_with(monitor: &MonitorRect, layout: &BannerLayout) -> Optio
     })
 }
 
-/// The clip stage occupies the top 220 of the 256 reference-pixel window.
+/// The clip stage occupies the top 220 of the 295 reference-pixel window.
 // Pinned by tests as the placement contract (docs/design/S6-OVERLAY-SLICE.md section 3); the runtime path
 // derives the same geometry through `place_overlay`, so these are not read outside tests.
 #[cfg_attr(not(test), allow(dead_code))]
@@ -399,14 +400,15 @@ mod tests {
                         <= i64::from(monitor.y) + i64::from(monitor.h),
                 "{monitor:?} {window:?}"
             );
-            // Size: stage width = 0.45 * min(680 * H/1080, 0.72 * W); window and stage keep 720:256 and 720:220.
+            // Size: stage width = 0.45 * min(680 * H/1080, 0.72 * W); window and stage keep
+            // 720:WINDOW_LOGICAL.1 (critical strip room, owner 2026-11-23) and 720:220.
             let stage_width = 0.45 * (680.0 * f64::from(h) / 1080.0).min(0.72 * f64::from(w));
             let scale = stage_width / 720.0;
             assert_eq!(
                 (window.w, window.h),
                 (
                     (720.0 * scale).round() as u32,
-                    (256.0 * scale).round() as u32
+                    (f64::from(WINDOW_LOGICAL.1) * scale).round() as u32
                 ),
                 "{monitor:?}"
             );
@@ -460,7 +462,7 @@ mod tests {
 
     #[test]
     fn exact_numbers_at_1080p_and_1440p() {
-        // 1920x1080: 306 px wide stage (0.45 * 680), window 306x109, stage 306x94, centred at
+        // 1920x1080: 306 px wide stage (0.45 * 680), window 306x125, stage 306x94, centred at
         // x=949.6 (left 797) with the stage centre 10.3 % down (top 64).
         let m = MonitorRect {
             x: 0,
@@ -474,7 +476,7 @@ mod tests {
                 x: 797,
                 y: 64,
                 w: 306,
-                h: 109
+                h: 125
             }
         );
         let s = stage_rect(&m);
@@ -492,9 +494,26 @@ mod tests {
                 x: 1062,
                 y: 86,
                 w: 408,
-                h: 145
+                h: 167
             }
         );
+    }
+
+    #[test]
+    fn critical_stack_window_bottom_stays_within_32_scaled_pixels_of_stage() {
+        for (w, h) in [(1920, 1080), (2560, 1440)] {
+            let monitor = MonitorRect { x: 0, y: 0, w, h };
+            let window = place_overlay(&monitor);
+            let stage = stage_rect(&monitor);
+            let window_bottom = f64::from(window.y) + f64::from(window.h);
+            let stage_bottom = f64::from(stage.y) + f64::from(stage.h);
+            let permitted_overhang = 32.0 * f64::from(h) / 1080.0;
+
+            assert!(
+                window_bottom <= stage_bottom + permitted_overhang,
+                "{w}x{h}: window bottom {window_bottom} exceeds stage bottom {stage_bottom} + {permitted_overhang}"
+            );
+        }
     }
 
     #[test]
@@ -600,7 +619,7 @@ mod tests {
                 x: 1444,
                 y: 403,
                 w: 476,
-                h: 169
+                h: 195
             })
         );
         let off = BannerLayout {
