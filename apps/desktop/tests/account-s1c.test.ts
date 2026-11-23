@@ -46,9 +46,9 @@ test('ACCOUNT-001 pending service explains browser and privacy; sign-in disabled
   const html = await render({ state: 'signed_out', serviceConfigured: false });
   assert.match(html, /Google/);
   assert.match(html, /เบราว์เซอร์/);
-  assert.match(html, /ไม่มีอีเมล|ไม่.*อีเมล/);
-  assert.match(html, /ไม่มี.*รายชื่อ|ไม่.*รายชื่อ/);
-  assert.match(html, /เข้าสู่ระบบ.*ไม่.*แชร์/);
+  assert.match(html, /เกาะเบาะได้รับอีเมล ชื่อ และรูปโปรไฟล์จาก Google ผ่าน Supabase Auth/);
+  assert.match(html, /โหมดจำลองนี้ไม่ส่งข้อมูลจริง/);
+  assert.match(html, /ไม่มีการเรียกเครือข่าย/);
   assert.match(actionTag(html, 'sign-in'), /\bdisabled\b/i);
 });
 

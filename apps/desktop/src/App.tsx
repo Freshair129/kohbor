@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { AudioMuteControl, AudioPanel, useAudioMute } from "./AudioPanel";
 import { copy, seconds, type Locale } from "./copy";
 import { DemoPanel } from "./DemoPanel";
@@ -28,7 +29,8 @@ import { useUpdateStatus } from "./shell/useUpdateStatus";
 import { useDeveloperMode } from "./shell/useDeveloperMode";
 import { LogsTab } from "./logs/LogsTab";
 import { AccountPage } from "./account/AccountPages";
-import { guestAccountPort, type AccountPort } from "./account/accountView";
+import { type AccountPort } from "./account/accountView";
+import { accountPortForEnvironment } from "./account/tauriAccountPort";
 import { useAccount } from "./account/useAccount";
 import { VolumeToast } from "./VolumeToast";
 import { OrbSettings } from "./orb/OrbSettings";
@@ -51,11 +53,17 @@ const ReplayPanel = import.meta.env.DEV || import.meta.env.VITE_KOHBOR_LAB === "
 
 type ShellPage = ShellDestination | "account";
 
+function invokeAccountCommand<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+  return invoke<T>(command, args);
+}
+
+const defaultAccountPort = accountPortForEnvironment(isTauri(), invokeAccountCommand);
+
 function EmptyPage({ title, note }: { title: string; note: string }) {
   return <div className="shell-screen shell-empty-state" role="status"><h2>{title}</h2><p>{note}</p></div>;
 }
 
-export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { devScenarioSwitcher?: ReactNode; accountPort?: AccountPort } = {}) {
+export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: { devScenarioSwitcher?: ReactNode; accountPort?: AccountPort } = {}) {
   const { status, snapshot, hostLost, setup } = useRuntime();
   const { settings, loading, saving, notice, changeLocale } = useSettings();
   const glass = useGlassPreference();
@@ -69,6 +77,9 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
   const update = useUpdateStatus();
   const developerMode = useDeveloperMode();
   const account = useAccount(accountPort);
+  useEffect(() => {
+    void accountPort.refreshStatus?.();
+  }, [accountPort]);
   const steamStatus = useSteamStatus();
   const matchEnded = useMatchEnded(status, steamStatus);
   const steamName = useShowSteamName();
@@ -107,6 +118,10 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
   });
   const deckReason = deckStateReasonForLocale(deckState, displayLocale);
   const phase = status?.session.phase ?? null;
+  const accountHandoffBlocked = status === null ? null : ["draft", "pregame", "live"].includes(status.session.phase);
+  useEffect(() => {
+    if (accountHandoffBlocked !== null) accountPort.setLiveMatch?.(accountHandoffBlocked);
+  }, [accountPort, accountHandoffBlocked]);
   const phaseLabel = phase === null ? "—" : text.phases[phase];
   const phaseTone = phase === "none" || phase === "draft"
     ? "unknown"
@@ -320,7 +335,8 @@ export function App({ devScenarioSwitcher, accountPort = guestAccountPort }: { d
             </div>
           ))}
 
-          {activePage === "account" && <AccountPage account={account} locale={displayLocale} back={() => navigate(DEFAULT_SHELL_DESTINATION)} />}
+          {activePage === "account" && <AccountPage account={account} locale={displayLocale} port={accountPort}
+            liveMatch={accountHandoffBlocked ?? undefined} back={() => navigate(DEFAULT_SHELL_DESTINATION)} />}
         </section>
         <StatusFooter statusLabel={hostLost ? (displayLocale === "th" ? "ออฟไลน์" : "Offline") : footerStateLabel(capture?.phase ?? null, displayLocale)}
           tone={hostLost ? "stale" : headerState.capture.tone}

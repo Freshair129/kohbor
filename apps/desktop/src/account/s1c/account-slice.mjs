@@ -90,6 +90,7 @@ function screenNav(screen) {
   </nav>`;
 }
 
+// TODO(legal-review): confirm this Supabase account-data disclosure before shipping.
 function signInContent(state, serviceConfigured) {
   switch (state) {
     case 'signed_out':
@@ -98,12 +99,12 @@ function signInContent(state, serviceConfigured) {
         <p class="s1c-copy">เข้าสู่ระบบด้วย Google ในเบราว์เซอร์ระบบเมื่อมีบริการจริงให้ใช้งาน</p>
         <button type="button" class="s1c-primary-button" data-action="sign-in"${disabled(!serviceConfigured)}>เข้าสู่ระบบด้วย Google</button>
         ${serviceConfigured ? '<p class="s1c-inline-note">โหมดจำลอง: ปุ่มนี้ไม่เปิดเบราว์เซอร์จริง</p>' : '<p class="s1c-inline-note">บริการยังไม่ตั้งค่า ปุ่มเข้าสู่ระบบจึงปิดอยู่</p>'}
-        <div class="s1c-privacy-promise"><strong>การเข้าสู่ระบบไม่แชร์ข้อมูล</strong><span>Kohbor ไม่รับอีเมลและไม่อ่านรายชื่อผู้ติดต่อ</span></div>
+        <div class="s1c-privacy-promise"><strong>ข้อมูลบัญชีที่ Supabase จัดเก็บ</strong><span>เกาะเบาะได้รับอีเมล ชื่อ และรูปโปรไฟล์จาก Google ผ่าน Supabase Auth; โหมดจำลองนี้ไม่ส่งข้อมูลจริง</span></div>
       </section>`;
     case 'browser_handoff':
       return `<section class="s1c-panel s1c-signin-panel">
         <div class="s1c-section-heading"><span class="s1c-eyebrow">ขั้นตอนจำลอง</span><h2>ทำรายการต่อในเบราว์เซอร์</h2></div>
-        <p class="s1c-copy">หน้าจอนี้ไม่เปิดเบราว์เซอร์จริง การเข้าสู่ระบบไม่แชร์ข้อมูล</p>
+        <p class="s1c-copy">หน้าจอนี้จำลองขั้นตอนในเบราว์เซอร์เท่านั้น ไม่ได้เชื่อมต่อบริการจริง</p>
         <div class="s1c-actions"><button type="button" class="s1c-primary-button" data-action="simulate-browser-return">จำลองการกลับจากเบราว์เซอร์</button><button type="button" data-action="cancel-sign-in">ยกเลิก</button></div>
       </section>`;
     case 'signing_in':
