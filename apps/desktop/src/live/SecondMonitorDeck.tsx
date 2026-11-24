@@ -21,7 +21,7 @@ import { DraftBoard } from "./DraftBoard";
 import { type ObjectiveSchedule } from "./objectiveCountdownModel";
 import { draftBoardRows, type DraftStatsInput, type PlayerNamesInput } from "./draftBoardModel";
 import { CompactHeroCards, OwnHeroCard } from "./HeroCard";
-import { CARD_ROOMY_ROW_MIN_H, ownFieldCardMode, secondMonitorLayout, type PlacedLayout, type Rect } from "./secondMonitorLayout";
+import { CARD_ROOMY_ROW_MIN_H, ownFieldCardMode, pinnedDraftFits, secondMonitorLayout, type PlacedLayout, type Rect } from "./secondMonitorLayout";
 import { useRosterMemory } from "./rosterMemory";
 import { cardCopy } from "./secondMonitorCards";
 import "./secondMonitor.css";
@@ -88,7 +88,9 @@ export function SecondMonitorDeck({
   const lang = locale === "en" ? "en" : "th";
   const text = cardCopy(lang);
   const { ref, box } = useBox<HTMLDivElement>();
+  const draftPhase = !hostLost && draftBar?.active === true;
   const layout = box ? secondMonitorLayout({ side, width: box.width, height: box.height }) : null;
+  const draftTableTooSmall = layout?.mode === "stacked" && draftPhase && !pinnedDraftFits(layout.map.h);
   const roster = useRosterMemory(hostLost ? null : sessionEpoch, draftBar);
   const own = deriveOwnHeroViewModel(snapshot);
   const ownTeam = hostLost ? null : snapshot?.own?.team ?? null;
@@ -100,11 +102,10 @@ export function SecondMonitorDeck({
   const allies = allyHeroCards({ memory: roster, epoch: sessionEpoch, ownTeam: cardTeam, ownHeroId: own.heroId, peer, topbar });
   const ours = orderBySlot([ownCard, ...allies]);
   const enemies = orderBySlot(enemyHeroCards(roster, sessionEpoch, cardTeam));
-  const draftPhase = !hostLost && draftBar?.active === true;
   const boardRows = draftBoardRows({ memory: roster, epoch: sessionEpoch, ownTeam, stats: draftStats, names: playerNames, showNames: showPlayerNames });
 
   if (!layout || layout.mode === "off") return <div ref={ref} className="sm-host" data-layout="measuring" lang={locale} />;
-  if (layout.mode === "too_small") {
+  if (layout.mode === "too_small" || draftTableTooSmall) {
     return <div ref={ref} className="sm-host sm-too-small" data-layout="too_small" lang={locale}>
       <div className="sm-too-small-box" role="status">
         <h2>{lang === "th" ? "หน้าต่างเล็กเกินไป" : "Window too small"}</h2>

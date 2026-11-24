@@ -153,7 +153,7 @@ test("the pinned map shows the captured minimap frame through the existing canva
   assert.match(read("../src/live/useMinimap.ts"), /minimap_subscribe/);
   const css = (read("../src/live/live.css") + read("../src/live/secondMonitor.css")).replace(/\/\*[\s\S]*?\*\//g, "");
   assert.doesNotMatch(css, /live-map-canvas[^}]*image-rendering:\s*(?:pixelated|crisp-edges)/);
-  assert.match(css, /\.sm-pinned \.live-map-canvas\s*\{\s*image-rendering:\s*auto/);
+  assert.match(css, /\.sm-pinned \.live-map-canvas\s*\{[^}]*width:\s*100%[^}]*height:\s*100%[^}]*image-rendering:\s*auto/);
 });
 
 test("a stale or missing frame is never shown as live", async () => {

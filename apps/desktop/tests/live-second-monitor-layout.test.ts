@@ -15,8 +15,12 @@ import {
   CENTER_WIDE_STATS_MIN_W,
   GAP,
   MAP_PANEL_MIN_H,
+  PINNED_DRAFT_MIN_MAP_H,
+  PINNED_SCOREBOARD_HEIGHT,
   centeredLiveLayout,
   ownFieldCardMode,
+  pinnedDraftFits,
+  pinnedMapContents,
   placedRegions,
   secondMonitorLayout,
   type PlacedLayout,
@@ -95,20 +99,86 @@ test("pinned view mounts both five-card rows and has no free-slot or internal-sc
   assert.match(deck, /<OwnHeroCard[^>]*fieldCard/);
   assert.match(deck, /placed\.card\.h >= CARD_ROOMY_ROW_MIN_H/);
   assert.match(deck, /layout="pinned" mapEdge=\{placed\.mapEdge\}/);
-  assert.match(panel, /className="live-map-body is-pinned" data-map-edge=\{mapEdge\}/);
-  assert.match(panel, /<div className="live-map-square-slot">\{stage\}<\/div>/);
+  assert.match(panel, /className=\{`live-map-body is-pinned\$\{stageOverride \? " is-draft" : ""\}`\} data-map-edge=\{mapEdge\}/);
+  assert.match(panel, /<div className="live-map-pinned-stack">[\s\S]*?<div className=\{stageOverride \? "live-map-draft-slot" : "live-map-square-slot"\}>\{stage\}<\/div>/);
   assert.doesNotMatch(deck, /data-region="slot"|sm-slot|EventFeed|AnnouncerStatus|GsiSetupHint/);
   assert.doesNotMatch(css, /overflow(?:-[xy])?:\s*(?:auto|scroll)/, "pinned Live has no scroll containers");
   assert.match(css, /\.sm-host\s*\{[^}]*overflow:\s*hidden/);
   assert.match(css, /\.sm-card-row > \.lhc-list-field\s*\{[^}]*height:\s*100%/);
   assert.match(css, /\.sm-map-region > \.live-pinned-panel\s*\{[^}]*height:\s*100%/);
-  assert.match(css, /\.live-map-body\.is-pinned\[data-map-edge="right"\] \.live-map-toolbar\s*\{[^}]*grid-column:\s*1/);
-  assert.match(css, /\.live-map-body\.is-pinned\[data-map-edge="left"\] \.live-map-toolbar\s*\{[^}]*grid-column:\s*2/);
-  assert.match(css, /width:\s*min\(100cqw,\s*100cqh\)/, "the minimap uses the largest square in its region");
+  assert.match(css, /\.live-map-body\.is-pinned\s*\{[^}]*--pinned-scoreboard-height:\s*64px/);
+  assert.match(css, /\.live-map-pinned-stack\s*\{[^}]*grid-template-rows:\s*var\(--pinned-scoreboard-height\) minmax\(0,\s*1fr\)/);
+  assert.match(css, /width:\s*min\(100cqw,\s*calc\(100cqh - var\(--pinned-scoreboard-height\)\)\)/,
+    "the map uses the largest square after the scoreboard height");
+  assert.match(css, /\.live-map-body\.is-pinned\.is-draft[^}]*\.live-map-draft-slot[^}]*width:\s*100%/,
+    "the draft table receives the full map-region width");
+  assert.match(css, /\.sm-board-hero[^}]*overflow:\s*visible[^}]*overflow-wrap:\s*anywhere[^}]*white-space:\s*normal/);
+  assert.match(css, /\.sm-board-player[^}]*overflow:\s*visible[^}]*overflow-wrap:\s*anywhere[^}]*white-space:\s*normal/);
+  assert.match(css, /@media\s*\(max-height:\s*940px\)[\s\S]*?\.sm-board-slot\s*\{[^}]*grid-template-columns:\s*clamp\(48px,\s*4vw,\s*64px\) minmax\(0,\s*1fr\)/);
   assert.match(cardCss, /\.lhc-field-card\.is-compact-fit \.lhc-side\s*\{[^}]*gap:\s*0/,
     "the 22 px item row fits the minimum pinned card track without horizontal clipping");
   assert.match(css, /.sm-host \.lhc-field-card\.is-roomy-field\s*\{[^}]*28px 12px 16px 28px 28px minmax\(36px,\s*1fr\)/,
     "pinned roomy rows preserve three 12 px stat lines inside their 160 px row cap");
+});
+
+test("pinned scoreboard, map slot, canvas, and draft board fit the 1920x1080 and 1440x900 map regions", () => {
+  const windows: [string, number, number][] = [["1920x1080", 1920, 1080], ["1440x900", 1440, 900]];
+  const content = readFileSync(new URL("../src/live/useCanvasBox.ts", import.meta.url), "utf8");
+  const panel = readFileSync(new URL("../src/live/MinimapPanel.tsx", import.meta.url), "utf8");
+  const deck = readFileSync(new URL("../src/live/SecondMonitorDeck.tsx", import.meta.url), "utf8");
+  const liveCss = readFileSync(new URL("../src/live/live.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const css = readFileSync(new URL("../src/live/secondMonitor.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.equal(PINNED_SCOREBOARD_HEIGHT, 64);
+  assert.equal(PINNED_DRAFT_MIN_MAP_H, 420);
+  assert.match(deck, /const draftTableTooSmall = layout\?\.mode === "stacked" && draftPhase && !pinnedDraftFits\(layout\.map\.h\)/);
+  assert.match(deck, /layout\.mode === "too_small" \|\| draftTableTooSmall/);
+  assert.match(panel, /useCanvasBox\(minimap\.frameSize, layout === "pinned"\)/);
+  assert.match(content, /fillStage\s*\?\s*\{\s*width:\s*"100%",\s*height:\s*"100%"[\s\S]*?objectFit:\s*"fill"/);
+  assert.match(css, /\.sm-pinned \.live-map-canvas\s*\{[^}]*width:\s*100%[^}]*height:\s*100%/);
+  assert.match(liveCss, /\.live-map-stage\s*\{[^}]*border:\s*1px\s+solid/);
+  assert.match(css, /\.sm-host \*,[^}]*box-sizing:\s*border-box/);
+  assert.match(css, /\.live-map-square-slot > \.live-map-stage,[\s\S]*?\.live-map-draft-slot > \.live-map-stage\s*\{[^}]*width:\s*100%;\s*height:\s*100%/);
+
+  for (const [name, width, height] of windows) for (const screenSide of ["left", "right"] as const) {
+    const placedLayout = placed(screenSide, width, height);
+    const regionWidth = placedLayout.map.w - 12;
+    const regionHeight = placedLayout.map.h - 12;
+    for (const phase of ["live", "draft"] as const) {
+      const edge = placedLayout.mapEdge;
+      const contents = pinnedMapContents({ width: regionWidth, height: regionHeight, mapEdge: edge, phase });
+      assert.ok(contents, `${name} ${screenSide} ${phase}: pinned content fits`);
+      if (!contents) continue;
+      const inside = (rect: Rect) => rect.x >= 0 && rect.y >= 0
+        && rect.x + rect.w <= regionWidth && rect.y + rect.h <= regionHeight;
+      assert.ok(inside(contents.scoreboard), `${name} ${screenSide} ${phase}: scoreboard stays inside the map region`);
+      assert.equal(contents.scoreboard.h, PINNED_SCOREBOARD_HEIGHT);
+
+      if (phase === "live") {
+        assert.ok(contents.map, `${name} ${screenSide}: live map slot exists`);
+        if (!contents.map) continue;
+        assert.ok(inside(contents.map), `${name} ${screenSide}: map slot stays inside the map region`);
+        assert.equal(contents.scoreboard.y + contents.scoreboard.h, contents.map.y, `${name} ${screenSide}: scoreboard touches the map slot`);
+        assert.equal(contents.scoreboard.x, contents.map.x, `${name} ${screenSide}: scoreboard and map share an edge`);
+        assert.equal(contents.scoreboard.w, contents.map.w, `${name} ${screenSide}: scoreboard and map have equal widths`);
+        assert.equal(contents.map.w, contents.map.h, `${name} ${screenSide}: map slot stays square`);
+        assert.equal(contents.map.w, Math.min(regionWidth, regionHeight - PINNED_SCOREBOARD_HEIGHT), `${name} ${screenSide}: map is the largest square after the scoreboard`);
+        assert.equal(contents.map.x, edge === "right" ? regionWidth - contents.map.w : 0, `${name} ${screenSide}: map is pinned to the inner edge`);
+        const canvas = { w: contents.map.w - 2, h: contents.map.h - 2 };
+        assert.ok(Math.abs(canvas.w - contents.map.w) <= 2 && Math.abs(canvas.h - contents.map.h) <= 2,
+          `${name} ${screenSide}: the 1 px stage border leaves the canvas within 2 px of its slot`);
+      } else {
+        assert.ok(pinnedDraftFits(placedLayout.map.h), `${name} ${screenSide}: requested draft board height remains legible`);
+        assert.ok(contents.board, `${name} ${screenSide}: draft board exists`);
+        if (!contents.board) continue;
+        assert.ok(inside(contents.board), `${name} ${screenSide}: draft board stays inside the map region`);
+        assert.equal(contents.scoreboard.y + contents.scoreboard.h, contents.board.y, `${name} ${screenSide}: scoreboard touches the draft board`);
+        assert.equal(contents.board.x, 0);
+        assert.equal(contents.board.w, regionWidth, `${name} ${screenSide}: draft board uses full map-region width`);
+      }
+    }
+  }
+  assert.equal(pinnedDraftFits(PINNED_DRAFT_MIN_MAP_H), true);
+  assert.equal(pinnedDraftFits(PINNED_DRAFT_MIN_MAP_H - 1), false, "an undersized draft region uses the existing too-small state");
 });
 
 test("below the box needed for cards and map, use the existing too-small state", () => {

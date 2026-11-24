@@ -12538,8 +12538,8 @@
     },
     {
       "path": "apps/desktop/src/live/MinimapPanel.tsx",
-      "bytes": 18290,
-      "sha256": "46358597333f71e6bfd2651efe73ec05414517dae7ba6b66ee6b169ecb3b8b48"
+      "bytes": 18412,
+      "sha256": "ce43dc8b9ecff85c2de9b04926529221be200d7530ff65c729a151c9f7f3eaaa"
     },
     {
       "path": "apps/desktop/src/live/MinimapStage.tsx",
@@ -12578,8 +12578,8 @@
     },
     {
       "path": "apps/desktop/src/live/SecondMonitorDeck.tsx",
-      "bytes": 8107,
-      "sha256": "d98d3b8992d216a4eb70443a906440ba6692d11a6f06d729e0b18ac3b0b284e8"
+      "bytes": 8251,
+      "sha256": "5a26f1fc29457fe9e89ec79eed06a33ea18edc5392ce1ce3bd4f9cb30ab29652"
     },
     {
       "path": "apps/desktop/src/live/SecondMonitorToggle.tsx",
@@ -12743,8 +12743,8 @@
     },
     {
       "path": "apps/desktop/src/live/secondMonitor.css",
-      "bytes": 11281,
-      "sha256": "58fd8fd6e5554298d46da4921de904d10877454a4275cb977b49b5c906e380c0"
+      "bytes": 12573,
+      "sha256": "cb3d5bd080d4d2a3ccd0d95331be9c8cf0cec3a260a7ed6ef3d1247faece2a44"
     },
     {
       "path": "apps/desktop/src/live/secondMonitorCards.ts",
@@ -12753,8 +12753,8 @@
     },
     {
       "path": "apps/desktop/src/live/secondMonitorLayout.ts",
-      "bytes": 5985,
-      "sha256": "1291086239be456e00ac4b5d3a92aa5df9357a317f6efb8419ed359d1605c391"
+      "bytes": 7646,
+      "sha256": "1cd3a5ce2936eb4fa4eb9940472b3a15c7a573ad35b72c5ebd92eb3328bd3e4b"
     },
     {
       "path": "apps/desktop/src/live/secondMonitorModel.ts",
@@ -12773,8 +12773,8 @@
     },
     {
       "path": "apps/desktop/src/live/useCanvasBox.ts",
-      "bytes": 978,
-      "sha256": "7a2005754fda449627002d163791c9b370243cdd8a13b62020f6710ae5963f43"
+      "bytes": 1130,
+      "sha256": "4079ad1747f00ea07e5c4d92a9755e8c515992a103ec98ae87299483624ef2ac"
     },
     {
       "path": "apps/desktop/src/live/useCaptureConfig.ts",
@@ -13733,13 +13733,13 @@
     },
     {
       "path": "apps/desktop/tests/live-second-monitor-layout.test.ts",
-      "bytes": 14133,
-      "sha256": "7b7ab541a979360d9c7326ad91ef91e77da809537b03daf0283a883810e9c1d9"
+      "bytes": 19772,
+      "sha256": "ad51151820160b1e09b5d68d04ebbe375b14102ba8f7f8f4c6822567040528ea"
     },
     {
       "path": "apps/desktop/tests/live-second-monitor-map.test.ts",
-      "bytes": 11219,
-      "sha256": "cf7b3530164c8e9579dad2a7e5181245bfdf123283b3ca9cbf3c0ae7c4478a93"
+      "bytes": 11258,
+      "sha256": "a8fd5061efa8bb4627424b02a4aeb64d5667bb683b9b26c3d2617ed6bf5688a0"
     },
     {
       "path": "apps/desktop/tests/live-second-monitor.test.ts",
