@@ -277,6 +277,43 @@ impl Vpk {
         Ok(entries)
     }
 
+    /// List entries with the requested extension anywhere under a directory prefix.
+    /// Unlike `list_dir`, this includes nested folders, and is useful for
+    /// discovering installed Panorama assets without assuming their subfolder.
+    pub fn list_prefix(&self, prefix: &str, extension: &str) -> Result<Vec<Entry>> {
+        let prefix = normalize_path(prefix).trim_end_matches('/').to_owned();
+        if prefix.is_empty()
+            || prefix.len() > MAX_TREE_STRING_BYTES
+            || extension.is_empty()
+            || extension.len() > MAX_PATH_COMPONENT_BYTES
+        {
+            return Ok(Vec::new());
+        }
+        let mut file = File::open(self.dir_path.as_path())?;
+        file.seek(SeekFrom::Start(VPK_HEADER_BYTES))?;
+        let bounded = BoundedReader::new(file, u64::from(self.tree_size));
+        let mut entries = Vec::new();
+        parse_tree(
+            bounded,
+            &self.dir_path,
+            self.data_size,
+            false,
+            Target::Prefix {
+                prefix: &prefix,
+                extension,
+            },
+            |entry| {
+                entries
+                    .try_reserve(1)
+                    .map_err(|_| Error::AllocationFailed)?;
+                entries.push(entry);
+                Ok(())
+            },
+        )?;
+        entries.sort_by(|a, b| a.path.cmp(&b.path));
+        Ok(entries)
+    }
+
     /// Read exactly one entry's preload and payload bytes, then verify its CRC.
     pub fn read(&self, entry: &Entry) -> Result<Vec<u8>> {
         if !Arc::ptr_eq(&self.dir_path, &entry.source_dir) {
@@ -411,6 +448,10 @@ enum Target<'a> {
         directory: &'a str,
         extension: &'a str,
     },
+    Prefix {
+        prefix: &'a str,
+        extension: &'a str,
+    },
 }
 
 impl Target<'_> {
@@ -422,6 +463,16 @@ impl Target<'_> {
                 directory: target_directory,
                 extension: target_extension,
             } => directory == target_directory && extension.eq_ignore_ascii_case(target_extension),
+            Self::Prefix {
+                prefix,
+                extension: target_extension,
+            } => {
+                (directory == prefix
+                    || directory
+                        .strip_prefix(prefix)
+                        .is_some_and(|suffix| suffix.starts_with('/')))
+                    && extension.eq_ignore_ascii_case(target_extension)
+            }
         }
     }
 }
@@ -947,6 +998,59 @@ mod tests {
             .expect("list items");
         assert_eq!(items.len(), 3);
         assert!(items.windows(2).all(|pair| pair[0].path() < pair[1].path()));
+
+        let nested_vpk_path = temp.path().join("pak03_dir.vpk");
+        fs::write(
+            &nested_vpk_path,
+            synthetic_index_vpk("panorama/images/hud/reborn", "vtex_c", 2, None),
+        )
+        .expect("synthetic nested stat icons");
+        let nested = Vpk::open(&nested_vpk_path)
+            .expect("open nested icons")
+            .list_prefix("PANORAMA/IMAGES", "VTEX_C")
+            .expect("list nested icons");
+        assert_eq!(nested.len(), 2);
+        assert!(nested
+            .iter()
+            .all(|entry| entry.path().starts_with("panorama/images/hud/reborn/")));
+        assert!(Vpk::open(&nested_vpk_path)
+            .expect("reopen nested icons")
+            .list_prefix("panorama/images/hud", "txt")
+            .expect("list wrong extension")
+            .is_empty());
+    }
+
+    #[test]
+    fn stat_icon_source_paths_are_discoverable_in_fixture_vpks() {
+        let temp = TempDir::new();
+        for (index, source) in crate::STAT_ICON_SOURCES.iter().enumerate() {
+            let (directory, filename) = source
+                .source_path
+                .rsplit_once('/')
+                .expect("stat icon has a directory");
+            let (name, extension) = filename
+                .rsplit_once('.')
+                .expect("stat icon has an extension");
+            let vpk_path = temp.path().join(format!("pak{index}_dir.vpk"));
+            fs::write(
+                &vpk_path,
+                synthetic_index_vpk(directory, extension, 1, Some(name)),
+            )
+            .expect("write fixture stat icon VPK");
+            let vpk = Vpk::open(&vpk_path).expect("open fixture stat icon VPK");
+            let found = vpk
+                .find(source.source_path)
+                .expect("find registered stat icon");
+            assert_eq!(found.path(), source.source_path, "{}", source.name);
+            assert!(
+                vpk.list_prefix("panorama/images", "vtex_c")
+                    .expect("list fixture Panorama icons")
+                    .iter()
+                    .any(|entry| entry.path() == source.source_path),
+                "{}",
+                source.name
+            );
+        }
     }
 
     fn synthetic_index_vpk(

@@ -2,7 +2,7 @@
 title: "Decision Log and Open Items"
 doc_id: "DECISION-LOG"
 status: draft
-version: "0.3.15"
+version: "0.3.16"
 updated: "2026-11-24"
 authority: "DEC-BASELINE; see DOCUMENT-CONTROL"
 owner_role: "Product and engineering owners; people not assigned"
@@ -31,6 +31,10 @@ This closes the product-name choice only. DEC-NAME remains delegated for app/pac
 ## What needs a product or contract decision
 
 privacy expansion; replacing local inference with cloud; resource-budget relaxation; removing required MVP voice/memory; changing base/premium behavior; automatic recording or data deletion; new account/payment services; compatibility with an older format; changing supported/certified scope.
+
+## Owner decisions recorded 2026-11-24
+
+- **DEC-STAT-ICONS** (owner 2026-11-24, relayed by the lead, recorded by an agent): owner words, translated in the brief: “The stat text (STR, AGI, INT, DMG, REG, ARM, MR, AMP, AS, MS, EV, SR, LS, GPM, XPM): change it to icons like Dota shows: strength is a red round symbol, agility a green round one. They already have their own icons. The layout switch shows the words ปิด / ซ้าย / ขวา. Make them icons: ปิด (off) is a single computer monitor; ซ้าย (left) is two monitors side by side, with the left one accented; ขวา (right) is the mirrored pair, with the right one accented.” Replace Live and replay stat text labels with Dota 2's own stat icons wherever those exist; use original SVGs for GPM, XPM and stats with no game icon. Preserve all values and unknown states, and keep Thai/English accessible names and tooltips. This is a presentation decision only. Dota art rights review remains required before public release under DEC-REPLAY-INTEGRATION item 3.
 
 ## In-game extensions and 2026-11-21 revisions
 

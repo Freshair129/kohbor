@@ -2,7 +2,7 @@
 import { matchViewerCopy } from "./matchViewerCopy.mjs";
 import { baseAttackSpeed, isConsumableItem, isControlEffect, isMobilityAbility, isMobilityItem, isNotableItem, isUltimateAbility } from "./replayPack.mjs";
 
-export function mountMatchView(root, bundle, { locale, markup, style, icon, hasMap, header, patchData, mapCalibration }) {
+export function mountMatchView(root, bundle, { locale, markup, style, icon, statCatalog, statIcon, hasMap, header, patchData, mapCalibration }) {
   const viewerStrings = matchViewerCopy[locale].viewerStrings;
   const translationEntries = Object.entries(viewerStrings).sort(([left], [right]) => right.length - left.length);
   const translate = value => {
@@ -79,6 +79,15 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
   const clk = t => { const s = Math.round(t), a = Math.abs(s); return (s < 0 ? "−" : "") + String(Math.floor(a / 60)).padStart(2, "0") + ":" + String(a % 60).padStart(2, "0"); };
   const fmt = v => Math.round(v).toLocaleString("en-US");
   const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+  const statDefinition = key => statCatalog?.[key] ?? { label: key.toUpperCase(), accessibleLabel: key.toUpperCase(), iconIds: [] };
+  const statGlyphs = key => {
+    const def = statDefinition(key);
+    const images = def.iconIds.map(id => statIcon?.(id)).filter(Boolean);
+    const glyph = images.length
+      ? images.map(src => `<img src="${esc(src)}" alt="" aria-hidden="true" draggable="false">`).join("")
+      : esc(def.label);
+    return `<span class="stat-glyph" role="img" aria-label="${esc(def.accessibleLabel)}">${glyph}</span>`;
+  };
   const slug = id => id.replace("npc_dota_hero_", "");
   const portSrc = id => icon("hero", slug(id));
   let W = 600, H = 600, dpr = 1;
@@ -460,24 +469,28 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
     const d = derived(h, t); if (!d) return "";
     const tip = (title, keys, extra) => esc(title + "\n" + keys.flatMap(k => (d.src[k] || []).map(([l, v]) => `• ${l}: ${v > 0 && k !== "mspct" ? "+" : ""}${Math.round(v * 10) / 10}${/^(mr|mrm|mrint|amp|ls|sls|evm|srm|mspct)$/.test(k) ? "%" : ""}`)).join("\n") + (extra ? "\n" + extra : ""));
     const pct = v => (Math.round(v * 1000) / 10) + "%";
-    const cell = (lab, val, title, cls) => `<span class="dv${cls ? " " + cls : ""}" title="${title}">${lab} <b>${val}</b></span>`;
+    const cell = (key, val, title, cls) => {
+      const label = esc(statDefinition(key).accessibleLabel);
+      return `<span class="dv${cls ? " " + cls : ""}" title="${label}\n${title}">${statGlyphs(key)} <b>${val}</b></span>`;
+    };
     return `<div class="row dvs">
-      ${cell("ARM", d.armor.toFixed(1), tip(`เกราะ ≈ ${d.armor.toFixed(1)} (ลดดาเมจกายภาพ ${pct(d.pr)})`, ["armor"], "สูตร: 0.06×เกราะ ÷ (1 + 0.06×|เกราะ|)"))}
-      ${cell("MR", pct(d.mr), tip(`Magic resistance ≈ ${pct(d.mr)}`, ["mr", "mrint", "mrm"], `Patch ${patchData.patch}: base resistance plus ${patchData.rules?.mr_per_int_pct ?? patchData.formulas?.magic_resistance_per_intelligence_pct?.value}% per INT, then other sources multiply.`))}
-      ${cell("AMP", d.amp + "%", tip(`Spell amp ≈ ${d.amp}%`, ["amp"], "แหล่งต่าง ๆ บวกกัน"), d.amp ? "" : "z")}
-      ${cell("AS", Math.round(d.as), tip(`Attack speed ≈ ${Math.round(d.as)} (${d.aps.toFixed(2)} ครั้ง/วินาที, BAT ${h.st.bat[i]})`, ["as"], `Patch ${patchData.patch}: hero base attack speed + AGI + bonuses, bounded by ${20 + (baseAttackSpeed(patchData, h.id) ?? S.D.statdb.heroes[h.id].bas) - 100}–700.`))}
-      ${cell("MS", Math.round(d.ms), tip(`ความเร็ววิ่ง ≈ ${Math.round(d.ms)}${d.haste ? " (haste = ความเร็วสูงสุด)" : ""}`, ["ms", "mspct"], "สูตร: (พื้นฐาน + รองเท้าคู่ที่ดีที่สุด + ค่าคงที่อื่น) × (1 + % รวม) จำกัด 100–550"))}
-      ${cell("EV", pct(d.ev), tip(`Evasion ≈ ${pct(d.ev)}`, ["evm"], "สูตร: 1 − Π(1 − แหล่ง)"), d.ev ? "" : "z")}
-      ${cell("SR", pct(d.sres), tip(`Status resistance ≈ ${pct(d.sres)}`, ["srm"], "สูตร (Liquipedia): 1 − Π(1 − แหล่ง) · Sange หลายชิ้นเอาค่าสูงสุดค่าเดียว"), d.sres ? "" : "z")}
-      ${cell("LS", (d.ls || 0) + "%", tip(`Lifesteal ≈ ${d.ls}% · Spell lifesteal ≈ ${d.sls}%`, ["ls", "sls"]), d.ls || d.sls ? "" : "z")}
+      ${cell("arm", d.armor.toFixed(1), tip(`เกราะ ≈ ${d.armor.toFixed(1)} (ลดดาเมจกายภาพ ${pct(d.pr)})`, ["armor"], "สูตร: 0.06×เกราะ ÷ (1 + 0.06×|เกราะ|)"))}
+      ${cell("mr", pct(d.mr), tip(`Magic resistance ≈ ${pct(d.mr)}`, ["mr", "mrint", "mrm"], `Patch ${patchData.patch}: base resistance plus ${patchData.rules?.mr_per_int_pct ?? patchData.formulas?.magic_resistance_per_intelligence_pct?.value}% per INT, then other sources multiply.`))}
+      ${cell("amp", d.amp + "%", tip(`Spell amp ≈ ${d.amp}%`, ["amp"], "แหล่งต่าง ๆ บวกกัน"), d.amp ? "" : "z")}
+      ${cell("as", Math.round(d.as), tip(`Attack speed ≈ ${Math.round(d.as)} (${d.aps.toFixed(2)} ครั้ง/วินาที, BAT ${h.st.bat[i]})`, ["as"], `Patch ${patchData.patch}: hero base attack speed + AGI + bonuses, bounded by ${20 + (baseAttackSpeed(patchData, h.id) ?? S.D.statdb.heroes[h.id].bas) - 100}–700.`))}
+      ${cell("ms", Math.round(d.ms), tip(`ความเร็ววิ่ง ≈ ${Math.round(d.ms)}${d.haste ? " (haste = ความเร็วสูงสุด)" : ""}`, ["ms", "mspct"], "สูตร: (พื้นฐาน + รองเท้าคู่ที่ดีที่สุด + ค่าคงที่อื่น) × (1 + % รวม) จำกัด 100–550"))}
+      ${cell("ev", pct(d.ev), tip(`Evasion ≈ ${pct(d.ev)}`, ["evm"], "สูตร: 1 − Π(1 − แหล่ง)"), d.ev ? "" : "z")}
+      ${cell("sr", pct(d.sres), tip(`Status resistance ≈ ${pct(d.sres)}`, ["srm"], "สูตร (Liquipedia): 1 − Π(1 − แหล่ง) · Sange หลายชิ้นเอาค่าสูงสุดค่าเดียว"), d.sres ? "" : "z")}
+      ${cell("ls", (d.ls || 0) + "%", tip(`Lifesteal ≈ ${d.ls}% · Spell lifesteal ≈ ${d.sls}%`, ["ls", "sls"]), d.ls || d.sls ? "" : "z")}
     </div>`;
   }
   function statsHTML(h, i){
     const s = h.st; if (!s) return "";
-    const at = (k, lab, p) => { const tot = s[k + "T"][i], b = s[k][i], bonus = Math.round(tot - b); return `<span class="at${h.prim === p ? " pr" : ""}" title="${lab} พื้นฐาน ${b} · โบนัส +${bonus}">${lab} <b>${Math.round(tot)}</b>${bonus > 0 ? `<em>+${bonus}</em>` : ""}</span>`; };
-    return `<div class="row st">${at("str", "STR", 0)}${at("agi", "AGI", 1)}${at("int", "INT", 2)}
-      <span class="at" title="ดาเมจโจมตีพื้นฐาน ${s.dmin[i]}–${s.dmax[i]} · โบนัสจากไอเทมและบัฟ +${s.dbonus[i]} · ระยะตี ${s.range[i]} · BAT ${s.bat[i]}">DMG <b>${s.dmin[i]}–${s.dmax[i]}</b>${s.dbonus[i] ? `<em>+${s.dbonus[i]}</em>` : ""}</span>
-      <span class="at" title="HP regen ${s.hpreg[i]}/วินาที · Mana regen ${s.mpreg[i]}/วินาที">REG <b>${s.hpreg[i]}</b>/<b class="m">${s.mpreg[i]}</b></span></div>`;
+    const at = (key, p) => { const def = statDefinition(key), tot = s[key + "T"][i], b = s[key][i], bonus = Math.round(tot - b); return `<span class="at${h.prim === p ? " pr" : ""}" title="${esc(def.accessibleLabel)}: พื้นฐาน ${b} · โบนัส +${bonus}">${statGlyphs(key)} <b>${Math.round(tot)}</b>${bonus > 0 ? `<em>+${bonus}</em>` : ""}</span>`; };
+    const cell = (key, val, detail) => `<span class="at" title="${esc(statDefinition(key).accessibleLabel)}: ${esc(detail)}">${statGlyphs(key)} <b>${val}</b></span>`;
+    return `<div class="row st">${at("str", 0)}${at("agi", 1)}${at("int", 2)}
+      ${cell("dmg", `${s.dmin[i]}–${s.dmax[i]}${s.dbonus[i] ? `<em>+${s.dbonus[i]}</em>` : ""}`, `ดาเมจโจมตีพื้นฐาน ${s.dmin[i]}–${s.dmax[i]} · โบนัสจากไอเทมและบัฟ +${s.dbonus[i]} · ระยะตี ${s.range[i]} · BAT ${s.bat[i]}`)}
+      <span class="at" title="${esc(statDefinition("reg").accessibleLabel)}: HP regen ${s.hpreg[i]}/วินาที · Mana regen ${s.mpreg[i]}/วินาที">${statGlyphs("reg")} <b>${s.hpreg[i]}</b>/<b class="m">${s.mpreg[i]}</b></span></div>`;
   }
   function firstAtOrAfter(T, a){ let lo = 0, hi = T.length; while (lo < hi){ const m = (lo + hi) >> 1; if (T[m] < a - 1e-3) lo = m + 1; else hi = m; } return lo; }
   function healIn(h, a, b){ const T = h.HT; if (!T) return 0; let s = 0; for (let k = firstAtOrAfter(T, a); k < T.length && T[k] <= b; k++) s += h.HV[k]; return s; }

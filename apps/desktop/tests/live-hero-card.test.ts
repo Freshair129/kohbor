@@ -110,6 +110,21 @@ test("derived stat markers expose their source list and the temporary-effects ca
   assert.match(component, /statsData: LIVE_STATS_DATA, gameBuild: null/);
 });
 
+test("each stat cell maps to an icon and bilingual accessible label without changing unknown values", () => {
+  const cells = statCells();
+  assert.deepEqual(cells.map(cell => cell.label), STAT_LABELS);
+  for (const cell of cells) {
+    assert.ok(cell.iconIds.length > 0, `${cell.key} maps to at least one icon`);
+    assert.ok(cell.accessibleLabel.includes(cell.label), `${cell.key} accessible label retains its stat name`);
+    assert.match(cell.accessibleLabel, /[ก-๙]/, `${cell.key} label includes Thai`);
+    assert.match(cell.accessibleLabel, /\([^)]+\)/, `${cell.key} label includes English`);
+    assert.equal(cell.value, UNKNOWN, `${cell.key} remains unknown without a value source`);
+  }
+  const css = readFileSync(new URL("../src/live/heroCard.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.match(css, /\.lhc-stat dt\s*\{[^}]*height:\s*12px/);
+  assert.match(css, /\.lhc-stat dt > img\s*\{[^}]*width:\s*12px;\s*height:\s*12px/);
+});
+
 test("own hero: identity, level, K/D/A, LH/DN, gold, HP and mana map from GSI", () => {
   const view = card();
   assert.equal(view.variant, "full");

@@ -19,6 +19,8 @@ import type { HeroCard, SkillState, SkillSource } from "./secondMonitorCards.ts"
 import type { IconResolver } from "./dotaIcons.ts";
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
 import { derivedStats, RULES_BY_PATCH, type DerivedRules, type StatsData } from "../stats/derivedStats.ts";
+// @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
+import { STAT_ICON_CATALOG, type StatIconId, type StatKey } from "./statIcons/catalog.ts";
 
 export const UNKNOWN = "—";
 
@@ -109,16 +111,16 @@ export function unknownItems(): ItemsView {
  * The replay card's attribute and derived stat cells, in its order: STR/AGI/INT, DMG, REG, then ARM, MR, AMP, AS, MS,
  * EV, SR, LS; GPM/XPM follow as the own hero's observed GSI rates. Missing module outputs remain "—".
  */
-export type StatKey = "str" | "agi" | "int" | "dmg" | "reg" | "arm" | "mr" | "amp" | "as" | "ms" | "ev" | "sr" | "ls" | "gpm" | "xpm";
 export interface StatCellView {
   key: StatKey; label: string; value: string; gain: string | null; group: "attribute" | "derived" | "rate";
+  iconIds: readonly StatIconId[]; accessibleLabel: string;
   derived: boolean; sources: string[]; basis: string | null;
 }
-const STAT_CELLS: readonly [StatKey, string, StatCellView["group"]][] = [
-  ["str", "STR", "attribute"], ["agi", "AGI", "attribute"], ["int", "INT", "attribute"], ["dmg", "DMG", "attribute"], ["reg", "REG", "attribute"],
-  ["arm", "ARM", "derived"], ["mr", "MR", "derived"], ["amp", "AMP", "derived"], ["as", "AS", "derived"],
-  ["ms", "MS", "derived"], ["ev", "EV", "derived"], ["sr", "SR", "derived"], ["ls", "LS", "derived"],
-  ["gpm", "GPM", "rate"], ["xpm", "XPM", "rate"],
+const STAT_CELLS: readonly [StatKey, StatCellView["group"]][] = [
+  ["str", "attribute"], ["agi", "attribute"], ["int", "attribute"], ["dmg", "attribute"], ["reg", "attribute"],
+  ["arm", "derived"], ["mr", "derived"], ["amp", "derived"], ["as", "derived"],
+  ["ms", "derived"], ["ev", "derived"], ["sr", "derived"], ["ls", "derived"],
+  ["gpm", "rate"], ["xpm", "rate"],
 ];
 type DerivedCell = { value: string; sources: string[] };
 type DerivedCellMap = Partial<Record<StatKey, DerivedCell>>;
@@ -128,10 +130,11 @@ export function statCells(
   derived: DerivedCellMap = {},
   basis: string | null = null,
 ): StatCellView[] {
-  return STAT_CELLS.map(([key, label, group]) => {
+  return STAT_CELLS.map(([key, group]) => {
+    const { label, accessibleLabel, iconIds } = STAT_ICON_CATALOG[key];
     const cell = derived[key];
     const isRate = group === "rate";
-    return { key, label, group, gain: null, derived: cell !== undefined,
+    return { key, label, group, iconIds, accessibleLabel, gain: null, derived: cell !== undefined,
       value: cell?.value ?? (key === "gpm" ? num(rates.gpm) : key === "xpm" ? num(rates.xpm) : UNKNOWN),
       sources: cell?.sources ?? (isRate ? [`gsi:own.fields.${key}`] : []), basis: cell ? basis : null };
   });

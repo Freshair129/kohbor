@@ -3,6 +3,8 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Locale } from "../copy";
+import { STAT_ICON_CATALOG, type StatIconId } from "../live/statIcons/catalog";
+import { statIconUrl } from "../live/statIcons/assets";
 import { BUNDLED } from "./bundledIcons";
 import {
   admitLibraryBundle, countFound, gameModeName, iconResolver, neededIconKeys,
@@ -105,6 +107,8 @@ export function MatchViewPanel({ locale }: { locale: Locale }) {
       unmount = mountMatchView(root, loaded.bundle, {
       locale, markup, style,
       icon: iconResolver(BUNDLED.icons),
+      statCatalog: STAT_ICON_CATALOG,
+      statIcon: (id: StatIconId) => statIconUrl(id),
       hasMap: BUNDLED.icons.has("map:"),
       patchData: loaded.pack,
       mapCalibration: loaded.calibration,
@@ -367,6 +371,8 @@ export function MatchViewerSurface({
     const mounted = mountMatchView(root, bundle, {
       locale, markup, style: `${style}\n${analyticsSurfaceOverrides}`,
       icon: iconResolver(BUNDLED.icons), hasMap: BUNDLED.icons.has("map:"), patchData: lookup.pack,
+      statCatalog: STAT_ICON_CATALOG,
+      statIcon: (id: StatIconId) => statIconUrl(id),
       mapCalibration: map.calibration,
       header: {
         "mv-lede": matchViewerCopy[locale].lede(patch, mode, length),

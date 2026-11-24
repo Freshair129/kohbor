@@ -12257,6 +12257,76 @@
       "sha256": "dbb6f5de709f96de04e60b5a186df18be81a49545235a2d9fa095cfe0ec2cc04"
     },
     {
+      "path": "apps/desktop/src/assets/dota/6993/provenance.json",
+      "bytes": 3310,
+      "sha256": "9aa24ec1889fca94b8b7258bcaa68f596b4d092e35cb42517546bc3d2673f817"
+    },
+    {
+      "path": "apps/desktop/src/assets/dota/6993/stat-icons/armor.png",
+      "bytes": 864,
+      "sha256": "3e99008501bb1b17b1085e3636990066756e2644d72872807a68a67c3573cbb5"
+    },
+    {
+      "path": "apps/desktop/src/assets/dota/6993/stat-icons/attack_speed.png",
+      "bytes": 1536,
+      "sha256": "f7aeb5c80b172160bef46ea0d497f1a97d2af71222aaa762c4fcbba16d33f3de"
+    },
+    {
+      "path": "apps/desktop/src/assets/dota/6993/stat-icons/damage.png",
+      "bytes": 1269,
+      "sha256": "96cc2ed17ece02ecacb5a5caddc07072968d265cf40920b22205d3a9a2dedcd5"
+    },
+    {
+      "path": "apps/desktop/src/assets/dota/6993/stat-icons/evasion.png",
+      "bytes": 423,
+      "sha256": "020599b506b2eb07e0162edf4173db855e2c63194ef3f2cf5a6af6923366403e"
+    },
+    {
+      "path": "apps/desktop/src/assets/dota/6993/stat-icons/health_regen.png",
+      "bytes": 2822,
+      "sha256": "18d8f5045b7064523290818ad25faa5a6762c104add2521a0e69b654c0b4fa60"
+    },
+    {
+      "path": "apps/desktop/src/assets/dota/6993/stat-icons/lifesteal.png",
+      "bytes": 8157,
+      "sha256": "82b20334baccd00f9f4975b09405e7437ac88d298ee6376e9336f7430f83669d"
+    },
+    {
+      "path": "apps/desktop/src/assets/dota/6993/stat-icons/magic_resist.png",
+      "bytes": 1951,
+      "sha256": "a8c7e19cf7f04409da908496f290e607a98a41e1763f815b6cbc0ccfcfb8bd3d"
+    },
+    {
+      "path": "apps/desktop/src/assets/dota/6993/stat-icons/mana_regen.png",
+      "bytes": 2871,
+      "sha256": "f3232d11c616ca2ae73f6181d9c42aeacde0ac811a29831fc4bdef7ddff46285"
+    },
+    {
+      "path": "apps/desktop/src/assets/dota/6993/stat-icons/move_speed.png",
+      "bytes": 1305,
+      "sha256": "347d71936731ba0aea506efc7347fbc0d000b16953c9262b1def3583c0a95c90"
+    },
+    {
+      "path": "apps/desktop/src/assets/dota/6993/stat-icons/primary_agility.png",
+      "bytes": 3051,
+      "sha256": "bbfc440aa970f0111e7b24ac54f7d1db09eda80f8bf0bfd35d776ab70372a62e"
+    },
+    {
+      "path": "apps/desktop/src/assets/dota/6993/stat-icons/primary_intelligence.png",
+      "bytes": 3932,
+      "sha256": "274820918df29c39647626f30afcb9f778c1253428ae064b2e725da71d435bd0"
+    },
+    {
+      "path": "apps/desktop/src/assets/dota/6993/stat-icons/primary_strength.png",
+      "bytes": 3215,
+      "sha256": "e768109ed6b151008ccb90c88f49b949faf9b20f234a354f988b45a2b40251ab"
+    },
+    {
+      "path": "apps/desktop/src/assets/dota/6993/stat-icons/primary_universal.png",
+      "bytes": 5599,
+      "sha256": "3133b3d863820f1abc5bf7ab45041bc832e6d3cc12d896a472cd1674c3251878"
+    },
+    {
       "path": "apps/desktop/src/assets/editor/editor-reference-1080p.jpg",
       "bytes": 333443,
       "sha256": "e989e489bd4a4519c9b2b8b346ecee290e6c1495248b4bf3729d4345f1f223ce"
@@ -12583,8 +12653,8 @@
     },
     {
       "path": "apps/desktop/src/live/HeroCard.tsx",
-      "bytes": 19510,
-      "sha256": "630d97e0f8cfd3d5adc96805694375937dad42e0eb30774581a774713b5daa2e"
+      "bytes": 20085,
+      "sha256": "7aeedbb9df48865d831a2ffa2376eeb09f0fa4ba6da4bdc8de609ba97c3bc402"
     },
     {
       "path": "apps/desktop/src/live/LiveTab.tsx",
@@ -12643,8 +12713,8 @@
     },
     {
       "path": "apps/desktop/src/live/SecondMonitorToggle.tsx",
-      "bytes": 1002,
-      "sha256": "7d735e1cd1e9ca9dc4b32379875654eaf77881b8ba3bff3a58a5bfb7e836aee8"
+      "bytes": 2355,
+      "sha256": "8a5c3e31cce10bba312cb157a5f2474bd9a5a4e054b42a9e64f755a905d82904"
     },
     {
       "path": "apps/desktop/src/live/canvasBox.ts",
@@ -12713,13 +12783,13 @@
     },
     {
       "path": "apps/desktop/src/live/heroCard.css",
-      "bytes": 27666,
-      "sha256": "c53f3013ccbf45018af7a82349ab0fef9543cf10620cdc30c3b6b0034abf6099"
+      "bytes": 27956,
+      "sha256": "f50c62f635b1a03bd4fa1276d7975db05aadfafd7ca0e81fc9143138cdbea684"
     },
     {
       "path": "apps/desktop/src/live/heroCardModel.ts",
-      "bytes": 19330,
-      "sha256": "2659a273abd2d8352e51a608244fabf74142ee6dcb5bb65dc4825a655acd1a3b"
+      "bytes": 19417,
+      "sha256": "03d1d0e2b727ed03028d623282838f418b57f6126e739fe71ffb4ef7602c20bb"
     },
     {
       "path": "apps/desktop/src/live/index.ts",
@@ -12820,6 +12890,36 @@
       "path": "apps/desktop/src/live/secondMonitorModel.ts",
       "bytes": 10288,
       "sha256": "5d227bd472bfafd27b3b0cf8abe7e032d93d8bb8868eabff7fab2f6a0ac21683"
+    },
+    {
+      "path": "apps/desktop/src/live/statIcons/assets.ts",
+      "bytes": 1174,
+      "sha256": "8e708da6d1c030fc2928d30a8c8ead2c0f200d225e388c6d8b3d5d6aae176c2e"
+    },
+    {
+      "path": "apps/desktop/src/live/statIcons/catalog.ts",
+      "bytes": 3129,
+      "sha256": "339fb913fbcc7480d11e521ed45f8413b80a0522619a005f187fd3b501e3d3c6"
+    },
+    {
+      "path": "apps/desktop/src/live/statIcons/gpm.svg",
+      "bytes": 414,
+      "sha256": "259eeeb7de9d459dd981f6e7a758465e9caa6854b3c1806221e5f25d2e237fa9"
+    },
+    {
+      "path": "apps/desktop/src/live/statIcons/spell_amp.svg",
+      "bytes": 312,
+      "sha256": "0fe62d250a7792e5162fbb0d8e47e590a18d54fe9e1bff230df5c9e746a77261"
+    },
+    {
+      "path": "apps/desktop/src/live/statIcons/status_resistance.svg",
+      "bytes": 353,
+      "sha256": "8cf693699555ac40acf2afb86b3445a5b82abbff8173ac1c1e9c963a0d8d39ba"
+    },
+    {
+      "path": "apps/desktop/src/live/statIcons/xpm.svg",
+      "bytes": 276,
+      "sha256": "e05a29a80e82d3f45ef98d7d72db8341dfa5ed365aad3fe3bf19ea953e01143c"
     },
     {
       "path": "apps/desktop/src/live/state.ts",
@@ -13193,8 +13293,8 @@
     },
     {
       "path": "apps/desktop/src/replay/MatchViewPanel.tsx",
-      "bytes": 16692,
-      "sha256": "24af638b2debad044e4b0e819471cf0c28837ffb0d2181df2c45e4656b98d9a8"
+      "bytes": 17010,
+      "sha256": "756720c9fb726d18cd0b281170da9739b530acfc1b22289ae545dd3c098b6c4e"
     },
     {
       "path": "apps/desktop/src/replay/ReplayPanel.tsx",
@@ -13233,13 +13333,13 @@
     },
     {
       "path": "apps/desktop/src/replay/matchViewer.css",
-      "bytes": 30849,
-      "sha256": "c7da6a95db2ec1c89bd9dd60c873164f7a5d687a9854359b7c4fd3f730d87cf6"
+      "bytes": 31249,
+      "sha256": "d5516f1fc275310eb2407db38ab369eac2806e44fea59a3bbed03c88557f99c0"
     },
     {
       "path": "apps/desktop/src/replay/matchViewer.d.mts",
-      "bytes": 562,
-      "sha256": "93292a113f5f22cf4ac1d788d120e46cd3d06c547cce342bd5741baaeb5a667e"
+      "bytes": 765,
+      "sha256": "7b57f61cc9212fab0012a058527e3b8f6d2f755c9c233d7d47056d4f0dea53bd"
     },
     {
       "path": "apps/desktop/src/replay/matchViewer.html",
@@ -13248,8 +13348,8 @@
     },
     {
       "path": "apps/desktop/src/replay/matchViewer.mjs",
-      "bytes": 107331,
-      "sha256": "bb09d2d7947748a1c1c11b8039cf72eb709133323ed03866ebd373590ddc5119"
+      "bytes": 108258,
+      "sha256": "2a686210601e99232e6fb92a24e2488f59af1bffd0e72c11bc9b71fe577c6b31"
     },
     {
       "path": "apps/desktop/src/replay/matchViewerCopy.d.mts",
@@ -13763,8 +13863,8 @@
     },
     {
       "path": "apps/desktop/tests/live-hero-card.test.ts",
-      "bytes": 23986,
-      "sha256": "a4993587fdad0d991f324b3144821d6da129aaf1164991c16f59232b1981d19a"
+      "bytes": 24963,
+      "sha256": "a2e870e377d10c525b1aa392d72c3935333a336facb50a2a8963f7273cb3ec6d"
     },
     {
       "path": "apps/desktop/tests/live-layout.test.ts",
@@ -13813,8 +13913,8 @@
     },
     {
       "path": "apps/desktop/tests/live-second-monitor.test.ts",
-      "bytes": 12319,
-      "sha256": "1facb333bc725b05b4d58a8d47890dd948364a4bdd8025f4e1dc0a2a1bd78ec9"
+      "bytes": 13300,
+      "sha256": "f1ddc0ff8be33610f23b77f01ebb15c2bcc4875ccbee0889b87421965a4801a2"
     },
     {
       "path": "apps/desktop/tests/live.test.ts",
@@ -13828,8 +13928,8 @@
     },
     {
       "path": "apps/desktop/tests/match-bundle.test.ts",
-      "bytes": 8121,
-      "sha256": "067cd0bfd928b105fc68262a037999973c6ab4bb816db8f76d02d98a4085f0b8"
+      "bytes": 9076,
+      "sha256": "b51e47ac33b96e48ce1f1394969953dbbe1f3974643af84b17476987aa5ee41e"
     },
     {
       "path": "apps/desktop/tests/match-copy.test.ts",
@@ -14583,8 +14683,8 @@
     },
     {
       "path": "crates/kohbor-game-assets/src/bin/kohbor-asset-export.rs",
-      "bytes": 36996,
-      "sha256": "a05d27ba5f675df7594c7351a038742437ef384ffbc4141f5372cde332a6c372"
+      "bytes": 48734,
+      "sha256": "13d9a7a4b29b2d7e7fc01740b78e79c43017fa5e83e8ab158a95b285c35a06dd"
     },
     {
       "path": "crates/kohbor-game-assets/src/bin/kohbor-asset-probe.rs",
@@ -14603,18 +14703,18 @@
     },
     {
       "path": "crates/kohbor-game-assets/src/lib.rs",
-      "bytes": 5354,
-      "sha256": "17f90822d6948261952edc615fab5fc9161e73f547a38e6e4afb6d7a2a995d12"
+      "bytes": 7623,
+      "sha256": "264edc71653be43128fcd6c8de6ff370264632ee275ec73797cc7dd6fcee5a0c"
     },
     {
       "path": "crates/kohbor-game-assets/src/texture.rs",
-      "bytes": 45882,
-      "sha256": "bc758c5b158bc103a0884926be7ff9c2fb189a2c2489bb096ad2bdea85fc35b0"
+      "bytes": 47159,
+      "sha256": "871f3b663699919b38172be188111808fd2e52f310b2abbfbaf63bbf6c7df07c"
     },
     {
       "path": "crates/kohbor-game-assets/src/vpk.rs",
-      "bytes": 37296,
-      "sha256": "41562a034df1965467073cbdd5c76a7e30ebae1884f64296cf04be13570eb58a"
+      "bytes": 41324,
+      "sha256": "3acedc37aed4f76b7094a7894f03a80e3d57945346edb31f005a0f83f27fc5a8"
     },
     {
       "path": "crates/kohbor-gsi-capture/Cargo.toml",
@@ -15263,8 +15363,8 @@
     },
     {
       "path": "docs/design/UX-SPEC.md",
-      "bytes": 38380,
-      "sha256": "f65af5cebc748ebbf53a5b23fc1b2990895ecac9a5a550f9a4018fbf043ed5da"
+      "bytes": 38767,
+      "sha256": "b1056b89d1e1002777f9a04093a9f238d1f8ac8dcdd2e5ae9f2d6758d1cdb909"
     },
     {
       "path": "docs/design/VISUAL-DESIGN-PROPOSAL.md",
@@ -15708,8 +15808,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 94287,
-      "sha256": "756584128c6cd3a11a0d877ce4370afd08083fc8f611353cdb2c82771b7090e7"
+      "bytes": 95335,
+      "sha256": "2e33c93bef79232c5d83679950c85467c12aa9a905a84772d283611e5869b5ed"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
