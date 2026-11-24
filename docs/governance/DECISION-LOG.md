@@ -2,7 +2,7 @@
 title: "Decision Log and Open Items"
 doc_id: "DECISION-LOG"
 status: draft
-version: "0.3.16"
+version: "0.3.17"
 updated: "2026-11-24"
 authority: "DEC-BASELINE; see DOCUMENT-CONTROL"
 owner_role: "Product and engineering owners; people not assigned"
@@ -35,6 +35,7 @@ privacy expansion; replacing local inference with cloud; resource-budget relaxat
 ## Owner decisions recorded 2026-11-24
 
 - **DEC-STAT-ICONS** (owner 2026-11-24, relayed by the lead, recorded by an agent): owner words, translated in the brief: “The stat text (STR, AGI, INT, DMG, REG, ARM, MR, AMP, AS, MS, EV, SR, LS, GPM, XPM): change it to icons like Dota shows: strength is a red round symbol, agility a green round one. They already have their own icons. The layout switch shows the words ปิด / ซ้าย / ขวา. Make them icons: ปิด (off) is a single computer monitor; ซ้าย (left) is two monitors side by side, with the left one accented; ขวา (right) is the mirrored pair, with the right one accented.” Replace Live and replay stat text labels with Dota 2's own stat icons wherever those exist; use original SVGs for GPM, XPM and stats with no game icon. Preserve all values and unknown states, and keep Thai/English accessible names and tooltips. This is a presentation decision only. Dota art rights review remains required before public release under DEC-REPLAY-INTEGRATION item 3.
+- **DEC-OWN-HERO-CARD-DENSITY / regeneration presentation** (owner 2026-11-24, relayed by the lead, recorded by an agent; report on build 15ca531): “The hero card now has 4 rows × 2 columns of stats. Why not 2 rows with more columns, so the card isn't so tall? Also it's missing how much HP regen I have right now. In the HP bar it should say +6.5, meaning HP regen is 6.5 per second.” For the own hero's compact field card, use two rows of four stat cells in `one-row-28` (width at least 467 px; 102 px minimum height) and `two-row-24` (width at least 254 px and height at least 124 px). In the narrower `two-row-22` mode, retain the existing 5-by-3 grid. The compact grid omits REG because the own HP and mana bars show fresh derived regeneration, right-aligned, with a plus sign and one decimal (omitting `.0` under the current formatter); unknown or stale values show no text, while a fresh known zero may show `+0`. Tooltips identify these as derived estimates, include source and ruleset basis, and retain the no-temporary-effects caveat. Other cards retain their current layout. CSS/model height estimates for this own card are: pinned 1920×1080, 160→112 px; pinned 1440×900, 160→112 px; centred 1920×1080, 186→102 px; centred 1440×900, 150→112 px. These are layout-model estimates from the CSS constraints, not browser-rendered or native measurements; the lead will render and typecheck after merge. This presentation note does not record owner approval of the implementation or acceptance evidence.
 
 ## In-game extensions and 2026-11-21 revisions
 

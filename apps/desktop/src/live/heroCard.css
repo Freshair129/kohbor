@@ -68,7 +68,9 @@
 .lhc-bar.is-unknown { border: 1px dashed var(--line); background: transparent; }
 .lhc.is-stale .lhc-bar > i { background: var(--stale); }
 .lhc-bar-num { position: absolute; z-index: 1; inset: 0; display: flex; align-items: center; justify-content: center; gap: 4px; color: var(--text); font: 600 12px/1 "IBM Plex Mono", Consolas, monospace; text-shadow: 0 0 2px #000, 0 0 2px #000; white-space: nowrap; }
+.lhc-bar-num.has-regen { right: 42px; }
 .lhc-bar-num small { color: var(--text-2); font-size: 12px; font-weight: 500; }
+.lhc-bar-regen { position: absolute; z-index: 2; inset-block: 0; right: 4px; display: flex; align-items: center; color: var(--text); font: 600 12px/1 "IBM Plex Mono", Consolas, monospace; text-shadow: 0 0 2px #000, 0 0 2px #000; white-space: nowrap; }
 
 .lhc-row { display: flex; align-items: center; gap: 3px; min-width: 0; }
 .lhc-ab { grid-area: ab; flex-wrap: wrap; row-gap: 3px; }
@@ -332,6 +334,11 @@
 .lhc-field-card.lhc-field-own.is-own-one-row-28 .lhc-stat,
 .lhc-field-card.lhc-field-own.is-own-two-row-24 .lhc-stat,
 .lhc-field-card.lhc-field-own.is-own-two-row-22 .lhc-stat { display: flex; align-items: center; gap: 2px; min-width: 0; line-height: 12px; }
+.lhc-field-card.lhc-field-own.is-own-compact { height: min-content; align-self: start; }
+.lhc-field-card.lhc-field-own.is-own-compact.is-own-one-row-28 { grid-template-rows: 24px 14px 28px 24px; }
+.lhc-field-card.lhc-field-own.is-own-compact.is-own-two-row-24 { grid-template-rows: 20px 14px 24px 24px 24px; }
+.lhc-field-card.lhc-field-own .lhc-stats.is-own-compact { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(12px, 1fr)); align-content: stretch; gap: 0 4px; font-size: 12px; line-height: 12px; }
+.lhc-field-card.lhc-field-own .lhc-stats.is-own-compact .lhc-stat { display: flex; align-items: center; gap: 2px; min-width: 0; line-height: 12px; }
 .lhc-field-card.is-compact-fit {
   box-sizing: border-box;
   --ab: 22px;

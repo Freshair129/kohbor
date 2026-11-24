@@ -2,7 +2,7 @@
 title: "User Experience Specification"
 doc_id: "UX-SPEC"
 status: draft
-version: "0.3.11"
+version: "0.3.12"
 updated: "2026-11-24"
 baseline: "DEC-BASELINE"
 owner_role: "UX owner; people not assigned"
@@ -97,6 +97,10 @@ There is no separate own-hero card in any field phase. The own hero occupies its
 The compact second-monitor selector remains a three-button segmented control. Its choices use single- or dual-monitor glyphs; the active monitor is accented for the left/right choices. Each icon button keeps its Thai/English accessible name and tooltip, pressed state and keyboard operation.
 
 The own card is filled only from GSI for directly observed values: level, alive/respawn, K/D/A, LH/DN, gold, HP, mana percentage, abilities, items, backpack, TP, neutral and admitted GPM/XPM. Derived attributes and stats use only the own GSI hero ID, level and observed item IDs plus the installed-game stats pack and supported rules; they are labelled estimates, not direct GSI readings. The current renderer has no admitted game-build field. When build is unknown, it labels the game build unknown, shows the data-pack build, and marks the newest supported rules (7.42) as a fallback. Unknown values remain em dashes or dashed slots, never zero. Ally identities come only from same-session Draft Bar memory; ally vitals/cooldowns and all ally stats remain unknown until a consented source is admitted. Enemy identity comes only from same-session draft memory; no unobserved enemy vitals, skills or stats are shown. Do not draw path traces. Missing icons use the runtime portrait or neutral initials tile; never substitute another hero's or item's icon.
+
+In the own hero's compact field card, keep the eight displayed stat cells ARM, MR, AMP, AS, MS, EV, SR and LS in two rows of four when the measured mode is `one-row-28` or `two-row-24`. `one-row-28` starts at a 467 px card width and can use the 2×4 grid at its 102 px minimum height. `two-row-24` requires at least 254 px width and 124 px height. In the narrower `two-row-22` mode, keep the complete existing 5-column by 3-row stat grid so no values disappear. This compact own grid omits REG because the HP and mana bars carry the same derived regeneration values. Other cards keep their own layouts and unknown states. The own compact card top-aligns to its existing team slot and uses its intrinsic height; the five-slot rows, map geometry and other cards keep their viewport-derived sizes.
+
+Show HP and mana regeneration in the own hero's HP and mana bars, right-aligned and formatted to one decimal with a leading `+`; reuse the existing formatter's omission of a trailing `.0`. A known fresh zero is `+0`. If the GSI snapshot or item inputs are stale, or the derived model returns no value, show no regeneration text. The bar tooltip gives the Thai or English per-second value, marks it as a derived estimate, lists its sources and ruleset basis, and keeps the “without temporary effects / ไม่รวมผลชั่วคราว” caveat. Allies and enemies never receive these values.
 
 The centred field uses equal-height team columns, each matching the full map pane height. Use it in none/menu, loading, draft, pregame, live, post-game, unknown and host-lost states, unless UI-016 pinned mode is active during a match. At supported sizes down to 1280×720, all five cards per side remain inside the box. There is no page scroll or internal scroll on Live in any phase. If the measured box cannot show every card legibly at 12 px text, use the existing window-too-small state. The map-pane scoreboard stays inside the pane and does not change card geometry.
 
