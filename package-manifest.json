@@ -83,8 +83,8 @@
     },
     {
       "path": "acceptance/scenarios.feature",
-      "bytes": 73804,
-      "sha256": "d9d18ded0af097fae5a6c8354bb2ba8f17e91123d119d74ba67c5ffbaf83f934"
+      "bytes": 74757,
+      "sha256": "ec06652125570a02e8d860826d1ab09f725025bddde98f76ab5130c91990de24"
     },
     {
       "path": "acceptance/spec-validation.json",
@@ -373,8 +373,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/capture_host.rs",
-      "bytes": 314483,
-      "sha256": "658c02a299d77bd4ff7201f4dcb9fd1ea25cc4b41ede25c788e8b672f11a236a"
+      "bytes": 320965,
+      "sha256": "dc22e4fb8480219c497e77e41b65ca2de85bd0daf9b0ef66bd4aac239e80c19e"
     },
     {
       "path": "apps/desktop/src-tauri/src/clock.rs",
@@ -398,8 +398,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/draft_bar.rs",
-      "bytes": 75009,
-      "sha256": "6b2143827b61aa800f046bada78095a9c70cec558425530c1ebb1514051c51b4"
+      "bytes": 77842,
+      "sha256": "be9f80aa776112a7608aa7df14438096d2680f67f7828de4d4e3f88ef994ed62"
     },
     {
       "path": "apps/desktop/src-tauri/src/draft_roster.rs",
@@ -503,13 +503,13 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/intake.rs",
-      "bytes": 126474,
-      "sha256": "0f2ec6e60b881fca93951859708872039413a1fceab90e3a053d9dcd30ec69ee"
+      "bytes": 130414,
+      "sha256": "29c9a07a3c5b6289841de5e50f87eb4529d2fa6169f4a33ca5443ea16764113e"
     },
     {
       "path": "apps/desktop/src-tauri/src/lab.rs",
-      "bytes": 41347,
-      "sha256": "bbcc17ca5a1c82aa7cc94c7a3cf84bdb368f4276e4dd392013a38d5c24cbc85e"
+      "bytes": 45835,
+      "sha256": "1896f7b80d90ea0dcb3de220563070fe2799981a94d33143ec2cd2967f373261"
     },
     {
       "path": "apps/desktop/src-tauri/src/latency.rs",
@@ -523,8 +523,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 69392,
-      "sha256": "f2a10bb8ed82586dd755140b9f1a0ed7fe75b99a89faa782fc80bee16b849e8e"
+      "bytes": 70158,
+      "sha256": "a6902164e717a112a8abfbba8495f10ff72d786353149486b727fb761e3d55e0"
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
@@ -575,6 +575,11 @@
       "path": "apps/desktop/src-tauri/src/media/service.rs",
       "bytes": 141149,
       "sha256": "77bb2f6c64da56896e23190e4ac535b201d0abb5003f4380545a8558afac63f5"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/minimap_recorder/mod.rs",
+      "bytes": 58282,
+      "sha256": "527820a4d3d6c128c673e05e490d449e4dcce1ec9b2911895edd960c2ea62d3c"
     },
     {
       "path": "apps/desktop/src-tauri/src/mixer/mod.rs",
@@ -718,8 +723,8 @@
     },
     {
       "path": "apps/desktop/src/App.tsx",
-      "bytes": 24680,
-      "sha256": "3b90d670f87ed14fe2105e2f6eaf1f2384a7314c8e3e63331f57f6c3901edf66"
+      "bytes": 24929,
+      "sha256": "20617935753ab9eeae8e58a9873357c70388c05feca29aab8626a96670f24591"
     },
     {
       "path": "apps/desktop/src/AudioHistory.tsx",
@@ -12513,8 +12518,13 @@
     },
     {
       "path": "apps/desktop/src/lab/Lab.tsx",
-      "bytes": 12351,
-      "sha256": "5ddd95d43df740cb7856a881a19216a59577f04f3be6cf33ac21470cfa8a012c"
+      "bytes": 12445,
+      "sha256": "016888e6d2b56b4047bc6be53f574f1fdc1f3e35db7b139072690bc9a47bb812"
+    },
+    {
+      "path": "apps/desktop/src/lab/MinimapRecorderPanel.tsx",
+      "bytes": 6419,
+      "sha256": "37f219d6f06654c6df96e614e8645fd6f46e5516bf572271024733b5ba64b469"
     },
     {
       "path": "apps/desktop/src/lab/OverlayEditor.tsx",
@@ -12523,8 +12533,8 @@
     },
     {
       "path": "apps/desktop/src/lab/lab.css",
-      "bytes": 7334,
-      "sha256": "b70635b508d76a82ffe225a61304a1fd29bd332991d07a97a9c9697fac10cdb6"
+      "bytes": 8476,
+      "sha256": "6254b72c365b4ce2e9cfa53f275ed364bed5f3475d6f3ddbd2c721e4c91e1db0"
     },
     {
       "path": "apps/desktop/src/lab/labHudLayout.ts",
@@ -12548,8 +12558,13 @@
     },
     {
       "path": "apps/desktop/src/lab/labRuntime.ts",
-      "bytes": 7256,
-      "sha256": "95bc7b9eccb4747907e0a643f0e86222eae87defdd7027016e498423384b6981"
+      "bytes": 8635,
+      "sha256": "5356b72aac4c98392ac4f4d0ac43c043368f02c56c272689d151288002e5a0a2"
+    },
+    {
+      "path": "apps/desktop/src/lab/minimapRecorderModel.ts",
+      "bytes": 4071,
+      "sha256": "9f1309fce8c63bdc8a62e8421cc4336d2fd41f956e6d7f07145397abad0bd817"
     },
     {
       "path": "apps/desktop/src/layoutEditor/LayoutEditor.tsx",
@@ -12823,13 +12838,13 @@
     },
     {
       "path": "apps/desktop/src/live/state.ts",
-      "bytes": 11478,
-      "sha256": "3eaced860f04b3cf6ac1cac79b2a95440ccecb18a174123bf949df39161c7da3"
+      "bytes": 11664,
+      "sha256": "d6723fb69ab00d5009f1ddc9c5ef212581279be84bd7b2895e06fef0ec43799e"
     },
     {
       "path": "apps/desktop/src/live/types.ts",
-      "bytes": 2034,
-      "sha256": "3c065858aa72744ccca493b350c5e5271a89733d084ae60fd389d26b5a524af1"
+      "bytes": 2064,
+      "sha256": "d662520e084e1a2025ebf6b8da2ca8b5078fba70f5f96edd9961865dddbfed29"
     },
     {
       "path": "apps/desktop/src/live/useCanvasBox.ts",
@@ -13438,8 +13453,8 @@
     },
     {
       "path": "apps/desktop/src/shell/state.ts",
-      "bytes": 5909,
-      "sha256": "8685169de61fe8431b867649769067b0640650fa9bf08d3afa50e826cb9d2c35"
+      "bytes": 6118,
+      "sha256": "4a27e7bce9f32ab03af38154732fe1d35ea2e1625be9cbdd46c0d025cdf049bd"
     },
     {
       "path": "apps/desktop/src/shell/statusFooter.css",
@@ -13672,6 +13687,36 @@
       "sha256": "178144e52204548c9c47478e86dd514ea3fea4271e78a3cc1d01790510d1235d"
     },
     {
+      "path": "apps/desktop/tests/evidence/LAB-001-desktop-node-suite.txt",
+      "bytes": 365612,
+      "sha256": "a9e7a990deb89fef3d5be6607fb945adbf475968d200e8ba802d6c6180e1dd64"
+    },
+    {
+      "path": "apps/desktop/tests/evidence/LAB-001-node-tests.txt",
+      "bytes": 14492,
+      "sha256": "187ef22ccf9dbbba9b9320304cc427887e2444c8040783ff209407b0bfb8a546"
+    },
+    {
+      "path": "apps/desktop/tests/evidence/LAB-001-recorder-tests.txt",
+      "bytes": 6664,
+      "sha256": "1267d8733a1ed8e3da2fc3cf8205894b2687fb0ff3c89563b1d3b444879b1259"
+    },
+    {
+      "path": "apps/desktop/tests/evidence/LAB-001-rust-tests.txt",
+      "bytes": 209460,
+      "sha256": "13aea2900ceac9a13ca0946d6c19322c13026229ff3cf7f992745234d59565cb"
+    },
+    {
+      "path": "apps/desktop/tests/evidence/LAB-001-source-guard.txt",
+      "bytes": 2178,
+      "sha256": "b35038e7009344d4e1df2d82aaf98f073705778f61d9e2a319eea392bff51c82"
+    },
+    {
+      "path": "apps/desktop/tests/evidence/LAB-001-synthetic.receipt.json",
+      "bytes": 3900,
+      "sha256": "cfad5e1d4334024b05a6cdcd280651f5332389ac59f6b03dc07dfabaf4df9630"
+    },
+    {
       "path": "apps/desktop/tests/fixtures/layout-clamp-cases.json",
       "bytes": 2721,
       "sha256": "03bceceb10df4099c66f317b359ae875db2e956a03d679f98c04338cd49fde7b"
@@ -13818,8 +13863,8 @@
     },
     {
       "path": "apps/desktop/tests/live.test.ts",
-      "bytes": 17242,
-      "sha256": "1a31bdfea0494e23e18d4cc891111b35ef1e002ad77d5a99a3d9f579b7bb83a5"
+      "bytes": 17636,
+      "sha256": "97a026c6b72af2b8ceba4533ea73424c28b09755192cfc75efeb7820cca8810a"
     },
     {
       "path": "apps/desktop/tests/logs.test.ts",
@@ -13855,6 +13900,11 @@
       "path": "apps/desktop/tests/mediaUrl.test.ts",
       "bytes": 2021,
       "sha256": "f294f465258d7f7591bc6220ad110f88e5b47d7722d8190119e5a57c67dc2f92"
+    },
+    {
+      "path": "apps/desktop/tests/minimap-recorder-model.test.ts",
+      "bytes": 2912,
+      "sha256": "4c6bf09d1c1d8a46fb999b85890f443bac8cf3b7fda15f3971547563b39ac058"
     },
     {
       "path": "apps/desktop/tests/objectiveAlert.test.ts",
@@ -13973,8 +14023,8 @@
     },
     {
       "path": "apps/desktop/tests/shell-state.test.ts",
-      "bytes": 4536,
-      "sha256": "c5b5edcb025d11ff105eb5f3635a4b8a12f58fe69ce23382ec95af2a5ef0818a"
+      "bytes": 4774,
+      "sha256": "efaa82a566f4c8a33bfbf88bf2f615c124ac56b6638319f09d5189aa7f1bc62c"
     },
     {
       "path": "apps/desktop/tests/show-hotkey.test.ts",
@@ -14238,8 +14288,8 @@
     },
     {
       "path": "contracts/product-needs.json",
-      "bytes": 10184,
-      "sha256": "6d66675cc60562ff0e8bc4146b56dc7bc30d72dbdf7d1fc780bbb0605fa81be9"
+      "bytes": 10203,
+      "sha256": "1fddbcb4626c2d373171ff6af93661025ef2f56d00b9330f91a6df9615118636"
     },
     {
       "path": "contracts/replay-bundle.schema.json",
@@ -14253,8 +14303,8 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 328513,
-      "sha256": "29a5c65f96e2a11bfc48086307bcac7eb2f6bb896f60785e59cec1f600a19ca5"
+      "bytes": 332807,
+      "sha256": "985e41730cd2133cdaa98323e3e527781411ef2818a33b96bd8e3f5a411abce8"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -15178,8 +15228,8 @@
     },
     {
       "path": "docs/design/KOHBOR-LAB.md",
-      "bytes": 39978,
-      "sha256": "171ee61c83d227fd923829b2a450b7022865085ad4a1a8cb84a50c18de2962f6"
+      "bytes": 42261,
+      "sha256": "1ca42df97b9a46abfad468594d44ace391b00b113b26c87f3f07fa2d470ea938"
     },
     {
       "path": "docs/design/MEDIA-PACK-SPEC.md",
@@ -15243,8 +15293,8 @@
     },
     {
       "path": "docs/design/SDD.md",
-      "bytes": 35756,
-      "sha256": "63ef74859d4286d4d0af75e39fccb8e1001c1f8bbed1816514aebdf4d6c7a8d1"
+      "bytes": 36589,
+      "sha256": "99424c02976af585521057567379e1a5c2356057817cb3d646dbe5fb5c860e24"
     },
     {
       "path": "docs/design/SHARING-MODEL-REVIEW.md",
@@ -15263,8 +15313,8 @@
     },
     {
       "path": "docs/design/UX-SPEC.md",
-      "bytes": 38380,
-      "sha256": "f65af5cebc748ebbf53a5b23fc1b2990895ecac9a5a550f9a4018fbf043ed5da"
+      "bytes": 38138,
+      "sha256": "3613e8c8fd4d4d7772be636f6b2a24a0898346d52e091a7a66df7062e18050e5"
     },
     {
       "path": "docs/design/VISUAL-DESIGN-PROPOSAL.md",
@@ -15708,8 +15758,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 94287,
-      "sha256": "756584128c6cd3a11a0d877ce4370afd08083fc8f611353cdb2c82771b7090e7"
+      "bytes": 94940,
+      "sha256": "57572b2ca9ae2f7a091fbb5610c86e8ba2c315ee3313231103b84369e629cc07"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
@@ -15768,8 +15818,8 @@
     },
     {
       "path": "docs/product/PRD.md",
-      "bytes": 16896,
-      "sha256": "b6a318ffc8cf1f0e95ebe1d2048b98896e02e1b92fa6557f27495f32ca9d587d"
+      "bytes": 16905,
+      "sha256": "f52171e620ffb34ab746274cbd700ab2381e2c86d4ca87680584b7c269c36659"
     },
     {
       "path": "docs/product/USE-CASES.md",
@@ -15793,13 +15843,13 @@
     },
     {
       "path": "docs/requirements/RTM.csv",
-      "bytes": 64865,
-      "sha256": "ac160f8c93199ec67dcb3c7ed1d25abbef0fe42e7b4c3c5efaf3d60fd19811e8"
+      "bytes": 65585,
+      "sha256": "b999aaf62f688d00f7538da2061719cd1743e6cab9837c8ffa826448ff2345a9"
     },
     {
       "path": "docs/requirements/SRS.md",
-      "bytes": 224063,
-      "sha256": "edbf6978b5109bb0dc7b757d30ff294f8e44c7e40165c3e6c32d9f0b9adf50a5"
+      "bytes": 226945,
+      "sha256": "52c5ad8a83f8f0c29b117de2c84e3610a163c74d38dcb8613837e3fef4d59122"
     },
     {
       "path": "docs/security/SECURITY-PRIVACY.md",
@@ -16775,6 +16825,31 @@
       "path": "tools/run_record.py",
       "bytes": 9297,
       "sha256": "3ce35a14c5f4a4d1813312e81c0280236386f4db7fe52df1434f1873f1d704e6"
+    },
+    {
+      "path": "tools/spikes/minimap-hero-id/README.md",
+      "bytes": 3809,
+      "sha256": "bf7f191ece5337bff86911e803f31975160dc66daa4ec729f804efd7d738e6cc"
+    },
+    {
+      "path": "tools/spikes/minimap-hero-id/dataset-manifest.json",
+      "bytes": 2596,
+      "sha256": "080c51f7bfc60769a7cba7f7dc807ab0d72ee075f06bd7a17961b49eee9f39ea"
+    },
+    {
+      "path": "tools/spikes/minimap-hero-id/evaluate.mjs",
+      "bytes": 32888,
+      "sha256": "6d655058ff42b43998ff920e2b2f776a9ac0a145842959f33db89aebc5de6841"
+    },
+    {
+      "path": "tools/spikes/minimap-hero-id/evaluate.test.mjs",
+      "bytes": 5687,
+      "sha256": "0e27ee32700e4fbdcbf7982dad7b6bc0ef943be290810ff47151f489eff3f955"
+    },
+    {
+      "path": "tools/spikes/minimap-hero-id/results.json",
+      "bytes": 8468,
+      "sha256": "f3bb5ebc7da938a0a83e7251827988e4f619c6fe67a9bd6c183a213f1bd9de5b"
     },
     {
       "path": "tools/tagpool.py",

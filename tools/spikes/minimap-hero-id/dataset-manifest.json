@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "source_revision": "7cf478cf12b6b35cc193ae2a8dc3a0fb0c2701d5",
+  "capture_rate_fps": 30,
+  "template_root": "../../../apps/desktop/src/assets/dota/6989/heroes",
+  "thresholds": null,
+  "source_inventory": {
+    "kohbor_app_data": {
+      "capture_config_path": "%APPDATA%/io.github.freshair129.kohbor/capture-config.json",
+      "capture_profile": "p1080-default-v3",
+      "configured_display_fps": 30,
+      "crop_confirmed": false,
+      "persisted_minimap_frames": 0,
+      "app_log_files_checked": 5,
+      "current_dota_settings": {
+        "path": "%STEAM_USERDATA%/570/local/cfg/user_convars_0_slot0.vcfg",
+        "modified_local": "2026-11-24T17:18:45+07:00",
+        "dota_minimap_show_hero_icon": true,
+        "dota_minimap_always_draw_hero_icons": false,
+        "dota_minimap_hero_size": 600,
+        "hud_scale_setting_found": false,
+        "paired_to_reference_image": false
+      },
+      "layout_reference_image": {
+        "path": "%APPDATA%/io.github.freshair129.kohbor/lab/assets/dota-overlay-reference.jpg",
+        "count": 1,
+        "resolution": [1920, 1080],
+        "used_as_labeled_data": false,
+        "reason_excluded": "owner-provided layout reference, not a Kohbor minimap capture; HUD scale and icon-toggle state are not recorded"
+      }
+    },
+    "f_gsi_log": {
+      "root": "F:/gsi-log",
+      "png_files_in_readable_subtrees": 3226,
+      "capture_named_image_candidates": 0,
+      "demo_recordings": 3,
+      "gsi_jsonl_files": 27,
+      "unreadable_subtree": "_checks (access denied)",
+      "status": "partial_read_only_inventory"
+    },
+    "repository": {
+      "risk_admission_json_fixtures": 47,
+      "raster_vision_fixtures": 0,
+      "bundled_hero_pngs": 189,
+      "bundled_hero_png_dimensions": {
+        "128x72": 189
+      },
+      "hero_asset_directory": "apps/desktop/src/assets/dota/6989/heroes"
+    },
+    "auxiliary_reference_pixel_probe": {
+      "image": "apps/desktop/src/assets/editor/editor-reference-1080p.jpg",
+      "resolution": [1920, 1080],
+      "minimap_roi": [0, 800, 280, 280],
+      "method": "8-connected components where R > 125 and R > 1.35 x G/B",
+      "components_area_at_least_3_px": 22,
+      "components_area_at_least_20_px": 16,
+      "component_bbox_width_px_range": [4, 14],
+      "component_bbox_height_px_range": [6, 13],
+      "hud_scale": null,
+      "hero_icon_toggle": null,
+      "qualified_hero_icon_measurement": false,
+      "limitation": "red components are not adjudicated as enemy heroes; includes unknown map markers and possible pings"
+    }
+  },
+  "frames": []
+}

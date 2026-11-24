@@ -17,6 +17,7 @@ import {
 import { labApplyEdits, labExport, labLastTrace, labStatus, stopLabHudMockEvents } from "./labRuntime";
 import { OverlayEditor } from "./OverlayEditor";
 import { HudLayoutEditor } from "./HudLayoutEditor";
+import { MinimapRecorderPanel } from "./MinimapRecorderPanel";
 import "./lab.css";
 
 const POLL_MS = 1000;
@@ -144,6 +145,7 @@ function LabStudio({
       </header>
 
       <div className="lab-scroll" tabIndex={0} aria-label="Kohbor Lab content">
+      <MinimapRecorderPanel />
       {profileExport !== null && profileExport.status !== "exporting" && (
         <div ref={exportResult}>
           {profileExport.status === "exported" ? (

@@ -22,6 +22,7 @@ export interface CaptureStatus {
   crop_confirmed: boolean;
   display_fps: 10 | 15 | 30 | null;
   paused: boolean | null;
+  minimap_recording: boolean;
   phase_reason: string | null;
   phase_detail: string | null;
   grab_ms_mean: number | null;

@@ -1,0 +1,50 @@
+{
+  "artifact_sha256": "6f1f5072847784e50fc784c92d5dce636c8a4005336f65bbaedd6fade031403a",
+  "commands": [
+    "cargo test --locked --offline -j 4 -p kohbor-desktop --features lab --lib known_install_keyed_match_hash_is_preserved_in_the_test_manifest -- --nocapture",
+    "cargo test --locked --offline -j 4 -p kohbor-desktop --features lab --lib lab::minimap_recorder::tests -- --nocapture",
+    "cargo test --locked --offline -j 4 -p kohbor-desktop --features lab --lib demo_never_enters_live_intake_or_ownership_admission",
+    "cargo test --locked --offline -j 4 -p kohbor-desktop --features lab --lib",
+    "node --test --test-isolation=none --test-reporter=tap apps/desktop/tests/shell-state.test.ts apps/desktop/tests/live.test.ts apps/desktop/tests/minimap-recorder-model.test.ts tools/spikes/minimap-hero-id/evaluate.test.mjs",
+    "node --test --test-isolation=none --test-reporter=tap apps/desktop/tests/*.test.ts tools/spikes/minimap-hero-id/evaluate.test.mjs",
+    "python tools/render_requirements.py --check",
+    "python tools/validate_spec.py",
+    "python tools/update_manifest.py --apply",
+    "python tools/update_manifest.py --check"
+  ],
+  "environment": {
+    "game_patch": null,
+    "hardware": null,
+    "os_build": null,
+    "profile": "Windows MSVC 1.96.0 debug test harness, Lab feature, synthetic fixtures"
+  },
+  "evidence_class": "synthetic",
+  "executed_at_utc": "2026-11-24T15:46:44Z",
+  "limitations": [
+    "source_revision is SHA-256 over the 32-path candidate snapshot as sorted UTF-8 paths followed by NUL, 8-byte big-endian content length, file bytes and NUL; the receipt, evidence logs and package-manifest.json are excluded.",
+    "The sample manifest uses a fixed synthetic 64-character hash and synthetic hero IDs; no real match, gameplay frames or marker labels were collected.",
+    "The full Rust library harness passed 1228 tests with 3 ignored. The focused recorder suite passed 12 tests; synthetic 256x256 PNG encode time was 74774 microseconds.",
+    "The targeted Lab/evaluator Node suite passed 34 tests. The full desktop Node suite had 791 passes and 11 failures: nine imports lacked react or @tauri-apps/api because node_modules are unavailable, and two existing HUD subscription assertions failed.",
+    "The read-only TypeScript typecheck was not run because tsc and pnpm are unavailable and installing dependencies is prohibited. The JSON schema engine in validate_spec was not run because jsonschema is unavailable; validate_spec reported errors: [].",
+    "No desktop app, browser, Dota process, native session or live match was launched; this receipt is synthetic evidence only."
+  ],
+  "observed_result": "Synthetic LAB-001 checks passed: full Rust harness 1228 passed, 0 failed, 3 ignored; recorder suite 12 passed, 0 failed; targeted Lab/evaluator Node suite 34 passed, 0 failed. The PNG round-trip passed and measured 74774 microseconds for synthetic 256x256 encoding. The full desktop Node suite had 791 passed and 11 environment/baseline failures; validate_spec reported errors: [].",
+  "operator": "Codex worker; automated tests only, no owner acceptance claimed",
+  "raw_evidence_paths": [
+    "apps/desktop/tests/evidence/LAB-001-recorder-tests.txt",
+    "apps/desktop/tests/evidence/LAB-001-source-guard.txt",
+    "apps/desktop/tests/evidence/LAB-001-rust-tests.txt",
+    "apps/desktop/tests/evidence/LAB-001-node-tests.txt",
+    "apps/desktop/tests/evidence/LAB-001-desktop-node-suite.txt",
+    "F:/cargo-lanes/minimap-recorder/debug/deps/kohbor_desktop_lib-a5809d787974d4cb.exe"
+  ],
+  "receipt_id": "lab-001-synthetic-20261124-fcf5513e",
+  "requirement_ids": [
+    "LAB-001"
+  ],
+  "scenario_id": "AC-LAB-001",
+  "schema_version": "1.0.0",
+  "source_revision": "fcf5513e7351d19a36a5d1757220341206834738cb296bd696561c3bff5d554a",
+  "spec_version": "0.3.6",
+  "status": "PASS"
+}

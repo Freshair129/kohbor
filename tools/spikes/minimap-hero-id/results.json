@@ -1,0 +1,236 @@
+{
+  "schema_version": 1,
+  "source_revision": "7cf478cf12b6b35cc193ae2a8dc3a0fb0c2701d5",
+  "evidence_class": "synthetic",
+  "generated_at_utc": "2026-11-24T12:38:41.661Z",
+  "dataset": {
+    "frame_count": 0,
+    "visible_marker_crops": 0,
+    "unique_lineups": 0,
+    "resolutions": {},
+    "hud_scales": [],
+    "hero_icon_settings": [],
+    "labels_complete": false,
+    "source_inventory": {
+      "kohbor_app_data": {
+        "capture_config_path": "%APPDATA%/io.github.freshair129.kohbor/capture-config.json",
+        "capture_profile": "p1080-default-v3",
+        "configured_display_fps": 30,
+        "crop_confirmed": false,
+        "persisted_minimap_frames": 0,
+        "app_log_files_checked": 5,
+        "current_dota_settings": {
+          "path": "%STEAM_USERDATA%/570/local/cfg/user_convars_0_slot0.vcfg",
+          "modified_local": "2026-11-24T17:18:45+07:00",
+          "dota_minimap_show_hero_icon": true,
+          "dota_minimap_always_draw_hero_icons": false,
+          "dota_minimap_hero_size": 600,
+          "hud_scale_setting_found": false,
+          "paired_to_reference_image": false
+        },
+        "layout_reference_image": {
+          "path": "%APPDATA%/io.github.freshair129.kohbor/lab/assets/dota-overlay-reference.jpg",
+          "count": 1,
+          "resolution": [
+            1920,
+            1080
+          ],
+          "used_as_labeled_data": false,
+          "reason_excluded": "owner-provided layout reference, not a Kohbor minimap capture; HUD scale and icon-toggle state are not recorded"
+        }
+      },
+      "f_gsi_log": {
+        "root": "F:/gsi-log",
+        "png_files_in_readable_subtrees": 3226,
+        "capture_named_image_candidates": 0,
+        "demo_recordings": 3,
+        "gsi_jsonl_files": 27,
+        "unreadable_subtree": "_checks (access denied)",
+        "status": "partial_read_only_inventory"
+      },
+      "repository": {
+        "risk_admission_json_fixtures": 47,
+        "raster_vision_fixtures": 0,
+        "bundled_hero_pngs": 189,
+        "bundled_hero_png_dimensions": {
+          "128x72": 189
+        },
+        "hero_asset_directory": "apps/desktop/src/assets/dota/6989/heroes"
+      },
+      "auxiliary_reference_pixel_probe": {
+        "image": "apps/desktop/src/assets/editor/editor-reference-1080p.jpg",
+        "resolution": [
+          1920,
+          1080
+        ],
+        "minimap_roi": [
+          0,
+          800,
+          280,
+          280
+        ],
+        "method": "8-connected components where R > 125 and R > 1.35 x G/B",
+        "components_area_at_least_3_px": 22,
+        "components_area_at_least_20_px": 16,
+        "component_bbox_width_px_range": [
+          4,
+          14
+        ],
+        "component_bbox_height_px_range": [
+          6,
+          13
+        ],
+        "hud_scale": null,
+        "hero_icon_toggle": null,
+        "qualified_hero_icon_measurement": false,
+        "limitation": "red components are not adjudicated as enemy heroes; includes unknown map markers and possible pings"
+      }
+    },
+    "frames": []
+  },
+  "methods": {
+    "template_match": {
+      "status": "NOT_RUN_NO_LABELED_FRAMES",
+      "scope": "manual marker-crop classification only; no full-frame detector or capture path is measured",
+      "thresholds": null,
+      "metrics": {
+        "n_visible_crops": 0,
+        "frame_count": 0,
+        "micro_top1_accuracy": null,
+        "macro_frame_top1_accuracy": null,
+        "per_frame": [],
+        "per_hero": {},
+        "confusion_matrix": {},
+        "false_missing_rate": null,
+        "false_missing_definition": "visible annotated crop not assigned its true hero (UNKNOWN or wrong hero); detector misses are outside this crop-classification evaluator"
+      },
+      "by_condition": {},
+      "matcher_time_per_frame_ms": {
+        "n": 0,
+        "mean_ms": null,
+        "p50_ms": null,
+        "p95_ms": null,
+        "max_ms": null
+      },
+      "timing_clock": "Node performance.now wall-clock elapsed time; not process CPU time",
+      "capture_rate_budget_ms": 33.333333333333336,
+      "annotations_complete": false
+    },
+    "color_histogram_plus_template": {
+      "status": "NOT_RUN_NO_LABELED_FRAMES",
+      "scope": "manual marker-crop classification only; no full-frame detector or capture path is measured",
+      "thresholds": null,
+      "metrics": {
+        "n_visible_crops": 0,
+        "frame_count": 0,
+        "micro_top1_accuracy": null,
+        "macro_frame_top1_accuracy": null,
+        "per_frame": [],
+        "per_hero": {},
+        "confusion_matrix": {},
+        "false_missing_rate": null,
+        "false_missing_definition": "visible annotated crop not assigned its true hero (UNKNOWN or wrong hero); detector misses are outside this crop-classification evaluator"
+      },
+      "by_condition": {},
+      "matcher_time_per_frame_ms": {
+        "n": 0,
+        "mean_ms": null,
+        "p50_ms": null,
+        "p95_ms": null,
+        "max_ms": null
+      },
+      "timing_clock": "Node performance.now wall-clock elapsed time; not process CPU time",
+      "capture_rate_budget_ms": 33.333333333333336,
+      "annotations_complete": false
+    }
+  },
+  "limitation": "No labeled minimap frames were available. All real accuracy, confusion, false-missing, condition and per-frame CPU metrics are null; no labels were inferred.",
+  "evaluator": {
+    "path": "tools/spikes/minimap-hero-id/evaluate.mjs",
+    "sha256": "e50448036a301bededdc71bff158beea4273136b5f06028ce7a51e11342bd84e",
+    "manifest_path": "tools/spikes/minimap-hero-id/dataset-manifest.json",
+    "manifest_sha256": "080c51f7bfc60769a7cba7f7dc807ab0d72ee075f06bd7a17961b49eee9f39ea",
+    "node_version": "v24.20.0"
+  },
+  "synthetic_benchmark": {
+    "evidence_class": "synthetic",
+    "status": "SYNTHETIC_COMPUTE_ONLY",
+    "candidate_templates": [
+      "abaddon.png",
+      "abyssal_underlord.png",
+      "alchemist.png",
+      "ancient_apparition.png",
+      "antimage.png"
+    ],
+    "template_dimensions": [
+      {
+        "hero": "abaddon",
+        "width": 128,
+        "height": 72,
+        "sha256": "e66d98d8952e4b250c8c5b0b5a99ed40796a131d623c02a2c861735007d9d810"
+      },
+      {
+        "hero": "abyssal_underlord",
+        "width": 128,
+        "height": 72,
+        "sha256": "333f7977537cd806ecf5187bbbb67353410cc444bcd4d220926ea986917d9942"
+      },
+      {
+        "hero": "alchemist",
+        "width": 128,
+        "height": 72,
+        "sha256": "61e19fa92c9e9ea96bbc7ea1d2bd2f0e4213f9a3e932591c4b747c2530703a45"
+      },
+      {
+        "hero": "ancient_apparition",
+        "width": 128,
+        "height": 72,
+        "sha256": "4b386fbe8da7ef8941ec2c90f840755aa81b6d353bd2009b2391e71af6dcc259"
+      },
+      {
+        "hero": "antimage",
+        "width": 128,
+        "height": 72,
+        "sha256": "66e9416ad8f4d587318a88a8476e21153c711328d34b56eaee9ea1e7447a8696"
+      }
+    ],
+    "iterations": 100,
+    "markers_per_frame": 5,
+    "candidate_count": 5,
+    "crop_dimensions": [
+      128,
+      72
+    ],
+    "all_templates_same_dimensions": true,
+    "capture_rate_fps": 30,
+    "timing": {
+      "template_match": {
+        "n": 100,
+        "mean_ms": 3.575915000000001,
+        "p50_ms": 3.2608999999999995,
+        "p95_ms": 5.181659999999999,
+        "max_ms": 6.088900000000024,
+        "frame_equivalent_per_second": 279.64870529640655,
+        "markers_per_frame": 5,
+        "candidate_count_per_marker": 5,
+        "capture_rate_budget_ms": 33.333333333333336,
+        "classifier_only_within_capture_budget_p95": true,
+        "timing_clock": "Node performance.now wall-clock elapsed time; not process CPU time"
+      },
+      "color_histogram_plus_template": {
+        "n": 100,
+        "mean_ms": 17.376480999999984,
+        "p50_ms": 16.83604999999983,
+        "p95_ms": 20.213644999999847,
+        "max_ms": 29.626800000000003,
+        "frame_equivalent_per_second": 57.54905150243026,
+        "markers_per_frame": 5,
+        "candidate_count_per_marker": 5,
+        "capture_rate_budget_ms": 33.333333333333336,
+        "classifier_only_within_capture_budget_p95": true,
+        "timing_clock": "Node performance.now wall-clock elapsed time; not process CPU time"
+      }
+    },
+    "limitation": "Synthetic exact-template crops only. Includes crop classification and 5-way matching; excludes minimap detection, crop generation from a captured frame, capture, PNG decode and concurrent native load. Not an accuracy or live-performance result."
+  }
+}

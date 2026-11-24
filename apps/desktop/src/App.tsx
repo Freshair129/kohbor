@@ -155,11 +155,19 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
   const insightViewOptions = insightsViews(ReplayPanel !== null);
   const currentInsightsView = insightViewOptions.includes(insightsView) ? insightsView : "summary";
   const statusModel = statusLineModel({
-    labels: { gsi: "GSI", gamePhase: text.shell.gamePhase, gameAge: text.shell.gameAge, capture: text.shell.capture, gsiSetup: text.shell.gsiSetup },
+    labels: {
+      gsi: "GSI",
+      gamePhase: text.shell.gamePhase,
+      gameAge: text.shell.gameAge,
+      capture: text.shell.capture,
+      minimapRecording: displayLocale === "th" ? "เปิดบันทึกภาพมินิแมป (Lab)" : "Minimap recording enabled (Lab)",
+      gsiSetup: text.shell.gsiSetup,
+    },
     gsi: { label: intakeState ? text.readiness.intake[intakeState] : "—", tone: gsiTone },
     phase: { label: phaseLabel, tone: phaseTone },
     gameAge: headerState.gameAge,
     capture: headerState.capture,
+    minimapRecording: capture?.minimap_recording === true,
     deck: { label: displayLocale === "th" ? deckState.labelTh : deckState.labelEn, tone: deckTone[deckState.state], reason: deckReason },
     setupAvailable: setupNeeded,
     hostLost,

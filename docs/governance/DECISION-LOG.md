@@ -2,7 +2,7 @@
 title: "Decision Log and Open Items"
 doc_id: "DECISION-LOG"
 status: draft
-version: "0.3.15"
+version: "0.3.16"
 updated: "2026-11-24"
 authority: "DEC-BASELINE; see DOCUMENT-CONTROL"
 owner_role: "Product and engineering owners; people not assigned"
@@ -309,3 +309,7 @@ Owner report on build `17fe01d` (2026-11-24), relayed by the lead, recorded by a
 7. “Player slots come later; don't redesign the cards now.”
 
 The UI-002 amendment records one shell status line, a map-pane scoreboard, a local-history pre-game dashboard, and a post-game summary with replay analysis only when a matching ready bundle exists. The momentum bar is specified as observed kills over the last three minutes, not win probability; the product has no win-probability model. Raw match IDs remain private, and missing values remain unknown.
+
+### Owner instruction: Lab minimap recorder (2026-11-24)
+
+The owner answered the question “Build a Lab tool that records minimap frames while you play, to collect test data?” with **“Build the recorder”** (owner 2026-11-24, relayed by the lead, recorded by an agent). Implement a Lab-only, opt-in local minimap crop recorder for the minimap hero-ID spike under [LAB-001](../requirements/SRS.md) and [Kohbor Lab](../design/KOHBOR-LAB.md#114-lab-minimap-frame-recorder-lab-001). This data-collection instruction does not change UI-016 (“never identifies heroes”) or authorize labels, hero identification or a change to the Live presentation.

@@ -2819,4 +2819,24 @@ Every required OS/mode/geometry cell shall have at least 10 live sessions before
 
 **Implementation freedom:** Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.
 
+### LAB
+
+#### LAB-001 — Opt-in local minimap test recording
+
+**Scope:** extension · **Priority:** P1 · **Target milestone:** M3 · **Basis:** owner_instruction / Owner instruction recorded 2026-11-24 in DECISION-LOG.md
+
+**Product needs:** PN-002 · **Primary design:** CMP-RECORDER · **Design components:** CMP-RECORDER, CMP-VISION
+
+With the Lab-only consent switch “บันทึกภาพมินิแมปเพื่อทดสอบ (Lab)” off by default, Kohbor shall record only fresh minimap crops from the existing capture path while the match is live and crop is confirmed, at 1–5 fps (default 2 fps) as lossless PNGs on one bounded background worker. Each JSONL frame row shall contain the frame file name, game clock, session epoch, phase, capture age, crop rectangle, capture size and stale flag; each match manifest shall contain the install-keyed match hash using the existing match-ID HMAC when known or an explicitly marked session-epoch fallback (never raw match ID), game build, resolution, DPI, capture profile, crop confirmation, read-only Dota minimap hero-icon/size settings, team side and ally/enemy hero IDs only, with unknown values null. Store only minimap crops under app data `lab/minimap-recordings/<match hash>/`; cap total storage at a configurable 5 GB default and frames per match at 150 MB, stop recording for the match and notify the player at a cap, count non-blocking full-queue drops in the manifest, exclude player names, account IDs, chat, audio and full-screen frames, never automatically delete recordings, and delete only on the player's explicit per-match action.
+
+**Failure behavior:** Frames outside a fresh live confirmed-crop admission are ignored; a full queue drops without waiting and increments the match drop counter; a capacity hit stops recording for that match and reports the reason; deleting one match never removes another; unknown data stays null.
+
+**AC-LAB-001:** Given Lab consent off and on, synthetic live/fresh/confirmed and ineligible frames, a full bounded queue, and total/per-match cap boundaries; when the player enables recording and eligible minimap frames arrive through the existing capture path; then only eligible minimap crops are written as PNG on the background worker with the specified JSONL and privacy-safe manifest, ineligible frames are ignored, queue overflow is non-blocking and counted, capacity stops the match with a notice, and only the chosen recording is deleted after user confirmation.
+
+**Verification:** synthetic; procedures TP-02, TP-05; status PASS.
+
+**Elaboration:** [KOHBOR-LAB.md](../design/KOHBOR-LAB.md), [DECISION-LOG.md](../governance/DECISION-LOG.md)
+
+**Implementation freedom:** Use only the already admitted minimap crop and existing dependencies; do not add game automation, cloud transfer, labels, new capture sources or automatic retention cleanup.
+
 <!-- END GENERATED REQUIREMENTS -->

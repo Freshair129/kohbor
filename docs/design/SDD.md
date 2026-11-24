@@ -2,8 +2,8 @@
 title: "Software Design Description"
 doc_id: "SDD"
 status: "draft"
-version: "0.3.8"
-updated: "2026-11-23"
+version: "0.3.9"
+updated: "2026-11-24"
 owner_role: "Software design lead; person not assigned"
 approval_status: "not_approved"
 ---
@@ -187,15 +187,18 @@ For UI-011 and MEDIA-009, allocate a native mixer module. One host COM thread ow
 
 ### CMP-RECORDER
 
-**Responsibility name:** Explicit external recording and local highlights.
+**Responsibility name:** Explicit external recording, local highlights and Lab minimap datasets.
 
 | Responsibility | Inputs | Outputs | Failure and cancellation |
 |---|---|---|---|
 | Control a user-started OBS session and plan local clips from admitted events before ordinary audio filtering. | Explicit recording action, authenticated loopback OBS connection, session-bound events and actual buffer/save timestamps. | Save receipt, actual pre/post coverage, local trim/index result and independent recording health. | No implicit mic, fabricated save or critical-path blocking. Auth/disconnect/disk failures affect recording; combined performance acceptance remains subject to its budget decision. |
+| Record opt-in Lab minimap samples from the existing admitted crop path. | Lab consent, live/fresh capture admission, confirmed crop, install key and only currently available match metadata. | Lossless minimap-only PNGs, per-frame JSONL, per-match manifest and local cap/drop status. | One bounded worker receives frames with non-blocking `try_send`; full-queue frames are counted and dropped. Cap stops that match without deleting earlier recordings; user deletion is explicit and match-scoped. Unknown metadata stays null. |
 
-**Primary SRS allocation:** `OBS-001`, `OBS-002`, `OBS-003`, `OBS-004`, `OBS-005`.
+**Primary SRS allocation:** `OBS-001`, `OBS-002`, `OBS-003`, `OBS-004`, `OBS-005`, `LAB-001`.
 
-**Collaborating components:** CMP-INGEST, CMP-MEDIA, CMP-READMODEL, CMP-PERFORMANCE.
+**Collaborating components:** CMP-INGEST, CMP-VISION, CMP-MEDIA, CMP-READMODEL, CMP-PERFORMANCE.
+
+The Lab data path and frame contract are specified in [Kohbor Lab](KOHBOR-LAB.md#114-lab-minimap-frame-recorder-lab-001). This tooling collects data for a later minimap hero-ID spike and does not change UI-016 or authorize hero identification in the Live UI.
 
 ### CMP-UPDATER
 

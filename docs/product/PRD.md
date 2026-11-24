@@ -42,7 +42,7 @@ Stable need IDs map to SRS requirements within their approved scope. **contracts
 | Need ID | User need and intended outcome | Requirement mapping |
 | --- | --- | --- |
 | PN-001 | Start and keep using available local functions while signed out or offline; configure game integration without damaging unrelated settings. | CORE-001, CORE-003, CORE-004, CORE-005, ACCOUNT-005, ACCOUNT-006 |
-| PN-002 | Know which own-player and visible-enemy facts are current, supported and attributable; distinguish unknown from a real zero. | DATA-001, DATA-002, DATA-003, DATA-004, DATA-005, DATA-006, VISION-001, VISION-002, VISION-003, QUALITY-004 |
+| PN-002 | Know which own-player and visible-enemy facts are current, supported and attributable; distinguish unknown from a real zero. | DATA-001, DATA-002, DATA-003, DATA-004, DATA-005, DATA-006, VISION-001, VISION-002, VISION-003, LAB-001, QUALITY-004 |
 | PN-003 | Receive justified urgent warnings and corrections without cloud or renderer delays; avoid repeated or unsupported audio. | ALERT-001, ALERT-002, ALERT-003, ALERT-004, ALERT-005, ALERT-006, ALERT-007, QUALITY-001, QUALITY-005 |
 | PN-004 | Hear and see consistent event media from the selected verified pack, with clear installation and activation status. | MEDIA-001, MEDIA-002, MEDIA-003, MEDIA-004, MEDIA-005, MEDIA-006, MEDIA-007, MEDIA-008 |
 | PN-005 | Read the match field and passive overlay at a glance (including from peripheral vision on a second-screen session monitor), inspect by choice and navigate accessibly without disrupting gameplay or performance. | UI-001, UI-002, UI-003, UI-004, UI-005, UI-006, UI-008, CORE-002, QUALITY-002, QUALITY-003, ALERT-008, UI-015, UI-016, UI-017, UI-018, UI-019 |
