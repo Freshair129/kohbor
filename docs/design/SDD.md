@@ -2,8 +2,8 @@
 title: "Software Design Description"
 doc_id: "SDD"
 status: "draft"
-version: "0.3.9"
-updated: "2026-11-24"
+version: "0.3.10"
+updated: "2026-11-25"
 owner_role: "Software design lead; person not assigned"
 approval_status: "not_approved"
 ---
@@ -370,7 +370,7 @@ Any failure → `CPU_CONTAINMENT_FAILED`, sanitized log, exit code 1. No job mem
 
 `CMP-READMODEL` owns the three-column Analytics view and consumes a selected replay bundle plus the local MEM-006 history projection. It joins only by the installation-keyed match hash. If no local history row matches, a user-entered own hero is kept per match; otherwise unknown remains unknown. The raw match ID remains confined to the local replay library and is excluded from the AI projection.
 
-`CMP-ADVICE` owns the optional Analytics Claude route. The renderer can submit a user question and context toggles; the native host constructs a deterministic, bounded projection from one selected bundle, verifies the stored key/consent/AI gates, and sends only to fixed `https://api.anthropic.com/v1/messages` through WinHTTP with redirects refused. It never sends the key in the body, event stream, error, log or ledger. A request can include scrubber time, selected hero and open-document text when enabled, and resends prior conversation turns unchanged; consent names these fields. Nothing is sent at startup, parse completion, replay selection or document open. Revocation closes the active transport and discards late events. Request history stores time, model, byte counts, token counts and status, never content or key. The local template fallback remains available when any gate is closed.
+`CMP-ADVICE` owns the optional Analytics provider route. The renderer submits a question and context toggles; the native host constructs a deterministic, bounded projection from one selected bundle and sends only after explicit submit, active-provider origin consent, required key and AI enablement. Fixed providers use compiled HTTPS hosts; Qwen is a closed regional host choice; user endpoints are revalidated and allow HTTPS or HTTP literal loopback only. WinHTTP uses no proxy, disables cookies, refuses redirects and enforces response and timeout limits. Per-provider keys are origin-bound current-user DPAPI values and never enter request content, renderer events, errors, logs or ledger. No AI question is sent during draft, pregame or live phases. The user starts local providers; Kohbor never starts them. A provider change in an existing match chat requires warning/consent because earlier messages, including old-provider replies, are resent to the new provider. Untested rows are hidden until an owner records a live test and sets verified; Developer mode only reveals rows. Nothing is sent at startup, parse completion, replay selection or document open. Revocation closes active transport and discards late events. Request history stores provider id, endpoint class, model, byte counts, known token counts and status, never content, URL path or key. Unknown usage stays unknown; local templates remain available when gates are closed.
 
 The system block and deterministic match context use a prompt-cache breakpoint; volatile clock/hero/document/question fields follow it. Conversation history is append-only and keeps every assistant block for subsequent turns. Stream deltas are relayed to the renderer. The write-note tool runs only after a complete stream with `stop_reason=tool_use`, bounded-round checks and schema validation. It writes safe, atomic Markdown under the install-keyed per-match directory; the system summary is template-generated and read-only. Notes/chat are user data and live outside the replay bundle eviction directory.
 

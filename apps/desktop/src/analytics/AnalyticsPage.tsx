@@ -1,18 +1,19 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
-import type { Locale } from "../copy";
+import { AI_PROVIDER_COPY, type Locale } from "../copy";
 import type { ReplayLibraryEntry, ReplayLibraryList, ReplayStatus } from "../replay/replayLibraryClient";
 import { MatchViewerSurface } from "../replay/MatchViewPanel";
 import { admitLibraryBundle, type MatchBundle } from "../replay/matchBundle";
 import { ANALYTICS_TEMPLATE_QUESTIONS, answerAnalyticsTemplate, clock } from "../replay/coach";
 import { actionFromMarkdownTarget, renderMarkdownSafe } from "./analyticsMarkdown";
 import { analyticsViewState, replayRowFacts, UNKNOWN_VALUE } from "./analyticsModel";
+import { ProviderControls, type ProviderPreferences } from "./ProviderControls";
+import { providerErrorKind, shouldOfferSaveAsNote } from "./provider-model.mjs";
 import "./analytics.css";
 
 type Note = { id: string; title: string; ai: boolean };
-type KeyStatus = { set: boolean; last4: string | null };
-type Preferences = { ai_on: boolean; consent: boolean; model: "claude-opus-5-5" | "claude-sonnet-5-5" | "claude-haiku-5-5"; keep_newest: number; max_bytes: number; auto_analyse: boolean };
+type KeyStatus = { provider: string; set: boolean; last4: string | null; requires_key?: boolean };
 type Usage = { input: number | null; cache_read: number | null; cache_creation: number | null; output: number | null };
 
 const t = (locale: Locale, thai: string, english: string) => locale === "th" ? thai : english;
@@ -92,8 +93,8 @@ export function AnalyticsPage({ locale, onOpenReplay }: { locale: Locale; onOpen
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const [hero, setHero] = useState<string | null>(null);
   const [ownHero, setOwnHero] = useState<string | null>(null);
-  const [keyStatus, setKeyStatus] = useState<KeyStatus>({ set: false, last4: null });
-  const [prefs, setPrefs] = useState<Preferences>({ ai_on: false, consent: false, model: "claude-opus-5-5", keep_newest: 20, max_bytes: 2 * 1024 ** 3, auto_analyse: true });
+  const [keyStatus, setKeyStatus] = useState<KeyStatus>({ provider: "anthropic", set: false, last4: null, requires_key: true });
+  const [prefs, setPrefs] = useState<ProviderPreferences>({ ai_on: false, provider: "anthropic", consent: false, model: "claude-opus-5-5", provider_endpoints: {}, provider_consents: {}, verified_providers: {}, tools_modes: {}, show_untested: false, keep_newest: 20, max_bytes: 2 * 1024 ** 3, auto_analyse: true });
   const [consentOpen, setConsentOpen] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const [question, setQuestion] = useState("");
@@ -101,11 +102,12 @@ export function AnalyticsPage({ locale, onOpenReplay }: { locale: Locale; onOpen
   const [error, setError] = useState<string | null>(null);
   const [usage, setUsage] = useState<Usage | null>(null);
   const [createdNote, setCreatedNote] = useState<string | null>(null);
+  const [noteFallback, setNoteFallback] = useState(false);
   const [loading, setLoading] = useState(true);
   const [requestId, setRequestId] = useState<string | null>(null);
   const activeRequestId = useRef<string | null>(null);
-  const pendingEvents = useRef(new Map<string, { deltas: string[]; complete?: { error?: string; usage?: Usage; note_id?: string } }>());
-  const finishRequest = useRef<(payload: { request_id: string; error?: string; usage?: Usage; note_id?: string }) => void>(() => {});
+  const pendingEvents = useRef(new Map<string, { deltas: string[]; complete?: { error?: string; usage?: Usage; note_id?: string; note_fallback?: boolean } }>());
+  const finishRequest = useRef<(payload: { request_id: string; error?: string; usage?: Usage; note_id?: string; note_fallback?: boolean }) => void>(() => {});
   const [currentTime, setCurrentTime] = useState(0);
   const [includeContext, setIncludeContext] = useState({ match: true, time: true, document: true, myHero: true, hero: true });
   const viewerRoot = useRef<ShadowRoot | null>(null);
@@ -121,7 +123,7 @@ export function AnalyticsPage({ locale, onOpenReplay }: { locale: Locale; onOpen
   const refreshAi = useCallback(async () => {
     try {
       const [key, settings, items] = await Promise.all([
-        invoke<KeyStatus>("analytics_key_status"), invoke<Preferences>("analytics_settings_get"),
+        invoke<KeyStatus>("analytics_key_status"), invoke<ProviderPreferences>("analytics_settings_get"),
         invoke<Note[]>("analytics_notes_list", { matchId: selectedId }),
       ]);
       setKeyStatus(key); setPrefs(settings); setNotes(items);
@@ -155,6 +157,7 @@ export function AnalyticsPage({ locale, onOpenReplay }: { locale: Locale; onOpen
   finishRequest.current = payload => {
     if (payload.request_id !== activeRequestId.current) return;
     setStreaming(false); setUsage(payload.usage ?? null); setRequestId(null); activeRequestId.current = null;
+    setNoteFallback(payload.note_fallback ?? false);
     if (payload.error) setError(payload.error);
     if (payload.note_id) { setCreatedNote(payload.note_id); void refreshAi(); }
   };
@@ -165,7 +168,7 @@ export function AnalyticsPage({ locale, onOpenReplay }: { locale: Locale; onOpen
       const pending = pendingEvents.current.get(event.payload.request_id) ?? { deltas: [] };
       pending.deltas.push(event.payload.text); pendingEvents.current.set(event.payload.request_id, pending);
     }).then(stop => { stopDelta = stop; }).catch(() => {});
-    void listen<{ request_id: string; error?: string; usage?: Usage; note_id?: string }>("analytics://complete", event => {
+    void listen<{ request_id: string; error?: string; usage?: Usage; note_id?: string; note_fallback?: boolean }>("analytics://complete", event => {
       if (event.payload.request_id === activeRequestId.current) { finishRequest.current(event.payload); return; }
       const pending = pendingEvents.current.get(event.payload.request_id) ?? { deltas: [] };
       pending.complete = event.payload; pendingEvents.current.set(event.payload.request_id, pending);
@@ -177,8 +180,9 @@ export function AnalyticsPage({ locale, onOpenReplay }: { locale: Locale; onOpen
     || (filter === "pinned" && entry.pinned) || (filter === "notAnalysed" && entry.status.state !== "ready")), [library, filter]);
   const selected = library?.matches.find(entry => entry.match_id === selectedId) ?? null;
   useEffect(() => { setOwnHero(selected?.own_hero ?? null); setHero(null); }, [selectedId, selected?.own_hero]);
+  const aiAvailable = prefs.consent && prefs.ai_on && (!keyStatus.requires_key || keyStatus.set);
   const state = analyticsViewState({ entries: library?.matches ?? [], selectedId, selectedReady: !!bundle,
-    openDocument: openNote !== SYSTEM_NOTE_ID, aiAvailable: keyStatus.set && prefs.consent && prefs.ai_on, showList, showSettings: false });
+    openDocument: openNote !== SYSTEM_NOTE_ID, aiAvailable, showList, showSettings: false });
   const total = library?.matches.reduce((sum, entry) => sum + entry.storage_bytes, 0) ?? 0;
   const analysedCount = library?.matches.filter(entry => entry.status.state === "ready" && !entry.pinned).length ?? 0;
   const matchHeroes = heroRows(bundle);
@@ -187,7 +191,7 @@ export function AnalyticsPage({ locale, onOpenReplay }: { locale: Locale; onOpen
   const timeCitations = [...noteText.matchAll(/\[[^\]]+\]\(#t=(\d{1,7})\)/g)].map(match => Number(match[1])).filter(Number.isFinite);
 
   async function selectEntry(entry: ReplayLibraryEntry) {
-    setSelectedId(entry.match_id); setShowList(false); setCreatedNote(null); setError(null);
+    setSelectedId(entry.match_id); setShowList(false); setCreatedNote(null); setNoteFallback(false); setError(null);
     if (!["ready", "parsing", "queued"].includes(entry.status.state)) {
       try { await libraryClient.parse(entry.match_id); void refresh(); }
       catch { setError(t(locale, "เริ่มวิเคราะห์รีเพลย์ไม่ได้", "Could not start replay analysis")); }
@@ -203,14 +207,13 @@ export function AnalyticsPage({ locale, onOpenReplay }: { locale: Locale; onOpen
   }
   async function ask() {
     if (!question.trim() || streaming || !selectedId) return;
-    const aiAvailable = keyStatus.set && prefs.consent && prefs.ai_on;
     if (!aiAvailable) {
-      if (keyStatus.set && prefs.ai_on && !prefs.consent) { setConsentOpen(true); return; }
+      if (prefs.ai_on && !prefs.consent) { setConsentOpen(true); return; }
       setAnswer(localTemplate(bundle, question.trim(), ownHero ?? selected?.own_hero ?? null, selected, locale));
-      setUsage(null); setQuestion("");
+      setUsage(null); setQuestion(""); setNoteFallback(false);
       return;
     }
-    setError(null); setAnswer(""); setUsage(null); setStreaming(true);
+    setError(null); setAnswer(""); setUsage(null); setCreatedNote(null); setNoteFallback(false); setStreaming(true);
     try {
       const id = await invoke<string>("analytics_chat_submit", {
         matchId: selectedId, question: question.trim(), openDocument: includeContext.document ? noteText : "",
@@ -223,7 +226,33 @@ export function AnalyticsPage({ locale, onOpenReplay }: { locale: Locale; onOpen
       const pending = pendingEvents.current.get(id); pendingEvents.current.delete(id);
       if (pending?.deltas.length) setAnswer(pending.deltas.join(""));
       if (pending?.complete) finishRequest.current({ request_id: id, ...pending.complete });
-    } catch (reason) { setStreaming(false); setError(typeof reason === "string" ? reason : t(locale, "ส่งคำถามไม่สำเร็จ", "Could not send the question")); }
+    } catch (reason) {
+      setStreaming(false);
+      const kind = providerErrorKind(reason);
+      const providerCopy = AI_PROVIDER_COPY[locale];
+      setError(kind === "match_active" ? providerCopy.matchBlocked
+        : kind === "local_program_unavailable" ? providerCopy.localUnavailable
+          : kind === "endpoint_invalid" ? providerCopy.endpointInvalid
+            : kind === "redirect_refused" ? providerCopy.redirectRefused
+              : kind === "consent_required" ? providerCopy.consentRequired
+                : kind === "key_required" ? providerCopy.keyRequired
+                  : typeof reason === "string" ? reason : t(locale, "ส่งคำถามไม่สำเร็จ", "Could not send the question"));
+    }
+  }
+  async function saveAnswerAsNote() {
+    if (!selectedId || !answer.trim() || !shouldOfferSaveAsNote({ answer, savedNoteId: createdNote, noteFallback })) return;
+    try {
+      const noteId = await invoke<string>("analytics_note_save_text", {
+        matchId: selectedId,
+        title: locale === "th" ? "คำตอบ AI" : "AI answer",
+        markdown: answer,
+      });
+      setCreatedNote(noteId);
+      setNoteFallback(false);
+      void refreshAi();
+    } catch {
+      setError(locale === "th" ? "บันทึกโน้ตไม่ได้" : "Could not save the note");
+    }
   }
   async function setOwnHeroForEntry(entry: ReplayLibraryEntry) {
     let choices = matchHeroes;
@@ -342,11 +371,13 @@ export function AnalyticsPage({ locale, onOpenReplay }: { locale: Locale; onOpen
         {bundle && <div className="analytics-centre-actions"><button onClick={() => onOpenReplay?.()}>{t(locale, "ดูละเอียด ›", "View details ›")}</button></div>}
       </main>
       {!rightCollapsed ? <aside className="analytics-column analytics-chat"><header><strong>{t(locale, "ผู้ช่วย", "Assistant")}</strong><button onClick={() => setRightCollapsed(true)} aria-label={t(locale, "ยุบแผงขวา", "Collapse right panel")}>›</button></header>
+        <ProviderControls locale={locale} settings={prefs} onSettingsChange={setPrefs} onKeyStatusChange={setKeyStatus} compact consentOpen={consentOpen} onConsentOpenChange={setConsentOpen} />
         <div className="analytics-chat-feed" aria-live="polite">
-          {state === "noai" && <div className="analytics-noai"><strong>{t(locale, "เปิดใช้ผู้ช่วย Claude ในการตั้งค่า", "Enable Claude in Settings")}</strong><p>{t(locale, "ถามด้วยแม่แบบในเครื่องได้ คำถามเหล่านี้ไม่ส่งข้อมูลออกจากเครื่อง", "Use local templates; these questions do not send data off-device.")}</p>
+          {state === "noai" && <div className="analytics-noai"><strong>{t(locale, "เปิดใช้ผู้ให้บริการ AI ในการตั้งค่า", "Enable an AI provider in Settings")}</strong><p>{t(locale, "ถามด้วยแม่แบบในเครื่องได้ คำถามเหล่านี้ไม่ส่งข้อมูลออกจากเครื่อง", "Use local templates; these questions do not send data off-device.")}</p>
             <div className="analytics-template-questions">{ANALYTICS_TEMPLATE_QUESTIONS.map(item => <button key={item.id} onClick={() => setAnswer(localTemplate(bundle, locale === "th" ? item.th : item.en, ownHero ?? selected?.own_hero ?? null, selected, locale))}>{locale === "th" ? item.th : item.en}</button>)}</div>
           </div>}
           {answer && <article className="analytics-answer"><p>{answer}</p>{usage && <small>{t(locale, "อินพุต", "Input")} {usage.input ?? UNKNOWN_VALUE} · cache {usage.cache_read ?? UNKNOWN_VALUE} · {t(locale, "เอาต์พุต", "Output")} {usage.output ?? UNKNOWN_VALUE}</small>}</article>}
+          {shouldOfferSaveAsNote({ answer, savedNoteId: createdNote, noteFallback }) && <button type="button" onClick={() => void saveAnswerAsNote()}>{AI_PROVIDER_COPY[locale].noteFallback}</button>}
           {createdNote && <button className="analytics-created-note" onClick={() => { setOpenNote(createdNote); setCreatedNote(null); }}>{t(locale, "สร้างแล้ว · เปิดในแผงซ้าย", "Created · open in left panel")}: {createdNote}</button>}
           {error && <p className="analytics-error" role="alert">{error}</p>}
         </div>
@@ -354,13 +385,13 @@ export function AnalyticsPage({ locale, onOpenReplay }: { locale: Locale; onOpen
           {(["match", "time", "document", "myHero", "hero"] as const).map((chip, i) => <button key={chip} aria-pressed={includeContext[chip]} onClick={() => setIncludeContext(old => ({ ...old, [chip]: !old[chip] }))}>{t(locale, ["แมตช์", "เวลา", "เอกสาร", "ฮีโร่ฉัน", "ฮีโร่ที่เลือก"][i]!, ["match", "time", "document", "my hero", "selected hero"][i]!)} ×</button>)}
         </div>
         <form className="analytics-composer" onSubmit={event => { event.preventDefault(); void ask(); }}>
-          {!prefs.consent && <button type="button" onClick={() => setConsentOpen(true)}>{t(locale, "อ่านและยินยอมก่อนส่งข้อมูล", "Review consent before sending")}</button>}
+          {!prefs.consent && <button type="button" onClick={() => setConsentOpen(true)}>{AI_PROVIDER_COPY[locale].consent}</button>}
           <textarea value={question} onChange={event => setQuestion(event.currentTarget.value)} placeholder={t(locale, "ถามเกี่ยวกับแมตช์นี้…", "Ask about this match…")} disabled={streaming || !bundle} />
-          <div><span>{t(locale, "เมื่อ AI เปิดและคุณส่งคำถาม ข้อมูลจะส่งจากเครื่องไป Anthropic", "When AI is on and you send a question, data leaves this device for Anthropic")}</span>
+          <div><span>{t(locale, "เมื่อ AI เปิดและคุณส่งคำถาม ข้อมูลจะส่งไปยังผู้ให้บริการที่เลือก", "When AI is on and you submit, data goes to the selected provider")}</span>
             {streaming ? <button type="button" onClick={() => { if (requestId) void invoke("analytics_chat_cancel", { requestId }); setStreaming(false); }}>{t(locale, "ยกเลิก", "Cancel")}</button> : <button type="submit" disabled={!question.trim() || !bundle}>{t(locale, "ส่ง", "Send")}</button>}
           </div>
         </form>
-        <footer>{t(locale, "Claude", "Claude")} · {prefs.model} · {streaming ? t(locale, "กำลังตอบ…", "Responding…") : usage ? `${usage.input ?? UNKNOWN_VALUE} in · ${usage.cache_read ?? UNKNOWN_VALUE} cache read · ${usage.output ?? UNKNOWN_VALUE} out` : t(locale, "ไม่มีข้อมูลโทเคน", "No token data")}</footer>
+        <footer>{prefs.provider} · {prefs.model || UNKNOWN_VALUE} · {streaming ? t(locale, "กำลังตอบ…", "Responding…") : usage ? `${usage.input ?? UNKNOWN_VALUE} in · ${usage.cache_read ?? UNKNOWN_VALUE} cache read · ${usage.output ?? UNKNOWN_VALUE} out` : t(locale, "ไม่มีข้อมูลโทเคน", "No token data")}</footer>
       </aside> : <button className="analytics-expand" onClick={() => setRightCollapsed(false)}>‹</button>}
     </div>
     {showList && <div className="analytics-list-overlay" role="dialog" aria-modal="true" aria-label={t(locale, "คลังรีเพลย์", "Replay library")}><section>
@@ -371,15 +402,6 @@ export function AnalyticsPage({ locale, onOpenReplay }: { locale: Locale; onOpen
         <button onClick={() => void invoke("replay_library_open_folder", { matchId: entry.match_id })}>{t(locale, "เปิดโฟลเดอร์", "Open folder")}</button>
         <button onClick={() => { if (window.confirm(t(locale, "นำรีเพลย์ออกจากคลังหรือไม่? โน้ตจะยังอยู่", "Remove replay from library? Notes will be kept"))) void libraryClient.remove(entry.match_id); }}>{t(locale, "นำออกจากคลัง", "Remove from library")}</button>
       </article>)}
-    </section></div>}
-    {consentOpen && <div className="analytics-consent-overlay" role="dialog" aria-modal="true" aria-labelledby="analytics-consent-title"><section>
-      <h2 id="analytics-consent-title">{t(locale, "ยินยอมให้ Analytics ใช้ Claude", "Consent to Claude in Analytics")}</h2>
-      <p>{t(locale, "ข้อมูลเนื้อหาที่ส่ง: บริบทแมตช์ที่สรุปแล้วและชื่อฮีโร่ เวลาในรีเพลย์และฮีโร่ที่เลือกเมื่อเปิดใช้ คำถาม ข้อความก่อนหน้าทั้งหมดในแชตของแมตช์นี้ซึ่งส่งซ้ำกับทุกคำถาม และข้อความเอกสารที่เปิดอยู่", "Request content: derived match context and hero names, replay time and selected hero when enabled, your question, all earlier messages in this same match's chat resent with every question, and open document text.")}</p>
-      <p>{t(locale, "API key ของคุณจะส่งผ่าน HTTPS โดยตรงไป Anthropic เฉพาะในส่วนหัว x-api-key เพื่อยืนยันคำขอเท่านั้น โดยไม่รวมในเนื้อหาแชต บันทึก หรือ ledger", "Your API key is sent directly to Anthropic over HTTPS only in the x-api-key authentication header. It is not prompt content and is never stored in logs or the local request ledger.")}</p>
-      <p>{t(locale, "ไม่รวมในเนื้อหาแชต: ชื่อผู้เล่น Steam/account ID, match ID ดิบ และเส้นทางไฟล์", "Not included in request content: player names, Steam/account IDs, raw match ID, or file paths.")}</p>
-      <p>{t(locale, "คุณใช้ API key ของตนเองและจ่าย Anthropic โดยตรง ไม่มีบัญชี เซิร์ฟเวอร์ telemetry หรือ billing ของ Kohbor", "You use your own API key and pay Anthropic directly. Kohbor adds no account, server, telemetry or billing.")}</p>
-      <button onClick={() => setConsentOpen(false)}>{t(locale, "กลับ", "Back")}</button>
-      <button onClick={async () => { await invoke("analytics_consent_set", { consent: true }); await refreshAi(); setConsentOpen(false); }}>{t(locale, "ยินยอม", "I consent")}</button>
     </section></div>}
   </div>;
 }

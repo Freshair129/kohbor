@@ -20,12 +20,19 @@ pub(crate) fn replay_library_list(
     state: tauri::State<'_, AppState>,
 ) -> Result<Value, String> {
     require_control(&webview)?;
-    let mut list = serde_json::to_value(library.list().map_err(str::to_owned)?).map_err(|_| "library_serialization_failed".to_owned())?;
+    let mut list = serde_json::to_value(library.list().map_err(str::to_owned)?)
+        .map_err(|_| "library_serialization_failed".to_owned())?;
     let history = state.match_history.entries();
     if let Some(rows) = list.get_mut("matches").and_then(Value::as_array_mut) {
         for row in rows {
-            let Some(match_id) = row.get("match_id").and_then(Value::as_str) else { continue; };
-            let local = analytics.store().match_key(match_id).ok().and_then(|key| history.iter().find(|entry| entry.match_key == key));
+            let Some(match_id) = row.get("match_id").and_then(Value::as_str) else {
+                continue;
+            };
+            let local = analytics
+                .store()
+                .match_key(match_id)
+                .ok()
+                .and_then(|key| history.iter().find(|entry| entry.match_key == key));
             if let Some(entry) = local {
                 row["own_hero"] = entry.hero.clone().map_or(Value::Null, Value::String);
                 row["local_history"] = json!({
@@ -36,7 +43,10 @@ pub(crate) fn replay_library_list(
                     "ended_at_unix_s": entry.ended_at
                 });
             } else {
-                row["own_hero"] = analytics.store().own_hero(match_id).map_or(Value::Null, Value::String);
+                row["own_hero"] = analytics
+                    .store()
+                    .own_hero(match_id)
+                    .map_or(Value::Null, Value::String);
                 row["local_history"] = Value::Null;
             }
         }
@@ -197,14 +207,144 @@ pub(crate) fn replay_library_open_folder(
 }
 
 fn require_control(webview: &tauri::Webview) -> Result<(), String> {
-    if webview.label() == "control" { Ok(()) } else { Err("window_not_allowed".to_owned()) }
+    if webview.label() == "control" {
+        Ok(())
+    } else {
+        Err("window_not_allowed".to_owned())
+    }
 }
 
 fn open_local_folder(path: &std::path::Path) -> Result<(), String> {
     #[cfg(windows)]
-    { std::process::Command::new("explorer.exe").arg(path).spawn().map(|_| ()).map_err(|_| "folder_open_failed".to_owned()) }
+    {
+        std::process::Command::new("explorer.exe")
+            .arg(path)
+            .spawn()
+            .map(|_| ())
+            .map_err(|_| "folder_open_failed".to_owned())
+    }
     #[cfg(not(windows))]
-    { let _ = path; Err("folder_open_unavailable".to_owned()) }
+    {
+        let _ = path;
+        Err("folder_open_unavailable".to_owned())
+    }
+}
+
+#[tauri::command]
+pub(crate) fn analytics_provider_list(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    let settings = analytics.preferences().map_err(str::to_owned)?;
+    let mut providers = Vec::new();
+    let mut untested_count = 0_usize;
+    for spec in crate::analytics::providers::registry::PROVIDERS {
+        if spec.id == "custom" {
+            continue;
+        }
+        let verified = settings.verified_providers.contains_key(spec.id) || spec.verified;
+        if !verified {
+            untested_count += 1;
+        }
+        if !verified && !settings.show_untested {
+            continue;
+        }
+        let endpoint = analytics.store().provider_endpoint(spec.id, &settings).ok();
+        let loopback = endpoint
+            .as_ref()
+            .is_some_and(|endpoint| endpoint.is_loopback());
+        providers.push(serde_json::json!({
+            "id":spec.id,"label":spec.label,"verified":verified,"selected":settings.provider == spec.id,
+            "endpoint":endpoint.map(|endpoint| endpoint.origin()),"loopback":loopback,"requires_key":!loopback,
+            "endpoint_kind":format!("{:?}",spec.kind).to_ascii_lowercase(),
+            "configured_endpoint":settings.provider_endpoints.get(spec.id).cloned().unwrap_or_else(|| spec.default_endpoint.to_owned()),
+            "models":crate::analytics::providers::registry::known_models(spec.id),"model_list_fetch":spec.id != "anthropic",
+        }));
+    }
+    for (provider, raw_endpoint) in &settings.provider_endpoints {
+        if !provider.starts_with("custom-") {
+            continue;
+        }
+        let verified = settings.verified_providers.contains_key(provider);
+        if !verified {
+            untested_count += 1;
+        }
+        if !verified && !settings.show_untested {
+            continue;
+        }
+        let endpoint = analytics
+            .store()
+            .provider_endpoint(provider, &settings)
+            .ok();
+        let loopback = endpoint
+            .as_ref()
+            .is_some_and(|endpoint| endpoint.is_loopback());
+        providers.push(serde_json::json!({
+            "id":provider,"label":"OpenAI-compatible custom endpoint","verified":verified,"selected":settings.provider == *provider,
+            "endpoint":endpoint.map(|endpoint| endpoint.origin()),"loopback":loopback,"requires_key":!loopback,
+            "models":[],"model_list_fetch":true,"endpoint_kind":"user","configured_endpoint":raw_endpoint,
+        }));
+    }
+    Ok(
+        serde_json::json!({"providers":providers,"untested_count":untested_count,"show_untested":settings.show_untested}),
+    )
+}
+
+#[tauri::command]
+pub(crate) fn analytics_provider_endpoint_set(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    provider_id: String,
+    endpoint: String,
+) -> Result<crate::analytics::AnalyticsPreferences, String> {
+    require_control(&webview)?;
+    analytics
+        .set_provider_endpoint(&provider_id, &endpoint)
+        .map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_custom_endpoint_register(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    endpoint: String,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    let (provider_id, settings) = analytics
+        .register_custom_endpoint(&endpoint)
+        .map_err(str::to_owned)?;
+    Ok(serde_json::json!({"provider_id":provider_id,"settings":settings}))
+}
+
+#[tauri::command]
+pub(crate) fn analytics_provider_verified_set(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    provider_id: String,
+    evidence_sha256: String,
+) -> Result<crate::analytics::AnalyticsPreferences, String> {
+    require_control(&webview)?;
+    if !cfg!(any(debug_assertions, feature = "lab")) {
+        return Err("verification_action_requires_developer_build".into());
+    }
+    analytics
+        .set_provider_verified(&provider_id, &evidence_sha256)
+        .map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_provider_models_fetch(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    state: tauri::State<'_, AppState>,
+    provider_id: String,
+) -> Result<Vec<String>, String> {
+    require_control(&webview)?;
+    if (state.match_active)() {
+        return Err("match_active".into());
+    }
+    analytics.fetch_models(&provider_id).map_err(str::to_owned)
 }
 
 #[tauri::command]
@@ -236,6 +376,44 @@ pub(crate) fn analytics_key_delete(
 }
 
 #[tauri::command]
+pub(crate) fn analytics_provider_key_status(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    provider_id: String,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    analytics
+        .store()
+        .key_status_for(&provider_id)
+        .map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_provider_key_set(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    provider_id: String,
+    key: String,
+) -> Result<(), String> {
+    require_control(&webview)?;
+    analytics
+        .set_provider_key(&provider_id, &key)
+        .map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_provider_key_delete(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    provider_id: String,
+) -> Result<(), String> {
+    require_control(&webview)?;
+    analytics
+        .delete_provider_key(&provider_id)
+        .map_err(str::to_owned)
+}
+
+#[tauri::command]
 pub(crate) fn analytics_settings_get(
     webview: tauri::Webview,
     analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
@@ -263,7 +441,9 @@ pub(crate) fn analytics_settings_patch(
             return Err(error.to_owned());
         }
     }
-    if old.auto_analyse != next.auto_analyse { library.set_auto_analyse(next.auto_analyse); }
+    if old.auto_analyse != next.auto_analyse {
+        library.set_auto_analyse(next.auto_analyse);
+    }
     Ok(next)
 }
 
@@ -296,7 +476,9 @@ pub(crate) fn analytics_notes_list(
 ) -> Result<Vec<crate::analytics::NoteRow>, String> {
     require_control(&webview)?;
     match match_id {
-        Some(match_id) => analytics.list_notes(&library, &match_id, &state.match_history.entries()).map_err(str::to_owned),
+        Some(match_id) => analytics
+            .list_notes(&library, &match_id, &state.match_history.entries())
+            .map_err(str::to_owned),
         None => Ok(Vec::new()),
     }
 }
@@ -311,8 +493,13 @@ pub(crate) fn analytics_note_read(
     note_id: String,
 ) -> Result<String, String> {
     require_control(&webview)?;
-    let _ = analytics.list_notes(&library, &match_id, &state.match_history.entries()).map_err(str::to_owned)?;
-    analytics.store().read_note(&match_id, &note_id).map_err(str::to_owned)
+    let _ = analytics
+        .list_notes(&library, &match_id, &state.match_history.entries())
+        .map_err(str::to_owned)?;
+    analytics
+        .store()
+        .read_note(&match_id, &note_id)
+        .map_err(str::to_owned)
 }
 
 #[tauri::command]
@@ -323,7 +510,10 @@ pub(crate) fn analytics_note_delete(
     note_id: String,
 ) -> Result<(), String> {
     require_control(&webview)?;
-    analytics.store().delete_note(&match_id, &note_id).map_err(str::to_owned)
+    analytics
+        .store()
+        .delete_note(&match_id, &note_id)
+        .map_err(str::to_owned)
 }
 
 #[tauri::command]
@@ -333,7 +523,10 @@ pub(crate) fn analytics_note_open_folder(
     match_id: String,
 ) -> Result<(), String> {
     require_control(&webview)?;
-    let folder = analytics.store().open_note_folder(&match_id).map_err(str::to_owned)?;
+    let folder = analytics
+        .store()
+        .open_note_folder(&match_id)
+        .map_err(str::to_owned)?;
     open_local_folder(&folder)
 }
 
@@ -347,12 +540,27 @@ pub(crate) fn analytics_own_hero_set(
 ) -> Result<String, String> {
     require_control(&webview)?;
     let bundle = library.open_bundle(&match_id).map_err(str::to_owned)?;
-    let normalized = if hero.starts_with("npc_dota_hero_") { hero } else { format!("npc_dota_hero_{hero}") };
-    let present = bundle.match_data.get("heroes").and_then(Value::as_array).is_some_and(|heroes| {
-        heroes.iter().any(|item| item.get("id").and_then(Value::as_str) == Some(normalized.as_str()))
-    });
-    if !present { return Err("invalid_hero".to_owned()); }
-    analytics.store().set_own_hero(&match_id, &normalized).map_err(str::to_owned)?;
+    let normalized = if hero.starts_with("npc_dota_hero_") {
+        hero
+    } else {
+        format!("npc_dota_hero_{hero}")
+    };
+    let present = bundle
+        .match_data
+        .get("heroes")
+        .and_then(Value::as_array)
+        .is_some_and(|heroes| {
+            heroes
+                .iter()
+                .any(|item| item.get("id").and_then(Value::as_str) == Some(normalized.as_str()))
+        });
+    if !present {
+        return Err("invalid_hero".to_owned());
+    }
+    analytics
+        .store()
+        .set_own_hero(&match_id, &normalized)
+        .map_err(str::to_owned)?;
     Ok(normalized)
 }
 
@@ -375,13 +583,45 @@ pub(crate) fn analytics_chat_submit(
     scrubber_time_s: Option<f64>,
 ) -> Result<String, String> {
     require_control(&webview)?;
-    let prepared = analytics.prepare_chat(&library, &state.match_history.entries(), crate::analytics::ChatOptions {
-        match_id, question, open_document, selected_hero, include_own_hero, include_match,
-        include_clock, include_document, include_selected_hero, scrubber_time_s,
-    }).map_err(str::to_owned)?;
+    if (state.match_active)() {
+        return Err("match_active".into());
+    }
+    let prepared = analytics
+        .prepare_chat(
+            &library,
+            &state.match_history.entries(),
+            crate::analytics::ChatOptions {
+                match_id,
+                question,
+                open_document,
+                selected_hero,
+                include_own_hero,
+                include_match,
+                include_clock,
+                include_document,
+                include_selected_hero,
+                scrubber_time_s,
+            },
+        )
+        .map_err(str::to_owned)?;
     let request_id = prepared.request_id().to_owned();
     analytics.spawn_chat(prepared, app);
     Ok(request_id)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_note_save_text(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    match_id: String,
+    title: String,
+    markdown: String,
+) -> Result<String, String> {
+    require_control(&webview)?;
+    analytics
+        .store()
+        .write_note(&match_id, &title, &markdown)
+        .map_err(str::to_owned)
 }
 
 #[tauri::command]
@@ -390,7 +630,9 @@ pub(crate) fn analytics_chat_cancel(
     analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
     request_id: String,
 ) {
-    if require_control(&webview).is_err() { return; }
+    if require_control(&webview).is_err() {
+        return;
+    }
     analytics.cancel(&request_id);
 }
 

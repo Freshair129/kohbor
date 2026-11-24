@@ -5,6 +5,7 @@
 #[allow(dead_code)]
 mod account_host;
 mod account_supabase;
+mod analytics;
 pub mod atomic;
 mod audio;
 mod audio_prefs;
@@ -32,7 +33,6 @@ mod opendota;
 mod orb;
 mod portraits;
 mod replay_library;
-mod analytics;
 pub mod secrets;
 pub mod settings;
 mod show_hotkey;
@@ -1477,9 +1477,17 @@ pub fn run() {
         commands::replay_library_clear,
         commands::replay_library_pin,
         commands::replay_library_open_folder,
+        commands::analytics_provider_list,
+        commands::analytics_provider_endpoint_set,
+        commands::analytics_custom_endpoint_register,
+        commands::analytics_provider_verified_set,
+        commands::analytics_provider_models_fetch,
         commands::analytics_key_status,
         commands::analytics_key_set,
         commands::analytics_key_delete,
+        commands::analytics_provider_key_status,
+        commands::analytics_provider_key_set,
+        commands::analytics_provider_key_delete,
         commands::analytics_settings_get,
         commands::analytics_settings_patch,
         commands::analytics_consent_set,
@@ -1488,6 +1496,7 @@ pub fn run() {
         commands::analytics_note_read,
         commands::analytics_note_delete,
         commands::analytics_note_open_folder,
+        commands::analytics_note_save_text,
         commands::analytics_own_hero_set,
         commands::analytics_chat_submit,
         commands::analytics_chat_cancel,
@@ -1612,9 +1621,17 @@ pub fn run() {
         commands::replay_library_clear,
         commands::replay_library_pin,
         commands::replay_library_open_folder,
+        commands::analytics_provider_list,
+        commands::analytics_provider_endpoint_set,
+        commands::analytics_custom_endpoint_register,
+        commands::analytics_provider_verified_set,
+        commands::analytics_provider_models_fetch,
         commands::analytics_key_status,
         commands::analytics_key_set,
         commands::analytics_key_delete,
+        commands::analytics_provider_key_status,
+        commands::analytics_provider_key_set,
+        commands::analytics_provider_key_delete,
         commands::analytics_settings_get,
         commands::analytics_settings_patch,
         commands::analytics_consent_set,
@@ -1623,6 +1640,7 @@ pub fn run() {
         commands::analytics_note_read,
         commands::analytics_note_delete,
         commands::analytics_note_open_folder,
+        commands::analytics_note_save_text,
         commands::analytics_own_hero_set,
         commands::analytics_chat_submit,
         commands::analytics_chat_cancel,

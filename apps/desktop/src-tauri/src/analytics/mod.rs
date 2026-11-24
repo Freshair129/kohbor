@@ -1,5 +1,6 @@
 mod context;
 mod protocol;
+pub(crate) mod providers;
 mod service;
 mod store;
 mod transport;
