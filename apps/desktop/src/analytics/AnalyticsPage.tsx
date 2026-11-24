@@ -1,13 +1,18 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
-import type { Locale } from "../copy";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
+import { createPortal } from "react-dom";
+import { copy, type Locale } from "../copy";
 import type { ReplayLibraryEntry, ReplayLibraryList, ReplayStatus } from "../replay/replayLibraryClient";
-import { MatchViewerSurface } from "../replay/MatchViewPanel";
+import { MatchViewerSurface, analyticsPlayerShadowCss } from "../replay/MatchViewPanel";
 import { admitLibraryBundle, type MatchBundle } from "../replay/matchBundle";
 import { ANALYTICS_TEMPLATE_QUESTIONS, answerAnalyticsTemplate, clock } from "../replay/coach";
 import { actionFromMarkdownTarget, renderMarkdownSafe } from "./analyticsMarkdown";
-import { analyticsViewState, replayRowFacts, UNKNOWN_VALUE } from "./analyticsModel";
+import {
+  analyticsDeathTeam, analyticsPlaybackKeyAction, analyticsViewState, enterAnalyticsReplayDetails,
+  formatAnalyticsTime, replayRowFacts, UNKNOWN_VALUE,
+  type AnalyticsReplayDetailsRoute, type AnalyticsReturnContext,
+} from "./analyticsModel";
 import "./analytics.css";
 
 type Note = { id: string; title: string; ai: boolean };
@@ -78,7 +83,12 @@ function statusText(status: ReplayStatus, locale: Locale) {
   const label = labels[status.state]; return locale === "th" ? label[0] : label[1];
 }
 
-export function AnalyticsPage({ locale, onOpenReplay }: { locale: Locale; onOpenReplay?: () => void }) {
+export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = true }: {
+  locale: Locale;
+  onOpenReplay?: (route: AnalyticsReplayDetailsRoute) => void;
+  restoreContext?: AnalyticsReturnContext | null;
+  active?: boolean;
+}) {
   const [library, setLibrary] = useState<ReplayLibraryList | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [bundle, setBundle] = useState<MatchBundle | null>(null);
@@ -107,8 +117,13 @@ export function AnalyticsPage({ locale, onOpenReplay }: { locale: Locale; onOpen
   const pendingEvents = useRef(new Map<string, { deltas: string[]; complete?: { error?: string; usage?: Usage; note_id?: string } }>());
   const finishRequest = useRef<(payload: { request_id: string; error?: string; usage?: Usage; note_id?: string }) => void>(() => {});
   const [currentTime, setCurrentTime] = useState(0);
+  const [playerSlot, setPlayerSlot] = useState<HTMLElement | null>(null);
+  const [playerSpeed, setPlayerSpeed] = useState(10);
+  const [playerPlaying, setPlayerPlaying] = useState(false);
+  const [hoverTime, setHoverTime] = useState<{ seconds: number; percent: number } | null>(null);
   const [includeContext, setIncludeContext] = useState({ match: true, time: true, document: true, myHero: true, hero: true });
   const viewerRoot = useRef<ShadowRoot | null>(null);
+  const playerRange = useRef<HTMLInputElement>(null);
   const markdown = useMemo(() => renderMarkdownSafe(noteText), [noteText]);
 
   const refresh = useCallback(async () => {
@@ -245,14 +260,56 @@ export function AnalyticsPage({ locale, onOpenReplay }: { locale: Locale; onOpen
     void invoke("analytics_own_hero_set", { matchId: selectedId, hero: heroId }).then(() => { void refresh(); })
       .catch(() => setError(t(locale, "บันทึกฮีโร่ของฉันไม่ได้", "Could not save your hero")));
   }, [selectedId, locale, refresh]);
-  const onViewerReady = useCallback((root: ShadowRoot) => { viewerRoot.current = root; }, []);
+  const onViewerReady = useCallback((root: ShadowRoot) => {
+    viewerRoot.current = root;
+    setPlayerSlot(root.getElementById("analytics-player-slot"));
+    setPlayerPlaying(false);
+    setPlayerSpeed(10);
+    const time = Number(root.querySelector<HTMLInputElement>("#rv-scrub")?.value);
+    if (Number.isFinite(time)) setCurrentTime(time);
+  }, []);
   const onTimeChange = useCallback((seconds: number) => setCurrentTime(seconds), []);
   const seek = useCallback((seconds: number) => {
-    const safe = Math.max(0, Number.isFinite(seconds) ? seconds : 0);
+    const start = typeof bundle?.match.t0 === "number" ? bundle.match.t0 : 0;
+    const end = typeof bundle?.match.t1 === "number" ? bundle.match.t1 : start;
+    const safe = Math.max(start, Math.min(end, Number.isFinite(seconds) ? seconds : start));
     setCurrentTime(safe);
     const range = viewerRoot.current?.querySelector<HTMLInputElement>("#rv-scrub");
     if (range) { range.value = String(safe); range.dispatchEvent(new Event("input", { bubbles: true })); }
-  }, []);
+  }, [bundle]);
+  useEffect(() => {
+    if (!restoreContext) return;
+    setSelectedId(restoreContext.matchId);
+    setOpenNote(restoreContext.documentId);
+    seek(restoreContext.timeS);
+  }, [restoreContext, seek]);
+  useEffect(() => {
+    const play = viewerRoot.current?.getElementById("rv-play");
+    if (!playerSlot || !play) return;
+    const sync = () => setPlayerPlaying(/หยุด|pause/i.test(play.getAttribute("aria-label") ?? play.textContent ?? ""));
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(play, { attributes: true, childList: true, characterData: true, subtree: true });
+    return () => observer.disconnect();
+  }, [playerSlot]);
+  useEffect(() => {
+    if (!active) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.altKey || event.ctrlKey || event.metaKey || document.querySelector('dialog[open], [aria-modal="true"]')) return;
+      const path = event.composedPath();
+      const origin = path.find((item): item is Element => item instanceof Element);
+      const targetType = origin?.tagName === "INPUT"
+        ? ((origin as HTMLInputElement).type === "range" ? "range" : "input")
+        : origin?.tagName.toLowerCase();
+      const action = analyticsPlaybackKeyAction(event.key, targetType);
+      if (!action) return;
+      event.preventDefault();
+      if (action.type === "toggle") viewerRoot.current?.getElementById("rv-play")?.click();
+      else seek(currentTime + action.deltaSeconds);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [active, currentTime, seek]);
   function seekFromDocument(event: MouseEvent<HTMLDivElement>) {
     const button = (event.target as Element).closest("button.an-md-seek"); if (!button) return;
     const action = actionFromMarkdownTarget(button); const root = viewerRoot.current;
@@ -262,7 +319,12 @@ export function AnalyticsPage({ locale, onOpenReplay }: { locale: Locale; onOpen
 
   const documentTitle = openNote === SYSTEM_NOTE_ID ? t(locale, "สรุปแมตช์.md", "Match summary.md") : notes.find(note => note.id === openNote)?.title ?? openNote;
   const duration = selected?.duration_s == null ? UNKNOWN_VALUE : clock(selected.duration_s);
-  const durationSeconds = bundle?.durationS ?? (deaths.length ? Math.max(...deaths.map(death => Number(death.t)).filter(Number.isFinite)) : null);
+  const timelineStart = typeof bundle?.match.t0 === "number" ? bundle.match.t0 : 0;
+  const timelineEnd = typeof bundle?.match.t1 === "number" ? bundle.match.t1 : null;
+  const durationSeconds = bundle?.durationS ?? null;
+  const timelineLength = timelineEnd !== null ? Math.max(1, timelineEnd - timelineStart) : 1;
+  const timePercent = (seconds: number) => Math.max(0, Math.min(100, (seconds - timelineStart) / timelineLength * 100));
+  const playbackLabel = `${formatAnalyticsTime(currentTime)} / ${formatAnalyticsTime(durationSeconds)}`;
   const heroName = matchHeroes.find(item => item.id === (selected?.own_hero ?? ownHero))?.name;
   const selectedHeroName = typeof heroName === "string" ? heroName
     : (selected?.own_hero ?? ownHero)?.replace("npc_dota_hero_", "") ?? UNKNOWN_VALUE;
@@ -273,6 +335,67 @@ export function AnalyticsPage({ locale, onOpenReplay }: { locale: Locale; onOpen
     ? `${selected.local_history.kills ?? UNKNOWN_VALUE}/${selected.local_history.deaths ?? UNKNOWN_VALUE}/${selected.local_history.assists ?? UNKNOWN_VALUE}`
     : UNKNOWN_VALUE;
   const heroKillTotal = kills.radiant == null || kills.dire == null ? UNKNOWN_VALUE : String(kills.radiant + kills.dire);
+  const player = playerSlot && bundle && timelineEnd !== null && timelineEnd > timelineStart ? createPortal(
+    <>
+      <style>{analyticsPlayerShadowCss}</style>
+      <div className="analytics-player" aria-label={copy(locale).analyticsPlayer.label}>
+        <div className="analytics-player-controls">
+          <button type="button" className="analytics-player-play" aria-label={playerPlaying ? copy(locale).analyticsPlayer.pause : copy(locale).analyticsPlayer.play}
+            title={playerPlaying ? copy(locale).analyticsPlayer.pause : copy(locale).analyticsPlayer.play}
+            onClick={() => viewerRoot.current?.getElementById("rv-play")?.click()}>{playerPlaying ? "❚❚" : "▶"}</button>
+          <label className="analytics-player-speed">
+            <span className="analytics-player-visually-hidden">{copy(locale).analyticsPlayer.speed}</span>
+            <select aria-label={copy(locale).analyticsPlayer.speed} value={playerSpeed} onChange={event => {
+              const speed = Number(event.currentTarget.value);
+              setPlayerSpeed(speed);
+              viewerRoot.current?.getElementById(`sp${speed}`)?.click();
+            }}>{[1, 5, 10, 30].map(speed => <option key={speed} value={speed}>{speed}×</option>)}</select>
+          </label>
+          <output className="analytics-player-clock" aria-live="off">{playbackLabel}</output>
+          <button type="button" className="analytics-player-details" onClick={() => {
+            if (!selectedId) return;
+            if (playerPlaying) viewerRoot.current?.getElementById("rv-play")?.click();
+            onOpenReplay?.(enterAnalyticsReplayDetails(bundle, { matchId: selectedId, timeS: currentTime, documentId: openNote }));
+          }}>{copy(locale).analyticsPlayer.details} ›</button>
+        </div>
+        <div className="analytics-player-track" onPointerLeave={() => setHoverTime(null)}>
+          <input ref={playerRange} type="range" min={timelineStart} max={timelineEnd} step="1" value={Math.max(timelineStart, Math.min(timelineEnd, currentTime))}
+            aria-label={copy(locale).analyticsPlayer.time}
+            style={{ "--played": `${timePercent(currentTime)}%` } as CSSProperties}
+            onChange={event => seek(Number(event.currentTarget.value))}
+            onPointerMove={event => {
+              const rect = event.currentTarget.getBoundingClientRect();
+              const percent = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+              setHoverTime({ seconds: timelineStart + percent * timelineLength, percent: percent * 100 });
+            }} />
+          <div className="analytics-player-ticks" aria-label={t(locale, "เหตุการณ์บนแถบเวลา", "Events on the timeline")}>
+            {deaths.map((death, index) => {
+              const seconds = Number(death.t);
+              const team = analyticsDeathTeam(death, matchHeroes);
+              if (!Number.isFinite(seconds) || seconds < timelineStart || seconds > timelineEnd) return null;
+              return <button key={`d${index}`} type="button" className={`analytics-player-death analytics-player-team-${team ?? "unknown"}`}
+                style={{ left: `${timePercent(seconds)}%` }} title={`† ${formatAnalyticsTime(seconds)}`}
+                aria-label={`${copy(locale).analyticsPlayer.deaths}: ${formatAnalyticsTime(seconds)}`} onClick={() => seek(seconds)}>†</button>;
+            })}
+            {timeCitations.filter(seconds => seconds >= timelineStart && seconds <= timelineEnd).map((seconds, index) => <button key={`c${index}`}
+              type="button" className="analytics-player-citation" style={{ left: `${timePercent(seconds)}%` }} title={`◆ ${formatAnalyticsTime(seconds)}`}
+              aria-label={`${t(locale, "อ้างอิงในเอกสาร", "Document citation")}: ${formatAnalyticsTime(seconds)}`} onClick={() => seek(seconds)}>◆</button>)}
+          </div>
+          {hoverTime && <output className="analytics-player-hover-time" style={{ left: `${hoverTime.percent}%` }}>{formatAnalyticsTime(hoverTime.seconds)}</output>}
+        </div>
+        <div className="analytics-player-death-strip" aria-label={copy(locale).analyticsPlayer.deaths}>
+          {deaths.flatMap((death, index) => {
+            const seconds = Number(death.t);
+            if (!Number.isFinite(seconds) || Math.abs(seconds - currentTime) > 60) return [];
+            const team = analyticsDeathTeam(death, matchHeroes);
+            return [<button key={index} type="button" className={`analytics-player-team-${team ?? "unknown"}`}
+              title={`${copy(locale).analyticsPlayer.deaths}: ${formatAnalyticsTime(seconds)}`} onClick={() => seek(seconds)}>† {formatAnalyticsTime(seconds)}</button>];
+          }).slice(0, 12)}
+          {!deaths.some(death => Number.isFinite(Number(death.t)) && Math.abs(Number(death.t) - currentTime) <= 60)
+            && <span>{copy(locale).analyticsPlayer.noDeaths}</span>}
+        </div>
+      </div>
+    </>, playerSlot) : null;
   return <div className="analytics-page" data-state={state} data-left-collapsed={leftCollapsed} data-right-collapsed={rightCollapsed}>
     <div className="analytics-topbar">
       <div className="analytics-replay-select">
@@ -324,22 +447,9 @@ export function AnalyticsPage({ locale, onOpenReplay }: { locale: Locale; onOpen
         {bundle && <div className="analytics-kill-score" aria-label={t(locale, "hero kills ต่อทีม", "Hero kills by team")}>
           <span>{t(locale, "Radiant", "Radiant")} {kills.radiant ?? UNKNOWN_VALUE}</span><b>{heroKillTotal}</b><span>{t(locale, "Dire", "Dire")} {kills.dire ?? UNKNOWN_VALUE}</span>
         </div>}
-        {bundle && <MatchViewerSurface locale={locale} bundle={bundle} onHeroSelect={setHero} onHeroIdentify={identifyOwnHero} onTimeChange={onTimeChange} onReady={onViewerReady} />}
-        {bundle && durationSeconds != null && durationSeconds > 0 && <div className="analytics-playback" aria-label={t(locale, "แถบเล่นและเหตุการณ์", "Playback and event bar")}>
-          <input type="range" min="0" max={durationSeconds} step="1" value={Math.min(currentTime, durationSeconds)} aria-label={t(locale, "เวลาเล่น", "Playback time")} onChange={event => seek(Number(event.currentTarget.value))} />
-          <div className="analytics-playback-markers">
-            {deaths.map((death, index) => Number.isFinite(Number(death.t)) && <button key={`d${index}`} title={`† ${clock(Number(death.t))}`} aria-label={`${t(locale, "ตาย", "Death")} ${clock(Number(death.t))}`}
-              style={{ left: `${Math.min(100, Math.max(0, Number(death.t) / durationSeconds * 100))}%` }} onClick={() => seek(Number(death.t))}>†</button>)}
-            {timeCitations.map((seconds, index) => <button key={`c${index}`} title={`◆ ${clock(seconds)}`} aria-label={`${t(locale, "อ้างอิงในเอกสาร", "Document citation")} ${clock(seconds)}`}
-              style={{ left: `${Math.min(100, Math.max(0, seconds / durationSeconds * 100))}%` }} onClick={() => seek(seconds)}>◆</button>)}
-          </div>
-          <small>{clock(currentTime)} / {duration}</small>
-        </div>}
-        {bundle && <div className="analytics-death-strip" aria-label={t(locale, "จังหวะตาย ±60 วินาที", "Deaths within ±60 seconds")}>
-          {deaths.filter(death => Number.isFinite(Number(death.t)) && Math.abs(Number(death.t) - currentTime) <= 60).slice(0, 12).map((death, index) => <button key={index} onClick={() => seek(Math.max(0, Number(death.t) - 60))}>† {Number.isFinite(Number(death.t)) ? clock(Number(death.t)) : UNKNOWN_VALUE}</button>)}
-          {!deaths.some(death => Number.isFinite(Number(death.t)) && Math.abs(Number(death.t) - currentTime) <= 60) && <small>{t(locale, "ไม่มีจังหวะตายในช่วงนี้", "No deaths in this interval")}</small>}
-        </div>}
-        {bundle && <div className="analytics-centre-actions"><button onClick={() => onOpenReplay?.()}>{t(locale, "ดูละเอียด ›", "View details ›")}</button></div>}
+        {bundle && <MatchViewerSurface locale={locale} bundle={bundle} onHeroSelect={setHero} onHeroIdentify={identifyOwnHero}
+          onTimeChange={onTimeChange} onReady={onViewerReady} initialTime={0} disableKeyboard />}
+        {player}
       </main>
       {!rightCollapsed ? <aside className="analytics-column analytics-chat"><header><strong>{t(locale, "ผู้ช่วย", "Assistant")}</strong><button onClick={() => setRightCollapsed(true)} aria-label={t(locale, "ยุบแผงขวา", "Collapse right panel")}>›</button></header>
         <div className="analytics-chat-feed" aria-live="polite">

@@ -28,7 +28,11 @@ body {
 .shell-dev-layer { position: fixed; z-index: 40; top: 8px; left: calc(var(--rail-left-width) + 8px); max-width: calc(100vw - var(--rail-left-width) - var(--rail-width) - 16px); }
 .shell-rail { grid-row: 1 / span 2; position: relative; z-index: 3; display: flex; flex-direction: column; align-items: stretch; min-width: 0; min-height: 0; overflow: visible; padding: 8px 3px; background: var(--ground); color: var(--text); }
 .shell-rail-left { overflow: hidden; padding: 10px 5px 8px; border-right: 1px solid var(--line); }
-.shell-rail-right { align-items: center; border-left: 1px solid var(--line); }
+.app { --rail-width: 44px; }
+.shell-rail-right { align-items: center; padding-inline: 2px; border-left: 1px solid var(--line); }
+.shell-rail-account-tooltip { width: 100%; min-width: 0; }
+.shell-rail-right .shell-account-trigger { min-width: 0; padding: 0; }
+.shell-rail-right .shell-rail-friends-note { font-size: 12px; overflow-wrap: anywhere; }
 .shell-rail-friends { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%; margin-top: 12px; padding: 8px 2px; border-top: 1px solid var(--line); color: var(--muted); text-align: center; pointer-events: none; }
 .shell-rail-friends-label { font-size: var(--fs-caption); line-height: var(--lh-tight); }
 .shell-rail-friends-note { font-size: 10px; line-height: var(--lh-tight); overflow-wrap: anywhere; }

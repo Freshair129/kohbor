@@ -37,7 +37,7 @@ test("Analytics fits both reference viewports without a page scroll", () => {
 
 test("Analytics CSS keeps a fixed three-column canvas with an internally scrolling document", () => {
   const css = readFileSync(new URL("../src/analytics/analytics.css", import.meta.url), "utf8");
-  assert.match(css, /grid-template-columns:\s*minmax\(210px,[^)]*\)\s+minmax\(600px,[^)]*\)\s+minmax\(260px,[^)]*\)/);
+  assert.match(css, /grid-template-columns:\s*minmax\(210px,[^)]*\)\s+minmax\(600px,[^)]*\)\s+minmax\(156px,[^)]*\)/);
   assert.match(css, /\.analytics-page\s*\{[^}]*overflow:\s*hidden/s);
   assert.match(css, /\.analytics-columns\s*\{[^}]*overflow:\s*hidden/s);
   assert.match(css, /\.analytics-markdown\s*\{[^}]*overflow-y:\s*auto/s);

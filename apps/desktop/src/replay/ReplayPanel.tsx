@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import type { Locale } from "../copy";
+import { copy, type Locale } from "../copy";
+import type { AnalyticsReplayDetailsRoute } from "../analytics/analyticsModel";
 import { CoachPanel } from "./CoachPanel";
 import { MatchViewPanel } from "./MatchViewPanel";
 import { matchViewerCopy } from "./matchViewerCopy.mjs";
@@ -8,8 +9,22 @@ import { mountReplay } from "./viewer.mjs";
 import markup from "./viewer.html?raw";
 import style from "./viewer.css?raw";
 
-export function ReplayPanel({ locale, available }: { locale: Locale; available: boolean }) {
+export function ReplayPanel({ locale, available, detail, onBack }: {
+  locale: Locale;
+  available: boolean;
+  detail?: AnalyticsReplayDetailsRoute | null;
+  onBack?: () => void;
+}) {
   const text = matchViewerCopy[locale].panel;
+  if (detail) return (
+    <div className="shell-screen shell-replay-detail" style={{ display: "grid", gridTemplateRows: "auto minmax(0, 1fr)", gap: 8, minWidth: 0, minHeight: 0, overflow: "hidden" }}>
+      <header className="shell-replay-detail__header">
+        <button type="button" onClick={onBack}>{copy(locale).analyticsPlayer.back}</button>
+      </header>
+      <MatchViewPanel locale={locale} initialBundle={detail.bundle} initialMatchId={detail.matchId}
+        initialTime={detail.initialTime} detailOnly />
+    </div>
+  );
   return available ? <LocalReplay locale={locale} /> : (
     <div className="shell-screen" style={{ overflow: "auto" }}>
       <section className="card">

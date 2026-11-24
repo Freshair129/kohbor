@@ -16,5 +16,8 @@ export function mountMatchView(
     mapCalibration: MapCalibration;
     /** element id to text, written into the markup before the viewer starts */
     header: Record<string, string>;
+    /** seconds to open at; clamped to the match range */
+    initialTime?: number | null;
+    disableKeyboard?: boolean;
   },
 ): () => void;
