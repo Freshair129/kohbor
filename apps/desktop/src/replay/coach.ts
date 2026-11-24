@@ -5,6 +5,51 @@ export const RATE_MIN_MATCHES = 10;
 export const DEATH_TYPES: DeathType[] = ["solo", "gank", "teamfight", "other"];
 export const PHASES = [[0, 600], [600, 1200], [1200, 1800], [1800, Infinity]] as const;
 
+export const ANALYTICS_TEMPLATE_QUESTIONS = [
+  { id: "summary", th: "สรุปแมตช์นี้", en: "Summarize this match" },
+  { id: "kills", th: "ใครทำ hero kills มากสุด", en: "Who had the most hero kills?" },
+  { id: "deaths", th: "แสดงจังหวะตายของฮีโร่ฉัน", en: "Show my hero's deaths" },
+] as const;
+
+export function answerAnalyticsTemplate(input: {
+  question: string;
+  locale: "th" | "en";
+  durationS: number | null;
+  heroes: readonly { id: string; name: string; team: number }[];
+  deaths: readonly { t: number; hero: string; killer: string }[];
+  ownHero: string | null;
+  localResult: "win" | "loss" | null;
+}): string {
+  const th = input.locale === "th";
+  const unknown = th ? "— ไม่ทราบ" : "— unknown";
+  const question = input.question.toLocaleLowerCase();
+  const heroNames = new Map(input.heroes.map(hero => [hero.id, hero.name]));
+  const clockText = input.durationS == null ? unknown : clock(input.durationS);
+  const knownKills = input.deaths.filter(death => heroNames.has(death.killer));
+  if (/kill|ฆ่า|คิล/.test(question)) {
+    if (!knownKills.length) return th ? "ไม่มีข้อมูล hero-kill ที่ยืนยันได้ในรีเพลย์นี้" : "No confirmed hero-kill events are available in this replay.";
+    const counts = new Map<string, number>();
+    for (const death of knownKills) counts.set(death.killer, (counts.get(death.killer) ?? 0) + 1);
+    const highest = Math.max(...counts.values());
+    const leaders = [...counts].filter(([, count]) => count === highest).map(([id]) => heroNames.get(id) ?? unknown);
+    return th ? `hero kills มากสุด ${highest} ครั้ง: ${leaders.join(", ")}` : `Most hero kills: ${highest} — ${leaders.join(", ")}`;
+  }
+  if (/death|ตาย/.test(question)) {
+    if (!input.ownHero) return th ? `ฮีโร่ของคุณยังไม่ทราบ จึงจับคู่จังหวะตายให้ไม่ได้ · ${unknown}` : `Your hero is unknown, so deaths cannot be attributed · ${unknown}`;
+    const rows = input.deaths.filter(death => death.hero === input.ownHero);
+    if (!rows.length) return th ? "ไม่พบจังหวะตายของฮีโร่ที่ระบุในข้อมูล" : "No death events were recorded for the selected hero.";
+    return rows.map(death => `${clock(death.t)} · ${heroNames.get(death.killer) ?? unknown}`).join("\n");
+  }
+  const radiant = input.heroes.filter(hero => hero.team === 2).map(hero => hero.name);
+  const dire = input.heroes.filter(hero => hero.team === 3).map(hero => hero.name);
+  const result = input.localResult === "win" ? (th ? "ชนะ" : "win") : input.localResult === "loss" ? (th ? "แพ้" : "loss") : unknown;
+  const killerTotal = knownKills.length ? String(knownKills.length) : unknown;
+  const deathTotal = input.deaths.length ? String(input.deaths.length) : "0";
+  return th
+    ? `ระยะเวลา ${clockText} · ผล ${result} · hero kills ${killerTotal} · deaths ${deathTotal}\nRadiant ${radiant.length ? radiant.join(", ") : unknown}\nDire ${dire.length ? dire.join(", ") : unknown}\nคำตอบนี้ใช้ข้อมูลในเครื่องเท่านั้น; รูปแบบ k/n แสดงเป็นจำนวนก่อนมีตัวอย่างแมตช์เพียงพอ.`
+    : `Duration ${clockText} · result ${result} · hero kills ${killerTotal} · deaths ${deathTotal}\nRadiant: ${radiant.length ? radiant.join(", ") : unknown}\nDire: ${dire.length ? dire.join(", ") : unknown}\nThis answer uses local data only; k/n counts remain counts until enough matches are available.`;
+}
+
 export interface DeathRow extends CoachDeath { matchId: string; hero: string; patch: string | null }
 export interface LaneSummary { lane: LaneName; matches: number; behind: number; even: number; ahead: number; unknown: number; medianDiff: number | null }
 export interface CoachSummary {

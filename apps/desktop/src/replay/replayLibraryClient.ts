@@ -8,6 +8,14 @@ export type ReplayStatus =
 
 export type ReplaySource = "dota_replays_folder" | "manual_pick";
 
+export interface ReplayLocalHistory {
+  result: "win" | "loss" | null;
+  kills: number | null;
+  deaths: number | null;
+  assists: number | null;
+  ended_at_unix_s: number;
+}
+
 export interface ReplayLibraryEntry {
   match_id: string;
   source: ReplaySource;
@@ -24,6 +32,8 @@ export interface ReplayLibraryEntry {
   own_hero: string | null;
   duration_s: number | null;
   patch: string | null;
+  pinned?: boolean;
+  local_history?: ReplayLocalHistory | null;
 }
 
 export interface ReplayJob {

@@ -150,7 +150,7 @@
     {
       "id": "DGM-004",
       "title": "Local data flow and lifetime separation",
-      "purpose": "Show permitted local event persistence and derived memory while keeping transient voice and peer domains disconnected from archives and export.",
+      "purpose": "Show permitted local event persistence, replay analysis and retention, and Analytics data lifetimes while keeping unrelated transient domains disconnected from export.",
       "owner_doc": "docs/design/DDD.md",
       "requirement_ids": [
         "DATA-001",
@@ -171,7 +171,10 @@
         "UI-011",
         "MEDIA-009",
         "UI-010",
-        "UI-012"
+        "UI-012",
+        "UI-021",
+        "UI-022",
+        "MEM-007"
       ],
       "decision_ids": [
         "DEC-SESSION",
@@ -180,7 +183,8 @@
         "DEC-VOICE-BUFFER",
         "DEC-DRAFT-BAR",
         "DEC-PICK-STATS",
-        "DEC-EDGE-ORB"
+        "DEC-EDGE-ORB",
+        "DEC-ANALYTICS"
       ],
       "notes": [
         "Draft descriptive view of the current specification baseline; the governing requirements and accepted decisions control. An arrow does not grant data permission or prove implementation.",
@@ -190,7 +194,9 @@
         "The durable nondecreasing logical/epoch forget cutoff is comparable with archive timestamps, survives restart and conservatively excludes equal-granularity older sources. It is not a persisted process-monotonic timestamp; corruption fails closed.",
         "Clearing memory advances the cutoff and discards derived snapshots while retaining raw archives. History deletion is a separate action.",
         "A completed summary has at most three source-linked claims; incomplete sessions cannot fabricate completed outcomes. Retention quotas and complete/partial contracts remain open decisions.",
-        "The absence of external arrows is intentional. The separate external-flow view defines the narrow approved own-stat projections; it does not export journals, memory, summaries, microphone content or capture-derived data.",
+        "Only the dedicated Analytics route in DGM-005 sends the selected derived replay context after explicit submit and its key, consent and AI-on gates. General event archives, memory, summaries, microphone content, peer data and capture-derived data do not flow to external routes.",
+        "Replay analysis reads .dem files from the Dota replay folder or a manual picker; that folder and its files remain read-only. Automatic analysis waits for runtime phase none/menu and existing engine admission, one job at a time. Keep newest 20 analysed bundles plus pins within the default 2 GiB cap; eviction removes only unpinned Kohbor-derived bundles.",
+        "The system note is generated from local templates and read-only. AI notes and same-match chat are separate user data retained after bundle eviction. Analytics preferences currently live in a versioned analytics/settings.json sidecar; migration to shared settings is a known follow-up.",
         "Draft Bar 5a crops the same admitted DXGI frame for the control-window mirror; 5b matches portraits locally and yields hero names or unknown reasons. The strip and pick views are in-memory display paths, cleared at match end, session change and exit; Draft Bar data has no log, disk, overlay or network sink. The separate orb mixer reads/writes only approved per-app audio-session levels."
       ],
       "kind": "flowchart",
@@ -202,7 +208,7 @@
     {
       "id": "DGM-005",
       "title": "Independent external data routes",
-      "purpose": "Separate cloud advice, transient peer exchange and private account/social authorization without a shared universal gameplay payload.",
+      "purpose": "Separate cloud advice, Analytics Claude requests, transient peer exchange and private account/social authorization without a shared universal gameplay payload.",
       "owner_doc": "docs/security/SECURITY-PRIVACY.md",
       "requirement_ids": [
         "ADVICE-002",
@@ -225,13 +231,15 @@
         "UI-010",
         "STATS-001",
         "STATS-002",
-        "STATS-003"
+        "STATS-003",
+        "UI-022"
       ],
       "decision_ids": [
         "DEC-INTERFACES",
         "DEC-SOCIAL",
         "DEC-DRAFT-BAR",
-        "DEC-PICK-STATS"
+        "DEC-PICK-STATS",
+        "DEC-ANALYTICS"
       ],
       "notes": [
         "Draft descriptive view of the current specification baseline; the governing requirements and accepted decisions control. An arrow does not grant data permission or prove implementation.",
@@ -243,7 +251,9 @@
         "Account credentials belong to the native broker and private account authority. Relay member credentials stay native; account JWTs/private account IDs do not go to the relay, and relay member secrets do not go into social storage.",
         "Social invitations may use reviewed relay proofs and single-use tickets under their separate protocol. Friendship or sign-in never grants peer sharing; this overview does not depict or authorize a new cross-route payload.",
         "Consent, owner, account, source, request and membership generations are rechecked as applicable before send and on delivery. Leave and opt-out fence late results. Optional failure does not disable valid local core behavior.",
-        "Draft Bar pixels, identities and unknown reasons stay on the device in memory and have no edge to cloud, peer, account, log or disk routes. Public statistics remain their separate consented projection; the draft strip is not a network input."
+        "Draft Bar pixels, identities and unknown reasons stay on the device in memory and have no edge to cloud, peer, account, log or disk routes. Public statistics remain their separate consented projection; the draft strip is not a network input.",
+        "Analytics is a distinct user-key Claude route. No request occurs without the user's own key, stored consent, AI enabled and an explicit question submit. Each question sends the selected derived match context, hero names, question, open-document text when included, and all earlier messages in that same match's chat; that history is resent with every question.",
+        "Request content excludes player names, Steam/account IDs, raw match ID and file paths. The user's key is sent directly to Anthropic only as the HTTPS x-api-key authentication header, not prompt content or ledger data; DEC-ANALYTICS currently says the key is never sent and needs owner clarification. No automatic request, Kohbor server, account, telemetry or billing is added."
       ],
       "kind": "flowchart",
       "source": "docs/diagrams/source/DGM-005-external-data-flow.mmd",
@@ -496,10 +506,12 @@
         "DATA-003",
         "DATA-004",
         "VISION-001",
-        "MEM-004"
+        "MEM-004",
+        "MEM-007"
       ],
       "decision_ids": [
-        "DEC-SESSION"
+        "DEC-SESSION",
+        "DEC-ANALYTICS"
       ],
       "notes": [
         "States reproduce the SDD match domain: Waiting, Active, Ended and Unsupported.",
@@ -508,7 +520,8 @@
         "CV geometry/capture failure withdraws vision-dependent assertions only; valid GSI and independent local core may continue.",
         "A confirmed new owner/session increments epoch and fences relevant old work, baselines and selection.",
         "Ended requires source-supported completion. Crash/disconnect does not establish a winner, complete session or cause of death.",
-        "DEC-SESSION still governs the full complete/partial/outcome contract; this is not a new completion inference."
+        "DEC-SESSION still governs the full complete/partial/outcome contract; this is not a new completion inference.",
+        "Replay acquisition and retention follow MEM-007. Auto-analysis is admitted only during none/menu and joins to MEM-006 through an install-keyed hash; an unmatched own hero remains unknown unless the user sets it."
       ],
       "kind": "state",
       "source": "docs/diagrams/source/DGM-013-match-lifecycle.mmd",
@@ -614,7 +627,7 @@
     {
       "id": "DGM-017",
       "title": "Startup, navigation and explicit user tasks",
-      "purpose": "Show local startup independence, all seven existing control destinations and honest availability of optional services and local tasks.",
+      "purpose": "Show local startup independence, existing control destinations including Analytics, and honest availability of optional services and local tasks.",
       "owner_doc": "docs/design/UX-SPEC.md",
       "requirement_ids": [
         "CORE-001",
@@ -639,7 +652,8 @@
         "UI-012",
         "STATS-001",
         "STATS-002",
-        "STATS-003"
+        "STATS-003",
+        "UI-021"
       ],
       "decision_ids": [
         "DEC-NAME",
@@ -649,10 +663,11 @@
         "DEC-PREMIUM",
         "DEC-EDGE-ORB",
         "DEC-PICK-STATS",
-        "DEC-DRAFT-BAR"
+        "DEC-DRAFT-BAR",
+        "DEC-ANALYTICS"
       ],
       "notes": [
-        "Grouped route labels list existing destinations, not new screens: Overview, Live, Voice Packs, Store, Insights, Account and Settings.",
+        "Grouped route labels list existing destinations, not new screens: Overview, Live, Voice Packs, Store, Analytics (stable route key insights), Account and Settings.",
         "Build, CV heroes and Cooperative sharing remain Live subviews; local History remains an Insights subview. They do not become extra main destinations.",
         "Navigation is not required to enable the passive overlay or local alerts. The diagram's parallel branches show independent responsibilities.",
         "Mandatory containment failure exits safely before UI/helpers. Optional account or network availability is not a startup gate.",
@@ -660,7 +675,8 @@
         "Each explicit PTT/advice/OBS action checks its own capability, permissions and consent. Cloud advice is outside this local-action branch and retains its separate consent gate.",
         "The location of local clip controls still requires DEC-VISUALS; this diagram creates no new clips page.",
         "Fresh/stale/unknown views use admitted data; no production fixtures or automatic hero selection. Premium never broadens data rights or gates local core.",
-        "On first run or when GSI setup is needed, the control window offers setup and waits for an explicit player choice; setup does not happen implicitly. The Live page shows the ten-slot draft strip only in supported phases and geometry. Public suggestions appear before the own pick and the pick card after it under its separate consent; the edge orb is a separate mouse-only guarded window with per-app volume controls."
+        "On first run or when GSI setup is needed, the control window offers setup and waits for an explicit player choice; setup does not happen implicitly. The Live page shows the ten-slot draft strip only in supported phases and geometry. Public suggestions appear before the own pick and the pick card after it under its separate consent; the edge orb is a separate mouse-only guarded window with per-app volume controls.",
+        "Analytics is a three-column post-match replay workspace: system and AI Markdown documents on the left, replay map/cards/playback in the centre, optional chat on the right. With no key, consent or AI-on state, local coach templates remain available; prior messages from the same match chat are resent with every question when the user submits."
       ],
       "kind": "flowchart",
       "source": "docs/diagrams/source/DGM-017-user-flow.mmd",

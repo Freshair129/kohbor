@@ -47,3 +47,31 @@ flowchart TB
     Sessions["Dota, Kohbor and selected music app levels"]
     Orb <-->|"Guarded controls and actual readback"| Sessions
   end
+  subgraph ReplayLibrary["Replay library: local analysis and retention"]
+    direction TB
+    DemFolder["Dota replay folder: .dem, read-only"]
+    Watcher["Folder watcher"]
+    ManualPick["Manual .dem picker"]
+    Intake["Replay intake"]
+    RuntimeGate["Runtime phase none or menu"]
+    EngineAdmission["Existing engine admission: one job at a time"]
+    Parser["Replay parser and analysis"]
+    Bundle["Kohbor-derived analysed bundle"]
+    Retention["Newest 20 plus pins; 2 GiB default cap"]
+    DemFolder --> Watcher --> Intake
+    ManualPick --> Intake
+    Intake --> RuntimeGate --> EngineAdmission --> Parser --> Bundle --> Retention
+  end
+  subgraph AnalyticsLocal["Analytics: durable local data"]
+    direction TB
+    MatchContext["Selected bundle: deterministic derived context"]
+    SystemNote["Template-generated read-only system note"]
+    AiNotes["User-owned AI Markdown notes"]
+    Chat["Same-match append-only chat history"]
+    AnalyticsPrefs["Versioned analytics/settings.json"]
+    ApiKey["User API key: current-user DPAPI"]
+    RequestLedger["Metadata-only request ledger"]
+    Bundle --> MatchContext --> SystemNote
+    AiNotes -. "Separate from evictable bundles" .- Retention
+    Chat -. "Kept when replay bundle is evicted" .- Retention
+  end

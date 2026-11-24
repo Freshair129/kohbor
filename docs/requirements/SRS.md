@@ -1305,6 +1305,54 @@ The Overview page shall show only the player's own data and Kohbor news, in two 
 
 **Implementation freedom:** Choose the layout details within the Command Deck tokens and the variant D design. Add a statistics source only through its own requirement and decision.
 
+#### UI-021 — Analytics three-column replay analysis
+
+**Scope:** mvp · **Priority:** P1 · **Target milestone:** M5 · **Basis:** owner_decision / DEC-ANALYTICS
+
+**Product needs:** PN-008 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL, CMP-MEMORY
+
+The Analytics destination shall replace the Insights summary placeholder and retain the current route and Replay tools subview. It shall show three columns: evidence-based analysis with a read-only system summary and AI Markdown notes on the left; the selected replay minimap, Radiant and Dire five-hero cards, hero-only kill score, playback controls, death and cited-time markers, nearby deaths and detailed Replay action in the centre; and an IDE-style assistant chat on the right. A replay dropdown shall select library entries and filter all, pinned or not analysed rows. Rows show status, Thai-local date, own hero, lineups, result, duration, derived-bundle size and hero kills. Empty, parsing, ready, AI-note, no-AI, list and settings states reflect actual data. Parsing progress is indeterminate unless the engine provides a percentage. Unknown values render "— ไม่ทราบ", never zero. Selecting a card adds its hero to assistant context; double-clicking offers "นี่คือฉัน". Side panels collapse. At 1440 by 900 and 1920 by 1080 there is no overlap or page-level scrolling and the map retains its minimum size.
+
+**Failure behavior:** Invalid or evicted bundles show an explicit unavailable or replay-removed state. Unknown result, own hero, lineups, duration, score and size stay unknown. Raw HTML and unsafe Markdown links are inert; only #t=<seconds> and #ev=<table>/<index> seek controls are active.
+
+**AC-UI-021:** Given empty, parsing, ready, AI-note, no-AI and list states; known and unknown bundle fields; safe and hostile Markdown; and both required viewports; when the user opens Analytics, selects replay and hero cards, opens a note, filters rows, collapses a side panel, follows a time or evidence link and opens detailed Replay tools; then the three columns follow the reference; values come from available sources; unknown values show "— ไม่ทราบ"; parsing has no fake percent; only selected replay context is offered to chat; only approved time/evidence links seek; hostile HTML and other links remain inert; and both viewports have no overlap or page-level scroll.
+
+**Verification:** synthetic, native; procedures TP-05, UAT-05; status NOT_RUN.
+
+**Open dependencies:** DEC-NATIVE-EVIDENCE.
+
+**Elaboration:** [UX-SPEC.md](../design/UX-SPEC.md), [SDD.md](../design/SDD.md), [DDD.md](../design/DDD.md)
+
+**Contracts:** [replay-bundle.schema.json](../../contracts/replay-bundle.schema.json)
+
+**Diagram views:** [DGM-004](../diagrams/source/DGM-004-local-data-flow.mmd), [DGM-017](../diagrams/source/DGM-017-user-flow.mmd)
+
+**Implementation freedom:** Reuse the current replay library and match viewer; keep policy and view-model logic testable without launching the app, and preserve unknown values.
+
+#### UI-022 — Consented Claude replay assistant
+
+**Scope:** extension · **Priority:** extension · **Target milestone:** M6 · **Basis:** owner_decision / DEC-ANALYTICS
+
+**Product needs:** PN-008 · **Primary design:** CMP-ADVICE · **Design components:** CMP-ADVICE, CMP-MEMORY, CMP-READMODEL
+
+The optional Analytics assistant shall call Anthropic Claude Messages only after explicit user submit, with the users own API key, stored Analytics consent and AI enabled. AI is off by default and cannot be enabled without a key and consent. Before the first request, disclose exactly that derived selected-match context and hero names, scrubber time and selected hero when enabled, the user question and prior conversation turns resent unchanged, and open-document text when included go to Anthropic, and that player names, Steam/account IDs, raw match IDs and file paths are never sent, and the API key is never content but only the HTTPS x-api-key authentication header to api.anthropic.com. The user pays Anthropic directly; Kohbor adds no account, server, telemetry or billing. Protect the key with current-user DPAPI; renderer actions are set, delete and read only set plus last four characters. Revoking consent cancels requests and blocks late results. With AI off, no consent or no key, no request occurs and coach.ts template questions remain available. The host uses only claude-opus-5-5 by default plus claude-sonnet-5-5 and claude-haiku-5-5, streams text, validates note tools and keeps a metadata-only local request ledger.
+
+**Failure behavior:** Missing key, consent or AI enablement fails closed without transport. API key, permission, billing, bad request, not-found, rate limit, overload, refusal, truncation and network/TLS errors stay distinct and never include the key. Invalid tool input writes nothing. Revocation invalidates active work.
+
+**AC-UI-022:** Given fake transport fixtures for success, specified errors, split stream chunks, refusal, max-token stop, bad tool JSON and cancellation, plus key/consent/AI combinations; when the user sets or deletes the key, reviews consent, grants or revokes consent, selects an allowed model, toggles AI, submits or cancels a question and opens or deletes a note; then only explicit submit with key, consent and AI enabled reaches the fixed Anthropic endpoint; the consent screen precedes the first request; no forbidden field or key is sent or logged; revocation stops and invalidates requests; allowed models and API contract are followed; note input is validated before an atomic safe-name bounded write; usage and errors are explicit; and disabled/no-key/no-consent states make zero transport calls while template fallback works.
+
+**Verification:** synthetic, native; procedures TP-08, UAT-07; status NOT_RUN.
+
+**Open dependencies:** DEC-NATIVE-EVIDENCE.
+
+**Elaboration:** [UX-SPEC.md](../design/UX-SPEC.md), [SDD.md](../design/SDD.md), [DDD.md](../design/DDD.md), [DECISION-LOG.md](../governance/DECISION-LOG.md)
+
+**Contracts:** [user-settings.schema.json](../../contracts/user-settings.schema.json)
+
+**Diagram views:** [DGM-004](../diagrams/source/DGM-004-local-data-flow.mmd), [DGM-005](../diagrams/source/DGM-005-external-data-flow.mmd)
+
+**Implementation freedom:** Reuse the current replay library and match viewer; keep policy and view-model logic testable without launching the app, and preserve unknown values.
+
 ### STATS
 
 #### STATS-001 — Separate consent for public hero statistics
@@ -1664,6 +1712,30 @@ From admitted game data with verified ownership, the host shall record one entry
 **Elaboration:** [GSI-INTAKE-SPEC.md](../design/GSI-INTAKE-SPEC.md), [SECURITY-PRIVACY.md](../security/SECURITY-PRIVACY.md), [DECISION-LOG.md](../governance/DECISION-LOG.md)
 
 **Implementation freedom:** Choose the storage layout and summary computation within the stated fields, bounds and counting rule. A match-type source needs an explicit GSI field or its own decision.
+
+#### MEM-007 — Replay analysis and bounded bundle retention
+
+**Scope:** mvp · **Priority:** P1 · **Target milestone:** M5 · **Basis:** owner_decision / DEC-ANALYTICS
+
+**Product needs:** PN-008 · **Primary design:** CMP-MEMORY · **Design components:** CMP-MEMORY, CMP-INGEST, CMP-READMODEL
+
+Replay acquisition keeps the read-only Dota replay-folder watcher and manual .dem picker. Automatic analysis defaults on and analyses new replays only in runtime phase none or menu, one at a time, through existing engine admission. When auto is off, new files remain available for manual analysis. Keep the newest 20 analysed derived bundles plus every pinned bundle ("เก็บไว้"), with a configurable analysed count of 5 to 100 and configurable size cap defaulting to 2 GiB. Pins do not count toward newest N but count toward bytes. On either limit, remove oldest unpinned Kohbor-derived bundles only. Never delete pins, source .dem files or Dota-folder contents. Keep notes and chat after bundle eviction, label the replay removed, and delete notes/chat only on separate user action. Match bundles to MEM-006 with the existing install-keyed match hash and show matched own hero/result/K/D/A/date; otherwise values remain unknown until the user sets their hero.
+
+**Failure behavior:** Unknown runtime phase, engine admission or source state never authorizes auto analysis. Unknown values show "— ไม่ทราบ". If pinned bundles alone exceed the cap, preserve them and show the over-cap state. Eviction failure preserves the prior index and files. Bundle removal never deletes .dem, notes or chat.
+
+**AC-MEM-007:** Given library fixtures with analysis order, pins, count and byte limits, runtime none/menu/live/unknown, manual and watched sources, MEM-006 match and miss, and saved notes/chat; when the watcher discovers a replay, auto is toggled, manual analysis is requested, a replay is pinned or unpinned, limits change, eviction runs and a replay lacks a GSI history match; then auto analysis runs only outside a match and one at a time through engine admission; auto-off queues no job; newest N and pins remain unless only pins exceed byte cap; only derived bundles are evicted; no .dem or Dota folder path is written or deleted; notes/chat survive and show replay removed; history joins use install-keyed hash; user hero is fallback only when GSI has no match.
+
+**Verification:** synthetic, native; procedures TP-07, UAT-08; status NOT_RUN.
+
+**Open dependencies:** DEC-NATIVE-EVIDENCE.
+
+**Elaboration:** [DDD.md](../design/DDD.md), [SDD.md](../design/SDD.md), [REPLAY-PIPELINE.md](../design/REPLAY-PIPELINE.md), [DECISION-LOG.md](../governance/DECISION-LOG.md)
+
+**Contracts:** [replay-bundle.schema.json](../../contracts/replay-bundle.schema.json), [user-settings.schema.json](../../contracts/user-settings.schema.json)
+
+**Diagram views:** [DGM-004](../diagrams/source/DGM-004-local-data-flow.mmd), [DGM-013](../diagrams/source/DGM-013-match-lifecycle.mmd)
+
+**Implementation freedom:** Reuse the current replay library and match viewer; keep policy and view-model logic testable without launching the app, and preserve unknown values.
 
 ### ADVICE
 

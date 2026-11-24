@@ -1506,6 +1506,40 @@
           "decision": "1. The Overview is a player data dashboard plus community news; no readiness or GSI content on the page. Variant D: statistics in the main column, news in the side column with a type filter at its head and an \"all news\" link (an in-page expanded list until a full feed page exists). 2. Statistics source \"both\": Kohbor records its own local match history from GSI from now on; OpenDota opt-in history is slice 2 and is shown as a disabled, labelled coming-soon card until then. 3. Win rate counts real matches only: ranked and unranked public matches; bot, custom and lobby games are recorded but excluded; a quit, abandoned or unknown outcome shows an em dash, never a loss; a match whose type GSI cannot tell is recorded as unknown and excluded, and the UI says so. 4. News: news.json in the public repository Freshair129/kohbor-updates, loaded by default at app start; the first-run state and Settings disclose that it contacts GitHub (which sees the IP address and time) and offer an off switch; Kohbor-written patch notes with a link to Valve and no Valve text. 5. The shell's GSI and game status chips are hidden on the Overview page only. 6. Rollout in two slices; slice 1 is local history, news and the page. Amends DEC-COACH-REVIEW item 6 only for the Overview's own-history win rate; DEC-COACH-REVIEW item 3 (no OpenDota) is amended later by slice 2."
         }
       ]
+    },
+    {
+      "id": "DEC-ANALYTICS",
+      "status": "decided",
+      "milestone": "M6",
+      "blocks": "The Analytics page, its optional Claude assistant and replay storage policy only.",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-24",
+      "channel": "decided by the product owner 2026-11-24, relayed by the lead, recorded by an agent",
+      "decision": "1. Rename \"สรุปผล\" to Analytics while retaining the route. The page has left analysis and Markdown notes, a centre replay minimap and ten hero cards, and an IDE-style chat on the right. 2. This is a feature-specific exception to the AGENTS.md default against cloud data and paid services. The Analytics chat may call Anthropic Claude Messages API only with the user own API key, after explicit consent, while AI is enabled; AI starts off, can be revoked, and sends nothing automatically. The only content sent is derived selected-match context, hero names, the user question, the earlier user and assistant messages of the same match chat (resent unchanged with each question; owner 2026-11-24: \"Yes, resend them\") and open-document text. Player names, Steam/account IDs, raw match ID and file paths are never sent. The API key is never content: it goes only to api.anthropic.com in the HTTPS x-api-key authentication header. The user pays Anthropic directly; Kohbor adds no account, server, telemetry or billing. Without key, consent or AI enablement, no request occurs and local template fallback remains available. 3. Automatically analyse discovered replays only outside matches, one at a time under existing engine admission. Keep newest 20 analysed bundles plus every pinned \"เก็บไว้\" bundle by default, with a 2 GiB size cap. Eviction never deletes source .dem files, notes or chat.",
+      "reason": "Provide the Analytics replay workspace and optional user-authorized cloud assistance without a Kohbor service or disclosure of replay identifiers, while bounding derived storage and preserving notes.",
+      "alternatives_considered": [
+        "Keep only template answers",
+        "Use a local language model",
+        "Use a Kohbor-operated cloud service",
+        "Keep every analysed bundle",
+        "Delete notes and chat on eviction"
+      ],
+      "affected_need_ids": [
+        "PN-008"
+      ],
+      "affected_requirement_ids": [
+        "UI-021",
+        "UI-022",
+        "MEM-007"
+      ],
+      "related": [
+        "DEC-COACH-REVIEW",
+        "DEC-REPLAY-INTEGRATION",
+        "DEC-NATIVE-EVIDENCE"
+      ],
+      "safe_interim": "No request occurs without key, consent, AI enabled and an explicit submit. Template fallback remains local. Dota replay files remain read-only and bundle eviction preserves notes and chat.",
+      "closure_evidence": "Product-owner decision 2026-11-24, relayed by the lead and recorded by an agent. Synthetic fake-transport and policy tests only; native DPAPI and app acceptance remain NOT_RUN."
     }
   ]
 }

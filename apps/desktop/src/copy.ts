@@ -121,8 +121,8 @@ const MESSAGES = {
     shell: {
       navigationLabel: "หน้าหลัก",
       tabs: { live: "สด", packs: "แพ็กเสียง", settings: "ตั้งค่า", status: "สถานะ", replay: "รีเพลย์", logs: "บันทึก" },
-      destinations: { overview: "ภาพรวม", live: "สด", packs: "แพ็กเสียง", insights: "สรุปผล", store: "ร้านค้า", status: "สถานะ", logs: "บันทึก", settings: "ตั้งค่า" },
-      insightsViews: { label: "มุมมองสรุปผล", summary: "สรุป", replay: "รีเพลย์" },
+      destinations: { overview: "ภาพรวม", live: "สด", packs: "แพ็กเสียง", insights: "Analytics", store: "ร้านค้า", status: "สถานะ", logs: "บันทึก", settings: "ตั้งค่า" },
+      insightsViews: { label: "มุมมอง Analytics", summary: "Analytics", replay: "รีเพลย์" },
       emptyPage: "ยังไม่มีหน้านี้",
       emptyPageNote: "เนื้อหาของหน้านี้ยังไม่ได้เพิ่ม",
       logsDeveloperOnly: "บันทึกเปิดได้เมื่อเปิดโหมดนักพัฒนา",
@@ -411,8 +411,8 @@ const MESSAGES = {
     shell: {
       navigationLabel: "Main pages",
       tabs: { live: "Live", packs: "Packs", settings: "Settings", status: "Status", replay: "Replay", logs: "Logs" },
-      destinations: { overview: "Overview", live: "Live", packs: "Audio packs", insights: "Insights", store: "Store", status: "Status", logs: "Logs", settings: "Settings" },
-      insightsViews: { label: "Insights views", summary: "Summary", replay: "Replay" },
+      destinations: { overview: "Overview", live: "Live", packs: "Audio packs", insights: "Analytics", store: "Store", status: "Status", logs: "Logs", settings: "Settings" },
+      insightsViews: { label: "Analytics views", summary: "Analytics", replay: "Replay" },
       emptyPage: "This page is not available yet",
       emptyPageNote: "This page's content has not been added yet",
       logsDeveloperOnly: "Logs are available when Developer mode is on",

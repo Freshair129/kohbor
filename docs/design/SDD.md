@@ -119,7 +119,7 @@ Catalog, arbitration, priority matrix, decode checks and install contracts are p
 |---|---|---|---|
 | Build truthful source-qualified views and adapt them to the control window, passive overlay, selections and accessible interaction. | Admitted observations, independent health states, session/identity revisions and native presentation authority. | Typed availability/age values, stable map/cards, selected inspector state and explicit capability/readiness messages. | Unknown is not zero; no production fixtures or automatic selection. Discard stale inspector results and preserve focus/map during capability loss. Deferred timer presentation cannot own or invent the native game clock/store. |
 
-**Primary SRS allocation:** `CORE-005`, `DATA-002`, `UI-001`, `UI-002`, `UI-003`, `UI-004`, `UI-005`, `UI-006`, `UI-007`, `UI-008`, `UI-009`, `UI-010`, `UI-011`, `UI-012`, `UI-013`, `UI-015`, `UI-016`, `UI-017`, `UI-018`, `UI-019`, `UI-020`, `MEDIA-009`, `STATS-001`, `STATS-002`, `STATS-003`.
+**Primary SRS allocation:** `CORE-005`, `DATA-002`, `UI-001`, `UI-002`, `UI-003`, `UI-004`, `UI-005`, `UI-006`, `UI-007`, `UI-008`, `UI-009`, `UI-010`, `UI-011`, `UI-012`, `UI-013`, `UI-015`, `UI-016`, `UI-017`, `UI-018`, `UI-019`, `UI-020`, `UI-021`, `MEDIA-009`, `STATS-001`, `STATS-002`, `STATS-003`.
 
 For UI-011 and MEDIA-009, allocate a native mixer module. One host COM thread owns Core Audio session enumeration and writes. Expose only `mixer_get`, `mixer_set` and `mixer_focus_toggle`; host resolves approved processes. Persist original levels for restoration. Public draft suggestions use fixed aggregate-table fetches, at most four per day, filtered locally. For UI-009, allocate the separate orb presentation and its guarded mouse input here. CMP-ALERT owns critical admission and its deadline. The orb reflects the admission in the same transition and yields to the cue. For UI-010 and STATS-001–003, this component owns the native public statistics lifecycle and the typed card view. Isolate provider I/O from critical paths. Admit a closed request from the own hero and optional manual bracket under separate consent. Validate results, fence them by the current consent and hero, and manage only the public aggregate cache. Renderers consume a projection. Draft Bar 5b is a local input to the v2 view and stays outside provider requests and the cache. For UI-012, the control-window read model presents all ten local Draft Bar slots with admitted hero names or unknown reasons; its lifetime and forbidden sinks remain those in DRAFT-BAR-SPEC. For UI-013, the host registers one show-app hotkey with RegisterHotKey on its own message thread (no hook, no synthesized input), toggles the control window, remembers the prior foreground window for return on hide, and replaces a binding only after the new one registers. See [UX](UX-SPEC.md) and [Security and Privacy](../security/SECURITY-PRIVACY.md).
 
@@ -145,7 +145,7 @@ For UI-011 and MEDIA-009, allocate a native mixer module. One host COM thread ow
 |---|---|---|---|
 | Maintain approved local evidence and bounded derived snapshots/summaries with durable forget behavior. | Permitted local events/archive metadata, explicit completion/outcome evidence and user read/forget/delete actions. | Versioned source-supported aggregates, at most three complete-session summary points and durable forget acknowledgement. | Corrupt cutoff fails closed. No inferred outcomes, peer history or cloud export. Snapshot replacement is atomic; memory clear preserves separately governed journals. |
 
-**Primary SRS allocation:** `MEM-001`, `MEM-002`, `MEM-003`, `MEM-004`, `MEM-005`, `MEM-006`.
+**Primary SRS allocation:** `MEM-001`, `MEM-002`, `MEM-003`, `MEM-004`, `MEM-005`, `MEM-006`, `MEM-007`.
 
 **Collaborating components:** CMP-INGEST, CMP-READMODEL, CMP-VOICE, CMP-ADVICE.
 
@@ -157,7 +157,7 @@ For UI-011 and MEDIA-009, allocate a native mixer module. One host COM thread ow
 |---|---|---|---|
 | Run noncritical manual advice using distinct local context and explicitly consented closed cloud projections. | Deliberate request, admitted backend, current allowed context and consent/session/backend generations. | Context-qualified advice or explicit unavailable result, with cancellable lower-priority delivery. | No silent remote request or universal serialized game object. Revocation/backend/session changes invalidate sends, cache and late results across retry/API/CLI paths. |
 
-**Primary SRS allocation:** `ADVICE-001`, `ADVICE-002`, `ADVICE-003`, `ADVICE-004`.
+**Primary SRS allocation:** `ADVICE-001`, `ADVICE-002`, `ADVICE-003`, `ADVICE-004`, `UI-022`.
 
 **Collaborating components:** CMP-INGEST, CMP-MEMORY, CMP-READMODEL, CMP-MEDIA, CMP-PERFORMANCE.
 
@@ -361,6 +361,17 @@ Any failure → `CPU_CONTAINMENT_FAILED`, sanitized log, exit code 1. No job mem
 **Intra-cap priority:** intake, alert and audio threads run at `THREAD_PRIORITY_ABOVE_NORMAL`. Background work runs at `THREAD_PRIORITY_BELOW_NORMAL`. Within the job's hard cap, the scheduler then favors the critical path.
 
 **Limits of this design:** it does not establish that M3 capture/inference or M5 models fit inside 10%. That remains RISK-01 and the DEC-MODELS feasibility gate. The 9.0% entry threshold is an internal tuning value; change it through an ADR backed by measurements. Never change it in response to a failed acceptance run.
+
+
+### Analytics assistant and replay library (UI-021, UI-022, MEM-007)
+
+`CMP-READMODEL` owns the three-column Analytics view and consumes a selected replay bundle plus the local MEM-006 history projection. It joins only by the installation-keyed match hash. If no local history row matches, a user-entered own hero is kept per match; otherwise unknown remains unknown. The raw match ID remains confined to the local replay library and is excluded from the AI projection.
+
+`CMP-ADVICE` owns the optional Analytics Claude route. The renderer can submit a user question and context toggles; the native host constructs a deterministic, bounded projection from one selected bundle, verifies the stored key/consent/AI gates, and sends only to fixed `https://api.anthropic.com/v1/messages` through WinHTTP with redirects refused. It never sends the key in the body, event stream, error, log or ledger. A request can include scrubber time, selected hero and open-document text when enabled, and resends prior conversation turns unchanged; consent names these fields. Nothing is sent at startup, parse completion, replay selection or document open. Revocation closes the active transport and discards late events. Request history stores time, model, byte counts, token counts and status, never content or key. The local template fallback remains available when any gate is closed.
+
+The system block and deterministic match context use a prompt-cache breakpoint; volatile clock/hero/document/question fields follow it. Conversation history is append-only and keeps every assistant block for subsequent turns. Stream deltas are relayed to the renderer. The write-note tool runs only after a complete stream with `stop_reason=tool_use`, bounded-round checks and schema validation. It writes safe, atomic Markdown under the install-keyed per-match directory; the system summary is template-generated and read-only. Notes/chat are user data and live outside the replay bundle eviction directory.
+
+Replay-library auto-analysis is an opt-out setting. The existing watcher continues to read the Dota replay folder and the picker reads the selected `.dem`; neither path writes to the game folder. New automatic jobs queue only in runtime phase none/menu, one at a time, and use existing engine admission. Retention removes the oldest unpinned derived bundle when count or size exceeds the configured cap. It never removes `.dem` files, pinned bundles, notes or chat; an evicted replay retains its note folder and is marked removed.
 
 ## Related engineering diagrams
 

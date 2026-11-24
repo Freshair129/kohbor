@@ -213,6 +213,18 @@ Recorded in chat with the lead agent; details and the conflicts they create are 
 
 The decision covers the Lab slice (DEC-LAB-GATE). It adds no requirement: post-match replay has no requirement module yet, and MEM-001 and MEM-004 continue to bound summaries. Promotion beyond Lab still needs the reviewed post-match data contract and native evidence. Text in `contracts/decisions.json`.
 
+### Analytics page, Claude assistant and replay retention (2026-11-24)
+
+**DEC-ANALYTICS** (decided by the product owner 2026-11-24, relayed by the lead, recorded by an agent). The owner asked to rename "สรุปผล" to Analytics and chose a three-column page with left analysis/notes, a centre replay minimap and hero cards, and an IDE-style chat on the right. The selected replay is changed from a dropdown.
+
+1. This decision amends DEC-COACH-REVIEW item 5 only for the Analytics chat. It may call Anthropic Claude Messages API with the user's own API key and only after the user's explicit consent. AI is off until the key is set and consent is granted; it can be revoked; nothing is sent automatically. The only content sent is the derived context for the selected match, hero names, the user's question, the earlier user and assistant messages of the same match chat, and the open document text. Player names, Steam/account IDs, raw match IDs and file paths are never sent. The API key is never content; it goes only to api.anthropic.com in the HTTPS `x-api-key` authentication header.
+2. This is a feature-specific exception to the AGENTS.md default against cloud data and paid services. The user pays Anthropic directly. Kohbor provides no account, server, telemetry or billing. With no key, consent or AI enablement, no request occurs and the local template fallback remains available.
+3. New replays are analysed automatically only outside a match and one at a time under existing engine admission. Keep the newest 20 analysed bundles plus every pinned "เก็บไว้" bundle by default, with a 2 GiB size cap. Eviction removes only Kohbor-derived bundle files; it never deletes .dem files or notes/chat. Retention limits can be changed in Settings.
+
+Amendment (owner 2026-11-24, relayed by the lead, recorded by an agent): asked "Should earlier messages in the same match chat be resent with each new question?", the owner replied "Yes, resend them". Item 1 now lists those messages. Wording correction by the lead: the first record said the API key is "never sent"; the key must authenticate the request, so item 1 now says it is never content and travels only in the HTTPS authentication header to api.anthropic.com.
+
+The requirements are UI-021, UI-022 and MEM-007. The API key is native-host-only and DPAPI-protected. Revocation stops requests; the local request ledger contains metadata only. Native and live-provider evidence are NOT_RUN.
+
 ### Owner decision: announcer preemption with a fade (2026-11-23)
 
 Product owner, relayed by the lead session after the log of build 8d9f8c3 showed two `multi_kill` events dropped `channel_busy` while a `hero_kill` clip played. Owner words: “ตัดเข้าเลยแต่ทำให้สมูทใส่เฟดนิดนึงก็ได้ให้มันไม่รู้สึกว่ากระตุกอ่ะ”

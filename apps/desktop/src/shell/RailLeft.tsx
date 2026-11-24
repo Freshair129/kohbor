@@ -16,7 +16,7 @@ function DestinationIcon({ destination }: { destination: ShellDestination }) {
     case "overview": return <svg {...common}><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>;
     case "live": return <svg {...common}><path d="M3 12h4l3-7 4 14 3-7h4" /><circle cx="3" cy="12" r="1" /></svg>;
     case "packs": return <svg {...common}><path d="M4 14v-2a8 8 0 0 1 16 0v2" /><path d="M4 13h3v7H6a2 2 0 0 1-2-2zM20 13h-3v7h1a2 2 0 0 0 2-2z" /></svg>;
-    case "insights": return <svg {...common}><path d="M4 20V11M10 20V5M16 20v-8M22 20H2" /></svg>;
+    case "insights": return <svg {...common}><path d="M3 20h18M5 16l4-5 4 3 6-9" /><circle cx="9" cy="11" r="1" /><circle cx="13" cy="14" r="1" /><circle cx="19" cy="5" r="1" /></svg>;
     case "store": return <svg {...common}><path d="M4 9h16l-1 12H5z" /><path d="M9 9a3 3 0 0 1 6 0" /></svg>;
     case "status": return <svg {...common}><path d="M3 12h4l3-7 4 14 3-7h4" /></svg>;
     case "logs": return <svg {...common}><path d="M8 6h12M8 12h12M8 18h12" /><path d="M4 6h.01M4 12h.01M4 18h.01" /></svg>;

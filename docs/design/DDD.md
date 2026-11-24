@@ -37,6 +37,13 @@ This is the new product's logical model. It is not a prescription to create a da
 | FriendRelation | two authorized account subjects | Mutual relation/block/settings; minimal projection | Private optional social storage |
 | CapabilityLease | subject + installation + lease_id | Signed capabilities, expiry, key ID, revocation state | Native verifies; no gameplay gate |
 
+
+## Analytics and replay records (DEC-ANALYTICS)
+
+The existing replay library keeps its local raw match ID and source `.dem` path; neither is part of a cloud projection. The Analytics directory is keyed by the installation-specific match hash used by MEM-006 and holds `notes/*.md`, append-only `chat.json`, per-match user hero override when GSI has no matching history row, and the template-generated read-only `สรุปแมตช์.md` summary. It is separate from the evictable derived bundle directory. Bundle eviction marks the replay removed but preserves notes/chat until the user separately deletes them.
+
+The user API key is a current-user DPAPI blob. Renderer-visible key state is only set/unset and last four characters. The key is sent directly to Anthropic over HTTPS only in the `x-api-key` authentication header; it is not prompt content and never enters logs or the local request ledger. AI consent, AI-enabled state, allowed model, bundle count and byte cap are settings. The request ledger stores time, model, sent/received bytes, input/cache-read/cache-creation/output token counts and status only; it has no prompt, response, note text, match identifier or key. The Anthropic route receives the selected bundle's deterministic derived context and hero names, scrubber time and selected hero when enabled, the explicit question, all earlier messages in that same match's chat resent with every question, and open-document text when included, only after explicit submit and all three gates (key, consent, AI enabled). Request content excludes player names, account identifiers, raw match IDs and paths. Analytics preferences currently use a separate versioned `analytics/settings.json` store; migration into the shared settings store is a known follow-up.
+
 ## Relationships
 
 ![DGM-006: Local logical entity relationships](../diagrams/rendered/DGM-006-logical-erd.svg)
