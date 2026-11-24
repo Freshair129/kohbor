@@ -1,3 +1,4 @@
+// @ts-ignore Explicit source extensions support Node's TypeScript loader.
 import { renderKohborChart, type KohborChartResolvedReference } from "./analyticsChart.ts";
 
 export type MarkdownAction =
@@ -62,7 +63,7 @@ function codeBlock(language: string, body: string): string {
 function chartBlock(source: string, resolve?: KohborChartResolvedReference): string {
   const result = renderKohborChart(source, resolve);
   if (result.html) return result.html;
-  return `<div class="an-md-chart-error" role="status"><p>Chart unavailable: ${escapeHtml(result.error)}</p>${codeBlock("json", source)}</div>`;
+  return `<div class="an-md-chart-error" role="status"><p>Chart unavailable: ${escapeHtml(result.error ?? "")}</p>${codeBlock("json", source)}</div>`;
 }
 
 function renderBlocks(lines: string[], resolve?: KohborChartResolvedReference): string {

@@ -1,4 +1,8 @@
-use super::context::{build_match_context, MatchContextInput};
+use super::context::{
+    build_context_blocks, report_stale_reasons, ContextBlocks, HISTORY_ESTIMATED_BYTES_PER_TOKEN,
+    HISTORY_TOKEN_BUDGET, PROMPT_VERSION,
+};
+use super::knowledge::{self, KnowledgeInput, KNOWLEDGE_VERSION};
 use super::protocol::{
     finalize_tool_blocks, retry_delay_ms, ApiError, Model, OutgoingRequest, ParsedMessage,
     RequestInput, Usage,
@@ -8,10 +12,11 @@ use super::providers::openai_compat::RequestInput as OpenAiRequestInput;
 use super::providers::{
     AnthropicAdapter, NeutralEvent, OpenAiCompatAdapter, ToolsMode, WireAdapter,
 };
-use super::store::{AnalyticsPreferences, AnalyticsStore, LedgerRow};
+use super::store::{AnalyticsPreferences, AnalyticsStore, LedgerRow, StoredAiReport};
+use super::tools::{self, ToolContext};
 use super::transport::{Cancellation, Transport, TransportError};
 use crate::match_history::MatchEntry;
-use crate::replay_library::ReplayLibrary;
+use crate::replay_library::{ReplayBundle, ReplayLibrary};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::path::Path;
@@ -19,6 +24,12 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::Emitter;
+
+const MAX_TOOL_ROUNDS: u8 = 8;
+
+fn tool_round_limit_reached(rounds: u8) -> bool {
+    rounds > MAX_TOOL_ROUNDS
+}
 
 #[derive(Clone)]
 pub(crate) struct AnalyticsService {
@@ -35,16 +46,23 @@ pub(crate) struct PreparedChat {
     endpoint: Endpoint,
     model: String,
     tools_mode: ToolsMode,
-    context: String,
+    tool_defs: Vec<Value>,
+    context: ContextBlocks,
+    digest: Value,
+    bundle: Option<ReplayBundle>,
+    bundle_hash: String,
+    own_hero: Option<String>,
     question: String,
-    document: String,
     selected_hero: Option<String>,
     scrubber_time_s: Option<f64>,
-    include_clock: bool,
-    include_selected_hero: bool,
-    include_document: bool,
+    report: bool,
     history: Vec<Value>,
     cancellation: Cancellation,
+}
+
+pub(crate) enum ReportPreparation {
+    Cached(StoredAiReport),
+    Request(PreparedChat),
 }
 
 #[derive(Clone, Debug)]
@@ -304,6 +322,68 @@ impl AnalyticsService {
         history_entries: &[MatchEntry],
         options: ChatOptions,
     ) -> Result<PreparedChat, &'static str> {
+        self.prepare_request(library, history_entries, options, false)
+    }
+
+    pub(crate) fn prepare_report(
+        &self,
+        library: &ReplayLibrary,
+        history_entries: &[MatchEntry],
+        match_id: String,
+        selected_hero: Option<String>,
+        scrubber_time_s: Option<f64>,
+        regenerate: bool,
+    ) -> Result<ReportPreparation, &'static str> {
+        let prepared = self.prepare_request(library, history_entries, ChatOptions {
+            match_id,
+            question: "Write the saved match analysis described by RULES v2. Analyze lanes, the mid and late phases, key teamfights, and what the selected hero could change. Cite each claim.".into(),
+            open_document: String::new(),
+            selected_hero,
+            include_own_hero: true,
+            include_match: true,
+            include_clock: true,
+            include_document: false,
+            include_selected_hero: true,
+            scrubber_time_s,
+        }, true)?;
+        let cache_key = report_cache_key(
+            &prepared.bundle_hash,
+            &prepared.model,
+            PROMPT_VERSION,
+            KNOWLEDGE_VERSION,
+        );
+        if !regenerate {
+            if let Ok(reports) = self.store.list_ai_reports(&prepared.match_id) {
+                for summary in reports {
+                    if summary.meta.cache_key == cache_key
+                        && report_stale_reasons(
+                            &summary.meta,
+                            &prepared.bundle_hash,
+                            KNOWLEDGE_VERSION,
+                            prepared.own_hero.as_deref(),
+                        )
+                        .is_empty()
+                    {
+                        if let Ok(report) =
+                            self.store.read_ai_report(&prepared.match_id, &summary.id)
+                        {
+                            lock(&self.active).remove(&prepared.request_id);
+                            return Ok(ReportPreparation::Cached(report));
+                        }
+                    }
+                }
+            }
+        }
+        Ok(ReportPreparation::Request(prepared))
+    }
+
+    fn prepare_request(
+        &self,
+        library: &ReplayLibrary,
+        history_entries: &[MatchEntry],
+        options: ChatOptions,
+        report: bool,
+    ) -> Result<PreparedChat, &'static str> {
         let settings = self.store.preferences()?;
         if !settings.ai_on {
             return Err("ai_off");
@@ -324,58 +404,73 @@ impl AnalyticsService {
             None if endpoint.is_loopback() => String::new(),
             None => return Err("key_required"),
         };
-        if options.question.trim().is_empty()
-            || options.question.len() > 8 * 1024
-            || options.open_document.len() > 64 * 1024
-        {
+        if options.question.trim().is_empty() || options.question.len() > 8 * 1024 {
             return Err("question_invalid");
         }
-        let bundle = library
-            .open_bundle(&options.match_id)
-            .map_err(|_| "bundle_unavailable")?;
         let gsi = find_gsi_match(&self.store, &options.match_id, history_entries);
-        let own_hero = if !options.include_own_hero {
-            None
-        } else if let Some(entry) = gsi {
-            entry.hero.clone()
-        } else {
-            self.store.own_hero(&options.match_id)
-        };
-        let context = if options.include_match {
-            build_match_context(&MatchContextInput {
+        let own_hero = gsi
+            .and_then(|entry| entry.hero.clone())
+            .or_else(|| self.store.own_hero(&options.match_id));
+        let bundle = library.open_bundle(&options.match_id).ok();
+        let (digest, bundle_hash) = if let Some(bundle) = bundle.as_ref() {
+            let digest = knowledge::build(&KnowledgeInput {
                 manifest: &bundle.manifest,
                 match_data: &bundle.match_data,
                 world: &bundle.world,
                 own_hero: own_hero.as_deref(),
-                gsi_match: options.include_own_hero.then_some(gsi).flatten(),
-            })?
+                gsi_match: gsi,
+            })?;
+            let bundle_hash = knowledge::bundle_hash(&bundle.manifest)?;
+            let bytes = knowledge::canonical_bytes(&digest)?;
+            let digest_own_hero = digest
+                .pointer("/meta/viewer/own_hero")
+                .and_then(Value::as_str);
+            self.store.write_knowledge(
+                &options.match_id,
+                &bundle_hash,
+                KNOWLEDGE_VERSION,
+                digest_own_hero,
+                &bytes,
+            )?;
+            (digest, bundle_hash)
         } else {
-            "{\"match_context\":\"omitted by user\"}".to_owned()
+            if report {
+                return Err("replay_removed");
+            }
+            let (meta, digest) = self
+                .store
+                .read_latest_knowledge(&options.match_id)?
+                .ok_or("bundle_unavailable")?;
+            (digest, meta.bundle_hash)
         };
-        let heroes = bundle
-            .match_data
-            .get("heroes")
-            .and_then(Value::as_array)
-            .cloned()
-            .unwrap_or_default();
-        let selected_hero = options
-            .selected_hero
-            .as_deref()
-            .and_then(|selected| {
-                heroes
-                    .iter()
-                    .find(|hero| hero.get("id").and_then(Value::as_str) == Some(selected))
-            })
-            .and_then(|hero| hero.get("name").and_then(Value::as_str))
+        let viewer = digest.pointer("/meta/viewer").cloned();
+        let notes = self
+            .store
+            .list_notes(&options.match_id, &summary_markdown(&digest))?;
+        let current_own = digest
+            .pointer("/meta/viewer/own_hero")
+            .and_then(Value::as_str)
             .map(str::to_owned);
-        let history = self.store.chat(&options.match_id)?;
-        let bytes = crate::secrets::random::<16>().ok_or("request_id_unavailable")?;
-        let request_id = bytes
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>();
-        let cancellation = Cancellation::default();
-        lock(&self.active).insert(request_id.clone(), cancellation.clone());
+        let latest_report = self
+            .store
+            .list_ai_reports(&options.match_id)
+            .ok()
+            .and_then(|reports| reports.first().cloned())
+            .and_then(|summary| {
+                self.store
+                    .read_ai_report(&options.match_id, &summary.id)
+                    .ok()
+                    .map(|mut report| {
+                        report.meta.stale = !report_stale_reasons(
+                            &report.meta,
+                            &bundle_hash,
+                            KNOWLEDGE_VERSION,
+                            current_own.as_deref(),
+                        )
+                        .is_empty();
+                        report
+                    })
+            });
         let tools_mode = match settings
             .tools_modes
             .get(&settings.provider)
@@ -383,8 +478,67 @@ impl AnalyticsService {
         {
             Some("supported") => ToolsMode::Supported,
             Some("unsupported") => ToolsMode::Unsupported,
+            _ if settings.provider == "anthropic" => ToolsMode::Supported,
             _ => ToolsMode::Unknown,
         };
+        let tools_available = tools_mode == ToolsMode::Supported && settings.provider != "qwen";
+        let mut tool_defs = tools::definitions(tools_available);
+        if report {
+            tool_defs.retain(|tool| tool.get("name").and_then(Value::as_str) != Some("write_note"));
+        }
+        let context = build_context_blocks(
+            &digest,
+            viewer.as_ref(),
+            &notes,
+            latest_report.as_ref(),
+            tools_available,
+        )?;
+        let selected_hero = options
+            .selected_hero
+            .as_deref()
+            .and_then(|selected| {
+                digest
+                    .get("heroes")
+                    .and_then(Value::as_array)
+                    .and_then(|heroes| {
+                        heroes
+                            .iter()
+                            .find(|hero| hero.get("id").and_then(Value::as_str) == Some(selected))
+                    })
+            })
+            .and_then(|hero| hero.get("hero").and_then(Value::as_str))
+            .map(str::to_owned)
+            .or_else(|| {
+                current_own
+                    .as_deref()
+                    .and_then(|id| {
+                        digest
+                            .get("heroes")
+                            .and_then(Value::as_array)
+                            .and_then(|heroes| {
+                                heroes
+                                    .iter()
+                                    .find(|hero| hero.get("id").and_then(Value::as_str) == Some(id))
+                            })
+                    })
+                    .and_then(|hero| hero.get("hero").and_then(Value::as_str))
+                    .map(str::to_owned)
+            });
+        let history = if report {
+            Vec::new()
+        } else {
+            self.store.chat(&options.match_id)?
+        };
+        if estimate_history_tokens(&history) > HISTORY_TOKEN_BUDGET {
+            return Err("history_budget_exceeded");
+        }
+        let bytes = crate::secrets::random::<16>().ok_or("request_id_unavailable")?;
+        let request_id = bytes
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+        let cancellation = Cancellation::default();
+        lock(&self.active).insert(request_id.clone(), cancellation.clone());
         Ok(PreparedChat {
             request_id,
             match_id: options.match_id,
@@ -393,21 +547,16 @@ impl AnalyticsService {
             endpoint,
             model: settings.model.clone(),
             tools_mode,
+            tool_defs,
             context,
+            digest,
+            bundle,
+            bundle_hash,
+            own_hero: current_own,
             question: options.question,
-            document: if options.include_document {
-                options.open_document
-            } else {
-                String::new()
-            },
             selected_hero,
-            scrubber_time_s: options
-                .include_clock
-                .then_some(options.scrubber_time_s)
-                .flatten(),
-            include_clock: options.include_clock,
-            include_selected_hero: options.include_selected_hero,
-            include_document: options.include_document,
+            scrubber_time_s: options.scrubber_time_s,
+            report,
             history,
             cancellation,
         })
@@ -440,42 +589,32 @@ impl AnalyticsService {
         question: Option<&str>,
     ) -> Result<OutgoingRequest, &'static str> {
         let history = history_for_request(history, &prepared.provider_id, &prepared.model)?;
+        let volatile = question
+            .map(|_| format_volatile(prepared.scrubber_time_s, prepared.selected_hero.as_deref()));
         if prepared.provider_id == "anthropic" {
             AnthropicAdapter.build(&RequestInput {
                 key: &prepared.key,
                 model: Model::parse(&prepared.model)?,
-                context: &prepared.context,
+                rules: &prepared.context.rules,
+                digest: &prepared.context.digest,
+                session: &prepared.context.session,
                 question,
-                scrubber_time_s: question.and(prepared.scrubber_time_s),
-                selected_hero: question.and(prepared.selected_hero.as_deref()),
-                open_document: if question.is_some() {
-                    &prepared.document
-                } else {
-                    ""
-                },
-                include_clock: question.is_some() && prepared.include_clock,
-                include_selected_hero: question.is_some() && prepared.include_selected_hero,
-                include_document: question.is_some() && prepared.include_document,
+                volatile: volatile.as_deref().unwrap_or(""),
                 history: &history,
+                tools: &prepared.tool_defs,
             })
         } else {
             OpenAiCompatAdapter.build(&OpenAiRequestInput {
                 provider: &prepared.provider_id,
                 model: &prepared.model,
                 key: (!prepared.key.is_empty()).then_some(prepared.key.as_str()),
-                context: &prepared.context,
+                rules: &prepared.context.rules,
+                digest: &prepared.context.digest,
+                session: &prepared.context.session,
                 question,
-                scrubber_time_s: question.and(prepared.scrubber_time_s),
-                selected_hero: question.and(prepared.selected_hero.as_deref()),
-                open_document: if question.is_some() {
-                    &prepared.document
-                } else {
-                    ""
-                },
-                include_clock: question.is_some() && prepared.include_clock,
-                include_selected_hero: question.is_some() && prepared.include_selected_hero,
-                include_document: question.is_some() && prepared.include_document,
+                volatile: volatile.as_deref().unwrap_or(""),
                 history: &history,
+                tools: &prepared.tool_defs,
                 tools_mode: prepared.tools_mode,
             })
         }
@@ -516,90 +655,144 @@ impl AnalyticsService {
         self.store.list_notes(match_id, &summary)
     }
 
+    pub(crate) fn knowledge_snapshot(
+        &self,
+        library: &ReplayLibrary,
+        match_id: &str,
+        history: &[MatchEntry],
+    ) -> Result<Value, &'static str> {
+        let gsi = find_gsi_match(&self.store, match_id, history);
+        let own_hero = gsi
+            .and_then(|entry| entry.hero.clone())
+            .or_else(|| self.store.own_hero(match_id));
+        let (digest, bundle_hash, bundle_available) = match library.open_bundle(match_id) {
+            Ok(bundle) => {
+                let digest = knowledge::build(&KnowledgeInput {
+                    manifest: &bundle.manifest,
+                    match_data: &bundle.match_data,
+                    world: &bundle.world,
+                    own_hero: own_hero.as_deref(),
+                    gsi_match: gsi,
+                })?;
+                let bundle_hash = knowledge::bundle_hash(&bundle.manifest)?;
+                let bytes = knowledge::canonical_bytes(&digest)?;
+                let digest_own_hero = digest
+                    .pointer("/meta/viewer/own_hero")
+                    .and_then(Value::as_str);
+                self.store.write_knowledge(
+                    match_id,
+                    &bundle_hash,
+                    KNOWLEDGE_VERSION,
+                    digest_own_hero,
+                    &bytes,
+                )?;
+                (digest, bundle_hash, true)
+            }
+            Err(_) => {
+                let (meta, digest) = self
+                    .store
+                    .read_latest_knowledge(match_id)?
+                    .ok_or("bundle_unavailable")?;
+                (digest, meta.bundle_hash, false)
+            }
+        };
+        let note_index = self
+            .store
+            .list_notes(match_id, &summary_markdown(&digest))?;
+        let history_tokens = self
+            .store
+            .chat(match_id)
+            .map(|history| estimate_history_tokens(&history))
+            .unwrap_or(0);
+        let own = digest
+            .pointer("/meta/viewer/own_hero")
+            .and_then(Value::as_str);
+        let reports = self
+            .store
+            .list_ai_reports(match_id)?
+            .into_iter()
+            .map(|summary| {
+                let reasons =
+                    report_stale_reasons(&summary.meta, &bundle_hash, KNOWLEDGE_VERSION, own);
+                let mut meta = serde_json::to_value(&summary.meta).unwrap_or(Value::Null);
+                meta["stale"] = json!(!reasons.is_empty());
+                json!({"id":summary.id,"meta":meta,"stale_reasons":reasons})
+            })
+            .collect::<Vec<_>>();
+        Ok(json!({
+            "digest":digest,
+            "bundle_hash":bundle_hash,
+            "bundle_available":bundle_available,
+            "own_hero_id":own,
+            "notes":note_index,
+            "reports":reports,
+            "chat_history_estimated_tokens":history_tokens,
+            "chat_history_token_budget":HISTORY_TOKEN_BUDGET,
+            "chat_history_over_budget":history_tokens>HISTORY_TOKEN_BUDGET,
+            "provisional_threshold_label":"เกณฑ์ชั่วคราว",
+            "report_cost_estimate_usd":null,
+            "report_cost_reason":"provider token pricing is not verified in this build"
+        }))
+    }
+
+    pub(crate) fn read_saved_analysis(
+        &self,
+        match_id: &str,
+        id: &str,
+    ) -> Result<Value, &'static str> {
+        if let Ok(report) = self.store.read_ai_report(match_id, id) {
+            return Ok(
+                json!({"id":report.id,"kind":"ai_report","markdown":report.markdown,"meta":report.meta}),
+            );
+        }
+        let markdown = self.store.read_note(match_id, id)?;
+        Ok(json!({"id":id,"kind":"note","markdown":markdown}))
+    }
+
     pub(crate) fn system_summary(
         &self,
         library: &ReplayLibrary,
         match_id: &str,
         history: &[MatchEntry],
     ) -> String {
-        let Ok(list) = library.list() else {
-            return "# สรุปแมตช์\n\nอ่านคลังรีเพลย์ไม่ได้ ข้อมูลโน้ตและแชทยังคงอยู่ในเครื่อง.".to_owned();
-        };
-        let Some(entry) = list
-            .matches
-            .into_iter()
-            .find(|entry| entry.match_id == match_id)
-        else {
-            return "# สรุปแมตช์\n\nรีเพลย์ถูกนำออกจากคลังแล้ว ข้อมูลโน้ตและแชทยังคงอยู่ในเครื่อง.".to_owned();
-        };
-        if entry.status != crate::replay_library::ReplayStatus::Ready {
-            return "# สรุปแมตช์\n\nรีเพลย์นี้ยังไม่มีชุดวิเคราะห์ที่พร้อมอ่าน.".to_owned();
-        }
-        let Ok(bundle) = library.open_bundle(match_id) else {
-            return "# สรุปแมตช์\n\nเปิดชุดวิเคราะห์ของรีเพลย์นี้ไม่ได้.".to_owned();
-        };
         let gsi = find_gsi_match(&self.store, match_id, history);
         let own_hero = gsi
             .and_then(|entry| entry.hero.clone())
             .or_else(|| self.store.own_hero(match_id));
-        let context = build_match_context(&MatchContextInput {
-            manifest: &bundle.manifest,
-            match_data: &bundle.match_data,
-            world: &bundle.world,
-            own_hero: own_hero.as_deref(),
-            gsi_match: gsi,
-        })
-        .ok()
-        .and_then(|text| serde_json::from_str::<Value>(&text).ok())
-        .unwrap_or(Value::Null);
-        let duration = context
-            .get("duration_s")
-            .map(display_json)
-            .unwrap_or_else(|| "— ไม่ทราบ".into());
-        let patch = context
-            .get("patch")
-            .map(display_json)
-            .unwrap_or_else(|| "— ไม่ทราบ".into());
-        let mut note = format!(
-            "# สรุปแมตช์\n\n- ระยะเวลา: {duration}\n- แพตช์: {patch}\n- ฮีโร่ของฉัน: {}\n",
-            context
-                .get("own_hero")
-                .map(display_json)
-                .unwrap_or_else(|| "— ไม่ทราบ".into())
-        );
-        if let Some(sides) = context.get("heroes_per_side").and_then(Value::as_object) {
-            for side in ["radiant", "dire"] {
-                note.push_str(&format!(
-                    "\n## {}\n",
-                    if side == "radiant" { "Radiant" } else { "Dire" }
-                ));
-                if let Some(heroes) = sides.get(side).and_then(Value::as_array) {
-                    for hero in heroes {
-                        note.push_str(&format!(
-                            "- {} · kills {} · deaths {}\n",
-                            hero.get("hero")
-                                .map(display_json)
-                                .unwrap_or_else(|| "— ไม่ทราบ".into()),
-                            hero.get("hero_kills")
-                                .map(display_json)
-                                .unwrap_or_else(|| "— ไม่ทราบ".into()),
-                            hero.get("deaths")
-                                .map(display_json)
-                                .unwrap_or_else(|| "— ไม่ทราบ".into())
-                        ));
-                    }
-                } else {
-                    note.push_str("- — ไม่ทราบ\n");
+        if let Ok(bundle) = library.open_bundle(match_id) {
+            if let Ok(digest) = knowledge::build(&KnowledgeInput {
+                manifest: &bundle.manifest,
+                match_data: &bundle.match_data,
+                world: &bundle.world,
+                own_hero: own_hero.as_deref(),
+                gsi_match: gsi,
+            }) {
+                if let (Ok(hash), Ok(bytes)) = (
+                    knowledge::bundle_hash(&bundle.manifest),
+                    knowledge::canonical_bytes(&digest),
+                ) {
+                    let digest_own_hero = digest
+                        .pointer("/meta/viewer/own_hero")
+                        .and_then(Value::as_str);
+                    let _ = self.store.write_knowledge(
+                        match_id,
+                        &hash,
+                        KNOWLEDGE_VERSION,
+                        digest_own_hero,
+                        &bytes,
+                    );
+                    return summary_markdown(&digest);
                 }
             }
         }
-        if let Some(history) = context.get("local_history") {
-            if !history.is_null() {
-                note.push_str(&format!("\n## ประวัติในเครื่อง\n\n{}\n", display_json(history)));
-            }
-        }
-        note.push_str("\nสร้างจากข้อมูลในเครื่อง ไม่มีการใช้โมเดลภาษา.\n");
-        note
+        self.store
+            .read_latest_knowledge(match_id)
+            .ok()
+            .flatten()
+            .map(|(_, digest)| summary_markdown(&digest))
+            .unwrap_or_else(|| {
+                "# สรุปแมตช์\n\nรีเพลย์ถูกนำออกจากคลังแล้ว และยังไม่มี digest ที่จัดเก็บไว้.".to_owned()
+            })
     }
 
     fn run_chat(&self, mut prepared: PreparedChat, app: &tauri::AppHandle) {
@@ -639,15 +832,16 @@ impl AnalyticsService {
         };
         let stored_user = chat_entry(&prepared.provider_id, &prepared.model, user_message.clone());
         prepared.history.push(stored_user);
-        if self
-            .store
-            .append_chat(
-                &prepared.match_id,
-                &prepared.provider_id,
-                &prepared.model,
-                user_message,
-            )
-            .is_err()
+        if !prepared.report
+            && self
+                .store
+                .append_chat(
+                    &prepared.match_id,
+                    &prepared.provider_id,
+                    &prepared.model,
+                    user_message,
+                )
+                .is_err()
         {
             self.complete_error(
                 &prepared.request_id,
@@ -660,6 +854,8 @@ impl AnalyticsService {
         let mut tool_rounds = 0_u8;
         let mut final_error: Option<ApiError>;
         let mut created_note = None;
+        let mut report_markdown = String::new();
+        let mut total_tool_calls = 0_u32;
         'conversation: loop {
             if prepared.cancellation.is_cancelled() {
                 final_error = Some(ApiError::Cancelled);
@@ -684,6 +880,14 @@ impl AnalyticsService {
                     );
                     if is_tool_rejection && prepared.tools_mode != ToolsMode::Unsupported {
                         prepared.tools_mode = ToolsMode::Unsupported;
+                        prepared.tool_defs.clear();
+                        if let Ok(mut session) =
+                            serde_json::from_str::<Value>(&prepared.context.session)
+                        {
+                            session["tool_support"] = Value::from("provider rejected tool calling; answer from the digest only and state when a needed detail cannot be looked up");
+                            prepared.context.session =
+                                serde_json::to_string(&session).unwrap_or_default();
+                        }
                         let mode_saved = self
                             .remember_tools_mode(&prepared.provider_id, "unsupported")
                             .is_ok();
@@ -710,19 +914,22 @@ impl AnalyticsService {
             };
             usage_total.add(&streamed.usage);
             let tools = finalize_tool_blocks(&mut streamed);
+            total_tool_calls = total_tool_calls.saturating_add(tools.len() as u32);
+            report_markdown.push_str(&text_from_content(&streamed.content));
             let assistant = json!({"role":"assistant","content":streamed.content});
             let stored_assistant =
                 chat_entry(&prepared.provider_id, &prepared.model, assistant.clone());
             prepared.history.push(stored_assistant);
-            if self
-                .store
-                .append_chat(
-                    &prepared.match_id,
-                    &prepared.provider_id,
-                    &prepared.model,
-                    assistant,
-                )
-                .is_err()
+            if !prepared.report
+                && self
+                    .store
+                    .append_chat(
+                        &prepared.match_id,
+                        &prepared.provider_id,
+                        &prepared.model,
+                        assistant,
+                    )
+                    .is_err()
             {
                 final_error = Some(ApiError::Stream("chat_storage_failed".into()));
                 break;
@@ -744,7 +951,7 @@ impl AnalyticsService {
                 }
                 Some("tool_use") => {
                     tool_rounds = tool_rounds.saturating_add(1);
-                    let over_round_limit = tool_rounds > 4;
+                    let over_round_limit = tool_round_limit_reached(tool_rounds);
                     let mut results = Vec::new();
                     let tool_blocks = prepared
                         .history
@@ -763,6 +970,7 @@ impl AnalyticsService {
                         })
                         .unwrap_or_default();
                     for (index, tool_result) in tools.into_iter().enumerate() {
+                        let failed_tool_parse = tool_result.is_err();
                         let fallback = tool_blocks.get(index).cloned().unwrap_or(Value::Null);
                         let block = match tool_result {
                             Ok(block) => block,
@@ -771,18 +979,40 @@ impl AnalyticsService {
                         let tool_id = block.get("id").and_then(Value::as_str).unwrap_or("invalid");
                         let name = block.get("name").and_then(Value::as_str).unwrap_or("");
                         let input = block.get("input").unwrap_or(&Value::Null);
-                        let result = if over_round_limit || name != "write_note" {
+                        let result: Result<Value, &'static str> = if over_round_limit {
                             Err("tool_round_limit")
-                        } else if let Ok((title, markdown)) =
-                            super::protocol::valid_write_note_input(input)
-                        {
-                            self.store.write_note(&prepared.match_id, title, markdown)
-                        } else {
+                        } else if name == "write_note" {
+                            if prepared.report {
+                                Err("write_note_unavailable_for_report")
+                            } else if let Ok((title, markdown)) =
+                                super::protocol::valid_write_note_input(input)
+                            {
+                                self.store
+                                    .write_note(&prepared.match_id, title, markdown)
+                                    .map(|id| {
+                                        created_note = Some(id.clone());
+                                        json!({"saved":true,"id":id})
+                                    })
+                            } else {
+                                Err("invalid_tool_schema")
+                            }
+                        } else if failed_tool_parse {
                             Err("invalid_tool_schema")
+                        } else {
+                            tools::execute(
+                                &ToolContext {
+                                    match_id: &prepared.match_id,
+                                    digest: &prepared.digest,
+                                    bundle: prepared.bundle.as_ref(),
+                                    store: &self.store,
+                                },
+                                name,
+                                input,
+                            )
                         };
                         match result {
-                            Ok(note_id) => { created_note = Some(note_id.clone()); results.push(json!({"type":"tool_result","tool_use_id":tool_id,"content":format!("Note created: {note_id}")})); }
-                            Err(_) => results.push(json!({"type":"tool_result","tool_use_id":tool_id,"is_error":true,"content":"Invalid or truncated tool input; no file was written."})),
+                            Ok(value) => results.push(json!({"type":"tool_result","tool_use_id":tool_id,"content":serde_json::to_string(&value).unwrap_or_else(|_|"{\"error\":\"tool_result_invalid\"}".into())})),
+                            Err(code) => results.push(json!({"type":"tool_result","tool_use_id":tool_id,"is_error":true,"content":serde_json::to_string(&json!({"error":code})).unwrap_or_else(|_|"{\"error\":\"tool_failed\"}".into())})),
                         }
                     }
                     let result_message = json!({"role":"user","content":results});
@@ -792,15 +1022,16 @@ impl AnalyticsService {
                         result_message.clone(),
                     );
                     prepared.history.push(stored_result);
-                    if self
-                        .store
-                        .append_chat(
-                            &prepared.match_id,
-                            &prepared.provider_id,
-                            &prepared.model,
-                            result_message,
-                        )
-                        .is_err()
+                    if !prepared.report
+                        && self
+                            .store
+                            .append_chat(
+                                &prepared.match_id,
+                                &prepared.provider_id,
+                                &prepared.model,
+                                result_message,
+                            )
+                            .is_err()
                     {
                         final_error = Some(ApiError::Stream("chat_storage_failed".into()));
                         break;
@@ -833,6 +1064,40 @@ impl AnalyticsService {
         if let Some(error) = final_error {
             let _ = app.emit("analytics://complete", json!({"request_id":prepared.request_id,"error":error.renderer_text(),"usage":usage_json(&usage_total),"bytes_sent":bytes_sent,"bytes_received":bytes_received}));
         } else {
+            if prepared.report {
+                if report_markdown.trim().is_empty() {
+                    let _ = app.emit("analytics://complete", json!({"request_id":prepared.request_id,"error":"empty_report","usage":usage_json(&usage_total)}));
+                    return;
+                }
+                match self.store.write_ai_report(
+                    &prepared.match_id,
+                    &prepared.bundle_hash,
+                    &prepared.model,
+                    PROMPT_VERSION,
+                    KNOWLEDGE_VERSION,
+                    prepared.own_hero.as_deref(),
+                    report_markdown.trim(),
+                    report_usage_json(&usage_total),
+                    total_tool_calls,
+                ) {
+                    Ok(report) => {
+                        let reasons = report_stale_reasons(
+                            &report.meta,
+                            &prepared.bundle_hash,
+                            KNOWLEDGE_VERSION,
+                            prepared.own_hero.as_deref(),
+                        );
+                        let _ = app.emit("analytics://complete", json!({"request_id":prepared.request_id,"report":report,"stale_reasons":reasons,"usage":usage_json(&usage_total),"bytes_sent":bytes_sent,"bytes_received":bytes_received}));
+                    }
+                    Err(code) => self.complete_error(
+                        &prepared.request_id,
+                        ApiError::Stream(code.into()),
+                        None,
+                        app,
+                    ),
+                }
+                return;
+            }
             let note_fallback = created_note.is_none();
             let _ = app.emit("analytics://complete", json!({"request_id":prepared.request_id,"usage":usage_json(&usage_total),"bytes_sent":bytes_sent,"bytes_received":bytes_received,"note_id":created_note,"note_fallback":note_fallback}));
         }
@@ -1107,6 +1372,9 @@ fn usage_values(usage: &Usage) -> Value {
 fn usage_json(usage: &UsageTotal) -> Value {
     json!({"input":usage.has_input.then_some(usage.input),"cache_read":usage.has_cache_read.then_some(usage.cache_read),"cache_creation":usage.has_cache_creation.then_some(usage.cache_creation),"output":usage.has_output.then_some(usage.output)})
 }
+fn report_usage_json(usage: &UsageTotal) -> Value {
+    json!({"input":usage.has_input.then_some(usage.input),"cache_read":usage.has_cache_read.then_some(usage.cache_read),"cache_write":usage.has_cache_creation.then_some(usage.cache_creation),"output":usage.has_output.then_some(usage.output)})
+}
 fn status_code(error: &ApiError) -> &'static str {
     match error {
         ApiError::InvalidKey => "http_401",
@@ -1131,6 +1399,93 @@ fn now_ms() -> u64 {
         .unwrap_or_default()
         .as_millis()
         .min(u64::MAX as u128) as u64
+}
+fn report_cache_key(
+    bundle_hash: &str,
+    model: &str,
+    prompt_version: u32,
+    knowledge_version: u32,
+) -> String {
+    format!("{bundle_hash}:{model}:p{prompt_version}:k{knowledge_version}")
+}
+fn estimate_history_tokens(history: &[Value]) -> usize {
+    serde_json::to_vec(history)
+        .map(|bytes| bytes.len() / HISTORY_ESTIMATED_BYTES_PER_TOKEN)
+        .unwrap_or(usize::MAX)
+}
+fn format_volatile(time_s: Option<f64>, selected_hero: Option<&str>) -> String {
+    let time = time_s
+        .filter(|value| value.is_finite() && *value >= 0.0)
+        .map(|seconds| {
+            let total = seconds.floor() as u64;
+            format!("{:02}:{:02} ({} s)", total / 60, total % 60, total)
+        })
+        .unwrap_or_else(|| "— ไม่ทราบ".into());
+    format!(
+        "Replay time: {time}. Selected hero: {}.",
+        selected_hero.unwrap_or("— ไม่ทราบ")
+    )
+}
+fn text_from_content(content: &[Value]) -> String {
+    content
+        .iter()
+        .filter_map(|block| {
+            (block.get("type").and_then(Value::as_str) == Some("text"))
+                .then(|| block.get("text").and_then(Value::as_str))
+                .flatten()
+        })
+        .collect::<Vec<_>>()
+        .join("")
+}
+fn summary_markdown(digest: &Value) -> String {
+    let duration = digest
+        .pointer("/meta/duration_s")
+        .map(display_json)
+        .unwrap_or_else(|| "— ไม่ทราบ".into());
+    let patch = digest
+        .pointer("/meta/patch")
+        .map(display_json)
+        .unwrap_or_else(|| "— ไม่ทราบ".into());
+    let winner = digest
+        .pointer("/meta/winner")
+        .map(display_json)
+        .unwrap_or_else(|| "— ไม่ทราบ".into());
+    let mut out =
+        format!("# สรุปแมตช์\n\n- ระยะเวลา: {duration}\n- แพตช์: {patch}\n- ผู้ชนะ: {winner}\n");
+    for side in ["radiant", "dire"] {
+        out.push_str(&format!(
+            "\n## {}\n",
+            if side == "radiant" { "Radiant" } else { "Dire" }
+        ));
+        let mut heroes = digest
+            .get("heroes")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter(|hero| hero.get("side").and_then(Value::as_str) == Some(side))
+            .collect::<Vec<_>>();
+        heroes.sort_by_key(|hero| hero.get("slot").and_then(Value::as_u64).unwrap_or(u64::MAX));
+        if heroes.is_empty() {
+            out.push_str("- — ไม่ทราบ\n");
+        }
+        for hero in heroes {
+            let name = hero
+                .get("hero")
+                .map(display_json)
+                .unwrap_or_else(|| "— ไม่ทราบ".into());
+            let kills = hero
+                .pointer("/final/k")
+                .map(display_json)
+                .unwrap_or_else(|| "— ไม่ทราบ".into());
+            let deaths = hero
+                .pointer("/final/d")
+                .map(display_json)
+                .unwrap_or_else(|| "— ไม่ทราบ".into());
+            out.push_str(&format!("- {name} · kills {kills} · deaths {deaths}\n"));
+        }
+    }
+    out.push_str("\nตัวเลขที่ไม่มีใน digest ระบุเป็น ‘— ไม่ทราบ’ พร้อมเหตุผลจากข้อมูลต้นทาง.\n");
+    out
 }
 fn display_json(value: &Value) -> String {
     match value {
@@ -1275,6 +1630,12 @@ mod tests {
             include_selected_hero: false,
             scrubber_time_s: None,
         }
+    }
+
+    #[test]
+    fn tool_round_limit_allows_eight_rounds_and_blocks_the_ninth() {
+        assert!(!tool_round_limit_reached(8));
+        assert!(tool_round_limit_reached(9));
     }
 
     #[test]

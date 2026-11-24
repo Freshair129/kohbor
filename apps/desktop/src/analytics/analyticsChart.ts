@@ -129,7 +129,7 @@ function renderLine(chart: KohborChartInput, series: KohborChartSeries[], area: 
     for (const point of list) {
       const inRange = !range || (point.x >= range[0] && point.x <= range[1]);
       if (point.y === null || !inRange) { if (segment.length) segments.push(segment); segment = []; continue; }
-      segment.push(point);
+      segment.push({ x: point.x, y: point.y });
     }
     if (segment.length) segments.push(segment);
     return segments.map(part => {

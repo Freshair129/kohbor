@@ -610,6 +610,77 @@ pub(crate) fn analytics_chat_submit(
 }
 
 #[tauri::command]
+pub(crate) fn analytics_knowledge_get(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+    state: tauri::State<'_, AppState>,
+    match_id: String,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    analytics
+        .knowledge_snapshot(&library, &match_id, &state.match_history.entries())
+        .map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_saved_analysis_read(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    match_id: String,
+    id: String,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    analytics
+        .read_saved_analysis(&match_id, &id)
+        .map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_report_generate(
+    webview: tauri::Webview,
+    app: tauri::AppHandle,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+    state: tauri::State<'_, AppState>,
+    match_id: String,
+    selected_hero: Option<String>,
+    scrubber_time_s: Option<f64>,
+    regenerate: Option<bool>,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    if (state.match_active)() {
+        return Err("match_active".into());
+    }
+    let prepared = analytics
+        .prepare_report(
+            &library,
+            &state.match_history.entries(),
+            match_id,
+            selected_hero,
+            scrubber_time_s,
+            regenerate.unwrap_or(false),
+        )
+        .map_err(str::to_owned)?;
+    match prepared {
+        crate::analytics::ReportPreparation::Cached(report) => {
+            Ok(json!({"cached":true,"report":report,"request_id":null}))
+        }
+        crate::analytics::ReportPreparation::Request(prepared) => {
+            let request_id = prepared.request_id().to_owned();
+            analytics.spawn_chat(prepared, app);
+            Ok(json!({
+                "cached":false,
+                "request_id":request_id,
+                "report":null,
+                "cost_estimate_usd":null,
+                "cost_reason":"provider token pricing is not verified in this build"
+            }))
+        }
+    }
+}
+
+#[tauri::command]
 pub(crate) fn analytics_note_save_text(
     webview: tauri::Webview,
     analytics: tauri::State<'_, crate::analytics::AnalyticsService>,

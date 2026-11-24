@@ -4,9 +4,6 @@ use serde_json::{json, Value};
 use std::collections::BTreeMap;
 
 const MAX_RESPONSE_BYTES: usize = anthropic::MAX_RESPONSE_BYTES;
-const SYSTEM_WITH_TOOLS: &str = "Answer only from the supplied replay data, in the user's language (Thai by default). Cite evidence as [07:45](#t=465) and [deaths#13](#ev=deaths/13). Unknown values must be written as \"— ไม่ทราบ\"; never estimate missing values. Kills mean hero kills only. There is no win probability. Use write_note for long analyses and keep the chat reply short.";
-const SYSTEM_WITHOUT_TOOLS: &str = "Answer only from the supplied replay data, in the user's language (Thai by default). Cite evidence as [07:45](#t=465) and [deaths#13](#ev=deaths/13). Unknown values must be written as \"— ไม่ทราบ\"; never estimate missing values. Kills mean hero kills only. There is no win probability.";
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ToolsMode {
     Unknown,
@@ -18,15 +15,13 @@ pub(crate) struct RequestInput<'a> {
     pub(crate) provider: &'a str,
     pub(crate) model: &'a str,
     pub(crate) key: Option<&'a str>,
-    pub(crate) context: &'a str,
+    pub(crate) rules: &'a str,
+    pub(crate) digest: &'a str,
+    pub(crate) session: &'a str,
     pub(crate) question: Option<&'a str>,
-    pub(crate) scrubber_time_s: Option<f64>,
-    pub(crate) selected_hero: Option<&'a str>,
-    pub(crate) open_document: &'a str,
-    pub(crate) include_clock: bool,
-    pub(crate) include_selected_hero: bool,
-    pub(crate) include_document: bool,
+    pub(crate) volatile: &'a str,
     pub(crate) history: &'a [Value],
+    pub(crate) tools: &'a [Value],
     pub(crate) tools_mode: ToolsMode,
 }
 
@@ -75,46 +70,25 @@ fn build_request(input: &RequestInput<'_>) -> Result<OutgoingRequest, &'static s
             .key
             .map_or_else(|| value.to_owned(), |key| value.replace(key, "[redacted]"))
     };
-    let mut system = if input.tools_mode == ToolsMode::Unsupported {
-        SYSTEM_WITHOUT_TOOLS
-    } else {
-        SYSTEM_WITH_TOOLS
-    }
-    .to_owned();
-    system.push_str("\n\nSupplied match context:\n");
-    system.push_str(&clean(input.context));
-    let mut user = String::new();
-    if input.include_clock {
-        user.push_str("Current replay time: ");
-        match input
-            .scrubber_time_s
-            .filter(|value| value.is_finite() && *value >= 0.0)
-        {
-            Some(seconds) => user.push_str(&format!("{seconds:.3}s\n")),
-            None => user.push_str("— ไม่ทราบ\n"),
-        }
-    }
-    if input.include_selected_hero {
-        user.push_str("Selected hero: ");
-        user.push_str(&clean(input.selected_hero.unwrap_or("— ไม่ทราบ")));
-        user.push('\n');
-    }
-    if input.include_document {
-        user.push_str("Open document text:\n");
-        user.push_str(&clean(input.open_document));
-        user.push_str("\n\n");
-    }
+    let mut messages = vec![
+        json!({"role":"system","content":clean(input.rules)}),
+        json!({"role":"system","content":clean(input.digest)}),
+        json!({"role":"system","content":clean(input.session)}),
+    ];
+    messages.extend(convert_history(input.history)?);
     if let Some(question) = input.question {
+        let mut user = clean(input.volatile);
+        if !user.is_empty() {
+            user.push_str("\n\n");
+        }
         user.push_str("Question:\n");
         user.push_str(&clean(question));
-    }
-    let mut messages = vec![json!({"role":"system","content":system})];
-    messages.extend(convert_history(input.history)?);
-    if input.question.is_some() {
         messages.push(json!({"role":"user","content":user}));
     }
     let stream = input.provider != "qwen";
-    let tools_enabled = input.tools_mode != ToolsMode::Unsupported && input.provider != "qwen";
+    let tools_enabled = input.tools_mode == ToolsMode::Supported
+        && !input.tools.is_empty()
+        && input.provider != "qwen";
     let mut body = json!({
         "model":input.model,
         "messages":messages,
@@ -127,7 +101,9 @@ fn build_request(input: &RequestInput<'_>) -> Result<OutgoingRequest, &'static s
         body["stream_options"] = json!({"include_usage":true});
     }
     if tools_enabled {
-        body["tools"] = json!([{"type":"function","function":{"name":"write_note","description":"Write a long match analysis as a Markdown note in the local Analytics workspace.","parameters":{"type":"object","properties":{"title":{"type":"string"},"markdown":{"type":"string"}},"required":["title","markdown"],"additionalProperties":false},"strict":true}}]);
+        body["tools"] = Value::Array(input.tools.iter().map(|tool| {
+            json!({"type":"function","function":{"name":tool["name"],"description":tool["description"],"parameters":tool["input_schema"],"strict":tool["strict"]}})
+        }).collect());
         body["tool_choice"] = json!("auto");
     }
     let mut headers = vec![("content-type".to_owned(), "application/json".to_owned())];
@@ -519,6 +495,8 @@ fn stop_kind(value: &str) -> StopKind {
 mod tests {
     use super::*;
 
+    static TOOLS: std::sync::OnceLock<Vec<Value>> = std::sync::OnceLock::new();
+
     fn input<'a>(
         provider: &'a str,
         model: &'a str,
@@ -529,15 +507,13 @@ mod tests {
             provider,
             model,
             key: Some("sk-test-secret-123456"),
-            context: "{\"hero\":\"Axe\"}",
+            rules: "RULES v2 fixture",
+            digest: "{\"hero\":\"Axe\"}",
+            session: "{\"tool_support\":\"digest only\"}",
             question: Some("What next?"),
-            scrubber_time_s: None,
-            selected_hero: None,
-            open_document: "",
-            include_clock: false,
-            include_selected_hero: false,
-            include_document: false,
+            volatile: "Replay time: — ไม่ทราบ. Selected hero: — ไม่ทราบ.",
             history,
+            tools: TOOLS.get_or_init(|| crate::analytics::tools::definitions(true)),
             tools_mode: mode,
         }
     }
@@ -549,7 +525,7 @@ mod tests {
             .unwrap();
         let body = String::from_utf8(outgoing.body).unwrap();
         assert!(body.contains("\"stream\":true"));
-        assert!(body.contains("\"tools\":[{"));
+        assert!(!body.contains("\"tools\":[{"));
         assert!(!body.contains("sk-test-secret"));
         assert!(outgoing.headers.contains(&(
             "Authorization".into(),
@@ -592,7 +568,16 @@ mod tests {
                 "Bearer sk-test-secret-123456".into()
             )));
             assert_eq!(body["stream"], provider != "qwen");
-            assert_eq!(body.get("tools").is_some(), provider != "qwen");
+            assert!(body.get("tools").is_none());
+            assert_eq!(
+                body["messages"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .filter(|message| message["role"] == "system")
+                    .count(),
+                3
+            );
         }
     }
 
@@ -604,10 +589,10 @@ mod tests {
         let body: Value = serde_json::from_slice(&outgoing.body).unwrap();
         assert!(body.get("tools").is_none());
         assert!(body.get("tool_choice").is_none());
-        assert!(!body["messages"][0]["content"]
+        assert!(body["messages"][2]["content"]
             .as_str()
             .unwrap()
-            .contains("write_note"));
+            .contains("digest only"));
     }
 
     #[test]

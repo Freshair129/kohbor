@@ -19,5 +19,6 @@ export function mountMatchView(
     /** seconds to open at; clamped to the match range */
     initialTime?: number | null;
     disableKeyboard?: boolean;
+    statLabelMode?: "text" | "icon";
   },
 ): () => void;
