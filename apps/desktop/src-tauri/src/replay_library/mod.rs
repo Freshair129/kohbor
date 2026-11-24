@@ -349,7 +349,7 @@ impl ReplayLibrary {
             return Err("bundle_not_ready");
         }
         let expected_hash = entry.dem_sha256.as_deref().ok_or("bundle_invalid")?;
-        engine::validate_bundle_dir(&self.inner.root.join(match_id), expected_hash)
+        engine::validate_library_bundle_dir(&self.inner.root.join(match_id), expected_hash)
             .map_err(|_| "bundle_invalid")?;
         let folder = self.inner.root.join(match_id);
         let manifest =

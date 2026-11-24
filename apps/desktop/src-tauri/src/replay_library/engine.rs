@@ -363,6 +363,13 @@ fn kill_and_wait(child: &mut Child) {
 }
 
 fn ensure_output_sizes(output_dir: &Path) -> Result<(), EngineFailure> {
+    ensure_output_sizes_with(output_dir, false)
+}
+
+/// The library folder also holds the host's own `meta.json`; only `open_bundle` allows it.
+const MAX_LIBRARY_META_BYTES: u64 = 64 * 1024;
+
+fn ensure_output_sizes_with(output_dir: &Path, allow_library_meta: bool) -> Result<(), EngineFailure> {
     let Ok(entries) = fs::read_dir(output_dir) else {
         return Ok(());
     };
@@ -380,6 +387,7 @@ fn ensure_output_sizes(output_dir: &Path) -> Result<(), EngineFailure> {
             Some("manifest.json") => MAX_MANIFEST_BYTES,
             Some("match.json") => MAX_MATCH_BYTES,
             Some("world.json") => MAX_WORLD_BYTES,
+            Some("meta.json") if allow_library_meta => MAX_LIBRARY_META_BYTES,
             _ => return Err(EngineFailure::InvalidBundle),
         };
         let size = entry
@@ -715,7 +723,23 @@ pub fn validate_bundle_dir(
     directory: &Path,
     expected_dem_sha256: &str,
 ) -> Result<ValidatedBundle, EngineFailure> {
-    ensure_output_sizes(directory)?;
+    validate_bundle_dir_with(directory, expected_dem_sha256, false)
+}
+
+/// Re-validates a stored library folder, which also holds the host's `meta.json`.
+pub fn validate_library_bundle_dir(
+    directory: &Path,
+    expected_dem_sha256: &str,
+) -> Result<ValidatedBundle, EngineFailure> {
+    validate_bundle_dir_with(directory, expected_dem_sha256, true)
+}
+
+fn validate_bundle_dir_with(
+    directory: &Path,
+    expected_dem_sha256: &str,
+    allow_library_meta: bool,
+) -> Result<ValidatedBundle, EngineFailure> {
+    ensure_output_sizes_with(directory, allow_library_meta)?;
     let manifest_bytes = read_limited(&directory.join("manifest.json"), MAX_MANIFEST_BYTES)?;
     let match_bytes = read_limited(&directory.join("match.json"), MAX_MATCH_BYTES)?;
     let world_bytes = read_limited(&directory.join("world.json"), MAX_WORLD_BYTES)?;
@@ -730,6 +754,7 @@ pub fn validate_bundle_dir(
                 entry.file_name().to_str(),
                 Some("manifest.json" | "match.json" | "world.json")
             )
+            && !(allow_library_meta && entry.file_name().to_str() == Some("meta.json"))
         {
             return Err(EngineFailure::InvalidBundle);
         }
@@ -1004,6 +1029,18 @@ mod tests {
         let result = validate_bundle_dir(&directory, &dem_sha).unwrap();
         assert_eq!(result.match_id, "55");
         assert_eq!(result.engine_version, ENGINE_VERSION);
+
+        // A stored library folder also holds the host's meta.json: only the library re-check allows it.
+        fs::write(directory.join("meta.json"), b"{}").unwrap();
+        assert!(matches!(
+            validate_bundle_dir(&directory, &dem_sha),
+            Err(EngineFailure::InvalidBundle)
+        ));
+        assert_eq!(
+            validate_library_bundle_dir(&directory, &dem_sha).unwrap().match_id,
+            "55"
+        );
+        fs::remove_file(directory.join("meta.json")).unwrap();
 
         // Contract replay-bundle 1.0.1 sets duration_s minimum 0: a negative duration is rejected.
         let mut negative = match_doc.clone();
