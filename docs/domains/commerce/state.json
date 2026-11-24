@@ -2,9 +2,9 @@
   "schema_version": "1.0.0",
   "domain": "commerce",
   "tier": "B",
-  "verified_at_commit": "d94cb96",
-  "verified_on": "2026-11-14",
-  "verified_by": "claude-code governance session; agent work, not human review. Design written on the owner's request of 2026-11-14, relayed by the coordinating session",
+  "verified_at_commit": "c010825",
+  "verified_on": "2026-11-24",
+  "verified_by": "Codex worker; reviewed listed source changes, not human or owner approval",
   "write_areas": [
     "docs/design/STORE-PACK-DELIVERY.md"
   ],
@@ -41,7 +41,7 @@
       "path": "docs/design/BACKEND-STACK.md",
       "type": "design",
       "role": "reference",
-      "reviewed_sha256": "943da0610df6b11949c453cdec7b90b1276a6a6962a790f7d0ee89551e496f4f"
+      "reviewed_sha256": "5d4cab102bf61656da488037e7e7e0fde6f4f8fb2ceb251d549ffd6bb735f665"
     },
     {
       "path": "docs/product/FEATURE-CATALOG.md",
@@ -73,6 +73,18 @@
       "path": "contracts/decisions.json",
       "type": "registry",
       "role": "source-of-truth"
+    },
+    {
+      "path": "docs/design/ALPHA-LAUNCH.md",
+      "type": "design",
+      "role": "reference",
+      "reviewed_sha256": "09369507f8c9cec05d48f5ed95a57dab399e56f56abf4d959f2ab7a92dd23e2e"
+    },
+    {
+      "path": "docs/governance/DECISION-LOG.md",
+      "type": "process",
+      "role": "reference",
+      "reviewed_sha256": "d3e56af406978392c9dd4b5cd6865275332b672044237d1bdb35e162d86e1b80"
     }
   ],
   "open_questions": [
@@ -84,8 +96,8 @@
     }
   ],
   "last_handoff": {
-    "task_id": null,
-    "on": "2026-11-14",
-    "summary": "Hosting part of DEC-STORE-HOSTING recorded as provisional for the alpha on the owner's statement; store design 0.1.1; BACKEND-STACK added; nothing built, hosted or priced."
+    "task_id": "refresh-domain-cards",
+    "on": "2026-11-24",
+    "summary": "Reviewed listed governing-source changes and refreshed card pointers and hashes; no charter, requirement, or structured decision source was edited."
   }
 }

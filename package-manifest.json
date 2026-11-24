@@ -15458,48 +15458,48 @@
     },
     {
       "path": "docs/domains/account/CARD.md",
-      "bytes": 5485,
-      "sha256": "34247786a1295d93f18cc729064ca33c3e90562bf1d71bc4eda482fe992d3206"
+      "bytes": 5483,
+      "sha256": "8748d11e0d7c813f41517fd4d5c492b36cc4fba715208c13792faedf2197c579"
     },
     {
       "path": "docs/domains/account/state.json",
-      "bytes": 3419,
-      "sha256": "6f6299359c01be7e3fa671e8bbb198310e37924f46cfc6af9c4047d4f073b774"
+      "bytes": 3769,
+      "sha256": "4a61b85ca5d5ce6431355781d3acc3a962fc6e3e5263359393a547db43cec425"
     },
     {
       "path": "docs/domains/banner-lab/CARD.md",
-      "bytes": 8757,
-      "sha256": "a336eb7197649512557c6422e32e3980413a0112da0ca86ba452740dd825d2cc"
+      "bytes": 8716,
+      "sha256": "81b59b636cccab9ece41e71914d57ce41a9bde4bb2f2c64d208c0764807baffd"
     },
     {
       "path": "docs/domains/banner-lab/state.json",
-      "bytes": 5168,
-      "sha256": "6b328fa163e1a2c4bc1b602886c57f443a7015c7092c50312094da64791ce84f"
+      "bytes": 5569,
+      "sha256": "091c4fc0ce427eb67e66b1154765f177ee8ec81238c3b968cd2c1e515fc9af04"
     },
     {
       "path": "docs/domains/commerce/CARD.md",
-      "bytes": 4641,
-      "sha256": "40e4a836baf5fab132ef6a7ce67bbee3070f72bf2ce24551cf8efd51cd7f3ae7"
+      "bytes": 4784,
+      "sha256": "4f2e577709cfb176ea48b164890239428182c3e7566540a692e49d90eedc38e2"
     },
     {
       "path": "docs/domains/commerce/state.json",
-      "bytes": 2760,
-      "sha256": "88d312311d14d7510d618480397d3017b156b612450a74fb941a693229111146"
+      "bytes": 3084,
+      "sha256": "936c3c3f511063ca49e288a0c2bd7b08cfbc959b9e7151dd6481ee98aa3fb8cb"
     },
     {
       "path": "docs/domains/events-audio/CARD.md",
-      "bytes": 10559,
-      "sha256": "b510d64e1678eca613caee52a0bca0f75258d1299a781de58fbc8c2c3ae17a38"
+      "bytes": 10552,
+      "sha256": "f28ba5f85e9ec47befa8af8760d7a9a24f9fb6bee70632881dd23364266d65fc"
     },
     {
       "path": "docs/domains/events-audio/state.json",
-      "bytes": 4819,
-      "sha256": "c15e180bd496b9218f9c0096b0910586f61aca8c5ea297446f426075a38e7751"
+      "bytes": 4817,
+      "sha256": "5ba0163aecfdd60bf5678ac57408e9fff459d329934cf0a14900ebbe22b73d54"
     },
     {
       "path": "docs/domains/governance/CARD.md",
-      "bytes": 5975,
-      "sha256": "6feec9ffb745d77a63a8cdf44a0ff6e96d9d014a20a4b2d71d99fb7e78fba56b"
+      "bytes": 5853,
+      "sha256": "93d1452a689dbae9cb9cee57d4136aa70143af2c22ca371367cb6bd4db59cd51"
     },
     {
       "path": "docs/domains/governance/CHARTER.json",
@@ -15508,48 +15508,48 @@
     },
     {
       "path": "docs/domains/governance/state.json",
-      "bytes": 6648,
-      "sha256": "cf2e1ba72835688c6612bb3d50a44b7dcafdf255e9eb243c0a10b63dca6b4986"
+      "bytes": 6866,
+      "sha256": "7bb9bdf8ab53506e1e35ad709da3c2a7d88b9c5f7472505a773dc26da9644606"
     },
     {
       "path": "docs/domains/host-core/CARD.md",
-      "bytes": 5044,
-      "sha256": "d3cf22d285b7cad8c9c875e3d035a7c48d5ef0792ff83b85a69233fc043f2351"
+      "bytes": 5716,
+      "sha256": "9370b014386345527e8dd3cfaddc5938ac28d451d22611e542915d35e967f5db"
     },
     {
       "path": "docs/domains/host-core/state.json",
-      "bytes": 4556,
-      "sha256": "2a63f6d038aaae9a31b8bbfb51b4fba5d204eb78efe3811b93b691f3c24e82a1"
+      "bytes": 6736,
+      "sha256": "61de927fedac2f5bd124a1cf2900e094184efc155838998cbb8be6ab99f9c593"
     },
     {
       "path": "docs/domains/packs/CARD.md",
-      "bytes": 9324,
-      "sha256": "5023104d0d286caaa017a261cea965eda62e00df4062a76c0bb990dba0a9868a"
+      "bytes": 9538,
+      "sha256": "84526058eaae19a64d2f73c8644491583559a7cbc27b966bc47c2ab4b50e7b66"
     },
     {
       "path": "docs/domains/packs/state.json",
-      "bytes": 4004,
-      "sha256": "6ce2130a7d306206d2bb24fcaa0dfd15e571fdd916e08ec63e50b5ed4e1062e8"
+      "bytes": 4203,
+      "sha256": "37b2006d7f8e9b2e7ac01c73d7f092c1da5afc4e9a309b00ccf26c001e4eadd3"
     },
     {
       "path": "docs/domains/ui-overlay/CARD.md",
-      "bytes": 7990,
-      "sha256": "e2e3df399bbe2fa347c323b1da74d2e1a72707125977210a0358212cc3eb209d"
+      "bytes": 7981,
+      "sha256": "855b7da7b693e94e000aa1d0fc5fab62c190a2558cae43e372519be7f0da8230"
     },
     {
       "path": "docs/domains/ui-overlay/state.json",
-      "bytes": 4153,
-      "sha256": "12e6ae64b38b47c8ad9f671bde0d7800dead8f74eeb71d1650ab92c404cd8509"
+      "bytes": 5011,
+      "sha256": "9cea1b01f207bf1b0abb8bd988b36fd99f144244721767815a6c131e3c0077a4"
     },
     {
       "path": "docs/domains/vision-risk/CARD.md",
-      "bytes": 6053,
-      "sha256": "bc346ceea3f13b55fa84d2945733c36a15f340ea10f666acf74c7372c3627b52"
+      "bytes": 5317,
+      "sha256": "168079d896f1037a8e11d2a49b043acdb16f0b023b01de4393e20c515527f209"
     },
     {
       "path": "docs/domains/vision-risk/state.json",
-      "bytes": 3184,
-      "sha256": "764b916629a122f9b9ad331a9ae9343593734fd554373b03527cc13a0c4283c5"
+      "bytes": 3151,
+      "sha256": "97cdf64ac5bce01885446d0ec7872ca2a24a1530de837215ed22f7ce3d2d6647"
     },
     {
       "path": "docs/examples/news.sample.json",
