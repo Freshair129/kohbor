@@ -16,6 +16,7 @@ import { startLiveCollection, useCaptureStatus } from "./live";
 import { OwnHero } from "./OwnHero";
 import { OverviewPage } from "./overview/OverviewPage";
 import { NewsSettings } from "./overview/NewsSettings";
+import { OpenDotaSettings } from "./overview/OpenDotaSettings";
 import { PacksPage } from "./packs/PacksPage";
 import { Readiness } from "./Readiness";
 import { DEFAULT_SHELL_DESTINATION, deriveHeaderState, insightsViews, statusLineModel, type InsightsView, type ShellDestination } from "./shell/state";
@@ -325,6 +326,7 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
               <OrbSettings locale={displayLocale} />
               <DraftSettings />
               <NewsSettings locale={displayLocale} />
+              <OpenDotaSettings locale={displayLocale} />
               <div className="shell-guide-slot">
                 {status && !hostLost ? <Guide status={status} locale={displayLocale} setup={setup} /> : (
                   <p className={hostLost ? "banner banner-warn" : "muted"} role={hostLost ? "alert" : "status"}>

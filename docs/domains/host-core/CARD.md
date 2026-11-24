@@ -1,10 +1,10 @@
 ---
 domain: host-core
 tier: B
-card_version: 1
-verified_at_commit: 0997546
-verified_on: 2026-11-13
-verified_by: "claude-code subagent draft (read-only), integrated by the governance lead; agent work, not human review"
+card_version: 2
+verified_at_commit: c010825
+verified_on: 2026-11-24
+verified_by: "Codex worker; reviewed listed source changes, not human or owner approval"
 ---
 
 # Host core: game-state intake and the Tauri host shell
@@ -21,8 +21,8 @@ A map, not evidence. Authority: decisions, PRD/SRS, contracts, code and tests, t
 
 ## 2. Owner decisions
 
-- Decided: DEC-NAME (technical identity frozen; update origin stays null until UPDATE-001, contracts/product-identity.json).
-- Open: DEC-GSI-INTAKE (status proposed), DEC-INTERFACES, DEC-NATIVE-EVIDENCE.
+- Decided: DEC-NAME, DEC-OWN-SNAPSHOT-2-1, DEC-UPDATE-ENDPOINT.
+- Open: DEC-GSI-INTAKE, DEC-INTERFACES, DEC-NATIVE-EVIDENCE.
 
 ## 3. Now / Next / Blocked
 
@@ -33,17 +33,19 @@ A map, not evidence. Authority: decisions, PRD/SRS, contracts, code and tests, t
 - NEXT: capture the remaining assumptions A-6, A-7 (second account), A-8, A-9, A-10 (docs/design/GSI-INTAKE-SPEC.md section 10.1; DEC-GSI-INTAKE).
 - BLOCKED: closing DEC-GSI-INTAKE needs those captures plus owner acknowledgement of the mode "unverified" rule (docs/design/GSI-INTAKE-SPEC.md section 10; DEC-GSI-INTAKE).
 - BLOCKED: resource budget runs (10 min x 3, idle and live) are not started (docs/delivery/M1-STATUS.md section 3.3; QUALITY-002).
-- BLOCKED: updater origin until its service is specified (contracts/product-identity.json; UPDATE-001).
+- BLOCKED: product identity keeps the update origin null while UPDATER describes a public endpoint; see Q-HC-5 (contracts/product-identity.json; docs/design/UPDATER.md).
 
 ## 4. Open questions
 
 - Q-HC-1 (owner: engineering lead, raised 2026-11-12): how to close the slow-drip residual risk on the intake listener; add a revision-conflict code to the error catalog? (docs/delivery/M1-STATUS.md section 4 item 4)
 - Q-HC-2 (owner: governance lead, raised 2026-11-12): should a hero mismatch renew freshness and the sequence? Spec sections 4 and 5 are ambiguous (docs/delivery/M1-STATUS.md section 3.3).
 - Q-HC-3 (owner: governance lead, raised 2026-11-13): who owns `commands.rs` and the shared parts of `lib.rs`? (docs/domains/README.md section 1)
+- Q-HC-4 (owner: governance lead, raised 2026-11-24): local AGENTS.md says only the display name is decided and technical identity remains unfrozen, while DEC-NAME and the identity contract describe a frozen technical identity (AGENTS.md; contracts/product-identity.json).
+- Q-HC-5 (owner: product owner, raised 2026-11-24): product-identity.json leaves the update origin null, while UPDATER.md documents a public endpoint; reconcile the governing update-origin decision before treating either as binding (contracts/product-identity.json; docs/design/UPDATER.md).
 
 ## 5. Artefacts
 
-Machine list: [state.json](state.json). Governing: GSI-INTAKE-SPEC, M0-PLAN, M1-STATUS (docs/design, docs/delivery). Reference: AGENT-WORKFLOW section 6, product-identity.json.
+Machine list: [state.json](state.json). Governing: GSI-INTAKE-SPEC, M0-PLAN, M1-STATUS (docs/design, docs/delivery). Reference: DERIVED-STATS, REPLAY-PIPELINE, REPLAY-ENGINE-PROVENANCE, the replay-integration decision entry, ALPHA-LAUNCH, UPDATER, RELEASE-UPDATES, AGENT-WORKFLOW section 6, product-identity.json, DECISION-LOG.
 
 ## 6. Traps and lessons
 

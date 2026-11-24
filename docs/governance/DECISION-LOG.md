@@ -2,8 +2,8 @@
 title: "Decision Log and Open Items"
 doc_id: "DECISION-LOG"
 status: draft
-version: "0.3.14"
-updated: "2026-11-23"
+version: "0.3.15"
+updated: "2026-11-24"
 authority: "DEC-BASELINE; see DOCUMENT-CONTROL"
 owner_role: "Product and engineering owners; people not assigned"
 approval_status: "not_approved"
@@ -253,6 +253,8 @@ Product owner, relayed by the lead session. Owner proposal: “ไม่งั�
 
 The decision adds no requirement yet. Contracts (`replay-engine`, bundle schema), requirement amendments for Live (UI-002/UI-016 family) and retention text follow their own reviews; `contracts/decisions.json` is updated when the first contract lands.
 
+**RP1 implementation note (2026-11-24).** Added versioned bundle and CLI contracts, a Lab/demo-only replay library host, a read-only replay-folder watcher, the typed renderer client, and design documentation. The host stores raw match IDs only in its local replay library and never logs them; it uses a source-inspected 0.2.0 development executable pin and rejects unpinned binaries. One saved `.dem` passed the dev-engine run and bundle structural/hash checks in 8.481 seconds; this does not qualify a release engine or viewer. No new baseline requirement was added under the decision above. The required `contracts/decisions.json` entry and requirement-to-PRD/product-needs/SDD/RTM traceability still need an owner-approved scope update.
+
 ### Owner decision: Overview player dashboard and news (2026-11-23)
 
 **DEC-OVERVIEW** (decided by the product owner; relayed by the lead session local_e6af3702 and recorded by an agent; not an owner-authored text). The owner chose variant D from the Overview designs in `F:\kohbor-coord\design\overview-20261123\` (`mock-de.html`, `README.th.md`) and answered its open questions:
@@ -268,4 +270,14 @@ The decision adds no requirement yet. Contracts (`replay-engine`, bundle schema)
 
 **Revision 3: owner instruction on build a7809d8 (2026-11-23, relayed by the lead session and recorded by an agent; translated by the lead).** "Lay out the whole page even with no data: show 0, show pie charts and graphs as their frames with no data, so every box is visible and I can see what each slot will show. It must show the best heroes like Dota Plus: top 3 heroes played best of all time, and this month. If there's no data yet, put any heroes in for now, but show every stat as 0.0." Recorded as: the full layout always renders (0.0% over a base of 0 matches with the all-modes label; a wins/losses/no-result donut that is an empty grey ring with 0; 20 empty result slots; the trend frame with axes and gridlines, its line only from 10 counted matches; the table header with faint empty rows up to five). Two best-hero panels, all time and this calendar month in local time, top 3 each, ranked by win rate among heroes with at least 3 counted games (then more counted games), falling back to most played. Empty slots hold the fixed placeholders Pudge, Juggernaut and Crystal Maiden with every stat at zero; they are shown desaturated with a "ตัวอย่าง" / "Placeholder" chip and the tooltip "ยังไม่มีข้อมูล — แสดงตัวอย่างช่อง", and never count toward any number (UI-020).
 
-This amends DEC-COACH-REVIEW item 6 (no multi-match trends in slice 1 of coach review) only for the Overview's own-history win rate and trend. DEC-COACH-REVIEW item 3 (no OpenDota) is unchanged until slice 2 amends it. Requirements: UI-020, MEM-006, UPDATE-005. Evidence: synthetic Rust and renderer model tests only; native and live evidence NOT_RUN.
+This amends DEC-COACH-REVIEW item 6 (no multi-match trends in slice 1 of coach review) only for the Overview's own-history win rate and trend. **Revision 4 (owner instruction on 2026-11-24, relayed by the lead and recorded by an agent):** Both sources are authorized for own-history. Local history always applies; OpenDota fills in older matches only after explicit user opt-in, which is off by default, and the profile must expose match data. The route sends the user's own 32-bit Steam account ID derived from verified GSI ownership to `api.opendota.com`; OpenDota sees the IP address and request time. Revocation stops requests and deletes the saved account ID and OpenDota cache. This amends DEC-COACH-REVIEW item 3 (no OpenDota) only for this own-history path; it does not enable OpenDota or STRATZ coach analytics. Requirements: UI-020, MEM-006, UPDATE-005. Evidence: synthetic Rust and renderer model tests only; native and live evidence NOT_RUN.
+
+### Owner decision: first alpha release to super users (2026-11-24)
+
+**DEC-ALPHA-SUPERUSER** (decided by the product owner; relayed by the lead session and recorded by an agent). Owner words, translated: the first group is not the general public but super users, a small production group close to a test server; rights for the bundled announcer packs and game images are not a concern for this group; choose the version; ship the Lab build so the features are complete; it is an alpha; the news column may stay at 404; what must work is the announcer, draft hero suggestions, rune and low-HP alerts and the risk meter; connecting the replay engine can come after this release.
+
+1. Version `0.4.0-alpha.1` (higher than the `0.3.0-dev.18` test installer, so later signed updates are accepted).
+2. The installer is built with the `lab` and `updater` features (Lab and demo commands included) for this super-user alpha only.
+3. The owner accepts the rights position of the bundled game images and announcer material for this closed group; the DEC-REPLAY-INTEGRATION item 3 rights review stays required before any general public release.
+4. The news feed may return 404 until `news.json` is published.
+5. Must-work list for acceptance: announcer, draft suggestions, rune and low-HP alerts, risk meter.

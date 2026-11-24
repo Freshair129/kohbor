@@ -12,6 +12,7 @@ export type MatchType = "ranked" | "unranked" | "bot" | "custom" | "lobby" | "un
 
 export interface HistoryEntry {
   matchKey: string;
+  source: "kohbor" | "opendota";
   hero: string | null;
   result: MatchResult | null;
   end: "completed" | "abandoned";
@@ -90,12 +91,18 @@ function parseBest(raw: unknown): BestHero[] {
 const MATCH_TYPES: readonly MatchType[] = ["ranked", "unranked", "bot", "custom", "lobby", "unknown"];
 
 function parseEntry(raw: unknown): HistoryEntry | null {
-  if (!isObj(raw) || typeof raw.match_key !== "string" || raw.source !== "kohbor") return null;
+  if (!isObj(raw) || typeof raw.match_key !== "string" || (raw.source !== "kohbor" && raw.source !== "opendota")) return null;
   const endedAt = count(raw.ended_at);
   if (endedAt === null || (raw.end !== "completed" && raw.end !== "abandoned")) return null;
+  const hero = typeof raw.hero === "string" ? raw.hero : null;
+  if (raw.source === "opendota") {
+    const heroId = count(raw.hero_id);
+    if (heroId === null || heroId === 0 || count(raw.started_at) === null || hero !== `opendota_hero_id_${heroId}`) return null;
+  }
   return {
     matchKey: raw.match_key,
-    hero: typeof raw.hero === "string" ? raw.hero : null,
+    source: raw.source,
+    hero,
     result: result(raw.result),
     end: raw.end,
     kills: count(raw.kills),
@@ -196,6 +203,8 @@ export function trendPolyline(points: readonly number[], height = 64, width = 30
 }
 
 export function heroName(hero: string | null, locale: OverviewLocale): string {
+  const numeric = hero?.match(/^opendota_hero_id_([1-9][0-9]*)$/)?.[1];
+  if (numeric) return `${locale === "th" ? "ฮีโร่" : "Hero"} #${numeric}`;
   return displayHeroName(hero)?.name ?? overviewCopy(locale).stats.unknownHero;
 }
 
@@ -350,6 +359,7 @@ export interface MatchRowView {
   date: string;
   counted: boolean;
   typeTitle: string | null;
+  source: "Kohbor" | "OpenDota";
 }
 
 export function matchRows(history: MatchHistory, locale: OverviewLocale, limit: number | null): MatchRowView[] {
@@ -371,8 +381,63 @@ export function matchRows(history: MatchHistory, locale: OverviewLocale, limit: 
       date: formatDay(e.endedAt, locale),
       counted,
       typeTitle: e.matchType === "unknown" ? t.typeUnknown : null,
+      source: e.source === "opendota" ? "OpenDota" : "Kohbor",
     };
   });
+}
+
+// ---------------------------------------------------------------------------------------------
+// OpenDota own-history state. The host owns all network, consent and cache decisions.
+
+export type OpenDotaState = "disabled" | "idle" | "loading" | "merged" | "empty" | "private_profile"
+  | "waiting_for_account" | "not_found" | "rate_limited" | "budget_exhausted" | "offline" | "unavailable";
+
+export interface OpenDotaView {
+  state: OpenDotaState;
+  enabled: boolean;
+  cachedEntries: number;
+  fetchedAt: number | null;
+  lastAttemptAt: number | null;
+  retryAvailable: boolean;
+}
+
+const OPENDOTA_STATES: readonly OpenDotaState[] = [
+  "disabled", "idle", "loading", "merged", "empty", "private_profile", "waiting_for_account", "not_found", "rate_limited",
+  "budget_exhausted", "offline", "unavailable",
+];
+
+/** Parse `opendota_view_get`/`opendota_refresh`; an unrecognised state or shape stays unavailable. */
+export function parseOpenDotaView(raw: unknown): OpenDotaView | null {
+  if (!isObj(raw) || !OPENDOTA_STATES.includes(raw.state as OpenDotaState)) return null;
+  const cachedEntries = count(raw.cached_entries);
+  if (cachedEntries === null || typeof raw.enabled !== "boolean" || typeof raw.retry_available !== "boolean") return null;
+  return {
+    state: raw.state as OpenDotaState,
+    enabled: raw.enabled,
+    cachedEntries,
+    fetchedAt: count(raw.fetched_at),
+    lastAttemptAt: count(raw.last_attempt_at),
+    retryAvailable: raw.retry_available,
+  };
+}
+
+/** Localized status text keeps the waiting state separate from actual provider or host failures. */
+export function openDotaStatusText(state: OpenDotaState, locale: OverviewLocale): string {
+  const t = overviewCopy(locale).stats;
+  switch (state) {
+    case "disabled": return t.openDotaDisabled;
+    case "idle": return t.openDotaEnabled;
+    case "loading": return t.openDotaLoading;
+    case "merged": return t.openDotaMerged;
+    case "empty": return t.openDotaEmpty;
+    case "waiting_for_account": return t.openDotaWaitingForAccount;
+    case "private_profile": return t.openDotaPrivateBody;
+    case "not_found": return t.openDotaNotFound;
+    case "rate_limited": return t.openDotaRateLimited;
+    case "budget_exhausted": return t.openDotaBudgetLimited;
+    case "offline": return t.openDotaOffline;
+    case "unavailable": return t.openDotaUnavailable;
+  }
 }
 
 // ---------------------------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 // Admission of a local Match Bundle (replay engine schema 3.0) for the Lab "Match view".
-// The user picks manifest.json, match.json and world.json produced on their own machine.
-// Everything stays in memory; nothing here reads the network or writes a file.
+// The Lab Match view reads validated schema 3.0 data from the local replay library.
+// Manual file admission remains only for the legacy report route; the Match view uses the host library.
 
 export const BUNDLE_SCHEMA = "3.0";
 export const BUNDLE_FILES = ["manifest.json", "match.json", "world.json"] as const;
@@ -41,6 +41,7 @@ export interface MatchBundle {
   gameMode: number | null;
   durationS: number | null;
   calibration: Obj | null;
+  mapSize: number | null;
   mapImage: string | null;
 }
 
@@ -173,7 +174,51 @@ function checkManifest(manifest: Json): Obj {
     const entry = (m.files as Obj)[name];
     need(isObj(entry) && isNum((entry as Obj).bytes) && typeof (entry as Obj).sha256 === "string", F, `files.${name}`);
   }
+  if (m.map !== undefined) need(isObj(m.map), F, "map");
+  if (isObj(m.map) && m.map.size !== undefined) need(isNum(m.map.size) && m.map.size > 0, F, "map.size");
   return m;
+}
+
+function buildBundle(manifest: Obj, match: Obj, world: Obj): MatchBundle {
+  const meta = isObj(match.meta) ? match.meta : null;
+  if (meta && meta.schema !== BUNDLE_SCHEMA) {
+    throw { code: "schema", file: "match.json", found: String(meta.schema ?? "missing") } satisfies BundleError;
+  }
+  checkMatch(match);
+  const matchMeta = match.meta as Obj;
+  need(String(matchMeta.match_id) === String(manifest.match_id), "match.json", "meta.match_id");
+  checkWorld(world);
+  const map = isObj(manifest.map) ? manifest.map : null;
+  const patch = matchMeta.patch, mode = matchMeta.game_mode, duration = matchMeta.duration_s;
+  const calibration = map ? map.calibration : null;
+  const image = map ? map.image : null;
+  return {
+    manifest,
+    match,
+    world,
+    patch: typeof patch === "string" && SAFE_TEXT.test(patch) ? patch : null,
+    gameMode: typeof mode === "number" && Number.isInteger(mode) ? mode : null,
+    durationS: isNum(duration) ? duration : null,
+    calibration: isObj(calibration) ? calibration : null,
+    mapSize: map && isNum(map.size) ? map.size : null,
+    mapImage: typeof image === "string" ? image.toLowerCase() : null,
+  };
+}
+
+/** Structural admission for host-opened bundles; the RP1 host already verified on-disk hashes. */
+export function admitLibraryBundle(value: unknown): Admission {
+  try {
+    need(isObj(value), "manifest.json", "$");
+    const raw = value as Obj;
+    const manifest = checkManifest(raw.manifest);
+    need(isObj(raw.match_data), "match.json", "$");
+    need(isObj(raw.world), "world.json", "$");
+    return { ok: true, bundle: buildBundle(manifest, raw.match_data as Obj, raw.world as Obj) };
+  } catch (error) {
+    if (error instanceof ShapeError) return { ok: false, error: { code: "shape", file: error.file, path: error.path } };
+    if (isObj(error) && typeof error.code === "string") return { ok: false, error: error as BundleError };
+    throw error;
+  }
 }
 
 /** Validates a multi-file pick holding one Match Bundle. Other picked files are ignored. */
@@ -212,32 +257,11 @@ export async function admitMatchBundle(files: readonly PickedFile[]): Promise<Ad
         return { ok: false, error: { code: "integrity", file: name } };
       }
     }
-    const match = parse("match.json", bytes["match.json"]) as Obj;
-    const meta = isObj(match) && isObj(match.meta) ? match.meta : null;
-    if (meta && meta.schema !== BUNDLE_SCHEMA) {
-      return { ok: false, error: { code: "schema", file: "match.json", found: String(meta.schema ?? "missing") } };
-    }
-    checkMatch(match);
-    const md = match.meta as Obj;
-    need(md.match_id === manifest.match_id, "match.json", "meta.match_id");
-    const world = parse("world.json", bytes["world.json"]) as Obj;
-    checkWorld(world);
-    const map = isObj(manifest.map) ? manifest.map : null;
-    const patch = md.patch, mode = md.game_mode, duration = md.duration_s;
-    const calibration = map ? map.calibration : null, image = map ? map.image : null;
-    return {
-      ok: true,
-      bundle: {
-        manifest,
-        match,
-        world,
-        patch: typeof patch === "string" && SAFE_TEXT.test(patch) ? patch : null,
-        gameMode: typeof mode === "number" && Number.isInteger(mode) ? mode : null,
-        durationS: isNum(duration) ? duration : null,
-        calibration: isObj(calibration) ? calibration : null,
-        mapImage: typeof image === "string" ? image.toLowerCase() : null,
-      },
-    };
+    const match = parse("match.json", bytes["match.json"]);
+    const world = parse("world.json", bytes["world.json"]);
+    need(isObj(match), "match.json", "$");
+    need(isObj(world), "world.json", "$");
+    return { ok: true, bundle: buildBundle(manifest, match as Obj, world as Obj) };
   } catch (error) {
     if (error instanceof ShapeError) return { ok: false, error: { code: "shape", file: error.file, path: error.path } };
     if (isObj(error) && typeof error.code === "string") return { ok: false, error: error as BundleError };

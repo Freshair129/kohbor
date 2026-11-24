@@ -32,12 +32,20 @@ Data files copied into the repository from outside sources. Each entry records o
 
 ## apps/desktop/src/assets/dota/6989/stats.json
 
-- Content: compact hero base attributes and growth, primary attributes, armor, attack, movement, base health/mana and regeneration, magic resistance, plus normalized item attributes and derived-stat effects. Build 6989; patch is unverified because the inspected game files had no explicit 7.41f or 7.42 version string. The file records its byte size and SHA-256 in the change report and its source hashes in provenance.
-- Use: local input for own-hero stat estimates; values are labeled DERIVED and without temporary effects. The JSON does not contain match telemetry or live state.
-- Origin: extracted on 2026-11-24 from the owner's installed Dota 2 at G:/steam/steamapps/common/dota 2 beta, read only and without download, by crates/kohbor-game-assets kohbor-asset-export. Provenance lists source script paths, the physical VPK archive path for each script, script hashes, VPK hashes, build number and exporter source commit.
+- Content: compact hero base attributes and growth, primary attributes, armor, attack, movement, base health/mana and regeneration, magic resistance, normalized item attributes and derived-stat effects. Extended on 2026-11-24 with hero ability slots in order, explicit Ultimate classification when `AbilityType` is present, and `AbilityBehavior` flags and modifier names when present. Build 6989; patch remains unverified because the inspected game files contain no explicit 7.41f or 7.42 version string. This export contains 128 hero records, 127 with named ability slots, 1,654 slot rows and 134 rows with explicit Ultimate markers.
+- Use: local input for own-hero stat estimates; values are labeled DERIVED and without temporary effects. The replay viewer also uses the installed hero ability slots and Ultimate markers, and intersects its patch-pack CC candidates against those slots. The JSON does not contain match telemetry or live state.
+- Origin: re-exported on 2026-11-24 from the owner's installed Dota 2 at `G:\steam\steamapps\common\dota 2 beta`, read only and without download, by `crates/kohbor-game-assets` `kohbor-asset-export`. Provenance lists script paths, physical VPK archive paths, script hashes, VPK hashes, build number and exporter source commit. The 6989 export is 646,977 bytes; SHA-256 `dbb6f5de709f96de04e60b5a186df18be81a49545235a2d9fa095cfe0ec2cc04`.
 - Authority: DEC-REPLAY-INTEGRATION item 3 permits local game-data extraction for this application; this records the owner decision, not a licence review.
 - NOT established: any right to redistribute Valve-derived game data in a shipped product. Rights review is required before public release. Patch compatibility is unverified and rules must be selected explicitly by the caller.
-- Update rule: extract from the installed game into a new build-number directory with the scoped stats-only exporter mode; do not overwrite a prior build's evidence or provenance.
+- Update rule: extract from the installed game into a new build-number directory with the scoped stats-only exporter mode; do not overwrite a prior build's evidence or provenance. Behavior flags and modifier arrays preserve only fields found in the game scripts; missing fields stay unknown or empty.
+
+## apps/desktop/src/assets/replay-packs/{7.41f,7.42}/
+
+- Content: patch-scoped viewer data from the replay engine's embedded packs and the corresponding `dotaconstants` snapshots: map calibration, hero names, base attack speed, formulas, curated buffs, and heuristic ability/item lookups. The runtime Ultimate list comes from the installed build 6989 stats file; the runtime CC candidate list is the pack classification filtered to ability names present in those installed hero slots.
+- Use: Lab Match view only. The 7.41f and 7.42 folders contain 273,416 bytes total including provenance, below the 2 MiB data budget. Unknown replay patches take the `needs_pack` path; no other patch's values are substituted.
+- Origin: generated from `F:\gsi-log\replay-engine-rs\pack\<patch>` at engine source commit `a609ecc9d5221dcf62acd9c0312ce7cb8d8f79f9`. The 7.41f snapshot identifies `odota/dotaconstants @7fa7d26dc9`; 7.42 identifies `odota/dotaconstants @54d1b83415`. Each `provenance.json` records per-input and per-output size and SHA-256.
+- Licence note: the upstream provenance identifies `dotaconstants` as MIT licensed. This is the upstream notice recorded by the source pack, not an independent rights determination. Public-release rights review remains required.
+- Update rule: regenerate from the local engine pack only, keep source commit/version/hash provenance, rerun the pack size and CC/Ultimate tests, and do not add network fetching.
 
 ## apps/desktop/src/assets/dota/6989/ (Match view card images and minimap)
 

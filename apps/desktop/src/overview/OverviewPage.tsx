@@ -6,14 +6,16 @@ import { overviewCopy, type OverviewLocale } from "./overviewCopy";
 import { overviewClient, type OverviewClient } from "./overviewClient";
 import {
   bestHeroPanel, countingNotes, EMPTY_HISTORY, formatDate, formatDateTime, localMonthStart, matchRows, NEWS_FILTERS,
-  newsColumn, parseMatchHistory, parseNewsView, pick, placeholderRowCount, statTiles,
-  type BestHero, type MatchHistory, type NewsFilter, type NewsPost, type NewsView, type TileView,
+  newsColumn, openDotaStatusText, parseMatchHistory, parseNewsView, parseOpenDotaView, pick, placeholderRowCount, statTiles,
+  type BestHero, type MatchHistory, type NewsFilter, type NewsPost, type NewsView, type OpenDotaView, type TileView,
 } from "./overviewModel";
 import "./overview.css";
 
 const RECENT_ROWS = 8;
 const HISTORY_REFRESH_MS = 30_000;
 const NEWS_LOADING_POLL_MS = 1_500;
+const OPENDOTA_LOADING_POLL_MS = 1_000;
+const OPENDOTA_ACCOUNT_POLL_MS = 5_000;
 
 type Loaded<T> = { status: "loading" } | { status: "unavailable" } | { status: "ready"; value: T };
 
@@ -94,12 +96,133 @@ function BestHeroes({ title, heroes, minGames, locale }: { title: string; heroes
   );
 }
 
+function OpenDotaCard({ locale, client, historyChanged, cacheRevision }: {
+  locale: OverviewLocale; client: OverviewClient; historyChanged: () => void; cacheRevision: number;
+}) {
+  const t = overviewCopy(locale).stats;
+  const [view, setView] = useState<OpenDotaView | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const read = useCallback(async () => {
+    const raw = await client.openDotaView();
+    const parsed = parseOpenDotaView(raw);
+    if (parsed) setView(parsed);
+    return parsed;
+  }, [client]);
+
+  const refresh = useCallback(async (retry: boolean) => {
+    setFailed(false);
+    setView((current) => current ? { ...current, state: "loading" } : {
+      state: "loading", enabled: true, cachedEntries: 0, fetchedAt: null, lastAttemptAt: null, retryAvailable: false,
+    });
+    try {
+      const parsed = parseOpenDotaView(await client.refreshOpenDota(retry));
+      if (parsed) setView(parsed);
+      historyChanged();
+    } catch {
+      setFailed(true);
+      setView((current) => current ? { ...current, state: "offline" } : {
+        state: "offline", enabled: true, cachedEntries: 0, fetchedAt: null, lastAttemptAt: null, retryAvailable: true,
+      });
+    }
+  }, [client, historyChanged]);
+
+  const pollForAccount = useCallback(async () => {
+    try {
+      const parsed = parseOpenDotaView(await client.refreshOpenDota(false));
+      if (!parsed) {
+        setFailed(true);
+        return;
+      }
+      setFailed(false);
+      setView(parsed);
+      if (parsed.state !== "waiting_for_account") historyChanged();
+    } catch {
+      setFailed(true);
+    }
+  }, [client, historyChanged]);
+
+  useEffect(() => {
+    let alive = true;
+    client.openDotaPrefs().then(async (prefs) => {
+      if (!alive) return;
+      if (!prefs.enabled) {
+        setView({ state: "disabled", enabled: false, cachedEntries: 0, fetchedAt: null, lastAttemptAt: null, retryAvailable: false });
+        return;
+      }
+      const cached = await read();
+      if (!alive) return;
+      if (!cached || cached.state !== "loading") await refresh(false);
+    }).catch(() => {
+      if (alive) setView({ state: "unavailable", enabled: false, cachedEntries: 0, fetchedAt: null, lastAttemptAt: null, retryAvailable: false });
+    });
+    return () => { alive = false; };
+  }, [client, read, refresh, cacheRevision]);
+
+  useEffect(() => {
+    if (view?.state === "waiting_for_account") {
+      const timer = window.setInterval(() => { void pollForAccount(); }, OPENDOTA_ACCOUNT_POLL_MS);
+      return () => window.clearInterval(timer);
+    }
+    if (view?.state !== "loading") return;
+    const timer = window.setInterval(() => { void read().catch(() => setFailed(true)); }, OPENDOTA_LOADING_POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [pollForAccount, read, view?.state]);
+
+  const change = async (next: boolean) => {
+    setSaving(true);
+    setFailed(false);
+    try {
+      const prefs = await client.setOpenDotaEnabled(next);
+      if (!prefs.enabled) {
+        setView({ state: "disabled", enabled: false, cachedEntries: 0, fetchedAt: null, lastAttemptAt: null, retryAvailable: false });
+        historyChanged();
+      } else {
+        await refresh(false);
+      }
+    } catch {
+      setFailed(true);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const state = view?.state ?? "idle";
+  const status = openDotaStatusText(state, locale);
+  const showsCacheTime = view !== null && view.cachedEntries > 0 && view.fetchedAt !== null
+    && ["loading", "offline", "rate_limited", "budget_exhausted", "private_profile", "not_found", "merged"].includes(state);
+
+  return (
+    <div className="ov-notice" role="note">
+      <div>
+        <strong>{t.openDotaTitle}</strong>
+        <span>{t.openDotaDisclosure}</span>
+        <span>{t.openDotaBody}</span>
+        <span role="status">{failed ? t.openDotaUnavailable : status}</span>
+        {state === "private_profile" && <span><strong>{t.openDotaPrivateHint}</strong></span>}
+        {showsCacheTime && <span>{t.openDotaCachedAt(formatDateTime(view.fetchedAt!, locale))}</span>}
+      </div>
+      <div className="ov-row-actions">
+        <label className="ov-optin">
+          <input type="checkbox" checked={view?.enabled === true} disabled={view === null || saving}
+            onChange={(event) => void change(event.currentTarget.checked)} />
+          <span>{view?.enabled ? t.openDotaDisable : t.openDotaEnable}</span>
+        </label>
+        {view?.enabled && ["private_profile", "not_found", "rate_limited", "budget_exhausted", "offline", "unavailable"].includes(state)
+          && view.retryAvailable && <button type="button" className="quiet" disabled={saving} onClick={() => void refresh(true)}>{t.openDotaRetry}</button>}
+      </div>
+    </div>
+  );
+}
+
 function StatsColumn({ locale, client }: { locale: OverviewLocale; client: OverviewClient }) {
   const t = overviewCopy(locale).stats;
   const [history, setHistory] = useState<Loaded<MatchHistory>>({ status: "loading" });
   const [showAll, setShowAll] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [clearFailed, setClearFailed] = useState(false);
+  const [cacheRevision, setCacheRevision] = useState(0);
 
   const load = useCallback(() => {
     client.matchHistory(localMonthStart(new Date()))
@@ -116,10 +239,12 @@ function StatsColumn({ locale, client }: { locale: OverviewLocale; client: Overv
     return () => window.clearInterval(timer);
   }, [load]);
 
+  const historyChanged = useCallback(() => load(), [load]);
+
   const clear = () => {
     setClearFailed(false);
     client.clearMatchHistory()
-      .then(() => { setConfirmClear(false); load(); })
+      .then(() => { setConfirmClear(false); setCacheRevision((revision) => revision + 1); load(); })
       .catch(() => setClearFailed(true));
   };
 
@@ -135,10 +260,7 @@ function StatsColumn({ locale, client }: { locale: OverviewLocale; client: Overv
   return (
     <div className="ov-main">
       <h2 className="ov-col-title">{t.title}</h2>
-      <div className="ov-notice" role="note">
-        <div><strong>{t.openDotaTitle}</strong><span>{t.openDotaBody}</span></div>
-        <button type="button" className="quiet" disabled aria-disabled="true">{t.openDotaButton}</button>
-      </div>
+      <OpenDotaCard locale={locale} client={client} historyChanged={historyChanged} cacheRevision={cacheRevision} />
       {note && <p className="ov-note ov-state-note" role="status">{note}</p>}
       <div className="ov-tiles">
         <section className="card ov-tile" aria-label={t.overall}>
@@ -196,7 +318,7 @@ function StatsColumn({ locale, client }: { locale: OverviewLocale; client: Overv
                   <td className="num">{row.kda}</td>
                   <td className="num">{row.duration}</td>
                   <td className="opt muted">{row.date}</td>
-                  <td><span className="ov-src" title={t.sourceTitle}>Kohbor</span></td>
+                  <td><span className="ov-src" title={t.sourceTitle}>{row.source}</span></td>
                 </tr>
               ))}
               {Array.from({ length: fillers }, (_, i) => (

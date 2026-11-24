@@ -1,4 +1,4 @@
-//! Developer tool: export the Match view's card images from the owner's
+//! Developer tool: export the Match view's card images and stats from the owner's
 //! installed Dota 2 into Kohbor's source tree. Not shipped in the app.
 //!
 //! Authority: DEC-REPLAY-INTEGRATION item 3 (hero, ability and item images may
@@ -529,7 +529,7 @@ fn stats_json(vpk: &Vpk, game: &Path, build: &str) -> Result<String, Box<dyn Err
                     "\"moveSpeed\": {}, ",
                     "\"health\": {{ \"base\": {}, \"regen\": {} }}, ",
                     "\"mana\": {{ \"base\": {}, \"regen\": {} }}, ",
-                    "\"magicResistance\": {}, \"sources\": [{}] }}"
+                    "\"magicResistance\": {}, \"abilities\": [{}], \"sources\": [{}] }}"
                 ),
                 json_str(id),
                 hero.primary_attribute
@@ -556,6 +556,7 @@ fn stats_json(vpk: &Vpk, game: &Path, build: &str) -> Result<String, Box<dyn Err
                 number_value(v, "baseMana"),
                 number_value(v, "baseManaRegen"),
                 number_value(v, "baseMagicResistance"),
+                hero_abilities_json(&hero.abilities),
                 source_list
             )
         })
@@ -607,6 +608,34 @@ fn json_number_map(values: &std::collections::BTreeMap<String, Option<f64>>) -> 
     values
         .iter()
         .map(|(key, value)| format!("{}: {}", json_str(key), number_json(*value)))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn json_string_array(values: &[String]) -> String {
+    values
+        .iter()
+        .map(|value| json_str(value))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn hero_abilities_json(abilities: &[game_stats::HeroAbility]) -> String {
+    abilities
+        .iter()
+        .map(|ability| {
+            let ultimate = ability
+                .is_ultimate
+                .map_or_else(|| "null".to_owned(), |value| value.to_string());
+            format!(
+                "{{ \"slot\": {}, \"name\": {}, \"ultimate\": {}, \"behavior\": [{}], \"modifiers\": [{}] }}",
+                ability.slot,
+                json_str(&ability.name),
+                ultimate,
+                json_string_array(&ability.behavior),
+                json_string_array(&ability.modifiers),
+            )
+        })
         .collect::<Vec<_>>()
         .join(", ")
 }

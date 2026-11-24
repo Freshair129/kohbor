@@ -36,7 +36,7 @@ Registry content: 9 profiles, 9 roles (1 human, 8 agent), 15 task types, 16 rout
 | `fable52-xhigh` | claude-code-session | claude-fable-5-2 (xhigh) | owner_chosen | yes | Owner instruction 2026-11-13, relayed by the coordinating session (not seen first-hand) |
 | `sonnet55-high` | claude-code-session | claude-sonnet-5-5 (high) | owner_chosen | yes | Owner instruction 2026-11-13, relayed by the coordinating session (not seen first-hand) |
 | `luna-max` | codex-exec | gpt-6-luna (max) | owner_chosen | no | docs/delivery/AGENT-WORKFLOW.md section 1 (models and max effort are the owner's choice) |
-| `terra-high` | codex-exec | gpt-6.1-terra (high) | owner_chosen | no | docs/delivery/AGENT-WORKFLOW.md section 1 |
+| `luna-high` | codex-exec | gpt-6-luna (high) | owner_chosen | yes | owner instruction 2026-11-24 in the lead session, relayed by the lead and recorded by an agent |
 | `astra-high` | codex-exec | gpt-6-astra (high) | in_use_unconfirmed | no | Banner-lab workspace guidance, one trial (card: docs/domains/banner-lab/CARD.md) |
 | `sol-xhigh` | codex-exec | gpt-6.1-sol (xhigh) | owner_chosen | yes | owner message 2026-11-14 after Nakom comparison (relayed by the coordinating session) |
 | `claude-subagent-ro` | claude-code-subagent | session | in_use_unconfirmed | no | docs/delivery/AGENT-WORKFLOW.md section 7.5 |
@@ -74,20 +74,20 @@ Registry content: 9 profiles, 9 roles (1 human, 8 agent), 15 task types, 16 rout
 
 | Task type | Domain | Role | Profile | Reviewer | Level | Relayed |
 | --- | --- | --- | --- | --- | --- | --- |
-| `implement` | * | `general-worker` | `luna-max` | `test-worker` (terra-high) | owner_chosen | no |
+| `implement` | * | `general-worker` | `luna-max` | `test-worker` (sonnet55-high) | owner_chosen | no |
 | `doc-fixture-tooling` | * | `general-worker` | `luna-max` | none | owner_chosen | no |
 | `code-question` | * | `general-worker` | `luna-max` | none | owner_chosen | no |
-| `test-from-contract` | * | `test-worker` | `terra-high` | none | owner_chosen | no |
-| `defect-repro` | * | `test-worker` | `terra-high` | none | owner_chosen | no |
-| `harness` | * | `test-worker` | `terra-high` | none | owner_chosen | no |
-| `review-diff` | * | `test-worker` | `terra-high` | none | owner_chosen | no |
-| `lab-build` | banner-lab | `lab-worker` | `sol-xhigh` | `test-worker` (terra-high) | owner_chosen | yes |
+| `test-from-contract` | * | `test-worker` | `luna-high` | none | owner_chosen | no |
+| `defect-repro` | * | `test-worker` | `luna-high` | none | owner_chosen | no |
+| `harness` | * | `test-worker` | `luna-high` | none | owner_chosen | no |
+| `review-diff` | * | `test-worker` | `luna-high` | none | owner_chosen | no |
+| `lab-build` | banner-lab | `lab-worker` | `sol-xhigh` | `test-worker` (luna-high) | owner_chosen | yes |
 | `lab-review` | banner-lab | `lab-reviewer` | `sol-xhigh` | none | in_use_unconfirmed | no |
 | `design-plan` | * | `design-consultant` | `fable52-xhigh` | none | in_use_unconfirmed | no |
 | `design-plan` | governance | `lead` | `fable52-xhigh` | none | owner_chosen | yes |
 | `consult` | * | `consultant` | `claude-subagent-ro` | none | in_use_unconfirmed | no |
 | `card-backfill` | * | `consultant` | `claude-subagent-ro` | none | in_use_unconfirmed | no |
-| `governance-change` | governance | `lead` | `sonnet55-high` | `test-worker` (terra-high) | owner_chosen | yes |
+| `governance-change` | governance | `lead` | `sonnet55-high` | `test-worker` (luna-high) | owner_chosen | yes |
 | `integrate` | * | `lead` | `claude-session` | none | owner_chosen | no |
 | `approve` | governance | `delegate-approver` | none | none | proposed | no |
 

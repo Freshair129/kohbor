@@ -1,147 +1,331 @@
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Locale } from "../copy";
 import { BUNDLED } from "./bundledIcons";
 import {
-  admitMatchBundle, countFound, gameModeName, iconResolver, MAX_BUNDLE_BYTES, neededIconKeys,
-  type BundleError, type MatchBundle, type PickedFile,
+  admitLibraryBundle, countFound, gameModeName, iconResolver, neededIconKeys,
+  type MatchBundle,
 } from "./matchBundle";
-import { calibrationMatches } from "./matchTables.mjs";
+import {
+  chooseMapCalibration, replayPackForPatch,
+  type ReplayPatchData,
+} from "./replayPack.mjs";
+import {
+  replayListViewModel, replayMetadataFromBundle,
+  type ReplayMetadata,
+} from "./replayLibraryModel";
+import { createReplayLibraryClient, type ReplayLibraryList, type ReplayStatus } from "./replayLibraryClient";
+import { matchViewerCopy } from "./matchViewerCopy.mjs";
 import { mountMatchView } from "./matchViewer.mjs";
 import markup from "./matchViewer.html?raw";
 import style from "./matchViewer.css?raw";
+import libraryStyle from "./matchLibrary.css?raw";
 
-const MiB = (bytes: number) => Math.round(bytes / (1024 * 1024));
+const replayLibrary = createReplayLibraryClient({
+  invoke: <T,>(command: string, args?: Record<string, unknown>) => invoke<T>(command, args),
+  listen: async <T,>(event: string, handler: (payload: T) => void) =>
+    listen<T>(event, message => handler(message.payload)),
+});
 
-const COPY = {
-  th: {
-    bundle: "เปิด Match Bundle: เลือก manifest.json, match.json และ world.json พร้อมกัน",
-    reading: "กำลังอ่านไฟล์…",
-    iconCount: (found: number, needed: number, build: string | null) =>
-      `ไอคอนที่พบ ${found} จาก ${needed}${build ? ` (ชุดที่มากับ Kohbor จากเกมบิลด์ ${build})` : ""} ที่เหลือแสดงเป็นกรอบชื่อ`,
-    memory: "ไฟล์ทั้งหมดอยู่ในหน่วยความจำเท่านั้น ไม่บันทึกและไม่ส่งออกนอกเครื่อง ปิดแท็บนี้แล้วข้อมูลจะหายไป",
-    proto: "ต้นแบบ: ใช้ตารางของแมตช์ตัวอย่างแมตช์เดียว (การแจ้งเตือน ult และ CC, ปุ่มคู่ Mid, พิกัดมินิแมป) แมตช์อื่นอาจแจ้งเตือนไม่ครบหรือพิกัดคลาดเคลื่อน",
-    calibration: "พิกัดมินิแมปของ bundle นี้ต่างจากตารางต้นแบบ ตำแหน่งบนแผนที่อาจคลาดเคลื่อน",
-    lede: (patch: string, mode: string, length: string) => `แพตช์ ${patch} · ${mode} · ยาว ${length} · อ่านจากไฟล์ในเครื่องนี้`,
-    unknownPatch: "ไม่ทราบ",
-    unknownMode: "ไม่ทราบโหมดเกม",
-    unknownLength: "ไม่ทราบ",
-    error: (e: BundleError): string => {
-      switch (e.code) {
-        case "missing": return `ไม่ครบ ขาด ${e.files.join(", ")}`;
-        case "duplicate": return `เลือก ${e.file} มากกว่าหนึ่งไฟล์`;
-        case "too-large": return `${e.file} ใหญ่เกิน ${MiB(e.limit)} MB`;
-        case "unreadable": return `อ่าน ${e.file} ไม่ได้ (ไม่ใช่ JSON แบบ UTF-8)`;
-        case "schema": return `${e.file} เป็น schema ${e.found} แต่รองรับเฉพาะ 3.0`;
-        case "integrity": return `${e.file} ไม่ตรงกับขนาดหรือ SHA-256 ใน manifest.json`;
-        case "shape": return `${e.file} มีโครงสร้างไม่ถูกต้องที่ ${e.path}`;
-      }
-    },
-  },
-  en: {
-    bundle: "Open a Match Bundle: select manifest.json, match.json and world.json together",
-    reading: "Reading files…",
-    iconCount: (found: number, needed: number, build: string | null) =>
-      `Found ${found} of ${needed} icons${build ? ` (bundled with Kohbor from game build ${build})` : ""}; the rest show as name tiles.`,
-    memory: "Files stay in memory only. Nothing is saved or sent anywhere. Leaving this tab discards them.",
-    proto: "Prototype: one-match tables drive ult and CC alerts, the Mid pair button and the minimap projection. Other matches can miss alerts or be offset on the map. Labels written by the prototype script are still Thai.",
-    calibration: "This bundle's minimap calibration differs from the prototype table; map positions can be offset.",
-    lede: (patch: string, mode: string, length: string) => `Patch ${patch} · ${mode} · ${length} · read from files on this computer`,
-    unknownPatch: "unknown",
-    unknownMode: "game mode unknown",
-    unknownLength: "length unknown",
-    error: (e: BundleError): string => {
-      switch (e.code) {
-        case "missing": return `Incomplete bundle: missing ${e.files.join(", ")}.`;
-        case "duplicate": return `More than one ${e.file} was selected.`;
-        case "too-large": return `${e.file} is larger than ${MiB(e.limit)} MB.`;
-        case "unreadable": return `${e.file} could not be read as UTF-8 JSON.`;
-        case "schema": return `${e.file} uses schema ${e.found}; only 3.0 is supported.`;
-        case "integrity": return `${e.file} does not match the size or SHA-256 recorded in manifest.json.`;
-        case "shape": return `${e.file} has an unexpected structure at ${e.path}.`;
-      }
-    },
-  },
-};
-
-const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
-
-interface Loaded {
+interface LoadedMatch {
+  matchId: string;
   bundle: MatchBundle;
-  found: number;
-  needed: number;
+  pack: ReplayPatchData;
+  calibration: { size: number; a: number; b: number; c: number; d: number };
+  calibrationSource: "manifest" | "pack";
+  foundIcons: number;
+  neededIcons: number;
 }
 
-export function MatchViewPanel({ locale }: { locale: Locale }) {
-  const text = COPY[locale];
-  const [loaded, setLoaded] = useState<Loaded | null>(null);
-  const [error, setError] = useState<BundleError | null>(null);
-  const [reading, setReading] = useState(false);
-  const bundleFiles = useRef<PickedFile[]>([]);
-  const target = useRef<HTMLDivElement>(null);
-  const request = useRef(0);
+const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.round(seconds % 60)).padStart(2, "0")}`;
 
-  useEffect(() => () => { request.current++; }, []);
+export function MatchViewPanel({ locale }: { locale: Locale }) {
+  const text = matchViewerCopy[locale];
+  const [library, setLibrary] = useState<ReplayLibraryList | null>(null);
+  const [metadata, setMetadata] = useState<Record<string, ReplayMetadata>>({});
+  const [statusOverrides, setStatusOverrides] = useState<Record<string, ReplayStatus>>({});
+  const [loaded, setLoaded] = useState<LoadedMatch | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const listRequest = useRef(0);
+  const dropTarget = useRef<HTMLElement>(null);
+  const viewerTarget = useRef<HTMLDivElement>(null);
+
+  const refresh = useCallback(async (showLoading = false) => {
+    const ticket = ++listRequest.current;
+    if (showLoading) setLoading(true);
+    try {
+      const next = await replayLibrary.list();
+      if (ticket !== listRequest.current) return;
+      setLibrary(next);
+      setError(null);
+    } catch {
+      if (ticket === listRequest.current) setError(text.loadError);
+    } finally {
+      if (ticket === listRequest.current) setLoading(false);
+    }
+  }, [text.loadError]);
+
   useEffect(() => {
-    const frame = target.current;
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    void refresh(true);
+    void replayLibrary.onStateChanged(() => {
+      if (!disposed) void refresh();
+    }).then(stop => {
+      if (disposed) stop();
+      else unlisten = stop;
+    }).catch(() => {
+      if (!disposed) setError(text.loadError);
+    });
+    return () => {
+      disposed = true;
+      listRequest.current++;
+      unlisten?.();
+    };
+  }, [refresh, text.loadError]);
+
+  useEffect(() => {
+    const frame = viewerTarget.current;
     if (!loaded || !frame) return;
-    const { bundle } = loaded;
-    const icons = BUNDLED.icons;
     const root = frame.shadowRoot ?? frame.attachShadow({ mode: "open" });
-    const mode = gameModeName(bundle.gameMode) ?? text.unknownMode;
-    const patch = bundle.patch ?? text.unknownPatch;
-    const notes = [text.proto];
-    if (!calibrationMatches(bundle.calibration)) notes.push(text.calibration);
-    return mountMatchView(root, bundle, {
+    const mode = gameModeName(loaded.bundle.gameMode) ?? text.unknownMode;
+    const patch = loaded.bundle.patch ?? text.unknownPatch;
+    const length = loaded.bundle.durationS === null ? text.unknownLength : clock(loaded.bundle.durationS);
+    const notes = [
+      loaded.calibrationSource === "manifest" ? text.calibrationManifest : text.calibrationPack,
+      text.abilityDataSource(loaded.pack.ability_data_source?.build ?? null),
+      ...(loaded.pack.ultimate_classification.available ? [] : [text.ultimateUnavailable]),
+    ];
+    return mountMatchView(root, loaded.bundle, {
       locale, markup, style,
-      icon: iconResolver(icons),
-      hasMap: icons.has("map:"),
+      icon: iconResolver(BUNDLED.icons),
+      hasMap: BUNDLED.icons.has("map:"),
+      patchData: loaded.pack,
+      mapCalibration: loaded.calibration,
       header: {
-        "mv-lede": text.lede(patch, mode, bundle.durationS === null ? text.unknownLength : clock(bundle.durationS)),
-        "mv-sub": `${patch} · ${mode}`,
+        "mv-lede": text.lede(patch, mode, length),
+        "mv-sub": text.sub(patch, mode),
         "mv-proto": notes.join(" "),
+        "al-ult-copy": loaded.pack.ultimate_classification.available ? text.ultimateLabel : text.bkbOnlyLabel,
       },
     });
   }, [loaded, locale, text]);
 
-  async function load() {
-    const ticket = ++request.current;
-    setReading(true);
+  const viewRows = useMemo(() => library ? replayListViewModel(library.matches, metadata, {
+    states: text.states,
+    source: text.source,
+    unknown: text.unknown,
+    noDate: text.unknownMatchDate,
+    dateAdded: text.dateAdded,
+    duration: text.duration,
+    heroes: text.heroList,
+  }, locale, statusOverrides) : [], [library, metadata, locale, statusOverrides, text]);
+
+  async function openMatch(matchId: string) {
+    setBusy(`open:${matchId}`);
     setError(null);
-    const admission = await admitMatchBundle(bundleFiles.current);
-    if (ticket !== request.current) return;
-    if (!admission.ok) {
-      setReading(false);
+    try {
+      const opened = await replayLibrary.open(matchId);
+      const admitted = admitLibraryBundle(opened);
+      if (!admitted.ok) {
+        setLoaded(null);
+        setError(text.openError);
+        return;
+      }
+      const bundle = admitted.bundle;
+      const lookup = replayPackForPatch(bundle.patch);
+      if (lookup.state === "needs_pack") {
+        setMetadata(current => ({ ...current, [matchId]: replayMetadataFromBundle(bundle, null) }));
+        setStatusOverrides(current => ({ ...current, [matchId]: { state: "needs_pack" } }));
+        setLoaded(null);
+        setError(text.needsPack(lookup.patch));
+        return;
+      }
+      setStatusOverrides(current => {
+        if (!current[matchId]) return current;
+        const next = { ...current };
+        delete next[matchId];
+        return next;
+      });
+      const map = chooseMapCalibration(bundle.calibration, bundle.mapSize, lookup.pack.map);
+      if (!map.calibration || map.source === "unknown") {
+        setLoaded(null);
+        setError(text.calibrationError);
+        return;
+      }
+      const keys = neededIconKeys(bundle);
+      setMetadata(current => ({ ...current, [matchId]: replayMetadataFromBundle(bundle, lookup.pack) }));
+      setLoaded({
+        matchId,
+        bundle,
+        pack: lookup.pack,
+        calibration: map.calibration,
+        calibrationSource: map.source,
+        foundIcons: countFound(BUNDLED.icons, keys),
+        neededIcons: keys.size,
+      });
+      setError(null);
+      void refresh();
+    } catch {
       setLoaded(null);
-      setError(admission.error);
-      return;
+      setError(text.openError);
+    } finally {
+      setBusy(null);
     }
-    const bundle = admission.bundle;
-    const keys = neededIconKeys(bundle);
-    setReading(false);
-    setLoaded({ bundle, found: countFound(BUNDLED.icons, keys), needed: keys.size });
   }
 
-  const pick = (event: ChangeEvent<HTMLInputElement>) => {
-    bundleFiles.current = Array.from(event.currentTarget.files ?? []);
-    event.currentTarget.value = "";
-    if (bundleFiles.current.length) void load();
-  };
+  async function parsePath(path: string) {
+    const normalized = path.trim();
+    if (!normalized.toLowerCase().endsWith(".dem")) {
+      setError(text.invalidDem);
+      return;
+    }
+    setBusy(`parse:${normalized}`);
+    setError(null);
+    try {
+      await replayLibrary.parse(normalized);
+      await refresh();
+    } catch {
+      setError(text.parseError);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function parseEntry(matchId: string) {
+    setBusy(`parse:${matchId}`);
+    setError(null);
+    try {
+      await replayLibrary.parse(matchId);
+      await refresh();
+    } catch {
+      setError(text.parseError);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function chooseDemFile() {
+    setBusy("pick");
+    setError(null);
+    try {
+      const selectedPath = await replayLibrary.pickDemFile();
+      if (selectedPath) await parsePath(selectedPath);
+    } catch {
+      setError(text.parseError);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function removeEntry(matchId: string) {
+    setBusy(`remove:${matchId}`);
+    setError(null);
+    try {
+      await replayLibrary.remove(matchId);
+      setMetadata(current => {
+        const next = { ...current };
+        delete next[matchId];
+        return next;
+      });
+      setStatusOverrides(current => {
+        const next = { ...current };
+        delete next[matchId];
+        return next;
+      });
+      if (loaded?.matchId === matchId) setLoaded(null);
+      await refresh();
+    } catch {
+      setError(text.removeError);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function clearLibrary() {
+    if (!window.confirm(text.clearConfirm)) return;
+    setBusy("clear");
+    setError(null);
+    try {
+      await replayLibrary.clear();
+      setLoaded(null);
+      setMetadata({});
+      setStatusOverrides({});
+      await refresh();
+    } catch {
+      setError(text.clearError);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    void getCurrentWebview().onDragDropEvent(event => {
+      if (event.payload.type !== "drop") return;
+      const candidates = event.payload.paths.filter(path => path.toLowerCase().endsWith(".dem"));
+      if (candidates.length === 1) void parsePath(candidates[0]!);
+      else if (candidates.length > 1) setError(text.invalidDem);
+    }).then(stop => {
+      if (disposed) stop();
+      else unlisten = stop;
+    }).catch(() => {});
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, [text.invalidDem]);
 
   return (
-    <>
-      <section className="card">
-        <label>
-          {text.bundle}
-          <input type="file" multiple accept=".json,application/json" onChange={pick} />
-        </label>
-        <p>{text.memory} {locale === "th" ? "ขนาดสูงสุด" : "Size limits"}: match.json {MiB(MAX_BUNDLE_BYTES["match.json"])} MB, world.json {MiB(MAX_BUNDLE_BYTES["world.json"])} MB.</p>
-        {reading && <p role="status">{text.reading}</p>}
-        {error && <p role="alert">{text.error(error)}</p>}
-        {loaded && !reading && (
-          <p role="status">{text.iconCount(loaded.found, loaded.needed, BUNDLED.build)}</p>
-        )}
-      </section>
-      <div ref={target} />
-    </>
+    <section ref={dropTarget} className="card replay-library">
+      <header className="replay-library__header">
+        <div>
+          <h2>{text.libraryTitle}</h2>
+          <p className="replay-library__watch"><strong>{text.watchFolder}:</strong> {library?.watched_replay_folder_path ?? text.watchFolderUnknown}</p>
+        </div>
+        <div className="replay-library__actions">
+          <button type="button" onClick={() => void chooseDemFile()} disabled={busy !== null}>{text.addDem}</button>
+          <button type="button" onClick={() => void clearLibrary()} disabled={busy !== null || !library?.matches.length}>{text.clear}</button>
+        </div>
+      </header>
+      <p>{text.addDemHelp} {text.dropHelp}</p>
+      <p className="replay-library__privacy">{text.libraryPrivacy}</p>
+      {loading && <p role="status">{text.loading}</p>}
+      {error && <p role="alert">{error}</p>}
+      {!loading && viewRows.length === 0 && <p>{text.empty}</p>}
+      {viewRows.length > 0 && (
+        <ul className="replay-library__list">
+          {viewRows.map(row => (
+            <li key={row.matchId} className="replay-library__item">
+              <div className="replay-library__details">
+                <span className={`replay-library__state replay-library__state--${row.status.state}`} role="status">{row.statusLabel}</span>
+                <strong>{text.date}: {row.matchDateLabel === text.unknown ? text.unknownMatchDate : row.matchDateLabel}</strong>
+                <span>{text.hero}: {row.heroesLabel === text.unknown ? text.unknownHero : row.heroesLabel}</span>
+                <span>{row.durationLabel === text.unknown ? text.unknownDuration : row.durationLabel}</span>
+                <small>{row.sourceLabel} · {row.addedDateLabel}</small>
+              </div>
+              <div className="replay-library__row-actions">
+                {row.canOpen && <button type="button" onClick={() => void openMatch(row.matchId)} disabled={busy !== null}>{text.open}</button>}
+                {row.canParse && <button type="button" onClick={() => void parseEntry(row.matchId)} disabled={busy !== null}>{text.parse}</button>}
+                <button type="button" onClick={() => void removeEntry(row.matchId)} disabled={busy !== null}>{text.remove}</button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      {loaded && (
+        <section className="replay-library__viewer">
+          <button type="button" onClick={() => setLoaded(null)}>{text.back}</button>
+          <p role="status">{text.iconCount(loaded.foundIcons, loaded.neededIcons, BUNDLED.build)}</p>
+          <div ref={viewerTarget} />
+        </section>
+      )}
+      <style>{libraryStyle}</style>
+    </section>
   );
 }

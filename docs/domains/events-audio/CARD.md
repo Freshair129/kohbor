@@ -1,10 +1,10 @@
 ---
 domain: events-audio
 tier: A
-card_version: 1
-verified_at_commit: 0997546
-verified_on: 2026-11-13
-verified_by: "claude-code subagent draft (read-only), integrated by the governance lead; agent work, not human review"
+card_version: 2
+verified_at_commit: c010825
+verified_on: 2026-11-24
+verified_by: "Codex worker; reviewed listed source changes, not human or owner approval"
 ---
 
 # events-audio: event detection, arbitration, native audio, critical warning path
@@ -23,9 +23,9 @@ A map, not evidence. Decisions, requirements, contracts, code and tests outrank 
 
 ## 2. Owner decisions (ids only; text in contracts/decisions.json)
 
-- **Decided:** DEC-HEALTH-DANGER, DEC-PACK-AUDIO-OPTIONAL-VISUAL, DEC-BANNER-LAB-STYLE (consumer side only), DEC-EVENT-RUNE-SPAWN (revision 5, 2026-11-22: map-objective timers as a HUD card under the danger meter with per-objective tones and lead times, ALERT-008, UI-015).
+- **Decided:** DEC-HEALTH-DANGER, DEC-CRITICAL-MEDIA, DEC-PACK-AUDIO-OPTIONAL-VISUAL, DEC-BANNER-LAB-STYLE (consumer side only), DEC-EVENT-RUNE-SPAWN.
 - **Proposed, not decided:** DEC-EVENT-AUDIO (owner acknowledgements are recorded inside it; the decision as a whole is not approved).
-- **Open:** DEC-CRITICAL-MEDIA, DEC-INTERFACES, DEC-PACK-CRYPTO, DEC-NATIVE-EVIDENCE.
+- **Open:** DEC-INTERFACES, DEC-PACK-CRYPTO, DEC-NATIVE-EVIDENCE.
 - **Deferred:** DEC-PACK-BANNER-ADDON.
 - Agent decisions in the S3-5 design (P1..P8) have no DEC id: see section 4.
 
@@ -58,6 +58,7 @@ Blocked
 
 - Spec: `docs/design/EVENT-AUDIO-SPEC.md` (catalog, tiers, arbitration, priority matrix, outcome reasons, formats); `docs/design/S3-5-HOST-CRITICAL-PATH.md` (threads, lanes, prewarm, probe, readiness, tasks 5a..5l, 6a, 6b, S3-7).
 - Spike: `docs/delivery/S3-1-AUDIO-SPIKE.md` (WASAPI choice; silence-only observations). Standalone workspace `spikes/audio/`.
+- Local event recap and playback outcome contract: [EVENT-AUDIO-SPEC](../../design/EVENT-AUDIO-SPEC.md#local-match-recap); separate from own-match history (MEM-006).
 - Backlog: S1-* and S3-* rows in `docs/delivery/SPRINT-ROADMAP.md`.
 - Contracts and fixtures: `contracts/event-catalog.json`, `contracts/audio-outcome.schema.json`, `fixtures/health-danger-golden.json` (replayed by `tools/validate_spec.py`).
 - Evidence: `docs/delivery/evidence/objective-timers-live/README.md` (owner-observed live run of the map-objective card on integ 9c96013; receipt PASS for its named scenario only).

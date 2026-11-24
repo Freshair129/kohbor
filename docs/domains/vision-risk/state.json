@@ -2,9 +2,9 @@
   "schema_version": "1.0.0",
   "domain": "vision-risk",
   "tier": "B",
-  "verified_at_commit": "0997546",
-  "verified_on": "2026-11-13",
-  "verified_by": "claude-code subagent draft (read-only), integrated by the governance lead; agent work, not human review",
+  "verified_at_commit": "c010825",
+  "verified_on": "2026-11-24",
+  "verified_by": "Codex worker; reviewed listed source changes, not human or owner approval",
   "write_areas": [],
   "requirement_ids": [
     "VISION-001",
@@ -37,13 +37,13 @@
       "path": "docs/design/REMAINING-SYSTEM-DESIGN.md",
       "type": "spec",
       "role": "reference",
-      "reviewed_sha256": "85ed331560c4f2cf8d484591eb00c0c84b6c93e9f10985147a73fc8d4fc1ba9a"
+      "reviewed_sha256": "54f9a24fbd97926de812f5b565e68bc34e987795667c9906d373da4dc81d6887"
     },
     {
       "path": "docs/delivery/SPRINT-ROADMAP.md",
       "type": "registry",
       "role": "reference",
-      "reviewed_sha256": "73a046327b50a6a41c6083754870b919ac7f8fd560bca41270c8d9d8b4ee6c80"
+      "reviewed_sha256": "e4115708cac6bdebca4dc64a2006e0b464b423048ee4f7a717ffe9767fabf4ed"
     },
     {
       "path": "docs/design/SDD.md",
@@ -109,9 +109,9 @@
     }
   ],
   "last_handoff": {
-    "task_id": null,
-    "on": "2026-11-13",
-    "summary": "Refreshed after PR #10 merged: S3 roadmap rows, S3-5 design section 13 and requirement implementation refs reviewed in the diff; no card fact outside the lines changed."
+    "task_id": "refresh-domain-cards",
+    "on": "2026-11-24",
+    "summary": "Reviewed listed governing-source changes and refreshed card pointers and hashes; no charter, requirement, or structured decision source was edited."
   },
   "crates": [
     "kohbor-capture",

@@ -2,9 +2,9 @@
   "schema_version": "1.0.0",
   "domain": "host-core",
   "tier": "B",
-  "verified_at_commit": "0997546",
-  "verified_on": "2026-11-13",
-  "verified_by": "claude-code subagent draft (read-only), integrated by the governance lead; agent work, not human review",
+  "verified_at_commit": "c010825",
+  "verified_on": "2026-11-24",
+  "verified_by": "Codex worker; reviewed listed source changes, not human or owner approval",
   "write_areas": [
     "crates/kohbor-gsi/**",
     "crates/kohbor-gsi-capture/**",
@@ -34,7 +34,9 @@
     "DEC-GSI-INTAKE",
     "DEC-INTERFACES",
     "DEC-NAME",
-    "DEC-NATIVE-EVIDENCE"
+    "DEC-NATIVE-EVIDENCE",
+    "DEC-OWN-SNAPSHOT-2-1",
+    "DEC-UPDATE-ENDPOINT"
   ],
   "task_id_prefixes": [
     "S0-"
@@ -44,7 +46,7 @@
       "path": "docs/design/GSI-INTAKE-SPEC.md",
       "type": "spec",
       "role": "governing",
-      "reviewed_sha256": "596f8d8a588e45e16708fd1c52b0c4a27ae41202ce46fd9fcc0d52181c6380ec"
+      "reviewed_sha256": "1c3ad482e3fb095b55dae76956983dd5d6f4da3784bb0b3013a668d676d398e1"
     },
     {
       "path": "docs/delivery/M0-PLAN.md",
@@ -62,19 +64,19 @@
       "path": "docs/delivery/AGENT-WORKFLOW.md",
       "type": "spec",
       "role": "reference",
-      "reviewed_sha256": "cca35920a8be3909437a47b687926d326101ca5b9140f7c6b0f72df5046037d1"
+      "reviewed_sha256": "69561e2ed614de2e538e72c67f51a1ad8f2bac43eca6b5065ebf4d277e84fdf6"
     },
     {
       "path": "docs/delivery/SPRINT-ROADMAP.md",
       "type": "registry",
       "role": "reference",
-      "reviewed_sha256": "73a046327b50a6a41c6083754870b919ac7f8fd560bca41270c8d9d8b4ee6c80"
+      "reviewed_sha256": "e4115708cac6bdebca4dc64a2006e0b464b423048ee4f7a717ffe9767fabf4ed"
     },
     {
       "path": "contracts/product-identity.json",
       "type": "schema",
       "role": "reference",
-      "reviewed_sha256": "38711a009aef7788e58d2f47a35dc84acbfadd6736d8cd8ce06b2e9ed05d51e8"
+      "reviewed_sha256": "fd3292d9af39978ec72ba5ed2251ba7759a413aa147d38a73de65a6a841265b3"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -120,6 +122,48 @@
       "path": "apps/desktop/src-tauri/src/commands.rs",
       "type": "code",
       "role": "neighbour:events-audio"
+    },
+    {
+      "path": "docs/design/DERIVED-STATS.md",
+      "type": "spec",
+      "role": "reference",
+      "reviewed_sha256": "83621aa5deaa1d7cbbef11ff1dd4fc621aa9855c3081a8d37269805b46c50566"
+    },
+    {
+      "path": "docs/design/REPLAY-PIPELINE.md",
+      "type": "spec",
+      "role": "reference",
+      "reviewed_sha256": "fc49f4339076cfecbdd7b240775600f971bfe75f31ddc1538ef1e2beccf72df8"
+    },
+    {
+      "path": "docs/design/REPLAY-ENGINE-PROVENANCE.md",
+      "type": "review",
+      "role": "reference",
+      "reviewed_sha256": "042ed8585602341fa2e2421ec5ea26e49340bcd3038147a8f7b3e1c379ea537a"
+    },
+    {
+      "path": "docs/design/ALPHA-LAUNCH.md",
+      "type": "design",
+      "role": "reference",
+      "reviewed_sha256": "09369507f8c9cec05d48f5ed95a57dab399e56f56abf4d959f2ab7a92dd23e2e"
+    },
+    {
+      "path": "docs/design/UPDATER.md",
+      "type": "spec",
+      "role": "reference",
+      "reviewed_sha256": "21fc727b4e6716dc7c06a1a925d9ffc9d69d2fb43de047d2e2e2d038223b1c4f"
+    },
+    {
+      "path": "docs/operations/RELEASE-UPDATES.md",
+      "type": "process",
+      "role": "reference",
+      "reviewed_sha256": "44d5acb1459be95464451d5a0bfcad2581f63a12f62125f0c36a96b125ac7dc5"
+    },
+    {
+      "path": "docs/governance/DECISION-LOG.md",
+      "type": "process",
+      "role": "reference",
+      "reviewed_sha256": "d3e56af406978392c9dd4b5cd6865275332b672044237d1bdb35e162d86e1b80"
     }
   ],
   "open_questions": [
@@ -143,12 +187,26 @@
       "owner": "governance lead",
       "raised": "2026-11-13",
       "ref": "apps/desktop/src-tauri/src/lib.rs"
+    },
+    {
+      "id": "Q-HC-4",
+      "owner": "governance lead",
+      "raised": "2026-11-24",
+      "question": "Local AGENTS.md says only the display name is decided and technical identity remains unfrozen, while the structured decision and identity contract describe a frozen technical identity.",
+      "ref": "AGENTS.md; contracts/product-identity.json"
+    },
+    {
+      "id": "Q-HC-5",
+      "owner": "product owner",
+      "raised": "2026-11-24",
+      "question": "product-identity.json leaves the update origin null, while UPDATER.md documents a public endpoint; reconcile the governing update-origin decision before treating either as binding.",
+      "ref": "contracts/product-identity.json; docs/design/UPDATER.md"
     }
   ],
   "last_handoff": {
-    "task_id": null,
-    "on": "2026-11-13",
-    "summary": "Refreshed after PR #10 merged: S3 roadmap rows, S3-5 design section 13 and requirement implementation refs reviewed in the diff; no card fact outside the lines changed."
+    "task_id": "refresh-domain-cards",
+    "on": "2026-11-24",
+    "summary": "Reviewed listed governing-source changes and refreshed card pointers and hashes; no charter, requirement, or structured decision source was edited."
   },
   "crates": [
     "kohbor-gsi",

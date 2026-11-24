@@ -21,10 +21,11 @@ This page defines how one lead agent and Codex CLI workers build Kohbor. It appl
 | --- | --- | --- | --- | --- |
 | Lead | Claude | session model | n/a | Decomposes work, writes briefs, runs the gate, accepts or returns work, owns shared contracts and generated files, reports to the owner |
 | General worker | Codex CLI | `gpt-6-luna` | `max` | Implementation, refactoring, tooling, fixtures, documents, read-only questions about the code |
-| Test worker | Codex CLI | `gpt-6.1-terra` | `high` | Tests written from a contract before the implementation, defect reproduction as a failing test, test harnesses, independent review of a diff |
+| Test worker | Codex CLI | `gpt-6-luna` | `high` | Tests written from a contract before the implementation, defect reproduction as a failing test, test harnesses, independent review of a diff |
 | Owner | Product owner | n/a | n/a | Decisions, live matches, native runs on certified hardware, media rights, authority to commit, push and merge |
 
 - The models and the `max` effort for the general worker are the owner's choice. The `high` effort for the test worker is the lead's default; the owner did not set it.
+- 2026-11-24: `gpt-6.1-terra` is refused on the owner's Codex account ("model is not supported when using Codex with a ChatGPT account"), so the test worker uses `gpt-6-luna` at `high` (owner instruction, profile `luna-high` in AGENT-REGISTRY).
 - Checked on 2026-11-11 with `codex-cli 0.162.1`: both model IDs are in the local model list, and each answered a one-line read-only prompt at the stated effort. No write task has run through this workflow yet. Sprint 0 is the pilot (SPRINT-ROADMAP).
 - A different model needs an owner instruction. The lead does not substitute one when a worker fails.
 - Every role, the model that fills it, its sandbox, the domains it may work in and the approval level of each row are listed in the [Agent Registry](../governance/AGENT-REGISTRY.md) (machine-readable: `docs/governance/AGENT-REGISTRY.json`; query with `python tools/validate_agents.py --route <task type> --domain <id>`). The registry adds no model: rows the owner did not choose are marked tentative or proposed and need an owner instruction before use.
@@ -59,7 +60,7 @@ One brief per task, in English, at most about 60 lines. Reference documents by p
 
 ```text
 TASK_ID:        S1-T2
-MODEL:          gpt-6-luna (max) | gpt-6.1-terra (high)
+MODEL:          gpt-6-luna (max) | gpt-6-luna (high)
 PATTERN:        T-L-R step 2
 ROLE:           general-worker   (a role of docs/governance/AGENT-REGISTRY.json)
 TASK_TYPE:      implement        (a task type of the same registry)
@@ -100,7 +101,7 @@ codex exec -m gpt-6-luna -c model_reasoning_effort=max -s workspace-write -C F:/
 ```
 
 ```bash
-codex exec -m gpt-6.1-terra -c model_reasoning_effort=high -s read-only -C F:/kohbor --color never --output-schema tools/agent/worker-report.schema.json -o "$RUN/S1-T3.report.json" - < "$RUN/S1-T3.brief.md" > "$RUN/S1-T3.log" 2>&1
+codex exec -m gpt-6-luna -c model_reasoning_effort=high -s read-only -C F:/kohbor --color never --output-schema tools/agent/worker-report.schema.json -o "$RUN/S1-T3.report.json" - < "$RUN/S1-T3.brief.md" > "$RUN/S1-T3.log" 2>&1
 ```
 
 - **Sandbox.** Writers run with `-s workspace-write`; questions and reviews run with `-s read-only`. The user-level Codex default on this machine is wider (`danger-full-access`). The lead passes the narrower mode on every launch. If a build cannot run inside `workspace-write`, the lead reports that to the owner and does not widen the sandbox on its own.

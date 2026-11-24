@@ -2,9 +2,9 @@
   "schema_version": "1.0.0",
   "domain": "banner-lab",
   "tier": "A",
-  "verified_at_commit": "d9db064",
-  "verified_on": "2026-11-14",
-  "verified_by": "claude-code subagent draft (read-only), integrated by the governance lead; agent work, not human review",
+  "verified_at_commit": "c010825",
+  "verified_on": "2026-11-24",
+  "verified_by": "Codex worker; reviewed listed source changes, not human or owner approval",
   "write_areas": [
     "lab:fable/**",
     "lab:voice/**",
@@ -163,13 +163,25 @@
       "path": "crates/kohbor-pack-author/src/lib.rs",
       "type": "code",
       "role": "neighbour:packs",
-      "reviewed_sha256": "6f338d73dcf924e4678f59d6a4f575a2edbed113a8ee537f9dac52ffd52f1045"
+      "reviewed_sha256": "0454d3cb2d8c76ef2bae9da756eba6806b4fef962af2f4ea199e3cc01c82bcc0"
     },
     {
       "path": "docs/design/MEDIA-PACK-SPEC.md",
       "type": "spec",
       "role": "neighbour:packs",
-      "reviewed_sha256": "e0ecba31c7e9f97170e61c487d71a625d3c8848bfd5677663b131fbe53bfe195"
+      "reviewed_sha256": "7c92ab543cdaacf56d21e4252bae6435ac9730ba306636ead13718e024acad2d"
+    },
+    {
+      "path": "docs/design/ALPHA-LAUNCH.md",
+      "type": "design",
+      "role": "reference",
+      "reviewed_sha256": "09369507f8c9cec05d48f5ed95a57dab399e56f56abf4d959f2ab7a92dd23e2e"
+    },
+    {
+      "path": "docs/governance/DECISION-LOG.md",
+      "type": "process",
+      "role": "reference",
+      "reviewed_sha256": "d3e56af406978392c9dd4b5cd6865275332b672044237d1bdb35e162d86e1b80"
     }
   ],
   "open_questions": [
@@ -193,9 +205,9 @@
     }
   ],
   "last_handoff": {
-    "by": "claude-code governance session",
-    "on": "2026-11-14",
-    "note": "default banner build worker recorded as gpt-6.1-sol by owner decision (DEC-BANNER-WORKER); astra-high kept for UI mockups"
+    "task_id": "refresh-domain-cards",
+    "on": "2026-11-24",
+    "summary": "Reviewed listed governing-source changes and refreshed card pointers and hashes; no charter, requirement, or structured decision source was edited."
   },
   "interface_requirement_ids": [
     "MEDIA-004"

@@ -96,7 +96,6 @@
         <div class="card rv-roster">
           <div class="tabs" role="group" aria-label="เลือกกลุ่มฮีโร่">
             <button id="g-all" data-g="all">ทั้งหมด</button>
-            <button id="g-mid" data-g="mid">คู่ Mid</button>
             <button id="g-r" data-g="2">Radiant</button>
             <button id="g-d" data-g="3">Dire</button>
             <button id="g-none" data-g="none">ล้าง</button>
@@ -116,7 +115,7 @@
               <label class="rv-check"><input type="checkbox" id="al-hp" checked> HP ลดเร็ว ≥ <input type="number" id="al-hp-pct" min="15" max="90" step="5" value="40" aria-label="เปอร์เซ็นต์ HP ที่ลด">% ใน <input type="number" id="al-hp-win" min="1" max="6" step="1" value="3" aria-label="ภายในกี่วินาที"> วินาที</label>
               <label class="rv-check"><input type="checkbox" id="al-low"> HP ต่ำกว่า <input type="number" id="al-low-pct" min="5" max="50" step="5" value="20" aria-label="เปอร์เซ็นต์ HP ต่ำ">%</label>
               <label class="rv-check"><input type="checkbox" id="al-cc" checked> โดน stun / hex / silence / root จากศัตรู ≥ <input type="number" id="al-cc-s" min="0.5" max="5" step="0.5" value="1" aria-label="ระยะเวลาขั้นต่ำ"> วินาที</label>
-              <label class="rv-check"><input type="checkbox" id="al-ult" checked> ใช้ ultimate หรือ BKB</label>
+              <label class="rv-check"><input type="checkbox" id="al-ult" checked> <span id="al-ult-copy">ใช้ ultimate หรือ BKB</span></label>
               <label class="rv-check"><input type="checkbox" id="al-death" checked> ตาย</label>
             </div>
             <div class="note" id="al-count"></div>

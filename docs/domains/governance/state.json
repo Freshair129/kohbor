@@ -2,9 +2,9 @@
   "schema_version": "1.0.0",
   "domain": "governance",
   "tier": "A",
-  "verified_at_commit": "7ad4c7f",
-  "verified_on": "2026-11-13",
-  "verified_by": "claude-code governance session (lead of increments I0 to I3); agent work, not human review",
+  "verified_at_commit": "c010825",
+  "verified_on": "2026-11-24",
+  "verified_by": "Codex worker; reviewed listed source changes, not human or owner approval",
   "write_areas": [
     "docs/governance/**",
     "docs/INDEX.md",
@@ -55,7 +55,7 @@
       "path": "docs/governance/DOCUMENT-CONTROL.md",
       "type": "process",
       "role": "governing",
-      "reviewed_sha256": "9e2e63b1d9f9ccc41f3341c8ed943c17fce55ab27bfbce31eb2f90146b6d4c51"
+      "reviewed_sha256": "38aa8cd9f86ffb849bffe95a605fb4219950e72543953cd8bc3d40fb896f3f5d"
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
@@ -228,7 +228,7 @@
       "id": "Q-GOV-1",
       "owner": "governance lead",
       "raised": "2026-11-13",
-      "text": "Stale statements found while backfilling the cards need document-control changes: technical identity described as unfrozen in AGENTS.md, README.md, PROMPT.md and GSI-INTAKE-SPEC section 1; roadmap sprint numbering versus REMAINING-SYSTEM-DESIGN section 5; A-1..A-9 versus A-10."
+      "text": "Local AGENTS.md says only the display name is decided and technical identity remains unfrozen, while the structured decision and identity contract say otherwise; reconcile before treating the manifest as frozen. Also reconcile roadmap sprint numbering with REMAINING-SYSTEM-DESIGN section 5 and the A-1..A-9 range with A-10."
     },
     {
       "id": "Q-GOV-2",
@@ -243,15 +243,16 @@
       "text": "Two branches that both regenerate package-manifest.json conflict; today's rule: take either side and rerun tools/update_manifest.py --apply."
     },
     {
-      "id": "Q-GOV-4",
-      "owner": "product owner",
-      "raised": "2026-11-13",
-      "text": "Decide the ten owner decisions in docs/governance/AGENT-REGISTRY-DESIGN.md section 5."
+      "id": "Q-GOV-5",
+      "owner": "governance lead",
+      "raised": "2026-11-24",
+      "text": "The registry design retains historical Terra test/review wording while the current workflow selects luna-high for the test worker; clarify which statements are historical and which define the active route.",
+      "ref": "docs/governance/AGENT-REGISTRY-DESIGN.md; docs/delivery/AGENT-WORKFLOW.md"
     }
   ],
   "last_handoff": {
-    "task_id": null,
-    "on": "2026-11-13",
-    "summary": "Registry owner decisions recorded; Sol review fixed; ROLE/TASK_TYPE template lines, run records, gate --sprint-exit and the pre-push hook done on the feature branch; not pushed, not merged."
+    "task_id": "refresh-domain-cards",
+    "on": "2026-11-24",
+    "summary": "Reviewed listed governing-source changes and refreshed card pointers and hashes; no charter, requirement, or structured decision source was edited."
   }
 }
