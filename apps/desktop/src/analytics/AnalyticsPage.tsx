@@ -354,7 +354,7 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = t
           setTranscript(turns => appendAssistantDelta(turns, delta));
         }
       }
-      if (pending?.complete) finishRequest.current({ request_id: id, ...pending.complete });
+      if (pending?.complete) finishRequest.current({ ...pending.complete, request_id: id });
     } catch (reason) {
       requestMode.current = null;
       setStreaming(false);
@@ -386,7 +386,7 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = t
       if (typeof id !== "string" || !id) throw new Error("Report request was not started");
       activeRequestId.current = id; setRequestId(id);
       const pending = pendingEvents.current.get(id); pendingEvents.current.delete(id);
-      if (pending?.complete) finishRequest.current({ request_id: id, ...pending.complete });
+      if (pending?.complete) finishRequest.current({ ...pending.complete, request_id: id });
     } catch (reason) {
       requestMode.current = null; setStreaming(false);
       const kind = providerErrorKind(reason);

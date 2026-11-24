@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import type { Locale } from "../copy";
 import { MinimapPanel } from "../live/MinimapPanel";
 import type { OwnSnapshot, RuntimeStatus } from "../types";
@@ -19,7 +20,7 @@ import type { SecondMonitorSide } from "../live/secondMonitorModel";
 import { overviewClient } from "../overview/overviewClient";
 import { parseMatchHistory, type MatchHistory } from "../overview/overviewModel";
 import { pregameDashboardModel } from "../live/pregameDashboardModel";
-import { postGameSummaryModel } from "../live/postGameSummaryModel";
+import { postGameSummaryModel, type PostGameReplayInput } from "../live/postGameSummaryModel";
 import { loadMatchRecap, type MatchRecapSnapshot } from "../packs/recapModel";
 import { PregameDashboard } from "../live/PregameDashboard";
 import { PostGameSummary } from "../live/PostGameSummary";
@@ -57,6 +58,7 @@ function CenteredLiveField({ locale, status, snapshot, hostLost, steamStatus, ma
   const cardsText = cardCopy(locale === "en" ? "en" : "th");
   const [history, setHistory] = useState<MatchHistory | null>(null);
   const [recap, setRecap] = useState<MatchRecapSnapshot | null>(null);
+  const [postGameReplay, setPostGameReplay] = useState<PostGameReplayInput | null>(null);
   const [postGame, setPostGame] = useState<{ epoch: number | null; dismissed: boolean } | null>(null);
   const [lastLiveSnapshot, setLastLiveSnapshot] = useState<{ epoch: number; snapshot: OwnSnapshot } | null>(null);
   const phase = hostLost ? null : status?.session.phase ?? null;
@@ -92,6 +94,33 @@ function CenteredLiveField({ locale, status, snapshot, hostLost, steamStatus, ma
     void loadMatchRecap(command => invoke<unknown>(command)).then(value => { if (active) setRecap(value); });
     return () => { active = false; };
   }, [postGame?.dismissed, postGame?.epoch]);
+  useEffect(() => {
+    let active = true;
+    let unlisten: (() => void) | undefined;
+    let refreshGeneration = 0;
+    if (!postGame || postGame.dismissed) {
+      setPostGameReplay(null);
+      return () => { active = false; };
+    }
+    const refresh = async () => {
+      const generation = ++refreshGeneration;
+      const [replayResult, historyResult] = await Promise.allSettled([
+        invoke<PostGameReplayInput>("post_game_replay_summary", { sessionEpoch: postGame.epoch }),
+        overviewClient.matchHistory(0),
+      ]);
+      if (!active || generation !== refreshGeneration) return;
+      setPostGameReplay(replayResult.status === "fulfilled" ? replayResult.value : null);
+      if (historyResult.status === "fulfilled") setHistory(parseMatchHistory(historyResult.value));
+    };
+    void listen("replay-library://state-changed", () => { void refresh(); }).then(stop => {
+      if (!active) stop();
+      else {
+        unlisten = stop;
+        void refresh();
+      }
+    }).catch(() => { void refresh(); });
+    return () => { active = false; unlisten?.(); };
+  }, [postGame?.dismissed, postGame?.epoch]);
   const field = useFieldBox<HTMLDivElement>();
   const layout = field.box ? centeredLiveLayout(field.box) : null;
   const slot = ownDraftSlot(roster, hostLost ? null : status?.session.session_epoch ?? null, ownTeam, own.heroId) ?? ownSlot;
@@ -108,9 +137,12 @@ function CenteredLiveField({ locale, status, snapshot, hostLost, steamStatus, ma
     : recap?.matches.find(match => match.match_id === `local_match_${postGame.epoch}`) ?? null;
   const summarySnapshot = postGame?.epoch !== null && postGame?.epoch !== undefined
     && lastLiveSnapshot?.epoch === postGame.epoch ? lastLiveSnapshot.snapshot : snapshot;
+  const historyEntry = postGameReplay?.matchKey
+    ? history?.entries.find(entry => entry.source === "kohbor" && entry.matchKey === postGameReplay.matchKey) ?? null
+    : null;
   const freshMap = summarySnapshot?.availability === "fresh" ? summarySnapshot.map : undefined;
   const summary = postGameSummaryModel({
-    entry: null,
+    entry: historyEntry,
     snapshot: summarySnapshot,
     scoreboard: {
       radiant: freshMap?.radiant_score.availability === "fresh" ? freshMap.radiant_score.value : null,
@@ -119,7 +151,7 @@ function CenteredLiveField({ locale, status, snapshot, hostLost, steamStatus, ma
     },
     recap: recapMatch ? { events: recapMatch.playedEvents, droppedCount: recapMatch.droppedCount } : null,
     derivedStats: [],
-    replay: null,
+    replay: postGameReplay,
   }, locale === "en" ? "en" : "th");
   const sideWidth = layout?.mode === "field" ? layout.card.w : 0;
   const wideStats = sideWidth >= 260;

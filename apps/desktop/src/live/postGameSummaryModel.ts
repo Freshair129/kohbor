@@ -8,7 +8,7 @@ type Obj = Record<string, unknown>;
 
 export interface PostGameReplayInput {
   /** Install-keyed history hash. Raw Dota match IDs are never accepted or displayed here. */
-  matchKey: string;
+  matchKey: string | null;
   ready: boolean;
   headline: { deaths: number | null; netWorth: number | null };
 }

@@ -250,6 +250,12 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
     setAnalyticsDetail(null);
     setInsightsView("summary");
   };
+  const openPostGameReplay = () => {
+    setAnalyticsDetail(null);
+    setAnalyticsRestore(null);
+    setActivePage("insights");
+    setInsightsView("replay");
+  };
   // Second-monitor mode (UI-016): on the Live page only while a match runs (hero selection through the game) and a side
   // is set; otherwise the centred deck, as with "off" (owner report on build 3815c73, 2026-11-23). The deck itself shows
   // "window too small" below the smallest supported size instead of a broken or scrolling layout.
@@ -295,7 +301,7 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
             <div className="shell-screen shell-live-page">
               <Deck locale={displayLocale} status={status} snapshot={snapshot} state={deckState} hostLost={hostLost} steamStatus={steamStatus}
                 inMatch={inMatch} matchEnded={matchEnded} secondMonitor={pinnedSide ? { side: pinnedSide } : undefined}
-                onOpenReplay={() => { setActivePage("insights"); setInsightsView("replay"); }} />
+                onOpenReplay={openPostGameReplay} />
             </div>
           )}
 
