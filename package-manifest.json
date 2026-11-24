@@ -648,8 +648,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/portraits.rs",
-      "bytes": 27498,
-      "sha256": "c13a0bf829c33e3b3afa7686040bb4cf2e65ecb2bf2974e829a9e757044ff13a"
+      "bytes": 26767,
+      "sha256": "0fd71570a4e7e9f28180e89d5ecc384eebdcfaaa8d7172f6cb833133f5f349a3"
     },
     {
       "path": "apps/desktop/src-tauri/src/replay_library/engine.rs",
@@ -723,8 +723,8 @@
     },
     {
       "path": "apps/desktop/src/App.tsx",
-      "bytes": 24929,
-      "sha256": "20617935753ab9eeae8e58a9873357c70388c05feca29aab8626a96670f24591"
+      "bytes": 25363,
+      "sha256": "f71b8ed850fedbeb6489a656f8bd5fe714fa61c850ecb1396545df0de9529236"
     },
     {
       "path": "apps/desktop/src/AudioHistory.tsx",
@@ -12363,8 +12363,8 @@
     },
     {
       "path": "apps/desktop/src/copy.ts",
-      "bytes": 75163,
-      "sha256": "137c25fec27f776dd54d6b4fc2dbba87aab49739ec4389cbf076f5b6dd4e6513"
+      "bytes": 82408,
+      "sha256": "b03ba81b855805cda6c9369bb5eabaf6b22edd10d07455d2276b5a7b65627eae"
     },
     {
       "path": "apps/desktop/src/critical-stack.css",
@@ -13253,8 +13253,8 @@
     },
     {
       "path": "apps/desktop/src/packs/PacksPage.tsx",
-      "bytes": 26791,
-      "sha256": "fabf2b6cc9dfd47a4c0730b07bfbe4ec3dd5a05c2cb1334cb350baa23d7ae300"
+      "bytes": 27087,
+      "sha256": "cdb68ac0195d6591c2fdb85f30b403029ad7627a12ce5bdb6ab925e3807c2d44"
     },
     {
       "path": "apps/desktop/src/packs/SoundRows.tsx",
@@ -13675,6 +13675,21 @@
       "path": "apps/desktop/src/steam/steamName.ts",
       "bytes": 451,
       "sha256": "da99e8806c3d96ecaded7a0aca69c7462e4933aec4e75118dba623a95fda16bd"
+    },
+    {
+      "path": "apps/desktop/src/store/Store.css",
+      "bytes": 14463,
+      "sha256": "f40d8216595b4f67d86900d63b3a1f4789602c04484bd577b54fc6fb7d01cc6f"
+    },
+    {
+      "path": "apps/desktop/src/store/StorePage.tsx",
+      "bytes": 20521,
+      "sha256": "2407106dee308c1d49d5734392b9faa97f032d24963b8d9243a9397cdc946550"
+    },
+    {
+      "path": "apps/desktop/src/store/storeModel.ts",
+      "bytes": 9042,
+      "sha256": "60c86301d1ed0d857920266d055913c71652fe954bbbaca96bbbec22f2081dcf"
     },
     {
       "path": "apps/desktop/src/styles.css",
@@ -14180,6 +14195,11 @@
       "path": "apps/desktop/tests/show-hotkey.test.ts",
       "bytes": 3665,
       "sha256": "03a2283b6c9d547d1ef30dc94e3ed7c64828742ef2917f94fb45ebce7ad38112"
+    },
+    {
+      "path": "apps/desktop/tests/store-skeleton.test.ts",
+      "bytes": 8826,
+      "sha256": "310ed9d835c037affee10ef6f93f917475131672b016a072ef392b76a740a9de"
     },
     {
       "path": "apps/desktop/tests/update-release-page.test.ts",
@@ -15463,8 +15483,8 @@
     },
     {
       "path": "docs/design/UX-SPEC.md",
-      "bytes": 44529,
-      "sha256": "d2f879b0eb433e419c06ffe94968478386761bbafb2d130637f8584fa218c957"
+      "bytes": 46971,
+      "sha256": "47e6e7fb75563ef55e519641c38c7e7fce0d30424a958ee172c769789fafc3a9"
     },
     {
       "path": "docs/design/VISUAL-DESIGN-PROPOSAL.md",
@@ -15908,8 +15928,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 101147,
-      "sha256": "7fc39cfd4bf46b12bbfeecdf642d8580ab1c934d05da4799b5d179262c260968"
+      "bytes": 102163,
+      "sha256": "9900e3d1a30d3fd24b01b197efdea6e72ef91580f96fd85fe3d375c8c680397a"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
