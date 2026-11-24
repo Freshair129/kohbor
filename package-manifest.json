@@ -15128,8 +15128,8 @@
     },
     {
       "path": "docs/design/UPDATER.md",
-      "bytes": 5554,
-      "sha256": "9a4dce37f6ec19051046274aa4b35c2f61dcc77d1eb2c3be891d466a432b3142"
+      "bytes": 5961,
+      "sha256": "21fc727b4e6716dc7c06a1a925d9ffc9d69d2fb43de047d2e2e2d038223b1c4f"
     },
     {
       "path": "docs/design/UX-SPEC.md",
@@ -15620,6 +15620,11 @@
       "path": "docs/operations/PROGRESS-CHASE-TH.md",
       "bytes": 7747,
       "sha256": "1b39bf08ea5eb10cd62fe540f98189e1278ce5520971e3e0e8e466e643cab3df"
+    },
+    {
+      "path": "docs/operations/RELEASE-UPDATES.md",
+      "bytes": 9759,
+      "sha256": "44d5acb1459be95464451d5a0bfcad2581f63a12f62125f0c36a96b125ac7dc5"
     },
     {
       "path": "docs/operations/RUNBOOK.md",
@@ -16562,6 +16567,36 @@
       "sha256": "a1d5520849c8e066e6e958eede7d864d4fb57e57ce4122922259f9ce0f1ea637"
     },
     {
+      "path": "tools/release/build_candidate.py",
+      "bytes": 10634,
+      "sha256": "6ea644bcd0ff3a9c287dda7183700e37e37451bfc59ee2f597f37b79eaf39157"
+    },
+    {
+      "path": "tools/release/make_latest_json.py",
+      "bytes": 3350,
+      "sha256": "712cbf9fc0dcae3372b24c751c0f60dcd9038915af65642d0bcb3bf591e29296"
+    },
+    {
+      "path": "tools/release/promote_check.py",
+      "bytes": 4745,
+      "sha256": "bf27cbfaf50bd3d970783bf0587a543045be7b07aac7be8ca832429cdec4e3ce"
+    },
+    {
+      "path": "tools/release/publish_plan.py",
+      "bytes": 2154,
+      "sha256": "8ae4d7f008e0acf74be6b434ff9cbf6cb7eeb8c89c42f757b48670a511dcf6d3"
+    },
+    {
+      "path": "tools/release/release.conf.json",
+      "bytes": 331,
+      "sha256": "153a77b1a21c30905a30794a4f0fbe61409082aa1ccd0f654b350d3abe85cb19"
+    },
+    {
+      "path": "tools/release/release_common.py",
+      "bytes": 7173,
+      "sha256": "80c644db73a506977d29157165ea8011c5d89adc8cc0b02320cc8a9059d61058"
+    },
+    {
       "path": "tools/render_diagrams.mjs",
       "bytes": 12359,
       "sha256": "389d45b012f14636febd00f280b454a1331a41ebcd52c3631e02aa27cc6cc2dd"
@@ -16660,6 +16695,26 @@
       "path": "tools/tests/test_progress_map.py",
       "bytes": 63946,
       "sha256": "d1d8d414397eaf5c7958831ea9b7c3ba068611a2d7dc1b8060920d7ead2cf273"
+    },
+    {
+      "path": "tools/tests/test_release_build_candidate.py",
+      "bytes": 9193,
+      "sha256": "9e84d7eacdfb981f59e44bb1f987f6561032c453f230afff250c4e6709f2c9cc"
+    },
+    {
+      "path": "tools/tests/test_release_latest.py",
+      "bytes": 1948,
+      "sha256": "db5948040aa9900adda46a1d50a5b58fcd42c7f420ead12f299805608920e9c3"
+    },
+    {
+      "path": "tools/tests/test_release_promote.py",
+      "bytes": 1784,
+      "sha256": "5ecd95d5a4d4cc42b91d5f2d804bb22e47800970bd1ec3c99738dea8613573d0"
+    },
+    {
+      "path": "tools/tests/test_release_version.py",
+      "bytes": 1945,
+      "sha256": "b066d8ba030363ffbdccae553da2f59e611e9f9e0fd3f48d9e0d1e233017353d"
     },
     {
       "path": "tools/tests/test_replay_export.py",
