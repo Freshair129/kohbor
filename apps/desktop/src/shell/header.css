@@ -1,0 +1,30 @@
+.shell-page-head-tools {
+  display: grid;
+  flex: 1 1 700px;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  grid-template-areas: "status start monitor mute";
+  align-items: center;
+  justify-content: stretch;
+  gap: 6px;
+  min-width: 0;
+}
+.shell-page-head-tools > .shell-status-line { grid-area: status; flex: 1 1 auto; justify-content: flex-start; min-width: 0; }
+.shell-page-head-tools > .shell-live-start-control { grid-area: start; min-width: 0; }
+.shell-page-head-tools > .sm-toggle { grid-area: monitor; }
+.shell-page-head-tools > .shell-mute-control { grid-area: mute; }
+.shell-page-head-tools .shell-status-items { justify-content: flex-start; }
+.shell-page-head-tools .shell-status-line, .shell-page-head-tools .shell-status-items { max-width: 100%; }
+.shell-page-head-tools .shell-status-item--deck { flex: 0 1 auto; }
+.shell-page-head-tools .shell-status-detail, .shell-page-head-tools .shell-host-lost { display: none; }
+.shell-page-head-tools .shell-status-item .chip { max-width: 100%; overflow-wrap: anywhere; }
+.shell-live-start-control .steam-service-chips, .shell-live-start-control .steam-launch-message,
+.shell-live-start-control .steam-launch-reason { display: none; }
+.shell-live-start-control .steam-start-bar { min-width: 0; }
+
+@media (max-width: 1599px) {
+  .shell-page-head-tools {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas: "status status status" "start monitor mute";
+  }
+  .shell-page-head-tools > .shell-status-line { grid-column: 1 / -1; }
+}

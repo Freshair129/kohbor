@@ -17,7 +17,6 @@
 .sm-map-region .live-map-body.is-pinned[data-map-edge="right"] .live-map-toolbar { grid-column: 1; grid-row: 1; }
 .sm-map-region .live-map-body.is-pinned[data-map-edge="left"] .live-map-toolbar { grid-column: 2; grid-row: 1; }
 .sm-map-region .live-map-body.is-pinned .live-map-toolbar h1 { white-space: nowrap; }
-.sm-map-region .live-map-body.is-pinned .live-map-badge { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sm-map-region .live-map-tools { flex: 0 0 auto; flex-wrap: nowrap; }
 .sm-map-region .live-map-body.is-pinned > .live-map-square-slot { display: grid; width: min(100cqw, 100cqh); height: min(100cqw, 100cqh); min-width: 0; min-height: 0; place-items: stretch; align-self: center; aspect-ratio: 1; overflow: hidden; }
 .sm-map-region .live-map-body.is-pinned[data-map-edge="right"] > .live-map-square-slot { grid-column: 2; grid-row: 1; justify-self: end; }
@@ -55,12 +54,10 @@
 .deck-field-region { position: absolute; min-width: 0; min-height: 0; overflow: hidden; }
 .deck-field-team > .lhc-list-field { width: 100%; height: 100%; }
 .deck-field-map { display: flex; flex-direction: column; gap: 2px; }
-.deck-field-phase { display: flex; flex: 0 0 24px; align-items: center; gap: 8px; min-width: 0; overflow: hidden; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--text-2); font-size: 12px; font-weight: 600; }
-.deck-field-phase-name { flex: none; }
-.deck-field-phase-reason { flex: 1 1 0; min-width: 0; overflow: hidden; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
 .deck-field-map > .live-map-pane { flex: 1 1 0; width: 100%; height: 0; min-width: 0; min-height: 0; gap: 0; padding: 6px; container-type: size; }
-.deck-field-map .live-map-toolbar { flex: 0 0 auto; align-items: center; flex-wrap: nowrap; }
-.deck-field-map .live-map-toolbar .live-map-badge { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deck-field-map .live-map-toolbar { flex: 0 0 54px; height: 54px; align-items: center; flex-wrap: nowrap; }
+.deck-field-map .live-map-body.is-field { height: min(100cqw, calc(100cqh - 54px)); }
+.deck-field-map .live-map-body.is-field > .live-map-square-slot { width: min(100cqw, calc(100cqh - 54px)); height: min(100cqw, calc(100cqh - 54px)); }
 .deck-field-map .live-map-tools { flex: 0 0 auto; flex-wrap: nowrap; }
 .deck-field-map .live-sidebar-actions { margin-top: 0; }
 .app[data-page="live"] .deck-field-draft-row { display: flex; flex: 1 1 0; align-items: flex-start; gap: 8px; min-width: 0; min-height: 0; overflow: hidden; }

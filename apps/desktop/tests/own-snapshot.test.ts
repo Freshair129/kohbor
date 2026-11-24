@@ -51,3 +51,41 @@ test("a stale contract snapshot parses with its age and retained stale counters"
   input.own.fields.gold = { value: 50, availability: "stale" };
   assert.deepEqual(parseOwnSnapshot(input)?.own?.fields.gold, { value: 50, availability: "stale" });
 });
+
+test("2.2 map scores remain separate and signed pre-horn time stays negative", () => {
+  const input = fixture();
+  input.schema_version = "2.2.0";
+  input.map = {
+    radiant_score: { value: 4, availability: "fresh" },
+    dire_score: { value: null, availability: "unknown" },
+    clock_time: { value: -12, availability: "fresh" },
+  };
+  const parsed = parseOwnSnapshot(input);
+  assert.deepEqual(parsed?.map, input.map);
+  assert.equal(parsed?.map?.dire_score.value, null);
+  assert.equal(parsed?.map?.clock_time.value, -12);
+});
+
+test("absent map is unknown and malformed or out-of-range map fields fail closed", () => {
+  const absent = fixture();
+  absent.schema_version = "2.2.0";
+  assert.equal(parseOwnSnapshot(absent)?.map, undefined);
+
+  const invalid = [
+    (s: any) => { s.map.radiant_score = { value: 0, availability: "unknown" }; },
+    (s: any) => { s.map.dire_score = { value: 100001, availability: "fresh" }; },
+    (s: any) => { s.map.clock_time = { value: -86401, availability: "fresh" }; },
+    (s: any) => { s.map.clock_time = { value: 12, availability: "stale" }; },
+  ];
+  for (const mutate of invalid) {
+    const input = fixture();
+    input.schema_version = "2.2.0";
+    input.map = {
+      radiant_score: { value: 4, availability: "fresh" },
+      dire_score: { value: 6, availability: "fresh" },
+      clock_time: { value: -12, availability: "fresh" },
+    };
+    mutate(input);
+    assert.equal(parseOwnSnapshot(input), null);
+  }
+});

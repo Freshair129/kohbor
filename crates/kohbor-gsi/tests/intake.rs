@@ -25,7 +25,8 @@ fn owner() -> u64 {
 fn payload() -> Value {
     json!({
         "provider": {"name": "Dota 2", "appid": 570, "version": 47, "timestamp": 1_700_000_000},
-        "map": {"matchid": "8000000001", "game_state": "DOTA_GAMERULES_STATE_GAME_IN_PROGRESS", "customgamename": ""},
+        "map": {"matchid": "8000000001", "game_state": "DOTA_GAMERULES_STATE_GAME_IN_PROGRESS", "customgamename": "",
+                "radiant_score": 9, "dire_score": 8, "clock_time": 120},
         "player": {"steamid": owner().to_string(), "activity": "playing", "team_name": "radiant"},
         "hero": {"name": "npc_dota_hero_axe", "level": 12, "health": 850, "max_health": 1200,
                  "mana_percent": 43, "alive": true, "respawn_seconds": 0},
@@ -129,7 +130,20 @@ fn fresh_snapshot_matches_contract() {
     assert_eq!(s["availability"], "fresh");
     assert_eq!(s["schema_version"], "2.2.0");
     assert_eq!(s["own"]["fields"]["hp"]["value"], 850);
+    assert_eq!(s["map"]["radiant_score"], json!({"value": 9, "availability": "fresh"}));
+    assert_eq!(s["map"]["dire_score"], json!({"value": 8, "availability": "fresh"}));
+    assert_eq!(s["map"]["clock_time"], json!({"value": 120, "availability": "fresh"}));
     assert_contract(&s);
+}
+
+#[test]
+fn pre_horn_clock_is_exposed_as_a_signed_value() {
+    let mut body = payload();
+    body["map"]["game_state"] = json!("DOTA_GAMERULES_STATE_PRE_GAME");
+    body["map"]["clock_time"] = json!(-12);
+    let snapshot = build_snapshot(&admitted(&body), src(10));
+    assert_eq!(snapshot["map"]["clock_time"], json!({"value": -12, "availability": "fresh"}));
+    assert_contract(&snapshot);
 }
 
 #[test]
@@ -232,6 +246,11 @@ fn captured_style_payload_produces_the_own_snapshot_2_2_golden() {
         "session_epoch": 3,
         "availability": "fresh",
         "source": {"kind": "gsi", "generation": 2, "sequence": 15, "age_ms": 2000},
+        "map": {
+            "radiant_score": {"value": 9, "availability": "fresh"},
+            "dire_score": {"value": 8, "availability": "fresh"},
+            "clock_time": {"value": 120, "availability": "fresh"}
+        },
         "own": {
             "identity_revision": 1,
             "team": "radiant",

@@ -82,6 +82,33 @@
           "type": "null"
         }
       ]
+    },
+    "map": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "radiant_score": {
+              "$ref": "#/$defs/map_score"
+            },
+            "dire_score": {
+              "$ref": "#/$defs/map_score"
+            },
+            "clock_time": {
+              "$ref": "#/$defs/clock_time"
+            }
+          },
+          "required": [
+            "radiant_score",
+            "dire_score",
+            "clock_time"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "required": [
@@ -93,6 +120,96 @@
   ],
   "additionalProperties": false,
   "$defs": {
+    "map_score": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100000
+            },
+            "availability": {
+              "enum": [
+                "fresh",
+                "stale"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "null"
+            },
+            "availability": {
+              "enum": [
+                "unknown",
+                "invalid",
+                "unsupported"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "clock_time": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "integer",
+              "minimum": -86400,
+              "maximum": 86400
+            },
+            "availability": {
+              "enum": [
+                "fresh",
+                "stale"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "null"
+            },
+            "availability": {
+              "enum": [
+                "unknown",
+                "invalid",
+                "unsupported"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "availability"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
     "own": {
       "type": "object",
       "properties": {

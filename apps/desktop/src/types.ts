@@ -85,6 +85,12 @@ export interface OwnSnapshot {
   session_epoch: number | null;
   availability: FieldAvailability;
   source: { kind: "gsi"; generation: number; sequence: number | null; age_ms: number | null };
+  /** Additive live-centre fields; absent on current hosts means unknown. */
+  map?: {
+    radiant_score: Field<number>;
+    dire_score: Field<number>;
+    clock_time: Field<number>;
+  };
   own: null | {
     identity_revision: number;
     team: "radiant" | "dire" | null;

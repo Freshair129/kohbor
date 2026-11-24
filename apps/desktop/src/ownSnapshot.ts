@@ -7,10 +7,12 @@ export const OWN_STAT_FIELDS = ["gold", "kills", "deaths", "assists", "last_hits
 export type OwnStatKey = typeof OWN_STAT_FIELDS[number];
 const BASE_FIELDS = ["hero_id", "level", "hp", "max_hp", "mana_percent", "alive", "respawn_seconds"] as const;
 const AVAILABILITY = ["fresh", "stale", "unknown", "invalid", "unsupported"] as const;
+const MAP_FIELDS = ["radiant_score", "dire_score", "clock_time"] as const;
 const bounds: Record<string, [number, number]> = {
   level: [1, 30], hp: [0, 100000], max_hp: [1, 100000], mana_percent: [0, 100], respawn_seconds: [0, 600],
   gold: [0, 1000000], kills: [0, 10000], deaths: [0, 10000], assists: [0, 10000],
   last_hits: [0, 10000], denies: [0, 10000], gpm: [0, 10000], xpm: [0, 10000],
+  radiant_score: [0, 100000], dire_score: [0, 100000], clock_time: [-86400, 86400],
 };
 function object(input: unknown): Record<string, unknown> | null {
   return input !== null && typeof input === "object" && !Array.isArray(input) ? input as Record<string, unknown> : null;
@@ -37,12 +39,35 @@ function field(input: unknown, name: string): Field<unknown> | null {
   return { value: f.value, availability: f.availability };
 }
 
+function mapFields(input: unknown, snapshotAvailability: FieldAvailability): OwnSnapshot["map"] | null {
+  const raw = object(input);
+  if (!raw || !closed(raw, MAP_FIELDS)) return null;
+  const parsed: Record<string, Field<unknown>> = {};
+  const snapshotHasFreshness = snapshotAvailability === "fresh" || snapshotAvailability === "stale";
+  for (const name of MAP_FIELDS) {
+    const value = field(raw[name], name);
+    const valueHasFreshness = value?.availability === "fresh" || value?.availability === "stale";
+    if (!value || (snapshotHasFreshness && valueHasFreshness && value.availability !== snapshotAvailability)
+      || (!snapshotHasFreshness && valueHasFreshness)) return null;
+    parsed[name] = value;
+  }
+  return parsed as unknown as NonNullable<OwnSnapshot["map"]>;
+}
+
 /** Validate the renderer boundary; legacy missing counters are explicitly unknown. */
 export function parseOwnSnapshot(input: unknown): OwnSnapshot | null {
   const s = object(input);
-  if (!s || !closed(s, ["schema_version", "session_epoch", "availability", "source", "own"])) return null;
+  const requiredKeys = ["schema_version", "session_epoch", "availability", "source", "own"];
+  if (!s || requiredKeys.some(key => !Object.hasOwn(s, key))
+    || Object.keys(s).some(key => ![...requiredKeys, "map"].includes(key))) return null;
   if (s.schema_version !== "2.0.0" && s.schema_version !== "2.1.0" && s.schema_version !== "2.2.0") return null;
   if (!availability(s.availability) || (s.session_epoch !== null && !integer(s.session_epoch, 1))) return null;
+  let map: OwnSnapshot["map"];
+  if (Object.hasOwn(s, "map") && s.map !== null) {
+    const parsedMap = mapFields(s.map, s.availability);
+    if (!parsedMap) return null;
+    map = parsedMap;
+  }
   const source = object(s.source);
   if (!source || !closed(source, ["kind", "generation", "sequence", "age_ms"]) || source.kind !== "gsi") return null;
   if (!integer(source.generation, 1) || (source.sequence !== null && !integer(source.sequence, 1))
@@ -73,6 +98,7 @@ export function parseOwnSnapshot(input: unknown): OwnSnapshot | null {
   } else if (s.own !== null) return null;
   return {
     schema_version: s.schema_version, session_epoch: s.session_epoch as number | null, availability: s.availability,
-    source: { kind: "gsi", generation: source.generation, sequence: source.sequence as number | null, age_ms: source.age_ms as number | null }, own,
+    source: { kind: "gsi", generation: source.generation, sequence: source.sequence as number | null, age_ms: source.age_ms as number | null },
+    ...(map ? { map } : {}), own,
   };
 }

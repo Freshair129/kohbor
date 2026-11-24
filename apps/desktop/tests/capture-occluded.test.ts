@@ -90,15 +90,13 @@ test("timeout diagnostic is next to host grab fps with units, unknown dash and r
   }
 });
 
-test("covered badge overlays the bounded stage and its canvas uses the dimming decision", () => {
+test("covered state is kept in status chips while the held frame is dimmed without a second overlay", () => {
   const css = readFileSync(new URL("../src/live/live.css", import.meta.url), "utf8");
-  const badge = css.match(/\.live-map-covered\s*\{([^}]+)\}/)?.[1] ?? "";
-  assert.match(badge, /position:\s*absolute/); assert.match(badge, /border:\s*3px double/);
+  assert.doesNotMatch(css, /\.live-map-covered\s*\{/);
   assert.match(css, /\.live-map-canvas\.is-stale\s*\{[^}]*opacity:\s*0\.42/);
   const panel = readFileSync(new URL("../src/live/MinimapPanel.tsx", import.meta.url), "utf8");
-  assert.match(panel, /presentation\.dimmed\s*\?\s*" is-stale"/);
-  // Round 2 wraps the retained canvas; the covered badge now belongs to that stage.
+  assert.match(panel, /presentation\.dimmed\s*\|\|\s*paused\s*\|\|\s*userInvalidated\s*\?\s*" is-stale"/);
   const stage = readFileSync(new URL("../src/live/MinimapStage.tsx", import.meta.url), "utf8");
-  assert.match(stage, /className="live-map-covered"/);
+  assert.doesNotMatch(stage, /live-map-covered|live-map-plate/);
   assert.match(panel, /presentation\.coveredBadge/);
 });

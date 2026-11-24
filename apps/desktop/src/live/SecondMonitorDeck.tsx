@@ -67,7 +67,7 @@ function TeamRow({ cards, side, locale, wideStats, roomyField, rect, edge, rende
 
 /** Left/right second-monitor mode: the map panel stays on the inner edge between two fixed five-card rows. */
 export function SecondMonitorDeck({
-  locale, side, snapshot, hostLost, sessionEpoch, draftBar, steamStatus,
+  locale, side, snapshot, hostLost, sessionEpoch, draftBar, steamStatus, gamePhase,
   topbar = null, peer = null, objectiveSchedule = null, draftStats = null, playerNames = null, showPlayerNames = false,
 }: {
   locale: Locale;
@@ -77,6 +77,7 @@ export function SecondMonitorDeck({
   sessionEpoch: number | null;
   draftBar: DraftBarFrame | null;
   steamStatus: SteamStatus | null;
+  gamePhase?: string | null;
   topbar?: TopbarInput | null;
   peer?: PeerInput | null;
   objectiveSchedule?: { schedule: ObjectiveSchedule; receivedAtMs: number } | null;
@@ -123,7 +124,7 @@ export function SecondMonitorDeck({
       <TeamRow cards={enemies} side="enemy" locale={locale} wideStats={wideStats} roomyField={roomyField} rect={placed.enemy} edge={placed.mapEdge} />
       <div className="sm-map-region" style={placeStyle(placed.map, placed.mapEdge)} data-region="map" data-testid="sm-map-region">
         <MinimapPanel locale={locale} layout="pinned" mapEdge={placed.mapEdge}
-          steamStatus={steamStatus}
+          steamStatus={steamStatus} snapshot={snapshot} gamePhase={gamePhase ?? null}
           mapOverlay={<MapCountdowns schedule={objectiveSchedule?.schedule ?? null} receivedAtMs={objectiveSchedule?.receivedAtMs ?? null} locale={lang} />}
           stageOverride={draftPhase ? <DraftBoard rows={boardRows} locale={lang}
             namesAvailable={showPlayerNames && playerNames !== null} statsAvailable={draftStats !== null} /> : undefined} />

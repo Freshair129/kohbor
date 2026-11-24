@@ -283,3 +283,17 @@ This amends DEC-COACH-REVIEW item 6 (no multi-match trends in slice 1 of coach r
 3. The owner accepts the rights position of the bundled game images and announcer material for this closed group; the DEC-REPLAY-INTEGRATION item 3 rights review stays required before any general public release.
 4. The news feed may return 404 until `news.json` is published.
 5. Must-work list for acceptance: announcer, draft suggestions, rune and low-HP alerts, risk meter.
+
+### Owner amendment: Live centre refinement (2026-11-24)
+
+Owner report on build `17fe01d` (2026-11-24), relayed by the lead, recorded by an agent; translated words:
+
+1. “It repeats the same information a lot: 'รอเกมเริ่ม' in 3 or 4 places.”
+2. “Put 'ตั้งค่ากรอบ' and 'ละเอียด' into Settings.”
+3. “The map's header should be a scoreboard: score on the left and right, the time in the middle, and a bar showing game momentum or win probability, i.e. which way the chance of winning leans.”
+4. “The buttons at the top overlap each other.”
+5. “Before a game, 'Dota 2 isn't open, press start' is OK, but the centre shouldn't be bare. Show a dashboard: a summary of my recent play (yesterday and so on), stats.”
+6. “When a game ends, the centre should flip, or open like a door, and show the match summary and analysis. Use what we have from GSI first, and when the full replay data arrives, show that.”
+7. “Player slots come later; don't redesign the cards now.”
+
+The UI-002 amendment records one shell status line, a map-pane scoreboard, a local-history pre-game dashboard, and a post-game summary with replay analysis only when a matching ready bundle exists. The momentum bar is specified as observed kills over the last three minutes, not win probability; the product has no win-probability model. Raw match IDs remain private, and missing values remain unknown.
