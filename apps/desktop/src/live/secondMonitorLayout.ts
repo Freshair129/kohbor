@@ -28,6 +28,10 @@ export const CARD_MIN_W = 224;
 /** Map panel minimum: a 220 px captured map stage plus its fixed toolbar and padding. */
 export const MAP_PANEL_MIN_H = 260;
 export const CARD_ROW_MAX_H = 160;
+/** The pinned scoreboard has one score row and one momentum row inside its 64 px toolbar. */
+export const PINNED_SCOREBOARD_HEIGHT = 64;
+/** Minimum map-region height that leaves room for both uncut draft rows below the scoreboard. */
+export const PINNED_DRAFT_MIN_MAP_H = 420;
 
 function innerEdge(side: Exclude<SecondMonitorSide, "off">): "left" | "right" {
   return side === "right" ? "left" : "right";
@@ -62,6 +66,46 @@ export function secondMonitorLayout(input: { side: SecondMonitorSide; width: num
 /** Regions present in a placed layout, for the view and for pure-geometry tests. */
 export function placedRegions(layout: PlacedLayout): [string, Rect][] {
   return [["enemy", layout.enemy], ["map", layout.map], ["ours", layout.ours]];
+}
+
+export interface PinnedMapContents {
+  scoreboard: Rect;
+  /** Square canvas slot in live phase. */
+  map: Rect | null;
+  /** Full-width table in draft phase. */
+  board: Rect | null;
+}
+
+/** Places the pinned scoreboard directly above either the inner-edge map or the full-width draft board. */
+export function pinnedMapContents(input: {
+  width: number;
+  height: number;
+  mapEdge: "left" | "right";
+  phase: "live" | "draft";
+}): PinnedMapContents | null {
+  const width = Math.floor(input.width);
+  const height = Math.floor(input.height);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= PINNED_SCOREBOARD_HEIGHT) return null;
+
+  if (input.phase === "draft") {
+    return {
+      scoreboard: { x: 0, y: 0, w: width, h: PINNED_SCOREBOARD_HEIGHT },
+      map: null,
+      board: { x: 0, y: PINNED_SCOREBOARD_HEIGHT, w: width, h: height - PINNED_SCOREBOARD_HEIGHT },
+    };
+  }
+
+  const mapSize = Math.min(width, height - PINNED_SCOREBOARD_HEIGHT);
+  const x = input.mapEdge === "right" ? width - mapSize : 0;
+  return {
+    scoreboard: { x, y: 0, w: mapSize, h: PINNED_SCOREBOARD_HEIGHT },
+    map: { x, y: PINNED_SCOREBOARD_HEIGHT, w: mapSize, h: mapSize },
+    board: null,
+  };
+}
+
+export function pinnedDraftFits(mapRegionHeight: number): boolean {
+  return Number.isFinite(mapRegionHeight) && mapRegionHeight >= PINNED_DRAFT_MIN_MAP_H;
 }
 
 // Centred replay-style Live field geometry (UI-002; owner redesign, 2026-11-24).

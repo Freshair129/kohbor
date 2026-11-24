@@ -83,7 +83,7 @@ export function MinimapPanel({
   const paused = isCapturePaused(captureConfig.config?.paused, capture?.paused ?? null);
   const canShowPicture = capturePictureEnabled(phase, paused);
   const minimap = useMinimap(capture?.calibration_generation ?? null, canShowPicture);
-  const canvasBox = useCanvasBox(minimap.frameSize);
+  const canvasBox = useCanvasBox(minimap.frameSize, layout === "pinned");
   const mock = liveMockRequested();
 
   useEffect(() => {
@@ -300,15 +300,17 @@ export function MinimapPanel({
       className={`live-map-canvas${presentation.dimmed || paused || userInvalidated ? " is-stale" : ""}`}
       aria-hidden="true"
     />
-    {pinned && mapOverlay && <div className="sm-map-overlay" style={{ width: canvasBox.canvasStyle.minWidth, height: canvasBox.canvasStyle.minHeight }}>{mapOverlay}</div>}
+    {pinned && mapOverlay && <div className="sm-map-overlay" style={{ width: "100%", height: "100%" }}>{mapOverlay}</div>}
     {pinnedAlerts}
   </MinimapStage>;
   const mapPane = (
     <section className="live-map-pane" aria-label={locale === "en" ? "Live minimap and scoreboard" : "แผนที่ย่อสดและสกอร์บอร์ด"}>
       {stackedPinned ? (
-        <div className="live-map-body is-pinned" data-map-edge={mapEdge}>
-          {toolbar}
-          <div className="live-map-square-slot">{stage}</div>
+        <div className={`live-map-body is-pinned${stageOverride ? " is-draft" : ""}`} data-map-edge={mapEdge}>
+          <div className="live-map-pinned-stack">
+            {toolbar}
+            <div className={stageOverride ? "live-map-draft-slot" : "live-map-square-slot"}>{stage}</div>
+          </div>
         </div>
       ) : field ? (
         <>
