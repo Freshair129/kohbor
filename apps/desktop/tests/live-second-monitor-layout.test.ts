@@ -192,7 +192,9 @@ test("centred field renders ten slot-ordered replay cards, same-height team colu
   assert.match(cardCss, /\.lhc-list-field\s*\{[^}]*grid-template-rows:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/);
   assert.match(liveCss, /\.deck-field-map\s*\{[^}]*display:\s*flex/);
   assert.match(liveCss, /\.deck-field-region\s*\{[^}]*overflow:\s*hidden/);
-  assert.match(liveCss, /\.app\[data-live-match="true"\] \.deck-field-draft-row \.draft-column-surface-deck\s*\{[^}]*overflow:\s*hidden/);
+  assert.match(liveCss, /\.app\[data-page="live"\] \.shell-live-page > \.deck-field-root/);
+  assert.match(liveCss, /\.app\[data-page="live"\] \.deck-field-draft-row \.draft-column-surface-deck\s*\{[^}]*overflow:\s*hidden/);
+  assert.match(liveCss, /\.deck-field-phase-reason\s*\{[^}]*text-overflow:\s*ellipsis/);
   assert.doesNotMatch(liveCss, /overflow(?:-[xy])?:\s*(?:auto|scroll)/);
 });
 
