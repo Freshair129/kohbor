@@ -671,6 +671,11 @@ pub(crate) fn own_snapshot(state: tauri::State<'_, AppState>) -> Value {
     own_snapshot_value(state.runtime.as_ref())
 }
 
+#[tauri::command(async)]
+pub(crate) fn objective_read_model(state: tauri::State<'_, AppState>) -> Value {
+    state.runtime.objective_read_model()
+}
+
 /// Shared read-model builder used by the command and the passive HUD.
 pub(crate) fn own_snapshot_value(runtime: &crate::intake::Runtime) -> Value {
     lock(&runtime.shared).snapshot()

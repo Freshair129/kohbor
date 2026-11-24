@@ -135,6 +135,14 @@ struct TimingRule {
     repeat_every_seconds: Option<i64>,
 }
 
+/// Next accepted occurrence from the same patch-versioned table used by alerts.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ObjectiveOccurrence {
+    pub objective: ObjectiveId,
+    pub occurrence_seconds: i64,
+    pub last_occurrence_seconds: Option<i64>,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 struct FiredKey {
     objective: ObjectiveId,
@@ -145,6 +153,7 @@ struct FiredKey {
 /// Pure scheduler. Invalid embedded timing data fails closed to no alerts.
 pub struct ObjectiveScheduler {
     rules: Vec<TimingRule>,
+    patch_version: Option<String>,
     previous_clock_seconds: Option<i64>,
     fired: HashSet<FiredKey>,
 }
@@ -153,6 +162,7 @@ impl Default for ObjectiveScheduler {
     fn default() -> Self {
         Self::from_table_json(TIMING_TABLE).unwrap_or_else(|_| Self {
             rules: Vec::new(),
+            patch_version: None,
             previous_clock_seconds: None,
             fired: HashSet::new(),
         })
@@ -251,9 +261,41 @@ impl ObjectiveScheduler {
         }
         Ok(Self {
             rules,
+            patch_version: root
+                .get("patch")
+                .and_then(|value| value.as_str())
+                .map(str::to_owned),
             previous_clock_seconds: None,
             fired: HashSet::new(),
         })
+    }
+
+    /// Patch attached to the accepted alert timing table. This is not a claim
+    /// that the running game build uses that patch.
+    pub fn patch_version(&self) -> Option<&str> {
+        self.patch_version.as_deref()
+    }
+
+    /// Read-only upcoming schedule for UI timers. It shares the alert table and
+    /// occurrence calculation but does not change alert deduplication state.
+    pub fn next_occurrences(&self, clock_seconds: i64) -> Vec<ObjectiveOccurrence> {
+        if self.patch_version.is_none() || !(-600..=86_400).contains(&clock_seconds) {
+            return Vec::new();
+        }
+        let mut occurrences: Vec<_> = self
+            .rules
+            .iter()
+            .filter_map(|rule| {
+                rule.next_occurrence_at_or_after(clock_seconds)
+                    .map(|occurrence_seconds| ObjectiveOccurrence {
+                        objective: rule.objective,
+                        occurrence_seconds,
+                        last_occurrence_seconds: rule.last_occurrence_at_or_before(clock_seconds),
+                    })
+            })
+            .collect();
+        occurrences.sort_by_key(|item| item.objective);
+        occurrences
     }
 
     /// Reset occurrence deduplication when the host observes a new match.
@@ -377,6 +419,63 @@ impl ObjectiveScheduler {
 }
 
 impl TimingRule {
+    fn last_occurrence_at_or_before(&self, clock_seconds: i64) -> Option<i64> {
+        let mut latest = self
+            .spawn_times_seconds
+            .iter()
+            .copied()
+            .filter(|time| *time <= clock_seconds)
+            .max();
+        if let (Some(first), Some(interval)) = (
+            self.spawn_times_seconds.first().copied(),
+            self.repeat_every_seconds,
+        ) {
+            if clock_seconds >= first {
+                let index = clock_seconds.saturating_sub(first) / interval;
+                if let Some(candidate) = index
+                    .checked_mul(interval)
+                    .and_then(|delta| first.checked_add(delta))
+                {
+                    latest = Some(latest.map_or(candidate, |current| current.max(candidate)));
+                }
+            }
+        }
+        latest
+    }
+
+    fn next_occurrence_at_or_after(&self, clock_seconds: i64) -> Option<i64> {
+        let mut next = self
+            .spawn_times_seconds
+            .iter()
+            .copied()
+            .filter(|time| *time >= clock_seconds)
+            .min();
+
+        if let (Some(first), Some(interval)) = (
+            self.spawn_times_seconds.first().copied(),
+            self.repeat_every_seconds,
+        ) {
+            let candidate = if clock_seconds <= first {
+                Some(first)
+            } else {
+                let elapsed = clock_seconds.saturating_sub(first);
+                let quotient = elapsed / interval;
+                let index = if elapsed % interval == 0 {
+                    quotient
+                } else {
+                    quotient + 1
+                };
+                index
+                    .checked_mul(interval)
+                    .and_then(|delta| first.checked_add(delta))
+            };
+            if let Some(candidate) = candidate {
+                next = Some(next.map_or(candidate, |current| current.min(candidate)));
+            }
+        }
+        next
+    }
+
     fn occurrences_between(&self, previous: i64, current: i64) -> Vec<i64> {
         let mut occurrences: Vec<i64> = self
             .spawn_times_seconds
@@ -777,6 +876,34 @@ mod tests {
             .rules
             .iter()
             .any(|rule| rule.objective == ObjectiveId::WaterRune));
+    }
+
+    #[test]
+    fn schedule_read_model_uses_alert_rules_and_handles_negative_exact_and_repeat_clocks() {
+        let s = scheduler();
+        assert_eq!(s.patch_version(), Some("7.42"));
+        let at = |clock| s.next_occurrences(clock);
+        let get = |items: &[super::ObjectiveOccurrence], objective| {
+            items
+                .iter()
+                .find(|item| item.objective == objective)
+                .map(|item| item.occurrence_seconds)
+        };
+
+        let before_horn = at(-10);
+        assert_eq!(get(&before_horn, ObjectiveId::BountyRune), Some(0));
+        assert_eq!(get(&before_horn, ObjectiveId::PowerRune), Some(360));
+        assert_eq!(get(&before_horn, ObjectiveId::WisdomRune), Some(420));
+        assert_eq!(get(&before_horn, ObjectiveId::Tormentor), Some(900));
+
+        let exact_spawn = at(360);
+        assert_eq!(get(&exact_spawn, ObjectiveId::PowerRune), Some(360));
+        let after_spawn = at(361);
+        assert_eq!(get(&after_spawn, ObjectiveId::PowerRune), Some(480));
+        assert_eq!(get(&after_spawn, ObjectiveId::BountyRune), Some(480));
+        assert_eq!(get(&after_spawn, ObjectiveId::Tormentor), Some(900));
+        assert!(at(-601).is_empty());
+        assert!(at(86_401).is_empty());
     }
 
     #[test]

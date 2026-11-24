@@ -1,5 +1,7 @@
 export interface ScoreSample {
   atMs: number;
+  /** Admitted GSI clock sample for the pinned kill timeline. */
+  gameSeconds?: number;
   radiant: number;
   dire: number;
 }
