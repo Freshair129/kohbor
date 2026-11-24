@@ -25,9 +25,14 @@ pub(crate) fn replay_library_list(
     let history = state.match_history.entries();
     if let Some(rows) = list.get_mut("matches").and_then(Value::as_array_mut) {
         for row in rows {
-            let Some(match_id) = row.get("match_id").and_then(Value::as_str) else {
+            let Some(match_id) = row
+                .get("match_id")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+            else {
                 continue;
             };
+            let match_id = match_id.as_str();
             // The install-keyed hash lets the renderer open a match it only knows by its
             // GSI history key (the post-game panel) without passing a raw match ID around.
             let match_key = analytics.store().match_key(match_id).ok();

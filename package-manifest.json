@@ -418,8 +418,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/commands.rs",
-      "bytes": 74841,
-      "sha256": "262644ea3b9df677d2fd5c5a47815dd31c7f0981250a2531a2ef56ccb33c32c5"
+      "bytes": 74969,
+      "sha256": "d989bbc123801d9fd5acd73b179d357f32ab3cfabf64275e823c20c3c0df462d"
     },
     {
       "path": "apps/desktop/src-tauri/src/containment.rs",
