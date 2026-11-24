@@ -14913,8 +14913,8 @@
     },
     {
       "path": "docs/INDEX.md",
-      "bytes": 15244,
-      "sha256": "355e03ba8cabae0746196bb51b0cd4683a10072037af5df765b51be6164bc650"
+      "bytes": 15463,
+      "sha256": "c0654cab25b691ca75e35a318e014de481ff4edb4ec0a32e5c1be70f6cc5a962"
     },
     {
       "path": "docs/delivery/AGENT-WORKFLOW.md",
@@ -16568,8 +16568,8 @@
     },
     {
       "path": "tools/release/build_candidate.py",
-      "bytes": 10634,
-      "sha256": "6ea644bcd0ff3a9c287dda7183700e37e37451bfc59ee2f597f37b79eaf39157"
+      "bytes": 10744,
+      "sha256": "f664debc76b1e39a7d98fe5c8c8ab00d6b24537ec7fdff56101929f290f690a6"
     },
     {
       "path": "tools/release/make_latest_json.py",
@@ -16698,8 +16698,8 @@
     },
     {
       "path": "tools/tests/test_release_build_candidate.py",
-      "bytes": 9193,
-      "sha256": "9e84d7eacdfb981f59e44bb1f987f6561032c453f230afff250c4e6709f2c9cc"
+      "bytes": 9360,
+      "sha256": "1d97bab96751fc9174707336444e007409015b3e6123d6fb55d22ff393823912"
     },
     {
       "path": "tools/tests/test_release_latest.py",

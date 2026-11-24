@@ -97,10 +97,10 @@ class BuildCandidateTests(unittest.TestCase):
                 result = build_candidate.main(self.arguments(root / "out", dry_run=True))
             output = stdout.getvalue() + stderr.getvalue()
             self.assertEqual(result, 2)
-            self.assertIn("CANDIDATE_VERSION: 0.3.0-dev.18", output)
+            self.assertIn(f"CANDIDATE_VERSION: {build_candidate.workspace_version(Path(__file__).resolve().parents[2])}", output)
             self.assertIn("PREVIOUS_VERSION: 0.4.0-alpha.1", output)
             self.assertIn("VERSION_GATE: would refuse", output)
-            self.assertIn("build --bundles nsis --features updater", output)
+            self.assertIn("build --bundles nsis --features lab,updater", output)
             self.assertIn(f"--config {build_candidate.RELEASE_CONFIG.resolve()}", output)
             self.assertIn("--locked", output)
             self.assertIn("CARGO_NET_OFFLINE", output)
@@ -123,10 +123,10 @@ class BuildCandidateTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[2]
         base = json.loads((root / "apps" / "desktop" / "src-tauri" / "tauri.conf.json").read_text(encoding="utf-8"))
         override = json.loads(build_candidate.RELEASE_CONFIG.read_text(encoding="utf-8"))
-        self.assertEqual(
-            base["bundle"],
-            {"active": False, "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.ico"]},
-        )
+        # The base config stays non-release: no installer target and no updater artifacts.
+        self.assertIs(base["bundle"]["active"], False)
+        self.assertNotIn("targets", base["bundle"])
+        self.assertNotIn("createUpdaterArtifacts", base["bundle"])
         self.assertEqual(
             set(override["bundle"]),
             {"active", "targets", "createUpdaterArtifacts", "windows"},

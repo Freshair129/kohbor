@@ -31,6 +31,7 @@ This is the only index of documents. Every Markdown file in the tree, is linked 
 | [Post-match Replay preview](design/POST-MATCH-REPLAY-PREVIEW.md) | Lab import format, offline replay controls, and post-match admission | Engineering, UX, QA |
 | [Alpha launch](design/ALPHA-LAUNCH.md) | Invite-gated alpha download, Supabase sign-in and Edge Function, release repository rules, conflicts to resolve (agent record of owner statements) | Product owner, engineering |
 | [In-app updater](design/UPDATER.md) | Signed GitHub-release updater design: channel, key handling, states, privacy and release slices | Engineering, release |
+| [Release runbook for updates](operations/RELEASE-UPDATES.md) | Owner steps to build, sign, verify and publish a Kohbor update: candidate build, latest.json, promotion check, publishing plan | Product owner, release |
 | [Derived stats](design/DERIVED-STATS.md) | Own-hero attributes and derived values from installed-game data: inputs, formulas, labels and limits | Engineering, UX |
 | [Replay Pipeline](design/REPLAY-PIPELINE.md) | Read-only replay intake, local library, pinned sidecar, Match Bundle validation and failure/privacy boundaries | Engineering, Lab, QA |
 | [Replay Engine Provenance](design/REPLAY-ENGINE-PROVENANCE.md) | Pinned sidecar source, build, hash, dependency license inventory and rebuild procedure | Engineering, release review |

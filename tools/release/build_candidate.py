@@ -32,7 +32,8 @@ BUILD_ARGS = [
     "--bundles",
     "nsis",
     "--features",
-    "updater",
+    # DEC-ALPHA-SUPERUSER (owner, 2026-11-24): the super-user alpha ships the Lab build with the updater.
+    "lab,updater",
     "--config",
     str(RELEASE_CONFIG),
     "--",
