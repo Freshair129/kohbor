@@ -18,8 +18,8 @@
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
 use kohbor_game_assets::{
-    decode_vtex_c, decode_vtex_c_with_format, game_stats, icon_name, IconKind, Image, Vpk,
-    STAT_ICON_SOURCES,
+    decode_vtex_c_for_display, decode_vtex_c_for_display_with_format, game_stats, icon_name,
+    IconKind, Image, TextureDecodeFlags, Vpk, STAT_ICON_SOURCES,
 };
 use std::fmt::Write as _;
 use std::fs::{self, OpenOptions};
@@ -99,13 +99,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 format!("{} is absent from the installed VPK", source.source_path)
             })?;
             let bytes = vpk.read(&entry)?;
-            let (image, format) = decode_vtex_c_with_format(&bytes)?;
+            let (image, format, flags) = decode_vtex_c_for_display_with_format(&bytes)?;
             println!(
-                "stat_icon={} source_path={} format={} ({}) dimensions={}x{}",
+                "stat_icon={} source_path={} format={} ({}) flags={} dimensions={}x{}",
                 source.name,
                 entry.path(),
                 format,
                 image_format_name(format),
+                format_decode_flags(flags),
                 image.width,
                 image.height,
             );
@@ -115,8 +116,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     if let Some((entry, out)) = args.preview {
         refuse_inside(&out, &game)?;
-        let (image, format) = load_with_format(&vpk, &entry)?;
-        println!("{entry}: format={format} {}x{}", image.width, image.height);
+        let (image, format, flags) = load_with_format(&vpk, &entry)?;
+        println!(
+            "{entry}: format={format} flags={} {}x{}",
+            format_decode_flags(flags),
+            image.width,
+            image.height
+        );
         write_new(&out, &encode_png(&image)?)?;
         return Ok(());
     }
@@ -189,7 +195,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 // `item_x` and `x` both map to `x`; keep the first (sorted) one.
                 continue;
             }
-            let image = match vpk.read(&entry).and_then(|bytes| decode_vtex_c(&bytes)) {
+            let image = match vpk
+                .read(&entry)
+                .and_then(|bytes| decode_vtex_c_for_display(&bytes))
+            {
                 Ok(image) => image,
                 Err(error) => {
                     failures.push(format!("{}: {error}", entry.path()));
@@ -197,7 +206,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 }
             };
             let png = encode_png(&fit(&image, w, h))?;
-            written.push(record(&out, &file, &png)?);
+            written.push(record_from_source(&out, &file, &png, entry.path())?);
             write_new(&file, &png)?;
             count += 1;
         }
@@ -215,7 +224,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             Ok(image) => {
                 let png = encode_png(&fit(&image, MAP_SIZE, MAP_SIZE))?;
                 let file = out.join("map.png");
-                written.push(record(&out, &file, &png)?);
+                written.push(record_from_source(&out, &file, &png, entry)?);
                 write_new(&file, &png)?;
                 println!("map: {entry} ({}x{})", image.width, image.height);
                 map_source = Some(entry.clone());
@@ -299,12 +308,15 @@ fn parse_args(mut args: impl Iterator<Item = String>) -> Result<Args, String> {
 
 fn load(vpk: &Vpk, path: &str) -> Result<Image, Box<dyn std::error::Error>> {
     let entry = vpk.find(path).ok_or_else(|| format!("{path} not found"))?;
-    Ok(decode_vtex_c(&vpk.read(&entry)?)?)
+    Ok(decode_vtex_c_for_display(&vpk.read(&entry)?)?)
 }
 
-fn load_with_format(vpk: &Vpk, path: &str) -> Result<(Image, u8), Box<dyn std::error::Error>> {
+fn load_with_format(
+    vpk: &Vpk,
+    path: &str,
+) -> Result<(Image, u8, TextureDecodeFlags), Box<dyn std::error::Error>> {
     let entry = vpk.find(path).ok_or_else(|| format!("{path} not found"))?;
-    Ok(decode_vtex_c_with_format(&vpk.read(&entry)?)?)
+    Ok(decode_vtex_c_for_display_with_format(&vpk.read(&entry)?)?)
 }
 
 fn record(root: &Path, file: &Path, bytes: &[u8]) -> io::Result<Written> {
@@ -344,7 +356,7 @@ fn export_stat_icons(
         let entry = vpk
             .find(source.source_path)
             .ok_or_else(|| format!("{} is absent from the installed VPK", source.source_path))?;
-        let (image, format) = decode_vtex_c_with_format(&vpk.read(&entry)?)?;
+        let (image, format, flags) = decode_vtex_c_for_display_with_format(&vpk.read(&entry)?)?;
         let png = encode_png(&image)?;
         let file = directory.join(format!("{}.png", source.name));
         let item = record_from_source(out, &file, &png, entry.path())?;
@@ -368,11 +380,12 @@ fn export_stat_icons(
             })
             .unwrap_or_default();
         println!(
-            "stat_icon={} source_path={} format={} ({}) out={} dimensions={}x{} bytes={} sha256={}{}",
+            "stat_icon={} source_path={} format={} ({}) flags={} out={} dimensions={}x{} bytes={} sha256={}{}",
             source.name,
             entry.path(),
             format,
             image_format_name(format),
+            format_decode_flags(flags),
             item.rel,
             image.width,
             image.height,
@@ -393,6 +406,27 @@ fn image_format_name(format: u8) -> &'static str {
         16 | 18 => "PNG-encoded",
         28 => "BGRA8888",
         _ => "unknown",
+    }
+}
+
+fn format_decode_flags(flags: TextureDecodeFlags) -> String {
+    let mut names = Vec::new();
+    if flags.ycocg_conversion {
+        names.push("ycocg");
+    }
+    if flags.normalize {
+        names.push("normalize");
+    }
+    if flags.hemi_oct {
+        names.push("hemi-oct");
+    }
+    if flags.invert {
+        names.push("invert");
+    }
+    if names.is_empty() {
+        "none".to_owned()
+    } else {
+        names.join(",")
     }
 }
 
@@ -1354,6 +1388,53 @@ mod tests {
             rgba: vec![1, 2, 3, 4],
         };
         assert_eq!(encode_png(&alpha).expect("encode")[25], 6);
+    }
+
+    #[test]
+    fn unflagged_texture_png_output_is_byte_identical_for_supported_formats() {
+        let samples = [
+            (1, vec![0x00, 0xf8, 0, 0, 0, 0, 0, 0]),
+            (
+                2,
+                vec![113, 113, 0, 0, 0, 0, 0, 0, 0x00, 0xf8, 0, 0, 0, 0, 0, 0],
+            ),
+            (4, vec![10, 20, 30, 40]),
+            (28, vec![30, 20, 10, 40]),
+        ];
+
+        for (format, payload) in samples {
+            let resource = make_export_test_vtex(format, &payload);
+            let legacy = kohbor_game_assets::decode_vtex_c(&resource).expect("legacy decode");
+            let display = decode_vtex_c_for_display(&resource).expect("display decode");
+
+            assert_eq!(display.rgba, legacy.rgba, "format {format} pixels changed");
+            assert_eq!(
+                encode_png(&display).expect("display PNG"),
+                encode_png(&legacy).expect("legacy PNG"),
+                "format {format} PNG bytes changed"
+            );
+        }
+    }
+
+    fn make_export_test_vtex(format: u8, payload: &[u8]) -> Vec<u8> {
+        let data_start = 44_usize;
+        let metadata_len = data_start + 28;
+        let mut bytes = vec![0_u8; metadata_len];
+        bytes[0..4].copy_from_slice(&(metadata_len as u32).to_le_bytes());
+        bytes[4..8].copy_from_slice(&0x0001_000c_u32.to_le_bytes());
+        bytes[8..12].copy_from_slice(&8_u32.to_le_bytes());
+        bytes[12..16].copy_from_slice(&1_u32.to_le_bytes());
+        bytes[16..20].copy_from_slice(b"DATA");
+        bytes[20..24].copy_from_slice(&24_u32.to_le_bytes());
+        bytes[24..28].copy_from_slice(&28_u32.to_le_bytes());
+        bytes[data_start..data_start + 2].copy_from_slice(&1_u16.to_le_bytes());
+        bytes[data_start + 20..data_start + 22].copy_from_slice(&1_u16.to_le_bytes());
+        bytes[data_start + 22..data_start + 24].copy_from_slice(&1_u16.to_le_bytes());
+        bytes[data_start + 24..data_start + 26].copy_from_slice(&1_u16.to_le_bytes());
+        bytes[data_start + 26] = format;
+        bytes[data_start + 27] = 1;
+        bytes.extend_from_slice(payload);
+        bytes
     }
 
     #[test]

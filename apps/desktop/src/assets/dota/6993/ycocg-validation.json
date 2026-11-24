@@ -1,0 +1,131 @@
+{
+  "schema": "kohbor.asset-ycocg-validation/1",
+  "date": "2026-11-25",
+  "gameBuild": "6993",
+  "status": "card-art-candidate-generated-but-not-installed",
+  "sourceInstall": {
+    "path": "G:\\steam\\steamapps\\common\\dota 2 beta",
+    "vpk": "game/dota/pak01_dir.vpk",
+    "readOnly": true
+  },
+  "flagEvidence": {
+    "resourceBlock": "RED2",
+    "marker": "YCoCg Conv",
+    "parsedHints": ["normalize", "hemi-oct", "invert"],
+    "sampleFlags": ["ycocg"]
+  },
+  "conversion": {
+    "format": 2,
+    "name": "DXT5",
+    "scale": "B / (255 / 8) + 1",
+    "co": "(R8 / 255 - 128 / 255) / scale",
+    "cg": "(G8 / 255 - 128 / 255) / scale",
+    "y": "A8 / 255",
+    "output": ["Y + Co - Cg", "Y + Cg", "Y - Co - Cg", "255"]
+  },
+  "samples": [
+    {
+      "kind": "hero",
+      "path": "heroes/silencer.png",
+      "sourcePath": "panorama/images/heroes/npc_dota_hero_silencer_png.vtex_c",
+      "format": "DXT5",
+      "flags": ["ycocg"],
+      "dimensions": [128, 72],
+      "beforeCenterRgba": [192, 111, 0, 158],
+      "afterCenterRgba": [239, 141, 111, 255],
+      "beforeRawPreviewSha256": "808eec91b8e45798fdde55409c2bc00863b9a9947af7f5688eb312f3e117f14a",
+      "afterCandidateSha256": "20be62ee8f5ef83d4fba071e19c1fef0fa567f8c8fac2f42990a70be00e0733a"
+    },
+    {
+      "kind": "hero",
+      "path": "heroes/sniper.png",
+      "sourcePath": "panorama/images/heroes/npc_dota_hero_sniper_png.vtex_c",
+      "format": "DXT5",
+      "flags": ["ycocg"],
+      "dimensions": [128, 72],
+      "beforeCenterRgba": [206, 77, 24, 53],
+      "afterCenterRgba": [127, 24, 38, 255],
+      "beforeRawPreviewSha256": "13d4af9a9e9181f8e1a023c9082918166a06785c72d96de0a07fd1431034a0b6",
+      "afterCandidateSha256": "e3345efe13aad417038c49184535efe9dc5789dcfe15d3bbbd8b975c28c6e650"
+    },
+    {
+      "kind": "item",
+      "path": "items/blink.png",
+      "sourcePath": "panorama/images/items/blink_png.vtex_c",
+      "format": "DXT5",
+      "flags": ["ycocg"],
+      "dimensions": [88, 64],
+      "beforeCenterRgba": [90, 154, 24, 215],
+      "afterCenterRgba": [178, 230, 222, 255],
+      "beforeRawPreviewSha256": "26a77b5bf74fc11dcebea9e156c3bb7cf906b706ca00bced302941a69557f209",
+      "afterCandidateSha256": "d97fb801fb13bcd0a994b3718256329198608c37960882fca4d514ac1fcb6068"
+    },
+    {
+      "kind": "item",
+      "path": "items/force_staff.png",
+      "sourcePath": "panorama/images/items/force_staff_png.vtex_c",
+      "format": "DXT5",
+      "flags": ["ycocg"],
+      "dimensions": [88, 64],
+      "beforeCenterRgba": [156, 199, 24, 24],
+      "afterCenterRgba": [0, 65, 0, 255],
+      "beforeRawPreviewSha256": "df265238fdd3bb4adc98d911015f9395bf338a385a31da903b7c5cd2ce8c2cf0",
+      "afterCandidateSha256": "f6d2a0acf7a6cd57cd961fe39f28c8971e6ecb6d5c443d198de14434270f0c5c"
+    },
+    {
+      "kind": "ability",
+      "path": "abilities/lion_impale.png",
+      "sourcePath": "panorama/images/spellicons/lion_impale_png.vtex_c",
+      "format": "DXT5",
+      "flags": ["ycocg"],
+      "dimensions": [64, 64],
+      "beforeCenterRgba": [159, 122, 0, 37],
+      "afterCenterRgba": [66, 32, 19, 255],
+      "beforeRawPreviewSha256": "e15de9f987307de3ef354d8aa9dcff130e5d087c408d98c3020a3f7c88cff05d",
+      "afterCandidateSha256": "de281432baa03258bb80e457f5251ec4512956582490c0acae69e9016039b3ff"
+    },
+    {
+      "kind": "ability",
+      "path": "abilities/silencer_glaives_of_wisdom.png",
+      "sourcePath": "panorama/images/spellicons/silencer_glaives_of_wisdom_png.vtex_c",
+      "format": "DXT5",
+      "flags": ["ycocg"],
+      "dimensions": [64, 64],
+      "beforeCenterRgba": [158, 130, 24, 174],
+      "afterCenterRgba": [191, 176, 154, 255],
+      "beforeRawPreviewSha256": "3bedf203cdabbc00c4f3d11b78b0700b85414c832dcdb25680973c1217039b01",
+      "afterCandidateSha256": "5c6ccc7836ad89613a60d217ea8b6ac16540828f6238ab9383d536e473badd9b"
+    }
+  ],
+  "statIcons": {
+    "count": 13,
+    "formatCounts": {"BGRA8888": 12, "DXT5": 1},
+    "unflaggedUnchangedCount": 12,
+    "ycocgChanged": {
+      "path": "stat-icons/lifesteal.png",
+      "oldBytes": 8157,
+      "oldSha256": "82b20334baccd00f9f4975b09405e7437ac88d298ee6376e9336f7430f83669d",
+      "newBytes": 9021,
+      "newSha256": "d6a840620897de781917627dc1971b5996fbf0e990b7827ea164ba9657345eae"
+    },
+    "provenanceMismatches": 0
+  },
+  "map": {
+    "sourcePath": "materials/overviews/dota_737_psd_28d44696.vtex_c",
+    "format": "RGBA8888",
+    "flags": [],
+    "changedByYCoCgConversion": false
+  },
+  "sizes": {
+    "bundledTreeBytesBefore": 25614984,
+    "bundledTreeBytesCurrentAfterStatIconRefreshAndValidationRecord": 25621230,
+    "candidateCardArtPngBytes": 23393158,
+    "actualBundledTreeBytesAfterCardArtReplacement": null,
+    "projectedBundledTreeBytesAfterCardArtReplacement": 24587939
+  },
+  "evidenceNotes": [
+    "Before pixels come from the raw unconverted preview fitted to the export card dimensions; after pixels come from the full 6993 export candidate and match its SHA-256 records.",
+    "Local image inspection showed Silencer purple and Blink blue; no game render or live-game acceptance was performed.",
+    "The full card-art candidate and its file-hash provenance remain in F:\\cargo-lanes\\asset-ycocg\\export-6993\\6993. Only the refreshed stat icon remains installed in the worktree because the card-art replacement operation was rejected by execution policy."
+  ]
+}

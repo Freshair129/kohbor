@@ -1,6 +1,6 @@
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
-use kohbor_game_assets::{decode_vtex_c, hero_portrait_path, Vpk};
+use kohbor_game_assets::{decode_vtex_c_for_display, hero_portrait_path, Vpk};
 use std::ffi::OsString;
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
@@ -78,7 +78,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         let read_ms = read_started.elapsed().as_secs_f64() * 1000.0;
 
         let decode_started = Instant::now();
-        let image = decode_vtex_c(&bytes)?;
+        let image = decode_vtex_c_for_display(&bytes)?;
         let decode_ms = decode_started.elapsed().as_secs_f64() * 1000.0;
 
         let png_started = Instant::now();

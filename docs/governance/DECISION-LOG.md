@@ -2,14 +2,18 @@
 title: "Decision Log and Open Items"
 doc_id: "DECISION-LOG"
 status: draft
-version: "0.3.18"
-updated: "2026-11-24"
+version: "0.3.19"
+updated: "2026-11-25"
 authority: "DEC-BASELINE; see DOCUMENT-CONTROL"
 owner_role: "Product and engineering owners; people not assigned"
 approval_status: "not_approved"
 ---
 
 # Decision Log and Open Items
+
+## Implementation corrections recorded 2026-11-25
+
+- **YCoCg DXT5 asset export (implementation correction; not an owner decision).** The game-asset exporter treated DXT5 textures marked `YCoCg Conv` in the VTEX resource-edit metadata as ordinary color channels, producing visibly incorrect card art. The exporter now reads the texture flags from the resource blocks and applies the scaled YCoCg-to-RGB conversion only to flagged format-2 DXT5 display images; unflagged formats retain their existing decode path. The installed build 6993 export was regenerated in the assigned asset lane with per-file source paths and hashes. Replacing the bundled 6989 card-art set with that export is still pending because the worktree execution policy rejected the exact replacement operation; do not treat the lane candidate as bundled or as a live-game acceptance result.
 
 ## Recorded product-name decision
 
