@@ -254,7 +254,10 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
           <div className="shell-page-head-tools">
             {/* Owner decision 2026-11-23 item 5: no GSI/game status chips on the Overview; every other page keeps them. */}
             {activePage !== "overview" && <StatusLine model={statusModel} label={text.shell.statusLineLabel} hostLostMessage={`${text.hostLost} — ${text.hostOutdated}`} onNavigate={navigate} />}
-            {activePage === "live" && inMatch && <SecondMonitorToggle side={secondMonitor.side} onChange={secondMonitor.change} locale={displayLocale === "en" ? "en" : "th"} />}
+            {activePage === "live" && !inMatch && <div className="shell-live-start-control">
+              <StartDotaBar status={steamStatus} control={launch} showSteamName={steamName.show} locale={displayLocale} />
+            </div>}
+            {activePage === "live" && <SecondMonitorToggle side={secondMonitor.side} onChange={secondMonitor.change} locale={displayLocale === "en" ? "en" : "th"} />}
             <AudioMuteControl control={mute} locale={displayLocale} compact />
           </div>
         </header>
@@ -264,15 +267,8 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
 
           {activePage === "live" && (
             <div className="shell-screen shell-live-page">
-              {!inMatch && <div className="shell-live-page-top">
-                <GsiSetupCard status={hostLost ? null : status} locale={displayLocale} setup={setup} />
-                <StartDotaBar status={steamStatus} control={launch} showSteamName={steamName.show} locale={displayLocale} />
-              </div>}
-              {!inMatch && <div className="shell-live-page-top">
-                <SecondMonitorToggle side={secondMonitor.side} onChange={secondMonitor.change} locale={displayLocale === "en" ? "en" : "th"} />
-              </div>}
-              <Deck locale={displayLocale} status={status} snapshot={snapshot} state={deckState} mute={mute} playback={playback} hostLost={hostLost} steamStatus={steamStatus} gsiSetup={setup}
-                inMatch={inMatch} secondMonitor={pinnedSide ? { side: pinnedSide, onChange: secondMonitor.change } : undefined} />
+              <Deck locale={displayLocale} status={status} snapshot={snapshot} state={deckState} hostLost={hostLost} steamStatus={steamStatus}
+                inMatch={inMatch} secondMonitor={pinnedSide ? { side: pinnedSide } : undefined} />
             </div>
           )}
 

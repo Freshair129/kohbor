@@ -31,7 +31,7 @@
 .sm-too-small-box h2 { margin: 0 0 8px; font-size: 18px; }
 .sm-too-small-box p { margin: 0; color: var(--text-2); }
 
-/* The shell keeps its global page header and footer. During a match the Live canvas alone fills the page content. */
+/* The shell keeps its global page header and footer. The Live field always fills its page content. */
 .app[data-live-monitor] { grid-template-columns: minmax(0, 1fr) var(--rail-left-width) var(--rail-width); }
 .app[data-live-monitor="right"] .shell-main { grid-column: 1; }
 .app[data-live-monitor="right"] .shell-rail-left { grid-column: 2; border-right: 0; border-left: 1px solid var(--line); }
@@ -44,24 +44,29 @@
 .app[data-live-monitor="right"][data-match="true"] { grid-template-columns: minmax(0, 1fr) var(--rail-left-width) 0; }
 .app[data-live-monitor="left"][data-match="true"] { grid-template-columns: 0 var(--rail-left-width) minmax(0, 1fr); }
 .app[data-live-monitor] .pulse-grid-ribbon { display: none; }
-.app[data-live-match="true"] .shell-page-content { overflow: hidden; }
-.app[data-live-match="true"] .shell-live-page { width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; }
-.app[data-live-match="true"] .shell-live-page-top { display: none; }
-.app[data-live-match="true"] .deck-field-root { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; }
-.app[data-live-match="true"] .deck-centered-host { position: relative; grid-column: 1; grid-row: 1; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; }
+.app[data-page="live"] .shell-page-content { overflow: hidden; }
+.app[data-page="live"] .shell-live-page { width: 100%; height: 100%; min-width: 0; min-height: 0; gap: 0; overflow: hidden; }
+.app[data-page="live"] .shell-live-start-control { flex: none; min-width: 0; }
+.app[data-page="live"] .shell-live-start-control .steam-start-bar { min-height: 32px; gap: 0; padding: 0; border: 0; background: transparent; }
+.app[data-page="live"] .shell-live-start-control :is(.steam-service-chips, .steam-launch-message, .steam-launch-reason) { display: none; }
+.app[data-page="live"] .shell-live-start-control .steam-start-bar > button { min-height: 32px; padding-inline: 8px; }
+.app[data-page="live"] .shell-live-page > .deck-field-root { display: grid; flex: 1 1 0; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; }
+.app[data-page="live"] .deck-centered-host { position: relative; grid-column: 1; grid-row: 1; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; }
 .deck-field-region { position: absolute; min-width: 0; min-height: 0; overflow: hidden; }
 .deck-field-team > .lhc-list-field { width: 100%; height: 100%; }
 .deck-field-map { display: flex; flex-direction: column; gap: 2px; }
-.deck-field-phase { display: flex; flex: 0 0 24px; align-items: center; min-width: 0; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--text-2); font-size: 12px; font-weight: 600; }
+.deck-field-phase { display: flex; flex: 0 0 24px; align-items: center; gap: 8px; min-width: 0; overflow: hidden; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--text-2); font-size: 12px; font-weight: 600; }
+.deck-field-phase-name { flex: none; }
+.deck-field-phase-reason { flex: 1 1 0; min-width: 0; overflow: hidden; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
 .deck-field-map > .live-map-pane { flex: 1 1 0; width: 100%; height: 0; min-width: 0; min-height: 0; gap: 0; padding: 6px; container-type: size; }
 .deck-field-map .live-map-toolbar { flex: 0 0 auto; align-items: center; flex-wrap: nowrap; }
 .deck-field-map .live-map-toolbar .live-map-badge { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .deck-field-map .live-map-tools { flex: 0 0 auto; flex-wrap: nowrap; }
 .deck-field-map .live-sidebar-actions { margin-top: 0; }
-.app[data-live-match="true"] .deck-field-draft-row { display: flex; flex: 1 1 0; align-items: flex-start; gap: 8px; min-width: 0; min-height: 0; overflow: hidden; }
-.app[data-live-match="true"] .deck-field-draft-row > .deck-draft { flex: 1 1 auto; min-width: 0; }
-.app[data-live-match="true"] .deck-field-draft-row > .deck-draft-column-panel { flex: 0 0 180px; width: 180px; height: 100%; max-height: none; min-height: 0; overflow: hidden; }
-.app[data-live-match="true"] .deck-field-draft-row .draft-column-surface-deck { height: 100%; max-height: none; overflow: hidden; }
+.app[data-page="live"] .deck-field-draft-row { display: flex; flex: 1 1 0; align-items: flex-start; gap: 8px; min-width: 0; min-height: 0; overflow: hidden; }
+.app[data-page="live"] .deck-field-draft-row > .deck-draft { flex: 1 1 auto; min-width: 0; }
+.app[data-page="live"] .deck-field-draft-row > .deck-draft-column-panel { flex: 0 0 180px; width: 180px; height: 100%; max-height: none; min-height: 0; overflow: hidden; }
+.app[data-page="live"] .deck-field-draft-row .draft-column-surface-deck { height: 100%; max-height: none; overflow: hidden; }
 .deck-field-too-small { display: grid; place-content: center; gap: 8px; width: 100%; height: 100%; padding: 20px; text-align: center; }
 .deck-field-too-small h2 { margin: 0; font-size: 18px; }
 .deck-field-too-small p { margin: 0; color: var(--text-2); }

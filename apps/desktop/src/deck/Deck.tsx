@@ -1,17 +1,10 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { copy, type Locale } from "../copy";
+import type { Locale } from "../copy";
 import { MinimapPanel } from "../live/MinimapPanel";
-import { useAudioHistory } from "../useAudioHistory";
-import { hostNowFromAnchor } from "../hostClock";
-import type { PlaybackView } from "../runtime";
-import type { AudioMuteState } from "../AudioPanel";
 import type { OwnSnapshot, RuntimeStatus } from "../types";
 import { deckCopy } from "./copy";
 import type { DeckStateView } from "./deckState";
 import { deriveOwnHeroViewModel } from "./ownHeroModel";
-import { AlertStrip } from "./AlertStrip";
-import { EventFeed } from "./EventFeed";
-import { AnnouncerStatus } from "./AnnouncerStatus";
 import { DraftBarStrip, useDraftBar } from "./DraftBarStrip";
 import { DraftDeckPanel } from "../draft/DraftDeckPanel";
 import { deriveLoadoutViewModel } from "./loadoutModel";
@@ -47,10 +40,13 @@ function useFieldBox<T extends HTMLElement>() {
 function phaseLabel(locale: Locale, phase: RuntimeStatus["session"]["phase"] | null): string {
   const th = locale !== "en";
   switch (phase) {
+    case "none": return th ? "รอเกมเริ่ม" : "Waiting for game";
     case "draft": return th ? "ดราฟต์" : "Draft";
     case "pregame": return th ? "ก่อนเริ่มเกม" : "Pregame";
     case "live": return th ? "กำลังเล่น" : "In match";
-    default: return "";
+    case "post_game": return th ? "หลังเกม" : "Post-game";
+    case "unsupported": return th ? "ไม่รองรับสถานะเกม" : "Unsupported game phase";
+    default: return th ? "ไม่ทราบสถานะเกม" : "Unknown game phase";
   }
 }
 
@@ -72,7 +68,10 @@ function CenteredLiveField({ locale, status, snapshot, hostLost, steamStatus, st
   const direCards = ownTeam === "dire" ? ourCards : enemyCards;
   const phase = hostLost ? null : status?.session.phase ?? null;
   const draft = phase === "draft";
-  const phaseName = phaseLabel(locale, phase);
+  const phaseName = hostLost
+    ? (locale === "en" ? "Host not responding" : "ระบบหลักไม่ตอบ")
+    : phaseLabel(locale, phase);
+  const phaseReason = locale === "en" ? state.reason.en : state.reason.th;
   const sideWidth = layout?.mode === "field" ? layout.card.w : 0;
   const wideStats = sideWidth >= 260;
   const roomyField = layout?.mode === "field" && sideWidth >= 320 && layout.card.h >= CENTER_ROOMY_CARD_MIN_H;
@@ -101,7 +100,10 @@ function CenteredLiveField({ locale, status, snapshot, hostLost, steamStatus, st
               headingLabel={{ title: text.ownHero, latestResult: text.latestResult }} fieldCard wideStats={wideStats} ownFieldMode={ownFieldMode} youLabel={cardsText.you} />} />
         </section>
         <section className="deck-field-region deck-field-map" style={position(regions!.map)} data-region="map" data-testid="center-map-region">
-          <div className="deck-field-phase" data-testid="gsi-phase-strip"><span>{phaseName}</span></div>
+          <div className="deck-field-phase" data-testid="gsi-phase-strip" title={`${phaseName} · ${phaseReason}`}>
+            <span className="deck-field-phase-name">{phaseName}</span>
+            <span className="deck-field-phase-reason">{phaseReason}</span>
+          </div>
           {draft ? <div className="deck-field-draft-row" data-testid="center-draft-region">
             <DraftBarStrip frame={draftBar} locale={locale} />
             <DraftDeckPanel visible />
@@ -120,11 +122,8 @@ export function Deck({
   status,
   snapshot,
   state,
-  mute,
-  playback,
   hostLost,
   steamStatus,
-  gsiSetup,
   inMatch,
   secondMonitor,
 }: {
@@ -132,28 +131,17 @@ export function Deck({
   status: RuntimeStatus | null;
   snapshot: OwnSnapshot | null;
   state: DeckStateView;
-  mute: AudioMuteState;
-  playback: PlaybackView;
   hostLost: boolean;
   steamStatus: SteamStatus | null;
   inMatch: boolean;
-  /** Runs the same gsi_setup flow as the connection card; shown as a button on the items/abilities hint. */
-  gsiSetup?: (replace: boolean) => Promise<string | null>;
   /** Second-monitor mode (UI-016). Present only while a match runs and a monitor side is set. */
-  secondMonitor?: { side: Exclude<SecondMonitorSide, "off">; onChange: (side: SecondMonitorSide) => void };
+  secondMonitor?: { side: Exclude<SecondMonitorSide, "off"> };
 }) {
-  const text = deckCopy(locale);
   const own = deriveOwnHeroViewModel(snapshot);
   const loadout = deriveLoadoutViewModel(snapshot, hostLost);
-  // A retained payload's age is not a current age once the host stops answering.
-  const displayAgeMs = hostLost ? null : own.ageMs;
-  const history = useAudioHistory(hostLost);
   const draftEpoch = !hostLost && status?.session.phase === "draft" ? status.session.session_epoch : null;
   const draftBar = useDraftBar(draftEpoch);
-  const historyState = hostLost ? "failed" : history.state;
-  const hostNowMs = hostLost ? null : hostNowFromAnchor(playback.clockAnchor, performance.now());
   const stale = state.state === "stale" || own.snapshotAvailability === "stale";
-  const hasLatestResult = state.state === "debrief" && own.hasOwnSnapshot;
   // Replay-style cards (DEC-REPLAY-INTEGRATION item 10; full structure on every card, owner 2026-11-24): identities only
   // from same-session draft memory (UI-012), shared with the second-monitor deck; allies and enemies have no other
   // admitted source here, so their other values stay unknown.
@@ -164,64 +152,12 @@ export function Deck({
   const cardTeam = ownTeam ?? (ownSlot === null ? null : ownSlot < 5 ? "radiant" : "dire");
   const allyCards = orderBySlot(allyHeroCards({ memory: roster, epoch: sessionEpoch, ownTeam: cardTeam, ownHeroId: own.heroId }));
   const enemyCards = orderBySlot(enemyHeroCards(roster, sessionEpoch, cardTeam));
-  const cardText = cardCopy(locale === "en" ? "en" : "th");
-  const enemyCaption = [cardText.source.draft, cardText.source.enemyNone].join(" · ");
-  const allyCaption = [cardText.source.draft, cardText.source.peerPending].join(" · ");
 
   if (inMatch && secondMonitor) return (
     <SecondMonitorDeck locale={locale} side={secondMonitor.side} snapshot={snapshot} hostLost={hostLost}
       sessionEpoch={hostLost ? null : status?.session.session_epoch ?? null} draftBar={draftBar} steamStatus={steamStatus} />
   );
-  if (inMatch) return (
-    <CenteredLiveField locale={locale} status={status} snapshot={snapshot} hostLost={hostLost} steamStatus={steamStatus}
-      state={state} own={own} loadout={loadout} stale={stale} draftBar={draftBar} roster={roster} ownTeam={cardTeam}
-      ownSlot={ownSlot} allyCards={allyCards} enemyCards={enemyCards} />
-  );
-
-  const legacy = (
-    <main className="deck-root" lang={locale} data-state={state.state} data-draft={draftBar?.active || undefined} data-draft-column="true">
-      <div className="deck-draft-row">
-        <DraftBarStrip frame={draftBar} locale={locale} />
-        <DraftDeckPanel visible />
-      </div>
-      <section className="deck-column deck-own-column" aria-label={text.ownHero}>
-        <OwnHeroCard locale={locale} own={own} loadout={loadout} slot={ownSlot} stale={stale} ageMs={displayAgeMs}
-          hasLatestResult={hasLatestResult} headingId="deck-own-heading" headingLabel={{ title: text.ownHero, latestResult: text.latestResult }}
-          gsiSetup={gsiSetup} />
-
-        <section className="deck-ally-panel" aria-labelledby="deck-allies-heading">
-          <header className="deck-card-heading">
-            <h2 id="deck-allies-heading">{text.allies}</h2>
-          </header>
-          <p className="deck-enemy-caption deck-ally-caption" title={allyCaption}>{allyCaption}</p>
-          <CompactHeroCards cards={allyCards} locale={locale} label={text.allies} />
-        </section>
-      </section>
-
-      <section className="deck-column deck-map-column" aria-label={copy(locale).shell.tabs.live}>
-        {state.state === "standby" && (
-          <p className="deck-standby-note" role="status">{locale === "th" ? state.reason.th : state.reason.en}</p>
-        )}
-        <MinimapPanel locale={locale} layout="deck" steamStatus={steamStatus} renderAlerts={({ risk, captureLive }) => (
-          <AlertStrip own={{ ...own, ageMs: displayAgeMs }} state={state.state} risk={risk} captureLive={captureLive} locale={locale} />
-        )} />
-      </section>
-
-      <section className="deck-column deck-right-column" aria-label={text.enemies}>
-        <section className="deck-enemy-panel" aria-labelledby="deck-enemies-heading">
-          <header className="deck-card-heading">
-            <h2 id="deck-enemies-heading">{text.enemies}</h2>
-          </header>
-          <p className="deck-enemy-caption" title={enemyCaption}>{enemyCaption}</p>
-          <CompactHeroCards cards={enemyCards} locale={locale} label={text.enemies} />
-        </section>
-
-        <EventFeed locale={locale} history={history.history} state={historyState} hostNowMs={hostNowMs} />
-        <AnnouncerStatus locale={locale} status={status} mute={mute} history={history.history}
-          historyState={historyState} hostNowMs={hostNowMs} playback={playback} hostLost={hostLost} />
-      </section>
-    </main>
-  );
-
-  return legacy;
+  return <CenteredLiveField locale={locale} status={status} snapshot={snapshot} hostLost={hostLost} steamStatus={steamStatus}
+    state={state} own={own} loadout={loadout} stale={stale} draftBar={draftBar} roster={roster} ownTeam={cardTeam}
+    ownSlot={ownSlot} allyCards={allyCards} enemyCards={enemyCards} />;
 }
