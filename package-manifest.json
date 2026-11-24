@@ -643,8 +643,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/portraits.rs",
-      "bytes": 26674,
-      "sha256": "bb31609c62d11b2d7843d998c8f38cf6df14a2dcba7a72b22929278befc194b3"
+      "bytes": 27498,
+      "sha256": "c13a0bf829c33e3b3afa7686040bb4cf2e65ecb2bf2974e829a9e757044ff13a"
     },
     {
       "path": "apps/desktop/src-tauri/src/replay_library/engine.rs",

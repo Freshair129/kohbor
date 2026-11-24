@@ -414,7 +414,8 @@ mod tests {
         let mut pixels = Vec::new();
         for y in 0..128_u16 {
             for x in 0..256_u16 {
-                pixels.extend_from_slice(&[x as u8, y as u8, 9, 255]);
+                // Format 28 is BGRA8888: store blue first so the decoded RGBA is (x, y, 9).
+                pixels.extend_from_slice(&[9, y as u8, x as u8, 255]);
             }
         }
         game.write_vpk(vec![
