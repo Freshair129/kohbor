@@ -250,11 +250,19 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
     setAnalyticsDetail(null);
     setInsightsView("summary");
   };
-  const openPostGameReplay = () => {
+  const [postGameMatchKey, setPostGameMatchKey] = useState<{ key: string; nonce: number } | null>(null);
+  // The post-game button opens Insights -> Analytics on the match that just ended. The panel knows the match only by
+  // its install-keyed history hash; AnalyticsPage resolves that hash against the replay library list.
+  const openPostGameReplay = (matchKey?: string) => {
     setAnalyticsDetail(null);
     setAnalyticsRestore(null);
     setActivePage("insights");
-    setInsightsView("replay");
+    if (matchKey) {
+      setPostGameMatchKey(previous => ({ key: matchKey, nonce: (previous?.nonce ?? 0) + 1 }));
+      setInsightsView("summary");
+    } else {
+      setInsightsView("replay");
+    }
   };
   // Second-monitor mode (UI-016): on the Live page only while a match runs (hero selection through the game) and a side
   // is set; otherwise the centred deck, as with "off" (owner report on build 3815c73, 2026-11-23). The deck itself shows
@@ -320,7 +328,7 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
           {activePage === "insights" && (currentInsightsView === "summary" || analyticsDetail !== null) && <div hidden={currentInsightsView === "replay"}
             style={{ width: "100%", height: "100%", minWidth: 0, minHeight: 0 }}>
             <AnalyticsPage locale={displayLocale} active={currentInsightsView === "summary"} restoreContext={analyticsRestore}
-              onOpenReplay={openAnalyticsDetails} />
+              openMatchKey={postGameMatchKey} onOpenReplay={openAnalyticsDetails} />
           </div>}
           {activePage === "insights" && currentInsightsView === "replay" && analyticsDetail && <Suspense fallback={<p role="status">{text.loading}</p>}>
             <AnalyticsDetailsPanel locale={displayLocale} available={canOpenPostMatchReplay(status, steamStatus, hostLost, matchEnded)}

@@ -52,7 +52,7 @@ function CenteredLiveField({ locale, status, snapshot, hostLost, steamStatus, ma
   matchEnded: boolean;
   state: DeckStateView; own: ReturnType<typeof deriveOwnHeroViewModel>; loadout: ReturnType<typeof deriveLoadoutViewModel>;
   stale: boolean; draftBar: ReturnType<typeof useDraftBar>; roster: ReturnType<typeof useRosterMemory>; ownTeam: "radiant" | "dire" | null;
-  ownSlot: number | null; allyCards: HeroCard[]; enemyCards: HeroCard[]; onOpenReplay: () => void;
+  ownSlot: number | null; allyCards: HeroCard[]; enemyCards: HeroCard[]; onOpenReplay: (matchKey?: string) => void;
 }) {
   const text = deckCopy(locale);
   const cardsText = cardCopy(locale === "en" ? "en" : "th");
@@ -221,7 +221,7 @@ export function Deck({
   steamStatus: SteamStatus | null;
   inMatch: boolean;
   matchEnded?: boolean;
-  onOpenReplay?: () => void;
+  onOpenReplay?: (matchKey?: string) => void;
   /** Second-monitor mode (UI-016). Present only while a match runs and a monitor side is set. */
   secondMonitor?: { side: Exclude<SecondMonitorSide, "off"> };
 }) {

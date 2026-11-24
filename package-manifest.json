@@ -418,8 +418,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/commands.rs",
-      "bytes": 74566,
-      "sha256": "a9078d5c845f746208ff4d26512625723a4cf26128818852c39dd388909a5f82"
+      "bytes": 74841,
+      "sha256": "262644ea3b9df677d2fd5c5a47815dd31c7f0981250a2531a2ef56ccb33c32c5"
     },
     {
       "path": "apps/desktop/src-tauri/src/containment.rs",
@@ -763,8 +763,8 @@
     },
     {
       "path": "apps/desktop/src/App.tsx",
-      "bytes": 28645,
-      "sha256": "4348fa4ad63807d68657f63d0dfd77bc1f5b7781eda258129f89f4686e78424d"
+      "bytes": 29190,
+      "sha256": "25a44e28d9fcf0fd65394d808075ed0069de131e7604c313b638179a988fe2b1"
     },
     {
       "path": "apps/desktop/src/AudioHistory.tsx",
@@ -938,8 +938,8 @@
     },
     {
       "path": "apps/desktop/src/analytics/AnalyticsPage.tsx",
-      "bytes": 56724,
-      "sha256": "90c79b3375a949821b12fbc7db93cbbac58a770242c79b6ba661237366c0c4d2"
+      "bytes": 57344,
+      "sha256": "136b79b04069eb725baa1e54fdeda7baa46b0b016dd751fd8a5050a48531bd87"
     },
     {
       "path": "apps/desktop/src/analytics/AnalyticsSettings.tsx",
@@ -12483,8 +12483,8 @@
     },
     {
       "path": "apps/desktop/src/deck/Deck.tsx",
-      "bytes": 14856,
-      "sha256": "895d1cba4666eaaa9f1cfc6308ef78abe96bd76005e2df5f5ef812053a9c031d"
+      "bytes": 14890,
+      "sha256": "f490f01a48ef145c7a6eae301e274d2b9c3d7e6bebc5f92d9bd93fccd411eeea"
     },
     {
       "path": "apps/desktop/src/deck/DraftBarStrip.tsx",
@@ -12808,8 +12808,8 @@
     },
     {
       "path": "apps/desktop/src/live/PostGameSummary.tsx",
-      "bytes": 4040,
-      "sha256": "b5b63060a13a3aa948f65af0dda96196604dedefcb765c28cf2a73f71d9a79ee"
+      "bytes": 4093,
+      "sha256": "4481855c710d60b64b3aab5110e32c72f4c7c1a576083e274912a77acca65142"
     },
     {
       "path": "apps/desktop/src/live/PregameDashboard.tsx",
@@ -13493,8 +13493,8 @@
     },
     {
       "path": "apps/desktop/src/replay/matchViewer.d.mts",
-      "bytes": 947,
-      "sha256": "a80fc481d7116ea618c0f1819ca4d10084fc07ac63d4bfc5a7a3e20be50f9193"
+      "bytes": 924,
+      "sha256": "fbf34a03dca3e7859dad5e0bc2800463b1f01bbe59b12d8462df7007213ee652"
     },
     {
       "path": "apps/desktop/src/replay/matchViewer.html",
@@ -13518,8 +13518,8 @@
     },
     {
       "path": "apps/desktop/src/replay/replayLibraryClient.ts",
-      "bytes": 2749,
-      "sha256": "cf5ae30a7798bd55c51bb4d7c0b4c149b71b64c359498c5e5c629db3f888f8ab"
+      "bytes": 2871,
+      "sha256": "e2609c80824d65a2ce68fe87ab56d13eaa5a296d9801627b280d75b46b17c67b"
     },
     {
       "path": "apps/desktop/src/replay/replayLibraryModel.ts",
