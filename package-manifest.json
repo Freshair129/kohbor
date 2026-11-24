@@ -758,8 +758,8 @@
     },
     {
       "path": "apps/desktop/src/App.tsx",
-      "bytes": 28525,
-      "sha256": "6d50e21f29e671013c316166c85275904ce3d086ad2e32b9f7ca9b4696f4c5c9"
+      "bytes": 28987,
+      "sha256": "e45fdbbae54b02d1edb7f1d4174b9ffd1098341dfdb0d81ea555e1ad31e8d7fa"
     },
     {
       "path": "apps/desktop/src/AudioHistory.tsx",
@@ -13488,8 +13488,8 @@
     },
     {
       "path": "apps/desktop/src/replay/matchViewer.d.mts",
-      "bytes": 924,
-      "sha256": "fbf34a03dca3e7859dad5e0bc2800463b1f01bbe59b12d8462df7007213ee652"
+      "bytes": 947,
+      "sha256": "a80fc481d7116ea618c0f1819ca4d10084fc07ac63d4bfc5a7a3e20be50f9193"
     },
     {
       "path": "apps/desktop/src/replay/matchViewer.html",
