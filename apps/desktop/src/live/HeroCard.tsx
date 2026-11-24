@@ -10,6 +10,7 @@ import { GsiSetupHint } from "../deck/OwnLoadout";
 import { retainFreshLoadout, type FreshLoadoutCache, type LoadoutViewModel } from "../deck/loadoutModel";
 import { ownHeroLifeLabel, type OwnHeroViewModel } from "../deck/ownHeroModel";
 import { cardCopy, type HeroCard as CardModel } from "./secondMonitorCards";
+import type { OwnFieldCardMode } from "./secondMonitorLayout";
 import { dotaIcon } from "./dotaIconSet";
 import { ownFullCard, teamFullCard, UNKNOWN, type FullHeroCardView, type IconSlotView, type StatCellView } from "./heroCardModel";
 import liveStatsPack from "../assets/dota/6989/stats.json";
@@ -122,17 +123,21 @@ function statTitle(cell: StatCellView, text: Text): string {
 }
 
 /** The sections every card shares, in the replay card's order. */
-function CardSections({ view, text, locale, abilitiesAge, itemsAge, basisInHeader = false }: {
-  view: FullHeroCardView; text: Text; locale: Locale; abilitiesAge: number | null; itemsAge: number | null; basisInHeader?: boolean;
+function CardSections({ view, text, locale, abilitiesAge, itemsAge, basisInHeader = false, roomyField = false }: {
+  view: FullHeroCardView; text: Text; locale: Locale; abilitiesAge: number | null; itemsAge: number | null; basisInHeader?: boolean; roomyField?: boolean;
 }) {
   const { abilities, items } = view;
   return (
     <>
       <div className="lhc-top">
         <span className="lhc-kd" title={`${text.kda}: ${view.kdaText}`}>{view.kdaText}</span>
+        {!roomyField && <span title={`${text.lhdn}: ${view.lhdnText}`}>{view.lhdnText}</span>}
+        {!roomyField && <span className="lhc-gold" title={`${text.gold}: ${view.goldText}`}>{view.goldText}</span>}
+      </div>
+      {roomyField && <div className="lhc-econ">
         <span title={`${text.lhdn}: ${view.lhdnText}`}>{view.lhdnText}</span>
         <span className="lhc-gold" title={`${text.gold}: ${view.goldText}`}>{view.goldText}</span>
-      </div>
+      </div>}
       <div className="lhc-bars">
         <Bar kind="hp" percent={view.hpPercent} label={text.hp} value={view.hpText} low={view.hpLow} />
         <Bar kind="mp" percent={view.manaPercent} label={text.mana} value={view.manaText} />
@@ -176,7 +181,7 @@ function CardSections({ view, text, locale, abilitiesAge, itemsAge, basisInHeade
 }
 
 /** Own hero, full replay-style card. Keeps the last fresh loadout of the same context while the source is stale. */
-export function OwnHeroCard({ locale, own, loadout, slot, stale, ageMs, hasLatestResult, headingId, headingLabel, gsiSetup, tile = false, listItem = false, fieldCard = false, wideStats = false, youLabel = "You" }: {
+export function OwnHeroCard({ locale, own, loadout, slot, stale, ageMs, hasLatestResult, headingId, headingLabel, gsiSetup, tile = false, listItem = false, fieldCard = false, wideStats = false, ownFieldMode, youLabel = "You" }: {
   locale: Locale; own: OwnHeroViewModel; loadout: LoadoutViewModel; slot: number | null; stale: boolean; ageMs: number | null;
   hasLatestResult: boolean; headingId: string; headingLabel: { title: string; latestResult: string };
   gsiSetup?: (replace: boolean) => Promise<string | null>;
@@ -188,6 +193,8 @@ export function OwnHeroCard({ locale, own, loadout, slot, stale, ageMs, hasLates
   fieldCard?: boolean;
   /** Use the wider two-row stat grid when the team column has room. */
   wideStats?: boolean;
+  /** Select the own-card ability/item rows from the measured field card size. */
+  ownFieldMode?: OwnFieldCardMode;
   youLabel?: string;
 }) {
   const lang: Lang = locale === "en" ? "en" : "th";
@@ -204,7 +211,7 @@ export function OwnHeroCard({ locale, own, loadout, slot, stale, ageMs, hasLates
   const life = ownHeroLifeLabel(own, lang);
   if (fieldCard) {
     const field = (
-      <li className={`lhc lhc-compact lhc-field-card lhc-field-own${wideStats ? " has-wide-stats" : ""}${stale ? " is-stale" : ""}${view.alive === false ? " is-dead" : ""}`}
+      <li className={`lhc lhc-compact lhc-field-card lhc-field-own${wideStats ? " has-wide-stats" : ""}${ownFieldMode ? ` is-own-${ownFieldMode}` : ""}${stale ? " is-stale" : ""}${view.alive === false ? " is-dead" : ""}`}
         style={style} data-testid="live-hero-card-own" data-slot={slot ?? undefined} aria-label={`${youLabel}: ${view.heroName ?? UNKNOWN} · ${life}`}>
         <div className="lhc-pt">
           <CardPortrait heroId={view.heroId} src={view.portraitSrc} alt={view.heroName ?? text.unknown} />
@@ -214,10 +221,10 @@ export function OwnHeroCard({ locale, own, loadout, slot, stale, ageMs, hasLates
         <div className="lhc-nm">
           <strong title={view.heroCaption ?? view.heroName ?? undefined}>{view.heroName ?? UNKNOWN}</strong>
           <span className="lhc-you-chip">{youLabel}</span>
-          {wideStats && view.derivedBasis && <span className="lhc-derived-basis is-inline" title={view.derivedBasis.title}>{view.derivedBasis.label}</span>}
           {!wideStats && <span className="lhc-life" title={life}>{life}</span>}
         </div>
-        <CardSections view={view} text={text} locale={locale} abilitiesAge={loadout.abilities.ageMs} itemsAge={loadout.items.ageMs} basisInHeader={wideStats} />
+        <CardSections view={view} text={text} locale={locale} abilitiesAge={loadout.abilities.ageMs} itemsAge={loadout.items.ageMs}
+          basisInHeader={wideStats || ownFieldMode !== undefined} />
       </li>
     );
     return field;
@@ -248,7 +255,9 @@ export function OwnHeroCard({ locale, own, loadout, slot, stale, ageMs, hasLates
 }
 
 /** Ally or enemy: the same sections in a denser variant; values without an admitted source are "—" or empty slots. */
-function TeamCard({ view, locale, tile = false, fieldCard = false, wideStats = false }: { view: FullHeroCardView; locale: Locale; tile?: boolean; fieldCard?: boolean; wideStats?: boolean }) {
+function TeamCard({ view, locale, tile = false, fieldCard = false, wideStats = false, roomyField = false }: {
+  view: FullHeroCardView; locale: Locale; tile?: boolean; fieldCard?: boolean; wideStats?: boolean; roomyField?: boolean;
+}) {
   const lang: Lang = locale === "en" ? "en" : "th";
   const text = heroCardCopy(lang);
   const cards = cardCopy(lang);
@@ -256,7 +265,7 @@ function TeamCard({ view, locale, tile = false, fieldCard = false, wideStats = f
   const who = view.side === "enemy" ? cards.enemyMark : cards.ourTeam;
   const note = view.heroName === null ? text.unnamedNote : view.side === "enemy" ? text.enemyNote : text.allyNote;
   return (
-    <li className={`lhc lhc-compact${tile ? " lhc-tile" : ""}${fieldCard ? ` lhc-field-card${wideStats ? " has-wide-stats" : ""}` : ""} is-${view.side}${view.heroName ? "" : " is-unknown"}`} style={style} title={note}
+    <li className={`lhc lhc-compact${tile ? " lhc-tile" : ""}${fieldCard ? ` lhc-field-card${wideStats ? " has-wide-stats" : ""}${roomyField ? " is-roomy-field" : " is-compact-fit"}` : ""} is-${view.side}${view.heroName ? "" : " is-unknown"}`} style={style} title={note}
       data-testid={`live-hero-card-${view.key}`} data-slot={view.slot ?? undefined} aria-label={`${who}: ${view.heroName ?? UNKNOWN} · ${note}`}>
       <div className="lhc-pt">
         <CardPortrait heroId={view.heroId} src={view.portraitSrc} alt={view.heroName ?? UNKNOWN} />
@@ -267,19 +276,21 @@ function TeamCard({ view, locale, tile = false, fieldCard = false, wideStats = f
         {view.ult && <span className={`lhc-ult is-${view.ult.state}`} title={`${cards.ult}: ${cards.state[view.ult.state]}`}
           aria-label={`${cards.ult}: ${cards.state[view.ult.state]}`} />}
       </div>
-      <CardSections view={view} text={text} locale={locale} abilitiesAge={null} itemsAge={null} />
+      <CardSections view={view} text={text} locale={locale} abilitiesAge={null} itemsAge={null} roomyField={roomyField} />
     </li>
   );
 }
 
 /** One dense replay-structure card for a mixed second-monitor team list. */
-export function CompactHeroCardItem({ card, locale, tile = false, fieldCard = false, wideStats = false }: { card: CardModel; locale: Locale; tile?: boolean; fieldCard?: boolean; wideStats?: boolean }) {
-  return <TeamCard view={teamFullCard(card, dotaIcon)} locale={locale} tile={tile} fieldCard={fieldCard} wideStats={wideStats} />;
+export function CompactHeroCardItem({ card, locale, tile = false, fieldCard = false, wideStats = false, roomyField = false }: {
+  card: CardModel; locale: Locale; tile?: boolean; fieldCard?: boolean; wideStats?: boolean; roomyField?: boolean;
+}) {
+  return <TeamCard view={teamFullCard(card, dotaIcon)} locale={locale} tile={tile} fieldCard={fieldCard} wideStats={wideStats} roomyField={roomyField} />;
 }
 
 /** A team column of cards (four allies, or five enemies), each from the second-monitor card model. */
-export function CompactHeroCards({ cards, locale, label, tile = false, fieldCard = false, fieldDirection = "column", wideStats = false, renderOwn }: {
-  cards: CardModel[]; locale: Locale; label: string; tile?: boolean; fieldCard?: boolean; wideStats?: boolean;
+export function CompactHeroCards({ cards, locale, label, tile = false, fieldCard = false, fieldDirection = "column", wideStats = false, roomyField = false, renderOwn }: {
+  cards: CardModel[]; locale: Locale; label: string; tile?: boolean; fieldCard?: boolean; wideStats?: boolean; roomyField?: boolean;
   fieldDirection?: "column" | "row";
   renderOwn?: (card: CardModel) => ReactNode;
 }) {
@@ -287,7 +298,7 @@ export function CompactHeroCards({ cards, locale, label, tile = false, fieldCard
     <ul className={`lhc-list${tile ? " lhc-list-tile" : ""}${fieldCard ? ` lhc-list-field lhc-list-field-${fieldDirection}` : ""}`} aria-label={label}>
       {cards.map(card => card.side === "own" && renderOwn
         ? <Fragment key={card.key}>{renderOwn(card)}</Fragment>
-        : <CompactHeroCardItem key={card.key} card={card} locale={locale} tile={tile} fieldCard={fieldCard} wideStats={wideStats} />)}
+        : <CompactHeroCardItem key={card.key} card={card} locale={locale} tile={tile} fieldCard={fieldCard} wideStats={wideStats} roomyField={roomyField} />)}
     </ul>
   );
 }

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
   CARD_MIN_W,
+  CARD_ROOMY_ROW_MIN_H,
   CARD_GAP,
   CARD_ROW_MIN_H,
   CENTER_CARD_GAP,
@@ -10,10 +11,12 @@ import {
   CENTER_CARD_NARROW_STATS_MIN_H,
   CENTER_GAP,
   CENTER_MAP_MIN_W,
+  CENTER_ROOMY_CARD_MIN_H,
   CENTER_WIDE_STATS_MIN_W,
   GAP,
   MAP_PANEL_MIN_H,
   centeredLiveLayout,
+  ownFieldCardMode,
   placedRegions,
   secondMonitorLayout,
   type PlacedLayout,
@@ -36,8 +39,9 @@ const inside = (r: Rect, w: number, h: number) => r.x >= 0 && r.y >= 0 && r.x + 
 const overlap = (a: Rect, b: Rect) => Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) > 0 && Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) > 0;
 
 test("pinned full replay-structure floors fit five cards per row at 12 px text", () => {
-  assert.equal(CARD_MIN_W, 216);
+  assert.equal(CARD_MIN_W, 224);
   assert.equal(CARD_ROW_MIN_H, 156);
+  assert.equal(CARD_ROOMY_ROW_MIN_H, 157);
   assert.equal(MAP_PANEL_MIN_H, 260);
   const css = readFileSync(new URL("../src/live/heroCard.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
   assert.match(css, /\.lhc-field-card\.lhc-field-own\s*\{[^}]*minmax\(86px,\s*1fr\)/, "the narrow own card reserves its basis line and all three 24 px stat rows");
@@ -58,6 +62,10 @@ test("both pinned sides fit ten complete card slots and the minimap at every req
     assert.ok(layout.map.h >= MAP_PANEL_MIN_H, `${name}: map panel floor`);
     assert.ok(layout.card.w >= CARD_MIN_W, `${name}: each of five cards has at least ${CARD_MIN_W}px`);
     assert.ok(layout.card.h >= CARD_ROW_MIN_H, `${name}: each card row has at least ${CARD_ROW_MIN_H}px`);
+    const roomy = layout.card.w >= 320 && layout.card.h >= CARD_ROOMY_ROW_MIN_H;
+    assert.equal(roomy, name === "1920x1080" || name === "1920x1000", `${name}: expanded card rows use only the measured width and height`);
+    const ownMode = ownFieldCardMode(layout.card);
+    assert.equal(ownMode, layout.card.w >= 254 ? "two-row-24" : "two-row-22", `${name}: pinned own card preserves every icon row at the measured card width`);
     assert.equal(layout.enemy.y, 0, `${name}: enemy row starts at the top`);
     assert.equal(layout.enemy.h, layout.card.h);
     assert.equal(layout.map.y, layout.enemy.y + layout.enemy.h + GAP, `${name}: map follows the enemy row`);
@@ -78,12 +86,14 @@ test("pinned view mounts both five-card rows and has no free-slot or internal-sc
   const deck = readFileSync(new URL("../src/live/SecondMonitorDeck.tsx", import.meta.url), "utf8");
   const panel = readFileSync(new URL("../src/live/MinimapPanel.tsx", import.meta.url), "utf8");
   const css = readFileSync(new URL("../src/live/secondMonitor.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const cardCss = readFileSync(new URL("../src/live/heroCard.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
   assert.match(deck, /<TeamRow cards=\{enemies\} side="enemy"/);
   assert.match(deck, /<TeamRow cards=\{ours\} side="ally"/);
   assert.match(deck, /orderBySlot\(\[ownCard, \.\.\.allies\]\)/);
   assert.match(deck, /CompactHeroCards cards=\{cards\}[^>]*fieldCard/);
   assert.match(deck, /fieldCard fieldDirection="row"/);
   assert.match(deck, /<OwnHeroCard[^>]*fieldCard/);
+  assert.match(deck, /placed\.card\.h >= CARD_ROOMY_ROW_MIN_H/);
   assert.match(deck, /layout="pinned" mapEdge=\{placed\.mapEdge\}/);
   assert.match(panel, /className="live-map-body is-pinned" data-map-edge=\{mapEdge\}/);
   assert.match(panel, /<div className="live-map-square-slot">\{stage\}<\/div>/);
@@ -95,6 +105,10 @@ test("pinned view mounts both five-card rows and has no free-slot or internal-sc
   assert.match(css, /\.live-map-body\.is-pinned\[data-map-edge="right"\] \.live-map-toolbar\s*\{[^}]*grid-column:\s*1/);
   assert.match(css, /\.live-map-body\.is-pinned\[data-map-edge="left"\] \.live-map-toolbar\s*\{[^}]*grid-column:\s*2/);
   assert.match(css, /width:\s*min\(100cqw,\s*100cqh\)/, "the minimap uses the largest square in its region");
+  assert.match(cardCss, /\.lhc-field-card\.is-compact-fit \.lhc-side\s*\{[^}]*gap:\s*0/,
+    "the 22 px item row fits the minimum pinned card track without horizontal clipping");
+  assert.match(css, /.sm-host \.lhc-field-card\.is-roomy-field\s*\{[^}]*28px 12px 16px 28px 28px minmax\(36px,\s*1fr\)/,
+    "pinned roomy rows preserve three 12 px stat lines inside their 160 px row cap");
 });
 
 test("below the box needed for cards and map, use the existing too-small state", () => {
@@ -118,6 +132,7 @@ const centerInside = (r: Rect, w: number, h: number) => r.x >= 0 && r.y >= 0 && 
 const centerOverlap = (a: Rect, b: Rect) => Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) > 0 && Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) > 0;
 
 test("centred mode places Radiant, minimap, and Dire without overflow at each supported viewport", () => {
+  assert.equal(CENTER_ROOMY_CARD_MIN_H, 170);
   for (const [name, w, h] of CENTER_WINDOWS) {
     const { width, height } = centerLiveBox(w, h);
     const layout = centeredLiveLayout({ width, height });
@@ -138,6 +153,11 @@ test("centred mode places Radiant, minimap, and Dire without overflow at each su
     assert.ok(layout.map.w >= CENTER_MAP_MIN_W);
     assert.ok(layout.card.w >= CENTER_CARD_MIN.w);
     assert.ok(layout.card.h >= (layout.card.w >= CENTER_WIDE_STATS_MIN_W ? CENTER_CARD_MIN.h : CENTER_CARD_NARROW_STATS_MIN_H));
+    const expectedOwnMode = name === "1920x1080" || name === "1920x1000" ? "one-row-28"
+      : name === "1280x720" ? "two-row-22" : "two-row-24";
+    assert.equal(ownFieldCardMode(layout.card), expectedOwnMode, `${name}: own-card icons adapt to the measured dimensions`);
+    const roomy = layout.card.w >= 320 && layout.card.h >= CENTER_ROOMY_CARD_MIN_H;
+    assert.equal(roomy, name === "1920x1080" || name === "1920x1000", `${name}: expanded icon rows only activate above their measured floor`);
     assert.ok(layout.card.h * 5 + CENTER_CARD_GAP * 4 <= height, `${name}: five equal rows fit in each column`);
     const cards = [layout.radiant, layout.dire].flatMap(column => Array.from({ length: 5 }, (_, slot) => ({
       x: column.x, y: column.y + slot * (layout.card.h + CENTER_CARD_GAP), w: layout.card.w, h: layout.card.h,
@@ -164,6 +184,8 @@ test("centred field renders ten slot-ordered replay cards, same-height team colu
   assert.match(deck, /ownTeam === "dire" \? ourCards : enemyCards/);
   assert.match(deck, /label=\{cardsText\.radiant\}/);
   assert.match(deck, /label=\{cardsText\.dire\}/);
+  assert.match(deck, /layout\.card\.h >= CENTER_ROOMY_CARD_MIN_H/);
+  assert.match(deck, /sideWidth >= 320/);
   const cardSource = readFileSync(new URL("../src/live/HeroCard.tsx", import.meta.url), "utf8");
   assert.match(cardSource, /lhc-list-field-\$\{fieldDirection\}/);
   assert.match(cardCss, /\.lhc-list-field-row\s*\{[^}]*grid-template-columns:\s*repeat\(5,/);

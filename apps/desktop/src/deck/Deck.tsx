@@ -20,7 +20,7 @@ import { SecondMonitorDeck, orderBySlot } from "../live/SecondMonitorDeck";
 import { OwnHeroCard, CompactHeroCards } from "../live/HeroCard";
 import { allyHeroCards, cardCopy, enemyHeroCards, ownDraftSlot, ownHeroCard, type HeroCard } from "../live/secondMonitorCards";
 import { useRosterMemory } from "../live/rosterMemory";
-import { centeredLiveLayout } from "../live/secondMonitorLayout";
+import { CENTER_ROOMY_CARD_MIN_H, centeredLiveLayout, ownFieldCardMode } from "../live/secondMonitorLayout";
 import type { SecondMonitorSide } from "../live/secondMonitorModel";
 import "./deck.css";
 
@@ -75,6 +75,8 @@ function CenteredLiveField({ locale, status, snapshot, hostLost, steamStatus, st
   const phaseName = phaseLabel(locale, phase);
   const sideWidth = layout?.mode === "field" ? layout.card.w : 0;
   const wideStats = sideWidth >= 260;
+  const roomyField = layout?.mode === "field" && sideWidth >= 320 && layout.card.h >= CENTER_ROOMY_CARD_MIN_H;
+  const ownFieldMode = layout?.mode === "field" ? ownFieldCardMode(layout.card) : undefined;
   const regions = layout?.mode === "field" ? layout : null;
   const position = (rect: { x: number; y: number; w: number; h: number }): CSSProperties =>
     ({ position: "absolute", left: rect.x, top: rect.y, width: rect.w, height: rect.h });
@@ -93,10 +95,10 @@ function CenteredLiveField({ locale, status, snapshot, hostLost, steamStatus, st
     <main className="deck-root deck-field-root" lang={locale} data-state={state.state} data-draft={draft || undefined} data-draft-column="true">
       <div className="deck-centered-host" ref={field.ref} data-layout="field">
         <section className="deck-field-region deck-field-team" style={position(regions!.radiant)} data-region="radiant" data-testid="center-team-radiant">
-          <CompactHeroCards cards={radiantCards} locale={locale} label={cardsText.radiant} fieldCard wideStats={wideStats}
+          <CompactHeroCards cards={radiantCards} locale={locale} label={cardsText.radiant} fieldCard wideStats={wideStats} roomyField={roomyField}
             renderOwn={card => <OwnHeroCard key={card.key} locale={locale} own={own} loadout={loadout} slot={card.slot}
               stale={stale || hostLost} ageMs={hostLost ? null : own.ageMs} hasLatestResult={false} headingId="center-own-heading"
-              headingLabel={{ title: text.ownHero, latestResult: text.latestResult }} fieldCard wideStats={wideStats} youLabel={cardsText.you} />} />
+              headingLabel={{ title: text.ownHero, latestResult: text.latestResult }} fieldCard wideStats={wideStats} ownFieldMode={ownFieldMode} youLabel={cardsText.you} />} />
         </section>
         <section className="deck-field-region deck-field-map" style={position(regions!.map)} data-region="map" data-testid="center-map-region">
           <div className="deck-field-phase" data-testid="gsi-phase-strip"><span>{phaseName}</span></div>
@@ -106,7 +108,7 @@ function CenteredLiveField({ locale, status, snapshot, hostLost, steamStatus, st
           </div> : <MinimapPanel locale={locale} layout="field" steamStatus={steamStatus} />}
         </section>
         <section className="deck-field-region deck-field-team" style={position(regions!.dire)} data-region="dire" data-testid="center-team-dire">
-          <CompactHeroCards cards={direCards} locale={locale} label={cardsText.dire} fieldCard wideStats={wideStats} />
+          <CompactHeroCards cards={direCards} locale={locale} label={cardsText.dire} fieldCard wideStats={wideStats} roomyField={roomyField} />
         </section>
       </div>
     </main>

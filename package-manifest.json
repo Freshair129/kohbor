@@ -12208,8 +12208,8 @@
     },
     {
       "path": "apps/desktop/src/deck/Deck.tsx",
-      "bytes": 12894,
-      "sha256": "7ff868ce1aa0d9f973b8d18342748474727f79a542350762c8b4b73827ef292c"
+      "bytes": 13217,
+      "sha256": "1b7bdbcf8fbee35c56cd8fbae4ac8ca55ca026a8ef76f3ff6982f3f0b483c973"
     },
     {
       "path": "apps/desktop/src/deck/DraftBarStrip.tsx",
@@ -12483,8 +12483,8 @@
     },
     {
       "path": "apps/desktop/src/live/HeroCard.tsx",
-      "bytes": 18813,
-      "sha256": "a4f17ae5a297959b8851c1b92fba1ff3e2aea6fbb19cb5ae0232a8555cd5a8fa"
+      "bytes": 19510,
+      "sha256": "630d97e0f8cfd3d5adc96805694375937dad42e0eb30774581a774713b5daa2e"
     },
     {
       "path": "apps/desktop/src/live/LiveTab.tsx",
@@ -12523,8 +12523,8 @@
     },
     {
       "path": "apps/desktop/src/live/SecondMonitorDeck.tsx",
-      "bytes": 7706,
-      "sha256": "443c723c3436d3f0ca1719b650b35c6edc76d9f505ae0359066cdc35167d8c72"
+      "bytes": 8017,
+      "sha256": "d439f1e2636ff4a4f3561b2c8e4217bae7b98c2ccf684f42e2d1b61a9c8d5da6"
     },
     {
       "path": "apps/desktop/src/live/SecondMonitorToggle.tsx",
@@ -12593,8 +12593,8 @@
     },
     {
       "path": "apps/desktop/src/live/heroCard.css",
-      "bytes": 18314,
-      "sha256": "d9e705c5054ebfc5a59a90bf230fb26c55628091cfbfa530516f07a9469c5d4b"
+      "bytes": 27666,
+      "sha256": "c53f3013ccbf45018af7a82349ab0fef9543cf10620cdc30c3b6b0034abf6099"
     },
     {
       "path": "apps/desktop/src/live/heroCardModel.ts",
@@ -12608,8 +12608,8 @@
     },
     {
       "path": "apps/desktop/src/live/live.css",
-      "bytes": 10593,
-      "sha256": "726e872ba9fdb1a83df0901260c6871f59aa908e46d19a8287e0b3eed05117c3"
+      "bytes": 10677,
+      "sha256": "9e52c12c885a50eac25fcc3e68463efeeb12ff3f0fbe6949c85fb6a1cd5bf1c5"
     },
     {
       "path": "apps/desktop/src/live/meter.ts",
@@ -12668,8 +12668,8 @@
     },
     {
       "path": "apps/desktop/src/live/secondMonitor.css",
-      "bytes": 10689,
-      "sha256": "9ece5296dcc77ffc3b8491ece01d9adf010facd89376c5be284d6a5b5e9e33f4"
+      "bytes": 11124,
+      "sha256": "d038a00993b3eb9422c950097811e0a7b1314e50043df5face2a47bfc624dc4e"
     },
     {
       "path": "apps/desktop/src/live/secondMonitorCards.ts",
@@ -12678,8 +12678,8 @@
     },
     {
       "path": "apps/desktop/src/live/secondMonitorLayout.ts",
-      "bytes": 4838,
-      "sha256": "90e8c11f89a504c183f0cb0eaa2ce6f137bcbf515bb0dd0cf8f79ccac29d7293"
+      "bytes": 5985,
+      "sha256": "1291086239be456e00ac4b5d3a92aa5df9357a317f6efb8419ed359d1605c391"
     },
     {
       "path": "apps/desktop/src/live/secondMonitorModel.ts",
@@ -13588,8 +13588,8 @@
     },
     {
       "path": "apps/desktop/tests/live-layout.test.ts",
-      "bytes": 5678,
-      "sha256": "204f9f703f33b9bf8eed5c7322a7c59893a08c965ba844c8bf379ca5a3e12566"
+      "bytes": 13470,
+      "sha256": "7aeba0d9372b344819aa7056f0e44a83e020ca02587e3aa9896f47c80f58e2a5"
     },
     {
       "path": "apps/desktop/tests/live-preview.test.ts",
@@ -13608,8 +13608,8 @@
     },
     {
       "path": "apps/desktop/tests/live-second-monitor-layout.test.ts",
-      "bytes": 12172,
-      "sha256": "b95e41e332d7817fb1aac7749e39f928f7bc9def1cbbbd8c3efbf874db8b923f"
+      "bytes": 13952,
+      "sha256": "e86a35f0e1136566319894bbb9017c382e1ae81527bc1e088e4b66770e15c819"
     },
     {
       "path": "apps/desktop/tests/live-second-monitor-map.test.ts",
