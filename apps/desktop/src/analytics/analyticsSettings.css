@@ -1,0 +1,11 @@
+.analytics-settings { gap: 14px; }
+.analytics-settings-grid { display: grid; grid-template-columns: repeat(2,minmax(260px,1fr)); gap: 16px; }
+.analytics-settings-grid>section { display: grid; align-content: start; gap: 10px; border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+.analytics-settings-grid label { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.analytics-settings-grid input[type=number] { width: 100px; }
+.analytics-settings-grid input[type=password] { min-width: 180px; flex: 1; }
+.analytics-settings-grid button { margin-right: 6px; }
+.analytics-ledger-wrap { max-height: 240px; overflow: auto; }
+.analytics-ledger-wrap table { width: 100%; border-collapse: collapse; font: 12px var(--font-mono); }
+.analytics-ledger-wrap th,.analytics-ledger-wrap td { border-bottom: 1px solid var(--line); padding: 5px 8px; text-align: left; }
+@media(max-width:900px) { .analytics-settings-grid { grid-template-columns: 1fr; } }

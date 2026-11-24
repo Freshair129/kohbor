@@ -77,6 +77,8 @@ pub struct ReplayLibraryEntry {
     pub duration_s: Option<u64>,
     #[serde(default)]
     pub patch: Option<String>,
+    #[serde(default)]
+    pub pinned: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -128,6 +130,7 @@ struct ReplayMeta<'a> {
     own_hero: &'a Option<String>,
     duration_s: Option<u64>,
     patch: &'a Option<String>,
+    pinned: bool,
 }
 
 impl ReplayLibraryEntry {
@@ -145,6 +148,7 @@ impl ReplayLibraryEntry {
             own_hero: &self.own_hero,
             duration_s: self.duration_s,
             patch: &self.patch,
+            pinned: self.pinned,
         }
     }
 }
@@ -164,13 +168,14 @@ struct Inner {
     staging: PathBuf,
     bundled_engine: Option<PathBuf>,
     allow_development_engine: bool,
-    limits: ReplayLibraryLimits,
+    limits: Mutex<ReplayLibraryLimits>,
     match_active: Arc<dyn Fn() -> bool + Send + Sync>,
     emit_state_changed: EventSink,
     state: Mutex<StoreState>,
     jobs: Mutex<VecDeque<JobRecord>>,
     operation: Mutex<()>,
     worker_available: AtomicBool,
+    auto_analyse: AtomicBool,
 }
 
 #[derive(Clone)]
@@ -242,13 +247,14 @@ impl ReplayLibrary {
                 staging,
                 bundled_engine,
                 allow_development_engine,
-                limits,
+                limits: Mutex::new(limits),
                 match_active,
                 emit_state_changed,
                 state: Mutex::new(StoreState { index, unavailable }),
                 jobs: Mutex::new(VecDeque::new()),
                 operation: Mutex::new(()),
                 worker_available: AtomicBool::new(false),
+                auto_analyse: AtomicBool::new(true),
             }),
             sender,
         };
@@ -291,12 +297,17 @@ impl ReplayLibrary {
     }
 
     #[cfg(test)]
-    fn new_for_tests(root: PathBuf, limits: ReplayLibraryLimits) -> Self {
+    pub(crate) fn new_for_tests(root: PathBuf, limits: ReplayLibraryLimits) -> Self {
+        Self::new_for_tests_with_phase(root, limits, false)
+    }
+
+    #[cfg(test)]
+    fn new_for_tests_with_phase(root: PathBuf, limits: ReplayLibraryLimits, match_active: bool) -> Self {
         Self::new(
             root,
             None,
             false,
-            Arc::new(|| false),
+            Arc::new(move || match_active),
             Arc::new(|| {}),
             limits,
         )
@@ -328,6 +339,71 @@ impl ReplayLibrary {
             jobs,
             watched_replay_folder_path,
         })
+    }
+
+    pub fn bundle_folder(&self, match_id: &str) -> Result<PathBuf, &'static str> {
+        validate_match_id(match_id).map_err(|_| "invalid_match_id")?;
+        if !lock(&self.inner.state).index.entries.iter().any(|entry| entry.match_id == match_id) {
+            return Err("match_not_found");
+        }
+        Ok(self.inner.root.join(match_id))
+    }
+
+    pub fn set_auto_analyse(&self, enabled: bool) {
+        self.inner.auto_analyse.store(enabled, Ordering::Release);
+    }
+
+    pub fn set_limits(&self, limits: ReplayLibraryLimits) -> Result<(), &'static str> {
+        if !(5..=100).contains(&limits.max_matches) || limits.max_bytes == 0 {
+            return Err("invalid_library_limits");
+        }
+        let _operation = lock(&self.inner.operation);
+        let mut state = lock(&self.inner.state);
+        let mut next = state.index.clone();
+        let evicted = self.trim_to_limits_with(&mut next, "", limits)?;
+        let tombstones = evicted.iter().filter_map(|id| move_to_tombstone(&self.inner.root, id)).collect::<Vec<_>>();
+        if write_index(&self.inner.root, &next).is_err() {
+            restore_tombstones(&tombstones);
+            return Err("storage_unavailable");
+        }
+        state.index = next;
+        drop(state);
+        for (_, tombstone) in tombstones { let _ = fs::remove_dir_all(tombstone); }
+        *lock(&self.inner.limits) = limits;
+        self.emit_state_changed();
+        Ok(())
+    }
+
+    pub fn set_pinned(&self, match_id: &str, pinned: bool) -> Result<(), &'static str> {
+        validate_match_id(match_id).map_err(|_| "invalid_match_id")?;
+        let _operation = lock(&self.inner.operation);
+        let mut state = lock(&self.inner.state);
+        let mut next = state.index.clone();
+        let entry = next.entries.iter_mut().find(|entry| entry.match_id == match_id).ok_or("match_not_found")?;
+        entry.pinned = pinned;
+        let evicted = self.trim_to_limits(&mut next, "")?;
+        let tombstones = evicted.iter().filter_map(|id| move_to_tombstone(&self.inner.root, id)).collect::<Vec<_>>();
+        let Some(updated) = next.entries.iter().find(|entry| entry.match_id == match_id).cloned() else {
+            restore_tombstones(&tombstones);
+            return Err("match_not_found");
+        };
+        let mut updated = updated;
+        updated.storage_bytes = updated.bundle_bytes + entry_meta_bytes(&updated)?.len() as u64;
+        if write_meta(&self.inner.root.join(match_id), &updated).is_err() {
+            restore_tombstones(&tombstones);
+            return Err("storage_unavailable");
+        }
+        if let Some(entry) = next.entries.iter_mut().find(|entry| entry.match_id == match_id) { entry.storage_bytes = updated.storage_bytes; }
+        if write_index(&self.inner.root, &next).is_err() {
+            restore_tombstones(&tombstones);
+            if let Some(old) = state.index.entries.iter().find(|entry| entry.match_id == match_id) { let _ = write_meta(&self.inner.root.join(match_id), old); }
+            return Err("storage_unavailable");
+        }
+        state.index = next;
+        drop(state);
+        for (_, tombstone) in tombstones { let _ = fs::remove_dir_all(tombstone); }
+        self.emit_state_changed();
+        Ok(())
     }
 
     pub fn open_bundle(&self, match_id: &str) -> Result<ReplayBundle, &'static str> {
@@ -611,6 +687,11 @@ impl ReplayLibrary {
             }
             if self.add_available(match_id, &path, ReplaySource::DotaReplaysFolder)? {
                 discovered += 1;
+                if self.inner.auto_analyse.load(Ordering::Acquire) && !(self.inner.match_active)() {
+                    let active_job = lock(&self.inner.jobs).iter()
+                        .any(|job| matches!(job.public.status, ReplayStatus::Queued | ReplayStatus::Parsing));
+                    if !active_job { let _ = self.parse(stem); }
+                }
             }
         }
         Ok(discovered)
@@ -651,6 +732,7 @@ impl ReplayLibrary {
             own_hero: None,
             duration_s: None,
             patch: None,
+            pinned: false,
         };
         let target = self.inner.root.join(&match_id);
         if target.exists() {
@@ -838,7 +920,9 @@ impl ReplayLibrary {
             own_hero,
             duration_s,
             patch,
+            pinned: false,
         };
+        entry.pinned = existing.as_ref().is_some_and(|entry| entry.pinned);
         entry.storage_bytes = entry.bundle_bytes
             + entry_meta_bytes(&entry)
                 .map_err(|_| engine::EngineFailure::StorageConflict)?
@@ -924,25 +1008,44 @@ impl ReplayLibrary {
         index: &mut ReplayIndex,
         protected_match_id: &str,
     ) -> Result<Vec<String>, &'static str> {
+        self.trim_to_limits_with(index, protected_match_id, *lock(&self.inner.limits))
+    }
+
+    fn trim_to_limits_with(
+        &self,
+        index: &mut ReplayIndex,
+        protected_match_id: &str,
+        limits: ReplayLibraryLimits,
+    ) -> Result<Vec<String>, &'static str> {
         if index
             .entries
             .iter()
             .find(|entry| entry.match_id == protected_match_id)
-            .is_some_and(|entry| entry.bundle_bytes > self.inner.limits.max_bytes)
+            .is_some_and(|entry| entry.bundle_bytes > limits.max_bytes)
         {
             return Err("output_too_large");
         }
+        let pinned_usage = index.entries.iter().filter(|entry| entry.pinned)
+            .fold(0u64, |total, entry| total.saturating_add(entry.storage_bytes));
         let mut evicted = Vec::new();
-        while index.entries.len() > self.inner.limits.max_matches
-            || index_usage(index) > self.inner.limits.max_bytes
-        {
-            let oldest = index
+        loop {
+            let unpinned_ready = index.entries.iter()
+                .filter(|entry| !entry.pinned && entry.status == ReplayStatus::Ready).count();
+            let over_count = unpinned_ready > limits.max_matches;
+            let over_size = index_usage(index) > limits.max_bytes;
+            if !over_count && !over_size { break; }
+            let Some(oldest) = index
                 .entries
                 .iter()
-                .filter(|entry| entry.match_id != protected_match_id)
+                .filter(|entry| !entry.pinned && entry.match_id != protected_match_id
+                    && (!over_count || entry.status == ReplayStatus::Ready))
                 .min_by_key(|entry| entry.created_at_unix_ms)
-                .map(|entry| entry.match_id.clone())
-                .ok_or("output_too_large")?;
+                .map(|entry| entry.match_id.clone()) else {
+                    // Pinned bundles are user-retained data. If they alone exceed the cap,
+                    // preserve them and expose actual usage so the UI can show over-cap state.
+                    if pinned_usage > limits.max_bytes { break; }
+                    return Err("output_too_large");
+                };
             index.entries.retain(|entry| entry.match_id != oldest);
             evicted.push(oldest);
         }
@@ -1430,7 +1533,9 @@ mod tests {
             library
                 .add_available(id.to_owned(), &path, ReplaySource::DotaReplaysFolder)
                 .unwrap();
+            library.set_entry_status(id, ReplayStatus::Ready).unwrap();
         }
+        library.set_pinned("103", false).unwrap();
         let ids = library
             .list()
             .unwrap()
@@ -1442,10 +1547,103 @@ mod tests {
         assert!(ids.contains(&"102".to_owned()));
         assert!(ids.contains(&"103".to_owned()));
         assert!(!root.join("101").exists());
+        assert!(source.join("one.dem").exists(), "retention must never delete the user's .dem");
         library.remove("102").unwrap();
         assert!(!root.join("102").exists());
         assert_eq!(library.list().unwrap().matches.len(), 1);
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn retention_keeps_newest_unpinned_ready_bundles_and_pins_and_preserves_notes_and_dem() {
+        let root = temp_dir("retention-pins");
+        let data = temp_dir("retention-notes");
+        let library = ReplayLibrary::new_for_tests(root.clone(), ReplayLibraryLimits { max_matches: 100, max_bytes: 1024 * 1024 });
+        let source = root.join("source"); fs::create_dir_all(&source).unwrap();
+        let notes = crate::analytics::AnalyticsStore::open(&data, Some([9; 32]));
+        for (index, id) in ["101", "102", "103", "104", "105", "106", "107"].into_iter().enumerate() {
+            let dem = source.join(format!("{id}.dem")); fs::write(&dem, b"PBDEMS2\0fixture").unwrap();
+            library.add_available(id.to_owned(), &dem, ReplaySource::DotaReplaysFolder).unwrap();
+            library.set_entry_status(id, ReplayStatus::Ready).unwrap();
+            let mut state = lock(&library.inner.state);
+            if let Some(entry) = state.index.entries.iter_mut().find(|entry| entry.match_id == id) {
+                entry.created_at_unix_ms = index as u64 + 1;
+                entry.bundle_bytes = 100;
+                entry.storage_bytes = 200;
+                write_meta(&root.join(id), entry).unwrap();
+                write_index(&root, &state.index).unwrap();
+            }
+        }
+        notes.write_note("102", "Coach note", "kept after replay eviction").unwrap();
+        library.set_pinned("101", true).unwrap();
+        library.set_limits(ReplayLibraryLimits { max_matches: 5, max_bytes: 1024 * 1024 }).unwrap();
+        let ids = library.list().unwrap().matches.into_iter().map(|entry| entry.match_id).collect::<HashSet<_>>();
+        assert_eq!(ids, ["101", "103", "104", "105", "106", "107"].into_iter().map(str::to_owned).collect());
+        assert!(source.join("102.dem").exists());
+        assert_eq!(notes.read_note("102", "Coach note.md").unwrap(), "kept after replay eviction");
+        assert!(!root.join("102").exists());
+        let _ = fs::remove_dir_all(root); let _ = fs::remove_dir_all(data);
+    }
+
+    #[test]
+    fn size_cap_evicts_oldest_eligible_bundle_only() {
+        let root = temp_dir("retention-size");
+        let library = ReplayLibrary::new_for_tests(root.clone(), ReplayLibraryLimits::default());
+        let source = root.join("source"); fs::create_dir_all(&source).unwrap();
+        for (index, id) in ["201", "202", "203"].into_iter().enumerate() {
+            let dem = source.join(format!("{id}.dem")); fs::write(&dem, b"PBDEMS2\0fixture").unwrap();
+            library.add_available(id.to_owned(), &dem, ReplaySource::DotaReplaysFolder).unwrap();
+            library.set_entry_status(id, ReplayStatus::Ready).unwrap();
+            let mut state = lock(&library.inner.state);
+            let entry = state.index.entries.iter_mut().find(|entry| entry.match_id == id).unwrap();
+            entry.created_at_unix_ms = index as u64 + 1; entry.bundle_bytes = 600; entry.storage_bytes = 700;
+            write_meta(&root.join(id), entry).unwrap(); write_index(&root, &state.index).unwrap();
+        }
+        library.set_limits(ReplayLibraryLimits { max_matches: 100, max_bytes: 1500 }).unwrap();
+        let list = library.list().unwrap();
+        assert_eq!(list.matches.len(), 1); assert_eq!(list.matches[0].match_id, "203");
+        for id in ["201", "202", "203"] { assert!(source.join(format!("{id}.dem")).exists()); }
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn pinned_bundles_survive_a_size_cap_reduction_and_report_actual_usage() {
+        let root = temp_dir("retention-pinned-over-cap");
+        let library = ReplayLibrary::new_for_tests(root.clone(), ReplayLibraryLimits::default());
+        let source = root.join("source"); fs::create_dir_all(&source).unwrap();
+        for (id, pinned) in [("301", true), ("302", true), ("303", false)] {
+            let dem = source.join(format!("{id}.dem")); fs::write(&dem, b"PBDEMS2\\0fixture").unwrap();
+            library.add_available(id.to_owned(), &dem, ReplaySource::DotaReplaysFolder).unwrap();
+            library.set_entry_status(id, ReplayStatus::Ready).unwrap();
+            if pinned { library.set_pinned(id, true).unwrap(); }
+            let mut state = lock(&library.inner.state);
+            let entry = state.index.entries.iter_mut().find(|entry| entry.match_id == id).unwrap();
+            entry.storage_bytes = 600; entry.bundle_bytes = 500;
+            write_meta(&root.join(id), entry).unwrap(); write_index(&root, &state.index).unwrap();
+        }
+        library.set_limits(ReplayLibraryLimits { max_matches: 20, max_bytes: 800 }).unwrap();
+        let list = library.list().unwrap();
+        assert_eq!(list.matches.iter().map(|entry| entry.match_id.as_str()).collect::<HashSet<_>>(), ["301", "302"].into_iter().collect());
+        assert_eq!(list.matches.iter().map(|entry| entry.storage_bytes).sum::<u64>(), 1200);
+        for id in ["301", "302", "303"] { assert!(source.join(format!("{id}.dem")).exists()); }
+        assert!(root.join("301").exists() && root.join("302").exists());
+        assert!(!root.join("303").exists());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn auto_analysis_off_and_match_gate_never_queue_watched_dems() {
+        for (suffix, active, auto) in [("off", false, false), ("match", true, true)] {
+            let root = temp_dir(suffix); let library = ReplayLibrary::new_for_tests_with_phase(
+                root.clone(), ReplayLibraryLimits::default(), active);
+            library.set_auto_analyse(auto);
+            let folder = root.join("dota-replays"); fs::create_dir_all(&folder).unwrap();
+            let dem = folder.join("9001.dem"); fs::write(&dem, b"PBDEMS2\0fixture").unwrap();
+            assert_eq!(library.watch_replay_folder_for_test(&folder).unwrap(), 1);
+            assert!(library.list().unwrap().jobs.is_empty());
+            assert!(dem.exists());
+            let _ = fs::remove_dir_all(root);
+        }
     }
 
     #[test]
@@ -1499,6 +1697,7 @@ mod tests {
         let dem = folder.join("987654.dem");
         fs::write(&dem, b"PBDEMS2\0fixture").unwrap();
         let library = ReplayLibrary::new_for_tests(root.clone(), ReplayLibraryLimits::default());
+        library.set_auto_analyse(false);
         assert_eq!(library.watch_replay_folder_for_test(&folder).unwrap(), 1);
         assert_eq!(library.watch_replay_folder_for_test(&folder).unwrap(), 0);
         let list = library.list().unwrap();

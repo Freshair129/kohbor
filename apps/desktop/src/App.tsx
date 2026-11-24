@@ -45,6 +45,8 @@ import { useDotaLauncher, useShowSteamName, useSteamStatus } from "./steam/hooks
 import { steamPersonaName } from "./steam/model";
 import { StartDotaBar } from "./steam/StartDotaBar";
 import { canOpenPostMatchReplay, useMatchEnded } from "./replay/admission";
+import { AnalyticsPage } from "./analytics/AnalyticsPage";
+import { AnalyticsSettings } from "./analytics/AnalyticsSettings";
 import { RailLeft } from "./shell/RailLeft";
 import { RailRight } from "./shell/RailRight";
 import { useSecondMonitorSide } from "./live/useSecondMonitorSide";
@@ -280,7 +282,7 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
             <Suspense fallback={<p role="status">{text.loading}</p>}>
               <ReplayPanel locale={displayLocale} available={canOpenPostMatchReplay(status, steamStatus, hostLost, matchEnded)} />
             </Suspense>
-          ) : <EmptyPage title={text.shell.emptyPage} note={text.shell.emptyPageNote} />)}
+          ) : <AnalyticsPage locale={displayLocale} onOpenReplay={() => setInsightsView("replay")} />)}
 
           {activePage === "settings" && (
             <div className="shell-screen shell-settings">
@@ -323,6 +325,7 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
               <DraftSettings />
               <NewsSettings locale={displayLocale} />
               <OpenDotaSettings locale={displayLocale} />
+                <AnalyticsSettings locale={displayLocale} />
               <div className="shell-guide-slot">
                 {status && !hostLost ? <Guide status={status} locale={displayLocale} setup={setup} /> : (
                   <p className={hostLost ? "banner banner-warn" : "muted"} role={hostLost ? "alert" : "status"}>

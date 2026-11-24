@@ -340,3 +340,75 @@ export function MatchViewPanel({ locale }: { locale: Locale }) {
     </section>
   );
 }
+
+/** A library-selected viewer surface used by Analytics; it keeps the same validated bundle and viewer. */
+export function MatchViewerSurface({
+  locale, bundle, onHeroSelect, onHeroIdentify, onTimeChange, onReady,
+}: {
+  locale: Locale;
+  bundle: MatchBundle;
+  onHeroSelect?: (hero: string) => void;
+  onHeroIdentify?: (hero: string) => void;
+  onTimeChange?: (seconds: number) => void;
+  onReady?: (root: ShadowRoot) => void;
+}) {
+  const target = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const frame = target.current;
+    if (!frame) return;
+    const lookup = replayPackForPatch(bundle.patch);
+    if (lookup.state !== "ready") return;
+    const map = chooseMapCalibration(bundle.calibration, bundle.mapSize, lookup.pack.map);
+    if (!map.calibration || map.source === "unknown") return;
+    const root = frame.shadowRoot ?? frame.attachShadow({ mode: "open" });
+    const patch = bundle.patch ?? matchViewerCopy[locale].unknownPatch;
+    const mode = gameModeName(bundle.gameMode) ?? matchViewerCopy[locale].unknownMode;
+    const length = bundle.durationS === null ? matchViewerCopy[locale].unknownLength : clock(bundle.durationS);
+    const mounted = mountMatchView(root, bundle, {
+      locale, markup, style: `${style}\n${analyticsSurfaceOverrides}`,
+      icon: iconResolver(BUNDLED.icons), hasMap: BUNDLED.icons.has("map:"), patchData: lookup.pack,
+      mapCalibration: map.calibration,
+      header: {
+        "mv-lede": matchViewerCopy[locale].lede(patch, mode, length),
+        "mv-sub": matchViewerCopy[locale].sub(patch, mode),
+        "mv-proto": "",
+        "al-ult-copy": lookup.pack.ultimate_classification.available ? matchViewerCopy[locale].ultimateLabel : matchViewerCopy[locale].bkbOnlyLabel,
+      },
+    });
+    const heroes = Array.isArray(bundle.match.heroes) ? bundle.match.heroes as { pid?: unknown; id?: unknown }[] : [];
+    const heroFor = (event: Event) => {
+      const card = (event.target as Element | null)?.closest<HTMLElement>(".rc[id^='card-']");
+      if (!card) return null;
+      const pid = Number(card.id.slice("card-".length));
+      const hero = heroes.find(item => item.pid === pid && typeof item.id === "string");
+      return typeof hero?.id === "string" ? hero.id : null;
+    };
+    const click = (event: Event) => { const hero = heroFor(event); if (hero) onHeroSelect?.(hero); };
+    const doubleClick = (event: Event) => { const hero = heroFor(event); if (hero) onHeroIdentify?.(hero); };
+    root.addEventListener("click", click);
+    root.addEventListener("dblclick", doubleClick);
+    const scrubber = root.querySelector<HTMLInputElement>("#rv-scrub");
+    const scrub = () => { if (scrubber) { const time = Number(scrubber.value); if (Number.isFinite(time)) onTimeChange?.(time); } };
+    scrubber?.addEventListener("input", scrub);
+    onReady?.(root);
+    return () => { root.removeEventListener("click", click); root.removeEventListener("dblclick", doubleClick); scrubber?.removeEventListener("input", scrub); mounted(); };
+  }, [bundle, locale, onHeroSelect, onHeroIdentify, onTimeChange, onReady]);
+  return <div ref={target} className="analytics-viewer-surface" />;
+}
+
+const analyticsSurfaceOverrides = `
+#replay { gap: 8px; }
+#mv-lede, #mv-proto, #rv-layers, .rv-lower, .dl { display: none !important; }
+.rv-bar { padding: 8px; gap: 6px; }
+.rv-row.small { display: none; }
+.rv-stage { height: 100%; min-height: 400px; grid-template-columns: minmax(140px, 1fr) minmax(300px, 1.35fr) minmax(140px, 1fr); gap: 8px; align-items: stretch; }
+.rv-col { height: 100%; grid-template-rows: repeat(5, minmax(82px, 1fr)); gap: 6px; align-content: stretch; }
+.rv-center { height: 100%; grid-template-rows: auto minmax(300px, 1fr); }
+.rc { height: 100%; min-height: 82px; grid-template-columns: 34px minmax(0, 1fr); padding: 5px; gap: 2px 6px; }
+.rc .pt, .rc .pt img { width: 34px; height: 34px; }
+.rc .row.ab, .rc .row.it, .rc .row.st { display: none; }
+.rc .row.dvs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.rv-center { align-content: start; }
+.rv-mapwrap { height: 100%; max-height: 500px; min-height: 300px; }
+@media (max-width: 1280px) { .rv-stage { grid-template-columns: minmax(110px, .8fr) minmax(300px, 1.6fr) minmax(110px, .8fr); } }
+`;

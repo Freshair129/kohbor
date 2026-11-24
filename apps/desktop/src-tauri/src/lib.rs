@@ -31,8 +31,8 @@ mod objectives;
 mod opendota;
 mod orb;
 mod portraits;
-#[cfg(any(feature = "lab", feature = "demo"))]
 mod replay_library;
+mod analytics;
 pub mod secrets;
 pub mod settings;
 mod show_hotkey;
@@ -1261,7 +1261,8 @@ pub fn run() {
                 Arc::new(capture_host::draft_bar_snapshot),
             );
             let steam_runtime = runtime.clone();
-            // "A match is live" = draft, pregame or live (the same barrier as the pack activation).
+            // Keep replay analysis blocked through post-game; automatic analysis is allowed only
+            // after the runtime returns to its no-match phase, as well as by manual request.
             let update_match_active: Arc<dyn Fn() -> bool + Send + Sync> = {
                 let runtime = runtime.clone();
                 Arc::new(move || {
@@ -1271,6 +1272,7 @@ pub fn run() {
                             kohbor_gsi::admission::Phase::Draft
                                 | kohbor_gsi::admission::Phase::Pregame
                                 | kohbor_gsi::admission::Phase::Live
+                                | kohbor_gsi::admission::Phase::PostGame
                         )
                     )
                 })
@@ -1279,7 +1281,6 @@ pub fn run() {
                 settings_dir.clone(),
                 update_match_active.clone(),
             );
-            #[cfg(any(feature = "lab", feature = "demo"))]
             {
                 let bundled_engine = {
                     let mut candidates = Vec::new();
@@ -1320,6 +1321,22 @@ pub fn run() {
             )
             .and_then(|bytes| bytes.try_into().ok());
             let opendota = opendota::OpenDotaService::open(&settings_dir, install_key);
+            {
+                let analytics = analytics::AnalyticsService::open(
+                    &settings_dir,
+                    install_key,
+                    Arc::new(analytics::WinHttpTransport::default()),
+                );
+                if let Ok(prefs) = analytics.preferences() {
+                    let library = app.state::<replay_library::ReplayLibrary>();
+                    library.set_auto_analyse(prefs.auto_analyse);
+                    let _ = library.set_limits(replay_library::ReplayLibraryLimits {
+                        max_matches: prefs.keep_newest,
+                        max_bytes: prefs.max_bytes,
+                    });
+                }
+                app.manage(analytics);
+            }
             let news = news::NewsService::open(&settings_dir);
             news.start();
             app.manage(AppState {
@@ -1440,18 +1457,28 @@ pub fn run() {
         commands::news_refresh,
         commands::news_prefs_get,
         commands::news_prefs_set,
-        #[cfg(any(feature = "lab", feature = "demo"))]
         commands::replay_library_list,
-        #[cfg(any(feature = "lab", feature = "demo"))]
         commands::replay_library_pick_file,
-        #[cfg(any(feature = "lab", feature = "demo"))]
         commands::replay_library_open,
-        #[cfg(any(feature = "lab", feature = "demo"))]
         commands::replay_library_parse,
-        #[cfg(any(feature = "lab", feature = "demo"))]
         commands::replay_library_remove,
-        #[cfg(any(feature = "lab", feature = "demo"))]
         commands::replay_library_clear,
+        commands::replay_library_pin,
+        commands::replay_library_open_folder,
+        commands::analytics_key_status,
+        commands::analytics_key_set,
+        commands::analytics_key_delete,
+        commands::analytics_settings_get,
+        commands::analytics_settings_patch,
+        commands::analytics_consent_set,
+        commands::analytics_ledger_list,
+        commands::analytics_notes_list,
+        commands::analytics_note_read,
+        commands::analytics_note_delete,
+        commands::analytics_note_open_folder,
+        commands::analytics_own_hero_set,
+        commands::analytics_chat_submit,
+        commands::analytics_chat_cancel,
         commands::news_open_link,
         commands::set_muted,
         commands::audio_prefs_get,
@@ -1560,6 +1587,28 @@ pub fn run() {
         commands::news_refresh,
         commands::news_prefs_get,
         commands::news_prefs_set,
+        commands::replay_library_list,
+        commands::replay_library_pick_file,
+        commands::replay_library_open,
+        commands::replay_library_parse,
+        commands::replay_library_remove,
+        commands::replay_library_clear,
+        commands::replay_library_pin,
+        commands::replay_library_open_folder,
+        commands::analytics_key_status,
+        commands::analytics_key_set,
+        commands::analytics_key_delete,
+        commands::analytics_settings_get,
+        commands::analytics_settings_patch,
+        commands::analytics_consent_set,
+        commands::analytics_ledger_list,
+        commands::analytics_notes_list,
+        commands::analytics_note_read,
+        commands::analytics_note_delete,
+        commands::analytics_note_open_folder,
+        commands::analytics_own_hero_set,
+        commands::analytics_chat_submit,
+        commands::analytics_chat_cancel,
         commands::news_open_link,
         commands::set_muted,
         commands::audio_prefs_get,
@@ -1601,6 +1650,7 @@ pub fn run() {
             if matches!(event, tauri::RunEvent::Exit) {
                 capture_host::stop();
                 crate::log_info!("app", "exit", "Kohbor is exiting");
+                handle.state::<analytics::AnalyticsService>().cancel_all();
                 let state = handle.state::<AppState>();
                 handle.state::<account_supabase::SupabaseAuth>().shutdown();
                 // Orb first (no new clicks), then put every touched audio session back (MEDIA-009).

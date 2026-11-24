@@ -7,6 +7,15 @@ export interface UserSettingsView {
   locale: Locale;
 }
 
+export interface AnalyticsSettingsView {
+  ai_on: boolean;
+  consent: boolean;
+  model: "claude-opus-5-5" | "claude-sonnet-5-5" | "claude-haiku-5-5";
+  keep_newest: number;
+  max_bytes: number;
+  auto_analyse: boolean;
+}
+
 export type ErrorCode = string | null;
 
 export type GsiEventId =

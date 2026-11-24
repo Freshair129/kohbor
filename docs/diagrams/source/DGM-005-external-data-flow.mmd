@@ -9,6 +9,19 @@ flowchart TB
     CloudGate -->|"Approved fields only"| Cloud
     Cloud -->|"Generation recheck"| Reply
   end
+  subgraph AnalyticsRoute["Analytics route: user-controlled Claude requests"]
+    direction TB
+    AnalyticsSubmit["Explicit question submit"]
+    AnalyticsGate["User key + stored consent + AI on"]
+    AnalyticsPayload["Derived selected-match context, hero names, question, earlier same-match chat resent each question, and open document when included"]
+    UserKey["User API key held in current-user DPAPI"]
+    Claude["Anthropic Claude Messages API"]
+    AnalyticsResult["Streamed answer and validated note result"]
+    AnalyticsSubmit --> AnalyticsGate --> AnalyticsPayload
+    AnalyticsPayload -->|"Only after all gates"| Claude
+    UserKey -->|"HTTPS x-api-key authentication header; not prompt content"| Claude
+    Claude -->|"No automatic request; no telemetry"| AnalyticsResult
+  end
   subgraph PeerRoute["Peer route: fresh create or join consent"]
     direction TB
     OwnVitals["Complete admitted own vitals"]
