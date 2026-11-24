@@ -263,13 +263,13 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/analytics/context.rs",
-      "bytes": 7185,
-      "sha256": "bf07b05354533bdbcd58f6216e1676b8a642af2f7b1490ef8344223f51812e30"
+      "bytes": 8197,
+      "sha256": "81efb3b5531b8d80f3d9c751fe5a0e334d1ebf68620d108193992b8177a3e4a4"
     },
     {
       "path": "apps/desktop/src-tauri/src/analytics/knowledge.rs",
-      "bytes": 71069,
-      "sha256": "51c413f8f5c636d5cb04964d6c7a9f08d60c927cf95cb76d966d85b0bbfb1259"
+      "bytes": 72368,
+      "sha256": "a97bbd4da3d8c397737a2a127908d15c1539d5241a9862d7a5a5236a44e11ee5"
     },
     {
       "path": "apps/desktop/src-tauri/src/analytics/mod.rs",
@@ -308,13 +308,13 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/analytics/service.rs",
-      "bytes": 69725,
-      "sha256": "e4fbe374db0f6937864d896b2a53ea4a1a63b13e78e7d3e4c6cd229c63761be7"
+      "bytes": 68330,
+      "sha256": "06a1901eae1900dc67d84e968cd5d235708e8a4e9ae34a5c0b4497268436fa34"
     },
     {
       "path": "apps/desktop/src-tauri/src/analytics/store.rs",
-      "bytes": 60017,
-      "sha256": "4fa887d81a9a9c08d2cff38eca3be4c1b32136fc78eeff19dde57b14aaf0aedc"
+      "bytes": 66000,
+      "sha256": "296f244526f60398e6d2a68e5686e99897fc4337f583c88574f9f4fb0725506d"
     },
     {
       "path": "apps/desktop/src-tauri/src/analytics/tools.rs",
@@ -418,8 +418,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/commands.rs",
-      "bytes": 74208,
-      "sha256": "99b6c8dc83102aa9624523293dba44569a25963c023a878b14e2b12be8cd9f59"
+      "bytes": 74566,
+      "sha256": "a9078d5c845f746208ff4d26512625723a4cf26128818852c39dd388909a5f82"
     },
     {
       "path": "apps/desktop/src-tauri/src/containment.rs",
@@ -558,8 +558,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 71388,
-      "sha256": "849ffa45dd154252596edb4ca1b7efc7a56dddb7ea1c9724f4782b01a8e0efbd"
+      "bytes": 71584,
+      "sha256": "a64ebd7822d93102c471b5cb9e208237670f05011662c68a9c476eaa1fdfe6d5"
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
@@ -758,8 +758,8 @@
     },
     {
       "path": "apps/desktop/src/App.tsx",
-      "bytes": 28987,
-      "sha256": "e45fdbbae54b02d1edb7f1d4174b9ffd1098341dfdb0d81ea555e1ad31e8d7fa"
+      "bytes": 28525,
+      "sha256": "6d50e21f29e671013c316166c85275904ce3d086ad2e32b9f7ca9b4696f4c5c9"
     },
     {
       "path": "apps/desktop/src/AudioHistory.tsx",
@@ -933,8 +933,8 @@
     },
     {
       "path": "apps/desktop/src/analytics/AnalyticsPage.tsx",
-      "bytes": 46717,
-      "sha256": "c02ec37db1ca77296006c4e6cd0661e2162d0245d453d1e8ed4873632904d8dc"
+      "bytes": 56724,
+      "sha256": "026641a451fbfc7ee7e162a5d8553d328d0a4e4d7c0af1162f1afd5d46ecc072"
     },
     {
       "path": "apps/desktop/src/analytics/AnalyticsSettings.tsx",
@@ -953,8 +953,8 @@
     },
     {
       "path": "apps/desktop/src/analytics/analytics.css",
-      "bytes": 8925,
-      "sha256": "ca12800cdecfd5702b589a2594ffd358190f5aa7e3bccfb0ca7a5f3a82693e7c"
+      "bytes": 10443,
+      "sha256": "69482572f364c383ff79af0c633cdb34a7624ed08a1183666a4527eed3b7b2eb"
     },
     {
       "path": "apps/desktop/src/analytics/analyticsChart.ts",
@@ -968,8 +968,8 @@
     },
     {
       "path": "apps/desktop/src/analytics/analyticsModel.ts",
-      "bytes": 4198,
-      "sha256": "a4bdd1cb10bd647b5bf2e9d6665a79c26b2d84fb8c7cde90a276e2bb5f309ed2"
+      "bytes": 5547,
+      "sha256": "951775f0e912523ebe4408a05cc8f34f92c2e837a56d865afd7855469181909f"
     },
     {
       "path": "apps/desktop/src/analytics/analyticsSettings.css",
@@ -988,8 +988,8 @@
     },
     {
       "path": "apps/desktop/src/analytics/knowledge/index.tsx",
-      "bytes": 18586,
-      "sha256": "01a76101985540b599cf6ebde327a9d57a7d7d2deb2aeed435673d3e368c9410"
+      "bytes": 18884,
+      "sha256": "f2bea0110c52d1b564159704ef521d5393138a6fb313f3f91e99af1a64e9e854"
     },
     {
       "path": "apps/desktop/src/analytics/knowledge/knowledge.css",
@@ -13488,8 +13488,8 @@
     },
     {
       "path": "apps/desktop/src/replay/matchViewer.d.mts",
-      "bytes": 947,
-      "sha256": "a80fc481d7116ea618c0f1819ca4d10084fc07ac63d4bfc5a7a3e20be50f9193"
+      "bytes": 924,
+      "sha256": "fbf34a03dca3e7859dad5e0bc2800463b1f01bbe59b12d8462df7007213ee652"
     },
     {
       "path": "apps/desktop/src/replay/matchViewer.html",
@@ -13853,13 +13853,13 @@
     },
     {
       "path": "apps/desktop/tests/analytics-refine.test.ts",
-      "bytes": 7158,
-      "sha256": "1530abfe2a4cf1e477b87f2d5b0257a82b7b624c9c2f1d93c4038f142a2d0825"
+      "bytes": 7530,
+      "sha256": "4403f4cc6f9400276d5bd97df27332f1562115f1a5f05d4d826a87e221adb25e"
     },
     {
       "path": "apps/desktop/tests/analytics.test.ts",
-      "bytes": 4632,
-      "sha256": "795b062f83dc5cc6140bdab4929d2008702e5ca253d06c566c9e26a100576a08"
+      "bytes": 7555,
+      "sha256": "9f8f1fde9802c922441efcec6dfb2cfba494ab8be80e2288f1c342982be899e0"
     },
     {
       "path": "apps/desktop/tests/app-version.test.ts",
@@ -14603,8 +14603,8 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 344100,
-      "sha256": "1752fa68a21dcf8fa43150901bae6e1f2b83f7c2d63c362d4d5ef80bfb524ff6"
+      "bytes": 344974,
+      "sha256": "606855ad4ab4612e4460140cf055d40e521cd228042197fa4bf546870862b6d6"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -15613,8 +15613,8 @@
     },
     {
       "path": "docs/design/UX-SPEC.md",
-      "bytes": 47999,
-      "sha256": "ea5a4e8089811dc327fe2424e1124640fa74c3ac8fb486d5f00109f0064007e0"
+      "bytes": 48178,
+      "sha256": "960220a1bab9736abc7607a12675aea9a9544bca061637ee74f680bf1ec5c00c"
     },
     {
       "path": "docs/design/VISUAL-DESIGN-PROPOSAL.md",
@@ -16143,8 +16143,8 @@
     },
     {
       "path": "docs/requirements/RTM.csv",
-      "bytes": 66735,
-      "sha256": "4249483b976b1247e707a90c3b2e5cb150051a1b44a1e4ec93c452c99b0b6622"
+      "bytes": 67414,
+      "sha256": "3010bab263910ba07b6cf53ab1e95edd0c8e16f445855f568d3db8dc2f867636"
     },
     {
       "path": "docs/requirements/SRS.md",

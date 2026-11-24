@@ -573,13 +573,7 @@ pub(crate) fn analytics_chat_submit(
     state: tauri::State<'_, AppState>,
     match_id: String,
     question: String,
-    open_document: String,
     selected_hero: Option<String>,
-    include_own_hero: bool,
-    include_match: bool,
-    include_clock: bool,
-    include_document: bool,
-    include_selected_hero: bool,
     scrubber_time_s: Option<f64>,
 ) -> Result<String, String> {
     require_control(&webview)?;
@@ -593,13 +587,7 @@ pub(crate) fn analytics_chat_submit(
             crate::analytics::ChatOptions {
                 match_id,
                 question,
-                open_document,
                 selected_hero,
-                include_own_hero,
-                include_match,
-                include_clock,
-                include_document,
-                include_selected_hero,
                 scrubber_time_s,
             },
         )
@@ -607,6 +595,32 @@ pub(crate) fn analytics_chat_submit(
     let request_id = prepared.request_id().to_owned();
     analytics.spawn_chat(prepared, app);
     Ok(request_id)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_chat_transcript(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    match_id: String,
+) -> Result<Vec<Value>, String> {
+    require_control(&webview)?;
+    analytics
+        .store()
+        .chat_transcript(&match_id)
+        .map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_chat_start_from_summary(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    match_id: String,
+    summary: String,
+) -> Result<String, String> {
+    require_control(&webview)?;
+    analytics
+        .start_new_chat_from_summary(&match_id, &summary)
+        .map_err(str::to_owned)
 }
 
 #[tauri::command]

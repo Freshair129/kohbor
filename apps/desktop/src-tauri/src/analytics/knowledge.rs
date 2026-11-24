@@ -44,8 +44,6 @@ pub(crate) struct KnowledgeInput<'a> {
     pub(crate) manifest: &'a Value,
     pub(crate) match_data: &'a Value,
     pub(crate) world: &'a Value,
-    pub(crate) own_hero: Option<&'a str>,
-    pub(crate) gsi_match: Option<&'a MatchEntry>,
 }
 
 #[derive(Clone)]
@@ -125,12 +123,6 @@ pub(crate) fn build(input: &KnowledgeInput<'_>) -> Result<Value, &'static str> {
     let death_data_available = match_data.get("deaths").and_then(Value::as_array).is_some();
     let fight_data_available =
         death_data_available && deaths.iter().all(|death| death.position.is_some());
-    let gsi = input.gsi_match;
-    let viewer_id = input
-        .own_hero
-        .or_else(|| gsi.and_then(|entry| entry.hero.as_deref()))
-        .and_then(normalize_hero_id)
-        .filter(|hero| hero_by_id.contains_key(hero));
     let game_mode = match_data
         .pointer("/meta/game_mode")
         .and_then(Value::as_u64);
@@ -149,8 +141,6 @@ pub(crate) fn build(input: &KnowledgeInput<'_>) -> Result<Value, &'static str> {
             t0,
             t1,
             duration,
-            gsi,
-            viewer_id.as_deref(),
             death_data_available,
             fight_data_available,
             &phase_names,
@@ -190,7 +180,6 @@ pub(crate) fn build(input: &KnowledgeInput<'_>) -> Result<Value, &'static str> {
             "winner_reason": winner.1,
             "draft": draft.0,
             "draft_reason": draft.1,
-            "viewer": viewer_json(viewer_id.as_deref(), gsi),
             "kills": side_kills(&deaths, &hero_by_id, death_data_available)
         },
         "heroes": profiles,
@@ -205,6 +194,26 @@ pub(crate) fn build(input: &KnowledgeInput<'_>) -> Result<Value, &'static str> {
         "deaths_reason": (!death_data_available).then_some("death events are missing from the bundle").map(Value::from)
     });
     Ok(canonicalize(digest))
+}
+
+/// Build the volatile viewer/session facts outside the cached digest block.
+pub(crate) fn session_viewer(
+    digest: &Value,
+    own_hero: Option<&str>,
+    gsi: Option<&MatchEntry>,
+) -> Value {
+    let hero_ids = digest
+        .get("heroes")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|hero| hero.get("id").and_then(Value::as_str))
+        .collect::<BTreeSet<_>>();
+    let viewer_id = own_hero
+        .or_else(|| gsi.and_then(|entry| entry.hero.as_deref()))
+        .and_then(normalize_hero_id)
+        .filter(|hero| hero_ids.contains(hero.as_str()));
+    viewer_json(viewer_id.as_deref(), gsi)
 }
 
 pub(crate) fn canonical_bytes(value: &Value) -> Result<Vec<u8>, &'static str> {
@@ -483,8 +492,6 @@ fn hero_profile<'a>(
     t0: f64,
     t1: Option<f64>,
     duration: Option<f64>,
-    gsi: Option<&MatchEntry>,
-    viewer_id: Option<&str>,
     death_data_available: bool,
     fight_data_available: bool,
     phase_names: &[&str; 3],
@@ -508,12 +515,6 @@ fn hero_profile<'a>(
             .filter(|death| death.hero_id == hero.id)
             .count() as f64
     });
-    let is_viewer = viewer_id == Some(hero.id.as_str());
-    let assists = if is_viewer {
-        gsi.and_then(|entry| entry.assists)
-    } else {
-        None
-    };
     let nw_per_min = duration
         .filter(|value| *value > 0.0)
         .and_then(|value| final_nw.map(|nw| nw / (value / 60.0)));
@@ -548,12 +549,8 @@ fn hero_profile<'a>(
     add_number(
         &mut final_stats,
         "a",
-        assists.map(|value| value as f64),
-        if is_viewer {
-            "local GSI assists are unavailable"
-        } else {
-            "exact assists are not in the bundle"
-        },
+        None,
+        "exact assists are not in the bundle",
     );
     add_number(
         &mut final_stats,
@@ -1560,8 +1557,6 @@ mod tests {
             manifest: &manifest,
             match_data: &match_data,
             world: &world,
-            own_hero: None,
-            gsi_match: None,
         })
         .unwrap()
     }
@@ -1575,8 +1570,6 @@ mod tests {
             manifest: &manifest,
             match_data: &match_data,
             world: &world,
-            own_hero: None,
-            gsi_match: None,
         })
         .unwrap();
         assert!(digest["meta"]["winner"].is_null());
@@ -1588,27 +1581,10 @@ mod tests {
     #[test]
     fn local_gsi_result_does_not_fill_engine_winner() {
         let (manifest, match_data, world) = fixture();
-        let gsi = MatchEntry {
-            match_key: "install-keyed-match".into(),
-            hero: Some("npc_dota_hero_axe".into()),
-            result: Some(MatchResult::Win),
-            end: MatchEnd::Completed,
-            kills: Some(4),
-            deaths: Some(2),
-            assists: Some(7),
-            duration_s: Some(600),
-            ended_at: 1,
-            started_at: None,
-            hero_id: None,
-            match_type: MatchType::Unknown,
-            source: "kohbor".into(),
-        };
         let digest = build(&KnowledgeInput {
             manifest: &manifest,
             match_data: &match_data,
             world: &world,
-            own_hero: Some("npc_dota_hero_axe"),
-            gsi_match: Some(&gsi),
         })
         .unwrap();
         assert!(digest["meta"]["winner"].is_null());
@@ -1616,7 +1592,12 @@ mod tests {
             digest["meta"]["winner_reason"],
             "winner is not present in the replay bundle"
         );
-        assert!(digest["meta"]["viewer"].get("result").is_none());
+        assert!(digest["meta"].get("viewer").is_none());
+        assert!(digest["heroes"][0]["final"]["a"].is_null());
+        assert_eq!(
+            digest["heroes"][0]["final"]["a_reason"],
+            "exact assists are not in the bundle"
+        );
     }
 
     #[test]
@@ -1636,8 +1617,6 @@ mod tests {
             manifest: &manifest,
             match_data: &match_data,
             world: &world,
-            own_hero: None,
-            gsi_match: None,
         })
         .unwrap();
         assert!(digest["lanes"][0]["outcome"].is_null());
@@ -1679,7 +1658,7 @@ mod tests {
         let hash = format!("{:x}", Sha256::digest(&bytes));
         assert_eq!(
             hash,
-            "b4bdf120cb978b35e620a96c7dc79945e08181d659904e937d02813b79488f91"
+            "b289e7c5031848e3bc3745d5a28c2c28767ddb21fbf2c7adad8d7118b662e111"
         );
     }
 
@@ -1691,8 +1670,6 @@ mod tests {
             manifest: &manifest,
             match_data: &match_data,
             world: &world,
-            own_hero: None,
-            gsi_match: None,
         };
         let first = canonical_bytes(&build(&input).unwrap()).unwrap();
         let second = canonical_bytes(&build(&input).unwrap()).unwrap();
@@ -1701,6 +1678,63 @@ mod tests {
         assert!(!raw.contains("private-name"));
         assert!(!raw.contains("123456"));
         assert!(!raw.contains("F:/"));
+    }
+
+    #[test]
+    fn digest_bytes_are_stable_for_the_same_bundle() {
+        let (manifest, match_data, world) = fixture();
+        let input = KnowledgeInput {
+            manifest: &manifest,
+            match_data: &match_data,
+            world: &world,
+        };
+        let first_bytes = canonical_bytes(&build(&input).unwrap()).unwrap();
+        let second_bytes = canonical_bytes(&build(&input).unwrap()).unwrap();
+        assert_eq!(first_bytes, second_bytes);
+    }
+
+    #[test]
+    fn gsi_history_changes_session_facts_without_changing_cached_digest_bytes() {
+        let (manifest, match_data, world) = fixture();
+        let digest = build(&KnowledgeInput {
+            manifest: &manifest,
+            match_data: &match_data,
+            world: &world,
+        })
+        .unwrap();
+        let gsi = |assists| MatchEntry {
+            match_key: "install-keyed-match".into(),
+            hero: Some("npc_dota_hero_axe".into()),
+            result: Some(MatchResult::Win),
+            end: MatchEnd::Completed,
+            kills: Some(4),
+            deaths: Some(2),
+            assists: Some(assists),
+            duration_s: Some(600),
+            ended_at: 1,
+            started_at: None,
+            hero_id: None,
+            match_type: MatchType::Unknown,
+            source: "kohbor".into(),
+        };
+        let first_gsi = gsi(7);
+        let second_gsi = gsi(11);
+        let first_session = session_viewer(&digest, None, Some(&first_gsi));
+        let second_session = session_viewer(&digest, None, Some(&second_gsi));
+        let digest_bytes = canonical_bytes(&digest).unwrap();
+        let rebuilt = build(&KnowledgeInput {
+            manifest: &manifest,
+            match_data: &match_data,
+            world: &world,
+        })
+        .unwrap();
+
+        assert_eq!(digest_bytes, canonical_bytes(&rebuilt).unwrap());
+        assert_ne!(first_session, second_session);
+        assert_eq!(first_session["kda"][2], 7);
+        assert_eq!(second_session["kda"][2], 11);
+        assert!(digest["meta"].get("viewer").is_none());
+        assert!(digest["heroes"][0]["final"]["a"].is_null());
     }
 
     #[test]
@@ -1737,8 +1771,6 @@ mod tests {
             manifest: &manifest,
             match_data: &match_data,
             world: &world,
-            own_hero: None,
-            gsi_match: None,
         })
         .unwrap();
         let hero = |short: &str| -> &Value {

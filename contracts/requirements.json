@@ -7868,6 +7868,9 @@
         "evidence_refs": [],
         "implementation_refs": [
           "apps/desktop/src/analytics/AnalyticsPage.tsx",
+          "apps/desktop/src/analytics/analytics.css",
+          "apps/desktop/src/analytics/knowledge/index.tsx",
+          "apps/desktop/src/analytics/knowledge/knowledge.css",
           "apps/desktop/src/analytics/analyticsModel.ts",
           "apps/desktop/src/analytics/analyticsMarkdown.ts",
           "apps/desktop/src/replay/MatchViewPanel.tsx",
@@ -7879,7 +7882,14 @@
           "apps/desktop/src/live/heroCard.css",
           "apps/desktop/src/replay/matchViewer.mjs",
           "apps/desktop/tests/analytics-refine.test.ts",
-          "apps/desktop/tests/hero-card-view.test.ts"
+          "apps/desktop/tests/hero-card-view.test.ts",
+          "apps/desktop/tests/analytics-knowledge.test.mjs",
+          "apps/desktop/src-tauri/src/analytics/context.rs",
+          "apps/desktop/src-tauri/src/analytics/knowledge.rs",
+          "apps/desktop/src-tauri/src/analytics/service.rs",
+          "apps/desktop/src-tauri/src/analytics/store.rs",
+          "apps/desktop/src-tauri/src/commands.rs",
+          "apps/desktop/src-tauri/src/lib.rs"
         ],
         "procedure_ids": [
           "TP-05",
@@ -7961,9 +7971,14 @@
           "apps/desktop/src-tauri/src/analytics/providers/openai_compat.rs",
           "apps/desktop/tests/analytics-providers.test.ts",
           "apps/desktop/src/analytics/AnalyticsPage.tsx",
+          "apps/desktop/src/analytics/knowledge/index.tsx",
           "apps/desktop/src/analytics/analyticsMarkdown.ts",
           "apps/desktop/src/copy.ts",
-          "apps/desktop/tests/analytics-markdown.test.ts"
+          "apps/desktop/tests/analytics-markdown.test.ts",
+          "apps/desktop/tests/analytics-knowledge.test.mjs",
+          "apps/desktop/src-tauri/src/analytics/context.rs",
+          "apps/desktop/src-tauri/src/analytics/knowledge.rs",
+          "apps/desktop/src-tauri/src/lib.rs"
         ],
         "procedure_ids": [
           "TP-08",
