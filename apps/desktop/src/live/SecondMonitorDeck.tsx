@@ -21,7 +21,7 @@ import { DraftBoard } from "./DraftBoard";
 import { type ObjectiveSchedule } from "./objectiveCountdownModel";
 import { draftBoardRows, type DraftStatsInput, type PlayerNamesInput } from "./draftBoardModel";
 import { CompactHeroCards, OwnHeroCard } from "./HeroCard";
-import { secondMonitorLayout, type PlacedLayout, type Rect } from "./secondMonitorLayout";
+import { CARD_ROOMY_ROW_MIN_H, ownFieldCardMode, secondMonitorLayout, type PlacedLayout, type Rect } from "./secondMonitorLayout";
 import { useRosterMemory } from "./rosterMemory";
 import { cardCopy } from "./secondMonitorCards";
 import "./secondMonitor.css";
@@ -50,8 +50,8 @@ function placeStyle(rect: Rect, edge: "left" | "right"): CSSProperties {
   return { position: "absolute", top: rect.y, width: rect.w, height: rect.h, [edge]: rect.x };
 }
 
-function TeamRow({ cards, side, locale, wideStats, rect, edge, renderOwn }: {
-  cards: HeroCard[]; side: "ally" | "enemy"; locale: Locale; wideStats: boolean;
+function TeamRow({ cards, side, locale, wideStats, roomyField, rect, edge, renderOwn }: {
+  cards: HeroCard[]; side: "ally" | "enemy"; locale: Locale; wideStats: boolean; roomyField: boolean;
   rect: Rect; edge: "left" | "right";
   renderOwn?: (card: HeroCard) => ReactNode;
 }) {
@@ -60,7 +60,7 @@ function TeamRow({ cards, side, locale, wideStats, rect, edge, renderOwn }: {
   return (
     <section className={`sm-region sm-card-row sm-card-row-${side}`} style={placeStyle(rect, edge)} data-region={side === "ally" ? "ours" : "enemy"}
       data-testid={`sm-row-${side}`} aria-label={title}>
-      <CompactHeroCards cards={cards} locale={locale} label={title} fieldCard fieldDirection="row" wideStats={wideStats} renderOwn={renderOwn} />
+      <CompactHeroCards cards={cards} locale={locale} label={title} fieldCard fieldDirection="row" wideStats={wideStats} roomyField={roomyField} renderOwn={renderOwn} />
     </section>
   );
 }
@@ -115,10 +115,12 @@ export function SecondMonitorDeck({
   const placed = layout as PlacedLayout;
   const ownStale = hostLost || own.snapshotAvailability === "stale";
   const wideStats = placed.card.w >= 260;
+  const roomyField = placed.card.w >= 320 && placed.card.h >= CARD_ROOMY_ROW_MIN_H;
+  const ownFieldMode = ownFieldCardMode(placed.card);
   const ownLabel = text.you;
   return (
     <div ref={ref} className="sm-host sm-pinned" data-layout={placed.mode} data-map-edge={placed.mapEdge} lang={locale}>
-      <TeamRow cards={enemies} side="enemy" locale={locale} wideStats={wideStats} rect={placed.enemy} edge={placed.mapEdge} />
+      <TeamRow cards={enemies} side="enemy" locale={locale} wideStats={wideStats} roomyField={roomyField} rect={placed.enemy} edge={placed.mapEdge} />
       <div className="sm-map-region" style={placeStyle(placed.map, placed.mapEdge)} data-region="map" data-testid="sm-map-region">
         <MinimapPanel locale={locale} layout="pinned" mapEdge={placed.mapEdge}
           steamStatus={steamStatus}
@@ -126,10 +128,10 @@ export function SecondMonitorDeck({
           stageOverride={draftPhase ? <DraftBoard rows={boardRows} locale={lang}
             namesAvailable={showPlayerNames && playerNames !== null} statsAvailable={draftStats !== null} /> : undefined} />
       </div>
-      <TeamRow cards={ours} side="ally" locale={locale} wideStats={wideStats} rect={placed.ours} edge={placed.mapEdge}
+      <TeamRow cards={ours} side="ally" locale={locale} wideStats={wideStats} roomyField={roomyField} rect={placed.ours} edge={placed.mapEdge}
         renderOwn={card => <OwnHeroCard key={card.key} locale={locale} own={own} loadout={ownLoadout} slot={card.slot}
           stale={ownStale} ageMs={hostLost ? null : own.ageMs} hasLatestResult={false} headingId="sm-own-heading"
-          headingLabel={{ title: text.ourTeam, latestResult: "" }} fieldCard wideStats={wideStats} youLabel={ownLabel} />} />
+          headingLabel={{ title: text.ourTeam, latestResult: "" }} fieldCard wideStats={wideStats} ownFieldMode={ownFieldMode} youLabel={ownLabel} />} />
     </div>
   );
 }

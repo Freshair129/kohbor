@@ -21,8 +21,10 @@ export const GAP = 8;
 export const CARD_GAP = 4;
 /** Minimum row height includes 12 px basis + 3 × 24 px stat rows, card tracks, padding and borders. */
 export const CARD_ROW_MIN_H = 156;
-/** Minimum track width for six item icons, backpack, TP and neutral slots at their field-card sizes. */
-export const CARD_MIN_W = 216;
+/** The expanded card rows need 28 px icons, three 12 px stat rows and 1 px section gaps. */
+export const CARD_ROOMY_ROW_MIN_H = 157;
+/** Minimum track width for six 22 px items, backpack, TP and neutral slots without clipping. */
+export const CARD_MIN_W = 224;
 /** Map panel minimum: a 220 px captured map stage plus its fixed toolbar and padding. */
 export const MAP_PANEL_MIN_H = 260;
 export const CARD_ROW_MAX_H = 160;
@@ -73,14 +75,30 @@ export interface CenteredLiveLayout {
   card: { w: number; h: number };
 }
 export type CenteredLiveLayoutResult = CenteredLiveLayout | { mode: "too_small" };
+export type OwnFieldCardMode = "one-row-28" | "two-row-24" | "two-row-22";
 
 export const CENTER_GAP = 8;
 export const CENTER_CARD_GAP = 4;
 export const CENTER_WIDE_STATS_MIN_W = 260;
 export const CENTER_CARD_NARROW_STATS_MIN_H = 156;
+/** The expanded centred card needs 28 px icons, three dense 12 px stat rows and all replay sections. */
+export const CENTER_ROOMY_CARD_MIN_H = 170;
+/** One combined 28 px ability/item row only fits a centered team column at this measured width. */
+export const CENTER_ONE_ROW_28_MIN_W = 467;
+/** Two 24 px item rows need this card width after card borders and padding. */
+export const FIELD_TWO_ROW_24_MIN_W = 254;
+/** Two 24 px ability and item rows need a 124 px card when headers, stats, borders and tight gaps are included. */
+export const CENTER_TWO_ROW_24_MIN_H = 124;
 /** Minimum compact field-card dimensions preserve all replay sections and 12 px text. */
-export const CENTER_CARD_MIN = { w: 220, h: 114 } as const;
+export const CENTER_CARD_MIN = { w: 224, h: 114 } as const;
 export const CENTER_MAP_MIN_W = 280;
+
+/** Scale the own card's icon rows to the measured width and height without dropping a section. */
+export function ownFieldCardMode(card: { w: number; h: number }): OwnFieldCardMode {
+  if (card.w >= CENTER_ONE_ROW_28_MIN_W) return "one-row-28";
+  if (card.w >= FIELD_TWO_ROW_24_MIN_W && card.h >= CENTER_TWO_ROW_24_MIN_H) return "two-row-24";
+  return "two-row-22";
+}
 
 /** The map panel and both team columns are placed only from the measured Live box. */
 export function centeredLiveLayout(input: { width: number; height: number }): CenteredLiveLayoutResult {
