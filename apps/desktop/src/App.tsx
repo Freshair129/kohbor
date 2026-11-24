@@ -19,6 +19,7 @@ import { OverviewPage } from "./overview/OverviewPage";
 import { NewsSettings } from "./overview/NewsSettings";
 import { OpenDotaSettings } from "./overview/OpenDotaSettings";
 import { PacksPage } from "./packs/PacksPage";
+import { StorePage } from "./store/StorePage";
 import { Readiness } from "./Readiness";
 import { DEFAULT_SHELL_DESTINATION, deriveHeaderState, insightsViews, statusLineModel, type InsightsView, type ShellDestination } from "./shell/state";
 import { publishHudLocale, usePlayback, useRuntime } from "./runtime";
@@ -284,9 +285,17 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
             </div>
           )}
 
-          {(activePage === "packs" || activePage === "store") && <PacksPage locale={displayLocale} disabled={hostLost}
-            phase={phase} mute={mute} storeOnly={activePage === "store"} onStoreBack={() => setActivePage("packs")}
+          {activePage === "packs" && <PacksPage locale={displayLocale} disabled={hostLost}
+            phase={phase} mute={mute} storeOnly={false} onStoreBack={() => setActivePage("packs")}
             onStoreOpen={() => setActivePage("store")} />}
+
+          {activePage === "store" && (
+            developerMode.enabled ? (
+              <StorePage locale={displayLocale} disabled={hostLost} phase={phase} onBackToPacks={() => setActivePage("packs")} />
+            ) : (
+              <PacksPage locale={displayLocale} disabled={hostLost} phase={phase} mute={mute} storeOnly={true} developerMode={false} onStoreBack={() => setActivePage("packs")} />
+            )
+          )}
 
           {activePage === "insights" && (currentInsightsView === "replay" && ReplayPanel ? (
             <Suspense fallback={<p role="status">{text.loading}</p>}>

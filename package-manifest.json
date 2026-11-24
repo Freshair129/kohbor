@@ -723,8 +723,8 @@
     },
     {
       "path": "apps/desktop/src/App.tsx",
-      "bytes": 26504,
-      "sha256": "87d3dc4eb1fb1665c79f015b278118e39e5be5414a33dbc76efcc02dc700615b"
+      "bytes": 26938,
+      "sha256": "c317a5a63ee15f03ba7d62844348507440ccf3a563613deb3b406372cc5c8b71"
     },
     {
       "path": "apps/desktop/src/AudioHistory.tsx",
@@ -12363,8 +12363,8 @@
     },
     {
       "path": "apps/desktop/src/copy.ts",
-      "bytes": 76891,
-      "sha256": "258e7f00efc55852f4bfa3a0795cecf396e7961f5869ee60d50a2af921efb55d"
+      "bytes": 84136,
+      "sha256": "e91871bdca52087ad70eac31985819e53b6397401197b7e415bd53201dce83c3"
     },
     {
       "path": "apps/desktop/src/critical-stack.css",
@@ -13253,8 +13253,8 @@
     },
     {
       "path": "apps/desktop/src/packs/PacksPage.tsx",
-      "bytes": 26791,
-      "sha256": "fabf2b6cc9dfd47a4c0730b07bfbe4ec3dd5a05c2cb1334cb350baa23d7ae300"
+      "bytes": 27087,
+      "sha256": "cdb68ac0195d6591c2fdb85f30b403029ad7627a12ce5bdb6ab925e3807c2d44"
     },
     {
       "path": "apps/desktop/src/packs/SoundRows.tsx",
@@ -13687,6 +13687,21 @@
       "sha256": "da99e8806c3d96ecaded7a0aca69c7462e4933aec4e75118dba623a95fda16bd"
     },
     {
+      "path": "apps/desktop/src/store/Store.css",
+      "bytes": 14463,
+      "sha256": "f40d8216595b4f67d86900d63b3a1f4789602c04484bd577b54fc6fb7d01cc6f"
+    },
+    {
+      "path": "apps/desktop/src/store/StorePage.tsx",
+      "bytes": 20539,
+      "sha256": "eacd70ae0ad74683665cca2ad433866e53f1192dd6611949a8664b3e048dc7af"
+    },
+    {
+      "path": "apps/desktop/src/store/storeModel.ts",
+      "bytes": 9247,
+      "sha256": "c6fa32068c45b56c0648a83f4b824840f50bb2ec9fd9a9d75fa66ad9d2e7851e"
+    },
+    {
       "path": "apps/desktop/src/styles.css",
       "bytes": 77723,
       "sha256": "4872d64c3ba66c9a82e125858d1984793a13548449e31648c0893ca448b1ec4f"
@@ -14008,8 +14023,8 @@
     },
     {
       "path": "apps/desktop/tests/live-second-monitor.test.ts",
-      "bytes": 13300,
-      "sha256": "f1ddc0ff8be33610f23b77f01ebb15c2bcc4875ccbee0889b87421965a4801a2"
+      "bytes": 13275,
+      "sha256": "9cd07ddb2aada2e471cec76f6c55eac14bd89b8458758203755f8b1e5c12ed0b"
     },
     {
       "path": "apps/desktop/tests/live.test.ts",
@@ -14195,6 +14210,11 @@
       "path": "apps/desktop/tests/show-hotkey.test.ts",
       "bytes": 3665,
       "sha256": "03a2283b6c9d547d1ef30dc94e3ed7c64828742ef2917f94fb45ebce7ad38112"
+    },
+    {
+      "path": "apps/desktop/tests/store-skeleton.test.ts",
+      "bytes": 9080,
+      "sha256": "accb912c3a9ede23c7089cc781b29886d4d6fa92c4b6023155988c47cac872f1"
     },
     {
       "path": "apps/desktop/tests/update-release-page.test.ts",
@@ -15478,8 +15498,8 @@
     },
     {
       "path": "docs/design/UX-SPEC.md",
-      "bytes": 47395,
-      "sha256": "00783cd26eaa91c39b2a772e8fe970eaf78282e99c61b66a9c88a427e76a303b"
+      "bytes": 49837,
+      "sha256": "78b721e3d5e4e96ca269a3e4f91d314168b799e525e660ac9a266ba189cd78b8"
     },
     {
       "path": "docs/design/VISUAL-DESIGN-PROPOSAL.md",
@@ -15923,8 +15943,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 102062,
-      "sha256": "69a32520d3dd5a70b80bdc2fb085741ef214790ee6ea7d92f8b8018374133ecf"
+      "bytes": 103078,
+      "sha256": "2c66c7c5a9102ddaea957f6efad2b589dda6997b60844a7e7c857a01472f5d07"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",

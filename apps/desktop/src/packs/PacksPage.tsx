@@ -20,10 +20,11 @@ import { installDialogCopy } from "./InstallDialog.copy";
 import { browseApi, type BrowseBinding, type BrowsePackDetail } from "./browseApi";
 import { countPackOrigins, filterBrowsePacks, originFiltersAvailable, type BrowseFilters } from "./browseModel";
 import { createBrowsePreviewState, holdBrowseVideo, playBrowseVideo, prepareBrowseVideo, reduceBrowsePreview } from "./previewModel";
+import { StorePage } from "../store/StorePage";
 
-export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, onStoreBack, onStoreOpen }: {
+export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, onStoreBack, onStoreOpen, developerMode = false }: {
   locale: Locale; disabled: boolean; phase: Phase | null; mute: AudioMuteState; storeOnly?: boolean;
-  onStoreBack?: () => void; onStoreOpen?: () => void;
+  onStoreBack?: () => void; onStoreOpen?: () => void; developerMode?: boolean;
 }) {
   const text = packsPageCopy(locale);
   const installText = installDialogCopy[locale];
@@ -375,17 +376,23 @@ export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, on
   };
 
   return <section className="shell-screen packs-page" aria-labelledby="shell-page-heading">
-    {storeOnly ? <div className="packs-scroll packs-store-screen">
-      <div className="packs-store-empty">
-        <h2>{text.storeHeading}</h2>
-        <p>{text.storeBody}</p>
-        <div className="packs-store-actions">
-          <button type="button" onClick={onStoreBack}>{text.storeBack}</button>
-          <button type="button" className="primary" disabled={disabled || locked}
-            onClick={() => setInstallDialogOpen(true)}>{text.storeInstall}</button>
+    {storeOnly ? (
+      developerMode ? (
+        <StorePage locale={locale} disabled={disabled} phase={phase} onBackToPacks={onStoreBack} />
+      ) : (
+        <div className="packs-scroll packs-store-screen">
+          <div className="packs-store-empty">
+            <h2>{text.storeHeading}</h2>
+            <p>{text.storeBody}</p>
+            <div className="packs-store-actions">
+              <button type="button" onClick={onStoreBack}>{text.storeBack}</button>
+              <button type="button" className="primary" disabled={disabled || locked}
+                onClick={() => setInstallDialogOpen(true)}>{text.storeInstall}</button>
+            </div>
+          </div>
         </div>
-      </div>
-    </div> : <>
+      )
+    ) : <>
       <div className="packs-audio-bar">
         <div className="packs-audio-pack">
           <p className="muted">{text.intro}</p>

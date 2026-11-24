@@ -186,7 +186,7 @@ test("all Live phases use the v3 field and exclude feed, sound, GSI hint, and sc
   const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
   const liveCss = readFileSync(new URL("../src/live/secondMonitor.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
   const liveStart = app.indexOf('{activePage === "live" && (');
-  const nextPage = app.indexOf('{(activePage === "packs" || activePage === "store")', liveStart);
+  const nextPage = app.indexOf('{activePage === "packs" &&', liveStart);
   const livePage = app.slice(liveStart, nextPage);
   const phaseCases: [string | null, boolean, "centered" | "pinned"][] = [
     ["none", false, "centered"], ["loading", false, "centered"], ["draft", false, "pinned"],
