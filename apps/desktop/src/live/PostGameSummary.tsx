@@ -4,7 +4,7 @@ export function PostGameSummary({ summary, locale, onClose, onOpenReplay }: {
   summary: PostGameSummaryView;
   locale: "th" | "en";
   onClose: () => void;
-  onOpenReplay: () => void;
+  onOpenReplay: (matchKey?: string) => void;
 }) {
   const th = locale === "th";
   const recap = summary.recapEvents.slice(-4).reverse();
@@ -42,7 +42,7 @@ export function PostGameSummary({ summary, locale, onClose, onOpenReplay }: {
           <h3>{th ? "วิเคราะห์เต็มจากรีเพลย์" : "Full replay analysis"}</h3>
           <p>{th ? "เมื่อคลังรีเพลย์จับคู่แมตช์นี้ได้ ให้วางไฟล์ .dem ในโฟลเดอร์ที่เฝ้าดู หรือเพิ่มไฟล์ .dem" : "When the replay library can match this match, place a .dem file in the watched folder or add a .dem file."}</p>
         </>}
-        {summary.replay && <button type="button" onClick={onOpenReplay}>{th ? "เปิดวิเคราะห์แมตช์นี้" : "Open this match's analysis"}</button>}
+        {summary.replay && <button type="button" onClick={() => onOpenReplay(summary.replay?.openMatchKey)}>{th ? "เปิดวิเคราะห์แมตช์นี้" : "Open this match's analysis"}</button>}
       </section>
     </section>
   );

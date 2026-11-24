@@ -118,10 +118,12 @@ function statusText(status: ReplayStatus, locale: Locale) {
   const label = labels[status.state]; return locale === "th" ? label[0] : label[1];
 }
 
-export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = true }: {
+export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchKey = null, active = true }: {
   locale: Locale;
   onOpenReplay?: (route: AnalyticsReplayDetailsRoute) => void;
   restoreContext?: AnalyticsReturnContext | null;
+  /** Open the library match whose install-keyed hash equals `key` (post-game panel). `nonce` repeats a request. */
+  openMatchKey?: { key: string; nonce: number } | null;
   active?: boolean;
 }) {
   const [library, setLibrary] = useState<ReplayLibraryList | null>(null);
@@ -464,6 +466,14 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = t
     const range = viewerRoot.current?.querySelector<HTMLInputElement>("#rv-scrub");
     if (range) { range.value = String(safe); range.dispatchEvent(new Event("input", { bubbles: true })); }
   }, [bundle]);
+  const handledMatchKey = useRef<number | null>(null);
+  useEffect(() => {
+    if (!openMatchKey || handledMatchKey.current === openMatchKey.nonce || !library) return;
+    const entry = library.matches.find(row => row.match_key === openMatchKey.key);
+    if (!entry) return;
+    handledMatchKey.current = openMatchKey.nonce;
+    setSelectedId(entry.match_id); setShowList(false); setError(null);
+  }, [openMatchKey, library]);
   useEffect(() => {
     if (!restoreContext) return;
     setSelectedId(restoreContext.matchId);

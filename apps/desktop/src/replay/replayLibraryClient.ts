@@ -34,6 +34,8 @@ export interface ReplayLibraryEntry {
   patch: string | null;
   pinned?: boolean;
   local_history?: ReplayLocalHistory | null;
+  /** Install-keyed history hash of this match, used to open it from the post-game panel. */
+  match_key?: string | null;
 }
 
 export interface ReplayJob {

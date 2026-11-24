@@ -28,11 +28,13 @@ pub(crate) fn replay_library_list(
             let Some(match_id) = row.get("match_id").and_then(Value::as_str) else {
                 continue;
             };
-            let local = analytics
-                .store()
-                .match_key(match_id)
-                .ok()
+            // The install-keyed hash lets the renderer open a match it only knows by its
+            // GSI history key (the post-game panel) without passing a raw match ID around.
+            let match_key = analytics.store().match_key(match_id).ok();
+            let local = match_key
+                .as_deref()
                 .and_then(|key| history.iter().find(|entry| entry.match_key == key));
+            row["match_key"] = match_key.map_or(Value::Null, Value::String);
             if let Some(entry) = local {
                 row["own_hero"] = entry.hero.clone().map_or(Value::Null, Value::String);
                 row["local_history"] = json!({
