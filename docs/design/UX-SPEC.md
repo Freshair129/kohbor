@@ -31,9 +31,21 @@ Logical destinations below do not prescribe URL paths, file names or IPC identif
 | Control: Status | Current readiness, own-hero, audio and build/version status panels | Unknown values remain unknown; GSI setup action opens this destination |
 | Control: Logs | Local logs, raw audio decisions and technical pack information; requires Developer mode | When disabled, explain the setting needed to open it |
 | Control: Account | Avatar flyout with the existing account page, settings, version and only supported sign-in/out actions | Presence stays unknown unless a real presence source exists; identity does not authorize game-data sharing |
-| Control: Settings | Existing language, Developer mode, Steam-name display and connection guide controls; minimap/capture section with frame setup and detail actions; news switch with its GitHub disclosure (UPDATE-005) | Bounded categories; explain unavailable capabilities |
+| Control: Settings | A left section navigation and one scrollable content area for General, Alerts & objectives, Overlay layout, Minimap/capture, Replay & AI, Hotkeys, Privacy/data, Developer, and Audio & controls; every existing Settings control appears in exactly one section | The content area is the only scroll container; section choice is remembered per renderer; unavailable capabilities stay explicit |
 | Gameplay overlay and HUD | Passive alerts, event media, selected stats, companion status and the draft pick card | Transparent, always-on-top, click-through and free of control-window chrome |
 | Edge orb (extension) | Vertical three-channel mixer, Focus mode and honest status | Separate mouse-only window. Dota keeps keyboard focus |
+
+### Settings page (UI-015; UI-013; UI-020–022; UPDATE-005)
+
+Settings uses a fixed left section navigation beside one content area. The navigation remains visible while the selected content scrolls; neither cards nor embedded tables scroll independently, and the Settings page does not introduce horizontal scrolling. The section order is General, Alerts & objectives, Overlay layout, Minimap/capture, Replay & AI, Hotkeys, Privacy/data, Developer, and Audio & controls. General contains language, Steam-name display and app glass appearance; Developer contains Developer mode; Alerts & objectives contains the five objective switches and lead times plus the optional local map-key diagnostic. Minimap/capture contains the existing minimap frame/detail controls and GSI connection guide. Replay & AI contains the existing Analytics preferences. Hotkeys contains the show-app hotkey. Privacy/data contains news, own-history OpenDota consent and public hero-stat consent/preferences. Audio & controls contains the existing edge-orb and mixer controls.
+
+The renderer remembers the selected section in local storage under `kohbor.settings-section`, with access wrapped so a blocked preference store cannot prevent Settings from opening. The initial section is Overlay layout. A layout-related entry point selects Overlay layout even when another section was last open; ordinary entry restores the last section.
+
+Overlay layout leads with the objective-card editor. Its game preview fills the content width while retaining 16:9, and the objective card remains draggable and resizable with the existing scale controls and protected-area clamps. Full-screen and reset actions sit in a toolbar above the preview. These changes do not alter layout storage or commands.
+
+Alerts & objectives uses one table row per objective with an enable switch, lead-time inputs 1 and 2, and the existing 0–2 values / 5–60 second hint. Empty inputs correspond to no saved pre-warning and are labelled as such; the spawn alert remains governed by the existing objective switch. Enable switches keep their immediate patch behavior. Lead-time edits share one section-level Save and are validated with the existing integer, range and duplicate rules before one settings patch. Storage keys and host commands remain unchanged.
+
+All Settings text and controls use at least 12 px, with larger section headings. The layout targets 1440×900 and 1920×1080 without horizontal scrolling by constraining tables and allowing long labels to wrap. This is a CSS/source target, not a measured result; rendered content heights and horizontal overflow remain NOT_RUN until the lead's visual review because this worker is not permitted to launch the app or a browser.
 
 
 ### Analytics (UI-021, UI-022, MEM-007; DEC-ANALYTICS)

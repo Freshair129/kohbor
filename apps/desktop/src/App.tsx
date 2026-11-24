@@ -296,57 +296,69 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
 
           {activePage === "settings" && (
             <div className="shell-screen shell-settings">
-              <section className="card shell-locale-card" aria-label={text.languageLabel}>
-                <h1 id="page-settings-heading" className="shell-settings-title">{text.shell.destinations.settings}</h1>
-                <label className="locale-control">
-                  <span>{text.languageLabel}</span>
-                  <select className="locale-select" aria-label={text.languageLabel} value={settings?.locale ?? ""}
-                    disabled={loading || !settings || saving} onChange={(event) => void changeLocale(event.currentTarget.value as Locale)}>
-                    {!settings && <option value="" disabled>{text.settings.unavailable}</option>}
-                    <option value="th">{text.localeOptions.th}</option>
-                    <option value="en">{text.localeOptions.en}</option>
-                  </select>
-                </label>
-                <label className="shell-developer-toggle">
-                  <input type="checkbox" checked={developerMode.enabled} onChange={event => developerMode.change(event.currentTarget.checked)} />
-                  <span>{text.shell.developerMode}</span>
-                </label>
-                <label className="shell-developer-toggle">
-                  <input type="checkbox" checked={steamName.show} onChange={event => steamName.change(event.currentTarget.checked)} />
-                  <span>{displayLocale === "th" ? "แสดงชื่อ Steam" : "Show Steam name"}</span>
-                </label>
-                <label className="shell-glass-control">
-                  <span>{displayLocale === "th" ? "รูปลักษณ์ / กระจก" : "Appearance / Glass"}</span>
-                  <select aria-label={displayLocale === "th" ? "รูปลักษณ์ / กระจก" : "Appearance / Glass"}
-                    value={glass.level} onChange={event => glass.changeLevel(event.currentTarget.value as GlassLevel)}>
-                    <option value="off">{displayLocale === "th" ? "ปิด" : "Off"}</option>
-                    <option value="low">{displayLocale === "th" ? "อ่อน" : "Low"}</option>
-                    <option value="medium">{displayLocale === "th" ? "กลาง" : "Medium"}</option>
-                    <option value="high">{displayLocale === "th" ? "เข้ม" : "High"}</option>
-                  </select>
-                  <small>{displayLocale === "th" ? "บันทึกในเครื่องสำหรับหน้าจอนี้" : "Saved locally for this renderer"}</small>
-                </label>
-                {settingsNotice && <p className="locale-notice" role="status">{settingsNotice}</p>}
-                <ObjectiveSettings locale={displayLocale} />
-                <ShowHotkeySettings locale={displayLocale} />
-                <LayoutEditor locale={displayLocale} />
-                <section className="shell-capture-settings" aria-label={displayLocale === "th" ? "ตั้งค่าแผนที่ย่อและการจับภาพ" : "Minimap and capture settings"}>
-                  <h2>{displayLocale === "th" ? "แผนที่ย่อและการจับภาพ" : "Minimap and capture"}</h2>
-                  <MinimapPanel locale={displayLocale === "en" ? "en" : "th"} layout="settings" />
-                </section>
-              </section>
-              <OrbSettings locale={displayLocale} />
-              <DraftSettings />
-              <NewsSettings locale={displayLocale} />
-              <OpenDotaSettings locale={displayLocale} />
-                <AnalyticsSettings locale={displayLocale} />
-              <div className="shell-guide-slot">
-                {status && !hostLost ? <Guide status={status} locale={displayLocale} setup={setup} /> : (
-                  <p className={hostLost ? "banner banner-warn" : "muted"} role={hostLost ? "alert" : "status"}>
-                    {hostLost ? `${text.hostLost} — ${text.hostOutdated}` : text.loading}
-                  </p>
-                )}
-              </div>
+              <ObjectiveSettings locale={displayLocale} sections={{
+                general: (
+                  <section className="settings-preferences-card" aria-label={displayLocale === "th" ? "ตั้งค่าทั่วไป" : "General preferences"}>
+                    <label className="settings-field-row">
+                      <span className="settings-field-label">{text.languageLabel}</span>
+                      <select className="locale-select" aria-label={text.languageLabel} value={settings?.locale ?? ""}
+                        disabled={loading || !settings || saving} onChange={(event) => void changeLocale(event.currentTarget.value as Locale)}>
+                        {!settings && <option value="" disabled>{text.settings.unavailable}</option>}
+                        <option value="th">{text.localeOptions.th}</option>
+                        <option value="en">{text.localeOptions.en}</option>
+                      </select>
+                      <small>{displayLocale === "th" ? "เปลี่ยนภาษาของหน้าตั้งค่าและส่วนติดต่อแอป" : "Changes the language used across the app."}</small>
+                    </label>
+                    <label className="settings-field-row">
+                      <span className="settings-field-label">{displayLocale === "th" ? "ชื่อ Steam" : "Steam name"}</span>
+                      <span className="settings-field-control"><input type="checkbox" checked={steamName.show} onChange={event => steamName.change(event.currentTarget.checked)} />
+                        {displayLocale === "th" ? "แสดงชื่อ Steam" : "Show Steam name"}</span>
+                      <small>{displayLocale === "th" ? "แสดงชื่อ Steam ในส่วนติดต่อแอปนี้" : "Show your Steam name in this app's interface."}</small>
+                    </label>
+                    <label className="settings-field-row">
+                      <span className="settings-field-label">{displayLocale === "th" ? "รูปลักษณ์ / กระจก" : "Appearance / Glass"}</span>
+                      <select aria-label={displayLocale === "th" ? "รูปลักษณ์ / กระจก" : "Appearance / Glass"}
+                        value={glass.level} onChange={event => glass.changeLevel(event.currentTarget.value as GlassLevel)}>
+                        <option value="off">{displayLocale === "th" ? "ปิด" : "Off"}</option>
+                        <option value="low">{displayLocale === "th" ? "อ่อน" : "Low"}</option>
+                        <option value="medium">{displayLocale === "th" ? "กลาง" : "Medium"}</option>
+                        <option value="high">{displayLocale === "th" ? "เข้ม" : "High"}</option>
+                      </select>
+                      <small>{displayLocale === "th" ? "บันทึกในเครื่องสำหรับหน้าจอนี้" : "Saved locally for this renderer."}</small>
+                    </label>
+                    {settingsNotice && <p className="locale-notice" role="status">{settingsNotice}</p>}
+                  </section>
+                ),
+                "overlay-layout": <LayoutEditor locale={displayLocale} />,
+                "minimap-capture": (
+                  <>
+                    <section className="shell-capture-settings" aria-label={displayLocale === "th" ? "ตั้งค่าแผนที่ย่อและการจับภาพ" : "Minimap and capture settings"}>
+                      <MinimapPanel locale={displayLocale === "en" ? "en" : "th"} layout="settings" />
+                    </section>
+                    <div className="shell-guide-slot">
+                      {status && !hostLost ? <Guide status={status} locale={displayLocale} setup={setup} /> : (
+                        <p className={hostLost ? "banner banner-warn" : "muted"} role={hostLost ? "alert" : "status"}>
+                          {hostLost ? `${text.hostLost} — ${text.hostOutdated}` : text.loading}
+                        </p>
+                      )}
+                    </div>
+                  </>
+                ),
+                "replay-ai": <AnalyticsSettings locale={displayLocale} />,
+                hotkeys: <ShowHotkeySettings locale={displayLocale} />,
+                "privacy-data": <><DraftSettings /><NewsSettings locale={displayLocale} /><OpenDotaSettings locale={displayLocale} /></>,
+                developer: (
+                  <section className="settings-preferences-card" aria-label={displayLocale === "th" ? "ตั้งค่านักพัฒนา" : "Developer preferences"}>
+                    <label className="settings-field-row">
+                      <span className="settings-field-label">{text.shell.developerMode}</span>
+                      <span className="settings-field-control"><input type="checkbox" checked={developerMode.enabled}
+                        onChange={event => developerMode.change(event.currentTarget.checked)} />{displayLocale === "th" ? "เปิดโหมดนักพัฒนา" : "Enable developer mode"}</span>
+                      <small>{displayLocale === "th" ? "ใช้แสดงบันทึกและเครื่องมือสำหรับนักพัฒนา" : "Enables developer logs and tools."}</small>
+                    </label>
+                  </section>
+                ),
+                "audio-controls": <OrbSettings locale={displayLocale} />,
+              }} />
             </div>
           )}
 
