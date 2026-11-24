@@ -163,6 +163,11 @@ export const EMPTY_HISTORY: MatchHistory = {
   trend: [], topHeroes: [], best: { minGames: 3, allTime: [], thisMonth: [] }, entries: [],
 };
 
+/** The shared label used when Overview counts unknown match types or has no counted base. */
+export function allModesScopeLabel(locale: OverviewLocale): string {
+  return overviewCopy(locale).stats.allModes;
+}
+
 /** Unix seconds of the start of the local calendar month containing `now` (sent to the host). */
 export function localMonthStart(now: Date): number {
   return Math.floor(new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0).getTime() / 1000);

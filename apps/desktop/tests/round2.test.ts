@@ -121,9 +121,9 @@ test("host minimap values own the state; capture-only fallback never invents a p
   assert.equal(deriveMinimapState(null, null), "unsupported");
 });
 
-test("every placeholder has honest Thai copy and waiting states are calm", () => {
-  const messages = { not_running: "Dota 2 ยังไม่เปิด — กดเริ่ม Dota 2", launching: "กำลังเปิด Dota 2…",
-    hero_selection: "กำลังเลือกฮีโร่ — แผนที่จะปรากฏเมื่อเกมเริ่ม", loading: "กำลังโหลดเกม — รอแผนที่" };
+test("each no-image minimap state has one short Thai status line", () => {
+  const messages = { not_running: "Dota 2 ปิดอยู่ — กดเริ่ม", launching: "กำลังเปิด Dota 2…",
+    hero_selection: "กำลังเลือกฮีโร่", loading: "กำลังโหลดเกม" };
   for (const [state, text] of Object.entries(messages)) assert.equal(minimapPlaceholderText(state as MinimapState, "th"), text);
 });
 

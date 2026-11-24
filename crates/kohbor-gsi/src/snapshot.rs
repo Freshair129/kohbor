@@ -129,6 +129,7 @@ pub fn build(outcome: &Outcome, src: SourceState) -> Value {
 pub fn build_with_loadout(outcome: &Outcome, loadout: &OwnLoadout, src: SourceState) -> Value {
     let base = |availability: Availability,
                 own: Value,
+                map: Value,
                 epoch: Option<u64>,
                 seq: Option<u64>,
                 age: Option<u64>| {
@@ -137,25 +138,26 @@ pub fn build_with_loadout(outcome: &Outcome, loadout: &OwnLoadout, src: SourceSt
             "session_epoch": epoch,
             "availability": availability,
             "source": {"kind": "gsi", "generation": src.generation, "sequence": seq, "age_ms": age},
+            "map": map,
             "own": own,
         })
     };
     let admitted: &Admitted = match outcome {
         Outcome::Admitted(a) => a,
         Outcome::Unsupported(_) => {
-            return base(Availability::Unsupported, Value::Null, None, None, None)
+            return base(Availability::Unsupported, Value::Null, Value::Null, None, None, None)
         }
-        Outcome::Rejected(_) => return base(Availability::Invalid, Value::Null, None, None, None),
-        Outcome::NotPlaying => return base(Availability::Unknown, Value::Null, None, None, None),
+        Outcome::Rejected(_) => return base(Availability::Invalid, Value::Null, Value::Null, None, None, None),
+        Outcome::NotPlaying => return base(Availability::Unknown, Value::Null, Value::Null, None, None, None),
     };
     if admitted.ownership != Ownership::Verified {
-        return base(Availability::Invalid, Value::Null, None, None, None);
+        return base(Availability::Invalid, Value::Null, Value::Null, None, None, None);
     }
     let (Some(epoch), Some(seq), Some(age)) = (src.session_epoch, src.sequence, src.age_ms) else {
-        return base(Availability::Unknown, Value::Null, None, None, None);
+        return base(Availability::Unknown, Value::Null, Value::Null, None, None, None);
     };
     if !matches!(admitted.phase, Phase::Pregame | Phase::Live) {
-        return base(Availability::Unknown, Value::Null, Some(epoch), None, None);
+        return base(Availability::Unknown, Value::Null, Value::Null, Some(epoch), None, None);
     }
     let observed = age_availability(age);
     let h = &admitted.hero;
@@ -183,5 +185,10 @@ pub fn build_with_loadout(outcome: &Outcome, loadout: &OwnLoadout, src: SourceSt
             "abilities": abilities_json(&loadout.abilities, observed),
         }
     });
-    base(observed, own, Some(epoch), Some(seq), Some(age))
+    let map = json!({
+        "radiant_score": field_json(&admitted.map.radiant_score, observed),
+        "dire_score": field_json(&admitted.map.dire_score, observed),
+        "clock_time": field_json(&admitted.map.clock_time, observed),
+    });
+    base(observed, own, map, Some(epoch), Some(seq), Some(age))
 }

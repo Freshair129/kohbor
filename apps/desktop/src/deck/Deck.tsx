@@ -1,4 +1,5 @@
-import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import type { Locale } from "../copy";
 import { MinimapPanel } from "../live/MinimapPanel";
 import type { OwnSnapshot, RuntimeStatus } from "../types";
@@ -15,6 +16,14 @@ import { allyHeroCards, cardCopy, enemyHeroCards, ownDraftSlot, ownHeroCard, typ
 import { useRosterMemory } from "../live/rosterMemory";
 import { CENTER_ROOMY_CARD_MIN_H, centeredLiveLayout, ownFieldCardMode } from "../live/secondMonitorLayout";
 import type { SecondMonitorSide } from "../live/secondMonitorModel";
+import { overviewClient } from "../overview/overviewClient";
+import { parseMatchHistory, type MatchHistory } from "../overview/overviewModel";
+import { pregameDashboardModel } from "../live/pregameDashboardModel";
+import { postGameSummaryModel } from "../live/postGameSummaryModel";
+import { loadMatchRecap, type MatchRecapSnapshot } from "../packs/recapModel";
+import { PregameDashboard } from "../live/PregameDashboard";
+import { PostGameSummary } from "../live/PostGameSummary";
+import { ScoreboardHeader } from "../live/ScoreboardHeader";
 import "./deck.css";
 
 function useFieldBox<T extends HTMLElement>() {
@@ -37,27 +46,52 @@ function useFieldBox<T extends HTMLElement>() {
   return { ref, box };
 }
 
-function phaseLabel(locale: Locale, phase: RuntimeStatus["session"]["phase"] | null): string {
-  const th = locale !== "en";
-  switch (phase) {
-    case "none": return th ? "รอเกมเริ่ม" : "Waiting for game";
-    case "draft": return th ? "ดราฟต์" : "Draft";
-    case "pregame": return th ? "ก่อนเริ่มเกม" : "Pregame";
-    case "live": return th ? "กำลังเล่น" : "In match";
-    case "post_game": return th ? "หลังเกม" : "Post-game";
-    case "unsupported": return th ? "ไม่รองรับสถานะเกม" : "Unsupported game phase";
-    default: return th ? "ไม่ทราบสถานะเกม" : "Unknown game phase";
-  }
-}
-
-function CenteredLiveField({ locale, status, snapshot, hostLost, steamStatus, state, own, loadout, stale, draftBar, roster, ownTeam, ownSlot, allyCards, enemyCards }: {
+function CenteredLiveField({ locale, status, snapshot, hostLost, steamStatus, matchEnded, state, own, loadout, stale, draftBar, roster, ownTeam, ownSlot, allyCards, enemyCards, onOpenReplay }: {
   locale: Locale; status: RuntimeStatus | null; snapshot: OwnSnapshot | null; hostLost: boolean; steamStatus: SteamStatus | null;
+  matchEnded: boolean;
   state: DeckStateView; own: ReturnType<typeof deriveOwnHeroViewModel>; loadout: ReturnType<typeof deriveLoadoutViewModel>;
   stale: boolean; draftBar: ReturnType<typeof useDraftBar>; roster: ReturnType<typeof useRosterMemory>; ownTeam: "radiant" | "dire" | null;
-  ownSlot: number | null; allyCards: HeroCard[]; enemyCards: HeroCard[];
+  ownSlot: number | null; allyCards: HeroCard[]; enemyCards: HeroCard[]; onOpenReplay: () => void;
 }) {
   const text = deckCopy(locale);
   const cardsText = cardCopy(locale === "en" ? "en" : "th");
+  const [history, setHistory] = useState<MatchHistory | null>(null);
+  const [recap, setRecap] = useState<MatchRecapSnapshot | null>(null);
+  const [postGame, setPostGame] = useState<{ epoch: number | null; dismissed: boolean } | null>(null);
+  const [lastLiveSnapshot, setLastLiveSnapshot] = useState<{ epoch: number; snapshot: OwnSnapshot } | null>(null);
+  const phase = hostLost ? null : status?.session.phase ?? null;
+  const sessionEpoch = hostLost ? null : status?.session.session_epoch ?? null;
+  useEffect(() => {
+    let active = true;
+    void overviewClient.matchHistory(0).then(raw => {
+      if (active) setHistory(parseMatchHistory(raw));
+    }).catch(() => { if (active) setHistory(null); });
+    return () => { active = false; };
+  }, [phase, sessionEpoch]);
+  useEffect(() => {
+    if (phase === "draft" || phase === "pregame") {
+      setLastLiveSnapshot(null);
+    } else if (phase === "live" && sessionEpoch !== null && snapshot?.availability === "fresh"
+      && snapshot.session_epoch === sessionEpoch) {
+      setLastLiveSnapshot({ epoch: sessionEpoch, snapshot });
+    }
+  }, [phase, sessionEpoch, snapshot]);
+  useEffect(() => {
+    if ((phase === "post_game" || matchEnded) && !hostLost) {
+      setPostGame(previous => previous?.epoch === sessionEpoch ? previous : { epoch: sessionEpoch, dismissed: false });
+    } else if (phase === "draft" || phase === "pregame" || phase === "live") {
+      setPostGame(null);
+    }
+  }, [hostLost, matchEnded, phase, sessionEpoch]);
+  useEffect(() => {
+    let active = true;
+    if (!postGame || postGame.dismissed || postGame.epoch === null) {
+      setRecap(null);
+      return () => { active = false; };
+    }
+    void loadMatchRecap(command => invoke<unknown>(command)).then(value => { if (active) setRecap(value); });
+    return () => { active = false; };
+  }, [postGame?.dismissed, postGame?.epoch]);
   const field = useFieldBox<HTMLDivElement>();
   const layout = field.box ? centeredLiveLayout(field.box) : null;
   const slot = ownDraftSlot(roster, hostLost ? null : status?.session.session_epoch ?? null, ownTeam, own.heroId) ?? ownSlot;
@@ -66,12 +100,27 @@ function CenteredLiveField({ locale, status, snapshot, hostLost, steamStatus, st
   const ourCards = orderBySlot([ownModel, ...allyCards]);
   const radiantCards = ownTeam === "radiant" ? ourCards : enemyCards;
   const direCards = ownTeam === "dire" ? ourCards : enemyCards;
-  const phase = hostLost ? null : status?.session.phase ?? null;
   const draft = phase === "draft";
-  const phaseName = hostLost
-    ? (locale === "en" ? "Host not responding" : "ระบบหลักไม่ตอบ")
-    : phaseLabel(locale, phase);
-  const phaseReason = locale === "en" ? state.reason.en : state.reason.th;
+  const showPostGame = postGame !== null && !postGame.dismissed;
+  const dashboard = pregameDashboardModel(history, new Date(), locale === "en" ? "en" : "th");
+  const recapMatch = postGame?.epoch === null || postGame?.epoch === undefined
+    ? null
+    : recap?.matches.find(match => match.match_id === `local_match_${postGame.epoch}`) ?? null;
+  const summarySnapshot = postGame?.epoch !== null && postGame?.epoch !== undefined
+    && lastLiveSnapshot?.epoch === postGame.epoch ? lastLiveSnapshot.snapshot : snapshot;
+  const freshMap = summarySnapshot?.availability === "fresh" ? summarySnapshot.map : undefined;
+  const summary = postGameSummaryModel({
+    entry: null,
+    snapshot: summarySnapshot,
+    scoreboard: {
+      radiant: freshMap?.radiant_score.availability === "fresh" ? freshMap.radiant_score.value : null,
+      dire: freshMap?.dire_score.availability === "fresh" ? freshMap.dire_score.value : null,
+      clockSeconds: freshMap?.clock_time.availability === "fresh" ? freshMap.clock_time.value : null,
+    },
+    recap: recapMatch ? { events: recapMatch.playedEvents, droppedCount: recapMatch.droppedCount } : null,
+    derivedStats: [],
+    replay: null,
+  }, locale === "en" ? "en" : "th");
   const sideWidth = layout?.mode === "field" ? layout.card.w : 0;
   const wideStats = sideWidth >= 260;
   const roomyField = layout?.mode === "field" && sideWidth >= 320 && layout.card.h >= CENTER_ROOMY_CARD_MIN_H;
@@ -100,14 +149,17 @@ function CenteredLiveField({ locale, status, snapshot, hostLost, steamStatus, st
               headingLabel={{ title: text.ownHero, latestResult: text.latestResult }} fieldCard wideStats={wideStats} ownFieldMode={ownFieldMode} youLabel={cardsText.you} />} />
         </section>
         <section className="deck-field-region deck-field-map" style={position(regions!.map)} data-region="map" data-testid="center-map-region">
-          <div className="deck-field-phase" data-testid="gsi-phase-strip" title={`${phaseName} · ${phaseReason}`}>
-            <span className="deck-field-phase-name">{phaseName}</span>
-            <span className="deck-field-phase-reason">{phaseReason}</span>
-          </div>
-          {draft ? <div className="deck-field-draft-row" data-testid="center-draft-region">
-            <DraftBarStrip frame={draftBar} locale={locale} />
-            <DraftDeckPanel visible />
-          </div> : <MinimapPanel locale={locale} layout="field" steamStatus={steamStatus} />}
+          {draft ? <>
+            <div className="deck-field-draft-scoreboard"><ScoreboardHeader snapshot={snapshot} phase={phase} locale={locale === "en" ? "en" : "th"} /></div>
+            <div className="deck-field-draft-row" data-testid="center-draft-region">
+              <DraftBarStrip frame={draftBar} locale={locale} />
+              <DraftDeckPanel visible />
+            </div>
+          </> : showPostGame ? <PostGameSummary summary={summary} locale={locale === "en" ? "en" : "th"}
+            onClose={() => setPostGame(value => value ? { ...value, dismissed: true } : null)} onOpenReplay={onOpenReplay} />
+            : phase === "none" && !hostLost ? <PregameDashboard model={dashboard} locale={locale === "en" ? "en" : "th"}
+              mapState={steamStatus?.minimap_state ?? "unsupported"} />
+              : <MinimapPanel locale={locale} layout="field" steamStatus={steamStatus} snapshot={snapshot} gamePhase={phase} />}
         </section>
         <section className="deck-field-region deck-field-team" style={position(regions!.dire)} data-region="dire" data-testid="center-team-dire">
           <CompactHeroCards cards={direCards} locale={locale} label={cardsText.dire} fieldCard wideStats={wideStats} roomyField={roomyField} />
@@ -125,7 +177,9 @@ export function Deck({
   hostLost,
   steamStatus,
   inMatch,
+  matchEnded = false,
   secondMonitor,
+  onOpenReplay = () => {},
 }: {
   locale: Locale;
   status: RuntimeStatus | null;
@@ -134,6 +188,8 @@ export function Deck({
   hostLost: boolean;
   steamStatus: SteamStatus | null;
   inMatch: boolean;
+  matchEnded?: boolean;
+  onOpenReplay?: () => void;
   /** Second-monitor mode (UI-016). Present only while a match runs and a monitor side is set. */
   secondMonitor?: { side: Exclude<SecondMonitorSide, "off"> };
 }) {
@@ -155,9 +211,10 @@ export function Deck({
 
   if (inMatch && secondMonitor) return (
     <SecondMonitorDeck locale={locale} side={secondMonitor.side} snapshot={snapshot} hostLost={hostLost}
-      sessionEpoch={hostLost ? null : status?.session.session_epoch ?? null} draftBar={draftBar} steamStatus={steamStatus} />
+      sessionEpoch={hostLost ? null : status?.session.session_epoch ?? null} draftBar={draftBar} steamStatus={steamStatus}
+      gamePhase={hostLost ? null : status?.session.phase ?? null} />
   );
-  return <CenteredLiveField locale={locale} status={status} snapshot={snapshot} hostLost={hostLost} steamStatus={steamStatus}
+  return <CenteredLiveField locale={locale} status={status} snapshot={snapshot} hostLost={hostLost} steamStatus={steamStatus} matchEnded={matchEnded}
     state={state} own={own} loadout={loadout} stale={stale} draftBar={draftBar} roster={roster} ownTeam={cardTeam}
-    ownSlot={ownSlot} allyCards={allyCards} enemyCards={enemyCards} />;
+    ownSlot={ownSlot} allyCards={allyCards} enemyCards={enemyCards} onOpenReplay={onOpenReplay} />;
 }

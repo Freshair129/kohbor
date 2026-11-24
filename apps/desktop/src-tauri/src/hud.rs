@@ -759,7 +759,7 @@ mod tests {
     };
     use crate::overlay::{MonitorRect, Rect};
     use kohbor_gsi::admission::{
-        Admitted, Field, HeroFields, OwnCounters, OwnLoadout, Rejection, Team, UnsupportedReason,
+        Admitted, Field, HeroFields, MapFields, OwnCounters, OwnLoadout, Rejection, Team, UnsupportedReason,
     };
     use kohbor_gsi::snapshot::SourceState;
     use kohbor_gsi::{build_snapshot, build_snapshot_with_loadout, Outcome, Ownership, Phase};
@@ -816,6 +816,11 @@ mod tests {
                 gpm: Field::Value(456),
                 xpm: Field::Value(789),
                 combined_score: Field::Value(0),
+            },
+            map: MapFields {
+                radiant_score: Field::Value(0),
+                dire_score: Field::Value(0),
+                clock_time: Field::Value(0),
             },
             hero: HeroFields {
                 hero_id: Field::Value("npc_dota_hero_axe".to_owned()),

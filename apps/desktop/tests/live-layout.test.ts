@@ -32,14 +32,11 @@ test("Live has one definite grid row, two bounded columns and a shrinking map st
   const deckToolbar = deckCss.match(/\.live-deck-panel\s+\.live-map-toolbar\s*\{([^}]+)\}/)?.[1] ?? "";
   assert.doesNotMatch(deckToolbar, /flex(?:-basis)?\s*:\s*[^;]*(?:\d+(?:px|rem|em|%))/,
     "deck layout does not fix the height of a wrapping toolbar");
-  const textRule = css.match(/\.live-map-badge\s*\{([^}]+)\}/)?.[1] ?? "";
-  assert.match(textRule, /overflow-wrap:\s*anywhere/);
-  assert.match(textRule, /white-space:\s*normal/);
-  assert.doesNotMatch(textRule, /overflow:\s*hidden|text-overflow:\s*ellipsis|white-space:\s*nowrap|max-width:\s*\d/);
   // Owner report on build 4467634 (2026-11-24): sent/received/painted rates are shown once, in the footer (CAP/RX/PAINT).
   const panel = readFileSync(new URL("../src/live/MinimapPanel.tsx", import.meta.url), "utf8");
   assert.doesNotMatch(panel, /live-preview-rates|previewRateText/);
-  assert.match(panel, /className="live-map-badge mono"/);
+  assert.match(panel, /<ScoreboardHeader snapshot=\{snapshot\} phase=\{gamePhase\}/);
+  assert.doesNotMatch(panel, /live-map-badge|live-map-plate/);
   assert.match(panel, /className="live-map-body is-field"/);
   assert.match(panel, /<div className="live-map-square-slot">\{stage\}<\/div>/);
   assert.doesNotMatch(css, /\.live-preview-rates/);
@@ -56,7 +53,8 @@ test("centred map controls stay in one compact header above the largest square s
   const slot = liveCss.match(/\.live-map-body\.is-field > \.live-map-square-slot\s*\{([^}]+)\}/)?.[1] ?? "";
   const square = liveCss.match(/\.live-map-body\.is-field > \.live-map-square-slot > \.live-map-stage\s*\{([^}]+)\}/)?.[1] ?? "";
   assert.match(toolbar, /flex-wrap:\s*nowrap/);
-  assert.match(toolbar, /flex:\s*0\s+0\s+auto/);
+  assert.match(toolbar, /flex:\s*0\s+0\s+54px/);
+  assert.match(toolbar, /height:\s*54px/);
   assert.match(toolbar, /align-items:\s*center/);
   assert.match(pane, /container-type:\s*size/);
   assert.match(pane, /gap:\s*0/);
@@ -152,7 +150,8 @@ test("centred own card keeps icons and all stat rows inside both target card siz
   const fieldMarkup = panelSource.match(/\) : field \? \([\s\S]*?\) : \(/)?.[0] ?? "";
   assert.match(fieldMarkup, /\{toolbar\}\s*<div className="live-map-body is-field"/);
   assert.match(pane, /gap:\s*0/);
-  assert.match(toolbar, /flex:\s*0\s+0\s+auto/);
+  assert.match(toolbar, /flex:\s*0\s+0\s+54px/);
+  assert.match(toolbar, /height:\s*54px/);
   assert.match(toolbar, /align-items:\s*center/);
   assert.ok(Number.isFinite(padding + border) && padding + border <= 8, "the first header pixel starts within 8 px of the pane top");
 });

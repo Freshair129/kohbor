@@ -110,6 +110,14 @@ pub struct OwnCounters {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct MapFields {
+    pub radiant_score: Field<i64>,
+    pub dire_score: Field<i64>,
+    /// Signed GSI clock; negative values are the countdown before the horn.
+    pub clock_time: Field<i64>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Admitted {
     pub phase: Phase,
     /// Exact draft-screen phases. Loading states still belong to the coarse Draft phase.
@@ -123,6 +131,7 @@ pub struct Admitted {
     /// Raw SteamID64 from the payload; never persist, log or display.
     pub steamid64: Option<u64>,
     pub counters: OwnCounters,
+    pub map: MapFields,
     pub hero: HeroFields,
 }
 
@@ -308,7 +317,8 @@ pub fn admit(
         .and_then(Value::as_str)
         .filter(|m| !m.is_empty() && *m != "0")
         .map(str::to_owned);
-    let counters = own_counters(body.get("player"), body.get("map"));
+    let map = map_fields(body.get("map"));
+    let counters = own_counters(body.get("player"), &map);
     let hero = hero_fields(body.get("hero"));
     Outcome::Admitted(Box::new(Admitted {
         phase,
@@ -319,6 +329,7 @@ pub fn admit(
         match_id,
         steamid64,
         counters,
+        map,
         hero,
     }))
 }
@@ -511,14 +522,20 @@ fn int_field(object: Option<&Value>, key: &str, min: i64, max: i64) -> Field<i64
     }
 }
 
-fn own_counters(player: Option<&Value>, map: Option<&Value>) -> OwnCounters {
-    let radiant_score = int_field(map, "radiant_score", 0, 100_000);
-    let dire_score = int_field(map, "dire_score", 0, 100_000);
-    let combined_score = match (radiant_score, dire_score) {
+fn map_fields(map: Option<&Value>) -> MapFields {
+    MapFields {
+        radiant_score: int_field(map, "radiant_score", 0, 100_000),
+        dire_score: int_field(map, "dire_score", 0, 100_000),
+        clock_time: int_field(map, "clock_time", -86_400, 86_400),
+    }
+}
+
+fn own_counters(player: Option<&Value>, map: &MapFields) -> OwnCounters {
+    let combined_score = match (&map.radiant_score, &map.dire_score) {
         (Field::Missing, _) | (_, Field::Missing) => Field::Missing,
         (Field::Invalid, _) | (_, Field::Invalid) => Field::Invalid,
         (Field::Value(radiant), Field::Value(dire)) => radiant
-            .checked_add(dire)
+            .checked_add(*dire)
             .map(Field::Value)
             .unwrap_or(Field::Invalid),
     };

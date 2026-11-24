@@ -167,7 +167,7 @@ test("centred mode places Radiant, minimap, and Dire without overflow at each su
   }
 });
 
-test("centred field renders ten slot-ordered replay cards, same-height team columns, and the GSI phase strip", () => {
+test("centred field renders ten slot-ordered replay cards with same-height team columns and no duplicate status strip", () => {
   const deck = readFileSync(new URL("../src/deck/Deck.tsx", import.meta.url), "utf8");
   const cardCss = readFileSync(new URL("../src/live/heroCard.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
   const liveCss = readFileSync(new URL("../src/live/secondMonitor.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
@@ -175,8 +175,8 @@ test("centred field renders ten slot-ordered replay cards, same-height team colu
   assert.match(deck, /<section className="deck-field-region deck-field-team"[^>]*data-region="radiant"/);
   assert.match(deck, /<section className="deck-field-region deck-field-team"[^>]*data-region="dire"/);
   assert.match(deck, /<section className="deck-field-region deck-field-map"[^>]*data-region="map"/);
-  assert.match(deck, /data-testid="gsi-phase-strip"/);
-  assert.match(deck, /draft \? <div className="deck-field-draft-row"/);
+  assert.doesNotMatch(deck, /gsi-phase-strip|deck-field-phase/);
+  assert.match(deck, /draft \? <>[\s\S]*?<div className="deck-field-draft-row"/);
   assert.match(deck, /<DraftBarStrip frame=\{draftBar\}/);
   assert.match(deck, /<DraftDeckPanel visible \/>/);
   assert.match(deck, /<OwnHeroCard[^>]*fieldCard/);
@@ -194,7 +194,7 @@ test("centred field renders ten slot-ordered replay cards, same-height team colu
   assert.match(liveCss, /\.deck-field-region\s*\{[^}]*overflow:\s*hidden/);
   assert.match(liveCss, /\.app\[data-page="live"\] \.shell-live-page > \.deck-field-root/);
   assert.match(liveCss, /\.app\[data-page="live"\] \.deck-field-draft-row \.draft-column-surface-deck\s*\{[^}]*overflow:\s*hidden/);
-  assert.match(liveCss, /\.deck-field-phase-reason\s*\{[^}]*text-overflow:\s*ellipsis/);
+  assert.doesNotMatch(liveCss, /\.deck-field-phase-reason\s*\{/);
   assert.doesNotMatch(liveCss, /overflow(?:-[xy])?:\s*(?:auto|scroll)/);
 });
 

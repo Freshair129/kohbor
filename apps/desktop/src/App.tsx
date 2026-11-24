@@ -13,6 +13,7 @@ import { GSI_FIRST_RUN_STORAGE_KEY, gsiNeedsAttention, gsiPhase, readGsiFirstRun
 import { deckStateReasonForLocale, deriveDeckState } from "./deck/deckState";
 import { Guide } from "./Guide";
 import { startLiveCollection, useCaptureStatus } from "./live";
+import { MinimapPanel } from "./live/MinimapPanel";
 import { OwnHero } from "./OwnHero";
 import { OverviewPage } from "./overview/OverviewPage";
 import { NewsSettings } from "./overview/NewsSettings";
@@ -254,7 +255,7 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
           <div className="shell-page-head-tools">
             {/* Owner decision 2026-11-23 item 5: no GSI/game status chips on the Overview; every other page keeps them. */}
             {activePage !== "overview" && <StatusLine model={statusModel} label={text.shell.statusLineLabel} hostLostMessage={`${text.hostLost} — ${text.hostOutdated}`} onNavigate={navigate} />}
-            {activePage === "live" && !inMatch && <div className="shell-live-start-control">
+            {activePage === "live" && steamStatus?.dota_running === false && !steamStatus.launch_pending && <div className="shell-live-start-control">
               <StartDotaBar status={steamStatus} control={launch} showSteamName={steamName.show} locale={displayLocale} />
             </div>}
             {activePage === "live" && <SecondMonitorToggle side={secondMonitor.side} onChange={secondMonitor.change} locale={displayLocale === "en" ? "en" : "th"} />}
@@ -268,7 +269,8 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
           {activePage === "live" && (
             <div className="shell-screen shell-live-page">
               <Deck locale={displayLocale} status={status} snapshot={snapshot} state={deckState} hostLost={hostLost} steamStatus={steamStatus}
-                inMatch={inMatch} secondMonitor={pinnedSide ? { side: pinnedSide } : undefined} />
+                inMatch={inMatch} matchEnded={matchEnded} secondMonitor={pinnedSide ? { side: pinnedSide } : undefined}
+                onOpenReplay={() => { setActivePage("insights"); setInsightsView("replay"); }} />
             </div>
           )}
 
@@ -318,6 +320,10 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
                 <ObjectiveSettings locale={displayLocale} />
                 <ShowHotkeySettings locale={displayLocale} />
                 <LayoutEditor locale={displayLocale} />
+                <section className="shell-capture-settings" aria-label={displayLocale === "th" ? "ตั้งค่าแผนที่ย่อและการจับภาพ" : "Minimap and capture settings"}>
+                  <h2>{displayLocale === "th" ? "แผนที่ย่อและการจับภาพ" : "Minimap and capture"}</h2>
+                  <MinimapPanel locale={displayLocale === "en" ? "en" : "th"} layout="settings" />
+                </section>
               </section>
               <OrbSettings locale={displayLocale} />
               <DraftSettings />

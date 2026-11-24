@@ -42,11 +42,11 @@ export function reduceReveal(state: RevealState, event: RevealEvent): RevealStat
 export function minimapPlaceholderText(state: MinimapState, locale: "th" | "en", waitingReason: string | null = null): string {
   if (state === "loading" && waitingReason) return waitingReason;
   const messages = locale === "th" ? {
-    not_running: "Dota 2 ยังไม่เปิด — กดเริ่ม Dota 2", launching: "กำลังเปิด Dota 2…", hero_selection: "กำลังเลือกฮีโร่ — แผนที่จะปรากฏเมื่อเกมเริ่ม",
-    loading: "กำลังโหลดเกม — รอแผนที่", first_frame: "ได้รับภาพแผนที่แล้ว", live: "ภาพแผนที่", occluded: "ยังไม่มีเฟรมสะอาดที่เก็บไว้", unsupported: "ยังแสดงภาพไม่ได้",
+    not_running: "Dota 2 ปิดอยู่ — กดเริ่ม", launching: "กำลังเปิด Dota 2…", hero_selection: "กำลังเลือกฮีโร่",
+    loading: "กำลังโหลดเกม", first_frame: "กำลังเปิดภาพแผนที่", live: "กำลังรับภาพ", occluded: "รอเฟรมแผนที่", unsupported: "ยังแสดงภาพไม่ได้",
   } : {
-    not_running: "Dota 2 is closed — press Start Dota 2", launching: "Launching Dota 2…", hero_selection: "Choosing a hero — the map appears when the game starts",
-    loading: "Loading the game — waiting for the map", first_frame: "Minimap frame received", live: "Minimap", occluded: "No retained clean frame is available", unsupported: "Minimap unavailable",
+    not_running: "Dota 2 is closed — press Start", launching: "Launching Dota 2…", hero_selection: "Choosing a hero",
+    loading: "Loading the game", first_frame: "Opening minimap", live: "Receiving minimap", occluded: "Waiting for minimap frame", unsupported: "Minimap unavailable",
   };
   return messages[state];
 }
