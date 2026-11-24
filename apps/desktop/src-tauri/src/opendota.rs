@@ -7,9 +7,9 @@
 #[cfg(windows)]
 use crate::hero_stats::transport::WinHttpTransport;
 use crate::hero_stats::transport::{Cancellation, Endpoint, HttpResponse, TransportError};
-use crate::match_history::{MatchEnd, MatchEntry, MatchResult, MatchType, MAX_ENTRIES};
+use crate::match_history::{MAX_ENTRIES, MatchEnd, MatchEntry, MatchResult, MatchType};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -39,6 +39,7 @@ const HISTORY_ENDPOINT: Endpoint = Endpoint {
 pub(crate) enum State {
     Disabled,
     Idle,
+    WaitingForAccount,
     Loading,
     Merged,
     Empty,
@@ -72,11 +73,7 @@ impl Default for Preferences {
 impl Preferences {
     fn valid(&self) -> bool {
         self.schema_version == SCHEMA_VERSION
-            && if self.enabled {
-                self.account_id.is_some_and(|id| id > 0)
-            } else {
-                self.account_id.is_none()
-            }
+            && self.account_id.map_or(true, |id| self.enabled && id > 0)
     }
 }
 
@@ -245,7 +242,8 @@ impl OpenDotaService {
             .and_then(|bytes| serde_json::from_slice::<CachedHistory>(&bytes).ok())
             .filter(CachedHistory::valid);
         let enabled = prefs.enabled;
-        let (entries, fetched_at) = if enabled {
+        let account_available = prefs.account_id.is_some();
+        let (entries, fetched_at) = if enabled && account_available {
             cache
                 .map(|cache| (cache.entries, Some(cache.fetched_at)))
                 .unwrap_or_default()
@@ -255,6 +253,8 @@ impl OpenDotaService {
         };
         let state = if !enabled {
             State::Disabled
+        } else if !account_available {
+            State::WaitingForAccount
         } else if fetched_at.is_some() {
             if entries.is_empty() {
                 State::Empty
@@ -298,35 +298,9 @@ impl OpenDotaService {
         account_id: Option<u32>,
     ) -> Result<Value, String> {
         if enabled {
-            let account_id = account_id
-                .filter(|id| *id > 0)
-                .ok_or_else(|| "OWN_ACCOUNT_UNAVAILABLE".to_owned())?;
+            let account_id = account_id.filter(|id| *id > 0);
             let mut inner = lock(&self.inner);
-            if inner.prefs.enabled && inner.prefs.account_id == Some(account_id) {
-                return Ok(json!({"enabled": true}));
-            }
-            delete_file(&self.dir.join(CACHE_FILE)).map_err(|_| "OPENDOTA_CACHE_DELETE_FAILED")?;
-            if inner.prefs.account_id != Some(account_id) {
-                if let Some(cancellation) = inner.cancellation.take() {
-                    cancellation.cancel();
-                }
-                inner.generation = inner.generation.wrapping_add(1);
-                inner.entries.clear();
-                inner.fetched_at = None;
-                self.transport.cancel_current();
-            }
-            let prefs = Preferences {
-                schema_version: SCHEMA_VERSION,
-                enabled: true,
-                account_id: Some(account_id),
-            };
-            save_json(&self.dir.join(SETTINGS_FILE), &prefs)
-                .map_err(|_| "OPENDOTA_SETTINGS_WRITE_FAILED")?;
-            inner.prefs = prefs;
-            inner.entries.clear();
-            inner.fetched_at = None;
-            inner.state = State::Idle;
-            inner.startup_attempted = false;
+            self.enable_with_account_locked(&mut inner, account_id)?;
             drop(inner);
             return Ok(json!({"enabled": true}));
         }
@@ -360,6 +334,55 @@ impl OpenDotaService {
         Ok(json!({"enabled": false}))
     }
 
+    /// Attach a fresh verified account only while consent is still enabled.
+    pub(crate) fn update_account_if_enabled(&self, account_id: u32) -> Result<(), String> {
+        if account_id == 0 {
+            return Err("OWN_ACCOUNT_UNAVAILABLE".to_owned());
+        }
+        let mut inner = lock(&self.inner);
+        if !inner.prefs.enabled {
+            return Ok(());
+        }
+        self.enable_with_account_locked(&mut inner, Some(account_id))
+    }
+
+    fn enable_with_account_locked(
+        &self,
+        inner: &mut Inner,
+        account_id: Option<u32>,
+    ) -> Result<(), String> {
+        if inner.prefs.enabled && inner.prefs.account_id == account_id {
+            return Ok(());
+        }
+        delete_file(&self.dir.join(CACHE_FILE)).map_err(|_| "OPENDOTA_CACHE_DELETE_FAILED")?;
+        if inner.prefs.account_id != account_id {
+            if let Some(cancellation) = inner.cancellation.take() {
+                cancellation.cancel();
+            }
+            inner.generation = inner.generation.wrapping_add(1);
+            inner.entries.clear();
+            inner.fetched_at = None;
+            self.transport.cancel_current();
+        }
+        let prefs = Preferences {
+            schema_version: SCHEMA_VERSION,
+            enabled: true,
+            account_id,
+        };
+        save_json(&self.dir.join(SETTINGS_FILE), &prefs)
+            .map_err(|_| "OPENDOTA_SETTINGS_WRITE_FAILED")?;
+        inner.prefs = prefs;
+        inner.entries.clear();
+        inner.fetched_at = None;
+        inner.state = if account_id.is_some() {
+            State::Idle
+        } else {
+            State::WaitingForAccount
+        };
+        inner.startup_attempted = false;
+        Ok(())
+    }
+
     pub(crate) fn entries(&self) -> Vec<MatchEntry> {
         let inner = lock(&self.inner);
         if inner.prefs.enabled {
@@ -386,15 +409,17 @@ impl OpenDotaService {
                 if inner.startup_attempted {
                     return self.view_locked(&inner);
                 }
-                inner.startup_attempted = true;
             }
             if inner.busy {
                 return self.view_locked(&inner);
             }
             let Some(account_id) = inner.prefs.account_id else {
-                inner.state = State::Unavailable;
+                inner.state = State::WaitingForAccount;
                 return self.view_locked(&inner);
             };
+            if !retry {
+                inner.startup_attempted = true;
+            }
             if self.install_key.is_none() {
                 inner.state = State::Unavailable;
                 return self.view_locked(&inner);
@@ -475,7 +500,11 @@ impl OpenDotaService {
             inner.entries.clear();
             inner.fetched_at = None;
             if inner.prefs.enabled {
-                inner.state = State::Idle;
+                inner.state = if inner.prefs.account_id.is_some() {
+                    State::Idle
+                } else {
+                    State::WaitingForAccount
+                };
             }
         }
         self.transport.cancel_current();
@@ -500,8 +529,10 @@ impl OpenDotaService {
         } else {
             0
         };
-        let retry_available =
-            inner.prefs.enabled && !inner.busy && inner.ledger.can_request(unix_millis());
+        let retry_available = inner.prefs.enabled
+            && inner.prefs.account_id.is_some()
+            && !inner.busy
+            && inner.ledger.can_request(unix_millis());
         json!({
             "state": inner.state,
             "enabled": inner.prefs.enabled,
@@ -811,15 +842,134 @@ mod tests {
     }
 
     #[test]
+    fn enabling_without_account_waits_without_network_request() {
+        let dir = temp_dir("pending-consent");
+        let transport = Arc::new(FixtureTransport::new(std::iter::empty::<
+            Result<HttpResponse, TransportError>,
+        >()));
+        let service = OpenDotaService::open_with_transport(&dir, Some([7; 32]), transport.clone());
+
+        service.set_enabled(true, None).unwrap();
+        let view = service.refresh(false);
+
+        assert_eq!(view["state"], "waiting_for_account");
+        assert_eq!(view["enabled"], true);
+        assert_eq!(view["retry_available"], false);
+        assert!(transport.paths.lock().unwrap().is_empty());
+        let prefs: Value =
+            serde_json::from_slice(&fs::read(dir.join(SETTINGS_FILE)).unwrap()).unwrap();
+        assert_eq!(prefs["enabled"], true);
+        assert!(prefs.get("account_id").is_none());
+
+        let restored = OpenDotaService::open_with_transport(&dir, Some([7; 32]), transport.clone());
+        assert_eq!(restored.prefs()["enabled"], true);
+        assert_eq!(restored.view()["state"], "waiting_for_account");
+        assert!(transport.paths.lock().unwrap().is_empty());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn account_available_after_opt_in_is_saved_and_fetched_once() {
+        let dir = temp_dir("pending-account-arrives");
+        let transport = Arc::new(FixtureTransport::new([response(200, fixture())]));
+        let service = OpenDotaService::open_with_transport(&dir, Some([7; 32]), transport.clone());
+
+        service.set_enabled(true, None).unwrap();
+        assert_eq!(service.refresh(false)["state"], "waiting_for_account");
+        service.update_account_if_enabled(12_345).unwrap();
+        assert_eq!(service.refresh(false)["state"], "merged");
+        assert_eq!(service.refresh(false)["state"], "merged");
+
+        let settings = fs::read_to_string(dir.join(SETTINGS_FILE)).unwrap();
+        assert!(settings.contains("12345"));
+        assert!(!settings.contains("7656119"));
+        assert_eq!(transport.paths.lock().unwrap().len(), 1);
+        assert!(transport.paths.lock().unwrap()[0].starts_with("/api/players/12345/matches?"));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn changed_verified_account_cancels_clears_and_refetches() {
+        let dir = temp_dir("account-change");
+        let transport = Arc::new(FixtureTransport::new([
+            response(200, fixture()),
+            response(200, fixture()),
+        ]));
+        let service = OpenDotaService::open_with_transport(&dir, Some([7; 32]), transport.clone());
+
+        service.set_enabled(true, Some(12_345)).unwrap();
+        assert_eq!(service.refresh(false)["state"], "merged");
+        assert!(dir.join(CACHE_FILE).exists());
+        service.update_account_if_enabled(23_456).unwrap();
+
+        assert!(service.entries().is_empty());
+        assert!(!dir.join(CACHE_FILE).exists());
+        assert_eq!(service.refresh(false)["state"], "merged");
+        let paths = transport.paths.lock().unwrap();
+        assert_eq!(paths.len(), 2);
+        assert!(paths[0].starts_with("/api/players/12345/matches?"));
+        assert!(paths[1].starts_with("/api/players/23456/matches?"));
+        assert!(transport.cancels.load(Ordering::Relaxed) > 0);
+        let settings = fs::read_to_string(dir.join(SETTINGS_FILE)).unwrap();
+        assert!(settings.contains("23456"));
+        assert!(!settings.contains("12345"));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn revoke_from_pending_clears_consent_account_and_cache() {
+        let dir = temp_dir("pending-revoke");
+        let transport = Arc::new(FixtureTransport::new(std::iter::empty::<
+            Result<HttpResponse, TransportError>,
+        >()));
+        let service = OpenDotaService::open_with_transport(&dir, Some([7; 32]), transport.clone());
+
+        service.set_enabled(true, None).unwrap();
+        assert_eq!(service.refresh(false)["state"], "waiting_for_account");
+        fs::write(dir.join(CACHE_FILE), b"pending cache").unwrap();
+        service.set_enabled(false, None).unwrap();
+
+        assert_eq!(service.prefs()["enabled"], false);
+        assert_eq!(service.view()["state"], "disabled");
+        assert!(!dir.join(CACHE_FILE).exists());
+        let settings = fs::read_to_string(dir.join(SETTINGS_FILE)).unwrap();
+        assert!(!settings.contains("account_id"));
+        assert!(transport.paths.lock().unwrap().is_empty());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn account_poll_after_revoke_does_not_restore_consent() {
+        let dir = temp_dir("pending-revoke-account-poll");
+        let transport = Arc::new(FixtureTransport::new(std::iter::empty::<
+            Result<HttpResponse, TransportError>,
+        >()));
+        let service = OpenDotaService::open_with_transport(&dir, Some([7; 32]), transport.clone());
+
+        service.set_enabled(true, None).unwrap();
+        service.set_enabled(false, None).unwrap();
+        service.update_account_if_enabled(12_345).unwrap();
+
+        assert_eq!(service.prefs()["enabled"], false);
+        assert_eq!(service.view()["state"], "disabled");
+        let settings = fs::read_to_string(dir.join(SETTINGS_FILE)).unwrap();
+        assert!(!settings.contains("account_id"));
+        assert!(transport.paths.lock().unwrap().is_empty());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
     fn parses_only_projected_fields_and_hashes_match_id_before_cache_storage() {
         let entries = parse_matches(fixture().as_bytes(), Some(&[7; 32])).unwrap();
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].hero_id, Some(2));
         assert_eq!(entries[0].match_type, MatchType::Ranked);
         assert_eq!(entries[0].result, Some(MatchResult::Win));
-        assert!(!serde_json::to_string(&entries)
-            .unwrap()
-            .contains("8000000001"));
+        assert!(
+            !serde_json::to_string(&entries)
+                .unwrap()
+                .contains("8000000001")
+        );
         assert_eq!(
             request_path(12_345),
             format!(

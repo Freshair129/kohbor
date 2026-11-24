@@ -6,7 +6,7 @@ import { overviewCopy, type OverviewLocale } from "./overviewCopy";
 import { overviewClient, type OverviewClient } from "./overviewClient";
 import {
   bestHeroPanel, countingNotes, EMPTY_HISTORY, formatDate, formatDateTime, localMonthStart, matchRows, NEWS_FILTERS,
-  newsColumn, parseMatchHistory, parseNewsView, parseOpenDotaView, pick, placeholderRowCount, statTiles,
+  newsColumn, openDotaStatusText, parseMatchHistory, parseNewsView, parseOpenDotaView, pick, placeholderRowCount, statTiles,
   type BestHero, type MatchHistory, type NewsFilter, type NewsPost, type NewsView, type OpenDotaView, type TileView,
 } from "./overviewModel";
 import "./overview.css";
@@ -15,6 +15,7 @@ const RECENT_ROWS = 8;
 const HISTORY_REFRESH_MS = 30_000;
 const NEWS_LOADING_POLL_MS = 1_500;
 const OPENDOTA_LOADING_POLL_MS = 1_000;
+const OPENDOTA_ACCOUNT_POLL_MS = 5_000;
 
 type Loaded<T> = { status: "loading" } | { status: "unavailable" } | { status: "ready"; value: T };
 
@@ -127,6 +128,21 @@ function OpenDotaCard({ locale, client, historyChanged, cacheRevision }: {
     }
   }, [client, historyChanged]);
 
+  const pollForAccount = useCallback(async () => {
+    try {
+      const parsed = parseOpenDotaView(await client.refreshOpenDota(false));
+      if (!parsed) {
+        setFailed(true);
+        return;
+      }
+      setFailed(false);
+      setView(parsed);
+      if (parsed.state !== "waiting_for_account") historyChanged();
+    } catch {
+      setFailed(true);
+    }
+  }, [client, historyChanged]);
+
   useEffect(() => {
     let alive = true;
     client.openDotaPrefs().then(async (prefs) => {
@@ -145,10 +161,14 @@ function OpenDotaCard({ locale, client, historyChanged, cacheRevision }: {
   }, [client, read, refresh, cacheRevision]);
 
   useEffect(() => {
+    if (view?.state === "waiting_for_account") {
+      const timer = window.setInterval(() => { void pollForAccount(); }, OPENDOTA_ACCOUNT_POLL_MS);
+      return () => window.clearInterval(timer);
+    }
     if (view?.state !== "loading") return;
     const timer = window.setInterval(() => { void read().catch(() => setFailed(true)); }, OPENDOTA_LOADING_POLL_MS);
     return () => window.clearInterval(timer);
-  }, [read, view?.state]);
+  }, [pollForAccount, read, view?.state]);
 
   const change = async (next: boolean) => {
     setSaving(true);
@@ -169,16 +189,7 @@ function OpenDotaCard({ locale, client, historyChanged, cacheRevision }: {
   };
 
   const state = view?.state ?? "idle";
-  const status = state === "disabled" ? t.openDotaDisabled
-    : state === "loading" ? t.openDotaLoading
-      : state === "merged" ? t.openDotaMerged
-        : state === "empty" ? t.openDotaEmpty
-          : state === "private_profile" ? t.openDotaPrivateBody
-            : state === "not_found" ? t.openDotaNotFound
-              : state === "rate_limited" ? t.openDotaRateLimited
-                : state === "budget_exhausted" ? t.openDotaBudgetLimited
-                  : state === "offline" ? t.openDotaOffline
-                    : state === "unavailable" ? t.openDotaUnavailable : t.openDotaEnabled;
+  const status = openDotaStatusText(state, locale);
   const showsCacheTime = view !== null && view.cachedEntries > 0 && view.fetchedAt !== null
     && ["loading", "offline", "rate_limited", "budget_exhausted", "private_profile", "not_found", "merged"].includes(state);
 

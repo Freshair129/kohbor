@@ -1167,7 +1167,7 @@ pub(crate) fn opendota_prefs_get(state: tauri::State<'_, AppState>) -> Value {
     state.opendota.prefs()
 }
 
-/// The renderer supplies consent only. The account ID comes from the current verified GSI owner.
+/// The renderer supplies consent only. A verified GSI account ID is stored when one becomes available.
 #[tauri::command]
 pub(crate) fn opendota_prefs_set(
     state: tauri::State<'_, AppState>,
@@ -1186,12 +1186,16 @@ pub(crate) fn opendota_view_get(state: tauri::State<'_, AppState>) -> Value {
     state.opendota.view()
 }
 
-/// The Overview performs one automatic fetch per app start; a user retry is explicitly marked.
+/// The Overview polls while waiting for an account; the first verified account is bound and fetched once.
 #[tauri::command(async)]
 pub(crate) fn opendota_refresh(state: tauri::State<'_, AppState>, retry: bool) -> Value {
     if state.opendota.prefs()["enabled"] == true {
         if let Some(account_id) = state.runtime.current_own_account_id() {
-            if state.opendota.set_enabled(true, Some(account_id)).is_err() {
+            if state
+                .opendota
+                .update_account_if_enabled(account_id)
+                .is_err()
+            {
                 return json!({
                     "state": "unavailable", "enabled": true, "cached_entries": 0,
                     "fetched_at": null, "last_attempt_at": null, "retry_available": false

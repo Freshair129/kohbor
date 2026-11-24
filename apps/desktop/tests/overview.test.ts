@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   bestHeroPanel, countingNotes, EMPTY_HISTORY, formatDuration, heroCards, localMonthStart, matchRows, newsColumn,
-  parseMatchHistory, parseNewsView, parseOpenDotaView, percent, placeholderRowCount, PLACEHOLDER_HEROES, statTiles, trendPolyline,
+  openDotaStatusText, parseMatchHistory, parseNewsView, parseOpenDotaView, percent, placeholderRowCount, PLACEHOLDER_HEROES, statTiles, trendPolyline,
   type NewsPost,
 } from "../src/overview/overviewModel.ts";
 import { overviewCopy } from "../src/overview/overviewCopy.ts";
@@ -203,6 +203,43 @@ test("OpenDota states stay explicit and the consent copy names the data, recipie
     assert.match(text.openDotaDisclosure, /delete|ลบ/i);
     assert.match(text.openDotaPrivateHint, /Expose Public Match Data/);
   }
+});
+
+test("pending OpenDota consent stays enabled and explains when the account becomes available", () => {
+  const pending = parseOpenDotaView({ state: "waiting_for_account", enabled: true, cached_entries: 0,
+    fetched_at: null, last_attempt_at: null, retry_available: false });
+  assert.equal(pending?.state, "waiting_for_account");
+  assert.equal(pending?.enabled, true);
+  assert.equal(openDotaStatusText(pending!.state, "th"),
+    "รอยืนยันบัญชีจาก Dota 2 — เปิด Dota 2 แล้วเข้าเกมหรือหน้าเมนูสักครู่ ระบบจะดึงประวัติให้เอง");
+  assert.equal(openDotaStatusText(pending!.state, "en"),
+    "Waiting for your Dota 2 account — open Dota 2 and the history loads automatically.");
+  const page = readFileSync(new URL("../src/overview/OverviewPage.tsx", import.meta.url), "utf8");
+  assert.match(page, /view\?\.state === "waiting_for_account"/);
+  assert.match(page, /refreshOpenDota\(false\)/);
+});
+
+test("OpenDota network, rate-limit, private-profile and pending-account states have distinct copy", () => {
+  const thai = [
+    openDotaStatusText("offline", "th"),
+    openDotaStatusText("rate_limited", "th"),
+    openDotaStatusText("private_profile", "th"),
+    openDotaStatusText("waiting_for_account", "th"),
+  ];
+  const english = [
+    openDotaStatusText("offline", "en"),
+    openDotaStatusText("rate_limited", "en"),
+    openDotaStatusText("private_profile", "en"),
+    openDotaStatusText("waiting_for_account", "en"),
+  ];
+  assert.equal(new Set(thai).size, thai.length);
+  assert.equal(new Set(english).size, english.length);
+  assert.match(thai[0], /เครือข่าย/);
+  assert.match(english[0], /network/);
+  assert.match(thai[1], /จำกัดคำขอ/);
+  assert.match(english[1], /rate limit/);
+  assert.match(thai[2], /โปรไฟล์/);
+  assert.match(english[2], /profile/);
 });
 
 test("recent rows retain a source badge for each local and imported entry", () => {

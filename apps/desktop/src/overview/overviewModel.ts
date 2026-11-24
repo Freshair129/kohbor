@@ -390,7 +390,7 @@ export function matchRows(history: MatchHistory, locale: OverviewLocale, limit: 
 // OpenDota own-history state. The host owns all network, consent and cache decisions.
 
 export type OpenDotaState = "disabled" | "idle" | "loading" | "merged" | "empty" | "private_profile"
-  | "not_found" | "rate_limited" | "budget_exhausted" | "offline" | "unavailable";
+  | "waiting_for_account" | "not_found" | "rate_limited" | "budget_exhausted" | "offline" | "unavailable";
 
 export interface OpenDotaView {
   state: OpenDotaState;
@@ -402,7 +402,7 @@ export interface OpenDotaView {
 }
 
 const OPENDOTA_STATES: readonly OpenDotaState[] = [
-  "disabled", "idle", "loading", "merged", "empty", "private_profile", "not_found", "rate_limited",
+  "disabled", "idle", "loading", "merged", "empty", "private_profile", "waiting_for_account", "not_found", "rate_limited",
   "budget_exhausted", "offline", "unavailable",
 ];
 
@@ -419,6 +419,25 @@ export function parseOpenDotaView(raw: unknown): OpenDotaView | null {
     lastAttemptAt: count(raw.last_attempt_at),
     retryAvailable: raw.retry_available,
   };
+}
+
+/** Localized status text keeps the waiting state separate from actual provider or host failures. */
+export function openDotaStatusText(state: OpenDotaState, locale: OverviewLocale): string {
+  const t = overviewCopy(locale).stats;
+  switch (state) {
+    case "disabled": return t.openDotaDisabled;
+    case "idle": return t.openDotaEnabled;
+    case "loading": return t.openDotaLoading;
+    case "merged": return t.openDotaMerged;
+    case "empty": return t.openDotaEmpty;
+    case "waiting_for_account": return t.openDotaWaitingForAccount;
+    case "private_profile": return t.openDotaPrivateBody;
+    case "not_found": return t.openDotaNotFound;
+    case "rate_limited": return t.openDotaRateLimited;
+    case "budget_exhausted": return t.openDotaBudgetLimited;
+    case "offline": return t.openDotaOffline;
+    case "unavailable": return t.openDotaUnavailable;
+  }
 }
 
 // ---------------------------------------------------------------------------------------------
