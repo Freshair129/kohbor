@@ -21,6 +21,7 @@ import { createDraftRosterMemory, rememberDraftFrame } from "../src/live/secondM
 import { createIconResolver, iconFileName, noIcons } from "../src/live/dotaIcons.ts";
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
 import { compactCard, formatGold, joinKnown, ownFullCard, selectLiveDerivedRules, slotColor, statCells, teamFullCard, tileText, UNKNOWN } from "../src/live/heroCardModel.ts";
+import * as heroCardModel from "../src/live/heroCardModel.ts";
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
 import type { DraftBarFrame } from "../src/deck/draftBarModel.ts";
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
@@ -63,12 +64,58 @@ function card(snapshot = liveSnapshot(), icons = noIcons, slot: number | null = 
 }
 
 const liveStatsPack = JSON.parse(readFileSync(new URL("../src/assets/dota/6989/stats.json", import.meta.url), "utf8")) as StatsData;
-function derivedCard(firstItem = "item_blink") {
+function derivedCard(firstItem = "item_blink", options: { stale?: boolean; itemsStale?: boolean } = {}) {
   const snapshot = liveSnapshot(firstItem);
   const loadout = deriveLoadoutViewModel(snapshot, false);
-  return ownFullCard({ own: deriveOwnHeroViewModel(snapshot), items: loadout.items.slots, itemsStale: false,
-    abilities: loadout.abilities.tiles, abilitiesStale: false, slot: 0, icons: noIcons, statsData: liveStatsPack, gameBuild: null });
+  return ownFullCard({ own: deriveOwnHeroViewModel(snapshot), items: loadout.items.slots, itemsStale: options.itemsStale ?? false,
+    abilities: loadout.abilities.tiles, abilitiesStale: false, slot: 0, stale: options.stale,
+    icons: noIcons, statsData: liveStatsPack, gameBuild: null });
 }
+
+test("own hero HP and mana bars expose only fresh derived regeneration with compact one-decimal formatting", () => {
+  const view = derivedCard();
+  assert.equal(view.hpRegenText, "+5.2");
+  assert.equal(view.manaRegenText, null, "mana regen lacks the INT rule, so the bar shows nothing rather than an incomplete total");
+  assert.equal(heroCardModel.formatRegenText?.(6.5), "+6.5");
+  assert.equal(heroCardModel.formatRegenText?.(6), "+6", "the existing numeric format drops a trailing .0");
+  assert.equal(heroCardModel.formatRegenText?.(null), null);
+  assert.equal(derivedCard("item_unobserved_test_item").hpRegenText, null);
+  assert.equal(derivedCard("item_unobserved_test_item").manaRegenText, null);
+  assert.equal(derivedCard("item_blink", { stale: true }).hpRegenText, null);
+  assert.equal(derivedCard("item_blink", { stale: true }).manaRegenText, null);
+  assert.equal(derivedCard("item_blink", { itemsStale: true }).hpRegenText, null);
+  assert.equal(derivedCard("item_blink", { itemsStale: true }).manaRegenText, null);
+  assert.equal(card().hpRegenText, null, "a missing stats pack never turns into +0");
+  assert.equal(card().manaRegenText, null);
+});
+
+test("compact own field stats keep the eight visible derived cells and omit REG", () => {
+  const cells = heroCardModel.compactOwnFieldStats?.(derivedCard().stats);
+  assert.deepEqual(cells?.map(cell => cell.key), ["arm", "mr", "amp", "as", "ms", "ev", "sr", "ls"]);
+  assert.equal(cells?.some(cell => cell.key === "reg"), false, "regen is carried by the HP and mana bars");
+});
+
+test("regen bars keep bilingual derived-estimate tooltips and reserve a right-aligned 12 px value slot", () => {
+  const component = readFileSync(new URL("../src/live/HeroCard.tsx", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../src/live/heroCard.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.match(component, /ฟื้นฟูพลังชีวิต \$\{amount\} ต่อวินาที/);
+  assert.match(component, /ฟื้นฟูมานา \$\{amount\} ต่อวินาที/);
+  assert.match(component, /HP regeneration \$\{amount\} per second/);
+  assert.match(component, /Mana regeneration \$\{amount\} per second/);
+  assert.match(component, /Derived estimate from the stat rules/);
+  assert.match(component, /Sources: \$\{sources\.length > 0/);
+  assert.match(component, /without temporary effects/);
+  assert.match(css, /\.lhc-bar-num\.has-regen\s*\{[^}]*right:\s*42px/);
+  assert.match(css, /\.lhc-bar-regen\s*\{[^}]*right:\s*4px[^}]*font:\s*600 12px/);
+
+  for (const barWidth of [104, 121, 161, 169, 228]) {
+    const valueSlot = barWidth - 42;
+    const compactHpText = 8 * 7.2; // 850/1200 in the 12 px monospace bar font.
+    const regenSlot = 5 * 7.2 + 4; // +6.5 plus its 4 px inset.
+    assert.ok(compactHpText <= valueSlot, `${barWidth}px bar: HP value fits left of regen`);
+    assert.ok(regenSlot <= 42, `${barWidth}px bar: regen stays inside its reserved right slot`);
+  }
+});
 
 test("Lion level-12 GSI hero and item IDs populate labelled estimates with a truthful newest-rules fallback", () => {
   const view = derivedCard();

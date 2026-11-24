@@ -13,6 +13,7 @@ import {
   CENTER_MAP_MIN_W,
   CENTER_ROOMY_CARD_MIN_H,
   CENTER_WIDE_STATS_MIN_W,
+  FIELD_TWO_ROW_24_MIN_W,
   GAP,
   MAP_PANEL_MIN_H,
   PINNED_DRAFT_MIN_MAP_H,
@@ -26,6 +27,7 @@ import {
   type PlacedLayout,
   type Rect,
 } from "../src/live/secondMonitorLayout.ts";
+import * as heroCardModel from "../src/live/heroCardModel.ts";
 
 // At the minimum viewport the pinned Live box retains the global header/footer and one navigation rail.
 const liveBox = (w: number, h: number) => ({ width: w - 136, height: h - 132 });
@@ -48,8 +50,8 @@ test("pinned full replay-structure floors fit five cards per row at 12 px text",
   assert.equal(CARD_ROOMY_ROW_MIN_H, 157);
   assert.equal(MAP_PANEL_MIN_H, 260);
   const css = readFileSync(new URL("../src/live/heroCard.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
-  assert.match(css, /\.lhc-field-card\.lhc-field-own\s*\{[^}]*minmax\(86px,\s*1fr\)/, "the narrow own card reserves its basis line and all three 24 px stat rows");
-  assert.match(css, /\.lhc-field-card\.lhc-field-own\.has-wide-stats\s*\{[^}]*minmax\(48px,\s*1fr\)/, "wide own cards retain two complete 24 px stat rows");
+  assert.match(css, /\.lhc-field-card\.lhc-field-own\s*\{[^}]*minmax\(86px,\s*1fr\)/, "the legacy narrow own-card rule remains the fallback below the compact threshold");
+  assert.match(css, /\.lhc-field-card\.lhc-field-own\.has-wide-stats\s*\{[^}]*minmax\(48px,\s*1fr\)/, "the base wide own-card rule remains available outside the explicit compact field modes");
 });
 
 test("both pinned sides fit ten complete card slots and the minimap at every requested viewport", () => {
@@ -267,6 +269,71 @@ test("centred field renders ten slot-ordered replay cards with same-height team 
   assert.doesNotMatch(liveCss, /\.deck-field-phase-reason\s*\{/);
   assert.doesNotMatch(liveCss, /overflow(?:-[xy])?:\s*(?:auto|scroll)/);
 });
+
+test("own compact stat grid uses 2x4 at both target viewports and falls back below its measured threshold", () => {
+  const targetCards: { name: string; card: { w: number; h: number } }[] = [];
+  for (const [name, width, height] of [["pinned 1920x1080", 1920, 1080], ["pinned 1440x900", 1440, 900]] as const) {
+    targetCards.push({ name, card: placed("right", width, height).card });
+  }
+  for (const [name, width, height] of [["centred 1920x1080", 1920, 1080], ["centred 1440x900", 1440, 900]] as const) {
+    const box = centerLiveBox(width, height);
+    const layout = centeredLiveLayout(box);
+    assert.equal(layout.mode, "field", `${name}: card geometry is available`);
+    if (layout.mode === "field") targetCards.push({ name, card: layout.card });
+  }
+
+  assert.equal(FIELD_TWO_ROW_24_MIN_W, 254);
+  const css = readFileSync(new URL("../src/live/heroCard.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.match(css, /\.lhc-field-card\.lhc-field-own \.lhc-stats\.is-own-compact\s*\{[^}]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\)[^}]*grid-template-rows:\s*repeat\(2,\s*minmax\(12px,\s*1fr\)\)/,
+    "the compact own grid has four 12 px columns and two 12 px rows");
+  assert.match(css, /\.lhc-field-card\.lhc-field-own\.is-own-two-row-22 \.lhc-stats\s*\{[^}]*grid-template-columns:\s*repeat\(5,[^}]*grid-template-rows:\s*repeat\(3,/,
+    "narrow cards preserve the existing complete five-by-three grid");
+  assert.match(css, /\.lhc-field-card\.lhc-field-own \.lhc-stat dt, \.lhc-field-card\.lhc-field-own \.lhc-stat dd\s*\{[^}]*font-size:\s*12px/,
+    "stat text remains at the 12 px minimum");
+  assert.match(css, /\.lhc-field-card\.lhc-field-own\.is-own-compact\s*\{[^}]*height:\s*min-content;\s*align-self:\s*start/,
+    "the own card shrinks within its existing team slot instead of filling the complete row height");
+
+  for (const { name, card } of targetCards) {
+    const mode = ownFieldCardMode(card);
+    const grid = heroCardModel.ownFieldStatsLayout?.(mode);
+    assert.equal(grid?.columns, 4, `${name}: four stat columns`);
+    assert.equal(grid?.rows, 2, `${name}: two stat rows`);
+    assert.equal(grid?.statHeight, 24, `${name}: two 12 px rows`);
+    const innerWidth = card.w - 13;
+    const gap = 4;
+    const cellWidth = (innerWidth - gap * 3) / 4;
+    assert.ok(cellWidth >= 50, `${name}: ${cellWidth}px per cell fits a 12 px icon and five-character value`);
+    const rects = Array.from({ length: 8 }, (_, index) => ({
+      x: (index % 4) * (cellWidth + gap),
+      y: Math.floor(index / 4) * 12,
+      w: cellWidth,
+      h: 12,
+    }));
+    for (let left = 0; left < rects.length; left++) for (let right = left + 1; right < rects.length; right++) {
+      const a = rects[left]!, b = rects[right]!;
+      assert.ok(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y,
+        `${name}: compact stat cells ${left} and ${right} do not overlap`);
+    }
+    const newMinHeight = minOwnFieldCardHeight(mode, grid!.statHeight);
+    assert.ok(newMinHeight < card.h, `${name}: ${newMinHeight}px own card is shorter than its ${card.h}px layout row`);
+    assert.equal(newMinHeight, mode === "one-row-28" ? 102 : 112, `${name}: the compact own card's minimum height is predictable`);
+  }
+
+  const belowThreshold = ownFieldCardMode({ w: FIELD_TWO_ROW_24_MIN_W - 1, h: 160 });
+  assert.equal(belowThreshold, "two-row-22");
+  const fallback = heroCardModel.ownFieldStatsLayout?.(belowThreshold);
+  assert.deepEqual(fallback, { compact: false, columns: 5, rows: 3, statHeight: 36 });
+  assert.equal(ownFieldCardMode({ w: FIELD_TWO_ROW_24_MIN_W, h: 124 }), "two-row-24");
+  assert.equal(ownFieldCardMode({ w: FIELD_TWO_ROW_24_MIN_W, h: 123 }), "two-row-22", "the 2x4 24 px mode needs 124 px of card height");
+  assert.equal(heroCardModel.ownFieldStatsLayout?.(ownFieldCardMode({ w: 467, h: 102 })).compact, true,
+    "the wider 28 px mode can fit its compact grid without the 124 px height threshold");
+});
+
+function minOwnFieldCardHeight(mode: ReturnType<typeof ownFieldCardMode>, statHeight: number): number {
+  if (mode === "one-row-28") return 24 + 14 + 28 + statHeight + 3 * 2 + 2 * 2 + 2;
+  if (mode === "two-row-24") return 20 + 14 + 24 + 24 + statHeight + 4 + 2;
+  return 18 + 14 + 22 + 22 + statHeight + 2;
+}
 
 test("undersized centred boxes use a clear state rather than scrolling or clipping cards", () => {
   assert.deepEqual(centeredLiveLayout({ width: 700, height: 500 }), { mode: "too_small" });

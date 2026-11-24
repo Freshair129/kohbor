@@ -12673,8 +12673,8 @@
     },
     {
       "path": "apps/desktop/src/live/HeroCard.tsx",
-      "bytes": 20085,
-      "sha256": "7aeedbb9df48865d831a2ffa2376eeb09f0fa4ba6da4bdc8de609ba97c3bc402"
+      "bytes": 22483,
+      "sha256": "3b06c5a8d26c4b995ee7ef7daeb9f637a6fdec983e8a29b6f489fadfcbc50bcf"
     },
     {
       "path": "apps/desktop/src/live/LiveTab.tsx",
@@ -12813,13 +12813,13 @@
     },
     {
       "path": "apps/desktop/src/live/heroCard.css",
-      "bytes": 27956,
-      "sha256": "f50c62f635b1a03bd4fa1276d7975db05aadfafd7ca0e81fc9143138cdbea684"
+      "bytes": 28939,
+      "sha256": "8b79403548133997b11e78ba325698b35c05cecea3324d7445acf036f0764a34"
     },
     {
       "path": "apps/desktop/src/live/heroCardModel.ts",
-      "bytes": 19417,
-      "sha256": "03d1d0e2b727ed03028d623282838f418b57f6126e739fe71ffb4ef7602c20bb"
+      "bytes": 21527,
+      "sha256": "2db968333ea0f72c0f14c993f139ff200cb8ccac2820953cbca3fdb4e4491091"
     },
     {
       "path": "apps/desktop/src/live/index.ts",
@@ -13948,8 +13948,8 @@
     },
     {
       "path": "apps/desktop/tests/live-hero-card.test.ts",
-      "bytes": 24963,
-      "sha256": "a2e870e377d10c525b1aa392d72c3935333a336facb50a2a8963f7273cb3ec6d"
+      "bytes": 28149,
+      "sha256": "08d299eb856ba9f70073fdea074203a7dc464da5715a33f4910a420e40b197d7"
     },
     {
       "path": "apps/desktop/tests/live-layout.test.ts",
@@ -13988,8 +13988,8 @@
     },
     {
       "path": "apps/desktop/tests/live-second-monitor-layout.test.ts",
-      "bytes": 19772,
-      "sha256": "ad51151820160b1e09b5d68d04ebbe375b14102ba8f7f8f4c6822567040528ea"
+      "bytes": 24205,
+      "sha256": "8db5ea24cb8648ef694f2375e879ed27a3cc6c910a69ee2f0c1d27a20cde0f77"
     },
     {
       "path": "apps/desktop/tests/live-second-monitor-map.test.ts",
@@ -15463,8 +15463,8 @@
     },
     {
       "path": "docs/design/UX-SPEC.md",
-      "bytes": 43122,
-      "sha256": "32aaeb4b0213be046a74ab1b7ee4ff19625dd1fb5766504eef926d0a259fdcab"
+      "bytes": 44529,
+      "sha256": "d2f879b0eb433e419c06ffe94968478386761bbafb2d130637f8584fa218c957"
     },
     {
       "path": "docs/design/VISUAL-DESIGN-PROPOSAL.md",
@@ -15908,8 +15908,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 99622,
-      "sha256": "9d1d5f6942aa244b08d218ba767d1adecf554daaefde1217a734cb30e3c0cb9f"
+      "bytes": 101147,
+      "sha256": "7fc39cfd4bf46b12bbfeecdf642d8580ab1c934d05da4799b5d179262c260968"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",

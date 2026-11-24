@@ -21,6 +21,8 @@ import type { IconResolver } from "./dotaIcons.ts";
 import { derivedStats, RULES_BY_PATCH, type DerivedRules, type StatsData } from "../stats/derivedStats.ts";
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
 import { STAT_ICON_CATALOG, type StatIconId, type StatKey } from "./statIcons/catalog.ts";
+// @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
+import type { OwnFieldCardMode } from "./secondMonitorLayout.ts";
 
 export const UNKNOWN = "—";
 
@@ -122,6 +124,24 @@ const STAT_CELLS: readonly [StatKey, StatCellView["group"]][] = [
   ["ms", "derived"], ["ev", "derived"], ["sr", "derived"], ["ls", "derived"],
   ["gpm", "rate"], ["xpm", "rate"],
 ];
+const COMPACT_OWN_FIELD_STAT_KEYS: readonly StatKey[] = ["arm", "mr", "amp", "as", "ms", "ev", "sr", "ls"];
+export interface OwnFieldStatsLayout { compact: boolean; columns: number; rows: number; statHeight: number }
+
+/** Compact field cards use the eight stats shown in the pinned card reference; narrow cards keep the complete grid. */
+export function ownFieldStatsLayout(mode: OwnFieldCardMode | undefined): OwnFieldStatsLayout {
+  return mode === "one-row-28" || mode === "two-row-24"
+    ? { compact: true, columns: 4, rows: 2, statHeight: 24 }
+    : { compact: false, columns: 5, rows: 3, statHeight: 36 };
+}
+
+export function compactOwnFieldStats(cells: StatCellView[]): StatCellView[] {
+  const byKey = new Map(cells.map(cell => [cell.key, cell]));
+  return COMPACT_OWN_FIELD_STAT_KEYS.flatMap(key => {
+    const cell = byKey.get(key);
+    return cell ? [cell] : [];
+  });
+}
+
 type DerivedCell = { value: string; sources: string[] };
 type DerivedCellMap = Partial<Record<StatKey, DerivedCell>>;
 
@@ -161,6 +181,12 @@ function displayStat(value: number | null, suffix = "", digits = 0): string {
   return `${Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(digits)}${suffix}`;
 }
 
+/** Reuse the derived-stat display's one-decimal rounding and integer formatting. */
+export function formatRegenText(value: number | null): string | null {
+  if (value === null || !Number.isFinite(value)) return null;
+  return `+${displayStat(value, "", 1)}`;
+}
+
 function liveDerivedCells(output: ReturnType<typeof derivedStats>): DerivedCellMap {
   const direct = (value: { value: number | null; sources: string[] }, suffix = "", digits = 0): DerivedCell => ({
     value: displayStat(value.value, suffix, digits), sources: value.sources,
@@ -198,6 +224,10 @@ export interface FullHeroCardView {
   hpLow: boolean;
   manaPercent: number | null;
   manaText: string;
+  hpRegenText: string | null;
+  manaRegenText: string | null;
+  hpRegenSources: string[];
+  manaRegenSources: string[];
   alive: boolean | null;
   respawnText: string | null;
   stale: boolean;
@@ -236,9 +266,11 @@ export function ownFullCard(input: {
   const slot = input.slot ?? null;
   const selection = input.statsData ? selectLiveDerivedRules(input.gameBuild ?? null, input.statsData) : null;
   const itemIds = input.items === null ? null : input.items.flatMap(tile => tile.kind === "empty" ? [] : [tile.kind === "unknown" ? null : tile.rawId]);
-  const derived = input.statsData && selection && own.heroId && own.level !== null
+  const derivedOutput = input.statsData && selection && own.heroId && own.level !== null
     ? derivedStats(own.heroId.replace(/^npc_dota_hero_/, ""), own.level, itemIds, input.statsData, { rules: selection.rules })
     : null;
+  const freshDerivedOutput = !input.stale && own.snapshotAvailability === "fresh" && !input.itemsStale ? derivedOutput : null;
+  const derived = derivedOutput ? liveDerivedCells(derivedOutput) : null;
   return {
     variant: "full", key: "own", side: "own", slot, color: slotColor(slot),
     heroId: own.heroName ? own.heroId : null, heroName: own.heroName?.name ?? null, heroCaption: own.heroCaption,
@@ -251,6 +283,12 @@ export function ownFullCard(input: {
     hpPercent, hpText: own.hp === null && own.maxHp === null ? UNKNOWN : `${num(own.hp)} / ${num(own.maxHp)}`,
     hpLow: hpPercent !== null && hpPercent < 25,
     manaPercent, manaText: percentText(manaPercent),
+    hpRegenText: formatRegenText(freshDerivedOutput?.healthRegen.value ?? null),
+    // The derived mana regen has no mana-per-INT rule yet (script base plus items only), so it is incomplete and
+    // shown as unknown in the bar rather than as a misleading total.
+    manaRegenText: null,
+    hpRegenSources: freshDerivedOutput?.healthRegen.sources ?? [],
+    manaRegenSources: freshDerivedOutput?.manaRegen.sources ?? [],
     alive: own.alive,
     respawnText: own.alive === false && own.respawnSeconds !== null ? String(own.respawnSeconds) : null,
     stale: input.stale === true,
@@ -267,7 +305,7 @@ export function ownFullCard(input: {
       neutral: itemSlot(groups.neutral, icons, "neutral"),
       stale: input.itemsStale, known: true,
     } : unknownItems(),
-    stats: statCells({ gpm: s.gpm, xpm: s.xpm }, derived ? liveDerivedCells(derived) : {}, selection?.title ?? null),
+    stats: statCells({ gpm: s.gpm, xpm: s.xpm }, derived ?? {}, selection?.title ?? null),
     ult: null,
     derivedBasis: selection ? { label: selection.label, title: selection.title } : null,
   };
@@ -333,6 +371,7 @@ export function teamFullCard(card: HeroCard, icons: IconResolver): FullHeroCardV
     levelText: UNKNOWN, kdaText: UNKNOWN, lhdnText: UNKNOWN, gold: null, goldText: UNKNOWN, ratesText: UNKNOWN,
     hpPercent: view.hpPercent, hpText: percentText(view.hpPercent), hpLow: false,
     manaPercent: view.manaPercent, manaText: percentText(view.manaPercent),
+    hpRegenText: null, manaRegenText: null, hpRegenSources: [], manaRegenSources: [],
     alive: null, respawnText: null, stale: false,
     abilities: { hero: abilities, extras: [], stale: false, known: false },
     buffs: [],
