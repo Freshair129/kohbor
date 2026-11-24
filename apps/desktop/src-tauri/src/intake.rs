@@ -11,8 +11,8 @@ use kohbor_events::{
     adapter::tick_from_admitted, Detector, Event, EventId, ObjectiveAlertBatch, ObjectiveScheduler,
 };
 use kohbor_gsi::admission::{
-    parse_own_loadout, token_matches, DraftScreen, OwnLoadout, Ownership, Phase, Team,
-    STEAMID64_BASE,
+    parse_objective_map_fields, parse_own_loadout, token_matches, DraftScreen, ObjectiveMapFields,
+    OwnLoadout, Ownership, Phase, Team, STEAMID64_BASE,
 };
 use kohbor_gsi::config::{
     choose_port, claimed_ports, GsiConfig, BODY_LIMIT_BYTES, MAX_REQUESTS_PER_SECOND,
@@ -102,6 +102,8 @@ pub struct Shared {
     token: Option<String>,
     engine: Option<EngineTx>,
     objective_scheduler: ObjectiveScheduler,
+    /// Parsed objective-only GSI fields; the raw request body is never retained.
+    objective_map_fields: Option<ObjectiveMapFields>,
     objective_flags: Arc<ObjectiveRuntimeFlags>,
     objective_alerts: Option<SyncSender<ObjectiveAlertBatch>>,
     objective_diagnostics: Option<SyncSender<MapDiagnostic>>,
@@ -420,6 +422,7 @@ impl Shared {
         self.ownership_reason = None;
         self.last_admitted = None;
         self.last_loadout = OwnLoadout::unknown();
+        self.objective_map_fields = None;
         self.session_hero_id = None;
         self.objective_scheduler.resync_clock();
         self.last_objective_diagnostic = None;
@@ -555,6 +558,7 @@ impl Shared {
             token,
             engine: None,
             objective_scheduler: ObjectiveScheduler::default(),
+            objective_map_fields: None,
             objective_flags: Arc::new(ObjectiveRuntimeFlags::default()),
             objective_alerts: None,
             objective_diagnostics: None,
@@ -648,6 +652,7 @@ impl Shared {
         self.sequence = 0;
         self.last_admitted = None;
         self.last_loadout = OwnLoadout::unknown();
+        self.objective_map_fields = None;
         self.objective_scheduler.resync_clock();
         self.last_objective_diagnostic = None;
         self.reset_detector();
@@ -683,6 +688,65 @@ impl Shared {
                 },
             ),
         }
+    }
+
+    fn objective_read_model_at(&self, now: Instant) -> Value {
+        let admitted_for_objectives = matches!(
+            self.last_admitted.as_ref().map(|(_, outcome)| outcome),
+            Some(Outcome::Admitted(admitted))
+                if admitted.ownership == Ownership::Verified
+                    && matches!(admitted.phase, Phase::Pregame | Phase::Live)
+        ) && self.ownership == Some(Ownership::Verified);
+        let age_ms = admitted_for_objectives
+            .then(|| self.last_age_ms_at(now))
+            .flatten();
+        let fresh = age_ms.is_some_and(|age| age <= FRESH_MAX_AGE_MS);
+        let availability = match age_ms {
+            Some(age) if age <= FRESH_MAX_AGE_MS => "fresh",
+            Some(_) => "stale",
+            None => "unknown",
+        };
+        let map_fields = admitted_for_objectives
+            .then_some(self.objective_map_fields.as_ref())
+            .flatten();
+        let clock_seconds = if fresh {
+            map_fields.and_then(|fields| fields.clock_time.value().copied())
+        } else {
+            None
+        };
+        let upcoming = clock_seconds
+            .map(|clock| {
+                self.objective_scheduler
+                    .next_occurrences(clock)
+                    .into_iter()
+                    .map(|item| {
+                        json!({
+                            "objective": item.objective.as_str(),
+                            "occurrence_seconds": item.occurrence_seconds,
+                            "last_occurrence_seconds": item.last_occurrence_seconds,
+                            "lead_s": []
+                        })
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        json!({
+            "schema_version": 1,
+            "availability": availability,
+            "source": {
+                "generation": self.generation.max(1),
+                "sequence": admitted_for_objectives.then_some(self.sequence.max(1)),
+                "age_ms": age_ms
+            },
+            "schedule": {
+                "schema_version": 1,
+                "rule_source": "ALERT-008",
+                "patch_version": self.objective_scheduler.patch_version(),
+                "observed_clock_seconds": clock_seconds,
+                "upcoming": upcoming
+            },
+            "map": kohbor_gsi::snapshot::objective_map_fields(map_fields, age_ms)
+        })
     }
 
     pub fn last_age_ms(&self) -> Option<u64> {
@@ -1079,6 +1143,15 @@ impl Shared {
             self.objective_scheduler.resync_clock();
             self.last_objective_diagnostic = None;
         }
+        self.objective_map_fields = match &outcome {
+            Outcome::Admitted(admitted)
+                if admitted.ownership == Ownership::Verified
+                    && matches!(admitted.phase, Phase::Pregame | Phase::Live) =>
+            {
+                Some(parse_objective_map_fields(body.get("map")))
+            }
+            _ => None,
+        };
         self.sequence += 1;
         self.last_admitted = Some((arrival, outcome));
         self.last_loadout = loadout;
@@ -1225,6 +1298,11 @@ impl Runtime {
             server: Mutex::new(None),
             setup_gate: Mutex::new(()),
         })
+    }
+
+    /// Read-only objective schedule and explicitly admitted map fields for the pinned deck.
+    pub(crate) fn objective_read_model(&self) -> Value {
+        lock(&self.shared).objective_read_model_at(Instant::now())
     }
 
     /// Return only the fresh verified own 32-bit account ID; never expose SteamID64 over IPC.
@@ -1651,6 +1729,44 @@ mod tests {
             .roshan_values
             .contains(&("roshan_state".to_owned(), json!("alive"))));
         assert!(alert_receiver.try_recv().is_err());
+    }
+
+    #[test]
+    fn objective_read_model_uses_fresh_admitted_clock_and_keeps_unknown_values_explicit() {
+        let mut shared = shared_with_token();
+        let token = shared.token.clone().unwrap();
+        let arrival = Instant::now();
+        let mut body = in_game(&token);
+        body["map"]["clock_time"] = json!(361);
+        body["map"]["daytime"] = json!(true);
+        body["map"]["roshan_state"] = json!("alive");
+        body["map"]["roshan_respawn_seconds"] = json!(42);
+        assert_eq!(shared.accept(&body, arrival, Some(owner())), 200);
+
+        let fresh = shared.objective_read_model_at(arrival + Duration::from_millis(50));
+        assert_eq!(fresh["availability"], "fresh");
+        assert_eq!(fresh["schedule"]["rule_source"], "ALERT-008");
+        assert_eq!(fresh["schedule"]["patch_version"], "7.42");
+        assert_eq!(fresh["schedule"]["observed_clock_seconds"], 361);
+        let power = fresh["schedule"]["upcoming"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|item| item["objective"] == "power_rune")
+            .unwrap();
+        assert_eq!(power["occurrence_seconds"], 480);
+        assert_eq!(fresh["map"]["daytime"]["value"], true);
+        assert_eq!(fresh["map"]["roshan_respawn_seconds"]["value"], 42);
+        assert_eq!(fresh["map"]["nightstalker_night"], json!({
+            "value": null,
+            "availability": "unknown"
+        }));
+
+        let stale = shared.objective_read_model_at(arrival + Duration::from_secs(3));
+        assert_eq!(stale["availability"], "stale");
+        assert_eq!(stale["schedule"]["observed_clock_seconds"], Value::Null);
+        assert_eq!(stale["schedule"]["upcoming"], json!([]));
+        assert_eq!(stale["map"]["daytime"]["availability"], "stale");
     }
 
     fn in_game_with_hud_stats(token: &str, kills: i64, gold: i64) -> Value {

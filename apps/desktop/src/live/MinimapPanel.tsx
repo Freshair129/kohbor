@@ -30,6 +30,8 @@ import { MinimapStage } from "./MinimapStage";
 import { deriveMinimapState } from "./minimapStageModel";
 import type { OwnSnapshot } from "../types";
 import { ScoreboardHeader } from "./ScoreboardHeader";
+import type { ScoreSample } from "./scoreboardModel";
+import { useScoreSamples } from "./useScoreSamples";
 import type { SteamStatus } from "../steam/model";
 import "./live.css";
 import { DialogButton } from "../shared/Dialog";
@@ -44,6 +46,7 @@ export function MinimapPanel({
   steamStatus = null,
   mapEdge = "right",
   mapOverlay,
+  scoreSamples: sharedScoreSamples,
   stageOverride,
   stageAlerts,
 }: {
@@ -59,6 +62,8 @@ export function MinimapPanel({
   mapEdge?: "left" | "right";
   /** Pinned layout only: drawn over the minimap canvas at the same size (UI-018 rune countdowns). */
   mapOverlay?: ReactNode;
+  /** Optional shared stream so the scoreboard and pinned kill timeline use identical score samples. */
+  scoreSamples?: readonly ScoreSample[];
   /** Pinned layout only: replaces the minimap stage inside the same square (UI-019 draft board). */
   stageOverride?: ReactNode;
   /**
@@ -85,6 +90,8 @@ export function MinimapPanel({
   const minimap = useMinimap(capture?.calibration_generation ?? null, canShowPicture);
   const canvasBox = useCanvasBox(minimap.frameSize, layout === "pinned");
   const mock = liveMockRequested();
+  const localScoreSamples = useScoreSamples(snapshot, gamePhase, snapshot?.session_epoch ?? null, false, sharedScoreSamples === undefined);
+  const scoreSamples = sharedScoreSamples ?? localScoreSamples;
 
   useEffect(() => {
     if (armedUntil === null) return;
@@ -288,7 +295,7 @@ export function MinimapPanel({
     ? <div className="sm-alerts">{stageAlerts({ risk: displayedRisk, captureLive: phase === "live" && !paused })}</div> : null;
   const toolbar = (
     <header className={`live-map-toolbar${field ? " is-field" : ""}${stackedPinned ? " is-pinned" : ""}`}>
-      <ScoreboardHeader snapshot={snapshot} phase={gamePhase} locale={locale === "en" ? "en" : "th"} />
+      <ScoreboardHeader snapshot={snapshot} phase={gamePhase} locale={locale === "en" ? "en" : "th"} scoreSamples={scoreSamples} />
       {pinned && toolbarExtra && <div className="live-map-tools">{toolbarExtra}</div>}
     </header>
   );
@@ -300,7 +307,8 @@ export function MinimapPanel({
       className={`live-map-canvas${presentation.dimmed || paused || userInvalidated ? " is-stale" : ""}`}
       aria-hidden="true"
     />
-    {pinned && mapOverlay && <div className="sm-map-overlay" style={{ width: "100%", height: "100%" }}>{mapOverlay}</div>}
+    {stackedPinned && gamePhase === "live" && minimap.hasFrame && !stageOverride && mapOverlay
+      && <div className="sm-map-overlay" style={{ width: "100%", height: "100%" }}>{mapOverlay}</div>}
     {pinnedAlerts}
   </MinimapStage>;
   const mapPane = (

@@ -1,6 +1,6 @@
 use kohbor_events::{adapter::tick_from_admitted, Detector, Event, EventId, Phase, Tick};
 use kohbor_gsi::admission::{
-    Admitted, Field, HeroFields, OwnCounters, Ownership, Phase as GsiPhase,
+    Admitted, Field, HeroFields, MapFields, OwnCounters, Ownership, Phase as GsiPhase,
 };
 
 fn tick(at_ms: u64) -> Tick {
@@ -164,6 +164,11 @@ fn adapter_maps_deaths_and_streak_with_checked_narrowing() {
             gpm: Field::Missing,
             xpm: Field::Missing,
             combined_score: Field::Value(8),
+        },
+        map: MapFields {
+            radiant_score: Field::Missing,
+            dire_score: Field::Missing,
+            clock_time: Field::Missing,
         },
         hero: HeroFields {
             hero_id: Field::Missing,

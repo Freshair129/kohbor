@@ -1,6 +1,6 @@
 use kohbor_events::{adapter::tick_from_admitted, Phase, Tick};
 use kohbor_gsi::admission::{
-    Admitted, Field, HeroFields, OwnCounters, Ownership, Phase as GsiPhase,
+    Admitted, Field, HeroFields, MapFields, OwnCounters, Ownership, Phase as GsiPhase,
 };
 
 fn admitted(phase: GsiPhase) -> Admitted {
@@ -24,6 +24,11 @@ fn admitted(phase: GsiPhase) -> Admitted {
             gpm: Field::Missing,
             xpm: Field::Missing,
             combined_score: Field::Value(10),
+        },
+        map: MapFields {
+            radiant_score: Field::Missing,
+            dire_score: Field::Missing,
+            clock_time: Field::Missing,
         },
         hero: HeroFields {
             hero_id: Field::Value("npc_dota_hero_silencer".into()),

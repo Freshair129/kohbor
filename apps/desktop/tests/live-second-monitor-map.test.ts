@@ -23,57 +23,66 @@ const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf
 // ---- Rune countdowns (UI-018) ----
 const power = { objective: "power_rune" as const, occurrence_seconds: 480, lead_s: [30, 15] };
 
-test("countdown shows coarse minutes while far, then seconds from the largest configured lead time", () => {
-  const at = (clock: number) => countdownLabel(power, clock);
-  assert.deepEqual([at(300)?.text, at(300)?.mode], ["3m", "minutes"]);
-  assert.equal(at(359)?.text, "2m");
-  assert.equal(at(361)?.text, "1m");
-  assert.equal(at(449)?.text, "1m", "31 s left with a 30 s lead time is still minutes");
+test("pinned countdown shows seconds only in the last minute and briefly shows ready", () => {
+  const at = (clock: number) => countdownLabel({ ...power, last_occurrence_seconds: 480 }, clock, "7.42");
+  assert.equal(at(300), null);
+  assert.equal(at(419), null);
+  assert.deepEqual([at(420)?.text, at(420)?.mode], ["60", "seconds"]);
   assert.deepEqual([at(450)?.text, at(450)?.mode], ["30", "seconds"]);
   assert.equal(at(479)?.text, "1");
-  assert.deepEqual([at(480)?.text, at(480)?.mode], ["0", "now"]);
-  assert.equal(at(481), null, "a past occurrence has no label");
+  assert.deepEqual([at(480)?.text, at(480)?.mode], ["พร้อม", "ready"]);
+  assert.deepEqual([at(482)?.text, at(482)?.mode], ["พร้อม", "ready"]);
+  assert.equal(at(484), null, "ready is brief");
   const short = { ...power, lead_s: [15] };
-  assert.equal(countdownLabel(short, 460)?.text, "1m");
-  assert.equal(countdownLabel(short, 465)?.text, "15");
+  assert.equal(countdownLabel(short, 420, "7.42")?.text, "60", "the pinned map window is independent of alert lead times");
+  assert.equal(countdownLabel(short, 465, "7.42")?.text, "15");
   const none = { objective: "bounty_rune" as const, occurrence_seconds: 480, lead_s: [] };
-  assert.equal(countdownLabel(none, 419)?.text, "1m");
-  assert.equal(countdownLabel(none, 420)?.text, "60", "no lead time set: seconds in the last minute");
+  assert.equal(countdownLabel(none, 420)?.text, "60");
 });
 
-test("schedule parser is strict and admits only labelled rune objectives", () => {
-  const valid = { schema_version: 1, observed_clock_seconds: 300, upcoming: [power, { objective: "wisdom_rune", occurrence_seconds: 420, lead_s: [] }] };
+test("schedule parser is strict and admits only objective rows used by this map", () => {
+  const valid = { schema_version: 1, rule_source: "ALERT-008", patch_version: "7.42", observed_clock_seconds: 300, upcoming: [power, { objective: "wisdom_rune", occurrence_seconds: 420, lead_s: [] }] };
   assert.ok(parseObjectiveSchedule(valid));
   for (const bad of [
     null, { ...valid, schema_version: 2 }, { ...valid, extra: 1 }, { ...valid, observed_clock_seconds: 1.5 },
-    { ...valid, upcoming: [{ ...power, objective: "tormentor" }] },
-    { ...valid, upcoming: [{ ...power, objective: "roshan" }] },
+    { ...valid, upcoming: [{ ...power, objective: "unknown" }] },
+    { ...valid, patch_version: null },
     { ...valid, upcoming: [{ ...power, lead_s: [4] }] },
     { ...valid, upcoming: [{ ...power, lead_s: [30, 30] }] },
     { ...valid, upcoming: [{ ...power, lead_s: [10, 20, 30] }] },
     { ...valid, upcoming: [power, power] },
     { ...valid, upcoming: [{ ...power, occurrence_seconds: -1 }] },
   ]) assert.equal(parseObjectiveSchedule(bad), null, JSON.stringify(bad));
-  assert.deepEqual([...COUNTDOWN_OBJECTIVES].sort(), ["bounty_rune", "power_rune", "water_rune", "wisdom_rune"]);
+  assert.deepEqual([...COUNTDOWN_OBJECTIVES].sort(), ["bounty_rune", "lotus", "power_rune", "wisdom_rune"]);
 });
 
 test("labels use only the schedule's game clock; a stale or missing schedule shows nothing", () => {
-  const schedule = parseObjectiveSchedule({ schema_version: 1, observed_clock_seconds: 450, upcoming: [power] });
+  const schedule = parseObjectiveSchedule({ schema_version: 1, rule_source: "ALERT-008", patch_version: "7.42", observed_clock_seconds: 450, upcoming: [power] });
   assert.deepEqual(countdownLabels(schedule, 1_000, 1_000).map(label => label.text), ["30"]);
   assert.deepEqual(countdownLabels(schedule, 1_000, 1_000 + 4_000).map(label => label.text), ["30"], "no wall-clock extrapolation");
+  assert.deepEqual(countdownLabels({ ...schedule!, observed_clock_seconds: 460 }, 1_000, 1_000).map(label => label.text), ["20"], "only a fresh GSI game clock advances the label");
   assert.deepEqual(countdownLabels(schedule, 1_000, 1_000 + SCHEDULE_STALE_MS + 1), []);
   assert.deepEqual(countdownLabels(null, 1_000, 1_000), []);
   assert.deepEqual(countdownLabels(schedule, null, 1_000), []);
+  assert.deepEqual(countdownLabels(parseObjectiveSchedule({ schema_version: 1, rule_source: "ALERT-008", patch_version: null, observed_clock_seconds: 450, upcoming: [power] }), 1_000, 1_000), [], "a schedule without its recorded patch stays unknown");
 });
 
-test("one label per map spot; water and power share river spots and the sooner one wins", () => {
+test("unknown positions are omitted; confirmed normalised positions accept seconds and ready labels", () => {
   const spots = spotLabels([
-    { objective: "power_rune", text: "1m", mode: "minutes", remaining: 90 },
-    { objective: "water_rune", text: "20", mode: "seconds", remaining: 20 },
-    { objective: "bounty_rune", text: "3m", mode: "minutes", remaining: 200 },
+    { objective: "power_rune", text: "20", mode: "seconds", remaining: 20, patch_version: null },
+    { objective: "bounty_rune", text: "พร้อม", mode: "ready", remaining: 0, patch_version: null },
   ]);
-  assert.equal(spots.length, RUNE_SPOTS.power_rune.length + RUNE_SPOTS.bounty_rune.length);
-  assert.ok(spots.filter(spot => RUNE_SPOTS.power_rune.some(p => p.x === spot.x && p.y === spot.y)).every(spot => spot.label.objective === "water_rune"));
+  assert.ok(spots.length > 0, "confirmed replay positions render labels");
+  assert.deepEqual(spotLabels([
+    { objective: "power_rune", text: "20", mode: "seconds", remaining: 20, patch_version: null },
+    { objective: "bounty_rune", text: "พร้อม", mode: "ready", remaining: 0, patch_version: null },
+  ], {}), []);
+  const confirmed = spotLabels([
+    { objective: "power_rune", text: "20", mode: "seconds", remaining: 20, patch_version: null },
+    { objective: "bounty_rune", text: "พร้อม", mode: "ready", remaining: 0, patch_version: null },
+  ], { power_rune: [{ x: 0.25, y: 0.75 }], bounty_rune: [{ x: 0.75, y: 0.25 }] }, true);
+  assert.deepEqual(confirmed.map(({ x, y }) => [x, y]), [[0.25, 0.75], [0.75, 0.25]]);
+  assert.ok(RUNE_SPOTS.power_rune.length > 0);
   for (const list of Object.values(RUNE_SPOTS)) for (const spot of list) assert.ok(spot.x > 0 && spot.x < 1 && spot.y > 0 && spot.y < 1);
 });
 

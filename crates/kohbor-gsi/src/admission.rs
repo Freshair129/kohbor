@@ -117,6 +117,28 @@ pub struct MapFields {
     pub clock_time: Field<i64>,
 }
 
+/// GSI fields used only by the pinned objective read model. Kept separate from
+/// `Admitted` so the existing event-admission contract and callers stay stable.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ObjectiveMapFields {
+    pub clock_time: Field<i64>,
+    pub daytime: Field<bool>,
+    pub nightstalker_night: Field<bool>,
+    pub roshan_state: Field<String>,
+    pub roshan_respawn_seconds: Field<i64>,
+}
+
+/// Admit the small set of objective-panel fields without retaining the GSI body.
+pub fn parse_objective_map_fields(map: Option<&Value>) -> ObjectiveMapFields {
+    ObjectiveMapFields {
+        clock_time: int_field(map, "clock_time", -86_400, 86_400),
+        daytime: map_bool_field(map, "daytime"),
+        nightstalker_night: map_bool_field(map, "nightstalker_night"),
+        roshan_state: map_string_field(map, "roshan_state", 32),
+        roshan_respawn_seconds: int_field(map, "roshan_respawn_seconds", 0, 7_200),
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Admitted {
     pub phase: Phase,
@@ -522,6 +544,38 @@ fn int_field(object: Option<&Value>, key: &str, min: i64, max: i64) -> Field<i64
     }
 }
 
+fn map_bool_field(object: Option<&Value>, key: &str) -> Field<bool> {
+    match object.and_then(Value::as_object) {
+        None if object.is_none() => Field::Missing,
+        None => Field::Invalid,
+        Some(map) => match map.get(key) {
+            None => Field::Missing,
+            Some(Value::Bool(value)) => Field::Value(*value),
+            Some(_) => Field::Invalid,
+        },
+    }
+}
+
+fn map_string_field(object: Option<&Value>, key: &str, max_bytes: usize) -> Field<String> {
+    match object.and_then(Value::as_object) {
+        None if object.is_none() => Field::Missing,
+        None => Field::Invalid,
+        Some(map) => match map.get(key) {
+            None => Field::Missing,
+            Some(Value::String(value))
+                if !value.is_empty()
+                    && value.len() <= max_bytes
+                    && value
+                        .bytes()
+                        .all(|byte| byte.is_ascii_alphanumeric() || b"_-".contains(&byte)) =>
+            {
+                Field::Value(value.clone())
+            }
+            Some(_) => Field::Invalid,
+        },
+    }
+}
+
 fn map_fields(map: Option<&Value>) -> MapFields {
     MapFields {
         radiant_score: int_field(map, "radiant_score", 0, 100_000),
@@ -646,5 +700,48 @@ mod draft_screen_tests {
             assert_eq!(admitted.phase, expected_phase, "{state}");
             assert_eq!(admitted.draft_bar_phase, expected_bar_phase, "{state}");
         }
+    }
+}
+
+#[cfg(test)]
+mod objective_map_admission_tests {
+    use super::{parse_objective_map_fields, Field};
+    use serde_json::json;
+
+    #[test]
+    fn objective_map_admission_keeps_clock_day_night_and_bounded_roshan_values() {
+        let map = json!({
+            "clock_time": -12,
+            "daytime": false,
+            "nightstalker_night": true,
+            "roshan_state": "alive",
+            "roshan_respawn_seconds": 42
+        });
+        let fields = parse_objective_map_fields(Some(&map));
+        assert_eq!(fields.clock_time, Field::Value(-12));
+        assert_eq!(fields.daytime, Field::Value(false));
+        assert_eq!(fields.nightstalker_night, Field::Value(true));
+        assert_eq!(fields.roshan_state, Field::Value("alive".to_owned()));
+        assert_eq!(fields.roshan_respawn_seconds, Field::Value(42));
+    }
+
+    #[test]
+    fn absent_or_malformed_objective_values_remain_unknown_or_invalid() {
+        let missing = parse_objective_map_fields(None);
+        assert!(matches!(missing.daytime, Field::Missing));
+        assert!(matches!(missing.roshan_respawn_seconds, Field::Missing));
+        let malformed = json!({
+            "clock_time": "90",
+            "daytime": "true",
+            "nightstalker_night": null,
+            "roshan_state": "alive\\n",
+            "roshan_respawn_seconds": -1
+        });
+        let fields = parse_objective_map_fields(Some(&malformed));
+        assert!(matches!(fields.clock_time, Field::Invalid));
+        assert!(matches!(fields.daytime, Field::Invalid));
+        assert!(matches!(fields.nightstalker_night, Field::Invalid));
+        assert!(matches!(fields.roshan_state, Field::Invalid));
+        assert!(matches!(fields.roshan_respawn_seconds, Field::Invalid));
     }
 }
