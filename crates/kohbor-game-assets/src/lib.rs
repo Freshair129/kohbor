@@ -3,7 +3,10 @@ pub mod keyvalues;
 mod texture;
 mod vpk;
 
-pub use texture::{decode_vtex_c, decode_vtex_c_with_format, Image};
+pub use texture::{
+    decode_vtex_c, decode_vtex_c_for_display, decode_vtex_c_for_display_with_format,
+    decode_vtex_c_with_format, decode_vtex_c_with_format_and_flags, Image, TextureDecodeFlags,
+};
 pub use vpk::{Entry, Error, Result, Vpk};
 
 /// Game-owned stat icons found in the installed Dota VPK. Output names are
