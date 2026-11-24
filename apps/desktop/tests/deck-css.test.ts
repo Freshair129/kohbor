@@ -70,15 +70,22 @@ test("the centre column cannot put the live map in an indefinite auto row", () =
   for (const property of ["max-width", "max-height"]) assert.match(canvas, new RegExp(`${property}:\\s*100%`));
 });
 
-test("own hero card and ally list share the own column without fixed-pixel rows (replay-style cards, R5)", () => {
-  const column = css.match(/\.deck-own-column\s*\{([^}]+)\}/)?.[1] ?? "";
-  assert.match(column, /grid-template-rows:\s*minmax\(0,\s*max-content\)\s+minmax\(0,\s*1fr\)/);
-  assert.doesNotMatch(css, /\.deck-own-column\s*\{[^}]*grid-template-rows:[^;]*\d+px/);
+test("own hero occupies a slot in the five-card field without scrolling or fixed-pixel team rows (replay-style cards, R5)", () => {
   const component = readFileSync(new URL("../src/deck/Deck.tsx", import.meta.url), "utf8");
-  assert.match(component, /<OwnHeroCard /);
-  assert.match(component, /<CompactHeroCards cards=\{allyCards\}/);
-  assert.match(component, /<CompactHeroCards cards=\{enemyCards\}/);
+  assert.match(component, /const ourCards = orderBySlot\(\[ownModel,\s*\.\.\.allyCards\]\)/);
+  assert.match(component, /const radiantCards = ownTeam === "radiant" \? ourCards : enemyCards/);
+  assert.match(component, /const direCards = ownTeam === "dire" \? ourCards : enemyCards/);
+  assert.match(component, /<CompactHeroCards cards=\{radiantCards\}[^>]*fieldCard/);
+  assert.match(component, /<CompactHeroCards cards=\{direCards\}[^>]*fieldCard/);
+  assert.match(component, /renderOwn=\{card => <OwnHeroCard/);
+  assert.doesNotMatch(component, /cards=\{allyCards\}|cards=\{enemyCards\}|deck-own-column/);
   assert.doesNotMatch(component, /<OwnLoadout|deck-stat-tile|deck-ally-disclosure/);
+  const cardCss = readFileSync(new URL("../src/live/heroCard.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const fieldList = cardCss.match(/\.lhc-list-field\s*\{([^}]+)\}/)?.[1] ?? "";
+  assert.match(fieldList, /grid-template-rows:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(fieldList, /overflow:\s*hidden/);
+  assert.doesNotMatch(fieldList, /overflow(?:-[xy])?:\s*(?:auto|scroll)/);
+  assert.doesNotMatch(fieldList, /grid-template-rows:[^;]*\d+px/);
   const loadout = readFileSync(new URL("../src/deck/OwnLoadout.tsx", import.meta.url), "utf8");
   assert.equal(loadout.match(/ต้องตั้งค่าการเชื่อมต่อ Dota 2 ใหม่หนึ่งครั้ง/g)?.length, 1);
   assert.match(loadout, /model\.setupHint &&/);
