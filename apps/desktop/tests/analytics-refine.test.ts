@@ -7,30 +7,24 @@ function closeTo(actual: number, expected: number, tolerance = 2) {
   assert.ok(Math.abs(actual - expected) <= tolerance, `${actual} is not within ${tolerance} of ${expected}`);
 }
 
-test("Analytics columns and minimap gain the freed chat and right-rail width at both reference viewports", () => {
+test("Analytics keeps the approved chat width and scales only the hero cards at both reference viewports", () => {
   for (const [width, height, before, after] of [
-    [1440, 900, { docs: 232, centre: 708, chat: 289, map: 318 }, { docs: 272, centre: 811, chat: 174, map: 359 }],
-    [1920, 1080, { docs: 351, centre: 934, chat: 423, map: 409 }, { docs: 410, centre: 1073, chat: 253, map: 465 }],
+    [1440, 900, { docs: 28, centre: 939, chat: 289, scale: 0.88 }, { docs: 28, centre: 939, chat: 289, scale: 0.88 }],
+    [1920, 1080, { docs: 273, centre: 1040, chat: 423, scale: 1 }, { docs: 273, centre: 1040, chat: 423, scale: 1 }],
   ] as const) {
     const layout = analyticsModel.analyticsLayout(width, height);
-    closeTo(layout.before.docs, before.docs);
-    closeTo(layout.before.centre, before.centre);
-    closeTo(layout.before.chat, before.chat);
-    closeTo(layout.before.map.width, before.map);
-    closeTo(layout.after.docs, after.docs);
-    closeTo(layout.after.centre, after.centre);
-    closeTo(layout.after.chat, after.chat);
-    closeTo(layout.after.map.width, after.map);
-    closeTo(layout.before.map.height, before.map);
-    closeTo(layout.after.map.height, after.map);
-    assert.equal(layout.before.rightRail, 72);
-    assert.equal(layout.after.rightRail, 44);
+    closeTo(layout.docs, before.docs);
+    closeTo(layout.center, before.centre);
+    closeTo(layout.right, before.chat);
+    closeTo(layout.heroCardScale, before.scale, 0.001);
+    assert.equal(layout.rightRail, 44);
     assert.equal(layout.overlap, false, `${width}x${height}`);
     assert.equal(layout.pageScroll, false);
+    assert.deepEqual(after, before);
   }
 });
 
-test("Analytics and replay visible text styles stay at or above the 12 px minimum", () => {
+test("The 12 px floor remains outside the hero-card exemption and shared card scale stays uniform", () => {
   for (const path of ["../src/analytics/analytics.css", "../src/replay/matchViewer.css"]) {
     const css = readFileSync(new URL(path, import.meta.url), "utf8");
     const sizes = [...css.matchAll(/font(?:-size)?\s*:\s*([^;{}]+)/g)]
@@ -39,8 +33,13 @@ test("Analytics and replay visible text styles stay at or above the 12 px minimu
     assert.ok(sizes.length > 0, path);
     assert.ok(sizes.every(size => size >= 12), `${path} has fonts below 12 px: ${sizes.filter(size => size < 12).join(", ")}`);
   }
+  const shared = readFileSync(new URL("../src/live/heroCard.css", import.meta.url), "utf8");
+  assert.match(shared, /--hc-scale/);
+  assert.match(shared, /\.rc \.bar \.num\s*\{[^}]*font:\s*600 9\.5px/s);
+  assert.match(shared, /\.rc \.row\.dvs\s*\{[^}]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\)/s);
+  assert.match(shared, /\.rc\s*\{[^}]*transform-origin:\s*top left/s);
   const viewer = readFileSync(new URL("../src/replay/matchViewer.mjs", import.meta.url), "utf8");
-  assert.match(viewer, /style="font:600 12px var\(--f-mono\);color:var\(--muted\);letter-spacing:\.06em"/);
+  assert.match(viewer, /data-stat-label="text"/);
 });
 
 test("Analytics playback model formats time, exposes requested rates, and seeks five seconds by key", () => {
@@ -78,12 +77,15 @@ test("Analytics viewer leaves item, ability, and buff rows visible and hosts its
   const markup = readFileSync(new URL("../src/replay/matchViewer.html", import.meta.url), "utf8");
   const analytics = readFileSync(new URL("../src/analytics/AnalyticsPage.tsx", import.meta.url), "utf8");
   const overrides = panel.match(/const analyticsSurfaceOverrides = `([\s\S]*?)`;/)?.[1] ?? "";
-  assert.match(overrides, /\.rc \.row\.ab, \.rc \.row\.it, \.rc \.row\.st\s*\{\s*display:\s*flex\s*!important;/);
-  assert.doesNotMatch(overrides, /\.rc \.row\.ab, \.rc \.row\.it, \.rc \.row\.st\s*\{\s*display:\s*none/);
+  assert.doesNotMatch(overrides, /\.rc(?:\s|\{|\.)/);
+  assert.match(panel, /live\/heroCard\.css\?raw/);
+  assert.match(panel, /type HeroCardLabelMode = "text" \| "icon"/);
+  assert.match(analytics, /statLabelMode="text"/);
+  assert.match(viewer, /statLabelMode/);
   assert.match(analytics, /getElementById\("analytics-player-slot"\)/);
   assert.match(markup, /id="analytics-player-slot"/);
-  assert.match(viewer, /class="row ab">\$\{abil\}<span class="mods">/);
-  assert.match(viewer, /class="row it">\$\{\[0, 1, 2, 3, 4, 5\]/);
+  assert.match(viewer, /class="row ab" \$\{rowAttr\("ab"\)\}>\$\{abil\}<span class="mods">/);
+  assert.match(viewer, /class="row it" \$\{rowAttr\("it"\)\}>\$\{\[0, 1, 2, 3, 4, 5\]/);
 });
 
 test("Analytics detail uses the selected bundle and time, then exposes its restore control without the report picker", () => {

@@ -241,69 +241,6 @@ kbd { font: 12px var(--f-mono); border: 1px solid var(--line); border-bottom-wid
 .mo-txt { position: absolute; inset: 0; display: grid; place-items: center; font: 600 12px var(--f-mono); color: var(--ink); text-shadow: 0 0 3px var(--surface) }
 #mo-graph { width: 100%; height: 46px; display: block; cursor: pointer; border-radius: 6px; background: var(--bg) }
 /* compact hero card */
-.rc { position: relative; display: grid; grid-template-columns: 46px minmax(0, 1fr); grid-template-areas: "pt top" "pt bars" "ab ab" "it it" "st st" "dv dv"; gap: 3px 8px; padding: 7px 8px 7px 7px; background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--c); border-radius: 9px; cursor: pointer; min-width: 0 }
-.rc:focus-visible { outline: 2px solid var(--rad); outline-offset: 2px }
-.rc.focus { box-shadow: 0 0 0 2px var(--c) }
-.rc.alert { box-shadow: 0 0 0 2px var(--bad), 0 0 16px -2px color-mix(in srgb, var(--bad) 60%, transparent) }
-.rc.hid { opacity: .45 }
-.rc.hid::after { content: "ซ่อนบนแผนที่"; position: absolute; right: 8px; top: 6px; font: 12px var(--f-mono); color: var(--muted) }
-.rc .pt { grid-area: pt; position: relative; width: 46px; height: 46px }
-.rc .pt img { width: 46px; height: 46px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 2px var(--c) }
-.rc.dead .pt img { filter: grayscale(1) brightness(.6) }
-.rc .lvb { position: absolute; right: -4px; bottom: -3px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: var(--ink); color: var(--surface); font: 700 12px/18px var(--f-mono); text-align: center }
-.rc .rsp { position: absolute; inset: 0; display: grid; place-items: center; font: 700 16px var(--f-mono); color: #fff; text-shadow: 0 1px 3px #000 }
-.rc .top { grid-area: top; display: flex; align-items: baseline; gap: 8px; min-width: 0; font-size: 12px; color: var(--ink-2) }
-.rc .top .nm { font: 700 13.5px/1.2 var(--f-display); color: var(--ink); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
-.rc .top .kd { color: var(--ink); font-weight: 600 }
-.rc .top .nw { color: var(--warn); font-weight: 600 }
-.rc .bars { grid-area: bars; display: grid; gap: 2px; align-self: center }
-.rc .bar { position: relative; height: 12px; border-radius: 3px; background: var(--bg); overflow: hidden }
-.rc .bar.mp { height: 5px }
-.rc .bar > i { position: absolute; inset: 0 auto 0 0 }
-.rc .bar.hp > i { background: var(--hp) } .rc .bar.hp.low > i { background: var(--bad) } .rc .bar.mp > i { background: var(--mp) }
-.rc .bar .num { position: absolute; inset: 0; display: grid; place-items: center; font: 600 12px/12px var(--f-mono); color: #fff; text-shadow: 0 0 2px #000, 0 0 2px #000 }
-.rc .row { display: flex; align-items: center; gap: 3px; min-width: 0 }
-.rc .row.ab { grid-area: ab } .rc .row.it { grid-area: it }
-/* Kohbor: rows wrap instead of overflowing the 340 px card column. The item row (six items, backpack,
-   TP, neutral, gold) was about 15 px wider than the card and gave the Lab tab a horizontal scrollbar. */
-.rc .row.ab, .rc .row.it { flex-wrap: wrap; row-gap: 3px }
-.ic { position: relative; flex: none; width: 26px; height: 26px; border-radius: 4px; overflow: hidden; background: var(--bg); border: 1px solid var(--line) }
-.ic.it { width: 31px; height: 23px }
-.ic.bk { width: 20px; height: 15px; opacity: .65 }
-.ic.tp { width: 18px; height: 18px; border-radius: 50% }
-.ic.nt { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--good) }
-.ic.empty { border-style: dashed; background: transparent }
-.ic > b { position: absolute; inset: 0; display: grid; place-items: center; font: 600 12px var(--f-mono); color: var(--ink-2); text-transform: uppercase }
-.ic > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover }
-.ic.ab > img { object-fit: cover }
-.ic.off { opacity: .35; filter: grayscale(1) }
-.ic.nomana { box-shadow: inset 0 0 0 2px var(--mp) }
-.ic.nomana > img { filter: saturate(.4) brightness(.8) }
-.ic.oncd::after { content: ""; position: absolute; inset: 0; background: conic-gradient(rgba(0,0,0,.68) var(--p), rgba(0,0,0,.15) 0); z-index: 2 }
-.ic > s { position: absolute; inset: 0; display: grid; place-items: center; text-decoration: none; font: 700 12px var(--f-mono); color: #fff; z-index: 3; text-shadow: 0 1px 2px #000 }
-.ic > em { position: absolute; right: 1px; bottom: 0; font: 700 12px var(--f-mono); font-style: normal; color: #fff; z-index: 4; text-shadow: 0 0 2px #000, 0 0 2px #000 }
-.ic > .pp { position: absolute; left: 0; right: 0; bottom: -1px; font: 12px/1 sans-serif; letter-spacing: -1px; color: var(--warn); text-align: center; font-style: normal; z-index: 4; text-shadow: 0 0 2px #000 }
-.rc .bp { display: inline-flex; gap: 2px; margin-inline: 2px }
-.rc .enh { font: 600 12px var(--f-mono); color: var(--good); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 56px }
-.rc .gold { margin-left: auto; font-size: 12px; color: var(--warn); white-space: nowrap }
-.rc .mods { display: flex; gap: 3px; min-width: 0; overflow: hidden; margin-left: 4px; flex: 1 }
-.rc .mods .mod { font-size: 12px; padding: 2px 5px; white-space: nowrap }
-
-.rc .row.st { grid-area: st; gap: 8px; font: 12px var(--f-mono); color: var(--muted); white-space: nowrap; overflow: hidden }
-.rc .row.st .at b { color: var(--ink); font-weight: 600 }
-.rc .row.st .at b.m { color: var(--mp) }
-.rc .row.st .at em { color: var(--good); font-style: normal; margin-left: 1px }
-.rc .row.st .at.pr { color: var(--warn) }
-.rc .row.st .at.pr b { color: var(--warn) }
-.rc .stat-glyph { display: inline-flex; align-items: center; justify-content: center; gap: 1px; vertical-align: -1px; }
-.rc .row.st .stat-glyph img { display: block; flex: none; width: 10px; height: 10px; object-fit: contain; }
-.rc .row.st .stat-glyph[aria-label^="REG"] img { width: 9px; }
-
-.rc .row.dvs { grid-area: dv; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px 6px; font: 12px var(--f-mono); color: var(--muted) }
-.rc .dv { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: help }
-.rc .row.dvs .stat-glyph img { display: block; flex: none; width: 10px; height: 10px; object-fit: contain; }
-.rc .dv b { color: var(--ink); font-weight: 600 }
-.rc .dv.z b { color: var(--muted); font-weight: 400 }
 
 /* death lab */
 .dl { gap: 14px }
@@ -357,16 +294,6 @@ kbd { font: 12px var(--f-mono); border: 1px solid var(--line); border-bottom-wid
 #dl-x { width: 160px; vertical-align: middle }
 
 /* bars v2: mana numbers, hover cost, damage chunk */
-.rc .bar.mp { height: 11px }
-.rc .bar.mp .num { line-height: 12px; font-size: 12px }
-.rc .bar .chunk { position: absolute; top: 0; bottom: 0; background: #ff3b30; z-index: 1 }
-.rc .bar .cost { position: absolute; top: 0; bottom: 0; background: #ff9f1a; z-index: 1; box-shadow: inset 0 0 0 1px rgba(0,0,0,.35) }
-.rc .bar .cost.short { background: repeating-linear-gradient(45deg, #ff9f1a 0 3px, #c0392b 3px 6px) }
-.rc .bar .num { z-index: 2 }
-.rc .bar em { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); z-index: 3; font: 700 12px var(--f-mono); font-style: normal; text-shadow: 0 0 2px #000, 0 0 2px #000 }
-.rc .bar .dmgnum { color: #ff6b5e } .rc .bar .dmgnum.ty1 { color: #8fb6ff } .rc .bar .dmgnum.ty2 { color: #f0e6d2 }
-.rc .bar .costnum { color: #ffc266 } .rc .bar .costnum.short { color: #ff6b5e }
-.rc .bar.hp .num, .rc .bar.mp .num { justify-content: center; left: 0; right: 0 }
 
 /* R1 additions */
 #replay { display: grid; gap: 16px }

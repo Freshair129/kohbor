@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 const { fitCanvasBox } = await import("../src/live/canvasBox.ts");
-const { centeredLiveLayout, ownFieldCardMode } = await import("../src/live/secondMonitorLayout.ts");
+const { centeredLiveLayout } = await import("../src/live/secondMonitorLayout.ts");
 
 test("Live has one definite grid row, two bounded columns and a shrinking map stage", () => {
   const css = readFileSync(new URL("../src/live/live.css", import.meta.url), "utf8");
@@ -79,7 +79,7 @@ test("roomy centred cards use replay-sized icons and separated header rows above
   assert.doesNotMatch(cardSource, /lhc-derived-basis is-inline/);
 });
 
-test("centred own card keeps icons and all stat rows inside both target card sizes and anchors the map header at the top", () => {
+test("Live uses the shared reference-size hero card and anchors the map header at the top", () => {
   const cardCss = readFileSync(new URL("../src/live/heroCard.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
   const deckCss = readFileSync(new URL("../src/live/secondMonitor.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
   const liveCss = readFileSync(new URL("../src/live/live.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
@@ -90,56 +90,26 @@ test("centred own card keeps icons and all stat rows inside both target card siz
     const matches = [...css.matchAll(new RegExp(`${escaped}\\s*\\{([^}]+)\\}`, "g"))];
     return matches.at(-1)?.[1] ?? "";
   };
-  const minHeight = (body: string, fallbackGap: number) => {
-    const rowText = body.match(/grid-template-rows:\s*([^;]+)/)?.[1];
-    assert.ok(rowText, "the card declares every row track");
-    const rows = [...rowText.matchAll(/minmax\((\d+)px|(?<!minmax\()\b(\d+)px/g)].map(match => Number(match[1] ?? match[2]));
-    const gap = Number(body.match(/(?:^|;)\s*gap:\s*(\d+)(?:px)?/)?.[1] ?? fallbackGap);
-    const paddingText = body.match(/padding-block:\s*(\d+)px|padding:\s*(\d+)px(?:\s|;)/);
-    const padding = Number(paddingText?.[1] ?? paddingText?.[2] ?? 0);
-    return rows.reduce((sum, row) => sum + row, 0) + (rows.length - 1) * gap + 2 * padding + 2;
-  };
-  const ownBase = cssRule(cardCss, ".lhc-field-card.lhc-field-own");
-  const ownWide = cssRule(cardCss, ".lhc-field-card.lhc-field-own.has-wide-stats");
-  const roomyBase = cssRule(cardCss, ".lhc-field-card.is-roomy-field");
-  const ownRow28 = cssRule(cardCss, ".lhc-field-card.lhc-field-own.is-own-one-row-28");
-  const ownRow22 = cssRule(cardCss, ".lhc-field-card.lhc-field-own.is-own-two-row-22");
-  const ownStatsRule = cardCss.match(/\.lhc-field-card\.lhc-field-own\.is-own-one-row-28 \.lhc-stats,[\s\S]*?\{([^}]+)\}/)?.[1] ?? "";
-  const compactTeam = cssRule(cardCss, ".lhc-field-card.is-compact-fit");
-  assert.ok(cardSource.includes("className={`lhc-row lhc-ab") && cardSource.includes("className={`lhc-row lhc-it")
-    && cardSource.includes('className="lhc-stat-stack"'),
-    "abilities, items, and stat rows are rendered in the shared own-card section");
-  assert.match(ownRow28, /grid-template-areas:\s*"pt nm top"\s+"bars bars bars"\s+"ab ab it"\s+"st st st"/);
-  assert.match(ownRow28, /grid-template-rows:\s*24px\s+14px\s+28px\s+minmax\(36px,/);
-  assert.match(cardCss, /\.lhc-field-card\.lhc-field-own\.is-own-one-row-28 \.lhc-ic\.is-ab\s*\{[^}]*height:\s*28px/);
-  assert.match(cardCss, /\.lhc-field-card\.lhc-field-own\.is-own-one-row-28 \.lhc-ic\.is-it\s*\{[^}]*height:\s*20px/);
-  assert.match(ownRow22, /grid-template-rows:\s*18px\s+14px\s+22px\s+22px\s+minmax\(36px,/);
-  assert.match(ownRow22, /grid-template-areas:\s*"pt nm top"\s+"bars bars bars"\s+"ab ab ab"\s+"it it it"\s+"st st st"/,
-    "the minimum viewport keeps separate ability, item, and stat tracks inside the own card");
-  assert.match(cardCss, /\.lhc-field-card\.lhc-field-own\.is-own-two-row-22 \.lhc-ic\.is-ab\s*\{[^}]*height:\s*22px/);
-  assert.match(cardCss, /\.lhc-field-card\.lhc-field-own\.is-own-two-row-22 \.lhc-ic\.is-it\s*\{[^}]*height:\s*16px/);
-  assert.match(ownStatsRule, /grid-template-columns:\s*repeat\(5,/);
-  assert.match(ownStatsRule, /grid-template-rows:\s*repeat\(3,\s*minmax\(12px,/);
-  assert.match(cardCss, /\.lhc-field-card\.lhc-field-own\.is-own-two-row-22 \.lhc-side\s*\{[^}]*gap:\s*0/,
-    "the 22 px own-card item row fits inside the minimum card content width");
-  assert.match(compactTeam, /grid-template-rows:\s*16px\s+14px\s+22px\s+22px\s+minmax\(36px,/);
-  assert.match(compactTeam, /"ab ab ab"\s+"it it it"\s+"st st st"/);
-  assert.match(cardCss, /\.lhc-field-card\.is-compact-fit \.lhc-stats\s*\{[^}]*repeat\(5,\s*minmax\(0,\s*1fr\)\)[^}]*repeat\(3,\s*minmax\(12px,/);
-  assert.match(cardSource, /roomyField \? " is-roomy-field" : " is-compact-fit"/);
-  assert.match(cardSource, /is-own-\$\{ownFieldMode\}/);
-  assert.match(ownWide, /grid-template-rows:\s*16px\s+14px\s+14px\s+14px\s+minmax\(48px,/);
+  const sharedCard = cardCss.match(/\.rc\s*\{([^}]+)\}/)?.[1] ?? "";
+  assert.match(cardSource, /function SharedLiveHeroCard/);
+  assert.match(cardSource, /const rows = sharedHeroCardView\(view\)\.rows/);
+  assert.match(cardSource, /return <li className=\{`rc lhc-live/);
+  for (const row of [0, 1, 2, 3, 4, 5]) assert.ok(cardSource.includes(`attrs(${row})`), `Live renders shared row ${row}`);
+  assert.match(cardSource, /statLabelMode = "icon"/);
+  assert.match(cardSource, /statLabelMode === "text"/);
+  assert.match(sharedCard, /grid-template-areas:\s*"pt top"\s+"pt bars"\s+"ab ab"\s+"it it"\s+"st st"\s+"dv dv"/);
+  assert.match(sharedCard, /min-width:\s*344px/);
+  assert.match(sharedCard, /min-height:\s*138px/);
+  assert.match(sharedCard, /zoom:\s*var\(--hc-scale,1\)/);
+  assert.match(cardCss, /\.rc \.pt \{[^}]*width:\s*46px;\s*height:\s*46px/);
+  assert.match(cardCss, /\.rc \.bar \{[^}]*height:\s*12px/);
+  assert.match(cardCss, /\.rc \.bar\.mp \{[^}]*height:\s*11px/);
+  assert.match(cardCss, /\.rc \.top \.nm \{[^}]*font:\s*700 13\.5px/);
+  assert.match(cardCss, /\.rc \.row\.dvs \{[^}]*grid-template-columns:\s*repeat\(4,/);
 
-  const viewports = [[1920, 1080, "one-row-28"], [1280, 720, "two-row-22"]] as const;
-  for (const [width, height, expectedMode] of viewports) {
+  for (const [width, height] of [[1920, 1080], [1440, 900], [1280, 720]]) {
     const layout = centeredLiveLayout({ width: width - 208, height: height - 132 });
-    assert.equal(layout.mode, "field", `${width}x${height}: centered layout is available`);
-    if (layout.mode !== "field") continue;
-    const mode = ownFieldCardMode(layout.card);
-    assert.equal(mode, expectedMode, `${width}x${height}: own card chooses the correct icon layout`);
-    const style = mode === "one-row-28" ? ownRow28 : ownRow22;
-    const floor = minHeight(style, Number(ownBase.match(/gap:\s*(\d+)px/)?.[1] ?? 1));
-    assert.ok(layout.card.h >= floor, `${width}x${height}: own card ${layout.card.h}px contains its ${floor}px row minimum`);
-    if (width === 1280) assert.ok(layout.card.h >= minHeight(compactTeam, 0), "the nine unknown cards keep three readable stat lines at the minimum viewport");
+    assert.equal(layout.mode, "field", `${width}x${height}: centered Live layout remains available`);
   }
 
   const pane = cssRule(deckCss, ".deck-field-map > .live-map-pane");
@@ -155,7 +125,6 @@ test("centred own card keeps icons and all stat rows inside both target card siz
   assert.match(toolbar, /align-items:\s*center/);
   assert.ok(Number.isFinite(padding + border) && padding + border <= 8, "the first header pixel starts within 8 px of the pane top");
 });
-
 test("canvas box scales up or down to fit while preserving the frame header aspect", () => {
   assert.deepEqual(fitCanvasBox(960, 572, { width: 292, height: 292 }), { width: 572, height: 572 });
   const large = fitCanvasBox(1514, 884, { width: 280, height: 274 });

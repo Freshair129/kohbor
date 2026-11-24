@@ -145,7 +145,12 @@ test("both in-match Live layouts have no scroll region, and preserve the global 
   assert.doesNotMatch(css, /overflow(?:-[xy])?:\s*(?:auto|scroll)/, "second-monitor regions have no scroll containers");
   assert.match(cards, /\.lhc-list-field\s*\{[^}]*overflow:\s*hidden/);
   assert.doesNotMatch(cards, /\.lhc-list-field[^{}]*\{[^}]*overflow(?:-[xy])?:\s*(?:auto|scroll)/, "field card lists do not scroll");
-  assert.doesNotMatch(cards, /font-size:\s*(?:[0-9]|1[01])px/, "card text is not set below 12 px");
+  assert.match(cards, /\.rc\s*\{[^}]*grid-template-areas:\s*"pt top"\s+"pt bars"\s+"ab ab"\s+"it it"\s+"st st"\s+"dv dv"/,
+    "Live uses the shared six-row hero-card structure");
+  assert.match(cards, /\.rc\s*\{[^}]*zoom:\s*var\(--hc-scale,\s*1\)/,
+    "the shared card scale applies uniformly in Live");
+  assert.match(cards, /\.rc \.bar \.num\s*\{[^}]*font:\s*600 9\.5px/,
+    "the approved reference-size exemption is scoped to the hero card");
   assert.doesNotMatch(css, /\.app\[data-live-monitor\][^}]*\.shell-page-header\s*\{[^}]*display:\s*none/);
   assert.match(css, /\.app\[data-live-monitor\]\[data-match="true"\] \.shell-rail-right\s*\{\s*display:\s*none/);
 });

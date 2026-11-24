@@ -23,7 +23,10 @@ import { matchViewerCopy } from "./matchViewerCopy.mjs";
 import { mountMatchView } from "./matchViewer.mjs";
 import markup from "./matchViewer.html?raw";
 import style from "./matchViewer.css?raw";
+import sharedHeroCardStyle from "../live/heroCard.css?raw";
 import libraryStyle from "./matchLibrary.css?raw";
+
+type HeroCardLabelMode = "text" | "icon";
 
 const replayLibrary = createReplayLibraryClient({
   invoke: <T,>(command: string, args?: Record<string, unknown>) => invoke<T>(command, args),
@@ -147,7 +150,7 @@ export function MatchViewPanel({ locale, initialBundle = null, initialMatchId = 
     let unmount: (() => void) | undefined;
     try {
       unmount = mountMatchView(root, loaded.bundle, {
-      locale, markup, style,
+      locale, markup, style: `${style}\n${sharedHeroCardStyle}`, statLabelMode: "text",
       icon: iconResolver(BUNDLED.icons),
       statCatalog: STAT_ICON_CATALOG,
       statIcon: (id: StatIconId) => statIconUrl(id),
@@ -405,7 +408,7 @@ export function MatchViewPanel({ locale, initialBundle = null, initialMatchId = 
 
 /** A library-selected viewer surface used by Analytics; it keeps the same validated bundle and viewer. */
 export function MatchViewerSurface({
-  locale, bundle, onHeroSelect, onHeroIdentify, onTimeChange, onReady, initialTime = null, disableKeyboard = false,
+  locale, bundle, onHeroSelect, onHeroIdentify, onTimeChange, onReady, initialTime = null, disableKeyboard = false, statLabelMode = "text",
 }: {
   locale: Locale;
   bundle: MatchBundle;
@@ -415,6 +418,7 @@ export function MatchViewerSurface({
   onReady?: (root: ShadowRoot) => void;
   initialTime?: number | null;
   disableKeyboard?: boolean;
+  statLabelMode?: HeroCardLabelMode;
 }) {
   const target = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -429,7 +433,7 @@ export function MatchViewerSurface({
     const mode = gameModeName(bundle.gameMode) ?? matchViewerCopy[locale].unknownMode;
     const length = bundle.durationS === null ? matchViewerCopy[locale].unknownLength : clock(bundle.durationS);
     const mounted = mountMatchView(root, bundle, {
-      locale, markup, style: `${style}\n${analyticsSurfaceOverrides}`,
+      locale, markup, style: `${style}\n${sharedHeroCardStyle}\n${analyticsSurfaceOverrides}`, statLabelMode,
       icon: iconResolver(BUNDLED.icons), hasMap: BUNDLED.icons.has("map:"), patchData: lookup.pack,
       statCatalog: STAT_ICON_CATALOG,
       statIcon: (id: StatIconId) => statIconUrl(id),
@@ -460,7 +464,7 @@ export function MatchViewerSurface({
     scrubber?.addEventListener("input", scrub);
     onReady?.(root);
     return () => { root.removeEventListener("click", click); root.removeEventListener("dblclick", doubleClick); scrubber?.removeEventListener("input", scrub); mounted(); };
-  }, [bundle, locale, onHeroSelect, onHeroIdentify, onTimeChange, onReady, initialTime, disableKeyboard]);
+  }, [bundle, locale, onHeroSelect, onHeroIdentify, onTimeChange, onReady, initialTime, disableKeyboard, statLabelMode]);
   return <div ref={target} className="analytics-viewer-surface" />;
 }
 
@@ -470,26 +474,13 @@ const analyticsSurfaceOverrides = `
 .rv-bar { display: none !important; }
 #analytics-player-slot:empty { display: none; }
 .rv-row.small { display: none; }
-.rv-stage { height: auto; min-height: 560px; grid-template-columns: minmax(140px, 1fr) minmax(300px, 1.35fr) minmax(140px, 1fr); gap: 8px; align-items: stretch; }
+.rv-stage { height: auto; min-height: 560px; grid-template-columns: minmax(344px, 1fr) minmax(300px, 1.35fr) minmax(344px, 1fr); gap: 8px; align-items: stretch; }
 .rv-col { height: 100%; grid-template-rows: repeat(5, minmax(104px, 1fr)); gap: 6px; align-content: stretch; overflow-y: auto; }
 .rv-center { height: 100%; grid-template-rows: auto minmax(300px, 1fr); }
-.rc { height: 100%; min-height: 104px; grid-template-columns: 34px minmax(0, 1fr); padding: 5px; gap: 2px 6px; }
-.rc .pt, .rc .pt img { width: 34px; height: 34px; }
-.rc .row.ab, .rc .row.it, .rc .row.st { display: flex !important; }
-.rc .top { font-size: 12px; }
-.rc .lvb, .rc .bar .num, .rc .ic > b, .rc .ic > s, .rc .ic > em { font-size: 12px; }
-.rc .row.ab .mod, .rc .row.st, .rc .row.dvs, .rc .enh, .rc .gold { font-size: 12px !important; }
-.rc .ic { width: 18px; height: 18px; }
-.rc .ic.it { width: 20px; height: 16px; }
-.rc .ic.bk { width: 14px; height: 12px; }
-.rc .ic.tp { width: 16px; height: 16px; }
-.rc .ic.nt { width: 18px; height: 18px; }
-.rc .mods .mod { font-size: 12px; padding: 0 3px; }
-.rc .row.dvs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .rv-center { height: auto; grid-template-rows: auto min-content; align-content: start; }
 .rv-mapcard { align-content: start; }
 .rv-mapwrap { height: auto; max-height: none; min-height: 300px; aspect-ratio: 1 / 1; }
-@media (max-width: 1280px) { .rv-stage { grid-template-columns: minmax(110px, .8fr) minmax(300px, 1.6fr) minmax(110px, .8fr); } }
+@media (max-width: 1500px) { .rv-stage { grid-template-columns: minmax(302px, 1fr) minmax(300px, 1.35fr) minmax(302px, 1fr); } }
 `;
 
 export const analyticsPlayerShadowCss = `
