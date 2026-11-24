@@ -758,8 +758,8 @@
     },
     {
       "path": "apps/desktop/src/App.tsx",
-      "bytes": 28987,
-      "sha256": "e45fdbbae54b02d1edb7f1d4174b9ffd1098341dfdb0d81ea555e1ad31e8d7fa"
+      "bytes": 28525,
+      "sha256": "6d50e21f29e671013c316166c85275904ce3d086ad2e32b9f7ca9b4696f4c5c9"
     },
     {
       "path": "apps/desktop/src/AudioHistory.tsx",
@@ -13488,8 +13488,8 @@
     },
     {
       "path": "apps/desktop/src/replay/matchViewer.d.mts",
-      "bytes": 947,
-      "sha256": "a80fc481d7116ea618c0f1819ca4d10084fc07ac63d4bfc5a7a3e20be50f9193"
+      "bytes": 924,
+      "sha256": "fbf34a03dca3e7859dad5e0bc2800463b1f01bbe59b12d8462df7007213ee652"
     },
     {
       "path": "apps/desktop/src/replay/matchViewer.html",
@@ -14373,18 +14373,18 @@
     },
     {
       "path": "apps/website/assets/heroes/README.md",
-      "bytes": 585,
-      "sha256": "8f0ca956dcb748a190954060e642e1d3af1c54cd74c1b6ce107d9562e555e5fd"
+      "bytes": 777,
+      "sha256": "a02d6eaa792c9b5a251f906f17fced911daf4609a6514923973d396e6fecd6ba"
     },
     {
       "path": "apps/website/assets/heroes/crystal_maiden.png",
-      "bytes": 15991,
-      "sha256": "1ef52b40c526f78a8eb0baeda78646747aa7c245070d81f23e582c11edf4888f"
+      "bytes": 16827,
+      "sha256": "9ec4357f21f752a326bd1c907d92785cf8462f6fb153c138c6a764791093ea49"
     },
     {
       "path": "apps/website/assets/heroes/juggernaut.png",
-      "bytes": 16992,
-      "sha256": "cfa5175427e88348254c5ee59349b030ae756e91f22f5ca5630e429179c79785"
+      "bytes": 17514,
+      "sha256": "116ab03d6776a92f220fae95592d9613ef2c185e0aaeaf8d4ff922b7a66aeeba"
     },
     {
       "path": "apps/website/assets/heroes/lina.png",
@@ -14398,13 +14398,13 @@
     },
     {
       "path": "apps/website/assets/heroes/pudge.png",
-      "bytes": 16470,
-      "sha256": "b4838f32f4993e752e4e50d7ced53ea0e8263a36b95f80119b5a6ceb144f00fc"
+      "bytes": 17329,
+      "sha256": "718e68e3582e552478c92f77dd6a7472912f6e342d97d5deb104d356aff44b91"
     },
     {
       "path": "apps/website/assets/heroes/sven.png",
-      "bytes": 13617,
-      "sha256": "0203c7b72660c97b0b791cee4e495edd49fe6ef67e1bb9dbe8250f684249b968"
+      "bytes": 14930,
+      "sha256": "58bcabf866955635972a22d25c9d925281ea19e439d47f34cd1078b21ad90efa"
     },
     {
       "path": "apps/website/assets/map/README.md",
