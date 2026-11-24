@@ -271,9 +271,18 @@ test("loadout tiles remain compact and the root/card never gain scrolling", () =
   const component = readFileSync(new URL("../src/deck/OwnLoadout.tsx", import.meta.url), "utf8");
   assert.equal(component.match(/ต้องตั้งค่าการเชื่อมต่อ Dota 2 ใหม่หนึ่งครั้ง/g)?.length, 1);
   assert.match(component, /สกิลเสริม/);
-  // R5: allies are visible compact cards on the centred deck (no disclosure); see live-hero-card.test.ts.
+  // R5: the own hero renders as a slot in its five-card team field; see live-hero-card.test.ts.
   const deck = readFileSync(new URL("../src/deck/Deck.tsx", import.meta.url), "utf8");
-  assert.match(deck, /<CompactHeroCards cards=\{allyCards\}/);
+  assert.match(deck, /const ourCards = orderBySlot\(\[ownModel,\s*\.\.\.allyCards\]\)/);
+  assert.match(deck, /renderOwn=\{card => <OwnHeroCard/);
+  assert.match(deck, /<CompactHeroCards cards=\{radiantCards\}[^>]*fieldCard/);
+  assert.match(deck, /<CompactHeroCards cards=\{direCards\}[^>]*fieldCard/);
+  const cardCss = readFileSync(new URL("../src/live/heroCard.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const fieldList = cardCss.match(/\.lhc-list-field\s*\{([^}]+)\}/)?.[1] ?? "";
+  assert.match(fieldList, /grid-template-rows:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(fieldList, /overflow:\s*hidden/);
+  assert.doesNotMatch(fieldList, /overflow(?:-[xy])?:\s*(?:auto|scroll)/);
+  assert.doesNotMatch(fieldList, /grid-template-rows:[^;]*\d+px/);
 });
 
 test("no game data shows faint placeholder slots that never look like empty or real items", () => {

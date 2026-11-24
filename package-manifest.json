@@ -13503,8 +13503,8 @@
     },
     {
       "path": "apps/desktop/tests/deck-css.test.ts",
-      "bytes": 5743,
-      "sha256": "05b3617adc11f0cee6b75fdd1cf095400bf78d6a2f2d5f0ad364849f5c0616c7"
+      "bytes": 6412,
+      "sha256": "1f02347ccf40e50881390009cfe4d006816fa96887821e6cf043ac0b5d22058a"
     },
     {
       "path": "apps/desktop/tests/deck-events.test.ts",
@@ -13753,8 +13753,8 @@
     },
     {
       "path": "apps/desktop/tests/own-loadout.test.ts",
-      "bytes": 19504,
-      "sha256": "1cc46675d86e5d2aabc0fce9f81185270a96f4db6e4ec6845e2ee6f76deb735a"
+      "bytes": 20219,
+      "sha256": "6cea4ef6cf86781e929700ca9da2a3350890c0b986e1ea3dc85213dc7c6e6d79"
     },
     {
       "path": "apps/desktop/tests/own-snapshot.test.ts",
@@ -13828,8 +13828,8 @@
     },
     {
       "path": "apps/desktop/tests/round2.test.ts",
-      "bytes": 18025,
-      "sha256": "c358c43bd778e22aecae10dbb5eaf918d2f40f66459fcd35c3eab3ab9eb22c3e"
+      "bytes": 18248,
+      "sha256": "c441458c617ade256cde11b40f7e7267acff5f431e430baeea0756580083dfa7"
     },
     {
       "path": "apps/desktop/tests/shell-css.test.ts",
