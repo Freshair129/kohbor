@@ -259,7 +259,7 @@ export function LayoutEditor({ locale }: { locale: Locale }) {
     <section className="layout-editor" aria-label={copy.layoutTitle}>
       <header className="layout-editor-heading">
         <div><h2>{copy.layoutTitle}</h2><p>{copy.layoutHelp}</p></div>
-        <div className="layout-editor-actions">
+        <div className="layout-editor-actions" role="toolbar" aria-label={copy.layoutTitle}>
           <button type="button" onClick={enterFullscreen} disabled={loading}>{copy.layoutFullscreen}</button>
           <button type="button" onClick={() => void reset()} disabled={loading || saving}>{copy.layoutReset}</button>
         </div>

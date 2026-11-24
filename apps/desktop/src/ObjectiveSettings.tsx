@@ -8,6 +8,7 @@ import {
   type ObjectiveId,
   type ObjectivePrefs,
 } from "./objectivePrefs";
+import { SettingsPage, type SettingsPageProps } from "./settings/SettingsPage";
 
 type LeadInputState = Record<ObjectiveId, [string, string]>;
 function leadInputState(prefs: ObjectivePrefs): LeadInputState {
@@ -17,7 +18,12 @@ function leadInputState(prefs: ObjectivePrefs): LeadInputState {
   })) as LeadInputState;
 }
 
-export function ObjectiveSettings({ locale }: { locale: Locale }) {
+/** Keeps the existing Settings import stable while the page owns its section navigation. */
+export function ObjectiveSettings({ locale, ...pageProps }: SettingsPageProps) {
+  return <SettingsPage {...pageProps} locale={locale} objectiveAlerts={<ObjectiveAlertSettings locale={locale} />} />;
+}
+
+function ObjectiveAlertSettings({ locale }: { locale: Locale }) {
   const copy = OBJECTIVE_COPY[locale];
   const [prefs, setPrefs] = useState<ObjectivePrefs | null>(null);
   const [leadInputs, setLeadInputs] = useState<LeadInputState | null>(null);
@@ -42,7 +48,7 @@ export function ObjectiveSettings({ locale }: { locale: Locale }) {
     return () => { active = false; };
   }, [copy.loadFailed]);
 
-  async function applyPatch(request: Record<string, unknown>) {
+  async function applyPatch(request: Record<string, unknown>, preserveLeadDraft = false) {
     if (!prefs || saving) return;
     const previous = prefs;
     setSaving(true);
@@ -51,10 +57,10 @@ export function ObjectiveSettings({ locale }: { locale: Locale }) {
       const updated = parseObjectivePrefs(await objectivePrefsPatch(request));
       if (!updated) throw new Error("OBJECTIVE_PREFS_INVALID");
       setPrefs(updated);
-      setLeadInputs(leadInputState(updated));
+      if (!preserveLeadDraft) setLeadInputs(leadInputState(updated));
     } catch {
       setPrefs(previous);
-      setLeadInputs(leadInputState(previous));
+      if (!preserveLeadDraft) setLeadInputs(leadInputState(previous));
       setError(copy.saveFailed);
     } finally {
       setSaving(false);
@@ -63,26 +69,29 @@ export function ObjectiveSettings({ locale }: { locale: Locale }) {
 
   async function changeEnabled(id: ObjectiveId, enabled: boolean) {
     setLeadErrors((current) => ({ ...current, [id]: undefined }));
-    await applyPatch({ objectives: { [id]: { enabled } } });
+    await applyPatch({ objectives: { [id]: { enabled } } }, true);
   }
 
   async function changeDiagnostic(enabled: boolean) {
-    await applyPatch({ diagnostic_map_keys: enabled });
+    await applyPatch({ diagnostic_map_keys: enabled }, true);
   }
 
-  async function saveLeadTimes(id: ObjectiveId) {
+  async function saveLeadTimes() {
     if (!prefs || !leadInputs || saving) return;
-    const result = validateLeadTimeInputs(leadInputs[id]);
-    if (result.error) {
-      setLeadErrors((current) => ({
-        ...current,
-        [id]: result.error === "whole_seconds" ? copy.leadTimeWholeError
-          : result.error === "duplicate" ? copy.leadTimeDuplicateError : copy.leadTimeRangeError,
-      }));
-      return;
+    const next: Partial<Record<ObjectiveId, { lead_s: number[] }>> = {};
+    const errors: Partial<Record<ObjectiveId, string>> = {};
+    for (const id of OBJECTIVE_PREF_KEYS) {
+      const result = validateLeadTimeInputs(leadInputs[id]);
+      if (result.error) {
+        errors[id] = result.error === "whole_seconds" ? copy.leadTimeWholeError
+          : result.error === "duplicate" ? copy.leadTimeDuplicateError : copy.leadTimeRangeError;
+      } else if (result.values.join(",") !== prefs.objectives[id].lead_s.join(",")) {
+        next[id] = { lead_s: result.values };
+      }
     }
-    setLeadErrors((current) => ({ ...current, [id]: undefined }));
-    await applyPatch({ objectives: { [id]: { lead_s: result.values } } });
+    setLeadErrors(errors);
+    if (Object.keys(errors).length > 0 || Object.keys(next).length === 0) return;
+    await applyPatch({ objectives: next });
   }
 
   function changeLeadInput(id: ObjectiveId, index: 0 | 1, value: string) {
@@ -99,38 +108,57 @@ export function ObjectiveSettings({ locale }: { locale: Locale }) {
 
   return (
     <section className="objective-settings" aria-label={copy.title}>
-      <h2>{copy.title}</h2>
       {prefs && leadInputs ? (
         <>
-          <div className="objective-settings-list">
-            {OBJECTIVE_PREF_KEYS.map((id) => (
-              <fieldset className="objective-setting-card" key={id} disabled={saving}>
-                <legend>
-                  <label className="objective-setting-toggle">
-                    <input type="checkbox" checked={prefs.objectives[id].enabled}
-                      onChange={(event) => void changeEnabled(id, event.currentTarget.checked)} />
-                    <span>{copy[id]}</span>
-                  </label>
-                </legend>
-                <div className="objective-setting-leads">
-                  <p>{copy.leadTimes}</p>
-                  <div className="objective-setting-lead-inputs">
-                    {([0, 1] as const).map((index) => (
-                      <label key={index}>
-                        <span>{copy.leadTimeSlot(index + 1)}</span>
-                        <input type="number" inputMode="numeric" min={5} max={60} step={1}
-                          aria-label={copy.leadTimeSlot(index + 1)}
-                          value={leadInputs[id][index]}
-                          onChange={(event) => changeLeadInput(id, index, event.currentTarget.value)} />
+          <table className="objective-settings-table">
+            <thead>
+              <tr>
+                <th scope="col">{locale === "th" ? "วัตถุประสงค์" : "Objective"}</th>
+                <th scope="col">{copy.leadTimeSlot(1)}</th>
+                <th scope="col">{copy.leadTimeSlot(2)}</th>
+                <th scope="col">{copy.leadTimeHelp}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {OBJECTIVE_PREF_KEYS.map((id) => {
+                const stored = prefs.objectives[id].lead_s;
+                return (
+                  <tr key={id}>
+                    <th scope="row">
+                      <label className="objective-setting-toggle">
+                        <input type="checkbox" checked={prefs.objectives[id].enabled} disabled={saving}
+                          onChange={(event) => void changeEnabled(id, event.currentTarget.checked)} />
+                        <span>{copy[id]}</span>
                       </label>
+                    </th>
+                    {([0, 1] as const).map((index) => (
+                      <td key={index}>
+                        <label className="objective-setting-lead-cell">
+                          <span className="sr-only">{copy.leadTimeSlot(index + 1)}</span>
+                          <input type="number" inputMode="numeric" min={5} max={60} step={1}
+                            aria-label={`${copy[id]} · ${copy.leadTimeSlot(index + 1)}`}
+                            value={leadInputs[id][index]} disabled={saving}
+                            onChange={(event) => changeLeadInput(id, index, event.currentTarget.value)} />
+                        </label>
+                      </td>
                     ))}
-                  </div>
-                  <small>{copy.leadTimeHelp}</small>
-                  {leadErrors[id] && <p className="objective-settings-message" role="alert">{leadErrors[id]}</p>}
-                  <button type="button" className="objective-setting-save" onClick={() => void saveLeadTimes(id)}>{copy.saveLeadTimes}</button>
-                </div>
-              </fieldset>
-            ))}
+                    <td>
+                      <div className="objective-setting-range">
+                        <span>{copy.leadTimeHelp}</span>
+                        <small>{stored.length === 0 ? copy.noLeadTimes : copy.savedLeadTimes(stored)}</small>
+                        {leadErrors[id] && <span className="objective-settings-message" role="alert">{leadErrors[id]}</span>}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <div className="objective-settings-actions">
+            <button type="button" className="objective-setting-save" disabled={saving} onClick={() => void saveLeadTimes()}>
+              {copy.saveLeadTimes}
+            </button>
+            <small>{locale === "th" ? "เวลาเตือนที่แก้ไขจะมีผลหลังบันทึก" : "Edited lead times take effect after saving."}</small>
           </div>
           <label className="objective-setting-toggle objective-diagnostic-toggle">
             <input type="checkbox" checked={prefs.diagnostic_map_keys} disabled={saving}

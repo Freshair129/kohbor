@@ -723,8 +723,8 @@
     },
     {
       "path": "apps/desktop/src/App.tsx",
-      "bytes": 24929,
-      "sha256": "20617935753ab9eeae8e58a9873357c70388c05feca29aab8626a96670f24591"
+      "bytes": 26504,
+      "sha256": "87d3dc4eb1fb1665c79f015b278118e39e5be5414a33dbc76efcc02dc700615b"
     },
     {
       "path": "apps/desktop/src/AudioHistory.tsx",
@@ -768,8 +768,8 @@
     },
     {
       "path": "apps/desktop/src/ObjectiveSettings.tsx",
-      "bytes": 5913,
-      "sha256": "a0abe3a1d2eba38bb86f1d8a229c96400d4c56c06497918489443f48130fc6dc"
+      "bytes": 7634,
+      "sha256": "6803b020fc408a5bea975373c7f49467dad3db32ae655619a6962b8489d2788c"
     },
     {
       "path": "apps/desktop/src/OverlayChip.tsx",
@@ -12363,8 +12363,8 @@
     },
     {
       "path": "apps/desktop/src/copy.ts",
-      "bytes": 75163,
-      "sha256": "137c25fec27f776dd54d6b4fc2dbba87aab49739ec4389cbf076f5b6dd4e6513"
+      "bytes": 76891,
+      "sha256": "258e7f00efc55852f4bfa3a0795cecf396e7961f5869ee60d50a2af921efb55d"
     },
     {
       "path": "apps/desktop/src/critical-stack.css",
@@ -12638,8 +12638,8 @@
     },
     {
       "path": "apps/desktop/src/layoutEditor/LayoutEditor.tsx",
-      "bytes": 12848,
-      "sha256": "41265d1a1f7a15fb5e85f4054b4a9035e03ce84e34954259c29cbdbd99c38462"
+      "bytes": 12893,
+      "sha256": "c58c5f4482071aaf69f7674bb7194393c51cd3f72a89b685d10247b0e1a53b87"
     },
     {
       "path": "apps/desktop/src/layoutEditor/fullscreen.ts",
@@ -13472,6 +13472,16 @@
       "sha256": "44681358adc8659f0de6af1b6bf86eb9af8a8625ae1b5bf3250220d0e81ad3e1"
     },
     {
+      "path": "apps/desktop/src/settings/SettingsPage.tsx",
+      "bytes": 2857,
+      "sha256": "9c7defa15c917215f9219cb2ee936db451aaa3f71ddb45cd8eec09a0a30dd04a"
+    },
+    {
+      "path": "apps/desktop/src/settings/settingsModel.ts",
+      "bytes": 3831,
+      "sha256": "b7c33fb9b8f414b6d8f312af66892b0f5074cb5f89cb490dccdc6b14cec7e87c"
+    },
+    {
       "path": "apps/desktop/src/shared/Dialog.tsx",
       "bytes": 3274,
       "sha256": "cdf0657ce6911a9dd561d8a7968b9ca18866ba8eab2557c252b2854a3ab6aabf"
@@ -13678,8 +13688,8 @@
     },
     {
       "path": "apps/desktop/src/styles.css",
-      "bytes": 73611,
-      "sha256": "95364a26706fc37c5e7078a5a788c98acefff09b4117a3ef83fabc72a4a47e56"
+      "bytes": 77723,
+      "sha256": "4872d64c3ba66c9a82e125858d1984793a13548449e31648c0893ca448b1ec4f"
     },
     {
       "path": "apps/desktop/src/types.ts",
@@ -14160,6 +14170,11 @@
       "path": "apps/desktop/tests/round2.test.ts",
       "bytes": 18112,
       "sha256": "cf3b87a27af4bb2bdbb377672b6e8baa9a47d934059e29eca6c5dca04a236a86"
+    },
+    {
+      "path": "apps/desktop/tests/settings-layout.test.ts",
+      "bytes": 8908,
+      "sha256": "dd475c8f1aa1069d4fcd410b02192ce31fa67a25d212ff7caff6f6f5dc42d15e"
     },
     {
       "path": "apps/desktop/tests/shell-css.test.ts",
@@ -15463,8 +15478,8 @@
     },
     {
       "path": "docs/design/UX-SPEC.md",
-      "bytes": 44529,
-      "sha256": "d2f879b0eb433e419c06ffe94968478386761bbafb2d130637f8584fa218c957"
+      "bytes": 47395,
+      "sha256": "00783cd26eaa91c39b2a772e8fe970eaf78282e99c61b66a9c88a427e76a303b"
     },
     {
       "path": "docs/design/VISUAL-DESIGN-PROPOSAL.md",
@@ -15908,8 +15923,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 101147,
-      "sha256": "7fc39cfd4bf46b12bbfeecdf642d8580ab1c934d05da4799b5d179262c260968"
+      "bytes": 102062,
+      "sha256": "69a32520d3dd5a70b80bdc2fb085741ef214790ee6ea7d92f8b8018374133ecf"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
