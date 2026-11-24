@@ -112,6 +112,48 @@ test("post-game unknown values stay as dashes and a ready replay is linked only 
   assert.equal(wrongMatch.replay, null);
 });
 
+test("a ready replay does not select history when the ended session entry is unknown", () => {
+  assert.ok(summary, "post-game summary model is implemented");
+  const view = summary.postGameSummaryModel({
+    entry: null,
+    snapshot: null,
+    scoreboard: { radiant: null, dire: null, clockSeconds: null },
+    recap: null,
+    derivedStats: [],
+    replay: { matchKey: entry.matchKey, ready: true, headline: { deaths: 2, netWorth: 18_400 } },
+  }, "en");
+  assert.equal(view.replay, null);
+});
+
+test("a matching replay that is not ready stays in the honest empty state", () => {
+  assert.ok(summary, "post-game summary model is implemented");
+  const view = summary.postGameSummaryModel({
+    entry,
+    snapshot: null,
+    scoreboard: { radiant: null, dire: null, clockSeconds: null },
+    recap: null,
+    derivedStats: [],
+    replay: { matchKey: entry.matchKey, ready: false, headline: { deaths: null, netWorth: null } },
+  }, "en");
+  assert.equal(view.replay, null);
+});
+
+test("a ready matching replay with unknown headline fields renders dashes", () => {
+  assert.ok(summary, "post-game summary model is implemented");
+  const view = summary.postGameSummaryModel({
+    entry,
+    snapshot: null,
+    scoreboard: { radiant: null, dire: null, clockSeconds: null },
+    recap: null,
+    derivedStats: [],
+    replay: { matchKey: entry.matchKey, ready: true, headline: { deaths: null, netWorth: null } },
+  }, "en");
+  assert.deepEqual(view.replay?.headline, [
+    { label: "Deaths", value: "—" },
+    { label: "Net worth", value: "—" },
+  ]);
+});
+
 test("post-game snapshot values must still be fresh to appear in the summary", () => {
   assert.ok(summary, "post-game summary model is implemented");
   const stale = { ...snapshot, availability: "stale" };
@@ -128,11 +170,14 @@ test("post-game snapshot values must still be fresh to appear in the summary", (
   assert.equal(view.recapAvailable, false);
 });
 
-test("Deck freezes the current session's fresh GSI snapshot for stage one and keeps replay unlinked", () => {
+test("Deck resolves the ended history entry by the host session key and refreshes on library changes", () => {
   const deck = readFileSync(new URL("../src/deck/Deck.tsx", import.meta.url), "utf8");
   assert.match(deck, /lastLiveSnapshot\?\.epoch === postGame\.epoch \? lastLiveSnapshot\.snapshot : snapshot/);
-  assert.match(deck, /entry: null/);
+  assert.match(deck, /history\?\.entries\.find\(entry => entry\.source === "kohbor" && entry\.matchKey === postGameReplay\.matchKey\)/);
+  assert.match(deck, /entry: historyEntry/);
   assert.match(deck, /snapshot: summarySnapshot/);
-  assert.match(deck, /replay: null/);
+  assert.match(deck, /replay: postGameReplay/);
+  assert.match(deck, /post_game_replay_summary/);
+  assert.match(deck, /replay-library:\/\/state-changed/);
   assert.match(deck, /recap: recapMatch \? \{ events: recapMatch\.playedEvents, droppedCount: recapMatch\.droppedCount \} : null/);
 });

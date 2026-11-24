@@ -31,6 +31,7 @@ mod news;
 mod objectives;
 mod opendota;
 mod orb;
+mod post_game_replay;
 mod portraits;
 mod replay_library;
 pub mod secrets;
@@ -1461,6 +1462,7 @@ pub fn run() {
         commands::clear_match_recap,
         commands::match_history_get,
         commands::match_history_clear,
+        post_game_replay::post_game_replay_summary,
         commands::opendota_prefs_get,
         commands::opendota_prefs_set,
         commands::opendota_view_get,
@@ -1608,6 +1610,7 @@ pub fn run() {
         commands::clear_match_recap,
         commands::match_history_get,
         commands::match_history_clear,
+        post_game_replay::post_game_replay_summary,
         commands::opendota_prefs_get,
         commands::opendota_prefs_set,
         commands::opendota_view_get,

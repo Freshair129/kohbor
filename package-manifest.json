@@ -558,8 +558,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 71388,
-      "sha256": "849ffa45dd154252596edb4ca1b7efc7a56dddb7ea1c9724f4782b01a8e0efbd"
+      "bytes": 71514,
+      "sha256": "36070be95c125649f99d4991e2e49fb26127b8cb111b9d162bc3a1b09d4ef0e3"
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
@@ -687,6 +687,11 @@
       "sha256": "f3373042a373f097dbc667bbfcb59ce4bf4031e6d329e638532c4cc509829a62"
     },
     {
+      "path": "apps/desktop/src-tauri/src/post_game_replay.rs",
+      "bytes": 10315,
+      "sha256": "1015855aaf7f33fb50fd3c481ebd0d2ce380f44de90d1f73472a4565776779e0"
+    },
+    {
       "path": "apps/desktop/src-tauri/src/replay_library/engine.rs",
       "bytes": 41555,
       "sha256": "23145cd619e0fd142878a1e6b19e20d4994d816d2489ec470cb7da3e2f5d989e"
@@ -758,8 +763,8 @@
     },
     {
       "path": "apps/desktop/src/App.tsx",
-      "bytes": 28987,
-      "sha256": "e45fdbbae54b02d1edb7f1d4174b9ffd1098341dfdb0d81ea555e1ad31e8d7fa"
+      "bytes": 28645,
+      "sha256": "4348fa4ad63807d68657f63d0dfd77bc1f5b7781eda258129f89f4686e78424d"
     },
     {
       "path": "apps/desktop/src/AudioHistory.tsx",
@@ -12478,8 +12483,8 @@
     },
     {
       "path": "apps/desktop/src/deck/Deck.tsx",
-      "bytes": 13370,
-      "sha256": "4d2b58dfbd64dd6da6713f1bd0f172f3c5c48dcff9affa4bc0ed21a5933cdab4"
+      "bytes": 14856,
+      "sha256": "895d1cba4666eaaa9f1cfc6308ef78abe96bd76005e2df5f5ef812053a9c031d"
     },
     {
       "path": "apps/desktop/src/deck/DraftBarStrip.tsx",
@@ -12803,8 +12808,8 @@
     },
     {
       "path": "apps/desktop/src/live/PostGameSummary.tsx",
-      "bytes": 4007,
-      "sha256": "22f496009da9162194faada69a7b6b309125efc300065c24d660f4bfe64f1869"
+      "bytes": 4040,
+      "sha256": "b5b63060a13a3aa948f65af0dda96196604dedefcb765c28cf2a73f71d9a79ee"
     },
     {
       "path": "apps/desktop/src/live/PregameDashboard.tsx",
@@ -12968,8 +12973,8 @@
     },
     {
       "path": "apps/desktop/src/live/postGameSummaryModel.ts",
-      "bytes": 6118,
-      "sha256": "3c44a1845316043e434648d4bce4a4aaea9b51632423c410031af21a79703bcb"
+      "bytes": 6125,
+      "sha256": "0d6ce7d1a7e28f291aa865707af95d2de821e8eafd5f8dae325cca778fe4929c"
     },
     {
       "path": "apps/desktop/src/live/pregameDashboardModel.ts",
@@ -13488,8 +13493,8 @@
     },
     {
       "path": "apps/desktop/src/replay/matchViewer.d.mts",
-      "bytes": 947,
-      "sha256": "a80fc481d7116ea618c0f1819ca4d10084fc07ac63d4bfc5a7a3e20be50f9193"
+      "bytes": 924,
+      "sha256": "fbf34a03dca3e7859dad5e0bc2800463b1f01bbe59b12d8462df7007213ee652"
     },
     {
       "path": "apps/desktop/src/replay/matchViewer.html",
@@ -14098,8 +14103,8 @@
     },
     {
       "path": "apps/desktop/tests/live-postgame-summary.test.ts",
-      "bytes": 6085,
-      "sha256": "ea281b040bb2234907500e2bc702d1fa416faa2ca45ccc9318477ca10fc246d2"
+      "bytes": 7908,
+      "sha256": "e6c3d40298f98885408255471195c867cc1a2ebadb85021062d945edf53d4a71"
     },
     {
       "path": "apps/desktop/tests/live-pregame-dashboard.test.ts",
