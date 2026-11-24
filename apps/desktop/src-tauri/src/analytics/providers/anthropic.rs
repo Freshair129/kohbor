@@ -5,7 +5,6 @@ pub(crate) const ENDPOINT_PATH: &str = "/v1/messages";
 pub(crate) const API_VERSION: &str = "2026-10-21";
 pub(crate) const BETA_FALLBACKS: &str = "server-side-fallback-2026-07-01";
 pub(crate) const MAX_RESPONSE_BYTES: usize = 4 * 1024 * 1024;
-pub(crate) const FIXED_SYSTEM: &str = "Answer only from the supplied replay data, in the user's language (Thai by default). Cite evidence as [07:45](#t=465) and [deaths#13](#ev=deaths/13). Unknown values must be written as \"— ไม่ทราบ\"; never estimate missing values. Kills mean hero kills only. There is no win probability. Use write_note for long analyses and keep the chat reply short.";
 const MODELS: [&str; 3] = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -38,15 +37,13 @@ impl Model {
 pub(crate) struct RequestInput<'a> {
     pub(crate) key: &'a str,
     pub(crate) model: Model,
-    pub(crate) context: &'a str,
+    pub(crate) rules: &'a str,
+    pub(crate) digest: &'a str,
+    pub(crate) session: &'a str,
     pub(crate) question: Option<&'a str>,
-    pub(crate) scrubber_time_s: Option<f64>,
-    pub(crate) selected_hero: Option<&'a str>,
-    pub(crate) open_document: &'a str,
-    pub(crate) include_clock: bool,
-    pub(crate) include_selected_hero: bool,
-    pub(crate) include_document: bool,
+    pub(crate) volatile: &'a str,
     pub(crate) history: &'a [Value],
+    pub(crate) tools: &'a [Value],
 }
 
 pub(crate) struct OutgoingRequest {
@@ -54,43 +51,11 @@ pub(crate) struct OutgoingRequest {
     pub(crate) body: Vec<u8>,
 }
 
-pub(crate) fn write_note_tool() -> Value {
-    json!({
-        "name": "write_note",
-        "description": "Write a long match analysis as a Markdown note in the local Analytics workspace.",
-        "input_schema": {
-            "title": "write_note",
-            "type": "object",
-            "properties": { "title": { "type": "string" }, "markdown": { "type": "string" } },
-            "required": ["title", "markdown"],
-            "additionalProperties": false
-        },
-        "strict": true,
-        "eager_input_streaming": true
-    })
-}
-
 pub(crate) fn build_request(input: &RequestInput<'_>) -> Result<OutgoingRequest, &'static str> {
     if input.key.is_empty() || input.key.len() > 512 || !input.key.is_ascii() {
         return Err("key_invalid");
     }
     let clean = |value: &str| value.replace(input.key, "[redacted]");
-    let mut volatile = String::new();
-    if input.include_clock {
-        volatile.push_str("Current replay time: ");
-        match input
-            .scrubber_time_s
-            .filter(|value| value.is_finite() && *value >= 0.0)
-        {
-            Some(seconds) => volatile.push_str(&format!("{seconds:.3}s\n")),
-            None => volatile.push_str("— ไม่ทราบ\n"),
-        }
-    }
-    if input.include_selected_hero {
-        volatile.push_str("Selected hero: ");
-        volatile.push_str(&clean(input.selected_hero.unwrap_or("— ไม่ทราบ")));
-        volatile.push('\n');
-    }
     if input
         .history
         .iter()
@@ -99,15 +64,21 @@ pub(crate) fn build_request(input: &RequestInput<'_>) -> Result<OutgoingRequest,
         return Err("history_contains_secret");
     }
     let mut messages = input.history.to_vec();
-    if let Some(question) = input.question {
-        if input.include_document {
-            volatile.push_str("Open document text:\n");
-            volatile.push_str(&clean(input.open_document));
-            volatile.push_str("\n\n");
+    if let Some(last) = messages.last_mut() {
+        if let Some(blocks) = last.get_mut("content").and_then(Value::as_array_mut) {
+            if let Some(block) = blocks.last_mut().and_then(Value::as_object_mut) {
+                block.insert("cache_control".into(), json!({"type":"ephemeral"}));
+            }
         }
-        volatile.push_str("Question:\n");
-        volatile.push_str(&clean(question));
-        messages.push(json!({"role":"user","content":volatile}));
+    }
+    if let Some(question) = input.question {
+        let mut user = clean(input.volatile);
+        if !user.is_empty() {
+            user.push_str("\n\n");
+        }
+        user.push_str("Question:\n");
+        user.push_str(&clean(question));
+        messages.push(json!({"role":"user","content":user}));
     }
     let mut body = Map::new();
     body.insert("model".into(), json!(input.model.as_str()));
@@ -116,13 +87,27 @@ pub(crate) fn build_request(input: &RequestInput<'_>) -> Result<OutgoingRequest,
     body.insert(
         "system".into(),
         json!([
-            {"type":"text","text":FIXED_SYSTEM},
-            {"type":"text","text":clean(input.context),"cache_control":{"type":"ephemeral"}}
+            {"type":"text","text":clean(input.rules)},
+            {"type":"text","text":clean(input.digest),"cache_control":{"type":"ephemeral","ttl":"1h"}},
+            {"type":"text","text":clean(input.session),"cache_control":{"type":"ephemeral"}}
         ]),
     );
     body.insert("messages".into(), Value::Array(messages));
-    body.insert("tools".into(), json!([write_note_tool()]));
-    body.insert("tool_choice".into(), json!({"type":"auto"}));
+    if !input.tools.is_empty() {
+        let tools = input
+            .tools
+            .iter()
+            .map(|tool| {
+                let mut tool = tool.clone();
+                if let Some(object) = tool.as_object_mut() {
+                    object.insert("eager_input_streaming".into(), json!(true));
+                }
+                tool
+            })
+            .collect::<Vec<_>>();
+        body.insert("tools".into(), json!(tools));
+        body.insert("tool_choice".into(), json!({"type":"auto"}));
+    }
     body.insert("output_config".into(), json!({"effort":"medium"}));
     let mut headers = vec![
         ("x-api-key".to_owned(), input.key.to_owned()),
@@ -823,28 +808,29 @@ mod tests {
         build_request(&RequestInput {
             key: "sk-ant-private-marker",
             model,
-            context: "{\"duration_s\":42}",
+            rules: "rules-v2",
+            digest: "{\"duration_s\":42}",
+            session: "{\"viewer\":null}",
             question: Some("Why?"),
-            scrubber_time_s: Some(45.0),
-            selected_hero: Some("npc_dota_hero_axe"),
-            open_document: "note",
-            include_clock: true,
-            include_selected_hero: true,
-            include_document: true,
+            volatile: "Replay time: 00:45 (45 s). Selected hero: Axe.",
             history: &[],
+            tools: &crate::analytics::tools::definitions(true),
         })
         .unwrap()
     }
 
     #[test]
-    fn request_contract_has_fixed_headers_model_and_cached_context() {
+    fn request_contract_has_three_system_blocks_and_one_hour_digest_cache() {
         for model in [Model::Opus55, Model::Sonnet55, Model::Haiku55] {
             let request = request(model);
             let body: Value = serde_json::from_slice(&request.body).unwrap();
             assert_eq!(body["model"], model.as_str());
             assert_eq!(body["max_tokens"], 16000);
             assert_eq!(body["stream"], true);
+            assert_eq!(body["system"].as_array().unwrap().len(), 3);
             assert_eq!(body["system"][1]["cache_control"]["type"], "ephemeral");
+            assert_eq!(body["system"][1]["cache_control"]["ttl"], "1h");
+            assert_eq!(body["system"][2]["cache_control"]["type"], "ephemeral");
             assert!(!String::from_utf8_lossy(&request.body).contains("sk-ant-private-marker"));
             assert_eq!(body["tool_choice"]["type"], "auto");
             assert_eq!(body["output_config"]["effort"], "medium");
@@ -856,6 +842,10 @@ mod tests {
                 .as_str()
                 .unwrap()
                 .contains("duration_s"));
+            assert!(body["messages"][0]["content"]
+                .as_str()
+                .unwrap()
+                .contains("Replay time: 00:45"));
             assert!(request
                 .headers
                 .contains(&("x-api-key".into(), "sk-ant-private-marker".into())));
@@ -878,58 +868,45 @@ mod tests {
                     .iter()
                     .any(|(key, _)| key == "anthropic-beta"));
             }
-            let tool = &body["tools"][0];
-            assert_eq!(tool["name"], "write_note");
-            assert_eq!(tool["strict"], true);
-            assert_eq!(tool["eager_input_streaming"], true);
-            assert_eq!(tool["input_schema"]["additionalProperties"], false);
-            assert_eq!(
-                tool["input_schema"]["required"],
-                json!(["title", "markdown"])
-            );
+            assert_eq!(body["tools"].as_array().unwrap().len(), 10);
+            assert!(body["tools"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|tool| tool["strict"] == true));
         }
         assert_eq!(Model::parse("claude-opus-5-5"), Ok(Model::Opus55));
         assert!(Model::parse("claude-opus-5-5-20261124").is_err());
     }
 
     #[test]
-    fn anthropic_request_matches_the_pre_refactor_golden_bytes() {
+    fn anthropic_request_matches_the_v2_request_snapshot() {
         let request = build_request(&RequestInput {
             key: "golden-secret-value",
             model: Model::Haiku55,
-            context: "{}",
+            rules: "RULES v2 fixture",
+            digest: "{\"duration_s\":1}",
+            session: "{\"notes\":[]}",
             question: Some("why?"),
-            scrubber_time_s: None,
-            selected_hero: None,
-            open_document: "",
-            include_clock: false,
-            include_selected_hero: false,
-            include_document: false,
+            volatile: "Replay time: 00:00 (0 s). Selected hero: — ไม่ทราบ.",
             history: &[],
+            tools: &[],
         })
         .unwrap();
-        let expected = json!({
-            "model": "claude-haiku-5-5",
-            "max_tokens": 16000,
-            "stream": true,
-            "system": [
-                {"type":"text","text":FIXED_SYSTEM},
-                {"type":"text","text":"{}","cache_control":{"type":"ephemeral"}}
-            ],
-            "messages": [{"role":"user","content":"Question:\nwhy?"}],
-            "tools": [{
-                "name":"write_note",
-                "description":"Write a long match analysis as a Markdown note in the local Analytics workspace.",
-                "input_schema": {
-                    "title":"write_note","type":"object",
-                    "properties":{"title":{"type":"string"},"markdown":{"type":"string"}},
-                    "required":["title","markdown"],"additionalProperties":false
-                },
-                "strict":true,"eager_input_streaming":true
-            }],
-            "tool_choice":{"type":"auto"},
-            "output_config":{"effort":"medium"}
-        });
+        let body: Value = serde_json::from_slice(&request.body).unwrap();
+        assert_eq!(body["system"][0]["text"], "RULES v2 fixture");
+        assert_eq!(body["system"][1]["text"], "{\"duration_s\":1}");
+        assert_eq!(
+            body["system"][1]["cache_control"],
+            json!({"type":"ephemeral","ttl":"1h"})
+        );
+        assert_eq!(body["system"][2]["text"], "{\"notes\":[]}");
+        assert!(body.get("tools").is_none());
+        assert_eq!(
+            body["messages"][0]["content"],
+            "Replay time: 00:00 (0 s). Selected hero: — ไม่ทราบ.\n\nQuestion:\nwhy?"
+        );
+        assert_eq!(body["output_config"]["effort"], "medium");
         assert_eq!(
             request.headers,
             vec![
@@ -938,8 +915,72 @@ mod tests {
                 ("content-type".to_owned(), "application/json".to_owned()),
             ]
         );
-        assert_eq!(request.body, serde_json::to_vec(&expected).unwrap());
         assert!(!String::from_utf8_lossy(&request.body).contains("golden-secret-value"));
+    }
+
+    #[test]
+    fn fake_transport_confirms_cached_digest_read_usage() {
+        use crate::analytics::providers::endpoint::Endpoint;
+        use crate::analytics::transport::fake::FakeTransport;
+        use crate::analytics::transport::{Cancellation, Transport};
+        use std::sync::atomic::Ordering;
+
+        let history =
+            vec![json!({"role":"assistant","content":[{"type":"text","text":"Earlier answer"}]})];
+        let request = build_request(&RequestInput {
+            key: "fake-key-without-network",
+            model: Model::Haiku55,
+            rules: "RULES v2 fixture",
+            digest: "{\"stable\":true}",
+            session: "{\"viewer\":null}",
+            question: Some("what changed?"),
+            volatile: "Replay time: 01:00 (60 s). Selected hero: Axe.",
+            history: &history,
+            tools: &[],
+        })
+        .unwrap();
+        let body: Value = serde_json::from_slice(&request.body).unwrap();
+        assert_eq!(body["system"][1]["cache_control"]["ttl"], "1h");
+        assert_eq!(
+            body["messages"][0]["content"][0]["cache_control"]["type"],
+            "ephemeral"
+        );
+
+        let chunks = vec![concat!(
+            "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"usage\":{\"input_tokens\":12,\"cache_read_input_tokens\":23}}}\n\n",
+            "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n",
+            "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"cached\"}}\n\n",
+            "event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":2}}\n\n",
+            "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"
+        ).as_bytes().to_vec()];
+        let fake = FakeTransport {
+            chunks,
+            ..Default::default()
+        };
+        let endpoint = Endpoint::parse("https://api.anthropic.com")
+            .unwrap()
+            .request_endpoint("/v1/messages");
+        let mut records = Vec::new();
+        let mut parser = SseParser::default();
+        let response = fake
+            .post(
+                &endpoint,
+                &request,
+                &Cancellation::default(),
+                &mut |_, chunk| {
+                    parser
+                        .feed(chunk, &mut records)
+                        .expect("synthetic SSE is valid");
+                },
+            )
+            .unwrap();
+        assert_eq!(response.status, 200);
+        parser
+            .finish(&mut records)
+            .expect("SSE has no partial record");
+        let parsed = parse_events(&records, &mut |_| {});
+        assert_eq!(parsed.usage.cache_read_input_tokens, Some(23));
+        assert_eq!(fake.calls.load(Ordering::Relaxed), 1);
     }
 
     #[test]
@@ -1018,15 +1059,13 @@ mod tests {
         let result = build_request(&RequestInput {
             key: "sk-ant-private-marker",
             model: Model::Haiku55,
-            context: "{}",
+            rules: "rules",
+            digest: "{}",
+            session: "{}",
             question: Some("question"),
-            scrubber_time_s: None,
-            selected_hero: None,
-            open_document: "",
-            include_clock: false,
-            include_selected_hero: false,
-            include_document: false,
+            volatile: "",
             history: &history,
+            tools: &[],
         });
         assert!(matches!(result, Err("history_contains_secret")));
         assert_eq!(history, before);

@@ -1,0 +1,5 @@
+export interface LinePoint { x: number; y: number }
+export function buildLineSegments(values: Array<number | null | undefined>, width: number, height: number, domain?: [number, number]): LinePoint[][];
+export function matchupRows<T extends { side?: string; slot?: number; lane?: string | null }>(heroes: T[]): Array<{ lane: "top" | "mid" | "bot" | "unknown"; heroes: T[] }>;
+export function laneBadgeLabel(outcome: string | null | undefined): string;
+export function reportStaleReasons(report: Record<string, unknown>, current: Record<string, unknown>): string[];

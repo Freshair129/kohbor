@@ -10,6 +10,7 @@ const CONSENT_TEXT_VERSION: u32 = 1;
 const MAX_CHAT_BYTES: u64 = 4 * 1024 * 1024;
 const MAX_LEDGER_ROWS: usize = 200;
 const SYSTEM_NOTE: &str = "สรุปแมตช์.md";
+const MAX_REPORT_BYTES: u64 = 128 * 1024;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -117,6 +118,46 @@ pub(crate) struct NoteRow {
     pub(crate) id: String,
     pub(crate) title: String,
     pub(crate) ai: bool,
+    pub(crate) bytes: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct KnowledgeMeta {
+    pub(crate) bundle_hash: String,
+    pub(crate) knowledge_version: u32,
+    pub(crate) own_hero_id: Option<String>,
+    pub(crate) created_unix_ms: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct AiReportMeta {
+    pub(crate) cache_key: String,
+    pub(crate) created_unix_ms: u64,
+    pub(crate) model: String,
+    pub(crate) prompt_version: u32,
+    pub(crate) knowledge_version: u32,
+    pub(crate) bundle_hash: String,
+    pub(crate) own_hero_id: Option<String>,
+    pub(crate) usage: Value,
+    pub(crate) tool_calls: u32,
+    pub(crate) cost_estimate_usd: Option<f64>,
+    pub(crate) cost_estimate_reason: Option<String>,
+    pub(crate) stale: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub(crate) struct AiReportSummary {
+    pub(crate) id: String,
+    pub(crate) meta: AiReportMeta,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub(crate) struct StoredAiReport {
+    pub(crate) id: String,
+    pub(crate) markdown: String,
+    pub(crate) meta: AiReportMeta,
 }
 
 #[derive(Clone)]
@@ -559,6 +600,273 @@ impl AnalyticsStore {
         valid_hero(hero).then(|| hero.to_owned())
     }
 
+    pub(crate) fn write_knowledge(
+        &self,
+        match_id: &str,
+        bundle_hash: &str,
+        knowledge_version: u32,
+        own_hero_id: Option<&str>,
+        bytes: &[u8],
+    ) -> Result<(), &'static str> {
+        if !valid_sha256(bundle_hash) || bytes.len() > 2 * 1024 * 1024 {
+            return Err("knowledge_invalid");
+        }
+        let _guard = lock(&self.write_gate);
+        let directory = self.match_dir(match_id)?.join("knowledge");
+        fs::create_dir_all(&directory).map_err(|_| "storage_unavailable")?;
+        let stem = format!("k{knowledge_version}-{}", &bundle_hash[..12]);
+        let digest_path = directory.join(format!("{stem}.json"));
+        if fs::read(&digest_path).ok().as_deref() != Some(bytes) {
+            atomic::write(&digest_path, bytes).map_err(|_| "knowledge_write_failed")?;
+        }
+        let meta = KnowledgeMeta {
+            bundle_hash: bundle_hash.to_owned(),
+            knowledge_version,
+            own_hero_id: own_hero_id.map(str::to_owned),
+            created_unix_ms: now_unix_ms(),
+        };
+        let meta_bytes = serde_json::to_vec(&meta).map_err(|_| "knowledge_write_failed")?;
+        let meta_path = directory.join(format!("{stem}.meta.json"));
+        if fs::read(&meta_path).ok().as_deref() != Some(meta_bytes.as_slice()) {
+            atomic::write(&meta_path, &meta_bytes).map_err(|_| "knowledge_write_failed")?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn read_knowledge(
+        &self,
+        match_id: &str,
+        bundle_hash: &str,
+    ) -> Result<Option<(KnowledgeMeta, Value)>, &'static str> {
+        if !valid_sha256(bundle_hash) {
+            return Err("knowledge_invalid");
+        }
+        let bundle_hash12 = &bundle_hash[..12];
+        let directory = self.match_dir(match_id)?.join("knowledge");
+        let mut matches = fs::read_dir(&directory)
+            .ok()
+            .into_iter()
+            .flatten()
+            .filter_map(Result::ok)
+            .filter_map(|entry| {
+                let name = entry.file_name().to_string_lossy().into_owned();
+                if !name.starts_with('k') || !name.ends_with(&format!("-{}.json", bundle_hash12)) {
+                    return None;
+                }
+                Some(entry.path())
+            })
+            .collect::<Vec<_>>();
+        matches.sort();
+        let Some(digest_path) = matches.into_iter().next() else {
+            return Ok(None);
+        };
+        let stem = digest_path
+            .file_stem()
+            .and_then(|value| value.to_str())
+            .ok_or("knowledge_invalid")?;
+        let meta_path = digest_path.with_file_name(format!("{stem}.meta.json"));
+        let meta: KnowledgeMeta =
+            serde_json::from_slice(&fs::read(meta_path).map_err(|_| "knowledge_invalid")?)
+                .map_err(|_| "knowledge_invalid")?;
+        if meta.bundle_hash != bundle_hash {
+            return Ok(None);
+        }
+        let bytes = fs::read(digest_path).map_err(|_| "knowledge_invalid")?;
+        if bytes.len() > 2 * 1024 * 1024 {
+            return Err("knowledge_invalid");
+        }
+        let digest: Value = serde_json::from_slice(&bytes).map_err(|_| "knowledge_invalid")?;
+        Ok(Some((meta, digest)))
+    }
+
+    pub(crate) fn read_latest_knowledge(
+        &self,
+        match_id: &str,
+    ) -> Result<Option<(KnowledgeMeta, Value)>, &'static str> {
+        let directory = self.match_dir(match_id)?.join("knowledge");
+        let mut candidates = fs::read_dir(&directory)
+            .ok()
+            .into_iter()
+            .flatten()
+            .filter_map(Result::ok)
+            .filter_map(|entry| {
+                let name = entry.file_name().to_string_lossy().into_owned();
+                (name.starts_with('k') && name.ends_with(".meta.json")).then_some(entry.path())
+            })
+            .collect::<Vec<_>>();
+        candidates.sort();
+        candidates.reverse();
+        for meta_path in candidates {
+            let Ok(meta_bytes) = fs::read(&meta_path) else {
+                continue;
+            };
+            let Ok(meta) = serde_json::from_slice::<KnowledgeMeta>(&meta_bytes) else {
+                continue;
+            };
+            if !valid_sha256(&meta.bundle_hash) {
+                continue;
+            }
+            let digest_path = meta_path.with_file_name(format!(
+                "k{}-{}.json",
+                meta.knowledge_version,
+                &meta.bundle_hash[..12]
+            ));
+            let Ok(bytes) = fs::read(digest_path) else {
+                continue;
+            };
+            if bytes.len() > 2 * 1024 * 1024 {
+                continue;
+            }
+            if let Ok(digest) = serde_json::from_slice::<Value>(&bytes) {
+                return Ok(Some((meta, digest)));
+            }
+        }
+        Ok(None)
+    }
+
+    pub(crate) fn write_ai_report(
+        &self,
+        match_id: &str,
+        bundle_hash: &str,
+        model: &str,
+        prompt_version: u32,
+        knowledge_version: u32,
+        own_hero_id: Option<&str>,
+        markdown: &str,
+        usage: Value,
+        tool_calls: u32,
+    ) -> Result<StoredAiReport, &'static str> {
+        if !valid_sha256(bundle_hash)
+            || markdown.is_empty()
+            || markdown.len() as u64 > MAX_REPORT_BYTES
+        {
+            return Err("report_invalid");
+        }
+        if super::providers::registry::validate_model_id(model).is_err() {
+            return Err("report_invalid");
+        }
+        let _guard = lock(&self.write_gate);
+        let directory = self.match_dir(match_id)?.join("reports");
+        fs::create_dir_all(&directory).map_err(|_| "report_write_failed")?;
+        let cache_key = format!("{bundle_hash}:{model}:p{prompt_version}:k{knowledge_version}");
+        let model_slug = safe_model_slug(model);
+        let base = format!(
+            "ai-{}-{model_slug}-p{prompt_version}-k{knowledge_version}-{}",
+            &bundle_hash[..12],
+            now_unix_ms()
+        );
+        let id = (1_u32..=10_000)
+            .map(|suffix| {
+                if suffix == 1 {
+                    base.clone()
+                } else {
+                    format!("{base}-{suffix}")
+                }
+            })
+            .find(|id| {
+                !directory.join(format!("{id}.md")).exists()
+                    && !directory.join(format!("{id}.meta.json")).exists()
+            })
+            .ok_or("report_name_exhausted")?;
+        let meta = AiReportMeta {
+            cache_key,
+            created_unix_ms: now_unix_ms(),
+            model: model.to_owned(),
+            prompt_version,
+            knowledge_version,
+            bundle_hash: bundle_hash.to_owned(),
+            own_hero_id: own_hero_id.map(str::to_owned),
+            usage,
+            tool_calls,
+            cost_estimate_usd: None,
+            cost_estimate_reason: Some(
+                "provider token pricing is not verified in this build".into(),
+            ),
+            stale: false,
+        };
+        let markdown_path = directory.join(format!("{id}.md"));
+        let meta_path = directory.join(format!("{id}.meta.json"));
+        atomic::write(&markdown_path, markdown.as_bytes()).map_err(|_| "report_write_failed")?;
+        let meta_bytes = serde_json::to_vec_pretty(&meta).map_err(|_| "report_write_failed")?;
+        atomic::write(&meta_path, &meta_bytes).map_err(|_| "report_write_failed")?;
+        Ok(StoredAiReport {
+            id,
+            markdown: markdown.to_owned(),
+            meta,
+        })
+    }
+
+    pub(crate) fn list_ai_reports(
+        &self,
+        match_id: &str,
+    ) -> Result<Vec<AiReportSummary>, &'static str> {
+        let directory = self.match_dir(match_id)?.join("reports");
+        let mut rows = fs::read_dir(&directory)
+            .ok()
+            .into_iter()
+            .flatten()
+            .filter_map(Result::ok)
+            .filter_map(|entry| {
+                let name = entry.file_name().to_string_lossy().into_owned();
+                let id = name.strip_suffix(".meta.json")?;
+                if !valid_report_id(id) || !directory.join(format!("{id}.md")).is_file() {
+                    return None;
+                }
+                let meta =
+                    serde_json::from_slice::<AiReportMeta>(&fs::read(entry.path()).ok()?).ok()?;
+                Some(AiReportSummary {
+                    id: id.to_owned(),
+                    meta,
+                })
+            })
+            .collect::<Vec<_>>();
+        rows.sort_by(|left, right| {
+            right
+                .meta
+                .created_unix_ms
+                .cmp(&left.meta.created_unix_ms)
+                .then_with(|| left.id.cmp(&right.id))
+        });
+        Ok(rows)
+    }
+
+    pub(crate) fn read_ai_report(
+        &self,
+        match_id: &str,
+        id: &str,
+    ) -> Result<StoredAiReport, &'static str> {
+        if !valid_report_id(id) {
+            return Err("report_not_found");
+        }
+        let directory = self.match_dir(match_id)?.join("reports");
+        let markdown_path = directory.join(format!("{id}.md"));
+        let meta_path = directory.join(format!("{id}.meta.json"));
+        let metadata = fs::metadata(&markdown_path).map_err(|_| "report_not_found")?;
+        if !metadata.is_file() || metadata.len() > MAX_REPORT_BYTES {
+            return Err("report_invalid");
+        }
+        let markdown = String::from_utf8(fs::read(markdown_path).map_err(|_| "report_not_found")?)
+            .map_err(|_| "report_invalid")?;
+        let meta_bytes = fs::read(meta_path).map_err(|_| "report_not_found")?;
+        if meta_bytes.len() > 16 * 1024 {
+            return Err("report_invalid");
+        }
+        let meta: AiReportMeta =
+            serde_json::from_slice(&meta_bytes).map_err(|_| "report_invalid")?;
+        if !valid_sha256(&meta.bundle_hash)
+            || meta
+                .cost_estimate_usd
+                .is_some_and(|value| !value.is_finite() || value < 0.0)
+        {
+            return Err("report_invalid");
+        }
+        Ok(StoredAiReport {
+            id: id.to_owned(),
+            markdown,
+            meta,
+        })
+    }
+
     pub(crate) fn append_chat(
         &self,
         match_id: &str,
@@ -617,6 +925,9 @@ impl AnalyticsStore {
             id: SYSTEM_NOTE.into(),
             title: SYSTEM_NOTE.into(),
             ai: false,
+            bytes: fs::metadata(directory.join(SYSTEM_NOTE))
+                .map_err(|_| "storage_unavailable")?
+                .len(),
         }];
         for item in fs::read_dir(&directory).map_err(|_| "storage_unavailable")? {
             let item = item.map_err(|_| "storage_unavailable")?;
@@ -634,6 +945,9 @@ impl AnalyticsStore {
                 id: name.to_owned(),
                 title: name.to_owned(),
                 ai: true,
+                bytes: fs::metadata(&path)
+                    .map_err(|_| "storage_unavailable")?
+                    .len(),
             });
         }
         rows[1..].sort_by(|left, right| left.title.cmp(&right.title));
@@ -704,6 +1018,43 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+fn valid_sha256(value: &str) -> bool {
+    value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
+fn safe_model_slug(model: &str) -> String {
+    let slug = model
+        .chars()
+        .take(48)
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') {
+                character
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>()
+        .trim_matches('-')
+        .to_owned();
+    if slug.is_empty() {
+        "model".into()
+    } else {
+        slug
+    }
+}
+
+fn valid_report_id(id: &str) -> bool {
+    (8..=180).contains(&id.len())
+        && id.starts_with("ai-")
+        && id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+}
+
+fn now_unix_ms() -> u64 {
+    now_ms()
 }
 
 fn validate_preferences(settings: &AnalyticsPreferences) -> Result<(), &'static str> {
@@ -948,6 +1299,85 @@ mod tests {
     }
     fn store(dir: &Path) -> AnalyticsStore {
         AnalyticsStore::open(dir, Some([7; 32]))
+    }
+
+    #[test]
+    fn knowledge_cache_is_keyed_by_full_bundle_hash_and_report_regeneration_preserves_old_file() {
+        let dir = root();
+        let store = store(&dir);
+        let bundle_hash = "a".repeat(64);
+        let digest = br#"{"knowledge_version":1,"meta":{"duration_s":1}}"#;
+        store
+            .write_knowledge("9001", &bundle_hash, 1, Some("npc_dota_hero_axe"), digest)
+            .unwrap();
+        let (meta, value) = store.read_knowledge("9001", &bundle_hash).unwrap().unwrap();
+        assert_eq!(meta.bundle_hash, bundle_hash);
+        assert_eq!(value["knowledge_version"], 1);
+        assert!(store
+            .read_knowledge("9001", &"b".repeat(64))
+            .unwrap()
+            .is_none());
+
+        let first = store
+            .write_ai_report(
+                "9001",
+                &bundle_hash,
+                "claude-haiku-5-5",
+                2,
+                1,
+                Some("npc_dota_hero_axe"),
+                "# First",
+                json!({"input":1,"output":2}),
+                3,
+            )
+            .unwrap();
+        let second = store
+            .write_ai_report(
+                "9001",
+                &bundle_hash,
+                "claude-haiku-5-5",
+                2,
+                1,
+                Some("npc_dota_hero_axe"),
+                "# Second",
+                json!({"input":4,"output":5}),
+                1,
+            )
+            .unwrap();
+        assert_ne!(first.id, second.id);
+        assert_eq!(
+            store.read_ai_report("9001", &first.id).unwrap().markdown,
+            "# First"
+        );
+        assert_eq!(
+            store.read_ai_report("9001", &second.id).unwrap().markdown,
+            "# Second"
+        );
+        assert_eq!(store.list_ai_reports("9001").unwrap().len(), 2);
+        assert_eq!(
+            first.meta.cache_key,
+            format!("{bundle_hash}:claude-haiku-5-5:p2:k1")
+        );
+        assert!(first
+            .id
+            .starts_with("ai-aaaaaaaaaaaa-claude-haiku-5-5-p2-k1-"));
+        assert_eq!(
+            store.read_ai_report("9001", "..\\outside").err(),
+            Some("report_not_found")
+        );
+        assert!(first.meta.cost_estimate_usd.is_none());
+        assert!(first.meta.cost_estimate_reason.as_deref().is_some());
+        let raw = fs::read_to_string(
+            store
+                .match_dir("9001")
+                .unwrap()
+                .join("reports")
+                .join(format!("{}.meta.json", first.id)),
+        )
+        .unwrap();
+        assert!(!raw.contains("question"));
+        assert!(!raw.contains("api_key"));
+        let _ = fs::remove_dir_all(dir);
     }
 
     fn write_v1_settings(dir: &Path, raw: &[u8]) -> PathBuf {
