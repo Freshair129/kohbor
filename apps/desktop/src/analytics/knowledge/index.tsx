@@ -59,6 +59,8 @@ export interface KnowledgePanelProps {
   /** Explicit user action handlers; wire to analytics_report_generate. */
   onGenerateReport?: () => void;
   onRegenerateReport?: () => void;
+  generatingReport?: boolean;
+  reportDisabled?: boolean;
   /** Current provider cost note; do not quote unverified pricing. */
   costEstimateText?: string;
   /** Host-owned safe Markdown renderer, including #doc and time links. */
@@ -190,7 +192,7 @@ export function HeroComparisonTab({ digest, selectedHeroId, opponentHeroId, onSe
 }
 
 /** Persisted AI report view. Generation can only start from the explicit button. */
-export function AiReportTab({ reports = [], selectedReportId, onSelectReport, onGenerateReport, onRegenerateReport, costEstimateText, renderMarkdown }: Pick<KnowledgePanelProps, "reports" | "selectedReportId" | "onSelectReport" | "onGenerateReport" | "onRegenerateReport" | "costEstimateText" | "renderMarkdown">) {
+export function AiReportTab({ reports = [], selectedReportId, onSelectReport, onGenerateReport, onRegenerateReport, costEstimateText, renderMarkdown, generatingReport = false, reportDisabled = false }: Pick<KnowledgePanelProps, "reports" | "selectedReportId" | "onSelectReport" | "onGenerateReport" | "onRegenerateReport" | "costEstimateText" | "renderMarkdown" | "generatingReport" | "reportDisabled">) {
   const report = reports.find((item) => item.id === selectedReportId) ?? reports[0];
   const stale = report?.stale_reasons?.length ? report.stale_reasons : report?.meta?.stale ? ["ผลวิเคราะห์ไม่ตรงกับข้อมูลปัจจุบัน"] : [];
   const inputTokens = report?.meta?.usage?.input;
@@ -199,7 +201,7 @@ export function AiReportTab({ reports = [], selectedReportId, onSelectReport, on
   return <div className="a2k-report"><h2>บทวิเคราะห์ AI</h2>
     <p>เมื่อกด ระบบจะส่ง digest ของแมตช์ให้โมเดลที่เลือกใน Settings; หากผู้ให้บริการรองรับ tools จะเพิ่มข้อมูลผู้ชม ดัชนีโน้ต และบทวิเคราะห์ที่บันทึกไว้ แล้วอ่านข้อมูลใน bundle เฉพาะเมื่อจำเป็น โดยไม่ส่งประวัติแชต</p>
     <p className="a2k-report__cost">{previousUsage}{costEstimateText ?? "ประมาณค่าใช้จ่ายไม่ได้ในขณะนี้ · ต้องตรวจสอบราคาผู้ให้บริการก่อนส่งคำขอ"}</p>
-    <button type="button" className="a2k-primary" onClick={report ? onRegenerateReport ?? onGenerateReport : onGenerateReport}>{report ? "สร้างใหม่" : "สร้างบทวิเคราะห์"}</button>
+    <button type="button" className="a2k-primary" disabled={reportDisabled || generatingReport} onClick={report ? onRegenerateReport ?? onGenerateReport : onGenerateReport}>{generatingReport ? "กำลังสร้าง…" : report ? "สร้างใหม่" : "สร้างบทวิเคราะห์"}</button>
     {reports.length > 0 && <label>รายงานที่บันทึกไว้ <select value={report?.id ?? ""} onChange={(event) => onSelectReport?.(event.target.value)}>{reports.map((item) => <option key={item.id} value={item.id}>{item.meta?.model ?? "model"} · {new Date(item.meta?.created_unix_ms ?? 0).toLocaleString("th-TH")}</option>)}</select></label>}
     {report && <><header><span>{report.meta?.model} · prompt v{report.meta?.prompt_version} · {report.meta?.usage?.output ?? "—"} tokens</span>{stale.length > 0 && <strong className="a2k-stale" title={stale.join(", ")}>ล้าสมัย</strong>}</header><article>{renderMarkdown ? renderMarkdown(report.markdown ?? "") : <pre>{report.markdown ?? "กำลังโหลดรายงาน…"}</pre>}</article></>}
     {!report && <div className="a2k-empty">ยังไม่มีรายงาน บทวิเคราะห์จะสร้างเมื่อกดปุ่มด้านบนเท่านั้น</div>}
@@ -207,7 +209,7 @@ export function AiReportTab({ reports = [], selectedReportId, onSelectReport, on
 }
 
 /** Three host-mounted left-panel tabs; the Notes tab remains owned by the host page. */
-export function KnowledgeTabs({ activeTab, onSelectTab }: { activeTab: "summary" | "compare" | "ai"; onSelectTab: (tab: "summary" | "compare" | "ai") => void }) {
-  const tabs = [["summary", "สรุปแมตช์"], ["compare", "เทียบเลน/ฮีโร่"], ["ai", "บทวิเคราะห์ AI"]] as const;
+export function KnowledgeTabs({ activeTab, onSelectTab }: { activeTab: "summary" | "compare" | "ai" | "notes"; onSelectTab: (tab: "summary" | "compare" | "ai" | "notes") => void }) {
+  const tabs = [["summary", "สรุปแมตช์"], ["compare", "เทียบเลน/ฮีโร่"], ["ai", "บทวิเคราะห์ AI"], ["notes", "โน้ต"]] as const;
   return <nav className="a2k-tabs" role="tablist">{tabs.map(([id, title]) => <button key={id} type="button" role="tab" aria-selected={activeTab === id} className={activeTab === id ? "is-active" : ""} onClick={() => onSelectTab(id)}>{title}</button>)}</nav>;
 }

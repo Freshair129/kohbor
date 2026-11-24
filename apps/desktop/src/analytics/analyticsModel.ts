@@ -70,6 +70,37 @@ export function analyticsDeathTeam(death: { hero?: unknown }, heroes: readonly {
 }
 
 export type AnalyticsReturnContext = { matchId: string; timeS: number; documentId: string };
+
+export type AnalyticsChatTurn = { role: "user" | "assistant"; content: string };
+
+/** Resolve a safe #doc target to an in-panel destination. */
+export function analyticsDocumentDestination(id: string, noteIds: readonly string[]): "report" | "note" | null {
+  if (id === "ai-report") return "report";
+  return noteIds.includes(id) ? "note" : null;
+}
+
+/** Build a bounded recap from visible turns without making a model request. */
+export function buildChatRecap(turns: readonly AnalyticsChatTurn[], maxCharacters = 12_000): string {
+  const limit = Math.max(160, Math.min(64 * 1024, Math.floor(maxCharacters)));
+  const header = "# Chat recap\n\nCreated locally without an AI request.\n\n";
+  const rows = turns.slice(-24).map(turn => {
+    const role = turn.role === "user" ? "User" : "Assistant";
+    const content = turn.content.replace(/\s+/g, " ").trim();
+    return content ? `**${role}:** ${content}` : "";
+  }).filter(Boolean);
+  let recap = header;
+  for (const row of rows) {
+    const next = `${recap}${recap.endsWith("\n\n") ? "" : "\n\n"}${row}`;
+    if (next.length > limit) {
+      const available = Math.max(0, limit - recap.length - 16);
+      if (available > 0) recap += `${recap.endsWith("\n\n") ? "" : "\n\n"}${row.slice(0, available)}… [truncated]`;
+      break;
+    }
+    recap = next;
+  }
+  return recap.slice(0, limit);
+}
+
 export type AnalyticsReplayDetailsRoute = {
   matchId: string;
   bundle: MatchBundle;

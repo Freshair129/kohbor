@@ -9,18 +9,35 @@ import { admitLibraryBundle, type MatchBundle } from "../replay/matchBundle";
 import { ANALYTICS_TEMPLATE_QUESTIONS, answerAnalyticsTemplate, clock } from "../replay/coach";
 import { actionFromMarkdownTarget, renderMarkdownSafe, renderMarkdownStreaming } from "./analyticsMarkdown";
 import {
+  analyticsDocumentDestination, buildChatRecap,
   analyticsDeathTeam, analyticsPlaybackKeyAction, analyticsViewState, enterAnalyticsReplayDetails,
   formatAnalyticsTime, replayRowFacts, UNKNOWN_VALUE,
   type AnalyticsReplayDetailsRoute, type AnalyticsReturnContext,
+  type AnalyticsChatTurn as ChatTurn,
 } from "./analyticsModel";
 import { ProviderControls, type ProviderPreferences } from "./ProviderControls";
+import {
+  AiReportTab, HeroComparisonTab, KnowledgeTabs, MatchSummaryTab, MatchupStrip,
+  type KnowledgeDigest, type SavedReport,
+} from "./knowledge";
 import { providerErrorKind, shouldOfferSaveAsNote } from "./provider-model.mjs";
 import "./analytics.css";
 
 type Note = { id: string; title: string; ai: boolean };
 type KeyStatus = { provider: string; set: boolean; last4: string | null; requires_key?: boolean };
 type Usage = { input: number | null; cache_read: number | null; cache_creation: number | null; output: number | null };
-type ChatTurn = { role: "user" | "assistant"; content: string };
+type ReportDetail = SavedReport & { stale_reasons?: string[] };
+type KnowledgeSnapshot = {
+  digest: KnowledgeDigest | null;
+  own_hero_id?: string | null;
+  notes?: Note[];
+  reports?: SavedReport[];
+  chat_history_estimated_tokens?: number;
+  chat_history_token_budget?: number;
+  chat_history_over_budget?: boolean;
+  report_cost_reason?: string;
+};
+type CompletePayload = { request_id: string; error?: string; usage?: Usage; note_id?: string; note_fallback?: boolean; report?: ReportDetail };
 
 function chatTurnsFromCommand(value: unknown): ChatTurn[] {
   if (!Array.isArray(value)) throw new Error("Invalid chat transcript");
@@ -112,6 +129,10 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = t
   const [bundle, setBundle] = useState<MatchBundle | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const [openNote, setOpenNote] = useState(SYSTEM_NOTE_ID);
+  const [knowledge, setKnowledge] = useState<KnowledgeSnapshot | null>(null);
+  const [knowledgeTab, setKnowledgeTab] = useState<"summary" | "compare" | "ai" | "notes">("summary");
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [loadedReport, setLoadedReport] = useState<ReportDetail | null>(null);
   const [showRawSource, setShowRawSource] = useState(false);
   const [noteText, setNoteText] = useState("");
   const [filter, setFilter] = useState<"all" | "pinned" | "notAnalysed">("all");
@@ -119,11 +140,13 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = t
   const [leftCollapsed, setLeftCollapsed] = useState(() => window.matchMedia("(max-width: 1500px)").matches);
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const [hero, setHero] = useState<string | null>(null);
+  const [compareHero, setCompareHero] = useState<string | null>(null);
   const [ownHero, setOwnHero] = useState<string | null>(null);
   const [keyStatus, setKeyStatus] = useState<KeyStatus>({ provider: "anthropic", set: false, last4: null, requires_key: true });
   const [prefs, setPrefs] = useState<ProviderPreferences>({ ai_on: false, provider: "anthropic", consent: false, model: "claude-opus-5-5", provider_endpoints: {}, provider_consents: {}, verified_providers: {}, tools_modes: {}, show_untested: false, keep_newest: 20, max_bytes: 2 * 1024 ** 3, auto_analyse: true });
   const [consentOpen, setConsentOpen] = useState(false);
   const [streaming, setStreaming] = useState(false);
+  const requestMode = useRef<"chat" | "report" | null>(null);
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [transcript, setTranscript] = useState<ChatTurn[]>([]);
@@ -135,8 +158,9 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = t
   const [loading, setLoading] = useState(true);
   const [requestId, setRequestId] = useState<string | null>(null);
   const activeRequestId = useRef<string | null>(null);
-  const pendingEvents = useRef(new Map<string, { deltas: string[]; complete?: { error?: string; usage?: Usage; note_id?: string; note_fallback?: boolean } }>());
-  const finishRequest = useRef<(payload: { request_id: string; error?: string; usage?: Usage; note_id?: string; note_fallback?: boolean }) => void>(() => {});
+  const knowledgeRequest = useRef(0);
+  const pendingEvents = useRef(new Map<string, { deltas: string[]; complete?: CompletePayload }>());
+  const finishRequest = useRef<(payload: CompletePayload) => void>(() => {});
   const [currentTime, setCurrentTime] = useState(0);
   const [playerSlot, setPlayerSlot] = useState<HTMLElement | null>(null);
   const [playerSpeed, setPlayerSpeed] = useState(10);
@@ -155,13 +179,21 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = t
   }, [locale, selectedId]);
   const refreshAi = useCallback(async () => {
     try {
-      const [key, settings, items] = await Promise.all([
+      const [key, settings] = await Promise.all([
         invoke<KeyStatus>("analytics_key_status"), invoke<ProviderPreferences>("analytics_settings_get"),
-        invoke<Note[]>("analytics_notes_list", { matchId: selectedId }),
       ]);
-      setKeyStatus(key); setPrefs(settings); setNotes(items);
+      setKeyStatus(key); setPrefs(settings);
     } catch { /* The local page stays usable when AI is unavailable. */ }
-  }, [selectedId]);
+  }, []);
+  const refreshKnowledge = useCallback(async (matchId: string) => {
+    const request = ++knowledgeRequest.current;
+    const snapshot = await invoke<KnowledgeSnapshot>("analytics_knowledge_get", { matchId });
+    if (request === knowledgeRequest.current) {
+      setKnowledge(snapshot);
+      setNotes(snapshot.notes ?? []);
+    }
+    return snapshot;
+  }, []);
   const refreshTranscript = useCallback(async (matchId: string) => {
     const raw = await invoke<unknown>("analytics_chat_transcript", { matchId });
     return chatTurnsFromCommand(raw);
@@ -178,11 +210,18 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = t
     let alive = true;
     setTranscript([]);
     setHistoryUnavailable(false);
+    setKnowledge(null);
+    setNotes([]);
+    knowledgeRequest.current++;
+    setSelectedReportId(null);
+    setLoadedReport(null);
+    setKnowledgeTab("summary");
     if (!selectedId) return;
     void refreshTranscript(selectedId).then(turns => { if (alive) setTranscript(turns); })
       .catch(() => { if (alive) setHistoryUnavailable(true); });
+    void refreshKnowledge(selectedId).catch(() => {});
     return () => { alive = false; };
-  }, [selectedId, refreshTranscript]);
+  }, [selectedId, refreshTranscript, refreshKnowledge]);
   useEffect(() => {
     let alive = true; setBundle(null); setNoteText(""); setOpenNote(SYSTEM_NOTE_ID);
     setShowRawSource(false); setCurrentTime(0);
@@ -200,11 +239,36 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = t
     void invoke<string>("analytics_note_read", { matchId: selectedId, noteId: openNote }).then(setNoteText)
       .catch(() => setNoteText(openNote === "สรุปแมตช์.md" ? systemNote(bundle, locale) : t(locale, "เปิดโน้ตไม่ได้ รีเพลย์อาจถูกนำออกจากคลัง แต่โน้ตยังอยู่", "Could not open the note. The replay may be removed, but notes are retained.")));
   }, [openNote, bundle, locale, selectedId]);
+  useEffect(() => {
+    const reportId = selectedReportId ?? knowledge?.reports?.[0]?.id ?? null;
+    if (knowledgeTab !== "ai" || !selectedId || !reportId || loadedReport?.id === reportId) return;
+    let alive = true;
+    setLoadedReport(null);
+    void invoke<Record<string, unknown>>("analytics_saved_analysis_read", { matchId: selectedId, id: reportId })
+      .then(value => {
+        if (!alive || value.kind !== "ai_report" || typeof value.markdown !== "string") return;
+        const meta = (value.meta && typeof value.meta === "object" ? value.meta : {}) as Record<string, unknown>;
+        setLoadedReport({ id: reportId, meta, markdown: value.markdown, stale_reasons: [] });
+      })
+      .catch(() => { if (alive) setError(t(locale, "อ่านบทวิเคราะห์ที่บันทึกไว้ไม่ได้", "Could not read the saved report")); });
+    return () => { alive = false; };
+  }, [knowledgeTab, selectedId, selectedReportId, knowledge?.reports, loadedReport?.id, locale]);
   finishRequest.current = payload => {
     if (payload.request_id !== activeRequestId.current) return;
+    const mode = requestMode.current;
+    requestMode.current = null;
     setStreaming(false); setUsage(payload.usage ?? null); setRequestId(null); activeRequestId.current = null;
     setNoteFallback(payload.note_fallback ?? false);
     if (payload.error) setError(payload.error);
+    if (mode === "report") {
+      if (payload.report) {
+        setLoadedReport(payload.report);
+        setSelectedReportId(payload.report.id);
+        setKnowledgeTab("ai");
+      }
+      if (selectedId) void refreshKnowledge(selectedId).catch(() => {});
+      return;
+    }
     if (payload.note_id) { setCreatedNote(payload.note_id); void refreshAi(); }
     const matchId = selectedId;
     if (matchId) void refreshTranscript(matchId).then(setTranscript).catch(() => setHistoryUnavailable(true));
@@ -213,14 +277,16 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = t
     let stopDelta: (() => void) | undefined; let stopComplete: (() => void) | undefined;
     void listen<{ request_id: string; text: string }>("analytics://delta", event => {
       if (event.payload.request_id === activeRequestId.current) {
-        setAnswer(current => current + event.payload.text);
-        setTranscript(current => appendAssistantDelta(current, event.payload.text));
+        if (requestMode.current === "chat") {
+          setAnswer(current => current + event.payload.text);
+          setTranscript(current => appendAssistantDelta(current, event.payload.text));
+        }
         return;
       }
       const pending = pendingEvents.current.get(event.payload.request_id) ?? { deltas: [] };
       pending.deltas.push(event.payload.text); pendingEvents.current.set(event.payload.request_id, pending);
     }).then(stop => { stopDelta = stop; }).catch(() => {});
-    void listen<{ request_id: string; error?: string; usage?: Usage; note_id?: string; note_fallback?: boolean }>("analytics://complete", event => {
+    void listen<CompletePayload>("analytics://complete", event => {
       if (event.payload.request_id === activeRequestId.current) { finishRequest.current(event.payload); return; }
       const pending = pendingEvents.current.get(event.payload.request_id) ?? { deltas: [] };
       pending.complete = event.payload; pendingEvents.current.set(event.payload.request_id, pending);
@@ -268,7 +334,12 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = t
       setUsage(null); setQuestion(""); setNoteFallback(false);
       return;
     }
+    if (knowledge?.chat_history_over_budget) {
+      setError(t(locale, "ประวัติแชตเกินงบแล้ว เริ่มบทสนทนาใหม่จากสรุปก่อนส่งคำถาม", "Chat history is over budget. Start a new conversation from its local recap before sending."));
+      return;
+    }
     setError(null); setAnswer(""); setUsage(null); setCreatedNote(null); setNoteFallback(false); setStreaming(true);
+    requestMode.current = "chat";
     try {
       const id = await invoke<string>("analytics_chat_submit", {
         matchId: selectedId, question: userQuestion, selectedHero: hero, scrubberTimeS: currentTime,
@@ -278,11 +349,14 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = t
       const pending = pendingEvents.current.get(id); pendingEvents.current.delete(id);
       if (pending?.deltas.length) {
         const delta = pending.deltas.join("");
-        setAnswer(delta);
-        setTranscript(turns => appendAssistantDelta(turns, delta));
+        if (requestMode.current === "chat") {
+          setAnswer(delta);
+          setTranscript(turns => appendAssistantDelta(turns, delta));
+        }
       }
       if (pending?.complete) finishRequest.current({ request_id: id, ...pending.complete });
     } catch (reason) {
+      requestMode.current = null;
       setStreaming(false);
       const kind = providerErrorKind(reason);
       const providerCopy = AI_PROVIDER_COPY[locale];
@@ -295,6 +369,49 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = t
                   : typeof reason === "string" ? reason : t(locale, "ส่งคำถามไม่สำเร็จ", "Could not send the question"));
     }
   }
+  async function generateReport(regenerate: boolean) {
+    if (!selectedId || !bundle || streaming || !aiAvailable) return;
+    setError(null); setKnowledgeTab("ai"); setStreaming(true); requestMode.current = "report";
+    try {
+      const result = await invoke<{ cached?: boolean; report?: ReportDetail | null; request_id?: string | null }>("analytics_report_generate", {
+        matchId: selectedId, selectedHero: hero, scrubberTimeS: currentTime, regenerate,
+      });
+      if (result.cached && result.report) {
+        requestMode.current = null; setStreaming(false);
+        setLoadedReport(result.report); setSelectedReportId(result.report.id);
+        void refreshKnowledge(selectedId);
+        return;
+      }
+      const id = result.request_id;
+      if (typeof id !== "string" || !id) throw new Error("Report request was not started");
+      activeRequestId.current = id; setRequestId(id);
+      const pending = pendingEvents.current.get(id); pendingEvents.current.delete(id);
+      if (pending?.complete) finishRequest.current({ request_id: id, ...pending.complete });
+    } catch (reason) {
+      requestMode.current = null; setStreaming(false);
+      const kind = providerErrorKind(reason);
+      setError(kind === "consent_required" ? AI_PROVIDER_COPY[locale].consentRequired
+        : kind === "key_required" ? AI_PROVIDER_COPY[locale].keyRequired
+          : typeof reason === "string" ? reason : t(locale, "สร้างบทวิเคราะห์ไม่สำเร็จ", "Could not generate the report"));
+    }
+  }
+  async function startNewChatFromSummary() {
+    if (!selectedId || streaming || !knowledge?.chat_history_over_budget || historyUnavailable || !transcript.length) return;
+    const message = t(locale,
+      "บันทึกสรุปบทสนทนา 24 ข้อความล่าสุดไว้เป็นโน้ตในเครื่อง แล้วเริ่มประวัติแชตใหม่หรือไม่? ประวัติเดิมจะถูกแทนที่หลังบันทึกโน้ตสำเร็จ",
+      "Save a local recap of the latest 24 turns as a note and start a new chat? The old transcript will be replaced only after the note is saved.");
+    if (!window.confirm(message)) return;
+    try {
+      const summary = buildChatRecap(transcript, 12_000);
+      const noteId = await invoke<string>("analytics_chat_start_from_summary", { matchId: selectedId, summary });
+      setQuestion(""); setAnswer(""); setUsage(null); setCreatedNote(null);
+      setOpenNote(noteId); setKnowledgeTab("notes");
+      const [turns] = await Promise.all([refreshTranscript(selectedId), refreshKnowledge(selectedId)]);
+      setTranscript(turns);
+    } catch (reason) {
+      setError(typeof reason === "string" ? reason : t(locale, "เริ่มบทสนทนาใหม่ไม่ได้", "Could not start a new conversation"));
+    }
+  }
   async function saveAnswerAsNote() {
     if (!selectedId || !answer.trim() || !shouldOfferSaveAsNote({ answer, savedNoteId: createdNote, noteFallback })) return;
     try {
@@ -305,7 +422,7 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = t
       });
       setCreatedNote(noteId);
       setNoteFallback(false);
-      void refreshAi();
+      void refreshKnowledge(selectedId);
     } catch {
       setError(locale === "th" ? "บันทึกโน้ตไม่ได้" : "Could not save the note");
     }
@@ -350,7 +467,15 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = t
   useEffect(() => {
     if (!restoreContext) return;
     setSelectedId(restoreContext.matchId);
-    setOpenNote(restoreContext.documentId);
+    if (restoreContext.documentId === "ai-report") {
+      setKnowledgeTab("ai");
+      setSelectedReportId(null);
+      setLeftCollapsed(false);
+    } else {
+      setKnowledgeTab("notes");
+      setOpenNote(restoreContext.documentId);
+      setLeftCollapsed(false);
+    }
     seek(restoreContext.timeS);
   }, [restoreContext, seek]);
   useEffect(() => {
@@ -387,7 +512,15 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = t
     if (action?.kind === "time") seek(action.seconds);
     if (action?.kind === "event" && root && action.table === "deaths") root.querySelector<HTMLButtonElement>(`#rv-dlist [data-index="${action.index}"]`)?.click();
     if (action?.kind === "document") {
-      if (action.id === SYSTEM_NOTE_ID || notes.some(note => note.id === action.id)) { setOpenNote(action.id); setLeftCollapsed(false); }
+      const destination = analyticsDocumentDestination(action.id, notes.map(note => note.id));
+      if (destination === "report") {
+        setKnowledgeTab("ai");
+        if (action.id === "ai-report") {
+          if (!selectedReportId && knowledge?.reports?.[0]) setSelectedReportId(knowledge.reports[0].id);
+        } else setSelectedReportId(action.id);
+        setLeftCollapsed(false);
+      }
+      if (destination === "note") { setOpenNote(action.id); setKnowledgeTab("notes"); setLeftCollapsed(false); }
     }
     if (action?.kind === "copy_url") void navigator.clipboard?.writeText(action.url);
     if (action?.kind === "copy_code") {
@@ -397,6 +530,8 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = t
   }
 
   const documentTitle = openNote === SYSTEM_NOTE_ID ? t(locale, "สรุปแมตช์.md", "Match summary.md") : notes.find(note => note.id === openNote)?.title ?? openNote;
+  const reportRows: ReportDetail[] = (knowledge?.reports ?? []).map(report => loadedReport?.id === report.id ? loadedReport : report as ReportDetail);
+  if (loadedReport && !reportRows.some(report => report.id === loadedReport.id)) reportRows.unshift(loadedReport);
   const duration = selected?.duration_s == null ? UNKNOWN_VALUE : clock(selected.duration_s);
   const timelineStart = typeof bundle?.match.t0 === "number" ? bundle.match.t0 : 0;
   const timelineEnd = typeof bundle?.match.t1 === "number" ? bundle.match.t1 : null;
@@ -434,7 +569,10 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = t
           <button type="button" className="analytics-player-details" onClick={() => {
             if (!selectedId) return;
             if (playerPlaying) viewerRoot.current?.getElementById("rv-play")?.click();
-            onOpenReplay?.(enterAnalyticsReplayDetails(bundle, { matchId: selectedId, timeS: currentTime, documentId: openNote }));
+            onOpenReplay?.(enterAnalyticsReplayDetails(bundle, {
+              matchId: selectedId, timeS: currentTime,
+              documentId: knowledgeTab === "ai" ? "ai-report" : openNote,
+            }));
           }}>{copy(locale).analyticsPlayer.details} ›</button>
         </div>
         <div className="analytics-player-track" onPointerLeave={() => setHoverTime(null)}>
@@ -507,28 +645,39 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = t
     </div>
     <div className="analytics-columns">
       {!leftCollapsed ? <aside className="analytics-column analytics-docs"><header><button onClick={() => setLeftCollapsed(true)} aria-label={t(locale, "ยุบแผงซ้าย", "Collapse left panel")}>‹</button><strong>{t(locale, "วิเคราะห์", "Analysis")}</strong></header>
-        <div className="analytics-doc-tabs" role="tablist" aria-label={t(locale, "เอกสาร", "Documents")}>
-          <button role="tab" aria-selected={openNote === SYSTEM_NOTE_ID} onClick={() => setOpenNote(SYSTEM_NOTE_ID)}>{t(locale, "สรุปแมตช์.md", "Match summary.md")}</button>
-          {notes.map(note => <button role="tab" key={note.id} aria-selected={openNote === note.id} onClick={() => setOpenNote(note.id)}>{note.ai && <b>AI</b>}{note.title}</button>)}
-        </div>
-        <div className="analytics-doc-toolbar"><strong title={documentTitle}>{documentTitle}</strong><button onClick={() => void navigator.clipboard?.writeText(noteText)}>{t(locale, "คัดลอก", "Copy")}</button>
-          <button onClick={() => setShowRawSource(value => !value)}>{showRawSource ? t(locale, "ดูตัวอย่าง", "Preview") : t(locale, "ดูต้นฉบับ .md", "View source .md")}</button>
-          <button onClick={() => selectedId && void invoke("analytics_note_open_folder", { matchId: selectedId })}>{t(locale, "เปิดโฟลเดอร์", "Open folder")}</button>
-          {openNote !== SYSTEM_NOTE_ID && notes.some(note => note.id === openNote && note.ai) && <button onClick={() => {
-            if (!selectedId || !window.confirm(t(locale, "ลบโน้ต AI นี้หรือไม่?", "Delete this AI note?"))) return;
-            void invoke("analytics_note_delete", { matchId: selectedId, noteId: openNote }).then(() => { setOpenNote(SYSTEM_NOTE_ID); void refreshAi(); });
-          }}>{t(locale, "ลบโน้ต", "Delete note")}</button>}
-        </div>
-        <section className="analytics-knowledge-slot" aria-label={t(locale, "พื้นที่แท็บความรู้แมตช์", "Match knowledge tab slot")} data-knowledge-tabs-slot>
-          <button type="button" disabled>สรุปแมตช์</button><button type="button" disabled>เทียบเลน/ฮีโร่</button><button type="button" disabled>บทวิเคราะห์ AI</button>
+        <section className="analytics-knowledge-slot" aria-label={t(locale, "แท็บความรู้และโน้ตแมตช์", "Match knowledge and notes tabs")} data-knowledge-tabs-slot>
+          <KnowledgeTabs activeTab={knowledgeTab} onSelectTab={setKnowledgeTab} />
+          <div className="analytics-knowledge-panel">
+            {knowledgeTab === "summary" && <MatchSummaryTab digest={knowledge?.digest ?? null} loading={!knowledge && !!selectedId} onSeek={seek} />}
+            {knowledgeTab === "compare" && <HeroComparisonTab digest={knowledge?.digest ?? null} selectedHeroId={hero ?? ownHero ?? knowledge?.own_hero_id ?? null}
+              opponentHeroId={compareHero} onSelectHero={setHero} onSelectOpponentHero={setCompareHero} />}
+            {knowledgeTab === "ai" && <AiReportTab reports={reportRows} selectedReportId={selectedReportId ?? reportRows[0]?.id ?? null}
+              onSelectReport={id => { setSelectedReportId(id); setLoadedReport(null); }}
+              onGenerateReport={() => void generateReport(false)} onRegenerateReport={() => void generateReport(true)}
+              generatingReport={streaming && requestMode.current === "report"} reportDisabled={!bundle || !aiAvailable}
+              costEstimateText={knowledge?.report_cost_reason ?? t(locale, "ตรวจสอบค่าใช้จ่ายไม่ได้จนกว่าจะยืนยันราคาผู้ให้บริการ", "Provider pricing is unverified; cost cannot be estimated before sending.")}
+              renderMarkdown={content => <div className="analytics-markdown" onClick={onMarkdownAction} dangerouslySetInnerHTML={{ __html: renderMarkdownSafe(content) }} />} />}
+            {knowledgeTab === "notes" && <div className="analytics-note-tab">
+              <div className="analytics-doc-tabs" role="tablist" aria-label={t(locale, "เอกสาร", "Documents")}>
+                <button role="tab" aria-selected={openNote === SYSTEM_NOTE_ID} onClick={() => setOpenNote(SYSTEM_NOTE_ID)}>{t(locale, "สรุปแมตช์.md", "Match summary.md")}</button>
+                {notes.map(note => <button role="tab" key={note.id} aria-selected={openNote === note.id} onClick={() => setOpenNote(note.id)}>{note.ai && <b>AI</b>}{note.title}</button>)}
+              </div>
+              <div className="analytics-doc-toolbar"><strong title={documentTitle}>{documentTitle}</strong><button onClick={() => void navigator.clipboard?.writeText(noteText)}>{t(locale, "คัดลอก", "Copy")}</button>
+                <button onClick={() => setShowRawSource(value => !value)}>{showRawSource ? t(locale, "ดูตัวอย่าง", "Preview") : t(locale, "ดูต้นฉบับ .md", "View source .md")}</button>
+                <button onClick={() => selectedId && void invoke("analytics_note_open_folder", { matchId: selectedId })}>{t(locale, "เปิดโฟลเดอร์", "Open folder")}</button>
+                {openNote !== SYSTEM_NOTE_ID && notes.some(note => note.id === openNote && note.ai) && <button onClick={() => {
+                  if (!selectedId || !window.confirm(t(locale, "ลบโน้ต AI นี้หรือไม่?", "Delete this AI note?"))) return;
+                  void invoke("analytics_note_delete", { matchId: selectedId, noteId: openNote }).then(() => { setOpenNote(SYSTEM_NOTE_ID); void refreshKnowledge(selectedId); });
+                }}>{t(locale, "ลบโน้ต", "Delete note")}</button>}
+              </div>
+              {showRawSource ? <pre className="analytics-markdown analytics-source">{noteText}</pre> : <div className="analytics-markdown" onClick={onMarkdownAction} dangerouslySetInnerHTML={{ __html: markdown }} />}
+            </div>}
+          </div>
         </section>
-        {showRawSource ? <pre className="analytics-markdown analytics-source">{noteText}</pre> : <div className="analytics-markdown" onClick={onMarkdownAction} dangerouslySetInnerHTML={{ __html: markdown }} />}
       </aside> : <button className="analytics-expand" onClick={() => setLeftCollapsed(false)}>›</button>}
       <main className="analytics-column analytics-centre">
         {!bundle && <div className="analytics-empty" role="status">{state === "empty" ? t(locale, "ยังไม่มีรีเพลย์ในคลัง", "No replays in the library") : state === "parsing" ? t(locale, "กำลังวิเคราะห์รีเพลย์…", "Analysing replay…") : t(locale, "เลือกรีเพลย์ที่พร้อม", "Select a ready replay")}</div>}
-        {bundle && <div className="analytics-kill-score" aria-label={t(locale, "hero kills ต่อทีม", "Hero kills by team")}>
-          <span>{t(locale, "Radiant", "Radiant")} {kills.radiant ?? UNKNOWN_VALUE}</span><b>{heroKillTotal}</b><span>{t(locale, "Dire", "Dire")} {kills.dire ?? UNKNOWN_VALUE}</span>
-        </div>}
+        {bundle && <MatchupStrip digest={knowledge?.digest ?? null} selectedHeroId={hero ?? ownHero ?? knowledge?.own_hero_id ?? null} onSelectHero={setHero} />}
         {bundle && <MatchViewerSurface locale={locale} bundle={bundle} onHeroSelect={setHero} onHeroIdentify={identifyOwnHero} statLabelMode="text"
           onTimeChange={onTimeChange} onReady={onViewerReady} initialTime={0} disableKeyboard />}
         {player}
@@ -544,12 +693,17 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = t
             }}>{locale === "th" ? item.th : item.en}</button>)}</div>
           </div>}
           {historyUnavailable && <p className="analytics-error" role="status">{t(locale, "ระบบหลักยังอ่านประวัติแชตจากไฟล์ได้ไม่สำเร็จ", "The host could not load the saved chat transcript.")}</p>}
+          {knowledge && <section className="analytics-history-budget" data-over-budget={knowledge.chat_history_over_budget === true}>
+            <span>{t(locale, "งบประวัติแชต", "Chat history budget")}: {knowledge.chat_history_estimated_tokens ?? 0}/{knowledge.chat_history_token_budget ?? 12_000} tokens</span>
+            {knowledge.chat_history_over_budget && <><p>{t(locale, "ประวัติถูกเก็บไว้ในเครื่อง เมื่อเกินงบ ระบบจะไม่ส่งคำถามจนกว่าคุณจะบันทึกสรุปและเริ่มบทสนทนาใหม่", "History stays on this device. Once over budget, questions are blocked until you save a local recap and start a new conversation.")}</p>
+              <button type="button" disabled={streaming || historyUnavailable || !transcript.length} onClick={() => void startNewChatFromSummary()}>{t(locale, "เริ่มบทสนทนาใหม่จากสรุปในเครื่อง", "Start a new conversation from a local recap")}</button></>}
+          </section>}
           {transcript.map((turn, index) => <article className="analytics-chat-turn" data-role={turn.role} key={`${selectedId ?? "none"}-${index}`}>
             <div dangerouslySetInnerHTML={{ __html: renderMarkdownStreaming(turn.content) }} />
             {turn.role === "assistant" && usage && index === transcript.length - 1 && <small>{t(locale, "อินพุต", "Input")} {usage.input ?? UNKNOWN_VALUE} · cache {usage.cache_read ?? UNKNOWN_VALUE} · {t(locale, "เอาต์พุต", "Output")} {usage.output ?? UNKNOWN_VALUE}</small>}
           </article>)}
           {shouldOfferSaveAsNote({ answer, savedNoteId: createdNote, noteFallback }) && <button type="button" onClick={() => void saveAnswerAsNote()}>{AI_PROVIDER_COPY[locale].noteFallback}</button>}
-          {createdNote && <button className="analytics-created-note" onClick={() => { setOpenNote(createdNote); setCreatedNote(null); }}>{t(locale, "สร้างแล้ว · เปิดในแผงซ้าย", "Created · open in left panel")}: {createdNote}</button>}
+          {createdNote && <button className="analytics-created-note" onClick={() => { setOpenNote(createdNote); setKnowledgeTab("notes"); setLeftCollapsed(false); setCreatedNote(null); }}>{t(locale, "สร้างแล้ว · เปิดในแผงซ้าย", "Created · open in left panel")}: {createdNote}</button>}
           {error && <p className="analytics-error" role="alert">{error}</p>}
         </div>
 
@@ -557,7 +711,7 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = t
           {!prefs.consent && <button type="button" onClick={() => setConsentOpen(true)}>{AI_PROVIDER_COPY[locale].consent}</button>}
           <textarea value={question} onChange={event => setQuestion(event.currentTarget.value)} placeholder={t(locale, "ถามเกี่ยวกับแมตช์นี้…", "Ask about this match…")} disabled={streaming || !bundle} />
           <div><span>{AI_PROVIDER_COPY[locale].sendDisclosure}</span>
-            {streaming ? <button type="button" onClick={() => { if (requestId) void invoke("analytics_chat_cancel", { requestId }); setStreaming(false); }}>{t(locale, "ยกเลิก", "Cancel")}</button> : <button type="submit" disabled={!question.trim() || !bundle}>{t(locale, "ส่ง", "Send")}</button>}
+            {streaming ? <button type="button" onClick={() => { if (requestId) void invoke("analytics_chat_cancel", { requestId }); requestMode.current = null; activeRequestId.current = null; setRequestId(null); setStreaming(false); }}>{t(locale, "ยกเลิก", "Cancel")}</button> : <button type="submit" disabled={!question.trim() || !bundle || (aiAvailable && knowledge?.chat_history_over_budget === true)}>{t(locale, "ส่ง", "Send")}</button>}
           </div>
         </form>
         <footer>{prefs.provider} · {prefs.model || UNKNOWN_VALUE} · {streaming ? t(locale, "กำลังตอบ…", "Responding…") : usage ? `${usage.input ?? UNKNOWN_VALUE} in · ${usage.cache_read ?? UNKNOWN_VALUE} cache read · ${usage.output ?? UNKNOWN_VALUE} out` : t(locale, "ไม่มีข้อมูลโทเคน", "No token data")}</footer>

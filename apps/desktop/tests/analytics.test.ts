@@ -67,6 +67,56 @@ test("AI submit sends only the current question, selected hero, scrubber time an
   assert.doesNotMatch(request, /include_|openDocument|documentText|contextChips/i);
 });
 
+test("documents route to the AI report or a saved note without opening external content", async () => {
+  const model = await import("../src/analytics/analyticsModel.ts");
+  assert.equal(typeof model.analyticsDocumentDestination, "function");
+  if (typeof model.analyticsDocumentDestination === "function") {
+    assert.equal(model.analyticsDocumentDestination("ai-report", ["note-1"]), "report");
+    assert.equal(model.analyticsDocumentDestination("note-1", ["note-1"]), "note");
+    assert.equal(model.analyticsDocumentDestination("../outside", ["note-1"]), null);
+    assert.equal(model.analyticsDocumentDestination("unknown", ["note-1"]), null);
+  }
+});
+
+test("history recap is a bounded local summary of visible chat turns", async () => {
+  const model = await import("../src/analytics/analyticsModel.ts");
+  assert.equal(typeof model.buildChatRecap, "function");
+  if (typeof model.buildChatRecap === "function") {
+    const recap = model.buildChatRecap([
+      { role: "user", content: "Why was the mid lane lost?" },
+      { role: "assistant", content: "At 10:00, net worth was behind. This came from the local digest." },
+    ], 800);
+    assert.match(recap, /created locally without an AI request/i);
+    assert.match(recap, /Why was the mid lane lost\?/);
+    assert.match(recap, /net worth was behind/);
+    assert.ok(recap.length <= 800);
+  }
+});
+
+test("Analytics mounts knowledge/report commands and transcript restart behind explicit actions", () => {
+  const page = readFileSync(new URL("../src/analytics/AnalyticsPage.tsx", import.meta.url), "utf8");
+  for (const component of ["KnowledgeTabs", "MatchSummaryTab", "HeroComparisonTab", "AiReportTab", "MatchupStrip"]) {
+    assert.ok(page.includes(`<${component}`), `${component} should be mounted`);
+  }
+  for (const command of ["analytics_knowledge_get", "analytics_saved_analysis_read", "analytics_report_generate", "analytics_note_save_text", "analytics_chat_start_from_summary"]) {
+    assert.match(page, new RegExp(command), `${command} should be connected`);
+  }
+  assert.match(page, /chat_history_over_budget/);
+  assert.match(page, /action\.id === "ai-report"/);
+  assert.match(page, /async function generateReport/);
+});
+
+test("host registers same-match transcript and recap-gated history reset commands", () => {
+  const commands = readFileSync(new URL("../src-tauri/src/commands.rs", import.meta.url), "utf8");
+  const lib = readFileSync(new URL("../src-tauri/src/lib.rs", import.meta.url), "utf8");
+  assert.ok(commands.includes("fn analytics_chat_transcript"));
+  assert.ok(commands.includes("chat_transcript(&match_id)"));
+  assert.ok(commands.includes("fn analytics_chat_start_from_summary"));
+  assert.ok(commands.includes("start_new_chat_from_summary"));
+  assert.equal((lib.match(/commands::analytics_chat_transcript/g) ?? []).length, 2);
+  assert.equal((lib.match(/commands::analytics_chat_start_from_summary/g) ?? []).length, 2);
+});
+
 test("missing replay facts remain unknown and never become zero", () => {
   const facts = replayRowFacts(entry());
   assert.equal(facts.date, UNKNOWN_VALUE);

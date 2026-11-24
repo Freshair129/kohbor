@@ -69,13 +69,7 @@ pub(crate) enum ReportPreparation {
 pub(crate) struct ChatOptions {
     pub(crate) match_id: String,
     pub(crate) question: String,
-    pub(crate) open_document: String,
     pub(crate) selected_hero: Option<String>,
-    pub(crate) include_own_hero: bool,
-    pub(crate) include_match: bool,
-    pub(crate) include_clock: bool,
-    pub(crate) include_document: bool,
-    pub(crate) include_selected_hero: bool,
     pub(crate) scrubber_time_s: Option<f64>,
 }
 
@@ -161,7 +155,7 @@ impl AnalyticsService {
             .get(provider)
             .is_some_and(|record| {
                 record.origin == endpoint.origin()
-                    && record.text_version == 1
+                    && record.text_version == super::store::CONSENT_TEXT_VERSION
                     && record.granted_at_unix_ms > 0
             });
         if !consent {
@@ -325,6 +319,17 @@ impl AnalyticsService {
         self.prepare_request(library, history_entries, options, false)
     }
 
+    pub(crate) fn start_new_chat_from_summary(
+        &self,
+        match_id: &str,
+        summary: &str,
+    ) -> Result<String, &'static str> {
+        if !lock(&self.active).is_empty() {
+            return Err("chat_active");
+        }
+        self.store.start_new_chat_from_summary(match_id, summary)
+    }
+
     pub(crate) fn prepare_report(
         &self,
         library: &ReplayLibrary,
@@ -337,13 +342,7 @@ impl AnalyticsService {
         let prepared = self.prepare_request(library, history_entries, ChatOptions {
             match_id,
             question: "Write the saved match analysis described by RULES v2. Analyze lanes, the mid and late phases, key teamfights, and what the selected hero could change. Cite each claim.".into(),
-            open_document: String::new(),
             selected_hero,
-            include_own_hero: true,
-            include_match: true,
-            include_clock: true,
-            include_document: false,
-            include_selected_hero: true,
             scrubber_time_s,
         }, true)?;
         let cache_key = report_cache_key(
@@ -417,19 +416,13 @@ impl AnalyticsService {
                 manifest: &bundle.manifest,
                 match_data: &bundle.match_data,
                 world: &bundle.world,
-                own_hero: own_hero.as_deref(),
-                gsi_match: gsi,
             })?;
             let bundle_hash = knowledge::bundle_hash(&bundle.manifest)?;
             let bytes = knowledge::canonical_bytes(&digest)?;
-            let digest_own_hero = digest
-                .pointer("/meta/viewer/own_hero")
-                .and_then(Value::as_str);
             self.store.write_knowledge(
                 &options.match_id,
                 &bundle_hash,
                 KNOWLEDGE_VERSION,
-                digest_own_hero,
                 &bytes,
             )?;
             (digest, bundle_hash)
@@ -443,12 +436,12 @@ impl AnalyticsService {
                 .ok_or("bundle_unavailable")?;
             (digest, meta.bundle_hash)
         };
-        let viewer = digest.pointer("/meta/viewer").cloned();
+        let viewer = knowledge::session_viewer(&digest, own_hero.as_deref(), gsi);
         let notes = self
             .store
             .list_notes(&options.match_id, &summary_markdown(&digest))?;
-        let current_own = digest
-            .pointer("/meta/viewer/own_hero")
+        let current_own = viewer
+            .get("own_hero")
             .and_then(Value::as_str)
             .map(str::to_owned);
         let latest_report = self
@@ -488,7 +481,7 @@ impl AnalyticsService {
         }
         let context = build_context_blocks(
             &digest,
-            viewer.as_ref(),
+            Some(&viewer),
             &notes,
             latest_report.as_ref(),
             tools_available,
@@ -671,21 +664,11 @@ impl AnalyticsService {
                     manifest: &bundle.manifest,
                     match_data: &bundle.match_data,
                     world: &bundle.world,
-                    own_hero: own_hero.as_deref(),
-                    gsi_match: gsi,
                 })?;
                 let bundle_hash = knowledge::bundle_hash(&bundle.manifest)?;
                 let bytes = knowledge::canonical_bytes(&digest)?;
-                let digest_own_hero = digest
-                    .pointer("/meta/viewer/own_hero")
-                    .and_then(Value::as_str);
-                self.store.write_knowledge(
-                    match_id,
-                    &bundle_hash,
-                    KNOWLEDGE_VERSION,
-                    digest_own_hero,
-                    &bytes,
-                )?;
+                self.store
+                    .write_knowledge(match_id, &bundle_hash, KNOWLEDGE_VERSION, &bytes)?;
                 (digest, bundle_hash, true)
             }
             Err(_) => {
@@ -704,9 +687,8 @@ impl AnalyticsService {
             .chat(match_id)
             .map(|history| estimate_history_tokens(&history))
             .unwrap_or(0);
-        let own = digest
-            .pointer("/meta/viewer/own_hero")
-            .and_then(Value::as_str);
+        let viewer = knowledge::session_viewer(&digest, own_hero.as_deref(), gsi);
+        let own = viewer.get("own_hero").and_then(Value::as_str);
         let reports = self
             .store
             .list_ai_reports(match_id)?
@@ -724,6 +706,7 @@ impl AnalyticsService {
             "bundle_hash":bundle_hash,
             "bundle_available":bundle_available,
             "own_hero_id":own,
+            "viewer":viewer,
             "notes":note_index,
             "reports":reports,
             "chat_history_estimated_tokens":history_tokens,
@@ -753,34 +736,21 @@ impl AnalyticsService {
         &self,
         library: &ReplayLibrary,
         match_id: &str,
-        history: &[MatchEntry],
+        _history: &[MatchEntry],
     ) -> String {
-        let gsi = find_gsi_match(&self.store, match_id, history);
-        let own_hero = gsi
-            .and_then(|entry| entry.hero.clone())
-            .or_else(|| self.store.own_hero(match_id));
         if let Ok(bundle) = library.open_bundle(match_id) {
             if let Ok(digest) = knowledge::build(&KnowledgeInput {
                 manifest: &bundle.manifest,
                 match_data: &bundle.match_data,
                 world: &bundle.world,
-                own_hero: own_hero.as_deref(),
-                gsi_match: gsi,
             }) {
                 if let (Ok(hash), Ok(bytes)) = (
                     knowledge::bundle_hash(&bundle.manifest),
                     knowledge::canonical_bytes(&digest),
                 ) {
-                    let digest_own_hero = digest
-                        .pointer("/meta/viewer/own_hero")
-                        .and_then(Value::as_str);
-                    let _ = self.store.write_knowledge(
-                        match_id,
-                        &hash,
-                        KNOWLEDGE_VERSION,
-                        digest_own_hero,
-                        &bytes,
-                    );
+                    let _ = self
+                        .store
+                        .write_knowledge(match_id, &hash, KNOWLEDGE_VERSION, &bytes);
                     return summary_markdown(&digest);
                 }
             }
@@ -1621,13 +1591,7 @@ mod tests {
         ChatOptions {
             match_id: "12345".into(),
             question: "why?".into(),
-            open_document: String::new(),
             selected_hero: None,
-            include_own_hero: true,
-            include_match: true,
-            include_clock: false,
-            include_document: false,
-            include_selected_hero: false,
             scrubber_time_s: None,
         }
     }

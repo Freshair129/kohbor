@@ -152,6 +152,25 @@ mod tests {
     }
 
     #[test]
+    fn digest_block_bytes_do_not_change_when_gsi_history_changes() {
+        let digest = json!({
+            "knowledge_version":1,
+            "meta":{"duration_s":1800,"patch":"fixture"},
+            "heroes":[{"id":"npc_dota_hero_axe","final":{"k":4,"d":2,"a":null,"a_reason":"exact assists are not in the bundle"}}]
+        });
+        let first_viewer = json!({"own_hero":"npc_dota_hero_axe","kda":[4,2,7]});
+        let second_viewer = json!({"own_hero":"npc_dota_hero_axe","kda":[4,2,11]});
+        let first = build_context_blocks(&digest, Some(&first_viewer), &[], None, true).unwrap();
+        let second = build_context_blocks(&digest, Some(&second_viewer), &[], None, true).unwrap();
+
+        assert_eq!(first.digest.as_bytes(), second.digest.as_bytes());
+        assert_ne!(first.session, second.session);
+        assert!(first.digest.contains("exact assists are not in the bundle"));
+        assert!(first.session.contains("7"));
+        assert!(second.session.contains("11"));
+    }
+
+    #[test]
     fn report_staleness_names_each_changed_input() {
         let meta = AiReportMeta {
             cache_key: "old".into(),

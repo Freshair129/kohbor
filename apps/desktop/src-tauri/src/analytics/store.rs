@@ -1,3 +1,4 @@
+use super::context::{HISTORY_ESTIMATED_BYTES_PER_TOKEN, HISTORY_TOKEN_BUDGET};
 use crate::{atomic, secrets};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -6,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 const PREFS_SCHEMA: u32 = 2;
-const CONSENT_TEXT_VERSION: u32 = 1;
+pub(crate) const CONSENT_TEXT_VERSION: u32 = 2;
 const MAX_CHAT_BYTES: u64 = 4 * 1024 * 1024;
 const MAX_LEDGER_ROWS: usize = 200;
 const SYSTEM_NOTE: &str = "สรุปแมตช์.md";
@@ -126,6 +127,7 @@ pub(crate) struct NoteRow {
 pub(crate) struct KnowledgeMeta {
     pub(crate) bundle_hash: String,
     pub(crate) knowledge_version: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) own_hero_id: Option<String>,
     pub(crate) created_unix_ms: u64,
 }
@@ -488,28 +490,17 @@ impl AnalyticsStore {
         legacy: LegacyAnalyticsPreferences,
     ) -> Result<AnalyticsPreferences, &'static str> {
         let mut settings = AnalyticsPreferences::default();
-        settings.ai_on = legacy.ai_on;
         settings.model = legacy.model;
         settings.keep_newest = legacy.keep_newest;
         settings.max_bytes = legacy.max_bytes;
         settings.auto_analyse = legacy.auto_analyse;
         let old_key_path = self.root.join("anthropic-key.dpapi");
         let key_present = old_key_path.exists();
-        settings.ai_on = legacy.ai_on && legacy.consent && key_present;
-        if legacy.consent {
-            let endpoint = self.provider_endpoint("anthropic", &settings)?;
-            settings.provider_consents.insert(
-                "anthropic".into(),
-                ProviderConsent {
-                    origin: endpoint.origin(),
-                    text_version: CONSENT_TEXT_VERSION,
-                    granted_at_unix_ms: now_ms(),
-                },
-            );
-            settings.consent = true;
-        } else {
-            settings.ai_on = false;
-        }
+        // Legacy consent predates the current disclosure and must be granted again.
+        let _legacy_ai_enabled = legacy.ai_on;
+        let _legacy_consent = legacy.consent;
+        settings.ai_on = false;
+        settings.consent = false;
         validate_preferences(&settings)?;
         let path = self.root.join("settings.json");
         migrate_legacy_files(&self.root, settings, &path, key_present, |path, bytes| {
@@ -605,7 +596,6 @@ impl AnalyticsStore {
         match_id: &str,
         bundle_hash: &str,
         knowledge_version: u32,
-        own_hero_id: Option<&str>,
         bytes: &[u8],
     ) -> Result<(), &'static str> {
         if !valid_sha256(bundle_hash) || bytes.len() > 2 * 1024 * 1024 {
@@ -622,7 +612,7 @@ impl AnalyticsStore {
         let meta = KnowledgeMeta {
             bundle_hash: bundle_hash.to_owned(),
             knowledge_version,
-            own_hero_id: own_hero_id.map(str::to_owned),
+            own_hero_id: None,
             created_unix_ms: now_unix_ms(),
         };
         let meta_bytes = serde_json::to_vec(&meta).map_err(|_| "knowledge_write_failed")?;
@@ -911,6 +901,34 @@ impl AnalyticsStore {
         }
     }
 
+    pub(crate) fn chat_transcript(&self, match_id: &str) -> Result<Vec<Value>, &'static str> {
+        Ok(self
+            .chat(match_id)?
+            .iter()
+            .filter_map(transcript_turn)
+            .collect())
+    }
+
+    pub(crate) fn start_new_chat_from_summary(
+        &self,
+        match_id: &str,
+        summary: &str,
+    ) -> Result<String, &'static str> {
+        if summary.trim().is_empty() || summary.len() > 64 * 1024 {
+            return Err("note_invalid");
+        }
+        let _guard = lock(&self.write_gate);
+        let history = self.chat(match_id)?;
+        let history_bytes = serde_json::to_vec(&history).map_err(|_| "chat_invalid")?;
+        if history_bytes.len() / HISTORY_ESTIMATED_BYTES_PER_TOKEN <= HISTORY_TOKEN_BUDGET {
+            return Err("history_budget_not_exceeded");
+        }
+        let note_id = self.write_note_unlocked(match_id, "Chat recap", summary)?;
+        let chat_path = self.match_dir(match_id)?.join("chat.json");
+        atomic::write(&chat_path, b"[]").map_err(|_| "chat_reset_failed")?;
+        Ok(note_id)
+    }
+
     pub(crate) fn list_notes(
         &self,
         match_id: &str,
@@ -973,6 +991,15 @@ impl AnalyticsStore {
         markdown: &str,
     ) -> Result<String, &'static str> {
         let _guard = lock(&self.write_gate);
+        self.write_note_unlocked(match_id, title, markdown)
+    }
+
+    fn write_note_unlocked(
+        &self,
+        match_id: &str,
+        title: &str,
+        markdown: &str,
+    ) -> Result<String, &'static str> {
         if markdown.len() > 64 * 1024 {
             return Err("note_too_large");
         }
@@ -1094,7 +1121,8 @@ fn validate_preferences(settings: &AnalyticsPreferences) -> Result<(), &'static 
     for (provider, record) in &settings.provider_consents {
         if !valid_provider_id(provider)
             || record.origin.is_empty()
-            || record.text_version != CONSENT_TEXT_VERSION
+            || record.text_version == 0
+            || record.text_version > CONSENT_TEXT_VERSION
         {
             return Err("settings_invalid");
         }
@@ -1260,6 +1288,26 @@ fn valid_note_id(id: &str) -> bool {
     })
 }
 
+fn transcript_turn(entry: &Value) -> Option<Value> {
+    let message = entry.get("message").unwrap_or(entry);
+    let role = message.get("role").and_then(Value::as_str)?;
+    if !matches!(role, "user" | "assistant") {
+        return None;
+    }
+    let content = message.get("content")?;
+    let text = match content {
+        Value::String(text) => text.clone(),
+        Value::Array(blocks) => blocks
+            .iter()
+            .filter(|block| block.get("type").and_then(Value::as_str) == Some("text"))
+            .filter_map(|block| block.get("text").and_then(Value::as_str))
+            .collect::<Vec<_>>()
+            .join(""),
+        _ => String::new(),
+    };
+    (!text.is_empty()).then(|| json!({"role":role,"content":text}))
+}
+
 fn hmac_match_key(key: &[u8; 32], id: &[u8]) -> String {
     use sha2::{Digest, Sha256};
     let mut inner_pad = [0x36_u8; 64];
@@ -1308,10 +1356,11 @@ mod tests {
         let bundle_hash = "a".repeat(64);
         let digest = br#"{"knowledge_version":1,"meta":{"duration_s":1}}"#;
         store
-            .write_knowledge("9001", &bundle_hash, 1, Some("npc_dota_hero_axe"), digest)
+            .write_knowledge("9001", &bundle_hash, 1, digest)
             .unwrap();
         let (meta, value) = store.read_knowledge("9001", &bundle_hash).unwrap().unwrap();
         assert_eq!(meta.bundle_hash, bundle_hash);
+        assert!(meta.own_hero_id.is_none());
         assert_eq!(value["knowledge_version"], 1);
         assert!(store
             .read_knowledge("9001", &"b".repeat(64))
@@ -1380,6 +1429,81 @@ mod tests {
         let _ = fs::remove_dir_all(dir);
     }
 
+    #[test]
+    fn chat_transcript_returns_only_user_and_assistant_text() {
+        let dir = root();
+        let store = store(&dir);
+        store
+            .append_chat(
+                "9001",
+                "anthropic",
+                "claude-opus-5-5",
+                json!({"role":"user","content":"Why was the lane lost?"}),
+            )
+            .unwrap();
+        store
+            .append_chat(
+                "9001",
+                "anthropic",
+                "claude-opus-5-5",
+                json!({"role":"assistant","content":[
+                    {"type":"thinking","thinking":"private reasoning"},
+                    {"type":"text","text":"The lane was behind at 10:00."},
+                    {"type":"tool_use","id":"private-tool-id","name":"get_lane"}
+                ]}),
+            )
+            .unwrap();
+        store
+            .append_chat(
+                "9001",
+                "anthropic",
+                "claude-opus-5-5",
+                json!({"role":"user","content":[{"type":"tool_result","content":"private result"}]}),
+            )
+            .unwrap();
+
+        assert_eq!(
+            store.chat_transcript("9001").unwrap(),
+            vec![
+                json!({"role":"user","content":"Why was the lane lost?"}),
+                json!({"role":"assistant","content":"The lane was behind at 10:00."})
+            ]
+        );
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn recap_restart_requires_over_budget_history_and_preserves_a_local_note() {
+        let dir = root();
+        let store = store(&dir);
+        assert_eq!(
+            store
+                .start_new_chat_from_summary("9001", "# Chat recap")
+                .err(),
+            Some("history_budget_not_exceeded")
+        );
+        store
+            .append_chat(
+                "9001",
+                "anthropic",
+                "claude-opus-5-5",
+                json!({"role":"user","content":"x".repeat(36_100)}),
+            )
+            .unwrap();
+        let note_id = store
+            .start_new_chat_from_summary(
+                "9001",
+                "# Chat recap\n\nCreated locally without an AI request.\n\n**User:** Why?",
+            )
+            .unwrap();
+        assert_eq!(
+            store.read_note("9001", &note_id).unwrap(),
+            "# Chat recap\n\nCreated locally without an AI request.\n\n**User:** Why?"
+        );
+        assert!(store.chat("9001").unwrap().is_empty());
+        let _ = fs::remove_dir_all(dir);
+    }
+
     fn write_v1_settings(dir: &Path, raw: &[u8]) -> PathBuf {
         let analytics = dir.join("analytics");
         fs::create_dir_all(&analytics).unwrap();
@@ -1403,6 +1527,49 @@ mod tests {
         assert_eq!(
             store.key_status().unwrap(),
             json!({"provider":"anthropic","set":false,"last4":null})
+        );
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn old_consent_text_version_requires_reconsent_and_current_version_stays_valid() {
+        let dir = root();
+        let store = store(&dir);
+        store.preferences().unwrap();
+        let settings_path = store.root().join("settings.json");
+        let settings_for = |text_version| {
+            let mut settings = AnalyticsPreferences::default();
+            settings.ai_on = true;
+            settings.provider_consents.insert(
+                "anthropic".into(),
+                ProviderConsent {
+                    origin: "https://api.anthropic.com".into(),
+                    text_version,
+                    granted_at_unix_ms: 1,
+                },
+            );
+            PreferencesFile {
+                schema_version: PREFS_SCHEMA,
+                settings,
+            }
+        };
+
+        let old = serde_json::to_vec(&settings_for(1)).unwrap();
+        fs::write(&settings_path, old).unwrap();
+        let old_settings = store.preferences().unwrap();
+        assert!(
+            !old_settings.consent,
+            "old consent must not authorize the updated disclosure"
+        );
+
+        let current = serde_json::to_vec(&settings_for(2)).unwrap();
+        fs::write(&settings_path, current).unwrap();
+        let current_settings = store.preferences();
+        assert!(
+            current_settings
+                .as_ref()
+                .is_ok_and(|settings| settings.consent),
+            "current consent must remain valid without another prompt"
         );
         let _ = fs::remove_dir_all(dir);
     }
@@ -1446,7 +1613,8 @@ mod tests {
         .is_some());
         write_v1_settings(&with_key, &v1_bytes(true, true));
         let migrated = store(&with_key);
-        assert!(migrated.preferences().unwrap().ai_on);
+        let migrated_settings = migrated.preferences().unwrap();
+        assert!(!migrated_settings.ai_on && !migrated_settings.consent);
         assert_eq!(
             migrated.read_provider_key("anthropic").unwrap().unwrap(),
             b"sk-ant-test-key-123456"
@@ -1459,7 +1627,7 @@ mod tests {
         write_v1_settings(&without_key, &v1_bytes(true, true));
         let migrated = store(&without_key);
         let prefs = migrated.preferences().unwrap();
-        assert!(!prefs.ai_on && prefs.consent);
+        assert!(!prefs.ai_on && !prefs.consent);
         assert_eq!(migrated.read_provider_key("anthropic").unwrap(), None);
         let _ = fs::remove_dir_all(without_key);
     }

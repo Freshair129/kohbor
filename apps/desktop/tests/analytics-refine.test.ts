@@ -71,6 +71,12 @@ test("Analytics detail route carries the loaded bundle and restores match, time,
   assert.deepEqual(analyticsModel.returnToAnalytics(route), context);
 });
 
+test("Analytics detail route restores the AI report in the left panel", () => {
+  const page = readFileSync(new URL("../src/analytics/AnalyticsPage.tsx", import.meta.url), "utf8");
+  assert.match(page, /documentId:\s*knowledgeTab === "ai" \? "ai-report" : openNote/);
+  assert.match(page, /restoreContext\.documentId === "ai-report"[\s\S]*?setKnowledgeTab\("ai"\)/);
+});
+
 test("Analytics viewer leaves item, ability, and buff rows visible and hosts its player under the map", () => {
   const panel = readFileSync(new URL("../src/replay/MatchViewPanel.tsx", import.meta.url), "utf8");
   const viewer = readFileSync(new URL("../src/replay/matchViewer.mjs", import.meta.url), "utf8");
