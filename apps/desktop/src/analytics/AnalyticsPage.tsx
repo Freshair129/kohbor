@@ -7,7 +7,7 @@ import type { ReplayLibraryEntry, ReplayLibraryList, ReplayStatus } from "../rep
 import { MatchViewerSurface, analyticsPlayerShadowCss } from "../replay/MatchViewPanel";
 import { admitLibraryBundle, type MatchBundle } from "../replay/matchBundle";
 import { ANALYTICS_TEMPLATE_QUESTIONS, answerAnalyticsTemplate, clock } from "../replay/coach";
-import { actionFromMarkdownTarget, renderMarkdownSafe } from "./analyticsMarkdown";
+import { actionFromMarkdownTarget, renderMarkdownSafe, renderMarkdownStreaming } from "./analyticsMarkdown";
 import {
   analyticsDeathTeam, analyticsPlaybackKeyAction, analyticsViewState, enterAnalyticsReplayDetails,
   formatAnalyticsTime, replayRowFacts, UNKNOWN_VALUE,
@@ -20,6 +20,23 @@ import "./analytics.css";
 type Note = { id: string; title: string; ai: boolean };
 type KeyStatus = { provider: string; set: boolean; last4: string | null; requires_key?: boolean };
 type Usage = { input: number | null; cache_read: number | null; cache_creation: number | null; output: number | null };
+type ChatTurn = { role: "user" | "assistant"; content: string };
+
+function chatTurnsFromCommand(value: unknown): ChatTurn[] {
+  if (!Array.isArray(value)) throw new Error("Invalid chat transcript");
+  return value.flatMap(item => {
+    if (!item || typeof item !== "object") return [];
+    const turn = item as Record<string, unknown>;
+    return (turn.role === "user" || turn.role === "assistant") && typeof turn.content === "string"
+      ? [{ role: turn.role, content: turn.content }] : [];
+  });
+}
+
+function appendAssistantDelta(turns: ChatTurn[], delta: string): ChatTurn[] {
+  const last = turns.at(-1);
+  if (last?.role === "assistant") return [...turns.slice(0, -1), { ...last, content: last.content + delta }];
+  return [...turns, { role: "assistant", content: delta }];
+}
 
 const t = (locale: Locale, thai: string, english: string) => locale === "th" ? thai : english;
 const SYSTEM_NOTE_ID = "สรุปแมตช์.md";
@@ -99,7 +116,7 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = t
   const [noteText, setNoteText] = useState("");
   const [filter, setFilter] = useState<"all" | "pinned" | "notAnalysed">("all");
   const [showList, setShowList] = useState(false);
-  const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [leftCollapsed, setLeftCollapsed] = useState(() => window.matchMedia("(max-width: 1500px)").matches);
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const [hero, setHero] = useState<string | null>(null);
   const [ownHero, setOwnHero] = useState<string | null>(null);
@@ -109,6 +126,8 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = t
   const [streaming, setStreaming] = useState(false);
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
+  const [transcript, setTranscript] = useState<ChatTurn[]>([]);
+  const [historyUnavailable, setHistoryUnavailable] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [usage, setUsage] = useState<Usage | null>(null);
   const [createdNote, setCreatedNote] = useState<string | null>(null);
@@ -123,7 +142,6 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = t
   const [playerSpeed, setPlayerSpeed] = useState(10);
   const [playerPlaying, setPlayerPlaying] = useState(false);
   const [hoverTime, setHoverTime] = useState<{ seconds: number; percent: number } | null>(null);
-  const [includeContext, setIncludeContext] = useState({ match: true, time: true, document: true, myHero: true, hero: true });
   const viewerRoot = useRef<ShadowRoot | null>(null);
   const playerRange = useRef<HTMLInputElement>(null);
   const markdown = useMemo(() => renderMarkdownSafe(noteText), [noteText]);
@@ -144,6 +162,10 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = t
       setKeyStatus(key); setPrefs(settings); setNotes(items);
     } catch { /* The local page stays usable when AI is unavailable. */ }
   }, [selectedId]);
+  const refreshTranscript = useCallback(async (matchId: string) => {
+    const raw = await invoke<unknown>("analytics_chat_transcript", { matchId });
+    return chatTurnsFromCommand(raw);
+  }, []);
 
   useEffect(() => {
     let disposed = false; let unlisten: (() => void) | undefined;
@@ -152,6 +174,15 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = t
     return () => { disposed = true; unlisten?.(); };
   }, [refresh]);
   useEffect(() => { void refreshAi(); }, [refreshAi]);
+  useEffect(() => {
+    let alive = true;
+    setTranscript([]);
+    setHistoryUnavailable(false);
+    if (!selectedId) return;
+    void refreshTranscript(selectedId).then(turns => { if (alive) setTranscript(turns); })
+      .catch(() => { if (alive) setHistoryUnavailable(true); });
+    return () => { alive = false; };
+  }, [selectedId, refreshTranscript]);
   useEffect(() => {
     let alive = true; setBundle(null); setNoteText(""); setOpenNote(SYSTEM_NOTE_ID);
     setShowRawSource(false); setCurrentTime(0);
@@ -175,11 +206,17 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = t
     setNoteFallback(payload.note_fallback ?? false);
     if (payload.error) setError(payload.error);
     if (payload.note_id) { setCreatedNote(payload.note_id); void refreshAi(); }
+    const matchId = selectedId;
+    if (matchId) void refreshTranscript(matchId).then(setTranscript).catch(() => setHistoryUnavailable(true));
   };
   useEffect(() => {
     let stopDelta: (() => void) | undefined; let stopComplete: (() => void) | undefined;
     void listen<{ request_id: string; text: string }>("analytics://delta", event => {
-      if (event.payload.request_id === activeRequestId.current) { setAnswer(current => current + event.payload.text); return; }
+      if (event.payload.request_id === activeRequestId.current) {
+        setAnswer(current => current + event.payload.text);
+        setTranscript(current => appendAssistantDelta(current, event.payload.text));
+        return;
+      }
       const pending = pendingEvents.current.get(event.payload.request_id) ?? { deltas: [] };
       pending.deltas.push(event.payload.text); pendingEvents.current.set(event.payload.request_id, pending);
     }).then(stop => { stopDelta = stop; }).catch(() => {});
@@ -222,24 +259,28 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = t
   }
   async function ask() {
     if (!question.trim() || streaming || !selectedId) return;
+    const userQuestion = question.trim();
     if (!aiAvailable) {
       if (prefs.ai_on && !prefs.consent) { setConsentOpen(true); return; }
-      setAnswer(localTemplate(bundle, question.trim(), ownHero ?? selected?.own_hero ?? null, selected, locale));
+      const localAnswer = localTemplate(bundle, userQuestion, ownHero ?? selected?.own_hero ?? null, selected, locale);
+      setAnswer(localAnswer);
+      setTranscript(turns => [...turns, { role: "user", content: userQuestion }, { role: "assistant", content: localAnswer }]);
       setUsage(null); setQuestion(""); setNoteFallback(false);
       return;
     }
     setError(null); setAnswer(""); setUsage(null); setCreatedNote(null); setNoteFallback(false); setStreaming(true);
     try {
       const id = await invoke<string>("analytics_chat_submit", {
-        matchId: selectedId, question: question.trim(), openDocument: includeContext.document ? noteText : "",
-        selectedHero: includeContext.hero ? hero : null,
-        includeSelectedHero: includeContext.hero, includeOwnHero: includeContext.myHero,
-        includeMatch: includeContext.match, includeClock: includeContext.time,
-        includeDocument: includeContext.document, scrubberTimeS: currentTime,
+        matchId: selectedId, question: userQuestion, selectedHero: hero, scrubberTimeS: currentTime,
       });
       activeRequestId.current = id; setRequestId(id); setQuestion("");
+      setTranscript(turns => [...turns, { role: "user", content: userQuestion }, { role: "assistant", content: "" }]);
       const pending = pendingEvents.current.get(id); pendingEvents.current.delete(id);
-      if (pending?.deltas.length) setAnswer(pending.deltas.join(""));
+      if (pending?.deltas.length) {
+        const delta = pending.deltas.join("");
+        setAnswer(delta);
+        setTranscript(turns => appendAssistantDelta(turns, delta));
+      }
       if (pending?.complete) finishRequest.current({ request_id: id, ...pending.complete });
     } catch (reason) {
       setStreaming(false);
@@ -339,11 +380,20 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = t
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [active, currentTime, seek]);
-  function seekFromDocument(event: MouseEvent<HTMLDivElement>) {
-    const button = (event.target as Element).closest("button.an-md-seek"); if (!button) return;
-    const action = actionFromMarkdownTarget(button); const root = viewerRoot.current;
-    if (action?.kind === "time" && root) seek(action.seconds);
+  function onMarkdownAction(event: MouseEvent<HTMLDivElement>) {
+    const target = (event.target as Element | null)?.closest<HTMLElement>("[data-seek-time],[data-seek-event],[data-doc-id],[data-md-copy-url],[data-md-copy-code]");
+    if (!target) return;
+    const action = actionFromMarkdownTarget(target); const root = viewerRoot.current;
+    if (action?.kind === "time") seek(action.seconds);
     if (action?.kind === "event" && root && action.table === "deaths") root.querySelector<HTMLButtonElement>(`#rv-dlist [data-index="${action.index}"]`)?.click();
+    if (action?.kind === "document") {
+      if (action.id === SYSTEM_NOTE_ID || notes.some(note => note.id === action.id)) { setOpenNote(action.id); setLeftCollapsed(false); }
+    }
+    if (action?.kind === "copy_url") void navigator.clipboard?.writeText(action.url);
+    if (action?.kind === "copy_code") {
+      const code = target.closest(".an-md-code-block")?.querySelector("pre code")?.textContent;
+      if (code !== undefined) void navigator.clipboard?.writeText(code);
+    }
   }
 
   const documentTitle = openNote === SYSTEM_NOTE_ID ? t(locale, "สรุปแมตช์.md", "Match summary.md") : notes.find(note => note.id === openNote)?.title ?? openNote;
@@ -469,35 +519,44 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, active = t
             void invoke("analytics_note_delete", { matchId: selectedId, noteId: openNote }).then(() => { setOpenNote(SYSTEM_NOTE_ID); void refreshAi(); });
           }}>{t(locale, "ลบโน้ต", "Delete note")}</button>}
         </div>
-        {showRawSource ? <pre className="analytics-markdown analytics-source">{noteText}</pre> : <div className="analytics-markdown" onClick={seekFromDocument} dangerouslySetInnerHTML={{ __html: markdown }} />}
+        <section className="analytics-knowledge-slot" aria-label={t(locale, "พื้นที่แท็บความรู้แมตช์", "Match knowledge tab slot")} data-knowledge-tabs-slot>
+          <button type="button" disabled>สรุปแมตช์</button><button type="button" disabled>เทียบเลน/ฮีโร่</button><button type="button" disabled>บทวิเคราะห์ AI</button>
+        </section>
+        {showRawSource ? <pre className="analytics-markdown analytics-source">{noteText}</pre> : <div className="analytics-markdown" onClick={onMarkdownAction} dangerouslySetInnerHTML={{ __html: markdown }} />}
       </aside> : <button className="analytics-expand" onClick={() => setLeftCollapsed(false)}>›</button>}
       <main className="analytics-column analytics-centre">
         {!bundle && <div className="analytics-empty" role="status">{state === "empty" ? t(locale, "ยังไม่มีรีเพลย์ในคลัง", "No replays in the library") : state === "parsing" ? t(locale, "กำลังวิเคราะห์รีเพลย์…", "Analysing replay…") : t(locale, "เลือกรีเพลย์ที่พร้อม", "Select a ready replay")}</div>}
         {bundle && <div className="analytics-kill-score" aria-label={t(locale, "hero kills ต่อทีม", "Hero kills by team")}>
           <span>{t(locale, "Radiant", "Radiant")} {kills.radiant ?? UNKNOWN_VALUE}</span><b>{heroKillTotal}</b><span>{t(locale, "Dire", "Dire")} {kills.dire ?? UNKNOWN_VALUE}</span>
         </div>}
-        {bundle && <MatchViewerSurface locale={locale} bundle={bundle} onHeroSelect={setHero} onHeroIdentify={identifyOwnHero}
+        {bundle && <MatchViewerSurface locale={locale} bundle={bundle} onHeroSelect={setHero} onHeroIdentify={identifyOwnHero} statLabelMode="text"
           onTimeChange={onTimeChange} onReady={onViewerReady} initialTime={0} disableKeyboard />}
         {player}
       </main>
       {!rightCollapsed ? <aside className="analytics-column analytics-chat"><header><strong>{t(locale, "ผู้ช่วย", "Assistant")}</strong><button onClick={() => setRightCollapsed(true)} aria-label={t(locale, "ยุบแผงขวา", "Collapse right panel")}>›</button></header>
         <ProviderControls locale={locale} settings={prefs} onSettingsChange={setPrefs} onKeyStatusChange={setKeyStatus} compact consentOpen={consentOpen} onConsentOpenChange={setConsentOpen} />
-        <div className="analytics-chat-feed" aria-live="polite">
+        <div className="analytics-chat-feed" aria-live="polite" onClick={onMarkdownAction}>
           {state === "noai" && <div className="analytics-noai"><strong>{t(locale, "เปิดใช้ผู้ให้บริการ AI ในการตั้งค่า", "Enable an AI provider in Settings")}</strong><p>{t(locale, "ถามด้วยแม่แบบในเครื่องได้ คำถามเหล่านี้ไม่ส่งข้อมูลออกจากเครื่อง", "Use local templates; these questions do not send data off-device.")}</p>
-            <div className="analytics-template-questions">{ANALYTICS_TEMPLATE_QUESTIONS.map(item => <button key={item.id} onClick={() => setAnswer(localTemplate(bundle, locale === "th" ? item.th : item.en, ownHero ?? selected?.own_hero ?? null, selected, locale))}>{locale === "th" ? item.th : item.en}</button>)}</div>
+            <div className="analytics-template-questions">{ANALYTICS_TEMPLATE_QUESTIONS.map(item => <button key={item.id} onClick={() => {
+              const prompt = locale === "th" ? item.th : item.en;
+              const localAnswer = localTemplate(bundle, prompt, ownHero ?? selected?.own_hero ?? null, selected, locale);
+              setAnswer(localAnswer); setTranscript(turns => [...turns, { role: "user", content: prompt }, { role: "assistant", content: localAnswer }]);
+            }}>{locale === "th" ? item.th : item.en}</button>)}</div>
           </div>}
-          {answer && <article className="analytics-answer"><p>{answer}</p>{usage && <small>{t(locale, "อินพุต", "Input")} {usage.input ?? UNKNOWN_VALUE} · cache {usage.cache_read ?? UNKNOWN_VALUE} · {t(locale, "เอาต์พุต", "Output")} {usage.output ?? UNKNOWN_VALUE}</small>}</article>}
+          {historyUnavailable && <p className="analytics-error" role="status">{t(locale, "ระบบหลักยังอ่านประวัติแชตจากไฟล์ได้ไม่สำเร็จ", "The host could not load the saved chat transcript.")}</p>}
+          {transcript.map((turn, index) => <article className="analytics-chat-turn" data-role={turn.role} key={`${selectedId ?? "none"}-${index}`}>
+            <div dangerouslySetInnerHTML={{ __html: renderMarkdownStreaming(turn.content) }} />
+            {turn.role === "assistant" && usage && index === transcript.length - 1 && <small>{t(locale, "อินพุต", "Input")} {usage.input ?? UNKNOWN_VALUE} · cache {usage.cache_read ?? UNKNOWN_VALUE} · {t(locale, "เอาต์พุต", "Output")} {usage.output ?? UNKNOWN_VALUE}</small>}
+          </article>)}
           {shouldOfferSaveAsNote({ answer, savedNoteId: createdNote, noteFallback }) && <button type="button" onClick={() => void saveAnswerAsNote()}>{AI_PROVIDER_COPY[locale].noteFallback}</button>}
           {createdNote && <button className="analytics-created-note" onClick={() => { setOpenNote(createdNote); setCreatedNote(null); }}>{t(locale, "สร้างแล้ว · เปิดในแผงซ้าย", "Created · open in left panel")}: {createdNote}</button>}
           {error && <p className="analytics-error" role="alert">{error}</p>}
         </div>
-        <div className="analytics-context"><span>{t(locale, "ผู้ช่วยเห็น:", "Assistant sees:")}</span>
-          {(["match", "time", "document", "myHero", "hero"] as const).map((chip, i) => <button key={chip} aria-pressed={includeContext[chip]} onClick={() => setIncludeContext(old => ({ ...old, [chip]: !old[chip] }))}>{t(locale, ["แมตช์", "เวลา", "เอกสาร", "ฮีโร่ฉัน", "ฮีโร่ที่เลือก"][i]!, ["match", "time", "document", "my hero", "selected hero"][i]!)} ×</button>)}
-        </div>
+
         <form className="analytics-composer" onSubmit={event => { event.preventDefault(); void ask(); }}>
           {!prefs.consent && <button type="button" onClick={() => setConsentOpen(true)}>{AI_PROVIDER_COPY[locale].consent}</button>}
           <textarea value={question} onChange={event => setQuestion(event.currentTarget.value)} placeholder={t(locale, "ถามเกี่ยวกับแมตช์นี้…", "Ask about this match…")} disabled={streaming || !bundle} />
-          <div><span>{t(locale, "เมื่อ AI เปิดและคุณส่งคำถาม ข้อมูลจะส่งไปยังผู้ให้บริการที่เลือก", "When AI is on and you submit, data goes to the selected provider")}</span>
+          <div><span>{AI_PROVIDER_COPY[locale].sendDisclosure}</span>
             {streaming ? <button type="button" onClick={() => { if (requestId) void invoke("analytics_chat_cancel", { requestId }); setStreaming(false); }}>{t(locale, "ยกเลิก", "Cancel")}</button> : <button type="submit" disabled={!question.trim() || !bundle}>{t(locale, "ส่ง", "Send")}</button>}
           </div>
         </form>

@@ -214,7 +214,7 @@ Recorded in chat with the lead agent; details and the conflicts they create are 
 
 **DEC-COACH-REVIEW** (decided by the product owner, PN-008; relayed by the coordinating session and recorded by an agent). The owner replied “As recommended” to the seven recommendations in coord:reports/2026-11-23-coach-analytics-design.md section 7:
 
-1. Analyse the owner's own hero only. Teammates appear as hero + roster slot; per-person analysis of a friend needs that friend's consent later.
+1. **Amended by DEC-ANALYTICS-V2 (2026-11-25).** Post-match hero-level coaching may analyse observed data for all ten heroes. Player names and claims about people are excluded. Per-person analysis of a friend still needs that friend's consent later.
 2. Bring gem-dota 0.14.0 into `tools/` as a pinned Lab/dev tool, pinning the version and file hashes, from the copy already installed on the owner's machine. Nothing is downloaded. The product parser is decided after a feasibility spike.
 3. Comparisons use the owner's own local history only; no OpenDota or STRATZ.
 4. Thresholds such as ganked and lane lost start as provisional drafts. The owner confirms them after 3–5 matches; they are not changed after seeing a result.
@@ -235,6 +235,26 @@ The decision covers the Lab slice (DEC-LAB-GATE). It adds no requirement: post-m
 Amendment (owner 2026-11-24, relayed by the lead, recorded by an agent): asked "Should earlier messages in the same match chat be resent with each new question?", the owner replied "Yes, resend them". Item 1 now lists those messages. Wording correction by the lead: the first record said the API key is "never sent"; the key must authenticate the request, so item 1 now says it is never content and travels only in the HTTPS authentication header to api.anthropic.com.
 
 The requirements are UI-021, UI-022 and MEM-007. The API key is native-host-only and DPAPI-protected. Revocation stops requests; the local request ledger contains metadata only. Native and live-provider evidence are NOT_RUN.
+
+### Analytics v2 renderer decisions (DEC-ANALYTICS-V2, 2026-11-25)
+
+**DEC-ANALYTICS-V2** — decided by the product owner 2026-11-25, relayed by the lead, recorded by an agent. Owner words: “Approve all 13”. This records the 13 approved choices in `F:\kohbor-coord\design\analytics-v2-20261125\DESIGN.md` section H and amends DEC-COACH-REVIEW item 1 and DEC-REPLAY-INTEGRATION item 2 below.
+
+1. Scope of AI analysis: hero-level analysis may use observed data for all ten heroes; do not use player names or make claims about people. Per-person analysis still requires that player's consent.
+2. Card labels: use text labels in Analytics and icons on Live.
+3. Hero-card font floor: exempt the card from the 12 px minimum so it matches the reference sizes, 9–13.5 px.
+4. Ten cards at 1440×900: uniformly scale all ten cards by 0.88 without rearranging their structure.
+5. Lane, NW/min and XPM: put them in the matchup strip and keep the card layout at the reference; add no hero-damage cell until the engine provides real data.
+6. Lane and teamfight thresholds: accept the provisional values in B.5 and B.7 and label them “เกณฑ์ชั่วคราว”; review after 3–5 matches.
+7. Phase boundaries: use 10:00 and 25:00.
+8. Request the replay-engine change now for attacker-side damage and gold earned; include draft and winner in that engine release if inexpensive.
+9. Amend UI-021 and UI-022 for removed context chips, #doc= links, and the always-sent/read-tool disclosure; show the consent screen once again.
+10. Cache the match digest for one hour and revisit the lifetime using ledger data.
+11. Generate the AI report only after the user clicks, with a cost note.
+12. Use built-in charts from fenced `kohbor-chart` blocks and open documents in the left panel; do not add Mermaid or another dependency.
+13. Use the Settings model for chat and the one-time report (default `claude-opus-5-5`); a model switch starts a cold cache.
+
+Decision 9 amends UI-021 and UI-022: remove context chips, make safe `#doc=` links open in the left panel, disclose what every request sends and what local read-only tools may access, and show the consent screen once again. Decision 8 requests a separate replay-engine change; it is not implemented in this renderer work. The renderer does not supply RULES v2 prompt text or infer missing replay data. The updated requirements, SRS, RTM, scenarios and UX-SPEC are the controlled product record. Host transcript, request-projection and consent-version changes remain separate implementation dependencies. No native or visual acceptance is claimed.
 
 ### Analytics provider set and gates (DEC-AI-PROVIDERS, 2026-11-24)
 
@@ -273,7 +293,7 @@ Product owner, relayed by the lead session. Owner proposal: “ไม่งั�
 **DEC-REPLAY-INTEGRATION** (decided by the product owner; answer "As recommended", relayed by the lead session and recorded by an agent) on the 13 recommendations in coord:reports/2026-11-23-replay-integration-design.md section 12. The design was written by an agent from the replay work under `F:\gsi-log\` (`replay-engine`, `replay-engine-rs`, `replay-viewer-proto`), read only.
 
 1. **Engine packaging.** The replay engine stays in its own repository and is consumed as a pinned Rust sidecar executable behind a versioned JSON contract in `contracts/`. The Python engine (gem-dota) stays Lab/dev only. Kohbor depends on the Rust engine only after it is committed, tagged and passes the Python golden tests.
-2. **Ten hero cards.** Post-match views may show the observed state of all ten heroes. Coaching and per-person analysis stay on the own hero. This amends DEC-COACH-REVIEW item 1 (revision 2).
+2. **Ten hero cards (amended by DEC-ANALYTICS-V2, 2026-11-25).** Post-match views and hero-level coaching may use observed data for all ten heroes. Player names and claims about people are excluded. Per-person analysis of a friend still needs that friend's consent later. This amends DEC-COACH-REVIEW item 1 (revision 2).
 3. **Bundled game images.** Reverses the earlier rule against bundling Valve art: hero, ability and item images may be bundled as Kohbor assets, built from the owner's installed game with no download; the installed-game reader stays as fallback. A rights review is required before any public release.
 4. **Raw match ID on disk.** Allowed only inside the local replay library. The GSI/session side keeps its keyed hash. Never in logs.
 5. **First acquisition path.** Read-only watch of Dota's replay folder plus a manual file pick. Kohbor does not write Dota configuration.

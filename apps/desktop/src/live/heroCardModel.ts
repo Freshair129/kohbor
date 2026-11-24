@@ -23,8 +23,10 @@ import { derivedStats, RULES_BY_PATCH, type DerivedRules, type StatsData } from 
 import { STAT_ICON_CATALOG, type StatIconId, type StatKey } from "./statIcons/catalog.ts";
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
 import type { OwnFieldCardMode } from "./secondMonitorLayout.ts";
+import { heroCardView as buildHeroCardView } from "../analytics/heroCardView.mjs";
 
 export const UNKNOWN = "—";
+export type HeroCardLabelMode = "text" | "icon";
 
 /** In-game player slot colours (top bar order). Used only when the draft slot is known; otherwise the team token. */
 export const SLOT_COLORS = ["#3375ff", "#66ffbf", "#bf00bf", "#f3f00b", "#ff6b00", "#fe86c2", "#a1b447", "#65d9f7", "#008321", "#a46900"] as const;
@@ -240,6 +242,21 @@ export interface FullHeroCardView {
   /** Ally ultimate dot from an admitted source (peer or the top-bar read); null otherwise and always for enemies. */
   ult: { state: SkillState; source: Exclude<SkillSource, null>; seconds: number | null } | null;
   derivedBasis: { label: string; title: string } | null;
+}
+
+/** Adapt the live view model into the same six-row structure used by Replay and Analytics. */
+export function sharedHeroCardView(view: FullHeroCardView) {
+  const statValues = (cells: StatCellView[]) => Object.fromEntries(cells.map(cell => [cell.key, cell.value]));
+  const attributes = view.stats.filter(cell => cell.group === "attribute");
+  const derived = view.stats.filter(cell => cell.group !== "attribute");
+  return buildHeroCardView({
+    top: { name: view.heroName ?? UNKNOWN, level: view.levelText, kda: view.kdaText, lhdn: view.lhdnText, netWorth: UNKNOWN },
+    bars: { hp: view.hpText, mana: view.manaText },
+    ab: { hero: view.abilities.hero.map(slot => slot.state), extras: view.abilities.extras.map(slot => slot.state), buffs: view.buffs.length },
+    it: { main: view.items.main.map(slot => slot.state), backpack: view.items.backpack.map(slot => slot.state), teleport: view.items.teleport.state, neutral: view.items.neutral.state, gold: view.side === "own" ? view.goldText : UNKNOWN },
+    st: statValues(attributes),
+    dv: statValues(derived),
+  });
 }
 
 const clampPercent = (value: number | null): number | null =>

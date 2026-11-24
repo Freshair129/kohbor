@@ -21,42 +21,26 @@ export function analyticsViewState(input: {
   return "ready";
 }
 
-export function analyticsLayout(width: number, height: number, leftCollapsed = false, rightCollapsed = false) {
-  const tracks = (viewportWidth: number, railWidth: number, collapseLeft: boolean, collapseRight: boolean) => {
-    const compact = width <= 1500;
-    const specs = compact
-      ? { left: [190, 0.72], center: [600, 1.85], right: [240, 0.85] } as const
-      : { left: [210, 0.78], center: [600, 1.85], right: [260, 0.9] } as const;
-    const afterSpecs = compact
-      ? { left: [190, 0.72], center: [600, 1.85], right: [144, 0.26] } as const
-      : { left: [210, 0.78], center: [600, 1.85], right: [156, 0.38] } as const;
-    const selectedSpecs = railWidth === 44 ? afterSpecs : specs;
-    const pageWidth = Math.max(0, viewportWidth - 72 - railWidth - 48);
-    const gap = 10;
-    const leftMin = collapseLeft ? 28 : selectedSpecs.left[0];
-    const rightMin = collapseRight ? 28 : selectedSpecs.right[0];
-    const centerMin = collapseLeft && collapseRight ? 0 : selectedSpecs.center[0];
-    const weights = [collapseLeft ? 0 : selectedSpecs.left[1], collapseLeft && collapseRight ? 1 : selectedSpecs.center[1], collapseRight ? 0 : selectedSpecs.right[1]];
-    const mins = [leftMin, centerMin, rightMin];
-    const free = Math.max(0, pageWidth - gap * 2 - mins.reduce((sum, value) => sum + value, 0));
-    const weightTotal = weights.reduce((sum, value) => sum + value, 0) || 1;
-    const columns = mins.map((value, index) => value + free * weights[index]! / weightTotal);
-    const center = collapseLeft && collapseRight ? Math.max(0, pageWidth - 56 - gap * 2) : columns[1]!;
-    const mapWidth = Math.max(0, 300 + Math.max(0, center - 18 - 16 - 580) * 1.35 / 3.35 - 20);
-    return {
-      docs: columns[0]!, centre: center, chat: columns[2]!, rightRail: railWidth,
-      map: { width: mapWidth, height: mapWidth },
-    };
+export function analyticsLayout(width: number, height: number, leftCollapsed = width <= 1500, rightCollapsed = false) {
+  const compact = width <= 1500;
+  const pageWidth = Math.max(0, width - 72 - 44 - 48);
+  const tracks = (collapseLeft: boolean, collapseRight: boolean) => {
+    const docs = compact || collapseLeft ? 28 : 273;
+    const chat = collapseRight ? 28 : compact ? 289 : 423;
+    const centre = Math.max(0, pageWidth - docs - chat - 20);
+    const cardWidth = 344 * (compact ? 0.88 : 1);
+    const mapWidth = Math.max(0, Math.min(centre - 2 * cardWidth - 34, centre));
+    return { docs, centre, chat, rightRail: 44, map: { width: mapWidth, height: mapWidth } };
   };
-  const before = tracks(width, 72, false, false);
-  const after = tracks(width, 44, leftCollapsed, rightCollapsed);
+  const before = tracks(width <= 1500, false);
+  const after = tracks(leftCollapsed, rightCollapsed);
   const left = after.docs;
   const center = after.centre;
   const right = after.chat;
   return {
-    before, after, left, center, right, availableHeight: Math.max(0, height - 180),
+    before, after, left, center, right, rightRail: 44, docs: left, heroCardScale: compact ? 0.88 : 1, availableHeight: Math.max(0, height - 180),
     overlap: center < 600 || height < 760,
-    mapMin: 600,
+    mapMin: 300,
     pageScroll: center < 600 || height < 760,
   };
 }

@@ -1,6 +1,6 @@
 /* Replay-style hero cards on the centred Live deck (DEC-REPLAY-INTEGRATION item 10, slice R5; owner amendment
    2026-11-24: every card has the replay card's full structure).
-   Layout follows the replay viewer's card (.rc in replay/matchViewer.css) mapped to Command Deck tokens: portrait with
+   Layout follows the shared reference card (.rc below) mapped to Command Deck tokens: portrait with
    level, name, K/D/A · LH/DN · gold, HP and mana bars, abilities with buff chips, 6 items + backpack + TP + neutral,
    then the attribute and derived stat cells. The nine team cards (.lhc-compact) are a denser variant of the same
    sections. No web fonts, no remote URLs. --c is the in-game slot colour when the draft slot is known, else the team
@@ -90,6 +90,9 @@
 .lhc-derived-basis { flex: 0 0 12px; min-width: 0; overflow: hidden; color: var(--text-2); font: 12px/12px Arial, sans-serif; text-overflow: ellipsis; white-space: nowrap; }
 .lhc-derived-basis.is-inline { flex: none; max-width: 100%; }
 .lhc-stats { display: grid; flex: 1 1 0; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1px 6px; min-width: 0; min-height: 0; margin: 0; color: var(--muted); font: 12px/1.3 "IBM Plex Mono", Consolas, monospace; font-variant-numeric: tabular-nums; }
+.lhc-stats.is-attributes { flex: 1 1 0; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-rows: minmax(12px, 1fr); }
+.lhc-stats.is-derived-row { flex: 2 1 0; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(12px, 1fr)); }
+.lhc-rates { flex: none; color: var(--text-2); font: 12px "IBM Plex Mono", Consolas, monospace; }
 .lhc-stat { display: flex; align-items: baseline; gap: 3px; min-width: 0; overflow: hidden; white-space: nowrap; }
 .lhc-stat dt { display: inline-flex; flex: none; align-items: center; gap: 1px; height: 12px; margin: 0; line-height: 12px; }
 .lhc-stat dt > img { display: block; flex: none; width: 12px; height: 12px; object-fit: contain; }
@@ -371,6 +374,107 @@
 .lhc-ult.is-ready { background: var(--accent); }
 .lhc-ult.is-ready_no_mana { background: var(--ally); }
 .lhc-ult.is-not_ready, .lhc-ult.is-cooldown { background: var(--stale); }
+
+/* Replay and Analytics share the reference's six fixed rows. The card's 9–13.5 px text is the approved 12 px-floor exemption. */
+.rc { --c: var(--ally); position: relative; display: grid; grid-template-columns: 46px minmax(0,1fr); grid-template-areas: "pt top" "pt bars" "ab ab" "it it" "st st" "dv dv"; gap: 3px 8px; min-width: 344px; min-height: 138px; box-sizing: border-box; padding: 7px 8px 7px 7px; overflow: hidden; border: 1px solid var(--line); border-left: 4px solid var(--c); border-radius: 9px; background: var(--surface); color: var(--ink); cursor: pointer; zoom: var(--hc-scale,1); transform-origin: top left; }
+.rc:focus-visible { outline: 2px solid var(--rad); outline-offset: 2px; }
+.rc.focus { box-shadow: 0 0 0 2px var(--c); }
+.rc.alert { box-shadow: 0 0 0 2px var(--bad), 0 0 16px -2px color-mix(in srgb,var(--bad) 60%,transparent); }
+.rc.hid { opacity: .45; }
+.rc.hid::after { content: "ซ่อนบนแผนที่"; position: absolute; top: 6px; right: 8px; color: var(--muted); font: 12px var(--f-mono); }
+.rc .pt { position: relative; grid-area: pt; width: 46px; height: 46px; }
+.rc .pt img { width: 46px; height: 46px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 2px var(--c); }
+.rc.dead .pt img { filter: grayscale(1) brightness(.6); }
+.rc .lvb { position: absolute; right: -4px; bottom: -3px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: var(--ink); color: var(--surface); font: 700 10.5px/18px var(--f-mono); text-align: center; }
+.rc .rsp { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font: 700 16px var(--f-mono); text-shadow: 0 1px 3px #000; }
+.rc .top { display: flex; grid-area: top; align-items: baseline; gap: 8px; min-width: 0; color: var(--ink-2); font-size: 11.5px; }
+.rc .top .nm { flex: 1; min-width: 0; overflow: hidden; color: var(--ink); font: 700 13.5px/1.2 var(--f-display); text-overflow: ellipsis; white-space: nowrap; }
+.rc .top .kd { color: var(--ink); font-weight: 600; }
+.rc .top .nw { color: var(--warn); font-weight: 600; }
+.rc .bars { display: grid; grid-area: bars; align-self: center; gap: 2px; }
+.rc .bar { position: relative; height: 12px; overflow: hidden; border-radius: 3px; background: var(--bg); }
+.rc .bar.mp { height: 11px; }
+.rc .bar > i { position: absolute; inset: 0 auto 0 0; }
+.rc .bar.hp > i { background: var(--hp); }
+.rc .bar.hp.low > i { background: var(--bad); }
+.rc .bar.mp > i { background: var(--mp); }
+.rc .bar .num { position: absolute; z-index: 2; inset: 0; display: grid; place-items: center; color: #fff; font: 600 9.5px/12px var(--f-mono); text-shadow: 0 0 2px #000; }
+.rc .bar.mp .num { font-size: 9px; line-height: 11px; }
+.rc .bar .chunk,.rc .bar .cost { position: absolute; z-index: 1; top: 0; bottom: 0; }
+.rc .bar .chunk { background: #ff3b30; }
+.rc .bar .cost { background: #ff9f1a; box-shadow: inset 0 0 0 1px rgba(0,0,0,.35); }
+.rc .bar .cost.short { background: repeating-linear-gradient(45deg,#ff9f1a 0 3px,#c0392b 3px 6px); }
+.rc .bar em { position: absolute; z-index: 3; top: 50%; right: 4px; transform: translateY(-50%); color: #fff; font: 700 9px var(--f-mono); font-style: normal; text-shadow: 0 0 2px #000; }
+.rc .bar .dmgnum { color: #ff6b5e; }
+.rc .bar .dmgnum.ty1 { color: #8fb6ff; }
+.rc .bar .dmgnum.ty2 { color: #f0e6d2; }
+.rc .bar .costnum { color: #ffc266; }
+.rc .bar .costnum.short { color: #ff6b5e; }
+.rc .row { display: flex; align-items: center; gap: 3px; min-width: 0; }
+.rc .row.ab { grid-area: ab; flex-wrap: wrap; row-gap: 3px; }
+.rc .row.it { grid-area: it; flex-wrap: wrap; row-gap: 3px; }
+.rc .ic { position: relative; flex: none; width: 26px; height: 26px; overflow: hidden; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); }
+.rc .ic.it { width: 31px; height: 23px; }
+.rc .ic.bk { width: 20px; height: 15px; opacity: .65; }
+.rc .ic.tp { width: 18px; height: 18px; border-radius: 50%; }
+.rc .ic.nt { width: 24px; height: 24px; border: 2px solid var(--good); border-radius: 50%; }
+.rc .ic.empty { border-style: dashed; background: transparent; }
+.rc .ic > b { position: absolute; inset: 0; display: grid; place-items: center; color: var(--ink-2); font: 600 10px var(--f-mono); text-transform: uppercase; }
+.rc .ic > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.rc .ic.off { opacity: .35; filter: grayscale(1); }
+.rc .ic.nomana { box-shadow: inset 0 0 0 2px var(--mp); }
+.rc .ic.oncd::after { position: absolute; z-index: 2; inset: 0; background: conic-gradient(rgba(0,0,0,.68) var(--p),rgba(0,0,0,.15) 0); content: ""; }
+.rc .ic > s { position: absolute; z-index: 3; inset: 0; display: grid; place-items: center; color: #fff; font: 700 9px var(--f-mono); text-decoration: none; text-shadow: 0 1px 2px #000; }
+.rc .ic > em { position: absolute; z-index: 4; right: 1px; bottom: 0; color: #fff; font: 700 9px var(--f-mono); font-style: normal; text-shadow: 0 0 2px #000; }
+.rc .ic > .pp { position: absolute; z-index: 4; right: 0; bottom: -1px; left: 0; color: var(--warn); font: 12px/1 sans-serif; letter-spacing: -1px; text-align: center; text-shadow: 0 0 2px #000; }
+.rc .bp { display: inline-flex; gap: 2px; margin-inline: 2px; }
+.rc .enh { max-width: 56px; overflow: hidden; color: var(--good); font: 600 10px var(--f-mono); text-overflow: ellipsis; white-space: nowrap; }
+.rc .gold { margin-left: auto; color: var(--warn); font-size: 10.5px; white-space: nowrap; }
+.rc .mods { display: flex; flex: 1; gap: 3px; min-width: 0; overflow: hidden; margin-left: 4px; }
+.rc .mods .mod { padding: 1px 4px; font-size: 10px; white-space: nowrap; }
+.rc .row.st { display: flex; grid-area: st; gap: 8px; overflow: hidden; color: var(--muted); font: 10.5px var(--f-mono); white-space: nowrap; }
+.rc .row.st .at b { color: var(--ink); font-weight: 600; }
+.rc .row.st .at b.m { color: var(--mp); }
+.rc .row.st .at em { margin-left: 1px; color: var(--good); font-style: normal; }
+.rc .row.st .at.pr,.rc .row.st .at.pr b { color: var(--warn); }
+.rc .stat-glyph { display: inline-flex; align-items: center; justify-content: center; gap: 1px; vertical-align: -1px; }
+.rc .stat-glyph img { display: block; flex: none; width: 10px; height: 10px; object-fit: contain; }
+.rc .row.dvs { display: grid; grid-area: dv; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 1px 6px; color: var(--muted); font: 10px var(--f-mono); }
+.rc .dv { overflow: hidden; cursor: help; text-overflow: ellipsis; white-space: nowrap; }
+.rc .dv b { color: var(--ink); font-weight: 600; }
+.rc .dv.z b { color: var(--muted); font-weight: 400; }
+
+/* Live's React renderer uses the same six rows and dimensions, with Live theme tokens and icon labels. */
+.rc.lhc-live { --ink: var(--text); --ink-2: var(--text-2); --warn: var(--warning); --good: var(--ally); --bad: var(--critical); --bg: var(--ground); --hp: var(--accent); --mp: var(--ally); --f-display: Arial, sans-serif; --f-mono: Consolas, monospace; }
+.rc.lhc-live.is-enemy { --c: var(--enemy); }
+.rc.lhc-live .pt .lhc-portrait { display: block; width: 46px; height: 46px; overflow: hidden; border-radius: 50%; box-shadow: 0 0 0 2px var(--c); background: var(--bg); }
+.rc.lhc-live .pt .lhc-portrait > img,.rc.lhc-live .pt .lhc-portrait > .hero-portrait { width: 100%; height: 100%; border-radius: 50%; }
+.rc.lhc-live.dead .pt .lhc-portrait { filter: grayscale(1) brightness(.6); }
+.rc.lhc-live .top .nm { display: block; }
+.rc.lhc-live .bar .num { font: 600 9.5px/12px var(--f-mono); }
+.rc.lhc-live .bar.mp .num { font-size: 9px; line-height: 11px; }
+.rc.lhc-live .lhc-ic { position: relative; flex: none; width: 26px; height: 26px; overflow: hidden; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); }
+.rc.lhc-live .lhc-ic.is-it { width: 31px; height: 23px; }
+.rc.lhc-live .lhc-ic.is-bk { width: 20px; height: 15px; opacity: .65; }
+.rc.lhc-live .lhc-ic.is-tp { width: 18px; height: 18px; border-radius: 50%; }
+.rc.lhc-live .lhc-ic.is-nt { width: 24px; height: 24px; border: 2px solid var(--good); border-radius: 50%; }
+.rc.lhc-live .lhc-ic.is-empty,.rc.lhc-live .lhc-ic.is-unknown { border-style: dashed; background: transparent; }
+.rc.lhc-live .lhc-ic > b { position: absolute; inset: 0; display: grid; place-items: center; color: var(--ink-2); font: 600 10px var(--f-mono); text-transform: uppercase; }
+.rc.lhc-live .lhc-ic > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.rc.lhc-live .lhc-ic.cast-not_learned { opacity: .35; filter: grayscale(1); }
+.rc.lhc-live .lhc-ic.cast-cooldown::after { position: absolute; z-index: 2; inset: 0; background: rgba(0,0,0,.62); content: ""; }
+.rc.lhc-live .lhc-ic > s { position: absolute; z-index: 3; inset: 0; display: grid; place-items: center; color: #fff; font: 700 9px var(--f-mono); text-decoration: none; text-shadow: 0 1px 2px #000; }
+.rc.lhc-live .lhc-ic > em { position: absolute; z-index: 4; right: 1px; bottom: 0; color: #fff; font: 700 9px var(--f-mono); font-style: normal; text-shadow: 0 0 2px #000; }
+.rc.lhc-live .lhc-pips { position: absolute; z-index: 4; right: 0; bottom: 0; left: 0; display: flex; justify-content: center; gap: 1px; }
+.rc.lhc-live .lhc-pips span { width: 4px; height: 4px; border-radius: 50%; background: var(--warn); box-shadow: 0 0 2px #000; }
+.rc.lhc-live .lhc-mods { display: flex; flex: 1; gap: 3px; min-width: 0; overflow: hidden; margin-left: 4px; }
+.rc.lhc-live .lhc-mod { flex: none; padding: 1px 4px; border: 1px solid var(--line); border-radius: 4px; color: var(--ink-2); font-size: 10px; white-space: nowrap; }
+.rc.lhc-live .row.st .at { display: inline-flex; align-items: baseline; gap: 2px; }
+.rc.lhc-live .row.st .at .stat-glyph[data-stat-label="text"] { color: var(--muted); }
+.rc.lhc-live .stat-glyph[data-stat-label="icon"] img { width: 10px; height: 10px; }
+.rc.lhc-live .stat-glyph[data-stat-label="icon"] span { font-size: 9px; }
+.rc.lhc-live .row.st .at em { margin-left: 1px; color: var(--good); font: normal 600 10.5px var(--f-mono); }
+.rc.lhc-live .gold { color: var(--warn); }
 
 @media (max-height: 800px) {
   .lhc-full { --ab: 26px; gap: 3px 8px; padding: 6px 7px 6px 6px; }

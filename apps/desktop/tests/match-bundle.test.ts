@@ -137,18 +137,23 @@ test("the Match view has no icon folder picker and loads the bundled set", () =>
   assert.match(glob, /import\.meta\.glob/);
 });
 
-test("replay stat rows use the shared icon catalog and keep their existing value cells", () => {
+test("replay stat rows use the shared card model and keep their existing value cells", () => {
   const panel = readFileSync(new URL("../src/replay/MatchViewPanel.tsx", import.meta.url), "utf8");
   const viewer = readFileSync(new URL("../src/replay/matchViewer.mjs", import.meta.url), "utf8");
-  const css = readFileSync(new URL("../src/replay/matchViewer.css", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../src/live/heroCard.css", import.meta.url), "utf8");
   assert.match(panel, /STAT_ICON_CATALOG/);
+  assert.match(panel, /heroCard\.css\?raw/);
   assert.match(panel, /statIcon: \(id: StatIconId\) => statIconUrl\(id\)/);
   assert.match(viewer, /statDefinition\(key\)\.accessibleLabel/);
-  assert.match(viewer, /statGlyphs\("reg"\).*s\.hpreg\[i\].*s\.mpreg\[i\]/s);
-  assert.ok(viewer.includes("${s.dmin[i]}–${s.dmax[i]}"));
+  assert.match(viewer, /const sharedView = heroCardView\(\{/);
+  assert.match(viewer, /reg: statValue\("hpreg"\)/);
+  assert.match(viewer, /const hpreg = known\("hpreg"\), mpreg = known\("mpreg"\)/);
+  assert.match(viewer, /data-card-row="\$\{id\}"/);
+  assert.match(viewer, /const dmin = known\("dmin", null\), dmax = known\("dmax", null\), dbonus = known\("dbonus", null\)/);
   assert.match(viewer, /d\.armor\.toFixed\(1\)/);
-  assert.match(css, /\.rc \.row\.st \.stat-glyph img[^}]*width:\s*10px;\s*height:\s*10px/);
-  assert.match(css, /\.rc \.row\.dvs \.stat-glyph img[^}]*width:\s*10px;\s*height:\s*10px/);
+  assert.match(css, /\.rc \.stat-glyph img\s*\{[^}]*width:\s*10px;\s*height:\s*10px/);
+  assert.match(css, /\.rc \.row\.st\s*\{[^}]*grid-area:\s*st/);
+  assert.match(css, /\.rc \.row\.dvs\s*\{[^}]*grid-area:\s*dv/);
 });
 
 test("the Match view sources make no network request and use patch-scoped data", () => {

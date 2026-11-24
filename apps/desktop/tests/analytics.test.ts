@@ -23,24 +23,48 @@ test("Analytics view model covers the requested page states", () => {
 });
 
 test("Analytics fits both reference viewports without a page scroll", () => {
-  for (const [width, height] of [[1440, 900], [1920, 1080]]) {
+  for (const [width, height, expectedDocs, expectedCenter, expectedChat] of [[1440, 900, 28, 939, 289], [1920, 1080, 273, 1040, 423]] as const) {
     const layout = analyticsLayout(width, height);
     assert.equal(layout.overlap, false, `${width}x${height}`);
-    assert.ok(layout.center >= 520);
+    assert.equal(layout.docs, expectedDocs);
+    assert.equal(layout.center, expectedCenter);
+    assert.equal(layout.right, expectedChat);
     assert.equal(layout.pageScroll, false);
   }
   const collapsed = analyticsLayout(1440, 900, true, true);
   assert.ok(collapsed.center > analyticsLayout(1440, 900).center);
-  assert.equal(collapsed.mapMin, 600);
-  assert.equal(analyticsLayout(1440, 900).mapMin, 600);
+  assert.equal(collapsed.mapMin, 300);
+  assert.equal(analyticsLayout(1440, 900).mapMin, 300);
 });
 
-test("Analytics CSS keeps a fixed three-column canvas with an internally scrolling document", () => {
+test("Analytics CSS reserves the fixed chat width and uses a drawer for the compact document panel", () => {
   const css = readFileSync(new URL("../src/analytics/analytics.css", import.meta.url), "utf8");
-  assert.match(css, /grid-template-columns:\s*minmax\(210px,[^)]*\)\s+minmax\(600px,[^)]*\)\s+minmax\(156px,[^)]*\)/);
+  assert.match(css, /grid-template-columns:\s*273px\s+minmax\(0,\s*1fr\)\s+423px/);
+  assert.match(css, /grid-template-columns:\s*28px\s+minmax\(0,\s*1fr\)\s+289px/);
+  assert.match(css, /\.analytics-page\[data-left-collapsed="false"\] \.analytics-docs\s*\{[^}]*position:\s*absolute/s);
+  assert.match(css, /--hc-scale:\s*0\.88/);
   assert.match(css, /\.analytics-page\s*\{[^}]*overflow:\s*hidden/s);
   assert.match(css, /\.analytics-columns\s*\{[^}]*overflow:\s*hidden/s);
   assert.match(css, /\.analytics-markdown\s*\{[^}]*overflow-y:\s*auto/s);
+});
+
+test("Transcript view renders stored user and assistant turns through the safe Markdown renderer", () => {
+  const page = readFileSync(new URL("../src/analytics/AnalyticsPage.tsx", import.meta.url), "utf8");
+  assert.match(page, /analytics_chat_transcript/);
+  assert.match(page, /turn\.role === "assistant"/);
+  assert.match(page, /renderMarkdownStreaming\(turn\.content/);
+  assert.doesNotMatch(page, /<p>\{answer\}<\/p>/);
+  assert.doesNotMatch(page, /ผู้ช่วยเห็น:/);
+});
+
+test("AI submit sends only the current question, selected hero, scrubber time and selected match", () => {
+  const page = readFileSync(new URL("../src/analytics/AnalyticsPage.tsx", import.meta.url), "utf8");
+  const request = page.match(/invoke<string>\("analytics_chat_submit",\s*\{([^}]*)\}/)?.[1] ?? "";
+  assert.match(request, /matchId:\s*selectedId/);
+  assert.match(request, /question:\s*userQuestion/);
+  assert.match(request, /selectedHero:\s*hero/);
+  assert.match(request, /scrubberTimeS:\s*currentTime/);
+  assert.doesNotMatch(request, /include_|openDocument|documentText|contextChips/i);
 });
 
 test("missing replay facts remain unknown and never become zero", () => {
