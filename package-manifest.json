@@ -24,12 +24,12 @@
     {
       "path": "Cargo.lock",
       "bytes": 135820,
-      "sha256": "3803c42710de19a7606f3860fc270dca883d8f9782b3cb76aacfd1736c02921b"
+      "sha256": "9fe412613165e4f6605ec6b39bb12083943cefdafbecb06b8565f38d546fe22b"
     },
     {
       "path": "Cargo.toml",
       "bytes": 880,
-      "sha256": "d925bcf3f618dbc8e0ea51da32b52cc7f56b15363c1ceb3d8b9ffeb2c1e86e76"
+      "sha256": "2343a0dceccb00c6afacc50754a65d800c0ff19c5f02213824b511f206b6b0af"
     },
     {
       "path": "GUIDE-TH.md",
@@ -99,7 +99,7 @@
     {
       "path": "apps/desktop/package.json",
       "bytes": 684,
-      "sha256": "bd1249d0b5b763aa5ddfbebc9c46bb521bee81a28271f22481fb20660f111bec"
+      "sha256": "ee5b763b60301a5432d1b1b85f4c33e1f51cbbafe1c43a61d18b41d1044b4a4a"
     },
     {
       "path": "apps/desktop/pnpm-lock.yaml",
