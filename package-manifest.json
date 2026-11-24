@@ -14918,8 +14918,8 @@
     },
     {
       "path": "docs/delivery/AGENT-WORKFLOW.md",
-      "bytes": 28093,
-      "sha256": "cca35920a8be3909437a47b687926d326101ca5b9140f7c6b0f72df5046037d1"
+      "bytes": 28329,
+      "sha256": "69561e2ed614de2e538e72c67f51a1ad8f2bac43eca6b5065ebf4d277e84fdf6"
     },
     {
       "path": "docs/delivery/M0-PLAN.md",
@@ -15563,13 +15563,13 @@
     },
     {
       "path": "docs/governance/AGENT-REGISTRY.json",
-      "bytes": 17187,
-      "sha256": "f829b26bafdeaa3e0c622df57040cafce4bc297e8fc688c50f0b494243a23600"
+      "bytes": 17367,
+      "sha256": "da447ba93d0f37b38f626dcb8364dcef360e336e34520a5ecd4e6a59bdb8ae31"
     },
     {
       "path": "docs/governance/AGENT-REGISTRY.md",
-      "bytes": 13623,
-      "sha256": "1b1c9493e2ed5d27f7ed92642dcc47225406ba440e51ed260f346e932636fde4"
+      "bytes": 13670,
+      "sha256": "2e2659b9a7c433673d3bcf7eefeda82cf38ce56f4701b3e828013fa4504238d1"
     },
     {
       "path": "docs/governance/CHANGELOG.md",
