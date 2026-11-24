@@ -236,6 +236,20 @@ Amendment (owner 2026-11-24, relayed by the lead, recorded by an agent): asked "
 
 The requirements are UI-021, UI-022 and MEM-007. The API key is native-host-only and DPAPI-protected. Revocation stops requests; the local request ledger contains metadata only. Native and live-provider evidence are NOT_RUN.
 
+### Analytics provider set and gates (DEC-AI-PROVIDERS, 2026-11-24)
+
+**DEC-AI-PROVIDERS** amends DEC-ANALYTICS items 1 and 2 for the Analytics chat only. The owner decision was relayed by the lead and recorded by an agent; owner words: “Approve 1–7”.
+
+1. The Analytics chat may call Anthropic, OpenAI (Platform API key), OpenRouter, Google Gemini, xAI Grok, DeepSeek, Qwen (DashScope compatible mode), Ollama, LiteLLM and a user-entered OpenAI-compatible endpoint, using API keys only; “Sign in with ChatGPT” and subscription login are not supported.
+2. A provider not tested live with a real key stays hidden until an owner-side action sets its verified flag after recording that live test. The Developer-mode “แสดงผู้ให้บริการที่ยังไม่ทดสอบ” toggle is off by default and reveals unverified providers without verifying them. Anthropic is unverified until its live test is recorded.
+3. The user starts Ollama or LiteLLM. Kohbor never starts local providers and sends no Analytics question during draft, pregame or live match phases; the UI displays a clear blocked message.
+4. If tool calling is unavailable or fails, the user may press “บันทึกเป็นโน้ต”; the app writes nothing automatically.
+5. Switching provider in an existing match chat requires a clear warning that earlier messages, including previous-provider replies, will be sent to the new company.
+6. Model IDs may be typed or fetched for every provider except Anthropic, which keeps its closed list of three.
+7. Keys are per-provider DPAPI records bound to provider origin; fixed hosts, closed Qwen hosts, HTTPS-or-loopback user endpoints and no-redirect transport remain required. Consent is per provider and current origin. Unknown usage stays unknown; tools failures fall back to the user action.
+
+Provider verification remains per provider and requires a recorded live test with a real key. Synthetic tests in this task do not verify any provider. The loopback label appears only for literal loopback and states Kohbor cannot know what the user-run local program forwards. No provider request is made during a match phase.
+
 ### Owner decision: announcer preemption with a fade (2026-11-23)
 
 Product owner, relayed by the lead session after the log of build 8d9f8c3 showed two `multi_kill` events dropped `channel_busy` while a `hero_kill` clip played. Owner words: “ตัดเข้าเลยแต่ทำให้สมูทใส่เฟดนิดนึงก็ได้ให้มันไม่รู้สึกว่ากระตุกอ่ะ”

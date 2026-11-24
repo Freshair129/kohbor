@@ -2,8 +2,8 @@
 title: "Data Design Description (DDD)"
 doc_id: "DDD"
 status: draft
-version: "0.3.6"
-updated: "2026-11-11"
+version: "0.3.7"
+updated: "2026-11-25"
 authority: "DEC-BASELINE; see DOCUMENT-CONTROL"
 owner_role: "Data engineering owner; people not assigned"
 approval_status: "not_approved"
@@ -42,7 +42,7 @@ This is the new product's logical model. It is not a prescription to create a da
 
 The existing replay library keeps its local raw match ID and source `.dem` path; neither is part of a cloud projection. The Analytics directory is keyed by the installation-specific match hash used by MEM-006 and holds `notes/*.md`, append-only `chat.json`, per-match user hero override when GSI has no matching history row, and the template-generated read-only `สรุปแมตช์.md` summary. It is separate from the evictable derived bundle directory. Bundle eviction marks the replay removed but preserves notes/chat until the user separately deletes them.
 
-The user API key is a current-user DPAPI blob. Renderer-visible key state is only set/unset and last four characters. The key is sent directly to Anthropic over HTTPS only in the `x-api-key` authentication header; it is not prompt content and never enters logs or the local request ledger. AI consent, AI-enabled state, allowed model, bundle count and byte cap are settings. The request ledger stores time, model, sent/received bytes, input/cache-read/cache-creation/output token counts and status only; it has no prompt, response, note text, match identifier or key. The Anthropic route receives the selected bundle's deterministic derived context and hero names, scrubber time and selected hero when enabled, the explicit question, all earlier messages in that same match's chat resent with every question, and open-document text when included, only after explicit submit and all three gates (key, consent, AI enabled). Request content excludes player names, account identifiers, raw match IDs and paths. Analytics preferences currently use a separate versioned `analytics/settings.json` store; migration into the shared settings store is a known follow-up.
+The provider registry is fixed to Anthropic, OpenAI, OpenRouter, Gemini, xAI, DeepSeek, Qwen, Ollama, LiteLLM and custom OpenAI-compatible endpoints. Fixed hosts and Qwen's closed host list are native-owned. User endpoints are revalidated before every request and allow HTTPS or HTTP literal loopback only; WinHTTP has no proxy, cookies are disabled, redirects are refused, and response/timeout limits remain in force. The user starts local model processes; Kohbor never starts them and blocks Analytics questions during draft, pregame and live phases. Each provider has an origin-bound current-user DPAPI key, per-provider consent, model and verification state. The renderer sees only set/unset and the last four characters of a sufficiently long key. Untested providers remain hidden; Developer mode can reveal but never verify them. Keys appear only in that provider's authentication header and never in content, renderer events, logs or ledger. A provider switch requires a visible consent warning because the earlier same-match conversation, including old-provider replies, is converted to the new request format and sent to the new provider. The ledger stores time, provider id, cloud/loopback class, model, sent/received bytes, known usage and status only; it has no prompt, response, URL path, note text, match identifier or key. Anthropic retains three closed model IDs; other providers accept validated fetched or typed IDs. Unknown usage/context stays unknown. If tools are unavailable, note creation requires a user action.
 
 ## Relationships
 

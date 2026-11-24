@@ -1516,7 +1516,7 @@
       "decided_by": "product_owner",
       "decided_on": "2026-11-24",
       "channel": "decided by the product owner 2026-11-24, relayed by the lead, recorded by an agent",
-      "decision": "1. Rename \"สรุปผล\" to Analytics while retaining the route. The page has left analysis and Markdown notes, a centre replay minimap and ten hero cards, and an IDE-style chat on the right. 2. This is a feature-specific exception to the AGENTS.md default against cloud data and paid services. The Analytics chat may call Anthropic Claude Messages API only with the user own API key, after explicit consent, while AI is enabled; AI starts off, can be revoked, and sends nothing automatically. The only content sent is derived selected-match context, hero names, the user question, the earlier user and assistant messages of the same match chat (resent unchanged with each question; owner 2026-11-24: \"Yes, resend them\") and open-document text. Player names, Steam/account IDs, raw match ID and file paths are never sent. The API key is never content: it goes only to api.anthropic.com in the HTTPS x-api-key authentication header. The user pays Anthropic directly; Kohbor adds no account, server, telemetry or billing. Without key, consent or AI enablement, no request occurs and local template fallback remains available. 3. Automatically analyse discovered replays only outside matches, one at a time under existing engine admission. Keep newest 20 analysed bundles plus every pinned \"เก็บไว้\" bundle by default, with a 2 GiB size cap. Eviction never deletes source .dem files, notes or chat.",
+      "decision": "1. Rename \"สรุปผล\" to Analytics while retaining the route. The page has left analysis and Markdown notes, a centre replay minimap and ten hero cards, and an IDE-style chat on the right. 2. This is a feature-specific exception to the AGENTS.md default against cloud data and paid services. The Analytics chat may call Anthropic Claude Messages API only with the user own API key, after explicit consent, while AI is enabled; AI starts off, can be revoked, and sends nothing automatically. The only content sent is derived selected-match context, hero names, the user question, the earlier user and assistant messages of the same match chat (resent unchanged with each question; owner 2026-11-24: \"Yes, resend them\") and open-document text. Player names, Steam/account IDs, raw match ID and file paths are never sent. The API key is never content: it goes only to api.anthropic.com in the HTTPS x-api-key authentication header. The user pays Anthropic directly; Kohbor adds no account, server, telemetry or billing. Without key, consent or AI enablement, no request occurs and local template fallback remains available. 3. Automatically analyse discovered replays only outside matches, one at a time under existing engine admission. Keep newest 20 analysed bundles plus every pinned \"เก็บไว้\" bundle by default, with a 2 GiB size cap. Eviction never deletes source .dem files, notes or chat. 4. Amendment DEC-AI-PROVIDERS (owner decision 2026-11-24, owner words “Approve 1–7”): the Analytics chat supports Anthropic, OpenAI Platform API key, OpenRouter, Google Gemini, xAI Grok, DeepSeek, Qwen (DashScope compatible mode), user-run Ollama, LiteLLM, and a user-entered OpenAI-compatible endpoint, using API keys only and no ChatGPT subscription login. Unverified providers are hidden by default until an owner-side verified flag is set after a recorded live test; an off-by-default Developer-mode toggle reveals unverified rows without verifying them. Provider consent is per provider and origin; keys are DPAPI-protected per provider and bound to origin. User endpoints are HTTPS or HTTP loopback only, redirects are never followed, and local providers are never started by Kohbor. AI questions are blocked during draft, pregame and live phases. Switching providers in an existing match chat warns that earlier messages and old-provider answers will be sent to the new company. Anthropic keeps its closed three-model list; other providers allow typed model IDs and explicit fetch. A user-pressed “บันทึกเป็นโน้ต” fallback is used when tools are unavailable. No ChatGPT subscription sign-in is supported.",
       "reason": "Provide the Analytics replay workspace and optional user-authorized cloud assistance without a Kohbor service or disclosure of replay identifiers, while bounding derived storage and preserving notes.",
       "alternatives_considered": [
         "Keep only template answers",
@@ -1540,6 +1540,40 @@
       ],
       "safe_interim": "No request occurs without key, consent, AI enabled and an explicit submit. Template fallback remains local. Dota replay files remain read-only and bundle eviction preserves notes and chat.",
       "closure_evidence": "Product-owner decision 2026-11-24, relayed by the lead and recorded by an agent. Synthetic fake-transport and policy tests only; native DPAPI and app acceptance remain NOT_RUN."
+    },
+    {
+      "id": "DEC-AI-PROVIDERS",
+      "status": "decided",
+      "milestone": "M6",
+      "blocks": "The optional Analytics chat provider set, provider consent and provider-specific request routing only.",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-24",
+      "channel": "decided by the product owner 2026-11-24, relayed by the lead, recorded by an agent",
+      "owner_words": "Approve 1–7",
+      "decision": "Amends DEC-ANALYTICS items 1 and 2 for the Analytics chat only. 1. The Analytics chat may call Anthropic, OpenAI using a Platform API key, OpenRouter, Google Gemini, xAI Grok, DeepSeek, Qwen in DashScope compatible mode, Ollama, LiteLLM and a user-entered OpenAI-compatible endpoint, using the user's API key where required; no ChatGPT subscription sign-in is supported. 2. A provider not tested live with a real key remains hidden from the picker until an owner-side action sets its verified flag after a live test is recorded. The off-by-default toggle “แสดงผู้ให้บริการที่ยังไม่ทดสอบ” reveals untested rows but does not mark them verified. Anthropic remains unverified until a live test is recorded. 3. The user may run Ollama or LiteLLM on loopback; the user starts that program and Kohbor never does. Kohbor sends no questions during draft, pregame or live match phases and shows a clear blocked message. 4. When tool calling is unavailable or fails, the user may press “บันทึกเป็นโน้ต”; no note is written automatically by the fallback. 5. Switching providers in a same-match chat requires a clear warning that earlier messages, including replies from the previous provider, will be sent to the new company. 6. Model IDs may be typed or fetched for every provider except Anthropic, which keeps its closed list of three. 7. Authentication is API key only; there is no Sign in with ChatGPT or subscription login. Existing content projection and direct provider payment in DEC-ANALYTICS remain. Consent is per provider and endpoint origin. Fixed providers use compiled HTTPS hosts; Qwen uses its closed host list; user-entered endpoints allow HTTPS or HTTP only to 127.0.0.1, [::1] or localhost, contain no credentials, query or fragment, and never follow redirects. Keys are stored in per-provider current-user DPAPI records bound to origin and sent only in the provider authentication header; loopback endpoints may omit a key. The app never starts a local model process. A loopback label appears only for loopback endpoints and says Kohbor cannot know whether that local program forwards data. Providers without live evidence stay unverified; synthetic tests never set verified.",
+      "reason": "Allow owner-controlled provider choice while preserving explicit consent, key isolation, local-match resource protection and honest verification state.",
+      "alternatives_considered": [
+        "Keep Anthropic only",
+        "Show unverified providers without gating",
+        "Start local models from Kohbor",
+        "Send AI questions during matches",
+        "Automatically write model notes",
+        "Start a separate chat on every provider switch",
+        "Support ChatGPT subscription login"
+      ],
+      "affected_need_ids": [
+        "PN-008"
+      ],
+      "affected_requirement_ids": [
+        "UI-022"
+      ],
+      "related": [
+        "DEC-ANALYTICS",
+        "DEC-NATIVE-EVIDENCE"
+      ],
+      "safe_interim": "AI remains off by default; no question is sent without explicit submit and current-provider consent. All ten providers remain hidden until an owner-side live-verification action sets their flag. No live provider call has been recorded in this task.",
+      "closure_evidence": "Owner decision 2026-11-24, relayed by the lead and recorded by an agent; owner words Approve 1–7. Fake transport and pure fixture checks do not establish live provider verification."
     }
   ]
 }
