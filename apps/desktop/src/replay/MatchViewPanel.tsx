@@ -100,7 +100,9 @@ export function MatchViewPanel({ locale }: { locale: Locale }) {
       text.abilityDataSource(loaded.pack.ability_data_source?.build ?? null),
       ...(loaded.pack.ultimate_classification.available ? [] : [text.ultimateUnavailable]),
     ];
-    return mountMatchView(root, loaded.bundle, {
+    let unmount: (() => void) | undefined;
+    try {
+      unmount = mountMatchView(root, loaded.bundle, {
       locale, markup, style,
       icon: iconResolver(BUNDLED.icons),
       hasMap: BUNDLED.icons.has("map:"),
@@ -112,7 +114,16 @@ export function MatchViewPanel({ locale }: { locale: Locale }) {
         "mv-proto": notes.join(" "),
         "al-ult-copy": loaded.pack.ultimate_classification.available ? text.ultimateLabel : text.bkbOnlyLabel,
       },
-    });
+      });
+    } catch {
+      // A failed mount must not look like "nothing happened": say so and return to the list.
+      setLoaded(null);
+      setError(text.openError);
+      return;
+    }
+    // The viewer sits under the library list; bring it into view so Open visibly does something.
+    frame.closest("section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return unmount;
   }, [loaded, locale, text]);
 
   const viewRows = useMemo(() => library ? replayListViewModel(library.matches, metadata, {
