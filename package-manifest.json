@@ -13098,8 +13098,8 @@
     },
     {
       "path": "apps/desktop/src/replay/MatchViewPanel.tsx",
-      "bytes": 12017,
-      "sha256": "518565ce08395d7db2eecb83de1d579a113b8306b6da635ae76a2f42bc2d7dd3"
+      "bytes": 12464,
+      "sha256": "a1ec2a88f13175b349914a2935c95e19a04ff5ee6a8ab87dbe730ab3c441706b"
     },
     {
       "path": "apps/desktop/src/replay/ReplayPanel.tsx",
