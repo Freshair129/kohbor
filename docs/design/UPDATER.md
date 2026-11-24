@@ -37,6 +37,7 @@ While the endpoint or the public key is `None`, the updater reports `NO_ENDPOINT
 
 ## Behaviour (release, later slice)
 
+- Keep the base `tauri.conf.json` bundle inactive so ordinary builds do not need the signing key. The release helper passes the absolute `tools/release/release.conf.json` path with Tauri `--config`; that override enables the NSIS bundle, updater artifacts, and release-only Windows installer settings.
 - Build the NSIS installer with `bundle.createUpdaterArtifacts`, sign it with the owner's key on the owner's machine, and produce `latest.json`.
 - UPDATE-003: stable promotion copies the exact approved candidate assets and `latest.json` entry. A promotion script compares SHA-256 and signature bytes and refuses to rebuild or re-sign.
 - UPDATE-004: the runbook keeps the last known-good installer and documents the emergency route: a new higher version, never a manifest downgrade.

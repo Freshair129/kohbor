@@ -29,6 +29,7 @@ def release_commands(candidate_dir: Path) -> tuple[str, str]:
     verify_manifest_signature(assets[2], assets[1], version)
     title = f"Kohbor {tag}"
     public_args = ["gh", "release", "create", tag, *(str(p) for p in assets), "--repo", PUBLIC_REPO, "--draft", "--title", title]
+    # Keep this installer draft on every release; invite-gated downloads use kohbor-releases as the latest normal release.
     private_args = ["gh", "release", "create", tag, str(assets[0]), "--repo", PRIVATE_REPO, "--draft", "--title", title]
     return subprocess.list2cmdline(public_args), subprocess.list2cmdline(private_args)
 

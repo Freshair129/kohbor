@@ -12,7 +12,13 @@ import tomllib
 from datetime import datetime, timezone
 from pathlib import Path
 
-from release_common import ReleaseError, require_semver, sha256_file
+from release_common import (
+    ReleaseError,
+    require_higher_semver,
+    require_semver,
+    require_sha256_hex,
+    sha256_file,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -20,7 +26,18 @@ APP_DIR = REPO_ROOT / "apps" / "desktop"
 SIGNING_KEY_NAMES = ("TAURI_SIGNING_PRIVATE_KEY", "TAURI_SIGNING_PRIVATE_KEY_PATH")
 SIGNING_PASSWORD_NAME = "TAURI_SIGNING_PRIVATE_KEY_PASSWORD"
 OFFLINE_ENV_NAMES = ("CARGO_NET_OFFLINE", "COREPACK_ENABLE_NETWORK", "PNPM_CONFIG_OFFLINE")
-BUILD_ARGS = ["build", "--bundles", "nsis", "--features", "updater", "--", "--locked"]
+RELEASE_CONFIG = Path(__file__).resolve().with_name("release.conf.json")
+BUILD_ARGS = [
+    "build",
+    "--bundles",
+    "nsis",
+    "--features",
+    "updater",
+    "--config",
+    str(RELEASE_CONFIG),
+    "--",
+    "--locked",
+]
 
 
 def build_command(cli_path: Path) -> list[str] | str:
@@ -36,13 +53,27 @@ def command_for_display(command: list[str] | str) -> str:
     return command if isinstance(command, str) else subprocess.list2cmdline(command)
 
 
-def print_dry_run(cli_path: Path, out_dir: Path) -> None:
-    command = build_command(cli_path)
+def print_dry_run(cli_path: Path, out_dir: Path, previous_version: str, repo_root: Path) -> bool:
+    candidate_version = require_semver(workspace_version(repo_root))
+    require_semver(previous_version)
+    try:
+        require_higher_semver(candidate_version, previous_version)
+    except ReleaseError as exc:
+        version_gate_passed = False
+        version_gate_result = f"VERSION_GATE: would refuse: {exc}"
+    else:
+        version_gate_passed = True
+        version_gate_result = "VERSION_GATE: pass"
+    command = build_command(cli_path.resolve())
+    print(f"CANDIDATE_VERSION: {candidate_version}")
+    print(f"PREVIOUS_VERSION: {previous_version}")
     print(f"WORKING_DIRECTORY: {APP_DIR}")
     print(f"OUTPUT_ROOT: {out_dir}")
     print(f"COMMAND: {command_for_display(command)}")
     names = [*OFFLINE_ENV_NAMES, "TAURI_SIGNING_PRIVATE_KEY or TAURI_SIGNING_PRIVATE_KEY_PATH", SIGNING_PASSWORD_NAME]
     print(f"ENVIRONMENT_VARIABLE_NAMES: {', '.join(names)}")
+    print(version_gate_result)
+    return version_gate_passed
 
 
 def git_text(repo_root: Path, *args: str) -> str:
@@ -54,8 +85,8 @@ def git_text(repo_root: Path, *args: str) -> str:
         encoding="utf-8",
         errors="replace",
     )
-    if completed.returncode != 0 or completed.stderr.strip():
-        raise ReleaseError("git could not inspect the candidate worktree cleanly")
+    if completed.returncode != 0:
+        raise ReleaseError(f"git command failed with exit code {completed.returncode}")
     return completed.stdout.strip()
 
 
@@ -117,8 +148,28 @@ def locate_built_installer(repo_root: Path, version: str, build_started: float) 
     return pairs[0]
 
 
-def perform_build(cli_path: Path, out_dir: Path) -> Path:
+def perform_build(
+    cli_path: Path,
+    out_dir: Path,
+    previous_version: str,
+    expected_cargo_lock_sha256: str | None = None,
+) -> Path:
     repo_root = REPO_ROOT.resolve()
+    version = require_higher_semver(workspace_version(repo_root), previous_version)
+    expected_hash = (
+        require_sha256_hex(expected_cargo_lock_sha256, "--expect-cargo-lock-sha256")
+        if expected_cargo_lock_sha256 is not None
+        else None
+    )
+
+    cargo_lock = repo_root / "Cargo.lock"
+    pnpm_lock = repo_root / "apps" / "desktop" / "pnpm-lock.yaml"
+    if not cargo_lock.is_file() or not pnpm_lock.is_file():
+        raise ReleaseError("Cargo.lock or apps/desktop/pnpm-lock.yaml is missing")
+    cargo_lock_sha256 = sha256_file(cargo_lock)
+    if expected_hash is not None and cargo_lock_sha256 != expected_hash:
+        raise ReleaseError("Cargo.lock SHA-256 does not match --expect-cargo-lock-sha256")
+
     require_clean_tree(repo_root)
     if not signing_variables_present():
         raise ReleaseError(
@@ -128,13 +179,6 @@ def perform_build(cli_path: Path, out_dir: Path) -> Path:
         )
     if not cli_path.is_file():
         raise ReleaseError("the supplied tauri CLI path does not exist")
-
-    version = workspace_version(repo_root)
-    require_semver(version)
-    cargo_lock = repo_root / "Cargo.lock"
-    pnpm_lock = repo_root / "apps" / "desktop" / "pnpm-lock.yaml"
-    if not cargo_lock.is_file() or not pnpm_lock.is_file():
-        raise ReleaseError("Cargo.lock or apps/desktop/pnpm-lock.yaml is missing")
 
     output = out_dir.resolve() / version / "candidate"
     if output.exists():
@@ -163,6 +207,8 @@ def perform_build(cli_path: Path, out_dir: Path) -> Path:
         raise ReleaseError(f"could not launch tauri build: {exc}") from exc
     if completed.returncode != 0:
         raise ReleaseError(f"tauri build failed with exit code {completed.returncode}")
+    if sha256_file(cargo_lock) != cargo_lock_sha256:
+        raise ReleaseError("Cargo.lock changed during the build")
 
     installer, signature = locate_built_installer(repo_root, version, build_started)
     if installer.stat().st_size == 0 or signature.stat().st_size == 0:
@@ -176,7 +222,7 @@ def perform_build(cli_path: Path, out_dir: Path) -> Path:
     metadata = {
         "version": version,
         "commit": commit,
-        "cargo_lock_sha256": sha256_file(cargo_lock),
+        "cargo_lock_sha256": cargo_lock_sha256,
         "pnpm_lock_sha256": sha256_file(pnpm_lock),
         "installer_file": installer_out.name,
         "installer_size_bytes": installer_out.stat().st_size,
@@ -194,13 +240,25 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tauri-cli", required=True, type=Path, help="path to the installed Tauri CLI")
     parser.add_argument("--out", required=True, type=Path, help="candidate output root")
+    parser.add_argument("--previous-version", required=True, help="currently offered SemVer; candidate must be higher")
+    parser.add_argument(
+        "--expect-cargo-lock-sha256",
+        help="optional expected Cargo.lock SHA-256; mismatch refuses before the build",
+    )
     parser.add_argument("--dry-run", action="store_true", help="print the exact command and environment variable names")
     args = parser.parse_args(argv)
     try:
+        require_semver(args.previous_version)
+        if args.expect_cargo_lock_sha256 is not None:
+            require_sha256_hex(args.expect_cargo_lock_sha256, "--expect-cargo-lock-sha256")
         if args.dry_run:
-            print_dry_run(args.tauri_cli, args.out)
-            return 0
-        output = perform_build(args.tauri_cli, args.out)
+            return 0 if print_dry_run(args.tauri_cli, args.out, args.previous_version, REPO_ROOT) else 2
+        output = perform_build(
+            args.tauri_cli,
+            args.out,
+            args.previous_version,
+            args.expect_cargo_lock_sha256,
+        )
         print(f"candidate: {output}")
         return 0
     except ReleaseError as exc:

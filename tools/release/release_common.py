@@ -27,6 +27,73 @@ def require_semver(version: str) -> str:
     return version
 
 
+def _compare_numeric_identifiers(left: str, right: str) -> int:
+    # Comparing lengths and then ASCII digits avoids integer-size limits.
+    if len(left) != len(right):
+        return -1 if len(left) < len(right) else 1
+    if left == right:
+        return 0
+    return -1 if left < right else 1
+
+
+def compare_semver(left: str, right: str) -> int:
+    """Compare SemVer 2.0 precedence, ignoring build metadata."""
+    require_semver(left)
+    require_semver(right)
+
+    def split(value: str) -> tuple[list[str], list[str] | None]:
+        without_build = value.split("+", 1)[0]
+        core, separator, prerelease = without_build.partition("-")
+        return core.split("."), prerelease.split(".") if separator else None
+
+    left_core, left_prerelease = split(left)
+    right_core, right_prerelease = split(right)
+    for left_part, right_part in zip(left_core, right_core):
+        result = _compare_numeric_identifiers(left_part, right_part)
+        if result:
+            return result
+
+    if left_prerelease is None or right_prerelease is None:
+        if left_prerelease is None and right_prerelease is None:
+            return 0
+        return 1 if left_prerelease is None else -1
+
+    for left_part, right_part in zip(left_prerelease, right_prerelease):
+        left_numeric = left_part.isascii() and left_part.isdigit()
+        right_numeric = right_part.isascii() and right_part.isdigit()
+        if left_numeric and right_numeric:
+            result = _compare_numeric_identifiers(left_part, right_part)
+        elif left_numeric != right_numeric:
+            result = -1 if left_numeric else 1
+        elif left_part == right_part:
+            result = 0
+        else:
+            # SemVer prerelease identifiers are ASCII, so Python's ordering
+            # matches the required ASCII lexicographic ordering here.
+            result = -1 if left_part < right_part else 1
+        if result:
+            return result
+
+    if len(left_prerelease) == len(right_prerelease):
+        return 0
+    return -1 if len(left_prerelease) < len(right_prerelease) else 1
+
+
+def require_higher_semver(version: str, previous_version: str) -> str:
+    """Require ``version`` to have strictly higher precedence than the previous release."""
+    require_semver(version)
+    require_semver(previous_version)
+    if compare_semver(version, previous_version) <= 0:
+        raise ReleaseError("candidate version must be strictly higher than --previous-version")
+    return version
+
+
+def require_sha256_hex(value: str, label: str) -> str:
+    if not re.fullmatch(r"[0-9A-Fa-f]{64}", value):
+        raise ReleaseError(f"{label} must be exactly 64 hexadecimal characters")
+    return value.lower()
+
+
 def load_json(path: Path) -> dict[str, Any]:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
