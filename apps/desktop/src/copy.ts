@@ -116,6 +116,17 @@ export const gsiFirstRunCopy = {
 const MESSAGES = {
   th: {
     languageLabel: "ภาษา",
+    analyticsPlayer: {
+      label: "ตัวเล่นรีเพลย์",
+      play: "เล่น",
+      pause: "หยุด",
+      speed: "ความเร็วในการเล่น",
+      time: "เวลาเล่น",
+      deaths: "จังหวะตายใกล้เวลานี้ ±60 วินาที",
+      noDeaths: "ไม่มีจังหวะตายในช่วงนี้",
+      details: "ดูละเอียด",
+      back: "‹ กลับไป Analytics",
+    },
     localeOptions: { th: "ไทย", en: "English" },
     overview: "ภาพรวม",
     shell: {
@@ -406,6 +417,17 @@ const MESSAGES = {
   },
   en: {
     languageLabel: "Language",
+    analyticsPlayer: {
+      label: "Replay player",
+      play: "Play",
+      pause: "Pause",
+      speed: "Playback speed",
+      time: "Playback time",
+      deaths: "Deaths near this time ±60 seconds",
+      noDeaths: "No deaths in this interval",
+      details: "View details",
+      back: "‹ Back to Analytics",
+    },
     localeOptions: { th: "ไทย", en: "English" },
     overview: "Overview",
     shell: {

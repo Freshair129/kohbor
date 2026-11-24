@@ -2,7 +2,7 @@
 import { matchViewerCopy } from "./matchViewerCopy.mjs";
 import { baseAttackSpeed, isConsumableItem, isControlEffect, isMobilityAbility, isMobilityItem, isNotableItem, isUltimateAbility } from "./replayPack.mjs";
 
-export function mountMatchView(root, bundle, { locale, markup, style, icon, statCatalog, statIcon, hasMap, header, patchData, mapCalibration }) {
+export function mountMatchView(root, bundle, { locale, markup, style, icon, statCatalog, statIcon, hasMap, header, patchData, mapCalibration, initialTime = null, disableKeyboard = false }) {
   const viewerStrings = matchViewerCopy[locale].viewerStrings;
   const translationEntries = Object.entries(viewerStrings).sort(([left], [right]) => right.length - left.length);
   const translate = value => {
@@ -67,7 +67,8 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, stat
 
   const $ = id => document.getElementById(id);
   const cv = $("rv-canvas"), ctx = cv.getContext("2d"), wrap = $("rv-mapwrap"), tip = $("rv-tip"), status = $("rv-status");
-  const S = {D: null, t: bundle.match.t0, playing: false, speed: 10, mode: "route", heatStyle: "hero", trail: 45, range: [bundle.match.t0, bundle.match.t1],
+  const startTime = Number.isFinite(initialTime) ? Math.max(bundle.match.t0, Math.min(bundle.match.t1, initialTime)) : bundle.match.t0;
+  const S = {D: null, t: startTime, playing: false, speed: 10, mode: "route", heatStyle: "hero", trail: 45, range: [bundle.match.t0, bundle.match.t1],
     vis: new Set(), focus: null, follow: false, names: false, autoPause: false, stopAt: null, review: null, lastCardKey: "",
     view: {k: 1, ox: 0, oy: 0}, img: null, port: {}, alerts: [], hits: [], W: null, dmgFloat: true, fog: "all", patchData, mapCalibration,
     layers: {lane: true, neut: true, rune: true, ward: true, bld: true, rosh: true}};
@@ -625,7 +626,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, stat
     const total = d.by.reduce((s, x) => s + x[2], 0) || 1, mx = Math.max(...d.by.map(x => x[2]), 1);
     $("rv-review").innerHTML = `<div><b>${esc(nameOf(d.hero))}</b> ตายที่ <span class="num">${clk(d.t)}</span></div>
       <div>ปิดคิลโดย <b>${esc(nameOf(d.killer))}</b>${d.last ? ` · ดาเมจสุดท้ายจาก ${esc(nameOf(d.last[0]))} (${esc(nameOf(d.last[1]))})` : ""}</div>
-      <div style="font:600 10px var(--f-mono);color:var(--muted);letter-spacing:.06em">ดาเมจที่ได้รับ 10 วินาทีก่อนตาย · รวม ${fmt(total)}</div>
+      <div style="font:600 12px var(--f-mono);color:var(--muted);letter-spacing:.06em">ดาเมจที่ได้รับ 10 วินาทีก่อนตาย · รวม ${fmt(total)}</div>
       <div class="bars">${d.by.map(([src, inf, v]) => `<div class="bar"><span style="--w:${v / mx * 100}%"><span>${esc(nameOf(src))} · ${esc(nameOf(inf))}</span></span><span class="num">${fmt(v)}</span></div>`).join("")}</div>`;
   }
   function playClip(from, to, hero){
@@ -734,7 +735,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, stat
   });
   cv.addEventListener("wheel", ev => { ev.preventDefault(); const r = cv.getBoundingClientRect(); S.follow = false; $("rv-follow").checked = false; zoomAt(ev.clientX - r.left, ev.clientY - r.top, S.view.k * (ev.deltaY < 0 ? 1.2 : 1 / 1.2)); }, {passive: false});
   on(window.document, "keydown", ev => {
-    if (!S.D || editing(ev) || ev.altKey || ev.ctrlKey || ev.metaKey) return;
+    if (disableKeyboard || !S.D || editing(ev) || ev.altKey || ev.ctrlKey || ev.metaKey) return;
     const rect = $("replay").getBoundingClientRect(); if (rect.bottom < 0 || rect.top > innerHeight) return;
     const step = ev.shiftKey ? 10 : 1;
     if (ev.code === "Space"){ ev.preventDefault(); S.stopAt = null; S.playing ? pause() : play(); }

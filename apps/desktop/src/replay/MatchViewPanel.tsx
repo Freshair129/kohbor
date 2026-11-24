@@ -39,11 +39,18 @@ interface LoadedMatch {
   calibrationSource: "manifest" | "pack";
   foundIcons: number;
   neededIcons: number;
+  initialTime: number | null;
 }
 
 const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.round(seconds % 60)).padStart(2, "0")}`;
 
-export function MatchViewPanel({ locale }: { locale: Locale }) {
+export function MatchViewPanel({ locale, initialBundle = null, initialMatchId = null, initialTime = null, detailOnly = false }: {
+  locale: Locale;
+  initialBundle?: MatchBundle | null;
+  initialMatchId?: string | null;
+  initialTime?: number | null;
+  detailOnly?: boolean;
+}) {
   const text = matchViewerCopy[locale];
   const [library, setLibrary] = useState<ReplayLibraryList | null>(null);
   const [metadata, setMetadata] = useState<Record<string, ReplayMetadata>>({});
@@ -72,6 +79,7 @@ export function MatchViewPanel({ locale }: { locale: Locale }) {
   }, [text.loadError]);
 
   useEffect(() => {
+    if (detailOnly) { setLoading(false); return; }
     let disposed = false;
     let unlisten: (() => void) | undefined;
     void refresh(true);
@@ -88,7 +96,41 @@ export function MatchViewPanel({ locale }: { locale: Locale }) {
       listRequest.current++;
       unlisten?.();
     };
-  }, [refresh, text.loadError]);
+  }, [detailOnly, refresh, text.loadError]);
+
+  useEffect(() => {
+    if (!detailOnly) return;
+    setLoading(false);
+    if (!initialBundle || !initialMatchId) {
+      setLoaded(null);
+      setError(text.openError);
+      return;
+    }
+    const lookup = replayPackForPatch(initialBundle.patch);
+    if (lookup.state === "needs_pack") {
+      setLoaded(null);
+      setError(text.needsPack(lookup.patch));
+      return;
+    }
+    const map = chooseMapCalibration(initialBundle.calibration, initialBundle.mapSize, lookup.pack.map);
+    if (!map.calibration || map.source === "unknown") {
+      setLoaded(null);
+      setError(text.calibrationError);
+      return;
+    }
+    const keys = neededIconKeys(initialBundle);
+    setLoaded({
+      matchId: initialMatchId,
+      bundle: initialBundle,
+      pack: lookup.pack,
+      calibration: map.calibration,
+      calibrationSource: map.source,
+      foundIcons: countFound(BUNDLED.icons, keys),
+      neededIcons: keys.size,
+      initialTime,
+    });
+    setError(null);
+  }, [detailOnly, initialBundle, initialMatchId, initialTime, text.calibrationError, text.needsPack, text.openError]);
 
   useEffect(() => {
     const frame = viewerTarget.current;
@@ -112,6 +154,7 @@ export function MatchViewPanel({ locale }: { locale: Locale }) {
       hasMap: BUNDLED.icons.has("map:"),
       patchData: loaded.pack,
       mapCalibration: loaded.calibration,
+        initialTime: loaded.initialTime,
       header: {
         "mv-lede": text.lede(patch, mode, length),
         "mv-sub": text.sub(patch, mode),
@@ -126,9 +169,9 @@ export function MatchViewPanel({ locale }: { locale: Locale }) {
       return;
     }
     // The viewer sits under the library list; bring it into view so Open visibly does something.
-    frame.closest("section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!detailOnly) frame.closest("section")?.scrollIntoView({ behavior: "smooth", block: "start" });
     return unmount;
-  }, [loaded, locale, text]);
+  }, [detailOnly, loaded, locale, text]);
 
   const viewRows = useMemo(() => library ? replayListViewModel(library.matches, metadata, {
     states: text.states,
@@ -182,6 +225,7 @@ export function MatchViewPanel({ locale }: { locale: Locale }) {
         calibrationSource: map.source,
         foundIcons: countFound(BUNDLED.icons, keys),
         neededIcons: keys.size,
+        initialTime: null,
       });
       setError(null);
       void refresh();
@@ -279,6 +323,7 @@ export function MatchViewPanel({ locale }: { locale: Locale }) {
   }
 
   useEffect(() => {
+    if (detailOnly) return;
     let disposed = false;
     let unlisten: (() => void) | undefined;
     void getCurrentWebview().onDragDropEvent(event => {
@@ -294,7 +339,20 @@ export function MatchViewPanel({ locale }: { locale: Locale }) {
       disposed = true;
       unlisten?.();
     };
-  }, [text.invalidDem]);
+  }, [detailOnly, text.invalidDem]);
+
+  if (detailOnly) return (
+    <section className="card replay-library replay-detail" data-replay-detail="true"
+      style={{ height: "100%", minHeight: 0, overflow: "auto", alignContent: "start" }}>
+      {loading && <p role="status">{text.loading}</p>}
+      {error && <p role="alert">{error}</p>}
+      {loaded && <section className="replay-library__viewer">
+        <p role="status">{text.iconCount(loaded.foundIcons, loaded.neededIcons, BUNDLED.build)}</p>
+        <div ref={viewerTarget} />
+      </section>}
+      <style>{libraryStyle}</style>
+    </section>
+  );
 
   return (
     <section ref={dropTarget} className="card replay-library">
@@ -347,7 +405,7 @@ export function MatchViewPanel({ locale }: { locale: Locale }) {
 
 /** A library-selected viewer surface used by Analytics; it keeps the same validated bundle and viewer. */
 export function MatchViewerSurface({
-  locale, bundle, onHeroSelect, onHeroIdentify, onTimeChange, onReady,
+  locale, bundle, onHeroSelect, onHeroIdentify, onTimeChange, onReady, initialTime = null, disableKeyboard = false,
 }: {
   locale: Locale;
   bundle: MatchBundle;
@@ -355,6 +413,8 @@ export function MatchViewerSurface({
   onHeroIdentify?: (hero: string) => void;
   onTimeChange?: (seconds: number) => void;
   onReady?: (root: ShadowRoot) => void;
+  initialTime?: number | null;
+  disableKeyboard?: boolean;
 }) {
   const target = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -374,6 +434,8 @@ export function MatchViewerSurface({
       statCatalog: STAT_ICON_CATALOG,
       statIcon: (id: StatIconId) => statIconUrl(id),
       mapCalibration: map.calibration,
+      initialTime,
+      disableKeyboard,
       header: {
         "mv-lede": matchViewerCopy[locale].lede(patch, mode, length),
         "mv-sub": matchViewerCopy[locale].sub(patch, mode),
@@ -398,23 +460,60 @@ export function MatchViewerSurface({
     scrubber?.addEventListener("input", scrub);
     onReady?.(root);
     return () => { root.removeEventListener("click", click); root.removeEventListener("dblclick", doubleClick); scrubber?.removeEventListener("input", scrub); mounted(); };
-  }, [bundle, locale, onHeroSelect, onHeroIdentify, onTimeChange, onReady]);
+  }, [bundle, locale, onHeroSelect, onHeroIdentify, onTimeChange, onReady, initialTime, disableKeyboard]);
   return <div ref={target} className="analytics-viewer-surface" />;
 }
 
 const analyticsSurfaceOverrides = `
 #replay { gap: 8px; }
 #mv-lede, #mv-proto, #rv-layers, .rv-lower, .dl { display: none !important; }
-.rv-bar { padding: 8px; gap: 6px; }
+.rv-bar { display: none !important; }
+#analytics-player-slot:empty { display: none; }
 .rv-row.small { display: none; }
-.rv-stage { height: 100%; min-height: 400px; grid-template-columns: minmax(140px, 1fr) minmax(300px, 1.35fr) minmax(140px, 1fr); gap: 8px; align-items: stretch; }
-.rv-col { height: 100%; grid-template-rows: repeat(5, minmax(82px, 1fr)); gap: 6px; align-content: stretch; }
+.rv-stage { height: auto; min-height: 560px; grid-template-columns: minmax(140px, 1fr) minmax(300px, 1.35fr) minmax(140px, 1fr); gap: 8px; align-items: stretch; }
+.rv-col { height: 100%; grid-template-rows: repeat(5, minmax(104px, 1fr)); gap: 6px; align-content: stretch; overflow-y: auto; }
 .rv-center { height: 100%; grid-template-rows: auto minmax(300px, 1fr); }
-.rc { height: 100%; min-height: 82px; grid-template-columns: 34px minmax(0, 1fr); padding: 5px; gap: 2px 6px; }
+.rc { height: 100%; min-height: 104px; grid-template-columns: 34px minmax(0, 1fr); padding: 5px; gap: 2px 6px; }
 .rc .pt, .rc .pt img { width: 34px; height: 34px; }
-.rc .row.ab, .rc .row.it, .rc .row.st { display: none; }
+.rc .row.ab, .rc .row.it, .rc .row.st { display: flex !important; }
+.rc .top { font-size: 12px; }
+.rc .lvb, .rc .bar .num, .rc .ic > b, .rc .ic > s, .rc .ic > em { font-size: 12px; }
+.rc .row.ab .mod, .rc .row.st, .rc .row.dvs, .rc .enh, .rc .gold { font-size: 12px !important; }
+.rc .ic { width: 18px; height: 18px; }
+.rc .ic.it { width: 20px; height: 16px; }
+.rc .ic.bk { width: 14px; height: 12px; }
+.rc .ic.tp { width: 16px; height: 16px; }
+.rc .ic.nt { width: 18px; height: 18px; }
+.rc .mods .mod { font-size: 12px; padding: 0 3px; }
 .rc .row.dvs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.rv-center { align-content: start; }
-.rv-mapwrap { height: 100%; max-height: 500px; min-height: 300px; }
+.rv-center { height: auto; grid-template-rows: auto min-content; align-content: start; }
+.rv-mapcard { align-content: start; }
+.rv-mapwrap { height: auto; max-height: none; min-height: 300px; aspect-ratio: 1 / 1; }
 @media (max-width: 1280px) { .rv-stage { grid-template-columns: minmax(110px, .8fr) minmax(300px, 1.6fr) minmax(110px, .8fr); } }
+`;
+
+const analyticsPlayerShadowCss = `
+.analytics-player { display: grid; gap: 6px; margin-top: 8px; padding: 8px 10px 7px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--ink); font: 12px/1.3 var(--f-body); }
+.analytics-player-controls { display: grid; grid-template-columns: 34px 64px minmax(72px, 1fr) auto; align-items: center; gap: 6px; min-width: 0; }
+.analytics-player-controls button, .analytics-player-speed select { min-width: 0; min-height: 32px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--ink); font: 600 12px/1.2 var(--f-body); white-space: nowrap; }
+.analytics-player-play { width: 34px; padding: 4px 0 !important; }
+.analytics-player-speed select { width: 64px; height: 32px; }
+.analytics-player-clock { min-width: 0; font: 12px var(--f-mono); text-align: center; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.analytics-player-details { border-color: var(--rad) !important; color: var(--ink) !important; }
+.analytics-player-track { position: relative; height: 26px; }
+.analytics-player-track input[type=range] { position: absolute; z-index: 1; inset: 0; width: 100%; height: 26px; margin: 0; appearance: none; background: transparent; cursor: pointer; }
+.analytics-player-track input[type=range]::-webkit-slider-runnable-track { height: 6px; border-radius: 999px; background: linear-gradient(90deg, var(--rad) var(--played), var(--line) var(--played)); }
+.analytics-player-track input[type=range]::-moz-range-track { height: 6px; border-radius: 999px; background: var(--line); }
+.analytics-player-track input[type=range]::-moz-range-progress { height: 6px; border-radius: 999px; background: var(--rad); }
+.analytics-player-track input[type=range]::-webkit-slider-thumb { width: 14px; height: 14px; margin-top: -4px; appearance: none; border: 2px solid var(--bg); border-radius: 50%; background: var(--rad); box-shadow: 0 0 0 1px var(--rad); }
+.analytics-player-track input[type=range]::-moz-range-thumb { width: 10px; height: 10px; border: 2px solid var(--bg); border-radius: 50%; background: var(--rad); box-shadow: 0 0 0 1px var(--rad); }
+.analytics-player-ticks { position: absolute; z-index: 2; inset: 0; pointer-events: none; }
+.analytics-player-ticks button { position: absolute; top: 0; transform: translateX(-50%); padding: 0 2px; border: 0; background: transparent; color: var(--ink-2); font: 12px/1 var(--f-mono); pointer-events: auto; }
+.analytics-player-ticks .analytics-player-team-2, .analytics-player-team-2 { color: var(--rad); }
+.analytics-player-ticks .analytics-player-team-3, .analytics-player-team-3 { color: var(--dire); }
+.analytics-player-citation { color: var(--warn) !important; }
+.analytics-player-hover-time { position: absolute; z-index: 3; top: -4px; transform: translate(-50%, -100%); padding: 2px 5px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); color: var(--ink); font: 12px var(--f-mono); pointer-events: none; white-space: nowrap; }
+.analytics-player-death-strip { display: flex; align-items: center; gap: 4px; min-width: 0; min-height: 24px; overflow-x: auto; color: var(--ink-2); }
+.analytics-player-death-strip button { flex: none; min-height: 24px; padding: 2px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink-2); font: 12px var(--f-mono); white-space: nowrap; }
+.analytics-player-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
 `;

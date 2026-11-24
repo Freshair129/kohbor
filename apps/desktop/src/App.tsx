@@ -47,6 +47,7 @@ import { steamPersonaName } from "./steam/model";
 import { StartDotaBar } from "./steam/StartDotaBar";
 import { canOpenPostMatchReplay, useMatchEnded } from "./replay/admission";
 import { AnalyticsPage } from "./analytics/AnalyticsPage";
+import { returnToAnalytics as analyticsReturnContext, type AnalyticsReplayDetailsRoute, type AnalyticsReturnContext } from "./analytics/analyticsModel";
 import { AnalyticsSettings } from "./analytics/AnalyticsSettings";
 import { RailLeft } from "./shell/RailLeft";
 import { RailRight } from "./shell/RailRight";
@@ -63,6 +64,7 @@ import { previewRateTooltip } from "./live/previewDiagnostics";
 const ReplayPanel = import.meta.env.DEV || import.meta.env.VITE_KOHBOR_LAB === "1"
   ? lazy(() => import("./replay/ReplayPanel").then((module) => ({ default: module.ReplayPanel })))
   : null;
+const AnalyticsDetailsPanel = lazy(() => import("./replay/ReplayPanel").then((module) => ({ default: module.ReplayPanel })));
 
 type ShellPage = ShellDestination | "account";
 
@@ -100,6 +102,8 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
   const launch = useDotaLauncher(steamStatus);
   const [activePage, setActivePage] = useState<ShellPage>(DEFAULT_SHELL_DESTINATION);
   const [insightsView, setInsightsView] = useState<InsightsView>("summary");
+  const [analyticsDetail, setAnalyticsDetail] = useState<AnalyticsReplayDetailsRoute | null>(null);
+  const [analyticsRestore, setAnalyticsRestore] = useState<AnalyticsReturnContext | null>(null);
   const [showGsiFirstRun, setShowGsiFirstRun] = useState(false);
   const firstRunDecisionMade = useRef(false);
   const firstRunEligible = useRef(false);
@@ -152,7 +156,7 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
   const setupNeeded = gsiNeedsAttention(gsiPhase(hostLost ? null : status ?? null));
   const intakeState = status?.intake.state ?? null;
   const gsiTone = hostLost ? "stale" : intakeState === "receiving" ? "fresh" : intakeState === "unavailable" ? "warn" : intakeState === "stale" ? "stale" : "unknown";
-  const insightViewOptions = insightsViews(ReplayPanel !== null);
+  const insightViewOptions = insightsViews(ReplayPanel !== null || analyticsDetail !== null);
   const currentInsightsView = insightViewOptions.includes(insightsView) ? insightsView : "summary";
   const statusModel = statusLineModel({
     labels: { gsi: "GSI", gamePhase: text.shell.gamePhase, gameAge: text.shell.gameAge, capture: text.shell.capture, gsiSetup: text.shell.gsiSetup },
@@ -227,6 +231,16 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
             : null;
 
   const navigate = (destination: ShellDestination) => setActivePage(destination);
+  const openAnalyticsDetails = (route: AnalyticsReplayDetailsRoute) => {
+    setAnalyticsRestore(null);
+    setAnalyticsDetail(route);
+    setInsightsView("replay");
+  };
+  const returnToAnalyticsPage = () => {
+    if (analyticsDetail) setAnalyticsRestore(analyticsReturnContext(analyticsDetail));
+    setAnalyticsDetail(null);
+    setInsightsView("summary");
+  };
   // Second-monitor mode (UI-016): on the Live page only while a match runs (hero selection through the game) and a side
   // is set; otherwise the centred deck, as with "off" (owner report on build 3815c73, 2026-11-23). The deck itself shows
   // "window too small" below the smallest supported size instead of a broken or scrolling layout.
@@ -280,11 +294,18 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
             phase={phase} mute={mute} storeOnly={activePage === "store"} onStoreBack={() => setActivePage("packs")}
             onStoreOpen={() => setActivePage("store")} />}
 
-          {activePage === "insights" && (currentInsightsView === "replay" && ReplayPanel ? (
-            <Suspense fallback={<p role="status">{text.loading}</p>}>
-              <ReplayPanel locale={displayLocale} available={canOpenPostMatchReplay(status, steamStatus, hostLost, matchEnded)} />
-            </Suspense>
-          ) : <AnalyticsPage locale={displayLocale} onOpenReplay={() => setInsightsView("replay")} />)}
+          {activePage === "insights" && (currentInsightsView === "summary" || analyticsDetail !== null) && <div hidden={currentInsightsView === "replay"}
+            style={{ width: "100%", height: "100%", minWidth: 0, minHeight: 0 }}>
+            <AnalyticsPage locale={displayLocale} active={currentInsightsView === "summary"} restoreContext={analyticsRestore}
+              onOpenReplay={openAnalyticsDetails} />
+          </div>}
+          {activePage === "insights" && currentInsightsView === "replay" && analyticsDetail && <Suspense fallback={<p role="status">{text.loading}</p>}>
+            <AnalyticsDetailsPanel locale={displayLocale} available={canOpenPostMatchReplay(status, steamStatus, hostLost, matchEnded)}
+              detail={analyticsDetail} onBack={returnToAnalyticsPage} />
+          </Suspense>}
+          {activePage === "insights" && currentInsightsView === "replay" && !analyticsDetail && ReplayPanel && <Suspense fallback={<p role="status">{text.loading}</p>}>
+            <ReplayPanel locale={displayLocale} available={canOpenPostMatchReplay(status, steamStatus, hostLost, matchEnded)} />
+          </Suspense>}
 
           {activePage === "settings" && (
             <div className="shell-screen shell-settings">
