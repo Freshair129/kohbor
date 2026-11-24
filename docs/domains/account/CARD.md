@@ -1,10 +1,10 @@
 ---
 domain: account
 tier: A
-card_version: 2
-verified_at_commit: d94cb96
-verified_on: 2026-11-14
-verified_by: "claude-code governance session, backfilled from the Domain Steward design and the documents named below; agent work, not human review"
+card_version: 3
+verified_at_commit: c010825
+verified_on: 2026-11-24
+verified_by: "Codex worker; reviewed listed source changes, not human or owner approval"
 ---
 
 # Account and identity
@@ -27,12 +27,12 @@ A map, not evidence. Authority: decisions, PRD/SRS, contracts, code and tests, t
 
 ## 3. Now / Next / Blocked
 
-- NOW (alpha, owner 2026-11-22): sign-in through Supabase Auth with Google inside the app, download gated by invite codes; this contradicts the NOW lines below on email and Supabase use. See [ALPHA-LAUNCH](../../design/ALPHA-LAUNCH.md) section 6.
-- NOW: the account client and desktop host have a local fake-provider and fake-broker demo. The [S1-C demo guide](../../../apps/desktop/src/account/s1c/README.md) describes the fixture. Hosted service work and the queued requirement rows are still open.
+- NOW (closed alpha): use the as-built account flow in [ALPHA-LAUNCH](../../design/ALPHA-LAUNCH.md); it is the recorded alpha-only deviation, not the baseline identity design (DEC-ALPHA-AUTH-DEVIATION).
+- NOW: the local fake-provider/fake-broker demo and S2 broker guide are separate from the alpha; the broker is not used in the alpha (apps/desktop/src/account/s1c/README.md; services/kohbor-broker/README.md; ALPHA-LAUNCH).
 - NOW: the [S2 local broker guide](../../../services/kohbor-broker/README.md) describes the isolated Postgres fixture and verified account endpoints.
 - NOW: Google-only sign-in in the system browser, openid scope, keyed hash of the subject, rotatable friend code, no Steam link, no recovery flow (DEC-ACCOUNT-IDENTITY).
 - NOW: guests keep every local feature and have no network sharing in the first release (DEC-SIGNIN-OPTIONAL).
-- NEXT: owner review of the applied section 4.1 wording before commit; review the unfrozen relay-ticket issuer proposal separately (DEC-ACCOUNT-REVIEW-APPLIED; Q-ACC-2).
+- NEXT: review the unfrozen relay-ticket issuer proposal separately (DEC-ACCOUNT-REVIEW-APPLIED; Q-ACC-2).
 - NOW (alpha/beta, owner statement 2026-11-14, provisional): broker and relay in Docker on the owner's PC through a Cloudflare Tunnel only, Supabase as Postgres only, free tiers only; nothing is provisioned (DEC-ACCOUNT-ORIGIN; docs/design/BACKEND-STACK.md).
 - BLOCKED for deployment, not for the local build: production hosting and who pays (DEC-ACCOUNT-ORIGIN); the owner creates the Kohbor-only Google project and consent screen (DEC-GOOGLE-PROJECT).
 - BLOCKED for any hosted sharing: a lawyer must confirm the legal items (DEC-PRIVACY-LEGAL).
@@ -44,7 +44,7 @@ A map, not evidence. Authority: decisions, PRD/SRS, contracts, code and tests, t
 
 ## 5. Artefacts
 
-Machine list: [state.json](state.json). Governing: the two documents above, `contracts/decisions.json`; neighbour: [SHARING-MODEL-REVIEW](../../design/SHARING-MODEL-REVIEW.md); reference: the social artboard in docs/design/visuals/command-deck/.
+Machine list: [state.json](state.json). Governing: [ACCOUNT-IDENTITY-REVIEW](../../design/ACCOUNT-IDENTITY-REVIEW.md), ADR-A in [REMAINING-SYSTEM-DESIGN](../../design/REMAINING-SYSTEM-DESIGN.md), and `contracts/decisions.json`; alpha reference: [ALPHA-LAUNCH](../../design/ALPHA-LAUNCH.md) and the alpha scope entry in [DECISION-LOG](../../governance/DECISION-LOG.md); neighbour: [SHARING-MODEL-REVIEW](../../design/SHARING-MODEL-REVIEW.md).
 
 ## 6. Traps and lessons
 

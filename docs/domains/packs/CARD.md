@@ -1,10 +1,10 @@
 ---
 domain: packs
 tier: A
-card_version: 1
-verified_at_commit: 0997546
-verified_on: 2026-11-13
-verified_by: "claude-code subagent draft (read-only), integrated by the governance lead; agent work, not human review"
+card_version: 2
+verified_at_commit: c010825
+verified_on: 2026-11-24
+verified_by: "Codex worker; reviewed listed source changes, not human or owner approval"
 ---
 
 # Domain card: packs (verified package store and authoring tool)
@@ -25,8 +25,8 @@ A map, not evidence. Decisions: `contracts/decisions.json`. Requirements: `contr
 
 ## 2. Owner decisions (ids only; text in contracts/decisions.json)
 
-- **Decided:** DEC-PACK-AUDIO-OPTIONAL-VISUAL, DEC-COMMERCE-INTENT (intent only, authorises no design).
-- **Open or proposed:** DEC-PACK-CRYPTO, DEC-EVENT-AUDIO (install contracts are in its spec), DEC-CRITICAL-MEDIA, DEC-INTERFACES (transport framing of the install request), DEC-NATIVE-EVIDENCE.
+- **Decided:** DEC-PACK-AUDIO-OPTIONAL-VISUAL, DEC-VOICE-VARIANTS, DEC-CRITICAL-MEDIA, DEC-COMMERCE-INTENT.
+- **Open or proposed:** DEC-PACK-CRYPTO, DEC-EVENT-AUDIO, DEC-INTERFACES, DEC-NATIVE-EVIDENCE.
 - **Deferred:** DEC-PACK-BANNER-ADDON, DEC-PREMIUM.
 - **Neighbour, decided:** DEC-BANNER-LAB-STYLE (banner format that a pack must be able to carry).
 - No record exists for the package-format decision of `docs/design/PACKAGE-FORMAT-REVIEW.md` (see section 4).
@@ -34,7 +34,7 @@ A map, not evidence. Decisions: `contracts/decisions.json`. Requirements: `contr
 ## 3. Now / Next / Blocked
 
 - Now: descriptor, container, media, trust, store and resolve modules exist with 12 test files; tests were NOT run for this card, so pass state at this commit is UNVERIFIED (`crates/kohbor-pack/tests`).
-- Now: the parser admits descriptor versions 1.3.0 and 1.4.0 (DEC-VOICE-VARIANTS) and accepts audio-only media in both (`crates/kohbor-pack/src/descriptor.rs`, DEC-PACK-AUDIO-OPTIONAL-VISUAL).
+- Now: admitted descriptor versions, variant/presentation shapes and compatibility rules are mapped in [MEDIA-PACK-SPEC](../../design/MEDIA-PACK-SPEC.md) (MEDIA-004, DEC-VOICE-VARIANTS).
 - Now: signature status is always `Unavailable`; the only authority granted is `local_import`; a publisher claim is recorded as unverified (`crates/kohbor-pack/src/trust.rs`, DEC-PACK-CRYPTO).
 - Now: the host uses `Store` in `media/prewarm.rs` and `host.rs`; `kohbor-pack-author` is a dev-dependency of the host only (`apps/desktop/src-tauri/Cargo.toml`); `media_inspect` hashes through the bounded `sha256_file_limited` (S3-7).
 - Next: the tool still writes `<package_id>-r<revision>.zip`, while the review's chosen option wants a product-owned extension that is not yet in the identity manifest (`crates/kohbor-pack-author/src/lib.rs`).
@@ -59,6 +59,8 @@ Machine list with `reviewed_sha256`: `state.json`. Key paths:
 - Tests: `crates/kohbor-pack/tests` (hostile, crash, install, activation, resolve, trust, audio_only, windows_fs), `crates/kohbor-pack-author/tests`.
 - Contracts: the three media schemas and `fixtures/media-*.json`.
 - Design for the host side of install: `docs/design/S3-5-HOST-CRITICAL-PATH.md` (owned by `events-audio`).
+- The Packs page's local event recap is defined in [EVENT-AUDIO-SPEC](../../design/EVENT-AUDIO-SPEC.md#local-match-recap), separately from Overview own-match history (MEM-006).
+- Closed-alpha distribution scope is in the alpha entry of [DECISION-LOG](../../governance/DECISION-LOG.md); general-public rights remain an owner/rightsteam question.
 
 ## 6. Traps and lessons
 
