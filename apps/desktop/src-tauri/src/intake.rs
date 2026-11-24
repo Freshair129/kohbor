@@ -840,6 +840,52 @@ impl Shared {
         view
     }
 
+    /// Read-only projection for Lab's minimap recorder. It is available only for a fresh,
+    /// verified live payload. A known match ID reuses the same install-keyed session hash as
+    /// match history; an absent ID leaves the hash unknown so the recorder marks its epoch
+    /// fallback explicitly instead of reusing stale match identity.
+    #[cfg(
+        feature = "lab"
+    )]
+    pub(crate) fn minimap_recorder_snapshot_at(
+        &self,
+        now: Instant,
+    ) -> Option<crate::lab::minimap_recorder::RecorderIntakeSnapshot> {
+        let epoch = self.epoch?;
+        if self.last_age_ms_at(now)? > FRESH_MAX_AGE_MS
+            || self.phase != Some(Phase::Live)
+            || self.ownership != Some(Ownership::Verified)
+        {
+            return None;
+        }
+        let Some((_, Outcome::Admitted(admitted))) = self.last_admitted.as_ref() else {
+            return None;
+        };
+        if admitted.phase != Phase::Live || admitted.ownership != Ownership::Verified {
+            return None;
+        }
+        let match_hash = admitted.match_id.as_ref().and_then(|_| {
+            self.sessions
+                .current()
+                .filter(|session| session.epoch == epoch)
+                .map(|session| session.match_key.clone())
+        });
+        Some(crate::lab::minimap_recorder::RecorderIntakeSnapshot {
+            session_epoch: epoch,
+            match_hash,
+            game_clock_seconds: admitted
+                .map
+                .clock_time
+                .value()
+                .copied()
+                .filter(|seconds| *seconds >= 0),
+            team_side: admitted.team.map(|team| match team {
+                Team::Radiant => crate::hero_stats::counters::Side::Radiant,
+                Team::Dire => crate::hero_stats::counters::Side::Dire,
+            }),
+        })
+    }
+
     /// Private capture eligibility from the latest admitted payload. An old epoch
     /// carried over from an earlier match is not evidence for an unidentified draft.
     pub(crate) fn draft_bar_allowed(&self) -> bool {
@@ -2004,6 +2050,56 @@ mod tests {
         assert_eq!(s.accept(&menu("x"), Instant::now(), None), 401);
         assert!(s.last_admitted.is_none());
         assert_eq!(s.snapshot()["availability"], "unknown");
+    }
+
+    #[cfg(
+        feature = "lab"
+    )]
+    #[test]
+    fn minimap_recorder_snapshot_returns_current_hashed_match_clock_and_side_only_while_fresh_live() {
+        let mut shared = shared_with_token();
+        let token = shared.token.clone().unwrap();
+        let mut live = in_game(&token);
+        live["map"]["matchid"] = json!("8000000001");
+        live["map"]["clock_time"] = json!(321);
+        let received_at = Instant::now();
+        assert_eq!(shared.accept(&live, received_at, Some(owner())), 200);
+
+        let snapshot = shared
+            .minimap_recorder_snapshot_at(received_at + Duration::from_millis(20))
+            .expect("fresh live GSI provides a recorder snapshot");
+        assert_eq!(snapshot.session_epoch, shared.epoch.unwrap());
+        assert_eq!(snapshot.game_clock_seconds, Some(321));
+        assert_eq!(
+            snapshot.team_side,
+            Some(crate::hero_stats::counters::Side::Radiant)
+        );
+        assert_eq!(
+            snapshot.match_hash.as_deref(),
+            shared.sessions.current().map(|session| session.match_key.as_str())
+        );
+        assert_ne!(snapshot.match_hash.as_deref(), Some("8000000001"));
+        assert!(!format!("{snapshot:?}").contains("8000000001"));
+
+        let mut missing_match_id = live.clone();
+        missing_match_id["map"].as_object_mut().unwrap().remove("matchid");
+        assert_eq!(
+            shared.accept(
+                &missing_match_id,
+                received_at + Duration::from_millis(100),
+                Some(owner())
+            ),
+            200
+        );
+        let fallback = shared
+            .minimap_recorder_snapshot_at(received_at + Duration::from_millis(120))
+            .expect("fresh live GSI with an existing epoch provides the fallback snapshot");
+        assert_eq!(fallback.session_epoch, snapshot.session_epoch);
+        assert_eq!(fallback.match_hash, None);
+        assert_eq!(fallback.game_clock_seconds, Some(321));
+        assert!(shared
+            .minimap_recorder_snapshot_at(received_at + Duration::from_millis(2_101))
+            .is_none());
     }
 
     #[test]

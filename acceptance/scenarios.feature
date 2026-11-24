@@ -828,3 +828,10 @@ Feature: Brand-neutral desktop companion target behavior
     Then auto analysis runs only outside a match and one at a time through engine admission; auto-off queues no job; newest N and pins remain unless only pins exceed byte cap; only derived bundles are evicted; no .dem or Dota folder path is written or deleted; notes/chat survive and show replay removed; history joins use install-keyed hash; user hero is fallback only when GSI has no match
     And failure behavior is: Unknown runtime phase, engine admission or source state never authorizes auto analysis. Unknown values show "— ไม่ทราบ". If pinned bundles alone exceed the cap, preserve them and show the over-cap state. Eviction failure preserves the prior index and files. Bundle removal never deletes .dem, notes or chat.
 
+  @LAB-001 @extension
+  Scenario: AC-LAB-001 Opt-in local minimap test recording
+    Given Lab consent off and on, synthetic live/fresh/confirmed and ineligible frames, a full bounded queue, and total/per-match cap boundaries
+    When the player enables recording and eligible minimap frames arrive through the existing capture path
+    Then only eligible minimap crops are written as PNG on the background worker with the specified JSONL and privacy-safe manifest, ineligible frames are ignored, queue overflow is non-blocking and counted, capacity stops the match with a notice, and only the chosen recording is deleted after user confirmation
+    And failure behavior is: Frames outside a fresh live confirmed-crop admission are ignored; a full queue drops without waiting and increments the match drop counter; a capacity hit stops recording for that match and reports the reason; deleting one match never removes another; unknown data stays null.
+

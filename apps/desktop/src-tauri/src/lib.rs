@@ -1235,6 +1235,17 @@ pub fn run() {
                 crate::log_warn!("resources", "sampler_unavailable", format!("{error}"));
             }
             let gsi_runtime = runtime.clone();
+            #[cfg(feature = "lab")]
+            let gsi = capture_host::GsiView::with_minimap_recorder(move || {
+                let now = std::time::Instant::now();
+                let shared = intake::lock(&gsi_runtime.shared);
+                let snapshot = shared.capture_gsi_snapshot_at(now);
+                let recorder = crate::lab::minimap_recorder::recording_enabled()
+                    .then(|| shared.minimap_recorder_snapshot_at(now))
+                    .flatten();
+                (snapshot, recorder)
+            });
+            #[cfg(not(feature = "lab"))]
             let gsi = capture_host::GsiView::new(move || {
                 intake::lock(&gsi_runtime.shared).capture_gsi_snapshot_at(std::time::Instant::now())
             });
@@ -1527,7 +1538,11 @@ pub fn run() {
         lab::dev::lab_hud_layout_apply,
         lab::dev::lab_hud_layout_reset,
         lab::dev::lab_hud_preview,
-        lab::dev::lab_reference_image
+        lab::dev::lab_reference_image,
+        lab::dev::lab_minimap_recorder_status,
+        lab::dev::lab_minimap_recorder_set,
+        lab::dev::lab_minimap_recorder_delete,
+        lab::dev::lab_minimap_recorder_open_folder
     ]);
     #[cfg(not(any(feature = "demo", debug_assertions)))]
     let builder = builder.invoke_handler(generate_handler_with_updater_commands![

@@ -184,6 +184,7 @@ struct CaptureConfigStore {
     data_dir: PathBuf,
     state: Mutex<CaptureConfigState>,
     command_generation: AtomicU64,
+    crop_confirmed: AtomicBool,
 }
 
 impl CaptureConfigStore {
@@ -214,6 +215,7 @@ impl CaptureConfigStore {
                 ..CaptureConfig::default()
             }
         });
+        let crop_confirmed = config.crop_confirmed;
         Self {
             data_dir,
             state: Mutex::new(CaptureConfigState {
@@ -225,7 +227,12 @@ impl CaptureConfigStore {
                 invalidation: InvalidationState::default(),
             }),
             command_generation: AtomicU64::new(0),
+            crop_confirmed: AtomicBool::new(crop_confirmed),
         }
+    }
+
+    fn crop_confirmed(&self) -> bool {
+        self.crop_confirmed.load(Ordering::Acquire)
     }
 
     fn get(&self) -> CaptureConfig {
@@ -324,6 +331,8 @@ impl CaptureConfigStore {
             state.proposal_search_pending = false;
         }
         state.config = next;
+        self.crop_confirmed
+            .store(state.config.crop_confirmed, Ordering::Release);
         state.revision = state.revision.saturating_add(1);
         if layout_action {
             self.begin_retry(&mut state);
@@ -347,6 +356,7 @@ impl CaptureConfigStore {
         }
         self.persist(&next)?;
         state.config = next;
+        self.crop_confirmed.store(false, Ordering::Release);
         state.proposal_search_pending = false;
         state.revision = state.revision.saturating_add(1);
         self.begin_retry(&mut state);
@@ -359,6 +369,7 @@ impl CaptureConfigStore {
         next.crop_confirmed = true;
         self.persist(&next)?;
         state.config = next;
+        self.crop_confirmed.store(true, Ordering::Release);
         state.revision = state.revision.saturating_add(1);
         self.begin_retry(&mut state);
         Ok(state.config.clone())
@@ -447,6 +458,7 @@ impl CaptureConfigStore {
         next.proposal_status = ProposalStatus::None;
         self.persist(&next)?;
         state.config = next;
+        self.crop_confirmed.store(true, Ordering::Release);
         state.proposal_search_pending = false;
         state.revision = state.revision.saturating_add(1);
         self.begin_retry(&mut state);
@@ -1713,6 +1725,8 @@ struct CaptureHostWorker<S, C, A, R, E, H> {
     command_generation: u64,
     session_epoch: Option<u64>,
     game_phase: Option<GamePhase>,
+    #[cfg(feature = "lab")]
+    recorder_snapshot: Option<crate::lab::minimap_recorder::RecorderIntakeSnapshot>,
     draft_mode: bool,
     draft: Arc<Mutex<DraftBarMemory>>,
     draft_references: fn() -> DraftBarMatcher,
@@ -1808,6 +1822,8 @@ where
             command_generation: commands.generation,
             session_epoch: None,
             game_phase: None,
+            #[cfg(feature = "lab")]
+            recorder_snapshot: None,
             draft_mode: false,
             draft: Arc::new(Mutex::new(DraftBarMemory::default())),
             draft_references: DraftBarMatcher::empty,
@@ -2026,6 +2042,17 @@ where
             self.display.set_interval(interval);
         }
         self.paused = config.paused;
+        #[cfg(feature = "lab")]
+        let (gsi, recorder_snapshot) = catch_unwind(AssertUnwindSafe(|| {
+            self.gsi.read_with_minimap_recorder()
+        }))
+        .map(|(snapshot, recorder)| (Some(snapshot), recorder))
+        .unwrap_or((None, None));
+        #[cfg(feature = "lab")]
+        {
+            self.recorder_snapshot = recorder_snapshot;
+        }
+        #[cfg(not(feature = "lab"))]
         let gsi = catch_unwind(AssertUnwindSafe(|| self.gsi.read())).ok();
         let was_game_capture_allowed = game_phase_allows_capture(self.game_phase);
         self.game_phase = gsi.as_ref().and_then(|snapshot| snapshot.game_phase);
@@ -3018,6 +3045,88 @@ where
                     controller.coverage(now_ms)
                 })
         };
+
+        // Hand the already-admitted minimap crop to Lab's bounded queue. This hook performs
+        // no crop, encode, filesystem work, or blocking send on the capture thread.
+        #[cfg(feature = "lab")]
+        if coverage == Coverage::Valid
+            && self.game_phase == Some(GamePhase::Live)
+            && self.config.crop_confirmed()
+            && self.recorder_snapshot.is_some()
+            && gsi.as_ref().is_some_and(|snapshot| {
+                snapshot.game_phase == Some(GamePhase::Live)
+                    && snapshot.age_ms.is_some_and(|age| age <= 2_000)
+            })
+        {
+            if let (
+                Some(snapshot),
+                Some(recorder_snapshot),
+                Some(frame),
+                Some(crop_rect),
+                Some(output),
+            ) = (
+                gsi.as_ref(),
+                self.recorder_snapshot.as_ref(),
+                latest_admitted.as_ref(),
+                self.profile_rect,
+                self.output,
+            ) {
+                let candidate = &frame.candidate;
+                if candidate.structural_ok
+                    && snapshot.session_epoch == Some(candidate.session_epoch)
+                    && recorder_snapshot.session_epoch == candidate.session_epoch
+                {
+                    let (ally_hero_ids, enemy_hero_ids) = self
+                        .draft
+                        .try_lock()
+                        .ok()
+                        .map(|draft| draft.recorder_lineups(recorder_snapshot.team_side))
+                        .unwrap_or((None, None));
+                    let team_side = recorder_snapshot.team_side.map(|side| match side {
+                        crate::hero_stats::counters::Side::Radiant => "radiant".to_owned(),
+                        crate::hero_stats::counters::Side::Dire => "dire".to_owned(),
+                    });
+                    let sample = crate::lab::minimap_recorder::FrameSample {
+                        pixels: Arc::clone(&candidate.bgra),
+                        width: candidate.width,
+                        height: candidate.height,
+                        stride: candidate.stride,
+                        metadata: crate::lab::minimap_recorder::FrameMetadata {
+                            session_epoch: candidate.session_epoch,
+                            match_hash: recorder_snapshot.match_hash.clone(),
+                            game_clock_seconds: recorder_snapshot.game_clock_seconds,
+                            phase: "live".to_owned(),
+                            capture_age_ms: now_ms.saturating_sub(candidate.acquired_at_ms),
+                            crop_rect: crate::lab::minimap_recorder::RectData {
+                                x: crop_rect.x,
+                                y: crop_rect.y,
+                                width: crop_rect.width,
+                                height: crop_rect.height,
+                            },
+                            capture_size: crate::lab::minimap_recorder::Dimensions {
+                                width: output.width,
+                                height: output.height,
+                            },
+                            stale: false,
+                            crop_confirmed: true,
+                            game_build: None,
+                            resolution: Some(crate::lab::minimap_recorder::Dimensions {
+                                width: output.width,
+                                height: output.height,
+                            }),
+                            dpi: Some(output.dpi),
+                            capture_profile: self.profile_name.clone(),
+                            dota_minimap_settings: Default::default(),
+                            team_side,
+                            ally_hero_ids,
+                            enemy_hero_ids,
+                        },
+                    };
+                    let _ = crate::lab::minimap_recorder::submit_from_capture_host(sample, now_ms);
+                }
+            }
+        }
+
         let visible = latest_admitted.as_ref().and_then(|frame| {
             if coverage != Coverage::Valid
                 || !frame.candidate.structural_ok
@@ -3339,6 +3448,11 @@ where
         payload["phase_detail"] = json!(self.phase_detail.as_deref());
         payload["grab_ms_mean"] = json!(self.grab_duration.mean_ms(now));
         payload["analysis_ms_mean"] = json!(self.analysis_duration.mean_ms(now));
+        #[cfg(feature = "lab")]
+        {
+            payload["minimap_recording"] =
+                json!(crate::lab::minimap_recorder::recording_enabled());
+        }
         if self.last_logged_status != Some((phase, phase_reason)) {
             self.last_logged_status = Some((phase, phase_reason));
             crate::log_info!(
@@ -3633,14 +3747,49 @@ impl GsiSnapshot {
 
 /// Read-only accessor for the own-hero facts.
 #[derive(Clone)]
-pub struct GsiView(Arc<dyn Fn() -> GsiSnapshot + Send + Sync>);
+pub struct GsiView {
+    read: Arc<dyn Fn() -> GsiSnapshot + Send + Sync>,
+    #[cfg(feature = "lab")]
+    recorder_read: Option<Arc<dyn Fn() -> (GsiSnapshot, Option<crate::lab::minimap_recorder::RecorderIntakeSnapshot>) + Send + Sync>>,
+}
 
 impl GsiView {
     pub fn new(read: impl Fn() -> GsiSnapshot + Send + Sync + 'static) -> Self {
-        Self(Arc::new(read))
+        Self {
+            read: Arc::new(read),
+            #[cfg(feature = "lab")]
+            recorder_read: None,
+        }
     }
+
+    #[cfg(feature = "lab")]
+    pub fn with_minimap_recorder(
+        read: impl Fn() -> (GsiSnapshot, Option<crate::lab::minimap_recorder::RecorderIntakeSnapshot>)
+            + Send
+            + Sync
+            + 'static,
+    ) -> Self {
+        let paired: Arc<dyn Fn() -> (GsiSnapshot, Option<crate::lab::minimap_recorder::RecorderIntakeSnapshot>) + Send + Sync> =
+            Arc::new(read);
+        let gsi_read = Arc::clone(&paired);
+        Self {
+            read: Arc::new(move || gsi_read().0),
+            recorder_read: Some(paired),
+        }
+    }
+
     pub fn read(&self) -> GsiSnapshot {
-        (self.0)()
+        (self.read)()
+    }
+
+    #[cfg(feature = "lab")]
+    fn read_with_minimap_recorder(
+        &self,
+    ) -> (GsiSnapshot, Option<crate::lab::minimap_recorder::RecorderIntakeSnapshot>) {
+        self.recorder_read
+            .as_ref()
+            .map(|read| read())
+            .unwrap_or_else(|| ((self.read)(), None))
     }
 }
 

@@ -66,6 +66,20 @@
 .lab-hud-editor-grid .lab-canvas-wrap:fullscreen { width: 100vw; height: 100vh; align-items: center; justify-content: center; }
 .lab-hud-editor-grid .lab-canvas-wrap:fullscreen .lab-canvas { width: min(100vw, calc(100vh * 16 / 9)); flex: 0 0 auto; }
 
+.lab-minimap-recorder { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin: 0 0 10px; background: color-mix(in srgb, var(--text) 4%, var(--ground)); }
+.lab-minimap-recorder h3 { margin: 0 0 3px; }
+.lab-minimap-recorder p { margin: 5px 0; font-size: .86rem; }
+.lab-minimap-recorder-head, .lab-minimap-recorder-toggle, .lab-minimap-recorder-controls, .lab-minimap-recorder-list li { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.lab-minimap-recorder-head { justify-content: space-between; }
+.lab-minimap-recorder-toggle { margin: 8px 0; font-weight: 700; }
+.lab-minimap-recorder-controls label { display: flex; align-items: center; gap: 6px; }
+.lab-minimap-recorder-controls input[type="number"] { width: 7em; }
+.lab-minimap-recorder-indicator { color: var(--critical); font-weight: 700; }
+.lab-minimap-recorder-indicator::before { content: "● "; }
+.lab-minimap-recorder-list { list-style: none; margin: 7px 0; padding: 0; }
+.lab-minimap-recorder-list li { justify-content: space-between; border-top: 1px solid var(--line); padding: 5px 0; }
+.lab-minimap-recorder-refresh { margin-top: 4px; }
+
 @media (max-width: 900px) {
   .lab-hud-editor-grid { grid-template-columns: 1fr; }
 }

@@ -215,6 +215,55 @@ impl DraftBarMemory {
         &self.roster
     }
 
+    /// Recorder projection contains only complete hero-ID lineups; player fields never leave
+    /// this in-memory roster. Unknown side, missing heroes, duplicate heroes, and invalid IDs
+    /// remain unknown for both teams.
+    pub(crate) fn recorder_lineups(
+        &self,
+        own_side: Option<crate::hero_stats::counters::Side>,
+    ) -> (Option<Vec<String>>, Option<Vec<String>>) {
+        let Some(own_side) = own_side else {
+            return (None, None);
+        };
+        let (ally_name, enemy_name) = match own_side {
+            crate::hero_stats::counters::Side::Radiant => ("radiant", "dire"),
+            crate::hero_stats::counters::Side::Dire => ("dire", "radiant"),
+        };
+        (
+            self.recorder_side_lineup(ally_name),
+            self.recorder_side_lineup(enemy_name),
+        )
+    }
+
+    fn recorder_side_lineup(&self, side: &str) -> Option<Vec<String>> {
+        let mut slots: Vec<_> = self
+            .roster
+            .slots
+            .iter()
+            .filter(|slot| slot.side == side)
+            .collect();
+        slots.sort_unstable_by_key(|slot| slot.index);
+        if slots.len() != 5
+            || slots
+                .iter()
+                .enumerate()
+                .any(|(index, slot)| slot.index != index)
+        {
+            return None;
+        }
+        let mut unique = HashSet::with_capacity(5);
+        slots
+            .into_iter()
+            .map(|slot| {
+                let hero_id = slot.hero.value.as_ref()?;
+                if !hero_id.starts_with("npc_dota_hero_") || !unique.insert(hero_id) {
+                    return None;
+                }
+                Some(hero_id.clone())
+            })
+            .collect()
+    }
+
     pub fn accept(&mut self, pixels: &[u8], geometry: &DraftBarGeometry, at: Instant) {
         if let Some(matcher) = &mut self.matcher {
             let width = geometry.strip_rect.width;
@@ -1671,6 +1720,33 @@ pub(crate) mod tests {
         );
         memory.observe(None, true, false);
         assert_eq!(memory.roster().counts().heroes, 0);
+    }
+
+    #[test]
+    fn recorder_lineups_return_only_complete_unique_hero_ids_by_ally_and_enemy_side() {
+        let mut memory = DraftBarMemory::default();
+        for (index, slot) in memory.roster.slots.iter_mut().enumerate() {
+            slot.hero.value = Some(format!("npc_dota_hero_test_{index}"));
+        }
+
+        let (allies, enemies) = memory.recorder_lineups(Some(crate::hero_stats::counters::Side::Radiant));
+        assert_eq!(
+            allies,
+            Some((0..5).map(|index| format!("npc_dota_hero_test_{index}")).collect())
+        );
+        assert_eq!(
+            enemies,
+            Some((5..10).map(|index| format!("npc_dota_hero_test_{index}")).collect())
+        );
+
+        memory.roster.slots[8].hero.value = None;
+        let (allies, enemies) = memory.recorder_lineups(Some(crate::hero_stats::counters::Side::Radiant));
+        assert_eq!(
+            allies,
+            Some((0..5).map(|index| format!("npc_dota_hero_test_{index}")).collect())
+        );
+        assert_eq!(enemies, None);
+        assert!(!format!("{allies:?}{enemies:?}").contains("player_name"));
     }
 
     #[test]

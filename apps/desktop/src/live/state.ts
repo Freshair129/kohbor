@@ -86,6 +86,7 @@ export function parseCaptureStatus(input: unknown): CaptureStatus | null {
       ? input.display_fps
       : undefined;
   const paused = input.paused === undefined ? null : input.paused;
+  const minimapRecording = input.minimap_recording === undefined ? false : input.minimap_recording;
   const phaseReason = input.phase_reason === undefined ? null : input.phase_reason;
   const phaseDetail = input.phase_detail === undefined ? null : input.phase_detail;
   const grabMsMean = input.grab_ms_mean === undefined ? null : nullableNumber(input.grab_ms_mean);
@@ -97,6 +98,7 @@ export function parseCaptureStatus(input: unknown): CaptureStatus | null {
     sentTotal === undefined || (sentTotal !== null && sentTotal < 0) ||
     grabTotal === undefined || (grabTotal !== null && grabTotal < 0) ||
     typeof input.auto_confirmed !== "boolean" || typeof cropConfirmed !== "boolean" ||
+    typeof minimapRecording !== "boolean" ||
     displayFps === undefined || (paused !== null && typeof paused !== "boolean") ||
     (phaseReason !== null && typeof phaseReason !== "string") ||
     (phaseDetail !== null && typeof phaseDetail !== "string") ||
@@ -117,6 +119,7 @@ export function parseCaptureStatus(input: unknown): CaptureStatus | null {
     crop_confirmed: cropConfirmed,
     display_fps: displayFps,
     paused,
+    minimap_recording: minimapRecording,
     phase_reason: phaseReason,
     phase_detail: phaseDetail,
     grab_ms_mean: grabMsMean,

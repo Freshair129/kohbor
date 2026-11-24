@@ -27,6 +27,12 @@ test("capture parser admits intentional idle but still rejects unrecognized phas
   assert.equal(copy.phaseLabel("idle", "th"), "รอเกม");
 });
 
+test("capture status preserves the Lab minimap recording indicator and defaults it off", () => {
+  assert.equal(state.parseCaptureStatus(capturePayload({ minimap_recording: true }))?.minimap_recording, true);
+  assert.equal(state.parseCaptureStatus(capturePayload())?.minimap_recording, false);
+  assert.equal(state.parseCaptureStatus(capturePayload({ minimap_recording: "yes" })), null);
+});
+
 const riskPayload = (overrides: Record<string, unknown> = {}) => ({
   meter: 2,
   gsi_source: true,
