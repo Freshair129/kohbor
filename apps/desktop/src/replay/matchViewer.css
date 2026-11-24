@@ -295,9 +295,13 @@ kbd { font: 11px var(--f-mono); border: 1px solid var(--line); border-bottom-wid
 .rc .row.st .at em { color: var(--good); font-style: normal; margin-left: 1px }
 .rc .row.st .at.pr { color: var(--warn) }
 .rc .row.st .at.pr b { color: var(--warn) }
+.rc .stat-glyph { display: inline-flex; align-items: center; justify-content: center; gap: 1px; vertical-align: -1px; }
+.rc .row.st .stat-glyph img { display: block; flex: none; width: 10px; height: 10px; object-fit: contain; }
+.rc .row.st .stat-glyph[aria-label^="REG"] img { width: 9px; }
 
 .rc .row.dvs { grid-area: dv; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px 6px; font: 10px var(--f-mono); color: var(--muted) }
 .rc .dv { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: help }
+.rc .row.dvs .stat-glyph img { display: block; flex: none; width: 10px; height: 10px; object-fit: contain; }
 .rc .dv b { color: var(--ink); font-weight: 600 }
 .rc .dv.z b { color: var(--muted); font-weight: 400 }
 

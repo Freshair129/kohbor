@@ -50,6 +50,20 @@ test("the side setting defaults to off and survives a broken or unknown stored v
   assert.equal(persistSecondMonitorSide({ setItem: () => { throw new Error("full"); } }, "left"), "left");
 });
 
+test("the second-monitor selector keeps three named, pressed icon buttons", () => {
+  const component = readFileSync(new URL("../src/live/SecondMonitorToggle.tsx", import.meta.url), "utf8");
+  for (const label of ["ปิด", "จอ 2 อยู่ซ้าย", "จอ 2 อยู่ขวา", "Off", "Monitor 2 on the left", "Monitor 2 on the right"]) {
+    assert.ok(component.includes(label), `accessible name and tooltip include ${label}`);
+  }
+  assert.match(component, /SECOND_MONITOR_SIDES\.map\(option =>/);
+  assert.match(component, /aria-label=\{labels\[option\]\} title=\{labels\[option\]\} aria-pressed=\{side === option\}/);
+  assert.match(component, /<MonitorGlyph side=\{option\} \/>/);
+  assert.match(component, /onClick=\{\(\) => onChange\(option\)\}/);
+  assert.match(component, /fill=\{leftActive \? "var\(--accent\)"/);
+  assert.match(component, /const leftActive = side === "left"/);
+  assert.match(component, /aria-hidden="true" focusable="false"/);
+});
+
 test("monitor 2 on the right pins the map to the left edge, and the reverse", () => {
   assert.equal(mapEdgeFor("right"), "left");
   assert.equal(mapEdgeFor("left"), "right");

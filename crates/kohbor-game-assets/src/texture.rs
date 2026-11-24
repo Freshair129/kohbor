@@ -17,10 +17,16 @@ pub struct Image {
 
 /// Decode a single-mip compiled Source 2 texture to straight RGBA8.
 ///
-/// Supported formats observed in the installed hero portrait census are
-/// DXT5, embedded PNG, and raw RGBA8888. DXT1 is also supported for synthetic
-/// compatibility coverage. Unsupported formats return a value-level error.
+/// Supported formats observed in the installed assets include DXT5, embedded
+/// PNG, format 4 raw RGBA8888, and format 28 raw BGRA8888. DXT1 is also
+/// supported for synthetic compatibility coverage. Unsupported formats
+/// return a value-level error.
 pub fn decode_vtex_c(bytes: &[u8]) -> Result<Image> {
+    decode_vtex_c_with_format(bytes).map(|(image, _)| image)
+}
+
+/// Decode one compiled texture and return its Source 2 image-format code for provenance/debugging.
+pub fn decode_vtex_c_with_format(bytes: &[u8]) -> Result<(Image, u8)> {
     if bytes.len() < 16 {
         return Err(Error::InvalidTexture("resource header is truncated"));
     }
@@ -122,19 +128,24 @@ pub fn decode_vtex_c(bytes: &[u8]) -> Result<Image> {
         1 => decode_dxt(payload, width, height, DxtKind::Dxt1)?,
         2 => decode_dxt(payload, width, height, DxtKind::Dxt5)?,
         16 | 18 if payload.starts_with(PNG_SIGNATURE) => decode_png_rgba(payload, width, height)?,
-        // 4 is RGBA8888 (the minimap overviews); 28 is the format seen on portraits.
-        4 | 28 => decode_raw_rgba(payload, output_len)?,
+        // Format 4 is RGBA8888 (minimap overviews); panorama stat icons use
+        // format 28, whose raw pixels are BGRA8888.
+        4 => decode_raw_rgba(payload, output_len)?,
+        28 => decode_raw_bgra(payload, output_len)?,
         other => return Err(Error::UnsupportedTextureFormat(other)),
     };
 
     if rgba.len() != output_len {
         return Err(Error::InvalidTexture("decoded byte count is inconsistent"));
     }
-    Ok(Image {
-        width,
-        height,
-        rgba,
-    })
+    Ok((
+        Image {
+            width,
+            height,
+            rgba,
+        },
+        format,
+    ))
 }
 
 fn decode_raw_rgba(payload: &[u8], output_len: usize) -> Result<Vec<u8>> {
@@ -146,6 +157,20 @@ fn decode_raw_rgba(payload: &[u8], output_len: usize) -> Result<Vec<u8>> {
         .try_reserve_exact(output_len)
         .map_err(|_| Error::AllocationFailed)?;
     output.extend_from_slice(pixels);
+    Ok(output)
+}
+
+fn decode_raw_bgra(payload: &[u8], output_len: usize) -> Result<Vec<u8>> {
+    let pixels = payload
+        .get(..output_len)
+        .ok_or(Error::InvalidTexture("BGRA8888 payload is truncated"))?;
+    let mut output = Vec::new();
+    output
+        .try_reserve_exact(output_len)
+        .map_err(|_| Error::AllocationFailed)?;
+    for pixel in pixels.chunks_exact(4) {
+        output.extend_from_slice(&[pixel[2], pixel[1], pixel[0], pixel[3]]);
+    }
     Ok(output)
 }
 
@@ -822,11 +847,21 @@ mod tests {
     #[test]
     fn decodes_synthetic_rgba8888_payload() {
         let pixels = [255, 0, 0, 255, 0, 255, 0, 128];
-        let resource = make_vtex(2, 1, 28, &pixels);
-        let image = decode_vtex_c(&resource).expect("synthetic RGBA should decode");
-        assert!(image.rgba[..] == pixels[..], "RGBA8888 pixels differ");
+        let bgra = [0, 0, 255, 255, 0, 255, 0, 128];
+        let resource = make_vtex(2, 1, 28, &bgra);
+        let image = decode_vtex_c(&resource).expect("synthetic BGRA should decode");
+        assert!(image.rgba[..] == pixels[..], "BGRA8888 pixels differ");
         let overview = decode_vtex_c(&make_vtex(2, 1, 4, &pixels)).expect("format 4 decodes");
         assert!(overview.rgba[..] == pixels[..], "format 4 pixels differ");
+    }
+
+    #[test]
+    fn format_28_bgra8888_decodes_a_known_red_pixel_as_red() {
+        // The source stores channels as B, G, R, A; this pixel is pure red.
+        let image = decode_vtex_c(&make_vtex(1, 1, 28, &[0, 0, 255, 255]))
+            .expect("synthetic format 28 BGRA should decode");
+
+        assert_eq!(image.rgba, [255, 0, 0, 255]);
     }
 
     #[test]

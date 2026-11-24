@@ -13,6 +13,7 @@ import { cardCopy, type HeroCard as CardModel } from "./secondMonitorCards";
 import type { OwnFieldCardMode } from "./secondMonitorLayout";
 import { dotaIcon } from "./dotaIconSet";
 import { ownFullCard, teamFullCard, UNKNOWN, type FullHeroCardView, type IconSlotView, type StatCellView } from "./heroCardModel";
+import { statIconUrl } from "./statIcons/assets";
 import liveStatsPack from "../assets/dota/6989/stats.json";
 import type { StatsData } from "../stats/derivedStats";
 import "./heroCard.css";
@@ -117,9 +118,24 @@ function Bar({ kind, percent, label, value, low = false }: { kind: "hp" | "mp"; 
 function statTitle(cell: StatCellView, text: Text): string {
   if (cell.derived) {
     const sources = cell.sources.length > 0 ? cell.sources.join("; ") : "unknown";
-    return `${cell.label}: ${cell.value}\nSources: ${sources}\nไม่รวมผลชั่วคราว / without temporary effects.${cell.basis ? `\n${cell.basis}` : ""}`;
+    return `${cell.accessibleLabel}: ${cell.value}\nSources: ${sources}\nไม่รวมผลชั่วคราว / without temporary effects.${cell.basis ? `\n${cell.basis}` : ""}`;
   }
-  return cell.value === UNKNOWN && cell.group !== "rate" ? `${cell.label}: ${UNKNOWN} (${text.statNoSource})` : `${cell.label}: ${cell.value}`;
+  return cell.value === UNKNOWN && cell.group !== "rate"
+    ? `${cell.accessibleLabel}: ${UNKNOWN} (${text.statNoSource})`
+    : `${cell.accessibleLabel}: ${cell.value}`;
+}
+
+function StatGlyphs({ cell }: { cell: StatCellView }) {
+  return (
+    <dt role="img" aria-label={cell.accessibleLabel} title={cell.accessibleLabel}>
+      {cell.iconIds.map(iconId => {
+        const src = statIconUrl(iconId);
+        return src
+          ? <img key={iconId} src={src} alt="" aria-hidden="true" draggable={false} />
+          : <span key={iconId} className="lhc-stat-icon-fallback" aria-hidden="true">{cell.label}</span>;
+      })}
+    </dt>
+  );
 }
 
 /** The sections every card shares, in the replay card's order. */
@@ -169,8 +185,8 @@ function CardSections({ view, text, locale, abilitiesAge, itemsAge, basisInHeade
         {view.derivedBasis && !basisInHeader && <div className="lhc-derived-basis" title={view.derivedBasis.title}>{view.derivedBasis.label}</div>}
         <dl className="lhc-stats" aria-label={text.stats}>
           {view.stats.map(cell => (
-            <div key={cell.key} className={`lhc-stat is-${cell.group}${cell.derived ? " is-derived" : ""}${cell.key === "dmg" ? " is-dmg" : ""}${cell.value === UNKNOWN ? " is-unknown" : ""}`} title={statTitle(cell, text)}>
-              <dt>{cell.label}</dt>
+            <div key={cell.key} className={`lhc-stat is-${cell.group} is-${cell.key}${cell.derived ? " is-derived" : ""}${cell.key === "dmg" ? " is-dmg" : ""}${cell.value === UNKNOWN ? " is-unknown" : ""}`} title={statTitle(cell, text)}>
+              <StatGlyphs cell={cell} />
               <dd>{cell.value}{cell.gain !== null && <em>{cell.gain}</em>}</dd>
             </div>
           ))}
