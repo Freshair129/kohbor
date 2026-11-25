@@ -1861,6 +1861,30 @@
       "proposal_ref": "F:/kohbor-coord/reports/2026-11-25-positioning-decisions-and-rights-inventory.md",
       "safe_interim": "No OpenDota replay downloads, benchmark requests or normal-user AI are enabled by this record. Rights remain unreviewed until the owner's rights team reports back.",
       "closure_evidence": "Owner words \"Approve all 5\" on 2026-11-25, relayed by the lead and recorded by an agent. No provider live test or rights clearance is claimed."
+    },
+    {
+      "id": "DEC-STAT-ICONS",
+      "status": "decided",
+      "milestone": "M3-M6 / alpha",
+      "blocks": "Stat labels on Live and replay hero cards and the overlay layout switch.",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-24",
+      "channel": "decided by the product owner 2026-11-24, relayed by the lead, recorded by an agent",
+      "owner_words": "The stat text (STR, AGI, INT, DMG, REG, ARM, MR, AMP, AS, MS, EV, SR, LS, GPM, XPM): change it to icons like Dota shows ... The layout switch shows the words ปิด / ซ้าย / ขวา. Make them icons (translated in the brief; full text in DECISION-LOG).",
+      "decision": "Replace Live and replay stat text labels with Dota 2's own stat icons wherever those exist; use original SVGs for GPM, XPM and stats with no game icon. The layout switch uses monitor icons (one monitor for off, a pair with the left or right one accented). Preserve all values and unknown states, and keep Thai/English accessible names and tooltips. Presentation only.",
+      "reason": "Owner request for Dota-style stat presentation; the JSON mirror was missing this DECISION-LOG entry (reported by the domain-card refresh, 2026-11-25).",
+      "alternatives_considered": [
+        "Keep the text abbreviations."
+      ],
+      "affected_need_ids": [],
+      "affected_requirement_ids": [],
+      "related": [
+        "DEC-REPLAY-INTEGRATION"
+      ],
+      "proposal_ref": "docs/governance/DECISION-LOG.md (DEC-STAT-ICONS)",
+      "safe_interim": "Dota art rights review remains required before public release under DEC-REPLAY-INTEGRATION item 3.",
+      "closure_evidence": "Owner words on 2026-11-24, relayed by the lead and recorded by an agent in DECISION-LOG; this entry mirrors that record and adds no approval."
     }
   ]
 }

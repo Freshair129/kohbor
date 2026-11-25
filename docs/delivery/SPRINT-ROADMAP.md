@@ -219,9 +219,11 @@ These are integration/source facts, not acceptance claims. `source` means the ch
 ### In progress
 
 - **Approved, in progress — DEC-LANE-EXPECTATION (slices L0–L5).** The owner answered "Approve all 12" on 2026-11-25 (relayed by the lead; the decision record is written by the implementing worker on branch feat/lane-expectation). L0–L5 merged into integ at 1d74e77 (source and synthetic checks only; the opt-in real-bundle reproduction and native/live acceptance are not run). The expert lane table ships with no rows until the coach supplies reviewed data, so most lanes show "ยังไม่มีค่าคาดหมาย". L6 (public data) stays owner-only.
-- **Approved, engine side done; Kohbor re-pin in progress — replay-engine change request.** Under DEC-ANALYTICS-V2 decision 8 the engine owner session delivered schema 3.1 / engine 0.3.0 in `replay-engine-rs` commit 9c314e0 (5db8002 adds only WASM rebuilds): winner, draft, gold earned and hero damage dealt, with existing fields byte-identical. The lead built the pinned candidate from 5db8002 (3,258,368 bytes, SHA-256 9d7aa88b…). Merged into integ: the Kohbor re-pin and schema 3.1 admission (f43f932, native parse of one local replay ready in 16.6 s), the manual re-parse action in the Lab and Analytics lists (b2d5352), and Analytics use of winner, draft, true GPM and hero damage (9a06a4f). Existing library replays stay schema 3.0 until re-parsed; native app acceptance is not run.
+- **Approved, merged — replay engine re-pins.** Schema 3.1 / engine 0.3.0 (f43f932), schema 3.2 / engine 0.4.1 with full hero modifiers and day/night (buff tray and Roshan rule), and on 2026-11-25 engine 0.4.2 (source 6626b20, 5,204,480 bytes, SHA-256 789fe015…), which embeds the 7.42 pack: 0.4.1 returned `unknown_patch` for the owner's first 7.42 replay. Existing library replays stay at their parsed schema until re-parsed; native app acceptance is not run.
 
 - **Approved, merged — UX review fixes (DEC-UX-REVIEW-20261125).** The owner answered "Approve all 11" to the independent UX/pipeline review (coord reports 2026-11-25-ux-pipeline-review). Merged into integ at 8617644: three-step post-game panel tied to a host-kept last match, replay queue retry and watcher state, retention by match end with evicted rows, lane de-duplication tokens, personal average kept out of AI requests, AI request cancel at match start, measured-width Analytics layout with four tabs, consent re-prompt, Developer-mode provider gating, analysis-data delete. The Live hero cards were restored to the approved design (b9f9901) after owner feedback. Source and synthetic checks only; owner native checks pending.
+
+- **Fix round after the owner's a8b636b checklist (2026-11-25).** The Analytics page went blank on every match open (`wrapTeam` DOM insert order, from the layout merge); reproduced with the owner's local bundles in the render harness and fixed with a regression test. The Live HP fill is green again, `needs_pack` rows offer a retry, DEC-STAT-ICONS is mirrored in `contracts/decisions.json`, and the domain-card refresh is merged. Owner re-test pending on the next build.
 
 ### Release
 
@@ -234,13 +236,12 @@ These are integration/source facts, not acceptance claims. `source` means the ch
 ### Follow-ups
 
 - **Proposal —** add Wisdom/Lotus map markers only after verified local coordinates and provenance exist; current replay bundles have power/bounty coordinates only, so the others stay omitted (DEC-LIVE-SECOND-MONITOR).
-- **Proposal —** identify a Roshan pit only from a verified patch rule or admitted GSI field that names it; current `roshan_state`/respawn fields do not establish pit coordinates, so the display remains unknown (DEC-EVENT-RUNE-SPAWN, DEC-LIVE-SECOND-MONITOR).
-- **Pending owner —** re-check stale domain cards with their stewards. The 2026-11-24 checklist reported two stale cards before merge `b33aff8`; the current count is unknown because later integration may have made cards stale again.
+- **Done 2026-11-25 —** domain cards refreshed (0 stale at this commit); the 15 remaining validator warnings are coordination-ledger claims that need the owner's per-claim decision.
 - **Pending owner —** publish `news.json` to `kohbor-updates` if the optional news column is wanted; 404 remains permitted for the closed alpha (DEC-ALPHA-SUPERUSER).
 
 ## Integration gap
 
-`integ/combined-evening` is at `a8deee0`; `main` is at `a1e50ae`. `main..integ/combined-evening` contains 252 commits and `integ/combined-evening..main` contains 0. The integration branch is far ahead of `main`. **The merge to `main` is an owner action and has not been done.**
+`integ/combined-evening` is past `e4ac981` (2026-11-25 fix round); `main` is at `a1e50ae`. `main..integ/combined-evening` contained 296 commits at `e4ac981` and `integ/combined-evening..main` contains 0. The integration branch is far ahead of `main`. **The merge to `main` is an owner action and has not been done.**
 
 ## Backlog status
 

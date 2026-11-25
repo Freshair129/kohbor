@@ -68,7 +68,7 @@
       "path": "docs/delivery/SPRINT-ROADMAP.md",
       "type": "registry",
       "role": "reference",
-      "reviewed_sha256": "03b6f98d158ef78515ac4a22b526a1408b5ca3df86d4b79ce93e98c0514d6f37"
+      "reviewed_sha256": "1998e844650b06125fd18912cf140ab02b896c80f57b7b42502d01c1daa8b64b"
     },
     {
       "path": "contracts/decisions.json",

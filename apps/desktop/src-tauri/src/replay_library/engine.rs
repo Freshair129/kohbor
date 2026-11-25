@@ -9,10 +9,10 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
-pub const ENGINE_VERSION: &str = "0.4.1";
-pub const ENGINE_SHA256: &str = "9ecf53d7555a3288d386fa93e4dd9bafa2fe2e060660aef9dcb52f972165cfd8";
-pub const ENGINE_SIZE_BYTES: u64 = 3_368_448;
-pub const ENGINE_SOURCE_COMMIT: &str = "c9951596d46d64467a906907005b2da3073b62dc";
+pub const ENGINE_VERSION: &str = "0.4.2";
+pub const ENGINE_SHA256: &str = "789fe0153462af12432ad6a11083c656209937467812b88d4dc20b83bdf499b0";
+pub const ENGINE_SIZE_BYTES: u64 = 5_204_480;
+pub const ENGINE_SOURCE_COMMIT: &str = "6626b20a02477b0bb8c14de3e5565a09e6ab9eb2";
 pub const BUNDLE_SCHEMA: &str = "3.2";
 pub const MAX_DEM_BYTES: u64 = 400 * 1024 * 1024;
 pub const MAX_MANIFEST_BYTES: u64 = 1 * 1024 * 1024;
@@ -1351,15 +1351,15 @@ mod tests {
 
     #[test]
     fn non_pinned_hash_is_not_in_the_allowlist() {
-        assert_eq!(ENGINE_VERSION, "0.4.1");
+        assert_eq!(ENGINE_VERSION, "0.4.2");
         assert_eq!(
             ENGINE_SHA256,
-            "9ecf53d7555a3288d386fa93e4dd9bafa2fe2e060660aef9dcb52f972165cfd8"
+            "789fe0153462af12432ad6a11083c656209937467812b88d4dc20b83bdf499b0"
         );
-        assert_eq!(ENGINE_SIZE_BYTES, 3_368_448);
+        assert_eq!(ENGINE_SIZE_BYTES, 5_204_480);
         assert_eq!(
             ENGINE_SOURCE_COMMIT,
-            "c9951596d46d64467a906907005b2da3073b62dc"
+            "6626b20a02477b0bb8c14de3e5565a09e6ab9eb2"
         );
         assert!(!pinned_hash(&sha256_bytes(b"wrong engine")));
         assert!(pinned_hash(ENGINE_SHA256));

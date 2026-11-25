@@ -123,8 +123,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/binaries/replay-engine-rs-x86_64-pc-windows-msvc.exe",
-      "bytes": 3368448,
-      "sha256": "9ecf53d7555a3288d386fa93e4dd9bafa2fe2e060660aef9dcb52f972165cfd8"
+      "bytes": 5204480,
+      "sha256": "789fe0153462af12432ad6a11083c656209937467812b88d4dc20b83bdf499b0"
     },
     {
       "path": "apps/desktop/src-tauri/build.rs",
@@ -724,7 +724,7 @@
     {
       "path": "apps/desktop/src-tauri/src/replay_library/engine.rs",
       "bytes": 57215,
-      "sha256": "cd3a7b7ac05759aa4ad94a9dacf62f12ab56dcb605d0c99dfe2e556c39999f62"
+      "sha256": "06f90d83eb55b485874c84e92edae4f6859693f83bbeaef82ed2555d6e23af8d"
     },
     {
       "path": "apps/desktop/src-tauri/src/replay_library/mod.rs",
@@ -1018,8 +1018,8 @@
     },
     {
       "path": "apps/desktop/src/analytics/analyticsModel.ts",
-      "bytes": 9365,
-      "sha256": "bd25113598b42ec1d661a288f129ed44962aa56b7681d02bc33691ec1bff704e"
+      "bytes": 9504,
+      "sha256": "efe875d84e77d949270eecb1d73c3a507b3c9c25d348530df5dc5b7843810192"
     },
     {
       "path": "apps/desktop/src/analytics/analyticsSettings.css",
@@ -12993,8 +12993,8 @@
     },
     {
       "path": "apps/desktop/src/live/heroCard.css",
-      "bytes": 40891,
-      "sha256": "e05dc4e7a6e11a184f9009fbcad73afb24feca0268975d2175360ebae245a327"
+      "bytes": 40911,
+      "sha256": "bd37ebffea36ce82e03972bb101a141cde8f3f40ace08142c09464ccab0d03d9"
     },
     {
       "path": "apps/desktop/src/live/heroCardModel.ts",
@@ -13603,8 +13603,8 @@
     },
     {
       "path": "apps/desktop/src/replay/matchViewer.mjs",
-      "bytes": 127788,
-      "sha256": "17df2747e176eb15e7949d97956d6589b0a018c8872815ed0b763b7fa6dd197e"
+      "bytes": 127887,
+      "sha256": "795056f179d8f0cd7045dd4e6c0218292d69d9c194a9e8bf85093e01706fb3ca"
     },
     {
       "path": "apps/desktop/src/replay/matchViewerCopy.d.mts",
@@ -13988,8 +13988,8 @@
     },
     {
       "path": "apps/desktop/tests/analytics-w4-renderer.test.ts",
-      "bytes": 5846,
-      "sha256": "1b26299c8e90655acf48d0ebd27e5a58f9d115bd68344192af3c493109a3b572"
+      "bytes": 5929,
+      "sha256": "5a9dcd87908a62eabd947d202a3e43fe14eadf903a8d0b51b204bc756cd4c0ef"
     },
     {
       "path": "apps/desktop/tests/analytics.test.ts",
@@ -14298,8 +14298,8 @@
     },
     {
       "path": "apps/desktop/tests/match-viewer-status.test.mjs",
-      "bytes": 4343,
-      "sha256": "914eefebe1c60939419683ded498c5c99c5b6d7ebcb2d84fb2bcefadcd38fdb6"
+      "bytes": 5161,
+      "sha256": "33eee02aac9f04d94ef86b0acfefb581f382d036a0495ea706c5512a04a6ab54"
     },
     {
       "path": "apps/desktop/tests/matchRecap.test.ts",
@@ -14653,8 +14653,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 178526,
-      "sha256": "aeaf66e6a38931cdb4ad8ab0d50ac24f482ee3ff8eb2616e2fd4d1e89aa8db56"
+      "bytes": 180365,
+      "sha256": "3c4054795ba70f44bf3e845a0749a44ee0218548377691cca983e76dc02d5bc5"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -15588,8 +15588,8 @@
     },
     {
       "path": "docs/delivery/SPRINT-ROADMAP.md",
-      "bytes": 34287,
-      "sha256": "03b6f98d158ef78515ac4a22b526a1408b5ca3df86d4b79ce93e98c0514d6f37"
+      "bytes": 34159,
+      "sha256": "1998e844650b06125fd18912cf140ab02b896c80f57b7b42502d01c1daa8b64b"
     },
     {
       "path": "docs/delivery/evidence/m1-live-2026-11-11-draft.png",
@@ -15743,13 +15743,13 @@
     },
     {
       "path": "docs/design/REPLAY-ENGINE-PROVENANCE.md",
-      "bytes": 3246,
-      "sha256": "7126fc3fed6c323fd7bd9d9907f6cef9fdc4681236c94880751e04be8ace5ba3"
+      "bytes": 3904,
+      "sha256": "77cff5a8c7ae5ace5a3b2617f6a038c1cba2a0fbdbce90ac2d2380bf15bd00b3"
     },
     {
       "path": "docs/design/REPLAY-PIPELINE.md",
-      "bytes": 17039,
-      "sha256": "7719e6b605876cf6cc1854eb1e529a3846f2bed575334b6709cc15d8d3704804"
+      "bytes": 17223,
+      "sha256": "de71d3196fece5a000916a5a2879d9be13e955ed2f564b4dd84ff4b3308982f5"
     },
     {
       "path": "docs/design/RISK-ADMISSION-SPEC.md",
@@ -16159,7 +16159,7 @@
     {
       "path": "docs/domains/events-audio/state.json",
       "bytes": 5501,
-      "sha256": "2effffe47c32f2762d2d0ba741802f300e8e2dda244eea094190ebc9e8dd1698"
+      "sha256": "787efcd1bb6a8c021f24e929dece975755e26e2b96a8ba940cec1a7c86ca6b9b"
     },
     {
       "path": "docs/domains/governance/CARD.md",
@@ -16184,7 +16184,7 @@
     {
       "path": "docs/domains/host-core/state.json",
       "bytes": 7842,
-      "sha256": "ae0f1351877ef1e55ffa98cd230be690ed4f50acd80ab92a635022a9a7358357"
+      "sha256": "c15f1419b2ea62a604b30741e5d8828f08f932788162a348bea761b3dd4f96a9"
     },
     {
       "path": "docs/domains/packs/CARD.md",
@@ -16194,7 +16194,7 @@
     {
       "path": "docs/domains/packs/state.json",
       "bytes": 4906,
-      "sha256": "5ea3b97739f03670226797abd05e18e30258cae9e21c941c117740be90390942"
+      "sha256": "b43818abc47678858f187346721c23fd193d0557c81ec747f4ceba33b3965081"
     },
     {
       "path": "docs/domains/ui-overlay/CARD.md",
@@ -16204,7 +16204,7 @@
     {
       "path": "docs/domains/ui-overlay/state.json",
       "bytes": 6657,
-      "sha256": "9caa97d780b070964dd2b0d0a83634a3819f9b5ef74e37dbd134c9e9f4c63a0b"
+      "sha256": "797760b86b2d0c49ec7cca3771c3e8d1b6be84a9c46abd4db749d8b4cc9ccff1"
     },
     {
       "path": "docs/domains/vision-risk/CARD.md",
@@ -16214,7 +16214,7 @@
     {
       "path": "docs/domains/vision-risk/state.json",
       "bytes": 4657,
-      "sha256": "bb18435c92d6ba09c71b756ddcddba75d4a0a2a8515ecb499bf689d9737ed5c2"
+      "sha256": "5001cdf72abfaf1ede7365399435dc9836d185d7dc72dd995691e600c10c11b6"
     },
     {
       "path": "docs/examples/news.sample.json",
