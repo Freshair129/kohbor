@@ -8,6 +8,7 @@ const SCHEMA_VERSION: u8 = 1;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub(crate) struct DraftStatsPrefs {
     pub(crate) hero_stats_consent: bool,
+    pub(crate) benchmarks_on: bool,
     pub(crate) draft_bar_enabled: bool,
     pub(crate) position: Option<u8>,
     pub(crate) bracket: Option<u8>,
@@ -17,6 +18,7 @@ impl Default for DraftStatsPrefs {
     fn default() -> Self {
         Self {
             hero_stats_consent: false,
+            benchmarks_on: false,
             draft_bar_enabled: true,
             position: None,
             bracket: None,
@@ -29,6 +31,8 @@ impl Default for DraftStatsPrefs {
 struct StoredPrefs {
     schema_version: u8,
     hero_stats_consent: bool,
+    #[serde(default)]
+    benchmarks_on: bool,
     draft_bar_enabled: bool,
     #[serde(deserialize_with = "required_option")]
     position: Option<u8>,
@@ -60,6 +64,7 @@ impl TryFrom<StoredPrefs> for DraftStatsPrefs {
         }
         Ok(Self {
             hero_stats_consent: stored.hero_stats_consent,
+            benchmarks_on: stored.benchmarks_on,
             draft_bar_enabled: stored.draft_bar_enabled,
             position: stored.position,
             bracket: stored.bracket,
@@ -86,6 +91,9 @@ pub(crate) fn patch_prefs(
         match key.as_str() {
             "hero_stats_consent" => {
                 next.hero_stats_consent = value.as_bool().ok_or("DRAFT_STATS_PREFS_INVALID")?;
+            }
+            "benchmarks_on" => {
+                next.benchmarks_on = value.as_bool().ok_or("DRAFT_STATS_PREFS_INVALID")?;
             }
             "draft_bar_enabled" => {
                 next.draft_bar_enabled = value.as_bool().ok_or("DRAFT_STATS_PREFS_INVALID")?;
@@ -131,6 +139,7 @@ impl PrefsStore {
         let bytes = serde_json::to_vec(&StoredPrefs {
             schema_version: SCHEMA_VERSION,
             hero_stats_consent: prefs.hero_stats_consent,
+            benchmarks_on: prefs.benchmarks_on,
             draft_bar_enabled: prefs.draft_bar_enabled,
             position: prefs.position,
             bracket: prefs.bracket,
@@ -152,6 +161,7 @@ mod tests {
             DraftStatsPrefs::default(),
             DraftStatsPrefs {
                 hero_stats_consent: false,
+                benchmarks_on: false,
                 draft_bar_enabled: true,
                 position: None,
                 bracket: None,
@@ -182,6 +192,7 @@ mod tests {
             parse_prefs(good),
             Some(DraftStatsPrefs {
                 hero_stats_consent: true,
+                benchmarks_on: false,
                 draft_bar_enabled: false,
                 position: Some(5),
                 bracket: Some(8),
@@ -194,10 +205,11 @@ mod tests {
         let current = DraftStatsPrefs::default();
         let next = patch_prefs(
             &current,
-            &json!({"hero_stats_consent":true,"position":3,"bracket":null}),
+            &json!({"hero_stats_consent":true,"benchmarks_on":true,"position":3,"bracket":null}),
         )
         .unwrap();
         assert!(next.hero_stats_consent);
+        assert!(next.benchmarks_on);
         assert_eq!(next.position, Some(3));
         assert_eq!(next.bracket, None);
         for invalid in [

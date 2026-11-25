@@ -220,7 +220,7 @@ Recorded in chat with the lead agent; details and the conflicts they create are 
 
 1. **Amended by DEC-ANALYTICS-V2 (2026-11-25).** Post-match hero-level coaching may analyse observed data for all ten heroes. Player names and claims about people are excluded. Per-person analysis of a friend still needs that friend's consent later.
 2. Bring gem-dota 0.14.0 into `tools/` as a pinned Lab/dev tool, pinning the version and file hashes, from the copy already installed on the owner's machine. Nothing is downloaded. The product parser is decided after a feasibility spike.
-3. Comparisons use the owner's own local history only; no OpenDota or STRATZ.
+3. Comparisons use the owner's own local history only; no OpenDota or STRATZ. amended by DEC-POSITIONING-20261125 item 2 (owner "Approve all 5", 2026-11-25, relayed by the lead, recorded by an agent): Comparisons may also show OpenDota hero benchmarks under the DEC-PICK-STATS rules (a separate off-by-default switch, only the hero ID or a parameterless hero list sent, at most four counted requests per 24 h, attribution, cache deleted on withdrawal); everything else in item 3 is unchanged.
 4. Thresholds such as ganked and lane lost start as provisional drafts. The owner confirms them after 3–5 matches; they are not changed after seeing a result.
 5. Coach text comes from evidence-citing templates, at most 3 per match. No language model.
 6. Slice 1 stores no multi-match trends; reports stay import-only. Amended by DEC-LANE-EXPECTATION (2026-11-25): the Analytics lane corpus stores up to 1,500 local hero-level rows for all three lanes without player or match identifiers and is deleted by clear-history; the viewer's own lane average stays separate and excluded from expectations.

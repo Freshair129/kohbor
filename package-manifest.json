@@ -443,8 +443,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/commands.rs",
-      "bytes": 83053,
-      "sha256": "54ebec0927f2c57e688c135d9ef9f4b88201fd7a5fb514b2d4bf94cf7072579f"
+      "bytes": 84270,
+      "sha256": "a089b9f5e68d9c25950f1bb5cb549faf533897ab4b56e553dedd80d5fbc40fdc"
     },
     {
       "path": "apps/desktop/src-tauri/src/containment.rs",
@@ -465,6 +465,11 @@
       "path": "apps/desktop/src-tauri/src/draft_roster.rs",
       "bytes": 28976,
       "sha256": "a6c022fec5e1ae5dd94310ad6f90a8ed1a67b3cd9052386b857bab8e89e1c9ea"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/hero_stats/benchmarks.rs",
+      "bytes": 34000,
+      "sha256": "5e200e2da136ebe8ac3e3da9f4b09269a9382b6a5ad8717a509ad86398995d76"
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/budget.rs",
@@ -493,8 +498,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/host.rs",
-      "bytes": 86098,
-      "sha256": "56dea5a576bd6252d52966f3f848772a04d5ba7ebee90aa7e4dbe1367f7b54f0"
+      "bytes": 87325,
+      "sha256": "fdcd96791ec9848ad662757453370cc5f911dc75cea13c52ba66f8ddac2be81e"
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/layout.rs",
@@ -503,8 +508,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/mod.rs",
-      "bytes": 6887,
-      "sha256": "ce7d2a208c00c937840e7006a09af09c6941f8c4a6455e00493b466884193437"
+      "bytes": 6914,
+      "sha256": "f671026c13bfe21badcc7a3983dcee561c0c7fb22d0579f0f87eea9246833a6e"
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/parse.rs",
@@ -518,8 +523,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/prefs.rs",
-      "bytes": 7175,
-      "sha256": "c6628e93ef7a835b82cc1c873afe45dfc47c57f522652d3164228fc784460bdc"
+      "bytes": 7660,
+      "sha256": "a187bc4b4e0484293aac5284485b35ebb607078c9ab74db31c0a9a5853f1d1a4"
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/rank.rs",
@@ -528,13 +533,13 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/request.rs",
-      "bytes": 3408,
-      "sha256": "22f394bb2a002512af2910e54c70d58d163a2e5084478f4e045c78ddd879fd6e"
+      "bytes": 3891,
+      "sha256": "824eff8dc5e59d66d163d35150db897b729f7f7d89b0456fa0f5721969ef552e"
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/transport.rs",
-      "bytes": 21118,
-      "sha256": "aa6ff2e217cd7d98f8285986854f7d64b1fc27fa4aa1431b759f337baa229c58"
+      "bytes": 22179,
+      "sha256": "8a7b752e8ddba23455c7cc0dbf72ca1ca27511cc06b0846eba802a3730d8ad55"
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/view.rs",
@@ -583,8 +588,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 73540,
-      "sha256": "107416dc0d571b7e22793b773323d8a6d74936f7d99c9619cd0cd905a2ea741c"
+      "bytes": 74421,
+      "sha256": "e07db5ee3d0528bb1088748ffea6e034320207b155d7108e7a341a7a59d6a065"
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
@@ -973,8 +978,8 @@
     },
     {
       "path": "apps/desktop/src/analytics/AnalyticsSettings.tsx",
-      "bytes": 7238,
-      "sha256": "c8dcaa817f6c80202cd46dd74e2859144d85b1ac7b1308e4fc4af53dfcbd2eea"
+      "bytes": 9706,
+      "sha256": "2e409091f6dae1f3fffed7366bb2a676f9d85b9cdc446f08f1bb32220df19a37"
     },
     {
       "path": "apps/desktop/src/analytics/LaneReviewPage.tsx",
@@ -1027,6 +1032,16 @@
       "sha256": "690b222380a1f411f68469cf681ddaf353c6390681369219c14f8f09433cd641"
     },
     {
+      "path": "apps/desktop/src/analytics/heroBenchmarksModel.d.mts",
+      "bytes": 1430,
+      "sha256": "b02210ccbbc506c8fa2c477ee7fee15241e5a5b4f0ad896ca418850fb22e9694"
+    },
+    {
+      "path": "apps/desktop/src/analytics/heroBenchmarksModel.mjs",
+      "bytes": 4135,
+      "sha256": "ea7c6326a048d97ea12a43a81c11cb370b1b524961e5ad0748e17643189e164f"
+    },
+    {
       "path": "apps/desktop/src/analytics/heroCardView.d.mts",
       "bytes": 671,
       "sha256": "55253f6a256295507e2413cf7ac2c405dda6c9520c5c000c38c16e0159e318e7"
@@ -1038,13 +1053,13 @@
     },
     {
       "path": "apps/desktop/src/analytics/knowledge/index.tsx",
-      "bytes": 26819,
-      "sha256": "b92762679ee9b8549919b88371dd21aa5e53fa476a3f627c6a7ec48bbaf80c95"
+      "bytes": 33489,
+      "sha256": "6acd77405db29374cf52dbcec9f6d55a69b7dab22015bb1132cf1654f2e9978a"
     },
     {
       "path": "apps/desktop/src/analytics/knowledge/knowledge.css",
-      "bytes": 7000,
-      "sha256": "eff2ff737511c3d9b1a07b0c0fa3d76ded3383874db932526edab5267f7a0b08"
+      "bytes": 7370,
+      "sha256": "6b53f9f701bd2d229adca7dbe413c2878a85c8bc1692812e5fb6ee23a9fd6e06"
     },
     {
       "path": "apps/desktop/src/analytics/knowledge/presentationModel.d.mts",
@@ -13273,8 +13288,8 @@
     },
     {
       "path": "apps/desktop/src/mock/harness.tsx",
-      "bytes": 38401,
-      "sha256": "5efdd62bb5703be0960e065cdb392e2f19d78a879e54b33abd5e44259dc493ae"
+      "bytes": 39294,
+      "sha256": "eac82bd6ac75d61e00203a06538182e96ef544ddf0da9205a6bdc0a53ace5e9f"
     },
     {
       "path": "apps/desktop/src/mock/hudState.ts",
@@ -13960,6 +13975,11 @@
       "path": "apps/desktop/tests/account-store-stability.test.ts",
       "bytes": 2562,
       "sha256": "960fb8fa05451ee50cfbb077d655d89606b9d184068180a028e0e0cffb9b116f"
+    },
+    {
+      "path": "apps/desktop/tests/analytics-hero-benchmarks.test.mjs",
+      "bytes": 3214,
+      "sha256": "751b4e7b5ae15a98779615c515ebcd84bcfaa74b331622cc4b235f59ca98ae72"
     },
     {
       "path": "apps/desktop/tests/analytics-knowledge.test.mjs",
@@ -14653,8 +14673,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 180365,
-      "sha256": "3c4054795ba70f44bf3e845a0749a44ee0218548377691cca983e76dc02d5bc5"
+      "bytes": 180782,
+      "sha256": "3d8a632f15895c34b206b14fdf2344a5a0d4b29f2d15c3efaba4e3cb5ded313b"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -15673,8 +15693,8 @@
     },
     {
       "path": "docs/design/DESIGN-IMPLEMENTATION.md",
-      "bytes": 2384,
-      "sha256": "7061528781b84af81366d8aa18812f93f5575ee52eac5096fa23168d3de82d03"
+      "bytes": 2626,
+      "sha256": "db4d8c921109390c24f76bcaed35828a0b14be48365c62f1235b526d9eb25ebe"
     },
     {
       "path": "docs/design/DRAFT-BAR-SPEC.md",
@@ -15695,6 +15715,11 @@
       "path": "docs/design/GSI-INTAKE-SPEC.md",
       "bytes": 25501,
       "sha256": "18bf3bd3342c53d477f6a94c87fdd58c025419eaa582e1cb276ea38ee68d84dd"
+    },
+    {
+      "path": "docs/design/HERO-BENCHMARKS.md",
+      "bytes": 3583,
+      "sha256": "1bfdd51e4a67bc08f7ec848f0dc5b1d81df144f8c479275a2065889774d1794c"
     },
     {
       "path": "docs/design/ICD.md",
@@ -16243,8 +16268,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 126482,
-      "sha256": "1787d269b5e147341ef84723d8bce477055816113a42d302ada7b9fed58e431a"
+      "bytes": 126897,
+      "sha256": "290cc079b9b126a98811f04748a8e5418aa5c4aed0108e6ccfdcbc1776df2baa"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
@@ -16338,8 +16363,8 @@
     },
     {
       "path": "docs/security/SECURITY-PRIVACY.md",
-      "bytes": 23761,
-      "sha256": "bfe439ce5d61c87b5cbfe05e9148c2f688aa3e5327886f8b716334baad2893b5"
+      "bytes": 24101,
+      "sha256": "6aff3d37a44e3c7ba7e49ff08ff5c13ffcc1bc54749675059afbaa86ad26b739"
     },
     {
       "path": "fixtures/audio-outcome-admitted-valid.json",

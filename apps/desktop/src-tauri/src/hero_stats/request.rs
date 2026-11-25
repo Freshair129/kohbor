@@ -84,6 +84,8 @@ pub(crate) enum OutgoingRequest {
     HeroStats,
     LaneRoles(LaneRole),
     OwnHeroDurations(HeroId),
+    BenchmarksHeroes,
+    Benchmarks(HeroId),
 }
 
 impl OutgoingRequest {
@@ -96,6 +98,10 @@ impl OutgoingRequest {
             Self::OwnHeroDurations(hero_id) => {
                 format!("/api/heroes/{}/durations", hero_id.get())
             }
+            Self::BenchmarksHeroes => "/api/heroes".to_owned(),
+            Self::Benchmarks(hero_id) => {
+                format!("/api/benchmarks?hero_id={}", hero_id.get())
+            }
         }
     }
 }
@@ -105,7 +111,7 @@ mod tests {
     use super::{HeroId, LaneRole, OutgoingRequest};
 
     #[test]
-    fn request_enum_produces_only_the_three_fixed_routes() {
+    fn request_enum_produces_only_fixed_routes_with_hero_id_as_the_only_variable() {
         assert_eq!(OutgoingRequest::HeroStats.path(), "/api/heroStats");
         assert_eq!(
             OutgoingRequest::LaneRoles(LaneRole::Safe).path(),
@@ -122,6 +128,11 @@ mod tests {
         assert_eq!(
             OutgoingRequest::OwnHeroDurations(HeroId::new(86).unwrap()).path(),
             "/api/heroes/86/durations"
+        );
+        assert_eq!(OutgoingRequest::BenchmarksHeroes.path(), "/api/heroes");
+        assert_eq!(
+            OutgoingRequest::Benchmarks(HeroId::new(86).unwrap()).path(),
+            "/api/benchmarks?hero_id=86"
         );
         assert!(HeroId::new(0).is_none());
     }

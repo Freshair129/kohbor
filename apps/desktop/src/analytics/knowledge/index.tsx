@@ -1,5 +1,7 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { ANALYTICS_TABS } from "../analyticsModel";
+import { buildHeroBenchmarksViewModel, observedHeroBenchmarkMetrics } from "../heroBenchmarksModel.mjs";
 import { buildLineSegments, heroComparisonEngineMetric, heroMetricValue, laneBadgeLabel, laneExpectationReading, matchResultPresentation, matchupRows, orderedDraftEntries, showLaneExpectationInStrip } from "./presentationModel.mjs";
 import "./knowledge.css";
 
@@ -10,7 +12,7 @@ export type KnowledgeHero = {
   slot: number;
   lane?: { lane: "top" | "mid" | "bot" | null; share?: number | null; reason?: string };
   final?: Record<string, { value?: number | null; reason?: string } | number | null>;
-  rates?: { gpm?: number | null; gpm_reason?: string | null; gpm_source?: string | null };
+  rates?: { gpm?: number | null; gpm_reason?: string | null; gpm_source?: string | null; xpm?: number | null };
   gold_earned?: number | null;
   gold_earned_reason?: string | null;
   gold_earned_source?: string | null;
@@ -20,6 +22,24 @@ export type KnowledgeHero = {
   phases?: Record<string, Record<string, unknown>>;
   items?: unknown;
   final_items?: unknown;
+};
+
+type HeroBenchmarksHostView = {
+  enabled: boolean;
+  state: "disabled" | "unknown" | "loading" | "ready" | "offline" | "budget_exhausted";
+  budget_used: number;
+  hero_id: number | null;
+  fetched_at_ms: number | null;
+  benchmarks: {
+    hero_id: number;
+    gold_per_min?: Array<{ percentile: number; value: number }> | null;
+    xp_per_min?: Array<{ percentile: number; value: number }> | null;
+    kills_per_min?: Array<{ percentile: number; value: number }> | null;
+    last_hits_per_min?: Array<{ percentile: number; value: number }> | null;
+    hero_damage_per_min?: Array<{ percentile: number; value: number }> | null;
+    hero_healing_per_min?: Array<{ percentile: number; value: number }> | null;
+    tower_damage?: Array<{ percentile: number; value: number }> | null;
+  } | null;
 };
 
 export type KnowledgeDigest = {
@@ -236,6 +256,107 @@ export function MatchSummaryTab({ digest, loading, onSeek }: Pick<KnowledgePanel
   </div>;
 }
 
+function HeroBenchmarksPanel({ hero, durationSeconds }: { hero: KnowledgeHero; durationSeconds: number | null }) {
+  const [enabled, setEnabled] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<HeroBenchmarksHostView | null>(null);
+
+  useEffect(() => {
+    let current = true;
+    void invoke<HeroBenchmarksHostView>("hero_benchmarks_state_get").then((next) => {
+      if (!current) return;
+      setView(next);
+      setEnabled(next.enabled);
+      setLoaded(true);
+    }).catch(() => {
+      if (!current) return;
+      setError("อ่านสถานะ benchmark ไม่ได้");
+      setLoaded(true);
+    });
+    return () => { current = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!enabled || !hero.id) return;
+    let current = true;
+    setView((previous) => ({
+      enabled: true,
+      state: "loading",
+      budget_used: previous?.budget_used ?? 0,
+      hero_id: null,
+      fetched_at_ms: null,
+      benchmarks: null,
+    }));
+    setError(null);
+    void invoke<HeroBenchmarksHostView>("hero_benchmarks_get", { heroKey: hero.id }).then((next) => {
+      if (current) setView(next);
+    }).catch(() => {
+      if (!current) return;
+      setView((previous) => previous ? { ...previous, enabled: true, state: "offline" } : {
+        enabled: true, state: "offline", budget_used: 0, hero_id: null, fetched_at_ms: null, benchmarks: null,
+      });
+      setError("เชื่อมต่อ OpenDota ไม่ได้");
+    });
+    return () => { current = false; };
+  }, [enabled, hero.id]);
+
+  async function setConsent(nextEnabled: boolean) {
+    setBusy(true);
+    setError(null);
+    try {
+      const next = await invoke<HeroBenchmarksHostView>("hero_benchmarks_set", { enabled: nextEnabled });
+      setView(next);
+      setEnabled(next.enabled);
+    } catch {
+      setError(nextEnabled ? "บันทึกการยินยอมไม่ได้" : "ถอนความยินยอมแล้ว แต่ลบ cache ไม่สำเร็จ");
+      if (!nextEnabled) {
+        setEnabled(false);
+        setView((previous) => previous ? { ...previous, enabled: false, state: "disabled", benchmarks: null, fetched_at_ms: null, hero_id: null } : null);
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const model = buildHeroBenchmarksViewModel({
+    enabled,
+    requestState: view?.state ?? "unknown",
+    budgetUsed: view?.budget_used ?? 0,
+    benchmarks: view?.benchmarks,
+    observed: observedHeroBenchmarkMetrics(hero, durationSeconds),
+    fetchedAt: view?.fetched_at_ms,
+  });
+  const fetchedDate = model.fetchedAt === null ? null : new Date(model.fetchedAt).toLocaleDateString("th-TH");
+  return <section className="a2k-benchmarks" aria-labelledby="hero-benchmarks-title">
+    <h3 id="hero-benchmarks-title">เทียบผลงานฮีโร่กับ benchmarks</h3>
+    <label className="a2k-benchmarks__switch">
+      <input type="checkbox" checked={enabled} disabled={busy || !loaded} onChange={(event) => void setConsent(event.currentTarget.checked)} />
+      {enabled ? "ใช้ benchmarks จาก OpenDota" : "เปิดใช้ benchmarks จาก OpenDota"}
+    </label>
+    <p className="a2k-benchmarks__consent">เมื่อเปิดใช้ จะส่งเฉพาะรหัสฮีโร่ที่เลือก และอาจขอรายการฮีโร่สาธารณะแบบไม่มีพารามิเตอร์ (/api/heroes) เพื่อแปลงชื่อฮีโร่เป็นรหัส ไม่มีข้อมูลผู้เล่นหรือแมตช์</p>
+    <p>{model.budgetText}</p>
+    {error && <p role="alert">{error}</p>}
+    {!enabled && <p>ปิดอยู่ · เปิดใช้เพื่อดูตำแหน่ง percentile ของฮีโร่นี้</p>}
+    {enabled && model.state === "loading" && <p role="status">กำลังอ่านข้อมูลเทียบ…</p>}
+    {enabled && model.state === "offline" && <p role="alert">เชื่อมต่อ OpenDota ไม่ได้ · ค่าจากรีเพลย์ยังอยู่ในเครื่อง</p>}
+    {enabled && model.state === "budget_exhausted" && <p>ครบโควตาคำขอในช่วง 24 ชั่วโมง</p>}
+    {enabled && model.state === "unknown" && <p>ไม่ทราบข้อมูล benchmark หรือยังไม่มีรหัสฮีโร่จากแหล่งที่อนุญาต</p>}
+    {enabled && model.state === "ready" && <>
+      <p>{model.attribution}{fetchedDate ? ` · ดึงข้อมูล ${fetchedDate}` : ""}</p>
+      <p>{model.population} · ไม่แบ่งตาม bracket</p>
+      <table><thead><tr><th>ตัวชี้วัด</th><th>รีเพลย์นี้</th><th>ตำแหน่งเทียบฮีโร่</th></tr></thead><tbody>
+        {model.metrics.map((metric) => <tr key={metric.key}>
+          <th>{metric.label}</th>
+          <td>{metric.value === null ? "— ไม่ทราบ" : metric.value.toFixed(1)}</td>
+          <td>{metric.percentile === null ? "— ไม่ทราบ" : `ประมาณ P${metric.percentile.toFixed(0)}`}</td>
+        </tr>)}
+      </tbody></table>
+    </>}
+  </section>;
+}
+
 /** Local hero comparison tab; selection IDs are always roster hero IDs. */
 export function HeroComparisonTab({ digest, selectedHeroId, opponentHeroId, onSelectHero, onSelectOpponentHero }: Pick<KnowledgePanelProps, "digest" | "selectedHeroId" | "opponentHeroId" | "onSelectHero" | "onSelectOpponentHero">) {
   const heroes = digest?.heroes ?? [];
@@ -263,6 +384,7 @@ export function HeroComparisonTab({ digest, selectedHeroId, opponentHeroId, onSe
     {selected && <section>
       <label>ฮีโร่ที่เลือก <select value={selected.id} onChange={(event) => onSelectHero?.(event.target.value)}>{heroes.map((hero) => <option key={hero.id} value={hero.id}>{hero.hero} · {SIDE_NAMES[hero.side]}</option>)}</select></label>
       {opponent && <label>ฮีโร่ฝั่งตรงข้าม <select value={opponent.id} onChange={(event) => onSelectOpponentHero?.(event.target.value)}>{heroes.filter((hero) => hero.side !== selected.side).map((hero) => <option key={hero.id} value={hero.id}>{hero.hero} · {LANE_NAMES[hero.lane?.lane ?? "unknown"]}</option>)}</select></label>}
+      <HeroBenchmarksPanel hero={selected} durationSeconds={typeof digest?.meta?.duration_s === "number" ? digest.meta.duration_s : null} />
       <table><thead><tr><th>ข้อมูลเปรียบเทียบ</th><th>{selected.hero}</th><th>{opponent?.hero ?? "คู่เทียบไม่ทราบ"}</th></tr></thead><tbody>{comparisonRows.map(([label, path]) => <tr key={label}><th>{label}</th><td>{readMetric(selected, path)}</td><td>{readMetric(opponent, path)}</td></tr>)}
       </tbody></table>
       <div className="a2k-phase-table"><h3>เปรียบเทียบตามช่วง</h3>{["laning", "mid", "late"].map((phase) => <p key={phase}><b>{phaseLabel(phase)}</b> · {selected.hero}: สังหาร {valueAt((selected.phases as any)?.[phase]?.k)} / เสียชีวิต {valueAt((selected.phases as any)?.[phase]?.d)} · {opponent?.hero ?? "คู่เทียบไม่ทราบ"}: สังหาร {valueAt((opponent?.phases as any)?.[phase]?.k)} / เสียชีวิต {valueAt((opponent?.phases as any)?.[phase]?.d)}</p>)}</div>
