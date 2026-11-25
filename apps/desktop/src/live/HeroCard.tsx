@@ -14,6 +14,10 @@ import type { OwnFieldCardMode } from "./secondMonitorLayout";
 import { dotaIcon } from "./dotaIconSet";
 import { compactOwnFieldStats, ownFieldStatsLayout, ownFullCard, teamFullCard, UNKNOWN, type FullHeroCardView, type IconSlotView, type StatCellView } from "./heroCardModel";
 import { statIconUrl } from "./statIcons/assets";
+import {
+  HERO_CARD_DISPLAY_EVENT, HERO_CARD_DISPLAY_KEY, normalizeHeroCardDisplay, readHeroCardDisplay, visibleStatKeys,
+  type HeroCardDisplay,
+} from "../shared/heroCardDisplay.mjs";
 import liveStatsPack from "../assets/dota/6989/stats.json";
 import type { StatsData } from "../stats/derivedStats";
 import "./heroCard.css";
@@ -21,6 +25,38 @@ import "./heroCard.css";
 const LIVE_STATS_DATA = liveStatsPack as unknown as StatsData;
 
 type Lang = "th" | "en";
+
+function heroCardDisplayStorage(): Pick<Storage, "getItem"> | undefined {
+  try { return typeof window === "undefined" ? undefined : window.localStorage; }
+  catch { return undefined; }
+}
+
+function useLiveHeroCardDisplay(): HeroCardDisplay {
+  const [display, setDisplay] = useState<HeroCardDisplay>(() => readHeroCardDisplay(heroCardDisplayStorage()));
+  useEffect(() => {
+    const onDisplayChange = (event: Event) => {
+      const value = (event as CustomEvent<{ value?: unknown }>).detail?.value;
+      setDisplay(value && typeof value === "object"
+        ? normalizeHeroCardDisplay(value) : readHeroCardDisplay(heroCardDisplayStorage()));
+    };
+    const onStorageChange = (event: StorageEvent) => {
+      if (event.key === HERO_CARD_DISPLAY_KEY || event.key === null) setDisplay(readHeroCardDisplay(heroCardDisplayStorage()));
+    };
+    window.addEventListener(HERO_CARD_DISPLAY_EVENT, onDisplayChange);
+    window.addEventListener("storage", onStorageChange);
+    return () => {
+      window.removeEventListener(HERO_CARD_DISPLAY_EVENT, onDisplayChange);
+      window.removeEventListener("storage", onStorageChange);
+    };
+  }, []);
+  return display;
+}
+
+function cardVisibleStats(view: FullHeroCardView, display: HeroCardDisplay, compactOwnField: boolean): StatCellView[] {
+  const keys = visibleStatKeys(display);
+  const stats = compactOwnField ? compactOwnFieldStats(view.stats) : view.stats;
+  return stats.filter(cell => keys.has(cell.key));
+}
 
 export function heroCardCopy(locale: Lang) {
   const th = locale === "th";
@@ -155,12 +191,15 @@ function StatGlyphs({ cell }: { cell: StatCellView }) {
 }
 
 /** The sections every card shares, in the replay card's order. */
-function CardSections({ view, text, locale, abilitiesAge, itemsAge, basisInHeader = false, roomyField = false, ownField = false, compactOwnField = false }: {
-  view: FullHeroCardView; text: Text; locale: Locale; abilitiesAge: number | null; itemsAge: number | null; basisInHeader?: boolean; roomyField?: boolean;
-  ownField?: boolean; compactOwnField?: boolean;
+function CardSections({ view, display, text, locale, abilitiesAge, itemsAge, basisInHeader = false, roomyField = false, ownField = false, compactOwnField = false, statColumns = null }: {
+  view: FullHeroCardView; display: HeroCardDisplay; text: Text; locale: Locale; abilitiesAge: number | null; itemsAge: number | null; basisInHeader?: boolean; roomyField?: boolean;
+  ownField?: boolean; compactOwnField?: boolean; statColumns?: number | null;
 }) {
   const { abilities, items } = view;
-  const displayedStats = compactOwnField ? compactOwnFieldStats(view.stats) : view.stats;
+  const displayedStats = cardVisibleStats(view, display, compactOwnField);
+  const showDerivedBasis = displayedStats.some(cell => cell.derived) && view.derivedBasis && !basisInHeader;
+  const statRows = statColumns ? Math.max(1, Math.ceil(displayedStats.length / statColumns)) : null;
+  const statGridStyle = statRows ? { gridTemplateRows: `repeat(${statRows}, minmax(12px, 1fr))` } as CSSProperties : undefined;
   return (
     <>
       <div className="lhc-top">
@@ -175,9 +214,9 @@ function CardSections({ view, text, locale, abilitiesAge, itemsAge, basisInHeade
       <div className="lhc-bars">
         <Bar kind="hp" percent={view.hpPercent} label={text.hp} value={view.hpText}
           displayValue={ownField ? view.hpText.replace(/\s*\/\s*/g, "/") : view.hpText} showLabel={!ownField} low={view.hpLow}
-          regenText={view.hpRegenText} regenTitle={view.hpRegenText === null ? null : regenTitle("hp", view.hpRegenText, view.hpRegenSources, view.derivedBasis?.title ?? null, locale)} />
+          regenText={display.show.reg ? view.hpRegenText : null} regenTitle={!display.show.reg || view.hpRegenText === null ? null : regenTitle("hp", view.hpRegenText, view.hpRegenSources, view.derivedBasis?.title ?? null, locale)} />
         <Bar kind="mp" percent={view.manaPercent} label={text.mana} value={view.manaText} displayValue={view.manaText} showLabel={!ownField}
-          regenText={view.manaRegenText} regenTitle={view.manaRegenText === null ? null : regenTitle("mp", view.manaRegenText, view.manaRegenSources, view.derivedBasis?.title ?? null, locale)} />
+          regenText={display.show.reg ? view.manaRegenText : null} regenTitle={!display.show.reg || view.manaRegenText === null ? null : regenTitle("mp", view.manaRegenText, view.manaRegenSources, view.derivedBasis?.title ?? null, locale)} />
       </div>
       <div className={`lhc-row lhc-ab${abilities.stale ? " is-stale" : ""}`} aria-label={text.abilities}
         title={abilities.stale ? `${text.oldData} · ${seconds(abilitiesAge, locale)}` : abilities.known ? undefined : `${text.abilities}: ${text.unknown}`}>
@@ -185,9 +224,9 @@ function CardSections({ view, text, locale, abilitiesAge, itemsAge, basisInHeade
         {abilities.extras.length > 0 && <span className="lhc-extras" aria-label={text.extras}>
           {abilities.extras.map(slot => <Icon key={slot.key} slot={slot} shape="ab" place={text.extras} text={text} stale={abilities.stale} />)}
         </span>}
-        <span className="lhc-mods" aria-label={text.buffs} title={view.buffs.length === 0 ? text.buffsNone : undefined}>
+        {display.show.status && <span className="lhc-mods" aria-label={text.buffs} title={view.buffs.length === 0 ? text.buffsNone : undefined}>
           {view.buffs.map(buff => <span key={buff} className="lhc-mod">{buff}</span>)}
-        </span>
+        </span>}
       </div>
       <div className={`lhc-row lhc-it${items.stale ? " is-stale" : ""}`} aria-label={text.items}
         title={items.stale ? `${text.oldData} · ${seconds(itemsAge, locale)}` : items.known ? undefined : `${text.items}: ${text.unknown}`}>
@@ -202,9 +241,9 @@ function CardSections({ view, text, locale, abilitiesAge, itemsAge, basisInHeade
           <Icon slot={items.neutral} shape="nt" place={text.neutral} text={text} stale={items.stale} />
         </span>
       </div>
-      <div className="lhc-stat-stack">
-        {view.derivedBasis && !basisInHeader && <div className="lhc-derived-basis" title={view.derivedBasis.title}>{view.derivedBasis.label}</div>}
-        <dl className={`lhc-stats${compactOwnField ? " is-own-compact" : ""}`} aria-label={text.stats}>
+      {displayedStats.length > 0 && <div className="lhc-stat-stack">
+        {showDerivedBasis && <div className="lhc-derived-basis" title={view.derivedBasis!.title}>{view.derivedBasis!.label}</div>}
+        <dl className={`lhc-stats${compactOwnField ? " is-own-compact" : ""}`} aria-label={text.stats} style={statGridStyle}>
           {displayedStats.map(cell => (
             <div key={cell.key} className={`lhc-stat is-${cell.group} is-${cell.key}${cell.derived ? " is-derived" : ""}${cell.key === "dmg" ? " is-dmg" : ""}${cell.value === UNKNOWN ? " is-unknown" : ""}`} title={statTitle(cell, text)}>
               <StatGlyphs cell={cell} />
@@ -212,7 +251,7 @@ function CardSections({ view, text, locale, abilitiesAge, itemsAge, basisInHeade
             </div>
           ))}
         </dl>
-      </div>
+      </div>}
     </>
   );
 }
@@ -243,13 +282,16 @@ export function OwnHeroCard({ locale, own, loadout, slot, stale, ageMs, hasLates
   const presentation = retainFreshLoadout(loadout, freshCache);
   const view = ownFullCard({ own, items: presentation.items, itemsStale: loadout.items.stale, abilities: presentation.abilities,
     abilitiesStale: loadout.abilities.stale, slot, stale, icons: dotaIcon, statsData: LIVE_STATS_DATA, gameBuild: null });
+  const display = useLiveHeroCardDisplay();
   const fieldStatsLayout = ownFieldStatsLayout(ownFieldMode);
+  const displayedStats = cardVisibleStats(view, display, fieldStatsLayout.compact);
+  const statColumns = fieldCard ? fieldStatsLayout.compact ? 4 : wideStats ? 8 : 5 : null;
   const style = (view.color ? { "--c": view.color } : {}) as CSSProperties;
   const ageText = `${stale ? text.oldData : text.age} · ${seconds(ageMs, locale)}`;
   const life = ownHeroLifeLabel(own, lang);
   if (fieldCard) {
     const field = (
-      <li className={`lhc lhc-compact lhc-field-card lhc-field-own${wideStats ? " has-wide-stats" : ""}${ownFieldMode ? ` is-own-${ownFieldMode}` : ""}${fieldStatsLayout.compact ? " is-own-compact" : ""}${stale ? " is-stale" : ""}${view.alive === false ? " is-dead" : ""}`}
+      <li className={`lhc lhc-compact lhc-field-card lhc-field-own${wideStats ? " has-wide-stats" : ""}${ownFieldMode ? ` is-own-${ownFieldMode}` : ""}${fieldStatsLayout.compact ? " is-own-compact" : ""}${displayedStats.length ? " has-visible-stats" : " no-visible-stats"}${stale ? " is-stale" : ""}${view.alive === false ? " is-dead" : ""}`}
         style={style} data-testid="live-hero-card-own" data-slot={slot ?? undefined} aria-label={`${youLabel}: ${view.heroName ?? UNKNOWN} · ${life}`}>
         <div className="lhc-pt">
           <CardPortrait heroId={view.heroId} src={view.portraitSrc} alt={view.heroName ?? text.unknown} />
@@ -261,14 +303,14 @@ export function OwnHeroCard({ locale, own, loadout, slot, stale, ageMs, hasLates
           <span className="lhc-you-chip">{youLabel}</span>
           {!wideStats && <span className="lhc-life" title={life}>{life}</span>}
         </div>
-        <CardSections view={view} text={text} locale={locale} abilitiesAge={loadout.abilities.ageMs} itemsAge={loadout.items.ageMs}
-          basisInHeader={wideStats || ownFieldMode !== undefined} ownField compactOwnField={fieldStatsLayout.compact} />
+        <CardSections view={view} display={display} text={text} locale={locale} abilitiesAge={loadout.abilities.ageMs} itemsAge={loadout.items.ageMs}
+          basisInHeader={wideStats || ownFieldMode !== undefined} ownField compactOwnField={fieldStatsLayout.compact} statColumns={statColumns} />
       </li>
     );
     return field;
   }
   const card = (
-    <section className={`lhc lhc-full${tile ? " lhc-tile" : ""}${stale ? " is-stale" : ""}${view.alive === false ? " is-dead" : ""}`} style={style}
+    <section className={`lhc lhc-full${tile ? " lhc-tile" : ""}${displayedStats.length ? " has-visible-stats" : " no-visible-stats"}${stale ? " is-stale" : ""}${view.alive === false ? " is-dead" : ""}`} style={style}
       aria-labelledby={headingId} data-testid="live-hero-card-own" data-slot={slot ?? undefined}>
       <header className="lhc-head">
         <h1 id={headingId}>{headingLabel.title}</h1>
@@ -284,7 +326,7 @@ export function OwnHeroCard({ locale, own, loadout, slot, stale, ageMs, hasLates
         <strong title={view.heroCaption ?? view.heroName ?? undefined}>{view.heroName ?? UNKNOWN}</strong>
         <span className="lhc-life" title={life}>{life}</span>
       </div>
-      <CardSections view={view} text={text} locale={locale} abilitiesAge={loadout.abilities.ageMs} itemsAge={loadout.items.ageMs} />
+      <CardSections view={view} display={display} text={text} locale={locale} abilitiesAge={loadout.abilities.ageMs} itemsAge={loadout.items.ageMs} />
       {loadout.setupHint && <div className="lhc-hint"><GsiSetupHint locale={lang} gsiSetup={gsiSetup} /></div>}
     </section>
   );
@@ -299,11 +341,14 @@ function TeamCard({ view, locale, tile = false, fieldCard = false, wideStats = f
   const lang: Lang = locale === "en" ? "en" : "th";
   const text = heroCardCopy(lang);
   const cards = cardCopy(lang);
+  const display = useLiveHeroCardDisplay();
+  const displayedStats = cardVisibleStats(view, display, false);
+  const statColumns = fieldCard ? roomyField || !wideStats ? 5 : 8 : null;
   const style = (view.color ? { "--c": view.color } : {}) as CSSProperties;
   const who = view.side === "enemy" ? cards.enemyMark : cards.ourTeam;
   const note = view.heroName === null ? text.unnamedNote : view.side === "enemy" ? text.enemyNote : text.allyNote;
   return (
-    <li className={`lhc lhc-compact${tile ? " lhc-tile" : ""}${fieldCard ? ` lhc-field-card${wideStats ? " has-wide-stats" : ""}${roomyField ? " is-roomy-field" : " is-compact-fit"}` : ""} is-${view.side}${view.heroName ? "" : " is-unknown"}`} style={style} title={note}
+    <li className={`lhc lhc-compact${tile ? " lhc-tile" : ""}${fieldCard ? ` lhc-field-card${wideStats ? " has-wide-stats" : ""}${roomyField ? " is-roomy-field" : " is-compact-fit"}` : ""}${displayedStats.length ? " has-visible-stats" : " no-visible-stats"} is-${view.side}${view.heroName ? "" : " is-unknown"}`} style={style} title={note}
       data-testid={`live-hero-card-${view.key}`} data-slot={view.slot ?? undefined} aria-label={`${who}: ${view.heroName ?? UNKNOWN} · ${note}`}>
       <div className="lhc-pt">
         <CardPortrait heroId={view.heroId} src={view.portraitSrc} alt={view.heroName ?? UNKNOWN} />
@@ -314,7 +359,7 @@ function TeamCard({ view, locale, tile = false, fieldCard = false, wideStats = f
         {view.ult && <span className={`lhc-ult is-${view.ult.state}`} title={`${cards.ult}: ${cards.state[view.ult.state]}`}
           aria-label={`${cards.ult}: ${cards.state[view.ult.state]}`} />}
       </div>
-      <CardSections view={view} text={text} locale={locale} abilitiesAge={null} itemsAge={null} roomyField={roomyField} />
+      <CardSections view={view} display={display} text={text} locale={locale} abilitiesAge={null} itemsAge={null} roomyField={roomyField} statColumns={statColumns} />
     </li>
   );
 }

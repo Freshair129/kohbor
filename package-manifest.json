@@ -1073,8 +1073,8 @@
     },
     {
       "path": "apps/desktop/src/analytics/statusTrayModel.mjs",
-      "bytes": 4279,
-      "sha256": "41ab879b70603070d6e7ef8bfd6e84e67d0eb2ae237b256962781eeb6d8abf8c"
+      "bytes": 4623,
+      "sha256": "02b985c7e051c62c2d9baccfaa8dd0d426cfbb62e655f6972a730ec8558da4ec"
     },
     {
       "path": "apps/desktop/src/assets/brand/kohbor-rail-mark.svg",
@@ -12853,8 +12853,8 @@
     },
     {
       "path": "apps/desktop/src/live/HeroCard.tsx",
-      "bytes": 22483,
-      "sha256": "3b06c5a8d26c4b995ee7ef7daeb9f637a6fdec983e8a29b6f489fadfcbc50bcf"
+      "bytes": 25409,
+      "sha256": "91175bf6f99880b88220d958f41778010224ab56d75d717b306c086aed195489"
     },
     {
       "path": "apps/desktop/src/live/LiveTab.tsx",
@@ -12993,8 +12993,8 @@
     },
     {
       "path": "apps/desktop/src/live/heroCard.css",
-      "bytes": 40421,
-      "sha256": "0cf8964784e9cfe2d3fb47e05d5649f9786575cd4edee3ab7efd906e9826ee1e"
+      "bytes": 40891,
+      "sha256": "e05dc4e7a6e11a184f9009fbcad73afb24feca0268975d2175360ebae245a327"
     },
     {
       "path": "apps/desktop/src/live/heroCardModel.ts",
@@ -13588,8 +13588,8 @@
     },
     {
       "path": "apps/desktop/src/replay/matchViewer.css",
-      "bytes": 28749,
-      "sha256": "e2477fce5a9f78b80d4974aeaa65117f1585a77fa6f1f5971164aa5c4c999967"
+      "bytes": 29078,
+      "sha256": "aff8a320e0111c3212f1b1594df91e6bb68ae6b43840e98b7206df4230f273b3"
     },
     {
       "path": "apps/desktop/src/replay/matchViewer.d.mts",
@@ -13603,8 +13603,8 @@
     },
     {
       "path": "apps/desktop/src/replay/matchViewer.mjs",
-      "bytes": 123948,
-      "sha256": "fa633812a206f9c8fdacc75688c39d8e1f065d0aa138dcb30c3e9af9529d1f47"
+      "bytes": 127788,
+      "sha256": "17df2747e176eb15e7949d97956d6589b0a018c8872815ed0b763b7fa6dd197e"
     },
     {
       "path": "apps/desktop/src/replay/matchViewerCopy.d.mts",
@@ -14223,8 +14223,8 @@
     },
     {
       "path": "apps/desktop/tests/live-hero-card.test.ts",
-      "bytes": 28419,
-      "sha256": "5671692a1088ca87ebeafee00b3962a0a498c4662515e6cc3f9b4f41190b0014"
+      "bytes": 30145,
+      "sha256": "aba9cef94860a5f68e38f87cc36028619b88a2c978831e0cb59a44608fda76cf"
     },
     {
       "path": "apps/desktop/tests/live-layout.test.ts",
@@ -14295,6 +14295,11 @@
       "path": "apps/desktop/tests/match-copy.test.ts",
       "bytes": 2201,
       "sha256": "1b8ee21ef2dad63f95dec0f36be2a0649de2456435fed5cfb4fc2b6f0191b133"
+    },
+    {
+      "path": "apps/desktop/tests/match-viewer-status.test.mjs",
+      "bytes": 4343,
+      "sha256": "914eefebe1c60939419683ded498c5c99c5b6d7ebcb2d84fb2bcefadcd38fdb6"
     },
     {
       "path": "apps/desktop/tests/matchRecap.test.ts",
@@ -14648,8 +14653,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 171950,
-      "sha256": "c38dca5e88c16d145d7eea954e2562d82c7fe8f4bceb38848976f5963e8dffc7"
+      "bytes": 178526,
+      "sha256": "aeaf66e6a38931cdb4ad8ab0d50ac24f482ee3ff8eb2616e2fd4d1e89aa8db56"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -15553,8 +15558,8 @@
     },
     {
       "path": "docs/INDEX.md",
-      "bytes": 15662,
-      "sha256": "9f03527b122c0d7ac22cb998da377973915121842cc5a69c495fc2967648f6cb"
+      "bytes": 16401,
+      "sha256": "fea1d10679f3ac20fa8ea7fec61aefe9a9f3cf406b2078206ad97e36177dc5cc"
     },
     {
       "path": "docs/delivery/AGENT-WORKFLOW.md",
@@ -15668,8 +15673,8 @@
     },
     {
       "path": "docs/design/DESIGN-IMPLEMENTATION.md",
-      "bytes": 2224,
-      "sha256": "9597d2ba8b1454644b7953e23d8600fdbc719482e06fa98dbae837fc06f7b6a2"
+      "bytes": 2384,
+      "sha256": "7061528781b84af81366d8aa18812f93f5575ee52eac5096fa23168d3de82d03"
     },
     {
       "path": "docs/design/DRAFT-BAR-SPEC.md",
@@ -16238,8 +16243,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 124772,
-      "sha256": "5be00d4fc583fa548e2bf44f2c0abc0a545cdc8fcf1d672799f62ad3ab500601"
+      "bytes": 126482,
+      "sha256": "1787d269b5e147341ef84723d8bce477055816113a42d302ada7b9fed58e431a"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",

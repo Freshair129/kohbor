@@ -314,7 +314,8 @@ kbd { font: 12px var(--f-mono); border: 1px solid var(--line); border-bottom-wid
 .status-effect .status-ring { position: absolute; inset: -2px; border-radius: 50%; background: conic-gradient(var(--brand, #d6b16c) var(--p), transparent 0); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px)); mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px)); }
 .status-effect.debuff { border-color: color-mix(in srgb, var(--bad) 60%, var(--line)); }
 .status-effect.control { border-color: var(--bad); box-shadow: 0 0 0 1px color-mix(in srgb, var(--bad) 45%, transparent); }
-.status-effect .status-source { position: absolute; right: -4px; top: -5px; width: 10px; height: 10px; border: 1px solid var(--surface); border-radius: 50%; object-fit: cover; }
+.status-effect .status-source { position: absolute; left: -4px; top: -5px; z-index: 2; width: 10px; height: 10px; border: 1px solid var(--surface); border-radius: 50%; object-fit: cover; }
+.status-effect .status-stack { position: absolute; top: -8px; right: -5px; z-index: 3; min-width: 14px; height: 14px; padding: 0 3px; border: 1px solid var(--surface); border-radius: 8px; background: var(--brand, #d6b16c); color: var(--bg); font: 700 12px/12px var(--f-mono); font-style: normal; text-align: center; }
 .status-effect:not(.status-list-effect) small { position: absolute; inset: auto -3px -5px auto; z-index: 2; padding: 0 2px; border-radius: 3px; background: var(--bg); color: var(--ink); font: 600 8px/10px var(--f-mono); white-space: nowrap; }
 .status-list-effect { width: 30px; height: 30px; }
 .status-list-effect > img:not(.status-source) { width: 28px; height: 28px; }

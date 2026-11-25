@@ -5,6 +5,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import { DEFAULT_HERO_CARD_DISPLAY, visibleStatKeys } from "../src/shared/heroCardDisplay.mjs";
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
 import { parseOwnSnapshot } from "../src/ownSnapshot.ts";
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
@@ -115,6 +116,32 @@ test("regen bars keep bilingual derived-estimate tooltips and reserve a right-al
     assert.ok(compactHpText <= valueSlot, `${barWidth}px bar: HP value fits left of regen`);
     assert.ok(regenSlot <= 42, `${barWidth}px bar: regen stays inside its reserved right slot`);
   }
+});
+
+test("own and compact Live cards follow the shared display preference and reflow unchecked groups", () => {
+  const display = { v: 1, show: { ...DEFAULT_HERO_CARD_DISPLAY.show, attrs: false, reg: false, status: false, rates: false } };
+  const keys = visibleStatKeys(display);
+  assert.equal(keys.has("str"), false);
+  assert.equal(keys.has("reg"), false);
+  assert.equal(keys.has("gpm"), false);
+  assert.equal(keys.has("xpm"), false);
+  assert.equal(keys.has("arm"), true, "checked groups remain visible");
+
+  const component = readFileSync(new URL("../src/live/HeroCard.tsx", import.meta.url), "utf8");
+  assert.equal((component.match(/const display = useLiveHeroCardDisplay\(\);/g) ?? []).length, 2,
+    "the own field card and compact cards each subscribe to the shared value");
+  assert.match(component, /readHeroCardDisplay\(heroCardDisplayStorage\(\)\)/);
+  assert.match(component, /window\.addEventListener\(HERO_CARD_DISPLAY_EVENT, onDisplayChange\)/);
+  assert.match(component, /window\.addEventListener\("storage", onStorageChange\)/);
+  assert.match(component, /display\.show\.reg \? view\.hpRegenText : null/);
+  assert.match(component, /display\.show\.status &&/);
+  assert.match(component, /cardVisibleStats\(view, display, compactOwnField\)/);
+  assert.match(component, /no-visible-stats/);
+
+  const css = readFileSync(new URL("../src/live/heroCard.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.match(css, /\.lhc-full\.no-visible-stats\s*\{[^}]*grid-template-areas:[^}]*"it it"/);
+  assert.match(css, /\.lhc-compact\.no-visible-stats/);
+  assert.match(css, /font-size:\s*12px/);
 });
 
 test("Lion level-12 GSI hero and item IDs populate labelled estimates with a truthful newest-rules fallback", () => {

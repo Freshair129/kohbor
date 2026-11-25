@@ -3,7 +3,9 @@ const overrides = Object.freeze({
   modifier_item_dustofappearance: { kind: "item", icon: "dust" },
   modifier_item_invisibility_edge_windwalk: { kind: "item", icon: "invis_sword" },
   modifier_tower_aura: { kind: "ability", icon: "tower_armor_aura" },
+  modifier_tower_aura_bonus: { kind: "ability", icon: "tower_armor_aura" },
   modifier_fountain_aura: { kind: "ability", icon: "fountain_heal" },
+  modifier_fountain_aura_buff: { kind: "ability", icon: "fountain_heal" },
 });
 
 const categoryGlyphs = [
@@ -62,7 +64,7 @@ export function resolveModifierIcon({
     tier: 6, inferred: false, sourceHeroId };
 }
 
-export function statusIconTitle({ name, kind = "buff", sourceNames = [], remaining, permanent = false, inferred = false, locale = "th" }) {
+export function statusIconTitle({ name, kind = "buff", sourceNames = [], remaining, permanent = false, stacks = null, inferred = false, locale = "th" }) {
   const source = sourceNames.length ? sourceNames.join(", ") : locale === "en" ? "Unknown source" : "ไม่ทราบที่มา";
   const safeRemaining = Number.isFinite(remaining) ? Math.max(0, remaining) : null;
   const duration = permanent ? "∞"
@@ -72,6 +74,8 @@ export function statusIconTitle({ name, kind = "buff", sourceNames = [], remaini
         : `${Math.floor(safeRemaining / 60)}m`;
   const className = locale === "en" ? kind === "control" ? "control" : kind === "debuff" ? "debuff" : "buff"
     : kind === "control" ? "ควบคุม" : kind === "debuff" ? "ดีบัฟ" : "บัฟ";
+  const stackCount = Number.isInteger(stacks) && stacks > 0
+    ? ` · ${stacks} ${locale === "en" ? (stacks === 1 ? "stack" : "stacks") : "สแต็ก"}` : "";
   const inference = inferred ? (locale === "en" ? " · likely from this source" : " · น่าจะมาจากแหล่งนี้") : "";
-  return `${name} · ${className} · ${source} · ${duration}${inference}`;
+  return `${name} · ${className} · ${source} · ${duration}${stackCount}${inference}`;
 }

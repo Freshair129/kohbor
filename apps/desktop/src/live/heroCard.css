@@ -33,6 +33,8 @@
 .lhc-full.is-stale { border-top-style: dashed; border-right-style: dashed; border-bottom-style: dashed; border-color: var(--stale); border-left-color: var(--c); }
 .lhc-full.is-stale .lhc-nm strong, .lhc-full.is-stale .lhc-top, .lhc-full.is-stale .lhc-stats { opacity: 0.68; }
 .lhc-full.lhc-tile { grid-template-columns: minmax(0, 1fr); grid-template-areas: "hd" "pt" "nm" "top" "bars" "ab" "it" "st" "hint"; }
+.lhc-full.no-visible-stats { grid-template-areas: "hd hd" "pt nm" "pt top" "bars bars" "ab ab" "it it" "hint hint"; }
+.lhc-full.lhc-tile.no-visible-stats { grid-template-areas: "hd" "pt" "nm" "top" "bars" "ab" "it" "hint"; }
 .lhc-full.lhc-tile .lhc-pt { justify-self: center; }
 .lhc-full.lhc-tile .lhc-nm, .lhc-full.lhc-tile .lhc-top { justify-content: center; }
 .lhc-full.lhc-tile .lhc-top { flex-wrap: wrap; overflow: visible; white-space: normal; }
@@ -141,6 +143,8 @@
 }
 .lhc-compact.is-unknown { border-top-style: dashed; border-right-style: dashed; border-bottom-style: dashed; background: var(--ground); }
 .lhc-compact.lhc-tile { grid-template-columns: minmax(0, 1fr); grid-template-areas: "pt" "nm" "top" "bars" "ab" "it" "st"; }
+.lhc-compact.no-visible-stats:not(.lhc-field-card) { grid-template-areas: "pt nm top" "pt bars bars" "ab ab ab" "it it it"; }
+.lhc-compact.lhc-tile.no-visible-stats:not(.lhc-field-card) { grid-template-areas: "pt" "nm" "top" "bars" "ab" "it"; }
 .lhc-compact.lhc-tile .lhc-pt { justify-self: center; }
 .lhc-compact.lhc-tile .lhc-nm, .lhc-compact.lhc-tile .lhc-top { justify-content: center; }
 .lhc-compact.lhc-tile .lhc-top { flex-wrap: wrap; overflow: visible; white-space: normal; }
