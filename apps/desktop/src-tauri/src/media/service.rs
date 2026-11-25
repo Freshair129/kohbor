@@ -1369,6 +1369,7 @@ fn media_demo_event(id: &str, tier: Option<u8>) -> Result<kohbor_events::Event, 
         id: event_id,
         tier: None,
         at_ms: 0,
+        payload: None,
     })
 }
 
@@ -1401,6 +1402,8 @@ fn installed_event_map_json(
         "install_id": record.install_id, "package_id": record.package_id, "revision": record.revision,
         "container_sha256": record.container_sha256,
     }], "event_locks": {}, "match_consistency": false});
+    let install_id = record.install_id.as_str();
+    let package_id = record.package_id.as_str();
     Ok(event_map_json(
         catalog,
         Some(selected_pack),
@@ -1408,23 +1411,23 @@ fn installed_event_map_json(
         None,
         table,
         |event, tier| {
-            let binding = bindings.iter().find(|binding| {
+            let matching_bindings: Vec<_> = bindings.iter().filter(|binding| {
                 binding.event_id == event.id && binding.tier == tier.map(u32::from)
-            });
-            let selection = binding
+            }).collect();
+            let selection = matching_bindings.first()
                 .and_then(|binding| binding.selection)
                 .map(|selection| selection.as_str());
-            let variants: Vec<_> = binding
-                .into_iter()
-                .flat_map(|binding| &binding.variants)
-                .filter_map(|variant| {
+            let variants: Vec<_> = matching_bindings
+                .iter()
+                .flat_map(|binding| {
+                    binding.variants.iter().filter_map(move |variant| {
                     let media = variant.media.as_ref().ok()?;
                     let mut value = json!({
                         "variant_id": variant.variant_id,
                         "duration_ms": media.duration_ms,
                         "has_visual": media.silent_visual.is_some(),
-                        "install_id": record.install_id,
-                        "package_id": record.package_id,
+                        "install_id": install_id,
+                        "package_id": package_id,
                         "equipped_slot": 0,
                         "state": "ready",
                         "reason": "NONE",
@@ -1435,7 +1438,11 @@ fn installed_event_map_json(
                     if let Some(caption) = variant.caption.as_ref() {
                         value["caption"] = json!(caption);
                     }
+                    if let Some(hero) = binding.hero.as_ref() {
+                        value["hero"] = json!(hero);
+                    }
                     Some(value)
+                    })
                 })
                 .collect();
             let (state, reason) = if !event.media_mappable {
@@ -1447,7 +1454,7 @@ fn installed_event_map_json(
                 ("detector_unavailable", "LIVE_CAPTURE_REQUIRED")
             } else if media_demo_event(&event.id, tier).is_err() {
                 ("detector_unavailable", "DETECTOR_UNAVAILABLE")
-            } else if binding.is_none() {
+            } else if matching_bindings.is_empty() {
                 ("unmapped", "MEDIA_UNMAPPED")
             } else if variants.is_empty() {
                 ("invalid_media", "MEDIA_INVALID")
@@ -1506,7 +1513,7 @@ fn event_map_json(
         })
         .collect::<Vec<_>>();
     json!({
-        "schema_version": "1.2.0",
+        "schema_version": "1.3.0",
         "active": selected_pack,
         "loadout": loadout,
         "pending_loadout": pending_loadout,
@@ -1561,6 +1568,9 @@ fn event_map_variant(
     }
     if let Some(caption) = variant.caption.as_ref() {
         value["caption"] = json!(caption);
+    }
+    if let Some(hero) = variant.hero.as_ref() {
+        value["hero"] = json!(hero);
     }
     if let Some(source) = variant.source.as_ref() {
         value["install_id"] = json!(source.install_id);
@@ -2531,7 +2541,7 @@ mod tests {
         let before = service.handle.list().unwrap();
         let index = service.visuals.lock().unwrap().clone();
         let map = service.handle.installed_event_map(&other_id).unwrap();
-        assert_eq!(map["schema_version"], "1.2.0");
+        assert_eq!(map["schema_version"], "1.3.0");
         assert_eq!(map["active"]["install_id"], other_id);
         assert_eq!(map["media_match_active"], false);
         let voice = map["events"]
@@ -2795,7 +2805,7 @@ mod tests {
             .handle
             .event_map()
             .expect("event map waits behind successful store open");
-        assert_eq!(event_map["schema_version"], "1.2.0");
+        assert_eq!(event_map["schema_version"], "1.3.0");
         assert!(event_map["events"].is_array());
         let facts = snapshot_facts(&service.facts);
         assert!(facts.store_ok, "successful Store::open publishes store_ok");
@@ -2972,7 +2982,7 @@ mod tests {
         let rows = event_map["events"]
             .as_array()
             .expect("event map exposes an array");
-        assert_eq!(event_map["schema_version"], "1.2.0");
+        assert_eq!(event_map["schema_version"], "1.3.0");
         let mut expected_keys = Vec::new();
         for event in &catalog.events {
             if let Some((first, last)) = event.tier_range {

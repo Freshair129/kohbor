@@ -2,8 +2,8 @@
 title: "Event and Audio Specification (M2)"
 doc_id: "EVENT-AUDIO-SPEC"
 status: draft
-version: "0.3.7"
-updated: "2026-11-20"
+version: "0.3.9"
+updated: "2026-11-26"
 authority: "DEC-BASELINE; elaborates MEDIA-001..008, ALERT-001, ALERT-007, VOICE-006, QUALITY-001, QUALITY-007 under DEC-EVENT-AUDIO and DEC-HEALTH-DANGER"
 owner_role: "Integration owner (catalog, arbitration, formats); product owner (health danger, mute)"
 approval_status: "not_approved"
@@ -29,7 +29,7 @@ Everything here is a **proposal**:
 - **DEC-EVENT-AUDIO** covers the builder-delegated parts: identifiers, ranks of events whose order the baseline does not fix, arbitration mechanics, formats and contracts.
 - **DEC-HEALTH-DANGER** covers the one new product behavior, the health-danger detector. The product owner **approved it as proposed on 2026-11-11**.
 
-Nothing has been approved or executed.
+The existing sections remain proposals except for their explicitly named owner decisions. DEC-HERO-PACK-SNIPER-ULT separately decides the Sniper ultimate event behavior below; taxonomy 1.3 and the GSI runtime register the events, with synthetic evidence only.
 
 ## 2. Canonical event catalog (MP-01, MEDIA-001)
 
@@ -45,13 +45,15 @@ The package validator also enforces these semantic rules:
 - A `tier_range` has `min` ≤ `max` and appears only on a media-mappable event.
 - The `event_type` enum in [event.schema.json](../../contracts/event.schema.json) must equal the set of non-test catalog IDs. This is the "generated consumer checked against the source" rule.
 
-Taxonomy version `1.1`. Version 1.1 adds tiers to `multi_kill` and `streak`; it adds no ID and changes no meaning:
+Taxonomy version `1.3`. Version 1.1 added tiers to `multi_kill` and `streak`; version 1.3 adds the two active own-hero ultimate events:
 
 | ID | Category | Source | Detector milestone | Ordinary rank | Voiced by default | Notes |
 | --- | --- | --- | --- | ---: | --- | --- |
 | `multi_kill` | ordinary | gsi | M2 | 90 | yes | A run of ≥2 own kills with no more than 18,000 ms between consecutive kills (MP-02). Tier 2–5 |
 | `streak` | ordinary | gsi | M2 | 80 | yes | The game's kill streak (own kills since the last own death) reaches 3 or more; each further kill re-emits. Tier 3–10. Uses `player.kill_streak` when present (E-3 confirmed to tier 4), otherwise a count from `player.kills` and own deaths |
 | `first_blood` | ordinary | gsi | M2 | 70 | yes | First hero kill of the match, credited to self (E-1) |
+| `ultimate_kill` | ordinary | gsi | M2 | 63 | yes | Additional own kill event within the provisional 4,000 ms after `ultimate_fired`; temporal correlation does not prove causation |
+| `ultimate_fired` | ordinary | gsi | M2 | 61 | yes | Own active hero's identified ultimate cooldown transitions from zero or absent to positive while alive and level ≥1; GSI does not expose cast start |
 | `hero_kill` | ordinary | gsi | M2 | 60 | yes | Own kill counter increments |
 | `hero_death` | ordinary | gsi | M2 | 50 | yes | Own `player.deaths` counter increases. If the counter is absent, `alive` going from true to false is the fallback. `alive` alone is not a death (E-5) |
 | `level_milestone` | ordinary | gsi | M2 | 40 | yes | Level reaches 6, 12, 18 or 25 |
@@ -68,7 +70,7 @@ Taxonomy version `1.1`. Version 1.1 adds tiers to `multi_kill` and `streak`; it 
 | `clip_requested` | recording | manual | M4b | — | no | Recorder marker |
 | `latency_probe` | test | native | M2 | — | test only | Engineering latency fixture. Excluded from production catalogs, mappings, history and `event.schema` |
 
-**Rank provenance.** MP-02 fixes multi-kill > streak > first blood > ordinary kill. The product owner confirmed the remaining ranks as proposed on 2026-11-11: death 50, level milestone 40, low health 30, low mana 20, match ended 15, match started 10.
+**Rank provenance.** MP-02 fixes multi-kill > streak > first blood > ordinary kill. The product owner confirmed the existing remaining ranks as proposed on 2026-11-11: death 50, level milestone 40, low health 30, low mana 20, match ended 15, match started 10. Under the DEC-EVENT-AUDIO integration delegation, `ultimate_kill` is assigned rank 63 and `ultimate_fired` rank 61: below the existing posthumous rank 65 and above ordinary kill rank 60. These ranks are unique in taxonomy 1.3.
 
 **Tiers (owner decision 2026-11-11).** The two counted events carry a tier, so a package can voice each step of a kill run differently.
 
@@ -116,7 +118,15 @@ The names are reference only; the contract uses the numeric tier. The 18-second 
 4. If the mapping is missing or invalid, the slot stays silent. A lower-ranked event never takes its place.
 5. Every non-selected event gets the outcome `lower_rank_same_tick`.
 
-**Baseline and replay.** The first admitted payload of a session, or of a resumed session, only establishes baselines: kill and death counters, level and thresholds. It emits no achievement, death, level or match-start event (MEDIA-002 failure behavior; GSI-INTAKE-SPEC §6). Counter regressions, generation changes and late samples reset the affected baseline without emitting anything.
+**Baseline and replay.** The first admitted payload of a session, or of a resumed session, only establishes baselines: kill and death counters, level and thresholds, and the identified own-hero ultimate ability cooldown. It emits no achievement, death, level, match-start or ultimate event (MEDIA-002 failure behavior; GSI-INTAKE-SPEC §6). Counter regressions, generation changes and late samples reset the affected baseline without emitting anything.
+
+### Hero ultimate events (DEC-HERO-PACK-SNIPER-ULT, owner decision 2026-11-25)
+
+`ultimate_fired` observes only the own active hero. The detector must first resolve the hero's ultimate ability from an observed GSI `ultimate: true` flag or local `apps/desktop/src/assets/dota/6989/stats.json` metadata with `ultimate: true`; if neither establishes the field, the ability remains unknown and no event is inferred. A fire requires the hero alive, ability level ≥1, and the ability cooldown changing from zero or absent to positive between two admitted payloads of the same session and generation. The first payload after start or resume is baseline only. An ability-level increase, hero swap, a cooldown already positive at baseline, and death emit nothing; the level or hero change establishes a new baseline for that pair. A later zero-to-positive transition, including a refresher-style repeat, can emit again. The event payload carries `hero` (`npc_dota_hero_*`) and `ability`.
+
+`ultimate_kill` is an additional own `hero_kill` occurring within a fixed 4.0-second window after `ultimate_fired`. This is a provisional draft constant for the owner to check in play; it must not be retuned after seeing a result. It never suppresses or replaces `hero_kill`, and both IDs go through ordinary arbitration and pack resolution.
+
+**GSI timing limit and evidence:** GSI does not expose cast start. A cooldown transition can establish that cooldown began, but does not establish the cast-start instant. The owner approved this GSI slice first and will record a clip; no GSI-only evidence can claim that the aim-call plays during cast time. Later screen-capture timing is outside this slice. The event IDs are active in taxonomy 1.3 and the runtime inventory. This integration has synthetic evidence only; live/native behavior, acoustic timing, the owner-recorded clip, media rights and a built Sniper pack remain unverified.
 
 **Detector assumptions** (closed by the M0/M2 capture corpus, like GSI-INTAKE-SPEC §10):
 

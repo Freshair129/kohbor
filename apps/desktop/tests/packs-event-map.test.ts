@@ -3,6 +3,7 @@ import { test } from "node:test";
 import catalog from "../../../contracts/event-catalog.json" with { type: "json" };
 
 const eventMap = await import("../src/packs/eventMap.ts");
+const eventMapVariant = await import("../src/packs/event-map-variant.ts");
 const copy = await import("../src/copy.ts");
 
 const expectedBindings = catalog.events
@@ -62,6 +63,15 @@ test("parses the versioned host event map including unavailable and not-voiced c
   assert.equal(parsed.bindings.find((row) => row.event_id === "first_blood")?.state, "detector_unavailable");
   assert.equal(parsed.bindings.find((row) => row.event_id === "hero_respawn")?.state, "not_voiced");
   assert.equal(parsed.bindings.some((row) => row.event_id === "latency_probe"), false);
+  for (const id of ["ultimate_fired", "ultimate_kill"]) {
+    const row = parsed.bindings.find((item) => item.event_id === id);
+    assert.ok(row, `${id} appears in the active event map`);
+    assert.equal(row.event_group, "special");
+    assert.equal(eventMap.soundLabel(row, "en").title, catalog.events.find(item => item.id === id)?.labels.en);
+    assert.equal(eventMap.soundLabel(row, "th").title, catalog.events.find(item => item.id === id)?.labels.th);
+  }
+  assert.ok(eventMap.browseCategoryRows("kill").some(row => row.event_id === "ultimate_fired"));
+  assert.ok(eventMap.browseCategoryRows("kill").some(row => row.event_id === "ultimate_kill"));
   const groups = eventMap.groupSoundRows(parsed.bindings);
   assert.equal(groups.flatMap(group => group.rows).length, expectedBindings.length);
   assert.equal(groups.find(group => group.id === "multi")?.rows[0]?.variants[0]?.duration_ms, 1200);
@@ -125,6 +135,19 @@ test("event-map 1.2 carries equipped sources, event groups, locks and prewarm to
   assert.equal(parsed.sources.length, 2);
   assert.equal(parsed.lock_state, "none");
   assert.equal(map.bindings.find(row => row.event_id === "clutch_kill")?.event_group, "special");
+  assert.equal(map.bindings.find(row => row.event_id === "ultimate_fired")?.event_group, "special");
+  assert.equal(map.bindings.find(row => row.event_id === "ultimate_kill")?.event_group, "special");
+});
+
+test("event-map 1.3 retains hero conditions and presents the Thai Sniper label", () => {
+  const variant = eventMapVariant.parseEventMapVariant({
+    variant_id: "sniper", duration_ms: 1200, has_visual: false,
+    install_id: "ins_0000000001", package_id: "voice.sniper", equipped_slot: 0,
+    state: "ready", reason: "NONE", hero: "npc_dota_hero_sniper",
+  }, "1.3.0");
+  assert.equal(variant?.hero, "npc_dota_hero_sniper");
+  assert.equal(eventMap.heroScopeLabel(variant?.hero, "th"), "เฉพาะ Sniper");
+  assert.equal(eventMap.heroScopeLabel(variant?.hero, "en"), "Sniper only");
 });
 
 test("a missing, malformed, duplicate, or unexpected row degrades only that row to unknown", () => {

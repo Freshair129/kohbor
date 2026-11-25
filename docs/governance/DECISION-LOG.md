@@ -2,7 +2,7 @@
 title: "Decision Log and Open Items"
 doc_id: "DECISION-LOG"
 status: draft
-version: "0.3.21"
+version: "0.3.22"
 updated: "2026-11-25"
 authority: "DEC-BASELINE; see DOCUMENT-CONTROL"
 owner_role: "Product and engineering owners; people not assigned"
@@ -10,6 +10,14 @@ approval_status: "not_approved"
 ---
 
 # Decision Log and Open Items
+
+## Hero-only Sniper ultimate cue — 2026-11-25
+
+- **DEC-HERO-PACK-SNIPER-ULT** (decided by the product owner on 2026-11-25; relayed by the lead and recorded by an agent). Owner direction, translated: “Add a special voice pack. This pack works with Sniper only: if Sniper uses his ultimate, play this sound. It's an internet meme.” The aim-call should play during the ultimate cast time. GSI does not expose cast start, so the owner approved implementing the GSI slice first and said they will record a clip; a later screen-capture detector is outside this slice.
+- The GSI target is to emit `ultimate_fired` for the own active hero only when an ultimate ability (resolved from GSI `ultimate: true` or local Dota 2 `6989/stats.json`, otherwise unknown) changes from cooldown zero or absent to positive between admitted payloads of the same session and generation, while alive and level ≥1. First payload after start/resume, hero change, ability-level increase, already-running baseline cooldown and death emit nothing; hero or level change establishes a new baseline. Cooldown repeats may emit again. The event carries own `hero` and `ability`.
+- `ultimate_kill` is an additional own `hero_kill` within a fixed 4.0 s after `ultimate_fired`. The 4.0 s value is a provisional draft constant for owner review in play and MUST NOT be tuned after observing a result. It does not replace `hero_kill`; existing event arbitration still applies.
+- A descriptor may scope a binding to `hero: npc_dota_hero_*`. Unknown or different own hero skips the scoped binding; a matching hero-scoped binding outranks a general binding for the same event. The pack itself is produced outside this repository.
+- **Evidence limits:** GSI cooldown transition does not expose cast start, so this GSI-only slice cannot establish or claim that an aim-call played during cast time. The owner's recording/review and any later screen-capture timing work are not present here. No live, native, acoustic, rights or shipped-pack acceptance is implied; only synthetic GSI behavior may be claimed.
 
 ## Multi-pack announcer equipment — 2026-11-25
 

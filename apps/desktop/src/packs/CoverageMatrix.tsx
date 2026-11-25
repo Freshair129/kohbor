@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { EventSound, EventMapLoadout } from "./eventMap";
 import type { PackSummary } from "./model";
-import { soundLabel, soundKey } from "./eventMap";
+import { heroScopeLabel, soundLabel, soundKey } from "./eventMap";
 import { mediaAuditionInstalledVariant } from "../runtime";
 import "./CoverageMatrix.css";
 
@@ -41,9 +41,11 @@ export function CoverageMatrix({ rows, loadout, pending, packs, prewarm, disable
             {notLoaded && <small role="status">{th ? "ไม่โหลดเพราะงบหน่วยความจำ" : "Not loaded: memory budget"}</small>}
             {failed && <small role="status">{th ? "ไฟล์เสียงมีปัญหา" : "File problem"}</small>}
             {ready.map(variant => <button key={variant.variant_id} type="button" disabled={disabled}
-              aria-label={`${th ? "ฟังตัวอย่าง" : "Preview"} ${variant.caption ?? label.title} ${th ? "จาก" : "from"} ${name(pack.install_id)}`}
+              aria-label={[th ? "ฟังตัวอย่าง" : "Preview", variant.caption ?? label.title,
+                heroScopeLabel(variant.hero, locale), th ? "จาก" : "from", name(pack.install_id)].filter(Boolean).join(" ")}
               onClick={() => void mediaAuditionInstalledVariant(pack.install_id, row.event_id, row.tier, variant.variant_id)}>
-              ▶ <small>{variant.caption ?? (th ? `เสียง ${variant.variant_id}` : `Voice ${variant.variant_id}`)}</small></button>)}
+              ▶ <small>{variant.caption ?? (th ? `เสียง ${variant.variant_id}` : `Voice ${variant.variant_id}`)}</small>
+              {heroScopeLabel(variant.hero, locale) && <small> · {heroScopeLabel(variant.hero, locale)}</small>}</button>)}
           </> : <span aria-label="No sound here">—</span>}
         </td>;
       })}

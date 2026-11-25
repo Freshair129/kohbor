@@ -22,6 +22,8 @@ pub fn demo_event(id: &str, tier: Option<u8>) -> Result<Event, &'static str> {
         "match_started" => EventId::MatchStarted,
         "hero_respawn" => EventId::HeroRespawn,
         "health_danger" => EventId::HealthDanger,
+        "ultimate_fired" => EventId::UltimateFired,
+        "ultimate_kill" => EventId::UltimateKill,
         _ => return Err("DEMO_EVENT_UNAVAILABLE"),
     };
 
@@ -35,6 +37,7 @@ pub fn demo_event(id: &str, tier: Option<u8>) -> Result<Event, &'static str> {
         id: event_id,
         tier,
         at_ms: 0,
+        payload: None,
     })
 }
 
@@ -153,6 +156,8 @@ mod tests {
                 "match_started",
                 "hero_respawn",
                 "health_danger",
+                "ultimate_fired",
+                "ultimate_kill",
             ]
             .contains(&id);
             // Only detector EventIds are representable; the rest must be refused.

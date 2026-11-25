@@ -6,7 +6,7 @@
 //! tests/trace_parity.rs checks `fired == all guards pass` on every tick of the golden
 //! traces and several synthetic walks.
 
-use crate::{Config, Detector, Event, EventId, Tick, percent_at_or_below};
+use crate::{Config, Detector, Event, EventId, Tick, UltimateContext, percent_at_or_below};
 use serde_json::{Value, json};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -158,6 +158,17 @@ impl Detector {
     /// Same events as [`Detector::observe`], plus the explanation of the tick.
     pub fn observe_traced(&mut self, tick: &Tick) -> (Vec<Event>, Trace) {
         let events = self.observe(tick);
+        let trace = self.build_trace(tick.at_ms, &events);
+        (events, trace)
+    }
+
+    /// Same as [`Detector::observe_traced`] with the GSI own-hero ultimate fields.
+    pub fn observe_traced_with_ultimate(
+        &mut self,
+        tick: &Tick,
+        context: &UltimateContext,
+    ) -> (Vec<Event>, Trace) {
+        let events = self.observe_with_ultimate(tick, context);
         let trace = self.build_trace(tick.at_ms, &events);
         (events, trace)
     }

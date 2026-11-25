@@ -178,6 +178,19 @@ impl VariantSelector {
         requested_tier: Option<u8>,
         session_epoch: u64,
     ) -> Result<SelectedClip, SelectionFailure> {
+        self.select_for_hero(table, event_id, requested_tier, session_epoch, None)
+    }
+
+    /// Apply tier lookup and hero eligibility before the existing arbitration
+    /// and selection rules. A matching hero binding excludes general variants.
+    pub fn select_for_hero(
+        &mut self,
+        table: &PrewarmTable,
+        event_id: EventId,
+        requested_tier: Option<u8>,
+        session_epoch: u64,
+        own_hero: Option<&str>,
+    ) -> Result<SelectedClip, SelectionFailure> {
         self.begin_session(session_epoch);
         if self.table_fence != Some(table.fence) {
             self.table_fence = Some(table.fence);
@@ -202,7 +215,11 @@ impl VariantSelector {
                 bound_tier,
                 binding,
             } => {
-                let index = self.choose_index(table, event_id, bound_tier, binding)?;
+                let eligible = binding.eligible_indices(own_hero);
+                if eligible.is_empty() {
+                    return Err(SelectionFailure::Unmapped);
+                }
+                let index = self.choose_index(table, event_id, bound_tier, binding, &eligible)?;
                 let Some(variant) = binding.variants.get(index) else {
                     return Err(SelectionFailure::InvalidMedia);
                 };
@@ -271,12 +288,12 @@ impl VariantSelector {
         event_id: EventId,
         bound_tier: Option<u8>,
         binding: &VariantSet,
+        eligible: &[usize],
     ) -> Result<usize, SelectionFailure> {
-        let ready: Vec<usize> = binding
-            .variants
+        let ready: Vec<usize> = eligible
             .iter()
-            .enumerate()
-            .filter_map(|(index, variant)| variant.media.is_ok().then_some(index))
+            .copied()
+            .filter(|index| binding.variants.get(*index).is_some_and(|variant| variant.media.is_ok()))
             .collect();
         let Some(first_ready) = ready.first().copied() else {
             return Err(SelectionFailure::InvalidMedia);
@@ -493,6 +510,7 @@ mod tests {
             variant_id: id.to_owned(),
             clip_id: Some(format!("vrzo-th-{id:0>4}")),
             caption: None,
+            hero: None,
             weight,
             source: None,
             authored_selection: None,
@@ -549,6 +567,55 @@ mod tests {
             VariantSelector::by_id(&table, EventId::HeroKill, None, "missing").unwrap_err(),
             SelectionFailure::VariantUnavailable
         );
+    }
+
+    #[test]
+    fn matching_hero_binding_outranks_general_and_unknown_hero_skips_it() {
+        let mut general = candidate("general", 1, Some(clip(None, 1)));
+        let mut sniper = candidate("sniper_only", 1, Some(clip(None, 2)));
+        sniper.hero = Some("npc_dota_hero_sniper".to_owned());
+        general.source = Some(crate::audio::resolve::VariantSource {
+            slot: 0,
+            install_id: Arc::from("ins_0000000001"),
+            package_id: Arc::from("general"),
+        });
+        sniper.source = Some(crate::audio::resolve::VariantSource {
+            slot: 1,
+            install_id: Arc::from("ins_0000000002"),
+            package_id: Arc::from("sniper"),
+        });
+        let table = table(
+            EventId::HeroKill,
+            None,
+            set(Some(VariantSelection::Shuffle), vec![general, sniper]),
+        );
+
+        let mut selector = VariantSelector::with_seed(7);
+        let matching = selector
+            .select_for_hero(
+                &table,
+                EventId::HeroKill,
+                None,
+                1,
+                Some("npc_dota_hero_sniper"),
+            )
+            .unwrap();
+        assert_eq!(matching.variant_id, "sniper_only");
+
+        let unknown = selector
+            .select_for_hero(&table, EventId::HeroKill, None, 1, None)
+            .unwrap();
+        assert_eq!(unknown.variant_id, "general");
+        let different = selector
+            .select_for_hero(
+                &table,
+                EventId::HeroKill,
+                None,
+                1,
+                Some("npc_dota_hero_lina"),
+            )
+            .unwrap();
+        assert_eq!(different.variant_id, "general");
     }
 
     #[test]

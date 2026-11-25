@@ -166,6 +166,43 @@ fn presentation_cover_requires_a_small_referenced_cover_role_file() {
     value["files"][1]["path"] = json!("images/unreferenced.png");
     assert_eq!(parse(&value).unwrap_err(), RejectReason::DanglingReference);
 }
+
+#[test]
+fn hero_binding_round_trips_in_143_and_legacy_descriptors_remain_valid() {
+    let mut value = presentation_descriptor();
+    value["schema_version"] = json!("1.4.3");
+    value["bindings"][0]["hero"] = json!("npc_dota_hero_sniper");
+
+    let parsed = parse(&value).unwrap();
+    assert_eq!(
+        parsed.descriptor.bindings[0].hero.as_deref(),
+        Some("npc_dota_hero_sniper")
+    );
+
+    let legacy = common::descriptor();
+    assert!(parse(&legacy).is_ok());
+}
+
+#[test]
+fn hero_binding_keeps_event_tier_uniqueness_within_a_descriptor() {
+    let mut value = presentation_descriptor();
+    value["schema_version"] = json!("1.4.3");
+    let mut general = value["bindings"][0].clone();
+    general["variants"][0]["variant_id"] = json!("v2");
+    value["bindings"][0]["hero"] = json!("npc_dota_hero_sniper");
+    value["bindings"].as_array_mut().unwrap().push(general);
+
+    assert_eq!(parse(&value).unwrap_err(), RejectReason::TierDuplicate);
+}
+
+#[test]
+fn hero_binding_rejects_non_dota_hero_ids() {
+    let mut value = presentation_descriptor();
+    value["schema_version"] = json!("1.4.3");
+    value["bindings"][0]["hero"] = json!("sniper");
+    assert!(parse(&value).is_err());
+}
+
 #[test]
 fn unknown_id_inert() {
     let mut v = common::descriptor();

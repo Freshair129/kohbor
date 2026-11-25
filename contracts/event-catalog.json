@@ -1,6 +1,6 @@
 {
   "schema_version": "1.2.0",
-  "taxonomy_version": "1.2",
+  "taxonomy_version": "1.3",
   "status": "proposed",
   "decision": "DEC-EVENT-AUDIO",
   "spec_ref": "docs/design/EVENT-AUDIO-SPEC.md",
@@ -173,6 +173,46 @@
         }
       },
       "note": "Emitted when own kills rise after at least three counted own deaths since the previous kill. Kept proposed_unavailable until a live capture confirms a true positive; see DEC-MULTI-PACK."
+    },
+    {
+      "id": "ultimate_fired",
+      "introduced_in": "1.3",
+      "status": "active",
+      "category": "ordinary",
+      "event_group": "special",
+      "source": "gsi",
+      "detector_ref": "native.gsi.ultimate_cooldown",
+      "detector_milestone": "M2",
+      "ordinary_rank": 61,
+      "voiced_default": true,
+      "media_mappable": true,
+      "critical_media_required": false,
+      "labels": {
+        "en": "Ultimate fired",
+        "th": "ใช้ท่าไม้ตาย"
+      },
+      "tunables": {},
+      "note": "Own active hero ultimate is resolved from GSI ultimate=true or local Dota stats metadata. A zero or absent to positive cooldown transition while alive at level >=1 emits this event. GSI does not expose cast start."
+    },
+    {
+      "id": "ultimate_kill",
+      "introduced_in": "1.3",
+      "status": "active",
+      "category": "ordinary",
+      "event_group": "special",
+      "source": "gsi",
+      "detector_ref": "native.gsi.ultimate_kill_window",
+      "detector_milestone": "M2",
+      "ordinary_rank": 63,
+      "voiced_default": true,
+      "media_mappable": true,
+      "critical_media_required": false,
+      "labels": {
+        "en": "Ultimate kill",
+        "th": "สังหารหลังอัลติเมต"
+      },
+      "tunables": {},
+      "note": "Additional to hero_kill when an own kill occurs within the provisional 4.0 s after ultimate_fired. Owner checks this draft window in play; do not tune after seeing a result. Correlation does not prove causation."
     },
     {
       "id": "hero_kill",

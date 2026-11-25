@@ -127,6 +127,29 @@
       "additional_owner_decision": "Choose randomly from the union of variants by default, allow a per-event lock, and key selection history by (pack, variant)."
     },
     {
+      "id": "DEC-HERO-PACK-SNIPER-ULT",
+      "status": "decided",
+      "milestone": "M2",
+      "blocks": "GSI own-hero ultimate event registration and Sniper-only pack bindings",
+      "owner_role": "product owner",
+      "decided_on": "2026-11-25",
+      "decided_by": "product owner (relayed by the lead; recorded by an agent)",
+      "decision_source": {
+        "owner_words": "Add a special voice pack. This pack works with Sniper only: if Sniper uses his ultimate, play this sound. It's an internet meme. GSI cannot see the cast start, so start the GSI part first; I'll record a clip.",
+        "relayed_by": "lead",
+        "recorded_by": "agent"
+      },
+      "decision": "Add active own-hero events ultimate_fired and ultimate_kill. ultimate_fired requires the own active hero alive at level 1 or higher and an ultimate ability identified only by the GSI ultimate flag or local Dota 2 6989/stats.json ultimate metadata; it fires only on cooldown zero or absent to positive between admitted payloads in the same session and generation. A first payload after start or resume establishes baseline only; hero swaps, level-ups, an already-running baseline cooldown and death emit nothing; refresher-style repeats emit again. Carry hero and ability. ultimate_kill is an additional own hero_kill within 4.0 seconds after ultimate_fired and does not replace hero_kill. Hero-scoped pack bindings are eligible only for a matching observed own hero, and a matching scoped binding outranks a general binding for the same event.",
+      "safe_interim": "The event IDs and GSI detector are registered and covered by synthetic sequences only. No live, native or acoustic timing evidence is available. GSI cooldown transition does not establish cast start; owner-recorded clip timing remains pending. Keep the provisional 4.0-second correlation window unchanged until the owner checks it in play.",
+      "closure_evidence": "Synthetic GSI sequences for baseline, start/resume, cooldown transition, death, hero swap, level-up, unknown ultimate, repeated ultimate and kill-window boundaries. The owner-recorded clip and timing review remain pending. GSI does not expose cast start; later screen-capture timing is separate. No native, live, acoustic, rights or shipped-pack acceptance is implied.",
+      "related": [
+        "DEC-MULTI-PACK",
+        "DEC-VOICE-VARIANTS",
+        "MEDIA-001",
+        "MEDIA-002"
+      ]
+    },
+    {
       "id": "DEC-HEALTH-DANGER",
       "status": "decided",
       "milestone": "M2",

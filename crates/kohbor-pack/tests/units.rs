@@ -39,7 +39,7 @@ fn real_catalog_matches_source() {
         .join("../../contracts/event-catalog.json");
     let doc: serde_json::Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
     let catalog = Catalog::from_json(&doc).unwrap();
-    assert_eq!(catalog.taxonomy, TaxonomyVersion { major: 1, minor: 2 });
+    assert_eq!(catalog.taxonomy, TaxonomyVersion { major: 1, minor: 3 });
     assert_eq!(
         catalog.event("multi_kill").unwrap().tier_range,
         Some((2, 5))

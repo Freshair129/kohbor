@@ -9,7 +9,7 @@ use kohbor_audio::{CriticalMedia, ReadinessInput, assess};
 use kohbor_events::EventId;
 
 /// Every event known to this host's detector, in detector declaration order.
-pub const ALL_EVENTS: [kohbor_events::EventId; 15] = [
+pub const ALL_EVENTS: [kohbor_events::EventId; 17] = [
     EventId::MultiKill,
     EventId::Streak,
     EventId::FirstBlood,
@@ -25,6 +25,8 @@ pub const ALL_EVENTS: [kohbor_events::EventId; 15] = [
     EventId::ClutchKill,
     EventId::PosthumousKill,
     EventId::ComebackKill,
+    EventId::UltimateFired,
+    EventId::UltimateKill,
 ];
 
 /// Special detectors that have fixture coverage but still need a real capture
@@ -55,6 +57,8 @@ fn event_variant_guard(id: EventId) {
         EventId::ClutchKill => {}
         EventId::PosthumousKill => {}
         EventId::ComebackKill => {}
+        EventId::UltimateFired => {}
+        EventId::UltimateKill => {}
     }
 }
 
@@ -352,6 +356,8 @@ mod tests {
                 "clutch_kill",
                 "posthumous_kill",
                 "comeback_kill",
+                "ultimate_fired",
+                "ultimate_kill",
             ],
             "ALL_EVENTS covers every detector variant name in declaration order"
         );

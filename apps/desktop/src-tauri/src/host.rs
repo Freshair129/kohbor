@@ -480,7 +480,7 @@ impl CommandApi {
             .media
             .active_bindings()
             .map_err(|_| AuditionRefusal::MediaStateUnknown)?;
-        let install_id = audition_preflight(event, &bindings)?;
+        let install_id = audition_preflight(&event, &bindings)?;
 
         let (reply, result) = mpsc::sync_channel(1);
         self.engine.offer_audition(AuditionRequest {
@@ -622,7 +622,7 @@ fn valid_audition_variant_id(value: &str) -> bool {
         })
 }
 
-fn audition_preflight(event: Event, bindings: &Value) -> Result<&str, AuditionRefusal> {
+fn audition_preflight<'a>(event: &Event, bindings: &'a Value) -> Result<&'a str, AuditionRefusal> {
     let media_match_active = bindings
         .as_object()
         .and_then(|object| object.get("media_match_active"))
@@ -1027,6 +1027,7 @@ impl Host {
             // Epoch 1 never exceeds a real session's epoch, so a demo cannot fence a real match.
             session_epoch: 1,
             game_clock_seconds: None,
+            own_hero: None,
             generation: crate::demo::DEMO_GENERATION,
             sequence: DEMO_SEQUENCE.fetch_add(1, Ordering::Relaxed) + 1,
             events: vec![event],
@@ -1767,6 +1768,7 @@ mod tests {
             at_ms: 1,
             session_epoch: 1,
             game_clock_seconds: None,
+            own_hero: None,
             generation: 1,
             sequence: 1,
             events: Vec::new(),
@@ -1822,12 +1824,14 @@ mod tests {
             at_ms: shared.heartbeat_ms.load(Ordering::Acquire),
             session_epoch: 1,
             game_clock_seconds: None,
+            own_hero: None,
             generation: 1,
             sequence,
             events: vec![kohbor_events::Event {
                 id: kohbor_events::EventId::HealthDanger,
                 tier: None,
                 at_ms: shared.heartbeat_ms.load(Ordering::Acquire),
+                payload: None,
             }],
         }) == crate::audio::lanes::Offer::Sent
     }

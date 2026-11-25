@@ -8,7 +8,8 @@ use crate::objectives::{MapDiagnostic, ObjectiveIntakeWiring, ObjectiveRuntimeFl
 use crate::{atomic, secrets};
 use base64::Engine;
 use kohbor_events::{
-    adapter::tick_from_admitted, Detector, Event, EventId, ObjectiveAlertBatch, ObjectiveScheduler,
+    adapter::{tick_from_admitted, ultimate_context_from_admitted}, Detector, Event, EventId,
+    ObjectiveAlertBatch, ObjectiveScheduler,
 };
 use kohbor_gsi::admission::{
     parse_objective_map_fields, parse_own_loadout, token_matches, Admitted, DraftScreen, Field,
@@ -1258,7 +1259,16 @@ impl Shared {
                 if let Some(epoch) = self.sessions.current().map(|session| session.epoch) {
                     let at_ms = duration_ms(arrival.saturating_duration_since(self.started_at));
                     let tick = tick_from_admitted(admitted, at_ms, epoch, true);
-                    let detected = crate::lab::observe(&mut self.detector, &tick);
+                    let ultimate_context = ultimate_context_from_admitted(
+                        admitted,
+                        &loadout,
+                        self.generation.max(1),
+                    );
+                    let detected = crate::lab::observe_with_ultimate(
+                        &mut self.detector,
+                        &tick,
+                        &ultimate_context,
+                    );
                     let detected_at = Instant::now();
                     if !detected.is_empty() {
                         if let Some(tx) = &self.engine {
@@ -1268,6 +1278,7 @@ impl Shared {
                                 at_ms,
                                 session_epoch: epoch,
                                 game_clock_seconds: game_clock_seconds(body),
+                                own_hero: admitted.hero.hero_id.value().cloned(),
                                 generation: self.generation.max(1),
                                 sequence: self.sequence.saturating_add(1),
                                 events: detected.clone(),

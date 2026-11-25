@@ -82,6 +82,8 @@
         "clutch_kill",
         "posthumous_kill",
         "comeback_kill",
+        "ultimate_fired",
+        "ultimate_kill",
         "hero_kill",
         "hero_death",
         "level_milestone",

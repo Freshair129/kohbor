@@ -3,7 +3,7 @@ import { packsPageCopy, type Locale } from "../copy";
 import { packCoverWebviewUrl } from "../mediaUrl";
 import { formatBytes } from "../packs";
 import { Chip } from "../Readiness";
-import { BROWSE_EVENT_CATEGORIES, browseCategoryRows, soundLabel, soundKey, type BrowseEventCategory } from "./eventMap";
+import { BROWSE_EVENT_CATEGORIES, browseCategoryRows, heroScopeLabel, soundLabel, soundKey, type BrowseEventCategory } from "./eventMap";
 import type { BrowseBinding, BrowsePackDetail } from "./browseApi";
 import type { BrowsePreviewState } from "./previewModel";
 import { isPackInUse, uninstallCopy, type PackSummary } from "./model";
@@ -301,6 +301,7 @@ export function PackDrawer({ pack, packs, detail, loading, locale, preview, prev
                         <span className="packs-voice-meta">
                           {(variant.duration_ms / 1000).toFixed(1)} {voiceText.secondsUnit}
                           {variant.has_visual && ` · ${voiceText.bannerYes}`}
+                          {heroScopeLabel(variant.hero, locale) && ` · ${heroScopeLabel(variant.hero, locale)}`}
                           {isPlaying && ` · ${voiceText.playing}`}
                         </span>
                       </div>

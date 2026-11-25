@@ -368,18 +368,18 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/engine.rs",
-      "bytes": 55152,
-      "sha256": "8449ab9d6aec2a1a6f82ce15929e5ec0e4dcf202ed17847d084c2b3a3e57dda6"
+      "bytes": 55931,
+      "sha256": "eac4f04f338cbd3b3e19df46b581c04567a0014de96ec5d43e180386e8443c12"
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/fake_sink.rs",
-      "bytes": 4641,
-      "sha256": "a518d9cef4b3753f9c53c9a20678544dd0302b9007a98c43f27b4defd8c04983"
+      "bytes": 4696,
+      "sha256": "07d9d36c8f08fff00ee1d1bd645f88d3c80fdf194eafb82ce692c5060e2c433f"
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/lanes.rs",
-      "bytes": 18767,
-      "sha256": "9795462cc88921545f09fb18bdef28083cccdf6fd20beefd4085bea0af150a28"
+      "bytes": 18938,
+      "sha256": "1106194a26907384564f14b4fac6400f6322e88c18fd56226073b8d3bfbdb5e5"
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/mod.rs",
@@ -403,8 +403,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/resolve.rs",
-      "bytes": 12569,
-      "sha256": "d951128b6b868077ac022b30ae7b22e63b32ae357a7a6455a38edbec589eb870"
+      "bytes": 13638,
+      "sha256": "c4f66e33623afce38dce4fbdde236f491b70bba706ca8225639d5e356db1f761"
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/slot_sink.rs",
@@ -413,8 +413,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/tests_engine.rs",
-      "bytes": 90909,
-      "sha256": "6b9300ad372719224a7b3573ec703e22cdbac5004ee03bbc539d2fdc5f2d29b6"
+      "bytes": 91026,
+      "sha256": "21296f3029605f9087bd59b2aa8d6b37d9912b2cc4a79507f2db99d902ae9beb"
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/tests_outcome.rs",
@@ -423,8 +423,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/audio/tests_resolve.rs",
-      "bytes": 8144,
-      "sha256": "9bffc0e3f16a1c5d18c0a94f4fa18720dd426d9370ecf88275343807d68c82d8"
+      "bytes": 8264,
+      "sha256": "15129f09ae649d2ab759b8281b6a566f351be35a563d6f57bfc7e814559cf16c"
     },
     {
       "path": "apps/desktop/src-tauri/src/audio_prefs.rs",
@@ -453,8 +453,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/demo.rs",
-      "bytes": 8499,
-      "sha256": "fd61c27aebeecb5a7d924ff64ff25dee81f72da90e16c8cd327a7e01f3a2e3cd"
+      "bytes": 8691,
+      "sha256": "85b42d588ea24cdf54da567754efec250ab31a967de685246c79987cdc84b302"
     },
     {
       "path": "apps/desktop/src-tauri/src/draft_bar.rs",
@@ -548,8 +548,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/host.rs",
-      "bytes": 72102,
-      "sha256": "9f6087e22749c6a79c04358492056e0fa6bdcc4992d98b07501fa75fa0304588"
+      "bytes": 72229,
+      "sha256": "348ca0b10122d05da7d666c0fff9f6dbf5d59e142d7f50f3926b8c8a444039b5"
     },
     {
       "path": "apps/desktop/src-tauri/src/hotkeys.rs",
@@ -568,13 +568,13 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/intake.rs",
-      "bytes": 141132,
-      "sha256": "cc01744fe90398dcd2a4083e36e2335d3f4d011f7391dd827379e36ffd1c148a"
+      "bytes": 141594,
+      "sha256": "ad3fe5b5eb32e893c4f281bfa4a494b0d92773624d75f66cfd90c9b78d6cc973"
     },
     {
       "path": "apps/desktop/src-tauri/src/lab.rs",
-      "bytes": 45835,
-      "sha256": "1896f7b80d90ea0dcb3de220563070fe2799981a94d33143ec2cd2967f373261"
+      "bytes": 46650,
+      "sha256": "45ddea9f3a6be4799785cc15a9e8e79435492b13287b930bde8fb77409914e2a"
     },
     {
       "path": "apps/desktop/src-tauri/src/latency.rs",
@@ -608,8 +608,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/media/inventory.rs",
-      "bytes": 25957,
-      "sha256": "b234203a49ca3845dea4ad07e40b97f30b57b1b6d699cc4a0e4774c33a42bfa0"
+      "bytes": 26152,
+      "sha256": "630a600ac19594ac2dda7d0980d08a3bf640c218f8387ca47c610df3cecc563e"
     },
     {
       "path": "apps/desktop/src-tauri/src/media/mod.rs",
@@ -618,8 +618,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/media/prewarm.rs",
-      "bytes": 71568,
-      "sha256": "ad010a9cda6a2d9b8d00863b17e1f0cc5d147542fffada4db29ee828e7e34e9e"
+      "bytes": 74532,
+      "sha256": "ec34c12b8a77c6e27b758c2088c3ea3bbb0bd217ae12bc053342204ce1c5fd7d"
     },
     {
       "path": "apps/desktop/src-tauri/src/media/probe.rs",
@@ -633,13 +633,13 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/media/selection.rs",
-      "bytes": 30364,
-      "sha256": "181b93e5e92d2da8424cb524469e4bd5ff6a1a2d0d157943b4070ef6b9393dd1"
+      "bytes": 32807,
+      "sha256": "c719b2d3024de0aca17a9ed7bb409039146f2a06472e0ea59ec14143e1fb84ac"
     },
     {
       "path": "apps/desktop/src-tauri/src/media/service.rs",
-      "bytes": 163420,
-      "sha256": "4994fa89c43ae8ac6af7b7e84aaf3ff919f7ca164a5ae66e1a4ba62628314648"
+      "bytes": 163859,
+      "sha256": "f6baf66f57c213bdeb39945df6eccd22f4753363fdaae4d869b3d91f60d9006b"
     },
     {
       "path": "apps/desktop/src-tauri/src/minimap_recorder/mod.rs",
@@ -13413,8 +13413,8 @@
     },
     {
       "path": "apps/desktop/src/packs/CoverageMatrix.tsx",
-      "bytes": 8713,
-      "sha256": "ce76e8231018b6aa9394f7615fe8591dc6823475d428d0d855a535ee1296d8bf"
+      "bytes": 8914,
+      "sha256": "fda487450f3afd2b7d7efe341cf52c9cb16faa1218bf3f3f847bf8acd8c3c8bb"
     },
     {
       "path": "apps/desktop/src/packs/EventVariants.css",
@@ -13458,8 +13458,8 @@
     },
     {
       "path": "apps/desktop/src/packs/PackLibrary.tsx",
-      "bytes": 23319,
-      "sha256": "94346dcde24fe537fb5aeb0023c9c51c312e013d556640c237709d4eb01d8c5b"
+      "bytes": 23449,
+      "sha256": "d9a383654ac036cb186f87d034344515e3275f457e649dec949276302a6b7dab"
     },
     {
       "path": "apps/desktop/src/packs/PacksPage.tsx",
@@ -13488,13 +13488,13 @@
     },
     {
       "path": "apps/desktop/src/packs/event-map-variant.test.mjs",
-      "bytes": 1800,
-      "sha256": "2d48c9ad5963824ce043adc0d1aca1d1dc199d04c9bf09233cba043f1b91ea3d"
+      "bytes": 2346,
+      "sha256": "f406a70cc1cb8124baaba82396555a8fcd37c0e1ffa4686cb0c20e9342c6f1ae"
     },
     {
       "path": "apps/desktop/src/packs/event-map-variant.ts",
-      "bytes": 3499,
-      "sha256": "4db250acc201b36ffab29472e035af0553363ec60a8f0ee040192dad0bbe5dde"
+      "bytes": 3966,
+      "sha256": "7bc6d34e8bbb24a246b04d1461a6467554fe38e9063684b142aa5bd8e60f07cf"
     },
     {
       "path": "apps/desktop/src/packs/event-variants.copy.ts",
@@ -13503,8 +13503,8 @@
     },
     {
       "path": "apps/desktop/src/packs/eventMap.ts",
-      "bytes": 20100,
-      "sha256": "69f78895655050bd72ffb171b99d519ec8e10b035b93aef5dc7fd4755936342b"
+      "bytes": 20657,
+      "sha256": "c296e79730bc643087820cd19c0573e7b3ca792dfcf50d7f1ed36ad7061d920e"
     },
     {
       "path": "apps/desktop/src/packs/loadoutApi.ts",
@@ -13543,8 +13543,8 @@
     },
     {
       "path": "apps/desktop/src/packs/variant-model.ts",
-      "bytes": 2405,
-      "sha256": "247486f56215a02d0fcb350ac964fc6d3925d87023a23637486cfd3c31a045b7"
+      "bytes": 2422,
+      "sha256": "2b0cc9ffb0a2cd3fc8afbf201fcfdcc90fdc6f9971c2803ae0402660f1436246"
     },
     {
       "path": "apps/desktop/src/playback.ts",
@@ -14398,8 +14398,8 @@
     },
     {
       "path": "apps/desktop/tests/packs-event-map.test.ts",
-      "bytes": 14432,
-      "sha256": "06a45ce35b043b7775f29d7bb1a0eeb89a302c6e181af7b1e19b1d7c2a98f396"
+      "bytes": 15960,
+      "sha256": "ed8ec58221ab393e95d8974d9ad50b5bc442d678067ce1d7be1a6c2ae6de3535"
     },
     {
       "path": "apps/desktop/tests/packs-loadout.test.ts",
@@ -14678,8 +14678,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 180782,
-      "sha256": "3d8a632f15895c34b206b14fdf2344a5a0d4b29f2d15c3efaba4e3cb5ded313b"
+      "bytes": 183213,
+      "sha256": "d97fdb07e35eae27a58a516df797f4b3a723c6c043a65e8a2730e6b182a70860"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -14693,8 +14693,8 @@
     },
     {
       "path": "contracts/event-catalog.json",
-      "bytes": 15932,
-      "sha256": "c3016b39e35fd20722fa3bfd3ae5ad8d895b0ac38863231954286e8d5800b15d"
+      "bytes": 18080,
+      "sha256": "ebe594ab4bb2f41e50090b12033f48491d944e821aa1a9d9f95140832f13463e"
     },
     {
       "path": "contracts/event-catalog.schema.json",
@@ -14703,8 +14703,8 @@
     },
     {
       "path": "contracts/event.schema.json",
-      "bytes": 4825,
-      "sha256": "cddb521b15701e8507e477ca12f5d575b2da2a5b85e8b0fa80d64cf22767a901"
+      "bytes": 4876,
+      "sha256": "e5733dd6fb6fb4bdf0ef88d65071669defd8cf25ab2d04a2da8dc95323d78a28"
     },
     {
       "path": "contracts/evidence.schema.json",
@@ -14728,8 +14728,8 @@
     },
     {
       "path": "contracts/media-manifest.schema.json",
-      "bytes": 13033,
-      "sha256": "05dd822243c5543743903ac6ef69495cbef1f78c1122e570836c71e5d93728d1"
+      "bytes": 16705,
+      "sha256": "1b261255d83a8d4c631f6d7775fd2c5aeaf747bdb4c1e921c3ce44cc1735f33d"
     },
     {
       "path": "contracts/news-feed.schema.json",
@@ -15028,18 +15028,18 @@
     },
     {
       "path": "crates/kohbor-events/src/adapter.rs",
-      "bytes": 1634,
-      "sha256": "8775e735c7fda44433a6b4d9aac0c570ec5c99ab2ddee7ee1111a9cb34b5bed2"
+      "bytes": 2040,
+      "sha256": "bae2605de525bac9a8b3e05c5f250a085a776959904861b5fcd0bd7c41f140f3"
     },
     {
       "path": "crates/kohbor-events/src/bin/kohbor-replay.rs",
-      "bytes": 36088,
-      "sha256": "fed0883f5b4650b5a70a52c91f2aabdef57938305f95763b72e32363162233d5"
+      "bytes": 36392,
+      "sha256": "0f60ea77aaec2014e84ea06032417be7488e4196ef458025ce44fb77fb5e503e"
     },
     {
       "path": "crates/kohbor-events/src/lib.rs",
-      "bytes": 33107,
-      "sha256": "30866f3131ae2c2537489010d13b5935e308ca6fba321f2caace37e930766c95"
+      "bytes": 35336,
+      "sha256": "ce175085f7453e37efb9c544e6a7d709e84d001e60c4b7f37261bf16503ca0e8"
     },
     {
       "path": "crates/kohbor-events/src/objectives.rs",
@@ -15048,18 +15048,18 @@
     },
     {
       "path": "crates/kohbor-events/src/trace.rs",
-      "bytes": 15143,
-      "sha256": "249ef8ab219e57d15e40bded86156c850418e02ac407b483ed3ac09f8888c468"
+      "bytes": 15545,
+      "sha256": "a2451b1881d3363e2b9b379cb22a15ddd47993b5918b3c2211131c082b427b44"
     },
     {
       "path": "crates/kohbor-events/tests/adapter.rs",
-      "bytes": 3975,
-      "sha256": "7c21ca3a716348146766dff8450da0e8607c99f7d4131e7c5486d288622040a9"
+      "bytes": 5268,
+      "sha256": "8b95712bdaf45fae200746ccbf1fea79d934805ef1d6ae336d1baae451b2ab4a"
     },
     {
       "path": "crates/kohbor-events/tests/arbiter.rs",
-      "bytes": 3378,
-      "sha256": "ad2a50ded19abefe3a6205863bec5fa3af8fdeacc365c8c737652a9dd07c8b7a"
+      "bytes": 4168,
+      "sha256": "30f35e7d8250a4c9f41bc4e4828ee46b1dcbaf895e97e3086d1bb7b02479d72c"
     },
     {
       "path": "crates/kohbor-events/tests/death_counter.rs",
@@ -15068,8 +15068,8 @@
     },
     {
       "path": "crates/kohbor-events/tests/detector.rs",
-      "bytes": 14164,
-      "sha256": "f2ce9140e96e76aa43269dfea7bb14c1cb2482d18ebff254e315402b526d5be0"
+      "bytes": 14219,
+      "sha256": "69280800b70133bd693ec8990f9609366bbb88b3678525ee6562b194610f2a98"
     },
     {
       "path": "crates/kohbor-events/tests/multi_pack_special.rs",
@@ -15098,8 +15098,8 @@
     },
     {
       "path": "crates/kohbor-events/tests/streak_field.rs",
-      "bytes": 5730,
-      "sha256": "0d05c3238c1b0f265448807b39b6b6e1d2c9d6afce54add9f170cadd7a608451"
+      "bytes": 5695,
+      "sha256": "ed660dc4f0a0043f9e9e1b93576d6fb3ed48f2f6f106388c0ddb9f5bc004db2f"
     },
     {
       "path": "crates/kohbor-events/tests/trace_parity.rs",
@@ -15368,8 +15368,8 @@
     },
     {
       "path": "crates/kohbor-pack-author/src/lib.rs",
-      "bytes": 69757,
-      "sha256": "0454d3cb2d8c76ef2bae9da756eba6806b4fef962af2f4ea199e3cc01c82bcc0"
+      "bytes": 70951,
+      "sha256": "914a8010a8b1c504ebe04f3869437cb21d7854644cb326d3bb0fbb7a56173c3a"
     },
     {
       "path": "crates/kohbor-pack-author/src/main.rs",
@@ -15383,8 +15383,8 @@
     },
     {
       "path": "crates/kohbor-pack-author/tests/author.rs",
-      "bytes": 57024,
-      "sha256": "ac00f9642e06a65637f4635f183793a349500ad6845bd6122d905d4962d1c678"
+      "bytes": 57697,
+      "sha256": "5cdcaef1d9803d0d1eb7b0f49276fd33c6b585160290b7f617b3407b22852746"
     },
     {
       "path": "crates/kohbor-pack/Cargo.toml",
@@ -15403,8 +15403,8 @@
     },
     {
       "path": "crates/kohbor-pack/src/descriptor.rs",
-      "bytes": 45654,
-      "sha256": "3ddfbb5351659e220fb1305512860208f0548e23173bedfc0a8aedab0c3cd5b5"
+      "bytes": 47189,
+      "sha256": "d05a1397e313cb3e1291f62e2b46f2dc1952a654b9fffdfd87599b23cc5da763"
     },
     {
       "path": "crates/kohbor-pack/src/error.rs",
@@ -15433,8 +15433,8 @@
     },
     {
       "path": "crates/kohbor-pack/src/store.rs",
-      "bytes": 148530,
-      "sha256": "c3080392b87eef6a91f8234bd4db4aa7e15023db923bebb421145ee9663f63a0"
+      "bytes": 151484,
+      "sha256": "5159701cc871cc7edf3ad5cf7fdb40fcb37e8c751e7186eff1bf0859146dd07a"
     },
     {
       "path": "crates/kohbor-pack/src/trust.rs",
@@ -15463,8 +15463,8 @@
     },
     {
       "path": "crates/kohbor-pack/tests/descriptor.rs",
-      "bytes": 27519,
-      "sha256": "8dbb1fac2800263683f4d200629995c90edbdd0d606cdc29d96dcdb0489c8077"
+      "bytes": 28719,
+      "sha256": "9ae44fe7f471076a91e4af0302062e86a264aa4e961481e1fbb7dadc9215ab62"
     },
     {
       "path": "crates/kohbor-pack/tests/hostile.rs",
@@ -15488,8 +15488,8 @@
     },
     {
       "path": "crates/kohbor-pack/tests/resolve.rs",
-      "bytes": 7765,
-      "sha256": "c60c5a145a8b4fda581317e694a58f63bdf07f2dc75dfd96ee983841a7f82597"
+      "bytes": 9737,
+      "sha256": "bc73395ab2eb78b67b9052ed59e5039e861d38f69b5964c91778f44469fbd1f0"
     },
     {
       "path": "crates/kohbor-pack/tests/review_fixes.rs",
@@ -15509,7 +15509,7 @@
     {
       "path": "crates/kohbor-pack/tests/units.rs",
       "bytes": 7419,
-      "sha256": "8d795d0aed268ea2738bd6eed8a2c68b55d6a116748e7856aca98de2b18e773c"
+      "sha256": "ac4ed9e185b53a9ba730cf96689c8cf72906ca5cc064e11b0cec505e57065471"
     },
     {
       "path": "crates/kohbor-pack/tests/variant_media.rs",
@@ -15713,8 +15713,8 @@
     },
     {
       "path": "docs/design/EVENT-AUDIO-SPEC.md",
-      "bytes": 37048,
-      "sha256": "0823c9a584c047b25e48f05fe0b6868ca07110727657b7a963a639a5cab1fab9"
+      "bytes": 39898,
+      "sha256": "34aaea260d1109474e9c16804c22497a1b799849fa4cdc731044320dc299afaf"
     },
     {
       "path": "docs/design/GSI-INTAKE-SPEC.md",
@@ -15743,8 +15743,8 @@
     },
     {
       "path": "docs/design/MEDIA-PACK-SPEC.md",
-      "bytes": 25047,
-      "sha256": "dbbbafef02bd7888097547cc2dbb4602349134f764a986f219d5b986a9dc1249"
+      "bytes": 26226,
+      "sha256": "d23ca9ab8644c8110dcb904de2f74f43c2b7406cc147452b7d92382a3e65c0ee"
     },
     {
       "path": "docs/design/MINIMAP-RUNE-ROSHAN-OVERLAY.md",
@@ -16273,8 +16273,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 126897,
-      "sha256": "290cc079b9b126a98811f04748a8e5418aa5c4aed0108e6ccfdcbc1776df2baa"
+      "bytes": 128966,
+      "sha256": "9f216cf62e7266d8e6f8e6e63f0c4d2c1789d0ce65875205e547915ff54dbade"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
