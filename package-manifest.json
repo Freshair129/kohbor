@@ -12392,6 +12392,31 @@
       "sha256": "ea766a50d6b6f6f5ef3a75b8cca34dd41046453ce32d83994ee8620a22164c45"
     },
     {
+      "path": "apps/desktop/src/assets/dota/6993/runes/bounty.png",
+      "bytes": 7359,
+      "sha256": "e3dd6f846b1edd955c7161f83490ebc7135f06b82665447553b4e8f6ca4ac933"
+    },
+    {
+      "path": "apps/desktop/src/assets/dota/6993/runes/lotus.png",
+      "bytes": 12193,
+      "sha256": "f840aaf64e7afd7abe27a96270188fadbd262d11ec383f157c36a36f8a4ba660"
+    },
+    {
+      "path": "apps/desktop/src/assets/dota/6993/runes/power.png",
+      "bytes": 10657,
+      "sha256": "2f8abfa0a5abdebfd777a2c669e14343334f8993e777221b96c44deaccc302a8"
+    },
+    {
+      "path": "apps/desktop/src/assets/dota/6993/runes/provenance.json",
+      "bytes": 2121,
+      "sha256": "1650bf2955d5b93425460101563dc5ebb98efce2b4ed116f00ea2c7f8a15568c"
+    },
+    {
+      "path": "apps/desktop/src/assets/dota/6993/runes/wisdom.png",
+      "bytes": 9880,
+      "sha256": "45e97b2f17707ba6fa4723f7cfb2c70cdf347490b65ed36861ad81cd404c5cdf"
+    },
+    {
       "path": "apps/desktop/src/assets/dota/6993/stat-icons/armor.png",
       "bytes": 864,
       "sha256": "3e99008501bb1b17b1085e3636990066756e2644d72872807a68a67c3573cbb5"
@@ -12813,8 +12838,8 @@
     },
     {
       "path": "apps/desktop/src/live/MapCountdowns.tsx",
-      "bytes": 5124,
-      "sha256": "ca646fddc3be1b507c0b0d97f73a08b064556ef4d6cf4b38bb7dcc5a21cce761"
+      "bytes": 5055,
+      "sha256": "55333d88aa8411aa613a668e76760b753db20afd10364c515180db7702085a88"
     },
     {
       "path": "apps/desktop/src/live/MapRoshanStatus.tsx",
@@ -12823,8 +12848,8 @@
     },
     {
       "path": "apps/desktop/src/live/MinimapPanel.tsx",
-      "bytes": 19007,
-      "sha256": "522c1dcc860fd1044937a16a456ba1299f815e746ebf137d5a59c35f65138aef"
+      "bytes": 19036,
+      "sha256": "b86ad4e1a0af359052e36d3b7a14ee357f76739492e808ad03f58e280a47cf3f"
     },
     {
       "path": "apps/desktop/src/live/MinimapStage.tsx",
@@ -12903,8 +12928,8 @@
     },
     {
       "path": "apps/desktop/src/live/copy.ts",
-      "bytes": 19438,
-      "sha256": "1770686bf57359aa2da65e34c5c4572d062ed738879280f384cc70fe12095785"
+      "bytes": 19533,
+      "sha256": "77ffac3a716f6ef7c1f4d486bbaecde92d73008ecf70dd484bb203e18b1e8779"
     },
     {
       "path": "apps/desktop/src/live/dotaIconSet.ts",
@@ -12993,13 +13018,13 @@
     },
     {
       "path": "apps/desktop/src/live/objectiveCountdownModel.ts",
-      "bytes": 12547,
-      "sha256": "5a108dd6bbb877c39e775032107d7f1278f6cd9919e149234ddf20cf4dfaa7d7"
+      "bytes": 13339,
+      "sha256": "55666c048e7ed935e0657f9fe1aabb64bb0129b820914c1a6a7f635849ddd5c9"
     },
     {
       "path": "apps/desktop/src/live/pinnedPanelsModel.ts",
-      "bytes": 13241,
-      "sha256": "2db6dda38dc38e521db24e3b80f3e80629405e591bbab99b3e3fcac49391d764"
+      "bytes": 16364,
+      "sha256": "511f457ebc6add22f6b712d446d5eb69b614961622b6e6a716754df9d5f7f670"
     },
     {
       "path": "apps/desktop/src/live/postGameSummaryModel.ts",
@@ -13043,8 +13068,8 @@
     },
     {
       "path": "apps/desktop/src/live/secondMonitor.css",
-      "bytes": 20019,
-      "sha256": "278d881d38ff0f10d6a20e68f89fdecf5fbacfa867999bbca4e96121fcaf83e8"
+      "bytes": 18920,
+      "sha256": "5420c85607d8bf1917bc8b5d52bea5c99d74af127c0346e0223ff5fb94de4568"
     },
     {
       "path": "apps/desktop/src/live/secondMonitorCards.ts",
@@ -14173,8 +14198,8 @@
     },
     {
       "path": "apps/desktop/tests/live-second-monitor-map.test.ts",
-      "bytes": 13004,
-      "sha256": "2a66a667aa2d899a8442604be8195b48a0465c3582fea718e6973e74424609b0"
+      "bytes": 14733,
+      "sha256": "cc5a22d2d7c29cf66778408d17530506b76bf76d5e0e2d15fdce4a97b59ef27d"
     },
     {
       "path": "apps/desktop/tests/live-second-monitor.test.ts",
@@ -14288,8 +14313,8 @@
     },
     {
       "path": "apps/desktop/tests/pinned-panels-model.test.ts",
-      "bytes": 10652,
-      "sha256": "547394e727cfbc7c3a6a689cb720e7a76070631ef270ebb1352e3199c9808515"
+      "bytes": 13550,
+      "sha256": "e3ced5cd6ad6eb41d0307b56dd1d4b93814fa1c568db0077b46c6e0114c5b2fd"
     },
     {
       "path": "apps/desktop/tests/playback.test.ts",
@@ -15585,6 +15610,11 @@
       "path": "docs/design/MEDIA-PACK-SPEC.md",
       "bytes": 22326,
       "sha256": "7c92ab543cdaacf56d21e4252bae6435ac9730ba306636ead13718e024acad2d"
+    },
+    {
+      "path": "docs/design/MINIMAP-RUNE-ROSHAN-OVERLAY.md",
+      "bytes": 4581,
+      "sha256": "f441fdd28d6dc80424b8a5ee15ad49613c651b7c64a13dd7b4fd40ae0b2f23a9"
     },
     {
       "path": "docs/design/PACKAGE-FORMAT-REVIEW.md",

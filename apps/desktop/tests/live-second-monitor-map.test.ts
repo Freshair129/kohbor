@@ -12,6 +12,8 @@ import {
   // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
 } from "../src/live/objectiveCountdownModel.ts";
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
+import * as ObjectiveModelApi from "../src/live/objectiveCountdownModel.ts";
+// @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
 import { draftBoardCopy, draftBoardRows, formatWinRate } from "../src/live/draftBoardModel.ts";
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
 import { createDraftRosterMemory, rememberDraftFrame } from "../src/live/secondMonitorModel.ts";
@@ -23,24 +25,39 @@ const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf
 // ---- Rune countdowns (UI-018) ----
 const power = { objective: "power_rune" as const, occurrence_seconds: 480, lead_s: [30, 15] };
 
-test("pinned countdown stays small until the final ten seconds or configured alert lead", () => {
+test("rune labels use compact rounded-up minutes and two-digit final seconds", () => {
   const at = (clock: number) => countdownLabel({ ...power, last_occurrence_seconds: 480 }, clock, "7.42");
-  assert.equal(at(300), null);
-  assert.equal(at(419), null);
-  assert.deepEqual([at(420)?.text, at(420)?.mode], ["60", "seconds"]);
-  assert.deepEqual([at(450)?.text, at(450)?.mode], ["30", "seconds"]);
-  assert.equal(at(450)?.fullChip, true, "the configured 30-second alert lead expands the chip");
-  assert.equal(at(479)?.text, "1");
-  assert.deepEqual([at(480)?.text, at(480)?.mode], ["พร้อม", "ready"]);
-  assert.deepEqual([at(482)?.text, at(482)?.mode], ["พร้อม", "ready"]);
-  assert.equal(at(484), null, "ready is brief");
-  const short = { ...power, lead_s: [15] };
-  assert.equal(countdownLabel(short, 420, "7.42")?.fullChip, false);
-  assert.equal(countdownLabel(short, 465, "7.42")?.fullChip, true);
-  assert.equal(countdownLabel(short, 471, "7.42")?.fullChip, true, "the final ten seconds expand even with a shorter lead");
-  const none = { objective: "bounty_rune" as const, occurrence_seconds: 480, lead_s: [] };
-  assert.equal(countdownLabel(none, 420)?.text, "60");
-  assert.equal(countdownLabel(none, 470)?.fullChip, true);
+  assert.deepEqual([at(280)?.text, at(280)?.mode], ["4m", "countdown"]);
+  assert.deepEqual([at(360)?.text, at(360)?.mode], ["2m", "countdown"]);
+  assert.deepEqual([at(419)?.text, at(419)?.mode], ["2m", "countdown"]);
+  assert.deepEqual([at(420)?.text, at(420)?.mode], ["1m", "countdown"]);
+  assert.deepEqual([at(421)?.text, at(421)?.mode], ["59", "countdown"]);
+  assert.equal(at(471)?.text, "09");
+  assert.deepEqual([at(480)?.text, at(480)?.mode], [null, "spawned"]);
+  assert.deepEqual([at(482)?.text, at(482)?.mode], [null, "spawned"]);
+  assert.equal(at(484), null, "the spawn pulse is brief and uses no number");
+});
+
+test("rune countdown formatter handles the requested second and minute boundaries", () => {
+  const api = ObjectiveModelApi as unknown as Record<string, unknown>;
+  const format = api.formatRuneCountdown as (seconds: number) => string | null;
+  assert.equal(typeof format, "function", "the rune countdown formatter is part of the pure model");
+  for (const [seconds, expected] of [[200, "4m"], [120, "2m"], [61, "2m"], [60, "1m"], [59, "59"], [9, "09"]] as const) {
+    assert.equal(format(seconds), expected, `${seconds} seconds`);
+  }
+  assert.equal(format(0), null, "zero seconds is the spawned state, without a countdown number");
+});
+
+test("rune presentation uses grayscale before spawn, colour after spawn, and the neutral fallback", () => {
+  const api = ObjectiveModelApi as unknown as Record<string, unknown>;
+  const appearance = api.runeAppearance as (spawned: boolean) => { filter: string; showCountdown: boolean };
+  const iconFor = api.runeIconKey as (objective: string, available: Record<string, boolean>) => string;
+  assert.equal(typeof appearance, "function");
+  assert.equal(typeof iconFor, "function");
+  assert.deepEqual(appearance(false), { filter: "grayscale", showCountdown: true });
+  assert.deepEqual(appearance(true), { filter: "color", showCountdown: false });
+  assert.equal(iconFor("power_rune", { power_rune: false }), "neutral");
+  assert.equal(iconFor("bounty_rune", { bounty_rune: true }), "bounty_rune");
 });
 
 test("schedule parser is strict and admits only objective rows used by this map", () => {
@@ -70,19 +87,19 @@ test("labels use only the schedule's game clock; a stale or missing schedule sho
   assert.deepEqual(countdownLabels(parseObjectiveSchedule({ schema_version: 1, rule_source: "ALERT-008", patch_version: null, observed_clock_seconds: 450, upcoming: [power] }), 1_000, 1_000), [], "a schedule without its recorded patch stays unknown");
 });
 
-test("unknown positions are omitted; confirmed normalised positions accept seconds and ready labels", () => {
+test("unknown positions are omitted; confirmed normalised positions accept countdown and spawned labels", () => {
   const spots = spotLabels([
-    { objective: "power_rune", text: "20", mode: "seconds", remaining: 20, patch_version: null, fullChip: false },
-    { objective: "bounty_rune", text: "พร้อม", mode: "ready", remaining: 0, patch_version: null, fullChip: true },
+    { objective: "power_rune", text: "20", mode: "countdown", remaining: 20, patch_version: null },
+    { objective: "bounty_rune", text: null, mode: "spawned", remaining: 0, patch_version: null },
   ]);
   assert.ok(spots.length > 0, "confirmed replay positions render labels");
   assert.deepEqual(spotLabels([
-    { objective: "power_rune", text: "20", mode: "seconds", remaining: 20, patch_version: null, fullChip: false },
-    { objective: "bounty_rune", text: "พร้อม", mode: "ready", remaining: 0, patch_version: null, fullChip: true },
+    { objective: "power_rune", text: "20", mode: "countdown", remaining: 20, patch_version: null },
+    { objective: "bounty_rune", text: null, mode: "spawned", remaining: 0, patch_version: null },
   ], {}), []);
   const confirmed = spotLabels([
-    { objective: "power_rune", text: "20", mode: "seconds", remaining: 20, patch_version: "7.42", fullChip: false },
-    { objective: "bounty_rune", text: "พร้อม", mode: "ready", remaining: 0, patch_version: "7.42", fullChip: true },
+    { objective: "power_rune", text: "20", mode: "countdown", remaining: 20, patch_version: "7.42" },
+    { objective: "bounty_rune", text: null, mode: "spawned", remaining: 0, patch_version: "7.42" },
   ], { power_rune: [{ x: 0.25, y: 0.75 }], bounty_rune: [{ x: 0.75, y: 0.25 }] }, true);
   assert.deepEqual(confirmed.map(({ x, y }) => [x, y]), [[0.25, 0.75], [0.75, 0.25]]);
   assert.ok(confirmed.every(spot => spot.positionPatchDiffers), "7.42 timing rules differ from 7.41f replay positions");
@@ -90,17 +107,24 @@ test("unknown positions are omitted; confirmed normalised positions accept secon
   for (const list of Object.values(RUNE_SPOTS)) for (const spot of list) assert.ok(spot.x > 0 && spot.x < 1 && spot.y > 0 && spot.y < 1);
 });
 
-test("countdown sources: no timing table, no tormentor or Roshan, no wall-clock game time, original markers", () => {
+test("countdown chips use bundled rune icons, stay pointer-inert, and keep names out of map text", () => {
   const model = read("../src/live/objectiveCountdownModel.ts");
   assert.doesNotMatch(model, /spawn_times_seconds|repeat_every_seconds|\b(?:120|240|360|420)\b(?!\s*s)/, "the ALERT-008 timing table is not duplicated");
   const view = read("../src/live/MapCountdowns.tsx");
-  assert.doesNotMatch(view + model, /<img|\.png|\.svg"|valve/i);
+  assert.match(view, /import\.meta\.glob<string>\("\.\.\/assets\/dota\/6993\/runes\/\*\.png"/);
+  assert.match(view, /power_rune: "power"[\s\S]*bounty_rune: "bounty"[\s\S]*wisdom_rune: "wisdom"[\s\S]*lotus: "lotus"/);
+  assert.match(view, /<img[^>]+sm-countdown-icon/);
+  assert.match(view, /sm-countdown-fallback">●/);
   assert.match(read("../src/live/secondMonitor.css"), /\.sm-map-overlay\s*\{[^}]*pointer-events:\s*none/);
-  assert.match(view, /sm-countdown-legend/);
+  assert.doesNotMatch(view, /sm-countdown-legend|sm-countdown-name/);
+  assert.match(read("../src/live/secondMonitor.css"), /\.sm-countdown-icon[^}]*filter:\s*grayscale\(1\)/);
+  assert.match(read("../src/live/secondMonitor.css"), /\.sm-countdown-spot[^}]*width:\s*24px[^}]*height:\s*24px/);
+  assert.match(read("../src/live/secondMonitor.css"), /text-shadow|\-webkit-text-stroke/);
   assert.match(view, /data-position-patch-differs/);
   assert.match(read("../src/live/secondMonitor.css"), /\.sm-countdown-spot\[data-position-patch-differs="true"\] \.sm-countdown-anchor\s*\{[^}]*border-style:\s*dashed/);
   // styles.css paints `.live-map-overlay` with an opaque surface; reusing that name hid the minimap in the first mock.
   assert.doesNotMatch(read("../src/live/MinimapPanel.tsx"), /className="live-map-overlay"/);
+  assert.match(read("../src/live/MinimapPanel.tsx"), /gamePhase === "pregame" \|\| gamePhase === "live"/);
 });
 
 // ---- Draft board (UI-019) ----

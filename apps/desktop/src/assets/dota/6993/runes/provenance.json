@@ -1,0 +1,64 @@
+{
+  "schema": "kohbor.dota-rune-assets/1",
+  "gameBuild": "6996",
+  "assetDirectoryBuildLabel": "6993",
+  "source": {
+    "install": "G:\\steam\\steamapps\\common\\dota 2 beta (read only)",
+    "vpk": "game/dota/pak01_dir.vpk",
+    "directories": {
+      "runes": "panorama/images/hud/timer"
+    },
+    "steamBuildId": "26908863",
+    "clientVersion": "6996",
+    "note": "The existing destination folder is labelled 6993, but the installed read-only source files report ClientVersion 6996. The source build is recorded as 6996 and is not represented as 6993."
+  },
+  "tool": {
+    "name": "kohbor-asset-export",
+    "commit": "a7b937feaa93559524fb0277ed808c3cbeee4527",
+    "decoder": "decode_vtex_c_for_display; includes the established BGRA and YCoCg display corrections"
+  },
+  "date": "2026-11-25",
+  "sizes": {
+    "runes": [80, 80]
+  },
+  "counts": {
+    "runes": 4
+  },
+  "totalBytes": 40089,
+  "authority": "DEC-REPLAY-INTEGRATION item 3",
+  "rights": "Valve game art. Rights review required before public release.",
+  "files": [
+    {
+      "path": "bounty.png",
+      "sourcePath": "panorama/images/hud/timer/bounty_rune_png.vtex_c",
+      "bytes": 7359,
+      "sha256": "e3dd6f846b1edd955c7161f83490ebc7135f06b82665447553b4e8f6ca4ac933",
+      "dimensions": [80, 80],
+      "vtexFormat": 16
+    },
+    {
+      "path": "wisdom.png",
+      "sourcePath": "panorama/images/hud/timer/widsom_rune_png.vtex_c",
+      "bytes": 9880,
+      "sha256": "45e97b2f17707ba6fa4723f7cfb2c70cdf347490b65ed36861ad81cd404c5cdf",
+      "dimensions": [80, 80],
+      "vtexFormat": 28
+    },
+    {
+      "path": "lotus.png",
+      "sourcePath": "panorama/images/hud/timer/lotus_png.vtex_c",
+      "bytes": 12193,
+      "sha256": "f840aaf64e7afd7abe27a96270188fadbd262d11ec383f157c36a36f8a4ba660",
+      "dimensions": [80, 80],
+      "vtexFormat": 28
+    },
+    {
+      "path": "power.png",
+      "sourcePath": "panorama/images/hud/timer/power_rune_png.vtex_c",
+      "bytes": 10657,
+      "sha256": "2f8abfa0a5abdebfd777a2c669e14343334f8993e777221b96c44deaccc302a8",
+      "dimensions": [80, 80],
+      "vtexFormat": 28
+    }
+  ]
+}

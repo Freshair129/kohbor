@@ -1,24 +1,21 @@
 import { useEffect, useState } from "react";
-import { COUNTDOWN_OBJECTIVES, countdownLabels, objectiveShortName, RUNE_SPOT_PROVENANCE, spotLabels, type CountdownObjective, type ObjectiveSchedule } from "./objectiveCountdownModel";
+import { COUNTDOWN_OBJECTIVES, countdownLabels, objectiveShortName, runeIconKey, RUNE_SPOT_PROVENANCE, spotLabels, type CountdownLabel, type CountdownObjective, type ObjectiveSchedule } from "./objectiveCountdownModel";
 
-const RUNE_MARK: Record<CountdownObjective, string> = {
-  power_rune: "●",
-  bounty_rune: "◆",
-  wisdom_rune: "▲",
-  lotus: "✿",
+const runeIconFiles = import.meta.glob<string>("../assets/dota/6993/runes/*.png", {
+  eager: true,
+  query: "?url",
+  import: "default",
+});
+const RUNE_ASSET_NAMES: Record<CountdownObjective, string> = {
+  power_rune: "power",
+  bounty_rune: "bounty",
+  wisdom_rune: "wisdom",
+  lotus: "lotus",
 };
-
-/** Time to spawn as m:ss; the model keeps whole seconds. */
-function clock(seconds: number): string {
-  const s = Math.max(0, Math.round(seconds));
-  return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
-}
-
-function markerPlacement(x: number, y: number): "upper-left" | "upper-right" | "lower-left" | "lower-right" {
-  if (y < 0.35 && x < 0.5) return "upper-left";
-  if (y > 0.65 && x > 0.5) return "lower-right";
-  return x < 0.5 ? "upper-right" : "lower-left";
-}
+const runeAvailable = Object.fromEntries(COUNTDOWN_OBJECTIVES.map(objective => [
+  objective,
+  typeof runeIconFiles[`../assets/dota/6993/runes/${RUNE_ASSET_NAMES[objective]}.png`] === "string",
+])) as Record<CountdownObjective, boolean>;
 
 /** Re-renders countdowns each second while the map is visible. */
 function useNow(active: boolean): number {
@@ -37,6 +34,34 @@ function useNow(active: boolean): number {
   return Date.now();
 }
 
+function markerPlacement(x: number, y: number): "upper-left" | "upper-right" | "lower-left" | "lower-right" {
+  if (y < 0.35 && x < 0.5) return "upper-left";
+  if (y > 0.65 && x > 0.5) return "lower-right";
+  return x < 0.5 ? "upper-right" : "lower-left";
+}
+
+function RuneIcon({ label }: { label: CountdownLabel }) {
+  const [failed, setFailed] = useState(false);
+  const iconKey = runeIconKey(label.objective, runeAvailable);
+  const assetName = iconKey === "neutral" ? null : RUNE_ASSET_NAMES[label.objective];
+  const src = assetName ? runeIconFiles[`../assets/dota/6993/runes/${assetName}.png`] : null;
+  return (
+    <span className="sm-countdown-entry" data-objective={label.objective} data-mode={label.mode} aria-hidden="true">
+      {src && !failed
+        ? <img className="sm-countdown-icon" src={src} alt="" onError={() => setFailed(true)} />
+        : <span className="sm-countdown-fallback">●</span>}
+      {label.text !== null && <span className="sm-countdown-text">{label.text}</span>}
+    </span>
+  );
+}
+
+function labelDescription(label: CountdownLabel, locale: "th" | "en"): string {
+  const name = objectiveShortName(label.objective, locale);
+  if (label.mode === "spawned") return `${name} · ${locale === "th" ? "เกิดแล้ว" : "spawned"}`;
+  return `${name} · ${label.text ?? "—"}`;
+}
+
+/** Game rune icons carry the timer; names and provenance remain available to assistive technology and hover text. */
 export function MapCountdowns({ schedule, receivedAtMs, locale, gameClockSeconds = null }: {
   schedule: ObjectiveSchedule | null; receivedAtMs: number | null; locale: "th" | "en"; gameClockSeconds?: number | null;
 }) {
@@ -45,46 +70,26 @@ export function MapCountdowns({ schedule, receivedAtMs, locale, gameClockSeconds
     ? { ...schedule, observed_clock_seconds: gameClockSeconds } : schedule;
   const labels = countdownLabels(clockSchedule, receivedAtMs, now);
   const spots = spotLabels(labels);
-  const byObjective = new Map(labels.map(label => [label.objective, label]));
   return (
     <div className="sm-countdown-layer">
-      {spots.length > 0 && <ul className="sm-countdowns" aria-label={locale === "th" ? "นับถอยหลังรูน" : "Rune countdowns"}>
-        {spots.map(spot => (
-          <li key={spot.key} className="sm-countdown-spot" style={{ left: (spot.x * 100) + "%", top: (spot.y * 100) + "%" }}
+      {spots.length > 0 && <ul className="sm-countdowns" aria-label={locale === "th" ? "ตัวนับเวลารูน" : "Rune timers"}>
+        {spots.map(spot => {
+          const positionPatch = RUNE_SPOT_PROVENANCE.patch;
+          const patch = spot.labels.find(label => label.patch_version)?.patch_version ?? "—";
+          const names = spot.labels.map(label => labelDescription(label, locale)).join(", ");
+          const tooltip = locale === "th"
+            ? `${names} · เวลาเกิดตามกฎ ALERT-008 แพตช์ ${patch} · ตำแหน่งจากรีเพลย์แพตช์ ${positionPatch} (ไม่ทราบ build เกม)`
+            : `${names} · Spawn timing from ALERT-008 patch ${patch} · position from replay patch ${positionPatch} (game build unknown)`;
+          return <li key={spot.key} className="sm-countdown-spot" style={{ left: (spot.x * 100) + "%", top: (spot.y * 100) + "%" }}
             data-position-patch-differs={spot.positionPatchDiffers || undefined}
-            aria-label={spot.labels.map(label => objectiveShortName(label.objective, locale) + " " + (label.mode === "ready" ? (locale === "en" ? "Ready" : "พร้อม") : clock(label.remaining))).join(", ")}
-            title={locale === "th"
-              ? "เวลาเกิดตามกติกาแพตช์ " + (spot.labels.find(label => label.patch_version)?.patch_version ?? "—") + " · ตำแหน่งจากรีเพลย์แพตช์ " + RUNE_SPOT_PROVENANCE.patch
-              : "Spawn timing from patch " + (spot.labels.find(label => label.patch_version)?.patch_version ?? "—") + " rules · position from replay patch " + RUNE_SPOT_PROVENANCE.patch}>
+            aria-label={names} title={tooltip}>
             <span className="sm-countdown-anchor" aria-hidden="true" />
-            <span className="sm-countdown" data-placement={markerPlacement(spot.x, spot.y)}>
-              {spot.labels.map(label => (
-                <span key={label.objective} className="sm-countdown-entry" data-objective={label.objective}
-                  data-mode={label.mode} data-full={label.fullChip}>
-                  <span className="sm-countdown-mark" aria-hidden="true">{RUNE_MARK[label.objective]}</span>
-                  {label.mode === "ready"
-                    ? <span className="sm-countdown-text">{locale === "en" ? "Ready" : "พร้อม"}</span>
-                    : <>
-                      {label.fullChip && <span className="sm-countdown-name">{objectiveShortName(label.objective, locale)}</span>}
-                      <span className="sm-countdown-text mono">{clock(label.remaining)}</span>
-                    </>}
-                </span>
-              ))}
+            <span className="sm-countdown" data-placement={markerPlacement(spot.x, spot.y)} aria-hidden="true">
+              {spot.labels.map(label => <RuneIcon key={label.objective} label={label} />)}
             </span>
-          </li>
-        ))}
-      </ul>}
-      <ul className="sm-countdown-legend" aria-label={locale === "th" ? "คำอธิบายสัญลักษณ์รูน" : "Rune legend"}>
-        {COUNTDOWN_OBJECTIVES.map(objective => {
-          const label = byObjective.get(objective);
-          const time = label ? label.mode === "ready" ? (locale === "en" ? "Ready" : "พร้อม") : clock(label.remaining) : null;
-          return <li key={objective} data-objective={objective}>
-            <span className="sm-countdown-mark" aria-hidden="true">{RUNE_MARK[objective]}</span>
-            <span>{objectiveShortName(objective, locale)}</span>
-            {time && <strong>{time}</strong>}
           </li>;
         })}
-      </ul>
+      </ul>}
     </div>
   );
 }
