@@ -405,3 +405,22 @@ The owner answered the question “Build a Lab tool that records minimap frames 
 Owner report on build `15ca531` (2026-11-24), translated words: “The item and skill slots on the hero cards disappeared, and so did the buffs or debuffs. The friends panel takes space; reduce it to about 60% of its current width. The assistant panel beside the minimap is too wide and squeezes the replay minimap; keep the left data panel and shrink the right side. Make the bar under the minimap look like a professional video player, with play/pause, speed, scrubber, elapsed and total time, event markers and a details action. Put the nearby death chips inside the player. ‘ดูละเอียด’ must open the full replay tools for this same selected match, already loaded, with a clear way back that restores match, time and open document. The JSON picker must not be the landing state for this path.”
 
 Recorded by an agent; **owner 2026-11-24, relayed by the lead, recorded by an agent**. The Analytics replay cards retain abilities, item slots and active modifiers at the supported map sizes. The right rail is 44 px (61% of the former 72 px); Analytics chat uses a smaller right column while preserving the document minimum. Analytics visible text and controls stay at least 12 px. The map-attached player supports 1×/5×/10×/30×, a filled scrubber, team-coloured death ticks, document citation markers, `mm:ss / mm:ss`, Space play/pause and five-second arrow seeks. The detail route passes the loaded bundle and time directly to the existing full MatchView tools and returns the original match/time/document context. The standalone report import remains in the existing Replay report route. Unknown duration remains `— ไม่ทราบ`.
+
+
+### UX pipeline review decisions (DEC-UX-REVIEW-20261125, 2026-11-25)
+
+**DEC-UX-REVIEW-20261125** - decided by the product owner 2026-11-25, relayed by the lead, recorded by an agent. Owner words: "Approve all 11". This records the approved decisions 1-11 from the 2026-11-25 UX pipeline review.
+
+1. **R-01 post-game panel.** Use three steps with live watcher and parse state, manual replay-file selection, and an honest instruction that the player downloads the replay in Dota. Kohbor does not operate Dota. The host persists the last finished match; the panel remains tied to it and can be reopened from Live.
+2. **Replay jobs.** Amend DEC-REPLAY-AUTO-PARSE: interrupted and match-start-stopped jobs return to Available/not parsed and auto-queue again; true failures stay manual.
+3. **Replay retention.** Amend DEC-REPLAY-AUTO-PARSE: order and evict by match end time, retain evicted matches as lightweight rows, and apply retention only after Save with a removal-count preview.
+4. **Lane dedup.** Amend DEC-LANE-EXPECTATION: a separate irreversible token file stores HMAC(install key, bundle hash), clear-history deletes it and clears the existing lane store once.
+5. **Personal average.** Amend DEC-LANE-EXPECTATION: "ค่าเฉลี่ยของคุณ" is shown on screen only and is never sent to AI.
+6. **Analytics layout.** Amend DEC-ANALYTICS-V2: measured page width, tabs สรุป / เทียบ / AI / โน้ต, a one-row matchup strip with score, and reading mode that widens the left panel; preserve 423 px and 289 px chat widths.
+7. **Coach Review location.** Amend DEC-ANALYTICS-V2: move Coach Review to Lab or Developer mode.
+8. **AI availability.** Amend DEC-AI-PROVIDERS: the untested-provider toggle appears only in Developer mode. Other users see AI unavailable in this release and a collapsed chat.
+9. **R-19 rune chips.** Follow D.4: map mark and time, names in a legend below the map, full chip only within that rune's alert lead threshold (or final ten seconds when no user lead is set), distinct shapes and a dashed ring when source and schedule patches differ.
+10. **Parsing terminology.** Use "แยกรีเพลย์" and states ยังไม่แยก, รอคิว, กำลังแยก, พร้อมดู, แยกไม่สำเร็จ. Keep "วิเคราะห์" for analysis and AI.
+11. **Per-match deletion.** Allow deleting chat, notes and reports for a match even if its replay is gone.
+
+The requirement changes are recorded in UI-002, UI-018, UI-021, UI-022 and MEM-007. Missing watcher-status support stays unknown; no native, visual or live acceptance is implied.

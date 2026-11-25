@@ -1,48 +1,92 @@
-import type { PostGameSummaryView } from "./postGameSummaryModel";
+import { postGameCopy } from "./copy";
+import type { PostGameSummaryView, ReplayParseState } from "./postGameSummaryModel";
 
-export function PostGameSummary({ summary, locale, onClose, onOpenReplay }: {
+function parseStateLabel(state: ReplayParseState, text: ReturnType<typeof postGameCopy>): string {
+  switch (state) {
+    case "not_found": return text.stateNotFound;
+    case "available": return text.stateAvailable;
+    case "queued": return text.stateQueued;
+    case "parsing": return text.stateParsing;
+    case "ready": return text.stateReady;
+    case "failed": return text.stateFailed;
+    case "needs_pack": return text.stateNeedsPack;
+    default: return text.watcherUnknown;
+  }
+}
+
+export function PostGameSummary({ summary, locale, onClose, onOpenReplay, onPickReplay, pickPending, pickFailed }: {
   summary: PostGameSummaryView;
   locale: "th" | "en";
   onClose: () => void;
   onOpenReplay: (matchKey?: string) => void;
+  onPickReplay: () => void;
+  pickPending: boolean;
+  pickFailed: boolean;
 }) {
-  const th = locale === "th";
+  const text = postGameCopy(locale);
   const recap = summary.recapEvents.slice(-4).reverse();
+  const watcherFolder = summary.watcher.folder === "known"
+    ? text.watcherFound
+    : summary.watcher.folder === "not_found" ? text.watcherNotFound : text.watcherUnknown;
+  const lastScan = summary.watcher.lastScanAtMs === null
+    ? text.watcherUnknown
+    : new Date(summary.watcher.lastScanAtMs).toLocaleTimeString(locale === "th" ? "th-TH" : "en-US");
+
   return (
-    <section className="live-postgame-summary" aria-label={th ? "สรุปหลังเกม" : "Post-game summary"} data-testid="live-postgame-summary">
+    <section className="live-postgame-summary" aria-label={text.title} data-testid="live-postgame-summary">
       <header className="live-postgame-heading">
-        <div><small>{th ? "สรุปแมตช์" : "MATCH SUMMARY"}</small><h2>{th ? "จบเกมแล้ว" : "Match complete"}</h2></div>
-        <button type="button" onClick={onClose} aria-label={th ? "ปิดสรุปแมตช์" : "Close match summary"}>{th ? "ปิด" : "Close"}</button>
+        <div><small>{text.title}</small><h2>{text.matchComplete}</h2></div>
+        <button type="button" onClick={onClose} aria-label={text.hide}>{text.hide}</button>
       </header>
       <div className="live-postgame-result-row">
-        <strong>{summary.result === "win" ? (th ? "ชนะ" : "Win") : summary.result === "loss" ? (th ? "แพ้" : "Loss") : "—"}</strong>
-        <span>{summary.heroName}</span><span>{th ? "เวลา" : "Duration"} {summary.duration}</span>
+        <strong>{summary.result === "win" ? text.win : summary.result === "loss" ? text.loss : text.unknownResult}</strong>
+        <span>{summary.heroName}</span><span>{text.duration} {summary.duration}</span>
       </div>
       <dl className="live-postgame-stats">
-        <div><dt>K / D / A</dt><dd>{summary.kda}</dd></div>
-        <div><dt>LH / DN</dt><dd>{summary.lastHitsDenies}</dd></div>
-        <div><dt>GPM / XPM</dt><dd>{summary.gpmXpm}</dd></div>
-        <div><dt>{th ? "คะแนนสุดท้าย" : "Final score"}</dt><dd>{summary.finalScore}</dd></div>
+        <div><dt>{text.kda}</dt><dd>{summary.kda}</dd></div>
+        <div><dt>{text.lastHitsDenies}</dt><dd>{summary.lastHitsDenies}</dd></div>
+        <div><dt>{text.gpmXpm}</dt><dd>{summary.gpmXpm}</dd></div>
+        <div><dt>{text.finalScore}</dt><dd>{summary.finalScore}</dd></div>
         {summary.derivedStats.map(stat => <div key={stat.label}><dt>{stat.label}</dt><dd>{stat.value}</dd></div>)}
       </dl>
-      <section className="live-postgame-events" aria-label={th ? "เหตุการณ์และเสียงประกาศในแมตช์" : "Match alerts and announcer events"}>
-        <h3>{th ? "เหตุการณ์และเสียงประกาศ" : "Alerts and announcer events"}</h3>
+      <section className="live-postgame-events" aria-label={text.recap}>
+        <h3>{text.recap}</h3>
         {recap.length ? <ul>{recap.map((event, index) => <li key={`${event.time}-${event.event}-${index}`}>
-          <span>{event.time}</span><strong>{event.event}</strong><small>{event.outcome}</small>
-        </li>)}</ul> : <p>{summary.recapAvailable
-          ? (th ? "ยังไม่มีเหตุการณ์ที่บันทึกสำหรับแมตช์นี้" : "No match events are recorded yet")
-          : (th ? "ยังไม่มีสรุปเหตุการณ์ของแมตช์นี้" : "Match recap is unavailable")}</p>}
-        {summary.recapDroppedCount > 0 && <small>{th ? `ไม่นำเหตุการณ์ ${summary.recapDroppedCount} รายการมาแสดง` : `${summary.recapDroppedCount} events were not played`}</small>}
+          <span>{event.time}</span><strong>{event.event}</strong><small>{event.kind} · {event.outcome}</small>
+        </li>)}</ul> : <p>{summary.recapAvailable ? text.noEvents : text.recapUnavailable}</p>}
+        {summary.recapDroppedCount > 0 && <small>{text.droppedEvents(summary.recapDroppedCount)}</small>}
       </section>
-      <section className="live-postgame-replay" aria-label={th ? "วิเคราะห์จากรีเพลย์" : "Replay analysis"}>
-        {summary.replay ? <>
-          <h3>{th ? "วิเคราะห์เต็มจากรีเพลย์" : "Full replay analysis"}</h3>
-          <dl>{summary.replay.headline.map(item => <div key={item.label}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}</dl>
-        </> : <>
-          <h3>{th ? "วิเคราะห์เต็มจากรีเพลย์" : "Full replay analysis"}</h3>
-          <p>{th ? "เมื่อคลังรีเพลย์จับคู่แมตช์นี้ได้ ให้วางไฟล์ .dem ในโฟลเดอร์ที่เฝ้าดู หรือเพิ่มไฟล์ .dem" : "When the replay library can match this match, place a .dem file in the watched folder or add a .dem file."}</p>
-        </>}
-        {summary.replay && <button type="button" onClick={() => onOpenReplay(summary.replay?.openMatchKey)}>{th ? "เปิดวิเคราะห์แมตช์นี้" : "Open this match's analysis"}</button>}
+      <section className="live-postgame-replay" aria-label={text.replaySteps}>
+        <h3>{text.replaySteps}</h3>
+        <ol className="live-postgame-steps">
+          <li>
+            <h4>{text.stepDownload}</h4>
+            <p>{text.stepDownloadHelp}</p>
+          </li>
+          <li>
+            <h4>{text.stepFindParse}</h4>
+            <p className="live-postgame-watcher"><strong>{text.watcher}:</strong> {text.watcherUnknown}</p>
+            <p className="live-postgame-watcher"><strong>{text.replayFolder}:</strong> {watcherFolder}</p>
+            <p className="live-postgame-watcher"><strong>{text.lastScan}:</strong> {lastScan}</p>
+            <p className="live-postgame-parse-state" data-state={summary.replayParseState}>
+              {parseStateLabel(summary.replayParseState, text)}
+              {summary.replayFailureReason && summary.replayParseState === "failed" ? ` · ${summary.replayFailureReason}` : ""}
+            </p>
+            <button type="button" onClick={onPickReplay} disabled={pickPending}>
+              {pickPending ? text.picking : text.manualPick}
+            </button>
+            {pickFailed && <p role="status">{text.pickFailed}</p>}
+          </li>
+          <li>
+            <h4>{text.stepOpen}</h4>
+            {summary.replay ? <>
+              <dl>{summary.replay.headline.map(item => <div key={item.label}>
+                <dt>{item.label === "Deaths" || item.label === "จำนวนครั้งที่ตาย" ? text.deaths : text.netWorth}</dt><dd>{item.value}</dd>
+              </div>)}</dl>
+              <button type="button" onClick={() => onOpenReplay(summary.replay?.openMatchKey)}>{text.openAnalysis}</button>
+            </> : <p>{summary.lastFinishedMatchAvailable ? text.waitingForReplay : text.noReplayKey}</p>}
+          </li>
+        </ol>
       </section>
     </section>
   );

@@ -10,6 +10,7 @@ import type { HostClockAnchor } from "./hostClock";
 import { createAudioPrefsClient } from "./audioPrefs";
 
 const POLL_MS = 1000;
+const HIDDEN_STATUS_POLL_MS = 5000;
 const CALL_TIMEOUT_MS = 2500;
 /** Consecutive failed polls after which the screen says it has lost the host. */
 const LOST_AFTER_FAILURES = 3;
@@ -444,19 +445,19 @@ export function useRuntime(): Runtime {
       window.clearTimeout(timer);
       timer = undefined;
       try {
-        const [s, o] = await withTimeout(
-          Promise.all([invoke<RuntimeStatus>("runtime_get_status"), invoke<unknown>("own_snapshot")]),
-          CALL_TIMEOUT_MS,
-        );
-        const parsedSnapshot = parseOwnSnapshot(o);
-        if (!parsedSnapshot) {
-          if (alive) setSnapshot(null);
-          throw new Error("OWN_SNAPSHOT_UNREADABLE");
-        }
+        const s = await withTimeout(invoke<RuntimeStatus>("runtime_get_status"), CALL_TIMEOUT_MS);
         if (alive) {
           setStatus(s);
-          setSnapshot(parsedSnapshot);
           setFailures(0);
+        }
+        if (!document.hidden) {
+          const rawSnapshot = await withTimeout(invoke<unknown>("own_snapshot"), CALL_TIMEOUT_MS);
+          const parsedSnapshot = parseOwnSnapshot(rawSnapshot);
+          if (!parsedSnapshot) {
+            if (alive) setSnapshot(null);
+            throw new Error("OWN_SNAPSHOT_UNREADABLE");
+          }
+          if (alive) setSnapshot(parsedSnapshot);
         }
       } catch {
         // Never fabricate readiness from a failed poll; count it instead.
@@ -464,8 +465,8 @@ export function useRuntime(): Runtime {
       } finally {
         running = false;
       }
-      // A hidden window does not poll; visibilitychange resumes it.
-      if (alive && !document.hidden) timer = window.setTimeout(() => void tick(), POLL_MS);
+      // A hidden window polls only the small status payload so match-end records remain reachable.
+      if (alive) timer = window.setTimeout(() => void tick(), document.hidden ? HIDDEN_STATUS_POLL_MS : POLL_MS);
     };
 
     const onVisibility = () => {

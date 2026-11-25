@@ -49,24 +49,33 @@ main.live-tab.live-dashboard { display: grid; grid-template-columns: minmax(0, 1
 .live-dashboard-best small { color: var(--muted); font-size: 10px; }
 .live-dashboard-empty { margin: auto; color: var(--text-2); text-align: center; font-size: 14px; }
 .live-postgame-heading, .live-postgame-result-row { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
-.live-postgame-heading small { color: var(--muted); font-size: 9px; letter-spacing: .08em; }
-.live-postgame-heading button, .live-postgame-replay button { flex: none; min-height: 30px; padding: 3px 8px; font-size: 11px; }
+.live-postgame-heading small { color: var(--muted); font-size: 12px; letter-spacing: .04em; }
+.live-postgame-heading button, .live-postgame-replay button { flex: none; min-height: 28px; padding: 3px 8px; font-size: 12px; }
 .live-postgame-result-row { justify-content: flex-start; flex-wrap: wrap; color: var(--text-2); font-size: 12px; }
 .live-postgame-result-row strong { color: var(--text); }
 .live-postgame-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 8px; margin: 0; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--ground); }
-.live-postgame-stats > div, .live-postgame-replay dl > div { display: flex; justify-content: space-between; gap: 4px; min-width: 0; font-size: 11px; }
+.live-postgame-stats > div, .live-postgame-replay dl > div { display: flex; justify-content: space-between; gap: 4px; min-width: 0; font-size: 12px; }
 .live-postgame-stats dt, .live-postgame-replay dt { color: var(--text-2); }
 .live-postgame-stats dd, .live-postgame-replay dd { margin: 0; font-variant-numeric: tabular-nums; }
 .live-postgame-events, .live-postgame-replay { display: grid; gap: 4px; min-width: 0; }
-.live-postgame-events h3, .live-postgame-replay h3 { margin: 0; font-size: 11px; }
+.live-postgame-events h3, .live-postgame-replay h3 { margin: 0; font-size: 12px; }
 .live-postgame-events ul { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
-.live-postgame-events li { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 5px; min-width: 0; color: var(--text-2); font-size: 10px; }
+.live-postgame-events li { display: grid; grid-template-columns: 42px minmax(0, 1fr) minmax(0, auto); gap: 5px; min-width: 0; color: var(--text-2); font-size: 12px; }
 .live-postgame-events li :is(strong, small) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.live-postgame-events li small { font-size: 12px; }
 .live-postgame-events li strong { color: var(--text); }
-.live-postgame-events > p, .live-postgame-replay > p { margin: 0; color: var(--text-2); font-size: 10px; line-height: 1.3; }
-.live-postgame-events > small { color: var(--muted); font-size: 9px; }
-.live-postgame-replay { margin-top: auto; padding-top: 6px; border-top: 1px solid var(--line); }
+.live-postgame-events > p, .live-postgame-events > small, .live-postgame-replay > p { margin: 0; color: var(--text-2); font-size: 12px; line-height: 1.25; }
+.live-postgame-replay { min-height: 0; margin-top: auto; padding-top: 6px; border-top: 1px solid var(--line); }
 .live-postgame-replay dl { display: grid; gap: 2px; margin: 0; }
+.live-postgame-steps { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; counter-reset: post-game-step; }
+.live-postgame-steps > li { display: grid; gap: 2px; min-width: 0; padding: 4px 6px; border: 1px solid var(--line); border-radius: 5px; background: var(--ground); counter-increment: post-game-step; }
+.live-postgame-steps h4 { margin: 0; font-size: 12px; line-height: 1.25; }
+.live-postgame-steps p { margin: 0; color: var(--text-2); font-size: 12px; line-height: 1.25; }
+.live-postgame-steps > li:first-child > p { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.live-postgame-steps button { justify-self: start; min-height: 28px; font-size: 12px; }
+.live-postgame-watcher { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.live-postgame-parse-state { font-weight: 650; }
+.live-postgame-reopen { justify-self: center; min-height: 36px; padding: 6px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--text); font-size: 12px; font-weight: 650; }
 .live-postgame-summary { transform-origin: left center; backface-visibility: hidden; animation: live-centre-flip 600ms cubic-bezier(.2,.7,.2,1) both; }
 @keyframes live-centre-flip { from { opacity: .35; transform: perspective(900px) rotateY(-78deg); } to { opacity: 1; transform: perspective(900px) rotateY(0); } }
 @media (prefers-reduced-motion: reduce) { .live-postgame-summary { animation: none; } }

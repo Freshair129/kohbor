@@ -20,7 +20,7 @@ import type { SecondMonitorSide } from "../live/secondMonitorModel";
 import { overviewClient } from "../overview/overviewClient";
 import { parseMatchHistory, type MatchHistory } from "../overview/overviewModel";
 import { pregameDashboardModel } from "../live/pregameDashboardModel";
-import { postGameSummaryModel, type PostGameReplayInput } from "../live/postGameSummaryModel";
+import { postGameSummaryModel, type PostGameReplayInput, type ReplayWatcherView } from "../live/postGameSummaryModel";
 import { loadMatchRecap, type MatchRecapSnapshot } from "../packs/recapModel";
 import { PregameDashboard } from "../live/PregameDashboard";
 import { PostGameSummary } from "../live/PostGameSummary";
@@ -59,10 +59,15 @@ function CenteredLiveField({ locale, status, snapshot, hostLost, steamStatus, ma
   const [history, setHistory] = useState<MatchHistory | null>(null);
   const [recap, setRecap] = useState<MatchRecapSnapshot | null>(null);
   const [postGameReplay, setPostGameReplay] = useState<PostGameReplayInput | null>(null);
+  const [watcher, setWatcher] = useState<ReplayWatcherView>({ state: "unknown", folder: "unknown", lastScanAtMs: null });
   const [postGame, setPostGame] = useState<{ epoch: number | null; dismissed: boolean } | null>(null);
   const [lastLiveSnapshot, setLastLiveSnapshot] = useState<{ epoch: number; snapshot: OwnSnapshot } | null>(null);
+  const [pickPending, setPickPending] = useState(false);
+  const [pickFailed, setPickFailed] = useState(false);
+  const refreshReplayRef = useRef<() => void>(() => {});
   const phase = hostLost ? null : status?.session.phase ?? null;
-  const sessionEpoch = hostLost ? null : status?.session.session_epoch ?? null;
+  const statusEpoch = hostLost ? null : status?.session.session_epoch ?? null;
+  const sessionEpoch = phase === "none" ? null : statusEpoch;
   useEffect(() => {
     let active = true;
     void overviewClient.matchHistory(0).then(raw => {
@@ -79,12 +84,14 @@ function CenteredLiveField({ locale, status, snapshot, hostLost, steamStatus, ma
     }
   }, [phase, sessionEpoch, snapshot]);
   useEffect(() => {
-    if ((phase === "post_game" || matchEnded) && !hostLost) {
-      setPostGame(previous => previous?.epoch === sessionEpoch ? previous : { epoch: sessionEpoch, dismissed: false });
-    } else if (phase === "draft" || phase === "pregame" || phase === "live") {
+    if (phase === "draft" || phase === "pregame" || phase === "live") {
       setPostGame(null);
+      setPostGameReplay(null);
+      setWatcher({ state: "unknown", folder: "unknown", lastScanAtMs: null });
+    } else if ((phase === "post_game" || matchEnded) && !hostLost && statusEpoch !== null) {
+      setPostGame(previous => previous?.epoch === statusEpoch ? previous : { epoch: statusEpoch, dismissed: false });
     }
-  }, [hostLost, matchEnded, phase, sessionEpoch]);
+  }, [hostLost, matchEnded, phase, statusEpoch]);
   useEffect(() => {
     let active = true;
     if (!postGame || postGame.dismissed || postGame.epoch === null) {
@@ -96,34 +103,52 @@ function CenteredLiveField({ locale, status, snapshot, hostLost, steamStatus, ma
   }, [postGame?.dismissed, postGame?.epoch]);
   useEffect(() => {
     let active = true;
-    let unlisten: (() => void) | undefined;
     let refreshGeneration = 0;
-    if (!postGame || postGame.dismissed) {
-      setPostGameReplay(null);
+    if (hostLost || (phase !== "none" && phase !== "post_game" && !(phase === "live" && matchEnded))) {
+      refreshReplayRef.current = () => {};
       return () => { active = false; };
     }
     const refresh = async () => {
       const generation = ++refreshGeneration;
+      const replayArgs = phase === "post_game" && statusEpoch !== null ? { sessionEpoch: statusEpoch } : { sessionEpoch: null };
       const [replayResult, historyResult] = await Promise.allSettled([
-        invoke<PostGameReplayInput>("post_game_replay_summary", { sessionEpoch: postGame.epoch }),
+        invoke<PostGameReplayInput>("post_game_replay_summary", replayArgs),
         overviewClient.matchHistory(0),
       ]);
       if (!active || generation !== refreshGeneration) return;
-      setPostGameReplay(replayResult.status === "fulfilled" ? replayResult.value : null);
+      if (replayResult.status === "fulfilled") {
+        const reply = replayResult.value;
+        setPostGameReplay(reply);
+        setWatcher(reply.watcher ?? { state: "unknown", folder: "unknown", lastScanAtMs: null });
+        const ended = reply.lastFinishedMatch;
+        const canReopen = phase === "none"
+          || (ended !== null && statusEpoch === ended.epoch && (phase === "post_game" || matchEnded));
+        if (ended && canReopen) {
+          setPostGame(previous => previous?.epoch === ended.epoch ? previous : { epoch: ended.epoch, dismissed: false });
+        }
+      } else {
+        setPostGameReplay(null);
+        setWatcher({ state: "unknown", folder: "unknown", lastScanAtMs: null });
+      }
       if (historyResult.status === "fulfilled") setHistory(parseMatchHistory(historyResult.value));
     };
-    void listen("replay-library://state-changed", () => { void refresh(); }).then(stop => {
+    refreshReplayRef.current = () => { void refresh(); };
+    void refresh();
+    return () => { active = false; refreshGeneration += 1; refreshReplayRef.current = () => {}; };
+  }, [hostLost, matchEnded, phase, statusEpoch]);
+  useEffect(() => {
+    if (!postGame || postGame.dismissed || hostLost) return;
+    let active = true;
+    let unlisten: (() => void) | undefined;
+    void listen("replay-library://state-changed", () => { refreshReplayRef.current(); }).then(stop => {
       if (!active) stop();
-      else {
-        unlisten = stop;
-        void refresh();
-      }
-    }).catch(() => { void refresh(); });
+      else unlisten = stop;
+    }).catch(() => {});
     return () => { active = false; unlisten?.(); };
-  }, [postGame?.dismissed, postGame?.epoch]);
+  }, [hostLost, postGame?.dismissed, postGame?.epoch]);
   const field = useFieldBox<HTMLDivElement>();
   const layout = field.box ? centeredLiveLayout(field.box) : null;
-  const slot = ownDraftSlot(roster, hostLost ? null : status?.session.session_epoch ?? null, ownTeam, own.heroId) ?? ownSlot;
+  const slot = ownDraftSlot(roster, sessionEpoch, ownTeam, own.heroId) ?? ownSlot;
   const ownModel = ownHeroCard({ heroId: own.heroId, hpPercent: own.hpPercent, manaPercent: own.manaPercent,
     tiles: loadout.abilities.stale ? null : loadout.abilities.tiles, slot });
   const ourCards = orderBySlot([ownModel, ...allyCards]);
@@ -131,6 +156,8 @@ function CenteredLiveField({ locale, status, snapshot, hostLost, steamStatus, ma
   const direCards = ownTeam === "dire" ? ourCards : enemyCards;
   const draft = phase === "draft";
   const showPostGame = postGame !== null && !postGame.dismissed;
+  const showReopenPostGame = postGame !== null && postGame.dismissed
+    && postGameReplay?.lastFinishedMatch?.epoch === postGame.epoch;
   const dashboard = pregameDashboardModel(history, new Date(), locale === "en" ? "en" : "th");
   const recapMatch = postGame?.epoch === null || postGame?.epoch === undefined
     ? null
@@ -152,7 +179,24 @@ function CenteredLiveField({ locale, status, snapshot, hostLost, steamStatus, ma
     recap: recapMatch ? { events: recapMatch.playedEvents, droppedCount: recapMatch.droppedCount } : null,
     derivedStats: [],
     replay: postGameReplay,
+    watcher: postGameReplay?.watcher ?? watcher,
   }, locale === "en" ? "en" : "th");
+  const pickReplay = async () => {
+    if (pickPending) return;
+    setPickPending(true);
+    setPickFailed(false);
+    try {
+      const sourcePath = await invoke<string | null>("replay_library_pick_file");
+      if (sourcePath) {
+        await invoke("replay_library_parse", { idOrPath: sourcePath });
+        refreshReplayRef.current();
+      }
+    } catch {
+      setPickFailed(true);
+    } finally {
+      setPickPending(false);
+    }
+  };
   const sideWidth = layout?.mode === "field" ? layout.card.w : 0;
   const wideStats = sideWidth >= 260;
   const roomyField = layout?.mode === "field" && sideWidth >= 320 && layout.card.h >= CENTER_ROOMY_CARD_MIN_H;
@@ -188,7 +232,12 @@ function CenteredLiveField({ locale, status, snapshot, hostLost, steamStatus, ma
               <DraftDeckPanel visible />
             </div>
           </> : showPostGame ? <PostGameSummary summary={summary} locale={locale === "en" ? "en" : "th"}
-            onClose={() => setPostGame(value => value ? { ...value, dismissed: true } : null)} onOpenReplay={onOpenReplay} />
+            onClose={() => setPostGame(value => value ? { ...value, dismissed: true } : null)} onOpenReplay={onOpenReplay}
+            onPickReplay={() => { void pickReplay(); }} pickPending={pickPending} pickFailed={pickFailed} />
+            : showReopenPostGame ? <button type="button" className="live-postgame-reopen"
+              onClick={() => setPostGame(value => value ? { ...value, dismissed: false } : null)}>
+              {locale === "en" ? "Last match" : "แมตช์ล่าสุด"}
+            </button>
             : phase === "none" && !hostLost ? <PregameDashboard model={dashboard} locale={locale === "en" ? "en" : "th"}
               mapState={steamStatus?.minimap_state ?? "unsupported"} />
               : <MinimapPanel locale={locale} layout="field" steamStatus={steamStatus} snapshot={snapshot} gamePhase={phase} />}
@@ -233,7 +282,8 @@ export function Deck({
   // Replay-style cards (DEC-REPLAY-INTEGRATION item 10; full structure on every card, owner 2026-11-24): identities only
   // from same-session draft memory (UI-012), shared with the second-monitor deck; allies and enemies have no other
   // admitted source here, so their other values stay unknown.
-  const sessionEpoch = hostLost ? null : status?.session.session_epoch ?? null;
+  const phase = hostLost ? null : status?.session.phase ?? null;
+  const sessionEpoch = phase === "none" || hostLost ? null : status?.session.session_epoch ?? null;
   const roster = useRosterMemory(sessionEpoch, draftBar);
   const ownTeam = hostLost ? null : snapshot?.own?.team ?? null;
   const ownSlot = ownDraftSlot(roster, sessionEpoch, ownTeam, own.heroId);

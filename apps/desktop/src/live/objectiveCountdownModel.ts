@@ -140,19 +140,20 @@ export function parseObjectiveReadModel(value: unknown): ObjectiveReadModel | nu
 export const SECONDS_WINDOW = 60;
 export const READY_WINDOW_SECONDS = 3;
 
-export interface CountdownLabel { objective: CountdownObjective; text: string; mode: "seconds" | "ready"; remaining: number; patch_version: string | null }
+export interface CountdownLabel { objective: CountdownObjective; text: string; mode: "seconds" | "ready"; remaining: number; patch_version: string | null; fullChip: boolean }
 
-/** Pinned map labels appear in the last minute, then briefly say ready; no wall-clock extrapolation is used. */
+/** Map marks appear in the last minute; the word label expands only inside the configured alert lead or final 10 seconds. */
 export function countdownLabel(item: ScheduledObjective, clockSeconds: number, patchVersion: string | null = null): CountdownLabel | null {
   const remaining = item.occurrence_seconds - clockSeconds;
   if (!Number.isFinite(remaining)) return null;
   const sinceLastOccurrence = item.last_occurrence_seconds === undefined || item.last_occurrence_seconds === null
     ? null : clockSeconds - item.last_occurrence_seconds;
   if (sinceLastOccurrence !== null && sinceLastOccurrence >= 0 && sinceLastOccurrence <= READY_WINDOW_SECONDS) {
-    return { objective: item.objective as CountdownObjective, text: "พร้อม", mode: "ready", remaining: 0, patch_version: patchVersion };
+    return { objective: item.objective as CountdownObjective, text: "พร้อม", mode: "ready", remaining: 0, patch_version: patchVersion, fullChip: true };
   }
   if (remaining < 1 || remaining > SECONDS_WINDOW) return null;
-  return { objective: item.objective as CountdownObjective, text: String(remaining), mode: "seconds", remaining, patch_version: patchVersion };
+  const fullChipWindow = Math.max(10, ...item.lead_s);
+  return { objective: item.objective as CountdownObjective, text: String(remaining), mode: "seconds", remaining, patch_version: patchVersion, fullChip: remaining <= fullChipWindow };
 }
 
 /** A schedule older than this (wall time since it arrived) is treated as unknown: the labels disappear. */
@@ -173,7 +174,7 @@ export function countdownLabels(schedule: ObjectiveSchedule | null, receivedAtMs
 export const RUNE_SPOTS: Readonly<Record<CountdownObjective, readonly { x: number; y: number }[]>> = REPLAY_RUNE_SPOTS;
 export { RUNE_SPOT_PROVENANCE };
 
-export interface SpotLabel { key: string; x: number; y: number; labels: CountdownLabel[] }
+export interface SpotLabel { key: string; x: number; y: number; labels: CountdownLabel[]; positionPatchDiffers: boolean }
 
 /** Group labels that share a map coordinate without dropping any objective timer. */
 export function spotLabels(
@@ -189,12 +190,19 @@ export function spotLabels(
       const key = `${spot.x}:${spot.y}`;
       const current = bySpot.get(key);
       if (current) current.labels.push(label);
-      else bySpot.set(key, { key, x: spot.x, y: spot.y, labels: [label] });
+      else bySpot.set(key, {
+        key,
+        x: spot.x,
+        y: spot.y,
+        labels: [label],
+        positionPatchDiffers: label.patch_version !== null && label.patch_version !== RUNE_SPOT_PROVENANCE.patch,
+      });
     }
   }
   return [...bySpot.values()].map(spot => ({
     ...spot,
     labels: spot.labels.sort((left, right) => left.objective.localeCompare(right.objective)),
+    positionPatchDiffers: spot.labels.some(label => label.patch_version !== null && label.patch_version !== RUNE_SPOT_PROVENANCE.patch),
   }));
 }
 

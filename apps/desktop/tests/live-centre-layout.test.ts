@@ -52,6 +52,7 @@ test("Live regions clip instead of scrolling and moved frame controls render onl
   assert.match(postgameCss, /live-postgame-summary \{[^}]*animation: live-centre-flip 600ms/);
   assert.match(postgameCss, /prefers-reduced-motion:\s*reduce[^}]*live-postgame-summary \{ animation: none/);
   const postgame = read("../src/live/PostGameSummary.tsx");
-  assert.match(postgame, /summary\.replay && <button/);
-  assert.match(postgame, /Match recap is unavailable/);
+  assert.match(postgame, /summary\.replay \? <>[\s\S]*?onOpenReplay\(summary\.replay\?\.openMatchKey\)/);
+  assert.match(postgame, /summary\.recapAvailable \? text\.noEvents : text\.recapUnavailable/);
+  assert.match(read("../src/live/copy.ts"), /recapUnavailable: "This match recap is unavailable"/);
 });

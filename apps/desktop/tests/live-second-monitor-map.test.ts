@@ -23,21 +23,24 @@ const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf
 // ---- Rune countdowns (UI-018) ----
 const power = { objective: "power_rune" as const, occurrence_seconds: 480, lead_s: [30, 15] };
 
-test("pinned countdown shows seconds only in the last minute and briefly shows ready", () => {
+test("pinned countdown stays small until the final ten seconds or configured alert lead", () => {
   const at = (clock: number) => countdownLabel({ ...power, last_occurrence_seconds: 480 }, clock, "7.42");
   assert.equal(at(300), null);
   assert.equal(at(419), null);
   assert.deepEqual([at(420)?.text, at(420)?.mode], ["60", "seconds"]);
   assert.deepEqual([at(450)?.text, at(450)?.mode], ["30", "seconds"]);
+  assert.equal(at(450)?.fullChip, true, "the configured 30-second alert lead expands the chip");
   assert.equal(at(479)?.text, "1");
   assert.deepEqual([at(480)?.text, at(480)?.mode], ["พร้อม", "ready"]);
   assert.deepEqual([at(482)?.text, at(482)?.mode], ["พร้อม", "ready"]);
   assert.equal(at(484), null, "ready is brief");
   const short = { ...power, lead_s: [15] };
-  assert.equal(countdownLabel(short, 420, "7.42")?.text, "60", "the pinned map window is independent of alert lead times");
-  assert.equal(countdownLabel(short, 465, "7.42")?.text, "15");
+  assert.equal(countdownLabel(short, 420, "7.42")?.fullChip, false);
+  assert.equal(countdownLabel(short, 465, "7.42")?.fullChip, true);
+  assert.equal(countdownLabel(short, 471, "7.42")?.fullChip, true, "the final ten seconds expand even with a shorter lead");
   const none = { objective: "bounty_rune" as const, occurrence_seconds: 480, lead_s: [] };
   assert.equal(countdownLabel(none, 420)?.text, "60");
+  assert.equal(countdownLabel(none, 470)?.fullChip, true);
 });
 
 test("schedule parser is strict and admits only objective rows used by this map", () => {
@@ -69,19 +72,20 @@ test("labels use only the schedule's game clock; a stale or missing schedule sho
 
 test("unknown positions are omitted; confirmed normalised positions accept seconds and ready labels", () => {
   const spots = spotLabels([
-    { objective: "power_rune", text: "20", mode: "seconds", remaining: 20, patch_version: null },
-    { objective: "bounty_rune", text: "พร้อม", mode: "ready", remaining: 0, patch_version: null },
+    { objective: "power_rune", text: "20", mode: "seconds", remaining: 20, patch_version: null, fullChip: false },
+    { objective: "bounty_rune", text: "พร้อม", mode: "ready", remaining: 0, patch_version: null, fullChip: true },
   ]);
   assert.ok(spots.length > 0, "confirmed replay positions render labels");
   assert.deepEqual(spotLabels([
-    { objective: "power_rune", text: "20", mode: "seconds", remaining: 20, patch_version: null },
-    { objective: "bounty_rune", text: "พร้อม", mode: "ready", remaining: 0, patch_version: null },
+    { objective: "power_rune", text: "20", mode: "seconds", remaining: 20, patch_version: null, fullChip: false },
+    { objective: "bounty_rune", text: "พร้อม", mode: "ready", remaining: 0, patch_version: null, fullChip: true },
   ], {}), []);
   const confirmed = spotLabels([
-    { objective: "power_rune", text: "20", mode: "seconds", remaining: 20, patch_version: null },
-    { objective: "bounty_rune", text: "พร้อม", mode: "ready", remaining: 0, patch_version: null },
+    { objective: "power_rune", text: "20", mode: "seconds", remaining: 20, patch_version: "7.42", fullChip: false },
+    { objective: "bounty_rune", text: "พร้อม", mode: "ready", remaining: 0, patch_version: "7.42", fullChip: true },
   ], { power_rune: [{ x: 0.25, y: 0.75 }], bounty_rune: [{ x: 0.75, y: 0.25 }] }, true);
   assert.deepEqual(confirmed.map(({ x, y }) => [x, y]), [[0.25, 0.75], [0.75, 0.25]]);
+  assert.ok(confirmed.every(spot => spot.positionPatchDiffers), "7.42 timing rules differ from 7.41f replay positions");
   assert.ok(RUNE_SPOTS.power_rune.length > 0);
   for (const list of Object.values(RUNE_SPOTS)) for (const spot of list) assert.ok(spot.x > 0 && spot.x < 1 && spot.y > 0 && spot.y < 1);
 });
@@ -92,6 +96,9 @@ test("countdown sources: no timing table, no tormentor or Roshan, no wall-clock 
   const view = read("../src/live/MapCountdowns.tsx");
   assert.doesNotMatch(view + model, /<img|\.png|\.svg"|valve/i);
   assert.match(read("../src/live/secondMonitor.css"), /\.sm-map-overlay\s*\{[^}]*pointer-events:\s*none/);
+  assert.match(view, /sm-countdown-legend/);
+  assert.match(view, /data-position-patch-differs/);
+  assert.match(read("../src/live/secondMonitor.css"), /\.sm-countdown-spot\[data-position-patch-differs="true"\] \.sm-countdown-anchor\s*\{[^}]*border-style:\s*dashed/);
   // styles.css paints `.live-map-overlay` with an opaque surface; reusing that name hid the minimap in the first mock.
   assert.doesNotMatch(read("../src/live/MinimapPanel.tsx"), /className="live-map-overlay"/);
 });
