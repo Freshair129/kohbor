@@ -963,8 +963,8 @@
     },
     {
       "path": "apps/desktop/src/analytics/AnalyticsPage.tsx",
-      "bytes": 58589,
-      "sha256": "cf3717507d88b791ec14c3c92dcbced9531e40c09b0173f27ba4b2e907fd2537"
+      "bytes": 73495,
+      "sha256": "f6b52cd2aee4509d9560b0c039f3bf359a05b4462b8a72898c4e935f3d4bec1e"
     },
     {
       "path": "apps/desktop/src/analytics/AnalyticsSettings.tsx",
@@ -983,18 +983,18 @@
     },
     {
       "path": "apps/desktop/src/analytics/ProviderControls.tsx",
-      "bytes": 17809,
-      "sha256": "0fe6489cbc284286a9dc135c08fb44cd62acfa3d3243d7fd715eb595443b76f5"
+      "bytes": 18126,
+      "sha256": "ee68cdf2a83c2d44a500dbf305e499f5b2f57ec4d7c9d004eefa11f99677f943"
     },
     {
       "path": "apps/desktop/src/analytics/analytics.css",
-      "bytes": 10443,
-      "sha256": "69482572f364c383ff79af0c633cdb34a7624ed08a1183666a4527eed3b7b2eb"
+      "bytes": 12327,
+      "sha256": "7219a9c0cf13a0d51a51fce896d0f0902a8b6734c6d4a93be225294280cfcfea"
     },
     {
       "path": "apps/desktop/src/analytics/analyticsChart.ts",
-      "bytes": 13380,
-      "sha256": "c0976a604472495cd397a52aa74b07ec80bca2483ebab4e72b7f8ff265301d30"
+      "bytes": 17093,
+      "sha256": "bf6fc3235695b84772a1203f41643d351f75f84478f3f0ffa0b1aba7445c5fd9"
     },
     {
       "path": "apps/desktop/src/analytics/analyticsMarkdown.ts",
@@ -1003,8 +1003,8 @@
     },
     {
       "path": "apps/desktop/src/analytics/analyticsModel.ts",
-      "bytes": 5547,
-      "sha256": "951775f0e912523ebe4408a05cc8f34f92c2e837a56d865afd7855469181909f"
+      "bytes": 9437,
+      "sha256": "d861f48f00e6d50696ace14c49719b87d7cc5a2f2916737777227c6b59eb135b"
     },
     {
       "path": "apps/desktop/src/analytics/analyticsSettings.css",
@@ -1023,13 +1023,13 @@
     },
     {
       "path": "apps/desktop/src/analytics/knowledge/index.tsx",
-      "bytes": 24240,
-      "sha256": "9c515f51079fab3272b2fe44557dd7418956b6b285e04f78672937123154e71e"
+      "bytes": 26819,
+      "sha256": "b92762679ee9b8549919b88371dd21aa5e53fa476a3f627c6a7ec48bbaf80c95"
     },
     {
       "path": "apps/desktop/src/analytics/knowledge/knowledge.css",
-      "bytes": 5828,
-      "sha256": "e7ee45f48a4e82030fad2c6de422f6658384cd8f666aa3b552809dc4d18e0c5f"
+      "bytes": 7000,
+      "sha256": "eff2ff737511c3d9b1a07b0c0fa3d76ded3383874db932526edab5267f7a0b08"
     },
     {
       "path": "apps/desktop/src/analytics/knowledge/presentationModel.d.mts",
@@ -12718,8 +12718,8 @@
     },
     {
       "path": "apps/desktop/src/lab/Lab.tsx",
-      "bytes": 12445,
-      "sha256": "016888e6d2b56b4047bc6be53f574f1fdc1f3e35db7b139072690bc9a47bb812"
+      "bytes": 12875,
+      "sha256": "144e277e1d2f335c9ae01defbec34f48a18eacfeda503b6cf1c2b59e89493a0f"
     },
     {
       "path": "apps/desktop/src/lab/MinimapRecorderPanel.tsx",
@@ -13478,8 +13478,8 @@
     },
     {
       "path": "apps/desktop/src/replay/MatchViewPanel.tsx",
-      "bytes": 24083,
-      "sha256": "5df43bd3b33af04501c5c7e0ae3c396d21dc92764c2effff8af5e6bf2de17c70"
+      "bytes": 23720,
+      "sha256": "05a3657344b14dfc5da20c87cc362ad2e25118de5b357a9a081703dff9b8b21b"
     },
     {
       "path": "apps/desktop/src/replay/ReplayPanel.tsx",
@@ -13873,8 +13873,8 @@
     },
     {
       "path": "apps/desktop/tests/analytics-knowledge.test.mjs",
-      "bytes": 8953,
-      "sha256": "073fa63889245369eaf046254e0df4bb508a3923fb127783a0e7395305c719c3"
+      "bytes": 8977,
+      "sha256": "07d852fb63d4edca7d7e3593698fe707f7e3aede9943b0be70f95f5b6364903c"
     },
     {
       "path": "apps/desktop/tests/analytics-markdown.test.ts",
@@ -13888,13 +13888,18 @@
     },
     {
       "path": "apps/desktop/tests/analytics-refine.test.ts",
-      "bytes": 7530,
-      "sha256": "4403f4cc6f9400276d5bd97df27332f1562115f1a5f05d4d826a87e221adb25e"
+      "bytes": 7606,
+      "sha256": "7eabc32388bf0f325a497a64626ffaaf80b55f84e258d91b66efb556a979e27c"
+    },
+    {
+      "path": "apps/desktop/tests/analytics-w4-renderer.test.ts",
+      "bytes": 5904,
+      "sha256": "2fa36add162d07bf09ccaccfe36ecb79287a7ede00e3fcc9585a2d3dbbd30963"
     },
     {
       "path": "apps/desktop/tests/analytics.test.ts",
-      "bytes": 7555,
-      "sha256": "9f8f1fde9802c922441efcec6dfb2cfba494ab8be80e2288f1c342982be899e0"
+      "bytes": 8283,
+      "sha256": "a4944841fefd6aeec0ec11f31847896df574ae26b90d29a5503f7d7cdae9466d"
     },
     {
       "path": "apps/desktop/tests/app-version.test.ts",
@@ -14053,8 +14058,8 @@
     },
     {
       "path": "apps/desktop/tests/hero-card-view.test.ts",
-      "bytes": 3091,
-      "sha256": "e1ef3a69ac87e2084514b3850f3362f4a29e2c6d2e4c600bf39f4bffbde19871"
+      "bytes": 3111,
+      "sha256": "34c838e603690ec8fc3906f0d26ee519635819025bc958dd870da8d57c273fb8"
     },
     {
       "path": "apps/desktop/tests/hero-name.test.ts",

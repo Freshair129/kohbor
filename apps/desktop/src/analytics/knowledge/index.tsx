@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ANALYTICS_TABS } from "../analyticsModel";
 import { buildLineSegments, heroComparisonEngineMetric, heroMetricValue, laneBadgeLabel, laneExpectationReading, matchResultPresentation, matchupRows, orderedDraftEntries, showLaneExpectationInStrip } from "./presentationModel.mjs";
 import "./knowledge.css";
 
@@ -83,6 +84,27 @@ const timeText = (seconds: unknown) => {
   return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 };
 const profileLane = (hero: KnowledgeHero) => hero.lane?.lane ?? null;
+const phaseLabel = (phase: string) => ({ laning: "ช่วงยืนเลน", mid: "ช่วงกลางเกม", late: "ช่วงท้ายเกม" }[phase] ?? "ช่วงที่ไม่ทราบ");
+const objectiveIcon = (group: string) => group === "buildings" ? "▣" : group === "wards" ? "◉" : "◆";
+
+function itemRows(value: unknown): Record<string, unknown>[] {
+  const rows = Array.isArray(value) ? value : value && typeof value === "object" ? Object.values(value as Record<string, unknown>) : [];
+  return rows.flatMap((row) => {
+    if (row && typeof row === "object" && !Array.isArray(row)) return [row as Record<string, unknown>];
+    if (Array.isArray(row)) return row.filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === "object" && !Array.isArray(entry));
+    return [];
+  });
+}
+
+function ItemRows({ value, emptyLabel = "— ไม่ทราบ" }: { value: unknown; emptyLabel?: string }) {
+  const rows = itemRows(value);
+  if (!rows.length) return <span>{emptyLabel}</span>;
+  return <ul className="a2k-item-rows">{rows.map((item, index) => {
+    const rawName = [item.name_th, item.display_name, item.name].find((name) => typeof name === "string" && !/^(npc_|item_)/i.test(name)) as string | undefined;
+    const time = item.time_s ?? item.acquired_at_s ?? item.t;
+    return <li key={index}><span aria-hidden="true">◈</span><span>{rawName ?? "ไอเท็ม"}</span><time>{timeText(time)}</time></li>;
+  })}</ul>;
+}
 
 /** SVG chart for the local digest. Unknown samples split the line into separate segments. */
 export function AdvantageChart({ digest, onSeek }: Pick<KnowledgePanelProps, "digest" | "onSeek">) {
@@ -92,7 +114,7 @@ export function AdvantageChart({ digest, onSeek }: Pick<KnowledgePanelProps, "di
   const pad = 18;
   const series = [
     { key: "radiant_nw_diff", label: "ส่วนต่างมูลค่าสุทธิ", color: "#7aa2f7" },
-    { key: "radiant_xp_diff", label: "ส่วนต่าง XP", color: "#e6a85c" },
+    { key: "radiant_xp_diff", label: "ส่วนต่างประสบการณ์", color: "#e6a85c" },
   ];
   const points = series.map(({ key }) => rows.map((row) => typeof row[key] === "number" ? row[key] as number : null));
   const finite = points.flat().filter((value): value is number => value !== null && Number.isFinite(value));
@@ -101,9 +123,15 @@ export function AdvantageChart({ digest, onSeek }: Pick<KnowledgePanelProps, "di
     ? pad + ((domain[1] - 0) * (height - pad * 2)) / (domain[1] - domain[0])
     : height / 2;
   const duration = typeof digest?.meta?.duration_s === "number" ? digest.meta.duration_s : 0;
+  const axisValue = (value: number) => `${value > 0 ? "+" : ""}${Math.round(value).toLocaleString("th-TH")}`;
   return <section className="a2k-chart" aria-label="กราฟความได้เปรียบตามเวลา">
     <div className="a2k-chart__legend">{series.map((item) => <span key={item.key}><i style={{ background: item.color }} />{item.label}</span>)}</div>
+    <div className="a2k-chart__sides"><span>Radiant นำ</span><span>Dire นำ</span></div>
     <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="กราฟส่วนต่าง Radiant ต่อ Dire">
+      <text className="a2k-chart__axis-title" transform={`translate(7 ${height / 2}) rotate(-90)`} textAnchor="middle">ส่วนต่าง Radiant − Dire</text>
+      <text className="a2k-chart__y-label" x={pad} y={pad + 4}>{axisValue(domain[1])}</text>
+      <text className="a2k-chart__y-label" x={pad} y={height / 2}>{axisValue((domain[0] + domain[1]) / 2)}</text>
+      <text className="a2k-chart__y-label" x={pad} y={height - pad}>{axisValue(domain[0])}</text>
       <line x1={pad} x2={width - pad} y1={zeroY} y2={zeroY} className="a2k-chart__zero" />
       {series.map((item, seriesIndex) => buildLineSegments(points[seriesIndex] ?? [], width - pad * 2, height - pad * 2, domain).map((segment, index) => {
         const coords = segment.map(({ x, y }) => `${x + pad},${y + pad}`).join(" ");
@@ -112,8 +140,8 @@ export function AdvantageChart({ digest, onSeek }: Pick<KnowledgePanelProps, "di
       {(digest?.deaths ?? []).filter((death) => death.killer != null && typeof death.time_s === "number").map((death) => <circle key={String(death.event_ref)} cx={pad + (duration > 0 ? (death.time_s! / duration) * (width - pad * 2) : 0)} cy={zeroY} r="3" fill="#dc6e76" opacity="0.8" />)}
       {rows.map((row) => typeof row.minute === "number" && <rect key={`seek-${row.minute}`} x={pad + (row.minute * (width - pad * 2)) / Math.max(rows.length - 1, 1) - 4} y={pad} width="8" height={height - pad * 2} fill="transparent" role="button" tabIndex={0} aria-label={`ไปนาที ${row.minute}`} onClick={() => onSeek?.(row.minute * 60)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onSeek?.(row.minute * 60); }} />)}
     </svg>
-    <div className="a2k-chart__axis"><span>0:00</span><span>{timeText(digest?.meta?.duration_s)}</span></div>
-    <small>ช่องว่างหมายถึงไม่มี sample ในข้อมูลต้นทาง · แสดงตัวเลขตามเวลาที่มีจริง</small>
+    <div className="a2k-chart__axis"><span>เวลาในแมตช์</span><span>0:00 – {timeText(digest?.meta?.duration_s)}</span></div>
+    <small>ช่วงที่ไม่มีตัวเลขหมายถึงรีเพลย์ไม่มีข้อมูลในเวลานั้น</small>
   </section>;
 }
 
@@ -129,17 +157,15 @@ export function LaneCards({ digest, onSeek }: Pick<KnowledgePanelProps, "digest"
     return <article key={lane} className="a2k-lane-card">
       <header><strong>{LANE_NAMES[lane]}</strong><span>{laneBadgeLabel(row?.outcome ?? null)}</span></header>
       <div className="a2k-lane-card__teams">{(["radiant", "dire"] as const).map((side) => <p key={side}><b>{SIDE_NAMES[side]}</b> {(row?.[side] ?? []).map((hero: any) => hero.name ?? hero.hero).join(" · ") || "— ไม่ทราบ"}</p>)}</div>
-      <dl><dt>NW ต่างกันที่ 10:00</dt><dd>{valueAt(row?.nw_diff_10)}</dd><dt>XP ต่างกันที่ 10:00</dt><dd>{valueAt(row?.xp_diff_10)}</dd></dl>
-      {row?.outcome_reason && <small>{row.outcome_reason}</small>}
+      <dl><dt>มูลค่าสุทธิต่างกัน ณ 10:00</dt><dd>{valueAt(row?.nw_diff_10)}</dd><dt>ประสบการณ์ต่างกัน ณ 10:00</dt><dd>{valueAt(row?.xp_diff_10)}</dd></dl>
       <section className="a2k-lane-reading" aria-label="คะแนนเลนเทียบค่าคาดหมาย">
-        <header><strong>คะแนนเลน (เกณฑ์ของเกาะเบาะ)</strong><span>{row?.label ?? "ทดลอง · เกณฑ์ชั่วคราว"}</span></header>
+        <header><strong>คะแนนเลนของเกาะเบาะ</strong><span>ทดลอง · เกณฑ์ชั่วคราว</span></header>
         <dl><dt>คะแนนจริง · มุม Radiant</dt><dd>{score}</dd>
           <dt>ค่าคาดหมาย</dt><dd>{expected ?? "ยังไม่มีค่าคาดหมาย"}</dd>
           {expected !== null && <><dt>แหล่งค่าคาดหมาย</dt><dd>{row?.expectation?.source_label ?? "— ไม่ทราบ"}</dd></>}
-          <dt>องค์ประกอบที่ใช้</dt><dd>{(row?.score?.components_used ?? []).join(" · ") || "— ไม่ทราบ"}</dd>
-          {row?.personal_average && <><dt>ค่าเฉลี่ยของคุณ</dt><dd>{row.personal_average.value >= 0 ? "+" : ""}{row.personal_average.value.toFixed(1)} · n={row.personal_average.n}</dd></>}
+          {row?.personal_average && <><dt>ค่าเฉลี่ยของคุณ</dt><dd>{row.personal_average.value >= 0 ? "+" : ""}{row.personal_average.value.toFixed(1)} · จาก {typeof row.personal_average.n === "number" ? `${row.personal_average.n} แมตช์` : "— ไม่ทราบจำนวนแมตช์"}</dd></>}
         </dl>
-        {expected === null ? <p className="a2k-lane-reading__unknown">ยังไม่มีค่าคาดหมาย · {row?.expectation_reason ?? "— ไม่ทราบ"}</p> : <>
+        {expected === null ? <p className="a2k-lane-reading__unknown">ยังไม่มีค่าคาดหมาย</p> : <>
           <p className="a2k-lane-reading__verdict">Radiant · {radiantReading.verdict ?? "— ไม่ทราบ"} · {radiantReading.trialLabel}</p>
           <p className="a2k-lane-reading__verdict">Dire · {direReading.verdict ?? "— ไม่ทราบ"} · {direReading.trialLabel}</p>
           <small>{radiantReading.explanation}</small>
@@ -154,53 +180,59 @@ export function LaneCards({ digest, onSeek }: Pick<KnowledgePanelProps, "digest"
 export function MatchupStrip({ digest, selectedHeroId, onSelectHero }: Pick<KnowledgePanelProps, "digest" | "selectedHeroId" | "onSelectHero">) {
   const heroes = digest?.heroes ?? [];
   const rows = matchupRows(heroes.map((hero) => ({ ...hero, lane: profileLane(hero) })));
-  return <div className="a2k-matchups">{rows.map((row) => <section key={row.lane} className="a2k-matchups__lane">
-    <strong>{LANE_NAMES[row.lane]}</strong>
-    {row.heroes.length === 0 ? <span className="a2k-muted">— ไม่ทราบ</span> : row.heroes.map((hero) => <button key={hero.id} type="button" className={selectedHeroId === hero.id ? "is-selected" : ""} onClick={() => onSelectHero?.(hero.id)}>
-      <i className={`a2k-side-dot is-${hero.side}`} />{hero.hero}<small>{SIDE_NAMES[hero.side]}</small>
-      {showLaneExpectationInStrip(row.heroes, digest?.lanes?.find((item) => item.lane === row.lane)?.constants?.lane_strip_max_cells) && (() => {
-        const laneDigest = digest?.lanes?.find((item) => item.lane === row.lane);
-        const reading = laneExpectationReading(laneDigest, hero.side);
-        return reading.verdict ? <small className="a2k-matchups__expectation" title={reading.explanation ?? undefined}>{reading.verdict} · {reading.trialLabel}</small> : null;
-      })()}
-    </button>)}
-  </section>)}</div>;
+  const visibleRows = rows.filter((row) => row.lane !== "unknown" || row.heroes.length > 0);
+  return <div className="a2k-matchups">
+    <div className="a2k-matchups__lanes">{visibleRows.map((row) => <section key={row.lane} className="a2k-matchups__lane" aria-label={LANE_NAMES[row.lane]}>
+      <strong>{LANE_NAMES[row.lane]}</strong>
+      {row.heroes.length === 0 ? <span className="a2k-muted">— ไม่ทราบ</span> : row.heroes.map((hero) => <button key={hero.id} type="button" className={selectedHeroId === hero.id ? "is-selected" : ""} onClick={() => onSelectHero?.(hero.id)} title={`${SIDE_NAMES[hero.side]} · ${hero.hero}`}>
+        <i className={`a2k-side-dot is-${hero.side}`} /><span>{hero.hero}</span>
+        {showLaneExpectationInStrip(row.heroes, digest?.lanes?.find((item) => item.lane === row.lane)?.constants?.lane_strip_max_cells) && (() => {
+          const laneDigest = digest?.lanes?.find((item) => item.lane === row.lane);
+          const reading = laneExpectationReading(laneDigest, hero.side);
+          return reading.verdict ? <small className="a2k-matchups__expectation" title={reading.explanation ?? undefined}>{reading.verdict} · {reading.trialLabel}</small> : null;
+        })()}
+      </button>)}</section>)}</div>
+    <div className="a2k-matchups__score"><span>Radiant</span><b>{typeof digest?.meta?.kills?.radiant === "number" ? digest.meta.kills.radiant : "—"} : {typeof digest?.meta?.kills?.dire === "number" ? digest.meta.kills.dire : "—"}</b><span>Dire</span></div>
+  </div>;
 }
 
 /** Summary tab for the free, locally computed K0-K2 match digest. */
 export function MatchSummaryTab({ digest, loading, onSeek }: Pick<KnowledgePanelProps, "digest" | "loading" | "onSeek">) {
   if (loading) return <div className="a2k-empty" role="status">กำลังอ่านข้อมูลแมตช์…</div>;
-  if (!digest) return <div className="a2k-empty">ยังไม่มี digest สำหรับแมตช์นี้</div>;
-  const objectiveRows = [
-    ...(digest.objectives?.buildings ?? []).filter((item: any) => item.destroyed === true),
-    ...(digest.objectives?.wards ?? []),
-    ...(digest.objectives?.other_tracks ?? []),
-  ];
+  if (!digest) return <div className="a2k-empty">สรุปข้อมูลแมตช์ยังไม่พร้อม</div>;
+  const objectiveGroups = [
+    { id: "buildings", label: "อาคาร", items: (digest.objectives?.buildings ?? []).filter((item: any) => item.destroyed === true) },
+    { id: "wards", label: "วอร์ด", items: digest.objectives?.wards ?? [] },
+    { id: "other_tracks", label: "อื่น ๆ", items: digest.objectives?.other_tracks ?? [] },
+  ].filter((group) => group.items.length > 0);
   const unknownBuildingCount = (digest.objectives?.buildings ?? []).filter((item: any) => item.destroyed == null).length;
   const result = matchResultPresentation(digest.meta?.result);
+  const resultText = result.text === "Radiant" ? "Radiant ชนะ" : result.text === "Dire" ? "Dire ชนะ" : "— ไม่ทราบ";
   const draft = orderedDraftEntries(digest.meta?.draft);
   return <div className="a2k-summary">
     <header className="a2k-summary__header"><h2>สรุปแมตช์</h2><span>{valueAt(digest.meta?.patch)} · {timeText(digest.meta?.duration_s)}</span></header>
-    <p className="a2k-summary__score">Radiant {valueAt(digest.meta?.kills?.radiant)} — {valueAt(digest.meta?.kills?.dire)} Dire · ผลแมตช์ {result.text}{result.source ? ` · ${result.source}` : ""}</p>
+    <p className="a2k-summary__score">Radiant {valueAt(digest.meta?.kills?.radiant)} : {valueAt(digest.meta?.kills?.dire)} Dire · ผลแมตช์ {resultText}</p>
     {result.warning && <p className="a2k-result-warning" role="alert">{result.warning}</p>}
     <section className="a2k-draft" aria-label="ลำดับการเลือกและแบนฮีโร่">
-      <h3>ลำดับ Draft</h3>
-      {draft === null ? <p title={digest.meta?.draft_reason ?? undefined}>—</p> : draft.length === 0 ? <p>ไม่มีข้อมูล pick/ban ใน replay</p> :
-        <ol>{draft.map((entry) => <li key={entry.order}><span>{entry.order}</span> · {entry.team} · {entry.kind} · {entry.hero}</li>)}</ol>}
+      <h3>ลำดับการเลือกและแบน</h3>
+      {draft === null ? <p>— ไม่ทราบ</p> : draft.length === 0 ? <p>ไม่มีข้อมูลการเลือกหรือแบนในรีเพลย์</p> :
+        <ol>{draft.map((entry) => <li key={entry.order}><span>{entry.order}</span> · {entry.team} · {entry.kind === "Pick" ? "เลือก" : entry.kind === "Ban" ? "แบน" : "— ไม่ทราบ"} · {entry.hero}</li>)}</ol>}
     </section>
-    <section className="a2k-engine-hero-stats" aria-label="สถิติฮีโร่จาก replay engine">
+    <section className="a2k-engine-hero-stats" aria-label="สถิติฮีโร่จากรีเพลย์">
       <h3>สถิติฮีโร่จากรีเพลย์</h3>
-      <div className="a2k-engine-hero-stats__head"><b>ฮีโร่</b><b>HD</b><b>GPM</b></div>
+      <div className="a2k-engine-hero-stats__head"><b>ฮีโร่</b><b>ความเสียหายต่อฮีโร่</b><b>ทองต่อนาที</b></div>
       {(digest.heroes ?? []).map((hero) => <div className="a2k-engine-hero-stats__row" key={hero.id}>
         <span>{hero.hero}</span>
-        <span title={hero.hero_damage_reason ?? (hero.hero_damage_source ? `ที่มา: ${hero.hero_damage_source}` : undefined)}>{heroMetricValue(hero.hero_damage)}</span>
-        <span title={hero.rates?.gpm_reason ?? (hero.rates?.gpm_source ? `ที่มา: ${hero.rates.gpm_source}` : undefined)}>{heroMetricValue(hero.rates?.gpm)}</span>
+        <span>{heroMetricValue(hero.hero_damage)}</span>
+        <span>{heroMetricValue(hero.rates?.gpm)}</span>
       </div>)}
     </section>
     <AdvantageChart digest={digest} onSeek={onSeek} />
     <LaneCards digest={digest} onSeek={onSeek} />
-    <section><h3>จังหวะสำคัญ</h3><ul>{(digest.teamfights ?? []).map((fight) => <li key={fight.n}><button onClick={() => onSeek?.(Number(fight.t?.[0] ?? 0))}>{timeText(fight.t?.[0])}–{timeText(fight.t?.[1])}</button> · ทีมไฟต์ {valueAt(fight.n)} · ตาย {fight.deaths?.length ?? "— ไม่ทราบ"}</li>)}</ul></section>
-    <section><h3>วัตถุประสงค์</h3>{unknownBuildingCount > 0 && <small>ไม่ทราบสถานะอาคาร {unknownBuildingCount} รายการ</small>}<ul>{objectiveRows.map((item: any, index) => { const time = item.destroyed_at_s ?? item.start_s ?? item.t; return <li key={`${item.kind}-${index}`}><button onClick={() => typeof time === "number" && onSeek?.(time)}>{timeText(time)}</button> · {item.kind} · {item.name ?? "— ไม่ทราบ"}</li>; })}</ul></section>
+    <section><h3>จังหวะสำคัญ</h3><ul className="a2k-event-rows">{(digest.teamfights ?? []).map((fight) => <li key={fight.n}><span aria-hidden="true">⚔</span><button onClick={() => onSeek?.(Number(fight.t?.[0] ?? 0))}>{timeText(fight.t?.[0])}–{timeText(fight.t?.[1])}</button><span>ทีมไฟต์ · ตาย {fight.deaths?.length ?? "— ไม่ทราบ"}</span></li>)}</ul></section>
+    <section className="a2k-objectives"><h3>วัตถุประสงค์</h3>{unknownBuildingCount > 0 && <small>ไม่ทราบสถานะอาคาร {unknownBuildingCount} รายการ</small>}{objectiveGroups.map((group) => <details key={group.id}>
+      <summary>{group.label} ({group.items.length})</summary><ul className="a2k-event-rows">{group.items.map((item: any, index: number) => { const time = item.destroyed_at_s ?? item.start_s ?? item.t; return <li key={`${group.id}-${index}`}><span aria-hidden="true">{objectiveIcon(group.id)}</span><button onClick={() => typeof time === "number" && onSeek?.(time)}>{timeText(time)}</button><span>{group.label}</span></li>; })}</ul>
+    </details>)}</section>
   </div>;
 }
 
@@ -212,11 +244,11 @@ export function HeroComparisonTab({ digest, selectedHeroId, opponentHeroId, onSe
   const opponent = heroes.find((hero) => hero.id === opponentHeroId) ?? heroes.find((hero) => hero.side !== selected?.side && hero.lane?.lane === lane) ?? heroes.find((hero) => hero.side !== selected?.side);
   const rows = matchupRows(heroes.map((hero) => ({ ...hero, lane: profileLane(hero) })));
   const comparisonRows = [
-    ["LH ที่ 10:00", "at_10.lh"], ["Deny ที่ 10:00", "at_10.dn"],
-    ["มูลค่าสุทธิที่ 10:00", "at_10.nw"], ["XP ที่ 10:00", "at_10.xp"],
-    ["NW/นาที", "rates.nw_per_min"], ["XPM", "rates.xpm"],
-    ["ฮีโร่ดาเมจ (HD)", "hero_damage"], ["ทองที่หาได้/นาที (GPM)", "rates.gpm"],
-    ["K / D", "final"], ["เวลาตาย (วินาที)", "dead_s"],
+    ["ครีปที่สังหาร ณ 10:00", "at_10.lh"], ["ครีปที่ปฏิเสธ ณ 10:00", "at_10.dn"],
+    ["มูลค่าสุทธิ ณ 10:00", "at_10.nw"], ["ประสบการณ์ ณ 10:00", "at_10.xp"],
+    ["มูลค่าสุทธิ/นาที", "rates.nw_per_min"], ["ประสบการณ์/นาที", "rates.xpm"],
+    ["ความเสียหายต่อฮีโร่", "hero_damage"], ["ทองที่หาได้/นาที", "rates.gpm"],
+    ["สังหาร / เสียชีวิต", "final"], ["เวลาที่เสียชีวิต (วินาที)", "dead_s"],
     ["รูนที่เก็บ", "runes"], ["ทีมไฟต์ที่เข้าร่วม", "teamfights_present"],
   ] as const;
   const readMetric = (hero: KnowledgeHero | undefined, path: string) => {
@@ -227,19 +259,14 @@ export function HeroComparisonTab({ digest, selectedHeroId, opponentHeroId, onSe
     const value = path.split(".").reduce<any>((current, key) => current?.[key], hero as any);
     return Array.isArray(value) ? `${value.length}` : valueAt(value);
   };
-  const engineMetricTitle = (hero: KnowledgeHero | undefined, path: string) => {
-    if (path === "hero_damage") return hero?.hero_damage_reason ?? (hero?.hero_damage_source ? `ที่มา: ${hero.hero_damage_source}` : undefined);
-    if (path === "rates.gpm") return hero?.rates?.gpm_reason ?? (hero?.rates?.gpm_source ? `ที่มา: ${hero.rates.gpm_source}` : undefined);
-    return undefined;
-  };
   return <div className="a2k-comparison"><h2>เทียบเลน/ฮีโร่</h2><MatchupStrip digest={digest} selectedHeroId={selected?.id} onSelectHero={onSelectHero} />
     {selected && <section>
       <label>ฮีโร่ที่เลือก <select value={selected.id} onChange={(event) => onSelectHero?.(event.target.value)}>{heroes.map((hero) => <option key={hero.id} value={hero.id}>{hero.hero} · {SIDE_NAMES[hero.side]}</option>)}</select></label>
       {opponent && <label>ฮีโร่ฝั่งตรงข้าม <select value={opponent.id} onChange={(event) => onSelectOpponentHero?.(event.target.value)}>{heroes.filter((hero) => hero.side !== selected.side).map((hero) => <option key={hero.id} value={hero.id}>{hero.hero} · {LANE_NAMES[hero.lane?.lane ?? "unknown"]}</option>)}</select></label>}
-      <table><thead><tr><th>ตัวเลข</th><th>{selected.hero}</th><th>{opponent?.hero ?? "คู่เทียบไม่ทราบ"}</th></tr></thead><tbody>{comparisonRows.map(([label, path]) => <tr key={label}><th>{label}</th><td title={engineMetricTitle(selected, path)}>{readMetric(selected, path)}</td><td title={engineMetricTitle(opponent, path)}>{readMetric(opponent, path)}</td></tr>)}
+      <table><thead><tr><th>ข้อมูลเปรียบเทียบ</th><th>{selected.hero}</th><th>{opponent?.hero ?? "คู่เทียบไม่ทราบ"}</th></tr></thead><tbody>{comparisonRows.map(([label, path]) => <tr key={label}><th>{label}</th><td>{readMetric(selected, path)}</td><td>{readMetric(opponent, path)}</td></tr>)}
       </tbody></table>
-      <div className="a2k-phase-table"><h3>เปรียบเทียบตามช่วง</h3>{["laning", "mid", "late"].map((phase) => <p key={phase}><b>{phase}</b> · {selected.hero}: K {valueAt((selected.phases as any)?.[phase]?.k)} / D {valueAt((selected.phases as any)?.[phase]?.d)} · {opponent?.hero ?? "คู่เทียบไม่ทราบ"}: K {valueAt((opponent?.phases as any)?.[phase]?.k)} / D {valueAt((opponent?.phases as any)?.[phase]?.d)}</p>)}</div>
-      <p><b>ไอเท็ม</b> · {JSON.stringify(selected.items ?? "— ไม่ทราบ")} ↔ {JSON.stringify(opponent?.items ?? "— ไม่ทราบ")}</p>
+      <div className="a2k-phase-table"><h3>เปรียบเทียบตามช่วง</h3>{["laning", "mid", "late"].map((phase) => <p key={phase}><b>{phaseLabel(phase)}</b> · {selected.hero}: สังหาร {valueAt((selected.phases as any)?.[phase]?.k)} / เสียชีวิต {valueAt((selected.phases as any)?.[phase]?.d)} · {opponent?.hero ?? "คู่เทียบไม่ทราบ"}: สังหาร {valueAt((opponent?.phases as any)?.[phase]?.k)} / เสียชีวิต {valueAt((opponent?.phases as any)?.[phase]?.d)}</p>)}</div>
+      <section className="a2k-comparison-items"><h3>ไอเท็ม</h3><div><strong>{selected.hero}</strong><ItemRows value={selected.items ?? selected.final_items} /></div><div><strong>{opponent?.hero ?? "คู่เทียบไม่ทราบ"}</strong><ItemRows value={opponent?.items ?? opponent?.final_items} /></div></section>
     </section>}
     <section><h3>การจับคู่ตามเลน</h3>{rows.filter((row) => row.heroes.length > 0).map((row) => <p key={row.lane}><b>{LANE_NAMES[row.lane]}</b> · {row.heroes.map((hero) => hero.hero).join(" ↔ ")}</p>)}</section>
   </div>;
@@ -249,21 +276,17 @@ export function HeroComparisonTab({ digest, selectedHeroId, opponentHeroId, onSe
 export function AiReportTab({ reports = [], selectedReportId, onSelectReport, onGenerateReport, onRegenerateReport, costEstimateText, renderMarkdown, generatingReport = false, reportDisabled = false }: Pick<KnowledgePanelProps, "reports" | "selectedReportId" | "onSelectReport" | "onGenerateReport" | "onRegenerateReport" | "costEstimateText" | "renderMarkdown" | "generatingReport" | "reportDisabled">) {
   const report = reports.find((item) => item.id === selectedReportId) ?? reports[0];
   const stale = report?.stale_reasons?.length ? report.stale_reasons : report?.meta?.stale ? ["ผลวิเคราะห์ไม่ตรงกับข้อมูลปัจจุบัน"] : [];
-  const inputTokens = report?.meta?.usage?.input;
-  const outputTokens = report?.meta?.usage?.output;
-  const previousUsage = typeof inputTokens === "number" && typeof outputTokens === "number" ? `ครั้งก่อนใช้ ${inputTokens + outputTokens} tokens · ` : "";
   return <div className="a2k-report"><h2>บทวิเคราะห์ AI</h2>
-    <p>เมื่อกด ระบบจะส่ง digest ของแมตช์ให้โมเดลที่เลือกใน Settings; หากผู้ให้บริการรองรับ tools จะเพิ่มข้อมูลผู้ชม ดัชนีโน้ต และบทวิเคราะห์ที่บันทึกไว้ แล้วอ่านข้อมูลใน bundle เฉพาะเมื่อจำเป็น โดยไม่ส่งประวัติแชต</p>
-    <p className="a2k-report__cost">{previousUsage}{costEstimateText ?? "ประมาณค่าใช้จ่ายไม่ได้ในขณะนี้ · ต้องตรวจสอบราคาผู้ให้บริการก่อนส่งคำขอ"}</p>
+    <p>เมื่อกด ระบบจะส่งสรุปแมตช์ให้ผู้ช่วยที่เลือกไว้ หากผู้ให้บริการรองรับการอ่านข้อมูลเพิ่มเติม ระบบจะอ่านข้อมูลจากเครื่องเมื่อจำเป็น โดยไม่ส่งประวัติแชต</p>
+    <p className="a2k-report__cost">{costEstimateText ?? "ประมาณค่าใช้จ่ายไม่ได้ในขณะนี้ · ต้องตรวจสอบราคาผู้ให้บริการก่อนส่งคำขอ"}</p>
     <button type="button" className="a2k-primary" disabled={reportDisabled || generatingReport} onClick={report ? onRegenerateReport ?? onGenerateReport : onGenerateReport}>{generatingReport ? "กำลังสร้าง…" : report ? "สร้างใหม่" : "สร้างบทวิเคราะห์"}</button>
-    {reports.length > 0 && <label>รายงานที่บันทึกไว้ <select value={report?.id ?? ""} onChange={(event) => onSelectReport?.(event.target.value)}>{reports.map((item) => <option key={item.id} value={item.id}>{item.meta?.model ?? "model"} · {new Date(item.meta?.created_unix_ms ?? 0).toLocaleString("th-TH")}</option>)}</select></label>}
-    {report && <><header><span>{report.meta?.model} · prompt v{report.meta?.prompt_version} · {report.meta?.usage?.output ?? "—"} tokens</span>{stale.length > 0 && <strong className="a2k-stale" title={stale.join(", ")}>ล้าสมัย</strong>}</header><article>{renderMarkdown ? renderMarkdown(report.markdown ?? "") : <pre>{report.markdown ?? "กำลังโหลดรายงาน…"}</pre>}</article></>}
+    {reports.length > 0 && <label>รายงานที่บันทึกไว้ <select value={report?.id ?? ""} onChange={(event) => onSelectReport?.(event.target.value)}>{reports.map((item, index) => <option key={item.id} value={item.id}>รายงานที่ {index + 1} · {new Date(item.meta?.created_unix_ms ?? 0).toLocaleString("th-TH")}</option>)}</select></label>}
+    {report && <><header><span>สร้างเมื่อ {new Date(report.meta?.created_unix_ms ?? 0).toLocaleString("th-TH")}</span>{stale.length > 0 && <strong className="a2k-stale">ข้อมูลเปลี่ยนแล้ว</strong>}</header><article>{renderMarkdown ? renderMarkdown(report.markdown ?? "") : <pre>{report.markdown ?? "กำลังโหลดรายงาน…"}</pre>}</article></>}
     {!report && <div className="a2k-empty">ยังไม่มีรายงาน บทวิเคราะห์จะสร้างเมื่อกดปุ่มด้านบนเท่านั้น</div>}
   </div>;
 }
 
 /** Three host-mounted left-panel tabs; the Notes tab remains owned by the host page. */
-export function KnowledgeTabs({ activeTab, onSelectTab }: { activeTab: "summary" | "compare" | "ai" | "notes" | "coach"; onSelectTab: (tab: "summary" | "compare" | "ai" | "notes" | "coach") => void }) {
-  const tabs = [["summary", "สรุปแมตช์"], ["compare", "เทียบเลน/ฮีโร่"], ["coach", "ทบทวนโค้ช"], ["ai", "บทวิเคราะห์ AI"], ["notes", "โน้ต"]] as const;
-  return <nav className="a2k-tabs" role="tablist">{tabs.map(([id, title]) => <button key={id} type="button" role="tab" aria-selected={activeTab === id} className={activeTab === id ? "is-active" : ""} onClick={() => onSelectTab(id)}>{title}</button>)}</nav>;
+export function KnowledgeTabs({ activeTab, onSelectTab }: { activeTab: "summary" | "compare" | "ai" | "notes"; onSelectTab: (tab: "summary" | "compare" | "ai" | "notes") => void }) {
+  return <nav className="a2k-tabs" role="tablist">{ANALYTICS_TABS.map(([id, title]) => <button key={id} type="button" role="tab" aria-selected={activeTab === id} className={activeTab === id ? "is-active" : ""} onClick={() => onSelectTab(id)}>{title}</button>)}</nav>;
 }

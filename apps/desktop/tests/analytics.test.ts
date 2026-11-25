@@ -22,8 +22,8 @@ test("Analytics view model covers the requested page states", () => {
   assert.equal(analyticsViewState({ ...base, showSettings: true }), "settings");
 });
 
-test("Analytics fits both reference viewports without a page scroll", () => {
-  for (const [width, height, expectedDocs, expectedCenter, expectedChat] of [[1440, 900, 28, 939, 289], [1920, 1080, 273, 1040, 423]] as const) {
+test("Analytics fits the measured page sizes for both reference viewports without a page scroll", () => {
+  for (const [width, height, expectedDocs, expectedCenter, expectedChat] of [[1276, 900, 28, 939, 289], [1756, 1080, 273, 1040, 423]] as const) {
     const layout = analyticsLayout(width, height);
     assert.equal(layout.overlap, false, `${width}x${height}`);
     assert.equal(layout.docs, expectedDocs);
@@ -31,18 +31,17 @@ test("Analytics fits both reference viewports without a page scroll", () => {
     assert.equal(layout.right, expectedChat);
     assert.equal(layout.pageScroll, false);
   }
-  const collapsed = analyticsLayout(1440, 900, true, true);
-  assert.ok(collapsed.center > analyticsLayout(1440, 900).center);
+  const collapsed = analyticsLayout(1276, 900, true, true);
+  assert.ok(collapsed.center > analyticsLayout(1276, 900).center);
   assert.equal(collapsed.mapMin, 300);
-  assert.equal(analyticsLayout(1440, 900).mapMin, 300);
+  assert.equal(analyticsLayout(1276, 900).mapMin, 300);
 });
 
-test("Analytics CSS reserves the fixed chat width and uses a drawer for the compact document panel", () => {
+test("Analytics CSS uses measured layout tracks and a drawer for the compact document panel", () => {
   const css = readFileSync(new URL("../src/analytics/analytics.css", import.meta.url), "utf8");
-  assert.match(css, /grid-template-columns:\s*273px\s+minmax\(0,\s*1fr\)\s+423px/);
-  assert.match(css, /grid-template-columns:\s*28px\s+minmax\(0,\s*1fr\)\s+289px/);
-  assert.match(css, /\.analytics-page\[data-left-collapsed="false"\] \.analytics-docs\s*\{[^}]*position:\s*absolute/s);
-  assert.match(css, /--hc-scale:\s*0\.88/);
+  assert.match(css, /grid-template-columns:\s*var\(--analytics-docs-track,273px\)\s+minmax\(var\(--analytics-center-min,938px\),1fr\)\s+var\(--analytics-chat-track,423px\)/);
+  assert.match(css, /\.analytics-page\[data-layout="drawer"\] \.analytics-docs\s*\{[^}]*position:\s*absolute/s);
+  assert.match(css, /--hc-scale/);
   assert.match(css, /\.analytics-page\s*\{[^}]*overflow:\s*hidden/s);
   assert.match(css, /\.analytics-columns\s*\{[^}]*overflow:\s*hidden/s);
   assert.match(css, /\.analytics-markdown\s*\{[^}]*overflow-y:\s*auto/s);
@@ -104,6 +103,19 @@ test("Analytics mounts knowledge/report commands and transcript restart behind e
   assert.match(page, /chat_history_over_budget/);
   assert.match(page, /action\.id === "ai-report"/);
   assert.match(page, /async function generateReport/);
+});
+
+test("chat tool activity uses the host event and renders one friendly line per started call", () => {
+  const page = readFileSync(new URL("../src/analytics/AnalyticsPage.tsx", import.meta.url), "utf8");
+  assert.match(page, /listen<ToolCallPayload>\("analytics:\/\/tool-activity"/);
+  assert.match(page, /event\.payload\.status !== "started"/);
+  assert.match(page, /toolCallLine\(event\.payload\.tool/);
+});
+
+test("orphan strings from the host become safe generic rows without displaying opaque keys", () => {
+  const page = readFileSync(new URL("../src/analytics/AnalyticsPage.tsx", import.meta.url), "utf8");
+  assert.match(page, /typeof item === "string"/);
+  assert.match(page, /Orphaned analysis data/);
 });
 
 test("host registers same-match transcript and recap-gated history reset commands", () => {

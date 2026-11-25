@@ -23,6 +23,86 @@ export type KohborChartInput = {
 };
 export type KohborChartResolvedReference = (reference: KohborChartReferenceRequest) => KohborChartSeries | null;
 
+type AnalyticsChartBundle = {
+  match?: {
+    t0?: unknown;
+    t1?: unknown;
+    heroes?: Array<Record<string, unknown>>;
+  };
+};
+
+type AnalyticsChartDigest = {
+  advantage_per_min?: Array<Record<string, unknown>> | null;
+};
+
+const finiteNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
+
+/** Resolve only series backed by the currently open local bundle or its digest. */
+export function createAnalyticsChartResolver(
+  bundle: AnalyticsChartBundle | null,
+  digest: AnalyticsChartDigest | null,
+): KohborChartResolvedReference {
+  return reference => {
+    if (reference.ref === "advantage_per_min") {
+      const key = reference.metric === "xp" || reference.metric === "radiant_xp_diff"
+        ? "radiant_xp_diff"
+        : reference.metric === "nw" || reference.metric === "radiant_nw_diff" || !reference.metric
+          ? "radiant_nw_diff"
+          : null;
+      if (!key) return null;
+      const points = (digest?.advantage_per_min ?? []).flatMap(row => {
+        const x = finiteNumber(row.minute) ? row.minute * 60 : null;
+        const y = finiteNumber(row[key]) ? row[key] : null;
+        return x !== null ? [{ x, y }] : [];
+      });
+      return points.length ? { name: key === "radiant_xp_diff" ? "ส่วนต่าง XP · Radiant" : "ส่วนต่างมูลค่าสุทธิ · Radiant", points } : null;
+    }
+
+    if (reference.ref !== "hero_series" || !bundle?.match || !Array.isArray(bundle.match.heroes)) return null;
+    const heroId = reference.hero;
+    const metric = reference.metric;
+    if (!heroId || !metric || !["nw", "gold", "gold_earned", "lh", "dn", "xp", "lvl", "hp", "mp"].includes(metric)) return null;
+    const hero = bundle.match.heroes.find(row => row.id === heroId || row.id === `npc_dota_hero_${heroId}`);
+    const start = bundle.match.t0;
+    const end = bundle.match.t1;
+    if (!hero || !finiteNumber(start) || !finiteNumber(end) || end <= start) return null;
+
+    const from = Math.max(start, finiteNumber(reference.from) ? reference.from : start);
+    const to = Math.min(end, finiteNumber(reference.to) ? reference.to : end);
+    if (to <= from) return null;
+    const step = Math.max(1, Math.ceil((to - from) / (MAX_POINTS - 1)));
+    const sample = (series: unknown, index: number): number | null => {
+      if (!Array.isArray(series)) return null;
+      const value = series[index];
+      return finiteNumber(value) ? value : null;
+    };
+    const indexed = (value: unknown, index: number): number | null => {
+      if (!Array.isArray(value)) return null;
+      const row = value[index];
+      if (metric === "nw" || metric === "gold" || metric === "lh" || metric === "dn") {
+        const column = metric === "nw" ? 1 : metric === "gold" ? 0 : metric === "lh" ? 2 : 3;
+        return Array.isArray(row) && finiteNumber(row[column]) ? row[column] : null;
+      }
+      return finiteNumber(row) ? row : null;
+    };
+    const source = metric === "nw" || metric === "gold" || metric === "lh" || metric === "dn"
+      ? hero.eco
+      : metric === "xp" ? (hero.st as Record<string, unknown> | undefined)?.xp
+        : hero[metric];
+    const points: KohborChartPoint[] = [];
+    for (let time = from; time <= to && points.length < MAX_POINTS; time += step) {
+      const index = Math.floor(time - start);
+      const value = metric === "nw" || metric === "gold" || metric === "lh" || metric === "dn"
+        ? indexed(source, index)
+        : sample(source, index);
+      points.push({ x: time, y: value });
+    }
+    if (points.length < 2) return null;
+    const label = typeof hero.name === "string" ? hero.name : heroId;
+    return { name: `${label} · ${metric}`, points };
+  };
+}
+
 const MAX_CHART_BYTES = 8 * 1024;
 const MAX_SERIES = 6;
 const MAX_POINTS = 120;

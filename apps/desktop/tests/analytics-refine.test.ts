@@ -9,8 +9,8 @@ function closeTo(actual: number, expected: number, tolerance = 2) {
 
 test("Analytics keeps the approved chat width and scales only the hero cards at both reference viewports", () => {
   for (const [width, height, before, after] of [
-    [1440, 900, { docs: 28, centre: 939, chat: 289, scale: 0.88 }, { docs: 28, centre: 939, chat: 289, scale: 0.88 }],
-    [1920, 1080, { docs: 273, centre: 1040, chat: 423, scale: 1 }, { docs: 273, centre: 1040, chat: 423, scale: 1 }],
+    [1276, 900, { docs: 28, centre: 939, chat: 289, scale: 0.88 }, { docs: 28, centre: 939, chat: 289, scale: 0.88 }],
+    [1756, 1080, { docs: 273, centre: 1040, chat: 423, scale: 1 }, { docs: 273, centre: 1040, chat: 423, scale: 1 }],
   ] as const) {
     const layout = analyticsModel.analyticsLayout(width, height);
     closeTo(layout.docs, before.docs);
@@ -83,6 +83,7 @@ test("Analytics viewer leaves item, ability, and buff rows visible and hosts its
   const markup = readFileSync(new URL("../src/replay/matchViewer.html", import.meta.url), "utf8");
   const analytics = readFileSync(new URL("../src/analytics/AnalyticsPage.tsx", import.meta.url), "utf8");
   const overrides = panel.match(/const analyticsSurfaceOverrides = `([\s\S]*?)`;/)?.[1] ?? "";
+  assert.match(overrides, /minmax\(calc\(344px \* var\(--hc-scale, 1\)\)/);
   assert.doesNotMatch(overrides, /\.rc(?:\s|\{|\.)/);
   assert.match(panel, /live\/heroCard\.css\?raw/);
   assert.match(panel, /type HeroCardLabelMode = "text" \| "icon"/);
