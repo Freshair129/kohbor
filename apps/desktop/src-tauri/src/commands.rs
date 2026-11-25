@@ -1933,6 +1933,23 @@ pub(crate) fn match_history_get(
         .view_with_opendota(&state.opendota.entries(), month_start)
 }
 
+/// Overview nemesis: exact-bundle local replay lane facts, projected without player identities.
+#[tauri::command(async)]
+pub(crate) fn overview_nemesis_get(
+    webview: tauri::Webview,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    state: tauri::State<'_, AppState>,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    crate::overview_insights::local_lane_samples(
+        &library,
+        analytics.store(),
+        &state.match_history.entries(),
+    )
+    .map_err(str::to_owned)
+}
+
 /// Deletes both local and OpenDota match history (user action on the Overview).
 #[tauri::command(async)]
 pub(crate) fn match_history_clear(

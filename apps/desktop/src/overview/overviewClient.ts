@@ -10,6 +10,8 @@ function host<T>(command: string, args?: Record<string, unknown>): Promise<T> {
 export const overviewClient = {
   /** `monthStart`: Unix seconds of the local calendar month start, for the "this month" panel. */
   matchHistory: (monthStart: number) => host<unknown>("match_history_get", { monthStart }),
+  /** Sanitized lane facts from exact-bundle local replay digests; contains no player identities. */
+  nemesisData: () => host<unknown>("overview_nemesis_get"),
   clearMatchHistory: () => host<unknown>("match_history_clear"),
   news: () => host<unknown>("news_feed_get"),
   refreshNews: () => host<unknown>("news_refresh"),
