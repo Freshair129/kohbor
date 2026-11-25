@@ -1767,6 +1767,36 @@
       ],
       "safe_interim": "Missing watcher-status capability remains unknown. Source and synthetic checks do not establish native or live acceptance.",
       "closure_evidence": "Product owner decision \"Approve all 11\" on 2026-11-25, relayed by the lead and recorded by an agent. Native, visual, live-match and acceptance evidence remain NOT_RUN."
+    },
+    {
+      "id": "DEC-ROSHAN-PIT-SWITCH-20261125",
+      "status": "decided",
+      "milestone": "M3",
+      "blocks": "Live second-monitor Roshan pit marker and switch countdown",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-25",
+      "channel": "owner 2026-11-25, relayed by the lead, recorded by an agent",
+      "owner_words": "Roshan pit-switch countdown",
+      "decision": "Show a compact Roshan pit mark and switch countdown on the second-monitor minimap. Derive the 7.41f rule from admitted schema 3.2 replay data: pit X by day and pit Y by night after the first switch at 15:00; use fresh GSI map.daytime and clock_time, show the measured median walk countdown after a switch, and keep the mark unknown when daytime is stale or contradicts the measured cycle. Tooltip provenance includes the replay patch and sample count. A differing ALERT-008 patch label is disclosed as a schedule-label mismatch because the current GSI read model has no live game-patch field.",
+      "reason": "The owner requested the Roshan pit-switch countdown, and the newly admitted replay data supplies a patch-labelled day/night mapping and measured walk duration.",
+      "alternatives_considered": [
+        "Keep the Roshan pit and switch unknown on the minimap.",
+        "Show a patch-independent fixed pit schedule without replay provenance."
+      ],
+      "affected_need_ids": [
+        "PN-005"
+      ],
+      "affected_requirement_ids": [
+        "UI-016",
+        "UI-018"
+      ],
+      "related": [
+        "DEC-UX-REVIEW-20261125",
+        "DEC-REPLAY-INTEGRATION"
+      ],
+      "safe_interim": "Stale or contradictory daytime stays unknown. The historical 7.41f mapping is not a verified current game-patch mapping; a live patch field is still absent.",
+      "closure_evidence": "Owner request 2026-11-25, relayed by the lead and recorded by an agent. The measured n=8 rule and source method are recorded in docs/design/MINIMAP-RUNE-ROSHAN-OVERLAY.md."
     }
   ]
 }

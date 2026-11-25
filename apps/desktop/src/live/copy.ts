@@ -103,6 +103,11 @@ const MESSAGES = {
     pinnedPanels: {
       objectivesTitle: "ตัวจับเวลาวัตถุประสงค์",
       timerNames: { power_rune: "รูนพลัง", bounty_rune: "รูนทอง", wisdom_rune: "รูนปัญญา", lotus: "บัว", tormentor: "Tormentor", day_night: "กลางวัน / กลางคืน", roshan: "Roshan เกิดใหม่", roshan_switch: "Roshan เปลี่ยนหลุม" },
+      roshanPit: (pit: string) => `หลุม ${pit}`,
+      roshanSwitchIn: (time: string) => `เปลี่ยนหลุมใน ${time}`,
+      roshanMoving: (seconds: number) => `กำลังย้าย ${seconds} วิ`,
+      roshanMeasured: (patch: string, samples: number) => `วัดจากรีเพลย์ ${patch} · n=${samples}`,
+      roshanPatchMismatch: (schedulePatch: string, replayPatch: string) => `ป้ายแพตช์กฎ ALERT-008 ${schedulePatch} ต่างจากรีเพลย์ ${replayPatch}; GSI ไม่มีแพตช์เกมสด`,
       unknown: "— ไม่ทราบ",
       ready: "พร้อม",
       damageTitle: "HP ที่เสีย (ฮีโร่คุณ)",
@@ -219,6 +224,11 @@ const MESSAGES = {
     pinnedPanels: {
       objectivesTitle: "Objective timers",
       timerNames: { power_rune: "Power rune", bounty_rune: "Bounty rune", wisdom_rune: "Wisdom rune", lotus: "Lotus", tormentor: "Tormentor", day_night: "Day / night", roshan: "Roshan respawn", roshan_switch: "Roshan pit switch" },
+      roshanPit: (pit: string) => `Pit ${pit}`,
+      roshanSwitchIn: (time: string) => `Pit switch in ${time}`,
+      roshanMoving: (seconds: number) => `Moving ${seconds}s`,
+      roshanMeasured: (patch: string, samples: number) => `Measured from replay ${patch} · n=${samples}`,
+      roshanPatchMismatch: (schedulePatch: string, replayPatch: string) => `ALERT-008 rule label ${schedulePatch} differs from replay patch ${replayPatch}; live game patch is not exposed by GSI.`,
       unknown: "— Unknown",
       ready: "Ready",
       damageTitle: "HP lost (your hero)",

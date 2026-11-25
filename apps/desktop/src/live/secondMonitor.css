@@ -88,6 +88,12 @@
 .sm-countdown-entry[data-mode="spawned"] .sm-countdown-icon { filter: none; opacity: 1; }
 .sm-countdown-fallback { display: grid; width: 24px; height: 24px; place-items: center; color: #f2f4f7; font-size: 21px; line-height: 24px; text-shadow: 0 1px 2px #101317, 0 0 3px #101317; }
 .sm-countdown-text { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-size: 12px; font-weight: 800; line-height: 1; text-shadow: 0 1px 2px #090b0e, 1px 0 2px #090b0e, -1px 0 2px #090b0e, 0 -1px 2px #090b0e; -webkit-text-stroke: .3px #090b0e; }
+.sm-roshan-marker { position: absolute; z-index: 3; width: 30px; height: 30px; transform: translate(-50%, -50%); pointer-events: auto; color: #fff; }
+.sm-roshan-marker[data-position-patch-differs="true"] .sm-roshan-icon { border-style: dashed; }
+.sm-roshan-icon { position: absolute; inset: 1px; display: grid; place-items: center; border: 1px solid #ffe08a; border-radius: 50%; background: rgba(10,12,16,.9); box-shadow: 0 0 0 2px rgba(10,12,16,.82); }
+.sm-roshan-icon svg { width: 23px; height: 23px; fill: #f2c14e; stroke: #101317; stroke-width: 1.1; stroke-linejoin: round; }
+.sm-roshan-icon circle { fill: #101317; stroke: none; }
+.sm-roshan-countdown { position: absolute; z-index: 1; inset: 0; display: grid; place-items: center; color: #fff; font-size: 12px; font-weight: 800; line-height: 1; text-shadow: 0 1px 2px #090b0e, 1px 0 2px #090b0e, -1px 0 2px #090b0e, 0 -1px 2px #090b0e; -webkit-text-stroke: .3px #090b0e; }
 .sm-roshan-status { position: absolute; z-index: 2; top: 8px; left: 8px; display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border: 1px solid rgba(255,255,255,.35); border-radius: 999px; background: rgba(10,12,16,.9); color: #f2f4f7; font-size: 12px; line-height: 16px; }
 .sm-roshan-status strong { font-weight: 700; }
 .sm-roshan-status[data-changed="true"] { animation: pp-roshan-change 1.8s ease-out both; }

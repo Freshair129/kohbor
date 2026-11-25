@@ -70,6 +70,36 @@ function schema31Bundle(matchData = schema31Match()) {
   return bundle({ manifest: { schema: "3.1" }, match: matchData });
 }
 
+function schema32Match(overrides: { daynight?: unknown; modsLong?: unknown; modStacks?: unknown } = {}) {
+  const base = schema31Match();
+  return {
+    ...base,
+    meta: {
+      ...base.meta,
+      schema: "3.2",
+      daynight: overrides.daynight === undefined ? [[-90, "night"], [0, "day"], [300, "night"]] : overrides.daynight,
+      ...(overrides.daynight === null ? { daynight_reason: "not in replay" } : {}),
+    },
+    heroes: base.heroes.map((h, index) => ({
+      ...h,
+      mods_long: index === 0
+        ? (overrides.modsLong === undefined ? [
+          [1.2, null, "modifier_alpha_permanent", "npc_dota_hero_alpha", ["permanent", "stacking"]],
+          [2, 3, "modifier_tower_aura", { unit: "dota_goodguys_tower3_mid", team: "radiant" }, ["aura"]],
+          [2.5, 4, "modifier_unknown_source", null, []],
+        ] : overrides.modsLong)
+        : [],
+      mod_stacks: index === 0
+        ? (overrides.modStacks === undefined ? [[1.2, "modifier_alpha_permanent", 1], [2, "modifier_alpha_permanent", 0]] : overrides.modStacks)
+        : [],
+    })),
+  };
+}
+
+function schema32Bundle(matchData = schema32Match()) {
+  return bundle({ manifest: { schema: "3.2" }, match: matchData });
+}
+
 test("a complete schema 3.0 bundle is admitted with its recorded metadata", async () => {
   const result = await admitMatchBundle(bundle());
   assert.equal(result.ok, true);
@@ -97,6 +127,23 @@ test("a schema 3.1 bundle with the new replay fields is admitted by both rendere
   assert.equal(opened.ok, true);
 });
 
+test("a schema 3.2 bundle admits day/night and all modifier source shapes", async () => {
+  const result = await admitMatchBundle(schema32Bundle());
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  const meta = result.bundle.match.meta as Record<string, unknown>;
+  const heroes = result.bundle.match.heroes as Array<Record<string, unknown>>;
+  assert.equal(meta.schema, "3.2");
+  assert.deepEqual(meta.daynight, [[-90, "night"], [0, "day"], [300, "night"]]);
+  assert.deepEqual(heroes[0].mods_long, [
+    [1.2, null, "modifier_alpha_permanent", "npc_dota_hero_alpha", ["permanent", "stacking"]],
+    [2, 3, "modifier_tower_aura", { unit: "dota_goodguys_tower3_mid", team: "radiant" }, ["aura"]],
+    [2.5, 4, "modifier_unknown_source", null, []],
+  ]);
+  assert.deepEqual(heroes[0].mod_stacks, [[1.2, "modifier_alpha_permanent", 1], [2, "modifier_alpha_permanent", 0]]);
+  assert.equal(admitLibraryBundle({ manifest: result.bundle.manifest, match_data: result.bundle.match, world: result.bundle.world }).ok, true);
+});
+
 test("schema 3.1 accepts null winner, draft and gold values with reasons where defined", async () => {
   const data = schema31Match({ winner: null, draft: null });
   data.heroes = data.heroes.map(h => ({ ...h, gold_earned: [null, null, null, null, null], gold_earned_final: null }));
@@ -122,16 +169,27 @@ test("a wrong type on a schema 3.1 field is rejected", async () => {
   assert.deepEqual(!result.ok && result.error, { code: "shape", file: "match.json", path: "heroes[0].dmg_out.total" });
 });
 
-test("schema 3.2 and mismatched manifest/match schemas are rejected", async () => {
-  const badManifest = await admitMatchBundle(bundle({ manifest: { schema: "3.2" } }));
-  assert.deepEqual(!badManifest.ok && badManifest.error, { code: "schema", file: "manifest.json", found: "3.2" });
+test("schema 3.3 and mismatched manifest/match schemas are rejected", async () => {
+  const badManifest = await admitMatchBundle(bundle({ manifest: { schema: "3.3" } }));
+  assert.deepEqual(!badManifest.ok && badManifest.error, { code: "schema", file: "manifest.json", found: "3.3" });
 
-  const wrongMatchVersion = { ...schema31Match(), meta: { ...schema31Match().meta, schema: "3.2" } };
-  const badMatch = await admitMatchBundle(schema31Bundle(wrongMatchVersion));
-  assert.deepEqual(!badMatch.ok && badMatch.error, { code: "schema", file: "match.json", found: "3.2" });
+  const wrongMatchVersion = { ...schema32Match(), meta: { ...schema32Match().meta, schema: "3.3" } };
+  const badMatch = await admitMatchBundle(schema32Bundle(wrongMatchVersion));
+  assert.deepEqual(!badMatch.ok && badMatch.error, { code: "schema", file: "match.json", found: "3.3" });
 
-  const mismatch = await admitMatchBundle(bundle({ match: schema31Match() }));
+  const mismatch = await admitMatchBundle(bundle({ manifest: { schema: "3.1" }, match: schema32Match() }));
   assert.equal(mismatch.ok, false);
+});
+
+test("wrong types on schema 3.2 day/night and modifier additions are rejected", async () => {
+  const badDaynight = await admitMatchBundle(schema32Bundle(schema32Match({ daynight: "night" })));
+  assert.deepEqual(!badDaynight.ok && badDaynight.error, { code: "shape", file: "match.json", path: "meta.daynight" });
+
+  const badModsLong = await admitMatchBundle(schema32Bundle(schema32Match({ modsLong: [[1, 2, "name", 42, []]] })));
+  assert.deepEqual(!badModsLong.ok && badModsLong.error, { code: "shape", file: "match.json", path: "heroes[0].mods_long[0][3]" });
+
+  const badModStacks = await admitMatchBundle(schema32Bundle(schema32Match({ modStacks: [[1, "modifier_stack", "two"]] })));
+  assert.deepEqual(!badModStacks.ok && badModStacks.error, { code: "shape", file: "match.json", path: "heroes[0].mod_stacks[0][2]" });
 });
 
 test("a missing bundle file is named", async () => {

@@ -9,11 +9,11 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
-pub const ENGINE_VERSION: &str = "0.3.0";
-pub const ENGINE_SHA256: &str = "9d7aa88bbd8d1b31cd35489dcbecd88058c6ba68a118f88042e2cc262ff5d05d";
-pub const ENGINE_SIZE_BYTES: u64 = 3_258_368;
-pub const ENGINE_SOURCE_COMMIT: &str = "5db800267e3406f6322a5fb0f52285b9b0c7c4dc";
-pub const BUNDLE_SCHEMA: &str = "3.1";
+pub const ENGINE_VERSION: &str = "0.4.1";
+pub const ENGINE_SHA256: &str = "9ecf53d7555a3288d386fa93e4dd9bafa2fe2e060660aef9dcb52f972165cfd8";
+pub const ENGINE_SIZE_BYTES: u64 = 3_368_448;
+pub const ENGINE_SOURCE_COMMIT: &str = "c9951596d46d64467a906907005b2da3073b62dc";
+pub const BUNDLE_SCHEMA: &str = "3.2";
 pub const MAX_DEM_BYTES: u64 = 400 * 1024 * 1024;
 pub const MAX_MANIFEST_BYTES: u64 = 1 * 1024 * 1024;
 pub const MAX_MATCH_BYTES: u64 = 48 * 1024 * 1024;
@@ -99,7 +99,7 @@ fn pinned_hash(hash: &str) -> bool {
 }
 
 fn supported_bundle_schema(schema: &str) -> bool {
-    schema == "3.0" || schema == BUNDLE_SCHEMA
+    matches!(schema, "3.0" | "3.1" | BUNDLE_SCHEMA)
 }
 
 pub fn sha256_bytes(bytes: &[u8]) -> String {
@@ -544,14 +544,69 @@ fn validate_reasoned_field(
     }
 }
 
-fn validate_match_meta_additions(meta: &Value) -> bool {
+fn valid_daynight(value: &Value) -> bool {
+    value.as_array().is_some_and(|rows| {
+        !rows.is_empty() && rows.iter().all(|row| {
+            row.as_array().is_some_and(|parts| {
+                parts.len() == 2
+                    && parts[0].as_f64().is_some_and(f64::is_finite)
+                    && matches!(parts[1].as_str(), Some("day" | "night"))
+            })
+        })
+    })
+}
+
+fn valid_modifier_source(value: &Value) -> bool {
+    if value.is_null() {
+        return true;
+    }
+    if let Some(hero) = value.as_str() {
+        return valid_hero_id(hero);
+    }
+    value.as_object().is_some_and(|source| {
+        source.len() == 2
+            && source.get("unit").and_then(Value::as_str).is_some_and(|unit| !unit.is_empty())
+            && source.get("team").is_some_and(|team| {
+                team.is_null() || matches!(team.as_str(), Some("radiant" | "dire" | "neutral"))
+            })
+    })
+}
+
+fn valid_mods_long(value: &Value) -> bool {
+    value.as_array().is_some_and(|rows| rows.iter().all(|row| {
+        row.as_array().is_some_and(|parts| {
+            parts.len() == 5
+                && parts[0].as_f64().is_some_and(f64::is_finite)
+                && (parts[1].is_null() || parts[1].as_f64().is_some_and(f64::is_finite))
+                && parts[2].as_str().is_some_and(|name| !name.is_empty())
+                && valid_modifier_source(&parts[3])
+                && parts[4].as_array().is_some_and(|flags| flags.iter().all(|flag| {
+                    matches!(flag.as_str(), Some("aura" | "permanent" | "stacking" | "subtle"))
+                }))
+        })
+    }))
+}
+
+fn valid_mod_stacks(value: &Value) -> bool {
+    value.as_array().is_some_and(|rows| rows.iter().all(|row| {
+        row.as_array().is_some_and(|parts| {
+            parts.len() == 3
+                && parts[0].as_f64().is_some_and(f64::is_finite)
+                && parts[1].as_str().is_some_and(|name| !name.is_empty())
+                && parts[2].as_u64().is_some()
+        })
+    }))
+}
+
+fn validate_match_meta_additions(meta: &Value, schema: &str) -> bool {
     validate_reasoned_field(meta, "winner", "winner_reason", |value| {
         matches!(value.as_str(), Some("radiant" | "dire"))
     }) && validate_reasoned_field(meta, "draft", "draft_reason", |value| {
         value
             .as_array()
             .is_some_and(|entries| entries.iter().all(valid_draft_entry))
-    })
+    }) && validate_reasoned_field(meta, "daynight", "daynight_reason", valid_daynight)
+        && (schema != "3.2" || meta.get("daynight").is_some())
 }
 
 fn validate_damage_out(value: &Value) -> bool {
@@ -568,7 +623,7 @@ fn validate_damage_out(value: &Value) -> bool {
         })
 }
 
-fn validate_hero_additions(hero: &Value) -> bool {
+fn validate_hero_additions(hero: &Value, schema: &str) -> bool {
     let earned_valid = hero.get("gold_earned").map_or(true, |value| {
         value.as_array().is_some_and(|values| {
             values
@@ -582,7 +637,10 @@ fn validate_hero_additions(hero: &Value) -> bool {
     let damage_valid = hero
         .get("dmg_out")
         .map_or(true, validate_damage_out);
-    earned_valid && final_valid && damage_valid
+    let mods_long_valid = hero.get("mods_long").map_or(true, valid_mods_long);
+    let mod_stacks_valid = hero.get("mod_stacks").map_or(true, valid_mod_stacks);
+    let schema32_required = schema != "3.2" || (hero.get("mods_long").is_some() && hero.get("mod_stacks").is_some());
+    earned_valid && final_valid && damage_valid && mods_long_valid && mod_stacks_valid && schema32_required
 }
 
 fn validate_manifest(value: &Value) -> Result<String, EngineFailure> {
@@ -681,7 +739,8 @@ fn validate_match(value: &Value) -> Result<(String, String), EngineFailure> {
         return Err(EngineFailure::InvalidBundle);
     }
     let meta = value.get("meta").ok_or(EngineFailure::InvalidBundle)?;
-    if !string_field(meta, "schema").is_some_and(supported_bundle_schema)
+    let schema = string_field(meta, "schema").ok_or(EngineFailure::InvalidBundle)?;
+    if !supported_bundle_schema(schema)
         || !string_field(meta, "engine_version").is_some_and(|field| !field.is_empty())
         || !string_field(meta, "patch").is_some_and(|field| !field.is_empty())
         || string_field(meta, "pack").is_none()
@@ -704,7 +763,7 @@ fn validate_match(value: &Value) -> Result<(String, String), EngineFailure> {
         || !meta
             .get("parse_error")
             .is_some_and(|error| error.is_null() || error.is_object())
-        || !validate_match_meta_additions(meta)
+        || !validate_match_meta_additions(meta, schema)
     {
         return Err(EngineFailure::InvalidBundle);
     }
@@ -714,7 +773,7 @@ fn validate_match(value: &Value) -> Result<(String, String), EngineFailure> {
         .ok_or(EngineFailure::InvalidBundle)?;
     if heroes.iter().any(|hero| {
         !hero.is_object()
-            || !validate_hero_additions(hero)
+            || !validate_hero_additions(hero, schema)
             || string_field(hero, "id").is_none()
             || string_field(hero, "name").is_none()
             || !integer_field(hero, "team")
@@ -944,7 +1003,7 @@ mod tests {
     }
 
     fn match_fixture(schema: &str, unknown_new_values: bool, dem_sha: &str) -> Value {
-        let engine_version = if schema == "3.0" { "0.2.0" } else { ENGINE_VERSION };
+        let engine_version = match schema { "3.0" => "0.2.0", "3.1" => "0.3.0", _ => ENGINE_VERSION };
         let mut match_doc = json!({
             "meta": {
                 "schema": schema,
@@ -980,7 +1039,7 @@ mod tests {
             "sampleT": []
         });
 
-        if schema == "3.1" {
+        if schema == "3.1" || schema == "3.2" {
             if unknown_new_values {
                 match_doc["meta"]["winner"] = Value::Null;
                 match_doc["meta"]["winner_reason"] = json!("not recorded in the replay");
@@ -999,11 +1058,25 @@ mod tests {
             }
             match_doc["heroes"][0]["dmg_out"] = json!({"total": 75, "p": 25, "m": 40, "u": 10});
         }
+        if schema == "3.2" {
+            match_doc["meta"]["daynight"] = if unknown_new_values {
+                match_doc["meta"]["daynight_reason"] = json!("not in replay");
+                Value::Null
+            } else {
+                json!([[-90.0, "night"], [0.0, "day"], [300.0, "night"]])
+            };
+            match_doc["heroes"][0]["mods_long"] = json!([
+                [1.2, null, "modifier_alpha_permanent", "npc_dota_hero_alpha", ["permanent", "stacking"]],
+                [2.0, 3.0, "modifier_tower_aura", {"unit": "dota_goodguys_tower3_mid", "team": "radiant"}, ["aura"]],
+                [2.5, 4.0, "modifier_unknown_source", null, []]
+            ]);
+            match_doc["heroes"][0]["mod_stacks"] = json!([[1.2, "modifier_alpha_permanent", 1], [2.0, "modifier_alpha_permanent", 0]]);
+        }
         match_doc
     }
 
     fn write_bundle_fixture(directory: &Path, manifest_schema: &str, match_doc: &Value, dem_sha: &str) {
-        let engine_version = if manifest_schema == "3.0" { "0.2.0" } else { ENGINE_VERSION };
+        let engine_version = match manifest_schema { "3.0" => "0.2.0", "3.1" => "0.3.0", _ => ENGINE_VERSION };
         let world_doc = json!({
             "v": 1, "qh": 8, "qu": 30, "t0": 0,
             "heroes": {}, "tracks": [], "runes": []
@@ -1278,14 +1351,15 @@ mod tests {
 
     #[test]
     fn non_pinned_hash_is_not_in_the_allowlist() {
-        assert_eq!(ENGINE_VERSION, "0.3.0");
+        assert_eq!(ENGINE_VERSION, "0.4.1");
         assert_eq!(
             ENGINE_SHA256,
-            "9d7aa88bbd8d1b31cd35489dcbecd88058c6ba68a118f88042e2cc262ff5d05d"
+            "9ecf53d7555a3288d386fa93e4dd9bafa2fe2e060660aef9dcb52f972165cfd8"
         );
+        assert_eq!(ENGINE_SIZE_BYTES, 3_368_448);
         assert_eq!(
             ENGINE_SOURCE_COMMIT,
-            "5db800267e3406f6322a5fb0f52285b9b0c7c4dc"
+            "c9951596d46d64467a906907005b2da3073b62dc"
         );
         assert!(!pinned_hash(&sha256_bytes(b"wrong engine")));
         assert!(pinned_hash(ENGINE_SHA256));
@@ -1343,15 +1417,22 @@ mod tests {
     }
 
     #[test]
-    fn structural_validation_rejects_schema_3_2_and_mismatched_versions() {
+    fn structural_validation_accepts_schemas_3_0_3_1_and_3_2_and_rejects_3_3() {
         let directory = temp_dir("schema-3-2");
         let dem_sha = "d".repeat(64);
-        let schema31 = match_fixture("3.1", false, &dem_sha);
-        write_bundle_fixture(&directory, "3.1", &schema31, &dem_sha);
-        assert!(validate_bundle_dir(&directory, &dem_sha).is_ok());
+        for schema in ["3.0", "3.1", "3.2"] {
+            let match_doc = match_fixture(schema, false, &dem_sha);
+            write_bundle_fixture(&directory, schema, &match_doc, &dem_sha);
+            assert!(validate_bundle_dir(&directory, &dem_sha).is_ok(), "schema {schema}");
+            if schema == "3.2" {
+                fs::write(directory.join("match.json"), b"tampered match").unwrap();
+                assert_eq!(validate_bundle_dir(&directory, &dem_sha), Err(EngineFailure::InvalidBundle), "schema 3.2 file hash");
+                write_bundle_fixture(&directory, schema, &match_doc, &dem_sha);
+            }
+        }
 
-        let match_doc = match_fixture("3.2", false, &dem_sha);
-        write_bundle_fixture(&directory, "3.2", &match_doc, &dem_sha);
+        let match_doc = match_fixture("3.3", false, &dem_sha);
+        write_bundle_fixture(&directory, "3.3", &match_doc, &dem_sha);
         assert_eq!(
             validate_bundle_dir(&directory, &dem_sha),
             Err(EngineFailure::InvalidBundle)
@@ -1359,10 +1440,29 @@ mod tests {
 
         let match_doc = match_fixture("3.1", false, &dem_sha);
         write_bundle_fixture(&directory, "3.0", &match_doc, &dem_sha);
-        assert_eq!(
-            validate_bundle_dir(&directory, &dem_sha),
-            Err(EngineFailure::InvalidBundle)
-        );
+        assert_eq!(validate_bundle_dir(&directory, &dem_sha), Err(EngineFailure::InvalidBundle));
+        let _ = fs::remove_dir_all(directory);
+    }
+
+    #[test]
+    fn structural_validation_rejects_wrong_types_on_schema_3_2_fields() {
+        let directory = temp_dir("schema-3-2-wrong-types");
+        let dem_sha = "e".repeat(64);
+        let valid = match_fixture("3.2", false, &dem_sha);
+        write_bundle_fixture(&directory, "3.2", &valid, &dem_sha);
+        assert!(validate_bundle_dir(&directory, &dem_sha).is_ok());
+
+        for (path, value) in [
+            ("daynight", json!("day")),
+            ("mods_long", json!(["not a modifier row"])),
+            ("mod_stacks", json!([[1.0, "modifier_stack", "two"]])),
+        ] {
+            let mut invalid = valid.clone();
+            if path == "daynight" { invalid["meta"][path] = value; }
+            else { invalid["heroes"][0][path] = value; }
+            write_bundle_fixture(&directory, "3.2", &invalid, &dem_sha);
+            assert_eq!(validate_bundle_dir(&directory, &dem_sha), Err(EngineFailure::InvalidBundle), "{path}");
+        }
         let _ = fs::remove_dir_all(directory);
     }
 
@@ -1400,7 +1500,7 @@ mod tests {
         .expect("the pinned bundled replay engine should parse the selected demo");
         let dem_sha = sha256_file(&demo).expect("the saved demo should be readable");
         let bundle = validate_bundle_dir(&directory, &dem_sha)
-            .expect("the bundled engine output should satisfy Match Bundle 3.1");
+            .expect("the bundled engine output should satisfy Match Bundle 3.2");
         assert_eq!(bundle.engine_version, run.engine_version);
         eprintln!(
             "replay_integration engine=bundled elapsed_ms={} result=ready",
