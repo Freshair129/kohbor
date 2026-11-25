@@ -404,8 +404,12 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, stat
       top: { name: h.name ?? "—", kills, deaths, lh, dn, nw }, bars: { hp, mhp, mp, mmp },
       ab: { abilities: h.abil?.length ?? null }, it: { items: h.inv ? "known" : null, gold },
       st: { str: statValue("strT"), agi: statValue("agiT"), int: statValue("intT"), dmg: statValue("dmin"), reg: statValue("hpreg") },
-      dv: Object.fromEntries(["armor", "mr", "amp", "as", "ms", "ev", "sres", "ls"].map(key => [key, derivedView?.[key] ?? null])),
+      dv: { ...Object.fromEntries(["armor", "mr", "amp", "as", "ms", "ev", "sres", "ls"].map(key => [key, derivedView?.[key] ?? null])),
+        // Schema 3.1 only: whole-match hero damage dealt (engine 0.3.0). A 3.0 bundle has no dmg_out, so no HD cell.
+        ...(h.dmg_out !== undefined ? { hd: h.dmg_out?.total ?? null } : {}) },
     });
+    const hdCell = sharedView.hd
+      ? `<span class="num hd" title="ดาเมจใส่ฮีโร่ทั้งเกม (Hero damage, ทั้งแมตช์ ไม่ใช่ ณ เวลานี้)">HD ${esc(sharedView.hd.value)}</span>` : "";
     const rowAttr = id => {
       const row = sharedView.rows.find(candidate => candidate.id === id);
       return `data-card-row="${id}"${row?.unknownFields.length ? ` data-unknown-fields="${esc(row.unknownFields.join(","))}"` : ""}`;
@@ -421,7 +425,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, stat
     const neutral = nv ? (() => { const [cd, cl] = icd(16); return iconSlot("nt", nameOf(nv[0]), {src: iconSrc(nv[0]), cd, cl, extra: "ไอเทมป่า" + (f ? ` · enchantment ${f[2]} ระดับ ${f[3]} · ดรอปล่าสุด ${clk(f[0])}` : "")}); })() : iconSlot("nt", null);
     const mods = modsAt(h, t).slice(0, 3);
     return `<div class="pt"><img src="${portSrc(h.id)}" alt=""><span class="lvb">${fmt(h.lvl?.[i])}</span>${alive === false ? `<span class="rsp">${rs != null ? Math.ceil(rs) : "—"}</span>` : ""}</div>
-      <div class="top" ${rowAttr("top")}><span class="nm">${esc(h.name ?? "—")}</span><span class="kd num" title="Kill / Death">${kills}/${deaths}</span><span class="num" title="Last hit / Deny">${fmt(lh)}/${fmt(dn)}</span><span class="num nw" title="Net worth">${Number.isFinite(nw) ? (nw >= 10000 ? (nw / 1000).toFixed(1) + "k" : fmt(nw)) : "—"}</span></div>
+      <div class="top" ${rowAttr("top")}><span class="nm">${esc(h.name ?? "—")}</span><span class="kd num" title="Kill / Death">${kills}/${deaths}</span><span class="num" title="Last hit / Deny">${fmt(lh)}/${fmt(dn)}</span><span class="num nw" title="Net worth">${Number.isFinite(nw) ? (nw >= 10000 ? (nw / 1000).toFixed(1) + "k" : fmt(nw)) : "—"}</span>${hdCell}</div>
       ${barsHTML(h, t, i, alive, hp, mhp, mp, mmp, rowAttr("bars"))}
       <div class="row ab" ${rowAttr("ab")}>${abil}<span class="mods">${al ? `<span class="mod cc">⚠ ${esc(al.text)}</span>` : mods.map(m => `<span class="mod ${m.cls}">${esc(m.n)} <span class="num">${m.rem < 10 ? m.rem.toFixed(1) : Math.round(m.rem)}</span></span>`).join("")}</span></div>
       <div class="row it" ${rowAttr("it")}>${[0, 1, 2, 3, 4, 5].map(s => item(s, "it")).join("")}<span class="bp">${[6, 7, 8].map(s => item(s, "bk")).join("")}</span>${item(15, "tp")}${neutral}${f && nv ? `<span class="enh" title="Enchantment ของไอเทมป่า">${esc(f[2])} ${f[3]}</span>` : ""}<span class="gold num" title="ทองในมือ">${fmt(gold)}</span></div>

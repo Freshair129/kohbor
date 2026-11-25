@@ -963,8 +963,8 @@
     },
     {
       "path": "apps/desktop/src/analytics/AnalyticsPage.tsx",
-      "bytes": 57482,
-      "sha256": "484f9928a3dc8a97492d0be68c68a281794f6f3a8c62649020242899bef8cd24"
+      "bytes": 58589,
+      "sha256": "cf3717507d88b791ec14c3c92dcbced9531e40c09b0173f27ba4b2e907fd2537"
     },
     {
       "path": "apps/desktop/src/analytics/AnalyticsSettings.tsx",
@@ -1033,8 +1033,8 @@
     },
     {
       "path": "apps/desktop/src/analytics/knowledge/presentationModel.d.mts",
-      "bytes": 1034,
-      "sha256": "505d7f4252015a3b2be1a96c0f77cfd73a4a10a8078671608c8f8c8102a89698"
+      "bytes": 1566,
+      "sha256": "4eaa8d7377af80f5ca1d953bedc35cf4a51e21f2a502d2727d403110b9acd58e"
     },
     {
       "path": "apps/desktop/src/analytics/knowledge/presentationModel.mjs",
@@ -12943,8 +12943,8 @@
     },
     {
       "path": "apps/desktop/src/live/heroCard.css",
-      "bytes": 39689,
-      "sha256": "ddfbe9bf776737bfc0bea1f79ac2b620c2251d43f01fa597427c1fd3ed4ca418"
+      "bytes": 39784,
+      "sha256": "5455c3667fb580db7360b40906e33fc29c8a39f33e9ff97d03d6c9222b81b3db"
     },
     {
       "path": "apps/desktop/src/live/heroCardModel.ts",
@@ -13533,8 +13533,8 @@
     },
     {
       "path": "apps/desktop/src/replay/matchViewer.mjs",
-      "bytes": 111010,
-      "sha256": "cd30599944f32b678b9dc9d13d5d86840a77aa78bff81dbc1403e09bf4dee7aa"
+      "bytes": 111487,
+      "sha256": "2f3aacbb52bd151008f901dc71efd3343f5c913790862d493528e057c185f69c"
     },
     {
       "path": "apps/desktop/src/replay/matchViewerCopy.d.mts",
@@ -15458,8 +15458,8 @@
     },
     {
       "path": "docs/delivery/SPRINT-ROADMAP.md",
-      "bytes": 33397,
-      "sha256": "72f32197c1efbbeb510b42119d5bf42cf6ab9370f69fbd7d3e4ea17e2a5c6a2a"
+      "bytes": 33550,
+      "sha256": "36b7da2aea780fe5c406ca48e288b7182223048360d3ff967f93b13150f1c611"
     },
     {
       "path": "docs/delivery/evidence/m1-live-2026-11-11-draft.png",

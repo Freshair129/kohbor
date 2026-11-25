@@ -65,6 +65,7 @@ const libraryClient = {
   pin: (matchId: string, pinned: boolean) => invoke("replay_library_pin", { matchId, pinned }),
   remove: (matchId: string) => invoke("replay_library_remove", { matchId }),
   pick: () => invoke<string | null>("replay_library_pick_file"),
+  reparse: (matchId: string) => invoke("replay_library_reparse", { matchId }),
 };
 
 function systemNote(bundle: MatchBundle | null, locale: Locale): string {
@@ -733,7 +734,14 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
       <header><strong>{t(locale, "คลังรีเพลย์", "Replay library")}</strong><button onClick={() => setShowList(false)}>×</button></header>
       {rows.map(entry => <article key={entry.match_id}><button onClick={() => void selectEntry(entry)}>{statusText(entry.status, locale)} · {entry.match_date_utc ?? UNKNOWN_VALUE} · {entry.own_hero ?? UNKNOWN_VALUE}</button>
         <button onClick={() => void togglePin(entry)}>{entry.pinned ? t(locale, "เลิกปักหมุด", "Unpin") : t(locale, "เก็บไว้", "Keep")}</button>
-        <button onClick={() => void setOwnHeroForEntry(entry)}>{t(locale, "ระบุฮีโร่ของฉัน", "Set my hero")}</button><button onClick={() => void libraryClient.parse(entry.match_id)}>{t(locale, "วิเคราะห์ใหม่", "Re-analyse")}</button>
+        <button onClick={() => void setOwnHeroForEntry(entry)}>{t(locale, "ระบุฮีโร่ของฉัน", "Set my hero")}</button>{entry.status.state === "ready"
+          ? <button disabled={entry.source_exists !== true}
+              title={entry.source_exists === true
+                ? t(locale, `แยกรีเพลย์นี้ใหม่ด้วย engine ปัจจุบัน (ตอนนี้ schema ${entry.bundle_schema ?? "ไม่ทราบ"}) ข้อมูลเดิมอยู่จนกว่าจะแยกเสร็จ`, `Re-parse with the current engine (now schema ${entry.bundle_schema ?? "unknown"}); the old data stays until it finishes`)
+                : t(locale, "ไม่พบไฟล์ .dem ต้นฉบับแล้ว", "The source .dem file is gone")}
+              onClick={() => void libraryClient.reparse(entry.match_id).then(() => refresh(), () => setError(t(locale, "แยกใหม่ไม่สำเร็จ", "Re-parse failed")))}>
+              {t(locale, "แยกใหม่", "Re-parse")}{entry.bundle_schema ? ` · ${entry.bundle_schema}` : ""}</button>
+          : <button onClick={() => void libraryClient.parse(entry.match_id)}>{t(locale, "วิเคราะห์ใหม่", "Re-analyse")}</button>}
         <button onClick={() => void invoke("replay_library_open_folder", { matchId: entry.match_id })}>{t(locale, "เปิดโฟลเดอร์", "Open folder")}</button>
         <button onClick={() => { if (window.confirm(t(locale, "นำรีเพลย์ออกจากคลังหรือไม่? โน้ตจะยังอยู่", "Remove replay from library? Notes will be kept"))) void libraryClient.remove(entry.match_id); }}>{t(locale, "นำออกจากคลัง", "Remove from library")}</button>
       </article>)}

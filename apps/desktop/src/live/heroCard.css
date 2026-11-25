@@ -391,6 +391,7 @@
 .rc .top .nm { flex: 1; min-width: 0; overflow: hidden; color: var(--ink); font: 700 13.5px/1.2 var(--f-display); text-overflow: ellipsis; white-space: nowrap; }
 .rc .top .kd { color: var(--ink); font-weight: 600; }
 .rc .top .nw { color: var(--warn); font-weight: 600; }
+.rc .top .hd { color: var(--text-secondary, #c9ccd3); font-weight: 600; white-space: nowrap; }
 .rc .bars { display: grid; grid-area: bars; align-self: center; gap: 2px; }
 .rc .bar { position: relative; height: 12px; overflow: hidden; border-radius: 3px; background: var(--bg); }
 .rc .bar.mp { height: 11px; }
