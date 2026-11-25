@@ -153,7 +153,7 @@
       "path": "docs/governance/DECISION-LOG.md",
       "type": "process",
       "role": "reference",
-      "reviewed_sha256": "1787d269b5e147341ef84723d8bce477055816113a42d302ada7b9fed58e431a"
+      "reviewed_sha256": "290cc079b9b126a98811f04748a8e5418aa5c4aed0108e6ccfdcbc1776df2baa"
     },
     {
       "path": "apps/desktop/src/analytics",
@@ -196,7 +196,7 @@
       "path": "docs/design/DESIGN-IMPLEMENTATION.md",
       "type": "design",
       "role": "reference",
-      "reviewed_sha256": "7061528781b84af81366d8aa18812f93f5575ee52eac5096fa23168d3de82d03"
+      "reviewed_sha256": "db4d8c921109390c24f76bcaed35828a0b14be48365c62f1235b526d9eb25ebe"
     },
     {
       "path": "docs/design/MINIMAP-RUNE-ROSHAN-OVERLAY.md",

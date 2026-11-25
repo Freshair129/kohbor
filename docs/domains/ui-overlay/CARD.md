@@ -25,7 +25,7 @@ A map, not evidence. Authority: decisions, PRD/SRS, contracts, code and tests, t
 ## 3. Now / Next / Blocked
 
 - Overview and Live/second-monitor layout map to [UX-SPEC](../../design/UX-SPEC.md) (UI-002, UI-016, UI-020; DEC-OVERVIEW; DEC-ANALYTICS-LAYOUT).
-- Analytics UI-021/UI-022 and replay entry points map to [ANALYTICS-HOST-API](../../design/ANALYTICS-HOST-API.md), [DESIGN-IMPLEMENTATION](../../design/DESIGN-IMPLEMENTATION.md) and [REPLAY-PIPELINE](../../design/REPLAY-PIPELINE.md).
+- Analytics UI-021/UI-022 and replay entry points map to [ANALYTICS-HOST-API](../../design/ANALYTICS-HOST-API.md), [DESIGN-IMPLEMENTATION](../../design/DESIGN-IMPLEMENTATION.md) and [REPLAY-PIPELINE](../../design/REPLAY-PIPELINE.md); optional OpenDota benchmarks in the compare tab, off by default, live request not yet owner-checked ([HERO-BENCHMARKS](../../design/HERO-BENCHMARKS.md); DEC-POSITIONING-20261125 item 2).
 - The expert lane-expectation table remains empty pending reviewed coach rows (DEC-LANE-EXPECTATION; [LANE-EXPECTATION](../../design/LANE-EXPECTATION.md)).
 - AI provider controls stay hidden in normal mode and gated to Developer mode (DEC-AI-PROVIDERS; DEC-UX-REVIEW-20261125; DEC-POSITIONING-20261125).
 - The Store has a Developer-mode preview only; commerce remains undecided (DEC-COMMERCE-INTENT; DEC-POSITIONING-20261125; [SPRINT-ROADMAP](../../delivery/SPRINT-ROADMAP.md)).

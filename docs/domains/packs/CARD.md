@@ -37,6 +37,7 @@ A map, not evidence. Decisions: `contracts/decisions.json`. Requirements: `contr
 - Pack authoring and host inspection map to `crates/kohbor-pack-author`, `apps/desktop/src-tauri/src/media/` and [MEDIA-PACK-SPEC](../../design/MEDIA-PACK-SPEC.md) (S3-7).
 - Signature and publisher authority remain open under DEC-PACK-CRYPTO; package integrity does not establish publisher authority.
 - Cross-package banner add-ons remain unbuilt (DEC-PACK-BANNER-ADDON).
+- Installed packs can be removed from the library: `Store::uninstall` and the `media_uninstall` command, refused while the pack is active, in a loadout or during a match ([MEDIA-PACK-SPEC](../../design/MEDIA-PACK-SPEC.md) uninstall section; owner instruction 2026-11-25, no DEC id).
 - Special pack events remain unavailable until live captures confirm their detectors (DEC-MULTI-PACK; `contracts/event-catalog.json`).
 - Critical alerts still require authorized media (DEC-CRITICAL-MEDIA); current-build owner/native acceptance is pending in [SPRINT-ROADMAP](../../delivery/SPRINT-ROADMAP.md) (DEC-NATIVE-EVIDENCE).
 - Store commerce, wallet, paid packs and encryption remain undecided (DEC-COMMERCE-INTENT; DEC-PREMIUM); rights review remains pending (DEC-POSITIONING-20261125; DEC-REPLAY-INTEGRATION).

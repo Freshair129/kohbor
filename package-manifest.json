@@ -15583,8 +15583,8 @@
     },
     {
       "path": "docs/INDEX.md",
-      "bytes": 16401,
-      "sha256": "fea1d10679f3ac20fa8ea7fec61aefe9a9f3cf406b2078206ad97e36177dc5cc"
+      "bytes": 16646,
+      "sha256": "288cf46244e3bd2c3ec9d39cff933dd5a58a4da6fcf53f8aeefe323b0d345a20"
     },
     {
       "path": "docs/delivery/AGENT-WORKFLOW.md",
@@ -16159,7 +16159,7 @@
     {
       "path": "docs/domains/account/state.json",
       "bytes": 3759,
-      "sha256": "bc0689c646a03a7cb5b3641399fb7c0ea0a0e62908fc2ef10cb3e3f4a01c3680"
+      "sha256": "6e6b502dbbc50572e859685332066409be25f0a253202bf7cc88be2ebd80e043"
     },
     {
       "path": "docs/domains/banner-lab/CARD.md",
@@ -16169,7 +16169,7 @@
     {
       "path": "docs/domains/banner-lab/state.json",
       "bytes": 5629,
-      "sha256": "a221a19ddb47707b1ef94b282fff6bafb334f243c49d2645fb6f2549b1db5ad2"
+      "sha256": "508109fcf432e368ec484717cb331d91202d9650d04b285115f9bea2f3f544ae"
     },
     {
       "path": "docs/domains/commerce/CARD.md",
@@ -16179,7 +16179,7 @@
     {
       "path": "docs/domains/commerce/state.json",
       "bytes": 3234,
-      "sha256": "3399f2af7a2f907e6b37be507bac34d185109f255fc8df3c024d96664a3d475c"
+      "sha256": "13710d61b8648574459b2500d9d3d3c857c661901697db6270c9e12872baa552"
     },
     {
       "path": "docs/domains/events-audio/CARD.md",
@@ -16214,27 +16214,27 @@
     {
       "path": "docs/domains/host-core/state.json",
       "bytes": 7842,
-      "sha256": "c15f1419b2ea62a604b30741e5d8828f08f932788162a348bea761b3dd4f96a9"
+      "sha256": "e007247cb5a2eebe64af37993e91e104da03ef0a24fd293c75868a8c932ca2d8"
     },
     {
       "path": "docs/domains/packs/CARD.md",
-      "bytes": 8899,
-      "sha256": "7ec7350ddcb78d44abd1735007715c372188d4204dcb30d42771dd8432d3890c"
+      "bytes": 9182,
+      "sha256": "974718b2ba75ec3d4caf36fd8331f1d2ecf4fd7aee2a1637b82d83f94155c00b"
     },
     {
       "path": "docs/domains/packs/state.json",
       "bytes": 4906,
-      "sha256": "b43818abc47678858f187346721c23fd193d0557c81ec747f4ceba33b3965081"
+      "sha256": "00483da14165ac2bc38d6cea33164ff4eec6d0cf695051b76fb1853d858629ad"
     },
     {
       "path": "docs/domains/ui-overlay/CARD.md",
-      "bytes": 6119,
-      "sha256": "24e22a53c0f451f9aec1144e2fde36cf1498e5ed5d1db7e5e0b9857bfb88b6ad"
+      "bytes": 6306,
+      "sha256": "05f527fe0ad8eec919fb30ce2106d45e7cc0134409646210cb07bd9fa79b328e"
     },
     {
       "path": "docs/domains/ui-overlay/state.json",
       "bytes": 6657,
-      "sha256": "797760b86b2d0c49ec7cca3771c3e8d1b6be84a9c46abd4db749d8b4cc9ccff1"
+      "sha256": "3d7540032a894af9ddaf847f9c6f6115af96b92461ecba575092bc55fb5ef7a7"
     },
     {
       "path": "docs/domains/vision-risk/CARD.md",

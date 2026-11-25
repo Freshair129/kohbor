@@ -45,7 +45,7 @@
       "path": "docs/design/MEDIA-PACK-SPEC.md",
       "type": "spec",
       "role": "governing",
-      "reviewed_sha256": "0597df67486ecc9359f665b650bcf92a89118b06a184431fb6cc1324b32dd95c"
+      "reviewed_sha256": "dbbbafef02bd7888097547cc2dbb4602349134f764a986f219d5b986a9dc1249"
     },
     {
       "path": "docs/design/PACKAGE-FORMAT-REVIEW.md",
@@ -69,7 +69,7 @@
       "path": "contracts/decisions.json",
       "type": "registry",
       "role": "reference",
-      "reviewed_sha256": "3c4054795ba70f44bf3e845a0749a44ee0218548377691cca983e76dc02d5bc5"
+      "reviewed_sha256": "3d8a632f15895c34b206b14fdf2344a5a0d4b29f2d15c3efaba4e3cb5ded313b"
     },
     {
       "path": "contracts/requirements.json",
@@ -121,7 +121,7 @@
       "path": "docs/governance/DECISION-LOG.md",
       "type": "process",
       "role": "reference",
-      "reviewed_sha256": "1787d269b5e147341ef84723d8bce477055816113a42d302ada7b9fed58e431a"
+      "reviewed_sha256": "290cc079b9b126a98811f04748a8e5418aa5c4aed0108e6ccfdcbc1776df2baa"
     },
     {
       "path": "contracts/loadout.schema.json",
@@ -139,7 +139,7 @@
       "path": "crates/kohbor-pack/src/store.rs",
       "type": "code",
       "role": "source-of-truth",
-      "reviewed_sha256": "484da0d295b7a22033c1626648ad90dbbe15fe8e09e47d24e883f273b37935a4"
+      "reviewed_sha256": "c3080392b87eef6a91f8234bd4db4aa7e15023db923bebb421145ee9663f63a0"
     }
   ],
   "open_questions": [

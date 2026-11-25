@@ -171,7 +171,7 @@
       "path": "docs/design/MEDIA-PACK-SPEC.md",
       "type": "spec",
       "role": "neighbour:packs",
-      "reviewed_sha256": "0597df67486ecc9359f665b650bcf92a89118b06a184431fb6cc1324b32dd95c"
+      "reviewed_sha256": "dbbbafef02bd7888097547cc2dbb4602349134f764a986f219d5b986a9dc1249"
     },
     {
       "path": "docs/design/ALPHA-LAUNCH.md",
@@ -183,7 +183,7 @@
       "path": "docs/governance/DECISION-LOG.md",
       "type": "process",
       "role": "reference",
-      "reviewed_sha256": "1787d269b5e147341ef84723d8bce477055816113a42d302ada7b9fed58e431a"
+      "reviewed_sha256": "290cc079b9b126a98811f04748a8e5418aa5c4aed0108e6ccfdcbc1776df2baa"
     }
   ],
   "open_questions": [
