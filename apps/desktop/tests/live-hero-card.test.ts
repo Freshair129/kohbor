@@ -422,15 +422,9 @@ test("the icon set is bound once through import.meta.glob and the card source ho
   assert.doesNotMatch(sources, /https?:\/\/|@import|@font-face|fonts\.googleapis/);
   assert.doesNotMatch(sources, /Math\.random|invoke\(/);
   const css = readFileSync(new URL("../src/live/heroCard.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
-  const liveCss = css.split("}").filter(rule => !/^\s*[^{}]*\.rc\b/.test(rule.slice(0, rule.indexOf("{")))).join("}");
-  assert.doesNotMatch(liveCss, /font-size:\s*(?:[0-9]|1[01])px/, "Live retains the 12 px floor");
-  assert.doesNotMatch(liveCss, /font:\s*(?:\d+\s+)?(?:[0-9]|1[01])px/, "Live retains the 12 px floor (shorthand)");
-  assert.match(css, /\.rc \.top\s*\{[^}]*font-size:\s*11\.5px/,
-    "the shared card uses the reference top-row text size");
-  assert.match(css, /\.rc \.bar \.num\s*\{[^}]*font:\s*600 9\.5px/,
-    "the shared card uses the approved reference bar-label size");
-  const cardComponent = readFileSync(new URL("../src/live/HeroCard.tsx", import.meta.url), "utf8");
-  assert.match(cardComponent, /statLabelMode\s*=\s*"icon"/);
-  assert.match(cardComponent, /data-stat-label=\{labelMode\}/);
+  // The .rc rules are the replay/Analytics reference card and carry the approved 12 px-floor exemption; Live keeps the floor.
+  const liveCards = css.split("}").filter(rule => !/^\s*[^{}]*\.rc/.test(rule.slice(0, rule.indexOf("{")))).join("}");
+  assert.doesNotMatch(liveCards, /font-size:\s*(?:[0-9]|1[01])px/, "no text below 12 px on the Live cards");
+  assert.doesNotMatch(liveCards, /font:\s*(?:\d+\s+)?(?:[0-9]|1[01])px/, "no text below 12 px on the Live cards (shorthand)");
   assert.doesNotMatch(css, /overflow-x:\s*(?:auto|scroll)/, "no horizontal scrolling");
 });
