@@ -1,6 +1,6 @@
 mod engine;
 
-use serde::{Deserialize, Serialize};
+use serde::{ser::SerializeStruct, Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{HashSet, VecDeque};
 use std::fs::{self, File};
@@ -14,6 +14,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 const INDEX_SCHEMA_VERSION: u32 = 1;
 const MAX_INDEX_BYTES: u64 = 4 * 1024 * 1024;
+const MAX_META_BYTES: u64 = 64 * 1024;
 const WATCH_INTERVAL: Duration = Duration::from_secs(30);
 const MATCH_IDLE_POLL: Duration = Duration::from_millis(250);
 const MAX_JOB_HISTORY: usize = 50;
@@ -86,14 +87,57 @@ pub struct ReplayLibraryEntry {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ReplayJob {
     pub job_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub match_id: Option<String>,
+    pub operation: ReplayOperation,
     pub status: ReplayStatus,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReplayOperation {
+    Parse,
+    Reparse,
+}
+
+#[derive(Clone, Debug)]
 pub struct ReplayLibraryList {
     pub matches: Vec<ReplayLibraryEntry>,
     pub jobs: Vec<ReplayJob>,
     pub watched_replay_folder_path: Option<String>,
+    source_exists: Vec<bool>,
+    bundle_schemas: Vec<Option<String>>,
+}
+
+#[derive(Serialize)]
+struct ReplayLibraryEntryView<'a> {
+    #[serde(flatten)]
+    entry: &'a ReplayLibraryEntry,
+    source_exists: bool,
+    bundle_schema: Option<&'a str>,
+}
+
+impl Serialize for ReplayLibraryList {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let entries = self
+            .matches
+            .iter()
+            .enumerate()
+            .map(|(index, entry)| ReplayLibraryEntryView {
+                entry,
+                source_exists: self.source_exists.get(index).copied().unwrap_or(false),
+                bundle_schema: self.bundle_schemas.get(index).and_then(Option::as_deref),
+            })
+            .collect::<Vec<_>>();
+        let mut state = serializer.serialize_struct("ReplayLibraryList", 3)?;
+        state.serialize_field("matches", &entries)?;
+        state.serialize_field("jobs", &self.jobs)?;
+        state.serialize_field("watched_replay_folder_path", &self.watched_replay_folder_path)?;
+        state.end()
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -168,6 +212,42 @@ struct StoreState {
 struct JobRecord {
     public: ReplayJob,
     match_id: Option<String>,
+    mode: ParseMode,
+}
+
+trait EngineRunner: Send + Sync {
+    fn run(
+        &self,
+        bundled_path: Option<&Path>,
+        development_path: Option<&Path>,
+        allow_development_path: bool,
+        dem_path: &Path,
+        output_dir: &Path,
+        match_active: &dyn Fn() -> bool,
+    ) -> Result<engine::EngineRun, engine::EngineFailure>;
+}
+
+struct PinnedEngineRunner;
+
+impl EngineRunner for PinnedEngineRunner {
+    fn run(
+        &self,
+        bundled_path: Option<&Path>,
+        development_path: Option<&Path>,
+        allow_development_path: bool,
+        dem_path: &Path,
+        output_dir: &Path,
+        match_active: &dyn Fn() -> bool,
+    ) -> Result<engine::EngineRun, engine::EngineFailure> {
+        engine::run_pinned_engine(
+            bundled_path,
+            development_path,
+            allow_development_path,
+            dem_path,
+            output_dir,
+            match_active,
+        )
+    }
 }
 
 struct Inner {
@@ -175,6 +255,7 @@ struct Inner {
     staging: PathBuf,
     bundled_engine: Option<PathBuf>,
     allow_development_engine: bool,
+    engine_runner: Arc<dyn EngineRunner>,
     limits: Mutex<ReplayLibraryLimits>,
     match_active: Arc<dyn Fn() -> bool + Send + Sync>,
     emit_state_changed: EventSink,
@@ -193,7 +274,20 @@ struct ParseRequest {
     match_id: Option<String>,
     source: ReplaySource,
     source_path: PathBuf,
-    automatic: bool,
+    mode: ParseMode,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ParseMode {
+    Manual,
+    Automatic,
+    Reparse,
+}
+
+impl ParseMode {
+    fn automatic(self) -> bool {
+        self == Self::Automatic
+    }
 }
 
 #[derive(Clone)]
@@ -273,6 +367,26 @@ impl ReplayLibrary {
         emit_state_changed: EventSink,
         limits: ReplayLibraryLimits,
     ) -> Self {
+        Self::new_with_engine_runner(
+            root,
+            bundled_engine,
+            allow_development_engine,
+            match_active,
+            emit_state_changed,
+            limits,
+            Arc::new(PinnedEngineRunner),
+        )
+    }
+
+    fn new_with_engine_runner(
+        root: PathBuf,
+        bundled_engine: Option<PathBuf>,
+        allow_development_engine: bool,
+        match_active: Arc<dyn Fn() -> bool + Send + Sync>,
+        emit_state_changed: EventSink,
+        limits: ReplayLibraryLimits,
+        engine_runner: Arc<dyn EngineRunner>,
+    ) -> Self {
         let staging = root.join(".staging");
         let storage_failure = if limits.max_matches == 0 || limits.max_bytes == 0 {
             Some("invalid_library_limits")
@@ -300,6 +414,7 @@ impl ReplayLibrary {
                 staging,
                 bundled_engine,
                 allow_development_engine,
+                engine_runner,
                 limits: Mutex::new(limits),
                 match_active,
                 emit_state_changed,
@@ -369,19 +484,40 @@ impl ReplayLibrary {
     }
 
     pub fn list(&self) -> Result<ReplayLibraryList, &'static str> {
+        let _operation = lock(&self.inner.operation);
         let state = lock(&self.inner.state);
         if let Some(reason) = state.unavailable {
             return Err(reason);
         }
         let mut matches = state.index.entries.clone();
+        drop(state);
+        matches.sort_by(|left, right| right.created_at_unix_ms.cmp(&left.created_at_unix_ms));
+        let mut source_exists = Vec::with_capacity(matches.len());
+        let mut bundle_schemas = Vec::with_capacity(matches.len());
         for entry in &mut matches {
             enrich_list_entry(&self.inner.root, entry);
+            source_exists.push(
+                source_path_from_meta(&self.inner.root, &entry.match_id)
+                    .is_some_and(|path| path.is_file()),
+            );
+            bundle_schemas.push(read_json_limited(
+                &self.inner.root.join(&entry.match_id).join("manifest.json"),
+                engine::MAX_MANIFEST_BYTES,
+            )
+            .ok()
+            .and_then(|manifest| {
+                manifest
+                    .get("schema")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned)
+            })
+            .filter(|schema| schema == "3.0" || schema == "3.1"));
         }
-        matches.sort_by(|left, right| right.created_at_unix_ms.cmp(&left.created_at_unix_ms));
         let jobs = lock(&self.inner.jobs)
             .iter()
             .map(|record| record.public.clone())
             .collect();
+        drop(_operation);
         let watched_replay_folder_path = crate::intake::locate_game().ok().map(|game| {
             game.join("game")
                 .join("dota")
@@ -393,6 +529,8 @@ impl ReplayLibrary {
             matches,
             jobs,
             watched_replay_folder_path,
+            source_exists,
+            bundle_schemas,
         })
     }
 
@@ -501,6 +639,7 @@ impl ReplayLibrary {
 
     pub fn open_bundle(&self, match_id: &str) -> Result<ReplayBundle, &'static str> {
         validate_match_id(match_id).map_err(|_| "invalid_match_id")?;
+        let _operation = lock(&self.inner.operation);
         let entry = {
             let state = lock(&self.inner.state);
             if let Some(reason) = state.unavailable {
@@ -544,6 +683,16 @@ impl ReplayLibrary {
         }
     }
 
+    pub fn reparse(&self, match_id: &str) -> Result<ReplayJob, &'static str> {
+        let sender = self.sender.as_ref().ok_or("worker_unavailable")?;
+        if !self.inner.worker_available.load(Ordering::Relaxed) {
+            return Err("worker_unavailable");
+        }
+        let match_id = canonical_match_id(match_id).ok_or("invalid_match_id")?;
+        let _operation = lock(&self.inner.operation);
+        self.queue_existing_match_locked(sender, &match_id, ParseMode::Reparse)
+    }
+
     fn queue_existing_match(
         &self,
         sender: &Sender<ParseRequest>,
@@ -560,15 +709,24 @@ impl ReplayLibrary {
     ) -> Result<ReplayJob, &'static str> {
         let match_id = canonical_match_id(match_id).ok_or("invalid_match_id")?;
         let _operation = lock(&self.inner.operation);
-        self.queue_existing_match_locked(sender, &match_id, automatic)
+        self.queue_existing_match_locked(
+            sender,
+            &match_id,
+            if automatic {
+                ParseMode::Automatic
+            } else {
+                ParseMode::Manual
+            },
+        )
     }
 
     fn queue_existing_match_locked(
         &self,
         sender: &Sender<ParseRequest>,
         match_id: &str,
-        automatic: bool,
+        mode: ParseMode,
     ) -> Result<ReplayJob, &'static str> {
+        let automatic = mode.automatic();
         if automatic && !self.inner.auto_analyse.load(Ordering::Acquire) {
             return Err("auto_parse_disabled");
         }
@@ -591,19 +749,48 @@ impl ReplayLibrary {
                 return Err("auto_parse_not_eligible");
             }
             match entry.status {
+                ReplayStatus::Ready if mode == ParseMode::Reparse => {}
                 ReplayStatus::Ready => return Err("already_ready"),
                 ReplayStatus::Queued | ReplayStatus::Parsing => return Err("already_queued"),
+                _ if mode == ParseMode::Reparse => return Err("bundle_not_ready"),
                 _ => {}
             }
-            (PathBuf::from(&entry.source_path), entry.source)
+            if mode == ParseMode::Reparse && self.has_active_reparse(match_id) {
+                return Err("already_queued");
+            }
+            let path = if mode == ParseMode::Reparse {
+                let path =
+                    source_path_from_meta(&self.inner.root, match_id).ok_or("source_missing")?;
+                if !path.is_file() {
+                    return Err("source_missing");
+                }
+                path
+            } else {
+                PathBuf::from(&entry.source_path)
+            };
+            (path, entry.source)
         };
-        engine::validate_input_path(&source_path).map_err(|failure| failure.code())?;
+        engine::validate_input_path(&source_path).map_err(|failure| {
+            if mode == ParseMode::Reparse && !source_path.is_file() {
+                "source_missing"
+            } else {
+                failure.code()
+            }
+        })?;
         let job = ReplayJob {
             job_id: next_job_id(),
+            match_id: Some(match_id.to_owned()),
+            operation: if mode == ParseMode::Reparse {
+                ReplayOperation::Reparse
+            } else {
+                ReplayOperation::Parse
+            },
             status: ReplayStatus::Queued,
         };
-        self.set_entry_auto_status_locked(&match_id, ReplayStatus::Queued, automatic)?;
-        self.record_job(&job, Some(match_id.to_owned()));
+        if mode != ParseMode::Reparse {
+            self.set_entry_auto_status_locked(&match_id, ReplayStatus::Queued, automatic)?;
+        }
+        self.record_job(&job, Some(match_id.to_owned()), mode);
         self.emit_state_changed();
         if sender
             .send(ParseRequest {
@@ -611,14 +798,16 @@ impl ReplayLibrary {
                 match_id: Some(match_id.to_owned()),
                 source,
                 source_path,
-                automatic,
+                mode,
             })
             .is_err()
         {
             let failed = ReplayStatus::Failed {
                 reason: "worker_unavailable".to_owned(),
             };
-            let _ = self.set_entry_auto_status_locked(&match_id, failed.clone(), false);
+            if mode != ParseMode::Reparse {
+                let _ = self.set_entry_auto_status_locked(&match_id, failed.clone(), false);
+            }
             self.set_job_status(&job.job_id, failed);
             self.emit_state_changed();
             return Err("worker_unavailable");
@@ -637,13 +826,17 @@ impl ReplayLibrary {
         let job_id = next_job_id();
         let job = ReplayJob {
             job_id: job_id.clone(),
+            match_id: None,
+            operation: ReplayOperation::Parse,
             status: ReplayStatus::Queued,
         };
         let available_job = ReplayJob {
             job_id,
+            match_id: None,
+            operation: ReplayOperation::Parse,
             status: ReplayStatus::Available,
         };
-        self.record_job(&available_job, None);
+        self.record_job(&available_job, None, ParseMode::Manual);
         self.emit_state_changed();
         self.set_job_status(&job.job_id, ReplayStatus::Queued);
         self.emit_state_changed();
@@ -653,7 +846,7 @@ impl ReplayLibrary {
                 match_id: None,
                 source: ReplaySource::ManualPick,
                 source_path,
-                automatic: false,
+                mode: ParseMode::Manual,
             })
             .is_err()
         {
@@ -684,7 +877,7 @@ impl ReplayLibrary {
                 .find(|entry| entry.match_id == match_id)
                 .cloned()
                 .ok_or("match_not_found")?;
-            if entry.status == ReplayStatus::Parsing {
+            if entry.status == ReplayStatus::Parsing || self.reparse_is_parsing(match_id) {
                 return Err("parse_in_progress");
             }
             let path = self.inner.root.join(match_id);
@@ -875,7 +1068,7 @@ impl ReplayLibrary {
         let mut queued_any = false;
         for (_, match_id) in ordered.into_iter().take(available_slots) {
             if self
-                .queue_existing_match_locked(sender, &match_id, true)
+                .queue_existing_match_locked(sender, &match_id, ParseMode::Automatic)
                 .is_ok()
             {
                 queued_any = true;
@@ -930,7 +1123,7 @@ impl ReplayLibrary {
         let mut queued = 0;
         for (_, match_id) in available.into_iter().take(slots) {
             if self
-                .queue_existing_match_locked(sender, &match_id, true)
+                .queue_existing_match_locked(sender, &match_id, ParseMode::Automatic)
                 .is_ok()
             {
                 queued += 1;
@@ -1083,13 +1276,17 @@ impl ReplayLibrary {
             if !self.request_is_queued(&request) {
                 return;
             }
-            let result = request.match_id.as_deref().map_or(Ok(()), |match_id| {
-                self.set_entry_auto_status_locked(
-                    match_id,
-                    ReplayStatus::Parsing,
-                    request.automatic,
-                )
-            });
+            let result = if request.mode == ParseMode::Reparse {
+                Ok(())
+            } else {
+                request.match_id.as_deref().map_or(Ok(()), |match_id| {
+                    self.set_entry_auto_status_locked(
+                        match_id,
+                        ReplayStatus::Parsing,
+                        request.mode.automatic(),
+                    )
+                })
+            };
             if result.is_ok() {
                 self.set_job_status(&request.job_id, ReplayStatus::Parsing);
             }
@@ -1129,14 +1326,28 @@ impl ReplayLibrary {
     }
 
     fn parse_and_store(&self, request: &ParseRequest) -> Result<String, engine::EngineFailure> {
-        engine::validate_input_path(&request.source_path)?;
-        let dem_sha256 = engine::sha256_file(&request.source_path)
-            .map_err(|_| engine::EngineFailure::InvalidInput)?;
+        if request.mode == ParseMode::Reparse && !request.source_path.is_file() {
+            return Err(engine::EngineFailure::SourceMissing);
+        }
+        engine::validate_input_path(&request.source_path).map_err(|failure| {
+            if request.mode == ParseMode::Reparse && !request.source_path.is_file() {
+                engine::EngineFailure::SourceMissing
+            } else {
+                failure
+            }
+        })?;
+        let dem_sha256 = engine::sha256_file(&request.source_path).map_err(|_| {
+            if request.mode == ParseMode::Reparse && !request.source_path.is_file() {
+                engine::EngineFailure::SourceMissing
+            } else {
+                engine::EngineFailure::InvalidInput
+            }
+        })?;
         let stage = self
             .create_staging_dir(&request.job_id)
             .map_err(|_| engine::EngineFailure::StorageConflict)?;
         let development_engine = development_engine_path(self.inner.allow_development_engine);
-        let run = engine::run_pinned_engine(
+        let run = self.inner.engine_runner.run(
             self.inner.bundled_engine.as_deref(),
             development_engine.as_deref(),
             self.inner.allow_development_engine,
@@ -1148,9 +1359,19 @@ impl ReplayLibrary {
             Ok(run) => run,
             Err(failure) => {
                 let _ = fs::remove_dir_all(stage);
-                return Err(failure);
+                return Err(if request.mode == ParseMode::Reparse
+                    && !request.source_path.is_file()
+                {
+                    engine::EngineFailure::SourceMissing
+                } else {
+                    failure
+                });
             }
         };
+        if request.mode == ParseMode::Reparse && !request.source_path.is_file() {
+            let _ = fs::remove_dir_all(stage);
+            return Err(engine::EngineFailure::SourceMissing);
+        }
         if let Some(code) = run.stderr_code {
             crate::log_info!(
                 "replay",
@@ -1217,7 +1438,9 @@ impl ReplayLibrary {
             let _ = fs::remove_dir_all(stage);
             return Err(engine::EngineFailure::StorageConflict);
         }
-        if let Err(failure) = self.install_parsed_bundle(&stage, entry.clone()) {
+        if let Err(failure) =
+            self.install_parsed_bundle(&stage, entry.clone(), request.mode == ParseMode::Reparse)
+        {
             let _ = fs::remove_dir_all(stage);
             return Err(failure);
         }
@@ -1228,6 +1451,7 @@ impl ReplayLibrary {
         &self,
         stage: &Path,
         entry: ReplayLibraryEntry,
+        replace_ready: bool,
     ) -> Result<(), engine::EngineFailure> {
         let _operation = lock(&self.inner.operation);
         let mut state = lock(&self.inner.state);
@@ -1240,9 +1464,10 @@ impl ReplayLibrary {
             .iter()
             .find(|candidate| candidate.match_id == entry.match_id)
             .cloned();
-        if existing
-            .as_ref()
-            .is_some_and(|candidate| candidate.status == ReplayStatus::Ready)
+        if existing.as_ref().is_some_and(|candidate| {
+            (candidate.status == ReplayStatus::Ready && !replace_ready)
+                || (replace_ready && candidate.status != ReplayStatus::Ready)
+        }) || (replace_ready && existing.is_none())
         {
             return Err(engine::EngineFailure::StorageConflict);
         }
@@ -1323,8 +1548,13 @@ impl ReplayLibrary {
             let Some(oldest) = index
                 .entries
                 .iter()
-                .filter(|entry| !entry.pinned && entry.match_id != protected_match_id
-                    && (!over_count || entry.status == ReplayStatus::Ready))
+                .filter(|entry| {
+                    !entry.pinned
+                        && entry.match_id != protected_match_id
+                        && !self.has_active_reparse(&entry.match_id)
+                        && (!over_count || entry.status == ReplayStatus::Ready)
+                })
+
                 .min_by_key(|entry| entry.created_at_unix_ms)
                 .map(|entry| entry.match_id.clone()) else {
                     // Pinned bundles are user-retained data. If they alone exceed the cap,
@@ -1402,14 +1632,22 @@ impl ReplayLibrary {
         Ok(())
     }
 
-    fn record_job(&self, job: &ReplayJob, match_id: Option<String>) {
+    fn record_job(&self, job: &ReplayJob, match_id: Option<String>, mode: ParseMode) {
         let mut jobs = lock(&self.inner.jobs);
         if jobs.len() >= MAX_JOB_HISTORY {
             jobs.pop_front();
         }
+        let mut public = job.clone();
+        public.match_id = match_id.clone();
+        public.operation = if mode == ParseMode::Reparse {
+            ReplayOperation::Reparse
+        } else {
+            ReplayOperation::Parse
+        };
         jobs.push_back(JobRecord {
-            public: job.clone(),
+            public,
             match_id,
+            mode,
         });
     }
 
@@ -1419,6 +1657,7 @@ impl ReplayLibrary {
             .find(|record| record.public.job_id == job_id)
         {
             record.match_id = Some(match_id.to_owned());
+            record.public.match_id = Some(match_id.to_owned());
         }
     }
 
@@ -1433,18 +1672,26 @@ impl ReplayLibrary {
 
     fn request_is_queued(&self, request: &ParseRequest) -> bool {
         if let Some(match_id) = &request.match_id {
-            if request.automatic && !self.inner.auto_analyse.load(Ordering::Acquire) {
+            if request.mode.automatic() && !self.inner.auto_analyse.load(Ordering::Acquire) {
                 return false;
             }
-            return lock(&self.inner.state)
-                .index
-                .entries
-                .iter()
-                .any(|entry| {
-                    entry.match_id == *match_id
-                        && entry.status == ReplayStatus::Queued
-                        && (!request.automatic || entry.auto_queued)
+            if request.mode == ParseMode::Reparse {
+                let job_queued = lock(&self.inner.jobs).iter().any(|record| {
+                    record.public.job_id == request.job_id
+                        && record.mode == ParseMode::Reparse
+                        && record.public.status == ReplayStatus::Queued
                 });
+                return job_queued
+                    && lock(&self.inner.state).index.entries.iter().any(|entry| {
+                        entry.match_id == *match_id && entry.status == ReplayStatus::Ready
+                    });
+            }
+            return lock(&self.inner.state).index.entries.iter().any(|entry| {
+                entry.match_id == *match_id
+                    && entry.status == ReplayStatus::Queued
+                    && (!request.mode.automatic() || entry.auto_queued)
+            });
+
         }
         lock(&self.inner.jobs).iter().any(|record| {
             record.public.job_id == request.job_id && record.public.status == ReplayStatus::Queued
@@ -1452,10 +1699,31 @@ impl ReplayLibrary {
     }
 
     fn finish_job_failure(&self, request: &ParseRequest, status: ReplayStatus) {
-        if let Some(match_id) = &request.match_id {
-            let _ = self.set_entry_auto_status_locked(match_id, status.clone(), false);
+        if request.mode != ParseMode::Reparse {
+            if let Some(match_id) = &request.match_id {
+                let _ = self.set_entry_auto_status_locked(match_id, status.clone(), false);
+            }
         }
         self.set_job_status(&request.job_id, status);
+    }
+
+    fn has_active_reparse(&self, match_id: &str) -> bool {
+        lock(&self.inner.jobs).iter().any(|record| {
+            record.mode == ParseMode::Reparse
+                && record.match_id.as_deref() == Some(match_id)
+                && matches!(
+                    record.public.status,
+                    ReplayStatus::Queued | ReplayStatus::Parsing
+                )
+        })
+    }
+
+    fn reparse_is_parsing(&self, match_id: &str) -> bool {
+        lock(&self.inner.jobs).iter().any(|record| {
+            record.mode == ParseMode::Reparse
+                && record.match_id.as_deref() == Some(match_id)
+                && record.public.status == ReplayStatus::Parsing
+        })
     }
 
     fn emit_state_changed(&self) {
@@ -1547,6 +1815,15 @@ fn read_json_limited(path: &Path, limit: u64) -> Result<Value, &'static str> {
         return Err("bundle_invalid");
     }
     serde_json::from_slice(&bytes).map_err(|_| "bundle_invalid")
+}
+
+fn source_path_from_meta(root: &Path, match_id: &str) -> Option<PathBuf> {
+    read_json_limited(&root.join(match_id).join("meta.json"), MAX_META_BYTES)
+        .ok()?
+        .get("source_path")?
+        .as_str()
+        .filter(|path| !path.is_empty())
+        .map(PathBuf::from)
 }
 
 fn library_match_metadata(
@@ -1757,7 +2034,8 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicU64, Ordering};
+    use serde_json::json;
+    use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
     use std::time::Instant;
 
     static NEXT_DIR: AtomicU64 = AtomicU64::new(0);
@@ -1805,6 +2083,177 @@ mod tests {
         let path = folder.join(format!("{match_id}.dem"));
         fs::write(&path, b"PBDEMS2\0fixture").unwrap();
         path
+    }
+
+    struct FixtureEngineRunner {
+        calls: AtomicUsize,
+        fail: AtomicBool,
+        remove_source_before_failure: AtomicBool,
+    }
+
+    impl FixtureEngineRunner {
+        fn new(fail: bool) -> Self {
+            Self {
+                calls: AtomicUsize::new(0),
+                fail: AtomicBool::new(fail),
+                remove_source_before_failure: AtomicBool::new(false),
+            }
+        }
+
+        fn removing_source_before_failure() -> Self {
+            let runner = Self::new(true);
+            runner
+                .remove_source_before_failure
+                .store(true, Ordering::Release);
+            runner
+        }
+    }
+
+    impl EngineRunner for FixtureEngineRunner {
+        fn run(
+            &self,
+            _bundled_path: Option<&Path>,
+            _development_path: Option<&Path>,
+            _allow_development_path: bool,
+            dem_path: &Path,
+            output_dir: &Path,
+            _match_active: &dyn Fn() -> bool,
+        ) -> Result<engine::EngineRun, engine::EngineFailure> {
+            self.calls.fetch_add(1, Ordering::AcqRel);
+            if self.fail.load(Ordering::Acquire) {
+                if self.remove_source_before_failure.load(Ordering::Acquire) {
+                    fs::remove_file(dem_path).unwrap();
+                }
+                return Err(engine::EngineFailure::EngineFailed);
+            }
+            let dem_sha =
+                engine::sha256_file(dem_path).map_err(|_| engine::EngineFailure::InvalidInput)?;
+            write_valid_bundle(output_dir, "321", "3.1", &dem_sha);
+            Ok(engine::EngineRun {
+                engine_version: engine::ENGINE_VERSION.to_owned(),
+                engine_sha256: engine::ENGINE_SHA256.to_owned(),
+                stderr_code: None,
+            })
+        }
+    }
+
+    fn write_valid_bundle(directory: &Path, match_id: &str, schema: &str, dem_sha: &str) {
+        let engine_version = if schema == "3.0" {
+            "0.2.0"
+        } else {
+            engine::ENGINE_VERSION
+        };
+        let numeric_match_id = match_id.parse::<u64>().unwrap();
+        let mut match_doc = json!({
+            "meta": {
+                "schema": schema, "engine_version": engine_version, "patch": "7.42", "pack": "7.42",
+                "server_build": "dota_v123", "build_num": 123, "match_id": numeric_match_id,
+                "end_time_utc": null, "game_mode": 22, "duration_s": 1200, "dem_sha256": dem_sha,
+                "dem_file": "fixture.dem", "parse_error": null
+            },
+            "t0": 0, "t1": 2, "dtick": 30,
+            "heroes": [{
+                "id": "npc_dota_hero_alpha", "name": "Alpha", "team": 2, "pid": 0,
+                "color": "#3375FF", "pos": [], "hp": [], "mhp": [], "mp": [], "mmp": [],
+                "lvl": [], "alive": [], "eco": [], "abil": [], "inv": [], "icd": {}, "mods": [],
+                "casts": [], "buys": [], "finds": [], "st": {}, "prim": 0, "din": [], "hin": []
+            }],
+            "deaths": [], "names": {}, "statdb": {}, "sampleT": []
+        });
+        if schema == "3.1" {
+            match_doc["meta"]["winner"] = Value::Null;
+            match_doc["meta"]["winner_reason"] = json!("not recorded in the replay");
+            match_doc["meta"]["draft"] = Value::Null;
+            match_doc["meta"]["draft_reason"] = json!("draft not present in the replay");
+            match_doc["heroes"][0]["gold_earned"] = json!([null, 250, 400]);
+            match_doc["heroes"][0]["gold_earned_final"] = Value::Null;
+            match_doc["heroes"][0]["dmg_out"] = json!({ "total": 75, "p": 25, "m": 40, "u": 10 });
+        }
+        let world_doc =
+            json!({ "v": 1, "qh": 8, "qu": 30, "t0": 0, "heroes": {}, "tracks": [], "runes": [] });
+        let match_bytes = serde_json::to_vec(&match_doc).unwrap();
+        let world_bytes = serde_json::to_vec(&world_doc).unwrap();
+        let manifest = json!({
+            "schema": schema,
+            "engine_version": engine_version,
+            "match_id": numeric_match_id,
+            "patch": "7.42",
+            "pack": { "id": "7.42", "source": "embedded" },
+            "dem_sha256": dem_sha,
+            "files": {
+                "match.json": { "bytes": match_bytes.len(), "sha256": engine::sha256_bytes(&match_bytes) },
+                "world.json": { "bytes": world_bytes.len(), "sha256": engine::sha256_bytes(&world_bytes) }
+            },
+            "map": {
+                "image": "map.png", "pack_path": "7.42/map.png", "size": 1, "coord": "world",
+                "calibration": { "px": [], "py": [], "formula": "linear" }
+            },
+            "icons": { "dirs": {}, "needed": { "heroes": [], "items": [], "abilities": [] } },
+            "run": { "parser_passes": 1, "timing_s": {} }
+        });
+        fs::write(
+            directory.join("manifest.json"),
+            serde_json::to_vec(&manifest).unwrap(),
+        )
+        .unwrap();
+        fs::write(directory.join("match.json"), match_bytes).unwrap();
+        fs::write(directory.join("world.json"), world_bytes).unwrap();
+    }
+
+    fn seed_ready_bundle(
+        library: &ReplayLibrary,
+        source_path: &Path,
+        match_id: &str,
+        source: ReplaySource,
+        schema: &str,
+    ) {
+        library
+            .add_available(match_id.to_owned(), source_path, source)
+            .unwrap();
+        let dem_sha = engine::sha256_file(source_path).unwrap();
+        let stage = library.create_staging_dir("seed").unwrap();
+        write_valid_bundle(&stage, match_id, schema, &dem_sha);
+        let validated = engine::validate_bundle_dir(&stage, &dem_sha).unwrap();
+        let mut entry = lock(&library.inner.state)
+            .index
+            .entries
+            .iter()
+            .find(|entry| entry.match_id == match_id)
+            .unwrap()
+            .clone();
+        entry.dem_sha256 = Some(dem_sha);
+        entry.engine_version = Some(
+            if schema == "3.0" {
+                "0.2.0"
+            } else {
+                engine::ENGINE_VERSION
+            }
+            .to_owned(),
+        );
+        entry.engine_sha256 = Some("previous-engine-hash".to_owned());
+        entry.parse_time_unix_ms = Some(now_unix_ms());
+        entry.status = ReplayStatus::Ready;
+        entry.bundle_bytes = validated.bundle_bytes;
+        entry.storage_bytes = entry.bundle_bytes + entry_meta_bytes(&entry).unwrap().len() as u64;
+        write_meta(&stage, &entry).unwrap();
+        library.install_parsed_bundle(&stage, entry, false).unwrap();
+    }
+
+    fn reparse_test_library(
+        root: PathBuf,
+        active: Arc<AtomicBool>,
+        runner: Arc<FixtureEngineRunner>,
+    ) -> ReplayLibrary {
+        let active_for_gate = active.clone();
+        ReplayLibrary::new_with_engine_runner(
+            root,
+            None,
+            false,
+            Arc::new(move || active_for_gate.load(Ordering::Acquire)),
+            Arc::new(|| {}),
+            ReplayLibraryLimits::default(),
+            runner,
+        )
     }
 
     #[test]
@@ -2359,6 +2808,226 @@ mod tests {
     }
 
     #[test]
+    fn reparse_upgrades_a_schema_30_entry_to_schema_31() {
+        let root = temp_dir("reparse-upgrade");
+        let source_folder = temp_dir("reparse-upgrade-source");
+        let dem = write_demo(&source_folder, "321");
+        let runner = Arc::new(FixtureEngineRunner::new(false));
+        let library = reparse_test_library(
+            root.clone(),
+            Arc::new(AtomicBool::new(false)),
+            runner.clone(),
+        );
+        seed_ready_bundle(&library, &dem, "321", ReplaySource::ManualPick, "3.0");
+
+        let before = library.list().unwrap();
+        let before_json = serde_json::to_value(&before).unwrap();
+        assert_eq!(before_json["matches"][0]["bundle_schema"], "3.0");
+        assert_eq!(before_json["matches"][0]["source_exists"], true);
+        let job = library.reparse("321").unwrap();
+        wait_until(|| {
+            library.list().unwrap().jobs.iter().any(|candidate| {
+                candidate.job_id == job.job_id && candidate.status == ReplayStatus::Ready
+            })
+        });
+
+        let after = library.list().unwrap();
+        assert_eq!(after.matches[0].status, ReplayStatus::Ready);
+        let after_json = serde_json::to_value(&after).unwrap();
+        assert_eq!(after_json["matches"][0]["bundle_schema"], "3.1");
+        assert_eq!(
+            library.open_bundle("321").unwrap().manifest["schema"],
+            "3.1"
+        );
+        assert_eq!(runner.calls.load(Ordering::Acquire), 1);
+        let _ = fs::remove_dir_all(root);
+        let _ = fs::remove_dir_all(source_folder);
+    }
+
+    #[test]
+    fn missing_reparse_source_returns_stable_reason_without_changing_bundle_or_job_history() {
+        let root = temp_dir("reparse-missing");
+        let source_folder = temp_dir("reparse-missing-source");
+        let dem = write_demo(&source_folder, "321");
+        let runner = Arc::new(FixtureEngineRunner::new(false));
+        let library = reparse_test_library(
+            root.clone(),
+            Arc::new(AtomicBool::new(false)),
+            runner.clone(),
+        );
+        seed_ready_bundle(&library, &dem, "321", ReplaySource::ManualPick, "3.0");
+        let before = ["manifest.json", "match.json", "world.json", "meta.json"]
+            .map(|name| fs::read(root.join("321").join(name)).unwrap());
+        let index_before = fs::read(root.join("index.json")).unwrap();
+        let jobs_before = library.list().unwrap().jobs.len();
+        fs::remove_file(&dem).unwrap();
+
+        assert_eq!(library.reparse("321").unwrap_err(), "source_missing");
+        let after = ["manifest.json", "match.json", "world.json", "meta.json"]
+            .map(|name| fs::read(root.join("321").join(name)).unwrap());
+        assert_eq!(after, before);
+        assert_eq!(fs::read(root.join("index.json")).unwrap(), index_before);
+        assert_eq!(library.list().unwrap().jobs.len(), jobs_before);
+        assert_eq!(runner.calls.load(Ordering::Acquire), 0);
+        let _ = fs::remove_dir_all(root);
+        let _ = fs::remove_dir_all(source_folder);
+    }
+
+    #[test]
+    fn failed_reparse_preserves_the_previous_ready_bundle() {
+        let root = temp_dir("reparse-failure");
+        let source_folder = temp_dir("reparse-failure-source");
+        let dem = write_demo(&source_folder, "321");
+        let runner = Arc::new(FixtureEngineRunner::new(true));
+        let library = reparse_test_library(
+            root.clone(),
+            Arc::new(AtomicBool::new(false)),
+            runner.clone(),
+        );
+        seed_ready_bundle(&library, &dem, "321", ReplaySource::ManualPick, "3.0");
+        let before = ["manifest.json", "match.json", "world.json", "meta.json"]
+            .map(|name| fs::read(root.join("321").join(name)).unwrap());
+        let job = library.reparse("321").unwrap();
+        wait_until(|| {
+            library.list().unwrap().jobs.iter().any(|candidate| {
+                candidate.job_id == job.job_id
+                    && candidate.status
+                        == (ReplayStatus::Failed {
+                            reason: "engine_failed".to_owned(),
+                        })
+            })
+        });
+
+        let after = ["manifest.json", "match.json", "world.json", "meta.json"]
+            .map(|name| fs::read(root.join("321").join(name)).unwrap());
+        assert_eq!(after, before);
+        assert_eq!(
+            library.list().unwrap().matches[0].status,
+            ReplayStatus::Ready
+        );
+        assert_eq!(
+            library.open_bundle("321").unwrap().manifest["schema"],
+            "3.0"
+        );
+        assert_eq!(runner.calls.load(Ordering::Acquire), 1);
+        let _ = fs::remove_dir_all(root);
+        let _ = fs::remove_dir_all(source_folder);
+    }
+
+    #[test]
+    fn source_removed_during_reparse_reports_source_missing_and_preserves_bundle() {
+        let root = temp_dir("reparse-source-removed");
+        let source_folder = temp_dir("reparse-source-removed-source");
+        let dem = write_demo(&source_folder, "321");
+        let runner = Arc::new(FixtureEngineRunner::removing_source_before_failure());
+        let library = reparse_test_library(
+            root.clone(),
+            Arc::new(AtomicBool::new(false)),
+            runner.clone(),
+        );
+        seed_ready_bundle(&library, &dem, "321", ReplaySource::ManualPick, "3.0");
+        let before = ["manifest.json", "match.json", "world.json", "meta.json"]
+            .map(|name| fs::read(root.join("321").join(name)).unwrap());
+        let job = library.reparse("321").unwrap();
+        wait_until(|| {
+            library.list().unwrap().jobs.iter().any(|candidate| {
+                candidate.job_id == job.job_id
+                    && candidate.status
+                        == (ReplayStatus::Failed {
+                            reason: "source_missing".to_owned(),
+                        })
+            })
+        });
+
+        let after = ["manifest.json", "match.json", "world.json", "meta.json"]
+            .map(|name| fs::read(root.join("321").join(name)).unwrap());
+        assert_eq!(after, before);
+        assert_eq!(
+            library.list().unwrap().matches[0].status,
+            ReplayStatus::Ready
+        );
+        assert_eq!(runner.calls.load(Ordering::Acquire), 1);
+        let _ = fs::remove_dir_all(root);
+        let _ = fs::remove_dir_all(source_folder);
+    }
+
+    #[test]
+    fn reparse_waits_for_the_match_barrier_to_clear() {
+        let root = temp_dir("reparse-match-barrier");
+        let source_folder = temp_dir("reparse-match-barrier-source");
+        let dem = write_demo(&source_folder, "321");
+        let active = Arc::new(AtomicBool::new(true));
+        let runner = Arc::new(FixtureEngineRunner::new(false));
+        let library = reparse_test_library(root.clone(), active.clone(), runner.clone());
+        seed_ready_bundle(&library, &dem, "321", ReplaySource::ManualPick, "3.0");
+        let job = library.reparse("321").unwrap();
+        thread::sleep(Duration::from_millis(50));
+        let queued = library
+            .list()
+            .unwrap()
+            .jobs
+            .into_iter()
+            .find(|candidate| candidate.job_id == job.job_id)
+            .unwrap();
+        assert_eq!(queued.status, ReplayStatus::Queued);
+        assert_eq!(runner.calls.load(Ordering::Acquire), 0);
+
+        active.store(false, Ordering::Release);
+        wait_until(|| {
+            library.list().unwrap().jobs.iter().any(|candidate| {
+                candidate.job_id == job.job_id && candidate.status == ReplayStatus::Ready
+            })
+        });
+        assert_eq!(runner.calls.load(Ordering::Acquire), 1);
+        let _ = fs::remove_dir_all(root);
+        let _ = fs::remove_dir_all(source_folder);
+    }
+
+    #[test]
+    fn automatic_queue_does_not_reparse_ready_entries() {
+        let root = temp_dir("reparse-not-automatic");
+        let source_folder = temp_dir("reparse-not-automatic-source");
+        let dem = write_demo(&source_folder, "321");
+        let runner = Arc::new(FixtureEngineRunner::new(false));
+        let library = reparse_test_library(
+            root.clone(),
+            Arc::new(AtomicBool::new(false)),
+            runner.clone(),
+        );
+        seed_ready_bundle(
+            &library,
+            &dem,
+            "321",
+            ReplaySource::DotaReplaysFolder,
+            "3.0",
+        );
+        library.set_auto_analyse(true);
+        assert_eq!(
+            library
+                .watch_replay_folder_for_test(&source_folder)
+                .unwrap(),
+            0
+        );
+        let job = library.reparse("321").unwrap();
+        wait_until(|| {
+            library.list().unwrap().jobs.iter().any(|candidate| {
+                candidate.job_id == job.job_id && candidate.status == ReplayStatus::Ready
+            })
+        });
+        assert_eq!(
+            library
+                .watch_replay_folder_for_test(&source_folder)
+                .unwrap(),
+            0
+        );
+        thread::sleep(Duration::from_millis(50));
+        assert_eq!(runner.calls.load(Ordering::Acquire), 1);
+        assert_eq!(library.list().unwrap().jobs.len(), 1);
+        let _ = fs::remove_dir_all(root);
+        let _ = fs::remove_dir_all(source_folder);
+    }
+
+    #[test]
     fn clear_removes_all_library_entries_and_match_folders() {
         let root = temp_dir("clear");
         let library = ReplayLibrary::new_for_tests(root.clone(), ReplayLibraryLimits::default());
@@ -2392,9 +3061,12 @@ mod tests {
         library.record_job(
             &ReplayJob {
                 job_id: "job-test-running".to_owned(),
+                match_id: None,
+                operation: ReplayOperation::Parse,
                 status: ReplayStatus::Parsing,
             },
             None,
+            ParseMode::Manual,
         );
         assert_eq!(library.clear(), Err("parse_in_progress"));
         assert_eq!(library.list().unwrap().matches.len(), 1);

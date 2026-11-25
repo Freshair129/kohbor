@@ -173,6 +173,16 @@ pub(crate) fn replay_library_parse(
 }
 
 #[tauri::command]
+pub(crate) fn replay_library_reparse(
+    webview: tauri::Webview,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+    match_id: String,
+) -> Result<crate::replay_library::ReplayJob, String> {
+    require_control(&webview)?;
+    library.reparse(&match_id).map_err(str::to_owned)
+}
+
+#[tauri::command]
 pub(crate) fn replay_library_remove(
     webview: tauri::Webview,
     library: tauri::State<'_, crate::replay_library::ReplayLibrary>,

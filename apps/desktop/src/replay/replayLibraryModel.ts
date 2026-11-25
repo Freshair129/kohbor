@@ -32,6 +32,9 @@ export interface ReplayListItem {
   statusLabel: string;
   canOpen: boolean;
   canParse: boolean;
+  showReparse: boolean;
+  canReparse: boolean;
+  bundleSchema: "3.0" | "3.1" | null;
   sourceLabel: string;
   addedDateLabel: string;
   matchDateLabel: string;
@@ -85,8 +88,16 @@ export function replayListViewModel(
       matchId: entry.match_id,
       status,
       statusLabel: replayStatusLabel(status, copy.states),
-      canOpen: status.state === "ready",
-      canParse: status.state === "available" || status.state === "failed",
+      canOpen: entry.status.state === "ready"
+        && packLookup.state === "ready"
+        && status.state !== "needs_pack",
+      canParse: entry.status.state === "available" || entry.status.state === "failed",
+      showReparse: entry.status.state === "ready",
+      canReparse: entry.status.state === "ready"
+        && entry.source_exists === true
+        && status.state !== "queued"
+        && status.state !== "parsing",
+      bundleSchema: entry.bundle_schema ?? null,
       sourceLabel: entry.source === "dota_replays_folder" ? copy.source.dota : copy.source.manual,
       addedDateLabel: copy.dateAdded(addedLabel),
       matchDateLabel: matchDate,

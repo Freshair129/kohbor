@@ -2,7 +2,7 @@
 title: "Decision Log and Open Items"
 doc_id: "DECISION-LOG"
 status: draft
-version: "0.3.20"
+version: "0.3.21"
 updated: "2026-11-25"
 authority: "DEC-BASELINE; see DOCUMENT-CONTROL"
 owner_role: "Product and engineering owners; people not assigned"
@@ -241,6 +241,8 @@ The requirements are UI-021, UI-022 and MEM-007. The API key is native-host-only
 **DEC-REPLAY-AUTO-PARSE** — decided by the product owner 2026-11-25, relayed by the lead, recorded by an agent. Owner words, translated in the brief: “Make the automatic replay-parsing switch now.”
 
 The existing persisted `auto_analyse` preference in Analytics Settings (default on), labelled **“แยกรีเพลย์อัตโนมัติ” / “Parse replays automatically”**, controls automatic parsing of newly detected watched Dota `.dem` files. It remains the single source of truth; no second preference is added, and the owner may reverse the default. Only newly detected watched files are auto-queued; a manual file pick remains an explicit parse action. Automatic requests share the existing queue and match barrier, run one at a time at low priority after the player leaves the match, and are queued newest first. Removing a watched entry suppresses its rediscovery while the Dota `.dem` remains; `failed` and `needs_pack` entries are not auto-retried. Turning the switch off cancels queued automatic jobs but lets a running parse finish. Turning it on queues existing `available` watched entries once, newest first, bounded by the retention count. `ready` is shown only after bundle validation. No network request, Dota write, match ID or replay path is added. This decision amends the “user parse request” step in [REPLAY-PIPELINE](../design/REPLAY-PIPELINE.md).
+
+**DEC-REPLAY-AUTO-PARSE amendment** (owner 2026-11-25, relayed by the lead, recorded by an agent). Owner words, translated in the brief: “Make a re-parse button too.” Add a manual re-parse action to each ready Lab replay row. It reads the source `.dem` path from that entry's `meta.json`, uses the existing single queue and match barrier, and never enters the automatic parse queue. If the source is missing, return `source_missing` without changing the entry or current bundle. Keep the old bundle until the new bundle passes staging validation, then swap it atomically; failed re-parses leave the old bundle available. Display the current bundle schema (`3.0` or `3.1`) and disable re-parse when the source is absent. Re-parse never writes to Dota's folder or logs a match ID or path.
 
 ### Analytics v2 renderer decisions (DEC-ANALYTICS-V2, 2026-11-25)
 
