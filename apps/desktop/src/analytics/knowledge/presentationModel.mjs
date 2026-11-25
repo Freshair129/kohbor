@@ -55,6 +55,32 @@ export function laneBadgeLabel(outcome) {
   return labels[outcome] ? `${labels[outcome]} · เกณฑ์ชั่วคราว` : "— ไม่ทราบ";
 }
 
+/** Build one side's trial reading without changing the AV2 raw lane result. */
+export function laneExpectationReading(lane, side) {
+  const expectation = lane?.expectation && typeof lane.expectation === "object" ? lane.expectation : null;
+  const verdict = lane?.verdict_by_side?.[side] ?? (side === "radiant" ? lane?.verdict : null);
+  const labels = { above: "เกินคาด", as: "ตามคาด", below: "ต่ำกว่าคาด" };
+  return {
+    trialLabel: lane?.label ?? "ทดลอง · เกณฑ์ชั่วคราว",
+    score: typeof lane?.score?.value === "number" ? lane.score.value : null,
+    expectation: typeof expectation?.value === "number" ? expectation.value : null,
+    source: typeof expectation?.source_label === "string" ? expectation.source_label : null,
+    verdict: verdict && labels[verdict.label]
+      ? `${labels[verdict.label]}${verdict.far ? "มาก" : ""}`
+      : null,
+    explanation: typeof verdict?.text_th === "string" ? verdict.text_th : null,
+    reason: typeof lane?.expectation_reason === "string" ? lane.expectation_reason : null,
+    personalAverage: lane?.personal_average && typeof lane.personal_average.value === "number"
+      ? lane.personal_average.value
+      : null,
+  };
+}
+
+/** Use the lane card when more than four matchup cells would make the strip crowded. */
+export function showLaneExpectationInStrip(heroes, maximumCells) {
+  return Number.isSafeInteger(maximumCells) && maximumCells >= 0 && (heroes?.length ?? 0) <= maximumCells;
+}
+
 /** Return all reasons a persisted report no longer matches current inputs. */
 export function reportStaleReasons(report, current) {
   const reasons = [];

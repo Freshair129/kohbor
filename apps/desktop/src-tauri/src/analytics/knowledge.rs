@@ -1,44 +1,11 @@
-use crate::match_history::MatchEntry;
+use super::lane_expectation;
+use super::lane_history::LaneHistoryRecord;
+use crate::match_history::{MatchEntry, MatchResult};
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
-pub(crate) const KNOWLEDGE_VERSION: u32 = 1;
-const LANE_BOUNDARY_MODES: &[u64] = &[1, 2, 3, 4, 5, 16, 18, 22];
-
-#[derive(Clone, Copy, Debug)]
-pub(crate) struct ProvisionalThresholds {
-    pub(crate) lane_sample_from_s: i64,
-    pub(crate) lane_sample_to_s: i64,
-    pub(crate) mid_delta_max: f64,
-    pub(crate) mid_sum_max: f64,
-    pub(crate) lane_min_share: f64,
-    pub(crate) even_advantage_pct: f64,
-    pub(crate) stomp_advantage_pct: f64,
-    pub(crate) teamfight_gap_s: f64,
-    pub(crate) teamfight_death_distance: f64,
-    pub(crate) teamfight_min_deaths: usize,
-    pub(crate) teamfight_window_before_s: i64,
-    pub(crate) teamfight_window_after_s: i64,
-    pub(crate) teamfight_presence_distance: f64,
-}
-
-// These are one provisional source of truth for every thresholded Analytics label.
-pub(crate) const PROVISIONAL_THRESHOLDS: ProvisionalThresholds = ProvisionalThresholds {
-    lane_sample_from_s: 60,
-    lane_sample_to_s: 480,
-    mid_delta_max: 2_500.0,
-    mid_sum_max: 5_000.0,
-    lane_min_share: 0.5,
-    even_advantage_pct: 5.0,
-    stomp_advantage_pct: 15.0,
-    teamfight_gap_s: 15.0,
-    teamfight_death_distance: 3_000.0,
-    teamfight_min_deaths: 3,
-    teamfight_window_before_s: 10,
-    teamfight_window_after_s: 5,
-    teamfight_presence_distance: 2_000.0,
-};
+pub(crate) const KNOWLEDGE_VERSION: u32 = 2;
 
 pub(crate) struct KnowledgeInput<'a> {
     pub(crate) manifest: &'a Value,
@@ -100,6 +67,17 @@ pub(crate) fn bundle_hash12(manifest: &Value) -> Result<String, &'static str> {
 }
 
 pub(crate) fn build(input: &KnowledgeInput<'_>) -> Result<Value, &'static str> {
+    build_with_sources(input, None, &[], &[], &[], None)
+}
+
+pub(crate) fn build_with_sources(
+    input: &KnowledgeInput<'_>,
+    match_key: Option<&str>,
+    local_history: &[MatchEntry],
+    opendota_history: &[MatchEntry],
+    lane_history: &[LaneHistoryRecord],
+    own_hero: Option<&str>,
+) -> Result<Value, &'static str> {
     // Read the hash only as an integrity/cache input. It is deliberately absent from the digest.
     let _cache_hash = bundle_hash(input.manifest).ok();
     let match_data = input.match_data;
@@ -126,10 +104,18 @@ pub(crate) fn build(input: &KnowledgeInput<'_>) -> Result<Value, &'static str> {
     let game_mode = match_data
         .pointer("/meta/game_mode")
         .and_then(Value::as_u64);
-    let lanes = lane_summaries(&heroes, t0, t1, game_mode);
+    let mut lanes = lane_summaries(&heroes, t0, t1, game_mode);
     let fights = teamfights(&heroes, &deaths, t0);
     let phase_names = ["laning", "mid", "late"];
-    let phase_bounds = [(0.0, 600.0), (600.0, 1_500.0), (1_500.0, t1.unwrap_or(0.0))];
+    let boundaries = lane_expectation::phase_boundaries();
+    let phase_start = boundaries.first().copied().unwrap_or(0.0);
+    let phase_laning_end = boundaries.get(1).copied().unwrap_or(0.0);
+    let phase_mid_end = boundaries.get(2).copied().unwrap_or(phase_laning_end);
+    let phase_bounds = [
+        (phase_start, phase_laning_end),
+        (phase_laning_end, phase_mid_end),
+        (phase_mid_end, t1.unwrap_or(0.0)),
+    ];
     let mut profiles = Vec::with_capacity(heroes.len());
     for hero in &heroes {
         profiles.push(hero_profile(
@@ -147,6 +133,7 @@ pub(crate) fn build(input: &KnowledgeInput<'_>) -> Result<Value, &'static str> {
             &phase_bounds,
         ));
     }
+    lane_expectation::enrich_lanes(match_data, world, &profiles, &mut lanes, lane_history);
     let objective_data = objectives(world, &hero_by_id);
     let team_phases = team_phase_summaries(
         &heroes,
@@ -160,7 +147,14 @@ pub(crate) fn build(input: &KnowledgeInput<'_>) -> Result<Value, &'static str> {
         death_data_available,
         fight_data_available,
     );
-    let winner = match_winner(match_data);
+    let result = resolve_match_result(
+        match_data,
+        &heroes,
+        own_hero,
+        match_key,
+        local_history,
+        opendota_history,
+    );
     let draft = safe_draft(match_data, &hero_by_id);
     let digest = json!({
         "knowledge_version": KNOWLEDGE_VERSION,
@@ -176,8 +170,7 @@ pub(crate) fn build(input: &KnowledgeInput<'_>) -> Result<Value, &'static str> {
             "t0_reason": number(match_data.get("t0")).is_none().then_some("match start time is missing").map(Value::from),
             "t1": t1.map(number_json).unwrap_or(Value::Null),
             "t1_reason": t1.is_none().then_some("match end time is missing").map(Value::from),
-            "winner": winner.0,
-            "winner_reason": winner.1,
+            "result": result,
             "draft": draft.0,
             "draft_reason": draft.1,
             "kills": side_kills(&deaths, &hero_by_id, death_data_available)
@@ -252,7 +245,10 @@ fn number_json(value: f64) -> Value {
     if value.fract() == 0.0 && value >= i64::MIN as f64 && value <= i64::MAX as f64 {
         json!(value as i64)
     } else {
-        json!(round_to(value, 3))
+        json!(round_to(
+            value,
+            lane_expectation::config_integer("/number_precision") as i32
+        ))
     }
 }
 
@@ -380,8 +376,9 @@ fn position_at(hero: &Value, time: f64, t0: f64) -> Option<Point> {
 }
 
 fn classify_lane(point: Point) -> &'static str {
-    if (point.x - point.y).abs() < PROVISIONAL_THRESHOLDS.mid_delta_max
-        && (point.x + point.y).abs() < PROVISIONAL_THRESHOLDS.mid_sum_max
+    if (point.x - point.y).abs() < lane_expectation::config_number("/lane_assignment/mid_delta_max")
+        && (point.x + point.y).abs()
+            < lane_expectation::config_number("/lane_assignment/mid_sum_max")
     {
         "mid"
     } else if point.y > point.x {
@@ -394,7 +391,8 @@ fn classify_lane(point: Point) -> &'static str {
 fn assign_lane(hero: &Value, t0: f64) -> (Option<&'static str>, Option<f64>) {
     let mut counts = BTreeMap::<&str, usize>::new();
     let mut total = 0_usize;
-    for time in PROVISIONAL_THRESHOLDS.lane_sample_from_s..=PROVISIONAL_THRESHOLDS.lane_sample_to_s
+    for time in lane_expectation::config_signed_integer("/lane_assignment/sample_from_s")
+        ..=lane_expectation::config_signed_integer("/lane_assignment/sample_to_s")
     {
         if alive_at(hero, time as f64, t0) == Some(false) {
             continue;
@@ -414,8 +412,14 @@ fn assign_lane(hero: &Value, t0: f64) -> (Option<&'static str>, Option<f64>) {
         return (None, None);
     };
     let share = count as f64 / total as f64;
-    if share < PROVISIONAL_THRESHOLDS.lane_min_share {
-        (None, Some(round_to(share, 3)))
+    if share < lane_expectation::config_number("/lane_assignment/minimum_lane_share") {
+        (
+            None,
+            Some(round_to(
+                share,
+                lane_expectation::config_integer("/number_precision") as i32,
+            )),
+        )
     } else {
         let lane = match lane {
             "top" => "top",
@@ -423,7 +427,13 @@ fn assign_lane(hero: &Value, t0: f64) -> (Option<&'static str>, Option<f64>) {
             "bot" => "bot",
             _ => return (None, None),
         };
-        (Some(lane), Some(round_to(share, 3)))
+        (
+            Some(lane),
+            Some(round_to(
+                share,
+                lane_expectation::config_integer("/number_precision") as i32,
+            )),
+        )
     }
 }
 
@@ -567,7 +577,8 @@ fn hero_profile<'a>(
     add_number(&mut final_stats, "dn", final_dn, "deny samples are missing");
     add_number(&mut final_stats, "xp", final_xp, "XP samples are missing");
     let mut at_10 = Map::new();
-    if end < 600.0 {
+    let boundary = lane_expectation::standard_boundary();
+    if end < boundary {
         at_10.insert("available".into(), Value::Bool(false));
         at_10.insert(
             "reason".into(),
@@ -578,19 +589,19 @@ fn hero_profile<'a>(
         add_number(
             &mut at_10,
             "nw",
-            eco_number(hero.source, 1, 600.0, t0),
+            eco_number(hero.source, 1, boundary, t0),
             "net-worth sample at 10:00 is missing",
         );
         add_number(
             &mut at_10,
             "lh",
-            eco_number(hero.source, 2, 600.0, t0),
+            eco_number(hero.source, 2, boundary, t0),
             "last-hit sample at 10:00 is missing",
         );
         add_number(
             &mut at_10,
             "dn",
-            eco_number(hero.source, 3, 600.0, t0),
+            eco_number(hero.source, 3, boundary, t0),
             "deny sample at 10:00 is missing",
         );
         add_number(
@@ -599,7 +610,7 @@ fn hero_profile<'a>(
             sample_number(
                 hero.source.get("st").unwrap_or(&Value::Null),
                 "xp",
-                600.0,
+                boundary,
                 t0,
             ),
             "XP sample at 10:00 is missing",
@@ -607,7 +618,7 @@ fn hero_profile<'a>(
         add_number(
             &mut at_10,
             "lvl",
-            sample_number(hero.source, "lvl", 600.0, t0),
+            sample_number(hero.source, "lvl", boundary, t0),
             "level sample at 10:00 is missing",
         );
     }
@@ -830,7 +841,17 @@ fn role_for(
             }
             let mut by_nw = same_lane
                 .iter()
-                .map(|candidate| (candidate, eco_number(candidate.source, 1, 600.0, t0)))
+                .map(|candidate| {
+                    (
+                        candidate,
+                        eco_number(
+                            candidate.source,
+                            1,
+                            lane_expectation::standard_boundary(),
+                            t0,
+                        ),
+                    )
+                })
                 .collect::<Vec<_>>();
             if by_nw.iter().any(|(_, nw)| nw.is_none()) {
                 return (None, Some("net worth at 10:00 is missing"));
@@ -949,25 +970,34 @@ fn lane_summaries(
     ["top", "mid", "bot"].into_iter().map(|lane| {
         let radiant = heroes.iter().filter(|hero| hero.side == "radiant" && hero.lane == Some(lane)).collect::<Vec<_>>();
         let dire = heroes.iter().filter(|hero| hero.side == "dire" && hero.lane == Some(lane)).collect::<Vec<_>>();
-        let (nw_diff, xp_diff, adv_pct, outcome, reason) = if !game_mode.is_some_and(|mode| LANE_BOUNDARY_MODES.contains(&mode)) {
+        let boundary = lane_expectation::boundary_for_mode(game_mode);
+        let sample_boundary = boundary.filter(|value| {
+            t1.is_some_and(|end| end >= *value) && !radiant.is_empty() && !dire.is_empty()
+        });
+        let radiant_lh = sample_boundary.and_then(|time| sum_metric(&radiant, Metric::LastHits, time, t0));
+        let dire_lh = sample_boundary.and_then(|time| sum_metric(&dire, Metric::LastHits, time, t0));
+        let radiant_dn = sample_boundary.and_then(|time| sum_metric(&radiant, Metric::Denies, time, t0));
+        let dire_dn = sample_boundary.and_then(|time| sum_metric(&dire, Metric::Denies, time, t0));
+        let (nw_diff, xp_diff, adv_pct, outcome, reason) = if boundary.is_none() {
             (None, None, None, None, Some("lane boundaries are not established for this game mode"))
-        } else if t1.is_none_or(|end| end < 600.0) {
+        } else if t1.is_none_or(|end| end < boundary.unwrap_or(0.0)) {
             (None, None, None, None, Some("match ended before 10:00"))
         } else if radiant.is_empty() || dire.is_empty() {
             (None, None, None, None, Some("lane assignment or positions are missing on one side"))
         } else {
-            let radiant_nw = sum_metric(&radiant, Metric::NetWorth, 600.0, t0);
-            let dire_nw = sum_metric(&dire, Metric::NetWorth, 600.0, t0);
-            let radiant_xp = sum_metric(&radiant, Metric::Xp, 600.0, t0);
-            let dire_xp = sum_metric(&dire, Metric::Xp, 600.0, t0);
+            let boundary = boundary.unwrap_or(0.0);
+            let radiant_nw = sum_metric(&radiant, Metric::NetWorth, boundary, t0);
+            let dire_nw = sum_metric(&dire, Metric::NetWorth, boundary, t0);
+            let radiant_xp = sum_metric(&radiant, Metric::Xp, boundary, t0);
+            let dire_xp = sum_metric(&dire, Metric::Xp, boundary, t0);
             match (radiant_nw, dire_nw, radiant_xp, dire_xp) {
                 (Some(rnw), Some(dnw), Some(rxp), Some(dxp)) if rnw + dnw > 0.0 => {
                     let nw = rnw - dnw;
                     let xp = rxp - dxp;
-                    let pct = 100.0 * nw / (rnw + dnw);
-                    let label = if pct.abs() < PROVISIONAL_THRESHOLDS.even_advantage_pct || (nw != 0.0 && xp != 0.0 && nw.signum() != xp.signum()) {
+                    let pct = lane_expectation::config_number("/score/percent_scale") * nw / (rnw + dnw);
+                    let label = if pct.abs() < lane_expectation::config_number("/raw_lane_result/even_advantage_pct") || (nw != 0.0 && xp != 0.0 && nw.signum() != xp.signum()) {
                         "even"
-                    } else if pct.abs() >= PROVISIONAL_THRESHOLDS.stomp_advantage_pct {
+                    } else if pct.abs() >= lane_expectation::config_number("/raw_lane_result/stomp_advantage_pct") {
                         if pct > 0.0 { "radiant_stomp" } else { "dire_stomp" }
                     } else if pct > 0.0 {
                         "radiant_won"
@@ -979,12 +1009,18 @@ fn lane_summaries(
                 _ => (None, None, None, None, Some("net-worth or XP samples at 10:00 are missing")),
             }
         };
+        let lh_10 = [radiant_lh, dire_lh]
+            .map(|value| value.map(number_json).unwrap_or(Value::Null));
+        let dn_10 = [radiant_dn, dire_dn]
+            .map(|value| value.map(number_json).unwrap_or(Value::Null));
         let mut value = json!({
             "lane": lane,
             "radiant": radiant.iter().map(|hero| json!({"hero":hero.id,"name":hero.name})).collect::<Vec<_>>(),
             "dire": dire.iter().map(|hero| json!({"hero":hero.id,"name":hero.name})).collect::<Vec<_>>(),
             "nw_diff_10": nw_diff.map(number_json).unwrap_or(Value::Null),
             "xp_diff_10": xp_diff.map(number_json).unwrap_or(Value::Null),
+            "lh_10": lh_10,
+            "dn_10": dn_10,
             "adv_pct": adv_pct.map(|value| number_json(round_to(value, 1))).unwrap_or(Value::Null),
             "outcome": outcome.map(Value::from).unwrap_or(Value::Null),
             "threshold_label": "เกณฑ์ชั่วคราว"
@@ -995,6 +1031,12 @@ fn lane_summaries(
             value["xp_diff_10_reason"] = Value::String(reason.into());
             value["adv_pct_reason"] = Value::String(reason.into());
         }
+        if radiant_lh.is_none() || dire_lh.is_none() {
+            value["lh_10_reason"] = Value::String("last-hit samples at 10:00 are missing".into());
+        }
+        if radiant_dn.is_none() || dire_dn.is_none() {
+            value["dn_10_reason"] = Value::String("deny samples at 10:00 are missing".into());
+        }
         value
     }).collect()
 }
@@ -1003,6 +1045,8 @@ fn lane_summaries(
 enum Metric {
     NetWorth,
     Xp,
+    LastHits,
+    Denies,
 }
 
 fn sum_metric(heroes: &[&HeroInfo<'_>], metric: Metric, time: f64, t0: f64) -> Option<f64> {
@@ -1012,6 +1056,8 @@ fn sum_metric(heroes: &[&HeroInfo<'_>], metric: Metric, time: f64, t0: f64) -> O
     heroes.iter().try_fold(0.0, |sum, hero| {
         let value = match metric {
             Metric::NetWorth => eco_number(hero.source, 1, time, t0),
+            Metric::LastHits => eco_number(hero.source, 2, time, t0),
+            Metric::Denies => eco_number(hero.source, 3, time, t0),
             Metric::Xp => sample_number(
                 hero.source.get("st").unwrap_or(&Value::Null),
                 "xp",
@@ -1214,18 +1260,100 @@ fn side_kills(
     }
 }
 
-fn match_winner(match_data: &Value) -> (Value, Value) {
-    if let Some(winner) = match_data
+fn resolve_match_result(
+    match_data: &Value,
+    heroes: &[HeroInfo<'_>],
+    own_hero: Option<&str>,
+    match_key: Option<&str>,
+    local_history: &[MatchEntry],
+    opendota_history: &[MatchEntry],
+) -> Value {
+    let own_side = own_hero
+        .and_then(|own| heroes.iter().find(|hero| hero.id == own))
+        .map(|hero| hero.side);
+    let engine = match_data
         .pointer("/meta/winner")
         .and_then(Value::as_str)
-        .filter(|value| matches!(*value, "radiant" | "dire"))
-    {
-        return (Value::String(winner.into()), Value::Null);
+        .filter(|winner| matches!(*winner, "radiant" | "dire"));
+    let mut candidates = Vec::<(&str, &'static str)>::new();
+    if let Some(winner) = engine {
+        candidates.push((
+            "engine",
+            if winner == "radiant" {
+                "radiant"
+            } else {
+                "dire"
+            },
+        ));
     }
-    (
-        Value::Null,
-        Value::from("winner is not present in the replay bundle"),
-    )
+    let mut mismatch = false;
+    if let Some(match_key) = match_key {
+        if let Some(entry) = local_history.iter().find(|entry| {
+            entry.match_key == match_key && entry.source == "kohbor" && entry.result.is_some()
+        }) {
+            match history_winner(entry, heroes) {
+                Ok(Some(winner)) => candidates.push(("gsi_history", winner)),
+                Ok(None) => {}
+                Err(()) => mismatch = true,
+            }
+        }
+        if let Some(entry) = opendota_history.iter().find(|entry| {
+            entry.match_key == match_key && entry.source == "opendota" && entry.result.is_some()
+        }) {
+            match history_winner(entry, heroes) {
+                Ok(Some(winner)) => candidates.push(("opendota_history", winner)),
+                Ok(None) => {}
+                Err(()) => mismatch = true,
+            }
+        }
+    }
+    let distinct = candidates
+        .iter()
+        .map(|(_, winner)| *winner)
+        .collect::<BTreeSet<_>>();
+    if distinct.len() > 1 {
+        return json!({
+            "winner":null,"source":null,"own_side":own_side,"own_result":null,
+            "conflict":true,"reason":"sources_disagree"
+        });
+    }
+    if mismatch {
+        return json!({
+            "winner":null,"source":null,"own_side":own_side,"own_result":null,
+            "conflict":false,"reason":"history_hero_mismatch"
+        });
+    }
+    if let Some((source, winner)) = candidates.first() {
+        let own_result = own_side.map(|side| if side == *winner { "win" } else { "loss" });
+        return json!({
+            "winner":winner,"source":source,"own_side":own_side,"own_result":own_result,
+            "conflict":false,"reason":null
+        });
+    }
+    json!({
+        "winner":null,"source":null,"own_side":own_side,"own_result":null,
+        "conflict":false,"reason":"not_in_bundle_no_history"
+    })
+}
+
+fn history_winner(entry: &MatchEntry, heroes: &[HeroInfo<'_>]) -> Result<Option<&'static str>, ()> {
+    let Some(result) = entry.result else {
+        return Ok(None);
+    };
+    let Some(hero) = entry.hero.as_deref() else {
+        return Err(());
+    };
+    let Some(side) = heroes
+        .iter()
+        .find(|candidate| candidate.id == hero)
+        .map(|hero| hero.side)
+    else {
+        return Err(());
+    };
+    Ok(Some(match (side, result) {
+        ("radiant", MatchResult::Win) | ("dire", MatchResult::Loss) => "radiant",
+        _ => "dire",
+    }))
 }
 
 fn safe_draft(match_data: &Value, heroes: &BTreeMap<String, HeroInfo<'_>>) -> (Value, Value) {
@@ -1316,12 +1444,14 @@ fn teamfights(heroes: &[HeroInfo<'_>], deaths: &[DeathSample], t0: f64) -> Vec<V
             .last()
             .and_then(|cluster| cluster.last())
             .is_some_and(|previous| {
-                death.time - previous.time <= PROVISIONAL_THRESHOLDS.teamfight_gap_s
+                death.time - previous.time
+                    <= lane_expectation::config_number("/teamfight/death_gap_s")
                     && death
                         .position
                         .zip(previous.position)
                         .is_some_and(|(left, right)| {
-                            distance(left, right) <= PROVISIONAL_THRESHOLDS.teamfight_death_distance
+                            distance(left, right)
+                                <= lane_expectation::config_number("/teamfight/death_distance")
                         })
             });
         if can_join {
@@ -1332,20 +1462,20 @@ fn teamfights(heroes: &[HeroInfo<'_>], deaths: &[DeathSample], t0: f64) -> Vec<V
             clusters.push(vec![death]);
         }
     }
-    clusters.into_iter().filter(|cluster| cluster.len() >= PROVISIONAL_THRESHOLDS.teamfight_min_deaths).enumerate().map(|(index, cluster)| {
+    clusters.into_iter().filter(|cluster| cluster.len() >= lane_expectation::config_integer("/teamfight/minimum_deaths")).enumerate().map(|(index, cluster)| {
         let first = cluster.first().map(|death| death.time).unwrap_or_default();
         let last = cluster.last().map(|death| death.time).unwrap_or(first);
         let points = cluster.iter().filter_map(|death| death.position).collect::<Vec<_>>();
         let center = if points.is_empty() { None } else { Some(Point { x: points.iter().map(|p|p.x).sum::<f64>() / points.len() as f64, y: points.iter().map(|p|p.y).sum::<f64>() / points.len() as f64 }) };
-        let start = first - PROVISIONAL_THRESHOLDS.teamfight_window_before_s as f64;
-        let stop = last + PROVISIONAL_THRESHOLDS.teamfight_window_after_s as f64;
+        let start = first - lane_expectation::config_signed_integer("/teamfight/window_before_s") as f64;
+        let stop = last + lane_expectation::config_signed_integer("/teamfight/window_after_s") as f64;
         let present = center.map(|center| heroes.iter().filter(|hero| {
             let Some(alive) = hero.source.get("alive").and_then(Value::as_array) else { return false };
             let start_idx = sample_index(t0, start.max(0.0), alive.len()).unwrap_or(0);
             let end_idx = sample_index(t0, stop, alive.len()).unwrap_or_else(||alive.len().saturating_sub(1));
             (start_idx..=end_idx).any(|i| {
                 let time = t0 + i as f64;
-                alive_at(hero.source,time,t0) == Some(true) && position_at(hero.source,time,t0).is_some_and(|point|distance(point,center) <= PROVISIONAL_THRESHOLDS.teamfight_presence_distance)
+                alive_at(hero.source,time,t0) == Some(true) && position_at(hero.source,time,t0).is_some_and(|point|distance(point,center) <= lane_expectation::config_number("/teamfight/presence_distance"))
             })
         }).map(|hero|hero.id.clone()).collect::<Vec<_>>());
         let nw_start = team_diff(heroes,start.max(0.0),t0).and_then(|value|value.0);
@@ -1510,22 +1640,7 @@ fn track_position(track: &Value) -> Option<Value> {
 }
 
 fn thresholds_json() -> Value {
-    json!({
-        "label":"เกณฑ์ชั่วคราว",
-        "lane_sample_from_s":PROVISIONAL_THRESHOLDS.lane_sample_from_s,
-        "lane_sample_to_s":PROVISIONAL_THRESHOLDS.lane_sample_to_s,
-        "mid_delta_max":PROVISIONAL_THRESHOLDS.mid_delta_max,
-        "mid_sum_max":PROVISIONAL_THRESHOLDS.mid_sum_max,
-        "lane_min_share":PROVISIONAL_THRESHOLDS.lane_min_share,
-        "even_advantage_pct":PROVISIONAL_THRESHOLDS.even_advantage_pct,
-        "stomp_advantage_pct":PROVISIONAL_THRESHOLDS.stomp_advantage_pct,
-        "teamfight_gap_s":PROVISIONAL_THRESHOLDS.teamfight_gap_s,
-        "teamfight_death_distance":PROVISIONAL_THRESHOLDS.teamfight_death_distance,
-        "teamfight_min_deaths":PROVISIONAL_THRESHOLDS.teamfight_min_deaths,
-        "teamfight_window_before_s":PROVISIONAL_THRESHOLDS.teamfight_window_before_s,
-        "teamfight_window_after_s":PROVISIONAL_THRESHOLDS.teamfight_window_after_s,
-        "teamfight_presence_distance":PROVISIONAL_THRESHOLDS.teamfight_presence_distance
-    })
+    lane_expectation::provisional_thresholds()
 }
 
 #[cfg(test)]
@@ -1572,32 +1687,185 @@ mod tests {
             world: &world,
         })
         .unwrap();
-        assert!(digest["meta"]["winner"].is_null());
-        assert!(digest["meta"]["winner_reason"].as_str().is_some());
+        assert!(digest["meta"]["result"]["winner"].is_null());
+        assert_eq!(
+            digest["meta"]["result"]["reason"],
+            "not_in_bundle_no_history"
+        );
         assert!(digest["meta"]["draft"].is_null());
         assert!(digest["meta"]["draft_reason"].as_str().is_some());
     }
 
     #[test]
-    fn local_gsi_result_does_not_fill_engine_winner() {
+    fn local_gsi_result_is_resolved_after_the_engine_result() {
         let (manifest, match_data, world) = fixture();
-        let digest = build(&KnowledgeInput {
-            manifest: &manifest,
-            match_data: &match_data,
-            world: &world,
-        })
+        let gsi = history_entry("key", Some(MatchResult::Win), "kohbor", "npc_dota_hero_axe");
+        let digest = build_with_sources(
+            &KnowledgeInput {
+                manifest: &manifest,
+                match_data: &match_data,
+                world: &world,
+            },
+            Some("key"),
+            &[gsi],
+            &[],
+            &[],
+            Some("npc_dota_hero_axe"),
+        )
         .unwrap();
-        assert!(digest["meta"]["winner"].is_null());
-        assert_eq!(
-            digest["meta"]["winner_reason"],
-            "winner is not present in the replay bundle"
-        );
+        assert_eq!(digest["meta"]["result"]["winner"], "radiant");
+        assert_eq!(digest["meta"]["result"]["source"], "gsi_history");
+        assert_eq!(digest["meta"]["result"]["own_result"], "win");
         assert!(digest["meta"].get("viewer").is_none());
         assert!(digest["heroes"][0]["final"]["a"].is_null());
         assert_eq!(
             digest["heroes"][0]["final"]["a_reason"],
             "exact assists are not in the bundle"
         );
+    }
+
+    fn history_entry(
+        match_key: &str,
+        result: Option<MatchResult>,
+        source: &str,
+        hero: &str,
+    ) -> MatchEntry {
+        MatchEntry {
+            match_key: match_key.to_owned(),
+            hero: Some(hero.to_owned()),
+            result,
+            end: if result.is_some() {
+                MatchEnd::Completed
+            } else {
+                MatchEnd::Abandoned
+            },
+            kills: None,
+            deaths: None,
+            assists: None,
+            duration_s: None,
+            ended_at: 1,
+            started_at: None,
+            hero_id: None,
+            match_type: MatchType::Unknown,
+            source: source.to_owned(),
+        }
+    }
+
+    #[test]
+    fn match_result_uses_source_order_and_keeps_abandoned_or_unjoined_results_unknown() {
+        let (manifest, match_data, world) = fixture();
+        let input = KnowledgeInput {
+            manifest: &manifest,
+            match_data: &match_data,
+            world: &world,
+        };
+        let own = Some("npc_dota_hero_axe");
+        let gsi_win = history_entry("key", Some(MatchResult::Win), "kohbor", own.unwrap());
+        let gsi_loss = history_entry("key", Some(MatchResult::Loss), "kohbor", own.unwrap());
+        let open_win = history_entry("key", Some(MatchResult::Win), "opendota", own.unwrap());
+        let engine_win = {
+            let mut data = match_data.clone();
+            data["meta"]["winner"] = json!("radiant");
+            build_with_sources(
+                &KnowledgeInput {
+                    manifest: &manifest,
+                    match_data: &data,
+                    world: &world,
+                },
+                Some("key"),
+                &[gsi_win.clone()],
+                &[],
+                &[],
+                own,
+            )
+            .unwrap()
+        };
+        assert_eq!(engine_win["meta"]["result"]["winner"], "radiant");
+        assert_eq!(engine_win["meta"]["result"]["source"], "engine");
+        let loss = build_with_sources(&input, Some("key"), &[gsi_loss], &[], &[], own).unwrap();
+        assert_eq!(loss["meta"]["result"]["winner"], "dire");
+        let open = build_with_sources(&input, Some("key"), &[], &[open_win], &[], own).unwrap();
+        assert_eq!(open["meta"]["result"]["source"], "opendota_history");
+        assert_eq!(open["meta"]["result"]["winner"], "radiant");
+        let abandoned = history_entry("key", None, "kohbor", own.unwrap());
+        let unknown = build_with_sources(&input, Some("key"), &[abandoned], &[], &[], own).unwrap();
+        assert!(unknown["meta"]["result"]["winner"].is_null());
+        assert_eq!(
+            unknown["meta"]["result"]["reason"],
+            "not_in_bundle_no_history"
+        );
+        let no_key = build_with_sources(&input, None, &[gsi_win], &[], &[], own).unwrap();
+        assert!(no_key["meta"]["result"]["winner"].is_null());
+    }
+
+    #[test]
+    fn match_result_conflicts_and_hero_mismatch_return_unknown_without_identifiers() {
+        let (manifest, mut match_data, world) = fixture();
+        match_data["meta"]["winner"] = json!("radiant");
+        let input = KnowledgeInput {
+            manifest: &manifest,
+            match_data: &match_data,
+            world: &world,
+        };
+        let own = Some("npc_dota_hero_axe");
+        let loss = history_entry(
+            "raw-match-key",
+            Some(MatchResult::Loss),
+            "kohbor",
+            own.unwrap(),
+        );
+        let conflict =
+            build_with_sources(&input, Some("raw-match-key"), &[loss], &[], &[], own).unwrap();
+        assert!(conflict["meta"]["result"]["winner"].is_null());
+        assert_eq!(conflict["meta"]["result"]["conflict"], true);
+        assert_eq!(conflict["meta"]["result"]["reason"], "sources_disagree");
+        let mismatch = history_entry(
+            "raw-match-key",
+            Some(MatchResult::Win),
+            "kohbor",
+            "npc_dota_hero_lina",
+        );
+        let digest =
+            build_with_sources(&input, Some("raw-match-key"), &[mismatch], &[], &[], own).unwrap();
+        assert!(digest["meta"]["result"]["winner"].is_null());
+        assert_eq!(digest["meta"]["result"]["reason"], "history_hero_mismatch");
+        let bytes = canonical_bytes(&digest).unwrap();
+        let text = String::from_utf8(bytes).unwrap();
+        assert!(!text.contains("raw-match-key"));
+        assert!(!text.contains("match_key"));
+    }
+
+    #[test]
+    fn lane_analysis_is_independent_of_match_result_source() {
+        let (manifest, match_data, world) = fixture();
+        let mut radiant = match_data.clone();
+        radiant["meta"]["winner"] = json!("radiant");
+        let mut dire = match_data.clone();
+        dire["meta"]["winner"] = json!("dire");
+        let a = build(&KnowledgeInput {
+            manifest: &manifest,
+            match_data: &radiant,
+            world: &world,
+        })
+        .unwrap();
+        let b = build(&KnowledgeInput {
+            manifest: &manifest,
+            match_data: &dire,
+            world: &world,
+        })
+        .unwrap();
+        assert_eq!(a["lanes"], b["lanes"]);
+        let result_null = {
+            let mut data = match_data.clone();
+            data["meta"].as_object_mut().unwrap().remove("winner");
+            build(&KnowledgeInput {
+                manifest: &manifest,
+                match_data: &data,
+                world: &world,
+            })
+            .unwrap()
+        };
+        assert_eq!(a["lanes"], result_null["lanes"]);
     }
 
     #[test]
@@ -1658,7 +1926,7 @@ mod tests {
         let hash = format!("{:x}", Sha256::digest(&bytes));
         assert_eq!(
             hash,
-            "b289e7c5031848e3bc3745d5a28c2c28767ddb21fbf2c7adad8d7118b662e111"
+            "b7412ddfb9761d21f09a2e2fcfaac5cf18480d2431f54ab83b7cc1a0e7c40ffd"
         );
     }
 
@@ -1742,8 +2010,8 @@ mod tests {
         let digest = synthetic_digest();
         assert!(digest["heroes"][0]["lane"]["lane"].is_null());
         assert!(digest["heroes"][0]["lane"]["reason"].as_str().is_some());
-        assert!(digest["meta"]["winner"].is_null());
-        assert!(digest["meta"]["winner_reason"].as_str().is_some());
+        assert!(digest["meta"]["result"]["winner"].is_null());
+        assert!(digest["meta"]["result"]["reason"].as_str().is_some());
         assert!(digest["meta"]["draft"].is_null());
         assert!(digest["meta"]["draft_reason"].as_str().is_some());
         assert!(digest["heroes"][0]["hero_damage"].is_null());
@@ -1773,6 +2041,20 @@ mod tests {
             world: &world,
         })
         .unwrap();
+        let lane_score = |name: &str| {
+            digest["lanes"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|lane| lane["lane"] == name)
+                .and_then(|lane| lane.pointer("/score/value"))
+                .and_then(Value::as_f64)
+                .unwrap_or_else(|| panic!("{name} lane score is unknown"))
+        };
+        assert_eq!(lane_score("top"), 12.3);
+        assert_eq!(lane_score("mid"), -7.3);
+        assert_eq!(lane_score("bot"), -19.9);
+        assert_eq!(digest["lanes"][0]["label"], "ทดลอง · เกณฑ์ชั่วคราว");
         let hero = |short: &str| -> &Value {
             let id = format!("npc_dota_hero_{short}");
             digest["heroes"]

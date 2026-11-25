@@ -219,7 +219,7 @@ Recorded in chat with the lead agent; details and the conflicts they create are 
 3. Comparisons use the owner's own local history only; no OpenDota or STRATZ.
 4. Thresholds such as ganked and lane lost start as provisional drafts. The owner confirms them after 3–5 matches; they are not changed after seeing a result.
 5. Coach text comes from evidence-citing templates, at most 3 per match. No language model.
-6. Slice 1 stores no multi-match trends; reports stay import-only.
+6. Slice 1 stores no multi-match trends; reports stay import-only. Amended by DEC-LANE-EXPECTATION (2026-11-25): the Analytics lane corpus stores up to 1,500 local hero-level rows for all three lanes without player or match identifiers and is deleted by clear-history; the viewer's own lane average stays separate and excluded from expectations.
 7. The user picks replay files; the app never downloads replays.
 
 The decision covers the Lab slice (DEC-LAB-GATE). It adds no requirement: post-match replay has no requirement module yet, and MEM-001 and MEM-004 continue to bound summaries. Promotion beyond Lab still needs the reviewed post-match data contract and native evidence. Text in `contracts/decisions.json`.
@@ -255,6 +255,25 @@ The requirements are UI-021, UI-022 and MEM-007. The API key is native-host-only
 13. Use the Settings model for chat and the one-time report (default `claude-opus-5-5`); a model switch starts a cold cache.
 
 Decision 9 amends UI-021 and UI-022: remove context chips, make safe `#doc=` links open in the left panel, disclose what every request sends and what local read-only tools may access, and show the consent screen once again. Decision 8 requests a separate replay-engine change; it is not implemented in this renderer work. The renderer does not supply RULES v2 prompt text or infer missing replay data. The updated requirements, SRS, RTM, scenarios and UX-SPEC are the controlled product record. Host transcript, request-projection and consent-version changes remain separate implementation dependencies. No native or visual acceptance is claimed.
+
+### Lane expectation decisions (DEC-LANE-EXPECTATION, 2026-11-25)
+
+**DEC-LANE-EXPECTATION** — decided by the product owner 2026-11-25, relayed by the lead, recorded by an agent. Owner words: “Approve all 12”. This records all 12 approved choices in `F:\kohbor-coord\design\lane-expectation-20261125\DESIGN.md` and amends DEC-COACH-REVIEW item 6 as stated above.
+
+1. (a) Add "against expectation" as a second reading. The approved raw lane result stays unchanged.
+2. (a) Expert table plus role baseline first; statistics later. No AI-estimated expectations.
+3. (a) No public matchup fetch now. L6 is a later spike, only on the owner's word. 3.1. The consent and privacy rules for any future fetch are confirmed in advance (same as DEC-PICK-STATS).
+4. (a) The coach writes the expert table and the owner reviews it each patch. Credit is by role ("coach", "owner"), with no real names. Unreviewed rows are never used.
+5. (a) Keep a local hero-level lane store for all three lanes. No player names or IDs, at most 1,500 rows, deleted by clear-history. This amends DEC-COACH-REVIEW item 6.
+6. (a) The player's own history is not mixed into the expectation. It shows separately as "ค่าเฉลี่ยของคุณ".
+7. (a) Constants v0 are provisional. Freeze them as v1 after one calibration on at least 30 lanes. After v1, change only by a recorded decision.
+8. (a) Turbo lane boundaries stay unknown until measured.
+9. Exit criteria for the "ทดลอง" label: R1, R2 and R3 as written. Never lowered after seeing results.
+10. Match result order: engine, then local GSI history (match hash), then own OpenDota history if enabled, then unknown. If sources disagree, show unknown and log a warning.
+11. Words "เกินคาด / ตามคาด / ต่ำกว่าคาด" (+ "มาก"). Show them on the lane card and the matchup strip; fall back to the lane card only if the strip is too crowded.
+12. (a) Send expected-versus-actual, with its source, to the AI. Add the rules: the AI cites the source, never invents an expectation, and never states a match result when it is unknown.
+
+Requirements: UI-021 and UI-022. The local lane store is part of the amended Analytics requirement. The shipped expert table is empty. Every new reading remains “ทดลอง · เกณฑ์ชั่วคราว”; this implementation does not pass R1–R3. The AI consent disclosure includes the new lane score, expectation, source and match-result fields; consent text version 3 forces renewed review. L6 public-source work and L7 overview work are not implemented. Source and synthetic checks only; native, live, acoustic and acceptance evidence remain NOT_RUN. See [LANE-EXPECTATION](../design/LANE-EXPECTATION.md).
 
 ### Analytics provider set and gates (DEC-AI-PROVIDERS, 2026-11-24)
 

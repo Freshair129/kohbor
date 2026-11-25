@@ -23,6 +23,14 @@
 .a2k-lane-card dl { display: grid; grid-template-columns: 1fr auto; gap: 0.25rem 0.6rem; font-size: 0.78rem; }
 .a2k-lane-card dt { color: #aab7c3; }
 .a2k-lane-card dd { margin: 0; text-align: right; }
+.a2k-lane-reading { margin-top: 0.7rem; padding: 0.65rem; border: 1px solid #4a4650; border-radius: 0.45rem; background: #211f28; }
+.a2k-lane-reading header { align-items: flex-start; }
+.a2k-lane-reading header span, .a2k-lane-reading__verdict { color: #e6bd76; font-size: 0.72rem; }
+.a2k-lane-reading dl { grid-template-columns: minmax(0, 1fr) auto; }
+.a2k-lane-reading dd { max-width: 14rem; overflow-wrap: anywhere; }
+.a2k-lane-reading__unknown { color: #bdc9d4; font-size: 0.78rem; }
+.a2k-lane-reading__verdict { margin: 0.35rem 0; }
+.a2k-lane-reading > small { display: block; line-height: 1.45; }
 .a2k-lane-card button, .a2k-summary li button { padding: 0.2rem 0.35rem; color: #a9c3ff; background: transparent; border: 1px solid #445c78; border-radius: 0.3rem; cursor: pointer; }
 .a2k-matchups { display: grid; gap: 0.5rem; }
 .a2k-matchups__lane { display: grid; grid-template-columns: 6rem repeat(auto-fit, minmax(8rem, 1fr)); align-items: center; gap: 0.35rem; }
@@ -30,6 +38,7 @@
 .a2k-matchups__lane button { display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 0.35rem; text-align: left; color: #e5ebf0; background: #1b2733; border: 1px solid #384858; border-radius: 0.45rem; padding: 0.4rem 0.55rem; cursor: pointer; }
 .a2k-matchups__lane button.is-selected { border-color: #7aa2f7; }
 .a2k-matchups__lane button small { grid-column: 2; color: #98a7b4; }
+.a2k-matchups__lane button .a2k-matchups__expectation { color: #e6bd76; }
 .a2k-side-dot.is-radiant { background: #81be9a; }
 .a2k-side-dot.is-dire { background: #d57983; }
 .a2k-comparison table { width: 100%; border-collapse: collapse; }

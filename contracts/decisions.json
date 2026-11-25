@@ -1428,7 +1428,7 @@
       "decided_on": "2026-11-23",
       "channel": "Owner reply \"As recommended\" to the seven recommendations in coord:reports/2026-11-23-coach-analytics-design.md section 7, relayed by the coordinating session on 2026-11-23 and recorded by an agent.",
       "owner_statement_th": "“As recommended”.",
-    "decision": "1. Amended by DEC-ANALYTICS-V2 (2026-11-25): post-match hero-level coaching may analyse observed data for all ten heroes; player names and claims about people are excluded. Per-person analysis of a friend still needs that friend's consent later. 2. Bring gem-dota 0.14.0 into tools/ as a pinned Lab/dev tool (version and file hashes pinned), using the copy already installed on the owner's machine and downloading nothing; the parser for the product is decided after a feasibility spike. 3. Coach comparisons use the owner's own local history only; no OpenDota or STRATZ. DEC-OVERVIEW revision 4 (2026-11-24) permits the separate opt-in OpenDota own-match history path only; it does not permit OpenDota or STRATZ coach analytics. 4. Thresholds such as ganked and lane lost use draft values labelled provisional; the owner confirms them after 3-5 matches and they are not changed after seeing a result. 5. Coach text comes from evidence-citing templates, at most 3 per match; no language model. 6. Slice 1 stores no multi-match trends; reports stay import-only. 7. The user picks replay files; the app never downloads replays.",
+      "decision": "1. Amended by DEC-ANALYTICS-V2 (2026-11-25): post-match hero-level coaching may analyse observed data for all ten heroes; player names and claims about people are excluded. Per-person analysis of a friend still needs that friend's consent later. 2. Bring gem-dota 0.14.0 into tools/ as a pinned Lab/dev tool (version and file hashes pinned), using the copy already installed on the owner's machine and downloading nothing; the parser for the product is decided after a feasibility spike. 3. Coach comparisons use the owner's own local history only; no OpenDota or STRATZ. DEC-OVERVIEW revision 4 (2026-11-24) permits the separate opt-in OpenDota own-match history path only; it does not permit OpenDota or STRATZ coach analytics. 4. Thresholds such as ganked and lane lost use draft values labelled provisional; the owner confirms them after 3-5 matches and they are not changed after seeing a result. 5. Coach text comes from evidence-citing templates, at most 3 per match; no language model. 6. Slice 1 stores no multi-match trends; reports stay import-only. Amended by DEC-LANE-EXPECTATION (2026-11-25): the Analytics lane corpus stores up to 1,500 local hero-level rows for all three lanes without player or match identifiers and is deleted by clear-history; the viewer's own lane average stays separate and excluded from expectations. 7. The user picks replay files; the app never downloads replays.",
       "reason": "Give the owner coach-style post-match analysis from local DEM replays while keeping other players' identities, network use and model narrative out of scope.",
       "alternatives_considered": [
         "Analyse all five teammates",
@@ -1585,7 +1585,7 @@
       "decided_on": "2026-11-25",
       "channel": "decided by the product owner 2026-11-25, relayed by the lead, recorded by an agent",
       "owner_words": "Approve all 13",
-    "decision": "The product owner approved all 13 decisions (“Approve all 13”).\nApproved 1. Scope of AI analysis: hero-level analysis may use observed data for all ten heroes; do not use player names or make claims about people. Per-person analysis still requires that player's consent.\nApproved 2. Card labels: use text labels in Analytics and icons on Live.\nApproved 3. Hero-card font floor: exempt the card from the 12 px minimum so it matches the reference sizes, 9–13.5 px.\nApproved 4. Ten cards at 1440×900: uniformly scale all ten cards by 0.88 without rearranging their structure.\nApproved 5. Lane, NW/min and XPM: put them in the matchup strip and keep the card layout at the reference; add no hero-damage cell until the engine provides real data.\nApproved 6. Lane and teamfight thresholds: accept the provisional values in B.5 and B.7 and label them “เกณฑ์ชั่วคราว”; review after 3–5 matches.\nApproved 7. Phase boundaries: use 10:00 and 25:00.\nApproved 8. Request the replay-engine change now for attacker-side damage and gold earned; include draft and winner in that engine release if inexpensive.\nApproved 9. Amend UI-021 and UI-022 for removed context chips, #doc= links, and the always-sent/read-tool disclosure; show the consent screen once again.\nApproved 10. Cache the match digest for one hour and revisit the lifetime using ledger data.\nApproved 11. Generate the AI report only after the user clicks, with a cost note.\nApproved 12. Use built-in charts from fenced “kohbor-chart” blocks and open documents in the left panel; do not add Mermaid or another dependency.\nApproved 13. Use the Settings model for chat and the one-time report (default claude-opus-5-5); a model switch starts a cold cache.",
+      "decision": "The product owner approved all 13 decisions (“Approve all 13”).\nApproved 1. Scope of AI analysis: hero-level analysis may use observed data for all ten heroes; do not use player names or make claims about people. Per-person analysis still requires that player's consent.\nApproved 2. Card labels: use text labels in Analytics and icons on Live.\nApproved 3. Hero-card font floor: exempt the card from the 12 px minimum so it matches the reference sizes, 9–13.5 px.\nApproved 4. Ten cards at 1440×900: uniformly scale all ten cards by 0.88 without rearranging their structure.\nApproved 5. Lane, NW/min and XPM: put them in the matchup strip and keep the card layout at the reference; add no hero-damage cell until the engine provides real data.\nApproved 6. Lane and teamfight thresholds: accept the provisional values in B.5 and B.7 and label them “เกณฑ์ชั่วคราว”; review after 3–5 matches.\nApproved 7. Phase boundaries: use 10:00 and 25:00.\nApproved 8. Request the replay-engine change now for attacker-side damage and gold earned; include draft and winner in that engine release if inexpensive.\nApproved 9. Amend UI-021 and UI-022 for removed context chips, #doc= links, and the always-sent/read-tool disclosure; show the consent screen once again.\nApproved 10. Cache the match digest for one hour and revisit the lifetime using ledger data.\nApproved 11. Generate the AI report only after the user clicks, with a cost note.\nApproved 12. Use built-in charts from fenced “kohbor-chart” blocks and open documents in the left panel; do not add Mermaid or another dependency.\nApproved 13. Use the Settings model for chat and the one-time report (default claude-opus-5-5); a model switch starts a cold cache.",
       "reason": "Approve the Analytics v2 renderer, card, consent and chat presentation choices while preserving honest unknowns and the existing privacy boundary.",
       "alternatives_considered": [
         "The alternatives listed in F:\\kohbor-coord\\design\\analytics-v2-20261125\\DESIGN.md section H; owner selected each recommendation."
@@ -1606,6 +1606,41 @@
       ],
       "safe_interim": "Renderer changes do not establish host transcript retrieval, request projection, consent-version migration, chart-tool behavior or native/visual acceptance; those retain their existing gates.",
       "closure_evidence": "Owner decision recorded as relayed. Renderer source and synthetic tests only; host, native, live-provider and visual acceptance remain NOT_RUN."
+    },
+    {
+      "id": "DEC-LANE-EXPECTATION",
+      "status": "decided",
+      "milestone": "M5",
+      "blocks": "Analytics lane expectation, calibration and coach-review behavior in slices L0-L5; L6 public-source work remains separately gated by the owner.",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-25",
+      "channel": "decided by the product owner 2026-11-25, relayed by the lead, recorded by an agent",
+      "owner_words": "Approve all 12",
+      "decision": "The product owner approved all 12 decisions (\"Approve all 12\").\n1. (a) Add \"against expectation\" as a second reading. The approved raw lane result stays unchanged.\n2. (a) Expert table plus role baseline first; statistics later. No AI-estimated expectations.\n3. (a) No public matchup fetch now. L6 is a later spike, only on the owner's word. 3.1. The consent and privacy rules for any future fetch are confirmed in advance (same as DEC-PICK-STATS).\n4. (a) The coach writes the expert table and the owner reviews it each patch. Credit is by role (\"coach\", \"owner\"), with no real names. Unreviewed rows are never used.\n5. (a) Keep a local hero-level lane store for all three lanes. No player names or IDs, at most 1,500 rows, deleted by clear-history. This amends DEC-COACH-REVIEW item 6.\n6. (a) The player's own history is not mixed into the expectation. It shows separately as \"ค่าเฉลี่ยของคุณ\".\n7. (a) Constants v0 are provisional. Freeze them as v1 after one calibration on at least 30 lanes. After v1, change only by a recorded decision.\n8. (a) Turbo lane boundaries stay unknown until measured.\n9. Exit criteria for the \"ทดลอง\" label: R1, R2 and R3 as written. Never lowered after seeing results.\n10. Match result order: engine, then local GSI history (match hash), then own OpenDota history if enabled, then unknown. If sources disagree, show unknown and log a warning.\n11. Words \"เกินคาด / ตามคาด / ต่ำกว่าคาด\" (+ \"มาก\"). Show them on the lane card and the matchup strip; fall back to the lane card only if the strip is too crowded.\n12. (a) Send expected-versus-actual, with its source, to the AI. Add the rules: the AI cites the source, never invents an expectation, and never states a match result when it is unknown.",
+      "reason": "Add a source-backed trial reading against expected lane performance while preserving the raw result, consent and privacy boundaries, and explicit unknown states.",
+      "alternatives_considered": [
+        "Keep only raw lane results",
+        "Estimate expectations with AI",
+        "Fetch public matchup statistics now",
+        "Mix personal history into the expectation"
+      ],
+      "affected_need_ids": [
+        "PN-008"
+      ],
+      "affected_requirement_ids": [
+        "UI-021",
+        "UI-022"
+      ],
+      "related": [
+        "DEC-ANALYTICS-V2",
+        "DEC-COACH-REVIEW",
+        "DEC-PICK-STATS",
+        "DEC-NATIVE-EVIDENCE"
+      ],
+      "proposal_ref": "F:/kohbor-coord/design/lane-expectation-20261125/DESIGN.md",
+      "safe_interim": "Keep the shipped expert table empty. Every new reading remains labelled \"ทดลอง · เกณฑ์ชั่วคราว\"; no R1-R3 criterion passes by this decision or this implementation. Do not run L6 without the owner's word.",
+      "closure_evidence": "Owner decision \"Approve all 12\" on 2026-11-25, relayed by the lead and recorded by an agent. Source and synthetic checks only; native, live-match, acoustic and acceptance evidence remain NOT_RUN."
     }
   ]
 }

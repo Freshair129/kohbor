@@ -34,6 +34,7 @@ This is the only index of documents. Every Markdown file in the tree, is linked 
 | [Release runbook for updates](operations/RELEASE-UPDATES.md) | Owner steps to build, sign, verify and publish a Kohbor update: candidate build, latest.json, promotion check, publishing plan | Product owner, release |
 | [Derived stats](design/DERIVED-STATS.md) | Own-hero attributes and derived values from installed-game data: inputs, formulas, labels and limits | Engineering, UX |
 | [Replay Pipeline](design/REPLAY-PIPELINE.md) | Read-only replay intake, local library, pinned sidecar, Match Bundle validation and failure/privacy boundaries | Engineering, Lab, QA |
+| [Lane Expectation](design/LANE-EXPECTATION.md) | Lane score, expert-table expectation, verdict, local lane store, calibration and coach review (DEC-LANE-EXPECTATION) | Engineering, Analytics, QA |
 | [Replay Engine Provenance](design/REPLAY-ENGINE-PROVENANCE.md) | Pinned sidecar source, build, hash, dependency license inventory and rebuild procedure | Engineering, release review |
 | [Package Format Review](design/PACKAGE-FORMAT-REVIEW.md) | Agent review: whether a package needs its own file type, signature and encryption options | Engineering, product owner |
 | [S4 Observation Boundary](design/S4-OBSERVATION-BOUNDARY.md) | Sprint 4 no-hardware slice: capture admission, freshness, coverage and the enemy observation boundary (agent decision, not owner approved) | Engineering, QA |

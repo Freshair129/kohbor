@@ -477,7 +477,12 @@ pub(crate) fn analytics_notes_list(
     require_control(&webview)?;
     match match_id {
         Some(match_id) => analytics
-            .list_notes(&library, &match_id, &state.match_history.entries())
+            .list_notes(
+                &library,
+                &match_id,
+                &state.match_history.entries(),
+                &state.opendota.entries(),
+            )
             .map_err(str::to_owned),
         None => Ok(Vec::new()),
     }
@@ -494,7 +499,12 @@ pub(crate) fn analytics_note_read(
 ) -> Result<String, String> {
     require_control(&webview)?;
     let _ = analytics
-        .list_notes(&library, &match_id, &state.match_history.entries())
+        .list_notes(
+            &library,
+            &match_id,
+            &state.match_history.entries(),
+            &state.opendota.entries(),
+        )
         .map_err(str::to_owned)?;
     analytics
         .store()
@@ -584,6 +594,7 @@ pub(crate) fn analytics_chat_submit(
         .prepare_chat(
             &library,
             &state.match_history.entries(),
+            &state.opendota.entries(),
             crate::analytics::ChatOptions {
                 match_id,
                 question,
@@ -633,8 +644,107 @@ pub(crate) fn analytics_knowledge_get(
 ) -> Result<Value, String> {
     require_control(&webview)?;
     analytics
-        .knowledge_snapshot(&library, &match_id, &state.match_history.entries())
+        .knowledge_snapshot(
+            &library,
+            &match_id,
+            &state.match_history.entries(),
+            &state.opendota.entries(),
+        )
         .map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_lane_calibration_get(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    analytics.lane_calibration_report().map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_lane_calibration_run(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+    state: tauri::State<'_, AppState>,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    analytics
+        .run_lane_calibration(
+            &library,
+            &state.match_history.entries(),
+            &state.opendota.entries(),
+        )
+        .map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_lane_review_start(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+    state: tauri::State<'_, AppState>,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    analytics
+        .start_lane_coach_review(
+            &library,
+            &state.match_history.entries(),
+            &state.opendota.entries(),
+        )
+        .map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_lane_review_current(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    analytics.lane_coach_review_current().map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_lane_review_submit_blind(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    tier: i32,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    analytics
+        .lane_coach_review_submit_blind(tier)
+        .map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_lane_review_submit_half_blind(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    verdict: String,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    analytics
+        .lane_coach_review_submit_half_blind(&verdict)
+        .map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_lane_review_next(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    analytics.lane_coach_review_next().map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_lane_review_export(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    analytics.lane_coach_review_export().map_err(str::to_owned)
 }
 
 #[tauri::command]
@@ -670,6 +780,7 @@ pub(crate) fn analytics_report_generate(
         .prepare_report(
             &library,
             &state.match_history.entries(),
+            &state.opendota.entries(),
             match_id,
             selected_hero,
             scrubber_time_s,
@@ -1727,17 +1838,22 @@ pub(crate) fn match_history_get(
 
 /// Deletes both local and OpenDota match history (user action on the Overview).
 #[tauri::command(async)]
-pub(crate) fn match_history_clear(state: tauri::State<'_, AppState>) -> Result<Value, String> {
+pub(crate) fn match_history_clear(
+    state: tauri::State<'_, AppState>,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+) -> Result<Value, String> {
     let local = state.match_history.clear();
     let remote = state.opendota.clear_cache();
+    let lanes = analytics.clear_lane_history();
     if let Err(error) = local {
         return Err(error);
     }
     remote?;
+    lanes.map_err(str::to_owned)?;
     crate::log_info!(
         "history",
         "match_history_cleared",
-        "local and OpenDota match histories cleared"
+        "local, OpenDota and lane histories cleared"
     );
     Ok(json!({"cleared": true}))
 }

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { buildLineSegments, laneBadgeLabel, matchupRows } from "./presentationModel.mjs";
+import { buildLineSegments, laneBadgeLabel, laneExpectationReading, matchupRows, showLaneExpectationInStrip } from "./presentationModel.mjs";
 import "./knowledge.css";
 
 export type KnowledgeHero = {
@@ -115,12 +115,30 @@ export function LaneCards({ digest, onSeek }: Pick<KnowledgePanelProps, "digest"
   const lanes = digest?.lanes ?? [];
   return <div className="a2k-lanes">{["top", "mid", "bot"].map((lane) => {
     const row = lanes.find((item) => item.lane === lane);
+    const radiantReading = laneExpectationReading(row, "radiant");
+    const direReading = laneExpectationReading(row, "dire");
+    const score = typeof row?.score?.value === "number" ? `${row.score.value >= 0 ? "+" : ""}${row.score.value.toFixed(1)}` : "— ไม่ทราบ";
+    const expected = typeof row?.expectation?.value === "number" ? `${row.expectation.value >= 0 ? "+" : ""}${row.expectation.value.toFixed(1)}` : null;
     return <article key={lane} className="a2k-lane-card">
       <header><strong>{LANE_NAMES[lane]}</strong><span>{laneBadgeLabel(row?.outcome ?? null)}</span></header>
       <div className="a2k-lane-card__teams">{(["radiant", "dire"] as const).map((side) => <p key={side}><b>{SIDE_NAMES[side]}</b> {(row?.[side] ?? []).map((hero: any) => hero.name ?? hero.hero).join(" · ") || "— ไม่ทราบ"}</p>)}</div>
       <dl><dt>NW ต่างกันที่ 10:00</dt><dd>{valueAt(row?.nw_diff_10)}</dd><dt>XP ต่างกันที่ 10:00</dt><dd>{valueAt(row?.xp_diff_10)}</dd></dl>
       {row?.outcome_reason && <small>{row.outcome_reason}</small>}
-      <button type="button" onClick={() => onSeek?.(600)}>ไปที่ 10:00</button>
+      <section className="a2k-lane-reading" aria-label="คะแนนเลนเทียบค่าคาดหมาย">
+        <header><strong>คะแนนเลน (เกณฑ์ของเกาะเบาะ)</strong><span>{row?.label ?? "ทดลอง · เกณฑ์ชั่วคราว"}</span></header>
+        <dl><dt>คะแนนจริง · มุม Radiant</dt><dd>{score}</dd>
+          <dt>ค่าคาดหมาย</dt><dd>{expected ?? "ยังไม่มีค่าคาดหมาย"}</dd>
+          {expected !== null && <><dt>แหล่งค่าคาดหมาย</dt><dd>{row.expectation.source_label ?? "— ไม่ทราบ"}</dd></>}
+          <dt>องค์ประกอบที่ใช้</dt><dd>{(row?.score?.components_used ?? []).join(" · ") || "— ไม่ทราบ"}</dd>
+          {row?.personal_average && <><dt>ค่าเฉลี่ยของคุณ</dt><dd>{row.personal_average.value >= 0 ? "+" : ""}{row.personal_average.value.toFixed(1)} · n={row.personal_average.n}</dd></>}
+        </dl>
+        {expected === null ? <p className="a2k-lane-reading__unknown">ยังไม่มีค่าคาดหมาย · {row?.expectation_reason ?? "— ไม่ทราบ"}</p> : <>
+          <p className="a2k-lane-reading__verdict">Radiant · {radiantReading.verdict ?? "— ไม่ทราบ"} · {radiantReading.trialLabel}</p>
+          <p className="a2k-lane-reading__verdict">Dire · {direReading.verdict ?? "— ไม่ทราบ"} · {direReading.trialLabel}</p>
+          <small>{radiantReading.explanation}</small>
+        </>}
+      </section>
+      {typeof row?.boundary_s === "number" ? <button type="button" onClick={() => onSeek?.(row.boundary_s)}>ไปที่ {timeText(row.boundary_s)}</button> : <small>เวลาแบ่งเลน: — ไม่ทราบ</small>}
     </article>;
   })}</div>;
 }
@@ -133,6 +151,11 @@ export function MatchupStrip({ digest, selectedHeroId, onSelectHero }: Pick<Know
     <strong>{LANE_NAMES[row.lane]}</strong>
     {row.heroes.length === 0 ? <span className="a2k-muted">— ไม่ทราบ</span> : row.heroes.map((hero) => <button key={hero.id} type="button" className={selectedHeroId === hero.id ? "is-selected" : ""} onClick={() => onSelectHero?.(hero.id)}>
       <i className={`a2k-side-dot is-${hero.side}`} />{hero.hero}<small>{SIDE_NAMES[hero.side]}</small>
+      {showLaneExpectationInStrip(row.heroes, digest?.lanes?.find((item) => item.lane === row.lane)?.constants?.lane_strip_max_cells) && (() => {
+        const laneDigest = digest?.lanes?.find((item) => item.lane === row.lane);
+        const reading = laneExpectationReading(laneDigest, hero.side);
+        return reading.verdict ? <small className="a2k-matchups__expectation" title={reading.explanation ?? undefined}>{reading.verdict} · {reading.trialLabel}</small> : null;
+      })()}
     </button>)}
   </section>)}</div>;
 }
@@ -149,7 +172,7 @@ export function MatchSummaryTab({ digest, loading, onSeek }: Pick<KnowledgePanel
   const unknownBuildingCount = (digest.objectives?.buildings ?? []).filter((item: any) => item.destroyed == null).length;
   return <div className="a2k-summary">
     <header className="a2k-summary__header"><h2>สรุปแมตช์</h2><span>{valueAt(digest.meta?.patch)} · {timeText(digest.meta?.duration_s)}</span></header>
-    <p className="a2k-summary__score">Radiant {valueAt(digest.meta?.kills?.radiant)} — {valueAt(digest.meta?.kills?.dire)} Dire · ผู้ชนะ {valueAt(digest.meta?.winner)}</p>
+    <p className="a2k-summary__score">Radiant {valueAt(digest.meta?.kills?.radiant)} — {valueAt(digest.meta?.kills?.dire)} Dire · ผลแมตช์ {valueAt(digest.meta?.result?.winner)} · แหล่ง {valueAt(digest.meta?.result?.source)}</p>
     <AdvantageChart digest={digest} onSeek={onSeek} />
     <LaneCards digest={digest} onSeek={onSeek} />
     <section><h3>จังหวะสำคัญ</h3><ul>{(digest.teamfights ?? []).map((fight) => <li key={fight.n}><button onClick={() => onSeek?.(Number(fight.t?.[0] ?? 0))}>{timeText(fight.t?.[0])}–{timeText(fight.t?.[1])}</button> · ทีมไฟต์ {valueAt(fight.n)} · ตาย {fight.deaths?.length ?? "— ไม่ทราบ"}</li>)}</ul></section>
@@ -209,7 +232,7 @@ export function AiReportTab({ reports = [], selectedReportId, onSelectReport, on
 }
 
 /** Three host-mounted left-panel tabs; the Notes tab remains owned by the host page. */
-export function KnowledgeTabs({ activeTab, onSelectTab }: { activeTab: "summary" | "compare" | "ai" | "notes"; onSelectTab: (tab: "summary" | "compare" | "ai" | "notes") => void }) {
-  const tabs = [["summary", "สรุปแมตช์"], ["compare", "เทียบเลน/ฮีโร่"], ["ai", "บทวิเคราะห์ AI"], ["notes", "โน้ต"]] as const;
+export function KnowledgeTabs({ activeTab, onSelectTab }: { activeTab: "summary" | "compare" | "ai" | "notes" | "coach"; onSelectTab: (tab: "summary" | "compare" | "ai" | "notes" | "coach") => void }) {
+  const tabs = [["summary", "สรุปแมตช์"], ["compare", "เทียบเลน/ฮีโร่"], ["coach", "ทบทวนโค้ช"], ["ai", "บทวิเคราะห์ AI"], ["notes", "โน้ต"]] as const;
   return <nav className="a2k-tabs" role="tablist">{tabs.map(([id, title]) => <button key={id} type="button" role="tab" aria-selected={activeTab === id} className={activeTab === id ? "is-active" : ""} onClick={() => onSelectTab(id)}>{title}</button>)}</nav>;
 }

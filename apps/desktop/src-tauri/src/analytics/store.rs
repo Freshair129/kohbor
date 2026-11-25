@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 const PREFS_SCHEMA: u32 = 2;
-pub(crate) const CONSENT_TEXT_VERSION: u32 = 2;
+pub(crate) const CONSENT_TEXT_VERSION: u32 = 3;
 const MAX_CHAT_BYTES: u64 = 4 * 1024 * 1024;
 const MAX_LEDGER_ROWS: usize = 200;
 const SYSTEM_NOTE: &str = "สรุปแมตช์.md";
@@ -1562,7 +1562,7 @@ mod tests {
             "old consent must not authorize the updated disclosure"
         );
 
-        let current = serde_json::to_vec(&settings_for(2)).unwrap();
+        let current = serde_json::to_vec(&settings_for(CONSENT_TEXT_VERSION)).unwrap();
         fs::write(&settings_path, current).unwrap();
         let current_settings = store.preferences();
         assert!(

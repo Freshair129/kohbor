@@ -1,5 +1,8 @@
+mod coach_review;
 mod context;
 mod knowledge;
+mod lane_expectation;
+mod lane_history;
 mod protocol;
 pub(crate) mod providers;
 mod service;
