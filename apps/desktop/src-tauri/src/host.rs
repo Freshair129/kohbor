@@ -62,6 +62,10 @@ pub trait MediaJobs: Send + Sync {
         install_id: &str,
         policy: ActivationPolicy,
     ) -> Result<Value, String>;
+    fn uninstall(&self, install_id: &str) -> Result<Value, String> {
+        let _ = install_id;
+        Err("CAPABILITY_UNAVAILABLE".to_owned())
+    }
     fn cancel_pending_activation(&self, install_id: &str) -> Result<Value, String> {
         let _ = install_id;
         Err("CAPABILITY_UNAVAILABLE".to_owned())
@@ -143,6 +147,10 @@ impl MediaJobs for MediaHandle {
         policy: ActivationPolicy,
     ) -> Result<Value, String> {
         MediaHandle::activate(self, request_id, install_id, policy)
+    }
+
+    fn uninstall(&self, install_id: &str) -> Result<Value, String> {
+        MediaHandle::uninstall(self, install_id)
     }
 
     fn cancel_pending_activation(&self, install_id: &str) -> Result<Value, String> {
@@ -325,6 +333,11 @@ impl CommandApi {
             _ => return Err("MEDIA_INVALID".to_owned()),
         };
         self.media.activate(request_id, install_id, policy)
+    }
+
+    pub fn media_uninstall(&self, install_id: &str) -> Result<Value, String> {
+        self.ensure_running()?;
+        self.media.uninstall(install_id)
     }
 
     pub fn media_cancel_pending_activation(&self, install_id: &str) -> Result<Value, String> {

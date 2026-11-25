@@ -105,6 +105,12 @@ The proposed request and result contracts are [media-install-request.schema.json
 
 Installation and activation are separate transactions. Results distinguish `installed`, `active`, `deferred`, and `activation_error`; copying bytes MUST NOT be reported as successful activation.
 
+### Local uninstall
+
+The Packs library may uninstall an installed revision by its opaque `install_id`. Uninstall MUST be refused with a typed reason while the revision is the active pointer, appears in the committed loadout, appears in a pending loadout or pending activation, or a match is active. Uninstall never changes playback selection as a side effect.
+
+The store first atomically commits a `registry.json` without the record, then removes `revisions/<install_id>`. A failure before the registry rename leaves the record and revision intact. A crash after the rename may leave an unlisted revision directory; opening the store MUST still succeed and recovery removes that orphan. Keep request-result entries and the monotonic install-ID counter so removed IDs are not reused. Uninstall removes only the managed local revision and its announcer clips; it does not touch the original package file wherever the user stored it.
+
 ## MP-07 — Identity, revisions, and cancellation
 
 Opaque installation ID is distinct from publisher/media identity and revision. Registry records MUST bind authority, media identity, revision, and digest. Local imports MUST NOT impersonate system or store authority.

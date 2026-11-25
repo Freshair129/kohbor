@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { cardView, nextPacksTab, packBindingView, parsePackSummaries } from "../src/packs/model.ts";
+import {
+  cardView, isPackInUse, nextPacksTab, packBindingView, parsePackSummaries, uninstallCopy, uninstallErrorCode,
+} from "../src/packs/model.ts";
 import { auditionSound, groupSoundRows } from "../src/packs/eventMap.ts";
 import { soundRowPresentation } from "../src/packs/sound-row-model.ts";
 
@@ -15,6 +17,45 @@ test("installed-packs primary action opens InstallDialog and refreshes the cards
   assert.match(packsPageSource, /className="primary packs-install-trigger"[^>]*aria-haspopup="dialog"[^>]*onClick=\{\(\) => setInstallDialogOpen\(true\)\}/s);
   assert.match(packsPageSource, /installDialogOpen && <InstallDialog/);
   assert.match(packsPageSource, /onInstalled=\{refresh\}/);
+});
+
+test("installed packs disable removal while active or equipped", () => {
+  assert.equal(isPackInUse({ active: true, equippedSlot: null }), true);
+  assert.equal(isPackInUse({ active: false, equippedSlot: 0 }), true);
+  assert.equal(isPackInUse({ active: false, equippedSlot: 2 }), true);
+  assert.equal(isPackInUse({ active: false, equippedSlot: null }), false);
+  assert.match(packLibrarySource, /disabled=\{unavailable \|\| inUse \|\| uninstallBusy\}/);
+  assert.match(packLibrarySource, /<small role="note"[^>]*>\{uninstallText\.inUse\}<\/small>/);
+});
+
+test("uninstall confirmation names the revision and explains the local-only irreversible deletion", () => {
+  const thai = uninstallCopy("th").confirmation("เสียงของฉัน", 4);
+  const english = uninstallCopy("en").confirmation("My Voice", 4);
+  assert.match(thai, /เสียงของฉัน/);
+  assert.match(thai, /รุ่น 4/);
+  assert.match(thai, /ย้อนคืนไม่ได้/);
+  assert.match(thai, /คอมพิวเตอร์เครื่องนี้/);
+  assert.match(thai, /ไฟล์แพ็กต้นฉบับ.*ที่อื่น/);
+  assert.match(english, /My Voice/);
+  assert.match(english, /revision 4/i);
+  assert.match(english, /cannot be undone/i);
+  assert.match(english, /this computer/i);
+  assert.match(english, /original package file.*elsewhere/i);
+});
+
+test("typed uninstall refusals are localized and unknown errors are sanitized", () => {
+  const codes = [
+    "UNKNOWN_INSTALL", "UNINSTALL_ACTIVE", "UNINSTALL_IN_LOADOUT", "UNINSTALL_PENDING_LOADOUT",
+    "UNINSTALL_PENDING_ACTIVATION", "MATCH_ACTIVE",
+  ];
+  for (const code of codes) {
+    assert.ok(uninstallCopy("th").refusal(code), `Thai refusal for ${code}`);
+    assert.ok(uninstallCopy("en").refusal(code), `English refusal for ${code}`);
+  }
+  assert.equal(uninstallErrorCode("UNINSTALL_PENDING_ACTIVATION"), "UNINSTALL_PENDING_ACTIVATION");
+  assert.equal(uninstallErrorCode(new Error("MATCH_ACTIVE")), "MATCH_ACTIVE");
+  assert.equal(uninstallErrorCode("path=C:\\secret"), "UNINSTALL_FAILED");
+  assert.equal(uninstallCopy("th").refusal("UNINSTALL_ACTIVE"), "กำลังใช้อยู่ — เลือกแพ็กอื่นก่อน");
 });
 
 test("pack details and expandable event-sounds rows wire their audition buttons", () => {

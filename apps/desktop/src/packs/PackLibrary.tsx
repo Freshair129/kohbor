@@ -6,7 +6,7 @@ import { Chip } from "../Readiness";
 import { BROWSE_EVENT_CATEGORIES, browseCategoryRows, soundLabel, soundKey, type BrowseEventCategory } from "./eventMap";
 import type { BrowseBinding, BrowsePackDetail } from "./browseApi";
 import type { BrowsePreviewState } from "./previewModel";
-import type { PackSummary } from "./model";
+import { isPackInUse, uninstallCopy, type PackSummary } from "./model";
 import { browseVoiceLabel, type VariantAuditionResult } from "./variant-model";
 import { eventVariantsCopy } from "./event-variants.copy";
 
@@ -50,16 +50,20 @@ function categoryCoverage(pack: PackSummary, category: BrowseEventCategory) {
   return pack.bindings.reduce((total, binding) => ids.has(soundKey(binding)) ? total + binding.variantCount : total, 0);
 }
 
-export function PackCard({ pack, locale, unavailable, busy, activationError, selected, onActivate, onDetails }: {
+export function PackCard({ pack, locale, unavailable, busy, activationError, uninstallBusy = false,
+  uninstallError, selected, onActivate, onUninstall, onDetails }: {
   pack: PackSummary; locale: Locale; unavailable: boolean; busy: boolean; activationError?: string; selected?: boolean;
-  onActivate: () => void; onDetails: (button: HTMLButtonElement) => void;
+  uninstallBusy?: boolean; uninstallError?: string;
+  onActivate: () => void; onUninstall: () => void; onDetails: (button: HTMLButtonElement) => void;
 }) {
   const id = useId();
   const text = packsPageCopy(locale);
+  const uninstallText = uninstallCopy(locale);
   const [failedCover, setFailedCover] = useState<string>();
   const coverFailed = pack.coverUrl !== null && failedCover === pack.coverUrl;
   const problem = activationError ?? (pack.problem ? text.problems[pack.problem] : null) ?? (coverFailed ? text.problems.cover : null);
   const equipped = pack.equippedSlot !== null;
+  const inUse = isPackInUse(pack);
   const state = problem ? "problem" : pack.active ? "active" : "installed";
   const origin = originLabel(pack, locale);
   return <article className={`packs-card${pack.active ? " is-active" : ""}${selected ? " is-open" : ""}`} aria-labelledby={id}>
@@ -104,6 +108,14 @@ export function PackCard({ pack, locale, unavailable, busy, activationError, sel
           </button>}
       <button type="button" aria-haspopup="dialog" aria-label={text.detailsFor(pack.name ?? text.unnamed)}
         onClick={event => onDetails(event.currentTarget)}>{text.details}</button>
+      <button type="button" disabled={unavailable || inUse || uninstallBusy} aria-busy={uninstallBusy}
+        aria-label={`${uninstallText.remove}: ${pack.name ?? text.unnamed}`}
+        title={inUse ? uninstallText.inUse : undefined}
+        style={{ fontSize: 12 }} onClick={onUninstall}>
+        {uninstallBusy ? uninstallText.removing : uninstallText.remove}
+      </button>
+      {inUse && <small role="note" style={{ flexBasis: "100%", fontSize: 12 }}>{uninstallText.inUse}</small>}
+      {uninstallError && <p className="packs-problem" role="alert" style={{ flexBasis: "100%", fontSize: 12 }}>{uninstallError}</p>}
     </div>
   </article>;
 }

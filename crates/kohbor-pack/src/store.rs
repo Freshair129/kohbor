@@ -6,9 +6,10 @@
 //! - `registry.json`         installed records, request results, pending activation.
 //! - `active.json`           the activation pointer (absent = nothing active).
 //!
-//! `registry.json` and `active.json` are replaced atomically (write a temporary
-//! file next to it, then rename). A revision directory is published by renaming
-//! a fully verified staging directory. Nothing else is ever modified in place.
+//! `registry.json`, `active.json`, and loadout state are replaced atomically
+//! (write a temporary file next to it, then rename). A revision directory is
+//! published by renaming a fully verified staging directory. Uninstall commits
+//! removal from `registry.json` before deleting the revision directory.
 //!
 //! Crash tests inject interruption only at declared [`Step`] boundaries. They
 //! do not simulate power loss or a failure between operations inside one step.
@@ -83,10 +84,12 @@ pub enum Step {
     RemoveActive,
     /// Test-only point immediately after the `active.json` mirror rename.
     AfterRenameActive,
+    /// Test-only point after the uninstall registry commit and before revision removal.
+    AfterUninstallRegistryCommit,
 }
 
 impl Step {
-    /// Every step in execution order.
+    /// Steps visited by an uninterrupted install, activation and loadout change.
     pub const ALL: [Step; 12] = [
         Step::CopySource,
         Step::ValidateContainer,
@@ -112,6 +115,27 @@ pub enum Injection {
     IoError,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UninstallRefusal {
+    NotInstalled,
+    Active,
+    CommittedLoadout,
+    PendingLoadout,
+    PendingActivation,
+}
+
+impl UninstallRefusal {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::NotInstalled => "UNKNOWN_INSTALL",
+            Self::Active => "UNINSTALL_ACTIVE",
+            Self::CommittedLoadout => "UNINSTALL_IN_LOADOUT",
+            Self::PendingLoadout => "UNINSTALL_PENDING_LOADOUT",
+            Self::PendingActivation => "UNINSTALL_PENDING_ACTIVATION",
+        }
+    }
+}
+
 pub trait Hook {
     fn before(&mut self, step: Step) -> Injection;
 
@@ -135,6 +159,7 @@ impl Hook for NoHook {
 pub enum StoreError {
     Io(String),
     Corrupt(String),
+    UninstallRefused(UninstallRefusal),
     /// A hook returned `Crash` before this step; nothing was cleaned up.
     Interrupted(Step),
 }
@@ -894,6 +919,120 @@ impl<H: Hook> Store<H> {
         }
         self.registry = candidate;
         Ok(result)
+    }
+
+    /// Remove an installed revision only when no active, committed or pending
+    /// selection can use it. The registry rename is the commit point; the
+    /// revision directory is removed only after that commit.
+    pub fn uninstall(&mut self, install_id: &str) -> Result<(), StoreError> {
+        let Some(installed) = self
+            .registry
+            .records
+            .iter()
+            .find(|installed| installed.record.install_id == install_id)
+        else {
+            return Err(StoreError::UninstallRefused(
+                UninstallRefusal::NotInstalled,
+            ));
+        };
+        let record = installed.record.clone();
+
+        if self
+            .active
+            .as_ref()
+            .is_some_and(|active| active.install_id == install_id)
+        {
+            return Err(StoreError::UninstallRefused(UninstallRefusal::Active));
+        }
+        if self
+            .loadout
+            .equipped
+            .iter()
+            .any(|pack| pack.install_id == install_id)
+        {
+            return Err(StoreError::UninstallRefused(
+                UninstallRefusal::CommittedLoadout,
+            ));
+        }
+        if self.pending_loadout.as_ref().is_some_and(|pending| {
+            pending
+                .desired
+                .equipped
+                .iter()
+                .any(|pack| pack.install_id == install_id)
+        }) {
+            return Err(StoreError::UninstallRefused(
+                UninstallRefusal::PendingLoadout,
+            ));
+        }
+        if self
+            .registry
+            .pending_activations
+            .iter()
+            .any(|pending| pending.install_id == install_id)
+        {
+            return Err(StoreError::UninstallRefused(
+                UninstallRefusal::PendingActivation,
+            ));
+        }
+
+        let mut candidate = self.registry.clone();
+        let Some(index) = candidate
+            .records
+            .iter()
+            .position(|installed| installed.record.install_id == install_id)
+        else {
+            return Err(StoreError::UninstallRefused(
+                UninstallRefusal::NotInstalled,
+            ));
+        };
+        candidate.records.remove(index);
+        let registry_bytes = serialize_registry(&candidate)?;
+
+        write_temp_file(&self.root, "registry.json", &registry_bytes)?;
+
+        match self.hook.before(Step::RenameRegistry) {
+            Injection::Proceed => {}
+            Injection::Crash => return Err(StoreError::Interrupted(Step::RenameRegistry)),
+            Injection::IoError => {
+                remove_file_if_exists(&self.root.join("registry.json.tmp"))?;
+                return Err(StoreError::Io(
+                    "injected uninstall registry rename failure".to_owned(),
+                ));
+            }
+        }
+        match rename_temp_file(&self.root, "registry.json") {
+            Ok(()) => {}
+            Err(AtomicRenameError::BeforeRename(error)) => {
+                remove_file_if_exists(&self.root.join("registry.json.tmp"))?;
+                return Err(error);
+            }
+            Err(AtomicRenameError::AfterRename(error)) => {
+                self.registry = candidate;
+                return Err(error);
+            }
+        }
+        self.registry = candidate;
+
+        match self.hook.before(Step::AfterUninstallRegistryCommit) {
+            Injection::Proceed => {}
+            Injection::Crash => {
+                return Err(StoreError::Interrupted(
+                    Step::AfterUninstallRegistryCommit,
+                ));
+            }
+            Injection::IoError => {
+                return Err(StoreError::Io(
+                    "injected failure after uninstall registry commit".to_owned(),
+                ));
+            }
+        }
+
+        let revision_path = self.root.join("revisions").join(record.install_id);
+        remove_path(&revision_path)?;
+        flush_dir(&self.root.join("revisions"))
+            .map_err(|error| io_error("flush revisions directory after uninstall", error))?;
+        Ok(())
     }
 
     /// Validate and summarize a package through the installer's normal copy,
@@ -2680,23 +2819,30 @@ fn parse_registry(bytes: &[u8]) -> Result<Registry, StoreError> {
         let result_record = result
             .record
             .as_ref()
+            .cloned()
             .ok_or_else(|| StoreError::Corrupt("registry request result record".to_owned()))?;
-        let installed = records
-            .iter()
-            .find(|installed| installed.record.install_id == result_record.install_id)
-            .ok_or_else(|| {
-                StoreError::Corrupt("registry result references unknown record".to_owned())
-            })?;
-        if !same_result_record(result_record, &installed.record)
+        if valid_install_id(&result_record.install_id)
+            .is_none_or(|id| id > install_id_counter)
             || result_record.container_sha256 != digest
         {
             return Err(StoreError::Corrupt(
-                "registry result record mismatch".to_owned(),
+                "registry request result record identity".to_owned(),
             ));
         }
-        // The wire result omits the summary metadata. Restore it from the
-        // validated registry record so retries return the same Rust value.
-        result.record = Some(installed.record.clone());
+        if let Some(installed) = records
+            .iter()
+            .find(|installed| installed.record.install_id == result_record.install_id)
+        {
+            if !same_result_record(&result_record, &installed.record) {
+                return Err(StoreError::Corrupt(
+                    "registry result record mismatch".to_owned(),
+                ));
+            }
+            // Keep the full installed metadata when the result's pack is still
+            // present. After uninstall, the retained request result remains a
+            // historical receipt whose ID is protected by the monotonic counter.
+            result.record = Some(installed.record.clone());
+        }
         request_results.push(StoredRequestResult {
             request_id,
             expected_container_sha256: digest,
@@ -3054,6 +3200,7 @@ fn corrupt_store_error(error: StoreError) -> StoreError {
         StoreError::Interrupted(_) => StoreError::Corrupt("interrupted state read".to_owned()),
         StoreError::Corrupt(message) => StoreError::Corrupt(message),
         StoreError::Io(message) => StoreError::Corrupt(message),
+        StoreError::UninstallRefused(reason) => StoreError::UninstallRefused(reason),
     }
 }
 
@@ -3473,6 +3620,309 @@ fn recover_leftovers(root: &Path, registry: &Registry) -> Result<(), StoreError>
     remove_recovery_temp_file(&root.join("loadout.json.tmp"))?;
     remove_recovery_temp_file(&root.join("pending_loadout.json.tmp"))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod uninstall_tests {
+    use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+
+    const INSTALL_ID: &str = "ins_0000000001";
+    static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
+
+    struct TempRoot(PathBuf);
+
+    impl TempRoot {
+        fn new() -> Self {
+            let sequence = NEXT_TEMP.fetch_add(1, Ordering::Relaxed);
+            let path = std::env::temp_dir().join(format!(
+                "kohbor-pack-uninstall-{}-{sequence}",
+                std::process::id()
+            ));
+            fs::create_dir_all(&path).expect("create isolated store root");
+            Self(path)
+        }
+    }
+
+    impl Drop for TempRoot {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[derive(Clone, Copy)]
+    struct InjectAt {
+        step: Step,
+        injection: Injection,
+    }
+
+    impl Hook for InjectAt {
+        fn before(&mut self, step: Step) -> Injection {
+            if step == self.step {
+                self.injection
+            } else {
+                Injection::Proceed
+            }
+        }
+    }
+
+    fn record() -> Record {
+        Record {
+            install_id: INSTALL_ID.to_owned(),
+            package_id: "fixture-pack".to_owned(),
+            revision: 1,
+            container_sha256: "a".repeat(64),
+            authority_class: AuthorityClass::LocalImport,
+            publisher_claim: PublisherClaim::None,
+            installed_at: Some(1),
+            size_bytes: Some(1),
+        }
+    }
+
+    fn test_catalog() -> Catalog {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../contracts/event-catalog.json");
+        let document: Value =
+            serde_json::from_slice(&fs::read(path).expect("read event catalog fixture"))
+                .expect("parse event catalog fixture");
+        Catalog::from_json(&document).expect("validate event catalog fixture")
+    }
+
+    fn store(root: &Path, hook: InjectAt) -> Store<InjectAt> {
+        let record = record();
+        let revisions = root.join("revisions");
+        fs::create_dir_all(revisions.join(INSTALL_ID)).expect("create installed revision");
+
+        let mut registry = Registry {
+            install_id_counter: 1,
+            records: vec![StoredRecord {
+                record: record.clone(),
+                descriptor_sha256: "b".repeat(64),
+            }],
+            request_results: vec![StoredRequestResult {
+                request_id: "request-1".to_owned(),
+                expected_container_sha256: record.container_sha256.clone(),
+                fingerprint: None,
+                result: InstallResult {
+                    request_id: "request-1".to_owned(),
+                    status: Status::Installed,
+                    reason: None,
+                    record: Some(record),
+                    reject: None,
+                },
+            }],
+            pending_activations: Vec::new(),
+        };
+        let registry_path = root.join("registry.json");
+        fs::write(&registry_path, serialize_registry(&registry).expect("serialize fixture registry"))
+            .expect("write fixture registry");
+
+        Store {
+            root: root.to_owned(),
+            catalog: test_catalog(),
+            limits: Limits::default(),
+            hook,
+            registry: std::mem::take(&mut registry),
+            active: None,
+            loadout: Loadout::default(),
+            pending_loadout: None,
+            staging_sequence: 0,
+        }
+    }
+
+    fn proceed_hook() -> InjectAt {
+        InjectAt {
+            step: Step::CopySource,
+            injection: Injection::Proceed,
+        }
+    }
+
+    fn equip(store: &mut Store<InjectAt>) {
+        store.loadout.equipped.push(equipped_pack(store));
+    }
+
+    fn equipped_pack(store: &Store<InjectAt>) -> EquippedPack {
+        let record = &store.registry.records[0].record;
+        EquippedPack {
+            install_id: record.install_id.clone(),
+            package_id: record.package_id.clone(),
+            revision: record.revision,
+            container_sha256: record.container_sha256.clone(),
+        }
+    }
+
+    #[test]
+    fn uninstall_refuses_the_active_pointer() {
+        let root = TempRoot::new();
+        let mut store = store(&root.0, proceed_hook());
+        let record = &store.registry.records[0].record;
+        store.active = Some(ActivePointer {
+            install_id: record.install_id.clone(),
+            package_id: record.package_id.clone(),
+            revision: record.revision,
+            container_sha256: record.container_sha256.clone(),
+        });
+
+        assert_eq!(
+            store.uninstall(INSTALL_ID),
+            Err(StoreError::UninstallRefused(UninstallRefusal::Active))
+        );
+    }
+
+    #[test]
+    fn uninstall_refuses_a_committed_loadout_entry() {
+        let root = TempRoot::new();
+        let mut store = store(&root.0, proceed_hook());
+        equip(&mut store);
+
+        assert_eq!(
+            store.uninstall(INSTALL_ID),
+            Err(StoreError::UninstallRefused(
+                UninstallRefusal::CommittedLoadout
+            ))
+        );
+    }
+
+    #[test]
+    fn uninstall_refuses_a_pending_loadout_entry() {
+        let root = TempRoot::new();
+        let mut store = store(&root.0, proceed_hook());
+        let mut desired = Loadout::default();
+        desired.equipped.push(equipped_pack(&store));
+        store.pending_loadout = Some(PendingLoadout {
+            request_id: "loadout-request".to_owned(),
+            desired,
+        });
+
+        assert_eq!(
+            store.uninstall(INSTALL_ID),
+            Err(StoreError::UninstallRefused(
+                UninstallRefusal::PendingLoadout
+            ))
+        );
+    }
+
+    #[test]
+    fn uninstall_refuses_a_pending_activation() {
+        let root = TempRoot::new();
+        let mut store = store(&root.0, proceed_hook());
+        store.registry.pending_activations.push(PendingActivation {
+            request_id: "activation-request".to_owned(),
+            install_id: INSTALL_ID.to_owned(),
+        });
+
+        assert_eq!(
+            store.uninstall(INSTALL_ID),
+            Err(StoreError::UninstallRefused(
+                UninstallRefusal::PendingActivation
+            ))
+        );
+    }
+
+    #[test]
+    fn uninstall_failure_before_registry_commit_preserves_the_store() {
+        let root = TempRoot::new();
+        let mut store = store(
+            &root.0,
+            InjectAt {
+                step: Step::RenameRegistry,
+                injection: Injection::IoError,
+            },
+        );
+        let registry_before = fs::read(root.0.join("registry.json")).expect("read initial registry");
+        let revision = root.0.join("revisions").join(INSTALL_ID);
+
+        assert!(matches!(store.uninstall(INSTALL_ID), Err(StoreError::Io(_))));
+        assert_eq!(
+            fs::read(root.0.join("registry.json")).expect("read unchanged registry"),
+            registry_before
+        );
+        assert!(revision.is_dir());
+        assert!(!root.0.join("registry.json.tmp").exists());
+    }
+
+    #[test]
+    fn uninstall_crash_before_registry_commit_keeps_the_record_and_revision() {
+        let root = TempRoot::new();
+        let mut store = store(
+            &root.0,
+            InjectAt {
+                step: Step::RenameRegistry,
+                injection: Injection::Crash,
+            },
+        );
+        let registry_before = fs::read(root.0.join("registry.json")).expect("read initial registry");
+        let revision = root.0.join("revisions").join(INSTALL_ID);
+
+        assert_eq!(
+            store.uninstall(INSTALL_ID),
+            Err(StoreError::Interrupted(Step::RenameRegistry))
+        );
+        assert_eq!(
+            fs::read(root.0.join("registry.json")).expect("read unchanged registry"),
+            registry_before
+        );
+        assert!(revision.is_dir());
+        assert!(root.0.join("registry.json.tmp").exists());
+    }
+
+    #[test]
+    fn uninstall_crash_after_commit_reopens_and_cleans_the_orphan_revision() {
+        let root = TempRoot::new();
+        let mut store = store(
+            &root.0,
+            InjectAt {
+                step: Step::AfterUninstallRegistryCommit,
+                injection: Injection::Crash,
+            },
+        );
+        let revision = root.0.join("revisions").join(INSTALL_ID);
+
+        assert_eq!(
+            store.uninstall(INSTALL_ID),
+            Err(StoreError::Interrupted(Step::AfterUninstallRegistryCommit))
+        );
+        assert!(revision.is_dir(), "the crash occurs before revision removal");
+        drop(store);
+
+        let reopened = Store::open(&root.0, test_catalog(), Limits::default())
+            .expect("committed uninstall with an orphan revision remains openable");
+        assert!(reopened.registry.records.is_empty());
+        assert_eq!(reopened.registry.install_id_counter, 1);
+        assert_eq!(reopened.registry.request_results.len(), 1);
+        assert!(!revision.exists(), "open removes the unlisted revision directory");
+    }
+
+    #[test]
+    fn uninstall_removes_revision_after_commit_and_keeps_request_results() {
+        let root = TempRoot::new();
+        let mut store = store(&root.0, proceed_hook());
+        let revision = root.0.join("revisions").join(INSTALL_ID);
+
+        store.uninstall(INSTALL_ID).expect("uninstall installed pack");
+
+        assert!(store.registry.records.is_empty());
+        assert_eq!(store.registry.install_id_counter, 1);
+        assert_eq!(store.registry.request_results.len(), 1);
+        assert!(!revision.exists());
+        drop(store);
+        let reopened = Store::open(&root.0, test_catalog(), Limits::default())
+            .expect("reopen after completed uninstall");
+        assert!(reopened.registry.records.is_empty());
+        assert_eq!(reopened.registry.request_results.len(), 1);
+    }
+
+    #[test]
+    fn uninstall_unknown_id_has_a_typed_refusal() {
+        let root = TempRoot::new();
+        let mut store = store(&root.0, proceed_hook());
+
+        assert_eq!(
+            store.uninstall("ins_0000000002"),
+            Err(StoreError::UninstallRefused(UninstallRefusal::NotInstalled))
+        );
+    }
 }
 
 fn revision_payload_path(

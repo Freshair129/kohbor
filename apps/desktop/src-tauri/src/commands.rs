@@ -1410,6 +1410,20 @@ pub(crate) fn media_activate(
 }
 
 #[tauri::command(async)]
+pub(crate) fn media_uninstall(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    install_id: String,
+) -> Result<Value, String> {
+    let result = state.host.commands.media_uninstall(&install_id);
+    log_media_result("uninstall", &result);
+    if result.is_ok() {
+        let _ = app.emit("media://library-changed", json!({ "install_id": install_id }));
+    }
+    result
+}
+
+#[tauri::command(async)]
 pub(crate) fn media_cancel_pending_activation(
     state: tauri::State<'_, AppState>,
     install_id: String,

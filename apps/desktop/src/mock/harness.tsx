@@ -408,6 +408,20 @@ function mockActivate(args: Record<string, unknown>) {
   throw "MEDIA_INVALID";
 }
 
+function mockUninstall(args: Record<string, unknown>) {
+  requireArgs("media_uninstall", args, ["installId"]);
+  const installId = args.installId;
+  if (typeof installId !== "string") throw "UNKNOWN_INSTALL";
+  if (mockActiveInstall === installId) throw "UNINSTALL_ACTIVE";
+  if (mockPendingInstalls.includes(installId)) throw "UNINSTALL_PENDING_ACTIVATION";
+  const index = mockRecords.findIndex(record => record.install_id === installId);
+  if (index < 0) throw "UNKNOWN_INSTALL";
+  mockRecords.splice(index, 1);
+  mockPackNames.delete(installId);
+  deliver("media://library-changed", { install_id: installId });
+  return { install_id: installId, removed: true };
+}
+
 const activeTimers: number[] = [];
 
 function schedule(delay_ms: number, callback: () => void) {
@@ -629,6 +643,7 @@ export function installMockHarness() {
       if (command === "media_inspect") return mockInspect(args);
       if (command === "media_install") return mockInstall(args);
       if (command === "media_activate") return mockActivate(args);
+      if (command === "media_uninstall") return mockUninstall(args);
       if (command === "media_probe_pending") return [];
       if (command === "plugin:event|listen") {
         if (typeof args.event !== "string" || typeof args.handler !== "number") {

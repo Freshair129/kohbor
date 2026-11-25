@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { AudioMuteControl, type AudioMuteState } from "../AudioPanel";
 import { auditionReason, copy, packsPageCopy, type Locale, type Phase } from "../copy";
 import { errorCode, newRequestId, sortRecords } from "../packs";
@@ -12,7 +14,9 @@ import {
 } from "./eventMap";
 import { MatchHistory } from "./MatchHistory";
 import { clearMatchRecap, loadMatchRecap, type MatchRecapSnapshot } from "./recapModel";
-import { nextPacksTab, PACKS_TABS, type PacksTab, type PackSummary } from "./model";
+import {
+  nextPacksTab, PACKS_TABS, uninstallCopy, uninstallErrorCode, type PacksTab, type PackSummary,
+} from "./model";
 import { PackDrawer, PackCard } from "./PackLibrary";
 import { InstallDialog } from "./InstallDialog";
 import { installDialogCopy } from "./InstallDialog.copy";
@@ -23,6 +27,20 @@ import { StorePage } from "../store/StorePage";
 import { CoverageMatrix } from "./CoverageMatrix";
 import { cancelPackLoadout, getPackLoadout, setPackLoadout } from "./loadoutApi";
 import { loadoutRequest, moveEquipped, toggleEquipped, type PackLoadoutState } from "./loadoutModel";
+
+function hostAvailable(): boolean {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
+function mediaUninstall(installId: string): Promise<unknown> {
+  if (!hostAvailable()) return Promise.reject("CAPABILITY_UNAVAILABLE");
+  return invoke<unknown>("media_uninstall", { installId });
+}
+
+function subscribeMediaLibraryChanged(onChange: () => void): Promise<() => void> {
+  if (!hostAvailable()) return Promise.resolve(() => {});
+  return listen("media://library-changed", onChange);
+}
 
 export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, onStoreBack, onStoreOpen, developerMode = false }: {
   locale: Locale; disabled: boolean; phase: Phase | null; mute: AudioMuteState; storeOnly?: boolean;
@@ -44,6 +62,7 @@ export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, on
   const [matchSignal, setMatchSignal] = useState<{ active: boolean | null } | null>(null);
   const [action, setAction] = useState<string | null>(null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [uninstallErrors, setUninstallErrors] = useState<Record<string, string>>({});
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [auditionNotice, setAuditionNotice] = useState<string | null>(null);
   const [installDialogOpen, setInstallDialogOpen] = useState(false);
@@ -250,6 +269,44 @@ export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, on
   const refresh = () => {
     void listing.refresh();
     setRefreshId(value => value + 1);
+  };
+
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    void subscribeMediaLibraryChanged(() => {
+      void listing.refresh();
+      setRefreshId(value => value + 1);
+    }).then(stop => {
+      if (disposed) stop();
+      else unlisten = stop;
+    }).catch(() => {
+      // A missing event listener cannot be replaced with stale library state.
+    });
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, [listing.refresh]);
+
+  const uninstallPack = async (pack: PackSummary) => {
+    const uninstallText = uninstallCopy(locale);
+    if (actionLock.current || pack.active || pack.equippedSlot !== null) return;
+    if (!window.confirm(uninstallText.confirmation(pack.name ?? text.unnamed, pack.revision))) return;
+    actionLock.current = true;
+    setAction(pack.installId);
+    setUninstallErrors(previous => { const next = { ...previous }; delete next[pack.installId]; return next; });
+    try {
+      await mediaUninstall(pack.installId);
+      void listing.refresh();
+      setRefreshId(value => value + 1);
+    } catch (failure) {
+      const refusal = uninstallErrorCode(failure);
+      setUninstallErrors(previous => ({ ...previous, [pack.installId]: uninstallText.refusal(refusal) }));
+    } finally {
+      setAction(null);
+      actionLock.current = false;
+    }
   };
 
   const block = (row: SoundKey): string | null => {
@@ -523,7 +580,9 @@ export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, on
           {(summaries || summariesFailed || !listingCurrent) && <div className="packs-grid">
             {visibleCards.map(pack => <PackCard key={pack.installId} pack={pack} locale={locale}
               unavailable={!listingCurrent || action !== null || busyKey !== null} busy={action === pack.installId}
+              uninstallBusy={action === pack.installId} uninstallError={uninstallErrors[pack.installId]}
               onActivate={() => togglePack(pack)}
+              onUninstall={() => void uninstallPack(pack)}
               onDetails={from => { setAuditionNotice(null); setOpen({ id: pack.installId, from }); }} />)}
           </div>}
         </>}
