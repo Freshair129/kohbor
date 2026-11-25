@@ -2,8 +2,8 @@
 title: "Software Development Plan (SDP)"
 doc_id: "SDP"
 status: draft
-version: "0.3.6"
-updated: "2026-11-11"
+version: "0.3.7"
+updated: "2026-11-25"
 authority: "DEC-BASELINE; see DOCUMENT-CONTROL"
 owner_role: "Engineering lead; people not assigned"
 approval_status: "not_approved"

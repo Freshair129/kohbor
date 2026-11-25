@@ -15424,12 +15424,12 @@
     {
       "path": "docs/delivery/SDP.md",
       "bytes": 5161,
-      "sha256": "d3dc0951af15c8f9df5897d02eddc8201f640fdf14077cfa91c851f696407088"
+      "sha256": "dced8535250b8115b9a05f7d6bdd0854127608044c4997f69b4d67961c654910"
     },
     {
       "path": "docs/delivery/SPRINT-ROADMAP.md",
-      "bytes": 22164,
-      "sha256": "e4115708cac6bdebca4dc64a2006e0b464b423048ee4f7a717ffe9767fabf4ed"
+      "bytes": 33302,
+      "sha256": "024b12e7d33b5880c1ff6393c4a701879cf96c7f0d28bbb905cd75f0479bb2cf"
     },
     {
       "path": "docs/delivery/evidence/m1-live-2026-11-11-draft.png",
