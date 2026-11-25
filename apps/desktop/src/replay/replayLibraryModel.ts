@@ -15,6 +15,7 @@ export interface ReplayListCopy {
     queued: string;
     parsing: string;
     ready: string;
+    evicted: string;
     needs_pack: string;
     failed: (reason: string) => string;
   };
@@ -50,6 +51,7 @@ export function replayStatusLabel(status: ReplayStatus, copy: ReplayListCopy["st
     case "queued": return copy.queued;
     case "parsing": return copy.parsing;
     case "ready": return copy.ready;
+    case "evicted": return copy.evicted;
     case "needs_pack": return copy.needs_pack;
     case "failed": return copy.failed(status.reason);
   }
@@ -91,7 +93,8 @@ export function replayListViewModel(
       canOpen: entry.status.state === "ready"
         && packLookup.state === "ready"
         && status.state !== "needs_pack",
-      canParse: entry.status.state === "available" || entry.status.state === "failed",
+      canParse: entry.status.state === "available" || entry.status.state === "failed"
+        || (entry.status.state === "evicted" && entry.source_exists === true),
       showReparse: entry.status.state === "ready",
       canReparse: entry.status.state === "ready"
         && entry.source_exists === true

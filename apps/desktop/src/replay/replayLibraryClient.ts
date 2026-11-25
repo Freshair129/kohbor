@@ -3,6 +3,7 @@ export type ReplayStatus =
   | { state: "queued" }
   | { state: "parsing" }
   | { state: "ready" }
+  | { state: "evicted" }
   | { state: "needs_pack" }
   | { state: "failed"; reason: string };
 
@@ -17,12 +18,11 @@ export interface ReplayLocalHistory {
 }
 
 export interface ReplayLibraryEntry {
+  /** Local replay-library key. The renderer uses it internally and never displays it. */
+  match_key: string | null;
   match_id: string;
   source: ReplaySource;
-  source_path: string;
-  dem_sha256: string | null;
   engine_version: string | null;
-  engine_sha256: string | null;
   parse_time_unix_ms: number | null;
   status: ReplayStatus;
   bundle_bytes: number;
@@ -35,14 +35,13 @@ export interface ReplayLibraryEntry {
   pinned?: boolean;
   source_exists?: boolean;
   bundle_schema?: "3.0" | "3.1" | null;
+  bundle_hash: string | null;
   local_history?: ReplayLocalHistory | null;
-  /** Install-keyed history hash of this match, used to open it from the post-game panel. */
-  match_key?: string | null;
 }
 
 export interface ReplayJob {
   job_id: string;
-  match_id?: string | null;
+  match_id?: string;
   operation: "parse" | "reparse";
   status: ReplayStatus;
 }
@@ -50,7 +49,18 @@ export interface ReplayJob {
 export interface ReplayLibraryList {
   matches: ReplayLibraryEntry[];
   jobs: ReplayJob[];
-  watched_replay_folder_path: string | null;
+  /** Compatibility field; the host does not return a watched-folder path. */
+  watched_replay_folder_path: null;
+}
+
+export interface ReplayWatcherState {
+  folder_found: boolean | null;
+  last_scan_unix_ms: number | null;
+  last_error_code: string | null;
+}
+
+export interface ReplayRetentionPreview {
+  evicted_matches: number;
 }
 
 export interface ReplayBundle {
@@ -75,12 +85,28 @@ export interface ReplayLibraryTransport {
 
 export function createReplayLibraryClient(transport: ReplayLibraryTransport) {
   return {
-    list(): Promise<ReplayLibraryList> {
-      return transport.invoke("replay_library_list");
+    async list(): Promise<ReplayLibraryList> {
+      const reply = await transport.invoke<Omit<ReplayLibraryList, "watched_replay_folder_path">>("replay_library_list");
+      return {
+        ...reply,
+        watched_replay_folder_path: null,
+      };
     },
 
     pickDemFile(): Promise<string | null> {
       return transport.invoke("replay_library_pick_file");
+    },
+
+    watcherState(): Promise<ReplayWatcherState> {
+      return transport.invoke("replay_library_watcher_state");
+    },
+
+    retentionPreview(keepNewest: number, maxBytes: number): Promise<ReplayRetentionPreview> {
+      return transport.invoke("replay_library_retention_preview", { keepNewest, maxBytes });
+    },
+
+    retentionSave(keepNewest: number, maxBytes: number, expectedEvictions: number): Promise<unknown> {
+      return transport.invoke("replay_library_retention_save", { keepNewest, maxBytes, expectedEvictions });
     },
 
     open(matchId: string): Promise<ReplayBundle> {
@@ -97,6 +123,10 @@ export function createReplayLibraryClient(transport: ReplayLibraryTransport) {
 
     remove(matchId: string): Promise<void> {
       return transport.invoke("replay_library_remove", { matchId });
+    },
+
+    pin(matchId: string, pinned: boolean): Promise<void> {
+      return transport.invoke("replay_library_pin", { matchId, pinned });
     },
 
     clear(): Promise<void> {

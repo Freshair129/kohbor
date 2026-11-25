@@ -99,9 +99,9 @@ export function analyticsReplaySelection(entry: { match_id: string }) {
 
 /** A library refresh should reopen a bundle only after this selected identity changes. */
 export function analyticsBundleSelectionKey(entry: Pick<ReplayLibraryEntry,
-  "match_id" | "status" | "dem_sha256" | "engine_sha256" | "bundle_schema"> & { bundle_hash?: string | null } | null | undefined): string | null {
+  "match_id" | "status" | "bundle_schema"> & { bundle_hash?: string | null } | null | undefined): string | null {
   if (!entry) return null;
-  return JSON.stringify([entry.match_id, entry.status.state, entry.bundle_hash ?? null, entry.dem_sha256, entry.engine_sha256, entry.bundle_schema ?? null]);
+  return JSON.stringify([entry.match_id, entry.status.state, entry.bundle_hash ?? null, entry.bundle_schema ?? null]);
 }
 
 export function analyticsReplayAction(status: { state: string }) {

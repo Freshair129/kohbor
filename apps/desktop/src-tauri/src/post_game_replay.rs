@@ -177,21 +177,23 @@ fn parse_state(status: &ReplayStatus) -> PostGameParseState {
         ReplayStatus::Ready => PostGameParseState::Ready,
         ReplayStatus::Failed { .. } => PostGameParseState::Failed,
         ReplayStatus::NeedsPack => PostGameParseState::NeedsPack,
+        // The bundle was removed by retention; the post-game panel treats it as not available.
+        ReplayStatus::Evicted => PostGameParseState::NotFound,
     }
 }
 
-/// Adapt the legacy list without returning its watched path to the renderer. It proves only that
-/// the expected Dota folder location can be derived; it does not report a scan or file discovery.
-fn watcher_from_library_list(list: &crate::replay_library::ReplayLibraryList) -> PostGameWatcherReply {
-    let folder = match list.watched_replay_folder_path.as_deref() {
-        Some(path) if !path.trim().is_empty() => PostGameWatcherFolder::Known,
-        Some(_) => PostGameWatcherFolder::Unknown,
-        None => PostGameWatcherFolder::NotFound,
+/// Map the replay library's watcher state (W2) to the post-game view. No path is returned: only
+/// whether the Dota replay folder was found and when the last scan ran.
+fn watcher_from_state(state: &crate::replay_library::ReplayWatcherState) -> PostGameWatcherReply {
+    let folder = match state.folder_found {
+        Some(true) => PostGameWatcherFolder::Known,
+        Some(false) => PostGameWatcherFolder::NotFound,
+        None => PostGameWatcherFolder::Unknown,
     };
     PostGameWatcherReply {
         state: PostGameWatcherState::Unknown,
         folder,
-        last_scan_at_ms: None,
+        last_scan_at_ms: state.last_scan_unix_ms,
     }
 }
 
@@ -259,7 +261,7 @@ pub(crate) fn post_game_replay_summary(
     };
     Ok(lookup_replay_summary(
         record,
-        watcher_from_library_list(&list),
+        watcher_from_state(&library.watcher_state()),
         own_hero,
         &list.matches,
         |match_id| analytics.store().match_key(match_id).ok(),

@@ -154,6 +154,7 @@ function statusText(status: ReplayStatus, locale: Locale) {
   const labels: Record<ReplayStatus["state"], [string, string]> = {
     available: ["ยังไม่แยก", "Not parsed"], queued: ["รอคิว", "Queued"], parsing: ["กำลังแยก", "Parsing"],
     ready: ["พร้อมดู", "Ready to view"], needs_pack: ["ยังไม่มีข้อมูลประกอบ", "Required data unavailable"], failed: ["แยกไม่สำเร็จ", "Parsing failed"],
+    evicted: ["นำข้อมูลรีเพลย์ออกแล้ว", "Replay data removed"],
   };
   const label = labels[status.state]; return locale === "th" ? label[0] : label[1];
 }
@@ -924,7 +925,7 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
 }
 
 function emptyEntry(): ReplayLibraryEntry {
-  return { match_id: "", source: "manual_pick", source_path: "", dem_sha256: null, engine_version: null, engine_sha256: null,
+  return { match_key: null, match_id: "", source: "manual_pick", engine_version: null, bundle_hash: null,
     parse_time_unix_ms: null, status: { state: "available" }, bundle_bytes: 0, storage_bytes: 0, created_at_unix_ms: 0,
     match_date_utc: null, own_hero: null, duration_s: null, patch: null };
 }

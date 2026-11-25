@@ -25,6 +25,10 @@ export function AnalyticsSettings({ locale }: { locale: Locale }) {
   const [ledger, setLedger] = useState<LedgerRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [keepNewestDraft, setKeepNewestDraft] = useState(20);
+  const [maxBytesDraft, setMaxBytesDraft] = useState(2 * 1024 ** 3);
+  const [retentionPreview, setRetentionPreview] = useState<number | null>(null);
+  const [retentionBusy, setRetentionBusy] = useState(false);
 
   async function refresh() {
     try {
@@ -34,6 +38,8 @@ export function AnalyticsSettings({ locale }: { locale: Locale }) {
       ]);
       setSettings(next);
       setLedger(rows);
+      setKeepNewestDraft(next.keep_newest);
+      setMaxBytesDraft(next.max_bytes);
     } catch {
       setError(word(locale, "อ่านการตั้งค่าวิเคราะห์ไม่ได้", "Could not read Analytics settings"));
     }
@@ -54,14 +60,47 @@ export function AnalyticsSettings({ locale }: { locale: Locale }) {
     }
   }
 
+  async function saveRetention() {
+    if (!settings || !Number.isInteger(keepNewestDraft) || keepNewestDraft < 5 || keepNewestDraft > 100 || !Number.isSafeInteger(maxBytesDraft) || maxBytesDraft <= 0) return;
+    setRetentionBusy(true);
+    setError(null);
+    try {
+      if (retentionPreview === null) {
+        const preview = await invoke<{ evicted_matches: number }>("replay_library_retention_preview", {
+          keepNewest: keepNewestDraft,
+          maxBytes: maxBytesDraft,
+        });
+        setRetentionPreview(preview.evicted_matches);
+      } else {
+        setSettings(await invoke<ProviderPreferences>("replay_library_retention_save", {
+          keepNewest: keepNewestDraft,
+          maxBytes: maxBytesDraft,
+          expectedEvictions: retentionPreview,
+        }));
+        setRetentionPreview(null);
+      }
+    } catch (cause) {
+      setRetentionPreview(null);
+      setError(String(cause).includes("retention_preview_stale")
+        ? word(locale, "รายการเปลี่ยนไปแล้ว กรุณาดูตัวอย่างการนำออกอีกครั้ง", "The library changed. Preview removals again.")
+        : word(locale, "บันทึกการเก็บรีเพลย์ไม่ได้", "Could not save replay retention"));
+    } finally {
+      setRetentionBusy(false);
+    }
+  }
+
   return <section className="card analytics-settings" aria-labelledby="analytics-settings-title">
     <h2 id="analytics-settings-title">{word(locale, "รีเพลย์และการวิเคราะห์", "Replay & analysis")}</h2>
     {settings ? <div className="analytics-settings-grid">
       <section><h3>{word(locale, "คลังรีเพลย์", "Replay storage")}</h3>
         <label><input type="checkbox" checked={settings.auto_analyse} disabled={busy} onChange={event => void patch({ auto_analyse: event.currentTarget.checked })} /> {text.replayAutoParseLabel}</label>
         <p>{text.replayAutoParseHelp}</p>
-        <label>{word(locale, "จำนวนรีเพลย์ล่าสุด", "Newest replay count")} <input type="number" min="5" max="100" value={settings.keep_newest} disabled={busy} onChange={event => { const value = Number(event.currentTarget.value); if (Number.isInteger(value) && value >= 5 && value <= 100) void patch({ keep_newest: value }); }} /></label>
-        <label>{word(locale, "ขนาดสูงสุด (GB)", "Size cap (GB)")} <input type="number" min="0.001" step="0.25" value={settings.max_bytes / 1024 ** 3} disabled={busy} onChange={event => { const value = Number(event.currentTarget.value); if (Number.isFinite(value) && value > 0) void patch({ max_bytes: Math.round(value * 1024 ** 3) }); }} /></label>
+        <label>{word(locale, "จำนวนรีเพลย์ล่าสุด", "Newest replay count")} <input type="number" min="5" max="100" value={keepNewestDraft} disabled={busy || retentionBusy} onChange={event => { setKeepNewestDraft(Number(event.currentTarget.value)); setRetentionPreview(null); }} /></label>
+        <label>{word(locale, "ขนาดสูงสุด (GB)", "Size cap (GB)")} <input type="number" min="0.001" step="0.25" value={maxBytesDraft / 1024 ** 3} disabled={busy || retentionBusy} onChange={event => { const value = Number(event.currentTarget.value); setMaxBytesDraft(Number.isFinite(value) ? Math.round(value * 1024 ** 3) : 0); setRetentionPreview(null); }} /></label>
+        <button type="button" disabled={busy || retentionBusy || !Number.isInteger(keepNewestDraft) || keepNewestDraft < 5 || keepNewestDraft > 100 || maxBytesDraft <= 0 || (retentionPreview === null && keepNewestDraft === settings.keep_newest && maxBytesDraft === settings.max_bytes)} onClick={() => void saveRetention()}>
+          {retentionPreview === null ? word(locale, "บันทึก", "Save") : word(locale, "ยืนยันการบันทึก", "Confirm save")}
+        </button>
+        {retentionPreview !== null && <p role="status">{word(locale, `จะนำรีเพลย์ออก ${retentionPreview} แมตช์ โดยแถวและโน้ตยังอยู่`, `${retentionPreview} replay bundles will be removed; rows and notes will remain.`)}</p>}
       </section>
       <ProviderControls locale={locale} settings={settings} onSettingsChange={setSettings} />
     </div> : <p>{word(locale, "กำลังอ่านการตั้งค่า…", "Loading settings…")}</p>}

@@ -53,11 +53,11 @@ test("selecting a library entry never requests parsing and leaves parsing to an 
 });
 
 test("bundle reload identity changes only with selected replay, bundle hashes or state", () => {
-  const entry = { match_id: "m1", status: { state: "ready" }, dem_sha256: "dem-a", engine_sha256: "engine-a", bundle_schema: "3.1" } as const;
+  // List replies carry bundle_hash, not source or engine hashes (R-22).
+  const entry = { match_id: "m1", status: { state: "ready" }, bundle_hash: "bundle-a", bundle_schema: "3.1" } as const;
   const original = analytics.analyticsBundleSelectionKey(entry);
   assert.equal(analytics.analyticsBundleSelectionKey({ ...entry }), original);
-  assert.notEqual(analytics.analyticsBundleSelectionKey({ ...entry, dem_sha256: "dem-b" }), original);
-  assert.notEqual(analytics.analyticsBundleSelectionKey({ ...entry, engine_sha256: "engine-b" }), original);
+  assert.notEqual(analytics.analyticsBundleSelectionKey({ ...entry, bundle_schema: "3.0" }), original);
   assert.notEqual(analytics.analyticsBundleSelectionKey({ ...entry, bundle_hash: "bundle-b" }), original);
   assert.notEqual(analytics.analyticsBundleSelectionKey({ ...entry, status: { state: "parsing" } }), original);
   assert.notEqual(analytics.analyticsBundleSelectionKey({ ...entry, match_id: "m2" }), original);
