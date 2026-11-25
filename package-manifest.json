@@ -268,8 +268,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/analytics/context.rs",
-      "bytes": 9830,
-      "sha256": "582bde8142e68b345ddb89c6c87f8c902f4f2e3df8928cbc047ca8288d99f072"
+      "bytes": 13292,
+      "sha256": "2079d4c12fe1cc207535c27fae38e3cd1a06cd282c60c00012f6729c9e4717d6"
     },
     {
       "path": "apps/desktop/src-tauri/src/analytics/data/lane-expectation-constants.json",
@@ -283,18 +283,18 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/analytics/knowledge.rs",
-      "bytes": 93535,
-      "sha256": "7aa5db8e3a28ce5f3bbdf7648110499fada672f128e0de8ff9d231e68e7fea16"
+      "bytes": 96947,
+      "sha256": "a8dbae511c18abae1cab66cbf44d9643d035d6650bbc1b9982c4e3784e2acd2c"
     },
     {
       "path": "apps/desktop/src-tauri/src/analytics/lane_expectation.rs",
-      "bytes": 80552,
-      "sha256": "7d2e25b131b17f368d02a07fefa81631b6ed4d876070b6a6ede3151aabb83db2"
+      "bytes": 82040,
+      "sha256": "69301ec029dc15c6ec735b51f3e88c5355342ee0141291d93c66441f0b6d301c"
     },
     {
       "path": "apps/desktop/src-tauri/src/analytics/lane_history.rs",
-      "bytes": 12910,
-      "sha256": "9d3e27cda83b29c052e2ab17cdd18b21e4f8ceaf13fd17b1f4c0581609bb9ba5"
+      "bytes": 22408,
+      "sha256": "1685b598120d2b93a63e71000b98a579bb83c5f3c42d34ddd6040ac6540c4186"
     },
     {
       "path": "apps/desktop/src-tauri/src/analytics/mod.rs",
@@ -333,13 +333,13 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/analytics/service.rs",
-      "bytes": 86193,
-      "sha256": "b95cc214b5f375a6500cc4897823b24f084a32529d825da43f89442fa6cb9a38"
+      "bytes": 102020,
+      "sha256": "1ad633bc79fe9e76f090b198996da212a258369817b69860c974f00a5f9679ca"
     },
     {
       "path": "apps/desktop/src-tauri/src/analytics/store.rs",
-      "bytes": 66019,
-      "sha256": "33457f5770f23d3fbf642d7ea4d08fc676d721acbb9e3fb7603805f0d262d98f"
+      "bytes": 71342,
+      "sha256": "94ab6e3a060658b45dfea4b786dd8ca067ca25b0519de52fcaade71e0beaf1c3"
     },
     {
       "path": "apps/desktop/src-tauri/src/analytics/tools.rs",
@@ -348,8 +348,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/analytics/transport.rs",
-      "bytes": 19141,
-      "sha256": "02ec6e985fc2a1ff870f881c06cfabc0aa6bfe358d14a054b33c263f4a049786"
+      "bytes": 19915,
+      "sha256": "06a64a9a041da0cc2c6f42c792c1021aba2567cdd2cb154b601feda719c6c88d"
     },
     {
       "path": "apps/desktop/src-tauri/src/atomic.rs",
@@ -443,8 +443,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/commands.rs",
-      "bytes": 78702,
-      "sha256": "62207893cecad3afdb944bd5368525df1db28fbbca448d922ca096eef335a457"
+      "bytes": 79844,
+      "sha256": "5503be7aa18d1e64cc3d1e300a0ddbfc58a1fbfd768db4d3e32d2e5b844d1f52"
     },
     {
       "path": "apps/desktop/src-tauri/src/containment.rs",
@@ -583,8 +583,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 72705,
-      "sha256": "1cf7f52328a04d9b339f4ac5fb9f88834dc76784785c929f9fab729ee6fe5f1a"
+      "bytes": 72883,
+      "sha256": "1f4c3b3619f5008e6c67851bdf1084e31fe13c9c0a1de81ca2aedba49ad6941e"
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
@@ -15520,6 +15520,11 @@
       "path": "docs/design/ALPHA-LAUNCH.md",
       "bytes": 7160,
       "sha256": "09369507f8c9cec05d48f5ed95a57dab399e56f56abf4d959f2ab7a92dd23e2e"
+    },
+    {
+      "path": "docs/design/ANALYTICS-HOST-API.md",
+      "bytes": 5412,
+      "sha256": "71e3275d85d615e836cff98919baaeeeb070d7998417dc79bb3f4790fa5297c3"
     },
     {
       "path": "docs/design/BACKEND-STACK.md",

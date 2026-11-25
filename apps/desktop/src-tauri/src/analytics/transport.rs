@@ -1,19 +1,42 @@
 use super::protocol::{OutgoingRequest, MAX_RESPONSE_BYTES};
 use super::providers::endpoint::RequestEndpoint;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::{Arc, Mutex};
 
 const TOTAL_TIMEOUT_MS: u64 = 120_000;
 const CONNECT_TIMEOUT_MS: i32 = 15_000;
 
 #[derive(Clone, Debug, Default)]
-pub(crate) struct Cancellation(Arc<AtomicBool>);
+pub(crate) struct Cancellation {
+    cancelled: Arc<AtomicBool>,
+    reason: Arc<AtomicU8>,
+}
 impl Cancellation {
     pub(crate) fn cancel(&self) {
-        self.0.store(true, Ordering::Release);
+        self.cancel_with_reason(1);
+    }
+    pub(crate) fn cancel_for_match_phase(&self) {
+        self.cancel_with_reason(2);
+    }
+    pub(crate) fn cancel_if_barrier_monitor_unavailable(&self) {
+        self.cancel_with_reason(3);
+    }
+    fn cancel_with_reason(&self, reason: u8) {
+        let _ = self
+            .reason
+            .compare_exchange(0, reason, Ordering::AcqRel, Ordering::Acquire);
+        self.cancelled.store(true, Ordering::Release);
     }
     pub(crate) fn is_cancelled(&self) -> bool {
-        self.0.load(Ordering::Acquire)
+        self.cancelled.load(Ordering::Acquire)
+    }
+    pub(crate) fn reason_code(&self) -> Option<&'static str> {
+        match self.reason.load(Ordering::Acquire) {
+            1 => Some("user_cancelled"),
+            2 => Some("match_phase_started"),
+            3 => Some("barrier_monitor_unavailable"),
+            _ => None,
+        }
     }
 }
 

@@ -671,6 +671,39 @@ pub(crate) fn analytics_knowledge_get(
 }
 
 #[tauri::command]
+pub(crate) fn analytics_match_data_delete(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    match_id: Option<String>,
+    orphan_key: Option<String>,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    let deleted = match (match_id, orphan_key) {
+        (Some(match_id), None) => analytics
+            .delete_match_data_for_match(&match_id)
+            .map_err(str::to_owned)?,
+        (None, Some(orphan_key)) => analytics
+            .delete_orphan_match_data(&orphan_key)
+            .map_err(str::to_owned)?,
+        _ => return Err("match_data_target_invalid".into()),
+    };
+    Ok(json!({"deleted":deleted}))
+}
+
+#[tauri::command]
+pub(crate) fn analytics_orphans_list(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    let orphan_keys = analytics
+        .orphan_analysis_keys(&library)
+        .map_err(str::to_owned)?;
+    Ok(json!({"orphan_keys":orphan_keys}))
+}
+
+#[tauri::command]
 pub(crate) fn analytics_lane_calibration_get(
     webview: tauri::Webview,
     analytics: tauri::State<'_, crate::analytics::AnalyticsService>,

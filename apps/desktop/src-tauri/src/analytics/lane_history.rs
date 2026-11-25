@@ -1,12 +1,17 @@
 use crate::atomic;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 const FILE_NAME: &str = "lane-history.json";
 const CALIBRATION_FILE_NAME: &str = "lane-calibration-v1.json";
+const TOKEN_FILE_NAME: &str = "lane-history-seen.json";
+const PENDING_FILE_NAME: &str = "lane-history-pending.json";
+const HISTORY_SCHEMA: u32 = 2;
+const TOKEN_SCHEMA: u32 = 1;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
@@ -37,33 +42,44 @@ struct LaneHistoryFile {
     records: Vec<LaneHistoryRecord>,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+struct SeenTokensFile {
+    schema: u32,
+    tokens: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+struct PendingBundleFile {
+    schema: u32,
+    history: LaneHistoryFile,
+    token: String,
+}
+
 #[derive(Clone)]
 pub(crate) struct LaneHistoryStore {
     path: PathBuf,
+    tokens_path: PathBuf,
+    pending_path: PathBuf,
+    install_key: Option<[u8; 32]>,
     write_gate: Arc<Mutex<()>>,
 }
 
 impl LaneHistoryStore {
-    pub(crate) fn open(analytics_root: &Path) -> Self {
+    pub(crate) fn open(analytics_root: &Path, install_key: Option<[u8; 32]>) -> Self {
         Self {
             path: analytics_root.join(FILE_NAME),
+            tokens_path: analytics_root.join(TOKEN_FILE_NAME),
+            pending_path: analytics_root.join(PENDING_FILE_NAME),
+            install_key,
             write_gate: Arc::new(Mutex::new(())),
         }
     }
 
     pub(crate) fn records(&self) -> Result<Vec<LaneHistoryRecord>, &'static str> {
-        match read_file(&self.path) {
-            Ok(file) => Ok(file.records),
-            Err("lane_history_corrupt") => {
-                crate::log_warn!(
-                    "analytics",
-                    "lane_history_corrupt",
-                    "lane history file is invalid; treating its records as unavailable"
-                );
-                Ok(Vec::new())
-            }
-            Err(error) => Err(error),
-        }
+        let _guard = lock(&self.write_gate);
+        self.current_file_locked().map(|file| file.records)
     }
 
     pub(crate) fn append(&self, records: &[LaneHistoryRecord]) -> Result<(), &'static str> {
@@ -71,38 +87,63 @@ impl LaneHistoryStore {
             return Ok(());
         }
         let _guard = lock(&self.write_gate);
-        let mut all = match read_file(&self.path) {
-            Ok(file) => file.records,
-            Err("lane_history_corrupt") => {
-                crate::log_warn!(
-                    "analytics",
-                    "lane_history_corrupt",
-                    "lane history file is invalid; recovering from new lane records"
-                );
-                Vec::new()
-            }
-            Err(error) => return Err(error),
-        };
+        let mut all = self.current_file_locked()?.records;
         all.extend_from_slice(records);
         let maximum = super::lane_expectation::config_integer("/lane_store_max_records");
         if all.len() > maximum {
             let excess = all.len() - maximum;
             all.drain(..excess);
         }
-        let next = LaneHistoryFile {
-            schema: 1,
+        self.write_history_file(&LaneHistoryFile {
+            schema: HISTORY_SCHEMA,
             records: all,
-        };
-        let bytes = serde_json::to_vec(&next).map_err(|_| "lane_history_write_failed")?;
-        if let Some(parent) = self.path.parent() {
-            fs::create_dir_all(parent).map_err(|_| "lane_history_write_failed")?;
+        })
+    }
+
+    pub(crate) fn append_bundle(
+        &self,
+        bundle_hash: &str,
+        records: &[LaneHistoryRecord],
+    ) -> Result<bool, &'static str> {
+        if records.is_empty() {
+            return Ok(false);
         }
-        atomic::write(&self.path, &bytes).map_err(|_| "lane_history_write_failed")
+        if !valid_sha256(bundle_hash) {
+            return Err("bundle_hash_invalid");
+        }
+        let key = self.install_key.as_ref().ok_or("install_key_unavailable")?;
+        let token = hmac_bundle_token(key, bundle_hash.as_bytes());
+        let _guard = lock(&self.write_gate);
+        let mut history = self.current_file_locked()?;
+        let seen = self.read_tokens_file()?;
+        if seen.tokens.iter().any(|previous| previous == &token) {
+            return Ok(false);
+        }
+
+        history.records.extend_from_slice(records);
+        let maximum = super::lane_expectation::config_integer("/lane_store_max_records");
+        if history.records.len() > maximum {
+            let excess = history.records.len() - maximum;
+            history.records.drain(..excess);
+        }
+        let pending = PendingBundleFile {
+            schema: 1,
+            history,
+            token,
+        };
+        self.write_json_file(&self.pending_path, &pending)?;
+        self.recover_pending_locked()?;
+        Ok(true)
     }
 
     pub(crate) fn clear(&self) -> Result<(), &'static str> {
         let _guard = lock(&self.write_gate);
-        for path in [self.path.clone(), self.report_path()] {
+        for path in [
+            self.path.clone(),
+            self.report_path(),
+            self.tokens_path.clone(),
+            self.pending_path.clone(),
+        ] {
             match fs::remove_file(path) {
                 Ok(()) => {}
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
@@ -141,9 +182,124 @@ impl LaneHistoryStore {
             .join(CALIBRATION_FILE_NAME)
     }
 
+    fn current_file_locked(&self) -> Result<LaneHistoryFile, &'static str> {
+        if matches!(read_file(&self.path), Ok(LaneHistoryFile { schema: 1, .. })) {
+            self.write_history_file(&LaneHistoryFile {
+                schema: HISTORY_SCHEMA,
+                records: Vec::new(),
+            })?;
+            self.remove_if_exists(&self.tokens_path)?;
+            self.remove_if_exists(&self.pending_path)?;
+            return Ok(LaneHistoryFile {
+                schema: HISTORY_SCHEMA,
+                records: Vec::new(),
+            });
+        }
+        self.recover_pending_locked()?;
+        match read_file(&self.path) {
+            Ok(file) => Ok(file),
+            Err("lane_history_corrupt") => {
+                crate::log_warn!(
+                    "analytics",
+                    "lane_history_corrupt",
+                    "lane history file is invalid; treating its records as unavailable"
+                );
+                Ok(LaneHistoryFile {
+                    schema: HISTORY_SCHEMA,
+                    records: Vec::new(),
+                })
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    fn read_tokens_file(&self) -> Result<SeenTokensFile, &'static str> {
+        let bytes = match fs::read(&self.tokens_path) {
+            Ok(bytes) => bytes,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                return Ok(SeenTokensFile {
+                    schema: TOKEN_SCHEMA,
+                    tokens: Vec::new(),
+                });
+            }
+            Err(_) => return Err("lane_history_read_failed"),
+        };
+        let file: SeenTokensFile =
+            serde_json::from_slice(&bytes).map_err(|_| "lane_history_corrupt")?;
+        validate_tokens_file(&file)?;
+        Ok(file)
+    }
+
+    fn write_history_file(&self, file: &LaneHistoryFile) -> Result<(), &'static str> {
+        self.write_json_file(&self.path, file)
+    }
+
+    fn write_json_file<T: Serialize>(&self, path: &Path, value: &T) -> Result<(), &'static str> {
+        let bytes = serde_json::to_vec(value).map_err(|_| "lane_history_write_failed")?;
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).map_err(|_| "lane_history_write_failed")?;
+        }
+        atomic::write(path, &bytes).map_err(|_| "lane_history_write_failed")
+    }
+
+    fn recover_pending_locked(&self) -> Result<(), &'static str> {
+        let bytes = match fs::read(&self.pending_path) {
+            Ok(bytes) => bytes,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(_) => return Err("lane_history_read_failed"),
+        };
+        let pending: PendingBundleFile =
+            serde_json::from_slice(&bytes).map_err(|_| "lane_history_corrupt")?;
+        if pending.schema != 1
+            || pending.history.schema != HISTORY_SCHEMA
+            || validate_history_file(&pending.history).is_err()
+        {
+            return Err("lane_history_corrupt");
+        }
+        if !valid_sha256(&pending.token) {
+            return Err("lane_history_corrupt");
+        }
+        let mut seen = self.read_tokens_file()?;
+        if !seen.tokens.iter().any(|token| token == &pending.token) {
+            seen.tokens.push(pending.token);
+            let maximum =
+                (super::lane_expectation::config_integer("/lane_store_max_records") / 3).max(1);
+            if seen.tokens.len() > maximum {
+                let excess = seen.tokens.len() - maximum;
+                seen.tokens.drain(..excess);
+            }
+        }
+        self.write_history_file(&pending.history)?;
+        self.write_json_file(&self.tokens_path, &seen)?;
+        self.remove_if_exists(&self.pending_path)
+    }
+
+    fn remove_if_exists(&self, path: &Path) -> Result<(), &'static str> {
+        match fs::remove_file(path) {
+            Ok(()) => Ok(()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(_) => Err("lane_history_delete_failed"),
+        }
+    }
+
     #[cfg(test)]
     fn path(&self) -> &Path {
         &self.path
+    }
+
+    #[cfg(test)]
+    fn tokens_path(&self) -> &Path {
+        &self.tokens_path
+    }
+
+    #[cfg(test)]
+    fn pending_path(&self) -> &Path {
+        &self.pending_path
+    }
+
+    #[cfg(test)]
+    fn seen_tokens(&self) -> Result<Vec<String>, &'static str> {
+        Ok(self.read_tokens_file()?.tokens)
     }
 }
 
@@ -222,7 +378,7 @@ fn read_file(path: &Path) -> Result<LaneHistoryFile, &'static str> {
         Ok(bytes) => bytes,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             return Ok(LaneHistoryFile {
-                schema: 1,
+                schema: HISTORY_SCHEMA,
                 records: Vec::new(),
             });
         }
@@ -230,7 +386,12 @@ fn read_file(path: &Path) -> Result<LaneHistoryFile, &'static str> {
     };
     let file: LaneHistoryFile =
         serde_json::from_slice(&bytes).map_err(|_| "lane_history_corrupt")?;
-    if file.schema != 1
+    validate_history_file(&file)?;
+    Ok(file)
+}
+
+fn validate_history_file(file: &LaneHistoryFile) -> Result<(), &'static str> {
+    if !matches!(file.schema, 1 | HISTORY_SCHEMA)
         || file.records.len() > super::lane_expectation::config_integer("/lane_store_max_records")
         || file.records.iter().any(|record| {
             !matches!(record.lane.as_str(), "top" | "mid" | "bot")
@@ -243,7 +404,50 @@ fn read_file(path: &Path) -> Result<LaneHistoryFile, &'static str> {
     {
         return Err("lane_history_corrupt");
     }
-    Ok(file)
+    Ok(())
+}
+
+fn validate_tokens_file(file: &SeenTokensFile) -> Result<(), &'static str> {
+    let maximum = (super::lane_expectation::config_integer("/lane_store_max_records") / 3).max(1);
+    let mut unique = std::collections::BTreeSet::new();
+    if file.schema != TOKEN_SCHEMA
+        || file.tokens.len() > maximum
+        || file
+            .tokens
+            .iter()
+            .any(|token| !valid_sha256(token) || !unique.insert(token))
+    {
+        return Err("lane_history_corrupt");
+    }
+    Ok(())
+}
+
+fn valid_sha256(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
+fn hmac_bundle_token(key: &[u8; 32], bundle_hash: &[u8]) -> String {
+    let mut inner_pad = [0x36_u8; 64];
+    let mut outer_pad = [0x5c_u8; 64];
+    for (index, byte) in key.iter().enumerate() {
+        inner_pad[index] ^= *byte;
+        outer_pad[index] ^= *byte;
+    }
+    let mut inner = Sha256::new();
+    inner.update(inner_pad);
+    inner.update(bundle_hash);
+    let digest = inner.finalize();
+    let mut outer = Sha256::new();
+    outer.update(outer_pad);
+    outer.update(digest);
+    outer
+        .finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 
 pub(crate) fn valid_hero_id(value: &str) -> bool {
@@ -279,7 +483,7 @@ mod tests {
             .unwrap_or_default()
             .as_nanos();
         let root = std::env::temp_dir().join(format!("kohbor-lane-history-{suffix}"));
-        LaneHistoryStore::open(&root)
+        LaneHistoryStore::open(&root, Some([29; 32]))
     }
 
     fn record(index: usize, own: bool) -> LaneHistoryRecord {
@@ -352,6 +556,74 @@ mod tests {
         assert!(!path.exists());
         assert!(!report_path.exists());
         let _ = fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn bundle_deduplication_is_hmac_tokenized_and_survives_store_restart() {
+        let first = temp_store();
+        let root = first.path().parent().unwrap().to_path_buf();
+        let bundle_hash = "ab".repeat(32);
+        let install_key = [29; 32];
+
+        assert!(first
+            .append_bundle(&bundle_hash, &[record(0, true)])
+            .unwrap());
+        drop(first);
+
+        let restarted = LaneHistoryStore::open(&root, Some(install_key));
+        assert!(!restarted
+            .append_bundle(&bundle_hash, &[record(0, true)])
+            .unwrap());
+        assert_eq!(restarted.records().unwrap().len(), 1);
+        let token_bytes = fs::read_to_string(restarted.tokens_path()).unwrap();
+        assert!(!token_bytes.contains(&bundle_hash));
+        assert_eq!(
+            restarted.seen_tokens().unwrap(),
+            vec![hmac_bundle_token(&install_key, bundle_hash.as_bytes())]
+        );
+        let history_bytes = fs::read_to_string(restarted.path()).unwrap();
+        assert!(!history_bytes.contains(&bundle_hash));
+        assert!(!history_bytes.contains("match_id"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn clear_history_deletes_the_separate_deduplication_token_file() {
+        let store = temp_store();
+        store
+            .append_bundle(&"cd".repeat(32), &[record(0, true)])
+            .unwrap();
+        let token_path = store.tokens_path().to_path_buf();
+        assert!(token_path.exists());
+
+        store.clear().unwrap();
+
+        assert!(!token_path.exists());
+        assert!(!store.pending_path().exists());
+        let _ = fs::remove_dir_all(store.path().parent().unwrap());
+    }
+
+    #[test]
+    fn legacy_lane_store_is_cleared_once_by_the_versioned_migration() {
+        let store = temp_store();
+        fs::create_dir_all(store.path().parent().unwrap()).unwrap();
+        fs::write(
+            store.path(),
+            serde_json::to_vec(&LaneHistoryFile {
+                schema: 1,
+                records: vec![record(0, true)],
+            })
+            .unwrap(),
+        )
+        .unwrap();
+
+        assert!(store.records().unwrap().is_empty());
+        let migrated: LaneHistoryFile =
+            serde_json::from_slice(&fs::read(store.path()).unwrap()).unwrap();
+        assert_eq!(migrated.schema, 2);
+        store.append(&[record(1, false)]).unwrap();
+        assert_eq!(store.records().unwrap().len(), 1);
+        let _ = fs::remove_dir_all(store.path().parent().unwrap());
     }
 
     #[test]
