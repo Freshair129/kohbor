@@ -880,7 +880,7 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
       <button type="button" disabled={!selectedId || deleteState === "deleting"} onClick={() => setDeleteState(analyticsDeleteTransition(deleteState, "request", selectedId).state)}>{t(locale, "ลบข้อมูลวิเคราะห์ของแมตช์นี้", "Delete analysis data for this match")}</button>
       {deleteState === "confirming" && <div className="analytics-delete-confirm" role="group" aria-label={t(locale, "ยืนยันการลบ", "Confirm deletion")}>
         <p>{t(locale, "ยืนยันลบข้อมูลวิเคราะห์ของแมตช์นี้หรือไม่?", "Delete this match's analysis data?")}</p>
-        <button type="button" disabled={deleteState === "deleting"} onClick={() => void deleteSelectedAnalysis()}>{t(locale, "ยืนยันการลบ", "Confirm delete")}</button>
+        <button type="button" onClick={() => void deleteSelectedAnalysis()}>{t(locale, "ยืนยันการลบ", "Confirm delete")}</button>
         <button type="button" onClick={() => setDeleteState(analyticsDeleteTransition(deleteState, "cancel", selectedId).state)}>{t(locale, "ยกเลิก", "Cancel")}</button>
       </div>}
       <section aria-label={t(locale, "รายการข้อมูลที่ยังไม่มีแมตช์", "Orphaned analysis data")}>

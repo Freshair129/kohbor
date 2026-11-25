@@ -122,7 +122,7 @@ function CenteredLiveField({ locale, status, snapshot, hostLost, steamStatus, ma
         setWatcher(reply.watcher ?? { state: "unknown", folder: "unknown", lastScanAtMs: null });
         const ended = reply.lastFinishedMatch;
         const canReopen = phase === "none"
-          || (ended !== null && statusEpoch === ended.epoch && (phase === "post_game" || matchEnded));
+          || (ended != null && statusEpoch === ended.epoch && (phase === "post_game" || matchEnded));
         if (ended && canReopen) {
           setPostGame(previous => previous?.epoch === ended.epoch ? previous : { epoch: ended.epoch, dismissed: false });
         }

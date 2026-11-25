@@ -963,8 +963,8 @@
     },
     {
       "path": "apps/desktop/src/analytics/AnalyticsPage.tsx",
-      "bytes": 73495,
-      "sha256": "f6b52cd2aee4509d9560b0c039f3bf359a05b4462b8a72898c4e935f3d4bec1e"
+      "bytes": 73457,
+      "sha256": "ec230289e965cf9e70f708af1b121f1a2a22264184a678917ff763bb19d847a4"
     },
     {
       "path": "apps/desktop/src/analytics/AnalyticsSettings.tsx",
@@ -12513,8 +12513,8 @@
     },
     {
       "path": "apps/desktop/src/deck/Deck.tsx",
-      "bytes": 17575,
-      "sha256": "d0681db1fdd3f01871788ec0998d3047b51962f4eaac1fef33566e792f2d3c2b"
+      "bytes": 17574,
+      "sha256": "8f6028132ef0d68ea9b35f5f406944762bd58662ca139edba294878e729a6eb3"
     },
     {
       "path": "apps/desktop/src/deck/DraftBarStrip.tsx",
