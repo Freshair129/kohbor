@@ -218,7 +218,7 @@ These are integration/source facts, not acceptance claims. `source` means the ch
 
 ### In progress
 
-- **Approved, in progress — DEC-LANE-EXPECTATION (slices L0–L5).** The owner answered "Approve all 12" on 2026-11-25 (relayed by the lead; the decision record is written by the implementing worker on branch feat/lane-expectation). L0–L5 are being implemented; nothing is merged yet. The expert lane table ships with no rows until the coach supplies reviewed data, so most lanes show "ยังไม่มีค่าคาดหมาย". L6 (public data) stays owner-only.
+- **Approved, in progress — DEC-LANE-EXPECTATION (slices L0–L5).** The owner answered "Approve all 12" on 2026-11-25 (relayed by the lead; the decision record is written by the implementing worker on branch feat/lane-expectation). L0–L5 merged into integ at 1d74e77 (source and synthetic checks only; the opt-in real-bundle reproduction and native/live acceptance are not run). The expert lane table ships with no rows until the coach supplies reviewed data, so most lanes show "ยังไม่มีค่าคาดหมาย". L6 (public data) stays owner-only.
 - **Approved, engine side done; Kohbor re-pin in progress — replay-engine change request.** Under DEC-ANALYTICS-V2 decision 8 the engine owner session delivered schema 3.1 / engine 0.3.0 in `replay-engine-rs` commit 9c314e0 (5db8002 adds only WASM rebuilds): winner, draft, gold earned and hero damage dealt, with existing fields byte-identical. The lead built the pinned candidate from 5db8002 (3,258,368 bytes, SHA-256 9d7aa88b…). The Kohbor re-pin and schema 3.1 admission (branch feat/engine-0.3.0-repin) and a manual re-parse action are in progress; using the new fields in the Analytics digest follows the lane-expectation merge.
 
 ### Release
