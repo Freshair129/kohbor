@@ -50,7 +50,7 @@
       "path": "docs/design/EVENT-AUDIO-SPEC.md",
       "type": "spec",
       "role": "governing",
-      "reviewed_sha256": "0823c9a584c047b25e48f05fe0b6868ca07110727657b7a963a639a5cab1fab9"
+      "reviewed_sha256": "34aaea260d1109474e9c16804c22497a1b799849fa4cdc731044320dc299afaf"
     },
     {
       "path": "docs/design/S3-5-HOST-CRITICAL-PATH.md",
@@ -176,7 +176,7 @@
       "path": "apps/desktop/src-tauri/src/lab.rs",
       "type": "code",
       "role": "neighbour:host-core",
-      "reviewed_sha256": "1896f7b80d90ea0dcb3de220563070fe2799981a94d33143ec2cd2967f373261"
+      "reviewed_sha256": "45ddea9f3a6be4799785cc15a9e8e79435492b13287b930bde8fb77409914e2a"
     },
     {
       "path": "apps/desktop/src/lab",

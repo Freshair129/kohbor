@@ -23,7 +23,7 @@ A map, not evidence. Decisions, requirements, contracts, code and tests outrank 
 
 ## 2. Owner decisions (ids only; text in contracts/decisions.json)
 
-- **Decided:** DEC-HEALTH-DANGER, DEC-CRITICAL-MEDIA, DEC-PACK-AUDIO-OPTIONAL-VISUAL, DEC-BANNER-LAB-STYLE (consumer side only), DEC-EVENT-RUNE-SPAWN, DEC-MULTI-PACK.
+- **Decided:** DEC-HEALTH-DANGER, DEC-CRITICAL-MEDIA, DEC-PACK-AUDIO-OPTIONAL-VISUAL, DEC-BANNER-LAB-STYLE (consumer side only), DEC-EVENT-RUNE-SPAWN, DEC-MULTI-PACK, DEC-HERO-PACK-SNIPER-ULT.
 - **Proposed, not decided:** DEC-EVENT-AUDIO (owner acknowledgements are recorded inside it; the decision as a whole is not approved).
 - **Open:** DEC-INTERFACES, DEC-PACK-CRYPTO, DEC-NATIVE-EVIDENCE.
 - **Deferred:** DEC-PACK-BANNER-ADDON.

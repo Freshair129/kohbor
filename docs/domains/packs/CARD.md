@@ -25,7 +25,7 @@ A map, not evidence. Decisions: `contracts/decisions.json`. Requirements: `contr
 
 ## 2. Owner decisions (ids only; text in contracts/decisions.json)
 
-- **Decided:** DEC-PACK-AUDIO-OPTIONAL-VISUAL, DEC-VOICE-VARIANTS, DEC-CRITICAL-MEDIA, DEC-COMMERCE-INTENT, DEC-MULTI-PACK.
+- **Decided:** DEC-PACK-AUDIO-OPTIONAL-VISUAL, DEC-VOICE-VARIANTS, DEC-CRITICAL-MEDIA, DEC-COMMERCE-INTENT, DEC-MULTI-PACK, DEC-HERO-PACK-SNIPER-ULT.
 - **Open or proposed:** DEC-PACK-CRYPTO, DEC-EVENT-AUDIO, DEC-INTERFACES, DEC-NATIVE-EVIDENCE.
 - **Deferred:** DEC-PACK-BANNER-ADDON, DEC-PREMIUM.
 - **Neighbour, decided:** DEC-BANNER-LAB-STYLE (banner format that a pack must be able to carry).
