@@ -2,13 +2,19 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { copy } from "../src/copy.ts";
 import { validateLeadTimeInputs } from "../src/objectivePrefs.ts";
+import {
+  SETTINGS_CONTROL_IDS,
+  SETTINGS_SECTIONS,
+} from "../src/settings/settingsModel.ts";
 
 const modelPath = new URL("../src/settings/settingsModel.ts", import.meta.url);
 const styles = readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
 const objectiveSettings = readFileSync(new URL("../src/ObjectiveSettings.tsx", import.meta.url), "utf8");
 const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
 const settingsPage = readFileSync(new URL("../src/settings/SettingsPage.tsx", import.meta.url), "utf8");
+const analyticsSettings = readFileSync(new URL("../src/analytics/AnalyticsSettings.tsx", import.meta.url), "utf8");
 const analyticsSettingsStyles = readFileSync(new URL("../src/analytics/analyticsSettings.css", import.meta.url), "utf8");
 const draftSettingsStyles = readFileSync(new URL("../src/draft/draft-column.css", import.meta.url), "utf8");
 const orbSettingsStyles = readFileSync(new URL("../src/orb/orbSettings.css", import.meta.url), "utf8");
@@ -20,12 +26,26 @@ function declarations(css: string, selector: string): string[] {
     .map((match) => match[2]);
 }
 
+test("automatic replay setting copy is present in Thai and English", () => {
+  assert.equal(copy("th").shell.replayAutoParseLabel, "แยกรีเพลย์อัตโนมัติ");
+  assert.match(copy("th").shell.replayAutoParseHelp, /หลังออกจากแมตช์/u);
+  assert.equal(copy("en").shell.replayAutoParseLabel, "Parse replays automatically");
+  assert.match(copy("en").shell.replayAutoParseHelp, /after you leave the match/i);
+  assert.match(copy("en").shell.replayAutoParseHelp, /one at a time/i);
+  assert.match(copy("en").shell.replayAutoParseHelp, /low priority/i);
+  assert.equal((analyticsSettings.match(/checked=\{settings\.auto_analyse\}/g) ?? []).length, 1);
+  assert.match(analyticsSettings, /text\.replayAutoParseLabel/);
+  assert.match(analyticsSettings, /text\.replayAutoParseHelp/);
+  assert.equal(SETTINGS_CONTROL_IDS.filter((id) => id === "replayAutoParse").length, 1);
+  assert.ok(SETTINGS_SECTIONS.find((section) => section.id === "replay-ai")?.controlIds.includes("replayAutoParse"));
+});
+
 test("every existing settings control and renderer section occurs exactly once", async () => {
   assert.ok(existsSync(fileURLToPath(modelPath)), "settings section model is present");
   const model = await import("../src/settings/settingsModel.ts");
   const expectedControls = [
     "locale", "steamName", "glassLevel", "developerMode", "objectiveAlerts", "mapKeyDiagnostics",
-    "objectiveCardLayout", "replayStorage", "analyticsAssistant", "showAppHotkey",
+    "objectiveCardLayout", "replayStorage", "replayAutoParse", "analyticsAssistant", "showAppHotkey",
     "minimapCropPosition", "minimapCropSize", "minimapCropReset", "minimapDetectCrop", "minimapCropProposal",
     "minimapCropConfirm", "captureDisplayRate", "capturePause", "mapFeedback", "captureRetry", "captureResourceDetails",
     "mockCaptureReason",
@@ -58,6 +78,7 @@ test("every existing settings control and renderer section occurs exactly once",
     '"audio-controls": <OrbSettings',
   ]) assert.ok(appSource.includes(assignment), assignment);
   assert.match(settingsPage, /SETTINGS_SECTIONS\.map/);
+  assert.doesNotMatch(settingsPage, /ReplayAutoParseSetting/);
   assert.match(settingsPage, /initialSection\?: "overlay-layout" \| null/);
   assert.match(settingsPage, /hidden=\{activeSection !== section\.id\}/);
   assert.match(appSource, /<div className="shell-screen shell-settings">\s*<ObjectiveSettings/);

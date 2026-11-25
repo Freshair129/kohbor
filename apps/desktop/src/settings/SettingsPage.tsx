@@ -54,14 +54,14 @@ export function SettingsPage({ locale, sections, objectiveAlerts, initialSection
       <div className="settings-content" role="region" aria-label={text.shell.settingsContentLabel} tabIndex={0}>
         {SETTINGS_SECTIONS.map((section) => {
           const label = text.shell.settingsSections[section.id];
-          const content = section.id === "alerts-objectives" ? objectiveAlerts : sections[section.id];
+          const sectionContent = section.id === "alerts-objectives" ? objectiveAlerts : sections[section.id];
           return (
             <section key={section.id} id={`settings-section-${section.id}`} className="settings-section"
               aria-labelledby={`settings-section-title-${section.id}`} hidden={activeSection !== section.id}>
               <header className="settings-section-heading">
                 <h2 id={`settings-section-title-${section.id}`}>{label}</h2>
               </header>
-              {content}
+              {sectionContent}
             </section>
           );
         })}

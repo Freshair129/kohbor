@@ -247,6 +247,8 @@ const MESSAGES = {
       insightsViews: { label: "มุมมอง Analytics", summary: "Analytics", replay: "รีเพลย์" },
       settingsNavigationLabel: "หมวดหมู่การตั้งค่า",
       settingsContentLabel: "เนื้อหาการตั้งค่า",
+      replayAutoParseLabel: "แยกรีเพลย์อัตโนมัติ",
+      replayAutoParseHelp: "เริ่มแยกหลังออกจากแมตช์ ทีละรีเพลย์ และใช้ลำดับความสำคัญต่ำ",
       settingsSections: {
         general: "ทั่วไป",
         "alerts-objectives": "แจ้งเตือนและวัตถุประสงค์",
@@ -561,6 +563,8 @@ const MESSAGES = {
       insightsViews: { label: "Analytics views", summary: "Analytics", replay: "Replay" },
       settingsNavigationLabel: "Settings sections",
       settingsContentLabel: "Settings content",
+      replayAutoParseLabel: "Parse replays automatically",
+      replayAutoParseHelp: "Parsing runs after you leave the match, one at a time, at low priority.",
       settingsSections: {
         general: "General",
         "alerts-objectives": "Alerts & objectives",

@@ -83,8 +83,8 @@
     },
     {
       "path": "acceptance/scenarios.feature",
-      "bytes": 78286,
-      "sha256": "3364fcfbd1b9e44a51a91407fe83761a43e7650ce214a3bfcfaa5e9d38157bf0"
+      "bytes": 78962,
+      "sha256": "8f7d04c0dbd47224b7d4affd313e217d1df275a6a2cfbac3a87d7c2597efe0fb"
     },
     {
       "path": "acceptance/spec-validation.json",
@@ -558,8 +558,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 71388,
-      "sha256": "849ffa45dd154252596edb4ca1b7efc7a56dddb7ea1c9724f4782b01a8e0efbd"
+      "bytes": 71493,
+      "sha256": "525b4b5fd56beba42c343a420e40f436a3832adc1130bb784e87fefa44bd8792"
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
@@ -693,8 +693,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/replay_library/mod.rs",
-      "bytes": 64129,
-      "sha256": "737af34bdb15d0c93a38c14d2b940f2422767229d875bbb952aaaed6595d4ae9"
+      "bytes": 90751,
+      "sha256": "854bd7ed393660d10bd62d19c2979f3624f98dfb2b45949824825f7ee1d8c634"
     },
     {
       "path": "apps/desktop/src-tauri/src/secrets.rs",
@@ -758,8 +758,8 @@
     },
     {
       "path": "apps/desktop/src/App.tsx",
-      "bytes": 28987,
-      "sha256": "e45fdbbae54b02d1edb7f1d4174b9ffd1098341dfdb0d81ea555e1ad31e8d7fa"
+      "bytes": 28525,
+      "sha256": "6d50e21f29e671013c316166c85275904ce3d086ad2e32b9f7ca9b4696f4c5c9"
     },
     {
       "path": "apps/desktop/src/AudioHistory.tsx",
@@ -938,8 +938,8 @@
     },
     {
       "path": "apps/desktop/src/analytics/AnalyticsSettings.tsx",
-      "bytes": 4780,
-      "sha256": "a7e00a41f8f7327a7cd3a6c549e7b6a77b9110af1ea5f4d9663fd1ba2004defa"
+      "bytes": 4729,
+      "sha256": "224cedcbdd7a051d4f337ee77b4dd862be34a9f32bbcccfe63c67aa5ace2c306"
     },
     {
       "path": "apps/desktop/src/analytics/ProviderControls.css",
@@ -12458,8 +12458,8 @@
     },
     {
       "path": "apps/desktop/src/copy.ts",
-      "bytes": 96524,
-      "sha256": "41af384557f2ccb8679fd73a6d73fc68e6363f69625fa01e9753e2aceabcac3c"
+      "bytes": 96978,
+      "sha256": "105d0ae27257fc782aabc1333b8c05636542fb37b544e78f63adcd522ed2e35b"
     },
     {
       "path": "apps/desktop/src/critical-stack.css",
@@ -13488,8 +13488,8 @@
     },
     {
       "path": "apps/desktop/src/replay/matchViewer.d.mts",
-      "bytes": 947,
-      "sha256": "a80fc481d7116ea618c0f1819ca4d10084fc07ac63d4bfc5a7a3e20be50f9193"
+      "bytes": 924,
+      "sha256": "fbf34a03dca3e7859dad5e0bc2800463b1f01bbe59b12d8462df7007213ee652"
     },
     {
       "path": "apps/desktop/src/replay/matchViewer.html",
@@ -13568,13 +13568,13 @@
     },
     {
       "path": "apps/desktop/src/settings/SettingsPage.tsx",
-      "bytes": 2857,
-      "sha256": "9c7defa15c917215f9219cb2ee936db451aaa3f71ddb45cd8eec09a0a30dd04a"
+      "bytes": 2871,
+      "sha256": "5436ef996e6346488a6e5c15029fc244e8d199030a3c5b89ec672e9238ed495d"
     },
     {
       "path": "apps/desktop/src/settings/settingsModel.ts",
-      "bytes": 3831,
-      "sha256": "b7c33fb9b8f414b6d8f312af66892b0f5074cb5f89cb490dccdc6b14cec7e87c"
+      "bytes": 3869,
+      "sha256": "898993114e592f30ecf4bb228ea2388a44be9ffd8527ee83b978b6a6866a49a2"
     },
     {
       "path": "apps/desktop/src/shared/Dialog.tsx",
@@ -14303,8 +14303,8 @@
     },
     {
       "path": "apps/desktop/tests/settings-layout.test.ts",
-      "bytes": 8908,
-      "sha256": "dd475c8f1aa1069d4fcd410b02192ce31fa67a25d212ff7caff6f6f5dc42d15e"
+      "bytes": 10291,
+      "sha256": "51485d2ece5c1ffba60482ad4a4ff2d23b6bd057cb1d5b0c878b0c7702afe553"
     },
     {
       "path": "apps/desktop/tests/shell-css.test.ts",
@@ -14503,8 +14503,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 151257,
-      "sha256": "1b3017f89b6121a3f83f976883f7297dd782a7740984be8e9123549c1186fcb8"
+      "bytes": 153930,
+      "sha256": "e4bca578ce3fef112681f7c55d3d1e398a93498f90e2456cd339538919a74de7"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -14603,8 +14603,8 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 344100,
-      "sha256": "1752fa68a21dcf8fa43150901bae6e1f2b83f7c2d63c362d4d5ef80bfb524ff6"
+      "bytes": 346011,
+      "sha256": "1c2f188fd02383726d05303be84826e45a21376f060ab001e20dab7dd4a423cd"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -15563,8 +15563,8 @@
     },
     {
       "path": "docs/design/REPLAY-PIPELINE.md",
-      "bytes": 11126,
-      "sha256": "fc49f4339076cfecbdd7b240775600f971bfe75f31ddc1538ef1e2beccf72df8"
+      "bytes": 11830,
+      "sha256": "18f0c58f8b7e68e101f8022190343d58b7381f3557542475759d3e32d49a9626"
     },
     {
       "path": "docs/design/RISK-ADMISSION-SPEC.md",
@@ -15613,8 +15613,8 @@
     },
     {
       "path": "docs/design/UX-SPEC.md",
-      "bytes": 47999,
-      "sha256": "ea5a4e8089811dc327fe2424e1124640fa74c3ac8fb486d5f00109f0064007e0"
+      "bytes": 48267,
+      "sha256": "42f4bcddb8a66f891fc3fd34eb13f6ff8c6706490f049a1aed3ea14ab3b08fa8"
     },
     {
       "path": "docs/design/VISUAL-DESIGN-PROPOSAL.md",
@@ -16058,8 +16058,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 110712,
-      "sha256": "a22042c5539b5c6efcbf5c0808825e49a91659047385774e7f20decaac6a3b97"
+      "bytes": 112192,
+      "sha256": "b5c2698049110c0b2c305a020b9bf6b34f30b2315b9a86215018281ac813fe1c"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
@@ -16143,13 +16143,13 @@
     },
     {
       "path": "docs/requirements/RTM.csv",
-      "bytes": 66735,
-      "sha256": "4249483b976b1247e707a90c3b2e5cb150051a1b44a1e4ec93c452c99b0b6622"
+      "bytes": 66904,
+      "sha256": "b6db54b6affb46424baf87e389f094ef08a7e55ce83f0261d791e69bec6595f4"
     },
     {
       "path": "docs/requirements/SRS.md",
-      "bytes": 236715,
-      "sha256": "f97320b5cb2935ded1c86c6c2e7a372182b17bed676408043248e6f6cb71abb9"
+      "bytes": 238436,
+      "sha256": "606de36531ffd4385f4a4735b3ca6d90a7d1df14b66bc8481c096a277c37bc4e"
     },
     {
       "path": "docs/security/SECURITY-PRIVACY.md",

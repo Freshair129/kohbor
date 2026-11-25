@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
-import type { Locale } from "../copy";
+import { copy, type Locale } from "../copy";
 import { ProviderControls, type ProviderPreferences } from "./ProviderControls";
 import "./analyticsSettings.css";
 
@@ -20,6 +20,7 @@ type LedgerRow = {
 const word = (locale: Locale, th: string, en: string) => locale === "th" ? th : en;
 
 export function AnalyticsSettings({ locale }: { locale: Locale }) {
+  const text = copy(locale).shell;
   const [settings, setSettings] = useState<ProviderPreferences | null>(null);
   const [ledger, setLedger] = useState<LedgerRow[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +58,8 @@ export function AnalyticsSettings({ locale }: { locale: Locale }) {
     <h2 id="analytics-settings-title">{word(locale, "รีเพลย์และการวิเคราะห์", "Replay & analysis")}</h2>
     {settings ? <div className="analytics-settings-grid">
       <section><h3>{word(locale, "คลังรีเพลย์", "Replay storage")}</h3>
-        <label><input type="checkbox" checked={settings.auto_analyse} disabled={busy} onChange={event => void patch({ auto_analyse: event.currentTarget.checked })} /> {word(locale, "วิเคราะห์อัตโนมัติเมื่อไม่อยู่ในแมตช์", "Auto-analyse outside matches")}</label>
+        <label><input type="checkbox" checked={settings.auto_analyse} disabled={busy} onChange={event => void patch({ auto_analyse: event.currentTarget.checked })} /> {text.replayAutoParseLabel}</label>
+        <p>{text.replayAutoParseHelp}</p>
         <label>{word(locale, "จำนวนรีเพลย์ล่าสุด", "Newest replay count")} <input type="number" min="5" max="100" value={settings.keep_newest} disabled={busy} onChange={event => { const value = Number(event.currentTarget.value); if (Number.isInteger(value) && value >= 5 && value <= 100) void patch({ keep_newest: value }); }} /></label>
         <label>{word(locale, "ขนาดสูงสุด (GB)", "Size cap (GB)")} <input type="number" min="0.001" step="0.25" value={settings.max_bytes / 1024 ** 3} disabled={busy} onChange={event => { const value = Number(event.currentTarget.value); if (Number.isFinite(value) && value > 0) void patch({ max_bytes: Math.round(value * 1024 ** 3) }); }} /></label>
       </section>
