@@ -35,6 +35,7 @@ export interface MatchViewerCopy {
     queued: string;
     parsing: string;
     ready: string;
+    evicted: string;
     needs_pack: string;
     failed: (reason: string) => string;
   };

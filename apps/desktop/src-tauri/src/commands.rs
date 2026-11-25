@@ -20,21 +20,15 @@ pub(crate) fn replay_library_list(
     state: tauri::State<'_, AppState>,
 ) -> Result<Value, String> {
     require_control(&webview)?;
-    let mut list = serde_json::to_value(library.list().map_err(str::to_owned)?)
+    let replay_list = library.list().map_err(str::to_owned)?;
+    let mut list = serde_json::to_value(&replay_list)
         .map_err(|_| "library_serialization_failed".to_owned())?;
     let history = state.match_history.entries();
     if let Some(rows) = list.get_mut("matches").and_then(Value::as_array_mut) {
-        for row in rows {
-            let Some(match_id) = row
-                .get("match_id")
-                .and_then(Value::as_str)
-                .map(str::to_owned)
-            else {
-                continue;
-            };
-            let match_id = match_id.as_str();
-            // The install-keyed hash lets the renderer open a match it only knows by its
-            // GSI history key (the post-game panel) without passing a raw match ID around.
+        for (row, replay) in rows.iter_mut().zip(&replay_list.matches) {
+            let match_id = replay.match_id.as_str();
+            // The install-keyed hash is used for cross-view correlation; match_id stays the
+            // local replay-library key and is not displayed by the renderer.
             let match_key = analytics.store().match_key(match_id).ok();
             let local = match_key
                 .as_deref()
@@ -62,11 +56,15 @@ pub(crate) fn replay_library_list(
 }
 
 #[tauri::command]
-pub(crate) fn replay_library_pick_file(webview: tauri::Webview) -> Result<Option<String>, String> {
+pub(crate) fn replay_library_pick_file(
+    webview: tauri::Webview,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+) -> Result<Option<String>, String> {
     require_control(&webview)?;
     #[cfg(windows)]
     {
-        return replay_file_dialog::pick_dem_file();
+        return replay_file_dialog::pick_dem_file()
+            .map(|path| path.map(|path| library.register_picked_file(std::path::PathBuf::from(path))));
     }
     #[cfg(not(windows))]
     {
@@ -221,6 +219,55 @@ pub(crate) fn replay_library_open_folder(
     require_control(&webview)?;
     let folder = library.bundle_folder(&match_id).map_err(str::to_owned)?;
     open_local_folder(&folder)
+}
+
+#[tauri::command]
+pub(crate) fn replay_library_watcher_state(
+    webview: tauri::Webview,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+) -> Result<crate::replay_library::ReplayWatcherState, String> {
+    require_control(&webview)?;
+    Ok(library.watcher_state())
+}
+
+#[tauri::command]
+pub(crate) fn replay_library_retention_preview(
+    webview: tauri::Webview,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+    keep_newest: usize,
+    max_bytes: u64,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    let evicted_matches = library.preview_retention(crate::replay_library::ReplayLibraryLimits {
+        max_matches: keep_newest,
+        max_bytes,
+    }).map_err(str::to_owned)?;
+    Ok(json!({ "evicted_matches": evicted_matches }))
+}
+
+#[tauri::command]
+pub(crate) fn replay_library_retention_save(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+    keep_newest: usize,
+    max_bytes: u64,
+    expected_evictions: usize,
+) -> Result<crate::analytics::AnalyticsPreferences, String> {
+    require_control(&webview)?;
+    let limits = crate::replay_library::ReplayLibraryLimits { max_matches: keep_newest, max_bytes };
+    let actual = library.preview_retention(limits).map_err(str::to_owned)?;
+    if actual != expected_evictions {
+        return Err("retention_preview_stale".to_owned());
+    }
+    let old = analytics.preferences().map_err(str::to_owned)?;
+    let next = analytics.patch_preferences(&json!({ "keep_newest": keep_newest, "max_bytes": max_bytes }))
+        .map_err(str::to_owned)?;
+    if let Err(error) = library.set_limits_previewed(limits, expected_evictions) {
+        let _ = analytics.store().write_preferences(&old);
+        return Err(error.to_owned());
+    }
+    Ok(next)
 }
 
 fn require_control(webview: &tauri::Webview) -> Result<(), String> {

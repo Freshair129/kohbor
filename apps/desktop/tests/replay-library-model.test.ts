@@ -6,7 +6,7 @@ import type { MatchBundle } from "../src/replay/matchBundle";
 
 const states = {
   available: "Available", queued: "Queued", parsing: "Parsing", ready: "Ready",
-  failed: (reason: string) => `Failed (${reason})`, needs_pack: "Pack required",
+  failed: (reason: string) => `Failed (${reason})`, needs_pack: "Pack required", evicted: "Replay removed; notes kept",
 };
 const copy = {
   states,
@@ -20,11 +20,12 @@ const copy = {
 
 function entry(match_id: string, status: ReplayStatus): ReplayLibraryEntry {
   return {
-    match_id, source: "dota_replays_folder", source_path: "private-source-path", dem_sha256: null,
-    engine_version: null, engine_sha256: null, parse_time_unix_ms: null, status,
+    match_id, match_key: null, source: "dota_replays_folder",
+    engine_version: null, parse_time_unix_ms: null, status,
     bundle_bytes: 0, storage_bytes: 0, created_at_unix_ms: Date.UTC(2026, 0, 3),
     match_date_utc: null, own_hero: null, duration_s: null, patch: "7.42",
     source_exists: true, bundle_schema: status.state === "ready" ? "3.0" : null,
+    bundle_hash: null,
   };
 }
 
@@ -47,6 +48,17 @@ test("library view model exposes state chips and only valid row actions", () => 
   assert.equal(rows[0]?.heroesLabel, "Unknown");
   assert.equal(rows[0]?.durationLabel, "Unknown");
   assert.equal(rows[0]?.sourceLabel, "Dota");
+});
+
+test("evicted entries stay as light rows and can only be parsed again when the source still exists", () => {
+  const present = entry("present", { state: "evicted" });
+  const missing = { ...entry("missing", { state: "evicted" }), source_exists: false };
+  const rows = replayListViewModel([present, missing], {}, copy, "en");
+  assert.equal(rows[0]?.statusLabel, "Replay removed; notes kept");
+  assert.equal(rows[0]?.canOpen, false);
+  assert.equal(rows[0]?.canParse, true);
+  assert.equal(rows[0]?.showReparse, false);
+  assert.equal(rows[1]?.canParse, false);
 });
 
 test("unsupported patch discovered while opening overrides the row chip to needs_pack", () => {

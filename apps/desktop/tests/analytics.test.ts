@@ -5,10 +5,12 @@ import { analyticsLayout, analyticsViewState, UNKNOWN_VALUE, replayRowFacts } fr
 import type { ReplayLibraryEntry } from "../src/replay/replayLibraryClient.ts";
 
 const entry = (partial: Partial<ReplayLibraryEntry> = {}): ReplayLibraryEntry => ({
-  match_id: "1", source: "dota_replays_folder", source_path: "", dem_sha256: null,
-  engine_version: null, engine_sha256: null, parse_time_unix_ms: null,
+  match_id: "1", match_key: null, source: "dota_replays_folder",
+  engine_version: null, parse_time_unix_ms: null,
   status: { state: "ready" }, bundle_bytes: 100, storage_bytes: 150,
-  created_at_unix_ms: 1, match_date_utc: null, own_hero: null, duration_s: null, patch: null, ...partial,
+  created_at_unix_ms: 1, match_date_utc: null, own_hero: null, duration_s: null, patch: null,
+  bundle_hash: null,
+  ...partial,
 });
 
 test("Analytics view model covers the requested page states", () => {
