@@ -1293,6 +1293,28 @@ pub fn run() {
                 settings_dir.clone(),
                 update_match_active.clone(),
             );
+            let install_key = secrets::load_or_create(
+                &settings_dir.join("install-key.bin"),
+                || -> Option<Vec<u8>> { None },
+            )
+            .and_then(|bytes| bytes.try_into().ok());
+            let analytics = analytics::AnalyticsService::open(
+                &settings_dir,
+                install_key,
+                Arc::new(analytics::WinHttpTransport::default()),
+            );
+            let analytics_preferences = analytics.preferences().ok();
+            let replay_auto_analyse = analytics_preferences
+                .as_ref()
+                .map(|preferences| preferences.auto_analyse)
+                .unwrap_or(true);
+            let replay_limits = analytics_preferences
+                .as_ref()
+                .map(|preferences| replay_library::ReplayLibraryLimits {
+                    max_matches: preferences.keep_newest,
+                    max_bytes: preferences.max_bytes,
+                })
+                .unwrap_or_default();
             {
                 let bundled_engine = {
                     let mut candidates = Vec::new();
@@ -1310,7 +1332,7 @@ pub fn run() {
                     candidates.into_iter().find(|path| path.is_file())
                 };
                 let event_app = app.handle().clone();
-                let library = replay_library::ReplayLibrary::open(
+                let library = replay_library::ReplayLibrary::open_with_auto_analyse(
                     settings_dir.join("replays"),
                     bundled_engine,
                     update_match_active.clone(),
@@ -1320,35 +1342,16 @@ pub fn run() {
                             serde_json::json!({ "changed": true }),
                         );
                     }),
-                    replay_library::ReplayLibraryLimits::default(),
+                    replay_limits,
+                    replay_auto_analyse,
                 );
                 app.manage(library);
             }
+            app.manage(analytics);
             app.manage(account_auth.clone());
             account_auth.start_refresh_loop();
             let match_history = intake::lock(&runtime.shared).match_history();
-            let install_key = secrets::load_or_create(
-                &settings_dir.join("install-key.bin"),
-                || -> Option<Vec<u8>> { None },
-            )
-            .and_then(|bytes| bytes.try_into().ok());
             let opendota = opendota::OpenDotaService::open(&settings_dir, install_key);
-            {
-                let analytics = analytics::AnalyticsService::open(
-                    &settings_dir,
-                    install_key,
-                    Arc::new(analytics::WinHttpTransport::default()),
-                );
-                if let Ok(prefs) = analytics.preferences() {
-                    let library = app.state::<replay_library::ReplayLibrary>();
-                    library.set_auto_analyse(prefs.auto_analyse);
-                    let _ = library.set_limits(replay_library::ReplayLibraryLimits {
-                        max_matches: prefs.keep_newest,
-                        max_bytes: prefs.max_bytes,
-                    });
-                }
-                app.manage(analytics);
-            }
             let news = news::NewsService::open(&settings_dir);
             news.start();
             app.manage(AppState {

@@ -236,6 +236,12 @@ Amendment (owner 2026-11-24, relayed by the lead, recorded by an agent): asked "
 
 The requirements are UI-021, UI-022 and MEM-007. The API key is native-host-only and DPAPI-protected. Revocation stops requests; the local request ledger contains metadata only. Native and live-provider evidence are NOT_RUN.
 
+#### Automatic replay-parsing switch (DEC-REPLAY-AUTO-PARSE, 2026-11-25)
+
+**DEC-REPLAY-AUTO-PARSE** — decided by the product owner 2026-11-25, relayed by the lead, recorded by an agent. Owner words, translated in the brief: “Make the automatic replay-parsing switch now.”
+
+The existing persisted `auto_analyse` preference in Analytics Settings (default on), labelled **“แยกรีเพลย์อัตโนมัติ” / “Parse replays automatically”**, controls automatic parsing of newly detected watched Dota `.dem` files. It remains the single source of truth; no second preference is added, and the owner may reverse the default. Only newly detected watched files are auto-queued; a manual file pick remains an explicit parse action. Automatic requests share the existing queue and match barrier, run one at a time at low priority after the player leaves the match, and are queued newest first. Removing a watched entry suppresses its rediscovery while the Dota `.dem` remains; `failed` and `needs_pack` entries are not auto-retried. Turning the switch off cancels queued automatic jobs but lets a running parse finish. Turning it on queues existing `available` watched entries once, newest first, bounded by the retention count. `ready` is shown only after bundle validation. No network request, Dota write, match ID or replay path is added. This decision amends the “user parse request” step in [REPLAY-PIPELINE](../design/REPLAY-PIPELINE.md).
+
 ### Analytics v2 renderer decisions (DEC-ANALYTICS-V2, 2026-11-25)
 
 **DEC-ANALYTICS-V2** — decided by the product owner 2026-11-25, relayed by the lead, recorded by an agent. Owner words: “Approve all 13”. This records the 13 approved choices in `F:\kohbor-coord\design\analytics-v2-20261125\DESIGN.md` section H and amends DEC-COACH-REVIEW item 1 and DEC-REPLAY-INTEGRATION item 2 below.

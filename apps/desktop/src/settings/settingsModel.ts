@@ -2,7 +2,7 @@ export const SETTINGS_SECTION_STORAGE_KEY = "kohbor.settings-section";
 
 export const SETTINGS_CONTROL_IDS = [
   "locale", "steamName", "glassLevel", "developerMode", "objectiveAlerts", "mapKeyDiagnostics",
-  "objectiveCardLayout", "replayStorage", "analyticsAssistant", "showAppHotkey",
+  "objectiveCardLayout", "replayStorage", "replayAutoParse", "analyticsAssistant", "showAppHotkey",
   "minimapCropPosition", "minimapCropSize", "minimapCropReset", "minimapDetectCrop", "minimapCropProposal",
   "minimapCropConfirm", "captureDisplayRate", "capturePause", "mapFeedback", "captureRetry", "captureResourceDetails",
   "mockCaptureReason", "newsFeed", "ownHistoryOpenDota", "publicHeroStats", "draftBar", "draftPosition", "draftBracket",
@@ -28,7 +28,7 @@ export const SETTINGS_SECTIONS = [
     ],
     componentIds: ["minimapCapture", "gsiConnection"],
   },
-  { id: "replay-ai", controlIds: ["replayStorage", "analyticsAssistant"], componentIds: ["replayAnalytics"] },
+  { id: "replay-ai", controlIds: ["replayStorage", "replayAutoParse", "analyticsAssistant"], componentIds: ["replayAnalytics"] },
   { id: "hotkeys", controlIds: ["showAppHotkey"], componentIds: ["showAppHotkey"] },
   {
     id: "privacy-data",
