@@ -2,8 +2,8 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://kohbor.invalid/contracts/replay-bundle.schema.json",
   "title": "Kohbor Replay Match Bundle",
-  "description": "Three-file Match Bundle emitted by replay-engine-rs 0.2.0; schema 3.0.",
-  "x-kohbor-contract-version": "1.0.1",
+  "description": "Three-file Match Bundle emitted by replay-engine-rs 0.3.0; schemas 3.0 and 3.1 are admitted.",
+  "x-kohbor-contract-version": "1.1.0",
   "type": "object",
   "required": ["manifest", "match", "world"],
   "properties": {
@@ -26,6 +26,18 @@
       },
       "additionalProperties": false
     },
+    "teamName": { "enum": ["radiant", "dire"] },
+    "draftEntry": {
+      "type": "object",
+      "required": ["order", "team", "kind", "hero"],
+      "properties": {
+        "order": { "type": "integer", "minimum": 0 },
+        "team": { "$ref": "#/$defs/teamName" },
+        "kind": { "enum": ["pick", "ban"] },
+        "hero": { "type": ["string", "null"], "pattern": "^npc_dota_hero_[a-z0-9_]+$" }
+      },
+      "additionalProperties": false
+    },
     "manifest": {
       "type": "object",
       "required": [
@@ -41,7 +53,7 @@
         "run"
       ],
       "properties": {
-        "schema": { "const": "3.0" },
+        "schema": { "enum": ["3.0", "3.1"] },
         "engine_version": { "type": "string", "minLength": 1 },
         "match_id": { "type": "integer", "minimum": 1 },
         "patch": { "type": "string", "minLength": 1 },
@@ -133,7 +145,7 @@
         "parse_error"
       ],
       "properties": {
-        "schema": { "const": "3.0" },
+        "schema": { "enum": ["3.0", "3.1"] },
         "engine_version": { "type": "string" },
         "patch": { "type": "string" },
         "pack": { "type": "string" },
@@ -155,9 +167,25 @@
         "parse_error": {
           "description": "Nullable parse error detail; null for a successful Match Bundle.",
           "type": ["object", "null"]
-        }
+        },
+        "winner": { "enum": ["radiant", "dire", null] },
+        "winner_reason": { "type": "string", "minLength": 1 },
+        "draft": { "type": ["array", "null"], "items": { "$ref": "#/$defs/draftEntry" } },
+        "draft_reason": { "type": "string", "minLength": 1 }
       },
-      "additionalProperties": true
+      "additionalProperties": true,
+      "allOf": [
+        {
+          "if": { "properties": { "winner": { "type": "null" } }, "required": ["winner"] },
+          "then": { "required": ["winner_reason"] },
+          "else": { "not": { "required": ["winner_reason"] } }
+        },
+        {
+          "if": { "properties": { "draft": { "type": "null" } }, "required": ["draft"] },
+          "then": { "required": ["draft_reason"] },
+          "else": { "not": { "required": ["draft_reason"] } }
+        }
+      ]
     },
     "hero": {
       "type": "object",
@@ -190,7 +218,23 @@
         "st": { "type": "object" },
         "prim": { "type": "integer" },
         "din": { "type": "array" },
-        "hin": { "type": "array" }
+        "hin": { "type": "array" },
+        "gold_earned": {
+          "type": "array",
+          "items": { "type": ["integer", "null"], "minimum": 0 }
+        },
+        "gold_earned_final": { "type": ["integer", "null"], "minimum": 0 },
+        "dmg_out": {
+          "type": "object",
+          "required": ["total", "p", "m", "u"],
+          "properties": {
+            "total": { "type": "integer", "minimum": 0 },
+            "p": { "type": "integer", "minimum": 0 },
+            "m": { "type": "integer", "minimum": 0 },
+            "u": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        }
       },
       "additionalProperties": true
     },

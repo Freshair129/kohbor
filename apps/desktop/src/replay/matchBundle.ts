@@ -1,10 +1,11 @@
-// Admission of a local Match Bundle (replay engine schema 3.0) for the Lab "Match view".
-// The Lab Match view reads validated schema 3.0 data from the local replay library.
+// Admission of a local Match Bundle (replay engine schema 3.0 or 3.1) for the Lab "Match view".
+// New parses produce 3.1; existing 3.0 library entries remain readable.
 // Manual file admission remains only for the legacy report route; the Match view uses the host library.
 
-export const BUNDLE_SCHEMA = "3.0";
+export const BUNDLE_SCHEMA = "3.1" as const;
 export const BUNDLE_FILES = ["manifest.json", "match.json", "world.json"] as const;
 export type BundleFileName = (typeof BUNDLE_FILES)[number];
+export type BundleSchema = "3.0" | "3.1";
 
 /** Per-file read limits. A 37-minute match is about 5.2 MB (match) and 1.5 MB (world). */
 export const MAX_BUNDLE_BYTES: Record<BundleFileName, number> = {
@@ -33,9 +34,49 @@ export type BundleError =
 type Json = unknown;
 type Obj = Record<string, Json>;
 
+export type DraftTeam = "radiant" | "dire";
+export type DraftKind = "pick" | "ban";
+
+export interface DraftEntry extends Obj {
+  order: number;
+  team: DraftTeam;
+  kind: DraftKind;
+  hero: string | null;
+}
+
+export interface DamageOut extends Obj {
+  total: number;
+  p: number;
+  m: number;
+  u: number;
+}
+
+export interface BundleMeta extends Obj {
+  schema: BundleSchema;
+  winner?: DraftTeam | null;
+  winner_reason?: string;
+  draft?: DraftEntry[] | null;
+  draft_reason?: string;
+}
+
+export interface BundleHero extends Obj {
+  id: string;
+  gold_earned?: Array<number | null>;
+  gold_earned_final?: number | null;
+  dmg_out?: DamageOut;
+}
+
+export interface BundleMatch extends Obj {
+  meta: BundleMeta;
+  heroes: BundleHero[];
+}
+
+const SUPPORTED_BUNDLE_SCHEMAS: ReadonlySet<unknown> = new Set(["3.0", "3.1"]);
+const isBundleSchema = (value: Json): value is BundleSchema => SUPPORTED_BUNDLE_SCHEMAS.has(value);
+
 export interface MatchBundle {
   manifest: Obj;
-  match: Obj;
+  match: BundleMatch;
   world: Obj;
   patch: string | null;
   gameMode: number | null;
@@ -97,12 +138,78 @@ const pair = (x: Json) => Array.isArray(x) && x.length >= 2 && isNum(x[0]) && is
 const eco = (x: Json) => Array.isArray(x) && x.length === 4 && x.every(isNum);
 const text = (x: Json) => typeof x === "string" && SAFE_TEXT.test(x);
 
+function checkReasonedNullableField(
+  meta: Obj,
+  field: "winner" | "draft",
+  reason: "winner_reason" | "draft_reason",
+  validKnown: (value: Json) => boolean,
+): void {
+  const valuePresent = Object.prototype.hasOwnProperty.call(meta, field);
+  const reasonPresent = Object.prototype.hasOwnProperty.call(meta, reason);
+  if (!valuePresent) {
+    need(!reasonPresent, "match.json", `meta.${reason}`);
+    return;
+  }
+
+  const value = meta[field];
+  if (value === null) {
+    need(typeof meta[reason] === "string" && (meta[reason] as string).length > 0, "match.json", `meta.${reason}`);
+    return;
+  }
+  need(validKnown(value), "match.json", `meta.${field}`);
+  need(!reasonPresent, "match.json", `meta.${reason}`);
+}
+
+function checkDraftEntry(value: Json, path: string): void {
+  need(isObj(value), "match.json", path);
+  const entry = value as Obj;
+  const keys = ["order", "team", "kind", "hero"];
+  need(Object.keys(entry).length === keys.length && keys.every(key => Object.prototype.hasOwnProperty.call(entry, key)), "match.json", path);
+  need(Number.isInteger(entry.order) && (entry.order as number) >= 0, "match.json", `${path}.order`);
+  need(entry.team === "radiant" || entry.team === "dire", "match.json", `${path}.team`);
+  need(entry.kind === "pick" || entry.kind === "ban", "match.json", `${path}.kind`);
+  need(entry.hero === null || (typeof entry.hero === "string" && HERO_ID.test(entry.hero)), "match.json", `${path}.hero`);
+}
+
+function checkNewMetaFields(meta: Obj): void {
+  checkReasonedNullableField(meta, "winner", "winner_reason", value => value === "radiant" || value === "dire");
+  checkReasonedNullableField(meta, "draft", "draft_reason", value => Array.isArray(value));
+  if (Array.isArray(meta.draft)) {
+    meta.draft.forEach((entry, index) => checkDraftEntry(entry, `meta.draft[${index}]`));
+  }
+}
+
+function checkNewHeroFields(hero: Obj, path: string): void {
+  if (hero.gold_earned !== undefined) {
+    need(Array.isArray(hero.gold_earned)
+      && hero.gold_earned.every(value => value === null || (Number.isInteger(value) && (value as number) >= 0)),
+    "match.json", `${path}.gold_earned`);
+  }
+  if (hero.gold_earned_final !== undefined) {
+    need(hero.gold_earned_final === null
+      || (Number.isInteger(hero.gold_earned_final) && (hero.gold_earned_final as number) >= 0),
+    "match.json", `${path}.gold_earned_final`);
+  }
+  if (hero.dmg_out !== undefined) {
+    need(isObj(hero.dmg_out), "match.json", `${path}.dmg_out`);
+    const damage = hero.dmg_out as Obj;
+    const keys = ["total", "p", "m", "u"];
+    need(Object.keys(damage).length === keys.length && keys.every(key => Object.prototype.hasOwnProperty.call(damage, key)),
+      "match.json", `${path}.dmg_out`);
+    for (const key of keys) {
+      need(Number.isInteger(damage[key]) && (damage[key] as number) >= 0, "match.json", `${path}.dmg_out.${key}`);
+    }
+  }
+}
+
 /** Checks the fields the viewer reads. Fields it guards itself (st, din, hin, finds, sampleT) stay optional. */
-export function checkMatch(match: Json): void {
+export function checkMatch(match: Json): asserts match is BundleMatch {
   const F = "match.json";
   need(isObj(match), F, "$");
   const m = match as Obj;
   need(isObj(m.meta), F, "meta");
+  need(isBundleSchema((m.meta as Obj).schema), F, "meta.schema");
+  checkNewMetaFields(m.meta as Obj);
   need(isNum(m.t0) && isNum(m.t1) && Number.isInteger(m.t0) && Number.isInteger(m.t1) && (m.t1 as number) > (m.t0 as number), F, "t0/t1");
   const length = (m.t1 as number) - (m.t0 as number) + 1;
   need(Array.isArray(m.heroes) && m.heroes.length >= 1 && m.heroes.length <= 10, F, "heroes");
@@ -111,6 +218,7 @@ export function checkMatch(match: Json): void {
     const p = `heroes[${k}]`;
     need(isObj(raw), F, p);
     const h = raw as Obj;
+    checkNewHeroFields(h, p);
     need(typeof h.id === "string" && HERO_ID.test(h.id) && !ids.has(h.id), F, `${p}.id`);
     ids.add(h.id as string);
     need(text(h.name), F, `${p}.name`);
@@ -168,7 +276,7 @@ function checkManifest(manifest: Json): Obj {
   const F = "manifest.json";
   need(isObj(manifest), F, "$");
   const m = manifest as Obj;
-  if (m.schema !== BUNDLE_SCHEMA) throw { code: "schema", file: F, found: String(m.schema ?? "missing") } satisfies BundleError;
+  if (!isBundleSchema(m.schema)) throw { code: "schema", file: F, found: String(m.schema ?? "missing") } satisfies BundleError;
   need(isObj(m.files), F, "files");
   for (const name of ["match.json", "world.json"]) {
     const entry = (m.files as Obj)[name];
@@ -181,11 +289,12 @@ function checkManifest(manifest: Json): Obj {
 
 function buildBundle(manifest: Obj, match: Obj, world: Obj): MatchBundle {
   const meta = isObj(match.meta) ? match.meta : null;
-  if (meta && meta.schema !== BUNDLE_SCHEMA) {
+  if (meta && !isBundleSchema(meta.schema)) {
     throw { code: "schema", file: "match.json", found: String(meta.schema ?? "missing") } satisfies BundleError;
   }
   checkMatch(match);
-  const matchMeta = match.meta as Obj;
+  const matchMeta = match.meta;
+  need(manifest.schema === matchMeta.schema, "match.json", "meta.schema");
   need(String(matchMeta.match_id) === String(manifest.match_id), "match.json", "meta.match_id");
   checkWorld(world);
   const map = isObj(manifest.map) ? manifest.map : null;

@@ -123,8 +123,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/binaries/replay-engine-rs-x86_64-pc-windows-msvc.exe",
-      "bytes": 3229184,
-      "sha256": "a05f91761a8bacd84ceec24522568e526e6a35a27525c3dfbfaf5e7f3192dcb6"
+      "bytes": 3258368,
+      "sha256": "9d7aa88bbd8d1b31cd35489dcbecd88058c6ba68a118f88042e2cc262ff5d05d"
     },
     {
       "path": "apps/desktop/src-tauri/build.rs",
@@ -693,8 +693,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/replay_library/engine.rs",
-      "bytes": 41555,
-      "sha256": "23145cd619e0fd142878a1e6b19e20d4994d816d2489ec470cb7da3e2f5d989e"
+      "bytes": 52220,
+      "sha256": "8fe8feddbbe79ca378cd8aa04e3d71e5047cb6c408b2f678da05d309f6be08f7"
     },
     {
       "path": "apps/desktop/src-tauri/src/replay_library/mod.rs",
@@ -13478,8 +13478,8 @@
     },
     {
       "path": "apps/desktop/src/replay/matchBundle.ts",
-      "bytes": 17873,
-      "sha256": "9a3d7c6e053a797d8fef51779a3107b7373e13f96a27609420baf8ec0a5a1b05"
+      "bytes": 21940,
+      "sha256": "65cb91a289b597151cb78a3ee4669a99d47a9e6343066479008141adfea5b59c"
     },
     {
       "path": "apps/desktop/src/replay/matchLibrary.css",
@@ -14158,8 +14158,8 @@
     },
     {
       "path": "apps/desktop/tests/match-bundle.test.ts",
-      "bytes": 9384,
-      "sha256": "afa11066fee04190d9065b5223d9d062110e2791e6d585d976845e24abef87e3"
+      "bytes": 13159,
+      "sha256": "4dfb5eafd1b432474b5c4afc4bb6e943e0ebecb2a62de063d8ec8dfde8dcb9c6"
     },
     {
       "path": "apps/desktop/tests/match-copy.test.ts",
@@ -14508,8 +14508,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 153930,
-      "sha256": "e4bca578ce3fef112681f7c55d3d1e398a93498f90e2456cd339538919a74de7"
+      "bytes": 154473,
+      "sha256": "aa13015f80340331267d76672c95b86a80bcd1529fe5a9a0abce970951d22554"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -14598,8 +14598,8 @@
     },
     {
       "path": "contracts/replay-bundle.schema.json",
-      "bytes": 10141,
-      "sha256": "6dbb7c0f21c4b5620aede44f7fd71512bb46f668da9c4cc348a3c77aa0ae2fb6"
+      "bytes": 11996,
+      "sha256": "10d3025f8de60936d644bf22832c14d22adaaa176ccccb7fa723847781089488"
     },
     {
       "path": "contracts/replay-engine.schema.json",
@@ -15563,13 +15563,13 @@
     },
     {
       "path": "docs/design/REPLAY-ENGINE-PROVENANCE.md",
-      "bytes": 3040,
-      "sha256": "042ed8585602341fa2e2421ec5ea26e49340bcd3038147a8f7b3e1c379ea537a"
+      "bytes": 3824,
+      "sha256": "d88388fc4d9da213d83ea06b2dfe0e7d373328fbb225d901e169bc304c0c60cf"
     },
     {
       "path": "docs/design/REPLAY-PIPELINE.md",
-      "bytes": 11830,
-      "sha256": "18f0c58f8b7e68e101f8022190343d58b7381f3557542475759d3e32d49a9626"
+      "bytes": 12912,
+      "sha256": "fa9fe1dfffe4f839d1a38d44d2a3179019b7e3de5678aa7e6e97877b63ce1963"
     },
     {
       "path": "docs/design/RISK-ADMISSION-SPEC.md",
@@ -16063,8 +16063,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 112192,
-      "sha256": "b5c2698049110c0b2c305a020b9bf6b34f30b2315b9a86215018281ac813fe1c"
+      "bytes": 113067,
+      "sha256": "bb2f98d8f8d5db4f27841e1994909a7766c473ebfe4f404d790f0587c99ef3a7"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",

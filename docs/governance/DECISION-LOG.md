@@ -2,7 +2,7 @@
 title: "Decision Log and Open Items"
 doc_id: "DECISION-LOG"
 status: draft
-version: "0.3.19"
+version: "0.3.20"
 updated: "2026-11-25"
 authority: "DEC-BASELINE; see DOCUMENT-CONTROL"
 owner_role: "Product and engineering owners; people not assigned"
@@ -261,6 +261,8 @@ The existing persisted `auto_analyse` preference in Analytics Settings (default 
 13. Use the Settings model for chat and the one-time report (default `claude-opus-5-5`); a model switch starts a cold cache.
 
 Decision 9 amends UI-021 and UI-022: remove context chips, make safe `#doc=` links open in the left panel, disclose what every request sends and what local read-only tools may access, and show the consent screen once again. Decision 8 requests a separate replay-engine change; it is not implemented in this renderer work. The renderer does not supply RULES v2 prompt text or infer missing replay data. The updated requirements, SRS, RTM, scenarios and UX-SPEC are the controlled product record. Host transcript, request-projection and consent-version changes remain separate implementation dependencies. No native or visual acceptance is claimed.
+
+**DEC-ANALYTICS-V2 amendment** (owner 2026-11-25, relayed by the lead, recorded by an agent). Owner words: “Start re-pin”. Decision 8 text: “Request the replay-engine change now for attacker-side damage and gold earned; include draft and winner in that engine release if inexpensive.” The owner authorized Kohbor to pin engine 0.3.0 and update the Match Bundle contract and provenance for schema 3.1: `match.meta.winner` / `winner_reason`, `match.meta.draft` / `draft_reason`, `match.heroes[].gold_earned` / `gold_earned_final`, and attacker-side hero damage `match.heroes[].dmg_out` (`total`, `p`, `m`, `u`). The additions are optional to readers of existing schema 3.0 bundles; null winner and draft values carry their reason. This amendment covers phase 1 admission and provenance. Analytics knowledge-digest use remains phase 2 after its owner merges that work.
 
 ### Analytics provider set and gates (DEC-AI-PROVIDERS, 2026-11-24)
 

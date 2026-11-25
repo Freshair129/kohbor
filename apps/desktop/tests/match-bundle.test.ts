@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
-  admitMatchBundle, bundledIcons, countFound, iconKey, iconResolver, MAX_BUNDLE_BYTES, neededIconKeys, type PickedFile,
+  admitLibraryBundle, admitMatchBundle, bundledIcons, countFound, iconKey, iconResolver, MAX_BUNDLE_BYTES, neededIconKeys, type PickedFile,
 } from "../src/replay/matchBundle.ts";
 
 // Synthetic Match Bundle (schema 3.0 shape, two heroes, five seconds). No recorded match data.
@@ -46,6 +46,30 @@ function bundle(overrides: { manifest?: object; match?: object } = {}) {
   return [file("manifest.json", enc(manifest)), file("match.json", m), file("world.json", w)];
 }
 
+function schema31Match(overrides: { winner?: unknown; draft?: unknown } = {}) {
+  return {
+    ...match,
+    meta: {
+      ...match.meta,
+      schema: "3.1",
+      winner: overrides.winner === undefined ? "radiant" : overrides.winner,
+      ...(overrides.winner === null ? { winner_reason: "not in replay" } : {}),
+      draft: overrides.draft === undefined ? [{ order: 0, team: "radiant", kind: "pick", hero: "npc_dota_hero_alpha" }] : overrides.draft,
+      ...(overrides.draft === null ? { draft_reason: "not in replay" } : {}),
+    },
+    heroes: match.heroes.map(h => ({
+      ...h,
+      gold_earned: [null, 100, 200, 300, 400],
+      gold_earned_final: 400,
+      dmg_out: { total: 75, p: 25, m: 40, u: 10 },
+    })),
+  };
+}
+
+function schema31Bundle(matchData = schema31Match()) {
+  return bundle({ manifest: { schema: "3.1" }, match: matchData });
+}
+
 test("a complete schema 3.0 bundle is admitted with its recorded metadata", async () => {
   const result = await admitMatchBundle(bundle());
   assert.equal(result.ok, true);
@@ -54,6 +78,60 @@ test("a complete schema 3.0 bundle is admitted with its recorded metadata", asyn
   assert.equal(result.bundle.gameMode, 2);
   assert.equal(result.bundle.durationS, 4);
   assert.equal(result.bundle.mapImage, "map.png");
+});
+
+test("a schema 3.1 bundle with the new replay fields is admitted by both renderer paths", async () => {
+  const result = await admitMatchBundle(schema31Bundle());
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  const meta = result.bundle.match.meta as Record<string, unknown>;
+  const heroes = result.bundle.match.heroes as Array<Record<string, unknown>>;
+  assert.equal(meta.schema, "3.1");
+  assert.equal(meta.winner, "radiant");
+  assert.deepEqual(meta.draft, [{ order: 0, team: "radiant", kind: "pick", hero: "npc_dota_hero_alpha" }]);
+  assert.deepEqual(heroes[0].gold_earned, [null, 100, 200, 300, 400]);
+  assert.equal(heroes[0].gold_earned_final, 400);
+  assert.deepEqual(heroes[0].dmg_out, { total: 75, p: 25, m: 40, u: 10 });
+
+  const opened = admitLibraryBundle({ manifest: result.bundle.manifest, match_data: result.bundle.match, world: result.bundle.world });
+  assert.equal(opened.ok, true);
+});
+
+test("schema 3.1 accepts null winner, draft and gold values with reasons where defined", async () => {
+  const data = schema31Match({ winner: null, draft: null });
+  data.heroes = data.heroes.map(h => ({ ...h, gold_earned: [null, null, null, null, null], gold_earned_final: null }));
+  const result = await admitMatchBundle(schema31Bundle(data));
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  const meta = result.bundle.match.meta as Record<string, unknown>;
+  const heroes = result.bundle.match.heroes as Array<Record<string, unknown>>;
+  assert.equal(meta.winner, null);
+  assert.equal(meta.winner_reason, "not in replay");
+  assert.equal(meta.draft, null);
+  assert.equal(meta.draft_reason, "not in replay");
+  assert.deepEqual(heroes[0].gold_earned, [null, null, null, null, null]);
+  assert.equal(heroes[0].gold_earned_final, null);
+});
+
+test("a wrong type on a schema 3.1 field is rejected", async () => {
+  const data = schema31Match();
+  data.heroes = data.heroes.map((h, index) => index === 0
+    ? { ...h, dmg_out: { total: "75", p: 25, m: 40, u: 10 } }
+    : h);
+  const result = await admitMatchBundle(schema31Bundle(data));
+  assert.deepEqual(!result.ok && result.error, { code: "shape", file: "match.json", path: "heroes[0].dmg_out.total" });
+});
+
+test("schema 3.2 and mismatched manifest/match schemas are rejected", async () => {
+  const badManifest = await admitMatchBundle(bundle({ manifest: { schema: "3.2" } }));
+  assert.deepEqual(!badManifest.ok && badManifest.error, { code: "schema", file: "manifest.json", found: "3.2" });
+
+  const wrongMatchVersion = { ...schema31Match(), meta: { ...schema31Match().meta, schema: "3.2" } };
+  const badMatch = await admitMatchBundle(schema31Bundle(wrongMatchVersion));
+  assert.deepEqual(!badMatch.ok && badMatch.error, { code: "schema", file: "match.json", found: "3.2" });
+
+  const mismatch = await admitMatchBundle(bundle({ match: schema31Match() }));
+  assert.equal(mismatch.ok, false);
 });
 
 test("a missing bundle file is named", async () => {
