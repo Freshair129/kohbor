@@ -978,8 +978,8 @@
     },
     {
       "path": "apps/desktop/src/analytics/AnalyticsSettings.tsx",
-      "bytes": 9706,
-      "sha256": "2e409091f6dae1f3fffed7366bb2a676f9d85b9cdc446f08f1bb32220df19a37"
+      "bytes": 9712,
+      "sha256": "a3ec76f7041822c033272f14e1f31715e2b157278d2ed2e4e970dfc6d6c39305"
     },
     {
       "path": "apps/desktop/src/analytics/LaneReviewPage.tsx",
@@ -1052,9 +1052,14 @@
       "sha256": "fe64782522963adced9ade6c88b9ed2520d504d6f107aa33a25eeefd5c1abd2d"
     },
     {
+      "path": "apps/desktop/src/analytics/knowledge/HeroBenchmarksPanel.tsx",
+      "bytes": 6787,
+      "sha256": "74fdcc63482e32a8b6ddeb1329d5d3471b9a62a0e675388f33f8b88689feff08"
+    },
+    {
       "path": "apps/desktop/src/analytics/knowledge/index.tsx",
-      "bytes": 33489,
-      "sha256": "6acd77405db29374cf52dbcec9f6d55a69b7dab22015bb1132cf1654f2e9978a"
+      "bytes": 27044,
+      "sha256": "21f3d3d1472736a0a75d09501127cdea7e7dd2021ad0e9b52b1ee2cae7cefb60"
     },
     {
       "path": "apps/desktop/src/analytics/knowledge/knowledge.css",

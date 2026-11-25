@@ -71,7 +71,7 @@ export function AnalyticsSettings({ locale }: { locale: Locale }) {
     }
   }
 
-  async function setHeroBenchmarks(enabled: boolean) {
+  async function changeHeroBenchmarks(enabled: boolean) {
     setHeroBenchmarksBusy(true);
     setError(null);
     try {
@@ -127,7 +127,7 @@ export function AnalyticsSettings({ locale }: { locale: Locale }) {
         {retentionPreview !== null && <p role="status">{word(locale, `จะนำรีเพลย์ออก ${retentionPreview} แมตช์ โดยแถวและโน้ตยังอยู่`, `${retentionPreview} replay bundles will be removed; rows and notes will remain.`)}</p>}
       </section>
       <section><h3>{word(locale, "ข้อมูลเทียบฮีโร่", "Hero benchmarks")}</h3>
-        <label><input type="checkbox" checked={heroBenchmarks.enabled} disabled={heroBenchmarksBusy || !heroBenchmarksLoaded} onChange={event => void setHeroBenchmarks(event.currentTarget.checked)} /> {word(locale, "ใช้ benchmarks จาก OpenDota", "Use OpenDota benchmarks")}</label>
+        <label><input type="checkbox" checked={heroBenchmarks.enabled} disabled={heroBenchmarksBusy || !heroBenchmarksLoaded} onChange={event => void changeHeroBenchmarks(event.currentTarget.checked)} /> {word(locale, "ใช้ benchmarks จาก OpenDota", "Use OpenDota benchmarks")}</label>
         <p>{word(locale, "เมื่อเปิดใช้ จะส่งเฉพาะรหัสฮีโร่ที่เลือก และอาจขอรายการฮีโร่สาธารณะแบบไม่มีพารามิเตอร์ (/api/heroes) เพื่อแปลงชื่อเป็นรหัส ไม่มีข้อมูลผู้เล่นหรือแมตช์", "When enabled, only the selected hero ID is sent; a parameterless public hero list (/api/heroes) may be requested to map its name to an ID. No player or match data is sent.")}</p>
         <p>{word(locale, `ใช้ไป ${heroBenchmarks.budget_used}/4 ใน 24 ชม.`, `${heroBenchmarks.budget_used}/4 requests used in 24 hours`)}</p>
       </section>
