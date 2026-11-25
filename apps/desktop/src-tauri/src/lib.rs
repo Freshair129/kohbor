@@ -117,6 +117,8 @@ pub(crate) struct AppState {
     pub(crate) orb: orb::host::OrbHost,
     /// Default-off public statistics and the native draft column.
     pub(crate) hero_stats: hero_stats::host::HeroStatsHost,
+    /// Separate optional OpenDota hero benchmarks for Analytics comparisons.
+    pub(crate) benchmarks: hero_stats::benchmarks::BenchmarksHost,
     pub(crate) objectives: objectives::ObjectiveHost,
     /// OVERVIEW-002 local own-match history (written by intake, read by the Overview).
     pub(crate) match_history: match_history::MatchHistoryStore,
@@ -1273,6 +1275,16 @@ pub fn run() {
                 }),
                 Arc::new(capture_host::draft_bar_snapshot),
             );
+            let benchmarks_on = hero_stats_host
+                .prefs_get("control")
+                .map(|prefs| prefs.benchmarks_on)
+                .unwrap_or(false);
+            let benchmarks_host = hero_stats::benchmarks::BenchmarksHost::open(
+                &settings_dir,
+                benchmarks_on,
+                hero_stats_host.benchmarks_transport(),
+                hero_stats_host.benchmarks_hero_id_lookup(),
+            );
             let steam_runtime = runtime.clone();
             // Keep replay analysis blocked through post-game; automatic analysis is allowed only
             // after the runtime returns to its no-match phase, as well as by manual request.
@@ -1386,6 +1398,7 @@ pub fn run() {
                 mixer: mixer_service,
                 orb: orb_host,
                 hero_stats: hero_stats_host,
+                benchmarks: benchmarks_host,
                 objectives: objective_host,
                 match_history,
                 opendota,
@@ -1471,6 +1484,9 @@ pub fn run() {
         commands::match_history_clear,
         commands::overview_nemesis_get,
         post_game_replay::post_game_replay_summary,
+        commands::hero_benchmarks_state_get,
+        commands::hero_benchmarks_set,
+        commands::hero_benchmarks_get,
         commands::opendota_prefs_get,
         commands::opendota_prefs_set,
         commands::opendota_view_get,
@@ -1639,6 +1655,9 @@ pub fn run() {
         commands::match_history_clear,
         commands::overview_nemesis_get,
         post_game_replay::post_game_replay_summary,
+        commands::hero_benchmarks_state_get,
+        commands::hero_benchmarks_set,
+        commands::hero_benchmarks_get,
         commands::opendota_prefs_get,
         commands::opendota_prefs_set,
         commands::opendota_view_get,

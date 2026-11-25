@@ -17,6 +17,7 @@ type LedgerRow = {
   output_tokens: number | null;
   status: string;
 };
+type HeroBenchmarksSettingsView = { enabled: boolean; budget_used: number };
 const word = (locale: Locale, th: string, en: string) => locale === "th" ? th : en;
 
 export function AnalyticsSettings({ locale }: { locale: Locale }) {
@@ -29,6 +30,9 @@ export function AnalyticsSettings({ locale }: { locale: Locale }) {
   const [maxBytesDraft, setMaxBytesDraft] = useState(2 * 1024 ** 3);
   const [retentionPreview, setRetentionPreview] = useState<number | null>(null);
   const [retentionBusy, setRetentionBusy] = useState(false);
+  const [heroBenchmarks, setHeroBenchmarks] = useState<HeroBenchmarksSettingsView>({ enabled: false, budget_used: 0 });
+  const [heroBenchmarksLoaded, setHeroBenchmarksLoaded] = useState(false);
+  const [heroBenchmarksBusy, setHeroBenchmarksBusy] = useState(false);
 
   async function refresh() {
     try {
@@ -42,6 +46,13 @@ export function AnalyticsSettings({ locale }: { locale: Locale }) {
       setMaxBytesDraft(next.max_bytes);
     } catch {
       setError(word(locale, "อ่านการตั้งค่าวิเคราะห์ไม่ได้", "Could not read Analytics settings"));
+    }
+    try {
+      setHeroBenchmarks(await invoke<HeroBenchmarksSettingsView>("hero_benchmarks_state_get"));
+    } catch {
+      setError(word(locale, "อ่านสถานะข้อมูลเทียบฮีโร่ไม่ได้", "Could not read hero benchmark settings"));
+    } finally {
+      setHeroBenchmarksLoaded(true);
     }
   }
 
@@ -57,6 +68,19 @@ export function AnalyticsSettings({ locale }: { locale: Locale }) {
       setError(word(locale, "บันทึกการตั้งค่าไม่ได้", "Could not save settings"));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function setHeroBenchmarks(enabled: boolean) {
+    setHeroBenchmarksBusy(true);
+    setError(null);
+    try {
+      setHeroBenchmarks(await invoke<HeroBenchmarksSettingsView>("hero_benchmarks_set", { enabled }));
+    } catch {
+      setError(word(locale, "บันทึกความยินยอมข้อมูลเทียบฮีโร่ไม่ได้", "Could not save hero benchmark consent"));
+      if (!enabled) setHeroBenchmarks((current) => ({ ...current, enabled: false }));
+    } finally {
+      setHeroBenchmarksBusy(false);
     }
   }
 
@@ -101,6 +125,11 @@ export function AnalyticsSettings({ locale }: { locale: Locale }) {
           {retentionPreview === null ? word(locale, "บันทึก", "Save") : word(locale, "ยืนยันการบันทึก", "Confirm save")}
         </button>
         {retentionPreview !== null && <p role="status">{word(locale, `จะนำรีเพลย์ออก ${retentionPreview} แมตช์ โดยแถวและโน้ตยังอยู่`, `${retentionPreview} replay bundles will be removed; rows and notes will remain.`)}</p>}
+      </section>
+      <section><h3>{word(locale, "ข้อมูลเทียบฮีโร่", "Hero benchmarks")}</h3>
+        <label><input type="checkbox" checked={heroBenchmarks.enabled} disabled={heroBenchmarksBusy || !heroBenchmarksLoaded} onChange={event => void setHeroBenchmarks(event.currentTarget.checked)} /> {word(locale, "ใช้ benchmarks จาก OpenDota", "Use OpenDota benchmarks")}</label>
+        <p>{word(locale, "เมื่อเปิดใช้ จะส่งเฉพาะรหัสฮีโร่ที่เลือก และอาจขอรายการฮีโร่สาธารณะแบบไม่มีพารามิเตอร์ (/api/heroes) เพื่อแปลงชื่อเป็นรหัส ไม่มีข้อมูลผู้เล่นหรือแมตช์", "When enabled, only the selected hero ID is sent; a parameterless public hero list (/api/heroes) may be requested to map its name to an ID. No player or match data is sent.")}</p>
+        <p>{word(locale, `ใช้ไป ${heroBenchmarks.budget_used}/4 ใน 24 ชม.`, `${heroBenchmarks.budget_used}/4 requests used in 24 hours`)}</p>
       </section>
       <ProviderControls locale={locale} settings={settings} onSettingsChange={setSettings} />
     </div> : <p>{word(locale, "กำลังอ่านการตั้งค่า…", "Loading settings…")}</p>}

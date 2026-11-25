@@ -64,6 +64,7 @@ let mockSnapshotAvailability: MockSnapshotAvailability = "fresh";
 let callbackId = 0;
 let eventId = 0;
 let playbackSequence = 0;
+let mockHeroBenchmarksOn = false;
 const callbacks = new Map<number, MockCallback>();
 const listeners = new Map<number, MockEventBinding>();
 const channel = typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel(MOCK_CHANNEL);
@@ -99,6 +100,17 @@ function currentStatus(): RuntimeStatus {
       ? { state: "unavailable", reason: "AUDIO_MUTED" }
       : structuredClone(statusFixture.media);
   return status;
+}
+
+function mockHeroBenchmarksView(state: "disabled" | "unknown" = "unknown") {
+  return {
+    enabled: mockHeroBenchmarksOn,
+    state: mockHeroBenchmarksOn ? state : "disabled",
+    budget_used: 0,
+    hero_id: null,
+    fetched_at_ms: null,
+    benchmarks: null,
+  };
 }
 
 function currentOwnSnapshot(): OwnSnapshot {
@@ -555,6 +567,18 @@ export function installMockHarness() {
         return mockUpdate.updateInstall(args);
       }
       if (command === "own_snapshot") return currentOwnSnapshot();
+      if (command === "hero_benchmarks_state_get") return mockHeroBenchmarksView();
+      if (command === "hero_benchmarks_set") {
+        requireArgs(command, args, ["enabled"]);
+        if (typeof args.enabled !== "boolean") throw "BENCHMARKS_PREFS_INVALID";
+        mockHeroBenchmarksOn = args.enabled;
+        return mockHeroBenchmarksView();
+      }
+      if (command === "hero_benchmarks_get") {
+        requireArgs(command, args, ["heroKey"]);
+        if (typeof args.heroKey !== "string") throw "BENCHMARKS_HERO_INVALID";
+        return mockHeroBenchmarksView("unknown");
+      }
       // Portrait sourcing is runtime-only and not present in the dev fixture bundle.
       if (command === "hero_portrait") { requireArgs(command, args, ["hero_id"]); return null; }
       if (command === "settings_get") return { ...settingsView };

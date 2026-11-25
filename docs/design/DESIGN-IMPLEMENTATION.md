@@ -15,3 +15,7 @@ The setting remains presentation-only. `HeroCardDisplaySettings` and `HeroCardDi
 ## Evidence boundary
 
 Pure model tests cover the five target window sizes and map-side calculations, size-class storage/reset, toolbar collapse order, checkbox reflow, modifier priority/overflow, quote composition and compact density. Source and Node fixture checks do not prove rendered geometry or Windows native behavior. Those acceptance checks remain separate and are not implied by this wiring.
+
+## OpenDota hero benchmarks
+
+The Analytics compare tab's optional all-rank hero benchmark behavior, consent, ID mapping fallback, request budget, cache and synthetic evidence boundary are documented in [HERO-BENCHMARKS](HERO-BENCHMARKS.md).

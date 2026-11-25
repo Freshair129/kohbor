@@ -975,6 +975,42 @@ pub(crate) fn draft_column_view(
 }
 
 #[tauri::command]
+pub(crate) fn hero_benchmarks_state_get(
+    webview: tauri::Webview,
+    state: tauri::State<'_, AppState>,
+) -> Result<crate::hero_stats::benchmarks::BenchmarksView, String> {
+    if webview.label() != "control" {
+        return Err("BENCHMARKS_CONTROL_WINDOW_ONLY".to_owned());
+    }
+    Ok(state.benchmarks.view())
+}
+
+#[tauri::command]
+pub(crate) fn hero_benchmarks_set(
+    webview: tauri::Webview,
+    state: tauri::State<'_, AppState>,
+    enabled: bool,
+) -> Result<crate::hero_stats::benchmarks::BenchmarksView, String> {
+    let prefs = state
+        .hero_stats
+        .prefs_set(webview.label(), serde_json::json!({"benchmarks_on": enabled}))?;
+    state.benchmarks.set_enabled(prefs.benchmarks_on)
+}
+
+/// The only renderer input is the selected canonical hero key; transport receives only its numeric ID.
+#[tauri::command(async)]
+pub(crate) fn hero_benchmarks_get(
+    webview: tauri::Webview,
+    state: tauri::State<'_, AppState>,
+    hero_key: String,
+) -> Result<crate::hero_stats::benchmarks::BenchmarksView, String> {
+    if webview.label() != "control" {
+        return Err("BENCHMARKS_CONTROL_WINDOW_ONLY".to_owned());
+    }
+    Ok(state.benchmarks.get_for_hero(&hero_key))
+}
+
+#[tauri::command]
 pub(crate) fn update_status(state: tauri::State<'_, AppState>) -> Value {
     let match_active = (state.match_active)();
     state.updater.status(match_active)

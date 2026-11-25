@@ -73,3 +73,25 @@
 .a2k-engine-hero-stats__head { color: var(--text-2); font-size: 11px; }
 .a2k-engine-hero-stats__row { font-variant-numeric: tabular-nums; }
 .a2k-engine-hero-stats__row > :not(:first-child),.a2k-engine-hero-stats__head > :not(:first-child) { text-align: right; }
+.a2k-benchmarks {
+  margin: 16px 0;
+  padding: 12px;
+  border: 1px solid var(--line, #d0d0d0);
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.a2k-benchmarks :is(h3, p, label, th, td, input, button) {
+  font-size: 12px;
+}
+
+.a2k-benchmarks__switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.a2k-benchmarks__consent {
+  max-width: 70ch;
+}
