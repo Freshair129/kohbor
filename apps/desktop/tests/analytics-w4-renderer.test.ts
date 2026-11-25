@@ -105,3 +105,18 @@ test("reference charts resolve only points present in the selected match and dig
   });
   assert.equal(resolve({ ref: "hero_series", hero: "missing", metric: "nw" }), null);
 });
+
+test("selection toolbar listens on the document, not only inside the quotable pane (88f4276 c9)", async () => {
+  const { readFileSync } = await import("node:fs");
+  const page = readFileSync(new URL("../src/analytics/AnalyticsPage.tsx", import.meta.url), "utf8");
+  assert.match(page, /document\.addEventListener\("mouseup", onRelease\)/);
+  assert.match(page, /closest<HTMLElement>\("\[data-analytics-quotable\]"\)/);
+  assert.doesNotMatch(page, /data-analytics-quotable onMouseUp=/);
+});
+
+test("overview best-hero panels sit two per row with today on its own row", async () => {
+  const { readFileSync } = await import("node:fs");
+  const css = readFileSync(new URL("../src/overview/overview.css", import.meta.url), "utf8");
+  assert.match(css, /\.ov-best-row \{ display: grid; grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(css, /\.ov-best-row > \.ov-best-today \{ grid-column: 1 \/ -1; \}/);
+});

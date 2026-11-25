@@ -968,8 +968,8 @@
     },
     {
       "path": "apps/desktop/src/analytics/AnalyticsPage.tsx",
-      "bytes": 108306,
-      "sha256": "6f1a8c7ad425aa697b05f7897db2447c421be3ec90b44f1d1e9d53269704c4d9"
+      "bytes": 109144,
+      "sha256": "325acf9526ff6c9c7b2df57bd55c38e848461f75448bc3257d1d2e68e927186c"
     },
     {
       "path": "apps/desktop/src/analytics/AnalyticsSettings.tsx",
@@ -13353,8 +13353,8 @@
     },
     {
       "path": "apps/desktop/src/overview/overview.css",
-      "bytes": 14532,
-      "sha256": "cb1205f92e97535952c3d0d637a62baab6aa5fec35c899d7676d39f68f00eacd"
+      "bytes": 14751,
+      "sha256": "b5258e94b0873fb9f15e2c554eada5c3aa6a5da1d593d125effd4794728e3ab1"
     },
     {
       "path": "apps/desktop/src/overview/overviewClient.ts",
@@ -13988,8 +13988,8 @@
     },
     {
       "path": "apps/desktop/tests/analytics-w4-renderer.test.ts",
-      "bytes": 5929,
-      "sha256": "5a9dcd87908a62eabd947d202a3e43fe14eadf903a8d0b51b204bc756cd4c0ef"
+      "bytes": 6855,
+      "sha256": "a57e0a9f921b0082b7d37014390b008f0bb600a17ad4205d92aa5e17c2d88f55"
     },
     {
       "path": "apps/desktop/tests/analytics.test.ts",

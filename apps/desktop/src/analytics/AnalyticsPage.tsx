@@ -828,6 +828,22 @@ export function AnalyticsPage({ locale, onOpenReplay, onOpenHeroCardSettings, re
     }
   }
 
+  // Listen on the document: a drag that starts in the summary often ends outside it, and the old
+  // container-level mouseup then never fired (owner's 88f4276 checklist c9, 2026-11-25).
+  const captureSelectionRef = useRef<(container: HTMLElement, source: string) => void>(() => {});
+  useEffect(() => {
+    const onRelease = () => {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || !selection.rangeCount) return;
+      const node = selection.getRangeAt(0).commonAncestorContainer;
+      const element = node instanceof Element ? node : node.parentElement;
+      const container = element?.closest<HTMLElement>("[data-analytics-quotable]");
+      if (container) captureSelectionRef.current(container, container.dataset.analyticsQuotable || "summary");
+    };
+    document.addEventListener("mouseup", onRelease);
+    document.addEventListener("keyup", onRelease);
+    return () => { document.removeEventListener("mouseup", onRelease); document.removeEventListener("keyup", onRelease); };
+  }, []);
   function captureSelection(container: HTMLElement, source: string) {
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed || !selection.rangeCount) return;
@@ -846,6 +862,7 @@ export function AnalyticsPage({ locale, onOpenReplay, onOpenHeroCardSettings, re
     const rect = range.getBoundingClientRect();
     setSelectionAction({ quote, rect });
   }
+  captureSelectionRef.current = captureSelection;
 
   async function useSelectionAction(action: "ask" | "seek" | "note") {
     const quote = selectionAction?.quote;
@@ -1203,7 +1220,7 @@ export function AnalyticsPage({ locale, onOpenReplay, onOpenHeroCardSettings, re
         {createdNote && <button type="button" className="analytics-created-note" onClick={() => { setOpenNote(createdNote); setKnowledgeTab("notes"); setCreatedNote(null); }}>{t(locale, "จดโน้ตแล้ว · ดูโน้ต", "Note saved · view note")}</button>}
         <section className="analytics-knowledge-slot" aria-label={t(locale, "แท็บความรู้และโน้ตแมตช์", "Match knowledge and notes tabs")} data-knowledge-tabs-slot>
           <KnowledgeTabs activeTab={knowledgeTab} onSelectTab={setKnowledgeTab} />
-          <div className="analytics-knowledge-panel" data-analytics-quotable onMouseUp={event => captureSelection(event.currentTarget, "summary")} onKeyUp={event => captureSelection(event.currentTarget, "summary")}>
+          <div className="analytics-knowledge-panel" data-analytics-quotable="summary">
             {knowledgeTab === "summary" && <MatchSummaryTab digest={knowledge?.digest ?? null} loading={!knowledge && !!selectedId} onSeek={seek} />}
             {knowledgeTab === "compare" && <HeroComparisonTab digest={knowledge?.digest ?? null} selectedHeroId={hero ?? ownHero ?? knowledge?.own_hero_id ?? null}
               opponentHeroId={compareHero} onSelectHero={setHero} onSelectOpponentHero={setCompareHero} />}
@@ -1264,7 +1281,7 @@ export function AnalyticsPage({ locale, onOpenReplay, onOpenHeroCardSettings, re
           onPointerDown={event => beginPaneResize(event, "split")} onDoubleClick={() => resetHandle("split")} onKeyDown={event => onPaneHandleKey(event, "split")} />}
         {!actualRightCollapsed && developerMode && <aside id="analytics-assistant" className="analytics-column analytics-chat"><header className="analytics-chat-status"><strong>{t(locale, "ผู้ช่วย", "Assistant")}</strong><span>{prefs.provider} · {prefs.model || UNKNOWN_VALUE} · {streaming ? t(locale, "กำลังตอบ…", "Responding…") : aiAvailable ? t(locale, "พร้อม", "Ready") : t(locale, "ยังไม่เปิด", "Unavailable")}</span><button onClick={() => setRightCollapsed(true)} aria-label={t(locale, "ยุบส่วนผู้ช่วย", "Collapse assistant")}>⌄</button></header>
         {providerControls}
-        <div className="analytics-chat-feed" aria-live="polite" onClick={onMarkdownAction} data-analytics-quotable onMouseUp={event => captureSelection(event.currentTarget, "assistant")} onKeyUp={event => captureSelection(event.currentTarget, "assistant")}>
+        <div className="analytics-chat-feed" aria-live="polite" onClick={onMarkdownAction} data-analytics-quotable="assistant">
           {state === "noai" && <div className="analytics-noai"><strong>{t(locale, "เปิดใช้ผู้ให้บริการ AI ในการตั้งค่า", "Enable an AI provider in Settings")}</strong><p>{t(locale, "ถามด้วยแม่แบบในเครื่องได้ คำถามเหล่านี้ไม่ส่งข้อมูลออกจากเครื่อง", "Use local templates; these questions do not send data off-device.")}</p>
             <div className="analytics-template-questions">{ANALYTICS_TEMPLATE_QUESTIONS.map(item => <button key={item.id} onClick={() => {
               const prompt = locale === "th" ? item.th : item.en;

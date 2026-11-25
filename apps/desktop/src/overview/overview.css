@@ -83,14 +83,17 @@
 .ov-hero-ph { display: inline-block; background: var(--raised); }
 
 /* Best heroes (Dota Plus style): two panels, three cards each. */
-.ov-best-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+/* Two panels side by side and "today" on its own row: three panels in one row left each card about
+   110 px wide and cut off win rate and KDA (owner screenshot, 88f4276). */
+.ov-best-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.ov-best-row > .ov-best-today { grid-column: 1 / -1; }
 .ov-best-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .ov-hcard-n { display: flex; align-items: center; gap: 6px; }
 .ov-hcard-n > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ov-hcard-stats { display: grid; gap: 1px; margin: 4px 0; }
 .ov-hcard-stats div { display: flex; flex-wrap: wrap; justify-content: space-between; column-gap: 6px; }
 .ov-hcard-stats dt { color: var(--muted); font-size: var(--fs-caption); white-space: nowrap; }
-.ov-hcard-stats dd { margin: 0; color: var(--text); font: var(--fs-caption) var(--font-mono); white-space: nowrap; }
+.ov-hcard-stats dd { min-width: 0; margin: 0; color: var(--text); font: var(--fs-caption) var(--font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ov-hcard-m > span:first-child { white-space: nowrap; }
 .ov-basis { overflow: hidden; color: var(--muted); font-family: var(--font-ui); text-overflow: ellipsis; white-space: nowrap; }
 .ov-best-today { min-width: 0; }
@@ -168,7 +171,6 @@
   .ov-page { grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr); }
   .ov-heroes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .ov-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .ov-best-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ov-heroes .ov-hcard:nth-child(n + 4) { display: none; }
   .ov-val { font-size: 26px; }
   .ov-mt .opt { display: none; }
