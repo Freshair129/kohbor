@@ -1,4 +1,4 @@
-use super::knowledge::PROVISIONAL_THRESHOLDS;
+use super::lane_expectation;
 use super::store::AnalyticsStore;
 use crate::replay_library::ReplayBundle;
 use serde_json::{json, Value};
@@ -878,9 +878,13 @@ fn get_items(
         .pointer("/meta/duration_s")
         .and_then(Value::as_f64)
         .unwrap_or(0.0);
+    let phase_boundaries = lane_expectation::phase_boundaries();
     let mut boundary_times = vec![("start".to_owned(), 0.0)];
-    for (name, time) in [("ten_minutes", 600.0), ("twenty_five_minutes", 1500.0)] {
-        if time <= duration {
+    for (name, time) in [
+        ("ten_minutes", phase_boundaries.get(1).copied()),
+        ("twenty_five_minutes", phase_boundaries.get(2).copied()),
+    ] {
+        if let Some(time) = time.filter(|time| *time <= duration) {
             boundary_times.push((name.to_owned(), time));
         }
     }
@@ -937,7 +941,8 @@ fn get_lane(digest: &Value, input: &Value) -> Result<Value, &'static str> {
             point
                 .get("minute")
                 .and_then(Value::as_u64)
-                .is_some_and(|minute| minute <= 10)
+                .zip(point.get("t").and_then(Value::as_f64))
+                .is_some_and(|(_, time)| time <= lane_expectation::standard_boundary())
         })
         .cloned()
         .collect::<Vec<_>>();
@@ -1065,8 +1070,21 @@ fn get_phase_stats(
         .pointer(&format!("/team_phases/{phase}"))
         .cloned()
         .unwrap_or(Value::Null);
+    let boundaries = lane_expectation::phase_boundary_values();
+    let start = boundaries.first().cloned().unwrap_or(Value::Null);
+    let laning_end = boundaries.get(1).cloned().unwrap_or(Value::Null);
+    let mid_end = boundaries.get(2).cloned().unwrap_or(Value::Null);
+    let duration = digest
+        .pointer("/meta/duration_s")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let bounds = match phase {
+        "laning" => json!([start, laning_end]),
+        "mid" => json!([laning_end, mid_end]),
+        _ => json!([mid_end, duration]),
+    };
     Ok(
-        json!({"phase":phase,"team":team,"team_reason":team.is_null().then_some("match ended before this phase or the phase data is missing").map(Value::from),"heroes":heroes,"bounds_s":match phase {"laning"=>json!([0,600]),"mid"=>json!([600,1500]),_=>json!([1500,digest.pointer("/meta/duration_s").cloned().unwrap_or(Value::Null)])}}),
+        json!({"phase":phase,"team":team,"team_reason":team.is_null().then_some("match ended before this phase or the phase data is missing").map(Value::from),"heroes":heroes,"bounds_s":bounds}),
     )
 }
 
@@ -1183,7 +1201,7 @@ pub(crate) fn cache_ttl_seconds() -> u64 {
     60 * 60
 }
 pub(crate) fn provisional_thresholds() -> Value {
-    json!({"label":"เกณฑ์ชั่วคราว","lane_sample_from_s":PROVISIONAL_THRESHOLDS.lane_sample_from_s,"lane_sample_to_s":PROVISIONAL_THRESHOLDS.lane_sample_to_s})
+    lane_expectation::provisional_thresholds()
 }
 
 #[cfg(test)]

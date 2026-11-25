@@ -31,8 +31,8 @@ mod news;
 mod objectives;
 mod opendota;
 mod orb;
-mod post_game_replay;
 mod portraits;
+mod post_game_replay;
 mod replay_library;
 pub mod secrets;
 pub mod settings;
@@ -1507,6 +1507,14 @@ pub fn run() {
         commands::analytics_chat_transcript,
         commands::analytics_chat_start_from_summary,
         commands::analytics_knowledge_get,
+        commands::analytics_lane_calibration_get,
+        commands::analytics_lane_calibration_run,
+        commands::analytics_lane_review_start,
+        commands::analytics_lane_review_current,
+        commands::analytics_lane_review_submit_blind,
+        commands::analytics_lane_review_submit_half_blind,
+        commands::analytics_lane_review_next,
+        commands::analytics_lane_review_export,
         commands::analytics_saved_analysis_read,
         commands::analytics_report_generate,
         commands::analytics_chat_cancel,
@@ -1657,6 +1665,14 @@ pub fn run() {
         commands::analytics_chat_transcript,
         commands::analytics_chat_start_from_summary,
         commands::analytics_knowledge_get,
+        commands::analytics_lane_calibration_get,
+        commands::analytics_lane_calibration_run,
+        commands::analytics_lane_review_start,
+        commands::analytics_lane_review_current,
+        commands::analytics_lane_review_submit_blind,
+        commands::analytics_lane_review_submit_half_blind,
+        commands::analytics_lane_review_next,
+        commands::analytics_lane_review_export,
         commands::analytics_saved_analysis_read,
         commands::analytics_report_generate,
         commands::analytics_chat_cancel,

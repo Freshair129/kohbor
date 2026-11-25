@@ -16,6 +16,7 @@ import {
   type AnalyticsChatTurn as ChatTurn,
 } from "./analyticsModel";
 import { ProviderControls, type ProviderPreferences } from "./ProviderControls";
+import { LaneReviewPage } from "./LaneReviewPage";
 import {
   AiReportTab, HeroComparisonTab, KnowledgeTabs, MatchSummaryTab, MatchupStrip,
   type KnowledgeDigest, type SavedReport,
@@ -132,7 +133,7 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
   const [notes, setNotes] = useState<Note[]>([]);
   const [openNote, setOpenNote] = useState(SYSTEM_NOTE_ID);
   const [knowledge, setKnowledge] = useState<KnowledgeSnapshot | null>(null);
-  const [knowledgeTab, setKnowledgeTab] = useState<"summary" | "compare" | "ai" | "notes">("summary");
+  const [knowledgeTab, setKnowledgeTab] = useState<"summary" | "compare" | "ai" | "notes" | "coach">("summary");
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [loadedReport, setLoadedReport] = useState<ReportDetail | null>(null);
   const [showRawSource, setShowRawSource] = useState(false);
@@ -661,6 +662,7 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
             {knowledgeTab === "summary" && <MatchSummaryTab digest={knowledge?.digest ?? null} loading={!knowledge && !!selectedId} onSeek={seek} />}
             {knowledgeTab === "compare" && <HeroComparisonTab digest={knowledge?.digest ?? null} selectedHeroId={hero ?? ownHero ?? knowledge?.own_hero_id ?? null}
               opponentHeroId={compareHero} onSelectHero={setHero} onSelectOpponentHero={setCompareHero} />}
+            {knowledgeTab === "coach" && <LaneReviewPage locale={locale} />}
             {knowledgeTab === "ai" && <AiReportTab reports={reportRows} selectedReportId={selectedReportId ?? reportRows[0]?.id ?? null}
               onSelectReport={id => { setSelectedReportId(id); setLoadedReport(null); }}
               onGenerateReport={() => void generateReport(false)} onRegenerateReport={() => void generateReport(true)}

@@ -1,8 +1,11 @@
+use super::coach_review::{CoachReviewSession, ReviewCandidate, ReviewHero};
 use super::context::{
     build_context_blocks, report_stale_reasons, ContextBlocks, HISTORY_ESTIMATED_BYTES_PER_TOKEN,
     HISTORY_TOKEN_BUDGET, PROMPT_VERSION,
 };
 use super::knowledge::{self, KnowledgeInput, KNOWLEDGE_VERSION};
+use super::lane_expectation::{self, CalibrationLane};
+use super::lane_history::{records_from_digest, LaneHistoryStore};
 use super::protocol::{
     finalize_tool_blocks, retry_delay_ms, ApiError, Model, OutgoingRequest, ParsedMessage,
     RequestInput, Usage,
@@ -18,7 +21,7 @@ use super::transport::{Cancellation, Transport, TransportError};
 use crate::match_history::MatchEntry;
 use crate::replay_library::{ReplayBundle, ReplayLibrary};
 use serde_json::{json, Value};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap, VecDeque};
 use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
@@ -34,6 +37,9 @@ fn tool_round_limit_reached(rounds: u8) -> bool {
 #[derive(Clone)]
 pub(crate) struct AnalyticsService {
     store: AnalyticsStore,
+    lane_history: LaneHistoryStore,
+    seen_lane_bundles: Arc<Mutex<VecDeque<String>>>,
+    coach_review: Arc<Mutex<Option<CoachReviewSession>>>,
     transport: Arc<dyn Transport>,
     active: Arc<Mutex<HashMap<String, Cancellation>>>,
 }
@@ -81,6 +87,9 @@ impl AnalyticsService {
     ) -> Self {
         Self {
             store: AnalyticsStore::open(data_dir, install_key),
+            lane_history: LaneHistoryStore::open(&data_dir.join("analytics")),
+            seen_lane_bundles: Arc::new(Mutex::new(VecDeque::new())),
+            coach_review: Arc::new(Mutex::new(None)),
             transport,
             active: Arc::new(Mutex::new(HashMap::new())),
         }
@@ -88,6 +97,56 @@ impl AnalyticsService {
 
     pub(crate) fn store(&self) -> &AnalyticsStore {
         &self.store
+    }
+
+    pub(crate) fn clear_lane_history(&self) -> Result<(), &'static str> {
+        self.lane_history.clear()?;
+        lock(&self.seen_lane_bundles).clear();
+        *lock(&self.coach_review) = None;
+        Ok(())
+    }
+
+    fn capture_lane_history(&self, bundle_hash: &str, digest: &Value, own_hero: Option<&str>) {
+        if own_hero.is_none() {
+            return;
+        }
+        let mut seen = lock(&self.seen_lane_bundles);
+        if seen.iter().any(|previous| previous == bundle_hash) {
+            return;
+        }
+        let records = records_from_digest(digest, own_hero);
+        if records.is_empty() {
+            return;
+        }
+        if let Err(error) = self.lane_history.append(&records) {
+            crate::log_warn!(
+                "analytics",
+                "lane_history_write_failed",
+                "lane history could not be saved"
+            );
+            let _ = error;
+            return;
+        }
+        seen.push_back(bundle_hash.to_owned());
+        let capacity =
+            (super::lane_expectation::config_integer("/lane_store_max_records") / 3).max(1);
+        while seen.len() > capacity {
+            seen.pop_front();
+        }
+    }
+
+    fn lane_history_records(&self) -> Vec<super::lane_history::LaneHistoryRecord> {
+        match self.lane_history.records() {
+            Ok(records) => records,
+            Err(_) => {
+                crate::log_warn!(
+                    "analytics",
+                    "lane_history_read_failed",
+                    "lane history could not be read"
+                );
+                Vec::new()
+            }
+        }
     }
     pub(crate) fn preferences(&self) -> Result<AnalyticsPreferences, &'static str> {
         self.store.preferences()
@@ -314,9 +373,10 @@ impl AnalyticsService {
         &self,
         library: &ReplayLibrary,
         history_entries: &[MatchEntry],
+        opendota_entries: &[MatchEntry],
         options: ChatOptions,
     ) -> Result<PreparedChat, &'static str> {
-        self.prepare_request(library, history_entries, options, false)
+        self.prepare_request(library, history_entries, opendota_entries, options, false)
     }
 
     pub(crate) fn start_new_chat_from_summary(
@@ -334,12 +394,13 @@ impl AnalyticsService {
         &self,
         library: &ReplayLibrary,
         history_entries: &[MatchEntry],
+        opendota_entries: &[MatchEntry],
         match_id: String,
         selected_hero: Option<String>,
         scrubber_time_s: Option<f64>,
         regenerate: bool,
     ) -> Result<ReportPreparation, &'static str> {
-        let prepared = self.prepare_request(library, history_entries, ChatOptions {
+        let prepared = self.prepare_request(library, history_entries, opendota_entries, ChatOptions {
             match_id,
             question: "Write the saved match analysis described by RULES v2. Analyze lanes, the mid and late phases, key teamfights, and what the selected hero could change. Cite each claim.".into(),
             selected_hero,
@@ -380,6 +441,7 @@ impl AnalyticsService {
         &self,
         library: &ReplayLibrary,
         history_entries: &[MatchEntry],
+        opendota_entries: &[MatchEntry],
         options: ChatOptions,
         report: bool,
     ) -> Result<PreparedChat, &'static str> {
@@ -412,12 +474,23 @@ impl AnalyticsService {
             .or_else(|| self.store.own_hero(&options.match_id));
         let bundle = library.open_bundle(&options.match_id).ok();
         let (digest, bundle_hash) = if let Some(bundle) = bundle.as_ref() {
-            let digest = knowledge::build(&KnowledgeInput {
-                manifest: &bundle.manifest,
-                match_data: &bundle.match_data,
-                world: &bundle.world,
-            })?;
             let bundle_hash = knowledge::bundle_hash(&bundle.manifest)?;
+            let match_key = self.store.match_key(&options.match_id).ok();
+            let lane_history = self.lane_history_records();
+            let digest = knowledge::build_with_sources(
+                &KnowledgeInput {
+                    manifest: &bundle.manifest,
+                    match_data: &bundle.match_data,
+                    world: &bundle.world,
+                },
+                match_key.as_deref(),
+                history_entries,
+                opendota_entries,
+                &lane_history,
+                own_hero.as_deref(),
+            )?;
+            log_match_result_conflict(&digest);
+            self.capture_lane_history(&bundle_hash, &digest, own_hero.as_deref());
             let bytes = knowledge::canonical_bytes(&digest)?;
             self.store.write_knowledge(
                 &options.match_id,
@@ -643,9 +716,327 @@ impl AnalyticsService {
         library: &ReplayLibrary,
         match_id: &str,
         history: &[MatchEntry],
+        opendota_history: &[MatchEntry],
     ) -> Result<Vec<super::store::NoteRow>, &'static str> {
-        let summary = self.system_summary(library, match_id, history);
+        let summary = self.system_summary(library, match_id, history, opendota_history);
         self.store.list_notes(match_id, &summary)
+    }
+
+    pub(crate) fn lane_calibration_report(&self) -> Result<Value, &'static str> {
+        Ok(self.lane_history.calibration_report()?.unwrap_or_else(|| {
+            json!({
+                "available":false,
+                "reason":"calibration_not_run"
+            })
+        }))
+    }
+
+    pub(crate) fn run_lane_calibration(
+        &self,
+        library: &ReplayLibrary,
+        local_history: &[MatchEntry],
+        opendota_history: &[MatchEntry],
+    ) -> Result<Value, &'static str> {
+        if self.lane_history.calibration_report()?.is_some() {
+            return Err("lane_calibration_already_exists");
+        }
+        let mut bundle_index = Vec::new();
+        for entry in library.list()?.matches {
+            if !matches!(entry.status, crate::replay_library::ReplayStatus::Ready) {
+                continue;
+            }
+            let Ok(bundle) = library.open_bundle(&entry.match_id) else {
+                continue;
+            };
+            let game_mode = bundle
+                .match_data
+                .pointer("/meta/game_mode")
+                .and_then(Value::as_u64);
+            if !lane_expectation::is_standard_mode(game_mode) {
+                continue;
+            }
+            let hash = knowledge::bundle_hash(&bundle.manifest)?;
+            bundle_index.push((
+                entry.match_id,
+                hash,
+                entry.parse_time_unix_ms.unwrap_or(entry.created_at_unix_ms),
+            ));
+        }
+        bundle_index.sort_by_key(|(_, _, analysis_time)| *analysis_time);
+        let bundle_hashes = bundle_index
+            .iter()
+            .map(|(_, hash, _)| hash.clone())
+            .collect::<Vec<_>>();
+        let mut lanes = Vec::<CalibrationLane>::new();
+        for (match_id, expected_hash, _) in bundle_index {
+            let bundle = library
+                .open_bundle(&match_id)
+                .map_err(|_| "calibration_bundle_unavailable")?;
+            if knowledge::bundle_hash(&bundle.manifest)? != expected_hash {
+                return Err("calibration_bundle_changed");
+            }
+            let gsi = find_gsi_match(&self.store, &match_id, local_history);
+            let own_hero = gsi
+                .and_then(|entry| entry.hero.clone())
+                .or_else(|| self.store.own_hero(&match_id));
+            let match_key = self.store.match_key(&match_id).ok();
+            let digest = knowledge::build_with_sources(
+                &KnowledgeInput {
+                    manifest: &bundle.manifest,
+                    match_data: &bundle.match_data,
+                    world: &bundle.world,
+                },
+                match_key.as_deref(),
+                local_history,
+                opendota_history,
+                &[],
+                own_hero.as_deref(),
+            )?;
+            let winner = digest
+                .pointer("/meta/result/winner")
+                .and_then(Value::as_str)
+                .map(str::to_owned);
+            for lane in digest
+                .get("lanes")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+            {
+                let Some(score) = lane.pointer("/score/value").and_then(Value::as_f64) else {
+                    continue;
+                };
+                let Some(name) = lane.get("lane").and_then(Value::as_str) else {
+                    continue;
+                };
+                lanes.push(CalibrationLane {
+                    bundle_hash: expected_hash.clone(),
+                    lane: name.to_owned(),
+                    shape: lane
+                        .get("shape")
+                        .and_then(Value::as_str)
+                        .unwrap_or("unknown")
+                        .to_owned(),
+                    score,
+                    components: lane
+                        .pointer("/score/components")
+                        .cloned()
+                        .unwrap_or(Value::Null),
+                    components_used: lane
+                        .pointer("/score/components_used")
+                        .and_then(Value::as_array)
+                        .into_iter()
+                        .flatten()
+                        .filter_map(Value::as_str)
+                        .map(str::to_owned)
+                        .collect(),
+                    raw_outcome: lane
+                        .get("outcome")
+                        .and_then(Value::as_str)
+                        .map(str::to_owned),
+                    winner: winner.clone(),
+                });
+            }
+        }
+        let report = lane_expectation::calibration_report(&lanes, &bundle_hashes)?;
+        let bytes = serde_json::to_vec(&report).map_err(|_| "calibration_serialization_failed")?;
+        self.lane_history.write_calibration_report(&bytes)?;
+        Ok(report)
+    }
+
+    pub(crate) fn start_lane_coach_review(
+        &self,
+        library: &ReplayLibrary,
+        local_history: &[MatchEntry],
+        opendota_history: &[MatchEntry],
+    ) -> Result<Value, &'static str> {
+        let calibration = self
+            .lane_history
+            .calibration_report()?
+            .ok_or("lane_calibration_required")?;
+        let calibration_hashes = calibration
+            .get("bundle_hashes")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .collect::<BTreeSet<_>>();
+        let mut entries = library.list()?.matches;
+        entries.sort_by_key(|entry| entry.parse_time_unix_ms.unwrap_or(entry.created_at_unix_ms));
+        let lane_history = self.lane_history_records();
+        let mut candidates = Vec::new();
+        for entry in entries {
+            if !matches!(entry.status, crate::replay_library::ReplayStatus::Ready) {
+                continue;
+            }
+            let Ok(bundle) = library.open_bundle(&entry.match_id) else {
+                continue;
+            };
+            let mode = bundle
+                .match_data
+                .pointer("/meta/game_mode")
+                .and_then(Value::as_u64);
+            if !lane_expectation::is_standard_mode(mode) {
+                continue;
+            }
+            let hash = knowledge::bundle_hash(&bundle.manifest)?;
+            if calibration_hashes.contains(hash.as_str()) {
+                continue;
+            }
+            let gsi = find_gsi_match(&self.store, &entry.match_id, local_history);
+            let own_hero = gsi
+                .and_then(|history| history.hero.clone())
+                .or_else(|| self.store.own_hero(&entry.match_id));
+            let match_key = self.store.match_key(&entry.match_id).ok();
+            let digest = knowledge::build_with_sources(
+                &KnowledgeInput {
+                    manifest: &bundle.manifest,
+                    match_data: &bundle.match_data,
+                    world: &bundle.world,
+                },
+                match_key.as_deref(),
+                local_history,
+                opendota_history,
+                &lane_history,
+                own_hero.as_deref(),
+            )?;
+            let patch = digest
+                .pointer("/meta/patch")
+                .and_then(Value::as_str)
+                .map(str::to_owned);
+            for lane in digest
+                .get("lanes")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+            {
+                let has_expert = lane
+                    .pointer("/expectation/sources")
+                    .and_then(Value::as_array)
+                    .into_iter()
+                    .flatten()
+                    .any(|source| {
+                        matches!(
+                            source.get("kind").and_then(Value::as_str),
+                            Some("expert_pair" | "expert_tags")
+                        )
+                    });
+                if !has_expert {
+                    continue;
+                }
+                let Some(table_tier) = lane
+                    .pointer("/expectation/expert_tier")
+                    .and_then(Value::as_f64)
+                else {
+                    continue;
+                };
+                let Some(model_verdict) = lane.pointer("/verdict/label").and_then(Value::as_str)
+                else {
+                    continue;
+                };
+                let heroes = |side: &str| {
+                    lane.get(side)
+                        .and_then(Value::as_array)
+                        .into_iter()
+                        .flatten()
+                        .map(|hero| ReviewHero {
+                            hero: hero
+                                .get("name")
+                                .and_then(Value::as_str)
+                                .unwrap_or("— ไม่ทราบ")
+                                .to_owned(),
+                            role: hero.get("role").and_then(Value::as_str).map(str::to_owned),
+                        })
+                        .collect::<Vec<_>>()
+                };
+                let score = lane.get("score").cloned().unwrap_or(Value::Null);
+                let raw = json!({
+                    "score":score.get("value").cloned().unwrap_or(Value::Null),
+                    "components":score.get("components").cloned().unwrap_or(Value::Null),
+                    "components_used":score.get("components_used").cloned().unwrap_or(Value::Null),
+                    "nw_diff_10":lane.get("nw_diff_10").cloned().unwrap_or(Value::Null),
+                    "xp_diff_10":lane.get("xp_diff_10").cloned().unwrap_or(Value::Null),
+                    "lh_10":lane.get("lh_10").cloned().unwrap_or(Value::Null),
+                    "dn_10":lane.get("dn_10").cloned().unwrap_or(Value::Null),
+                    "deaths_to_10":score.get("deaths_to_10").cloned().unwrap_or(Value::Null),
+                    "t1_hp_pct":score.get("t1_hp_pct").cloned().unwrap_or(Value::Null),
+                    "raw_outcome":lane.get("outcome").cloned().unwrap_or(Value::Null),
+                    "trial_label":lane.get("label").cloned().unwrap_or(Value::Null)
+                });
+                candidates.push(ReviewCandidate {
+                    bundle_hash: hash.clone(),
+                    lane: lane
+                        .get("lane")
+                        .and_then(Value::as_str)
+                        .unwrap_or("unknown")
+                        .to_owned(),
+                    patch: patch.clone(),
+                    shape: lane
+                        .get("shape")
+                        .and_then(Value::as_str)
+                        .unwrap_or("unknown")
+                        .to_owned(),
+                    radiant: heroes("radiant"),
+                    dire: heroes("dire"),
+                    raw,
+                    expectation: lane.get("expectation").cloned().unwrap_or(Value::Null),
+                    table_tier,
+                    model_verdict: model_verdict.to_owned(),
+                    constants_version: lane
+                        .pointer("/constants/version")
+                        .and_then(Value::as_u64)
+                        .and_then(|value| u32::try_from(value).ok())
+                        .unwrap_or(0),
+                    constants_hash: lane
+                        .pointer("/constants/hash")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_owned(),
+                });
+            }
+        }
+        let required = lane_expectation::config_integer("/sampling/coach_review_lanes");
+        let session = CoachReviewSession::start(candidates, required)?;
+        let current = session.current();
+        *lock(&self.coach_review) = Some(session);
+        Ok(current)
+    }
+
+    pub(crate) fn lane_coach_review_current(&self) -> Result<Value, &'static str> {
+        lock(&self.coach_review)
+            .as_ref()
+            .map(CoachReviewSession::current)
+            .ok_or("coach_review_not_started")
+    }
+
+    pub(crate) fn lane_coach_review_submit_blind(&self, tier: i32) -> Result<Value, &'static str> {
+        lock(&self.coach_review)
+            .as_mut()
+            .ok_or("coach_review_not_started")?
+            .submit_blind(tier)
+    }
+
+    pub(crate) fn lane_coach_review_submit_half_blind(
+        &self,
+        verdict: &str,
+    ) -> Result<Value, &'static str> {
+        lock(&self.coach_review)
+            .as_mut()
+            .ok_or("coach_review_not_started")?
+            .submit_half_blind(verdict)
+    }
+
+    pub(crate) fn lane_coach_review_next(&self) -> Result<Value, &'static str> {
+        lock(&self.coach_review)
+            .as_mut()
+            .ok_or("coach_review_not_started")?
+            .next()
+    }
+
+    pub(crate) fn lane_coach_review_export(&self) -> Result<Value, &'static str> {
+        lock(&self.coach_review)
+            .as_ref()
+            .ok_or("coach_review_not_started")?
+            .export()
     }
 
     pub(crate) fn knowledge_snapshot(
@@ -653,6 +1044,7 @@ impl AnalyticsService {
         library: &ReplayLibrary,
         match_id: &str,
         history: &[MatchEntry],
+        opendota_history: &[MatchEntry],
     ) -> Result<Value, &'static str> {
         let gsi = find_gsi_match(&self.store, match_id, history);
         let own_hero = gsi
@@ -660,12 +1052,23 @@ impl AnalyticsService {
             .or_else(|| self.store.own_hero(match_id));
         let (digest, bundle_hash, bundle_available) = match library.open_bundle(match_id) {
             Ok(bundle) => {
-                let digest = knowledge::build(&KnowledgeInput {
-                    manifest: &bundle.manifest,
-                    match_data: &bundle.match_data,
-                    world: &bundle.world,
-                })?;
                 let bundle_hash = knowledge::bundle_hash(&bundle.manifest)?;
+                let match_key = self.store.match_key(match_id).ok();
+                let lane_history = self.lane_history_records();
+                let digest = knowledge::build_with_sources(
+                    &KnowledgeInput {
+                        manifest: &bundle.manifest,
+                        match_data: &bundle.match_data,
+                        world: &bundle.world,
+                    },
+                    match_key.as_deref(),
+                    history,
+                    opendota_history,
+                    &lane_history,
+                    own_hero.as_deref(),
+                )?;
+                self.capture_lane_history(&bundle_hash, &digest, own_hero.as_deref());
+                log_match_result_conflict(&digest);
                 let bytes = knowledge::canonical_bytes(&digest)?;
                 self.store
                     .write_knowledge(match_id, &bundle_hash, KNOWLEDGE_VERSION, &bytes)?;
@@ -736,14 +1139,31 @@ impl AnalyticsService {
         &self,
         library: &ReplayLibrary,
         match_id: &str,
-        _history: &[MatchEntry],
+        history: &[MatchEntry],
+        opendota_history: &[MatchEntry],
     ) -> String {
         if let Ok(bundle) = library.open_bundle(match_id) {
-            if let Ok(digest) = knowledge::build(&KnowledgeInput {
-                manifest: &bundle.manifest,
-                match_data: &bundle.match_data,
-                world: &bundle.world,
-            }) {
+            let gsi = find_gsi_match(&self.store, match_id, history);
+            let own_hero = gsi
+                .and_then(|entry| entry.hero.clone())
+                .or_else(|| self.store.own_hero(match_id));
+            let match_key = self.store.match_key(match_id).ok();
+            let lane_history = self.lane_history_records();
+            if let Ok(digest) = knowledge::build_with_sources(
+                &KnowledgeInput {
+                    manifest: &bundle.manifest,
+                    match_data: &bundle.match_data,
+                    world: &bundle.world,
+                },
+                match_key.as_deref(),
+                history,
+                opendota_history,
+                &lane_history,
+                own_hero.as_deref(),
+            ) {
+                if let Ok(hash) = knowledge::bundle_hash(&bundle.manifest) {
+                    self.capture_lane_history(&hash, &digest, own_hero.as_deref());
+                }
                 if let (Ok(hash), Ok(bytes)) = (
                     knowledge::bundle_hash(&bundle.manifest),
                     knowledge::canonical_bytes(&digest),
@@ -1416,12 +1836,18 @@ fn summary_markdown(digest: &Value) -> String {
         .pointer("/meta/patch")
         .map(display_json)
         .unwrap_or_else(|| "— ไม่ทราบ".into());
-    let winner = digest
-        .pointer("/meta/winner")
+    let result = digest
+        .pointer("/meta/result/winner")
+        .filter(|value| !value.is_null())
+        .map(display_json)
+        .unwrap_or_else(|| "— ไม่ทราบ".into());
+    let result_source = digest
+        .pointer("/meta/result/source")
+        .filter(|value| !value.is_null())
         .map(display_json)
         .unwrap_or_else(|| "— ไม่ทราบ".into());
     let mut out =
-        format!("# สรุปแมตช์\n\n- ระยะเวลา: {duration}\n- แพตช์: {patch}\n- ผู้ชนะ: {winner}\n");
+        format!("# สรุปแมตช์\n\n- ระยะเวลา: {duration}\n- แพตช์: {patch}\n- ผลแมตช์: {result}\n- แหล่งผล: {result_source}\n");
     for side in ["radiant", "dire"] {
         out.push_str(&format!(
             "\n## {}\n",
@@ -1551,6 +1977,20 @@ fn find_gsi_match<'a>(
     history.iter().find(|entry| entry.match_key == match_key)
 }
 
+fn log_match_result_conflict(digest: &Value) {
+    if digest
+        .pointer("/meta/result/conflict")
+        .and_then(Value::as_bool)
+        == Some(true)
+    {
+        crate::log_warn!(
+            "analytics",
+            "analytics_match_result_conflict",
+            "match result sources disagree"
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1620,13 +2060,13 @@ mod tests {
         prefs.consent = false;
         service.store.write_preferences(&prefs).unwrap();
         assert_eq!(
-            service.prepare_chat(&library, &[], options()).err(),
+            service.prepare_chat(&library, &[], &[], options()).err(),
             Some("ai_off")
         );
         prefs.ai_on = true;
         service.store.write_preferences(&prefs).unwrap();
         assert_eq!(
-            service.prepare_chat(&library, &[], options()).err(),
+            service.prepare_chat(&library, &[], &[], options()).err(),
             Some("consent_required")
         );
         prefs.consent = true;
@@ -1636,7 +2076,7 @@ mod tests {
             .set_provider_consent("anthropic", true)
             .unwrap();
         assert_eq!(
-            service.prepare_chat(&library, &[], options()).err(),
+            service.prepare_chat(&library, &[], &[], options()).err(),
             Some("key_required")
         );
         assert_eq!(transport.calls.load(Ordering::Relaxed), 0);

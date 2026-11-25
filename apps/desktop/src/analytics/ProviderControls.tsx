@@ -401,6 +401,9 @@ export function ProviderControls({
       <h2 id="provider-consent-title">{copy.consentTitle}</h2>
       <p><strong>{copy.consentHost}:</strong> {selected.label} · {selected.endpoint ?? copy.endpoint}</p>
       <p>{copy.consentContent}</p>
+      <p>{locale === "th"
+        ? "ไดเจสต์ที่ส่งยังมีคะแนนเลนเทียบกับค่าคาดหมาย แหล่งค่าคาดหมายและองค์ประกอบที่ใช้ พร้อมแหล่งผลแมตช์เมื่อทราบ ค่าคาดหมายอาจไม่มี และทุกการอ่านเลนใหม่แสดงว่า ‘ทดลอง · เกณฑ์ชั่วคราว’"
+        : "The digest also includes lane scores against expectations, their sources and components, plus the match result source when known. An expectation may be unavailable, and every new lane reading is labelled ‘ทดลอง · เกณฑ์ชั่วคราว’."}</p>
       <p>{copy.consentRouting}</p>
       <p>{copy.consentExcluded}</p>
       <p>{copy.consentKey}</p>

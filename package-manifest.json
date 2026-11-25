@@ -83,8 +83,8 @@
     },
     {
       "path": "acceptance/scenarios.feature",
-      "bytes": 78962,
-      "sha256": "8f7d04c0dbd47224b7d4affd313e217d1df275a6a2cfbac3a87d7c2597efe0fb"
+      "bytes": 80963,
+      "sha256": "675cbca0625bb4fdf10280d11916433bc9b71579b41b8176d0c1cfad2b8c7d5f"
     },
     {
       "path": "acceptance/spec-validation.json",
@@ -262,19 +262,44 @@
       "sha256": "cf61817bf52906831ddd7bc47af803738379cd2ab83cfbe77e10d856241adf81"
     },
     {
+      "path": "apps/desktop/src-tauri/src/analytics/coach_review.rs",
+      "bytes": 13259,
+      "sha256": "5f21f3ec8916c1d02205409d1e5b578a54a5df86656193f25ef22d3566fc5f4f"
+    },
+    {
       "path": "apps/desktop/src-tauri/src/analytics/context.rs",
-      "bytes": 8197,
-      "sha256": "81efb3b5531b8d80f3d9c751fe5a0e334d1ebf68620d108193992b8177a3e4a4"
+      "bytes": 9830,
+      "sha256": "582bde8142e68b345ddb89c6c87f8c902f4f2e3df8928cbc047ca8288d99f072"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/analytics/data/lane-expectation-constants.json",
+      "bytes": 1784,
+      "sha256": "be1bb238ee4b92db110c48723a01a2236cbeb0c51d5b37d9327e059164ea181a"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/analytics/data/lane-expectation-table.json",
+      "bytes": 179,
+      "sha256": "4e4de8be7783805305afad9107fa72fc5adda749723db286ddf406ef154fee8c"
     },
     {
       "path": "apps/desktop/src-tauri/src/analytics/knowledge.rs",
-      "bytes": 72368,
-      "sha256": "a97bbd4da3d8c397737a2a127908d15c1539d5241a9862d7a5a5236a44e11ee5"
+      "bytes": 83078,
+      "sha256": "d8b0411a4f127ebeb71f80d0035cb02a798b158f15f7d7f352303a95b3a6f65f"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/analytics/lane_expectation.rs",
+      "bytes": 80552,
+      "sha256": "7d2e25b131b17f368d02a07fefa81631b6ed4d876070b6a6ede3151aabb83db2"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/analytics/lane_history.rs",
+      "bytes": 12910,
+      "sha256": "9d3e27cda83b29c052e2ab17cdd18b21e4f8ceaf13fd17b1f4c0581609bb9ba5"
     },
     {
       "path": "apps/desktop/src-tauri/src/analytics/mod.rs",
-      "bytes": 321,
-      "sha256": "7fa36f142dbeb6899437dc8b79d1a78e31f0f92759f13eec586226b24afd3a28"
+      "bytes": 379,
+      "sha256": "577d2ef40dd20f3ad58a16f7241a2f04f949588786ad74e9490c8f75b0bfd521"
     },
     {
       "path": "apps/desktop/src-tauri/src/analytics/protocol.rs",
@@ -308,18 +333,18 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/analytics/service.rs",
-      "bytes": 68330,
-      "sha256": "06a1901eae1900dc67d84e968cd5d235708e8a4e9ae34a5c0b4497268436fa34"
+      "bytes": 86193,
+      "sha256": "b95cc214b5f375a6500cc4897823b24f084a32529d825da43f89442fa6cb9a38"
     },
     {
       "path": "apps/desktop/src-tauri/src/analytics/store.rs",
-      "bytes": 66000,
-      "sha256": "296f244526f60398e6d2a68e5686e99897fc4337f583c88574f9f4fb0725506d"
+      "bytes": 66019,
+      "sha256": "33457f5770f23d3fbf642d7ea4d08fc676d721acbb9e3fb7603805f0d262d98f"
     },
     {
       "path": "apps/desktop/src-tauri/src/analytics/tools.rs",
-      "bytes": 56642,
-      "sha256": "55e53a417f8b8311cc2cc303a66fa1dd6c6bcae3749ad62709c2f960029b2451"
+      "bytes": 57183,
+      "sha256": "c53a9a0a6c95268f9e1f1a557f02b289c86c63a061cdf858b3931b1c4337b36c"
     },
     {
       "path": "apps/desktop/src-tauri/src/analytics/transport.rs",
@@ -418,8 +443,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/commands.rs",
-      "bytes": 74969,
-      "sha256": "d989bbc123801d9fd5acd73b179d357f32ab3cfabf64275e823c20c3c0df462d"
+      "bytes": 78381,
+      "sha256": "8c617c606fe0dda5dd2f84ae35a0ae4840ba46b79d540cfd9e82afe25ed95f8e"
     },
     {
       "path": "apps/desktop/src-tauri/src/containment.rs",
@@ -558,8 +583,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 71815,
-      "sha256": "f8b4aec7d8f31e79b191e35f57d2cd0fe3732ffb1554c09cd62ab7c6b6100178"
+      "bytes": 72621,
+      "sha256": "1cdea7f44b3cdced3cae70a6a8cfa397de61a519c76528b45d70c264f7fd610d"
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
@@ -938,13 +963,18 @@
     },
     {
       "path": "apps/desktop/src/analytics/AnalyticsPage.tsx",
-      "bytes": 57344,
-      "sha256": "136b79b04069eb725baa1e54fdeda7baa46b0b016dd751fd8a5050a48531bd87"
+      "bytes": 57482,
+      "sha256": "484f9928a3dc8a97492d0be68c68a281794f6f3a8c62649020242899bef8cd24"
     },
     {
       "path": "apps/desktop/src/analytics/AnalyticsSettings.tsx",
       "bytes": 4729,
       "sha256": "224cedcbdd7a051d4f337ee77b4dd862be34a9f32bbcccfe63c67aa5ace2c306"
+    },
+    {
+      "path": "apps/desktop/src/analytics/LaneReviewPage.tsx",
+      "bytes": 7878,
+      "sha256": "5c05e283ffd7d3accd5f6b71c9181dea2f9874ac5abb807dcc565ab1c0fd16b5"
     },
     {
       "path": "apps/desktop/src/analytics/ProviderControls.css",
@@ -953,8 +983,8 @@
     },
     {
       "path": "apps/desktop/src/analytics/ProviderControls.tsx",
-      "bytes": 16967,
-      "sha256": "5ecdcb53322767b65fec5b802a37102ac678172878f1444dfc44d1ccefda2546"
+      "bytes": 17809,
+      "sha256": "0fe6489cbc284286a9dc135c08fb44cd62acfa3d3243d7fd715eb595443b76f5"
     },
     {
       "path": "apps/desktop/src/analytics/analytics.css",
@@ -993,23 +1023,23 @@
     },
     {
       "path": "apps/desktop/src/analytics/knowledge/index.tsx",
-      "bytes": 18884,
-      "sha256": "f2bea0110c52d1b564159704ef521d5393138a6fb313f3f91e99af1a64e9e854"
+      "bytes": 21822,
+      "sha256": "83f997d506a13d63115cebeaccc7bd74fa036c0d7a0f15262158b5131cd34484"
     },
     {
       "path": "apps/desktop/src/analytics/knowledge/knowledge.css",
-      "bytes": 4281,
-      "sha256": "426a30b087f3897eb178d3ce658cf59384c50a5183db377abbec98bcad938d62"
+      "bytes": 4958,
+      "sha256": "bae0e418aabecd295e8a8235e22fbac68ff0435156b15b8262003a14e0dcc362"
     },
     {
       "path": "apps/desktop/src/analytics/knowledge/presentationModel.d.mts",
-      "bytes": 564,
-      "sha256": "b2e47d4981cf9298048daef2b93692a43f1b4bd09d670d5fcb9f68807cefea4c"
+      "bytes": 1034,
+      "sha256": "505d7f4252015a3b2be1a96c0f77cfd73a4a10a8078671608c8f8c8102a89698"
     },
     {
       "path": "apps/desktop/src/analytics/knowledge/presentationModel.mjs",
-      "bytes": 2973,
-      "sha256": "9b288370dcbdb876c7950464756522281d72576904efa9b14a83aca29dd8dc29"
+      "bytes": 4505,
+      "sha256": "46c2513242e4b8fd628767e53a67c99a636a9d3d8f197747dec0a376e09e3f27"
     },
     {
       "path": "apps/desktop/src/analytics/provider-model.d.mts",
@@ -13843,8 +13873,8 @@
     },
     {
       "path": "apps/desktop/tests/analytics-knowledge.test.mjs",
-      "bytes": 2432,
-      "sha256": "df1252438e50e6d08533a77a2501c60970a3d24e0af07e40690529ab497492a1"
+      "bytes": 5962,
+      "sha256": "45f5a2835c3b3310e9f5f6c416065706d2a84b04dd9690ef77ed8a408720223c"
     },
     {
       "path": "apps/desktop/tests/analytics-markdown.test.ts",
@@ -14508,8 +14538,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 153930,
-      "sha256": "e4bca578ce3fef112681f7c55d3d1e398a93498f90e2456cd339538919a74de7"
+      "bytes": 157845,
+      "sha256": "8b4b35e462395411c0c560a0b53b5771614d334254392898a7381324729b6404"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -14608,8 +14638,8 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 346885,
-      "sha256": "04e60c167ca56f414832dcc0fbd38c33d964cefb8192c13159cb802d833addcc"
+      "bytes": 353367,
+      "sha256": "7b7f262ae872efb170730a354d779e7bed2f1705b50e9ce153d03c862d146c95"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -15398,8 +15428,8 @@
     },
     {
       "path": "docs/INDEX.md",
-      "bytes": 15463,
-      "sha256": "c0654cab25b691ca75e35a318e014de481ff4edb4ec0a32e5c1be70f6cc5a962"
+      "bytes": 15662,
+      "sha256": "9f03527b122c0d7ac22cb998da377973915121842cc5a69c495fc2967648f6cb"
     },
     {
       "path": "docs/delivery/AGENT-WORKFLOW.md",
@@ -15535,6 +15565,11 @@
       "path": "docs/design/KOHBOR-LAB.md",
       "bytes": 42261,
       "sha256": "1ca42df97b9a46abfad468594d44ace391b00b113b26c87f3f07fa2d470ea938"
+    },
+    {
+      "path": "docs/design/LANE-EXPECTATION.md",
+      "bytes": 6307,
+      "sha256": "9f024b6e5400c1b61b45bde06a43f6864bd4b4e87d9dd7c68da588fc7bbb38fb"
     },
     {
       "path": "docs/design/MEDIA-PACK-SPEC.md",
@@ -16063,8 +16098,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 112192,
-      "sha256": "b5c2698049110c0b2c305a020b9bf6b34f30b2315b9a86215018281ac813fe1c"
+      "bytes": 115227,
+      "sha256": "4d55d5ca56c51ba713626b72c8bbc0be91c5187c38c7cfb5ae11c7b941f4ff2c"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
@@ -16148,13 +16183,13 @@
     },
     {
       "path": "docs/requirements/RTM.csv",
-      "bytes": 67583,
-      "sha256": "5a199912ae677de8612ee7baf0077a74e2e603eda5ac065f49d93727a02f3178"
+      "bytes": 68025,
+      "sha256": "00a06d8eed952b8aea98f6dc96c8c94bb12be74caa511605fb985f318566d58a"
     },
     {
       "path": "docs/requirements/SRS.md",
-      "bytes": 238436,
-      "sha256": "606de36531ffd4385f4a4735b3ca6d90a7d1df14b66bc8481c096a277c37bc4e"
+      "bytes": 243145,
+      "sha256": "37b4877d76e3f0097babd82723b0eaf56810d221fce9f6dd1bb4c352d6e8f292"
     },
     {
       "path": "docs/security/SECURITY-PRIVACY.md",
