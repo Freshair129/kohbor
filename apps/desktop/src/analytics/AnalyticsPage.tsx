@@ -3,20 +3,23 @@ import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
 import { AI_PROVIDER_COPY, copy, type Locale } from "../copy";
+import { readDeveloperMode } from "../shell/developerMode";
 import type { ReplayLibraryEntry, ReplayLibraryList, ReplayStatus } from "../replay/replayLibraryClient";
 import { MatchViewerSurface, analyticsPlayerShadowCss } from "../replay/MatchViewPanel";
 import { admitLibraryBundle, type MatchBundle } from "../replay/matchBundle";
 import { ANALYTICS_TEMPLATE_QUESTIONS, answerAnalyticsTemplate, clock } from "../replay/coach";
 import { actionFromMarkdownTarget, renderMarkdownSafe, renderMarkdownStreaming } from "./analyticsMarkdown";
+import { createAnalyticsChartResolver } from "./analyticsChart";
 import {
-  analyticsDocumentDestination, buildChatRecap,
+  analyticsAiVisibility, analyticsBundleSelectionKey, analyticsConsentRePrompt, analyticsDeleteTransition, analyticsDocumentDestination, analyticsLayout,
+  analyticsReplayAction, analyticsReplaySelection, ANALYTICS_ORPHANS_COMMAND, buildChatRecap,
   analyticsDeathTeam, analyticsPlaybackKeyAction, analyticsViewState, enterAnalyticsReplayDetails,
   formatAnalyticsTime, replayRowFacts, UNKNOWN_VALUE,
   type AnalyticsReplayDetailsRoute, type AnalyticsReturnContext,
+  type AnalyticsDeleteState,
   type AnalyticsChatTurn as ChatTurn,
 } from "./analyticsModel";
 import { ProviderControls, type ProviderPreferences } from "./ProviderControls";
-import { LaneReviewPage } from "./LaneReviewPage";
 import {
   AiReportTab, HeroComparisonTab, KnowledgeTabs, MatchSummaryTab, MatchupStrip,
   type KnowledgeDigest, type SavedReport,
@@ -39,6 +42,44 @@ type KnowledgeSnapshot = {
   report_cost_reason?: string;
 };
 type CompletePayload = { request_id: string; error?: string; usage?: Usage; note_id?: string; note_fallback?: boolean; report?: ReportDetail };
+type ToolCallPayload = { request_id?: unknown; tool?: unknown; status?: unknown };
+
+function friendlyAnalyticsError(reason: unknown, locale: Locale, fallback: string) {
+  const providerCopy = AI_PROVIDER_COPY[locale];
+  switch (providerErrorKind(reason)) {
+    case "match_active": return providerCopy.matchBlocked;
+    case "local_program_unavailable": return providerCopy.localUnavailable;
+    case "endpoint_invalid": return providerCopy.endpointInvalid;
+    case "redirect_refused": return providerCopy.redirectRefused;
+    case "consent_required": return providerCopy.consentRequired;
+    case "key_required": return providerCopy.keyRequired;
+    case "key_invalid": return providerCopy.keyInvalid;
+    case "model_list_unavailable": return providerCopy.modelListUnavailable;
+    default: return fallback;
+  }
+}
+
+function toolCallLine(name: unknown, locale: Locale) {
+  if (name === "get_deaths") return t(locale, "กำลังอ่านเหตุการณ์เสียชีวิตจากเครื่อง", "Reading death events on this device");
+  if (name === "get_hero_card" || name === "get_hero_series") return t(locale, "กำลังอ่านข้อมูลฮีโร่จากเครื่อง", "Reading hero details on this device");
+  if (name === "get_items") return t(locale, "กำลังอ่านไอเท็มจากเครื่อง", "Reading items on this device");
+  if (name === "get_lane") return t(locale, "กำลังอ่านข้อมูลเลนจากเครื่อง", "Reading lane details on this device");
+  if (name === "get_objectives") return t(locale, "กำลังอ่านวัตถุประสงค์จากเครื่อง", "Reading objectives on this device");
+  if (name === "get_phase_stats") return t(locale, "กำลังอ่านผลงานตามช่วงจากเครื่อง", "Reading phase statistics on this device");
+  if (name === "get_teamfight") return t(locale, "กำลังอ่านข้อมูลการปะทะจากเครื่อง", "Reading teamfight details on this device");
+  if (name === "read_saved_analysis") return t(locale, "กำลังอ่านบทวิเคราะห์ที่บันทึกไว้", "Reading a saved analysis");
+  if (name === "write_note") return t(locale, "กำลังบันทึกโน้ตในเครื่อง", "Saving a note on this device");
+  return t(locale, "กำลังอ่านข้อมูลเพิ่มเติมจากเครื่อง", "Reading more local data");
+}
+
+function orphanRows(value: unknown): Record<string, unknown>[] {
+  const rows = Array.isArray(value) ? value
+    : value && typeof value === "object" && Array.isArray((value as Record<string, unknown>).orphans)
+      ? (value as { orphans: unknown[] }).orphans : [];
+  return rows.flatMap(item => typeof item === "string"
+    ? [{}]
+    : item && typeof item === "object" && !Array.isArray(item) ? [item as Record<string, unknown>] : []);
+}
 
 function chatTurnsFromCommand(value: unknown): ChatTurn[] {
   if (!Array.isArray(value)) throw new Error("Invalid chat transcript");
@@ -58,6 +99,7 @@ function appendAssistantDelta(turns: ChatTurn[], delta: string): ChatTurn[] {
 
 const t = (locale: Locale, thai: string, english: string) => locale === "th" ? thai : english;
 const SYSTEM_NOTE_ID = "สรุปแมตช์.md";
+const CONSENT_TEXT_VERSION = 3;
 const libraryClient = {
   list: () => invoke<ReplayLibraryList>("replay_library_list"),
   open: (matchId: string) => invoke<unknown>("replay_library_open", { matchId }),
@@ -93,6 +135,11 @@ function thaiDate(entry: ReplayLibraryEntry | null, locale: Locale): string {
   }
   return entry?.match_date_utc ?? UNKNOWN_VALUE;
 }
+function displayHeroName(value: string | null | undefined): string {
+  if (!value) return UNKNOWN_VALUE;
+  return value.replace(/^npc_dota_hero_/, "").split("_").filter(Boolean)
+    .map(part => part[0]!.toLocaleUpperCase() + part.slice(1)).join(" ") || UNKNOWN_VALUE;
+}
 function localTemplate(bundle: MatchBundle | null, question: string, ownHero: string | null, selected: ReplayLibraryEntry | null, locale: Locale): string {
   if (!bundle) return t(locale, "— ไม่ทราบ", "— unknown");
   const heroes = heroRows(bundle).flatMap(hero => typeof hero.id === "string" && typeof hero.name === "string" && typeof hero.team === "number"
@@ -103,19 +150,10 @@ function localTemplate(bundle: MatchBundle | null, question: string, ownHero: st
     localResult: selected?.local_history?.result ?? null });
 }
 
-function heroKillCounts(bundle: MatchBundle | null): { radiant: number | null; dire: number | null } {
-  if (!bundle || !Array.isArray(bundle.match.deaths) || !Array.isArray(bundle.match.heroes)) return { radiant: null, dire: null };
-  const teams = new Map((bundle.match.heroes as Record<string, unknown>[]).flatMap(hero => typeof hero.id === "string" && typeof hero.team === "number" ? [[hero.id, hero.team] as const] : []));
-  const deaths = bundle.match.deaths as Record<string, unknown>[];
-  if (deaths.length && !deaths.some(death => typeof death.killer === "string" && teams.has(death.killer))) return { radiant: null, dire: null };
-  return { radiant: deaths.filter(death => typeof death.killer === "string" && teams.get(death.killer) === 2).length,
-    dire: deaths.filter(death => typeof death.killer === "string" && teams.get(death.killer) === 3).length };
-}
-
 function statusText(status: ReplayStatus, locale: Locale) {
   const labels: Record<ReplayStatus["state"], [string, string]> = {
-    available: ["ยังไม่วิเคราะห์", "Not analysed"], queued: ["เข้าคิวแล้ว", "Queued"], parsing: ["กำลังวิเคราะห์", "Analysing"],
-    ready: ["พร้อม", "Ready"], needs_pack: ["ขาดข้อมูลแพ็ก", "Pack unavailable"], failed: ["วิเคราะห์ไม่สำเร็จ", "Analysis failed"],
+    available: ["ยังไม่แยก", "Not parsed"], queued: ["รอคิว", "Queued"], parsing: ["กำลังแยก", "Parsing"],
+    ready: ["พร้อมดู", "Ready to view"], needs_pack: ["ยังไม่มีข้อมูลประกอบ", "Required data unavailable"], failed: ["แยกไม่สำเร็จ", "Parsing failed"],
   };
   const label = labels[status.state]; return locale === "th" ? label[0] : label[1];
 }
@@ -134,21 +172,36 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
   const [notes, setNotes] = useState<Note[]>([]);
   const [openNote, setOpenNote] = useState(SYSTEM_NOTE_ID);
   const [knowledge, setKnowledge] = useState<KnowledgeSnapshot | null>(null);
-  const [knowledgeTab, setKnowledgeTab] = useState<"summary" | "compare" | "ai" | "notes" | "coach">("summary");
+  const [knowledgeTab, setKnowledgeTab] = useState<"summary" | "compare" | "ai" | "notes">("summary");
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [loadedReport, setLoadedReport] = useState<ReportDetail | null>(null);
   const [showRawSource, setShowRawSource] = useState(false);
+  const [noteDeleteConfirmId, setNoteDeleteConfirmId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
   const [filter, setFilter] = useState<"all" | "pinned" | "notAnalysed">("all");
   const [showList, setShowList] = useState(false);
-  const [leftCollapsed, setLeftCollapsed] = useState(() => window.matchMedia("(max-width: 1500px)").matches);
+  const [leftCollapsed, setLeftCollapsed] = useState(true);
   const [rightCollapsed, setRightCollapsed] = useState(false);
+  const [readingMode, setReadingMode] = useState(false);
+  const [pageSize, setPageSize] = useState({ width: 0, height: 0 });
+  const pageRef = useRef<HTMLDivElement>(null);
+  const localeRef = useRef(locale);
+  localeRef.current = locale;
   const [hero, setHero] = useState<string | null>(null);
   const [compareHero, setCompareHero] = useState<string | null>(null);
   const [ownHero, setOwnHero] = useState<string | null>(null);
+  const [ownHeroChoice, setOwnHeroChoice] = useState("");
   const [keyStatus, setKeyStatus] = useState<KeyStatus>({ provider: "anthropic", set: false, last4: null, requires_key: true });
   const [prefs, setPrefs] = useState<ProviderPreferences>({ ai_on: false, provider: "anthropic", consent: false, model: "claude-opus-5-5", provider_endpoints: {}, provider_consents: {}, verified_providers: {}, tools_modes: {}, show_untested: false, keep_newest: 20, max_bytes: 2 * 1024 ** 3, auto_analyse: true });
   const [consentOpen, setConsentOpen] = useState(false);
+  const [consentVersionNotice, setConsentVersionNotice] = useState(false);
+  const notifiedConsentVersions = useRef(new Set<string>());
+  const [showDataManagement, setShowDataManagement] = useState(false);
+  const [deleteState, setDeleteState] = useState<AnalyticsDeleteState>("closed");
+  const [dataManagementError, setDataManagementError] = useState<string | null>(null);
+  const [orphans, setOrphans] = useState<Record<string, unknown>[]>([]);
+  const [orphansLoading, setOrphansLoading] = useState(false);
+  const [orphansError, setOrphansError] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const requestMode = useRef<"chat" | "report" | null>(null);
   const [question, setQuestion] = useState("");
@@ -157,6 +210,7 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
   const [historyUnavailable, setHistoryUnavailable] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [usage, setUsage] = useState<Usage | null>(null);
+  const [toolCalls, setToolCalls] = useState<string[]>([]);
   const [createdNote, setCreatedNote] = useState<string | null>(null);
   const [noteFallback, setNoteFallback] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -164,6 +218,7 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
   const activeRequestId = useRef<string | null>(null);
   const knowledgeRequest = useRef(0);
   const pendingEvents = useRef(new Map<string, { deltas: string[]; complete?: CompletePayload }>());
+  const pendingToolCalls = useRef(new Map<string, string[]>());
   const finishRequest = useRef<(payload: CompletePayload) => void>(() => {});
   const [currentTime, setCurrentTime] = useState(0);
   const [playerSlot, setPlayerSlot] = useState<HTMLElement | null>(null);
@@ -172,7 +227,8 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
   const [hoverTime, setHoverTime] = useState<{ seconds: number; percent: number } | null>(null);
   const viewerRoot = useRef<ShadowRoot | null>(null);
   const playerRange = useRef<HTMLInputElement>(null);
-  const markdown = useMemo(() => renderMarkdownSafe(noteText), [noteText]);
+  const chartResolver = useMemo(() => createAnalyticsChartResolver(bundle, knowledge?.digest ?? null), [bundle, knowledge?.digest]);
+  const markdown = useMemo(() => renderMarkdownSafe(noteText, { resolveChartReference: chartResolver }), [noteText, chartResolver]);
 
   const refresh = useCallback(async () => {
     try {
@@ -202,6 +258,23 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
     const raw = await invoke<unknown>("analytics_chat_transcript", { matchId });
     return chatTurnsFromCommand(raw);
   }, []);
+  const selected = library?.matches.find(entry => entry.match_id === selectedId) ?? null;
+  const selectedBundleKey = analyticsBundleSelectionKey(selected);
+
+  useEffect(() => {
+    const node = pageRef.current;
+    if (!node) return;
+    const measure = () => {
+      const rect = node.getBoundingClientRect();
+      setPageSize(current => Math.abs(current.width - rect.width) < 1 && Math.abs(current.height - rect.height) < 1
+        ? current : { width: rect.width, height: rect.height });
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     let disposed = false; let unlisten: (() => void) | undefined;
@@ -210,6 +283,19 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
     return () => { disposed = true; unlisten?.(); };
   }, [refresh]);
   useEffect(() => { void refreshAi(); }, [refreshAi]);
+  useEffect(() => {
+    const record = prefs.provider_consents[prefs.provider];
+    const prompt = analyticsConsentRePrompt(record, CONSENT_TEXT_VERSION);
+    if (!prompt.noticeKey) {
+      setConsentVersionNotice(false);
+      return;
+    }
+    const key = `${prefs.provider}:${prompt.noticeKey}`;
+    if (notifiedConsentVersions.current.has(key)) return;
+    notifiedConsentVersions.current.add(key);
+    setConsentVersionNotice(true);
+    setConsentOpen(true);
+  }, [prefs.provider, prefs.provider_consents]);
   useEffect(() => {
     let alive = true;
     setTranscript([]);
@@ -220,6 +306,8 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
     setSelectedReportId(null);
     setLoadedReport(null);
     setKnowledgeTab("summary");
+    setToolCalls([]);
+    setNoteDeleteConfirmId(null);
     if (!selectedId) return;
     void refreshTranscript(selectedId).then(turns => { if (alive) setTranscript(turns); })
       .catch(() => { if (alive) setHistoryUnavailable(true); });
@@ -229,14 +317,15 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
   useEffect(() => {
     let alive = true; setBundle(null); setNoteText(""); setOpenNote(SYSTEM_NOTE_ID);
     setShowRawSource(false); setCurrentTime(0);
-    if (!selectedId || library?.matches.find(entry => entry.match_id === selectedId)?.status.state !== "ready") return;
-    void libraryClient.open(selectedId).then(raw => {
+    if (!selected?.match_id || selected.status.state !== "ready") return;
+    const matchId = selected.match_id;
+    void libraryClient.open(matchId).then(raw => {
       const result = admitLibraryBundle(raw);
       if (alive && result.ok) setBundle(result.bundle);
-      else if (alive) setError(t(locale, "เปิดชุดข้อมูลรีเพลย์ไม่ได้", "Could not open the replay bundle"));
-    }).catch(() => { if (alive) setError(t(locale, "รีเพลย์นี้อาจถูกนำออกจากคลังแล้ว", "This replay may have been removed from the library")); });
+      else if (alive) setError(t(localeRef.current, "เปิดชุดข้อมูลรีเพลย์ไม่ได้", "Could not open the replay bundle"));
+    }).catch(() => { if (alive) setError(t(localeRef.current, "รีเพลย์นี้อาจถูกนำออกจากคลังแล้ว", "This replay may have been removed from the library")); });
     return () => { alive = false; };
-  }, [selectedId, library, locale]);
+  }, [selectedBundleKey]);
   useEffect(() => {
     setShowRawSource(false);
     if (!selectedId) { setNoteText(systemNote(bundle, locale)); return; }
@@ -263,7 +352,7 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
     requestMode.current = null;
     setStreaming(false); setUsage(payload.usage ?? null); setRequestId(null); activeRequestId.current = null;
     setNoteFallback(payload.note_fallback ?? false);
-    if (payload.error) setError(payload.error);
+    if (payload.error) setError(friendlyAnalyticsError(payload.error, locale, t(locale, "คำขอไม่สำเร็จ", "The request failed")));
     if (mode === "report") {
       if (payload.report) {
         setLoadedReport(payload.report);
@@ -278,7 +367,7 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
     if (matchId) void refreshTranscript(matchId).then(setTranscript).catch(() => setHistoryUnavailable(true));
   };
   useEffect(() => {
-    let stopDelta: (() => void) | undefined; let stopComplete: (() => void) | undefined;
+    let stopDelta: (() => void) | undefined; let stopComplete: (() => void) | undefined; let stopTool: (() => void) | undefined;
     void listen<{ request_id: string; text: string }>("analytics://delta", event => {
       if (event.payload.request_id === activeRequestId.current) {
         if (requestMode.current === "chat") {
@@ -295,37 +384,85 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
       const pending = pendingEvents.current.get(event.payload.request_id) ?? { deltas: [] };
       pending.complete = event.payload; pendingEvents.current.set(event.payload.request_id, pending);
     }).then(stop => { stopComplete = stop; }).catch(() => {});
-    return () => { stopDelta?.(); stopComplete?.(); };
+    void listen<ToolCallPayload>("analytics://tool-activity", event => {
+      const request = event.payload.request_id;
+      if (typeof request !== "string" || !request || event.payload.status !== "started") return;
+      const line = toolCallLine(event.payload.tool, localeRef.current);
+      if (request === activeRequestId.current) setToolCalls(current => [...current, line]);
+      else {
+        const pending = pendingToolCalls.current.get(request) ?? [];
+        pending.push(line);
+        pendingToolCalls.current.set(request, pending);
+      }
+    }).then(stop => { stopTool = stop; }).catch(() => {});
+    return () => { stopDelta?.(); stopComplete?.(); stopTool?.(); };
   }, []);
 
   const rows = useMemo(() => (library?.matches ?? []).filter(entry => filter === "all"
     || (filter === "pinned" && entry.pinned) || (filter === "notAnalysed" && entry.status.state !== "ready")), [library, filter]);
-  const selected = library?.matches.find(entry => entry.match_id === selectedId) ?? null;
-  useEffect(() => { setOwnHero(selected?.own_hero ?? null); setHero(null); }, [selectedId, selected?.own_hero]);
+  useEffect(() => { setOwnHero(selected?.own_hero ?? null); setOwnHeroChoice(selected?.own_hero ?? ""); setHero(null); }, [selectedId, selected?.own_hero]);
   const aiAvailable = prefs.consent && prefs.ai_on && (!keyStatus.requires_key || keyStatus.set);
   const state = analyticsViewState({ entries: library?.matches ?? [], selectedId, selectedReady: !!bundle,
     openDocument: openNote !== SYSTEM_NOTE_ID, aiAvailable, showList, showSettings: false });
-  const total = library?.matches.reduce((sum, entry) => sum + entry.storage_bytes, 0) ?? 0;
-  const analysedCount = library?.matches.filter(entry => entry.status.state === "ready" && !entry.pinned).length ?? 0;
   const matchHeroes = heroRows(bundle);
   const deaths = deathRows(bundle);
-  const kills = heroKillCounts(bundle);
   const timeCitations = [...noteText.matchAll(/\[[^\]]+\]\(#t=(\d{1,7})\)/g)].map(match => Number(match[1])).filter(Number.isFinite);
 
   async function selectEntry(entry: ReplayLibraryEntry) {
-    setSelectedId(entry.match_id); setShowList(false); setCreatedNote(null); setNoteFallback(false); setError(null);
-    if (!["ready", "parsing", "queued"].includes(entry.status.state)) {
-      try { await libraryClient.parse(entry.match_id); void refresh(); }
-      catch { setError(t(locale, "เริ่มวิเคราะห์รีเพลย์ไม่ได้", "Could not start replay analysis")); }
-    }
+    setSelectedId(analyticsReplaySelection(entry).selectedId); setShowList(false); setCreatedNote(null); setNoteFallback(false); setError(null);
+  }
+  async function parseSelectedEntry(entry: ReplayLibraryEntry | null) {
+    if (!entry || !["parse", "retry"].includes(analyticsReplayAction(entry.status) ?? "")) return;
+    try { await libraryClient.parse(entry.match_id); void refresh(); }
+    catch { setError(t(locale, "เริ่มแยกรีเพลย์ไม่ได้", "Could not parse the replay")); }
   }
   async function pickDem() {
     try { const path = await libraryClient.pick(); if (path) { await libraryClient.parse(path); void refresh(); } }
-    catch { setError(t(locale, "เลือกหรือวิเคราะห์ .dem ไม่สำเร็จ", "Could not select or analyse the .dem file")); }
+    catch { setError(t(locale, "เลือกหรือแยก .dem ไม่สำเร็จ", "Could not select or parse the .dem file")); }
   }
   async function togglePin(entry: ReplayLibraryEntry) {
     try { await libraryClient.pin(entry.match_id, !entry.pinned); void refresh(); }
     catch { setError(t(locale, "บันทึกสถานะปักหมุดไม่ได้", "Could not update pin")); }
+  }
+  async function loadOrphans() {
+    setOrphansLoading(true); setOrphansError(false);
+    try { setOrphans(orphanRows(await invoke<unknown>(ANALYTICS_ORPHANS_COMMAND))); }
+    catch { setOrphansError(true); }
+    finally { setOrphansLoading(false); }
+  }
+  async function toggleDataManagement() {
+    const open = !showDataManagement;
+    setShowDataManagement(open);
+    setDataManagementError(null);
+    if (!open) { setDeleteState("closed"); return; }
+    setShowList(false);
+    await loadOrphans();
+  }
+  async function deleteSelectedAnalysis() {
+    const transition = analyticsDeleteTransition(deleteState, "confirm", selectedId);
+    if (!transition.command) return;
+    setDataManagementError(null);
+    setDeleteState(transition.state);
+    try {
+      await invoke(transition.command.name, transition.command.args);
+      setDeleteState(analyticsDeleteTransition("deleting", "complete", selectedId).state);
+      setKnowledge(null); setNotes([]); setLoadedReport(null); setSelectedReportId(null);
+      setDataManagementError(t(locale, "ลบข้อมูลวิเคราะห์ของแมตช์นี้แล้ว", "Deleted analysis data for this match"));
+      await loadOrphans();
+    } catch {
+      setDeleteState("confirming");
+      setDataManagementError(t(locale, "ลบข้อมูลวิเคราะห์ไม่ได้", "Could not delete analysis data"));
+    }
+  }
+  async function deleteAiNote(noteId: string) {
+    if (!selectedId) return;
+    try {
+      await invoke("analytics_note_delete", { matchId: selectedId, noteId });
+      setNoteDeleteConfirmId(null); setOpenNote(SYSTEM_NOTE_ID); void refreshKnowledge(selectedId);
+    } catch {
+      setNoteDeleteConfirmId(null);
+      setError(t(locale, "ลบโน้ตไม่สำเร็จ", "Could not delete the note"));
+    }
   }
   async function ask() {
     if (!question.trim() || streaming || !selectedId) return;
@@ -342,13 +479,14 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
       setError(t(locale, "ประวัติแชตเกินงบแล้ว เริ่มบทสนทนาใหม่จากสรุปก่อนส่งคำถาม", "Chat history is over budget. Start a new conversation from its local recap before sending."));
       return;
     }
-    setError(null); setAnswer(""); setUsage(null); setCreatedNote(null); setNoteFallback(false); setStreaming(true);
+    setError(null); setAnswer(""); setUsage(null); setToolCalls([]); setCreatedNote(null); setNoteFallback(false); setStreaming(true);
     requestMode.current = "chat";
     try {
       const id = await invoke<string>("analytics_chat_submit", {
         matchId: selectedId, question: userQuestion, selectedHero: hero, scrubberTimeS: currentTime,
       });
       activeRequestId.current = id; setRequestId(id); setQuestion("");
+      setToolCalls(pendingToolCalls.current.get(id) ?? []); pendingToolCalls.current.delete(id);
       setTranscript(turns => [...turns, { role: "user", content: userQuestion }, { role: "assistant", content: "" }]);
       const pending = pendingEvents.current.get(id); pendingEvents.current.delete(id);
       if (pending?.deltas.length) {
@@ -362,20 +500,12 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
     } catch (reason) {
       requestMode.current = null;
       setStreaming(false);
-      const kind = providerErrorKind(reason);
-      const providerCopy = AI_PROVIDER_COPY[locale];
-      setError(kind === "match_active" ? providerCopy.matchBlocked
-        : kind === "local_program_unavailable" ? providerCopy.localUnavailable
-          : kind === "endpoint_invalid" ? providerCopy.endpointInvalid
-            : kind === "redirect_refused" ? providerCopy.redirectRefused
-              : kind === "consent_required" ? providerCopy.consentRequired
-                : kind === "key_required" ? providerCopy.keyRequired
-                  : typeof reason === "string" ? reason : t(locale, "ส่งคำถามไม่สำเร็จ", "Could not send the question"));
+      setError(friendlyAnalyticsError(reason, locale, t(locale, "ส่งคำถามไม่สำเร็จ", "Could not send the question")));
     }
   }
   async function generateReport(regenerate: boolean) {
     if (!selectedId || !bundle || streaming || !aiAvailable) return;
-    setError(null); setKnowledgeTab("ai"); setStreaming(true); requestMode.current = "report";
+    setError(null); setToolCalls([]); setKnowledgeTab("ai"); setStreaming(true); requestMode.current = "report";
     try {
       const result = await invoke<{ cached?: boolean; report?: ReportDetail | null; request_id?: string | null }>("analytics_report_generate", {
         matchId: selectedId, selectedHero: hero, scrubberTimeS: currentTime, regenerate,
@@ -389,14 +519,12 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
       const id = result.request_id;
       if (typeof id !== "string" || !id) throw new Error("Report request was not started");
       activeRequestId.current = id; setRequestId(id);
+      setToolCalls(pendingToolCalls.current.get(id) ?? []); pendingToolCalls.current.delete(id);
       const pending = pendingEvents.current.get(id); pendingEvents.current.delete(id);
       if (pending?.complete) finishRequest.current({ ...pending.complete, request_id: id });
     } catch (reason) {
       requestMode.current = null; setStreaming(false);
-      const kind = providerErrorKind(reason);
-      setError(kind === "consent_required" ? AI_PROVIDER_COPY[locale].consentRequired
-        : kind === "key_required" ? AI_PROVIDER_COPY[locale].keyRequired
-          : typeof reason === "string" ? reason : t(locale, "สร้างบทวิเคราะห์ไม่สำเร็จ", "Could not generate the report"));
+      setError(friendlyAnalyticsError(reason, locale, t(locale, "สร้างบทวิเคราะห์ไม่สำเร็จ", "Could not generate the report")));
     }
   }
   async function startNewChatFromSummary() {
@@ -413,7 +541,7 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
       const [turns] = await Promise.all([refreshTranscript(selectedId), refreshKnowledge(selectedId)]);
       setTranscript(turns);
     } catch (reason) {
-      setError(typeof reason === "string" ? reason : t(locale, "เริ่มบทสนทนาใหม่ไม่ได้", "Could not start a new conversation"));
+      setError(t(locale, "เริ่มบทสนทนาใหม่ไม่ได้", "Could not start a new conversation"));
     }
   }
   async function saveAnswerAsNote() {
@@ -431,24 +559,9 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
       setError(locale === "th" ? "บันทึกโน้ตไม่ได้" : "Could not save the note");
     }
   }
-  async function setOwnHeroForEntry(entry: ReplayLibraryEntry) {
-    let choices = matchHeroes;
-    if (entry.match_id !== selectedId) {
-      try {
-        const raw = await libraryClient.open(entry.match_id); const result = admitLibraryBundle(raw);
-        choices = result.ok ? heroRows(result.bundle) : [];
-      } catch { choices = []; }
-    }
-    const heroNames = choices.map(item => typeof item.id === "string" ? item.id.replace("npc_dota_hero_", "") : "").filter(Boolean);
-    const answer = window.prompt(t(locale, `ระบุฮีโร่ของฉัน (${heroNames.join(", ") || UNKNOWN_VALUE})`, `My hero (${heroNames.join(", ") || UNKNOWN_VALUE})`), entry.own_hero?.replace("npc_dota_hero_", "") ?? "");
-    if (answer === null || !answer.trim()) return;
-    try { const id = await invoke<string>("analytics_own_hero_set", { matchId: entry.match_id, hero: answer.trim() }); if (entry.match_id === selectedId) setOwnHero(id); void refresh(); }
-    catch { setError(t(locale, "บันทึกฮีโร่ของฉันไม่ได้", "Could not save your hero")); }
-  }
   const identifyOwnHero = useCallback((heroId: string) => {
-    setOwnHero(heroId);
     if (!selectedId) return;
-    void invoke("analytics_own_hero_set", { matchId: selectedId, hero: heroId }).then(() => { void refresh(); })
+    void invoke("analytics_own_hero_set", { matchId: selectedId, hero: heroId }).then(() => { setOwnHero(heroId); void refresh(); })
       .catch(() => setError(t(locale, "บันทึกฮีโร่ของฉันไม่ได้", "Could not save your hero")));
   }, [selectedId, locale, refresh]);
   const onViewerReady = useCallback((root: ShadowRoot) => {
@@ -542,8 +655,27 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
   }
 
   const documentTitle = openNote === SYSTEM_NOTE_ID ? t(locale, "สรุปแมตช์.md", "Match summary.md") : notes.find(note => note.id === openNote)?.title ?? openNote;
+  const developerMode = readDeveloperMode(window.localStorage);
+  const aiVisibility = analyticsAiVisibility(developerMode, prefs.show_untested);
+  const actualRightCollapsed = aiVisibility.chatCollapsed || rightCollapsed;
+  const layout = analyticsLayout(pageSize.width, pageSize.height, leftCollapsed, actualRightCollapsed, readingMode);
+  const layoutStyle = {
+    "--analytics-docs-track": `${leftCollapsed ? 28 : layout.mode === "docked" ? layout.docs : 28}px`,
+    "--analytics-chat-track": `${actualRightCollapsed ? 28 : layout.right}px`,
+    "--analytics-drawer-width": `${layout.drawerWidth}px`,
+    "--analytics-center-min": `${layout.minCenter}px`,
+    "--hc-scale": layout.heroCardScale,
+  } as CSSProperties;
+  const lastLayoutMode = useRef(layout.mode);
+  useEffect(() => {
+    if (pageSize.width <= 0 || lastLayoutMode.current === layout.mode) return;
+    lastLayoutMode.current = layout.mode;
+    setLeftCollapsed(readingMode ? false : layout.mode !== "docked");
+  }, [layout.mode, pageSize.width, readingMode]);
   const reportRows: ReportDetail[] = (knowledge?.reports ?? []).map(report => loadedReport?.id === report.id ? loadedReport : report as ReportDetail);
   if (loadedReport && !reportRows.some(report => report.id === loadedReport.id)) reportRows.unshift(loadedReport);
+  const providerControls = <ProviderControls locale={locale} developerMode={developerMode} settings={prefs}
+    onSettingsChange={setPrefs} onKeyStatusChange={setKeyStatus} compact consentOpen={consentOpen} onConsentOpenChange={setConsentOpen} />;
   const duration = selected?.duration_s == null ? UNKNOWN_VALUE : clock(selected.duration_s);
   const timelineStart = typeof bundle?.match.t0 === "number" ? bundle.match.t0 : 0;
   const timelineEnd = typeof bundle?.match.t1 === "number" ? bundle.match.t1 : null;
@@ -553,14 +685,9 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
   const playbackLabel = `${formatAnalyticsTime(currentTime)} / ${formatAnalyticsTime(durationSeconds)}`;
   const heroName = matchHeroes.find(item => item.id === (selected?.own_hero ?? ownHero))?.name;
   const selectedHeroName = typeof heroName === "string" ? heroName
-    : (selected?.own_hero ?? ownHero)?.replace("npc_dota_hero_", "") ?? UNKNOWN_VALUE;
-  const lineups = bundle ? `Radiant ${matchHeroes.filter(item => item.team === 2).length} | Dire ${matchHeroes.filter(item => item.team === 3).length}` : UNKNOWN_VALUE;
+    : UNKNOWN_VALUE;
   const result = selected?.local_history?.result === "win" ? t(locale, "ชนะ", "Win")
     : selected?.local_history?.result === "loss" ? t(locale, "แพ้", "Loss") : UNKNOWN_VALUE;
-  const localKda = selected?.local_history
-    ? `${selected.local_history.kills ?? UNKNOWN_VALUE}/${selected.local_history.deaths ?? UNKNOWN_VALUE}/${selected.local_history.assists ?? UNKNOWN_VALUE}`
-    : UNKNOWN_VALUE;
-  const heroKillTotal = kills.radiant == null || kills.dire == null ? UNKNOWN_VALUE : String(kills.radiant + kills.dire);
   const player = playerSlot && bundle && timelineEnd !== null && timelineEnd > timelineStart ? createPortal(
     <>
       <style>{analyticsPlayerShadowCss}</style>
@@ -625,7 +752,8 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
         </div>
       </div>
     </>, playerSlot) : null;
-  return <div className="analytics-page" data-state={state} data-left-collapsed={leftCollapsed} data-right-collapsed={rightCollapsed}>
+  return <div ref={pageRef} className="analytics-page" style={layoutStyle} data-state={state} data-layout={layout.mode}
+    data-left-collapsed={leftCollapsed} data-right-collapsed={actualRightCollapsed} data-reading-mode={readingMode}>
     <div className="analytics-topbar">
       <div className="analytics-replay-select">
         <button type="button" aria-label={t(locale, "รีเพลย์ก่อนหน้า", "Previous replay")} onClick={() => {
@@ -635,7 +763,7 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
           const entry = library?.matches.find(item => item.match_id === event.currentTarget.value); if (entry) void selectEntry(entry);
         }}>
           <option value="">{loading ? t(locale, "กำลังโหลด…", "Loading…") : t(locale, "เลือกรีเพลย์", "Choose replay")}</option>
-          {(library?.matches ?? []).map(entry => <option key={entry.match_id} value={entry.match_id}>{thaiDate(entry, locale)} · {entry.own_hero?.replace("npc_dota_hero_", "") ?? UNKNOWN_VALUE} · {entry.local_history?.result ?? UNKNOWN_VALUE} · {statusText(entry.status, locale)}</option>)}
+          {(library?.matches ?? []).map(entry => <option key={entry.match_id} value={entry.match_id}>{thaiDate(entry, locale)} · {displayHeroName(entry.own_hero)} · {entry.local_history?.result === "win" ? t(locale, "ชนะ", "Win") : entry.local_history?.result === "loss" ? t(locale, "แพ้", "Loss") : UNKNOWN_VALUE} · {statusText(entry.status, locale)}</option>)}
         </select>
         <button type="button" aria-label={t(locale, "รีเพลย์ถัดไป", "Next replay")} onClick={() => {
           const index = rows.findIndex(row => row.match_id === selectedId); if (rows.length) void selectEntry(rows[(index + 1) % rows.length]!);
@@ -643,19 +771,28 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
       </div>
       <div className="analytics-row-facts">
         <span>{selected ? statusText(selected.status, locale) : UNKNOWN_VALUE}</span><span>{thaiDate(selected, locale)}</span>
-        <span>{selectedHeroName}</span><span>{lineups}</span><span>{result} · {localKda}</span>
-        <span>{duration}</span><span>{selected?.bundle_bytes ? `${(selected.bundle_bytes / 1024 / 1024).toFixed(1)} MB` : UNKNOWN_VALUE}</span>
-        <span>{heroKillTotal} {t(locale, "hero kills", "hero kills")}</span>
+        <span>{selectedHeroName}</span><span>{result}</span><span>{duration}</span>
       </div>
-      <div className="analytics-top-actions"><div role="group" aria-label={t(locale, "ตัวกรองรีเพลย์", "Replay filters")}>
-        <button aria-pressed={filter === "all"} onClick={() => setFilter("all")}>{t(locale, "ทั้งหมด", "All")}</button>
-        <button aria-pressed={filter === "pinned"} onClick={() => setFilter("pinned")}>{t(locale, "ปักหมุด", "Pinned")}</button>
-        <button aria-pressed={filter === "notAnalysed"} onClick={() => setFilter("notAnalysed")}>{t(locale, "ยังไม่วิเคราะห์", "Not analysed")}</button>
-      </div><span className="analytics-storage">{analysedCount}/{prefs.keep_newest} · {(total / 1024 ** 2).toFixed(0)} MB / {(prefs.max_bytes / 1024 ** 3).toFixed(1)} GB</span>
-        <button type="button" onClick={() => void pickDem()}>.dem…</button><button type="button" onClick={() => setShowList(true)}>⋯</button>
+      <div className="analytics-top-actions">
+        {selected && analyticsReplayAction(selected.status) && analyticsReplayAction(selected.status) !== "reparse" && <button type="button" onClick={() => void parseSelectedEntry(selected)}>{t(locale, "แยกรีเพลย์นี้", "Parse this replay")}</button>}
+        {bundle && <label className="analytics-own-hero">{t(locale, "ฮีโร่ของฉัน", "My hero")}
+          <select value={ownHeroChoice} aria-label={t(locale, "เลือกฮีโร่ของฉัน", "Choose my hero")} onChange={event => setOwnHeroChoice(event.currentTarget.value)}>
+            <option value="">{t(locale, "เลือกฮีโร่", "Choose a hero")}</option>
+            {matchHeroes.filter(item => typeof item.id === "string").map(item => <option key={String(item.id)} value={String(item.id)}>{typeof item.name === "string" ? item.name : String(item.id).replace("npc_dota_hero_", "")}</option>)}
+          </select><button type="button" disabled={!ownHeroChoice} onClick={() => identifyOwnHero(ownHeroChoice)}>{t(locale, "นี่คือฉัน", "This is me")}</button>
+        </label>}
+        <button type="button" aria-pressed={readingMode} onClick={() => { const next = !readingMode; setReadingMode(next); if (next) setLeftCollapsed(false); }}>{t(locale, "โหมดอ่าน", "Reading mode")}</button>
+        <button type="button" onClick={() => void toggleDataManagement()}>{t(locale, "ข้อมูลวิเคราะห์", "Analysis data")}</button>
+        {consentVersionNotice && <button type="button" className="analytics-consent-version-notice" onClick={() => setConsentOpen(true)}>{t(locale, "ข้อความยินยอมเปลี่ยน · อ่านอีกครั้ง", "Consent text changed · read again")}</button>}
+        <button type="button" onClick={() => { setShowDataManagement(false); setShowList(true); }}>{t(locale, "คลังรีเพลย์", "Replay library")}</button>
+        {aiVisibility.showUnavailableNotice && <span className="analytics-ai-unavailable" role="status">ผู้ช่วย AI ยังไม่เปิดให้ใช้ในรุ่นนี้</span>}
       </div>
     </div>
-    <div className="analytics-columns">
+    {layout.mode === "enlarge-window" ? <div className="analytics-enlarge" role="status">
+      <strong>{t(locale, "ขยายหน้าต่างเพื่อดู Analytics", "Enlarge the window to view Analytics")}</strong>
+      <span>{t(locale, `ต้องการพื้นที่กว้างอย่างน้อย ${Math.ceil(28 + layout.minCenter + layout.right + 20)} px และสูง 760 px`, `This view needs at least ${Math.ceil(28 + layout.minCenter + layout.right + 20)} px width and 760 px height`)}</span>
+    </div> : null}
+    <div className="analytics-columns" aria-hidden={layout.mode === "enlarge-window"}>
       {!leftCollapsed ? <aside className="analytics-column analytics-docs"><header><button onClick={() => setLeftCollapsed(true)} aria-label={t(locale, "ยุบแผงซ้าย", "Collapse left panel")}>‹</button><strong>{t(locale, "วิเคราะห์", "Analysis")}</strong></header>
         <section className="analytics-knowledge-slot" aria-label={t(locale, "แท็บความรู้และโน้ตแมตช์", "Match knowledge and notes tabs")} data-knowledge-tabs-slot>
           <KnowledgeTabs activeTab={knowledgeTab} onSelectTab={setKnowledgeTab} />
@@ -663,13 +800,12 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
             {knowledgeTab === "summary" && <MatchSummaryTab digest={knowledge?.digest ?? null} loading={!knowledge && !!selectedId} onSeek={seek} />}
             {knowledgeTab === "compare" && <HeroComparisonTab digest={knowledge?.digest ?? null} selectedHeroId={hero ?? ownHero ?? knowledge?.own_hero_id ?? null}
               opponentHeroId={compareHero} onSelectHero={setHero} onSelectOpponentHero={setCompareHero} />}
-            {knowledgeTab === "coach" && <LaneReviewPage locale={locale} />}
             {knowledgeTab === "ai" && <AiReportTab reports={reportRows} selectedReportId={selectedReportId ?? reportRows[0]?.id ?? null}
               onSelectReport={id => { setSelectedReportId(id); setLoadedReport(null); }}
               onGenerateReport={() => void generateReport(false)} onRegenerateReport={() => void generateReport(true)}
               generatingReport={streaming && requestMode.current === "report"} reportDisabled={!bundle || !aiAvailable}
               costEstimateText={knowledge?.report_cost_reason ?? t(locale, "ตรวจสอบค่าใช้จ่ายไม่ได้จนกว่าจะยืนยันราคาผู้ให้บริการ", "Provider pricing is unverified; cost cannot be estimated before sending.")}
-              renderMarkdown={content => <div className="analytics-markdown" onClick={onMarkdownAction} dangerouslySetInnerHTML={{ __html: renderMarkdownSafe(content) }} />} />}
+              renderMarkdown={content => <div className="analytics-markdown" onClick={onMarkdownAction} dangerouslySetInnerHTML={{ __html: renderMarkdownSafe(content, { resolveChartReference: chartResolver }) }} />} />}
             {knowledgeTab === "notes" && <div className="analytics-note-tab">
               <div className="analytics-doc-tabs" role="tablist" aria-label={t(locale, "เอกสาร", "Documents")}>
                 <button role="tab" aria-selected={openNote === SYSTEM_NOTE_ID} onClick={() => setOpenNote(SYSTEM_NOTE_ID)}>{t(locale, "สรุปแมตช์.md", "Match summary.md")}</button>
@@ -678,10 +814,13 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
               <div className="analytics-doc-toolbar"><strong title={documentTitle}>{documentTitle}</strong><button onClick={() => void navigator.clipboard?.writeText(noteText)}>{t(locale, "คัดลอก", "Copy")}</button>
                 <button onClick={() => setShowRawSource(value => !value)}>{showRawSource ? t(locale, "ดูตัวอย่าง", "Preview") : t(locale, "ดูต้นฉบับ .md", "View source .md")}</button>
                 <button onClick={() => selectedId && void invoke("analytics_note_open_folder", { matchId: selectedId })}>{t(locale, "เปิดโฟลเดอร์", "Open folder")}</button>
-                {openNote !== SYSTEM_NOTE_ID && notes.some(note => note.id === openNote && note.ai) && <button onClick={() => {
-                  if (!selectedId || !window.confirm(t(locale, "ลบโน้ต AI นี้หรือไม่?", "Delete this AI note?"))) return;
-                  void invoke("analytics_note_delete", { matchId: selectedId, noteId: openNote }).then(() => { setOpenNote(SYSTEM_NOTE_ID); void refreshKnowledge(selectedId); });
-                }}>{t(locale, "ลบโน้ต", "Delete note")}</button>}
+                {openNote !== SYSTEM_NOTE_ID && notes.some(note => note.id === openNote && note.ai) && (noteDeleteConfirmId === openNote
+                  ? <span className="analytics-note-delete-confirm" role="group" aria-label={t(locale, "ยืนยันการลบโน้ต", "Confirm note deletion")}>
+                    <span>{t(locale, "ยืนยันลบโน้ตนี้หรือไม่?", "Delete this note?")}</span>
+                    <button type="button" onClick={() => void deleteAiNote(openNote)}>{t(locale, "ยืนยันการลบ", "Confirm delete")}</button>
+                    <button type="button" onClick={() => setNoteDeleteConfirmId(null)}>{t(locale, "ยกเลิก", "Cancel")}</button>
+                  </span>
+                  : <button type="button" onClick={() => setNoteDeleteConfirmId(openNote)}>{t(locale, "ลบโน้ต", "Delete note")}</button>)}
               </div>
               {showRawSource ? <pre className="analytics-markdown analytics-source">{noteText}</pre> : <div className="analytics-markdown" onClick={onMarkdownAction} dangerouslySetInnerHTML={{ __html: markdown }} />}
             </div>}
@@ -689,14 +828,15 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
         </section>
       </aside> : <button className="analytics-expand" onClick={() => setLeftCollapsed(false)}>›</button>}
       <main className="analytics-column analytics-centre">
-        {!bundle && <div className="analytics-empty" role="status">{state === "empty" ? t(locale, "ยังไม่มีรีเพลย์ในคลัง", "No replays in the library") : state === "parsing" ? t(locale, "กำลังวิเคราะห์รีเพลย์…", "Analysing replay…") : t(locale, "เลือกรีเพลย์ที่พร้อม", "Select a ready replay")}</div>}
+        {!bundle && <div className="analytics-empty" role="status">{state === "empty" ? t(locale, "ยังไม่มีรีเพลย์ในคลัง", "No replays in the library") : selected?.status.state === "parsing" || selected?.status.state === "queued" ? t(locale, statusText(selected.status, "th"), statusText(selected.status, "en")) : t(locale, "เลือกรีเพลย์ที่พร้อมดู", "Select a replay that is ready to view")}</div>}
+        {selected?.status.state === "failed" && <p className="analytics-error" role="status">{t(locale, "แยกรีเพลย์ไม่สำเร็จ ตรวจสอบไฟล์แล้วลองอีกครั้งได้", "Replay parsing failed. Check the file and try again.")}</p>}
         {bundle && <MatchupStrip digest={knowledge?.digest ?? null} selectedHeroId={hero ?? ownHero ?? knowledge?.own_hero_id ?? null} onSelectHero={setHero} />}
-        {bundle && <MatchViewerSurface locale={locale} bundle={bundle} onHeroSelect={setHero} onHeroIdentify={identifyOwnHero} statLabelMode="text"
+        {bundle && <MatchViewerSurface locale={locale} bundle={bundle} onHeroSelect={setHero} statLabelMode="text"
           onTimeChange={onTimeChange} onReady={onViewerReady} initialTime={0} disableKeyboard />}
         {player}
       </main>
-      {!rightCollapsed ? <aside className="analytics-column analytics-chat"><header><strong>{t(locale, "ผู้ช่วย", "Assistant")}</strong><button onClick={() => setRightCollapsed(true)} aria-label={t(locale, "ยุบแผงขวา", "Collapse right panel")}>›</button></header>
-        <ProviderControls locale={locale} settings={prefs} onSettingsChange={setPrefs} onKeyStatusChange={setKeyStatus} compact consentOpen={consentOpen} onConsentOpenChange={setConsentOpen} />
+      {!actualRightCollapsed && developerMode ? <aside className="analytics-column analytics-chat"><header className="analytics-chat-status"><strong>{t(locale, "ผู้ช่วย", "Assistant")}</strong><span>{prefs.provider} · {prefs.model || UNKNOWN_VALUE} · {streaming ? t(locale, "กำลังตอบ…", "Responding…") : aiAvailable ? t(locale, "พร้อม", "Ready") : t(locale, "ยังไม่เปิด", "Unavailable")}</span><button onClick={() => setRightCollapsed(true)} aria-label={t(locale, "ยุบแผงขวา", "Collapse right panel")}>›</button></header>
+        {providerControls}
         <div className="analytics-chat-feed" aria-live="polite" onClick={onMarkdownAction}>
           {state === "noai" && <div className="analytics-noai"><strong>{t(locale, "เปิดใช้ผู้ให้บริการ AI ในการตั้งค่า", "Enable an AI provider in Settings")}</strong><p>{t(locale, "ถามด้วยแม่แบบในเครื่องได้ คำถามเหล่านี้ไม่ส่งข้อมูลออกจากเครื่อง", "Use local templates; these questions do not send data off-device.")}</p>
             <div className="analytics-template-questions">{ANALYTICS_TEMPLATE_QUESTIONS.map(item => <button key={item.id} onClick={() => {
@@ -706,13 +846,14 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
             }}>{locale === "th" ? item.th : item.en}</button>)}</div>
           </div>}
           {historyUnavailable && <p className="analytics-error" role="status">{t(locale, "ระบบหลักยังอ่านประวัติแชตจากไฟล์ได้ไม่สำเร็จ", "The host could not load the saved chat transcript.")}</p>}
-          {knowledge && <section className="analytics-history-budget" data-over-budget={knowledge.chat_history_over_budget === true}>
+          {knowledge && ((knowledge.chat_history_estimated_tokens ?? 0) / Math.max(1, knowledge.chat_history_token_budget ?? 12_000) >= 0.7 || knowledge.chat_history_over_budget === true) && <section className="analytics-history-budget" data-over-budget={knowledge.chat_history_over_budget === true}>
             <span>{t(locale, "งบประวัติแชต", "Chat history budget")}: {knowledge.chat_history_estimated_tokens ?? 0}/{knowledge.chat_history_token_budget ?? 12_000} tokens</span>
             {knowledge.chat_history_over_budget && <><p>{t(locale, "ประวัติถูกเก็บไว้ในเครื่อง เมื่อเกินงบ ระบบจะไม่ส่งคำถามจนกว่าคุณจะบันทึกสรุปและเริ่มบทสนทนาใหม่", "History stays on this device. Once over budget, questions are blocked until you save a local recap and start a new conversation.")}</p>
               <button type="button" disabled={streaming || historyUnavailable || !transcript.length} onClick={() => void startNewChatFromSummary()}>{t(locale, "เริ่มบทสนทนาใหม่จากสรุปในเครื่อง", "Start a new conversation from a local recap")}</button></>}
           </section>}
+          {toolCalls.map((line, index) => <p className="analytics-tool-line" key={`${selectedId ?? "none"}-tool-${index}`}>{line}</p>)}
           {transcript.map((turn, index) => <article className="analytics-chat-turn" data-role={turn.role} key={`${selectedId ?? "none"}-${index}`}>
-            <div dangerouslySetInnerHTML={{ __html: renderMarkdownStreaming(turn.content) }} />
+            <div dangerouslySetInnerHTML={{ __html: renderMarkdownStreaming(turn.content, { resolveChartReference: chartResolver }) }} />
             {turn.role === "assistant" && usage && index === transcript.length - 1 && <small>{t(locale, "อินพุต", "Input")} {usage.input ?? UNKNOWN_VALUE} · cache {usage.cache_read ?? UNKNOWN_VALUE} · {t(locale, "เอาต์พุต", "Output")} {usage.output ?? UNKNOWN_VALUE}</small>}
           </article>)}
           {shouldOfferSaveAsNote({ answer, savedNoteId: createdNote, noteFallback }) && <button type="button" onClick={() => void saveAnswerAsNote()}>{AI_PROVIDER_COPY[locale].noteFallback}</button>}
@@ -722,26 +863,59 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
 
         <form className="analytics-composer" onSubmit={event => { event.preventDefault(); void ask(); }}>
           {!prefs.consent && <button type="button" onClick={() => setConsentOpen(true)}>{AI_PROVIDER_COPY[locale].consent}</button>}
-          <textarea value={question} onChange={event => setQuestion(event.currentTarget.value)} placeholder={t(locale, "ถามเกี่ยวกับแมตช์นี้…", "Ask about this match…")} disabled={streaming || !bundle} />
+          <textarea value={question} onChange={event => setQuestion(event.currentTarget.value)} onKeyDown={event => {
+            if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void ask(); }
+          }} placeholder={t(locale, "ถามเกี่ยวกับแมตช์นี้…", "Ask about this match…")} disabled={streaming || !bundle} />
           <div><span>{AI_PROVIDER_COPY[locale].sendDisclosure}</span>
             {streaming ? <button type="button" onClick={() => { if (requestId) void invoke("analytics_chat_cancel", { requestId }); requestMode.current = null; activeRequestId.current = null; setRequestId(null); setStreaming(false); }}>{t(locale, "ยกเลิก", "Cancel")}</button> : <button type="submit" disabled={!question.trim() || !bundle || (aiAvailable && knowledge?.chat_history_over_budget === true)}>{t(locale, "ส่ง", "Send")}</button>}
           </div>
         </form>
-        <footer>{prefs.provider} · {prefs.model || UNKNOWN_VALUE} · {streaming ? t(locale, "กำลังตอบ…", "Responding…") : usage ? `${usage.input ?? UNKNOWN_VALUE} in · ${usage.cache_read ?? UNKNOWN_VALUE} cache read · ${usage.output ?? UNKNOWN_VALUE} out` : t(locale, "ไม่มีข้อมูลโทเคน", "No token data")}</footer>
-      </aside> : <button className="analytics-expand" onClick={() => setRightCollapsed(false)}>‹</button>}
+      </aside> : developerMode ? <button className="analytics-expand" onClick={() => setRightCollapsed(false)}>‹</button> : null}
+      {(actualRightCollapsed || !developerMode) && <div className="analytics-provider-anchor" hidden>{providerControls}</div>}
     </div>
+    {showDataManagement && <div className="analytics-data-overlay" role="dialog" aria-modal="true" aria-labelledby="analytics-data-title"><section className="analytics-data-management">
+      <header><h2 id="analytics-data-title">{t(locale, "ข้อมูลวิเคราะห์", "Analysis data")}</h2><button type="button" onClick={() => void toggleDataManagement()}>×</button></header>
+      <p>{selected ? t(locale, "จัดการข้อมูลวิเคราะห์ที่บันทึกไว้สำหรับแมตช์ที่เลือก", "Manage saved analysis data for the selected match") : t(locale, "เลือกรายการแมตช์เพื่อจัดการข้อมูลวิเคราะห์", "Select a match to manage its analysis data")}</p>
+      {dataManagementError && <p role="status" className={deleteState === "confirming" ? "analytics-error" : "analytics-data-message"}>{dataManagementError}</p>}
+      <button type="button" disabled={!selectedId || deleteState === "deleting"} onClick={() => setDeleteState(analyticsDeleteTransition(deleteState, "request", selectedId).state)}>{t(locale, "ลบข้อมูลวิเคราะห์ของแมตช์นี้", "Delete analysis data for this match")}</button>
+      {deleteState === "confirming" && <div className="analytics-delete-confirm" role="group" aria-label={t(locale, "ยืนยันการลบ", "Confirm deletion")}>
+        <p>{t(locale, "ยืนยันลบข้อมูลวิเคราะห์ของแมตช์นี้หรือไม่?", "Delete this match's analysis data?")}</p>
+        <button type="button" disabled={deleteState === "deleting"} onClick={() => void deleteSelectedAnalysis()}>{t(locale, "ยืนยันการลบ", "Confirm delete")}</button>
+        <button type="button" onClick={() => setDeleteState(analyticsDeleteTransition(deleteState, "cancel", selectedId).state)}>{t(locale, "ยกเลิก", "Cancel")}</button>
+      </div>}
+      <section aria-label={t(locale, "รายการข้อมูลที่ยังไม่มีแมตช์", "Orphaned analysis data")}>
+        <h3>{t(locale, "รายการข้อมูลที่ยังไม่มีแมตช์", "Orphaned analysis data")}</h3>
+        <button type="button" disabled={orphansLoading} onClick={() => void loadOrphans()}>{t(locale, "โหลดรายการอีกครั้ง", "Refresh list")}</button>
+        {orphansLoading && <p role="status">{t(locale, "กำลังอ่านรายการ…", "Loading list…")}</p>}
+        {orphansError && <p className="analytics-error" role="alert">{t(locale, "อ่านรายการข้อมูลไม่ได้", "Could not read the orphan list")}</p>}
+        {!orphansLoading && !orphansError && (orphans.length === 0 ? <p>{t(locale, "ไม่พบรายการข้อมูลที่ยังไม่มีแมตช์", "No orphaned analysis data")}</p> : <ul>{orphans.map((item, index) => {
+          const bytes = item.bytes ?? item.size_bytes ?? item.storage_bytes;
+          const time = item.created_at_unix_ms ?? item.modified_at_unix_ms;
+          const facts = [typeof time === "number" && Number.isFinite(time) ? new Intl.DateTimeFormat(locale === "th" ? "th-TH" : "en-GB", { dateStyle: "medium", timeStyle: "short" }).format(new Date(time)) : null,
+            typeof bytes === "number" && Number.isFinite(bytes) ? `${(bytes / 1024).toFixed(0)} KB` : null].filter(Boolean);
+          return <li key={index}>{t(locale, "รายการข้อมูลที่ยังไม่มีแมตช์", "Orphaned analysis data")}{facts.length ? ` · ${facts.join(" · ")}` : ` · ${UNKNOWN_VALUE}`}</li>;
+        })}</ul>)}
+      </section>
+    </section></div>}
     {showList && <div className="analytics-list-overlay" role="dialog" aria-modal="true" aria-label={t(locale, "คลังรีเพลย์", "Replay library")}><section>
       <header><strong>{t(locale, "คลังรีเพลย์", "Replay library")}</strong><button onClick={() => setShowList(false)}>×</button></header>
-      {rows.map(entry => <article key={entry.match_id}><button onClick={() => void selectEntry(entry)}>{statusText(entry.status, locale)} · {entry.match_date_utc ?? UNKNOWN_VALUE} · {entry.own_hero ?? UNKNOWN_VALUE}</button>
+      <div className="analytics-library-filters" role="group" aria-label={t(locale, "ตัวกรองรีเพลย์", "Replay filters")}>
+        <button aria-pressed={filter === "all"} onClick={() => setFilter("all")}>{t(locale, "ทั้งหมด", "All")}</button>
+        <button aria-pressed={filter === "pinned"} onClick={() => setFilter("pinned")}>{t(locale, "ปักหมุด", "Pinned")}</button>
+        <button aria-pressed={filter === "notAnalysed"} onClick={() => setFilter("notAnalysed")}>{t(locale, "ยังไม่แยก", "Not parsed")}</button>
+      </div>
+      <p className="analytics-storage">{library?.matches.filter(entry => entry.status.state === "ready" && !entry.pinned).length ?? 0}/{prefs.keep_newest} · {((library?.matches.reduce((sum, entry) => sum + entry.storage_bytes, 0) ?? 0) / 1024 ** 2).toFixed(0)} MB / {(prefs.max_bytes / 1024 ** 3).toFixed(1)} GB</p>
+      <button type="button" onClick={() => void pickDem()}>{t(locale, "เพิ่มไฟล์ .dem…", "Add .dem file…")}</button>
+      {rows.map(entry => <article key={entry.match_id}><button onClick={() => void selectEntry(entry)}>{statusText(entry.status, locale)} · {thaiDate(entry, locale)} · {entry.local_history?.result === "win" ? t(locale, "ชนะ", "Win") : entry.local_history?.result === "loss" ? t(locale, "แพ้", "Loss") : UNKNOWN_VALUE}</button>
         <button onClick={() => void togglePin(entry)}>{entry.pinned ? t(locale, "เลิกปักหมุด", "Unpin") : t(locale, "เก็บไว้", "Keep")}</button>
-        <button onClick={() => void setOwnHeroForEntry(entry)}>{t(locale, "ระบุฮีโร่ของฉัน", "Set my hero")}</button>{entry.status.state === "ready"
+        {analyticsReplayAction(entry.status) === "reparse"
           ? <button disabled={entry.source_exists !== true}
               title={entry.source_exists === true
                 ? t(locale, `แยกรีเพลย์นี้ใหม่ด้วย engine ปัจจุบัน (ตอนนี้ schema ${entry.bundle_schema ?? "ไม่ทราบ"}) ข้อมูลเดิมอยู่จนกว่าจะแยกเสร็จ`, `Re-parse with the current engine (now schema ${entry.bundle_schema ?? "unknown"}); the old data stays until it finishes`)
                 : t(locale, "ไม่พบไฟล์ .dem ต้นฉบับแล้ว", "The source .dem file is gone")}
               onClick={() => void libraryClient.reparse(entry.match_id).then(() => refresh(), () => setError(t(locale, "แยกใหม่ไม่สำเร็จ", "Re-parse failed")))}>
               {t(locale, "แยกใหม่", "Re-parse")}{entry.bundle_schema ? ` · ${entry.bundle_schema}` : ""}</button>
-          : <button onClick={() => void libraryClient.parse(entry.match_id)}>{t(locale, "วิเคราะห์ใหม่", "Re-analyse")}</button>}
+          : ["parse", "retry"].includes(analyticsReplayAction(entry.status) ?? "") && <button onClick={() => void parseSelectedEntry(entry)}>{entry.status.state === "failed" ? t(locale, "ลองแยกอีกครั้ง", "Try parsing again") : t(locale, "แยกรีเพลย์นี้", "Parse this replay")}</button>}
         <button onClick={() => void invoke("replay_library_open_folder", { matchId: entry.match_id })}>{t(locale, "เปิดโฟลเดอร์", "Open folder")}</button>
         <button onClick={() => { if (window.confirm(t(locale, "นำรีเพลย์ออกจากคลังหรือไม่? โน้ตจะยังอยู่", "Remove replay from library? Notes will be kept"))) void libraryClient.remove(entry.match_id); }}>{t(locale, "นำออกจากคลัง", "Remove from library")}</button>
       </article>)}

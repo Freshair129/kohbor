@@ -1,6 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AI_PROVIDER_COPY, type Locale } from "../copy";
+import { readDeveloperMode } from "../shell/developerMode";
 import {
   availableModels,
   canEnableAi,
@@ -32,6 +34,7 @@ type ProviderList = { providers: ProviderRow[]; untested_count: number; show_unt
 
 type Props = {
   locale: Locale;
+  developerMode?: boolean;
   settings: ProviderPreferences;
   onSettingsChange: (settings: ProviderPreferences) => void;
   onKeyStatusChange?: (status: KeyStatus) => void;
@@ -54,12 +57,13 @@ function friendlyError(reason: unknown, copy: (typeof AI_PROVIDER_COPY)[Locale])
     case "key_required": return copy.keyRequired;
     case "key_invalid": return copy.keyInvalid;
     case "model_list_unavailable": return copy.modelListUnavailable;
-    default: return typeof reason === "string" ? reason : copy.requestBlocked;
+    default: return copy.requestBlocked;
   }
 }
 
 export function ProviderControls({
   locale,
+  developerMode: developerModeOverride,
   settings,
   onSettingsChange,
   onKeyStatusChange,
@@ -67,6 +71,10 @@ export function ProviderControls({
   consentOpen,
   onConsentOpenChange,
 }: Props) {
+  const developerMode = developerModeOverride ?? (() => {
+    try { return readDeveloperMode(window.localStorage); }
+    catch { return false; }
+  })();
   const copy = AI_PROVIDER_COPY[locale];
   const keyInput = useRef<HTMLInputElement>(null);
   const [providers, setProviders] = useState<ProviderRow[]>([]);
@@ -119,8 +127,8 @@ export function ProviderControls({
     void refreshKey(settings.provider).catch(() => setKeyStatus({ provider: settings.provider, set: false, last4: null }));
   }, [settings.provider]);
 
-  const visible = useMemo(() => visibleProviderRows(providers, settings.show_untested), [providers, settings.show_untested]);
-  const selected = providers.find((row) => row.id === settings.provider);
+  const visible = useMemo(() => visibleProviderRows(providers, developerMode && settings.show_untested), [providers, developerMode, settings.show_untested]);
+  const selected = visible.find((row) => row.id === settings.provider);
   useEffect(() => { setEndpointDraft(selected?.configured_endpoint ?? ""); }, [selected?.id, selected?.configured_endpoint]);
   const localEndpointLabel = endpointClassLabel(selected, copy.localLabel);
   const models = useMemo(
@@ -135,7 +143,6 @@ export function ProviderControls({
   });
   const endpointEditable = selected?.endpoint_kind === "user" || selected?.endpoint_kind === "choice";
   const canFetchModels = selected?.model_list_fetch === true && settings.consent && (!selected.requires_key || keyStatus.set);
-  const developerMode = import.meta.env.DEV;
 
   async function savePatch(patch: Partial<ProviderPreferences>) {
     setBusy(true);
@@ -303,14 +310,14 @@ export function ProviderControls({
   }
 
   const body = <div className="analytics-provider-controls">
-    <label>
+    {developerMode && <label>
       <input
         type="checkbox"
         checked={settings.show_untested}
         disabled={busy}
         onChange={(event) => void savePatch({ show_untested: event.currentTarget.checked })}
       /> {copy.showUntested}
-    </label>
+    </label>}
     {visible.length > 0 ? <label>{copy.provider}
       <select value={settings.provider} disabled={busy} onChange={(event) => void switchProvider(event.currentTarget.value)}>
         {visible.map((provider) => <option key={provider.id} value={provider.id}>
@@ -397,7 +404,7 @@ export function ProviderControls({
     </div>}
     {error && <p role="alert">{error}</p>}
 
-    {isConsentOpen && selected && <div className="analytics-consent-overlay" role="dialog" aria-modal="true" aria-labelledby="provider-consent-title"><section>
+    {isConsentOpen && selected && createPortal(<div className="analytics-consent-overlay" role="dialog" aria-modal="true" aria-labelledby="provider-consent-title"><section>
       <h2 id="provider-consent-title">{copy.consentTitle}</h2>
       <p><strong>{copy.consentHost}:</strong> {selected.label} · {selected.endpoint ?? copy.endpoint}</p>
       <p>{copy.consentContent}</p>
@@ -411,7 +418,7 @@ export function ProviderControls({
       {localEndpointLabel && <p>{copy.localNote}</p>}
       <button type="button" onClick={() => setConsentOpen(false)}>{locale === "th" ? "กลับ" : "Back"}</button>
       <button type="button" disabled={busy} onClick={() => void giveConsent()}>{copy.grantConsent}</button>
-    </section></div>}
+    </section></div>, document.body)}
   </div>;
 
   return compact

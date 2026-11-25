@@ -21,29 +21,123 @@ export function analyticsViewState(input: {
   return "ready";
 }
 
-export function analyticsLayout(width: number, height: number, leftCollapsed = width <= 1500, rightCollapsed = false) {
-  const compact = width <= 1500;
-  const pageWidth = Math.max(0, width - 72 - 44 - 48);
-  const tracks = (collapseLeft: boolean, collapseRight: boolean) => {
-    const docs = compact || collapseLeft ? 28 : 273;
-    const chat = collapseRight ? 28 : compact ? 289 : 423;
-    const centre = Math.max(0, pageWidth - docs - chat - 20);
-    const cardWidth = 344 * (compact ? 0.88 : 1);
-    const mapWidth = Math.max(0, Math.min(centre - 2 * cardWidth - 34, centre));
-    return { docs, centre, chat, rightRail: 44, map: { width: mapWidth, height: mapWidth } };
-  };
-  const before = tracks(width <= 1500, false);
-  const after = tracks(leftCollapsed, rightCollapsed);
-  const left = after.docs;
-  const center = after.centre;
-  const right = after.chat;
+export type AnalyticsLayoutMode = "docked" | "drawer" | "enlarge-window";
+const DOCKED_CENTER_MIN = 1004;
+const DRAWER_CENTER_MIN = 938;
+const DRAWER_CHAT_SWITCH = 1501;
+const LAYOUT_GAP = 20;
+
+/** Choose columns from the measured Analytics page size, never the outer viewport. */
+export function analyticsLayout(
+  pageWidth: number,
+  pageHeight: number,
+  leftCollapsed = pageWidth < 273 + DOCKED_CENTER_MIN + 423 + LAYOUT_GAP,
+  rightCollapsed = false,
+  readingMode = false,
+) {
+  const width = Number.isFinite(pageWidth) ? Math.max(0, pageWidth) : 0;
+  const height = Number.isFinite(pageHeight) ? Math.max(0, pageHeight) : 0;
+  const dockedDocs = readingMode ? 420 : 273;
+  const dockedMin = dockedDocs + DOCKED_CENTER_MIN + 423 + LAYOUT_GAP;
+  const drawerChat = width >= DRAWER_CHAT_SWITCH ? 423 : 289;
+  const mode: AnalyticsLayoutMode = height < 760
+    ? "enlarge-window"
+    : width >= dockedMin
+      ? "docked"
+      : width >= 28 + DRAWER_CENTER_MIN + drawerChat + LAYOUT_GAP
+        ? "drawer"
+        : "enlarge-window";
+  const heroCardScale = mode === "docked" ? 1 : 0.88;
+  const docs = mode === "docked" ? dockedDocs : 28;
+  const chat = rightCollapsed ? 28 : mode === "docked" ? 423 : mode === "drawer" ? drawerChat : 289;
+  const centre = Math.max(0, width - (leftCollapsed ? 28 : docs) - chat - LAYOUT_GAP);
+  const cardWidth = 344 * heroCardScale;
+  const mapWidth = Math.max(0, Math.min(centre - 2 * cardWidth - 34, centre));
+  const track = { docs: leftCollapsed ? 28 : docs, centre, chat, rightRail: 44, map: { width: mapWidth, height: mapWidth } };
+  const expandedTrack = { ...track, docs: leftCollapsed ? 28 : docs, chat: rightCollapsed ? 28 : chat };
+  const compactTrack = { ...track, docs: 28, chat: mode === "docked" ? 423 : mode === "drawer" ? drawerChat : 289 };
   return {
-    before, after, left, center, right, rightRail: 44, docs: left, heroCardScale: compact ? 0.88 : 1, availableHeight: Math.max(0, height - 180),
-    overlap: center < 600 || height < 760,
+    mode,
+    before: compactTrack,
+    after: expandedTrack,
+    left: expandedTrack.docs,
+    center: centre,
+    right: chat,
+    rightRail: 44,
+    docs: expandedTrack.docs,
+    drawerWidth: Math.min(readingMode ? 640 : 420, Math.max(0, width - chat - 38)),
+    minCenter: mode === "docked" ? DOCKED_CENTER_MIN : DRAWER_CENTER_MIN,
+    heroCardScale,
+    availableHeight: Math.max(0, height - 180),
+    overlap: false,
     mapMin: 300,
-    pageScroll: center < 600 || height < 760,
+    pageScroll: mode === "enlarge-window",
   };
 }
+
+export const ANALYTICS_TABS = [
+  ["summary", "สรุป"],
+  ["compare", "เทียบ"],
+  ["ai", "AI"],
+  ["notes", "โน้ต"],
+] as const;
+
+export function analyticsConsentRePrompt(
+  record: { text_version?: number } | null | undefined,
+  currentVersion: number,
+  alreadyNotified = false,
+) {
+  const stale = typeof record?.text_version === "number" && record.text_version < currentVersion;
+  const noticeKey = stale ? `${record!.text_version}:${currentVersion}` : null;
+  const show = stale && !alreadyNotified;
+  return { showBanner: show, openDialog: show, noticeKey };
+}
+
+export function analyticsReplaySelection(entry: { match_id: string }) {
+  return { selectedId: entry.match_id, parseOnSelect: false as const };
+}
+
+/** A library refresh should reopen a bundle only after this selected identity changes. */
+export function analyticsBundleSelectionKey(entry: Pick<ReplayLibraryEntry,
+  "match_id" | "status" | "dem_sha256" | "engine_sha256" | "bundle_schema"> & { bundle_hash?: string | null } | null | undefined): string | null {
+  if (!entry) return null;
+  return JSON.stringify([entry.match_id, entry.status.state, entry.bundle_hash ?? null, entry.dem_sha256, entry.engine_sha256, entry.bundle_schema ?? null]);
+}
+
+export function analyticsReplayAction(status: { state: string }) {
+  if (status.state === "available") return "parse" as const;
+  if (status.state === "failed") return "retry" as const;
+  if (status.state === "ready") return "reparse" as const;
+  return null;
+}
+
+export function analyticsAiVisibility(developerMode: boolean, showUntested: boolean) {
+  return {
+    showUntestedControl: developerMode,
+    showUntested: developerMode && showUntested,
+    chatCollapsed: !developerMode,
+    showUnavailableNotice: !developerMode,
+  };
+}
+
+export type AnalyticsDeleteState = "closed" | "confirming" | "deleting";
+export type AnalyticsDeleteEvent = "request" | "cancel" | "confirm" | "complete";
+
+export function analyticsDeleteTransition(
+  state: AnalyticsDeleteState,
+  event: AnalyticsDeleteEvent,
+  matchId: string | null,
+): { state: AnalyticsDeleteState; command: { name: string; args: { matchId: string } } | null } {
+  if (event === "request" && state === "closed") return { state: "confirming", command: null };
+  if (event === "cancel" && state === "confirming") return { state: "closed", command: null };
+  if (event === "confirm" && state === "confirming" && matchId) {
+    return { state: "deleting", command: { name: "analytics_match_data_delete", args: { matchId } } };
+  }
+  if (event === "complete" && state === "deleting") return { state: "closed", command: null };
+  return { state, command: null };
+}
+
+export const ANALYTICS_ORPHANS_COMMAND = "analytics_orphans_list";
 
 export const UNKNOWN_VALUE = "— ไม่ทราบ";
 export const ANALYTICS_PLAYBACK_SPEEDS = [1, 5, 10, 30] as const;

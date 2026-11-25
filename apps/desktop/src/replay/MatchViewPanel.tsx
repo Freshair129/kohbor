@@ -433,12 +433,11 @@ export function MatchViewPanel({ locale, initialBundle = null, initialMatchId = 
 
 /** A library-selected viewer surface used by Analytics; it keeps the same validated bundle and viewer. */
 export function MatchViewerSurface({
-  locale, bundle, onHeroSelect, onHeroIdentify, onTimeChange, onReady, initialTime = null, disableKeyboard = false, statLabelMode = "text",
+  locale, bundle, onHeroSelect, onTimeChange, onReady, initialTime = null, disableKeyboard = false, statLabelMode = "text",
 }: {
   locale: Locale;
   bundle: MatchBundle;
   onHeroSelect?: (hero: string) => void;
-  onHeroIdentify?: (hero: string) => void;
   onTimeChange?: (seconds: number) => void;
   onReady?: (root: ShadowRoot) => void;
   initialTime?: number | null;
@@ -481,15 +480,13 @@ export function MatchViewerSurface({
       return typeof hero?.id === "string" ? hero.id : null;
     };
     const click = (event: Event) => { const hero = heroFor(event); if (hero) onHeroSelect?.(hero); };
-    const doubleClick = (event: Event) => { const hero = heroFor(event); if (hero) onHeroIdentify?.(hero); };
     root.addEventListener("click", click);
-    root.addEventListener("dblclick", doubleClick);
     const scrubber = root.querySelector<HTMLInputElement>("#rv-scrub");
     const scrub = () => { if (scrubber) { const time = Number(scrubber.value); if (Number.isFinite(time)) onTimeChange?.(time); } };
     scrubber?.addEventListener("input", scrub);
     onReady?.(root);
-    return () => { root.removeEventListener("click", click); root.removeEventListener("dblclick", doubleClick); scrubber?.removeEventListener("input", scrub); mounted(); };
-  }, [bundle, locale, onHeroSelect, onHeroIdentify, onTimeChange, onReady, initialTime, disableKeyboard, statLabelMode]);
+    return () => { root.removeEventListener("click", click); scrubber?.removeEventListener("input", scrub); mounted(); };
+  }, [bundle, locale, onHeroSelect, onTimeChange, onReady, initialTime, disableKeyboard, statLabelMode]);
   return <div ref={target} className="analytics-viewer-surface" />;
 }
 
@@ -499,13 +496,12 @@ const analyticsSurfaceOverrides = `
 .rv-bar { display: none !important; }
 #analytics-player-slot:empty { display: none; }
 .rv-row.small { display: none; }
-.rv-stage { height: auto; min-height: 560px; grid-template-columns: minmax(344px, 1fr) minmax(300px, 1.35fr) minmax(344px, 1fr); gap: 8px; align-items: stretch; }
+.rv-stage { height: auto; min-height: 560px; grid-template-columns: minmax(calc(344px * var(--hc-scale, 1)), 1fr) minmax(300px, 1.35fr) minmax(calc(344px * var(--hc-scale, 1)), 1fr); gap: 8px; align-items: stretch; }
 .rv-col { height: 100%; grid-template-rows: repeat(5, minmax(104px, 1fr)); gap: 6px; align-content: stretch; overflow-y: auto; }
 .rv-center { height: 100%; grid-template-rows: auto minmax(300px, 1fr); }
 .rv-center { height: auto; grid-template-rows: auto min-content; align-content: start; }
 .rv-mapcard { align-content: start; }
 .rv-mapwrap { height: auto; max-height: none; min-height: 300px; aspect-ratio: 1 / 1; }
-@media (max-width: 1500px) { .rv-stage { grid-template-columns: minmax(302px, 1fr) minmax(300px, 1.35fr) minmax(302px, 1fr); } }
 `;
 
 export const analyticsPlayerShadowCss = `

@@ -63,12 +63,11 @@ test("new replay metrics render an em dash for null or invalid values", () => {
   assert.equal(comparisonMetric({ rates: { gpm: null } }, "gpm"), "—");
 });
 
-test("hero comparison tab reads engine HD and true GPM with their provenance", async () => {
+test("hero comparison tab uses reader-facing Thai labels for engine metrics", async () => {
   const source = await readFile(new URL("../src/analytics/knowledge/index.tsx", import.meta.url), "utf8");
-  assert.match(source, /\["ฮีโร่ดาเมจ \(HD\)", "hero_damage"\]/);
-  assert.match(source, /\["ทองที่หาได้\/นาที \(GPM\)", "rates\.gpm"\]/);
-  assert.match(source, /hero\.hero_damage_source/);
-  assert.match(source, /hero\.rates\.gpm_source/);
+  assert.match(source, /\["ความเสียหายต่อฮีโร่", "hero_damage"\]/);
+  assert.match(source, /\["ทองที่หาได้\/นาที", "rates\.gpm"\]/);
+  assert.doesNotMatch(source, /\["ฮีโร่ดาเมจ \(HD\)"|\["ทองที่หาได้\/นาที \(GPM\)"/);
   assert.doesNotMatch(source, /attacker-side damage ไม่มีใน bundle/);
 });
 
@@ -146,7 +145,7 @@ test("AI report generation is wired only to explicit generate and regenerate cli
 
 test("lane card and matchup strip show trial readings without unsafe HTML sinks", async () => {
   const source = await readFile(new URL("../src/analytics/knowledge/index.tsx", import.meta.url), "utf8");
-  assert.match(source, /คะแนนเลน \(เกณฑ์ของเกาะเบาะ\)/);
+  assert.match(source, /คะแนนเลนของเกาะเบาะ/);
   assert.match(source, /ยังไม่มีค่าคาดหมาย/);
   assert.match(source, /ค่าเฉลี่ยของคุณ/);
   assert.match(source, /lane_strip_max_cells/);

@@ -34,8 +34,8 @@ test("the shared stylesheet locks the six-row reference geometry and compact sca
   for (const size of ["46px", "26px", "31px", "23px", "20px", "15px", "24px", "13.5px", "10.5px", "10px", "9.5px", "9px"])
     assert.ok(css.includes(size), `reference size ${size}`);
   assert.match(css, /--hc-scale/);
-  const analytics = readFileSync(new URL("../src/analytics/analytics.css", import.meta.url), "utf8");
-  assert.match(analytics, /--hc-scale:\s*0\.88/);
+  const analytics = readFileSync(new URL("../src/analytics/AnalyticsPage.tsx", import.meta.url), "utf8");
+  assert.match(analytics, /"--hc-scale": layout\.heroCardScale/);
 });
 
 test("Replay always renders missing stats and derived cells as an em dash", () => {

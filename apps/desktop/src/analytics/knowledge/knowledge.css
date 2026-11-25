@@ -11,6 +11,9 @@
 .a2k-chart__zero { stroke: #607080; stroke-dasharray: 4 5; stroke-width: 1; }
 .a2k-chart__legend, .a2k-chart__axis { display: flex; justify-content: space-between; gap: 0.75rem; color: #b9c5cf; font-size: 0.78rem; }
 .a2k-chart__legend { justify-content: flex-start; margin-bottom: 0.35rem; }
+.a2k-chart__axis-title { fill: #b9c5cf; font-size: 11px; }
+.a2k-chart__axis { align-items: center; }
+.a2k-chart__axis span:first-child { color: #e5ebf0; }
 .a2k-chart__legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
 .a2k-chart__legend i, .a2k-side-dot { display: inline-block; width: 0.55rem; height: 0.55rem; border-radius: 50%; }
 .a2k-chart small { color: #98a7b4; }
@@ -39,6 +42,16 @@
 .a2k-matchups__lane button.is-selected { border-color: #7aa2f7; }
 .a2k-matchups__lane button small { grid-column: 2; color: #98a7b4; }
 .a2k-matchups__lane button .a2k-matchups__expectation { color: #e6bd76; }
+.a2k-matchups__lanes { min-width: 0; }
+.a2k-matchups__score { min-width: max-content; }
+.a2k-event-rows,.a2k-item-rows { display: grid; gap: 3px; margin: 0; padding: 0; list-style: none; }
+.a2k-event-rows li,.a2k-item-rows li { display: grid; grid-template-columns: 1.2rem 4rem minmax(0,1fr); align-items: center; gap: 0.4rem; min-width: 0; }
+.a2k-event-rows li > span:first-child,.a2k-item-rows li > span:first-child { color: #a9c3ff; text-align: center; }
+.a2k-event-rows button { justify-self: start; color: #a9c3ff; background: transparent; border: 0; cursor: pointer; font-variant-numeric: tabular-nums; }
+.a2k-event-rows li > span:last-child,.a2k-item-rows time { min-width: 0; overflow: hidden; color: #a4b0bc; font-size: 0.78rem; text-overflow: ellipsis; white-space: nowrap; }
+.a2k-item-rows { grid-template-columns: repeat(auto-fit,minmax(130px,1fr)); }
+.a2k-item-rows li { grid-template-columns: 1.2rem minmax(0,1fr) 3.2rem; }
+.a2k-item-rows time { text-align: right; font-variant-numeric: tabular-nums; }
 .a2k-side-dot.is-radiant { background: #81be9a; }
 .a2k-side-dot.is-dire { background: #d57983; }
 .a2k-comparison table { width: 100%; border-collapse: collapse; }
