@@ -35,6 +35,10 @@ This is the only index of documents. Every Markdown file in the tree, is linked 
 | [Derived stats](design/DERIVED-STATS.md) | Own-hero attributes and derived values from installed-game data: inputs, formulas, labels and limits | Engineering, UX |
 | [Replay Pipeline](design/REPLAY-PIPELINE.md) | Read-only replay intake, local library, pinned sidecar, Match Bundle validation and failure/privacy boundaries | Engineering, Lab, QA |
 | [Lane Expectation](design/LANE-EXPECTATION.md) | Lane score, expert-table expectation, verdict, local lane store, calibration and coach review (DEC-LANE-EXPECTATION) | Engineering, Analytics, QA |
+| [Analytics Host API](design/ANALYTICS-HOST-API.md) | Host and renderer boundaries for Analytics data, actions and local replay workflows | Engineering, Analytics, QA |
+| [Analytics Design Implementation](design/DESIGN-IMPLEMENTATION.md) | Implementation notes and evidence limits for the Analytics layout and shared hero-card display setting | Engineering, Analytics, reviewers |
+| [Minimap Rune and Roshan Overlay](design/MINIMAP-RUNE-ROSHAN-OVERLAY.md) | Patch-labelled rune and Roshan map marks, timing, provenance and unknown states | Engineering, Live, QA |
+| [Minimap Hero ID Spike](../tools/spikes/minimap-hero-id/README.md) | Read-only installed-game hero-id feasibility notes and verification limits | Engineering, vision, QA |
 | [Replay Engine Provenance](design/REPLAY-ENGINE-PROVENANCE.md) | Pinned sidecar source, build, hash, dependency license inventory and rebuild procedure | Engineering, release review |
 | [Package Format Review](design/PACKAGE-FORMAT-REVIEW.md) | Agent review: whether a package needs its own file type, signature and encryption options | Engineering, product owner |
 | [S4 Observation Boundary](design/S4-OBSERVATION-BOUNDARY.md) | Sprint 4 no-hardware slice: capture admission, freshness, coverage and the enemy observation boundary (agent decision, not owner approved) | Engineering, QA |

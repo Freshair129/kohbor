@@ -1797,6 +1797,70 @@
       ],
       "safe_interim": "Stale or contradictory daytime stays unknown. The historical 7.41f mapping is not a verified current game-patch mapping; a live patch field is still absent.",
       "closure_evidence": "Owner request 2026-11-25, relayed by the lead and recorded by an agent. The measured n=8 rule and source method are recorded in docs/design/MINIMAP-RUNE-ROSHAN-OVERLAY.md."
+    },
+    {
+      "id": "DEC-REPLAY-INTEGRATION",
+      "status": "decided",
+      "milestone": "M3-M6",
+      "blocks": "Replay engine sidecar packaging, local replay library and viewer, and the Live card layout reuse only.",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-23",
+      "channel": "Owner answer \"As recommended\" to the 13 recommendations in coord:reports/2026-11-23-replay-integration-design.md section 12, relayed by the lead session and recorded by an agent. Amendments were relayed and recorded on 2026-11-24 and 2026-11-25.",
+      "owner_words": "As recommended",
+      "decision": "1. Engine packaging: keep the Rust replay engine in its own repository and consume it as a pinned sidecar behind a versioned JSON contract; keep gem-dota Lab/dev only. Amendment (owner 2026-11-25): keep the engine source in its own repository, backed up to a private GitHub repository with no CI; its technical specification is that repository's docs/ENGINE-SPEC.md. 2. Post-match views may use observed data for all ten heroes; player names and claims about people remain excluded, and per-person analysis of a friend still needs that friend's consent. 3. Bundled game images may be built from the owner's installed game without download; rights review is required before public release. 4. Raw match IDs may appear only inside the local replay library and never in logs. 5. Acquisition uses a read-only Dota replay-folder watcher and manual file pick; Kohbor does not write Dota configuration. 6. OpenDota replay download is later, opt-in, off by default, on demand, and gated on measured limits, retention and size. 7. The pseudonymous encounter table stays off until privacy text is reviewed; names remain memory-only. 8. Real-time OpenDota lookup for other players is deferred until the encounter table is reviewed and legal review is complete. 9. Use a JSON index and per-match folders without a new dependency; revisit SQLite only with owner approval. 10. Live reuses the replay card layout: own hero full, nine compact cards, no path traces and no unobserved enemy stats. The 2026-11-24 owner amendments put ten stable cards in two non-scrolling columns around the minimap, with the own hero in its team slot and 12 px minimum Live text. 11. Phase R1 to the Lab Replay tab first; R2-R4 follow a tagged Rust engine, R5 follows M3 close and the M4a demo, and R3/R6 and R7/R8 follow M5/M6. 12. One owner match ID may be sent once to OpenDota to measure limits, retention and replay size; the owner may play one match so server_log.txt can be checked. 13. Read-only observation of the Dota replay folder and server_log.txt is not game automation.",
+      "reason": "Integrate user-selected local replays and a pinned, versioned engine while preserving local data boundaries and the existing Live card structure.",
+      "alternatives_considered": [
+        "Keep replay analysis outside the desktop app.",
+        "Use the Python gem-dota engine in production.",
+        "Download replays automatically after every match.",
+        "Show unobserved enemy information in Live cards."
+      ],
+      "affected_need_ids": [
+        "PN-005",
+        "PN-008"
+      ],
+      "affected_requirement_ids": [],
+      "related": [
+        "DEC-ANALYTICS",
+        "DEC-ANALYTICS-V2",
+        "DEC-LANE-EXPECTATION",
+        "DEC-NATIVE-EVIDENCE",
+        "DEC-PICK-STATS"
+      ],
+      "proposal_ref": "F:/kohbor-coord/reports/2026-11-23-replay-integration-design.md section 12; docs/governance/DECISION-LOG.md",
+      "safe_interim": "Use only the pinned local sidecar and validated bundle contract. Replay files stay read-only, raw IDs stay within the local replay library, and unobserved enemy values remain unknown.",
+      "closure_evidence": "Owner decision recorded as relayed. This record does not establish current-engine native acceptance, rights clearance, OpenDota download readiness or Live acceptance."
+    },
+    {
+      "id": "DEC-POSITIONING-20261125",
+      "status": "decided",
+      "milestone": "M3-M6 / alpha",
+      "blocks": "Replay acquisition guidance, optional bracket benchmarks, normal-user AI availability, alpha revenue position and the rights-review process.",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-25",
+      "channel": "decided by the product owner 2026-11-25, relayed by the lead, recorded by an agent",
+      "owner_words": "Approve all 5",
+      "decision": "1. Replay acquisition uses the merged three-step in-app guidance: download in Dota, let Kohbor find and parse the replay, then open the analysis. Later OpenDota download remains opt-in under DEC-REPLAY-INTEGRATION item 6, after limits, retention and size are measured. 2. Bracket benchmarks may use OpenDota with only a hero ID under DEC-PICK-STATS: a separate off-by-default switch, no user or match data, local filtering, at most four requests per 24 hours, attribution, and cache deletion on withdrawal. Not built yet; scheduled after the Analytics layout merge. 3. AI for normal users stays in Developer mode until a provider passes a live test with a real key; that test is an owner action. 4. The alpha is free; revenue is decided together with the rights-review outcome and DEC-COMMERCE-INTENT remains in force. 5. Start rights review now; the reported inventory and competitor-study questions are input for the owner's rights team. This decision records no legal conclusion or rights clearance.",
+      "reason": "Record the owner's five positioning choices and start the rights team's review from the supplied material inventory.",
+      "alternatives_considered": [
+        "The five recommendations in F:/kohbor-coord/design/competitive-20261125/README.th.md, as summarized in the owner-decision report."
+      ],
+      "affected_need_ids": [
+        "PN-008"
+      ],
+      "affected_requirement_ids": [],
+      "related": [
+        "DEC-REPLAY-INTEGRATION",
+        "DEC-PICK-STATS",
+        "DEC-COMMERCE-INTENT",
+        "DEC-ANALYTICS",
+        "DEC-ANALYTICS-V2"
+      ],
+      "proposal_ref": "F:/kohbor-coord/reports/2026-11-25-positioning-decisions-and-rights-inventory.md",
+      "safe_interim": "No OpenDota replay downloads, benchmark requests or normal-user AI are enabled by this record. Rights remain unreviewed until the owner's rights team reports back.",
+      "closure_evidence": "Owner words \"Approve all 5\" on 2026-11-25, relayed by the lead and recorded by an agent. No provider live test or rights clearance is claimed."
     }
   ]
 }

@@ -6,6 +6,87 @@ import { statusTrayLayout } from "../analytics/analyticsLayoutModel.mjs";
 import { resolveModifierIcon, statusIconTitle } from "../analytics/statusTrayModel.mjs";
 import { reflowHeroCardDisplay, visibleHeroCardRows, visibleStatKeys } from "../shared/heroCardDisplay.mjs";
 
+const sourceTeamId = team => team === "radiant" ? 2 : team === "dire" ? 3 : team === "neutral" ? 4 : null;
+const unknownSource = locale => locale === "en" ? "Unknown source" : "ไม่ทราบที่มา";
+
+function unitSourceLabel(unit, locale) {
+  const value = String(unit ?? "");
+  if (/tower/i.test(value)) return locale === "en" ? "Tower" : "ป้อม";
+  if (/fountain/i.test(value)) return locale === "en" ? "Fountain" : "น้ำพุ";
+  if (/ward/i.test(value)) return locale === "en" ? "Ward" : "วอร์ด";
+  return value.replace(/^npc_dota_/, "").replaceAll("_", " ") || unknownSource(locale);
+}
+
+function modifierSourceLabel(source, sourceHero, locale) {
+  if (sourceHero) return sourceHero.name ?? unknownSource(locale);
+  if (source && typeof source === "object") {
+    const unit = unitSourceLabel(source.unit, locale);
+    const team = source.team === "radiant" || source.team === "dire" || source.team === "neutral"
+      ? source.team[0].toUpperCase() + source.team.slice(1) : null;
+    return [unit, team].filter(Boolean).join(" · ") || unknownSource(locale);
+  }
+  return unknownSource(locale);
+}
+
+function stackCountAt(rows, name, time) {
+  let latest = Number.NEGATIVE_INFINITY;
+  let count = null;
+  for (const row of Array.isArray(rows) ? rows : []) {
+    if (!Array.isArray(row) || row[1] !== name || !Number.isFinite(row[0]) || row[0] > time || row[0] < latest) continue;
+    latest = row[0];
+    count = Number.isInteger(row[2]) && row[2] > 0 ? row[2] : null;
+  }
+  return count;
+}
+
+export function modifierEffectsAt(hero, time, { byId = {}, locale = "th", patchData = null, iconExists = () => false, nameOf = value => String(value ?? "") } = {}) {
+  const legacy = (Array.isArray(hero?.mods) ? hero.mods : []).map(row => [...row, []]);
+  const extended = Array.isArray(hero?.mods_long) ? hero.mods_long : [];
+  const effects = [];
+  for (const row of [...legacy, ...extended]) {
+    if (!Array.isArray(row) || !Number.isFinite(row[0]) || row[0] > time || typeof row[2] !== "string") continue;
+    const [start, rawEnd, modifier, sourceValue, rawFlags] = row;
+    const end = Number.isFinite(rawEnd) ? rawEnd : null;
+    if (end !== null && end < time) continue;
+    const flags = Array.isArray(rawFlags) ? rawFlags : [];
+    if (flags.includes("subtle")) continue;
+
+    const sourceHero = typeof sourceValue === "string" ? byId[sourceValue] : null;
+    const team = sourceHero?.team ?? (sourceValue && typeof sourceValue === "object" ? sourceTeamId(sourceValue.team) : null);
+    const enemy = (team === 2 || team === 3) && team !== hero.team;
+    const control = enemy && isControlEffect(patchData, modifier);
+    const kind = control ? "control" : enemy ? "debuff" : "buff";
+    const permanent = flags.includes("permanent");
+    const sourceAbilities = Array.isArray(sourceHero?.abil) ? sourceHero.abil.map(ability => ability.n).filter(Boolean) : [];
+    const recentCasts = (sourceHero?.casts ?? []).map(([castTime, name]) => ({ time: castTime, name, start }));
+    const icon = resolveModifierIcon({
+      modifier, sourceHeroId: sourceHero?.id ?? null, sourceAbilities, recentCasts,
+      iconExists, overrideTable: patchData?.modifier_icons ?? {}, effectKind: kind,
+    });
+    effects.push({
+      key: modifier, name: nameOf(modifier), raw: modifier,
+      remaining: permanent ? Number.POSITIVE_INFINITY : end === null ? null : Math.max(0, end - time),
+      duration: permanent || end === null ? null : Math.max(0.1, end - start),
+      sourceNames: [modifierSourceLabel(sourceValue, sourceHero, locale)], sourceHeroId: sourceHero?.id ?? null,
+      kind, control, icon, inferred: icon.inferred, permanent, aura: flags.includes("aura"),
+      stacks: stackCountAt(hero.mod_stacks, modifier, time),
+    });
+  }
+  return effects;
+}
+
+export function visibleStatusEffects(layout) {
+  const visible = Array.isArray(layout?.visible) ? layout.visible : [];
+  const buffs = visible.filter(effect => effect.kind === "buff").sort((left, right) =>
+    Number(Boolean(right.permanent)) - Number(Boolean(left.permanent))
+      || (left.remaining ?? Number.POSITIVE_INFINITY) - (right.remaining ?? Number.POSITIVE_INFINITY));
+  return [...buffs, ...visible.filter(effect => effect.kind !== "buff")];
+}
+
+export function modifierDataNeedsReparse(schema) {
+  return schema === "3.0" || schema === "3.1";
+}
+
 export function mountMatchView(root, bundle, { locale, markup, style, icon, statCatalog, statIcon, hasMap, hasIcon = () => false, header, patchData, mapCalibration, initialTime = null, disableKeyboard = false, statLabelMode = "icon", heroCardDisplay = null, density = "full", selectedHeroId = null, cardsCollapsed = false }) {
   const viewerStrings = matchViewerCopy[locale].viewerStrings;
   const translationEntries = Object.entries(viewerStrings).sort(([left], [right]) => right.length - left.length);
@@ -15,9 +96,11 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, stat
     if (viewerStrings[text]) return viewerStrings[text];
     return translationEntries.reduce((result, [thai, englishText]) => result.includes(thai) ? result.replaceAll(thai, englishText) : result, text);
   };
+  const bundleSchema = bundle.match?.meta?.schema ?? bundle.manifest?.schema;
+  const needsModifierReparse = modifierDataNeedsReparse(bundleSchema);
   const missingStatusNote = locale === "en"
-    ? "Permanent buffs, auras and stack counts are not yet included in replay data."
-    : "บัฟถาวร ออร่า และจำนวนสแต็ก ยังไม่มีในข้อมูลรีเพลย์";
+    ? "Re-parse this replay with the new engine to include permanent buffs, auras and stack counts."
+    : "ต้องแยกรีเพลย์อีกครั้งด้วยเอนจินรุ่นใหม่ เพื่อแสดงบัฟถาวร ออร่า และจำนวนสแต็ก";
   const template = window.document.createElement("template");
   template.innerHTML = markup;
   for (const element of template.content.querySelectorAll("[aria-label],[title]")) {
@@ -44,9 +127,12 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, stat
     const winner = bundle.match?.meta?.winner === team;
     const winnerLabel = winner ? window.document.createElement("span") : null;
     if (winnerLabel) { winnerLabel.className = "team-winner"; winnerLabel.textContent = locale === "en" ? "WIN" : "ชนะ"; }
-    const info = window.document.createElement("span"); info.className = "status-info"; info.textContent = "ⓘ";
-    info.title = missingStatusNote; info.setAttribute("role", "note"); info.setAttribute("aria-label", missingStatusNote);
-    heading.append(name, score); if (winnerLabel) heading.append(winnerLabel); heading.append(info); column.append(heading, cards);
+    const info = needsModifierReparse ? window.document.createElement("span") : null;
+    if (info) {
+      info.className = "status-info"; info.textContent = "ⓘ";
+      info.title = missingStatusNote; info.setAttribute("role", "note"); info.setAttribute("aria-label", missingStatusNote);
+    }
+    heading.append(name, score); if (winnerLabel) heading.append(winnerLabel); if (info) heading.append(info); column.append(heading, cards);
     stage.insertBefore(column, cards);
     teamScores[team] = score;
   };
@@ -407,25 +493,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, stat
   /* ---------- cards ---------- */
   function invAt(h, t){ let cur = h.inv[0] ? h.inv[0][1] : []; for (const [tt, v] of h.inv){ if (tt <= t) cur = v; else break; } return cur; }
   function modsAt(h, t){
-    const out = [];
-    for (const [a, b, n, src] of h.mods){
-      if (a > t) break; if (b < t) continue;
-      const source = S.D.byId[src], enemy = source && source.team !== h.team;
-      const control = enemy && isControlEffect(patchData, n);
-      const kind = control ? "control" : enemy ? "debuff" : "buff";
-      const sourceAbilities = Array.isArray(source?.abil) ? source.abil.map(ability => ability.n).filter(Boolean) : [];
-      const recentCasts = (source?.casts ?? []).map(([time, name]) => ({ time, name, start: a }));
-      const resolved = resolveModifierIcon({
-        modifier: n, sourceHeroId: source?.id ?? null, sourceAbilities, recentCasts,
-        iconExists: hasIcon, overrideTable: patchData?.modifier_icons ?? {}, effectKind: kind,
-      });
-      out.push({
-        key: n, name: nameOf(n), raw: n, remaining: Math.max(0, b - t), duration: Math.max(0.1, b - a),
-        sourceNames: [source?.name ?? (src ? (locale === "en" ? "Unknown source" : "ไม่ทราบที่มา") : "")].filter(Boolean),
-        sourceHeroId: source?.id ?? null, kind, control, icon: resolved, inferred: resolved.inferred,
-      });
-    }
-    return out;
+    return modifierEffectsAt(h, t, { byId: S.D.byId, locale, patchData, iconExists: hasIcon, nameOf });
   }
   const abilSrc = n => icon("ability", n);
   function iconSlot(kind, name, o){
@@ -440,13 +508,14 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, stat
     const iconValue = effect.icon?.icon ? icon(effect.icon.kind, effect.icon.icon) : null;
     const ring = Number.isFinite(effect.duration) && effect.duration > 0
       ? Math.max(0, Math.min(100, effect.remaining / effect.duration * 100)) : 0;
-    const sourceTitle = statusIconTitle({ name: effect.name, kind: effect.kind, sourceNames: effect.sourceNames, remaining: effect.remaining, permanent: effect.permanent, inferred: effect.inferred, locale });
+    const sourceTitle = statusIconTitle({ name: effect.name, kind: effect.kind, sourceNames: effect.sourceNames, remaining: effect.remaining, permanent: effect.permanent, stacks: effect.stacks, inferred: effect.inferred, locale });
     const badge = effect.icon?.sourceHeroId ? `<img class="status-source" src="${esc(icon("hero", slug(effect.icon.sourceHeroId)))}" alt="">` : "";
     const graphic = iconValue ? `<img src="${esc(iconValue)}" alt="">` : `<b aria-hidden="true">${esc(effect.icon?.glyph ?? "▲")}</b>`;
-    const seconds = Number.isFinite(effect.remaining) ? (effect.remaining < 10 ? effect.remaining.toFixed(1)
-      : effect.remaining < 60 ? String(Math.ceil(effect.remaining)) : `${Math.floor(effect.remaining / 60)}m`) : "∞";
+    const seconds = effect.permanent ? "∞" : Number.isFinite(effect.remaining) ? (effect.remaining < 10 ? effect.remaining.toFixed(1)
+      : effect.remaining < 60 ? String(Math.ceil(effect.remaining)) : `${Math.floor(effect.remaining / 60)}m`) : "—";
+    const stackBadge = Number.isInteger(effect.stacks) && effect.stacks > 0 ? `<em class="status-stack">${effect.stacks}</em>` : "";
     return `<span class="status-effect${detailed ? " status-list-effect" : ""} ${effect.kind}${effect.control ? " control" : ""}${effect.icon?.tier === 6 ? " generic" : ""}" title="${esc(sourceTitle)}" aria-label="${esc(sourceTitle)}">
-      <i class="status-ring" style="--p:${ring}%"></i>${graphic}${badge}<small>${seconds}</small></span>`;
+      <i class="status-ring" style="--p:${ring}%"></i>${graphic}${badge}${stackBadge}<small>${seconds}</small></span>`;
   }
   function statusListHTML(effects){
     const groups = [
@@ -461,10 +530,10 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, stat
         '<li class="' + effect.kind + '">' + statusEffectHTML(effect, true) + '<span><b>' + esc(effect.name) + '</b><small>'
           + esc(effect.sourceNames.join(", ") || (locale === "en" ? "Unknown source" : "ไม่ทราบที่มา")) + '</small></span></li>'
       ).join("");
-    }).join("") + '<li class="status-missing-note"><span class="status-info">ⓘ</span><span>' + esc(missingStatusNote) + '</span></li>';
+    }).join("") + (needsModifierReparse ? '<li class="status-missing-note"><span class="status-info">ⓘ</span><span>' + esc(missingStatusNote) + '</span></li>' : "");
   }
   function visibleStatusHTML(layout){
-    return layout.visible.map((effect, index) => `${index === layout.dividerIndex && layout.dividerIndex > 0 ? '<i class="status-divider" aria-hidden="true"></i>' : ""}${statusEffectHTML(effect)}`).join("");
+    return visibleStatusEffects(layout).map((effect, index) => `${index === layout.dividerIndex && layout.dividerIndex > 0 ? '<i class="status-divider" aria-hidden="true"></i>' : ""}${statusEffectHTML(effect)}`).join("");
   }
   function showStatusList(pid){
     const layout = S.statusEffectsByPid.get(String(pid));
