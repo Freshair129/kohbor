@@ -2,7 +2,7 @@
 title: "Decision Log and Open Items"
 doc_id: "DECISION-LOG"
 status: draft
-version: "0.3.19"
+version: "0.3.20"
 updated: "2026-11-25"
 authority: "DEC-BASELINE; see DOCUMENT-CONTROL"
 owner_role: "Product and engineering owners; people not assigned"
@@ -280,6 +280,8 @@ Decision 9 amends UI-021 and UI-022: remove context chips, make safe `#doc=` lin
 12. (a) Send expected-versus-actual, with its source, to the AI. Add the rules: the AI cites the source, never invents an expectation, and never states a match result when it is unknown.
 
 Requirements: UI-021 and UI-022. The local lane store is part of the amended Analytics requirement. The shipped expert table is empty. Every new reading remains “ทดลอง · เกณฑ์ชั่วคราว”; this implementation does not pass R1–R3. The AI consent disclosure includes the new lane score, expectation, source and match-result fields; consent text version 3 forces renewed review. L6 public-source work and L7 overview work are not implemented. Source and synthetic checks only; native, live, acoustic and acceptance evidence remain NOT_RUN. See [LANE-EXPECTATION](../design/LANE-EXPECTATION.md).
+
+**DEC-ANALYTICS-V2 amendment** (owner 2026-11-25, relayed by the lead, recorded by an agent). Owner words: “Start re-pin”. Decision 8 text: “Request the replay-engine change now for attacker-side damage and gold earned; include draft and winner in that engine release if inexpensive.” The owner authorized Kohbor to pin engine 0.3.0 and update the Match Bundle contract and provenance for schema 3.1: `match.meta.winner` / `winner_reason`, `match.meta.draft` / `draft_reason`, `match.heroes[].gold_earned` / `gold_earned_final`, and attacker-side hero damage `match.heroes[].dmg_out` (`total`, `p`, `m`, `u`). The additions are optional to readers of existing schema 3.0 bundles; null winner and draft values carry their reason. This amendment covers phase 1 admission and provenance. Analytics knowledge-digest use remains phase 2 after its owner merges that work.
 
 ### Analytics provider set and gates (DEC-AI-PROVIDERS, 2026-11-24)
 
