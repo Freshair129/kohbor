@@ -12803,8 +12803,8 @@
     },
     {
       "path": "apps/desktop/src/live/HeroCard.tsx",
-      "bytes": 28097,
-      "sha256": "eb5d730bd6304dd9fbb547a4f45be2b37bf42d8423e1a463d6eb4cf657745038"
+      "bytes": 22483,
+      "sha256": "3b06c5a8d26c4b995ee7ef7daeb9f637a6fdec983e8a29b6f489fadfcbc50bcf"
     },
     {
       "path": "apps/desktop/src/live/LiveTab.tsx",
@@ -14053,8 +14053,8 @@
     },
     {
       "path": "apps/desktop/tests/hero-card-view.test.ts",
-      "bytes": 3028,
-      "sha256": "d8f6503b04ed345a41770790321c5eac116dd4def810f8cfa169c159c5c03acc"
+      "bytes": 3091,
+      "sha256": "e1ef3a69ac87e2084514b3850f3362f4a29e2c6d2e4c600bf39f4bffbde19871"
     },
     {
       "path": "apps/desktop/tests/hero-name.test.ts",
@@ -14123,13 +14123,13 @@
     },
     {
       "path": "apps/desktop/tests/live-hero-card.test.ts",
-      "bytes": 28753,
-      "sha256": "e6cc0be9371214df0d9c8428acdaf769c394eb5bdf535d2ffed33c847019ab49"
+      "bytes": 28419,
+      "sha256": "5671692a1088ca87ebeafee00b3962a0a498c4662515e6cc3f9b4f41190b0014"
     },
     {
       "path": "apps/desktop/tests/live-layout.test.ts",
-      "bytes": 10352,
-      "sha256": "6c152e34c5ec841c6e61350c05f1749759c65644f7b626c98cb25aed07eda9c8"
+      "bytes": 13347,
+      "sha256": "540b0d6f63e7a1d3028b437cccbd999d8f493c552684e26fed26e79f7f07055c"
     },
     {
       "path": "apps/desktop/tests/live-postgame-summary.test.ts",
@@ -14173,8 +14173,8 @@
     },
     {
       "path": "apps/desktop/tests/live-second-monitor.test.ts",
-      "bytes": 13624,
-      "sha256": "56e5f7a7890161c45799ac52e610b24036c05ef44365eef9fb0832d8b46aa467"
+      "bytes": 13407,
+      "sha256": "99ea55e5b3c3ecd41cf0c7814a4b9569989eb2a12d264e5acc3f4f73b6b140e4"
     },
     {
       "path": "apps/desktop/tests/live.test.ts",

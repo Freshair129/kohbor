@@ -13,19 +13,18 @@ test("the shared hero-card view keeps six ordered rows and records unknown field
   assert.equal(HERO_CARD_ROW_IDS.length, 6);
 });
 
-test("Replay, Analytics and Live render the canonical row IDs with surface-specific stat labels", () => {
+// Owner feedback 2026-11-25 on build 7d64957 ("ฮีโร่การ์ดของเพลเยอร์ก็เละ"): Live keeps its own approved card layout
+// (own card in two stat rows, compact team cards); only Replay and Analytics share the six-row reference card.
+test("Replay and Analytics render the canonical row IDs; Live keeps its own card layout", () => {
   const replay = readFileSync(new URL("../src/replay/matchViewer.mjs", import.meta.url), "utf8");
   const live = readFileSync(new URL("../src/live/HeroCard.tsx", import.meta.url), "utf8");
   const surface = readFileSync(new URL("../src/replay/MatchViewPanel.tsx", import.meta.url), "utf8");
   const analytics = readFileSync(new URL("../src/analytics/AnalyticsPage.tsx", import.meta.url), "utf8");
   assert.match(replay, /import \{ heroCardView \} from "\.\.\/analytics\/heroCardView\.mjs"/);
   for (const row of HERO_CARD_ROW_IDS) assert.ok(replay.includes(`rowAttr("${row}")`), `Replay ${row} row`);
-  for (let index = 0; index < HERO_CARD_ROW_IDS.length; index++) assert.ok(live.includes(`sharedRows[${index}]!.id`), `Live ${HERO_CARD_ROW_IDS[index]} row`);
-  assert.match(live, /sharedHeroCardView\(view\)\.rows/);
-  assert.match(live, /data-stat-label=\{statLabelMode\}/);
+  assert.doesNotMatch(live, /sharedHeroCardView\(view\)\.rows/, "Live does not use the six-row reference card");
   assert.match(analytics, /statLabelMode="text"/);
   assert.match(surface, /live\/heroCard\.css\?raw/);
-  assert.match(live, /statLabelMode = "icon"/);
 });
 
 test("the shared stylesheet locks the six-row reference geometry and compact scale", () => {
