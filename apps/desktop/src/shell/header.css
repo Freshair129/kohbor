@@ -28,3 +28,54 @@
   }
   .shell-page-head-tools > .shell-status-line { grid-column: 1 / -1; }
 }
+
+/* Analytics owns one compact shell-header row for its replay controls. */
+.shell-page-header[data-analytics-layout="true"] {
+  position: relative;
+  z-index: 20;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  min-height: 48px;
+  padding: 0;
+  overflow: visible;
+}
+.shell-page-header[data-analytics-layout="true"] .shell-page-heading {
+  flex: 0 0 auto;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+.shell-page-header[data-analytics-layout="true"] .shell-page-eyebrow { display: none; }
+.shell-page-header[data-analytics-layout="true"] .shell-page-heading h1 { font-size: 18px; white-space: nowrap; }
+.shell-page-header[data-analytics-layout="true"] .shell-subtabs { flex: none; gap: 2px; }
+.shell-page-header[data-analytics-layout="true"] .shell-subtabs button { min-height: 32px; padding: 3px 7px; font-size: 12px; }
+.shell-page-header[data-analytics-layout="true"] .shell-page-head-tools {
+  display: flex;
+  flex: 1 1 0%;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+  overflow: visible;
+}
+.shell-page-header[data-analytics-layout="true"] .analytics-shell-tools { flex: 1 1 0%; min-width: 0; overflow: visible; }
+.shell-page-header[data-analytics-layout="true"] .shell-page-head-tools > .shell-status-line { flex: none; width: auto; }
+.shell-page-header[data-analytics-layout="true"] .shell-status-items { flex-wrap: nowrap; gap: 3px; }
+.shell-page-header[data-analytics-layout="true"] .shell-status-item:not(.shell-status-item--gsi):not(.shell-status-item--capture):not(.shell-status-item--deck) { display: none; }
+.shell-page-header[data-analytics-layout="true"] .shell-status-item .chip {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  max-width: 18px;
+  padding: 0;
+  overflow: visible;
+  font-size: 0;
+  white-space: nowrap;
+}
+.shell-page-header[data-analytics-layout="true"] .shell-status-item .chip-glyph { margin: 0; }
+.shell-page-header[data-analytics-layout="true"] .shell-status-setup { min-height: 30px; padding: 3px 6px; font-size: 11px; }
+.shell-page-header[data-analytics-layout="true"] .shell-mute-control { flex: none; }
+.shell-page-header[data-analytics-layout="true"] .shell-mute-control button { min-height: 32px; max-width: none; padding: 3px 7px; white-space: nowrap; }

@@ -1610,6 +1610,34 @@
       "closure_evidence": "Owner decision recorded as relayed. Renderer source and synthetic tests only; host, native, live-provider and visual acceptance remain NOT_RUN."
     },
     {
+      "id": "DEC-ANALYTICS-LAYOUT",
+      "status": "decided",
+      "milestone": "M5",
+      "blocks": "Analytics layout D1-D8 and the shared Replay/Analytics hero-card display setting.",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-25",
+      "channel": "decided by the product owner 2026-11-25, relayed by the lead, recorded by an agent",
+      "owner_words": "Approve D1–D8",
+      "decision": "The product owner approved the recommended choices (ก) for D1–D8 in F:\\kohbor-coord\\design\\analytics-layout-20261125\\README.th.md; the detailed implementation reference is DESIGN.md sections 2–8.\n1. D1: Put Analytics controls in one 48 px shell-header row. Remove complete picker segments by the approved order or move controls into a menu; do not truncate labels.\n2. D2: Put the summary above the assistant in the right pane, make the centre map square and large, put the timeline below it, and remove the lane strip from the replay stage.\n3. D3: At compact sizes, reduce non-selected cards to compact rows while the selected hero retains every setting-visible row.\n4. D4: Request permanent, aura and stack-buff fields from the replay-engine owner for bundle schema 3.2. Until that schema arrives, show “บัฟถาวร ออร่า และจำนวนสแต็ก ยังไม่มีในข้อมูลรีเพลย์”; the renderer must not derive Duel-win or tower buffs.\n5. D5: Provide one shared 13-checkbox hero-card display setting, default every field on, remove hidden cells and reflow rows without gaps, and expose the setting in Settings and through quick access.\n6. D6: Keep the hero-card minimum scale at 85 percent; the typography exception applies only inside the card.\n7. D7: A selected text passage creates one note per selection. The Ask action places a source/time quote chip in the composer without changing tabs; Go to time is offered only when a timestamp is known.\n8. D8: Provide Ctrl+\\\\ for the side pane, Ctrl+Shift+\\\\ for both card columns, Ctrl+J for the assistant, Ctrl+0 for reset, F6/Shift+F6 for regions, I for status effects, and Ctrl+Shift+A/N for Ask/Note. The implementation uses Ctrl+Alt+0 as a defensive alternative because Ctrl+0 may be consumed by WebView zoom; packaged Windows ownership remains to be checked.",
+      "reason": "Apply the owner-approved Analytics layout and card-display choices while preserving unknown replay fields and the existing consent boundary.",
+      "alternatives_considered": [
+        "Recommended choices (?) documented in the 2026-11-25 Analytics layout decision sheet."
+      ],
+      "affected_need_ids": [
+        "PN-008"
+      ],
+      "affected_requirement_ids": [
+        "UI-021"
+      ],
+      "related": [
+        "DEC-ANALYTICS-V2",
+        "DEC-UX-REVIEW-20261125"
+      ],
+      "safe_interim": "The replay-engine schema 3.2 request is pending. Keep permanent buffs, auras and stack counts unknown, show the approved note, and do not derive Duel-win or tower buffs. Use Ctrl+Alt+0 until packaged Windows shortcut handling is confirmed.",
+      "closure_evidence": "Owner words ?Approve D1?D8?, relayed by the lead and recorded by an agent on 2026-11-25. Pure logic checks do not establish rendered, native, live-match or packaged WebView acceptance; those remain NOT_RUN."
+    },
+    {
       "id": "DEC-REPLAY-AUTO-PARSE",
       "status": "decided",
       "milestone": "M5",

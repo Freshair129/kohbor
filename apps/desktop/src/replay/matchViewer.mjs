@@ -2,8 +2,11 @@
 import { matchViewerCopy } from "./matchViewerCopy.mjs";
 import { baseAttackSpeed, isConsumableItem, isControlEffect, isMobilityAbility, isMobilityItem, isNotableItem, isUltimateAbility } from "./replayPack.mjs";
 import { heroCardView } from "../analytics/heroCardView.mjs";
+import { statusTrayLayout } from "../analytics/analyticsLayoutModel.mjs";
+import { resolveModifierIcon, statusIconTitle } from "../analytics/statusTrayModel.mjs";
+import { reflowHeroCardDisplay, visibleHeroCardRows, visibleStatKeys } from "../shared/heroCardDisplay.mjs";
 
-export function mountMatchView(root, bundle, { locale, markup, style, icon, statCatalog, statIcon, hasMap, header, patchData, mapCalibration, initialTime = null, disableKeyboard = false, statLabelMode = "icon" }) {
+export function mountMatchView(root, bundle, { locale, markup, style, icon, statCatalog, statIcon, hasMap, hasIcon = () => false, header, patchData, mapCalibration, initialTime = null, disableKeyboard = false, statLabelMode = "icon", heroCardDisplay = null, density = "full", selectedHeroId = null, cardsCollapsed = false }) {
   const viewerStrings = matchViewerCopy[locale].viewerStrings;
   const translationEntries = Object.entries(viewerStrings).sort(([left], [right]) => right.length - left.length);
   const translate = value => {
@@ -12,6 +15,9 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, stat
     if (viewerStrings[text]) return viewerStrings[text];
     return translationEntries.reduce((result, [thai, englishText]) => result.includes(thai) ? result.replaceAll(thai, englishText) : result, text);
   };
+  const missingStatusNote = locale === "en"
+    ? "Permanent buffs, auras and stack counts are not yet included in replay data."
+    : "บัฟถาวร ออร่า และจำนวนสแต็ก ยังไม่มีในข้อมูลรีเพลย์";
   const template = window.document.createElement("template");
   template.innerHTML = markup;
   for (const element of template.content.querySelectorAll("[aria-label],[title]")) {
@@ -26,7 +32,26 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, stat
   styles.textContent = style;
   root.replaceChildren(styles, template.content);
   for (const [id, value] of Object.entries(header)) { const el = root.getElementById(id); if (el) el.textContent = value; }
-
+  const stage = root.getElementById("rv-cards-r")?.parentElement;
+  const teamScores = {};
+  const wrapTeam = (cardsId, team, label) => {
+    const cards = root.getElementById(cardsId);
+    if (!cards || !stage) return;
+    const column = window.document.createElement("div"); column.className = `rv-team-column team-${team}`;
+    const heading = window.document.createElement("header"); heading.className = "team-head";
+    const name = window.document.createElement("strong"); name.textContent = label;
+    const score = window.document.createElement("b"); score.className = "team-kills"; score.textContent = "0";
+    const winner = bundle.match?.meta?.winner === team;
+    const winnerLabel = winner ? window.document.createElement("span") : null;
+    if (winnerLabel) { winnerLabel.className = "team-winner"; winnerLabel.textContent = locale === "en" ? "WIN" : "ชนะ"; }
+    const info = window.document.createElement("span"); info.className = "status-info"; info.textContent = "ⓘ";
+    info.title = missingStatusNote; info.setAttribute("role", "note"); info.setAttribute("aria-label", missingStatusNote);
+    heading.append(name, score); if (winnerLabel) heading.append(winnerLabel); heading.append(info); column.append(heading, cards);
+    stage.insertBefore(column, cards);
+    teamScores[team] = score;
+  };
+  wrapTeam("rv-cards-r", "radiant", locale === "en" ? "Radiant" : "Radiant");
+  wrapTeam("rv-cards-d", "dire", locale === "en" ? "Dire" : "Dire");
   let alive = true;
   const cleanups = [];
   const translateNode = node => {
@@ -72,7 +97,13 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, stat
   const S = {D: null, t: startTime, playing: false, speed: 10, mode: "route", heatStyle: "hero", trail: 45, range: [bundle.match.t0, bundle.match.t1],
     vis: new Set(), focus: null, follow: false, names: false, autoPause: false, stopAt: null, review: null, lastCardKey: "",
     view: {k: 1, ox: 0, oy: 0}, img: null, port: {}, alerts: [], hits: [], W: null, dmgFloat: true, fog: "all", patchData, mapCalibration,
-    layers: {lane: true, neut: true, rune: true, ward: true, bld: true, rosh: true}};
+    layers: {lane: true, neut: true, rune: true, ward: true, bld: true, rosh: true},
+    display: heroCardDisplay, density, selectedHeroId,
+    cardsCollapsed: typeof cardsCollapsed === "object" ? cardsCollapsed : { radiant: Boolean(cardsCollapsed), dire: Boolean(cardsCollapsed) },
+    statusEffectsByPid: new Map()};
+  root.host.dataset.analyticsDensity = density;
+  root.host.dataset.cardsRadiantCollapsed = String(S.cardsCollapsed.radiant);
+  root.host.dataset.cardsDireCollapsed = String(S.cardsCollapsed.dire);
   if (!patchData.ultimate_classification.available) {
     const ultimateCopy = $("al-ult-copy");
     if (ultimateCopy) ultimateCopy.textContent = header["al-ult-copy"] ?? "";
@@ -84,12 +115,12 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, stat
   const statDefinition = key => statCatalog?.[key] ?? { label: key.toUpperCase(), accessibleLabel: key.toUpperCase(), iconIds: [] };
   const statGlyphs = key => {
     const def = statDefinition(key);
-    if (statLabelMode === "text") return `<span class="stat-glyph" data-stat-label="text" role="img" aria-label="${esc(def.accessibleLabel)}">${esc(def.label)}</span>`;
+    if (statLabelMode === "text") return `<span class="stat-glyph" data-stat-label="text" role="img" aria-label="${esc(def.accessibleLabel)}" title="${esc(def.accessibleLabel)}">${esc(def.label)}</span>`;
     const images = def.iconIds.map(id => statIcon?.(id)).filter(Boolean);
     const glyph = images.length
       ? images.map(src => `<img src="${esc(src)}" alt="" aria-hidden="true" draggable="false">`).join("")
       : esc(def.label);
-    return `<span class="stat-glyph" data-stat-label="icon" role="img" aria-label="${esc(def.accessibleLabel)}">${glyph}</span>`;
+    return `<span class="stat-glyph" data-stat-label="icon" role="img" aria-label="${esc(def.accessibleLabel)}" title="${esc(def.accessibleLabel)}">${glyph}</span>`;
   };
   const slug = id => id.replace("npc_dota_hero_", "");
   const portSrc = id => icon("hero", slug(id));
@@ -379,11 +410,22 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, stat
     const out = [];
     for (const [a, b, n, src] of h.mods){
       if (a > t) break; if (b < t) continue;
-      const sh = S.D.byId[src], enemy = sh && sh.team !== h.team, cc = enemy && isControlEffect(patchData, n);
-      out.push({n: prettyMod(n, src), rem: b - t, cls: cc ? "cc" : enemy ? "deb" : ""});
+      const source = S.D.byId[src], enemy = source && source.team !== h.team;
+      const control = enemy && isControlEffect(patchData, n);
+      const kind = control ? "control" : enemy ? "debuff" : "buff";
+      const sourceAbilities = Array.isArray(source?.abil) ? source.abil.map(ability => ability.n).filter(Boolean) : [];
+      const recentCasts = (source?.casts ?? []).map(([time, name]) => ({ time, name, start: a }));
+      const resolved = resolveModifierIcon({
+        modifier: n, sourceHeroId: source?.id ?? null, sourceAbilities, recentCasts,
+        iconExists: hasIcon, overrideTable: patchData?.modifier_icons ?? {}, effectKind: kind,
+      });
+      out.push({
+        key: n, name: nameOf(n), raw: n, remaining: Math.max(0, b - t), duration: Math.max(0.1, b - a),
+        sourceNames: [source?.name ?? (src ? (locale === "en" ? "Unknown source" : "ไม่ทราบที่มา") : "")].filter(Boolean),
+        sourceHeroId: source?.id ?? null, kind, control, icon: resolved, inferred: resolved.inferred,
+      });
     }
-    out.sort((x, y) => (y.cls === "cc") - (x.cls === "cc") || (y.cls === "deb") - (x.cls === "deb"));
-    const seen = new Set(); return out.filter(m => !seen.has(m.n) && seen.add(m.n)).slice(0, 6);
+    return out;
   }
   const abilSrc = n => icon("ability", n);
   function iconSlot(kind, name, o){
@@ -394,6 +436,54 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, stat
     return `<span class="ic ${kind}${o.cls ? " " + o.cls : ""}${cd ? " oncd" : ""}" style="--p:${p}%" title="${title}"${o.attrs || ""}><b>${esc(name.slice(0, 3))}</b>${o.src ? `<img src="${o.src}" alt="">` : ""}${o.pips != null ? `<i class="pp">${"●".repeat(o.pips)}</i>` : ""}${o.ch ? `<em>${o.ch}</em>` : ""}${cd ? `<s>${cd < 10 ? cd.toFixed(1) : Math.ceil(cd)}</s>` : ""}</span>`;
   }
   function findAt(h, t){ let f = null; for (const x of h.finds || []) if (x[0] <= t) f = x; return f; }
+  function statusEffectHTML(effect, detailed = false){
+    const iconValue = effect.icon?.icon ? icon(effect.icon.kind, effect.icon.icon) : null;
+    const ring = Number.isFinite(effect.duration) && effect.duration > 0
+      ? Math.max(0, Math.min(100, effect.remaining / effect.duration * 100)) : 0;
+    const sourceTitle = statusIconTitle({ name: effect.name, kind: effect.kind, sourceNames: effect.sourceNames, remaining: effect.remaining, permanent: effect.permanent, inferred: effect.inferred, locale });
+    const badge = effect.icon?.sourceHeroId ? `<img class="status-source" src="${esc(icon("hero", slug(effect.icon.sourceHeroId)))}" alt="">` : "";
+    const graphic = iconValue ? `<img src="${esc(iconValue)}" alt="">` : `<b aria-hidden="true">${esc(effect.icon?.glyph ?? "▲")}</b>`;
+    const seconds = Number.isFinite(effect.remaining) ? (effect.remaining < 10 ? effect.remaining.toFixed(1)
+      : effect.remaining < 60 ? String(Math.ceil(effect.remaining)) : `${Math.floor(effect.remaining / 60)}m`) : "∞";
+    return `<span class="status-effect${detailed ? " status-list-effect" : ""} ${effect.kind}${effect.control ? " control" : ""}${effect.icon?.tier === 6 ? " generic" : ""}" title="${esc(sourceTitle)}" aria-label="${esc(sourceTitle)}">
+      <i class="status-ring" style="--p:${ring}%"></i>${graphic}${badge}<small>${seconds}</small></span>`;
+  }
+  function statusListHTML(effects){
+    const groups = [
+      ["control", locale === "en" ? "Crowd control" : "ควบคุม"],
+      ["debuff", locale === "en" ? "Debuffs" : "ดีบัฟ"],
+      ["buff", locale === "en" ? "Buffs" : "บัฟ"],
+    ];
+    return groups.map(([kind, label]) => {
+      const items = effects.filter(effect => effect.kind === kind);
+      if (!items.length) return "";
+      return '<li class="status-group" role="presentation">' + esc(label) + '</li>' + items.map(effect =>
+        '<li class="' + effect.kind + '">' + statusEffectHTML(effect, true) + '<span><b>' + esc(effect.name) + '</b><small>'
+          + esc(effect.sourceNames.join(", ") || (locale === "en" ? "Unknown source" : "ไม่ทราบที่มา")) + '</small></span></li>'
+      ).join("");
+    }).join("") + '<li class="status-missing-note"><span class="status-info">ⓘ</span><span>' + esc(missingStatusNote) + '</span></li>';
+  }
+  function visibleStatusHTML(layout){
+    return layout.visible.map((effect, index) => `${index === layout.dividerIndex && layout.dividerIndex > 0 ? '<i class="status-divider" aria-hidden="true"></i>' : ""}${statusEffectHTML(effect)}`).join("");
+  }
+  function showStatusList(pid){
+    const layout = S.statusEffectsByPid.get(String(pid));
+    if (!layout) return;
+    let list = $("status-overflow-list");
+    if (!list) {
+      list = window.document.createElement("section");
+      list.id = "status-overflow-list"; list.className = "status-overflow-list";
+      list.setAttribute("role", "dialog"); list.setAttribute("aria-modal", "false");
+      $("replay")?.append(list);
+    }
+    const card = $("card-" + pid);
+    const heroName = card?.querySelector(".nm")?.textContent ?? "";
+    list.dataset.statusPid = String(pid);
+    list.innerHTML = `<header><strong>${esc(heroName)} · ${locale === "en" ? "status effects" : "บัฟและดีบัฟ"}</strong><button type="button" data-status-close aria-label="${locale === "en" ? "Close" : "ปิด"}">×</button></header>
+      <ul>${statusListHTML(layout.all)}</ul>`;
+    list.hidden = false;
+    list.querySelector("[data-status-close]")?.focus();
+  }
   function cardHTML(h, t){
     const i = idx(t), alive = h.alive?.[i], hp = h.hp?.[i], mhp = h.mhp?.[i], mp = h.mp?.[i], mmp = h.mmp?.[i], frac = t - Math.floor(t), rs = respawnIn(h, t);
     const kills = S.D.deaths.filter(d => d.killer === h.id && d.t <= t).length, deaths = S.D.deaths.filter(d => d.hero === h.id && d.t <= t).length;
@@ -423,11 +513,18 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, stat
     const item = (s, kind) => { const v = bySlot[s]; if (!v) return iconSlot(kind, null); const [cd, cl] = icd(s); return iconSlot(kind, nameOf(v[0]), {src: iconSrc(v[0]), cd, cl, ch: v[1] || ""}); };
     const f = findAt(h, t), nv = bySlot[16];
     const neutral = nv ? (() => { const [cd, cl] = icd(16); return iconSlot("nt", nameOf(nv[0]), {src: iconSrc(nv[0]), cd, cl, extra: "ไอเทมป่า" + (f ? ` · enchantment ${f[2]} ระดับ ${f[3]} · ดรอปล่าสุด ${clk(f[0])}` : "")}); })() : iconSlot("nt", null);
-    const mods = modsAt(h, t).slice(0, 3);
+    const teamKey = h.team === 2 ? "radiant" : "dire";
+    const cardWidth = Number.parseFloat(css(teamKey === "radiant" ? "--an-r-card-w" : "--an-d-card-w"))
+      || Number.parseFloat(css("--an-card-w")) || 344;
+    const collapsedColumn = S.cardsCollapsed[teamKey];
+    const trayWidth = cardWidth - 20 - h.abil.length * 29 - 4;
+    const slotCount = collapsedColumn ? 3 : Math.max(2, Math.min(8, Math.floor((trayWidth + 3) / 23)));
+    const modLayout = statusTrayLayout(modsAt(h, t), slotCount);
+    S.statusEffectsByPid.set(String(h.pid), modLayout);
     return `<div class="pt"><img src="${portSrc(h.id)}" alt=""><span class="lvb">${fmt(h.lvl?.[i])}</span>${alive === false ? `<span class="rsp">${rs != null ? Math.ceil(rs) : "—"}</span>` : ""}</div>
       <div class="top" ${rowAttr("top")}><span class="nm">${esc(h.name ?? "—")}</span><span class="kd num" title="Kill / Death">${kills}/${deaths}</span><span class="num" title="Last hit / Deny">${fmt(lh)}/${fmt(dn)}</span><span class="num nw" title="Net worth">${Number.isFinite(nw) ? (nw >= 10000 ? (nw / 1000).toFixed(1) + "k" : fmt(nw)) : "—"}</span>${hdCell}</div>
       ${barsHTML(h, t, i, alive, hp, mhp, mp, mmp, rowAttr("bars"))}
-      <div class="row ab" ${rowAttr("ab")}>${abil}<span class="mods">${al ? `<span class="mod cc">⚠ ${esc(al.text)}</span>` : mods.map(m => `<span class="mod ${m.cls}">${esc(m.n)} <span class="num">${m.rem < 10 ? m.rem.toFixed(1) : Math.round(m.rem)}</span></span>`).join("")}</span></div>
+      <div class="row ab" ${rowAttr("ab")}>${abil}<span class="mods">${S.display?.show?.status === false ? "" : visibleStatusHTML(modLayout)}${S.display?.show?.status !== false && modLayout.hiddenCount ? `<button type="button" class="status-overflow" data-status-overflow="${esc(String(h.pid))}" aria-label="${locale === "en" ? `Show ${modLayout.hiddenCount} more effects` : `แสดงสถานะเพิ่ม ${modLayout.hiddenCount} รายการ`}">${modLayout.overflow}</button>` : ""}</span></div>
       <div class="row it" ${rowAttr("it")}>${[0, 1, 2, 3, 4, 5].map(s => item(s, "it")).join("")}<span class="bp">${[6, 7, 8].map(s => item(s, "bk")).join("")}</span>${item(15, "tp")}${neutral}${f && nv ? `<span class="enh" title="Enchantment ของไอเทมป่า">${esc(f[2])} ${f[3]}</span>` : ""}<span class="gold num" title="ทองในมือ">${fmt(gold)}</span></div>
       ${statsHTML(h, i, rowAttr("st"))}
       ${derivedHTML(h, i, t, rowAttr("dv"))}`;
@@ -486,34 +583,45 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, stat
   }
   function derivedHTML(h, i, t, rowAttributes = ""){
     const d = derived(h, t);
+    const visible = visibleStatKeys(S.display, { includeLiveOnly: false });
+    const keys = ["arm", "mr", "amp", "as", "ms", "ev", "sr", "ls"].filter(key => visible.has(key));
+    if (!keys.length) return "";
     const tip = (title, keys, extra) => esc(title + "\n" + keys.flatMap(k => (d.src[k] || []).map(([l, v]) => `• ${l}: ${v > 0 && k !== "mspct" ? "+" : ""}${Math.round(v * 10) / 10}${/^(mr|mrm|mrint|amp|ls|sls|evm|srm|mspct)$/.test(k) ? "%" : ""}`)).join("\n") + (extra ? "\n" + extra : ""));
     const pct = v => (Math.round(v * 1000) / 10) + "%";
     const cell = (key, val, title, cls) => {
       const label = esc(statDefinition(key).accessibleLabel);
       return `<span class="dv${cls ? " " + cls : ""}" title="${label}\n${title}">${statGlyphs(key)} <b>${val}</b></span>`;
     };
-    if (!d) return `<div class="row dvs" ${rowAttributes}>${["arm", "mr", "amp", "as", "ms", "ev", "sr", "ls"].map(key => `<span class="dv" title="${esc(statDefinition(key).accessibleLabel)}: ยังไม่มีข้อมูล">${statGlyphs(key)} <b>—</b></span>`).join("")}</div>`;
-    return `<div class="row dvs" ${rowAttributes}>
-      ${cell("arm", d.armor.toFixed(1), tip(`เกราะ ≈ ${d.armor.toFixed(1)} (ลดดาเมจกายภาพ ${pct(d.pr)})`, ["armor"], "สูตร: 0.06×เกราะ ÷ (1 + 0.06×|เกราะ|)"))}
-      ${cell("mr", pct(d.mr), tip(`Magic resistance ≈ ${pct(d.mr)}`, ["mr", "mrint", "mrm"], `Patch ${patchData.patch}: base resistance plus ${patchData.rules?.mr_per_int_pct ?? patchData.formulas?.magic_resistance_per_intelligence_pct?.value}% per INT, then other sources multiply.`))}
-      ${cell("amp", d.amp + "%", tip(`Spell amp ≈ ${d.amp}%`, ["amp"], "แหล่งต่าง ๆ บวกกัน"), d.amp ? "" : "z")}
-      ${cell("as", Math.round(d.as), tip(`Attack speed ≈ ${Math.round(d.as)} (${d.aps.toFixed(2)} ครั้ง/วินาที, BAT ${h.st.bat[i]})`, ["as"], `Patch ${patchData.patch}: hero base attack speed + AGI + bonuses, bounded by ${20 + (baseAttackSpeed(patchData, h.id) ?? S.D.statdb.heroes[h.id].bas) - 100}–700.`))}
-      ${cell("ms", Math.round(d.ms), tip(`ความเร็ววิ่ง ≈ ${Math.round(d.ms)}${d.haste ? " (haste = ความเร็วสูงสุด)" : ""}`, ["ms", "mspct"], "สูตร: (พื้นฐาน + รองเท้าคู่ที่ดีที่สุด + ค่าคงที่อื่น) × (1 + % รวม) จำกัด 100–550"))}
-      ${cell("ev", pct(d.ev), tip(`Evasion ≈ ${pct(d.ev)}`, ["evm"], "สูตร: 1 − Π(1 − แหล่ง)"), d.ev ? "" : "z")}
-      ${cell("sr", pct(d.sres), tip(`Status resistance ≈ ${pct(d.sres)}`, ["srm"], "สูตร (Liquipedia): 1 − Π(1 − แหล่ง) · Sange หลายชิ้นเอาค่าสูงสุดค่าเดียว"), d.sres ? "" : "z")}
-      ${cell("ls", (d.ls || 0) + "%", tip(`Lifesteal ≈ ${d.ls}% · Spell lifesteal ≈ ${d.sls}%`, ["ls", "sls"]), d.ls || d.sls ? "" : "z")}
-    </div>`;
+    if (!d) return `<div class="row dvs" style="--cells:${keys.length}" ${rowAttributes}>${keys.map(key => `<span class="dv" title="${esc(statDefinition(key).accessibleLabel)}: ยังไม่มีข้อมูล">${statGlyphs(key)} <b>—</b></span>`).join("")}</div>`;
+    const cells = {
+      arm: cell("arm", d.armor.toFixed(1), tip(`เกราะ ≈ ${d.armor.toFixed(1)} (ลดดาเมจกายภาพ ${pct(d.pr)})`, ["armor"], "สูตร: 0.06×เกราะ ÷ (1 + 0.06×|เกราะ|)")),
+      mr: cell("mr", pct(d.mr), tip(`Magic resistance ≈ ${pct(d.mr)}`, ["mr", "mrint", "mrm"], `Patch ${patchData.patch}: base resistance plus ${patchData.rules?.mr_per_int_pct ?? patchData.formulas?.magic_resistance_per_intelligence_pct?.value}% per INT, then other sources multiply.`)),
+      amp: cell("amp", d.amp + "%", tip(`Spell amp ≈ ${d.amp}%`, ["amp"], "แหล่งต่าง ๆ บวกกัน"), d.amp ? "" : "z"),
+      as: cell("as", Math.round(d.as), tip(`Attack speed ≈ ${Math.round(d.as)} (${d.aps.toFixed(2)} ครั้ง/วินาที, BAT ${h.st.bat[i]})`, ["as"], `Patch ${patchData.patch}: hero base attack speed + AGI + bonuses, bounded by ${20 + (baseAttackSpeed(patchData, h.id) ?? S.D.statdb.heroes[h.id].bas) - 100}–700.`)),
+      ms: cell("ms", Math.round(d.ms), tip(`ความเร็ววิ่ง ≈ ${Math.round(d.ms)}${d.haste ? " (haste = ความเร็วสูงสุด)" : ""}`, ["ms", "mspct"], "สูตร: (พื้นฐาน + รองเท้าคู่ที่ดีที่สุด + ค่าคงที่อื่น) × (1 + % รวม) จำกัด 100–550")),
+      ev: cell("ev", pct(d.ev), tip(`Evasion ≈ ${pct(d.ev)}`, ["evm"], "สูตร: 1 − Π(1 − แหล่ง)"), d.ev ? "" : "z"),
+      sr: cell("sr", pct(d.sres), tip(`Status resistance ≈ ${pct(d.sres)}`, ["srm"], "สูตร (Liquipedia): 1 − Π(1 − แหล่ง) · Sange หลายชิ้นเอาค่าสูงสุดค่าเดียว"), d.sres ? "" : "z"),
+      ls: cell("ls", (d.ls || 0) + "%", tip(`Lifesteal ≈ ${d.ls}% · Spell lifesteal ≈ ${d.sls}%`, ["ls", "sls"]), d.ls || d.sls ? "" : "z"),
+    };
+    return `<div class="row dvs" style="--cells:${keys.length}" ${rowAttributes}>${keys.map(key => cells[key]).join("")}</div>`;
   }
   function statsHTML(h, i, rowAttributes = ""){
     const s = h.st;
+    const visible = visibleStatKeys(S.display, { includeLiveOnly: false });
     const at = (key, p) => { const def = statDefinition(key), tot = Number.isFinite(s?.[key + "T"]?.[i]) ? s[key + "T"][i] : null, b = Number.isFinite(s?.[key]?.[i]) ? s[key][i] : null, bonus = tot !== null && b !== null ? Math.round(tot - b) : null; return `<span class="at${h.prim === p ? " pr" : ""}" title="${esc(def.accessibleLabel)}: ${tot === null ? "ยังไม่มีข้อมูล" : `พื้นฐาน ${b} · โบนัส +${bonus}`}">${statGlyphs(key)} <b>${tot === null ? "—" : Math.round(tot)}</b>${bonus !== null && bonus > 0 ? `<em>+${bonus}</em>` : ""}</span>`; };
     const cell = (key, val, detail) => `<span class="at" title="${esc(statDefinition(key).accessibleLabel)}: ${esc(detail)}">${statGlyphs(key)} <b>${val}</b></span>`;
     const known = (key, fallback = "—") => Number.isFinite(s?.[key]?.[i]) ? s[key][i] : fallback;
     const dmin = known("dmin", null), dmax = known("dmax", null), dbonus = known("dbonus", null), range = known("range"), bat = known("bat");
-    const hpreg = known("hpreg"), mpreg = known("mpreg");
-    return `<div class="row st" ${rowAttributes}>${at("str", 0)}${at("agi", 1)}${at("int", 2)}
-      ${cell("dmg", dmin === null || dmax === null ? "—" : `${dmin}–${dmax}${dbonus ? `<em>+${dbonus}</em>` : ""}`, `ดาเมจโจมตีพื้นฐาน ${dmin === null || dmax === null ? "—" : `${dmin}–${dmax}`} · โบนัสจากไอเทมและบัฟ +${dbonus ?? "—"} · ระยะตี ${range} · BAT ${bat}`)}
-      <span class="at" title="${esc(statDefinition("reg").accessibleLabel)}: HP regen ${hpreg}/วินาที · Mana regen ${mpreg}/วินาที">${statGlyphs("reg")} <b>${hpreg}</b>/<b class="m">${mpreg}</b></span></div>`;
+      const hpreg = known("hpreg"), mpreg = known("mpreg");
+    const cells = [
+      visible.has("str") ? at("str", 0) : "", visible.has("agi") ? at("agi", 1) : "", visible.has("int") ? at("int", 2) : "",
+      visible.has("dmg") ? cell("dmg", dmin === null || dmax === null ? "—" : `${dmin}–${dmax}${dbonus ? `<em>+${dbonus}</em>` : ""}`, `ดาเมจโจมตีพื้นฐาน ${dmin === null || dmax === null ? "—" : `${dmin}–${dmax}`} · โบนัสจากไอเทมและบัฟ +${dbonus ?? "—"} · ระยะตี ${range} · BAT ${bat}`) : "",
+        visible.has("reg") ? `<span class="at" title="${esc(statDefinition("reg").accessibleLabel)}: HP regen ${hpreg}/วินาที · Mana regen ${mpreg}/วินาที">${statGlyphs("reg")} <b>${hpreg}</b>/<b class="m">${mpreg}</b></span>` : "",
+      visible.has("gpm") ? `<span class="at rate" title="${locale === "en" ? "Replay bundle does not include GPM" : "ข้อมูลรีเพลย์ไม่มีค่า GPM"}">${statGlyphs("gpm")} <b>${Number.isFinite(s?.gpm?.[i]) ? fmt(s.gpm[i]) : "—"}</b></span>` : "",
+      visible.has("xpm") ? `<span class="at rate" title="${locale === "en" ? "Replay bundle does not include XPM" : "ข้อมูลรีเพลย์ไม่มีค่า XPM"}">${statGlyphs("xpm")} <b>${Number.isFinite(s?.xpm?.[i]) ? fmt(s.xpm[i]) : "—"}</b></span>` : "",
+    ].filter(Boolean);
+    if (!cells.length) return "";
+    return `<div class="row st" style="--cells:${cells.length}" ${rowAttributes}>${cells.join("")}</div>`;
   }
   function firstAtOrAfter(T, a){ let lo = 0, hi = T.length; while (lo < hi){ const m = (lo + hi) >> 1; if (T[m] < a - 1e-3) lo = m + 1; else hi = m; } return lo; }
   function healIn(h, a, b){ const T = h.HT; if (!T) return 0; let s = 0; for (let k = firstAtOrAfter(T, a); k < T.length && T[k] <= b; k++) s += h.HV[k]; return s; }
@@ -554,26 +662,90 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, stat
     return `<div class="bars" ${rowAttributes}>${hpBar}${mpBar}</div>`;
   }
   function renderCards(force){
-    const key = Math.floor(S.t * 10) + [...S.vis].join() + S.focus + S.alerts.length + JSON.stringify(S.hoverAb || "");
+    const key = Math.floor(S.t * 10) + [...S.vis].join() + S.focus + S.alerts.length + JSON.stringify(S.hoverAb || "")
+      + JSON.stringify(S.display) + S.density + S.selectedHeroId + JSON.stringify(S.cardsCollapsed);
     if (!force && key === S.lastCardKey) return; S.lastCardKey = key;
+    S.statusEffectsByPid = new Map();
     for (const [team, el] of [[2, $("rv-cards-r")], [3, $("rv-cards-d")]]){
       const hs = S.D.heroes.filter(h => h.team === team);
+      const rovingHero = hs.find(hero => hero.id === S.focus) ?? hs[0];
       if (!el.children.length){
         for (const h of hs){
-          const c = document.createElement("article"); c.className = "rc"; c.id = "card-" + h.pid; c.tabIndex = 0; c.style.setProperty("--c", h.color);
+          const c = document.createElement("article"); c.className = "rc"; c.id = "card-" + h.pid; c.tabIndex = -1; c.style.setProperty("--c", h.color);
           c.addEventListener("click", ev => { if (!S.vis.has(h.id)){ S.vis.add(h.id); changedVis(); } setFocus(h.id); });
+          c.addEventListener("focus", () => { if (S.focus !== h.id) setFocus(h.id); });
           el.appendChild(c);
         }
       }
       for (const h of hs){
         const c = $("card-" + h.pid), i = idx(S.t);
+        c.tabIndex = h.id === rovingHero?.id ? 0 : -1;
+        const isSelected = S.selectedHeroId === h.id || S.focus === h.id;
         c.innerHTML = cardHTML(h, S.t);
+        const cardRows = visibleHeroCardRows(S.display, S.density, isSelected, false);
+        const gridAreas = cardRows.map(row => ({ top: '"pt top"', bars: '"pt bars"', ab: '"ab ab"', it: '"it it"', st: '"st st"', dv: '"dv dv"' })[row]).filter(Boolean).join(" ");
+        c.style.setProperty("--hc-grid-areas", gridAreas);
         c.classList.toggle("dead", !h.alive[i]); c.classList.toggle("focus", S.focus === h.id);
         c.classList.toggle("alert", !!activeAlert(h, S.t)); c.classList.toggle("hid", !S.vis.has(h.id));
+        c.classList.toggle("selected-card", isSelected);
+        c.classList.toggle("collapsed-column", S.cardsCollapsed[team === 2 ? "radiant" : "dire"]);
       }
     }
     renderScore();
   }
+  const updateCardPresentation = event => {
+    const next = event.detail ?? {};
+    if (next.heroCardDisplay) S.display = next.heroCardDisplay;
+    if (next.density) S.density = next.density;
+    if ("selectedHeroId" in next) S.selectedHeroId = next.selectedHeroId;
+    if (typeof next.cardsCollapsed === "object") S.cardsCollapsed = next.cardsCollapsed;
+    else if (typeof next.cardsCollapsed === "boolean") S.cardsCollapsed = { radiant: next.cardsCollapsed, dire: next.cardsCollapsed };
+    root.host.dataset.analyticsDensity = S.density;
+    root.host.dataset.cardsRadiantCollapsed = String(S.cardsCollapsed.radiant);
+    root.host.dataset.cardsDireCollapsed = String(S.cardsCollapsed.dire);
+    renderCards(true);
+  };
+  on(root, "hero-card-display-change", updateCardPresentation);
+  on(root, "click", event => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) return;
+    if (target.closest("[data-status-close]")) {
+      const list = $("status-overflow-list"); if (list) { list.hidden = true; $("card-" + list.dataset.statusPid)?.focus(); }
+      return;
+    }
+    const button = target.closest("[data-status-overflow]");
+    if (!button) return;
+    showStatusList(button.dataset.statusOverflow);
+  });
+  on(root, "analytics-status-open-selected", () => {
+    if (S.display?.show?.status === false) return;
+    const hero = S.D?.heroes.find(item => item.id === (S.selectedHeroId ?? S.focus))
+      ?? S.D?.heroes.find(item => item.id === S.focus);
+    if (hero) showStatusList(hero.pid);
+  });
+  on(root, "keydown", event => {
+    const target = event.target instanceof Element ? event.target : null;
+    const card = target?.closest(".rc");
+    if (event.key === "Escape") {
+      const list = $("status-overflow-list");
+      if (list && !list.hidden) { event.preventDefault(); list.hidden = true; $("card-" + list.dataset.statusPid)?.focus(); }
+      return;
+    }
+    if (!card || editing(event)) return;
+    if (event.key === "i" || event.key === "I") {
+      event.preventDefault(); event.stopPropagation();
+      const hero = S.D.heroes.find(item => "card-" + item.pid === card.id);
+      if (hero && S.display?.show?.status !== false) showStatusList(hero.pid);
+      return;
+    }
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+    const teamCards = [...card.parentElement.querySelectorAll(".rc")];
+    const index = teamCards.indexOf(card);
+    const next = Math.max(0, Math.min(teamCards.length - 1, index + (event.key === "ArrowDown" ? 1 : -1)));
+    if (next === index) return;
+    event.preventDefault();
+    teamCards[next].focus();
+  });
   /* score + momentum */
   function teamNW(team, i){ let s = 0; for (const h of S.D.heroes) if (h.team === team) s += h.eco[i][1]; return s; }
   function advSeries(){
@@ -586,6 +758,8 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, stat
     const t = S.t, i = idx(t), {a, mx} = advSeries(), adv = a[i];
     const kr = S.D.deaths.filter(d => d.t <= t && S.D.byId[d.hero].team === 3).length, kd = S.D.deaths.filter(d => d.t <= t && S.D.byId[d.hero].team === 2).length;
     $("sc-r").textContent = kr; $("sc-d").textContent = kd; $("sc-clock").textContent = clk(t);
+    if (teamScores.radiant) teamScores.radiant.textContent = String(kr);
+    if (teamScores.dire) teamScores.dire.textContent = String(kd);
     const f = Math.min(1, Math.abs(adv) / Math.max(10000, mx * .6));
     const fill = $("mo-fill"); fill.style.width = (f * 50) + "%";
     fill.style.left = adv >= 0 ? (50 - f * 50) + "%" : "50%"; fill.className = adv >= 0 ? "rad" : "dire";
@@ -659,7 +833,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, stat
   }
   function playDeath(d){ S.review = d; renderReview(d); renderDeathLab(d); showTab("death"); playClip(d.t - 15, d.t, d.hero); renderLists(); }
   function setFocus(id){
-    S.focus = S.focus === id ? null : id; renderCards(true); draw();
+    S.focus = id; renderCards(true); draw();
     if (S.focus){ const c = $("card-" + S.D.byId[id].pid); if (c) c.scrollIntoView({block: "nearest", behavior: "smooth"}); }
   }
   function showTab(k){ document.querySelectorAll("[data-tab]").forEach(b => b.setAttribute("aria-pressed", b.dataset.tab === k)); $("pane-alert").hidden = k !== "alert"; $("pane-death").hidden = k !== "death"; }

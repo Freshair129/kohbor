@@ -58,11 +58,12 @@ test("Transcript view renders stored user and assistant turns through the safe M
   assert.doesNotMatch(page, /ผู้ช่วยเห็น:/);
 });
 
-test("AI submit sends only the current question, selected hero, scrubber time and selected match", () => {
+test("AI submit sends the current composer prompt, selected hero, scrubber time and selected match", () => {
   const page = readFileSync(new URL("../src/analytics/AnalyticsPage.tsx", import.meta.url), "utf8");
   const request = page.match(/invoke<string>\("analytics_chat_submit",\s*\{([^}]*)\}/)?.[1] ?? "";
   assert.match(request, /matchId:\s*selectedId/);
-  assert.match(request, /question:\s*userQuestion/);
+  assert.match(page, /selectionPrompt\(question, quoteChips, locale\)/);
+  assert.match(request, /question:\s*promptQuestion/);
   assert.match(request, /selectedHero:\s*hero/);
   assert.match(request, /scrubberTimeS:\s*currentTime/);
   assert.doesNotMatch(request, /include_|openDocument|documentText|contextChips/i);
@@ -96,9 +97,11 @@ test("history recap is a bounded local summary of visible chat turns", async () 
 
 test("Analytics mounts knowledge/report commands and transcript restart behind explicit actions", () => {
   const page = readFileSync(new URL("../src/analytics/AnalyticsPage.tsx", import.meta.url), "utf8");
-  for (const component of ["KnowledgeTabs", "MatchSummaryTab", "HeroComparisonTab", "AiReportTab", "MatchupStrip"]) {
+  for (const component of ["KnowledgeTabs", "MatchSummaryTab", "HeroComparisonTab", "AiReportTab"]) {
     assert.ok(page.includes(`<${component}`), `${component} should be mounted`);
   }
+  assert.doesNotMatch(page, /<MatchupStrip/, "D2 removes the lane strip from the replay stage");
+  assert.match(page, /<MatchViewerSurface/, "the square map viewer remains the centre stage");
   for (const command of ["analytics_knowledge_get", "analytics_saved_analysis_read", "analytics_report_generate", "analytics_note_save_text", "analytics_chat_start_from_summary"]) {
     assert.match(page, new RegExp(command), `${command} should be connected`);
   }

@@ -7,12 +7,13 @@ export const SETTINGS_CONTROL_IDS = [
   "minimapCropConfirm", "captureDisplayRate", "capturePause", "mapFeedback", "captureRetry", "captureResourceDetails",
   "mockCaptureReason", "newsFeed", "ownHistoryOpenDota", "publicHeroStats", "draftBar", "draftPosition", "draftBracket",
   "orbEnable", "orbDwell", "orbFocus", "orbMixer", "orbMusicApp", "orbMixerFocus", "orbMixerReset",
-  "gsiConnection",
+  "gsiConnection", "heroCardDisplay",
 ] as const;
 
 export const SETTINGS_COMPONENT_IDS = [
   "generalPreferences", "developerPreferences", "objectiveAlerts", "objectiveCardLayout", "minimapCapture",
   "gsiConnection", "replayAnalytics", "showAppHotkey", "newsFeed", "ownHistoryOpenDota", "publicHeroStats", "orbAudio",
+  "heroCardDisplay",
 ] as const;
 
 export const SETTINGS_SECTIONS = [
@@ -29,6 +30,7 @@ export const SETTINGS_SECTIONS = [
     componentIds: ["minimapCapture", "gsiConnection"],
   },
   { id: "replay-ai", controlIds: ["replayStorage", "replayAutoParse", "analyticsAssistant"], componentIds: ["replayAnalytics"] },
+  { id: "hero-card", controlIds: ["heroCardDisplay"], componentIds: ["heroCardDisplay"] },
   { id: "hotkeys", controlIds: ["showAppHotkey"], componentIds: ["showAppHotkey"] },
   {
     id: "privacy-data",
@@ -72,7 +74,8 @@ export function rememberSettingsSection(section: SettingsSectionId, storage: Pic
   }
 }
 
-export function initialSettingsSection(entryPoint: "layout" | null, lastSection: unknown): SettingsSectionId {
+export function initialSettingsSection(entryPoint: "layout" | "hero-card" | null, lastSection: unknown): SettingsSectionId {
   if (entryPoint === "layout") return "overlay-layout";
+  if (entryPoint === "hero-card") return "hero-card";
   return isSettingsSectionId(lastSection) ? lastSection : DEFAULT_SETTINGS_SECTION;
 }

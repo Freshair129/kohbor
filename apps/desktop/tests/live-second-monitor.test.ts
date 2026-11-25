@@ -174,7 +174,7 @@ test("App gates the pinned deck on the match helper and keeps the side selector 
   const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
   assert.match(app, /const pinnedSide = pinnedSecondMonitorSide\(\{ side: secondMonitor\.side, onLivePage: activePage === "live", phase: status\?\.session\.phase \?\? null, hostLost \}\)/);
   assert.match(app, /data-live-match=\{activePage === "live" && inMatch \? "true" : undefined\}/);
-  const header = app.slice(app.indexOf('<header className="shell-page-header">'), app.indexOf("</header>"));
+  const header = app.match(/<header className="shell-page-header"[^>]*>([\s\S]*?)<\/header>/)?.[1] ?? "";
   assert.match(header, /activePage === "live" && <SecondMonitorToggle/);
   assert.match(header, /activePage === "live" && steamStatus\?\.dota_running === false && !steamStatus\.launch_pending && <div className="shell-live-start-control">\s*<StartDotaBar/);
   assert.match(app, /<Deck[^>]*inMatch=\{inMatch\}/);

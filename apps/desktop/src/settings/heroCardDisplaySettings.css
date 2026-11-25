@@ -1,0 +1,40 @@
+.hero-card-display-settings { display: grid; gap: 14px; }
+.hero-card-display-settings > p { margin: 0; color: var(--text-2); }
+.hero-card-display-controls { display: grid; grid-template-columns: minmax(0, 1fr) minmax(180px, .55fr); gap: 12px; align-items: start; }
+.hero-card-display-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
+.hero-card-display-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.hero-card-display-group { display: grid; align-content: start; gap: 4px; min-width: 0; }
+.hero-card-display-group h3 { margin: 0; padding: 3px 2px; font-size: 13px; color: var(--text-2); }
+.hero-card-display-grid label { display: grid; grid-template-columns: 18px 34px minmax(0, 1fr); grid-template-rows: minmax(32px, auto) auto; column-gap: 6px; align-items: center; min-height: 40px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.hero-card-display-grid input { grid-row: 1 / span 2; accent-color: var(--ally); }
+.hero-card-display-icons { display: inline-flex; align-items: center; gap: 2px; min-width: 0; }
+.hero-card-display-icons img { width: 15px; height: 15px; object-fit: contain; }
+.hero-card-display-icons b { color: var(--text-2); font-size: 13px; }
+.hero-card-display-grid label > span:not(.hero-card-display-icons) { grid-column: 3; overflow-wrap: anywhere; }
+.hero-card-display-grid small { grid-column: 3; color: var(--text-2); }
+.hero-card-display-preview { display: grid; align-content: start; gap: 6px; min-height: 128px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--ground); }
+.hero-card-display-preview-head,.hero-card-display-preview-fixed,.hero-card-display-preview-attributes { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
+.hero-card-display-preview-head { justify-content: space-between; }
+.hero-card-display-preview-head > *, .hero-card-display-preview-fixed > span, .hero-card-display-preview-attributes > span, .hero-card-display-preview-fields > span, .hero-card-display-preview-status, .hero-card-display-preview-rates { padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; }
+.hero-card-display-preview-head > span,.hero-card-display-preview small { color: var(--text-2); }
+.hero-card-display-preview-bars { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.hero-card-display-preview-bars > i { height: 8px; border-radius: 999px; background: color-mix(in srgb, var(--ally) 65%, var(--ground)); }
+.hero-card-display-preview-bars > i + i { background: color-mix(in srgb, var(--accent) 55%, var(--ground)); }
+.hero-card-display-preview-bars > small { grid-column: 1 / -1; }
+.hero-card-display-preview-fields { display: grid; grid-template-columns: repeat(var(--preview-columns), minmax(0, 1fr)); }
+.hero-card-display-preview-fields[data-preview-columns="1"] { --preview-columns: 1; }
+.hero-card-display-preview-fields[data-preview-columns="2"] { --preview-columns: 2; }
+.hero-card-display-preview-fields[data-preview-columns="3"] { --preview-columns: 3; }
+.hero-card-display-preview-fields[data-preview-columns="4"] { --preview-columns: 4; }
+.hero-card-display-preview-fields[data-preview-columns="0"] { display: none; }
+.hero-card-display-preview-fields > span { min-width: 0; overflow-wrap: anywhere; text-align: center; }
+.hero-card-display-preview-status { justify-self: start; }
+.hero-card-display-controls.is-compact { grid-template-columns: 1fr; max-height: min(72vh, 640px); overflow: auto; }
+.hero-card-display-controls.is-compact .hero-card-display-actions { position: sticky; top: 0; padding: 4px 0; background: var(--surface); }
+.hero-card-display-controls.is-compact .hero-card-display-grid { grid-template-columns: 1fr; }
+.hero-card-display-controls.is-compact .hero-card-display-group { gap: 2px; }
+.hero-card-display-controls.is-compact .hero-card-display-grid label { min-height: 34px; }
+@media (max-width: 780px) {
+  .hero-card-display-controls { grid-template-columns: 1fr; }
+  .hero-card-display-grid { grid-template-columns: 1fr; }
+}

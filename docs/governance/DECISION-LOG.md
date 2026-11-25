@@ -424,3 +424,18 @@ Recorded by an agent; **owner 2026-11-24, relayed by the lead, recorded by an ag
 11. **Per-match deletion.** Allow deleting chat, notes and reports for a match even if its replay is gone.
 
 The requirement changes are recorded in UI-002, UI-018, UI-021, UI-022 and MEM-007. Missing watcher-status support stays unknown; no native, visual or live acceptance is implied.
+
+### Owner decision: Analytics layout redesign (DEC-ANALYTICS-LAYOUT, 2026-11-25)
+
+Decided by the product owner 2026-11-25, relayed by the lead, recorded by an agent. Owner words: “Approve D1–D8”. The owner approved each recommended choice (ก) in `F:\kohbor-coord\design\analytics-layout-20261125\README.th.md`; the detailed design source is `DESIGN.md`, sections 2–8.
+
+1. **D1 — Shell header.** Put Analytics controls in one row in the shell header. Keep labels whole by removing complete picker segments in the specified order or moving controls into a menu.
+2. **D2 — Replay stage.** Use a square centre map, place the timeline directly below it, remove the lane strip from the replay stage, and put the summary above the assistant in the right pane.
+3. **D3 — Compact cards.** Use compact density for non-selected cards when space is limited; the selected hero keeps every setting-visible row.
+4. **D4 — Missing status data.** The replay-engine owner has been asked for permanent, aura and stack fields in bundle schema 3.2. Until that arrives, show “บัฟถาวร ออร่า และจำนวนสแต็ก ยังไม่มีในข้อมูลรีเพลย์”. The renderer must not derive Duel-win or tower buffs.
+5. **D5 — Card display setting.** Add one shared 13-checkbox setting with all fields on by default, gapless reflow, a Settings section and Analytics quick access. Live wiring follows the OV merge.
+6. **D6 — Card scale.** Keep card scale at or above 85 percent. The small-type exception applies only inside the hero card.
+7. **D7 — Text actions.** Ask places a source/time quote chip in the composer without switching tabs. One selected passage creates one note. Offer seek only when the selection has a known time.
+8. **D8 — Shortcuts.** Approved controls are `Ctrl+\`, `Ctrl+Shift+\`, `Ctrl+J`, `Ctrl+0`, `F6`/`Shift+F6`, `I`, and `Ctrl+Shift+A`/`Ctrl+Shift+N`. This implementation uses `Ctrl+Alt+0` because `Ctrl+0` may be handled as WebView zoom reset; packaged Windows shortcut ownership remains NOT_RUN under the no-app constraint.
+
+UI-021 is amended to the measured pane system. This layout decision supersedes DEC-UX-REVIEW-20261125 item 6 where its fixed 423 px and 289 px chat widths conflict with the approved pane measurements, and D2 removes that review's matchup strip from the replay stage. The four summary, compare, AI, and notes tabs remain; reading mode is preserved only where it does not conflict with D1–D3. Pure-logic source checks do not establish rendered, native, live-match or packaged WebView acceptance; those remain NOT_RUN.

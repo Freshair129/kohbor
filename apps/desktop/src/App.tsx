@@ -102,6 +102,7 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
   const steamName = useShowSteamName();
   const launch = useDotaLauncher(steamStatus);
   const [activePage, setActivePage] = useState<ShellPage>(DEFAULT_SHELL_DESTINATION);
+  const [settingsEntryPoint, setSettingsEntryPoint] = useState<"hero-card" | null>(null);
   const [insightsView, setInsightsView] = useState<InsightsView>("summary");
   const [analyticsDetail, setAnalyticsDetail] = useState<AnalyticsReplayDetailsRoute | null>(null);
   const [analyticsRestore, setAnalyticsRestore] = useState<AnalyticsReturnContext | null>(null);
@@ -239,7 +240,14 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
             ? text.settings.saveFailed
             : null;
 
-  const navigate = (destination: ShellDestination) => setActivePage(destination);
+  const navigate = (destination: ShellDestination) => {
+    setSettingsEntryPoint(null);
+    setActivePage(destination);
+  };
+  const openHeroCardSettings = () => {
+    setSettingsEntryPoint("hero-card");
+    setActivePage("settings");
+  };
   const openAnalyticsDetails = (route: AnalyticsReplayDetailsRoute) => {
     setAnalyticsRestore(null);
     setAnalyticsDetail(route);
@@ -278,7 +286,7 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
       <RailLeft current={activePage} labels={text.shell.destinations} navigationLabel={text.shell.navigationLabel}
         gameConnection={steamStatus?.gsi ?? "unknown"} locale={displayLocale} railState={rail.state} onToggleRail={rail.toggle} onNavigate={navigate} />
       <main className="shell-main">
-        <header className="shell-page-header">
+        <header className="shell-page-header" data-analytics-layout={activePage === "insights" && currentInsightsView === "summary" ? "true" : undefined}>
           <div className="shell-page-heading">
             <div className="shell-page-title">
               <p className="shell-page-eyebrow">DOTA 2</p>
@@ -292,6 +300,7 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
             </div>}
           </div>
           <div className="shell-page-head-tools">
+            {activePage === "insights" && currentInsightsView === "summary" && <div className="analytics-shell-tools" data-analytics-shell-tools />}
             {/* Owner decision 2026-11-23 item 5: no GSI/game status chips on the Overview; every other page keeps them. */}
             {activePage !== "overview" && <StatusLine model={statusModel} label={text.shell.statusLineLabel} hostLostMessage={`${text.hostLost} — ${text.hostOutdated}`} onNavigate={navigate} />}
             {activePage === "live" && steamStatus?.dota_running === false && !steamStatus.launch_pending && <div className="shell-live-start-control">
@@ -328,7 +337,7 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
           {activePage === "insights" && (currentInsightsView === "summary" || analyticsDetail !== null) && <div hidden={currentInsightsView === "replay"}
             style={{ width: "100%", height: "100%", minWidth: 0, minHeight: 0 }}>
             <AnalyticsPage locale={displayLocale} active={currentInsightsView === "summary"} restoreContext={analyticsRestore}
-              openMatchKey={postGameMatchKey} onOpenReplay={openAnalyticsDetails} />
+              openMatchKey={postGameMatchKey} onOpenReplay={openAnalyticsDetails} onOpenHeroCardSettings={openHeroCardSettings} />
           </div>}
           {activePage === "insights" && currentInsightsView === "replay" && analyticsDetail && <Suspense fallback={<p role="status">{text.loading}</p>}>
             <AnalyticsDetailsPanel locale={displayLocale} available={canOpenPostMatchReplay(status, steamStatus, hostLost, matchEnded)}
@@ -340,7 +349,7 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
 
           {activePage === "settings" && (
             <div className="shell-screen shell-settings">
-              <ObjectiveSettings locale={displayLocale} sections={{
+              <ObjectiveSettings locale={displayLocale} initialSection={settingsEntryPoint} sections={{
                 general: (
                   <section className="settings-preferences-card" aria-label={displayLocale === "th" ? "ตั้งค่าทั่วไป" : "General preferences"}>
                     <label className="settings-field-row">

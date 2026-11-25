@@ -198,7 +198,7 @@ test("the shell starts on Live, keeps the field-only Live page, and returns ther
   // shell's GSI/game status chips are hidden on the Overview only.
   assert.match(app, /activePage === "overview" && <OverviewPage locale=\{displayLocale\} \/>/);
   assert.match(app, /\{activePage !== "overview" && <StatusLine /);
-  const header = app.match(/<header className="shell-page-header">([\s\S]*?)<\/header>/)?.[1] ?? "";
+  const header = app.match(/<header className="shell-page-header"[^>]*>([\s\S]*?)<\/header>/)?.[1] ?? "";
   assert.match(header, /<StatusLine/);
   const livePage = app.match(/activePage === "live" && \(([\s\S]*?)\n\s*\)\}/)?.[1] ?? "";
   assert.match(livePage, /<Deck /);
