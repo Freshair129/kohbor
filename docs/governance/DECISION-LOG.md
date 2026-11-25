@@ -11,6 +11,10 @@ approval_status: "not_approved"
 
 # Decision Log and Open Items
 
+## Multi-pack announcer equipment — 2026-11-25
+
+- **DEC-MULTI-PACK** (decided by the product owner on 2026-11-25; relayed by the lead and recorded by an agent). Owner words: “Approve D1–D7”, approving the recommendations in `F:\kohbor-coord\design\multi-pack-20261125\DESIGN.md`: mapped-aware arbitration skips any event without ready sound and tries the next-ranked mapped event; loadouts hold at most four packs and retain the 40,000,000-sample PCM cap with priority-round prewarm and visible skipped clips; same voice is sticky per event per match and off by default; the first special events are `clutch_kill` (75), `posthumous_kill` (65), and `comeback_kill` (62) under DESIGN 6.3; pack kind derives from bindings with no manifest or signature change; replay-only events stay outside voice packs; and an unsatisfied event lock falls back to the mix with disclosure on Packs. The prior owner choice also stands: random selection over the union by default, per-event lock, history keyed by `(pack, variant)`. New detectors remain `proposed_unavailable` until live captures confirm true positives. This records the stated decision, not native/live/acoustic acceptance or a Store feature approval.
+
 ## Implementation corrections recorded 2026-11-25
 
 - **YCoCg DXT5 asset export (implementation correction; not an owner decision).** The game-asset exporter treated DXT5 textures marked `YCoCg Conv` in the VTEX resource-edit metadata as ordinary color channels, producing visibly incorrect card art. The exporter now reads the texture flags from the resource blocks and applies the scaled YCoCg-to-RGB conversion only to flagged format-2 DXT5 display images; unflagged formats retain their existing decode path. The installed build 6993 export was regenerated in the assigned asset lane with per-file source paths and hashes. Replacing the bundled 6989 card-art set with that export is still pending because the worktree execution policy rejected the exact replacement operation; do not treat the lane candidate as bundled or as a live-game acceptance result.

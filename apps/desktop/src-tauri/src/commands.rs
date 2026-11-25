@@ -4,11 +4,11 @@
 use crate::audio_prefs::{AudioPrefs, AudioPrefsService};
 use crate::hotkeys::{StartFailure, VolumeStep};
 use crate::intake::lock;
-use crate::{settings, status, AppState};
-use serde_json::{json, Map, Value};
+use crate::{AppState, settings, status};
+use serde_json::{Map, Value, json};
+use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::{self, Receiver, Sender};
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::{Emitter as TauriEmitter, Manager};
 
@@ -63,8 +63,9 @@ pub(crate) fn replay_library_pick_file(
     require_control(&webview)?;
     #[cfg(windows)]
     {
-        return replay_file_dialog::pick_dem_file()
-            .map(|path| path.map(|path| library.register_picked_file(std::path::PathBuf::from(path))));
+        return replay_file_dialog::pick_dem_file().map(|path| {
+            path.map(|path| library.register_picked_file(std::path::PathBuf::from(path)))
+        });
     }
     #[cfg(not(windows))]
     {
@@ -75,16 +76,16 @@ pub(crate) fn replay_library_pick_file(
 #[cfg(windows)]
 mod replay_file_dialog {
     use std::ffi::c_void;
-    use windows::core::w;
     use windows::Win32::System::Com::{
-        CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_INPROC_SERVER,
-        COINIT_APARTMENTTHREADED,
+        CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED, CoCreateInstance, CoInitializeEx,
+        CoTaskMemFree, CoUninitialize,
     };
     use windows::Win32::UI::Shell::Common::COMDLG_FILTERSPEC;
     use windows::Win32::UI::Shell::{
-        FileOpenDialog, IFileOpenDialog, FOS_FILEMUSTEXIST, FOS_FORCEFILESYSTEM, FOS_PATHMUSTEXIST,
+        FOS_FILEMUSTEXIST, FOS_FORCEFILESYSTEM, FOS_PATHMUSTEXIST, FileOpenDialog, IFileOpenDialog,
         SIGDN_FILESYSPATH,
     };
+    use windows::core::w;
 
     struct ComApartment;
 
@@ -238,10 +239,12 @@ pub(crate) fn replay_library_retention_preview(
     max_bytes: u64,
 ) -> Result<Value, String> {
     require_control(&webview)?;
-    let evicted_matches = library.preview_retention(crate::replay_library::ReplayLibraryLimits {
-        max_matches: keep_newest,
-        max_bytes,
-    }).map_err(str::to_owned)?;
+    let evicted_matches = library
+        .preview_retention(crate::replay_library::ReplayLibraryLimits {
+            max_matches: keep_newest,
+            max_bytes,
+        })
+        .map_err(str::to_owned)?;
     Ok(json!({ "evicted_matches": evicted_matches }))
 }
 
@@ -255,13 +258,17 @@ pub(crate) fn replay_library_retention_save(
     expected_evictions: usize,
 ) -> Result<crate::analytics::AnalyticsPreferences, String> {
     require_control(&webview)?;
-    let limits = crate::replay_library::ReplayLibraryLimits { max_matches: keep_newest, max_bytes };
+    let limits = crate::replay_library::ReplayLibraryLimits {
+        max_matches: keep_newest,
+        max_bytes,
+    };
     let actual = library.preview_retention(limits).map_err(str::to_owned)?;
     if actual != expected_evictions {
         return Err("retention_preview_stale".to_owned());
     }
     let old = analytics.preferences().map_err(str::to_owned)?;
-    let next = analytics.patch_preferences(&json!({ "keep_newest": keep_newest, "max_bytes": max_bytes }))
+    let next = analytics
+        .patch_preferences(&json!({ "keep_newest": keep_newest, "max_bytes": max_bytes }))
         .map_err(str::to_owned)?;
     if let Err(error) = library.set_limits_previewed(limits, expected_evictions) {
         let _ = analytics.store().write_preferences(&old);
@@ -1416,6 +1423,26 @@ pub(crate) fn media_cancel_pending_activation(
 }
 
 #[tauri::command(async)]
+pub(crate) fn media_loadout_get(state: tauri::State<'_, AppState>) -> Result<Value, String> {
+    state.host.commands.media_loadout()
+}
+
+#[tauri::command(async)]
+pub(crate) fn media_loadout_set(
+    state: tauri::State<'_, AppState>,
+    request: Value,
+) -> Result<Value, String> {
+    let result = state.host.commands.media_set_loadout(&request);
+    log_media_result("loadout_set", &result);
+    result
+}
+
+#[tauri::command(async)]
+pub(crate) fn media_loadout_cancel(state: tauri::State<'_, AppState>) -> Result<Value, String> {
+    state.host.commands.media_cancel_loadout()
+}
+
+#[tauri::command(async)]
 pub(crate) fn media_list(state: tauri::State<'_, AppState>) -> Result<Value, String> {
     state.host.commands.media_list()
 }
@@ -2358,7 +2385,7 @@ mod audio_volume_tests {
     };
     use crate::audio_prefs::{AudioPrefs, AudioPrefsService, AudioPrefsStore};
     use crate::hotkeys::VolumeStep;
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
     use std::sync::{Arc, Mutex};
 
     struct FakeStore(Mutex<AudioPrefs>);
@@ -2490,7 +2517,7 @@ mod audio_volume_tests {
 
 #[cfg(test)]
 mod audition_result_tests {
-    use super::{wait_for_audition_result, AuditionSignal};
+    use super::{AuditionSignal, wait_for_audition_result};
     use crate::overlay::{VideoDiagnostic, VideoDiagnosticOutcome};
     use std::sync::mpsc;
 

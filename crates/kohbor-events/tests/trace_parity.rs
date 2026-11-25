@@ -45,6 +45,9 @@ fn check_lockstep(ticks: &[Tick]) -> Vec<Vec<Event>> {
             EventId::LevelMilestone,
             EventId::HeroKill,
             EventId::HeroDeath,
+            EventId::ClutchKill,
+            EventId::PosthumousKill,
+            EventId::ComebackKill,
         ] {
             let row = trace
                 .event(id.as_str())

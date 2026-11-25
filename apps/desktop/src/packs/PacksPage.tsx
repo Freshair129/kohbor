@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { AudioMuteControl, type AudioMuteState } from "../AudioPanel";
-import { auditionReason, copy, packReason, packsPageCopy, type Locale, type Phase } from "../copy";
-import { errorCode, newRequestId, parseInstallResult, sortRecords } from "../packs";
+import { auditionReason, copy, packsPageCopy, type Locale, type Phase } from "../copy";
+import { errorCode, newRequestId, sortRecords } from "../packs";
 import { toWebviewUrl } from "../mediaUrl";
-import { matchRecapCommand, mediaActivate, mediaAudition, mediaAuditionVariant, mediaEventMap, subscribeAuditionMatch } from "../runtime";
+import { matchRecapCommand, mediaAudition, mediaEventMap, subscribeAuditionMatch } from "../runtime";
 import { useMediaListing } from "../useMediaListing";
 import { VolumeControl } from "../VolumeControl";
 import {
@@ -14,13 +14,15 @@ import { MatchHistory } from "./MatchHistory";
 import { clearMatchRecap, loadMatchRecap, type MatchRecapSnapshot } from "./recapModel";
 import { nextPacksTab, PACKS_TABS, type PacksTab, type PackSummary } from "./model";
 import { PackDrawer, PackCard } from "./PackLibrary";
-import { SoundRows } from "./SoundRows";
 import { InstallDialog } from "./InstallDialog";
 import { installDialogCopy } from "./InstallDialog.copy";
 import { browseApi, type BrowseBinding, type BrowsePackDetail } from "./browseApi";
 import { countPackOrigins, filterBrowsePacks, originFiltersAvailable, type BrowseFilters } from "./browseModel";
 import { createBrowsePreviewState, holdBrowseVideo, playBrowseVideo, prepareBrowseVideo, reduceBrowsePreview } from "./previewModel";
 import { StorePage } from "../store/StorePage";
+import { CoverageMatrix } from "./CoverageMatrix";
+import { cancelPackLoadout, getPackLoadout, setPackLoadout } from "./loadoutApi";
+import { loadoutRequest, moveEquipped, toggleEquipped, type PackLoadoutState } from "./loadoutModel";
 
 export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, onStoreBack, onStoreOpen, developerMode = false }: {
   locale: Locale; disabled: boolean; phase: Phase | null; mute: AudioMuteState; storeOnly?: boolean;
@@ -37,10 +39,10 @@ export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, on
   const [refreshId, setRefreshId] = useState(0);
   const [summaries, setSummaries] = useState<PackSummary[] | null>(null);
   const [summariesFailed, setSummariesFailed] = useState(false);
+  const [packLoadout, setPackLoadoutState] = useState<PackLoadoutState | null>(null);
   const [mapLoad, setMapLoad] = useState<EventMapLoadResult | null>(null);
   const [matchSignal, setMatchSignal] = useState<{ active: boolean | null } | null>(null);
   const [action, setAction] = useState<string | null>(null);
-  const [activationErrors, setActivationErrors] = useState<Record<string, string>>({});
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [auditionNotice, setAuditionNotice] = useState<string | null>(null);
@@ -109,6 +111,13 @@ export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, on
     }, () => {
       if (current) { setSummaries(null); setSummariesFailed(true); }
     });
+    return () => { current = false; };
+  }, [inventoryKey, listingCurrent, refreshId]);
+
+  useEffect(() => {
+    if (!listingCurrent || inventoryKey === null) { setPackLoadoutState(null); return; }
+    let current = true;
+    void getPackLoadout().then(value => { if (current) setPackLoadoutState(value); }, () => { if (current) setPackLoadoutState(null); });
     return () => { current = false; };
   }, [inventoryKey, listingCurrent, refreshId]);
 
@@ -182,6 +191,7 @@ export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, on
     return {
       ...(verified ? summary : {
         installId: record.install_id, packageId: record.package_id, revision: record.revision,
+        equippedSlot: null, packKind: "unknown" as const,
         name: null, problem: "metadata" as const, coverUrl: null, counts: null, bindings: [],
         authorityClass: "unknown" as const, publisherClaim: null, installedAt: null, sizeBytes: null, gameId: null,
         presentation: { description: null, author: null, languages: null, coverUrl: null },
@@ -273,35 +283,68 @@ export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, on
     }
   };
 
-  const activate = async (pack: PackSummary) => {
-    if (!listingCurrent || pack.active || pack.pending || actionLock.current || auditionLock.current) return;
+  const updateLoadout = async (installIds: string[], eventLocks?: Record<string, string>, matchConsistency?: boolean) => {
+    const current = packLoadout?.loadout;
+    if (!listingCurrent || !current || actionLock.current || auditionLock.current || locked) return;
     actionLock.current = true;
-    setAction(pack.installId);
+    setAction("loadout");
     setActionNotice(null);
     setAuditionNotice(null);
-    setActivationErrors(errors => {
-      const next = { ...errors };
-      delete next[pack.installId];
-      return next;
-    });
     try {
-      const result = parseInstallResult(await mediaActivate(newRequestId(), pack.installId, "after_match"));
-      if (!result) throw new Error("UNKNOWN");
-      if (result.status === "rejected" || result.status === "activation_error") {
-        const message = `${text.outcomes[result.status]} · ${packReason(result.reason, locale)}`;
-        setActivationErrors(errors => ({ ...errors, [pack.installId]: message }));
-        setActionNotice(message);
-      } else {
-        setActionNotice(text.outcomes[result.status]);
-      }
+      const result = await setPackLoadout(loadoutRequest(newRequestId(), installIds, current,
+        eventLocks ?? current.event_locks, matchConsistency ?? current.match_consistency));
+      const payload = typeof result === "object" && result !== null ? result as Record<string, unknown> : null;
+      const status = payload?.status;
+      setActionNotice(status === "active" ? (locale === "th" ? "ใช้ชุดแพ็กเสียงแล้ว" : "Loadout applied")
+        : status === "deferred" ? (locale === "th" ? "บันทึกแล้ว จะใช้หลังจบแมตช์" : "Saved; applies after the match")
+        : status === "rejected" ? `${locale === "th" ? "ใช้ชุดแพ็กไม่ได้" : "Loadout rejected"} · ${String(payload?.reason ?? "UNKNOWN")}`
+        : (locale === "th" ? "รับคำขอชุดแพ็กเสียงแล้ว" : "Loadout request accepted"));
     } catch (failure) {
-      const message = `${text.outcomes.activation_error} · ${packReason(errorCode(failure), locale)}`;
-      setActivationErrors(errors => ({ ...errors, [pack.installId]: message }));
+      const message = `${locale === "th" ? "เปลี่ยนชุดแพ็กไม่สำเร็จ" : "Could not change the loadout"} · ${errorCode(failure)}`;
       setActionNotice(message);
     } finally {
       setMapLoad(null);
       await listing.refresh();
       setRefreshId(value => value + 1);
+      void getPackLoadout().then(value => setPackLoadoutState(value));
+      setAction(null);
+      actionLock.current = false;
+    }
+  };
+
+  const togglePack = (pack: PackSummary) => {
+    if (!packLoadout) return;
+    const next = toggleEquipped(packLoadout.loadout, { installId: pack.installId, packageId: pack.packageId });
+    if (!next) {
+      setActionNotice(locale === "th" ? "ติดตั้งได้ไม่เกิน 4 แพ็ก และห้ามซ้ำแพ็กเดียวกัน" : "Equip up to four packs; only one revision per package is allowed");
+      return;
+    }
+    void updateLoadout(next);
+  };
+  const movePack = (installId: string, delta: -1 | 1) => {
+    if (!packLoadout) return;
+    const next = moveEquipped(packLoadout.loadout, installId, delta);
+    if (next) void updateLoadout(next);
+  };
+  const setEventLock = (row: import("./eventMap").EventSound, packageId: string | null) => {
+    if (!packLoadout) return;
+    const locks = { ...packLoadout.loadout.event_locks };
+    if (packageId === null) delete locks[row.event_id]; else locks[row.event_id] = packageId;
+    void updateLoadout(packLoadout.loadout.equipped.map(pack => pack.install_id), locks);
+  };
+  const cancelPendingLoadout = async () => {
+    if (!packLoadout?.pending || actionLock.current) return;
+    actionLock.current = true;
+    setAction("loadout");
+    try {
+      await cancelPackLoadout();
+      setActionNotice(locale === "th" ? "ยกเลิกชุดแพ็กที่รออยู่แล้ว" : "Pending loadout cancelled");
+      setPackLoadoutState(await getPackLoadout());
+      await listing.refresh();
+      setRefreshId(value => value + 1);
+    } catch (failure) {
+      setActionNotice(`${locale === "th" ? "ยกเลิกไม่สำเร็จ" : "Could not cancel"} · ${errorCode(failure)}`);
+    } finally {
       setAction(null);
       actionLock.current = false;
     }
@@ -368,7 +411,6 @@ export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, on
   const reportPreviewVisualError = useCallback((playbackId: string, reason: string) => {
     commitPreview({ type: "visual-failed", playbackId, reason });
   }, [commitPreview]);
-  const listen = { block, play: (row: SoundKey) => void play(row), busyKey };
   const mapError = !!mapLoad && !currentMap;
   const changeTab = (name: PacksTab) => {
     setAuditionNotice(null);
@@ -427,6 +469,28 @@ export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, on
               aria-haspopup="dialog" onClick={() => setInstallDialogOpen(true)}>{installText.title}</button>
             <button type="button" disabled={disabled || listing.busy} aria-busy={listing.busy} onClick={refresh}>{text.retry}</button>
           </div>
+          {packLoadout && <section className="packs-equipped" aria-label={locale === "th" ? "ชุดแพ็กเสียงที่ติดตั้ง" : "Equipped announcer packs"}>
+            <header><h3>{locale === "th" ? `ติดตั้งแล้ว (${packLoadout.loadout.equipped.length} จาก ${packLoadout.max_equipped})` : `Equipped (${packLoadout.loadout.equipped.length} of ${packLoadout.max_equipped})`}</h3>
+              <label><input type="checkbox" checked={packLoadout.loadout.match_consistency} disabled={locked || action !== null}
+                onChange={event => void updateLoadout(packLoadout.loadout.equipped.map(pack => pack.install_id), undefined, event.currentTarget.checked)} />
+                {locale === "th" ? "ใช้เสียงแพ็กเดิมต่อเหตุการณ์เดิมตลอดแมตช์" : "Same voice per event for the whole match"}</label>
+            </header>
+            <div className="packs-equipped-slots">{Array.from({ length: packLoadout.max_equipped }, (_, slot) => {
+              const equipped = packLoadout.loadout.equipped[slot];
+              const card = equipped && cards.find(pack => pack.installId === equipped.install_id);
+              return <div className="packs-equipped-slot" key={slot}>
+                <strong>{slot + 1}</strong>{card ? <><span dir="auto">{card.name ?? text.unnamed}</span>
+                  <small>{card.packKind === "unknown" ? (locale === "th" ? "ชนิดแพ็กไม่ทราบ" : "Pack kind unknown") : card.packKind}</small>
+                  <div><button type="button" disabled={locked || action !== null || slot === 0} aria-label={locale === "th" ? "เลื่อนแพ็กไปทางซ้าย" : "Move pack left"} onClick={() => movePack(card.installId, -1)}>←</button>
+                    <button type="button" disabled={locked || action !== null || slot >= packLoadout.loadout.equipped.length - 1} aria-label={locale === "th" ? "เลื่อนแพ็กไปทางขวา" : "Move pack right"} onClick={() => movePack(card.installId, 1)}>→</button>
+                    <button type="button" disabled={locked || action !== null} onClick={() => togglePack(card)}>{locale === "th" ? "ถอดออก" : "Unequip"}</button></div>
+                </> : <span className="muted">{locale === "th" ? "ว่าง" : "Empty"}</span>}
+              </div>;
+            })}</div>
+            {packLoadout.pending && <p role="status">{locale === "th" ? "ชุดแพ็กใหม่จะเริ่มใช้หลังจบแมตช์: " : "Pending loadout applies after the match: "}
+              {packLoadout.pending.equipped.map(pack => cards.find(item => item.installId === pack.install_id)?.name ?? text.unnamed).join(" + ") || (locale === "th" ? "ไม่มีแพ็ก" : "No packs")}
+              <button type="button" disabled={action !== null} onClick={() => void cancelPendingLoadout()}>{locale === "th" ? "ยกเลิก" : "Cancel"}</button></p>}
+          </section>}
           <div className="packs-toolbar">
             <fieldset className="packs-origin-filters" disabled={!sourceFiltersEnabled}>
               <legend>{text.filterLegend}</legend>
@@ -459,7 +523,7 @@ export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, on
           {(summaries || summariesFailed || !listingCurrent) && <div className="packs-grid">
             {visibleCards.map(pack => <PackCard key={pack.installId} pack={pack} locale={locale}
               unavailable={!listingCurrent || action !== null || busyKey !== null} busy={action === pack.installId}
-              activationError={activationErrors[pack.installId]} onActivate={() => void activate(pack)}
+              onActivate={() => togglePack(pack)}
               onDetails={from => { setAuditionNotice(null); setOpen({ id: pack.installId, from }); }} />)}
           </div>}
         </>}
@@ -467,7 +531,7 @@ export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, on
           <div className="packs-section-heading packs-sound-heading">
             <div className="packs-sound-heading-copy">
               <h2>{text.tabs.events}</h2>
-              {listingCurrent && activeCard?.name && <p className="packs-sound-active-pack" dir="auto">{text.eventPack(activeCard.name)}</p>}
+          {listingCurrent && <p className="packs-sound-active-pack" dir="auto">{locale === "th" ? "ติดตั้งแล้ว: " : "Equipped: "}{cards.filter(pack => pack.equippedSlot !== null).map(pack => pack.name ?? text.unnamed).join(" + ") || (activeCard?.name ?? text.noActive)}</p>}
             </div>
             <button type="button" className="packs-sound-retry" aria-label={text.retry}
               disabled={disabled || listing.busy} onClick={refresh}>
@@ -477,10 +541,11 @@ export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, on
           {locked && <p className="packs-lock">{text.matchLock}</p>}
           <p role="status" className="packs-audition-result">{auditionNotice}</p>
           {(disabled || mapError) && <p role="status">{text.eventLoadError}</p>}
-          {!disabled && !mapLoad && <p role="status">{text.loading}</p>}
-          {currentMap && <SoundRows rows={currentMap.bindings} locale={locale} listen={listen}
+            {!disabled && !mapLoad && <p role="status">{text.loading}</p>}
+          {currentMap?.loadout && <CoverageMatrix rows={currentMap.bindings} loadout={currentMap.loadout} locale={locale}
+              pending={currentMap.pending_loadout} packs={cards} prewarm={currentMap.prewarm}
             disabled={disabled || locked || mute.muted === true || action !== null || busyKey !== null}
-            onAuditionVariant={(row, variantId) => mediaAuditionVariant(row.event_id, row.tier, variantId)} />}
+            onLock={setEventLock} onResult={row => void play(row)} />}
         </>}
         {tab === name && name === "recap" && (
           currentRecap
@@ -494,7 +559,7 @@ export function PacksPage({ locale, disabled, phase, mute, storeOnly = false, on
         onOverlayPreview={value => setOverlayPreview(detail.active && value)} returnFocus={open.from}
         onClose={() => { setOpen(null); commitPreview({ type: "reset" }); }}
         onStep={pack => setOpen(current => current ? { ...current, id: pack.installId } : current)}
-        onEquip={() => void activate(detail)} actionBusy={action !== null || busyKey !== null}
+        onEquip={() => togglePack(detail)} actionBusy={action !== null || busyKey !== null}
         onAuditionVariant={auditionBrowseVariant} onPlayCategory={bindings => void playCategory(bindings)}
         onPreviewVisualError={reportPreviewVisualError} />}
     </>}

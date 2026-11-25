@@ -27,12 +27,13 @@
 //! An `active.json` naming an install that is not in the registry or whose
 //! revision directory is missing is `StoreError::Corrupt`.
 
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Component, Path, PathBuf};
 
 use crate::catalog::Catalog;
+use crate::catalog::EventGroup;
 use crate::container;
 use crate::descriptor::{self, Descriptor, Selection};
 use crate::error::RejectReason;
@@ -40,7 +41,7 @@ use crate::fsutil::{flush_dir, is_directory_reparse_point, is_link_or_reparse_po
 use crate::limits::{Limits, MAX_DESCRIPTOR_BYTES, MAX_PAYLOAD_BYTES};
 use crate::trust::{self, AuthorityClass, PublisherClaim};
 use kohbor_gsi::strict_json;
-use serde_json::{json, Map, Number, Value};
+use serde_json::{Map, Number, Value, json};
 use sha2::{Digest, Sha256};
 
 /// Transaction steps in execution order. Install runs the first six steps that
@@ -68,11 +69,25 @@ pub enum Step {
     WriteActiveTemp,
     /// Rename it over `active.json` (the activation commit point).
     RenameActive,
+    /// Write `loadout.json.tmp` for an ordered pack-loadout change.
+    WriteLoadoutTemp,
+    /// Rename it over `loadout.json` (the loadout commit point).
+    RenameLoadout,
+    /// Test-only point immediately after the `loadout.json` commit rename.
+    AfterRenameLoadout,
+    /// Write `pending_loadout.json.tmp` for a deferred loadout request.
+    WritePendingLoadoutTemp,
+    /// Rename it over `pending_loadout.json`.
+    RenamePendingLoadout,
+    /// Remove the compatibility mirror when the loadout is empty.
+    RemoveActive,
+    /// Test-only point immediately after the `active.json` mirror rename.
+    AfterRenameActive,
 }
 
 impl Step {
     /// Every step in execution order.
-    pub const ALL: [Step; 9] = [
+    pub const ALL: [Step; 12] = [
         Step::CopySource,
         Step::ValidateContainer,
         Step::ExtractToStaging,
@@ -82,6 +97,9 @@ impl Step {
         Step::RenameRegistry,
         Step::WriteActiveTemp,
         Step::RenameActive,
+        Step::WriteLoadoutTemp,
+        Step::RenameLoadout,
+        Step::AfterRenameLoadout,
     ];
 }
 
@@ -215,6 +233,67 @@ pub enum Status {
     Rejected,
 }
 
+pub const MAX_EQUIPPED_PACKS: usize = 4;
+
+/// A verified installed revision in its loadout order.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EquippedPack {
+    pub install_id: String,
+    pub package_id: String,
+    pub revision: u64,
+    pub container_sha256: String,
+}
+
+/// Persistent active selection and the preferences that shape its merged table.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Loadout {
+    pub generation: u64,
+    pub equipped: Vec<EquippedPack>,
+    pub event_locks: BTreeMap<String, String>,
+    pub match_consistency: bool,
+}
+
+/// The caller-controlled portion of a loadout request. Revision identity is
+/// always looked up from the verified store registry.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct LoadoutDesired {
+    pub install_ids: Vec<String>,
+    pub event_locks: BTreeMap<String, String>,
+    pub match_consistency: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LoadoutStatus {
+    Active,
+    Deferred,
+    Rejected,
+}
+
+impl LoadoutStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Active => "active",
+            Self::Deferred => "deferred",
+            Self::Rejected => "rejected",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LoadoutResult {
+    pub request_id: String,
+    pub status: LoadoutStatus,
+    pub reason: Option<String>,
+    pub loadout: Loadout,
+    pub pending: Option<Loadout>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PendingLoadout {
+    request_id: String,
+    desired: Loadout,
+}
+
 impl Status {
     /// `installed`, `active`, `deferred`, `activation_error`, `rejected`.
     pub fn as_str(&self) -> &'static str {
@@ -267,7 +346,27 @@ pub struct InstalledPackSummary {
     pub publisher_claim: Option<String>,
     pub presentation: Option<descriptor::Presentation>,
     pub bindings: Vec<InstalledPackBinding>,
+    pub pack_kind: PackKind,
     pub cover: Result<Option<InstalledPackCover>, RejectReason>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PackKind {
+    Basic,
+    Special,
+    Mixed,
+    Unknown,
+}
+
+impl PackKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Basic => "basic",
+            Self::Special => "special",
+            Self::Mixed => "mixed",
+            Self::Unknown => "unknown",
+        }
+    }
 }
 
 /// media-install-result 1.0.0 (local import) or 1.1.0 (host-shipped system pack).
@@ -397,6 +496,8 @@ pub struct Store<H: Hook = NoHook> {
     hook: H,
     registry: Registry,
     active: Option<ActivePointer>,
+    loadout: Loadout,
+    pending_loadout: Option<PendingLoadout>,
     staging_sequence: u64,
 }
 
@@ -430,17 +531,42 @@ impl<H: Hook> Store<H> {
         } else {
             Registry::default()
         };
+        let loadout_path = root.join("loadout.json");
+        let loadout_exists = path_exists_nofollow(&loadout_path).map_err(corrupt_store_error)?;
         let active_path = root.join("active.json");
-        let active_exists = path_exists_nofollow(&active_path).map_err(corrupt_store_error)?;
-        let active = if active_exists {
-            let bytes = read_store_file(&active_path, 64 * 1024).map_err(corrupt_store_error)?;
-            Some(parse_active(&bytes)?)
+        let (loadout, active) = if loadout_exists {
+            let bytes = read_store_file(&loadout_path, 64 * 1024).map_err(corrupt_store_error)?;
+            let loadout = parse_loadout(&bytes)?;
+            validate_loadout(&root, &registry, &loadout)?;
+            let active = loadout.equipped.first().map(active_pointer_from_equipped);
+            (loadout, active)
+        } else {
+            let active_exists = path_exists_nofollow(&active_path).map_err(corrupt_store_error)?;
+            let active = if active_exists {
+                let bytes =
+                    read_store_file(&active_path, 64 * 1024).map_err(corrupt_store_error)?;
+                Some(parse_active(&bytes)?)
+            } else {
+                None
+            };
+            validate_active(&root, &registry, active.as_ref())?;
+            (migrated_loadout(active.as_ref()), active)
+        };
+        validate_registry_revisions(&root, &registry, &catalog, limits.clamped())?;
+        let pending_path = root.join("pending_loadout.json");
+        let pending_exists = path_exists_nofollow(&pending_path).map_err(corrupt_store_error)?;
+        let pending_loadout = if pending_exists {
+            let bytes = read_store_file(&pending_path, 64 * 1024).map_err(corrupt_store_error)?;
+            let pending = parse_pending_loadout(&bytes)?;
+            validate_loadout(&root, &registry, &pending.desired)?;
+            Some(pending)
         } else {
             None
         };
-        validate_registry_revisions(&root, &registry, &catalog, limits.clamped())?;
-        validate_active(&root, &registry, active.as_ref())?;
         recover_leftovers(&root, &registry)?;
+        if loadout_exists {
+            repair_active_mirror(&root, active.as_ref())?;
+        }
         Ok(Store {
             root,
             catalog,
@@ -448,6 +574,8 @@ impl<H: Hook> Store<H> {
             hook,
             registry,
             active,
+            loadout,
+            pending_loadout,
             staging_sequence: 0,
         })
     }
@@ -943,11 +1071,7 @@ impl<H: Hook> Store<H> {
                 Some(record),
             ));
         }
-        if self
-            .active
-            .as_ref()
-            .is_some_and(|active| active.install_id == install_id)
-        {
+        if self.loadout.equipped.len() == 1 && self.loadout.equipped[0].install_id == install_id {
             self.remove_pending_for(install_id)?;
             return Ok(activation_result(
                 request_id,
@@ -971,14 +1095,9 @@ impl<H: Hook> Store<H> {
         }
 
         verify_revision(&self.root, &installed, &self.catalog, self.limits, true)?;
-        let pointer = ActivePointer {
-            install_id: record.install_id.clone(),
-            package_id: record.package_id.clone(),
-            revision: record.revision,
-            container_sha256: record.container_sha256.clone(),
-        };
-        let bytes = serialize_active(&pointer)?;
 
+        // Preserve the old activation error boundary for existing callers. The
+        // loadout remains the first file committed when activation proceeds.
         match self.hook.before(Step::WriteActiveTemp) {
             Injection::Proceed => {}
             Injection::Crash => return Err(StoreError::Interrupted(Step::WriteActiveTemp)),
@@ -993,16 +1112,10 @@ impl<H: Hook> Store<H> {
                 ));
             }
         }
-        if let Err(error) = write_temp_file(&self.root, "active.json", &bytes) {
-            remove_file_if_exists(&self.root.join("active.json.tmp"))?;
-            return Err(error);
-        }
-
         match self.hook.before(Step::RenameActive) {
             Injection::Proceed => {}
             Injection::Crash => return Err(StoreError::Interrupted(Step::RenameActive)),
             Injection::IoError => {
-                remove_file_if_exists(&self.root.join("active.json.tmp"))?;
                 self.remove_pending_for(install_id)?;
                 return Ok(activation_result(
                     request_id,
@@ -1012,18 +1125,27 @@ impl<H: Hook> Store<H> {
                 ));
             }
         }
-        match rename_temp_file(&self.root, "active.json") {
-            Ok(()) => {}
-            Err(AtomicRenameError::BeforeRename(error)) => {
-                remove_file_if_exists(&self.root.join("active.json.tmp"))?;
-                return Err(error);
-            }
-            Err(AtomicRenameError::AfterRename(error)) => {
-                self.active = Some(pointer);
-                return Err(error);
-            }
-        }
-        self.active = Some(pointer);
+        let desired = LoadoutDesired {
+            install_ids: vec![install_id.to_owned()],
+            event_locks: BTreeMap::new(),
+            match_consistency: false,
+        };
+        let prepared = self
+            .prepare_loadout(&desired)
+            .map_err(|reason| StoreError::Io(format!("activation loadout: {reason}")))?;
+        let generation = self
+            .loadout
+            .generation
+            .checked_add(1)
+            .filter(|value| *value <= MAX_SAFE_INTEGER)
+            .ok_or_else(|| StoreError::Io("loadout generation exhausted".to_owned()))?;
+        self.commit_loadout(
+            Loadout {
+                generation,
+                ..prepared
+            },
+            false,
+        )?;
         self.remove_pending_for(install_id)?;
         Ok(activation_result(
             request_id,
@@ -1040,6 +1162,7 @@ impl<H: Hook> Store<H> {
         &mut self,
         state: &ActivationState,
     ) -> Result<Vec<InstallResult>, StoreError> {
+        self.resume_pending_loadout(state)?;
         let pending = self.registry.pending_activations.clone();
         let mut results = Vec::new();
         for activation in pending {
@@ -1059,19 +1182,340 @@ impl<H: Hook> Store<H> {
         Ok(results)
     }
 
+    /// Apply the latest deferred multi-pack request once the current loadout is
+    /// no longer protected by a match or any equipped playback lease.
+    pub fn resume_pending_loadout(
+        &mut self,
+        state: &ActivationState,
+    ) -> Result<Option<LoadoutResult>, StoreError> {
+        let Some(pending) = self.pending_loadout.clone() else {
+            return Ok(None);
+        };
+        if self.loadout_change_blocked(state) {
+            return Ok(None);
+        }
+        if same_loadout_settings(&self.loadout, &pending.desired) {
+            self.clear_pending_loadout()?;
+            return Ok(Some(self.loadout_result(
+                &pending.request_id,
+                LoadoutStatus::Active,
+                None,
+            )));
+        }
+        self.commit_loadout(pending.desired, true)?;
+        Ok(Some(self.loadout_result(
+            &pending.request_id,
+            LoadoutStatus::Active,
+            None,
+        )))
+    }
+
     /// Whether switching the active revision must wait. A match or a lease only
     /// protects an existing active revision; with no active revision there is
     /// nothing to keep usable, so the first activation never waits (owner
     /// decision 2026-11-19: a pack installed mid-match with none active plays at once).
     fn activation_blocked(&self, state: &ActivationState) -> bool {
-        let Some(active) = self.active.as_ref() else {
+        if self.loadout.equipped.is_empty() {
             return false;
+        }
+        self.loadout_change_blocked(state)
+    }
+
+    fn loadout_change_blocked(&self, state: &ActivationState) -> bool {
+        !self.loadout.equipped.is_empty()
+            && (state.match_active
+                || self.loadout.equipped.iter().any(|equipped| {
+                    state
+                        .leased_install_ids
+                        .iter()
+                        .any(|leased| leased == &equipped.install_id)
+                }))
+    }
+
+    /// Current ordered selection. During migration from an older build this is
+    /// synthesized from `active.json` in memory and is not written until a change.
+    pub fn loadout(&self) -> &Loadout {
+        &self.loadout
+    }
+
+    /// The latest deferred loadout request, if a match or playback lease blocks it.
+    pub fn pending_loadout(&self) -> Option<&Loadout> {
+        self.pending_loadout
+            .as_ref()
+            .map(|pending| &pending.desired)
+    }
+
+    pub fn pending_loadout_request_id(&self) -> Option<&str> {
+        self.pending_loadout
+            .as_ref()
+            .map(|pending| pending.request_id.as_str())
+    }
+
+    /// Replace the entire ordered loadout. The store resolves every install ID
+    /// to its verified registry identity; caller-supplied package metadata is
+    /// never trusted. Deferred requests are persisted as one last-write-wins
+    /// document and resume through `resume_deferred`.
+    pub fn set_loadout(
+        &mut self,
+        request_id: &str,
+        desired: &LoadoutDesired,
+        policy: ActivationPolicy,
+        state: &ActivationState,
+    ) -> Result<LoadoutResult, StoreError> {
+        if !valid_token(request_id, 8, 64) {
+            return Err(StoreError::Io("invalid loadout request_id".to_owned()));
+        }
+        let prepared = match self.prepare_loadout(desired) {
+            Ok(loadout) => loadout,
+            Err(reason) => {
+                return Ok(self.loadout_result(request_id, LoadoutStatus::Rejected, Some(reason)));
+            }
         };
-        state.match_active
-            || state
-                .leased_install_ids
+        if policy == ActivationPolicy::Never {
+            return Ok(self.loadout_result(
+                request_id,
+                LoadoutStatus::Rejected,
+                Some("LOADOUT_POLICY_NEVER"),
+            ));
+        }
+        if same_loadout_settings(&self.loadout, &prepared) {
+            self.clear_pending_loadout()?;
+            return Ok(self.loadout_result(request_id, LoadoutStatus::Active, None));
+        }
+        let generation = self
+            .loadout
+            .generation
+            .checked_add(1)
+            .filter(|value| *value <= MAX_SAFE_INTEGER)
+            .ok_or_else(|| StoreError::Io("loadout generation exhausted".to_owned()))?;
+        let desired = Loadout {
+            generation,
+            ..prepared
+        };
+
+        if self.loadout_change_blocked(state) {
+            self.persist_pending_loadout(PendingLoadout {
+                request_id: request_id.to_owned(),
+                desired: desired.clone(),
+            })?;
+            return Ok(self.loadout_result(
+                request_id,
+                LoadoutStatus::Deferred,
+                Some("ACTIVATION_DEFERRED"),
+            ));
+        }
+
+        self.commit_loadout(desired, true)?;
+        Ok(self.loadout_result(request_id, LoadoutStatus::Active, None))
+    }
+
+    pub fn cancel_pending_loadout(&mut self) -> Result<bool, StoreError> {
+        if self.pending_loadout.is_none() {
+            return Ok(false);
+        }
+        self.clear_pending_loadout()?;
+        Ok(true)
+    }
+
+    fn loadout_result(
+        &self,
+        request_id: &str,
+        status: LoadoutStatus,
+        reason: Option<&str>,
+    ) -> LoadoutResult {
+        LoadoutResult {
+            request_id: request_id.to_owned(),
+            status,
+            reason: reason.map(str::to_owned),
+            loadout: self.loadout.clone(),
+            pending: self.pending_loadout().cloned(),
+        }
+    }
+
+    fn prepare_loadout(&self, desired: &LoadoutDesired) -> Result<Loadout, &'static str> {
+        if desired.install_ids.len() > MAX_EQUIPPED_PACKS {
+            return Err("LOADOUT_TOO_MANY");
+        }
+        let mut install_ids = HashSet::new();
+        let mut package_ids = HashSet::new();
+        let mut equipped = Vec::with_capacity(desired.install_ids.len());
+        for install_id in &desired.install_ids {
+            if !install_ids.insert(install_id.as_str()) {
+                return Err("LOADOUT_DUPLICATE_INSTALL");
+            }
+            let Some(installed) = self
+                .registry
+                .records
                 .iter()
-                .any(|leased| leased == &active.install_id)
+                .find(|entry| entry.record.install_id == *install_id)
+            else {
+                return Err("UNKNOWN_INSTALL");
+            };
+            if !package_ids.insert(installed.record.package_id.as_str()) {
+                return Err("LOADOUT_DUPLICATE_PACKAGE");
+            }
+            equipped.push(EquippedPack {
+                install_id: installed.record.install_id.clone(),
+                package_id: installed.record.package_id.clone(),
+                revision: installed.record.revision,
+                container_sha256: installed.record.container_sha256.clone(),
+            });
+        }
+        for (event_id, package_id) in &desired.event_locks {
+            if !valid_event_key(event_id) || !valid_package_id(package_id) {
+                return Err("LOADOUT_INVALID_LOCK");
+            }
+        }
+        Ok(Loadout {
+            generation: self.loadout.generation,
+            equipped,
+            event_locks: desired.event_locks.clone(),
+            match_consistency: desired.match_consistency,
+        })
+    }
+
+    fn persist_pending_loadout(&mut self, pending: PendingLoadout) -> Result<(), StoreError> {
+        let bytes = serialize_pending_loadout(&pending)?;
+        match self.hook.before(Step::WritePendingLoadoutTemp) {
+            Injection::Proceed => {}
+            Injection::Crash => return Err(StoreError::Interrupted(Step::WritePendingLoadoutTemp)),
+            Injection::IoError => {
+                return Err(StoreError::Io("pending loadout write failed".to_owned()));
+            }
+        }
+        write_temp_file(&self.root, "pending_loadout.json", &bytes)?;
+        match self.hook.before(Step::RenamePendingLoadout) {
+            Injection::Proceed => {}
+            Injection::Crash => return Err(StoreError::Interrupted(Step::RenamePendingLoadout)),
+            Injection::IoError => {
+                remove_file_if_exists(&self.root.join("pending_loadout.json.tmp"))?;
+                return Err(StoreError::Io("pending loadout commit failed".to_owned()));
+            }
+        }
+        match rename_temp_file(&self.root, "pending_loadout.json") {
+            Ok(()) => {}
+            Err(AtomicRenameError::BeforeRename(error)) => {
+                remove_file_if_exists(&self.root.join("pending_loadout.json.tmp"))?;
+                return Err(error);
+            }
+            Err(AtomicRenameError::AfterRename(error)) => {
+                self.pending_loadout = Some(pending);
+                return Err(error);
+            }
+        }
+        self.pending_loadout = Some(pending);
+        Ok(())
+    }
+
+    fn clear_pending_loadout(&mut self) -> Result<(), StoreError> {
+        if self.pending_loadout.is_none() {
+            return Ok(());
+        }
+        remove_file_if_exists(&self.root.join("pending_loadout.json"))?;
+        self.pending_loadout = None;
+        Ok(())
+    }
+
+    fn commit_loadout(&mut self, loadout: Loadout, inject_mirror: bool) -> Result<(), StoreError> {
+        let bytes = serialize_loadout(&loadout)?;
+        match self.hook.before(Step::WriteLoadoutTemp) {
+            Injection::Proceed => {}
+            Injection::Crash => return Err(StoreError::Interrupted(Step::WriteLoadoutTemp)),
+            Injection::IoError => return Err(StoreError::Io("loadout write failed".to_owned())),
+        }
+        write_temp_file(&self.root, "loadout.json", &bytes)?;
+        match self.hook.before(Step::RenameLoadout) {
+            Injection::Proceed => {}
+            Injection::Crash => return Err(StoreError::Interrupted(Step::RenameLoadout)),
+            Injection::IoError => {
+                remove_file_if_exists(&self.root.join("loadout.json.tmp"))?;
+                return Err(StoreError::Io("loadout commit failed".to_owned()));
+            }
+        }
+        match rename_temp_file(&self.root, "loadout.json") {
+            Ok(()) => {}
+            Err(AtomicRenameError::BeforeRename(error)) => {
+                remove_file_if_exists(&self.root.join("loadout.json.tmp"))?;
+                return Err(error);
+            }
+            Err(AtomicRenameError::AfterRename(error)) => {
+                self.set_committed_loadout(loadout);
+                return Err(error);
+            }
+        }
+        self.set_committed_loadout(loadout);
+        match self.hook.before(Step::AfterRenameLoadout) {
+            Injection::Proceed => {}
+            Injection::Crash => return Err(StoreError::Interrupted(Step::AfterRenameLoadout)),
+            Injection::IoError => {
+                return Err(StoreError::Io("loadout post-commit failure".to_owned()));
+            }
+        }
+        self.write_active_mirror(inject_mirror)?;
+        self.clear_pending_loadout()?;
+        Ok(())
+    }
+
+    fn set_committed_loadout(&mut self, loadout: Loadout) {
+        self.active = loadout.equipped.first().map(active_pointer_from_equipped);
+        self.loadout = loadout;
+    }
+
+    fn write_active_mirror(&mut self, inject: bool) -> Result<(), StoreError> {
+        let Some(active) = self.active.as_ref() else {
+            if inject {
+                match self.hook.before(Step::RemoveActive) {
+                    Injection::Proceed => {}
+                    Injection::Crash => return Err(StoreError::Interrupted(Step::RemoveActive)),
+                    Injection::IoError => {
+                        return Err(StoreError::Io("active mirror removal failed".to_owned()));
+                    }
+                }
+            }
+            remove_file_if_exists(&self.root.join("active.json"))?;
+            return Ok(());
+        };
+        let bytes = serialize_active(active)?;
+        if inject {
+            match self.hook.before(Step::WriteActiveTemp) {
+                Injection::Proceed => {}
+                Injection::Crash => return Err(StoreError::Interrupted(Step::WriteActiveTemp)),
+                Injection::IoError => {
+                    return Err(StoreError::Io("active mirror write failed".to_owned()));
+                }
+            }
+        }
+        write_temp_file(&self.root, "active.json", &bytes)?;
+        if inject {
+            match self.hook.before(Step::RenameActive) {
+                Injection::Proceed => {}
+                Injection::Crash => return Err(StoreError::Interrupted(Step::RenameActive)),
+                Injection::IoError => {
+                    remove_file_if_exists(&self.root.join("active.json.tmp"))?;
+                    return Err(StoreError::Io("active mirror commit failed".to_owned()));
+                }
+            }
+        }
+        match rename_temp_file(&self.root, "active.json") {
+            Ok(()) => {}
+            Err(AtomicRenameError::BeforeRename(error)) => {
+                remove_file_if_exists(&self.root.join("active.json.tmp"))?;
+                return Err(error);
+            }
+            Err(AtomicRenameError::AfterRename(error)) => return Err(error),
+        }
+        if inject {
+            match self.hook.before(Step::AfterRenameActive) {
+                Injection::Proceed => {}
+                Injection::Crash => return Err(StoreError::Interrupted(Step::AfterRenameActive)),
+                Injection::IoError => {
+                    return Err(StoreError::Io(
+                        "active mirror post-commit failure".to_owned(),
+                    ));
+                }
+            }
+        }
+        Ok(())
     }
 
     pub fn active(&self) -> Option<ActiveRevision> {
@@ -1117,6 +1561,25 @@ impl<H: Hook> Store<H> {
                     .is_some_and(|event| event.media_mappable)
             })
             .collect();
+        let mut has_basic = false;
+        let mut has_special = false;
+        for binding in &bindings {
+            match self
+                .catalog
+                .event(&binding.event_id)
+                .map(|event| &event.event_group)
+            {
+                Some(EventGroup::Basic) => has_basic = true,
+                Some(EventGroup::Special) => has_special = true,
+                None => {}
+            }
+        }
+        let pack_kind = match (has_basic, has_special) {
+            (true, true) => PackKind::Mixed,
+            (true, false) => PackKind::Basic,
+            (false, true) => PackKind::Special,
+            (false, false) => PackKind::Unknown,
+        };
         let cover = descriptor
             .presentation
             .as_ref()
@@ -1173,6 +1636,7 @@ impl<H: Hook> Store<H> {
                         .count(),
                 })
                 .collect(),
+            pack_kind,
             cover,
         })
     }
@@ -1532,7 +1996,7 @@ struct PendingActivation {
     install_id: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct ActivePointer {
     install_id: String,
     package_id: String,
@@ -1888,6 +2352,241 @@ fn serialize_active(active: &ActivePointer) -> Result<Vec<u8>, StoreError> {
         .map_err(|error| StoreError::Io(format!("serialize active pointer: {error}")))
 }
 
+fn loadout_value(loadout: &Loadout) -> Value {
+    let equipped = loadout
+        .equipped
+        .iter()
+        .map(|entry| {
+            json!({
+                "install_id": entry.install_id,
+                "package_id": entry.package_id,
+                "revision": entry.revision,
+                "container_sha256": entry.container_sha256,
+            })
+        })
+        .collect::<Vec<_>>();
+    json!({
+        "schema_version": "1.0.0",
+        "generation": loadout.generation,
+        "equipped": equipped,
+        "event_locks": loadout.event_locks,
+        "match_consistency": loadout.match_consistency,
+    })
+}
+
+fn serialize_loadout(loadout: &Loadout) -> Result<Vec<u8>, StoreError> {
+    serde_json::to_vec(&loadout_value(loadout))
+        .map_err(|error| StoreError::Io(format!("serialize loadout: {error}")))
+}
+
+fn serialize_pending_loadout(pending: &PendingLoadout) -> Result<Vec<u8>, StoreError> {
+    serde_json::to_vec(&json!({
+        "schema_version": "1.0.0",
+        "request_id": pending.request_id,
+        "loadout": loadout_value(&pending.desired),
+    }))
+    .map_err(|error| StoreError::Io(format!("serialize pending loadout: {error}")))
+}
+
+fn parse_pending_loadout(bytes: &[u8]) -> Result<PendingLoadout, StoreError> {
+    let value = strict_json::parse(bytes)
+        .map_err(|error| StoreError::Corrupt(format!("pending loadout JSON: {error:?}")))?;
+    let object = strict_object(&value, &["schema_version", "request_id", "loadout"])?;
+    if required_string(object, "schema_version")? != "1.0.0" {
+        return Err(StoreError::Corrupt(
+            "pending loadout schema_version".to_owned(),
+        ));
+    }
+    let request_id = required_string(object, "request_id")?.to_owned();
+    if !valid_token(&request_id, 8, 64) {
+        return Err(StoreError::Corrupt("pending loadout request_id".to_owned()));
+    }
+    let desired = parse_loadout_value(required_value(object, "loadout")?)?;
+    Ok(PendingLoadout {
+        request_id,
+        desired,
+    })
+}
+
+fn parse_loadout(bytes: &[u8]) -> Result<Loadout, StoreError> {
+    let value = strict_json::parse(bytes)
+        .map_err(|error| StoreError::Corrupt(format!("loadout JSON: {error:?}")))?;
+    parse_loadout_value(&value)
+}
+
+fn parse_loadout_value(value: &Value) -> Result<Loadout, StoreError> {
+    let object = strict_object(
+        value,
+        &[
+            "schema_version",
+            "generation",
+            "equipped",
+            "event_locks",
+            "match_consistency",
+        ],
+    )?;
+    if required_string(object, "schema_version")? != "1.0.0" {
+        return Err(StoreError::Corrupt("loadout schema_version".to_owned()));
+    }
+    let generation = required_u64(object, "generation")?;
+    if generation > MAX_SAFE_INTEGER {
+        return Err(StoreError::Corrupt("loadout generation".to_owned()));
+    }
+    let values = required_array(object, "equipped")?;
+    if values.len() > MAX_EQUIPPED_PACKS {
+        return Err(StoreError::Corrupt("loadout equipped limit".to_owned()));
+    }
+    let mut equipped = Vec::with_capacity(values.len());
+    for value in values {
+        let entry = strict_object(
+            value,
+            &["install_id", "package_id", "revision", "container_sha256"],
+        )?;
+        let install_id = required_string(entry, "install_id")?.to_owned();
+        let package_id = required_string(entry, "package_id")?.to_owned();
+        let revision = required_u64(entry, "revision")?;
+        let container_sha256 = required_string(entry, "container_sha256")?.to_owned();
+        if valid_install_id(&install_id).is_none()
+            || !valid_package_id(&package_id)
+            || revision == 0
+            || revision > MAX_SAFE_INTEGER
+            || !valid_sha256(&container_sha256)
+        {
+            return Err(StoreError::Corrupt("loadout equipped entry".to_owned()));
+        }
+        equipped.push(EquippedPack {
+            install_id,
+            package_id,
+            revision,
+            container_sha256,
+        });
+    }
+    let source_locks = required_value(object, "event_locks")?
+        .as_object()
+        .ok_or_else(|| StoreError::Corrupt("loadout event_locks".to_owned()))?;
+    let mut event_locks = BTreeMap::new();
+    for (event_id, package_id) in source_locks {
+        let package_id = package_id
+            .as_str()
+            .ok_or_else(|| StoreError::Corrupt("loadout event lock value".to_owned()))?;
+        if !valid_event_key(event_id) || !valid_package_id(package_id) {
+            return Err(StoreError::Corrupt("loadout event lock".to_owned()));
+        }
+        event_locks.insert(event_id.clone(), package_id.to_owned());
+    }
+    let match_consistency = required_value(object, "match_consistency")?
+        .as_bool()
+        .ok_or_else(|| StoreError::Corrupt("loadout match_consistency".to_owned()))?;
+    Ok(Loadout {
+        generation,
+        equipped,
+        event_locks,
+        match_consistency,
+    })
+}
+
+fn validate_loadout(root: &Path, registry: &Registry, loadout: &Loadout) -> Result<(), StoreError> {
+    let mut install_ids = HashSet::new();
+    let mut package_ids = HashSet::new();
+    for equipped in &loadout.equipped {
+        let Some(installed) = registry.records.iter().find(|entry| {
+            entry.record.install_id == equipped.install_id
+                && entry.record.package_id == equipped.package_id
+                && entry.record.revision == equipped.revision
+                && entry.record.container_sha256 == equipped.container_sha256
+        }) else {
+            return Err(StoreError::Corrupt(
+                "loadout references unknown revision".to_owned(),
+            ));
+        };
+        if !install_ids.insert(equipped.install_id.as_str())
+            || !package_ids.insert(equipped.package_id.as_str())
+        {
+            return Err(StoreError::Corrupt("loadout duplicate identity".to_owned()));
+        }
+        let pointer = active_pointer_from_record(&installed.record);
+        validate_active(root, registry, Some(&pointer))?;
+    }
+    Ok(())
+}
+
+fn migrated_loadout(active: Option<&ActivePointer>) -> Loadout {
+    match active {
+        Some(active) => Loadout {
+            generation: valid_install_id(&active.install_id).unwrap_or_default(),
+            equipped: vec![EquippedPack {
+                install_id: active.install_id.clone(),
+                package_id: active.package_id.clone(),
+                revision: active.revision,
+                container_sha256: active.container_sha256.clone(),
+            }],
+            event_locks: BTreeMap::new(),
+            match_consistency: false,
+        },
+        None => Loadout::default(),
+    }
+}
+
+fn active_pointer_from_equipped(equipped: &EquippedPack) -> ActivePointer {
+    ActivePointer {
+        install_id: equipped.install_id.clone(),
+        package_id: equipped.package_id.clone(),
+        revision: equipped.revision,
+        container_sha256: equipped.container_sha256.clone(),
+    }
+}
+
+fn active_pointer_from_record(record: &Record) -> ActivePointer {
+    ActivePointer {
+        install_id: record.install_id.clone(),
+        package_id: record.package_id.clone(),
+        revision: record.revision,
+        container_sha256: record.container_sha256.clone(),
+    }
+}
+
+fn same_loadout_settings(left: &Loadout, right: &Loadout) -> bool {
+    left.equipped == right.equipped
+        && left.event_locks == right.event_locks
+        && left.match_consistency == right.match_consistency
+}
+
+fn valid_event_key(value: &str) -> bool {
+    let mut bytes = value.bytes();
+    matches!(bytes.next(), Some(b'a'..=b'z'))
+        && value.len() <= 80
+        && bytes.all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+}
+
+fn repair_active_mirror(root: &Path, active: Option<&ActivePointer>) -> Result<(), StoreError> {
+    let path = root.join("active.json");
+    let exists = path_exists_nofollow(&path).map_err(corrupt_store_error)?;
+    let already_matches = if exists {
+        read_store_file(&path, 64 * 1024)
+            .ok()
+            .and_then(|bytes| parse_active(&bytes).ok())
+            .as_ref()
+            == active
+    } else {
+        active.is_none()
+    };
+    if already_matches {
+        return Ok(());
+    }
+    let Some(active) = active else {
+        remove_file_if_exists(&path)?;
+        return Ok(());
+    };
+    let bytes = serialize_active(active)?;
+    write_temp_file(root, "active.json", &bytes)?;
+    match rename_temp_file(root, "active.json") {
+        Ok(()) => Ok(()),
+        Err(AtomicRenameError::BeforeRename(error) | AtomicRenameError::AfterRename(error)) => {
+            Err(error)
+        }
+    }
+}
+
 fn parse_registry(bytes: &[u8]) -> Result<Registry, StoreError> {
     let value = strict_json::parse(bytes)
         .map_err(|error| StoreError::Corrupt(format!("registry JSON: {error:?}")))?;
@@ -2057,7 +2756,7 @@ fn parse_request_fingerprint(
         _ => {
             return Err(StoreError::Corrupt(
                 "registry request fingerprint".to_owned(),
-            ))
+            ));
         }
     };
     if expected_container_sha256 != expected_digest
@@ -2445,25 +3144,25 @@ fn rename_temp_file(root: &Path, name: &str) -> Result<(), AtomicRenameError> {
             Ok(metadata) if is_link_or_reparse_point(&metadata) => {
                 return Err(AtomicRenameError::BeforeRename(StoreError::Corrupt(
                     "atomic file is a link or reparse point".to_owned(),
-                )))
+                )));
             }
             Err(error) if error.kind() == std::io::ErrorKind::NotFound && is_temp => {
                 return Err(AtomicRenameError::BeforeRename(io_error(
                     "inspect atomic temporary file",
                     error,
-                )))
+                )));
             }
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
             Err(error) => {
                 return Err(AtomicRenameError::BeforeRename(io_error(
                     "inspect atomic file",
                     error,
-                )))
+                )));
             }
             Ok(metadata) if !metadata.is_file() => {
                 return Err(AtomicRenameError::BeforeRename(StoreError::Corrupt(
                     "atomic path is not a regular file".to_owned(),
-                )))
+                )));
             }
             Ok(_) => {}
         }
@@ -2771,6 +3470,8 @@ fn recover_leftovers(root: &Path, registry: &Registry) -> Result<(), StoreError>
 
     remove_recovery_temp_file(&root.join("registry.json.tmp"))?;
     remove_recovery_temp_file(&root.join("active.json.tmp"))?;
+    remove_recovery_temp_file(&root.join("loadout.json.tmp"))?;
+    remove_recovery_temp_file(&root.join("pending_loadout.json.tmp"))?;
     Ok(())
 }
 

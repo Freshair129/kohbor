@@ -899,7 +899,7 @@ const PACKS_PAGE = {
     rotation: { random: "สุ่ม", shuffle: "สุ่มจนครบทุกเสียง", sequence: "วนตามลำดับ" },
     eventStates: {
       ready: "พร้อม", inherited: "ใช้เสียงของระดับก่อน", unmapped: "ยังไม่มีเสียงในแพ็กนี้", invalid_media: "ไฟล์เสียงใช้ไม่ได้",
-      detector_unavailable: "ระบบยังตรวจจับเหตุการณ์นี้ไม่ได้", not_voiced: "ไม่มีเสียงพากย์", unknown: "— ไม่ทราบสถานะ",
+      detector_unavailable: "ระบบยังตรวจจับเหตุการณ์นี้ไม่ได้", not_loaded: "ยังไม่โหลด (เกินงบหน่วยความจำของแพ็ก)", not_voiced: "ไม่มีเสียงพากย์", unknown: "— ไม่ทราบสถานะ",
     },
     inheritedFrom: (tier: number | null) => tier === null ? "ใช้เสียงทั่วไปของเหตุการณ์นี้" : `ใช้เสียงจากระดับ ${tier}`,
     showVoices: "ดูเสียง", hideVoices: "ซ่อนเสียง",
@@ -963,7 +963,7 @@ const PACKS_PAGE = {
     rotation: { random: "Random", shuffle: "Shuffle through all voices", sequence: "In order" },
     eventStates: {
       ready: "Ready", inherited: "Uses an earlier tier", unmapped: "No sound in this pack yet", invalid_media: "Sound unavailable",
-      detector_unavailable: "The system cannot detect this event yet", not_voiced: "No voiceover", unknown: "— Status unknown",
+      detector_unavailable: "The system cannot detect this event yet", not_loaded: "Not loaded (pack memory budget)", not_voiced: "No voiceover", unknown: "— Status unknown",
     },
     inheritedFrom: (tier: number | null) => tier === null ? "Uses this event’s general sound" : `Uses the sound from tier ${tier}`,
     showVoices: "Show voices", hideVoices: "Hide voices",

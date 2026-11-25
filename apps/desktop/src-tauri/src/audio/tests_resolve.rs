@@ -1,10 +1,10 @@
-use super::resolve::{class_of, instance_id, Clip, Entry, Lookup, PrewarmTable};
+use super::resolve::{Clip, Entry, Lookup, PrewarmTable, class_of, instance_id};
 use kohbor_audio::AudioClass;
 use kohbor_events::EventId;
 use serde_json::Value;
 use std::{collections::HashSet, sync::Arc};
 
-const IDS: [EventId; 12] = [
+const IDS: [EventId; 15] = [
     EventId::MultiKill,
     EventId::Streak,
     EventId::FirstBlood,
@@ -17,6 +17,9 @@ const IDS: [EventId; 12] = [
     EventId::MatchStarted,
     EventId::HeroRespawn,
     EventId::HealthDanger,
+    EventId::ClutchKill,
+    EventId::PosthumousKill,
+    EventId::ComebackKill,
 ];
 // An exhaustive match forces additions to EventId to be reviewed here.
 fn known(id: EventId) {
@@ -32,7 +35,10 @@ fn known(id: EventId) {
         | EventId::MatchEnded
         | EventId::MatchStarted
         | EventId::HeroRespawn
-        | EventId::HealthDanger => {}
+        | EventId::HealthDanger
+        | EventId::ClutchKill
+        | EventId::PosthumousKill
+        | EventId::ComebackKill => {}
     }
 }
 fn clip(tier: Option<u8>, marker: i16) -> Clip {
@@ -243,7 +249,7 @@ fn catalog_key_space_is_resolved() {
             }
         }
     }
-    assert_eq!(entries.len(), 23, "catalog key count changed");
+    assert_eq!(entries.len(), 26, "catalog key count changed");
     let keys: Vec<_> = entries.iter().map(|(id, tier, _)| (*id, *tier)).collect();
     let t = table(entries);
     for (id, tier) in keys {

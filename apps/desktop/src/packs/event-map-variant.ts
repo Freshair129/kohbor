@@ -1,6 +1,6 @@
 import type { EventVariant } from "./variant-model";
 
-export type EventMapSchemaVersion = "1.0.0" | "1.1.0";
+export type EventMapSchemaVersion = "1.0.0" | "1.1.0" | "1.2.0";
 
 const requiredKeys = ["variant_id", "duration_ms", "has_visual"];
 
@@ -16,9 +16,9 @@ function validCaption(value: unknown): value is string {
 export function parseEventMapVariant(value: unknown, version: EventMapSchemaVersion): EventVariant | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
   const variant = value as Record<string, unknown>;
-  const allowedKeys = version === "1.1.0"
-    ? [...requiredKeys, "clip_id", "caption"]
-    : [...requiredKeys, "clip_id"];
+  const allowedKeys = version === "1.2.0"
+    ? [...requiredKeys, "clip_id", "caption", "install_id", "package_id", "equipped_slot", "state", "reason"]
+    : version === "1.1.0" ? [...requiredKeys, "clip_id", "caption"] : [...requiredKeys, "clip_id"];
   if (!requiredKeys.every((key) => Object.hasOwn(variant, key))
     || Object.keys(variant).some((key) => !allowedKeys.includes(key))) return null;
 
@@ -30,6 +30,15 @@ export function parseEventMapVariant(value: unknown, version: EventMapSchemaVers
   if (Object.hasOwn(variant, "clip_id")
     && (typeof clip_id !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}$/.test(clip_id))) return null;
   if (Object.hasOwn(variant, "caption") && !validCaption(caption)) return null;
+  if (version === "1.2.0") {
+    const sourceKeys = ["install_id", "package_id", "equipped_slot"];
+    if (sourceKeys.some(key => Object.hasOwn(variant, key)) && !sourceKeys.every(key => Object.hasOwn(variant, key))) return null;
+    if (Object.hasOwn(variant, "install_id") && (typeof variant.install_id !== "string" || !/^ins_[0-9]{10}$/u.test(variant.install_id))) return null;
+    if (Object.hasOwn(variant, "package_id") && (typeof variant.package_id !== "string" || !/^[a-z0-9][a-z0-9_.-]{0,79}$/u.test(variant.package_id))) return null;
+    if (Object.hasOwn(variant, "equipped_slot") && (typeof variant.equipped_slot !== "number" || !Number.isInteger(variant.equipped_slot) || variant.equipped_slot < 0 || variant.equipped_slot > 3)) return null;
+    if (variant.state !== "ready" && variant.state !== "not_loaded" && variant.state !== "invalid_media") return null;
+    if (typeof variant.reason !== "string" || !/^[A-Z][A-Z0-9_]{1,63}$/.test(variant.reason)) return null;
+  }
 
   return {
     variant_id,
@@ -37,5 +46,9 @@ export function parseEventMapVariant(value: unknown, version: EventMapSchemaVers
     has_visual,
     ...(Object.hasOwn(variant, "clip_id") && typeof clip_id === "string" ? { clip_id } : {}),
     ...(Object.hasOwn(variant, "caption") && typeof caption === "string" ? { caption } : {}),
+    ...(typeof variant.install_id === "string" ? { install_id: variant.install_id } : {}),
+    ...(typeof variant.package_id === "string" ? { package_id: variant.package_id } : {}),
+    ...(typeof variant.equipped_slot === "number" ? { equipped_slot: variant.equipped_slot } : {}),
+    ...(version === "1.2.0" ? { state: variant.state as EventVariant["state"], reason: variant.reason as string } : {}),
   };
 }

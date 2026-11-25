@@ -9,6 +9,7 @@ const packsPageSource = readFileSync(new URL("../src/packs/PacksPage.tsx", impor
 const packLibrarySource = readFileSync(new URL("../src/packs/PackLibrary.tsx", import.meta.url), "utf8");
 const soundRowsSource = readFileSync(new URL("../src/packs/SoundRows.tsx", import.meta.url), "utf8");
 const variantRowSource = readFileSync(new URL("../src/packs/VariantRow.tsx", import.meta.url), "utf8");
+const coverageSource = readFileSync(new URL("../src/packs/CoverageMatrix.tsx", import.meta.url), "utf8");
 
 test("installed-packs primary action opens InstallDialog and refreshes the cards after install", () => {
   assert.match(packsPageSource, /className="primary packs-install-trigger"[^>]*aria-haspopup="dialog"[^>]*onClick=\{\(\) => setInstallDialogOpen\(true\)\}/s);
@@ -20,7 +21,8 @@ test("pack details and expandable event-sounds rows wire their audition buttons"
   assert.match(packLibrarySource, /<ul className="packs-voice-list">[\s\S]*?onAuditionVariant\(binding, variant\.variant_id\)/);
   assert.match(soundRowsSource, /const key = soundKey\(row\);[\s\S]*?aria-expanded=\{expanded === key\}/);
   assert.match(soundRowsSource, /<EventVariants variants=\{row\.variants\} selection=\{row\.selection\}/);
-  assert.match(packsPageSource, /mediaAuditionVariant\(row\.event_id, row\.tier, variantId\)/);
+  assert.match(coverageSource, /mediaAuditionInstalledVariant\(pack\.install_id, row\.event_id, row\.tier, variant\.variant_id\)/);
+  assert.match(packsPageSource, /<CoverageMatrix rows=\{currentMap\.bindings\}/);
 });
 
 test("unavailable event rows without voices render no primary play control", () => {

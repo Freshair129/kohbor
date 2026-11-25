@@ -1,4 +1,4 @@
-use super::fake_sink::{table, tick, Call, FakeSink, Harness};
+use super::fake_sink::{Call, FakeSink, Harness, table, tick};
 use super::lanes::{
     AuditionRefusal, AuditionRequest, Control, EngineOut, ObjectiveToneOutcome, Offer,
 };
@@ -10,7 +10,7 @@ use super::slot_sink::SlotSink;
 use kohbor_audio::{PlaybackId, Sink, SinkEvent};
 use kohbor_events::{Event, EventId};
 use serde_json::Value;
-use std::sync::{atomic::Ordering, mpsc, Arc};
+use std::sync::{Arc, atomic::Ordering, mpsc};
 use std::time::{Duration, Instant};
 
 const SAFE: u64 = 9_007_199_254_740_991;
@@ -249,9 +249,8 @@ fn objective_tone_uses_the_engine_sink_when_idle() {
 #[test]
 fn higher_rank_multi_kill_preempts_hero_kill_with_a_fade_and_no_drop() {
     let (mut h, log) = setup();
-    assert!(h
-        .tx
-        .control(Control::SwapTable {
+    assert!(
+        h.tx.control(Control::SwapTable {
             table: table(
                 7,
                 &[
@@ -260,7 +259,8 @@ fn higher_rank_multi_kill_preempts_hero_kill_with_a_fade_and_no_drop() {
                 ],
             ),
         })
-        .is_ok());
+        .is_ok()
+    );
     h.engine.step(0);
     h.drain();
 
@@ -312,9 +312,8 @@ fn higher_rank_multi_kill_preempts_hero_kill_with_a_fade_and_no_drop() {
 #[test]
 fn health_danger_preempts_hero_kill_with_a_fade_and_starts_immediately() {
     let (mut h, log) = setup();
-    assert!(h
-        .tx
-        .control(Control::SwapTable {
+    assert!(
+        h.tx.control(Control::SwapTable {
             table: table(
                 7,
                 &[
@@ -323,7 +322,8 @@ fn health_danger_preempts_hero_kill_with_a_fade_and_starts_immediately() {
                 ],
             ),
         })
-        .is_ok());
+        .is_ok()
+    );
     h.engine.step(0);
     h.drain();
 
@@ -346,9 +346,11 @@ fn health_danger_preempts_hero_kill_with_a_fade_and_starts_immediately() {
         })
         .collect();
     assert_eq!(preemptions, [("hero_kill", "health_danger", 100)]);
-    assert!(!outputs
-        .iter()
-        .any(|output| matches!(output, EngineOut::ClipDropped { .. })));
+    assert!(
+        !outputs
+            .iter()
+            .any(|output| matches!(output, EngineOut::ClipDropped { .. }))
+    );
     let lifecycle = playbacks(&outputs);
     assert_eq!(lifecycle.len(), 2);
     assert_eq!(lifecycle[0]["kind"], "ended");
@@ -389,9 +391,11 @@ fn equal_rank_hero_kill_still_emits_channel_busy_drop() {
             ..
         } if event_id == "hero_kill"
     )));
-    assert!(!outputs
-        .iter()
-        .any(|output| matches!(output, EngineOut::ClipPreempted { .. })));
+    assert!(
+        !outputs
+            .iter()
+            .any(|output| matches!(output, EngineOut::ClipPreempted { .. }))
+    );
     assert_eq!(
         log.lock().unwrap().calls,
         [Call::Submit(PlaybackId(1), 4_800)]
@@ -425,12 +429,12 @@ fn objective_tone_defers_until_the_announcer_releases_the_single_slot() {
 #[test]
 fn objective_tone_expires_after_five_seconds_if_the_sink_stays_busy() {
     let (mut h, log) = setup();
-    assert!(h
-        .tx
-        .control(Control::SwapTable {
+    assert!(
+        h.tx.control(Control::SwapTable {
             table: table(8, &[(EventId::HeroKill, None, 480_000, 0, None)]),
         })
-        .is_ok());
+        .is_ok()
+    );
     h.engine.step(0);
     h.drain();
     offer(&h, 1, &[(EventId::HeroKill, None)]);
@@ -509,6 +513,8 @@ fn offer_drawer_preview(
         variant_id: "v1".to_owned(),
         clip_id: None,
         selection: None,
+        source: None,
+        match_consistency: false,
         media: Clip {
             pcm: Arc::from(vec![0_i16; 480]),
             bound_tier: None,
@@ -551,9 +557,11 @@ fn engine_refuses_a_queued_audition_when_a_match_begins_before_admission() {
     );
     assert!(log.lock().unwrap().calls.is_empty());
     let outputs = h.drain();
-    assert!(outputs
-        .iter()
-        .any(|output| matches!(output, EngineOut::AuditionMatchChanged(true))));
+    assert!(
+        outputs
+            .iter()
+            .any(|output| matches!(output, EngineOut::AuditionMatchChanged(true)))
+    );
     assert!(playbacks(&outputs).is_empty());
 }
 
@@ -578,10 +586,11 @@ fn engine_ends_a_playing_audition_when_the_game_phase_changes() {
 
     h.tx.set_audition_match_active(false);
     h.engine.step(12);
-    assert!(h
-        .drain()
-        .iter()
-        .any(|output| matches!(output, EngineOut::AuditionMatchChanged(false))));
+    assert!(
+        h.drain()
+            .iter()
+            .any(|output| matches!(output, EngineOut::AuditionMatchChanged(false)))
+    );
 }
 
 #[test]
@@ -659,9 +668,8 @@ fn ordinary_game_event_interrupts_a_playing_audition() {
 #[test]
 fn audition_cannot_interrupt_real_audio_or_its_visual_tail() {
     let (mut h, log) = setup();
-    assert!(h
-        .tx
-        .control(Control::SwapTable {
+    assert!(
+        h.tx.control(Control::SwapTable {
             table: table(
                 7,
                 &[
@@ -670,7 +678,8 @@ fn audition_cannot_interrupt_real_audio_or_its_visual_tail() {
                 ]
             ),
         })
-        .is_ok());
+        .is_ok()
+    );
     h.engine.step(0);
     offer(&h, 1, &[(EventId::HeroKill, None)]);
     h.engine.step(10);
@@ -691,12 +700,12 @@ fn audition_cannot_interrupt_real_audio_or_its_visual_tail() {
 #[test]
 fn even_an_unmapped_game_event_ends_an_audition_tail_and_drops_the_queued_request() {
     let (mut h, log) = setup();
-    assert!(h
-        .tx
-        .control(Control::SwapTable {
+    assert!(
+        h.tx.control(Control::SwapTable {
             table: table(7, &[(EventId::HeroKill, None, 4800, 100, None)]),
         })
-        .is_ok());
+        .is_ok()
+    );
     h.engine.step(0);
     let audition = offer_audition(&h, EventId::HeroKill);
     h.engine.step(10);
@@ -720,12 +729,12 @@ fn even_an_unmapped_game_event_ends_an_audition_tail_and_drops_the_queued_reques
 fn first_blood_audition_plays_even_when_first_blood_detection_is_unavailable() {
     let (mut h, log) = setup();
     let visual = "kohbor-media://localhost/v1/ins_0000000007/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-    assert!(h
-        .tx
-        .control(Control::SwapTable {
+    assert!(
+        h.tx.control(Control::SwapTable {
             table: table(7, &[(EventId::FirstBlood, None, 4800, 0, Some(visual))]),
         })
-        .is_ok());
+        .is_ok()
+    );
     h.engine.step(0);
     h.drain();
 
@@ -742,11 +751,13 @@ fn first_blood_audition_plays_even_when_first_blood_detection_is_unavailable() {
         log.lock().unwrap().calls,
         vec![Call::Submit(PlaybackId(1), 4800)]
     );
-    assert!(playbacks(&outputs)
-        .iter()
-        .any(|item| item["kind"] == "started"
-            && item["event_type"] == "audition"
-            && item["visual_url"] == visual));
+    assert!(
+        playbacks(&outputs)
+            .iter()
+            .any(|item| item["kind"] == "started"
+                && item["event_type"] == "audition"
+                && item["visual_url"] == visual)
+    );
 }
 
 #[test]
@@ -766,10 +777,12 @@ fn critical_whole_path() {
     assert_eq!(p[0]["class"], "critical");
     assert_eq!(p[0]["event_type"], "health_danger");
     assert_eq!(p[0]["audio_duration_ms"], 101);
-    assert!(p[0]["visual_url"]
-        .as_str()
-        .unwrap()
-        .contains("ins_0000000007"));
+    assert!(
+        p[0]["visual_url"]
+            .as_str()
+            .unwrap()
+            .contains("ins_0000000007")
+    );
     assert!(has_outcome(&out, "admitted"), "admitted outcome");
     h.engine.step(112);
     let out = h.drain();
@@ -794,12 +807,12 @@ fn audition_uses_engine_admission_and_keeps_the_verified_visual_banner() {
     let (sink, log) = FakeSink::new();
     let mut h = Harness::new(Some(Box::new(sink)), false, 256);
     let visual = "kohbor-media://localhost/v1/ins_0000000007/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-    assert!(h
-        .tx
-        .control(Control::SwapTable {
+    assert!(
+        h.tx.control(Control::SwapTable {
             table: table(7, &[(EventId::HeroKill, None, 4800, 0, Some(visual))]),
         })
-        .is_ok());
+        .is_ok()
+    );
     h.engine.step(0);
     h.drain();
     let audition = offer_audition(&h, EventId::HeroKill);
@@ -827,12 +840,12 @@ fn audition_without_overlay_flag_is_audio_only() {
     let (sink, log) = FakeSink::new();
     let mut h = Harness::new(Some(Box::new(sink)), false, 256);
     let visual = "kohbor-media://localhost/v1/ins_0000000007/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-    assert!(h
-        .tx
-        .control(Control::SwapTable {
+    assert!(
+        h.tx.control(Control::SwapTable {
             table: table(7, &[(EventId::HeroKill, None, 4800, 900, Some(visual))]),
         })
-        .is_ok());
+        .is_ok()
+    );
     h.engine.step(0);
     h.drain();
     let (reply, result) = mpsc::sync_channel(1);
@@ -868,12 +881,12 @@ fn audition_without_overlay_flag_is_audio_only() {
 fn drawer_preview_uses_the_nonactive_clip_without_overlay_visuals() {
     let (sink, log) = FakeSink::new();
     let mut h = Harness::new(Some(Box::new(sink)), false, 256);
-    assert!(h
-        .tx
-        .control(Control::SwapTable {
+    assert!(
+        h.tx.control(Control::SwapTable {
             table: table(7, &[(EventId::HeroKill, None, 4800, 0, None)])
         })
-        .is_ok());
+        .is_ok()
+    );
     h.engine.step(0);
     h.drain();
     let preview = offer_drawer_preview(&h, "ins_0000000008");
@@ -917,12 +930,12 @@ fn drawer_preview_uses_the_nonactive_clip_without_overlay_visuals() {
 fn drawer_preview_is_refused_when_a_match_is_active() {
     let (sink, _) = FakeSink::new();
     let mut h = Harness::new(Some(Box::new(sink)), false, 256);
-    assert!(h
-        .tx
-        .control(Control::SwapTable {
+    assert!(
+        h.tx.control(Control::SwapTable {
             table: table(7, &[(EventId::HeroKill, None, 4800, 0, None)])
         })
-        .is_ok());
+        .is_ok()
+    );
     h.engine.step(0);
     h.drain();
     let preview = offer_drawer_preview(&h, "ins_0000000008");
@@ -1010,9 +1023,8 @@ fn ordinary_offered_during_critical_is_started_after_critical_finishes() {
     let (sink, log) = FakeSink::new();
     let mut h = Harness::new(Some(Box::new(sink)), false, 256);
     let visual = "kohbor-media://localhost/v1/ins_0000000007/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-    assert!(h
-        .tx
-        .control(Control::SwapTable {
+    assert!(
+        h.tx.control(Control::SwapTable {
             table: table(
                 7,
                 &[
@@ -1021,7 +1033,8 @@ fn ordinary_offered_during_critical_is_started_after_critical_finishes() {
                 ],
             ),
         })
-        .is_ok());
+        .is_ok()
+    );
     h.engine.step(0);
     h.drain();
     offer(&h, 1, &[(EventId::HealthDanger, None)]);
@@ -1041,9 +1054,11 @@ fn ordinary_offered_during_critical_is_started_after_critical_finishes() {
         EngineOut::ClipQueued { event_id, tier, .. }
             if event_id == "multi_kill" && *tier == Some(2)
     )));
-    assert!(!outcomes(&queued)
-        .iter()
-        .any(|record| record["event_type"] == "multi_kill"));
+    assert!(
+        !outcomes(&queued)
+            .iter()
+            .any(|record| record["event_type"] == "multi_kill")
+    );
     assert_eq!(log.lock().unwrap().calls.len(), 1);
 
     log.lock()
@@ -1070,12 +1085,12 @@ fn ordinary_offered_during_critical_is_started_after_critical_finishes() {
 fn unmapped_critical_does_not_block_ordinary() {
     let (sink, log) = FakeSink::new();
     let mut h = Harness::new(Some(Box::new(sink)), false, 256);
-    assert!(h
-        .tx
-        .control(Control::SwapTable {
+    assert!(
+        h.tx.control(Control::SwapTable {
             table: table(7, &[(EventId::HeroKill, None, 4800, 0, None)])
         })
-        .is_ok());
+        .is_ok()
+    );
     h.engine.step(0);
     h.drain();
     offer(
@@ -1179,12 +1194,16 @@ fn shuffle_plays_both_verified_siblings_and_reports_the_bad_variant_once_per_ses
     assert!(played.iter().all(|id| matches!(id.as_str(), "a" | "c")));
     assert!(played[..4].windows(2).all(|pair| pair[0] != pair[1]));
     let calls = &log.lock().unwrap().calls;
-    assert!(calls
-        .iter()
-        .any(|call| matches!(call, Call::Submit(_, 480))));
-    assert!(calls
-        .iter()
-        .any(|call| matches!(call, Call::Submit(_, 960))));
+    assert!(
+        calls
+            .iter()
+            .any(|call| matches!(call, Call::Submit(_, 480)))
+    );
+    assert!(
+        calls
+            .iter()
+            .any(|call| matches!(call, Call::Submit(_, 960)))
+    );
 }
 
 #[test]
@@ -1226,7 +1245,10 @@ fn variant_table(variants: &[(&str, Result<usize, &'static str>)]) -> Arc<Prewar
                     .map(|(id, media)| VariantMedia {
                         variant_id: (*id).to_owned(),
                         clip_id: (*id == "broken").then(|| "vrzo-th-0019".to_owned()),
+                        caption: None,
                         weight: 1,
+                        source: None,
+                        authored_selection: None,
                         media: media.map(|samples| Clip {
                             pcm: Arc::from(vec![0_i16; samples]),
                             bound_tier: None,
@@ -1245,12 +1267,12 @@ fn variant_table(variants: &[(&str, Result<usize, &'static str>)]) -> Arc<Prewar
 fn audition_submits_the_exact_requested_variant() {
     let (sink, log) = FakeSink::new();
     let mut h = Harness::new(Some(Box::new(sink)), false, 256);
-    assert!(h
-        .tx
-        .control(Control::SwapTable {
+    assert!(
+        h.tx.control(Control::SwapTable {
             table: variant_table(&[("first", Ok(4_800)), ("chosen", Ok(9_600))]),
         })
-        .is_ok());
+        .is_ok()
+    );
     h.engine.step(0);
     h.drain();
 
@@ -1276,12 +1298,16 @@ fn instance_ids_use_original_position() {
     h.engine.step(10);
     let o = h.drain();
     let records = outcomes(&o);
-    assert!(records
-        .iter()
-        .any(|v| v["instance_id"] == "ev_g3_s120_0" && v["outcome"] == "detector_unavailable"));
-    assert!(records
-        .iter()
-        .any(|v| v["instance_id"] == "ev_g3_s120_1" && v["outcome"] == "admitted"));
+    assert!(
+        records
+            .iter()
+            .any(|v| v["instance_id"] == "ev_g3_s120_0" && v["outcome"] == "detector_unavailable")
+    );
+    assert!(
+        records
+            .iter()
+            .any(|v| v["instance_id"] == "ev_g3_s120_1" && v["outcome"] == "admitted")
+    );
 }
 #[test]
 fn mute_still_wins_when_master_volume_is_one_hundred() {
@@ -1291,13 +1317,13 @@ fn mute_still_wins_when_master_volume_is_one_hundred() {
     h.engine.step(10);
     h.drain();
     let (tx, rx) = mpsc::sync_channel(1);
-    assert!(h
-        .tx
-        .control(Control::SetMuted {
+    assert!(
+        h.tx.control(Control::SetMuted {
             muted: true,
             ack: tx
         })
-        .is_ok());
+        .is_ok()
+    );
     h.engine.step(20);
     assert_eq!(rx.try_recv(), Ok(true), "mute ack within step");
     assert!(h.shared.muted.load(Ordering::Relaxed));
@@ -1335,18 +1361,19 @@ fn swap_cancels_and_releases_table() {
     offer(&h, 1, &[(EventId::HeroKill, None)]);
     h.engine.step(10);
     h.drain();
-    assert!(h
-        .tx
-        .control(Control::SwapTable {
+    assert!(
+        h.tx.control(Control::SwapTable {
             table: table(8, &[(EventId::HeroKill, None, 9600, 0, None)])
         })
-        .is_ok());
+        .is_ok()
+    );
     h.engine.step(20);
     let o = h.drain();
     assert!(has_end(&o, "cancelled_revision"));
-    assert!(o
-        .iter()
-        .any(|x| matches!(x,EngineOut::ReleaseTable(t) if t.fence==7)));
+    assert!(
+        o.iter()
+            .any(|x| matches!(x,EngineOut::ReleaseTable(t) if t.fence==7))
+    );
     assert_eq!(h.shared.fence.load(Ordering::Relaxed), 8);
 }
 #[test]
@@ -1577,9 +1604,8 @@ fn newer_tick_session_fences_old_playback() {
 fn tier_fallback_selects_highest_bound_tier() {
     let (sink, log) = FakeSink::new();
     let mut h = Harness::new(Some(Box::new(sink)), false, 256);
-    assert!(h
-        .tx
-        .control(Control::SwapTable {
+    assert!(
+        h.tx.control(Control::SwapTable {
             table: table(
                 7,
                 &[
@@ -1588,7 +1614,8 @@ fn tier_fallback_selects_highest_bound_tier() {
                 ]
             )
         })
-        .is_ok());
+        .is_ok()
+    );
     h.engine.step(0);
     h.drain();
     offer(&h, 1, &[(EventId::MultiKill, Some(4))]);
@@ -1604,12 +1631,12 @@ fn tier_fallback_selects_highest_bound_tier() {
 fn missing_tier_never_selects_tiered_binding() {
     let (sink, log) = FakeSink::new();
     let mut h = Harness::new(Some(Box::new(sink)), false, 256);
-    assert!(h
-        .tx
-        .control(Control::SwapTable {
+    assert!(
+        h.tx.control(Control::SwapTable {
             table: table(7, &[(EventId::MultiKill, Some(2), 4800, 0, None)])
         })
-        .is_ok());
+        .is_ok()
+    );
     h.engine.step(0);
     h.drain();
     offer(&h, 1, &[(EventId::MultiKill, None)]);
@@ -1637,12 +1664,12 @@ fn latency_on_reports_arrival_relative_offsets() {
     let (sink, _) = FakeSink::new();
     let mut h = Harness::new(Some(Box::new(sink)), true, 256);
     assert_eq!(h.clock.ms_at(h.origin), 0, "fixed origin");
-    assert!(h
-        .tx
-        .control(Control::SwapTable {
+    assert!(
+        h.tx.control(Control::SwapTable {
             table: table(7, &[(EventId::HeroKill, None, 4800, 0, None)])
         })
-        .is_ok());
+        .is_ok()
+    );
     h.engine.step(0);
     h.drain();
     offer(&h, 1, &[(EventId::HeroKill, None)]);
@@ -1738,10 +1765,11 @@ fn interrupted_clip_emits_one_finished_record_with_exact_expected_frames() {
     assert_eq!(finished, [("hero_kill", "interrupted", &Some(4_800))]);
 
     h.engine.step(30);
-    assert!(h
-        .drain()
-        .iter()
-        .all(|item| !matches!(item, EngineOut::ClipFinished { .. })));
+    assert!(
+        h.drain()
+            .iter()
+            .all(|item| !matches!(item, EngineOut::ClipFinished { .. }))
+    );
 }
 
 #[test]
@@ -1772,10 +1800,11 @@ fn natural_clip_end_emits_one_finished_record() {
     assert_eq!(finished, [("hero_kill", "finished")]);
 
     h.engine.step(5_010);
-    assert!(h
-        .drain()
-        .iter()
-        .all(|item| !matches!(item, EngineOut::ClipFinished { .. })));
+    assert!(
+        h.drain()
+            .iter()
+            .all(|item| !matches!(item, EngineOut::ClipFinished { .. }))
+    );
 }
 
 #[test]
@@ -1837,13 +1866,13 @@ fn critical_lane_runs_before_control_lane() {
     let (mut h, log) = setup();
     offer(&h, 1, &[(EventId::HealthDanger, None)]);
     let (tx, rx) = mpsc::sync_channel(1);
-    assert!(h
-        .tx
-        .control(Control::SetMuted {
+    assert!(
+        h.tx.control(Control::SetMuted {
             muted: true,
             ack: tx
         })
-        .is_ok());
+        .is_ok()
+    );
     h.engine.step(10);
     assert_eq!(rx.try_recv(), Ok(true));
     assert_eq!(
@@ -1858,12 +1887,12 @@ fn critical_lane_runs_before_control_lane() {
 #[test]
 fn current_revision_table_is_used_after_swap() {
     let (mut h, log) = setup();
-    assert!(h
-        .tx
-        .control(Control::SwapTable {
+    assert!(
+        h.tx.control(Control::SwapTable {
             table: table(8, &[(EventId::HeroKill, None, 9600, 0, None)])
         })
-        .is_ok());
+        .is_ok()
+    );
     h.engine.step(10);
     h.drain();
     offer(&h, 1, &[(EventId::HeroKill, None)]);
@@ -1972,13 +2001,13 @@ fn lease_ends_after_tail() {
 fn lease_clears_after_mute() {
     let (mut h, _) = start_with_tail();
     let (tx, _) = mpsc::sync_channel(1);
-    assert!(h
-        .tx
-        .control(Control::SetMuted {
+    assert!(
+        h.tx.control(Control::SetMuted {
             muted: true,
             ack: tx
         })
-        .is_ok());
+        .is_ok()
+    );
     h.engine.step(20);
     assert!(
         !h.shared.lease_active.load(Ordering::Relaxed),
@@ -2049,6 +2078,21 @@ fn respawn_never_calls_sink() {
 #[test]
 fn arbitration_records_each_loser() {
     let (mut h, log) = setup();
+    assert!(
+        h.tx.control(Control::SwapTable {
+            table: table(
+                7,
+                &[
+                    (EventId::HeroDeath, None, 4_800, 0, None),
+                    (EventId::HeroKill, None, 4_800, 0, None),
+                    (EventId::HealthLow, None, 4_800, 0, None),
+                ]
+            ),
+        })
+        .is_ok()
+    );
+    h.engine.step(1);
+    h.drain();
     offer(
         &h,
         1,
@@ -2074,8 +2118,16 @@ fn arbitration_records_each_loser() {
     );
 }
 #[test]
-fn unmapped_winner_does_not_fall_back_to_loser() {
+fn unmapped_higher_rank_is_skipped_before_arbitration() {
     let (mut h, log) = setup();
+    assert!(
+        h.tx.control(Control::SwapTable {
+            table: table(7, &[(EventId::HeroKill, None, 4_800, 0, None)]),
+        })
+        .is_ok()
+    );
+    h.engine.step(0);
+    h.drain();
     offer(
         &h,
         1,
@@ -2083,12 +2135,41 @@ fn unmapped_winner_does_not_fall_back_to_loser() {
     );
     h.engine.step(10);
     let o = h.drain();
-    assert!(has_outcome(&o, "unmapped"), "winning event unmapped");
-    assert!(has_outcome(&o, "lower_rank_same_tick"), "loser recorded");
+    assert!(has_outcome(&o, "unmapped"), "unmapped event is recorded");
     assert!(
-        log.lock().unwrap().calls.is_empty(),
-        "no loser substitution"
+        has_outcome(&o, "admitted"),
+        "next-ranked mapped event plays"
     );
+    assert!(
+        !has_outcome(&o, "lower_rank_same_tick"),
+        "the skipped event does not occupy arbitration"
+    );
+    assert!(
+        log.lock().unwrap().calls.len() == 1,
+        "the mapped lower-ranked cue reaches the audio owner"
+    );
+}
+
+#[test]
+fn special_event_without_live_capture_does_not_suppress_mapped_hero_kill() {
+    let (mut h, log) = setup();
+    offer(
+        &h,
+        1,
+        &[(EventId::ClutchKill, None), (EventId::HeroKill, None)],
+    );
+    h.engine.step(10);
+    let output = h.drain();
+    assert!(
+        has_outcome(&output, "detector_unavailable"),
+        "special event remains gated pending a live capture"
+    );
+    assert!(has_outcome(&output, "admitted"), "mapped hero kill plays");
+    assert!(
+        !has_outcome(&output, "lower_rank_same_tick"),
+        "unavailable special event never enters arbitration"
+    );
+    assert_eq!(log.lock().unwrap().calls.len(), 1);
 }
 #[test]
 fn invalid_critical_allows_ordinary() {
@@ -2406,12 +2487,12 @@ fn full_out_lane_does_not_block_step() {
     let (sink, _) = FakeSink::new();
     let mut h = Harness::new(Some(Box::new(sink)), false, 1);
     let shared = h.shared.clone();
-    assert!(h
-        .tx
-        .control(Control::SwapTable {
+    assert!(
+        h.tx.control(Control::SwapTable {
             table: table(7, &[(EventId::HeroKill, None, 4800, 0, None)])
         })
-        .is_ok());
+        .is_ok()
+    );
     offer(&h, 1, &[(EventId::HeroKill, None)]);
     let (done_tx, done_rx) = mpsc::sync_channel(1);
     let worker = std::thread::spawn(move || {
@@ -2445,11 +2526,12 @@ fn spawn_smoke_shutdown_releases_sink() {
     );
     let (sink, log) = FakeSink::new();
     assert!(tx.control(Control::SinkReady(Box::new(sink))).is_ok());
-    assert!(tx
-        .control(Control::SwapTable {
+    assert!(
+        tx.control(Control::SwapTable {
             table: table(7, &[(EventId::HeroKill, None, 4800, 0, None)])
         })
-        .is_ok());
+        .is_ok()
+    );
     assert_eq!(
         tx.offer_tick(tick(origin, 1, 3, 1, &[(EventId::HeroKill, None)])),
         Offer::Sent,
@@ -2536,9 +2618,8 @@ macro_rules! tier_case {
         fn $name() {
             let (sink, log) = FakeSink::new();
             let mut h = Harness::new(Some(Box::new(sink)), false, 256);
-            assert!(h
-                .tx
-                .control(Control::SwapTable {
+            assert!(
+                h.tx.control(Control::SwapTable {
                     table: table(
                         7,
                         &[
@@ -2548,7 +2629,8 @@ macro_rules! tier_case {
                         ]
                     )
                 })
-                .is_ok());
+                .is_ok()
+            );
             h.engine.step(0);
             h.drain();
             offer(&h, 1, &[(EventId::MultiKill, $request)]);
@@ -2576,21 +2658,21 @@ tier_case!(tier_above_range, Some(255), Some(3), 3000);
 fn swap_updates_fence_and_preserves_device_mute() {
     let (mut h, _) = setup();
     let (tx, _) = mpsc::sync_channel(1);
-    assert!(h
-        .tx
-        .control(Control::SetMuted {
+    assert!(
+        h.tx.control(Control::SetMuted {
             muted: true,
             ack: tx
         })
-        .is_ok());
+        .is_ok()
+    );
     h.engine.step(1);
     h.drain();
-    assert!(h
-        .tx
-        .control(Control::SwapTable {
+    assert!(
+        h.tx.control(Control::SwapTable {
             table: table(8, &[])
         })
-        .is_ok());
+        .is_ok()
+    );
     h.engine.step(2);
     assert_eq!(
         h.shared.fence.load(Ordering::Relaxed),
@@ -2656,13 +2738,13 @@ fn sink_ready_updates_device_atomic() {
 fn mute_updates_atomic_in_same_step() {
     let (mut h, _) = setup();
     let (tx, rx) = mpsc::sync_channel(1);
-    assert!(h
-        .tx
-        .control(Control::SetMuted {
+    assert!(
+        h.tx.control(Control::SetMuted {
             muted: true,
             ack: tx
         })
-        .is_ok());
+        .is_ok()
+    );
     h.engine.step(5);
     assert_eq!(rx.try_recv(), Ok(true), "mute ack");
     assert!(h.shared.muted.load(Ordering::Relaxed), "mute atomic");

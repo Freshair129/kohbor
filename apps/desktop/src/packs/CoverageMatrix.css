@@ -1,0 +1,23 @@
+.packs-equipped { display:grid; gap:8px; margin:10px 0 14px; padding:12px; border:1px solid var(--line); border-radius:8px; }
+.packs-equipped > header { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px; }
+.packs-equipped h3 { margin:0; font-size:14px; }
+.packs-equipped-slots { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+.packs-equipped-slot { min-width:0; display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; gap:4px 8px; padding:8px; border:1px solid var(--line); border-radius:6px; }
+.packs-equipped-slot > strong { grid-row:span 2; }
+.packs-equipped-slot > span,.packs-equipped-slot > small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.packs-equipped-slot > div { grid-column:1/-1; display:flex; gap:4px; }
+.packs-coverage { display:grid; gap:8px; min-width:0; }
+.packs-coverage > header { display:flex; flex-wrap:wrap; align-items:center; gap:12px; font-size:12px; }
+.packs-coverage-scroll { max-width:100%; overflow-x:auto; }
+.packs-coverage table { width:100%; min-width:860px; border-collapse:collapse; table-layout:fixed; font-size:12px; }
+.packs-coverage th,.packs-coverage td { padding:6px; border-bottom:1px solid var(--line); text-align:start; vertical-align:middle; overflow-wrap:anywhere; }
+.packs-coverage thead th { position:sticky; top:0; background:var(--surface); z-index:1; }
+.packs-coverage tbody th[scope="row"] { position:sticky; inset-inline-start:0; background:var(--surface); z-index:1; }
+.packs-coverage tbody td button { min-width:28px; min-height:28px; margin-inline-start:3px; }
+.packs-coverage tbody td small { display:block; }
+.packs-coverage-group th { background:var(--surface-2); text-align:start; }
+.packs-coverage-hint { margin:0; color:var(--muted); font-size:12px; }
+.packs-coverage tbody td button small { display:inline; }
+.packs-coverage table.show-gaps tbody tr[data-group] { display:none; }
+.packs-coverage table.show-gaps tbody tr[data-group]:has(td:nth-child(2) span[aria-label="No sound here"]) { display:table-row; }
+@media (max-width:800px) { .packs-equipped-slots { grid-template-columns:repeat(2,minmax(0,1fr)); } }

@@ -8,8 +8,8 @@
 use std::fmt::Write as _;
 use std::sync::Arc;
 
-use kohbor_audio::pcm::Pcm;
 use kohbor_audio::AudioClass;
+use kohbor_audio::pcm::Pcm;
 use kohbor_events::EventId;
 
 /// `Critical` when `id.is_critical()`, otherwise `Ordinary`. (C2, C3 and C5 are not
@@ -66,9 +66,21 @@ impl VariantSelection {
 pub struct VariantMedia {
     pub variant_id: String,
     pub clip_id: Option<String>,
+    pub caption: Option<String>,
     pub weight: u8,
+    /// Source identity is populated by the off-thread merged prewarm pass.
+    pub source: Option<VariantSource>,
+    /// The author mode used if match consistency narrows a mixed pool to this pack.
+    pub authored_selection: Option<VariantSelection>,
     /// Failure carries a static diagnostic code supplied by prewarm.
     pub media: Result<Clip, &'static str>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VariantSource {
+    pub slot: u8,
+    pub install_id: Arc<str>,
+    pub package_id: Arc<str>,
 }
 
 /// Prewarm already records this budget exclusion when building the table.
@@ -90,6 +102,8 @@ pub struct SelectedClip {
     pub variant_id: String,
     pub clip_id: Option<String>,
     pub selection: Option<VariantSelection>,
+    pub source: Option<VariantSource>,
+    pub match_consistency: bool,
     pub media: Clip,
 }
 
@@ -129,6 +143,11 @@ pub struct PrewarmTable {
     /// The decimal number of the `install_id` (`ins_0000000007` gives 7); 0 = no revision.
     pub fence: u64,
     pub install_id: Option<Arc<str>>,
+    /// Ordered equipped install IDs, including the primary `install_id`.
+    pub equipped: Vec<Arc<str>>,
+    pub match_consistency: bool,
+    pub used_samples: u64,
+    pub skipped_variants: usize,
     entries: Vec<(EventId, Option<u8>, Entry)>,
 }
 
@@ -138,6 +157,10 @@ impl PrewarmTable {
         Arc::new(Self {
             fence: 0,
             install_id: None,
+            equipped: Vec::new(),
+            match_consistency: false,
+            used_samples: 0,
+            skipped_variants: 0,
             entries: Vec::new(),
         })
     }
@@ -176,9 +199,28 @@ impl PrewarmTable {
 
         PrewarmTable {
             fence,
+            equipped: install_id.iter().cloned().collect(),
             install_id,
+            match_consistency: false,
+            used_samples: 0,
+            skipped_variants: 0,
             entries,
         }
+    }
+
+    /// Construct a merged loadout table. The caller has already verified all
+    /// bindings and decoded media off the engine thread.
+    pub fn new_loadout(
+        fence: u64,
+        equipped: Vec<Arc<str>>,
+        match_consistency: bool,
+        entries: Vec<(EventId, Option<u8>, Entry)>,
+    ) -> PrewarmTable {
+        let install_id = equipped.first().cloned();
+        let mut table = Self::new(fence, install_id, entries);
+        table.equipped = equipped;
+        table.match_consistency = match_consistency;
+        table
     }
 
     /// Tier rule (owner decision 2026-11-11, EVENT-AUDIO-SPEC section 2):
@@ -272,7 +314,10 @@ impl PrewarmTable {
                             .map(|variant| VariantMedia {
                                 variant_id: variant.variant_id.clone(),
                                 clip_id: variant.clip_id.clone(),
+                                caption: variant.caption.clone(),
                                 weight: variant.weight,
+                                source: variant.source.clone(),
+                                authored_selection: variant.authored_selection,
                                 media: variant.media.clone().map(|mut clip| {
                                     clip.visual_url = None;
                                     clip
@@ -289,10 +334,14 @@ impl PrewarmTable {
                 (*id, *tier, copied)
             })
             .collect();
-        Arc::new(PrewarmTable::new(
+        let mut table = PrewarmTable::new_loadout(
             self.fence,
-            self.install_id.clone(),
+            self.equipped.clone(),
+            self.match_consistency,
             entries,
-        ))
+        );
+        table.used_samples = self.used_samples;
+        table.skipped_variants = self.skipped_variants;
+        Arc::new(table)
     }
 }

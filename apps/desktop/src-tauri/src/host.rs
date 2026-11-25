@@ -1,24 +1,24 @@
 //! Tauri-independent host glue for the critical media and audio paths.
 
-use crate::audio::device::{spawn_device_supervisor, DeviceCmd, Opener, Sleeper};
+use crate::audio::device::{DeviceCmd, Opener, Sleeper, spawn_device_supervisor};
 use crate::audio::engine::Engine;
 use crate::audio::lanes::{
-    AuditionRefusal, AuditionRequest, Control, EngineOut, EngineShared, EngineTx,
-    AUDITION_ADMISSION_TIMEOUT, OUT_LANE,
+    AUDITION_ADMISSION_TIMEOUT, AuditionRefusal, AuditionRequest, Control, EngineOut, EngineShared,
+    EngineTx, OUT_LANE,
 };
 use crate::audio::publisher::{self, HistoryHandle};
 use crate::clock::MonoClock;
 use crate::containment::Sample;
-use crate::intake::{self, lock, Runtime};
+use crate::intake::{self, Runtime, lock};
 use crate::media::inventory::media_status;
-use crate::media::prewarm::{new_visual_index_handle, VisualIndexHandle};
+use crate::media::prewarm::{VisualIndexHandle, new_visual_index_handle};
 use crate::media::protocol::{self, ProtocolRequest, ProtocolResponse};
 use crate::media::service::{self, FactsHandle, MediaHandle, ServiceConfig};
 use kohbor_audio::pcm::Pcm;
 use kohbor_events::Event;
 use kohbor_pack::catalog::Catalog;
 use kohbor_pack::store::ActivationPolicy;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::io;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -64,6 +64,15 @@ pub trait MediaJobs: Send + Sync {
     ) -> Result<Value, String>;
     fn cancel_pending_activation(&self, install_id: &str) -> Result<Value, String> {
         let _ = install_id;
+        Err("CAPABILITY_UNAVAILABLE".to_owned())
+    }
+    fn loadout(&self) -> Result<Value, String> {
+        Err("CAPABILITY_UNAVAILABLE".to_owned())
+    }
+    fn set_loadout(&self, _request: &Value) -> Result<Value, String> {
+        Err("CAPABILITY_UNAVAILABLE".to_owned())
+    }
+    fn cancel_loadout(&self) -> Result<Value, String> {
         Err("CAPABILITY_UNAVAILABLE".to_owned())
     }
     fn list(&self) -> Result<Value, String>;
@@ -138,6 +147,18 @@ impl MediaJobs for MediaHandle {
 
     fn cancel_pending_activation(&self, install_id: &str) -> Result<Value, String> {
         MediaHandle::cancel_pending_activation(self, install_id)
+    }
+
+    fn loadout(&self) -> Result<Value, String> {
+        MediaHandle::loadout(self)
+    }
+
+    fn set_loadout(&self, request: &Value) -> Result<Value, String> {
+        MediaHandle::set_loadout(self, request)
+    }
+
+    fn cancel_loadout(&self) -> Result<Value, String> {
+        MediaHandle::cancel_loadout(self)
     }
 
     fn list(&self) -> Result<Value, String> {
@@ -309,6 +330,21 @@ impl CommandApi {
     pub fn media_cancel_pending_activation(&self, install_id: &str) -> Result<Value, String> {
         self.ensure_running()?;
         self.media.cancel_pending_activation(install_id)
+    }
+
+    pub fn media_loadout(&self) -> Result<Value, String> {
+        self.ensure_running()?;
+        self.media.loadout()
+    }
+
+    pub fn media_set_loadout(&self, request: &Value) -> Result<Value, String> {
+        self.ensure_running()?;
+        self.media.set_loadout(request)
+    }
+
+    pub fn media_cancel_loadout(&self) -> Result<Value, String> {
+        self.ensure_running()?;
+        self.media.cancel_loadout()
     }
 
     pub fn media_list(&self) -> Result<Value, String> {
@@ -1589,9 +1625,11 @@ mod tests {
                 thread::park();
             }
         });
-        assert!(worker_entered_rx
-            .recv_timeout(Duration::from_secs(1))
-            .is_ok());
+        assert!(
+            worker_entered_rx
+                .recv_timeout(Duration::from_secs(1))
+                .is_ok()
+        );
 
         let (stopped_tx, stopped_rx) = mpsc::sync_channel(1);
         let started = Instant::now();

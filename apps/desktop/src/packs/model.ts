@@ -5,7 +5,7 @@ import { soundLabel, type SoundKey, type SoundSelection } from "./eventMap.ts";
 // @ts-ignore Explicit source extensions support the Node test runner.
 import { parseMediaPackSummaries } from "../mediaPackSummaries.ts";
 // @ts-ignore Explicit source extensions support the Node test runner.
-import type { MediaPackSummaries, MediaPackSummaryV1_1 } from "../mediaPackSummaries.ts";
+import type { MediaPackSummaries, MediaPackSummaryV1_1, MediaPackSummaryV1_2 } from "../mediaPackSummaries.ts";
 
 export const PACKS_TABS = ["installed", "events", "recap"] as const;
 export type PacksTab = (typeof PACKS_TABS)[number];
@@ -30,6 +30,8 @@ export interface PackSummary {
   packageId: string;
   revision: number;
   active: boolean;
+  equippedSlot: number | null;
+  packKind: "basic" | "special" | "mixed" | "unknown";
   pending: boolean;
   name: string | null;
   problem: "metadata" | "cover" | null;
@@ -57,7 +59,8 @@ export function parsePackSummaries(value: unknown): PackSummary[] | null {
 
 export function mapPackSummaries(source: MediaPackSummaries): PackSummary[] {
   return source.records.map(row => {
-    const modern = source.schema_version === "1.1.0" ? row as MediaPackSummaryV1_1 : null;
+    const modern = source.schema_version === "1.0.0" ? null : row as MediaPackSummaryV1_1;
+    const equipped = source.schema_version === "1.2.0" ? row as MediaPackSummaryV1_2 : null;
     const bindings: PackBinding[] = row.bindings.map(binding => ({
       event_id: binding.event_id, tier: binding.tier, selection: binding.selection,
       variantCount: binding.variant_count, bannerCount: binding.banner_count,
@@ -69,6 +72,7 @@ export function mapPackSummaries(source: MediaPackSummaries): PackSummary[] {
     const coverUrl = row.problem === null ? row.cover_url : null;
     return {
       installId: row.install_id, packageId: row.package_id, revision: row.revision, active: row.active, pending: row.pending,
+      equippedSlot: equipped?.equipped_slot ?? (row.active ? 0 : null), packKind: equipped?.pack_kind ?? "unknown",
       name: row.problem === "METADATA_UNAVAILABLE" ? null : row.display_name,
       problem: row.problem === "METADATA_UNAVAILABLE" ? "metadata" : row.problem === "COVER_INVALID" ? "cover" : null,
       coverUrl, counts: row.problem === "METADATA_UNAVAILABLE" ? null : { events, voices, banners },

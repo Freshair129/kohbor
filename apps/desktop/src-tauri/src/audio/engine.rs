@@ -6,28 +6,28 @@
 
 use std::collections::{HashSet, VecDeque};
 use std::io;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{self, SyncSender, TryRecvError, TrySendError};
-use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use kohbor_audio::{
-    pcm::Pcm, AudioClass, AudioOwner, CancelReason, Config, Decision, Notice, Outcome, PlaybackId,
-    Request, Sink, PREEMPT_FADE_MS,
+    AudioClass, AudioOwner, CancelReason, Config, Decision, Notice, Outcome, PREEMPT_FADE_MS,
+    PlaybackId, Request, Sink, pcm::Pcm,
 };
-use kohbor_events::{arbitrate, Event, EventId};
+use kohbor_events::{Event, EventId, arbitrate};
 
 use super::lanes::{
     AuditionRefusal, AuditionRequest, ClipVariantLog, Control, EngineOut, EngineRx, EngineShared,
     EngineTx, ObjectiveToneOutcome, TickMsg,
 };
 use super::outcome::{
-    playback_ended, playback_started, pre_owner_record, preempted_record, record, EndReason,
-    OutcomeDetails, PlaybackEnd,
+    EndReason, OutcomeDetails, PlaybackEnd, playback_ended, playback_started, pre_owner_record,
+    preempted_record, record,
 };
 use super::resolve::{
-    class_of, instance_id, BindingLookup, PrewarmTable, SelectedClip, PREWARM_CAP_REASON,
+    BindingLookup, PREWARM_CAP_REASON, PrewarmTable, SelectedClip, class_of, instance_id,
 };
 use super::slot_sink::SlotSink;
 use crate::clock::MonoClock;
@@ -442,7 +442,9 @@ impl Engine {
 
         for (position, event) in message.events.iter().copied().enumerate() {
             let key = instance_id(message.generation, message.sequence, position);
-            if crate::intake::EVENT_UNAVAILABLE.contains(&event.id) {
+            if crate::intake::EVENT_UNAVAILABLE.contains(&event.id)
+                || crate::media::inventory::EVENTS_PENDING_LIVE_CAPTURE.contains(&event.id)
+            {
                 self.record_pre_owner(
                     &message,
                     event,
@@ -464,12 +466,36 @@ impl Engine {
             self.handle_voiced_event(&message, event, key, now_ms);
         }
 
-        let arbitration_inputs: Vec<Event> = ordinary.iter().map(|(event, _)| *event).collect();
+        let table = Arc::clone(&self.table);
+        let mut mapped_ordinary = Vec::with_capacity(ordinary.len());
+        for (event, key) in ordinary {
+            let ready = match table.lookup_binding(event.id, event.tier) {
+                crate::audio::resolve::BindingLookup::Ready { .. } => true,
+                crate::audio::resolve::BindingLookup::Variants { binding, .. } => {
+                    binding.variants.iter().any(|variant| variant.media.is_ok())
+                }
+                crate::audio::resolve::BindingLookup::Unmapped => false,
+                crate::audio::resolve::BindingLookup::Invalid => false,
+            };
+            if ready {
+                mapped_ordinary.push((event, key));
+            } else {
+                let outcome = match table.lookup_binding(event.id, event.tier) {
+                    crate::audio::resolve::BindingLookup::Unmapped => Outcome::Unmapped,
+                    _ => Outcome::InvalidMedia,
+                };
+                self.record_pre_owner(&message, event, &key, outcome, None, now_ms);
+                self.report_invalid_variants(event);
+            }
+        }
+
+        let arbitration_inputs: Vec<Event> =
+            mapped_ordinary.iter().map(|(event, _)| *event).collect();
         let arbitration = arbitrate(&arbitration_inputs);
-        let mut used = vec![false; ordinary.len()];
+        let mut used = vec![false; mapped_ordinary.len()];
         let winner_position = arbitration
             .winner
-            .and_then(|winner| Self::find_event_position(&ordinary, &used, winner));
+            .and_then(|winner| Self::find_event_position(&mapped_ordinary, &used, winner));
         if let Some(position) = winner_position {
             if let Some(is_used) = used.get_mut(position) {
                 *is_used = true;
@@ -477,11 +503,13 @@ impl Engine {
         }
 
         for dropped in arbitration.dropped {
-            if let Some(position) = Self::find_event_position(&ordinary, &used, dropped.event) {
+            if let Some(position) =
+                Self::find_event_position(&mapped_ordinary, &used, dropped.event)
+            {
                 if let Some(is_used) = used.get_mut(position) {
                     *is_used = true;
                 }
-                if let Some((event, key)) = ordinary.get(position) {
+                if let Some((event, key)) = mapped_ordinary.get(position) {
                     self.record_pre_owner(
                         &message,
                         *event,
@@ -495,7 +523,7 @@ impl Engine {
         }
 
         if let Some(position) = winner_position {
-            if let Some((event, key)) = ordinary.get(position) {
+            if let Some((event, key)) = mapped_ordinary.get(position) {
                 self.handle_voiced_event(&message, *event, key.clone(), now_ms);
             }
         }
@@ -638,7 +666,7 @@ impl Engine {
         let t3 = Instant::now();
         let t3p_us = Self::offset_us(message.arrival, t3);
 
-        if let Some(decision) = decision {
+        if let Some(mut decision) = decision {
             let notices = self.owner.drain_notices();
             let fade_preemption = fade_preemption_candidate.filter(|(active_id, _, _)| {
                 notices.iter().any(|notice| {
@@ -656,6 +684,12 @@ impl Engine {
             let admitted = decision.outcome == Outcome::Admitted;
             let id = decision.playback_id;
             let decision_instance_id = decision.instance_id.clone();
+            let source_install_id = selected
+                .source
+                .as_ref()
+                .map(|source| source.install_id.as_ref())
+                .or_else(|| self.table.install_id.as_deref());
+            decision.package_revision = source_install_id.and_then(Self::install_id_number);
             if let Some((_, from_event, to_event)) = fade_preemption {
                 let _ = self.try_output(EngineOut::ClipPreempted {
                     from_event,
@@ -737,10 +771,20 @@ impl Engine {
             return Err(AuditionRefusal::Busy);
         }
         let mut clip = if let Some(selected) = audition.selected.as_ref() {
-            if audition.overlay
-                || self.table.install_id.as_deref() == Some(audition.install_id.as_str())
-            {
+            if audition.overlay {
                 return Err(AuditionRefusal::ActivePack);
+            }
+            if self
+                .table
+                .equipped
+                .iter()
+                .any(|id| id.as_ref() == audition.install_id)
+                && selected
+                    .source
+                    .as_ref()
+                    .is_none_or(|source| source.install_id.as_ref() != audition.install_id)
+            {
+                return Err(AuditionRefusal::VariantUnavailable);
             }
             if selected.event_id != audition.event.id
                 || selected.bound_tier != audition.event.tier
@@ -750,7 +794,12 @@ impl Engine {
             }
             selected.clone()
         } else {
-            if self.table.install_id.as_deref() != Some(audition.install_id.as_str()) {
+            if !self
+                .table
+                .equipped
+                .iter()
+                .any(|id| id.as_ref() == audition.install_id)
+            {
                 return Err(AuditionRefusal::MediaStateUnknown);
             }
             self.resolve_audition_clip(audition.event, audition.variant_id.as_deref())
