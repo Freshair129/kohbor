@@ -1,9 +1,9 @@
 ---
 domain: commerce
 tier: B
-card_version: 4
-verified_at_commit: c010825
-verified_on: 2026-11-24
+card_version: 5
+verified_at_commit: a8b636b
+verified_on: 2026-11-25
 verified_by: "Codex worker; reviewed listed source changes, not human or owner approval"
 ---
 
@@ -26,6 +26,7 @@ A design of pack delivery exists as an agent proposal, not owner approved (docs/
 
 - Store, wallet and payments are a later service that needs separate design and operational authorization (docs/product/FEATURE-CATALOG.md, capability table).
 - A "Control: Store" destination (catalog, wallet, inventory, history) stays visible with an honest unavailable state and never gates local gameplay (docs/design/UX-SPEC.md section 2).
+- Store commerce remains undecided; the Developer-mode preview maps to [StorePage](../../../apps/desktop/src/store/StorePage.tsx), with current owner gates in [SPRINT-ROADMAP](../../delivery/SPRINT-ROADMAP.md) (DEC-COMMERCE-INTENT; DEC-POSITIONING-20261125).
 - No code exists beyond that: CMP-ENTITLEMENT is not scheduled (docs/design/REMAINING-SYSTEM-DESIGN.md section 4; DEC-PREMIUM deferred).
 - New account or payment services need a product or contract decision, and no paid service follows from a build request (docs/governance/DECISION-LOG.md; AGENTS.md).
 - Integrity is not purchase entitlement; a local import never gains store authority (MEDIA-008).
@@ -34,7 +35,7 @@ A design of pack delivery exists as an agent proposal, not owner approved (docs/
 
 ## 4. Blocked by
 
-DEC-ACCOUNT-ORIGIN (production hosting; alpha/beta hosting is recorded in docs/design/BACKEND-STACK.md), DEC-PACK-CRYPTO (signed packs), DEC-PRIVACY-LEGAL, DEC-PREMIUM (deferred), the nine open store decisions in design section 13, owner rights review for store sales and general-public distribution, and the AGENTS.md rule on real-person voices and source-brand assets. The closed super-user alpha has its own scope in the alpha entry of [DECISION-LOG](../../governance/DECISION-LOG.md); it does not decide public rights or store sales. Build order and dependencies are in design section 12.
+DEC-ACCOUNT-ORIGIN (production hosting; alpha/beta hosting is recorded in docs/design/BACKEND-STACK.md), DEC-PACK-CRYPTO (signed packs), DEC-PRIVACY-LEGAL, DEC-PREMIUM (deferred), the nine open store decisions in design section 13, and the owner's rights review before public distribution (DEC-POSITIONING-20261125; DEC-REPLAY-INTEGRATION). The closed super-user alpha has its own scope in the alpha entry of [DECISION-LOG](../../governance/DECISION-LOG.md); it does not decide public rights or store sales. Build order and dependencies are in design section 12.
 
 ## 5. Questions for the owner (all are open decisions)
 

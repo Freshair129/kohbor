@@ -1,9 +1,9 @@
 ---
 domain: governance
 tier: A
-card_version: 2
-verified_at_commit: c010825
-verified_on: 2026-11-24
+card_version: 3
+verified_at_commit: a8b636b
+verified_on: 2026-11-25
 verified_by: "Codex worker; reviewed listed source changes, not human or owner approval"
 ---
 
@@ -26,10 +26,11 @@ A map, not evidence. Integration owner of every other domain: shared contracts, 
 
 - NOW: increments I0 to I3 and the domain-stewardship baseline are recorded in the change history and current workflow; the earlier branch-only status is obsolete (docs/governance/CHANGELOG.md; docs/delivery/AGENT-WORKFLOW.md).
 - NOW: the gate runs the tool tests and the domain validator; a stale card is reported as STALE and does not fail yet. tools/gate.py
+- NOW: build-level native and owner acceptance is tracked in the roadmap, separately from source/document checks. docs/delivery/SPRINT-ROADMAP.md
 - NOW: one charter exists, disabled until the owner confirms it; no delegated approval has been made, I0 to I3 await the owner, and the I1 and I3 exit criteria are not yet met. docs/domains/governance/CHARTER.json
 - NOW: the agent registry, router, brief lint, claim tool, generated map, report-only gate checks and run records are documented in the registry design; the current test-worker profile is `luna-high` because Terra is unsupported (docs/governance/AGENT-REGISTRY-DESIGN.md; docs/delivery/AGENT-WORKFLOW.md).
 - NOW: the janitor is report-only; its first report proposes the merged branches for the owner's decision and deletes nothing. tools/janitor.py
-- NEXT (no owner needed): I4 freshness checks and generated card blocks, `state_delta` in the worker report, remaining card refresh. docs/domains/README.md
+- NEXT (no owner needed): I4 freshness checks and generated card blocks, plus `state_delta` in the worker report. docs/domains/README.md
 - NEXT (no owner needed): I5 consultant prompt file under `tools/agent/` and five measured summons. docs/delivery/AGENT-WORKFLOW.md
 - BLOCKED: review and merge of this branch, every push, and any branch or worktree removal wait for the owner. AGENTS.md
 - BLOCKED: turning on `--fail-on-stale` at sprint exit is the lead's or owner's call (Q-GOV-2). tools/validate_domains.py
@@ -48,8 +49,8 @@ Machine list: [state.json](state.json). Process: AGENTS.md, DOCUMENT-CONTROL, DE
 
 ## 6. Traps and lessons
 
-- The spec validator needs the `jsonschema` package; run it through `uv run --no-project --with jsonschema` (tools/gate.py does).
-- `package-manifest.json` has a generator: `tools/update_manifest.py --check` and `--apply`; the validator rewrites `acceptance/spec-validation.json`, so run the validator, the manifest script, then the validator again until nothing changes (update_manifest.py epilog).
+- The spec validator needs the `jsonschema` package for complete schema checks; `tools/validate_spec.py` reports PARTIAL when it is unavailable (tools/validate_spec.py).
+- `tools/validate_spec.py` prints its JSON result by default and writes a receipt only with `--report`; `tools/update_manifest.py --apply` refreshes the tracked-tree manifest and `--check` verifies it (tools/validate_spec.py; tools/update_manifest.py).
 - The seeded coordination files were not valid JSON (unescaped backslashes in Windows paths); write them with a JSON library. The validator and the janitor read them leniently and say so.
 - Claims expire on paper only (docs/delivery/AGENT-WORKFLOW.md section 9.1). A second checkout of the repository is a new worktree for the desktop app: register it.
 - Agent memory is not a source of truth; it keeps owner preferences and pointers (docs/delivery/AGENT-WORKFLOW.md section 9.2 step 7).

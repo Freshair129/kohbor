@@ -2,9 +2,9 @@
   "schema_version": "1.0.0",
   "domain": "commerce",
   "tier": "B",
-  "verified_at_commit": "c010825",
-  "verified_on": "2026-11-24",
-  "verified_by": "Codex worker; reviewed listed source changes, not human or owner approval",
+  "verified_at_commit": "a8b636b",
+  "verified_on": "2026-11-25",
+  "verified_by": "Codex; reviewed source references, not human or owner approval",
   "write_areas": [
     "docs/design/STORE-PACK-DELIVERY.md"
   ],
@@ -27,7 +27,8 @@
     "DEC-STORE-REFUND",
     "DEC-STORE-REVENUE-SHARE",
     "DEC-STORE-SCOPE",
-    "DEC-STORE-TAKEDOWN"
+    "DEC-STORE-TAKEDOWN",
+    "DEC-POSITIONING-20261125"
   ],
   "task_id_prefixes": [],
   "artefacts": [
@@ -84,7 +85,12 @@
       "path": "docs/governance/DECISION-LOG.md",
       "type": "process",
       "role": "reference",
-      "reviewed_sha256": "d3e56af406978392c9dd4b5cd6865275332b672044237d1bdb35e162d86e1b80"
+      "reviewed_sha256": "1787d269b5e147341ef84723d8bce477055816113a42d302ada7b9fed58e431a"
+    },
+    {
+      "path": "apps/desktop/src/store",
+      "type": "code",
+      "role": "neighbour:ui-overlay"
     }
   ],
   "open_questions": [
@@ -96,8 +102,9 @@
     }
   ],
   "last_handoff": {
-    "task_id": "refresh-domain-cards",
-    "on": "2026-11-24",
-    "summary": "Reviewed listed governing-source changes and refreshed card pointers and hashes; no charter, requirement, or structured decision source was edited."
-  }
+    "task_id": "domain-cards-refresh-2",
+    "on": "2026-11-25",
+    "summary": "Refreshed domain maps from current source documents and assigned existing requirements and crates; source and requirement records were not edited."
+  },
+  "crates": []
 }
